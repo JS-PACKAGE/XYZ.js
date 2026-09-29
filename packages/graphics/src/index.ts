@@ -1,3 +1,4 @@
+import type { Scene } from '../../core/src/scene.js';
 import {
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
@@ -22,7 +23,7 @@ export interface Renderer {
   readonly backend: GraphicsBackend;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(): void;
-  render(): void;
+  render(scene?: Scene, width?: number, height?: number): void;
   endFrame(): void;
   resize(width: number, height: number): void;
   destroy(): void;

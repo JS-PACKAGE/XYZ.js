@@ -1,3 +1,6 @@
+import type { Scene } from '../../core/src/scene.js';
+import { Sprite } from '../../core/src/sprite.js';
+import type { Texture } from '../../assets/src/index.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -37,12 +40,71 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 }
 `;
 
+// Each instance is three vec4s: affine axes, translation + natural size, anchor + opacity.
+const spriteShader = /* wgsl */ `
+struct Viewport {
+  size: vec2f,
+};
+@group(0) @binding(0) var<uniform> viewport: Viewport;
+@group(1) @binding(0) var spriteTexture: texture_2d<f32>;
+@group(1) @binding(1) var spriteSampler: sampler;
+
+struct VertexInput {
+  @location(0) axes: vec4f,
+  @location(1) offsetSize: vec4f,
+  @location(2) anchorOpacity: vec4f,
+};
+struct VertexOutput {
+  @builtin(position) position: vec4f,
+  @location(0) uv: vec2f,
+  @location(1) opacity: f32,
+};
+@vertex
+fn vertexMain(input: VertexInput, @builtin(vertex_index) index: u32) -> VertexOutput {
+  let corners = array<vec2f, 6>(
+    vec2f(0.0, 0.0), vec2f(1.0, 0.0), vec2f(0.0, 1.0),
+    vec2f(0.0, 1.0), vec2f(1.0, 0.0), vec2f(1.0, 1.0),
+  );
+  let uv = corners[index];
+  let local = (uv - input.anchorOpacity.xy) * input.offsetSize.zw;
+  let world = input.offsetSize.xy +
+    input.axes.xy * local.x + input.axes.zw * local.y;
+  var output: VertexOutput;
+  output.position = vec4f(world.x * 2.0 / viewport.size.x - 1.0,
+                          1.0 - world.y * 2.0 / viewport.size.y, 0.0, 1.0);
+  output.uv = uv;
+  output.opacity = input.anchorOpacity.z;
+  return output;
+}
+@fragment
+fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
+  return textureSample(spriteTexture, spriteSampler, input.uv) * input.opacity;
+}
+`;
+
+interface CachedTexture {
+  resource: GPUTexture;
+  bindGroup: GPUBindGroup;
+  seen: number;
+}
+
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
   private canvas: HTMLCanvasElement | undefined;
   private context: GPUCanvasContext | undefined;
   private device: GPUDevice | undefined;
   private pipeline: GPURenderPipeline | undefined;
+  private spritePipeline: GPURenderPipeline | undefined;
+  private viewportBuffer: GPUBuffer | undefined;
+  private viewportBindGroup: GPUBindGroup | undefined;
+  private spriteSampler: GPUSampler | undefined;
+  private instanceBuffer: GPUBuffer | undefined;
+  private instanceCapacity = 0;
+  private instances = new Float32Array(0);
+  private readonly viewportData = new Float32Array(4);
+  private readonly sprites: Sprite[] = [];
+  private readonly textures = new Map<Texture, CachedTexture>();
+  private textureFrame = 0;
   private encoder: GPUCommandEncoder | undefined;
   private readonly colorAttachment: Omit<
     GPURenderPassColorAttachment,
@@ -135,6 +197,7 @@ export class WebGPURenderer implements Renderer {
       device.pushErrorScope('validation');
       let shaderErrors: string[] = [];
       let pipeline: GPURenderPipeline | undefined;
+      let spritePipeline: GPURenderPipeline | undefined;
       let validationError: GPUError | null = null;
       try {
         context.configure({ device, format, alphaMode: 'opaque' });
@@ -162,6 +225,62 @@ export class WebGPURenderer implements Renderer {
             },
             primitive: { topology: 'triangle-list' },
           });
+          const spriteModule = device.createShaderModule({
+            code: spriteShader,
+          });
+          const spriteCompilation = await spriteModule.getCompilationInfo();
+          if (this.destroyed)
+            throw new GraphicsError(
+              'WebGPU renderer was destroyed during initialization.',
+            );
+          shaderErrors = spriteCompilation.messages
+            .filter((message) => message.type === 'error')
+            .map(
+              (message) =>
+                `${message.lineNum}:${message.linePos} ${message.message}`,
+            );
+          if (shaderErrors.length === 0) {
+            spritePipeline = device.createRenderPipeline({
+              layout: 'auto',
+              vertex: {
+                module: spriteModule,
+                entryPoint: 'vertexMain',
+                buffers: [
+                  {
+                    arrayStride: 48,
+                    stepMode: 'instance',
+                    attributes: [
+                      { shaderLocation: 0, offset: 0, format: 'float32x4' },
+                      { shaderLocation: 1, offset: 16, format: 'float32x4' },
+                      { shaderLocation: 2, offset: 32, format: 'float32x4' },
+                    ],
+                  },
+                ],
+              },
+              fragment: {
+                module: spriteModule,
+                entryPoint: 'fragmentMain',
+                targets: [
+                  {
+                    format,
+                    blend: {
+                      color: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                      },
+                      alpha: {
+                        srcFactor: 'one',
+                        dstFactor: 'one-minus-src-alpha',
+                        operation: 'add',
+                      },
+                    },
+                  },
+                ],
+              },
+              primitive: { topology: 'triangle-list' },
+            });
+          }
         }
       } finally {
         validationError = await device.popErrorScope();
@@ -172,7 +291,7 @@ export class WebGPURenderer implements Renderer {
         );
       if (shaderErrors.length) {
         throw new WebGPUInitializationError(
-          `WebGPU triangle shader compilation failed: ${shaderErrors.join('; ')}`,
+          `WebGPU shader compilation failed: ${shaderErrors.join('; ')}`,
         );
       }
       if (validationError) {
@@ -183,6 +302,7 @@ export class WebGPURenderer implements Renderer {
       }
       if (this.lostError) throw this.lostError;
       this.pipeline = pipeline;
+      this.spritePipeline = spritePipeline;
     } catch (error) {
       const destroyed = this.destroyed;
       this.destroy();
@@ -211,8 +331,8 @@ export class WebGPURenderer implements Renderer {
     this.frameRendered = false;
   }
 
-  render(): void {
-    this.requireDevice();
+  render(scene?: Scene, width?: number, height?: number): void {
+    const device = this.requireDevice();
     const encoder = this.encoder;
     const context = this.context;
     const pipeline = this.pipeline;
@@ -221,20 +341,48 @@ export class WebGPURenderer implements Renderer {
         'WebGPU render requires an active frame and may be called only once per frame.',
       );
     }
+    if (scene) {
+      const canvas = this.canvas;
+      const logicalWidth = width ?? (canvas?.clientWidth || canvas?.width);
+      const logicalHeight = height ?? (canvas?.clientHeight || canvas?.height);
+      if (
+        !logicalWidth ||
+        !logicalHeight ||
+        !Number.isFinite(logicalWidth) ||
+        !Number.isFinite(logicalHeight) ||
+        logicalWidth <= 0 ||
+        logicalHeight <= 0
+      ) {
+        throw new RangeError(
+          'WebGPU sprite rendering requires positive finite logical width and height.',
+        );
+      }
+      this.prepareSprites(scene, device, logicalWidth, logicalHeight);
+    } else {
+      this.sprites.length = 0;
+      this.textureFrame++;
+      this.releaseUnusedTextures();
+    }
     this.colorAttachment.view = context.getCurrentTexture().createView();
     try {
       const pass = encoder.beginRenderPass(this.renderPassDescriptor);
-      // The canvas backing size changes through resize(), not per frame.
-      pass.setViewport(
-        this.viewportX,
-        this.viewportY,
-        this.viewportSide,
-        this.viewportSide,
-        0,
-        1,
-      );
-      pass.setPipeline(pipeline);
-      pass.draw(3);
+      if (scene) {
+        // Scene coordinates use logical CSS pixels rather than the DPR-scaled backing size.
+        pass.setViewport(0, 0, this.canvas!.width, this.canvas!.height, 0, 1);
+        if (this.sprites.length) this.drawSprites(pass);
+      } else {
+        // Preserve P01's centered square triangle when no Scene is active.
+        pass.setViewport(
+          this.viewportX,
+          this.viewportY,
+          this.viewportSide,
+          this.viewportSide,
+          0,
+          1,
+        );
+        pass.setPipeline(pipeline);
+        pass.draw(3);
+      }
       pass.end();
       this.frameRendered = true;
     } finally {
@@ -296,6 +444,166 @@ export class WebGPURenderer implements Renderer {
     this.viewportSide = side;
   }
 
+  private prepareSprites(
+    scene: Scene,
+    device: GPUDevice,
+    width: number,
+    height: number,
+  ): void {
+    const sprites = this.sprites;
+    sprites.length = 0;
+    for (const object of scene.objects) {
+      if (
+        object instanceof Sprite &&
+        object.visible &&
+        object.opacity > 0 &&
+        !object.texture.destroyed
+      )
+        sprites.push(object);
+    }
+    // ECMAScript stable sort retains Scene insertion order for equal z-index values.
+    sprites.sort((a, b) => a.zIndex - b.zIndex);
+    this.textureFrame++;
+    const count = sprites.length;
+    if (count) {
+      if (count > this.instanceCapacity) {
+        let capacity = Math.max(16, this.instanceCapacity);
+        while (capacity < count) capacity *= 2;
+        const buffer = device.createBuffer({
+          size: capacity * 48,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        this.instanceBuffer?.destroy();
+        this.instanceBuffer = buffer;
+        this.instances = new Float32Array(capacity * 12);
+        this.instanceCapacity = capacity;
+      }
+      if (!this.viewportBuffer) {
+        const pipeline = this.spritePipeline!;
+        this.viewportBuffer = device.createBuffer({
+          size: 16,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+        this.viewportBindGroup = device.createBindGroup({
+          layout: pipeline.getBindGroupLayout(0),
+          entries: [{ binding: 0, resource: { buffer: this.viewportBuffer } }],
+        });
+        this.spriteSampler = device.createSampler({
+          magFilter: 'linear',
+          minFilter: 'linear',
+          addressModeU: 'clamp-to-edge',
+          addressModeV: 'clamp-to-edge',
+        });
+      }
+      this.viewportData[0] = width;
+      this.viewportData[1] = height;
+      device.queue.writeBuffer(this.viewportBuffer, 0, this.viewportData);
+      const data = this.instances;
+      for (let i = 0; i < count; i++) {
+        const sprite = sprites[i];
+        const texture = sprite.texture;
+        this.cacheTexture(device, texture).seen = this.textureFrame;
+        const matrix = sprite.transform.updateMatrix().elements;
+        const offset = i * 12;
+        data[offset] = matrix[0];
+        data[offset + 1] = matrix[1];
+        data[offset + 2] = matrix[3];
+        data[offset + 3] = matrix[4];
+        data[offset + 4] = matrix[6];
+        data[offset + 5] = matrix[7];
+        data[offset + 6] = texture.width;
+        data[offset + 7] = texture.height;
+        data[offset + 8] = sprite.anchor.x;
+        data[offset + 9] = sprite.anchor.y;
+        data[offset + 10] = sprite.opacity;
+        data[offset + 11] = 0;
+      }
+      device.queue.writeBuffer(
+        this.instanceBuffer!,
+        0,
+        data.buffer,
+        0,
+        count * 48,
+      );
+    }
+    this.releaseUnusedTextures();
+  }
+
+  private cacheTexture(device: GPUDevice, texture: Texture): CachedTexture {
+    const existing = this.textures.get(texture);
+    if (existing) return existing;
+    const { width, height } = texture;
+    const limit = device.limits.maxTextureDimension2D;
+    if (
+      !Number.isSafeInteger(width) ||
+      !Number.isSafeInteger(height) ||
+      width < 1 ||
+      height < 1 ||
+      width > limit ||
+      height > limit
+    ) {
+      throw new GraphicsError(
+        `WebGPU texture size ${width}×${height} exceeds this device's maximum texture dimension of ${limit} pixels per side.`,
+      );
+    }
+    const resource = device.createTexture({
+      size: [width, height],
+      format: 'rgba8unorm',
+      usage:
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_DST |
+        GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    try {
+      device.queue.copyExternalImageToTexture(
+        { source: texture.image },
+        { texture: resource, premultipliedAlpha: true },
+        [width, height],
+      );
+      const bindGroup = device.createBindGroup({
+        layout: this.spritePipeline!.getBindGroupLayout(1),
+        entries: [
+          { binding: 0, resource: resource.createView() },
+          { binding: 1, resource: this.spriteSampler! },
+        ],
+      });
+      const entry: CachedTexture = {
+        resource,
+        bindGroup,
+        seen: this.textureFrame,
+      };
+      this.textures.set(texture, entry);
+      return entry;
+    } catch (error) {
+      resource.destroy();
+      throw error;
+    }
+  }
+
+  private releaseUnusedTextures(): void {
+    for (const [texture, entry] of this.textures) {
+      if (texture.destroyed || entry.seen !== this.textureFrame) {
+        entry.resource.destroy();
+        this.textures.delete(texture);
+      }
+    }
+  }
+
+  private drawSprites(pass: GPURenderPassEncoder): void {
+    pass.setPipeline(this.spritePipeline!);
+    pass.setBindGroup(0, this.viewportBindGroup!);
+    pass.setVertexBuffer(0, this.instanceBuffer!);
+    const sprites = this.sprites;
+    for (let first = 0; first < sprites.length;) {
+      const texture = sprites[first].texture;
+      let end = first + 1;
+      while (end < sprites.length && sprites[end].texture === texture) end++;
+      pass.setBindGroup(1, this.textures.get(texture)!.bindGroup);
+      pass.draw(6, end - first, 0, first);
+      first = end;
+    }
+  }
+
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
@@ -304,6 +612,18 @@ export class WebGPURenderer implements Renderer {
     this.encoder = undefined;
     this.colorAttachment.view = undefined;
     this.submissions.length = 0;
+    this.spritePipeline = undefined;
+    this.viewportBuffer?.destroy();
+    this.viewportBuffer = undefined;
+    this.viewportBindGroup = undefined;
+    this.spriteSampler = undefined;
+    this.instanceBuffer?.destroy();
+    this.instanceBuffer = undefined;
+    this.instanceCapacity = 0;
+    this.instances = new Float32Array(0);
+    this.sprites.length = 0;
+    for (const entry of this.textures.values()) entry.resource.destroy();
+    this.textures.clear();
     this.pipeline = undefined;
     this.context = undefined;
     this.canvas = undefined;

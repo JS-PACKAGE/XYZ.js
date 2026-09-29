@@ -1,4 +1,5 @@
 import { defaults } from '../../../src/data/defaults.js';
+import { AssetLoader } from '../../assets/src/index.js';
 import {
   createRenderer,
   type Renderer,
@@ -35,6 +36,7 @@ export class Game extends EventTarget {
   readonly canvas: HTMLCanvasElement;
   readonly graphics: Renderer;
   readonly clock: Clock;
+  readonly assets = new AssetLoader();
   private currentState: GameState = 'idle';
   private currentScene: Scene | undefined;
   private pendingScene: Scene | undefined;
@@ -432,6 +434,11 @@ export class Game extends EventTarget {
     } finally {
       claimedCanvases.delete(this.canvas);
     }
+    try {
+      this.assets.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
     if (errors.length === 1) throw errors[0];
     if (errors.length) throw new AggregateError(errors, 'Game cleanup failed.');
   }
@@ -602,7 +609,11 @@ export class Game extends EventTarget {
         scene.world.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
       this.graphics.beginFrame();
-      this.graphics.render();
+      this.graphics.render(
+        this.currentScene,
+        this.logicalWidth,
+        this.logicalHeight,
+      );
       this.graphics.endFrame();
     } catch (cause) {
       this.fail(

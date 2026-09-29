@@ -5,3 +5,5 @@ export { Scene } from './scene.js';
 export { SceneObject } from './scene-object.js';
 export { GameObject } from './game-object.js';
 export { RuntimeError } from './errors.js';
+export { Sprite } from './sprite.js';
+export type { SpriteOptions } from './sprite.js';

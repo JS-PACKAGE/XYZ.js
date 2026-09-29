@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P02**。Sprite、Camera、Input、3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P03**。Camera、Input、3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -22,7 +22,7 @@ requestAnimationFrame(timestamp)
 
 - `Game.create()` 是 async factory；constructor 不啟動非同步初始化。
 - `Game` 擁有 loop、Canvas 尺寸與 Renderer 的生命週期；一般遊戲使用者不需要存取 GPUDevice。
-- `Renderer` 介面只交換 Canvas 與尺寸，不向核心公開 GPU resource。
+- `Renderer` 接收 Scene 與 logical viewport 尺寸，不向核心公開 GPU resource。
 - Triangle 的 shader 位於正式 Renderer，範例頁僅建立 Game 與操作按鈕，沒有第二套渲染器。
 - `src/data/defaults.ts` 集中 viewport、delta clamp、pixel ratio 上限與 clear color。
 - 目前 `RuntimeError` 共用 graphics 匯出的 `XYZError` 基底。後續出現其他真正需要共用錯誤的 subsystem 時，再評估抽出共用模組；不先建立空 package。
@@ -189,3 +189,11 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - `game.start(scene?)` 維持同步 void，準備失敗透過 error 事件回報，但不把正常 Scene 準備失敗鎖成 fatal GPU failure。需取得準備結果時先 await setScene。更新中的真正 exception 仍讓 Runtime 進入 fatal paused 狀態。
 - 系統依加入順序更新；更新途中新加的 System 下一幀才執行，已移除者不再執行；清理按相反順序。Scene.update 中 pause／destroy 不會繼續提交 Renderer。
 - Vector2 可變操作回傳自身；Matrix3 使用 column-major Float32Array，compose 為 translation × rotation × scale，invert 拒絕 singular matrix。`transformPoint(point, out)` 可提供輸出容器避免配置。Transform2D 的 `updateMatrix()` 重用自己的矩陣。
+
+## 11. Texture 與 Sprite（P03）
+
+- `game.assets.loadTexture(url)` 以絕對 URL（忽略 fragment）共用 pending Promise 與 Texture；失敗移除 cache，可重試。已 destroy 的 Texture 再載入會重新下載／解碼。AssetLoader.destroy 中止下載，晚到的 bitmap 仍會關閉。
+- AssetLoader 擁有 cache 中的 CPU ImageBitmap；`Texture.fromImage(source)` 建立獨立 bitmap，需由呼叫者 destroy。Sprite 不擁有共享 Texture。Game.destroy 清理 renderer 後清理 assets。
+- Sprite 提供 texture、position、rotation（弧度）、scale、anchor（預設中心）、opacity、visible、zIndex；相同 zIndex 保持 Scene 加入順序。座標使用左上原點的 logical CSS pixels。
+- WebGPU 共用一個 Sprite pipeline，重用可成長的 instance buffer，依排序後相鄰 texture 合併 draw。GPU texture cache 與 AssetLoader 分離，未使用或已銷毀的資產會釋放 GPU resource。
+- 上傳採 premultiplied alpha，shader 同時乘 RGB／alpha 的 opacity，混色為 one／one-minus-src-alpha。無 Scene 保留 triangle；有 Scene 則只畫 Scene 內容。

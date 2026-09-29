@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — Sprite</title>
+    <style>
+      body {
+        margin: 24px;
+        background: #101827;
+        color: #eef2ff;
+        font-family: system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 640px);
+        aspect-ratio: 16 / 9;
+        border: 1px solid #718096;
+      }
+      button {
+        margin: 12px 8px 0 0;
+        padding: 8px 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Texture &amp; Sprite</h1>
+    <p>兩個 Sprite 共用同一張貼圖；切換排序與透明度查看交疊結果。</p>
+    <canvas id="game"></canvas>
+    <button id="order" disabled>切換前後順序</button>
+    <button id="opacity" disabled>切換透明度</button>
+    <p id="status" role="status">Loading</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

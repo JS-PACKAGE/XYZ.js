@@ -3,6 +3,7 @@ import { World, type Entity } from '../../ecs/src/world.js';
 import type { Game } from './game.js';
 import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
+import { Sprite } from './sprite.js';
 
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export class Scene {
@@ -34,6 +35,8 @@ export class Scene {
       entity = this.world.createEntity();
       if (object instanceof GameObject)
         this.world.addComponent(entity, Transform2D, object.transform);
+      if (object instanceof Sprite)
+        this.world.addComponent(entity, Sprite, object);
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
     } catch (error) {
