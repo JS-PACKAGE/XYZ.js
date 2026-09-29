@@ -7,3 +7,5 @@
 遵守 TypeScript strict、可直接由瀏覽器載入的 `.js` ESM 相對匯入、`src/data/` 的集中預設值、Game→Renderer→WebGPU 正式路徑。P01 僅 WebGPU；Scene 等未來 API 不可加入現階段範例或文件現況。跨階段功能先遵守 `PLAN.md` 的驗收條件與排除清單；測試必須驗證實際行為，未跑檢查不能聲稱通過。
 
 本機 pnpm 可透過 `npx pnpm` 執行；命令、真實瀏覽器檢查與驗收紀錄請參考 `AGENTS.md`、`ACCEPTANCE.md`。
+
+技術契約與 API 語義集中於 `docs/TECHNICAL.md`；修改時同步對應章節，不將測試模擬寫成真實跨瀏覽器驗收。

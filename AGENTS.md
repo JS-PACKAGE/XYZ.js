@@ -14,3 +14,5 @@
 ## 驗證與文件
 
 依專案實際環境使用 `npx pnpm install`、`npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check`，再以 `npx pnpm dev` 在 WebGPU 可用的瀏覽器打開 `/examples/triangle/`。全套檢查須在合併當階段實作後執行，未執行不可記成通過。更新 `ACCEPTANCE.md` 的日期、環境與結果，且同步 README 與設計文件中「現在／未來」的界線。根目錄 `package.json` 已標示發佈僅 `dist/`；vendor 複製必須保留 `dist/` 目錄樹。
+
+詳細 API 與資源管理契約見 `docs/TECHNICAL.md`。P01 優化不得以 clamp 後的 delta 計算實際 fps；Canvas CSS layout 與 GPU backing pixels 必須分離；效能報告區分 JS 配置數、CPU 時間與 GPU／呈現 fps，不以配置減少冒充幀率提升。

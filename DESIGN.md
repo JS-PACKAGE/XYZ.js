@@ -5,10 +5,13 @@
 `xyz.js` npm 版本設定為 `1.0.0`，**不表示八階段全部完成**。P01 的路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Clock → `packages/graphics` 的 Renderer → WebGPU canvas。`examples/triangle/` 透過 Game 走這條正式路徑，不建立第二套範例渲染器。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；以 `requestAnimationFrame` 推動 Clock 與 Renderer beginFrame→render→endFrame。`game.start()` 目前不接 Scene；Scene 與 ECS 待 P02。
-- `game.state` 為 `idle | running | paused | destroyed`。支援 `pause()`、`resume()`、`resize(width,height)`、`destroy()`；`game.clock` 提供 `deltaTime`（秒）、`elapsedTime`（秒）、`frame`、`fps`；時間增量限制與預設 viewport 等可調常數集中 `src/data/`。隱藏分頁暫停計時，不讓回切後的時間累積進遊戲步長。
-- 畫布邏輯尺寸預設 1280×720 CSS 像素；pixel ratio 預設上限 2，可設定尺寸及 `autoResize`。如需跟隨容器，可在已有尺寸的容器內設定 canvas `style="width:100%;height:100%"`；Game 只在未指定 inline 尺寸時補預設 CSS 尺寸。resize 更新 backing 與 renderer，不應持續重建靜態資源。
-- Renderer 介面隔離 backend；對一般使用者不暴露 `GPUDevice` 等內部資源。P01 的 `webgpu` 使用 WGSL triangle；`renderer:'auto'` **只試 WebGPU**，缺乏 WebGPU 即明確失敗，強制 `webgl2`／`canvas2d` 則明確表示尚未支援。失去 GPU device 或 GPU 錯誤透過 callback 回報，Game 暫停並觸發 `CustomEvent<Error>('error')`；呼叫者需監聽。
+- `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，成功前後皆不可由第二個 Game 接管，初始化失敗或 destroy 釋放 ownership。第一個執行中 failure 會被保留並送出 error；失敗後 resume 明確拒絕，避免重試已遺失的 GPUDevice。
+- `game.clock` 提供模擬 delta／elapsed（秒）、tick frame 數與未 clamp 幀間隔計算的瞬時 fps。隱藏分頁及 pause 不累積時間；預設最大 delta 0.1s 不應掩飾真正低幀率。
+- 畫布以 size containment／contain-intrinsic-size 隔離 CSS intrinsic 尺寸與 backing pixels；預設 1280×720 CSS 像素，預設 pixel ratio 上限 2。作者 width／height CSS（含 cascade layer）仍主導 layout；autoResize 以 content box 同步 GPU，手動 resize 更新 intrinsic fallback。越界 resize 必須保留舊 CSS／logical／backing 狀態；清理還原引擎接管且尚未被使用者改動的 inline containment。
+- Renderer 隔離 backend，P01 僅 WebGPU。JS render-pass descriptor／attachment／submit 容器跨幀重用，但每幀仍建立必要的 GPU view／encoder／command buffer，消費後清除暫時參照。viewport 在 resize 時計算，GPU 上限驗證在 canvas 寫入之前。初始化的各 await 邊界檢查 teardown，晚到的 GPUDevice 必須銷毀。
+- `auto` 目前只試 WebGPU，強制 WebGL2／Canvas2D 或未知 JS backend 值明確報錯。device lost／GPU error 經 callback 使 Game 暫停並送出 `CustomEvent<Error>('error')`；未實作自動 device recovery。
 - 發佈為 TypeScript strict ESM 與宣告檔；`tsc` 保留目錄結構，入口 `dist/src/index.js`，内部相對引用含 `.js`。npm 透過 `exports` 使用相同入口；無 bundler vendor 時須**完整複製** `dist/` 以維持相對路徑，從目標 HTTP 伺服器 import 其 `dist/src/index.js`，不要只抽出入口一檔。WebGPU 要求支援環境及安全來源；本機 localhost 可用於開發。
+- API 細節、Clock 算式、尺寸 ownership、錯誤策略與效能量測方法見 [技術參考](docs/TECHNICAL.md)；前後驗收證據見 `ACCEPTANCE.md`。範例的 BFCache `pagehide.persisted` 不銷毀 Game，避免瀏覽器恢復已經 teardown 的頁面。
 
 ## 後續架構（未實作）
 

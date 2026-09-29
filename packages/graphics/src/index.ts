@@ -38,6 +38,11 @@ export async function createRenderer(
       `${preference} renderer is not implemented in P01; compatibility backends are planned for P06. No fallback was selected.`,
     );
   }
+  if (preference !== 'auto' && preference !== 'webgpu') {
+    throw new GraphicsBackendUnavailableError(
+      `Unknown graphics renderer preference ${String(preference)}; choose "auto", "webgpu", "webgl2", or "canvas2d".`,
+    );
+  }
   const renderer = new WebGPURenderer(onError);
   try {
     await renderer.initialize(canvas);

@@ -51,6 +51,19 @@
 
 各項實際證據與待驗事項記在 `ACCEPTANCE.md`；未經瀏覽器檢驗不得標為完成。每階段**先驗收、再立即單獨 commit、絕不 push**。
 
+## P01 優化後的後續優先項（尚未完成）
+
+本輪先處理已重現的尺寸覆蓋、Canvas ownership、Clock fps、GPU 初始化取消及每幀 JS 容器配置；技術契約集中於 [技術文件](docs/TECHNICAL.md)。不將這些修正冒充 P02–P08 的功能完成。
+
+| 優先順序 | 缺口與下一步                                                                                                      | 對應驗收                                                          |
+| -------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1        | P02 的 Scene 非同步切換需先定義資源 ownership、取消與重入語義，再實作 ECS；沿用本輪初始化失敗必須 rollback 的原則 | 舊 Scene 只清理一次；切換失敗不留下半啟用 World                   |
+| 2        | P03 Asset cache 需區分共享下載 Promise、資產 CPU 資料與 backend GPU resource 的生命週期                           | 失敗可重新載入；共享 texture 不因其中一個 Sprite 銷毀而失效       |
+| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援                         | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback     |
+| 4        | P06 降級需處理 Canvas context 綁定及部分初始化失敗，不只檢查 navigator.gpu                                        | GPU device／context 初始化各失敗點仍能正確選擇下一 backend        |
+| 5        | P08 建立多 Sprite 真實負载 benchmark，分開 CPU 提交、GC、GPU／呈現節奏                                            | 固定資產及畫布規格，有可重現報告，不以 triangle 幀率推估          |
+| 6        | 發佈前確定授權、驗證 npm tarball 與無 bundler 消費端、決定支援的 Node 工具鏈與瀏覽器版本                          | 乾淨環境 import JS／TS 產物成功；不依賴工作區 source 或未發佈檔案 |
+
 ## 交付前自檢
 
 - [x] P01 僅含本階段應有範圍；已確認公開入口、ESM 相對路徑與 `.d.ts` 契約。

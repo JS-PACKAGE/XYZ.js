@@ -44,19 +44,36 @@ export class WebGPURenderer implements Renderer {
   private device: GPUDevice | undefined;
   private pipeline: GPURenderPipeline | undefined;
   private encoder: GPUCommandEncoder | undefined;
+  private readonly colorAttachment: Omit<
+    GPURenderPassColorAttachment,
+    'view'
+  > & { view?: GPUTextureView } = {
+    loadOp: 'clear',
+    storeOp: 'store',
+    clearValue: defaults.clearColor,
+  };
+  private readonly renderPassDescriptor: GPURenderPassDescriptor = {
+    colorAttachments: [this.colorAttachment as GPURenderPassColorAttachment],
+  };
+  private readonly submissions: GPUCommandBuffer[] = [];
+  private viewportX = 0;
+  private viewportY = 0;
+  private viewportSide = 1;
   private frameRendered = false;
   private configured = false;
+  private initializing = false;
   private destroyed = false;
   private lostError: WebGPUDeviceLostError | undefined;
 
   constructor(private readonly onError: (error: Error) => void) {}
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
-    if (this.destroyed || this.device) {
+    if (this.destroyed || this.device || this.initializing) {
       throw new GraphicsError(
         'WebGPU renderer cannot be initialized more than once.',
       );
     }
+    this.initializing = true;
 
     try {
       if (typeof navigator === 'undefined' || !navigator.gpu) {
@@ -65,12 +82,22 @@ export class WebGPURenderer implements Renderer {
         );
       }
       const adapter = await navigator.gpu.requestAdapter();
+      if (this.destroyed)
+        throw new GraphicsError(
+          'WebGPU renderer was destroyed during initialization.',
+        );
       if (!adapter) {
         throw new WebGPUNotSupportedError(
           'WebGPU is unavailable: the browser could not provide a GPU adapter.',
         );
       }
       const device = await adapter.requestDevice();
+      if (this.destroyed) {
+        device.destroy();
+        throw new GraphicsError(
+          'WebGPU renderer was destroyed during initialization.',
+        );
+      }
       this.device = device;
       // Install this before any asynchronous shader validation, so initialization-time loss is detected.
       void device.lost.then((info) => {
@@ -102,8 +129,7 @@ export class WebGPURenderer implements Renderer {
       }
       this.context = context;
       this.canvas = canvas;
-      if (canvas.width < 1 || canvas.height < 1)
-        this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
+      this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
       const format = navigator.gpu.getPreferredCanvasFormat();
 
       device.pushErrorScope('validation');
@@ -115,6 +141,10 @@ export class WebGPURenderer implements Renderer {
         this.configured = true;
         const shader = device.createShaderModule({ code: triangleShader });
         const compilation = await shader.getCompilationInfo();
+        if (this.destroyed)
+          throw new GraphicsError(
+            'WebGPU renderer was destroyed during initialization.',
+          );
         shaderErrors = compilation.messages
           .filter((message) => message.type === 'error')
           .map(
@@ -136,6 +166,10 @@ export class WebGPURenderer implements Renderer {
       } finally {
         validationError = await device.popErrorScope();
       }
+      if (this.destroyed)
+        throw new GraphicsError(
+          'WebGPU renderer was destroyed during initialization.',
+        );
       if (shaderErrors.length) {
         throw new WebGPUInitializationError(
           `WebGPU triangle shader compilation failed: ${shaderErrors.join('; ')}`,
@@ -150,12 +184,20 @@ export class WebGPURenderer implements Renderer {
       if (this.lostError) throw this.lostError;
       this.pipeline = pipeline;
     } catch (error) {
+      const destroyed = this.destroyed;
       this.destroy();
+      if (destroyed && !(error instanceof GraphicsError))
+        throw new GraphicsError(
+          'WebGPU renderer was destroyed during initialization.',
+          { cause: error },
+        );
       if (error instanceof GraphicsError) throw error;
       throw new WebGPUInitializationError(
         `WebGPU initialization failed while requesting a device or configuring the canvas and triangle pipeline${error instanceof Error ? `: ${error.message}` : '.'}`,
         { cause: error },
       );
+    } finally {
+      this.initializing = false;
     }
   }
 
@@ -173,37 +215,32 @@ export class WebGPURenderer implements Renderer {
     this.requireDevice();
     const encoder = this.encoder;
     const context = this.context;
-    const canvas = this.canvas;
     const pipeline = this.pipeline;
-    if (!encoder || !context || !canvas || !pipeline || this.frameRendered) {
+    if (!encoder || !context || !pipeline || this.frameRendered) {
       throw new GraphicsError(
         'WebGPU render requires an active frame and may be called only once per frame.',
       );
     }
-    const pass = encoder.beginRenderPass({
-      colorAttachments: [
-        {
-          view: context.getCurrentTexture().createView(),
-          loadOp: 'clear',
-          storeOp: 'store',
-          clearValue: defaults.clearColor,
-        },
-      ],
-    });
-    // A square viewport keeps the triangle's proportions when the canvas is wide or tall.
-    const side = Math.min(canvas.width, canvas.height);
-    pass.setViewport(
-      (canvas.width - side) / 2,
-      (canvas.height - side) / 2,
-      side,
-      side,
-      0,
-      1,
-    );
-    pass.setPipeline(pipeline);
-    pass.draw(3);
-    pass.end();
-    this.frameRendered = true;
+    this.colorAttachment.view = context.getCurrentTexture().createView();
+    try {
+      const pass = encoder.beginRenderPass(this.renderPassDescriptor);
+      // The canvas backing size changes through resize(), not per frame.
+      pass.setViewport(
+        this.viewportX,
+        this.viewportY,
+        this.viewportSide,
+        this.viewportSide,
+        0,
+        1,
+      );
+      pass.setPipeline(pipeline);
+      pass.draw(3);
+      pass.end();
+      this.frameRendered = true;
+    } finally {
+      // WebGPU consumes the descriptor during beginRenderPass; do not retain a swapchain view.
+      this.colorAttachment.view = undefined;
+    }
   }
 
   endFrame(): void {
@@ -213,11 +250,18 @@ export class WebGPURenderer implements Renderer {
     }
     const commandBuffer = this.encoder.finish();
     this.encoder = undefined;
-    device.queue.submit([commandBuffer]);
+    this.submissions.push(commandBuffer);
+    try {
+      device.queue.submit(this.submissions);
+    } finally {
+      this.submissions.length = 0;
+    }
   }
 
   resize(width: number, height: number): void {
-    if (!this.canvas || this.destroyed)
+    const canvas = this.canvas;
+    const device = this.device;
+    if (!canvas || !device || this.destroyed)
       throw new GraphicsError(
         'WebGPU resize requires an initialized renderer.',
       );
@@ -233,8 +277,23 @@ export class WebGPURenderer implements Renderer {
     }
     const pixelWidth = Math.max(1, Math.round(width));
     const pixelHeight = Math.max(1, Math.round(height));
-    if (this.canvas.width !== pixelWidth) this.canvas.width = pixelWidth;
-    if (this.canvas.height !== pixelHeight) this.canvas.height = pixelHeight;
+    const limit = device.limits.maxTextureDimension2D;
+    if (
+      !Number.isSafeInteger(pixelWidth) ||
+      !Number.isSafeInteger(pixelHeight) ||
+      pixelWidth > limit ||
+      pixelHeight > limit
+    ) {
+      throw new GraphicsError(
+        `WebGPU canvas backing size ${pixelWidth}×${pixelHeight} exceeds this device's maximum texture dimension of ${limit} pixels per side. Reduce the canvas size or pixel ratio.`,
+      );
+    }
+    if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
+    if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    const side = Math.min(pixelWidth, pixelHeight);
+    this.viewportX = (pixelWidth - side) / 2;
+    this.viewportY = (pixelHeight - side) / 2;
+    this.viewportSide = side;
   }
 
   destroy(): void {
@@ -243,6 +302,8 @@ export class WebGPURenderer implements Renderer {
     const context = this.context;
     const device = this.device;
     this.encoder = undefined;
+    this.colorAttachment.view = undefined;
+    this.submissions.length = 0;
     this.pipeline = undefined;
     this.context = undefined;
     this.canvas = undefined;

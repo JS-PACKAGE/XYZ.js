@@ -5,6 +5,7 @@ export class Clock {
   readonly maxDeltaTime: number;
   private previous: number | undefined;
   private delta = 0;
+  private frameInterval = 0;
   private elapsed = 0;
   private frames = 0;
 
@@ -27,20 +28,18 @@ export class Clock {
     return this.frames;
   }
   get fps(): number {
-    return this.delta > 0 ? 1 / this.delta : 0;
+    return this.frameInterval > 0 ? 1 / this.frameInterval : 0;
   }
 
   tick(timestamp: number): void {
     if (!Number.isFinite(timestamp)) {
       throw new RangeError('Clock timestamp must be finite milliseconds.');
     }
-    this.delta =
+    this.frameInterval =
       this.previous === undefined
         ? 0
-        : Math.min(
-            this.maxDeltaTime,
-            Math.max(0, (timestamp - this.previous) / 1000),
-          );
+        : Math.max(0, (timestamp - this.previous) / 1000);
+    this.delta = Math.min(this.maxDeltaTime, this.frameInterval);
     this.previous =
       this.previous === undefined
         ? timestamp
@@ -53,6 +52,7 @@ export class Clock {
   suspend(): void {
     this.previous = undefined;
     this.delta = 0;
+    this.frameInterval = 0;
   }
 
   reset(): void {

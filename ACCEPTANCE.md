@@ -27,6 +27,50 @@
 
 尚未驗證 Safari／Edge／Firefox、真實 driver reset、硬體效能基準；P02–P08 保持待實作。瀏覽器 smoke 是臨時驗收操作，未將 GPU mock 或測試掛鉤加入產品 API。
 
+## P01 深度優化與技術文件（驗收通過）
+
+2026-09-29，沿用 macOS arm64／Node 26.7.0／pnpm 12.6.0／Chromium 150 環境。以下為獨立 P01 優化提交，不包含 P02 功能。
+
+### 缺陷重現與修正後對照
+
+| 項目               | 修正前實際觀察                                 | 修正後實際觀察                                                           |
+| ------------------ | ---------------------------------------------- | ------------------------------------------------------------------------ |
+| FPS／clamp         | 500ms 幀間隔、clamp 0.1s，錯顯示 10fps         | 模擬 delta 保持 0.1s，fps 正確為 2                                       |
+| CSS ownership      | 作者 420×210 被覆寫為 1280×720                 | 含 `@layer` 的 420×210 保留；DPR 2 backing 為 840×420                    |
+| 手動 resize        | logical／backing 200×100，但 CSS 仍為 1280×720 | 無作者尺寸時 resize(180,320) 的 CSS 為 180×320、DPR 2 backing 為 360×640 |
+| 同一 Canvas        | 允許兩個 Game configure 同一 context           | 同時初始化及已有 Game 皆拒絕第二個建立；destroy 後可重新建立             |
+| 初始化途中 destroy | 晚到 device 未被銷毀，初始化仍 resolved        | 初始化 rejects；實際取得的晚到 device 被 destroy 一次                    |
+| 過大 resize        | 100000000px 寬度直接寫入 canvas                | GraphicsError；舊 logical／CSS intrinsic／backing 全數不變               |
+| BFCache 事件       | persisted pagehide 銷毀 Game，後續 resume 拋錯 | 模擬 persisted pagehide 後 Pause／Resume 可恢復 Running                  |
+
+### 熱路徑量測
+
+在測試側攔截真實 GPU API，只記錄 JS 物件 identity；正式產品沒有暴露 GPU 測試掛鉤。
+
+| 容器                   | 修正前 12 幀  | 修正後 12 幀 |
+| ---------------------- | ------------- | ------------ |
+| render-pass descriptor | 12 個不同物件 | 1 個重用物件 |
+| color attachment array | 12 個不同物件 | 1 個重用物件 |
+| queue submission array | 12 個不同物件 | 1 個重用物件 |
+
+實際確認：GPU texture view／command buffer 在 API 消費後不殘留於這些容器；resize 後 pipeline 建立總數仍為 1。**這不是 FPS／CPU／GPU throughput 提升百分比**，尚未執行多 Sprite 或 GC benchmark。
+
+### 額外邊界驗證
+
+- 百分比容器從 400×200 改為 300×180，ResizeObserver 後 backing 正確為 600×360（DPR 2）。
+- ShadowRoot 中 420×210 border-box、10px padding、5px border、CSS scale(0.5)，logical content box 為 390×180，backing 為 780×360；沒有錯把 transform 算進像素尺寸。
+- 明確保留並恢復原本 inline `contain:paint !important` 及 intrinsic-size。修正過程也重現 CSSOM 將 `200px 200px` 正規化為 `200px` 導致清理失敗，現在方形尺寸 destroy 可正確還原。
+- 原生 size containment 取代會和 CSS layers／CSP 衝突的 stylesheet 方案；在 `style-src 'none'` 下建立 Game 並實際提交一幀成功，未放寬 CSP。
+- 真實 GPUDevice.destroy 觸發 `WebGPUDeviceLostError`；Game 暫停，resume 以 RuntimeError 拒絕且 cause 指向原錯誤。destroy／recreate 後可重新渲染。
+- Triangle 畫面及 Pause／Resume／Destroy 互動正常；BFCache 只驗證事件模擬，未宣稱完成瀏覽器實際歷史往返測試。
+
+### 工具與文件
+
+- build、typecheck、lint、format:check 通過；Vitest **3 檔／16 測試通過**。新測試涵蓋 ownership／失敗 rollback／fatal 狀態與 GPU 初始化競態，真實 CSS 行為另由瀏覽器 smoke 驗證。
+- 原生 ESM 產物以 `python3 -m http.server 5174 --bind 127.0.0.1` 提供並由瀏覽器 import `/dist/src/index.js`。驗證中發現既有 Vite 對 dist 的回應仍含舊 Clock；已改用靜態伺服器檢查當次 build，不以該快取結果當作新版本證據。
+- [技術文件](docs/TECHNICAL.md) 提供模組邊界、Clock 算式、Canvas／DPR 與 aspect-ratio 契約、GPU 資源、錯誤策略及部署方式；README 中／英／日用法與 DESIGN 同步更新。
+- 後續缺口與優先順序列於 PLAN；Safari／Edge／Firefox、實際 BFCache／背景分頁、driver reset、負載效能與 P02–P08 仍未驗證／未實作。
+
 ## 後續階段（均待實作與驗收）
 
 | 階段                      | 硬指標                                                                                                                                             | 狀態                                    |

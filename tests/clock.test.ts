@@ -14,6 +14,20 @@ describe('Clock gameplay time', () => {
     expect(clock.frame).toBe(3);
   });
 
+  it('reports real frame rate independently of simulation clamping', () => {
+    const clock = new Clock(0.1);
+    clock.tick(0);
+    clock.tick(500);
+    expect(clock.deltaTime).toBe(0.1);
+    expect(clock.fps).toBe(2);
+    clock.suspend();
+    expect(clock.fps).toBe(0);
+    clock.tick(10000);
+    expect(clock.fps).toBe(0);
+    clock.tick(10020);
+    expect(clock.fps).toBe(50);
+  });
+
   it('excludes time spent paused or hidden and retains elapsed gameplay time', () => {
     const clock = new Clock();
     clock.tick(0);

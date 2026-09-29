@@ -6,6 +6,8 @@ import {
 } from '../../graphics/src/index.js';
 import { Clock } from './clock.js';
 import { RuntimeError } from './errors.js';
+// GPU canvas contexts are exclusive even while a renderer is initializing.
+const claimedCanvases = new WeakSet<HTMLCanvasElement>();
 
 export interface GameOptions {
   canvas: string | HTMLCanvasElement;
@@ -33,6 +35,12 @@ export class Game extends EventTarget {
   private logicalHeight: number;
   private readonly fixedPixelRatio: number | undefined;
   private appliedPixelRatio = 0;
+  private fatalError: Error | undefined;
+  private appliedContain: string | undefined;
+  private appliedIntrinsicSize: string | undefined;
+  private readonly previousContain: { value: string; priority: string };
+  private readonly previousIntrinsicSize: { value: string; priority: string };
+  private readonly autoResize: boolean;
 
   private constructor(
     canvas: HTMLCanvasElement,
@@ -47,33 +55,56 @@ export class Game extends EventTarget {
     this.logicalWidth = options.width ?? defaults.width;
     this.logicalHeight = options.height ?? defaults.height;
     this.fixedPixelRatio = options.pixelRatio;
-    this.resize(this.logicalWidth, this.logicalHeight);
-    // Separate CSS size from backing pixels so DPR changes cannot feed back into layout.
-    canvas.style.width ||= `${this.logicalWidth}px`;
-    canvas.style.height ||= `${this.logicalHeight}px`;
-    if (options.autoResize !== false) {
-      this.observer = new ResizeObserver((entries) => {
-        const entry = entries[0];
-        if (
-          entry &&
-          this.currentState !== 'destroyed' &&
-          entry.contentRect.width > 0 &&
-          entry.contentRect.height > 0
-        ) {
-          try {
-            this.resize(entry.contentRect.width, entry.contentRect.height);
-          } catch (cause) {
-            this.fail(
-              cause instanceof Error
-                ? cause
-                : new RuntimeError('Canvas resize failed.', { cause }),
-            );
+    this.autoResize = options.autoResize !== false;
+    this.previousContain = {
+      value: canvas.style.getPropertyValue('contain'),
+      priority: canvas.style.getPropertyPriority('contain'),
+    };
+    this.previousIntrinsicSize = {
+      value: canvas.style.getPropertyValue('contain-intrinsic-size'),
+      priority: canvas.style.getPropertyPriority('contain-intrinsic-size'),
+    };
+    try {
+      this.installLayout();
+      this.resize(this.logicalWidth, this.logicalHeight);
+      if (this.autoResize) {
+        this.observer = new ResizeObserver((entries) => {
+          const entry = entries[0];
+          if (
+            entry &&
+            this.currentState !== 'destroyed' &&
+            entry.contentRect.width > 0 &&
+            entry.contentRect.height > 0
+          ) {
+            try {
+              this.resizeBacking(
+                entry.contentRect.width,
+                entry.contentRect.height,
+              );
+            } catch (cause) {
+              this.fail(
+                cause instanceof Error
+                  ? cause
+                  : new RuntimeError('Canvas resize failed.', { cause }),
+              );
+            }
           }
-        }
-      });
-      this.observer.observe(canvas);
+        });
+        this.observer.observe(canvas);
+      }
+      document.addEventListener('visibilitychange', this.onVisibilityChange);
+    } catch (cause) {
+      try {
+        this.cleanup();
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [cause, cleanupError],
+          'Game initialization and cleanup failed.',
+          { cause: cleanupError },
+        );
+      }
+      throw cause;
     }
-    document.addEventListener('visibilitychange', this.onVisibilityChange);
   }
 
   static async create(options: GameOptions): Promise<Game> {
@@ -115,22 +146,39 @@ export class Game extends EventTarget {
       );
     }
     const clock = new Clock(options.maxDeltaTime);
+    if (claimedCanvases.has(canvas)) {
+      throw new RuntimeError(
+        'Canvas is already owned by a Game. Destroy the existing Game before creating another on this canvas.',
+      );
+    }
+    claimedCanvases.add(canvas);
     let game: Game | undefined;
+    let graphics: Renderer | undefined;
     let initializationError: Error | undefined;
-    const graphics = await createRenderer(
-      canvas,
-      options.renderer ?? 'auto',
-      (error) => {
-        if (game) game.fail(error);
-        else initializationError = error;
-      },
-    );
     try {
+      graphics = await createRenderer(
+        canvas,
+        options.renderer ?? 'auto',
+        (error) => {
+          if (game) game.fail(error);
+          else initializationError = error;
+        },
+      );
       if (initializationError) throw initializationError;
       game = new Game(canvas, graphics, clock, options);
       return game;
     } catch (cause) {
-      graphics.destroy();
+      try {
+        graphics?.destroy();
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [cause, cleanupError],
+          'Game initialization and renderer cleanup failed.',
+          { cause: cleanupError },
+        );
+      } finally {
+        claimedCanvases.delete(canvas);
+      }
       throw cause;
     }
   }
@@ -149,6 +197,11 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed')
       throw new RuntimeError(
         'Cannot start a destroyed Game. Create a new Game instance.',
+      );
+    if (this.fatalError)
+      throw new RuntimeError(
+        'Cannot start a Game after a fatal runtime error. Destroy it and create a new Game.',
+        { cause: this.fatalError },
       );
     if (this.currentState === 'running') return;
     this.currentState = 'running';
@@ -172,6 +225,112 @@ export class Game extends EventTarget {
   resize(width: number, height: number): void {
     if (this.currentState === 'destroyed')
       throw new RuntimeError('Cannot resize a destroyed Game.');
+    this.validateSize(width, height);
+    const oldIntrinsicSize = this.appliedIntrinsicSize;
+    const oldPixelWidth = this.canvas.width;
+    const oldPixelHeight = this.canvas.height;
+    const oldWidth = this.logicalWidth;
+    const oldHeight = this.logicalHeight;
+    const oldRatio = this.appliedPixelRatio;
+    let seeded = false;
+    try {
+      this.setIntrinsicSize(width, height);
+      // Canvas width/height attributes also supply a CSS aspect-ratio hint.
+      // Seed the requested ratio before measuring authored auto-sized axes.
+      this.resizeBacking(width, height);
+      seeded = true;
+      if (this.autoResize) {
+        const size = this.contentSize();
+        if (size && (size.width !== width || size.height !== height)) {
+          this.resizeBacking(size.width, size.height);
+        }
+      }
+    } catch (cause) {
+      if (oldIntrinsicSize !== undefined) {
+        this.canvas.style.setProperty(
+          'contain-intrinsic-size',
+          oldIntrinsicSize,
+          this.previousIntrinsicSize.priority,
+        );
+        this.appliedIntrinsicSize = oldIntrinsicSize;
+      }
+      if (seeded) {
+        try {
+          this.graphics.resize(oldPixelWidth, oldPixelHeight);
+        } catch (rollbackError) {
+          throw new AggregateError(
+            [cause, rollbackError],
+            'Canvas resize and backing restoration failed.',
+            { cause: rollbackError },
+          );
+        } finally {
+          this.logicalWidth = oldWidth;
+          this.logicalHeight = oldHeight;
+          this.appliedPixelRatio = oldRatio;
+        }
+      }
+      throw cause;
+    }
+  }
+
+  destroy(): void {
+    if (this.currentState === 'destroyed') return;
+    try {
+      this.pause();
+    } finally {
+      this.currentState = 'destroyed';
+      try {
+        this.cleanup();
+      } finally {
+        try {
+          this.graphics.destroy();
+        } finally {
+          claimedCanvases.delete(this.canvas);
+        }
+      }
+    }
+  }
+
+  private installLayout(): void {
+    const computed = getComputedStyle(this.canvas).contain;
+    const contain =
+      computed === 'strict' || computed === 'content'
+        ? 'strict'
+        : [
+            'size',
+            ...computed
+              .split(/\s+/)
+              .filter(
+                (token) =>
+                  token &&
+                  token !== 'none' &&
+                  token !== 'inline-size' &&
+                  token !== 'size',
+              ),
+          ].join(' ');
+    this.canvas.style.setProperty(
+      'contain',
+      contain,
+      this.previousContain.priority,
+    );
+    this.appliedContain = this.canvas.style.getPropertyValue('contain');
+    this.setIntrinsicSize(this.logicalWidth, this.logicalHeight);
+  }
+
+  private setIntrinsicSize(width: number, height: number): void {
+    const size = `${width}px ${height}px`;
+    this.canvas.style.setProperty(
+      'contain-intrinsic-size',
+      size,
+      this.previousIntrinsicSize.priority,
+    );
+    // CSSOM canonicalizes shorthands (e.g. "200px 200px" becomes "200px").
+    this.appliedIntrinsicSize = this.canvas.style.getPropertyValue(
+      'contain-intrinsic-size',
+    );
+  }
+
+  private validateSize(width: number, height: number): void {
     if (
       !Number.isFinite(width) ||
       width <= 0 ||
@@ -182,6 +341,37 @@ export class Game extends EventTarget {
         'Canvas resize requires finite positive CSS pixel dimensions.',
       );
     }
+  }
+
+  private contentSize(): { width: number; height: number } | undefined {
+    const style = getComputedStyle(this.canvas);
+    const insetWidth =
+      parseFloat(style.paddingLeft) +
+      parseFloat(style.paddingRight) +
+      parseFloat(style.borderLeftWidth) +
+      parseFloat(style.borderRightWidth);
+    const insetHeight =
+      parseFloat(style.paddingTop) +
+      parseFloat(style.paddingBottom) +
+      parseFloat(style.borderTopWidth) +
+      parseFloat(style.borderBottomWidth);
+    const width = style.width.endsWith('px')
+      ? parseFloat(style.width) -
+        (style.boxSizing === 'border-box' ? insetWidth : 0)
+      : this.canvas.clientWidth -
+        parseFloat(style.paddingLeft) -
+        parseFloat(style.paddingRight);
+    const height = style.height.endsWith('px')
+      ? parseFloat(style.height) -
+        (style.boxSizing === 'border-box' ? insetHeight : 0)
+      : this.canvas.clientHeight -
+        parseFloat(style.paddingTop) -
+        parseFloat(style.paddingBottom);
+    return width > 0 && height > 0 ? { width, height } : undefined;
+  }
+
+  private resizeBacking(width: number, height: number): void {
+    this.validateSize(width, height);
     const ratio =
       this.fixedPixelRatio ??
       Math.min(window.devicePixelRatio || 1, defaults.maxPixelRatio);
@@ -194,13 +384,51 @@ export class Game extends EventTarget {
     this.appliedPixelRatio = ratio;
   }
 
-  destroy(): void {
-    if (this.currentState === 'destroyed') return;
-    this.pause();
-    this.currentState = 'destroyed';
-    this.observer?.disconnect();
-    document.removeEventListener('visibilitychange', this.onVisibilityChange);
-    this.graphics.destroy();
+  private cleanup(): void {
+    try {
+      this.observer?.disconnect();
+    } finally {
+      try {
+        document.removeEventListener(
+          'visibilitychange',
+          this.onVisibilityChange,
+        );
+      } finally {
+        const style = this.canvas.style;
+        try {
+          if (
+            this.appliedIntrinsicSize !== undefined &&
+            style.getPropertyValue('contain-intrinsic-size') ===
+              this.appliedIntrinsicSize &&
+            style.getPropertyPriority('contain-intrinsic-size') ===
+              this.previousIntrinsicSize.priority
+          ) {
+            if (this.previousIntrinsicSize.value)
+              style.setProperty(
+                'contain-intrinsic-size',
+                this.previousIntrinsicSize.value,
+                this.previousIntrinsicSize.priority,
+              );
+            else style.removeProperty('contain-intrinsic-size');
+          }
+        } finally {
+          if (
+            this.appliedContain !== undefined &&
+            style.getPropertyValue('contain') === this.appliedContain &&
+            style.getPropertyPriority('contain') ===
+              this.previousContain.priority
+          ) {
+            if (this.previousContain.value)
+              style.setProperty(
+                'contain',
+                this.previousContain.value,
+                this.previousContain.priority,
+              );
+            else style.removeProperty('contain');
+          }
+        }
+      }
+    }
   }
 
   private readonly onVisibilityChange = (): void => {
@@ -220,7 +448,7 @@ export class Game extends EventTarget {
         this.fixedPixelRatio ??
         Math.min(window.devicePixelRatio || 1, defaults.maxPixelRatio);
       if (ratio !== this.appliedPixelRatio)
-        this.resize(this.logicalWidth, this.logicalHeight);
+        this.resizeBacking(this.logicalWidth, this.logicalHeight);
       this.clock.tick(timestamp);
       this.graphics.beginFrame();
       this.graphics.render();
@@ -238,7 +466,8 @@ export class Game extends EventTarget {
   };
 
   private fail(error: Error): void {
-    if (this.currentState === 'destroyed') return;
+    if (this.currentState === 'destroyed' || this.fatalError) return;
+    this.fatalError = error;
     this.pause();
     console.error('[XYZ] Runtime paused after a graphics error.', error);
     this.dispatchEvent(new CustomEvent<Error>('error', { detail: error }));

@@ -36,7 +36,10 @@ try {
     resume.disabled = true;
     destroy.disabled = true;
   });
-  window.addEventListener('pagehide', () => game.destroy(), { once: true });
+  window.addEventListener('pagehide', (event) => {
+    // A BFCache entry is suspended, not unloaded; its Game must survive restoration.
+    if (!event.persisted) game.destroy();
+  });
 } catch (error) {
   status.textContent = error instanceof Error ? error.message : String(error);
   console.error('[XYZ triangle]', error);
