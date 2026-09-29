@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P06 are implemented**. Later phases remain tracked in PLAN.md; the version does not imply the entire roadmap is available. The package is not claimed published on npm yet.
+Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P07 are implemented**. Hardening remains tracked in PLAN.md. The package is not claimed published on npm yet.
 
 技術文件／Technical reference／技術資料：[docs/TECHNICAL.md](docs/TECHNICAL.md)（繁體中文）。
 
@@ -8,7 +8,7 @@ Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P0
 
 ### 目前可用
 
-引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 仍待 P07。
+引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js；在使用者手勢中呼叫 `await game.audio.unlock()`。
 
 ```html
 <canvas id="game"></canvas>
@@ -39,7 +39,7 @@ game.start();
 
 ### Available now
 
-Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio remains planned for P07.
+Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js; call `await game.audio.unlock()` from a user gesture.
 
 ```ts
 import { Game } from 'xyz.js';
@@ -61,7 +61,7 @@ Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`. See 
 
 ### 現在利用可能
 
-Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は P07 で追加します。
+Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。
 
 ```ts
 import { Game } from 'xyz.js';
@@ -137,3 +137,15 @@ scene.camera3D.position.set(0, 0, 5);
 ## Compatibility
 
 `auto` initializes backends on isolated canvases and copies the selected output to the original canvas through Canvas2D. This preserves DOM/input ownership and permits fallback after context binding, at the cost of one presentation copy per frame. Explicit `webgpu`, `webgl2`, or `canvas2d` renders directly. `Primitive2D.rectangle(width,height,color)` and `.circle(radius,color)` asynchronously create owned rasterized shapes usable on all backends. `cube3d/?renderer=canvas2d` explicitly reports that 3D is unavailable.
+
+## Audio
+
+```ts
+const sound = await game.audio.load('/sound.json');
+// Inside a user gesture:
+await game.audio.unlock();
+sound.play({ channel: 'sfx' });
+game.audio.master.volume = 0.8;
+```
+
+JSON contains an OPM `voice` and `notes: [{ note: 60, time: 0, duration: 0.2 }]` (MIDI note; seconds). Optional `channel`, `loop`, and `duration` select defaults and loop period. `music`, `sfx`, `ui`, and `master` expose volume 0–1. Playback is scene-owned unless `persistent: true`; scene teardown cancels future notes and release tails. The eight-slot budget includes release, and only the oldest SFX can be stolen. Eight isolated official OPM instances prevent upstream global voice stealing from cutting BGM; this costs eight AudioContexts/worklets. See `examples/sprite/` and [technical details](docs/TECHNICAL.md).

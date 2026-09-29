@@ -107,6 +107,13 @@
 - cube3d 強制 Canvas2D 明確顯示 no 3D capability。實測為 Chromium，不等同宣稱其他瀏覽器已驗證。
 - build、typecheck、lint、format:check 通過；Vitest **14 檔／62 測試通過**。
 
+## P07 Audio（驗收通過）
+
+- 官方 v1.1.0 archive SHA256：`1344a3c2e6e2904b32cd273854ededca318e9a25e97bca20bfc5d331a3b8121e`；完整 dist 加 LICENSE 共 13 檔與 archive 逐位元組相同。來源記於 `vendor/opm/manifest.json`，build 保留 vendor 相對 URL。
+- 真實 Chromium sprite 範例手勢解鎖後八個 AudioContexts 均 running；AudioWorklet AnalyserNode 觀測到非零 PCM。六聲部 BGM 加四連發 SFX，只 disconnect 原兩個 SFX worklets；六個 BGM worklets 均保留。
+- Vitest 覆蓋 SFX-only stealing、release、channel gain、Scene／persistent、loop catch-up、cache／abort／failure；**15 檔／69 測試通過**。build、typecheck、lint、format:check 通過。
+- Audio 未 unlock 時 play 明確拒絕；load 只解析 voice，不建立 AudioContext。八個官方 instance 的資源成本已公開；不宣稱跨瀏覽器音訊認證。
+
 ## 後續階段
 
 | 階段                      | 硬指標                                                                                                                                             | 狀態                                    |
@@ -116,7 +123,7 @@
 | P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 已通過，獨立 `[P04]` commit             |
 | P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 已通過，獨立 `[P05]` commit             |
 | P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 已通過，獨立 `[P06]` commit             |
-| P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 待實作、待驗；通過後獨立 `[P07]` commit |
+| P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 已通過，獨立 `[P07]` commit             |
 | P08 Hardening             | triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑；cube3d Canvas2D 明確無 3D；showcase 同場 2D＋3D＋音效；Vitest 全綠與交付清單全過 | 待實作、待驗；通過後獨立 `[P08]` commit |
 
 效能參考（非硬指標）：Apple Silicon＋Chrome WebGPU 中 1,000 常駐 Sprite 60fps；需 benchmark 腳本實測，未測不承諾。

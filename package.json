@@ -21,7 +21,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && node scripts/copy-vendor.mjs",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "dev": "vite --host 127.0.0.1",

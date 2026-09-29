@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P06**。Audio 與 hardening 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P07**。Hardening 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -220,3 +220,12 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - ImageBitmap 為 straight alpha，上傳 WebGL 不依賴會被忽略的 pixelStore flags；shader 乘 alpha。UV=0 對應圖片第一列，不額外翻轉。
 - Canvas2D 使用 native affine／drawImage／alpha；triangle 為漸層示意而非 GPU 的逐頂點插值。Primitive2D rectangle／circle 在建立時 rasterize 一次，之後重用 Sprite 路徑，destroy 只釋放自己的生成 Texture。
 - capabilities：WebGPU 全部 boolean=true；WebGL2 threeD／customShaders／instancing=true，其餘 false；Canvas2D 全 false。maxTextureSize 為 backend 上限（Canvas2D 採保守 8192）。這是能力查詢，不是 custom shader 或 compute 的公開執行 API。
+
+## 15. Audio
+
+- `game.audio.load(url)` 共享 canonical URL（忽略 fragment）的 pending/cache；失败會逐出，destroy 立即取消等待。JSON 必須含官方可解析 `voice` 及非空 `notes`，每音符 MIDI 0–127、time ≥ 0、duration (0,60] 秒。可選 channel（music/sfx/ui）、loop、duration（loop period，不能短於最後音符結束）。載入後 voice/notes immutable。
+- 使用者 click 等手勢內 `await game.audio.unlock()`；之前 play 拋 AudioError，不偷偷建立 AudioContext 或排隊。OPMAdapter 延後 import 官方模組並建立八個 context/worklet，每 slot 只排一個聲部，含 ADSR release 與 guard。master/channel volume 0–1 經 GainNode 相乘。
+- 官方 OPM 的第九個聲部會全域搶最舊 voice，soft stop 仍有 release，故八個隔離 instance 才能在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以被 hard-reset；沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。
+- 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
+- `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。默认關聯當前 Scene，Scene destroy hard-cancel 非 persistent 排程與 release；persistent 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是第一個官方 instance 的進階 escape hatch，直接操作會繞過預算／lifecycle。
+- 官方來源、SHA256、Apache-2.0 LICENSE 位於 `vendor/opm/`，沒有私人 patch。build 複製完整 vendor 到 dist；部署必須保留整個 dist，AudioWorklet 亦需安全來源。

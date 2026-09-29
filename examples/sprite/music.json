@@ -1,0 +1,44 @@
+{
+  "channel": "music",
+  "loop": true,
+  "duration": 2,
+  "voice": {
+    "version": 1,
+    "algorithm": 7,
+    "feedback": 0,
+    "ops": [
+      {
+        "ratio": 1,
+        "level": 0.25,
+        "detune": 0,
+        "adsr": { "a": 0.02, "d": 0.1, "s": 0.6, "r": 0.15 }
+      },
+      {
+        "ratio": 2,
+        "level": 0.1,
+        "detune": 0,
+        "adsr": { "a": 0.02, "d": 0.1, "s": 0.3, "r": 0.15 }
+      },
+      {
+        "ratio": 3,
+        "level": 0,
+        "detune": 0,
+        "adsr": { "a": 0, "d": 0, "s": 0, "r": 0 }
+      },
+      {
+        "ratio": 4,
+        "level": 0,
+        "detune": 0,
+        "adsr": { "a": 0, "d": 0, "s": 0, "r": 0 }
+      }
+    ]
+  },
+  "notes": [
+    { "note": 48, "time": 0, "duration": 1.5 },
+    { "note": 55, "time": 0, "duration": 1.5 },
+    { "note": 60, "time": 0, "duration": 1.5 },
+    { "note": 64, "time": 0, "duration": 1.5 },
+    { "note": 67, "time": 0, "duration": 1.5 },
+    { "note": 72, "time": 0, "duration": 1.5 }
+  ]
+}

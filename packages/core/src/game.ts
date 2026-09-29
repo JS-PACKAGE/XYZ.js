@@ -1,6 +1,7 @@
 import { defaults } from '../../../src/data/defaults.js';
 import { AssetLoader } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
+import { AudioManager } from '../../audio/src/audio-manager.js';
 import {
   createRenderer,
   type Renderer,
@@ -39,6 +40,11 @@ export class Game extends EventTarget {
   readonly clock: Clock;
   readonly assets = new AssetLoader();
   readonly input: InputManager;
+  readonly audio = new AudioManager(
+    () => this.currentScene,
+    (error) =>
+      this.dispatchEvent(new CustomEvent<Error>('error', { detail: error })),
+  );
   private currentState: GameState = 'idle';
   private currentScene: Scene | undefined;
   private pendingScene: Scene | undefined;
@@ -440,6 +446,11 @@ export class Game extends EventTarget {
     }
     try {
       this.assets.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.audio.destroy();
     } catch (error) {
       errors.push(error);
     }

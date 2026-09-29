@@ -54,6 +54,47 @@ try {
   game.start();
   order.disabled = opacity.disabled = false;
   report();
+  const runtime = game;
+  const audioStatus =
+    document.querySelector<HTMLParagraphElement>('#audio-status')!;
+  const unlock = document.querySelector<HTMLButtonElement>('#audio')!;
+  const burst = document.querySelector<HTMLButtonElement>('#sfx')!;
+  const stop = document.querySelector<HTMLButtonElement>('#stop-audio')!;
+  void (async () => {
+    try {
+      const [music, sound] = await Promise.all([
+        runtime.audio.load(new URL('./music.json', import.meta.url).href),
+        runtime.audio.load(new URL('./sfx.json', import.meta.url).href),
+      ]);
+      if (runtime.state === 'destroyed') return;
+      unlock.disabled = false;
+      unlock.addEventListener('click', () => {
+        void runtime.audio
+          .unlock()
+          .then(() => {
+            music.stop();
+            music.play();
+            burst.disabled = stop.disabled = false;
+            audioStatus.textContent =
+              'Audio unlocked · 六聲部 BGM；SFX 溢位只搶最舊 SFX。';
+          })
+          .catch((error: unknown) => {
+            audioStatus.textContent = String(error);
+          });
+      });
+      burst.addEventListener('click', () => {
+        for (let i = 0; i < 4; i++) runtime.audio.play(sound);
+        audioStatus.textContent = '已連發四個 SFX；BGM 排程保留。';
+      });
+      stop.addEventListener('click', () => {
+        music.stop();
+        sound.stop();
+        audioStatus.textContent = 'Audio stopped';
+      });
+    } catch (error) {
+      audioStatus.textContent = String(error);
+    }
+  })();
   window.addEventListener('pagehide', (event) => {
     if (!event.persisted) game?.destroy();
   });

@@ -108,6 +108,11 @@ export class Scene {
     this.disposed = true;
     this.controller?.abort();
     const errors: unknown[] = [];
+    try {
+      this.owner?.audio.stopScene(this);
+    } catch (error) {
+      errors.push(error);
+    }
     // Detach registrations first so object destruction cannot mutate traversal.
     for (const object of [...this.registrations.keys()]) {
       this.remove(object);
