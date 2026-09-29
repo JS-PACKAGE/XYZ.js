@@ -4,8 +4,15 @@ import {
   type Renderer,
   type RendererPreference,
 } from '../../graphics/src/index.js';
+import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { RuntimeError } from './errors.js';
+
+class SceneCancelledError extends RuntimeError {
+  constructor() {
+    super('Scene initialization was cancelled.');
+  }
+}
 // GPU canvas contexts are exclusive even while a renderer is initializing.
 const claimedCanvases = new WeakSet<HTMLCanvasElement>();
 
@@ -29,6 +36,11 @@ export class Game extends EventTarget {
   readonly graphics: Renderer;
   readonly clock: Clock;
   private currentState: GameState = 'idle';
+  private currentScene: Scene | undefined;
+  private pendingScene: Scene | undefined;
+  private pendingCompletion: Promise<void> | undefined;
+  private sceneVersion = 0;
+  private switchingScene = false;
   private requestId: number | undefined;
   private observer: ResizeObserver | undefined;
   private logicalWidth: number;
@@ -192,8 +204,11 @@ export class Game extends EventTarget {
   get height(): number {
     return this.logicalHeight;
   }
+  get scene(): Scene | undefined {
+    return this.currentScene;
+  }
 
-  start(): void {
+  start(scene?: Scene): void {
     if (this.currentState === 'destroyed')
       throw new RuntimeError(
         'Cannot start a destroyed Game. Create a new Game instance.',
@@ -203,10 +218,122 @@ export class Game extends EventTarget {
         'Cannot start a Game after a fatal runtime error. Destroy it and create a new Game.',
         { cause: this.fatalError },
       );
+    if (scene) {
+      void this.setScene(scene).catch((error: unknown) => {
+        if (
+          !(error instanceof SceneCancelledError) &&
+          this.currentState !== 'destroyed'
+        ) {
+          this.dispatchEvent(new CustomEvent('error', { detail: error }));
+        }
+      });
+    }
     if (this.currentState === 'running') return;
     this.currentState = 'running';
     this.clock.suspend();
     if (!document.hidden) this.requestId = requestAnimationFrame(this.onFrame);
+  }
+
+  /** Prepare offscreen, then publish the candidate and synchronously release the old scene. */
+  async setScene(next: Scene): Promise<void> {
+    if (this.currentState === 'destroyed')
+      throw new RuntimeError('Cannot set a Scene on a destroyed Game.');
+    if (this.switchingScene)
+      throw new RuntimeError('Cannot switch Scenes during scene disposal.');
+    if (next === this.currentScene) {
+      if (this.pendingScene) {
+        const pending = this.pendingScene;
+        this.pendingScene = undefined;
+        this.pendingCompletion = undefined;
+        this.sceneVersion++;
+        this.switchingScene = true;
+        try {
+          pending.cancel();
+        } finally {
+          this.switchingScene = false;
+        }
+      }
+      return;
+    }
+    if (next === this.pendingScene) return this.pendingCompletion;
+    const signal = next.claim(this);
+    const prior = this.pendingScene;
+    this.pendingScene = next;
+    const version = ++this.sceneVersion;
+    if (prior) {
+      this.switchingScene = true;
+      try {
+        prior.cancel();
+      } catch (error) {
+        this.pendingScene = undefined;
+        try {
+          next.cancel();
+        } catch (cleanupError) {
+          throw new AggregateError(
+            [error, cleanupError],
+            'Scene cancellation and cleanup failed.',
+            { cause: cleanupError },
+          );
+        }
+        throw error;
+      } finally {
+        this.switchingScene = false;
+      }
+    }
+    const completion = Promise.resolve().then(async () => {
+      try {
+        if (signal.aborted) throw new SceneCancelledError();
+        await next.prepare(this, signal);
+        if (
+          signal.aborted ||
+          version !== this.sceneVersion ||
+          this.currentState === 'destroyed'
+        )
+          throw new SceneCancelledError();
+        const old = this.currentScene;
+        this.pendingScene = undefined;
+        this.pendingCompletion = undefined;
+        this.switchingScene = true;
+        try {
+          this.currentScene = next;
+          old?.destroy();
+        } finally {
+          this.switchingScene = false;
+        }
+      } catch (error) {
+        if (this.pendingScene === next) {
+          this.pendingScene = undefined;
+          this.pendingCompletion = undefined;
+        }
+        const reason =
+          signal.aborted && this.currentScene !== next
+            ? new SceneCancelledError()
+            : error;
+        if (this.currentScene !== next) {
+          try {
+            next.cancel();
+          } catch (cleanupError) {
+            throw new AggregateError(
+              [reason, cleanupError],
+              'Scene preparation and cleanup failed.',
+              { cause: cleanupError },
+            );
+          }
+        }
+        throw reason;
+      }
+    });
+    this.pendingCompletion = completion;
+    return completion;
+  }
+
+  /** @internal Called when a Scene is explicitly disposed by its owner. */
+  onSceneDisposed(scene: Scene): void {
+    if (this.currentScene === scene) this.currentScene = undefined;
+    if (this.pendingScene === scene) {
+      this.pendingScene = undefined;
+      this.sceneVersion++;
+    }
   }
 
   pause(): void {
@@ -275,20 +402,38 @@ export class Game extends EventTarget {
 
   destroy(): void {
     if (this.currentState === 'destroyed') return;
+    this.pause();
+    this.currentState = 'destroyed';
+    this.sceneVersion++;
+    const pending = this.pendingScene;
+    const current = this.currentScene;
+    this.pendingScene = undefined;
+    this.currentScene = undefined;
+    const errors: unknown[] = [];
     try {
-      this.pause();
-    } finally {
-      this.currentState = 'destroyed';
-      try {
-        this.cleanup();
-      } finally {
-        try {
-          this.graphics.destroy();
-        } finally {
-          claimedCanvases.delete(this.canvas);
-        }
-      }
+      pending?.cancel();
+    } catch (error) {
+      errors.push(error);
     }
+    try {
+      current?.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.cleanup();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.graphics.destroy();
+    } catch (error) {
+      errors.push(error);
+    } finally {
+      claimedCanvases.delete(this.canvas);
+    }
+    if (errors.length === 1) throw errors[0];
+    if (errors.length) throw new AggregateError(errors, 'Game cleanup failed.');
   }
 
   private installLayout(): void {
@@ -450,6 +595,12 @@ export class Game extends EventTarget {
       if (ratio !== this.appliedPixelRatio)
         this.resizeBacking(this.logicalWidth, this.logicalHeight);
       this.clock.tick(timestamp);
+      const scene = this.currentScene;
+      scene?.update(this.clock.deltaTime);
+      if (this.currentState !== 'running') return;
+      if (scene && scene === this.currentScene && !scene.destroyed)
+        scene.world.update(this.clock.deltaTime);
+      if (this.currentState !== 'running') return;
       this.graphics.beginFrame();
       this.graphics.render();
       this.graphics.endFrame();

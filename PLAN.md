@@ -2,7 +2,7 @@
 
 ## 強制執行範圍（硬規則）
 
-- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本直接設定 **1.0.0**；本次僅交付 **P01 WebGPU Foundation**。企劃書原 v0.0.1–v0.0.8 開發步驟對應 P01–P08，原 v0.1 範圍為本路線目標；套件版本號不代表八階段已完成，不得將規劃功能寫成已實作。
+- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.0.0**；本輪依序實作 **P02–P08**，各階段先驗收再獨立提交。企劃書原 v0.0.1–v0.0.8 開發步驟對應 P01–P08，原 v0.1 範圍為本路線目標；套件版本號不代表八階段已完成，不得將規劃功能寫成已實作。
 - 每個里程碑的驗收硬指標全部通過後，**立即單獨提交該里程碑的 git commit**，commit message 必須以該階段前綴開頭（例如 `[P01] WebGPU Foundation`）；不得合併兩個或更多里程碑為同一 commit，亦不得提前提交未通過驗收的階段。**嚴禁 push，由使用者親自推送。**
 - 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。強制指定 backend 不得靜默切換；`auto` 的三級降級僅於 P06 完成，之前不可宣稱相容 WebGL2／Canvas2D。
 - 第一階段不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Animation／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；本路線也不包含 PBR、法線貼圖、陰影、骨骼動畫、glTF 載入器。
@@ -21,7 +21,7 @@
 | 階段（對應企劃原階段）                   | 新增實作與範例                                                                                                                                                      | 通過後的獨立提交前綴 |
 | ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
 | P01 — WebGPU Foundation（原 v0.0.1）     | Game、Clock、Game Loop、Canvas、Graphics 抽象、WebGPU 初始化、WGSL Renderer、triangle                                                                               | `[P01]`              |
-| P02 — Core World（原 v0.0.2）            | Scene lifecycle／切換／清理、Entity／Component／System、Transform、2D Math                                                                                          | `[P02]`              |
+| P02 — Core World（已驗收）               | Scene lifecycle／切換／清理、Entity／Component／System、Transform、2D Math                                                                                          | `[P02]`              |
 | P03 — Texture & Sprite（原 v0.0.3）      | 有 cache 的 Asset Loader、Texture、Sprite、WGSL sprite pipeline、alpha、transform、z-order、sprite 範例                                                             | `[P03]`              |
 | P04 — Camera & Input（原 v0.0.4）        | Camera2D、Keyboard／Pointer Events／Gamepad、resize handling、pong 範例                                                                                             | `[P04]`              |
 | P05 — 3D Rendering Pipeline（原 v0.0.5） | Vector3／Matrix4／Quaternion、3D Transform、Mesh（基本幾何及自訂頂點）、貼圖材質、PerspectiveCamera、深度測試、ambient＋directional 光照、WGSL 3D 管線、cube3d 範例 | `[P05]`              |
@@ -51,25 +51,25 @@
 
 各項實際證據與待驗事項記在 `ACCEPTANCE.md`；未經瀏覽器檢驗不得標為完成。每階段**先驗收、再立即單獨 commit、絕不 push**。
 
-## P01 優化後的後續優先項（尚未完成）
+## 後續優先項與進度
 
 本輪先處理已重現的尺寸覆蓋、Canvas ownership、Clock fps、GPU 初始化取消及每幀 JS 容器配置；技術契約集中於 [技術文件](docs/TECHNICAL.md)。不將這些修正冒充 P02–P08 的功能完成。
 
-| 優先順序 | 缺口與下一步                                                                                                      | 對應驗收                                                          |
-| -------- | ----------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 1        | P02 的 Scene 非同步切換需先定義資源 ownership、取消與重入語義，再實作 ECS；沿用本輪初始化失敗必須 rollback 的原則 | 舊 Scene 只清理一次；切換失敗不留下半啟用 World                   |
-| 2        | P03 Asset cache 需區分共享下載 Promise、資產 CPU 資料與 backend GPU resource 的生命週期                           | 失敗可重新載入；共享 texture 不因其中一個 Sprite 銷毀而失效       |
-| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援                         | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback     |
-| 4        | P06 降級需處理 Canvas context 綁定及部分初始化失敗，不只檢查 navigator.gpu                                        | GPU device／context 初始化各失敗點仍能正確選擇下一 backend        |
-| 5        | P08 建立多 Sprite 真實負载 benchmark，分開 CPU 提交、GC、GPU／呈現節奏                                            | 固定資產及畫布規格，有可重現報告，不以 triangle 幀率推估          |
-| 6        | 發佈前確定授權、驗證 npm tarball 與無 bundler 消費端、決定支援的 Node 工具鏈與瀏覽器版本                          | 乾淨環境 import JS／TS 產物成功；不依賴工作區 source 或未發佈檔案 |
+| 優先順序 | 缺口與下一步                                                                              | 對應驗收                                                          |
+| -------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
+| 1        | P02 已完成 transactional Scene 切換、cooperative cancellation 與 ECS                      | 舊 Scene 清理一次；準備失敗保留 active World                      |
+| 2        | P03 Asset cache 需區分共享下載 Promise、資產 CPU 資料與 backend GPU resource 的生命週期   | 失敗可重新載入；共享 texture 不因其中一個 Sprite 銷毀而失效       |
+| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援 | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback     |
+| 4        | P06 降級需處理 Canvas context 綁定及部分初始化失敗，不只檢查 navigator.gpu                | GPU device／context 初始化各失敗點仍能正確選擇下一 backend        |
+| 5        | P08 建立多 Sprite 真實負载 benchmark，分開 CPU 提交、GC、GPU／呈現節奏                    | 固定資產及畫布規格，有可重現報告，不以 triangle 幀率推估          |
+| 6        | 發佈前確定授權、驗證 npm tarball 與無 bundler 消費端、決定支援的 Node 工具鏈與瀏覽器版本  | 乾淨環境 import JS／TS 產物成功；不依賴工作區 source 或未發佈檔案 |
 
 ## 交付前自檢
 
-- [x] P01 僅含本階段應有範圍；已確認公開入口、ESM 相對路徑與 `.d.ts` 契約。
+- [x] 已完成 P01–P02 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
 - [x] build、typecheck、test、lint、format:check 已執行；結果記於 `ACCEPTANCE.md`。
 - [x] 真實 Chromium 開啟 triangle，確認畫面與錯誤分支；其他瀏覽器尚未驗證。
 - [x] 六件文件區分現在／未來功能，未留臨時測試檔或公開測試掛鉤。
-- 提交規則：P01 驗收後立刻獨立 `[P01]` commit，不併入下一階段、不 push。
+- 提交規則：每個 Pxx 驗收後立刻獨立 commit，不併入下一階段、不 push。
 
 開始執行。

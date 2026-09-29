@@ -71,11 +71,18 @@
 - [技術文件](docs/TECHNICAL.md) 提供模組邊界、Clock 算式、Canvas／DPR 與 aspect-ratio 契約、GPU 資源、錯誤策略及部署方式；README 中／英／日用法與 DESIGN 同步更新。
 - 後續缺口與優先順序列於 PLAN；Safari／Edge／Firefox、實際 BFCache／背景分頁、driver reset、負載效能與 P02–P08 仍未驗證／未實作。
 
-## 後續階段（均待實作與驗收）
+## P02 Core World（驗收通過）
+
+- 新增 Scene／SceneObject／GameObject、World ECS、Vector2／Matrix3／Transform2D。Scene 準備失敗保留 active Scene；切換／destroy 清理物件與 systems；取消採 cooperative AbortSignal。
+- 整合檢查：build、typecheck 及 **6 檔／29 測試通過**；涵蓋 ECS CRUD、system lifecycle、矩陣 inverse、Scene ownership／切換失敗／非同步取消及原 P01 回歸。
+- 真實 Chromium／WebGPU Game smoke：Scene.update 改變物件位置；候選初始化拋錯被拒絕且旧 Scene 保留；成功切換後舊 Scene 及物件 destroyed；Game.destroy 清理新 Scene。初始化／失敗候選清理／兩個正常 Scene 清理的實際順序皆符合契約。
+- 加入使用者要求的根目錄 `.nojekyll`，不涉及遠端部署。
+
+## 後續階段
 
 | 階段                      | 硬指標                                                                                                                                             | 狀態                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| P02 Core World            | Scene 建立／切換／清理；ECS 增刪改查有單元測試                                                                                                     | 待實作、待驗；通過後獨立 `[P02]` commit |
+| P02 Core World            | Scene 建立／切換／清理；ECS 增刪改查有單元測試                                                                                                     | 已通過，獨立 `[P02]` commit             |
 | P03 Texture & Sprite      | 共用 texture 不重複下載；Sprite z-order／opacity 正確                                                                                              | 待實作、待驗；通過後獨立 `[P03]` commit |
 | P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 待實作、待驗；通過後獨立 `[P04]` commit |
 | P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 待實作、待驗；通過後獨立 `[P05]` commit |

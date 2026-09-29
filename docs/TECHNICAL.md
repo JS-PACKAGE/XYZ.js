@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件的 P01 WebGPU Foundation**，不是完整遊戲引擎功能清單。Scene／ECS、Sprite、Camera、Input、3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P02**。Sprite、Camera、Input、3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -13,6 +13,7 @@ src/index.ts                    統一 ESM／TypeScript API
 
 requestAnimationFrame(timestamp)
   → Clock.tick(timestamp)
+  → Scene.update(deltaTime) → World Systems.update(deltaTime)
   → Renderer.beginFrame()
   → Renderer.render()
   → Renderer.endFrame()
@@ -177,3 +178,14 @@ resize 必須在寫入 canvas 前同時驗證兩個 backing dimensions；超過 
 viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建。對外修改 canvas backing attributes 屬低階操作；一般使用者應透過 Game.resize 或 DOM layout／ResizeObserver，避免繞過大小驗證與 ownership。
 
 具體前後數據見 ACCEPTANCE。量測時可在測試側攔截真實 GPU API 記錄 descriptor identity；不得把這種 instrumentation 或測試用 GPU handle 加入公開 Game API，也不應將 container identity 當作消費端的永久契約測試。
+
+## 10. Core World（P02）
+
+- `Scene` 是 World 與物件生命週期容器，不是 Entity。`scene.add(object)` 建立內部 Entity 並註冊 GameObject 的 Transform2D，`scene.remove(object)` 解除關聯但不 destroy，方便搬移；Scene.destroy 會 destroy 仍屬於它的物件和 systems。
+- `SceneObject` 提供 ownership 與 `onDestroy`，不綁定 2D transform；`GameObject` 提供 position／rotation（弧度）／scale。低階 World 具 component 增刪查改、query 及有序 System lifecycle；一般使用者不需要接觸 Entity ID。
+- Scene hooks：`protected initialize(game, signal)` 可回傳 Promise；`update(dt)` 每可見幀呼叫；`protected onDestroy()` 同步釋放 Scene 資源。非同步初始化應遵守 AbortSignal，不能在已取消後繼續註冊資源。
+- `await game.setScene(next)` 先準備候選、成功後才發佈，再同步清理舊 Scene。準備失敗清理候選並保留舊 Scene；若舊 Scene 的 cleanup 拋錯，新 Scene 已經生效，Promise 仍回報 cleanup 錯誤。dispose 期間拒絕重入切換。
+- 每個 Scene 一生限由一個 Game 接管。新候選取代待初始化候選會 abort／destroy 前者；Game.destroy 也會 abort 候選及清理 active Scene。取消訊號是 cooperative，不會強制終止使用者 Promise。
+- `game.start(scene?)` 維持同步 void，準備失敗透過 error 事件回報，但不把正常 Scene 準備失敗鎖成 fatal GPU failure。需取得準備結果時先 await setScene。更新中的真正 exception 仍讓 Runtime 進入 fatal paused 狀態。
+- 系統依加入順序更新；更新途中新加的 System 下一幀才執行，已移除者不再執行；清理按相反順序。Scene.update 中 pause／destroy 不會繼續提交 Renderer。
+- Vector2 可變操作回傳自身；Matrix3 使用 column-major Float32Array，compose 為 translation × rotation × scale，invert 拒絕 singular matrix。`transformPoint(point, out)` 可提供輸出容器避免配置。Transform2D 的 `updateMatrix()` 重用自己的矩陣。
