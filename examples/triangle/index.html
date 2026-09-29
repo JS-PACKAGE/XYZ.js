@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — WebGPU Triangle</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font-family: system-ui, sans-serif;
+        background: #070b14;
+        color: #e4eaf4;
+      }
+      body {
+        max-width: 1100px;
+        margin: 40px auto;
+        padding: 0 24px;
+      }
+      h1 {
+        font-size: 2rem;
+        margin-bottom: 8px;
+      }
+      p {
+        color: #aebdd2;
+      }
+      .viewport {
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        border: 1px solid #33425b;
+      }
+      canvas {
+        display: block;
+      }
+      .controls {
+        display: flex;
+        gap: 12px;
+        margin-top: 20px;
+      }
+      button {
+        padding: 10px 20px;
+        border: 1px solid #526782;
+        border-radius: 6px;
+        background: #172438;
+        color: inherit;
+        cursor: pointer;
+      }
+      button:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+      #status {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>XYZ.js / WebGPU Triangle</h1>
+    <p>P01 — Game → Renderer → WebGPU · Package 1.0.0</p>
+    <div class="viewport">
+      <canvas
+        id="game"
+        style="width: 100%; height: 100%"
+        aria-label="WebGPU rendered color triangle"
+      ></canvas>
+    </div>
+    <div class="controls">
+      <button id="pause" disabled>Pause</button>
+      <button id="resume" disabled>Resume</button>
+      <button id="destroy" disabled>Destroy</button>
+    </div>
+    <p id="status" role="status">Initializing WebGPU…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

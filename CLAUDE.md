@@ -1,0 +1,9 @@
+# 執行 Agent 工作約定
+
+`PLAN.md` 是階段與不可變更範圍的依據；`ACCEPTANCE.md` 是驗收證據紀錄；`DESIGN.md` 紀錄目前架構與未來階段邊界；`AGENTS.md` 提供實作與驗證規範。請先讀四份文件及原企劃書，再處理程式碼。
+
+目前套件版本 **1.0.0**，正在實作 **P01 WebGPU Foundation**，並非整個八階段路線已交付。企劃書原 v0.0.1–v0.0.8 依序對應 P01–P08。每個 Pxx 驗收完整後**立即獨立提交** `[Pxx] ...`，不得合併多個階段成同一 commit，**不得 push**。
+
+遵守 TypeScript strict、可直接由瀏覽器載入的 `.js` ESM 相對匯入、`src/data/` 的集中預設值、Game→Renderer→WebGPU 正式路徑。P01 僅 WebGPU；Scene 等未來 API 不可加入現階段範例或文件現況。跨階段功能先遵守 `PLAN.md` 的驗收條件與排除清單；測試必須驗證實際行為，未跑檢查不能聲稱通過。
+
+本機 pnpm 可透過 `npx pnpm` 執行；命令、真實瀏覽器檢查與驗收紀錄請參考 `AGENTS.md`、`ACCEPTANCE.md`。
