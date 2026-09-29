@@ -23,7 +23,7 @@
 | P01 — WebGPU Foundation（原 v0.0.1）     | Game、Clock、Game Loop、Canvas、Graphics 抽象、WebGPU 初始化、WGSL Renderer、triangle                                                                               | `[P01]`              |
 | P02 — Core World（已驗收）               | Scene lifecycle／切換／清理、Entity／Component／System、Transform、2D Math                                                                                          | `[P02]`              |
 | P03 — Texture & Sprite（已驗收）         | 有 cache 的 Asset Loader、Texture、Sprite、WGSL sprite pipeline、alpha、transform、z-order、sprite 範例                                                             | `[P03]`              |
-| P04 — Camera & Input（原 v0.0.4）        | Camera2D、Keyboard／Pointer Events／Gamepad、resize handling、pong 範例                                                                                             | `[P04]`              |
+| P04 — Camera & Input（已驗收）           | Camera2D、Keyboard／Pointer Events／Gamepad、resize handling、pong 範例                                                                                             | `[P04]`              |
 | P05 — 3D Rendering Pipeline（原 v0.0.5） | Vector3／Matrix4／Quaternion、3D Transform、Mesh（基本幾何及自訂頂點）、貼圖材質、PerspectiveCamera、深度測試、ambient＋directional 光照、WGSL 3D 管線、cube3d 範例 | `[P05]`              |
 | P06 — Compatibility（原 v0.0.6）         | WebGL2（含 3D 管線）／Canvas2D、三級 auto fallback、Capability System、fallback-demo                                                                                | `[P06]`              |
 | P07 — Audio（原 v0.0.7）                 | OPM.js v1.1.0 官方 release 完整 vendor＋LICENSE＋SHA256 驗證、AudioManager／AudioAsset／AudioChannel／OPMAdapter、unlock、聲部預算、Scene 整合                      | `[P07]`              |
@@ -66,7 +66,7 @@
 
 ## 交付前自檢
 
-- [x] 已完成 P01–P03 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
+- [x] 已完成 P01–P04 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
 - [x] build、typecheck、test、lint、format:check 已執行；結果記於 `ACCEPTANCE.md`。
 - [x] 真實 Chromium 開啟 triangle，確認畫面與錯誤分支；其他瀏覽器尚未驗證。
 - [x] 六件文件區分現在／未來功能，未留臨時測試檔或公開測試掛鉤。

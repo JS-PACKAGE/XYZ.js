@@ -498,6 +498,10 @@ export class WebGPURenderer implements Renderer {
       this.viewportData[0] = width;
       this.viewportData[1] = height;
       device.queue.writeBuffer(this.viewportBuffer, 0, this.viewportData);
+      const camera = scene.camera2D;
+      const zoom = camera.zoom;
+      const cameraX = camera.position.x;
+      const cameraY = camera.position.y;
       const data = this.instances;
       for (let i = 0; i < count; i++) {
         const sprite = sprites[i];
@@ -505,12 +509,12 @@ export class WebGPURenderer implements Renderer {
         this.cacheTexture(device, texture).seen = this.textureFrame;
         const matrix = sprite.transform.updateMatrix().elements;
         const offset = i * 12;
-        data[offset] = matrix[0];
-        data[offset + 1] = matrix[1];
-        data[offset + 2] = matrix[3];
-        data[offset + 3] = matrix[4];
-        data[offset + 4] = matrix[6];
-        data[offset + 5] = matrix[7];
+        data[offset] = matrix[0] * zoom;
+        data[offset + 1] = matrix[1] * zoom;
+        data[offset + 2] = matrix[3] * zoom;
+        data[offset + 3] = matrix[4] * zoom;
+        data[offset + 4] = (matrix[6] - cameraX) * zoom;
+        data[offset + 5] = (matrix[7] - cameraY) * zoom;
         data[offset + 6] = texture.width;
         data[offset + 7] = texture.height;
         data[offset + 8] = sprite.anchor.x;

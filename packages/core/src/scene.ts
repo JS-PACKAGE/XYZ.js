@@ -1,5 +1,6 @@
 import { Transform2D } from '../../math/src/index.js';
 import { World, type Entity } from '../../ecs/src/world.js';
+import { Camera2D } from './camera2d.js';
 import type { Game } from './game.js';
 import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
@@ -8,6 +9,7 @@ import { Sprite } from './sprite.js';
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export class Scene {
   readonly world = new World();
+  readonly camera2D = new Camera2D();
   private readonly registrations = new Map<SceneObject, Entity>();
   private readonly registeredObjects = new Set<SceneObject>();
   private owner: Game | undefined;

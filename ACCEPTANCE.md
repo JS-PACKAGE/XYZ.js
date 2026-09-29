@@ -86,13 +86,20 @@
 - 瀏覽器發現並修正手動 destroy cached Texture 後仍回傳死資產的問題；修正後重新載入結果為不同 Texture 且 destroyed=false，加入對應 regression test。
 - build、typecheck、lint、format:check 通過；Vitest **8 檔／38 測試通過**。
 
+## P04 Camera & Input（驗收通過）
+
+- build、typecheck、lint 通過；Vitest **10 檔／47 測試通過**，包含座標逆轉換、alias output、輸入 edges／cancel／blur／gamepad snapshot。
+- 真實 Chromium Pong 畫面可玩，ArrowDown 移動左球拍，實際 pointer 拖曳改變球拍位置，計分持續更新。
+- 真實 Game 使用 camera position=(10,10)、zoom=2，紅 Sprite 世界座標(20,20)在 screen(20,20)讀回 `[255,0,0,255]`；resize 100×100→200×100 後同點仍為紅色，viewport 更新，Texture 仍存活。screenToWorld 回復(20,20)，keydown held=true，blur 後 cleared=true。
+- 尚未以實體 gamepad、Safari／Firefox／Edge、跨螢幕或 BFCache 驗證；不將合成事件測試當作硬體相容性保證。
+
 ## 後續階段
 
 | 階段                      | 硬指標                                                                                                                                             | 狀態                                    |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | P02 Core World            | Scene 建立／切換／清理；ECS 增刪改查有單元測試                                                                                                     | 已通過，獨立 `[P02]` commit             |
 | P03 Texture & Sprite      | 共用 texture 不重複下載；Sprite z-order／opacity 正確                                                                                              | 已通過，獨立 `[P03]` commit             |
-| P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 待實作、待驗；通過後獨立 `[P04]` commit |
+| P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 已通過，獨立 `[P04]` commit             |
 | P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 待實作、待驗；通過後獨立 `[P05]` commit |
 | P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 待實作、待驗；通過後獨立 `[P06]` commit |
 | P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 待實作、待驗；通過後獨立 `[P07]` commit |

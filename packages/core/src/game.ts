@@ -1,5 +1,6 @@
 import { defaults } from '../../../src/data/defaults.js';
 import { AssetLoader } from '../../assets/src/index.js';
+import { InputManager } from '../../input/src/index.js';
 import {
   createRenderer,
   type Renderer,
@@ -37,6 +38,7 @@ export class Game extends EventTarget {
   readonly graphics: Renderer;
   readonly clock: Clock;
   readonly assets = new AssetLoader();
+  readonly input: InputManager;
   private currentState: GameState = 'idle';
   private currentScene: Scene | undefined;
   private pendingScene: Scene | undefined;
@@ -70,6 +72,7 @@ export class Game extends EventTarget {
     this.logicalHeight = options.height ?? defaults.height;
     this.fixedPixelRatio = options.pixelRatio;
     this.autoResize = options.autoResize !== false;
+    this.input = new InputManager(canvas, () => this);
     this.previousContain = {
       value: canvas.style.getPropertyValue('contain'),
       priority: canvas.style.getPropertyPriority('contain'),
@@ -345,6 +348,7 @@ export class Game extends EventTarget {
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     this.clock.suspend();
+    this.input.reset();
   }
 
   resume(): void {
@@ -538,6 +542,7 @@ export class Game extends EventTarget {
 
   private cleanup(): void {
     try {
+      this.input.destroy();
       this.observer?.disconnect();
     } finally {
       try {
@@ -603,6 +608,8 @@ export class Game extends EventTarget {
         this.resizeBacking(this.logicalWidth, this.logicalHeight);
       this.clock.tick(timestamp);
       const scene = this.currentScene;
+      scene?.camera2D.resize(this.logicalWidth, this.logicalHeight);
+      this.input.update();
       scene?.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)
@@ -622,6 +629,8 @@ export class Game extends EventTarget {
           : new RuntimeError('Frame rendering failed.', { cause }),
       );
       return;
+    } finally {
+      this.input.endFrame();
     }
     if (this.currentState === 'running')
       this.requestId = requestAnimationFrame(this.onFrame);

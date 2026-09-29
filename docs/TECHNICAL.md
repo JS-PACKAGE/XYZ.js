@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P03**。Camera、Input、3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P04**。3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -197,3 +197,10 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - Sprite 提供 texture、position、rotation（弧度）、scale、anchor（預設中心）、opacity、visible、zIndex；相同 zIndex 保持 Scene 加入順序。座標使用左上原點的 logical CSS pixels。
 - WebGPU 共用一個 Sprite pipeline，重用可成長的 instance buffer，依排序後相鄰 texture 合併 draw。GPU texture cache 與 AssetLoader 分離，未使用或已銷毀的資產會釋放 GPU resource。
 - 上傳採 premultiplied alpha，shader 同時乘 RGB／alpha 的 opacity，混色為 one／one-minus-src-alpha。無 Scene 保留 triangle；有 Scene 則只畫 Scene 內容。
+
+## 12. Camera 與 Input（P04）
+
+- 每個 Scene 擁有 Camera2D；`screen=(world-position)*zoom`，正 zoom 同時作用兩軸。Game 每幀在 update 前同步 viewport；可用兩方向轉換的 out 參數避免配置。resize 保留 pipeline、Texture 與 instance buffer。
+- InputManager 由 Game 擁有。Keyboard 使用 `KeyboardEvent.code`，忽略輸入欄位，不全面阻止瀏覽器預設操作。Pointer 使用 capture／cancel 並轉成 canvas content-box logical 座標，與 DPR 無關；canvas 可設定 `touch-action:none` 控制觸控捲動。
+- `update()` 在 Scene 前取得 Gamepad slots，`endFrame()` 在 finally 清除 pressed／released edges。pause、blur、hidden 清除 held state；destroy 移除 listeners。實際 gamepad 硬體尚未驗證，測試涵蓋連接／斷開 snapshot。
+- Pong 使用相機等比例縮放、键盤／拖曳／gamepad 控制、球拍碰撞與計分，不引入物理引擎。

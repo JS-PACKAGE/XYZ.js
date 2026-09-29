@@ -1,12 +1,12 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P03 are implemented**. Later phases remain tracked in PLAN.md; the version does not imply the entire roadmap is available. The package is not claimed published on npm yet.
+Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P04 are implemented**. Later phases remain tracked in PLAN.md; the version does not imply the entire roadmap is available. The package is not claimed published on npm yet.
 
 技術文件／Technical reference／技術資料：[docs/TECHNICAL.md](docs/TECHNICAL.md)（繁體中文）。
 
 ## 繁體中文
 
-### 目前可用（P01–P03）
+### 目前可用
 
 瀏覽器必須支援 WebGPU 並在安全來源執行（localhost 可用）。引擎提供 Game／Clock、WebGPU triangle、Scene／GameObject、內部 ECS、2D Math、AssetLoader／Texture／Sprite。`game.start()` 可不帶 Scene；也可 `game.start(scene)`，或先 `await game.setScene(scene)` 再 start。3D、Audio 與相容 backend 仍待後續階段。`auto` 目前只試 WebGPU。
 
@@ -33,11 +33,11 @@ game.start();
 
 開發：先執行 `npx pnpm install`，再執行 `npx pnpm dev`，於 WebGPU 瀏覽器開啟 `http://127.0.0.1:5173/examples/triangle/`。正式檢查命令：`npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check`；文件不聲稱這些檢查已執行。`npx pnpm build` 輸出可發佈的 `dist/`（含 JS 與 `.d.ts`）。npm 套件發佈並安裝後可使用上述 bare import；若不透過 npm/bundler，將完整 `dist/` 複製到網站（例如 `/vendor/xyz/dist/`），在瀏覽器改用 `import { Game } from '/vendor/xyz/dist/src/index.js'`，不要只複製入口檔。
 
-後續 P04 Camera／Input、P05 3D、P06 WebGL2→Canvas2D fallback 與 capabilities、P07 OPM.js 音效、P08 完整 hardening／六範例；細節與驗收條件見 `PLAN.md`、`ACCEPTANCE.md`。每階段驗收後立刻個別 `[Pxx]` commit，不 push。
+P04 已提供 Camera2D、Keyboard／Pointer／Gamepad 與 `/examples/pong/`。後續 3D、相容 backend、Audio 與 hardening 進度及證據見 `PLAN.md`、`ACCEPTANCE.md`。每階段驗收後立刻個別 `[Pxx]` commit，不 push。
 
 ## English
 
-### Available now (P01–P03)
+### Available now
 
 Run on a secure origin in a WebGPU-capable browser. Game, Clock, the WebGPU triangle, Scene/GameObject, internal ECS, 2D math, AssetLoader/Texture/Sprite are available. Use `game.start(scene)` or `await game.setScene(scene); game.start()`. Calling `start()` without a Scene retains the triangle. 3D, audio and compatibility backends remain planned; `auto` currently tries only WebGPU.
 
@@ -55,11 +55,11 @@ Add `<canvas id="game"></canvas>` to the page. Options include `width`/`height` 
 
 Install tools with `npx pnpm install`, start `npx pnpm dev`, then open `http://127.0.0.1:5173/examples/triangle/` in a WebGPU-capable browser. For project verification, run `npx pnpm build`, `npx pnpm typecheck`, `npx pnpm test`, `npx pnpm lint`, `npx pnpm format:check` (results are not asserted here). npm usage requires that this package has actually been published and installed. For unbundled vendor use, copy the **entire** compiled `dist/` tree into the site and import its `/vendor/xyz/dist/src/index.js` URL instead of the bare specifier; relative `.js` imports need the rest of `dist/`.
 
-Planned, not yet available: P04 camera/input; P05 3D rendering; P06 WebGL2/Canvas2D fallback and capabilities; P07 OPM.js audio; P08 hardening and six runnable examples. See `PLAN.md` and `ACCEPTANCE.md` for gates. Independently commit each verified `[Pxx]` phase immediately; never push automatically.
+P04 includes Camera2D, keyboard/pointer/gamepad input and `/examples/pong/`. See `PLAN.md` and `ACCEPTANCE.md` for remaining 3D, compatibility, audio and hardening gates. Independently commit each verified `[Pxx]` phase immediately; never push automatically.
 
 ## 日本語
 
-### 現在利用可能（P01–P03）
+### 現在利用可能
 
 WebGPU 対応ブラウザーのセキュアなオリジン（localhost 可）で利用します。Game／Clock、WebGPU 三角形、Scene／GameObject、内部 ECS、2D 数学、AssetLoader／Texture／Sprite を提供します。`game.start(scene)` または `await game.setScene(scene); game.start()` で Scene を開始できます。Scene なしの `start()` も利用可能です。3D、音声、互換 backend は今後の段階で、`auto` は現在 WebGPU のみ試します。
 
@@ -77,7 +77,7 @@ game.start();
 
 `npx pnpm install`、`npx pnpm dev` を実行し、WebGPU 対応ブラウザーで `http://127.0.0.1:5173/examples/triangle/` を開きます。検証コマンドは `npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check` です（ここでは実行結果を主張しません）。npm import は公開・インストール後に使用できます。bundler を使わない場合、ビルド済みの `dist/` **全体**をサイトにコピーし、bare specifier ではなく `/vendor/xyz/dist/src/index.js` のような URL から import してください。
 
-P04 Camera／Input、P05 3D、P06 WebGL2／Canvas2D 自動降格と capabilities、P07 OPM.js 音声、P08 hardening と六つのサンプルは今後の段階です。`PLAN.md` と `ACCEPTANCE.md` を参照してください。各段階の検収後すぐに `[Pxx]` で**個別 commit** し、push はしません。
+P04 は Camera2D、Keyboard／Pointer／Gamepad と `/examples/pong/` を提供します。今後の 3D、互換 backend、音声、hardening は `PLAN.md` と `ACCEPTANCE.md` を参照してください。各段階の検収後すぐに `[Pxx]` で個別 commit し、push はしません。
 
 ## Scene／Core World
 
@@ -112,3 +112,7 @@ game.start();
 ```
 
 `/examples/sprite/` demonstrates shared textures, transforms, opacity and z-order. Sprite destruction does not destroy its shared Texture; `game.assets` owns cached textures until Game destruction. Anchor defaults to the image center; coordinates use logical CSS pixels, right/down positive.
+
+## Camera／Input
+
+`scene.camera2D.position` is the world coordinate at the viewport's top-left; `zoom` scales both axes uniformly. `worldToScreen` and `screenToWorld` use logical pixels, independent of DPR. `game.input.keyboard.isDown('ArrowUp')`, `.wasPressed(code)`, `.wasReleased(code)` expose held/edge state. Pointer uses the same methods with button numbers and `.position`; `game.input.gamepads` retains browser slot indices. Edges are available during Scene updates and cleared afterward. Blur, hidden pages, pause and destruction clear held state.

@@ -7,3 +7,4 @@ export { GameObject } from './game-object.js';
 export { RuntimeError } from './errors.js';
 export { Sprite } from './sprite.js';
 export type { SpriteOptions } from './sprite.js';
+export { Camera2D } from './camera2d.js';

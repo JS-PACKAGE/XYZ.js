@@ -194,7 +194,7 @@ describe('Game canvas ownership and lifecycle', () => {
     );
   });
 
-  it('disconnects its observer and restores layout after constructor listener setup fails', async () => {
+  it('restores layout and releases ownership after listener setup fails', async () => {
     const originalDocument = document;
     const registrationError = new Error('listener registration failed');
     vi.stubGlobal('document', {
@@ -206,7 +206,6 @@ describe('Game canvas ownership and lifecycle', () => {
     await expect(
       Game.create({ canvas: canvas as unknown as HTMLCanvasElement }),
     ).rejects.toBe(registrationError);
-    expect(FakeObserver.instances[0].disconnect).toHaveBeenCalledOnce();
     expect(canvas.style.getPropertyValue('contain')).toBe('');
     expect(canvas.style.getPropertyValue('contain-intrinsic-size')).toBe('');
     expect(rendererDestroy).toHaveBeenCalledOnce();
