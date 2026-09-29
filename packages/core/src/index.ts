@@ -13,3 +13,4 @@ export type { GeometryData } from './geometry.js';
 export { Mesh, TextureMaterial } from './mesh.js';
 export type { MeshOptions, TextureMaterialOptions } from './mesh.js';
 export { PerspectiveCamera } from './perspective-camera.js';
+export { Primitive2D } from './primitive2d.js';

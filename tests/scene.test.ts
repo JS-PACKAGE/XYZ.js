@@ -69,6 +69,14 @@ beforeEach(() => {
   nextFrame = 0;
   renderer = {
     backend: 'webgpu',
+    capabilities: {
+      threeD: true,
+      compute: true,
+      customShaders: true,
+      storageBuffers: true,
+      instancing: true,
+      maxTextureSize: 4096,
+    },
     initialize: vi.fn(),
     beginFrame: vi.fn(() => calls.push('renderer:begin')),
     render: vi.fn(() => calls.push('renderer:render')),

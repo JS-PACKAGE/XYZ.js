@@ -91,6 +91,14 @@ interface CachedTexture {
 
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
+  readonly capabilities = {
+    threeD: true,
+    compute: true,
+    customShaders: true,
+    storageBuffers: true,
+    instancing: true,
+    maxTextureSize: 0,
+  };
   private canvas: HTMLCanvasElement | undefined;
   private context: GPUCanvasContext | undefined;
   private device: GPUDevice | undefined;
@@ -163,6 +171,7 @@ export class WebGPURenderer implements Renderer {
         );
       }
       this.device = device;
+      this.capabilities.maxTextureSize = device.limits.maxTextureDimension2D;
       // Install this before any asynchronous shader validation, so initialization-time loss is detected.
       void device.lost.then((info) => {
         if (this.destroyed) return;

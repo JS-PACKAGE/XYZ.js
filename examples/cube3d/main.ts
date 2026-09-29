@@ -5,12 +5,23 @@ import {
   Geometry,
   TextureMaterial,
   Sprite,
+  type RendererPreference,
 } from '../../src/index.js';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 let game: Game | undefined;
 try {
-  game = await Game.create({ canvas: '#game', width: 800, height: 450 });
+  game = await Game.create({
+    canvas: '#game',
+    width: 800,
+    height: 450,
+    renderer: (new URLSearchParams(location.search).get('renderer') ??
+      'auto') as RendererPreference,
+  });
+  if (!game.graphics.capabilities.threeD)
+    throw new Error(
+      'This backend has no 3D capability. Canvas2D intentionally does not render meshes.',
+    );
   game.addEventListener('error', (event) => {
     status.textContent = (event as CustomEvent<Error>).detail.message;
   });

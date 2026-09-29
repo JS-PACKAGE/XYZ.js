@@ -16,3 +16,7 @@ export class WebGPUDeviceLostError extends GraphicsError {}
 export class GraphicsBackendUnavailableError extends GraphicsError {}
 
 export class UnsupportedGraphicsError extends GraphicsError {}
+
+export class WebGL2InitializationError extends GraphicsError {}
+export class WebGL2ContextLostError extends GraphicsError {}
+export class Canvas2DInitializationError extends GraphicsError {}

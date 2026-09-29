@@ -99,6 +99,14 @@
 - 真實 Chromium／WebGPU `/examples/cube3d/` 顯示旋轉貼圖 cube、sphere 的透視與光照，以及 2D overlay。
 - 64×64 畫布讀回驗證：先加入近紅 quad、後加入遠藍 quad，中心仍為紅 `[255,0,0,255]`；隱藏近物件得藍；關閉 ambient／directional 得黑；開啟正向 directional 得紅；加入 2D 白 Sprite 得白。resize 後沒有 error 事件。
 
+## P06 Compatibility（驗收通過）
+
+- 真實 Chromium 操作 fallback-demo 下拉選單，WebGPU／WebGL2／Canvas2D 均顯示 Sprite／circle；GPU backends 顯示 lit cube；Canvas2D 不假裝有 3D。
+- 發現並修正 WebGL UV 多翻一次造成上下顛倒。修正後三 backend 的四個 sample pixels 完全一致：`[240,75,60,255]`、`[240,75,60,255]`、`[65,130,240,255]`、`[128,110,41,255]`，涵蓋方向與 alpha；GPU／GL 的近紅遠藍 depth 結果均為紅。
+- 真實 API failure injection：無 adapter→WebGL2；無 GPU／GL→Canvas2D；GPU configure 在 context 綁定後拋錯→WebGL2；強制 WebGPU 同樣失敗→WebGPUInitializationError，不切換。
+- cube3d 強制 Canvas2D 明確顯示 no 3D capability。實測為 Chromium，不等同宣稱其他瀏覽器已驗證。
+- build、typecheck、lint、format:check 通過；Vitest **14 檔／62 測試通過**。
+
 ## 後續階段
 
 | 階段                      | 硬指標                                                                                                                                             | 狀態                                    |
@@ -107,7 +115,7 @@
 | P03 Texture & Sprite      | 共用 texture 不重複下載；Sprite z-order／opacity 正確                                                                                              | 已通過，獨立 `[P03]` commit             |
 | P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 已通過，獨立 `[P04]` commit             |
 | P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 已通過，獨立 `[P05]` commit             |
-| P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 待實作、待驗；通過後獨立 `[P06]` commit |
+| P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 已通過，獨立 `[P06]` commit             |
 | P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 待實作、待驗；通過後獨立 `[P07]` commit |
 | P08 Hardening             | triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑；cube3d Canvas2D 明確無 3D；showcase 同場 2D＋3D＋音效；Vitest 全綠與交付清單全過 | 待實作、待驗；通過後獨立 `[P08]` commit |
 

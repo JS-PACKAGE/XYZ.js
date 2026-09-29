@@ -25,14 +25,14 @@
 | P03 — Texture & Sprite（已驗收）      | 有 cache 的 Asset Loader、Texture、Sprite、WGSL sprite pipeline、alpha、transform、z-order、sprite 範例                                                             | `[P03]`              |
 | P04 — Camera & Input（已驗收）        | Camera2D、Keyboard／Pointer Events／Gamepad、resize handling、pong 範例                                                                                             | `[P04]`              |
 | P05 — 3D Rendering Pipeline（已驗收） | Vector3／Matrix4／Quaternion、3D Transform、Mesh（基本幾何及自訂頂點）、貼圖材質、PerspectiveCamera、深度測試、ambient＋directional 光照、WGSL 3D 管線、cube3d 範例 | `[P05]`              |
-| P06 — Compatibility（原 v0.0.6）      | WebGL2（含 3D 管線）／Canvas2D、三級 auto fallback、Capability System、fallback-demo                                                                                | `[P06]`              |
+| P06 — Compatibility（已驗收）         | WebGL2（含 3D 管線）／Canvas2D、三級 auto fallback、Capability System、fallback-demo                                                                                | `[P06]`              |
 | P07 — Audio（原 v0.0.7）              | OPM.js v1.1.0 官方 release 完整 vendor＋LICENSE＋SHA256 驗證、AudioManager／AudioAsset／AudioChannel／OPMAdapter、unlock、聲部預算、Scene 整合                      | `[P07]`              |
 | P08 — Hardening（原 v0.0.8）          | 完整 Error hierarchy／Logging、device lost／resize 邊界、triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑、測試與文件收斂                           | `[P08]`              |
 
 ## 技術要點
 
 - Game 以 async factory 建立，`requestAnimationFrame` 驅動 Clock→更新→Renderer；秒為 delta 單位，最大 delta 預設 0.1s 並避免隱藏分頁時間累積，生命週期包含 pause／resume／resize／destroy。
-- Renderer 隔離 backend 實作；WebGPU 走 adapter→device→canvas context→configure，使用 preferred canvas format、WGSL；初始化失敗與 device lost 必須明確回報。P01 僅支援 WebGPU，`auto` 在缺乏 WebGPU 時明確失敗，不假裝已提供 fallback。
+- Renderer 隔離 backend；WebGPU 使用 WGSL，WebGL2 使用 GLSL。P06 已完成包含初始化失敗的三級 fallback；強制 backend 不切換，執行中 device/context loss 回報 fatal error。
 - 路線目標是遊戲邏輯使用 `graphics.capabilities` 而非 backend 名稱；WebGL2 使用 GLSL ES，Canvas2D 只支援基本 2D 並回報 `threeD === false`；不建自製 shader 語言。
 - Scene 為 world/lifecycle 容器，不是 Entity；公開 Sprite 等物件 facade，ECS 為內核。Asset cache 與 backend GPU resource 分離；同 Scene 的 3D 先作 depth-test，再以 z-order 疊加 2D。
 - Audio DSP／worklet／voice/scheduling 交由 OPM.js，XYZ.js 僅 orchestration；官方 release 整包保留 chunks／worklet，8 聲部（含 release）與 256 worklet 事件限制影響聲部預算及 look-ahead 排程；遵守瀏覽器 autoplay 手勢限制。
@@ -60,13 +60,13 @@
 | 1        | P02 已完成 transactional Scene 切換、cooperative cancellation 與 ECS                      | 舊 Scene 清理一次；準備失敗保留 active World                      |
 | 2        | P03 已完成共享下載 Promise、CPU Texture 與 backend GPU resource 生命週期分離              | 失敗及已銷毀資產可重新載入；Sprite 不銷毀共享 texture             |
 | 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援 | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback     |
-| 4        | P06 降級需處理 Canvas context 綁定及部分初始化失敗，不只檢查 navigator.gpu                | GPU device／context 初始化各失敗點仍能正確選擇下一 backend        |
+| 4        | P06 已以獨立 context canvas 解決 binding 後初始化失敗的 fallback                          | 實際 configure failure 降至 WebGL2；GPU／GL 均不可用降至 Canvas2D |
 | 5        | P08 建立多 Sprite 真實負载 benchmark，分開 CPU 提交、GC、GPU／呈現節奏                    | 固定資產及畫布規格，有可重現報告，不以 triangle 幀率推估          |
 | 6        | 發佈前確定授權、驗證 npm tarball 與無 bundler 消費端、決定支援的 Node 工具鏈與瀏覽器版本  | 乾淨環境 import JS／TS 產物成功；不依賴工作區 source 或未發佈檔案 |
 
 ## 交付前自檢
 
-- [x] 已完成 P01–P05 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
+- [x] 已完成 P01–P06 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
 - [x] build、typecheck、test、lint、format:check 已執行；結果記於 `ACCEPTANCE.md`。
 - [x] 真實 Chromium 開啟 triangle，確認畫面與錯誤分支；其他瀏覽器尚未驗證。
 - [x] 六件文件區分現在／未來功能，未留臨時測試檔或公開測試掛鉤。

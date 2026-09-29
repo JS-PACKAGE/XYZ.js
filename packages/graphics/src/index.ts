@@ -2,9 +2,11 @@ import type { Scene } from '../../core/src/scene.js';
 import {
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
-  WebGPUNotSupportedError,
 } from './errors.js';
 import { WebGPURenderer } from './webgpu-renderer.js';
+import { WebGL2Renderer } from './webgl2-renderer.js';
+import { Canvas2DRenderer } from './canvas2d-renderer.js';
+import { PresentedRenderer } from './presented-renderer.js';
 
 export {
   XYZError,
@@ -14,13 +16,26 @@ export {
   WebGPUDeviceLostError,
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
+  WebGL2InitializationError,
+  WebGL2ContextLostError,
+  Canvas2DInitializationError,
 } from './errors.js';
 
 export type GraphicsBackend = 'webgpu' | 'webgl2' | 'canvas2d';
 export type RendererPreference = GraphicsBackend | 'auto';
 
+export interface GraphicsCapabilities {
+  readonly threeD: boolean;
+  readonly compute: boolean;
+  readonly customShaders: boolean;
+  readonly storageBuffers: boolean;
+  readonly instancing: boolean;
+  readonly maxTextureSize: number;
+}
+
 export interface Renderer {
   readonly backend: GraphicsBackend;
+  readonly capabilities: GraphicsCapabilities;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(): void;
   render(scene?: Scene, width?: number, height?: number): void;
@@ -34,27 +49,84 @@ export async function createRenderer(
   preference: RendererPreference,
   onError: (error: Error) => void,
 ): Promise<Renderer> {
-  if (preference === 'webgl2' || preference === 'canvas2d') {
+  if (!['auto', 'webgpu', 'webgl2', 'canvas2d'].includes(preference))
     throw new GraphicsBackendUnavailableError(
-      `${preference} renderer is not implemented in P01; compatibility backends are planned for P06. No fallback was selected.`,
+      `Unknown graphics renderer preference ${String(preference)}.`,
     );
-  }
-  if (preference !== 'auto' && preference !== 'webgpu') {
-    throw new GraphicsBackendUnavailableError(
-      `Unknown graphics renderer preference ${String(preference)}; choose "auto", "webgpu", "webgl2", or "canvas2d".`,
-    );
-  }
-  const renderer = new WebGPURenderer(onError);
-  try {
-    await renderer.initialize(canvas);
-    return renderer;
-  } catch (error) {
-    if (preference === 'auto' && error instanceof WebGPUNotSupportedError) {
-      throw new UnsupportedGraphicsError(
-        'No graphics backend is available: WebGPU is unavailable, and WebGL2/Canvas2D are not implemented until P06.',
-        { cause: error },
-      );
+  const candidates: GraphicsBackend[] =
+    preference === 'auto' ? ['webgpu', 'webgl2', 'canvas2d'] : [preference];
+  const failures: unknown[] = [];
+  for (const backend of candidates) {
+    let published = false;
+    let active = true;
+    let initializationError: Error | undefined;
+    const report = (error: Error): void => {
+      if (!active) return;
+      if (published) onError(error);
+      else initializationError = error;
+    };
+    const renderer =
+      backend === 'webgpu'
+        ? new WebGPURenderer(report)
+        : backend === 'webgl2'
+          ? new WebGL2Renderer(report)
+          : new Canvas2DRenderer(report);
+    // A bound context cannot change type. Failed candidates never bind the user's canvas.
+    const target =
+      preference === 'auto' ? document.createElement('canvas') : canvas;
+    if (target !== canvas) {
+      target.width = canvas.width;
+      target.height = canvas.height;
     }
-    throw error;
+    try {
+      await renderer.initialize(target);
+      if (initializationError) throw initializationError;
+    } catch (cause) {
+      active = false;
+      let failure = cause;
+      try {
+        renderer.destroy();
+      } catch (cleanup) {
+        failure = new AggregateError(
+          [cause, cleanup],
+          `${backend} initialization and cleanup failed.`,
+        );
+      }
+      if (preference !== 'auto') throw failure;
+      failures.push(failure);
+      continue;
+    }
+    if (preference === 'auto') {
+      const presented = new PresentedRenderer(renderer, target);
+      try {
+        await presented.initialize(canvas);
+        if (initializationError) throw initializationError;
+      } catch (cause) {
+        active = false;
+        try {
+          presented.destroy();
+        } catch (cleanup) {
+          failures.push(
+            new AggregateError(
+              [cause, cleanup],
+              'Presentation cleanup failed.',
+            ),
+          );
+          continue;
+        }
+        failures.push(cause);
+        continue;
+      }
+      published = true;
+      return presented;
+    }
+    published = true;
+    return renderer;
   }
+  throw new UnsupportedGraphicsError(
+    'No graphics backend could initialize (WebGPU → WebGL2 → Canvas2D).',
+    {
+      cause: new AggregateError(failures, 'Graphics initialization failures.'),
+    },
+  );
 }

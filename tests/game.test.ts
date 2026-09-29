@@ -75,6 +75,14 @@ beforeEach(() => {
   rendererDestroy = vi.fn();
   renderer = {
     backend: 'webgpu',
+    capabilities: {
+      threeD: true,
+      compute: true,
+      customShaders: true,
+      storageBuffers: true,
+      instancing: true,
+      maxTextureSize: 4096,
+    },
     initialize: vi.fn(),
     beginFrame: vi.fn(),
     render: vi.fn(),

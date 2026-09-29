@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P05**。相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P06**。Audio 與 hardening 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -48,13 +48,12 @@ fps           = frameInterval > 0 ? 1 / frameInterval : 0
 
 ## 3. 圖形初始化與能力邊界
 
-P01 只有 WebGPU：
+P06 提供三級 backend：
 
-| renderer 設定        | 行為                                                     |
-| -------------------- | -------------------------------------------------------- |
-| `webgpu`             | 初始化 WebGPU；失敗回報具體錯誤                          |
-| `auto`               | 目前只嘗試 WebGPU；缺乏支援回報 UnsupportedGraphicsError |
-| `webgl2`／`canvas2d` | GraphicsBackendUnavailableError；不偷偷改用 WebGPU       |
+| renderer 設定                  | 行為                                                                                          |
+| ------------------------------ | --------------------------------------------------------------------------------------------- |
+| `webgpu`／`webgl2`／`canvas2d` | 直接初始化指定 backend，失敗不切換                                                            |
+| `auto`                         | 獨立 canvas 依 WebGPU→WebGL2→Canvas2D 初始化；全失敗回 UnsupportedGraphicsError 並保留 causes |
 
 WebGPU 要求安全來源及瀏覽器／driver 支援。localhost 可用於開發；Production 必須採用符合瀏覽器安全來源要求的部署。`navigator.gpu` 存在不等於一定能取得 adapter 或 device。
 
@@ -213,3 +212,11 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - WebGPU 使用共用 mesh pipeline、每 mesh 重用 uniform buffer、geometry／texture cache。normal 使用 model 3×3 inverse-transpose，支持非均勻 scale。光照為 ambient 加 directional diffuse。
 - 3D pass 使用 depth24plus／less／depth write，再以 load color 的獨立 pass 疊加 Sprite。材質 alpha 採 premultiplied blending；3D 依 Scene 順序提交並寫 depth，透明幾何若相互交疊需由呼叫者按遠到近加入，不提供 order-independent transparency。
 - resize 保留 shader／geometry／texture，只使舊 depth texture 失效；destroy 釋放所有 GPU caches。
+
+## 14. Compatibility（P06）
+
+- 瀏覽器 Canvas context 綁定不可逆。auto 不在使用者 canvas 上嘗試 GPU context，而是以獨立 canvas 完成 backend 初始化，再由原 canvas 的 2D context 呈現；不替換 DOM，也不破壞 input listeners。每幀增加一次 drawImage copy，效能應獨立量測。強制 backend 無此 copy。
+- WebGL2 使用 instanced Sprite batching、共用 GLSL pipelines 與 geometry／texture cache。Mesh 將 WebGPU 0..1 clip depth 轉成 GL −1..1，使用同樣的 normal／light／premultiplied blending。
+- ImageBitmap 為 straight alpha，上傳 WebGL 不依賴會被忽略的 pixelStore flags；shader 乘 alpha。UV=0 對應圖片第一列，不額外翻轉。
+- Canvas2D 使用 native affine／drawImage／alpha；triangle 為漸層示意而非 GPU 的逐頂點插值。Primitive2D rectangle／circle 在建立時 rasterize 一次，之後重用 Sprite 路徑，destroy 只釋放自己的生成 Texture。
+- capabilities：WebGPU 全部 boolean=true；WebGL2 threeD／customShaders／instancing=true，其餘 false；Canvas2D 全 false。maxTextureSize 為 backend 上限（Canvas2D 採保守 8192）。這是能力查詢，不是 custom shader 或 compute 的公開執行 API。
