@@ -8,3 +8,8 @@ export { RuntimeError } from './errors.js';
 export { Sprite } from './sprite.js';
 export type { SpriteOptions } from './sprite.js';
 export { Camera2D } from './camera2d.js';
+export { Geometry, BoxGeometry } from './geometry.js';
+export type { GeometryData } from './geometry.js';
+export { Mesh, TextureMaterial } from './mesh.js';
+export type { MeshOptions, TextureMaterialOptions } from './mesh.js';
+export { PerspectiveCamera } from './perspective-camera.js';

@@ -9,6 +9,7 @@ import {
   WebGPUNotSupportedError,
 } from './errors.js';
 import type { Renderer } from './index.js';
+import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
 
 const triangleShader = /* wgsl */ `
 struct VertexOutput {
@@ -95,6 +96,7 @@ export class WebGPURenderer implements Renderer {
   private device: GPUDevice | undefined;
   private pipeline: GPURenderPipeline | undefined;
   private spritePipeline: GPURenderPipeline | undefined;
+  private meshPipeline: WebGPUMeshPipeline | undefined;
   private viewportBuffer: GPUBuffer | undefined;
   private viewportBindGroup: GPUBindGroup | undefined;
   private spriteSampler: GPUSampler | undefined;
@@ -198,6 +200,7 @@ export class WebGPURenderer implements Renderer {
       let shaderErrors: string[] = [];
       let pipeline: GPURenderPipeline | undefined;
       let spritePipeline: GPURenderPipeline | undefined;
+      let meshPipeline: WebGPUMeshPipeline | undefined;
       let validationError: GPUError | null = null;
       try {
         context.configure({ device, format, alphaMode: 'opaque' });
@@ -280,6 +283,11 @@ export class WebGPURenderer implements Renderer {
               },
               primitive: { topology: 'triangle-list' },
             });
+            meshPipeline = await WebGPUMeshPipeline.initialize(
+              device,
+              format,
+              () => this.destroyed,
+            );
           }
         }
       } finally {
@@ -303,6 +311,7 @@ export class WebGPURenderer implements Renderer {
       if (this.lostError) throw this.lostError;
       this.pipeline = pipeline;
       this.spritePipeline = spritePipeline;
+      this.meshPipeline = meshPipeline;
     } catch (error) {
       const destroyed = this.destroyed;
       this.destroy();
@@ -336,6 +345,7 @@ export class WebGPURenderer implements Renderer {
     const encoder = this.encoder;
     const context = this.context;
     const pipeline = this.pipeline;
+    let aspect = 1;
     if (!encoder || !context || !pipeline || this.frameRendered) {
       throw new GraphicsError(
         'WebGPU render requires an active frame and may be called only once per frame.',
@@ -357,6 +367,7 @@ export class WebGPURenderer implements Renderer {
           'WebGPU sprite rendering requires positive finite logical width and height.',
         );
       }
+      aspect = logicalWidth / logicalHeight;
       this.prepareSprites(scene, device, logicalWidth, logicalHeight);
     } else {
       this.sprites.length = 0;
@@ -365,29 +376,42 @@ export class WebGPURenderer implements Renderer {
     }
     this.colorAttachment.view = context.getCurrentTexture().createView();
     try {
-      const pass = encoder.beginRenderPass(this.renderPassDescriptor);
-      if (scene) {
-        // Scene coordinates use logical CSS pixels rather than the DPR-scaled backing size.
-        pass.setViewport(0, 0, this.canvas!.width, this.canvas!.height, 0, 1);
-        if (this.sprites.length) this.drawSprites(pass);
-      } else {
-        // Preserve P01's centered square triangle when no Scene is active.
-        pass.setViewport(
-          this.viewportX,
-          this.viewportY,
-          this.viewportSide,
-          this.viewportSide,
-          0,
-          1,
-        );
-        pass.setPipeline(pipeline);
-        pass.draw(3);
+      const drewMeshes = this.meshPipeline!.render(
+        scene,
+        encoder,
+        this.colorAttachment.view,
+        this.canvas!.width,
+        this.canvas!.height,
+        aspect,
+        this.colorAttachment.clearValue!,
+      );
+      if (!drewMeshes || !scene || this.sprites.length) {
+        this.colorAttachment.loadOp = drewMeshes ? 'load' : 'clear';
+        const pass = encoder.beginRenderPass(this.renderPassDescriptor);
+        if (scene) {
+          // Scene coordinates use logical CSS pixels rather than the DPR-scaled backing size.
+          pass.setViewport(0, 0, this.canvas!.width, this.canvas!.height, 0, 1);
+          if (this.sprites.length) this.drawSprites(pass);
+        } else {
+          // Preserve P01's centered square triangle when no Scene is active.
+          pass.setViewport(
+            this.viewportX,
+            this.viewportY,
+            this.viewportSide,
+            this.viewportSide,
+            0,
+            1,
+          );
+          pass.setPipeline(pipeline);
+          pass.draw(3);
+        }
+        pass.end();
       }
-      pass.end();
       this.frameRendered = true;
     } finally {
       // WebGPU consumes the descriptor during beginRenderPass; do not retain a swapchain view.
       this.colorAttachment.view = undefined;
+      this.colorAttachment.loadOp = 'clear';
     }
   }
 
@@ -442,6 +466,7 @@ export class WebGPURenderer implements Renderer {
     this.viewportX = (pixelWidth - side) / 2;
     this.viewportY = (pixelHeight - side) / 2;
     this.viewportSide = side;
+    this.meshPipeline?.resize(pixelWidth, pixelHeight);
   }
 
   private prepareSprites(
@@ -616,6 +641,8 @@ export class WebGPURenderer implements Renderer {
     this.encoder = undefined;
     this.colorAttachment.view = undefined;
     this.submissions.length = 0;
+    this.meshPipeline?.destroy();
+    this.meshPipeline = undefined;
     this.spritePipeline = undefined;
     this.viewportBuffer?.destroy();
     this.viewportBuffer = undefined;

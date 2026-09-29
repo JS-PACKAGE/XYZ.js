@@ -1,6 +1,8 @@
-import { Transform2D } from '../../math/src/index.js';
+import { Transform2D, Transform3D, Vector3 } from '../../math/src/index.js';
 import { World, type Entity } from '../../ecs/src/world.js';
 import { Camera2D } from './camera2d.js';
+import { Mesh } from './mesh.js';
+import { PerspectiveCamera } from './perspective-camera.js';
 import type { Game } from './game.js';
 import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
@@ -10,6 +12,14 @@ import { Sprite } from './sprite.js';
 export class Scene {
   readonly world = new World();
   readonly camera2D = new Camera2D();
+  readonly camera3D = new PerspectiveCamera();
+  ambientLight = 0.3;
+  /** Direction points from a surface toward the light. */
+  directionalLight = {
+    direction: new Vector3(1, 1, 1).normalize(),
+    color: [1, 1, 1] as [number, number, number],
+    intensity: 0.7,
+  };
   private readonly registrations = new Map<SceneObject, Entity>();
   private readonly registeredObjects = new Set<SceneObject>();
   private owner: Game | undefined;
@@ -39,6 +49,10 @@ export class Scene {
         this.world.addComponent(entity, Transform2D, object.transform);
       if (object instanceof Sprite)
         this.world.addComponent(entity, Sprite, object);
+      if (object instanceof Mesh) {
+        this.world.addComponent(entity, Transform3D, object.transform);
+        this.world.addComponent(entity, Mesh, object);
+      }
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
     } catch (error) {

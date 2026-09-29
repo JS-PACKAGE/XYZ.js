@@ -1,6 +1,6 @@
 # XYZ.js 設計與階段邊界
 
-## 目前交付：P01–P04
+## 目前交付：P01–P05
 
 `xyz.js` npm 版本設定為 `1.0.0`，**不表示八階段全部完成**。P01 的路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Clock → `packages/graphics` 的 Renderer → WebGPU canvas。`examples/triangle/` 透過 Game 走這條正式路徑，不建立第二套範例渲染器。
 
@@ -16,7 +16,7 @@
 ## World 與後續架構
 
 - P02 Scene 已完成：候選初始化成功才發佈，準備失敗保留舊 Scene，取消使用 AbortSignal，清理同步且只執行一次。Scene／物件均不可跨 owner 共用；移除物件可重新加入，destroy 則終結生命週期。P03 已將 Asset cache 與 renderer-specific GPU resources 分離，Sprite 支援貼圖、opacity、z-order，共用 instanced pipeline。
-- P04 已完成 Camera2D、Keyboard、Pointer Events、Gamepad；Screen↔World 使用 logical pixels 可逆轉換，Pong 保持等比例。P05 將加入 Mesh（含自訂 vertex data 與 cube／sphere／plane／quad）、貼圖材質、PerspectiveCamera、depth、ambient＋directional lighting；同 Scene 先渲染 3D 再按 z-order 渲染 2D。v1 路線不含進階 3D、模型載入或自製 Shader IR。
+- P04 已完成 Camera2D 與輸入。P05 已完成 Vector3／Quaternion／Matrix4／Transform3D、Mesh（自訂頂點與 cube／sphere／plane／quad）、貼圖材質、PerspectiveCamera、depth、ambient＋directional lighting；同 Scene 先渲染 3D 再按 z-order 疊加 2D。GPU 幾何／材質資源與 CPU 資產分離，resize 只更換 depth attachment。v1 路線不含進階 3D、模型載入或自製 Shader IR。
 - P06 實現固定 `auto` 次序 WebGPU→WebGL2→Canvas2D（含初始化失敗 fallback），強制指定失敗**絕不**自動切換；`graphics.capabilities` 引導遊戲邏輯，不依賴 backend 字串。WebGL2 內建 GLSL ES，Canvas2D 僅基本 2D、`threeD:false`，不實作 software rasterizer。
 - P07 音效 core 採 OPM.js v1.1.0 官方發佈包（需驗證 SHA256SUMS、保留 LICENSE 與完整 `dist/` 工作檔案），引擎只負責 facade／channels／game 與 Scene lifecycle，不 fork 也不重寫 DSP。設計受 8 聲部（含 release）及 256 worklet 排程佇列限制；首次使用者手勢前遵守 autoplay policy。
 - P08 收斂完整 Error hierarchy、logging、裝置遺失等邊界和六個驗收範例。每階段驗證證據記錄於 `ACCEPTANCE.md`，驗收後立即獨立 `[Pxx]` commit，絕不 push。

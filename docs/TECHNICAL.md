@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P04**。3D、相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P05**。相容 backend 與 Audio 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -204,3 +204,12 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - InputManager 由 Game 擁有。Keyboard 使用 `KeyboardEvent.code`，忽略輸入欄位，不全面阻止瀏覽器預設操作。Pointer 使用 capture／cancel 並轉成 canvas content-box logical 座標，與 DPR 無關；canvas 可設定 `touch-action:none` 控制觸控捲動。
 - `update()` 在 Scene 前取得 Gamepad slots，`endFrame()` 在 finally 清除 pressed／released edges。pause、blur、hidden 清除 held state；destroy 移除 listeners。實際 gamepad 硬體尚未驗證，測試涵蓋連接／斷開 snapshot。
 - Pong 使用相機等比例縮放、键盤／拖曳／gamepad 控制、球拍碰撞與計分，不引入物理引擎。
+
+## 13. 3D（P05）
+
+- Matrix4 為 column-major，RH／−Z forward，perspective 使用 WebGPU depth 0..1；Quaternion.setFromEuler 使用弧度。Transform3D 重用矩陣；Mesh 與 Transform3D 註冊到 Scene 的 World。
+- Geometry 拷貝並驗證自訂 position／normal／uv／index 資料，合併成 stride=8 floats，indices 為 Uint32Array。建構後不可直接修改 buffers。cube／sphere／plane／quad 提供 outward normals／winding；BoxGeometry.unit 為命名基本幾何工廠。
+- Mesh 不銷毀共享 Geometry／TextureMaterial／Texture。Material 提供 texture、RGB tint 與 opacity；相機由 fov／near／far、position／Quaternion rotation 計算 view-projection。
+- WebGPU 使用共用 mesh pipeline、每 mesh 重用 uniform buffer、geometry／texture cache。normal 使用 model 3×3 inverse-transpose，支持非均勻 scale。光照為 ambient 加 directional diffuse。
+- 3D pass 使用 depth24plus／less／depth write，再以 load color 的獨立 pass 疊加 Sprite。材質 alpha 採 premultiplied blending；3D 依 Scene 順序提交並寫 depth，透明幾何若相互交疊需由呼叫者按遠到近加入，不提供 order-independent transparency。
+- resize 保留 shader／geometry／texture，只使舊 depth texture 失效；destroy 釋放所有 GPU caches。

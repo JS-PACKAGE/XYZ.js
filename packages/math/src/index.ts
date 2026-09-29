@@ -140,3 +140,6 @@ export class Transform2D {
     return this.matrix.compose(this.position, this.rotation, this.scale);
   }
 }
+
+export { Matrix4, Quaternion, Transform3D, Vector3 } from './math3d.js';
+export type { Transform3DOptions } from './math3d.js';
