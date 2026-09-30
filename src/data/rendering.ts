@@ -22,6 +22,11 @@ export const environmentLimits = Object.freeze({
   proxyWidth: 64,
 });
 
+/** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
+export const graphicsRecoveryLimits = Object.freeze({
+  restoreTimeoutMs: 10000,
+});
+
 export const renderingLimits = Object.freeze({
   pointLights: MAX_POINT_LIGHTS,
   spotLights: MAX_SPOT_LIGHTS,

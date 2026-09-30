@@ -1,3 +1,4 @@
+import { graphicsRecoveryLimits } from '../src/data/rendering.js';
 import { describe, expect, it, vi } from 'vitest';
 import { ResilientRenderer } from '../packages/graphics/src/resilient-renderer.js';
 import {
@@ -166,6 +167,52 @@ describe('ResilientRenderer', () => {
     expect(created).toHaveLength(1);
     expect(hooks.onRecovered).not.toHaveBeenCalled();
     expect(report).not.toHaveBeenCalled();
+  });
+
+  it('reports a GraphicsError when a lost WebGL2 context is never restored', async () => {
+    vi.useFakeTimers();
+    try {
+      const { renderer, created, report, hooks, canvas } = setup();
+      await renderer.initialize(canvas);
+      created[0].onError(new WebGL2ContextLostError('lost'));
+      await vi.advanceTimersByTimeAsync(
+        graphicsRecoveryLimits.restoreTimeoutMs - 1,
+      );
+      expect(renderer.isRecovering).toBe(true);
+      expect(report).not.toHaveBeenCalled();
+      await vi.advanceTimersByTimeAsync(1);
+      expect(renderer.isRecovering).toBe(false);
+      expect(created).toHaveLength(1);
+      expect(hooks.onRecovered).not.toHaveBeenCalled();
+      const failure = report.mock.calls[0][0] as GraphicsError;
+      expect(failure).toBeInstanceOf(GraphicsError);
+      expect((failure.cause as Error).message).toMatch(/not restored/);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('cancels the restore timeout once the context is restored or destroyed', async () => {
+    vi.useFakeTimers();
+    try {
+      const first = setup();
+      await first.renderer.initialize(first.canvas);
+      first.created[0].onError(new WebGL2ContextLostError('lost'));
+      expect(vi.getTimerCount()).toBe(1);
+      first.canvas.dispatchEvent(new Event('webglcontextrestored'));
+      await settle();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(first.hooks.onRecovered).toHaveBeenCalledOnce();
+      const second = setup();
+      await second.renderer.initialize(second.canvas);
+      second.created[0].onError(new WebGL2ContextLostError('lost'));
+      second.renderer.destroy();
+      await settle();
+      expect(vi.getTimerCount()).toBe(0);
+      expect(second.report).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('does not recover from loss reported before initialization finished', async () => {

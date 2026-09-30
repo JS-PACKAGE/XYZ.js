@@ -23,6 +23,7 @@ import {
   WebGL2ContextLostError,
   WebGPUDeviceLostError,
 } from './errors.js';
+import { graphicsRecoveryLimits } from '../../../src/data/rendering.js';
 
 import type { RenderStats } from './render-stats.js';
 
@@ -149,17 +150,31 @@ export class ResilientRenderer implements Renderer {
   }
 
   private contextRestored(canvas: HTMLCanvasElement): Promise<void> {
-    return new Promise((resolve) => {
+    return new Promise((resolve, reject) => {
       const signal = this.abort.signal;
-      const restored = (): void => {
+      if (signal.aborted) return resolve();
+      const finish = (): void => {
+        clearTimeout(timer);
+        canvas.removeEventListener('webglcontextrestored', restored);
         signal.removeEventListener('abort', aborted);
+      };
+      const restored = (): void => {
+        finish();
         resolve();
       };
       const aborted = (): void => {
-        canvas.removeEventListener('webglcontextrestored', restored);
+        finish();
         resolve();
       };
-      if (signal.aborted) return resolve();
+      // A browser may never restore the context (for example after repeated losses).
+      const timer = setTimeout(() => {
+        finish();
+        reject(
+          new GraphicsError(
+            `The WebGL2 context was not restored within ${graphicsRecoveryLimits.restoreTimeoutMs} ms.`,
+          ),
+        );
+      }, graphicsRecoveryLimits.restoreTimeoutMs);
       canvas.addEventListener('webglcontextrestored', restored, { once: true });
       signal.addEventListener('abort', aborted, { once: true });
     });
