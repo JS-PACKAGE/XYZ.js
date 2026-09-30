@@ -16,6 +16,10 @@ export declare const environmentLimits: Readonly<{
     /** Diffuse SH and blurred specular levels are filtered from at most this width. */
     proxyWidth: 64;
 }>;
+/** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
+export declare const graphicsRecoveryLimits: Readonly<{
+    restoreTimeoutMs: 10000;
+}>;
 export declare const renderingLimits: Readonly<{
     pointLights: 8;
     spotLights: 8;
