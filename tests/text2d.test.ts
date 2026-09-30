@@ -19,6 +19,7 @@ beforeEach(() => {
           actualBoundingBoxAscent: 22,
           actualBoundingBoxDescent: 8,
         }),
+        scale() {},
         fillText() {},
       }),
     }),
@@ -54,7 +55,7 @@ it('only publishes the latest text and releases out-of-order bitmaps', async () 
   pending[0]!(stale);
   await first;
   expect(label.text).toBe('second');
-  expect(label.texture.image).toBe(newer);
+  expect((label.texture as Texture).image).toBe(newer);
   expect(original.destroyed).toBe(true);
   expect(stale.close).toHaveBeenCalledOnce();
   expect(newer.close).not.toHaveBeenCalled();
@@ -102,6 +103,7 @@ it('releases late updates after destroy without destroying a borrowed replacemen
   const label = await Text2D.create('old');
   const original = label.texture;
   const shared = new Texture(bitmap());
+  label.view = undefined;
   label.texture = shared;
   let resolve!: (image: ImageBitmap) => void;
   vi.stubGlobal(
