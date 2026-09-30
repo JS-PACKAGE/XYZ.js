@@ -1,8 +1,8 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.5.0**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Current integration passes build/typecheck/lint/format and **49 files/338 tests**. The package is not published on npm. The root package is licensed under **Apache-2.0** (see [LICENSE](LICENSE)); the already-published v1.5 and earlier release assets still carry `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.5.1**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Current integration passes build/typecheck/lint/format and **49 files/340 tests**. The package is not published on npm. The root package is licensed under **Apache-2.0** (see [LICENSE](LICENSE)); release assets up to v1.5 still carry `UNLICENSED` metadata, and v1.5.1 is the first release to carry Apache-2.0.
 
-GitHub **v1.5** ships `xyz.js-1.5.0.tgz` and `SHA256SUMS` (earlier tags v1.0–v1.4 remain). The 1.5 additions are listed per language below and recorded in [ACCEPTANCE](ACCEPTANCE.md); the P21–P29 2D profile is included since v1.3.
+GitHub **v1.5.1** ships `xyz.js-1.5.1.tgz` and `SHA256SUMS` (earlier tags v1.0–v1.5 remain). The 1.5 additions are listed per language below and recorded in [ACCEPTANCE](ACCEPTANCE.md); the P21–P29 2D profile is included since v1.3. v1.5.1 adds the Apache-2.0 license, a 10 s WebGL2 context-restore timeout and the `firstperson` example.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
