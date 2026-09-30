@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine, not a complete game. This guide covers package 1.1.0, P01–P08, Text2D/SceneTimers and P09–P12 advanced 3D. Its three.js-inspired API is not drop-in compatible and does not implement every addon; no runtime dependency was added. Versioning/publication remain the owner's decision; npm is unpublished and the root license is UNLICENSED. See [acceptance records](../ACCEPTANCE.md) for measured support and limitations.
+XYZ.js is a browser game engine, not a complete game. This guide covers package 1.5.0, P01–P08, Text2D/SceneTimers and P09–P12 advanced 3D, plus the v1.4/v1.5 additions. Its three.js-inspired API is not drop-in compatible and does not implement every addon; no runtime dependency was added. Versioning/publication remain the owner's decision; npm is unpublished and the root package is licensed under Apache-2.0. See [acceptance records](../ACCEPTANCE.md) for measured support and limitations.
 
 ## 1. Start the Development Environment
 
@@ -252,7 +252,7 @@ npx pnpm@12.6.0 lint
 npx pnpm@12.6.0 format:check
 ```
 
-Tool checks do not replace actual browser output and interaction verification. Safari/Edge/Firefox, physical gamepads, and the complete BFCache matrix remain unverified. See the [benchmark](../benchmarks/sprites/) for measurements; approximately 60fps is not a cross-device guarantee. Preserve the OPM LICENSE and complete dist tree, and obtain the owner's root-license decision before public distribution.
+Tool checks do not replace actual browser output and interaction verification. Safari/Edge/Firefox, physical gamepads, and the complete BFCache matrix remain unverified. See the [benchmark](../benchmarks/sprites/) for measurements; approximately 60fps is not a cross-device guarantee. When distributing, keep the root `LICENSE`, the OPM LICENSE and the complete dist tree.
 
 ## 10. Canvas Text and Scene-Local Timers
 

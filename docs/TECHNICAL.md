@@ -107,7 +107,7 @@ A website without a bundler can copy the complete `dist/` tree:
 </script>
 ```
 
-Do not copy index.js alone: its relative `.js` imports require the remaining directories. Declaration files are not executed by the browser but provide types to TypeScript consumers. The package is currently UNLICENSED. The owner must decide the license before public distribution; do not substitute an open-source license without authorization.
+Do not copy index.js alone: its relative `.js` imports require the remaining directories. Declaration files are not executed by the browser but provide types to TypeScript consumers. The root package is licensed under Apache-2.0 (see `LICENSE`), and `package.json` declares `license: "Apache-2.0"`; release assets published up to v1.5 still carry UNLICENSED metadata.
 
 ## 6. Verification and Performance Terminology
 
@@ -241,7 +241,7 @@ See ACCEPTANCE for before/after measurements. Test-side interception of real GPU
 - Official OPM globally steals the oldest voice for a ninth voice, and soft stop retains a release tail. Eight isolated instances therefore allow SFX overflow without interrupting BGM or forking the vendor. Only the oldest SFX may be hard-reset. If none is available, skip the new note without cancelling the music track. The budget includes UI and release tails.
 - Scheduling uses a 25ms timer and 100ms lookahead. After throttling, skip missed loops rather than replaying the entire missed song. Timing/slot constants live in `src/data/audio.ts`. Game pause does not mean audio pause; explicitly stop when needed.
 - `asset.play(options)` and `game.audio.play(asset, options)` return AudioPlayback; stop preserves natural release. Playback belongs to the current Scene by default or an explicitly supplied `scene`. Without a Scene, stop, completion, or Game destruction governs its lifetime. Scene destruction hard-cancels nonpersistent scheduling and release tails. `persistent:true` survives Scene changes, but Game destruction closes everything. `game.audio.opm` exposes the first official instance as an advanced escape hatch; direct use bypasses budgeting and lifecycle management.
-- The vendor tree contains the [source and SHA256 manifest](../vendor/opm/manifest.json) and [official Apache-2.0 LICENSE](../vendor/opm/LICENSE), without private patches. The root package remains UNLICENSED. Build copies the complete vendor into dist, preserving relative chunk/worklet URLs. Deployment must retain the entire dist tree, and AudioWorklet also requires a secure context.
+- The vendor tree contains the [source and SHA256 manifest](../vendor/opm/manifest.json) and [official Apache-2.0 LICENSE](../vendor/opm/LICENSE), without private patches. The root package is separately licensed under Apache-2.0. Build copies the complete vendor into dist, preserving relative chunk/worklet URLs. Deployment must retain the entire dist tree, and AudioWorklet also requires a secure context.
 
 ## 16. Logging and Hardening
 

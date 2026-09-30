@@ -1,8 +1,8 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Final integration passed build/typecheck/lint/format and **37 files/252 tests**, with packed ES2022 consumer verification. The package is not published on npm; its license remains UNLICENSED.
+Browser-native TypeScript game engine. Package metadata is **1.5.0**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Current integration passes build/typecheck/lint/format and **49 files/338 tests**. The package is not published on npm. The root package is licensed under **Apache-2.0** (see [LICENSE](LICENSE)); the already-published v1.5 and earlier release assets still carry `UNLICENSED` metadata.
 
-GitHub **v1.2** points to exact source commit `299afe29713b71dca2d120d3a4452812208c3c27` (historical source metadata 1.1.0). Its corrected release asset is `xyz.js-1.2.0.tgz` with internal metadata 1.2.0 and unchanged code bytes; this working tree is not a version bump or npm publication. Pending P21–P29 changes are not in that release. See [release evidence](ACCEPTANCE.md).
+GitHub **v1.5** ships `xyz.js-1.5.0.tgz` and `SHA256SUMS` (earlier tags v1.0–v1.4 remain). The 1.5 additions are listed per language below and recorded in [ACCEPTANCE](ACCEPTANCE.md); the P21–P29 2D profile is included since v1.3.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -47,7 +47,9 @@ game.start();
 
 Build 自動最小化 `dist/` 的引擎 JavaScript，保留 ESM 目錄、公開名稱、宣告與 source maps；官方已最小化的 OPM vendor 原樣複製。實測 36 個引擎 JS 約減少 48% 體積；最新安全修正與發佈驗證為 17 檔／82 測試通過。
 
-可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）、`advanced3d`（進階 3D）。驗收證據見 `ACCEPTANCE.md`；本輪不自動 commit／push／publish，版本維持 1.1.0，升版由所有者決定。
+v1.4／v1.5 新增（皆 additive，無新 runtime dependency）：空間音效（`sample.play(..., { spatial })`、`audio.listener`）、標準 mapping Gamepad、glTF morph targets、`EnvironmentMap`（IBL＋skybox）、視錐剔除、glTF 常用 extension（emissive strength／unlit 近似／texture transform／lights_punctual）、`scene.fog`、WebGPU 4× MSAA（`antialias`，預設 true）、半透明排序、`scene.effects3D`、`FirstPersonControls`（Pointer Lock）、`graphics.stats`，以及 WebGL2 context／WebGPU device 遺失復原（`recoverGraphics`，預設 true；遺失後 RenderTexture2D／snapshot 需重建）。範例 `firstperson` 展示 fog、culling 統計、3D-only 後處理與第一人稱控制。WebGPU 真實 device loss、Pointer Lock 實機、實體手把與空間音效聽感尚未驗證；glTF `COLOR_0` 頂點色仍被拒絕，Draco／KTX2 因需外部 decoder 不支援。
+
+可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）、`advanced3d`（進階 3D，含 Environment 與 fog）、`gameplay2d`、`rendering2d`、`firstperson`。驗收證據見 `ACCEPTANCE.md`；本倉庫不自動 push／publish。
 
 已驗證 managed Chromium 150；Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 矩陣、跨螢幕 DPR 與 driver reset 尚未認證。WebGPU／AudioWorklet 需要安全來源；benchmark 的約 60fps 不是跨裝置保證。
 
@@ -83,7 +85,9 @@ Use Node >=26 and pnpm 12.6.0: `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 
 
 Build automatically minifies engine JavaScript in `dist/`, preserving the ESM tree, public names, declarations, and source maps. The already-minified official OPM vendor is copied unchanged. The measured reduction across 36 engine JS files is about 48%; the latest security and distribution verification passed 17 files / 82 tests.
 
-Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, `showcase` (2D + 3D + audio), and `advanced3d`. See `ACCEPTANCE.md` for evidence and limitations. This expansion does not automatically commit, push, publish, or change package 1.1.0; versioning remains the owner's decision.
+Added in v1.4/v1.5 (all additive, no new runtime dependency): spatial sample audio (`sample.play(..., { spatial })`, `audio.listener`), standard-mapping Gamepad, glTF morph targets, `EnvironmentMap` (IBL + skybox), frustum culling, common glTF extensions (emissive strength, approximate unlit, texture transform, lights_punctual), `scene.fog`, WebGPU 4× MSAA (`antialias`, default true), blended-mesh sorting, `scene.effects3D`, `FirstPersonControls` (Pointer Lock), `graphics.stats`, and WebGL2 context / WebGPU device-loss recovery (`recoverGraphics`, default true; RenderTexture2D and snapshots must be recreated after a loss). The `firstperson` example shows fog, culling stats, a 3D-only effect and first-person controls. Real WebGPU device loss, Pointer Lock on hardware, physical gamepads and spatial-audio listening are unverified; glTF `COLOR_0` vertex colors are still rejected and Draco/KTX2 are unsupported because they need external decoders.
+
+Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, `showcase` (2D + 3D + audio), `advanced3d` (with Environment and fog), `gameplay2d`, `rendering2d` and `firstperson`. See `ACCEPTANCE.md` for evidence and limitations. This repository does not push or publish automatically.
 
 Verified in managed Chromium 150. Safari/Edge/Firefox, physical gamepads, real background-tab/BFCache matrices, cross-monitor DPR and driver resets are not certified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
 
@@ -119,7 +123,9 @@ Node >=26 と pnpm 12.6.0 を使用します。`npx pnpm@12.6.0 install`、`npx 
 
 Build は `dist/` のエンジン JavaScript を自動的に最小化し、ESM 構造、公開名、型宣言、source maps を保持します。最小化済みの公式 OPM vendor は変更せずコピーします。エンジン JS 36 ファイルのサイズは約 48% 減少し、最新の安全性修正と配布検証では 17 ファイル／82 テストが通過しました。
 
-実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）、`advanced3d`。検証結果と制限は `ACCEPTANCE.md` を参照してください。今回の拡張では自動 commit／push／publish を行わず、1.1.0 の変更は所有者が決定します。
+v1.4／v1.5 の追加（すべて additive、runtime dependency の追加なし）：空間サンプル音声（`sample.play(..., { spatial })`、`audio.listener`）、標準 mapping の Gamepad、glTF morph targets、`EnvironmentMap`（IBL＋skybox）、視錐台カリング、glTF の主要 extension（emissive strength／unlit 近似／texture transform／lights_punctual）、`scene.fog`、WebGPU 4× MSAA（`antialias`、既定 true）、半透明ソート、`scene.effects3D`、`FirstPersonControls`（Pointer Lock）、`graphics.stats`、WebGL2 context／WebGPU device の消失復旧（`recoverGraphics`、既定 true。消失後は RenderTexture2D／snapshot を作り直す）。サンプル `firstperson` で fog、カリング統計、3D 専用エフェクト、一人称操作を確認できます。実際の WebGPU device loss、Pointer Lock 実機、実機 gamepad、空間音声の聴感は未検証です。glTF `COLOR_0` 頂点カラーは引き続き拒否され、Draco／KTX2 は外部 decoder が必要なため非対応です。
+
+実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）、`advanced3d`（Environment と fog を含む）、`gameplay2d`、`rendering2d`、`firstperson`。検証結果と制限は `ACCEPTANCE.md` を参照してください。このリポジトリは自動で push／publish しません。
 
 managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 gamepad、実際の背景タブ／BFCache 往復、モニター間 DPR と driver reset は未認証です。WebGPU／AudioWorklet にはセキュアなオリジンが必要です。約 60fps の測定値は全環境での保証ではありません。
 

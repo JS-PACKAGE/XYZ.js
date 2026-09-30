@@ -481,3 +481,15 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **Minified dist**：以 plain HTTP 載入 `dist/src/index.js`，WebGPU／WebGL2／Canvas2D 三個正式 Game 的 rectangle mask 場景讀回 inside `[255,0,0,255]`、outside `[0,0,0,0]`。未執行 strict declaration consumer 與 extracted `npm pack` archive 重驗。
 - **本輪修正的缺陷**：unique texture 取消時 bitmap 可能遺失所有權（`tests/rendering2d-assets.test.ts` 以掃描 abort 深度重現，移除修正後於 depth 1 失敗）；`Text2D.setText` 回到已顯示文字時未取消較舊 pending 更新；`Canvas2DRenderer` 在無 `DOMMatrix` 的環境建構失敗；`ColorMatrixFilter2D` 先複製後驗長度；WebGPU noise hash 與 WebGL2 不一致；WGSL tiling varying 順序錯誤。
 - **未驗／非宣稱**：packed archive 與 declaration consumer、跨瀏覽器、效能、device loss、上表所列各階段專項，以及 Rope2D、透明 image-mask pixel picking（設計上僅 bounds）。無版本、授權、runtime dependency、commit／push／publish 變更。
+
+## v1.4／v1.5 增量紀錄（限定已測環境）
+
+**範圍**：v1.3 之後共 22 個 commit。v1.4 發佈安全強化與 Release；v1.5 包含空間音效、Gamepad、morph targets、EnvironmentMap、視錐剔除、glTF extensions、fog、WebGPU 4× MSAA、context／device 遺失復原、半透明排序、`FirstPersonControls`、`graphics.stats`、`scene.effects3D` 與 CI workflow。GitHub v1.4 tag 指向 `ccd9a67`；v1.5 tag 指向 `d5128fa`，Release 附 `xyz.js-1.5.0.tgz` 與 `SHA256SUMS`（tgz SHA-256 `9bfa9a457b0f68386c981a4f1ba36db3b2fd06d95069a58674ef891506d20e5c`）。
+
+- **工具鏈（v1.5 HEAD）**：`prettier --check .`、`tsc -p tsconfig.check.json`、`eslint .` 全通過；`vitest run` **49 檔／338 tests** 通過；build 成功並保留 `dist/vendor/opm/`。`npm pack` 為 433 個檔案、433.8 kB。直接 import `dist/src/index.js` 可載入 `Game`、`FirstPersonControls`、`FogSettings`、`Frustum`、`GLTFLoader`、`EnvironmentMap`、`ActionMap`。這是 Node import，**不是**瀏覽器 consumer 驗證。
+- **遠端 CI**：GitHub Actions `CI` workflow 在 v1.5 push 後於 `main` 成功（44 秒）。
+- **行為變更**：`antialias` 預設 true（WebGPU 4× MSAA，多一份記憶體／填充成本）；`recoverGraphics` 預設 true（遺失後繼續執行，RenderTexture2D／snapshot 需重建）。
+- **範例 `firstperson`**：`?renderer=webgpu`／`webgl2` 於 managed Chromium 載入，225 根柱子，stats 讀回 `meshes 226 · culled 124 · draw calls 102`（兩 backend 一致），fog 開啟時遠景淡出，3D-only tint 切換後畫面改變，console 無 error。Pointer Lock 需真實手勢，headless 無法觸發，**未驗**；起點（3, 1.7, 15）曾誤置於柱內而修正。
+- **未驗／非宣稱**：真實 WebGPU device loss（僅 mock）；Pointer Lock 實機（僅 fake document）；實體 gamepad（僅合成 snapshot）；空間音效聽感（僅 mock nodes）；Safari／Firefox／Edge／行動裝置；minified `dist/` 的 extracted `npm pack` 重驗；新功能三 backend 逐項一致性。glTF `COLOR_0` 仍被拒絕；Draco／KTX2 因需外部 decoder 不支援。未 npm publish。
+- **minified dist 瀏覽器 consumer（純 HTTP，不經 Vite）**：載入 `dist/src/index.js`，WebGPU 與 WebGL2 各建立 Game、fog 場景與一個視錐外 Mesh，`graphics.stats` 皆為 `meshes 2 · culled 1 · drawCalls 1`，`FirstPersonControls` 可載入，console 無 error。這只驗最小化後的入口與上述路徑，不是完整功能矩陣。
+- **授權**：所有者授權後，根套件改為 Apache-2.0（新增根目錄 `LICENSE`、`package.json` 的 `license`）。已發佈的 v1.5 附件內 metadata 仍是 UNLICENSED，未重發。

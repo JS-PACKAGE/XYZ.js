@@ -4,7 +4,7 @@
   "description": "Browser-native TypeScript game engine",
   "type": "module",
   "private": false,
-  "license": "UNLICENSED",
+  "license": "Apache-2.0",
   "packageManager": "pnpm@12.6.0",
   "engines": {
     "node": ">=26.0.0"

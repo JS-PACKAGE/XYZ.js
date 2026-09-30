@@ -107,7 +107,7 @@ game.start();
 </script>
 ```
 
-不得只複製 index.js，因為相對 `.js` imports 需要其餘目錄。型別檔不參與瀏覽器執行，但提供 TS 消費端型別。套件目前標示 UNLICENSED；公開發佈前需由專案所有者決定授權，不擅自替換為開源授權。
+不得只複製 index.js，因為相對 `.js` imports 需要其餘目錄。型別檔不參與瀏覽器執行，但提供 TS 消費端型別。根套件授權為 Apache-2.0（見根目錄 `LICENSE`），`package.json` 的 `license` 為 `Apache-2.0`；v1.5 以前已發佈的附件仍標示 UNLICENSED。
 
 ## 6. 驗證方法與效能用語
 
@@ -241,7 +241,7 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - 官方 OPM 的第九個聲部會全域搶最舊 voice，soft stop 仍有 release，故八個隔離 instance 才能在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以被 hard-reset；沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。
 - 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
 - `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。預設關聯當前 Scene，也可指定 `scene`；沒有 Scene 時由 stop／結束／Game destroy 管理。Scene destroy hard-cancel 非 persistent 排程與 release；`persistent:true` 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是第一個官方 instance 的進階 escape hatch，直接操作會繞過預算／lifecycle。
-- [來源與 SHA256 manifest](../vendor/opm/manifest.json)、[官方 Apache-2.0 LICENSE](../vendor/opm/LICENSE) 位於 vendor，沒有私人 patch；根套件仍 UNLICENSED。build 複製完整 vendor 到 dist，保留 chunks／worklet 的相對 URL；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
+- [來源與 SHA256 manifest](../vendor/opm/manifest.json)、[官方 Apache-2.0 LICENSE](../vendor/opm/LICENSE) 位於 vendor，沒有私人 patch；根套件另以 Apache-2.0 授權。build 複製完整 vendor 到 dist，保留 chunks／worklet 的相對 URL；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
 
 ## 16. Logging 與 hardening
 

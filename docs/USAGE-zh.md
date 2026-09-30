@@ -2,7 +2,7 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。本指南涵蓋套件 1.1.0、P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D。API 參考 three.js，非 drop-in 相容或全部 addons，未新增 runtime dependency。版本／發佈由所有者決定，npm 未公開，根授權仍 UNLICENSED；實測與限制見 [驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。本指南涵蓋套件 1.5.0、P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D，另含 v1.4／v1.5 增量功能。API 參考 three.js，非 drop-in 相容或全部 addons，未新增 runtime dependency。版本／發佈由所有者決定，npm 未公開，根套件授權為 Apache-2.0；實測與限制見 [驗收紀錄](../ACCEPTANCE.md)。
 
 ## 1. 啟動開發環境
 
@@ -250,7 +250,7 @@ npx pnpm@12.6.0 lint
 npx pnpm@12.6.0 format:check
 ```
 
-工具檢查不取代真實瀏覽器畫面與互動驗證。Safari／Edge／Firefox、實體 gamepad 及完整 BFCache 矩陣尚未認證。效能量測見 [benchmark](../benchmarks/sprites/)；其約 60fps 不是跨裝置承諾。發佈前保留 OPM LICENSE、完整 dist，並由所有者決定根套件授權。
+工具檢查不取代真實瀏覽器畫面與互動驗證。Safari／Edge／Firefox、實體 gamepad 及完整 BFCache 矩陣尚未認證。效能量測見 [benchmark](../benchmarks/sprites/)；其約 60fps 不是跨裝置承諾。發佈時保留根目錄 `LICENSE`、OPM LICENSE 與完整 dist。
 
 ## 10. 畫布文字與 Scene 計時器
 
