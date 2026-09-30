@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { logger } from '../packages/core/src/logger.js';
 import {
   createRenderer,
   WebGPUInitializationError,
@@ -48,7 +49,11 @@ function setup(gpu: boolean): void {
       : {},
   );
 }
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => {
+  logger.level = 'warn';
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
+});
 describe('automatic backend isolation', () => {
   it('falls back after WebGPU binds and configure fails without poisoning the user canvas', async () => {
     setup(true);
@@ -63,6 +68,28 @@ describe('automatic backend isolation', () => {
     expect(canvas.bound).toBe('2d');
     renderer.resize(128, 80);
     expect([canvas.width, canvas.height]).toEqual([128, 80]);
+    renderer.destroy();
+  });
+  it('reports automatic fallback and successful backend at configured levels', async () => {
+    setup(true);
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {});
+    const error = vi.spyOn(console, 'error').mockImplementation(() => {});
+    logger.level = 'info';
+    const renderer = await createRenderer(
+      new Canvas() as unknown as HTMLCanvasElement,
+      'auto',
+      () => {},
+    );
+    expect(renderer.backend).toBe('canvas2d');
+    expect(warn).toHaveBeenCalledTimes(2);
+    expect(
+      warn.mock.calls.every(
+        (args) => args[0] === '[XYZ]' && args[2] instanceof Error,
+      ),
+    ).toBe(true);
+    expect(info).toHaveBeenCalledOnce();
+    expect(error).not.toHaveBeenCalled();
     renderer.destroy();
   });
   it('does not silently fall back when WebGPU was explicitly requested', async () => {

@@ -264,6 +264,25 @@ describe('Game canvas ownership and lifecycle', () => {
     next.destroy();
   });
 
+  it('disconnects resize observation and releases canvas when input cleanup fails', async () => {
+    const game = await Game.create({
+      canvas: canvas as unknown as HTMLCanvasElement,
+    });
+    const observer = FakeObserver.instances[0];
+    const inputFailure = new Error('input cleanup failed');
+    vi.spyOn(game.input, 'destroy').mockImplementationOnce(() => {
+      throw inputFailure;
+    });
+    expect(() => game.destroy()).toThrow(inputFailure);
+    expect(observer.disconnect).toHaveBeenCalledOnce();
+    expect(canvas.style.getPropertyValue('contain')).toBe('');
+    expect(canvas.style.getPropertyValue('contain-intrinsic-size')).toBe('');
+    const next = await Game.create({
+      canvas: canvas as unknown as HTMLCanvasElement,
+    });
+    next.destroy();
+  });
+
   it('latches the first fatal error and refuses resume without scheduling another frame', async () => {
     const game = await Game.create({
       canvas: canvas as unknown as HTMLCanvasElement,

@@ -27,7 +27,7 @@
 | P05 — 3D Rendering Pipeline（已驗收） | Vector3／Matrix4／Quaternion、3D Transform、Mesh（基本幾何及自訂頂點）、貼圖材質、PerspectiveCamera、深度測試、ambient＋directional 光照、WGSL 3D 管線、cube3d 範例 | `[P05]`              |
 | P06 — Compatibility（已驗收）         | WebGL2（含 3D 管線）／Canvas2D、三級 auto fallback、Capability System、fallback-demo                                                                                | `[P06]`              |
 | P07 — Audio（已驗收）                 | OPM.js v1.1.0 官方 release 完整 vendor＋LICENSE＋SHA256 驗證、AudioManager／AudioAsset／AudioChannel／OPMAdapter、unlock、聲部預算、Scene 整合                      | `[P07]`              |
-| P08 — Hardening（原 v0.0.8）          | 完整 Error hierarchy／Logging、device lost／resize 邊界、triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑、測試與文件收斂                           | `[P08]`              |
+| P08 — Hardening（已驗收）             | 完整 Error hierarchy／Logging、device lost／resize 邊界、triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑、測試與文件收斂                           | `[P08]`              |
 
 ## 技術要點
 
@@ -53,22 +53,22 @@
 
 ## 後續優先項與進度
 
-本輪先處理已重現的尺寸覆蓋、Canvas ownership、Clock fps、GPU 初始化取消及每幀 JS 容器配置；技術契約集中於 [技術文件](docs/TECHNICAL.md)。不將這些修正冒充 P02–P08 的功能完成。
+P01–P08 已依序驗收；技術契約集中於 [技術文件](docs/TECHNICAL.md)，實測與未驗證限制見 `ACCEPTANCE.md`。
 
-| 優先順序 | 缺口與下一步                                                                              | 對應驗收                                                          |
-| -------- | ----------------------------------------------------------------------------------------- | ----------------------------------------------------------------- |
-| 1        | P02 已完成 transactional Scene 切換、cooperative cancellation 與 ECS                      | 舊 Scene 清理一次；準備失敗保留 active World                      |
-| 2        | P03 已完成共享下載 Promise、CPU Texture 與 backend GPU resource 生命週期分離              | 失敗及已銷毀資產可重新載入；Sprite 不銷毀共享 texture             |
-| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援 | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback     |
-| 4        | P06 已以獨立 context canvas 解決 binding 後初始化失敗的 fallback                          | 實際 configure failure 降至 WebGL2；GPU／GL 均不可用降至 Canvas2D |
-| 5        | P08 建立多 Sprite 真實負载 benchmark，分開 CPU 提交、GC、GPU／呈現節奏                    | 固定資產及畫布規格，有可重現報告，不以 triangle 幀率推估          |
-| 6        | 發佈前確定授權、驗證 npm tarball 與無 bundler 消費端、決定支援的 Node 工具鏈與瀏覽器版本  | 乾淨環境 import JS／TS 產物成功；不依賴工作區 source 或未發佈檔案 |
+| 優先順序 | 缺口與下一步                                                                              | 對應驗收                                                               |
+| -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| 1        | P02 已完成 transactional Scene 切換、cooperative cancellation 與 ECS                      | 舊 Scene 清理一次；準備失敗保留 active World                           |
+| 2        | P03 已完成共享下載 Promise、CPU Texture 與 backend GPU resource 生命週期分離              | 失敗及已銷毀資產可重新載入；Sprite 不銷毀共享 texture                  |
+| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援 | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback          |
+| 4        | P06 已以獨立 context canvas 解決 binding 後初始化失敗的 fallback                          | 實際 configure failure 降至 WebGL2；GPU／GL 均不可用降至 Canvas2D      |
+| 5        | P08 已建立 1,000 Sprite benchmark                                                         | 實測 RAF 約 60fps，CPU submit 平均 0.636ms；GPU／GC 未直接量測         |
+| 6        | npm tarball、獨立 JS／TS 與無 bundler 瀏覽器消費端已驗證；公開發佈前仍須由所有者決定授權  | 維持 UNLICENSED，不發布、不 push；Node 26 工具鏈與 Chromium 150 已驗證 |
 
 ## 交付前自檢
 
-- [x] 已完成 P01–P07 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
+- [x] 已完成 P01–P08 範圍；統一公開入口、ESM 相對路徑與 `.d.ts` 契約維持一致。
 - [x] build、typecheck、test、lint、format:check 已執行；結果記於 `ACCEPTANCE.md`。
-- [x] 真實 Chromium 開啟 triangle，確認畫面與錯誤分支；其他瀏覽器尚未驗證。
+- [x] 真實 Chromium 開啟六個範例，確認 showcase 圖形＋音訊及 loss 錯誤分支；其他瀏覽器尚未驗證。
 - [x] 六件文件區分現在／未來功能，未留臨時測試檔或公開測試掛鉤。
 - 提交規則：每個 Pxx 驗收後立刻獨立 commit，不併入下一階段、不 push。
 

@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Showcase</title>
+    <style>
+      body {
+        max-width: 900px;
+        margin: 2rem auto;
+        padding: 0 1rem;
+        background: #101724;
+        color: #e4f1ff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 800px;
+        aspect-ratio: 16 / 9;
+        border: 1px solid #718096;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 0.75rem;
+        margin: 1rem 0;
+      }
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+      button,
+      select {
+        padding: 0.35rem 0.6rem;
+      }
+      button:focus-visible,
+      select:focus-visible,
+      input:focus-visible {
+        outline: 2px solid #ffda59;
+        outline-offset: 2px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>2D + 3D + audio showcase</h1>
+    <div class="controls">
+      <label for="backend">Renderer</label>
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D</option>
+      </select>
+      <button id="pause" type="button" disabled>Pause animation</button>
+      <button id="switch-scene" type="button" disabled>Switch scene</button>
+    </div>
+    <canvas
+      id="game"
+      aria-label="Animated 2D overlay with a lit cube and sphere when 3D is available"
+    ></canvas>
+    <p id="status" role="status">Loading renderer…</p>
+    <div class="controls">
+      <button id="audio" type="button" disabled>
+        Enable audio &amp; play music
+      </button>
+      <button id="sfx" type="button" disabled>Play SFX</button>
+      <button id="stop-music" type="button" disabled>Stop music</button>
+      <label for="volume">Master volume</label>
+      <input id="volume" type="range" min="0" max="100" value="60" disabled />
+      <output id="volume-value" for="volume">60%</output>
+    </div>
+    <p id="audio-status" role="status">
+      Audio locked — enable it with a click to play music.
+    </p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

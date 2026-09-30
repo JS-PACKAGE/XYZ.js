@@ -1,6 +1,6 @@
 # XYZ.js 技術參考
 
-本文件描述 **1.0.0 套件已完成的 P01–P07**。Hardening 仍依 [PLAN](../PLAN.md) 分階段實作。實際驗證環境、缺陷重現與量測結果見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.0.0 套件已完成的 P01–P08**。實際驗證環境、缺陷重現、量測結果與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -119,7 +119,7 @@ npx pnpm dev
 2. CPU 提交時間與 GC 開銷。
 3. GPU 工作時間、呈現節奏與實際 fps。
 
-減少第 1 項，不代表第 2、3 項必然以相同比例改善。P01 的 triangle 也不能代表尚未實作的 1000 Sprite 場景。所有 throughput 或跨瀏覽器結論都需要獨立量測，不能從程式碼推算成既成成績。
+減少第 1 項，不代表第 2、3 項必然以相同比例改善。P01 triangle 不能代表 1,000 Sprite 場景；`/benchmarks/sprites/` 提供固定規格的獨立 RAF／CPU submit 量測，未直接量測 GPU 或 GC。
 
 ## 7. Game 狀態、ownership 與錯誤策略
 
@@ -229,3 +229,9 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
 - `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。默认關聯當前 Scene，Scene destroy hard-cancel 非 persistent 排程與 release；persistent 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是第一個官方 instance 的進階 escape hatch，直接操作會繞過預算／lifecycle。
 - 官方來源、SHA256、Apache-2.0 LICENSE 位於 `vendor/opm/`，沒有私人 patch。build 複製完整 vendor 到 dist；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
+
+## 16. Logging 與 hardening
+
+公開 `logger.debug/info/warn/error(...args)`，`logger.level` 可設 debug／info／warn／error／silent，預設 warn。所有輸出帶 `[XYZ]`；backend 初始化／fallback 與 fatal Game error 有診斷，不逐幀輸出。Production 可設 error 或 silent。
+
+WebGPU device lost／WebGL context lost 後 resize 在修改 backing 前拒絕；Game 暫停且禁止 resume，需 destroy/recreate。destroy 即使 input 清理失敗仍 disconnect resize observer，繼續釋放其他資源。完整錯誤樹包含 XYZError、GraphicsError、AssetError、AudioError、RuntimeError 與各 backend 子類。

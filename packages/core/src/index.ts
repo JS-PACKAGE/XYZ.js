@@ -5,6 +5,8 @@ export { Scene } from './scene.js';
 export { SceneObject } from './scene-object.js';
 export { GameObject } from './game-object.js';
 export { RuntimeError } from './errors.js';
+export { logger } from './logger.js';
+export type { LogLevel } from './logger.js';
 export { Sprite } from './sprite.js';
 export type { SpriteOptions } from './sprite.js';
 export { Camera2D } from './camera2d.js';

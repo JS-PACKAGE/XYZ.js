@@ -10,6 +10,7 @@ import {
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { RuntimeError } from './errors.js';
+import { logger } from './logger.js';
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -553,8 +554,11 @@ export class Game extends EventTarget {
 
   private cleanup(): void {
     try {
-      this.input.destroy();
-      this.observer?.disconnect();
+      try {
+        this.input.destroy();
+      } finally {
+        this.observer?.disconnect();
+      }
     } finally {
       try {
         document.removeEventListener(
@@ -651,7 +655,7 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed' || this.fatalError) return;
     this.fatalError = error;
     this.pause();
-    console.error('[XYZ] Runtime paused after a graphics error.', error);
+    logger.error('Runtime paused after a fatal error.', error);
     this.dispatchEvent(new CustomEvent<Error>('error', { detail: error }));
   }
 }

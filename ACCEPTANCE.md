@@ -114,16 +114,26 @@
 - Vitest 覆蓋 SFX-only stealing、release、channel gain、Scene／persistent、loop catch-up、cache／abort／failure；**15 檔／69 測試通過**。build、typecheck、lint、format:check 通過。
 - Audio 未 unlock 時 play 明確拒絕；load 只解析 voice，不建立 AudioContext。八個官方 instance 的資源成本已公開；不宣稱跨瀏覽器音訊認證。
 
-## 後續階段
+## P08 Hardening（驗收通過）
 
-| 階段                      | 硬指標                                                                                                                                             | 狀態                                    |
-| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
-| P02 Core World            | Scene 建立／切換／清理；ECS 增刪改查有單元測試                                                                                                     | 已通過，獨立 `[P02]` commit             |
-| P03 Texture & Sprite      | 共用 texture 不重複下載；Sprite z-order／opacity 正確                                                                                              | 已通過，獨立 `[P03]` commit             |
-| P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 已通過，獨立 `[P04]` commit             |
-| P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 已通過，獨立 `[P05]` commit             |
-| P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 已通過，獨立 `[P06]` commit             |
-| P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 已通過，獨立 `[P07]` commit             |
-| P08 Hardening             | triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑；cube3d Canvas2D 明確無 3D；showcase 同場 2D＋3D＋音效；Vitest 全綠與交付清單全過 | 待實作、待驗；通過後獨立 `[P08]` commit |
+- 日期：2026-09-30；macOS arm64、Node 26、pnpm 12.6.0、Chromium 150，viewport 1365×768／DPR 1.25。
+- build、typecheck、lint、format:check 通過；Vitest **16 檔／73 測試通過**。新增 logger severity、loss resize 與 cleanup regression。
+- 六個範例均實際開啟並截圖；showcase 同 Scene 顯示 animated Sprite／Primitive、lit cube／sphere，操作 audio unlock、SFX 及 Scene switch。Canvas2D showcase 明確省略 3D；cube3d Canvas2D 降級已於 P06 驗證。
+- 真實 `WEBGL_lose_context` 使 Game paused 並拒絕 resume；真實 GPUDevice.destroy 使 Game paused，resize 拒絕且保留 250×125 backing。
+- npm pack 後解壓至獨立 `/tmp` 消費端：Node import 成功、strict NodeNext TypeScript 宣告檢查成功；純 HTTP、無 Vite/bundler 載入 packaged ESM，WebGL2 渲染及官方 OPM voice validation 成功。
+- `/benchmarks/sprites/`：WebGPU direct、1,000 個移動常駐 Sprite、共用 texture、1280×720 backing／DPR 1；120 warmup＋600 samples。RAF **59.9988 fps**，間隔平均 **16.667ms**／p95 **17.3ms**；CPU submit 平均 **0.6358ms**／p95 **1.2ms**。CPU 不含動畫更新，不等於 GPU completion；未量測 GPU timestamps／GC，不保證其他裝置效能。
+- 未認證 Safari／Edge、實體 gamepad、跨螢幕 DPR 與完整 BFCache 矩陣。套件仍 UNLICENSED，未 npm publish、未 push。
 
-效能參考（非硬指標）：Apple Silicon＋Chrome WebGPU 中 1,000 常駐 Sprite 60fps；需 benchmark 腳本實測，未測不承諾。
+## 階段總表
+
+| 階段                      | 硬指標                                                                                                                                             | 狀態                        |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------- |
+| P02 Core World            | Scene 建立／切換／清理；ECS 增刪改查有單元測試                                                                                                     | 已通過，獨立 `[P02]` commit |
+| P03 Texture & Sprite      | 共用 texture 不重複下載；Sprite z-order／opacity 正確                                                                                              | 已通過，獨立 `[P03]` commit |
+| P04 Camera & Input        | Screen↔World 轉換有測試；resize 不變形、不卡在整份資源重建                                                                                         | 已通過，獨立 `[P04]` commit |
+| P05 3D Rendering Pipeline | cube／sphere 在透視視角的貼圖、深度與基礎光照正確；2D／3D 同 Scene 排序正確                                                                        | 已通過，獨立 `[P05]` commit |
+| P06 Compatibility         | `auto` 三級選擇、強制 backend 失敗錯誤；Sprite 三 backend 視覺一致，WebGL2 3D 與 WebGPU 一致；Canvas2D 回報 `threeD === false`                     | 已通過，獨立 `[P06]` commit |
+| P07 Audio                 | 首次手勢前無聲；8 聲部 BGM＋SFX 溢位只棄最舊 SFX                                                                                                   | 已通過，獨立 `[P07]` commit |
+| P08 Hardening             | triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑；cube3d Canvas2D 明確無 3D；showcase 同場 2D＋3D＋音效；Vitest 全綠與交付清單全過 | 已通過，獨立 `[P08]` commit |
+
+效能參考（非硬指標）已由上述 benchmark 實測；不推廣為跨裝置 60fps 保證。

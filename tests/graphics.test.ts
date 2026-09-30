@@ -6,6 +6,7 @@ import {
 import {
   GraphicsBackendUnavailableError,
   GraphicsError,
+  WebGPUDeviceLostError,
 } from '../packages/graphics/src/errors.js';
 import { WebGPURenderer } from '../packages/graphics/src/webgpu-renderer.js';
 
@@ -140,6 +141,32 @@ describe('WebGPU renderer lifecycle and backing dimensions', () => {
       configurations: 0,
       mutations: 0,
     });
+  });
+
+  it('rejects resize after device loss without changing either backing dimension', async () => {
+    const fixture = gpuFixture();
+    const loss = deferred<GPUDeviceLostInfo>();
+    Object.defineProperty(fixture.device, 'lost', { value: loss.promise });
+    fixture.installGPU(async () => fixture.device);
+    const onError = vi.fn();
+    const renderer = new WebGPURenderer(onError);
+    await renderer.initialize(fixture.canvas);
+    loss.resolve({
+      reason: 'unknown',
+      message: 'driver reset',
+    } as GPUDeviceLostInfo);
+    await loss.promise;
+    await Promise.resolve();
+    expect(onError).toHaveBeenCalledOnce();
+    expect(onError.mock.calls[0][0]).toBeInstanceOf(WebGPUDeviceLostError);
+    const before = fixture.state();
+    expect(() => renderer.resize(256, 128)).toThrow(WebGPUDeviceLostError);
+    expect(fixture.state()).toMatchObject({
+      width: before.width,
+      height: before.height,
+      mutations: before.mutations,
+    });
+    renderer.destroy();
   });
 });
 

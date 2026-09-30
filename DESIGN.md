@@ -1,8 +1,8 @@
 # XYZ.js 設計與階段邊界
 
-## 目前交付：P01–P07
+## 目前交付：P01–P08
 
-`xyz.js` npm 版本設定為 `1.0.0`，**不表示八階段全部完成**。P01 的路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Clock → `packages/graphics` 的 Renderer → WebGPU canvas。`examples/triangle/` 透過 Game 走這條正式路徑，不建立第二套範例渲染器。
+`xyz.js` npm 版本設定為 `1.0.0`，P01–P08 驗收證據見 `ACCEPTANCE.md`，不代表已發佈 npm 或已驗證所有瀏覽器。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序推動 Clock→Scene.update→Systems.update→Renderer。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，成功前後皆不可由第二個 Game 接管，初始化失敗或 destroy 釋放 ownership。第一個執行中 failure 會被保留並送出 error；失敗後 resume 明確拒絕，避免重試已遺失的 GPUDevice。
@@ -19,4 +19,4 @@
 - P04 已完成 Camera2D 與輸入。P05 已完成 Vector3／Quaternion／Matrix4／Transform3D、Mesh（自訂頂點與 cube／sphere／plane／quad）、貼圖材質、PerspectiveCamera、depth、ambient＋directional lighting；同 Scene 先渲染 3D 再按 z-order 疊加 2D。GPU 幾何／材質資源與 CPU 資產分離，resize 只更換 depth attachment。v1 路線不含進階 3D、模型載入或自製 Shader IR。
 - P06 已完成三級初始化 fallback、capabilities、WebGL2 GLSL 2D／3D、Canvas2D Sprite 與跨 backend Primitive2D。Canvas2D threeD=false，遇可見 Mesh 明確拒絕；不做 software rasterizer。Capabilities 描述 backend 硬體能力，不表示已公開 custom shader／compute facade。
 - P07 已整合 OPM.js v1.1.0 官方完整 dist／LICENSE／release checksum，build 原樣複製 vendor。八個獨立 OPM instance 各保留一個聲部，總預算含 release，overflow 只 hard-reset 最舊 SFX 的 worklet；不影響 BGM，也不修改官方 DSP。代價是八個 AudioContexts/worklets。首次手勢 unlock 前不建 AudioContext；bounded lookahead 避免填滿官方 256-event queue；Scene 清理取消非 persistent 音訊。
-- P08 收斂完整 Error hierarchy、logging、裝置遺失等邊界和六個驗收範例。每階段驗證證據記錄於 `ACCEPTANCE.md`，驗收後立即獨立 `[Pxx]` commit，絕不 push。
+- P08 已完成完整 Error hierarchy、可調等級 logger、loss 後 resize 拒絕與 cleanup 邊界、六個驗收範例及 1,000 Sprite benchmark。實際 device/context loss 使 Game paused 並拒絕 resume；沒有自動 recovery。各階段獨立 `[Pxx]` commit，不 push。跨瀏覽器、實體 gamepad、跨螢幕與 BFCache 矩陣仍未認證，不納入已驗證範圍。

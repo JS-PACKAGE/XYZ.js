@@ -354,6 +354,7 @@ export class WebGL2Renderer implements Renderer {
   }
 
   resize(width: number, height: number): void {
+    if (this.lostError) throw this.lostError;
     const canvas = this.canvas;
     if (!canvas || !this.gl || this.destroyed)
       throw new GraphicsError(

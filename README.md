@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P07 are implemented**. Hardening remains tracked in PLAN.md. The package is not claimed published on npm yet.
+Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
 
 技術文件／Technical reference／技術資料：[docs/TECHNICAL.md](docs/TECHNICAL.md)（繁體中文）。
 
@@ -33,7 +33,7 @@ game.start();
 
 開發：先執行 `npx pnpm install`，再執行 `npx pnpm dev`，於 WebGPU 瀏覽器開啟 `http://127.0.0.1:5173/examples/triangle/`。正式檢查命令：`npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check`；文件不聲稱這些檢查已執行。`npx pnpm build` 輸出可發佈的 `dist/`（含 JS 與 `.d.ts`）。npm 套件發佈並安裝後可使用上述 bare import；若不透過 npm/bundler，將完整 `dist/` 複製到網站（例如 `/vendor/xyz/dist/`），在瀏覽器改用 `import { Game } from '/vendor/xyz/dist/src/index.js'`，不要只複製入口檔。
 
-可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`。Audio 與 hardening 進度及證據見 `PLAN.md`、`ACCEPTANCE.md`。每階段驗收後立刻個別 `[Pxx]` commit，不 push。
+可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）。驗收證據見 `ACCEPTANCE.md`；各階段獨立 `[Pxx]` commit，不 push。
 
 ## English
 
@@ -55,7 +55,7 @@ Add `<canvas id="game"></canvas>` to the page. Options include `width`/`height` 
 
 Install tools with `npx pnpm install`, start `npx pnpm dev`, then open `http://127.0.0.1:5173/examples/triangle/` in a WebGPU-capable browser. For project verification, run `npx pnpm build`, `npx pnpm typecheck`, `npx pnpm test`, `npx pnpm lint`, `npx pnpm format:check` (results are not asserted here). npm usage requires that this package has actually been published and installed. For unbundled vendor use, copy the **entire** compiled `dist/` tree into the site and import its `/vendor/xyz/dist/src/index.js` URL instead of the bare specifier; relative `.js` imports need the rest of `dist/`.
 
-Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`. See `PLAN.md` and `ACCEPTANCE.md` for remaining audio and hardening gates. Independently commit each verified `[Pxx]` phase immediately; never push automatically.
+Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, and `showcase` (2D + 3D + audio together). See `ACCEPTANCE.md` for verification evidence and limitations. Each phase is committed separately; nothing is pushed automatically.
 
 ## 日本語
 
@@ -77,7 +77,7 @@ game.start();
 
 `npx pnpm install`、`npx pnpm dev` を実行し、WebGPU 対応ブラウザーで `http://127.0.0.1:5173/examples/triangle/` を開きます。検証コマンドは `npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check` です（ここでは実行結果を主張しません）。npm import は公開・インストール後に使用できます。bundler を使わない場合、ビルド済みの `dist/` **全体**をサイトにコピーし、bare specifier ではなく `/vendor/xyz/dist/src/index.js` のような URL から import してください。
 
-実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`。音声と hardening の進捗は `PLAN.md` と `ACCEPTANCE.md` を参照してください。各段階の検収後すぐに `[Pxx]` で個別 commit し、push はしません。
+実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）。検証結果と制限は `ACCEPTANCE.md` を参照してください。各段階は個別 commit し、push はしません。
 
 ## Scene／Core World
 
@@ -149,3 +149,9 @@ game.audio.master.volume = 0.8;
 ```
 
 JSON contains an OPM `voice` and `notes: [{ note: 60, time: 0, duration: 0.2 }]` (MIDI note; seconds). Optional `channel`, `loop`, and `duration` select defaults and loop period. `music`, `sfx`, `ui`, and `master` expose volume 0–1. Playback is scene-owned unless `persistent: true`; scene teardown cancels future notes and release tails. The eight-slot budget includes release, and only the oldest SFX can be stolen. Eight isolated official OPM instances prevent upstream global voice stealing from cutting BGM; this costs eight AudioContexts/worklets. See `examples/sprite/` and [technical details](docs/TECHNICAL.md).
+
+## Diagnostics & benchmark
+
+`import { logger } from 'xyz.js'; logger.level = 'debug';` enables backend diagnostics. Levels: `debug`, `info`, `warn` (default), `error`, `silent`; methods use the `[XYZ]` prefix.
+
+Run `npx pnpm dev`, open `/benchmarks/sprites/`, and keep the tab visible. The reproducible 1,000-Sprite benchmark reports RAF intervals and CPU submission separately after 120 warmup and 600 measured frames. The recorded Chromium/WebGPU run reached ~60 fps; this is not a cross-device guarantee or GPU timing measurement.

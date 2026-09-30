@@ -440,6 +440,7 @@ export class WebGPURenderer implements Renderer {
   }
 
   resize(width: number, height: number): void {
+    if (this.lostError) throw this.lostError;
     const canvas = this.canvas;
     const device = this.device;
     if (!canvas || !device || this.destroyed)

@@ -1,4 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
+import { logger } from '../../core/src/logger.js';
 import {
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
@@ -92,7 +93,14 @@ export async function createRenderer(
           `${backend} initialization and cleanup failed.`,
         );
       }
-      if (preference !== 'auto') throw failure;
+      if (preference !== 'auto') {
+        logger.error(`${backend} initialization failed.`, failure);
+        throw failure;
+      }
+      logger.warn(
+        `${backend} unavailable during automatic selection.`,
+        failure,
+      );
       failures.push(failure);
       continue;
     }
@@ -106,23 +114,33 @@ export async function createRenderer(
         try {
           presented.destroy();
         } catch (cleanup) {
-          failures.push(
-            new AggregateError(
-              [cause, cleanup],
-              'Presentation cleanup failed.',
-            ),
+          const failure = new AggregateError(
+            [cause, cleanup],
+            'Presentation cleanup failed.',
+          );
+          failures.push(failure);
+          logger.warn(
+            `${backend} presentation failed during automatic selection.`,
+            failure,
           );
           continue;
         }
         failures.push(cause);
+        logger.warn(
+          `${backend} presentation failed during automatic selection.`,
+          cause,
+        );
         continue;
       }
       published = true;
+      logger.info(`Using ${backend} graphics backend.`);
       return presented;
     }
     published = true;
+    logger.info(`Using ${backend} graphics backend.`);
     return renderer;
   }
+  logger.error('No graphics backend could initialize.', ...failures);
   throw new UnsupportedGraphicsError(
     'No graphics backend could initialize (WebGPU → WebGL2 → Canvas2D).',
     {
