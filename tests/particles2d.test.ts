@@ -257,8 +257,8 @@ describe('pooled CPU particles', () => {
     );
     expect(emitter.activeCount).toBe(0);
     expect(emitter.emitting).toBe(false);
-    expect(settings.texture.destroyed).toBe(false);
-    expect(settings.texture.image.close).not.toHaveBeenCalled();
+    expect(settings.texture!.destroyed).toBe(false);
+    expect((settings.texture as Texture).image.close).not.toHaveBeenCalled();
     expect(() => emitter.emit(1)).toThrow();
     expect(() => emitter.start()).toThrow();
     emitter.destroy();

@@ -1,6 +1,11 @@
-import { AssetError, type Texture } from '../../../assets/src/index.js';
+import {
+  AssetError,
+  type Texture2DSource,
+  type TextureView2D,
+} from '../../../assets/src/index.js';
 import type { Matrix3 } from '../../../math/src/index.js';
 import { world2dLimits } from '../../../../src/data/world2d.js';
+import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
 import { Group2D } from '../gameplay/group2d.js';
 import {
   validateSource,
@@ -8,6 +13,20 @@ import {
   type Rect2D,
 } from '../gameplay/contracts.js';
 import { Sprite, type SpriteOptions } from '../sprite.js';
+import {
+  ParticleLayer2D,
+  type ParticleOptions2D,
+  type ParticleSource2D,
+  type ParticleTransform2D,
+} from './particle-layer2d.js';
+export { ParticleLayer2D, ParticleAttribute2D } from './particle-layer2d.js';
+export type {
+  ParticleLayer2DOptions,
+  ParticleOptions2D,
+  ParticleSource2D,
+  ParticleTransform2D,
+  ParticleSlot2D,
+} from './particle-layer2d.js';
 
 export type ParticleNozzle =
   | { kind: 'point' }
@@ -15,7 +34,10 @@ export type ParticleNozzle =
   | { kind: 'circle'; radius: number };
 
 export interface ParticleEmitterOptions {
-  texture: Texture;
+  texture?: Texture2DSource;
+  view?: TextureView2D;
+  /** Empty detached layer attached as a child; otherwise use the ordinary Sprite pool. */
+  target?: ParticleLayer2D;
   source?: Rect2D;
   capacity: number;
   rate: number;
@@ -123,7 +145,7 @@ const X = 0,
   AGE = 6,
   LIFE = 7;
 
-/** Bounded CPU simulation with borrowed texture and a fixed ordinary-Sprite pool. */
+/** Bounded CPU simulation with a borrowed source and a fixed Sprite or layer pool. */
 export class ParticleEmitter extends Group2D {
   private readonly simulationSpace: 'local' | 'world';
   private readonly pool: ParticleSprite[] = [];
@@ -145,16 +167,38 @@ export class ParticleEmitter extends Group2D {
   private readonly startColor: ColorRGBA;
   private readonly endColor: ColorRGBA;
   private readonly nozzle: ParticleNozzle;
+  private readonly target: ParticleLayer2D | undefined;
+  private readonly capacity: number;
+  private readonly targetSlots: Int32Array;
+  private readonly targetGenerations: Float64Array;
+  private readonly birthAxes: Float64Array;
+  private readonly birthOptions: ParticleOptions2D & {
+    texture: Texture2DSource;
+  };
+  private readonly particleTransform: ParticleTransform2D = {
+    a: 1,
+    b: 0,
+    c: 0,
+    d: 1,
+    tx: 0,
+    ty: 0,
+  };
+  private readonly particleTint: [number, number, number, number] = [
+    1, 1, 1, 1,
+  ];
 
   constructor(options: ParticleEmitterOptions) {
     super();
+    const capacityLimit = options.target
+      ? rendering2dLimits.particleCapacity
+      : world2dLimits.particles;
     if (
       !Number.isSafeInteger(options.capacity) ||
       options.capacity < 1 ||
-      options.capacity > world2dLimits.particles
+      options.capacity > capacityLimit
     )
       throw new RangeError(
-        `capacity must be an integer between 1 and ${world2dLimits.particles}.`,
+        `capacity must be an integer between 1 and ${capacityLimit}.`,
       );
     if (!Number.isFinite(options.rate) || options.rate < 0)
       throw new RangeError('rate must be finite and nonnegative.');
@@ -199,31 +243,66 @@ export class ParticleEmitter extends Group2D {
       default:
         throw new RangeError('Unknown particle nozzle.');
     }
-    if (!options.texture || options.texture.destroyed)
+    const texture = options.texture ?? options.view?.source;
+    if (!texture || texture.destroyed)
       throw new AssetError(
         'Cannot use a destroyed or missing Texture for particles.',
       );
-    if (options.source)
-      validateSource(
-        options.source,
-        options.texture.width,
-        options.texture.height,
+    if (options.view && (options.view.source !== texture || options.source))
+      throw new RangeError(
+        'Particle view conflicts with texture or source rectangle.',
       );
+    options.view?.validate();
+    if (options.source)
+      validateSource(options.source, texture.width, texture.height);
+    if (
+      options.target &&
+      (options.target.destroyed ||
+        options.target.parent ||
+        options.target.scene ||
+        options.target.activeCount ||
+        options.target.capacity !== options.capacity)
+    )
+      throw new RangeError(
+        'Particle target must be an empty detached layer with matching capacity.',
+      );
+    this.capacity = options.capacity;
+    this.target = options.target;
+    this.targetSlots = new Int32Array(this.target ? options.capacity : 0).fill(
+      -1,
+    );
+    this.targetGenerations = new Float64Array(
+      this.target ? options.capacity : 0,
+    );
+    this.birthAxes = new Float64Array(
+      this.target && this.simulationSpace === 'world'
+        ? options.capacity * 4
+        : 0,
+    );
+    this.birthOptions = Object.freeze({
+      texture,
+      view: options.view,
+      source: options.source ? Object.freeze({ ...options.source }) : undefined,
+      transform: this.particleTransform,
+      tint: this.particleTint,
+    });
     this.state = new Float64Array(options.capacity * STRIDE);
     this.active = new Int32Array(options.capacity);
     this.free = new Int32Array(options.capacity);
     this.freeCount = options.capacity;
     for (let i = 0; i < options.capacity; i++) {
-      this.pool.push(
-        this.add(
-          new ParticleSprite(
-            { texture: options.texture, source: options.source },
-            this.simulationSpace,
+      if (!this.target)
+        this.pool.push(
+          this.add(
+            new ParticleSprite(
+              { texture, view: options.view, source: options.source },
+              this.simulationSpace,
+            ),
           ),
-        ),
-      );
+        );
       this.free[i] = options.capacity - i - 1;
     }
+    if (this.target) this.add(this.target);
   }
 
   get activeCount(): number {
@@ -247,8 +326,13 @@ export class ParticleEmitter extends Group2D {
       throw new RangeError(
         'Particle count must be a nonnegative safe integer.',
       );
-    const accepted = Math.min(count, this.freeCount);
+    const accepted = Math.min(
+      count,
+      this.freeCount,
+      this.target?.availableCount ?? this.capacity,
+    );
     if (accepted === 0) return;
+    this.validateBirthSource();
     const matrix =
       this.simulationSpace === 'world'
         ? this.updateWorldMatrix()
@@ -258,12 +342,16 @@ export class ParticleEmitter extends Group2D {
 
   clear(): void {
     for (let i = 0; i < this.count; i++) {
-      const particle = this.pool[this.active[i]];
-      particle.renderEnabled = false;
-      particle.visible = false;
+      const slot = this.active[i];
+      if (this.target) this.releaseTargetSlot(slot);
+      else {
+        const particle = this.pool[slot];
+        particle.renderEnabled = false;
+        particle.visible = false;
+      }
     }
     this.count = 0;
-    this.freeCount = this.pool.length;
+    this.freeCount = this.destroyed ? 0 : this.capacity;
     for (let i = 0; i < this.freeCount; i++)
       this.free[i] = this.freeCount - i - 1;
     this.fraction = 0;
@@ -272,6 +360,11 @@ export class ParticleEmitter extends Group2D {
   /** @internal Scene invokes this after physics, never through object.update(). */
   updateSimulation(dt: number): void {
     if (this.destroyed) return;
+    if (this.target?.destroyed) {
+      this.running = false;
+      this.clear();
+      return;
+    }
     if (!Number.isFinite(dt) || dt < 0)
       throw new RangeError('Particle delta must be finite and nonnegative.');
     if (dt === 0) return;
@@ -287,8 +380,13 @@ export class ParticleEmitter extends Group2D {
     this.fraction = Number.isFinite(total) ? total - births : 0;
     // Never queue overflow or iterate once per requested birth. Even enormous dt
     // consumes at most capacity births; accepted newborns age within this tick.
-    const accepted = Math.min(births, this.freeCount);
+    const accepted = Math.min(
+      births,
+      this.freeCount,
+      this.target?.availableCount ?? this.capacity,
+    );
     if (accepted === 0) return;
+    this.validateBirthSource();
     const matrix =
       this.simulationSpace === 'world'
         ? this.updateWorldMatrix()
@@ -320,6 +418,18 @@ export class ParticleEmitter extends Group2D {
       throw new Error('Cannot emit from a destroyed ParticleEmitter.');
   }
 
+  private validateBirthSource(): void {
+    const source = this.birthOptions;
+    if (source.texture.destroyed)
+      throw new AssetError('Cannot emit from a destroyed particle source.');
+    source.view?.validate();
+    if (source.source)
+      validateSource(
+        source.source,
+        source.texture.width,
+        source.texture.height,
+      );
+  }
   private random(): number {
     let n = (this.randomState = (this.randomState + 0x6d2b79f5) >>> 0);
     n = Math.imul(n ^ (n >>> 15), n | 1);
@@ -331,10 +441,10 @@ export class ParticleEmitter extends Group2D {
   }
 
   private spawn(matrix: Matrix3): number {
-    const slot = this.free[--this.freeCount];
-    this.active[this.count++] = slot;
+    const slot = this.free[this.freeCount - 1];
     const base = slot * STRIDE;
     const particle = this.pool[slot];
+    const randomState = this.randomState;
     let x = 0,
       y = 0;
     if (this.nozzle.kind === 'rectangle') {
@@ -363,8 +473,33 @@ export class ParticleEmitter extends Group2D {
       const wax = e[0] * ax + e[3] * ay;
       ay = e[1] * ax + e[4] * ay;
       ax = wax;
-      particle.retainAxes(matrix);
+      if (this.target) {
+        const axis = slot * 4;
+        this.birthAxes[axis] = e[0];
+        this.birthAxes[axis + 1] = e[1];
+        this.birthAxes[axis + 2] = e[3];
+        this.birthAxes[axis + 3] = e[4];
+      } else particle.retainAxes(matrix);
     }
+    const lifetime = this.sample(this.lifetime);
+    if (this.target) {
+      this.writeTargetAppearance(slot, 0, x, y, this.birthOptions);
+      let targetSlot: number;
+      try {
+        targetSlot = this.target.addParticle(this.birthOptions);
+      } catch (error) {
+        this.randomState = randomState;
+        throw error;
+      }
+      if (targetSlot < 0) {
+        this.randomState = randomState;
+        throw new Error('Particle target capacity changed during emission.');
+      }
+      this.targetSlots[slot] = targetSlot;
+      this.targetGenerations[slot] = this.target.getSlot(targetSlot).generation;
+    }
+    this.freeCount--;
+    this.active[this.count++] = slot;
     this.state[base + X] = x;
     this.state[base + Y] = y;
     this.state[base + VX] = vx;
@@ -372,17 +507,20 @@ export class ParticleEmitter extends Group2D {
     this.state[base + AX] = ax;
     this.state[base + AY] = ay;
     this.state[base + AGE] = 0;
-    this.state[base + LIFE] = this.sample(this.lifetime);
-    particle.position.set(x, y);
-    particle.rotation = 0;
-    particle.opacity = 1;
-    particle.visible = true;
-    particle.renderEnabled = true;
-    this.appearance(particle, 0);
+    this.state[base + LIFE] = lifetime;
+    if (!this.target) {
+      particle.position.set(x, y);
+      particle.rotation = 0;
+      particle.opacity = 1;
+      particle.visible = true;
+      particle.renderEnabled = true;
+      this.appearance(particle, 0);
+    }
     return slot;
   }
 
   private advance(slot: number, dt: number): boolean {
+    if (this.target && !this.hasTargetSlot(slot)) return false;
     const base = slot * STRIDE;
     const age = this.state[base + AGE] + dt;
     if (age >= this.state[base + LIFE]) return false;
@@ -393,9 +531,12 @@ export class ParticleEmitter extends Group2D {
       this.state[base + VY] * dt + this.state[base + AY] * dt * dt * 0.5;
     this.state[base + VX] += this.state[base + AX] * dt;
     this.state[base + VY] += this.state[base + AY] * dt;
-    const particle = this.pool[slot];
-    particle.position.set(this.state[base + X], this.state[base + Y]);
-    this.appearance(particle, age / this.state[base + LIFE]);
+    if (this.target) this.targetAppearance(slot, age / this.state[base + LIFE]);
+    else {
+      const particle = this.pool[slot];
+      particle.position.set(this.state[base + X], this.state[base + Y]);
+      this.appearance(particle, age / this.state[base + LIFE]);
+    }
     return true;
   }
 
@@ -411,11 +552,86 @@ export class ParticleEmitter extends Group2D {
         this.startColor[i] + (this.endColor[i] - this.startColor[i]) * progress;
   }
 
+  private hasTargetSlot(slot: number): boolean {
+    const targetSlot = this.targetSlots[slot];
+    return (
+      !!this.target &&
+      !this.target.destroyed &&
+      this.target.hasSlot(targetSlot) &&
+      this.target.getSlot(targetSlot).generation ===
+        this.targetGenerations[slot]
+    );
+  }
+  private releaseTargetSlot(slot: number): void {
+    if (this.hasTargetSlot(slot))
+      this.target!.removeSlot(this.targetSlots[slot]);
+    this.targetSlots[slot] = -1;
+  }
+  private targetAppearance(slot: number, progress: number): void {
+    const target = this.target!;
+    const index = this.targetSlots[slot];
+    const particle = target.getSlot(index);
+    this.writeTargetAppearance(
+      slot,
+      progress,
+      this.state[slot * STRIDE + X],
+      this.state[slot * STRIDE + Y],
+      particle,
+    );
+    target.setTransform(index, this.particleTransform);
+    target.setTint(index, this.particleTint);
+  }
+  private writeTargetAppearance(
+    slot: number,
+    progress: number,
+    x: number,
+    y: number,
+    particle: ParticleSource2D & { texture: Texture2DSource },
+  ): void {
+    const width =
+      particle.view?.width ??
+      particle.source?.width ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalWidth
+        : particle.texture.width);
+    const height =
+      particle.view?.height ??
+      particle.source?.height ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalHeight
+        : particle.texture.height);
+    const sx =
+      (this.startSize[0] + (this.endSize[0] - this.startSize[0]) * progress) /
+      width;
+    const sy =
+      (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * progress) /
+      height;
+    const transform = this.particleTransform;
+    const axis = slot * 4;
+    transform.a =
+      this.simulationSpace === 'world' ? this.birthAxes[axis] * sx : sx;
+    transform.b =
+      this.simulationSpace === 'world' ? this.birthAxes[axis + 1] * sx : 0;
+    transform.c =
+      this.simulationSpace === 'world' ? this.birthAxes[axis + 2] * sy : 0;
+    transform.d =
+      this.simulationSpace === 'world' ? this.birthAxes[axis + 3] * sy : sy;
+    transform.tx = x;
+    transform.ty = y;
+    transform.space = this.simulationSpace;
+    for (let i = 0; i < 4; i++)
+      this.particleTint[i] =
+        this.startColor[i] + (this.endColor[i] - this.startColor[i]) * progress;
+  }
+
   private retire(index: number): void {
     const slot = this.active[index];
-    const particle = this.pool[slot];
-    particle.visible = false;
-    particle.renderEnabled = false;
+    if (this.target) this.releaseTargetSlot(slot);
+    else {
+      const particle = this.pool[slot];
+      particle.visible = false;
+      particle.renderEnabled = false;
+    }
     this.free[this.freeCount++] = slot;
     this.active[index] = this.active[--this.count];
   }
