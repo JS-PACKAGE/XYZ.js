@@ -1,0 +1,2 @@
+export class SceneObject{owningScene;disposed=!1;get scene(){return this.owningScene}get destroyed(){return this.disposed}attach(e){if(this.disposed)throw Error(`Cannot add a destroyed scene object.`);if(this.owningScene)throw Error(`Scene object already belongs to a scene.`);this.owningScene=e}detach(e){this.owningScene===e&&(this.owningScene=void 0)}destroy(){this.disposed||(this.disposed=!0,this.owningScene?.remove(this),this.onDestroy())}onDestroy(){}}
+//# sourceMappingURL=scene-object.js.map

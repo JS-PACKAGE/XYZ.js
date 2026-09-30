@@ -1,0 +1,2 @@
+import{Transform2D as e}from"../../math/src/index.js";import{SceneObject as t}from"./scene-object.js";export class GameObject extends t{transform=new e;get position(){return this.transform.position}set position(e){this.transform.position.copy(e)}get rotation(){return this.transform.rotation}set rotation(e){this.transform.rotation=e}get scale(){return this.transform.scale}set scale(e){this.transform.scale.copy(e)}}
+//# sourceMappingURL=game-object.js.map
