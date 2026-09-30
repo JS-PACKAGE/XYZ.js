@@ -22,6 +22,7 @@ export class World {
   >();
   private readonly systems: SystemEntry[] = [];
   private updating = false;
+  private systemsNeedCompaction = false;
   private disposed = false;
 
   createEntity(): Entity {
@@ -112,6 +113,7 @@ export class World {
     );
     if (!entry) return false;
     entry.active = false;
+    this.systemsNeedCompaction = true;
     if (!this.updating) this.compactSystems();
     system.destroy?.(this);
     return true;
@@ -155,9 +157,14 @@ export class World {
   }
 
   private compactSystems(): void {
-    for (let i = this.systems.length - 1; i >= 0; i--) {
-      if (!this.systems[i].active) this.systems.splice(i, 1);
+    if (!this.systemsNeedCompaction) return;
+    let write = 0;
+    for (let read = 0; read < this.systems.length; read++) {
+      const entry = this.systems[read];
+      if (entry.active) this.systems[write++] = entry;
     }
+    this.systems.length = write;
+    this.systemsNeedCompaction = false;
   }
 
   private assertAlive(): void {

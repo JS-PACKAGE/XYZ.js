@@ -85,6 +85,30 @@ describe('World entity and component CRUD', () => {
     ]);
   });
 
+  it('preserves surviving system order after removals and an update failure', () => {
+    const world = new World();
+    const calls: string[] = [];
+    const added: System = { update: () => calls.push('added') };
+    const removed: System = { update: () => calls.push('removed') };
+    const survivor: System = { update: () => calls.push('survivor') };
+    const first: System = {
+      update: () => {
+        world.removeSystem(first);
+        world.removeSystem(removed);
+        world.addSystem(added);
+        throw new Error('update failure');
+      },
+    };
+    world.addSystem(first);
+    world.addSystem(removed);
+    world.addSystem(survivor);
+    expect(() => world.update(0.016)).toThrow('update failure');
+    expect(calls).toEqual([]);
+    world.update(0.016);
+    expect(calls).toEqual(['survivor', 'added']);
+    world.destroy();
+  });
+
   it('releases partially initialized systems and rejects duplicate registrations', () => {
     const world = new World();
     const calls: string[] = [];
