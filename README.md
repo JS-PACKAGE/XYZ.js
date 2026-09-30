@@ -2,7 +2,7 @@
 
 Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
 
-文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · [技術參考](docs/TECHNICAL.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
+文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
 ## 繁體中文
 
@@ -33,6 +33,8 @@ game.start();
 
 工具鏈要求 Node >=26、pnpm 12.6.0。執行 `npx pnpm@12.6.0 install`、`npx pnpm@12.6.0 dev`，開啟 `http://127.0.0.1:5173/examples/triangle/`；完整檢查是同一 pnpm 版本的 `build`、`typecheck`、`test`、`lint`、`format:check`。P08 的 2026-09-30 紀錄為五項通過、16 檔／73 測試通過，詳見 [驗收紀錄](ACCEPTANCE.md)。build 輸出 JS、`.d.ts` 與官方 vendor；無 bundler 時完整複製 `dist/`（含 `dist/vendor/opm/`），再從 `/vendor/xyz/dist/src/index.js` 等部署 URL import。根套件維持 UNLICENSED，不因 OPM 的 Apache-2.0 授權而自動改變。
 
+Build 自動最小化 `dist/` 的引擎 JavaScript，保留 ESM 目錄、公開名稱、宣告與 source maps；官方已最小化的 OPM vendor 原樣複製。實測 36 個引擎 JS 約減少 48% 體積；最新安全修正與發佈驗證為 17 檔／82 測試通過。
+
 可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）。驗收證據見 `ACCEPTANCE.md`；各階段獨立 `[Pxx]` commit，不 push。
 
 已驗證 managed Chromium 150；Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 矩陣、跨螢幕 DPR 與 driver reset 尚未認證。WebGPU／AudioWorklet 需要安全來源；benchmark 的約 60fps 不是跨裝置保證。
@@ -57,6 +59,8 @@ Add `<canvas id="game"></canvas>`. The default renderer is `auto`; the example e
 
 Use Node >=26 and pnpm 12.6.0: `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 dev` and open `http://127.0.0.1:5173/examples/triangle/`. Run `build`, `typecheck`, `test`, `lint`, and `format:check` with the same pnpm version. The recorded P08 run on 2026-09-30 passed all five, with 16 files / 73 tests; see [ACCEPTANCE.md](ACCEPTANCE.md). The package is not published on npm; bare imports work after installing a local tarball or configuring a resolver. For unbundled use, copy the **entire** built `dist/` tree, including `dist/vendor/opm/`, and import a deployed URL such as `/vendor/xyz/dist/src/index.js`. The root package remains UNLICENSED; OPM's Apache-2.0 license applies to the vendor, not the engine.
 
+Build automatically minifies engine JavaScript in `dist/`, preserving the ESM tree, public names, declarations, and source maps. The already-minified official OPM vendor is copied unchanged. The measured reduction across 36 engine JS files is about 48%; the latest security and distribution verification passed 17 files / 82 tests.
+
 Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, and `showcase` (2D + 3D + audio together). See `ACCEPTANCE.md` for verification evidence and limitations. Each phase is committed separately; nothing is pushed automatically.
 
 Verified in managed Chromium 150. Safari/Edge/Firefox, physical gamepads, real background-tab/BFCache matrices, cross-monitor DPR and driver resets are not certified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
@@ -80,6 +84,8 @@ game.start();
 ページに `<canvas id="game"></canvas>` を用意します。既定 renderer は `auto` で、上の例は triangle 用に WebGPU を指定しています。他の既定値は width／height＝1280×720 CSS ピクセル、maxDeltaTime＝0.1 秒、pixelRatio＝デバイス比の上限 2、autoResize＝true です。size containment は利用者の CSS を維持し、resize は intrinsic fallback、autoResize は content box に従います。fps は clamp 前の実フレーム間隔を使います。Canvas は初期化中も一つの Game 専用です。通常の pause は resume できます。初期化失敗は reject、fatal frame／graphics 障害は error イベントと停止で通知し、destroy／再 create が必要です。Scene 準備や音声の error は必ずしも fatal ではありません。
 
 Node >=26 と pnpm 12.6.0 を使用します。`npx pnpm@12.6.0 install`、`npx pnpm@12.6.0 dev` を実行し、`http://127.0.0.1:5173/examples/triangle/` を開きます。同じ pnpm で build／typecheck／test／lint／format:check を実行します。2026-09-30 の P08 記録では全項目と 16 ファイル／73 テストが通過しています（[検証記録](ACCEPTANCE.md)）。npm 未公開のため、bare import はローカル tarball のインストール等で解決してください。bundler を使わない場合は `dist/vendor/opm/` を含む `dist/` **全体**を配置し、`/vendor/xyz/dist/src/index.js` のような URL から import します。エンジン本体は UNLICENSED で、OPM の Apache-2.0 ライセンスとは別です。
+
+Build は `dist/` のエンジン JavaScript を自動的に最小化し、ESM 構造、公開名、型宣言、source maps を保持します。最小化済みの公式 OPM vendor は変更せずコピーします。エンジン JS 36 ファイルのサイズは約 48% 減少し、最新の安全性修正と配布検証では 17 ファイル／82 テストが通過しました。
 
 実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）。検証結果と制限は `ACCEPTANCE.md` を参照してください。各段階は個別 commit し、push はしません。
 
@@ -118,7 +124,7 @@ await game.setScene(new Scene());
 game.destroy();
 ```
 
-Scene 是 world 容器；GameObject 無視覺外觀，Sprite 加上貼圖呈現。切換先準備新 Scene，成功才清理舊 Scene；失敗保留舊 Scene，取消時提供 AbortSignal。Scene owns its objects; successful switching destroys the old Scene, while preparation failure preserves it. Scene は Entity ではなく lifecycle 容器であり、切替失敗時は旧 Scene を保持します。詳見 [生命週期契約](docs/TECHNICAL.md#10-core-worldp02)。
+Scene 是 world 容器；GameObject 無視覺外觀，Sprite 加上貼圖呈現。切換先準備新 Scene，成功才清理舊 Scene；失敗保留舊 Scene，取消時提供 AbortSignal。Scene owns its objects; successful switching destroys the old Scene, while preparation failure preserves it. Scene は Entity ではなく lifecycle 容器であり、切替失敗時は旧 Scene を保持します。詳見 [生命週期契約](docs/TECHNICAL-zh.md#10-core-worldp02)。
 
 ## Texture／Sprite
 
@@ -178,3 +184,9 @@ JSON contains an official OPM `voice` and nonempty `notes: [{ note: 60, time: 0,
 Run `npx pnpm@12.6.0 dev`, open `/benchmarks/sprites/`, and keep the tab visible. The [benchmark source](benchmarks/sprites/) uses 1,000 moving resident Sprites, one texture, 1280×720 backing, DPR 1, 120 warmup and 600 measured frames. Default is direct WebGPU; `?renderer=auto`, `webgl2` or `canvas2d` selects another path. It drives Renderer from its own RAF rather than Game.start, reporting frame intervals and CPU begin/render/end submission separately; it is not an end-to-end Game Loop or GPU/GC timing measurement. P08 recorded **59.9988 fps**, CPU submit mean **0.6358 ms**, p95 **1.2 ms**; no cross-device guarantee.
 
 Post-P08 maintenance removes redundant viewport uploads and unconditional ECS compaction, and fixes held keys after focus moves into an input field. The subsequent run passed **75 tests**; timing did **not** establish a CPU/FPS improvement. Before/after measurements and limits are recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
+
+## Asset safety limits
+
+URL-loaded images are capped at 8 MiB of response bytes; audio JSON at 1 MiB and 16,384 notes. Texture dimensions are capped at 8,192 per side and 4,194,304 pixels, including `Texture.fromImage`. Limits are centralized in `src/data/assets.ts`; oversized assets reject rather than truncate or downscale.
+
+All browser-supported image formats remain available. Pixel validation occurs **after decoding**, so these limits do not prevent transient decoder memory amplification. They are per-asset limits, not a total cache/memory budget. Only load trusted images where that residual risk is unacceptable. Security verification and remaining limits are recorded in [ACCEPTANCE.md](ACCEPTANCE.md).

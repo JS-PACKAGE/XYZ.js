@@ -15,7 +15,7 @@
 - `packages/ecs/`：內部 World；`packages/math/`：2D／3D 數學；`packages/assets/`：Texture／cache；`packages/input/`：Keyboard／Pointer／Gamepad；`packages/audio/`：OPM orchestration。
 - `examples/`：`triangle/`、`sprite/`、`cube3d/`、`pong/`、`fallback-demo/`、`showcase/` 六個可執行範例；`benchmarks/sprites/`：1,000 Sprite 可重現負載量測。
 - `vendor/opm/`：官方 OPM.js v1.1.0 完整 dist、LICENSE、來源／checksum manifest；`scripts/copy-vendor.mjs` 在 build 後原樣複製到 `dist/vendor/opm/`。
-- `tests/`：行為測試；`dist/`：JS／宣告與 vendor 產物；`docs/TECHNICAL.md`：API／資源契約；根目錄含 pnpm workspace、文件六件套與 `.nojekyll`（不表示已部署）。
+- `tests/`：行為測試；`dist/`：JS／宣告與 vendor 產物；`docs/TECHNICAL.md`／`TECHNICAL-zh.md`：英文／繁體中文技術參考；`docs/USAGE.md`／`USAGE-zh.md`：英文／繁體中文使用說明；根目錄含 pnpm workspace、文件六件套與 `.nojekyll`（不表示已部署）。
 
 ## 里程碑與階段提交
 

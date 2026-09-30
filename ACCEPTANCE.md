@@ -70,7 +70,7 @@ P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效
 
 - build、typecheck、lint、format:check 通過；Vitest **3 檔／16 測試通過**。新測試涵蓋 ownership／失敗 rollback／fatal 狀態與 GPU 初始化競態，真實 CSS 行為另由瀏覽器 smoke 驗證。
 - 原生 ESM 產物以 `python3 -m http.server 5174 --bind 127.0.0.1` 提供並由瀏覽器 import `/dist/src/index.js`。驗證中發現既有 Vite 對 dist 的回應仍含舊 Clock；已改用靜態伺服器檢查當次 build，不以該快取結果當作新版本證據。
-- [技術文件](docs/TECHNICAL.md) 提供模組邊界、Clock 算式、Canvas／DPR 與 aspect-ratio 契約、GPU 資源、錯誤策略及部署方式；README 中／英／日用法與 DESIGN 同步更新。
+- [繁體中文技術文件](docs/TECHNICAL-zh.md)（另有 [English](docs/TECHNICAL.md)）提供模組邊界、Clock 算式、Canvas／DPR 與 aspect-ratio 契約、GPU 資源、錯誤策略及部署方式；README 中／英／日用法與 DESIGN 同步更新。
 - 本段為 P01 優化當時的紀錄；P02–P08 後續驗收見下文。Safari／Edge／Firefox、實際 BFCache／背景分頁與 driver reset 仍未完成驗證矩陣，不因功能交付而視為認證通過。
 
 ## P02 Core World（驗收通過）
@@ -165,3 +165,20 @@ P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效
 - 工具：build、typecheck、lint、format:check 通過，Vitest **16 檔／75 測試通過**；新增 focus transition 與 ECS 批次移除／update exception 回歸。Showcase 實際顯示 2D／3D；音訊／vendor 未改動，不宣稱重新完成音訊稽核。
 - 同一 Chromium 150／macOS arm64、1,000 Sprite、1280×720／DPR 1、120 warmup＋600 samples：前後均 **60.0006 RAF fps**；CPU submit 平均 **0.1702→0.4940ms**，p95 **0.3→0.7ms**。ECS 單次微量測（1,000 systems、1,000 warmup＋5,000 updates）**14.5→15.9ms**。這些單次時間結果沒有證明加速，甚至後測較高；只確認減少冗餘工作與回歸行為，不宣稱 CPU／FPS 提升，不作跨裝置推論。
 - `CLAUDE.md` 保留 AGENTS 引用並加入弱點掃描／安全控制規範；這不是已啟用掃描器或已完成依賴／secret／安全稽核的證據。
+
+## 安全掃描與資產上限修正（2026-09-30）
+
+- 環境：macOS arm64、Node 26.7.0、pnpm 12.6.0、Chromium 150。重新執行 `pnpm audit --json --registry https://registry.npmjs.org`，169 dependencies 範圍（含 dev／optional）回報各級已知弱點均 0；未升版、未 audit fix，這不保證沒有未知弱點。
+- 原缺口：response.blob／json 無 byte cap；100,000 notes（3,600,376 bytes）曾成功載入。新增共用串流計數，圖片 8 MiB／JSON 1 MiB；notes 16,384；Texture 每邊 8,192／總像素 4,194,304。常數集中 src/data/assets.ts。
+- Chromium 修正後：1 與 16,384 notes 接受；16,385 拒絕；100,000 在 byte cap 拒絕。2048×2048 接受，2049×2048 拒絕；8 MiB＋1 byte 圖片 response 拒絕。Showcase 實際顯示 2D／3D，手勢 unlock 後顯示 Music playing。
+- build、typecheck、lint、format:check 通過；Vitest **17 檔／82 測試通過**。回歸涵蓋 missing／低報 Content-Length 的串流邊界、超限取消、停滯 stream abort、圖片超限 bitmap 釋放、音訊 notes 邊界與 byte-cap 拒絕；未做破壞性 OOM 測試。
+- **明確保留的風險**：使用者選擇保留所有瀏覽器支援圖片格式，因此只在解碼後檢查 pixels，不宣稱已防止解碼瞬間記憶體放大；單資產上限也不等於全域 cache／並行記憶體上限。未重新認證其他瀏覽器、production 部署或底層影像解碼器。
+- 本次修正不自動 commit／push；先前文件安全規範不等於已啟用持續 CI 掃描。
+
+## 雙語文件與最小化發佈（2026-09-30）
+
+- 原繁體中文技術參考移至 docs/TECHNICAL-zh.md，docs/TECHNICAL.md 為完整英文；新增 docs/USAGE.md／USAGE-zh.md 操作指南，維持雙向語言連結與根文件導覽。
+- Build：tsc → 既有 Vite minifier → 官方 vendor 原樣複製。36 個引擎 JS 由 189,706→98,707 bytes；dist 共 46 個 JS，另 10 個為已最小化的官方 vendor。宣告保留、source maps 串接回 TS、公開 export／property／class 名稱不變，無新增依賴。
+- macOS arm64／Node 26.7.0／pnpm 12.6.0：build、typecheck、Vitest 17 檔／82 測試通過；新增 build script 的首次 lint 發現 Node globals 未明確 import，已改為 node: imports 後驗證。Source map 的 texture budget 錯誤位置可追到原 TypeScript；所有 map source paths 存在，dist vendor 與官方 13 檔完全一致。
+- 真實 Chromium 150 以 Python 靜態 HTTP server 載入 dist（不經 Vite）：使用說明完整 HTML／JS 顯示藍色方塊，ArrowRight 使 backing x 由 100→149；正式 WebGPU 紅色方塊讀回 `[255,0,0,255]`；RuntimeError／AssetError 名稱保留；JSON 音訊載入及使用者手勢後 AudioContext running／worklet 初始化成功。不是所有 backend／瀏覽器重新認證，也不是 FPS 提升聲明。
+- 最終 build／lint／format:check 通過；兩次 build 的全部 122 個 dist 檔案 SHA-256 一致。中英文技術參考各 19 節、使用說明各 9 節；69 個文件相對連結／anchor 均可解析，英文正文無中文字元，雙語 quickstart JavaScript 相同。

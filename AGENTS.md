@@ -17,4 +17,4 @@
 
 同步 README 中／英／日說明、PLAN、DESIGN、技術文件及 ACCEPTANCE；AGENTS 是共用執行規範的單一來源，`CLAUDE.md` 以 `@AGENTS.md` 引用並補充弱點掃描與安全控制，不重複共用規範。歷史驗收保留原測試數與日期，清楚標示「當時」與「目前」。文件變更檢查相對連結與格式，不能冒稱重新驗證 runtime。根套件維持 UNLICENSED，授權由所有者決定；build 複製 vendor，發佈／部署必須保留完整 `dist/` 目錄樹，包含 `dist/vendor/opm/`。
 
-詳細 API 與資源管理契約見 `docs/TECHNICAL.md`。P01 優化不得以 clamp 後的 delta 計算實際 fps；Canvas CSS layout 與 GPU backing pixels 必須分離；效能報告區分 JS 配置數、CPU 時間與 GPU／呈現 fps，不以配置減少冒充幀率提升。
+詳細 API 與資源管理契約見 `docs/TECHNICAL.md`（英文）及 `docs/TECHNICAL-zh.md`（繁體中文）；操作入門見 `docs/USAGE.md`／`docs/USAGE-zh.md`。P01 優化不得以 clamp 後的 delta 計算實際 fps；Canvas CSS layout 與 GPU backing pixels 必須分離；效能報告區分 JS 配置數、CPU 時間與 GPU／呈現 fps，不以配置減少冒充幀率提升。
