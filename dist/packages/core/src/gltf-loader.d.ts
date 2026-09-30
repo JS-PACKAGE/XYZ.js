@@ -8,6 +8,8 @@ export interface GLTFAsset {
 }
 export interface GLTFLoadOptions {
     signal?: AbortSignal;
+    /** Extra origins from which model-referenced buffers/images may be fetched; the model's own origin is always allowed. */
+    allowedOrigins?: readonly string[];
 }
 /** Dependency-free glTF 2.0 triangle/TRS/skin loader. Required extensions are rejected. */
 export declare class GLTFLoader {
