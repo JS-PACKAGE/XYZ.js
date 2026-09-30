@@ -418,9 +418,11 @@ export class GLTFLoader {
         if (cached) return cached;
         const def = reference(accessorDefs, id, 'accessor');
         const component = integer(def.componentType, 'componentType'),
-          width = components[component];
+          width = Object.hasOwn(components, component)
+            ? components[component]
+            : undefined;
         const type = typeof def.type === 'string' ? def.type : '',
-          size = sizes[type];
+          size = Object.hasOwn(sizes, type) ? sizes[type] : undefined;
         const count = integer(
           def.count,
           'accessor count',

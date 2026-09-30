@@ -197,6 +197,25 @@ describe('glTF decoding and owned assets', () => {
     );
     expect(decode).not.toHaveBeenCalled();
   });
+  it('rejects prototype-chain accessor types and component types as invalid', async () => {
+    for (const accessor of [
+      { count: 3, type: 'constructor', componentType: 5126 },
+      { count: 3, type: '__proto__', componentType: 5126 },
+      { count: 3, type: 'VEC3', componentType: 'constructor' },
+    ]) {
+      await expect(
+        new GLTFLoader().parse(
+          JSON.stringify({
+            asset: { version: '2.0' },
+            accessors: [accessor],
+            meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+            nodes: [{ mesh: 0 }],
+            scenes: [{ nodes: [0] }],
+          }),
+        ),
+      ).rejects.toThrow(/Invalid accessor type|integer|componentType/);
+    }
+  });
   it('rejects oversized source text and pre-aborted loads without fetching or decoding', async () => {
     const fetchMock = vi.fn();
     vi.stubGlobal('fetch', fetchMock);
