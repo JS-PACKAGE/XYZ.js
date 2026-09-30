@@ -7,12 +7,14 @@ import type { Game } from './game.js';
 import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
 import { Sprite } from './sprite.js';
+import { SceneTimers } from './scene-timers.js';
 
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export class Scene {
   readonly world = new World();
   readonly camera2D = new Camera2D();
   readonly camera3D = new PerspectiveCamera();
+  readonly timers = new SceneTimers();
   ambientLight = 0.3;
   /** Direction points from a surface toward the light. */
   directionalLight = {
@@ -106,6 +108,7 @@ export class Scene {
   destroy(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.timers.destroy();
     this.controller?.abort();
     const errors: unknown[] = [];
     try {

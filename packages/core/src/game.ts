@@ -625,7 +625,10 @@ export class Game extends EventTarget {
       const scene = this.currentScene;
       scene?.camera2D.resize(this.logicalWidth, this.logicalHeight);
       this.input.update();
-      scene?.update(this.clock.deltaTime);
+      scene?.timers.update(this.clock.deltaTime);
+      if (this.currentState !== 'running') return;
+      if (scene && scene === this.currentScene && !scene.destroyed)
+        scene.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)
         scene.world.update(this.clock.deltaTime);

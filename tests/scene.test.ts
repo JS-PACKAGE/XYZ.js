@@ -150,6 +150,56 @@ class LoggingScene extends Scene {
 }
 
 describe('Scene ownership and Game integration', () => {
+  it('advances timers without super.update and excludes paused wall time', async () => {
+    const game = await createGame();
+    let fired = 0;
+    class TimedScene extends Scene {
+      observed = 0;
+      override update(): void {
+        this.observed = fired;
+      }
+    }
+    const scene = new TimedScene();
+    scene.timers.after(0.2, () => fired++);
+    await game.setScene(scene);
+    game.start();
+    frame(0);
+    frame(100);
+    game.pause();
+    expect(fired).toBe(0);
+    expect(frames.size).toBe(0);
+    game.resume();
+    frame(10000);
+    expect(fired).toBe(0);
+    frame(10100);
+    expect(scene.observed).toBe(1);
+    const oldTask = scene.timers.after(0, () => fired++);
+    await game.setScene(new Scene());
+    frame(10200);
+    expect(fired).toBe(1);
+    expect(oldTask.active).toBe(false);
+    game.destroy();
+  });
+
+  it('does not update or render after a timer destroys the Game', async () => {
+    const game = await createGame();
+    let updates = 0;
+    class TimedScene extends Scene {
+      override update(): void {
+        updates++;
+      }
+    }
+    const scene = new TimedScene();
+    scene.timers.after(0, () => game.destroy());
+    await game.setScene(scene);
+    game.start();
+    frame(0);
+    expect(game.state).toBe('destroyed');
+    expect(updates).toBe(0);
+    expect(renderer.beginFrame).not.toHaveBeenCalled();
+    expect(frames.size).toBe(0);
+  });
+
   it('registers 2D transforms without exposing ECS operations to object users', () => {
     const scene = new Scene();
     const object = new GameObject();
