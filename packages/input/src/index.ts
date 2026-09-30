@@ -1,4 +1,23 @@
 import { Vector2 } from '../../math/src/index.js';
+import { inputLimits } from '../../../src/data/input.js';
+
+export interface PointerSample {
+  id: number;
+  type: string;
+  kind: 'move' | 'down' | 'up' | 'cancel' | 'leave';
+  readonly position: Vector2;
+  button: number;
+  buttons: number;
+  sequence: number;
+  originalEvent?: PointerEvent;
+}
+
+export interface ActivePointer {
+  readonly id: number;
+  readonly type: string;
+  readonly position: Vector2;
+  buttons: number;
+}
 
 const NO_GAMEPADS: readonly (Gamepad | null)[] = [];
 
@@ -66,6 +85,98 @@ export class Pointer {
   private readonly released = new Set<number>();
   private readonly pointers = new Map<number, Set<number>>();
   private hovered = false;
+  private readonly views = new Map<number, ActivePointer>();
+  private readonly queued: PointerSample[] = [];
+  private readonly samplePool: PointerSample[] = [];
+  private sequence = 0;
+  private generation = 0;
+
+  get activePointers(): ReadonlyMap<number, ActivePointer> {
+    return this.views;
+  }
+  /** @internal Valid until endFrame; consumed once by the scene router. */
+  get samples(): readonly PointerSample[] {
+    return this.queued;
+  }
+  /** @internal Reset invalidates scene-local capture/hover state. */
+  get resetVersion(): number {
+    return this.generation;
+  }
+
+  /** @internal Individual capture state, unlike aggregate mouse-button polling. */
+  isPointerDown(id: number): boolean {
+    return this.pointers.has(id);
+  }
+
+  private record(event: PointerEvent, kind: PointerSample['kind']): void {
+    let view = this.views.get(event.pointerId);
+    if (!view) {
+      if (this.views.size >= inputLimits.maxActivePointers) return;
+      view = {
+        id: event.pointerId,
+        type: event.pointerType,
+        position: new Vector2(),
+        buttons: event.buttons,
+      };
+      this.views.set(event.pointerId, view);
+    }
+    view.position.copy(this.position);
+    view.buttons = event.buttons;
+    const last = this.queued[this.queued.length - 1];
+    let sample: PointerSample;
+    if (
+      kind === 'move' &&
+      last?.kind === 'move' &&
+      last.id === event.pointerId
+    ) {
+      sample = last;
+    } else {
+      if (this.queued.length === inputLimits.maxPointerSamples) {
+        if (kind === 'move') return;
+        let discard = this.queued.findIndex(
+          (value) =>
+            value.kind === 'move' ||
+            value.kind === 'leave' ||
+            value.kind === 'down',
+        );
+        if (discard < 0)
+          discard = this.queued.findIndex(
+            (value) => value.id === event.pointerId,
+          );
+        if (discard < 0) discard = 0;
+        sample = this.queued[discard];
+        for (let i = discard; i < this.queued.length - 1; i++)
+          this.queued[i] = this.queued[i + 1];
+        this.queued[this.queued.length - 1] = sample;
+      } else {
+        const index = this.queued.length;
+        sample = this.samplePool[index] ??= {
+          id: 0,
+          type: '',
+          kind,
+          position: new Vector2(),
+          button: 0,
+          buttons: 0,
+          sequence: 0,
+        };
+        this.queued.push(sample);
+      }
+    }
+    sample.id = event.pointerId;
+    sample.type = event.pointerType;
+    sample.kind = kind;
+    sample.position.copy(this.position);
+    sample.button = event.button;
+    sample.buttons = event.buttons;
+    sample.sequence = ++this.sequence;
+    sample.originalEvent = event;
+    if (
+      kind === 'cancel' ||
+      (kind === 'up' && event.pointerType === 'touch') ||
+      (kind === 'leave' && !this.pointers.has(event.pointerId))
+    )
+      this.views.delete(event.pointerId);
+  }
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -92,17 +203,20 @@ export class Pointer {
   enter(event: PointerEvent): void {
     this.hovered = true;
     this.updatePosition(event);
+    this.record(event, 'move');
   }
 
   /** @internal */
   leave(event: PointerEvent): void {
     this.hovered = false;
     this.updatePosition(event);
+    this.record(event, 'leave');
   }
 
   /** @internal */
   move(event: PointerEvent): void {
     this.updatePosition(event);
+    this.record(event, 'move');
   }
 
   /** @internal */
@@ -111,6 +225,7 @@ export class Pointer {
     if (event.button < 0) return;
     let buttons = this.pointers.get(event.pointerId);
     if (!buttons) {
+      if (this.pointers.size >= inputLimits.maxActivePointers) return;
       this.canvas.setPointerCapture?.(event.pointerId);
       buttons = new Set<number>();
       this.pointers.set(event.pointerId, buttons);
@@ -121,6 +236,7 @@ export class Pointer {
       this.down.add(event.button);
       this.pressed.add(event.button);
     }
+    this.record(event, 'down');
   }
 
   /** @internal */
@@ -133,6 +249,7 @@ export class Pointer {
       this.releaseCapture(event.pointerId);
     }
     if (event.pointerType === 'touch') this.hovered = false;
+    this.record(event, 'up');
   }
 
   /** @internal */
@@ -140,11 +257,14 @@ export class Pointer {
     this.updatePosition(event);
     this.clearPointer(event.pointerId);
     this.hovered = false;
+    this.record(event, 'cancel');
   }
 
   /** @internal */
   lostCapture(event: PointerEvent): void {
+    const held = this.pointers.has(event.pointerId);
     this.clearPointer(event.pointerId);
+    if (held) this.record(event, 'cancel');
     if (event.pointerType === 'touch') this.hovered = false;
   }
 
@@ -152,14 +272,18 @@ export class Pointer {
   endFrame(): void {
     this.pressed.clear();
     this.released.clear();
+    for (const sample of this.queued) sample.originalEvent = undefined;
+    this.queued.length = 0;
   }
 
   /** @internal */
   reset(): void {
+    this.generation++;
     for (const id of this.pointers.keys()) this.releaseCapture(id);
     this.pointers.clear();
     this.down.clear();
     this.hovered = false;
+    this.views.clear();
     this.endFrame();
   }
 
