@@ -46,6 +46,10 @@ export class Scene {
   private nextObjectUpdate = 0;
   private frameObjectUpdate = 0;
   private pointerRouter: PointerRouter | undefined;
+  /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
+  get pointerEvents(): PointerRouter {
+    return (this.pointerRouter ??= new PointerRouter(this));
+  }
 
   /** @internal Input routing is independent of subclass Scene.update. */
   routePointers(pointer: Pointer, canContinue: () => boolean): void {

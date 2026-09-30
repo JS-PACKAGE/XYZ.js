@@ -7,7 +7,10 @@ import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import { ScreenElement } from '../packages/core/src/gameplay/screen-element.js';
 import { FrameAnimation } from '../packages/core/src/gameplay/frame-animation.js';
 import { Vector2 } from '../packages/math/src/index.js';
-import { collectSprites2D } from '../packages/graphics/src/render2d-contract.js';
+import {
+  collectRenderCommands2D,
+  RenderCommandBuffer2D,
+} from '../packages/graphics/src/render2d-contract.js';
 
 function texture(width = 32, height = 16): Texture {
   return new Texture({
@@ -60,6 +63,49 @@ describe('2D composed scene ownership', () => {
     expect(leaf.containsPoint(world)).toBe(false);
   });
 
+  it('keeps a pixel pivot at its position with skew and reflects output coordinates and bounds', () => {
+    const root = new Group2D();
+    root.position.set(30, 20);
+    root.rotation = 0.4;
+    root.scale.set(-2, 3);
+    const leaf = root.add(
+      new Sprite({ texture: texture(20, 10), anchor: [0, 0] }),
+    );
+    leaf.position.set(8, 6);
+    leaf.pivot.set(4, 2);
+    leaf.skew.set(0.2, -0.3);
+    const expectedPivot = root.toWorld(leaf.position);
+    const actualPivot = leaf.toWorld(leaf.pivot);
+    expect(actualPivot.x).toBeCloseTo(expectedPivot.x, 5);
+    expect(actualPivot.y).toBeCloseTo(expectedPivot.y, 5);
+    const point = new Vector2(3, 7);
+    expect(leaf.toWorld(point, point)).toBe(point);
+    expect(leaf.toLocal(point, point)).toBe(point);
+    expect(point.x).toBeCloseTo(3, 5);
+    expect(point.y).toBeCloseTo(7, 5);
+    const out = { x: 0, y: 0, width: 0, height: 0 };
+    expect(leaf.getWorldBounds(out)).toBe(out);
+    for (const corner of [
+      new Vector2(),
+      new Vector2(20, 0),
+      new Vector2(0, 10),
+      new Vector2(20, 10),
+    ]) {
+      leaf.toWorld(corner, corner);
+      expect(corner.x).toBeGreaterThanOrEqual(out.x - 1e-5);
+      expect(corner.x).toBeLessThanOrEqual(out.x + out.width + 1e-5);
+      expect(corner.y).toBeGreaterThanOrEqual(out.y - 1e-5);
+      expect(corner.y).toBeLessThanOrEqual(out.y + out.height + 1e-5);
+    }
+    leaf.skew.x = -0.25;
+    expect(leaf.toWorld(new Vector2()).x).not.toBeCloseTo(out.x, 5);
+    leaf.scale.x = 0;
+    expect(() => leaf.toLocal(new Vector2())).toThrow(RangeError);
+    expect(leaf.containsPoint(new Vector2())).toBe(false);
+    leaf.texture.destroy();
+    root.destroy();
+  });
+
   it('keeps same-scene reparent registration, rejects cycles/cross-owner, detaches and recursively destroys subtrees', () => {
     const scene = new Scene();
     const other = new Scene();
@@ -100,12 +146,15 @@ describe('2D composed scene ownership', () => {
     const screen = hud.add(new Sprite({ texture: image, position: [4, 4] }));
     scene.camera2D.position.set(100, 100);
     scene.camera2D.renderOffset.set(80, 80);
-    const sprites: Sprite[] = [];
-    collectSprites2D(scene, 32, 32, sprites);
-    expect(sprites).toEqual([world, screen]);
+    const commands = new RenderCommandBuffer2D();
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(commands.items.map((command) => command.object)).toEqual([
+      world,
+      screen,
+    ]);
     scene.camera2D.renderOffset.set(0, 0);
-    collectSprites2D(scene, 32, 32, sprites);
-    expect(sprites).toEqual([screen]);
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(commands.items.map((command) => command.object)).toEqual([screen]);
     const point = scene.camera2D.worldToScreen(new Vector2(102, 104));
     expect(scene.camera2D.screenToWorld(point)).toEqual(new Vector2(102, 104));
     scene.destroy();

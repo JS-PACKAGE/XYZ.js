@@ -17,6 +17,7 @@ import {
   TransitionController,
   type TransitionOptions,
 } from './transitions2d/index.js';
+import { AccessibilityManager } from './accessibility/index.js';
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -96,6 +97,8 @@ export class Game extends EventTarget {
   private readonly previousContain: { value: string; priority: string };
   private readonly previousIntrinsicSize: { value: string; priority: string };
   private readonly autoResize: boolean;
+  private readonly accessibilityManager: AccessibilityManager;
+  private readonly accessibilitySize = { width: 0, height: 0 };
 
   private constructor(
     canvas: HTMLCanvasElement,
@@ -112,6 +115,11 @@ export class Game extends EventTarget {
     this.fixedPixelRatio = options.pixelRatio;
     this.autoResize = options.autoResize !== false;
     this.input = new InputManager(canvas, () => this);
+    this.accessibilityManager = new AccessibilityManager(canvas, () => {
+      this.accessibilitySize.width = this.logicalWidth;
+      this.accessibilitySize.height = this.logicalHeight;
+      return this.accessibilitySize;
+    });
     this.previousContain = {
       value: canvas.style.getPropertyValue('contain'),
       priority: canvas.style.getPropertyPriority('contain'),
@@ -459,6 +467,7 @@ export class Game extends EventTarget {
         this.switchingScene = true;
         try {
           this.currentScene = next;
+          this.accessibilityManager.reset();
           old?.destroy();
         } finally {
           this.switchingScene = false;
@@ -509,7 +518,10 @@ export class Game extends EventTarget {
   /** @internal Called when a Scene is explicitly disposed by its owner. */
   onSceneDisposed(scene: Scene): void {
     this.setLoading(scene, undefined);
-    if (this.currentScene === scene) this.currentScene = undefined;
+    if (this.currentScene === scene) {
+      this.currentScene = undefined;
+      this.accessibilityManager.reset();
+    }
     if (this.activeTransition?.detail.to === scene) this.cancelTransition();
     if (this.pendingScene === scene) {
       this.pendingScene = undefined;
@@ -525,6 +537,7 @@ export class Game extends EventTarget {
     this.requestId = undefined;
     this.clock.suspend();
     this.currentScene?.resetPointerRouting();
+    this.accessibilityManager.reset();
     this.input.reset();
   }
 
@@ -730,7 +743,11 @@ export class Game extends EventTarget {
   private cleanup(): void {
     try {
       try {
-        this.input.destroy();
+        try {
+          this.accessibilityManager.destroy();
+        } finally {
+          this.input.destroy();
+        }
       } finally {
         this.observer?.disconnect();
       }
@@ -781,6 +798,7 @@ export class Game extends EventTarget {
   private readonly onVisibilityChange = (): void => {
     this.clock.suspend();
     this.currentScene?.resetPointerRouting();
+    this.accessibilityManager.reset();
     this.input.reset();
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
@@ -842,6 +860,7 @@ export class Game extends EventTarget {
         this.frameEffects,
       );
       this.graphics.endFrame();
+      this.accessibilityManager.update(this.currentScene);
       if (transition?.controller.complete) this.completeTransition(transition);
     } catch (cause) {
       this.fail(

@@ -98,18 +98,27 @@ export class Matrix3 {
     return this;
   }
 
-  compose(position: Vector2, rotation: number, scale: Vector2): this {
-    const cosine = Math.cos(rotation);
-    const sine = Math.sin(rotation);
+  compose(
+    position: Vector2,
+    rotation: number,
+    scale: Vector2,
+    pivot?: Vector2,
+    skew?: Vector2,
+  ): this {
+    const xAngle = rotation + (skew?.y ?? 0);
+    const yAngle = rotation - (skew?.x ?? 0);
+    const cosine = Math.cos(xAngle);
+    const sine = Math.sin(xAngle);
+    const sameAngle = xAngle === yAngle;
     const e = this.elements;
     e[0] = cosine * scale.x;
     e[1] = sine * scale.x;
     e[2] = 0;
-    e[3] = -sine * scale.y;
-    e[4] = cosine * scale.y;
+    e[3] = -(sameAngle ? sine : Math.sin(yAngle)) * scale.y;
+    e[4] = (sameAngle ? cosine : Math.cos(yAngle)) * scale.y;
     e[5] = 0;
-    e[6] = position.x;
-    e[7] = position.y;
+    e[6] = position.x - (pivot?.x ?? 0) * e[0] - (pivot?.y ?? 0) * e[3];
+    e[7] = position.y - (pivot?.x ?? 0) * e[1] - (pivot?.y ?? 0) * e[4];
     e[8] = 1;
     return this;
   }
@@ -150,23 +159,35 @@ export interface Transform2DOptions {
   position?: Vector2;
   rotation?: number;
   scale?: Vector2;
+  pivot?: Vector2;
+  skew?: Vector2;
 }
 
 export class Transform2D {
   readonly position: Vector2;
   rotation: number;
   readonly scale: Vector2;
+  readonly pivot: Vector2;
+  readonly skew: Vector2;
   readonly matrix = new Matrix3();
 
   constructor(options: Transform2DOptions = {}) {
     this.position = options.position?.clone() ?? new Vector2();
     this.rotation = options.rotation ?? 0;
     this.scale = options.scale?.clone() ?? new Vector2(1, 1);
+    this.pivot = options.pivot?.clone() ?? new Vector2();
+    this.skew = options.skew?.clone() ?? new Vector2();
     this.updateMatrix();
   }
 
   updateMatrix(): Matrix3 {
-    return this.matrix.compose(this.position, this.rotation, this.scale);
+    return this.matrix.compose(
+      this.position,
+      this.rotation,
+      this.scale,
+      this.pivot,
+      this.skew,
+    );
   }
 }
 

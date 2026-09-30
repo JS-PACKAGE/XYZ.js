@@ -23,7 +23,7 @@ describe('Sprite facade and shared textures', () => {
     expect(second.anchor).toEqual(new Vector2(0, 0));
     first.destroy();
     expect(shared.destroyed).toBe(false);
-    expect(second.texture.image.width).toBe(48);
+    expect((second.texture as Texture).image.width).toBe(48);
     scene.destroy();
     expect(second.destroyed).toBe(true);
     expect(shared.destroyed).toBe(false);

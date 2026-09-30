@@ -96,6 +96,12 @@ beforeEach(() => {
     preparePostProcessor: vi.fn(async () => {
       throw new Error('Native postprocessor outside runtime fixture.');
     }),
+    createRenderTexture: vi.fn(),
+    renderToTexture: vi.fn(),
+    extractPixels: vi.fn(),
+    generateTexture: vi.fn(),
+    prepareTextures: vi.fn(),
+    unloadTexture: vi.fn(),
     resize: rendererResize,
     destroy: rendererDestroy,
   };

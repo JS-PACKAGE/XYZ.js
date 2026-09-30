@@ -8,6 +8,13 @@ import {
 import { ActionQueue } from './actions2d/index.js';
 import { Collider2D } from './physics2d/collider.js';
 import { RigidBody2D } from './physics2d/body.js';
+import type { HitArea2D } from './gameplay/hit-area2d.js';
+import type { AccessibilityOptions2D } from './accessibility/index.js';
+import {
+  InteractionListeners2D,
+  isInteractionEvent2D,
+  type InteractionPhase2D,
+} from './gameplay/interaction-events.js';
 
 /** Public 2D facade; entities and component registration belong to Scene. */
 export class GameObject extends SceneObject {
@@ -29,10 +36,54 @@ export class GameObject extends SceneObject {
   pointerEnabled = false;
   draggable = false;
   hitTestMode: 'graphics' | 'collider' = 'graphics';
+  hitArea: HitArea2D | undefined;
+  interactiveChildren = true;
+  cursor: string | undefined;
+  eventPropagation: 'target' | 'hierarchy' = 'target';
+  accessibility: AccessibilityOptions2D | undefined;
+  private interactionListeners: InteractionListeners2D | undefined;
   private initializedEvents = false;
   private actionQueue: ActionQueue | undefined;
   private rigidBody: RigidBody2D | undefined;
   private collisionShape: Collider2D | undefined;
+  override addEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    if (isInteractionEvent2D(type))
+      (this.interactionListeners ??= new InteractionListeners2D()).add(
+        type,
+        callback,
+        options,
+      );
+    else super.addEventListener(type, callback, options);
+  }
+  override removeEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: boolean | EventListenerOptions,
+  ): void {
+    if (isInteractionEvent2D(type))
+      this.interactionListeners?.remove(type, callback, options);
+    else super.removeEventListener(type, callback, options);
+  }
+  override dispatchEvent(event: Event): boolean {
+    if (isInteractionEvent2D(event.type))
+      return (
+        this.interactionListeners?.dispatchNative(event, this) ??
+        !event.defaultPrevented
+      );
+    return super.dispatchEvent(event);
+  }
+  /** @internal Router and accessibility callbacks guard each delivery against scene mutation. */
+  dispatchInteractionEvent(
+    event: CustomEvent,
+    phase: InteractionPhase2D,
+    guard: () => boolean,
+  ): void {
+    this.interactionListeners?.dispatch(event, phase, guard);
+  }
 
   get actions(): ActionQueue {
     return (this.actionQueue ??= new ActionQueue(this));
@@ -123,6 +174,22 @@ export class GameObject extends SceneObject {
     assertFinite(value.x, 'scale.x');
     assertFinite(value.y, 'scale.y');
     this.transform.scale.copy(value);
+  }
+  get pivot(): Vector2 {
+    return this.transform.pivot;
+  }
+  set pivot(value: Vector2) {
+    assertFinite(value.x, 'pivot.x');
+    assertFinite(value.y, 'pivot.y');
+    this.transform.pivot.copy(value);
+  }
+  get skew(): Vector2 {
+    return this.transform.skew;
+  }
+  set skew(value: Vector2) {
+    assertFinite(value.x, 'skew.x');
+    assertFinite(value.y, 'skew.y');
+    this.transform.skew.copy(value);
   }
   get opacity(): number {
     return this.alpha;
@@ -249,6 +316,38 @@ export class GameObject extends SceneObject {
     out.x = out.y = out.width = out.height = 0;
     return out;
   }
+  toWorld(point: Vector2, out: Vector2 = new Vector2()): Vector2 {
+    return this.updateWorldMatrix().transformPoint(point, out);
+  }
+  toLocal(point: Vector2, out: Vector2 = new Vector2()): Vector2 {
+    return this.inverseMatrix
+      .copy(this.updateWorldMatrix())
+      .invert()
+      .transformPoint(point, out);
+  }
+  getWorldBounds(out: Rect2D = { x: 0, y: 0, width: 0, height: 0 }): Rect2D {
+    const bounds = this.getLocalBounds(this.bounds);
+    const matrix = this.updateWorldMatrix().elements;
+    let minX = Infinity,
+      minY = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity;
+    for (let corner = 0; corner < 4; corner++) {
+      const x = bounds.x + (corner & 1 ? bounds.width : 0);
+      const y = bounds.y + (corner & 2 ? bounds.height : 0);
+      const px = matrix[0] * x + matrix[3] * y + matrix[6];
+      const py = matrix[1] * x + matrix[4] * y + matrix[7];
+      minX = Math.min(minX, px);
+      minY = Math.min(minY, py);
+      maxX = Math.max(maxX, px);
+      maxY = Math.max(maxY, py);
+    }
+    out.x = minX;
+    out.y = minY;
+    out.width = maxX - minX;
+    out.height = maxY - minY;
+    return out;
+  }
   containsPoint(point: Vector2): boolean {
     if (this.hitTestMode === 'collider')
       return this.collider?.containsPoint(point, this) ?? false;
@@ -279,6 +378,7 @@ export class GameObject extends SceneObject {
     const errors: unknown[] = [];
     try {
       this.actionQueue?.destroy();
+      this.interactionListeners?.destroy();
     } catch (error) {
       errors.push(error);
     }
