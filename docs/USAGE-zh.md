@@ -160,7 +160,19 @@ const verticalAxis = game.input.gamepads[0]?.axes[1] ?? 0;
 
 `isDown` 是持續狀態，`wasPressed`／`wasReleased` 是當幀 edge，不會被查詢消耗；幀末清除。Keyboard 使用 `KeyboardEvent.code`，例如 KeyW，而不是輸入字元。文字欄位不開始追蹤遊戲按鍵，但仍釋放先前按住的鍵；blur／hidden／pause 清除 held state。Gamepad 槽位可能為空，實體硬體尚未認證。
 
-Spatial sample audio：在 `sample.play(...)` 傳入 `spatial: { position: { x, y, z } }`，以 `playback.position3D = {...}` 移動音源；用 `game.audio.listener.setPosition(x,y,z)`／`setOrientation(forward, up)` 設定聽者。
+Gamepad 建議使用映射 API，而不是原始 `game.input.gamepads`：`game.input.gamepad.stick('left')` 回傳已濾 deadzone 的 `{x,y}`，`game.input.actions` 可把具名 action 綁到手把按鈕、搖桿方向與鍵盤：
+
+```js
+const { actions } = game.input;
+actions.bind('jump', { button: 'a' }, { key: 'Space' });
+actions.bind('left', { axis: 'leftX', direction: -1 }, { key: 'KeyA' });
+if (actions.wasPressed('jump')) player.jump();
+// Rebinding UI：等待 game.input.gamepad.firstPressed()，然後
+actions.rebind('jump', [{ button: game.input.gamepad.firstPressed() }]);
+localStorage.setItem('bindings', JSON.stringify(actions.export())); // actions.import(...) 還原
+```
+
+只使用 `mapping === 'standard'` 的手把。Spatial sample audio：在 `sample.play(...)` 傳入 `spatial: { position: { x, y, z } }`，以 `playback.position3D = {...}` 移動音源；用 `game.audio.listener.setPosition(x,y,z)`／`setOrientation(forward, up)` 設定聽者。
 
 ## 6. 加入 3D
 

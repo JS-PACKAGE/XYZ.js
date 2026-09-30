@@ -1,5 +1,21 @@
 import { Vector2 } from '../../math/src/index.js';
 import { inputLimits } from '../../../src/data/input.js';
+import { ActionMap, GamepadState } from './gamepad.js';
+
+export {
+  ActionMap,
+  GamepadState,
+  gamepadAxisIndex,
+  gamepadButtonIndex,
+} from './gamepad.js';
+export type {
+  ActionKeyboard,
+  GamepadAxisName,
+  GamepadBinding,
+  GamepadButtonName,
+  GamepadSnapshot,
+  GamepadStick,
+} from './gamepad.js';
 
 export interface PointerSample {
   id: number;
@@ -427,6 +443,10 @@ export class Pointer {
 export class InputManager {
   readonly keyboard = new Keyboard();
   readonly pointer: Pointer;
+  /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
+  readonly gamepad = new GamepadState();
+  /** Named actions bound to gamepad buttons, stick directions and keys. */
+  readonly actions = new ActionMap(this.gamepad, this.keyboard);
   /** Snapshot from the latest update; disconnected gamepad indices retain null slots. */
   get gamepads(): readonly (Gamepad | null)[] {
     return this.gamepadSnapshot;
@@ -495,10 +515,12 @@ export class InputManager {
     if (this.destroyed) return;
     if (typeof navigator === 'undefined' || !navigator.getGamepads) {
       this.gamepadSnapshot = NO_GAMEPADS;
-      return;
+    } else {
+      const pads = navigator.getGamepads();
+      this.gamepadSnapshot = pads.length ? Array.from(pads) : NO_GAMEPADS;
     }
-    const pads = navigator.getGamepads();
-    this.gamepadSnapshot = pads.length ? Array.from(pads) : NO_GAMEPADS;
+    this.gamepad.update(this.gamepadSnapshot);
+    this.actions.update();
   }
 
   endFrame(): void {
@@ -510,6 +532,7 @@ export class InputManager {
     this.keyboard.reset();
     this.pointer.reset();
     this.gamepadSnapshot = NO_GAMEPADS;
+    this.gamepad.reset();
   }
 
   destroy(): void {
