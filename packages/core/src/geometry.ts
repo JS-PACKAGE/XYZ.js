@@ -81,6 +81,41 @@ export class Geometry {
     this.indices = copiedIndices;
   }
 
+  private boundsVersion = -1;
+  private readonly sphere = { x: 0, y: 0, z: 0, radius: 0 };
+
+  /** Bounding sphere of the box around all vertices; recomputed only after `markUpdated`. */
+  get boundingSphere(): Readonly<{
+    x: number;
+    y: number;
+    z: number;
+    radius: number;
+  }> {
+    if (this.boundsVersion === this.version) return this.sphere;
+    const v = this.vertices;
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity,
+      maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
+    for (let i = 0; i < v.length; i += 8) {
+      minX = Math.min(minX, v[i]);
+      maxX = Math.max(maxX, v[i]);
+      minY = Math.min(minY, v[i + 1]);
+      maxY = Math.max(maxY, v[i + 1]);
+      minZ = Math.min(minZ, v[i + 2]);
+      maxZ = Math.max(maxZ, v[i + 2]);
+    }
+    const s = this.sphere;
+    s.x = (minX + maxX) / 2;
+    s.y = (minY + maxY) / 2;
+    s.z = (minZ + maxZ) / 2;
+    s.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+    this.boundsVersion = this.version;
+    return s;
+  }
+
   static cube(size = 1): Geometry {
     positive(size, 'Cube size');
     const h = size / 2;

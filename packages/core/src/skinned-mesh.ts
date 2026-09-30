@@ -39,6 +39,10 @@ export class SkinnedMesh extends Mesh {
   private readonly blend = new Matrix4();
   private initialized = false;
 
+  protected override get cullable(): boolean {
+    return false;
+  }
+
   constructor(options: SkinnedMeshOptions) {
     super({ ...options, geometry: cloneGeometry(options.geometry) });
     const count = this.geometry.vertices.length / 8;

@@ -1,6 +1,7 @@
 import { Texture } from '../../assets/src/index.js';
 import { Quaternion } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
+import type { Frustum } from './frustum.js';
 import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
 
@@ -90,6 +91,34 @@ export class Mesh extends Object3D {
     this.receiveShadow = options.receiveShadow ?? true;
   }
 
+  /** Set false to always submit this mesh even when it lies outside the camera frustum. */
+  frustumCulled = true;
+
+  /** Deformed and instanced meshes keep bind-pose or per-instance bounds unreliable. */
+  protected get cullable(): boolean {
+    return this.morph === undefined;
+  }
+
+  /**
+   * Conservative sphere test against the camera frustum. Refreshes the world matrix
+   * so callers may use it before drawing. Non-finite bounds are treated as visible.
+   */
+  isInFrustum(frustum: Frustum): boolean {
+    if (!this.frustumCulled || !this.cullable) return true;
+    const sphere = this.geometry.boundingSphere;
+    const e = this.updateWorldMatrix().elements;
+    const x = e[0] * sphere.x + e[4] * sphere.y + e[8] * sphere.z + e[12];
+    const y = e[1] * sphere.x + e[5] * sphere.y + e[9] * sphere.z + e[13];
+    const z = e[2] * sphere.x + e[6] * sphere.y + e[10] * sphere.z + e[14];
+    const scale = Math.max(
+      Math.hypot(e[0], e[1], e[2]),
+      Math.hypot(e[4], e[5], e[6]),
+      Math.hypot(e[8], e[9], e[10]),
+    );
+    const radius = sphere.radius * scale;
+    if (!Number.isFinite(x + y + z + radius)) return true;
+    return frustum.intersectsSphere(x, y, z, radius);
+  }
   /**
    * Applies pending morph weights to the geometry. Renderers and raycasts call this
    * before reading vertices; unchanged weights cost one integer comparison.

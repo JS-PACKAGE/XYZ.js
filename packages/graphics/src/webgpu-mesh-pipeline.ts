@@ -1,4 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
+import { Frustum } from '../../core/src/frustum.js';
 import { Mesh } from '../../core/src/mesh.js';
 import {
   PBRMaterial,
@@ -59,6 +60,9 @@ export class WebGPUMeshPipeline {
   private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
   private readonly samplers = new Map<number, GPUSampler>();
   private readonly draws: Mesh[] = [];
+  /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
+  private readonly visibleDraws: Mesh[] = [];
+  private readonly frustum = new Frustum();
   private readonly sceneData = new Float32Array(300);
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
@@ -404,6 +408,7 @@ export class WebGPUMeshPipeline {
   ): boolean {
     this.frame++;
     this.draws.length = 0;
+    this.visibleDraws.length = 0;
     try {
       if (!scene) {
         this.post.releaseTarget();
@@ -413,6 +418,7 @@ export class WebGPUMeshPipeline {
       this.ensureShadow(scene);
       this.ensureEnvironment(scene);
       this.prepareScene(scene, aspect);
+      this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
       for (const object of scene.objects) {
         if (
           !(object instanceof Mesh) ||
@@ -428,6 +434,7 @@ export class WebGPUMeshPipeline {
             object.material.alphaMode === 'BLEND')
         )
           continue;
+        const inView = object.isInFrustum(this.frustum);
         object.updateDeformation();
         object.updateWorldMatrix();
         const geometry = this.cacheGeometry(object.geometry);
@@ -435,6 +442,7 @@ export class WebGPUMeshPipeline {
         geometry.seen = mesh.seen = this.frame;
         this.updateMesh(object, mesh);
         this.draws.push(object);
+        if (inView) this.visibleDraws.push(object);
       }
       if (scene.shadows.enabled) this.renderShadows(encoder);
       const postEnabled = scene.postProcessing.enabled;
@@ -460,7 +468,7 @@ export class WebGPUMeshPipeline {
           pass.draw(3);
         }
         pass.setPipeline(postEnabled ? this.hdrPipeline : this.pipeline);
-        for (const object of this.draws) this.drawMesh(pass, object);
+        for (const object of this.visibleDraws) this.drawMesh(pass, object);
       } finally {
         pass.end();
       }
@@ -471,6 +479,7 @@ export class WebGPUMeshPipeline {
       this.depthAttachment.view = undefined;
       this.shadowAttachment.view = undefined;
       this.draws.length = 0;
+      this.visibleDraws.length = 0;
       this.releaseUnused();
     }
   }

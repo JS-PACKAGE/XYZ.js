@@ -1,4 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
+import { Frustum } from '../../core/src/frustum.js';
 import { Mesh } from '../../core/src/mesh.js';
 import {
   type Material2D,
@@ -160,6 +161,7 @@ export class WebGL2Renderer implements Renderer {
   private frameRendered = false;
   private destroyed = false;
   private lostError: WebGL2ContextLostError | undefined;
+  private readonly frustum = new Frustum();
   private maxTextureSize = 0;
   private maxWidth = 0;
   private maxHeight = 0;
@@ -976,6 +978,7 @@ export class WebGL2Renderer implements Renderer {
       false,
       scene.camera3D.updateMatrix(aspect).elements,
     );
+    this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
     gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
     fillEnvironmentData(scene, this.environmentData);
     gl.uniform4fv(uniforms['environment[0]'], this.environmentData);
@@ -1013,6 +1016,7 @@ export class WebGL2Renderer implements Renderer {
         object.geometry.indices.length === 0
       )
         continue;
+      if (!object.isInFrustum(this.frustum)) continue;
       object.updateDeformation();
       const material = object.material;
       const pbr = material instanceof PBRMaterial;

@@ -12,6 +12,10 @@ export class InstancedMesh extends Mesh {
   readonly matrices: Float32Array;
   version = 0;
 
+  protected override get cullable(): boolean {
+    return false;
+  }
+
   constructor(options: InstancedMeshOptions) {
     super(options);
     if (
