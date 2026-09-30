@@ -123,7 +123,7 @@ fn straight(color: vec4f) -> vec4f { return vec4f(color.rgb / max(color.a, 0.000
     return sum / weight;
   }
   if (mode == 3u) {
-    let noise = fract(sin(dot(vec2f(input.uv.x, 1.0 - input.uv.y) * settings.values[1].xy,vec2f(12.9898,78.233)) + p.z) * 43758.5453) - 0.5;
+    let noise = fract(sin(dot(input.uv * settings.values[1].xy,vec2f(12.9898,78.233)) + p.z) * 43758.5453) - 0.5;
     return vec4f(clamp(color.rgb + vec3f(noise * p.y * color.a),vec3f(0.0),vec3f(color.a)),color.a);
   }
   if (mode == 4u) {
