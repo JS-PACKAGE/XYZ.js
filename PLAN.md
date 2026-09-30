@@ -2,25 +2,26 @@
 
 ## 強制執行範圍（硬規則）
 
-- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.0.0**；本輪依序實作 **P02–P08**，各階段先驗收再獨立提交。企劃書原 v0.0.1–v0.0.8 開發步驟對應 P01–P08，原 v0.1 範圍為本路線目標；套件版本號不代表八階段已完成，不得將規劃功能寫成已實作。
+- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.0.0**；**P01–P08 已完成並各自驗收提交**，目前進入維護。企劃書原 v0.0.1–v0.0.8 對應 P01–P08；完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證或 npm 發佈。
 - 每個里程碑的驗收硬指標全部通過後，**立即單獨提交該里程碑的 git commit**，commit message 必須以該階段前綴開頭（例如 `[P01] WebGPU Foundation`）；不得合併兩個或更多里程碑為同一 commit，亦不得提前提交未通過驗收的階段。**嚴禁 push，由使用者親自推送。**
-- 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。強制指定 backend 不得靜默切換；`auto` 的三級降級僅於 P06 完成，之前不可宣稱相容 WebGL2／Canvas2D。
-- 第一階段不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Animation／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；本路線也不包含 PBR、法線貼圖、陰影、骨骼動畫、glTF 載入器。
+- 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。`auto` 已提供 WebGPU→WebGL2→Canvas2D 初始化降級，強制指定 backend 不得靜默切換；執行中 loss 不自動切換 backend。
+- 本版不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Animation／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；也不包含 PBR、法線貼圖、陰影、骨骼動畫、glTF 載入器。
 - TypeScript strict、Web 原生 API、零 runtime dependencies（P07 的 OPM.js 官方 vendor 發佈包除外）。禁止為了過關而另寫獨立 triangle demo 繞開正式 Game→Renderer→WebGPU 路徑。
 
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
-- `packages/core/`：Game、Clock、loop 等 runtime；`packages/graphics/`：Renderer 介面與 WebGPU backend。這兩包在 P01 建立。
-- `packages/ecs/`、`packages/math/`、`packages/assets/`、`packages/input/`、`packages/audio/`：按里程碑需求才建立，不預放空殼。
-- `examples/triangle/`：P01 瀏覽器驗收；後續增加 `sprite/`、`cube3d/`、`pong/`、`fallback-demo/`、`showcase/`。
-- `tests/`：與實作同步建立具行為價值的測試。`dist/` 是 tsc 發佈產物；根目錄為 pnpm workspace、工具設定與文件六件套。
+- `packages/core/`：Game、Clock、Scene、2D／3D 物件與相機、logger；`packages/graphics/`：Renderer 契約、WebGPU／WebGL2／Canvas2D 與 auto presentation。
+- `packages/ecs/`：內部 World；`packages/math/`：2D／3D 數學；`packages/assets/`：Texture／cache；`packages/input/`：Keyboard／Pointer／Gamepad；`packages/audio/`：OPM orchestration。
+- `examples/`：`triangle/`、`sprite/`、`cube3d/`、`pong/`、`fallback-demo/`、`showcase/` 六個可執行範例；`benchmarks/sprites/`：1,000 Sprite 可重現負載量測。
+- `vendor/opm/`：官方 OPM.js v1.1.0 完整 dist、LICENSE、來源／checksum manifest；`scripts/copy-vendor.mjs` 在 build 後原樣複製到 `dist/vendor/opm/`。
+- `tests/`：行為測試；`dist/`：JS／宣告與 vendor 產物；`docs/TECHNICAL.md`：API／資源契約；根目錄含 pnpm workspace、文件六件套與 `.nojekyll`（不表示已部署）。
 
 ## 里程碑與階段提交
 
 | 階段（對應企劃原階段）                | 新增實作與範例                                                                                                                                                      | 通過後的獨立提交前綴 |
 | ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
-| P01 — WebGPU Foundation（原 v0.0.1）  | Game、Clock、Game Loop、Canvas、Graphics 抽象、WebGPU 初始化、WGSL Renderer、triangle                                                                               | `[P01]`              |
+| P01 — WebGPU Foundation（已驗收）     | Game、Clock、Game Loop、Canvas、Graphics 抽象、WebGPU 初始化、WGSL Renderer、triangle                                                                               | `[P01]`              |
 | P02 — Core World（已驗收）            | Scene lifecycle／切換／清理、Entity／Component／System、Transform、2D Math                                                                                          | `[P02]`              |
 | P03 — Texture & Sprite（已驗收）      | 有 cache 的 Asset Loader、Texture、Sprite、WGSL sprite pipeline、alpha、transform、z-order、sprite 範例                                                             | `[P03]`              |
 | P04 — Camera & Input（已驗收）        | Camera2D、Keyboard／Pointer Events／Gamepad、resize handling、pong 範例                                                                                             | `[P04]`              |
@@ -33,9 +34,9 @@
 
 - Game 以 async factory 建立，`requestAnimationFrame` 驅動 Clock→更新→Renderer；秒為 delta 單位，最大 delta 預設 0.1s 並避免隱藏分頁時間累積，生命週期包含 pause／resume／resize／destroy。
 - Renderer 隔離 backend；WebGPU 使用 WGSL，WebGL2 使用 GLSL。P06 已完成包含初始化失敗的三級 fallback；強制 backend 不切換，執行中 device/context loss 回報 fatal error。
-- 路線目標是遊戲邏輯使用 `graphics.capabilities` 而非 backend 名稱；WebGL2 使用 GLSL ES，Canvas2D 只支援基本 2D 並回報 `threeD === false`；不建自製 shader 語言。
+- 遊戲邏輯以 `graphics.capabilities` 判斷功能；WebGL2 使用 GLSL ES，Canvas2D 只支援 2D 並回報 `threeD === false`。Capabilities 描述 backend 能力，不代表已有公開 custom shader／compute API。
 - Scene 為 world/lifecycle 容器，不是 Entity；公開 Sprite 等物件 facade，ECS 為內核。Asset cache 與 backend GPU resource 分離；同 Scene 的 3D 先作 depth-test，再以 z-order 疊加 2D。
-- Audio DSP／worklet／voice/scheduling 交由 OPM.js，XYZ.js 僅 orchestration；官方 release 整包保留 chunks／worklet，8 聲部（含 release）與 256 worklet 事件限制影響聲部預算及 look-ahead 排程；遵守瀏覽器 autoplay 手勢限制。
+- Audio 使用未修改的官方 OPM.js DSP／worklet。XYZ.js 以八個隔離 OPM instances 管理八個 slot（含 release），只搶最舊 SFX，不切斷 BGM；每個 worklet 的 256-event queue 以 bounded lookahead 控制。手勢 unlock 前不建立 AudioContext，代價是 unlock 後共八個 contexts／worklets。
 - 可調值集中 `src/data/`；ESM 相對匯入附 `.js`，輸出 `.d.ts`，使 npm 與無 bundler 的 vendor 複製兩種發佈路徑皆可使用。
 
 ## 驗收硬指標
@@ -51,18 +52,16 @@
 
 各項實際證據與待驗事項記在 `ACCEPTANCE.md`；未經瀏覽器檢驗不得標為完成。每階段**先驗收、再立即單獨 commit、絕不 push**。
 
-## 後續優先項與進度
+## 維護與發佈前待驗項
 
-P01–P08 已依序驗收；技術契約集中於 [技術文件](docs/TECHNICAL.md)，實測與未驗證限制見 `ACCEPTANCE.md`。
+P01–P08 的功能驗收與獨立 commits 見 [ACCEPTANCE.md](ACCEPTANCE.md)。下列項目是已交付版本的驗證限制／發佈前工作，不是尚未實作的階段。
 
-| 優先順序 | 缺口與下一步                                                                              | 對應驗收                                                               |
-| -------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| 1        | P02 已完成 transactional Scene 切換、cooperative cancellation 與 ECS                      | 舊 Scene 清理一次；準備失敗保留 active World                           |
-| 2        | P03 已完成共享下載 Promise、CPU Texture 與 backend GPU resource 生命週期分離              | 失敗及已銷毀資產可重新載入；Sprite 不銷毀共享 texture                  |
-| 3        | P04／P08 增加真實背景分頁、BFCache 往返與 DPR／跨螢幕場景；目前事件模擬不足以宣稱完整支援 | Safari／Edge／Chrome 實際往返後恢復畫面，沒有 resize feedback          |
-| 4        | P06 已以獨立 context canvas 解決 binding 後初始化失敗的 fallback                          | 實際 configure failure 降至 WebGL2；GPU／GL 均不可用降至 Canvas2D      |
-| 5        | P08 已建立 1,000 Sprite benchmark                                                         | 實測 RAF 約 60fps，CPU submit 平均 0.636ms；GPU／GC 未直接量測         |
-| 6        | npm tarball、獨立 JS／TS 與無 bundler 瀏覽器消費端已驗證；公開發佈前仍須由所有者決定授權  | 維持 UNLICENSED，不發布、不 push；Node 26 工具鏈與 Chromium 150 已驗證 |
+| 項目             | 已確認                                                                                   | 尚未確認或需決策                                                           |
+| ---------------- | ---------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 瀏覽器與輸入     | managed Chromium 150；鍵盤／pointer 互動；gamepad snapshot 測試                          | Safari／Edge／Firefox、實體 gamepad                                        |
+| 視窗與 lifecycle | CSS content-box／DPR／resize、visibility／BFCache 事件模擬、實際 API device/context loss | 真實背景分頁／BFCache 往返矩陣、跨螢幕 DPR、真實 driver reset              |
+| 效能             | 1,000 Sprite WebGPU direct，約 60fps；CPU submit 平均 0.6358ms                           | GPU timestamps／GC、其他硬體與 auto presentation copy 的效能比較           |
+| 封裝與授權       | Node 26／pnpm 12.6.0、tarball JS／TS、無 bundler ESM 消費端                              | 所有者決定授權後才能公開發佈；目前 UNLICENSED、未 npm publish，不自動 push |
 
 ## 交付前自檢
 

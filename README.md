@@ -2,7 +2,7 @@
 
 Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
 
-技術文件／Technical reference／技術資料：[docs/TECHNICAL.md](docs/TECHNICAL.md)（繁體中文）。
+文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · [技術參考](docs/TECHNICAL.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
 ## 繁體中文
 
@@ -14,7 +14,7 @@ Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P0
 <canvas id="game"></canvas>
 ```
 
-在可解析 `xyz.js` 的 npm/bundler 專案中：
+在已安裝本機 tarball 或可解析 `xyz.js` 的 npm/bundler 專案中（尚未 npm publish）：
 
 ```ts
 import { Game } from 'xyz.js';
@@ -29,11 +29,13 @@ game.start();
 // game.clock.deltaTime、elapsedTime（秒）、frame、fps
 ```
 
-`Game.create` 還可設定 `width`、`height`（預設 1280×720 CSS 像素）、`maxDeltaTime`（預設 0.1 秒）、`pixelRatio`（預設裝置比例上限 2）、`autoResize`（預設 true）。引擎使用 size containment 提供預設 intrinsic 尺寸，不覆寫作者的 width／height CSS；可在有尺寸的容器中設定 canvas `width:100%;height:100%`，或使用 width 搭配明確的 CSS `aspect-ratio`。`resize()` 更新 intrinsic fallback，autoResize 時仍以作者 CSS 的 content box 為準；`fps` 使用未 clamp 的真實幀間隔。每個 Canvas 限一個 Game（含初始化期間）。初始化失敗會 reject；執行中錯誤回報 `error` 事件並暫停，需 destroy／重新 create，不能直接 resume。一般 pause 仍可正常 resume；狀態為 `idle`、`running`、`paused`、`destroyed`。
+`Game.create` 預設 `renderer:'auto'`；上例刻意指定 WebGPU 顯示 triangle。其他設定：`width`／`height`（1280×720 CSS 像素）、`maxDeltaTime`（0.1 秒）、`pixelRatio`（裝置比例上限 2）、`autoResize`（true）。size containment 不覆寫作者 width／height CSS；可在有尺寸的容器使用 `width:100%;height:100%`，或 width 加明確 `aspect-ratio`。`resize()` 更新 intrinsic fallback，autoResize 仍以 content box 為準；`fps` 使用未 clamp 幀間隔。每個 Canvas 限一個 Game（含初始化）；一般 pause 可 resume。初始化失敗會 reject；fatal frame／graphics 錯誤送出 `error` 並暫停，需 destroy／重新 create。Scene 準備與 Audio 排程錯誤也可能送出 `error`，但不一定是 fatal。狀態為 idle／running／paused／destroyed。
 
-開發：先執行 `npx pnpm install`，再執行 `npx pnpm dev`，於 WebGPU 瀏覽器開啟 `http://127.0.0.1:5173/examples/triangle/`。正式檢查命令：`npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check`；文件不聲稱這些檢查已執行。`npx pnpm build` 輸出可發佈的 `dist/`（含 JS 與 `.d.ts`）。npm 套件發佈並安裝後可使用上述 bare import；若不透過 npm/bundler，將完整 `dist/` 複製到網站（例如 `/vendor/xyz/dist/`），在瀏覽器改用 `import { Game } from '/vendor/xyz/dist/src/index.js'`，不要只複製入口檔。
+工具鏈要求 Node >=26、pnpm 12.6.0。執行 `npx pnpm@12.6.0 install`、`npx pnpm@12.6.0 dev`，開啟 `http://127.0.0.1:5173/examples/triangle/`；完整檢查是同一 pnpm 版本的 `build`、`typecheck`、`test`、`lint`、`format:check`。P08 的 2026-09-30 紀錄為五項通過、16 檔／73 測試通過，詳見 [驗收紀錄](ACCEPTANCE.md)。build 輸出 JS、`.d.ts` 與官方 vendor；無 bundler 時完整複製 `dist/`（含 `dist/vendor/opm/`），再從 `/vendor/xyz/dist/src/index.js` 等部署 URL import。根套件維持 UNLICENSED，不因 OPM 的 Apache-2.0 授權而自動改變。
 
 可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）。驗收證據見 `ACCEPTANCE.md`；各階段獨立 `[Pxx]` commit，不 push。
+
+已驗證 managed Chromium 150；Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 矩陣、跨螢幕 DPR 與 driver reset 尚未認證。WebGPU／AudioWorklet 需要安全來源；benchmark 的約 60fps 不是跨裝置保證。
 
 ## English
 
@@ -51,11 +53,13 @@ game.addEventListener('error', (event) =>
 game.start();
 ```
 
-Add `<canvas id="game"></canvas>` to the page. Options include `width`/`height` (1280×720 CSS pixels), `maxDeltaTime` (0.1s), `pixelRatio` (device ratio capped at 2), and `autoResize` (true). Size containment supplies intrinsic defaults without replacing authored width/height CSS. Use `width:100%;height:100%` in a sized container, or width plus an explicit CSS `aspect-ratio`. `resize()` updates intrinsic defaults; autoResize still follows the authored content box. Clock exposes seconds, frame count, and instantaneous fps from the unclamped interval. Each canvas permits one Game, including pending initialization. `pause()` can be resumed; fatal runtime errors emit `error` with `detail`, pause the Game, and require destroy/recreate rather than resume. Initialization failures reject `create`.
+Add `<canvas id="game"></canvas>`. The default renderer is `auto`; the example explicitly requests WebGPU for the triangle. Other defaults are `width`/`height` (1280×720 CSS pixels), `maxDeltaTime` (0.1s), `pixelRatio` (device ratio capped at 2), and `autoResize` (true). Size containment preserves authored CSS; use a sized container or width plus explicit `aspect-ratio`. `resize()` updates intrinsic defaults; autoResize follows the content box. Clock fps uses the unclamped interval. Each canvas permits one Game, including initialization. Normal pause is resumable. Initialization failures reject; fatal frame/graphics errors emit `error` with `detail`, pause the Game and require destroy/recreate. Scene preparation and audio scheduling errors may also emit `error` without being fatal.
 
-Install tools with `npx pnpm install`, start `npx pnpm dev`, then open `http://127.0.0.1:5173/examples/triangle/` in a WebGPU-capable browser. For project verification, run `npx pnpm build`, `npx pnpm typecheck`, `npx pnpm test`, `npx pnpm lint`, `npx pnpm format:check` (results are not asserted here). npm usage requires that this package has actually been published and installed. For unbundled vendor use, copy the **entire** compiled `dist/` tree into the site and import its `/vendor/xyz/dist/src/index.js` URL instead of the bare specifier; relative `.js` imports need the rest of `dist/`.
+Use Node >=26 and pnpm 12.6.0: `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 dev` and open `http://127.0.0.1:5173/examples/triangle/`. Run `build`, `typecheck`, `test`, `lint`, and `format:check` with the same pnpm version. The recorded P08 run on 2026-09-30 passed all five, with 16 files / 73 tests; see [ACCEPTANCE.md](ACCEPTANCE.md). The package is not published on npm; bare imports work after installing a local tarball or configuring a resolver. For unbundled use, copy the **entire** built `dist/` tree, including `dist/vendor/opm/`, and import a deployed URL such as `/vendor/xyz/dist/src/index.js`. The root package remains UNLICENSED; OPM's Apache-2.0 license applies to the vendor, not the engine.
 
 Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, and `showcase` (2D + 3D + audio together). See `ACCEPTANCE.md` for verification evidence and limitations. Each phase is committed separately; nothing is pushed automatically.
+
+Verified in managed Chromium 150. Safari/Edge/Firefox, physical gamepads, real background-tab/BFCache matrices, cross-monitor DPR and driver resets are not certified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
 
 ## 日本語
 
@@ -73,11 +77,28 @@ game.addEventListener('error', (event) =>
 game.start();
 ```
 
-ページに `<canvas id="game"></canvas>` を用意してください。`width`／`height`（既定 1280×720 CSS ピクセル）、`maxDeltaTime`（0.1 秒）、`pixelRatio`（デバイス比の上限 2）、`autoResize`（true）を設定できます。size containment で既定 intrinsic サイズを指定し、利用者の width／height CSS は上書きしません。サイズ付きコンテナ内で `width:100%;height:100%`、または幅と明示的な CSS `aspect-ratio` を使用します。`resize()` は intrinsic 既定値を更新し、autoResize は利用者 CSS の content box に従います。fps は clamp 前の実フレーム間隔から計算します。初期化中も含め Canvas は一つの Game 専用です。通常の pause は resume できますが、実行時障害は `error` イベントで通知し、destroy／再 create が必要です。初期化失敗は Promise の reject で通知します。
+ページに `<canvas id="game"></canvas>` を用意します。既定 renderer は `auto` で、上の例は triangle 用に WebGPU を指定しています。他の既定値は width／height＝1280×720 CSS ピクセル、maxDeltaTime＝0.1 秒、pixelRatio＝デバイス比の上限 2、autoResize＝true です。size containment は利用者の CSS を維持し、resize は intrinsic fallback、autoResize は content box に従います。fps は clamp 前の実フレーム間隔を使います。Canvas は初期化中も一つの Game 専用です。通常の pause は resume できます。初期化失敗は reject、fatal frame／graphics 障害は error イベントと停止で通知し、destroy／再 create が必要です。Scene 準備や音声の error は必ずしも fatal ではありません。
 
-`npx pnpm install`、`npx pnpm dev` を実行し、WebGPU 対応ブラウザーで `http://127.0.0.1:5173/examples/triangle/` を開きます。検証コマンドは `npx pnpm build`、`npx pnpm typecheck`、`npx pnpm test`、`npx pnpm lint`、`npx pnpm format:check` です（ここでは実行結果を主張しません）。npm import は公開・インストール後に使用できます。bundler を使わない場合、ビルド済みの `dist/` **全体**をサイトにコピーし、bare specifier ではなく `/vendor/xyz/dist/src/index.js` のような URL から import してください。
+Node >=26 と pnpm 12.6.0 を使用します。`npx pnpm@12.6.0 install`、`npx pnpm@12.6.0 dev` を実行し、`http://127.0.0.1:5173/examples/triangle/` を開きます。同じ pnpm で build／typecheck／test／lint／format:check を実行します。2026-09-30 の P08 記録では全項目と 16 ファイル／73 テストが通過しています（[検証記録](ACCEPTANCE.md)）。npm 未公開のため、bare import はローカル tarball のインストール等で解決してください。bundler を使わない場合は `dist/vendor/opm/` を含む `dist/` **全体**を配置し、`/vendor/xyz/dist/src/index.js` のような URL から import します。エンジン本体は UNLICENSED で、OPM の Apache-2.0 ライセンスとは別です。
 
 実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）。検証結果と制限は `ACCEPTANCE.md` を参照してください。各段階は個別 commit し、push はしません。
+
+managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 gamepad、実際の背景タブ／BFCache 往復、モニター間 DPR と driver reset は未認証です。WebGPU／AudioWorklet にはセキュアなオリジンが必要です。約 60fps の測定値は全環境での保証ではありません。
+
+## Examples／範例／サンプル
+
+Run the dev server and open the corresponding `/examples/<name>/` URL. Links below open the source directories.
+
+| Example                                  | 驗證內容／Purpose                                         |
+| ---------------------------------------- | --------------------------------------------------------- |
+| [triangle](examples/triangle/)           | WebGPU triangle；Pause／Resume／Destroy                   |
+| [sprite](examples/sprite/)               | Shared Texture、z-order／opacity、六聲部 BGM＋SFX         |
+| [pong](examples/pong/)                   | Camera2D、keyboard／pointer／gamepad API、計分            |
+| [cube3d](examples/cube3d/)               | Lit cube／sphere、depth、2D overlay；Canvas2D 明確不跑 3D |
+| [fallback-demo](examples/fallback-demo/) | Backend selector、capabilities、Sprite／Primitive／Mesh   |
+| [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup     |
+
+`cube3d`, `fallback-demo`, and `showcase` accept `?renderer=auto|webgpu|webgl2|canvas2d`. Canvas2D showcase retains 2D + audio and omits 3D.
 
 ## Scene／Core World
 
@@ -148,10 +169,12 @@ sound.play({ channel: 'sfx' });
 game.audio.master.volume = 0.8;
 ```
 
-JSON contains an OPM `voice` and `notes: [{ note: 60, time: 0, duration: 0.2 }]` (MIDI note; seconds). Optional `channel`, `loop`, and `duration` select defaults and loop period. `music`, `sfx`, `ui`, and `master` expose volume 0–1. Playback is scene-owned unless `persistent: true`; scene teardown cancels future notes and release tails. The eight-slot budget includes release, and only the oldest SFX can be stolen. Eight isolated official OPM instances prevent upstream global voice stealing from cutting BGM; this costs eight AudioContexts/worklets. See `examples/sprite/` and [technical details](docs/TECHNICAL.md).
+JSON contains an official OPM `voice` and nonempty `notes: [{ note: 60, time: 0, duration: 0.2 }]` (MIDI 0–127; time ≥0 and duration (0,60] seconds). Optional `channel`, `loop`, and `duration` select defaults and loop period; the period cannot end before the last note. `music`, `sfx`, `ui`, and `master` expose volume 0–1. Playback belongs to the current Scene unless another `scene` is provided or `persistent: true`; without a current Scene it lasts until stopped/ended or Game destruction. Scene teardown cancels its nonpersistent notes and release tails. Game pause does not pause audio. The eight-slot budget includes release; only the oldest SFX can be stolen, and a saturated budget with no SFX skips the incoming note. Eight isolated official OPM instances prevent global voice stealing from cutting BGM, at the cost of eight AudioContexts/worklets. See [sample JSON](examples/sprite/sfx.json), [vendor provenance](vendor/opm/manifest.json), and [technical details](docs/TECHNICAL.md).
 
 ## Diagnostics & benchmark
 
 `import { logger } from 'xyz.js'; logger.level = 'debug';` enables backend diagnostics. Levels: `debug`, `info`, `warn` (default), `error`, `silent`; methods use the `[XYZ]` prefix.
 
-Run `npx pnpm dev`, open `/benchmarks/sprites/`, and keep the tab visible. The reproducible 1,000-Sprite benchmark reports RAF intervals and CPU submission separately after 120 warmup and 600 measured frames. The recorded Chromium/WebGPU run reached ~60 fps; this is not a cross-device guarantee or GPU timing measurement.
+Run `npx pnpm@12.6.0 dev`, open `/benchmarks/sprites/`, and keep the tab visible. The [benchmark source](benchmarks/sprites/) uses 1,000 moving resident Sprites, one texture, 1280×720 backing, DPR 1, 120 warmup and 600 measured frames. Default is direct WebGPU; `?renderer=auto`, `webgl2` or `canvas2d` selects another path. It drives Renderer from its own RAF rather than Game.start, reporting frame intervals and CPU begin/render/end submission separately; it is not an end-to-end Game Loop or GPU/GC timing measurement. P08 recorded **59.9988 fps**, CPU submit mean **0.6358 ms**, p95 **1.2 ms**; no cross-device guarantee.
+
+Post-P08 maintenance removes redundant viewport uploads and unconditional ECS compaction, and fixes held keys after focus moves into an input field. The subsequent run passed **75 tests**; timing did **not** establish a CPU/FPS improvement. Before/after measurements and limits are recorded in [ACCEPTANCE.md](ACCEPTANCE.md).

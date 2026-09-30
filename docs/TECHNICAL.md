@@ -6,26 +6,32 @@
 
 ```text
 src/index.ts                    統一 ESM／TypeScript API
-  ├─ packages/core             Game、Clock、RuntimeError
+  ├─ packages/core             Game／Clock／Scene、物件與相機、logger
+  │    ├─ packages/ecs         World／Entity／Component／System（內核）
   │    └─ Game.create() → createRenderer()
-  └─ packages/graphics         Renderer 契約、WebGPU 實作、GraphicsError
-       └─ adapter → device → context → WGSL pipeline
+  ├─ packages/graphics         Renderer／capabilities／錯誤
+  │    └─ WebGPU → WebGL2 → Canvas2D（auto 初始化降級）
+  ├─ packages/math             Vector2／3、Matrix3／4、Quaternion、Transform
+  ├─ packages/assets           AssetLoader／Texture／AssetError
+  ├─ packages/input            Keyboard／Pointer／Gamepad
+  └─ packages/audio            AudioManager／Asset／Channel／OPMAdapter
+       └─ vendor/opm           官方 OPM.js v1.1.0
 
 requestAnimationFrame(timestamp)
-  → Clock.tick(timestamp)
-  → Scene.update(deltaTime) → World Systems.update(deltaTime)
-  → Renderer.beginFrame()
-  → Renderer.render()
+  → 同步 DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
+  → Input.update() → Scene.update(deltaTime) → World.update(deltaTime)
+  → Renderer.beginFrame() → Renderer.render(scene, width, height)
   → Renderer.endFrame()
-  → 下一次 requestAnimationFrame
+  → Input.endFrame()（finally 清除 edges）
+  → 仍 running 時排程下一次 requestAnimationFrame
 ```
 
-- `Game.create()` 是 async factory；constructor 不啟動非同步初始化。
+- `Game.create()` 是 async factory，renderer 預設 `auto`；constructor 不啟動非同步初始化。ECS 經 `scene.world` 管理，沒有額外的 root export／npm subpath entry。
 - `Game` 擁有 loop、Canvas 尺寸與 Renderer 的生命週期；一般遊戲使用者不需要存取 GPUDevice。
 - `Renderer` 接收 Scene 與 logical viewport 尺寸，不向核心公開 GPU resource。
 - Triangle 的 shader 位於正式 Renderer，範例頁僅建立 Game 與操作按鈕，沒有第二套渲染器。
-- `src/data/defaults.ts` 集中 viewport、delta clamp、pixel ratio 上限與 clear color。
-- 目前 `RuntimeError` 共用 graphics 匯出的 `XYZError` 基底。後續出現其他真正需要共用錯誤的 subsystem 時，再評估抽出共用模組；不先建立空 package。
+- `src/data/defaults.ts` 集中 viewport、delta clamp、pixel ratio 上限與 clear color；`src/data/audio.ts` 集中音訊 slot／timer／lookahead／release guard。
+- RuntimeError、AssetError、AudioError 與 GraphicsError 共用 graphics 定義的 XYZError。AudioManager 由 Game 擁有，排程不依賴 RAF；pause／hidden 不等同停止音訊。
 
 ## 2. Clock：模擬時間不等於畫面幀率
 
@@ -48,7 +54,7 @@ fps           = frameInterval > 0 ? 1 / frameInterval : 0
 
 ## 3. 圖形初始化與能力邊界
 
-P06 提供三級 backend：
+目前提供三級 backend，僅在初始化階段自動降級：
 
 | renderer 設定                  | 行為                                                                                          |
 | ------------------------------ | --------------------------------------------------------------------------------------------- |
@@ -57,13 +63,13 @@ P06 提供三級 backend：
 
 WebGPU 要求安全來源及瀏覽器／driver 支援。localhost 可用於開發；Production 必須採用符合瀏覽器安全來源要求的部署。`navigator.gpu` 存在不等於一定能取得 adapter 或 device。
 
-初始化包含 preferred canvas format、opaque canvas configuration、WGSL compilation diagnostics 與 validation error scope。不能僅因 `requestDevice()` 成功就宣告 Renderer 可用。圖形錯誤保留 subsystem 與原因，便於區分不支援、初始化失敗與執行中裝置遺失。
+WebGPU 初始化包含 preferred canvas format、opaque canvas configuration、WGSL compilation diagnostics 與 validation error scope。不能僅因 `requestDevice()` 成功就宣告 Renderer 可用。圖形錯誤保留 subsystem 與原因，便於區分不支援、初始化失敗與執行中裝置遺失。
 
 ## 4. Triangle 的 GPU 管線
 
-內建 WGSL vertex shader 以 `vertex_index` 產生三個頂點及 RGB 顏色，fragment shader 輸出插值色彩。這個階段不需要 vertex buffer、texture 或 depth buffer。
+沒有 active Scene 時保留 triangle 示範路徑；有 Scene 時只繪製 Scene 內容，即使是空 Scene 也不補 triangle。WebGPU triangle 的 WGSL vertex shader 以 `vertex_index` 產生三個頂點及 RGB，fragment shader 輸出插值色彩；此 triangle 路徑不需要 vertex buffer、texture 或 depth buffer。
 
-畫面先完整 clear，再以中央 square viewport 畫出 triangle，避免寬高比改變導致 triangle 拉伸。這是 P01 triangle 的顯示策略，不是未來 Camera2D／PerspectiveCamera 的實作。
+WebGPU triangle 先 clear，再以中央 square viewport 保持比例。這不是 Camera2D／PerspectiveCamera 的縮放規則；一般 Scene 使用邏輯 viewport 與對應相機。WebGL2 提供 GLSL triangle，Canvas2D 為漸層示意，並非逐頂點插值的精確替代。
 
 每幀必須取得目前 swapchain texture view，建立新的 command encoder／render pass／command buffer 並提交。**已提交的 GPU command buffer 不可重複使用**；減少 JS descriptor 配置不能靠錯誤重用 GPU 工作物件來換取。
 
@@ -83,9 +89,9 @@ game.addEventListener('error', (event) => {
 game.start();
 ```
 
-初始化錯誤由 `Game.create()` 的 rejected Promise 處理；執行中錯誤經 `error` CustomEvent 的 `detail` 回報。應在 start 之前註冊監聽。`createRenderer` 雖可從低階入口使用，一般使用者應由 Game 管理其生命週期，不要一邊讓 Game 跑、一邊手動 destroy 它的 Renderer。
+初始化錯誤由 `Game.create()` 的 rejected Promise 處理；Game error 事件以 `CustomEvent<Error>.detail` 攜帶原因，應在 start 之前註冊。Fatal frame／renderer／自動 resize 錯誤會暫停並阻止 resume；`start(scene)` 的候選準備錯誤與 Audio 排程錯誤也可送出 error，但不因此鎖成 fatal。`await game.setScene()` 的失敗由呼叫者處理 Promise。`createRenderer` 雖由統一入口匯出，一般使用者仍應讓 Game 管理 Renderer 的生命週期。
 
-`npx pnpm build` 用 TypeScript 產生 `dist/src/index.js`、`.d.ts` 及保留目錄樹的內部模組。npm 入口由 package.json exports 指向相同產物；目前**未發佈 npm**。
+使用 Node >=26／pnpm 12.6.0。`npx pnpm@12.6.0 build` 執行 TypeScript 與 `scripts/copy-vendor.mjs`，產生 `dist/src/index.js`、`.d.ts`、內部 modules 及完整 `dist/vendor/opm/`。npm exports 指向同一入口，package files 僅包含 dist（npm 另帶標準 metadata／README）；目前**未發佈 npm**。本機 tarball 安裝也能使用 bare import，不需要先公開發佈。
 
 無 bundler 的網站可完整複製 `dist/`：
 
@@ -102,16 +108,16 @@ game.start();
 ## 6. 驗證方法與效能用語
 
 ```sh
-npx pnpm install
-npx pnpm build
-npx pnpm typecheck
-npx pnpm test
-npx pnpm lint
-npx pnpm format:check
-npx pnpm dev
+npx pnpm@12.6.0 install
+npx pnpm@12.6.0 build
+npx pnpm@12.6.0 typecheck
+npx pnpm@12.6.0 test
+npx pnpm@12.6.0 lint
+npx pnpm@12.6.0 format:check
+npx pnpm@12.6.0 dev
 ```
 
-瀏覽器開啟 `/examples/triangle/`，必須實際看到渲染結果；編譯通過與 GPU mock 通過都不是畫面正確的證明。錯誤路徑應另以實際 device loss／GPU validation error 或明確標示的事件模擬檢查。
+瀏覽器檢查六個 `/examples/` 範例（triangle／sprite／cube3d／pong／fallback-demo／showcase），確認實際畫面與互動；showcase 包含同 Scene 2D＋3D＋音訊及切換清理。Cube3D 在 Canvas2D 明確不跑 3D，showcase 則保留 2D＋音訊。編譯或 GPU mock 通過不是畫面正確的證明。Error 分支以實際 device/context loss 或明確標示的事件模擬驗證。P08 為 16 檔／73 測試，後續優化為 16 檔／75 測試及五項檢查通過，分別保留於 ACCEPTANCE；不是每次文件同步都重跑。
 
 效能數據須區分：
 
@@ -120,6 +126,8 @@ npx pnpm dev
 3. GPU 工作時間、呈現節奏與實際 fps。
 
 減少第 1 項，不代表第 2、3 項必然以相同比例改善。P01 triangle 不能代表 1,000 Sprite 場景；`/benchmarks/sprites/` 提供固定規格的獨立 RAF／CPU submit 量測，未直接量測 GPU 或 GC。
+
+Benchmark 開啟 `/benchmarks/sprites/`：預設 direct WebGPU，query 可選 auto／webgl2／canvas2d。1,000 個移動 Sprite 共用 texture，1280×720 backing／DPR 1；120 warmup 後量 600 幀，切至 hidden 則中止。此工具使用自己的 RAF 驅動正式 Renderer，不呼叫 Game.start；CPU 計時只包含 beginFrame／render／endFrame，不含動畫更新。RAF fps 不是 GPU completion 或實際螢幕掃描率，亦不能當完整 Game Loop workload 的結果。
 
 ## 7. Game 狀態、ownership 與錯誤策略
 
@@ -136,7 +144,7 @@ running      --pause-----------> paused
 
 同一 Canvas 同時只能有一個 Game，包含初始化尚未完成的期間。Canvas claim 在開始非同步 GPU 初始化前保留，失敗或 destroy 後釋放；否則第二個 Game 會重新 configure 同一 GPUCanvasContext，第一個 loop 卻仍然執行。這個約束是資源 ownership，不是 DOM 元件是否仍存在的判斷。
 
-執行中失敗和使用者 pause 不同：Game 保留第一個 failure、停止 loop 並送出 error 事件；失敗後 start／resume 必須明確拒絕。沒有自動 device recovery，應先 destroy 再重新 create。不要在 error listener 中無條件呼叫 resume：遺失的 GPUDevice 不會因此復活。
+Fatal 執行失敗和使用者 pause 不同：Game 保留第一個 fatal failure、停止 loop 並送出 error；其後 start／resume 拒絕。沒有自動 device recovery，應 destroy 後重新 create，不可在所有 error listener 中無條件 resume。非 fatal Scene／Audio error 不一定改變 Game.state，見第 5 節。
 
 正常 destroy 應可重複呼叫，取消 RAF、移除 observer／listener、還原引擎接管的 containment 設定並釋放 Renderer。初始化任何一步失敗也要 rollback 已取得的資源。清理其中一個動作失敗，仍必須嘗試其餘清理並釋放 Canvas claim；不能留下阻止重新建立 Game 的幽靈 ownership。
 
@@ -202,7 +210,7 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - 每個 Scene 擁有 Camera2D；`screen=(world-position)*zoom`，正 zoom 同時作用兩軸。Game 每幀在 update 前同步 viewport；可用兩方向轉換的 out 參數避免配置。resize 保留 pipeline、Texture 與 instance buffer。
 - InputManager 由 Game 擁有。Keyboard 使用 `KeyboardEvent.code`，忽略輸入欄位，不全面阻止瀏覽器預設操作。Pointer 使用 capture／cancel 並轉成 canvas content-box logical 座標，與 DPR 無關；canvas 可設定 `touch-action:none` 控制觸控捲動。
 - `update()` 在 Scene 前取得 Gamepad slots，`endFrame()` 在 finally 清除 pressed／released edges。pause、blur、hidden 清除 held state；destroy 移除 listeners。實際 gamepad 硬體尚未驗證，測試涵蓋連接／斷開 snapshot。
-- Pong 使用相機等比例縮放、键盤／拖曳／gamepad 控制、球拍碰撞與計分，不引入物理引擎。
+- Pong 使用相機等比例縮放、鍵盤／拖曳／gamepad 控制、球拍碰撞與計分，不引入物理引擎。
 
 ## 13. 3D（P05）
 
@@ -223,15 +231,40 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 
 ## 15. Audio
 
-- `game.audio.load(url)` 共享 canonical URL（忽略 fragment）的 pending/cache；失败會逐出，destroy 立即取消等待。JSON 必須含官方可解析 `voice` 及非空 `notes`，每音符 MIDI 0–127、time ≥ 0、duration (0,60] 秒。可選 channel（music/sfx/ui）、loop、duration（loop period，不能短於最後音符結束）。載入後 voice/notes immutable。
-- 使用者 click 等手勢內 `await game.audio.unlock()`；之前 play 拋 AudioError，不偷偷建立 AudioContext 或排隊。OPMAdapter 延後 import 官方模組並建立八個 context/worklet，每 slot 只排一個聲部，含 ADSR release 與 guard。master/channel volume 0–1 經 GainNode 相乘。
+- `game.audio.load(url)` 共享 canonical URL（忽略 fragment）的 pending/cache；失敗會逐出，destroy 立即取消等待。JSON 必須含官方可解析 `voice` 及非空 `notes`，每音符 MIDI 0–127、time ≥ 0、duration (0,60] 秒。可選 channel（music/sfx/ui）、loop、duration（loop period，不能短於最後音符結束）。載入後 voice/notes immutable；格式示例見 [sfx.json](../examples/sprite/sfx.json) 與 [music.json](../examples/sprite/music.json)。
+- 在使用者 click 等手勢內 `await game.audio.unlock()`；之前 play 拋 AudioError，不偷偷建立 AudioContext 或排隊。OPMAdapter 在 load 驗證 voice 時可先 import 官方模組，但僅 unlock 建立八個 context/worklet。每 slot 保留一個聲部，含 ADSR release 與 guard；master/channel volume 0–1 經 GainNode 相乘。
 - 官方 OPM 的第九個聲部會全域搶最舊 voice，soft stop 仍有 release，故八個隔離 instance 才能在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以被 hard-reset；沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。
 - 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
-- `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。默认關聯當前 Scene，Scene destroy hard-cancel 非 persistent 排程與 release；persistent 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是第一個官方 instance 的進階 escape hatch，直接操作會繞過預算／lifecycle。
-- 官方來源、SHA256、Apache-2.0 LICENSE 位於 `vendor/opm/`，沒有私人 patch。build 複製完整 vendor 到 dist；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
+- `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。預設關聯當前 Scene，也可指定 `scene`；沒有 Scene 時由 stop／結束／Game destroy 管理。Scene destroy hard-cancel 非 persistent 排程與 release；`persistent:true` 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是第一個官方 instance 的進階 escape hatch，直接操作會繞過預算／lifecycle。
+- [來源與 SHA256 manifest](../vendor/opm/manifest.json)、[官方 Apache-2.0 LICENSE](../vendor/opm/LICENSE) 位於 vendor，沒有私人 patch；根套件仍 UNLICENSED。build 複製完整 vendor 到 dist，保留 chunks／worklet 的相對 URL；部署必須保留整個 dist，AudioWorklet 亦需安全來源。
 
 ## 16. Logging 與 hardening
 
 公開 `logger.debug/info/warn/error(...args)`，`logger.level` 可設 debug／info／warn／error／silent，預設 warn。所有輸出帶 `[XYZ]`；backend 初始化／fallback 與 fatal Game error 有診斷，不逐幀輸出。Production 可設 error 或 silent。
 
 WebGPU device lost／WebGL context lost 後 resize 在修改 backing 前拒絕；Game 暫停且禁止 resume，需 destroy/recreate。destroy 即使 input 清理失敗仍 disconnect resize observer，繼續釋放其他資源。完整錯誤樹包含 XYZError、GraphicsError、AssetError、AudioError、RuntimeError 與各 backend 子類。
+
+```text
+XYZError
+├─ GraphicsError
+│  ├─ WebGPUNotSupportedError
+│  ├─ WebGPUInitializationError
+│  ├─ WebGPUDeviceLostError
+│  ├─ WebGL2InitializationError
+│  ├─ WebGL2ContextLostError
+│  ├─ Canvas2DInitializationError
+│  ├─ GraphicsBackendUnavailableError
+│  └─ UnsupportedGraphicsError
+├─ AssetError
+├─ AudioError
+└─ RuntimeError
+```
+
+這是公開錯誤類別，不代表所有使用者程式例外都會被重新包裝；cleanup 也可能回報保留多個原因的 AggregateError。支援與限制以 [驗收紀錄](../ACCEPTANCE.md) 為準，不將合成事件或 headless Chromium 結果推廣成所有瀏覽器認證。
+
+## 17. 後續熱路徑維護
+
+- World 只有 System 移除後才壓縮陣列，採穩定線性搬移；不改變更新中移除／加入與例外清理語義。
+- WebGPU Sprite viewport uniform 在邏輯尺寸不變時不重傳；Sprite transform／instance 資料仍逐幀更新，不假設公開可變物件是 immutable。
+- Keyboard 的 editable 過濾只阻止開始追蹤文字輸入；已按住的遊戲鍵即使在輸入框收到 keyup 也必須釋放，避免 focus transition 卡鍵。
+- 實測確認冗餘 uniform 上傳減少，不表示 CPU／FPS 已提升；前後時間與限制見 ACCEPTANCE 的後續優化紀錄。

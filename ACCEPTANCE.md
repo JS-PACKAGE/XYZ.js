@@ -1,6 +1,8 @@
 # XYZ.js 驗收紀錄
 
-套件標示 1.0.0，不代表開發路線已完成。企劃書原 v0.0.1–v0.0.8 階段在此稱 P01–P08。每階段所有硬指標驗收後立即建立**該階段單獨**的 `[Pxx]` 前綴 commit，絕不 push。以下 `[ ]` 均為**待驗**，不可視為通過紀錄；驗證後附日期、環境與可重現的證據。
+**目前狀態：1.0.0 的 P01–P08 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。套件未 npm publish，授權仍為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
+
+以下各階段保留**當時**的測試數、環境與觀察，不以最新結果改寫歷史。P01 當時只有 WebGPU；目前三級 fallback 以 P06 及後續紀錄為準。未驗證的平台、硬體與效能項目仍不視為通過。
 
 ## P01 — WebGPU Foundation（驗收通過）
 
@@ -25,7 +27,7 @@
 - Unsupported 分支：測試側暫時遮蔽 `navigator.gpu`，強制 WebGPU 回 `WebGPUNotSupportedError`、auto 回 `UnsupportedGraphicsError`；強制 WebGL2／Canvas2D 回 `GraphicsBackendUnavailableError`。這不代表已在無 WebGPU 的實體瀏覽器驗收相容性。
 - 套件管理：初次安裝自動替最新 lint 相依新增 release-age 豁免，已移除；改鎖相容的 typescript-eslint 8.70.0，啟用 `minimumReleaseAgeStrict` 並重建 lockfile，安裝及 lint 成功，未保留政策豁免。
 
-尚未驗證 Safari／Edge／Firefox、真實 driver reset、硬體效能基準；P02–P08 保持待實作。瀏覽器 smoke 是臨時驗收操作，未將 GPU mock 或測試掛鉤加入產品 API。
+P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效能，P02–P08 尚未實作；後續進度見各階段紀錄。瀏覽器 smoke 是臨時驗收操作，未將 GPU mock 或測試掛鉤加入產品 API。
 
 ## P01 深度優化與技術文件（驗收通過）
 
@@ -53,7 +55,7 @@
 | color attachment array | 12 個不同物件 | 1 個重用物件 |
 | queue submission array | 12 個不同物件 | 1 個重用物件 |
 
-實際確認：GPU texture view／command buffer 在 API 消費後不殘留於這些容器；resize 後 pipeline 建立總數仍為 1。**這不是 FPS／CPU／GPU throughput 提升百分比**，尚未執行多 Sprite 或 GC benchmark。
+實際確認：GPU texture view／command buffer 在 API 消費後不殘留於這些容器；resize 後 pipeline 建立總數仍為 1。**這不是 FPS／CPU／GPU throughput 提升百分比**；P01 優化當時尚未執行多 Sprite 或 GC benchmark，後續 Sprite 實測見 P08，GC 仍未量測。
 
 ### 額外邊界驗證
 
@@ -69,13 +71,13 @@
 - build、typecheck、lint、format:check 通過；Vitest **3 檔／16 測試通過**。新測試涵蓋 ownership／失敗 rollback／fatal 狀態與 GPU 初始化競態，真實 CSS 行為另由瀏覽器 smoke 驗證。
 - 原生 ESM 產物以 `python3 -m http.server 5174 --bind 127.0.0.1` 提供並由瀏覽器 import `/dist/src/index.js`。驗證中發現既有 Vite 對 dist 的回應仍含舊 Clock；已改用靜態伺服器檢查當次 build，不以該快取結果當作新版本證據。
 - [技術文件](docs/TECHNICAL.md) 提供模組邊界、Clock 算式、Canvas／DPR 與 aspect-ratio 契約、GPU 資源、錯誤策略及部署方式；README 中／英／日用法與 DESIGN 同步更新。
-- 後續缺口與優先順序列於 PLAN；Safari／Edge／Firefox、實際 BFCache／背景分頁、driver reset、負載效能與 P02–P08 仍未驗證／未實作。
+- 本段為 P01 優化當時的紀錄；P02–P08 後續驗收見下文。Safari／Edge／Firefox、實際 BFCache／背景分頁與 driver reset 仍未完成驗證矩陣，不因功能交付而視為認證通過。
 
 ## P02 Core World（驗收通過）
 
 - 新增 Scene／SceneObject／GameObject、World ECS、Vector2／Matrix3／Transform2D。Scene 準備失敗保留 active Scene；切換／destroy 清理物件與 systems；取消採 cooperative AbortSignal。
 - 整合檢查：build、typecheck 及 **6 檔／29 測試通過**；涵蓋 ECS CRUD、system lifecycle、矩陣 inverse、Scene ownership／切換失敗／非同步取消及原 P01 回歸。
-- 真實 Chromium／WebGPU Game smoke：Scene.update 改變物件位置；候選初始化拋錯被拒絕且旧 Scene 保留；成功切換後舊 Scene 及物件 destroyed；Game.destroy 清理新 Scene。初始化／失敗候選清理／兩個正常 Scene 清理的實際順序皆符合契約。
+- 真實 Chromium／WebGPU Game smoke：Scene.update 改變物件位置；候選初始化拋錯被拒絕且舊 Scene 保留；成功切換後舊 Scene 及物件 destroyed；Game.destroy 清理新 Scene。初始化／失敗候選清理／兩個正常 Scene 清理的實際順序皆符合契約。
 - 加入使用者要求的根目錄 `.nojekyll`，不涉及遠端部署。
 
 ## P03 Texture & Sprite（瀏覽器驗收通過）
@@ -122,7 +124,7 @@
 - 真實 `WEBGL_lose_context` 使 Game paused 並拒絕 resume；真實 GPUDevice.destroy 使 Game paused，resize 拒絕且保留 250×125 backing。
 - npm pack 後解壓至獨立 `/tmp` 消費端：Node import 成功、strict NodeNext TypeScript 宣告檢查成功；純 HTTP、無 Vite/bundler 載入 packaged ESM，WebGL2 渲染及官方 OPM voice validation 成功。
 - `/benchmarks/sprites/`：WebGPU direct、1,000 個移動常駐 Sprite、共用 texture、1280×720 backing／DPR 1；120 warmup＋600 samples。RAF **59.9988 fps**，間隔平均 **16.667ms**／p95 **17.3ms**；CPU submit 平均 **0.6358ms**／p95 **1.2ms**。CPU 不含動畫更新，不等於 GPU completion；未量測 GPU timestamps／GC，不保證其他裝置效能。
-- 未認證 Safari／Edge、實體 gamepad、跨螢幕 DPR 與完整 BFCache 矩陣。套件仍 UNLICENSED，未 npm publish、未 push。
+- 未認證 Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 往返矩陣、跨螢幕 DPR 與真實 driver reset。套件仍 UNLICENSED，未 npm publish；各階段提交未 push。
 
 ## 階段總表
 
@@ -137,3 +139,29 @@
 | P08 Hardening             | triangle／sprite／cube3d／pong／fallback-demo／showcase 全數可跑；cube3d Canvas2D 明確無 3D；showcase 同場 2D＋3D＋音效；Vitest 全綠與交付清單全過 | 已通過，獨立 `[P08]` commit |
 
 效能參考（非硬指標）已由上述 benchmark 實測；不推廣為跨裝置 60fps 保證。
+
+## 對應提交
+
+| 階段                 | Commit    |
+| -------------------- | --------- |
+| P01 Foundation       | `f65de9c` |
+| P01 優化             | `6323c65` |
+| P02 Core World       | `7b3c18e` |
+| P03 Texture & Sprite | `58c83c6` |
+| P04 Camera & Input   | `cc446c6` |
+| P05 3D Rendering     | `fda86b1` |
+| P06 Compatibility    | `ca0d36c` |
+| P07 Audio            | `08e5f66` |
+| P08 Hardening        | `4bfef73` |
+
+文件同步保留上述驗收結果；單純編修文件不表示重新執行全部 runtime／瀏覽器驗證。
+
+## P08 後續分析與優化（2026-09-30）
+
+- 範圍：檢視三 backend Sprite 收集／排序／資源清理、ECS update、Input polling／鍵盤及 Audio bounded scheduler。既有穩定排序、GPU 資源回收與八聲部音訊契約保留，未引入 dirty-transform 或跨幀排序 cache。
+- ECS 只在移除 System 時標記需壓縮；update finally 改為有需要才做穩定線性壓縮，取代每幀掃描與多次 splice。保留移除即失效、新 System 延至下一幀及例外後清理契約。
+- WebGPU Sprite viewport uniform 僅尺寸改變才上傳；真實 GPUQueue instrumentation 觀察同尺寸 12 幀，16-byte uniform writeBuffer **12→1**。100→100→200→200→100 logical width 的中心紅色讀回均 `[255,0,0,255]`。讀回在 submit 後、下一次 presentation 前執行，避免已過期 canvas 內容。
+- 鍵盤缺陷：遊戲按鍵按住後 focus 移至 INPUT，keyup 被忽略使 held 卡住。瀏覽器 DOM 事件 smoke 修正前 true、修正後 false；現在僅忽略 editable keydown，keyup 仍釋放已追蹤按鍵，不新增未追蹤的 release edge。
+- 工具：build、typecheck、lint、format:check 通過，Vitest **16 檔／75 測試通過**；新增 focus transition 與 ECS 批次移除／update exception 回歸。Showcase 實際顯示 2D／3D；音訊／vendor 未改動，不宣稱重新完成音訊稽核。
+- 同一 Chromium 150／macOS arm64、1,000 Sprite、1280×720／DPR 1、120 warmup＋600 samples：前後均 **60.0006 RAF fps**；CPU submit 平均 **0.1702→0.4940ms**，p95 **0.3→0.7ms**。ECS 單次微量測（1,000 systems、1,000 warmup＋5,000 updates）**14.5→15.9ms**。這些單次時間結果沒有證明加速，甚至後測較高；只確認減少冗餘工作與回歸行為，不宣稱 CPU／FPS 提升，不作跨裝置推論。
+- `CLAUDE.md` 保留 AGENTS 引用並加入弱點掃描／安全控制規範；這不是已啟用掃描器或已完成依賴／secret／安全稽核的證據。
