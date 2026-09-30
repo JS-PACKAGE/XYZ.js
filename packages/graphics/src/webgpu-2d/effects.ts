@@ -5,8 +5,9 @@ import {
 } from '../../../core/src/materials2d/material2d.js';
 import type { RenderSnapshot, TransitionFrame } from '../render2d-contract.js';
 import { GraphicsError } from '../errors.js';
-import { SPRITE_BYTES } from '../sprite-instance.js';
-import { postWGSL, spriteWGSL, transitionWGSL } from './shaders.js';
+import { QUAD_BYTES } from '../sprite-instance.js';
+import { quadWGSL } from '../webgpu-render2d-shaders.js';
+import { postWGSL, transitionWGSL } from './shaders.js';
 
 export const premultipliedBlend: GPUBlendState = {
   color: {
@@ -21,11 +22,11 @@ export const premultipliedBlend: GPUBlendState = {
   },
 };
 
-export function createSpritePipeline(
+export function createQuadPipeline(
   device: GPUDevice,
   module: GPUShaderModule,
-  format: GPUTextureFormat,
   layout: GPUPipelineLayout,
+  blend: GPUBlendState | undefined = premultipliedBlend,
 ): GPURenderPipeline {
   return device.createRenderPipeline({
     layout,
@@ -34,22 +35,20 @@ export function createSpritePipeline(
       entryPoint: 'vertexMain',
       buffers: [
         {
-          arrayStride: SPRITE_BYTES,
+          arrayStride: QUAD_BYTES,
           stepMode: 'instance',
-          attributes: [
-            { shaderLocation: 0, offset: 0, format: 'float32x4' },
-            { shaderLocation: 1, offset: 16, format: 'float32x4' },
-            { shaderLocation: 2, offset: 32, format: 'float32x4' },
-            { shaderLocation: 3, offset: 48, format: 'float32x4' },
-            { shaderLocation: 4, offset: 64, format: 'float32x4' },
-          ],
+          attributes: Array.from({ length: 9 }, (_, index) => ({
+            shaderLocation: index,
+            offset: index * 16,
+            format: 'float32x4' as const,
+          })),
         },
       ],
     },
     fragment: {
       module,
       entryPoint: 'fragmentMain',
-      targets: [{ format, blend: premultipliedBlend }],
+      targets: [{ format: 'rgba8unorm', ...(blend ? { blend } : {}) }],
     },
     primitive: { topology: 'triangle-list' },
   });
@@ -88,7 +87,6 @@ export class GPUSnapshot implements RenderSnapshot {
 }
 
 interface PreparedEffect {
-  direct: GPURenderPipeline;
   layer: GPURenderPipeline;
   buffer: GPUBuffer;
   bindGroup: GPUBindGroup;
@@ -99,10 +97,11 @@ interface PreparedEffect {
 /** Renderer-owned native pipelines, immutable captures and bounded mutable color targets. */
 export class WebGPU2DEffects {
   readonly snapshots = new Set<GPUSnapshot>();
-  readonly spriteViewportLayout: GPUBindGroupLayout;
+  readonly drawLayout: GPUBindGroupLayout;
   readonly spriteTextureLayout: GPUBindGroupLayout;
   readonly uniformLayout: GPUBindGroupLayout;
-  readonly spriteLayout: GPUPipelineLayout;
+  readonly quadLayout: GPUPipelineLayout;
+  readonly multiplyLayout: GPUPipelineLayout;
   readonly defaultUniforms: GPUBindGroup;
   private readonly textureLayout: GPUBindGroupLayout;
   private readonly transitionTextureLayout: GPUBindGroupLayout;
@@ -144,12 +143,16 @@ export class WebGPU2DEffects {
     private readonly format: GPUTextureFormat,
     private readonly cancelled: () => boolean,
   ) {
-    this.spriteViewportLayout = device.createBindGroupLayout({
+    this.drawLayout = device.createBindGroupLayout({
       entries: [
         {
           binding: 0,
-          visibility: GPUShaderStage.VERTEX,
-          buffer: { type: 'uniform', minBindingSize: 16 },
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          buffer: {
+            type: 'uniform',
+            hasDynamicOffset: true,
+            minBindingSize: 256,
+          },
         },
       ],
     });
@@ -176,11 +179,19 @@ export class WebGPU2DEffects {
         },
       ],
     });
-    this.spriteLayout = device.createPipelineLayout({
+    this.quadLayout = device.createPipelineLayout({
       bindGroupLayouts: [
-        this.spriteViewportLayout,
+        this.drawLayout,
         this.spriteTextureLayout,
         this.uniformLayout,
+      ],
+    });
+    this.multiplyLayout = device.createPipelineLayout({
+      bindGroupLayouts: [
+        this.drawLayout,
+        this.spriteTextureLayout,
+        this.uniformLayout,
+        this.spriteTextureLayout,
       ],
     });
     this.textureLayout = this.spriteTextureLayout;
@@ -258,10 +269,7 @@ export class WebGPU2DEffects {
     );
   }
 
-  private async module(
-    source: string,
-    label: string,
-  ): Promise<GPUShaderModule> {
+  async module(source: string, label: string): Promise<GPUShaderModule> {
     if (this.disposed || this.cancelled())
       throw new GraphicsError(
         `WebGPU ${label} preparation requires an active renderer.`,
@@ -318,31 +326,18 @@ export class WebGPU2DEffects {
       try {
         const material = effect instanceof Material2D;
         const shader = await this.module(
-          material ? spriteWGSL(effect.wgsl) : postWGSL(effect.wgsl),
+          material ? quadWGSL(effect.wgsl) : postWGSL(effect.wgsl),
           material ? 'Sprite material' : '2D postprocessor',
         );
         validateEffect2D(effect);
         const layer = material
-          ? createSpritePipeline(
-              this.device,
-              shader,
-              'rgba8unorm',
-              this.spriteLayout,
-            )
+          ? createQuadPipeline(this.device, shader, this.quadLayout)
           : this.fullscreenPipeline(
               shader,
               'rgba8unorm',
               this.fullscreenLayout,
               false,
             );
-        const direct = material
-          ? createSpritePipeline(
-              this.device,
-              shader,
-              this.format,
-              this.spriteLayout,
-            )
-          : layer;
         buffer = this.device.createBuffer({
           size: 64,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -358,7 +353,6 @@ export class WebGPU2DEffects {
           effect.removeEventListener('destroy', dispose);
         };
         entry = {
-          direct,
           layer,
           buffer,
           bindGroup,
@@ -433,7 +427,10 @@ export class WebGPU2DEffects {
       size: [width, height],
       format,
       usage:
-        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_SRC |
+        GPUTextureUsage.COPY_DST,
     });
     try {
       const view = texture.createView();
@@ -544,23 +541,22 @@ export class WebGPU2DEffects {
 
   process(
     encoder: GPUCommandEncoder,
-    input: GPUColorTarget,
+    targets: readonly [GPUColorTarget, GPUColorTarget],
     effects: readonly PostProcessor2D[],
   ): GPUColorTarget {
-    let current = input;
+    let current = targets[0];
     for (const effect of effects) {
       if (!(effect instanceof PostProcessor2D))
         throw new GraphicsError(
           'Scene.effects2D must contain PostProcessor2D values.',
         );
       const entry = this.prepared(effect);
-      const targets = this.layerTargets!;
       const output = current === targets[0] ? targets[1] : targets[0];
       this.draw(
         encoder,
         output.view,
         current.bindGroup,
-        entry.direct,
+        entry.layer,
         entry.bindGroup,
         false,
       );

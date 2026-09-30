@@ -1,115 +1,95 @@
-import type { Texture } from '../../assets/src/index.js';
-import type { Sprite } from '../../core/src/sprite.js';
+import type { Texture2DSource } from '../../assets/src/index.js';
+import type { TextureQuad2D } from './sprite-instance.js';
 import { GraphicsError } from './errors.js';
 
-interface OpaqueTexture {
-  canvas: HTMLCanvasElement;
-  seen: number;
-}
-
-/** One reusable source-frame scratch, never a per-color or per-particle Texture. */
+/** Renderer-owned source snapshots; views borrow a single versioned upload. */
 export class CanvasSpriteSource {
+  private readonly sources = new Map<
+    Texture2DSource,
+    { canvas: HTMLCanvasElement; version: number }
+  >();
   private scratch: HTMLCanvasElement | undefined;
-  private context: CanvasRenderingContext2D | undefined;
-  private readonly opaqueTextures = new Map<Texture, OpaqueTexture>();
-  private frame = 0;
-
-  beginFrame(): void {
-    this.frame++;
+  constructor(
+    private readonly renderImage: (
+      source: Texture2DSource,
+    ) => CanvasImageSource,
+  ) {}
+  endFrame(): void {
+    for (const source of this.sources.keys())
+      if (source.destroyed) this.unload(source);
   }
-
-  image(sprite: Sprite): CanvasImageSource {
-    const texture = sprite.texture;
-    const source = sprite.source;
-    const tint = sprite.worldTint;
-    const tinted = tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1;
-    if (!source && !tinted) return texture.image;
-    if (!this.scratch) {
-      this.scratch = document.createElement('canvas');
-      this.context = this.scratch.getContext('2d') ?? undefined;
-      if (!this.context)
-        throw new GraphicsError('Canvas2D sprite scratch is unavailable.');
+  prepare(source: Texture2DSource): CanvasImageSource {
+    if (source.destroyed)
+      throw new GraphicsError('Cannot prepare a destroyed texture.');
+    if (source.kind === 'render') return this.renderImage(source);
+    let entry = this.sources.get(source);
+    if (!entry) {
+      entry = { canvas: document.createElement('canvas'), version: -1 };
+      this.sources.set(source, entry);
     }
-    const scratch = this.scratch;
-    const context = this.context!;
-    const width = sprite.width;
-    const height = sprite.height;
-    const pixelWidth = Math.ceil(width);
-    const pixelHeight = Math.ceil(height);
-    if (scratch.width !== pixelWidth) scratch.width = pixelWidth;
-    if (scratch.height !== pixelHeight) scratch.height = pixelHeight;
-    const x = source?.x ?? 0;
-    const y = source?.y ?? 0;
-    context.globalCompositeOperation = 'copy';
-    context.drawImage(
-      tinted ? this.opaque(texture) : texture.image,
-      x,
-      y,
-      width,
-      height,
-      0,
-      0,
-      pixelWidth,
-      pixelHeight,
+    if (entry.version !== source.version) {
+      entry.canvas.width = source.width;
+      entry.canvas.height = source.height;
+      const context = entry.canvas.getContext('2d');
+      if (!context)
+        throw new GraphicsError('Canvas2D source preparation is unavailable.');
+      context.drawImage(source.image, 0, 0);
+      entry.version = source.version;
+    }
+    return entry.canvas;
+  }
+  image(
+    source: Texture2DSource,
+    quad: TextureQuad2D,
+    tint: ArrayLike<number>,
+  ): HTMLCanvasElement {
+    const image = this.prepare(source);
+    const canvas = (this.scratch ??= document.createElement('canvas'));
+    const width = Math.max(1, Math.round(quad.trimWidth * quad.resolution)),
+      height = Math.max(1, Math.round(quad.trimHeight * quad.resolution));
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const context = canvas.getContext('2d')!;
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    context.clearRect(0, 0, width, height);
+    context.imageSmoothingEnabled = false;
+    // Invert the central UV basis: packed clockwise frames are unrotated here.
+    const a = (quad.ux * source.width) / canvas.width;
+    const b = (quad.vx * source.height) / canvas.width;
+    const c = (quad.uy * source.width) / canvas.height;
+    const d = (quad.vy * source.height) / canvas.height;
+    const det = a * d - b * c;
+    const x = quad.u0 * source.width,
+      y = quad.v0 * source.height;
+    context.setTransform(
+      d / det,
+      -b / det,
+      -c / det,
+      a / det,
+      (c * y - d * x) / det,
+      (b * x - a * y) / det,
     );
-    if (tinted) {
-      context.globalCompositeOperation = 'multiply';
-      context.fillStyle = `rgb(${tint[0] * 255} ${tint[1] * 255} ${tint[2] * 255})`;
-      context.fillRect(0, 0, pixelWidth, pixelHeight);
-      context.globalCompositeOperation = 'destination-in';
-      context.drawImage(
-        texture.image,
-        x,
-        y,
-        width,
-        height,
-        0,
-        0,
-        pixelWidth,
-        pixelHeight,
-      );
+    context.drawImage(image, 0, 0);
+    context.setTransform(1, 0, 0, 1, 0, 0);
+    if (tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1) {
+      const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+      for (let i = 0; i < pixels.data.length; i += 4) {
+        pixels.data[i] *= tint[0];
+        pixels.data[i + 1] *= tint[1];
+        pixels.data[i + 2] *= tint[2];
+      }
+      context.putImageData(pixels, 0, 0);
     }
-    context.globalCompositeOperation = 'source-over';
-    return scratch;
-  }
-
-  private opaque(texture: Texture): HTMLCanvasElement {
-    const existing = this.opaqueTextures.get(texture);
-    if (existing) {
-      existing.seen = this.frame;
-      return existing.canvas;
-    }
-    const canvas = document.createElement('canvas');
-    canvas.width = texture.width;
-    canvas.height = texture.height;
-    const context = canvas.getContext('2d');
-    if (!context)
-      throw new GraphicsError('Canvas2D tint source is unavailable.');
-    context.drawImage(texture.image, 0, 0);
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-    // Multiplying a translucent image directly unions its alpha with the opaque tint,
-    // contaminating edge RGB. Retain straight RGB first, then restore original alpha.
-    for (let i = 3; i < pixels.data.length; i += 4) pixels.data[i] = 255;
-    context.putImageData(pixels, 0, 0);
-    this.opaqueTextures.set(texture, { canvas, seen: this.frame });
     return canvas;
   }
-
-  endFrame(): void {
-    for (const [texture, entry] of this.opaqueTextures) {
-      if (texture.destroyed || entry.seen !== this.frame) {
-        entry.canvas.width = entry.canvas.height = 1;
-        this.opaqueTextures.delete(texture);
-      }
-    }
+  unload(source: Texture2DSource): void {
+    const entry = this.sources.get(source);
+    if (entry) entry.canvas.width = entry.canvas.height = 1;
+    this.sources.delete(source);
   }
-
   destroy(): void {
-    for (const entry of this.opaqueTextures.values())
-      entry.canvas.width = entry.canvas.height = 1;
-    this.opaqueTextures.clear();
+    for (const source of this.sources.keys()) this.unload(source);
     if (this.scratch) this.scratch.width = this.scratch.height = 1;
-    this.context = undefined;
     this.scratch = undefined;
   }
 }

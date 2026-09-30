@@ -1,6 +1,12 @@
 import type { Scene } from '../../core/src/scene.js';
-import type { Sprite } from '../../core/src/sprite.js';
-import type { Texture } from '../../assets/src/index.js';
+import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type {
+  RenderTexture2D,
+  RenderTextureOptions2D,
+} from './render-texture2d.js';
+import { WebGPURender2D, type WebGPURender2DHooks } from './webgpu-render2d.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -11,27 +17,20 @@ import {
 import type { Renderer } from './index.js';
 import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
 import {
-  collectSprites2D,
+  collectRenderCommands2D,
+  RenderCommandBuffer2D,
   type FrameEffects,
   type RenderSnapshot,
 } from './render2d-contract.js';
 import {
-  SPRITE_BYTES,
-  SPRITE_FLOATS,
-  writeSpriteInstance,
-} from './sprite-instance.js';
-import {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import { spriteWGSL } from './webgpu-2d/shaders.js';
 import {
   WebGPU2DEffects,
   GPUSnapshot,
-  createSpritePipeline,
   type GPUColorTarget,
 } from './webgpu-2d/effects.js';
-const transparentColor: GPUColorDict = { r: 0, g: 0, b: 0, a: 0 };
 
 const triangleShader = /* wgsl */ `
 struct VertexOutput {
@@ -65,8 +64,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 
 interface CachedTexture {
   resource: GPUTexture;
-  bindGroup: GPUBindGroup;
   seen: number;
+  version: number;
+  prepared: boolean;
 }
 
 export class WebGPURenderer implements Renderer {
@@ -83,20 +83,15 @@ export class WebGPURenderer implements Renderer {
   private context: GPUCanvasContext | undefined;
   private device: GPUDevice | undefined;
   private pipeline: GPURenderPipeline | undefined;
-  private spritePipeline: GPURenderPipeline | undefined;
-  private spriteLayerPipeline: GPURenderPipeline | undefined;
+  private render2D: WebGPURender2D | undefined;
   private effectsPipeline: WebGPU2DEffects | undefined;
   private captureOutput: GPUColorTarget | undefined;
   private meshPipeline: WebGPUMeshPipeline | undefined;
-  private viewportBuffer: GPUBuffer | undefined;
-  private viewportBindGroup: GPUBindGroup | undefined;
-  private spriteSampler: GPUSampler | undefined;
-  private instanceBuffer: GPUBuffer | undefined;
-  private instanceCapacity = 0;
-  private instances = new Float32Array(0);
-  private readonly viewportData = new Float32Array(4);
-  private readonly sprites: Sprite[] = [];
-  private readonly textures = new Map<Texture, CachedTexture>();
+  private readonly commands = new RenderCommandBuffer2D();
+  private readonly textures = new Map<
+    Exclude<Texture2DSource, RenderTexture2D>,
+    CachedTexture
+  >();
   private textureFrame = 0;
   private encoder: GPUCommandEncoder | undefined;
   private readonly colorAttachment: Omit<
@@ -119,6 +114,25 @@ export class WebGPURenderer implements Renderer {
   private initializing = false;
   private destroyed = false;
   private lostError: WebGPUDeviceLostError | undefined;
+
+  private readonly render2DHooks: WebGPURender2DHooks = {
+    owner: this,
+    upload: (source) => {
+      const entry = this.cacheTexture(this.requireDevice(), source);
+      entry.seen = this.textureFrame;
+      return entry.resource;
+    },
+    assertIdle: () => {
+      this.requireDevice();
+      if (this.encoder)
+        throw new GraphicsError(
+          'WebGPU offscreen APIs cannot run during an active frame.',
+        );
+    },
+    assertAlive: () => {
+      this.requireDevice();
+    },
+  };
 
   constructor(private readonly onError: (error: Error) => void) {}
 
@@ -193,7 +207,6 @@ export class WebGPURenderer implements Renderer {
       device.pushErrorScope('validation');
       let shaderErrors: string[] = [];
       let pipeline: GPURenderPipeline | undefined;
-      let spritePipeline: GPURenderPipeline | undefined;
       let meshPipeline: WebGPUMeshPipeline | undefined;
       let validationError: GPUError | null = null;
       try {
@@ -222,46 +235,23 @@ export class WebGPURenderer implements Renderer {
             },
             primitive: { topology: 'triangle-list' },
           });
-          const spriteModule = device.createShaderModule({
-            code: spriteWGSL(),
-          });
-          const spriteCompilation = await spriteModule.getCompilationInfo();
-          if (this.destroyed)
-            throw new GraphicsError(
-              'WebGPU renderer was destroyed during initialization.',
-            );
-          shaderErrors = spriteCompilation.messages
-            .filter((message) => message.type === 'error')
-            .map(
-              (message) =>
-                `${message.lineNum}:${message.linePos} ${message.message}`,
-            );
-          if (shaderErrors.length === 0) {
-            const effectsPipeline = new WebGPU2DEffects(
-              device,
-              format,
-              () => this.destroyed || !!this.lostError,
-            );
-            this.effectsPipeline = effectsPipeline;
-            spritePipeline = createSpritePipeline(
-              device,
-              spriteModule,
-              format,
-              effectsPipeline.spriteLayout,
-            );
-            this.spriteLayerPipeline = createSpritePipeline(
-              device,
-              spriteModule,
-              'rgba8unorm',
-              effectsPipeline.spriteLayout,
-            );
-            await effectsPipeline.initialize();
-            meshPipeline = await WebGPUMeshPipeline.initialize(
-              device,
-              format,
-              () => this.destroyed,
-            );
-          }
+          const effectsPipeline = new WebGPU2DEffects(
+            device,
+            format,
+            () => this.destroyed || !!this.lostError,
+          );
+          this.effectsPipeline = effectsPipeline;
+          await effectsPipeline.initialize();
+          this.render2D = await WebGPURender2D.create(
+            device,
+            effectsPipeline,
+            this.render2DHooks,
+          );
+          meshPipeline = await WebGPUMeshPipeline.initialize(
+            device,
+            format,
+            () => this.destroyed,
+          );
         }
       } finally {
         validationError = await device.popErrorScope();
@@ -283,7 +273,6 @@ export class WebGPURenderer implements Renderer {
       }
       if (this.lostError) throw this.lostError;
       this.pipeline = pipeline;
-      this.spritePipeline = spritePipeline;
       this.meshPipeline = meshPipeline;
     } catch (error) {
       const destroyed = this.destroyed;
@@ -317,6 +306,71 @@ export class WebGPURenderer implements Renderer {
         'WebGPU preparePostProcessor requires a PostProcessor2D.',
       );
     await this.effectsPipeline!.prepare(effect);
+  }
+
+  createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D {
+    this.requireDevice();
+    return this.render2D!.createRenderTexture(options);
+  }
+
+  async renderToTexture(
+    target: RenderTexture2D,
+    content: Scene | IsolatedGroup2D,
+    options?: { clear?: boolean; bounds?: Rect2D },
+  ): Promise<void> {
+    this.requireDevice();
+    return this.render2D!.renderToTexture(target, content, options);
+  }
+
+  async extractPixels(
+    target: RenderTexture2D,
+    options?: { region?: Rect2D },
+  ): Promise<Uint8ClampedArray> {
+    this.requireDevice();
+    return this.render2D!.extractPixels(target, options);
+  }
+
+  async generateTexture(
+    content: Scene | IsolatedGroup2D,
+    options?: { bounds?: Rect2D; resolution?: number },
+  ): Promise<Texture> {
+    this.requireDevice();
+    return this.render2D!.generateTexture(content, options);
+  }
+
+  async prepareTextures(sources: readonly Texture2DSource[]): Promise<void> {
+    const device = this.requireDevice();
+    if (this.encoder)
+      throw new GraphicsError(
+        'Cannot prepare textures during an active frame.',
+      );
+    for (const source of sources) {
+      if (source.kind === 'render') this.render2D!.source(source);
+      else {
+        const entry = this.cacheTexture(device, source);
+        entry.prepared = true;
+        entry.seen = this.textureFrame;
+      }
+    }
+    await device.queue.onSubmittedWorkDone();
+    this.requireDevice();
+  }
+
+  unloadTexture(source: Texture2DSource): void {
+    this.requireDevice();
+    if (this.encoder)
+      throw new GraphicsError('Cannot unload textures during an active frame.');
+    if (source.kind === 'render') {
+      this.render2D!.source(source);
+      throw new GraphicsError(
+        'Renderer-owned render targets must be destroyed rather than unloaded.',
+      );
+    }
+    const entry = this.textures.get(source);
+    if (entry) {
+      entry.resource.destroy();
+      this.textures.delete(source);
+    }
   }
 
   async captureScene(
@@ -366,7 +420,7 @@ export class WebGPURenderer implements Renderer {
     height?: number,
     effects?: FrameEffects,
   ): void {
-    const device = this.requireDevice();
+    this.requireDevice();
     const encoder = this.encoder;
     const context = this.context;
     const pipeline = this.pipeline;
@@ -394,16 +448,26 @@ export class WebGPURenderer implements Renderer {
     if (processLayer || transition)
       native.settings(logicalWidth, logicalHeight, transition);
     if (scene) {
-      this.prepareSprites(scene, device, logicalWidth, logicalHeight);
-      for (const sprite of this.sprites)
-        if (sprite.material) native.validate(sprite.material);
-      if (processors) for (const effect of processors) native.validate(effect);
-    } else {
-      this.sprites.length = 0;
+      collectRenderCommands2D(
+        scene,
+        logicalWidth,
+        logicalHeight,
+        this.commands,
+      );
       this.textureFrame++;
-      this.releaseUnusedTextures();
+      this.render2D!.preflight(
+        this.commands,
+        scene,
+        logicalWidth,
+        logicalHeight,
+        Math.max(canvas.width / logicalWidth, canvas.height / logicalHeight),
+      );
+    } else {
+      this.commands.clear();
+      this.textureFrame++;
     }
-    if (!processLayer) native.releaseLayers();
+    const has2D = !!scene && (this.commands.items.length > 0 || processLayer);
+    if (!has2D) native.releaseLayers();
     if (!transition) native.releaseFrame();
     const incoming = transition
       ? native.frame(canvas.width, canvas.height)
@@ -424,29 +488,32 @@ export class WebGPURenderer implements Renderer {
         logicalWidth / logicalHeight,
         defaults.clearColor,
       );
-      if (processLayer) {
+      if (has2D) {
         if (!drewMeshes) {
           this.colorAttachment.loadOp = 'clear';
           encoder.beginRenderPass(this.renderPassDescriptor).end();
         }
-        const layer = native.layers(canvas.width, canvas.height)[0];
-        this.colorAttachment.view = layer.view;
-        this.colorAttachment.loadOp = 'clear';
-        this.colorAttachment.clearValue = transparentColor;
-        const pass = encoder.beginRenderPass(this.renderPassDescriptor);
-        if (this.sprites.length) this.drawSprites(pass, true);
-        pass.end();
+        const layers = native.layers(canvas.width, canvas.height);
+        this.render2D!.draw(
+          this.commands,
+          scene!,
+          encoder,
+          layers[0],
+          logicalWidth,
+          logicalHeight,
+        );
         native.composite(
           encoder,
-          native.process(encoder, layer, processors!),
+          processLayer
+            ? native.process(encoder, layers, processors!)
+            : layers[0],
           output,
         );
-      } else if (!drewMeshes || !scene || this.sprites.length) {
+      } else if (!drewMeshes || !scene) {
         this.colorAttachment.loadOp = drewMeshes ? 'load' : 'clear';
         const pass = encoder.beginRenderPass(this.renderPassDescriptor);
         if (scene) {
           pass.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
-          if (this.sprites.length) this.drawSprites(pass, false);
         } else {
           pass.setViewport(
             this.viewportX,
@@ -483,6 +550,8 @@ export class WebGPURenderer implements Renderer {
       device.queue.submit(this.submissions);
     } finally {
       this.submissions.length = 0;
+      this.render2D?.flushRetired();
+      this.releaseUnusedTextures();
     }
   }
 
@@ -529,72 +598,14 @@ export class WebGPURenderer implements Renderer {
     if (changed) this.effectsPipeline?.resize();
   }
 
-  private prepareSprites(
-    scene: Scene,
+  private cacheTexture(
     device: GPUDevice,
-    width: number,
-    height: number,
-  ): void {
-    const sprites = this.sprites;
-    collectSprites2D(scene, width, height, sprites);
-    this.textureFrame++;
-    const count = sprites.length;
-    if (count) {
-      if (count > this.instanceCapacity) {
-        let capacity = Math.max(16, this.instanceCapacity);
-        while (capacity < count) capacity *= 2;
-        const buffer = device.createBuffer({
-          size: capacity * SPRITE_BYTES,
-          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-        });
-        this.instanceBuffer?.destroy();
-        this.instanceBuffer = buffer;
-        this.instances = new Float32Array(capacity * SPRITE_FLOATS);
-        this.instanceCapacity = capacity;
-      }
-      if (!this.viewportBuffer) {
-        this.viewportBuffer = device.createBuffer({
-          size: 16,
-          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-        });
-        this.viewportBindGroup = device.createBindGroup({
-          layout: this.effectsPipeline!.spriteViewportLayout,
-          entries: [{ binding: 0, resource: { buffer: this.viewportBuffer } }],
-        });
-        this.spriteSampler = device.createSampler({
-          magFilter: 'linear',
-          minFilter: 'linear',
-          addressModeU: 'clamp-to-edge',
-          addressModeV: 'clamp-to-edge',
-        });
-      }
-      if (this.viewportData[0] !== width || this.viewportData[1] !== height) {
-        this.viewportData[0] = width;
-        this.viewportData[1] = height;
-        device.queue.writeBuffer(this.viewportBuffer, 0, this.viewportData);
-      }
-      const camera = scene.camera2D;
-      const data = this.instances;
-      for (let i = 0; i < count; i++) {
-        const sprite = sprites[i];
-        const texture = sprite.texture;
-        this.cacheTexture(device, texture).seen = this.textureFrame;
-        writeSpriteInstance(sprite, camera, data, i * SPRITE_FLOATS);
-      }
-      device.queue.writeBuffer(
-        this.instanceBuffer!,
-        0,
-        data.buffer,
-        0,
-        count * SPRITE_BYTES,
-      );
-    }
-    this.releaseUnusedTextures();
-  }
-
-  private cacheTexture(device: GPUDevice, texture: Texture): CachedTexture {
+    texture: Exclude<Texture2DSource, RenderTexture2D>,
+  ): CachedTexture {
+    if (texture.destroyed)
+      throw new GraphicsError('Cannot upload a destroyed texture.');
     const existing = this.textures.get(texture);
-    if (existing) return existing;
+    if (existing?.version === texture.version) return existing;
     const { width, height } = texture;
     const limit = device.limits.maxTextureDimension2D;
     if (
@@ -623,66 +634,32 @@ export class WebGPURenderer implements Renderer {
         { texture: resource, premultipliedAlpha: true },
         [width, height],
       );
-      const bindGroup = device.createBindGroup({
-        layout: this.effectsPipeline!.spriteTextureLayout,
-        entries: [
-          { binding: 0, resource: resource.createView() },
-          { binding: 1, resource: this.spriteSampler! },
-        ],
-      });
-      const entry: CachedTexture = {
-        resource,
-        bindGroup,
-        seen: this.textureFrame,
-      };
-      this.textures.set(texture, entry);
-      return entry;
     } catch (error) {
       resource.destroy();
       throw error;
     }
+    existing?.resource.destroy();
+    const entry: CachedTexture = existing ?? {
+      resource,
+      seen: this.textureFrame,
+      version: texture.version,
+      prepared: false,
+    };
+    entry.resource = resource;
+    entry.version = texture.version;
+    this.textures.set(texture, entry);
+    return entry;
   }
 
   private releaseUnusedTextures(): void {
     for (const [texture, entry] of this.textures) {
-      if (texture.destroyed || entry.seen !== this.textureFrame) {
+      if (
+        texture.destroyed ||
+        (!entry.prepared && entry.seen !== this.textureFrame)
+      ) {
         entry.resource.destroy();
         this.textures.delete(texture);
       }
-    }
-  }
-
-  private drawSprites(pass: GPURenderPassEncoder, layer: boolean): void {
-    pass.setBindGroup(0, this.viewportBindGroup!);
-    pass.setVertexBuffer(0, this.instanceBuffer!);
-    const sprites = this.sprites;
-    let previousMaterial: Material2D | undefined;
-    for (let first = 0; first < sprites.length;) {
-      const texture = sprites[first].texture;
-      const material = sprites[first].material;
-      let end = first + 1;
-      while (
-        end < sprites.length &&
-        sprites[end].texture === texture &&
-        sprites[end].material === material
-      )
-        end++;
-      if (first === 0 || material !== previousMaterial) {
-        if (material) {
-          const entry = this.effectsPipeline!.material(material);
-          pass.setPipeline(layer ? entry.layer : entry.direct);
-          pass.setBindGroup(2, entry.bindGroup);
-        } else {
-          pass.setPipeline(
-            layer ? this.spriteLayerPipeline! : this.spritePipeline!,
-          );
-          pass.setBindGroup(2, this.effectsPipeline!.defaultUniforms);
-        }
-        previousMaterial = material;
-      }
-      pass.setBindGroup(1, this.textures.get(texture)!.bindGroup);
-      pass.draw(6, end - first, 0, first);
-      first = end;
     }
   }
 
@@ -692,20 +669,12 @@ export class WebGPURenderer implements Renderer {
     this.submissions.length = 0;
     this.effectsPipeline?.destroy();
     this.effectsPipeline = undefined;
-    this.spriteLayerPipeline = undefined;
+    this.render2D?.destroy();
+    this.render2D = undefined;
     this.captureOutput = undefined;
     this.meshPipeline?.destroy();
     this.meshPipeline = undefined;
-    this.spritePipeline = undefined;
-    this.viewportBuffer?.destroy();
-    this.viewportBuffer = undefined;
-    this.viewportBindGroup = undefined;
-    this.spriteSampler = undefined;
-    this.instanceBuffer?.destroy();
-    this.instanceBuffer = undefined;
-    this.instanceCapacity = 0;
-    this.instances = new Float32Array(0);
-    this.sprites.length = 0;
+    this.commands.destroy();
     for (const entry of this.textures.values()) entry.resource.destroy();
     this.textures.clear();
     this.pipeline = undefined;

@@ -1,6 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
-import type { Sprite } from '../../core/src/sprite.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -14,12 +13,23 @@ import {
 } from './errors.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import {
-  collectSprites2D,
+  collectRenderCommands2D,
+  RenderCommandBuffer2D,
   type FrameEffects,
   type RenderSnapshot,
   type TransitionFrame,
 } from './render2d-contract.js';
 import { CanvasSpriteSource } from './canvas-sprite-source.js';
+import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import { CanvasRender2D } from './canvas-render2d.js';
+import {
+  RenderTexture2D,
+  assertRenderTextureOwner2D,
+  type RenderTextureOptions2D,
+} from './render-texture2d.js';
+import { CanvasRender2DTargets } from './canvas-render2d-targets.js';
 
 const MAX_SIZE = 8192;
 const background = defaults.clearColor;
@@ -38,8 +48,24 @@ export class Canvas2DRenderer implements Renderer {
   });
   private canvas: HTMLCanvasElement | undefined;
   private context: CanvasRenderingContext2D | undefined;
-  private readonly sprites: Sprite[] = [];
-  private readonly spriteSource = new CanvasSpriteSource();
+  private readonly commands = new RenderCommandBuffer2D();
+  private readonly spriteSource: CanvasSpriteSource = new CanvasSpriteSource(
+    (source): CanvasImageSource => {
+      assertRenderTextureOwner2D(source as RenderTexture2D, this);
+      return this.targetOperations.canvases.get(source as RenderTexture2D)!;
+    },
+  );
+  private readonly render2D: CanvasRender2D = new CanvasRender2D(
+    this.spriteSource,
+  );
+  private readonly targetOperations: CanvasRender2DTargets =
+    new CanvasRender2DTargets(
+      this,
+      () => this.requireIdle(),
+      this.render2D,
+      () => !this.destroyed,
+    );
+  private layerCanvas: HTMLCanvasElement | undefined;
   private readonly snapshots = new Set<CanvasRenderSnapshot>();
   private transitionCanvas: HTMLCanvasElement | undefined;
   private transitionContext: CanvasRenderingContext2D | undefined;
@@ -103,6 +129,45 @@ export class Canvas2DRenderer implements Renderer {
     );
   }
 
+  createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D {
+    return this.targetOperations.create(options);
+  }
+  renderToTexture(
+    target: RenderTexture2D,
+    content: Scene | IsolatedGroup2D,
+    options?: { clear?: boolean; bounds?: Rect2D },
+  ): Promise<void> {
+    return this.targetOperations.render(target, content, options);
+  }
+  extractPixels(
+    target: RenderTexture2D,
+    options?: { region?: Rect2D },
+  ): Promise<Uint8ClampedArray> {
+    return this.targetOperations.extract(target, options);
+  }
+  generateTexture(
+    content: Scene | IsolatedGroup2D,
+    options?: { bounds?: Rect2D; resolution?: number },
+  ): Promise<Texture> {
+    return this.targetOperations.generate(content, options);
+  }
+  async prepareTextures(sources: readonly Texture2DSource[]): Promise<void> {
+    this.requireIdle();
+    for (const source of sources) this.spriteSource.prepare(source);
+  }
+  unloadTexture(source: Texture2DSource): void {
+    this.requireIdle();
+    if (source.kind === 'render') assertRenderTextureOwner2D(source, this);
+    else this.spriteSource.unload(source);
+  }
+  private requireIdle(): void {
+    this.requireContext();
+    if (this.frameActive)
+      throw new GraphicsError(
+        'Canvas2D target operation cannot run during an active frame.',
+      );
+  }
+
   async captureScene(
     scene: Scene,
     width: number,
@@ -141,7 +206,7 @@ export class Canvas2DRenderer implements Renderer {
       if (capture) capture.width = capture.height = 1;
       throw error;
     } finally {
-      this.sprites.length = 0;
+      this.commands.clear();
       this.frameActive = false;
     }
   }
@@ -193,8 +258,8 @@ export class Canvas2DRenderer implements Renderer {
     width: number,
     height: number,
   ): void {
-    const sprites = this.sprites;
-    sprites.length = 0;
+    const commands = this.commands;
+    commands.clear();
     if (!scene) return;
     if (
       !Number.isFinite(width) ||
@@ -215,13 +280,8 @@ export class Canvas2DRenderer implements Renderer {
           'Canvas2D does not support visible 3D meshes.',
         );
     }
-    collectSprites2D(scene, width, height, sprites);
-    for (const sprite of sprites) {
-      if (sprite.material)
-        throw new UnsupportedGraphicsError(
-          'Canvas2D does not support native Sprite materials.',
-        );
-    }
+    collectRenderCommands2D(scene, width, height, commands);
+    this.render2D.preflight(commands);
   }
 
   private drawFrame(
@@ -232,10 +292,9 @@ export class Canvas2DRenderer implements Renderer {
     logicalWidth: number,
     logicalHeight: number,
   ): void {
-    const sprites = this.sprites;
+    const commands = this.commands;
     const scaleX = pixelWidth / logicalWidth;
     const scaleY = pixelHeight / logicalHeight;
-    this.spriteSource.beginFrame();
     try {
       context.setTransform(1, 0, 0, 1, 0, 0);
       context.globalAlpha = 1;
@@ -243,34 +302,18 @@ export class Canvas2DRenderer implements Renderer {
       context.fillStyle = backgroundStyle;
       context.fillRect(0, 0, pixelWidth, pixelHeight);
       if (scene) {
-        const camera = scene.camera2D;
-        const cameraX = camera.position.x;
-        const cameraY = camera.position.y;
-        for (const sprite of sprites) {
-          const matrix = sprite.updateWorldMatrix().elements;
-          const world = sprite.worldSpace === 'world';
-          const zoom = world ? camera.zoom : 1;
-          context.setTransform(
-            matrix[0] * zoom * scaleX,
-            matrix[1] * zoom * scaleY,
-            matrix[3] * zoom * scaleX,
-            matrix[4] * zoom * scaleY,
-            ((matrix[6] - (world ? cameraX : 0)) * zoom +
-              (world ? camera.renderOffset.x : 0)) *
-              scaleX,
-            ((matrix[7] - (world ? cameraY : 0)) * zoom +
-              (world ? camera.renderOffset.y : 0)) *
-              scaleY,
-          );
-          context.globalAlpha = sprite.worldOpacity * sprite.worldTint[3];
-          context.drawImage(
-            this.spriteSource.image(sprite),
-            -sprite.anchor.x * sprite.width,
-            -sprite.anchor.y * sprite.height,
-            sprite.width,
-            sprite.height,
-          );
-        }
+        const layer = (this.layerCanvas ??= document.createElement('canvas'));
+        if (layer.width !== pixelWidth) layer.width = pixelWidth;
+        if (layer.height !== pixelHeight) layer.height = pixelHeight;
+        const layerContext = layer.getContext('2d')!;
+        layerContext.setTransform(1, 0, 0, 1, 0, 0);
+        layerContext.globalAlpha = 1;
+        layerContext.globalCompositeOperation = 'source-over';
+        layerContext.clearRect(0, 0, pixelWidth, pixelHeight);
+        this.render2D.draw(layerContext, commands, scene, scaleX, scaleY);
+        context.setTransform(1, 0, 0, 1, 0, 0);
+        context.globalAlpha = 1;
+        context.drawImage(layer, 0, 0);
       } else {
         const side = Math.min(pixelWidth, pixelHeight);
         const centerX = pixelWidth / 2;
@@ -293,7 +336,7 @@ export class Canvas2DRenderer implements Renderer {
         context.fill();
       }
     } finally {
-      sprites.length = 0;
+      commands.clear();
       this.spriteSource.endFrame();
     }
   }
@@ -510,8 +553,12 @@ export class Canvas2DRenderer implements Renderer {
     this.snapshots.clear();
     this.releaseTransitionTarget();
     this.canvas?.removeEventListener('contextlost', this.onContextLost);
-    this.sprites.length = 0;
+    this.commands.destroy();
     this.spriteSource.destroy();
+    this.render2D.destroy();
+    this.targetOperations.destroy();
+    if (this.layerCanvas) this.layerCanvas.width = this.layerCanvas.height = 1;
+    this.layerCanvas = undefined;
     this.frameActive = false;
     this.context = undefined;
     this.canvas = undefined;
