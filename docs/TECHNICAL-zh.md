@@ -318,7 +318,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 ### glTF、動畫與幾何更新
 
-- GLTFLoader.load(url,{signal}) 與 parse(ArrayBuffer|string,baseURL?,{signal}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；缺 normals 時產生，缺 UV 時填零。
+- GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；模型引用的 buffers／images 只能從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得，data:／blob: 一律允許，其他 origin 會在發出請求前以 AssetError 拒絕；缺 normals 時產生，缺 UV 時填零。
 - 必要 extensions、非 triangle topology、morph targets／weights animation、vertex colors、非 UV0 texture、額外 skin influences、shear matrix 與 animated matrix node 明確拒絕。這不是完整 glTF extension 支援；optional extensions 未實作，需提供 core fallback。影像解碼限制仍見第 18 節。
 - src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
 - 應用在移除／停止所有 consumers 後必須 asset.dispose()，釋放 loader-owned nodes／textures。僅 Scene destroy 不釋放 asset-owned textures；仍有 live borrower 時不可 dispose。Abort／parse failure 清理自有資源。

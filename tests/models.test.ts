@@ -279,6 +279,32 @@ describe('glTF decoding and owned assets', () => {
     ).rejects.toThrow(/Unable to parse/);
     expect(decode).not.toHaveBeenCalled();
   });
+  it('fetches model-referenced resources only from the model origin or an allowlist', async () => {
+    installImages();
+    const document = triangle(),
+      payload = document.buffers[0].uri;
+    document.buffers[0].uri = 'https://cdn.test/geometry.bin';
+    const binary = Uint8Array.from(
+      atob(payload.slice(payload.indexOf(',') + 1)),
+      (c) => c.charCodeAt(0),
+    );
+    const fetchMock = vi.fn(async () => new Response(binary));
+    vi.stubGlobal('fetch', fetchMock);
+    const text = JSON.stringify(document),
+      base = 'https://example.test/model.gltf';
+    await expect(new GLTFLoader().parse(text, base)).rejects.toThrow(
+      /origin is not allowed/,
+    );
+    expect(fetchMock).not.toHaveBeenCalled();
+    const asset = await new GLTFLoader().parse(text, base, {
+      allowedOrigins: ['https://cdn.test'],
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      'https://cdn.test/geometry.bin',
+      expect.anything(),
+    );
+    asset.dispose();
+  });
   it('loads GLB binary data and chooses the declared scene instead of all roots', async () => {
     const bytes = new Uint8Array(
       new Float32Array([0, 0, 0, 1, 0, 0, 0, 1, 0]).buffer,

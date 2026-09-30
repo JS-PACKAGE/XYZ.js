@@ -23,6 +23,8 @@ export interface GLTFAsset {
 }
 export interface GLTFLoadOptions {
   signal?: AbortSignal;
+  /** Extra origins from which model-referenced buffers/images may be fetched; the model's own origin is always allowed. */
+  allowedOrigins?: readonly string[];
 }
 type RecordData = Record<string, unknown>;
 function object(value: unknown, label: string): RecordData {
@@ -90,6 +92,7 @@ class DecodeContext {
   constructor(
     readonly signal: AbortSignal,
     readonly base?: string,
+    readonly allowedOrigins: readonly string[] = [],
   ) {}
   reserve(bytes: number): void {
     this.decoded += bytes;
@@ -157,6 +160,17 @@ class DecodeContext {
     this.fetched += blob.size;
     this.reserve(blob.size);
     return blob.arrayBuffer();
+  }
+  /** Model-referenced URIs may only be fetched from the model's own origin or an explicit allowlist. */
+  resource(uri: unknown, limit?: number): Promise<ArrayBuffer> {
+    const resolved = url(uri, this.base);
+    if (!/^(data|blob):/.test(resolved)) {
+      const origin = new URL(resolved).origin;
+      const own = this.base ? new URL(this.base).origin : undefined;
+      if (origin !== own && !this.allowedOrigins.includes(origin))
+        throw new AssetError(`Model resource origin is not allowed: ${origin}`);
+    }
+    return this.bytes(resolved, limit);
   }
   async texture(blob: Blob | ImageData): Promise<Texture> {
     this.signal.throwIfAborted();
@@ -265,6 +279,7 @@ export class GLTFLoader {
     const context = new DecodeContext(
       options.signal ?? new AbortController().signal,
       resolved,
+      options.allowedOrigins,
     );
     const bytes = await context.bytes(resolved, modelLimits.inputBytes);
     return this.parse(bytes, resolved, options);
@@ -278,6 +293,7 @@ export class GLTFLoader {
     const context = new DecodeContext(
       options.signal ?? new AbortController().signal,
       baseURL,
+      options.allowedOrigins,
     );
     context.signal.throwIfAborted();
     let scene: Group | undefined;
@@ -384,7 +400,7 @@ export class GLTFLoader {
             ? i === 0
               ? binary
               : undefined
-            : await context.bytes(def.uri);
+            : await context.resource(def.uri);
         if (
           !data ||
           data.byteLength < length ||
@@ -539,7 +555,10 @@ export class GLTFLoader {
         const def = reference(imageDefs, id, 'image');
         let blob: Blob;
         if (def.uri !== undefined) {
-          const bytes = await context.bytes(def.uri, assetLimits.textureBytes);
+          const bytes = await context.resource(
+            def.uri,
+            assetLimits.textureBytes,
+          );
           context.reserve(bytes.byteLength);
           blob = new Blob([bytes]);
         } else {
