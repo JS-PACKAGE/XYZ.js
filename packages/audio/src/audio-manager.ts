@@ -4,6 +4,12 @@ import { AudioError } from './errors.js';
 import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
 import { assetLimits } from '../../../src/data/assets.js';
 import { readResponse } from '../../assets/src/read-response.js';
+import { subscribeLoad } from '../../assets/src/preload/subscribe-load.js';
+import type { LoadTask } from '../../assets/src/preload/preload-batch.js';
+import {
+  SampleAudioEngine,
+  type SampleAudioAsset,
+} from './samples/sample-audio.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
@@ -134,6 +140,7 @@ export class AudioManager {
   readonly ui = new AudioChannel('ui', () => this.refreshGains());
 
   private readonly adapter: OPMAdapter;
+  private readonly samples: SampleAudioEngine;
   private readonly cache = new Map<string, CachedAudio>();
   private readonly playbacks = new Map<AudioPlayback, PlaybackRecord>();
   private readonly slots: (ReservedSlot | undefined)[] =
@@ -147,6 +154,11 @@ export class AudioManager {
     private readonly onError: (error: Error) => void,
   ) {
     this.adapter = new OPMAdapter();
+    this.samples = new SampleAudioEngine({
+      context: () => this.adapter.sampleContext,
+      scene: this.getScene,
+      volume: (channel) => this[channel].volume,
+    });
   }
 
   get unlocked(): boolean {
@@ -169,7 +181,12 @@ export class AudioManager {
     }
   }
 
-  load(url: string): Promise<AudioAsset> {
+  /** Subscriber cancellation does not abort another caller's loader-owned cache request. */
+  load(
+    url: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<AudioAsset> {
+    if (options.signal?.aborted) return Promise.reject(options.signal.reason);
     if (this.disposed)
       return Promise.reject(new AudioError('AudioManager has been destroyed.'));
     let canonical: string;
@@ -186,7 +203,7 @@ export class AudioManager {
       );
     }
     const cached = this.cache.get(canonical);
-    if (cached) return cached.promise;
+    if (cached) return subscribeLoad(cached.promise, options.signal);
 
     const controller = new AbortController();
     let cancel!: () => void;
@@ -218,7 +235,22 @@ export class AudioManager {
         .finally(() => controller.signal.removeEventListener('abort', cancel)),
     };
     this.cache.set(canonical, entry);
-    return entry.promise;
+    return subscribeLoad(entry.promise, options.signal);
+  }
+
+  opmTask(key: string, url: string): LoadTask<AudioAsset> {
+    return { key, load: (signal) => this.load(url, { signal }) };
+  }
+
+  loadSample(
+    url: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SampleAudioAsset> {
+    return this.samples.load(url, options);
+  }
+
+  sampleTask(key: string, url: string): LoadTask<SampleAudioAsset> {
+    return { key, load: (signal) => this.loadSample(url, { signal }) };
   }
 
   play(asset: AudioAsset, options: AudioPlayOptions = {}): AudioPlayback {
@@ -254,6 +286,7 @@ export class AudioManager {
   }
 
   stopScene(scene: Scene): void {
+    this.samples.stopScene(scene);
     for (const record of this.playbacks.values()) {
       if (record.scene !== scene) continue;
       if (record.persistent) record.scene = undefined;
@@ -316,6 +349,7 @@ export class AudioManager {
     this.disposed = true;
     clearInterval(this.timer);
     this.timer = undefined;
+    this.samples.destroy();
     for (const entry of this.cache.values()) entry.controller.abort();
     this.cache.clear();
     for (const playback of this.playbacks.keys()) playback.finish('stopped');
@@ -533,6 +567,7 @@ export class AudioManager {
   }
 
   private refreshGains(): void {
+    this.samples.refreshGains();
     if (this.disposed || !this.unlocked) return;
     for (let index = 0; index < VOICE_COUNT; index++) {
       const slot = this.slots[index];

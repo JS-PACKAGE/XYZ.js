@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
+import type { LoadTask } from '../../assets/src/preload/preload-batch.js';
+import { type SampleAudioAsset } from './samples/sample-audio.js';
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
     readonly note: number;
@@ -56,6 +58,7 @@ export declare class AudioManager {
     readonly sfx: AudioChannel;
     readonly ui: AudioChannel;
     private readonly adapter;
+    private readonly samples;
     private readonly cache;
     private readonly playbacks;
     private readonly slots;
@@ -66,7 +69,15 @@ export declare class AudioManager {
     get unlocked(): boolean;
     get opm(): OPMAdapter['opm'];
     unlock(): Promise<void>;
-    load(url: string): Promise<AudioAsset>;
+    /** Subscriber cancellation does not abort another caller's loader-owned cache request. */
+    load(url: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<AudioAsset>;
+    opmTask(key: string, url: string): LoadTask<AudioAsset>;
+    loadSample(url: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<SampleAudioAsset>;
+    sampleTask(key: string, url: string): LoadTask<SampleAudioAsset>;
     play(asset: AudioAsset, options?: AudioPlayOptions): AudioPlayback;
     stopScene(scene: Scene): void;
     /** @internal */

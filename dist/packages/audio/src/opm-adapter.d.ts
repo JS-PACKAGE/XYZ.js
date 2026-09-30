@@ -47,6 +47,8 @@ export declare class OPMAdapter {
     get unlocked(): boolean;
     get now(): number;
     get opm(): OfficialOPM | undefined;
+    /** @internal Native PCM shares the first existing context; worklet reset leaves it alive. */
+    get sampleContext(): AudioContext | undefined;
     unlock(): Promise<void>;
     private initialize;
     play(slot: number, voice: OPMVoice, note: number, delay: number, duration: number, gain: number): void;

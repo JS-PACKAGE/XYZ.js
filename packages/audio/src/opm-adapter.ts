@@ -81,6 +81,11 @@ export class OPMAdapter {
     return this.unlocked ? this.slots[0].opm : undefined;
   }
 
+  /** @internal Native PCM shares the first existing context; worklet reset leaves it alive. */
+  get sampleContext(): AudioContext | undefined {
+    return this.unlocked ? (this.slots[0].opm.context ?? undefined) : undefined;
+  }
+
   unlock(): Promise<void> {
     if (this.destroyed)
       return Promise.reject(new AudioError('Audio adapter has been destroyed'));

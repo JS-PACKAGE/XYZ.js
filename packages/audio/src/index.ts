@@ -12,3 +12,9 @@ export type {
 export { OPMAdapter } from './opm-adapter.js';
 export type { OPMVoice, OPMOperator } from './opm-adapter.js';
 export { AudioError } from './errors.js';
+export { SampleAudioAsset } from './samples/sample-audio.js';
+export { SamplePlayback } from './samples/sample-playback.js';
+export type {
+  SamplePlayOptions,
+  SamplePlaybackState,
+} from './samples/sample-playback.js';

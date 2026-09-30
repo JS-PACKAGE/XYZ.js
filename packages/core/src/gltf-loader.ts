@@ -1,4 +1,5 @@
 import { AssetError, Texture } from '../../assets/src/index.js';
+import type { LoadTask } from '../../assets/src/index.js';
 import { readResponse } from '../../assets/src/read-response.js';
 import { Matrix4, Vector3 } from '../../math/src/index.js';
 import { modelLimits } from '../../../src/data/models.js';
@@ -242,6 +243,23 @@ function scalar(
 
 /** Dependency-free glTF 2.0 triangle/TRS/skin loader. Required extensions are rejected. */
 export class GLTFLoader {
+  /** Task results are unique: abort disposes only this acquisition, never a shared asset. */
+  task(key: string, uri: string): LoadTask<GLTFAsset> {
+    return {
+      key,
+      load: async (signal) => {
+        const asset = await this.load(uri, { signal });
+        const abort = () => asset.dispose();
+        if (signal.aborted) {
+          asset.dispose();
+          signal.throwIfAborted();
+        }
+        signal.addEventListener('abort', abort, { once: true });
+        return asset;
+      },
+    };
+  }
+
   async load(uri: string, options: GLTFLoadOptions = {}): Promise<GLTFAsset> {
     const resolved = url(uri);
     const context = new DecodeContext(
