@@ -1,13 +1,14 @@
-import type { Sprite } from '../../core/src/sprite.js';
-/** One reusable source-frame scratch, never a per-color or per-particle Texture. */
+import type { Texture2DSource } from '../../assets/src/index.js';
+import type { TextureQuad2D } from './sprite-instance.js';
+/** Renderer-owned source snapshots; views borrow a single versioned upload. */
 export declare class CanvasSpriteSource {
+    private readonly renderImage;
+    private readonly sources;
     private scratch;
-    private context;
-    private readonly opaqueTextures;
-    private frame;
-    beginFrame(): void;
-    image(sprite: Sprite): CanvasImageSource;
-    private opaque;
+    constructor(renderImage: (source: Texture2DSource) => CanvasImageSource);
     endFrame(): void;
+    prepare(source: Texture2DSource): CanvasImageSource;
+    image(source: Texture2DSource, quad: TextureQuad2D, tint: ArrayLike<number>): HTMLCanvasElement;
+    unload(source: Texture2DSource): void;
     destroy(): void;
 }

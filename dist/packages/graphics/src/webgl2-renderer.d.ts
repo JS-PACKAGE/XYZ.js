@@ -1,5 +1,9 @@
 import type { Scene } from '../../core/src/scene.js';
 import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import { type Texture2DSource, Texture } from '../../assets/src/index.js';
+import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import { type RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
@@ -9,15 +13,11 @@ export declare class WebGL2Renderer implements Renderer {
     private canvas;
     private gl;
     private triangleProgram;
-    private spriteProgram;
     private meshProgram;
     private triangleVAO;
-    private spriteVAO;
-    private instanceBuffer;
-    private instanceCapacity;
-    private instances;
-    private readonly sprites;
+    private readonly commands;
     private readonly textures;
+    private render2D;
     private readonly geometries;
     private frame;
     private activeFrame;
@@ -30,7 +30,6 @@ export declare class WebGL2Renderer implements Renderer {
     private viewportX;
     private viewportY;
     private viewportSide;
-    private spriteViewport;
     private shadowProgram;
     private postProgram;
     private readonly meshUniforms;
@@ -56,6 +55,20 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly onContextLost;
     constructor(onError: (error: Error) => void);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
+    createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
+    renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {
+        clear?: boolean;
+        bounds?: Rect2D;
+    }): Promise<void>;
+    extractPixels(target: RenderTexture2D, options?: {
+        region?: Rect2D;
+    }): Promise<Uint8ClampedArray>;
+    generateTexture(content: Scene | IsolatedGroup2D, options?: {
+        bounds?: Rect2D;
+        resolution?: number;
+    }): Promise<Texture>;
+    prepareTextures(sources: readonly Texture2DSource[]): Promise<void>;
+    unloadTexture(source: Texture2DSource): void;
     prepareMaterial(material: Material2D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     private prepareNative;
@@ -67,8 +80,6 @@ export declare class WebGL2Renderer implements Renderer {
     private renderFrame;
     endFrame(): void;
     resize(width: number, height: number): void;
-    private prepareSprites;
-    private drawSprites;
     private drawEffects2D;
     private drawComposite;
     private drawMeshes;

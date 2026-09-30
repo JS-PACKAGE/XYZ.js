@@ -1,7 +1,7 @@
 import { Material2D, PostProcessor2D } from '../../../core/src/materials2d/material2d.js';
 import type { RenderSnapshot, TransitionFrame } from '../render2d-contract.js';
 export declare const premultipliedBlend: GPUBlendState;
-export declare function createSpritePipeline(device: GPUDevice, module: GPUShaderModule, format: GPUTextureFormat, layout: GPUPipelineLayout): GPURenderPipeline;
+export declare function createQuadPipeline(device: GPUDevice, module: GPUShaderModule, layout: GPUPipelineLayout, blend?: GPUBlendState | undefined): GPURenderPipeline;
 export interface GPUColorTarget {
     readonly texture: GPUTexture;
     readonly view: GPUTextureView;
@@ -21,7 +21,6 @@ export declare class GPUSnapshot implements RenderSnapshot {
     destroy(): void;
 }
 interface PreparedEffect {
-    direct: GPURenderPipeline;
     layer: GPURenderPipeline;
     buffer: GPUBuffer;
     bindGroup: GPUBindGroup;
@@ -34,10 +33,11 @@ export declare class WebGPU2DEffects {
     private readonly format;
     private readonly cancelled;
     readonly snapshots: Set<GPUSnapshot>;
-    readonly spriteViewportLayout: GPUBindGroupLayout;
+    readonly drawLayout: GPUBindGroupLayout;
     readonly spriteTextureLayout: GPUBindGroupLayout;
     readonly uniformLayout: GPUBindGroupLayout;
-    readonly spriteLayout: GPUPipelineLayout;
+    readonly quadLayout: GPUPipelineLayout;
+    readonly multiplyLayout: GPUPipelineLayout;
     readonly defaultUniforms: GPUBindGroup;
     private readonly textureLayout;
     private readonly transitionTextureLayout;
@@ -64,7 +64,7 @@ export declare class WebGPU2DEffects {
     private readonly passDescriptor;
     constructor(device: GPUDevice, format: GPUTextureFormat, cancelled: () => boolean);
     initialize(): Promise<void>;
-    private module;
+    module(source: string, label: string): Promise<GPUShaderModule>;
     private fullscreenPipeline;
     prepare(effect: Material2D | PostProcessor2D): Promise<void>;
     private prepared;
@@ -75,7 +75,7 @@ export declare class WebGPU2DEffects {
     layers(width: number, height: number): [GPUColorTarget, GPUColorTarget];
     releaseLayers(): void;
     settings(width: number, height: number, transition?: TransitionFrame): void;
-    process(encoder: GPUCommandEncoder, input: GPUColorTarget, effects: readonly PostProcessor2D[]): GPUColorTarget;
+    process(encoder: GPUCommandEncoder, targets: readonly [GPUColorTarget, GPUColorTarget], effects: readonly PostProcessor2D[]): GPUColorTarget;
     composite(encoder: GPUCommandEncoder, input: GPUColorTarget, output: GPUTextureView): void;
     transition(encoder: GPUCommandEncoder, input: GPUColorTarget, output: GPUTextureView, frame: TransitionFrame): void;
     snapshot(snapshot: RenderSnapshot): GPUSnapshot;

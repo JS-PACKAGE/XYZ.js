@@ -4,6 +4,9 @@ import { type ColorRGBA, type Rect2D } from './gameplay/contracts.js';
 import { ActionQueue } from './actions2d/index.js';
 import { Collider2D } from './physics2d/collider.js';
 import { RigidBody2D } from './physics2d/body.js';
+import type { HitArea2D } from './gameplay/hit-area2d.js';
+import type { AccessibilityOptions2D } from './accessibility/index.js';
+import { type InteractionPhase2D } from './gameplay/interaction-events.js';
 /** Public 2D facade; entities and component registration belong to Scene. */
 export declare class GameObject extends SceneObject {
     readonly transform: Transform2D;
@@ -22,10 +25,21 @@ export declare class GameObject extends SceneObject {
     pointerEnabled: boolean;
     draggable: boolean;
     hitTestMode: 'graphics' | 'collider';
+    hitArea: HitArea2D | undefined;
+    interactiveChildren: boolean;
+    cursor: string | undefined;
+    eventPropagation: 'target' | 'hierarchy';
+    accessibility: AccessibilityOptions2D | undefined;
+    private interactionListeners;
     private initializedEvents;
     private actionQueue;
     private rigidBody;
     private collisionShape;
+    addEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
+    removeEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
+    dispatchEvent(event: Event): boolean;
+    /** @internal Router and accessibility callbacks guard each delivery against scene mutation. */
+    dispatchInteractionEvent(event: CustomEvent, phase: InteractionPhase2D, guard: () => boolean): void;
     get actions(): ActionQueue;
     /** @internal Do not instantiate queues on passive glyph/tile/pool sprites. */
     advanceActions(dt: number, canContinue?: () => boolean): void;
@@ -43,6 +57,10 @@ export declare class GameObject extends SceneObject {
     set rotation(value: number);
     get scale(): Vector2;
     set scale(value: Vector2);
+    get pivot(): Vector2;
+    set pivot(value: Vector2);
+    get skew(): Vector2;
+    set skew(value: Vector2);
     get opacity(): number;
     set opacity(value: number);
     get zIndex(): number;
@@ -64,6 +82,9 @@ export declare class GameObject extends SceneObject {
     detachParent(): void;
     updateWorldMatrix(): Matrix3;
     getLocalBounds(out?: Rect2D): Rect2D;
+    toWorld(point: Vector2, out?: Vector2): Vector2;
+    toLocal(point: Vector2, out?: Vector2): Vector2;
+    getWorldBounds(out?: Rect2D): Rect2D;
     containsPoint(point: Vector2): boolean;
     update(deltaTime: number): void;
     destroy(): void;

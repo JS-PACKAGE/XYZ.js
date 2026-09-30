@@ -1,4 +1,8 @@
 import type { Scene } from '../../core/src/scene.js';
+import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
 import type { Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
@@ -17,19 +21,11 @@ export declare class WebGPURenderer implements Renderer {
     private context;
     private device;
     private pipeline;
-    private spritePipeline;
-    private spriteLayerPipeline;
+    private render2D;
     private effectsPipeline;
     private captureOutput;
     private meshPipeline;
-    private viewportBuffer;
-    private viewportBindGroup;
-    private spriteSampler;
-    private instanceBuffer;
-    private instanceCapacity;
-    private instances;
-    private readonly viewportData;
-    private readonly sprites;
+    private readonly commands;
     private readonly textures;
     private textureFrame;
     private encoder;
@@ -44,19 +40,32 @@ export declare class WebGPURenderer implements Renderer {
     private initializing;
     private destroyed;
     private lostError;
+    private readonly render2DHooks;
     constructor(onError: (error: Error) => void);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     prepareMaterial(material: Material2D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
+    createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
+    renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {
+        clear?: boolean;
+        bounds?: Rect2D;
+    }): Promise<void>;
+    extractPixels(target: RenderTexture2D, options?: {
+        region?: Rect2D;
+    }): Promise<Uint8ClampedArray>;
+    generateTexture(content: Scene | IsolatedGroup2D, options?: {
+        bounds?: Rect2D;
+        resolution?: number;
+    }): Promise<Texture>;
+    prepareTextures(sources: readonly Texture2DSource[]): Promise<void>;
+    unloadTexture(source: Texture2DSource): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     beginFrame(): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     endFrame(): void;
     resize(width: number, height: number): void;
-    private prepareSprites;
     private cacheTexture;
     private releaseUnusedTextures;
-    private drawSprites;
     private releaseResources;
     destroy(): void;
     private requireDevice;

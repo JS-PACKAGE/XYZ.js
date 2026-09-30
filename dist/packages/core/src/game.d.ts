@@ -57,6 +57,8 @@ export declare class Game extends EventTarget {
     private readonly previousContain;
     private readonly previousIntrinsicSize;
     private readonly autoResize;
+    private readonly accessibilityManager;
+    private readonly accessibilitySize;
     private constructor();
     static create(options: GameOptions): Promise<Game>;
     get state(): GameState;

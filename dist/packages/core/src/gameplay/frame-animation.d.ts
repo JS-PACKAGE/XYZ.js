@@ -1,9 +1,15 @@
+import { TextureView2D } from '../../../assets/src/index.js';
 import type { Sprite } from '../sprite.js';
 import { type Rect2D } from './contracts.js';
-export interface AnimationFrame2D {
+export type AnimationFrame2D = {
     source: Rect2D;
+    view?: never;
     duration: number;
-}
+} | {
+    view: TextureView2D;
+    source?: never;
+    duration: number;
+};
 export interface FrameAnimationOptions {
     strategy?: 'loop' | 'pingpong' | 'freeze' | 'hide';
     speed?: number;

@@ -2,12 +2,15 @@ import { Vector2 } from '../../math/src/index.js';
 export interface PointerSample {
     id: number;
     type: string;
-    kind: 'move' | 'down' | 'up' | 'cancel' | 'leave';
+    kind: 'move' | 'down' | 'up' | 'cancel' | 'leave' | 'wheel';
     readonly position: Vector2;
     button: number;
     buttons: number;
     sequence: number;
-    originalEvent?: PointerEvent;
+    originalEvent?: PointerEvent | WheelEvent;
+    deltaX?: number;
+    deltaY?: number;
+    deltaZ?: number;
 }
 export interface ActivePointer {
     readonly id: number;
@@ -45,6 +48,10 @@ export declare class Pointer {
     private readonly samplePool;
     private sequence;
     private generation;
+    private cursorOwned;
+    private originalCursor;
+    private originalCursorPriority;
+    private assignedCursor;
     get activePointers(): ReadonlyMap<number, ActivePointer>;
     /** @internal Valid until endFrame; consumed once by the scene router. */
     get samples(): readonly PointerSample[];
@@ -61,6 +68,10 @@ export declare class Pointer {
     isDown(button: number): boolean;
     wasPressed(button: number): boolean;
     wasReleased(button: number): boolean;
+    /** CSS-pixel deltas; line mode uses 16px and page mode uses the content height. */
+    wheel(event: WheelEvent): void;
+    /** @internal */
+    setCursor(cursor?: string): void;
     /** @internal */
     enter(event: PointerEvent): void;
     /** @internal */
@@ -103,6 +114,7 @@ export declare class InputManager {
     private readonly onPointerUp;
     private readonly onPointerCancel;
     private readonly onLostPointerCapture;
+    private readonly onWheel;
     constructor(canvas: HTMLCanvasElement, getSize: () => {
         width: number;
         height: number;

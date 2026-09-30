@@ -12,6 +12,7 @@ import { SceneTimers } from './scene-timers.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
 import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
+import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export declare class Scene {
@@ -39,6 +40,8 @@ export declare class Scene {
     private nextObjectUpdate;
     private frameObjectUpdate;
     private pointerRouter;
+    /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
+    get pointerEvents(): PointerRouter;
     /** @internal Input routing is independent of subclass Scene.update. */
     routePointers(pointer: Pointer, canContinue: () => boolean): void;
     /** @internal Pause/blur/scene disposal cancels captured drags synchronously. */

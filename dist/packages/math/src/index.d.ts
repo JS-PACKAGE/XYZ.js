@@ -18,7 +18,7 @@ export declare class Matrix3 {
     identity(): this;
     copy(other: Matrix3): this;
     multiply(other: Matrix3): this;
-    compose(position: Vector2, rotation: number, scale: Vector2): this;
+    compose(position: Vector2, rotation: number, scale: Vector2, pivot?: Vector2, skew?: Vector2): this;
     invert(): this;
     transformPoint(point: Vector2, out?: Vector2): Vector2;
 }
@@ -26,11 +26,15 @@ export interface Transform2DOptions {
     position?: Vector2;
     rotation?: number;
     scale?: Vector2;
+    pivot?: Vector2;
+    skew?: Vector2;
 }
 export declare class Transform2D {
     readonly position: Vector2;
     rotation: number;
     readonly scale: Vector2;
+    readonly pivot: Vector2;
+    readonly skew: Vector2;
     readonly matrix: Matrix3;
     constructor(options?: Transform2DOptions);
     updateMatrix(): Matrix3;
