@@ -37,6 +37,11 @@ export interface GameOptions {
   pixelRatio?: number;
   /** Follow the canvas CSS content size. Enabled by default. */
   autoResize?: boolean;
+  /**
+   * 4× multisampling for the 3D pass (WebGPU) and the default WebGL2 framebuffer.
+   * Enabled by default; the WebGL2 post-processing path and Canvas2D do not multisample.
+   */
+  antialias?: boolean;
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -227,6 +232,7 @@ export class Game extends EventTarget {
           if (game) game.fail(error);
           else initializationError = error;
         },
+        { antialias: options.antialias },
       );
       if (initializationError) throw initializationError;
       game = new Game(canvas, graphics, clock, options);

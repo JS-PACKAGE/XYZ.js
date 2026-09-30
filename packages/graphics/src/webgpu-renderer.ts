@@ -134,7 +134,10 @@ export class WebGPURenderer implements Renderer {
     },
   };
 
-  constructor(private readonly onError: (error: Error) => void) {}
+  constructor(
+    private readonly onError: (error: Error) => void,
+    private readonly antialias = true,
+  ) {}
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.device || this.initializing) {
@@ -251,6 +254,7 @@ export class WebGPURenderer implements Renderer {
             device,
             format,
             () => this.destroyed,
+            this.antialias ? 4 : 1,
           );
         }
       } finally {

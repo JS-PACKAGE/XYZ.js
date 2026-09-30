@@ -227,7 +227,10 @@ export class WebGL2Renderer implements Renderer {
     this.onError(this.lostError);
   };
 
-  constructor(private readonly onError: (error: Error) => void) {}
+  constructor(
+    private readonly onError: (error: Error) => void,
+    private readonly antialias = true,
+  ) {}
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.gl)
@@ -237,6 +240,7 @@ export class WebGL2Renderer implements Renderer {
     try {
       const gl = canvas.getContext('webgl2', {
         alpha: false,
+        antialias: this.antialias,
         preserveDrawingBuffer: false,
       });
       if (!gl)

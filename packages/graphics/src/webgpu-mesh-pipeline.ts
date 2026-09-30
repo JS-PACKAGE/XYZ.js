@@ -93,6 +93,11 @@ export class WebGPUMeshPipeline {
   private depthView: GPUTextureView | undefined;
   private depthWidth = 0;
   private depthHeight = 0;
+  private msaaTexture: GPUTexture | undefined;
+  private msaaView: GPUTextureView | undefined;
+  private msaaFormat: GPUTextureFormat | undefined;
+  private msaaWidth = 0;
+  private msaaHeight = 0;
   private frame = 0;
   private readonly linearClear = { r: 0, g: 0, b: 0, a: 1 };
   private readonly clearComponents = new Float32Array(4);
@@ -141,6 +146,8 @@ export class WebGPUMeshPipeline {
     private readonly meshLayout: GPUBindGroupLayout,
     private readonly materialLayout: GPUBindGroupLayout,
     private readonly post: WebGPUPostPipeline,
+    private readonly format: GPUTextureFormat,
+    private readonly sampleCount: number,
   ) {
     this.sceneBuffer = device.createBuffer({
       size: this.sceneData.byteLength,
@@ -199,6 +206,7 @@ export class WebGPUMeshPipeline {
     device: GPUDevice,
     format: GPUTextureFormat,
     isDestroyed: () => boolean,
+    sampleCount: number,
   ): Promise<WebGPUMeshPipeline> {
     const module = device.createShaderModule({ code: webgpuMeshShader });
     const compilation = await module.getCompilationInfo();
@@ -309,6 +317,7 @@ export class WebGPUMeshPipeline {
         targets: [{ format, blend }],
       },
       primitive: { topology: 'triangle-list' },
+      multisample: { count: sampleCount },
       depthStencil: {
         format: 'depth24plus',
         depthWriteEnabled: true,
@@ -324,6 +333,7 @@ export class WebGPUMeshPipeline {
         targets: [{ format: 'rgba16float', blend }],
       },
       primitive: { topology: 'triangle-list' },
+      multisample: { count: sampleCount },
       depthStencil: {
         format: 'depth24plus',
         depthWriteEnabled: true,
@@ -354,6 +364,7 @@ export class WebGPUMeshPipeline {
             targets: [{ format: targetFormat }],
           },
           primitive: { topology: 'triangle-list' },
+          multisample: { count: sampleCount },
           // Same attachment layout as the mesh pass, but sky never tests or writes depth.
           depthStencil: {
             format: 'depth24plus',
@@ -380,6 +391,8 @@ export class WebGPUMeshPipeline {
         meshLayout,
         materialLayout,
         post,
+        format,
+        sampleCount,
       );
     } catch (error) {
       post.destroy();
@@ -453,9 +466,20 @@ export class WebGPUMeshPipeline {
       const background = activeBackground(scene);
       if (!this.draws.length && !postEnabled && !background) return false;
       this.ensureDepth(width, height);
-      this.colorAttachment.view = postEnabled
-        ? this.post.target(width, height)
-        : view;
+      const target = postEnabled ? this.post.target(width, height) : view;
+      if (this.sampleCount > 1) {
+        // Multisampled color resolves into the canvas (or HDR target) at pass end.
+        this.colorAttachment.view = this.ensureMultisample(
+          postEnabled ? 'rgba16float' : this.format,
+          width,
+          height,
+        );
+        this.colorAttachment.resolveTarget = target;
+        this.colorAttachment.storeOp = 'discard';
+      } else {
+        this.colorAttachment.view = target;
+        this.colorAttachment.storeOp = 'store';
+      }
       this.colorAttachment.clearValue = postEnabled
         ? this.decodeClear(clearValue)
         : clearValue;
@@ -479,6 +503,7 @@ export class WebGPUMeshPipeline {
       return true;
     } finally {
       this.colorAttachment.view = undefined;
+      this.colorAttachment.resolveTarget = undefined;
       this.depthAttachment.view = undefined;
       this.shadowAttachment.view = undefined;
       this.draws.length = 0;
@@ -672,6 +697,32 @@ export class WebGPUMeshPipeline {
     return this.linearClear;
   }
 
+  private ensureMultisample(
+    format: GPUTextureFormat,
+    width: number,
+    height: number,
+  ): GPUTextureView {
+    if (
+      this.msaaView &&
+      this.msaaFormat === format &&
+      this.msaaWidth === width &&
+      this.msaaHeight === height
+    )
+      return this.msaaView;
+    this.msaaTexture?.destroy();
+    this.msaaTexture = this.device.createTexture({
+      size: [width, height],
+      format,
+      sampleCount: this.sampleCount,
+      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+    });
+    this.msaaView = this.msaaTexture.createView();
+    this.msaaFormat = format;
+    this.msaaWidth = width;
+    this.msaaHeight = height;
+    return this.msaaView;
+  }
+
   private ensureDepth(width: number, height: number): void {
     if (
       this.depthTexture &&
@@ -683,6 +734,7 @@ export class WebGPUMeshPipeline {
     this.depthTexture = this.device.createTexture({
       size: [width, height],
       format: 'depth24plus',
+      sampleCount: this.sampleCount,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
     this.depthView = this.depthTexture.createView();
@@ -983,6 +1035,9 @@ export class WebGPUMeshPipeline {
   destroy(): void {
     this.post.destroy();
     this.depthTexture?.destroy();
+    this.msaaTexture?.destroy();
+    this.msaaTexture = undefined;
+    this.msaaView = undefined;
     this.depthTexture = undefined;
     this.depthView = undefined;
     this.shadowTexture?.destroy();

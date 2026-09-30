@@ -54,7 +54,13 @@ function cleanup(): void {
   white?.destroy();
 }
 try {
-  game = await Game.create({ canvas, renderer, width: 960, height: 540 });
+  game = await Game.create({
+    canvas,
+    renderer,
+    width: 960,
+    height: 540,
+    antialias: new URLSearchParams(location.search).get('antialias') !== '0',
+  });
   game.addEventListener('error', (event) => {
     status.textContent = (event as CustomEvent<Error>).detail.message;
   });

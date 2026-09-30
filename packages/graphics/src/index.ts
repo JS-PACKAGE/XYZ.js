@@ -108,6 +108,7 @@ export async function createRenderer(
   canvas: HTMLCanvasElement,
   preference: RendererPreference,
   onError: (error: Error) => void,
+  options: { antialias?: boolean } = {},
 ): Promise<Renderer> {
   if (!['auto', 'webgpu', 'webgl2', 'canvas2d'].includes(preference))
     throw new GraphicsBackendUnavailableError(
@@ -127,9 +128,9 @@ export async function createRenderer(
     };
     const renderer =
       backend === 'webgpu'
-        ? new WebGPURenderer(report)
+        ? new WebGPURenderer(report, options.antialias ?? true)
         : backend === 'webgl2'
-          ? new WebGL2Renderer(report)
+          ? new WebGL2Renderer(report, options.antialias ?? true)
           : new Canvas2DRenderer(report);
     // A bound context cannot change type. Failed candidates never bind the user's canvas.
     const target =
