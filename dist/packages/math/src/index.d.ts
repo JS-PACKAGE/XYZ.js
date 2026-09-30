@@ -16,6 +16,8 @@ export declare class Matrix3 {
     readonly elements: Float32Array<ArrayBuffer>;
     constructor();
     identity(): this;
+    copy(other: Matrix3): this;
+    multiply(other: Matrix3): this;
     compose(position: Vector2, rotation: number, scale: Vector2): this;
     invert(): this;
     transformPoint(point: Vector2, out?: Vector2): Vector2;

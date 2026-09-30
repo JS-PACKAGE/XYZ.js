@@ -69,6 +69,35 @@ export class Matrix3 {
     return this;
   }
 
+  copy(other: Matrix3): this {
+    this.elements.set(other.elements);
+    return this;
+  }
+
+  multiply(other: Matrix3): this {
+    const a = this.elements,
+      b = other.elements;
+    const a0 = a[0],
+      a1 = a[1],
+      a3 = a[3],
+      a4 = a[4],
+      a6 = a[6],
+      a7 = a[7];
+    const b0 = b[0],
+      b1 = b[1],
+      b3 = b[3],
+      b4 = b[4],
+      b6 = b[6],
+      b7 = b[7];
+    a[0] = a0 * b0 + a3 * b1;
+    a[1] = a1 * b0 + a4 * b1;
+    a[3] = a0 * b3 + a3 * b4;
+    a[4] = a1 * b3 + a4 * b4;
+    a[6] = a0 * b6 + a3 * b7 + a6;
+    a[7] = a1 * b6 + a4 * b7 + a7;
+    return this;
+  }
+
   compose(position: Vector2, rotation: number, scale: Vector2): this {
     const cosine = Math.cos(rotation);
     const sine = Math.sin(rotation);
