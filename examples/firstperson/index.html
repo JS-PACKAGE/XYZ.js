@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · First person</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 960px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+        cursor: pointer;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin: 1rem 0;
+      }
+      select {
+        font: inherit;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>First person</h1>
+    <p>
+      Click the canvas to lock the pointer, then WASD to move, Space / C to fly
+      up / down, Shift to sprint, Esc to release. Frustum culling stats and a
+      3D-only post effect are live.
+    </p>
+    <div class="controls">
+      <label
+        >Backend
+        <select id="backend">
+          <option>webgpu</option>
+          <option>webgl2</option>
+          <option>auto</option>
+        </select></label
+      >
+      <label><input id="fog" type="checkbox" checked /> Fog</label>
+      <label><input id="effect" type="checkbox" /> 3D-only tint effect</label>
+    </div>
+    <canvas id="game"></canvas>
+    <p id="status" role="status">Loading…</p>
+    <p id="stats" role="status"></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
