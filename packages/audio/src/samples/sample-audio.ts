@@ -5,6 +5,7 @@ import type { Scene } from '../../../core/src/scene.js';
 import type { AudioChannelName } from '../audio-manager.js';
 import { AudioError } from '../errors.js';
 import { SamplePlayback, type SamplePlayOptions } from './sample-playback.js';
+import { AudioListenerState } from './spatial.js';
 
 interface SampleHost {
   context(): AudioContext | undefined;
@@ -131,6 +132,7 @@ export class SampleAudioEngine {
   private master?: GainNode;
   private buses?: Record<AudioChannelName, GainNode>;
   private disposed = false;
+  readonly listener = new AudioListenerState(() => this.host.context());
 
   constructor(private readonly host: SampleHost) {}
 
@@ -286,5 +288,6 @@ export class SampleAudioEngine {
     this.buses.sfx.connect(this.master);
     this.buses.ui.connect(this.master);
     this.refreshGains();
+    this.listener.apply();
   }
 }

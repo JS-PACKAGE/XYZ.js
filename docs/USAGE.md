@@ -162,6 +162,8 @@ const verticalAxis = game.input.gamepads[0]?.axes[1] ?? 0;
 
 `isDown` reports held state; `wasPressed`/`wasReleased` report frame edges without consuming them. Edges clear at frame end. Keyboard uses `KeyboardEvent.code`, such as KeyW, rather than typed characters. Editable fields do not start tracking gameplay presses, but still release previously held keys. Blur, hidden, and pause transitions clear held state. Gamepad slots may be empty; physical hardware remains unverified.
 
+Spatial sample audio: pass `spatial: { position: { x, y, z } }` to `sample.play(...)` and move sources with `playback.position3D = {...}`; place the listener with `game.audio.listener.setPosition(x,y,z)` / `setOrientation(forward, up)`.
+
 ## 6. Add 3D
 
 Add `Mesh`, `Geometry`, and `TextureMaterial` to the import. Reuse your loaded `texture` and current `scene`:

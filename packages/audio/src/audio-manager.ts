@@ -10,6 +10,7 @@ import {
   SampleAudioEngine,
   type SampleAudioAsset,
 } from './samples/sample-audio.js';
+import type { AudioListenerState } from './samples/spatial.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
@@ -159,6 +160,11 @@ export class AudioManager {
       scene: this.getScene,
       volume: (channel) => this[channel].volume,
     });
+  }
+
+  /** Manager-wide 3D listener used by playbacks created with `spatial` options. */
+  get listener(): AudioListenerState {
+    return this.samples.listener;
   }
 
   get unlocked(): boolean {

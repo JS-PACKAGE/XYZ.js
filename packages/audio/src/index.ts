@@ -18,3 +18,10 @@ export type {
   SamplePlayOptions,
   SamplePlaybackState,
 } from './samples/sample-playback.js';
+export { AudioListenerState } from './samples/spatial.js';
+export type {
+  AudioVec3,
+  SpatialAudioOptions,
+  SpatialDistanceModel,
+  SpatialPanningModel,
+} from './samples/spatial.js';
