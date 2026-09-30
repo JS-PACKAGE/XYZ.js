@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 26
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run format:check
+      - run: npx --yes pnpm@12.6.0 run typecheck
+      - run: npx --yes pnpm@12.6.0 run lint
+      - run: npx --yes pnpm@12.6.0 run test
+      - run: npx --yes pnpm@12.6.0 run build
