@@ -1,6 +1,7 @@
 import {
   Game,
   Scene,
+  EnvironmentMap,
   Group,
   Mesh,
   Geometry,
@@ -28,6 +29,7 @@ const backend = document.querySelector<HTMLSelectElement>('#backend')!;
 const cameraChoice = document.querySelector<HTMLSelectElement>('#camera')!;
 const shadows = document.querySelector<HTMLInputElement>('#shadows')!;
 const post = document.querySelector<HTMLInputElement>('#post')!;
+const environment = document.querySelector<HTMLInputElement>('#environment')!;
 const pause = document.querySelector<HTMLButtonElement>('#pause')!;
 const renderer = (new URLSearchParams(location.search).get('renderer') ??
   'webgpu') as RendererPreference;
@@ -202,6 +204,22 @@ try {
     },
     { signal: listeners.signal },
   );
+  const environmentMap = EnvironmentMap.gradient({
+    zenith: [0.15, 0.35, 0.8],
+    horizon: [0.9, 0.75, 0.6],
+    ground: [0.12, 0.1, 0.09],
+    sun: { direction: [0.5, 0.6, 0.6], color: [30, 26, 20], radius: 0.06 },
+    width: 256,
+  });
+  environment.addEventListener(
+    'change',
+    () => {
+      scene.environment = environment.checked ? environmentMap : undefined;
+      scene.background = environment.checked ? environmentMap : undefined;
+    },
+    { signal: listeners.signal },
+  );
+  listeners.signal.addEventListener('abort', () => environmentMap.destroy());
   pause.addEventListener(
     'click',
     () => {

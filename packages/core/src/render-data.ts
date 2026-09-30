@@ -1,5 +1,6 @@
 import { Matrix4, Vector3 } from '../../math/src/index.js';
 import {
+  ENVIRONMENT_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
   MAX_POINT_LIGHTS,
   MAX_SPOT_LIGHTS,
@@ -8,6 +9,7 @@ import {
   SPOT_LIGHT_OFFSET,
   SPOT_LIGHT_STRIDE,
 } from '../../../src/data/rendering.js';
+import { EnvironmentMap } from './environment.js';
 import { PointLight, SpotLight } from './lights.js';
 import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Scene } from './scene.js';
@@ -38,6 +40,45 @@ export function validateRenderSettings(scene: Scene): void {
     throw new TypeError('Scene postProcessing must be PostProcessingSettings.');
   scene.shadows.validate();
   scene.postProcessing.validate();
+  for (const [name, map] of [
+    ['environment', scene.environment],
+    ['background', scene.background],
+  ] as const)
+    if (map !== undefined && !(map instanceof EnvironmentMap))
+      throw new TypeError(`Scene ${name} must be an EnvironmentMap.`);
+  nonnegative(scene.environmentIntensity, 'Environment intensity');
+  nonnegative(scene.backgroundIntensity, 'Background intensity');
+}
+
+/** A destroyed map is treated as absent, like a destroyed Texture on a Mesh. */
+export function activeEnvironment(scene: Scene): EnvironmentMap | undefined {
+  return scene.environment && !scene.environment.destroyed
+    ? scene.environment
+    : undefined;
+}
+
+export function activeBackground(scene: Scene): EnvironmentMap | undefined {
+  return scene.background && !scene.background.destroyed
+    ? scene.background
+    : undefined;
+}
+
+/**
+ * Environment block shared by both backends: nine SH vec4 (irradiance / pi), then
+ * intensity, enabled, maxLod, background intensity (0 when no background).
+ */
+export function fillEnvironmentData(scene: Scene, out: Float32Array): void {
+  if (!(out instanceof Float32Array) || out.length < ENVIRONMENT_FLOAT_COUNT)
+    throw new RangeError(
+      `Environment output requires at least ${ENVIRONMENT_FLOAT_COUNT} Float32 values.`,
+    );
+  const environment = activeEnvironment(scene);
+  if (environment) out.set(environment.sh, 0);
+  else out.fill(0, 0, 36);
+  out[36] = environment ? scene.environmentIntensity : 0;
+  out[37] = environment ? 1 : 0;
+  out[38] = environment ? environment.mipCount - 1 : 0;
+  out[39] = activeBackground(scene) ? scene.backgroundIntensity : 0;
 }
 
 /**

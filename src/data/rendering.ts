@@ -10,6 +10,18 @@ export const SPOT_LIGHT_STRIDE = 16;
 export const LIGHTING_FLOAT_COUNT =
   SPOT_LIGHT_OFFSET + MAX_SPOT_LIGHTS * SPOT_LIGHT_STRIDE;
 
+/** Environment block: nine SH vec4 followed by intensity/background/mip data. */
+export const ENVIRONMENT_FLOAT_COUNT = 40;
+
+export const environmentLimits = Object.freeze({
+  /** Equirect width cap; height is width / 2. */
+  maxWidth: 2048,
+  minHeight: 4,
+  maxMips: 7,
+  /** Diffuse SH and blurred specular levels are filtered from at most this width. */
+  proxyWidth: 64,
+});
+
 export const renderingLimits = Object.freeze({
   pointLights: MAX_POINT_LIGHTS,
   spotLights: MAX_SPOT_LIGHTS,

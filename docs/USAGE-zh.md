@@ -359,7 +359,24 @@ const instances = scene.add(
 instances.setMatrixAt(0, new Matrix4());
 ```
 
-PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）、normal、occlusion（R）maps，使用相應 slots／scales。alphaMode 選 OPAQUE／MASK／BLEND，alphaCutoff 控制 MASK，doubleSided 控制 culling；透明物件按遠到近加入。最多 8 point＋8 spot，超限拒絕。只有方向光 3×3 PCF shadows（每 Mesh castShadow／receiveShadow），無 point／spot shadows 或 IBL。
+PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）、normal、occlusion（R）maps，使用相應 slots／scales。alphaMode 選 OPAQUE／MASK／BLEND，alphaCutoff 控制 MASK，doubleSided 控制 culling；透明物件按遠到近加入。最多 8 point＋8 spot，超限拒絕。只有方向光 3×3 PCF shadows（每 Mesh castShadow／receiveShadow），無 point／spot shadows。
+
+若要 image-based lighting 與 skybox，用 2:1 equirect 影像建立 `EnvironmentMap` 並指定給 scene。它只照亮 `PBRMaterial`，並取代其平面 `ambientLight`：
+
+```js
+import { EnvironmentMap } from 'xyz.js';
+
+const sky = EnvironmentMap.fromRGBE(
+  await (await fetch('/sky.hdr')).arrayBuffer(),
+);
+// 或：EnvironmentMap.gradient({ zenith: [0.15, 0.35, 0.8], horizon: [0.9, 0.75, 0.6], ground: [0.1, 0.1, 0.1] })
+scene.environment = sky;
+scene.background = sky; // 可選 skybox，可用不同 map
+scene.environmentIntensity = 1;
+// 之後從 scene 移除後：sky.destroy();
+```
+
+Map 最大 2048×1024。只有 WebGPU 與 WebGL2 會繪製；Canvas2D 僅 2D。
 
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 

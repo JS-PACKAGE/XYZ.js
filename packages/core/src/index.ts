@@ -36,6 +36,11 @@ export * from './rendering2d/geometry2d.js';
 export * from './rendering2d/mesh2d.js';
 export { Geometry, BoxGeometry } from './geometry.js';
 export type { GeometryData } from './geometry.js';
+export { EnvironmentMap } from './environment.js';
+export type {
+  EnvironmentColor,
+  EnvironmentGradientOptions,
+} from './environment.js';
 export { Mesh, TextureMaterial } from './mesh.js';
 export type { MeshOptions, TextureMaterialOptions } from './mesh.js';
 export { MorphTargets, MorphWeights } from './morph.js';

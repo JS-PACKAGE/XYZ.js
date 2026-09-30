@@ -6,11 +6,18 @@ import {
 } from '../../core/src/pbr-material.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import {
+  activeBackground,
+  activeEnvironment,
   computeShadowMatrix,
+  fillEnvironmentData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
-import { LIGHTING_FLOAT_COUNT } from '../../../src/data/rendering.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
+import {
+  ENVIRONMENT_FLOAT_COUNT,
+  LIGHTING_FLOAT_COUNT,
+} from '../../../src/data/rendering.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture } from '../../assets/src/index.js';
 import { Matrix4 } from '../../math/src/index.js';
@@ -38,6 +45,11 @@ interface CachedTexture {
   view: GPUTextureView;
   seen: number;
 }
+interface CachedEnvironment {
+  texture: GPUTexture;
+  view: GPUTextureView;
+  seen: number;
+}
 
 /** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export class WebGPUMeshPipeline {
@@ -47,7 +59,15 @@ export class WebGPUMeshPipeline {
   private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
   private readonly samplers = new Map<number, GPUSampler>();
   private readonly draws: Mesh[] = [];
-  private readonly sceneData = new Float32Array(244);
+  private readonly sceneData = new Float32Array(300);
+  private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
+  private readonly invViewProjection = new Matrix4();
+  private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
+  private readonly dummyEnvironment: GPUTexture;
+  private readonly dummyEnvironmentView: GPUTextureView;
+  private readonly environmentSampler: GPUSampler;
+  private environmentView: GPUTextureView;
+  private backgroundView: GPUTextureView;
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly shadowMatrix = new Matrix4();
   private readonly sceneBuffer: GPUBuffer;
@@ -58,7 +78,7 @@ export class WebGPUMeshPipeline {
   private readonly emptyShadowView: GPUTextureView;
   private readonly identityBuffer: GPUBuffer;
   private sceneBindGroup: GPUBindGroup;
-  private readonly shadowSceneBindGroup: GPUBindGroup;
+  private shadowSceneBindGroup: GPUBindGroup;
   private shadowTexture: GPUTexture | undefined;
   private shadowView: GPUTextureView | undefined;
   private shadowSize = 0;
@@ -108,6 +128,8 @@ export class WebGPUMeshPipeline {
     private readonly pipeline: GPURenderPipeline,
     private readonly hdrPipeline: GPURenderPipeline,
     private readonly shadowPipeline: GPURenderPipeline,
+    private readonly skyPipeline: GPURenderPipeline,
+    private readonly skyHdrPipeline: GPURenderPipeline,
     private readonly sceneLayout: GPUBindGroupLayout,
     private readonly meshLayout: GPUBindGroupLayout,
     private readonly materialLayout: GPUBindGroupLayout,
@@ -142,6 +164,21 @@ export class WebGPUMeshPipeline {
       usage: GPUTextureUsage.TEXTURE_BINDING,
     });
     this.emptyShadowView = this.emptyShadow.createView();
+    this.environmentSampler = device.createSampler({
+      minFilter: 'linear',
+      magFilter: 'linear',
+      mipmapFilter: 'linear',
+      addressModeU: 'repeat',
+      addressModeV: 'clamp-to-edge',
+    });
+    this.dummyEnvironment = device.createTexture({
+      size: [1, 1],
+      format: 'rgba16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING,
+    });
+    this.dummyEnvironmentView = this.dummyEnvironment.createView();
+    this.environmentView = this.dummyEnvironmentView;
+    this.backgroundView = this.dummyEnvironmentView;
     this.identityBuffer = device.createBuffer({
       size: 64,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -180,6 +217,21 @@ export class WebGPUMeshPipeline {
           binding: 1,
           visibility: GPUShaderStage.FRAGMENT,
           texture: { sampleType: 'depth' },
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: { sampleType: 'float' },
+        },
+        {
+          binding: 3,
+          visibility: GPUShaderStage.FRAGMENT,
+          sampler: { type: 'filtering' },
+        },
+        {
+          binding: 4,
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: { sampleType: 'float' },
         },
       ],
     });
@@ -282,6 +334,28 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     });
+    const skyPipelines = [format, 'rgba16float' as GPUTextureFormat].map(
+      (targetFormat) =>
+        device.createRenderPipeline({
+          layout: device.createPipelineLayout({
+            bindGroupLayouts: [sceneLayout],
+          }),
+          vertex: { module, entryPoint: 'skyVertex' },
+          fragment: {
+            module,
+            entryPoint: 'skyFragment',
+            targets: [{ format: targetFormat }],
+          },
+          primitive: { topology: 'triangle-list' },
+          // Same attachment layout as the mesh pass, but sky never tests or writes depth.
+          depthStencil: {
+            format: 'depth24plus',
+            depthWriteEnabled: false,
+            depthCompare: 'always',
+          },
+        }),
+    );
+    const [skyPipeline, skyHdrPipeline] = skyPipelines;
     const post = await WebGPUPostPipeline.initialize(
       device,
       format,
@@ -293,6 +367,8 @@ export class WebGPUMeshPipeline {
         pipeline,
         hdrPipeline,
         shadowPipeline,
+        skyPipeline,
+        skyHdrPipeline,
         sceneLayout,
         meshLayout,
         materialLayout,
@@ -335,6 +411,7 @@ export class WebGPUMeshPipeline {
       }
       validateRenderSettings(scene);
       this.ensureShadow(scene);
+      this.ensureEnvironment(scene);
       this.prepareScene(scene, aspect);
       for (const object of scene.objects) {
         if (
@@ -362,7 +439,8 @@ export class WebGPUMeshPipeline {
       if (scene.shadows.enabled) this.renderShadows(encoder);
       const postEnabled = scene.postProcessing.enabled;
       if (!postEnabled) this.post.releaseTarget();
-      if (!this.draws.length && !postEnabled) return false;
+      const background = activeBackground(scene);
+      if (!this.draws.length && !postEnabled && !background) return false;
       this.ensureDepth(width, height);
       this.colorAttachment.view = postEnabled
         ? this.post.target(width, height)
@@ -374,8 +452,14 @@ export class WebGPUMeshPipeline {
       const pass = encoder.beginRenderPass(this.renderPassDescriptor);
       try {
         pass.setViewport(0, 0, width, height, 0, 1);
-        pass.setPipeline(postEnabled ? this.hdrPipeline : this.pipeline);
         pass.setBindGroup(0, this.sceneBindGroup);
+        if (background) {
+          pass.setPipeline(
+            postEnabled ? this.skyHdrPipeline : this.skyPipeline,
+          );
+          pass.draw(3);
+        }
+        pass.setPipeline(postEnabled ? this.hdrPipeline : this.pipeline);
         for (const object of this.draws) this.drawMesh(pass, object);
       } finally {
         pass.end();
@@ -397,6 +481,9 @@ export class WebGPUMeshPipeline {
       entries: [
         { binding: 0, resource: { buffer: this.sceneBuffer } },
         { binding: 1, resource: view },
+        { binding: 2, resource: this.environmentView },
+        { binding: 3, resource: this.environmentSampler },
+        { binding: 4, resource: this.backgroundView },
       ],
     });
   }
@@ -452,7 +539,72 @@ export class WebGPUMeshPipeline {
     fillLightingData(scene, this.lightingData);
     data.set(this.lightingData, 40);
     data[50] = scene.postProcessing.enabled ? 1 : 0;
+    this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
+    data.set(this.invViewProjection.elements, 244);
+    fillEnvironmentData(scene, this.environmentData);
+    data.set(this.environmentData, 260);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
+  }
+
+  /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
+  private ensureEnvironment(scene: Scene): void {
+    const environment = activeEnvironment(scene);
+    const background = activeBackground(scene);
+    const lightingView = environment
+      ? this.uploadEnvironment(environment)
+      : this.dummyEnvironmentView;
+    const backgroundView = background
+      ? this.uploadEnvironment(background)
+      : this.dummyEnvironmentView;
+    if (
+      lightingView === this.environmentView &&
+      backgroundView === this.backgroundView
+    )
+      return;
+    this.environmentView = lightingView;
+    this.backgroundView = backgroundView;
+    this.shadowSceneBindGroup = this.createSceneGroup(this.emptyShadowView);
+    this.sceneBindGroup = this.createSceneGroup(
+      this.shadowView ?? this.emptyShadowView,
+    );
+  }
+
+  private uploadEnvironment(map: EnvironmentMap): GPUTextureView {
+    let entry = this.environments.get(map);
+    if (!entry) {
+      const base = map.levelSizes[0];
+      if (
+        base.width > this.device.limits.maxTextureDimension2D ||
+        base.height > this.device.limits.maxTextureDimension2D
+      )
+        throw new GraphicsError(
+          `WebGPU environment ${base.width}x${base.height} exceeds this device's texture limit.`,
+        );
+      const texture = this.device.createTexture({
+        size: [base.width, base.height],
+        mipLevelCount: map.mipCount,
+        format: 'rgba16float',
+        usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+      });
+      try {
+        for (let level = 0; level < map.mipCount; level++) {
+          const size = map.levelSizes[level];
+          this.device.queue.writeTexture(
+            { texture, mipLevel: level },
+            map.levels[level],
+            { bytesPerRow: size.width * 8 },
+            [size.width, size.height],
+          );
+        }
+        entry = { texture, view: texture.createView(), seen: 0 };
+      } catch (error) {
+        texture.destroy();
+        throw error;
+      }
+      this.environments.set(map, entry);
+    }
+    entry.seen = this.frame;
+    return entry.view;
   }
 
   private renderShadows(encoder: GPUCommandEncoder): void {
@@ -797,6 +949,11 @@ export class WebGPUMeshPipeline {
         if (entry.instance !== this.identityBuffer) entry.instance.destroy();
         this.meshes.delete(object);
       }
+    for (const [map, entry] of this.environments)
+      if (map.destroyed || entry.seen !== this.frame) {
+        entry.texture.destroy();
+        this.environments.delete(map);
+      }
     this.releaseUnusedTextures(this.textures);
     this.releaseUnusedTextures(this.premultipliedTextures);
   }
@@ -832,6 +989,9 @@ export class WebGPUMeshPipeline {
     }
     this.meshes.clear();
     for (const entry of this.textures.values()) entry.resource.destroy();
+    for (const entry of this.environments.values()) entry.texture.destroy();
+    this.environments.clear();
+    this.dummyEnvironment.destroy();
     for (const entry of this.premultipliedTextures.values())
       entry.resource.destroy();
     this.textures.clear();

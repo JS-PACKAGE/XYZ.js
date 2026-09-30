@@ -13,6 +13,9 @@ struct SceneUniforms {
   counts: vec4f,
   points: array<PointLight, 8>,
   spots: array<SpotLight, 8>,
+  invViewProjection: mat4x4f,
+  envSH: array<vec4f, 9>,
+  envParams: vec4f,
 };
 struct MeshUniforms {
   model: mat4x4f,
@@ -24,6 +27,9 @@ struct MeshUniforms {
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
+@group(0) @binding(2) var environmentMap: texture_2d<f32>;
+@group(0) @binding(3) var environmentSampler: sampler;
+@group(0) @binding(4) var backgroundMap: texture_2d<f32>;
 @group(1) @binding(0) var<uniform> mesh: MeshUniforms;
 @group(2) @binding(0) var baseMap: texture_2d<f32>;
 @group(2) @binding(1) var materialSampler: sampler;
@@ -83,6 +89,30 @@ fn encodeSRGB(c: vec3f) -> vec3f {
 }
 fn safeNormal(v: vec3f) -> vec3f {
   return v / max(length(v), 0.000001);
+}
+fn equirectUV(direction: vec3f) -> vec2f {
+  let d = safeNormal(direction);
+  return vec2f(atan2(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
+}
+fn shIrradiance(n: vec3f) -> vec3f {
+  var c = scene.envSH[0].rgb * 0.282095;
+  c += scene.envSH[1].rgb * (0.488603 * n.y);
+  c += scene.envSH[2].rgb * (0.488603 * n.z);
+  c += scene.envSH[3].rgb * (0.488603 * n.x);
+  c += scene.envSH[4].rgb * (1.092548 * n.x * n.y);
+  c += scene.envSH[5].rgb * (1.092548 * n.y * n.z);
+  c += scene.envSH[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
+  c += scene.envSH[7].rgb * (1.092548 * n.x * n.z);
+  c += scene.envSH[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
+  return max(c, vec3f(0.0));
+}
+// Karis' analytic split-sum approximation; avoids a BRDF lookup texture.
+fn environmentBRDF(nv: f32, rough: f32) -> vec2f {
+  let c0 = vec4f(-1.0, -0.0275, -0.572, 0.022);
+  let c1 = vec4f(1.0, 0.0425, 1.04, -0.04);
+  let r = rough * c0 + c1;
+  let a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+  return vec2f(-1.04, 1.04) * a004 + r.zw;
 }
 fn shadowVisibility(world: vec3f) -> f32 {
   if (scene.shadowParams.x < 0.5 || mesh.settings.z < 0.5) { return 1.0; }
@@ -190,7 +220,16 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
   }
   let v = safeNormal(scene.camera.xyz-input.world);
   let occlusion = select(1.0,mix(1.0,ao,mesh.emissiveOcclusion.w),mesh.maps.z > 0.5);
-  var color = base*(1.0-metal)*max(scene.lightColorAmbient.w,0.0)*occlusion;
+  let useEnvironment = scene.envParams.y > 0.5;
+  var color = base*(1.0-metal)*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
+  if (useEnvironment) {
+    let nv = max(dot(n,v),0.0001);
+    let ab = environmentBRDF(nv,rough);
+    let specularColor = mix(vec3f(0.04),base,metal)*ab.x + vec3f(ab.y);
+    let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
+    let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(vec3f(1.0)-specularColor,vec3f(0.0));
+    color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
+  }
   color += brdf(n,v,direction,base,metal,rough)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
@@ -207,5 +246,25 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(color*opacity,opacity);
+}
+struct SkyOutput {
+  @builtin(position) position: vec4f,
+  @location(0) ndc: vec2f,
+};
+@vertex fn skyVertex(@builtin(vertex_index) index: u32) -> SkyOutput {
+  var corners = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+  var output: SkyOutput;
+  output.position = vec4f(corners[index], 1.0, 1.0);
+  output.ndc = corners[index];
+  return output;
+}
+@fragment fn skyFragment(input: SkyOutput) -> @location(0) vec4f {
+  // Two points on the pixel's ray work for perspective and orthographic cameras alike.
+  let nearPoint = scene.invViewProjection * vec4f(input.ndc, 0.0, 1.0);
+  let farPoint = scene.invViewProjection * vec4f(input.ndc, 1.0, 1.0);
+  let direction = safeNormal(farPoint.xyz / farPoint.w - nearPoint.xyz / nearPoint.w);
+  var color = textureSampleLevel(backgroundMap, environmentSampler, equirectUV(direction), 0.0).rgb * scene.envParams.w;
+  if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
+  return vec4f(color, 1.0);
 }
 `;

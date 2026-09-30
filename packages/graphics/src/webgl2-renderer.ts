@@ -12,10 +12,14 @@ import {
   type TextureSamplerOptions,
 } from '../../core/src/pbr-material.js';
 import {
+  activeBackground,
+  activeEnvironment,
   computeShadowMatrix,
+  fillEnvironmentData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 import { Matrix4 } from '../../math/src/index.js';
 import {
   meshVertex,
@@ -23,6 +27,8 @@ import {
   shadowFragment,
   postVertex,
   postFragment,
+  skyVertex,
+  skyFragment,
 } from './webgl-feature-shaders.js';
 import { type Texture2DSource, Texture } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
@@ -33,7 +39,10 @@ import {
   type RenderTexture2D,
   type RenderTextureOptions2D,
 } from './render-texture2d.js';
-import { LIGHTING_FLOAT_COUNT } from '../../../src/data/rendering.js';
+import {
+  ENVIRONMENT_FLOAT_COUNT,
+  LIGHTING_FLOAT_COUNT,
+} from '../../../src/data/rendering.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -53,6 +62,11 @@ import {
   layerVertex,
   processorFragment,
 } from './webgl-2d/shaders.js';
+
+interface CachedEnvironment {
+  resource: WebGLTexture;
+  seen: number;
+}
 
 const triangleVertex = `#version 300 es
 precision highp float;
@@ -154,6 +168,13 @@ export class WebGL2Renderer implements Renderer {
   private viewportSide = 1;
   private shadowProgram: WebGLProgram | undefined;
   private postProgram: WebGLProgram | undefined;
+  private skyProgram: WebGLProgram | undefined;
+  private skyVAO: WebGLVertexArrayObject | undefined;
+  private readonly skyUniforms: Record<string, WebGLUniformLocation | null> =
+    {};
+  private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
+  private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
+  private readonly invViewProjection = new Matrix4();
   private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
     {};
   private readonly shadowUniforms: Record<string, WebGLUniformLocation | null> =
@@ -269,6 +290,13 @@ export class WebGL2Renderer implements Renderer {
         '2D layer and transition composition',
       );
       this.triangleVAO = this.createVAO(gl);
+      this.skyProgram = this.createProgram(
+        gl,
+        skyVertex,
+        skyFragment,
+        'skybox',
+      );
+      this.skyVAO = this.createVAO(gl);
       this.render2D = new WebGLRender2D(gl, {
         owner: this,
         createTarget: (width, height) =>
@@ -317,6 +345,8 @@ export class WebGL2Renderer implements Renderer {
         'occlusionMap',
         'emissiveMap',
         'shadowMap',
+        'environment[0]',
+        'environmentMap',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
       for (const name of [
@@ -333,6 +363,8 @@ export class WebGL2Renderer implements Renderer {
           this.shadowProgram,
           name,
         );
+      for (const name of ['invViewProjection', 'backgroundMap', 'sky'])
+        this.skyUniforms[name] = gl.getUniformLocation(this.skyProgram, name);
       for (const name of ['image', 'settings', 'aces'])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -355,6 +387,9 @@ export class WebGL2Renderer implements Renderer {
       gl.uniform1i(this.meshUniforms.occlusionMap, 3);
       gl.uniform1i(this.meshUniforms.emissiveMap, 4);
       gl.uniform1i(this.meshUniforms.shadowMap, 5);
+      gl.uniform1i(this.meshUniforms.environmentMap, 6);
+      gl.useProgram(this.skyProgram);
+      gl.uniform1i(this.skyUniforms.backgroundMap, 0);
       gl.useProgram(this.shadowProgram);
       gl.uniform1i(this.shadowUniforms.image, 0);
       gl.useProgram(this.postProgram);
@@ -933,6 +968,8 @@ export class WebGL2Renderer implements Renderer {
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
     const uniforms = this.meshUniforms;
+    const background = activeBackground(scene);
+    if (background) this.drawSky(scene, aspect, background);
     gl.useProgram(this.meshProgram!);
     gl.uniformMatrix4fv(
       uniforms.viewProjection,
@@ -940,6 +977,15 @@ export class WebGL2Renderer implements Renderer {
       scene.camera3D.updateMatrix(aspect).elements,
     );
     gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
+    fillEnvironmentData(scene, this.environmentData);
+    gl.uniform4fv(uniforms['environment[0]'], this.environmentData);
+    const environment = activeEnvironment(scene);
+    gl.activeTexture(gl.TEXTURE6);
+    gl.bindSampler(6, null);
+    gl.bindTexture(
+      gl.TEXTURE_2D,
+      environment ? this.uploadEnvironment(environment).resource : null,
+    );
     const camera = scene.camera3D.position;
     gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
     gl.uniform1i(uniforms.linearOutput, scene.postProcessing.enabled ? 1 : 0);
@@ -1449,6 +1495,89 @@ export class WebGL2Renderer implements Renderer {
     }
   }
 
+  /** Uploads a half-float mip chain once per map; the map itself is immutable. */
+  private uploadEnvironment(map: EnvironmentMap): CachedEnvironment {
+    const existing = this.environments.get(map);
+    if (existing) {
+      existing.seen = this.frame;
+      return existing;
+    }
+    const gl = this.gl!;
+    const base = map.levelSizes[0];
+    if (base.width > this.maxTextureSize || base.height > this.maxTextureSize)
+      throw new GraphicsError(
+        `WebGL2 environment ${base.width}x${base.height} exceeds its device budget.`,
+      );
+    const resource = gl.createTexture();
+    if (!resource)
+      throw new GraphicsError('WebGL2 could not allocate a texture.');
+    try {
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindTexture(gl.TEXTURE_2D, resource);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        gl.LINEAR_MIPMAP_LINEAR,
+      );
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_BASE_LEVEL, 0);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAX_LEVEL, map.mipCount - 1);
+      for (let level = 0; level < map.mipCount; level++) {
+        const size = map.levelSizes[level];
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          level,
+          gl.RGBA16F,
+          size.width,
+          size.height,
+          0,
+          gl.RGBA,
+          gl.HALF_FLOAT,
+          map.levels[level],
+        );
+      }
+      const error = gl.getError();
+      if (error !== gl.NO_ERROR)
+        throw new GraphicsError(
+          `WebGL2 environment upload failed (GL error 0x${error.toString(16)}).`,
+        );
+      const entry = { resource, seen: this.frame };
+      this.environments.set(map, entry);
+      return entry;
+    } catch (error) {
+      gl.deleteTexture(resource);
+      throw error;
+    }
+  }
+
+  private drawSky(scene: Scene, aspect: number, map: EnvironmentMap): void {
+    const gl = this.gl!;
+    this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
+    gl.useProgram(this.skyProgram!);
+    gl.uniformMatrix4fv(
+      this.skyUniforms.invViewProjection,
+      false,
+      this.invViewProjection.elements,
+    );
+    gl.uniform2f(
+      this.skyUniforms.sky,
+      scene.backgroundIntensity,
+      scene.postProcessing.enabled ? 1 : 0,
+    );
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindSampler(0, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.uploadEnvironment(map).resource);
+    // Sky is opaque and never occludes: it neither tests nor writes depth.
+    gl.disable(gl.DEPTH_TEST);
+    gl.bindVertexArray(this.skyVAO!);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindVertexArray(null);
+  }
+
   private cacheGeometry(geometry: Geometry): CachedGeometry {
     const gl = this.gl!;
     const existing = this.geometries.get(geometry);
@@ -1515,6 +1644,11 @@ export class WebGL2Renderer implements Renderer {
       if (entry.seen !== this.frame) {
         gl.deleteBuffer(entry.buffer);
         this.meshInstances.delete(mesh);
+      }
+    for (const [map, entry] of this.environments)
+      if (map.destroyed || entry.seen !== this.frame) {
+        gl.deleteTexture(entry.resource);
+        this.environments.delete(map);
       }
   }
 
@@ -1619,10 +1753,15 @@ export class WebGL2Renderer implements Renderer {
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);
       if (this.triangleProgram) gl.deleteProgram(this.triangleProgram);
       if (this.meshProgram) gl.deleteProgram(this.meshProgram);
+      if (this.skyProgram) gl.deleteProgram(this.skyProgram);
+      if (this.skyVAO) gl.deleteVertexArray(this.skyVAO);
+      for (const entry of this.environments.values())
+        gl.deleteTexture(entry.resource);
     }
     this.textures.clear();
     this.geometries.clear();
     this.meshInstances.clear();
+    this.environments.clear();
     this.samplers.clear();
     this.snapshots.clear();
     this.materials.clear();

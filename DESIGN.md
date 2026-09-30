@@ -35,7 +35,7 @@
 - Scene 可替換 PerspectiveCamera／OrthographicCamera，提供 lookAt；OrbitControls 只接管指定 Canvas 並需 destroy。Raycaster 使用世界距離精確雙面三角形交點，涵蓋階層、instance 與變形後的 skin。
 - GLTFLoader 支援受預算限制的 glTF 2.0／GLB triangles、TRS、材質／textures／skins、morph targets（POSITION／NORMAL、weights animation）與 transform clips；必要 extension、其他 topology 明確拒絕。Morph 為 CPU 端，於 renderer／Raycaster 讀 vertices 前由 `Mesh.updateDeformation()` 重算。GLTFAsset.dispose 由應用負責，Scene 清理不代替 loader-owned textures 的釋放。
 - Game 在 timers 後、使用者 update 前推進 scene.animations，使用同一模擬 delta；mixer 依 action 插入順序寫入，不提供 blending。CPU skinning 更新自有 geometry，vertex-only markUpdated 通知 GPU cache，index topology 不可變。
-- WebGPU／WebGL2 共用 PBR slots、8 point＋8 spot 上限、方向光 3×3 PCF shadows、indexed instancing 與 HDR offscreen→exposure／ACES／9-tap bloom→2D。WebGL2 缺 EXT_color_buffer_float 時啟用 HDR 後處理明確失敗；不含 point／spot shadows 或環境 IBL。
+- WebGPU／WebGL2 共用 PBR slots、8 point＋8 spot 上限、方向光 3×3 PCF shadows、indexed instancing 與 HDR offscreen→exposure／ACES／9-tap bloom→2D。WebGL2 缺 EXT_color_buffer_float 時啟用 HDR 後處理明確失敗；不含 point／spot shadows。後續加入 EnvironmentMap：equirect 的 SH9 diffuse irradiance＋roughness 模糊 mip 的 split-sum specular（僅 PBRMaterial，取代 ambientLight）與 skybox，兩 backend 共用 CPU 預處理與 shader 公式。
 - API 是 three.js-inspired，非 drop-in 相容或全部 addons；Canvas2D 仍 2D-only、沒有新增 runtime dependency。版本仍 1.1.0，由所有者決定升版／發佈；本輪不自動 commit／push／publish。實測與未完成驗證以 ACCEPTANCE 為準。
 
 ## Excalibur 參考擴充：P13–P20 profiles／共用整合已驗收

@@ -361,7 +361,24 @@ const instances = scene.add(
 instances.setMatrixAt(0, new Matrix4());
 ```
 
-PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Keep transparent insertion back-to-front. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows or IBL.
+PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Keep transparent insertion back-to-front. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows.
+
+For image-based lighting and a skybox, build an `EnvironmentMap` from an equirect (2:1) image and assign it to the scene. It lights `PBRMaterial` only and replaces its flat `ambientLight`:
+
+```js
+import { EnvironmentMap } from 'xyz.js';
+
+const sky = EnvironmentMap.fromRGBE(
+  await (await fetch('/sky.hdr')).arrayBuffer(),
+);
+// or: EnvironmentMap.gradient({ zenith: [0.15, 0.35, 0.8], horizon: [0.9, 0.75, 0.6], ground: [0.1, 0.1, 0.1] })
+scene.environment = sky;
+scene.background = sky; // optional skybox; may be a different map
+scene.environmentIntensity = 1;
+// later, after removing it from the scene: sky.destroy();
+```
+
+Maps are at most 2048×1024. Only WebGPU and WebGL2 draw them; Canvas2D is 2D-only.
 
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 

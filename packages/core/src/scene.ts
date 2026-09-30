@@ -6,6 +6,7 @@ import { PerspectiveCamera } from './perspective-camera.js';
 import type { OrthographicCamera } from './orthographic-camera.js';
 import { Object3D } from './object3d.js';
 import { AnimationMixer } from './animation.js';
+import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
 import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
@@ -34,6 +35,12 @@ export class Scene {
   readonly shadows = new ShadowSettings();
   readonly postProcessing = new PostProcessingSettings();
   ambientLight = 0.3;
+  /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
+  environment: EnvironmentMap | undefined;
+  environmentIntensity = 1;
+  /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
+  background: EnvironmentMap | undefined;
+  backgroundIntensity = 1;
   /** Direction points from a surface toward the light. */
   directionalLight = {
     direction: new Vector3(1, 1, 1).normalize(),

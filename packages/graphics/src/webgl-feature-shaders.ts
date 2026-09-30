@@ -40,6 +40,8 @@ uniform sampler2D occlusionMap;
 uniform sampler2D emissiveMap;
 uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
+uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
+uniform sampler2D environmentMap;
 uniform vec4 tint;
 uniform vec4 surface; // metallic, roughness, normalScale, occlusionStrength
 uniform vec4 emission; // emissive RGB, alphaCutoff
@@ -59,6 +61,30 @@ vec3 decodeSRGB(vec3 c) {
 vec3 encodeSRGB(vec3 c) {
   c = max(c, vec3(0.0));
   return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - .055, step(vec3(.0031308), c));
+}
+vec2 equirectUV(vec3 d) {
+  d = normalize(d);
+  return vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
+}
+vec3 shIrradiance(vec3 n) {
+  vec3 c = environment[0].rgb * 0.282095;
+  c += environment[1].rgb * (0.488603 * n.y);
+  c += environment[2].rgb * (0.488603 * n.z);
+  c += environment[3].rgb * (0.488603 * n.x);
+  c += environment[4].rgb * (1.092548 * n.x * n.y);
+  c += environment[5].rgb * (1.092548 * n.y * n.z);
+  c += environment[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
+  c += environment[7].rgb * (1.092548 * n.x * n.z);
+  c += environment[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
+  return max(c, vec3(0.0));
+}
+// Karis' analytic split-sum approximation; avoids a BRDF lookup texture.
+vec2 environmentBRDF(float nv, float rough) {
+  vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
+  vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
+  vec4 r = rough * c0 + c1;
+  float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
+  return vec2(-1.04, 1.04) * a004 + r.zw;
 }
 float shadowVisibility() {
   if (shadowSettings.x == 0.0 || shadowSettings.y == 0.0) return 1.0;
@@ -129,7 +155,15 @@ void main() {
     float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
-    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * ao;
+    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * ao * (environment[9].y > 0.5 ? 0.0 : 1.0);
+    if (environment[9].y > 0.5) {
+      float nv = max(dot(n, v), .0001);
+      vec2 ab = environmentBRDF(nv, roughness);
+      vec3 specularColor = mix(vec3(.04), base, metallic) * ab.x + vec3(ab.y);
+      vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
+      vec3 diffuseLight = shIrradiance(n) * base * (1.0 - metallic) * max(vec3(1.0) - specularColor, vec3(0.0));
+      result += (diffuseLight + radiance * specularColor) * ao * environment[9].x;
+    }
     result += brdf(base, metallic, roughness, n, v, l) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].x)) break;
@@ -221,4 +255,37 @@ void main() {
   result = max(result, vec3(0.0));
   result = mix(result * 12.92, 1.055 * pow(result, vec3(1.0 / 2.4)) - .055, step(vec3(.0031308), result));
   color = vec4(result, 1.0);
+}`;
+
+export const skyVertex = `#version 300 es
+precision highp float;
+out vec2 vNdc;
+void main() {
+  vec2 p = vec2(float((gl_VertexID << 1) & 2), float(gl_VertexID & 2)) * 2.0 - 1.0;
+  vNdc = p;
+  gl_Position = vec4(p, 1.0, 1.0);
+}`;
+
+export const skyFragment = `#version 300 es
+precision highp float;
+in vec2 vNdc;
+uniform mat4 invViewProjection;
+uniform sampler2D backgroundMap;
+uniform vec2 sky; // intensity, linearOutput
+out vec4 color;
+vec3 encodeSRGB(vec3 c) {
+  c = max(c, vec3(0.0));
+  return mix(c * 12.92, 1.055 * pow(c, vec3(1.0 / 2.4)) - .055, step(vec3(.0031308), c));
+}
+vec2 equirectUV(vec3 d) {
+  d = normalize(d);
+  return vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
+}
+void main() {
+  vec4 nearPoint = invViewProjection * vec4(vNdc, 0.0, 1.0);
+  vec4 farPoint = invViewProjection * vec4(vNdc, 1.0, 1.0);
+  vec3 direction = normalize(farPoint.xyz / farPoint.w - nearPoint.xyz / nearPoint.w);
+  vec3 c = textureLod(backgroundMap, equirectUV(direction), 0.0).rgb * sky.x;
+  if (sky.y < 0.5) c = encodeSRGB(c);
+  color = vec4(c, 1.0);
 }`;
