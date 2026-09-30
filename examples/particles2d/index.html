@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Particles2D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      p {
+        max-width: 800px;
+      }
+      #stats {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Particles2D</h1>
+    <p>
+      Pick a preset and tune the emitter. Click or tap the canvas for a burst at
+      the pointer; the Trail preset follows the pointer and leaves world-space
+      particles behind. Fire emits in local space inside an additive-blend
+      isolated group. Emitter options are a validated snapshot, so each slider
+      change rebuilds the emitter.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <label
+        >Preset
+        <select id="preset">
+          <option value="fountain">Fountain</option>
+          <option value="fire">Fire (additive)</option>
+          <option value="snow">Snow</option>
+          <option value="trail">Trail (additive, follows pointer)</option>
+        </select></label
+      >
+      <label
+        >Rate
+        <input id="rate" type="range" min="0" max="400" step="5" />
+        <output id="rate-value"></output>/s</label
+      >
+      <label
+        >Lifetime
+        <input id="lifetime" type="range" min="0.5" max="6" step="0.1" />
+        <output id="lifetime-value"></output>s</label
+      >
+      <label
+        >Gravity
+        <input id="gravity" type="range" min="-400" max="600" step="10" />
+        <output id="gravity-value"></output
+      ></label>
+      <button id="burst" type="button">Burst</button>
+      <button id="clear" type="button">Clear</button>
+      <button id="toggle" type="button">Stop emitting</button>
+    </div>
+    <canvas
+      id="game"
+      aria-label="Particle emitter playground; click for a burst"
+    ></canvas>
+    <p id="stats" aria-live="off"></p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

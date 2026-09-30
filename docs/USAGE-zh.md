@@ -13,7 +13,7 @@ npx pnpm@12.6.0 install
 npx pnpm@12.6.0 dev
 ```
 
-開啟 `http://127.0.0.1:5173/examples/showcase/` 看 2D、3D 與音訊整合；音訊必須點擊按鈕解鎖。開發伺服器只綁定 localhost。不要直接以 `file://` 開啟頁面；WebGPU／AudioWorklet 需要安全來源，正式部署使用 HTTPS。
+執行 `npx pnpm@12.6.0 examples` 會啟動伺服器並開啟範例目錄 `http://127.0.0.1:5173/examples/`（可依功能篩選並逐 backend 開啟），或直接開啟 `http://127.0.0.1:5173/examples/showcase/` 看 2D、3D 與音訊整合；音訊必須點擊按鈕解鎖。開發伺服器只綁定 localhost。不要直接以 `file://` 開啟頁面；WebGPU／AudioWorklet 需要安全來源，正式部署使用 HTTPS。
 
 | 範例                                        | 用途                                                          |
 | ------------------------------------------- | ------------------------------------------------------------- |
@@ -24,6 +24,17 @@ npx pnpm@12.6.0 dev
 | [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities                                  |
 | [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio                                     |
 | [advanced3d](../examples/advanced3d/)       | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR |
+| [physics2d](../examples/physics2d/)         | 剛體、材質、sensor trigger、重力                              |
+| [particles2d](../examples/particles2d/)     | Emitter 預設、burst、nozzle、加法混合圖層                     |
+| [tilemap2d](../examples/tilemap2d/)         | Tile 圖層、tile 碰撞、相機 follow／bounds／shake／zoom        |
+| [transitions2d](../examples/transitions2d/) | fade／crossfade／slide、easing、取消、Scene timers            |
+| [ui2d](../examples/ui2d/)                   | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                  |
+| [input-lab](../examples/input-lab/)         | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap           |
+| [audio-lab](../examples/audio-lab/)         | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch           |
+| [pbr3d](../examples/pbr3d/)                 | PBR 網格、陰影、環境光、霧、exposure／bloom                   |
+| [instancing3d](../examples/instancing3d/)   | InstancedMesh 批次、culling 探針、RenderStats                 |
+| [picking3d](../examples/picking3d/)         | 巢狀 Group、OrbitControls、Raycaster、相機投影切換            |
+| [gltf3d](../examples/gltf3d/)               | 蒙皮 glTF 動畫播放、morph targets                             |
 
 ## 2. 在自己的網站使用
 

@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Picking3D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 900px);
+        aspect-ratio: 16 / 9;
+      }
+      button {
+        margin: 0 0.5rem 1rem 0;
+      }
+      #selection,
+      #camera-state {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Hierarchy and picking</h1>
+    <p>
+      Blue planet and yellow moon inherit two nested rotating Groups. Hover to
+      highlight, click to select; left-drag rotates, right-drag pans, and wheel
+      zooms. Reparenting keeps local coordinates, so the selected body jumps
+      between its orbit and the stationary Group. Requires WebGPU or WebGL2.
+    </p>
+    <button id="camera" type="button" disabled>Use orthographic camera</button>
+    <button id="reparent" type="button" disabled>
+      Move selection to stationary Group
+    </button>
+    <button id="motion" type="button" disabled>Pause orbits</button>
+    <canvas
+      id="game"
+      aria-label="Pickable sun, planet and moon in a nested 3D hierarchy"
+    ></canvas>
+    <p id="status" role="status">Loading…</p>
+    <p id="selection">Click a body to select it.</p>
+    <p id="camera-state"></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

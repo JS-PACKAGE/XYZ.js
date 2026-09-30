@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Input Lab</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+      }
+      p {
+        max-width: 800px;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      .panels {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 1rem;
+        max-width: 1100px;
+      }
+      pre {
+        margin: 0;
+        padding: 0.75rem;
+        min-height: 9rem;
+        background: #0b1220;
+        border: 1px solid #22344b;
+        border-radius: 8px;
+        font:
+          13px/1.4 ui-monospace,
+          monospace;
+        white-space: pre;
+        overflow-x: auto;
+      }
+      h2 {
+        margin: 0 0 0.4rem;
+        font-size: 1rem;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Input Lab</h1>
+    <p>
+      Click the canvas, then move with WASD or the arrow keys, hold Shift to
+      boost and press Space to fire. The same named actions also respond to a
+      standard-mapping gamepad (D-pad or left stick, A to boost, X to fire) if
+      one is connected. Move or click the pointer on the canvas to see its
+      state. Rebind Fire at runtime with the button below.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <button id="rebind" type="button" disabled>Rebind Fire…</button>
+      <button id="reset" type="button" disabled>Reset bindings</button>
+    </div>
+    <canvas
+      id="game"
+      tabindex="0"
+      aria-label="Input playground; focus and use WASD, Shift and Space"
+    ></canvas>
+    <div class="panels">
+      <section>
+        <h2>Keyboard</h2>
+        <pre id="keyboard"></pre>
+      </section>
+      <section>
+        <h2>Pointer</h2>
+        <pre id="pointer"></pre>
+      </section>
+      <section>
+        <h2>Gamepad</h2>
+        <pre id="gamepad"></pre>
+      </section>
+      <section>
+        <h2>Actions</h2>
+        <pre id="actions"></pre>
+      </section>
+    </div>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

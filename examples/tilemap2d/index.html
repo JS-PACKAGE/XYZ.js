@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Tilemap2D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      button,
+      select {
+        font: inherit;
+      }
+      canvas:focus-visible {
+        outline: 3px solid #ffdf75;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Tilemap2D</h1>
+    <p>
+      Explore a generated grass map with a separate solid stone layer. Click the
+      canvas, then use WASD or arrows to move the gold player; stone tiles stop
+      you. The camera follows with smoothing, a dead zone and world bounds.
+      Wheel or buttons zoom; Shake affects rendering without moving the camera's
+      logical focus.
+    </p>
+    <div class="controls">
+      <label for="backend">Backend</label>
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D</option>
+      </select>
+      <button id="zoom-out" type="button">Zoom out</button>
+      <button id="zoom-in" type="button">Zoom in</button>
+      <button id="shake" type="button">Shake</button>
+    </div>
+    <canvas
+      id="game"
+      tabindex="0"
+      aria-label="Scrollable tile map; use WASD or arrow keys to move"
+    ></canvas>
+    <p id="status" role="status">Loading…</p>
+    <p id="readout" aria-live="off"></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

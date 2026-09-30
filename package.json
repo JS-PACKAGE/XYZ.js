@@ -25,6 +25,7 @@
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "dev": "vite --host 127.0.0.1",
+    "examples": "vite --host 127.0.0.1 --open /examples/",
     "lint": "eslint .",
     "format:check": "prettier --check .",
     "format": "prettier --write ."

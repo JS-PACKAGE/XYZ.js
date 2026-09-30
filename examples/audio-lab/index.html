@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Audio Lab</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 4 / 1;
+      }
+      button,
+      select,
+      input {
+        font: inherit;
+      }
+      button,
+      select {
+        padding: 0.4rem;
+      }
+      fieldset {
+        max-width: 760px;
+        margin: 1rem 0;
+      }
+      label {
+        display: inline-block;
+        margin: 0.3rem 0.7rem 0.3rem 0;
+      }
+      progress {
+        width: min(100%, 400px);
+      }
+      .legend {
+        display: flex;
+        justify-content: space-around;
+        max-width: 800px;
+      }
+      #audio-state {
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Audio Lab</h1>
+    <p>
+      Enable audio with a click, then play OPM SFX, start/stop looping OPM
+      music, or play a generated PCM WAV tone. Sliders control the engine's
+      master, SFX, and music channels. The three lamps brighten only while the
+      corresponding playback handle is playing; they are not audio analysers.
+    </p>
+    <label for="backend">Renderer</label>
+    <select id="backend">
+      <option value="auto">Auto</option>
+      <option value="webgpu">WebGPU</option>
+      <option value="webgl2">WebGL2</option>
+      <option value="canvas2d">Canvas2D</option>
+    </select>
+    <p>
+      <label for="preload">Audio preload (completed tasks, not bytes)</label
+      ><br /><progress id="preload" max="3" value="0"></progress>
+      <output id="preload-state">0 / 3 tasks</output>
+    </p>
+    <p>
+      Before gesture unlock, loaders only fetch/validate encoded assets: no
+      sample decode or playback. Finishing preload does not mean decoded-ready.
+    </p>
+    <canvas
+      id="game"
+      aria-label="Playback lamps for OPM SFX, OPM music, and PCM sample"
+    ></canvas>
+    <div class="legend">
+      <span>OPM SFX</span><span>OPM music</span><span>PCM WAV</span>
+    </div>
+    <p id="status" role="status">Loading…</p>
+    <fieldset>
+      <legend>Playback</legend>
+      <button id="enable" disabled>Enable audio</button>
+      <button id="sfx" disabled>Play OPM SFX</button>
+      <button id="music" disabled>Start music</button>
+      <button id="stop-music" disabled>Stop music</button>
+      <label for="loop"
+        ><input id="loop" type="checkbox" checked disabled /> Loop music
+        (restarts current track)</label
+      >
+      <button id="sample" disabled>Play PCM WAV</button>
+      <button id="stop-all" disabled>Stop all</button>
+    </fieldset>
+    <fieldset>
+      <legend>Channel volumes</legend>
+      <label for="master-volume"
+        >Master
+        <input
+          id="master-volume"
+          type="range"
+          min="0"
+          max="100"
+          value="70"
+          disabled
+        />
+        <output id="master-value">70%</output></label
+      >
+      <label for="sfx-volume"
+        >SFX / PCM
+        <input
+          id="sfx-volume"
+          type="range"
+          min="0"
+          max="100"
+          value="80"
+          disabled
+        />
+        <output id="sfx-value">80%</output></label
+      >
+      <label for="music-volume"
+        >Music
+        <input
+          id="music-volume"
+          type="range"
+          min="0"
+          max="100"
+          value="60"
+          disabled
+        />
+        <output id="music-value">60%</output></label
+      >
+    </fieldset>
+    <p id="audio-state" aria-live="off">Audio locked</p>
+    <p>
+      The handle count covers this demo's playing handles, not OPM voices or
+      release tails (no public voice-count API). State confirms scheduling, not
+      speaker audibility.
+    </p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

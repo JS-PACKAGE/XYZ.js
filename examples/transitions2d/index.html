@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Transitions2D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      p {
+        max-width: 800px;
+      }
+      #log {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Transitions2D</h1>
+    <p>
+      Each scene animates differently. Pick a transition and press Next scene:
+      the engine captures the outgoing frame, only the incoming scene keeps
+      simulating, and the promise resolves after the final composited frame.
+      Press Next scene repeatedly to see a running transition cancelled by a
+      newer request.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <label
+        >Kind
+        <select id="kind">
+          <option value="fade">Fade (through colour)</option>
+          <option value="crossfade">Crossfade</option>
+          <option value="slide">Slide</option>
+        </select></label
+      >
+      <label
+        >Direction (slide)
+        <select id="direction">
+          <option value="left">Left</option>
+          <option value="right">Right</option>
+          <option value="up">Up</option>
+          <option value="down">Down</option>
+        </select></label
+      >
+      <label
+        >Easing
+        <select id="easing"></select>
+      </label>
+      <label
+        >Duration
+        <input
+          id="duration"
+          type="range"
+          min="0"
+          max="3"
+          step="0.1"
+          value="1"
+        />
+        <output id="duration-value">1.0</output>s</label
+      >
+      <label
+        ><input id="block" type="checkbox" checked /> Block scene pointer
+        input</label
+      >
+      <button id="next" type="button" disabled>Next scene</button>
+      <button id="pause" type="button" disabled>Pause</button>
+    </div>
+    <canvas
+      id="game"
+      aria-label="Three scenes connected by transitions"
+    ></canvas>
+    <p id="log" aria-live="polite">Scene: A · no transition yet</p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

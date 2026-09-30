@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · glTF3D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 960px);
+        aspect-ratio: 16 / 9;
+      }
+      fieldset {
+        max-width: 928px;
+        margin: 1rem 0;
+      }
+      label {
+        display: inline-block;
+        margin: 0.3rem 1rem 0.3rem 0;
+      }
+      p {
+        max-width: 960px;
+      }
+      pre {
+        margin: 0;
+        padding: 0.75rem;
+        max-width: 960px;
+        box-sizing: border-box;
+        background: #0b1220;
+        border: 1px solid #22344b;
+        border-radius: 8px;
+        font:
+          13px/1.5 ui-monospace,
+          monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>glTF and morph targets</h1>
+    <p>
+      Left: a skinned glTF ribbon loaded with <code>GLTFLoader</code>, driven by
+      its own animation clip. Right: a sphere with two programmatic morph
+      targets; drag the sliders, or let a keyframe clip animate the weights.
+      Drag the canvas to orbit and use the wheel to zoom.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D (no 3D)</option>
+      </select></label
+    >
+    <canvas
+      id="game"
+      aria-label="Skinned glTF ribbon and morph-target sphere"
+    ></canvas>
+    <fieldset>
+      <legend>Skinned glTF animation</legend>
+      <button id="play" type="button" disabled>Pause</button>
+      <label for="speed"
+        >Speed
+        <input id="speed" type="range" min="-2" max="3" step="0.1" value="1" />
+        <output id="speed-value">1.0×</output></label
+      >
+      <label for="loop"><input id="loop" type="checkbox" checked /> Loop</label>
+    </fieldset>
+    <fieldset>
+      <legend>Morph targets</legend>
+      <label for="auto"
+        ><input id="auto" type="checkbox" /> Animate weights with a keyframe
+        clip</label
+      >
+      <label for="stretch"
+        >Stretch
+        <input
+          id="stretch"
+          type="range"
+          min="0"
+          max="1"
+          step="0.01"
+          value="0"
+        />
+        <output id="stretch-value">0.00</output></label
+      >
+      <label for="spikes"
+        >Spikes
+        <input id="spikes" type="range" min="0" max="1" step="0.01" value="0" />
+        <output id="spikes-value">0.00</output></label
+      >
+    </fieldset>
+    <pre id="readout" aria-live="off"></pre>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

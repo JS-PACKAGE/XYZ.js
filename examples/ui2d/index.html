@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · UI2D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 900px);
+        aspect-ratio: 9 / 5;
+        touch-action: none;
+      }
+      select,
+      button {
+        font: inherit;
+        margin: 0.3rem;
+      }
+      p {
+        max-width: 900px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>UI2D</h1>
+    <p>
+      Compare browser-shaped Text2D, bitmap SpriteText and resizable NineSlice
+      panels. Hover or click the two canvas buttons, or Tab to their accessible
+      labels and press Enter/Space. Pan with arrow keys or the button: world
+      text moves, but the edge-anchored ScreenElement HUD stays fixed.
+    </p>
+    <label for="backend">Renderer</label>
+    <select id="backend">
+      <option value="auto">Auto</option>
+      <option value="webgpu">WebGPU</option>
+      <option value="webgl2">WebGL2</option>
+      <option value="canvas2d">Canvas2D</option>
+    </select>
+    <button id="pan" type="button">Pan camera</button>
+    <canvas
+      id="game"
+      aria-label="Text, panels, and interactive screen-space buttons"
+    ></canvas>
+    <p id="readout" aria-live="polite">
+      Clicks: 0 · Button: idle · Camera: 0, 0
+    </p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

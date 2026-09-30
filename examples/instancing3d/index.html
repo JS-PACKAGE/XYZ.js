@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Instancing3D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 960px);
+        aspect-ratio: 16 / 9;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem 1.25rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      p {
+        max-width: 960px;
+      }
+      pre {
+        margin: 0;
+        padding: 0.75rem;
+        max-width: 960px;
+        box-sizing: border-box;
+        background: #0b1220;
+        border: 1px solid #22344b;
+        border-radius: 8px;
+        font:
+          13px/1.5 ui-monospace,
+          monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Instancing3D</h1>
+    <p>
+      Three <code>InstancedMesh</code> batches draw a wave of cubes in three
+      draw calls, while a ring of ordinary meshes surrounds them. As the camera
+      orbits, the ring meshes behind the camera are frustum culled; the
+      instanced batches never are (they are a single draw each). Raise the count
+      and watch JS update time and frame rate separately from draw calls.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D (no 3D)</option>
+        </select></label
+      >
+      <label
+        >Instances
+        <input
+          id="count"
+          type="range"
+          min="300"
+          max="30000"
+          step="300"
+          value="3000"
+        />
+        <output id="count-value">3000</output></label
+      >
+      <label
+        ><input id="animate" type="checkbox" checked /> Animate matrices</label
+      >
+      <label><input id="orbit" type="checkbox" checked /> Orbit camera</label>
+    </div>
+    <canvas id="game" aria-label="Animated instanced cubes"></canvas>
+    <pre id="stats" aria-live="off"></pre>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -13,7 +13,7 @@ npx pnpm@12.6.0 install
 npx pnpm@12.6.0 dev
 ```
 
-Open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio. Click the audio button to unlock playback. The development server binds only to localhost. Do not open pages with `file://`: WebGPU and AudioWorklet require a secure context; use HTTPS in production.
+Run `npx pnpm@12.6.0 examples` to start the server and open the gallery at `http://127.0.0.1:5173/examples/` (filters by feature, per-backend links), or open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio. Click the audio button to unlock playback. The development server binds only to localhost. Do not open pages with `file://`: WebGPU and AudioWorklet require a secure context; use HTTPS in production.
 
 | Example                                     | Purpose                                                            |
 | ------------------------------------------- | ------------------------------------------------------------------ |
@@ -24,6 +24,17 @@ Open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio
 | [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities                                 |
 | [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio                                   |
 | [advanced3d](../examples/advanced3d/)       | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR |
+| [physics2d](../examples/physics2d/)         | Bodies, materials, sensor trigger, gravity                         |
+| [particles2d](../examples/particles2d/)     | Emitter presets, bursts, nozzles, additive layer                   |
+| [tilemap2d](../examples/tilemap2d/)         | Tile layers, tile collision, camera follow/bounds/shake/zoom       |
+| [transitions2d](../examples/transitions2d/) | fade/crossfade/slide, easing, cancellation, Scene timers           |
+| [ui2d](../examples/ui2d/)                   | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons           |
+| [input-lab](../examples/input-lab/)         | Keyboard/pointer/gamepad state, rebindable ActionMap               |
+| [audio-lab](../examples/audio-lab/)         | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch           |
+| [pbr3d](../examples/pbr3d/)                 | PBR grid, shadows, environment, fog, exposure/bloom                |
+| [instancing3d](../examples/instancing3d/)   | InstancedMesh batches, culling probes, RenderStats                 |
+| [picking3d](../examples/picking3d/)         | Nested Groups, OrbitControls, Raycaster, camera projection         |
+| [gltf3d](../examples/gltf3d/)               | Skinned glTF clip playback, morph targets                          |
 
 ## 2. Use It on Your Website
 

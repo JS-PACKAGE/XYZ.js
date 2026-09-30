@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Physics2D</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      #stats {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Physics2D</h1>
+    <p>
+      Click or tap inside the walled box to spawn the selected body (maximum
+      80). Gray walls and the ramp are static; dynamic bodies flash white on
+      collision. The green stripe is a non-blocking trigger that flashes on
+      entry. Adjust gravity, try zero-g, pause or reset.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <label
+        >Body
+        <select id="shape">
+          <option value="0">
+            Cyan circle · mass 1 · bounce .8 · friction .1
+          </option>
+          <option value="1">
+            Orange box · mass 4 · bounce .15 · friction .8
+          </option>
+          <option value="2">
+            Pink triangle · mass 2 · bounce .45 · friction .4
+          </option>
+        </select></label
+      >
+      <label
+        >Gravity
+        <input
+          id="gravity"
+          type="range"
+          min="-600"
+          max="1000"
+          step="50"
+          value="500"
+        />
+        <output id="gravity-value">500</output></label
+      >
+      <button id="zero" type="button">Zero-g</button>
+      <button id="pause" type="button">Pause</button>
+      <button id="reset" type="button">Reset bodies</button>
+    </div>
+    <canvas id="game" aria-label="Physics playground"></canvas>
+    <p id="stats" aria-live="off">
+      Bodies: 0 · Collision starts: 0 · Touching bodies: 0 · Trigger entries: 0
+    </p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

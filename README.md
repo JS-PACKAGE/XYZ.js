@@ -131,7 +131,7 @@ managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 ga
 
 ## Examples／範例／サンプル
 
-Run the dev server and open the corresponding `/examples/<name>/` URL. Links below open the source directories.
+Run `npx pnpm@12.6.0 examples` (dev server plus browser at the gallery `http://127.0.0.1:5173/examples/`), or `dev` and open a `/examples/<name>/` URL yourself. The gallery lists every example with feature filters and per-backend links. Links below open the source directories. The examples added after 1.5.2 (physics2d through gltf3d) were each opened on the backends they support in the managed headless Chromium of the session that added them, with console errors checked; `audio-lab` and gamepad paths were verified by state readouts only (no speaker audibility, no physical gamepad), and no cross-browser claim is made.
 
 | Example                                  | 驗證內容／Purpose                                                                                                                                               |
 | ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -143,8 +143,19 @@ Run the dev server and open the corresponding `/examples/<name>/` URL. Links bel
 | [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup                                                                                                           |
 | [advanced3d](examples/advanced3d/)       | Group、OrbitControls／picking、glTF skin、PBR／shadow／HDR bloom、24 instances                                                                                  |
 | [gameplay2d](examples/gameplay2d/)       | P13–P20 real root consumer: graphics／drag/actions/camera／physics/maps/particles／preload/audio／transitions；GPU/GL native effects, Canvas explicit rejection |
+| [physics2d](examples/physics2d/)         | Static/dynamic bodies, circle/box/polygon, materials, sensor Trigger2D, gravity control                                                                         |
+| [particles2d](examples/particles2d/)     | ParticleEmitter presets (fountain/fire/snow/trail), bursts, nozzles, additive isolated layer                                                                    |
+| [tilemap2d](examples/tilemap2d/)         | Two TileMap layers, solid tile colliders, Camera2D follow/dead zone/bounds/shake/zoom                                                                           |
+| [transitions2d](examples/transitions2d/) | fade／crossfade／slide between three Scenes, easing／duration／blockInput, cancel by newer request, Scene timers                                                |
+| [ui2d](examples/ui2d/)                   | Text2D, SpriteFont／SpriteText, NineSlice, ScreenElement HUD, accessible pointer buttons                                                                        |
+| [input-lab](examples/input-lab/)         | Live Keyboard／Pointer／Gamepad state, runtime-rebindable ActionMap                                                                                             |
+| [audio-lab](examples/audio-lab/)         | Gesture unlock, OPM music／SFX, PCM sample, channel volumes, PreloadBatch progress                                                                              |
+| [pbr3d](examples/pbr3d/)                 | PBR metallic／roughness grid, shadows, point light, environment, fog, exposure／bloom                                                                           |
+| [instancing3d](examples/instancing3d/)   | Animated InstancedMesh batches, frustum-culled probe meshes, RenderStats, unclamped RAF fps                                                                     |
+| [picking3d](examples/picking3d/)         | Nested Groups, OrbitControls, Raycaster picking, perspective／orthographic switch, reparenting                                                                  |
+| [gltf3d](examples/gltf3d/)               | GLTFLoader skinned clip playback, MorphTargets driven by sliders and a weights keyframe clip                                                                    |
 
-`cube3d`, `fallback-demo`, and `showcase` accept `?renderer=auto|webgpu|webgl2|canvas2d`. Canvas2D showcase retains 2D + audio and omits 3D.
+`cube3d`, `fallback-demo`, `showcase`, `physics2d`, `particles2d`, `tilemap2d`, `transitions2d`, `ui2d`, `input-lab` and `audio-lab` accept `?renderer=auto|webgpu|webgl2|canvas2d`; `pbr3d`, `instancing3d`, `picking3d` and `gltf3d` are 3D-only and show a clear message on Canvas2D. Canvas2D showcase retains 2D + audio and omits 3D. In `particles2d`, world-space emitters inside an additive `IsolatedGroup2D` rendered nothing in the recorded Canvas2D probe, so fire emits in local space there.
 
 ## Scene／Core World
 
