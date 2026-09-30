@@ -4,12 +4,15 @@ import { inputLimits } from '../../../src/data/input.js';
 export interface PointerSample {
   id: number;
   type: string;
-  kind: 'move' | 'down' | 'up' | 'cancel' | 'leave';
+  kind: 'move' | 'down' | 'up' | 'cancel' | 'leave' | 'wheel';
   readonly position: Vector2;
   button: number;
   buttons: number;
   sequence: number;
-  originalEvent?: PointerEvent;
+  originalEvent?: PointerEvent | WheelEvent;
+  deltaX?: number;
+  deltaY?: number;
+  deltaZ?: number;
 }
 
 export interface ActivePointer {
@@ -27,6 +30,7 @@ function isTextEditable(target: EventTarget | null): boolean {
   const tag = element.tagName;
   return (
     element.isContentEditable === true ||
+    element.hasAttribute?.('data-xyz-accessibility') === true ||
     tag === 'INPUT' ||
     tag === 'TEXTAREA' ||
     tag === 'SELECT'
@@ -90,6 +94,10 @@ export class Pointer {
   private readonly samplePool: PointerSample[] = [];
   private sequence = 0;
   private generation = 0;
+  private cursorOwned = false;
+  private originalCursor = '';
+  private originalCursorPriority = '';
+  private assignedCursor = '';
 
   get activePointers(): ReadonlyMap<number, ActivePointer> {
     return this.views;
@@ -170,6 +178,7 @@ export class Pointer {
     sample.buttons = event.buttons;
     sample.sequence = ++this.sequence;
     sample.originalEvent = event;
+    sample.deltaX = sample.deltaY = sample.deltaZ = undefined;
     if (
       kind === 'cancel' ||
       (kind === 'up' && event.pointerType === 'touch') ||
@@ -199,6 +208,82 @@ export class Pointer {
     return this.released.has(button);
   }
 
+  /** CSS-pixel deltas; line mode uses 16px and page mode uses the content height. */
+  wheel(event: WheelEvent): void {
+    this.updatePosition(event);
+    const factor =
+      event.deltaMode === 1
+        ? 16
+        : event.deltaMode === 2
+          ? this.canvas.clientHeight || this.getSize().height
+          : 1;
+    const finite = (value: number): number =>
+      Number.isFinite(value)
+        ? Math.max(-1000000, Math.min(1000000, value * factor))
+        : 0;
+    const last = this.queued[this.queued.length - 1];
+    if (
+      last?.kind === 'wheel' &&
+      last.position.x === this.position.x &&
+      last.position.y === this.position.y
+    ) {
+      last.position.copy(this.position);
+      last.deltaX = finite((last.deltaX ?? 0) / factor + event.deltaX);
+      last.deltaY = finite((last.deltaY ?? 0) / factor + event.deltaY);
+      last.deltaZ = finite((last.deltaZ ?? 0) / factor + event.deltaZ);
+      last.originalEvent = event;
+      last.sequence = ++this.sequence;
+      return;
+    }
+    if (this.queued.length >= inputLimits.maxPointerSamples) return;
+    const index = this.queued.length;
+    const sample = (this.samplePool[index] ??= {
+      id: 0,
+      type: 'mouse',
+      kind: 'wheel',
+      position: new Vector2(),
+      button: 0,
+      buttons: 0,
+      sequence: 0,
+    });
+    sample.id = 0;
+    sample.type = 'mouse';
+    sample.kind = 'wheel';
+    sample.position.copy(this.position);
+    sample.button = 0;
+    sample.buttons = 0;
+    sample.sequence = ++this.sequence;
+    sample.originalEvent = event;
+    sample.deltaX = finite(event.deltaX);
+    sample.deltaY = finite(event.deltaY);
+    sample.deltaZ = finite(event.deltaZ);
+    this.queued.push(sample);
+  }
+
+  /** @internal */
+  setCursor(cursor?: string): void {
+    const style = this.canvas.style;
+    if (cursor === undefined) {
+      if (this.cursorOwned && style.cursor === this.assignedCursor) {
+        if (this.originalCursor)
+          style.setProperty(
+            'cursor',
+            this.originalCursor,
+            this.originalCursorPriority,
+          );
+        else style.removeProperty('cursor');
+      }
+      this.cursorOwned = false;
+      return;
+    }
+    if (!this.cursorOwned) {
+      this.originalCursor = style.cursor;
+      this.originalCursorPriority = style.getPropertyPriority('cursor');
+      this.cursorOwned = true;
+    }
+    style.setProperty('cursor', cursor, this.originalCursorPriority);
+    this.assignedCursor = style.cursor;
+  }
   /** @internal */
   enter(event: PointerEvent): void {
     this.hovered = true;
@@ -285,6 +370,7 @@ export class Pointer {
     this.hovered = false;
     this.views.clear();
     this.endFrame();
+    this.setCursor();
   }
 
   private releaseButton(button: number): void {
@@ -308,17 +394,21 @@ export class Pointer {
     }
   }
 
-  private updatePosition(event: PointerEvent): void {
+  private updatePosition(event: MouseEvent): void {
     const rect = this.canvas.getBoundingClientRect();
     const style = getComputedStyle(this.canvas);
-    const borderLeft = parseFloat(style.borderLeftWidth) || 0;
-    const borderRight = parseFloat(style.borderRightWidth) || 0;
-    const borderTop = parseFloat(style.borderTopWidth) || 0;
-    const borderBottom = parseFloat(style.borderBottomWidth) || 0;
-    const paddingLeft = parseFloat(style.paddingLeft) || 0;
-    const paddingRight = parseFloat(style.paddingRight) || 0;
-    const paddingTop = parseFloat(style.paddingTop) || 0;
-    const paddingBottom = parseFloat(style.paddingBottom) || 0;
+    const scaleX =
+      this.canvas.offsetWidth > 0 ? rect.width / this.canvas.offsetWidth : 1;
+    const scaleY =
+      this.canvas.offsetHeight > 0 ? rect.height / this.canvas.offsetHeight : 1;
+    const borderLeft = (parseFloat(style.borderLeftWidth) || 0) * scaleX;
+    const borderRight = (parseFloat(style.borderRightWidth) || 0) * scaleX;
+    const borderTop = (parseFloat(style.borderTopWidth) || 0) * scaleY;
+    const borderBottom = (parseFloat(style.borderBottomWidth) || 0) * scaleY;
+    const paddingLeft = (parseFloat(style.paddingLeft) || 0) * scaleX;
+    const paddingRight = (parseFloat(style.paddingRight) || 0) * scaleX;
+    const paddingTop = (parseFloat(style.paddingTop) || 0) * scaleY;
+    const paddingBottom = (parseFloat(style.paddingBottom) || 0) * scaleY;
     const width =
       rect.width - borderLeft - borderRight - paddingLeft - paddingRight;
     const height =
@@ -365,6 +455,8 @@ export class InputManager {
     this.pointer.cancel(event);
   private readonly onLostPointerCapture = (event: PointerEvent): void =>
     this.pointer.lostCapture(event);
+  private readonly onWheel = (event: WheelEvent): void =>
+    this.pointer.wheel(event);
 
   constructor(
     private readonly canvas: HTMLCanvasElement,
@@ -381,6 +473,7 @@ export class InputManager {
         canvas.addEventListener('pointerdown', this.onPointerDown);
         canvas.addEventListener('pointerup', this.onPointerUp);
         canvas.addEventListener('pointercancel', this.onPointerCancel);
+        canvas.addEventListener('wheel', this.onWheel, { passive: false });
         canvas.addEventListener(
           'lostpointercapture',
           this.onLostPointerCapture,
@@ -431,6 +524,7 @@ export class InputManager {
       canvas.removeEventListener('pointerdown', this.onPointerDown);
       canvas.removeEventListener('pointerup', this.onPointerUp);
       canvas.removeEventListener('pointercancel', this.onPointerCancel);
+      canvas.removeEventListener('wheel', this.onWheel);
       canvas.removeEventListener(
         'lostpointercapture',
         this.onLostPointerCapture,
