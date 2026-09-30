@@ -1,6 +1,7 @@
 import { Texture } from '../../assets/src/index.js';
 import { Quaternion } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
+import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
 
 export interface TextureMaterialOptions {
@@ -47,6 +48,8 @@ export interface MeshOptions {
   visible?: boolean;
   castShadow?: boolean;
   receiveShadow?: boolean;
+  /** Takes ownership of `geometry`'s vertex data; the geometry must not be shared. */
+  morph?: MorphTargets;
 }
 
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
@@ -55,6 +58,7 @@ export class Mesh extends Object3D {
   readonly material: TextureMaterial;
   castShadow: boolean;
   receiveShadow: boolean;
+  readonly morph?: MorphTargets;
 
   constructor(options: MeshOptions) {
     super();
@@ -65,6 +69,12 @@ export class Mesh extends Object3D {
       throw new TypeError('Mesh requires Geometry and TextureMaterial.');
     this.geometry = options.geometry;
     this.material = options.material;
+    if (options.morph !== undefined) {
+      if (!(options.morph instanceof MorphTargets))
+        throw new TypeError('Mesh morph requires MorphTargets.');
+      options.morph.bind(options.geometry);
+      this.morph = options.morph;
+    }
     if (options.position) this.transform.position.set(...options.position);
     if (options.rotation) {
       if (options.rotation instanceof Quaternion) {
@@ -78,5 +88,13 @@ export class Mesh extends Object3D {
     this.visible = options.visible ?? true;
     this.castShadow = options.castShadow ?? true;
     this.receiveShadow = options.receiveShadow ?? true;
+  }
+
+  /**
+   * Applies pending morph weights to the geometry. Renderers and raycasts call this
+   * before reading vertices; unchanged weights cost one integer comparison.
+   */
+  updateDeformation(): void {
+    if (this.morph?.apply(this.geometry.vertices)) this.geometry.markUpdated();
   }
 }

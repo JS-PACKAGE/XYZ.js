@@ -1,6 +1,7 @@
 import type { Object3D } from './object3d.js';
+import { MorphWeights } from './morph.js';
 
-export type AnimationPath = 'translation' | 'rotation' | 'scale';
+export type AnimationPath = 'translation' | 'rotation' | 'scale' | 'weights';
 export type Interpolation = 'STEP' | 'LINEAR' | 'CUBICSPLINE';
 
 /** Cubic values are glTF triplets: incoming tangent, value, outgoing tangent. */
@@ -8,19 +9,30 @@ export class KeyframeTrack {
   readonly times: Float32Array;
   readonly values: Float32Array;
   readonly size: number;
+  private readonly scratch: Float64Array;
   constructor(
-    readonly target: Object3D,
+    readonly target: Object3D | MorphWeights,
     readonly path: AnimationPath,
     times: ArrayLike<number>,
     values: ArrayLike<number>,
     readonly interpolation: Interpolation = 'LINEAR',
   ) {
     if (
-      !['translation', 'rotation', 'scale'].includes(path) ||
+      !['translation', 'rotation', 'scale', 'weights'].includes(path) ||
       !['STEP', 'LINEAR', 'CUBICSPLINE'].includes(interpolation)
     )
       throw new RangeError('Unsupported animation track.');
-    this.size = path === 'rotation' ? 4 : 3;
+    if ((path === 'weights') !== target instanceof MorphWeights)
+      throw new TypeError(
+        'Weights tracks target MorphWeights; other tracks target Object3D.',
+      );
+    this.size =
+      target instanceof MorphWeights
+        ? target.count
+        : path === 'rotation'
+          ? 4
+          : 3;
+    this.scratch = new Float64Array(this.size);
     if (
       !times.length ||
       values.length !==
@@ -99,33 +111,29 @@ export class KeyframeTrack {
         wb = Math.sin(t * angle) / sine;
       }
     }
-    let x = 0,
-      y = 0,
-      z = 0,
-      w = 0;
+    const out = this.scratch;
     for (let j = 0; j < size; j++) {
-      let value: number;
       if (cubic && first !== second) {
         const t2 = t * t,
           t3 = t2 * t;
-        value =
+        out[j] =
           (2 * t3 - 3 * t2 + 1) * values[a + j] +
           (t3 - 2 * t2 + t) * dt * values[a + size + j] +
           (-2 * t3 + 3 * t2) * values[b + j] +
           (t3 - t2) * dt * values[b - size + j];
-      } else value = wa * values[a + j] + wb * sign * values[b + j];
-      if (j === 0) x = value;
-      else if (j === 1) y = value;
-      else if (j === 2) z = value;
-      else w = value;
+      } else out[j] = wa * values[a + j] + wb * sign * values[b + j];
     }
-    if (this.path === 'rotation')
-      this.target.rotation.set(x, y, z, w).normalize();
+    const target = this.target;
+    if (target instanceof MorphWeights) {
+      for (let j = 0; j < size; j++) target.set(j, out[j]);
+    } else if (this.path === 'rotation')
+      target.rotation.set(out[0], out[1], out[2], out[3]).normalize();
     else
-      (this.path === 'translation'
-        ? this.target.position
-        : this.target.scale
-      ).set(x, y, z);
+      (this.path === 'translation' ? target.position : target.scale).set(
+        out[0],
+        out[1],
+        out[2],
+      );
   }
 }
 

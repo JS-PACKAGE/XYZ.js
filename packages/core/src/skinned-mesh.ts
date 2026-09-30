@@ -97,9 +97,15 @@ export class SkinnedMesh extends Mesh {
     }
   }
 
+  /** Morphs the bind pose first, then skins it. */
+  override updateDeformation(): void {
+    this.updateSkin();
+  }
+
   updateSkin(): void {
     this.inverse.copy(this.updateWorldMatrix()).invert();
     let changed = !this.initialized;
+    if (this.morph?.apply(this.bindVertices)) changed = true;
     for (let i = 0; i < this.joints.length; i++) {
       const matrix = this.matrices[i]
         .copy(this.inverse)

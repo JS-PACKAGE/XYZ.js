@@ -7,7 +7,6 @@ import {
 } from '../../core/src/materials2d/material2d.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
-import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
   PBRMaterial,
   type TextureSamplerOptions,
@@ -968,7 +967,7 @@ export class WebGL2Renderer implements Renderer {
         object.geometry.indices.length === 0
       )
         continue;
-      if (object instanceof SkinnedMesh) object.updateSkin();
+      object.updateDeformation();
       const material = object.material;
       const pbr = material instanceof PBRMaterial;
       gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
@@ -1213,7 +1212,7 @@ export class WebGL2Renderer implements Renderer {
         object.geometry.indices.length === 0
       )
         continue;
-      if (object instanceof SkinnedMesh) object.updateSkin();
+      object.updateDeformation();
       const material = object.material;
       const pbr = material instanceof PBRMaterial;
       gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);

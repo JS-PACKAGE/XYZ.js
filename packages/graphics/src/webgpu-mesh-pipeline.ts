@@ -5,7 +5,6 @@ import {
   type TextureSamplerOptions,
 } from '../../core/src/pbr-material.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
-import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
   computeShadowMatrix,
   fillLightingData,
@@ -352,7 +351,7 @@ export class WebGPUMeshPipeline {
             object.material.alphaMode === 'BLEND')
         )
           continue;
-        if (object instanceof SkinnedMesh) object.updateSkin();
+        object.updateDeformation();
         object.updateWorldMatrix();
         const geometry = this.cacheGeometry(object.geometry);
         const mesh = this.cacheMesh(object);

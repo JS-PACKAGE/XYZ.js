@@ -4,7 +4,6 @@ import { Mesh } from './mesh.js';
 import { Object3D } from './object3d.js';
 import { OrthographicCamera, type Camera3D } from './orthographic-camera.js';
 import type { SceneObject } from './scene-object.js';
-import { SkinnedMesh } from './skinned-mesh.js';
 
 export interface RaycastHit {
   object: Mesh;
@@ -95,7 +94,7 @@ export class Raycaster {
     this.visited.add(object);
     if (object.destroyed || !object.worldVisible) return;
     if (object instanceof Mesh) {
-      if (object instanceof SkinnedMesh) object.updateSkin();
+      object.updateDeformation();
       const world = object.updateWorldMatrix();
       if (object instanceof InstancedMesh) {
         for (let i = 0; i < object.count; i++) {

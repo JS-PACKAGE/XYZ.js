@@ -14,6 +14,7 @@ import { Geometry } from './geometry.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
 import { PBRMaterial, type TextureSamplerOptions } from './pbr-material.js';
+import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 
 export interface GLTFAsset {
@@ -802,6 +803,46 @@ export class GLTFLoader {
         }
         return { joints, inverseBindMatrices };
       });
+      // Deltas are copied into MorphTargets, so their budget is counted twice.
+      const readMorph = (
+        primitive: RecordData,
+        vertexCount: number,
+        weights: MorphWeights,
+      ): MorphTargets => {
+        const targets = list(primitive.targets, 'morph targets');
+        context.reserve(targets.length * vertexCount * 6 * 4);
+        const read = (accessor: unknown, label: string): Float32Array => {
+          const data = readAccessor(accessor);
+          if (
+            data.type !== 'VEC3' ||
+            data.count !== vertexCount ||
+            !(data.component === 5126 || data.normalized)
+          )
+            throw new AssetError(`Morph ${label} requires matching VEC3 data.`);
+          return data.data;
+        };
+        const positions: (Float32Array | undefined)[] = [],
+          normals: (Float32Array | undefined)[] = [];
+        for (const target of targets) {
+          for (const key of Object.keys(target))
+            if (key !== 'POSITION' && key !== 'NORMAL' && key !== 'TANGENT')
+              throw new AssetError(
+                'Morph target attributes other than POSITION, NORMAL and TANGENT are unsupported.',
+              );
+          positions.push(
+            target.POSITION === undefined
+              ? undefined
+              : read(target.POSITION, 'POSITION'),
+          );
+          normals.push(
+            target.NORMAL === undefined
+              ? undefined
+              : read(target.NORMAL, 'NORMAL'),
+          );
+        }
+        return new MorphTargets({ positions, normals, weights });
+      };
+      const nodeWeights = new Map<number, MorphWeights>();
       let totalVertices = 0,
         totalIndices = 0;
       for (let i = 0; i < nodes.length; i++) {
@@ -819,15 +860,36 @@ export class GLTFLoader {
           def.skin === undefined
             ? undefined
             : reference(skins, def.skin, 'skin');
+        const targetCounts = new Set(
+          primitives.map((p) => list(p.targets, 'morph targets').length),
+        );
+        if (targetCounts.size !== 1)
+          throw new AssetError(
+            'All primitives of a mesh must have the same number of morph targets.',
+          );
+        const targetCount = [...targetCounts][0];
+        if (targetCount > modelLimits.morphTargets)
+          throw new AssetError('Mesh exceeds the morph target budget.');
+        const rawWeights = def.weights ?? mesh.weights;
+        if (!targetCount && rawWeights !== undefined)
+          throw new AssetError('Morph weights require morph targets.');
+        let morphWeights: MorphWeights | undefined;
+        if (targetCount) {
+          if (
+            rawWeights !== undefined &&
+            (!Array.isArray(rawWeights) || rawWeights.length !== targetCount)
+          )
+            throw new AssetError('Morph weights must match the target count.');
+          morphWeights = new MorphWeights(
+            rawWeights === undefined
+              ? new Array<number>(targetCount).fill(0)
+              : (rawWeights as unknown[]).map((v) => number(v, 'morph weight')),
+          );
+          nodeWeights.set(i, morphWeights);
+        }
         for (const primitive of primitives) {
           if (primitive.mode !== undefined && primitive.mode !== 4)
             throw new AssetError('Only triangle primitives are supported.');
-          if (
-            primitive.targets !== undefined ||
-            mesh.weights !== undefined ||
-            def.weights !== undefined
-          )
-            throw new AssetError('Morph targets are unsupported.');
           const attributes = object(
             primitive.attributes,
             'primitive attributes',
@@ -914,6 +976,9 @@ export class GLTFLoader {
             primitive.material === undefined
               ? await defaultMaterial()
               : reference(materials, primitive.material, 'material');
+          const morph = morphWeights
+            ? readMorph(primitive, position.count, morphWeights)
+            : undefined;
           if (skin) {
             const joint = readAccessor(attributes.JOINTS_0),
               weights = readAccessor(attributes.WEIGHTS_0);
@@ -940,12 +1005,13 @@ export class GLTFLoader {
               new SkinnedMesh({
                 geometry,
                 material,
+                morph,
                 ...skin,
                 jointIndices: joint.data,
                 weights: weights.data,
               }),
             );
-          } else nodes[i].add(new Mesh({ geometry, material }));
+          } else nodes[i].add(new Mesh({ geometry, material, morph }));
         }
       }
       const animations = animationDefs.map((def, animationIndex) => {
@@ -959,11 +1025,19 @@ export class GLTFLoader {
             sampler = reference(samplers, channel.sampler, 'animation sampler');
           const node = integer(target.node, 'animation node');
           const path = target.path;
-          if (path !== 'translation' && path !== 'rotation' && path !== 'scale')
+          if (
+            path !== 'translation' &&
+            path !== 'rotation' &&
+            path !== 'scale' &&
+            path !== 'weights'
+          )
             throw new AssetError(
-              'Only transform animations are supported; morph animations are unsupported.',
+              'Only transform and morph weights animations are supported.',
             );
-          if (reference(nodeDefs, node, 'animation node').matrix !== undefined)
+          if (
+            path !== 'weights' &&
+            reference(nodeDefs, node, 'animation node').matrix !== undefined
+          )
             throw new AssetError('Matrix nodes cannot be animated.');
           const key = `${node}:${path}`;
           if (seen.has(key))
@@ -982,16 +1056,28 @@ export class GLTFLoader {
             input.type !== 'SCALAR' ||
             input.component !== 5126 ||
             output.component !== 5126 ||
-            output.type !== (path === 'rotation' ? 'VEC4' : 'VEC3') ||
+            output.type !==
+              (path === 'weights'
+                ? 'SCALAR'
+                : path === 'rotation'
+                  ? 'VEC4'
+                  : 'VEC3') ||
             output.count !==
-              input.count * (interpolation === 'CUBICSPLINE' ? 3 : 1)
+              input.count *
+                (interpolation === 'CUBICSPLINE' ? 3 : 1) *
+                (path === 'weights' ? (nodeWeights.get(node)?.count ?? 0) : 1)
           )
             throw new AssetError(
               'Animation sampler counts or types do not match.',
             );
           context.reserve(input.data.byteLength + output.data.byteLength);
+          const weights = nodeWeights.get(node);
+          if (path === 'weights' && !weights)
+            throw new AssetError('Weights animation requires morph targets.');
           return new KeyframeTrack(
-            reference(nodes, node, 'animation node'),
+            path === 'weights'
+              ? weights!
+              : reference(nodes, node, 'animation node'),
             path as AnimationPath,
             input.data,
             output.data,
