@@ -392,6 +392,8 @@ scene.fog.far = 30;
 
 `Game.create({ antialias })` (default `true`) enables 4× MSAA for the WebGPU 3D pass; pass `false` to save GPU cost. See the [technical notes](TECHNICAL.md#21-advanced-3d-p09p12) for what it does not cover.
 
+If the GPU context is lost (mobile tab switches, driver resets) the Game keeps running by default: listen for `graphicslost` / `graphicsrecovered`, and recreate any `RenderTexture2D` or snapshots you hold after recovery. Pass `recoverGraphics: false` to treat a loss as fatal instead.
+
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters in these options reject; glTF files that specify mipmapped filters load with the base filter.

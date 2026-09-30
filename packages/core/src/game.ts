@@ -42,6 +42,11 @@ export interface GameOptions {
    * Enabled by default; the WebGL2 post-processing path and Canvas2D do not multisample.
    */
   antialias?: boolean;
+  /**
+   * Rebuild a lost WebGL2 context or WebGPU device and keep running, emitting
+   * `graphicslost` and `graphicsrecovered`. Enabled by default; when false a loss is fatal.
+   */
+  recoverGraphics?: boolean;
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -232,7 +237,19 @@ export class Game extends EventTarget {
           if (game) game.fail(error);
           else initializationError = error;
         },
-        { antialias: options.antialias },
+        {
+          antialias: options.antialias,
+          recover: options.recoverGraphics,
+          onLost: (error) => {
+            // Snapshots and captures belong to the lost device.
+            game?.cancelTransition();
+            game?.dispatchEvent(
+              new CustomEvent<Error>('graphicslost', { detail: error }),
+            );
+          },
+          onRecovered: () =>
+            game?.dispatchEvent(new CustomEvent('graphicsrecovered')),
+        },
       );
       if (initializationError) throw initializationError;
       game = new Game(canvas, graphics, clock, options);

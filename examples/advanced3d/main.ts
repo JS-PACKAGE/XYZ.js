@@ -64,6 +64,12 @@ try {
   game.addEventListener('error', (event) => {
     status.textContent = (event as CustomEvent<Error>).detail.message;
   });
+  game.addEventListener('graphicslost', () => {
+    status.textContent = 'Graphics context lost; restoring…';
+  });
+  game.addEventListener('graphicsrecovered', () => {
+    status.textContent = `${game!.graphics.backend} · graphics recovered`;
+  });
   if (!game.graphics.capabilities.threeD)
     throw new Error(
       'Canvas2D is 2D-only: the advanced 3D scene is not submitted.',

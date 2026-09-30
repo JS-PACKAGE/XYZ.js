@@ -8,6 +8,7 @@ import { WebGPURenderer } from './webgpu-renderer.js';
 import { WebGL2Renderer } from './webgl2-renderer.js';
 import { Canvas2DRenderer } from './canvas2d-renderer.js';
 import { PresentedRenderer } from './presented-renderer.js';
+import { ResilientRenderer } from './resilient-renderer.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -108,7 +109,13 @@ export async function createRenderer(
   canvas: HTMLCanvasElement,
   preference: RendererPreference,
   onError: (error: Error) => void,
-  options: { antialias?: boolean } = {},
+  options: {
+    antialias?: boolean;
+    /** Rebuild WebGL2/WebGPU after context loss instead of failing. Defaults to true. */
+    recover?: boolean;
+    onLost?(error: Error): void;
+    onRecovered?(): void;
+  } = {},
 ): Promise<Renderer> {
   if (!['auto', 'webgpu', 'webgl2', 'canvas2d'].includes(preference))
     throw new GraphicsBackendUnavailableError(
@@ -126,12 +133,23 @@ export async function createRenderer(
       if (published) onError(error);
       else initializationError = error;
     };
+    const antialias = options.antialias ?? true;
     const renderer =
-      backend === 'webgpu'
-        ? new WebGPURenderer(report, options.antialias ?? true)
-        : backend === 'webgl2'
-          ? new WebGL2Renderer(report, options.antialias ?? true)
-          : new Canvas2DRenderer(report);
+      backend === 'canvas2d'
+        ? new Canvas2DRenderer(report)
+        : options.recover === false
+          ? backend === 'webgpu'
+            ? new WebGPURenderer(report, antialias)
+            : new WebGL2Renderer(report, antialias)
+          : new ResilientRenderer(
+              backend,
+              (handler) =>
+                backend === 'webgpu'
+                  ? new WebGPURenderer(handler, antialias)
+                  : new WebGL2Renderer(handler, antialias),
+              report,
+              options,
+            );
     // A bound context cannot change type. Failed candidates never bind the user's canvas.
     const target =
       preference === 'auto' ? document.createElement('canvas') : canvas;
