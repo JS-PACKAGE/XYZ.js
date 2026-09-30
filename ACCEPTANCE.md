@@ -493,3 +493,17 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **未驗／非宣稱**：真實 WebGPU device loss（僅 mock）；Pointer Lock 實機（僅 fake document）；實體 gamepad（僅合成 snapshot）；空間音效聽感（僅 mock nodes）；Safari／Firefox／Edge／行動裝置；minified `dist/` 的 extracted `npm pack` 重驗；新功能三 backend 逐項一致性。glTF `COLOR_0` 仍被拒絕；Draco／KTX2 因需外部 decoder 不支援。未 npm publish。
 - **minified dist 瀏覽器 consumer（純 HTTP，不經 Vite）**：載入 `dist/src/index.js`，WebGPU 與 WebGL2 各建立 Game、fog 場景與一個視錐外 Mesh，`graphics.stats` 皆為 `meshes 2 · culled 1 · drawCalls 1`，`FirstPersonControls` 可載入，console 無 error。這只驗最小化後的入口與上述路徑，不是完整功能矩陣。
 - **授權**：所有者授權後，根套件改為 Apache-2.0（新增根目錄 `LICENSE`、`package.json` 的 `license`）。已發佈的 v1.5 附件內 metadata 仍是 UNLICENSED，未重發。
+
+## 弱點掃描紀錄（2026-10-01，v1.5 之後的 HEAD）
+
+**範圍與工具**：本機、唯讀；Node v26.7.0、pnpm 12.6.0。依賴稽核會把套件名稱與版本送到 npm registry，未上傳原始碼或 lockfile 到第三方掃描服務。這是人工＋腳本檢查，**不是**專業滲透測試或 CI 掃描器。
+
+- **依賴稽核**：`pnpm audit`（含 dev dependencies）回報 _No known vulnerabilities found_。runtime dependencies 為零；lockfile 與 `minimumReleaseAgeStrict` 未改動。
+- **OPM vendor**：下載官方 `opm.js-1.1.0.tgz`，SHA-256 `1344a3c2…8121e` 與官方 `SHA256SUMS` 及 `vendor/opm/manifest.json` 相符；官方 `dist/`、`LICENSE` 與 `vendor/opm/`、`dist/vendor/opm/` 逐檔 `diff -r` 完全相同，無私人 patch。
+- **Secrets**：對追蹤檔（排除 dist、lockfile、vendor）比對常見 token／私鑰／key 樣式，並檢查是否追蹤 `.env`、`.pem` 等檔名，皆無命中。git 歷史中無 `BEGIN PRIVATE` 字串。
+- **危險 sink**：`packages`、`src`、`scripts`、`examples` 內無 `eval`、`new Function`、`innerHTML`／`outerHTML`／`insertAdjacentHTML`、`document.write`、`importScripts`、`localStorage`／`sessionStorage`／`document.cookie`。
+- **打包內容**：`npm pack` 內容為 LICENSE、README、`dist/`（js／map／d.ts／json）與 OPM LICENSE；source map 只含相對路徑、無 `sourcesContent`，`dist` 內無本機使用者路徑。`ci.yml` 權限為 `contents: read`，用 `pull_request` 而非 `pull_request_target`。
+- **不可信 glTF 輸入（v1.5 新增路徑）**：以臨時腳本（已刪除）送入 21 種惡意文件：morph target 為 null／字串／10 萬項／accessor 越界／不支援屬性／頂點數不符、weights 為 NaN 字串或長度不符、light 型別未知／索引 1e12／intensity 為字串／負 range／spot 角度顛倒／extension 型別錯誤、texture transform 為字串或 1e308、負 emissive strength、`extensions: null`、`emissiveStrength: 3e38`、`__proto__` 汙染。其中 19 種以 `AssetError` 快速拒絕（皆 ≤ 9ms）；`emissiveStrength: 3e38`（見下方資訊性項目）與 `__proto__` 文件（結果為空場景）被接受，`Object.prototype` 未被汙染。
+- **Radiance／環境貼圖**：解碼器有 header／行長／RLE run／資料截斷檢查，尺寸上限 2048×1024；輸入極小但 header 宣告最大尺寸時會先配置約 25 MB 的 Float32Array 再因資料截斷而拒絕（受上限約束，列為資訊性）。
+- **資訊性（非弱點）**：glTF 允許 Float32 範圍內的極大有限值（例如 `emissiveStrength: 3e38`、light `intensity`）；相乘溢位會被 `PBRMaterial` 以 RangeError 拒絕，但單獨的極大值會被接受，可能在 shader 中產生 Infinity 並造成畫面異常，不涉及記憶體安全。若要收緊，可對這些欄位加合理上限。`recoverGraphics` 在 WebGL2 等待 `webglcontextrestored` 時沒有逾時；若瀏覽器永不還原，畫面會停止更新而不會送出 error。CI 的 GitHub Actions 用 `@v4` tag 而非 commit SHA 釘選。
+- **結論與未驗**：未發現已確認的可利用弱點，因此沒有程式碼修改或新增回歸測試。未涵蓋：真實瀏覽器 GPU driver／WebGPU 實作缺陷、Pointer Lock 與 Gamepad 實機行為、跨來源 CSP 部署設定、Audio 解碼器（瀏覽器內建）、對全部舊模組（v1.3 以前）的重新審查（僅依賴其既有測試與先前的強化紀錄）。此結果不代表安全稽核完成。
