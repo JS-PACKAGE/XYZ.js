@@ -9,6 +9,7 @@ export declare class PerspectiveCamera {
     private readonly view;
     private readonly unitScale;
     readonly matrix: Matrix4;
+    lookAt(target: Vector3): void;
     /** Recomputes projection * inverse(camera translation * rotation). */
     updateMatrix(aspect: number): Matrix4;
 }

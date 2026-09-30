@@ -15,11 +15,16 @@ function segments(value: number, minimum: number, name: string): void {
     throw new RangeError(`${name} must be an integer >= ${minimum}.`);
 }
 
-/** CPU-only indexed triangles. Input arrays are copied; treat vertices and indices as immutable after construction. */
+/** CPU-only indexed triangles. Input arrays are copied; call markUpdated after changing vertices. */
 export class Geometry {
   /** xyz, normal xyz, uv, interleaved at a stride of eight floats. */
   readonly vertices: Float32Array;
   readonly indices: Uint32Array;
+  version = 0;
+
+  markUpdated(): void {
+    this.version++;
+  }
 
   constructor(data: GeometryData) {
     const { positions, normals, uvs, indices } = data;

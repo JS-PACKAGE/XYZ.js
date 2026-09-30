@@ -2,7 +2,27 @@ import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
 import { Sprite } from '../../core/src/sprite.js';
 import type { Geometry } from '../../core/src/geometry.js';
+import { InstancedMesh } from '../../core/src/instanced-mesh.js';
+import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
+import {
+  PBRMaterial,
+  type TextureSamplerOptions,
+} from '../../core/src/pbr-material.js';
+import {
+  computeShadowMatrix,
+  fillLightingData,
+  validateRenderSettings,
+} from '../../core/src/render-data.js';
+import { Matrix4 } from '../../math/src/index.js';
+import {
+  meshVertex,
+  meshFragment,
+  shadowFragment,
+  postVertex,
+  postFragment,
+} from './webgl-feature-shaders.js';
 import type { Texture } from '../../assets/src/index.js';
+import { LIGHTING_FLOAT_COUNT } from '../../../src/data/rendering.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -59,42 +79,6 @@ void main() {
   color = vec4(texel.rgb * texel.a * vOpacity, texel.a * vOpacity);
 }`;
 
-const meshVertex = `#version 300 es
-precision highp float;
-layout(location=0) in vec3 position;
-layout(location=1) in vec3 normal;
-layout(location=2) in vec2 uv;
-uniform mat4 viewProjection;
-uniform mat4 model;
-uniform mat4 normalMatrix;
-out vec3 vNormal;
-out vec2 vUV;
-void main() {
-  // Camera3D produces WebGPU depth 0..1; map it to OpenGL clip depth -1..1.
-  vec4 clip = viewProjection * model * vec4(position, 1.0);
-  gl_Position = vec4(clip.xy, clip.z * 2.0 - clip.w, clip.w);
-  vNormal = (normalMatrix * vec4(normal, 0.0)).xyz;
-  vUV = uv;
-}`;
-const meshFragment = `#version 300 es
-precision highp float;
-in vec3 vNormal;
-in vec2 vUV;
-uniform sampler2D image;
-uniform vec4 lightDirection;
-uniform vec4 lightColorAmbient;
-uniform vec4 tint;
-out vec4 color;
-void main() {
-  vec4 texel = texture(image, vUV);
-  float light = max(dot(vNormal, lightDirection.xyz), 0.0) /
-    max(length(vNormal) * length(lightDirection.xyz), 0.000001);
-  vec3 illumination = vec3(max(lightColorAmbient.w, 0.0)) +
-    lightColorAmbient.rgb * (light * max(lightDirection.w, 0.0));
-  color = vec4(texel.rgb * texel.a * tint.rgb * illumination * tint.a,
-    texel.a * tint.a);
-}`;
-
 interface CachedTexture {
   resource: WebGLTexture;
   seen: number;
@@ -104,6 +88,21 @@ interface CachedGeometry {
   vertex: WebGLBuffer;
   index: WebGLBuffer;
   seen: number;
+  version: number;
+}
+
+interface CachedInstances {
+  buffer: WebGLBuffer;
+  version: number;
+  seen: number;
+}
+
+interface RenderTarget {
+  framebuffer: WebGLFramebuffer;
+  texture: WebGLTexture;
+  depth?: WebGLRenderbuffer;
+  width: number;
+  height: number;
 }
 
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
@@ -122,10 +121,6 @@ export class WebGL2Renderer implements Renderer {
   private readonly sprites: Sprite[] = [];
   private readonly textures = new Map<Texture, CachedTexture>();
   private readonly geometries = new Map<Geometry, CachedGeometry>();
-  private readonly normalData = new Float32Array(16);
-  private readonly lightDirectionData = new Float32Array(4);
-  private readonly lightColorData = new Float32Array(4);
-  private readonly tintData = new Float32Array(4);
   private frame = 0;
   private activeFrame = false;
   private frameRendered = false;
@@ -138,12 +133,22 @@ export class WebGL2Renderer implements Renderer {
   private viewportY = 0;
   private viewportSide = 1;
   private spriteViewport: WebGLUniformLocation | null = null;
-  private meshViewProjection: WebGLUniformLocation | null = null;
-  private meshModel: WebGLUniformLocation | null = null;
-  private meshNormal: WebGLUniformLocation | null = null;
-  private meshLightDirection: WebGLUniformLocation | null = null;
-  private meshLightColor: WebGLUniformLocation | null = null;
-  private meshTint: WebGLUniformLocation | null = null;
+  private shadowProgram: WebGLProgram | undefined;
+  private postProgram: WebGLProgram | undefined;
+  private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
+    {};
+  private readonly shadowUniforms: Record<string, WebGLUniformLocation | null> =
+    {};
+  private readonly postUniforms: Record<string, WebGLUniformLocation | null> =
+    {};
+  private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
+  private readonly tintData = new Float32Array(4);
+  private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
+  private readonly samplers = new Map<number, WebGLSampler>();
+  private readonly shadowMatrix = new Matrix4();
+  private shadowTarget: RenderTarget | undefined;
+  private postTarget: RenderTarget | undefined;
+  private floatColorBuffer = false;
 
   get capabilities(): GraphicsCapabilities {
     return {
@@ -162,6 +167,7 @@ export class WebGL2Renderer implements Renderer {
     this.lostError = new WebGL2ContextLostError(
       'WebGL2 context lost; the renderer cannot continue.',
     );
+    this.destroy();
     this.onError(this.lostError);
   };
 
@@ -196,6 +202,8 @@ export class WebGL2Renderer implements Renderer {
         renderbufferLimit,
         viewportLimit[1],
       );
+      this.floatColorBuffer =
+        gl.getExtension('EXT_color_buffer_float') !== null;
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
       this.triangleProgram = this.createProgram(
         gl,
@@ -215,6 +223,18 @@ export class WebGL2Renderer implements Renderer {
         meshFragment,
         'mesh',
       );
+      this.shadowProgram = this.createProgram(
+        gl,
+        meshVertex,
+        shadowFragment,
+        'shadow',
+      );
+      this.postProgram = this.createProgram(
+        gl,
+        postVertex,
+        postFragment,
+        'postprocessing',
+      );
       this.triangleVAO = this.createVAO(gl);
       this.spriteVAO = this.createVAO(gl);
       this.instanceBuffer = this.createBuffer(gl);
@@ -222,25 +242,59 @@ export class WebGL2Renderer implements Renderer {
         this.spriteProgram,
         'viewportSize',
       );
-      this.meshViewProjection = gl.getUniformLocation(
-        this.meshProgram,
+      for (const name of [
         'viewProjection',
-      );
-      this.meshModel = gl.getUniformLocation(this.meshProgram, 'model');
-      this.meshNormal = gl.getUniformLocation(this.meshProgram, 'normalMatrix');
-      this.meshLightDirection = gl.getUniformLocation(
-        this.meshProgram,
-        'lightDirection',
-      );
-      this.meshLightColor = gl.getUniformLocation(
-        this.meshProgram,
-        'lightColorAmbient',
-      );
-      this.meshTint = gl.getUniformLocation(this.meshProgram, 'tint');
+        'model',
+        'instanced',
+        'lighting[0]',
+        'tint',
+        'surface',
+        'emission',
+        'maps',
+        'pbr',
+        'alphaMode',
+        'doubleSided',
+        'linearOutput',
+        'cameraPosition',
+        'shadowMatrix',
+        'shadowSettings',
+        'image',
+        'metallicRoughnessMap',
+        'normalMap',
+        'occlusionMap',
+        'emissiveMap',
+        'shadowMap',
+      ])
+        this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
+      for (const name of [
+        'viewProjection',
+        'model',
+        'instanced',
+        'image',
+        'alphaCutoff',
+        'opacity',
+        'doubleSided',
+        'alphaMode',
+      ])
+        this.shadowUniforms[name] = gl.getUniformLocation(
+          this.shadowProgram,
+          name,
+        );
+      for (const name of ['image', 'settings', 'aces'])
+        this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       gl.useProgram(this.spriteProgram);
       gl.uniform1i(gl.getUniformLocation(this.spriteProgram, 'image'), 0);
       gl.useProgram(this.meshProgram);
-      gl.uniform1i(gl.getUniformLocation(this.meshProgram, 'image'), 0);
+      gl.uniform1i(this.meshUniforms.image, 0);
+      gl.uniform1i(this.meshUniforms.metallicRoughnessMap, 1);
+      gl.uniform1i(this.meshUniforms.normalMap, 2);
+      gl.uniform1i(this.meshUniforms.occlusionMap, 3);
+      gl.uniform1i(this.meshUniforms.emissiveMap, 4);
+      gl.uniform1i(this.meshUniforms.shadowMap, 5);
+      gl.useProgram(this.shadowProgram);
+      gl.uniform1i(this.shadowUniforms.image, 0);
+      gl.useProgram(this.postProgram);
+      gl.uniform1i(this.postUniforms.image, 0);
       gl.useProgram(null);
       gl.bindVertexArray(this.spriteVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
@@ -304,15 +358,38 @@ export class WebGL2Renderer implements Renderer {
     }
     this.frame++;
     try {
-      if (scene) this.prepareSprites(scene);
-      else this.sprites.length = 0;
-      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      if (scene) {
+        validateRenderSettings(scene);
+        fillLightingData(scene, this.lightingData);
+        this.prepareSprites(scene);
+        if (scene.shadows.enabled) this.drawShadows(scene);
+        else if (this.shadowTarget) {
+          this.deleteTarget(this.shadowTarget);
+          this.shadowTarget = undefined;
+        }
+        if (scene.postProcessing.enabled)
+          this.preparePostTarget(canvas.width, canvas.height);
+        else if (this.postTarget) {
+          this.deleteTarget(this.postTarget);
+          this.postTarget = undefined;
+        }
+      } else this.sprites.length = 0;
+      gl.bindFramebuffer(
+        gl.FRAMEBUFFER,
+        scene?.postProcessing.enabled ? this.postTarget!.framebuffer : null,
+      );
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(
-        defaults.clearColor.r,
-        defaults.clearColor.g,
-        defaults.clearColor.b,
+        scene?.postProcessing.enabled
+          ? this.decodeColor(defaults.clearColor.r)
+          : defaults.clearColor.r,
+        scene?.postProcessing.enabled
+          ? this.decodeColor(defaults.clearColor.g)
+          : defaults.clearColor.g,
+        scene?.postProcessing.enabled
+          ? this.decodeColor(defaults.clearColor.b)
+          : defaults.clearColor.b,
         defaults.clearColor.a,
       );
       gl.depthMask(true);
@@ -323,6 +400,11 @@ export class WebGL2Renderer implements Renderer {
       if (scene) {
         this.drawMeshes(scene, aspect);
         gl.disable(gl.DEPTH_TEST);
+        if (scene.postProcessing.enabled) this.drawPost(scene);
+        gl.activeTexture(gl.TEXTURE0);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        gl.disable(gl.CULL_FACE);
         if (this.sprites.length) this.drawSprites(logicalWidth, logicalHeight);
       } else {
         gl.disable(gl.DEPTH_TEST);
@@ -340,6 +422,8 @@ export class WebGL2Renderer implements Renderer {
       this.frameRendered = true;
     } finally {
       this.releaseUnused();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.activeTexture(gl.TEXTURE0);
       gl.bindVertexArray(null);
       gl.bindTexture(gl.TEXTURE_2D, null);
     }
@@ -380,6 +464,14 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         `WebGL2 canvas backing size ${pixelWidth}×${pixelHeight} exceeds this device's maximum dimensions of ${this.maxWidth}×${this.maxHeight} pixels. Reduce the canvas size or pixel ratio.`,
       );
+    if (
+      this.postTarget &&
+      (this.postTarget.width !== pixelWidth ||
+        this.postTarget.height !== pixelHeight)
+    ) {
+      this.deleteTarget(this.postTarget);
+      this.postTarget = undefined;
+    }
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
     const side = Math.min(pixelWidth, pixelHeight);
@@ -439,6 +531,7 @@ export class WebGL2Renderer implements Renderer {
 
   private drawSprites(width: number, height: number): void {
     const gl = this.gl!;
+    gl.bindSampler(0, null);
     gl.useProgram(this.spriteProgram!);
     gl.uniform2f(this.spriteViewport, width, height);
     gl.bindVertexArray(this.spriteVAO!);
@@ -465,89 +558,454 @@ export class WebGL2Renderer implements Renderer {
 
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
-    let prepared = false;
+    const uniforms = this.meshUniforms;
+    gl.useProgram(this.meshProgram!);
+    gl.uniformMatrix4fv(
+      uniforms.viewProjection,
+      false,
+      scene.camera3D.updateMatrix(aspect).elements,
+    );
+    gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
+    const camera = scene.camera3D.position;
+    gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
+    gl.uniform1i(uniforms.linearOutput, scene.postProcessing.enabled ? 1 : 0);
+    gl.uniformMatrix4fv(
+      uniforms.shadowMatrix,
+      false,
+      this.shadowMatrix.elements,
+    );
+    gl.activeTexture(gl.TEXTURE5);
+    gl.bindSampler(5, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.shadowTarget?.texture ?? null);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
+    gl.depthMask(true);
+    // Shader-side winding handles mixed mirrored instances in a single draw.
+    gl.disable(gl.CULL_FACE);
     for (const object of scene.objects) {
       if (
         !(object instanceof Mesh) ||
-        !object.visible ||
-        object.material.opacity <= 0 ||
+        !object.worldVisible ||
+        (object.material.opacity <= 0 &&
+          (!(object.material instanceof PBRMaterial) ||
+            object.material.alphaMode === 'BLEND')) ||
         object.material.texture.destroyed ||
         object.geometry.indices.length === 0
       )
         continue;
-      if (!prepared) {
-        const projection = scene.camera3D.updateMatrix(aspect).elements;
-        const light = scene.directionalLight;
-        const direction = this.lightDirectionData;
-        direction[0] = light.direction.x;
-        direction[1] = light.direction.y;
-        direction[2] = light.direction.z;
-        direction[3] = light.intensity;
-        const color = this.lightColorData;
-        color[0] = light.color[0];
-        color[1] = light.color[1];
-        color[2] = light.color[2];
-        color[3] = scene.ambientLight;
-        gl.useProgram(this.meshProgram!);
-        gl.uniformMatrix4fv(this.meshViewProjection, false, projection);
-        gl.uniform4fv(this.meshLightDirection, direction);
-        gl.uniform4fv(this.meshLightColor, color);
-        gl.enable(gl.DEPTH_TEST);
-        gl.depthFunc(gl.LESS);
-        gl.depthMask(true);
-        prepared = true;
-      }
-      const geometry = this.cacheGeometry(object.geometry);
-      const texture = this.cacheTexture(object.material.texture);
-      geometry.seen = texture.seen = this.frame;
-      const model = object.transform.updateMatrix().elements;
-      const normal = this.normalData;
-      // Columns of inverse-transpose(model3x3), matching the WebGPU mesh pipeline.
-      const a0 = model[0],
-        a1 = model[1],
-        a2 = model[2];
-      const b0 = model[4],
-        b1 = model[5],
-        b2 = model[6];
-      const c0 = model[8],
-        c1 = model[9],
-        c2 = model[10];
-      const n0 = b1 * c2 - b2 * c1;
-      const n1 = b2 * c0 - b0 * c2;
-      const n2 = b0 * c1 - b1 * c0;
-      const det = a0 * n0 + a1 * n1 + a2 * n2;
-      const inverseDet = det !== 0 ? 1 / det : 0;
-      normal[0] = n0 * inverseDet;
-      normal[1] = n1 * inverseDet;
-      normal[2] = n2 * inverseDet;
-      normal[3] = 0;
-      normal[4] = (c1 * a2 - c2 * a1) * inverseDet;
-      normal[5] = (c2 * a0 - c0 * a2) * inverseDet;
-      normal[6] = (c0 * a1 - c1 * a0) * inverseDet;
-      normal[7] = 0;
-      normal[8] = (a1 * b2 - a2 * b1) * inverseDet;
-      normal[9] = (a2 * b0 - a0 * b2) * inverseDet;
-      normal[10] = (a0 * b1 - a1 * b0) * inverseDet;
-      normal[11] = 0;
-      normal[12] = normal[13] = normal[14] = 0;
-      normal[15] = 1;
+      if (object instanceof SkinnedMesh) object.updateSkin();
+      const material = object.material;
+      const pbr = material instanceof PBRMaterial;
+      gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
+      gl.uniform1i(uniforms.doubleSided, pbr && !material.doubleSided ? 0 : 1);
+      gl.uniform1i(
+        uniforms.alphaMode,
+        pbr
+          ? material.alphaMode === 'OPAQUE'
+            ? 0
+            : material.alphaMode === 'MASK'
+              ? 1
+              : 2
+          : 2,
+      );
       const tint = this.tintData;
-      tint[0] = object.material.color[0];
-      tint[1] = object.material.color[1];
-      tint[2] = object.material.color[2];
-      tint[3] = object.material.opacity;
-      gl.uniformMatrix4fv(this.meshModel, false, model);
-      gl.uniformMatrix4fv(this.meshNormal, false, normal);
-      gl.uniform4fv(this.meshTint, tint);
-      gl.bindTexture(gl.TEXTURE_2D, texture.resource);
-      gl.bindVertexArray(geometry.vao);
+      tint[0] = material.color[0];
+      tint[1] = material.color[1];
+      tint[2] = material.color[2];
+      tint[3] = material.opacity;
+      gl.uniform4fv(uniforms.tint, tint);
+      gl.uniform4f(
+        uniforms.shadowSettings,
+        scene.shadows.enabled ? 1 : 0,
+        object.receiveShadow ? 1 : 0,
+        scene.shadows.bias,
+        1 / scene.shadows.mapSize,
+      );
+      this.bindMaterialTexture(
+        material.texture,
+        0,
+        pbr ? material.textureSampler : undefined,
+      );
+      if (pbr) {
+        gl.uniform4f(
+          uniforms.surface,
+          material.metallic,
+          material.roughness,
+          material.normalScale,
+          material.occlusionStrength,
+        );
+        gl.uniform4f(
+          uniforms.emission,
+          material.emissive[0],
+          material.emissive[1],
+          material.emissive[2],
+          material.alphaCutoff,
+        );
+        gl.uniform4i(
+          uniforms.maps,
+          material.metallicRoughnessTexture ? 1 : 0,
+          material.normalTexture ? 1 : 0,
+          material.occlusionTexture ? 1 : 0,
+          material.emissiveTexture ? 1 : 0,
+        );
+        this.bindMaterialTexture(
+          material.metallicRoughnessTexture ?? material.texture,
+          1,
+          material.metallicRoughnessSampler,
+        );
+        this.bindMaterialTexture(
+          material.normalTexture ?? material.texture,
+          2,
+          material.normalSampler,
+        );
+        this.bindMaterialTexture(
+          material.occlusionTexture ?? material.texture,
+          3,
+          material.occlusionSampler,
+        );
+        this.bindMaterialTexture(
+          material.emissiveTexture ?? material.texture,
+          4,
+          material.emissiveSampler,
+        );
+      }
+      this.drawMesh(object, uniforms);
+    }
+  }
+
+  private bindMaterialTexture(
+    texture: Texture,
+    unit: number,
+    sampler?: TextureSamplerOptions,
+  ): void {
+    if (texture.destroyed)
+      throw new GraphicsError(
+        'WebGL2 cannot render a destroyed material texture.',
+      );
+    const gl = this.gl!;
+    gl.bindSampler(unit, sampler ? this.cacheSampler(sampler) : null);
+    gl.activeTexture(gl.TEXTURE0 + unit);
+    const cached = this.cacheTexture(texture);
+    cached.seen = this.frame;
+    gl.bindTexture(gl.TEXTURE_2D, cached.resource);
+  }
+
+  private cacheSampler(options: TextureSamplerOptions): WebGLSampler | null {
+    const min = options.minFilter === 'nearest' ? 0 : 1;
+    const mag = options.magFilter === 'nearest' ? 0 : 1;
+    const u =
+      options.addressModeU === 'repeat'
+        ? 1
+        : options.addressModeU === 'mirror-repeat'
+          ? 2
+          : 0;
+    const v =
+      options.addressModeV === 'repeat'
+        ? 1
+        : options.addressModeV === 'mirror-repeat'
+          ? 2
+          : 0;
+    const key = min + mag * 2 + u * 4 + v * 12;
+    // Texture uploads already use linear/clamp, so no sampler object is needed.
+    if (key === 3) return null;
+    const existing = this.samplers.get(key);
+    if (existing) return existing;
+    const gl = this.gl!;
+    const sampler = gl.createSampler();
+    if (!sampler)
+      throw new GraphicsError('WebGL2 could not allocate a material sampler.');
+    gl.samplerParameteri(
+      sampler,
+      gl.TEXTURE_MIN_FILTER,
+      min ? gl.LINEAR : gl.NEAREST,
+    );
+    gl.samplerParameteri(
+      sampler,
+      gl.TEXTURE_MAG_FILTER,
+      mag ? gl.LINEAR : gl.NEAREST,
+    );
+    gl.samplerParameteri(
+      sampler,
+      gl.TEXTURE_WRAP_S,
+      u === 1 ? gl.REPEAT : u === 2 ? gl.MIRRORED_REPEAT : gl.CLAMP_TO_EDGE,
+    );
+    gl.samplerParameteri(
+      sampler,
+      gl.TEXTURE_WRAP_T,
+      v === 1 ? gl.REPEAT : v === 2 ? gl.MIRRORED_REPEAT : gl.CLAMP_TO_EDGE,
+    );
+    this.samplers.set(key, sampler);
+    return sampler;
+  }
+
+  private drawMesh(
+    mesh: Mesh,
+    uniforms: Record<string, WebGLUniformLocation | null>,
+  ): void {
+    const gl = this.gl!;
+    const geometry = this.cacheGeometry(mesh.geometry);
+    geometry.seen = this.frame;
+    gl.uniformMatrix4fv(
+      uniforms.model,
+      false,
+      mesh.updateWorldMatrix().elements,
+    );
+    gl.bindVertexArray(geometry.vao);
+    if (mesh instanceof InstancedMesh) {
+      let entry = this.meshInstances.get(mesh);
+      if (!entry) {
+        const buffer = this.createBuffer(gl);
+        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
+        entry = { buffer, version: mesh.version, seen: this.frame };
+        this.meshInstances.set(mesh, entry);
+      } else {
+        gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
+        if (entry.version !== mesh.version) {
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, mesh.matrices);
+          entry.version = mesh.version;
+        }
+      }
+      entry.seen = this.frame;
+      for (let column = 0; column < 4; column++) {
+        gl.enableVertexAttribArray(3 + column);
+        gl.vertexAttribPointer(3 + column, 4, gl.FLOAT, false, 64, column * 16);
+        gl.vertexAttribDivisor(3 + column, 1);
+      }
+      gl.uniform1i(uniforms.instanced, 1);
+      gl.drawElementsInstanced(
+        gl.TRIANGLES,
+        mesh.geometry.indices.length,
+        gl.UNSIGNED_INT,
+        0,
+        mesh.count,
+      );
+    } else {
+      // Geometry VAOs can be shared by ordinary and instanced meshes.
+      for (let column = 0; column < 4; column++) {
+        gl.disableVertexAttribArray(3 + column);
+        gl.vertexAttribDivisor(3 + column, 0);
+      }
+      gl.uniform1i(uniforms.instanced, 0);
       gl.drawElements(
         gl.TRIANGLES,
-        object.geometry.indices.length,
+        mesh.geometry.indices.length,
         gl.UNSIGNED_INT,
         0,
       );
     }
+  }
+
+  private drawShadows(scene: Scene): void {
+    const gl = this.gl!;
+    const size = scene.shadows.mapSize;
+    if (size > this.maxWidth || size > this.maxHeight)
+      throw new GraphicsError(
+        `WebGL2 shadow map size ${size} exceeds this device's framebuffer limit.`,
+      );
+    if (!this.shadowTarget || this.shadowTarget.width !== size) {
+      if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
+      this.shadowTarget = undefined;
+      this.shadowTarget = this.createTarget(size, size, true);
+    }
+    computeShadowMatrix(scene, this.shadowMatrix);
+    const uniforms = this.shadowUniforms;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowTarget.framebuffer);
+    gl.disable(gl.SCISSOR_TEST);
+    gl.viewport(0, 0, size, size);
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LESS);
+    gl.depthMask(true);
+    gl.clearDepth(1);
+    gl.clear(gl.DEPTH_BUFFER_BIT);
+    gl.useProgram(this.shadowProgram!);
+    gl.uniformMatrix4fv(
+      uniforms.viewProjection,
+      false,
+      this.shadowMatrix.elements,
+    );
+    gl.disable(gl.CULL_FACE);
+    for (const object of scene.objects) {
+      if (
+        !(object instanceof Mesh) ||
+        !object.worldVisible ||
+        !object.castShadow ||
+        (object.material.opacity <= 0 &&
+          (!(object.material instanceof PBRMaterial) ||
+            object.material.alphaMode === 'BLEND')) ||
+        object.material.texture.destroyed ||
+        object.geometry.indices.length === 0
+      )
+        continue;
+      if (object instanceof SkinnedMesh) object.updateSkin();
+      const material = object.material;
+      const pbr = material instanceof PBRMaterial;
+      gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
+      gl.uniform1f(uniforms.opacity, material.opacity);
+      gl.uniform1i(uniforms.doubleSided, pbr && !material.doubleSided ? 0 : 1);
+      gl.uniform1i(
+        uniforms.alphaMode,
+        pbr
+          ? material.alphaMode === 'OPAQUE'
+            ? 0
+            : material.alphaMode === 'MASK'
+              ? 1
+              : 2
+          : 2,
+      );
+      this.bindMaterialTexture(
+        material.texture,
+        0,
+        pbr ? material.textureSampler : undefined,
+      );
+      this.drawMesh(object, uniforms);
+    }
+  }
+
+  private preparePostTarget(width: number, height: number): void {
+    if (!this.floatColorBuffer)
+      throw new GraphicsError(
+        'WebGL2 HDR postprocessing requires EXT_color_buffer_float.',
+      );
+    if (this.postTarget?.width === width && this.postTarget.height === height)
+      return;
+    if (this.postTarget) this.deleteTarget(this.postTarget);
+    this.postTarget = undefined;
+    this.postTarget = this.createTarget(width, height, false);
+  }
+
+  private createTarget(
+    width: number,
+    height: number,
+    shadow: boolean,
+  ): RenderTarget {
+    const gl = this.gl!;
+    const framebuffer = gl.createFramebuffer();
+    const texture = gl.createTexture();
+    const depth = shadow ? null : gl.createRenderbuffer();
+    try {
+      if (!framebuffer || !texture || (!shadow && !depth))
+        throw new GraphicsError(
+          'WebGL2 could not allocate an offscreen render target.',
+        );
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.bindTexture(gl.TEXTURE_2D, texture);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      if (shadow) {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.DEPTH_COMPONENT24,
+          width,
+          height,
+          0,
+          gl.DEPTH_COMPONENT,
+          gl.UNSIGNED_INT,
+          null,
+        );
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER,
+          gl.DEPTH_ATTACHMENT,
+          gl.TEXTURE_2D,
+          texture,
+          0,
+        );
+        gl.drawBuffers([gl.NONE]);
+        gl.readBuffer(gl.NONE);
+      } else {
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA16F,
+          width,
+          height,
+          0,
+          gl.RGBA,
+          gl.HALF_FLOAT,
+          null,
+        );
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER,
+          gl.COLOR_ATTACHMENT0,
+          gl.TEXTURE_2D,
+          texture,
+          0,
+        );
+        gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+        gl.renderbufferStorage(
+          gl.RENDERBUFFER,
+          gl.DEPTH_COMPONENT24,
+          width,
+          height,
+        );
+        gl.framebufferRenderbuffer(
+          gl.FRAMEBUFFER,
+          gl.DEPTH_ATTACHMENT,
+          gl.RENDERBUFFER,
+          depth,
+        );
+      }
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+        throw new GraphicsError(
+          `WebGL2 ${shadow ? 'shadow' : 'HDR'} framebuffer is incomplete.`,
+        );
+      return {
+        framebuffer,
+        texture,
+        ...(depth ? { depth } : {}),
+        width,
+        height,
+      };
+    } catch (error) {
+      if (framebuffer) gl.deleteFramebuffer(framebuffer);
+      if (texture) gl.deleteTexture(texture);
+      if (depth) gl.deleteRenderbuffer(depth);
+      throw error;
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    }
+  }
+
+  private deleteTarget(target: RenderTarget): void {
+    const gl = this.gl!;
+    gl.deleteFramebuffer(target.framebuffer);
+    gl.deleteTexture(target.texture);
+    if (target.depth) gl.deleteRenderbuffer(target.depth);
+  }
+
+  private drawPost(scene: Scene): void {
+    const gl = this.gl!;
+    const settings = scene.postProcessing;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.useProgram(this.postProgram!);
+    gl.bindVertexArray(this.triangleVAO!);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindSampler(0, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.texture);
+    gl.uniform4f(
+      this.postUniforms.settings,
+      settings.exposure,
+      settings.bloomStrength,
+      settings.bloomThreshold,
+      settings.bloomRadius,
+    );
+    gl.uniform1i(
+      this.postUniforms.aces,
+      settings.toneMapping === 'aces' ? 1 : 0,
+    );
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+  }
+
+  private decodeColor(value: number): number {
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
   }
 
   private cacheTexture(texture: Texture): CachedTexture {
@@ -598,9 +1056,17 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private cacheGeometry(geometry: Geometry): CachedGeometry {
-    const existing = this.geometries.get(geometry);
-    if (existing) return existing;
     const gl = this.gl!;
+    const existing = this.geometries.get(geometry);
+    if (existing) {
+      if (existing.version !== geometry.version) {
+        gl.bindVertexArray(existing.vao);
+        gl.bindBuffer(gl.ARRAY_BUFFER, existing.vertex);
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.vertices);
+        existing.version = geometry.version;
+      }
+      return existing;
+    }
     const vao = this.createVAO(gl);
     let vertex: WebGLBuffer | undefined;
     let index: WebGLBuffer | undefined;
@@ -609,7 +1075,7 @@ export class WebGL2Renderer implements Renderer {
       index = this.createBuffer(gl);
       gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, vertex);
-      gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.STATIC_DRAW);
+      gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
       gl.enableVertexAttribArray(0);
@@ -619,7 +1085,13 @@ export class WebGL2Renderer implements Renderer {
       gl.enableVertexAttribArray(2);
       gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
       gl.bindVertexArray(null);
-      const entry = { vao, vertex, index, seen: this.frame };
+      const entry = {
+        vao,
+        vertex,
+        index,
+        seen: this.frame,
+        version: geometry.version,
+      };
       this.geometries.set(geometry, entry);
       return entry;
     } catch (error) {
@@ -644,6 +1116,11 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteBuffer(entry.vertex);
         gl.deleteBuffer(entry.index);
         this.geometries.delete(geometry);
+      }
+    for (const [mesh, entry] of this.meshInstances)
+      if (entry.seen !== this.frame) {
+        gl.deleteBuffer(entry.buffer);
+        this.meshInstances.delete(mesh);
       }
   }
 
@@ -724,6 +1201,13 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteBuffer(entry.vertex);
         gl.deleteBuffer(entry.index);
       }
+      for (const entry of this.meshInstances.values())
+        gl.deleteBuffer(entry.buffer);
+      for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
+      if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
+      if (this.postTarget) this.deleteTarget(this.postTarget);
+      if (this.shadowProgram) gl.deleteProgram(this.shadowProgram);
+      if (this.postProgram) gl.deleteProgram(this.postProgram);
       if (this.instanceBuffer) gl.deleteBuffer(this.instanceBuffer);
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);
       if (this.spriteVAO) gl.deleteVertexArray(this.spriteVAO);
@@ -733,6 +1217,10 @@ export class WebGL2Renderer implements Renderer {
     }
     this.textures.clear();
     this.geometries.clear();
+    this.meshInstances.clear();
+    this.samplers.clear();
+    this.shadowTarget = undefined;
+    this.postTarget = undefined;
     this.sprites.length = 0;
     this.gl = undefined;
     this.canvas = undefined;

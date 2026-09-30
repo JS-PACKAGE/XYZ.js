@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
+Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08 and the supported P09–P12 expansion profile are implemented and verified as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. The package is not published on npm; its license remains UNLICENSED.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -9,6 +9,8 @@ Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P0
 ### 目前可用
 
 引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js；在使用者手勢中呼叫 `await game.audio.unlock()`。
+
+新增 3D：Object3D／Group 階層、透視／正交相機與 lookAt、OrbitControls、精確 Raycaster、glTF 2.0／GLB、關鍵幀與 CPU 骨骼動畫、PBR／點光源／聚光燈、方向光 PCF 陰影、InstancedMesh，以及 3D HDR exposure／ACES／bloom（2D overlay 不受影響）。API 參考 three.js，但不是 drop-in replacement，也不承諾全部 addons；沒有新增 runtime dependency。詳細支援與限制見雙語技術參考。
 
 ```html
 <canvas id="game"></canvas>
@@ -35,7 +37,7 @@ game.start();
 
 Build 自動最小化 `dist/` 的引擎 JavaScript，保留 ESM 目錄、公開名稱、宣告與 source maps；官方已最小化的 OPM vendor 原樣複製。實測 36 個引擎 JS 約減少 48% 體積；最新安全修正與發佈驗證為 17 檔／82 測試通過。
 
-可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）。驗收證據見 `ACCEPTANCE.md`；各階段獨立 `[Pxx]` commit，不 push。
+可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）、`advanced3d`（進階 3D）。驗收證據見 `ACCEPTANCE.md`；本輪不自動 commit／push／publish，版本維持 1.1.0，升版由所有者決定。
 
 已驗證 managed Chromium 150；Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 矩陣、跨螢幕 DPR 與 driver reset 尚未認證。WebGPU／AudioWorklet 需要安全來源；benchmark 的約 60fps 不是跨裝置保證。
 
@@ -44,6 +46,8 @@ Build 自動最小化 `dist/` 的引擎 JavaScript，保留 ESM 目錄、公開�
 ### Available now
 
 Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js; call `await game.audio.unlock()` from a user gesture.
+
+Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic cameras and lookAt, OrbitControls, exact Raycaster picking, glTF 2.0/GLB, keyframe and CPU skeletal animation, PBR/point/spot lights, directional PCF shadows, InstancedMesh, and HDR exposure/ACES/bloom before the unaffected 2D overlay. The API is three.js-inspired, not a drop-in replacement or all-addon implementation; no runtime dependency was added. See the bilingual technical references for support boundaries.
 
 ```ts
 import { Game } from 'xyz.js';
@@ -61,7 +65,7 @@ Use Node >=26 and pnpm 12.6.0: `npx pnpm@12.6.0 install`, then `npx pnpm@12.6.0 
 
 Build automatically minifies engine JavaScript in `dist/`, preserving the ESM tree, public names, declarations, and source maps. The already-minified official OPM vendor is copied unchanged. The measured reduction across 36 engine JS files is about 48%; the latest security and distribution verification passed 17 files / 82 tests.
 
-Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, and `showcase` (2D + 3D + audio together). See `ACCEPTANCE.md` for verification evidence and limitations. Each phase is committed separately; nothing is pushed automatically.
+Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, `showcase` (2D + 3D + audio), and `advanced3d`. See `ACCEPTANCE.md` for evidence and limitations. This expansion does not automatically commit, push, publish, or change package 1.1.0; versioning remains the owner's decision.
 
 Verified in managed Chromium 150. Safari/Edge/Firefox, physical gamepads, real background-tab/BFCache matrices, cross-monitor DPR and driver resets are not certified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
 
@@ -70,6 +74,8 @@ Verified in managed Chromium 150. Safari/Edge/Firefox, physical gamepads, real b
 ### 現在利用可能
 
 Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。
+
+高度な 3D として Object3D／Group 階層、透視／正投影カメラと lookAt、OrbitControls、正確な Raycaster、glTF 2.0／GLB、キーフレームと CPU スキニング、PBR／点光源／スポットライト、方向光 PCF シャドウ、InstancedMesh、2D overlay より前の HDR exposure／ACES／bloom を提供します。three.js を参考にした API ですが互換置換や全 addons 対応ではなく、runtime dependency は追加していません。制限は技術参照をご覧ください。
 
 ```ts
 import { Game } from 'xyz.js';
@@ -87,7 +93,7 @@ Node >=26 と pnpm 12.6.0 を使用します。`npx pnpm@12.6.0 install`、`npx 
 
 Build は `dist/` のエンジン JavaScript を自動的に最小化し、ESM 構造、公開名、型宣言、source maps を保持します。最小化済みの公式 OPM vendor は変更せずコピーします。エンジン JS 36 ファイルのサイズは約 48% 減少し、最新の安全性修正と配布検証では 17 ファイル／82 テストが通過しました。
 
-実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）。検証結果と制限は `ACCEPTANCE.md` を参照してください。各段階は個別 commit し、push はしません。
+実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）、`advanced3d`。検証結果と制限は `ACCEPTANCE.md` を参照してください。今回の拡張では自動 commit／push／publish を行わず、1.1.0 の変更は所有者が決定します。
 
 managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 gamepad、実際の背景タブ／BFCache 往復、モニター間 DPR と driver reset は未認証です。WebGPU／AudioWorklet にはセキュアなオリジンが必要です。約 60fps の測定値は全環境での保証ではありません。
 
@@ -95,14 +101,15 @@ managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 ga
 
 Run the dev server and open the corresponding `/examples/<name>/` URL. Links below open the source directories.
 
-| Example                                  | 驗證內容／Purpose                                         |
-| ---------------------------------------- | --------------------------------------------------------- |
-| [triangle](examples/triangle/)           | WebGPU triangle；Pause／Resume／Destroy                   |
-| [sprite](examples/sprite/)               | Shared Texture、z-order／opacity、六聲部 BGM＋SFX         |
-| [pong](examples/pong/)                   | Camera2D、keyboard／pointer／gamepad API、計分            |
-| [cube3d](examples/cube3d/)               | Lit cube／sphere、depth、2D overlay；Canvas2D 明確不跑 3D |
-| [fallback-demo](examples/fallback-demo/) | Backend selector、capabilities、Sprite／Primitive／Mesh   |
-| [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup     |
+| Example                                  | 驗證內容／Purpose                                                              |
+| ---------------------------------------- | ------------------------------------------------------------------------------ |
+| [triangle](examples/triangle/)           | WebGPU triangle；Pause／Resume／Destroy                                        |
+| [sprite](examples/sprite/)               | Shared Texture、z-order／opacity、六聲部 BGM＋SFX                              |
+| [pong](examples/pong/)                   | Camera2D、keyboard／pointer／gamepad API、計分                                 |
+| [cube3d](examples/cube3d/)               | Lit cube／sphere、depth、2D overlay；Canvas2D 明確不跑 3D                      |
+| [fallback-demo](examples/fallback-demo/) | Backend selector、capabilities、Sprite／Primitive／Mesh                        |
+| [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup                          |
+| [advanced3d](examples/advanced3d/)       | Group、OrbitControls／picking、glTF skin、PBR／shadow／HDR bloom、24 instances |
 
 `cube3d`, `fallback-demo`, and `showcase` accept `?renderer=auto|webgpu|webgl2|canvas2d`. Canvas2D showcase retains 2D + audio and omits 3D.
 
@@ -159,7 +166,7 @@ cube.rotation.setFromEuler(0.2, 0.5, 0);
 scene.camera3D.position.set(0, 0, 5);
 ```
 
-`Geometry.sphere()`, `.plane()`, `.quad()` and custom indexed position/normal/UV data are supported. Treat geometry buffers as immutable. Angles are radians; the perspective camera looks along local −Z. Scene lighting uses `ambientLight` and `directionalLight` (surface-to-light direction, color, intensity). 3D is depth-tested before the 2D overlay.
+`Geometry.sphere()`, `.plane()`, `.quad()` and custom indexed position/normal/UV data are supported. Index topology stays immutable; after deliberately changing vertex data, call `geometry.markUpdated()` to increment its version and notify GPU upload caches. Angles are radians; cameras look along local −Z. Legacy TextureMaterial keeps ambient/directional diffuse lighting. See [advanced 3D contracts](docs/TECHNICAL.md#21-advanced-3d-p09p12) and [usage](docs/USAGE.md#11-advanced-3d).
 
 ## Compatibility
 

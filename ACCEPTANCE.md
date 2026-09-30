@@ -190,3 +190,46 @@ P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效
 - Chromium Pong 畫面有 `0 : 0`／Get ready，Pause 後 Restart 並等待 1.2 秒，仍保持 Serving；Resume 後 Playing，遊玩後畫布與 DOM 同步顯示 `0 : 6`。截圖觀察文字、球拍、球與按鈕；DOM 分數仍保留供輔助閱讀。
 - 靜態 HTTP 直接 import 最小化 dist（未經 Vite）：WebGPU／WebGL2／Canvas2D 各繪製含多行與中文字的 Text2D，白色像素分別 613／606／606；更新後舊貼圖 destroyed，Game destroy 後目前貼圖亦 destroyed。Canvas2D 文字從 `0`→`999` 有 624 個像素改變；Game timer 暫停 200ms 後仍 0 次，resume 後 1 次。
 - 新 build 最小化 39 個引擎 JS：197,981→103,071 bytes；保持 vendor 原樣。這不是效能幀率或跨瀏覽器認證。新增功能以 v1.1／套件 1.1.0 發佈，既有 v1.0 保持不變。
+
+## P09–P12 初步 runtime smoke（2026-09-30，尚非完整階段驗收）
+
+以下由整合 worker 的真實 Chromium WebGPU／WebGL2 操作提供，兩 backend 均觀察到；不改寫上列歷史日期／測試數，也不宣稱完整工具鏈或階段驗收已通過。
+
+- Hierarchy 紅色畫面、祖先 hide、正交 camera 與 instance pixels 一致；拾取回 instanceId=1。Advanced3d 實際截圖有 floor、24-instance ring、metal sphere、animated ribbon、shadows，無 errors。
+- PBR directional RGB 為 [148,105,81]，point／spot [223,161,124]，spot 背向為黑；HDR exposure low [156,104,70]→high [243,227,205]，green 2D overlay 不受影響；resize／disable 無 errors。
+- Directional shadow 關閉灰階 206→開啟 26，castShadow／receiveShadow=false 恢復 206；mapSize=512 無 errors。
+- .gltf 與 synthesized GLB 各載入 1 clip；skin vertex 最大變化 1.1293，畫面改變 pixels 為 WebGPU 1870／WebGL2 2011；frozen snapshot 不變。
+- Per-map sampling：UV=1.25 的 repeat 得 red [255,0,0]，clamp／mirror 得 blue [0,0,255]；LINEAR repeat 在 UV=0 seam 得 purple [128,0,128]；shared image base-repeat／emissive-clamp 得 magenta [255,0,255]，無 errors。
+- 實際 bloom：HDR emissive geometry 不變，radius=2 的鄰邊 edge+1 pixels 由 off [1,2,4]→on [124,2,4]，兩 backend 相同。
+- Trusted wheel 將 ortho zoom 改為 0.938，實際 left／right drag 改變 camera／target，Floor pick distance=11.83；pause 100ms framebuffer 完全不變，destroy 還原 touchAction。
+- 本節是當時初步紀錄；最終 tests／lint／format、maps／alpha／loss／原範例回歸與分階段結果見 [最終整合驗收](#p09p12-整合驗收2026-09-30限定已測環境)。未新增 runtime dependency，Canvas2D 保持 2D-only；未驗其他瀏覽器／效能，版本仍 1.1.0，未自動 commit／push／publish。
+
+## P09–P12 整合驗收（2026-09-30，限定已測環境）
+
+整合 worker 最終紀錄：macOS arm64、Node 26.7.0、pnpm 12.6.0、managed Chromium；正式 Game→Renderer 路徑在 WebGPU／WebGL2 通過下列觀察。原初步 smoke 保留為歷史紀錄，本節補充最終工具鏈／回歸，不把支援範圍擴大成 three.js 全相容。
+
+- build、typecheck、test、lint、format:check 全部通過；Vitest **25 檔／150 測試通過**。首次 GPU lifecycle mock 缺少新增初始化 API，補全 fixture 後保留原行為 assertions；graph traversal lint 與範例 glTF formatting 修正後通過。未新增 runtime dependency。
+
+### P09 — Scene & Interaction（限定環境驗收通過）
+
+階層／繼承 visibility、正交 camera、精確 triangle／instance picking、實際 wheel／左拖旋轉／右拖平移、pause framebuffer、controls destroy touchAction 還原均有真實畫面或狀態觀察，見初步 smoke 的具體數值。
+
+### P10 — Models & Animation（支援 profile 驗收通過）
+
+.gltf／GLB 各 1 clip、CPU skin vertex／pixel 變形與 frozen snapshot 已有 runtime proof。公開契約支援有界 triangles／TRS／所列 skins 與 STEP／LINEAR／CUBICSPLINE，不宣稱所有 extensions／morph；完整行為測試總數見上。
+
+### P11 — Materials & Lighting（限定環境驗收通過）
+
+兩 backend named pixels 一致：base [165,143,116]、normal map [89,69,39]、normalScale=0 恢復 base；metal [255,247,151]、metallic-roughness map [165,143,116]、AO [144,128,110]、emissive [202,143,116]。OPAQUE [165,143,116]、MASK discard 背景 [6,9,17]、BLEND [46,43,42]；mirrored geometry 正面仍 base，culled backface 為背景。Directional／point／spot、方向光 PCF 與 cast／receive 控制見初步數值；不含 IBL 或 point／spot shadows。
+
+### P12 — Instancing & Postprocessing（限定環境驗收通過）
+
+實際 WebGPU drawIndexed(36,24) 與 WebGL2 drawElementsInstanced(indices=36,instances=24)，每 color frame 為 hardware instance draw，啟用陰影另有 shadow-pass draw。HDR exposure／ACES、9-tap bloom 鄰邊亮化、2D overlay 不受影響、resize／disable 已觀察，非 shader-only scaffold。
+
+### 共用 sampler、回歸與封裝證據
+
+- glTF 正確套用 repeat 預設；nearest／linear、clamp／repeat／mirror 及共用 image 的不同 per-map samplers 觀察見初步 smoke。TextureSamplerOptions 經 core barrel／root 統一入口匯出；明確 mipmapped min filters 仍拒絕。
+- 六個原範例均實際開啟、截圖且無 errors。Showcase 實際手勢 unlock 後八個 AudioContexts running，Analyser PCM peak **0.037088677**；SFX 與 music 同場，切到 Scene B，pagehide cleanup 後八個 contexts closed。WebGL2 showcase 有 3D；Canvas2D showcase 保留 2D-only。Advanced3d 明確拒絕 Canvas2D 3D，不假冒支援。
+- Advanced3d 真實 GPUDevice.destroy 顯示 device-lost fatal 訊息；WEBGL_lose_context 顯示 context-lost fatal 訊息。這是實際 API loss，不是實體 driver reset 認證。
+- npm pack 1.1.0 解壓至獨立 /tmp，以純 HTTP 提供最小化 ESM（不經 Vite），58 個 engine JS 產物；WebGPU／WebGL2 再驗 hierarchy／picking／ortho／instance／PBR／lights／post／overlay／resize、glTF／GLB skin 與 samplers，named pixels 相同、無 errors。Pack 不等於 publish；未修改原 release、未 commit／push。
+- 邊界：只驗此工作站 managed Chromium，未認證 Safari／Firefox／Edge、真實 driver reset 或新效能數據；named sample pixels 一致不等於整張 framebuffer 逐像素一致。Canvas2D 仍 2D-only；不含 IBL、point／spot shadows、全部 glTF extensions／three.js addons。套件保持 1.1.0，升版／公開授權與發佈由所有者決定。

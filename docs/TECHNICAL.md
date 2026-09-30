@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This document describes **package version 1.1.0**, including P01–P08 and the Text2D/SceneTimers additions. See [ACCEPTANCE](../ACCEPTANCE.md) for actual verification environments, defect reproductions, measurements, and unverified limitations.
+This document describes **package version 1.1.0**, including P01–P08, Text2D/SceneTimers, and the P09–P12 advanced 3D expansion. The API is three.js-inspired, not a drop-in replacement or an implementation of all addons; no runtime dependency was added. See [ACCEPTANCE](../ACCEPTANCE.md) for measured evidence and unverified limitations. Version changes and publication remain the owner's decision.
 
 ## 1. Modules and Execution Flow
 
@@ -22,6 +22,7 @@ src/index.ts                    Unified ESM / TypeScript API
 requestAnimationFrame(timestamp)
   → Synchronize DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
   → Input.update() → Scene.timers.update(deltaTime)
+  → Scene.animations.update(deltaTime)
   → Scene.update(deltaTime) → World.update(deltaTime)
   → Renderer.beginFrame() → Renderer.render(scene, width, height)
   → Renderer.endFrame()
@@ -218,11 +219,11 @@ See ACCEPTANCE for before/after measurements. Test-side interception of real GPU
 ## 13. 3D (P05)
 
 - Matrix4 is column-major and right-handed, with −Z forward. Perspective uses WebGPU depth 0..1. Quaternion.setFromEuler accepts radians. Transform3D reuses matrices; Mesh and Transform3D register with the Scene's World.
-- Geometry copies and validates custom position/normal/uv/index data, interleaves vertices at a stride of eight floats, and uses Uint32Array indices. Do not directly modify buffers after construction. cube/sphere/plane/quad provide outward normals and winding; BoxGeometry.unit is a named primitive geometry factory.
+- Geometry copies and validates custom position/normal/uv/index data, interleaves vertices at a stride of eight floats, and uses Uint32Array indices. Index topology stays immutable. After deliberately changing vertex position/normal/UV data, call `markUpdated()` to increment `version` and notify renderer upload caches. cube/sphere/plane/quad provide outward normals and winding; BoxGeometry.unit is a named primitive geometry factory.
 - Mesh does not destroy shared Geometry, TextureMaterial, or Texture. Material provides a texture, RGB tint, and opacity. The camera computes view-projection from fov/near/far, position, and Quaternion rotation.
 - WebGPU uses a shared mesh pipeline, a reused uniform buffer per mesh, and geometry/texture caches. Normals use the inverse-transpose of the model 3×3 matrix, supporting nonuniform scale. Lighting combines ambient and directional diffuse terms.
 - The 3D pass uses depth24plus, a less comparison, and depth writes. A separate color-load pass overlays Sprites. Material alpha uses premultiplied blending. 3D submits in Scene order and writes depth; callers must insert overlapping transparent geometry back-to-front. Order-independent transparency is not provided.
-- Resize preserves shaders, geometry, and textures, invalidating only the old depth texture. Destroy releases all GPU caches.
+- Resize preserves shaders, geometry, and textures while replacing size-dependent depth/HDR attachments; destroy releases GPU caches.
 
 ## 14. Compatibility (P06)
 
@@ -297,10 +298,45 @@ The verified build reduced 36 engine JavaScript files from 189,706 to 98,707 byt
 These additions ship in v1.1 (package 1.1.0), not the previously published v1.0 tag.
 
 - `await Text2D.create(text, { fontSize, fontFamily, color, padding })` creates a Sprite using the existing backend texture path. Defaults live in `src/data/text.ts`. Newlines produce left-aligned lines; glyph overhang and descenders are included in measured bounds. Empty text is transparent. Dimensions/pixels are checked before allocating the full raster canvas.
-- Transform, anchor, opacity, visibility and zIndex behave like Sprite. Style is immutable; create another Text2D to change it. Await custom font loading before creation; font availability and glyph rasterization depend on the browser. There is no automatic font loading, text layout GUI, wrapping or animation system.
+- Transform, anchor, opacity, visibility and zIndex behave like Sprite. Style is immutable; create another Text2D to change it. Await custom font loading before creation; font availability and glyph rasterization depend on the browser. There is no automatic font loading, text layout GUI, wrapping or text-animation system.
 - `await label.setText(value)` publishes the latest request only. `label.text` is the displayed text. An unchanged displayed value avoids rasterization and invalidates pending older updates. Failed updates reject and preserve the display. Superseded or post-destroy results are discarded and their textures released. Handle the Promise; do not rasterize every frame unnecessarily.
 - Text2D owns its generated textures, releases replaced textures, and destroys its current owned texture with the Scene. A caller-assigned external `texture` remains borrowed, as with Primitive2D. Do not share a Text2D-owned texture with another live Sprite: updating the label destroys that texture.
 - `scene.timers.after(seconds, callback)` and `.every(seconds, callback)` return `TimerHandle` with `active` and idempotent `cancel()`. One-shot delays must be finite and nonnegative; repeating intervals must be finite and positive. Zero delay means the next timer tick, not a synchronous call.
 - Game advances timers with clamped simulation delta before Scene.update, even when subclasses do not call super.update. Paused/hidden time is excluded. Due callbacks run in registration order within the current tick; a repeating timer fires at most once per tick and skips missed periods rather than bursting. Newly scheduled callbacks wait until the next tick.
 - Callbacks are synchronous; do not use an async callback expecting the scheduler to await it. A thrown error follows Game's fatal frame error path. Recursive timer advancement is rejected. Scene destruction cancels all remaining callbacks, clears their references, and rejects new scheduling; pending scene preparation does not advance timers. Pause requests take effect after the current synchronous timer batch.
 - Pong demonstrates canvas score text, one-second delayed serves, pause/resume and scene replacement. The feature check passed 96 tests; Chromium text rendering was exercised on WebGPU, WebGL2 and Canvas2D. This is not a new cross-browser certification.
+
+## 21. Advanced 3D (P09–P12)
+
+### Hierarchy, Cameras, Controls, and Picking
+
+- `Object3D` extends SceneObject with mutable position/Quaternion rotation/scale, `transform`, `visible`, `parent`, readonly `children`, and `worldMatrix`. `Group` is a non-rendering Object3D; Mesh extends Object3D. `updateWorldMatrix()` recomposes mutable locals and ancestors as parent-world × local. `worldVisible` includes all ancestors.
+- `parent.add(child)` registers an attached subtree with its Scene; same-Scene reparenting preserves ownership, but cycles, destroyed members, and cross-Scene ownership reject before changing the hierarchy. `parent.remove(child)` or `scene.remove(root)` detaches and unregisters the subtree without destroying it. Scene.objects includes registered descendants. Destroying a parent destroys descendants; shared geometry/material/textures remain borrowed.
+- `scene.camera3D` is replaceable with PerspectiveCamera or OrthographicCamera. Both expose mutable position, rotation, near/far, `lookAt(Vector3)` and `updateMatrix(aspect)`. Perspective fov is radians; orthographic `height=10`, `zoom=1` gives vertical extent height/zoom, with width set by aspect. Forward is local −Z.
+- `new OrbitControls(camera, canvas)` handles left-drag rotation, right/modified-left pan and middle/wheel dolly on that Canvas. Configure `target`, enable flags, speeds, min/maxDistance, min/maxZoom (orthographic), min/maxPolarAngle and min/maxAzimuthAngle (radians). `update()` reconciles external changes; `destroy()` releases capture/listeners and restores engine-owned touch-action. It is not automatically owned by Scene.
+- `Raycaster.setFromCamera(x,y,camera,aspect)` takes NDC. `intersectObjects(iterable,recursive=true,out=[])` replaces out and sorts exact indexed-triangle hits by world distance, with object/point/distance/faceIndex and instanceId for instances. Hidden ancestors exclude descendants; duplicate roots do not duplicate meshes. Tests are two-sided independently of material culling; Raycaster near=0/far=Infinity are independent of camera clipping. Skinning is refreshed before picking.
+
+### glTF, Animation, and Geometry Updates
+
+- `GLTFLoader.load(url,{signal})` and `parse(ArrayBuffer|string,baseURL?,{signal}?)` return `GLTFAsset` with scene:Group, animations:AnimationClip[] and idempotent dispose(). External/embedded buffers and images, relative URIs, GLB 2, triangle primitives, normalized/strided/sparse accessors, node TRS and decomposable affine TRS matrices, metallic-roughness materials, UV0 textures, and skins with up to four influences are supported. Missing normals are generated and missing UVs are zero.
+- Required extensions, non-triangle topology, morph targets/weights animation, vertex colors, UV sets other than UV0, extra skin influences, shear matrices and animated matrix nodes reject explicitly. This is not complete glTF extension support. Optional extensions are not implemented; use their core fallback. Image decoder limits remain those in section 18.
+- `src/data/models.ts` fixes input at 32 MiB, aggregate fetched and tracked decoded allocations at 128 MiB each, entries per top-level list at 10,000, accessor scalar elements at 4,194,304, total vertices at 1,000,000, indices at 3,000,000, joints per skin at 256, and hierarchy depth at 256. Limits reject rather than truncate; these accounting budgets are not a total browser-memory guarantee.
+- Applications must call `asset.dispose()` after removing/stopping all consumers: it destroys loader-owned nodes and textures. Scene destruction alone does not release the asset's owned textures; do not dispose while another live object borrows them. Abort/parse failure cleans up owned resources.
+- `KeyframeTrack(target,path,times,values,interpolation='LINEAR')` targets translation/rotation/scale; STEP, LINEAR and CUBICSPLINE are supported. Times are increasing nonnegative seconds; cubic values use incoming tangent/value/outgoing tangent triplets. Linear Quaternion interpolation uses the shortest path; cubic results are normalized.
+- `AnimationClip(name,tracks)` derives duration from final keys. `scene.animations.clipAction(clip)` caches an action. `play()` starts/resumes without resetting time; `stop()` resets time to zero without restoring a pose. Default loop=true wraps time; loop=false samples/clamps the endpoint and stops. timeScale may be negative for reverse playback. Mixer actions apply in creation/insertion order; the last playing action writing a property wins, without weights/blending. `stopAll()` stops actions and `destroy()` releases them.
+- Game advances scene.animations after timers and before user Scene.update with clamped simulation delta; pause/hidden time is excluded. Do not also update that mixer manually. `SkinnedMesh` performs CPU linear-blend skinning into its cloned Geometry using joint world matrices and inverse binds relative to mesh world. Renderers and picking refresh it via updateSkin(); vertex changes advance Geometry.version for uploads. Index topology remains immutable.
+
+### PBR, Lighting, Shadows, HDR, and Instancing
+
+- `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space UV0 (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Metallic/roughness default to 0/0.5; emissive defaults to zero.
+- alphaMode is OPAQUE, MASK (alphaCutoff) or BLEND; doubleSided controls culling and backface normals. Direct construction defaults to BLEND (MASK when positive cutoff supplied), doubleSided=true; glTF uses its OPAQUE/false defaults. Transparent objects still require caller-managed back-to-front insertion; no order-independent transparency or environment IBL is provided. TextureMaterial retains legacy diffuse lighting.
+- Scene.pointLights and spotLights accept PointLight/SpotLight. Position/color/intensity/range are mutable; range=0 is unlimited. Spot direction points toward the illuminated surface and innerAngle/outerAngle are radians. At most 8 point and 8 spot lights are supported; exceeding limits rejects, not truncates.
+- scene.shadows defaults disabled. Mutable mapSize=1024, extent=10 (full orthographic width/height), near=0.1, far=50, bias=0.002 and target configure directional-only 3×3 PCF. Mesh.castShadow/receiveShadow default true. Point/spot shadows and cascades are not supported.
+- scene.postProcessing defaults disabled. When enabled, 3D renders into an HDR floating-point attachment before fullscreen exposure (default 1), toneMapping ('aces' default or 'none') and actual 9-tap threshold bloom (strength=0, threshold=1, radius=2 output pixels). The 2D overlay runs afterward and is unaffected. Resize/disable/destroy release size-dependent targets. WebGL2 requires EXT_color_buffer_float and explicitly rejects requested HDR processing when unavailable.
+- `InstancedMesh({...meshOptions,count})` has fixed positive count and identity-initialized matrices. Use setMatrixAt(index,Matrix4) for finite invertible affine matrices; it increments version so upload caches notice changes. getMatrixAt(index,out) reuses out. Do not directly mutate matrices without notification. Indexed hardware instancing shares geometry/material, composing mesh.worldMatrix × instance matrix with inverse-transpose normals.
+
+See [advanced3d](../examples/advanced3d/) and the [usage guide](USAGE.md#11-advanced-3d). These are WebGPU/WebGL2 3D features; Canvas2D remains 2D-only. Actual Chromium observations do not certify other browsers or throughput.
+
+### Per-Slot Texture Sampling
+
+PBRMaterial options and readonly fields `textureSampler`, `metallicRoughnessSampler`, `normalSampler`, `occlusionSampler`, and `emissiveSampler` accept `TextureSamplerOptions`: minFilter/magFilter are 'nearest' or 'linear'; addressModeU/addressModeV are 'clamp-to-edge', 'repeat' or 'mirror-repeat'. Ordinary PBR defaults stay linear/clamp. GLTFLoader applies glTF per-slot defaults (repeat wrapping), including distinct samplers on one shared image without duplicating texture ownership. Explicit mipmapped minification filters reject; mipmap generation/filtering is not supported.

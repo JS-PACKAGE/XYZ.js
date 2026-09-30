@@ -92,7 +92,7 @@ export class Canvas2DRenderer implements Renderer {
       scaleX = canvas.width / logicalWidth;
       scaleY = canvas.height / logicalHeight;
       for (const object of scene.objects) {
-        if (object instanceof Mesh && object.visible)
+        if (object instanceof Mesh && object.worldVisible)
           throw new GraphicsBackendUnavailableError(
             'Canvas2D does not support visible 3D meshes.',
           );

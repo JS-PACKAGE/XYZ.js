@@ -2,7 +2,7 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。此指南適用於包含 P01–P08 與 Text2D／SceneTimers 的 1.1.0；套件尚未發佈 npm，根套件仍為 UNLICENSED。實際支援與限制見 [驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。本指南涵蓋套件 1.1.0、P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D。API 參考 three.js，非 drop-in 相容或全部 addons，未新增 runtime dependency。版本／發佈由所有者決定，npm 未公開，根授權仍 UNLICENSED；實測與限制見 [驗收紀錄](../ACCEPTANCE.md)。
 
 ## 1. 啟動開發環境
 
@@ -15,14 +15,15 @@ npx pnpm@12.6.0 dev
 
 開啟 `http://127.0.0.1:5173/examples/showcase/` 看 2D、3D 與音訊整合；音訊必須點擊按鈕解鎖。開發伺服器只綁定 localhost。不要直接以 `file://` 開啟頁面；WebGPU／AudioWorklet 需要安全來源，正式部署使用 HTTPS。
 
-| 範例                                        | 用途                               |
-| ------------------------------------------- | ---------------------------------- |
-| [triangle](../examples/triangle/)           | WebGPU triangle、暫停／繼續／銷毀  |
-| [sprite](../examples/sprite/)               | 共用貼圖、透明度、排序與音效       |
-| [pong](../examples/pong/)                   | 鍵盤、pointer、gamepad、相機與計分 |
-| [cube3d](../examples/cube3d/)               | 透視、光照、depth 與貼圖           |
-| [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities       |
-| [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio          |
+| 範例                                        | 用途                                                          |
+| ------------------------------------------- | ------------------------------------------------------------- |
+| [triangle](../examples/triangle/)           | WebGPU triangle、暫停／繼續／銷毀                             |
+| [sprite](../examples/sprite/)               | 共用貼圖、透明度、排序與音效                                  |
+| [pong](../examples/pong/)                   | 鍵盤、pointer、gamepad、相機與計分                            |
+| [cube3d](../examples/cube3d/)               | 透視、光照、depth 與貼圖                                      |
+| [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities                                  |
+| [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio                                     |
+| [advanced3d](../examples/advanced3d/)       | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR |
 
 ## 2. 在自己的網站使用
 
@@ -176,7 +177,7 @@ if (game.graphics.capabilities.threeD) {
 }
 ```
 
-相機朝本地 −Z，3D 先繪製，2D 疊在上面。支援 cube／sphere／plane／quad 與自訂 indexed geometry、ambient＋directional lighting，不含 glTF、陰影或骨骼動畫。不要原地修改 Geometry buffers。
+相機朝本地 −Z，3D 先繪製、2D 疊在上面。原 P05 primitives／自訂 indexed geometry 與 ambient／directional lighting 保留，另有下列進階功能。Index topology 不可變；刻意修改 vertex data 後需 geometry.markUpdated() 通知 GPU uploads。
 
 `auto` 只在初始化時依 WebGPU→WebGL2→Canvas2D 降級；明確指定 backend 失敗不切換。Canvas2D 沒有 3D，應檢查 capabilities，不要直接提交可見 Mesh。執行中 device/context loss 不會自動切換 backend。
 
@@ -268,3 +269,84 @@ Timer 使用模擬秒數：暫停時凍結，替換／銷毀 Scene 時自動取�
 文字支援換行與一般 Sprite 的 transform、anchor、opacity、zIndex；需要自訂字型時，建立前先等待 `document.fonts.load(...)`。處理 `setText()` rejection；快速重疊更新只保留最後一次請求。Style 不可變，生成貼圖屬於 label，不要共享給其他 Sprite。
 
 開啟 [Pong](../examples/pong/) 可操作文字分數、延遲發球、Pause／Resume、Restart scene。暫停期間 restart，新 Scene 仍保持暫停，直到 Resume。
+
+## 11. 進階 3D
+
+開啟 [advanced3d](../examples/advanced3d/)，使用 ?renderer=webgpu 或 ?renderer=webgl2，可見 floor、24-instance ring、metallic sphere、animated glTF ribbon、shadow 與 HDR bloom。Canvas2D 仍 2D-only。以下片段接續既有 game／scene／texture，需從統一入口 import 所用類別。
+
+### 階層、相機、Controls 與 Picking
+
+```js
+const group = scene.add(new Group());
+const mesh = group.add(
+  new Mesh({
+    geometry: Geometry.cube(),
+    material: new TextureMaterial({ texture }),
+  }),
+);
+group.position.x = 1;
+scene.camera3D = new OrthographicCamera();
+scene.camera3D.height = 8;
+scene.camera3D.position.set(0, 3, 8);
+scene.camera3D.lookAt(new Vector3());
+const controls = new OrbitControls(scene.camera3D, game.canvas);
+controls.minZoom = 0.5;
+controls.maxZoom = 4;
+const raycaster = new Raycaster();
+raycaster.setFromCamera(0, 0, scene.camera3D, 800 / 450);
+const hits = raycaster.intersectObjects(scene.objects);
+console.log(hits[0]?.object, hits[0]?.instanceId);
+```
+
+使用實際 logical viewport aspect；pointer 轉 NDC：x=2*screenX/width−1，y=1−2*screenY/height。Raycaster 為精確雙面 triangles，自己的 near／far 獨立於 camera clipping，結果按世界距離排序。Group 隱藏會隱藏子孫，world transform 包含祖先；cycle／跨 Scene parenting 拒絕。Remove 子樹只 detach，不銷毀；destroy parent 銷毀子孫。外部修改 target／camera 後 controls.update()，Scene 清理時 controls.destroy()。Limits 包含 distance、正交 zoom、polar／azimuth 弧度。
+
+### 模型與動畫
+
+```js
+const asset = await new GLTFLoader().load('/model.glb', { signal });
+scene.add(asset.scene);
+if (asset.animations[0]) {
+  const action = scene.animations.clipAction(asset.animations[0]);
+  action.loop = true;
+  action.play();
+}
+```
+
+Signal 為 initialize 的 AbortSignal，URL 需提供實際模型。parse(bytesOrJSON,baseURL,{signal}) 也支援 GLB／glTF。Game 在 timers 後、Scene.update 前推進 scene.animations，不要重複 update。TRS clips 支援 STEP／LINEAR／CUBICSPLINE；同 property 最後建立的 playing action 優先而非 blending。play 繼續時間，stop 歸零但不還原 pose，loop=false 在 endpoint sample 後停止，負 timeScale 倒播。
+
+支援 triangle、normalized／strided／sparse accessors、textures 與四 influences skins；必要 extensions、morph／其他 topology 明確拒絕。CPU SkinnedMesh 更新 cloned geometry 供 renderer／picking 使用。預算：input 32 MiB、fetched／tracked decoded 各 128 MiB、list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000／indices 3,000,000、joints 256、hierarchy depth 256。這不是 process-memory 總上限；影像解碼後檢查的限制仍適用。
+
+清理時先停止 actions／移除 consumers，再 asset.dispose()，初始化失敗也需清理。Scene destroy 不 dispose loader-owned textures；仍有 live borrower 不可 dispose。Mesh／materials 不擁有共享 textures。
+
+### PBR、陰影、HDR 與 Instances
+
+```js
+scene.add(
+  new Mesh({
+    geometry: Geometry.sphere(),
+    material: new PBRMaterial({ texture, metallic: 0.8, roughness: 0.3 }),
+  }),
+);
+scene.pointLights.push(new PointLight({ position: new Vector3(2, 3, 2) }));
+scene.shadows.enabled = true;
+scene.shadows.mapSize = 1024;
+scene.shadows.extent = 12;
+scene.postProcessing.enabled = true;
+scene.postProcessing.exposure = 1.2;
+scene.postProcessing.toneMapping = 'aces';
+scene.postProcessing.bloomStrength = 0.25;
+const instances = scene.add(
+  new InstancedMesh({
+    geometry: Geometry.cube(),
+    material: new TextureMaterial({ texture }),
+    count: 24,
+  }),
+);
+instances.setMatrixAt(0, new Matrix4());
+```
+
+PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）、normal、occlusion（R）maps，使用相應 slots／scales。alphaMode 選 OPAQUE／MASK／BLEND，alphaCutoff 控制 MASK，doubleSided 控制 culling；透明物件按遠到近加入。最多 8 point＋8 spot，超限拒絕。只有方向光 3×3 PCF shadows（每 Mesh castShadow／receiveShadow），無 point／spot shadows 或 IBL。
+
+HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
+
+各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；明確 mipmapped min filters 拒絕。

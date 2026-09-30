@@ -2,10 +2,10 @@
 
 ## 強制執行範圍（硬規則）
 
-- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.1.0**；**P01–P08 已完成並各自驗收提交**，目前進入維護。企劃書原 v0.0.1–v0.0.8 對應 P01–P08；完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證或 npm 發佈。
-- 每個里程碑的驗收硬指標全部通過後，**立即單獨提交該里程碑的 git commit**，commit message 必須以該階段前綴開頭（例如 `[P01] WebGPU Foundation`）；不得合併兩個或更多里程碑為同一 commit，亦不得提前提交未通過驗收的階段。**嚴禁 push，由使用者親自推送。**
+- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.1.0**；**P01–P08 已完成並各自驗收提交**，本輪依使用者批准擴充 P09–P12。企劃書原 v0.0.1–v0.0.8 對應 P01–P08；完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證或 npm 發佈。
+- 原 P01–P08 里程碑規則為驗收後單獨 `[Pxx]` commit，不合併阶段、不提前提交，且嚴禁 push。此歷史規則不授權本輪自動提交：P09–P12 不自動 commit／push／publish。
 - 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。`auto` 已提供 WebGPU→WebGL2→Canvas2D 初始化降級，強制指定 backend 不得靜默切換；執行中 loss 不自動切換 backend。
-- 本版不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Animation／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；也不包含 PBR、法線貼圖、陰影、骨骼動畫、glTF 載入器。
+- 原 v1.0–v1.1 非目標中的場景階層、模型載入、Animation、PBR、法線貼圖與陰影，依使用者本輪「全面擴充，分階段落地」決策納入 P09–P12。仍不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；不是承諾對齊 three.js 所有 addons。
 - TypeScript strict、Web 原生 API、零 runtime dependencies（P07 的 OPM.js 官方 vendor 發佈包除外）。禁止為了過關而另寫獨立 triangle demo 繞開正式 Game→Renderer→WebGPU 路徑。
 
 ## 倉庫結構
@@ -13,7 +13,7 @@
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
 - `packages/core/`：Game、Clock、Scene、2D／3D 物件與相機、logger；`packages/graphics/`：Renderer 契約、WebGPU／WebGL2／Canvas2D 與 auto presentation。
 - `packages/ecs/`：內部 World；`packages/math/`：2D／3D 數學；`packages/assets/`：Texture／cache；`packages/input/`：Keyboard／Pointer／Gamepad；`packages/audio/`：OPM orchestration。
-- `examples/`：`triangle/`、`sprite/`、`cube3d/`、`pong/`、`fallback-demo/`、`showcase/` 六個可執行範例；`benchmarks/sprites/`：1,000 Sprite 可重現負載量測。
+- `examples/`：原 P08 六個範例 `triangle/`、`sprite/`、`cube3d/`、`pong/`、`fallback-demo/`、`showcase/`，另增 `advanced3d/`；`benchmarks/sprites/`：1,000 Sprite 可重現負載量測。
 - `vendor/opm/`：官方 OPM.js v1.1.0 完整 dist、LICENSE、來源／checksum manifest；`scripts/copy-vendor.mjs` 在 build 後原樣複製到 `dist/vendor/opm/`。
 - `tests/`：行為測試；`dist/`：JS／宣告與 vendor 產物；`docs/TECHNICAL.md`／`TECHNICAL-zh.md`：英文／繁體中文技術參考；`docs/USAGE.md`／`USAGE-zh.md`：英文／繁體中文使用說明；根目錄含 pnpm workspace、文件六件套與 `.nojekyll`（不表示已部署）。
 
@@ -75,4 +75,17 @@ P01–P08 的功能驗收與獨立 commits 見 [ACCEPTANCE.md](ACCEPTANCE.md)。
 
 ## v1.0 後的實用性擴充
 
-依使用者要求自行評估並追加：優先補足 Canvas 文字與 scene-local 模擬計時器，而非跨入現有非目標的 Physics／Animation／Tilemap。新增 Text2D、SceneTimers／TimerHandle，整合 Pong 畫布計分、延遲發球與 pause／restart 操作。此輪不重編 P01–P08、不重寫原驗收、不自動發佈新版本；驗證見 ACCEPTANCE 最新紀錄。
+當時依使用者要求優先補足 Canvas 文字與 scene-local 模擬計時器，未跨入 Physics／3D Animation／Tilemap。新增 Text2D、SceneTimers／TimerHandle，整合 Pong 畫布計分、延遲發球與 pause／restart 操作。這是 Text2D 階段的歷史範圍；3D Animation 現已納入下列 P10，文字動畫仍非目標。此輪不重編 P01–P08、不重寫原驗收、不自動發佈新版本；驗證見 ACCEPTANCE 最新紀錄。
+
+## three.js 參考擴充：P09–P12
+
+參考 [three.js](https://github.com/mrdoob/three.js/) 的場景、相機、互動、模型與渲染能力，以 XYZ.js 正式架構實作，不加入 three.js runtime dependency，不改寫 P01–P08 歷史驗收。
+
+| 階段                              | 契約與驗收目標                                                                                                                                                                                                                          |
+| --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P09 — Scene & Interaction         | Object3D／Group 父子變換與可見性、ownership／cycle 防護；可替換透視／正交相機、lookAt、OrbitControls 旋轉／平移／縮放與清理；Raycaster 按世界距離排序精確三角形交點，涵蓋階層與 instance。                                              |
+| P10 — Models & Animation          | glTF 2.0 JSON／GLB、外部與內嵌 buffer／圖片、節點／材質／skin；有界解析、abort 與失敗清理。translation／rotation／scale 的 STEP／LINEAR／CUBICSPLINE、Scene 模擬時間與骨骼變形。未支援的必要 extension／primitive／morph 動畫明確拒絕。 |
+| P11 — Materials & Lighting        | Metallic-roughness PBR、base／normal／metallic-roughness／occlusion／emissive maps、點光源／聚光燈；可調方向光 shadow map、cast／receive 與 PCF。保留原 TextureMaterial 光照外觀；不含 point／spot shadow 或環境 IBL。                  |
+| P12 — Instancing & Postprocessing | 共用幾何的 GPU indexed instancing 與各 instance 變換／normal；3D HDR offscreen→exposure／ACES／bloom→2D overlay，包含 resize／disable／destroy 資源生命週期。WebGL2 缺少 HDR attachment extension 時明確報錯。                          |
+
+P09–P12 已在 managed Chromium 的 WebGPU／WebGL2 正式 Game 路徑完成限定支援 profile 的整合驗收；既有六個範例、loss／cleanup 與 build／typecheck／test／lint／format:check 回歸通過，25 檔／150 測試。分階段具體證據見 [ACCEPTANCE](ACCEPTANCE.md#p09p12-整合驗收2026-09-30限定已測環境)，不表示完整 three.js／glTF extensions 相容或其他瀏覽器認證。Canvas2D 維持 2D-only。套件仍 1.1.0，既有 release 不變，版本／發佈由所有者決定；不自動 commit／publish／push。

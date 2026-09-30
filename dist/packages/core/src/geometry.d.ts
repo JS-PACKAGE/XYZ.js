@@ -4,11 +4,13 @@ export interface GeometryData {
     uvs: ArrayLike<number>;
     indices: ArrayLike<number>;
 }
-/** CPU-only indexed triangles. Input arrays are copied; treat vertices and indices as immutable after construction. */
+/** CPU-only indexed triangles. Input arrays are copied; call markUpdated after changing vertices. */
 export declare class Geometry {
     /** xyz, normal xyz, uv, interleaved at a stride of eight floats. */
     readonly vertices: Float32Array;
     readonly indices: Uint32Array;
+    version: number;
+    markUpdated(): void;
     constructor(data: GeometryData);
     static cube(size?: number): Geometry;
     static sphere(radius?: number, widthSegments?: number, heightSegments?: number): Geometry;

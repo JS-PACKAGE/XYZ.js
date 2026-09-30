@@ -3,6 +3,11 @@ import { Game } from '../packages/core/src/game.js';
 import { GameObject } from '../packages/core/src/game-object.js';
 import { Scene } from '../packages/core/src/scene.js';
 import { SceneObject } from '../packages/core/src/scene-object.js';
+import { Group } from '../packages/core/src/group.js';
+import {
+  AnimationClip,
+  KeyframeTrack,
+} from '../packages/core/src/animation.js';
 import { Transform2D, Vector2 } from '../packages/math/src/index.js';
 import {
   createRenderer,
@@ -150,6 +155,43 @@ class LoggingScene extends Scene {
 }
 
 describe('Scene ownership and Game integration', () => {
+  it('samples animation before user update, freezes during pause and releases it with the scene', async () => {
+    const game = await createGame();
+    const object = new Group();
+    class AnimatedScene extends Scene {
+      observed = -1;
+      override update(): void {
+        this.observed = object.position.x;
+      }
+    }
+    const scene = new AnimatedScene();
+    scene.add(object);
+    scene.animations
+      .clipAction(
+        new AnimationClip('move', [
+          new KeyframeTrack(object, 'translation', [0, 1], [0, 0, 0, 10, 0, 0]),
+        ]),
+      )
+      .play();
+    await game.setScene(scene);
+    game.start();
+    frame(0);
+    frame(100);
+    expect(scene.observed).toBeCloseTo(1);
+    game.pause();
+    expect(frames.size).toBe(0);
+    game.resume();
+    frame(10000);
+    expect(scene.observed).toBeCloseTo(1);
+    frame(10100);
+    expect(scene.observed).toBeCloseTo(2);
+    await game.setScene(new Scene());
+    frame(10200);
+    expect(object.destroyed).toBe(true);
+    expect(object.position.x).toBeCloseTo(2);
+    game.destroy();
+  });
+
   it('advances timers without super.update and excludes paused wall time', async () => {
     const game = await createGame();
     let fired = 0;

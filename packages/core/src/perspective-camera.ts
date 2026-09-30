@@ -1,4 +1,5 @@
 import { Matrix4, Quaternion, Vector3 } from '../../math/src/index.js';
+import { lookAtRotation } from './camera-utils.js';
 
 /** Right-handed camera looking down -Z; WebGPU clip depth is 0..1. */
 export class PerspectiveCamera {
@@ -10,6 +11,10 @@ export class PerspectiveCamera {
   private readonly view = new Matrix4();
   private readonly unitScale = new Vector3(1, 1, 1);
   readonly matrix = new Matrix4();
+
+  lookAt(target: Vector3): void {
+    lookAtRotation(this.position, target, this.rotation);
+  }
 
   /** Recomputes projection * inverse(camera translation * rotation). */
   updateMatrix(aspect: number): Matrix4 {

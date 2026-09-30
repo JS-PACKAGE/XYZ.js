@@ -49,6 +49,7 @@ export declare class WebGPURenderer implements Renderer {
     private cacheTexture;
     private releaseUnusedTextures;
     private drawSprites;
+    private releaseResources;
     destroy(): void;
     private requireDevice;
 }

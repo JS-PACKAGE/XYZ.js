@@ -178,8 +178,10 @@ export class WebGPURenderer implements Renderer {
         const error = new WebGPUDeviceLostError(
           `WebGPU device lost (${info.reason}): ${info.message || 'the GPU or driver became unavailable'}.`,
         );
+        const wasInitialized = this.pipeline !== undefined;
         this.lostError = error;
-        if (this.pipeline) this.onError(error);
+        this.releaseResources();
+        if (wasInitialized) this.onError(error);
       });
       device.addEventListener(
         'uncapturederror',
@@ -645,11 +647,7 @@ export class WebGPURenderer implements Renderer {
     }
   }
 
-  destroy(): void {
-    if (this.destroyed) return;
-    this.destroyed = true;
-    const context = this.context;
-    const device = this.device;
+  private releaseResources(): void {
     this.encoder = undefined;
     this.colorAttachment.view = undefined;
     this.submissions.length = 0;
@@ -668,6 +666,14 @@ export class WebGPURenderer implements Renderer {
     for (const entry of this.textures.values()) entry.resource.destroy();
     this.textures.clear();
     this.pipeline = undefined;
+  }
+
+  destroy(): void {
+    if (this.destroyed) return;
+    this.destroyed = true;
+    const context = this.context;
+    const device = this.device;
+    this.releaseResources();
     this.context = undefined;
     this.canvas = undefined;
     this.device = undefined;

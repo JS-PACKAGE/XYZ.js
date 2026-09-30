@@ -2,6 +2,10 @@ import { Vector3 } from '../../math/src/index.js';
 import { World } from '../../ecs/src/world.js';
 import { Camera2D } from './camera2d.js';
 import { PerspectiveCamera } from './perspective-camera.js';
+import type { OrthographicCamera } from './orthographic-camera.js';
+import { AnimationMixer } from './animation.js';
+import type { PointLight, SpotLight } from './lights.js';
+import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
@@ -9,8 +13,13 @@ import { SceneTimers } from './scene-timers.js';
 export declare class Scene {
     readonly world: World;
     readonly camera2D: Camera2D;
-    readonly camera3D: PerspectiveCamera;
+    camera3D: PerspectiveCamera | OrthographicCamera;
     readonly timers: SceneTimers;
+    readonly animations: AnimationMixer;
+    readonly pointLights: PointLight[];
+    readonly spotLights: SpotLight[];
+    readonly shadows: ShadowSettings;
+    readonly postProcessing: PostProcessingSettings;
     ambientLight: number;
     /** Direction points from a surface toward the light. */
     directionalLight: {
@@ -27,7 +36,9 @@ export declare class Scene {
     get destroyed(): boolean;
     has(object: SceneObject): boolean;
     add<T extends SceneObject>(object: T): T;
+    private register;
     remove(object: SceneObject): boolean;
+    private unregister;
     /** @internal A Scene belongs to one Game for its lifetime, including failed preparation. */
     claim(game: Game): AbortSignal;
     /** @internal Abort signals are cooperative; disposal itself is always synchronous. */

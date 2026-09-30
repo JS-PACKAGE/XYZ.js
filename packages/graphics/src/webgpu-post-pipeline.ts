@@ -1,0 +1,163 @@
+import type { PostProcessingSettings } from '../../core/src/render-settings.js';
+import { GraphicsError, WebGPUInitializationError } from './errors.js';
+
+const postShader = /* wgsl */ `
+struct Settings { values: vec4f, viewport: vec4f };
+@group(0) @binding(0) var source: texture_2d<f32>;
+@group(0) @binding(1) var<uniform> settings: Settings;
+@vertex fn vertexMain(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
+  let positions = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
+  return vec4f(positions[index],0.0,1.0);
+}
+@fragment fn fragmentMain(@builtin(position) position: vec4f) -> @location(0) vec4f {
+  let size = vec2i(textureDimensions(source));
+  let pixel = clamp(vec2i(position.xy),vec2i(0),size-vec2i(1));
+  let radius = i32(min(floor(settings.viewport.z+0.5),f32(max(size.x,size.y))));
+  let sample = textureLoad(source,pixel,0);
+  var color = sample.rgb/max(sample.a,0.000001);
+  var bloom = vec3f(0.0);
+  if (settings.values.z > 0.0) {
+    for (var y = -1; y <= 1; y++) {
+      for (var x = -1; x <= 1; x++) {
+        let offset = vec2i(x,y)*radius;
+        let neighbor = textureLoad(source,clamp(pixel+offset,vec2i(0),size-vec2i(1)),0);
+        bloom += max(neighbor.rgb/max(neighbor.a,0.000001)-vec3f(settings.values.w),vec3f(0.0));
+      }
+    }
+  }
+  color = max((color+bloom*(settings.values.z/9.0))*settings.values.x,vec3f(0.0));
+  if (settings.values.y > 0.5) {
+    color = clamp((color*(2.51*color+0.03))/(color*(2.43*color+0.59)+0.14),vec3f(0.0),vec3f(1.0));
+  }
+  color = select(1.055*pow(color,vec3f(1.0/2.4))-0.055,color*12.92,color <= vec3f(0.0031308));
+  return vec4f(color*sample.a,sample.a);
+}
+`;
+
+/** A linear rgba16float scene target, resolved before the 2D overlay. */
+export class WebGPUPostPipeline {
+  private texture: GPUTexture | undefined;
+  private view: GPUTextureView | undefined;
+  private bindGroup: GPUBindGroup | undefined;
+  private buffer: GPUBuffer | undefined;
+  private width = 0;
+  private height = 0;
+  private readonly data = new Float32Array(8);
+  private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
+    view?: GPUTextureView;
+  } = {
+    loadOp: 'clear',
+    storeOp: 'store',
+  };
+  private readonly descriptor: GPURenderPassDescriptor = {
+    colorAttachments: [this.attachment as GPURenderPassColorAttachment],
+  };
+
+  private constructor(
+    private readonly device: GPUDevice,
+    private readonly pipeline: GPURenderPipeline,
+  ) {}
+
+  static async initialize(
+    device: GPUDevice,
+    format: GPUTextureFormat,
+    isDestroyed: () => boolean,
+  ): Promise<WebGPUPostPipeline> {
+    const module = device.createShaderModule({ code: postShader });
+    const info = await module.getCompilationInfo();
+    if (isDestroyed())
+      throw new GraphicsError(
+        'WebGPU renderer was destroyed during initialization.',
+      );
+    const errors = info.messages.filter((message) => message.type === 'error');
+    if (errors.length)
+      throw new WebGPUInitializationError(
+        `WebGPU post shader compilation failed: ${errors.map((message) => `${message.lineNum}:${message.linePos} ${message.message}`).join('; ')}`,
+      );
+    const pipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module, entryPoint: 'vertexMain' },
+      fragment: { module, entryPoint: 'fragmentMain', targets: [{ format }] },
+      primitive: { topology: 'triangle-list' },
+    });
+    return new WebGPUPostPipeline(device, pipeline);
+  }
+
+  target(width: number, height: number): GPUTextureView {
+    if (this.texture && this.width === width && this.height === height)
+      return this.view!;
+    this.releaseTarget();
+    if (!this.buffer) {
+      this.buffer = this.device.createBuffer({
+        size: 32,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+    }
+    const texture = this.device.createTexture({
+      size: [width, height],
+      format: 'rgba16float',
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    try {
+      const view = texture.createView();
+      this.bindGroup = this.device.createBindGroup({
+        layout: this.pipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: view },
+          { binding: 1, resource: { buffer: this.buffer } },
+        ],
+      });
+      this.texture = texture;
+      this.view = view;
+      this.width = width;
+      this.height = height;
+      return view;
+    } catch (error) {
+      texture.destroy();
+      throw error;
+    }
+  }
+
+  render(
+    encoder: GPUCommandEncoder,
+    view: GPUTextureView,
+    settings: PostProcessingSettings,
+  ): void {
+    this.data[0] = settings.exposure;
+    this.data[1] = settings.toneMapping === 'aces' ? 1 : 0;
+    this.data[2] = settings.bloomStrength;
+    this.data[3] = settings.bloomThreshold;
+    this.data[4] = this.width;
+    this.data[5] = this.height;
+    this.data[6] = settings.bloomRadius;
+    this.device.queue.writeBuffer(this.buffer!, 0, this.data);
+    this.attachment.view = view;
+    try {
+      const pass = encoder.beginRenderPass(this.descriptor);
+      pass.setPipeline(this.pipeline);
+      pass.setBindGroup(0, this.bindGroup!);
+      pass.draw(3);
+      pass.end();
+    } finally {
+      this.attachment.view = undefined;
+    }
+  }
+
+  resize(width: number, height: number): void {
+    if (this.width !== width || this.height !== height) this.releaseTarget();
+  }
+
+  releaseTarget(): void {
+    this.texture?.destroy();
+    this.texture = undefined;
+    this.view = undefined;
+    this.bindGroup = undefined;
+  }
+
+  destroy(): void {
+    this.releaseTarget();
+    this.buffer?.destroy();
+    this.buffer = undefined;
+  }
+}

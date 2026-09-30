@@ -1,7 +1,7 @@
 import { Texture } from '../../assets/src/index.js';
-import { Quaternion, Transform3D, type Vector3 } from '../../math/src/index.js';
+import { Quaternion } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
-import { SceneObject } from './scene-object.js';
+import { Object3D } from './object3d.js';
 
 export interface TextureMaterialOptions {
   texture: Texture;
@@ -45,14 +45,16 @@ export interface MeshOptions {
   rotation?: Quaternion | [number, number, number];
   scale?: [number, number, number];
   visible?: boolean;
+  castShadow?: boolean;
+  receiveShadow?: boolean;
 }
 
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
-export class Mesh extends SceneObject {
-  readonly transform = new Transform3D();
+export class Mesh extends Object3D {
   readonly geometry: Geometry;
   readonly material: TextureMaterial;
-  visible: boolean;
+  castShadow: boolean;
+  receiveShadow: boolean;
 
   constructor(options: MeshOptions) {
     super();
@@ -74,17 +76,7 @@ export class Mesh extends SceneObject {
     }
     if (options.scale) this.transform.scale.set(...options.scale);
     this.visible = options.visible ?? true;
-  }
-
-  get position(): Vector3 {
-    return this.transform.position;
-  }
-
-  get rotation(): Quaternion {
-    return this.transform.rotation;
-  }
-
-  get scale(): Vector3 {
-    return this.transform.scale;
+    this.castShadow = options.castShadow ?? true;
+    this.receiveShadow = options.receiveShadow ?? true;
   }
 }

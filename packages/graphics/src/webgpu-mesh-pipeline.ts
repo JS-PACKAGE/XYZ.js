@@ -1,81 +1,75 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
+import {
+  PBRMaterial,
+  type TextureSamplerOptions,
+} from '../../core/src/pbr-material.js';
+import { InstancedMesh } from '../../core/src/instanced-mesh.js';
+import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
+import {
+  computeShadowMatrix,
+  fillLightingData,
+  validateRenderSettings,
+} from '../../core/src/render-data.js';
+import { LIGHTING_FLOAT_COUNT } from '../../../src/data/rendering.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture } from '../../assets/src/index.js';
+import { Matrix4 } from '../../math/src/index.js';
 import { WebGPUInitializationError, GraphicsError } from './errors.js';
-
-const meshShader = /* wgsl */ `
-struct SceneUniforms {
-  viewProjection: mat4x4f,
-  lightDirection: vec4f,
-  lightColorAmbient: vec4f,
-};
-struct MeshUniforms {
-  model: mat4x4f,
-  normal: mat4x4f,
-  tint: vec4f,
-};
-@group(0) @binding(0) var<uniform> scene: SceneUniforms;
-@group(1) @binding(0) var<uniform> mesh: MeshUniforms;
-@group(2) @binding(0) var meshTexture: texture_2d<f32>;
-@group(2) @binding(1) var meshSampler: sampler;
-
-struct VertexInput {
-  @location(0) position: vec3f,
-  @location(1) normal: vec3f,
-  @location(2) uv: vec2f,
-};
-struct VertexOutput {
-  @builtin(position) position: vec4f,
-  @location(0) normal: vec3f,
-  @location(1) uv: vec2f,
-};
-@vertex
-fn vertexMain(input: VertexInput) -> VertexOutput {
-  var output: VertexOutput;
-  output.position = scene.viewProjection * mesh.model * vec4f(input.position, 1.0);
-  output.normal = (mesh.normal * vec4f(input.normal, 0.0)).xyz;
-  output.uv = input.uv;
-  return output;
-}
-@fragment
-fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
-  let texel = textureSample(meshTexture, meshSampler, input.uv);
-  let normal = input.normal;
-  let direction = scene.lightDirection.xyz;
-  let light = max(dot(normal, direction), 0.0) /
-    max(length(normal) * length(direction), 0.000001);
-  let illumination = vec3f(max(scene.lightColorAmbient.w, 0.0)) +
-    scene.lightColorAmbient.rgb * (light * max(scene.lightDirection.w, 0.0));
-  let opacity = mesh.tint.a;
-  // Uploaded texture RGB is already premultiplied; opacity multiplies RGB and A.
-  return vec4f(texel.rgb * mesh.tint.rgb * illumination * opacity, texel.a * opacity);
-}
-`;
+import { webgpuMeshShader } from './webgpu-mesh-shader.js';
+import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
 
 interface CachedGeometry {
   vertex: GPUBuffer;
   index: GPUBuffer;
+  version: number;
   seen: number;
 }
 interface CachedMesh {
   uniform: GPUBuffer;
   bindGroup: GPUBindGroup;
+  materialGroup: GPUBindGroup;
+  instance: GPUBuffer;
+  instanceVersion: number;
   data: Float32Array;
   seen: number;
 }
 interface CachedTexture {
   resource: GPUTexture;
-  bindGroup: GPUBindGroup;
+  view: GPUTextureView;
   seen: number;
 }
 
-/** Renderer-private resources; Geometry vertex/index data must remain immutable after construction. */
+/** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private readonly meshes = new Map<Mesh, CachedMesh>();
   private readonly textures = new Map<Texture, CachedTexture>();
-  private readonly sceneData = new Float32Array(24);
+  private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
+  private readonly samplers = new Map<number, GPUSampler>();
+  private readonly draws: Mesh[] = [];
+  private readonly sceneData = new Float32Array(244);
+  private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
+  private readonly shadowMatrix = new Matrix4();
+  private readonly sceneBuffer: GPUBuffer;
+  private readonly sampler: GPUSampler;
+  private readonly whiteTexture: GPUTexture;
+  private readonly whiteView: GPUTextureView;
+  private readonly emptyShadow: GPUTexture;
+  private readonly emptyShadowView: GPUTextureView;
+  private readonly identityBuffer: GPUBuffer;
+  private sceneBindGroup: GPUBindGroup;
+  private readonly shadowSceneBindGroup: GPUBindGroup;
+  private shadowTexture: GPUTexture | undefined;
+  private shadowView: GPUTextureView | undefined;
+  private shadowSize = 0;
+  private depthTexture: GPUTexture | undefined;
+  private depthView: GPUTextureView | undefined;
+  private depthWidth = 0;
+  private depthHeight = 0;
+  private frame = 0;
+  private readonly linearClear = { r: 0, g: 0, b: 0, a: 1 };
+  private readonly clearComponents = new Float32Array(4);
   private readonly colorAttachment: Omit<
     GPURenderPassColorAttachment,
     'view'
@@ -96,76 +90,165 @@ export class WebGPUMeshPipeline {
     depthStencilAttachment: this
       .depthAttachment as GPURenderPassDepthStencilAttachment,
   };
-  private sceneBuffer: GPUBuffer | undefined;
-  private sceneBindGroup: GPUBindGroup | undefined;
-  private sampler: GPUSampler | undefined;
-  private depthTexture: GPUTexture | undefined;
-  private depthView: GPUTextureView | undefined;
-  private depthWidth = 0;
-  private depthHeight = 0;
-  private frame = 0;
+  private readonly shadowAttachment: Omit<
+    GPURenderPassDepthStencilAttachment,
+    'view'
+  > & { view?: GPUTextureView } = {
+    depthLoadOp: 'clear',
+    depthStoreOp: 'store',
+    depthClearValue: 1,
+  };
+  private readonly shadowDescriptor: GPURenderPassDescriptor = {
+    colorAttachments: [],
+    depthStencilAttachment: this
+      .shadowAttachment as GPURenderPassDepthStencilAttachment,
+  };
 
   private constructor(
     private readonly device: GPUDevice,
     private readonly pipeline: GPURenderPipeline,
-  ) {}
+    private readonly hdrPipeline: GPURenderPipeline,
+    private readonly shadowPipeline: GPURenderPipeline,
+    private readonly sceneLayout: GPUBindGroupLayout,
+    private readonly meshLayout: GPUBindGroupLayout,
+    private readonly materialLayout: GPUBindGroupLayout,
+    private readonly post: WebGPUPostPipeline,
+  ) {
+    this.sceneBuffer = device.createBuffer({
+      size: this.sceneData.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.sampler = device.createSampler({
+      minFilter: 'linear',
+      magFilter: 'linear',
+      addressModeU: 'clamp-to-edge',
+      addressModeV: 'clamp-to-edge',
+    });
+    this.whiteTexture = device.createTexture({
+      size: [1, 1],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    device.queue.writeTexture(
+      { texture: this.whiteTexture },
+      new Uint8Array([255, 255, 255, 255]),
+      {},
+      [1, 1],
+    );
+    this.whiteView = this.whiteTexture.createView();
+    // A distinct unused depth view keeps the shadow pass from sampling its own attachment.
+    this.emptyShadow = device.createTexture({
+      size: [1, 1],
+      format: 'depth32float',
+      usage: GPUTextureUsage.TEXTURE_BINDING,
+    });
+    this.emptyShadowView = this.emptyShadow.createView();
+    this.identityBuffer = device.createBuffer({
+      size: 64,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.identityBuffer, 0, new Matrix4().elements);
+    this.sceneBindGroup = this.createSceneGroup(this.emptyShadowView);
+    this.shadowSceneBindGroup = this.sceneBindGroup;
+  }
 
   static async initialize(
     device: GPUDevice,
     format: GPUTextureFormat,
     isDestroyed: () => boolean,
   ): Promise<WebGPUMeshPipeline> {
-    const module = device.createShaderModule({ code: meshShader });
+    const module = device.createShaderModule({ code: webgpuMeshShader });
     const compilation = await module.getCompilationInfo();
     if (isDestroyed())
       throw new GraphicsError(
         'WebGPU renderer was destroyed during initialization.',
       );
-    const errors = compilation.messages
-      .filter((message) => message.type === 'error')
-      .map(
-        (message) => `${message.lineNum}:${message.linePos} ${message.message}`,
-      );
+    const errors = compilation.messages.filter(
+      (message) => message.type === 'error',
+    );
     if (errors.length)
       throw new WebGPUInitializationError(
-        `WebGPU 3D shader compilation failed: ${errors.join('; ')}`,
+        `WebGPU 3D shader compilation failed: ${errors.map((message) => `${message.lineNum}:${message.linePos} ${message.message}`).join('; ')}`,
       );
-    const pipeline = device.createRenderPipeline({
-      layout: 'auto',
-      vertex: {
-        module,
-        entryPoint: 'vertexMain',
-        buffers: [
-          {
-            arrayStride: 32,
-            attributes: [
-              { shaderLocation: 0, offset: 0, format: 'float32x3' },
-              { shaderLocation: 1, offset: 12, format: 'float32x3' },
-              { shaderLocation: 2, offset: 24, format: 'float32x2' },
-            ],
-          },
+    const sceneLayout = device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          buffer: { type: 'uniform' },
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.FRAGMENT,
+          texture: { sampleType: 'depth' },
+        },
+      ],
+    });
+    const meshLayout = device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          buffer: { type: 'uniform' },
+        },
+      ],
+    });
+    const materialLayout = device.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 6, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 7, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+      ],
+    });
+    const layout = device.createPipelineLayout({
+      bindGroupLayouts: [sceneLayout, meshLayout, materialLayout],
+    });
+    const buffers: GPUVertexBufferLayout[] = [
+      {
+        arrayStride: 32,
+        attributes: [
+          { shaderLocation: 0, offset: 0, format: 'float32x3' },
+          { shaderLocation: 1, offset: 12, format: 'float32x3' },
+          { shaderLocation: 2, offset: 24, format: 'float32x2' },
         ],
       },
+      {
+        arrayStride: 64,
+        stepMode: 'instance',
+        attributes: [
+          { shaderLocation: 3, offset: 0, format: 'float32x4' },
+          { shaderLocation: 4, offset: 16, format: 'float32x4' },
+          { shaderLocation: 5, offset: 32, format: 'float32x4' },
+          { shaderLocation: 6, offset: 48, format: 'float32x4' },
+        ],
+      },
+    ];
+    const blend: GPUBlendState = {
+      color: {
+        srcFactor: 'one',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add',
+      },
+      alpha: {
+        srcFactor: 'one',
+        dstFactor: 'one-minus-src-alpha',
+        operation: 'add',
+      },
+    };
+    const pipeline = device.createRenderPipeline({
+      layout,
+      vertex: { module, entryPoint: 'vertexMain', buffers },
       fragment: {
         module,
         entryPoint: 'fragmentMain',
-        targets: [
-          {
-            format,
-            blend: {
-              color: {
-                srcFactor: 'one',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
-              alpha: {
-                srcFactor: 'one',
-                dstFactor: 'one-minus-src-alpha',
-                operation: 'add',
-              },
-            },
-          },
-        ],
+        targets: [{ format, blend }],
       },
       primitive: { topology: 'triangle-list' },
       depthStencil: {
@@ -174,10 +257,54 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     });
-    return new WebGPUMeshPipeline(device, pipeline);
+    const hdrPipeline = device.createRenderPipeline({
+      layout,
+      vertex: { module, entryPoint: 'vertexMain', buffers },
+      fragment: {
+        module,
+        entryPoint: 'fragmentMain',
+        targets: [{ format: 'rgba16float', blend }],
+      },
+      primitive: { topology: 'triangle-list' },
+      depthStencil: {
+        format: 'depth24plus',
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+      },
+    });
+    const shadowPipeline = device.createRenderPipeline({
+      layout,
+      vertex: { module, entryPoint: 'shadowVertex', buffers },
+      fragment: { module, entryPoint: 'shadowFragment', targets: [] },
+      primitive: { topology: 'triangle-list' },
+      depthStencil: {
+        format: 'depth32float',
+        depthWriteEnabled: true,
+        depthCompare: 'less',
+      },
+    });
+    const post = await WebGPUPostPipeline.initialize(
+      device,
+      format,
+      isDestroyed,
+    );
+    try {
+      return new WebGPUMeshPipeline(
+        device,
+        pipeline,
+        hdrPipeline,
+        shadowPipeline,
+        sceneLayout,
+        meshLayout,
+        materialLayout,
+        post,
+      );
+    } catch (error) {
+      post.destroy();
+      throw error;
+    }
   }
 
-  /** Release depth only on an actual backing-size change; other caches survive resize. */
   resize(width: number, height: number): void {
     if (
       this.depthTexture &&
@@ -187,9 +314,10 @@ export class WebGPUMeshPipeline {
       this.depthTexture = undefined;
       this.depthView = undefined;
     }
+    this.post.resize(width, height);
   }
 
-  /** Draw visible 3D meshes into a cleared depth pass before the sprite overlay. */
+  /** Shadows and linear HDR resolution precede the existing sprite overlay. */
   render(
     scene: Scene | undefined,
     encoder: GPUCommandEncoder,
@@ -200,91 +328,183 @@ export class WebGPUMeshPipeline {
     clearValue: GPUColor,
   ): boolean {
     this.frame++;
-    let pass: GPURenderPassEncoder | undefined;
+    this.draws.length = 0;
     try {
-      if (scene) {
-        for (const object of scene.objects) {
-          if (
-            !(object instanceof Mesh) ||
-            !object.visible ||
-            object.material.opacity <= 0 ||
-            object.material.texture.destroyed ||
-            object.geometry.indices.length === 0
-          )
-            continue;
-          if (!pass) {
-            this.prepareScene(scene, aspect);
-            this.ensureDepth(width, height);
-            this.colorAttachment.view = view;
-            this.colorAttachment.clearValue = clearValue;
-            this.depthAttachment.view = this.depthView;
-            pass = encoder.beginRenderPass(this.renderPassDescriptor);
-            pass.setViewport(0, 0, width, height, 0, 1);
-            pass.setPipeline(this.pipeline);
-            pass.setBindGroup(0, this.sceneBindGroup!);
-          }
-          const geometry = this.cacheGeometry(object.geometry);
-          const mesh = this.cacheMesh(object);
-          const texture = this.cacheTexture(object.material.texture);
-          geometry.seen = mesh.seen = texture.seen = this.frame;
-          this.updateMesh(object, mesh);
-          pass.setBindGroup(1, mesh.bindGroup);
-          pass.setBindGroup(2, texture.bindGroup);
-          pass.setVertexBuffer(0, geometry.vertex);
-          pass.setIndexBuffer(geometry.index, 'uint32');
-          pass.drawIndexed(object.geometry.indices.length);
-        }
+      if (!scene) {
+        this.post.releaseTarget();
+        return false;
       }
-      return pass !== undefined;
-    } finally {
+      validateRenderSettings(scene);
+      this.ensureShadow(scene);
+      this.prepareScene(scene, aspect);
+      for (const object of scene.objects) {
+        if (
+          !(object instanceof Mesh) ||
+          !object.worldVisible ||
+          object.material.texture.destroyed ||
+          object.geometry.indices.length === 0 ||
+          (object instanceof InstancedMesh && object.count === 0)
+        )
+          continue;
+        if (
+          object.material.opacity <= 0 &&
+          (!(object.material instanceof PBRMaterial) ||
+            object.material.alphaMode === 'BLEND')
+        )
+          continue;
+        if (object instanceof SkinnedMesh) object.updateSkin();
+        object.updateWorldMatrix();
+        const geometry = this.cacheGeometry(object.geometry);
+        const mesh = this.cacheMesh(object);
+        geometry.seen = mesh.seen = this.frame;
+        this.updateMesh(object, mesh);
+        this.draws.push(object);
+      }
+      if (scene.shadows.enabled) this.renderShadows(encoder);
+      const postEnabled = scene.postProcessing.enabled;
+      if (!postEnabled) this.post.releaseTarget();
+      if (!this.draws.length && !postEnabled) return false;
+      this.ensureDepth(width, height);
+      this.colorAttachment.view = postEnabled
+        ? this.post.target(width, height)
+        : view;
+      this.colorAttachment.clearValue = postEnabled
+        ? this.decodeClear(clearValue)
+        : clearValue;
+      this.depthAttachment.view = this.depthView;
+      const pass = encoder.beginRenderPass(this.renderPassDescriptor);
       try {
-        pass?.end();
+        pass.setViewport(0, 0, width, height, 0, 1);
+        pass.setPipeline(postEnabled ? this.hdrPipeline : this.pipeline);
+        pass.setBindGroup(0, this.sceneBindGroup);
+        for (const object of this.draws) this.drawMesh(pass, object);
       } finally {
-        this.colorAttachment.view = undefined;
-        this.depthAttachment.view = undefined;
-        this.releaseUnused();
+        pass.end();
       }
+      if (postEnabled) this.post.render(encoder, view, scene.postProcessing);
+      return true;
+    } finally {
+      this.colorAttachment.view = undefined;
+      this.depthAttachment.view = undefined;
+      this.shadowAttachment.view = undefined;
+      this.draws.length = 0;
+      this.releaseUnused();
+    }
+  }
+
+  private createSceneGroup(view: GPUTextureView): GPUBindGroup {
+    return this.device.createBindGroup({
+      layout: this.sceneLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.sceneBuffer } },
+        { binding: 1, resource: view },
+      ],
+    });
+  }
+
+  private ensureShadow(scene: Scene): void {
+    if (!scene.shadows.enabled) {
+      if (this.shadowTexture) {
+        this.shadowTexture.destroy();
+        this.shadowTexture = undefined;
+        this.shadowView = undefined;
+        this.sceneBindGroup = this.shadowSceneBindGroup;
+      }
+      return;
+    }
+    const size = scene.shadows.mapSize;
+    if (size > this.device.limits.maxTextureDimension2D)
+      throw new GraphicsError(
+        `WebGPU shadow map size ${size} exceeds this device's texture limit.`,
+      );
+    if (this.shadowTexture && this.shadowSize === size) return;
+    this.shadowTexture?.destroy();
+    this.shadowTexture = undefined;
+    this.shadowView = undefined;
+    const texture = this.device.createTexture({
+      size: [size, size],
+      format: 'depth32float',
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    try {
+      const view = texture.createView();
+      this.sceneBindGroup = this.createSceneGroup(view);
+      this.shadowTexture = texture;
+      this.shadowView = view;
+      this.shadowSize = size;
+    } catch (error) {
+      texture.destroy();
+      throw error;
     }
   }
 
   private prepareScene(scene: Scene, aspect: number): void {
-    const device = this.device;
-    if (!this.sceneBuffer) {
-      const buffer = device.createBuffer({
-        size: 96,
-        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-      });
-      try {
-        const bindGroup = device.createBindGroup({
-          layout: this.pipeline.getBindGroupLayout(0),
-          entries: [{ binding: 0, resource: { buffer } }],
-        });
-        const sampler = device.createSampler({
-          magFilter: 'linear',
-          minFilter: 'linear',
-          addressModeU: 'clamp-to-edge',
-          addressModeV: 'clamp-to-edge',
-        });
-        this.sceneBuffer = buffer;
-        this.sceneBindGroup = bindGroup;
-        this.sampler = sampler;
-      } catch (error) {
-        buffer.destroy();
-        throw error;
-      }
-    }
     const data = this.sceneData;
     data.set(scene.camera3D.updateMatrix(aspect).elements, 0);
-    const light = scene.directionalLight;
-    data[16] = light.direction.x;
-    data[17] = light.direction.y;
-    data[18] = light.direction.z;
-    data[19] = light.intensity;
-    data[20] = light.color[0];
-    data[21] = light.color[1];
-    data[22] = light.color[2];
-    data[23] = scene.ambientLight;
-    device.queue.writeBuffer(this.sceneBuffer, 0, data);
+    data[16] = scene.camera3D.position.x;
+    data[17] = scene.camera3D.position.y;
+    data[18] = scene.camera3D.position.z;
+    if (scene.shadows.enabled) computeShadowMatrix(scene, this.shadowMatrix);
+    else this.shadowMatrix.identity();
+    data.set(this.shadowMatrix.elements, 20);
+    data[36] = scene.shadows.enabled ? 1 : 0;
+    data[37] = scene.shadows.bias;
+    fillLightingData(scene, this.lightingData);
+    data.set(this.lightingData, 40);
+    data[50] = scene.postProcessing.enabled ? 1 : 0;
+    this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
+  }
+
+  private renderShadows(encoder: GPUCommandEncoder): void {
+    this.shadowAttachment.view = this.shadowView;
+    const pass = encoder.beginRenderPass(this.shadowDescriptor);
+    try {
+      pass.setViewport(0, 0, this.shadowSize, this.shadowSize, 0, 1);
+      pass.setPipeline(this.shadowPipeline);
+      pass.setBindGroup(0, this.shadowSceneBindGroup);
+      for (const object of this.draws)
+        if (object.castShadow) this.drawMesh(pass, object);
+    } finally {
+      pass.end();
+      this.shadowAttachment.view = undefined;
+    }
+  }
+
+  private drawMesh(pass: GPURenderPassEncoder, object: Mesh): void {
+    const geometry = this.geometries.get(object.geometry)!;
+    const mesh = this.meshes.get(object)!;
+    pass.setBindGroup(1, mesh.bindGroup);
+    pass.setBindGroup(2, mesh.materialGroup);
+    pass.setVertexBuffer(0, geometry.vertex);
+    pass.setVertexBuffer(1, mesh.instance);
+    pass.setIndexBuffer(geometry.index, 'uint32');
+    pass.drawIndexed(
+      object.geometry.indices.length,
+      object instanceof InstancedMesh ? object.count : 1,
+    );
+  }
+
+  private decodeClear(value: GPUColor): GPUColorDict {
+    const components = this.clearComponents;
+    if ('r' in value) {
+      components[0] = value.r;
+      components[1] = value.g;
+      components[2] = value.b;
+      components[3] = value.a;
+    } else {
+      let i = 0;
+      for (const component of value) components[i++] = component;
+    }
+    for (let i = 0; i < 3; i++) {
+      const v = components[i];
+      components[i] = v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+    }
+    this.linearClear.r = components[0];
+    this.linearClear.g = components[1];
+    this.linearClear.b = components[2];
+    this.linearClear.a = components[3];
+    return this.linearClear;
   }
 
   private ensureDepth(width: number, height: number): void {
@@ -295,8 +515,6 @@ export class WebGPUMeshPipeline {
     )
       return;
     this.depthTexture?.destroy();
-    this.depthTexture = undefined;
-    this.depthView = undefined;
     this.depthTexture = this.device.createTexture({
       size: [width, height],
       format: 'depth24plus',
@@ -309,7 +527,13 @@ export class WebGPUMeshPipeline {
 
   private cacheGeometry(geometry: Geometry): CachedGeometry {
     const existing = this.geometries.get(geometry);
-    if (existing) return existing;
+    if (existing) {
+      if (existing.version !== geometry.version) {
+        this.device.queue.writeBuffer(existing.vertex, 0, geometry.vertices);
+        existing.version = geometry.version;
+      }
+      return existing;
+    }
     const vertex = this.device.createBuffer({
       size: geometry.vertices.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -322,7 +546,12 @@ export class WebGPUMeshPipeline {
       try {
         this.device.queue.writeBuffer(vertex, 0, geometry.vertices);
         this.device.queue.writeBuffer(index, 0, geometry.indices);
-        const entry = { vertex, index, seen: this.frame };
+        const entry = {
+          vertex,
+          index,
+          version: geometry.version,
+          seen: this.frame,
+        };
         this.geometries.set(geometry, entry);
         return entry;
       } catch (error) {
@@ -336,20 +565,90 @@ export class WebGPUMeshPipeline {
   }
 
   private cacheMesh(object: Mesh): CachedMesh {
+    const material = object.material;
+    const pbr = material instanceof PBRMaterial;
+    const base = this.cacheTexture(material.texture, !pbr).view;
+    const mr =
+      pbr && material.metallicRoughnessTexture
+        ? this.cacheTexture(material.metallicRoughnessTexture, false).view
+        : this.whiteView;
+    const normal =
+      pbr && material.normalTexture
+        ? this.cacheTexture(material.normalTexture, false).view
+        : this.whiteView;
+    const ao =
+      pbr && material.occlusionTexture
+        ? this.cacheTexture(material.occlusionTexture, false).view
+        : this.whiteView;
+    const emissive =
+      pbr && material.emissiveTexture
+        ? this.cacheTexture(material.emissiveTexture, false).view
+        : this.whiteView;
     const existing = this.meshes.get(object);
     if (existing) return existing;
     const uniform = this.device.createBuffer({
       size: 144,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+    let instance = this.identityBuffer;
     try {
+      if (object instanceof InstancedMesh) {
+        instance = this.device.createBuffer({
+          size: object.matrices.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(instance, 0, object.matrices);
+      }
       const bindGroup = this.device.createBindGroup({
-        layout: this.pipeline.getBindGroupLayout(1),
+        layout: this.meshLayout,
         entries: [{ binding: 0, resource: { buffer: uniform } }],
+      });
+      const materialGroup = this.device.createBindGroup({
+        layout: this.materialLayout,
+        entries: [
+          { binding: 0, resource: base },
+          {
+            binding: 1,
+            resource: pbr
+              ? this.cacheSampler(material.textureSampler)
+              : this.sampler,
+          },
+          { binding: 2, resource: mr },
+          { binding: 3, resource: normal },
+          { binding: 4, resource: ao },
+          { binding: 5, resource: emissive },
+          {
+            binding: 6,
+            resource: pbr
+              ? this.cacheSampler(material.metallicRoughnessSampler)
+              : this.sampler,
+          },
+          {
+            binding: 7,
+            resource: pbr
+              ? this.cacheSampler(material.normalSampler)
+              : this.sampler,
+          },
+          {
+            binding: 8,
+            resource: pbr
+              ? this.cacheSampler(material.occlusionSampler)
+              : this.sampler,
+          },
+          {
+            binding: 9,
+            resource: pbr
+              ? this.cacheSampler(material.emissiveSampler)
+              : this.sampler,
+          },
+        ],
       });
       const entry = {
         uniform,
         bindGroup,
+        materialGroup,
+        instance,
+        instanceVersion: object instanceof InstancedMesh ? object.version : 0,
         data: new Float32Array(36),
         seen: this.frame,
       };
@@ -357,13 +656,54 @@ export class WebGPUMeshPipeline {
       return entry;
     } catch (error) {
       uniform.destroy();
+      if (instance !== this.identityBuffer) instance.destroy();
       throw error;
     }
   }
 
-  private cacheTexture(texture: Texture): CachedTexture {
-    const existing = this.textures.get(texture);
+  private cacheSampler(options: TextureSamplerOptions | undefined): GPUSampler {
+    const minFilter = options?.minFilter ?? 'linear';
+    const magFilter = options?.magFilter ?? 'linear';
+    const addressModeU = options?.addressModeU ?? 'clamp-to-edge';
+    const addressModeV = options?.addressModeV ?? 'clamp-to-edge';
+    const key =
+      (minFilter === 'nearest' ? 1 : 0) |
+      (magFilter === 'nearest' ? 2 : 0) |
+      (addressModeU === 'repeat'
+        ? 4
+        : addressModeU === 'mirror-repeat'
+          ? 8
+          : 0) |
+      (addressModeV === 'repeat'
+        ? 16
+        : addressModeV === 'mirror-repeat'
+          ? 32
+          : 0);
+    if (key === 0) return this.sampler;
+    const existing = this.samplers.get(key);
     if (existing) return existing;
+    const sampler = this.device.createSampler({
+      minFilter,
+      magFilter,
+      addressModeU,
+      addressModeV,
+    });
+    this.samplers.set(key, sampler);
+    return sampler;
+  }
+
+  private cacheTexture(
+    texture: Texture,
+    premultiplied: boolean,
+  ): CachedTexture {
+    if (texture.destroyed)
+      throw new GraphicsError('WebGPU material map has been destroyed.');
+    const cache = premultiplied ? this.premultipliedTextures : this.textures;
+    const existing = cache.get(texture);
+    if (existing) {
+      existing.seen = this.frame;
+      return existing;
+    }
     const { width, height } = texture;
     const limit = this.device.limits.maxTextureDimension2D;
     if (
@@ -388,18 +728,11 @@ export class WebGPUMeshPipeline {
     try {
       this.device.queue.copyExternalImageToTexture(
         { source: texture.image },
-        { texture: resource, premultipliedAlpha: true },
+        { texture: resource, premultipliedAlpha: premultiplied },
         [width, height],
       );
-      const bindGroup = this.device.createBindGroup({
-        layout: this.pipeline.getBindGroupLayout(2),
-        entries: [
-          { binding: 0, resource: resource.createView() },
-          { binding: 1, resource: this.sampler! },
-        ],
-      });
-      const entry = { resource, bindGroup, seen: this.frame };
-      this.textures.set(texture, entry);
+      const entry = { resource, view: resource.createView(), seen: this.frame };
+      cache.set(texture, entry);
       return entry;
     } catch (error) {
       resource.destroy();
@@ -408,81 +741,103 @@ export class WebGPUMeshPipeline {
   }
 
   private updateMesh(object: Mesh, mesh: CachedMesh): void {
-    const model = object.transform.updateMatrix().elements;
+    const material = object.material;
     const data = mesh.data;
-    data.set(model, 0);
-    // Columns of inverse-transpose(model3x3) are the cofactors of model's columns.
-    const a0 = model[0],
-      a1 = model[1],
-      a2 = model[2];
-    const b0 = model[4],
-      b1 = model[5],
-      b2 = model[6];
-    const c0 = model[8],
-      c1 = model[9],
-      c2 = model[10];
-    const n0 = b1 * c2 - b2 * c1,
-      n1 = b2 * c0 - b0 * c2,
-      n2 = b0 * c1 - b1 * c0;
-    const det = a0 * n0 + a1 * n1 + a2 * n2;
-    const inverseDet = det !== 0 ? 1 / det : 0;
-    data[16] = n0 * inverseDet;
-    data[17] = n1 * inverseDet;
-    data[18] = n2 * inverseDet;
-    data[19] = 0;
-    data[20] = (c1 * a2 - c2 * a1) * inverseDet;
-    data[21] = (c2 * a0 - c0 * a2) * inverseDet;
-    data[22] = (c0 * a1 - c1 * a0) * inverseDet;
-    data[23] = 0;
-    data[24] = (a1 * b2 - a2 * b1) * inverseDet;
-    data[25] = (a2 * b0 - a0 * b2) * inverseDet;
-    data[26] = (a0 * b1 - a1 * b0) * inverseDet;
-    data[27] = 0;
-    data[28] = data[29] = data[30] = 0;
-    data[31] = 1;
-    data[32] = object.material.color[0];
-    data[33] = object.material.color[1];
-    data[34] = object.material.color[2];
-    data[35] = object.material.opacity;
+    data.set(object.worldMatrix.elements, 0);
+    data[16] = material.color[0];
+    data[17] = material.color[1];
+    data[18] = material.color[2];
+    data[19] = material.opacity;
+    if (material instanceof PBRMaterial) {
+      data[20] = 1;
+      data[21] = material.metallic;
+      data[22] = material.roughness;
+      data[23] = material.normalScale;
+      data[24] = material.emissive[0];
+      data[25] = material.emissive[1];
+      data[26] = material.emissive[2];
+      data[27] = material.occlusionStrength;
+      data[28] = material.metallicRoughnessTexture ? 1 : 0;
+      data[29] = material.normalTexture ? 1 : 0;
+      data[30] = material.occlusionTexture ? 1 : 0;
+      data[31] = material.emissiveTexture ? 1 : 0;
+      data[32] = material.alphaCutoff;
+      data[33] = material.doubleSided ? 1 : 0;
+      data[35] =
+        material.alphaMode === 'OPAQUE'
+          ? 0
+          : material.alphaMode === 'MASK'
+            ? 1
+            : 2;
+    } else {
+      data[20] = 0;
+      data[32] = 0;
+      data[33] = 1;
+    }
+    data[34] = object.receiveShadow ? 1 : 0;
+    if (
+      object instanceof InstancedMesh &&
+      mesh.instanceVersion !== object.version
+    ) {
+      this.device.queue.writeBuffer(mesh.instance, 0, object.matrices);
+      mesh.instanceVersion = object.version;
+    }
     this.device.queue.writeBuffer(mesh.uniform, 0, data);
   }
 
   private releaseUnused(): void {
-    for (const [geometry, entry] of this.geometries) {
+    for (const [geometry, entry] of this.geometries)
       if (entry.seen !== this.frame) {
         entry.vertex.destroy();
         entry.index.destroy();
         this.geometries.delete(geometry);
       }
-    }
-    for (const [object, entry] of this.meshes) {
+    for (const [object, entry] of this.meshes)
       if (entry.seen !== this.frame) {
         entry.uniform.destroy();
+        if (entry.instance !== this.identityBuffer) entry.instance.destroy();
         this.meshes.delete(object);
       }
-    }
-    for (const [texture, entry] of this.textures) {
+    this.releaseUnusedTextures(this.textures);
+    this.releaseUnusedTextures(this.premultipliedTextures);
+  }
+
+  private releaseUnusedTextures(cache: Map<Texture, CachedTexture>): void {
+    for (const [texture, entry] of cache)
       if (texture.destroyed || entry.seen !== this.frame) {
         entry.resource.destroy();
-        this.textures.delete(texture);
+        cache.delete(texture);
       }
-    }
   }
 
   destroy(): void {
+    this.post.destroy();
     this.depthTexture?.destroy();
     this.depthTexture = undefined;
     this.depthView = undefined;
-    this.sceneBuffer?.destroy();
-    this.sceneBuffer = undefined;
+    this.shadowTexture?.destroy();
+    this.shadowTexture = undefined;
+    this.shadowView = undefined;
+    this.sceneBuffer.destroy();
+    this.whiteTexture.destroy();
+    this.emptyShadow.destroy();
+    this.identityBuffer.destroy();
     for (const entry of this.geometries.values()) {
       entry.vertex.destroy();
       entry.index.destroy();
     }
     this.geometries.clear();
-    for (const entry of this.meshes.values()) entry.uniform.destroy();
+    for (const entry of this.meshes.values()) {
+      entry.uniform.destroy();
+      if (entry.instance !== this.identityBuffer) entry.instance.destroy();
+    }
     this.meshes.clear();
     for (const entry of this.textures.values()) entry.resource.destroy();
+    for (const entry of this.premultipliedTextures.values())
+      entry.resource.destroy();
     this.textures.clear();
+    this.premultipliedTextures.clear();
+    this.draws.length = 0;
+    this.samplers.clear();
   }
 }

@@ -628,6 +628,8 @@ export class Game extends EventTarget {
       scene?.timers.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)
+        scene.animations.update(this.clock.deltaTime);
+      if (scene && scene === this.currentScene && !scene.destroyed)
         scene.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)

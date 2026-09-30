@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine, not a complete game. This guide covers version 1.1.0 with P01–P08 and Text2D/SceneTimers delivered. The package is not published to npm and the root license remains UNLICENSED. See [acceptance records](../ACCEPTANCE.md) for verified support and limitations.
+XYZ.js is a browser game engine, not a complete game. This guide covers package 1.1.0, P01–P08, Text2D/SceneTimers and P09–P12 advanced 3D. Its three.js-inspired API is not drop-in compatible and does not implement every addon; no runtime dependency was added. Versioning/publication remain the owner's decision; npm is unpublished and the root license is UNLICENSED. See [acceptance records](../ACCEPTANCE.md) for measured support and limitations.
 
 ## 1. Start the Development Environment
 
@@ -15,14 +15,15 @@ npx pnpm@12.6.0 dev
 
 Open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio. Click the audio button to unlock playback. The development server binds only to localhost. Do not open pages with `file://`: WebGPU and AudioWorklet require a secure context; use HTTPS in production.
 
-| Example                                     | Purpose                                     |
-| ------------------------------------------- | ------------------------------------------- |
-| [triangle](../examples/triangle/)           | WebGPU triangle, pause/resume/destroy       |
-| [sprite](../examples/sprite/)               | Shared textures, opacity, ordering, sound   |
-| [pong](../examples/pong/)                   | Keyboard, pointer, gamepad, camera, scoring |
-| [cube3d](../examples/cube3d/)               | Perspective, lighting, depth, textures      |
-| [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities          |
-| [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio            |
+| Example                                     | Purpose                                                            |
+| ------------------------------------------- | ------------------------------------------------------------------ |
+| [triangle](../examples/triangle/)           | WebGPU triangle, pause/resume/destroy                              |
+| [sprite](../examples/sprite/)               | Shared textures, opacity, ordering, sound                          |
+| [pong](../examples/pong/)                   | Keyboard, pointer, gamepad, camera, scoring                        |
+| [cube3d](../examples/cube3d/)               | Perspective, lighting, depth, textures                             |
+| [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities                                 |
+| [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio                                   |
+| [advanced3d](../examples/advanced3d/)       | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR |
 
 ## 2. Use It on Your Website
 
@@ -178,7 +179,7 @@ if (game.graphics.capabilities.threeD) {
 }
 ```
 
-The camera faces local −Z. 3D renders before the 2D overlay. Supported features include cube/sphere/plane/quad, custom indexed geometry, and ambient plus directional lighting, not glTF, shadows, or skeletal animation. Do not mutate Geometry buffers in place.
+The camera faces local −Z. 3D renders before the 2D overlay. The original P05 primitives/custom indexed geometry and ambient/directional lighting remain supported alongside the advanced features below. Index topology stays immutable; deliberate vertex-only edits require `geometry.markUpdated()` for GPU uploads.
 
 `auto` falls back through WebGPU → WebGL2 → Canvas2D only during initialization. A forced backend never switches on failure. Canvas2D has no 3D: inspect capabilities instead of submitting visible Meshes. Runtime device/context loss does not trigger automatic backend switching.
 
@@ -270,3 +271,84 @@ The timer uses simulation seconds: pausing freezes it, and replacing/destroying 
 Text supports newlines and normal Sprite transforms, anchor, opacity and zIndex. Await `document.fonts.load(...)` before creating labels that require a custom font. Handle `setText()` rejections; rapid overlapping updates keep only the latest request. Style is immutable and generated textures belong to the label, so do not share them with other Sprites.
 
 Open [Pong](../examples/pong/) to see score text, delayed serves, Pause/Resume and Restart scene. Restart while paused leaves the new scene paused until Resume.
+
+## 11. Advanced 3D
+
+Open [advanced3d](../examples/advanced3d/) with `?renderer=webgpu` or `?renderer=webgl2`. It combines a floor, 24-instance ring, metallic sphere, animated glTF ribbon, shadows and HDR bloom. Canvas2D remains 2D-only. The following snippets extend an existing game/scene/texture and require the named classes imported from the unified entry.
+
+### Hierarchy, Camera, Controls, and Picking
+
+```js
+const group = scene.add(new Group());
+const mesh = group.add(
+  new Mesh({
+    geometry: Geometry.cube(),
+    material: new TextureMaterial({ texture }),
+  }),
+);
+group.position.x = 1;
+scene.camera3D = new OrthographicCamera();
+scene.camera3D.height = 8;
+scene.camera3D.position.set(0, 3, 8);
+scene.camera3D.lookAt(new Vector3());
+const controls = new OrbitControls(scene.camera3D, game.canvas);
+controls.minZoom = 0.5;
+controls.maxZoom = 4;
+const raycaster = new Raycaster();
+raycaster.setFromCamera(0, 0, scene.camera3D, 800 / 450);
+const hits = raycaster.intersectObjects(scene.objects);
+console.log(hits[0]?.object, hits[0]?.instanceId);
+```
+
+Use the actual logical viewport aspect and convert pointer coordinates to NDC (x=2*screenX/width−1, y=1−2*screenY/height). Raycaster uses exact two-sided triangles and its own near/far, independent of camera clipping; results are world-distance sorted. Hiding group hides descendants; world transforms include ancestors. Cycles/cross-Scene parenting reject. Removing a subtree detaches without destroying; destroying a parent destroys descendants. Call controls.update() after external target/camera edits and controls.destroy() during your Scene cleanup. Limits include distance, orthographic zoom, polar and azimuth angles.
+
+### Models and Animation
+
+```js
+const asset = await new GLTFLoader().load('/model.glb', { signal });
+scene.add(asset.scene);
+if (asset.animations[0]) {
+  const action = scene.animations.clipAction(asset.animations[0]);
+  action.loop = true;
+  action.play();
+}
+```
+
+Here signal is your initialization AbortSignal; provide a real model URL. `parse(bytesOrJSON,baseURL,{signal})` also supports GLB/glTF. Game updates scene.animations after timers and before Scene.update; do not double-update it. Clips target TRS with STEP/LINEAR/CUBICSPLINE; last-created playing action writing the same property wins, not blends. play resumes, stop resets time without restoring pose, loop=false stops on the sampled endpoint, and negative timeScale reverses playback.
+
+Triangle primitives, normalized/strided/sparse accessors, textures and four-influence skins are supported; required extensions, morphs and other topology explicitly reject. CPU SkinnedMesh refreshes its cloned geometry for rendering and picking. Model budgets: input 32 MiB, fetched/tracked decoded 128 MiB each, lists 10,000 entries, accessor scalar elements 4,194,304, total vertices 1,000,000/indices 3,000,000, joints 256 and hierarchy depth 256. These are not total process-memory limits; image post-decode caveats still apply.
+
+Stop actions/remove consumers and call asset.dispose() in your resource cleanup, including on initialization failure. Scene destruction does not dispose loader-owned textures; never dispose while another live mesh borrows them. Mesh/materials do not own shared textures.
+
+### PBR, Shadows, HDR, and Instances
+
+```js
+scene.add(
+  new Mesh({
+    geometry: Geometry.sphere(),
+    material: new PBRMaterial({ texture, metallic: 0.8, roughness: 0.3 }),
+  }),
+);
+scene.pointLights.push(new PointLight({ position: new Vector3(2, 3, 2) }));
+scene.shadows.enabled = true;
+scene.shadows.mapSize = 1024;
+scene.shadows.extent = 12;
+scene.postProcessing.enabled = true;
+scene.postProcessing.exposure = 1.2;
+scene.postProcessing.toneMapping = 'aces';
+scene.postProcessing.bloomStrength = 0.25;
+const instances = scene.add(
+  new InstancedMesh({
+    geometry: Geometry.cube(),
+    material: new TextureMaterial({ texture }),
+    count: 24,
+  }),
+);
+instances.setMatrixAt(0, new Matrix4());
+```
+
+PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Keep transparent insertion back-to-front. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows or IBL.
+
+HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
+
+For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters reject.

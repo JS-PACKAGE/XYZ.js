@@ -1,35 +1,65 @@
 import type { Scene } from '../../core/src/scene.js';
-/** Renderer-private resources; Geometry vertex/index data must remain immutable after construction. */
+/** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
     private readonly pipeline;
+    private readonly hdrPipeline;
+    private readonly shadowPipeline;
+    private readonly sceneLayout;
+    private readonly meshLayout;
+    private readonly materialLayout;
+    private readonly post;
     private readonly geometries;
     private readonly meshes;
     private readonly textures;
+    private readonly premultipliedTextures;
+    private readonly samplers;
+    private readonly draws;
     private readonly sceneData;
-    private readonly colorAttachment;
-    private readonly depthAttachment;
-    private readonly renderPassDescriptor;
-    private sceneBuffer;
+    private readonly lightingData;
+    private readonly shadowMatrix;
+    private readonly sceneBuffer;
+    private readonly sampler;
+    private readonly whiteTexture;
+    private readonly whiteView;
+    private readonly emptyShadow;
+    private readonly emptyShadowView;
+    private readonly identityBuffer;
     private sceneBindGroup;
-    private sampler;
+    private readonly shadowSceneBindGroup;
+    private shadowTexture;
+    private shadowView;
+    private shadowSize;
     private depthTexture;
     private depthView;
     private depthWidth;
     private depthHeight;
     private frame;
+    private readonly linearClear;
+    private readonly clearComponents;
+    private readonly colorAttachment;
+    private readonly depthAttachment;
+    private readonly renderPassDescriptor;
+    private readonly shadowAttachment;
+    private readonly shadowDescriptor;
     private constructor();
     static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean): Promise<WebGPUMeshPipeline>;
-    /** Release depth only on an actual backing-size change; other caches survive resize. */
     resize(width: number, height: number): void;
-    /** Draw visible 3D meshes into a cleared depth pass before the sprite overlay. */
+    /** Shadows and linear HDR resolution precede the existing sprite overlay. */
     render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor): boolean;
+    private createSceneGroup;
+    private ensureShadow;
     private prepareScene;
+    private renderShadows;
+    private drawMesh;
+    private decodeClear;
     private ensureDepth;
     private cacheGeometry;
     private cacheMesh;
+    private cacheSampler;
     private cacheTexture;
     private updateMesh;
     private releaseUnused;
+    private releaseUnusedTextures;
     destroy(): void;
 }

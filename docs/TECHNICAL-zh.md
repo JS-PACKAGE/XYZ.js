@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本文件描述 **1.1.0 套件**，包含已完成的 P01–P08 與新增的 Text2D／SceneTimers。實際驗證環境、缺陷重現、量測結果與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.1.0 套件**，包含 P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D 擴充。API 參考 three.js，非 drop-in 相容或全部 addons 實作，沒有新增 runtime dependency。實測與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)；版本與發佈由所有者決定。
 
 ## 1. 模組與執行路徑
 
@@ -22,6 +22,7 @@ src/index.ts                    統一 ESM／TypeScript API
 requestAnimationFrame(timestamp)
   → 同步 DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
   → Input.update() → Scene.timers.update(deltaTime)
+  → Scene.animations.update(deltaTime)
   → Scene.update(deltaTime) → World.update(deltaTime)
   → Renderer.beginFrame() → Renderer.render(scene, width, height)
   → Renderer.endFrame()
@@ -218,11 +219,11 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 ## 13. 3D（P05）
 
 - Matrix4 為 column-major，RH／−Z forward，perspective 使用 WebGPU depth 0..1；Quaternion.setFromEuler 使用弧度。Transform3D 重用矩陣；Mesh 與 Transform3D 註冊到 Scene 的 World。
-- Geometry 拷貝並驗證自訂 position／normal／uv／index 資料，合併成 stride=8 floats，indices 為 Uint32Array。建構後不可直接修改 buffers。cube／sphere／plane／quad 提供 outward normals／winding；BoxGeometry.unit 為命名基本幾何工廠。
+- Geometry 拷貝並驗證自訂 position／normal／uv／index，合併為 stride=8 floats，indices 為 Uint32Array。Index topology 不可變；刻意修改 vertex 的 position／normal／UV 後，呼叫 markUpdated() 增加 version 通知 renderer upload cache。cube／sphere／plane／quad 提供 outward normals／winding；BoxGeometry.unit 為命名基本幾何工廠。
 - Mesh 不銷毀共享 Geometry／TextureMaterial／Texture。Material 提供 texture、RGB tint 與 opacity；相機由 fov／near／far、position／Quaternion rotation 計算 view-projection。
 - WebGPU 使用共用 mesh pipeline、每 mesh 重用 uniform buffer、geometry／texture cache。normal 使用 model 3×3 inverse-transpose，支持非均勻 scale。光照為 ambient 加 directional diffuse。
 - 3D pass 使用 depth24plus／less／depth write，再以 load color 的獨立 pass 疊加 Sprite。材質 alpha 採 premultiplied blending；3D 依 Scene 順序提交並寫 depth，透明幾何若相互交疊需由呼叫者按遠到近加入，不提供 order-independent transparency。
-- resize 保留 shader／geometry／texture，只使舊 depth texture 失效；destroy 釋放所有 GPU caches。
+- resize 保留 shader／geometry／texture，替換尺寸相關 depth／HDR attachments；destroy 釋放 GPU caches。
 
 ## 14. Compatibility（P06）
 
@@ -297,10 +298,45 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 本節新增能力納入 v1.1（套件 1.1.0），不包含在先前已發佈的 v1.0 tag。
 
 - `await Text2D.create(text, { fontSize, fontFamily, color, padding })` 產生沿用既有 backend 貼圖路徑的 Sprite。預設值集中於 `src/data/text.ts`；換行分成靠左行，量測包含字形左右溢出與下緣。空字串透明；完整 raster canvas 配置前先驗證尺寸／像素預算。
-- Transform、anchor、opacity、visible、zIndex 與 Sprite 相同。Style 不可變，更換樣式請建立新 Text2D。自訂字型應先等待載入；字型與字形結果由瀏覽器決定。不包含自動字型載入、文字 GUI、自動換行或動畫系統。
+- Transform、anchor、opacity、visible、zIndex 與 Sprite 相同。Style 不可變，更換樣式請建立新 Text2D。自訂字型應先等待載入；字型與字形結果由瀏覽器決定。不包含自動字型載入、文字 GUI、自動換行或文字動畫系統。
 - `await label.setText(value)` 只發佈最後一次請求，`label.text` 是目前顯示的內容。與已顯示文字相同時不重繪並取消舊的 pending 更新；失敗會 reject 並保留舊畫面。過期或 destroy 後完成的結果會釋放貼圖、不再顯示。應處理 Promise，不要無必要地每幀重繪。
 - Text2D 擁有自己產生的貼圖，更新與 Scene 銷毀會釋放舊／目前貼圖；外部另指定的 `texture` 與 Primitive2D 一樣是借用，不由 Text2D 銷毀。不要把 Text2D 的自有貼圖共享給其他仍存活 Sprite，因為更新文字會銷毀它。
 - `scene.timers.after(seconds, callback)`／`.every(seconds, callback)` 回傳具有 `active` 與冪等 `cancel()` 的 `TimerHandle`。單次 delay 必須有限且非負；重複 interval 必須有限且大於零。零秒是在下一個 timer tick 執行，不是同步立即呼叫。
 - Game 在 Scene.update 前以 clamp 後的模擬 delta 推進計時器，不依賴 subclass 呼叫 super.update。Pause／hidden 時間不累積；同 tick 到期 callback 依註冊順序執行，每個重複 timer 每 tick 至多一次，漏掉的週期跳過、不爆發補跑。Callback 內新註冊的工作留至下個 tick。
 - Callback 是同步的，不要用 async callback 期待 scheduler 等待它；拋錯走 Game 的 fatal frame error。禁止遞迴推進 timer。Scene destroy 取消所有剩餘 callback 並清除參照，也拒絕再新增；候選 Scene 準備期間不推進。Callback 中 pause 在目前同步 timer batch 結束後生效。
 - Pong 示範畫布文字計分、延遲一秒發球、pause／resume 與 Scene 替換。新增功能驗證共 96 測試；Chromium 實測 WebGPU／WebGL2／Canvas2D 的文字畫面，不代表新增跨瀏覽器認證。
+
+## 21. 進階 3D（P09–P12）
+
+### 階層、相機、控制與拾取
+
+- Object3D 繼承 SceneObject，提供可變 position／Quaternion rotation／scale、transform、visible、parent、唯讀 children 及 worldMatrix。Group 是不繪製的 Object3D，Mesh 也繼承它。updateWorldMatrix() 重算本地與祖先變換（parent-world × local）；worldVisible 包含所有祖先可見性。
+- parent.add(child) 將附屬子樹註冊到 Scene；同 Scene reparent 保留 ownership，cycle／destroyed member／跨 Scene 則在改動階層前拒絕。parent.remove(child) 或 scene.remove(root) 解除子樹註冊與父關係，但不銷毀。Scene.objects 包含已註冊 descendants；destroy parent 會銷毀子孫，共用 geometry／material／textures 仍為借用。
+- scene.camera3D 可換成 PerspectiveCamera 或 OrthographicCamera。兩者提供可變 position／rotation／near／far、lookAt(Vector3) 與 updateMatrix(aspect)。透視 fov 為弧度；正交 height=10、zoom=1，垂直範圍為 height/zoom，寬度由 aspect 決定；本地 −Z 為前方。
+- new OrbitControls(camera,canvas) 在指定 Canvas 處理左拖旋轉、右鍵／修飾鍵左拖平移、中鍵／wheel dolly。可設 target、enable flags、speeds、min/maxDistance、min/maxZoom（正交）、min/maxPolarAngle 與 min/maxAzimuthAngle（弧度）。update() 協調外部修改；destroy() 移除 capture／listeners 並還原引擎接管的 touch-action。Scene 不自動管理它。
+- Raycaster.setFromCamera(x,y,camera,aspect) 接受 NDC；intersectObjects(iterable,recursive=true,out=[]) 替換 out，按世界距離排序精確 indexed-triangle 交點，含 object／point／distance／faceIndex，instance 另含 instanceId。隱藏祖先排除子孫，重複 roots 不重複 Mesh。拾取固定雙面、不依材質 culling；Raycaster near=0／far=Infinity 與 camera clipping 獨立，skin 在拾取前更新。
+
+### glTF、動畫與幾何更新
+
+- GLTFLoader.load(url,{signal}) 與 parse(ArrayBuffer|string,baseURL?,{signal}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；缺 normals 時產生，缺 UV 時填零。
+- 必要 extensions、非 triangle topology、morph targets／weights animation、vertex colors、非 UV0 texture、額外 skin influences、shear matrix 與 animated matrix node 明確拒絕。這不是完整 glTF extension 支援；optional extensions 未實作，需提供 core fallback。影像解碼限制仍見第 18 節。
+- src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
+- 應用在移除／停止所有 consumers 後必須 asset.dispose()，釋放 loader-owned nodes／textures。僅 Scene destroy 不釋放 asset-owned textures；仍有 live borrower 時不可 dispose。Abort／parse failure 清理自有資源。
+- KeyframeTrack(target,path,times,values,interpolation='LINEAR') 支援 translation／rotation／scale 與 STEP／LINEAR／CUBICSPLINE。Times 為嚴格遞增非負秒數；cubic values 是 incoming tangent／value／outgoing tangent triplets。Linear Quaternion 取最短路徑，cubic 結果 normalize。
+- AnimationClip(name,tracks) 以最後 keys 推得 duration。scene.animations.clipAction(clip) cache action；play() 開始／繼續而不重設時間，stop() 歸零但不還原 pose。loop 預設 true，wrap 時間；false 則 sample／clamp endpoint 後停止。timeScale 可負以倒播；mixer 依 action 建立／插入順序寫入，同 property 最後 playing action 優先，沒有 weights／blending。stopAll() 停止全部，destroy() 釋放。
+- Game 在 timers 後、使用者 Scene.update 前以 clamp simulation delta 推進 scene.animations；pause／hidden 不累積，不要另外手動 update 同 mixer。SkinnedMesh 以 joint world／inverse bind 相對 mesh world 做 CPU linear-blend skinning，寫入 cloned Geometry；renderer／picking 呼叫 updateSkin()，vertex 改變增加 Geometry.version 通知 upload。Index topology 保持不可變。
+
+### PBR、光源、陰影、HDR 與 Instancing
+
+- PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space UV0（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設 0／0.5，emissive 為零。
+- alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 依規格預設 OPAQUE／false。透明物件仍需由應用按遠到近加入；無 order-independent transparency／環境 IBL。TextureMaterial 保持原 diffuse lighting。
+- Scene.pointLights／spotLights 接受 PointLight／SpotLight；position／color／intensity／range 可變，range=0 無限。Spot direction 指向照射表面，innerAngle／outerAngle 為弧度。最多 8 point＋8 spot，超限拒絕、不截斷。
+- scene.shadows 預設 disabled；可變 mapSize=1024、extent=10（正交完整寬高）、near=0.1、far=50、bias=0.002 與 target 控制僅方向光的 3×3 PCF。Mesh.castShadow／receiveShadow 預設 true；不支援 point／spot shadows 或 cascades。
+- scene.postProcessing 預設 disabled。啟用時 3D 先進 HDR floating-point attachment，再 fullscreen exposure（1）、toneMapping（預設 'aces' 或 'none'）、實際 9-tap threshold bloom（strength=0、threshold=1、radius=2 output pixels）。2D overlay 在後且不受影響；resize／disable／destroy 釋放尺寸相關 targets。WebGL2 需 EXT_color_buffer_float，缺少時明確拒絕啟用 HDR processing。
+- InstancedMesh({...meshOptions,count}) count 固定且正，matrices 初始 identity。以 setMatrixAt(index,Matrix4) 設有限、可逆 affine matrix，增加 version 通知 upload cache；getMatrixAt(index,out) 重用 out，不要直接改 matrices 而不通知。Indexed hardware instancing 共用 geometry／material，world 為 mesh.worldMatrix × instance matrix，normal 使用 inverse-transpose。
+
+見 [advanced3d](../examples/advanced3d/) 與 [使用說明](USAGE-zh.md#11-進階-3d)。上述為 WebGPU／WebGL2 的 3D 功能，Canvas2D 仍 2D-only；Chromium 觀察不等於其他瀏覽器認證或 throughput 保證。
+
+### 每 Slot 的 Texture Sampling
+
+PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler、normalSampler、occlusionSampler、emissiveSampler 接受 TextureSamplerOptions：minFilter／magFilter 為 'nearest' 或 'linear'，addressModeU／addressModeV 為 'clamp-to-edge'、'repeat' 或 'mirror-repeat'。一般 PBR 預設維持 linear／clamp；GLTFLoader 套用 glTF 每 slot 預設 repeat wrapping，同一 shared image 可用不同 sampler、不重複 texture ownership。明確 mipmapped minification filters 拒絕，不支援 mipmap generation／filtering。
