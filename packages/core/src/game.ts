@@ -1,16 +1,22 @@
 import { defaults } from '../../../src/data/defaults.js';
-import { AssetLoader } from '../../assets/src/index.js';
+import { AssetLoader, type PreloadBatch } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
 import {
   createRenderer,
   type Renderer,
   type RendererPreference,
+  type FrameEffects,
+  type RenderSnapshot,
 } from '../../graphics/src/index.js';
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { RuntimeError } from './errors.js';
 import { logger } from './logger.js';
+import {
+  TransitionController,
+  type TransitionOptions,
+} from './transitions2d/index.js';
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -34,6 +40,22 @@ export interface GameOptions {
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
 
+export interface SetSceneOptions {
+  transition?: TransitionOptions;
+}
+export interface SceneTransitionEventDetail {
+  readonly from: Scene;
+  readonly to: Scene;
+  readonly kind: TransitionOptions['kind'];
+}
+interface ActiveSceneTransition {
+  readonly controller: TransitionController;
+  readonly detail: SceneTransitionEventDetail;
+  readonly finished: Promise<void>;
+  readonly resolve: () => void;
+  readonly reject: (reason: unknown) => void;
+}
+
 /** Browser runtime controller. GPU handles remain private to the renderer. */
 export class Game extends EventTarget {
   readonly canvas: HTMLCanvasElement;
@@ -48,8 +70,18 @@ export class Game extends EventTarget {
   );
   private currentState: GameState = 'idle';
   private currentScene: Scene | undefined;
+  private updatingScene: Scene | undefined;
+  private readonly canUpdateScene = (): boolean =>
+    this.currentState === 'running' &&
+    this.updatingScene === this.currentScene &&
+    !!this.updatingScene &&
+    !this.updatingScene.destroyed;
   private pendingScene: Scene | undefined;
   private pendingCompletion: Promise<void> | undefined;
+  private loadingBatch: PreloadBatch | undefined;
+  private loadingScene: Scene | undefined;
+  private activeTransition: ActiveSceneTransition | undefined;
+  private readonly frameEffects: FrameEffects = {};
   private sceneVersion = 0;
   private switchingScene = false;
   private requestId: number | undefined;
@@ -219,6 +251,88 @@ export class Game extends EventTarget {
   get scene(): Scene | undefined {
     return this.currentScene;
   }
+  get loading(): PreloadBatch | undefined {
+    return this.loadingBatch;
+  }
+  /** @internal Older async candidates cannot overwrite or clear a newer loading barrier. */
+  setLoading(scene: Scene, batch: PreloadBatch | undefined): void {
+    if (batch) {
+      if (
+        this.pendingScene !== scene ||
+        this.currentState === 'destroyed' ||
+        scene.destroyed
+      )
+        return;
+      this.loadingScene = scene;
+      this.loadingBatch = batch;
+    } else if (this.loadingScene === scene) {
+      this.loadingScene = undefined;
+      this.loadingBatch = undefined;
+    }
+  }
+  get transitioning(): boolean {
+    return !!this.activeTransition;
+  }
+
+  private cancelTransition(): void {
+    const active = this.activeTransition;
+    if (!active) return;
+    this.activeTransition = undefined;
+    this.frameEffects.transition = undefined;
+    try {
+      active.controller.destroy();
+    } finally {
+      active.reject(new SceneCancelledError());
+      this.dispatchEvent(
+        new CustomEvent('transitioncancel', { detail: active.detail }),
+      );
+    }
+  }
+
+  private completeTransition(active: ActiveSceneTransition): void {
+    if (this.activeTransition !== active) return;
+    this.activeTransition = undefined;
+    this.frameEffects.transition = undefined;
+    try {
+      active.controller.destroy();
+    } catch (error) {
+      active.reject(error);
+      throw error;
+    }
+    active.resolve();
+    this.dispatchEvent(
+      new CustomEvent('transitioncomplete', { detail: active.detail }),
+    );
+  }
+
+  private beginTransition(
+    controller: TransitionController,
+    from: Scene,
+    to: Scene,
+  ): ActiveSceneTransition {
+    let resolve!: () => void;
+    let reject!: (reason: unknown) => void;
+    const finished = new Promise<void>((yes, no) => {
+      resolve = yes;
+      reject = no;
+    });
+    const active: ActiveSceneTransition = {
+      controller,
+      detail: Object.freeze({ from, to, kind: controller.kind }),
+      finished,
+      resolve,
+      reject,
+    };
+    this.activeTransition = active;
+    if (controller.blockInput) {
+      to.resetPointerRouting();
+      this.input.pointer.reset();
+    }
+    this.dispatchEvent(
+      new CustomEvent('transitionstart', { detail: active.detail }),
+    );
+    return active;
+  }
 
   start(scene?: Scene): void {
     if (this.currentState === 'destroyed')
@@ -243,66 +357,103 @@ export class Game extends EventTarget {
     if (this.currentState === 'running') return;
     this.currentState = 'running';
     this.clock.suspend();
+    this.input.reset();
     if (!document.hidden) this.requestId = requestAnimationFrame(this.onFrame);
   }
 
-  /** Prepare offscreen, then publish the candidate and synchronously release the old scene. */
-  async setScene(next: Scene): Promise<void> {
+  /** Prepare/capture before publication; only the published Scene participates in simulation. */
+  async setScene(next: Scene, options: SetSceneOptions = {}): Promise<void> {
     if (this.currentState === 'destroyed')
       throw new RuntimeError('Cannot set a Scene on a destroyed Game.');
     if (this.switchingScene)
       throw new RuntimeError('Cannot switch Scenes during scene disposal.');
+    if (next === this.pendingScene) return this.pendingCompletion;
+    const transition = options.transition
+      ? new TransitionController(options.transition)
+      : undefined;
     if (next === this.currentScene) {
-      if (this.pendingScene) {
-        const pending = this.pendingScene;
-        this.pendingScene = undefined;
-        this.pendingCompletion = undefined;
-        this.sceneVersion++;
-        this.switchingScene = true;
-        try {
-          pending.cancel();
-        } finally {
-          this.switchingScene = false;
+      transition?.destroy();
+      try {
+        if (this.pendingScene) {
+          const pending = this.pendingScene;
+          this.pendingScene = undefined;
+          this.pendingCompletion = undefined;
+          this.sceneVersion++;
+          this.switchingScene = true;
+          try {
+            pending.cancel();
+          } finally {
+            this.switchingScene = false;
+          }
         }
+      } finally {
+        this.cancelTransition();
       }
       return;
     }
-    if (next === this.pendingScene) return this.pendingCompletion;
     const signal = next.claim(this);
     const prior = this.pendingScene;
     this.pendingScene = next;
     const version = ++this.sceneVersion;
-    if (prior) {
-      this.switchingScene = true;
-      try {
-        prior.cancel();
-      } catch (error) {
-        this.pendingScene = undefined;
+    try {
+      this.cancelTransition();
+      if (prior) {
+        this.switchingScene = true;
         try {
-          next.cancel();
-        } catch (cleanupError) {
-          throw new AggregateError(
-            [error, cleanupError],
-            'Scene cancellation and cleanup failed.',
-            { cause: cleanupError },
-          );
+          prior.cancel();
+        } finally {
+          this.switchingScene = false;
         }
-        throw error;
-      } finally {
-        this.switchingScene = false;
       }
+    } catch (error) {
+      transition?.destroy();
+      if (this.pendingScene === next) this.pendingScene = undefined;
+      try {
+        next.cancel();
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'Scene cancellation and cleanup failed.',
+          { cause: cleanupError },
+        );
+      }
+      throw error;
     }
     const completion = Promise.resolve().then(async () => {
+      let snapshot: RenderSnapshot | undefined;
       try {
         if (signal.aborted) throw new SceneCancelledError();
         await next.prepare(this, signal);
         if (
           signal.aborted ||
           version !== this.sceneVersion ||
-          this.currentState === 'destroyed'
+          this.currentState === 'destroyed' ||
+          this.fatalError
         )
           throw new SceneCancelledError();
         const old = this.currentScene;
+        const visual = !!(
+          old &&
+          transition &&
+          transition.duration > 0 &&
+          this.currentState !== 'idle'
+        );
+        if (visual) {
+          snapshot = await this.graphics.captureScene(
+            old!,
+            this.logicalWidth,
+            this.logicalHeight,
+          );
+          if (
+            signal.aborted ||
+            version !== this.sceneVersion ||
+            this.state === 'destroyed' ||
+            this.fatalError
+          )
+            throw new SceneCancelledError();
+          transition!.attachSnapshot(snapshot);
+          snapshot = undefined;
+        }
         this.pendingScene = undefined;
         this.pendingCompletion = undefined;
         this.switchingScene = true;
@@ -312,6 +463,16 @@ export class Game extends EventTarget {
         } finally {
           this.switchingScene = false;
         }
+        if (
+          signal.aborted ||
+          next.destroyed ||
+          this.currentScene !== next ||
+          this.state === 'destroyed' ||
+          this.fatalError
+        )
+          throw new SceneCancelledError();
+        if (visual)
+          await this.beginTransition(transition!, old!, next).finished;
       } catch (error) {
         if (this.pendingScene === next) {
           this.pendingScene = undefined;
@@ -333,15 +494,23 @@ export class Game extends EventTarget {
           }
         }
         throw reason;
+      } finally {
+        snapshot?.destroy();
+        if (this.activeTransition?.controller !== transition)
+          transition?.destroy();
       }
     });
-    this.pendingCompletion = completion;
+    // A transitioncancel listener may synchronously request a newer candidate.
+    if (this.pendingScene === next && this.sceneVersion === version)
+      this.pendingCompletion = completion;
     return completion;
   }
 
   /** @internal Called when a Scene is explicitly disposed by its owner. */
   onSceneDisposed(scene: Scene): void {
+    this.setLoading(scene, undefined);
     if (this.currentScene === scene) this.currentScene = undefined;
+    if (this.activeTransition?.detail.to === scene) this.cancelTransition();
     if (this.pendingScene === scene) {
       this.pendingScene = undefined;
       this.sceneVersion++;
@@ -355,6 +524,7 @@ export class Game extends EventTarget {
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     this.clock.suspend();
+    this.currentScene?.resetPointerRouting();
     this.input.reset();
   }
 
@@ -423,6 +593,11 @@ export class Game extends EventTarget {
     this.pendingScene = undefined;
     this.currentScene = undefined;
     const errors: unknown[] = [];
+    try {
+      this.cancelTransition();
+    } catch (error) {
+      errors.push(error);
+    }
     try {
       pending?.cancel();
     } catch (error) {
@@ -605,6 +780,8 @@ export class Game extends EventTarget {
 
   private readonly onVisibilityChange = (): void => {
     this.clock.suspend();
+    this.currentScene?.resetPointerRouting();
+    this.input.reset();
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     if (!document.hidden && this.currentState === 'running') {
@@ -623,25 +800,49 @@ export class Game extends EventTarget {
         this.resizeBacking(this.logicalWidth, this.logicalHeight);
       this.clock.tick(timestamp);
       const scene = this.currentScene;
+      this.updatingScene = scene;
+      scene?.beginObjectFrame();
       scene?.camera2D.resize(this.logicalWidth, this.logicalHeight);
       this.input.update();
-      scene?.timers.update(this.clock.deltaTime);
+      if (
+        scene &&
+        this.canUpdateScene() &&
+        !this.activeTransition?.controller.blockInput
+      )
+        scene.routePointers(this.input.pointer, this.canUpdateScene);
+      if (scene && this.canUpdateScene())
+        scene.timers.update(this.clock.deltaTime);
       if (this.currentState !== 'running') return;
+      if (scene && this.canUpdateScene())
+        scene.beginObjectUpdates(this.clock.deltaTime, this.canUpdateScene);
       if (scene && scene === this.currentScene && !scene.destroyed)
         scene.animations.update(this.clock.deltaTime);
-      if (scene && scene === this.currentScene && !scene.destroyed)
-        scene.update(this.clock.deltaTime);
+      if (scene && this.canUpdateScene())
+        scene.advanceFrameAnimations(this.clock.deltaTime, this.canUpdateScene);
+      if (scene && this.canUpdateScene())
+        scene.advanceActions(this.clock.deltaTime, this.canUpdateScene);
+      if (scene && this.canUpdateScene()) scene.update(this.clock.deltaTime);
+      if (scene && this.canUpdateScene())
+        scene.advanceObjects(this.clock.deltaTime, this.canUpdateScene);
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)
         scene.world.update(this.clock.deltaTime);
+      if (scene && this.canUpdateScene())
+        scene.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene);
       if (this.currentState !== 'running') return;
+      const transition = this.activeTransition;
+      this.frameEffects.transition = transition?.controller.advance(
+        this.clock.deltaTime,
+      );
       this.graphics.beginFrame();
       this.graphics.render(
         this.currentScene,
         this.logicalWidth,
         this.logicalHeight,
+        this.frameEffects,
       );
       this.graphics.endFrame();
+      if (transition?.controller.complete) this.completeTransition(transition);
     } catch (cause) {
       this.fail(
         cause instanceof Error
@@ -650,6 +851,7 @@ export class Game extends EventTarget {
       );
       return;
     } finally {
+      this.updatingScene = undefined;
       this.input.endFrame();
     }
     if (this.currentState === 'running')
@@ -660,7 +862,30 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed' || this.fatalError) return;
     this.fatalError = error;
     this.pause();
-    logger.error('Runtime paused after a fatal error.', error);
-    this.dispatchEvent(new CustomEvent<Error>('error', { detail: error }));
+    const errors: unknown[] = [error];
+    try {
+      this.cancelTransition();
+    } catch (cleanupError) {
+      errors.push(cleanupError);
+    }
+    const pending = this.pendingScene;
+    this.pendingScene = undefined;
+    this.pendingCompletion = undefined;
+    this.sceneVersion++;
+    try {
+      pending?.cancel();
+    } catch (cleanupError) {
+      errors.push(cleanupError);
+    }
+    const reported =
+      errors.length > 1
+        ? new AggregateError(
+            errors,
+            'Fatal runtime error and cancellation cleanup failed.',
+            { cause: error },
+          )
+        : error;
+    logger.error('Runtime paused after a fatal error.', reported);
+    this.dispatchEvent(new CustomEvent<Error>('error', { detail: reported }));
   }
 }

@@ -1,6 +1,11 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
-import { Sprite } from '../../core/src/sprite.js';
+import type { Sprite } from '../../core/src/sprite.js';
+import {
+  type Material2D,
+  type PostProcessor2D,
+  validateEffect2D,
+} from '../../core/src/materials2d/material2d.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
@@ -30,6 +35,23 @@ import {
   WebGL2InitializationError,
 } from './errors.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
+import {
+  collectSprites2D,
+  type FrameEffects,
+  type RenderSnapshot,
+  type TransitionFrame,
+} from './render2d-contract.js';
+import {
+  SPRITE_BYTES,
+  SPRITE_FLOATS,
+  writeSpriteInstance,
+} from './sprite-instance.js';
+import {
+  compositeFragment,
+  layerVertex,
+  materialFragment,
+  processorFragment,
+} from './webgl-2d/shaders.js';
 
 const triangleVertex = `#version 300 es
 precision highp float;
@@ -51,9 +73,15 @@ precision highp float;
 layout(location=0) in vec4 axes;
 layout(location=1) in vec4 offsetSize;
 layout(location=2) in vec4 anchorOpacity;
+layout(location=3) in vec4 source;
+layout(location=4) in vec4 tint;
 uniform vec2 viewportSize;
 out vec2 vUV;
+out vec2 vLocalUV;
+out vec2 vScreen;
 out float vOpacity;
+out vec4 vSource;
+out vec4 vTint;
 void main() {
   vec2 corners[6] = vec2[6](vec2(0.0, 0.0), vec2(1.0, 0.0), vec2(0.0, 1.0),
     vec2(0.0, 1.0), vec2(1.0, 0.0), vec2(1.0, 1.0));
@@ -63,20 +91,29 @@ void main() {
   gl_Position = vec4(world.x * 2.0 / viewportSize.x - 1.0,
     1.0 - world.y * 2.0 / viewportSize.y, 0.0, 1.0);
   // ImageBitmap uploads ignore UNPACK_FLIP_Y_WEBGL: its first (top) row is at GL v=0.
-  vUV = corner;
+  vUV = source.xy + corner * source.zw;
+  vLocalUV = corner;
+  vScreen = world;
   vOpacity = anchorOpacity.z;
+  vSource = source;
+  vTint = tint;
 }`;
 const spriteFragment = `#version 300 es
 precision highp float;
 in vec2 vUV;
 in float vOpacity;
+in vec4 vSource;
+in vec4 vTint;
 uniform sampler2D image;
 out vec4 color;
 void main() {
-  vec4 texel = texture(image, vUV);
+  vec2 halfTexel = min(0.5 / vec2(textureSize(image, 0)), vSource.zw * 0.5);
+  vec2 uv = clamp(vUV, vSource.xy + halfTexel, vSource.xy + vSource.zw - halfTexel);
+  vec4 texel = texture(image, uv);
   // Texture.fromImage creates straight-alpha ImageBitmaps; their WebGL upload ignores
   // UNPACK_PREMULTIPLY_ALPHA_WEBGL. Blend in premultiplied space like WebGPU.
-  color = vec4(texel.rgb * texel.a * vOpacity, texel.a * vOpacity);
+  float alpha = texel.a * vOpacity * vTint.a;
+  color = vec4(texel.rgb * vTint.rgb * alpha, alpha);
 }`;
 
 interface CachedTexture {
@@ -103,6 +140,38 @@ interface RenderTarget {
   depth?: WebGLRenderbuffer;
   width: number;
   height: number;
+}
+
+interface NativeProgram {
+  program: WebGLProgram;
+  viewport: WebGLUniformLocation | null;
+  uniforms: WebGLUniformLocation | null;
+  ready: boolean;
+  preparation: Promise<void>;
+  onDestroy: () => void;
+}
+
+class WebGLSnapshot implements RenderSnapshot {
+  readonly backend = 'webgl2' as const;
+  private release: (() => void) | undefined;
+
+  constructor(
+    readonly width: number,
+    readonly height: number,
+    release: () => void,
+  ) {
+    this.release = release;
+  }
+
+  get destroyed(): boolean {
+    return !this.release;
+  }
+
+  destroy(): void {
+    const release = this.release;
+    this.release = undefined;
+    release?.();
+  }
 }
 
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
@@ -149,6 +218,17 @@ export class WebGL2Renderer implements Renderer {
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
   private floatColorBuffer = false;
+  private compositeProgram: WebGLProgram | undefined;
+  private readonly compositeUniforms: Record<
+    string,
+    WebGLUniformLocation | null
+  > = {};
+  private readonly materials = new Map<Material2D, NativeProgram>();
+  private readonly processors = new Map<PostProcessor2D, NativeProgram>();
+  private readonly snapshots = new Map<WebGLSnapshot, RenderTarget>();
+  private frameTarget: RenderTarget | undefined;
+  private layerTarget: RenderTarget | undefined;
+  private effectTarget: RenderTarget | undefined;
 
   get capabilities(): GraphicsCapabilities {
     return {
@@ -179,7 +259,10 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 renderer cannot be initialized more than once.',
       );
     try {
-      const gl = canvas.getContext('webgl2', { alpha: false });
+      const gl = canvas.getContext('webgl2', {
+        alpha: false,
+        preserveDrawingBuffer: false,
+      });
       if (!gl)
         throw new WebGL2InitializationError(
           'WebGL2 canvas context is unavailable: canvas.getContext("webgl2") returned null.',
@@ -235,6 +318,12 @@ export class WebGL2Renderer implements Renderer {
         postFragment,
         'postprocessing',
       );
+      this.compositeProgram = this.createProgram(
+        gl,
+        layerVertex,
+        compositeFragment,
+        '2D layer and transition composition',
+      );
       this.triangleVAO = this.createVAO(gl);
       this.spriteVAO = this.createVAO(gl);
       this.instanceBuffer = this.createBuffer(gl);
@@ -282,6 +371,19 @@ export class WebGL2Renderer implements Renderer {
         );
       for (const name of ['image', 'settings', 'aces'])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
+      for (const name of [
+        'image',
+        'previousImage',
+        'hasPrevious',
+        'transitionKind',
+        'progress',
+        'transitionColor',
+        'slideDirection',
+      ])
+        this.compositeUniforms[name] = gl.getUniformLocation(
+          this.compositeProgram,
+          name,
+        );
       gl.useProgram(this.spriteProgram);
       gl.uniform1i(gl.getUniformLocation(this.spriteProgram, 'image'), 0);
       gl.useProgram(this.meshProgram);
@@ -295,17 +397,20 @@ export class WebGL2Renderer implements Renderer {
       gl.uniform1i(this.shadowUniforms.image, 0);
       gl.useProgram(this.postProgram);
       gl.uniform1i(this.postUniforms.image, 0);
+      gl.useProgram(this.compositeProgram);
+      gl.uniform1i(this.compositeUniforms.image, 0);
+      gl.uniform1i(this.compositeUniforms.previousImage, 1);
       gl.useProgram(null);
       gl.bindVertexArray(this.spriteVAO);
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer);
-      for (let attribute = 0; attribute < 3; attribute++) {
+      for (let attribute = 0; attribute < 5; attribute++) {
         gl.enableVertexAttribArray(attribute);
         gl.vertexAttribPointer(
           attribute,
           4,
           gl.FLOAT,
           false,
-          48,
+          SPRITE_BYTES,
           attribute * 16,
         );
         gl.vertexAttribDivisor(attribute, 1);
@@ -322,6 +427,108 @@ export class WebGL2Renderer implements Renderer {
     }
   }
 
+  async prepareMaterial(material: Material2D): Promise<void> {
+    return this.prepareNative(material, false);
+  }
+
+  async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
+    return this.prepareNative(effect, true);
+  }
+
+  private async prepareNative(
+    effect: Material2D | PostProcessor2D,
+    post: boolean,
+  ): Promise<void> {
+    const gl = this.requireGL();
+    validateEffect2D(effect);
+    const cache = post ? this.processors : this.materials;
+    const existing = cache.get(effect);
+    if (existing) return existing.preparation;
+    const program = this.createProgram(
+      gl,
+      post ? layerVertex : spriteVertex,
+      post ? processorFragment(effect.glsl) : materialFragment(effect.glsl),
+      post ? 'native 2D postprocessor' : 'native Sprite material',
+    );
+    const previousProgram = gl.getParameter(
+      gl.CURRENT_PROGRAM,
+    ) as WebGLProgram | null;
+    gl.useProgram(program);
+    gl.uniform1i(gl.getUniformLocation(program, 'image'), 0);
+    gl.useProgram(previousProgram);
+    const onDestroy = (): void => {
+      if (cache.get(effect) !== entry) return;
+      cache.delete(effect);
+      gl.deleteProgram(program);
+      effect.removeEventListener('destroy', onDestroy);
+    };
+    const preparation = Promise.resolve()
+      .then(() => {
+        this.requireGL();
+        validateEffect2D(effect);
+        if (cache.get(effect) !== entry)
+          throw new GraphicsError(
+            'WebGL2 native effect preparation was cancelled.',
+          );
+        entry.ready = true;
+      })
+      .catch((error: unknown) => {
+        onDestroy();
+        throw error;
+      });
+    const entry: NativeProgram = {
+      program,
+      viewport: gl.getUniformLocation(program, 'viewportSize'),
+      uniforms: gl.getUniformLocation(program, 'uniforms[0]'),
+      ready: false,
+      preparation,
+      onDestroy,
+    };
+    cache.set(effect, entry);
+    effect.addEventListener('destroy', onDestroy);
+    return preparation;
+  }
+
+  private requireNative(
+    effect: Material2D | PostProcessor2D,
+    post: boolean,
+  ): NativeProgram {
+    validateEffect2D(effect);
+    const entry = (post ? this.processors : this.materials).get(effect);
+    if (!entry?.ready)
+      throw new GraphicsError(
+        `WebGL2 ${post ? 'postprocessor' : 'Sprite material'} must be prepared before rendering.`,
+      );
+    return entry;
+  }
+
+  private validateTransition(transition: TransitionFrame): void {
+    if (
+      !Number.isFinite(transition.progress) ||
+      transition.progress < 0 ||
+      transition.progress > 1 ||
+      !['fade', 'crossfade', 'slide'].includes(transition.kind) ||
+      !['left', 'right', 'up', 'down'].includes(transition.direction) ||
+      transition.color.length !== 4 ||
+      transition.color.some(
+        (value) => !Number.isFinite(value) || value < 0 || value > 1,
+      )
+    )
+      throw new GraphicsError(
+        'WebGL2 transition requires normalized progress/color and a valid kind/direction.',
+      );
+    const snapshot = transition.snapshot;
+    if (
+      snapshot &&
+      (!(snapshot instanceof WebGLSnapshot) ||
+        snapshot.destroyed ||
+        !this.snapshots.has(snapshot))
+    )
+      throw new GraphicsError(
+        'WebGL2 transition snapshot is destroyed or belongs to another renderer/backend.',
+      );
+  }
+
   beginFrame(): void {
     this.requireGL();
     if (this.activeFrame)
@@ -332,36 +539,129 @@ export class WebGL2Renderer implements Renderer {
     this.frameRendered = false;
   }
 
-  render(scene?: Scene, width?: number, height?: number): void {
-    const gl = this.requireGL();
-    const canvas = this.canvas!;
+  render(
+    scene?: Scene,
+    width?: number,
+    height?: number,
+    effects?: FrameEffects,
+  ): void {
+    this.requireGL();
     if (!this.activeFrame || this.frameRendered)
       throw new GraphicsError(
         'WebGL2 render requires an active frame and may be called only once per frame.',
       );
-    let aspect = 1;
-    let logicalWidth = 1;
-    let logicalHeight = 1;
-    if (scene) {
-      logicalWidth = width ?? (canvas.clientWidth || canvas.width);
-      logicalHeight = height ?? (canvas.clientHeight || canvas.height);
-      if (
-        !Number.isFinite(logicalWidth) ||
-        !Number.isFinite(logicalHeight) ||
-        logicalWidth <= 0 ||
-        logicalHeight <= 0
-      )
-        throw new RangeError(
-          'WebGL2 rendering requires positive finite logical width and height.',
+    const transition = effects?.transition;
+    if (transition) {
+      this.validateTransition(transition);
+      const canvas = this.canvas!;
+      if (!this.frameTarget)
+        this.frameTarget = this.createTarget(
+          canvas.width,
+          canvas.height,
+          false,
+          'rgba8',
         );
-      aspect = logicalWidth / logicalHeight;
+    } else if (this.frameTarget) {
+      this.deleteTarget(this.frameTarget);
+      this.frameTarget = undefined;
     }
+    this.renderFrame(
+      scene,
+      width,
+      height,
+      transition ? this.frameTarget : undefined,
+      transition,
+    );
+  }
+
+  async captureScene(
+    scene: Scene,
+    width: number,
+    height: number,
+  ): Promise<RenderSnapshot> {
+    this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'WebGL2 cannot capture a scene during an active frame.',
+      );
+    const canvas = this.canvas!;
+    const target = this.createTarget(
+      canvas.width,
+      canvas.height,
+      false,
+      'rgba8',
+    );
+    try {
+      this.beginFrame();
+      // Redraw into owned storage before yielding; default framebuffer preservation is off.
+      this.renderFrame(scene, width, height, target);
+      this.endFrame();
+      const snapshot = new WebGLSnapshot(target.width, target.height, () => {
+        this.snapshots.delete(snapshot);
+        this.deleteTarget(target);
+      });
+      this.snapshots.set(snapshot, target);
+      return snapshot;
+    } catch (error) {
+      this.deleteTarget(target);
+      throw error;
+    } finally {
+      this.activeFrame = false;
+      this.frameRendered = false;
+    }
+  }
+
+  private renderFrame(
+    scene: Scene | undefined,
+    width: number | undefined,
+    height: number | undefined,
+    destination?: RenderTarget,
+    transition?: TransitionFrame,
+  ): void {
+    const gl = this.gl!;
+    const canvas = this.canvas!;
+    const logicalWidth = width ?? (canvas.clientWidth || canvas.width);
+    const logicalHeight = height ?? (canvas.clientHeight || canvas.height);
+    if (
+      !Number.isFinite(logicalWidth) ||
+      !Number.isFinite(logicalHeight) ||
+      logicalWidth <= 0 ||
+      logicalHeight <= 0
+    )
+      throw new RangeError(
+        'WebGL2 rendering requires positive finite logical width and height.',
+      );
     this.frame++;
     try {
+      const effects = scene?.effects2D;
+      if (effects?.length) {
+        for (const effect of effects) this.requireNative(effect, true);
+        if (!this.layerTarget)
+          this.layerTarget = this.createTarget(
+            canvas.width,
+            canvas.height,
+            false,
+            'rgba8',
+            false,
+          );
+        if (!this.effectTarget)
+          this.effectTarget = this.createTarget(
+            canvas.width,
+            canvas.height,
+            false,
+            'rgba8',
+            false,
+          );
+      } else {
+        if (this.layerTarget) this.deleteTarget(this.layerTarget);
+        if (this.effectTarget) this.deleteTarget(this.effectTarget);
+        this.layerTarget = undefined;
+        this.effectTarget = undefined;
+      }
       if (scene) {
         validateRenderSettings(scene);
         fillLightingData(scene, this.lightingData);
-        this.prepareSprites(scene);
+        this.prepareSprites(scene, logicalWidth, logicalHeight);
         if (scene.shadows.enabled) this.drawShadows(scene);
         else if (this.shadowTarget) {
           this.deleteTarget(this.shadowTarget);
@@ -376,7 +676,9 @@ export class WebGL2Renderer implements Renderer {
       } else this.sprites.length = 0;
       gl.bindFramebuffer(
         gl.FRAMEBUFFER,
-        scene?.postProcessing.enabled ? this.postTarget!.framebuffer : null,
+        scene?.postProcessing.enabled
+          ? this.postTarget!.framebuffer
+          : (destination?.framebuffer ?? null),
       );
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -398,14 +700,28 @@ export class WebGL2Renderer implements Renderer {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       if (scene) {
-        this.drawMeshes(scene, aspect);
+        this.drawMeshes(scene, logicalWidth / logicalHeight);
         gl.disable(gl.DEPTH_TEST);
-        if (scene.postProcessing.enabled) this.drawPost(scene);
+        if (scene.postProcessing.enabled)
+          this.drawPost(scene, destination?.framebuffer ?? null);
         gl.activeTexture(gl.TEXTURE0);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         gl.disable(gl.CULL_FACE);
-        if (this.sprites.length) this.drawSprites(logicalWidth, logicalHeight);
+        if (effects?.length) {
+          gl.bindFramebuffer(gl.FRAMEBUFFER, this.layerTarget!.framebuffer);
+          gl.clearColor(0, 0, 0, 0);
+          gl.clear(gl.COLOR_BUFFER_BIT);
+          if (this.sprites.length)
+            this.drawSprites(logicalWidth, logicalHeight);
+          this.drawEffects2D(
+            effects,
+            logicalWidth,
+            logicalHeight,
+            destination?.framebuffer ?? null,
+          );
+        } else if (this.sprites.length)
+          this.drawSprites(logicalWidth, logicalHeight);
       } else {
         gl.disable(gl.DEPTH_TEST);
         gl.disable(gl.BLEND);
@@ -419,13 +735,21 @@ export class WebGL2Renderer implements Renderer {
         gl.bindVertexArray(this.triangleVAO!);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
+      if (transition)
+        this.drawComposite(destination!.texture, null, transition);
       this.frameRendered = true;
     } finally {
       this.releaseUnused();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
+      gl.bindSampler(0, null);
       gl.bindVertexArray(null);
       gl.bindTexture(gl.TEXTURE_2D, null);
+      gl.useProgram(null);
+      gl.depthMask(true);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.viewport(0, 0, canvas.width, canvas.height);
     }
   }
 
@@ -472,6 +796,14 @@ export class WebGL2Renderer implements Renderer {
       this.deleteTarget(this.postTarget);
       this.postTarget = undefined;
     }
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+      if (this.frameTarget) this.deleteTarget(this.frameTarget);
+      if (this.layerTarget) this.deleteTarget(this.layerTarget);
+      if (this.effectTarget) this.deleteTarget(this.effectTarget);
+      this.frameTarget = undefined;
+      this.layerTarget = undefined;
+      this.effectTarget = undefined;
+    }
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
     const side = Math.min(pixelWidth, pixelHeight);
@@ -480,18 +812,9 @@ export class WebGL2Renderer implements Renderer {
     this.viewportSide = side;
   }
 
-  private prepareSprites(scene: Scene): void {
+  private prepareSprites(scene: Scene, width: number, height: number): void {
     const sprites = this.sprites;
-    sprites.length = 0;
-    for (const object of scene.objects)
-      if (
-        object instanceof Sprite &&
-        object.visible &&
-        object.opacity > 0 &&
-        !object.texture.destroyed
-      )
-        sprites.push(object);
-    sprites.sort((a, b) => a.zIndex - b.zIndex);
+    collectSprites2D(scene, width, height, sprites);
     const count = sprites.length;
     if (!count) return;
     const gl = this.gl!;
@@ -499,61 +822,154 @@ export class WebGL2Renderer implements Renderer {
       let capacity = Math.max(16, this.instanceCapacity);
       while (capacity < count) capacity *= 2;
       gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!);
-      gl.bufferData(gl.ARRAY_BUFFER, capacity * 48, gl.DYNAMIC_DRAW);
-      this.instances = new Float32Array(capacity * 12);
+      gl.bufferData(gl.ARRAY_BUFFER, capacity * SPRITE_BYTES, gl.DYNAMIC_DRAW);
+      this.instances = new Float32Array(capacity * SPRITE_FLOATS);
       this.instanceCapacity = capacity;
     }
     const camera = scene.camera2D;
-    const zoom = camera.zoom;
     const data = this.instances;
     for (let i = 0; i < count; i++) {
       const sprite = sprites[i];
+      if (sprite.material) this.requireNative(sprite.material, false);
       const texture = sprite.texture;
       this.cacheTexture(texture).seen = this.frame;
-      const matrix = sprite.transform.updateMatrix().elements;
-      const offset = i * 12;
-      data[offset] = matrix[0] * zoom;
-      data[offset + 1] = matrix[1] * zoom;
-      data[offset + 2] = matrix[3] * zoom;
-      data[offset + 3] = matrix[4] * zoom;
-      data[offset + 4] = (matrix[6] - camera.position.x) * zoom;
-      data[offset + 5] = (matrix[7] - camera.position.y) * zoom;
-      data[offset + 6] = texture.width;
-      data[offset + 7] = texture.height;
-      data[offset + 8] = sprite.anchor.x;
-      data[offset + 9] = sprite.anchor.y;
-      data[offset + 10] = sprite.opacity;
-      data[offset + 11] = 0;
+      writeSpriteInstance(sprite, camera, data, i * SPRITE_FLOATS);
     }
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, count * 12);
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, data, 0, count * SPRITE_FLOATS);
   }
 
   private drawSprites(width: number, height: number): void {
     const gl = this.gl!;
     gl.bindSampler(0, null);
-    gl.useProgram(this.spriteProgram!);
-    gl.uniform2f(this.spriteViewport, width, height);
     gl.bindVertexArray(this.spriteVAO!);
     gl.bindBuffer(gl.ARRAY_BUFFER, this.instanceBuffer!);
     const sprites = this.sprites;
     for (let first = 0; first < sprites.length;) {
-      const texture = sprites[first].texture;
+      const sprite = sprites[first];
+      const texture = sprite.texture;
+      const material = sprite.material;
+      const native = material ? this.materials.get(material)! : undefined;
+      gl.useProgram(native?.program ?? this.spriteProgram!);
+      gl.uniform2f(
+        native ? native.viewport : this.spriteViewport,
+        width,
+        height,
+      );
+      if (native) gl.uniform4fv(native.uniforms, material!.uniforms);
       let end = first + 1;
-      while (end < sprites.length && sprites[end].texture === texture) end++;
-      for (let attribute = 0; attribute < 3; attribute++)
+      while (
+        end < sprites.length &&
+        sprites[end].texture === texture &&
+        sprites[end].material === material
+      )
+        end++;
+      for (let attribute = 0; attribute < 5; attribute++)
         gl.vertexAttribPointer(
           attribute,
           4,
           gl.FLOAT,
           false,
-          48,
-          first * 48 + attribute * 16,
+          SPRITE_BYTES,
+          first * SPRITE_BYTES + attribute * 16,
         );
       gl.bindTexture(gl.TEXTURE_2D, this.textures.get(texture)!.resource);
       gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, end - first);
       first = end;
     }
+  }
+
+  private drawEffects2D(
+    effects: readonly PostProcessor2D[],
+    width: number,
+    height: number,
+    destination: WebGLFramebuffer | null,
+  ): void {
+    const gl = this.gl!;
+    let input = this.layerTarget!;
+    let output = this.effectTarget!;
+    gl.disable(gl.BLEND);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    gl.bindVertexArray(this.triangleVAO!);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindSampler(0, null);
+    for (const effect of effects) {
+      const native = this.processors.get(effect)!;
+      gl.bindFramebuffer(gl.FRAMEBUFFER, output.framebuffer);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl.useProgram(native.program);
+      gl.uniform2f(native.viewport, width, height);
+      gl.uniform4fv(native.uniforms, effect.uniforms);
+      gl.bindTexture(gl.TEXTURE_2D, input.texture);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+      const swap = input;
+      input = output;
+      output = swap;
+    }
+    this.drawComposite(input.texture, destination);
+  }
+
+  private drawComposite(
+    image: WebGLTexture,
+    destination: WebGLFramebuffer | null,
+    transition?: TransitionFrame,
+  ): void {
+    const gl = this.gl!;
+    const canvas = this.canvas!;
+    const uniforms = this.compositeUniforms;
+    const previous = transition?.snapshot
+      ? this.snapshots.get(transition.snapshot as WebGLSnapshot)!.texture
+      : undefined;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
+    gl.viewport(0, 0, canvas.width, canvas.height);
+    gl.disable(gl.DEPTH_TEST);
+    gl.disable(gl.CULL_FACE);
+    if (transition) gl.disable(gl.BLEND);
+    else {
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    }
+    gl.useProgram(this.compositeProgram!);
+    gl.bindVertexArray(this.triangleVAO!);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindSampler(0, null);
+    gl.bindTexture(gl.TEXTURE_2D, image);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindSampler(1, null);
+    gl.bindTexture(gl.TEXTURE_2D, previous ?? image);
+    gl.uniform1i(uniforms.hasPrevious, previous ? 1 : 0);
+    gl.uniform1i(
+      uniforms.transitionKind,
+      !transition
+        ? 0
+        : transition.kind === 'fade'
+          ? 1
+          : transition.kind === 'crossfade'
+            ? 2
+            : 3,
+    );
+    gl.uniform1f(uniforms.progress, transition?.progress ?? 0);
+    if (transition) {
+      const color = transition.color;
+      gl.uniform4f(
+        uniforms.transitionColor,
+        color[0] * color[3],
+        color[1] * color[3],
+        color[2] * color[3],
+        color[3],
+      );
+      const direction = transition.direction;
+      gl.uniform2f(
+        uniforms.slideDirection,
+        direction === 'left' ? -1 : direction === 'right' ? 1 : 0,
+        direction === 'up' ? -1 : direction === 'down' ? 1 : 0,
+      );
+    }
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
   }
 
   private drawMeshes(scene: Scene, aspect: number): void {
@@ -879,20 +1295,23 @@ export class WebGL2Renderer implements Renderer {
     width: number,
     height: number,
     shadow: boolean,
+    format: 'hdr' | 'rgba8' = 'hdr',
+    withDepth = true,
   ): RenderTarget {
     const gl = this.gl!;
     const framebuffer = gl.createFramebuffer();
     const texture = gl.createTexture();
-    const depth = shadow ? null : gl.createRenderbuffer();
+    const depth = shadow || !withDepth ? null : gl.createRenderbuffer();
     try {
-      if (!framebuffer || !texture || (!shadow && !depth))
+      if (!framebuffer || !texture || (!shadow && withDepth && !depth))
         throw new GraphicsError(
           'WebGL2 could not allocate an offscreen render target.',
         );
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
       gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      const filter = !shadow && format === 'rgba8' ? gl.LINEAR : gl.NEAREST;
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       if (shadow) {
@@ -920,12 +1339,12 @@ export class WebGL2Renderer implements Renderer {
         gl.texImage2D(
           gl.TEXTURE_2D,
           0,
-          gl.RGBA16F,
+          format === 'hdr' ? gl.RGBA16F : gl.RGBA8,
           width,
           height,
           0,
           gl.RGBA,
-          gl.HALF_FLOAT,
+          format === 'hdr' ? gl.HALF_FLOAT : gl.UNSIGNED_BYTE,
           null,
         );
         gl.framebufferTexture2D(
@@ -935,23 +1354,25 @@ export class WebGL2Renderer implements Renderer {
           texture,
           0,
         );
-        gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
-        gl.renderbufferStorage(
-          gl.RENDERBUFFER,
-          gl.DEPTH_COMPONENT24,
-          width,
-          height,
-        );
-        gl.framebufferRenderbuffer(
-          gl.FRAMEBUFFER,
-          gl.DEPTH_ATTACHMENT,
-          gl.RENDERBUFFER,
-          depth,
-        );
+        if (depth) {
+          gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+          gl.renderbufferStorage(
+            gl.RENDERBUFFER,
+            gl.DEPTH_COMPONENT24,
+            width,
+            height,
+          );
+          gl.framebufferRenderbuffer(
+            gl.FRAMEBUFFER,
+            gl.DEPTH_ATTACHMENT,
+            gl.RENDERBUFFER,
+            depth,
+          );
+        }
       }
       if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
         throw new GraphicsError(
-          `WebGL2 ${shadow ? 'shadow' : 'HDR'} framebuffer is incomplete.`,
+          `WebGL2 ${shadow ? 'shadow' : format === 'hdr' ? 'HDR' : 'RGBA8'} framebuffer is incomplete.`,
         );
       return {
         framebuffer,
@@ -978,10 +1399,10 @@ export class WebGL2Renderer implements Renderer {
     if (target.depth) gl.deleteRenderbuffer(target.depth);
   }
 
-  private drawPost(scene: Scene): void {
+  private drawPost(scene: Scene, destination: WebGLFramebuffer | null): void {
     const gl = this.gl!;
     const settings = scene.postProcessing;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -1194,6 +1615,19 @@ export class WebGL2Renderer implements Renderer {
     this.canvas?.removeEventListener('webglcontextlost', this.onContextLost);
     const gl = this.gl;
     if (gl) {
+      for (const snapshot of this.snapshots.keys()) snapshot.destroy();
+      for (const [effect, entry] of this.materials) {
+        effect.removeEventListener('destroy', entry.onDestroy);
+        gl.deleteProgram(entry.program);
+      }
+      for (const [effect, entry] of this.processors) {
+        effect.removeEventListener('destroy', entry.onDestroy);
+        gl.deleteProgram(entry.program);
+      }
+      if (this.frameTarget) this.deleteTarget(this.frameTarget);
+      if (this.layerTarget) this.deleteTarget(this.layerTarget);
+      if (this.effectTarget) this.deleteTarget(this.effectTarget);
+      if (this.compositeProgram) gl.deleteProgram(this.compositeProgram);
       for (const entry of this.textures.values())
         gl.deleteTexture(entry.resource);
       for (const entry of this.geometries.values()) {
@@ -1219,6 +1653,12 @@ export class WebGL2Renderer implements Renderer {
     this.geometries.clear();
     this.meshInstances.clear();
     this.samplers.clear();
+    this.snapshots.clear();
+    this.materials.clear();
+    this.processors.clear();
+    this.frameTarget = undefined;
+    this.layerTarget = undefined;
+    this.effectTarget = undefined;
     this.shadowTarget = undefined;
     this.postTarget = undefined;
     this.sprites.length = 0;

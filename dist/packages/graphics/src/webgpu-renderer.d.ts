@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Renderer } from './index.js';
+import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
+import { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 export declare class WebGPURenderer implements Renderer {
     private readonly onError;
     readonly backend: "webgpu";
@@ -16,6 +18,9 @@ export declare class WebGPURenderer implements Renderer {
     private device;
     private pipeline;
     private spritePipeline;
+    private spriteLayerPipeline;
+    private effectsPipeline;
+    private captureOutput;
     private meshPipeline;
     private viewportBuffer;
     private viewportBindGroup;
@@ -41,8 +46,11 @@ export declare class WebGPURenderer implements Renderer {
     private lostError;
     constructor(onError: (error: Error) => void);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
+    prepareMaterial(material: Material2D): Promise<void>;
+    preparePostProcessor(effect: PostProcessor2D): Promise<void>;
+    captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     beginFrame(): void;
-    render(scene?: Scene, width?: number, height?: number): void;
+    render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     endFrame(): void;
     resize(width: number, height: number): void;
     private prepareSprites;

@@ -1,12 +1,70 @@
-import { Transform2D, type Vector2 } from '../../math/src/index.js';
+import { Matrix3, Transform2D, Vector2 } from '../../math/src/index.js';
 import { SceneObject } from './scene-object.js';
+import { type ColorRGBA, type Rect2D } from './gameplay/contracts.js';
+import { ActionQueue } from './actions2d/index.js';
+import { Collider2D } from './physics2d/collider.js';
+import { RigidBody2D } from './physics2d/body.js';
 /** Public 2D facade; entities and component registration belong to Scene. */
 export declare class GameObject extends SceneObject {
     readonly transform: Transform2D;
+    readonly worldMatrix: Matrix3;
+    private ancestor;
+    private readonly descendants;
+    private alpha;
+    private order;
+    private coordinateSpace;
+    private readonly color;
+    private readonly composedColor;
+    private readonly inverseMatrix;
+    private readonly localPoint;
+    private readonly bounds;
+    visible: boolean;
+    pointerEnabled: boolean;
+    draggable: boolean;
+    hitTestMode: 'graphics' | 'collider';
+    private initializedEvents;
+    private actionQueue;
+    private rigidBody;
+    private collisionShape;
+    get actions(): ActionQueue;
+    /** @internal Do not instantiate queues on passive glyph/tile/pool sprites. */
+    advanceActions(dt: number, canContinue?: () => boolean): void;
+    get body(): RigidBody2D | undefined;
+    set body(value: RigidBody2D | undefined);
+    get collider(): Collider2D | undefined;
+    set collider(value: Collider2D | undefined);
+    private assertPhysicsSpace;
+    private assertParentingPhysics;
+    /** @internal Initialization belongs to the first active tick, not detached construction. */
+    initializeEvents(): void;
     get position(): Vector2;
     set position(value: Vector2);
     get rotation(): number;
     set rotation(value: number);
     get scale(): Vector2;
     set scale(value: Vector2);
+    get opacity(): number;
+    set opacity(value: number);
+    get zIndex(): number;
+    set zIndex(value: number);
+    get tint(): ColorRGBA;
+    set tint(value: ColorRGBA);
+    get space(): 'world' | 'screen';
+    set space(value: 'world' | 'screen');
+    get parent(): GameObject | undefined;
+    get children(): ReadonlySet<GameObject>;
+    get worldSpace(): 'world' | 'screen';
+    get worldVisible(): boolean;
+    get worldOpacity(): number;
+    get worldZIndex(): number;
+    get worldTint(): ColorRGBA;
+    add<T extends GameObject>(child: T): T;
+    remove(child: GameObject): boolean;
+    /** @internal Scene detaches roots without mutating subtree ownership. */
+    detachParent(): void;
+    updateWorldMatrix(): Matrix3;
+    getLocalBounds(out?: Rect2D): Rect2D;
+    containsPoint(point: Vector2): boolean;
+    update(deltaTime: number): void;
+    destroy(): void;
 }

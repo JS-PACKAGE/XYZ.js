@@ -1,8 +1,12 @@
 import { Texture } from '../../assets/src/index.js';
 import { Vector2 } from '../../math/src/index.js';
 import { GameObject } from './game-object.js';
+import { type ColorRGBA, type Rect2D } from './gameplay/contracts.js';
+import type { FrameAnimation } from './gameplay/frame-animation.js';
+import type { Material2D } from './materials2d/index.js';
 export interface SpriteOptions {
     texture: Texture;
+    source?: Rect2D;
     position?: [number, number];
     rotation?: number;
     scale?: [number, number];
@@ -11,25 +15,30 @@ export interface SpriteOptions {
     opacity?: number;
     visible?: boolean;
     zIndex?: number;
+    tint?: ColorRGBA;
+    space?: 'world' | 'screen';
+    material?: Material2D;
 }
-/** A scene-owned visual; the Texture remains owned by its creator/AssetLoader. */
+/** A scene-owned visual; its Texture remains owned by its creator/AssetLoader. */
 export declare class Sprite extends GameObject {
     private currentTexture;
+    private region;
+    private currentAnimation;
     readonly anchor: Vector2;
-    private alpha;
-    private order;
-    visible: boolean;
+    /** Internal pool/culling switch; independent of the author's visibility. */
+    renderEnabled: boolean;
+    material: Material2D | undefined;
     constructor(options: SpriteOptions);
     get texture(): Texture;
     set texture(value: Texture);
-    get position(): Vector2;
-    set position(value: Vector2);
-    get rotation(): number;
-    set rotation(value: number);
-    get scale(): Vector2;
-    set scale(value: Vector2);
-    get opacity(): number;
-    set opacity(value: number);
-    get zIndex(): number;
-    set zIndex(value: number);
+    get source(): Readonly<Rect2D> | undefined;
+    set source(value: Readonly<Rect2D> | undefined);
+    /** @internal FrameAnimation owns already-frozen frame rectangles, avoiding frame allocations. */
+    setAnimationSource(value: Readonly<Rect2D>): void;
+    get width(): number;
+    get height(): number;
+    get animation(): FrameAnimation | undefined;
+    set animation(value: FrameAnimation | undefined);
+    getLocalBounds(out?: Rect2D): Rect2D;
+    destroy(): void;
 }

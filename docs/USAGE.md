@@ -352,3 +352,340 @@ PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), norm
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters reject.
+
+## 12. Atlas Graphics and HUD (P13)
+
+Import these names from `xyz.js` (or your deployed root ESM URL). `texture` below is an already loaded atlas containing both rectangles; Scene owns objects, not borrowed textures.
+
+```js
+import { Group2D, ScreenElement, SpriteSheet, FrameAnimation } from 'xyz.js';
+
+const sheet = new SpriteSheet(texture, [
+  { x: 0, y: 0, width: 16, height: 16 },
+  { x: 16, y: 0, width: 16, height: 16 },
+]);
+const group = scene.add(new Group2D());
+group.position.set(120, 100);
+group.rotation = 0.3;
+const sprite = group.add(sheet.createSprite(0));
+sprite.scale.set(3, 3);
+new FrameAnimation(
+  sprite,
+  sheet.frames.map((source) => ({ source, duration: 0.2 })),
+  { strategy: 'pingpong' },
+).play();
+const hud = scene.add(new ScreenElement());
+hud.add(sheet.createSprite(1, { anchor: [0, 0], position: [16, 16] }));
+```
+
+Use `SpriteSheet.grid(texture,{frameWidth,frameHeight,columns,rows,origin:[x,y],spacing:[x,y]})` for regular cells. Sheet frames require integer source pixels; direct `sprite.source={x,y,width,height}` also allows finite fractional pixels within the texture. `undefined` restores the full image. Sprite width/height are natural source dimensions: resize with scale, not displayWidth/displayHeight. Nested groups inherit visibility, opacity, tint and z; screen roots ignore camera motion and draw after world objects. Reparent preserves local transform. Remove detaches a reusable subtree; destroy recursively destroys children without destroying borrowed textures.
+
+`new SpriteFont(sheet,{alphabet:'012AB',lineHeight:10,fallback:'0',advance:8})` maps one Unicode code point per sheet frame. `new SpriteText(font,'A012B\n210BA',{align:'center',letterSpacing:1,lineSpacing:2})` owns glyph children; synchronous `setText(text)` reuses them and preserves old text on invalid input. Without fallback an unmapped character rejects. This does not import BMFont files.
+
+`new NineSlice(texture,{left:3,right:3,top:3,bottom:3,width:60,height:28,mode:'tile'})` borrows the texture and owns patches. Source/margins are integer pixels; optional source selects a panel inside an atlas. `resize(width,height)` accepts bounded fractional destination sizes. Stretch is default; tile clips last partial repeats (including fractional source remainder); tile-fit distributes complete repeats evenly. Small destinations compress opposite margins proportionally; `drawCenter:false` omits the center.
+
+FrameAnimation also supports loop (default), freeze and hide, nonnegative speed, pause/play, reset, reverse, goToFrame(index), and stop (pause plus reset). Game advances it centrally; do not update it twice. Listen for native animationframe/animationloop/animationend on the animation or Sprite; loop detail includes aggregated count for large elapsed steps.
+
+### Formal P13–P20 Playground
+
+Open [gameplay2d](../examples/gameplay2d/) with `?renderer=webgpu|webgl2|canvas2d|auto` or change its Renderer selector. It defaults to forced WebGPU; choose auto explicitly for initialization fallback. This completed root-export consumer has real all-three-backend browser proof, not fake resource tasks or a second engine. P13–P20 profiles, the formal example and final build/typecheck/lint/format/37files252tests plus packed ES2022 consumer are accepted in recorded scope.
+
+| Controls                                                                      | Actual behavior                                                                                                                                                             |
+| ----------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Drag colored sprite / bitmap text; Move camera / Toggle group                 | Native nested parent-inverse drag and fixed screen HUD; diagnostics show viewport-culling tile counts                                                                       |
+| Move + fade sequence / Follow + bounds / Shake                                | Simulation-timed actions, ordered camera strategies and seeded visual-only shake                                                                                            |
+| Off-center impulse / Edit both maps                                           | Angular impulses; orthogonal (2,0) cycles atlas frame/toggles solid, isometric (2,1) toggles elevation                                                                      |
+| Toggle local/world emission / Burst both spaces                               | Stop preserves particles until expiry; burst emits24 in each coordinate space                                                                                               |
+| Unlock + PCM + OPM / Pause-resume PCM / Seek + rate PCM / Stop audio / Master | Gesture unlock eight existing contexts, PCM plus OPM; PCM seek0.2s/rate1.5; Game pause does not pause audio                                                                 |
+| Transition kind / Preload + switch scene / Cancel pending-effect              | Actual OPM/PCM/PNG batch3/3 before initialize; 1.5s fade/crossfade/left-slide with sineInOut; cancel re-selects published Scene without destroying it                       |
+| Toggle Sprite material / Toggle world + HUD post                              | Prepared native WGSL/GLSL on GPU/GL; Canvas displays explicit UnsupportedGraphicsError                                                                                      |
+| Pause / Resume / Destroy                                                      | Simulation/actions/particles/transition clock freeze, pointer capture cancels; abort UI listeners/monitor, destroy Game, then caller-owned fixtures/descriptors/object URLs |
+
+Progress/transition-events/audio/effects/tile/simulation labels expose actual state. All three final consumer surfaces have no browser console errors; audio analyser is not a speaker-audibility claim. No new cross-browser or performance claim.
+
+## 13. Preload and Native Samples (Landed P18 Modules)
+
+P18 includes the Scene.preload/Game.loading integration, accepted in the recorded Chromium scope. Provide real URLs; this direct batch example extends an initialized game and scene with a real #sound button.
+
+```js
+import { PreloadBatch } from 'xyz.js';
+
+const controller = new AbortController();
+const batch = new PreloadBatch([
+  game.assets.textureTask('atlas', '/atlas.png'),
+  game.audio.sampleTask('tone', '/tone.wav'),
+  {
+    key: 'settings',
+    load: (signal) => game.assets.loadJSON('/settings.json', { signal }),
+  },
+]);
+batch.addEventListener('progress', (event) => {
+  console.log(event.detail.completed, event.detail.total, event.detail.ratio);
+});
+const resources = await batch.load({ signal: controller.signal });
+const sample = resources.get('tone');
+document.querySelector('#sound').addEventListener('click', async () => {
+  try {
+    await game.audio.unlock();
+    const playback = await sample.play({ channel: 'sfx', scene, volume: 0.5 });
+    console.log(playback.state, playback.position);
+  } catch (error) {
+    console.error(error);
+  }
+});
+```
+
+Handle batch rejection in your initialization error path. Before gesture unlock, sampleTask/loadSample fetch encoded bytes only: decoded=false and duration/sampleRate/channels undefined. Explicit sample.decode() and play reject before unlock; play lazily decodes afterward. Batch completion does not mean decoded-ready. game.audio.opmTask(key,url) loads OPM JSON; textureTask returns loader-owned textures. Batch state/progress, native progress/complete/error events, cancel(reason?) and load({signal?}) use task-count progress; empty ratio=1. No automatic retries or resource destruction by batch.
+
+game.assets.loadBinary(url,{signal,maxBytes}) returns ArrayBuffer, loadText UTF-8 text, loadJSON parsed data (not schema validation). Defaults: binary8 MiB, text/JSON1 MiB; maxBytes is a positive integer <=8 MiB. Generic readers support HTTP/HTTPS/data/blob. Shared texture/OPM/sample acquisition abort only rejects that subscriber; loader destruction aborts shared requests and releases owned cache. Custom tasks must cooperate with signal; never destroy a shared loader to cancel one batch.
+
+game.audio.loadSample(url,{signal}) returns cached SampleAudioAsset. Native browser codecs only; WAV/PCM was exercised. Asset loop/persistent defaults can be overridden by play options channel ('music'|'sfx'|'ui'), scene, persistent, loop, volume (0..1), playbackRate (0,16], offset within duration and scheduledStartTime (absolute AudioContext seconds, not Game clock). Playback has state ('playing'|'paused'|'stopped'|'ended'), position, mutable volume/playbackRate, pause()/resume()/seek(seconds)/stop(). Pause preserves position; seek rejects finished playback. Resume/seek replace one-shot sources; natural end differs from stop. Game pause does not pause audio: explicitly call playback.pause().
+
+Samples reuse the first unlocked OPM context, not a ninth, with independent32-playback capacity; exhaustion rejects rather than steals OPM slots. Existing master/channel volume applies; worklet reset preserves samples. Scene cleanup stops nonpersistent handles, persistent survives until stop/Game destroy. Do not destroy cached SampleAudioAsset yourself.
+
+Encoded cap8 MiB; bounds **after decode**:2,097,152 frames／8 channels／192kHz／8,388,608 values. Decoder transient allocations are not prevented; not a global memory budget. Chromium analyser output proves nonzero PCM alongside OPM, not speaker audibility or other-browser certification.
+
+### Scene Preparation and Model Tasks
+
+```js
+import { Scene, Sprite, PreloadBatch } from 'xyz.js';
+
+class ReadyScene extends Scene {
+  preload(game) {
+    const batch = new PreloadBatch([
+      game.assets.textureTask('atlas', '/atlas.png'),
+      game.audio.sampleTask('tone', '/tone.wav'),
+    ]);
+    batch.addEventListener('progress', (event) => {
+      document.querySelector('#loading').textContent =
+        `${event.detail.completed}/${event.detail.total}`;
+    });
+    return batch;
+  }
+  async initialize(game, signal) {
+    const texture = await game.assets.loadTexture('/atlas.png', { signal });
+    this.add(new Sprite({ texture, position: [100, 100] }));
+  }
+}
+await game.setScene(new ReadyScene());
+```
+
+Provide a #loading label and handle setScene rejection. In TypeScript the protected preload(game,signal) hook returns PreloadBatch|void|Promise<PreloadBatch|void>. Game runs it before initialize; game.loading exposes only the current candidate's batch while preparing. Read loading?.progress for an external loading UI; do not call internal setLoading. Successful preparation atomically publishes the candidate and destroys old Scene. Failure/cancellation preserves the old Scene, which keeps updating unless paused; a candidate never initializes on failed preload. Superseded batches cannot clear newer loading. Preparation/publication may complete while paused, but the new Scene does not tick until resume.
+
+Add new GLTFLoader().task('model','/model.glb') to a batch for a uniquely owned model acquisition. Failure/cancellation of an unfinished batch disposes that task's model and owned textures, not unrelated models or shared loader assets. After success the caller owns the GLTFAsset and must dispose it after removing/stopping consumers. Custom LoadTask implementations remain responsible for their own unique resources and cooperative signal cleanup. Direct generic tasks and shared loader results are not automatically destroyed by batch.
+
+## 14. Actions, Pointer Targets and Camera (P14)
+
+The following fragments use a live Scene and a Sprite already added to it. Durations are simulation seconds, rotation is radians, and actions change local transforms before physics. Do not manually advance their queues from Scene.update.
+
+```js
+import { Actions, Easings, CameraStrategies } from 'xyz.js';
+
+sprite.pointerEnabled = true;
+sprite.draggable = true;
+sprite.addEventListener('dragmove', (event) => {
+  console.log(event.detail.pointerId, event.detail.screen, event.detail.world);
+});
+const handle = sprite.actions.run(
+  Actions.sequence(
+    Actions.parallel(
+      Actions.moveBy(40, 0, 0.5, Easings.quadInOut),
+      Actions.fadeTo(0.5, 0.5),
+    ),
+    Actions.call((owner) => {
+      owner.opacity = 1;
+    }),
+  ),
+);
+const result = await handle.finished;
+
+const follow = scene.camera2D.addBehavior(
+  CameraStrategies.follow(sprite, { axis: 'both', smoothTime: 0.15 }),
+);
+scene.camera2D.addBehavior(
+  CameraStrategies.bounds({ x: 0, y: 0, width: 1000, height: 600 }),
+);
+scene.camera2D.shake({ duration: 0.25, amplitude: [4, 3], seed: 7 });
+```
+
+Retain the follow token and call scene.camera2D.removeBehavior(follow) when following is no longer needed; removing it immediately would prevent the next camera update from using it.
+
+ActionQueue.run returns state queued/running/completed/cancelled and finished resolves completed/cancelled; handle.cancel cancels one run, sprite.actions.clear cancels the queue. Factories also include moveTo, rotateTo, scaleTo, tween(target, numericValues, duration, easing?), delay, repeat(action,count), repeatForever(action). Sequence carries excess time, parallel completes all branches, repeated runs capture fresh starting values. Infinite repeats must consume time; excessive callback work rejects. Built-in Easings are linear, quadIn/Out/InOut, cubicIn/Out/InOut, sineIn/Out/InOut and bounceOut; custom easing must stay finite in [0,1]. No back/elastic easing is promised.
+
+Native target-only events: initialize once at first active tick; add/remove detail {scene}; preupdate/postupdate detail {dt}; destroy; actionstart/actioncomplete/actioncancel detail {action,handle}. Callback removal/re-addition invalidates the old registration and defers continuation to the next frame. A preupdate from an invalidated tick need not have a postupdate. Events do not bubble.
+
+Pointer events pointerenter/leave/down/up/move/cancel and dragstart/move/end carry PointerTargetEventDetail {pointerId,button,screen,world,target,originalEvent?}, with stable Vector2 snapshots. Topmost screen/HUD precedes world, graphics bounds use inverse affine transforms, singular transforms skip; hitTestMode='collider' uses the attached collider instead. No pixel-alpha picking. Native capture permits outside-canvas dragging; parent-inverse deltas preserve nested transforms and a second pointer cannot steal the same drag. Pause/hidden/removal/destruction cancel routing; resume does not replay paused samples.
+
+CameraStrategies.follow additionally accepts a viewport-relative deadZone rectangle. Bounds account for viewport/zoom and center views larger than the bounds. Camera2D.moveTo(x,y,duration,easing?), zoomTo(zoom,duration,easing?) return ActionHandles; motion and zoom have independent FIFO channels. Behaviors run in insertion order after physics/particles, before rendering; later bounds may override motion/follow. clearBehaviors releases strategies. Seeded shake changes renderOffset only, not logical position; picking uses the last rendered camera. Game pause freezes queues and camera progression.
+
+## 15. Physics, Maps and CPU Particles (P15–P17)
+
+### Rigid Bodies and Triggers
+
+```js
+import { GameObject, RigidBody2D, Colliders, Trigger2D, Vector2 } from 'xyz.js';
+
+scene.physics.gravity.set(0, 980);
+const ball = scene.add(new GameObject());
+ball.position.set(100, 40);
+ball.collider = Colliders.circle(8);
+ball.body = new RigidBody2D({ mass: 2, restitution: 0.3, friction: 0.5 });
+const floor = scene.add(new GameObject());
+floor.position.set(100, 180);
+floor.collider = Colliders.box(200, 16);
+floor.body = new RigidBody2D({ type: 'static' });
+ball.body.applyImpulse(new Vector2(20, -30), new Vector2(104, 40));
+const trigger = scene.add(
+  new Trigger2D(Colliders.box(60, 30), {
+    repeat: Infinity,
+    filter: (other) => other === ball,
+  }),
+);
+trigger.position.set(100, 100);
+trigger.addEventListener('triggerenter', (event) =>
+  console.log(event.detail.other),
+);
+```
+
+GameObject itself has no visual; add an atlas Sprite instead when displaying a body, matching source-local collider geometry to Sprite scale. Colliders.box is centered at the owner origin; all factories accept {offset:[x,y]}. Colliders.polygon accepts 3–32 strictly convex finite vertices; concavity/degeneracy reject. Dynamic bodies require world-space roots, static colliders may be nested; circles require uniform absolute world scale, not an ellipse approximation. GameObject body/collider setters register automatically with Scene.physics.
+
+RigidBody2D exposes velocity, angularVelocity, mass, restitution, friction, linearDamping, angularDamping, gravityScale and lockRotation; applyForce/applyImpulse accept an optional world lever point, clearForces clears accumulators. No body means a static collider. Category/mask are reciprocal unsigned 32-bit filters; sensor=true detects without response. collisionstart/precollision/postcollision/collisionend carry self/other, stable normal/points, penetration, sensor and cancelResponse(); cancellation only suppresses that precollision step's response. Trigger2D clones a sensor shape, defaults to one accepted enter, accepts repeat=Infinity explicitly, and emits triggerenter/triggerexit {self,other}; it does not auto-destroy.
+
+Scene.physics.overlap(collider,owner) returns shape-accurate contacts; raycast(origin,direction,maxDistance,mask?) returns distance-sorted surface hits. Gravity, fixedDelta, maxSubSteps, velocityIterations and positionIterations are configurable. The solver is discrete and capped; droppedTime reports discarded catch-up time. High-speed tunneling is possible. No CCD, joints, sleeping, kinematic/concave/composite/edge or 3D physics.
+
+### Atlas Maps
+
+```js
+import { TileMap, IsometricMap, SpriteSheet } from 'xyz.js';
+
+const sheet = SpriteSheet.grid(texture, { frameWidth: 32, frameHeight: 32 });
+const map = scene.add(
+  new TileMap({
+    columns: 8,
+    rows: 4,
+    tileWidth: 32,
+    tileHeight: 32,
+    sheet,
+  }),
+);
+map.setTile(2, 2, { frame: 0, solid: true, metadata: { name: 'floor' } });
+const iso = scene.add(
+  new IsometricMap({
+    columns: 4,
+    rows: 4,
+    tileWidth: 32,
+    tileHeight: 16,
+    sheet,
+    elevationStep: 8,
+  }),
+);
+iso.position.set(320, 100);
+iso.setTile(1, 1, { frame: 1, solid: true, elevation: 2 });
+const origin = iso.tileToWorld(1, 1);
+const picked = iso.pickTile(origin);
+map.setTile(2, 2, { solid: false });
+```
+
+Use a live atlas texture large enough for the referenced frames. getTile returns an immutable cell {frame,solid,elevation,collider?,metadata?}; setTile validates a partial edit before publication, clearTile resets the cell. tileToLocal/tileToWorld include configured elevation and optionally reuse a Vector2 output. worldToTile(point,out?) returns integer coordinates (possibly outside grid) on the elevation-zero plane; pickTile handles elevated topmost graphic rectangles, not pixel alpha or exact diamond geometry. Singular inverse transforms reject, while pickTile returns undefined.
+
+Orthogonal origins are top-left; isometric origins are diamond top vertices, depth ordered by diagonal/elevation/insertion. Generated Sprite children borrow the sheet texture and remain pooled when hidden or cleared. Conservative transformed camera culling does not remove solid physics. Solids default to boxes/diamonds; collider can supply a custom convex shape. Edits/removal/destruction update Scene collision registration. Destroy maps before the separately owned atlas Texture. No editor-format imports, hex/staggered grids or navigation.
+
+### Particle Emitters
+
+```js
+import { ParticleEmitter } from 'xyz.js';
+
+const emitter = scene.add(
+  new ParticleEmitter({
+    texture,
+    capacity: 128,
+    rate: 24,
+    seed: 7,
+    space: 'world',
+    lifetime: [0.5, 1],
+    speed: [20, 40],
+    angle: [-Math.PI, 0],
+    acceleration: [0, 40],
+    nozzle: { kind: 'circle', radius: 5 },
+    startSize: [6, 6],
+    endSize: [1, 1],
+    startColor: [1, 0.5, 0, 1],
+    endColor: [1, 0.5, 0, 0],
+  }),
+);
+emitter.position.set(120, 80);
+emitter.emit(12);
+emitter.start();
+// Later: emitter.stop() retains survivors; emitter.clear() retires them.
+```
+
+ParticleEmitter extends Group2D and starts stopped. rate is births/second; emit(count) is a burst even while stopped. lifetime/speed/angle are ordered ranges (seconds, logical units/second, radians); startSize/endSize are width/height pairs, not random ranges. Optional source is an atlas rectangle; nozzle is point, rectangle {width,height} or circle {radius}. Capacity overflow drops new births, without queued backlog. activeCount/emitting are readonly views.
+
+CPU simulation uses a fixed borrowed-texture Sprite pool: fractional births age within the current tick, acceleration integrates analytically, size/tint/alpha interpolate over lifetime. Local particles follow emitter ancestors; world particles preserve the full birth world affine axes, position, velocity and acceleration when parents move, while new births use the new transform. This simulation space is separate from inherited world/screen rendering space. stop retains survivors until expiry; clear resets live slots/fraction for reuse; Game pause freezes age; destroy owns pooled children, not the borrowed Texture. No GPU simulation.
+
+## 16. Native Sprite Materials and 2D Post (P20)
+
+The following uses a live GPU/GL Game, Scene and Sprite. Prepare descriptors before attaching them to a visible consumer; handle compiler rejection.
+
+```js
+import { Material2D, PostProcessor2D } from 'xyz.js';
+
+const material = new Material2D({
+  uniforms: [0, 1, 0, 1],
+  wgsl: `fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
+    return vec4f(color.rgb * uniformValue(0u).rgb, color.a);
+  }`,
+  glsl: `vec4 effect(vec4 color, vec2 uv, vec2 screen) {
+    return vec4(color.rgb * uniformValue(0).rgb, color.a);
+  }`,
+});
+const mirror = new PostProcessor2D({
+  uniforms: [0.75],
+  wgsl: `fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
+    return sampleInput(vec2f(1.0 - uv.x, uv.y)) * uniformValue(0u).x;
+  }`,
+  glsl: `vec4 effect(vec4 color, vec2 uv, vec2 screen) {
+    return sampleInput(vec2(1.0 - uv.x, uv.y)) * uniformValue(0).x;
+  }`,
+});
+await game.graphics.prepareMaterial(material);
+await game.graphics.preparePostProcessor(mirror);
+sprite.material = material;
+scene.effects2D.push(mirror);
+material.setUniforms([1, 1, 0, 1]);
+```
+
+Both native sources are required, immutable, nonempty and limited to 65,536 characters each. uniforms is a 16-slot Float32Array; setUniforms accepts at most 16 finite float-representable numbers and zero-fills unused slots. Direct finite uniform mutations are uploaded on the next draw. WGSL declares uniforms.values as array&lt;vec4f,4&gt;, GLSL declares vec4 uniforms[4]; uniformValue(index) reads vec4 indices 0–3, not individual float indices. User code defines only the native effect function, not a full vertex/fragment entrypoint.
+
+Material color is premultiplied sampled texture × inherited tint/opacity, uv is source-frame normalized, screen is logical pixels. Return premultiplied RGBA. Post color/uv cover the transparent entire world-2D+HUD layer; sampleInput takes top-left normalized UV on both backends. Stage order: 3D/P12 HDR → transparent 2D+HUD → ordered effects2D ping-pong → composite → whole-frame transition. A Sprite material changes only that Sprite; 2D post never processes the 3D/HDR base.
+
+Prepared pipelines/programs and uniform resources survive resize or temporary disable for the descriptor lifetime; re-enable needs no async reprepare. Resize/disable releases mutable layer/transition attachments, not owned snapshots. Descriptors are caller-owned and can be borrowed by multiple consumers. Remove references before material.destroy()/mirror.destroy(); destruction immediately releases their prepared entries, rendering a destroyed/unprepared effect rejects GraphicsError. Renderer loss/destruction releases all native resources. Canvas2D preparation, a visible material or nonempty effects2D explicitly throws UnsupportedGraphicsError; do not silently ignore it or assume auto will select a shader-capable backend. No transpiler/Shader Graph/arbitrary resources.
+
+## 17. Whole-Frame Scene Transitions (P19)
+
+Accepted actual Game handoff on all three backends covers crossfade/fade, synchronous old destruction, pause/pending Promise, resize/immutable capture, resume/completion and final custom easing endpoint. Supplemental real native captures prove cancellation of a positively presented slide while retaining the published Scene, asynchronous capture version supersession/late disposal, synchronous cancel-listener reentry/latest winner and destruction during held capture. All12 native snapshots were disposed; errors=[] on every backend. Destruction releases Scenes/captures and stops frames immediately, but a pending setScene Promise still awaits the controlled native capture return before rejecting; no early capture-Promise abortion is claimed. The formal example also proves paused-effect cancellation. Final toolchain37files/252tests and packed consumer passed; existing instant switches remain the default.
+
+```js
+import { Easings } from 'xyz.js';
+
+game.addEventListener('transitioncomplete', (event) => {
+  console.log(event.detail.kind, event.detail.to);
+});
+await game.setScene(nextScene, {
+  transition: {
+    kind: 'slide',
+    duration: 0.5,
+    direction: 'left',
+    easing: Easings.sineInOut,
+    blockInput: true,
+  },
+});
+```
+
+SetSceneOptions.transition is TransitionOptions {kind:'fade'|'crossfade'|'slide',duration,easing?,color?,direction?,blockInput?}. Duration is finite nonnegative simulation seconds, normalized ColorRGBA defaults to opaque black, direction defaults left, easing linear, blockInput true. Fade goes outgoing→color→incoming; crossfade blends; slide supports left/right/up/down. game.transitioning indicates an active visual effect, not candidate loading.
+
+Preparation leaves the old Scene active; successful preparation and owned capture, followed by cancellation/version checks, precede publication and old destruction. Only the new Scene simulates during visual blending. The Promise resolves after the last composited frame, not merely publication. Pause/hidden freezes transition time, including an outstanding Promise; resize preserves/scales the immutable outgoing snapshot. Initial no-old/idle switches and duration=0 skip visual capture/events and finish atomically. Preparation/capture failure preserves current Scene; replacement cancels the candidate/effect, rejects its pending Promise and releases its snapshot.
+
+Native Game transitionstart/transitioncomplete/transitioncancel detail SceneTransitionEventDetail {from,to,kind} is emitted only for actual visual transitions. blockInput clears capture and blocks targeted object pointer routing, not keyboard/global input polling. Snapshot lifetime ends on completion/cancel/explicit destruction/renderer loss/destruction, not old Texture destruction or resize.
+
+Low-level Renderer.captureScene(scene,width,height):Promise&lt;RenderSnapshot&gt; redraws without simulation into owned storage (all 3D/P12, world/HUD and enabled effects; no transition overlay). Width/height arguments are logical pixels; snapshot width/height are backing pixels. RenderSnapshot exposes only backend/width/height/destroyed/destroy; wrong-renderer/destroyed handles and active-frame nested capture reject. Renderer.render(scene?,width?,height?,{transition}) accepts TransitionFrame {kind,progress,snapshot?,color,direction}; normalized progress 0–1, missing snapshot uses color. PresentedRenderer forwards capture and presents already composited output; no delayed read of preserveDrawingBuffer=false canvas. Leave Game-owned frame/capture management to setScene rather than issuing competing frames from its RAF loop.

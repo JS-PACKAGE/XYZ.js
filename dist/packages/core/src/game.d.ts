@@ -1,9 +1,10 @@
-import { AssetLoader } from '../../assets/src/index.js';
+import { AssetLoader, type PreloadBatch } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
 import { type Renderer, type RendererPreference } from '../../graphics/src/index.js';
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
+import { type TransitionOptions } from './transitions2d/index.js';
 export interface GameOptions {
     canvas: string | HTMLCanvasElement;
     renderer?: RendererPreference;
@@ -16,6 +17,14 @@ export interface GameOptions {
     autoResize?: boolean;
 }
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
+export interface SetSceneOptions {
+    transition?: TransitionOptions;
+}
+export interface SceneTransitionEventDetail {
+    readonly from: Scene;
+    readonly to: Scene;
+    readonly kind: TransitionOptions['kind'];
+}
 /** Browser runtime controller. GPU handles remain private to the renderer. */
 export declare class Game extends EventTarget {
     readonly canvas: HTMLCanvasElement;
@@ -26,8 +35,14 @@ export declare class Game extends EventTarget {
     readonly audio: AudioManager;
     private currentState;
     private currentScene;
+    private updatingScene;
+    private readonly canUpdateScene;
     private pendingScene;
     private pendingCompletion;
+    private loadingBatch;
+    private loadingScene;
+    private activeTransition;
+    private readonly frameEffects;
     private sceneVersion;
     private switchingScene;
     private requestId;
@@ -48,9 +63,16 @@ export declare class Game extends EventTarget {
     get width(): number;
     get height(): number;
     get scene(): Scene | undefined;
+    get loading(): PreloadBatch | undefined;
+    /** @internal Older async candidates cannot overwrite or clear a newer loading barrier. */
+    setLoading(scene: Scene, batch: PreloadBatch | undefined): void;
+    get transitioning(): boolean;
+    private cancelTransition;
+    private completeTransition;
+    private beginTransition;
     start(scene?: Scene): void;
-    /** Prepare offscreen, then publish the candidate and synchronously release the old scene. */
-    setScene(next: Scene): Promise<void>;
+    /** Prepare/capture before publication; only the published Scene participates in simulation. */
+    setScene(next: Scene, options?: SetSceneOptions): Promise<void>;
     /** @internal Called when a Scene is explicitly disposed by its owner. */
     onSceneDisposed(scene: Scene): void;
     pause(): void;

@@ -87,6 +87,15 @@ beforeEach(() => {
     beginFrame: vi.fn(),
     render: vi.fn(),
     endFrame: vi.fn(),
+    captureScene: vi.fn(async () => {
+      throw new Error('Unexpected capture in atomic runtime fixture.');
+    }),
+    prepareMaterial: vi.fn(async () => {
+      throw new Error('Native material outside runtime fixture.');
+    }),
+    preparePostProcessor: vi.fn(async () => {
+      throw new Error('Native postprocessor outside runtime fixture.');
+    }),
     resize: rendererResize,
     destroy: rendererDestroy,
   };

@@ -233,3 +233,176 @@ P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效
 - Advanced3d 真實 GPUDevice.destroy 顯示 device-lost fatal 訊息；WEBGL_lose_context 顯示 context-lost fatal 訊息。這是實際 API loss，不是實體 driver reset 認證。
 - npm pack 1.1.0 解壓至獨立 /tmp，以純 HTTP 提供最小化 ESM（不經 Vite），58 個 engine JS 產物；WebGPU／WebGL2 再驗 hierarchy／picking／ortho／instance／PBR／lights／post／overlay／resize、glTF／GLB skin 與 samplers，named pixels 相同、無 errors。Pack 不等於 publish；未修改原 release、未 commit／push。
 - 邊界：只驗此工作站 managed Chromium，未認證 Safari／Firefox／Edge、真實 driver reset 或新效能數據；named sample pixels 一致不等於整張 framebuffer 逐像素一致。Canvas2D 仍 2D-only；不含 IBL、point／spot shadows、全部 glTF extensions／three.js addons。套件保持 1.1.0，升版／公開授權與發佈由所有者決定。
+
+## P13–P20 明確profile與整合驗收（2026-09-30，限定已測環境）
+
+**P13–P20 profiles、正式rootconsumer與共用整合門檻驗收通過。** 最後Node26.7.0／pnpm12.6.0 frozeninstall／build／typecheck／37files252tests／lint／format，built-dist及packed ES2022consumer通過。ActualChromium三backend Game／nativeeffects與audio詳見各節；追加actual三backend native-capture cancel／version／reentry／destroy proof完成，12captures全釋放／errors=[]。P01–P12歷史日期／25檔150不改，套件1.1.0／UNLICENSED、不npm發佈／自動commit-push／新dependency／OPMvendor更動。
+
+### 共用驗收門檻（限定已測環境驗收通過）
+
+- [x] 正式 Game→Renderer browser surface：P13–P19在三backend逐profile驗收、正式gameplay2d rootconsumer三backend完整互動／errors=[]；P20 GPU／GLnative material／post、Canvas explicit UnsupportedGraphicsError。正式範例gate DONE。
+- [x] 保持GameObject facade／內部ECS、whole-textureSprite／Text2D／borrowedTexture／inputpolling／timers／OPM／3D-P12／Scene failure；既有六examples＋advanced3d browsermatrix、37files252tests與新formalconsumer證明相應路徑。Pause／hidden及callbackownership依各scopedtests／actualproof，不冒稱未測browser。
+- [x] 最後build／typecheck／37files252tests／lint／format通過，frozeninstall／pack／strictisolatedES2022types／extractedrootruntime亦通過。下節記當次結果與初次diagnostics；Safari／Firefox／Edge／新performance仍未驗。
+
+### P13 — 2D hierarchy／atlas／animation／font／NineSlice／HUD（限定環境驗收通過）
+
+- [x] 既有 GameObject＋Group2D nested rotation／nonuniform／negative scale 與 inherited visibility／opacity／tint／z，Scene subtree ownership／cycle／reparent／remove／destroy；三 backend 正式 Game 路徑與 targeted behavior tests。
+- [x] Sprite sparse source／SpriteSheet grid、atlas anchor／flip／natural size 與 borrowed Texture；Sprite.source 允許 fractional pixels，SpriteSheet frame 僅 integer。Width／height 是自然 source 尺寸，縮放用 scale，沒有 displayWidth／displayHeight。
+- [x] FrameAnimation loop／pingpong／freeze／hide、duration boundaries／large dt／speed／reverse／pause／reset／goToFrame／stop／native events 與 Scene-owned ticking，範例呈現 source frame 動畫。
+- [x] SpriteFont／SpriteText glyph reuse／invalid update preservation／layout，以及 NineSlice stretch／tile fractional remainder／tile-fit／small-size bounds／resize；owned children 不 destroy borrowed Texture。
+- [x] ScreenElement HUD 不受 world camera pan／zoom 影響，world-before-screen 呈現；不是 widgets／layout／editor。
+
+#### P13 實際證據（2026-09-30）
+
+- Core lead 回報 build／typecheck 成功、4 檔／21 targeted tests；renderer 4 tests、primitives 4 tests 成功。Primitives 4 tests 與 21 有重疊，**不加總成 29**；沒有新 full-suite／lint 通過聲明，歷史 150 不變。
+- WebGPU／WebGL2／Canvas2D 真正 Game pixels：fractional .25 source green `[0,255,0,255]`；inherited shear／reflection／tint／opacity `[50,52,103,255]`；祖先 hidden background `[6,9,17,255]`；alpha probe `[15,16,20,255]`；HUD red 在 camera 改動後固定。
+- GPU／GL：3 個共用 atlas Sprites，3 frames 僅 upload 一次、每 frame 一個 instanced draw。這是 API／資源觀察，不是新 FPS／throughput 或所有場景 draw-count 保證。
+- NineSlice .25 fractional tile remainder 在 scale=4 仍一個正確 orange pixel `[255,96,0]`，相鄰 green 在三 backend 正確；glyph 相同字數更新與 invalid update preservation、shrink bounds `3×2` 正確。
+- 真正 `/examples/gameplay2d/` 三 backend 已截圖，errors 為零；Canvas2D pause 180ms 後 backing changed channels=0。Live Game.start RAF 的 WebGPU composite screenshot 由 director 實際查看：字形／面板 composites 可見且無 errors。
+- 原 primitives screenshot 的 GPU blank 是在 Game.destroy／unconfigure **之後**拍攝；named pixels 在 destroy **之前**擷取有效。後續 live screenshot 已釐清，**不是 product bug，也沒有因此改 source**。不把 post-destroy blank screenshot 當有效 runtime 畫面。
+- 僅已記錄 Chromium 環境，不認證 Safari／Firefox／Edge、新效能或整張 framebuffer 逐像素 parity。P14–P20 的 pending criteria 不因本節通過而自動打勾。
+
+### P14 — events／actions／pointer／camera（限定 Chromium 驗收通過）
+
+- [x] Native target-only CustomEvent initialize／preupdate／postupdate／add／remove／destroy、once listeners、callback reentry／remove／destroy／remove-readd generation guards與next-frame continuation。失效tick跳過postupdate，不宣稱pre／post總數配對。
+- [x] Actions moveTo／moveBy／rotateTo／scaleTo／fadeTo／finite numeric tween／delay／call、sequence overshoot／parallel completion／repeat fresh state／repeatForever cancellation；handle finished complete／cancel／destroy都settle，zero-time infinite repeat拒絕。Linear／quad／cubic／sine／bounceOut，local actions先於physics、pause凍結／resume完成。
+- [x] Rotated nested atlas／HUD native pointer drag、two-pointer regression、target-only topmost／capture／parent-inverse drag、collider／singular graphics、第二pointer不搶drag與teardown。不是pixel-alpha picking／bubbling。
+- [x] Camera follow／axis／smooth／deadZone／viewport-aware bounds、move／zoom／seeded shake與renderOffset／focus分離，input對齊最近呈現camera，remove target安全。
+
+#### P14 實際證據（2026-09-30）
+
+- Central integration **4檔／27 tests**；additional registration callback regression後pointer單檔 **7 tests** 另記；actions follow-up **2檔／18 tests** 與ES2022禁用Promise.withResolvers實際smoke。這些不是full-suite加總，歷史150不變。
+- 正式gameplay2d Canvas native atlas拖曳：local(0,0)→(14.9,0.6)，screen(305.5,189.7)→(345.5,209.7)，證明parent-inverse delta。HUD local(24,24)→(54,39)，screen delta(30,15)。Held pointer下keyboard啟動Pause同步pointercancel／dragend；probe重複strings來自雙MutationObservers，恰一次以targeted regression判定。
+- Paused UI sequence之cropped compositor140ms相同，resume顯示action sequence completed；實際Follow／Actions／Shake畫面已觀察、browser errors=0。真Game→Scene→Canvas renderer proof：move／zoom handles完成，follow+bounds focusX=23.33333333333333、target x90→screen(100,50)；shake3個displaced frames sample offset(-2.2525357234208383,-0.09846128849789076)，actual sprite `[255,0,0,255]`、focus不變，結束offset=0。
+- Game pause70ms backing diff=0／Sprite x90／handle queued，resume到x120；callback remove／readd在frame13、續callback frame14。Destroy取消pending handle，initialize／destroy各一次；失效remove／readd tick不發postupdate是預期。Managed Chromium Canvas正式interaction proof；其他backend共同render證據由對應階段供應，不新增cross-browser／FPS／GC聲明。
+
+### P15 — discrete rigid-body physics／triggers（限定 Chromium 三backend驗收通過）
+
+- [x] Circle／box／3–32 strictly convex polygon真實contacts／point／overlap／sorted ray queries、invalidshape拒絕；dynamic worldroot、nestedstatic、circle uniform absolute worldscale、inertia隨geometry更新。
+- [x] Fixed-step iterative linear／angular impulses：unequal-mass momentum／restitution／friction／off-center force與impulse／bounded rest jitter／dt partition與droppedTime cap。無CCD／joints／sleep／concave／edge／3D，高速tunneling明示。
+- [x] Reciprocal masks／sensor／collisionstart-precollision-postcollision-end stablepayload／reversednormal、step-onlycancel、transientcontacts與callbackfilter／remove／destroy安全。
+- [x] Triggerfilter／acceptedenter repeat／exit／explicit Infinity，真實three-backend circle floor／angularbox／trigger／isopolygon、pause／teardown。Physical outcome非debug geometry。
+
+### P16 — orthogonal／isometric maps（限定 Chromium 三backend驗收通過）
+
+- [x] Rotated／scaled tileToLocal／tileToWorld、elevation-zero worldToTile inverse、elevated topmost rectangle pickTile／depth／boundaries；不聲稱未提供的known-elevation overload。
+- [x] Atlas pooledchildren／transformed conservativecull／camera pan顯hidden tile，setTile／clearTile preflightgraphics／metadata／registration、不複製Texture。
+- [x] Orthbox／isodiamond／customconvex solids與P15真contact、edit更新碰撞；destroyowned children而非borrowedsheet。無editorimporter／hex／staggered／navigation。
+
+### P17 — CPU pooled particles（限定 Chromium 三backend驗收通過）
+
+- [x] Seeded point／rectangle／circle、fractionalrate／emitburst／dropnewcapacity、analyticposition／acceleration／lifetime／size／color與pixels；fixedpool／borrowedTexture。
+- [x] Stop留survivors、clear重用、local跟parent／worldbirthaffine保留、新birth用新parent；pause凍age、destroypool／Scene refs、borrowedTexture仍alive。無GPU simulation。
+
+#### P15–P17 正式 Game browser proof（2026-09-30）
+
+- Managed Chromium150／macOS，source root exports viaVite；forced Canvas2D／WebGL2／WebGPU皆真Game→Scene→Renderer，640×400／pixelRatio1。**48 pixel assertions全部pass、21live screenshots、各backend errors=0；3files／40tests與ownedformat通過**。不是published dist／fulltoolchain／其他browser或throughput proof。
+- 三backend circle rest y≈146.00568、orthosolid support≈87.00585；angularcontact峰值≈3.2347–4.4171、each trigger2enter／2exit、isopolygoncontact1。Ray solidmutation1→0，ortho ball穿removedtile落至y121.69–126.51。Unitregressions另驗mass momentum／rotatedfaces／friction／boxrestjitter<0.02、velocity<0.1、spin<0.05及dtpartition／catch-up。
+- Localparticle移parent後到(160,285)、worldoldbirth保留(320,285)、newbirth採新parent；analytic tint／alpha、burst50 bounded12／12、stop後survivors到期。Pause freezesrenderframes／state；destroy Game／Scene／physics／maps／pool，activecounts0／Sceneobjects0，borrowedatlasalive直到ownerdispose。
+- GPU COPY_SRC只加在throwaway proofcanvas的readback instrumentation，非renderer source變更；GL同task readPixels、preserveDrawingBuffer=false。RealRAF elapsed不同，逐backend獨立assertstaticRGBA／dynamicanalytictint。兩個harnesssample錯誤修正未改product；暫時harness移除、三tabs釋放。不測CCD／joints／concave／3D／Safari／Firefox／mobile／新performance。
+
+### P18 — preload／native sampled audio alongside OPM（限定 Chromium 驗收通過）
+
+- [x] PreloadBatch unique keys／bounded concurrency／task-count progress／empty／failure／cooperative abort與shared ownership；Scene.preload成功才initialize／publish，Game.loading owner guards、取消／失敗保留舊Scene。
+- [x] Preunlock encoded fetch-only、不建contexts／不decoded-ready／play拒絕；gesture8contexts、first reused、worklet reset保持PCM。
+- [x] Browser PCM decode／analyser alongside OPM，pause／resume／seek／loop／schedule／gain／rate／position／end／stop、Scene／Game teardown與persistent ownership。
+- [x] PCM獨立voice budget、master／channel gain、Game pause audio clock獨立；native codec／post-decode budgets與transient caveat，analyser-only不宣稱聽見。
+
+#### P18 modules 初步證據（2026-09-30；當時 phase 仍 PENDING）
+
+以下保留當時audio/assets module-scoped紀錄：當時中央Scene整合尚待驗，4檔／33 tests通過、不改歷史150；後續phase整合結果見下節，不把33與35加總或重寫當時結果。
+
+- 真正 Chromium：unlock 前0 contexts、sample not decoded、play reject；gesture 後8 running contexts，PCM重用第一個，decode metadata48000Hz／mono／0.5s。PCM analyser peak `0.1999878`，同場 OPM `0.5307934`；只證 analyser，不宣稱聽見聲音。
+- Pause position `0.0693333` 保持；rate=2 resume到 `0.26`、seek／loop `0.0726667`；volume=.25 peak `0.04999695`，master／channel mute=0。Worklet reset後 PCM仍 `0.04999695`，sample bus未切斷。
+- Scheduled start前position=`0.1`、後=`0.172`；natural state ended。Scene cleanup owned stopped／persistent playing；destroy後8 contexts全部closed、errors=0。Game pause與audio clock獨立。
+- Assets4 tasks progress `0,.25,.5,.75,1`；shared Texture=true／2×3，JSON Unicode `雪`，binary `[1,2,3,4]`、empty ratio=1；loader destroy釋texture。Shared cache subscriber abort只拒該caller，loader destroy中止shared fetch。
+- Decode budgets在browser decode **後**：encoded8 MiB／2,097,152frames／8channels／192kHz／8,388,608values；不防decoder transient memory amplification、非global memory budget。Vendor未改、不增第九個context，其他瀏覽器未驗。
+
+#### P18 Scene／Game 整合驗收（2026-09-30）
+
+- Audio integration修正後 **4檔／35 tests**，12個owned files format通過；ES2022 runtime禁用Promise.withResolvers仍跑通。不是新full-suite／project-wide lint／build通過聲明。
+- 真正Chromium Canvas Game：Scene.preload failure保留exact cause、old持續update，candidate沒有initialize且destroy／loading clear；cancel同樣保留old。Supersession晚到batch cancel不能清新loading。Paused old不tick、新candidate可prepare／publish，resume後new才tick；destroy active／pending各一次、promise reject／loading clear／shared resources released。
+- Progress：failure `0,.25,.5,.75`、cancel `0,.5`、next `0,.5,1`、destroy `0,.5`；initialize僅old與next。
+- Unique GLTFLoader.task partial failure destroy owned model與一個owned Texture，unrelated direct model／shared Texture存活；successful batch轉移ownership，不廣泛dispose loader。
+- 修正後native audio仍8contexts、first reused、duration0.5s、analyser peak `0.04999695`，destroy全部closed／errors=0；不宣稱聽見聲音。僅記錄的Chromium scope，其他browser／新performance未驗。
+
+### P19 — whole-frame fade／crossfade／slide（限定 Chromium 驗收通過）
+
+- [x] 三 backend renderer真實geometry＋world／HUD／3D capture、fade／crossfade／四方向slide endpoint／midpoint及wholeframe-last pixels；actual三backend Game crossfade／fade另證publication／Promise與immutablecapture。
+- [x] Prepare／ownedcapture／versioncheck才publish，old同步恰一次destroy／stopupdates、onlynewsimulate；snapshot不借oldTexture、preserveDrawingBuffer=false不agedread。Asyncfailure由scopedtests覆蓋；supersession／latesnapshot另有actual三backend nativecapture proof。
+- [x] ActualGame pause-freeze／pendingPromise／resizepreservecapture／resumefinalframe→complete＋release／normalizedeasingendpoint；追加actual三backend effectcancel／nativecapture-version／synchronous listenerreentry／held-capture destroy。Inputblock／failure／loss與zero-duration／initialatomic由scopedtests及相應rendererproof覆蓋。
+
+#### P19 renderer pixels／captures（2026-09-30）
+
+- 三backend renderer whole-frame crossfade midpoint `[128,0,128,255]`，fade endpoints／midpoints與四方向slide；Canvas96 fractional-boundary cases。Owned capture跨舊Scene／Texture destruction與resize存活／scale。Foreign／destroyed capture、nested capture與loss cleanup為actual runtime；不以renderer proof替代setScene Promise／events／input／publication lifecycle。
+
+#### P19 實際 Game 三backend handoff proof（2026-09-30）
+
+- Central **4檔／30tests**：async capture atomicity／old updates untilcapture、pause Promise／snapshotresize、failure／supersession／latesnapshot、transitioncancel listenerreentry、fatal render preservepublishedScene、invalidoptions-beforeclaim與asymptotic easingendpoint。非fullsuite加總。
+- Real root exports／Game.create／Scene／Sprite／ScreenElement＋native renderer，GPU／GL／Canvas三獨立Game，160×100 redworld→greenworld＋yellowHUD。PauseprogressGPU0.2332／GL-Canvas0.2，old updates start/final1/1且同步destroy，snapshotlive／Promisepending／transitioningtrue。Compositor PNG browserdecode驗GPUcenter `[196,59,0,255]`、GL-Canvas `[204,51,0,255]`，各吻合progressblend±1，HUD皆 `[255,255,0,255]`；非aged GLdrawingbuffer讀值。
+- Pause resize200×120仍保160×100immutable capture／unchangedprogress；resume至原Promise完成，each nativeevents恰start→complete、finalprogress1／snapshotdestroyed／transitioningfalse／old仍updates1／errors=[]。FinalactualGame三backend另驗fade custom easing(t)=1-exp(-3*t)，完成強制progress1／disposeold＋capture／start-complete／errors=[]。
+- 初始phase由上述actual三backend Game及4檔／30scopedtests接受，當時額外capture／version／reentry fault-races只依scopedtests；後續actual三backend補充見下節。正式gameplay2d另已真UI證明paused-effect cancel保publishedScene；formalexample與fulltoolchain DONE，最後37files252tests另記、不把scopedcounts加總。
+
+#### P19 追加 actual native Game cancel／version／reentry／destroy（2026-09-30）
+
+- 三獨立root Game.create強制且report WebGPU／WebGL2／Canvas2D，實際Scene／world Sprite／yellow HUD及native capture／render。Observers呼叫原native方法；已真正allocated capture以明確gate延後回傳，非renderer mocks。每個await有5秒上限、皆無timeout；source保持凍結。
+- Presented left slide在progressGPU≈0.167／GL≈0.1663／Canvas≈0.1667 pause，live screenshot可見green outgoing＋yellow HUD／blue incoming stripe。原visual Promise仍pending；setScene(publishedScene)保published Scene、reject原Promise cancellation、恰start→cancel、dispose capture，後續只incoming更新。
+- Async nativecapture gate期間old仍alive且updatesGPU／GL3→5、Canvas5→7；新version原子publish winner／dispose old＋obsolete candidate。放行late capture後obsolete Promise reject、late snapshot dispose、winner不變，never-published request不emit visual event。
+- Active paused nativefade的transitioncancel listener同步setScene(latestBlue)，listener恰一次；active及outer interrupted兩個Promise都reject cancellation，nested latest resolves／remains current。Interrupted candidate／先前Scene／capture全dispose，無錯誤complete。
+- Held nativecapture期間Game.destroy立即清current／pending、dispose全部renderer-owned captures、borrowed textures保留，跨兩次real RAF無新simulation。公共setScene Promise仍等受控capture回傳；放行後5秒內reject、不publish，**不聲明提前abort native await**。
+- 三Games各4真native snapshots，共12且0live；各scenario Game errors=[]。Borrowed external textures由實際owner另destroy；全部Games／captures與owned tab已cleanup。此為追加觀察，非新增fullsuite／其他browser／driver-memory或performance認證。
+
+### P20 — native WGSL／GLSL materials／2D layer post（限定 Chromium 驗收通過）
+
+- [x] GPU／GL prepare後per-Sprite native effect／16-float uniforms有指定pixels，source UV／premultiplied RGBA／tint／opacity／hierarchy／z保留。Invalid shader GraphicsError／unprepared／destroyed拒絕，pending preparation cancel／loss實際清理，不fake fallback。
+- [x] **Transparent 2D world＋HUD→ordered ping-pong post→composite over unchanged 3D／P12→P19 whole-frame transition**。Prepared pipeline／program＋uniforms跨resize／disable保留、無async reprepare；mutable attachments釋放，descriptor destroy立即釋其entry，loss／renderer destroy清全部；snapshots不因resize／disable銷毀。
+- [x] Canvas2D prepare／visible material／nonempty effects2D明確UnsupportedGraphicsError，ordinary 2D仍支援；無transpiler／IR／Graph／任意bindgroups／多texture slot／custom vertex attributes。
+
+#### P20 實際 native pixels／lifetime（2026-09-30）
+
+- **2檔／7 graphics/material tests**；真GPU／GL native uniform material green `[0,255,0,255]`→yellow `[255,255,0,255]`，ordered post forward `[128,0,0,255]`／reversed `[96,0,0,255]`，top-left sampleInput pixels已驗。Source cap65536 chars／native language、16floats、WGSL uniforms.values[4]／GLSL uniforms[4]／uniformValue(index)，回premultiplied RGBA。
+- GPU 3D HDR mesh `[0,244,0]`不受2D post改變，owned HDR capture crossfade `[0,122,128]`。Actual invalid compiler／unprepared／destroyed descriptors、foreign／destroyed capture、nested capture、pending prepare cancellation／loss皆已exercise；errors不silent swallow。
+- GPU／GL各 **20 resize／disable／reenable cycles**：prepared counts穩定、不async reprepare，mutable targets每disable回exact baseline。GPU pipeline baseline12；live textures4／buffers7→descriptor destroy buffers5；GL programs8→descriptor destroy6、targets回textures2／FBO1／renderbuffer1。Renderer teardown所有tracked native texture／buffer／FBO／renderbuffer／program／shader皆0，snapshotDestroyed=true、errors=[]。這是tracked resource proof，不claim總driver-memory／GC或新performance。
+- P19／P20限定已記錄Chromium profiles；formalconsumer／最後fulltoolchain亦通過。無Safari／Firefox／Edge／整張framebuffer parity聲明。
+
+只依以上 explicit profiles 驗收；upstream-main-only lighting／serializer／pause plugin architecture 與外部 plugins／editor formats 持續排除，不自動加需求。多語 README／usage／technical／DESIGN 的功能說明與已通過標記須等各階段真實 smoke 再更新。
+
+## 正式 gameplay2d P13–P20 消費者整合（2026-09-30，DONE）
+
+- Source-Vite `/examples/gameplay2d/`只用rootexports，forcedWebGPU／WebGL2／Canvas2D各真Game。Atlas／glyph／NineSliceHUD、native nested/text drag／Actions／follow-bounds／camera culling、angularbody／trigger、orthosolid edit＋isoelevation、local/worldparticle stop-expire→0/0／burst24/24均實際操作；three finalsurfaces／resource-surfaces screenshots可見，各errors.entries=[]。
+- Pause前後diagnostics ticks／body／contact／particle完全相同；三backend trustedtouchcancel pointer2、dragend localGPU(74,39)／GL-Canvas(69,39)、HUD固定。Camera pan visibleorthotiles66/96→0/96、iso12/12；tilecontrol真正切frame1／solidfalse／elevation0。
+- 每Scene真PreloadBatch OPM／PCM／PNG三resources，3/3ready且Game.loading ownedbatch-at-completion true。Nativeaudio經gestureunlock，exactly8runningAudioContexts／PCMcontext0；GPU PCMpeak0.07999511808156967／OPM0.027916936203837395。PCM pause不斷OPM、seek0.2s／rate1.5／looptrue／resume；非聽見聲音。
+- 每backendfade／crossfade／slide完成；pausedvisual保持transitioningtrue，Cancel pending/effect保publishedScene2，之後能完成新switch。GPU／GL visibleMaterial／world＋HUDpostenabled，Canvas兩控制明確UnsupportedGraphicsError、不app consoleerror。
+- Destroy三backend真Game／Scene／native descriptors／borrowed authoredfixtures／AudioContexts／objectURL cleanup，GL／Canvas各記8contexts closed。Formalconsumer／新controls與完整工具鏈DONE，Actions最後37files252tests／packproof另記。無其他browser／dist-only browser consumer／新performance。
+
+## 本輪既有範例 browser 回歸（2026-09-30）
+
+Managed Chromium／既有Vite localhost5173，未改application source；六個既有範例加advanced3d皆errors.entries=[]。實際矩陣：
+
+| 範例          | 已exercise backend／surface                                                                                                                                                                                                                 |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| triangle      | WebGPU RGB triangle，native Pause／Resume／Destroy                                                                                                                                                                                          |
+| sprite        | WebGPU overlap、z1→-1／opacity0.55→1／sharedTexture；unlock八nativecontexts，四SFX只reset6／7、music0–5保持，OPM peak0.028024163；Stop／pagehide close8                                                                                     |
+| cube3d        | GPU／GL texturedcube／sphere／overlay；Canvas明確no3Dcapability                                                                                                                                                                             |
+| fallback-demo | Native backenddropdown GPU／GL／Canvas；GPU／GL sprites／circle／cube、Canvas僅sprites／circle，capability相符                                                                                                                              |
+| pong          | Auto→WebGPU，ArrowDown／nativepointerhold移paddle；pause1400ms serving不變、resume score0:1、restart0:0／serving                                                                                                                            |
+| showcase      | GPU／GL litcube／sphere／animated2D，Canvas2Dprofile；GPUunlock／SFX／pause／resume／volume／SceneB：八contexts，60%peak0.02225318、keyboardHome muteall0、25%music≈0.007、SceneB nonpersistentstopall0                                     |
+| advanced3d    | GPU／GL PBRsphere／shadowinstances／greenGLTFribbon；GPUorthographic／shadowsoff／post／Floorpickdistance15.06／nativeorbit／pause-resume-destroy；pauseSHA256400ms相同、resumechanged；GLpause-resume-destroy；Canvasexplicit3Dunsupported |
+
+Audio是analyser非聽見；pagehide以實際registered handler的PageTransitionEvent(persisted:false)清八contexts、非BFCache測試。Helper／realm／screenshotselector harness問題已修正，finalapp無regression／errors。只以上backendmatrix，不擴成每example全backend／auto全部、cross-browser／newperformance；最後工具鏈通過另記下節。
+
+## P13–P20 最後工具鏈與封裝驗收（2026-09-30）
+
+- macOS arm64，Node **26.7.0**／pnpm **12.6.0**。Frozen-lockfile install／build／typecheck／test／lint／format:check最後全部exit0；Vitest **37檔／252tests passed、0failed**。Build minify **103JS files，620274→333256bytes，vendor unchanged**。不是FPS／GPU-memory改善。
+- 初次diagnostics 36files244pass／2fail（246total）、stabilization37files250pass／2fail（252total）保留為修正前結果；最後37／252才是通過值。Compilation／fixtures／lint-format由owners修正後重跑成功，不將initialfail隱藏、也不改P09–P12歷史25／150。
+- Built-dist與實際pack後extractedarchive各跑rootconsumer：91exports／103JS＋103d.ts／14vendorfilesbyteidentical；Promise.withResolvers unavailable，actioncompleted／move80／fade0.25／camerafocus30／shakecancelled／coordinate-roundtriptrue／preload42。這是真compiled-root runtime，不只export或mock check；不是dist browserrender/audio認證。
+- `xyz.js` **1.1.0** pack共 **325entries**（103JS＋103maps＋103declarations＋14vendor＋metadata），strict isolated ES2022 declarationconsumer exit0。第一次directCLI typeconsumer遇TS5112 tsconfigconflict，明確`--ignoreConfig`後最終成功；`--skipLibCheck`僅略library internals、consumer仍strict。產物僅本地pack，未npm publish、未升版／改license／commit／push。
+- 上述是codefreeze後最後實跑紀錄；最後documentation-only changes只重做ownedformat／link-snippetcheck、不把既有runtimechecks再跑成新證據。Archive SHA由最後交付artifact回報，避免文檔封裝後自我改hash；無Safari／Firefox／Edge／mobile／newperformance／整framebufferparity聲明。
+
+### Extracted minified pack 的真正 native browser consumer（2026-09-30）
+
+- Managed headless Chromium150，從實際archive解壓並以plain HTTP static files import `/dist/src/index.js`，無Vite／transformation／TypeScript sourceimports。強制且report WebGPU／WebGL2／Canvas2D三個獨立Game；不是Node runtime或source browser證據替代。
+- 三backend Actions皆完成至x112／y64／opacity0.5後pause。原位置變回background `[6,9,17,255]`，moved-faded pixel GPU／GL `[130,132,136,255]`、Canvas `[131,132,136,255]`。GPU／GL prepared native material pixel `[0,255,0,255]`；Canvas明確unsupported、原白sprite保留 `[255,255,255,255]`；untouched sprite三者皆white。
+- Preload before gesture各0audioContexts／未decode，preunlockplay各AudioError。Trusted native gesture後各8runningcontexts，PCM重用first context、1native source、RMS GPU≈0.259572／GL≈0.260023／Canvas≈0.259876；pause positionstable／resumeplaying／stopstopped。不是聽見聲音或其他codec／browser認證。
+- 各Game errors=[]，最後Game.destroy／playback stopped；3tabs closed、staticserver停止、temporary extractedarchive／consumerfixtures移除。Finalpack在README freeze後刷新，唯README不同，**323個dist／vendor／maps／declarations byte-identical於browser已測archive**。SHA由交付artifact提供，不再改README。
+- 此限定packedconsumer補充action/material/PCM的compiled-browser路徑；全formalgameplay2d／world48assertions／其他範例仍是各自已記source-Vite profiles，不擴稱全部examples／cross-browser／performance pass。Documentation-only證據補記不重跑相同engine／vendor。

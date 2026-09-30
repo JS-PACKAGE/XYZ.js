@@ -1,9 +1,17 @@
 import { Texture, AssetError } from '../../assets/src/index.js';
 import { Vector2 } from '../../math/src/index.js';
 import { GameObject } from './game-object.js';
+import {
+  validateSource,
+  type ColorRGBA,
+  type Rect2D,
+} from './gameplay/contracts.js';
+import type { FrameAnimation } from './gameplay/frame-animation.js';
+import type { Material2D } from './materials2d/index.js';
 
 export interface SpriteOptions {
   texture: Texture;
+  source?: Rect2D;
   position?: [number, number];
   rotation?: number;
   scale?: [number, number];
@@ -12,106 +20,114 @@ export interface SpriteOptions {
   opacity?: number;
   visible?: boolean;
   zIndex?: number;
+  tint?: ColorRGBA;
+  space?: 'world' | 'screen';
+  material?: Material2D;
 }
 
-function assertFinite(value: number, name: string): void {
-  if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite.`);
-}
-
-/** A scene-owned visual; the Texture remains owned by its creator/AssetLoader. */
+/** A scene-owned visual; its Texture remains owned by its creator/AssetLoader. */
 export class Sprite extends GameObject {
   private currentTexture: Texture;
+  private region: Readonly<Rect2D> | undefined;
+  private currentAnimation: FrameAnimation | undefined;
   readonly anchor = new Vector2(0.5, 0.5);
-  private alpha = 1;
-  private order = 0;
-  visible = true;
+  /** Internal pool/culling switch; independent of the author's visibility. */
+  renderEnabled = true;
+  material: Material2D | undefined;
 
   constructor(options: SpriteOptions) {
     super();
-    this.currentTexture = options.texture;
-    if (!this.currentTexture || this.currentTexture.destroyed)
+    if (!options.texture || options.texture.destroyed)
       throw new AssetError(
         'Cannot use a destroyed or missing Texture for a Sprite.',
       );
-
-    if (options.position) {
-      assertFinite(options.position[0], 'position.x');
-      assertFinite(options.position[1], 'position.y');
-      this.transform.position.set(options.position[0], options.position[1]);
-    }
-    if (options.scale) {
-      assertFinite(options.scale[0], 'scale.x');
-      assertFinite(options.scale[1], 'scale.y');
-      this.transform.scale.set(options.scale[0], options.scale[1]);
-    }
+    this.currentTexture = options.texture;
+    this.material = options.material;
+    if (options.position) this.position = new Vector2(...options.position);
+    if (options.scale) this.scale = new Vector2(...options.scale);
     if (options.anchor) {
-      assertFinite(options.anchor[0], 'anchor.x');
-      assertFinite(options.anchor[1], 'anchor.y');
-      this.anchor.set(options.anchor[0], options.anchor[1]);
+      if (!options.anchor.every(Number.isFinite))
+        throw new RangeError('anchor must be finite.');
+      this.anchor.set(...options.anchor);
     }
+    this.source = options.source;
     this.rotation = options.rotation ?? 0;
     this.opacity = options.opacity ?? 1;
     this.zIndex = options.zIndex ?? 0;
     this.visible = options.visible ?? true;
+    if (options.tint) this.tint = options.tint;
+    if (options.space) this.space = options.space;
   }
 
   get texture(): Texture {
     return this.currentTexture;
   }
-
   set texture(value: Texture) {
     if (!value || value.destroyed)
       throw new AssetError(
         'Cannot use a destroyed or missing Texture for a Sprite.',
       );
+    if (this.region) validateSource(this.region, value.width, value.height);
     this.currentTexture = value;
   }
-
-  override get position(): Vector2 {
-    return super.position;
+  get source(): Readonly<Rect2D> | undefined {
+    return this.region;
   }
-
-  override set position(value: Vector2) {
-    assertFinite(value.x, 'position.x');
-    assertFinite(value.y, 'position.y');
-    super.position = value;
+  set source(value: Readonly<Rect2D> | undefined) {
+    if (value) {
+      validateSource(value, this.texture.width, this.texture.height);
+      const previous = this.region;
+      if (
+        previous &&
+        previous.x === value.x &&
+        previous.y === value.y &&
+        previous.width === value.width &&
+        previous.height === value.height
+      )
+        return;
+      this.region = Object.freeze({
+        x: value.x,
+        y: value.y,
+        width: value.width,
+        height: value.height,
+      });
+    } else this.region = undefined;
   }
-
-  override get rotation(): number {
-    return super.rotation;
+  /** @internal FrameAnimation owns already-frozen frame rectangles, avoiding frame allocations. */
+  setAnimationSource(value: Readonly<Rect2D>): void {
+    validateSource(value, this.texture.width, this.texture.height);
+    this.region = value;
   }
-
-  override set rotation(value: number) {
-    assertFinite(value, 'rotation');
-    super.rotation = value;
+  get width(): number {
+    return this.region?.width ?? this.texture.width;
   }
-
-  override get scale(): Vector2 {
-    return super.scale;
+  get height(): number {
+    return this.region?.height ?? this.texture.height;
   }
-
-  override set scale(value: Vector2) {
-    assertFinite(value.x, 'scale.x');
-    assertFinite(value.y, 'scale.y');
-    super.scale = value;
+  get animation(): FrameAnimation | undefined {
+    return this.currentAnimation;
   }
-
-  get opacity(): number {
-    return this.alpha;
+  set animation(value: FrameAnimation | undefined) {
+    if (value?.sprite !== this) {
+      if (value) throw new Error('FrameAnimation belongs to another Sprite.');
+    }
+    if (value === this.currentAnimation) return;
+    this.currentAnimation?.pause();
+    this.currentAnimation = value;
   }
-
-  set opacity(value: number) {
-    if (!Number.isFinite(value) || value < 0 || value > 1)
-      throw new RangeError('opacity must be finite and between 0 and 1.');
-    this.alpha = value;
+  override getLocalBounds(
+    out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
+  ): Rect2D {
+    out.x = -this.anchor.x * this.width;
+    out.y = -this.anchor.y * this.height;
+    out.width = this.width;
+    out.height = this.height;
+    return out;
   }
-
-  get zIndex(): number {
-    return this.order;
-  }
-
-  set zIndex(value: number) {
-    assertFinite(value, 'zIndex');
-    this.order = value;
+  override destroy(): void {
+    if (this.destroyed) return;
+    this.currentAnimation?.pause();
+    this.currentAnimation = undefined;
+    super.destroy();
   }
 }

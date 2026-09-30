@@ -8,6 +8,16 @@ import { WebGPURenderer } from './webgpu-renderer.js';
 import { WebGL2Renderer } from './webgl2-renderer.js';
 import { Canvas2DRenderer } from './canvas2d-renderer.js';
 import { PresentedRenderer } from './presented-renderer.js';
+import type {
+  Material2D,
+  PostProcessor2D,
+} from '../../core/src/materials2d/index.js';
+import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
+export type {
+  FrameEffects,
+  RenderSnapshot,
+  TransitionFrame,
+} from './render2d-contract.js';
 
 export {
   XYZError,
@@ -39,7 +49,19 @@ export interface Renderer {
   readonly capabilities: GraphicsCapabilities;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(): void;
-  render(scene?: Scene, width?: number, height?: number): void;
+  render(
+    scene?: Scene,
+    width?: number,
+    height?: number,
+    effects?: FrameEffects,
+  ): void;
+  captureScene(
+    scene: Scene,
+    width: number,
+    height: number,
+  ): Promise<RenderSnapshot>;
+  prepareMaterial(material: Material2D): Promise<void>;
+  preparePostProcessor(processor: PostProcessor2D): Promise<void>;
   endFrame(): void;
   resize(width: number, height: number): void;
   destroy(): void;

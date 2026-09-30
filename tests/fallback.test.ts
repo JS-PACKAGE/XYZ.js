@@ -6,7 +6,7 @@ import {
   UnsupportedGraphicsError,
 } from '../packages/graphics/src/index.js';
 
-class Canvas {
+class Canvas extends EventTarget {
   width = 64;
   height = 64;
   bound: string | undefined;

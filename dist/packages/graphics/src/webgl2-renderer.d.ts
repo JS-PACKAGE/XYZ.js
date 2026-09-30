@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
+import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
+import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export declare class WebGL2Renderer implements Renderer {
     private readonly onError;
@@ -42,16 +44,33 @@ export declare class WebGL2Renderer implements Renderer {
     private shadowTarget;
     private postTarget;
     private floatColorBuffer;
+    private compositeProgram;
+    private readonly compositeUniforms;
+    private readonly materials;
+    private readonly processors;
+    private readonly snapshots;
+    private frameTarget;
+    private layerTarget;
+    private effectTarget;
     get capabilities(): GraphicsCapabilities;
     private readonly onContextLost;
     constructor(onError: (error: Error) => void);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
+    prepareMaterial(material: Material2D): Promise<void>;
+    preparePostProcessor(effect: PostProcessor2D): Promise<void>;
+    private prepareNative;
+    private requireNative;
+    private validateTransition;
     beginFrame(): void;
-    render(scene?: Scene, width?: number, height?: number): void;
+    render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
+    captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
+    private renderFrame;
     endFrame(): void;
     resize(width: number, height: number): void;
     private prepareSprites;
     private drawSprites;
+    private drawEffects2D;
+    private drawComposite;
     private drawMeshes;
     private bindMaterialTexture;
     private cacheSampler;

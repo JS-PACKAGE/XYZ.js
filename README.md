@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08 and the supported P09–P12 expansion profile are implemented and verified as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. The package is not published on npm; its license remains UNLICENSED.
+Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Final integration passed build/typecheck/lint/format and **37 files/252 tests**, with packed ES2022 consumer verification. The package is not published on npm; its license remains UNLICENSED.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -11,6 +11,12 @@ Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P0
 引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js；在使用者手勢中呼叫 `await game.audio.unlock()`。
 
 新增 3D：Object3D／Group 階層、透視／正交相機與 lookAt、OrbitControls、精確 Raycaster、glTF 2.0／GLB、關鍵幀與 CPU 骨骼動畫、PBR／點光源／聚光燈、方向光 PCF 陰影、InstancedMesh，以及 3D HDR exposure／ACES／bloom（2D overlay 不受影響）。API 參考 three.js，但不是 drop-in replacement，也不承諾全部 addons；沒有新增 runtime dependency。詳細支援與限制見雙語技術參考。
+
+P13 新增既有 GameObject 的 2D 階層／Group2D、atlas Sprite source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice 與 ScreenElement HUD，已驗三 backend 正式路徑。Sprite width／height 是自然 source 尺寸，縮放用 scale；Sprite.source 可為 fractional pixels，SpriteSheet frames 為 integer。`/examples/gameplay2d/` 展示動畫／字形／面板／HUD。
+
+P18 已完成限定 Chromium 驗收：PreloadBatch task-count progress、Scene.preload→initialize barrier／Game.loading、bounded text／JSON／binary、unique GLTFLoader.task 與 native PCM/WAV sample alongside OPM。Unlock 前只 fetch，decode／play 要手勢 unlock，重用第一個 OPM context（共八個，不建第九個）；Game pause 不自動暫停音訊。沒有跨瀏覽器／新效能或聽見喇叭聲聲明。
+
+P14 已驗收 target-only lifecycle／pointer／drag、Actions／Easings 與 CameraStrategies。P15–P17 三backend已驗discrete linear／angular circle／box／convex physics／Trigger2D、TileMap／IsometricMap solids／elevation／culling與seeded CPU ParticleEmitter local／world pools；pause凍結、teardown保留borrowed Texture。無CCD／joints／concave physics／GPU particles／editor importer。P20 GPU／GL native Material2D／ordered PostProcessor2D只處理transparent 2D world＋HUD，不改3D／HDR；先await prepareMaterial／preparePostProcessor，Canvas2D明確UnsupportedGraphicsError。Prepared entries跨resize／disable保留至descriptor destroy，mutable targets釋放，owned captures保留／scale。P19真Game三backend已驗handoff／pause／resize／Promise completion與final easing endpoint；正式P13–P20 playground與完整工具鏈37檔／252tests已通過，詳見雙語guides。
 
 ```html
 <canvas id="game"></canvas>
@@ -49,6 +55,12 @@ Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested M
 
 Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic cameras and lookAt, OrbitControls, exact Raycaster picking, glTF 2.0/GLB, keyframe and CPU skeletal animation, PBR/point/spot lights, directional PCF shadows, InstancedMesh, and HDR exposure/ACES/bloom before the unaffected 2D overlay. The API is three.js-inspired, not a drop-in replacement or all-addon implementation; no runtime dependency was added. See the bilingual technical references for support boundaries.
 
+P13 adds 2D hierarchy/Group2D, atlas Sprite source/SpriteSheet, FrameAnimation, SpriteFont/SpriteText, NineSlice and ScreenElement HUD to existing GameObject, exercised on all three backends. Sprite width/height are natural source dimensions; use scale. Sprite.source permits fractional pixels; SpriteSheet frames require integer pixels. Open `/examples/gameplay2d/` for animation, glyphs, panels and HUD.
+
+P18 is accepted in the recorded Chromium scope: task-count PreloadBatch, Scene.preload→initialize barrier/Game.loading, bounded text/JSON/binary, uniquely owned GLTFLoader.task, native PCM/WAV samples alongside OPM. Preunlock fetch does not decode; gesture unlock is required for decode/play, reusing the first OPM context (eight total, no ninth). Game pause does not pause audio. No new cross-browser/performance or speaker-audibility claim.
+
+P14 accepts target-only lifecycle/pointer/drag, Actions/Easings and CameraStrategies. P15–P17 are proven on all three backends: discrete linear/angular circle/box/convex physics/Trigger2D, TileMap/IsometricMap solids/elevation/culling, seeded CPU ParticleEmitter local/world pools, pause and borrowed-texture teardown. No CCD/joints/concave physics/GPU particles/editor importer. P20 GPU/GL native Material2D/ordered PostProcessor2D process transparent 2D world+HUD only, leaving 3D/HDR unchanged; await prepareMaterial/preparePostProcessor, with explicit Canvas2D UnsupportedGraphicsError. Prepared entries survive resize/disable until descriptor destruction, mutable targets release, owned captures survive/scale. P19 actual three-backend Game handoff/pause/resize/Promise completion/final easing endpoint, the formal P13–P20 playground and final toolchain37files/252tests are accepted. See the bilingual guides.
+
 ```ts
 import { Game } from 'xyz.js';
 
@@ -77,6 +89,12 @@ Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度
 
 高度な 3D として Object3D／Group 階層、透視／正投影カメラと lookAt、OrbitControls、正確な Raycaster、glTF 2.0／GLB、キーフレームと CPU スキニング、PBR／点光源／スポットライト、方向光 PCF シャドウ、InstancedMesh、2D overlay より前の HDR exposure／ACES／bloom を提供します。three.js を参考にした API ですが互換置換や全 addons 対応ではなく、runtime dependency は追加していません。制限は技術参照をご覧ください。
 
+P13 は既存 GameObject の2D階層／Group2D、atlas source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice、ScreenElement HUD を三backendで検証済みです。Sprite width／height は自然サイズ、表示サイズはscale、sourceは小数pixel可、SpriteSheet framesは整数のみ。`/examples/gameplay2d/` で確認できます。
+
+P18 は限定Chromium環境で検証済みです：PreloadBatch progress、Scene.preload→initialize／Game.loading、有界readers、unique GLTFLoader.task、OPMと併用するPCM/WAV sample。Unlock前はfetchのみ、decode／playはユーザー操作unlockが必要、最初のOPM contextを再利用（合計八個、九個目なし）。Game pauseは音声を停止しません。他browser／新性能／スピーカーで聞こえたとの主張はありません。
+
+P14 target-only lifecycle／pointer／drag、Actions／Easings／CameraStrategiesは検証済みです。P15–P17は三backendでdiscrete linear／angular circle／box／convex physics／Trigger2D、TileMap／IsometricMap solids／elevation／culling、seeded CPU ParticleEmitter local／world pools、pause／borrowed Texture teardownを確認しました。CCD／joints／concave physics／GPU particles／editor importerは非対応。P20 GPU／GL native Material2D／ordered PostProcessor2Dはtransparent 2D world＋HUDのみで3D／HDRは不変、prepareをawaitしCanvas2DはUnsupportedGraphicsErrorです。Prepared entriesはresize／disableで保持、mutable targetsは解放、owned capturesは保持／scaleします。P19 real Game三backend handoff／pause／resize／Promise completion／final easing endpoint、正式P13–P20 playground、最終toolchain37files／252testsは検証済みです。双語guides参照。
+
 ```ts
 import { Game } from 'xyz.js';
 
@@ -101,15 +119,16 @@ managed Chromium 150 で検証済みです。Safari／Edge／Firefox、実機 ga
 
 Run the dev server and open the corresponding `/examples/<name>/` URL. Links below open the source directories.
 
-| Example                                  | 驗證內容／Purpose                                                              |
-| ---------------------------------------- | ------------------------------------------------------------------------------ |
-| [triangle](examples/triangle/)           | WebGPU triangle；Pause／Resume／Destroy                                        |
-| [sprite](examples/sprite/)               | Shared Texture、z-order／opacity、六聲部 BGM＋SFX                              |
-| [pong](examples/pong/)                   | Camera2D、keyboard／pointer／gamepad API、計分                                 |
-| [cube3d](examples/cube3d/)               | Lit cube／sphere、depth、2D overlay；Canvas2D 明確不跑 3D                      |
-| [fallback-demo](examples/fallback-demo/) | Backend selector、capabilities、Sprite／Primitive／Mesh                        |
-| [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup                          |
-| [advanced3d](examples/advanced3d/)       | Group、OrbitControls／picking、glTF skin、PBR／shadow／HDR bloom、24 instances |
+| Example                                  | 驗證內容／Purpose                                                                                                                                               |
+| ---------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [triangle](examples/triangle/)           | WebGPU triangle；Pause／Resume／Destroy                                                                                                                         |
+| [sprite](examples/sprite/)               | Shared Texture、z-order／opacity、六聲部 BGM＋SFX                                                                                                               |
+| [pong](examples/pong/)                   | Camera2D、keyboard／pointer／gamepad API、計分                                                                                                                  |
+| [cube3d](examples/cube3d/)               | Lit cube／sphere、depth、2D overlay；Canvas2D 明確不跑 3D                                                                                                       |
+| [fallback-demo](examples/fallback-demo/) | Backend selector、capabilities、Sprite／Primitive／Mesh                                                                                                         |
+| [showcase](examples/showcase/)           | 同 Scene 2D＋3D＋audio、volume、Scene switch／cleanup                                                                                                           |
+| [advanced3d](examples/advanced3d/)       | Group、OrbitControls／picking、glTF skin、PBR／shadow／HDR bloom、24 instances                                                                                  |
+| [gameplay2d](examples/gameplay2d/)       | P13–P20 real root consumer: graphics／drag/actions/camera／physics/maps/particles／preload/audio／transitions；GPU/GL native effects, Canvas explicit rejection |
 
 `cube3d`, `fallback-demo`, and `showcase` accept `?renderer=auto|webgpu|webgl2|canvas2d`. Canvas2D showcase retains 2D + audio and omits 3D.
 

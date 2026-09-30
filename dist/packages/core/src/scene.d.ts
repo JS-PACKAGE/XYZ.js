@@ -9,6 +9,10 @@ import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
+import { PhysicsWorld2D } from './physics2d/world.js';
+import type { PostProcessor2D } from './materials2d/index.js';
+import type { Pointer } from '../../input/src/index.js';
+import { PreloadBatch } from '../../assets/src/index.js';
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export declare class Scene {
     readonly world: World;
@@ -16,6 +20,8 @@ export declare class Scene {
     camera3D: PerspectiveCamera | OrthographicCamera;
     readonly timers: SceneTimers;
     readonly animations: AnimationMixer;
+    readonly physics: PhysicsWorld2D;
+    readonly effects2D: PostProcessor2D[];
     readonly pointLights: PointLight[];
     readonly spotLights: SpotLight[];
     readonly shadows: ShadowSettings;
@@ -29,6 +35,14 @@ export declare class Scene {
     };
     private readonly registrations;
     private readonly registeredObjects;
+    private readonly objectUpdates;
+    private nextObjectUpdate;
+    private frameObjectUpdate;
+    private pointerRouter;
+    /** @internal Input routing is independent of subclass Scene.update. */
+    routePointers(pointer: Pointer, canContinue: () => boolean): void;
+    /** @internal Pause/blur/scene disposal cancels captured drags synchronously. */
+    resetPointerRouting(): void;
     private owner;
     private controller;
     private disposed;
@@ -45,7 +59,21 @@ export declare class Scene {
     cancel(): void;
     /** @internal Runs once before Game atomically publishes the prepared Scene. */
     prepare(game: Game, signal: AbortSignal): void | Promise<void>;
+    private prepareBatch;
+    protected preload(game: Game, signal: AbortSignal): PreloadBatch | void | Promise<PreloadBatch | void>;
     protected initialize(game: Game, signal: AbortSignal): void | Promise<void>;
+    /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
+    beginObjectFrame(): void;
+    /** @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick. */
+    beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void;
+    /** @internal Invoked independently of subclass Scene.update. */
+    advanceFrameAnimations(deltaTime: number, canContinue: () => boolean): void;
+    /** @internal Only queues explicitly accessed by consumers are advanced. */
+    advanceActions(deltaTime: number, canContinue: () => boolean): void;
+    /** @internal Object updates are never dependent on a subclass calling super. */
+    advanceObjects(deltaTime: number, canContinue: () => boolean): void;
+    /** @internal Systems/actions run first, physics then particles, final camera last. */
+    advanceAfterUpdate(deltaTime: number, canContinue: () => boolean): void;
     /** Called before scene systems, once per visible frame. */
     update(deltaTime: number): void;
     destroy(): void;

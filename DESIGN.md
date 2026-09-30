@@ -37,3 +37,43 @@
 - Game 在 timers 後、使用者 update 前推進 scene.animations，使用同一模擬 delta；mixer 依 action 插入順序寫入，不提供 blending。CPU skinning 更新自有 geometry，vertex-only markUpdated 通知 GPU cache，index topology 不可變。
 - WebGPU／WebGL2 共用 PBR slots、8 point＋8 spot 上限、方向光 3×3 PCF shadows、indexed instancing 與 HDR offscreen→exposure／ACES／9-tap bloom→2D。WebGL2 缺 EXT_color_buffer_float 時啟用 HDR 後處理明確失敗；不含 point／spot shadows 或環境 IBL。
 - API 是 three.js-inspired，非 drop-in 相容或全部 addons；Canvas2D 仍 2D-only、沒有新增 runtime dependency。版本仍 1.1.0，由所有者決定升版／發佈；本輪不自動 commit／push／publish。實測與未完成驗證以 ACCEPTANCE 為準。
+
+## Excalibur 參考擴充：P13–P20 profiles／共用整合已驗收
+
+- P13 擴充既有 GameObject（不是新增 Actor）：mutable local Transform2D 重算 parent-world × local affine matrix，保留 shear／reflection；Group2D 不繪製。visibility 取祖先 AND、opacity／tint 相乘、z 相加；equal-z insertion order，world layer 先於 screen layer。Scene 註冊整個子樹，reparent 保留 local transform；remove 可重用、destroy 遞迴清理 owned children。
+- Sprite source 為 bounded positive finite rectangle，可用 fractional pixels；setter snapshot／validation 與換 texture 保持原子。width／height 是自然 source 尺寸，scale 為顯示縮放，不設 displayWidth／displayHeight。SpriteSheet 另限制 immutable integer source frames／grid，不產生 cropped bitmap。GPU／GL instance payload 攜帶 affine axes／source UV／inherited tint；Canvas2D 走相同 source／world matrix。
+- FrameAnimation 綁定一 Sprite，Scene 用模擬秒數推進 loop／pingpong／freeze／hide；控制 play／pause／reset／reverse／goToFrame／stop，events 送 animation 與 Sprite，large dt 以 aggregate loop count 避免逐圈 callback。移除停止 Scene 推進，destroy 清除 animation reference。
+- SpriteText owns/reuses glyph Sprite children、NineSlice owns/reuses panel patches，全部 borrowed atlas Texture；invalid text／resize 先 preflight，縮小面板同比壓縮相對 margins，tile 的 fractional remainder 正確裁 source。ScreenElement 讓子樹繞過 Camera2D，保持 HUD 在 world 上方，不提供 layout widgets。
+- P13–P20 profiles／formalrootconsumer／最後工具鏈已限定驗收：37files252tests／build-typecheck-lint-format／packedES2022consumer，實際證據見ACCEPTANCE。Physics限discrete angular circle／box／convex dynamic-root，particles限CPU pooled local／world；不推論fullframeparity／性能／crossbrowser，非目標見PLAN、不自動commit／push／publish。
+
+## P18 preload／native sample audio（限定 Chromium 驗收）
+
+- PreloadBatch 為 EventTarget，unique-key tasks／最多4 concurrent／4096 tasks；progress 依完成 task 數、empty ratio=1，不捏造 byte readiness。Batch 僅 owns cooperative cancellation、不 destroy returned resources。Texture／OPM／sample shared cache 的 subscriber abort 只拒該 caller，loader destroy 才中止 shared fetch；generic text／JSON／binary 非 cache，各 request 可 abort。
+- AudioManager.loadSample encoded cache 不提前 decode，SampleAudioAsset.decode／play 需 unlock。Source→perplay gain→sample channel/master buses 使用第一個 OPM context，獨立32-playback budget、不搶八個 OPM slots；vendor 不改，worklet reset 不斷 sample buses。
+- SamplePlayback clock 是 AudioContext，不跟 Game pause；pause／resume／seek 換 one-shot source、不重新 decode，舊 ended 不污染新 source。Scene stop nonpersistent／detach persistent；manager destroy 清 sources／cache／buses／late results。Encoded8 MiB；decoded budgets 在 decodeAudioData **完成後**檢查，不防 decoder transient amplification、非 global memory budget。
+- Scene 的 protected preload(game,signal) 回 PreloadBatch／void 或相應Promise；準備先等待batch成功才initialize，再原子publish。Game.loading只讀當前candidate barrier，clear以Scene owner檢查，舊candidate晚到finally不能清新loading。Old Scene在準備期間繼續更新，paused不更新；可在pause期間prepare／publish、新Scene等resume才tick。Failure／cancel／destroy中止並清candidate但保留shared loader resources。
+- GLTFLoader.task為unique acquisition，batch未完成即failure／cancel會dispose該task owned model／textures，不碰unrelated direct models或shared textures；成功則ownership轉交caller，應在移除consumers後dispose。Custom tasks仍須own failures與配合signal，不宣稱batch通用destroy shared results。
+- 修正後worker4檔／35 scoped tests、12 owned files格式及ES2022 Promise.withResolvers禁用的runtime通過；實際Game failure／cancel／supersession／pause／destroy／model ownership與PCM proof見ACCEPTANCE，analyser不是聽見喇叭聲，無新full-suite或其他browser認證。
+
+## P14 interaction 與 camera（限定 Chromium 驗收）
+
+- GameObject 的 lazy ActionQueue 按模擬秒推進 local actions，先於 physics；queue FIFO／sequence overshoot／parallel max duration／repeat fresh state，handle finished 回 completed／cancelled。Callback 以 Scene membership generation／Game continuation 守住remove／readd／destroy／replacement，已失效tick跳postupdate、新generation下frame才續跑；pre／post不是無條件配對。
+- Native target-only CustomEvent lifecycle initialize（首次active tick一次）／preupdate／postupdate／add／remove／destroy；沒有bubbling。Passive glyph／tile／pool不因Scene iteration建立queue／未訂閱lifecycle Event。
+- Pointer bounded256 samples／32 active views、move coalescing；topmost HUD／world排序、inverse-affine graphics bounds或collider hit、per-pointer capture／parent-inverse drag。Detail screen／world為穩定vectors。Pause／hidden／remove／destroy取消capture／drag，resume不重播stale samples；不是pixel-alpha picking。
+- Camera2D lazy controller：move／zoom獨立FIFO、ordered follow／axis／smooth／deadZone／viewport-aware bounds，seeded finite shake只改logical-screen renderOffset。Camera在systems／physics／particles後、render／culling前更新；input先用最近呈現camera。實際Canvasdrag／pause／resume／camera pixels、scoped tests見ACCEPTANCE，不擴為其他browser／FPS聲明。
+
+## P19 renderer capture／P20 native 2D effects
+
+- P20 GPU／GL native管線與P19三backend實際Game原子handoff／pause／resize／Promise completion已限定驗收。Renderer.captureScene重畫整個frame（3D／P12／world 2D／HUD／effects2D，排除transition overlay）到owned target，不advance simulation、不讀延後default WebGL canvas。RenderSnapshot為opaque renderer-owned handle，拒foreign／destroyed／nested active-frame capture；追加actual三backend真native captures已驗presented-effect cancel／async version supersession／listener reentry／held-capture destroy，12captures全釋放。Destroy立即清Scene／captures與停frames，但公共Promise仍等受控native capture回傳才reject，不聲明提前abort該await。
+- Material2D／PostProcessor2D caller-owned descriptor有immutable native WGSL／GLSL sources、65536 chars／language、16 Float32 uniform slots；await graphics.prepareMaterial／preparePostProcessor後才render。固定effect(color,uv,screen)回premultiplied RGBA，uniformValue讀four vec4，post sampleInput用top-left normalized UV。沒有transpiler／IR／任意shader resources；Canvas2D明確UnsupportedGraphicsError。
+- Stage：transparent 2D world＋HUD→ordered ping-pong post→composite over unchanged 3D／P12 HDR→whole-frame transition。Source UV／inherited tint／opacity／stable z保留，material只改attached Sprite。
+- 核准lifetime：viewport-independent prepared native pipelines／programs＋uniform resources跨resize／disable保留至descriptor destroy，無surprise async reprepare；mutable 2D／transition attachments在resize／disable釋放。Immutable snapshots跨Scene／Texture destruction及resize存活並scale，完成／cancel／explicit destroy／loss／renderer destroy才釋放。Descriptor destroy同步清該prepared entry；loss／renderer destroy清全部。Scene／Sprite借descriptor，caller移除consumers後destroy。
+- 真實GPU／GLuniform pixels、post order／top-left sampling、GPUHDR不變／capturecrossfade、20cycles stable counts與teardown zero見ACCEPTANCE；不宣稱整張framebuffer parity／全suite或cross-browser。
+
+## P15–P17 world profile（限定 Chromium 三backend驗收）
+
+- Scene owns PhysicsWorld2D，GameObject body／collider setters與階層registration共用existing ownership。Fixed-step sweep broadphase／circle-convex narrowphase／iterative restitution＋friction＋angular impulse，不是AABB signflip；dynamic worldroot、nested static、circle uniform absolute worldscale。Shape snapshots、stable contact payload／precollision cancelResponse只當step；callback teardown守住surviving contact end。Catch-up cap記droppedTime，高速tunneling明示，無CCD／joints／sleep／concave／3D。
+- TileMap／IsometricMap extends Group2D，immutable tile snapshots／preflight atomic edits，Sprite pool借atlas、不複製texture；orthbox／isodiamond／customconvex solid owners共用physics。Transformed conservative viewportcull只改renderEnabled、不移除solids。TileToWorld用cell elevation、worldToTile只zero-plane inverse、pickTile挑elevated topmost graphicrectangle。無editor format importer／navigation。
+- ParticleEmitter固定CPU pool，seeded nozzle／fractional rate／burst、analytic acceleration／size／color；capacity dropnew無backlog。Local承emittertransform，world保持birthaffine axes／velocity／acceleration，新birth採新parent。Stop不清survivors、clear重用、pause凍age、destroy owned children不destroy borrowedTexture；simulation space與HUD render space分開。無GPU simulation。
+- 實際3backend48pixel assertions／21screenshots／0errors、3files40tests與ownedformat見ACCEPTANCE；source-Vite／proceduralatlas／test-onlyGPU COPY_SRC，不claimdist／其他browser／FPS。
+- 正式gameplay2d三backend以rootexports實際exercisegraphics／drag-actions-camera／physics-maps-particles／OPM-PCM-PNG preload／native八contexts／pause-cancel-transitions／GPU-GL effects與Canvasexplicitreject／teardown。Packed325entries的rootruntime actions／camera／preload在Promise.withResolvers不可用時通過，strictisolatedES2022declarationconsumer通過，14vendorfilesbyteidentical。另有真正extracted-pack plain-static-HTTP三backendGame actions／GPU-GL native materials-or-Canvasreject／trusted8-context PCM browser proof；只該consumer路徑、不擴成全部gameplay2d的dist-browser／driver-memory認證。

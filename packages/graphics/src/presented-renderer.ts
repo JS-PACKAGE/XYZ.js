@@ -1,5 +1,10 @@
 import type { Scene } from '../../core/src/scene.js';
 import type {
+  Material2D,
+  PostProcessor2D,
+} from '../../core/src/materials2d/material2d.js';
+import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
+import type {
   Renderer,
   GraphicsBackend,
   GraphicsCapabilities,
@@ -36,8 +41,30 @@ export class PresentedRenderer implements Renderer {
     this.requireContext();
     this.renderer.beginFrame();
   }
-  render(scene?: Scene, width?: number, height?: number): void {
-    this.renderer.render(scene, width, height);
+  async prepareMaterial(material: Material2D): Promise<void> {
+    this.requireContext();
+    return this.renderer.prepareMaterial(material);
+  }
+  async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
+    this.requireContext();
+    return this.renderer.preparePostProcessor(effect);
+  }
+  async captureScene(
+    scene: Scene,
+    width: number,
+    height: number,
+  ): Promise<RenderSnapshot> {
+    this.requireContext();
+    return this.renderer.captureScene(scene, width, height);
+  }
+  render(
+    scene?: Scene,
+    width?: number,
+    height?: number,
+    effects?: FrameEffects,
+  ): void {
+    this.requireContext();
+    this.renderer.render(scene, width, height, effects);
   }
   endFrame(): void {
     const context = this.requireContext();

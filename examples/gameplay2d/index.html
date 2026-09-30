@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — 2D gameplay</title>
+    <style>
+      body {
+        margin: 20px;
+        background: #101522;
+        color: #e8eef9;
+        font: 14px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(800px, 100%);
+        aspect-ratio: 8 / 5;
+        margin-top: 12px;
+        touch-action: none;
+        border: 1px solid #59677e;
+      }
+      button,
+      select {
+        margin: 3px;
+        padding: 6px;
+      }
+      p {
+        margin: 6px 0;
+      }
+      fieldset {
+        display: inline-block;
+        vertical-align: top;
+        margin: 4px 0;
+        padding: 5px;
+      }
+      #status,
+      #effects {
+        min-height: 18px;
+      }
+      progress {
+        width: 180px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>2D gameplay · P13–P20</h1>
+    <p>
+      Real atlas/bitmap-font/nine-slice HUD, nested drag/actions/camera, impulse
+      bodies and sensor, editable orthogonal/isometric tiles, local/world
+      particles, preload, native PCM + OPM, snapshots and native effects.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option>webgpu</option>
+        <option>webgl2</option>
+        <option>canvas2d</option>
+        <option>auto</option>
+      </select></label
+    >
+    <button id="pause" disabled>Pause</button
+    ><button id="destroy" disabled>Destroy</button>
+    <fieldset>
+      <legend>Hierarchy / camera / actions</legend>
+      <button id="camera" disabled>Move camera</button
+      ><button id="visibility" disabled>Toggle group</button>
+      <button id="actions" disabled>Move + fade sequence</button
+      ><button id="follow" disabled>Follow + bounds</button
+      ><button id="shake" disabled>Shake</button>
+    </fieldset>
+    <fieldset>
+      <legend>Physics / maps / particles</legend>
+      <button id="impulse" disabled>Off-center impulse</button
+      ><button id="tile" disabled>Edit both maps</button>
+      <button id="particles" disabled>Toggle local/world emission</button
+      ><button id="emit" disabled>Burst both spaces</button>
+    </fieldset>
+    <fieldset>
+      <legend>Native audio</legend>
+      <button id="audio" disabled>Unlock + PCM + OPM</button
+      ><button id="pcm-pause" disabled>Pause/resume PCM</button>
+      <button id="pcm-seek" disabled>Seek + rate PCM</button
+      ><button id="audio-stop" disabled>Stop audio</button>
+      <label
+        >Master
+        <input id="volume" type="range" min="0" max="100" value="100" /></label
+      ><span id="volume-value">100%</span>
+    </fieldset>
+    <fieldset>
+      <legend>Preload / transition / native effects</legend>
+      <select id="transition-kind" aria-label="Transition kind">
+        <option>fade</option>
+        <option>crossfade</option>
+        <option>slide</option>
+      </select>
+      <button id="transition" disabled>Preload + switch scene</button
+      ><button id="cancel" disabled>Cancel pending / effect</button>
+      <button id="material" disabled>Toggle Sprite material</button
+      ><button id="post" disabled>Toggle world + HUD post</button>
+    </fieldset>
+    <p>
+      <progress
+        id="progress"
+        max="1"
+        value="0"
+        aria-label="Actual resource preload progress"
+      ></progress>
+      <span id="loading">No batch started.</span>
+    </p>
+    <p id="transition-status" aria-live="polite">No transition requested.</p>
+    <p id="transition-events">No transition events.</p>
+    <p id="effects">
+      GPU/GL: native WGSL/GLSL; Canvas: explicit UnsupportedGraphicsError when
+      requested.
+    </p>
+    <p id="audio-status">
+      Encoded PCM preloads before unlock; playback requires this page's gesture.
+    </p>
+    <p id="tile-status">
+      Map editing changes real frame/solid/elevation state; offscreen solid
+      colliders remain active.
+    </p>
+    <p id="events" aria-live="polite">
+      Drag the nested colored sprite or bitmap text.
+    </p>
+    <p id="simulation" aria-live="polite">Simulation diagnostics pending.</p>
+    <p id="status" role="status">Loading…</p>
+    <canvas
+      id="game"
+      width="800"
+      height="500"
+      aria-label="2D engine feature demonstration"
+    ></canvas>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

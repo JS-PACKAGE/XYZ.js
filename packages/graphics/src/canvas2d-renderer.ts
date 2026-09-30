@@ -1,13 +1,25 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
-import { Sprite } from '../../core/src/sprite.js';
+import type { Sprite } from '../../core/src/sprite.js';
+import type {
+  Material2D,
+  PostProcessor2D,
+} from '../../core/src/materials2d/material2d.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   Canvas2DInitializationError,
   GraphicsBackendUnavailableError,
   GraphicsError,
+  UnsupportedGraphicsError,
 } from './errors.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
+import {
+  collectSprites2D,
+  type FrameEffects,
+  type RenderSnapshot,
+  type TransitionFrame,
+} from './render2d-contract.js';
+import { CanvasSpriteSource } from './canvas-sprite-source.js';
 
 const MAX_SIZE = 8192;
 const background = defaults.clearColor;
@@ -27,13 +39,21 @@ export class Canvas2DRenderer implements Renderer {
   private canvas: HTMLCanvasElement | undefined;
   private context: CanvasRenderingContext2D | undefined;
   private readonly sprites: Sprite[] = [];
+  private readonly spriteSource = new CanvasSpriteSource();
+  private readonly snapshots = new Set<CanvasRenderSnapshot>();
+  private transitionCanvas: HTMLCanvasElement | undefined;
+  private transitionContext: CanvasRenderingContext2D | undefined;
   private frameActive = false;
   private frameRendered = false;
   private destroyed = false;
 
-  constructor(_onError: (error: Error) => void) {
-    void _onError;
-  }
+  private readonly onContextLost = (): void => {
+    if (this.destroyed) return;
+    this.destroy();
+    this.onError(new GraphicsError('Canvas2D rendering context was lost.'));
+  };
+
+  constructor(private readonly onError: (error: Error) => void) {}
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.context)
@@ -49,6 +69,7 @@ export class Canvas2DRenderer implements Renderer {
     this.context = context;
     try {
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
+      canvas.addEventListener('contextlost', this.onContextLost);
     } catch (error) {
       this.canvas = undefined;
       this.context = undefined;
@@ -66,98 +87,384 @@ export class Canvas2DRenderer implements Renderer {
     this.frameRendered = false;
   }
 
-  render(scene?: Scene, width?: number, height?: number): void {
+  async prepareMaterial(_material: Material2D): Promise<void> {
+    void _material;
+    this.requireContext();
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support native Sprite materials.',
+    );
+  }
+
+  async preparePostProcessor(_effect: PostProcessor2D): Promise<void> {
+    void _effect;
+    this.requireContext();
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support native 2D post processors.',
+    );
+  }
+
+  async captureScene(
+    scene: Scene,
+    width: number,
+    height: number,
+  ): Promise<RenderSnapshot> {
+    this.requireContext();
+    if (this.frameActive)
+      throw new GraphicsError(
+        'Canvas2D captureScene cannot run during an active frame.',
+      );
+    this.frameActive = true;
+    let capture: HTMLCanvasElement | undefined;
+    try {
+      this.prepareScene(scene, width, height);
+      capture = document.createElement('canvas');
+      capture.width = this.canvas!.width;
+      capture.height = this.canvas!.height;
+      const context = capture.getContext('2d');
+      if (!context)
+        throw new Canvas2DInitializationError(
+          'Canvas2D capture context is unavailable.',
+        );
+      // This redraw finishes before the Promise yields; it never reads a presented frame.
+      this.drawFrame(
+        context,
+        capture.width,
+        capture.height,
+        scene,
+        width,
+        height,
+      );
+      const snapshot = new CanvasRenderSnapshot(this, capture, this.snapshots);
+      this.snapshots.add(snapshot);
+      return snapshot;
+    } catch (error) {
+      if (capture) capture.width = capture.height = 1;
+      throw error;
+    } finally {
+      this.sprites.length = 0;
+      this.frameActive = false;
+    }
+  }
+
+  render(
+    scene?: Scene,
+    width?: number,
+    height?: number,
+    effects?: FrameEffects,
+  ): void {
     const context = this.requireContext();
     if (!this.frameActive || this.frameRendered)
       throw new GraphicsError(
         'Canvas2D render requires an active frame and may be called only once per frame.',
       );
     const canvas = this.canvas!;
+    const logicalWidth = width ?? (canvas.clientWidth || canvas.width);
+    const logicalHeight = height ?? (canvas.clientHeight || canvas.height);
+    const transition = effects?.transition;
+    if (transition) this.validateTransition(transition);
+    this.prepareScene(scene, logicalWidth, logicalHeight);
+    if (transition) {
+      const target = this.requireTransitionContext();
+      this.drawFrame(
+        target,
+        canvas.width,
+        canvas.height,
+        scene,
+        logicalWidth,
+        logicalHeight,
+      );
+      this.composeTransition(context, transition);
+    } else {
+      this.releaseTransitionTarget();
+      this.drawFrame(
+        context,
+        canvas.width,
+        canvas.height,
+        scene,
+        logicalWidth,
+        logicalHeight,
+      );
+    }
+    this.frameRendered = true;
+  }
+
+  private prepareScene(
+    scene: Scene | undefined,
+    width: number,
+    height: number,
+  ): void {
     const sprites = this.sprites;
     sprites.length = 0;
-    let scaleX = 1;
-    let scaleY = 1;
-    if (scene) {
-      const logicalWidth = width ?? (canvas.clientWidth || canvas.width);
-      const logicalHeight = height ?? (canvas.clientHeight || canvas.height);
-      if (
-        !Number.isFinite(logicalWidth) ||
-        !Number.isFinite(logicalHeight) ||
-        logicalWidth <= 0 ||
-        logicalHeight <= 0
-      )
-        throw new RangeError(
-          'Canvas2D sprite rendering requires positive finite logical width and height.',
+    if (!scene) return;
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    )
+      throw new RangeError(
+        'Canvas2D sprite rendering requires positive finite logical width and height.',
+      );
+    if (scene.effects2D.length)
+      throw new UnsupportedGraphicsError(
+        'Canvas2D does not support native 2D post processors.',
+      );
+    for (const object of scene.objects) {
+      if (object instanceof Mesh && object.worldVisible)
+        throw new GraphicsBackendUnavailableError(
+          'Canvas2D does not support visible 3D meshes.',
         );
-      scaleX = canvas.width / logicalWidth;
-      scaleY = canvas.height / logicalHeight;
-      for (const object of scene.objects) {
-        if (object instanceof Mesh && object.worldVisible)
-          throw new GraphicsBackendUnavailableError(
-            'Canvas2D does not support visible 3D meshes.',
-          );
-        if (
-          object instanceof Sprite &&
-          object.visible &&
-          object.opacity > 0 &&
-          !object.texture.destroyed
-        )
-          sprites.push(object);
-      }
-      // Stable sort preserves Scene insertion order for sprites with equal z-index.
-      sprites.sort((a, b) => a.zIndex - b.zIndex);
     }
+    collectSprites2D(scene, width, height, sprites);
+    for (const sprite of sprites) {
+      if (sprite.material)
+        throw new UnsupportedGraphicsError(
+          'Canvas2D does not support native Sprite materials.',
+        );
+    }
+  }
 
+  private drawFrame(
+    context: CanvasRenderingContext2D,
+    pixelWidth: number,
+    pixelHeight: number,
+    scene: Scene | undefined,
+    logicalWidth: number,
+    logicalHeight: number,
+  ): void {
+    const sprites = this.sprites;
+    const scaleX = pixelWidth / logicalWidth;
+    const scaleY = pixelHeight / logicalHeight;
+    this.spriteSource.beginFrame();
+    try {
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.globalAlpha = 1;
+      context.globalCompositeOperation = 'source-over';
+      context.fillStyle = backgroundStyle;
+      context.fillRect(0, 0, pixelWidth, pixelHeight);
+      if (scene) {
+        const camera = scene.camera2D;
+        const cameraX = camera.position.x;
+        const cameraY = camera.position.y;
+        for (const sprite of sprites) {
+          const matrix = sprite.updateWorldMatrix().elements;
+          const world = sprite.worldSpace === 'world';
+          const zoom = world ? camera.zoom : 1;
+          context.setTransform(
+            matrix[0] * zoom * scaleX,
+            matrix[1] * zoom * scaleY,
+            matrix[3] * zoom * scaleX,
+            matrix[4] * zoom * scaleY,
+            ((matrix[6] - (world ? cameraX : 0)) * zoom +
+              (world ? camera.renderOffset.x : 0)) *
+              scaleX,
+            ((matrix[7] - (world ? cameraY : 0)) * zoom +
+              (world ? camera.renderOffset.y : 0)) *
+              scaleY,
+          );
+          context.globalAlpha = sprite.worldOpacity * sprite.worldTint[3];
+          context.drawImage(
+            this.spriteSource.image(sprite),
+            -sprite.anchor.x * sprite.width,
+            -sprite.anchor.y * sprite.height,
+            sprite.width,
+            sprite.height,
+          );
+        }
+      } else {
+        const side = Math.min(pixelWidth, pixelHeight);
+        const centerX = pixelWidth / 2;
+        const centerY = pixelHeight / 2;
+        // Canvas gradients approximate the WebGPU triangle's interpolated vertex colors.
+        const gradient = context.createLinearGradient(
+          centerX,
+          centerY - side * 0.35,
+          centerX,
+          centerY + side * 0.3,
+        );
+        gradient.addColorStop(0, 'rgb(255 77 64)');
+        gradient.addColorStop(1, 'rgb(70 180 190)');
+        context.fillStyle = gradient;
+        context.beginPath();
+        context.moveTo(centerX, centerY - side * 0.35);
+        context.lineTo(centerX - side * 0.35, centerY + side * 0.3);
+        context.lineTo(centerX + side * 0.35, centerY + side * 0.3);
+        context.closePath();
+        context.fill();
+      }
+    } finally {
+      sprites.length = 0;
+      this.spriteSource.endFrame();
+    }
+  }
+
+  private validateTransition(transition: TransitionFrame): void {
+    if (!Number.isFinite(transition.progress))
+      throw new RangeError('Canvas2D transition progress must be finite.');
+    const snapshot = transition.snapshot;
+    if (snapshot) {
+      if (!(snapshot instanceof CanvasRenderSnapshot))
+        throw new GraphicsError(
+          'Canvas2D transition snapshot belongs to another renderer.',
+        );
+      snapshot.assertOwner(this);
+    }
+  }
+
+  private requireTransitionContext(): CanvasRenderingContext2D {
+    if (!this.transitionCanvas) {
+      const canvas = document.createElement('canvas');
+      canvas.width = this.canvas!.width;
+      canvas.height = this.canvas!.height;
+      const context = canvas.getContext('2d');
+      if (!context)
+        throw new Canvas2DInitializationError(
+          'Canvas2D transition context is unavailable.',
+        );
+      this.transitionCanvas = canvas;
+      this.transitionContext = context;
+    }
+    return this.transitionContext!;
+  }
+
+  private composeTransition(
+    context: CanvasRenderingContext2D,
+    transition: TransitionFrame,
+  ): void {
+    const width = this.canvas!.width;
+    const height = this.canvas!.height;
+    const progress = Math.max(0, Math.min(1, transition.progress));
+    const color = transition.color;
     context.setTransform(1, 0, 0, 1, 0, 0);
     context.globalAlpha = 1;
-    context.fillStyle = backgroundStyle;
-    context.fillRect(0, 0, canvas.width, canvas.height);
-    if (scene) {
-      const camera = scene.camera2D;
-      const zoom = camera.zoom;
-      const cameraX = camera.position.x;
-      const cameraY = camera.position.y;
-      for (const sprite of sprites) {
-        const matrix = sprite.transform.updateMatrix().elements;
-        const texture = sprite.texture;
-        context.setTransform(
-          matrix[0] * zoom * scaleX,
-          matrix[1] * zoom * scaleY,
-          matrix[3] * zoom * scaleX,
-          matrix[4] * zoom * scaleY,
-          (matrix[6] - cameraX) * zoom * scaleX,
-          (matrix[7] - cameraY) * zoom * scaleY,
-        );
-        context.globalAlpha = sprite.opacity;
-        context.drawImage(
-          texture.image,
-          -sprite.anchor.x * texture.width,
-          -sprite.anchor.y * texture.height,
-        );
-      }
-    } else {
-      const side = Math.min(canvas.width, canvas.height);
-      const centerX = canvas.width / 2;
-      const centerY = canvas.height / 2;
-      // Canvas gradients approximate the WebGPU triangle's interpolated vertex colors.
-      const gradient = context.createLinearGradient(
-        centerX,
-        centerY - side * 0.35,
-        centerX,
-        centerY + side * 0.3,
-      );
-      gradient.addColorStop(0, 'rgb(255 77 64)');
-      gradient.addColorStop(1, 'rgb(70 180 190)');
-      context.fillStyle = gradient;
+    context.globalCompositeOperation = 'source-over';
+    context.clearRect(0, 0, width, height);
+    context.fillStyle = `rgba(${color[0] * 255}, ${color[1] * 255}, ${color[2] * 255}, ${color[3]})`;
+    if (transition.kind === 'slide') {
+      const horizontal =
+        transition.direction === 'left' || transition.direction === 'right';
+      const distance = horizontal ? width : height;
+      const sign =
+        transition.direction === 'left' || transition.direction === 'up'
+          ? -1
+          : 1;
+      const outgoing = sign * progress * distance;
+      const incoming = -sign * (1 - progress) * distance;
+      const boundary = Math.round(sign < 0 ? distance + outgoing : outgoing);
+      const outgoingEdge = horizontal
+        ? sign < 0
+          ? 'right'
+          : 'left'
+        : sign < 0
+          ? 'down'
+          : 'up';
+      context.save();
       context.beginPath();
-      context.moveTo(centerX, centerY - side * 0.35);
-      context.lineTo(centerX - side * 0.35, centerY + side * 0.3);
-      context.lineTo(centerX + side * 0.35, centerY + side * 0.3);
-      context.closePath();
-      context.fill();
+      if (horizontal)
+        context.rect(
+          sign < 0 ? 0 : boundary,
+          0,
+          sign < 0 ? boundary : width - boundary,
+          height,
+        );
+      else
+        context.rect(
+          0,
+          sign < 0 ? 0 : boundary,
+          width,
+          sign < 0 ? boundary : height - boundary,
+        );
+      context.clip();
+      this.drawOutgoing(
+        context,
+        transition,
+        horizontal ? outgoing : 0,
+        horizontal ? 0 : outgoing,
+        outgoingEdge,
+      );
+      context.restore();
+      context.save();
+      context.beginPath();
+      if (horizontal)
+        context.rect(
+          sign < 0 ? boundary : 0,
+          0,
+          sign < 0 ? width - boundary : boundary,
+          height,
+        );
+      else
+        context.rect(
+          0,
+          sign < 0 ? boundary : 0,
+          width,
+          sign < 0 ? height - boundary : boundary,
+        );
+      context.clip();
+      drawSlidingImage(
+        context,
+        this.transitionCanvas!,
+        horizontal ? incoming : 0,
+        horizontal ? 0 : incoming,
+        width,
+        height,
+        transition.direction,
+      );
+      context.restore();
+    } else {
+      // Add weighted premultiplied planes: source-over would darken the midpoint.
+      if (transition.kind === 'crossfade') {
+        context.globalAlpha = 1 - progress;
+        this.drawOutgoing(context, transition, 0, 0);
+        context.globalCompositeOperation = 'lighter';
+        context.globalAlpha = progress;
+        context.drawImage(this.transitionCanvas!, 0, 0);
+      } else if (progress < 0.5) {
+        const amount = progress * 2;
+        context.globalAlpha = 1 - amount;
+        this.drawOutgoing(context, transition, 0, 0);
+        context.globalCompositeOperation = 'lighter';
+        context.globalAlpha = amount;
+        context.fillRect(0, 0, width, height);
+      } else {
+        const amount = progress * 2 - 1;
+        context.globalAlpha = 1 - amount;
+        context.fillRect(0, 0, width, height);
+        context.globalCompositeOperation = 'lighter';
+        context.globalAlpha = amount;
+        context.drawImage(this.transitionCanvas!, 0, 0);
+      }
     }
-    sprites.length = 0;
-    this.frameRendered = true;
+    context.globalAlpha = 1;
+    context.globalCompositeOperation = 'source-over';
+  }
+
+  private drawOutgoing(
+    context: CanvasRenderingContext2D,
+    transition: TransitionFrame,
+    x: number,
+    y: number,
+    edge?: TransitionFrame['direction'],
+  ): void {
+    const width = this.canvas!.width;
+    const height = this.canvas!.height;
+    if (transition.snapshot)
+      (transition.snapshot as CanvasRenderSnapshot).draw(
+        this,
+        context,
+        x,
+        y,
+        width,
+        height,
+        edge,
+      );
+    else context.fillRect(edge ? 0 : x, edge ? 0 : y, width, height);
+  }
+
+  private releaseTransitionTarget(): void {
+    if (this.transitionCanvas)
+      this.transitionCanvas.width = this.transitionCanvas.height = 1;
+    this.transitionCanvas = undefined;
+    this.transitionContext = undefined;
   }
 
   endFrame(): void {
@@ -190,6 +497,8 @@ export class Canvas2DRenderer implements Renderer {
         `Canvas2D canvas backing size ${pixelWidth}×${pixelHeight} exceeds the maximum of ${MAX_SIZE} pixels per side.`,
       );
     const canvas = this.canvas!;
+    if (canvas.width !== pixelWidth || canvas.height !== pixelHeight)
+      this.releaseTransitionTarget();
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
   }
@@ -197,7 +506,12 @@ export class Canvas2DRenderer implements Renderer {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    for (const snapshot of this.snapshots) snapshot.destroy();
+    this.snapshots.clear();
+    this.releaseTransitionTarget();
+    this.canvas?.removeEventListener('contextlost', this.onContextLost);
     this.sprites.length = 0;
+    this.spriteSource.destroy();
     this.frameActive = false;
     this.context = undefined;
     this.canvas = undefined;
@@ -209,5 +523,130 @@ export class Canvas2DRenderer implements Renderer {
         'Canvas2D renderer is not initialized or has already been destroyed.',
       );
     return this.context;
+  }
+}
+
+/** Pixel storage is never exposed; disposing the old Scene cannot alter this frame. */
+class CanvasRenderSnapshot implements RenderSnapshot {
+  readonly #width: number;
+  readonly #height: number;
+  #canvas: HTMLCanvasElement | undefined;
+  readonly #owner: Canvas2DRenderer;
+  readonly #snapshots: Set<CanvasRenderSnapshot>;
+
+  constructor(
+    owner: Canvas2DRenderer,
+    canvas: HTMLCanvasElement,
+    snapshots: Set<CanvasRenderSnapshot>,
+  ) {
+    this.#owner = owner;
+    this.#canvas = canvas;
+    this.#width = canvas.width;
+    this.#height = canvas.height;
+    this.#snapshots = snapshots;
+    Object.freeze(this);
+  }
+
+  get backend(): 'canvas2d' {
+    return 'canvas2d';
+  }
+  get width(): number {
+    return this.#width;
+  }
+  get height(): number {
+    return this.#height;
+  }
+  get destroyed(): boolean {
+    return !this.#canvas;
+  }
+
+  assertOwner(owner: Canvas2DRenderer): void {
+    if (this.#owner !== owner)
+      throw new GraphicsError(
+        'Canvas2D transition snapshot belongs to another renderer.',
+      );
+    if (!this.#canvas)
+      throw new GraphicsError(
+        'Canvas2D transition snapshot has been destroyed.',
+      );
+  }
+
+  draw(
+    owner: Canvas2DRenderer,
+    context: CanvasRenderingContext2D,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    edge?: TransitionFrame['direction'],
+  ): void {
+    this.assertOwner(owner);
+    if (edge)
+      drawSlidingImage(context, this.#canvas!, x, y, width, height, edge);
+    else context.drawImage(this.#canvas!, x, y, width, height);
+  }
+
+  destroy(): void {
+    if (!this.#canvas) return;
+    this.#canvas.width = this.#canvas.height = 1;
+    this.#canvas = undefined;
+    this.#snapshots.delete(this);
+  }
+}
+
+function drawSlidingImage(
+  context: CanvasRenderingContext2D,
+  image: HTMLCanvasElement,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  edge: TransitionFrame['direction'],
+): void {
+  context.drawImage(image, x, y, width, height);
+  const horizontal = edge === 'left' || edge === 'right';
+  const trailing = edge === 'right' || edge === 'down';
+  const origin = horizontal ? x : y;
+  const length = horizontal ? width : height;
+  const position = origin + (trailing ? length : 0);
+  const boundary = Math.round(position);
+  if (trailing ? boundary <= position : boundary >= position) return;
+  // Canvas clips fractional image geometry, unlike a clamped GPU sampler. Restore
+  // the single pixel-center-covered border without rounding the moving content.
+  const destination = trailing ? boundary - 1 : boundary;
+  const sourceLength = horizontal ? image.width : image.height;
+  const source = Math.max(
+    0,
+    Math.min(
+      sourceLength - 1,
+      ((destination + 0.5 - origin) * sourceLength) / length - 0.5,
+    ),
+  );
+  if (horizontal) {
+    context.clearRect(destination, y, 1, height);
+    context.drawImage(
+      image,
+      source,
+      0,
+      1,
+      image.height,
+      destination,
+      y,
+      1,
+      height,
+    );
+  } else {
+    context.clearRect(x, destination, width, 1);
+    context.drawImage(
+      image,
+      0,
+      source,
+      image.width,
+      1,
+      x,
+      destination,
+      width,
+      1,
+    );
   }
 }

@@ -350,3 +350,340 @@ PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 
 各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；明確 mipmapped min filters 拒絕。
+
+## 12. Atlas 圖形與 HUD（P13）
+
+由 xyz.js（或部署的 root ESM URL）import 下列名稱。texture 需為已載入且包含兩個 rectangles 的 atlas；Scene owns objects，貼圖仍借用。
+
+```js
+import { Group2D, ScreenElement, SpriteSheet, FrameAnimation } from 'xyz.js';
+
+const sheet = new SpriteSheet(texture, [
+  { x: 0, y: 0, width: 16, height: 16 },
+  { x: 16, y: 0, width: 16, height: 16 },
+]);
+const group = scene.add(new Group2D());
+group.position.set(120, 100);
+group.rotation = 0.3;
+const sprite = group.add(sheet.createSprite(0));
+sprite.scale.set(3, 3);
+new FrameAnimation(
+  sprite,
+  sheet.frames.map((source) => ({ source, duration: 0.2 })),
+  { strategy: 'pingpong' },
+).play();
+const hud = scene.add(new ScreenElement());
+hud.add(sheet.createSprite(1, { anchor: [0, 0], position: [16, 16] }));
+```
+
+規則 cells 使用 SpriteSheet.grid(texture,{frameWidth,frameHeight,columns,rows,origin:[x,y],spacing:[x,y]})。Sheet frames 必須 integer source pixels；直接 sprite.source={x,y,width,height} 可用 texture 內的有限 fractional pixels，undefined 回整張圖。Sprite width／height 是自然 source 尺寸，顯示縮放用 scale，沒有 displayWidth／displayHeight。Nested groups 繼承 visibility／opacity／tint／z；screen roots 不受 camera 影響並在 world 後繪製。Reparent 保留 local transform；remove 解除可重用子樹，destroy 遞迴清理 children、不 destroy borrowed textures。
+
+new SpriteFont(sheet,{alphabet:'012AB',lineHeight:10,fallback:'0',advance:8}) 以 Unicode code points 一對一對應 sheet frames。new SpriteText(font,'A012B\n210BA',{align:'center',letterSpacing:1,lineSpacing:2}) 擁有 glyph children；同步 setText(text) 重用 glyphs，invalid input 保留舊文字。未提供 fallback 時 unmapped character 拒絕；不是 BMFont importer。
+
+new NineSlice(texture,{left:3,right:3,top:3,bottom:3,width:60,height:28,mode:'tile'}) 借用 texture、擁有 patches；source／margins 為 integer pixels，可指定 atlas panel source。resize(width,height) 可用有界 fractional destination；stretch 預設，tile 裁最後 partial repeat（含 fractional source remainder），tile-fit 平均分配完整 repeats。小尺寸同比壓縮相對 margins，drawCenter:false 不畫中心。
+
+FrameAnimation 另有 loop（預設）／freeze／hide、非負 speed、pause／play／reset／reverse／goToFrame(index)／stop（pause 加 reset）。Game 中央推進，不要重複 update。Animation 或 Sprite 上的 native animationframe／animationloop／animationend events，large dt 的 loop detail 含 aggregate count。
+
+### 正式 P13–P20 Playground
+
+開啟 [gameplay2d](../examples/gameplay2d/) 的 ?renderer=webgpu|webgl2|canvas2d|auto或Renderer selector。預設forced WebGPU，需initialization fallback請explicit選auto。此rootexports正式consumer三backend真browser proof完成，非fake tasks／另一套engine；P13–P20 profiles／formalexample／最後build-typecheck-lint-format／37files252tests／packed ES2022consumer於記錄scope驗收。
+
+| Controls                                                                  | 實際行為                                                                                                                                                   |
+| ------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Drag colored sprite／bitmap text；Move camera／Toggle group               | Native parent-inverse nesteddrag、screenHUD固定，diagnostics顯viewportculltilecounts                                                                       |
+| Move + fade sequence／Follow + bounds／Shake                              | Simulationactions／ordered strategies／seeded visual-onlyshake                                                                                             |
+| Off-center impulse／Edit both maps                                        | Angularimpulse，ortho(2,0)循環frame／切solid、iso(2,1)切elevation                                                                                          |
+| Toggle local/world emission／Burst both spaces                            | Stop留survivors到期、每spaceburst24                                                                                                                        |
+| Unlock + PCM + OPM／Pause-resume PCM／Seek + rate PCM／Stop audio／Master | Gestureunlock原八contexts、PCM＋OPM；seek0.2s／rate1.5；Game pause不pauseaudio                                                                             |
+| Transition kind／Preload + switch scene／Cancel pending-effect            | 真OPM／PCM／PNG batch3/3後initialize，1.5s fade-crossfade-leftslide／sineInOut；cancel重選publishedScene、不destroy                                        |
+| Toggle Sprite material／Toggle world + HUD post                           | GPU／GL prepared WGSL／GLSL，Canvas顯explicit UnsupportedGraphicsError                                                                                     |
+| Pause／Resume／Destroy                                                    | 凍simulation／actions／particles／transitionclock、cancelpointercapture；abortUIlisteners／monitor、destroyGame後清callerfixtures／descriptors／objectURLs |
+
+Progress／transitionevents／audio／effects／tile／simulation labels是真state；三backendfinalsurfaces consoleerrors=[]，analyser非喇叭聽見聲音。無新crossbrowser／performance聲明。
+
+## 13. Preload 與 Native Samples（已落地 P18 Modules）
+
+P18已包含Scene.preload／Game.loading整合，於記錄的Chromium環境驗收。下列direct batch例接續已有game／scene；URL需實際檔案、HTML需#sound button。
+
+```js
+import { PreloadBatch } from 'xyz.js';
+
+const controller = new AbortController();
+const batch = new PreloadBatch([
+  game.assets.textureTask('atlas', '/atlas.png'),
+  game.audio.sampleTask('tone', '/tone.wav'),
+  {
+    key: 'settings',
+    load: (signal) => game.assets.loadJSON('/settings.json', { signal }),
+  },
+]);
+batch.addEventListener('progress', (event) => {
+  console.log(event.detail.completed, event.detail.total, event.detail.ratio);
+});
+const resources = await batch.load({ signal: controller.signal });
+const sample = resources.get('tone');
+document.querySelector('#sound').addEventListener('click', async () => {
+  try {
+    await game.audio.unlock();
+    const playback = await sample.play({ channel: 'sfx', scene, volume: 0.5 });
+    console.log(playback.state, playback.position);
+  } catch (error) {
+    console.error(error);
+  }
+});
+```
+
+初始化 error path 處理 batch rejection。手勢 unlock 前 sampleTask／loadSample 只 fetch encoded bytes：decoded=false、duration／sampleRate／channels undefined。sample.decode／play 未 unlock 拒絕，play unlock 後 lazy decode；batch complete 不等於 decoded-ready。game.audio.opmTask(key,url) 載 OPM JSON，textureTask 由 loader owns texture。Batch state／progress、native progress／complete／error events、cancel(reason?)／load({signal?}) 使用 task-count progress，empty ratio=1；不 retries、不 destroy results。
+
+game.assets.loadBinary(url,{signal,maxBytes}) 回 ArrayBuffer，loadText UTF-8 text，loadJSON parsed data（非 schema validation）。預設 binary8 MiB、text／JSON1 MiB，maxBytes 正整數≤8 MiB，generic readers 支援 HTTP／HTTPS／data／blob。Shared texture／OPM／sample abort 僅拒該 subscriber；loader destroy 中止 shared request／釋放 owned cache。Custom tasks 配合 signal，不為單 batch destroy shared loader。
+
+game.audio.loadSample(url,{signal}) 回 cached SampleAudioAsset；僅 browser-native codecs，WAV／PCM 已實測。Asset loop／persistent 可被 play options 覆寫：channel（music／sfx／ui）、scene、persistent、loop、volume（0..1）、playbackRate（0,16]）、duration 內 offset、scheduledStartTime（絕對 AudioContext 秒，非 Game clock）。Playback state（playing／paused／stopped／ended）、position、可變 volume／playbackRate、pause／resume／seek(seconds)／stop；pause 固定 position、finished seek 拒絕，resume／seek 重建 one-shot source，natural end 與 stop 分開。Game pause 不暫停音訊，需要時明確 playback.pause()。
+
+Sample 重用第一個已 unlock OPM context，不建第九個；獨立32-playback容量，超限拒絕不搶 OPM slots。既有 master／channel volume 套用，worklet reset 不斷 sample。Scene stop nonpersistent，persistent 保留至 stop／Game destroy；cached SampleAudioAsset 不由使用者 destroy。
+
+Encoded8 MiB，**decode後**檢查2,097,152 frames／8 channels／192kHz／8,388,608 values；不能防 decoder transient allocation，非 global memory budget。Chromium analyser 證 PCM 與 OPM 非零輸出，不宣稱聽到喇叭聲或其他瀏覽器認證。
+
+### Scene 準備與 Model Tasks
+
+```js
+import { Scene, Sprite, PreloadBatch } from 'xyz.js';
+
+class ReadyScene extends Scene {
+  preload(game) {
+    const batch = new PreloadBatch([
+      game.assets.textureTask('atlas', '/atlas.png'),
+      game.audio.sampleTask('tone', '/tone.wav'),
+    ]);
+    batch.addEventListener('progress', (event) => {
+      document.querySelector('#loading').textContent =
+        `${event.detail.completed}/${event.detail.total}`;
+    });
+    return batch;
+  }
+  async initialize(game, signal) {
+    const texture = await game.assets.loadTexture('/atlas.png', { signal });
+    this.add(new Sprite({ texture, position: [100, 100] }));
+  }
+}
+await game.setScene(new ReadyScene());
+```
+
+HTML加#loading label，處理setScene rejection。TypeScript protected preload(game,signal)回PreloadBatch|void|Promise<PreloadBatch|void>；Game先preload成功才initialize。Game.loading只讀當前candidate batch，外部UI可讀loading?.progress，不呼叫internal setLoading。成功原子publish／destroy old，failure／cancel保留old Scene，非pause仍更新；failed preload不initialize。Superseded batch不可清新loading；pause中可完成prepare／publish，新Scene等resume才tick。
+
+Batch可加new GLTFLoader().task('model','/model.glb')取得unique owned model。未完成batch failure／cancel dispose該task model／owned textures，不碰unrelated models／shared loader assets；成功caller接ownership，移除／停止consumers後必須GLTFAsset.dispose。Custom LoadTask自行負責unique resources與cooperative signal cleanup；generic task與shared loader results不由batch自動destroy。
+
+## 14. Actions、Pointer Targets 與 Camera（P14）
+
+以下片段使用live Scene與已加入的Sprite。Duration是simulation秒、rotation是radians；actions修改local transform、先於physics，不在Scene.update手動推queue。
+
+```js
+import { Actions, Easings, CameraStrategies } from 'xyz.js';
+
+sprite.pointerEnabled = true;
+sprite.draggable = true;
+sprite.addEventListener('dragmove', (event) => {
+  console.log(event.detail.pointerId, event.detail.screen, event.detail.world);
+});
+const handle = sprite.actions.run(
+  Actions.sequence(
+    Actions.parallel(
+      Actions.moveBy(40, 0, 0.5, Easings.quadInOut),
+      Actions.fadeTo(0.5, 0.5),
+    ),
+    Actions.call((owner) => {
+      owner.opacity = 1;
+    }),
+  ),
+);
+const result = await handle.finished;
+
+const follow = scene.camera2D.addBehavior(
+  CameraStrategies.follow(sprite, { axis: 'both', smoothTime: 0.15 }),
+);
+scene.camera2D.addBehavior(
+  CameraStrategies.bounds({ x: 0, y: 0, width: 1000, height: 600 }),
+);
+scene.camera2D.shake({ duration: 0.25, amplitude: [4, 3], seed: 7 });
+```
+
+保留follow token，需要停止follow才呼叫scene.camera2D.removeBehavior(follow)；立即remove會讓下次camera update完全不套用follow。
+
+ActionQueue.run回state queued／running／completed／cancelled與finished（resolve completed／cancelled）；handle.cancel取消單run、sprite.actions.clear清queue。其他factories：moveTo／rotateTo／scaleTo／tween(target,numericValues,duration,easing?)／delay／repeat(action,count)／repeatForever(action)。Sequence傳overshoot、parallel等所有branches、repeat重取起點；infinite repeat必須耗時、超限callback work拒絕。Easings：linear、quadIn／Out／InOut、cubicIn／Out／InOut、sineIn／Out／InOut、bounceOut；custom output必須finite [0,1]。不承諾back／elastic。
+
+Native target-only lifecycle：initialize首次active tick一次；add／remove detail {scene}；preupdate／postupdate detail {dt}；destroy；actionstart／actioncomplete／actioncancel detail {action,handle}。Callback remove／readd使舊registration失效，下frame續跑；失效tick的preupdate不必配postupdate，events不bubble。
+
+Pointer events pointerenter／leave／down／up／move／cancel、dragstart／move／end回PointerTargetEventDetail {pointerId,button,screen,world,target,originalEvent?}，Vector2 snapshots穩定。Topmost screen／HUD優先world、graphics bounds inverse affine、singular skip；hitTestMode='collider'改用attached collider，非pixel-alpha picking。Native capture讓canvas外仍drag，parent-inverse保留nested delta、第二pointer不可搶同drag。Pause／hidden／remove／destroy取消routing，resume不重播paused samples。
+
+CameraStrategies.follow另可用viewport-relative deadZone rectangle。Bounds依viewport／zoom clamp，view大於bounds時center。Camera2D.moveTo(x,y,duration,easing?)／zoomTo(zoom,duration,easing?)回ActionHandle，motion／zoom各獨立FIFO。Behaviors依加入順序，在physics／particles後、render前；較後bounds可覆蓋motion／follow。clearBehaviors釋strategies；seeded shake只改renderOffset、不改logical position，picking用最近呈現camera。Game pause凍結queues／camera。
+
+## 15. Physics、Maps 與 CPU Particles（P15–P17）
+
+### Rigid Bodies 與 Triggers
+
+```js
+import { GameObject, RigidBody2D, Colliders, Trigger2D, Vector2 } from 'xyz.js';
+
+scene.physics.gravity.set(0, 980);
+const ball = scene.add(new GameObject());
+ball.position.set(100, 40);
+ball.collider = Colliders.circle(8);
+ball.body = new RigidBody2D({ mass: 2, restitution: 0.3, friction: 0.5 });
+const floor = scene.add(new GameObject());
+floor.position.set(100, 180);
+floor.collider = Colliders.box(200, 16);
+floor.body = new RigidBody2D({ type: 'static' });
+ball.body.applyImpulse(new Vector2(20, -30), new Vector2(104, 40));
+const trigger = scene.add(
+  new Trigger2D(Colliders.box(60, 30), {
+    repeat: Infinity,
+    filter: (other) => other === ball,
+  }),
+);
+trigger.position.set(100, 100);
+trigger.addEventListener('triggerenter', (event) =>
+  console.log(event.detail.other),
+);
+```
+
+GameObject本身不繪圖，要顯示改用atlas Sprite，collider source-local geometry需配Sprite scale。Colliders.box以owner origin為中心，factory接受{offset:[x,y]}；polygon為3–32 finite strictlyconvex vertices，concave／degenerate拒絕。Dynamic只world root、static可nested；circle要求uniform absolute world scale，非ellipse近似。Body／collider setters自動註冊Scene.physics。
+
+RigidBody2D有velocity／angularVelocity／mass／restitution／friction／linearDamping／angularDamping／gravityScale／lockRotation；applyForce／applyImpulse optional world lever point、clearForces清累積。無body仍是static collider。Category／mask reciprocal uint32，sensor=true不response。collisionstart／precollision／postcollision／collisionend detail self／other／stable normal／points／penetration／sensor／cancelResponse()；cancel只關當前precollision step response。Trigger2D clone sensor、預設一次accepted enter，explicit repeat=Infinity，triggerenter／triggerexit回{self,other}，不auto-destroy。
+
+Scene.physics.overlap(collider,owner)回shape-accurate contacts；raycast(origin,direction,maxDistance,mask?)回distance-sorted surface hits。Gravity／fixedDelta／maxSubSteps／velocityIterations／positionIterations可設定；discrete bounded catch-up、droppedTime記discard，高速可能tunneling。無CCD／joints／sleep／kinematic／concave／composite／edge／3D physics。
+
+### Atlas Maps
+
+```js
+import { TileMap, IsometricMap, SpriteSheet } from 'xyz.js';
+
+const sheet = SpriteSheet.grid(texture, { frameWidth: 32, frameHeight: 32 });
+const map = scene.add(
+  new TileMap({
+    columns: 8,
+    rows: 4,
+    tileWidth: 32,
+    tileHeight: 32,
+    sheet,
+  }),
+);
+map.setTile(2, 2, { frame: 0, solid: true, metadata: { name: 'floor' } });
+const iso = scene.add(
+  new IsometricMap({
+    columns: 4,
+    rows: 4,
+    tileWidth: 32,
+    tileHeight: 16,
+    sheet,
+    elevationStep: 8,
+  }),
+);
+iso.position.set(320, 100);
+iso.setTile(1, 1, { frame: 1, solid: true, elevation: 2 });
+const origin = iso.tileToWorld(1, 1);
+const picked = iso.pickTile(origin);
+map.setTile(2, 2, { solid: false });
+```
+
+使用有足夠frames的live texture。GetTile回immutable cell {frame,solid,elevation,collider?,metadata?}；setTile preflight partial edit、clearTile reset。tileToLocal／tileToWorld含configured elevation，可傳out Vector2重用。worldToTile(point,out?)回可能越grid的integer座標，iso inverse基於elevation-zero plane；pickTile處理elevated topmost graphic rectangle，非pixelalpha／exact diamond。Singular inverse拒絕，pickTile回undefined。
+
+Orthogonal origin top-left，isometric為diamond頂點、diagonal／elevation／insertion depth。Generated Sprite pool借sheet Texture，hidden／cleared不反覆建children。Transformed camera conservative culling不移除solids；預設box／diamond或custom convex collider。Edit／remove／destroy更新Scene collision registration；先destroy maps，再由owner destroy atlas。無editor format importer／hex／staggered／navigation。
+
+### Particle Emitters
+
+```js
+import { ParticleEmitter } from 'xyz.js';
+
+const emitter = scene.add(
+  new ParticleEmitter({
+    texture,
+    capacity: 128,
+    rate: 24,
+    seed: 7,
+    space: 'world',
+    lifetime: [0.5, 1],
+    speed: [20, 40],
+    angle: [-Math.PI, 0],
+    acceleration: [0, 40],
+    nozzle: { kind: 'circle', radius: 5 },
+    startSize: [6, 6],
+    endSize: [1, 1],
+    startColor: [1, 0.5, 0, 1],
+    endColor: [1, 0.5, 0, 0],
+  }),
+);
+emitter.position.set(120, 80);
+emitter.emit(12);
+emitter.start();
+// Later: emitter.stop() retains survivors; emitter.clear() retires them.
+```
+
+ParticleEmitter extends Group2D、初始stopped；rate births／second、emit(count) stopped也可burst。Lifetime／speed／angle是ordered range（秒／logical units每秒／radians），startSize／endSize是width／height而非random range。Optional source atlas rectangle；nozzle point／rectangle {width,height}／circle {radius}。Capacity overflow drop-new無backlog；activeCount／emitting只讀。
+
+CPU fixed borrowed-texture Sprite pool：fractional births按當tick內時間age、analytic acceleration、lifetime size／tint／alpha。Local跟emitter祖先；world凍結birth完整affine axes／position／velocity／acceleration，移動parents不改old births，新birth採新transform。Simulation space與inherited world／screen rendering分開。stop留survivors至expiry、clear重用pool／reset fraction、Game pause凍結age；destroy owned children、不destroy borrowed Texture。無GPU simulation。
+
+## 16. Native Sprite Materials 與 2D Post（P20）
+
+下例用live GPU／GL Game／Scene／Sprite；先prepare才attach visible consumers，需處理compiler rejection。
+
+```js
+import { Material2D, PostProcessor2D } from 'xyz.js';
+
+const material = new Material2D({
+  uniforms: [0, 1, 0, 1],
+  wgsl: `fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
+    return vec4f(color.rgb * uniformValue(0u).rgb, color.a);
+  }`,
+  glsl: `vec4 effect(vec4 color, vec2 uv, vec2 screen) {
+    return vec4(color.rgb * uniformValue(0).rgb, color.a);
+  }`,
+});
+const mirror = new PostProcessor2D({
+  uniforms: [0.75],
+  wgsl: `fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
+    return sampleInput(vec2f(1.0 - uv.x, uv.y)) * uniformValue(0u).x;
+  }`,
+  glsl: `vec4 effect(vec4 color, vec2 uv, vec2 screen) {
+    return sampleInput(vec2(1.0 - uv.x, uv.y)) * uniformValue(0).x;
+  }`,
+});
+await game.graphics.prepareMaterial(material);
+await game.graphics.preparePostProcessor(mirror);
+sprite.material = material;
+scene.effects2D.push(mirror);
+material.setUniforms([1, 1, 0, 1]);
+```
+
+兩native source必填、immutable、nonempty，各≤65,536 chars。Uniforms是16-slot Float32Array；setUniforms≤16 finite float-representable values、其餘zero-fill，direct finite mutation下draw upload。WGSL uniforms.values是array&lt;vec4f,4&gt;、GLSL vec4 uniforms[4]；uniformValue(index)讀0–3 vec4 index、非float index。User定義effect，不寫完整vertex／fragment entrypoint。
+
+Material color是premultiplied sampled Texture×inherited tint／opacity，uv source-frame normalized，screen logical pixels，return也需premultiplied RGBA。Post處理完整transparent world-2D＋HUD，sampleInput兩backend皆top-left normalized UV。Stage：3D／P12 HDR→transparent 2D＋HUD→ordered effects2D ping-pong→composite→whole-frame transition。Material只改attached Sprite、2D post不處理3D／HDR base。
+
+Prepared pipeline／program＋uniform resources跨resize／disable保留至descriptor lifetime，reenable不async reprepare；mutable layer／transition attachments釋放，owned snapshots不釋。Descriptor caller-owned可借多consumers，移除references後material.destroy()／mirror.destroy()，同步釋prepared entry。Unprepared／destroyed draw拒GraphicsError，renderer loss／destroy清全部。Canvas2D prepare／visible material／nonempty effects2D明確UnsupportedGraphicsError，不silent ignore、不假設auto必選shader backend。無transpiler／Shader Graph／任意resources。
+
+## 17. Whole-Frame Scene Transitions（P19）
+
+Actual三backend Game handoff已限定驗收：crossfade／fade、old同步destroy、pause／pendingPromise、resize／immutablecapture、resume／complete／custom easingfinalendpoint。追加真nativecaptures已驗presented-slide cancel保publishedScene、async capture version supersession／late disposal、同步cancel-listener reentry／latest winner與held-capture destroy。12native snapshots全dispose，各backend errors=[]。Destroy立即釋Scenes／captures與停frames，但pending setScene Promise仍等受控native capture回傳才reject，不宣稱提前abort capture await。正式example另證paused-effect cancel；最後工具鏈37files252tests／packedconsumer通過，未指定transition仍instant switch。
+
+```js
+import { Easings } from 'xyz.js';
+
+game.addEventListener('transitioncomplete', (event) => {
+  console.log(event.detail.kind, event.detail.to);
+});
+await game.setScene(nextScene, {
+  transition: {
+    kind: 'slide',
+    duration: 0.5,
+    direction: 'left',
+    easing: Easings.sineInOut,
+    blockInput: true,
+  },
+});
+```
+
+SetSceneOptions.transition為TransitionOptions {kind:'fade'|'crossfade'|'slide',duration,easing?,color?,direction?,blockInput?}。Duration非負finite simulation秒；normalized ColorRGBA預設opaque black、direction left、easing linear、blockInput true。Fade outgoing→color→incoming、crossfade blend、slide四方向。Game.transitioning只指active visual、不指candidate loading。
+
+Prepare時old active；成功prepare／owned capture後再驗cancel／version才publish／destroy old。Visual blend只有new Scene simulate；Promise等最後composited frame而非只publication。Pause／hidden凍結time／outstanding Promise，resize保留／scale immutable outgoing snapshot。Initial no-old／idle與duration0 skipvisual capture／events、原子完成。Prepare／capture failure保留current；replacement cancelcandidate／effect、reject pending Promise／釋snapshot。
+
+Native Game transitionstart／transitioncomplete／transitioncancel detail SceneTransitionEventDetail {from,to,kind}只actual visual emit。BlockInput清capture／只block target pointer routing，非keyboard／global polling。Snapshot在completion／cancel／explicit destroy／renderer loss／destroy釋放，非old Texture destroy／resize。
+
+Low-level Renderer.captureScene(scene,width,height):Promise&lt;RenderSnapshot&gt;不advance simulation，重畫owned storage全3D／P12／world／HUD／enabled effects，不含transition overlay。Width／height為logical pixels、snapshot尺寸backing pixels；公開僅backend／width／height／destroyed／destroy。Wrong-renderer／destroyed handle／active-frame nested capture拒絕。Renderer.render(scene?,width?,height?,{transition})接TransitionFrame {kind,progress,snapshot?,color,direction}，normalized progress0–1、missing snapshot用color。PresentedRenderer forwardcapture並present已composite結果，不延後讀preserveDrawingBuffer=false canvas。Game RAF的frames／capture交setScene管理，不另競爭。
