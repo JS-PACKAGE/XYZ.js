@@ -8,7 +8,11 @@ import { Object3D } from './object3d.js';
 import { AnimationMixer } from './animation.js';
 import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
-import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
+import {
+  FogSettings,
+  PostProcessingSettings,
+  ShadowSettings,
+} from './render-settings.js';
 import type { Game } from './game.js';
 import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
@@ -35,6 +39,8 @@ export class Scene {
   readonly shadows = new ShadowSettings();
   readonly postProcessing = new PostProcessingSettings();
   ambientLight = 0.3;
+  /** Distance fog for 3D meshes (WebGPU and WebGL2). */
+  readonly fog = new FogSettings();
   /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
   environment: EnvironmentMap | undefined;
   environmentIntensity = 1;

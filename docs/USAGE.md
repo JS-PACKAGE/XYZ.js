@@ -380,6 +380,16 @@ scene.environmentIntensity = 1;
 
 Maps are at most 2048×1024. Only WebGPU and WebGL2 draw them; Canvas2D is 2D-only.
 
+Distance fog fades 3D meshes toward a color (not the skybox or 2D layer):
+
+```js
+scene.fog.enabled = true;
+scene.fog.mode = 'linear'; // or 'exp2' with scene.fog.density
+scene.fog.color = [0.6, 0.65, 0.75]; // display sRGB, 0..1
+scene.fog.near = 6;
+scene.fog.far = 30;
+```
+
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters in these options reject; glTF files that specify mipmapped filters load with the base filter.

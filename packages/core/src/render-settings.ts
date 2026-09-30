@@ -107,3 +107,58 @@ export class PostProcessingSettings {
     nonnegative(this.bloomRadius, 'Bloom radius');
   }
 }
+
+export type FogMode = 'linear' | 'exp2';
+
+export interface FogSettingsOptions {
+  enabled?: boolean;
+  mode?: FogMode;
+  /** Display (sRGB) color the scene fades toward, components in 0..1. */
+  color?: [number, number, number];
+  /** Linear mode: distance where fog begins. */
+  near?: number;
+  /** Linear mode: distance of full fog. */
+  far?: number;
+  /** Exp2 mode: coverage is 1 - exp(-(density * distance)^2). */
+  density?: number;
+}
+
+/** Distance fog for 3D meshes; the skybox and 2D overlay are not fogged. */
+export class FogSettings {
+  enabled: boolean;
+  mode: FogMode;
+  color: [number, number, number];
+  near: number;
+  far: number;
+  density: number;
+
+  constructor(options: FogSettingsOptions = {}) {
+    this.enabled = options.enabled ?? false;
+    this.mode = options.mode ?? 'linear';
+    const color = options.color ?? [0.7, 0.75, 0.8];
+    this.color = [color[0], color[1], color[2]];
+    this.near = options.near ?? 10;
+    this.far = options.far ?? 100;
+    this.density = options.density ?? 0.02;
+    this.validate();
+  }
+
+  validate(): void {
+    if (typeof this.enabled !== 'boolean')
+      throw new TypeError('Fog enabled setting must be boolean.');
+    if (this.mode !== 'linear' && this.mode !== 'exp2')
+      throw new RangeError('Fog mode must be linear or exp2.');
+    if (!Array.isArray(this.color) || this.color.length !== 3)
+      throw new RangeError('Fog color must contain three components.');
+    for (let i = 0; i < 3; i++) {
+      finite(this.color[i], 'Fog color component');
+      if (this.color[i] < 0 || this.color[i] > 1)
+        throw new RangeError('Fog color components must be within 0..1.');
+    }
+    nonnegative(this.near, 'Fog near');
+    nonnegative(this.far, 'Fog far');
+    nonnegative(this.density, 'Fog density');
+    if (this.mode === 'linear' && this.far <= this.near)
+      throw new RangeError('Fog far must exceed near.');
+  }
+}

@@ -59,7 +59,11 @@ export { OrbitControls } from './orbit-controls.js';
 export { Raycaster } from './raycaster.js';
 export { PBRMaterial } from './pbr-material.js';
 export { PointLight, SpotLight } from './lights.js';
-export { ShadowSettings, PostProcessingSettings } from './render-settings.js';
+export {
+  ShadowSettings,
+  PostProcessingSettings,
+  FogSettings,
+} from './render-settings.js';
 export { InstancedMesh } from './instanced-mesh.js';
 export { GLTFLoader } from './gltf-loader.js';
 export type {
@@ -86,6 +90,8 @@ export type {
   ShadowSettingsOptions,
   PostProcessingSettingsOptions,
   ToneMapping,
+  FogMode,
+  FogSettingsOptions,
 } from './render-settings.js';
 export type { InstancedMeshOptions } from './instanced-mesh.js';
 export type { GLTFLoadOptions } from './gltf-loader.js';

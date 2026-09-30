@@ -378,6 +378,16 @@ scene.environmentIntensity = 1;
 
 Map 最大 2048×1024。只有 WebGPU 與 WebGL2 會繪製；Canvas2D 僅 2D。
 
+距離霧會讓 3D mesh 向某個顏色漸變（不影響 skybox 或 2D 層）：
+
+```js
+scene.fog.enabled = true;
+scene.fog.mode = 'linear'; // 或 'exp2' 搭配 scene.fog.density
+scene.fog.color = [0.6, 0.65, 0.75]; // 顯示用 sRGB，0..1
+scene.fog.near = 6;
+scene.fog.far = 30;
+```
+
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 
 各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；這些 options 中明確的 mipmapped min filters 拒絕，glTF 檔案指定 mipmapped filters 時則以 base filter 載入。

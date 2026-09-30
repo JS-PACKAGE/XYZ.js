@@ -16,6 +16,8 @@ struct SceneUniforms {
   invViewProjection: mat4x4f,
   envSH: array<vec4f, 9>,
   envParams: vec4f,
+  fogColor: vec4f,
+  fogParams: vec4f,
 };
 struct MeshUniforms {
   model: mat4x4f,
@@ -162,6 +164,18 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
   let blended = mesh.settings.w > 1.5;
   if (mesh.material.x > 0.5 && ((!effectiveFront && mesh.settings.y < 0.5) || (masked && alpha < mesh.settings.x) || (blended && alpha <= 0.0))) { discard; }
 }
+// rgb is premultiplied by opacity, so fog fades toward fogColor * opacity and keeps transparency.
+fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
+  let mode = scene.fogColor.w;
+  if (mode < 0.5) { return rgb; }
+  let distance = length(world - scene.camera.xyz);
+  var amount = clamp((distance - scene.fogParams.x) / max(scene.fogParams.y - scene.fogParams.x, 0.000001), 0.0, 1.0);
+  if (mode > 1.5) {
+    let d = scene.fogParams.z * distance;
+    amount = 1.0 - exp(-d * d);
+  }
+  return mix(rgb, scene.fogColor.rgb * opacity, amount);
+}
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   let texel = textureSample(baseMap, materialSampler, input.uv);
   let visibility = shadowVisibility(input.world);
@@ -186,8 +200,8 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
     }
     // Legacy base map remains premultiplied to retain filtered translucent edges.
     let rgb = texel.rgb*mesh.tint.rgb*illumination*mesh.tint.a;
-    if (scene.counts.z > 0.5) { return vec4f(decodeSRGB(rgb/max(opacity,0.000001))*opacity,opacity); }
-    return vec4f(rgb,opacity);
+    if (scene.counts.z > 0.5) { return vec4f(applyFog(decodeSRGB(rgb/max(opacity,0.000001))*opacity,opacity,input.world),opacity); }
+    return vec4f(applyFog(rgb,opacity,input.world),opacity);
   }
   var mr = vec4f(1.0);
   if (mesh.maps.x > 0.5) { mr = textureSample(metallicRoughnessMap, metallicRoughnessSampler, input.uv); }
@@ -245,7 +259,7 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
   }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
-  return vec4f(color*opacity,opacity);
+  return vec4f(applyFog(color*opacity,opacity,input.world),opacity);
 }
 struct SkyOutput {
   @builtin(position) position: vec4f,

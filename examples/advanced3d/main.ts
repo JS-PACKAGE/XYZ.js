@@ -30,6 +30,7 @@ const cameraChoice = document.querySelector<HTMLSelectElement>('#camera')!;
 const shadows = document.querySelector<HTMLInputElement>('#shadows')!;
 const post = document.querySelector<HTMLInputElement>('#post')!;
 const environment = document.querySelector<HTMLInputElement>('#environment')!;
+const fog = document.querySelector<HTMLInputElement>('#fog')!;
 const pause = document.querySelector<HTMLButtonElement>('#pause')!;
 const renderer = (new URLSearchParams(location.search).get('renderer') ??
   'webgpu') as RendererPreference;
@@ -220,6 +221,16 @@ try {
     { signal: listeners.signal },
   );
   listeners.signal.addEventListener('abort', () => environmentMap.destroy());
+  fog.addEventListener(
+    'change',
+    () => {
+      scene.fog.enabled = fog.checked;
+      scene.fog.near = 6;
+      scene.fog.far = 30;
+      scene.fog.color = [0.6, 0.65, 0.75];
+    },
+    { signal: listeners.signal },
+  );
   pause.addEventListener(
     'click',
     () => {

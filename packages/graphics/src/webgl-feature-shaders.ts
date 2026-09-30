@@ -42,6 +42,7 @@ uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
 uniform sampler2D environmentMap;
+uniform vec4 fog[2]; // color.rgb/mode(0 off,1 linear,2 exp2), near/far/density/0
 uniform vec4 tint;
 uniform vec4 surface; // metallic, roughness, normalScale, occlusionStrength
 uniform vec4 emission; // emissive RGB, alphaCutoff
@@ -119,6 +120,18 @@ float attenuation(float distanceSquared, float range) {
   float factor = 1.0;
   if (range > 0.0) factor = pow(clamp(1.0 - pow(sqrt(distanceSquared) / range, 4.0), 0.0, 1.0), 2.0);
   return factor / max(distanceSquared, .01);
+}
+// rgb is premultiplied by opacity, so fog fades toward the fog color * opacity.
+vec3 applyFog(vec3 rgb, float opacity) {
+  float mode = fog[0].w;
+  if (mode < 0.5) return rgb;
+  float dist = length(vPosition - cameraPosition);
+  float amount = clamp((dist - fog[1].x) / max(fog[1].y - fog[1].x, .000001), 0.0, 1.0);
+  if (mode > 1.5) {
+    float d = fog[1].z * dist;
+    amount = 1.0 - exp(-d * d);
+  }
+  return mix(rgb, fog[0].rgb * opacity, amount);
 }
 void main() {
   vec4 texel = texture(image, vUV);
@@ -204,7 +217,7 @@ void main() {
     result = base * illumination;
     if (linearOutput) result = decodeSRGB(result);
   }
-  color = vec4(result * opacity, opacity);
+  color = vec4(applyFog(result * opacity, opacity), opacity);
 }`;
 
 export const shadowFragment = `#version 300 es

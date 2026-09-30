@@ -1,6 +1,7 @@
 import { Matrix4, Vector3 } from '../../math/src/index.js';
 import {
   ENVIRONMENT_FLOAT_COUNT,
+  FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
   MAX_POINT_LIGHTS,
   MAX_SPOT_LIGHTS,
@@ -11,7 +12,11 @@ import {
 } from '../../../src/data/rendering.js';
 import { EnvironmentMap } from './environment.js';
 import { PointLight, SpotLight } from './lights.js';
-import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
+import {
+  FogSettings,
+  PostProcessingSettings,
+  ShadowSettings,
+} from './render-settings.js';
 import type { Scene } from './scene.js';
 
 function finite(value: number, name: string): void {
@@ -40,6 +45,9 @@ export function validateRenderSettings(scene: Scene): void {
     throw new TypeError('Scene postProcessing must be PostProcessingSettings.');
   scene.shadows.validate();
   scene.postProcessing.validate();
+  if (!(scene.fog instanceof FogSettings))
+    throw new TypeError('Scene fog must be FogSettings.');
+  scene.fog.validate();
   for (const [name, map] of [
     ['environment', scene.environment],
     ['background', scene.background],
@@ -79,6 +87,31 @@ export function fillEnvironmentData(scene: Scene, out: Float32Array): void {
   out[37] = environment ? 1 : 0;
   out[38] = environment ? environment.mipCount - 1 : 0;
   out[39] = activeBackground(scene) ? scene.backgroundIntensity : 0;
+}
+
+function decodeSRGB(value: number): number {
+  return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+}
+
+/**
+ * Fog block shared by both backends: color.rgb, mode (0 off, 1 linear, 2 exp2),
+ * near, far, density, 0. The color is authored as display sRGB and is decoded here
+ * when post-processing makes the 3D pass output linear light.
+ */
+export function fillFogData(scene: Scene, out: Float32Array): void {
+  if (!(out instanceof Float32Array) || out.length < FOG_FLOAT_COUNT)
+    throw new RangeError(
+      `Fog output requires at least ${FOG_FLOAT_COUNT} Float32 values.`,
+    );
+  const fog = scene.fog;
+  const linear = scene.postProcessing.enabled;
+  for (let i = 0; i < 3; i++)
+    out[i] = linear ? decodeSRGB(fog.color[i]) : fog.color[i];
+  out[3] = !fog.enabled ? 0 : fog.mode === 'linear' ? 1 : 2;
+  out[4] = fog.near;
+  out[5] = fog.far;
+  out[6] = fog.density;
+  out[7] = 0;
 }
 
 /**

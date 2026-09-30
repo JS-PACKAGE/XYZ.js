@@ -11,12 +11,14 @@ import {
   activeEnvironment,
   computeShadowMatrix,
   fillEnvironmentData,
+  fillFogData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
 import {
   ENVIRONMENT_FLOAT_COUNT,
+  FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import type { Geometry } from '../../core/src/geometry.js';
@@ -63,7 +65,8 @@ export class WebGPUMeshPipeline {
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
-  private readonly sceneData = new Float32Array(300);
+  private readonly sceneData = new Float32Array(308);
+  private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
@@ -552,6 +555,8 @@ export class WebGPUMeshPipeline {
     data.set(this.invViewProjection.elements, 244);
     fillEnvironmentData(scene, this.environmentData);
     data.set(this.environmentData, 260);
+    fillFogData(scene, this.fogData);
+    data.set(this.fogData, 300);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
   }
 

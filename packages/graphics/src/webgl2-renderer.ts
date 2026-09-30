@@ -17,6 +17,7 @@ import {
   activeEnvironment,
   computeShadowMatrix,
   fillEnvironmentData,
+  fillFogData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
@@ -42,6 +43,7 @@ import {
 } from './render-texture2d.js';
 import {
   ENVIRONMENT_FLOAT_COUNT,
+  FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import { defaults } from '../../../src/data/defaults.js';
@@ -176,6 +178,7 @@ export class WebGL2Renderer implements Renderer {
     {};
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
+  private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
     {};
@@ -349,6 +352,7 @@ export class WebGL2Renderer implements Renderer {
         'shadowMap',
         'environment[0]',
         'environmentMap',
+        'fog[0]',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
       for (const name of [
@@ -982,6 +986,8 @@ export class WebGL2Renderer implements Renderer {
     gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
     fillEnvironmentData(scene, this.environmentData);
     gl.uniform4fv(uniforms['environment[0]'], this.environmentData);
+    fillFogData(scene, this.fogData);
+    gl.uniform4fv(uniforms['fog[0]'], this.fogData);
     const environment = activeEnvironment(scene);
     gl.activeTexture(gl.TEXTURE6);
     gl.bindSampler(6, null);
