@@ -397,11 +397,11 @@ describe('glTF decoding and owned assets', () => {
     asset.dispose();
     expect(image.close).toHaveBeenCalledOnce();
   });
-  it('rejects mipmapped minification and invalid sampler enums or references before image decoding', async () => {
+  it('rejects invalid minification filters, sampler enums and references before image decoding', async () => {
     const decode = vi.fn();
     vi.stubGlobal('createImageBitmap', decode);
     for (const sampler of [
-      { minFilter: 9987 },
+      { minFilter: 1234 },
       { wrapS: 12345 },
       { magFilter: 9984 },
     ]) {

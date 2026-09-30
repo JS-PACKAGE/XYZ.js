@@ -11,15 +11,30 @@ import {
   type Interpolation,
 } from './animation.js';
 import { Geometry } from './geometry.js';
+import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
 import { PBRMaterial, type TextureSamplerOptions } from './pbr-material.js';
 import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 
+export interface GLTFDirectionalLight {
+  /** Unit vector the light travels along (the node's −Z axis in world space). */
+  direction: Vector3;
+  color: [number, number, number];
+  intensity: number;
+}
+/** KHR_lights_punctual lights baked at the node's world transform when loading. */
+export interface GLTFLights {
+  point: PointLight[];
+  spot: SpotLight[];
+  directional: GLTFDirectionalLight[];
+}
 export interface GLTFAsset {
   readonly scene: Group;
   readonly animations: AnimationClip[];
+  /** Raw glTF photometric values; add them to a Scene and scale `intensity` as needed. */
+  readonly lights: GLTFLights;
   dispose(): void;
 }
 export interface GLTFLoadOptions {
@@ -256,7 +271,24 @@ function scalar(
   }
 }
 
-/** Dependency-free glTF 2.0 triangle/TRS/skin loader. Required extensions are rejected. */
+/** Extensions this loader implements; any other required extension is rejected. */
+const supportedExtensions = new Set([
+  'KHR_materials_emissive_strength',
+  'KHR_materials_unlit',
+  'KHR_texture_transform',
+  'KHR_lights_punctual',
+  'KHR_mesh_quantization',
+]);
+
+/** offset.x, offset.y, rotation, scale.x, scale.y */
+type UVTransform = readonly [number, number, number, number, number];
+interface TextureSlot {
+  texture: Texture;
+  sampler: TextureSamplerOptions;
+  transform: UVTransform | undefined;
+}
+
+/** Dependency-free glTF 2.0 triangle/TRS/skin loader. Unsupported required extensions are rejected. */
 export class GLTFLoader {
   /** Task results are unique: abort disposes only this acquisition, never a shared asset. */
   task(key: string, uri: string): LoadTask<GLTFAsset> {
@@ -371,12 +403,13 @@ export class GLTFLoader {
         (asset.minVersion !== undefined && asset.minVersion !== '2.0')
       )
         throw new AssetError('Only glTF 2.0 is supported.');
-      if (
-        document.extensionsRequired !== undefined &&
-        (!Array.isArray(document.extensionsRequired) ||
-          document.extensionsRequired.length)
-      )
-        throw new AssetError('Required glTF extensions are unsupported.');
+      if (document.extensionsRequired !== undefined) {
+        if (!Array.isArray(document.extensionsRequired))
+          throw new AssetError('extensionsRequired must be an array.');
+        for (const name of document.extensionsRequired)
+          if (typeof name !== 'string' || !supportedExtensions.has(name))
+            throw new AssetError('Required glTF extensions are unsupported.');
+      }
       const bufferDefs = list(document.buffers, 'buffers'),
         viewDefs = list(document.bufferViews, 'bufferViews'),
         accessorDefs = list(document.accessors, 'accessors');
@@ -591,24 +624,51 @@ export class GLTFLoader {
       };
       const readTexture = async (
         info: unknown,
-      ): Promise<
-        { texture: Texture; sampler: TextureSamplerOptions } | undefined
-      > => {
+      ): Promise<TextureSlot | undefined> => {
         if (info === undefined) return undefined;
         const def = object(info, 'texture info');
-        if (def.texCoord !== undefined && def.texCoord !== 0)
+        let transform: UVTransform | undefined;
+        let texCoord = def.texCoord;
+        if (def.extensions !== undefined) {
+          const extensions = object(def.extensions, 'texture extensions');
+          if (extensions.KHR_texture_transform !== undefined) {
+            const t = object(extensions.KHR_texture_transform, 'transform');
+            if (t.texCoord !== undefined) texCoord = t.texCoord;
+            const offset =
+                t.offset === undefined ? [0, 0] : vector(t.offset, 2, 'offset'),
+              scale =
+                t.scale === undefined ? [1, 1] : vector(t.scale, 2, 'scale'),
+              rotation = number(t.rotation ?? 0, 'rotation');
+            if (
+              offset[0] !== 0 ||
+              offset[1] !== 0 ||
+              rotation !== 0 ||
+              scale[0] !== 1 ||
+              scale[1] !== 1
+            )
+              transform = [offset[0], offset[1], rotation, scale[0], scale[1]];
+          }
+        }
+        if (texCoord !== undefined && texCoord !== 0)
           throw new AssetError('Only TEXCOORD_0 textures are supported.');
         const texture = reference(textureDefs, def.index, 'texture');
         const sampler =
           texture.sampler === undefined
             ? {}
             : reference(samplerDefs, texture.sampler, 'sampler');
-        const min = sampler.minFilter ?? 9729,
+        // Mipmapped filters (9984–9987) are accepted: images are never mipmapped,
+        // so they degrade to the matching nearest/linear base filter.
+        const mipmapped: Record<number, number> = {
+          9984: 9728,
+          9985: 9729,
+          9986: 9728,
+          9987: 9729,
+        };
+        const min =
+            mipmapped[sampler.minFilter as number] ?? sampler.minFilter ?? 9729,
           mag = sampler.magFilter ?? 9729;
         if (min !== 9728 && min !== 9729)
-          throw new AssetError(
-            'Only non-mipmapped nearest or linear glTF minification filters are supported.',
-          );
+          throw new AssetError('Invalid glTF minification filter.');
         if (mag !== 9728 && mag !== 9729)
           throw new AssetError('Invalid glTF magnification filter.');
         const wrapS = integer(sampler.wrapS ?? 10497, 'sampler wrapS'),
@@ -625,6 +685,7 @@ export class GLTFLoader {
             addressModeU,
             addressModeV,
           },
+          transform,
         };
       };
       let white: Texture | undefined;
@@ -633,6 +694,8 @@ export class GLTFLoader {
           new ImageData(new Uint8ClampedArray([255, 255, 255, 255]), 1, 1),
         ));
       const materials: PBRMaterial[] = [];
+      /** Baked into UV0 of every primitive using the material (parallel to `materials`). */
+      const materialTransforms: (UVTransform | undefined)[] = [];
       for (const def of materialDefs) {
         const pbr =
           def.pbrMetallicRoughness === undefined
@@ -662,11 +725,68 @@ export class GLTFLoader {
           typeof def.doubleSided !== 'boolean'
         )
           throw new AssetError('doubleSided must be boolean.');
+        const extensions =
+          def.extensions === undefined
+            ? {}
+            : object(def.extensions, 'material extensions');
+        const unlit = extensions.KHR_materials_unlit !== undefined;
+        let strength = 1;
+        if (extensions.KHR_materials_emissive_strength !== undefined) {
+          const ext = object(
+            extensions.KHR_materials_emissive_strength,
+            'emissive strength',
+          );
+          strength = number(ext.emissiveStrength ?? 1, 'emissive strength');
+          if (strength < 0)
+            throw new AssetError('Emissive strength cannot be negative.');
+        }
         const base = await readTexture(pbr.baseColorTexture),
           metallicRoughness = await readTexture(pbr.metallicRoughnessTexture);
         const normalMap = await readTexture(normal),
           occlusionMap = await readTexture(occlusion),
           emissiveMap = await readTexture(def.emissiveTexture);
+        // UVs are transformed on the CPU, so every texture slot of a material must agree.
+        const slots = [
+          base,
+          metallicRoughness,
+          normalMap,
+          occlusionMap,
+          emissiveMap,
+        ].filter((slot) => slot !== undefined);
+        const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
+        if (keys.size > 1)
+          throw new AssetError(
+            'All textures of a material must share the same KHR_texture_transform.',
+          );
+        materialTransforms.push(slots[0]?.transform);
+        const emissiveFactor = (
+          def.emissiveFactor === undefined
+            ? [0, 0, 0]
+            : vector(def.emissiveFactor, 3, 'emissive')
+        ).map((value) => value * strength) as [number, number, number];
+        if (unlit) {
+          // Approximates KHR_materials_unlit: no diffuse response, base color as emission.
+          materials.push(
+            new PBRMaterial({
+              texture: base?.texture ?? (await getWhite()),
+              textureSampler: base?.sampler,
+              color: [0, 0, 0],
+              opacity: factor[3],
+              alphaMode,
+              metallic: 0,
+              roughness: 1,
+              emissive: factor.slice(0, 3) as [number, number, number],
+              emissiveTexture: base?.texture,
+              emissiveSampler: base?.sampler,
+              alphaCutoff:
+                alphaMode === 'MASK'
+                  ? number(def.alphaCutoff ?? 0.5, 'alpha cutoff')
+                  : 0,
+              doubleSided: def.doubleSided === true,
+            }),
+          );
+          continue;
+        }
         materials.push(
           new PBRMaterial({
             texture: base?.texture ?? (await getWhite()),
@@ -676,13 +796,7 @@ export class GLTFLoader {
             alphaMode,
             metallic: number(pbr.metallicFactor ?? 1, 'metallic'),
             roughness: number(pbr.roughnessFactor ?? 1, 'roughness'),
-            emissive: (def.emissiveFactor === undefined
-              ? [0, 0, 0]
-              : vector(def.emissiveFactor, 3, 'emissive')) as [
-              number,
-              number,
-              number,
-            ],
+            emissive: emissiveFactor,
             metallicRoughnessTexture: metallicRoughness?.texture,
             metallicRoughnessSampler: metallicRoughness?.sampler,
             normalTexture: normalMap?.texture,
@@ -966,16 +1080,40 @@ export class GLTFLoader {
               (normal ? 0 : position.count * 3 * 4) +
               (uv ? 0 : position.count * 2 * 4),
           );
+          const materialIndex =
+            primitive.material === undefined
+              ? undefined
+              : integer(primitive.material, 'material');
+          const material =
+            materialIndex === undefined
+              ? await defaultMaterial()
+              : reference(materials, materialIndex, 'material');
+          let uvData: Float32Array =
+            uv?.data ?? new Float32Array(position.count * 2);
+          const transform =
+            materialIndex === undefined
+              ? undefined
+              : materialTransforms[materialIndex];
+          if (transform) {
+            // Accessor data may be shared between primitives, so transform a copy.
+            const [ox, oy, rotation, sx, sy] = transform,
+              cos = Math.cos(rotation),
+              sin = Math.sin(rotation);
+            uvData = new Float32Array(uvData.length);
+            const source = uv?.data;
+            for (let j = 0; j < uvData.length; j += 2) {
+              const u = (source?.[j] ?? 0) * sx,
+                v = (source?.[j + 1] ?? 0) * sy;
+              uvData[j] = ox + cos * u + sin * v;
+              uvData[j + 1] = oy - sin * u + cos * v;
+            }
+          }
           const geometry = new Geometry({
             positions: position.data,
             normals: normal?.data ?? this.normals(position.data, indices),
-            uvs: uv?.data ?? new Float32Array(position.count * 2),
+            uvs: uvData,
             indices,
           });
-          const material =
-            primitive.material === undefined
-              ? await defaultMaterial()
-              : reference(materials, primitive.material, 'material');
           const morph = morphWeights
             ? readMorph(primitive, position.count, morphWeights)
             : undefined;
@@ -1112,10 +1250,12 @@ export class GLTFLoader {
       }
       context.signal.throwIfAborted();
       const ownedScene = scene;
+      const lights = this.readLights(document, nodeDefs, nodes);
       let disposed = false;
       return {
         scene: ownedScene,
         animations,
+        lights,
         dispose: () => {
           if (disposed) return;
           disposed = true;
@@ -1154,6 +1294,77 @@ export class GLTFLoader {
       if (cause instanceof AssetError) throw cause;
       throw new AssetError('Unable to parse glTF model.', { cause });
     }
+  }
+
+  /** Bakes KHR_lights_punctual definitions at each referencing node's world transform. */
+  private readLights(
+    document: RecordData,
+    nodeDefs: RecordData[],
+    nodes: Group[],
+  ): GLTFLights {
+    const result: GLTFLights = { point: [], spot: [], directional: [] };
+    const root =
+      document.extensions === undefined
+        ? undefined
+        : object(document.extensions, 'extensions').KHR_lights_punctual;
+    if (root === undefined) return result;
+    const defs = list(object(root, 'KHR_lights_punctual').lights, 'lights');
+    for (let i = 0; i < nodes.length; i++) {
+      const nodeExtensions = nodeDefs[i].extensions;
+      if (nodeExtensions === undefined) continue;
+      const reference_ = object(
+        nodeExtensions,
+        'node extensions',
+      ).KHR_lights_punctual;
+      if (reference_ === undefined) continue;
+      const def = reference(
+        defs,
+        object(reference_, 'node light').light,
+        'light',
+      );
+      if (
+        result.point.length + result.spot.length + result.directional.length >=
+        modelLimits.entries
+      )
+        throw new AssetError('Model exceeds the light budget.');
+      const color = (
+        def.color === undefined
+          ? [1, 1, 1]
+          : vector(def.color, 3, 'light color')
+      ) as [number, number, number];
+      const intensity = number(def.intensity ?? 1, 'light intensity');
+      const e = nodes[i].updateWorldMatrix().elements;
+      const direction = new Vector3(-e[8], -e[9], -e[10]).normalize();
+      if (def.type === 'directional') {
+        result.directional.push({ direction, color, intensity });
+        continue;
+      }
+      const position = new Vector3(e[12], e[13], e[14]);
+      // glTF range is optional; the engine's zero means unbounded.
+      const range = number(def.range ?? 0, 'light range');
+      if (def.type === 'point') {
+        result.point.push(
+          new PointLight({ position, color, intensity, range }),
+        );
+      } else if (def.type === 'spot') {
+        const spot = def.spot === undefined ? {} : object(def.spot, 'spot');
+        result.spot.push(
+          new SpotLight({
+            position,
+            direction,
+            color,
+            intensity,
+            range,
+            innerAngle: number(spot.innerConeAngle ?? 0, 'inner cone angle'),
+            outerAngle: number(
+              spot.outerConeAngle ?? Math.PI / 4,
+              'outer cone angle',
+            ),
+          }),
+        );
+      } else throw new AssetError('Unsupported punctual light type.');
+    }
+    return result;
   }
 
   private normals(

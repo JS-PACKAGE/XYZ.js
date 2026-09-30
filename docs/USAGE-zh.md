@@ -328,7 +328,7 @@ if (asset.animations[0]) {
 
 Signal 為 initialize 的 AbortSignal，URL 需提供實際模型。parse(bytesOrJSON,baseURL,{signal}) 也支援 GLB／glTF。Game 在 timers 後、Scene.update 前推進 scene.animations，不要重複 update。TRS clips 支援 STEP／LINEAR／CUBICSPLINE；同 property 最後建立的 playing action 優先而非 blending。play 繼續時間，stop 歸零但不還原 pose，loop=false 在 endpoint sample 後停止，負 timeScale 倒播。
 
-支援 triangle、normalized／strided／sparse accessors、textures、四 influences skins 與 morph targets（POSITION／NORMAL deltas、mesh／node weights、`weights` animation）；必要 extensions、其他 topology 明確拒絕。CPU SkinnedMesh 更新 cloned geometry 供 renderer／picking 使用；morph 以 `mesh.morph.weights.set(index, weight)` 或載入的 clip 驅動（同一 node 的 primitives 共用 weights）。預算：input 32 MiB、fetched／tracked decoded 各 128 MiB、list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000／indices 3,000,000、joints 256、每 mesh 64 個 morph targets、hierarchy depth 256。這不是 process-memory 總上限；影像解碼後檢查的限制仍適用。
+支援 triangle、normalized／strided／sparse accessors、textures、四 influences skins 與 morph targets（POSITION／NORMAL deltas、mesh／node weights、`weights` animation），並支援 `KHR_mesh_quantization`、`KHR_materials_emissive_strength`、`KHR_materials_unlit`（近似）、`KHR_texture_transform`（烘進 UV；同一材質須共用同一 transform）與 `KHR_lights_punctual`（以 `asset.lights` 回傳，為 glTF 原始單位，需自行加入 scene）；其他必要 extensions、其他 topology 明確拒絕。CPU SkinnedMesh 更新 cloned geometry 供 renderer／picking 使用；morph 以 `mesh.morph.weights.set(index, weight)` 或載入的 clip 驅動（同一 node 的 primitives 共用 weights）。預算：input 32 MiB、fetched／tracked decoded 各 128 MiB、list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000／indices 3,000,000、joints 256、每 mesh 64 個 morph targets、hierarchy depth 256。這不是 process-memory 總上限；影像解碼後檢查的限制仍適用。
 
 清理時先停止 actions／移除 consumers，再 asset.dispose()，初始化失敗也需清理。Scene destroy 不 dispose loader-owned textures；仍有 live borrower 不可 dispose。Mesh／materials 不擁有共享 textures。
 
@@ -380,7 +380,7 @@ Map 最大 2048×1024。只有 WebGPU 與 WebGL2 會繪製；Canvas2D 僅 2D。
 
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 
-各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；明確 mipmapped min filters 拒絕。
+各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；這些 options 中明確的 mipmapped min filters 拒絕，glTF 檔案指定 mipmapped filters 時則以 base filter 載入。
 
 ## 12. Atlas 圖形與 HUD（P13）
 

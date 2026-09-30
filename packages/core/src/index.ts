@@ -62,7 +62,11 @@ export { PointLight, SpotLight } from './lights.js';
 export { ShadowSettings, PostProcessingSettings } from './render-settings.js';
 export { InstancedMesh } from './instanced-mesh.js';
 export { GLTFLoader } from './gltf-loader.js';
-export type { GLTFAsset } from './gltf-loader.js';
+export type {
+  GLTFAsset,
+  GLTFDirectionalLight,
+  GLTFLights,
+} from './gltf-loader.js';
 export {
   AnimationClip,
   AnimationMixer,
