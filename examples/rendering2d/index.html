@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — retained 2D rendering</title>
+    <style>
+      body {
+        margin: 20px;
+        background: #101522;
+        color: #e8eef9;
+        font: 14px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(900px, 100%);
+        aspect-ratio: 9 / 5;
+        border: 1px solid #59677e;
+        touch-action: none;
+      }
+      button,
+      select {
+        margin: 3px;
+        padding: 6px;
+      }
+      p {
+        margin: 8px 0;
+      }
+      #status {
+        min-height: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Retained 2D rendering · P21–P29</h1>
+    <p>
+      One formal Game: affine atlas views, tiling, retained raster paths, local
+      isolation, native targets, styled and bitmap text, semantic keyboard
+      interaction and pooled particles.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option>webgpu</option>
+        <option>webgl2</option>
+        <option>canvas2d</option>
+        <option>auto</option>
+      </select></label
+    >
+    <button id="pause" disabled>Pause</button
+    ><button id="destroy" disabled>Destroy</button>
+    <div>
+      <button id="atlas" disabled>Swap rotated view</button
+      ><button id="sampling" disabled>Nearest / linear</button>
+      <button id="graphics" disabled>Update retained paint</button
+      ><button id="canvas-update" disabled>Update canvas snapshot</button>
+      <button id="cache-edit" disabled>Edit cached child</button
+      ><button id="cache-update" disabled>Invalidate cache</button>
+      <button id="cache-toggle" disabled>Toggle cache</button
+      ><button id="mask" disabled>Cycle masks</button>
+      <button id="blend" disabled>Cycle blend</button
+      ><button id="filters" disabled>Toggle ordered native filters</button>
+      <button id="mesh" disabled>Deform native mesh</button
+      ><button id="capture" disabled>Render / extract / generate</button>
+      <button id="text" disabled>Update text + style</button
+      ><button id="particles" disabled>Burst / clear particles</button>
+      <button id="unload" disabled>Unload / prepare native image</button
+      ><button id="transition" disabled>Capture + crossfade scene</button>
+    </div>
+    <p id="loading">Typed manifest loading…</p>
+    <p id="events" aria-live="polite">
+      Drag the atlas image. Tab to the canvas semantic button, then Enter or
+      Space.
+    </p>
+    <p id="limits">
+      GPU/GL execute native filters and projective meshes. Canvas rejects those
+      requests explicitly; ordinary 2D, masks, targets, text and particles
+      remain supported.
+    </p>
+    <p id="status" role="status">Initializing…</p>
+    <canvas
+      id="game"
+      width="900"
+      height="500"
+      aria-label="Retained rendering engine demonstration"
+    ></canvas>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

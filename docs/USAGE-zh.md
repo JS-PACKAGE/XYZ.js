@@ -687,3 +687,53 @@ Prepare時old active；成功prepare／owned capture後再驗cancel／version才
 Native Game transitionstart／transitioncomplete／transitioncancel detail SceneTransitionEventDetail {from,to,kind}只actual visual emit。BlockInput清capture／只block target pointer routing，非keyboard／global polling。Snapshot在completion／cancel／explicit destroy／renderer loss／destroy釋放，非old Texture destroy／resize。
 
 Low-level Renderer.captureScene(scene,width,height):Promise&lt;RenderSnapshot&gt;不advance simulation，重畫owned storage全3D／P12／world／HUD／enabled effects，不含transition overlay。Width／height為logical pixels、snapshot尺寸backing pixels；公開僅backend／width／height／destroyed／destroy。Wrong-renderer／destroyed handle／active-frame nested capture拒絕。Renderer.render(scene?,width?,height?,{transition})接TransitionFrame {kind,progress,snapshot?,color,direction}，normalized progress0–1、missing snapshot用color。PresentedRenderer forwardcapture並present已composite結果，不延後讀preserveDrawingBuffer=false canvas。Game RAF的frames／capture交setScene管理，不另競爭。
+
+## 18. PixiJS-inspired 擴充狀態（P21–P29）
+
+[PLAN](../PLAN.md) 的有限 profiles 已整合到 source，並在單一環境（macOS arm64、managed headless Chromium，含 WebGPU adapter）實測；[ACCEPTANCE](../ACCEPTANCE.md) 記錄已觀察與未驗項。既有 252 tests／GitHub v1.2 不能當這些 API 的驗證。可執行參考為 [examples/rendering2d](../examples/rendering2d/index.html)（`?renderer=webgpu|webgl2|canvas2d`），在同一 Game 驅動 atlas views、retained paths、isolation／masks／blends／filters、native meshes、render targets、styled／bitmap text、manifests、interaction／accessibility 與 particles。
+
+正式路徑仍 Game→Scene→Renderer。普通 Group 保持 global ordering；只有明確 IsolatedGroup boundary 阻止 outsiders 與 descendants interleave。Cached child edits 須手動 invalidation，不停 simulation。Offscreen RenderTexture／獨立 generated CPU Texture 不同於 immutable whole-frame transition RenderSnapshot。
+
+Canvas 為批准 ordinary／raster 2D profile；visible native meshes／native filters 必須 throw，不能 silent skip／switch backend。Image-mask input 只 bounds，即使該 pixel transparent；rectangle／path masks 含 geometric holes。Hierarchy events／accessibility 為 opt-in，保留 default target-only routing／semantic-only DOM lifecycle。
+
+Ownership 明確：views／meshes／fonts／particles 借 source，先 remove borrowers 再 destroy owning asset。Native texture unload 後 CPU source 仍可用。Atlas anchors／borders、CanvasTexture updates、generated RGBA fonts、ParticleLayer、prepare／unload 全必做，不是 optional。非 full Pixi／HTML-SDF-video-compressed-plugin-generalGC parity。
+
+Authored [fixture factory](../examples/rendering2d/fixtures.ts) 產生可 dispose object URLs，涵蓋 atlas／pattern／masks／multipage text-JSON BMFont。真實 font 的 [provenance／license](../examples/rendering2d/assets/README.md) 與 engine license 分開。
+
+### Affine helpers：已觀察的 P21 source foundation
+
+Live Scene 的 Sprite 上，pixel pivot／radian skew 與 normalized anchor 獨立。Helpers 使用 logical Scene world（HUD 也相同），不是 Camera／CSS coordinates：
+
+```js
+import { Vector2 } from 'xyz.js';
+
+sprite.pivot = new Vector2(8, 4);
+sprite.skew = new Vector2(0.1, -0.05);
+const point = new Vector2(4, 7);
+sprite.toWorld(point, point);
+sprite.toLocal(point, point); // 約 (4, 7)，output 可與 input 相同
+const worldBounds = { x: 0, y: 0, width: 0, height: 0 };
+sprite.getWorldBounds(worldBounds); // conservative transformed AABB
+sprite.pivot.x += 10; // mutable-vector edits 會重 compose
+```
+
+Singular inverse 拋 RangeError。Isolation、masks、native filters、blends 與 offscreen targets 共用同一 API（Canvas2D 對 filters 與 visible meshes 拋 `UnsupportedGraphicsError`）：
+
+```js
+import { BlurFilter2D, IsolatedGroup2D, Mask2D, Sprite } from 'xyz.js';
+
+const group = scene.add(new IsolatedGroup2D());
+group.add(new Sprite({ texture }));
+group.mask = Mask2D.rectangle({ x: 0, y: 0, width: 64, height: 64 });
+group.filters = [new BlurFilter2D({ radius: 3 })]; // 僅 WebGPU／WebGL2
+group.blendMode = 'add'; // normal | add | multiply | screen | erase
+
+const target = game.graphics.createRenderTexture({
+  width: 160,
+  height: 100,
+  resolution: 2,
+});
+await game.graphics.renderToTexture(target, group); // 不推進 simulation
+const pixels = await game.graphics.extractPixels(target); // straight-alpha RGBA
+target.destroy();
+```

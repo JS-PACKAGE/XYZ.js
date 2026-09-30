@@ -689,3 +689,53 @@ Preparation leaves the old Scene active; successful preparation and owned captur
 Native Game transitionstart/transitioncomplete/transitioncancel detail SceneTransitionEventDetail {from,to,kind} is emitted only for actual visual transitions. blockInput clears capture and blocks targeted object pointer routing, not keyboard/global input polling. Snapshot lifetime ends on completion/cancel/explicit destruction/renderer loss/destruction, not old Texture destruction or resize.
 
 Low-level Renderer.captureScene(scene,width,height):Promise&lt;RenderSnapshot&gt; redraws without simulation into owned storage (all 3D/P12, world/HUD and enabled effects; no transition overlay). Width/height arguments are logical pixels; snapshot width/height are backing pixels. RenderSnapshot exposes only backend/width/height/destroyed/destroy; wrong-renderer/destroyed handles and active-frame nested capture reject. Renderer.render(scene?,width?,height?,{transition}) accepts TransitionFrame {kind,progress,snapshot?,color,direction}; normalized progress 0–1, missing snapshot uses color. PresentedRenderer forwards capture and presents already composited output; no delayed read of preserveDrawingBuffer=false canvas. Leave Game-owned frame/capture management to setScene rather than issuing competing frames from its RAF loop.
+
+## 18. PixiJS-Inspired Expansion Status (P21–P29)
+
+The finite profiles in [PLAN](../PLAN.md) are integrated in source and were exercised in one environment (macOS arm64, managed headless Chromium with a WebGPU adapter); [ACCEPTANCE](../ACCEPTANCE.md) lists what was observed and what was not. Do not treat the historical 252 tests or GitHub v1.2 as verification of these APIs. The runnable reference is [examples/rendering2d](../examples/rendering2d/index.html) (`?renderer=webgpu|webgl2|canvas2d`), which drives atlas views, retained paths, isolation/masks/blends/filters, native meshes, render targets, styled and bitmap text, manifests, interaction/accessibility and particles on one Game.
+
+The approved path stays Game→Scene→Renderer. Ordinary Groups retain global ordering; only explicit IsolatedGroup boundaries prevent external objects interleaving with descendants. Cached child edits require manual invalidation and do not pause simulation. Offscreen RenderTexture and independent generated CPU Texture are not the immutable whole-frame transition RenderSnapshot.
+
+Canvas supports the approved ordinary/raster 2D profile; visible native meshes and native filters must throw rather than silently disappear or switch backend. Image-mask input is bounds-only, even at transparent pixels; rectangle/path masks include geometric holes. Hierarchy events/accessibility are opt-in, preserving default target-only routing and semantic-only DOM lifecycle.
+
+Resources remain explicit: views, meshes, fonts and particles borrow sources; remove borrowers before destroying their owning asset. Native texture unload leaves CPU sources usable. Atlas anchors/borders, CanvasTexture updates, generated RGBA fonts, ParticleLayer and preparation/unload are required, not optional. These profiles do not promise full Pixi, HTML/SDF/video/compressed/plugin/automatic-GC parity.
+
+The authored [fixture factory](../examples/rendering2d/fixtures.ts) produces disposable object URLs for atlas/pattern/masks and multipage text/JSON BMFont. Its real font [provenance/license](../examples/rendering2d/assets/README.md) is separate from engine licensing.
+
+### Affine helpers: observed P21 source foundation
+
+On a live Scene Sprite, pixel pivot and radian skew are independent of normalized anchor. Helpers operate in logical Scene world (also for HUD), not camera or CSS coordinates:
+
+```js
+import { Vector2 } from 'xyz.js';
+
+sprite.pivot = new Vector2(8, 4);
+sprite.skew = new Vector2(0.1, -0.05);
+const point = new Vector2(4, 7);
+sprite.toWorld(point, point);
+sprite.toLocal(point, point); // approximately (4, 7); output may alias input
+const worldBounds = { x: 0, y: 0, width: 0, height: 0 };
+sprite.getWorldBounds(worldBounds); // conservative transformed AABB
+sprite.pivot.x += 10; // mutable-vector edits are recomposed
+```
+
+Singular inverse transforms throw RangeError. Isolation, masks, native filters, blends and offscreen targets share one API surface (Canvas2D throws `UnsupportedGraphicsError` for filters and visible meshes):
+
+```js
+import { BlurFilter2D, IsolatedGroup2D, Mask2D, Sprite } from 'xyz.js';
+
+const group = scene.add(new IsolatedGroup2D());
+group.add(new Sprite({ texture }));
+group.mask = Mask2D.rectangle({ x: 0, y: 0, width: 64, height: 64 });
+group.filters = [new BlurFilter2D({ radius: 3 })]; // WebGPU / WebGL2 only
+group.blendMode = 'add'; // normal | add | multiply | screen | erase
+
+const target = game.graphics.createRenderTexture({
+  width: 160,
+  height: 100,
+  resolution: 2,
+});
+await game.graphics.renderToTexture(target, group); // never advances simulation
+const pixels = await game.graphics.extractPixels(target); // straight-alpha RGBA
+target.destroy();
+```

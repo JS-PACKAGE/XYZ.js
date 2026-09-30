@@ -406,3 +406,78 @@ Audio是analyser非聽見；pagehide以實際registered handler的PageTransition
 - Preload before gesture各0audioContexts／未decode，preunlockplay各AudioError。Trusted native gesture後各8runningcontexts，PCM重用first context、1native source、RMS GPU≈0.259572／GL≈0.260023／Canvas≈0.259876；pause positionstable／resumeplaying／stopstopped。不是聽見聲音或其他codec／browser認證。
 - 各Game errors=[]，最後Game.destroy／playback stopped；3tabs closed、staticserver停止、temporary extractedarchive／consumerfixtures移除。Finalpack在README freeze後刷新，唯README不同，**323個dist／vendor／maps／declarations byte-identical於browser已測archive**。SHA由交付artifact提供，不再改README。
 - 此限定packedconsumer補充action/material/PCM的compiled-browser路徑；全formalgameplay2d／world48assertions／其他範例仍是各自已記source-Vite profiles，不擴稱全部examples／cross-browser／performance pass。Documentation-only證據補記不重跑相同engine／vendor。
+
+## GitHub v1.2 發佈與後續 PixiJS 工作邊界（2026-09-30）
+
+使用者已確認 GitHub **v1.2** 指向 exact commit **`299afe29713b71dca2d120d3a4452812208c3c27`**；該 source commit 的 package metadata 歷史值為 **1.1.0**。後續 release asset 修正為 **`xyz.js-1.2.0.tgz`**、archive 內 package version **1.2.0**，舊 asset 已移除，新 SHA256 **`8f750720d5e47f418ed8b633e7dae53c64518354ac9eb773738c3ed3017d863f`**；323 個 code／dist／vendor 內容 byte-identical，未改 tag／commit。這是外部 release artifact metadata 修正，不是本 working tree 升版、npm publish 或授權變更。暫停期間 PixiJS 變更保留但未納入 release，**P21–P29 未發佈／未驗收**。上方當時 37 檔／252 tests、日期、1.1.0 本地 archives 與當時未 commit／push 紀錄保留，不改寫歷史。
+
+## P21–P29 已批准 profiles：整合實跑紀錄（2026-09-30）
+
+官方比較基準：[PixiJS v8.21.0](https://github.com/pixijs/pixijs/releases/tag/v8.21.0)，2026-09-17 發佈，pinned commit `ecd3797cf9b57766b045f3eea8388db9677744f8`。批准範圍見 [PLAN 的 P21–P29 profiles](PLAN.md)。下表「已驗」只指下方 [整合實跑證據](#p21p29-整合實跑證據2026-09-30) 實際觀察的項目，「未驗」為尚未執行的 boundary／環境；不以既有 252 tests 或研究閱讀代替。
+
+| 階段 | 已驗（單一環境，見整合實跑證據）                                                                                                                                                                                     | 未驗                                                                                                                             | 目前狀態             |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | -------------------- |
+| P21  | 三 backend 共用 command stream 的 global z／HUD／skew／mutable pivot／round-trip／singular／native capture／trusted skew-parent drag；WebGPU 已改用同一 command 模型                                                 | combined P19 transition 與新 command 的組合 regression                                                                           | 主流程已驗           |
+| P22  | 三 backend asymmetric／rotated／trimmed／resolution2 atlas：四角像素、trim 位置、旋轉與 nearest 下鄰 frame 不 bleed，三 backend 位元組一致；正式範例 tiling 與 wheel；abort／failure page cleanup 有 regression test | tileRotation／roundPixels 專項像素、linear 取樣邊界、animation orig anchor 逐幀                                                  | 主流程已驗，專項未驗 |
+| P23  | 三 backend Graphics2D hole／fill／center stroke 像素一致，`containsPoint` 尊重 hole；範例 gradient 與 latest-wins update                                                                                             | curve／cap／join／miter／pattern 專項像素、allocation budget 邊界、late destroy                                                  | 主流程已驗，專項未驗 |
+| P24  | IsolatedGroup2D outer z、RenderTexture render／extract／generateTexture、cache stale-until-update、五種 blend 像素三 backend 一致；CanvasTexture update 後 Canvas2D 範例截圖色彩改變                                 | feedback／foreign／resize／device loss 拒絕的 runtime 專項、P19 snapshot 不變性專項、GPU／GL 的 CanvasTexture 像素               | 主流程已驗，故障未驗 |
+| P25  | rect／image mask 與 inverse、五 blend 數值；Alpha／ColorMatrix／Blur／Noise 在 WebGPU 與 WebGL2 位元組一致，Displacement 僅 WebGPU 像素觀察；Canvas 對 filter 明確 UnsupportedGraphicsError                          | nested／red-channel mask 專項、geometric hole hit 拒絕（僅 Graphics2D 已驗）、Displacement 於 WebGL2 的像素、filter padding 邊界 | 主流程已驗，專項未驗 |
+| P26  | Plane2D 與 true projective PerspectiveQuad2D 網格 UV 四象限在 WebGPU／WebGL2 位元組一致；invalid quad atomic reject 有 test；Canvas visible mesh 明確 UnsupportedGraphicsError                                       | Rope2D／triangle picking／z／reflection 專項                                                                                     | 主流程已驗，專項未驗 |
+| P27  | 真 Abel FontFace、Text2D 樣式與 setText／setStyle、proportional 多頁 BMFont（AV kerning／non-BMP）、動態 RGBA atlas、typed manifest（範例三 backend）；manifest 失敗 cleanup 與 parser 惡意輸入有 test               | wrap／align／descent 專項像素、manifest cancel 對 Scene 保留、FontFace 於其他瀏覽器                                              | 主流程已驗，專項未驗 |
+| P28  | 預設 target-only 不變；opt-in capture→target→bubble 順序（trusted pointer）；drag／wheel；語意 DOM focus 後 Enter／Space activate                                                                                    | two-pointer／upoutside／tap 專項、masked geometry 與 accessibility clip、disabled／cleanup 邊界                                  | 主流程已驗，專項未驗 |
+| P29  | ParticleLayer2D 三 backend 像素（含 tint）；prepareTextures／unloadTexture 於範例實跑無誤；minified dist 於 plain HTTP 三 backend 正式 Game 執行                                                                     | capacity／drop-new／versioned setter 的 runtime 專項（僅 module 層舊紀錄）、native upload 是否真的預熱不可由 API 觀察、效能      | 主流程已驗，專項未驗 |
+
+共用驗收：正式 Game→Scene→Renderer，不另建 renderer demo。原 Sprite width／height 自然尺寸、P14 target-only default／lifecycle、普通 global stable z、P20 prepared descriptor lifetime、P19 final whole-frame transition保持。只有 opt-in isolated subtree改outer compositing slot。Native owner／resize／disable／loss／destroy／late Promise 故障與 borrowed-vs-owned資源逐階段驗證；測試數只記實跑，不加總scoped suites，pixels不等於整framebuffer parity，analyser不等於聽見。
+
+Profile 限制：raster Graphics不是GPU vector；Canvas native Mesh2D／Filter2D明确error；HTMLText／SDF-MSDF／fullSVG、video/raw/compressed/mipmaps/anisotropy、其他advanced blends、generalRenderLayer／plugin registry／arbitrarybindings／independentTicker／generalGC未納入，不宣稱 full Pixi parity。Required CanvasTexture／fontgeneration／ParticleLayer／preparation不得以早期「optional」措辭省略。其他browser／硬體／CSP／codec／性能仍須另驗。無新runtime dependencies／Pixi sourcecopy／OPM變更／version-license／commit-push授權。
+
+### P21–P29 authored fixtures 驗證（2026-09-30，非功能驗收）
+
+- 新增 `examples/rendering2d/fixtures.ts`：procedural asymmetric PNG atlas／clockwise packed frame／trim／orig／resolution2／anchor／borders／named animation、pattern、horizontal-red／vertical-alpha mask、two-page authored bitmap glyphs與 AngelCode text／JSON（AV kerning -2／unequal advance／U+1F600）。Returned object URLs由 caller dispose；重複 dispose冪等，failure釋已建立URLs。
+- Real managed Chromium 以既有 localhost source server載入fixture模組，實際encode/decode PNG並drawCanvas：32×32 atlas、rotated red `[255,0,0,255]`與yellow `[255,255,0,255]`位置、mask channels、2 fontpages／non-BMP／kerning metadata觀察通過；double dispose後fetch URL失敗。Screenshot可見atlas／mask／glyphs及browser FontFace文字。這只驗fixtures，不是P22／P25／P27 Game rendering／parser驗收。
+- Licensed webfont為 **unmodified Abel-Regular.ttf，35220bytes，SIL OFL1.1**；`assets/OFL.txt`保留copyright／reserved name Abel／完整license。[Pinned官方Google Fonts source](https://github.com/google/fonts/blob/9437b806936896fa1a8c812e561067a5f30f5933/ofl/abel/Abel-Regular.ttf)，SHA256 **`8809dcad25318225052f88333e208c5aad4adcb7b2c934c135735ec19aa410b4`**，browser fetch核對digest且FontFace.status=`loaded`；沒有新的runtime dependency或根套件license改變。
+- Fixture單檔 strict ES2022＋DOM／noEmit TypeScript成功；未跑project-wide tools／formatters，交由main於integrated freeze後一次驗證。額外Vite service啟動因5197已使用而失敗；讀實際錯誤後使用既有server，未停止其他owner服務；browser tab已關閉。尚未作P21–P29完整source／packedconsumer／跨browser／performance proof。
+- 後續依使用者要求僅format owned fixture／PLAN／ACCEPTANCE／DESIGN／asset README，成功；新增 [font provenance](examples/rendering2d/assets/README.md)保留pinned URL／SHA／用途／license責任。Scoped actual BitmapFontLoader.parse(JSON)已確認zero-area space(0×0, advance4)／AVkern-2／non-BMP保留；malformed `kernings:[null]`當時raw TypeError已回報module owner，未以此宣稱parser安全／P27功能驗收。
+
+### P21 source foundation 實跑證據（2026-09-30；integration owner 回報）
+
+- 正式 source Game 強制 WebGPU／WebGL2／Canvas2D：interleaved ordinary Group／equal inherited global z pixel 為 blue `[0,0,255,255]`，HUD 即使 z=-100 為 green `[0,255,0,255]`，reflected/skew hierarchy 為 red `[255,0,0,255]`。三 backend 直接修改 `pivot.x += 10` 後 `(90,40)` 從 red 變 background `[6,9,17,255]`，保留 mutable-vector 重 compose 契約。
+- Alias-safe local／world round-trip `(4,7)` 得約 `(4.00000474,7.00000243)`；singular inverse 為 RangeError。三 backend actual native captureScene snapshots 為 160×100 且 cleanup 後 destroyed=true；Game.destroy 後 borrowed Textures 存活，各 backend errors=[]。
+- Trusted Canvas drag 在 skewed parent 下，screen delta `(30,20)` 對應 local delta 約 `(29.15565,14.27900)`，target event 真實觀察。此 source foundation gate 先於後續 native expansion；不是全部 P21–P29／packed consumer／cross-browser 驗收。Combined P19 transition regression、最後 integration tools／counts 待完成，不重用歷史 252。
+- 本 documentation worker 的 read-only P27 browser schema review 曾觀察 JSON `info.size:"16"` 被 BitmapFontLoader.parse 以 Math.abs 強制轉為 16；此 defect 已於整合階段修正，現在 numeric string 與 `kernings:[null]` 均以 AssetError 拒絕，並由 `tests/rendering2d-assets.test.ts` 覆蓋。
+
+### P22／P27 shared asset primitive proof（非 phase 驗收）
+
+Atlas recovery owner 回報 actual source-root browser 以 controlled createImageBitmap 完成時序驗證：unique acquisition 在 queued abort depth1／depth2 reject 且 closeCalls=1；depth3 已交付 caller ownership，loader.destroy 不關 bitmap（closeCalls=0），caller.destroy 後為1。Shared loadTexture depth2 abort 只 reject subscriber，closeCalls=0，後續 cached Texture 仍 alive。這證明該 late-abort ownership primitive 修正，不代表 atlas pixels／正式 Game／P22 或 P27 acceptance，也不是 native GPU upload／driver memory 證據。
+
+P22 acquisition／metadata 的 source-root actual browser proof（同 owner 回報）：第二個 multipage image malformed 時為 AssetError，已取得第一個 unique native bitmap closeCalls=1；queue-depth2 atlas abort reject `atlas cancel`，已取得 bitmap closeCalls=1。同 URL independently cached shared bitmap 在兩次 failure 後仍 alive。實際讀得 rotation90／resolution2／natural10×8／trim(4,3,12,8)／anchor(.5,.5)／panel borders3／named turn；Sprite(view).destroy 不釋 borrowed page。此處尚未證正式 Game atlas pixels／sampler／tiling／animation，P22 仍 pending。
+
+### P23 native path boundary proof（非 Game／phase 驗收）
+
+Graphics recovery owner 回報 Chromium native Path2D：outer rect(0,0,10,10) 與 outside hole(20,0,5,5) 的 conservative bounds 為 `{x:0,y:0,width:25,height:10}`；native raster `(22,2)` 為 `[255,0,0,255]`、containsPoint=true，SVG path counterpart hit=true。Bounds／picking 必須符合 native fill 的 outside subpath 結果，不能因「hole」名稱錯誤忽略範圍。Transactional owned Graphics2D facade 已落 source，但 formal Game／gradient／stroke／pattern／latest-wins proof 尚待完成，P23 不以此接受。
+
+### P29 ParticleLayer source Canvas Game proof（native／整合仍待驗）
+
+Particle recovery owner 回報 canonical root Canvas Game：capacity2 第3次 add 回 -1／count2；capacity1 target-emitter emit2 仍1，drop-new 無 backlog。dynamicAttributes=0 時，red view＋inherited tint `[.5,1,1,1]`／parent opacity .5 pixel `[67,4,8,255]`，blue 為 `[3,4,136,255]`。Remove／reuse slot0 增 generation 並 blue 取代 red，setSource(red) 恢復 red。
+
+Local／world emitter green pixel `[0,255,0,255]`；parent 在 birth 後 +20，local x≈41.667／world x≈81.667（birth world80 保留），old local pixel 回 background `[6,9,17,255]`。Actual Game pause100ms transform／pixel 完全凍結；stop 保留 live1，clear count0 並回 background，errors=[]；Game.destroy 後 borrowed CanvasTextures 存活。
+
+另 scoped module runtime 同 seed 的 local／world affine 對 P17 Sprite fallback maxDiff0；source setters 保 generation／active owner，舊 emitter 不改 externally removed／reused slots；destroyed-source failed emit 留0／0，修正原1／0 ownership。未跑 project tools，GPU／GL particles、native prepare／unload／全部 P29 consumer 與 packed integration 待驗；不宣稱 GPU simulation／FPS。
+
+### P22／P24 source module ownership／validation proof（非 Game pixels）
+
+Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red snapshot 不受 borrowed canvas 改 blue 影響；explicit update 後 blue／version1，zero-dimension update atomic reject 保舊 image／version／dimensions；destroy 不改 borrowed canvas12×12。Tiling coverage42×30 獨立於 res2 view natural6×4，invalid resize／rotation 不改有效狀態，subnormal scale reciprocal overflow 拒絕。NineSlice.fromView physical borders3／res2 得 logical corner1.5，fractional coverage15.25×13.5／partial tiles 為42 children，child teardown 後 borrowed atlas page 存活。正式三 backend Game sampling／tiling／CanvasTexture refresh 尚待驗；module 結果不提升 P22／P24 acceptance。
+
+### P21–P29 整合實跑證據（2026-09-30）
+
+**環境**：macOS arm64、managed headless Chromium（有 WebGPU adapter；未區分實體 GPU 與軟體 adapter）、localhost Vite source server 與 plain HTTP static server。這是唯一環境：**未驗** 其他瀏覽器、實體 GPU／driver、CSP、效能／FPS、device／context loss 回復。
+
+- **工具鏈**：`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 全通過；`vitest run` **39 檔／262 tests** 通過（本輪新增 `tests/rendering2d-assets.test.ts` 7 tests；歷史 37 檔／252 tests 保留原紀錄）。Build（tsc＋minify 130 個 JS 檔 967696→513589 bytes＋vendor copy）成功，dist 含 `dist/vendor/opm/`。
+- **WebGPU 2D 重寫**：原 sprite-only pipeline 已由 `packages/graphics/src/webgpu-render2d.ts` 取代，sprites／tiling／meshes／particles／isolated groups／masks／filters／blends／render targets 與 WebGL2、Canvas2D 共用 command stream。錄製期間退役的 GPU 資源延到 submit 後才 destroy。
+- **三 backend 像素**：同一組場景以 Game 的 `createRenderTexture`／`renderToTexture`／`extractPixels` 讀回。WebGPU 與 WebGL2 的 blends（normal `[64,64,191,255]`、add `[128,128,255,255]`、multiply `[64,64,128,255]`、screen `[128,128,191,255]`、erase `[128,128,128,128]`）、Alpha／ColorMatrix／Blur／Noise、Plane2D／PerspectiveQuad2D、ParticleLayer、cache、generateTexture、nearest 取樣皆位元組一致；Canvas2D 與 WebGPU 的共同子集僅有 ±1 量化差（`192` 對 `191`、erase `127` 對 `128`）。Atlas asymmetric／rotated 四角顏色與 Graphics2D hole／fill／stroke 在三 backend 位元組一致。
+- **WebGPU 專項**：image mask、inverse rectangle mask、Displacement、ParticleLayer 與 live frame loop 於實際 Game 執行，`errors=[]`。
+- **正式範例** [examples/rendering2d](examples/rendering2d/index.html)：`?renderer=webgpu|webgl2|canvas2d` 三者載入 typed manifest（atlas／pattern／mask／FontFace／BMFont）並依序執行 22 次控制項操作（16 種控制項，含 mask×4／blend×4 循環），均無 error；Canvas2D 的 filters／mesh 控制以 renderer 真實的 `UnsupportedGraphicsError`（`Canvas2D does not support native Filter2D.`／`…visible Mesh2D.`）回報，不切 backend。Trusted pointer：atlas sprite drag、背景 wheel；opt-in hierarchy 事件順序為 `parent-capture`→`child-target`→`parent-bubble`，預設 target-only 為 `child-target`；語意 DOM 節點 focus 後 Enter 與 Space 各觸發 `activate`。
+- **既有範例回歸**：triangle／cube3d／advanced3d／sprite／gameplay2d／pong／showcase／fallback-demo 在 WebGPU 皆載入且 console 無 error；showcase 與 gameplay2d 截圖顯示 3D 與 2D 疊合、particles、nine-slice、tiling 正常。WebGL2 與 Canvas2D 僅以範例 rendering2d 與上述像素場景涵蓋，未重跑全部舊範例。
+- **Minified dist**：以 plain HTTP 載入 `dist/src/index.js`，WebGPU／WebGL2／Canvas2D 三個正式 Game 的 rectangle mask 場景讀回 inside `[255,0,0,255]`、outside `[0,0,0,0]`。未執行 strict declaration consumer 與 extracted `npm pack` archive 重驗。
+- **本輪修正的缺陷**：unique texture 取消時 bitmap 可能遺失所有權（`tests/rendering2d-assets.test.ts` 以掃描 abort 深度重現，移除修正後於 depth 1 失敗）；`Text2D.setText` 回到已顯示文字時未取消較舊 pending 更新；`Canvas2DRenderer` 在無 `DOMMatrix` 的環境建構失敗；`ColorMatrixFilter2D` 先複製後驗長度；WebGPU noise hash 與 WebGL2 不一致；WGSL tiling varying 順序錯誤。
+- **未驗／非宣稱**：packed archive 與 declaration consumer、跨瀏覽器、效能、device loss、上表所列各階段專項，以及 Rope2D、透明 image-mask pixel picking（設計上僅 bounds）。無版本、授權、runtime dependency、commit／push／publish 變更。

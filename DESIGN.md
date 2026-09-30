@@ -77,3 +77,27 @@
 - ParticleEmitter固定CPU pool，seeded nozzle／fractional rate／burst、analytic acceleration／size／color；capacity dropnew無backlog。Local承emittertransform，world保持birthaffine axes／velocity／acceleration，新birth採新parent。Stop不清survivors、clear重用、pause凍age、destroy owned children不destroy borrowedTexture；simulation space與HUD render space分開。無GPU simulation。
 - 實際3backend48pixel assertions／21screenshots／0errors、3files40tests與ownedformat見ACCEPTANCE；source-Vite／proceduralatlas／test-onlyGPU COPY_SRC，不claimdist／其他browser／FPS。
 - 正式gameplay2d三backend以rootexports實際exercisegraphics／drag-actions-camera／physics-maps-particles／OPM-PCM-PNG preload／native八contexts／pause-cancel-transitions／GPU-GL effects與Canvasexplicitreject／teardown。Packed325entries的rootruntime actions／camera／preload在Promise.withResolvers不可用時通過，strictisolatedES2022declarationconsumer通過，14vendorfilesbyteidentical。另有真正extracted-pack plain-static-HTTP三backendGame actions／GPU-GL native materials-or-Canvasreject／trusted8-context PCM browser proof；只該consumer路徑、不擴成全部gameplay2d的dist-browser／driver-memory認證。
+
+## P21–P29 PixiJS-inspired 2D expansion（已批准，已整合，限定環境已測）
+
+比較基準為 [PixiJS stable v8.21.0](https://github.com/pixijs/pixijs/releases/tag/v8.21.0)、commit `ecd3797cf9b57766b045f3eea8388db9677744f8`；不承諾 full Pixi parity。實作已整合，逐項觀察結果與未驗項見 ACCEPTANCE；不把 P13–P20 的 252 tests 當本輪驗收。
+
+### P21 source foundation（限定三 backend 實跑 gate）
+
+- Transform2D 增 pixel pivot／radian skew，Matrix3 axes採 rotation+skew.y 與 rotation-skew.x，translation扣axes×pivot；zero pivot／skew保留原compose。Position／scale／pivot／skew仍mutable vectors，每次world update重compose，不能用忽略直接vector mutation的dirty cache。Sprite normalized anchor獨立於pivot；自然width／height契約不改。
+- GameObject.toWorld／toLocal操作logical Scene world，不包含Camera2D；HUD同樣不把screen→camera轉換混入。Output參數可重用且point alias-safe；singular matrix明確RangeError。getWorldBounds以local-bounds四角轉換回conservative world AABB，不宣稱pixel／triangle bounds。
+- `packages/graphics/src/render2d-contract.ts` 的 sole `collectRenderCommands2D`／`RenderCommandBuffer2D` 已取代 sprite-only collector，GPU／GL／Canvas 採同一 stream；可重用 records 在 clear 時釋 old object references。普通物件仍 flat Scene registration、world 前 screen、inherited global z＋equal-z insertion order，不是 Pixi depth-first ordering。Integration owner 已回報三 backend Game ordering／mutable pivot pixels、native capture teardown、round-trip／singular rejection與 trusted Canvas skew-parent drag；見 ACCEPTANCE，非整合工具鏈／全部新 commands 驗收。
+- WebGPU 的 2D 已由 `webgpu-render2d.ts` 的 native command engine 取代舊 sprite-only pipeline：sprites／tiling／meshes／particles 用共用 quad／mesh pipeline，isolated groups 用 renderer-owned rgba8unorm targets，mask、五種 filter 與 blend 在 local pass 完成，最後才 premultiplied composite 到 3D 之上。Command 錄製期間釋放的 GPU 資源延到 submit 後才 destroy，避免作廢已錄製 command buffer。
+
+### 後續已批准 integration 契約
+
+- Texture2DSource明確區分 immutable ImageBitmap Texture、required owned CanvasTexture2D versioned snapshot與renderer-bound RenderTexture2D；TextureView2D只借source，immutable frame／orig／trim／0-90 clockwise／resolution／anchor／borders。Source cache與views分離，source version改才refresh uploads；不得fake render target.image或destroy borrowed source。Typed atlas／font acquisition failure只清unique-owned pages。
+- Graphics2D沿Text2D raster→Texture正式三backend路徑；immutable shared CPU instructions不是shared native GraphicsContext。Centered stroke／curves／hole／gradient／local pattern及bounded resolution，transactional latest-wins；不做GPU tessellation／fullSVG／world pattern／pixelLine。
+- Opt-in IsolatedGroup2D才有one outer z slot、sorted inner commands、mask／filter／blend／cache boundaries，普通Group維持global flat z。Offscreen target範圍／depth／pixels先preflight；cache顯式invalidated，cached child仍simulate。RenderToTexture不advance Clock/input/timers，拒foreign／feedback／recursion；extract/generate output independently owned，不改P19 immutable snapshot。
+- Stage固定：unchanged 3D/P12→transparent world＋HUD with isolation/masks/native filters/basic blends→existing Scene.effects2D→composite→P19 final transition。Erase是2D-only destination-out；不擦3D／P12／P19。GPU／GL五native filters與Mesh2D／true projective quad；Canvas native filters／visibleMesh明確UnsupportedGraphicsError、不switch、不software shader/rasterizer。
+- Mask rectangle/path picking含declared holes；image-mask input僅transformed source bounds，不讀alpha／red。Alpha預設與Pixi red預設不同，是明確本引擎API。P28 eventPropagation target default保P14，hierarchy capture-target-bubble才opt-in；path snapshot＋membership guards，不把native bubbles當scene tree propagation。Accessibility只有semantic DOM ownership/focus，不假冒視覺render。
+- Required FontFace／proportional multipage text-JSON BMFont／RGBA atlasgeneration／styledText與manifest重用現有SpriteFont／Text2D／PreloadBatch，不另建renderer／cache singleton。Required ParticleLayer fixed capacity/dropnew、versioned static setters／dynamic mask重用P17 simulation；prepareTextures／native unload不destroy CPU source。Central rendering2d limits集中於src/data，不把fixtures尺寸當implementationbudgets。
+
+### 發佈與驗收界線
+
+GitHub v1.2維持exact source commit `299afe29713b71dca2d120d3a4452812208c3c27`（historical source package1.1.0）；external release asset `xyz.js-1.2.0.tgz`內metadata1.2.0，323codefiles byte-identical，Pixi working changes不在release。實際asset SHA與修正事實見ACCEPTANCE；不改上述歷史localpack／252證據。本輪不授權version／license／deps／git／release變更。

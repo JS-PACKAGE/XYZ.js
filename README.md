@@ -2,6 +2,8 @@
 
 Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08, the supported P09–P12 profile and P13–P20 are accepted as recorded in ACCEPTANCE.md**, limited to the measured Chromium environment. Final integration passed build/typecheck/lint/format and **37 files/252 tests**, with packed ES2022 consumer verification. The package is not published on npm; its license remains UNLICENSED.
 
+GitHub **v1.2** points to exact source commit `299afe29713b71dca2d120d3a4452812208c3c27` (historical source metadata 1.1.0). Its corrected release asset is `xyz.js-1.2.0.tgz` with internal metadata 1.2.0 and unchanged code bytes; this working tree is not a version bump or npm publication. Pending P21–P29 changes are not in that release. See [release evidence](ACCEPTANCE.md).
+
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
 ## 繁體中文
@@ -17,6 +19,8 @@ P13 新增既有 GameObject 的 2D 階層／Group2D、atlas Sprite source／Spri
 P18 已完成限定 Chromium 驗收：PreloadBatch task-count progress、Scene.preload→initialize barrier／Game.loading、bounded text／JSON／binary、unique GLTFLoader.task 與 native PCM/WAV sample alongside OPM。Unlock 前只 fetch，decode／play 要手勢 unlock，重用第一個 OPM context（共八個，不建第九個）；Game pause 不自動暫停音訊。沒有跨瀏覽器／新效能或聽見喇叭聲聲明。
 
 P14 已驗收 target-only lifecycle／pointer／drag、Actions／Easings 與 CameraStrategies。P15–P17 三backend已驗discrete linear／angular circle／box／convex physics／Trigger2D、TileMap／IsometricMap solids／elevation／culling與seeded CPU ParticleEmitter local／world pools；pause凍結、teardown保留borrowed Texture。無CCD／joints／concave physics／GPU particles／editor importer。P20 GPU／GL native Material2D／ordered PostProcessor2D只處理transparent 2D world＋HUD，不改3D／HDR；先await prepareMaterial／preparePostProcessor，Canvas2D明確UnsupportedGraphicsError。Prepared entries跨resize／disable保留至descriptor destroy，mutable targets釋放，owned captures保留／scale。P19真Game三backend已驗handoff／pause／resize／Promise completion與final easing endpoint；正式P13–P20 playground與完整工具鏈37檔／252tests已通過，詳見雙語guides。
+
+P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單一環境（macOS arm64 managed headless Chromium，含 WebGPU adapter）實測：三 backend 共用 2D command stream、affine／atlas／raster paths／offscreen isolation／masks／blends／native filters-mesh／text-assets／opt-in interaction-accessibility／particles-preparation，正式範例 [examples/rendering2d](examples/rendering2d/index.html) 於三 backend 執行；Canvas native filters／visible mesh 明確拒絕。這**不是** full Pixi parity、跨瀏覽器／真實硬體／效能證明，也未納入 GitHub v1.2；驗證範圍與未驗項見 [ACCEPTANCE](ACCEPTANCE.md)，profiles 見 [PLAN](PLAN.md)。
 
 ```html
 <canvas id="game"></canvas>
@@ -61,6 +65,8 @@ P18 is accepted in the recorded Chromium scope: task-count PreloadBatch, Scene.p
 
 P14 accepts target-only lifecycle/pointer/drag, Actions/Easings and CameraStrategies. P15–P17 are proven on all three backends: discrete linear/angular circle/box/convex physics/Trigger2D, TileMap/IsometricMap solids/elevation/culling, seeded CPU ParticleEmitter local/world pools, pause and borrowed-texture teardown. No CCD/joints/concave physics/GPU particles/editor importer. P20 GPU/GL native Material2D/ordered PostProcessor2D process transparent 2D world+HUD only, leaving 3D/HDR unchanged; await prepareMaterial/preparePostProcessor, with explicit Canvas2D UnsupportedGraphicsError. Prepared entries survive resize/disable until descriptor destruction, mutable targets release, owned captures survive/scale. P19 actual three-backend Game handoff/pause/resize/Promise completion/final easing endpoint, the formal P13–P20 playground and final toolchain37files/252tests are accepted. See the bilingual guides.
 
+P21–P29 are approved bounded PixiJS-inspired profiles, now integrated and exercised in one environment only (macOS arm64 managed headless Chromium with a WebGPU adapter): one shared 2D command stream across all three backends for affine utilities, atlases, raster paths, offscreen isolation, masks, blends, native filters/meshes, text/assets, opt-in interaction/accessibility and particles/preparation. The formal [examples/rendering2d](examples/rendering2d/index.html) example runs on all three; Canvas explicitly rejects native filters and visible meshes. This is neither full Pixi parity nor cross-browser, real-hardware or performance evidence, and it is not part of GitHub v1.2. See [ACCEPTANCE](ACCEPTANCE.md) for verified scope and unverified items, and [PLAN](PLAN.md) for the profiles.
+
 ```ts
 import { Game } from 'xyz.js';
 
@@ -94,6 +100,8 @@ P13 は既存 GameObject の2D階層／Group2D、atlas source／SpriteSheet、Fr
 P18 は限定Chromium環境で検証済みです：PreloadBatch progress、Scene.preload→initialize／Game.loading、有界readers、unique GLTFLoader.task、OPMと併用するPCM/WAV sample。Unlock前はfetchのみ、decode／playはユーザー操作unlockが必要、最初のOPM contextを再利用（合計八個、九個目なし）。Game pauseは音声を停止しません。他browser／新性能／スピーカーで聞こえたとの主張はありません。
 
 P14 target-only lifecycle／pointer／drag、Actions／Easings／CameraStrategiesは検証済みです。P15–P17は三backendでdiscrete linear／angular circle／box／convex physics／Trigger2D、TileMap／IsometricMap solids／elevation／culling、seeded CPU ParticleEmitter local／world pools、pause／borrowed Texture teardownを確認しました。CCD／joints／concave physics／GPU particles／editor importerは非対応。P20 GPU／GL native Material2D／ordered PostProcessor2Dはtransparent 2D world＋HUDのみで3D／HDRは不変、prepareをawaitしCanvas2DはUnsupportedGraphicsErrorです。Prepared entriesはresize／disableで保持、mutable targetsは解放、owned capturesは保持／scaleします。P19 real Game三backend handoff／pause／resize／Promise completion／final easing endpoint、正式P13–P20 playground、最終toolchain37files／252testsは検証済みです。双語guides参照。
+
+P21–P29 の限定 PixiJS-inspired profiles は統合済みで、単一環境（macOS arm64 の managed headless Chromium、WebGPU adapter あり）でのみ実行確認しました。三 backend が共通の 2D command stream を使い、正式サンプル [examples/rendering2d](examples/rendering2d/index.html) も三 backend で動作します。Canvas の native filters／visible meshes は明示的に拒否します。完全な Pixi 互換、クロスブラウザ／実ハードウェア／性能の証明ではなく、GitHub v1.2 にも含まれません。検証範囲と未検証項目は [ACCEPTANCE](ACCEPTANCE.md)、profile は [PLAN](PLAN.md) を参照してください。
 
 ```ts
 import { Game } from 'xyz.js';
