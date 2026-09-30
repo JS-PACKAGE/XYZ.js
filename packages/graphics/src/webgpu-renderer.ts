@@ -530,9 +530,11 @@ export class WebGPURenderer implements Renderer {
           addressModeV: 'clamp-to-edge',
         });
       }
-      this.viewportData[0] = width;
-      this.viewportData[1] = height;
-      device.queue.writeBuffer(this.viewportBuffer, 0, this.viewportData);
+      if (this.viewportData[0] !== width || this.viewportData[1] !== height) {
+        this.viewportData[0] = width;
+        this.viewportData[1] = height;
+        device.queue.writeBuffer(this.viewportBuffer, 0, this.viewportData);
+      }
       const camera = scene.camera2D;
       const zoom = camera.zoom;
       const cameraX = camera.position.x;
