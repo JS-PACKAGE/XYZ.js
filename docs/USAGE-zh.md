@@ -392,6 +392,8 @@ scene.fog.far = 30;
 
 GPU context 遺失（手機切換分頁、driver 重置）時，Game 預設會持續執行：可監聽 `graphicslost`／`graphicsrecovered`，復原後需自行重建持有的 `RenderTexture2D` 或 snapshot。傳入 `recoverGraphics: false` 則把遺失視為 fatal。
 
+若只想後處理 3D 影像（不含 sprite 與 HUD），先 prepare 一個 `PostProcessor2D` 再加入 `scene.effects3D`；shader 簽章與 `effects2D` 相同（`effect(color, uv, screen)`）。`game.graphics.stats` 會回報最近一幀的 draw calls、三角形數與被剔除的 mesh。第一人稱滑鼠視角則建立 `new FirstPersonControls(camera, canvas)`，在 click handler 內 `await controls.lock()`，並每幀呼叫 `controls.update(dt)`。
+
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 
 各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；這些 options 中明確的 mipmapped min filters 拒絕，glTF 檔案指定 mipmapped filters 時則以 base filter 載入。

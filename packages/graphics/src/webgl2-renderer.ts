@@ -210,6 +210,7 @@ export class WebGL2Renderer implements Renderer {
   private frameTarget: RenderTarget | undefined;
   private layerTarget: RenderTarget | undefined;
   private effectTarget: RenderTarget | undefined;
+  private sceneTarget: RenderTarget | undefined;
 
   get capabilities(): GraphicsCapabilities {
     return {
@@ -698,8 +699,11 @@ export class WebGL2Renderer implements Renderer {
           'rgba8',
           false,
         );
-      if (effects?.length) {
-        for (const effect of effects) this.requireNative(effect, true);
+      const chain3D = scene?.effects3D;
+      const process3D = !!chain3D?.length;
+      if (effects?.length || process3D) {
+        for (const effect of effects ?? []) this.requireNative(effect, true);
+        for (const effect of chain3D ?? []) this.requireNative(effect, true);
         if (!this.effectTarget)
           this.effectTarget = this.createTarget(
             canvas.width,
@@ -712,6 +716,22 @@ export class WebGL2Renderer implements Renderer {
         if (this.effectTarget) this.deleteTarget(this.effectTarget);
         this.effectTarget = undefined;
       }
+      if (process3D) {
+        this.sceneTarget ??= this.createTarget(
+          canvas.width,
+          canvas.height,
+          false,
+          'rgba8',
+          true,
+        );
+      } else if (this.sceneTarget) {
+        this.deleteTarget(this.sceneTarget);
+        this.sceneTarget = undefined;
+      }
+      // 3D renders here first when an effect chain must see the finished image.
+      const sceneFramebuffer = process3D
+        ? this.sceneTarget!.framebuffer
+        : (destination?.framebuffer ?? null);
       this.stats.begin();
       if (scene) {
         validateRenderSettings(scene);
@@ -745,7 +765,7 @@ export class WebGL2Renderer implements Renderer {
         gl.FRAMEBUFFER,
         scene?.postProcessing.enabled
           ? this.postTarget!.framebuffer
-          : (destination?.framebuffer ?? null),
+          : sceneFramebuffer,
       );
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
@@ -770,7 +790,17 @@ export class WebGL2Renderer implements Renderer {
         this.drawMeshes(scene, logicalWidth / logicalHeight);
         gl.disable(gl.DEPTH_TEST);
         if (scene.postProcessing.enabled)
-          this.drawPost(scene, destination?.framebuffer ?? null);
+          this.drawPost(scene, sceneFramebuffer);
+        if (process3D)
+          this.drawEffects2D(
+            chain3D!,
+            logicalWidth,
+            logicalHeight,
+            destination?.framebuffer ?? null,
+            this.sceneTarget!,
+            this.effectTarget!,
+            true,
+          );
         gl.activeTexture(gl.TEXTURE0);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
@@ -876,9 +906,11 @@ export class WebGL2Renderer implements Renderer {
       if (this.frameTarget) this.deleteTarget(this.frameTarget);
       if (this.layerTarget) this.deleteTarget(this.layerTarget);
       if (this.effectTarget) this.deleteTarget(this.effectTarget);
+      if (this.sceneTarget) this.deleteTarget(this.sceneTarget);
       this.frameTarget = undefined;
       this.layerTarget = undefined;
       this.effectTarget = undefined;
+      this.sceneTarget = undefined;
     }
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
@@ -893,10 +925,13 @@ export class WebGL2Renderer implements Renderer {
     width: number,
     height: number,
     destination: WebGLFramebuffer | null,
+    firstInput: RenderTarget = this.layerTarget!,
+    firstOutput: RenderTarget = this.effectTarget!,
+    replace = false,
   ): void {
     const gl = this.gl!;
-    let input = this.layerTarget!;
-    let output = this.effectTarget!;
+    let input = firstInput;
+    let output = firstOutput;
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -916,6 +951,12 @@ export class WebGL2Renderer implements Renderer {
       const swap = input;
       input = output;
       output = swap;
+    }
+    if (replace) {
+      // The chain result replaces the frame; do not blend it over the previous contents.
+      gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
+      gl.clearColor(0, 0, 0, 0);
+      gl.clear(gl.COLOR_BUFFER_BIT);
     }
     this.drawComposite(input.texture, destination);
   }
@@ -1771,6 +1812,7 @@ export class WebGL2Renderer implements Renderer {
       if (this.frameTarget) this.deleteTarget(this.frameTarget);
       if (this.layerTarget) this.deleteTarget(this.layerTarget);
       if (this.effectTarget) this.deleteTarget(this.effectTarget);
+      if (this.sceneTarget) this.deleteTarget(this.sceneTarget);
       if (this.compositeProgram) gl.deleteProgram(this.compositeProgram);
       for (const entry of this.textures.values())
         gl.deleteTexture(entry.resource);
@@ -1805,6 +1847,7 @@ export class WebGL2Renderer implements Renderer {
     this.frameTarget = undefined;
     this.layerTarget = undefined;
     this.effectTarget = undefined;
+    this.sceneTarget = undefined;
     this.shadowTarget = undefined;
     this.postTarget = undefined;
     this.render2D = undefined;

@@ -122,6 +122,7 @@ export class WebGPU2DEffects {
   private compositePipeline: GPURenderPipeline | undefined;
   private transitionPipeline: GPURenderPipeline | undefined;
   private frameTarget: GPUColorTarget | undefined;
+  private sceneTarget: GPUColorTarget | undefined;
   private layerTargets: [GPUColorTarget, GPUColorTarget] | undefined;
   private transitionBindGroup: GPUBindGroup | undefined;
   private transitionIncoming: GPUColorTarget | undefined;
@@ -539,12 +540,14 @@ export class WebGPU2DEffects {
     }
   }
 
+  /** Runs `effects` in order; `input` (default `targets[0]`) may be any color target. */
   process(
     encoder: GPUCommandEncoder,
     targets: readonly [GPUColorTarget, GPUColorTarget],
     effects: readonly PostProcessor2D[],
+    input: GPUColorTarget = targets[0],
   ): GPUColorTarget {
-    let current = targets[0];
+    let current = input;
     for (const effect of effects) {
       if (!(effect instanceof PostProcessor2D))
         throw new GraphicsError(
@@ -565,10 +568,12 @@ export class WebGPU2DEffects {
     return current;
   }
 
+  /** Draws `input` over `output`; `replace` clears `output` first instead of blending onto it. */
   composite(
     encoder: GPUCommandEncoder,
     input: GPUColorTarget,
     output: GPUTextureView,
+    replace = false,
   ): void {
     this.draw(
       encoder,
@@ -576,7 +581,7 @@ export class WebGPU2DEffects {
       input.bindGroup,
       this.compositePipeline!,
       undefined,
-      true,
+      !replace,
     );
   }
 
@@ -648,6 +653,24 @@ export class WebGPU2DEffects {
     }
   }
 
+  /** Canvas-format target that receives the 3D image before scene effects run. */
+  scene3D(width: number, height: number): GPUColorTarget {
+    if (
+      !this.sceneTarget ||
+      this.sceneTarget.width !== width ||
+      this.sceneTarget.height !== height
+    ) {
+      this.sceneTarget?.texture.destroy();
+      this.sceneTarget = this.target(width, height);
+    }
+    return this.sceneTarget;
+  }
+
+  releaseScene(): void {
+    this.sceneTarget?.texture.destroy();
+    this.sceneTarget = undefined;
+  }
+
   releaseFrame(): void {
     this.frameTarget?.texture.destroy();
     this.frameTarget = undefined;
@@ -658,6 +681,7 @@ export class WebGPU2DEffects {
 
   resize(): void {
     this.releaseFrame();
+    this.releaseScene();
     this.releaseLayers();
   }
 

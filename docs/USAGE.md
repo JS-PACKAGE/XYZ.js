@@ -394,6 +394,8 @@ scene.fog.far = 30;
 
 If the GPU context is lost (mobile tab switches, driver resets) the Game keeps running by default: listen for `graphicslost` / `graphicsrecovered`, and recreate any `RenderTexture2D` or snapshots you hold after recovery. Pass `recoverGraphics: false` to treat a loss as fatal instead.
 
+To post-process only the 3D image (not sprites or the HUD), prepare a `PostProcessor2D` and add it to `scene.effects3D`; it uses the same `effect(color, uv, screen)` shader signature as `effects2D`. `game.graphics.stats` reports draw calls, triangles and culled meshes for the last frame. For first-person mouse-look, create `new FirstPersonControls(camera, canvas)`, call `await controls.lock()` from a click handler, and call `controls.update(dt)` every frame.
+
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters in these options reject; glTF files that specify mipmapped filters load with the base filter.

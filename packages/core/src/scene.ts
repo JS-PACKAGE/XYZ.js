@@ -34,6 +34,11 @@ export class Scene {
   readonly animations = new AnimationMixer();
   readonly physics = new PhysicsWorld2D();
   readonly effects2D: PostProcessor2D[] = [];
+  /**
+   * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
+   * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
+   */
+  readonly effects3D: PostProcessor2D[] = [];
   readonly pointLights: PointLight[] = [];
   readonly spotLights: SpotLight[] = [];
   readonly shadows = new ShadowSettings();

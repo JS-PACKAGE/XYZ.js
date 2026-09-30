@@ -273,7 +273,7 @@ export class Canvas2DRenderer implements Renderer {
       throw new RangeError(
         'Canvas2D sprite rendering requires positive finite logical width and height.',
       );
-    if (scene.effects2D.length)
+    if (scene.effects2D.length || scene.effects3D.length)
       throw new UnsupportedGraphicsError(
         'Canvas2D does not support native 2D post processors.',
       );

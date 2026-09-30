@@ -455,7 +455,9 @@ export class WebGPURenderer implements Renderer {
     if (transition?.snapshot) native.snapshot(transition.snapshot);
     const processors = scene?.effects2D;
     const processLayer = !!processors?.length;
-    if (processLayer || transition)
+    const chain3D = scene?.effects3D;
+    const process3D = !!chain3D?.length;
+    if (processLayer || process3D || transition)
       native.settings(logicalWidth, logicalHeight, transition);
     if (scene) {
       collectRenderCommands2D(
@@ -477,7 +479,8 @@ export class WebGPURenderer implements Renderer {
       this.textureFrame++;
     }
     const has2D = !!scene && (this.commands.items.length > 0 || processLayer);
-    if (!has2D) native.releaseLayers();
+    if (!has2D && !process3D) native.releaseLayers();
+    if (!process3D) native.releaseScene();
     if (!transition) native.releaseFrame();
     const incoming = transition
       ? native.frame(canvas.width, canvas.height)
@@ -489,15 +492,43 @@ export class WebGPURenderer implements Renderer {
       this.captureOutput?.view ?? incoming?.view ?? presentationView!;
     this.colorAttachment.view = output;
     try {
-      const drewMeshes = this.meshPipeline!.render(
-        scene,
-        encoder,
-        output,
-        canvas.width,
-        canvas.height,
-        logicalWidth / logicalHeight,
-        defaults.clearColor,
-      );
+      let drewMeshes: boolean;
+      if (process3D) {
+        // Render the 3D image into a target, run the effect chain, then replace the output.
+        const layers = native.layers(canvas.width, canvas.height);
+        const source = native.scene3D(canvas.width, canvas.height);
+        drewMeshes = this.meshPipeline!.render(
+          scene,
+          encoder,
+          source.view,
+          canvas.width,
+          canvas.height,
+          logicalWidth / logicalHeight,
+          defaults.clearColor,
+        );
+        if (!drewMeshes) {
+          this.colorAttachment.view = source.view;
+          this.colorAttachment.loadOp = 'clear';
+          encoder.beginRenderPass(this.renderPassDescriptor).end();
+          this.colorAttachment.view = output;
+        }
+        native.composite(
+          encoder,
+          native.process(encoder, layers, chain3D!, source),
+          output,
+          true,
+        );
+        drewMeshes = true;
+      } else
+        drewMeshes = this.meshPipeline!.render(
+          scene,
+          encoder,
+          output,
+          canvas.width,
+          canvas.height,
+          logicalWidth / logicalHeight,
+          defaults.clearColor,
+        );
       if (has2D) {
         if (!drewMeshes) {
           this.colorAttachment.loadOp = 'clear';
