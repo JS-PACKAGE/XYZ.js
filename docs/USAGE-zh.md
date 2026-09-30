@@ -2,7 +2,7 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。本指南涵蓋套件 1.5.2、P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D，另含 v1.4／v1.5 增量功能。API 參考 three.js，非 drop-in 相容或全部 addons，未新增 runtime dependency。版本／發佈由所有者決定，npm 未公開，根套件授權為 Apache-2.0；實測與限制見 [驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。本指南涵蓋套件 1.6.0、P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D，另含 v1.4／v1.5 增量功能。API 參考 three.js，非 drop-in 相容或全部 addons，未新增 runtime dependency。版本／發佈由所有者決定，npm 未公開，根套件授權為 Apache-2.0；實測與限制見 [驗收紀錄](../ACCEPTANCE.md)。
 
 ## 1. 啟動開發環境
 
