@@ -16,6 +16,7 @@ import {
 } from './errors.js';
 import type { Renderer } from './index.js';
 import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
+import { FrameStats, type RenderStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -71,6 +72,11 @@ interface CachedTexture {
 
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
+  private readonly idleStats = new FrameStats();
+
+  get stats(): RenderStats {
+    return this.meshPipeline?.stats ?? this.idleStats;
+  }
   readonly capabilities = {
     threeD: true,
     compute: true,

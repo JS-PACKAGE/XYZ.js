@@ -24,6 +24,8 @@ import {
   WebGPUDeviceLostError,
 } from './errors.js';
 
+import type { RenderStats } from './render-stats.js';
+
 export interface ResilientRendererHooks {
   /** Called once when the GPU context/device is lost and recovery begins. */
   onLost?(error: Error): void;
@@ -59,6 +61,10 @@ export class ResilientRenderer implements Renderer {
   ) {
     this.backend = backend;
     this.current = create(this.handleError);
+  }
+
+  get stats(): RenderStats {
+    return this.current.stats;
   }
 
   get capabilities(): GraphicsCapabilities {

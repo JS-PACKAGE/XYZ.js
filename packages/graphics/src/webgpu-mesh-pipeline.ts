@@ -28,6 +28,7 @@ import { Matrix4 } from '../../math/src/index.js';
 import { WebGPUInitializationError, GraphicsError } from './errors.js';
 import { webgpuMeshShader } from './webgpu-mesh-shader.js';
 import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
+import { FrameStats } from './render-stats.js';
 
 interface CachedGeometry {
   vertex: GPUBuffer;
@@ -67,6 +68,7 @@ export class WebGPUMeshPipeline {
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
+  readonly stats = new FrameStats();
   private readonly sceneData = new Float32Array(308);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
@@ -425,6 +427,7 @@ export class WebGPUMeshPipeline {
     clearValue: GPUColor,
   ): boolean {
     this.frame++;
+    this.stats.begin();
     this.draws.length = 0;
     this.visibleDraws.length = 0;
     try {
@@ -453,6 +456,8 @@ export class WebGPUMeshPipeline {
         )
           continue;
         const inView = object.isInFrustum(this.frustum);
+        this.stats.meshes++;
+        if (!inView) this.stats.culled++;
         object.updateDeformation();
         object.updateWorldMatrix();
         const geometry = this.cacheGeometry(object.geometry);
@@ -498,7 +503,13 @@ export class WebGPUMeshPipeline {
           pass.draw(3);
         }
         pass.setPipeline(postEnabled ? this.hdrPipeline : this.pipeline);
-        for (const object of this.visibleDraws) this.drawMesh(pass, object);
+        for (const object of this.visibleDraws) {
+          this.drawMesh(pass, object);
+          this.stats.draw(
+            object.geometry.indices.length,
+            object instanceof InstancedMesh ? object.count : 1,
+          );
+        }
       } finally {
         pass.end();
       }
@@ -657,7 +668,10 @@ export class WebGPUMeshPipeline {
       pass.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.shadowSceneBindGroup);
       for (const object of this.draws)
-        if (object.castShadow) this.drawMesh(pass, object);
+        if (object.castShadow) {
+          this.drawMesh(pass, object);
+          this.stats.shadowDrawCalls++;
+        }
     } finally {
       pass.end();
       this.shadowAttachment.view = undefined;

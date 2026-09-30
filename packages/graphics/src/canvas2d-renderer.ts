@@ -24,6 +24,7 @@ import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { CanvasRender2D } from './canvas-render2d.js';
+import { FrameStats, type RenderStats } from './render-stats.js';
 import {
   RenderTexture2D,
   assertRenderTextureOwner2D,
@@ -38,6 +39,8 @@ const backgroundStyle = `rgba(${Math.round(background.r * 255)}, ${Math.round(ba
 /** Sprite-only fallback; visible 3D meshes are deliberately unsupported. */
 export class Canvas2DRenderer implements Renderer {
   readonly backend = 'canvas2d' as const;
+  /** Canvas2D has no 3D pass, so every counter stays zero. */
+  readonly stats: RenderStats = new FrameStats();
   readonly capabilities: GraphicsCapabilities = Object.freeze({
     threeD: false,
     compute: false,

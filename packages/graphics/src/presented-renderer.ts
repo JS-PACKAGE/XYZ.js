@@ -13,6 +13,7 @@ import type {
   GenerateTextureOptions2D,
 } from './index.js';
 import { GraphicsError, UnsupportedGraphicsError } from './errors.js';
+import type { RenderStats } from './render-stats.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type {
@@ -31,6 +32,9 @@ export class PresentedRenderer implements Renderer {
   ) {}
   get backend(): GraphicsBackend {
     return this.renderer.backend;
+  }
+  get stats(): RenderStats {
+    return this.renderer.stats;
   }
   get capabilities(): GraphicsCapabilities {
     return this.renderer.capabilities;

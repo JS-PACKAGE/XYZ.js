@@ -53,6 +53,7 @@ import {
   WebGL2ContextLostError,
   WebGL2InitializationError,
 } from './errors.js';
+import { FrameStats } from './render-stats.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import {
   collectRenderCommands2D,
@@ -167,6 +168,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly frustum = new Frustum();
   private readonly meshDraws: Mesh[] = [];
   private readonly drawSorter = new DrawSorter();
+  readonly stats = new FrameStats();
   private maxTextureSize = 0;
   private maxWidth = 0;
   private maxHeight = 0;
@@ -710,6 +712,7 @@ export class WebGL2Renderer implements Renderer {
         if (this.effectTarget) this.deleteTarget(this.effectTarget);
         this.effectTarget = undefined;
       }
+      this.stats.begin();
       if (scene) {
         validateRenderSettings(scene);
         fillLightingData(scene, this.lightingData);
@@ -1031,7 +1034,11 @@ export class WebGL2Renderer implements Renderer {
         object.geometry.indices.length === 0
       )
         continue;
-      if (!object.isInFrustum(this.frustum)) continue;
+      this.stats.meshes++;
+      if (!object.isInFrustum(this.frustum)) {
+        this.stats.culled++;
+        continue;
+      }
       draws.push(object);
     }
     this.drawSorter.sort(draws, scene.camera3D.position);
@@ -1113,6 +1120,10 @@ export class WebGL2Renderer implements Renderer {
         );
       }
       this.drawMesh(object, uniforms);
+      this.stats.draw(
+        object.geometry.indices.length,
+        object instanceof InstancedMesh ? object.count : 1,
+      );
     }
     draws.length = 0;
   }
@@ -1304,6 +1315,7 @@ export class WebGL2Renderer implements Renderer {
         pbr ? material.textureSampler : undefined,
       );
       this.drawMesh(object, uniforms);
+      this.stats.shadowDrawCalls++;
     }
   }
 

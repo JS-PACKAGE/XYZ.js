@@ -9,6 +9,7 @@ import { WebGL2Renderer } from './webgl2-renderer.js';
 import { Canvas2DRenderer } from './canvas2d-renderer.js';
 import { PresentedRenderer } from './presented-renderer.js';
 import { ResilientRenderer } from './resilient-renderer.js';
+import type { RenderStats } from './render-stats.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -23,6 +24,7 @@ import type {
 } from './render-texture2d.js';
 export { RenderTexture2D } from './render-texture2d.js';
 export type { RenderTextureOptions2D } from './render-texture2d.js';
+export type { RenderStats } from './render-stats.js';
 
 export interface RenderToTextureOptions2D {
   clear?: boolean;
@@ -69,6 +71,8 @@ export interface GraphicsCapabilities {
 export interface Renderer {
   readonly backend: GraphicsBackend;
   readonly capabilities: GraphicsCapabilities;
+  /** Counters for the last rendered frame; the object is reused, so copy values to keep them. */
+  readonly stats: RenderStats;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(): void;
   render(
