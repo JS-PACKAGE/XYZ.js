@@ -1,4 +1,6 @@
 import { XYZError } from '../../graphics/src/errors.js';
+import { assetLimits } from '../../../src/data/assets.js';
+import { readResponse } from './read-response.js';
 
 export class AssetError extends XYZError {}
 
@@ -16,6 +18,14 @@ export class Texture {
       image.height <= 0
     )
       throw new AssetError('A texture must have positive, finite dimensions.');
+    if (
+      image.width > assetLimits.textureDimension ||
+      image.height > assetLimits.textureDimension ||
+      image.width * image.height > assetLimits.texturePixels
+    )
+      throw new AssetError(
+        'Texture exceeds the decoded image resource budget.',
+      );
     this.width = image.width;
     this.height = image.height;
   }
@@ -146,7 +156,11 @@ export class AssetLoader {
         throw new AssetError(
           'AssetLoader was destroyed while loading a texture.',
         );
-      const blob = await response.blob();
+      const blob = await readResponse(
+        response,
+        assetLimits.textureBytes,
+        signal,
+      );
       if (this.disposed)
         throw new AssetError(
           'AssetLoader was destroyed while loading a texture.',

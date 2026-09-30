@@ -5,6 +5,7 @@ import {
   Texture,
 } from '../packages/assets/src/index.js';
 import { XYZError } from '../packages/graphics/src/errors.js';
+import { assetLimits } from '../src/data/assets.js';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -21,11 +22,7 @@ function bitmap(width = 32, height = 16) {
 }
 
 function response(ok = true) {
-  return {
-    ok,
-    status: ok ? 200 : 404,
-    blob: vi.fn().mockResolvedValue(new Blob(['pixels'])),
-  } as unknown as Response;
+  return new Response('pixels', { status: ok ? 200 : 404 });
 }
 
 afterEach(() => {
@@ -34,6 +31,32 @@ afterEach(() => {
 });
 
 describe('AssetLoader and Texture lifetime', () => {
+  it('rejects an oversized decoded image and closes its owned bitmap', async () => {
+    const image = bitmap(2049, 2048);
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()));
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue(image));
+    const assets = new AssetLoader('https://example.test/');
+    await expect(assets.loadTexture('large.png')).rejects.toThrow(AssetError);
+    expect(image.close).toHaveBeenCalledOnce();
+    assets.destroy();
+  });
+
+  it('stops an oversized response before image decoding', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(new Uint8Array(assetLimits.textureBytes + 1)),
+        ),
+    );
+    const decode = vi.fn();
+    vi.stubGlobal('createImageBitmap', decode);
+    const assets = new AssetLoader('https://example.test/');
+    await expect(assets.loadTexture('large.png')).rejects.toThrow(AssetError);
+    expect(decode).not.toHaveBeenCalled();
+    assets.destroy();
+  });
   it('shares a pending promise and decoded bitmap for canonical URLs, including fragments', async () => {
     const download = deferred<Response>();
     const fetchMock = vi.fn().mockReturnValue(download.promise);
@@ -90,7 +113,10 @@ describe('AssetLoader and Texture lifetime', () => {
   it('reloads an explicitly destroyed cached texture', async () => {
     const firstImage = bitmap();
     const secondImage = bitmap();
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue(response()));
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(async () => response()),
+    );
     vi.stubGlobal(
       'createImageBitmap',
       vi
@@ -125,7 +151,6 @@ describe('AssetLoader and Texture lifetime', () => {
     download.resolve(late);
     await Promise.resolve();
     await Promise.resolve();
-    expect(late.blob).not.toHaveBeenCalled();
     expect(decode).not.toHaveBeenCalled();
   });
 

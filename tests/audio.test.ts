@@ -7,6 +7,7 @@ import {
 } from '../packages/audio/src/audio-manager.js';
 import { AudioError } from '../packages/audio/src/errors.js';
 import type { OPMVoice } from '../packages/audio/src/opm-adapter.js';
+import { assetLimits } from '../src/data/assets.js';
 
 const mock = vi.hoisted(() => {
   const clock = { now: 0 };
@@ -83,6 +84,60 @@ afterEach(() => {
 });
 
 describe('AudioManager orchestration', () => {
+  it('enforces the note count boundary before scheduling', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn().mockImplementation(
+        async (url: string) =>
+          new Response(
+            JSON.stringify({
+              voice,
+              notes: Array.from(
+                {
+                  length:
+                    assetLimits.audioNotes + (url.endsWith('large') ? 1 : 0),
+                },
+                () => ({ note: 60, time: 0, duration: 0.1 }),
+              ),
+            }),
+          ),
+      ),
+    );
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    expect(
+      (await manager.load('https://example.test/exact')).notes.length,
+    ).toBe(assetLimits.audioNotes);
+    await expect(manager.load('https://example.test/large')).rejects.toThrow(
+      'note count',
+    );
+    manager.destroy();
+  });
+
+  it('rejects oversized audio before parsing JSON', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi
+        .fn()
+        .mockResolvedValue(
+          new Response(' '.repeat(assetLimits.audioBytes + 1)),
+        ),
+    );
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    await expect(
+      manager.load('https://example.test/large'),
+    ).rejects.toMatchObject({
+      cause: {
+        message: `Asset response exceeds ${assetLimits.audioBytes} bytes.`,
+      },
+    });
+    manager.destroy();
+  });
   it('steals only the oldest SFX when eight slots are reserved, preserving BGM and UI', () => {
     vi.useFakeTimers();
     const { api } = mock;
@@ -212,15 +267,16 @@ describe('AudioManager orchestration', () => {
   it('rejects a loop period that would omit trailing notes', async () => {
     vi.stubGlobal(
       'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({
-          voice,
-          notes: [{ note: 60, time: 0.3, duration: 0.5 }],
-          duration: 0.4,
-          loop: true,
-        }),
-      }),
+      vi.fn().mockResolvedValue(
+        new Response(
+          JSON.stringify({
+            voice,
+            notes: [{ note: 60, time: 0.3, duration: 0.5 }],
+            duration: 0.4,
+            loop: true,
+          }),
+        ),
+      ),
     );
     const manager = new AudioManager(
       () => undefined,
@@ -238,13 +294,14 @@ describe('AudioManager orchestration', () => {
     const fetchMock = vi
       .fn()
       .mockReturnValueOnce(first.promise)
-      .mockResolvedValueOnce({
-        ok: true,
-        json: async () => ({
-          voice,
-          notes: [{ note: 60, time: 0, duration: 0.1 }],
-        }),
-      })
+      .mockResolvedValueOnce(
+        new Response(
+          JSON.stringify({
+            voice,
+            notes: [{ note: 60, time: 0, duration: 0.1 }],
+          }),
+        ),
+      )
       .mockReturnValueOnce(pending.promise);
     vi.stubGlobal('fetch', fetchMock);
     vi.stubGlobal('document', { baseURI: 'https://example.test/game/' });

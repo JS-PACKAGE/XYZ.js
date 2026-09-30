@@ -2,6 +2,8 @@ import { audioDefaults } from '../../../src/data/audio.js';
 import type { Scene } from '../../core/src/scene.js';
 import { AudioError } from './errors.js';
 import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
+import { assetLimits } from '../../../src/data/assets.js';
+import { readResponse } from '../../assets/src/read-response.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
@@ -330,7 +332,9 @@ export class AudioManager {
       const response = await fetch(url, { signal });
       if (!response.ok)
         throw new AudioError(`Audio request failed (HTTP ${response.status}).`);
-      const data: unknown = await response.json();
+      const blob = await readResponse(response, assetLimits.audioBytes, signal);
+      signal.throwIfAborted();
+      const data: unknown = JSON.parse(await blob.text());
       if (this.disposed)
         throw new AudioError('AudioManager was destroyed while loading audio.');
       if (!data || typeof data !== 'object' || Array.isArray(data))
@@ -338,6 +342,8 @@ export class AudioManager {
       const input = data as Record<string, unknown>;
       if (!Array.isArray(input.notes) || input.notes.length === 0)
         throw new AudioError('Audio notes must be a nonempty array.');
+      if (input.notes.length > assetLimits.audioNotes)
+        throw new AudioError('Audio exceeds the note count resource budget.');
       const notes: AudioNote[] = input.notes.map((value: unknown) => {
         if (!value || typeof value !== 'object' || Array.isArray(value))
           throw new AudioError('Invalid audio note.');
