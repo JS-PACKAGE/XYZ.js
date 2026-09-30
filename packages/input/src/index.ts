@@ -42,7 +42,7 @@ export class Keyboard {
 
   /** @internal */
   keyUp(event: KeyboardEvent): void {
-    if (isTextEditable(event.target)) return;
+    // Focus may move into an editable field while a gameplay key is held.
     if (this.down.delete(event.code)) this.released.add(event.code);
   }
 

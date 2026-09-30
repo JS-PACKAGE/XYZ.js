@@ -88,6 +88,28 @@ describe('InputManager', () => {
     expect(input.keyboard.wasReleased('KeyA')).toBe(true);
   });
 
+  it('releases gameplay keys after focus moves to an editable target', () => {
+    windowEvents.dispatchEvent(keyEvent('keydown', 'KeyW'));
+    input.endFrame();
+    input.keyboard.keyUp({
+      code: 'KeyW',
+      target: { tagName: 'INPUT' },
+    } as unknown as KeyboardEvent);
+    expect(input.keyboard.isDown('KeyW')).toBe(false);
+    expect(input.keyboard.wasReleased('KeyW')).toBe(true);
+    input.endFrame();
+    input.keyboard.keyDown({
+      code: 'KeyX',
+      target: { tagName: 'INPUT' },
+    } as unknown as KeyboardEvent);
+    input.keyboard.keyUp({
+      code: 'KeyX',
+      target: { tagName: 'INPUT' },
+    } as unknown as KeyboardEvent);
+    expect(input.keyboard.wasPressed('KeyX')).toBe(false);
+    expect(input.keyboard.wasReleased('KeyX')).toBe(false);
+  });
+
   it('ignores editable targets and resets held state on blur or hidden document', () => {
     input.keyboard.keyDown({
       code: 'KeyX',
