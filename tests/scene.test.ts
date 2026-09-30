@@ -75,6 +75,14 @@ beforeEach(() => {
   nextFrame = 0;
   renderer = {
     backend: 'webgpu',
+    stats: {
+      frame: 0,
+      meshes: 0,
+      culled: 0,
+      drawCalls: 0,
+      triangles: 0,
+      shadowDrawCalls: 0,
+    },
     capabilities: {
       threeD: true,
       compute: true,

@@ -441,14 +441,14 @@ describe('glTF morph targets', () => {
         'unsupported target attribute',
         /other than POSITION, NORMAL and TANGENT/,
         (d) => {
-          d.meshes[0].primitives[0].targets[0].TEXCOORD_0 = 1;
+          d.meshes[0].primitives[0].targets![0].TEXCOORD_0 = 1;
         },
       ],
       [
         'target accessor of the wrong shape',
         /requires matching VEC3 data/,
         (d) => {
-          d.meshes[0].primitives[0].targets[0].POSITION = 2;
+          d.meshes[0].primitives[0].targets![0].POSITION = 2;
         },
       ],
       [
@@ -474,7 +474,7 @@ describe('glTF morph targets', () => {
         'weights animation output not sized keys x targets',
         /counts or types do not match/,
         (d) => {
-          d.meshes[0].primitives[0].targets.push({ POSITION: 1 });
+          d.meshes[0].primitives[0].targets!.push({ POSITION: 1 });
           d.meshes[0].weights = [0, 0];
         },
       ],
