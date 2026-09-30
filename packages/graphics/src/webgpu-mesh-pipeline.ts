@@ -1,5 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
+import { DrawSorter } from '../../core/src/draw-order.js';
 import { Mesh } from '../../core/src/mesh.js';
 import {
   PBRMaterial,
@@ -65,6 +66,7 @@ export class WebGPUMeshPipeline {
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
+  private readonly drawSorter = new DrawSorter();
   private readonly sceneData = new Float32Array(308);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
@@ -460,6 +462,7 @@ export class WebGPUMeshPipeline {
         this.draws.push(object);
         if (inView) this.visibleDraws.push(object);
       }
+      this.drawSorter.sort(this.visibleDraws, scene.camera3D.position);
       if (scene.shadows.enabled) this.renderShadows(encoder);
       const postEnabled = scene.postProcessing.enabled;
       if (!postEnabled) this.post.releaseTarget();

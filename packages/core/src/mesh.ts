@@ -99,6 +99,16 @@ export class Mesh extends Object3D {
     return this.morph === undefined;
   }
 
+  /** Squared distance from a world-space point to this mesh's bounding-sphere center. */
+  distanceSquaredTo(x: number, y: number, z: number): number {
+    const sphere = this.geometry.boundingSphere;
+    const e = this.updateWorldMatrix().elements;
+    const dx = e[0] * sphere.x + e[4] * sphere.y + e[8] * sphere.z + e[12] - x;
+    const dy = e[1] * sphere.x + e[5] * sphere.y + e[9] * sphere.z + e[13] - y;
+    const dz = e[2] * sphere.x + e[6] * sphere.y + e[10] * sphere.z + e[14] - z;
+    return dx * dx + dy * dy + dz * dz;
+  }
+
   /**
    * Conservative sphere test against the camera frustum. Refreshes the world matrix
    * so callers may use it before drawing. Non-finite bounds are treated as visible.

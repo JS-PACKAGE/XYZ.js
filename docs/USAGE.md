@@ -361,7 +361,7 @@ const instances = scene.add(
 instances.setMatrixAt(0, new Matrix4());
 ```
 
-PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Keep transparent insertion back-to-front. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows.
+PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Translucent meshes (BLEND, or opacity below 1) are drawn last, farthest first, so insertion order no longer matters for them. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows.
 
 For image-based lighting and a skybox, build an `EnvironmentMap` from an equirect (2:1) image and assign it to the scene. It lights `PBRMaterial` only and replaces its flat `ambientLight`:
 

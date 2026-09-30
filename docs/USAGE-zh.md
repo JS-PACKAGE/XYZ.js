@@ -359,7 +359,7 @@ const instances = scene.add(
 instances.setMatrixAt(0, new Matrix4());
 ```
 
-PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）、normal、occlusion（R）maps，使用相應 slots／scales。alphaMode 選 OPAQUE／MASK／BLEND，alphaCutoff 控制 MASK，doubleSided 控制 culling；透明物件按遠到近加入。最多 8 point＋8 spot，超限拒絕。只有方向光 3×3 PCF shadows（每 Mesh castShadow／receiveShadow），無 point／spot shadows。
+PBR 借用 base／emissive sRGB textures 與 linear metallicRoughness（G／B）、normal、occlusion（R）maps，使用相應 slots／scales。alphaMode 選 OPAQUE／MASK／BLEND，alphaCutoff 控制 MASK，doubleSided 控制 culling；半透明 mesh（BLEND 或 opacity 小於 1）最後由遠到近繪製，因此它們的加入順序不再重要。最多 8 point＋8 spot，超限拒絕。只有方向光 3×3 PCF shadows（每 Mesh castShadow／receiveShadow），無 point／spot shadows。
 
 若要 image-based lighting 與 skybox，用 2:1 equirect 影像建立 `EnvironmentMap` 並指定給 scene。它只照亮 `PBRMaterial`，並取代其平面 `ambientLight`：
 

@@ -1,5 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
+import { DrawSorter } from '../../core/src/draw-order.js';
 import { Mesh } from '../../core/src/mesh.js';
 import {
   type Material2D,
@@ -164,6 +165,8 @@ export class WebGL2Renderer implements Renderer {
   private destroyed = false;
   private lostError: WebGL2ContextLostError | undefined;
   private readonly frustum = new Frustum();
+  private readonly meshDraws: Mesh[] = [];
+  private readonly drawSorter = new DrawSorter();
   private maxTextureSize = 0;
   private maxWidth = 0;
   private maxHeight = 0;
@@ -1015,6 +1018,8 @@ export class WebGL2Renderer implements Renderer {
     gl.depthMask(true);
     // Shader-side winding handles mixed mirrored instances in a single draw.
     gl.disable(gl.CULL_FACE);
+    const draws = this.meshDraws;
+    draws.length = 0;
     for (const object of scene.objects) {
       if (
         !(object instanceof Mesh) ||
@@ -1027,6 +1032,10 @@ export class WebGL2Renderer implements Renderer {
       )
         continue;
       if (!object.isInFrustum(this.frustum)) continue;
+      draws.push(object);
+    }
+    this.drawSorter.sort(draws, scene.camera3D.position);
+    for (const object of draws) {
       object.updateDeformation();
       const material = object.material;
       const pbr = material instanceof PBRMaterial;
@@ -1105,6 +1114,7 @@ export class WebGL2Renderer implements Renderer {
       }
       this.drawMesh(object, uniforms);
     }
+    draws.length = 0;
   }
 
   private bindMaterialTexture(
