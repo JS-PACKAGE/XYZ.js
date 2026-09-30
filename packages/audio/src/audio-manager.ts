@@ -195,6 +195,8 @@ export class AudioManager {
         (typeof document !== 'undefined' ? document.baseURI : undefined) ??
         (typeof location !== 'undefined' ? location.href : undefined);
       const resolved = new URL(url, base);
+      if (!['http:', 'https:', 'data:', 'blob:'].includes(resolved.protocol))
+        throw new AudioError('Unsupported audio URL protocol.');
       resolved.hash = '';
       canonical = resolved.href;
     } catch (error) {

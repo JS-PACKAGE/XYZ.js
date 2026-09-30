@@ -115,6 +115,19 @@ describe('AudioManager orchestration', () => {
     );
     manager.destroy();
   });
+  it('rejects non-fetchable URL protocols before any request', async () => {
+    const fetchMock = vi.fn();
+    vi.stubGlobal('fetch', fetchMock);
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    await expect(manager.load('file:///etc/passwd')).rejects.toMatchObject({
+      cause: { message: 'Unsupported audio URL protocol.' },
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+    manager.destroy();
+  });
 
   it('rejects oversized audio before parsing JSON', async () => {
     vi.stubGlobal(
