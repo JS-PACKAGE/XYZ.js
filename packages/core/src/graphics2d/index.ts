@@ -7,3 +7,21 @@ export { SpriteFont, SpriteText } from './sprite-font.js';
 export type { SpriteFontOptions, SpriteTextOptions } from './sprite-font.js';
 export { NineSlice } from './nine-slice.js';
 export type { NineSliceMode, NineSliceOptions } from './nine-slice.js';
+export { AtlasLoader } from './atlas-loader.js';
+export type {
+  AtlasAsset,
+  AtlasLoadOptions,
+  AtlasAnimationFrame2D,
+} from './atlas-loader.js';
+export { TilingSprite2D } from './tiling-sprite2d.js';
+export type { TilingSprite2DOptions } from './tiling-sprite2d.js';
+export { Graphics2D } from './graphics2d.js';
+export type { Graphics2DOptions } from './graphics2d.js';
+export { GraphicsPath2D } from './graphics-path2d.js';
+export type {
+  Affine2D,
+  PathCommand2D,
+  Paint2D,
+  Stroke2D,
+  GraphicsInstruction2D,
+} from './graphics-path2d.js';

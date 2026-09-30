@@ -1,4 +1,4 @@
-import { AssetError, Texture } from '../../../assets/src/index.js';
+import { AssetError, type Texture2DSource } from '../../../assets/src/index.js';
 import { graphics2dLimits } from '../../../../src/data/graphics2d.js';
 import type { Rect2D } from '../gameplay/contracts.js';
 import { Sprite, type SpriteOptions } from '../sprite.js';
@@ -13,11 +13,11 @@ export interface SpriteSheetGridOptions {
 }
 export type SpriteSheetSpriteOptions = Omit<
   SpriteOptions,
-  'texture' | 'source'
+  'texture' | 'source' | 'view'
 >;
 
 export function validatedRegion(
-  texture: Texture,
+  texture: Texture2DSource,
   frame: Rect2D,
 ): Readonly<Rect2D> {
   if (texture.destroyed)
@@ -46,7 +46,7 @@ export function validatedRegion(
 export class SpriteSheet {
   readonly frames: readonly Readonly<Rect2D>[];
   constructor(
-    readonly texture: Texture,
+    readonly texture: Texture2DSource,
     frames: readonly Rect2D[],
   ) {
     if (texture.destroyed)
@@ -58,7 +58,10 @@ export class SpriteSheet {
     );
   }
 
-  static grid(texture: Texture, options: SpriteSheetGridOptions): SpriteSheet {
+  static grid(
+    texture: Texture2DSource,
+    options: SpriteSheetGridOptions,
+  ): SpriteSheet {
     const { frameWidth: width, frameHeight: height } = options;
     const [x, y] = options.origin ?? [0, 0];
     const [sx, sy] = options.spacing ?? [0, 0];

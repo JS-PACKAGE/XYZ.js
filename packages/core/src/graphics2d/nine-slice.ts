@@ -1,6 +1,10 @@
-import { AssetError, Texture } from '../../../assets/src/index.js';
+import {
+  AssetError,
+  TextureView2D,
+  type Texture2DSource,
+} from '../../../assets/src/index.js';
 import { graphics2dLimits } from '../../../../src/data/graphics2d.js';
-import type { Rect2D } from '../gameplay/contracts.js';
+import { validateSource, type Rect2D } from '../gameplay/contracts.js';
 import { Group2D } from '../gameplay/group2d.js';
 import { Sprite } from '../sprite.js';
 import { validatedRegion } from './sprite-sheet.js';
@@ -8,6 +12,7 @@ import { validatedRegion } from './sprite-sheet.js';
 export type NineSliceMode = 'stretch' | 'tile' | 'tile-fit';
 export interface NineSliceOptions {
   source?: Rect2D;
+  view?: TextureView2D;
   left: number;
   right: number;
   top: number;
@@ -19,6 +24,7 @@ export interface NineSliceOptions {
 }
 interface Patch {
   source: Rect2D;
+  view?: TextureView2D;
   x: number;
   y: number;
   width: number;
@@ -28,6 +34,7 @@ interface Patch {
 /** Nine ordinary atlas cells, expanded into bounded reusable Sprite tiles. */
 export class NineSlice extends Group2D {
   private readonly source: Readonly<Rect2D>;
+  private readonly atlasView: TextureView2D | undefined;
   private readonly margins: readonly [number, number, number, number];
   readonly mode: NineSliceMode;
   readonly drawCenter: boolean;
@@ -36,22 +43,41 @@ export class NineSlice extends Group2D {
   private destinationHeight = 0;
 
   constructor(
-    readonly texture: Texture,
+    readonly texture: Texture2DSource,
     options: NineSliceOptions,
   ) {
     super();
-    this.source = validatedRegion(
-      texture,
-      options.source ?? {
+    this.atlasView = options.view;
+    if (this.atlasView) {
+      this.atlasView.validate();
+      if (this.atlasView.source !== texture || options.source)
+        throw new RangeError(
+          'NineSlice view must borrow its texture and cannot be combined with source.',
+        );
+      this.source = Object.freeze({
         x: 0,
         y: 0,
-        width: texture.width,
-        height: texture.height,
-      },
-    );
+        width: this.atlasView.originalSize[0],
+        height: this.atlasView.originalSize[1],
+      });
+    } else
+      this.source = validatedRegion(
+        texture,
+        options.source ?? {
+          x: 0,
+          y: 0,
+          width: texture.width,
+          height: texture.height,
+        },
+      );
     this.margins = [options.left, options.right, options.top, options.bottom];
     if (
-      !this.margins.every((value) => Number.isInteger(value) && value >= 0) ||
+      !this.margins.every(
+        (value) =>
+          Number.isFinite(value) &&
+          value >= 0 &&
+          (this.atlasView !== undefined || Number.isInteger(value)),
+      ) ||
       options.left + options.right > this.source.width ||
       options.top + options.bottom > this.source.height
     )
@@ -65,6 +91,24 @@ export class NineSlice extends Group2D {
     this.resize(options.width, options.height);
   }
 
+  static fromView(
+    view: TextureView2D,
+    options: Omit<
+      NineSliceOptions,
+      'source' | 'view' | 'left' | 'right' | 'top' | 'bottom'
+    >,
+  ): NineSlice {
+    if (!view.defaultBorders)
+      throw new RangeError(
+        'NineSlice.fromView requires atlas border metadata.',
+      );
+    return new NineSlice(view.source, {
+      ...options,
+      ...view.defaultBorders,
+      view,
+    });
+  }
+
   get width(): number {
     return this.destinationWidth;
   }
@@ -76,6 +120,9 @@ export class NineSlice extends Group2D {
     if (this.destroyed) throw new Error('Cannot resize destroyed NineSlice.');
     if (this.texture.destroyed)
       throw new AssetError('Cannot use a destroyed Texture.');
+    this.atlasView?.validate();
+    if (!this.atlasView)
+      validateSource(this.source, this.texture.width, this.texture.height);
     if (
       ![width, height].every(
         (value) =>
@@ -85,11 +132,24 @@ export class NineSlice extends Group2D {
       )
     )
       throw new RangeError('NineSlice destination exceeds its size budget.');
-    const [left, right, top, bottom] = this.margins;
+    const resolution = this.atlasView?.resolution ?? 1;
+    const [physicalLeft, physicalRight, physicalTop, physicalBottom] =
+      this.margins;
+    const [left, right, top, bottom] = this.margins.map(
+      (value) => value / resolution,
+    );
     const horizontal = left + right > width ? width / (left + right) : 1;
     const vertical = top + bottom > height ? height / (top + bottom) : 1;
-    const sw = [left, this.source.width - left - right, right];
-    const sh = [top, this.source.height - top - bottom, bottom];
+    const sw = [
+      physicalLeft,
+      this.source.width - physicalLeft - physicalRight,
+      physicalRight,
+    ];
+    const sh = [
+      physicalTop,
+      this.source.height - physicalTop - physicalBottom,
+      physicalBottom,
+    ];
     const dw = [
       left * horizontal,
       Math.max(0, width - (left + right) * horizontal),
@@ -121,17 +181,21 @@ export class NineSlice extends Group2D {
           const tileX = this.mode !== 'stretch' && column === 1;
           const tileY = this.mode !== 'stretch' && row === 1;
           const columns = tileX
-            ? Math.max(1, Math.ceil(targetWidth / sourceWidth))
+            ? Math.max(1, Math.ceil(targetWidth / (sourceWidth / resolution)))
             : 1;
           const rows = tileY
-            ? Math.max(1, Math.ceil(targetHeight / sourceHeight))
+            ? Math.max(1, Math.ceil(targetHeight / (sourceHeight / resolution)))
             : 1;
           if (patches.length + columns * rows > graphics2dLimits.tiles)
             throw new RangeError('NineSlice exceeds its tile budget.');
           const stepX =
-            tileX && this.mode === 'tile' ? sourceWidth : targetWidth / columns;
+            tileX && this.mode === 'tile'
+              ? sourceWidth / resolution
+              : targetWidth / columns;
           const stepY =
-            tileY && this.mode === 'tile' ? sourceHeight : targetHeight / rows;
+            tileY && this.mode === 'tile'
+              ? sourceHeight / resolution
+              : targetHeight / rows;
           for (let y = 0; y < rows; y++) {
             for (let x = 0; x < columns; x++) {
               const w = Math.min(stepX, targetWidth - x * stepX);
@@ -140,8 +204,14 @@ export class NineSlice extends Group2D {
                 source: {
                   x: sx,
                   y: sy,
-                  width: tileX && this.mode === 'tile' ? w : sourceWidth,
-                  height: tileY && this.mode === 'tile' ? h : sourceHeight,
+                  width:
+                    tileX && this.mode === 'tile'
+                      ? w * resolution
+                      : sourceWidth,
+                  height:
+                    tileY && this.mode === 'tile'
+                      ? h * resolution
+                      : sourceHeight,
                 },
                 x: dx + x * stepX,
                 y: dy + y * stepY,
@@ -157,13 +227,56 @@ export class NineSlice extends Group2D {
       sy += sh[row]!;
       dy += dh[row]!;
     }
+    if (this.atlasView) {
+      const view = this.atlasView;
+      for (let index = patches.length - 1; index >= 0; index--) {
+        const patch = patches[index]!;
+        const cell = patch.source;
+        const x = Math.max(cell.x, view.trim.x);
+        const y = Math.max(cell.y, view.trim.y);
+        const right = Math.min(
+          cell.x + cell.width,
+          view.trim.x + view.trim.width,
+        );
+        const bottom = Math.min(
+          cell.y + cell.height,
+          view.trim.y + view.trim.height,
+        );
+        if (right <= x || bottom <= y) {
+          patches.splice(index, 1);
+          continue;
+        }
+        const width = right - x;
+        const height = bottom - y;
+        const ix = x - view.trim.x;
+        const iy = y - view.trim.y;
+        const frame =
+          view.rotation === 90
+            ? {
+                x: view.frame.x + view.trim.height - iy - height,
+                y: view.frame.y + ix,
+                width: height,
+                height: width,
+              }
+            : { x: view.frame.x + ix, y: view.frame.y + iy, width, height };
+        patch.view = new TextureView2D(this.texture, {
+          frame,
+          rotation: view.rotation,
+          resolution,
+          originalSize: [cell.width, cell.height],
+          trim: { x: x - cell.x, y: y - cell.y, width, height },
+        });
+      }
+    }
     const extra: Sprite[] = [];
     try {
       for (let index = this.pool.length; index < patches.length; index++)
         extra.push(
           new Sprite({
             texture: this.texture,
-            source: patches[index]!.source,
+            ...(patches[index]!.view
+              ? { view: patches[index]!.view }
+              : { source: patches[index]!.source }),
             anchor: [0, 0],
           }),
         );
@@ -180,11 +293,12 @@ export class NineSlice extends Group2D {
       const patch = patches[index];
       sprite.visible = patch !== undefined;
       if (!patch) continue;
-      sprite.source = patch.source;
+      if (patch.view) sprite.view = patch.view;
+      else sprite.source = patch.source;
       sprite.position.set(patch.x, patch.y);
       sprite.scale.set(
-        patch.width / patch.source.width,
-        patch.height / patch.source.height,
+        patch.width / (patch.source.width / resolution),
+        patch.height / (patch.source.height / resolution),
       );
     }
     this.destinationWidth = width;

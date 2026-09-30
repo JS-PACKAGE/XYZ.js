@@ -1,10 +1,11 @@
+import { TextureView2D } from '../../../assets/src/index.js';
+import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
 import type { Sprite } from '../sprite.js';
 import { validateSource, type Rect2D } from './contracts.js';
 
-export interface AnimationFrame2D {
-  source: Rect2D;
-  duration: number;
-}
+export type AnimationFrame2D =
+  | { source: Rect2D; view?: never; duration: number }
+  | { view: TextureView2D; source?: never; duration: number };
 export interface FrameAnimationOptions {
   strategy?: 'loop' | 'pingpong' | 'freeze' | 'hide';
   speed?: number;
@@ -29,19 +30,34 @@ export class FrameAnimation extends EventTarget {
     options: FrameAnimationOptions = {},
   ) {
     super();
-    if (!frames.length || frames.length > 16384)
-      throw new RangeError('FrameAnimation requires 1–16384 frames.');
-    this.frames = frames.map((frame) => {
-      validateSource(frame.source, sprite.texture.width, sprite.texture.height);
-      if (!Number.isFinite(frame.duration) || frame.duration <= 0)
-        throw new RangeError(
-          'Frame durations must be positive finite seconds.',
-        );
-      return Object.freeze({
-        source: Object.freeze({ ...frame.source }),
-        duration: frame.duration,
-      });
-    });
+    if (!frames.length || frames.length > rendering2dLimits.atlasFrames)
+      throw new RangeError('FrameAnimation frame count exceeds its budget.');
+    this.frames = Object.freeze(
+      frames.map((frame) => {
+        if (frame.view) {
+          if (frame.source)
+            throw new RangeError(
+              'An animation frame cannot contain both a source and a view.',
+            );
+          frame.view.validate();
+        } else
+          validateSource(
+            frame.source,
+            sprite.texture.width,
+            sprite.texture.height,
+          );
+        if (!Number.isFinite(frame.duration) || frame.duration <= 0)
+          throw new RangeError(
+            'Frame durations must be positive finite seconds.',
+          );
+        return frame.view
+          ? Object.freeze({ view: frame.view, duration: frame.duration })
+          : Object.freeze({
+              source: Object.freeze({ ...frame.source }),
+              duration: frame.duration,
+            });
+      }),
+    );
     this.strategy = options.strategy ?? 'loop';
     if (!['loop', 'pingpong', 'freeze', 'hide'].includes(this.strategy))
       throw new RangeError('Unknown animation strategy.');
@@ -141,7 +157,9 @@ export class FrameAnimation extends EventTarget {
     }
   }
   private applyFrame(index: number): void {
-    this.sprite.setAnimationSource(this.frames[index].source);
+    const frame = this.frames[index];
+    if (frame.view) this.sprite.setAnimationView(frame.view);
+    else this.sprite.setAnimationSource(frame.source);
     if (this.currentFrame === index) return;
     this.currentFrame = index;
     this.emit('animationframe', { frame: index });

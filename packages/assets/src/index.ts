@@ -12,6 +12,31 @@ export type {
   PreloadState,
 } from './preload/preload-batch.js';
 
+export { CanvasTexture2D, TextureView2D } from './texture2d.js';
+export type {
+  Texture2DSource,
+  TextureView2DOptions,
+  TextureBorders2D,
+  TextureRect2D,
+} from './texture2d.js';
+export { FontAsset } from './fonts/font-asset.js';
+export type { FontAssetOptions } from './fonts/font-asset.js';
+export { BitmapFontAsset, BitmapFontLoader } from './fonts/bitmap-font.js';
+export type {
+  BitmapGlyph,
+  BitmapKerning,
+  BitmapFontData,
+} from './fonts/bitmap-font.js';
+export { generateBitmapFont } from './fonts/generate-bitmap-font.js';
+export type { DynamicBitmapFontOptions } from './fonts/generate-bitmap-font.js';
+export { AssetManifest } from './manifest/asset-manifest.js';
+export type {
+  ManifestAssetType,
+  ManifestEntry,
+  AssetManifestOptions,
+  ManifestAssetTypes,
+} from './manifest/asset-manifest.js';
+
 export interface ResourceLoadOptions {
   signal?: AbortSignal;
   maxBytes?: number;
@@ -21,6 +46,8 @@ export class AssetError extends XYZError {}
 
 /** Owns its decoded bitmap; destroying a Sprite does not destroy its Texture. */
 export class Texture {
+  readonly kind = 'image';
+  readonly version = 0;
   readonly width: number;
   readonly height: number;
   private disposed = false;
@@ -158,6 +185,60 @@ export class AssetLoader {
     return { key, load: (signal) => this.loadTexture(url, { signal }) };
   }
 
+  /** Acquires a unique caller-owned image, never a borrowed cache entry. */
+  async loadTextureOwned(
+    url: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<Texture> {
+    if (this.disposed)
+      throw new AssetError('Cannot load from a destroyed AssetLoader.');
+    options.signal?.throwIfAborted();
+    const base =
+      this.baseURL ??
+      (typeof document !== 'undefined' ? document.baseURI : undefined) ??
+      (typeof location !== 'undefined' ? location.href : undefined);
+    let canonical: string;
+    try {
+      const resolved = new URL(url, base);
+      if (!['http:', 'https:', 'data:', 'blob:'].includes(resolved.protocol))
+        throw new AssetError('Unsupported texture URL protocol.');
+      resolved.hash = '';
+      canonical = resolved.href;
+    } catch (error) {
+      if (error instanceof AssetError) throw error;
+      throw new AssetError('Invalid texture URL.', { cause: error });
+    }
+    const controller = new AbortController();
+    this.requests.add(controller);
+    const abort = () => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener('abort', abort, { once: true });
+    try {
+      const signal = controller.signal;
+      const operation = this.fetchTexture(canonical, signal);
+      return await new Promise<Texture>((resolve, reject) => {
+        const cancel = () => reject(signal.reason);
+        signal.addEventListener('abort', cancel, { once: true });
+        operation.then(
+          (texture) => {
+            signal.removeEventListener('abort', cancel);
+            // Unique acquisitions have no cache owner to reclaim an unpublished result.
+            if (signal.aborted) {
+              texture.destroy();
+              reject(signal.reason);
+            } else resolve(texture);
+          },
+          (error: unknown) => {
+            signal.removeEventListener('abort', cancel);
+            reject(error);
+          },
+        );
+      });
+    } finally {
+      this.requests.delete(controller);
+      options.signal?.removeEventListener('abort', abort);
+    }
+  }
+
   async loadBinary(
     url: string,
     options: ResourceLoadOptions = {},
@@ -275,6 +356,7 @@ export class AssetLoader {
         assetLimits.textureBytes,
         signal,
       );
+      signal.throwIfAborted();
       if (this.disposed)
         throw new AssetError(
           'AssetLoader was destroyed while loading a texture.',
@@ -282,8 +364,9 @@ export class AssetLoader {
       const bitmap = await createImageBitmap(blob, {
         premultiplyAlpha: 'none',
       });
-      if (this.disposed) {
+      if (this.disposed || signal.aborted) {
         bitmap.close();
+        if (signal.aborted) throw signal.reason;
         throw new AssetError(
           'AssetLoader was destroyed while loading a texture.',
         );
@@ -295,6 +378,7 @@ export class AssetLoader {
         throw error;
       }
     } catch (error) {
+      if (signal.aborted) throw signal.reason;
       if (error instanceof AssetError) throw error;
       throw new AssetError('Unable to load texture.', { cause: error });
     }
