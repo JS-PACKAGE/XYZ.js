@@ -56,6 +56,8 @@ export { Object3D } from './object3d.js';
 export { Group } from './group.js';
 export { OrthographicCamera } from './orthographic-camera.js';
 export { OrbitControls } from './orbit-controls.js';
+export { FirstPersonControls } from './first-person-controls.js';
+export type { FirstPersonKeys } from './first-person-controls.js';
 export { Raycaster } from './raycaster.js';
 export { PBRMaterial } from './pbr-material.js';
 export { PointLight, SpotLight } from './lights.js';
