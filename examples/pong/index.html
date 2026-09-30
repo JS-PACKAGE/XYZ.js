@@ -25,6 +25,12 @@
   <body>
     <h1>Pong</h1>
     <p>Move with ↑ / ↓, drag on the canvas, or use a gamepad.</p>
+    <p>
+      Canvas text uses Text2D. Serves wait one simulation second; pause freezes
+      the wait, restart cancels the old scene's timers.
+    </p>
+    <button id="pause" type="button">Pause</button>
+    <button id="restart" type="button">Restart scene</button>
     <canvas id="game"></canvas>
     <p id="status" role="status">Loading…</p>
     <script type="module" src="./main.ts"></script>

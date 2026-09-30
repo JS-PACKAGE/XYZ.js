@@ -1,4 +1,11 @@
-import { Game, Scene, Sprite, Texture, Vector2 } from '../../src/index.js';
+import {
+  Game,
+  Scene,
+  Sprite,
+  Texture,
+  Text2D,
+  Vector2,
+} from '../../src/index.js';
 
 const status = document.querySelector<HTMLParagraphElement>('#status')!;
 let game: Game | undefined;
@@ -13,6 +20,10 @@ try {
   texture = await Texture.fromImage(source);
   const runtime = game;
   const white = texture;
+  const reportError = (error: unknown): void => {
+    runtime.pause();
+    status.textContent = error instanceof Error ? error.message : String(error);
+  };
   class Pong extends Scene {
     readonly left = this.add(
       new Sprite({ texture: white, position: [30, 225], scale: [12, 80] }),
@@ -27,7 +38,38 @@ try {
     readonly velocity = new Vector2(280, 140);
     readonly pointerWorld = new Vector2();
     score = [0, 0];
-    private scoreDirty = true;
+    private scoreboard: Text2D | undefined;
+    private serving = true;
+    protected override async initialize(
+      _game: Game,
+      signal: AbortSignal,
+    ): Promise<void> {
+      const label = await Text2D.create('0 : 0\nGet ready', { fontSize: 28 });
+      if (signal.aborted) {
+        label.destroy();
+        signal.throwIfAborted();
+      }
+      label.position.set(400, 48);
+      label.zIndex = 1;
+      this.scoreboard = this.add(label);
+      this.serve(280);
+    }
+    private showScore(): void {
+      const text = `${this.score[0]} : ${this.score[1]}${this.serving ? '\nGet ready' : ''}`;
+      status.textContent = `${this.score[0]} : ${this.score[1]} · ${this.serving ? 'Serving in one simulation second' : 'Playing'} · ${runtime.graphics.backend}`;
+      void this.scoreboard?.setText(text).catch(reportError);
+    }
+    private serve(speed: number): void {
+      this.serving = true;
+      this.ball.position.set(400, 225);
+      this.velocity.set(0, 0);
+      this.showScore();
+      this.timers.after(1, () => {
+        this.serving = false;
+        this.velocity.set(speed, 140);
+        this.showScore();
+      });
+    }
     override update(dt: number): void {
       this.camera2D.zoom = Math.min(runtime.width / 800, runtime.height / 450);
       this.camera2D.position.set(
@@ -75,13 +117,7 @@ try {
       }
       if (this.ball.position.x < -7 || this.ball.position.x > 807) {
         this.score[this.ball.position.x < 0 ? 1 : 0]!++;
-        this.scoreDirty = true;
-        this.ball.position.set(400, 225);
-        this.velocity.set(-this.velocity.x, 140);
-      }
-      if (this.scoreDirty) {
-        status.textContent = `${this.score[0]} : ${this.score[1]} · Arrow keys / drag / gamepad · ${runtime.graphics.backend}`;
-        this.scoreDirty = false;
+        this.serve(-this.velocity.x);
       }
     }
   }
@@ -90,6 +126,25 @@ try {
   });
   await game.setScene(new Pong());
   game.start();
+  document.querySelector('#pause')!.addEventListener('click', (event) => {
+    if (runtime.state === 'running') runtime.pause();
+    else if (runtime.state === 'paused') runtime.resume();
+    (event.currentTarget as HTMLButtonElement).textContent =
+      runtime.state === 'paused' ? 'Resume' : 'Pause';
+  });
+  document
+    .querySelector('#restart')!
+    .addEventListener('click', async (event) => {
+      const button = event.currentTarget as HTMLButtonElement;
+      button.disabled = true;
+      try {
+        await runtime.setScene(new Pong());
+      } catch (error) {
+        reportError(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
   window.addEventListener('pagehide', (event) => {
     if (!event.persisted) {
       game?.destroy();
