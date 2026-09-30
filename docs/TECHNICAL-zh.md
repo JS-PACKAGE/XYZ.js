@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本文件描述 **1.0.0 套件已完成的 P01–P08**。實際驗證環境、缺陷重現、量測結果與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+本文件描述 **1.1.0 套件**，包含已完成的 P01–P08 與新增的 Text2D／SceneTimers。實際驗證環境、缺陷重現、量測結果與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 ## 1. 模組與執行路徑
 
@@ -21,7 +21,8 @@ src/index.ts                    統一 ESM／TypeScript API
 
 requestAnimationFrame(timestamp)
   → 同步 DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
-  → Input.update() → Scene.update(deltaTime) → World.update(deltaTime)
+  → Input.update() → Scene.timers.update(deltaTime)
+  → Scene.update(deltaTime) → World.update(deltaTime)
   → Renderer.beginFrame() → Renderer.render(scene, width, height)
   → Renderer.endFrame()
   → Input.endFrame()（finally 清除 edges）
@@ -290,3 +291,16 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 官方 OPM 發佈包本身已最小化，維持逐位元組複製，保留 LICENSE、manifest、chunks 與 worklet URL；刻意不重新壓縮，以維持官方 release checksum 完整性。
 
 實測 36 個引擎 JavaScript 由 189,706 降至 98,707 bytes（約 48%，不含 maps、宣告與 vendor）。dist 共 46 個 JavaScript，包括上述 36 個與官方 vendor 的 10 個。靜態 HTTP smoke 未經 Vite 轉譯，載入使用說明的 ESM 範例，驗證鍵盤移動、畫面像素讀回、錯誤名稱與官方 audio worklet unlock。最小化是體積優化，不是加密或安全邊界。
+
+## 20. Text2D 與 Scene 計時器（v1.0 後新增）
+
+本節新增能力納入 v1.1（套件 1.1.0），不包含在先前已發佈的 v1.0 tag。
+
+- `await Text2D.create(text, { fontSize, fontFamily, color, padding })` 產生沿用既有 backend 貼圖路徑的 Sprite。預設值集中於 `src/data/text.ts`；換行分成靠左行，量測包含字形左右溢出與下緣。空字串透明；完整 raster canvas 配置前先驗證尺寸／像素預算。
+- Transform、anchor、opacity、visible、zIndex 與 Sprite 相同。Style 不可變，更換樣式請建立新 Text2D。自訂字型應先等待載入；字型與字形結果由瀏覽器決定。不包含自動字型載入、文字 GUI、自動換行或動畫系統。
+- `await label.setText(value)` 只發佈最後一次請求，`label.text` 是目前顯示的內容。與已顯示文字相同時不重繪並取消舊的 pending 更新；失敗會 reject 並保留舊畫面。過期或 destroy 後完成的結果會釋放貼圖、不再顯示。應處理 Promise，不要無必要地每幀重繪。
+- Text2D 擁有自己產生的貼圖，更新與 Scene 銷毀會釋放舊／目前貼圖；外部另指定的 `texture` 與 Primitive2D 一樣是借用，不由 Text2D 銷毀。不要把 Text2D 的自有貼圖共享給其他仍存活 Sprite，因為更新文字會銷毀它。
+- `scene.timers.after(seconds, callback)`／`.every(seconds, callback)` 回傳具有 `active` 與冪等 `cancel()` 的 `TimerHandle`。單次 delay 必須有限且非負；重複 interval 必須有限且大於零。零秒是在下一個 timer tick 執行，不是同步立即呼叫。
+- Game 在 Scene.update 前以 clamp 後的模擬 delta 推進計時器，不依賴 subclass 呼叫 super.update。Pause／hidden 時間不累積；同 tick 到期 callback 依註冊順序執行，每個重複 timer 每 tick 至多一次，漏掉的週期跳過、不爆發補跑。Callback 內新註冊的工作留至下個 tick。
+- Callback 是同步的，不要用 async callback 期待 scheduler 等待它；拋錯走 Game 的 fatal frame error。禁止遞迴推進 timer。Scene destroy 取消所有剩餘 callback 並清除參照，也拒絕再新增；候選 Scene 準備期間不推進。Callback 中 pause 在目前同步 timer batch 結束後生效。
+- Pong 示範畫布文字計分、延遲一秒發球、pause／resume 與 Scene 替換。新增功能驗證共 96 測試；Chromium 實測 WebGPU／WebGL2／Canvas2D 的文字畫面，不代表新增跨瀏覽器認證。

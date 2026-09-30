@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.0.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
+Browser-native TypeScript game engine. Package metadata is **1.1.0**; **P01–P08 are implemented and verified as recorded in ACCEPTANCE.md**. The package is not published on npm; its license remains UNLICENSED.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -190,3 +190,11 @@ Post-P08 maintenance removes redundant viewport uploads and unconditional ECS co
 URL-loaded images are capped at 8 MiB of response bytes; audio JSON at 1 MiB and 16,384 notes. Texture dimensions are capped at 8,192 per side and 4,194,304 pixels, including `Texture.fromImage`. Limits are centralized in `src/data/assets.ts`; oversized assets reject rather than truncate or downscale.
 
 All browser-supported image formats remain available. Pixel validation occurs **after decoding**, so these limits do not prevent transient decoder memory amplification. They are per-asset limits, not a total cache/memory budget. Only load trusted images where that residual risk is unacceptable. Security verification and remaining limits are recorded in [ACCEPTANCE.md](ACCEPTANCE.md).
+
+## Post-v1.0 gameplay additions / v1.0 後遊戲開發擴充
+
+- **Text2D**：引擎內多行文字、非同步更新與自有貼圖清理，沿用三種 renderer 的 Sprite 路徑。
+- **Scene timers**：`scene.timers.after()`／`every()` 使用模擬秒數，暫停凍結、Scene 清理取消，無須自行維護 browser timeout。
+- Pong 現在使用畫布內計分、延遲發球，並提供 Pause／Resume／Restart scene。
+- Text2D provides owned, asynchronously updateable text Sprites; scene timers follow simulation time and scene lifetime. See the bilingual usage guides for examples.
+- These additions ship in **v1.1** (package **1.1.0**), not the previously published **v1.0** release. 新功能納入 v1.1；既有 v1.0 tag 與發佈附件保持不變，未發佈至 npm。

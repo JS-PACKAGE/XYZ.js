@@ -4,11 +4,13 @@ import { Camera2D } from './camera2d.js';
 import { PerspectiveCamera } from './perspective-camera.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
+import { SceneTimers } from './scene-timers.js';
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export declare class Scene {
     readonly world: World;
     readonly camera2D: Camera2D;
     readonly camera3D: PerspectiveCamera;
+    readonly timers: SceneTimers;
     ambientLight: number;
     /** Direction points from a surface toward the light. */
     directionalLight: {

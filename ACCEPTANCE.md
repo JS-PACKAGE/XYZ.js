@@ -182,3 +182,11 @@ P01 當時尚未驗證 Safari／Edge／Firefox、真實 driver reset、負載效
 - macOS arm64／Node 26.7.0／pnpm 12.6.0：build、typecheck、Vitest 17 檔／82 測試通過；新增 build script 的首次 lint 發現 Node globals 未明確 import，已改為 node: imports 後驗證。Source map 的 texture budget 錯誤位置可追到原 TypeScript；所有 map source paths 存在，dist vendor 與官方 13 檔完全一致。
 - 真實 Chromium 150 以 Python 靜態 HTTP server 載入 dist（不經 Vite）：使用說明完整 HTML／JS 顯示藍色方塊，ArrowRight 使 backing x 由 100→149；正式 WebGPU 紅色方塊讀回 `[255,0,0,255]`；RuntimeError／AssetError 名稱保留；JSON 音訊載入及使用者手勢後 AudioContext running／worklet 初始化成功。不是所有 backend／瀏覽器重新認證，也不是 FPS 提升聲明。
 - 最終 build／lint／format:check 通過；兩次 build 的全部 122 個 dist 檔案 SHA-256 一致。中英文技術參考各 19 節、使用說明各 9 節；69 個文件相對連結／anchor 均可解析，英文正文無中文字元，雙語 quickstart JavaScript 相同。
+
+## Text2D 與 Scene 計時器（2026-09-30，v1.0 後新增）
+
+- 補足引擎內文字與模擬時間排程；Text2D 支援多行、Sprite transform、latest-request-wins、貼圖更新／destroy 釋放；SceneTimers 支援 after／every、取消、場景自動清理、pause 凍結，不依賴 subclass 呼叫 super.update。
+- macOS arm64／Node 26.7.0／pnpm 12.6.0：build、typecheck、lint、format:check 與 **19 檔／96 測試通過**。涵蓋更新先後顛倒、失敗保留舊畫面、destroy 後晚到 bitmap、外部借用貼圖、文字預算、timer 邊界／取消／重入／錯誤／Scene teardown，以及真正 Game loop 的 pause 時間排除與 timer callback 銷毀 Game。雙語新範例一致、71 個相對文件連結／anchor 可解析。
+- Chromium Pong 畫面有 `0 : 0`／Get ready，Pause 後 Restart 並等待 1.2 秒，仍保持 Serving；Resume 後 Playing，遊玩後畫布與 DOM 同步顯示 `0 : 6`。截圖觀察文字、球拍、球與按鈕；DOM 分數仍保留供輔助閱讀。
+- 靜態 HTTP 直接 import 最小化 dist（未經 Vite）：WebGPU／WebGL2／Canvas2D 各繪製含多行與中文字的 Text2D，白色像素分別 613／606／606；更新後舊貼圖 destroyed，Game destroy 後目前貼圖亦 destroyed。Canvas2D 文字從 `0`→`999` 有 624 個像素改變；Game timer 暫停 200ms 後仍 0 次，resume 後 1 次。
+- 新 build 最小化 39 個引擎 JS：197,981→103,071 bytes；保持 vendor 原樣。這不是效能幀率或跨瀏覽器認證。新增功能以 v1.1／套件 1.1.0 發佈，既有 v1.0 保持不變。

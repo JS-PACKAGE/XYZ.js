@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine, not a complete game. This guide covers version 1.0.0 with P01–P08 delivered. The package is not published to npm and the root license remains UNLICENSED. See [acceptance records](../ACCEPTANCE.md) for verified support and limitations.
+XYZ.js is a browser game engine, not a complete game. This guide covers version 1.1.0 with P01–P08 and Text2D/SceneTimers delivered. The package is not published to npm and the root license remains UNLICENSED. See [acceptance records](../ACCEPTANCE.md) for verified support and limitations.
 
 ## 1. Start the Development Environment
 
@@ -238,3 +238,35 @@ npx pnpm@12.6.0 format:check
 ```
 
 Tool checks do not replace actual browser output and interaction verification. Safari/Edge/Firefox, physical gamepads, and the complete BFCache matrix remain unverified. See the [benchmark](../benchmarks/sprites/) for measurements; approximately 60fps is not a cross-device guarantee. Preserve the OPM LICENSE and complete dist tree, and obtain the owner's root-license decision before public distribution.
+
+## 10. Canvas Text and Scene-Local Timers
+
+Available in the post-v1.0 source additions, not the existing v1.0 release archive. With an initialized `game`, this replaces the quickstart scene:
+
+```js
+import { Scene, Text2D } from '/vendor/xyz/dist/src/index.js';
+
+const scene = new Scene();
+const label = await Text2D.create('Seconds: 0', {
+  fontSize: 28,
+  color: '#40c8ff',
+});
+label.position.set(180, 60);
+scene.add(label);
+let seconds = 0;
+const timer = scene.timers.every(1, () => {
+  void label.setText(`Seconds: ${++seconds}`).catch((error) => {
+    game.pause();
+    console.error(error);
+  });
+});
+scene.timers.after(5, () => timer.cancel());
+await game.setScene(scene);
+game.start();
+```
+
+The timer uses simulation seconds: pausing freezes it, and replacing/destroying the Scene cancels it. No `setTimeout` cleanup is needed. It is not a wall-clock countdown. Cancel individual timers with `timer.cancel()`; `timer.active` reports whether they remain scheduled.
+
+Text supports newlines and normal Sprite transforms, anchor, opacity and zIndex. Await `document.fonts.load(...)` before creating labels that require a custom font. Handle `setText()` rejections; rapid overlapping updates keep only the latest request. Style is immutable and generated textures belong to the label, so do not share them with other Sprites.
+
+Open [Pong](../examples/pong/) to see score text, delayed serves, Pause/Resume and Restart scene. Restart while paused leaves the new scene paused until Resume.

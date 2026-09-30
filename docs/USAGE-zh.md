@@ -2,7 +2,7 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。此指南適用於已完成 P01–P08 的 1.0.0；套件尚未發佈 npm，根套件仍為 UNLICENSED。實際支援與限制見 [驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，不是完整遊戲。此指南適用於包含 P01–P08 與 Text2D／SceneTimers 的 1.1.0；套件尚未發佈 npm，根套件仍為 UNLICENSED。實際支援與限制見 [驗收紀錄](../ACCEPTANCE.md)。
 
 ## 1. 啟動開發環境
 
@@ -236,3 +236,35 @@ npx pnpm@12.6.0 format:check
 ```
 
 工具檢查不取代真實瀏覽器畫面與互動驗證。Safari／Edge／Firefox、實體 gamepad 及完整 BFCache 矩陣尚未認證。效能量測見 [benchmark](../benchmarks/sprites/)；其約 60fps 不是跨裝置承諾。發佈前保留 OPM LICENSE、完整 dist，並由所有者決定根套件授權。
+
+## 10. 畫布文字與 Scene 計時器
+
+此功能為 v1.0 後的原始碼新增，不在既有 v1.0 release 壓縮包。已有初始化完成的 `game` 時，可用下列內容替換 quickstart 的 Scene：
+
+```js
+import { Scene, Text2D } from '/vendor/xyz/dist/src/index.js';
+
+const scene = new Scene();
+const label = await Text2D.create('Seconds: 0', {
+  fontSize: 28,
+  color: '#40c8ff',
+});
+label.position.set(180, 60);
+scene.add(label);
+let seconds = 0;
+const timer = scene.timers.every(1, () => {
+  void label.setText(`Seconds: ${++seconds}`).catch((error) => {
+    game.pause();
+    console.error(error);
+  });
+});
+scene.timers.after(5, () => timer.cancel());
+await game.setScene(scene);
+game.start();
+```
+
+Timer 使用模擬秒數：暫停時凍結，替換／銷毀 Scene 時自動取消，不必手動清理 `setTimeout`；它不是現實時鐘倒數。個別取消使用 `timer.cancel()`，`timer.active` 可確認是否仍排程中。
+
+文字支援換行與一般 Sprite 的 transform、anchor、opacity、zIndex；需要自訂字型時，建立前先等待 `document.fonts.load(...)`。處理 `setText()` rejection；快速重疊更新只保留最後一次請求。Style 不可變，生成貼圖屬於 label，不要共享給其他 Sprite。
+
+開啟 [Pong](../examples/pong/) 可操作文字分數、延遲發球、Pause／Resume、Restart scene。暫停期間 restart，新 Scene 仍保持暫停，直到 Resume。

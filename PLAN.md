@@ -2,7 +2,7 @@
 
 ## 強制執行範圍（硬規則）
 
-- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.0.0**；**P01–P08 已完成並各自驗收提交**，目前進入維護。企劃書原 v0.0.1–v0.0.8 對應 P01–P08；完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證或 npm 發佈。
+- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎，非遊戲本體。套件版本為 **1.1.0**；**P01–P08 已完成並各自驗收提交**，目前進入維護。企劃書原 v0.0.1–v0.0.8 對應 P01–P08；完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證或 npm 發佈。
 - 每個里程碑的驗收硬指標全部通過後，**立即單獨提交該里程碑的 git commit**，commit message 必須以該階段前綴開頭（例如 `[P01] WebGPU Foundation`）；不得合併兩個或更多里程碑為同一 commit，亦不得提前提交未通過驗收的階段。**嚴禁 push，由使用者親自推送。**
 - 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。`auto` 已提供 WebGPU→WebGL2→Canvas2D 初始化降級，強制指定 backend 不得靜默切換；執行中 loss 不自動切換 backend。
 - 本版不做 Visual Editor、Visual Scripting、Shader Graph、Physics、Networking、Particle／Animation／Tilemap／Navigation／Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；也不包含 PBR、法線貼圖、陰影、骨骼動畫、glTF 載入器。
@@ -72,3 +72,7 @@ P01–P08 的功能驗收與獨立 commits 見 [ACCEPTANCE.md](ACCEPTANCE.md)。
 - 提交規則：每個 Pxx 驗收後立刻獨立 commit，不併入下一階段、不 push。
 
 開始執行。
+
+## v1.0 後的實用性擴充
+
+依使用者要求自行評估並追加：優先補足 Canvas 文字與 scene-local 模擬計時器，而非跨入現有非目標的 Physics／Animation／Tilemap。新增 Text2D、SceneTimers／TimerHandle，整合 Pong 畫布計分、延遲發球與 pause／restart 操作。此輪不重編 P01–P08、不重寫原驗收、不自動發佈新版本；驗證見 ACCEPTANCE 最新紀錄。

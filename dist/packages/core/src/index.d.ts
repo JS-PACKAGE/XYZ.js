@@ -16,3 +16,7 @@ export { Mesh, TextureMaterial } from './mesh.js';
 export type { MeshOptions, TextureMaterialOptions } from './mesh.js';
 export { PerspectiveCamera } from './perspective-camera.js';
 export { Primitive2D } from './primitive2d.js';
+export { Text2D } from './text2d.js';
+export type { Text2DOptions } from './text2d.js';
+export { SceneTimers } from './scene-timers.js';
+export type { TimerHandle } from './scene-timers.js';

@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This document describes **P01–P08 as delivered in package version 1.0.0**. See [ACCEPTANCE](../ACCEPTANCE.md) for actual verification environments, defect reproductions, measurements, and unverified limitations.
+This document describes **package version 1.1.0**, including P01–P08 and the Text2D/SceneTimers additions. See [ACCEPTANCE](../ACCEPTANCE.md) for actual verification environments, defect reproductions, measurements, and unverified limitations.
 
 ## 1. Modules and Execution Flow
 
@@ -21,7 +21,8 @@ src/index.ts                    Unified ESM / TypeScript API
 
 requestAnimationFrame(timestamp)
   → Synchronize DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
-  → Input.update() → Scene.update(deltaTime) → World.update(deltaTime)
+  → Input.update() → Scene.timers.update(deltaTime)
+  → Scene.update(deltaTime) → World.update(deltaTime)
   → Renderer.beginFrame() → Renderer.render(scene, width, height)
   → Renderer.endFrame()
   → Input.endFrame() (clear edges in finally)
@@ -290,3 +291,16 @@ Build minifies every engine-generated `.js` file in dist individually using the 
 The official OPM distribution is already minified and is copied byte-for-byte, retaining its LICENSE, manifest, chunks, and worklet URLs. It is deliberately excluded from re-minification to preserve release checksum integrity.
 
 The verified build reduced 36 engine JavaScript files from 189,706 to 98,707 bytes (about 48%, excluding maps, declarations, and vendor). All 46 distribution JavaScript files include those 36 files and 10 official vendor files. Static HTTP smoke loaded the documented ESM example without Vite transformation, exercised keyboard movement, read back a rendered pixel, preserved error names, and unlocked an official audio worklet. Minification reduces file size; it is neither encryption nor a security boundary.
+
+## 20. Text2D and Scene Timers (Post-v1.0 Additions)
+
+These additions ship in v1.1 (package 1.1.0), not the previously published v1.0 tag.
+
+- `await Text2D.create(text, { fontSize, fontFamily, color, padding })` creates a Sprite using the existing backend texture path. Defaults live in `src/data/text.ts`. Newlines produce left-aligned lines; glyph overhang and descenders are included in measured bounds. Empty text is transparent. Dimensions/pixels are checked before allocating the full raster canvas.
+- Transform, anchor, opacity, visibility and zIndex behave like Sprite. Style is immutable; create another Text2D to change it. Await custom font loading before creation; font availability and glyph rasterization depend on the browser. There is no automatic font loading, text layout GUI, wrapping or animation system.
+- `await label.setText(value)` publishes the latest request only. `label.text` is the displayed text. An unchanged displayed value avoids rasterization and invalidates pending older updates. Failed updates reject and preserve the display. Superseded or post-destroy results are discarded and their textures released. Handle the Promise; do not rasterize every frame unnecessarily.
+- Text2D owns its generated textures, releases replaced textures, and destroys its current owned texture with the Scene. A caller-assigned external `texture` remains borrowed, as with Primitive2D. Do not share a Text2D-owned texture with another live Sprite: updating the label destroys that texture.
+- `scene.timers.after(seconds, callback)` and `.every(seconds, callback)` return `TimerHandle` with `active` and idempotent `cancel()`. One-shot delays must be finite and nonnegative; repeating intervals must be finite and positive. Zero delay means the next timer tick, not a synchronous call.
+- Game advances timers with clamped simulation delta before Scene.update, even when subclasses do not call super.update. Paused/hidden time is excluded. Due callbacks run in registration order within the current tick; a repeating timer fires at most once per tick and skips missed periods rather than bursting. Newly scheduled callbacks wait until the next tick.
+- Callbacks are synchronous; do not use an async callback expecting the scheduler to await it. A thrown error follows Game's fatal frame error path. Recursive timer advancement is rejected. Scene destruction cancels all remaining callbacks, clears their references, and rejects new scheduling; pending scene preparation does not advance timers. Pause requests take effect after the current synchronous timer batch.
+- Pong demonstrates canvas score text, one-second delayed serves, pause/resume and scene replacement. The feature check passed 96 tests; Chromium text rendering was exercised on WebGPU, WebGL2 and Canvas2D. This is not a new cross-browser certification.
