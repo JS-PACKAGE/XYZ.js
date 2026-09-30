@@ -1,4 +1,7 @@
 import { Vector2 } from '../../math/src/index.js';
+import { ActionMap, GamepadState } from './gamepad.js';
+export { ActionMap, GamepadState, gamepadAxisIndex, gamepadButtonIndex, } from './gamepad.js';
+export type { ActionKeyboard, GamepadAxisName, GamepadBinding, GamepadButtonName, GamepadSnapshot, GamepadStick, } from './gamepad.js';
 export interface PointerSample {
     id: number;
     type: string;
@@ -99,6 +102,10 @@ export declare class InputManager {
     private readonly canvas;
     readonly keyboard: Keyboard;
     readonly pointer: Pointer;
+    /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
+    readonly gamepad: GamepadState;
+    /** Named actions bound to gamepad buttons, stick directions and keys. */
+    readonly actions: ActionMap;
     /** Snapshot from the latest update; disconnected gamepad indices retain null slots. */
     get gamepads(): readonly (Gamepad | null)[];
     private gamepadSnapshot;

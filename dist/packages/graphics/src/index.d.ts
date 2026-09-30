@@ -1,4 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
+import type { RenderStats } from './render-stats.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/index.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -7,6 +8,7 @@ import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
 export { RenderTexture2D } from './render-texture2d.js';
 export type { RenderTextureOptions2D } from './render-texture2d.js';
+export type { RenderStats } from './render-stats.js';
 export interface RenderToTextureOptions2D {
     clear?: boolean;
     bounds?: Rect2D;
@@ -33,6 +35,8 @@ export interface GraphicsCapabilities {
 export interface Renderer {
     readonly backend: GraphicsBackend;
     readonly capabilities: GraphicsCapabilities;
+    /** Counters for the last rendered frame; the object is reused, so copy values to keep them. */
+    readonly stats: RenderStats;
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
@@ -49,4 +53,10 @@ export interface Renderer {
     resize(width: number, height: number): void;
     destroy(): void;
 }
-export declare function createRenderer(canvas: HTMLCanvasElement, preference: RendererPreference, onError: (error: Error) => void): Promise<Renderer>;
+export declare function createRenderer(canvas: HTMLCanvasElement, preference: RendererPreference, onError: (error: Error) => void, options?: {
+    antialias?: boolean;
+    /** Rebuild WebGL2/WebGPU after context loss instead of failing. Defaults to true. */
+    recover?: boolean;
+    onLost?(error: Error): void;
+    onRecovered?(): void;
+}): Promise<Renderer>;

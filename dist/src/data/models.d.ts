@@ -7,5 +7,6 @@ export declare const modelLimits: Readonly<{
     vertices: 1000000;
     indices: 3000000;
     joints: 256;
+    morphTargets: 64;
     hierarchyDepth: 256;
 }>;

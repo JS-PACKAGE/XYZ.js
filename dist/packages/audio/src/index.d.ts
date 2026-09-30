@@ -6,3 +6,5 @@ export { AudioError } from './errors.js';
 export { SampleAudioAsset } from './samples/sample-audio.js';
 export { SamplePlayback } from './samples/sample-playback.js';
 export type { SamplePlayOptions, SamplePlaybackState, } from './samples/sample-playback.js';
+export { AudioListenerState } from './samples/spatial.js';
+export type { AudioVec3, SpatialAudioOptions, SpatialDistanceModel, SpatialPanningModel, } from './samples/spatial.js';

@@ -4,8 +4,9 @@ import { Camera2D } from './camera2d.js';
 import { PerspectiveCamera } from './perspective-camera.js';
 import type { OrthographicCamera } from './orthographic-camera.js';
 import { AnimationMixer } from './animation.js';
+import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
-import { PostProcessingSettings, ShadowSettings } from './render-settings.js';
+import { FogSettings, PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
@@ -23,11 +24,24 @@ export declare class Scene {
     readonly animations: AnimationMixer;
     readonly physics: PhysicsWorld2D;
     readonly effects2D: PostProcessor2D[];
+    /**
+     * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
+     * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
+     */
+    readonly effects3D: PostProcessor2D[];
     readonly pointLights: PointLight[];
     readonly spotLights: SpotLight[];
     readonly shadows: ShadowSettings;
     readonly postProcessing: PostProcessingSettings;
     ambientLight: number;
+    /** Distance fog for 3D meshes (WebGPU and WebGL2). */
+    readonly fog: FogSettings;
+    /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
+    environment: EnvironmentMap | undefined;
+    environmentIntensity: number;
+    /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
+    background: EnvironmentMap | undefined;
+    backgroundIntensity: number;
     /** Direction points from a surface toward the light. */
     directionalLight: {
         direction: Vector3;

@@ -55,6 +55,7 @@ export declare class WebGPU2DEffects {
     private compositePipeline;
     private transitionPipeline;
     private frameTarget;
+    private sceneTarget;
     private layerTargets;
     private transitionBindGroup;
     private transitionIncoming;
@@ -75,11 +76,16 @@ export declare class WebGPU2DEffects {
     layers(width: number, height: number): [GPUColorTarget, GPUColorTarget];
     releaseLayers(): void;
     settings(width: number, height: number, transition?: TransitionFrame): void;
-    process(encoder: GPUCommandEncoder, targets: readonly [GPUColorTarget, GPUColorTarget], effects: readonly PostProcessor2D[]): GPUColorTarget;
-    composite(encoder: GPUCommandEncoder, input: GPUColorTarget, output: GPUTextureView): void;
+    /** Runs `effects` in order; `input` (default `targets[0]`) may be any color target. */
+    process(encoder: GPUCommandEncoder, targets: readonly [GPUColorTarget, GPUColorTarget], effects: readonly PostProcessor2D[], input?: GPUColorTarget): GPUColorTarget;
+    /** Draws `input` over `output`; `replace` clears `output` first instead of blending onto it. */
+    composite(encoder: GPUCommandEncoder, input: GPUColorTarget, output: GPUTextureView, replace?: boolean): void;
     transition(encoder: GPUCommandEncoder, input: GPUColorTarget, output: GPUTextureView, frame: TransitionFrame): void;
     snapshot(snapshot: RenderSnapshot): GPUSnapshot;
     private draw;
+    /** Canvas-format target that receives the 3D image before scene effects run. */
+    scene3D(width: number, height: number): GPUColorTarget;
+    releaseScene(): void;
     releaseFrame(): void;
     resize(): void;
     destroy(): void;

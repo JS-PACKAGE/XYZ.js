@@ -2,6 +2,7 @@ import type { Scene } from '../../core/src/scene.js';
 import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
 import type { LoadTask } from '../../assets/src/preload/preload-batch.js';
 import { type SampleAudioAsset } from './samples/sample-audio.js';
+import type { AudioListenerState } from './samples/spatial.js';
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
     readonly note: number;
@@ -66,6 +67,8 @@ export declare class AudioManager {
     private disposed;
     private sequence;
     constructor(getScene: () => Scene | undefined, onError: (error: Error) => void);
+    /** Manager-wide 3D listener used by playbacks created with `spatial` options. */
+    get listener(): AudioListenerState;
     get unlocked(): boolean;
     get opm(): OPMAdapter['opm'];
     unlock(): Promise<void>;

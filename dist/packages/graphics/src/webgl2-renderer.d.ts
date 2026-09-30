@@ -4,11 +4,13 @@ import { type Texture2DSource, Texture } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { type RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
+import { FrameStats } from './render-stats.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export declare class WebGL2Renderer implements Renderer {
     private readonly onError;
+    private readonly antialias;
     readonly backend: "webgl2";
     private canvas;
     private gl;
@@ -24,6 +26,10 @@ export declare class WebGL2Renderer implements Renderer {
     private frameRendered;
     private destroyed;
     private lostError;
+    private readonly frustum;
+    private readonly meshDraws;
+    private readonly drawSorter;
+    readonly stats: FrameStats;
     private maxTextureSize;
     private maxWidth;
     private maxHeight;
@@ -32,6 +38,13 @@ export declare class WebGL2Renderer implements Renderer {
     private viewportSide;
     private shadowProgram;
     private postProgram;
+    private skyProgram;
+    private skyVAO;
+    private readonly skyUniforms;
+    private readonly environments;
+    private readonly environmentData;
+    private readonly fogData;
+    private readonly invViewProjection;
     private readonly meshUniforms;
     private readonly shadowUniforms;
     private readonly postUniforms;
@@ -51,9 +64,10 @@ export declare class WebGL2Renderer implements Renderer {
     private frameTarget;
     private layerTarget;
     private effectTarget;
+    private sceneTarget;
     get capabilities(): GraphicsCapabilities;
     private readonly onContextLost;
-    constructor(onError: (error: Error) => void);
+    constructor(onError: (error: Error) => void, antialias?: boolean);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {
@@ -93,6 +107,9 @@ export declare class WebGL2Renderer implements Renderer {
     private drawPost;
     private decodeColor;
     private cacheTexture;
+    /** Uploads a half-float mip chain once per map; the map itself is immutable. */
+    private uploadEnvironment;
+    private drawSky;
     private cacheGeometry;
     private releaseUnused;
     private createBuffer;

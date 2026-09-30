@@ -1,6 +1,7 @@
 import type { Scene } from '../../../core/src/scene.js';
 import type { AudioChannelName } from '../audio-manager.js';
 import { SamplePlayback, type SamplePlayOptions } from './sample-playback.js';
+import { AudioListenerState } from './spatial.js';
 interface SampleHost {
     context(): AudioContext | undefined;
     scene(): Scene | undefined;
@@ -35,6 +36,7 @@ export declare class SampleAudioEngine {
     private master?;
     private buses?;
     private disposed;
+    readonly listener: AudioListenerState;
     constructor(host: SampleHost);
     get signal(): AbortSignal;
     get currentScene(): Scene | undefined;

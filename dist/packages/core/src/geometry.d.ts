@@ -12,6 +12,15 @@ export declare class Geometry {
     version: number;
     markUpdated(): void;
     constructor(data: GeometryData);
+    private boundsVersion;
+    private readonly sphere;
+    /** Bounding sphere of the box around all vertices; recomputed only after `markUpdated`. */
+    get boundingSphere(): Readonly<{
+        x: number;
+        y: number;
+        z: number;
+        radius: number;
+    }>;
     static cube(size?: number): Geometry;
     static sphere(radius?: number, widthSegments?: number, heightSegments?: number): Geometry;
     /** Horizontal XZ plane, facing +Y; UV origin is at the near-left corner. */

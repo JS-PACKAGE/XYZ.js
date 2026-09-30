@@ -19,6 +19,9 @@ export declare class SkinnedMesh extends Mesh {
     private readonly inverse;
     private readonly blend;
     private initialized;
+    protected get cullable(): boolean;
     constructor(options: SkinnedMeshOptions);
+    /** Morphs the bind pose first, then skins it. */
+    updateDeformation(): void;
     updateSkin(): void;
 }

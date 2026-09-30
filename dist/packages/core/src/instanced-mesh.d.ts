@@ -9,6 +9,7 @@ export declare class InstancedMesh extends Mesh {
     /** Column-major matrices; use setMatrixAt to notify renderer upload caches. */
     readonly matrices: Float32Array;
     version: number;
+    protected get cullable(): boolean;
     constructor(options: InstancedMeshOptions);
     setMatrixAt(index: number, matrix: Matrix4): void;
     getMatrixAt(index: number, out: Matrix4): Matrix4;

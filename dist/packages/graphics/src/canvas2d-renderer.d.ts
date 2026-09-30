@@ -5,11 +5,14 @@ import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import { type RenderStats } from './render-stats.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 /** Sprite-only fallback; visible 3D meshes are deliberately unsupported. */
 export declare class Canvas2DRenderer implements Renderer {
     private readonly onError;
     readonly backend: "canvas2d";
+    /** Canvas2D has no 3D pass, so every counter stays zero. */
+    readonly stats: RenderStats;
     readonly capabilities: GraphicsCapabilities;
     private canvas;
     private context;

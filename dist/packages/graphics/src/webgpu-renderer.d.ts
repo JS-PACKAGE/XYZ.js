@@ -4,11 +4,15 @@ import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
 import type { Renderer } from './index.js';
+import { type RenderStats } from './render-stats.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 export declare class WebGPURenderer implements Renderer {
     private readonly onError;
+    private readonly antialias;
     readonly backend: "webgpu";
+    private readonly idleStats;
+    get stats(): RenderStats;
     readonly capabilities: {
         threeD: boolean;
         compute: boolean;
@@ -41,7 +45,7 @@ export declare class WebGPURenderer implements Renderer {
     private destroyed;
     private lostError;
     private readonly render2DHooks;
-    constructor(onError: (error: Error) => void);
+    constructor(onError: (error: Error) => void, antialias?: boolean);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     prepareMaterial(material: Material2D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
