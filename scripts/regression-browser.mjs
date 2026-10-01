@@ -1,4 +1,4 @@
-/* global document, navigator -- used only inside Playwright browser callbacks */
+/* global document, navigator, window -- used only inside Playwright browser callbacks */
 import { mkdir, writeFile, access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
@@ -85,6 +85,175 @@ async function saveReport(backend, report) {
   }
   return { ...report, scenarios };
 }
+
+async function runAuthoring(page, backend, result, awaitState) {
+  await page.goto(
+    `http://127.0.0.1:${port}/tests/browser/authoring.html?renderer=${backend}`,
+    { waitUntil: 'domcontentloaded' },
+  );
+  await awaitState('ui-ready');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'UI action',
+  );
+  const box = await page.locator('#game').boundingBox();
+  if (!box) throw new Error('Authoring canvas has no visible bounds.');
+  await page.mouse.move(box.x + 100, box.y + 30);
+  await page.mouse.down();
+  await page.waitForFunction(() => window.__xyzP41?.rawDown);
+  const captured = await page.evaluate(() => ({
+    fires: window.__xyzP41.fires,
+    defaults: window.__xyzP41.defaultFires,
+  }));
+  if (captured.fires !== 0 || captured.defaults !== 0)
+    throw new Error(
+      `UI pointer leaked gameplay fire: ${JSON.stringify(captured)}`,
+    );
+  await page.mouse.up();
+  await page.waitForFunction(() => window.__xyzP41?.clicks === 1);
+  await page.evaluate(() => {
+    const original = navigator.getGamepads.bind(navigator);
+    const pad = (index, value) => ({
+      id: 'XYZ regression simulated standard gamepad',
+      index,
+      connected: true,
+      mapping: 'standard',
+      timestamp: 0,
+      axes: [value, 0, 0, 0],
+      buttons: Array.from({ length: 17 }, () => ({
+        pressed: false,
+        touched: false,
+        value: 0,
+      })),
+    });
+    window.__p41SimulatedPads = [pad(7, 0), pad(2, 0.8)];
+    window.__p41OriginalPads = original;
+    Object.defineProperty(navigator, 'getGamepads', {
+      configurable: true,
+      value: () => window.__p41SimulatedPads,
+    });
+  });
+  await page.waitForFunction(
+    () => window.__xyzP41?.pad2 > 0.7 && window.__xyzP41?.pad7 === 0,
+  );
+  await page.evaluate(() => {
+    Object.assign(window.__p41SimulatedPads[0].buttons[0], {
+      pressed: true,
+      touched: true,
+      value: 1,
+    });
+  });
+  await page.waitForFunction(() => window.__xyzP41?.clicks === 2);
+  const menuConfirm = await page.evaluate(() => [
+    window.__xyzP41.confirms,
+    window.__xyzP41.defaultConfirms,
+  ]);
+  if (menuConfirm.some((value) => value !== 0))
+    throw new Error('UI gamepad activation leaked a gameplay confirm.');
+  await page.mouse.move(box.x + 340, box.y + 240);
+  await page.mouse.down();
+  await page.waitForFunction(
+    () => window.__xyzP41?.fires === 1 && window.__xyzP41?.confirmValue > 0,
+  );
+  await page.mouse.up();
+  const heldClose = await page.evaluate(() => [
+    window.__xyzP41.confirms,
+    window.__xyzP41.defaultConfirms,
+  ]);
+  if (heldClose.some((value) => value !== 0))
+    throw new Error('Closing UI manufactured a held gamepad confirm.');
+  await page.evaluate(() => {
+    Object.assign(window.__p41SimulatedPads[0].buttons[0], {
+      pressed: false,
+      touched: false,
+      value: 0,
+    });
+  });
+  await page.waitForFunction(() => window.__xyzP41?.confirmValue === 0);
+  await page.evaluate(() => {
+    Object.assign(window.__p41SimulatedPads[0].buttons[0], {
+      pressed: true,
+      touched: true,
+      value: 1,
+    });
+  });
+  await page.waitForFunction(
+    () =>
+      window.__xyzP41?.confirms === 1 && window.__xyzP41?.defaultConfirms === 1,
+  );
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'getGamepads', {
+      configurable: true,
+      value: window.__p41OriginalPads,
+    });
+  });
+  await page.waitForFunction(() => window.__xyzP41?.confirmValue === 0);
+  await page.keyboard.down('ArrowRight');
+  await page.waitForFunction(() => window.__xyzP41?.x > 375);
+  await page.keyboard.up('ArrowRight');
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'UI action',
+  );
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Space');
+  await page.waitForFunction(() => window.__xyzP41?.checked);
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('ArrowRight');
+  await page.waitForFunction(
+    () => window.__xyzP41?.gain === 0.25 && window.__xyzP41?.virtual === 0.25,
+  );
+  await page.touchscreen.tap(box.x + 180, box.y + 140);
+  await page.waitForFunction(
+    () =>
+      window.__xyzP41?.gain >= 0.5 &&
+      window.__xyzP41?.virtual >= 0.5 &&
+      document.activeElement?.getAttribute('aria-label') === 'Gain',
+  );
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(
+    () => window.__xyzP41?.gain === 0 && window.__xyzP41?.virtual === 0,
+  );
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'Modal one',
+  );
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => window.__xyzP41?.modalClicks === 1);
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'Modal two',
+  );
+  await page.keyboard.press('Tab');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'Modal one',
+  );
+  await page.keyboard.down('Shift');
+  await page.keyboard.press('Tab');
+  await page.keyboard.up('Shift');
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(
+    () => document.activeElement?.getAttribute('aria-label') === 'Open modal',
+  );
+  await page.mouse.move(box.x + 340, box.y + 240);
+  await page.mouse.down();
+  await page.waitForFunction(
+    () => window.__xyzP41?.fires === 2 && window.__xyzP41?.focused === '',
+  );
+  await page.mouse.up();
+  const proof = `${backend}-authoring-ui.png`;
+  await page.screenshot({ path: join(directory, proof) });
+  result.authoring = {
+    chromiumTouchInjection: true,
+    simulatedGamepadSnapshots: true,
+    physicalDeviceCertification: false,
+    proof,
+    probe: await page.evaluate(() => ({ ...window.__xyzP41 })),
+  };
+  await page.locator('#finish').click();
+  await awaitState('complete');
+}
 try {
   await server.listen();
   browser = await chromium.launch(launch);
@@ -94,6 +263,7 @@ try {
     const context = await browser.newContext({
       viewport: { width: 800, height: 700 },
       deviceScaleFactor: 1,
+      hasTouch: true,
     });
     const page = await context.newPage();
     const errors = [];
@@ -158,6 +328,7 @@ try {
       await awaitState('loaded');
       await page.locator('#destroy').click();
       await awaitState('destroyed');
+      await runAuthoring(page, backend, result, awaitState);
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

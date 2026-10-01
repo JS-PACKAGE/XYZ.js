@@ -55,6 +55,42 @@ export class AccessibilityManager {
     private readonly getSize: () => { width: number; height: number },
   ) {}
 
+  /** Returns only the semantic mirror belonging to the object's live registration. */
+  element(object: GameObject): HTMLElement | undefined {
+    const entry = this.entries.get(object),
+      scene = this.scene;
+    if (
+      this.disposed ||
+      !entry ||
+      !scene ||
+      scene.destroyed ||
+      object.destroyed ||
+      object.scene !== scene ||
+      !scene.has(object) ||
+      object.registrationGeneration !== entry.generation ||
+      !object.accessibility
+    )
+      return undefined;
+    return entry.node;
+  }
+
+  focus(object: GameObject): boolean {
+    const node = this.element(object);
+    if (
+      !node ||
+      !this.entries.get(object)!.coverage ||
+      object.accessibility!.disabled ||
+      !object.worldVisible ||
+      object.worldOpacity <= 0 ||
+      object.worldTint[3] <= 0
+    )
+      return false;
+    node.focus({ preventScroll: true });
+    return (
+      node.ownerDocument.activeElement === node && this.element(object) === node
+    );
+  }
+
   private emit(
     object: GameObject,
     entry: SemanticEntry,

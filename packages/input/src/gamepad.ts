@@ -1,3 +1,5 @@
+import type { GestureType } from './gestures.js';
+
 /** W3C "standard" gamepad layout (https://w3c.github.io/gamepad/#remapping). */
 export const gamepadButtonIndex = {
   a: 0,
@@ -45,6 +47,13 @@ export type GamepadBinding =
       readonly direction: 1 | -1;
     }
   | { readonly key: string };
+
+export type ActionBinding =
+  | GamepadBinding
+  | { readonly pointerButton: number }
+  | { readonly wheel: 'x' | 'y' | 'z'; readonly direction: 1 | -1 }
+  | { readonly gesture: GestureType }
+  | { readonly virtual: string; readonly direction?: 1 | -1 };
 
 /** Structural subset of `GamepadHapticActuator` (Chromium's dual-rumble effect). */
 export interface GamepadVibrationActuator {
@@ -124,9 +133,21 @@ export class GamepadState {
   private values: number[] = new Array<number>(BUTTON_NAMES.length).fill(0);
   private previous: number[] = new Array<number>(BUTTON_NAMES.length).fill(0);
   private rawAxes: number[] = [0, 0, 0, 0];
+  private previousAxes: number[] = [0, 0, 0, 0];
   private readonly profiles: GamepadMapping[] = [];
+  private readonly buttonSources: string[] = [];
+  private readonly axisSources: string[] = [];
   private activePad: GamepadSnapshot | undefined;
   private activeProfile: GamepadMapping | undefined;
+  private pollVersion = 0;
+
+  /** @internal A gamepad press edge belongs to one device poll. */
+  get pressVersion(): number {
+    return this.pollVersion;
+  }
+
+  /** @internal Routed devices share the manager's mapping registrations. */
+  constructor(private readonly profileSource?: GamepadState) {}
 
   /** Index of the active pad, or -1 while none is connected with the standard mapping. */
   get index(): number {
@@ -232,7 +253,7 @@ export class GamepadState {
     }
   }
 
-  /** Lock selection to a `navigator.getGamepads()` slot, or undefined for the first standard pad. */
+  /** Lock selection to a browser gamepad's actual index, or undefined for the first usable pad. */
   get preferredIndex(): number | undefined {
     return this.preferred;
   }
@@ -301,8 +322,17 @@ export class GamepadState {
    */
   axis(name: GamepadAxisName): number {
     const slot = axisSlot(name);
-    const stick = slot < 2 ? this.stick('left') : this.stick('right');
-    return slot % 2 === 0 ? stick.x : stick.y;
+    const base = slot < 2 ? 0 : 2;
+    const magnitude = Math.hypot(this.rawAxes[base], this.rawAxes[base + 1]);
+    if (magnitude <= this.deadzoneValue) return 0;
+    return (
+      (this.rawAxes[slot] *
+        Math.min(
+          1,
+          (magnitude - this.deadzoneValue) / (1 - this.deadzoneValue),
+        )) /
+      magnitude
+    );
   }
 
   stick(which: 'left' | 'right'): GamepadStick {
@@ -317,25 +347,65 @@ export class GamepadState {
     return { x: x * scaled, y: y * scaled };
   }
 
+  /** @internal Physical identities also account for custom mappings sharing a raw source. */
+  source(binding: ActionBinding): string | undefined {
+    if (!this.connected) return undefined;
+    if ('button' in binding)
+      return this.buttonSources[buttonSlot(binding.button)];
+    if ('axis' in binding) return this.axisSources[axisSlot(binding.axis)];
+    return undefined;
+  }
+
+  /** @internal An already-deflected newly selected device is not a fresh press. */
+  axisWasPressed(name: GamepadAxisName, direction: 1 | -1): boolean {
+    const slot = axisSlot(name);
+    const base = slot < 2 ? 0 : 2;
+    const magnitude = Math.hypot(
+      this.previousAxes[base],
+      this.previousAxes[base + 1],
+    );
+    const before =
+      magnitude <= this.deadzoneValue
+        ? 0
+        : (this.previousAxes[slot] *
+            Math.min(
+              1,
+              (magnitude - this.deadzoneValue) / (1 - this.deadzoneValue),
+            )) /
+          magnitude;
+    return (
+      this.axis(name) * direction >= this.thresholdValue &&
+      before * direction < this.thresholdValue
+    );
+  }
+
   /** @internal Called once per frame with `navigator.getGamepads()`. */
   update(pads: ArrayLike<GamepadSnapshot | null>): void {
+    this.pollVersion++;
     const pad = this.select(pads);
-    const next = new Array<number>(BUTTON_NAMES.length).fill(0);
-    const switched = (pad?.index ?? -1) !== this.padIndex;
+    const next = this.previous;
+    this.previous = this.values;
+    this.values = next;
+    const nextAxes = this.previousAxes;
+    this.previousAxes = this.rawAxes;
+    this.rawAxes = nextAxes;
+    const profile =
+      pad && pad.mapping !== 'standard' ? this.profileFor(pad) : undefined;
+    const switched =
+      (pad?.index ?? -1) !== this.padIndex ||
+      (pad?.id ?? '') !== this.padId ||
+      profile !== this.activeProfile;
     if (!pad) {
       this.activePad = undefined;
       this.activeProfile = undefined;
-      // A vanished pad reports released edges once, then stays neutral.
-      this.previous = this.values;
-      this.values = next;
-      this.rawAxes = [0, 0, 0, 0];
+      this.values.fill(0);
+      this.rawAxes.fill(0);
       this.padIndex = -1;
       this.padId = '';
       return;
     }
-    const profile =
-      pad.mapping === 'standard' ? undefined : this.profileFor(pad);
-    for (const [slot, name] of BUTTON_NAMES.entries()) {
+    for (let slot = 0; slot < BUTTON_NAMES.length; slot++) {
+      const name = BUTTON_NAMES[slot];
       let raw: number | undefined;
       if (!profile) raw = pad.buttons[gamepadButtonIndex[name]]?.value;
       else {
@@ -345,31 +415,50 @@ export class GamepadState {
           (name === 'lt' || name === 'rt') &&
           profile.triggerAxes?.[name] !== undefined
         ) {
-          // Axis triggers rest at -1 and press toward +1.
           const axis = pad.axes[profile.triggerAxes[name]!];
           raw = Number.isFinite(axis) ? (axis + 1) / 2 : 0;
         }
       }
-      next[slot] = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw!)) : 0;
-    }
-    this.rawAxes = AXIS_NAMES.map((name) => {
-      let raw: number | undefined;
-      if (!profile) raw = pad.axes[gamepadAxisIndex[name]];
-      else {
-        const entry = profile.axes?.[name];
-        if (entry !== undefined) {
-          const index = typeof entry === 'number' ? entry : entry.index;
-          raw = pad.axes[index];
-          if (typeof entry !== 'number' && entry.invert) raw = -raw!;
-        }
+      this.values[slot] = Number.isFinite(raw)
+        ? Math.min(1, Math.max(0, raw!))
+        : 0;
+      if (switched) {
+        const button = profile
+          ? profile.buttons?.[name]
+          : gamepadButtonIndex[name];
+        const trigger =
+          name === 'lt' || name === 'rt'
+            ? profile?.triggerAxes?.[name]
+            : undefined;
+        this.buttonSources[slot] =
+          button !== undefined
+            ? `gamepad:${pad.index}:button:${button}`
+            : trigger !== undefined
+              ? `gamepad:${pad.index}:axis:${trigger}`
+              : '';
       }
-      return Number.isFinite(raw) ? Math.min(1, Math.max(-1, raw!)) : 0;
-    });
+    }
+    for (let slot = 0; slot < AXIS_NAMES.length; slot++) {
+      const name = AXIS_NAMES[slot];
+      const entry = profile ? profile.axes?.[name] : gamepadAxisIndex[name];
+      const index = typeof entry === 'number' ? entry : entry?.index;
+      let raw = index === undefined ? undefined : pad.axes[index];
+      if (typeof entry === 'object' && entry.invert) raw = -raw!;
+      this.rawAxes[slot] = Number.isFinite(raw)
+        ? Math.min(1, Math.max(-1, raw!))
+        : 0;
+      if (switched)
+        this.axisSources[slot] =
+          index === undefined ? '' : `gamepad:${pad.index}:axis:${index}`;
+    }
     this.activePad = pad;
     this.activeProfile = profile;
-    // A newly selected pad must not report already-held buttons as fresh presses.
-    this.previous = switched ? next.slice() : this.values;
-    this.values = next;
+    if (switched) {
+      for (let i = 0; i < this.values.length; i++)
+        this.previous[i] = this.values[i];
+      for (let i = 0; i < this.rawAxes.length; i++)
+        this.previousAxes[i] = this.rawAxes[i];
+    }
     this.padIndex = pad.index;
     this.padId = pad.id;
   }
@@ -380,14 +469,16 @@ export class GamepadState {
     this.activeProfile = undefined;
     this.values.fill(0);
     this.previous.fill(0);
-    this.rawAxes = [0, 0, 0, 0];
+    this.rawAxes.fill(0);
+    this.previousAxes.fill(0);
     this.padIndex = -1;
     this.padId = '';
   }
 
   private profileFor(pad: GamepadSnapshot): GamepadMapping | undefined {
-    for (let i = this.profiles.length - 1; i >= 0; i--)
-      if (matches(this.profiles[i]!.match, pad.id)) return this.profiles[i];
+    const profiles = this.profileSource?.profiles ?? this.profiles;
+    for (let i = profiles.length - 1; i >= 0; i--)
+      if (matches(profiles[i]!.match, pad.id)) return profiles[i];
     return undefined;
   }
 
@@ -400,7 +491,11 @@ export class GamepadState {
       (pad.mapping === 'standard' || this.profileFor(pad))
         ? pad
         : undefined;
-    if (this.preferred !== undefined) return usable(pads[this.preferred]);
+    if (this.preferred !== undefined) {
+      for (let i = 0; i < pads.length; i++)
+        if (pads[i]?.index === this.preferred) return usable(pads[i]);
+      return undefined;
+    }
     for (let i = 0; i < pads.length; i++) {
       const pad = usable(pads[i]);
       if (pad) return pad;
@@ -432,43 +527,126 @@ export interface ActionKeyboard {
   isDown(code: string): boolean;
   wasPressed(code: string): boolean;
   wasReleased(code: string): boolean;
+  pressVersion?(code: string): number;
 }
 
-function checkBinding(binding: GamepadBinding): GamepadBinding {
+/** @internal Additional sources supplied by InputManager, without changing raw polling. */
+export interface ActionSources {
+  readonly pointer: {
+    isDown(button: number): boolean;
+    wasPressed(button: number): boolean;
+    wasReleased(button: number): boolean;
+    pressVersion(button: number): number;
+    wheelVersion(axis: 'x' | 'y' | 'z'): number;
+    wheelDelta(axis: 'x' | 'y' | 'z'): number;
+  };
+  readonly virtual: {
+    value(control: string): number;
+    wasPressed(control: string, direction: 1 | -1, threshold: number): boolean;
+    wasReleased(control: string, direction: 1 | -1, threshold: number): boolean;
+  };
+  gesture(type: GestureType): boolean;
+  gestureVersion(type: GestureType): number;
+}
+
+const GESTURE_TYPES: Readonly<Record<GestureType, true>> = {
+  tap: true,
+  doubletap: true,
+  longpress: true,
+  swipe: true,
+  pan: true,
+  pinch: true,
+  rotate: true,
+};
+
+function checkBinding(binding: ActionBinding): ActionBinding {
+  if (!binding || typeof binding !== 'object')
+    throw new RangeError('Action binding must be an object.');
+  const kinds = [
+    'button',
+    'axis',
+    'key',
+    'pointerButton',
+    'wheel',
+    'gesture',
+    'virtual',
+  ];
+  if (kinds.filter((kind) => Object.hasOwn(binding, kind)).length !== 1)
+    throw new RangeError('Action binding must specify exactly one source.');
   if ('button' in binding) {
     buttonSlot(binding.button);
     return { button: binding.button };
   }
   if ('axis' in binding) {
     axisSlot(binding.axis);
-    if (binding.direction !== 1 && binding.direction !== -1)
-      throw new RangeError('Axis binding direction must be 1 or -1.');
+    checkDirection(binding.direction);
     return { axis: binding.axis, direction: binding.direction };
+  }
+  if ('pointerButton' in binding) {
+    if (
+      !Number.isInteger(binding.pointerButton) ||
+      binding.pointerButton < 0 ||
+      binding.pointerButton > 31
+    )
+      throw new RangeError('Pointer button must be an integer within 0..31.');
+    return { pointerButton: binding.pointerButton };
+  }
+  if ('wheel' in binding) {
+    if (binding.wheel !== 'x' && binding.wheel !== 'y' && binding.wheel !== 'z')
+      throw new RangeError('Wheel axis must be x, y or z.');
+    checkDirection(binding.direction);
+    return { wheel: binding.wheel, direction: binding.direction };
+  }
+  if ('gesture' in binding) {
+    if (!Object.hasOwn(GESTURE_TYPES, binding.gesture))
+      throw new RangeError('Unknown gesture binding.');
+    return { gesture: binding.gesture };
+  }
+  if ('virtual' in binding) {
+    checkAction(binding.virtual);
+    if (binding.direction !== undefined) checkDirection(binding.direction);
+    return binding.direction === undefined
+      ? { virtual: binding.virtual }
+      : { virtual: binding.virtual, direction: binding.direction };
   }
   if (typeof binding.key !== 'string' || !binding.key)
     throw new RangeError('Key binding must be a non-empty KeyboardEvent.code.');
   return { key: binding.key };
 }
 
+function checkDirection(direction: number): void {
+  if (direction !== 1 && direction !== -1)
+    throw new RangeError('Axis binding direction must be 1 or -1.');
+}
+
 /**
- * Named actions bound to gamepad buttons, stick directions and keys. Bindings can be
- * replaced at runtime (`rebind`) and round-tripped through `export`/`import`.
+ * Named cross-device actions. Bindings can be replaced atomically and round-tripped
+ * through JSON; InputManager contexts use this same map with physical-source routing.
  */
 export class ActionMap {
-  private readonly map = new Map<string, GamepadBinding[]>();
+  private readonly map = new Map<string, ActionBinding[]>();
   private readonly down = new Map<string, boolean>();
+  private readonly values = new Map<string, number>();
+  private readonly frameDown = new Map<string, boolean>();
+  private readonly identities = new WeakMap<ActionBinding, string>();
+  private blocked = new WeakSet<ActionBinding>();
+  private mutedPressVersions = new WeakMap<ActionBinding, number>();
+  private pulseFrame = 0;
   private readonly edgePressed = new Set<string>();
   private readonly edgeReleased = new Set<string>();
+  private readonly pendingReleased = new Set<string>();
 
   constructor(
     private readonly pad: GamepadState,
     private readonly keyboard?: ActionKeyboard,
+    private readonly sources?: ActionSources,
+    private readonly managed = false,
   ) {}
 
   /** Adds bindings without disturbing existing ones. */
-  bind(action: string, ...bindings: GamepadBinding[]): void {
-    const checked = bindings.map(checkBinding);
+  bind(action: string, ...bindings: ActionBinding[]): void {
     checkAction(action);
+    const checked = bindings.map((binding) => this.compile(binding));
     const list = this.map.get(action) ?? [];
     for (const binding of checked)
       if (!list.some((other) => sameBinding(other, binding)))
@@ -477,31 +655,34 @@ export class ActionMap {
   }
 
   /** Replaces every binding for the action atomically. */
-  rebind(action: string, bindings: readonly GamepadBinding[]): void {
+  rebind(action: string, bindings: readonly ActionBinding[]): void {
     checkAction(action);
-    this.map.set(action, bindings.map(checkBinding));
+    if (!Array.isArray(bindings))
+      throw new RangeError('Action bindings must be an array.');
+    this.map.set(
+      action,
+      bindings.map((binding) => this.compile(binding)),
+    );
   }
 
   unbind(action: string): boolean {
+    if (!this.map.delete(action)) return false;
+    this.release(action);
     this.down.delete(action);
-    return this.map.delete(action);
+    this.values.delete(action);
+    return true;
   }
 
-  bindings(action: string): readonly GamepadBinding[] {
+  bindings(action: string): readonly ActionBinding[] {
     return this.map.get(action) ?? [];
   }
 
-  /** Analog strength in [0, 1]: the strongest bound source. */
+  /** Analog strength in [0, 1]: the strongest bound, unconsumed source. */
   value(action: string): number {
+    if (this.managed) return this.values.get(action) ?? 0;
     let best = 0;
-    for (const binding of this.map.get(action) ?? []) {
-      let v: number;
-      if ('button' in binding) v = this.pad.button(binding.button);
-      else if ('axis' in binding)
-        v = Math.max(0, this.pad.axis(binding.axis) * binding.direction);
-      else v = this.keyboard?.isDown(binding.key) ? 1 : 0;
-      if (v > best) best = v;
-    }
+    for (const binding of this.map.get(action) ?? [])
+      best = Math.max(best, this.bindingValue(binding));
     return best;
   }
 
@@ -517,65 +698,250 @@ export class ActionMap {
     return this.edgeReleased.has(action);
   }
 
-  /** @internal Recomputes edges; call after the pad and keyboard state for this frame. */
-  update(): void {
-    this.edgePressed.clear();
-    this.edgeReleased.clear();
+  /** @internal Consumption reserves physical sources, not action names or axis halves. */
+  update(
+    consumed?: ReadonlySet<string>,
+    claim?: Set<string>,
+    preserveEdges = false,
+  ): void {
+    if (!preserveEdges) {
+      this.edgePressed.clear();
+      this.edgeReleased.clear();
+    }
+    for (const action of this.pendingReleased) this.edgeReleased.add(action);
+    this.pendingReleased.clear();
     for (const [action, list] of this.map) {
-      const now = this.isDown(action);
-      const before = this.down.get(action) ?? false;
+      const previousDown = this.managed
+        ? (this.frameDown.get(action) ?? this.down.get(action) ?? false)
+        : (this.down.get(action) ?? false);
+      if (this.managed && !this.frameDown.has(action))
+        this.frameDown.set(action, previousDown);
+      let value = 0;
+      let pressed = false;
+      let pulsePressed = false;
+      let released = false;
+      for (const binding of list) {
+        const source = this.identities.get(binding) || this.pad.source(binding);
+        const wasBlocked = this.blocked.has(binding);
+        const blocked = source !== undefined && consumed?.has(source) === true;
+        const physicalPress = this.bindingPressed(binding);
+        const pressVersion = this.bindingPressVersion(binding);
+        if (physicalPress && blocked)
+          this.mutedPressVersions.set(binding, pressVersion);
+        if (!blocked) {
+          value = Math.max(value, this.bindingValue(binding));
+          if (this.mutedPressVersions.get(binding) !== pressVersion) {
+            pressed ||= physicalPress;
+            pulsePressed ||=
+              physicalPress && ('wheel' in binding || 'gesture' in binding);
+          }
+          if (!wasBlocked) released ||= this.bindingReleased(binding);
+          this.blocked.delete(binding);
+        } else this.blocked.add(binding);
+        if (source) claim?.add(source);
+      }
+      const now = value >= this.pad.pressThreshold;
+      if ((previousDown && !now) || (!now && released))
+        this.edgeReleased.add(action);
+      if (pressed && (!previousDown || pulsePressed))
+        this.edgePressed.add(action);
+      else if (!now) this.edgePressed.delete(action);
+      this.values.set(action, value);
       this.down.set(action, now);
-      // Key edges are OR-ed in so a tap shorter than one frame is not lost.
-      const keyPress = list.some(
-        (b) => 'key' in b && this.keyboard?.wasPressed(b.key),
-      );
-      const keyRelease = list.some(
-        (b) => 'key' in b && this.keyboard?.wasReleased(b.key),
-      );
-      if ((now && !before) || keyPress) this.edgePressed.add(action);
-      if ((!now && before) || keyRelease) this.edgeReleased.add(action);
     }
   }
 
+  /** @internal Baselines only edge provenance, never transient unconsumed action values. */
+  baseline(): void {
+    for (const list of this.map.values())
+      for (const binding of list)
+        if (this.bindingPressed(binding))
+          this.mutedPressVersions.set(
+            binding,
+            this.bindingPressVersion(binding),
+          );
+  }
+
+  /** @internal Releases remain observable immediately and on the next update. */
+  reset(): void {
+    for (const action of this.map.keys()) this.release(action);
+    this.values.clear();
+    this.down.clear();
+    this.frameDown.clear();
+    this.blocked = new WeakSet<ActionBinding>();
+    this.mutedPressVersions = new WeakMap<ActionBinding, number>();
+    this.edgePressed.clear();
+  }
+
+  /** @internal */
+  endFrame(): void {
+    this.edgePressed.clear();
+    this.edgeReleased.clear();
+    this.frameDown.clear();
+    this.pulseFrame++;
+  }
+
+  /** @internal Inactive contexts still publish queued releases for one frame. */
+  updateInactive(): void {
+    this.edgePressed.clear();
+    this.edgeReleased.clear();
+    for (const action of this.pendingReleased) this.edgeReleased.add(action);
+    this.pendingReleased.clear();
+  }
+
   /** Plain JSON-safe copy for persisting player rebinding. */
-  export(): Record<string, GamepadBinding[]> {
-    const out: Record<string, GamepadBinding[]> = {};
+  export(): Record<string, ActionBinding[]> {
+    const out: Record<string, ActionBinding[]> = {};
     for (const [action, list] of this.map)
-      out[action] = list.map((b) => ({ ...b }));
+      Object.defineProperty(out, action, {
+        value: list.map((binding) => ({ ...binding })),
+        enumerable: true,
+        configurable: true,
+        writable: true,
+      });
     return out;
   }
 
-  /**
-   * Replaces all bindings from `export()` data. Validation runs first, so bad data
-   * leaves the current bindings untouched.
-   */
-  import(data: Readonly<Record<string, readonly GamepadBinding[]>>): void {
-    const next = new Map<string, GamepadBinding[]>();
+  /** Validation runs first, so invalid persisted data leaves current bindings untouched. */
+  import(data: Readonly<Record<string, readonly ActionBinding[]>>): void {
+    if (!data || typeof data !== 'object' || Array.isArray(data))
+      throw new RangeError('Action bindings must be an object.');
+    const next = new Map<string, ActionBinding[]>();
     for (const action of Object.keys(data)) {
       checkAction(action);
       const list = data[action];
       if (!Array.isArray(list))
         throw new RangeError(`Bindings for "${action}" must be an array.`);
-      next.set(action, list.map(checkBinding));
+      next.set(
+        action,
+        list.map((binding) => this.compile(binding)),
+      );
     }
+    this.reset();
     this.map.clear();
-    this.down.clear();
-    this.edgePressed.clear();
-    this.edgeReleased.clear();
     for (const [action, list] of next) this.map.set(action, list);
+  }
+
+  private release(action: string): void {
+    if (this.down.get(action)) {
+      this.edgeReleased.add(action);
+      this.pendingReleased.add(action);
+    }
+    this.edgePressed.delete(action);
+    this.values.set(action, 0);
+    this.down.set(action, false);
+  }
+
+  private compile(binding: ActionBinding): ActionBinding {
+    const checked = checkBinding(binding);
+    let source: string | undefined;
+    if ('key' in checked) source = `key:${checked.key}`;
+    else if ('pointerButton' in checked)
+      source = `pointer:${checked.pointerButton}`;
+    else if ('wheel' in checked) source = `wheel:${checked.wheel}`;
+    // Recognized gestures originate from the primary pointer stream. Reserving
+    // that stream also prevents a consumed tap leaking as a lower pointer action.
+    else if ('gesture' in checked) source = 'pointer:0';
+    else if ('virtual' in checked) source = `virtual:${checked.virtual}`;
+    if (source) this.identities.set(checked, source);
+    return checked;
+  }
+
+  private bindingPressVersion(binding: ActionBinding): number {
+    if ('button' in binding || 'axis' in binding) return this.pad.pressVersion;
+    if ('key' in binding)
+      return this.keyboard?.pressVersion?.(binding.key) ?? this.pulseFrame;
+    if ('pointerButton' in binding)
+      return (
+        this.sources?.pointer.pressVersion(binding.pointerButton) ??
+        this.pulseFrame
+      );
+    if ('wheel' in binding)
+      return (
+        this.sources?.pointer.wheelVersion(binding.wheel) ?? this.pulseFrame
+      );
+    if ('gesture' in binding)
+      return this.sources?.gestureVersion(binding.gesture) ?? this.pulseFrame;
+    return this.pulseFrame;
+  }
+
+  private bindingValue(binding: ActionBinding): number {
+    if ('button' in binding) return this.pad.button(binding.button);
+    if ('axis' in binding)
+      return Math.max(0, this.pad.axis(binding.axis) * binding.direction);
+    if ('key' in binding) return this.keyboard?.isDown(binding.key) ? 1 : 0;
+    if ('pointerButton' in binding)
+      return this.sources?.pointer.isDown(binding.pointerButton) ? 1 : 0;
+    if ('wheel' in binding)
+      return Math.min(
+        1,
+        Math.max(
+          0,
+          (this.sources?.pointer.wheelDelta(binding.wheel) ?? 0) *
+            binding.direction,
+        ),
+      );
+    if ('gesture' in binding)
+      return this.sources?.gesture(binding.gesture) ? 1 : 0;
+    return Math.max(
+      0,
+      (this.sources?.virtual.value(binding.virtual) ?? 0) *
+        (binding.direction ?? 1),
+    );
+  }
+
+  private bindingPressed(binding: ActionBinding): boolean {
+    if ('button' in binding) return this.pad.wasPressed(binding.button);
+    if ('axis' in binding)
+      return this.pad.axisWasPressed(binding.axis, binding.direction);
+    if ('key' in binding)
+      return this.keyboard?.wasPressed(binding.key) ?? false;
+    if ('pointerButton' in binding)
+      return this.sources?.pointer.wasPressed(binding.pointerButton) ?? false;
+    if ('virtual' in binding)
+      return (
+        this.sources?.virtual.wasPressed(
+          binding.virtual,
+          binding.direction ?? 1,
+          this.pad.pressThreshold,
+        ) ?? false
+      );
+    return this.bindingValue(binding) >= this.pad.pressThreshold;
+  }
+
+  private bindingReleased(binding: ActionBinding): boolean {
+    if ('key' in binding)
+      return this.keyboard?.wasReleased(binding.key) ?? false;
+    if ('pointerButton' in binding)
+      return this.sources?.pointer.wasReleased(binding.pointerButton) ?? false;
+    if ('virtual' in binding)
+      return (
+        this.sources?.virtual.wasReleased(
+          binding.virtual,
+          binding.direction ?? 1,
+          this.pad.pressThreshold,
+        ) ?? false
+      );
+    return false;
   }
 }
 
 function checkAction(action: string): void {
-  // Guards prototype-shaped names when actions come from persisted JSON.
   if (typeof action !== 'string' || !action || action === '__proto__')
     throw new RangeError('Action name must be a non-empty string.');
 }
 
-function sameBinding(a: GamepadBinding, b: GamepadBinding): boolean {
+function sameBinding(a: ActionBinding, b: ActionBinding): boolean {
   if ('button' in a && 'button' in b) return a.button === b.button;
   if ('axis' in a && 'axis' in b)
     return a.axis === b.axis && a.direction === b.direction;
   if ('key' in a && 'key' in b) return a.key === b.key;
+  if ('pointerButton' in a && 'pointerButton' in b)
+    return a.pointerButton === b.pointerButton;
+  if ('wheel' in a && 'wheel' in b)
+    return a.wheel === b.wheel && a.direction === b.direction;
+  if ('gesture' in a && 'gesture' in b) return a.gesture === b.gesture;
+  if ('virtual' in a && 'virtual' in b)
+    return a.virtual === b.virtual && (a.direction ?? 1) === (b.direction ?? 1);
   return false;
 }

@@ -14,6 +14,14 @@ import {
   type Renderer,
   type RenderSnapshot,
 } from '../packages/graphics/src/index.js';
+import { Texture } from '../packages/assets/src/index.js';
+import { Sprite } from '../packages/core/src/sprite.js';
+import { NativeResidency } from '../packages/graphics/src/residency.js';
+import type { ResidencyAllocation } from '../packages/graphics/src/residency.js';
+import {
+  prepareNativeResource,
+  residencyLease,
+} from '../packages/graphics/src/preparation.js';
 
 vi.mock('../packages/graphics/src/index.js', async (original) => ({
   ...(await original<{ createRenderer: typeof createRenderer }>()),
@@ -97,6 +105,17 @@ beforeEach(() => {
       instancing: true,
       maxTextureSize: 4096,
     },
+    residency: new NativeResidency(),
+    configureResidency: vi.fn(),
+    prepareGeometry: vi.fn(),
+    unloadGeometry: vi.fn(),
+    prepareResource: vi.fn(async () => {
+      throw new Error('Unexpected warmup in Scene fixture.');
+    }),
+    retainFrameResources: () =>
+      residencyLease(
+        (renderer.residency as NativeResidency).retainFrameResources(),
+      ),
     initialize: vi.fn(),
     beginFrame: vi.fn(() => calls.push('renderer:begin')),
     render: vi.fn(() => calls.push('renderer:render')),
@@ -163,6 +182,67 @@ function frame(timestamp: number): void {
   if (!first) throw new Error('No scheduled frame.');
   frames.delete(first[0]);
   first[1](timestamp);
+}
+
+function installTextureCache(
+  budget: number,
+  completion?: Promise<void>,
+): NativeResidency {
+  const native = renderer.residency as NativeResidency;
+  native.configure({ textureBytes: budget });
+  const cache = new Map<Texture, ResidencyAllocation>();
+  const touch = (texture: Texture): void => {
+    let allocation = cache.get(texture);
+    if (!allocation) {
+      allocation = native.textures.allocate(
+        texture.width * texture.height * 4,
+        () => cache.delete(texture),
+      );
+      cache.set(texture, allocation);
+    }
+    allocation.touch();
+  };
+  const unsupported = (): never => {
+    throw new Error('Unexpected non-texture fixture resource.');
+  };
+  vi.mocked(renderer.prepareResource).mockImplementation((source, options) =>
+    prepareNativeResource(
+      native,
+      source,
+      {
+        texture: (texture) => {
+          if (!(texture instanceof Texture))
+            throw new Error('Unexpected fixture texture.');
+          touch(texture);
+        },
+        geometry: unsupported,
+        mesh: unsupported,
+        particles: unsupported,
+        environment: unsupported,
+        material: unsupported,
+        post: unsupported,
+        complete: () => completion ?? Promise.resolve(),
+      },
+      options,
+    ),
+  );
+  vi.mocked(renderer.render).mockImplementation((scene) => {
+    native.beginFrame();
+    try {
+      for (const object of scene?.objects ?? [])
+        if (
+          object instanceof Sprite &&
+          object.visible &&
+          object.texture instanceof Texture
+        )
+          touch(object.texture);
+      native.endFrame();
+    } catch (error) {
+      native.abortFrame();
+      throw error;
+    }
+  });
+  return native;
 }
 
 class LoggingScene extends Scene {
@@ -682,5 +762,324 @@ describe('Scene ownership and Game integration', () => {
     await game.setScene(next);
     expect(game.scene).toBe(next);
     game.destroy();
+  });
+
+  it('warms a candidate over RAF chunks and retains its resources only for the published scene lifetime', async () => {
+    const game = await createGame(),
+      old = new LoggingScene('old', calls);
+    await game.setScene(old);
+    const native = renderer.residency as NativeResidency;
+    native.configure({ textureBytes: 32 });
+    vi.mocked(renderer.prepareResource).mockImplementation(async (source) => {
+      if (!(source instanceof Texture)) throw new Error('Unexpected resource.');
+      native.beginCapture();
+      native.textures.allocate(source.width * source.height * 4, () => {});
+      return residencyLease(native.endCapture());
+    });
+    const candidate = new Scene();
+    for (let i = 0; i < 2; i++)
+      candidate.add(
+        new Sprite({
+          texture: new Texture({
+            width: 2,
+            height: 2,
+            close() {},
+          } as ImageBitmap),
+        }),
+      );
+    const ratios: number[] = [];
+    const switching = game.setScene(candidate, {
+      warmup: {
+        maxItems: 1,
+        maxMilliseconds: 1000,
+        onProgress: (progress) => ratios.push(progress.ratio),
+      },
+    });
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    expect(game.scene).toBe(old);
+    frame(1);
+    await vi.waitFor(() => expect(ratios).toEqual([0, 0.5]));
+    expect(game.scene).toBe(old);
+    expect(() => native.textures.allocate(32, () => {})).toThrow();
+    frame(2);
+    await switching;
+    expect(ratios).toEqual([0, 0.5, 1]);
+    expect(game.scene).toBe(candidate);
+    expect(old.destroyed).toBe(true);
+    await game.setScene(new Scene());
+    const replacement = native.textures.allocate(32, () => {});
+    expect(replacement.bytes).toBe(32);
+    expect(native.textures.entries).toBe(1);
+    game.destroy();
+    native.clear();
+  });
+
+  it('keeps the old scene on warmup budget failure and cancellation, releasing only the candidate leases', async () => {
+    const game = await createGame(),
+      old = new Scene();
+    await game.setScene(old);
+    const native = renderer.residency as NativeResidency;
+    native.configure({ textureBytes: 16 });
+    vi.mocked(renderer.prepareResource).mockImplementation(async (source) => {
+      if (!(source instanceof Texture)) throw new Error('Unexpected resource.');
+      native.beginCapture();
+      try {
+        native.textures.allocate(source.width * source.height * 4, () => {});
+        return residencyLease(native.endCapture());
+      } catch (error) {
+        residencyLease(native.endCapture()).release();
+        throw error;
+      }
+    });
+    const texture = new Texture({
+      width: 2,
+      height: 2,
+      close() {},
+    } as ImageBitmap);
+    const candidate = new Scene();
+    candidate.add(new Sprite({ texture }));
+    candidate.add(
+      new Sprite({
+        texture: new Texture({
+          width: 2,
+          height: 2,
+          close() {},
+        } as ImageBitmap),
+      }),
+    );
+    const switching = game.setScene(candidate, { warmup: { maxItems: 1 } });
+    const failed = expect(switching).rejects.toThrow();
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    frame(1);
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    frame(2);
+    await failed;
+    expect(game.scene).toBe(old);
+    expect(old.destroyed).toBe(false);
+    expect(candidate.destroyed).toBe(true);
+    expect(texture.destroyed).toBe(false);
+    native.textures.allocate(16, () => {});
+
+    const controller = new AbortController(),
+      cancelled = new Scene();
+    cancelled.add(new Sprite({ texture }));
+    const pending = game.setScene(cancelled, {
+      warmup: { signal: controller.signal },
+    });
+    const cancelledFailure = expect(pending).rejects.toThrow();
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    controller.abort(new Error('leave loading'));
+    await cancelledFailure;
+    expect(frames.size).toBe(0);
+    expect(game.scene).toBe(old);
+    expect(cancelled.destroyed).toBe(true);
+    expect(texture.destroyed).toBe(false);
+    game.destroy();
+    native.clear();
+  });
+
+  it('preserves submitted old-frame allocations across an impossible candidate handoff and keeps rendering', async () => {
+    const game = await createGame(),
+      old = new Scene();
+    const texture = new Texture({
+      width: 2,
+      height: 2,
+      close() {},
+    } as ImageBitmap);
+    old.add(new Sprite({ texture }));
+    await game.setScene(old);
+    const native = renderer.residency as NativeResidency;
+    native.configure({ textureBytes: 16 });
+    let oldAllocation = native.textures.allocate(16, () => {});
+    native.beginFrame();
+    oldAllocation.touch();
+    native.endFrame();
+    vi.mocked(renderer.prepareResource).mockImplementation(async (source) => {
+      native.beginCapture();
+      try {
+        if (source === texture) oldAllocation.touch();
+        else native.textures.allocate(16, () => {});
+        return residencyLease(native.endCapture());
+      } catch (error) {
+        residencyLease(native.endCapture()).release();
+        throw error;
+      }
+    });
+    vi.mocked(renderer.render).mockImplementation(() => {
+      native.beginFrame();
+      if (oldAllocation.destroyed)
+        oldAllocation = native.textures.allocate(16, () => {});
+      oldAllocation.touch();
+      native.endFrame();
+    });
+    const candidate = new Scene();
+    candidate.add(
+      new Sprite({
+        texture: new Texture({
+          width: 2,
+          height: 2,
+          close() {},
+        } as ImageBitmap),
+      }),
+    );
+    const pending = game.setScene(candidate, { warmup: { maxItems: 1 } });
+    const failure = expect(pending).rejects.toThrow();
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    frame(1);
+    await vi.waitFor(() => expect(frames.size).toBe(1));
+    frame(2);
+    await failure;
+    expect(oldAllocation.destroyed).toBe(false);
+    expect(game.scene).toBe(old);
+    game.start();
+    frame(3);
+    expect(game.state).toBe('running');
+    expect(old.destroyed).toBe(false);
+    expect(texture.destroyed).toBe(false);
+    game.destroy();
+    native.clear();
+  });
+
+  it('cancels a pending standalone warmup before publishing a different active scene', async () => {
+    const game = await createGame();
+    await game.setScene(new Scene());
+    const native = installTextureCache(16),
+      candidate = new Scene();
+    candidate.add(
+      new Sprite({
+        texture: new Texture({
+          width: 2,
+          height: 2,
+          close() {},
+        } as ImageBitmap),
+      }),
+    );
+    const pending = game.warmup(candidate, { maxItems: 1 });
+    void pending.catch(() => {});
+    try {
+      await vi.waitFor(() => expect(frames.size).toBe(1));
+      const active = new Scene();
+      active.add(
+        new Sprite({
+          texture: new Texture({
+            width: 2,
+            height: 2,
+            close() {},
+          } as ImageBitmap),
+        }),
+      );
+      await game.setScene(active);
+      renderer.render(active, 1280, 720);
+      if (frames.size) frame(1);
+      await expect(pending).rejects.toThrow();
+      expect(game.scene).toBe(active);
+      expect(native.textures.evictions).toBe(0);
+      game.start();
+      frame(2);
+      frame(3);
+      expect(game.state).toBe('running');
+    } finally {
+      game.destroy();
+      native.clear();
+      await pending.catch(() => {});
+    }
+  });
+
+  it('protects the submitted visible texture while warming hidden resources in the current scene', async () => {
+    const game = await createGame(),
+      active = new Scene();
+    const hidden = new Sprite({
+      texture: new Texture({ width: 2, height: 2, close() {} } as ImageBitmap),
+    });
+    hidden.visible = false;
+    active.add(hidden);
+    active.add(
+      new Sprite({
+        texture: new Texture({
+          width: 2,
+          height: 2,
+          close() {},
+        } as ImageBitmap),
+      }),
+    );
+    await game.setScene(active);
+    const native = installTextureCache(16);
+    renderer.render(active, 1280, 720);
+    let settled = false;
+    const pending = game.warmup(active, { maxItems: 1 });
+    void pending.then(
+      () => {
+        settled = true;
+      },
+      () => {
+        settled = true;
+      },
+    );
+    try {
+      await vi.waitFor(() => expect(frames.size).toBe(1));
+      frame(1);
+      await vi.waitFor(() => expect(settled || frames.size > 0).toBe(true));
+      expect(() => renderer.render(active, 1280, 720)).not.toThrow();
+      if (!settled && frames.size) frame(2);
+      await expect(pending).rejects.toThrow();
+      expect(native.textures.evictions).toBe(0);
+      game.start();
+      frame(3);
+      expect(game.state).toBe('running');
+    } finally {
+      game.destroy();
+      native.clear();
+      await pending.catch(() => {});
+    }
+  });
+
+  it('cancels in-flight upload ownership before a newly published scene needs the budget', async () => {
+    const game = await createGame();
+    await game.setScene(new Scene());
+    let complete!: () => void;
+    const work = new Promise<void>((resolve) => {
+      complete = resolve;
+    });
+    const native = installTextureCache(16, work),
+      candidate = new Scene();
+    candidate.add(
+      new Sprite({
+        texture: new Texture({
+          width: 2,
+          height: 2,
+          close() {},
+        } as ImageBitmap),
+      }),
+    );
+    const pending = game.warmup(candidate, { maxItems: 1 });
+    void pending.catch(() => {});
+    try {
+      await vi.waitFor(() => expect(frames.size).toBe(1));
+      frame(1);
+      await vi.waitFor(() => expect(native.textures.liveBytes).toBe(16));
+      const active = new Scene();
+      active.add(
+        new Sprite({
+          texture: new Texture({
+            width: 2,
+            height: 2,
+            close() {},
+          } as ImageBitmap),
+        }),
+      );
+      await game.setScene(active);
+      expect(() => renderer.render(active, 1280, 720)).not.toThrow();
+      await expect(pending).rejects.toThrow();
+      expect(game.scene).toBe(active);
+      expect(native.textures.evictions).toBe(1);
+      game.start();
+      frame(2);
+      expect(game.state).toBe('running');
+    } finally {
+      complete();
+      game.destroy();
+      native.clear();
+      await pending.catch(() => {});
+    }
   });
 });

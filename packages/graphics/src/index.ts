@@ -22,6 +22,24 @@ import type {
   RenderTexture2D,
   RenderTextureOptions2D,
 } from './render-texture2d.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
+export type {
+  GraphicsResidency,
+  ResidencyBudgetOptions,
+  ResidencyStats,
+} from './residency.js';
+export type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
 export { RenderTexture2D } from './render-texture2d.js';
 export type { RenderTextureOptions2D } from './render-texture2d.js';
 export type { RenderStats } from './render-stats.js';
@@ -73,6 +91,15 @@ export interface Renderer {
   readonly capabilities: GraphicsCapabilities;
   /** Counters for the last rendered frame; the object is reused, so copy values to keep them. */
   readonly stats: RenderStats;
+  readonly residency: GraphicsResidency;
+  configureResidency(options: ResidencyBudgetOptions): void;
+  prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
+  unloadGeometry(source: Geometry | Geometry2D): void;
+  prepareResource(
+    source: PreparationResource,
+    options?: ResourcePreparationOptions,
+  ): Promise<PreparedResourceLease>;
+  retainFrameResources(): PreparedResourceLease;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
   beginFrame(): void;
   render(
@@ -119,6 +146,7 @@ export async function createRenderer(
     recover?: boolean;
     onLost?(error: Error): void;
     onRecovered?(): void;
+    residency?: ResidencyBudgetOptions;
   } = {},
 ): Promise<Renderer> {
   if (!['auto', 'webgpu', 'webgl2', 'canvas2d'].includes(preference))
@@ -162,6 +190,7 @@ export async function createRenderer(
       target.height = canvas.height;
     }
     try {
+      renderer.configureResidency(options.residency ?? {});
       await renderer.initialize(target);
       if (initializationError) throw initializationError;
     } catch (cause) {

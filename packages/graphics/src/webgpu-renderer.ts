@@ -32,6 +32,19 @@ import {
   GPUSnapshot,
   type GPUColorTarget,
 } from './webgpu-2d/effects.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { NativeResidency } from './residency.js';
+import type {
+  ResidencyAllocation,
+  ResidencyBudgetOptions,
+} from './residency.js';
+import { prepareNativeResource, residencyLease } from './preparation.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
 
 const triangleShader = /* wgsl */ `
 struct VertexOutput {
@@ -64,7 +77,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 `;
 
 interface CachedTexture {
+  allocation: ResidencyAllocation;
   resource: GPUTexture;
+  width: number;
+  height: number;
   seen: number;
   version: number;
   prepared: boolean;
@@ -73,6 +89,87 @@ interface CachedTexture {
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
   private readonly frameStats = new FrameStats();
+  readonly residency = new NativeResidency();
+  private readonly preparedGeometry = new Set<ResidencyAllocation>();
+  configureResidency(options: ResidencyBudgetOptions): void {
+    if (this.encoder)
+      throw new GraphicsError(
+        'Cannot change residency budgets during an active frame.',
+      );
+    this.residency.configure(options);
+  }
+  retainFrameResources(): PreparedResourceLease {
+    this.requireDevice();
+    return residencyLease(this.residency.retainFrameResources());
+  }
+  async prepareGeometry(source: Geometry | Geometry2D): Promise<void> {
+    const device = this.requireDevice();
+    if (this.encoder)
+      throw new GraphicsError(
+        'Cannot prepare geometry during an active frame.',
+      );
+    const allocation =
+      source instanceof Geometry2D
+        ? this.render2D!.prepareGeometry(source)
+        : this.meshPipeline!.prepareGeometry(source);
+    if (!this.preparedGeometry.has(allocation)) {
+      allocation.retain();
+      this.preparedGeometry.add(allocation);
+    }
+    await device.queue.onSubmittedWorkDone();
+    this.requireDevice();
+  }
+  unloadGeometry(source: Geometry | Geometry2D): void {
+    this.requireDevice();
+    if (this.encoder)
+      throw new GraphicsError('Cannot unload geometry during an active frame.');
+    if (source instanceof Geometry2D) this.render2D!.unloadGeometry(source);
+    else this.meshPipeline!.unloadGeometry(source);
+    for (const allocation of this.preparedGeometry)
+      if (allocation.destroyed) this.preparedGeometry.delete(allocation);
+  }
+  async prepareResource(
+    source: PreparationResource,
+    options?: ResourcePreparationOptions,
+  ): Promise<PreparedResourceLease> {
+    const device = this.requireDevice();
+    if (this.encoder)
+      throw new GraphicsError(
+        'Cannot prepare resources during an active frame.',
+      );
+    return prepareNativeResource(
+      this.residency,
+      source,
+      {
+        texture: (texture) => {
+          if (texture.kind === 'render') this.render2D!.source(texture);
+          else this.cacheTexture(device, texture);
+        },
+        geometry: (geometry) => {
+          if (geometry instanceof Geometry2D)
+            this.render2D!.prepareGeometry(geometry);
+          else this.meshPipeline!.prepareGeometry(geometry);
+        },
+        mesh: (mesh) => this.meshPipeline!.prepareMesh(mesh),
+        particles: (layer) => {
+          this.render2D!.prepareParticles(layer);
+          for (let i = 0; i < layer.activeCount; i++) {
+            const source = layer.getSlot(layer.activeSlotAt(i)).texture;
+            if (source.kind === 'render') this.render2D!.source(source);
+            else this.cacheTexture(device, source);
+          }
+        },
+        environment: (map) => this.meshPipeline!.prepareEnvironment(map),
+        material: (material) => this.prepareMaterial(material),
+        post: (post) => this.preparePostProcessor(post),
+        complete: async () => {
+          await device.queue.onSubmittedWorkDone();
+          this.requireDevice();
+        },
+      },
+      options,
+    );
+  }
 
   get stats(): RenderStats {
     return this.frameStats;
@@ -123,6 +220,7 @@ export class WebGPURenderer implements Renderer {
 
   private readonly render2DHooks: WebGPURender2DHooks = {
     owner: this,
+    residency: this.residency,
     get stats(): FrameStats {
       return (this.owner as WebGPURenderer).frameStats;
     },
@@ -267,6 +365,7 @@ export class WebGPURenderer implements Renderer {
             () => this.destroyed,
             this.antialias ? 4 : 1,
             this.frameStats,
+            this.residency,
           );
         }
       } finally {
@@ -334,7 +433,7 @@ export class WebGPURenderer implements Renderer {
     content: Scene | IsolatedGroup2D,
     options?: { clear?: boolean; bounds?: Rect2D },
   ): Promise<void> {
-    this.requireDevice();
+    this.render2DHooks.assertIdle();
     return this.render2D!.renderToTexture(target, content, options);
   }
 
@@ -350,7 +449,7 @@ export class WebGPURenderer implements Renderer {
     content: Scene | IsolatedGroup2D,
     options?: { bounds?: Rect2D; resolution?: number },
   ): Promise<Texture> {
-    this.requireDevice();
+    this.render2DHooks.assertIdle();
     return this.render2D!.generateTexture(content, options);
   }
 
@@ -364,6 +463,7 @@ export class WebGPURenderer implements Renderer {
       if (source.kind === 'render') this.render2D!.source(source);
       else {
         const entry = this.cacheTexture(device, source);
+        if (!entry.prepared) entry.allocation.retain();
         entry.prepared = true;
         entry.seen = this.textureFrame;
       }
@@ -384,9 +484,9 @@ export class WebGPURenderer implements Renderer {
     }
     const entry = this.textures.get(source);
     if (entry) {
-      entry.resource.destroy();
-      this.textures.delete(source);
+      entry.allocation.destroy();
     }
+    this.meshPipeline!.unloadTexture(source);
   }
 
   async captureScene(
@@ -407,12 +507,13 @@ export class WebGPURenderer implements Renderer {
     try {
       this.beginFrame();
       this.render(scene, width, height);
-      this.endFrame();
+      this.endFrame(false);
       const snapshot = new GPUSnapshot(this.effectsPipeline!, target);
       this.effectsPipeline!.snapshots.add(snapshot);
       return snapshot;
     } catch (error) {
       this.encoder = undefined;
+      this.residency.abortFrame();
       this.effectsPipeline!.destroyTexture(target.texture);
       throw error;
     } finally {
@@ -427,6 +528,7 @@ export class WebGPURenderer implements Renderer {
         'WebGPU beginFrame called before the preceding frame ended.',
       );
     this.encoder = device.createCommandEncoder();
+    this.residency.beginFrame();
     this.frameStats.begin();
     this.frameRendered = false;
   }
@@ -590,7 +692,7 @@ export class WebGPURenderer implements Renderer {
     }
   }
 
-  endFrame(): void {
+  endFrame(publishFrame = true): void {
     const device = this.requireDevice();
     if (!this.encoder || !this.frameRendered) {
       throw new GraphicsError('WebGPU endFrame requires a rendered frame.');
@@ -598,12 +700,16 @@ export class WebGPURenderer implements Renderer {
     const commandBuffer = this.encoder.finish();
     this.encoder = undefined;
     this.submissions.push(commandBuffer);
+    let submitted = false;
     try {
       device.queue.submit(this.submissions);
+      submitted = true;
     } finally {
       this.submissions.length = 0;
       this.render2D?.flushRetired();
       this.releaseUnusedTextures();
+      if (submitted && publishFrame) this.residency.endFrame();
+      else this.residency.abortFrame();
     }
   }
 
@@ -657,7 +763,10 @@ export class WebGPURenderer implements Renderer {
     if (texture.destroyed)
       throw new GraphicsError('Cannot upload a destroyed texture.');
     const existing = this.textures.get(texture);
-    if (existing?.version === texture.version) return existing;
+    if (existing?.version === texture.version) {
+      existing.allocation.touch();
+      return existing;
+    }
     const { width, height } = texture;
     const limit = device.limits.maxTextureDimension2D;
     if (
@@ -672,15 +781,29 @@ export class WebGPURenderer implements Renderer {
         `WebGPU texture size ${width}×${height} exceeds this device's maximum texture dimension of ${limit} pixels per side.`,
       );
     }
-    const resource = device.createTexture({
-      size: [width, height],
-      format: 'rgba8unorm',
-      usage:
-        GPUTextureUsage.TEXTURE_BINDING |
-        GPUTextureUsage.COPY_DST |
-        GPUTextureUsage.RENDER_ATTACHMENT,
-    });
+    const bytes = width * height * 4;
+    const allocation =
+      existing?.allocation ??
+      this.residency.textures.allocate(bytes, () => {
+        this.textures.get(texture)?.resource.destroy();
+        this.textures.delete(texture);
+      });
+    if (existing) allocation.resize(bytes);
+    const reuse =
+      !!existing && existing.width === width && existing.height === height;
+    let resource: GPUTexture | undefined;
     try {
+      if (existing && !reuse) existing.resource.destroy();
+      resource = reuse
+        ? existing!.resource
+        : device.createTexture({
+            size: [width, height],
+            format: 'rgba8unorm',
+            usage:
+              GPUTextureUsage.TEXTURE_BINDING |
+              GPUTextureUsage.COPY_DST |
+              GPUTextureUsage.RENDER_ATTACHMENT,
+          });
       device.queue.copyExternalImageToTexture(
         { source: texture.image },
         { texture: resource, premultipliedAlpha: true },
@@ -688,38 +811,46 @@ export class WebGPURenderer implements Renderer {
       );
       this.frameStats.upload(width * height * 4);
     } catch (error) {
-      resource.destroy();
+      if (!reuse) {
+        resource?.destroy();
+        allocation.destroy();
+      }
       throw error;
     }
-    existing?.resource.destroy();
     const entry: CachedTexture = existing ?? {
       resource,
+      allocation,
+      width,
+      height,
       seen: this.textureFrame,
       version: texture.version,
       prepared: false,
     };
     entry.resource = resource;
+    entry.width = width;
+    entry.height = height;
     entry.version = texture.version;
     this.textures.set(texture, entry);
     return entry;
   }
 
   private releaseUnusedTextures(): void {
-    for (const [texture, entry] of this.textures) {
+    for (const [texture, entry] of this.textures)
       if (
         texture.destroyed ||
-        (!entry.prepared && entry.seen !== this.textureFrame)
-      ) {
-        entry.resource.destroy();
-        this.textures.delete(texture);
-      }
-    }
+        (this.residency.textures.budgetBytes === Infinity &&
+          !entry.allocation.references &&
+          entry.seen !== this.textureFrame)
+      )
+        entry.allocation.destroy();
   }
 
   private releaseResources(): void {
     this.encoder = undefined;
     this.colorAttachment.view = undefined;
     this.submissions.length = 0;
+    this.residency.clear();
+    this.preparedGeometry.clear();
     this.effectsPipeline?.destroy();
     this.effectsPipeline = undefined;
     this.render2D?.destroy();

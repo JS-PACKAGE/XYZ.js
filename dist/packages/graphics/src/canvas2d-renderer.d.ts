@@ -7,12 +7,23 @@ import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { type RenderStats } from './render-stats.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
+import { Geometry } from '../../core/src/geometry.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { NativeResidency } from './residency.js';
+import type { ResidencyBudgetOptions } from './residency.js';
+import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 /** Sprite-only fallback; visible 3D meshes are deliberately unsupported. */
 export declare class Canvas2DRenderer implements Renderer {
     private readonly onError;
     readonly backend: "canvas2d";
     private readonly frameStats;
     readonly stats: RenderStats;
+    readonly residency: NativeResidency;
+    configureResidency(options: ResidencyBudgetOptions): void;
+    retainFrameResources(): PreparedResourceLease;
+    prepareGeometry(_source: Geometry | Geometry2D): Promise<void>;
+    unloadGeometry(_source: Geometry | Geometry2D): void;
+    prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     readonly capabilities: GraphicsCapabilities;
     private canvas;
     private context;

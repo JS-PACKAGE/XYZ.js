@@ -26,6 +26,15 @@ import {
 import { graphicsRecoveryLimits } from '../../../src/data/rendering.js';
 
 import type { RenderStats } from './render-stats.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
+import { preparationResourceDestroyed } from './preparation.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
 
 export interface ResilientRendererHooks {
   /** Called once when the GPU context/device is lost and recovery begins. */
@@ -34,10 +43,20 @@ export interface ResilientRendererHooks {
   onRecovered?(): void;
 }
 
+interface PreparationRegistration {
+  pending: number;
+  completed: boolean;
+}
+
+interface TexturePreparation {
+  readonly source: Texture2DSource;
+  readonly registration: PreparationRegistration;
+}
+
 /**
  * Rebuilds a WebGL2 or WebGPU renderer after context/device loss. Scenes, Textures and
- * geometry are CPU-owned, so they re-upload lazily; prepared 2D materials and
- * post-processors are prepared again on the replacement. Renderer-owned handles
+ * geometry are CPU-owned and otherwise upload lazily. Explicit preparations and live
+ * resource leases are restored on the replacement. Renderer-owned handles
  * (RenderTexture2D targets and snapshots) do not survive a loss.
  */
 export class ResilientRenderer implements Renderer {
@@ -48,9 +67,23 @@ export class ResilientRenderer implements Renderer {
   private ready = false;
   private recovering = false;
   private readonly abort = new AbortController();
+  private replacement: Renderer | undefined;
   private readonly materials = new Set<Material2D>();
   private readonly processors = new Set<PostProcessor2D>();
   private size: { width: number; height: number } | undefined;
+  private residencyOptions: ResidencyBudgetOptions = {};
+  private readonly prepared = new Set<{
+    source: PreparationResource;
+    lease: PreparedResourceLease;
+  }>();
+  private readonly textures = new Map<
+    Texture2DSource,
+    PreparationRegistration
+  >();
+  private readonly geometry = new Map<
+    Geometry | Geometry2D,
+    PreparationRegistration
+  >();
   /** Completed recoveries, for diagnostics. */
   recoveries = 0;
 
@@ -66,6 +99,70 @@ export class ResilientRenderer implements Renderer {
 
   get stats(): RenderStats {
     return this.current.stats;
+  }
+  get residency(): GraphicsResidency {
+    return this.current.residency;
+  }
+  configureResidency(options: ResidencyBudgetOptions): void {
+    this.requireReady().configureResidency(options);
+    this.residencyOptions = { ...options };
+  }
+  async prepareGeometry(source: Geometry | Geometry2D): Promise<void> {
+    const backend = this.requireReady();
+    const registration = this.geometry.get(source) ?? {
+      pending: 0,
+      completed: false,
+    };
+    this.geometry.set(source, registration);
+    registration.pending++;
+    try {
+      await backend.prepareGeometry(source);
+      if (this.geometry.get(source) === registration)
+        registration.completed = true;
+    } finally {
+      registration.pending--;
+      if (
+        !registration.pending &&
+        !registration.completed &&
+        this.geometry.get(source) === registration
+      )
+        this.geometry.delete(source);
+    }
+  }
+  unloadGeometry(source: Geometry | Geometry2D): void {
+    this.geometry.delete(source);
+    if (this.recovering) this.replacement?.unloadGeometry(source);
+    else this.current.unloadGeometry(source);
+  }
+  async prepareResource(
+    source: PreparationResource,
+    options?: ResourcePreparationOptions,
+  ): Promise<PreparedResourceLease> {
+    const entry = {
+      source,
+      lease: await this.requireReady().prepareResource(source, options),
+    };
+    if (options?.signal?.aborted) {
+      entry.lease.release();
+      options.signal.throwIfAborted();
+    }
+    if (this.destroyed) {
+      entry.lease.release();
+      throw new GraphicsError('Renderer was destroyed during preparation.');
+    }
+    this.prepared.add(entry);
+    return {
+      get released() {
+        return entry.lease.released;
+      },
+      release: () => {
+        this.prepared.delete(entry);
+        entry.lease.release();
+      },
+    };
+  }
+  retainFrameResources(): PreparedResourceLease {
+    return this.requireReady().retainFrameResources();
   }
 
   get capabilities(): GraphicsCapabilities {
@@ -116,11 +213,36 @@ export class ResilientRenderer implements Renderer {
       if (this.destroyed) return;
       const next = this.create(this.handleError);
       try {
+        next.configureResidency(this.residencyOptions);
         await next.initialize(canvas);
+        this.replacement = next;
         for (const material of this.materials)
           if (!material.destroyed) await next.prepareMaterial(material);
         for (const processor of this.processors)
           if (!processor.destroyed) await next.preparePostProcessor(processor);
+        for (const [texture, registration] of this.textures) {
+          if (texture.destroyed || texture.kind === 'render') continue;
+          await next.prepareTextures([texture]);
+          if (this.textures.get(texture) !== registration)
+            next.unloadTexture(texture);
+          else registration.completed = true;
+        }
+        for (const [geometry, registration] of this.geometry) {
+          await next.prepareGeometry(geometry);
+          if (this.geometry.get(geometry) !== registration)
+            next.unloadGeometry(geometry);
+          else registration.completed = true;
+        }
+        for (const entry of this.prepared) {
+          if (preparationResourceDestroyed(entry.source)) {
+            entry.lease.release();
+            this.prepared.delete(entry);
+            continue;
+          }
+          const lease = await next.prepareResource(entry.source);
+          if (this.prepared.has(entry)) entry.lease = lease;
+          else lease.release();
+        }
         if (this.destroyed) {
           next.destroy();
           return;
@@ -146,6 +268,8 @@ export class ResilientRenderer implements Renderer {
           cause: error,
         }),
       );
+    } finally {
+      this.replacement = undefined;
     }
   }
 
@@ -268,12 +392,41 @@ export class ResilientRenderer implements Renderer {
     return this.requireReady().generateTexture(content, options);
   }
 
-  prepareTextures(sources: readonly Texture2DSource[]): Promise<void> {
-    return this.requireReady().prepareTextures(sources);
+  async prepareTextures(sources: readonly Texture2DSource[]): Promise<void> {
+    const backend = this.requireReady();
+    const registrations: TexturePreparation[] = [];
+    for (const source of sources) {
+      if (source.kind === 'render') continue;
+      const registration = this.textures.get(source) ?? {
+        pending: 0,
+        completed: false,
+      };
+      this.textures.set(source, registration);
+      registration.pending++;
+      registrations.push({ source, registration });
+    }
+    try {
+      await backend.prepareTextures(sources);
+      for (const { source, registration } of registrations)
+        if (this.textures.get(source) === registration)
+          registration.completed = true;
+    } finally {
+      for (const { source, registration } of registrations) {
+        registration.pending--;
+        if (
+          !registration.pending &&
+          !registration.completed &&
+          this.textures.get(source) === registration
+        )
+          this.textures.delete(source);
+      }
+    }
   }
 
   unloadTexture(source: Texture2DSource): void {
-    if (!this.recovering) this.current.unloadTexture(source);
+    this.textures.delete(source);
+    if (this.recovering) this.replacement?.unloadTexture(source);
+    else this.current.unloadTexture(source);
   }
 
   destroy(): void {
@@ -282,6 +435,11 @@ export class ResilientRenderer implements Renderer {
     this.abort.abort();
     this.materials.clear();
     this.processors.clear();
+    for (const entry of this.prepared) entry.lease.release();
+    this.prepared.clear();
+    this.textures.clear();
+    this.geometry.clear();
     this.current.destroy();
+    this.replacement?.destroy();
   }
 }

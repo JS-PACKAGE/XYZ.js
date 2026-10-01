@@ -60,6 +60,7 @@ import {
   meshWGSL,
   quadWGSL,
 } from './webgpu-render2d-shaders.js';
+import type { NativeResidency, ResidencyAllocation } from './residency.js';
 
 const SLOT_BYTES = 256;
 const SLOT_FLOATS = SLOT_BYTES / 4;
@@ -78,6 +79,7 @@ interface Layer2D {
   seen: number;
 }
 interface MeshBuffers2D {
+  allocation: ResidencyAllocation;
   vertex: GPUBuffer;
   index: GPUBuffer;
   data: Float32Array;
@@ -85,6 +87,7 @@ interface MeshBuffers2D {
   seen: number;
 }
 interface ParticleBuffers2D {
+  allocation: ResidencyAllocation;
   buffer: GPUBuffer;
   data: Float32Array;
   versions: Float64Array;
@@ -95,6 +98,7 @@ interface ParticleBuffers2D {
 export interface WebGPURender2DHooks {
   owner: object;
   readonly stats: FrameStats;
+  residency: NativeResidency;
   /** Uploads or reuses a CPU-backed source; render targets are owned here. */
   upload(source: Exclude<Texture2DSource, RenderTexture2D>): GPUTexture;
   assertIdle(): void;
@@ -574,16 +578,19 @@ export class WebGPURender2D {
         for (const target of entry.targets) this.retire(target);
         this.layers.delete(group);
       }
-    for (const [geometry, entry] of this.meshes)
-      if (entry.seen !== this.frame) {
-        this.retiredBuffers.push(entry.vertex, entry.index);
-        this.meshes.delete(geometry);
-      }
+    if (this.hooks.residency.geometry.budgetBytes === Infinity) {
+      for (const entry of this.meshes.values())
+        if (entry.seen !== this.frame && !entry.allocation.references)
+          entry.allocation.destroy();
+    }
     for (const [layer, entry] of this.particles)
-      if (layer.destroyed || entry.seen !== this.frame) {
-        this.retiredBuffers.push(entry.buffer);
-        this.particles.delete(layer);
-      }
+      if (
+        layer.destroyed ||
+        (this.hooks.residency.geometry.budgetBytes === Infinity &&
+          entry.seen !== this.frame &&
+          !entry.allocation.references)
+      )
+        entry.allocation.destroy();
   }
   private open(target: GPUColorTarget, clear: boolean): GPURenderPassEncoder {
     if (this.pass && this.passTarget === target && !clear) return this.pass;
@@ -857,31 +864,50 @@ export class WebGPURender2D {
     pass.draw(6, 1, 0, slot);
     this.hooks.stats.draw2D();
   }
-  private drawMesh(mesh: Mesh2D, context: Context2D): void {
-    const geometry = mesh.geometry,
-      count = geometry.uvQ.length;
+  prepareGeometry(geometry: Geometry2D): ResidencyAllocation {
+    geometry.validate();
+    const count = geometry.uvQ.length;
     let entry = this.meshes.get(geometry);
     if (!entry) {
-      const vertex = this.device.createBuffer({
-        size: count * MESH_STRIDE,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      });
-      const index = this.device.createBuffer({
-        size: geometry.indices.byteLength,
-        usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
-      });
-      entry = {
-        vertex,
-        index,
-        data: new Float32Array(count * 5),
-        version: -1,
-        seen: this.frame,
-      };
-      this.meshes.set(geometry, entry);
+      const allocation = this.hooks.residency.geometry.allocate(
+        count * MESH_STRIDE + geometry.indices.byteLength,
+        () => {
+          const cached = this.meshes.get(geometry);
+          if (!cached) return;
+          cached.vertex.destroy();
+          cached.index.destroy();
+          this.meshes.delete(geometry);
+        },
+      );
+      let vertex: GPUBuffer | undefined, index: GPUBuffer | undefined;
+      try {
+        vertex = this.device.createBuffer({
+          size: count * MESH_STRIDE,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        index = this.device.createBuffer({
+          size: geometry.indices.byteLength,
+          usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
+        });
+        entry = {
+          vertex,
+          index,
+          allocation,
+          data: new Float32Array(count * 5),
+          version: -1,
+          seen: this.frame,
+        };
+        this.meshes.set(geometry, entry);
+      } catch (error) {
+        vertex?.destroy();
+        index?.destroy();
+        allocation.destroy();
+        throw error;
+      }
     }
+    entry.allocation.touch();
     entry.seen = this.frame;
     if (entry.version !== geometry.version) {
-      // Vertices carry (u*q, v*q, q) so the fragment stage divides after screen-space interpolation.
       for (let i = 0; i < count; i++) {
         const o = i * 5,
           q = geometry.uvQ[i];
@@ -898,6 +924,15 @@ export class WebGPURender2D {
       );
       entry.version = geometry.version;
     }
+    return entry.allocation;
+  }
+  unloadGeometry(geometry: Geometry2D): void {
+    this.meshes.get(geometry)?.allocation.destroy();
+  }
+  private drawMesh(mesh: Mesh2D, context: Context2D): void {
+    const geometry = mesh.geometry;
+    this.prepareGeometry(geometry);
+    const entry = this.meshes.get(geometry)!;
     const pass = this.open(context.target, false),
       slot = this.allocate();
     getTextureQuad2D(mesh.texture, mesh.view, undefined, this.quad);
@@ -919,15 +954,31 @@ export class WebGPURender2D {
     pass.drawIndexed(geometry.indices.length);
     this.hooks.stats.draw2D();
   }
-  private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
+  prepareParticles(layer: ParticleLayer2D): ResidencyAllocation {
+    if (layer.destroyed)
+      throw new GraphicsError('Cannot prepare a destroyed ParticleLayer2D.');
     let entry = this.particles.get(layer);
     if (!entry) {
-      const buffer = this.device.createBuffer({
-        size: layer.capacity * QUAD_BYTES,
-        usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
-      });
+      const allocation = this.hooks.residency.geometry.allocate(
+        layer.capacity * QUAD_BYTES,
+        () => {
+          this.particles.get(layer)?.buffer.destroy();
+          this.particles.delete(layer);
+        },
+      );
+      let buffer: GPUBuffer;
+      try {
+        buffer = this.device.createBuffer({
+          size: layer.capacity * QUAD_BYTES,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+      } catch (error) {
+        allocation.destroy();
+        throw error;
+      }
       entry = {
         buffer,
+        allocation,
         data: new Float32Array(layer.capacity * QUAD_FLOATS),
         versions: new Float64Array(layer.capacity * 5).fill(-1),
         slots: new Int32Array(layer.capacity).fill(-1),
@@ -936,7 +987,13 @@ export class WebGPURender2D {
       };
       this.particles.set(layer, entry);
     }
+    entry.allocation.touch();
     entry.seen = this.frame;
+    return entry.allocation;
+  }
+  private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
+    this.prepareParticles(layer);
+    const entry = this.particles.get(layer)!;
     const pass = this.open(context.target, false),
       slot = this.allocate(),
       data = entry.data,
@@ -1477,6 +1534,7 @@ export class WebGPURender2D {
     );
     let staging: GPUColorTarget | undefined,
       scratch: GPUColorTarget | undefined;
+    this.hooks.residency.beginFrame();
     try {
       this.preflight(
         this.captureCommands,
@@ -1552,6 +1610,7 @@ export class WebGPURender2D {
       this.device.queue.submit([encoder.finish()]);
       target.publish(this.hooks.owner, this.dependencies);
     } finally {
+      this.hooks.residency.abortFrame();
       if (staging) this.retire(staging);
       if (scratch) this.retire(scratch);
       this.captureCommands.clear();

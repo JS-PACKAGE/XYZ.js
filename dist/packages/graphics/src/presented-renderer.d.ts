@@ -6,6 +6,10 @@ import type { RenderStats } from './render-stats.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
+import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 /** Auto selection keeps backend context binding away from the caller's canvas. */
 export declare class PresentedRenderer implements Renderer {
     private readonly renderer;
@@ -17,6 +21,12 @@ export declare class PresentedRenderer implements Renderer {
     get backend(): GraphicsBackend;
     get stats(): RenderStats;
     get capabilities(): GraphicsCapabilities;
+    get residency(): GraphicsResidency;
+    configureResidency(options: ResidencyBudgetOptions): void;
+    prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
+    unloadGeometry(source: Geometry | Geometry2D): void;
+    prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
+    retainFrameResources(): PreparedResourceLease;
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
     prepareMaterial(material: Material2D): Promise<void>;

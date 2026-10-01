@@ -2,6 +2,10 @@ export { Clock } from './clock.js';
 export { Game } from './game.js';
 export type {
   GameOptions,
+  ResourceBudgets,
+  WarmupOptions,
+  WarmupProgress,
+  WarmupLease,
   GameState,
   SetSceneOptions,
   SceneTransitionEventDetail,
@@ -22,6 +26,41 @@ export * from './maps2d/index.js';
 export * from './particles2d/index.js';
 export * from './materials2d/index.js';
 export * from './transitions2d/index.js';
+export {
+  UIRoot,
+  UIElement,
+  UILabel,
+  UIButton,
+  UICheckbox,
+  UISlider,
+  UIFocusManager,
+} from './ui.js';
+export type {
+  UIDimension,
+  UILayout,
+  UIWidgetOptions,
+  UICheckboxOptions,
+  UISliderOptions,
+} from './ui.js';
+export { FactoryRegistry, defineFactory } from './factories.js';
+export type {
+  FactoryContext,
+  FactoryDefinition,
+  FactoryDefinitions,
+  FactoryOptions,
+  FactoryNode,
+  FactoryServices,
+} from './factories.js';
+export {
+  ContentScene,
+  buildContentScene,
+  parseContentScene,
+} from './content.js';
+export type {
+  ContentNodeDefinition,
+  ContentSceneDefinition,
+  ContentBuildOptions,
+} from './content.js';
 export { PointerRouter } from './gameplay/pointer-router.js';
 export type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 export { HitArea2D } from './gameplay/hit-area2d.js';

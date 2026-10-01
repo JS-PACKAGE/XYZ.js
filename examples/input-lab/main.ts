@@ -10,6 +10,7 @@ import {
   type GamepadButtonName,
   type RendererPreference,
 } from '../../src/index.js';
+import type { ActionBinding } from '../../src/index.js';
 
 const WIDTH = 800;
 const HEIGHT = 450;
@@ -69,12 +70,17 @@ backend.addEventListener('change', () => {
   location.href = url.href;
 });
 
-const describe = (binding: GamepadBinding): string =>
-  'key' in binding
-    ? binding.key
-    : 'button' in binding
-      ? `pad ${binding.button}`
-      : `pad ${binding.axis}${binding.direction > 0 ? '+' : '-'}`;
+const describe = (binding: ActionBinding): string => {
+  if ('key' in binding) return binding.key;
+  if ('button' in binding) return `pad ${binding.button}`;
+  if ('axis' in binding)
+    return `pad ${binding.axis}${binding.direction > 0 ? '+' : '-'}`;
+  if ('pointerButton' in binding) return `pointer ${binding.pointerButton}`;
+  if ('wheel' in binding)
+    return `wheel ${binding.wheel}${binding.direction > 0 ? '+' : '-'}`;
+  if ('gesture' in binding) return `gesture ${binding.gesture}`;
+  return `virtual ${binding.virtual}${(binding.direction ?? 1) > 0 ? '+' : '-'}`;
+};
 
 let game: Game | undefined;
 let disc: Texture | undefined;

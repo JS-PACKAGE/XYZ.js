@@ -62,6 +62,7 @@ import {
   passFragment2D,
   blendFragment2D,
 } from './webgl2-render2d-shaders.js';
+import type { NativeResidency, ResidencyAllocation } from './residency.js';
 
 export interface GLTarget2D {
   framebuffer: WebGLFramebuffer;
@@ -86,6 +87,7 @@ interface Layer2D {
   result: GLTarget2D;
 }
 interface MeshBuffers2D {
+  allocation: ResidencyAllocation;
   vao: WebGLVertexArrayObject;
   vertex: WebGLBuffer;
   index: WebGLBuffer;
@@ -93,6 +95,7 @@ interface MeshBuffers2D {
   version: number;
 }
 interface ParticleBuffers2D {
+  allocation: ResidencyAllocation;
   vao: WebGLVertexArrayObject;
   buffer: WebGLBuffer;
   data: Float32Array;
@@ -103,6 +106,7 @@ interface ParticleBuffers2D {
 export interface GLRender2DHooks {
   owner: object;
   stats: FrameStats;
+  residency: NativeResidency;
   createTarget(width: number, height: number): GLTarget2D;
   deleteTarget(target: GLTarget2D): void;
   createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
@@ -336,11 +340,7 @@ export class WebGLRender2D {
         this.layers.delete(group);
       }
     for (const [layer, entry] of this.particles)
-      if (layer.destroyed) {
-        this.gl.deleteBuffer(entry.buffer);
-        this.gl.deleteVertexArray(entry.vao);
-        this.particles.delete(layer);
-      }
+      if (layer.destroyed) entry.allocation.destroy();
   }
   private bindTarget(context: Context2D): void {
     const gl = this.gl;
@@ -711,11 +711,22 @@ export class WebGLRender2D {
     gl.drawArrays(gl.TRIANGLES, 0, 6);
     this.hooks.stats.draw2D();
   }
-  private drawMesh(mesh: Mesh2D, context: Context2D): void {
-    const gl = this.gl,
-      geometry = mesh.geometry;
+  prepareGeometry(geometry: Geometry2D): ResidencyAllocation {
+    geometry.validate();
+    const gl = this.gl;
     let entry = this.meshes.get(geometry);
     if (!entry) {
+      const allocation = this.hooks.residency.geometry.allocate(
+        geometry.uvQ.length * 20 + geometry.indices.byteLength,
+        () => {
+          const cached = this.meshes.get(geometry);
+          if (!cached) return;
+          gl.deleteVertexArray(cached.vao);
+          gl.deleteBuffer(cached.vertex);
+          gl.deleteBuffer(cached.index);
+          this.meshes.delete(geometry);
+        },
+      );
       const vao = gl.createVertexArray(),
         vertex = gl.createBuffer(),
         index = gl.createBuffer();
@@ -723,17 +734,20 @@ export class WebGLRender2D {
         if (vao) gl.deleteVertexArray(vao);
         if (vertex) gl.deleteBuffer(vertex);
         if (index) gl.deleteBuffer(index);
+        allocation.destroy();
         throw new GraphicsError('WebGL2 Mesh2D allocation failed.');
       }
       entry = {
         vao,
         vertex,
         index,
+        allocation,
         data: new Float32Array(geometry.uvQ.length * 5),
         version: -1,
       };
       this.meshes.set(geometry, entry);
     }
+    entry.allocation.touch();
     if (entry.version !== geometry.version) {
       for (let i = 0; i < geometry.uvQ.length; i++) {
         const o = i * 5;
@@ -757,6 +771,16 @@ export class WebGLRender2D {
       gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 20, 8);
       entry.version = geometry.version;
     }
+    return entry.allocation;
+  }
+  unloadGeometry(geometry: Geometry2D): void {
+    this.meshes.get(geometry)?.allocation.destroy();
+  }
+  private drawMesh(mesh: Mesh2D, context: Context2D): void {
+    const gl = this.gl,
+      geometry = mesh.geometry;
+    this.prepareGeometry(geometry);
+    const entry = this.meshes.get(geometry)!;
     getTextureQuad2D(mesh.texture, mesh.view, undefined, this.quad);
     getRelativeAppearance2D(mesh, context.root, this.appearance);
     this.useQuad(
@@ -775,19 +799,33 @@ export class WebGLRender2D {
     gl.drawElements(gl.TRIANGLES, geometry.indices.length, gl.UNSIGNED_INT, 0);
     this.hooks.stats.draw2D();
   }
-  private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
+  prepareParticles(layer: ParticleLayer2D): ResidencyAllocation {
+    if (layer.destroyed)
+      throw new GraphicsError('Cannot prepare a destroyed ParticleLayer2D.');
     const gl = this.gl,
       stride = 28;
     let entry = this.particles.get(layer);
     if (!entry) {
+      const allocation = this.hooks.residency.geometry.allocate(
+        layer.capacity * stride * 4,
+        () => {
+          const cached = this.particles.get(layer);
+          if (!cached) return;
+          gl.deleteVertexArray(cached.vao);
+          gl.deleteBuffer(cached.buffer);
+          this.particles.delete(layer);
+        },
+      );
       const vao = gl.createVertexArray(),
         buffer = gl.createBuffer();
       if (!vao || !buffer) {
         if (vao) gl.deleteVertexArray(vao);
         if (buffer) gl.deleteBuffer(buffer);
+        allocation.destroy();
         throw new GraphicsError('WebGL2 particle allocation failed.');
       }
       entry = {
+        allocation,
         vao,
         buffer,
         data: new Float32Array(layer.capacity * stride),
@@ -800,6 +838,14 @@ export class WebGLRender2D {
       gl.bufferData(gl.ARRAY_BUFFER, entry.data.byteLength, gl.DYNAMIC_DRAW);
       this.bindInstances(vao, buffer, 0);
     }
+    entry.allocation.touch();
+    return entry.allocation;
+  }
+  private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
+    this.prepareParticles(layer);
+    const gl = this.gl,
+      stride = 28,
+      entry = this.particles.get(layer)!;
     gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
     let dirtyFirst = -1,
       dirtyEnd = 0;
@@ -1349,6 +1395,7 @@ export class WebGLRender2D {
     const destination = this.targets.get(target)!;
     // Render transactionally: failures leave the published mutable target untouched.
     const staging = this.hooks.createTarget(target.width, target.height);
+    this.hooks.residency.beginFrame();
     try {
       this.clear(staging);
       if (options.clear === false) {
@@ -1420,6 +1467,7 @@ export class WebGLRender2D {
       target.publish(this.hooks.owner, this.dependencies);
       this.gl.flush();
     } finally {
+      this.hooks.residency.abortFrame();
       this.hooks.deleteTarget(staging);
       this.captureCommands.clear();
       this.gl.bindFramebuffer(this.gl.FRAMEBUFFER, null);

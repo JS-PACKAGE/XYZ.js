@@ -7,6 +7,14 @@ import {
   WebGPUDeviceLostError,
 } from '../packages/graphics/src/errors.js';
 import type { Renderer } from '../packages/graphics/src/index.js';
+import { NativeResidency } from '../packages/graphics/src/residency.js';
+import type {
+  ResidencyAllocation,
+  ResidencyBudgetOptions,
+} from '../packages/graphics/src/residency.js';
+import { Texture } from '../packages/assets/src/index.js';
+import type { Texture2DSource } from '../packages/assets/src/index.js';
+import { Geometry } from '../packages/core/src/geometry.js';
 
 class FakeRenderer {
   backend = 'webgl2';
@@ -17,6 +25,13 @@ class FakeRenderer {
   prepared: unknown[] = [];
   size: [number, number] | undefined;
   failInitialize: Error | undefined;
+  readonly residency = new NativeResidency();
+  configureResidency(options: ResidencyBudgetOptions): void {
+    this.residency.configure(options);
+  }
+  gate: Promise<void> | undefined;
+  private readonly textures = new Map<Texture2DSource, ResidencyAllocation>();
+  private readonly geometry = new Map<Geometry, ResidencyAllocation>();
   constructor(readonly onError: (error: Error) => void) {}
   async initialize(): Promise<void> {
     if (this.failInitialize) throw this.failInitialize;
@@ -36,8 +51,38 @@ class FakeRenderer {
   async preparePostProcessor(processor: unknown) {
     this.prepared.push(processor);
   }
+  async prepareTextures(sources: readonly Texture2DSource[]): Promise<void> {
+    for (const source of sources)
+      if (!this.textures.has(source)) {
+        const allocation = this.residency.textures.allocate(
+          source.width * source.height * 4,
+          () => this.textures.delete(source),
+        );
+        allocation.retain();
+        this.textures.set(source, allocation);
+      }
+    await this.gate;
+  }
+  unloadTexture(source: Texture2DSource): void {
+    this.textures.get(source)?.destroy();
+  }
+  async prepareGeometry(source: Geometry): Promise<void> {
+    if (!this.geometry.has(source)) {
+      const allocation = this.residency.geometry.allocate(
+        source.vertices.byteLength + source.indices.byteLength,
+        () => this.geometry.delete(source),
+      );
+      allocation.retain();
+      this.geometry.set(source, allocation);
+    }
+    await this.gate;
+  }
+  unloadGeometry(source: Geometry): void {
+    this.geometry.get(source)?.destroy();
+  }
   destroy() {
     this.destroyed = true;
+    this.residency.clear();
   }
 }
 
@@ -46,7 +91,8 @@ class FakeDescriptor extends EventTarget {
 }
 
 function setup(backend: 'webgl2' | 'webgpu' = 'webgl2') {
-  const control: { failReplacement?: Error } = {};
+  const control: { failReplacement?: Error; replacementGate?: Promise<void> } =
+    {};
   const created: FakeRenderer[] = [];
   const report = vi.fn();
   const hooks = { onLost: vi.fn(), onRecovered: vi.fn() };
@@ -55,6 +101,7 @@ function setup(backend: 'webgl2' | 'webgpu' = 'webgl2') {
     (onError) => {
       const fake = new FakeRenderer(onError);
       if (created.length > 0) fake.failInitialize = control.failReplacement;
+      if (created.length > 0) fake.gate = control.replacementGate;
       created.push(fake);
       return fake as unknown as Renderer;
     },
@@ -223,4 +270,104 @@ describe('ResilientRenderer', () => {
     expect(hooks.onLost).not.toHaveBeenCalled();
     expect(renderer.isRecovering).toBe(false);
   });
+
+  it.each(['texture', 'geometry'] as const)(
+    'does not resurrect %s ownership unloaded before preparation completion',
+    async (kind) => {
+      const { renderer, created, report, canvas } = setup('webgpu');
+      await renderer.initialize(canvas);
+      const make = (): Texture | Geometry =>
+        kind === 'texture'
+          ? new Texture({ width: 2, height: 2, close() {} } as ImageBitmap)
+          : Geometry.quad();
+      const a = make(),
+        b = make();
+      const bytes =
+        a instanceof Texture
+          ? 16
+          : a.vertices.byteLength + a.indices.byteLength;
+      renderer.configureResidency({
+        textureBytes: bytes,
+        geometryBytes: bytes,
+      });
+      const prepare = (source: Texture | Geometry): Promise<void> =>
+        source instanceof Texture
+          ? renderer.prepareTextures([source])
+          : renderer.prepareGeometry(source);
+      const unload = (source: Texture | Geometry): void => {
+        if (source instanceof Texture) renderer.unloadTexture(source);
+        else renderer.unloadGeometry(source);
+      };
+      const pending = prepare(a);
+      unload(a);
+      await pending;
+      await prepare(b);
+      created[0].onError(new WebGPUDeviceLostError('lost'));
+      await settle();
+      expect(report).not.toHaveBeenCalled();
+      expect(renderer.recoveries).toBe(1);
+      const pool =
+        kind === 'texture'
+          ? created[1].residency.textures
+          : created[1].residency.geometry;
+      expect(pool.liveBytes).toBe(bytes);
+      expect(() => pool.allocate(bytes, () => {})).toThrow();
+      unload(b);
+      await prepare(make());
+      expect(pool.liveBytes).toBe(bytes);
+      renderer.destroy();
+    },
+  );
+
+  it.each(['texture', 'geometry'] as const)(
+    'retires a %s unloaded while replacement preparation is waiting',
+    async (kind) => {
+      const { renderer, created, report, canvas, control } = setup('webgpu');
+      await renderer.initialize(canvas);
+      const make = (): Texture | Geometry =>
+        kind === 'texture'
+          ? new Texture({ width: 2, height: 2, close() {} } as ImageBitmap)
+          : Geometry.quad();
+      const a = make(),
+        b = make();
+      const bytes =
+        a instanceof Texture
+          ? 16
+          : a.vertices.byteLength + a.indices.byteLength;
+      renderer.configureResidency({
+        textureBytes: bytes,
+        geometryBytes: bytes,
+      });
+      const prepare = (source: Texture | Geometry): Promise<void> =>
+        source instanceof Texture
+          ? renderer.prepareTextures([source])
+          : renderer.prepareGeometry(source);
+      const unload = (source: Texture | Geometry): void => {
+        if (source instanceof Texture) renderer.unloadTexture(source);
+        else renderer.unloadGeometry(source);
+      };
+      await prepare(a);
+      let complete!: () => void;
+      control.replacementGate = new Promise<void>((resolve) => {
+        complete = resolve;
+      });
+      created[0].onError(new WebGPUDeviceLostError('lost'));
+      await settle();
+      const pool =
+        kind === 'texture'
+          ? created[1].residency.textures
+          : created[1].residency.geometry;
+      expect(renderer.isRecovering).toBe(true);
+      expect(pool.liveBytes).toBe(bytes);
+      unload(a);
+      expect(pool.liveBytes).toBe(0);
+      complete();
+      await settle();
+      expect(report).not.toHaveBeenCalled();
+      expect(renderer.recoveries).toBe(1);
+      await prepare(b);
+      expect(pool.liveBytes).toBe(bytes);
+      renderer.destroy();
+    },
+  );
 });

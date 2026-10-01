@@ -117,7 +117,7 @@ transmission 仍只看 opaque snapshot。WebGPU 保留 MSAA，WebGL2 離屏單�
 要求 float color attachment。這是 bounded-weight 近似，不是 depth peeling。
 尺寸相關 targets 隨 resize、停用／無 Scene、destroy 清理，prepared pipeline 保留。
 
-## P40 已限定驗收；P41／P42 已批准、待實作驗收
+## P40／P41 已限定驗收；P42 待整合驗收
 
 使用者批准三輪及 P42 全部 advanced options；由主代理在各輪行為證據與整合驗收後分階段提交，不 push／publish／version change。上述歷史提交限制不覆蓋此授權，歷史 release／counts／dates 不改寫。
 
@@ -125,7 +125,9 @@ transmission 仍只看 opaque snapshot。WebGPU 保留 MSAA，WebGL2 離屏單�
 - **P40 metrics**：`RenderStats` 由每 backend 的 `FrameStats` 持有、重用；`drawCalls`／`triangles`／`shadowDrawCalls` 保持 3D 定義。每幀 `drawCalls2D`／`instances2D`／`renderPasses2D`／`uploadBytes` 記實際 native commands／effect composition／uploads；`renderTargetBytes`／`peakRenderTargetBytes` 是 live／renderer lifetime peak attachments bytes 估計，begin 不清除。Canvas2D 記 paint commands／passes 與 RGBA offscreen estimates，不是 GPU draw-call parity。Loss／destroy 釋 owned targets；CPU estimates 不是 GPU timer、driver／總 resident memory／GC，不能據此聲稱 FPS 改善。
 - **P40 browser gate**：深度 pixels／interaction／lifecycle／target teardown regression 走真 Game→Scene→Renderer；CI 定義與 CI 實跑區分，未實跑 browser 明確記 pending，不以舊 Chromium scope 宣稱跨 browser 認證。
   P40 已有三 backend Chromium 153 pixels／lifecycle／target accounting 證據，詳見 ACCEPTANCE；hosted CI 尚未執行，WebGPU device-loss injection 與其他 browser 未驗。
-- **P41 authoring／device contracts**：UI layout／widgets／focus 的 visual 走引擎 HUD，DOM 只鏡像 semantics／focus；cross-device action contexts 定義 precedence／capture／release／pause；resident budget／warmup 涵蓋資源 ownership／eviction／reprepare，不冒充 driver memory；typed factories 使用 root exports／既有 facade，不新增第二套 ECS／renderer。
+- **P41 authoring／device contracts（限定 Chromium 三 backend 驗收）**：`UIRoot(game?, UILayout)`／`UIElement` 提供 row／column／overlay、auto／fill／固定尺寸與 bounded min／max／padding／gap／align／justify；async UILabel／UIButton／UICheckbox／UISlider visuals 走既有 HUD renderer，unit raster 重用。DOM 只 semantics／focus，context 只 live semantic focus／modal 啟用；focus／move／pushModal／popModal trap／restore，widget pointer source 同幀 reconcile。Contexts 初始 inactive，priority／最新 activation 消耗 physical sources 與 legacy actions，不改 raw polling；held activation／unblock 不形成新 press，gamepadIndex 是 actual browser index。實際 touch injection 與模擬 Gamepad snapshots 不是實體裝置認證，詳見 ACCEPTANCE。
+- **P41 residency／warmup**：decoded CPU texture 與 native texture／geometry bytes 獨立預算估算；acquireTexture lease 與 legacy loadTexture pin 管 CPU ownership，native LRU 只淘汰 idle／未 active／未 retained allocations。Canvas native residency 為零，caller bitmaps／derivedCanvas／attachments／scratch／driver／pipelines 不在預算內。Warmup dependency snapshot 按 RAF chunks 限 items／資源間 milliseconds，單項可超時；舊 scene prelude 保護舊 frame 且不計 candidate progress，combined budget 不足拒 candidate，setScene candidate retain 到 scene lifetime，manual lease 需 release。
+- **P41 typed authoring**：FactoryRegistry／defineFactory 使用 explicit options parser／注入 services，fresh detached owned prefab subtree；context.own 在 fallible await 前，borrowed resources 保持 caller-owned。parseContentScene／buildContentScene 對 version-1 finite JSON IDs／parents／reference aliases 全 preflight，產 new unpublished Scene，再由 Game.setScene 發布；content.get／require typed lookup，serializer 只 explicit 2D IDs，不含 reflection／eval／automatic resource ownership／3D serialization。正式 [authoring-lab](examples/authoring-lab/) 沿 root facade，詳見雙語 USAGE／TECHNICAL。
 - **P42 full playable reference**：真正可完成與重玩的載入／選單／遊玩／pause／settings／結果／restart／save-load／teardown flow，包含 native input／audio unlock／failure handling。不是只把 API demos 串成 gallery。
 - **P42 全部 advanced profiles**：GPU skinning＋animated bounds 需保持 rendering／shadows／picking 一致；native compressed／mip texture 格式需明示 device feature／GL extension、level/block validation、ownership／loss reupload，外部 Basis／Draco codec 不冒稱內建。3D colliders／queries／character＋dynamic rigid bodies 必須有真正接觸／query／motion 行為；navigation／pathfinding 必須計算並執行路徑；animation masks／additive／blend tree／IK 必須接既有 mixer 的 simulation lifecycle。具體新 API 由實作後記入 TECHNICAL，backend restrictions 不能隱性縮減已批准範圍。
 

@@ -32,17 +32,52 @@ export declare class Texture {
     get destroyed(): boolean;
     destroy(): void;
 }
+export interface AssetLoaderOptions {
+    /** RGBA decoded bitmap estimate; does not bound decoder transient memory. */
+    decodedTextureBytes?: number;
+}
+export interface DecodedTextureResidency {
+    readonly budgetBytes: number;
+    readonly liveBytes: number;
+    readonly peakBytes: number;
+    readonly entries: number;
+    readonly borrowers: number;
+    readonly evictions: number;
+}
+/** A borrower must remove its consumers before releasing this lease. */
+export declare class TextureLease {
+    readonly texture: Texture;
+    private readonly relinquish;
+    private disposed;
+    constructor(texture: Texture, relinquish: () => void);
+    get released(): boolean;
+    release(): void;
+}
 /** One decoded CPU bitmap and one in-flight request per canonical URL. */
 export declare class AssetLoader {
     private readonly baseURL?;
     private readonly cache;
     private disposed;
     private readonly requests;
-    constructor(baseURL?: string | undefined);
-    /** Subscriber cancellation leaves the loader-owned shared request/cache intact. */
+    private readonly decodedBudget;
+    private decodedBytes;
+    private decodedPeak;
+    private evictions;
+    private clock;
+    constructor(baseURL?: string | undefined, options?: AssetLoaderOptions);
+    get residency(): DecodedTextureResidency;
+    /** Shared legacy borrowers are pinned until explicit unload/destroy, even after subscriber abort. */
     loadTexture(url: string, options?: {
         signal?: AbortSignal;
     }): Promise<Texture>;
+    acquireTexture(url: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<TextureLease>;
+    /** Explicitly ends legacy borrowing; outstanding leases must be released first. */
+    unloadTexture(url: string): void;
+    private textureURL;
+    private removeTexture;
+    private textureEntry;
     textureTask(key: string, url: string): LoadTask<Texture>;
     /** Acquires a unique caller-owned image, never a borrowed cache entry. */
     loadTextureOwned(url: string, options?: {

@@ -9,6 +9,7 @@ import {
   type FrameEffects,
   type RenderSnapshot,
 } from '../../graphics/src/index.js';
+import type { PreparedResourceLease } from '../../graphics/src/index.js';
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { RuntimeError } from './errors.js';
@@ -20,6 +21,18 @@ import {
 import { AccessibilityManager } from './accessibility/index.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
+import { warmupScene } from '../../graphics/src/warmup.js';
+import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+export type {
+  WarmupOptions,
+  WarmupProgress,
+  WarmupLease,
+} from '../../graphics/src/warmup.js';
+export interface ResourceBudgets {
+  decodedTextureBytes?: number;
+  nativeTextureBytes?: number;
+  nativeGeometryBytes?: number;
+}
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -54,6 +67,8 @@ export interface GameOptions {
   saveSchema?: SaveSchema;
   /** Locale registry, exposed as `game.i18n`; defaults to locale `en` with no messages. */
   i18n?: I18nOptions;
+  /** Independent decoded CPU / native texture / native geometry cache estimates. */
+  resourceBudgets?: ResourceBudgets;
   /**
    * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
    * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
@@ -66,6 +81,8 @@ export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
 
 export interface SetSceneOptions {
   transition?: TransitionOptions;
+  /** Warm the initialized candidate in bounded RAF chunks before atomic publication. */
+  warmup?: WarmupOptions;
 }
 export interface SceneTransitionEventDetail {
   readonly from: Scene;
@@ -85,7 +102,7 @@ export class Game extends EventTarget {
   readonly canvas: HTMLCanvasElement;
   readonly graphics: Renderer;
   readonly clock: Clock;
-  readonly assets = new AssetLoader();
+  readonly assets: AssetLoader;
   readonly input: InputManager;
   readonly saves: SaveManager;
   readonly i18n: I18n;
@@ -125,6 +142,82 @@ export class Game extends EventTarget {
   private readonly audioPause: { onPause: boolean; onHidden: boolean };
   private readonly accessibilityManager: AccessibilityManager;
   private readonly accessibilitySize = { width: 0, height: 0 };
+  private readonly warmupControllers = new Set<AbortController>();
+  private readonly warmupLeases = new Set<WarmupLease>();
+  private currentWarmup: WarmupLease | undefined;
+  private readonly warmupProtections = new Map<WarmupLease, () => void>();
+  get accessibility(): AccessibilityManager {
+    return this.accessibilityManager;
+  }
+
+  async warmup(
+    scene: Scene,
+    options: WarmupOptions = {},
+  ): Promise<WarmupLease> {
+    if (this.currentState === 'destroyed')
+      throw new RuntimeError('Cannot warm up a destroyed Game.');
+    const controller = new AbortController();
+    const abort = (): void => controller.abort(options.signal?.reason);
+    options.signal?.addEventListener('abort', abort, { once: true });
+    if (options.signal?.aborted) abort();
+    this.warmupControllers.add(controller);
+    let previousFrame: PreparedResourceLease | undefined;
+    let previousScene: WarmupLease | undefined;
+    try {
+      const current = this.currentScene;
+      previousFrame = this.graphics.retainFrameResources();
+      if (current && !current.destroyed) {
+        previousScene = await warmupScene(
+          this.graphics,
+          current,
+          {
+            maxItems: options.maxItems,
+            maxMilliseconds: options.maxMilliseconds,
+            signal: controller.signal,
+          },
+          true,
+        );
+      }
+      const native = await warmupScene(this.graphics, scene, {
+        ...options,
+        signal: controller.signal,
+      });
+      if (controller.signal.aborted || this.state === 'destroyed') {
+        native.release();
+        controller.signal.throwIfAborted();
+        throw new RuntimeError('Game was destroyed during warmup.');
+      }
+      const protectedFrame = previousFrame,
+        protectedScene = previousScene;
+      const releasePrevious = (): void => {
+        this.warmupProtections.delete(lease);
+        protectedScene?.release();
+        protectedFrame?.release();
+      };
+      const lease: WarmupLease = {
+        progress: native.progress,
+        get released() {
+          return native.released;
+        },
+        release: () => {
+          this.warmupLeases.delete(lease);
+          releasePrevious();
+          native.release();
+        },
+      };
+      this.warmupLeases.add(lease);
+      if (protectedFrame || protectedScene)
+        this.warmupProtections.set(lease, releasePrevious);
+      previousFrame = undefined;
+      previousScene = undefined;
+      return lease;
+    } finally {
+      previousScene?.release();
+      previousFrame?.release();
+      this.warmupControllers.delete(controller);
+      options.signal?.removeEventListener('abort', abort);
+    }
+  }
 
   private constructor(
     canvas: HTMLCanvasElement,
@@ -136,6 +229,9 @@ export class Game extends EventTarget {
     this.canvas = canvas;
     this.graphics = graphics;
     this.clock = clock;
+    this.assets = new AssetLoader(undefined, {
+      decodedTextureBytes: options.resourceBudgets?.decodedTextureBytes,
+    });
     this.logicalWidth = options.width ?? defaults.width;
     this.logicalHeight = options.height ?? defaults.height;
     this.fixedPixelRatio = options.pixelRatio;
@@ -262,6 +358,10 @@ export class Game extends EventTarget {
         {
           antialias: options.antialias,
           recover: options.recoverGraphics,
+          residency: {
+            textureBytes: options.resourceBudgets?.nativeTextureBytes,
+            geometryBytes: options.resourceBudgets?.nativeGeometryBytes,
+          },
           onLost: (error) => {
             // Snapshots and captures belong to the lost device.
             game?.cancelTransition();
@@ -475,9 +575,32 @@ export class Game extends EventTarget {
     }
     const completion = Promise.resolve().then(async () => {
       let snapshot: RenderSnapshot | undefined;
+      let warmed: WarmupLease | undefined;
       try {
         if (signal.aborted) throw new SceneCancelledError();
         await next.prepare(this, signal);
+        if (options.warmup) {
+          const warmupController = new AbortController();
+          const abortScene = (): void => warmupController.abort(signal.reason);
+          const abortWarmup = (): void =>
+            warmupController.abort(options.warmup?.signal?.reason);
+          signal.addEventListener('abort', abortScene, { once: true });
+          options.warmup.signal?.addEventListener('abort', abortWarmup, {
+            once: true,
+          });
+          if (signal.aborted) abortScene();
+          if (options.warmup.signal?.aborted) abortWarmup();
+          try {
+            warmed = await this.warmup(next, {
+              ...options.warmup,
+              signal: warmupController.signal,
+            });
+          } finally {
+            signal.removeEventListener('abort', abortScene);
+            options.warmup.signal?.removeEventListener('abort', abortWarmup);
+          }
+        }
+        options.warmup?.signal?.throwIfAborted();
         if (
           signal.aborted ||
           version !== this.sceneVersion ||
@@ -512,6 +635,13 @@ export class Game extends EventTarget {
         this.pendingCompletion = undefined;
         this.switchingScene = true;
         try {
+          for (const controller of this.warmupControllers)
+            controller.abort(new SceneCancelledError());
+          const previousWarmup = this.currentWarmup;
+          this.currentWarmup = warmed;
+          if (warmed) this.warmupProtections.get(warmed)?.();
+          warmed = undefined;
+          previousWarmup?.release();
           this.currentScene = next;
           this.accessibilityManager.reset();
           old?.destroy();
@@ -550,6 +680,7 @@ export class Game extends EventTarget {
         }
         throw reason;
       } finally {
+        warmed?.release();
         snapshot?.destroy();
         if (this.activeTransition?.controller !== transition)
           transition?.destroy();
@@ -565,7 +696,11 @@ export class Game extends EventTarget {
   onSceneDisposed(scene: Scene): void {
     this.setLoading(scene, undefined);
     if (this.currentScene === scene) {
+      for (const controller of this.warmupControllers)
+        controller.abort(new SceneCancelledError());
       this.currentScene = undefined;
+      this.currentWarmup?.release();
+      this.currentWarmup = undefined;
       this.accessibilityManager.reset();
     }
     if (this.activeTransition?.detail.to === scene) this.cancelTransition();
@@ -648,6 +783,10 @@ export class Game extends EventTarget {
     this.pause();
     this.currentState = 'destroyed';
     this.sceneVersion++;
+    for (const controller of this.warmupControllers)
+      controller.abort(new RuntimeError('Game was destroyed during warmup.'));
+    for (const lease of this.warmupLeases) lease.release();
+    this.currentWarmup = undefined;
     const pending = this.pendingScene;
     const current = this.currentScene;
     this.pendingScene = undefined;

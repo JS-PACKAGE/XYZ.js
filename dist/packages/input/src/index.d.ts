@@ -1,10 +1,15 @@
 import { Vector2 } from '../../math/src/index.js';
 import { ActionMap, GamepadState } from './gamepad.js';
 import { GestureRecognizer } from './gestures.js';
+import { InputContexts } from './contexts.js';
+import { VirtualInput } from './virtual.js';
+export { InputContext, InputContexts } from './contexts.js';
+export type { InputContextOptions } from './contexts.js';
+export { VirtualInput } from './virtual.js';
 export { GestureRecognizer } from './gestures.js';
 export type { GestureDetail, GestureOptions, GesturePhase, GesturePoint, GestureThresholds, GestureType, } from './gestures.js';
 export { ActionMap, GamepadState, gamepadAxisIndex, gamepadButtonIndex, } from './gamepad.js';
-export type { ActionKeyboard, GamepadAxisName, GamepadBinding, GamepadButtonName, GamepadMapping, GamepadRumbleOptions, GamepadSnapshot, GamepadVibrationActuator, GamepadStick, } from './gamepad.js';
+export type { ActionBinding, ActionKeyboard, GamepadAxisName, GamepadBinding, GamepadButtonName, GamepadMapping, GamepadRumbleOptions, GamepadSnapshot, GamepadVibrationActuator, GamepadStick, } from './gamepad.js';
 export interface PointerSample {
     id: number;
     type: string;
@@ -28,9 +33,13 @@ export declare class Keyboard {
     private readonly down;
     private readonly pressed;
     private readonly released;
+    private readonly pressVersions;
+    private pressSequence;
     isDown(code: string): boolean;
     wasPressed(code: string): boolean;
     wasReleased(code: string): boolean;
+    /** @internal Distinguishes a new native press from a consumed held press. */
+    pressVersion(code: string): number;
     /** @internal */
     keyDown(event: KeyboardEvent): void;
     /** @internal */
@@ -49,12 +58,16 @@ export declare class Pointer {
     private readonly down;
     private readonly pressed;
     private readonly released;
+    private readonly pressVersions;
+    private pressSequence;
     private readonly pointers;
     private hovered;
     private readonly views;
     private readonly queued;
     private readonly samplePool;
     private sequence;
+    private readonly wheelValues;
+    private readonly wheelVersions;
     private generation;
     private cursorOwned;
     private originalCursor;
@@ -65,6 +78,10 @@ export declare class Pointer {
     get samples(): readonly PointerSample[];
     /** @internal Reset invalidates scene-local capture/hover state. */
     get resetVersion(): number;
+    /** @internal Independent of frame boundaries and pointer sample coalescing. */
+    pressVersion(button: number): number;
+    /** @internal */
+    wheelVersion(axis: 'x' | 'y' | 'z'): number;
     /** @internal Individual capture state, unlike aggregate mouse-button polling. */
     isPointerDown(id: number): boolean;
     private record;
@@ -76,6 +93,8 @@ export declare class Pointer {
     isDown(button: number): boolean;
     wasPressed(button: number): boolean;
     wasReleased(button: number): boolean;
+    /** Accumulated CSS-pixel wheel movement for the current frame. */
+    wheelDelta(axis: 'x' | 'y' | 'z'): number;
     /** CSS-pixel deltas; line mode uses 16px and page mode uses the content height. */
     wheel(event: WheelEvent): void;
     /** @internal */
@@ -111,8 +130,13 @@ export declare class InputManager {
     readonly gestures: GestureRecognizer;
     /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
     readonly gamepad: GamepadState;
-    /** Named actions bound to gamepad buttons, stick directions and keys. */
+    /** Legacy named actions, routed below every active input context. */
     readonly actions: ActionMap;
+    readonly contexts: InputContexts;
+    readonly virtual: VirtualInput;
+    private readonly gesturePulses;
+    private readonly gestureVersions;
+    private readonly gestureUnsubscribe;
     /** Snapshot from the latest update; disconnected gamepad indices retain null slots. */
     get gamepads(): readonly (Gamepad | null)[];
     private gamepadSnapshot;

@@ -1,3 +1,4 @@
+import { GameObject } from '../game-object.js';
 import type { Scene } from '../scene.js';
 export interface AccessibilityOptions2D {
     readonly role: string;
@@ -22,6 +23,9 @@ export declare class AccessibilityManager {
         width: number;
         height: number;
     });
+    /** Returns only the semantic mirror belonging to the object's live registration. */
+    element(object: GameObject): HTMLElement | undefined;
+    focus(object: GameObject): boolean;
     private emit;
     private create;
     private shape;

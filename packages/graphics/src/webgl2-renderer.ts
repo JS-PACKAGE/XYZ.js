@@ -74,7 +74,20 @@ import {
 } from './webgl-2d/shaders.js';
 
 import { oitCompositeGLSL } from './oit-shaders.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { NativeResidency } from './residency.js';
+import type {
+  ResidencyAllocation,
+  ResidencyBudgetOptions,
+} from './residency.js';
+import { prepareNativeResource, residencyLease } from './preparation.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
 interface CachedEnvironment {
+  allocation: ResidencyAllocation;
   resource: WebGLTexture;
   seen: number;
 }
@@ -95,12 +108,14 @@ out vec4 color;
 void main() { color = vec4(vColor, 1.0); }`;
 
 interface CachedTexture {
+  allocation: ResidencyAllocation;
   resource: WebGLTexture;
   seen: number;
   version: number;
   prepared: boolean;
 }
 interface CachedGeometry {
+  allocation: ResidencyAllocation;
   vao: WebGLVertexArrayObject;
   vertex: WebGLBuffer;
   index: WebGLBuffer;
@@ -112,6 +127,7 @@ interface CachedGeometry {
 }
 
 interface CachedInstances {
+  allocation: ResidencyAllocation;
   buffer: WebGLBuffer;
   version: number;
   /** Per-instance RGB buffer, created when the InstancedMesh first has colors. */
@@ -182,6 +198,122 @@ export class WebGL2Renderer implements Renderer {
   private readonly meshDraws: Mesh[] = [];
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
+  readonly residency = new NativeResidency();
+  private readonly preparedGeometry = new Set<ResidencyAllocation>();
+  configureResidency(options: ResidencyBudgetOptions): void {
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot change residency budgets during an active frame.',
+      );
+    this.residency.configure(options);
+  }
+  retainFrameResources(): PreparedResourceLease {
+    this.requireGL();
+    return residencyLease(this.residency.retainFrameResources());
+  }
+  async prepareGeometry(source: Geometry | Geometry2D): Promise<void> {
+    this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot prepare geometry during an active frame.',
+      );
+    const allocation =
+      source instanceof Geometry2D
+        ? this.render2D!.prepareGeometry(source)
+        : this.cacheGeometry(source).allocation;
+    if (!this.preparedGeometry.has(allocation)) {
+      allocation.retain();
+      this.preparedGeometry.add(allocation);
+    }
+    this.gl!.flush();
+  }
+  unloadGeometry(source: Geometry | Geometry2D): void {
+    this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError('Cannot unload geometry during an active frame.');
+    if (source instanceof Geometry2D) this.render2D!.unloadGeometry(source);
+    else this.geometries.get(source)?.allocation.destroy();
+    for (const allocation of this.preparedGeometry)
+      if (allocation.destroyed) this.preparedGeometry.delete(allocation);
+  }
+  async prepareResource(
+    source: PreparationResource,
+    options?: ResourcePreparationOptions,
+  ): Promise<PreparedResourceLease> {
+    this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot prepare resources during an active frame.',
+      );
+    return prepareNativeResource(
+      this.residency,
+      source,
+      {
+        texture: (texture) => {
+          if (texture.kind === 'render') this.render2D!.source(texture);
+          else this.cacheTexture(texture);
+        },
+        geometry: (geometry) => {
+          if (geometry instanceof Geometry2D)
+            this.render2D!.prepareGeometry(geometry);
+          else this.cacheGeometry(geometry);
+        },
+        particles: (layer) => {
+          this.render2D!.prepareParticles(layer);
+          for (let i = 0; i < layer.activeCount; i++) {
+            const source = layer.getSlot(layer.activeSlotAt(i)).texture;
+            if (source.kind === 'render') this.render2D!.source(source);
+            else this.cacheTexture(source);
+          }
+        },
+        mesh: (mesh) => {
+          mesh.updateDeformation();
+          this.cacheGeometry(mesh.geometry);
+          const material = mesh.material;
+          this.cacheTexture(material.texture);
+          if (material instanceof PBRMaterial) {
+            if (material.metallicRoughnessTexture)
+              this.cacheTexture(material.metallicRoughnessTexture);
+            if (material.normalTexture)
+              this.cacheTexture(material.normalTexture);
+            if (material.occlusionTexture)
+              this.cacheTexture(material.occlusionTexture);
+            if (material.emissiveTexture)
+              this.cacheTexture(material.emissiveTexture);
+            if (material.specularTexture)
+              this.cacheTexture(material.specularTexture);
+            if (material.specularColorTexture)
+              this.cacheTexture(material.specularColorTexture);
+            if (material.clearcoatTexture)
+              this.cacheTexture(material.clearcoatTexture);
+            if (material.clearcoatRoughnessTexture)
+              this.cacheTexture(material.clearcoatRoughnessTexture);
+            if (material.clearcoatNormalTexture)
+              this.cacheTexture(material.clearcoatNormalTexture);
+            if (material.sheenColorTexture)
+              this.cacheTexture(material.sheenColorTexture);
+            if (material.sheenRoughnessTexture)
+              this.cacheTexture(material.sheenRoughnessTexture);
+            if (material.transmissionTexture)
+              this.cacheTexture(material.transmissionTexture);
+            if (material.thicknessTexture)
+              this.cacheTexture(material.thicknessTexture);
+            this.cacheOpticalMaps(material);
+          }
+          if (mesh instanceof InstancedMesh) this.cacheInstances(mesh);
+        },
+        environment: (map) => {
+          this.uploadEnvironment(map);
+        },
+        material: (material) => this.prepareMaterial(material),
+        post: (post) => this.preparePostProcessor(post),
+        complete: async () => {
+          this.requireGL().flush();
+        },
+      },
+      options,
+    );
+  }
   private readonly targetBytes = new WeakMap<object, number>();
   private maxTextureSize = 0;
   private maxWidth = 0;
@@ -218,7 +350,7 @@ export class WebGL2Renderer implements Renderer {
   private sheenBuffer: WebGLBuffer | undefined;
   private readonly opticalTextures = new Map<
     PBRMaterial,
-    { resource: WebGLTexture; seen: number }
+    { resource: WebGLTexture; seen: number; allocation: ResidencyAllocation }
   >();
   private readonly opticalSettings = new Float32Array(8);
   private emptyOptical: WebGLTexture | undefined;
@@ -356,6 +488,7 @@ export class WebGL2Renderer implements Renderer {
       this.render2D = new WebGLRender2D(gl, {
         owner: this,
         stats: this.stats,
+        residency: this.residency,
         createTarget: (width, height) =>
           this.createTarget(width, height, false, 'rgba8', false),
         deleteTarget: (target) => this.deleteTarget(target),
@@ -552,6 +685,10 @@ export class WebGL2Renderer implements Renderer {
     options?: { clear?: boolean; bounds?: Rect2D },
   ): Promise<void> {
     this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot render offscreen during an active frame.',
+      );
     return this.render2D!.renderToTexture(target, content, options);
   }
 
@@ -568,6 +705,10 @@ export class WebGL2Renderer implements Renderer {
     options?: { bounds?: Rect2D; resolution?: number },
   ): Promise<Texture> {
     this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot generate a texture during an active frame.',
+      );
     return this.render2D!.generateTexture(content, options);
   }
 
@@ -579,7 +720,11 @@ export class WebGL2Renderer implements Renderer {
       );
     for (const source of sources) {
       if (source.kind === 'render') this.render2D!.source(source);
-      else this.cacheTexture(source).prepared = true;
+      else {
+        const entry = this.cacheTexture(source);
+        if (!entry.prepared) entry.allocation.retain();
+        entry.prepared = true;
+      }
     }
     this.gl!.flush();
   }
@@ -596,9 +741,14 @@ export class WebGL2Renderer implements Renderer {
     }
     const entry = this.textures.get(source);
     if (entry) {
-      this.gl!.deleteTexture(entry.resource);
-      this.textures.delete(source);
+      entry.allocation.destroy();
     }
+    for (const [material, packed] of this.opticalTextures)
+      if (
+        material.transmissionTexture === source ||
+        material.thicknessTexture === source
+      )
+        packed.allocation.destroy();
   }
 
   async prepareMaterial(material: Material2D): Promise<void> {
@@ -710,6 +860,7 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 beginFrame called before the preceding frame ended.',
       );
     this.activeFrame = true;
+    this.residency.beginFrame();
     this.frameRendered = false;
     this.stats.begin();
   }
@@ -770,7 +921,7 @@ export class WebGL2Renderer implements Renderer {
       this.beginFrame();
       // Redraw into owned storage before yielding; default framebuffer preservation is off.
       this.renderFrame(scene, width, height, target);
-      this.endFrame();
+      this.endFrame(false);
       const snapshot = new WebGLSnapshot(target.width, target.height, () => {
         this.snapshots.delete(snapshot);
         this.deleteTarget(target);
@@ -778,6 +929,7 @@ export class WebGL2Renderer implements Renderer {
       this.snapshots.set(snapshot, target);
       return snapshot;
     } catch (error) {
+      this.residency.abortFrame();
       this.deleteTarget(target);
       throw error;
     } finally {
@@ -1008,12 +1160,14 @@ export class WebGL2Renderer implements Renderer {
     }
   }
 
-  endFrame(): void {
+  endFrame(publishFrame = true): void {
     const gl = this.requireGL();
     if (!this.activeFrame || !this.frameRendered)
       throw new GraphicsError('WebGL2 endFrame requires a rendered frame.');
     gl.flush();
     this.activeFrame = false;
+    if (publishFrame) this.residency.endFrame();
+    else this.residency.abortFrame();
   }
 
   resize(width: number, height: number): void {
@@ -1239,6 +1393,7 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError('WebGL2 optical map has been destroyed.');
     const existing = this.opticalTextures.get(material);
     if (existing) {
+      existing.allocation.touch();
       existing.seen = this.frame;
       return;
     }
@@ -1248,9 +1403,16 @@ export class WebGL2Renderer implements Renderer {
         Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
       ),
     );
+    const allocation = this.residency.textures.allocate(side * side * 8, () => {
+      const cached = this.opticalTextures.get(material);
+      if (cached) gl.deleteTexture(cached.resource);
+      this.opticalTextures.delete(material);
+    });
     const resource = gl.createTexture();
-    if (!resource)
+    if (!resource) {
+      allocation.destroy();
       throw new GraphicsError('WebGL2 optical array allocation failed.');
+    }
     try {
       gl.activeTexture(gl.TEXTURE0 + 14);
       gl.bindSampler(14, null);
@@ -1290,9 +1452,14 @@ export class WebGL2Renderer implements Renderer {
           );
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
-      this.opticalTextures.set(material, { resource, seen: this.frame });
+      this.opticalTextures.set(material, {
+        resource,
+        allocation,
+        seen: this.frame,
+      });
     } catch (error) {
       gl.deleteTexture(resource);
+      allocation.destroy();
       throw error;
     } finally {
       gl.framebufferTextureLayer(
@@ -1718,29 +1885,8 @@ export class WebGL2Renderer implements Renderer {
     gl.vertexAttrib3f(7, 1, 1, 1);
     gl.vertexAttrib4f(8, 1, 1, 1, 1);
     if (mesh instanceof InstancedMesh) {
-      let entry = this.meshInstances.get(mesh);
-      if (!entry) {
-        const buffer = this.createBuffer(gl);
-        gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
-        gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
-        this.stats.upload(mesh.matrices.byteLength);
-        entry = {
-          buffer,
-          version: mesh.version,
-          colors: undefined,
-          colorVersion: -1,
-          seen: this.frame,
-        };
-        this.meshInstances.set(mesh, entry);
-      } else {
-        gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
-        if (entry.version !== mesh.version) {
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, mesh.matrices);
-          this.stats.upload(mesh.matrices.byteLength);
-          entry.version = mesh.version;
-        }
-      }
-      entry.seen = this.frame;
+      const entry = this.cacheInstances(mesh);
+      gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
       for (let column = 0; column < 4; column++) {
         gl.enableVertexAttribArray(3 + column);
         gl.vertexAttribPointer(3 + column, 4, gl.FLOAT, false, 64, column * 16);
@@ -1748,15 +1894,7 @@ export class WebGL2Renderer implements Renderer {
       }
       const colors = mesh.colors;
       if (colors) {
-        if (!entry.colors) entry.colors = this.createBuffer(gl);
-        gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors);
-        if (entry.colorVersion < 0)
-          gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-        else if (entry.colorVersion !== mesh.colorVersion)
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
-        if (entry.colorVersion < 0 || entry.colorVersion !== mesh.colorVersion)
-          this.stats.upload(colors.byteLength);
-        entry.colorVersion = mesh.colorVersion;
+        gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors!);
         gl.enableVertexAttribArray(7);
         gl.vertexAttribPointer(7, 3, gl.FLOAT, false, 12, 0);
         gl.vertexAttribDivisor(7, 1);
@@ -1788,6 +1926,68 @@ export class WebGL2Renderer implements Renderer {
         0,
       );
     }
+  }
+
+  private cacheInstances(mesh: InstancedMesh): CachedInstances {
+    const gl = this.gl!;
+    let entry = this.meshInstances.get(mesh);
+    if (!entry) {
+      const allocation = this.residency.geometry.allocate(
+        mesh.matrices.byteLength + (mesh.colors?.byteLength ?? 0),
+        () => {
+          const cached = this.meshInstances.get(mesh);
+          if (!cached) return;
+          gl.deleteBuffer(cached.buffer);
+          if (cached.colors) gl.deleteBuffer(cached.colors);
+          this.meshInstances.delete(mesh);
+        },
+      );
+      let buffer: WebGLBuffer;
+      try {
+        buffer = this.createBuffer(gl);
+      } catch (error) {
+        allocation.destroy();
+        throw error;
+      }
+      entry = {
+        buffer,
+        allocation,
+        version: -1,
+        colors: undefined,
+        colorVersion: -1,
+        seen: this.frame,
+      };
+      this.meshInstances.set(mesh, entry);
+    }
+    entry.allocation.resize(
+      mesh.matrices.byteLength + (mesh.colors?.byteLength ?? 0),
+    );
+    gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
+    if (entry.version < 0)
+      gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
+    else if (entry.version !== mesh.version)
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, mesh.matrices);
+    if (entry.version !== mesh.version)
+      this.stats.upload(mesh.matrices.byteLength);
+    entry.version = mesh.version;
+    const colors = mesh.colors;
+    if (colors) {
+      if (!entry.colors) entry.colors = this.createBuffer(gl);
+      gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors);
+      if (entry.colorVersion < 0)
+        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+      else if (entry.colorVersion !== mesh.colorVersion)
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
+      if (entry.colorVersion !== mesh.colorVersion)
+        this.stats.upload(colors.byteLength);
+      entry.colorVersion = mesh.colorVersion;
+    } else if (entry.colors) {
+      gl.deleteBuffer(entry.colors);
+      entry.colors = undefined;
+      entry.colorVersion = -1;
+    }
+    entry.seen = this.frame;
+    return entry;
   }
 
   private drawShadows(scene: Scene): void {
@@ -2243,7 +2443,10 @@ export class WebGL2Renderer implements Renderer {
     if (texture.destroyed)
       throw new GraphicsError('Cannot upload a destroyed texture.');
     const existing = this.textures.get(texture);
-    if (existing?.version === texture.version) return existing;
+    if (existing?.version === texture.version) {
+      existing.allocation.touch();
+      return existing;
+    }
     const gl = this.gl!;
     const { width, height } = texture;
     if (
@@ -2257,9 +2460,19 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         `WebGL2 texture size ${width}×${height} exceeds its device budget.`,
       );
+    const allocation =
+      existing?.allocation ??
+      this.residency.textures.allocate(width * height * 4, () => {
+        const cached = this.textures.get(texture);
+        if (cached) gl.deleteTexture(cached.resource);
+        this.textures.delete(texture);
+      });
+    if (existing) allocation.resize(width * height * 4);
     const resource = existing?.resource ?? gl.createTexture();
-    if (!resource)
+    if (!resource) {
+      allocation.destroy();
       throw new GraphicsError('WebGL2 could not allocate a texture.');
+    }
     try {
       gl.bindTexture(gl.TEXTURE_2D, resource);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -2284,6 +2497,7 @@ export class WebGL2Renderer implements Renderer {
         );
       const entry = existing ?? {
         resource,
+        allocation,
         seen: this.frame,
         version: texture.version,
         prepared: false,
@@ -2293,6 +2507,7 @@ export class WebGL2Renderer implements Renderer {
       return entry;
     } catch (error) {
       if (!existing) gl.deleteTexture(resource);
+      if (!existing) allocation.destroy();
       throw error;
     }
   }
@@ -2301,6 +2516,7 @@ export class WebGL2Renderer implements Renderer {
   private uploadEnvironment(map: EnvironmentMap): CachedEnvironment {
     const existing = this.environments.get(map);
     if (existing) {
+      existing.allocation.touch();
       existing.seen = this.frame;
       return existing;
     }
@@ -2310,9 +2526,22 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         `WebGL2 environment ${base.width}x${base.height} exceeds its device budget.`,
       );
+    const allocation = this.residency.textures.allocate(
+      map.levelSizes.reduce(
+        (bytes, level) => bytes + level.width * level.height * 8,
+        0,
+      ),
+      () => {
+        const cached = this.environments.get(map);
+        if (cached) gl.deleteTexture(cached.resource);
+        this.environments.delete(map);
+      },
+    );
     const resource = gl.createTexture();
-    if (!resource)
+    if (!resource) {
+      allocation.destroy();
       throw new GraphicsError('WebGL2 could not allocate a texture.');
+    }
     try {
       gl.bindTexture(gl.TEXTURE_2D, resource);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -2347,11 +2576,12 @@ export class WebGL2Renderer implements Renderer {
         throw new GraphicsError(
           `WebGL2 environment upload failed (GL error 0x${error.toString(16)}).`,
         );
-      const entry = { resource, seen: this.frame };
+      const entry = { resource, allocation, seen: this.frame };
       this.environments.set(map, entry);
       return entry;
     } catch (error) {
       gl.deleteTexture(resource);
+      allocation.destroy();
       throw error;
     }
   }
@@ -2410,6 +2640,11 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl!;
     const existing = this.geometries.get(geometry);
     if (existing) {
+      existing.allocation.resize(
+        geometry.vertices.byteLength +
+          geometry.indices.byteLength +
+          (geometry.colors?.byteLength ?? 0),
+      );
       if (existing.version !== geometry.version) {
         gl.bindVertexArray(existing.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, existing.vertex);
@@ -2420,10 +2655,25 @@ export class WebGL2Renderer implements Renderer {
       }
       return existing;
     }
-    const vao = this.createVAO(gl);
+    const allocation = this.residency.geometry.allocate(
+      geometry.vertices.byteLength +
+        geometry.indices.byteLength +
+        (geometry.colors?.byteLength ?? 0),
+      () => {
+        const cached = this.geometries.get(geometry);
+        if (!cached) return;
+        gl.deleteVertexArray(cached.vao);
+        gl.deleteBuffer(cached.vertex);
+        gl.deleteBuffer(cached.index);
+        if (cached.colors) gl.deleteBuffer(cached.colors);
+        this.geometries.delete(geometry);
+      },
+    );
+    let vao: WebGLVertexArrayObject | undefined;
     let vertex: WebGLBuffer | undefined;
     let index: WebGLBuffer | undefined;
     try {
+      vao = this.createVAO(gl);
       vertex = this.createBuffer(gl);
       index = this.createBuffer(gl);
       gl.bindVertexArray(vao);
@@ -2441,6 +2691,7 @@ export class WebGL2Renderer implements Renderer {
       gl.enableVertexAttribArray(2);
       gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
       const entry: CachedGeometry = {
+        allocation,
         vao,
         vertex,
         index,
@@ -2462,46 +2713,46 @@ export class WebGL2Renderer implements Renderer {
       gl.bindVertexArray(null);
       if (index) gl.deleteBuffer(index);
       if (vertex) gl.deleteBuffer(vertex);
-      gl.deleteVertexArray(vao);
+      if (vao) gl.deleteVertexArray(vao);
+      allocation.destroy();
       throw error;
     }
   }
 
   private releaseUnused(): void {
-    const gl = this.gl!;
     for (const [texture, entry] of this.textures)
-      if (texture.destroyed || (!entry.prepared && entry.seen !== this.frame)) {
-        gl.deleteTexture(entry.resource);
-        this.textures.delete(texture);
-      }
-    for (const [geometry, entry] of this.geometries)
-      if (entry.seen !== this.frame) {
-        gl.deleteVertexArray(entry.vao);
-        gl.deleteBuffer(entry.vertex);
-        gl.deleteBuffer(entry.index);
-        if (entry.colors) gl.deleteBuffer(entry.colors);
-        this.geometries.delete(geometry);
-      }
-    for (const [mesh, entry] of this.meshInstances)
-      if (entry.seen !== this.frame) {
-        gl.deleteBuffer(entry.buffer);
-        if (entry.colors) gl.deleteBuffer(entry.colors);
-        this.meshInstances.delete(mesh);
-      }
+      if (
+        texture.destroyed ||
+        (this.residency.textures.budgetBytes === Infinity &&
+          entry.seen !== this.frame &&
+          !entry.allocation.references)
+      )
+        entry.allocation.destroy();
+    if (this.residency.geometry.budgetBytes === Infinity) {
+      for (const entry of this.geometries.values())
+        if (entry.seen !== this.frame && !entry.allocation.references)
+          entry.allocation.destroy();
+      for (const entry of this.meshInstances.values())
+        if (entry.seen !== this.frame && !entry.allocation.references)
+          entry.allocation.destroy();
+    }
     for (const [map, entry] of this.environments)
-      if (map.destroyed || entry.seen !== this.frame) {
-        gl.deleteTexture(entry.resource);
-        this.environments.delete(map);
-      }
+      if (
+        map.destroyed ||
+        (this.residency.textures.budgetBytes === Infinity &&
+          entry.seen !== this.frame &&
+          !entry.allocation.references)
+      )
+        entry.allocation.destroy();
     for (const [material, entry] of this.opticalTextures)
       if (
-        entry.seen !== this.frame ||
         material.transmissionTexture?.destroyed ||
-        material.thicknessTexture?.destroyed
-      ) {
-        gl.deleteTexture(entry.resource);
-        this.opticalTextures.delete(material);
-      }
+        material.thicknessTexture?.destroyed ||
+        (this.residency.textures.budgetBytes === Infinity &&
+          entry.seen !== this.frame &&
+          !entry.allocation.references)
+      )
+        entry.allocation.destroy();
   }
 
   private createBuffer(gl: WebGL2RenderingContext): WebGLBuffer {
@@ -2574,6 +2825,8 @@ export class WebGL2Renderer implements Renderer {
     this.canvas?.removeEventListener('webglcontextlost', this.onContextLost);
     const gl = this.gl;
     if (gl) {
+      this.residency.clear();
+      this.preparedGeometry.clear();
       this.releaseOIT();
       if (this.oitProgram) gl.deleteProgram(this.oitProgram);
       this.oitProgram = undefined;

@@ -14,6 +14,8 @@ import {
   type Renderer,
 } from '../packages/graphics/src/index.js';
 
+import { NativeResidency } from '../packages/graphics/src/residency.js';
+import { residencyLease } from '../packages/graphics/src/preparation.js';
 vi.mock('../packages/graphics/src/index.js', async (importOriginal) => ({
   ...(await importOriginal<{ createRenderer: typeof createRenderer }>()),
   createRenderer: vi.fn(),
@@ -97,6 +99,17 @@ beforeEach(() => {
       instancing: true,
       maxTextureSize: 4096,
     },
+    residency: new NativeResidency(),
+    configureResidency: vi.fn(),
+    prepareGeometry: vi.fn(),
+    unloadGeometry: vi.fn(),
+    prepareResource: vi.fn(async () => {
+      throw new Error('Unexpected warmup in runtime fixture.');
+    }),
+    retainFrameResources: () =>
+      residencyLease(
+        (renderer.residency as NativeResidency).retainFrameResources(),
+      ),
     initialize: vi.fn(),
     beginFrame: vi.fn(),
     render: vi.fn(),

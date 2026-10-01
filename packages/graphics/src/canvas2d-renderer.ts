@@ -31,6 +31,22 @@ import {
   type RenderTextureOptions2D,
 } from './render-texture2d.js';
 import { CanvasRender2DTargets } from './canvas-render2d-targets.js';
+import { Geometry } from '../../core/src/geometry.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { EnvironmentMap } from '../../core/src/environment.js';
+import {
+  Material2D as NativeMaterial,
+  PostProcessor2D as NativePost,
+} from '../../core/src/materials2d/material2d.js';
+import { NativeResidency } from './residency.js';
+import type { ResidencyBudgetOptions } from './residency.js';
+import { residencyLease } from './preparation.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
+import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 
 const MAX_SIZE = 8192;
 const background = defaults.clearColor;
@@ -41,6 +57,59 @@ export class Canvas2DRenderer implements Renderer {
   readonly backend = 'canvas2d' as const;
   private readonly frameStats = new FrameStats();
   readonly stats: RenderStats = this.frameStats;
+  readonly residency = new NativeResidency();
+  configureResidency(options: ResidencyBudgetOptions): void {
+    // There are no native GPU cache allocations on Canvas; CPU source caches are separate.
+    this.residency.configure(options);
+  }
+  retainFrameResources(): PreparedResourceLease {
+    this.requireIdle();
+    return residencyLease([]);
+  }
+  async prepareGeometry(_source: Geometry | Geometry2D): Promise<void> {
+    void _source;
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support native geometry preparation.',
+    );
+  }
+  unloadGeometry(_source: Geometry | Geometry2D): void {
+    void _source;
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support native geometry residency.',
+    );
+  }
+  async prepareResource(
+    source: PreparationResource,
+    options: ResourcePreparationOptions = {},
+  ): Promise<PreparedResourceLease> {
+    options.signal?.throwIfAborted();
+    if (source instanceof ParticleLayer2D) {
+      this.requireIdle();
+      if (source.destroyed)
+        throw new GraphicsError('Cannot prepare a destroyed ParticleLayer2D.');
+      for (let i = 0; i < source.activeCount; i++)
+        this.spriteSource.prepare(
+          source.getSlot(source.activeSlotAt(i)).texture,
+        );
+      options.signal?.throwIfAborted();
+      return residencyLease([]);
+    }
+    if (
+      source instanceof Geometry ||
+      source instanceof Geometry2D ||
+      source instanceof Mesh ||
+      source instanceof EnvironmentMap
+    )
+      throw new UnsupportedGraphicsError(
+        'Canvas2D does not support native 3D or mesh preparation.',
+      );
+    if (source instanceof NativePost) await this.preparePostProcessor(source);
+    else if (source instanceof NativeMaterial)
+      await this.prepareMaterial(source);
+    else await this.prepareTextures([source]);
+    options.signal?.throwIfAborted();
+    return residencyLease([]);
+  }
   readonly capabilities: GraphicsCapabilities = Object.freeze({
     threeD: false,
     compute: false,

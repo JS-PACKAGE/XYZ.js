@@ -5,8 +5,16 @@ import { type Renderer, type RendererPreference } from '../../graphics/src/index
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { type TransitionOptions } from './transitions2d/index.js';
+import { AccessibilityManager } from './accessibility/index.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
+import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+export type { WarmupOptions, WarmupProgress, WarmupLease, } from '../../graphics/src/warmup.js';
+export interface ResourceBudgets {
+    decodedTextureBytes?: number;
+    nativeTextureBytes?: number;
+    nativeGeometryBytes?: number;
+}
 export interface GameOptions {
     canvas: string | HTMLCanvasElement;
     renderer?: RendererPreference;
@@ -32,6 +40,8 @@ export interface GameOptions {
     saveSchema?: SaveSchema;
     /** Locale registry, exposed as `game.i18n`; defaults to locale `en` with no messages. */
     i18n?: I18nOptions;
+    /** Independent decoded CPU / native texture / native geometry cache estimates. */
+    resourceBudgets?: ResourceBudgets;
     /**
      * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
      * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
@@ -45,6 +55,8 @@ export interface GameOptions {
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
 export interface SetSceneOptions {
     transition?: TransitionOptions;
+    /** Warm the initialized candidate in bounded RAF chunks before atomic publication. */
+    warmup?: WarmupOptions;
 }
 export interface SceneTransitionEventDetail {
     readonly from: Scene;
@@ -88,6 +100,12 @@ export declare class Game extends EventTarget {
     private readonly audioPause;
     private readonly accessibilityManager;
     private readonly accessibilitySize;
+    private readonly warmupControllers;
+    private readonly warmupLeases;
+    private currentWarmup;
+    private readonly warmupProtections;
+    get accessibility(): AccessibilityManager;
+    warmup(scene: Scene, options?: WarmupOptions): Promise<WarmupLease>;
     private constructor();
     static create(options: GameOptions): Promise<Game>;
     get state(): GameState;

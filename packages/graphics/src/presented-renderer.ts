@@ -20,6 +20,14 @@ import type {
   RenderTexture2D,
   RenderTextureOptions2D,
 } from './render-texture2d.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
+import type {
+  PreparationResource,
+  PreparedResourceLease,
+  ResourcePreparationOptions,
+} from './preparation.js';
 
 /** Auto selection keeps backend context binding away from the caller's canvas. */
 export class PresentedRenderer implements Renderer {
@@ -38,6 +46,31 @@ export class PresentedRenderer implements Renderer {
   }
   get capabilities(): GraphicsCapabilities {
     return this.renderer.capabilities;
+  }
+  get residency(): GraphicsResidency {
+    return this.renderer.residency;
+  }
+  configureResidency(options: ResidencyBudgetOptions): void {
+    this.renderer.configureResidency(options);
+  }
+  prepareGeometry(source: Geometry | Geometry2D): Promise<void> {
+    this.requireContext();
+    return this.renderer.prepareGeometry(source);
+  }
+  unloadGeometry(source: Geometry | Geometry2D): void {
+    this.requireContext();
+    this.renderer.unloadGeometry(source);
+  }
+  prepareResource(
+    source: PreparationResource,
+    options?: ResourcePreparationOptions,
+  ): Promise<PreparedResourceLease> {
+    this.requireContext();
+    return this.renderer.prepareResource(source, options);
+  }
+  retainFrameResources(): PreparedResourceLease {
+    this.requireContext();
+    return this.renderer.retainFrameResources();
   }
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.canvas)

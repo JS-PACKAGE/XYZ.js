@@ -99,10 +99,42 @@ export class Texture {
   }
 }
 
+export interface AssetLoaderOptions {
+  /** RGBA decoded bitmap estimate; does not bound decoder transient memory. */
+  decodedTextureBytes?: number;
+}
+export interface DecodedTextureResidency {
+  readonly budgetBytes: number;
+  readonly liveBytes: number;
+  readonly peakBytes: number;
+  readonly entries: number;
+  readonly borrowers: number;
+  readonly evictions: number;
+}
 interface CachedTexture {
   readonly promise: Promise<Texture>;
   readonly controller: AbortController;
   texture?: Texture;
+  bytes: number;
+  references: number;
+  pinned: boolean;
+  seen: number;
+}
+/** A borrower must remove its consumers before releasing this lease. */
+export class TextureLease {
+  private disposed = false;
+  constructor(
+    readonly texture: Texture,
+    private readonly relinquish: () => void,
+  ) {}
+  get released(): boolean {
+    return this.disposed;
+  }
+  release(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.relinquish();
+  }
 }
 
 /** One decoded CPU bitmap and one in-flight request per canonical URL. */
@@ -110,75 +142,206 @@ export class AssetLoader {
   private readonly cache = new Map<string, CachedTexture>();
   private disposed = false;
   private readonly requests = new Set<AbortController>();
+  private readonly decodedBudget: number;
+  private decodedBytes = 0;
+  private decodedPeak = 0;
+  private evictions = 0;
+  private clock = 0;
 
-  constructor(private readonly baseURL?: string) {}
+  constructor(
+    private readonly baseURL?: string,
+    options: AssetLoaderOptions = {},
+  ) {
+    const budget = options.decodedTextureBytes ?? Infinity;
+    if (budget !== Infinity && (!Number.isSafeInteger(budget) || budget < 0))
+      throw new RangeError(
+        'Decoded texture budget must be a nonnegative safe integer or Infinity.',
+      );
+    this.decodedBudget = budget;
+  }
 
-  /** Subscriber cancellation leaves the loader-owned shared request/cache intact. */
+  get residency(): DecodedTextureResidency {
+    let borrowers = 0,
+      entries = 0;
+    for (const [url, entry] of this.cache) {
+      if (entry.texture?.destroyed) this.removeTexture(url, entry);
+      else {
+        borrowers += entry.references + (entry.pinned ? 1 : 0);
+        if (entry.texture) entries++;
+      }
+    }
+    return {
+      budgetBytes: this.decodedBudget,
+      liveBytes: this.decodedBytes,
+      peakBytes: this.decodedPeak,
+      entries,
+      borrowers,
+      evictions: this.evictions,
+    };
+  }
+
+  /** Shared legacy borrowers are pinned until explicit unload/destroy, even after subscriber abort. */
   loadTexture(
     url: string,
     options: { signal?: AbortSignal } = {},
   ): Promise<Texture> {
-    if (options.signal?.aborted) return Promise.reject(options.signal.reason);
-    if (this.disposed)
-      return Promise.reject(
-        new AssetError('Cannot load from a destroyed AssetLoader.'),
-      );
+    try {
+      options.signal?.throwIfAborted();
+      const entry = this.textureEntry(url);
+      entry.pinned = true;
+      entry.seen = ++this.clock;
+      return subscribeLoad(entry.promise, options.signal);
+    } catch (error) {
+      return Promise.reject(error);
+    }
+  }
 
-    let canonical: string;
+  async acquireTexture(
+    url: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<TextureLease> {
+    options.signal?.throwIfAborted();
+    const entry = this.textureEntry(url);
+    entry.references++;
+    entry.seen = ++this.clock;
+    let released = false;
+    const release = (): void => {
+      if (released) return;
+      released = true;
+      entry.references--;
+      entry.seen = ++this.clock;
+      if (!entry.pinned && !entry.references && !entry.texture)
+        entry.controller.abort();
+    };
+    try {
+      const texture = await subscribeLoad(entry.promise, options.signal);
+      if (options.signal?.aborted || this.disposed || texture.destroyed) {
+        options.signal?.throwIfAborted();
+        throw new AssetError('Texture acquisition was cancelled.');
+      }
+      return new TextureLease(texture, release);
+    } catch (error) {
+      release();
+      throw error;
+    }
+  }
+
+  /** Explicitly ends legacy borrowing; outstanding leases must be released first. */
+  unloadTexture(url: string): void {
+    const canonical = this.textureURL(url);
+    const entry = this.cache.get(canonical);
+    if (!entry) return;
+    if (entry.references)
+      throw new AssetError('Cannot unload a texture with outstanding leases.');
+    this.removeTexture(canonical, entry);
+    entry.controller.abort();
+    entry.texture?.destroy();
+  }
+
+  private textureURL(url: string): string {
     try {
       const base =
         this.baseURL ??
         (typeof document !== 'undefined' ? document.baseURI : undefined) ??
         (typeof location !== 'undefined' ? location.href : undefined);
       const resolved = new URL(url, base);
-      // URL fragments never reach fetch; they must not generate duplicate downloads.
       resolved.hash = '';
-      canonical = resolved.href;
+      return resolved.href;
     } catch (error) {
-      return Promise.reject(
-        new AssetError('Invalid texture URL.', { cause: error }),
-      );
+      throw new AssetError('Invalid texture URL.', { cause: error });
     }
+  }
 
+  private removeTexture(url: string, entry: CachedTexture): void {
+    if (this.cache.get(url) !== entry) return;
+    this.cache.delete(url);
+    this.decodedBytes -= entry.bytes;
+    entry.bytes = 0;
+  }
+
+  private textureEntry(url: string): CachedTexture {
+    if (this.disposed)
+      throw new AssetError('Cannot load from a destroyed AssetLoader.');
+    const canonical = this.textureURL(url);
     const cached = this.cache.get(canonical);
-    if (cached && !cached.texture?.destroyed)
-      return subscribeLoad(cached.promise, options.signal);
-    if (cached) this.cache.delete(canonical);
-
+    if (
+      cached &&
+      !cached.controller.signal.aborted &&
+      !cached.texture?.destroyed
+    )
+      return cached;
+    if (cached) this.removeTexture(canonical, cached);
     const controller = new AbortController();
     const operation = this.fetchTexture(canonical, controller.signal);
     let cancel!: () => void;
     const cancellation = new Promise<never>((_, reject) => {
       cancel = () =>
-        reject(
-          new AssetError('AssetLoader was destroyed while loading a texture.'),
-        );
+        reject(new AssetError('Texture acquisition was cancelled.'));
     });
     controller.signal.addEventListener('abort', cancel, { once: true });
     const entry: CachedTexture = {
       controller,
+      references: 0,
+      pinned: false,
+      seen: ++this.clock,
+      bytes: 0,
       promise: Promise.race([operation, cancellation])
-        .then(
-          (texture) => {
-            if (this.disposed) {
-              texture.destroy();
+        .then((texture) => {
+          try {
+            if (
+              this.disposed ||
+              controller.signal.aborted ||
+              this.cache.get(canonical) !== entry
+            )
+              throw new AssetError('Texture acquisition was cancelled.');
+            const bytes = texture.width * texture.height * 4;
+            let available = 0;
+            for (const [key, candidate] of this.cache) {
+              if (candidate.texture?.destroyed)
+                this.removeTexture(key, candidate);
+              else if (
+                candidate.texture &&
+                !candidate.pinned &&
+                !candidate.references
+              )
+                available += candidate.bytes;
+            }
+            if (this.decodedBytes + bytes - available > this.decodedBudget)
               throw new AssetError(
-                'AssetLoader was destroyed while loading a texture.',
+                'Decoded texture budget is exhausted by borrowed resources.',
               );
+            while (this.decodedBytes + bytes > this.decodedBudget) {
+              let oldest: [string, CachedTexture] | undefined;
+              for (const candidate of this.cache)
+                if (
+                  candidate[1].texture &&
+                  !candidate[1].pinned &&
+                  !candidate[1].references &&
+                  (!oldest || candidate[1].seen < oldest[1].seen)
+                )
+                  oldest = candidate;
+              this.removeTexture(oldest![0], oldest![1]);
+              oldest![1].texture!.destroy();
+              this.evictions++;
             }
             entry.texture = texture;
+            entry.bytes = bytes;
+            this.decodedBytes += bytes;
+            this.decodedPeak = Math.max(this.decodedPeak, this.decodedBytes);
             return texture;
-          },
-          (error: unknown) => {
-            if (this.cache.get(canonical) === entry)
-              this.cache.delete(canonical);
+          } catch (error) {
+            texture.destroy();
             throw error;
-          },
-        )
+          }
+        })
+        .catch((error: unknown) => {
+          this.removeTexture(canonical, entry);
+          throw error;
+        })
         .finally(() => controller.signal.removeEventListener('abort', cancel)),
     };
     this.cache.set(canonical, entry);
-    return subscribeLoad(entry.promise, options.signal);
+    return entry;
   }
 
   textureTask(key: string, url: string): LoadTask<Texture> {
@@ -330,6 +493,7 @@ export class AssetLoader {
       entry.texture?.destroy();
     }
     this.cache.clear();
+    this.decodedBytes = 0;
     for (const controller of this.requests)
       controller.abort(
         new AssetError('AssetLoader was destroyed while loading a resource.'),

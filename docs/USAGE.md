@@ -2,18 +2,18 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine; P42 also approves a full playable reference flow, not a claim that it is already delivered. This guide covers current source metadata **1.7.0 / Apache-2.0** (npm unpublished), with historical P01–P39 examples and evidence retained. The API is inspired by three.js/PixiJS/Excalibur, not drop-in or full upstream parity; no runtime dependency was added. P40 passed scoped acceptance; P41/P42 remain approved and pending. No push/publication/version change is authorized. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [acceptance records](../ACCEPTANCE.md).
+XYZ.js is a browser game engine; P42 also approves a full playable reference flow, not a claim that it is delivered. Current metadata is **1.7.0 / Apache-2.0** (npm unpublished); historical P01–P40 evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P40/P41 passed scoped acceptance; P42 approved options await integration acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Current Support at a Glance
 
-| Need                          | Available now / important boundary                                                                                                                                                                                                                                                                                                                                                                                      |
-| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Portable 2D                   | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                                                                           |
-| 3D                            | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                                                                               |
-| Physics2D                     | Sleep, five joints, translation-only dynamic→static CCD, static concave decomposition/chains. Dynamic concave/compound and rotational/dynamic-pair CCD remain unsupported.                                                                                                                                                                                                                                              |
-| Models / textures             | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt. Draco/Basis need supplied decoders; current KTX2 is base-level RGBA8, not native compressed/mip upload.                                                                                                                                                                                                                                                 |
-| Recovery                      | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                                                                               |
-| P40 verified; P41/P42 pending | P40 batching/metrics/deep browser regression passed on three Chromium backends; hosted CI not run. P41 UI layout/widgets/focus, cross-device contexts, resident budget/warmup, typed factories and P42 full playable flow plus GPU skinning/animated bounds/native compressed-mip textures/3D colliders-queries-character-dynamic bodies/navigation-pathfinding/animation masks-additive-blend trees-IK remain pending. |
+| Need                          | Available now / important boundary                                                                                                                                                                                                                                                                                                                                                                                                         |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Portable 2D                   | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                                                                                              |
+| 3D                            | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                                                                                                  |
+| Physics2D                     | Sleep, five joints, translation-only dynamic→static CCD, static concave decomposition/chains. Dynamic concave/compound and rotational/dynamic-pair CCD remain unsupported.                                                                                                                                                                                                                                                                 |
+| Models / textures             | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt. Draco/Basis need supplied decoders; current KTX2 is base-level RGBA8, not native compressed/mip upload.                                                                                                                                                                                                                                                                    |
+| Recovery                      | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                                                                                                  |
+| P40/P41 verified; P42 pending | P41 UI/layout/focus, contexts, budgets/warmup and typed content passed three-backend built-root Chromium regression. Injected touch and simulated gamepad snapshots do not certify physical devices. P42 full playable flow, GPU skinning/animated bounds, native compressed/mip textures, 3D colliders/queries/character/dynamic bodies, navigation/pathfinding and animation masks/additive/blend trees/IK await integration acceptance. |
 
 Stage-specific counts and browser observations below are historical, not proof of these pending expansions.
 
@@ -843,3 +843,134 @@ Read `game.graphics.stats` without retaining the mutable object as a historical 
 The deep runner is `pnpm regression:browser` after `pnpm build` and `pnpm exec playwright-core install chromium`. Default required backends are Canvas2D/WebGL2; WebGPU is probed and explicitly SKIPped when unavailable. `--renderer canvas2d|webgl2|webgpu` (comma-separated list) selects required backends; requesting WebGPU or `--require-webgpu` fails if unavailable. `--output DIR` selects assertion JSON/canvas PNG artifact output (default `.vite/browser-regression`). The installed Chromium software-rendering CI gate and existing example smoke are distinct from cross-browser/real-GPU certification; WebGL context loss uses the real extension, while private-device WebGPU loss injection remains an explicit SKIP. Actual three-backend Chromium 153 evidence is in ACCEPTANCE; hosted CI has not been run.
 
 For P41/P42 approval boundaries and all third-round options, use [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md); do not treat historical non-goals as permission to omit approved work.
+
+## 21. P41 Authoring/Device Flow
+
+Scoped Chromium three-backend proof is recorded in [ACCEPTANCE](../ACCEPTANCE.md). Use the existing renderer, not a DOM visual overlay. See [bounded contracts and ownership](TECHNICAL.md#41-p41-authoringdevice-contracts).
+
+| Example                                     | Purpose                                                                                                         |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| [authoring-lab](../examples/authoring-lab/) | Formal root consumer: UI/focus/modal, contexts/virtual controls, texture leases/warmup, typed content/save-load |
+
+### Canvas UI and routed actions
+
+```ts
+import {
+  Game,
+  Scene,
+  UIRoot,
+  UIElement,
+  UILabel,
+  UIButton,
+  UICheckbox,
+  UISlider,
+} from 'xyz.js';
+
+const game = await Game.create({
+  canvas: '#game',
+  renderer: 'auto',
+  resourceBudgets: {
+    decodedTextureBytes: 32 * 1024 * 1024,
+    nativeTextureBytes: 32 * 1024 * 1024,
+    nativeGeometryBytes: 16 * 1024 * 1024,
+  },
+});
+const scene = new Scene();
+const root = scene.add(
+  new UIRoot(game, { direction: 'column', padding: 16, gap: 8 }),
+);
+const title = root.add(await UILabel.create('Settings'));
+const open = root.add(await UIButton.create('Open settings'));
+const modal = root.add(
+  new UIElement({ direction: 'column', width: 280, gap: 8 }),
+);
+modal.add(await UICheckbox.create('Music', { checked: true }));
+modal.add(
+  await UISlider.create('Volume', { min: 0, max: 1, step: 0.1, value: 0.5 }),
+);
+const close = modal.add(await UIButton.create('Close'));
+modal.visible = false;
+open.addEventListener('click', () => {
+  modal.visible = true;
+  root.focus.pushModal(modal);
+});
+close.addEventListener('click', () => {
+  root.focus.popModal();
+  modal.visible = false;
+});
+await title.setText('Settings ready');
+await game.setScene(scene, { warmup: { maxItems: 2, maxMilliseconds: 4 } });
+game.start();
+root.focus.focus(open);
+
+const world = game.input.contexts.create('world', {
+  priority: 0,
+  consume: true,
+  bindings: {
+    interact: [{ key: 'Space' }, { pointerButton: 0 }, { virtual: 'interact' }],
+  },
+});
+world.activate(); // Read world.wasPressed('interact') during scene update.
+game.input.virtual.set('interact', 1);
+game.input.virtual.set('interact', 0); // Release on cancel/up/blur too; reset() neutralizes all.
+const savedBindings = world.exportBindings();
+world.importBindings(savedBindings);
+// On teardown: world.destroy(); game.destroy();
+```
+
+UI contexts activate only while live semantic focus/modal exists; focus/keyboard/gamepad activation and pointer consumption share source precedence. DOM is semantic only. Modal pop restores eligible previous focus. Held input on activation/unblocking is not a new press; raw polling remains raw. `gamepadIndex` selects the actual browser index. Additional bindings include signed virtual controls, wheel axis/direction and recognized gestures. Use async `setText`; layout is bounded row/column/overlay, not full CSS.
+
+### Typed content with explicit ownership
+
+```ts
+import {
+  GameObject,
+  FactoryRegistry,
+  defineFactory,
+  buildContentScene,
+  parseContentScene,
+} from 'xyz.js';
+
+const registry = new FactoryRegistry({
+  marker: defineFactory<{ x: number }, GameObject, { origin: number }>({
+    parse(value: unknown) {
+      if (
+        typeof value !== 'object' ||
+        value === null ||
+        !('x' in value) ||
+        typeof value.x !== 'number' ||
+        !Number.isFinite(value.x)
+      )
+        throw new TypeError('marker.x must be finite');
+      return { x: value.x };
+    },
+    create(options, context) {
+      const node = context.own(new GameObject());
+      node.position.x = context.services.origin + options.x;
+      return node;
+    },
+  }),
+});
+const definition = {
+  version: 1,
+  nodes: [{ id: 'player', kind: 'marker', options: { x: 24 } }],
+} as const;
+const content = await buildContentScene(registry, definition, { origin: 10 });
+const player = content.get('player'); // GameObject | undefined
+const dynamicDefinition = parseContentScene(
+  registry,
+  JSON.parse('{"version":1,"nodes":[]}'),
+);
+const dynamicContent = await buildContentScene(registry, dynamicDefinition, {
+  origin: 10,
+});
+dynamicContent.scene.destroy();
+await game.setScene(content.scene, { warmup: { maxItems: 2 } });
+content.require('player', 'marker').position.y = 20;
+```
+
+Call `context.own` before fallible awaits in async factories; return fresh detached owned subtrees, not shared/live objects. Services/assets stay borrowed. JSON parents and `references: { alias: 'id' }` are preflighted; factories access only declared aliases through `context.reference(alias)`. Build is unpublished until setScene. The serializer includes explicit 2D IDs only, not 3D or unnamed prefab descendants.
+
+For loader textures use `const lease = await game.assets.acquireTexture(url)` and borrow `lease.texture`; remove borrowers before `lease.release()`. Legacy loadTexture pins until unload/destroy. Manual `await game.warmup(scene, options)` leases must be released explicitly; setScene warmup protects the candidate for scene lifetime and preserves the old scene on combined-budget failure. Item/time boundaries are between resources; one resource can exceed the chunk time, and dependency snapshots do not track mutations. Progress excludes old-scene protection prelude.
+
+Decoded CPU/native texture/native geometry budgets are independent cache estimates. Native eviction only affects idle unprotected allocations and allows reprepare, not borrowed CPU ownership. Canvas native residency is zero. Caller bitmaps/derivedCanvas/attachments/scratch/driver/pipelines are excluded; budgets are not total VRAM or hard process-memory limits. Inspect `game.assets.residency` and `game.graphics.residency` separately.

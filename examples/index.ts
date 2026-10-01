@@ -206,6 +206,14 @@ const examples: readonly Example[] = [
     tags: ['3D', 'Assets'],
     renderers: only3d,
   },
+  {
+    slug: 'authoring-lab',
+    title: 'Authoring & device flow',
+    summary:
+      'Canvas UI layout, focus and widgets, cross-device contexts, budgeted residency/warm-up and typed JSON scene factories.',
+    tags: ['2D', 'Input', 'Assets', 'Data'],
+    renderers: all2d,
+  },
 ];
 
 const filters = document.querySelector<HTMLFieldSetElement>('#filters')!;

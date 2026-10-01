@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>XYZ.js P41 authoring regression</title>
+    <style>
+      body {
+        margin: 12px;
+        background: #152036;
+        color: #fff;
+        font: 14px system-ui;
+      }
+      canvas {
+        display: block;
+        width: 480px;
+        height: 360px;
+        touch-action: none;
+      }
+      #report {
+        white-space: pre-wrap;
+        max-width: 740px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas
+      id="game"
+      width="480"
+      height="360"
+      tabindex="0"
+      aria-label="Authoring regression canvas"
+    ></canvas>
+    <button id="finish" disabled>Finish native interaction checks</button>
+    <pre id="report" data-state="loading"></pre>
+    <script type="module" src="./authoring.ts"></script>
+  </body>
+</html>

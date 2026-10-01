@@ -1,3 +1,4 @@
+import type { GestureType } from './gestures.js';
 /** W3C "standard" gamepad layout (https://w3c.github.io/gamepad/#remapping). */
 export declare const gamepadButtonIndex: {
     readonly a: 0;
@@ -38,6 +39,17 @@ export type GamepadBinding = {
     readonly direction: 1 | -1;
 } | {
     readonly key: string;
+};
+export type ActionBinding = GamepadBinding | {
+    readonly pointerButton: number;
+} | {
+    readonly wheel: 'x' | 'y' | 'z';
+    readonly direction: 1 | -1;
+} | {
+    readonly gesture: GestureType;
+} | {
+    readonly virtual: string;
+    readonly direction?: 1 | -1;
 };
 /** Structural subset of `GamepadHapticActuator` (Chromium's dual-rumble effect). */
 export interface GamepadVibrationActuator {
@@ -102,6 +114,7 @@ export interface GamepadRumbleOptions {
  * vendor specific and cannot be guessed reliably.
  */
 export declare class GamepadState {
+    private readonly profileSource?;
     private padIndex;
     private padId;
     private preferred;
@@ -110,9 +123,17 @@ export declare class GamepadState {
     private values;
     private previous;
     private rawAxes;
+    private previousAxes;
     private readonly profiles;
+    private readonly buttonSources;
+    private readonly axisSources;
     private activePad;
     private activeProfile;
+    private pollVersion;
+    /** @internal A gamepad press edge belongs to one device poll. */
+    get pressVersion(): number;
+    /** @internal Routed devices share the manager's mapping registrations. */
+    constructor(profileSource?: GamepadState | undefined);
     /** Index of the active pad, or -1 while none is connected with the standard mapping. */
     get index(): number;
     get id(): string;
@@ -131,7 +152,7 @@ export declare class GamepadState {
     rumble(options?: GamepadRumbleOptions): Promise<boolean>;
     /** Cancels the current rumble effect; false when there was nothing to cancel. */
     stopRumble(): Promise<boolean>;
-    /** Lock selection to a `navigator.getGamepads()` slot, or undefined for the first standard pad. */
+    /** Lock selection to a browser gamepad's actual index, or undefined for the first usable pad. */
     get preferredIndex(): number | undefined;
     set preferredIndex(value: number | undefined);
     /** Radial stick deadzone in [0, 1). */
@@ -153,6 +174,10 @@ export declare class GamepadState {
      */
     axis(name: GamepadAxisName): number;
     stick(which: 'left' | 'right'): GamepadStick;
+    /** @internal Physical identities also account for custom mappings sharing a raw source. */
+    source(binding: ActionBinding): string | undefined;
+    /** @internal An already-deflected newly selected device is not a fresh press. */
+    axisWasPressed(name: GamepadAxisName, direction: 1 | -1): boolean;
     /** @internal Called once per frame with `navigator.getGamepads()`. */
     update(pads: ArrayLike<GamepadSnapshot | null>): void;
     /** @internal */
@@ -165,37 +190,76 @@ export interface ActionKeyboard {
     isDown(code: string): boolean;
     wasPressed(code: string): boolean;
     wasReleased(code: string): boolean;
+    pressVersion?(code: string): number;
+}
+/** @internal Additional sources supplied by InputManager, without changing raw polling. */
+export interface ActionSources {
+    readonly pointer: {
+        isDown(button: number): boolean;
+        wasPressed(button: number): boolean;
+        wasReleased(button: number): boolean;
+        pressVersion(button: number): number;
+        wheelVersion(axis: 'x' | 'y' | 'z'): number;
+        wheelDelta(axis: 'x' | 'y' | 'z'): number;
+    };
+    readonly virtual: {
+        value(control: string): number;
+        wasPressed(control: string, direction: 1 | -1, threshold: number): boolean;
+        wasReleased(control: string, direction: 1 | -1, threshold: number): boolean;
+    };
+    gesture(type: GestureType): boolean;
+    gestureVersion(type: GestureType): number;
 }
 /**
- * Named actions bound to gamepad buttons, stick directions and keys. Bindings can be
- * replaced at runtime (`rebind`) and round-tripped through `export`/`import`.
+ * Named cross-device actions. Bindings can be replaced atomically and round-tripped
+ * through JSON; InputManager contexts use this same map with physical-source routing.
  */
 export declare class ActionMap {
     private readonly pad;
     private readonly keyboard?;
+    private readonly sources?;
+    private readonly managed;
     private readonly map;
     private readonly down;
+    private readonly values;
+    private readonly frameDown;
+    private readonly identities;
+    private blocked;
+    private mutedPressVersions;
+    private pulseFrame;
     private readonly edgePressed;
     private readonly edgeReleased;
-    constructor(pad: GamepadState, keyboard?: ActionKeyboard | undefined);
+    private readonly pendingReleased;
+    constructor(pad: GamepadState, keyboard?: ActionKeyboard | undefined, sources?: ActionSources | undefined, managed?: boolean);
     /** Adds bindings without disturbing existing ones. */
-    bind(action: string, ...bindings: GamepadBinding[]): void;
+    bind(action: string, ...bindings: ActionBinding[]): void;
     /** Replaces every binding for the action atomically. */
-    rebind(action: string, bindings: readonly GamepadBinding[]): void;
+    rebind(action: string, bindings: readonly ActionBinding[]): void;
     unbind(action: string): boolean;
-    bindings(action: string): readonly GamepadBinding[];
-    /** Analog strength in [0, 1]: the strongest bound source. */
+    bindings(action: string): readonly ActionBinding[];
+    /** Analog strength in [0, 1]: the strongest bound, unconsumed source. */
     value(action: string): number;
     isDown(action: string): boolean;
     wasPressed(action: string): boolean;
     wasReleased(action: string): boolean;
-    /** @internal Recomputes edges; call after the pad and keyboard state for this frame. */
-    update(): void;
+    /** @internal Consumption reserves physical sources, not action names or axis halves. */
+    update(consumed?: ReadonlySet<string>, claim?: Set<string>, preserveEdges?: boolean): void;
+    /** @internal Baselines only edge provenance, never transient unconsumed action values. */
+    baseline(): void;
+    /** @internal Releases remain observable immediately and on the next update. */
+    reset(): void;
+    /** @internal */
+    endFrame(): void;
+    /** @internal Inactive contexts still publish queued releases for one frame. */
+    updateInactive(): void;
     /** Plain JSON-safe copy for persisting player rebinding. */
-    export(): Record<string, GamepadBinding[]>;
-    /**
-     * Replaces all bindings from `export()` data. Validation runs first, so bad data
-     * leaves the current bindings untouched.
-     */
-    import(data: Readonly<Record<string, readonly GamepadBinding[]>>): void;
+    export(): Record<string, ActionBinding[]>;
+    /** Validation runs first, so invalid persisted data leaves current bindings untouched. */
+    import(data: Readonly<Record<string, readonly ActionBinding[]>>): void;
+    private release;
+    private compile;
+    private bindingPressVersion;
+    private bindingValue;
+    private bindingPressed;
+    private bindingReleased;
 }

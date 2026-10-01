@@ -2,18 +2,18 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎；P42 另批准完整可玩參考流程，不表示已交付。本指南涵蓋目前 source metadata **1.7.0／Apache-2.0**（npm 未發佈），保留 P01–P39 歷史範例／證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in／完整 upstream parity，未新增 runtime dependency。P40 已限定驗收；P41／P42 已批准、待實作驗收。無 push／publish／version change 授權。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎；P42 另批准完整可玩參考流程，不表示已交付。目前 metadata **1.7.0／Apache-2.0**（npm 未發佈），P01–P40 歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。P40／P41 已限定驗收；P42 全批准 scope 待整合驗收。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
 
 ## 目前支援速查
 
-| 需求                    | 目前可用／重要邊界                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 跨 backend 2D           | 三 backend Sprite／HUD／atlas／raster／isolation／masks／basic blends。Native Material2D／Filter2D／Mesh2D 僅 GPU／GL，Canvas 明確拒絕。                                                                                                                                                                                                                                                                            |
-| 3D                      | 只有 WebGPU／WebGL2；PBR／instancing／shadows／post／weighted transparency 為明記的 bounded profiles。WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                                                                                                                             |
-| Physics2D               | Sleep／五種 joints／dynamic平移→static CCD／static concave凸分割與chains；無 dynamic concave／compound、rotation／dynamic-pair CCD。                                                                                                                                                                                                                                                                                |
-| Models／textures        | glTF `COLOR_0` 支援、拒 `COLOR_1`；meshopt 內建。Draco／Basis需外部decoder，目前 KTX2 為 base-level RGBA8，非 native compressed／mip upload。                                                                                                                                                                                                                                                                       |
-| Recovery                | GPU／GL 預設 `recoverGraphics:true` 重建同 backend，舊 RenderTextures／snapshots需重建；失敗為 fatal，非真 driver／跨browser認證。                                                                                                                                                                                                                                                                                  |
-| P40 已驗；P41／P42 待驗 | P40 batching／metrics／deep browser regression 三 Chromium backend 已通過，hosted CI 未執行。P41 UI layout／widgets／focus、cross-device contexts、resident budget／warmup、typed factories；P42 完整可玩流程與 GPU skinning／animated bounds／native compressed-mip textures／3D colliders-queries-character-dynamic bodies／navigation-pathfinding／animation masks-additive-blend tree-IK 全部選項仍待實作驗收。 |
+| 需求                      | 目前可用／重要邊界                                                                                                                                                                                                                                                                                                                                                                          |
+| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 跨 backend 2D             | 三 backend Sprite／HUD／atlas／raster／isolation／masks／basic blends。Native Material2D／Filter2D／Mesh2D 僅 GPU／GL，Canvas 明確拒絕。                                                                                                                                                                                                                                                    |
+| 3D                        | 只有 WebGPU／WebGL2；PBR／instancing／shadows／post／weighted transparency 為明記的 bounded profiles。WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                                                                                                     |
+| Physics2D                 | Sleep／五種 joints／dynamic平移→static CCD／static concave凸分割與chains；無 dynamic concave／compound、rotation／dynamic-pair CCD。                                                                                                                                                                                                                                                        |
+| Models／textures          | glTF `COLOR_0` 支援、拒 `COLOR_1`；meshopt 內建。Draco／Basis需外部decoder，目前 KTX2 為 base-level RGBA8，非 native compressed／mip upload。                                                                                                                                                                                                                                               |
+| Recovery                  | GPU／GL 預設 `recoverGraphics:true` 重建同 backend，舊 RenderTextures／snapshots需重建；失敗為 fatal，非真 driver／跨browser認證。                                                                                                                                                                                                                                                          |
+| P40／P41 已驗；P42 待整合 | P41 UI/layout/focus、contexts、budgets/warmup、typed content 通過三 backend built-root Chromium regression；touch injection／模擬 Gamepad snapshots 不認證實體裝置。P42 完整可玩流程、GPU skinning／animated bounds、native compressed／mip textures、3D colliders／queries／character／dynamic bodies、navigation／pathfinding、animation masks／additive／blend tree／IK 全部待整合驗收。 |
 
 下方各階段 counts／browser observations 保留為歷史，不作待驗擴充的證據。
 
@@ -840,3 +840,124 @@ SSAO／DOF 的透明 depth。可於 [objects3d](../examples/objects3d/index.html
 Deep runner 為 `pnpm regression:browser`，先 `pnpm build` 與 `pnpm exec playwright-core install chromium`。預設 Canvas2D／WebGL2 必須執行；WebGPU probe 不可用時明記 SKIP。`--renderer canvas2d|webgl2|webgpu`（可逗號分隔）選 required backends，explicit WebGPU 或 `--require-webgpu` 在不可用時 fail。`--output DIR` 選 assertion JSON／canvas PNG 輸出（預設 `.vite/browser-regression`）。Installed Chromium software-rendering CI gate／既有 example smoke 不是跨 browser／真 GPU 認證；WebGL loss 用真 extension，private-device WebGPU loss injection 明記 SKIP。三 backend Chromium 153 實跑證據見 ACCEPTANCE，hosted CI 尚未執行。
 
 P41／P42與全部第三輪選項的批准邊界見[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md)，不得以歷史non-goal省略新scope。
+
+## 21. P41 Authoring/Device Flow
+
+限定 Chromium 三 backend 證據見 [ACCEPTANCE](../ACCEPTANCE.md)。使用引擎 renderer，不以 DOM visuals 冒充 UI。完整 [bounded profiles／ownership](TECHNICAL-zh.md#41-p41-authoringdevice-contracts) 與 [完整 typed 範例](USAGE.md#21-p41-authoringdevice-flow) 可搭配閱讀。
+
+| 範例                                        | 用途                                                                                                          |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [authoring-lab](../examples/authoring-lab/) | 正式 root consumer：UI/focus/modal、contexts/virtual controls、texture leases/warmup、typed content/save-load |
+
+### Canvas UI／路由 actions
+
+```ts
+import {
+  Game,
+  Scene,
+  UIRoot,
+  UIElement,
+  UIButton,
+  UICheckbox,
+  UISlider,
+} from 'xyz.js';
+
+const game = await Game.create({
+  canvas: '#game',
+  renderer: 'auto',
+  resourceBudgets: {
+    decodedTextureBytes: 32 * 1024 * 1024,
+    nativeTextureBytes: 32 * 1024 * 1024,
+    nativeGeometryBytes: 16 * 1024 * 1024,
+  },
+});
+const scene = new Scene();
+const root = scene.add(
+  new UIRoot(game, { direction: 'column', padding: 16, gap: 8 }),
+);
+const open = root.add(await UIButton.create('設定'));
+const modal = root.add(
+  new UIElement({ direction: 'column', width: 280, gap: 8 }),
+);
+modal.add(await UICheckbox.create('音樂', { checked: true }));
+modal.add(
+  await UISlider.create('音量', { min: 0, max: 1, step: 0.1, value: 0.5 }),
+);
+const close = modal.add(await UIButton.create('關閉'));
+modal.visible = false;
+open.addEventListener('click', () => {
+  modal.visible = true;
+  root.focus.pushModal(modal);
+});
+close.addEventListener('click', () => {
+  root.focus.popModal();
+  modal.visible = false;
+});
+await open.setText('開啟設定');
+await game.setScene(scene, { warmup: { maxItems: 2, maxMilliseconds: 4 } });
+game.start();
+root.focus.focus(open);
+const world = game.input.contexts.create('world', {
+  priority: 0,
+  consume: true,
+  bindings: {
+    interact: [{ key: 'Space' }, { pointerButton: 0 }, { virtual: 'interact' }],
+  },
+});
+world.activate(); // Scene.update 中讀 world.wasPressed('interact')。
+game.input.virtual.set('interact', 1);
+game.input.virtual.set('interact', 0); // cancel／up／blur 也要 release；reset() 清全部。
+world.importBindings(world.exportBindings());
+// teardown：world.destroy(); game.destroy();
+```
+
+UI context 只在 live semantic focus／modal 啟用，pointer consumption 同幀 reconcile；DOM 只 semantics。Modal pop 恢復 eligible previous focus。Contexts 初始 inactive，priority／最新 activation 消耗 physical sources 與 legacy actions，raw polling 不變；held activation／unblock 不製造新 press。gamepadIndex 是 actual browser index。另支援 wheel axis／direction、gesture、signed virtual bindings。非同步 setText；layout 為 bounded row／column／overlay，不是完整 CSS。
+
+### Typed content／明示 ownership
+
+```ts
+import {
+  GameObject,
+  FactoryRegistry,
+  defineFactory,
+  buildContentScene,
+} from 'xyz.js';
+
+const registry = new FactoryRegistry({
+  marker: defineFactory<{ x: number }, GameObject, { origin: number }>({
+    parse(value: unknown) {
+      if (
+        typeof value !== 'object' ||
+        value === null ||
+        !('x' in value) ||
+        typeof value.x !== 'number' ||
+        !Number.isFinite(value.x)
+      )
+        throw new TypeError('marker.x 必須有限');
+      return { x: value.x };
+    },
+    create(options, context) {
+      const node = context.own(new GameObject());
+      node.position.x = context.services.origin + options.x;
+      return node;
+    },
+  }),
+});
+const content = await buildContentScene(
+  registry,
+  {
+    version: 1,
+    nodes: [{ id: 'player', kind: 'marker', options: { x: 24 } }],
+  } as const,
+  { origin: 10 },
+);
+const player = content.get('player'); // GameObject | undefined
+content.require('player', 'marker').position.y = 20;
+await game.setScene(content.scene, { warmup: { maxItems: 2 } });
+```
+
+未知 JSON 先 parseContentScene(registry, value)，每個 options 由 explicit parser 驗證；unique IDs／parents／references: { alias: 'id' }／dependencies 全 preflight。Factory 只透過 context.reference(alias) 讀明示 aliases。Async factory 在 fallible await 前 context.own，回 fresh detached owned subtree；services／assets 仍 borrowed。Build 回 unpublished Scene，setScene 才發布，serializer 只 explicit 2D IDs，不含 unnamed descendants／3D；無 reflection／eval／自動 resource ownership。
+
+Loader textures：`const lease = await game.assets.acquireTexture(url)`，借 `lease.texture`，移除全部 borrowers 後 `lease.release()`；legacy loadTexture pin 到 unload／destroy。Manual `await game.warmup(scene, options)` 回 lease，需 release；setScene warmup 保護 candidate 到 scene lifetime，combined budget 不足不損舊 frame。Items／milliseconds 在資源間判斷，單項可超時，dependency snapshot 不追蹤 mutations，progress 不計舊 scene prelude。
+
+Decoded CPU／native texture／native geometry 是獨立 cache estimates；native LRU 只淘汰 idle／未 active／未 retained allocations，可 reprepare，不動 borrowed CPU ownership。Canvas native residency 為零；caller bitmaps／derivedCanvas／attachments／scratch／driver／pipelines 排除，不是 total VRAM／process memory 上限。分別觀察 game.assets.residency／game.graphics.residency。

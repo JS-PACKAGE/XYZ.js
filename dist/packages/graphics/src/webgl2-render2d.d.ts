@@ -2,10 +2,13 @@ import { Texture, type Texture2DSource } from '../../assets/src/index.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import { type ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 import type { FrameStats } from './render-stats.js';
 import { RenderCommandBuffer2D } from './render2d-contract.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
+import type { NativeResidency, ResidencyAllocation } from './residency.js';
 export interface GLTarget2D {
     framebuffer: WebGLFramebuffer;
     texture: WebGLTexture;
@@ -15,6 +18,7 @@ export interface GLTarget2D {
 export interface GLRender2DHooks {
     owner: object;
     stats: FrameStats;
+    residency: NativeResidency;
     createTarget(width: number, height: number): GLTarget2D;
     deleteTarget(target: GLTarget2D): void;
     createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
@@ -77,7 +81,10 @@ export declare class WebGLRender2D {
     private spriteMatrix;
     private drawSprites;
     private drawSprite;
+    prepareGeometry(geometry: Geometry2D): ResidencyAllocation;
+    unloadGeometry(geometry: Geometry2D): void;
     private drawMesh;
+    prepareParticles(layer: ParticleLayer2D): ResidencyAllocation;
     private drawParticles;
     private layer;
     private clear;

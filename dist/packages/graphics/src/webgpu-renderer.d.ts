@@ -7,11 +7,23 @@ import type { Renderer } from './index.js';
 import { type RenderStats } from './render-stats.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { NativeResidency } from './residency.js';
+import type { ResidencyBudgetOptions } from './residency.js';
+import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 export declare class WebGPURenderer implements Renderer {
     private readonly onError;
     private readonly antialias;
     readonly backend: "webgpu";
     private readonly frameStats;
+    readonly residency: NativeResidency;
+    private readonly preparedGeometry;
+    configureResidency(options: ResidencyBudgetOptions): void;
+    retainFrameResources(): PreparedResourceLease;
+    prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
+    unloadGeometry(source: Geometry | Geometry2D): void;
+    prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     get stats(): RenderStats;
     readonly capabilities: {
         threeD: boolean;
@@ -66,7 +78,7 @@ export declare class WebGPURenderer implements Renderer {
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     beginFrame(): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
-    endFrame(): void;
+    endFrame(publishFrame?: boolean): void;
     resize(width: number, height: number): void;
     private cacheTexture;
     private releaseUnusedTextures;

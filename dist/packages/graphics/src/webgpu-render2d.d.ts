@@ -2,13 +2,17 @@ import { Texture, type Texture2DSource } from '../../assets/src/index.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { type ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 import type { FrameStats } from './render-stats.js';
 import { RenderCommandBuffer2D } from './render2d-contract.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 import { type GPUColorTarget, type WebGPU2DEffects } from './webgpu-2d/effects.js';
+import type { NativeResidency, ResidencyAllocation } from './residency.js';
 export interface WebGPURender2DHooks {
     owner: object;
     readonly stats: FrameStats;
+    residency: NativeResidency;
     /** Uploads or reuses a CPU-backed source; render targets are owned here. */
     upload(source: Exclude<Texture2DSource, RenderTexture2D>): GPUTexture;
     assertIdle(): void;
@@ -94,7 +98,10 @@ export declare class WebGPURender2D {
     private drawCommands;
     private packSprite;
     private drawSprite;
+    prepareGeometry(geometry: Geometry2D): ResidencyAllocation;
+    unloadGeometry(geometry: Geometry2D): void;
     private drawMesh;
+    prepareParticles(layer: ParticleLayer2D): ResidencyAllocation;
     private drawParticles;
     private uploadParticles;
     private layer;

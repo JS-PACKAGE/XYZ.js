@@ -6,6 +6,10 @@ import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Renderer, GraphicsBackend, GraphicsCapabilities, RenderToTextureOptions2D, ExtractPixelsOptions2D, GenerateTextureOptions2D } from './index.js';
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
 import type { RenderStats } from './render-stats.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
+import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 export interface ResilientRendererHooks {
     /** Called once when the GPU context/device is lost and recovery begins. */
     onLost?(error: Error): void;
@@ -14,8 +18,8 @@ export interface ResilientRendererHooks {
 }
 /**
  * Rebuilds a WebGL2 or WebGPU renderer after context/device loss. Scenes, Textures and
- * geometry are CPU-owned, so they re-upload lazily; prepared 2D materials and
- * post-processors are prepared again on the replacement. Renderer-owned handles
+ * geometry are CPU-owned and otherwise upload lazily. Explicit preparations and live
+ * resource leases are restored on the replacement. Renderer-owned handles
  * (RenderTexture2D targets and snapshots) do not survive a loss.
  */
 export declare class ResilientRenderer implements Renderer {
@@ -29,13 +33,24 @@ export declare class ResilientRenderer implements Renderer {
     private ready;
     private recovering;
     private readonly abort;
+    private replacement;
     private readonly materials;
     private readonly processors;
     private size;
+    private residencyOptions;
+    private readonly prepared;
+    private readonly textures;
+    private readonly geometry;
     /** Completed recoveries, for diagnostics. */
     recoveries: number;
     constructor(backend: GraphicsBackend, create: (onError: (error: Error) => void) => Renderer, report: (error: Error) => void, hooks?: ResilientRendererHooks);
     get stats(): RenderStats;
+    get residency(): GraphicsResidency;
+    configureResidency(options: ResidencyBudgetOptions): void;
+    prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
+    unloadGeometry(source: Geometry | Geometry2D): void;
+    prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
+    retainFrameResources(): PreparedResourceLease;
     get capabilities(): GraphicsCapabilities;
     /** True while a lost context is being rebuilt; frames are skipped meanwhile. */
     get isRecovering(): boolean;

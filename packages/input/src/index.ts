@@ -2,6 +2,13 @@ import { Vector2 } from '../../math/src/index.js';
 import { inputLimits } from '../../../src/data/input.js';
 import { ActionMap, GamepadState } from './gamepad.js';
 import { GestureRecognizer } from './gestures.js';
+import type { GestureType } from './gestures.js';
+import { InputContexts } from './contexts.js';
+import { VirtualInput } from './virtual.js';
+
+export { InputContext, InputContexts } from './contexts.js';
+export type { InputContextOptions } from './contexts.js';
+export { VirtualInput } from './virtual.js';
 
 export { GestureRecognizer } from './gestures.js';
 export type {
@@ -20,6 +27,7 @@ export {
   gamepadButtonIndex,
 } from './gamepad.js';
 export type {
+  ActionBinding,
   ActionKeyboard,
   GamepadAxisName,
   GamepadBinding,
@@ -71,6 +79,8 @@ export class Keyboard {
   private readonly down = new Set<string>();
   private readonly pressed = new Set<string>();
   private readonly released = new Set<string>();
+  private readonly pressVersions = new Map<string, number>();
+  private pressSequence = 0;
 
   isDown(code: string): boolean {
     return this.down.has(code);
@@ -84,12 +94,18 @@ export class Keyboard {
     return this.released.has(code);
   }
 
+  /** @internal Distinguishes a new native press from a consumed held press. */
+  pressVersion(code: string): number {
+    return this.pressVersions.get(code) ?? 0;
+  }
+
   /** @internal */
   keyDown(event: KeyboardEvent): void {
     if (isTextEditable(event.target)) return;
     if (!this.down.has(event.code)) {
       this.down.add(event.code);
       this.pressed.add(event.code);
+      this.pressVersions.set(event.code, ++this.pressSequence);
     }
   }
 
@@ -108,6 +124,7 @@ export class Keyboard {
   /** @internal */
   reset(): void {
     this.down.clear();
+    this.pressVersions.clear();
     this.endFrame();
   }
 }
@@ -117,12 +134,16 @@ export class Pointer {
   private readonly down = new Set<number>();
   private readonly pressed = new Set<number>();
   private readonly released = new Set<number>();
+  private readonly pressVersions = new Map<number, number>();
+  private pressSequence = 0;
   private readonly pointers = new Map<number, Set<number>>();
   private hovered = false;
   private readonly views = new Map<number, ActivePointer>();
   private readonly queued: PointerSample[] = [];
   private readonly samplePool: PointerSample[] = [];
   private sequence = 0;
+  private readonly wheelValues = { x: 0, y: 0, z: 0 };
+  private readonly wheelVersions = { x: 0, y: 0, z: 0 };
   private generation = 0;
   private cursorOwned = false;
   private originalCursor = '';
@@ -139,6 +160,16 @@ export class Pointer {
   /** @internal Reset invalidates scene-local capture/hover state. */
   get resetVersion(): number {
     return this.generation;
+  }
+
+  /** @internal Independent of frame boundaries and pointer sample coalescing. */
+  pressVersion(button: number): number {
+    return this.pressVersions.get(button) ?? 0;
+  }
+
+  /** @internal */
+  wheelVersion(axis: 'x' | 'y' | 'z'): number {
+    return this.wheelVersions[axis];
   }
 
   /** @internal Individual capture state, unlike aggregate mouse-button polling. */
@@ -241,6 +272,11 @@ export class Pointer {
     return this.released.has(button);
   }
 
+  /** Accumulated CSS-pixel wheel movement for the current frame. */
+  wheelDelta(axis: 'x' | 'y' | 'z'): number {
+    return this.wheelValues[axis];
+  }
+
   /** CSS-pixel deltas; line mode uses 16px and page mode uses the content height. */
   wheel(event: WheelEvent): void {
     this.updatePosition(event);
@@ -254,6 +290,21 @@ export class Pointer {
       Number.isFinite(value)
         ? Math.max(-1000000, Math.min(1000000, value * factor))
         : 0;
+    this.wheelValues.x = Math.max(
+      -1000000,
+      Math.min(1000000, this.wheelValues.x + finite(event.deltaX)),
+    );
+    this.wheelValues.y = Math.max(
+      -1000000,
+      Math.min(1000000, this.wheelValues.y + finite(event.deltaY)),
+    );
+    this.wheelValues.z = Math.max(
+      -1000000,
+      Math.min(1000000, this.wheelValues.z + finite(event.deltaZ)),
+    );
+    if (event.deltaX && Number.isFinite(event.deltaX)) this.wheelVersions.x++;
+    if (event.deltaY && Number.isFinite(event.deltaY)) this.wheelVersions.y++;
+    if (event.deltaZ && Number.isFinite(event.deltaZ)) this.wheelVersions.z++;
     const last = this.queued[this.queued.length - 1];
     if (
       last?.kind === 'wheel' &&
@@ -353,6 +404,7 @@ export class Pointer {
     if (!this.down.has(event.button)) {
       this.down.add(event.button);
       this.pressed.add(event.button);
+      this.pressVersions.set(event.button, ++this.pressSequence);
     }
     this.record(event, 'down');
   }
@@ -392,6 +444,7 @@ export class Pointer {
     this.released.clear();
     for (const sample of this.queued) sample.originalEvent = undefined;
     this.queued.length = 0;
+    this.wheelValues.x = this.wheelValues.y = this.wheelValues.z = 0;
   }
 
   /** @internal */
@@ -401,6 +454,7 @@ export class Pointer {
     for (const id of this.pointers.keys()) this.releaseCapture(id);
     this.pointers.clear();
     this.down.clear();
+    this.pressVersions.clear();
     this.hovered = false;
     this.views.clear();
     this.endFrame();
@@ -465,8 +519,21 @@ export class InputManager {
   readonly gestures = new GestureRecognizer();
   /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
   readonly gamepad = new GamepadState();
-  /** Named actions bound to gamepad buttons, stick directions and keys. */
-  readonly actions = new ActionMap(this.gamepad, this.keyboard);
+  /** Legacy named actions, routed below every active input context. */
+  readonly actions: ActionMap;
+  readonly contexts: InputContexts;
+  readonly virtual = new VirtualInput();
+  private readonly gesturePulses = new Set<GestureType>();
+  private readonly gestureVersions: Record<GestureType, number> = {
+    tap: 0,
+    doubletap: 0,
+    longpress: 0,
+    swipe: 0,
+    pan: 0,
+    pinch: 0,
+    rotate: 0,
+  };
+  private readonly gestureUnsubscribe: Array<() => void> = [];
   /** Snapshot from the latest update; disconnected gamepad indices retain null slots. */
   get gamepads(): readonly (Gamepad | null)[] {
     return this.gamepadSnapshot;
@@ -506,8 +573,47 @@ export class InputManager {
       canvas,
       getSize,
       (sample) => this.gestures.feed(sample),
-      () => this.gestures.reset(),
+      () => {
+        this.gestures.reset();
+        this.gesturePulses.clear();
+      },
     );
+    const sources = {
+      pointer: this.pointer,
+      virtual: this.virtual,
+      gesture: (type: GestureType): boolean => this.gesturePulses.has(type),
+      gestureVersion: (type: GestureType): number => this.gestureVersions[type],
+    };
+    this.actions = new ActionMap(this.gamepad, this.keyboard, sources, true);
+    this.contexts = new InputContexts(
+      this.actions,
+      this.gamepad,
+      this.keyboard,
+      sources,
+    );
+    const gestureTypes: readonly GestureType[] = [
+      'tap',
+      'doubletap',
+      'longpress',
+      'swipe',
+      'pan',
+      'pinch',
+      'rotate',
+    ];
+    for (const type of gestureTypes)
+      this.gestureUnsubscribe.push(
+        this.gestures.on(type, (detail) => {
+          if (detail.phase === 'cancel') this.gesturePulses.delete(type);
+          else if (
+            type === 'pan' || type === 'pinch' || type === 'rotate'
+              ? detail.phase === 'start' || detail.phase === 'change'
+              : detail.phase === 'end'
+          ) {
+            this.gesturePulses.add(type);
+            this.gestureVersions[type]++;
+          }
+        }),
+      );
     // Minimal headless canvas/window stand-ins may not implement EventTarget.
     // When they do, listener registration errors are real initialization failures.
     try {
@@ -546,12 +652,15 @@ export class InputManager {
       this.gamepadSnapshot = pads.length ? Array.from(pads) : NO_GAMEPADS;
     }
     this.gamepad.update(this.gamepadSnapshot);
-    this.actions.update();
+    this.contexts.update(this.gamepadSnapshot);
   }
 
   endFrame(): void {
     this.keyboard.endFrame();
     this.pointer.endFrame();
+    this.virtual.endFrame();
+    this.gesturePulses.clear();
+    this.contexts.endFrame();
   }
 
   reset(): void {
@@ -559,6 +668,10 @@ export class InputManager {
     this.pointer.reset();
     this.gamepadSnapshot = NO_GAMEPADS;
     this.gamepad.reset();
+    this.virtual.reset();
+    this.virtual.endFrame();
+    this.gesturePulses.clear();
+    this.contexts.reset();
   }
 
   destroy(): void {
@@ -566,6 +679,10 @@ export class InputManager {
     this.destroyed = true;
     this.reset();
     this.gestures.destroy();
+    for (const unsubscribe of this.gestureUnsubscribe) unsubscribe();
+    this.gestureUnsubscribe.length = 0;
+    this.contexts.destroy();
+    this.virtual.destroy();
     const canvas = this.canvas;
     if (typeof canvas.removeEventListener === 'function') {
       canvas.removeEventListener('pointerenter', this.onPointerEnter);

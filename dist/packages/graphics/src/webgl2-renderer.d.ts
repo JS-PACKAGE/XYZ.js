@@ -1,5 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import type { Geometry } from '../../core/src/geometry.js';
 import { type Texture2DSource, Texture } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
@@ -7,6 +8,10 @@ import { type RenderTexture2D, type RenderTextureOptions2D } from './render-text
 import { FrameStats } from './render-stats.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
+import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { NativeResidency } from './residency.js';
+import type { ResidencyBudgetOptions } from './residency.js';
+import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export declare class WebGL2Renderer implements Renderer {
     private readonly onError;
@@ -30,6 +35,13 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly meshDraws;
     private readonly drawSorter;
     readonly stats: FrameStats;
+    readonly residency: NativeResidency;
+    private readonly preparedGeometry;
+    configureResidency(options: ResidencyBudgetOptions): void;
+    retainFrameResources(): PreparedResourceLease;
+    prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
+    unloadGeometry(source: Geometry | Geometry2D): void;
+    prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     private readonly targetBytes;
     private maxTextureSize;
     private maxWidth;
@@ -111,7 +123,7 @@ export declare class WebGL2Renderer implements Renderer {
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     private renderFrame;
-    endFrame(): void;
+    endFrame(publishFrame?: boolean): void;
     resize(width: number, height: number): void;
     private drawEffects2D;
     private drawComposite;
@@ -121,6 +133,7 @@ export declare class WebGL2Renderer implements Renderer {
     private bindMaterialTexture;
     private cacheSampler;
     private drawMesh;
+    private cacheInstances;
     private drawShadows;
     private preparePostTarget;
     private prepareRefractionTarget;

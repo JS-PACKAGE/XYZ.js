@@ -1,5 +1,10 @@
 import type { Scene } from '../../core/src/scene.js';
+import { Mesh } from '../../core/src/mesh.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { Geometry } from '../../core/src/geometry.js';
+import type { Texture2DSource } from '../../assets/src/index.js';
 import type { FrameStats } from './render-stats.js';
+import type { NativeResidency, ResidencyAllocation } from './residency.js';
 /** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
@@ -18,7 +23,9 @@ export declare class WebGPUMeshPipeline {
     private readonly post;
     private readonly format;
     private readonly sampleCount;
+    private readonly residency;
     private readonly geometries;
+    private textureEpoch;
     private readonly meshes;
     private readonly textures;
     private readonly premultipliedTextures;
@@ -89,7 +96,7 @@ export declare class WebGPUMeshPipeline {
     private readonly shadowAttachment;
     private readonly shadowDescriptor;
     private constructor();
-    static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number, stats: FrameStats): Promise<WebGPUMeshPipeline>;
+    static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number, stats: FrameStats, residency: NativeResidency): Promise<WebGPUMeshPipeline>;
     resize(width: number, height: number): void;
     private ensureRefraction;
     private releaseRefraction;
@@ -100,6 +107,11 @@ export declare class WebGPUMeshPipeline {
     private prepareScene;
     /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
     private ensureEnvironment;
+    prepareEnvironment(map: EnvironmentMap): void;
+    prepareGeometry(geometry: Geometry): ResidencyAllocation;
+    unloadGeometry(geometry: Geometry): void;
+    prepareMesh(mesh: Mesh): void;
+    unloadTexture(texture: Texture2DSource): void;
     private uploadEnvironment;
     private reflectionGroup;
     private renderShadows;
