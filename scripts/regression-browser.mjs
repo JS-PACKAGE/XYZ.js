@@ -51,7 +51,7 @@ try {
     'Built public entry is missing. Run pnpm build before pnpm regression:browser.',
   );
 }
-const launch = await chromiumLaunchOptions();
+let launch;
 const server = await createServer({
   root,
   // Exercise the shipped entry/exports, not a different source-only implementation.
@@ -67,6 +67,7 @@ const server = await createServer({
 });
 let browser;
 const results = [];
+let startupError;
 async function saveReport(backend, report) {
   const scenarios = [];
   for (const scenario of report.scenarios ?? []) {
@@ -256,6 +257,7 @@ async function runAuthoring(page, backend, result, awaitState) {
 }
 try {
   await server.listen();
+  launch = await chromiumLaunchOptions();
   browser = await chromium.launch(launch);
   if (!explicitlySelected && !selected.includes('webgpu'))
     selected.push('webgpu');
@@ -362,6 +364,10 @@ try {
     }
     results.push(result);
   }
+} catch (error) {
+  startupError = error.stack ?? error.message ?? String(error);
+  if (error.cause)
+    startupError += `\nCaused by: ${error.cause.stack ?? error.cause.message ?? String(error.cause)}`;
 } finally {
   try {
     await writeFile(
@@ -370,7 +376,8 @@ try {
         {
           browser: browser?.version(),
           platform: `${process.platform}/${process.arch}`,
-          launchArgs: launch.args,
+          launchArgs: launch?.args,
+          ...(startupError ? { error: startupError } : {}),
           results,
         },
         null,
@@ -385,6 +392,7 @@ try {
     }
   }
 }
+if (startupError) console.error(startupError);
 for (const result of results) {
   console.log(
     `${result.result} ${result.backend}${result.unavailable ? `: ${result.unavailable}` : ''}`,
@@ -396,4 +404,9 @@ for (const result of results) {
   for (const error of result.errors) console.error(error);
 }
 console.log(`Assertions and canvas PNG proofs: ${directory}`);
-if (results.some((result) => result.result === 'FAIL')) process.exitCode = 1;
+if (
+  startupError ||
+  !results.length ||
+  results.some((result) => result.result === 'FAIL')
+)
+  process.exitCode = 1;

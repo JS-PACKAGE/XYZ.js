@@ -901,3 +901,9 @@ Mixer 順序為 controllers → ordered action sampling → constraints；其後
 `interpolatePhysics:true` 只在 Game 呈現時插值 moving-body 的 previous／current 平移與最短路徑旋轉；authoritative transforms、碰撞 queries 與 gameplay 保持最新 fixed pose。外部改 transform 會略過 stale interpolation pair；最多增加一個 physics step 的呈現延遲，不自動插值 actions／animation／camera，也不平滑 mutable scale。
 
 Input edges 保持 frame-based：在 `update` 排入一次性命令，再於 `fixedUpdate` 消費一次；同 frame 多次讀 `wasPressed` 不代表多次實體按壓。Held movement／force 可以每個 fixed tick 評估。
+
+## 44. Submitted-frame 證據與 release gate（P44）
+
+CI 的 reusable verification job 是 tag release 的必要前置，通過前不能 pack／publish：frozen install、format、typecheck、lint、tests、build、必要 Canvas2D／WebGL examples smoke 與深度 browser regression。失敗保留 `.vite/browser-regression/` 與分 invocation 的 `.vite/example-smoke/`。WebGPU 只有沒有 adapter 時可 skip；明確指定 WebGPU 或已有 adapter 的失敗仍是錯誤。
+
+Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned MAP_READ／BGRA 轉換，Canvas2D／WebGL 則同步取樣，原像素 assertions 不變。報告保存 GPU destroy call stack、loss／error timeline 與巢狀 recovery cause；診斷改善不等於歷史 Ubuntu GPU 失敗已實跑修復。

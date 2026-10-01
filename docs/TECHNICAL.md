@@ -951,3 +951,9 @@ For both body types, frame-submitted `applyForce`/torque contributes **force × 
 `interpolatePhysics:true` interpolates previous/current moving-body translation and shortest-path rotation only during Game presentation. Authoritative transforms, collision queries and gameplay remain current fixed poses; external transform edits bypass the stale interpolation pair. It adds at most one physics-step presentation latency and does not interpolate arbitrary actions, animation poses or cameras. Mutable scale is not smoothed.
 
 Input edges remain frame-based. Queue one-shot commands in `update`, then consume them once in `fixedUpdate`; polling the same frame's `wasPressed` repeatedly is not a new physical press. Held movement/force can be evaluated every fixed tick.
+
+## 44. Submitted-frame Proofs and Release Gate (P44)
+
+CI's reusable verification job is a required dependency of tag release, before pack or publication: frozen install, format, typecheck, lint, tests, build, mandatory Canvas2D/WebGL example smokes and deep browser regression. Failed runs retain `.vite/browser-regression/` and invocation-specific `.vite/example-smoke/` evidence. WebGPU may skip only when an adapter is unavailable; explicit WebGPU and available-adapter failures remain errors.
+
+Browser fixtures capture the actual submitted frame: GPUTexture copy before presentation with aligned MAP_READ/BGRA conversion, or synchronous Canvas2D/WebGL sampling. Pixel assertions are unchanged. The fixture reports GPU destroy call stacks, loss/error timelines and nested recovery causes; these diagnostics do not certify the unresolved historical Ubuntu GPU failure as fixed.

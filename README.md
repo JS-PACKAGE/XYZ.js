@@ -24,6 +24,10 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 
 本輪新增 fixed gameplay／時間加權 force 與 opt-in physics presentation；使用 `Scene.fixedUpdate()`、`new Scene({ interpolatePhysics: true })`，不要從 hook 再呼叫 physics world update。新驗收與限制見 [ACCEPTANCE](ACCEPTANCE.md)，歷史測試數仍保留。
 
+本輪 production 擴充：
+
+- P44：共用 CI／release browser gate，保留實際 native submitted-frame pixels 與失敗證據；hosted Ubuntu 結果不由本機推論。
+
 ### 目前支援矩陣與已批准擴充
 
 | 能力           | 目前契約／限制                                                                                                                                                                                                                                                                                                       |
@@ -89,6 +93,10 @@ P21–P29 are approved bounded PixiJS-inspired profiles, now integrated and exer
 
 Fixed gameplay, time-weighted forces and opt-in physics presentation use `Scene.fixedUpdate()` and `new Scene({ interpolatePhysics: true })`; do not manually advance physics from that hook. New evidence and limits are in [ACCEPTANCE](ACCEPTANCE.md); historical counts remain historical.
 
+Production additions in this round:
+
+- P44: shared CI/release browser gate with native submitted-frame pixels and failure evidence; local success is not hosted Ubuntu proof.
+
 ### Current support matrix and approved expansion
 
 | Capability       | Current contract / restriction                                                                                                                                                                                                                                                                                                                                                          |
@@ -144,6 +152,10 @@ P14–P20 の歴史的検証範囲は target-only lifecycle／pointer／drag、A
 P21–P29 の限定 PixiJS-inspired profiles は統合済みで、単一環境（macOS arm64 の managed headless Chromium、WebGPU adapter あり）でのみ実行確認しました。三 backend が共通の 2D command stream を使い、正式サンプル [examples/rendering2d](examples/rendering2d/index.html) も三 backend で動作します。Canvas の native filters／visible meshes は明示的に拒否します。完全な Pixi 互換、クロスブラウザ／実ハードウェア／性能の証明ではなく、GitHub v1.2 にも含まれません。検証範囲と未検証項目は [ACCEPTANCE](ACCEPTANCE.md)、profile は [PLAN](PLAN.md) を参照してください。
 
 Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fixedUpdate()` と `new Scene({ interpolatePhysics: true })` を使います。Hook 内で physics を二重更新しないでください。新しい証拠と制限は [ACCEPTANCE](ACCEPTANCE.md)、旧テスト数は当時の記録です。
+
+今回の production 拡張：
+
+- P44：native submitted-frame pixels／失敗証拠を残す共通 CI／release browser gate。本機の成功は hosted Ubuntu の証明ではありません。
 
 ### 現在の対応表と承認済み拡張
 

@@ -1100,3 +1100,7 @@ class FixedScene extends Scene {
 ```
 
 Do not also call `physics.update`/`physics3D.update` from either hook. `fixedFrame`/`fixedElapsed` describe completed scene ticks, and `droppedSimulationTime` records bounded catch-up loss. Interpolation affects only Game rendering, not the actor's simulation position or queries. Frame-submitted forces are time-weighted, including frames with no physics tick; `clearForces()` cancels pending impulse. See [the timing contract](TECHNICAL.md#43-fixed-gameplay-frame-forces-and-presentation).
+
+## 24. Release Verification (P44)
+
+Use `pnpm regression:browser --renderer webgpu` for a mandatory available-GPU proof; the default run also covers Canvas2D/WebGL. Release tags depend on the same reusable CI verification gate, before packing/publication. Inspect `.vite/browser-regression/` and `.vite/example-smoke/` when a gate fails; source changes/local runs are not proof of hosted Ubuntu recovery.

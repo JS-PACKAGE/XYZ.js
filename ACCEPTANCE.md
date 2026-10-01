@@ -737,3 +737,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **真 Game pixels**：自建 headless Chromium shell／獨立 profile 的 Canvas2D Game，controlled RAF 0→12.5ms 驅動正式 update／render；2×2 紅 sprite 的像素 centroid 9.5→10.5，authoritative x=12、fixedFrame=1、alpha=.5000000000000001，無 runtime errors。Destroy 後 Scene registrations=0。這是呈現契約證明，不是實際 FPS 量測。
 - **回歸**：保留 fixed simulation／force-clear／sleep-wake 行為測試；整合工作樹的 typecheck、93 files／780 tests、lint、build 已通過，這是全部本輪 source 的共用整合結果，不冒稱此單一 commit 當時含全部測試檔。Machine evidence：`.vite/production-cpu.json` 的 fixedSimulation／integrityForceRegressions；完整其他階段另記。
 - **界線**：插值預設關閉，不改碰撞判斷／input picking 的 authoritative world；沒有 FPS 提升、跨瀏覽器／真背景節流認證。套件仍 1.8.0，逐功能提交，不 push／publish。
+
+## P44 Native Frame Regression & Release Gate（限定已測環境）
+
+- WebGPU oracle 改讀本次已提交的 frame texture，不在 presentation 後重新抓 swapchain；保留 tint／opacity native pixels 與 explicit loss／restore 分支，失敗 JSON／PNG／diagnostics 不被壓成成功。
+- CI 共用完整 browser gate，release 必须依賴該 gate；headless launch 採 pinned Playwright 預設 shell，明示 executable override 才使用外部 path，沒有 backend fallback／重試。
+- 本機 macOS arm64 已通過 forced Canvas2D／WebGL2／WebGPU deep regression 與 actual UI pixels；先前 hosted Ubuntu run 36885098433 的 alpha=0／device-loss failure 保留為真實失敗。未觸發遠端 Actions，不宣稱該 Ubuntu 環境已恢復；未來 release 仍由 mandatory gate 阻擋。
+- 最後以預設 headless launch 再跑三 backend regression 全 passed；Canvas2D 無 native GPU／3D，WebGPU 沒有 public canvas device-loss injection，對應案例明示 SKIP，未假稱 true WebGPU device-loss injection 通過。

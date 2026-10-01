@@ -1,22 +1,22 @@
 import { access } from 'node:fs/promises';
 import process from 'node:process';
-import { chromium } from 'playwright-core';
 
-/** Use the revision installed by the repository's pinned playwright-core. */
+/** Let pinned Playwright select its native headless executable, not a full app. */
 export async function chromiumLaunchOptions() {
-  const executablePath =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
-    chromium.executablePath();
-  try {
-    await access(executablePath);
-  } catch {
-    throw new Error(
-      'Chromium not found. Run pnpm exec playwright-core install chromium or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.',
-    );
+  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+  if (executablePath) {
+    try {
+      await access(executablePath);
+    } catch (cause) {
+      throw new Error(
+        `Chromium unavailable at ${executablePath}. Run pnpm exec playwright-core install chromium or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.`,
+        { cause },
+      );
+    }
   }
   return {
     headless: true,
-    executablePath,
+    ...(executablePath ? { executablePath } : {}),
     args: [
       '--enable-unsafe-webgpu',
       ...(process.platform === 'linux'

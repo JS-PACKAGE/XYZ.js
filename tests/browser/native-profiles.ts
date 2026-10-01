@@ -22,6 +22,7 @@ import type {
   RendererPreference,
   RenderStats,
 } from '../../src/index.js';
+import { errorDetail, frameProofs, type FrameProofs } from './frame-proof.js';
 
 interface Scenario {
   name: string;
@@ -35,6 +36,7 @@ interface NativeReport {
   renderer: string;
   scenarios: Scenario[];
   supportedTextureFormats?: readonly string[];
+  graphicsEvents?: string[];
   error?: string;
 }
 interface ImageProof {
@@ -60,6 +62,7 @@ const output = document.querySelector<HTMLPreElement>('#report')!;
 const report: NativeReport = { renderer: preference, scenarios: [] };
 let scenario: Scenario;
 let renderer: Renderer | undefined;
+let capturedFrames: FrameProofs;
 let runtimeError: Error | undefined;
 let running: Promise<NativeReport> | undefined;
 let destroyed = false;
@@ -68,8 +71,6 @@ let recoveries = 0;
 const textures: Texture[] = [];
 const scenes: Scene[] = [];
 const compressedReplay: Scene[] = [];
-const copy = document.createElement('canvas');
-const readback = copy.getContext('2d', { willReadFrequently: true })!;
 
 function publish(state: string): void {
   output.textContent = JSON.stringify(report);
@@ -118,28 +119,21 @@ function quad(size = 1, z = 0): Geometry {
     indices: [0, 1, 2, 0, 2, 3],
   });
 }
-// Read the actual presented canvas in the same animation callback as submission:
-// a later callback can see a cleared WebGL drawing buffer or a different GPU surface.
 async function draw(scene: Scene, effects?: FrameEffects): Promise<ImageProof> {
-  return new Promise((resolve, reject) => {
-    requestAnimationFrame(() => {
-      try {
-        if (runtimeError) throw runtimeError;
-        renderer!.beginFrame();
-        renderer!.render(scene, canvas.width, canvas.height, effects);
-        renderer!.endFrame();
-        copy.width = canvas.width;
-        copy.height = canvas.height;
-        readback.drawImage(canvas, 0, 0);
-        const bytes = readback.getImageData(0, 0, copy.width, copy.height).data;
-        scenario.stats = { ...renderer!.stats };
-        scenario.png = copy.toDataURL('image/png');
-        resolve({ bytes, width: copy.width, height: copy.height });
-      } catch (error) {
-        reject(error);
-      }
-    });
-  });
+  await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  if (runtimeError) throw runtimeError;
+  renderer!.beginFrame();
+  renderer!.render(scene, canvas.width, canvas.height, effects);
+  const proof = capturedFrames.next();
+  try {
+    renderer!.endFrame();
+  } catch {
+    // The hook rejects this same proof with the submission error.
+  }
+  const image = await proof;
+  scenario.stats = image.stats;
+  scenario.png = image.png;
+  return image;
 }
 function difference(
   a: ImageProof,
@@ -924,6 +918,10 @@ async function execute(): Promise<NativeReport> {
         },
       },
     );
+    capturedFrames = frameProofs(renderer, canvas, () => {
+      output.textContent = JSON.stringify(report);
+    });
+    report.graphicsEvents = capturedFrames.graphicsEvents;
     report.renderer = renderer.backend;
     check(
       preference === 'auto' || renderer.backend === preference,
@@ -952,8 +950,7 @@ async function execute(): Promise<NativeReport> {
     destroy();
     publish('passed');
   } catch (error) {
-    report.error =
-      error instanceof Error ? (error.stack ?? error.message) : String(error);
+    report.error = errorDetail(error);
     try {
       destroy();
     } catch (cleanup) {

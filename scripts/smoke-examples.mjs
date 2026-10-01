@@ -1,5 +1,5 @@
 /* global window, document, requestAnimationFrame -- used inside page.evaluate, which runs in the browser */
-import { readdir, readFile, access } from 'node:fs/promises';
+import { readdir, readFile, access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
@@ -58,11 +58,18 @@ for (const entry of await readdir(join(root, 'examples'), {
   }
 }
 if (!examples.length) throw new Error('No matching examples/backends.');
+const directory = join(
+  root,
+  '.vite/example-smoke',
+  `${browserName}-${encodeURIComponent(only ?? 'all')}-${encodeURIComponent(backends ?? 'all')}`,
+);
+await mkdir(directory, { recursive: true });
 const server = await createServer({
   root,
   server: { host: '127.0.0.1', port, strictPort: true },
 });
 let browser;
+let startupError;
 const results = [];
 try {
   await server.listen();
@@ -149,8 +156,16 @@ try {
         );
       });
     } catch (error) {
-      errors.push(error.message);
+      errors.push(error.stack ?? error.message ?? String(error));
     }
+    if (errors.length)
+      await page
+        .screenshot({
+          path: join(directory, `${slug}-${renderer}-failure.png`),
+        })
+        .catch((error) =>
+          errors.push(`Failure screenshot unavailable: ${error.message}`),
+        );
     results.push({
       example: slug,
       renderer,
@@ -160,12 +175,38 @@ try {
     });
     await page.close();
   }
+} catch (error) {
+  startupError = error.stack ?? error.message ?? String(error);
+  if (error.cause)
+    startupError += `\nCaused by: ${error.cause.stack ?? error.cause.message ?? String(error.cause)}`;
 } finally {
-  await browser?.close();
-  await server.close();
+  try {
+    await writeFile(
+      join(directory, 'results.json'),
+      JSON.stringify(
+        {
+          browser: browser?.version(),
+          platform: `${process.platform}/${process.arch}`,
+          ...(startupError ? { error: startupError } : {}),
+          results,
+        },
+        null,
+        2,
+      ),
+    );
+  } finally {
+    await browser?.close();
+    await server.close();
+  }
 }
+if (startupError) console.error(startupError);
 console.table(results);
 console.log(
   `${results.filter((row) => row.result === 'PASS').length}/${results.length} passed`,
 );
-if (results.some((row) => row.result === 'FAIL')) process.exitCode = 1;
+if (
+  startupError ||
+  !results.length ||
+  results.some((row) => row.result === 'FAIL')
+)
+  process.exitCode = 1;

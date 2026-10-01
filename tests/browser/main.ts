@@ -17,6 +17,7 @@ import {
   type RendererPreference,
   type SpriteOptions,
 } from '../../src/index.js';
+import { errorDetail, frameProofs, type FrameProofs } from './frame-proof.js';
 
 const params = new URLSearchParams(location.search);
 const renderer = params.get('renderer') as RendererPreference;
@@ -31,13 +32,19 @@ interface Scenario {
   png?: string;
   skip?: string;
 }
-const report: { renderer: string; scenarios: Scenario[]; error?: string } = {
+const report: {
+  renderer: string;
+  scenarios: Scenario[];
+  graphicsEvents?: string[];
+  error?: string;
+} = {
   renderer,
   scenarios: [],
 };
 let scenario: Scenario = { name: 'forced-backend', assertions: [] };
 report.scenarios.push(scenario);
 let game: Game | undefined;
+let capturedFrames: FrameProofs;
 const owned: { destroy(): void }[] = [];
 let released = false;
 function publish(state: string): void {
@@ -63,8 +70,7 @@ function release(): void {
   }
 }
 function fail(error: unknown): void {
-  report.error =
-    error instanceof Error ? (error.stack ?? error.message) : String(error);
+  report.error = errorDetail(error);
   publish('failed');
 }
 addEventListener('pagehide', () => release(), { once: true });
@@ -80,27 +86,10 @@ interface ImageProof {
   width: number;
 }
 async function proof(): Promise<ImageProof> {
-  return new Promise((resolve, reject) =>
-    requestAnimationFrame(() => {
-      try {
-        const copy = document.createElement('canvas');
-        copy.width = canvas.width;
-        copy.height = canvas.height;
-        const context = copy.getContext('2d', { willReadFrequently: true });
-        if (!context)
-          throw new Error(
-            'Pixel readback unavailable: no Canvas2D copy context.',
-          );
-        context.drawImage(canvas, 0, 0);
-        const bytes = context.getImageData(0, 0, copy.width, copy.height).data;
-        scenario.png = copy.toDataURL('image/png');
-        scenario.stats = { ...game!.graphics.stats };
-        resolve({ bytes, width: copy.width });
-      } catch (error) {
-        reject(error);
-      }
-    }),
-  );
+  const image = await capturedFrames.next();
+  scenario.png = image.png;
+  scenario.stats = image.stats;
+  return image;
 }
 function pixel(
   image: ImageProof,
@@ -164,6 +153,10 @@ try {
     recoverGraphics: true,
     saveStorage: new LocalStorageBackend(`browser-regression-${renderer}`),
   });
+  capturedFrames = frameProofs(game.graphics, canvas, () => {
+    output.textContent = JSON.stringify(report);
+  });
+  report.graphicsEvents = capturedFrames.graphicsEvents;
   const runtime = game;
   runtime.addEventListener('error', (event) =>
     fail((event as CustomEvent<Error>).detail),
