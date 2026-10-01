@@ -957,3 +957,9 @@ Input edges remain frame-based. Queue one-shot commands in `update`, then consum
 CI's reusable verification job is a required dependency of tag release, before pack or publication: frozen install, format, typecheck, lint, tests, build, mandatory Canvas2D/WebGL example smokes and deep browser regression. Failed runs retain `.vite/browser-regression/` and invocation-specific `.vite/example-smoke/` evidence. WebGPU may skip only when an adapter is unavailable; explicit WebGPU and available-adapter failures remain errors.
 
 Browser fixtures capture the actual submitted frame: GPUTexture copy before presentation with aligned MAP_READ/BGRA conversion, or synchronous Canvas2D/WebGL sampling. Pixel assertions are unchanged. The fixture reports GPU destroy call stacks, loss/error timelines and nested recovery causes; these diagnostics do not certify the unresolved historical Ubuntu GPU failure as fixed.
+
+## 45. Shared 3D Spatial Index (P45)
+
+World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. infinite planes remain unavoidable candidates.
+
+`world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.

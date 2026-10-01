@@ -13,6 +13,12 @@ import type { RigidBody3D } from './body.js';
 import { Manifold3D, Narrowphase3D } from './geometry.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
+import { Bounds3D, SpatialIndex3D } from './spatial.js';
+export interface PhysicsStats3D {
+  readonly candidatePairs: number;
+  readonly narrowphaseTests: number;
+  readonly queryCandidates: number;
+}
 const alwaysContinue = (): boolean => true;
 export interface PhysicsWorldOptions3D {
   gravity?: Readonly<Vector3>;
@@ -43,6 +49,8 @@ interface Entry3D {
   object: Object3D;
   shape: Shape3D;
   body: RigidBody3D | undefined;
+  readonly bounds: Bounds3D;
+  readonly order: number;
 }
 class Contact3D {
   readonly manifold = new Manifold3D();
@@ -70,6 +78,18 @@ export class PhysicsWorld3D {
   enabled = true;
   private readonly entries = new Map<Object3D, Entry3D>();
   private readonly ordered: Entry3D[] = [];
+  private readonly index = new SpatialIndex3D<Entry3D>();
+  private readonly pairCandidates: Entry3D[] = [];
+  private readonly queryCandidates: Entry3D[] = [];
+  private readonly queryBounds = new Bounds3D();
+  private indexDirty = true;
+  private nextOrder = 0;
+  private readonly counters = {
+    candidatePairs: 0,
+    narrowphaseTests: 0,
+    queryCandidates: 0,
+  };
+  readonly stats: PhysicsStats3D = this.counters;
   private readonly contacts = new Map<Entry3D, Map<Entry3D, Contact3D>>();
   private readonly active: Contact3D[] = [];
   private readonly narrow = new Narrowphase3D();
@@ -150,8 +170,15 @@ export class PhysicsWorld3D {
       return;
     const scene = object.scene,
       generation = object.registrationGeneration;
-    const next = c
-      ? { object, shape: new Shape3D(c), body: object.body }
+    const shape = c ? new Shape3D(c) : undefined;
+    const next = shape
+      ? {
+          object,
+          shape,
+          body: object.body,
+          bounds: shape.bounds,
+          order: this.nextOrder++,
+        }
       : undefined;
     if (next) {
       next.shape.refresh(object);
@@ -169,6 +196,7 @@ export class PhysicsWorld3D {
     ) {
       this.entries.set(object, next);
       this.ordered.push(next);
+      this.indexDirty = true;
     }
   }
   unregister(object: Object3D): void {
@@ -178,6 +206,7 @@ export class PhysicsWorld3D {
     if (entry.body) this.forces.delete(entry.body);
     const index = this.ordered.indexOf(entry);
     if (index !== -1) this.ordered.splice(index, 1);
+    this.indexDirty = true;
     for (const [a, row] of this.contacts) {
       for (const [b, c] of row)
         if (a === entry || b === entry) {
@@ -319,7 +348,6 @@ export class PhysicsWorld3D {
       if (b.type === 'dynamic') {
         const force = this.forceState(b);
         force.consume(b, dt);
-        // Sleeping ticks still consume their frame-time share; idle time must not dilute a later force.
         if (b.isSleeping) continue;
         b.velocity.x +=
           (this.gravity.x * b.gravityScale + force.value[0] * b.inverseMass) *
@@ -361,16 +389,25 @@ export class PhysicsWorld3D {
       e.shape.refresh(o);
       b.refreshInertia(e.shape);
     }
-    for (let i = 0; i < this.ordered.length; i++)
-      for (let j = i + 1; j < this.ordered.length; j++) {
-        const a = this.ordered[i],
-          b = this.ordered[j],
-          ca = a.shape.collider,
+    this.refreshIndex();
+    this.counters.candidatePairs = 0;
+    this.counters.narrowphaseTests = 0;
+    for (const a of this.ordered) {
+      this.index.query(
+        a.bounds,
+        this.pairCandidates,
+        physics3DDefaults.contactMargin,
+      );
+      for (const b of this.pairCandidates) {
+        if (b.order <= a.order) continue;
+        this.counters.candidatePairs++;
+        const ca = a.shape.collider,
           cb = b.shape.collider;
         if (!(ca.category & cb.mask) || !(cb.category & ca.mask)) continue;
         if (!a.body && !b.body && !ca.sensor && !cb.sensor) continue;
         let row = this.contacts.get(a);
         let contact = row?.get(b);
+        this.counters.narrowphaseTests++;
         this.narrow.collide(a.shape, b.shape, this.queryManifold);
         if (this.queryManifold.distance > physics3DDefaults.contactMargin)
           continue;
@@ -408,6 +445,7 @@ export class PhysicsWorld3D {
         contact.seen = this.stepId;
         this.active.push(contact);
       }
+    }
     for (const [a, row] of this.contacts) {
       for (const [b, c] of row)
         if (c.seen !== this.stepId) {
@@ -615,6 +653,19 @@ export class PhysicsWorld3D {
     this.solverImpulse(a, p, this.impulse, 1);
     this.solverImpulse(b, p, this.impulse, -1);
   }
+  private refreshIndex(): void {
+    // Public transforms are mutable; refresh is mandatory even for static/sleeping entries.
+    for (const e of this.ordered) e.shape.refresh(e.object);
+    if (this.indexDirty) {
+      this.index.rebuild(this.ordered);
+      this.indexDirty = false;
+    } else this.index.refit();
+  }
+  private candidates(bounds: Bounds3D): void {
+    this.refreshIndex();
+    this.index.query(bounds, this.queryCandidates);
+    this.counters.queryCandidates = this.queryCandidates.length;
+  }
   private accepts(e: Entry3D, options: PhysicsQueryOptions3D): boolean {
     return (
       this.valid(e) &&
@@ -632,9 +683,9 @@ export class PhysicsWorld3D {
     const shape = new Shape3D(collider);
     shape.refresh(object);
     const hits: PhysicsHit3D[] = [];
-    for (const e of this.ordered) {
+    this.candidates(shape.bounds);
+    for (const e of this.queryCandidates) {
       if (!this.accepts(e, options)) continue;
-      e.shape.refresh(e.object);
       this.queryNarrow.collide(shape, e.shape, this.queryManifold);
       if (this.queryManifold.distance <= 0)
         hits.push({
@@ -662,6 +713,7 @@ export class PhysicsWorld3D {
     this.queryShape.start.copy(this.queryShape.center);
     this.queryShape.end.copy(this.queryShape.center);
     this.queryShape.radius = 0;
+    this.queryShape.updateBounds();
     this.impulse.set(
       (direction.x / len) * maxDistance,
       (direction.y / len) * maxDistance,
@@ -690,6 +742,7 @@ export class PhysicsWorld3D {
     this.queryShape.start.copy(this.queryShape.center);
     this.queryShape.end.copy(this.queryShape.center);
     this.queryShape.radius = radius;
+    this.queryShape.updateBounds();
     return this.sweepShape(this.queryShape, displacement, options, out, false);
   }
   sweepCapsule(
@@ -726,10 +779,11 @@ export class PhysicsWorld3D {
       iteration++
     ) {
       let recovered = false;
-      for (const e of this.ordered) {
+      entry.shape.refresh(object);
+      this.candidates(entry.bounds);
+      for (const e of this.queryCandidates) {
         if (e === entry || !this.accepts(e, options)) continue;
         entry.shape.refresh(object);
-        e.shape.refresh(e.object);
         const m = this.queryManifold;
         this.queryNarrow.collide(entry.shape, e.shape, m);
         if (m.distance >= -physics3DDefaults.sweepTolerance) continue;
@@ -763,9 +817,14 @@ export class PhysicsWorld3D {
     if (len < 1e-12) return undefined;
     let nearest = 1 + 1e-10,
       result: PhysicsHit3D | undefined;
-    for (const e of this.ordered) {
+    this.queryBounds.swept(
+      shape.bounds,
+      displacement,
+      physics3DDefaults.sweepTolerance,
+    );
+    this.candidates(this.queryBounds);
+    for (const e of this.queryCandidates) {
       if (!this.accepts(e, options) || e.shape === shape) continue;
-      e.shape.refresh(e.object);
       let t = 0,
         translated = 0;
       try {
@@ -829,6 +888,12 @@ export class PhysicsWorld3D {
     this.ordered.length = 0;
     this.contacts.clear();
     this.active.length = 0;
+    this.index.clear();
+    this.pairCandidates.length = 0;
+    this.queryCandidates.length = 0;
+    this.counters.candidatePairs = 0;
+    this.counters.narrowphaseTests = 0;
+    this.counters.queryCandidates = 0;
     this.accumulator = 0;
   }
 }

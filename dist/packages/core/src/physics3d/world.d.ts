@@ -1,6 +1,11 @@
 import { Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import type { Collider3D } from './collider.js';
+export interface PhysicsStats3D {
+    readonly candidatePairs: number;
+    readonly narrowphaseTests: number;
+    readonly queryCandidates: number;
+}
 export interface PhysicsWorldOptions3D {
     gravity?: Readonly<Vector3>;
     fixedDelta?: number;
@@ -36,6 +41,14 @@ export declare class PhysicsWorld3D {
     enabled: boolean;
     private readonly entries;
     private readonly ordered;
+    private readonly index;
+    private readonly pairCandidates;
+    private readonly queryCandidates;
+    private readonly queryBounds;
+    private indexDirty;
+    private nextOrder;
+    private readonly counters;
+    readonly stats: PhysicsStats3D;
     private readonly contacts;
     private readonly active;
     private readonly narrow;
@@ -82,6 +95,8 @@ export declare class PhysicsWorld3D {
     private effective;
     private solverImpulse;
     private solve;
+    private refreshIndex;
+    private candidates;
     private accepts;
     /** Exact primitive overlap; transformed query owner is not registered. Caller owns returned hits. */
     overlap(collider: Collider3D, object: Object3D, options?: PhysicsQueryOptions3D): PhysicsHit3D[];

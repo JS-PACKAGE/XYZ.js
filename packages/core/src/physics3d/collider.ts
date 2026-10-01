@@ -1,5 +1,6 @@
 import { Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
+import { Bounds3D } from './spatial.js';
 
 export function finite3D(value: number, name: string): number {
   if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite.`);
@@ -107,6 +108,7 @@ export class Shape3D {
   readonly start = new Vector3();
   readonly end = new Vector3();
   readonly normal = new Vector3();
+  readonly bounds = new Bounds3D();
   readonly vertices = Array.from({ length: 8 }, () => new Vector3());
   radius = 0;
   constructor(readonly collider: Collider3D) {}
@@ -186,6 +188,28 @@ export class Shape3D {
         )
         .normalize();
     }
+    this.updateBounds();
+  }
+  updateBounds(): void {
+    const b = this.bounds;
+    b.reset();
+    if (this.collider.kind === 'plane') {
+      b.min.set(-Infinity, -Infinity, -Infinity);
+      b.max.set(Infinity, Infinity, Infinity);
+    } else if (this.collider.kind === 'box') {
+      for (const p of this.vertices) b.add(p);
+    } else {
+      b.min.set(
+        Math.min(this.start.x, this.end.x) - this.radius,
+        Math.min(this.start.y, this.end.y) - this.radius,
+        Math.min(this.start.z, this.end.z) - this.radius,
+      );
+      b.max.set(
+        Math.max(this.start.x, this.end.x) + this.radius,
+        Math.max(this.start.y, this.end.y) + this.radius,
+        Math.max(this.start.z, this.end.z) + this.radius,
+      );
+    }
   }
   translate(x: number, y: number, z: number): void {
     this.center.x += x;
@@ -208,5 +232,11 @@ export class Shape3D {
       this.end.y += y;
       this.end.z += z;
     }
+    this.bounds.min.x += x;
+    this.bounds.min.y += y;
+    this.bounds.min.z += z;
+    this.bounds.max.x += x;
+    this.bounds.max.y += y;
+    this.bounds.max.z += z;
   }
 }

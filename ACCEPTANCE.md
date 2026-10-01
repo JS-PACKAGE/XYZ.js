@@ -744,3 +744,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - CI 共用完整 browser gate，release 必须依賴該 gate；headless launch 採 pinned Playwright 預設 shell，明示 executable override 才使用外部 path，沒有 backend fallback／重試。
 - 本機 macOS arm64 已通過 forced Canvas2D／WebGL2／WebGPU deep regression 與 actual UI pixels；先前 hosted Ubuntu run 36885098433 的 alpha=0／device-loss failure 保留為真實失敗。未觸發遠端 Actions，不宣稱該 Ubuntu 環境已恢復；未來 release 仍由 mandatory gate 阻擋。
 - 最後以預設 headless launch 再跑三 backend regression 全 passed；Canvas2D 無 native GPU／3D，WebGPU 沒有 public canvas device-loss injection，對應案例明示 SKIP，未假稱 true WebGPU device-loss injection 通過。
+
+## P45 Shared 3D Spatial Index（限定已測環境）
+
+- 真封裝 consumer 的 200 separated boxes 為 0 candidate pairs；isolated query 僅 1 candidate。Pose／scale 的直接 mutation、移除／filter 與 ray 距離 2.5 皆涵蓋；既有 exact narrowphase 維持正式結果。
+- 採 deterministic balanced conservative AABB hierarchy，collision／overlap／ray／sweep 共用。因公開 transforms 可直接修改，每 tick／public query 必須 O(n) refresh／refit；只有 hierarchy traversal／narrowphase candidate reduction，不宣稱整個 query 已 sublinear 或 FPS 提升。
+- 保留 broadphase consumer-visible regressions；actual mixed soak 的 physics／candidate counters 另記 P48。

@@ -907,3 +907,9 @@ Input edges 保持 frame-based：在 `update` 排入一次性命令，再於 `fi
 CI 的 reusable verification job 是 tag release 的必要前置，通過前不能 pack／publish：frozen install、format、typecheck、lint、tests、build、必要 Canvas2D／WebGL examples smoke 與深度 browser regression。失敗保留 `.vite/browser-regression/` 與分 invocation 的 `.vite/example-smoke/`。WebGPU 只有沒有 adapter 時可 skip；明確指定 WebGPU 或已有 adapter 的失敗仍是錯誤。
 
 Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned MAP_READ／BGRA 轉換，Canvas2D／WebGL 則同步取樣，原像素 assertions 不變。報告保存 GPU destroy call stack、loss／error timeline 與巢狀 recovery cause；診斷改善不等於歷史 Ubuntu GPU 失敗已實跑修復。
+
+## 45. 共用 3D spatial index（P45）
+
+Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。infinite planes 仍是必要 candidates。
+
+World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query；destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。

@@ -1,5 +1,6 @@
 import { Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
+import { Bounds3D } from './spatial.js';
 export declare function finite3D(value: number, name: string): number;
 export declare function positive3D(value: number, name: string): number;
 export declare function nonnegative3D(value: number, name: string): number;
@@ -51,9 +52,11 @@ export declare class Shape3D {
     readonly start: Vector3;
     readonly end: Vector3;
     readonly normal: Vector3;
+    readonly bounds: Bounds3D;
     readonly vertices: Vector3[];
     radius: number;
     constructor(collider: Collider3D);
     refresh(object: Object3D): void;
+    updateBounds(): void;
     translate(x: number, y: number, z: number): void;
 }

@@ -13,6 +13,7 @@ export {
   type PhysicsQueryOptions3D,
   type PhysicsHit3D,
   type PhysicsContact3D,
+  type PhysicsStats3D,
 } from './world.js';
 export {
   CharacterController3D,

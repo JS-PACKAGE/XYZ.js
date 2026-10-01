@@ -27,6 +27,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 本輪 production 擴充：
 
 - P44：共用 CI／release browser gate，保留實際 native submitted-frame pixels 與失敗證據；hosted Ubuntu 結果不由本機推論。
+- P45：共用 3D AABB hierarchy 與 candidate statistics；公開 mutable transforms 的 refresh 仍為 O(n)。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -96,6 +97,7 @@ Fixed gameplay, time-weighted forces and opt-in physics presentation use `Scene.
 Production additions in this round:
 
 - P44: shared CI/release browser gate with native submitted-frame pixels and failure evidence; local success is not hosted Ubuntu proof.
+- P45: shared 3D AABB hierarchy and candidate statistics; mutable public poses still need O(n) refresh.
 
 ### Current support matrix and approved expansion
 
@@ -156,6 +158,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 今回の production 拡張：
 
 - P44：native submitted-frame pixels／失敗証拠を残す共通 CI／release browser gate。本機の成功は hosted Ubuntu の証明ではありません。
+- P45：共用 3D AABB hierarchy／candidate statistics。公開 mutable pose の refresh は O(n) です。
 
 ### 現在の対応表と承認済み拡張
 

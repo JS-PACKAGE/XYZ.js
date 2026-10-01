@@ -1104,3 +1104,7 @@ Do not also call `physics.update`/`physics3D.update` from either hook. `fixedFra
 ## 24. Release Verification (P44)
 
 Use `pnpm regression:browser --renderer webgpu` for a mandatory available-GPU proof; the default run also covers Canvas2D/WebGL. Release tags depend on the same reusable CI verification gate, before packing/publication. Inspect `.vite/browser-regression/` and `.vite/example-smoke/` when a gate fails; source changes/local runs are not proof of hosted Ubuntu recovery.
+
+## 25. 3D Candidate Statistics (P45)
+
+Read a copy of `scene.physics3D.stats` after a fixed tick/query to retain candidatePairs/narrowphaseTests/queryCandidates. Immediate mutable-transform edits/removal are reconciled on query, so a shared spatial index does not imply wholly sublinear query time. [Contract](TECHNICAL.md#45-shared-3d-spatial-index-p45).
