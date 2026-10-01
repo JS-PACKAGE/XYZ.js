@@ -310,6 +310,7 @@ const supportedExtensions = new Set([
   'KHR_materials_ior',
   'KHR_materials_specular',
   'KHR_materials_clearcoat',
+  'KHR_materials_sheen',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -980,6 +981,10 @@ export class GLTFLoader {
           extensions.KHR_materials_clearcoat === undefined
             ? undefined
             : object(extensions.KHR_materials_clearcoat, 'clearcoat');
+        const sheen =
+          extensions.KHR_materials_sheen === undefined
+            ? undefined
+            : object(extensions.KHR_materials_sheen, 'sheen');
         const clearcoatNormal =
           clearcoat?.clearcoatNormalTexture === undefined
             ? undefined
@@ -987,9 +992,9 @@ export class GLTFLoader {
                 clearcoat.clearcoatNormalTexture,
                 'clearcoat normal texture',
               );
-        if (unlit && (ior || specular || clearcoat))
+        if (unlit && (ior || specular || clearcoat || sheen))
           throw new AssetError(
-            'IOR, specular and clearcoat extensions cannot be combined with unlit.',
+            'IOR, specular, clearcoat and sheen extensions cannot be combined with unlit.',
           );
         const specularMap = await readTexture(specular?.specularTexture);
         const specularColorMap = await readTexture(
@@ -1000,6 +1005,10 @@ export class GLTFLoader {
           clearcoat?.clearcoatRoughnessTexture,
         );
         const clearcoatNormalMap = await readTexture(clearcoatNormal);
+        const sheenColorMap = await readTexture(sheen?.sheenColorTexture);
+        const sheenRoughnessMap = await readTexture(
+          sheen?.sheenRoughnessTexture,
+        );
         let strength = 1;
         if (extensions.KHR_materials_emissive_strength !== undefined) {
           const ext = object(
@@ -1027,6 +1036,8 @@ export class GLTFLoader {
           clearcoatMap,
           clearcoatRoughnessMap,
           clearcoatNormalMap,
+          sheenColorMap,
+          sheenRoughnessMap,
         ].filter((slot) => slot !== undefined);
         const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
         if (keys.size > 1)
@@ -1104,6 +1115,22 @@ export class GLTFLoader {
             clearcoatSampler: clearcoatMap?.sampler,
             clearcoatRoughnessSampler: clearcoatRoughnessMap?.sampler,
             clearcoatNormalSampler: clearcoatNormalMap?.sampler,
+            sheenColor:
+              sheen?.sheenColorFactor === undefined
+                ? [0, 0, 0]
+                : (vector(sheen.sheenColorFactor, 3, 'sheen color') as [
+                    number,
+                    number,
+                    number,
+                  ]),
+            sheenRoughness: number(
+              sheen?.sheenRoughnessFactor ?? 0,
+              'sheen roughness',
+            ),
+            sheenColorTexture: sheenColorMap?.texture,
+            sheenRoughnessTexture: sheenRoughnessMap?.texture,
+            sheenColorSampler: sheenColorMap?.sampler,
+            sheenRoughnessSampler: sheenRoughnessMap?.sampler,
             metallicRoughnessTexture: metallicRoughness?.texture,
             metallicRoughnessSampler: metallicRoughness?.sampler,
             normalTexture: normalMap?.texture,

@@ -130,6 +130,7 @@ describe('glTF extensions', () => {
     'KHR_materials_ior',
     'KHR_materials_specular',
     'KHR_materials_clearcoat',
+    'KHR_materials_sheen',
   ])('rejects %s combined with unlit', async (extension) => {
     installImages();
     await expect(
@@ -153,6 +154,8 @@ describe('glTF extensions', () => {
     ['KHR_materials_specular', { specularColorFactor: [1, -1, 1] }],
     ['KHR_materials_clearcoat', { clearcoatFactor: -1 }],
     ['KHR_materials_clearcoat', { clearcoatRoughnessFactor: 1.1 }],
+    ['KHR_materials_sheen', { sheenColorFactor: [1, 1.1, 1] }],
+    ['KHR_materials_sheen', { sheenRoughnessFactor: -1 }],
   ])('rejects invalid %s factors %j', async (extension, factors) => {
     installImages();
     await expect(
@@ -175,6 +178,8 @@ describe('glTF extensions', () => {
     ['KHR_materials_clearcoat', 'clearcoatTexture'],
     ['KHR_materials_clearcoat', 'clearcoatRoughnessTexture'],
     ['KHR_materials_clearcoat', 'clearcoatNormalTexture'],
+    ['KHR_materials_sheen', 'sheenColorTexture'],
+    ['KHR_materials_sheen', 'sheenRoughnessTexture'],
   ])('rejects an incompatible transform on %s %s', async (extension, slot) => {
     installImages();
     await expect(

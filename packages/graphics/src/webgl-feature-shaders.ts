@@ -1,5 +1,6 @@
 import { atlasGLSL } from './shadow-shaders.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
+import { sheenGLSL } from './sheen-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -55,6 +56,10 @@ uniform vec4 clearcoatMaps; // intensity, roughness, normal, unused
 uniform sampler2D clearcoatMap;
 uniform sampler2D clearcoatRoughnessMap;
 uniform sampler2D clearcoatNormalMap;
+uniform vec4 sheen; // linear RGB, roughness
+uniform vec4 sheenMaps; // color map, roughness map, unused, unused
+uniform sampler2D sheenColorMap;
+uniform sampler2D sheenRoughnessMap;
 uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
@@ -73,6 +78,7 @@ uniform bool receiveShadow;
 out vec4 color;
 ${atlasGLSL}
 const float PI = 3.141592653589793;
+${sheenGLSL}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -194,6 +200,16 @@ void main() {
     float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
+    vec3 sheenTint = sheen.rgb;
+    float sheenRoughness = sheen.w;
+    if (any(greaterThan(sheen.rgb,vec3(0.0)))) {
+      if (sheenMaps.x > .5) sheenTint *= decodeSRGB(texture(sheenColorMap,vUV).rgb);
+      if (sheenMaps.y > .5) sheenRoughness *= texture(sheenRoughnessMap,vUV).a;
+    }
+    sheenRoughness = clamp(sheenRoughness,.04,1.0);
+    float sheenMax = max(max(sheenTint.r,sheenTint.g),sheenTint.b);
+    float sheenEnergy = sheenMax > 0.0 ? sheenAlbedo(clamp(dot(n,v),0.0,1.0),sheenRoughness) : 0.0;
+    vec3 sheenLighting = vec3(0.0);
     float coatWeight = clearcoat.x, coatRoughness = clearcoat.y;
     if (coatWeight > 0.0) {
       if (clearcoatMaps.x > .5) coatWeight *= texture(clearcoatMap,vUV).r;
@@ -211,6 +227,10 @@ void main() {
       vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
       vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
       result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
+      if (sheenMax > 0.0) {
+        vec3 sheenRadiance = textureLod(environmentMap,equirectUV(reflect(-v,n)),sheenRoughness*environment[9].z).rgb;
+        sheenLighting += sheenRadiance*sheenEnergy*ao*environment[9].x;
+      }
       if (coatWeight > 0.0) {
         vec2 coatAB = environmentBRDF(max(dot(nc,v),.0001),coatRoughness);
         vec3 coatRadiance = textureLod(environmentMap,equirectUV(reflect(-v,nc)),coatRoughness*environment[9].z).rgb;
@@ -218,6 +238,7 @@ void main() {
       }
     }
     result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].x)) break;
@@ -227,6 +248,7 @@ void main() {
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*pointShadow(i,p.xyz);
       vec3 pl = delta/max(sqrt(d2),.000001);
       result += brdf(base,metallic,roughness,n,v,pl,dielectricF0,specularWeight)*incident;
+      if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
     }
     for (int i = 0; i < 8; i++) {
@@ -238,8 +260,10 @@ void main() {
       float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
       result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight)*incident;
+      if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,sl,coatRoughness)*coatFresnel*incident;
     }
+    if (sheenMax > 0.0) result = result*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting;
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));
     if (coatWeight > 0.0) result = result*(1.0-coatWeight*coatFresnel)+coating*coatWeight;
     if (!linearOutput) result = encodeSRGB(result);

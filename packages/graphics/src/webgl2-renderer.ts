@@ -23,6 +23,7 @@ import {
 } from '../../core/src/render-data.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
 import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
+import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import { Matrix4 } from '../../math/src/index.js';
 import { OrthographicCamera } from '../../core/src/orthographic-camera.js';
 import {
@@ -206,6 +207,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly samplers = new Map<number, WebGLSampler>();
   private readonly atlas = new ShadowAtlas();
   private shadowBuffer: WebGLBuffer | undefined;
+  private sheenBuffer: WebGLBuffer | undefined;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
   private fxaaProgram: WebGLProgram | undefined;
@@ -365,6 +367,14 @@ export class WebGL2Renderer implements Renderer {
         gl.getUniformBlockIndex(this.meshProgram, 'ShadowData'),
         0,
       );
+      this.sheenBuffer = this.createBuffer(gl);
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.sheenBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, sheenDirectionalAlbedo, gl.STATIC_DRAW);
+      gl.uniformBlockBinding(
+        this.meshProgram,
+        gl.getUniformBlockIndex(this.meshProgram, 'SheenLookup'),
+        1,
+      );
       for (const name of [
         'viewProjection',
         'model',
@@ -394,6 +404,10 @@ export class WebGL2Renderer implements Renderer {
         'clearcoatMap',
         'clearcoatRoughnessMap',
         'clearcoatNormalMap',
+        'sheen',
+        'sheenMaps',
+        'sheenColorMap',
+        'sheenRoughnessMap',
         'shadowMap',
         'environment[0]',
         'environmentMap',
@@ -1101,6 +1115,7 @@ export class WebGL2Renderer implements Renderer {
     gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
     gl.uniform1i(uniforms.linearOutput, scene.postProcessing.enabled ? 1 : 0);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindSampler(5, null);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTarget?.texture ?? null);
@@ -1218,6 +1233,32 @@ export class WebGL2Renderer implements Renderer {
           material.clearcoatNormalTexture ?? material.texture,
           11,
           material.clearcoatNormalSampler,
+        );
+        gl.uniform4f(
+          uniforms.sheen,
+          material.sheenColor[0],
+          material.sheenColor[1],
+          material.sheenColor[2],
+          material.sheenRoughness,
+        );
+        gl.uniform4f(
+          uniforms.sheenMaps,
+          material.sheenColorTexture ? 1 : 0,
+          material.sheenRoughnessTexture ? 1 : 0,
+          0,
+          0,
+        );
+        gl.uniform1i(uniforms.sheenColorMap, 12);
+        gl.uniform1i(uniforms.sheenRoughnessMap, 13);
+        this.bindMaterialTexture(
+          material.sheenColorTexture ?? material.texture,
+          12,
+          material.sheenColorSampler,
+        );
+        this.bindMaterialTexture(
+          material.sheenRoughnessTexture ?? material.texture,
+          13,
+          material.sheenRoughnessSampler,
         );
         gl.uniform4f(
           uniforms.surface,
@@ -2102,6 +2143,7 @@ export class WebGL2Renderer implements Renderer {
       for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
+      if (this.sheenBuffer) gl.deleteBuffer(this.sheenBuffer);
       if (this.postTarget) this.deleteTarget(this.postTarget);
       if (this.fxaaTarget) this.deleteTarget(this.fxaaTarget);
       if (this.fxaaProgram) gl.deleteProgram(this.fxaaProgram);

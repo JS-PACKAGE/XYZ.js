@@ -621,3 +621,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **實際瀏覽器**：managed Chromium，兩 backend、128×128，正式 Game／Renderer。強度 1 與未塗層相比，directional／point／spot／IBL 改變 1,080／1,284／1,320／4,764 bytes（兩 backend 一致）；R=0 map 等於未塗層，R=128 強度 map 與 factor、G=128 roughness map 與 factor 都是 0 bytes 差異。獨立 tilted normal 改變可見高光，normal scale=0 與無 coat normal map 完全相同；clearcoat=0 時 coat normal 不影響 base normal。metallic=1 仍有 coat 反射，page error 為 0。
 - **glTF 與 emission**：含真實 PNG 的三個 coat maps、normal scale=0，並與 IOR／specular extensions 合用的 glTF，兩 backend 與等效直接建構材質完全相同，中心 [5,16,10,255]。無外部光的 emission-only quad，coat=1 中心 [204,174,146,255]，與未塗層 emission×0.96 的中心相同；原 emission 中心 [206,177,149,255]。
 - **限制與未驗**：roughness 最低數值 0.04；simple Fresnel coat、近似 split-sum IBL、UV0 derivative tangent frame，不做 refraction／層間 scattering 或 reference-renderer 視覺精度承諾。其他瀏覽器、非均勻 normal／roughness 圖、skinned model 與陰影開啟時 coat 的像素對照未測；沒有永久 GPU regression suite。build 延後最後整合執行。
+
+## P39c PBR Sheen（2026-10-01，限定已測環境）
+
+- **新增**：sheen RGB／roughness、sRGB color map／linear alpha roughness map／個別 sampler，glTF required `KHR_materials_sheen`；兩 backend Charlie distribution／visibility、view-only albedo scaling、clearcoat 上層合成。32×32 directional-albedo lookup 以離線 128×256 hemisphere quadrature 產生，限制 0–1；4 KiB uniform buffer 初始化時上傳一次，不多占 texture slot，不逐幀積分。
+- **自動化**：新增 12 個 factor／sampler 範圍、unlit 排斥與兩個 map transform 衝突測試；完整 67 檔／517 tests、typecheck、lint、format:check 通過。實際執行 `node scripts/generate-sheen-lut.mjs`；1024 個 lookup samples 都有限、介於 0–1。
+- **實際瀏覽器**：managed Chromium，兩 backend、128×128，正式 Game／Renderer。Sheen 對 directional／point／spot／IBL 改變 4,372／4,540／4,532／4,720 bytes（兩 backend 一致）；sRGB color map 與 decode factors、A=128 roughness map 與 factor 都是 0 bytes 差異；零色 map／零 factors 與未啟用完全相同。Metallic 與 clearcoat 合用仍有可觀察 sheen，page error 為 0。
+- **glTF 與 emission**：真實 PNG maps，與 IOR／specular／clearcoat 共存的 glTF，在 tilted normal 下，sheen 中心 [4,4,3,255]、停用為 [2,2,2,255]；兩 backend 都與等效直接建構材質全畫面完全相同。無光 emission-only quad 啟用 sheen 後全畫面不變，中心 [206,177,149,255]（此項在 WebGL2 實測，未重新宣稱 WebGPU 通過）。
+- **限制與未驗**：有限 lookup 解析度／0.04 roughness floor／view-only scaling；IBL 沿用原 roughness mip，並非專用 Charlie convolution，不宣稱嚴格能量守恆或 reference-renderer 視覺精度。其他瀏覽器、非均勻 maps、skinned model 與陰影合用的像素對照未測；沒有永久 GPU regression suite。build 延後最後整合執行。

@@ -635,3 +635,25 @@ GLTFLoader 接受 required `KHR_materials_clearcoat`、factors、三個 maps、n
 與 samplers，沿用 shared-transform 限制，與 unlit 共存會拒絕。
 Layering 採用 [clearcoat 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)
 中的 non-normative simple Fresnel model；環境光仍採既有解析 split-sum 近似。
+
+### Sheen（P39c）
+
+`sheenColor` 是 0–1 的 linear RGB（預設黑色，停用 sheen），`sheenRoughness`
+為 0–1（預設 0，BRDF 數值下限 0.04）。`sheenColorTexture` 以 sRGB decode 後的
+RGB 乘顏色，`sheenRoughnessTexture` 以 linear alpha 乘粗糙度。
+`sheenColorSampler`／`sheenRoughnessSampler` 沿用借用 slot 契約。
+GLTFLoader 接受 required `KHR_materials_sheen`、factors 與兩個 maps，
+拒絕 unlit 共存與不相容的 slot transforms。
+
+兩 backend 的直接光 sheen 採 Charlie distribution／visibility；view-only
+albedo-scaling 近似衰減底層直接／間接 lighting，但不衰減 emission；
+clearcoat 再疊在 sheen 與 emission 上。預先產生的 32×32 directional-albedo table
+每格以 128 elevation × 256 azimuth 樣本積分，限制於 0–1、雙線性內插；
+每 renderer 只上傳一次 4 KiB uniform buffer，不多佔 texture slot。
+可用 `node scripts/generate-sheen-lut.mjs` 重產，再 format `src/data/sheen.ts`。
+每幀不做數值積分或 table 上傳。
+
+Sheen IBL 使用 directional albedo 與既有 roughness-filtered environment，
+該 filter 並非專用 Charlie convolution。這些近似與有限 lookup 解析度不保證嚴格
+energy conservation 或 reference-renderer 精度。方程與 layering 見
+[sheen 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen)。

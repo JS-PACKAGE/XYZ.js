@@ -664,3 +664,28 @@ normal scale and samplers, with the existing shared-transform restriction.
 Combining it with unlit rejects. Layering follows the non-normative simple Fresnel
 model in the [clearcoat specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat);
 the environment contribution retains the existing analytic split-sum approximation.
+
+### Sheen (P39c)
+
+`sheenColor` is linear RGB in 0–1 (default black, disabling sheen) and
+`sheenRoughness` is 0–1 (default 0; the numerical BRDF floor is 0.04).
+`sheenColorTexture` multiplies color by decoded sRGB RGB;
+`sheenRoughnessTexture` multiplies roughness by linear alpha. Matching
+`sheenColorSampler` / `sheenRoughnessSampler` follow the borrowed-slot contract.
+GLTFLoader accepts required `KHR_materials_sheen`, its factors and both maps,
+rejecting unlit combinations and incompatible per-slot transforms.
+
+Both backends use Charlie distribution and visibility for direct sheen. The
+view-only albedo-scaling approximation attenuates base direct/indirect lighting,
+not emission; clearcoat is applied above sheen and emission. A baked 32×32
+directional-albedo table is integrated with 128 elevation × 256 azimuth samples
+per entry, bounded to 0–1, bilinearly interpolated and uploaded once as a 4 KiB
+uniform buffer, not an extra texture slot. Regenerate it with
+`node scripts/generate-sheen-lut.mjs`, then format `src/data/sheen.ts`.
+No quadrature or table uploads run per frame.
+
+Sheen IBL uses the directional albedo and the existing roughness-filtered
+environment; that filter is not a dedicated Charlie convolution. This and the
+finite lookup resolution are approximations, not a strict energy-conservation or
+reference-renderer guarantee. Equations and layering are described in the
+[sheen specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen).

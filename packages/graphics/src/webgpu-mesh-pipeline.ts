@@ -22,6 +22,7 @@ import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
+import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture } from '../../assets/src/index.js';
 import { Matrix4 } from '../../math/src/index.js';
@@ -87,6 +88,7 @@ export class WebGPUMeshPipeline {
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly atlas = new ShadowAtlas();
   private readonly shadowBuffer: GPUBuffer;
+  private readonly sheenBuffer: GPUBuffer;
   private readonly projectionBuffer: GPUBuffer;
   private readonly projectionGroup: GPUBindGroup;
   private readonly projectionOffsets = [0];
@@ -176,6 +178,11 @@ export class WebGPUMeshPipeline {
       size: this.atlas.data.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
+    this.sheenBuffer = device.createBuffer({
+      size: sheenDirectionalAlbedo.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.sheenBuffer, 0, sheenDirectionalAlbedo);
     this.projectionBuffer = device.createBuffer({
       size: this.atlas.projections.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -296,6 +303,11 @@ export class WebGPUMeshPipeline {
           visibility: GPUShaderStage.FRAGMENT,
           buffer: { type: 'uniform' },
         },
+        {
+          binding: 6,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: { type: 'uniform' },
+        },
       ],
     });
     const meshLayout = device.createBindGroupLayout({
@@ -329,6 +341,10 @@ export class WebGPUMeshPipeline {
         { binding: 17, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 18, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 19, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 20, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 21, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 22, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 23, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
       ],
     });
     const layout = device.createPipelineLayout({
@@ -634,6 +650,7 @@ export class WebGPUMeshPipeline {
         { binding: 3, resource: this.environmentSampler },
         { binding: 4, resource: this.backgroundView },
         { binding: 5, resource: { buffer: this.shadowBuffer } },
+        { binding: 6, resource: { buffer: this.sheenBuffer } },
       ],
     });
   }
@@ -1003,10 +1020,18 @@ export class WebGPUMeshPipeline {
       pbr && material.clearcoatNormalTexture
         ? this.cacheTexture(material.clearcoatNormalTexture, false).view
         : this.whiteView;
+    const sheenColor =
+      pbr && material.sheenColorTexture
+        ? this.cacheTexture(material.sheenColorTexture, false).view
+        : this.whiteView;
+    const sheenRoughness =
+      pbr && material.sheenRoughnessTexture
+        ? this.cacheTexture(material.sheenRoughnessTexture, false).view
+        : this.whiteView;
     const existing = this.meshes.get(object);
     if (existing) return existing;
     const uniform = this.device.createBuffer({
-      size: 208,
+      size: 240,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let instance = this.identityBuffer;
@@ -1100,6 +1125,20 @@ export class WebGPUMeshPipeline {
               ? this.cacheSampler(material.clearcoatNormalSampler)
               : this.sampler,
           },
+          { binding: 20, resource: sheenColor },
+          { binding: 21, resource: sheenRoughness },
+          {
+            binding: 22,
+            resource: pbr
+              ? this.cacheSampler(material.sheenColorSampler)
+              : this.sampler,
+          },
+          {
+            binding: 23,
+            resource: pbr
+              ? this.cacheSampler(material.sheenRoughnessSampler)
+              : this.sampler,
+          },
         ],
       });
       const entry = {
@@ -1111,7 +1150,7 @@ export class WebGPUMeshPipeline {
         instanceColors,
         instanceColorVersion:
           object instanceof InstancedMesh ? object.colorVersion : 0,
-        data: new Float32Array(52),
+        data: new Float32Array(60),
         seen: this.frame,
       };
       this.meshes.set(object, entry);
@@ -1241,6 +1280,12 @@ export class WebGPUMeshPipeline {
       data[48] = material.clearcoatTexture ? 1 : 0;
       data[49] = material.clearcoatRoughnessTexture ? 1 : 0;
       data[50] = material.clearcoatNormalTexture ? 1 : 0;
+      data[52] = material.sheenColor[0];
+      data[53] = material.sheenColor[1];
+      data[54] = material.sheenColor[2];
+      data[55] = material.sheenRoughness;
+      data[56] = material.sheenColorTexture ? 1 : 0;
+      data[57] = material.sheenRoughnessTexture ? 1 : 0;
       data[35] =
         material.alphaMode === 'OPAQUE'
           ? 0
@@ -1321,6 +1366,7 @@ export class WebGPUMeshPipeline {
     this.shadowView = undefined;
     this.sceneBuffer.destroy();
     this.shadowBuffer.destroy();
+    this.sheenBuffer.destroy();
     this.projectionBuffer.destroy();
     this.whiteTexture.destroy();
     this.emptyShadow.destroy();

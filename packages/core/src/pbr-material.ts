@@ -30,6 +30,12 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   clearcoatSampler?: TextureSamplerOptions;
   clearcoatRoughnessSampler?: TextureSamplerOptions;
   clearcoatNormalSampler?: TextureSamplerOptions;
+  sheenColor?: [number, number, number];
+  sheenRoughness?: number;
+  sheenColorTexture?: Texture;
+  sheenRoughnessTexture?: Texture;
+  sheenColorSampler?: TextureSamplerOptions;
+  sheenRoughnessSampler?: TextureSamplerOptions;
   metallicRoughnessTexture?: Texture;
   normalTexture?: Texture;
   normalScale?: number;
@@ -112,6 +118,13 @@ export class PBRMaterial extends TextureMaterial {
   readonly clearcoatRoughnessSampler:
     Readonly<TextureSamplerOptions> | undefined;
   readonly clearcoatNormalSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly sheenColor: [number, number, number];
+  readonly sheenRoughness: number;
+  /** Sheen RGB is sRGB; roughness uses linear alpha. */
+  readonly sheenColorTexture: Texture | undefined;
+  readonly sheenRoughnessTexture: Texture | undefined;
+  readonly sheenColorSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly sheenRoughnessSampler: Readonly<TextureSamplerOptions> | undefined;
   /** Linear texture: roughness in G, metallic in B. */
   readonly metallicRoughnessTexture: Texture | undefined;
   /** Linear tangent-space normal texture, using UV0. */
@@ -165,6 +178,14 @@ export class PBRMaterial extends TextureMaterial {
       'Clearcoat roughness texture',
     );
     textureSlot(options.clearcoatNormalTexture, 'Clearcoat normal texture');
+    const sheenColor = options.sheenColor ?? [0, 0, 0];
+    const sheenRoughness = options.sheenRoughness ?? 0;
+    if (!Array.isArray(sheenColor) || sheenColor.length !== 3)
+      throw new RangeError('Sheen color must contain three components.');
+    for (const value of sheenColor) unit(value, 'Sheen color component');
+    unit(sheenRoughness, 'Sheen roughness');
+    textureSlot(options.sheenColorTexture, 'Sheen color texture');
+    textureSlot(options.sheenRoughnessTexture, 'Sheen roughness texture');
     const normalScale = options.normalScale ?? 1;
     const occlusionStrength = options.occlusionStrength ?? 1;
     const alphaCutoff = options.alphaCutoff ?? 0;
@@ -218,6 +239,12 @@ export class PBRMaterial extends TextureMaterial {
     this.clearcoatNormalSampler = samplerOptions(
       options.clearcoatNormalSampler,
     );
+    this.sheenColor = [...sheenColor] as [number, number, number];
+    this.sheenRoughness = sheenRoughness;
+    this.sheenColorTexture = options.sheenColorTexture;
+    this.sheenRoughnessTexture = options.sheenRoughnessTexture;
+    this.sheenColorSampler = samplerOptions(options.sheenColorSampler);
+    this.sheenRoughnessSampler = samplerOptions(options.sheenRoughnessSampler);
     this.metallicRoughnessTexture = options.metallicRoughnessTexture;
     this.normalTexture = options.normalTexture;
     this.normalScale = normalScale;

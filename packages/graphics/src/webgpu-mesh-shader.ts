@@ -1,4 +1,5 @@
 import { atlasWGSL } from './shadow-shaders.js';
+import { sheenWGSL } from './sheen-shaders.js';
 
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -30,6 +31,8 @@ struct MeshUniforms {
   specularParams: vec4f,
   clearcoat: vec4f,
   clearcoatMaps: vec4f,
+  sheen: vec4f,
+  sheenMaps: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -57,7 +60,12 @@ struct MeshUniforms {
 @group(2) @binding(17) var clearcoatSampler: sampler;
 @group(2) @binding(18) var clearcoatRoughnessSampler: sampler;
 @group(2) @binding(19) var clearcoatNormalSampler: sampler;
+@group(2) @binding(20) var sheenColorMap: texture_2d<f32>;
+@group(2) @binding(21) var sheenRoughnessMap: texture_2d<f32>;
+@group(2) @binding(22) var sheenColorSampler: sampler;
+@group(2) @binding(23) var sheenRoughnessSampler: sampler;
 ${atlasWGSL}
+${sheenWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
@@ -270,6 +278,17 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     }
   }
   let v = safeNormal(scene.camera.xyz-input.world);
+  var sheenTint = mesh.sheen.rgb;
+  var sheenRoughness = mesh.sheen.w;
+  if (any(mesh.sheen.rgb > vec3f(0.0))) {
+    if (mesh.sheenMaps.x > 0.5) { sheenTint *= decodeSRGB(textureSample(sheenColorMap,sheenColorSampler,input.uv).rgb); }
+    if (mesh.sheenMaps.y > 0.5) { sheenRoughness *= textureSample(sheenRoughnessMap,sheenRoughnessSampler,input.uv).a; }
+  }
+  sheenRoughness = clamp(sheenRoughness,0.04,1.0);
+  let sheenMax = max(max(sheenTint.r,sheenTint.g),sheenTint.b);
+  var sheenEnergy = 0.0;
+  var sheenLighting = vec3f(0.0);
+  if (sheenMax > 0.0) { sheenEnergy = sheenAlbedo(clamp(dot(n,v),0.0,1.0),sheenRoughness); }
   var coatFresnel = 0.0;
   var coating = vec3f(0.0);
   if (coatWeight > 0.0) { coatFresnel = 0.04+0.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0); }
@@ -284,6 +303,10 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
     let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
     color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
+    if (sheenMax > 0.0) {
+      let sheenRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),sheenRoughness*scene.envParams.z).rgb;
+      sheenLighting += sheenRadiance*sheenEnergy*occlusion*scene.envParams.x;
+    }
     if (coatWeight > 0.0) {
       let coatAB = environmentBRDF(max(dot(nc,v),0.0001),coatRoughness);
       let coatRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,nc)),coatRoughness*scene.envParams.z).rgb;
@@ -291,12 +314,14 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     }
   }
   color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,direction,sheenRoughness)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,direction,coatRoughness)*coatFresnel*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
     color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight)*incident;
+    if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,safeNormal(delta),sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,safeNormal(delta),coatRoughness)*coatFresnel*incident; }
   }
   for (var i = 0u; i < u32(scene.counts.y); i++) {
@@ -306,8 +331,10 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
     color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight)*incident;
+    if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,l,sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*incident; }
   }
+  if (sheenMax > 0.0) { color = color*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting; }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
   if (coatWeight > 0.0) { color = color*(1.0-coatWeight*coatFresnel)+coating*coatWeight; }
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
