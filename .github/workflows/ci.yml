@@ -32,6 +32,8 @@ jobs:
           npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer canvas2d
           npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer webgl2
       - name: Deep Chromium pixel and lifecycle regressions
+        env:
+          DEBUG: pw:browser
         run: npx --yes pnpm@12.6.0 run regression:browser
       - name: Preserve browser assertions and pixel proofs
         if: always()
