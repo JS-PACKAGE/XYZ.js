@@ -1,6 +1,6 @@
 import { Vector3 } from '../../../math/src/math3d.js';
 import { navigationLimits } from '../../../../src/data/navigation.js';
-import { NavigationSearch } from './search.js';
+import { NavigationSearchJob, NavigationSearchPool } from './jobs.js';
 
 export interface NavigationNode3D {
   readonly id: string;
@@ -34,7 +34,7 @@ export class NavigationGraph3D {
   readonly connections: readonly NavigationConnection3D[];
   private readonly indices = new Map<string, number>();
   private readonly edges: Edge[][];
-  private readonly search: NavigationSearch;
+  private readonly searches: NavigationSearchPool<NavigationGraphPath3D>;
   private readonly heuristicScale: number;
 
   constructor(options: NavigationGraphOptions3D) {
@@ -78,7 +78,7 @@ export class NavigationGraph3D {
     }
     this.nodes = Object.freeze(nodes);
     this.edges = Array.from({ length: nodes.length }, () => []);
-    this.search = new NavigationSearch(nodes.length);
+    this.searches = new NavigationSearchPool(nodes.length);
     const connections: NavigationConnection3D[] = [];
     let scale = Infinity;
     const pairs = new Set<number>();
@@ -137,42 +137,55 @@ export class NavigationGraph3D {
   }
 
   findPath(start: string, goal: string): NavigationGraphPath3D {
+    const job = this.createSearch(start, goal);
+    while (job.status === 'pending')
+      job.step(navigationLimits.expansionsPerStep);
+    return job.result!;
+  }
+
+  createSearch(
+    start: string,
+    goal: string,
+  ): NavigationSearchJob<NavigationGraphPath3D> {
     const from = this.indices.get(start);
     const to = this.indices.get(goal);
     if (from === undefined || to === undefined)
       throw new RangeError('Unknown navigation endpoint.');
-    const search = this.search;
     const target = this.nodes[to]!.position;
-    search.reset();
-    search.offer(from, 0, this.heuristic(from, target), -1);
-    for (let current = search.take(); current >= 0; current = search.take()) {
-      if (current === to) {
+    return this.searches.create({
+      from,
+      to,
+      estimate: (node) => this.heuristic(node, target),
+      expand: (current, search) => {
+        for (const edge of this.edges[current]!) {
+          const distance = search.distance[current]! + edge.cost;
+          if (distance >= search.distance[edge.to]!) continue;
+          search.offer(
+            edge.to,
+            distance,
+            distance + this.heuristic(edge.to, target),
+            current,
+          );
+        }
+      },
+      result: (found, search) => {
         const nodes: NavigationNode3D[] = [];
-        for (let node = to; node >= 0; node = search.parent[node]!)
-          nodes.push(this.nodes[node]!);
-        nodes.reverse();
+        if (found) {
+          for (let node = to; node >= 0; node = search.parent[node]!)
+            nodes.push(this.nodes[node]!);
+          nodes.reverse();
+        }
         return Object.freeze({
-          status: 'found',
+          status: found ? 'found' : 'unreachable',
           nodes: Object.freeze(nodes),
-          cost: search.distance[to]!,
+          cost: found ? search.distance[to]! : Infinity,
         });
-      }
-      for (const edge of this.edges[current]!) {
-        const distance = search.distance[current]! + edge.cost;
-        if (distance >= search.distance[edge.to]!) continue;
-        search.offer(
-          edge.to,
-          distance,
-          distance + this.heuristic(edge.to, target),
-          current,
-        );
-      }
-    }
-    return Object.freeze({
-      status: 'unreachable',
-      nodes: Object.freeze([]),
-      cost: Infinity,
+      },
     });
+  }
+
+  destroy(): void {
+    this.searches.destroy();
   }
 
   private heuristic(node: number, target: Readonly<Vector3>): number {

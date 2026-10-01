@@ -1,4 +1,5 @@
 import { Vector3 } from '../../../math/src/math3d.js';
+import { NavigationSearchJob } from './jobs.js';
 export interface NavigationNode3D {
     readonly id: string;
     readonly position: Readonly<Vector3>;
@@ -26,10 +27,12 @@ export declare class NavigationGraph3D {
     readonly connections: readonly NavigationConnection3D[];
     private readonly indices;
     private readonly edges;
-    private readonly search;
+    private readonly searches;
     private readonly heuristicScale;
     constructor(options: NavigationGraphOptions3D);
     getNode(id: string): NavigationNode3D;
     findPath(start: string, goal: string): NavigationGraphPath3D;
+    createSearch(start: string, goal: string): NavigationSearchJob<NavigationGraphPath3D>;
+    destroy(): void;
     private heuristic;
 }

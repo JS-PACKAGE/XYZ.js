@@ -1108,3 +1108,7 @@ Use `pnpm regression:browser --renderer webgpu` for a mandatory available-GPU pr
 ## 25. 3D Candidate Statistics (P45)
 
 Read a copy of `scene.physics3D.stats` after a fixed tick/query to retain candidatePairs/narrowphaseTests/queryCandidates. Immediate mutable-transform edits/removal are reconciled on query, so a shared spatial index does not imply wholly sublinear query time. [Contract](TECHNICAL.md#45-shared-3d-spatial-index-p45).
+
+## 26. Incremental Navigation (P46)
+
+Create `new NavigationGrid2D({columns:64,rows:64})`, then `grid.createSearch({column:0,row:0},{column:63,row:63})`. Call `job.step(32)` once per gameplay tick; consume `job.result` only at terminal found/unreachable. Cancel abandoned jobs; grid edits invalidate pending jobs. Eight simultaneous jobs per owner is a deliberate bound, not an unlimited scheduler.

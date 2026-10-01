@@ -1,5 +1,5 @@
 import { navigationLimits } from '../../../../src/data/navigation.js';
-import { NavigationSearch } from './search.js';
+import { NavigationSearchJob, NavigationSearchPool } from './jobs.js';
 
 export interface NavigationCell2D {
   readonly column: number;
@@ -36,7 +36,7 @@ export class NavigationGrid2D {
   readonly rows: number;
   private readonly walkable: Uint8Array;
   private readonly costs: Float64Array;
-  private readonly search: NavigationSearch;
+  private readonly searches: NavigationSearchPool<NavigationGridPath2D>;
   private readonly paths = new WeakSet<NavigationGridPath2D>();
   private minimumCost = 1;
   private currentRevision = 0;
@@ -57,7 +57,7 @@ export class NavigationGrid2D {
     this.rows = rows;
     this.walkable = new Uint8Array(columns * rows).fill(1);
     this.costs = new Float64Array(columns * rows).fill(1);
-    this.search = new NavigationSearch(columns * rows);
+    this.searches = new NavigationSearchPool(columns * rows);
   }
 
   get revision(): number {
@@ -120,6 +120,7 @@ export class NavigationGrid2D {
     }
     if (!changed) return;
     this.currentRevision++;
+    this.searches.invalidate();
     this.minimumCost = Infinity;
     for (let index = 0; index < this.costs.length; index++) {
       if (this.walkable[index])
@@ -138,66 +139,85 @@ export class NavigationGrid2D {
     goal: NavigationCell2D,
     options: NavigationGridSearchOptions2D = {},
   ): NavigationGridPath2D {
+    const job = this.createSearch(start, goal, options);
+    while (job.status === 'pending')
+      job.step(navigationLimits.expansionsPerStep);
+    return job.result!;
+  }
+
+  createSearch(
+    start: NavigationCell2D,
+    goal: NavigationCell2D,
+    options: NavigationGridSearchOptions2D = {},
+  ): NavigationSearchJob<NavigationGridPath2D> {
     const from = this.index(start.column, start.row);
     const to = this.index(goal.column, goal.row);
-    if (!this.walkable[from] || !this.walkable[to])
-      return this.result([], Infinity);
+    const target = { column: goal.column, row: goal.row };
     const diagonal = options.diagonal ?? false;
     const cornerCutting = options.cornerCutting ?? false;
-    const search = this.search;
-    search.reset();
-    search.offer(
-      from,
-      0,
-      this.heuristic(start.column, start.row, goal, diagonal),
-      -1,
-    );
-    for (let current = search.take(); current >= 0; current = search.take()) {
-      if (current === to) {
-        const cells: NavigationCell2D[] = [];
-        for (let node = to; node >= 0; node = search.parent[node]!)
-          cells.push(
-            Object.freeze({
-              column: node % this.columns,
-              row: Math.floor(node / this.columns),
-            }),
-          );
-        cells.reverse();
-        return this.result(cells, search.distance[to]!);
-      }
-      const column = current % this.columns;
-      const row = Math.floor(current / this.columns);
-      for (let dy = -1; dy <= 1; dy++) {
-        for (let dx = -1; dx <= 1; dx++) {
-          if ((dx === 0 && dy === 0) || (!diagonal && dx !== 0 && dy !== 0))
-            continue;
-          const x = column + dx;
-          const y = row + dy;
-          if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) continue;
-          const next = y * this.columns + x;
-          if (!this.walkable[next]) continue;
-          const isDiagonal = dx !== 0 && dy !== 0;
-          if (
-            isDiagonal &&
-            !cornerCutting &&
-            (!this.walkable[row * this.columns + x] ||
-              !this.walkable[y * this.columns + column])
-          )
-            continue;
-          const distance =
-            search.distance[current]! +
-            this.costs[next]! * (isDiagonal ? Math.SQRT2 : 1);
-          if (distance >= search.distance[next]!) continue;
-          search.offer(
-            next,
-            distance,
-            distance + this.heuristic(x, y, goal, diagonal),
-            current,
-          );
+    return this.searches.create({
+      from: this.walkable[from] && this.walkable[to] ? from : -1,
+      to,
+      estimate: (node) =>
+        this.heuristic(
+          node % this.columns,
+          Math.floor(node / this.columns),
+          target,
+          diagonal,
+        ),
+      expand: (current, search) => {
+        const column = current % this.columns;
+        const row = Math.floor(current / this.columns);
+        for (let dy = -1; dy <= 1; dy++) {
+          for (let dx = -1; dx <= 1; dx++) {
+            if ((dx === 0 && dy === 0) || (!diagonal && dx !== 0 && dy !== 0))
+              continue;
+            const x = column + dx;
+            const y = row + dy;
+            if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) continue;
+            const next = y * this.columns + x;
+            if (!this.walkable[next]) continue;
+            const isDiagonal = dx !== 0 && dy !== 0;
+            if (
+              isDiagonal &&
+              !cornerCutting &&
+              (!this.walkable[row * this.columns + x] ||
+                !this.walkable[y * this.columns + column])
+            )
+              continue;
+            const distance =
+              search.distance[current]! +
+              this.costs[next]! * (isDiagonal ? Math.SQRT2 : 1);
+            if (distance >= search.distance[next]!) continue;
+            search.offer(
+              next,
+              distance,
+              distance + this.heuristic(x, y, target, diagonal),
+              current,
+            );
+          }
         }
-      }
-    }
-    return this.result([], Infinity);
+      },
+      result: (found, search) => {
+        const cells: NavigationCell2D[] = [];
+        if (found) {
+          for (let node = to; node >= 0; node = search.parent[node]!)
+            cells.push(
+              Object.freeze({
+                column: node % this.columns,
+                row: Math.floor(node / this.columns),
+              }),
+            );
+          cells.reverse();
+        }
+        return this.result(cells, found ? search.distance[to]! : Infinity);
+      },
+    });
+  }
+
+  /** Cancels active jobs and releases retained search workspaces. */
+  destroy(): void {
+    this.searches.destroy();
   }
 
   private index(column: number, row: number): number {

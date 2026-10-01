@@ -1,3 +1,4 @@
+import { NavigationSearchJob } from './jobs.js';
 export interface NavigationCell2D {
     readonly column: number;
     readonly row: number;
@@ -32,7 +33,7 @@ export declare class NavigationGrid2D {
     readonly rows: number;
     private readonly walkable;
     private readonly costs;
-    private readonly search;
+    private readonly searches;
     private readonly paths;
     private minimumCost;
     private currentRevision;
@@ -45,6 +46,9 @@ export declare class NavigationGrid2D {
     /** A snapshot remains immutable but is stale after any effective cell edit. */
     isPathCurrent(path: NavigationGridPath2D): boolean;
     findPath(start: NavigationCell2D, goal: NavigationCell2D, options?: NavigationGridSearchOptions2D): NavigationGridPath2D;
+    createSearch(start: NavigationCell2D, goal: NavigationCell2D, options?: NavigationGridSearchOptions2D): NavigationSearchJob<NavigationGridPath2D>;
+    /** Cancels active jobs and releases retained search workspaces. */
+    destroy(): void;
     private index;
     private heuristic;
     private result;

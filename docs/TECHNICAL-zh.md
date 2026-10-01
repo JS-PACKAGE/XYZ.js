@@ -913,3 +913,9 @@ Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned 
 Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。infinite planes 仍是必要 candidates。
 
 World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query；destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。
+
+## 46. 有預算的導航搜尋（P46）
+
+`grid.createSearch(start, goal, options?)`／`graph.createSearch(startID, goalID, options?)` 回傳 `NavigationSearchJob<Path>`；`step(maxExpansions)` 每次至多處理指定 integer budget（0–65,536），expansion 計 popped nodes，含 goal；零不推進。Status 是 pending／found／unreachable／cancelled／invalidated，只有 found／unreachable 有 result。Cancel 是 terminal／idempotent，edits invalidates pending jobs；同步 findPath drains 同一 deterministic indexed A*。
+
+每 owner 至多八個獨立 concurrent jobs，以有界 workspace pool 重用；terminal 狀態釋放 owner／workspace，destroy 取消 jobs 並清 pool。第九個 job 報錯，不無限制配置 scratch。

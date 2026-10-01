@@ -6,4 +6,8 @@ export declare const navigationLimits: Readonly<{
     coordinateExtent: 1000000000;
     cost: 1000000000;
     followerSpeed: 1000000;
+    concurrentSearches: 8;
+    expansionsPerStep: 65536;
+    followerExpansions: 32;
+    followerReplans: 8;
 }>;

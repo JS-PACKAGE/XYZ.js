@@ -6,4 +6,8 @@ export const navigationLimits = Object.freeze({
   coordinateExtent: 1_000_000_000,
   cost: 1_000_000_000,
   followerSpeed: 1_000_000,
+  concurrentSearches: 8,
+  expansionsPerStep: 65_536,
+  followerExpansions: 32,
+  followerReplans: 8,
 });

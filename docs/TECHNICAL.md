@@ -963,3 +963,9 @@ Browser fixtures capture the actual submitted frame: GPUTexture copy before pres
 World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. infinite planes remain unavoidable candidates.
 
 `world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.
+
+## 46. Budgeted Navigation Search (P46)
+
+`grid.createSearch(start, goal, options?)` / `graph.createSearch(startID, goalID, options?)` returns `NavigationSearchJob<Path>`; `step(maxExpansions)` consumes at most the integer budget (0–65,536), counting popped nodes including the goal. Zero is a no-op. Status is `pending | found | unreachable | cancelled | invalidated`; `result` exists only for found/unreachable. `cancel()` is terminal/idempotent; edits invalidate pending jobs. The synchronous `findPath` drains this same deterministic indexed A*.
+
+Each owner admits at most eight independent jobs and reuses bounded workspaces; completion/cancellation releases owner/workspace references, and destroy cancels jobs and clears the pool. A ninth concurrent job throws rather than allocating unbounded scratch.

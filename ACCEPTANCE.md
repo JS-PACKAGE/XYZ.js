@@ -750,3 +750,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 真封裝 consumer 的 200 separated boxes 為 0 candidate pairs；isolated query 僅 1 candidate。Pose／scale 的直接 mutation、移除／filter 與 ray 距離 2.5 皆涵蓋；既有 exact narrowphase 維持正式結果。
 - 採 deterministic balanced conservative AABB hierarchy，collision／overlap／ray／sweep 共用。因公開 transforms 可直接修改，每 tick／public query 必須 O(n) refresh／refit；只有 hierarchy traversal／narrowphase candidate reduction，不宣稱整個 query 已 sublinear 或 FPS 提升。
 - 保留 broadphase consumer-visible regressions；actual mixed soak 的 physics／candidate counters 另記 P48。
+
+## P46 Budgeted Navigation Jobs（限定已測環境）
+
+- Root grid／graph incremental jobs 在 expansion budgets 1／2 下與同步最短 route 同 cost；cancel、revision invalidation、workspace bounds／destroy 都由真封裝 CPU smoke 覆蓋。
+- Owner 使用有限 workspace／expansion budget；同步與增量共用搜尋核心，不另建假 worker／無預算 fallback。保留 deterministic route／budget／transition regressions。
