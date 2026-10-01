@@ -21,4 +21,6 @@ export const physicsDefaults = Object.freeze({
   sleepLinearVelocity: 0.1,
   sleepAngularVelocity: 0.05,
   sleepTime: 0.5,
+  ccdTravelRatio: 0.25,
+  ccdPenetration: 0.01,
 });

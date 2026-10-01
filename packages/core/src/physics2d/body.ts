@@ -12,6 +12,7 @@ export interface RigidBodyOptions {
   angularDamping?: number;
   gravityScale?: number;
   lockRotation?: boolean;
+  ccd?: boolean;
   allowSleep?: boolean;
 }
 function nonnegative(value: number, name: string): number {
@@ -44,6 +45,11 @@ export class RigidBody2D {
   private sleepScaleY = 1;
   readonly type: 'static' | 'dynamic';
   lockRotation: boolean;
+  /**
+   * Sweeps this dynamic body's translation against static, non-sensor colliders each step so
+   * fast moves cannot tunnel through thin walls. Rotation is not swept.
+   */
+  ccd: boolean;
 
   constructor(options: RigidBodyOptions = {}) {
     this.type = options.type ?? 'dynamic';
@@ -56,6 +62,7 @@ export class RigidBody2D {
     this.angularDamping = options.angularDamping ?? 0;
     this.gravityScale = options.gravityScale ?? 1;
     this.lockRotation = options.lockRotation ?? false;
+    this.ccd = options.ccd ?? false;
     this.allowSleep = options.allowSleep ?? true;
   }
   get allowSleep(): boolean {

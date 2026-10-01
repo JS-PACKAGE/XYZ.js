@@ -13,6 +13,7 @@ import {
 } from './collider.js';
 import { RigidBody2D } from './body.js';
 import { collide, Manifold, rayDistance } from './narrowphase.js';
+import { sweepTimeOfImpact } from './sweep.js';
 
 export interface CollisionDetail {
   readonly self: GameObject;
@@ -52,6 +53,8 @@ class Proxy {
   inverseInertia = 0;
   sleepVisited = 0;
   sleepReady = false;
+  moveX = 0;
+  moveY = 0;
   constructor(
     readonly owner: GameObject,
     readonly collider: Collider2D,
@@ -126,6 +129,7 @@ export class PhysicsWorld2D {
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
   private readonly sleepGroup: Proxy[] = [];
+  private readonly sweepProxies: Proxy[] = [];
   private readonly forceBodies = new Set<RigidBody2D>();
   private readonly queryManifold = new Manifold();
   private readonly positionManifold = new Manifold();
@@ -338,8 +342,57 @@ export class PhysicsWorld2D {
       this.continuation = continueSimulation;
     }
   }
+  /**
+   * Pulls ccd bodies that moved farther than a fraction of their size back to the first
+   * translation contact with a static collider, pushed slightly in so the solver sees it.
+   */
+  private sweepFastBodies(): void {
+    for (const proxy of this.sweepProxies) {
+      if (!this.alive(proxy)) continue;
+      const dx = proxy.moveX,
+        dy = proxy.moveY;
+      const distance = Math.hypot(dx, dy);
+      const g = proxy.geometry;
+      if (
+        distance <=
+        Math.min(g.maxX - g.minX, g.maxY - g.minY) *
+          physicsDefaults.ccdTravelRatio
+      )
+        continue;
+      const minX = g.minX + Math.min(0, -dx),
+        maxX = g.maxX + Math.max(0, -dx),
+        minY = g.minY + Math.min(0, -dy),
+        maxY = g.maxY + Math.max(0, -dy);
+      let first = Infinity;
+      for (const other of this.owners.values()) {
+        if (
+          other === proxy ||
+          other.inverseMass ||
+          other.collider.sensor ||
+          proxy.collider.sensor ||
+          !(proxy.collider.category & other.collider.mask) ||
+          !(other.collider.category & proxy.collider.mask) ||
+          other.geometry.maxX < minX ||
+          other.geometry.minX > maxX ||
+          other.geometry.maxY < minY ||
+          other.geometry.minY > maxY ||
+          proxy.contacts.has(other) ||
+          !this.alive(other)
+        )
+          continue;
+        first = Math.min(first, sweepTimeOfImpact(g, dx, dy, other.geometry));
+      }
+      if (first >= 1) continue;
+      const remaining = (1 - first) * distance;
+      const push = Math.min(physicsDefaults.ccdPenetration, remaining / 2);
+      proxy.owner.position.x += -dx * (1 - first) + (dx / distance) * push;
+      proxy.owner.position.y += -dy * (1 - first) + (dy / distance) * push;
+      proxy.refresh();
+    }
+  }
   private simulate(dt: number): void {
     this.sorted.length = 0;
+    this.sweepProxies.length = 0;
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
     for (const proxy of this.owners.values()) {
@@ -367,6 +420,11 @@ export class PhysicsWorld2D {
             : (body.angularVelocity + body.torque * proxy.inverseInertia * dt) /
                 (1 + body.angularDamping * dt),
         );
+        if (body.ccd) {
+          proxy.moveX = body.velocity.x * dt;
+          proxy.moveY = body.velocity.y * dt;
+          this.sweepProxies.push(proxy);
+        }
         proxy.owner.position.x += body.velocity.x * dt;
         proxy.owner.position.y += body.velocity.y * dt;
         proxy.owner.rotation += body.angularVelocity * dt;
@@ -375,6 +433,7 @@ export class PhysicsWorld2D {
       }
       this.sorted.push(proxy);
     }
+    this.sweepFastBodies();
     this.sorted.sort(compareBounds);
     for (let i = 0; i < this.sorted.length; i++) {
       const a = this.sorted[i];
