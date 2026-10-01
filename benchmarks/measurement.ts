@@ -110,7 +110,7 @@ export function measure(
           workload: options.workload,
           ...options.finalMetrics?.(),
           notes:
-            'RAF intervals are display-paced wall time. CPU submit measures beginFrame/render/endFrame only, excluding simulation and not waiting for GPU completion. RenderStats contains last-frame 3D counters only, not 2D batches or GPU time; Canvas2D counters stay zero. Fixed 1/60-second simulation per RAF. No GPU/GC timing instrumentation; setup and teardown excluded.',
+            'RAF intervals are display-paced wall time. CPU submit measures beginFrame/render/endFrame only, excluding simulation and not waiting for GPU completion. RenderStats contains last-frame 2D/3D submission counters and resident/peak attachment estimates, not GPU timing or total VRAM. Canvas2D has 2D paint counters but no 3D counters. Fixed 1/60-second simulation per RAF. No GPU/GC timing instrumentation; setup and teardown excluded.',
         };
         cleanup();
         resolve(result);
@@ -123,4 +123,101 @@ export function measure(
     game.addEventListener('error', onError);
     handle = requestAnimationFrame(render);
   });
+}
+
+/** Fixed-size histogram: percentiles are upper bucket bounds, not exact samples. */
+export class BoundedTiming {
+  private readonly bins = new Uint32Array(4096);
+  private count = 0;
+  private sum = 0;
+  private maximum = 0;
+  private overRange = 0;
+  private overBudget = 0;
+  private longFrames = 0;
+  constructor(private readonly budgetMs = 1000 / 60) {}
+  add(milliseconds: number): void {
+    if (!Number.isFinite(milliseconds) || milliseconds < 0)
+      throw new RangeError('Timing must be finite and nonnegative.');
+    this.count++;
+    this.sum += milliseconds;
+    this.maximum = Math.max(this.maximum, milliseconds);
+    if (milliseconds > this.budgetMs) this.overBudget++;
+    if (milliseconds > 50) this.longFrames++;
+    const bin = Math.floor(milliseconds * 4);
+    if (bin >= this.bins.length) this.overRange++;
+    else this.bins[bin] = this.bins[bin]! + 1;
+  }
+  snapshot() {
+    const percentile = (fraction: number): number | null => {
+      if (!this.count) return null;
+      const target = Math.ceil(this.count * fraction);
+      let cumulative = 0;
+      for (let index = 0; index < this.bins.length; index++) {
+        cumulative += this.bins[index]!;
+        if (cumulative >= target) return (index + 1) / 4;
+      }
+      return null;
+    };
+    return {
+      count: this.count,
+      mean: this.count ? this.sum / this.count : null,
+      p50: percentile(0.5),
+      p95: percentile(0.95),
+      max: this.count ? this.maximum : null,
+      overBudget: this.overBudget,
+      longFramesOver50Ms: this.longFrames,
+      histogramOverflow: this.overRange,
+      bucketWidthMs: 0.25,
+      histogramLimitMs: 1024,
+    };
+  }
+}
+
+/** Online trend plus a bounded tail; never retains a duration-sized trace. */
+export class BoundedTrend {
+  private count = 0;
+  private first = 0;
+  private last = 0;
+  private minimum = Infinity;
+  private maximum = -Infinity;
+  private meanX = 0;
+  private meanY = 0;
+  private covariance = 0;
+  private variance = 0;
+  private readonly tail = new Float64Array(32);
+  add(value: number): void {
+    if (!Number.isFinite(value)) throw new RangeError('Trend must be finite.');
+    const x = this.count++;
+    if (!x) this.first = value;
+    this.last = value;
+    this.minimum = Math.min(this.minimum, value);
+    this.maximum = Math.max(this.maximum, value);
+    const dx = x - this.meanX;
+    const dy = value - this.meanY;
+    this.meanX += dx / this.count;
+    this.meanY += dy / this.count;
+    this.covariance += dx * (value - this.meanY);
+    this.variance += dx * (x - this.meanX);
+    this.tail[x % this.tail.length] = value;
+  }
+  snapshot() {
+    const retained = Math.min(this.count, this.tail.length);
+    const values = Array.from(
+      { length: retained },
+      (_, index) =>
+        this.tail[(this.count - retained + index) % this.tail.length]!,
+    );
+    return {
+      count: this.count,
+      first: this.count ? this.first : null,
+      last: this.count ? this.last : null,
+      min: this.count ? this.minimum : null,
+      max: this.count ? this.maximum : null,
+      slopePerCycle: this.variance ? this.covariance / this.variance : null,
+      tailRange: values.length
+        ? Math.max(...values) - Math.min(...values)
+        : null,
+      tail: values,
+    };
+  }
 }

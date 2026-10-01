@@ -1103,3 +1103,7 @@ class FixedScene extends Scene {
 ## 27. 動態 Authored Routes（P47）
 
 `NavigationFollower3D` 借用 `CharacterController3D`，用 `navigate({ graph, start, goal, agentRadius })` 發動路線，從 fixed gameplay update。用 `graph.setConnection`／`setConnections` 更新 authored topology；clearance 是 world-unit radius。Revision／真實物理阻擋後，從最後抵達 anchor 做 bounded replan，不沿 stale route 繼續走；不是自動 navmesh。
+
+## 28. 混合負載與 Soak（P48）
+
+開啟 `/benchmarks/mixed/`，或執行 `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`。`--duration 3600` 才是一小時實跑；`--consumer /absolute/extracted/package` 驗封裝 root。保持分頁 visible，分開看 RAF tails、CPU simulation／submit／load hitches 與每次 scene cycle 的 cleanup。短跑不能證明無限長 cache／driver-memory plateau。

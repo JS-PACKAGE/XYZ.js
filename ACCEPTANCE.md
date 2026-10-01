@@ -761,3 +761,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 動態連線／clearance／revision 與 follower bounded replans 已整合；consumer 的真 capsule 受物理阻擋後 replan 一次，替代 route 最大 z=2，41 ticks 抵達 [4,1,0]；最大一次位移 .30000000000000027。
 - 以 controller 的 blocked 結果為準；零 displacement 不因 floating tolerance 誤判。No stale route、cancel／destroy 與再修改 blocking 的行為保留回歸。
 - 仍是 authored anchors／connections，不宣稱自動 navmesh／nearest-node projection。
+
+## P48 Mixed Workload & Lifecycle Soak（限定已測環境）
+
+- 真 `pnpm pack` 解壓 consumer、pinned Chromium headless shell 153.0.8010.12／macOS arm64；forced WebGPU／WebGL2／Canvas2D 各 60 秒，全數 passed、無 runtime errors，各完成 11／11／14 churn cycles。Canvas 明示 3D unsupported，採 2D／navigation／UI／asset churn，未用假 3D 冒充。
+- 整體 native RAF p95 為 17／16.75／17ms，max 為 16.8／150.1／233.5ms，>50ms frames 為 0／2／15。Running CPU simulation-work mean 為 .00834／.00680／.01455ms，physics-update mean 3.58571／3.60666／.00124ms，submit mean .26211／.20834／6.31539ms；CPU／RAF／awaited operation wall durations 分开，沒有 GPU completion 時間或 FPS 改善宣告。
+- 115／115／149 texture leases 全釋放，11／11／14 captures 全 destroy；decoded/native entries／liveBytes、borrowers、Scene／physics registrations、held attachment bytes 全為 0。Histogram／online trends／last-32 cycle observations 有界。
+- Native geometry budget 修正為 active old＋candidate mesh uniforms／真 vertex-index bytes 的工作集加 reserve，預設 320KiB；未削弱 renderer admission／減少 workload。最初 8KiB 失敗與 full Chrome app 約 31 秒自主斷線診斷皆保留，獨立無 Vite 的 35 秒 probe 也觀察斷線；改用 Playwright 正式 headless executable 後通過，未將該現象冒稱 renderer crash 根因。
+- Evidence：`.vite/production-mixed-headless-shell.json`。只有 60 秒有限觀察，不宣稱一小時 soak、process memory／GC／總 VRAM plateau；cache bytes 是引擎估計。

@@ -927,3 +927,9 @@ Graph connection 預設 enabled／clearance Infinity。`setConnection(index, {en
 `new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?})` 借用 controller／graph。Navigate 傳 `{graph,start,goal,agentRadius}` 啟動 incremental job；每 update 推進一次 budget（default32，max65,536），經真 CharacterController3D.move 移動。Graph stale 時先停止舊路徑，從最後已到 authored anchor replan。物理 blocked 時僅在本次 route 排除該 connection，先返回 anchor 再走 detour；revision 清 local exclusions。每 navigate 的 retry 有限（default／max8）。
 
 狀態區分 searching／following／paused／finished／blocked／unreachable／stopped／destroyed。Pause 凍結搜尋與移動，stop／setPath／destroy 清 pending job，borrowed owners 被 destroy 時安全停止。PathFollower3D 保留簡單 explicit waypoint 契約；不宣稱 nearest-node projection／自動 navmesh。
+
+## 48. 混合負載與資源 soak（P48）
+
+`pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json` 執行真正 Game RAF／start／pause／resume／setScene／destroy、body 負載、動態 grid routes、retained widgets、decoded／native residency、warmup、capture／lease cleanup。互動頁是 `/benchmarks/mixed/`；Canvas2D variant 明示省略不支援的 3D。`--consumer /absolute/extracted/package` 選打包 root；`--duration 3600` 才要求一小時，不能用預設 60 秒宣稱長時間 plateau。
+
+Bounded histogram 4,096 個 0.25ms bins；p50／p95 是 bucket 上界，>1,024ms overflow 回 null，不藏掉慢幀。保持分頁可見；overall RAF 包含 boundary hitches，phase RAF 排除跨 phase interval。Scene／ECS、physics、CPU submit 分開記錄，asset／capture／cleanup 記 wall time；不是 GPU completion timer／whole-driver／GC memory／FPS 提升證明。最多保存 32 cycle trends，每 boundary assert owned registration／lease／capture／residency cleanup。

@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — mixed workload soak</title>
+    <style>
+      body {
+        background: #101521;
+        color: #eee;
+        font: 16px system-ui;
+        margin: 20px;
+      }
+      canvas {
+        width: 1280px;
+        height: 720px;
+        max-width: 100%;
+        display: block;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Mixed workload soak</h1>
+    <p>
+      Actual Game RAF lifecycle: physics, changing navigation routes, retained
+      canvas UI, rendering, resource churn and repeated scene/capture cleanup.
+      Canvas2D runs the explicitly 2D variant (no 3D rendering or physics).
+      Default 60 seconds; keep the tab visible.
+    </p>
+    <p>
+      Configure
+      <code
+        >?renderer=webgl2&amp;duration=3600&amp;cycle=3&amp;bodies=200&amp;warmup=60&amp;seed=42</code
+      >. JSON contains bounded histogram estimates, not GPU completion or total
+      VRAM measurements.
+    </p>
+    <canvas id="game"></canvas>
+    <pre id="result" role="status">Starting…</pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

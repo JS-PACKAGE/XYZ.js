@@ -1116,3 +1116,7 @@ Create `new NavigationGrid2D({columns:64,rows:64})`, then `grid.createSearch({co
 ## 27. Dynamic Authored Routes (P47)
 
 Create `NavigationFollower3D` around an owned CharacterController3D, then `navigate({graph,start,goal,agentRadius})` and update it from fixed gameplay. Update authored topology with graph.setConnection/setConnections; use clearance as a radius in world units. Revision/physical blockage initiates bounded replanning from the last reached anchor; do not keep moving with a stale path. [States and limits](TECHNICAL.md#47-dynamic-navigation-and-replanning-p47).
+
+## 28. Mixed Load and Soak (P48)
+
+Open `/benchmarks/mixed/`, or run `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`; use `--duration 3600` for an actual hour and `--consumer /absolute/extracted/package` for the packaged root. Keep the page visible. Review RAF tails, separately measured CPU phases and every cycle's cleanup assertions; a short successful run does not establish indefinite cache/driver-memory plateau.

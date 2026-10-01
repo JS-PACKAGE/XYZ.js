@@ -33,6 +33,7 @@
     "smoke:examples": "node scripts/smoke-examples.mjs",
     "regression:browser": "node scripts/regression-browser.mjs",
     "check:tree-shaking": "node scripts/check-tree-shaking.mjs",
+    "soak:mixed": "node scripts/mixed-soak.mjs",
     "docs:api": "typedoc"
   },
   "devDependencies": {

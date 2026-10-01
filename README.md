@@ -30,6 +30,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P45：共用 3D AABB hierarchy 與 candidate statistics；公開 mutable transforms 的 refresh 仍為 O(n)。
 - P46：有 expansion budget、可取消及 revision invalidation 的 incremental grid／graph A*。
 - P47：動態 authored connections／clearance 與實際 character 阻擋後有限重新規劃。
+- P48：[混合負載與 lifecycle soak](benchmarks/mixed/index.html)，分開 RAF／CPU phases／cache estimates。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -102,6 +103,7 @@ Production additions in this round:
 - P45: shared 3D AABB hierarchy and candidate statistics; mutable public poses still need O(n) refresh.
 - P46: incremental grid/graph A* with expansion budgets, cancellation and revision invalidation.
 - P47: dynamic authored connections/clearance and bounded replanning after real character blockage.
+- P48: [mixed load/lifecycle soak](benchmarks/mixed/index.html), separating RAF, CPU phases and cache estimates.
 
 ### Current support matrix and approved expansion
 
@@ -165,6 +167,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P45：共用 3D AABB hierarchy／candidate statistics。公開 mutable pose の refresh は O(n) です。
 - P46：expansion budget／cancel／revision invalidation 対応の incremental grid／graph A*。
 - P47：動的 authored connections／clearance と実 character の障害後の bounded replan。
+- P48：[mixed load／lifecycle soak](benchmarks/mixed/index.html)。RAF／CPU phases／cache estimates は別に計測します。
 
 ### 現在の対応表と承認済み拡張
 
