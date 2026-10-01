@@ -33,3 +33,14 @@ export {
   maxConcaveVertices,
 } from './shapes.js';
 export type { StaticChainOptions, StaticShapeOptions } from './shapes.js';
+export { PhysicsDebugDraw2D } from './debug-draw.js';
+export type {
+  PhysicsDebugDrawConfig,
+  PhysicsDebugDrawOptions,
+} from './debug-draw.js';
+export type {
+  PhysicsDebugContact,
+  PhysicsDebugJoint,
+  PhysicsDebugShape,
+  PhysicsDebugSnapshot,
+} from './world.js';

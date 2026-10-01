@@ -18,6 +18,7 @@ export const physicsDefaults = Object.freeze({
   penetrationSlop: 0.005,
   positionCorrection: 0.6,
   restitutionThreshold: 1,
+  restitutionGravitySteps: 2,
   geometryEpsilon: 1e-8,
   sleepLinearVelocity: 0.1,
   sleepAngularVelocity: 0.05,

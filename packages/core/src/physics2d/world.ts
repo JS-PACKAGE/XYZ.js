@@ -47,6 +47,33 @@ export interface PhysicsWorldOptions {
   velocityIterations?: number;
   positionIterations?: number;
 }
+export interface PhysicsDebugShape {
+  readonly kind: 'circle' | 'polygon';
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
+  /** Flat world-space x,y pairs of a polygon; empty for circles. */
+  readonly points: readonly number[];
+  /** `[minX, minY, maxX, maxY]`. */
+  readonly bounds: readonly [number, number, number, number];
+  readonly dynamic: boolean;
+  readonly sensor: boolean;
+  readonly sleeping: boolean;
+}
+export interface PhysicsDebugContact {
+  readonly points: readonly (readonly [number, number])[];
+  readonly normal: readonly [number, number];
+  readonly sensor: boolean;
+}
+export interface PhysicsDebugJoint {
+  readonly type: string;
+  readonly anchors: readonly [number, number, number, number];
+}
+export interface PhysicsDebugSnapshot {
+  readonly shapes: readonly PhysicsDebugShape[];
+  readonly contacts: readonly PhysicsDebugContact[];
+  readonly joints: readonly PhysicsDebugJoint[];
+}
 class Proxy {
   readonly geometry: ShapeGeometry;
   readonly contacts = new Map<Proxy, Contact>();
@@ -597,6 +624,14 @@ export class PhysicsWorld2D {
       a.body?.restitution ?? 0,
       b.body?.restitution ?? 0,
     );
+    // A body resting under gravity approaches at about gravity * dt each step; bouncing on that
+    // would keep it awake forever, so the threshold never drops below a couple of gravity steps.
+    const threshold = Math.max(
+      physicsDefaults.restitutionThreshold,
+      Math.hypot(this.gravity.x, this.gravity.y) *
+        this.fixedDelta *
+        physicsDefaults.restitutionGravitySteps,
+    );
     for (let i = 0; i < m.count; i++) {
       const point = m.points[i];
       const av = a.body?.velocity,
@@ -616,10 +651,7 @@ export class PhysicsWorld2D {
         bw * bx -
         ((a.inverseMass ? (av?.y ?? 0) : 0) + aw * ax);
       const speed = vx * m.nx + vy * m.ny;
-      m.bounceVelocities[i] =
-        speed < -physicsDefaults.restitutionThreshold
-          ? -restitution * speed
-          : 0;
+      m.bounceVelocities[i] = speed < -threshold ? -restitution * speed : 0;
     }
   }
   private solveVelocity(contact: Contact): void {
@@ -888,6 +920,38 @@ export class PhysicsWorld2D {
     for (const joint of a.joints)
       if (!joint.collideConnected && joint.partner(a) === b) return true;
     return false;
+  }
+  /** Copies the current colliders, active contacts and joints for visualization. */
+  debugSnapshot(): PhysicsDebugSnapshot {
+    const shapes: PhysicsDebugShape[] = [];
+    for (const proxy of this.owners.values()) {
+      const g = proxy.geometry;
+      shapes.push({
+        kind: proxy.collider.kind,
+        x: g.x,
+        y: g.y,
+        radius: g.radius,
+        points: Array.from(g.points),
+        bounds: [g.minX, g.minY, g.maxX, g.maxY],
+        dynamic: proxy.body?.type === 'dynamic',
+        sensor: proxy.collider.sensor,
+        sleeping: proxy.body?.isSleeping ?? false,
+      });
+    }
+    const contacts: PhysicsDebugContact[] = [];
+    for (const contact of this.activeContacts) {
+      const m = contact.manifold;
+      contacts.push({
+        points: snapshotPoints(m).map((p): [number, number] => [p.x, p.y]),
+        normal: [m.nx, m.ny],
+        sensor: contact.sensor,
+      });
+    }
+    const joints = [...this.jointSet].map((joint): PhysicsDebugJoint => ({
+      type: joint.type,
+      anchors: joint.anchors(),
+    }));
+    return { shapes, contacts, joints };
   }
   clear(): void {
     for (const owner of this.owners.keys()) this.unregister(owner);

@@ -84,3 +84,22 @@ it('respects allowSleep and explicit wake', () => {
   body.wake();
   expect(body.isSleeping).toBe(false);
 });
+it('lets a bouncy ball settle and sleep under pixel-scale gravity, but still bounces on hard impacts', () => {
+  const world = new PhysicsWorld2D({ gravity: [0, 600] });
+  const floor = new GameObject();
+  floor.position.y = 418;
+  floor.collider = Colliders.box(300, 20);
+  world.register(floor);
+  const ball = new GameObject();
+  ball.position.y = 380;
+  ball.collider = Colliders.circle(9);
+  ball.body = new RigidBody2D({ restitution: 0.3 });
+  world.register(ball);
+  let bounced = false;
+  for (let i = 0; i < 360; i++) {
+    world.update(1 / 60);
+    if (ball.body.velocity.y < -20) bounced = true;
+  }
+  expect(bounced).toBe(true);
+  expect(ball.body.isSleeping).toBe(true);
+});

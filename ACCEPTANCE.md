@@ -522,3 +522,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：`tests/i18n.test.ts` 7 個測試（巢狀 key 與 locale lineage／fallback、插值與跳脫與缺參數、複數與數字格式、missing 政策、無效 tag 與表、localechange 次數、bindText 同步／解除／destroyed 忽略）。完整套件目前 51 檔／355 測試通過；`tsc -p tsconfig.check.json`、`eslint` 無輸出（通過）。
 - **實際瀏覽器**：managed headless Chromium 在 canvas2d／webgl2／webgpu 開啟 save-lab（`lang=zh-Hant`）後切換到日文，Text2D 與狀態列重繪為日文，存檔後訊息為「保存しました」，console 無 error／warning；canvas2d 截圖確認日文 Text2D 顯示。
 - **未驗**：Firefox／Safari；`Intl.PluralRules` 在 `ar`／`ru` 等多形式語言的實際輸出（只測了 en／zh-Hant）；RTL 排版與雙向文字；字型缺字回退。
+
+## P31 Physics2D 擴充（2026-10-01，限定已測環境）
+
+- **新增**：body 休眠（`allowSleep`／`isSleeping`／`wake`）、`ccd` 連續碰撞、`DistanceJoint`／`RevoluteJoint`／`PrismaticJoint`／`WeldJoint`／`MouseJoint`、`decomposeConvex`／`StaticConcave2D`／`StaticChain2D`、`world.debugSnapshot()` 與 `PhysicsDebugDraw2D`；範例 `examples/physics2d-lab/`。另修正一個實測發現的問題：restitution 門檻原為固定 1 px/s，在像素尺度重力（600）下靜止的彈性 body 每步都被重力推出約 10 px/s 的接近速度而反彈，永遠無法休眠；現改為 `max(1, |gravity| × fixedDelta × 2)`（`restitutionGravitySteps`）。這會改變「低速接觸是否反彈」的行為，但高速撞擊不變。
+- **自動化**：新增 `tests/physics2d-sleep.test.ts`（含 restitution 回歸）、`physics2d-ccd.test.ts`（5）、`physics2d-joints.test.ts`（10）、`physics2d-shapes.test.ts`（4）、`physics2d-debug.test.ts`（3，含 region 過濾）。完整套件目前 56 檔／381 測試通過；`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過。歷史測試數保留不改。
+- **實際瀏覽器**：managed headless Chromium 在 canvas2d／webgl2／webgpu 開啟 `examples/physics2d-lab/`：8 個 joint 運作；CCD 開啟時以 4000 px/s 發射的子彈被 4 px 薄牆擋住，關閉後穿牆；8 顆球落入凹形杯後全部休眠（Sleeping: 8）；以 canvas 上的 PointerEvent 拖曳彈簧重物時 joint 數 8→9→8；canvas2d 重新載入後 console 無 error／warning（debug overlay 預設啟用，需 `region` 才不會在子彈飛出世界時 raster 超出預算——此問題在實測中發現並修正）。
+- **未驗**：dynamic 對 dynamic 的 CCD、旋轉掃掠、joint warm starting 的穩定性（硬鏈需更多 iterations）、Firefox／Safari、實機 touch 拖曳、大量 body（>1,000）下 sleep／CCD／debug overlay 的效能。Debug overlay 每次 refresh 重新 rasterize，未量測其 CPU 成本。`build` 未執行（`dist/` 於發佈時一併重建）。

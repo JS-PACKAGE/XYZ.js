@@ -92,6 +92,8 @@ export abstract class Joint2D {
   readonly bodyA: GameObject;
   readonly bodyB: GameObject | undefined;
   readonly collideConnected: boolean;
+  abstract readonly type:
+    'distance' | 'revolute' | 'prismatic' | 'weld' | 'mouse';
   breakForce: number;
   /** Called once, after the world removes a joint whose reaction exceeded `breakForce`. */
   onBreak: ((joint: Joint2D) => void) | undefined;
@@ -194,6 +196,21 @@ export abstract class Joint2D {
   /** @internal */
   get views(): readonly [JointBodyView, JointBodyView] {
     return [this.viewA, this.viewB];
+  }
+  /** World positions `[ax, ay, bx, by]` of both anchors at the current poses. */
+  anchors(): [number, number, number, number] {
+    const pa = readPose(this.viewA.owner, poseA),
+      pb = readPose(this.viewB.owner, poseB);
+    const ca = Math.cos(pa.angle),
+      sa = Math.sin(pa.angle),
+      cb = Math.cos(pb.angle),
+      sb = Math.sin(pb.angle);
+    return [
+      pa.x + ca * this.localAx - sa * this.localAy,
+      pa.y + sa * this.localAx + ca * this.localAy,
+      pb.x + cb * this.localBx - sb * this.localBy,
+      pb.y + sb * this.localBx + cb * this.localBy,
+    ];
   }
 
   /** Called once at attach with the poses used to derive the local anchors. */
@@ -342,6 +359,7 @@ export interface DistanceJointOptions extends JointOptions {
 
 /** Keeps two anchors a fixed distance apart, rigidly or as a damped spring. */
 export class DistanceJoint extends Joint2D {
+  readonly type = 'distance';
   length: number;
   frequencyHz: number;
   dampingRatio: number;
@@ -458,6 +476,7 @@ export interface RevoluteJointOptions extends JointOptions {
 
 /** A pin: both bodies keep the anchor point together and may rotate around it. */
 export class RevoluteJoint extends Joint2D {
+  readonly type = 'revolute';
   lowerAngle: number;
   upperAngle: number;
   motorSpeed: number;
@@ -564,6 +583,7 @@ export class RevoluteJoint extends Joint2D {
 
 /** Glues two bodies together at the anchor, locking their relative angle. */
 export class WeldJoint extends Joint2D {
+  readonly type = 'weld';
   private angularMass = 0;
 
   protected prepareStep(): void {
@@ -606,6 +626,7 @@ export interface PrismaticJointOptions extends JointOptions {
 
 /** Lets B slide along an axis fixed in A while their relative rotation stays locked. */
 export class PrismaticJoint extends Joint2D {
+  readonly type = 'prismatic';
   lowerTranslation: number;
   upperTranslation: number;
   motorSpeed: number;
@@ -886,6 +907,7 @@ export interface MouseJointOptions {
 
 /** Soft constraint that pulls a grab point on one body toward a movable world target. */
 export class MouseJoint extends Joint2D {
+  readonly type = 'mouse';
   maxForce: number;
   frequencyHz: number;
   dampingRatio: number;
@@ -927,6 +949,10 @@ export class MouseJoint extends Joint2D {
   }
   get target(): readonly [number, number] {
     return [this.targetX, this.targetY];
+  }
+  override anchors(): [number, number, number, number] {
+    const [, , bx, by] = super.anchors();
+    return [this.targetX, this.targetY, bx, by];
   }
   protected prepareStep(dt: number, _a: Pose, b: Pose): void {
     const mass = this.mB > 0 ? 1 / this.mB : 0;

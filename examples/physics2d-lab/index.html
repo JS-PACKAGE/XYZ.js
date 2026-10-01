@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Physics2D lab</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        touch-action: none;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      #stats {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Physics2D lab</h1>
+    <p>
+      Drag any dynamic body with the mouse joint. The pendulum and chain hang
+      from revolute and distance joints, the cup on the right is one static
+      concave polygon, and the inner shelf is a chain collider. Fire the bullet
+      at the thin wall with continuous collision on or off, drop balls and let
+      them fall asleep, and toggle the debug overlay (static blue, awake green,
+      sleeping gray, contacts red, joints cyan).
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <label><input id="ccd" type="checkbox" checked /> Bullet CCD</label>
+      <label><input id="debug" type="checkbox" checked /> Debug overlay</label>
+      <button id="fire" type="button">Fire bullet</button>
+      <button id="drop" type="button">Drop balls</button>
+      <button id="reset" type="button">Reset</button>
+    </div>
+    <canvas id="game" aria-label="Physics lab"></canvas>
+    <p id="stats" aria-live="off">Loading…</p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

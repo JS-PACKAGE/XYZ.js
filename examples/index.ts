@@ -91,6 +91,14 @@ const examples: readonly Example[] = [
     renderers: all2d,
   },
   {
+    slug: 'physics2d-lab',
+    title: 'Physics lab',
+    summary:
+      'Joints, mouse dragging, concave cup, chain room, CCD bullet, sleeping and a debug overlay.',
+    tags: ['2D'],
+    renderers: all2d,
+  },
+  {
     slug: 'particles2d',
     title: 'Particles',
     summary: 'Selectable emitter presets with live parameters and counts.',
