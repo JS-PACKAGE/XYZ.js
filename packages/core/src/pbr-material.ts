@@ -21,6 +21,15 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   specularColorTexture?: Texture;
   specularSampler?: TextureSamplerOptions;
   specularColorSampler?: TextureSamplerOptions;
+  clearcoat?: number;
+  clearcoatRoughness?: number;
+  clearcoatNormalScale?: number;
+  clearcoatTexture?: Texture;
+  clearcoatRoughnessTexture?: Texture;
+  clearcoatNormalTexture?: Texture;
+  clearcoatSampler?: TextureSamplerOptions;
+  clearcoatRoughnessSampler?: TextureSamplerOptions;
+  clearcoatNormalSampler?: TextureSamplerOptions;
   metallicRoughnessTexture?: Texture;
   normalTexture?: Texture;
   normalScale?: number;
@@ -92,6 +101,17 @@ export class PBRMaterial extends TextureMaterial {
   readonly specularColorTexture: Texture | undefined;
   readonly specularSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly specularColorSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly clearcoat: number;
+  readonly clearcoatRoughness: number;
+  readonly clearcoatNormalScale: number;
+  /** Linear R intensity, linear G roughness, independent tangent-space normal. */
+  readonly clearcoatTexture: Texture | undefined;
+  readonly clearcoatRoughnessTexture: Texture | undefined;
+  readonly clearcoatNormalTexture: Texture | undefined;
+  readonly clearcoatSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly clearcoatRoughnessSampler:
+    Readonly<TextureSamplerOptions> | undefined;
+  readonly clearcoatNormalSampler: Readonly<TextureSamplerOptions> | undefined;
   /** Linear texture: roughness in G, metallic in B. */
   readonly metallicRoughnessTexture: Texture | undefined;
   /** Linear tangent-space normal texture, using UV0. */
@@ -133,6 +153,18 @@ export class PBRMaterial extends TextureMaterial {
     }
     textureSlot(options.specularTexture, 'Specular texture');
     textureSlot(options.specularColorTexture, 'Specular color texture');
+    const clearcoat = options.clearcoat ?? 0;
+    const clearcoatRoughness = options.clearcoatRoughness ?? 0;
+    const clearcoatNormalScale = options.clearcoatNormalScale ?? 1;
+    unit(clearcoat, 'Clearcoat factor');
+    unit(clearcoatRoughness, 'Clearcoat roughness');
+    finite(clearcoatNormalScale, 'Clearcoat normal scale');
+    textureSlot(options.clearcoatTexture, 'Clearcoat texture');
+    textureSlot(
+      options.clearcoatRoughnessTexture,
+      'Clearcoat roughness texture',
+    );
+    textureSlot(options.clearcoatNormalTexture, 'Clearcoat normal texture');
     const normalScale = options.normalScale ?? 1;
     const occlusionStrength = options.occlusionStrength ?? 1;
     const alphaCutoff = options.alphaCutoff ?? 0;
@@ -173,6 +205,19 @@ export class PBRMaterial extends TextureMaterial {
     this.specularColorTexture = options.specularColorTexture;
     this.specularSampler = samplerOptions(options.specularSampler);
     this.specularColorSampler = samplerOptions(options.specularColorSampler);
+    this.clearcoat = clearcoat;
+    this.clearcoatRoughness = clearcoatRoughness;
+    this.clearcoatNormalScale = clearcoatNormalScale;
+    this.clearcoatTexture = options.clearcoatTexture;
+    this.clearcoatRoughnessTexture = options.clearcoatRoughnessTexture;
+    this.clearcoatNormalTexture = options.clearcoatNormalTexture;
+    this.clearcoatSampler = samplerOptions(options.clearcoatSampler);
+    this.clearcoatRoughnessSampler = samplerOptions(
+      options.clearcoatRoughnessSampler,
+    );
+    this.clearcoatNormalSampler = samplerOptions(
+      options.clearcoatNormalSampler,
+    );
     this.metallicRoughnessTexture = options.metallicRoughnessTexture;
     this.normalTexture = options.normalTexture;
     this.normalScale = normalScale;

@@ -28,6 +28,8 @@ struct MeshUniforms {
   settings: vec4f,
   specularColor: vec4f,
   specularParams: vec4f,
+  clearcoat: vec4f,
+  clearcoatMaps: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -49,6 +51,12 @@ struct MeshUniforms {
 @group(2) @binding(11) var specularColorMap: texture_2d<f32>;
 @group(2) @binding(12) var specularSampler: sampler;
 @group(2) @binding(13) var specularColorSampler: sampler;
+@group(2) @binding(14) var clearcoatMap: texture_2d<f32>;
+@group(2) @binding(15) var clearcoatRoughnessMap: texture_2d<f32>;
+@group(2) @binding(16) var clearcoatNormalMap: texture_2d<f32>;
+@group(2) @binding(17) var clearcoatSampler: sampler;
+@group(2) @binding(18) var clearcoatRoughnessSampler: sampler;
+@group(2) @binding(19) var clearcoatNormalSampler: sampler;
 ${atlasWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
@@ -151,6 +159,18 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, diele
   let diffuse = (1.0-max(max(dielectric.r,dielectric.g),dielectric.b))*(1.0-metal)*base/3.14159265359;
   return (diffuse+specular)*nl;
 }
+// Clearcoat Fresnel is applied by the layer, including attenuation of emission.
+fn clearcoatLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32) -> f32 {
+  let nl = max(dot(n,l),0.0);
+  let nv = max(dot(n,v),0.000001);
+  let nh = max(dot(n,safeNormal(v+l)),0.0);
+  let alpha2 = rough*rough*rough*rough;
+  let denominator = nh*nh*(alpha2-1.0)+1.0;
+  let distribution = alpha2/max(3.14159265359*denominator*denominator,0.000001);
+  let k = (rough+1.0)*(rough+1.0)/8.0;
+  let geometry = (nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
+  return distribution*geometry*nl/max(4.0*nv*nl,0.000001);
+}
 @fragment fn shadowFragment(input: VertexOutput, @builtin(front_facing) front: bool) {
   let texel = textureSample(baseMap, materialSampler, input.uv);
   let effectiveFront = front == (input.orientation > 0.0);
@@ -205,6 +225,8 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   var du = vec2f(0.0); var dv = vec2f(0.0);
   if (mesh.maps.y > 0.5) {
     mappedNormal = textureSample(normalMap, normalSampler, input.uv).xyz * 2.0 - 1.0;
+  }
+  if (mesh.maps.y > 0.5 || (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)) {
     dx = dpdx(input.world); dy = -dpdy(input.world);
     du = dpdx(input.uv); dv = -dpdy(input.uv);
   }
@@ -223,16 +245,34 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   var specularTint = mesh.specularColor.rgb;
   if (mesh.specularParams.w > 0.5) { specularTint *= decodeSRGB(textureSample(specularColorMap,specularColorSampler,input.uv).rgb); }
   let dielectricF0 = min(specularTint*mesh.specularColor.w,vec3f(1.0))*specularWeight;
+  var coatWeight = mesh.clearcoat.x;
+  var coatRoughness = mesh.clearcoat.y;
+  if (coatWeight > 0.0) {
+    if (mesh.clearcoatMaps.x > 0.5) { coatWeight *= textureSample(clearcoatMap,clearcoatSampler,input.uv).r; }
+    if (mesh.clearcoatMaps.y > 0.5) { coatRoughness *= textureSample(clearcoatRoughnessMap,clearcoatRoughnessSampler,input.uv).g; }
+  }
+  coatRoughness = clamp(coatRoughness,0.04,1.0);
   var n = safeNormal(input.normal)*select(-1.0,1.0,effectiveFront);
-  if (mesh.maps.y > 0.5) {
+  var nc = n;
+  if (mesh.maps.y > 0.5 || (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)) {
     let perpendicularY = cross(dy,n);
     let perpendicularX = cross(n,dx);
     let tangent = perpendicularY*du.x + perpendicularX*dv.x;
     let bitangent = perpendicularY*du.y + perpendicularX*dv.y;
     let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),0.000001));
-    n = safeNormal(mat3x3f(tangent*scale,bitangent*scale,n)*vec3f(mappedNormal.xy*mesh.material.w,mappedNormal.z));
+    let frame = mat3x3f(tangent*scale,bitangent*scale,n);
+    if (mesh.maps.y > 0.5) {
+      n = safeNormal(frame*vec3f(mappedNormal.xy*mesh.material.w,mappedNormal.z));
+    }
+    if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5) {
+      let sampled = textureSample(clearcoatNormalMap,clearcoatNormalSampler,input.uv).xyz*2.0-1.0;
+      nc = safeNormal(frame*vec3f(sampled.xy*mesh.clearcoat.z,sampled.z));
+    }
   }
   let v = safeNormal(scene.camera.xyz-input.world);
+  var coatFresnel = 0.0;
+  var coating = vec3f(0.0);
+  if (coatWeight > 0.0) { coatFresnel = 0.04+0.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0); }
   let occlusion = select(1.0,mix(1.0,ao,mesh.emissiveOcclusion.w),mesh.maps.z > 0.5);
   let useEnvironment = scene.envParams.y > 0.5;
   var color = base*(1.0-metal)*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
@@ -244,21 +284,32 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
     let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
     color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
+    if (coatWeight > 0.0) {
+      let coatAB = environmentBRDF(max(dot(nc,v),0.0001),coatRoughness);
+      let coatRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,nc)),coatRoughness*scene.envParams.z).rgb;
+      coating += coatRadiance*(0.04*coatAB.x+coatAB.y)*occlusion*scene.envParams.x;
+    }
   }
   color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,direction,coatRoughness)*coatFresnel*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
-    color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
+    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
+    color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight)*incident;
+    if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,safeNormal(delta),coatRoughness)*coatFresnel*incident; }
   }
   for (var i = 0u; i < u32(scene.counts.y); i++) {
     let lightData = scene.spots[i];
     let delta = lightData.positionRange.xyz-input.world;
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-    color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
+    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
+    color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight)*incident;
+    if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*incident; }
   }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
+  if (coatWeight > 0.0) { color = color*(1.0-coatWeight*coatFresnel)+coating*coatWeight; }
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),opacity);
 }

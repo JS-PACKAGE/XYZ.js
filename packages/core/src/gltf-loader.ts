@@ -309,6 +309,7 @@ const supportedExtensions = new Set([
   'KHR_materials_unlit',
   'KHR_materials_ior',
   'KHR_materials_specular',
+  'KHR_materials_clearcoat',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -975,14 +976,30 @@ export class GLTFLoader {
           extensions.KHR_materials_specular === undefined
             ? undefined
             : object(extensions.KHR_materials_specular, 'specular');
-        if (unlit && (ior || specular))
+        const clearcoat =
+          extensions.KHR_materials_clearcoat === undefined
+            ? undefined
+            : object(extensions.KHR_materials_clearcoat, 'clearcoat');
+        const clearcoatNormal =
+          clearcoat?.clearcoatNormalTexture === undefined
+            ? undefined
+            : object(
+                clearcoat.clearcoatNormalTexture,
+                'clearcoat normal texture',
+              );
+        if (unlit && (ior || specular || clearcoat))
           throw new AssetError(
-            'IOR and specular extensions cannot be combined with unlit.',
+            'IOR, specular and clearcoat extensions cannot be combined with unlit.',
           );
         const specularMap = await readTexture(specular?.specularTexture);
         const specularColorMap = await readTexture(
           specular?.specularColorTexture,
         );
+        const clearcoatMap = await readTexture(clearcoat?.clearcoatTexture);
+        const clearcoatRoughnessMap = await readTexture(
+          clearcoat?.clearcoatRoughnessTexture,
+        );
+        const clearcoatNormalMap = await readTexture(clearcoatNormal);
         let strength = 1;
         if (extensions.KHR_materials_emissive_strength !== undefined) {
           const ext = object(
@@ -1007,6 +1024,9 @@ export class GLTFLoader {
           emissiveMap,
           specularMap,
           specularColorMap,
+          clearcoatMap,
+          clearcoatRoughnessMap,
+          clearcoatNormalMap,
         ].filter((slot) => slot !== undefined);
         const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
         if (keys.size > 1)
@@ -1066,6 +1086,24 @@ export class GLTFLoader {
             specularSampler: specularMap?.sampler,
             specularColorTexture: specularColorMap?.texture,
             specularColorSampler: specularColorMap?.sampler,
+            clearcoat: number(
+              clearcoat?.clearcoatFactor ?? 0,
+              'clearcoat factor',
+            ),
+            clearcoatRoughness: number(
+              clearcoat?.clearcoatRoughnessFactor ?? 0,
+              'clearcoat roughness',
+            ),
+            clearcoatNormalScale: number(
+              clearcoatNormal?.scale ?? 1,
+              'clearcoat normal scale',
+            ),
+            clearcoatTexture: clearcoatMap?.texture,
+            clearcoatRoughnessTexture: clearcoatRoughnessMap?.texture,
+            clearcoatNormalTexture: clearcoatNormalMap?.texture,
+            clearcoatSampler: clearcoatMap?.sampler,
+            clearcoatRoughnessSampler: clearcoatRoughnessMap?.sampler,
+            clearcoatNormalSampler: clearcoatNormalMap?.sampler,
             metallicRoughnessTexture: metallicRoughness?.texture,
             metallicRoughnessSampler: metallicRoughness?.sampler,
             normalTexture: normalMap?.texture,

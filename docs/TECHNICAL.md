@@ -642,3 +642,25 @@ The existing approximate environment prefilter / analytic split-sum BRDF remains
 this is not a reference-path-tracer accuracy claim. See the
 [IOR specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
 and [specular specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular).
+
+### Clearcoat (P39b)
+
+`clearcoat` and `clearcoatRoughness` are 0–1, default 0. `clearcoatTexture`
+multiplies intensity by linear R, and `clearcoatRoughnessTexture` multiplies
+roughness by linear G. `clearcoatNormalTexture` is a separate tangent-space normal:
+without it the layer uses geometric normals, never the base normal map.
+`clearcoatNormalScale` defaults to 1 and may be signed. All three slots have their
+own matching `*Sampler` options and borrow their textures.
+
+The fixed-IOR 1.5 microfacet layer reflects directional, point, spot and environment
+lighting above the base material, including metallic surfaces. View-normal Fresnel
+attenuates the underlying lighting **and emission**. Intensity 0 skips the layer.
+The numerical roughness floor is 0.04, as in the base BRDF; this is an infinitely
+thin coat, not refraction or inter-layer scattering. Independent normals use the
+existing UV0 derivative tangent frame, not imported MikkTSpace tangents.
+
+GLTFLoader accepts required `KHR_materials_clearcoat`, its factors, all three maps,
+normal scale and samplers, with the existing shared-transform restriction.
+Combining it with unlit rejects. Layering follows the non-normative simple Fresnel
+model in the [clearcoat specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat);
+the environment contribution retains the existing analytic split-sum approximation.

@@ -613,3 +613,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **實際瀏覽器**：managed Chromium，兩 backend、128×128、正式 Game／Renderer，direct／IBL 各自比較：specular=0 改變 2,520／4,764 bytes；IOR=2.42 改變 4,176／4,764 bytes；alpha=0、alpha=128 的 strength map 與相對應 factor、RGB=[128,255,255] map 與 sRGB decode factor 均為 0 bytes 差異。metallic=1 時改 IOR／specular／tint 為 0 bytes 差異。另把含兩個 required extensions、真實 PNG alpha／color maps 的 glTF 載入並渲染，兩 backend 都與同等直接建構材質完全相同，中心像素 [4,15,9,255]；page error 為 0。
 - **根因修正**：WebGL2 的 texture／environment 首次 upload 強制切到 texture unit 0，覆蓋別的 slot，導致第一幀材質貼圖與 IBL 錯誤；現在沿用呼叫者選定的 unit。同一 smoke 在修正前出現 map／factor 差異及第一幀 IBL 漏失，修正後所有 map 等價比較為零，direct／IBL 的因素差異也與 WebGPU 一致。
 - **限制與未驗**：仍沿用近似 environment mip filter／解析 split-sum BRDF，不宣稱 reference-renderer 精度。其他瀏覽器、large／非均勻貼圖與 glTF skinned material 的組合未測；沒有永久 GPU regression suite。build 延後最後整合執行。
+
+## P39b PBR Clearcoat（2026-10-01，限定已測環境）
+
+- **新增**：clearcoat／roughness／normal scale，三個借用 maps 與個別 sampler；glTF required `KHR_materials_clearcoat`；兩 backend 的 directional／point／spot／IBL layer、獨立法線與底層 emission attenuation。固定 IOR 1.5，不沿用 base IOR／normal。
+- **自動化**：新增 13 個 invalid factor／sampler、unlit 排斥與三個 map transform 衝突測試；完整 67 檔／505 tests、typecheck、lint、format:check 通過。
+- **實際瀏覽器**：managed Chromium，兩 backend、128×128，正式 Game／Renderer。強度 1 與未塗層相比，directional／point／spot／IBL 改變 1,080／1,284／1,320／4,764 bytes（兩 backend 一致）；R=0 map 等於未塗層，R=128 強度 map 與 factor、G=128 roughness map 與 factor 都是 0 bytes 差異。獨立 tilted normal 改變可見高光，normal scale=0 與無 coat normal map 完全相同；clearcoat=0 時 coat normal 不影響 base normal。metallic=1 仍有 coat 反射，page error 為 0。
+- **glTF 與 emission**：含真實 PNG 的三個 coat maps、normal scale=0，並與 IOR／specular extensions 合用的 glTF，兩 backend 與等效直接建構材質完全相同，中心 [5,16,10,255]。無外部光的 emission-only quad，coat=1 中心 [204,174,146,255]，與未塗層 emission×0.96 的中心相同；原 emission 中心 [206,177,149,255]。
+- **限制與未驗**：roughness 最低數值 0.04；simple Fresnel coat、近似 split-sum IBL、UV0 derivative tangent frame，不做 refraction／層間 scattering 或 reference-renderer 視覺精度承諾。其他瀏覽器、非均勻 normal／roughness 圖、skinned model 與陰影開啟時 coat 的像素對照未測；沒有永久 GPU regression suite。build 延後最後整合執行。

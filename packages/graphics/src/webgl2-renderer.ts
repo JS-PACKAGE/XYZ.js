@@ -389,6 +389,11 @@ export class WebGL2Renderer implements Renderer {
         'specularColorMap',
         'specularColor',
         'specularParams',
+        'clearcoat',
+        'clearcoatMaps',
+        'clearcoatMap',
+        'clearcoatRoughnessMap',
+        'clearcoatNormalMap',
         'shadowMap',
         'environment[0]',
         'environmentMap',
@@ -1181,6 +1186,38 @@ export class WebGL2Renderer implements Renderer {
           material.specularColorTexture ?? material.texture,
           8,
           material.specularColorSampler,
+        );
+        gl.uniform4f(
+          uniforms.clearcoat,
+          material.clearcoat,
+          material.clearcoatRoughness,
+          material.clearcoatNormalScale,
+          0,
+        );
+        gl.uniform4f(
+          uniforms.clearcoatMaps,
+          material.clearcoatTexture ? 1 : 0,
+          material.clearcoatRoughnessTexture ? 1 : 0,
+          material.clearcoatNormalTexture ? 1 : 0,
+          0,
+        );
+        gl.uniform1i(uniforms.clearcoatMap, 9);
+        gl.uniform1i(uniforms.clearcoatRoughnessMap, 10);
+        gl.uniform1i(uniforms.clearcoatNormalMap, 11);
+        this.bindMaterialTexture(
+          material.clearcoatTexture ?? material.texture,
+          9,
+          material.clearcoatSampler,
+        );
+        this.bindMaterialTexture(
+          material.clearcoatRoughnessTexture ?? material.texture,
+          10,
+          material.clearcoatRoughnessSampler,
+        );
+        this.bindMaterialTexture(
+          material.clearcoatNormalTexture ?? material.texture,
+          11,
+          material.clearcoatNormalSampler,
         );
         gl.uniform4f(
           uniforms.surface,

@@ -50,6 +50,11 @@ uniform sampler2D specularMap;
 uniform sampler2D specularColorMap;
 uniform vec4 specularColor; // linear color.rgb, IOR-derived reflectance
 uniform vec4 specularParams; // strength, zero-IOR mode, strengthMap, colorMap
+uniform vec4 clearcoat; // strength, roughness, normal scale, unused
+uniform vec4 clearcoatMaps; // intensity, roughness, normal, unused
+uniform sampler2D clearcoatMap;
+uniform sampler2D clearcoatRoughnessMap;
+uniform sampler2D clearcoatNormalMap;
 uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
@@ -117,6 +122,16 @@ vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, ve
   float remaining = 1.0-max(max(dielectric.r,dielectric.g),dielectric.b);
   return (remaining*(1.0-metallic)*base/PI + d*g*f/max(4.0*nv*nl,.0001))*nl;
 }
+float clearcoatLobe(vec3 n, vec3 v, vec3 l, float rough) {
+  float nl = max(dot(n,l),0.0), nv = max(dot(n,v),.000001);
+  vec3 h = (v+l)/max(length(v+l),.000001);
+  float nh = max(dot(n,h),0.0), a2 = rough*rough*rough*rough;
+  float denominator = nh*nh*(a2-1.0)+1.0;
+  float d = a2/max(PI*denominator*denominator,.000001);
+  float k = (rough+1.0)*(rough+1.0)/8.0;
+  float g = nv/(nv*(1.0-k)+k)*nl/(nl*(1.0-k)+k);
+  return d*g*nl/max(4.0*nv*nl,.000001);
+}
 float attenuation(float distanceSquared, float range) {
   float factor = 1.0;
   if (range > 0.0) factor = pow(clamp(1.0 - pow(sqrt(distanceSquared) / range, 4.0), 0.0, 1.0), 2.0);
@@ -145,16 +160,23 @@ void main() {
   if (pbr && !doubleSided && !front) discard;
   vec3 n = vNormal / max(length(vNormal), .000001);
   if (pbr && !front) n = -n;
-  if (pbr && maps.y != 0) {
+  vec3 nc = n;
+  if (pbr && (maps.y != 0 || (clearcoat.x > 0.0 && clearcoatMaps.z > .5))) {
     vec3 dp1 = dFdx(vPosition), dp2 = dFdy(vPosition);
     vec2 duv1 = dFdx(vUV), duv2 = dFdy(vUV);
     vec3 dp2perp = cross(dp2, n), dp1perp = cross(n, dp1);
     vec3 t = dp2perp * duv1.x + dp1perp * duv2.x;
     vec3 b = dp2perp * duv1.y + dp1perp * duv2.y;
     float inverseScale = inversesqrt(max(max(dot(t,t), dot(b,b)), .000001));
-    vec3 sampled = texture(normalMap, vUV).xyz * 2.0 - 1.0;
-    sampled.xy *= surface.z;
-    n = normalize(mat3(t * inverseScale, b * inverseScale, n) * sampled);
+    mat3 frame = mat3(t*inverseScale,b*inverseScale,n);
+    if (maps.y != 0) {
+      vec3 sampled = texture(normalMap,vUV).xyz*2.0-1.0;
+      n = normalize(frame*vec3(sampled.xy*surface.z,sampled.z));
+    }
+    if (clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
+      vec3 sampled = texture(clearcoatNormalMap,vUV).xyz*2.0-1.0;
+      nc = normalize(frame*vec3(sampled.xy*clearcoat.z,sampled.z));
+    }
   }
   float visibility = directionalShadow();
   vec3 direction = lighting[0].xyz;
@@ -172,6 +194,14 @@ void main() {
     float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
+    float coatWeight = clearcoat.x, coatRoughness = clearcoat.y;
+    if (coatWeight > 0.0) {
+      if (clearcoatMaps.x > .5) coatWeight *= texture(clearcoatMap,vUV).r;
+      if (clearcoatMaps.y > .5) coatRoughness *= texture(clearcoatRoughnessMap,vUV).g;
+    }
+    coatRoughness = clamp(coatRoughness,.04,1.0);
+    float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
+    vec3 coating = vec3(0.0);
     result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * ao * (environment[9].y > 0.5 ? 0.0 : 1.0);
     if (environment[9].y > 0.5) {
       float nv = max(dot(n, v), .0001);
@@ -181,14 +211,23 @@ void main() {
       vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
       vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
       result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
+      if (coatWeight > 0.0) {
+        vec2 coatAB = environmentBRDF(max(dot(nc,v),.0001),coatRoughness);
+        vec3 coatRadiance = textureLod(environmentMap,equirectUV(reflect(-v,nc)),coatRoughness*environment[9].z).rgb;
+        coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao*environment[9].x;
+      }
     }
     result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
-      result += brdf(base, metallic, roughness, n, v, delta / max(sqrt(d2), .000001), dielectricF0, specularWeight) * c.rgb * c.w * attenuation(d2, p.w) * pointShadow(i,p.xyz);
+      vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*pointShadow(i,p.xyz);
+      vec3 pl = delta/max(sqrt(d2),.000001);
+      result += brdf(base,metallic,roughness,n,v,pl,dielectricF0,specularWeight)*incident;
+      if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
     }
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].y)) break;
@@ -197,9 +236,12 @@ void main() {
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
-      result += brdf(base, metallic, roughness, n, v, sl, dielectricF0, specularWeight) * c.rgb * c.w * attenuation(d2, p.w) * cone * spotShadow(i);
+      vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
+      result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight)*incident;
+      if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,sl,coatRoughness)*coatFresnel*incident;
     }
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));
+    if (coatWeight > 0.0) result = result*(1.0-coatWeight*coatFresnel)+coating*coatWeight;
     if (!linearOutput) result = encodeSRGB(result);
   } else {
     float directional = max(dot(vNormal, direction), 0.0) / max(length(vNormal) * length(direction), .000001);

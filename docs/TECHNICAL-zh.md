@@ -616,3 +616,22 @@ GLTFLoader 接受 required `KHR_materials_ior`／`KHR_materials_specular`，
 既有近似，沒有宣稱 reference path tracer 精度。規格見
 [IOR](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
 與 [specular](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular)。
+
+### Clearcoat（P39b）
+
+`clearcoat`／`clearcoatRoughness` 都是 0–1、預設 0。`clearcoatTexture` 以
+linear R 乘強度，`clearcoatRoughnessTexture` 以 linear G 乘粗糙度。
+`clearcoatNormalTexture` 是獨立 tangent-space normal；沒有此貼圖時 layer 使用
+幾何法線，不沿用 base normal map。`clearcoatNormalScale` 預設 1，允許 signed 值。
+三個 slots 各有對應的 `*Sampler`，所有貼圖都借用。
+
+固定 IOR 1.5 的 microfacet layer 在 base 上反射 directional／point／spot／environment
+lighting，包含 metallic 表面；view-normal Fresnel 同時衰減底層 lighting **與 emission**。
+強度 0 跳過 layer；roughness 的數值下限與 base BRDF 相同為 0.04。
+這是無限薄 coating，不做 refraction 或層間 scattering。獨立法線沿用 UV0 derivative
+tangent frame，沒有匯入 MikkTSpace tangents。
+
+GLTFLoader 接受 required `KHR_materials_clearcoat`、factors、三個 maps、normal scale
+與 samplers，沿用 shared-transform 限制，與 unlit 共存會拒絕。
+Layering 採用 [clearcoat 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)
+中的 non-normative simple Fresnel model；環境光仍採既有解析 split-sum 近似。

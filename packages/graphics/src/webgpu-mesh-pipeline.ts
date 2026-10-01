@@ -323,6 +323,12 @@ export class WebGPUMeshPipeline {
         { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 12, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 13, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 14, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 15, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 16, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 17, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 18, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 19, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
       ],
     });
     const layout = device.createPipelineLayout({
@@ -985,10 +991,22 @@ export class WebGPUMeshPipeline {
       pbr && material.specularColorTexture
         ? this.cacheTexture(material.specularColorTexture, false).view
         : this.whiteView;
+    const clearcoat =
+      pbr && material.clearcoatTexture
+        ? this.cacheTexture(material.clearcoatTexture, false).view
+        : this.whiteView;
+    const clearcoatRoughness =
+      pbr && material.clearcoatRoughnessTexture
+        ? this.cacheTexture(material.clearcoatRoughnessTexture, false).view
+        : this.whiteView;
+    const clearcoatNormal =
+      pbr && material.clearcoatNormalTexture
+        ? this.cacheTexture(material.clearcoatNormalTexture, false).view
+        : this.whiteView;
     const existing = this.meshes.get(object);
     if (existing) return existing;
     const uniform = this.device.createBuffer({
-      size: 176,
+      size: 208,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let instance = this.identityBuffer;
@@ -1061,6 +1079,27 @@ export class WebGPUMeshPipeline {
               ? this.cacheSampler(material.specularColorSampler)
               : this.sampler,
           },
+          { binding: 14, resource: clearcoat },
+          { binding: 15, resource: clearcoatRoughness },
+          { binding: 16, resource: clearcoatNormal },
+          {
+            binding: 17,
+            resource: pbr
+              ? this.cacheSampler(material.clearcoatSampler)
+              : this.sampler,
+          },
+          {
+            binding: 18,
+            resource: pbr
+              ? this.cacheSampler(material.clearcoatRoughnessSampler)
+              : this.sampler,
+          },
+          {
+            binding: 19,
+            resource: pbr
+              ? this.cacheSampler(material.clearcoatNormalSampler)
+              : this.sampler,
+          },
         ],
       });
       const entry = {
@@ -1072,7 +1111,7 @@ export class WebGPUMeshPipeline {
         instanceColors,
         instanceColorVersion:
           object instanceof InstancedMesh ? object.colorVersion : 0,
-        data: new Float32Array(44),
+        data: new Float32Array(52),
         seen: this.frame,
       };
       this.meshes.set(object, entry);
@@ -1196,6 +1235,12 @@ export class WebGPUMeshPipeline {
       data[41] = material.ior === 0 ? 1 : 0;
       data[42] = material.specularTexture ? 1 : 0;
       data[43] = material.specularColorTexture ? 1 : 0;
+      data[44] = material.clearcoat;
+      data[45] = material.clearcoatRoughness;
+      data[46] = material.clearcoatNormalScale;
+      data[48] = material.clearcoatTexture ? 1 : 0;
+      data[49] = material.clearcoatRoughnessTexture ? 1 : 0;
+      data[50] = material.clearcoatNormalTexture ? 1 : 0;
       data[35] =
         material.alphaMode === 'OPAQUE'
           ? 0

@@ -126,30 +126,33 @@ describe('glTF extensions', () => {
     ).rejects.toThrow(/negative/);
   });
 
-  it.each(['KHR_materials_ior', 'KHR_materials_specular'])(
-    'rejects %s combined with unlit',
-    async (extension) => {
-      installImages();
-      await expect(
-        new GLTFLoader().parse(
-          JSON.stringify(
-            model(
-              {
-                extensions: { [extension]: {}, KHR_materials_unlit: {} },
-              },
-              { extensionsRequired: [extension] },
-            ),
+  it.each([
+    'KHR_materials_ior',
+    'KHR_materials_specular',
+    'KHR_materials_clearcoat',
+  ])('rejects %s combined with unlit', async (extension) => {
+    installImages();
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify(
+          model(
+            {
+              extensions: { [extension]: {}, KHR_materials_unlit: {} },
+            },
+            { extensionsRequired: [extension] },
           ),
         ),
-      ).rejects.toBeInstanceOf(AssetError);
-    },
-  );
+      ),
+    ).rejects.toBeInstanceOf(AssetError);
+  });
 
   it.each([
     ['KHR_materials_ior', { ior: -1 }],
     ['KHR_materials_ior', { ior: 0.5 }],
     ['KHR_materials_specular', { specularFactor: 1.1 }],
     ['KHR_materials_specular', { specularColorFactor: [1, -1, 1] }],
+    ['KHR_materials_clearcoat', { clearcoatFactor: -1 }],
+    ['KHR_materials_clearcoat', { clearcoatRoughnessFactor: 1.1 }],
   ])('rejects invalid %s factors %j', async (extension, factors) => {
     installImages();
     await expect(
@@ -166,29 +169,32 @@ describe('glTF extensions', () => {
     ).rejects.toMatchObject({ cause: expect.any(RangeError) });
   });
 
-  it.each(['specularTexture', 'specularColorTexture'])(
-    'rejects an incompatible transform on %s',
-    async (slot) => {
-      installImages();
-      await expect(
-        new GLTFLoader().parse(
-          JSON.stringify(
-            model({
-              pbrMetallicRoughness: { baseColorTexture: { index: 0 } },
-              extensions: {
-                KHR_materials_specular: {
-                  [slot]: {
-                    index: 0,
-                    extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
-                  },
+  it.each([
+    ['KHR_materials_specular', 'specularTexture'],
+    ['KHR_materials_specular', 'specularColorTexture'],
+    ['KHR_materials_clearcoat', 'clearcoatTexture'],
+    ['KHR_materials_clearcoat', 'clearcoatRoughnessTexture'],
+    ['KHR_materials_clearcoat', 'clearcoatNormalTexture'],
+  ])('rejects an incompatible transform on %s %s', async (extension, slot) => {
+    installImages();
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify(
+          model({
+            pbrMetallicRoughness: { baseColorTexture: { index: 0 } },
+            extensions: {
+              [extension]: {
+                [slot]: {
+                  index: 0,
+                  extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
                 },
               },
-            }),
-          ),
+            },
+          }),
         ),
-      ).rejects.toBeInstanceOf(AssetError);
-    },
-  );
+      ),
+    ).rejects.toBeInstanceOf(AssetError);
+  });
 
   it('maps KHR_materials_unlit base color to emission with no diffuse response', async () => {
     const { asset, material } = await load(
