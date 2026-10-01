@@ -31,7 +31,7 @@ export interface PhysicsContact3D {
     readonly point: Readonly<Vector3>;
     readonly sensor: boolean;
 }
-/** Deterministic discrete primitive/mesh solver. */
+/** Deterministic discrete primitive/mesh/compound solver. */
 export declare class PhysicsWorld3D {
     readonly gravity: Vector3;
     readonly fixedDelta: number;

@@ -965,3 +965,9 @@ Compositionstart／update／end 帶 data／originalEvent，input 帶 value／isC
 `new TriangleMeshCollider3D(positions, indices, options?: TriangleMeshOptions3D)` 擁有 bounded immutable xyz／index snapshots 與 baked triangle BVH。更新需換新 descriptor 原子 rebake，borrowed render geometry 修改不改 collision。含 mesh children 的 compound 也 static-only；支援 positive orthogonal transform／nonuniform positive scale，shear／reflection／degenerate／overflow 拒絕且保留原 attachment。
 
 Sidedness double（default）是雙面零厚度 surface，不是 closed-solid containment；front 採 counterclockwise normal，排除 back-side approaches／contacts。Primitive-triangle distance／SAT、真 edge／face contacts、ray／translation sweep、rigid solver／capsule controller 共用 transformed triangles／BVH。
+
+## 54. Compound collider 與 inertia（P54）
+
+`new CompoundCollider3D(children, options?)` 擁有1–64 flat immutable children：sphere／box／capsule／static mesh，無 nested／infinite plane。CompoundChild3D 包含 collider、explicit position／unit Quaternion rotation／positive scale，預設 origin／identity／unit；child offset 在該 transform 內套用。Root filters／sensor 適用所有 children。Sphere／capsule 及最終 world transform 需 uniform scale，拒 shear／reflection；mesh child 令 compound static-only。
+
+Dynamic primitive compound 的 uniform-density COM 必須在 root origin。Scaled volume 分配 mass，rotated analytic inertia＋完整 parallel-axis tensor 保留 off-diagonal terms；重疊 child solids 的 mass 分別計算，collision 是保留 gaps 的 union。至多八個 deepest deterministic contacts、各自 normal 沿標準 impulse solver。

@@ -3,6 +3,7 @@ import type { Object3D } from '../object3d.js';
 import {
   BoxCollider3D,
   CapsuleCollider3D,
+  CompoundCollider3D,
   Shape3D,
   SphereCollider3D,
   finite3D,
@@ -22,7 +23,7 @@ export interface RigidBodyOptions3D {
   lockRotation?: boolean;
   allowSleep?: boolean;
 }
-/** Root dynamic/kinematic primitive body. No joints, compound inertia or general rigid-body CCD. */
+/** Root dynamic/kinematic body with analytic primitive or uniform-density compound inertia. */
 export class RigidBody3D {
   readonly type: 'static' | 'dynamic' | 'kinematic';
   readonly velocity = new Vector3();
@@ -45,6 +46,7 @@ export class RigidBody3D {
   private idleTime = 0;
   private readonly sleepPose = new Float64Array(10);
   private readonly inverseDiagonal = new Vector3();
+  private readonly inverseTensor = new Float64Array(6);
   private readonly transformed = new Vector3();
   constructor(options: RigidBodyOptions3D = {}) {
     this.type = options.type ?? 'dynamic';
@@ -188,8 +190,55 @@ export class RigidBody3D {
   /** @internal Recompute analytic primitive inertia after mutable pose/scale changes. */
   refreshInertia(shape: Shape3D): void {
     this.shape = shape;
-    const c = shape.collider,
-      m = this.mass;
+    if (shape.collider instanceof CompoundCollider3D) {
+      if (this.type !== 'dynamic') return;
+      let xx = 0,
+        yy = 0,
+        zz = 0,
+        xy = 0,
+        xz = 0,
+        yz = 0;
+      for (const child of shape.children) {
+        const mass = (this.mass * child.volume) / shape.volume;
+        this.primitiveInertia(child, mass);
+        const d = this.inverseDiagonal;
+        for (let i = 0; i < 3; i++) {
+          const axis = child.axes[i],
+            inertia = 1 / (i === 0 ? d.x : i === 1 ? d.y : d.z);
+          xx += inertia * axis.x * axis.x;
+          yy += inertia * axis.y * axis.y;
+          zz += inertia * axis.z * axis.z;
+          xy += inertia * axis.x * axis.y;
+          xz += inertia * axis.x * axis.z;
+          yz += inertia * axis.y * axis.z;
+        }
+        const x = child.center.x - shape.center.x,
+          y = child.center.y - shape.center.y,
+          z = child.center.z - shape.center.z;
+        xx += mass * (y * y + z * z);
+        yy += mass * (x * x + z * z);
+        zz += mass * (x * x + y * y);
+        xy -= mass * x * y;
+        xz -= mass * x * z;
+        yz -= mass * y * z;
+      }
+      const determinant =
+        xx * (yy * zz - yz * yz) -
+        xy * (xy * zz - xz * yz) +
+        xz * (xy * yz - xz * yy);
+      if (!(determinant > 0) || !Number.isFinite(determinant))
+        throw new RangeError('Invalid compound inertia.');
+      const d = this.inverseTensor;
+      d[0] = (yy * zz - yz * yz) / determinant;
+      d[1] = (xx * zz - xz * xz) / determinant;
+      d[2] = (xx * yy - xy * xy) / determinant;
+      d[3] = (xz * yz - xy * zz) / determinant;
+      d[4] = (xy * yz - xz * yy) / determinant;
+      d[5] = (xy * xz - xx * yz) / determinant;
+    } else this.primitiveInertia(shape, this.mass);
+  }
+  private primitiveInertia(shape: Shape3D, m: number): void {
+    const c = shape.collider;
     if (c instanceof SphereCollider3D) {
       const i = 0.4 * m * shape.radius * shape.radius;
       this.inverseDiagonal.set(1 / i, 1 / i, 1 / i);
@@ -221,6 +270,17 @@ export class RigidBody3D {
   inverseInertia(vector: Readonly<Vector3>, out: Vector3): Vector3 {
     if (this.type !== 'dynamic' || this.lockRotation || !this.shape)
       return out.set(0, 0, 0);
+    if (this.shape.collider.kind === 'compound') {
+      const d = this.inverseTensor,
+        x = vector.x,
+        y = vector.y,
+        z = vector.z;
+      return out.set(
+        d[0] * x + d[3] * y + d[4] * z,
+        d[3] * x + d[1] * y + d[5] * z,
+        d[4] * x + d[5] * y + d[2] * z,
+      );
+    }
     const axes = this.shape.axes,
       d = this.inverseDiagonal;
     const x = axes[0].dot(vector) * d.x,

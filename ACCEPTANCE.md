@@ -799,3 +799,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 真封裝 triangle BVH／narrowphase 的 three supported primitives 於 mesh rest heights .247633／.247633／.497633，ray distance=2、edge sweep fraction=.7763914、capsule grounded y=.50299998；不是外框假碰撞。
 - Sidedness、degenerate／ownership validation、scale、candidate triangle limits 與 moving-mesh rejection 保留回歸。靜態 mesh profile，不宣稱 dynamic triangle mesh／arbitrary concave moving bodies。
+
+## P54 Compound Collider（限定已測環境）
+
+- Child-local transforms 的真封裝 ray gap hit 為 z=3、lobe distance=2.75，combined tensor inertia 的非中心 force/angular response 實測；沒有以整個外框填滿 gap。
+- Flat compound／supported child profiles、local scale／volume／inertia、ray／overlap／sweep／contacts 與 moving-body validation 保留回歸；不加入遞迴 compound／moving plane-mesh 支援。

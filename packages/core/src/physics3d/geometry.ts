@@ -61,6 +61,7 @@ export class Narrowphase3D {
   private readonly edgeB1 = new Vector3();
   private readonly triangleCandidates: Triangle3D[] = [];
   private readonly triangleManifold = new Manifold3D();
+  private readonly childManifold = new Manifold3D();
   private readonly closest = new Vector3();
   private readonly bestP = new Vector3();
   private readonly bestQ = new Vector3();
@@ -758,7 +759,26 @@ export class Narrowphase3D {
     out.distance = Infinity;
     const ak = a.collider.kind,
       bk = b.collider.kind;
-
+    if (ak === 'compound' || bk === 'compound') {
+      const ac = ak === 'compound' ? a.children.length : 1,
+        bc = bk === 'compound' ? b.children.length : 1;
+      for (let i = 0; i < ac; i++)
+        for (let j = 0; j < bc; j++) {
+          const sa = ak === 'compound' ? a.children[i] : a,
+            sb = bk === 'compound' ? b.children[j] : b;
+          const m = this.childManifold;
+          this.collide(sa, sb, m);
+          if (m.distance < out.distance) {
+            if (out.distance > physics3DDefaults.contactMargin) out.count = 0;
+            out.distance = m.distance;
+            out.normal.copy(m.normal);
+          }
+          if (m.distance <= physics3DDefaults.contactMargin || out.count === 0)
+            for (let k = 0; k < m.count; k++)
+              out.add(m.points[k], m.depths[k], m.normals[k]);
+        }
+      return;
+    }
     if (ak === 'mesh' && bk === 'mesh') return;
     if ((ak === 'mesh' && bk === 'plane') || (ak === 'plane' && bk === 'mesh'))
       return;

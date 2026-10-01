@@ -28,6 +28,7 @@ export declare class Narrowphase3D {
     private readonly edgeB1;
     private readonly triangleCandidates;
     private readonly triangleManifold;
+    private readonly childManifold;
     private readonly closest;
     private readonly bestP;
     private readonly bestQ;

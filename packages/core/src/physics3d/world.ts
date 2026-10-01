@@ -70,7 +70,7 @@ class Contact3D {
     readonly b: Entry3D,
   ) {}
 }
-/** Deterministic discrete primitive/mesh solver. */
+/** Deterministic discrete primitive/mesh/compound solver. */
 export class PhysicsWorld3D {
   readonly gravity = new Vector3(0, -9.81, 0);
   readonly fixedDelta: number;
@@ -523,6 +523,8 @@ export class PhysicsWorld3D {
         sum = ma + mb;
       if (sum === 0) continue;
       if (
+        c.a.shape.collider.kind === 'compound' ||
+        c.b.shape.collider.kind === 'compound' ||
         c.a.shape.collider.kind === 'mesh' ||
         c.b.shape.collider.kind === 'mesh'
       ) {
@@ -866,58 +868,75 @@ export class PhysicsWorld3D {
     this.candidates(this.queryBounds);
     for (const e of this.queryCandidates) {
       if (!this.accepts(e, options) || e.shape === shape) continue;
-      const moving = shape;
-      const target = e.shape;
-      if (moving.collider.kind === 'mesh' || moving.collider.kind === 'plane')
-        continue;
-      this.leafBounds.swept(
-        moving.bounds,
-        displacement,
-        physics3DDefaults.sweepTolerance,
-      );
-      if (!this.leafBounds.overlaps(target.bounds)) continue;
-      if (target.collider instanceof TriangleMeshCollider3D)
-        target.triangleIndex!.query(this.leafBounds, this.sweepTriangles);
-      const triangleCount =
-        target.collider.kind === 'mesh' ? this.sweepTriangles.length : 1;
-      for (let k = 0; k < triangleCount; k++) {
-        const triangle =
-          target.collider.kind === 'mesh' ? this.sweepTriangles[k] : undefined;
-        if (
-          triangle &&
-          (target.collider as TriangleMeshCollider3D).sidedness === 'front' &&
-          (moving.center.x - triangle.a.x) * triangle.normal.x +
-            (moving.center.y - triangle.a.y) * triangle.normal.y +
-            (moving.center.z - triangle.a.z) * triangle.normal.z <
-            -physics3DDefaults.sweepTolerance
-        )
-          continue;
-        const t = this.sweepPair(
-          moving,
-          target,
-          triangle,
-          dx,
-          dy,
-          dz,
-          nearest,
-          inside,
-        );
-        if (t >= nearest) continue;
-        nearest = t;
-        result = out ??
-          result ?? {
-            object: e.object,
-            collider: e.shape.collider,
-            point: new Vector3(),
-            normal: new Vector3(),
-            distance: 0,
-          };
-        result.object = e.object;
-        result.collider = e.shape.collider;
-        result.distance = t * len;
-        result.point.copy(this.queryManifold.points[0]);
-        result.normal.copy(this.queryManifold.normal);
-      }
+      const movingCount =
+        shape.collider.kind === 'compound' ? shape.children.length : 1;
+      const targetCount =
+        e.shape.collider.kind === 'compound' ? e.shape.children.length : 1;
+      for (let i = 0; i < movingCount; i++)
+        for (let j = 0; j < targetCount; j++) {
+          const moving =
+            shape.collider.kind === 'compound' ? shape.children[i] : shape;
+          const target =
+            e.shape.collider.kind === 'compound'
+              ? e.shape.children[j]
+              : e.shape;
+          if (
+            moving.collider.kind === 'mesh' ||
+            moving.collider.kind === 'plane'
+          )
+            continue;
+          this.leafBounds.swept(
+            moving.bounds,
+            displacement,
+            physics3DDefaults.sweepTolerance,
+          );
+          if (!this.leafBounds.overlaps(target.bounds)) continue;
+          if (target.collider instanceof TriangleMeshCollider3D)
+            target.triangleIndex!.query(this.leafBounds, this.sweepTriangles);
+          const triangleCount =
+            target.collider.kind === 'mesh' ? this.sweepTriangles.length : 1;
+          for (let k = 0; k < triangleCount; k++) {
+            const triangle =
+              target.collider.kind === 'mesh'
+                ? this.sweepTriangles[k]
+                : undefined;
+            if (
+              triangle &&
+              (target.collider as TriangleMeshCollider3D).sidedness ===
+                'front' &&
+              (moving.center.x - triangle.a.x) * triangle.normal.x +
+                (moving.center.y - triangle.a.y) * triangle.normal.y +
+                (moving.center.z - triangle.a.z) * triangle.normal.z <
+                -physics3DDefaults.sweepTolerance
+            )
+              continue;
+            const t = this.sweepPair(
+              moving,
+              target,
+              triangle,
+              dx,
+              dy,
+              dz,
+              nearest,
+              inside,
+            );
+            if (t >= nearest) continue;
+            nearest = t;
+            result = out ??
+              result ?? {
+                object: e.object,
+                collider: e.shape.collider,
+                point: new Vector3(),
+                normal: new Vector3(),
+                distance: 0,
+              };
+            result.object = e.object;
+            result.collider = e.shape.collider;
+            result.distance = t * len;
+            result.point.copy(this.queryManifold.points[0]);
+            result.normal.copy(this.queryManifold.normal);
+          }
+        }
     }
     return result;
   }

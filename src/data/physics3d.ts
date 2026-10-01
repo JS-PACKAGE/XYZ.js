@@ -15,4 +15,6 @@ export const physics3DDefaults = {
   characterIterations: 8,
   maxMeshTriangles: 100000,
   geometryTolerance: 1e-10,
+  maxCompoundChildren: 64,
+  transformTolerance: 0.00001,
 } as const;

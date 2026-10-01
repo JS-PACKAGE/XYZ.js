@@ -1,5 +1,4 @@
-import { Vector3 } from '../../../math/src/index.js';
-import type { Matrix4 } from '../../../math/src/index.js';
+import { Vector3, Quaternion, Matrix4 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
@@ -31,7 +30,8 @@ export interface ColliderOptions3D {
 }
 /** Immutable collider descriptor. Geometry is snapshotted before attachment. */
 export abstract class Collider3D {
-  abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane' | 'mesh';
+  abstract readonly kind:
+    'sphere' | 'box' | 'capsule' | 'plane' | 'mesh' | 'compound';
   readonly offset: Readonly<Vector3>;
   readonly sensor: boolean;
   readonly category: number;
@@ -166,6 +166,93 @@ export class Triangle3D {
   constructor(readonly order: number) {}
 }
 
+export interface CompoundChild3D {
+  readonly collider:
+    | SphereCollider3D
+    | BoxCollider3D
+    | CapsuleCollider3D
+    | TriangleMeshCollider3D;
+  readonly position?: Readonly<Vector3>;
+  readonly rotation?: Readonly<Quaternion>;
+  readonly scale?: Readonly<Vector3>;
+}
+export interface CompoundTransform3D {
+  readonly collider: CompoundChild3D['collider'];
+  readonly position: Readonly<Vector3>;
+  readonly rotation: Readonly<Quaternion>;
+  readonly scale: Readonly<Vector3>;
+}
+/** Union of flat children. Parent filters/sensor apply to all children; density is uniform per child solid. */
+export class CompoundCollider3D extends Collider3D {
+  readonly kind = 'compound';
+  readonly children: readonly CompoundTransform3D[];
+  readonly staticOnly: boolean;
+  constructor(
+    children: readonly CompoundChild3D[],
+    options: ColliderOptions3D = {},
+  ) {
+    super(options);
+    if (
+      !children.length ||
+      children.length > physics3DDefaults.maxCompoundChildren
+    )
+      throw new RangeError('Compound child count exceeds profile.');
+    this.children = Object.freeze(
+      children.map((child) => {
+        if (!(
+          child.collider instanceof SphereCollider3D ||
+          child.collider instanceof BoxCollider3D ||
+          child.collider instanceof CapsuleCollider3D ||
+          child.collider instanceof TriangleMeshCollider3D
+        ))
+          throw new TypeError(
+            'Compound children require finite primitives or static triangle meshes (no nested compounds).',
+          );
+        const p = child.position ?? new Vector3(),
+          q = child.rotation ?? new Quaternion(),
+          s = child.scale ?? new Vector3(1, 1, 1);
+        vector3D(p, 'child position');
+        vector3D(s, 'child scale');
+        finite3D(q.x, 'child rotation.x');
+        finite3D(q.y, 'child rotation.y');
+        finite3D(q.z, 'child rotation.z');
+        finite3D(q.w, 'child rotation.w');
+        positive3D(s.x, 'child scale.x');
+        positive3D(s.y, 'child scale.y');
+        positive3D(s.z, 'child scale.z');
+        if (
+          Math.abs(Math.hypot(q.x, q.y, q.z, q.w) - 1) >
+          physics3DDefaults.transformTolerance
+        )
+          throw new RangeError('Child rotation must be a unit quaternion.');
+        const position = new Vector3(p.x, p.y, p.z),
+          rotation = new Quaternion(q.x, q.y, q.z, q.w),
+          scale = new Vector3(s.x, s.y, s.z);
+        if (
+          (child.collider.kind === 'sphere' ||
+            child.collider.kind === 'capsule') &&
+          (Math.abs(s.x - s.y) >
+            physics3DDefaults.transformTolerance * Math.max(s.x, s.y) ||
+            Math.abs(s.x - s.z) >
+              physics3DDefaults.transformTolerance * Math.max(s.x, s.z))
+        )
+          throw new RangeError(
+            'Sphere/capsule children require uniform scale.',
+          );
+        return Object.freeze({
+          collider: child.collider,
+          position: Object.freeze(position),
+          rotation: Object.freeze(rotation),
+          scale: Object.freeze(scale),
+        });
+      }),
+    );
+    this.staticOnly = this.children.some(
+      (child) => child.collider.kind === 'mesh',
+    );
+  }
+}
+
 /** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
 export class Shape3D {
   readonly center = new Vector3();
@@ -183,14 +270,34 @@ export class Shape3D {
   readonly triangles: Triangle3D[] = [];
   readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
   private readonly meshMatrix: Float64Array | undefined;
+  readonly children: Shape3D[] = [];
+  readonly massCenter = new Vector3();
+  volume = 0;
+  private readonly childLocal: Matrix4[] = [];
+  private readonly childWorld: Matrix4 | undefined;
   radius = 0;
-  constructor(readonly collider: Collider3D) {
+  constructor(
+    readonly collider: Collider3D,
+    private readonly needsVolume = false,
+  ) {
     if (collider instanceof TriangleMeshCollider3D) {
       this.triangleIndex = new SpatialIndex3D<Triangle3D>();
       this.meshMatrix = new Float64Array(16).fill(NaN);
       for (let i = 0; i < collider.indices.length / 3; i++)
         this.triangles.push(new Triangle3D(i));
     }
+    if (collider instanceof CompoundCollider3D) this.childWorld = new Matrix4();
+    if (collider instanceof CompoundCollider3D)
+      for (const child of collider.children) {
+        this.children.push(new Shape3D(child.collider, true));
+        this.childLocal.push(
+          new Matrix4().compose(
+            child.position as Vector3,
+            child.rotation as Quaternion,
+            child.scale as Vector3,
+          ),
+        );
+      }
   }
   refresh(object: Object3D): void {
     this.refreshMatrix(object.updateWorldMatrix());
@@ -330,14 +437,69 @@ export class Shape3D {
       }
       return;
     }
+    if (this.collider instanceof CompoundCollider3D) {
+      this.volume = 0;
+      this.massCenter.set(0, 0, 0);
+      for (let i = 0; i < this.children.length; i++) {
+        const world = this.childWorld!;
+        world.copy(matrix);
+        world.elements[12] = this.center.x;
+        world.elements[13] = this.center.y;
+        world.elements[14] = this.center.z;
+        world.multiply(this.childLocal[i]);
+        const child = this.children[i];
+        child.refreshMatrix(world);
+        this.volume += child.volume;
+        this.massCenter.x += child.center.x * child.volume;
+        this.massCenter.y += child.center.y * child.volume;
+        this.massCenter.z += child.center.z * child.volume;
+      }
+      if (this.volume > 0) this.massCenter.scale(1 / this.volume);
+    } else if (this.needsVolume && this.collider.kind === 'box')
+      this.volume = 8 * this.half.x * this.half.y * this.half.z;
+    else if (
+      this.needsVolume &&
+      (this.collider.kind === 'sphere' || this.collider.kind === 'capsule')
+    ) {
+      const h = Math.hypot(
+        this.end.x - this.start.x,
+        this.end.y - this.start.y,
+        this.end.z - this.start.z,
+      );
+      this.volume =
+        Math.PI * this.radius * this.radius * (h + (4 * this.radius) / 3);
+    }
     this.updateBounds();
   }
+  /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */
   validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void {
+    const c = this.collider;
+    if (type === 'static') return;
     if (
-      type !== 'static' &&
-      (this.collider.kind === 'plane' || this.collider.kind === 'mesh')
+      c.kind === 'plane' ||
+      c.kind === 'mesh' ||
+      (c instanceof CompoundCollider3D && c.staticOnly)
     )
       throw new Error('Triangle mesh/plane geometry is static only.');
+    if (type === 'dynamic' && c instanceof CompoundCollider3D) {
+      const extent = Math.max(
+        1,
+        this.bounds.max.x - this.bounds.min.x,
+        this.bounds.max.y - this.bounds.min.y,
+        this.bounds.max.z - this.bounds.min.z,
+      );
+      if (
+        Math.hypot(
+          this.massCenter.x - this.center.x,
+          this.massCenter.y - this.center.y,
+          this.massCenter.z - this.center.z,
+        ) >
+        physics3DDefaults.transformTolerance * extent
+      )
+        throw new RangeError(
+          'Dynamic compound children must be centered on their uniform-density center of mass.',
+        );
+    }
   }
   updateBounds(): void {
     const b = this.bounds;
@@ -351,6 +513,11 @@ export class Shape3D {
       for (const t of this.triangles) {
         b.add(t.bounds.min);
         b.add(t.bounds.max);
+      }
+    } else if (this.collider.kind === 'compound') {
+      for (const child of this.children) {
+        b.add(child.bounds.min);
+        b.add(child.bounds.max);
       }
     } else {
       b.min.set(
@@ -386,7 +553,12 @@ export class Shape3D {
       this.end.y += y;
       this.end.z += z;
     }
-
+    if (this.collider.kind === 'compound') {
+      for (const child of this.children) child.translate(x, y, z);
+      this.massCenter.x += x;
+      this.massCenter.y += y;
+      this.massCenter.z += z;
+    }
     this.bounds.min.x += x;
     this.bounds.min.y += y;
     this.bounds.min.z += z;

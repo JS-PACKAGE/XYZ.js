@@ -15,4 +15,6 @@ export declare const physics3DDefaults: {
     readonly characterIterations: 8;
     readonly maxMeshTriangles: 100000;
     readonly geometryTolerance: 1e-10;
+    readonly maxCompoundChildren: 64;
+    readonly transformTolerance: 0.00001;
 };

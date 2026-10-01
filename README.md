@@ -36,6 +36,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P51：`UITextInput` 以透明原生 input 處理 IME／selection／editing，視覺維持 canvas。
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal 與 bounded keyed rows。
 - P53：static `TriangleMeshCollider3D`／triangle BVH、實際 contacts／ray／sweep。
+- P54：`CompoundCollider3D` 的 child-local union／真 gaps／combined inertia。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -114,6 +115,7 @@ Production additions in this round:
 - P51: `UITextInput` uses transparent native editing/IME/selection with canvas visuals.
 - P52: `UIScrollView`/`UIVirtualList`, clip-aware input, focus reveal and bounded keyed rows.
 - P53: static `TriangleMeshCollider3D`/triangle BVH with real contacts/ray/sweep.
+- P54: `CompoundCollider3D` child-local unions, real gaps and combined inertia.
 
 ### Current support matrix and approved expansion
 
@@ -183,6 +185,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P51：`UITextInput` は透明 native input で IME／selection／editing を処理し、visuals は canvas に維持します。
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal／bounded keyed rows。
 - P53：static `TriangleMeshCollider3D`／triangle BVH、実 contacts／ray／sweep。
+- P54：`CompoundCollider3D` の child-local union／実 gaps／combined inertia。
 
 ### 現在の対応表と承認済み拡張
 

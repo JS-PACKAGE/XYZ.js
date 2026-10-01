@@ -1154,3 +1154,7 @@ Add widgets through `view.content.add(widget)` on UIScrollView; set a finite vie
 ## 33. Triangle Floors and Walls (P53)
 
 Attach `new TriangleMeshCollider3D(xyz, triangleIndices, {sidedness:'double'})` to a static/collider-only Object3D. It is a surface, not volumetric solid containment; use front for authored counterclockwise one-sided collision. Replacing the descriptor rebakes owned geometry; changing a Mesh's render vertices alone does not. [Transforms and queries](TECHNICAL.md#53-static-triangle-mesh-colliders-p53).
+
+## 34. Compound Shapes (P54)
+
+Build CompoundCollider3D from flat child collider/position/rotation/scale descriptors. Center primitive children at their uniform-density COM before attaching a dynamic body; root filters apply to the union and gaps stay empty. A mesh child makes the whole compound static-only. [Inertia and bounds](TECHNICAL.md#54-compound-colliders-and-inertia-p54).

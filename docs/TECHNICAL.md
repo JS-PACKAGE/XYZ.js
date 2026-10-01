@@ -1015,3 +1015,9 @@ Compositionstart/update/end include data/originalEvent; input includes value/isC
 `new TriangleMeshCollider3D(positions, indices, options?: TriangleMeshOptions3D)` owns bounded immutable xyz/index snapshots and a baked triangle BVH. Replace the descriptor to rebake atomically; changing borrowed render geometry does not change collision. Static-only, including compounds containing mesh children. Positive orthogonal transforms/nonuniform positive scale are supported; shear/reflection/degenerate/overflow transforms reject without replacing the prior attachment.
 
 Sidedness `double` (default) is a two-sided zero-thickness surface, not closed-solid containment. `front` uses counterclockwise normals and excludes back-side approaches/contacts. Primitive-triangle distance/SAT, exact edge/face contacts, rays, translation sweeps, rigid solver and capsule controller share the actual transformed triangles and BVH.
+
+## 54. Compound Colliders and Inertia (P54)
+
+`new CompoundCollider3D(children, options?)` owns 1–64 flat immutable child descriptors: sphere/box/capsule/static mesh only, no nested/infinite plane. Each `CompoundChild3D` has a collider and explicit position/unit-Quaternion rotation/positive scale, default origin/identity/unit; child offset is applied within that transform. Root filters/sensor govern all children. Sphere/capsule and their resulting world transform require uniform scale; shear/reflection reject; any mesh child makes the compound static-only.
+
+Dynamic primitive compounds require uniform-density center of mass at the root origin. Scaled volumes distribute mass; rotated analytic inertia and full parallel-axis tensor retain off-diagonal terms. Overlapping child solids count separately for mass; collision is their gap-preserving union. Up to eight deepest deterministic contacts with individual normals feed the standard impulse solver.

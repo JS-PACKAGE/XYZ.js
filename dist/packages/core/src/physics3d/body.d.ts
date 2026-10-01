@@ -12,7 +12,7 @@ export interface RigidBodyOptions3D {
     lockRotation?: boolean;
     allowSleep?: boolean;
 }
-/** Root dynamic/kinematic primitive body. No joints, compound inertia or general rigid-body CCD. */
+/** Root dynamic/kinematic body with analytic primitive or uniform-density compound inertia. */
 export declare class RigidBody3D {
     readonly type: 'static' | 'dynamic' | 'kinematic';
     readonly velocity: Vector3;
@@ -35,6 +35,7 @@ export declare class RigidBody3D {
     private idleTime;
     private readonly sleepPose;
     private readonly inverseDiagonal;
+    private readonly inverseTensor;
     private readonly transformed;
     constructor(options?: RigidBodyOptions3D);
     get owner(): Object3D | undefined;
@@ -63,6 +64,7 @@ export declare class RigidBody3D {
     detach(owner: Object3D): void;
     /** @internal Recompute analytic primitive inertia after mutable pose/scale changes. */
     refreshInertia(shape: Shape3D): void;
+    private primitiveInertia;
     /** @internal World-space inverse inertia tensor product. */
     inverseInertia(vector: Readonly<Vector3>, out: Vector3): Vector3;
     applyForce(force: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void;

@@ -6,6 +6,9 @@ export {
   PlaneCollider3D,
   TriangleMeshCollider3D,
   type TriangleMeshOptions3D,
+  CompoundCollider3D,
+  type CompoundChild3D,
+  type CompoundTransform3D,
   type ColliderOptions3D,
 } from './collider.js';
 export { RigidBody3D, type RigidBodyOptions3D } from './body.js';

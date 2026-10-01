@@ -1,5 +1,4 @@
-import { Vector3 } from '../../../math/src/index.js';
-import type { Matrix4 } from '../../../math/src/index.js';
+import { Vector3, Quaternion, Matrix4 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
 export declare function finite3D(value: number, name: string): number;
@@ -14,7 +13,7 @@ export interface ColliderOptions3D {
 }
 /** Immutable collider descriptor. Geometry is snapshotted before attachment. */
 export declare abstract class Collider3D {
-    abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane' | 'mesh';
+    abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane' | 'mesh' | 'compound';
     readonly offset: Readonly<Vector3>;
     readonly sensor: boolean;
     readonly category: number;
@@ -66,9 +65,29 @@ export declare class Triangle3D {
     readonly bounds: Bounds3D;
     constructor(order: number);
 }
+export interface CompoundChild3D {
+    readonly collider: SphereCollider3D | BoxCollider3D | CapsuleCollider3D | TriangleMeshCollider3D;
+    readonly position?: Readonly<Vector3>;
+    readonly rotation?: Readonly<Quaternion>;
+    readonly scale?: Readonly<Vector3>;
+}
+export interface CompoundTransform3D {
+    readonly collider: CompoundChild3D['collider'];
+    readonly position: Readonly<Vector3>;
+    readonly rotation: Readonly<Quaternion>;
+    readonly scale: Readonly<Vector3>;
+}
+/** Union of flat children. Parent filters/sensor apply to all children; density is uniform per child solid. */
+export declare class CompoundCollider3D extends Collider3D {
+    readonly kind = "compound";
+    readonly children: readonly CompoundTransform3D[];
+    readonly staticOnly: boolean;
+    constructor(children: readonly CompoundChild3D[], options?: ColliderOptions3D);
+}
 /** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
 export declare class Shape3D {
     readonly collider: Collider3D;
+    private readonly needsVolume;
     readonly center: Vector3;
     readonly axes: Vector3[];
     readonly half: Vector3;
@@ -80,10 +99,16 @@ export declare class Shape3D {
     readonly triangles: Triangle3D[];
     readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
     private readonly meshMatrix;
+    readonly children: Shape3D[];
+    readonly massCenter: Vector3;
+    volume: number;
+    private readonly childLocal;
+    private readonly childWorld;
     radius: number;
-    constructor(collider: Collider3D);
+    constructor(collider: Collider3D, needsVolume?: boolean);
     refresh(object: Object3D): void;
     refreshMatrix(matrix: Matrix4): void;
+    /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */
     validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void;
     updateBounds(): void;
     translate(x: number, y: number, z: number): void;
