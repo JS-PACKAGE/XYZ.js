@@ -525,3 +525,31 @@ glTF `COLOR_0` supports float and normalized unsigned-byte/unsigned-short VEC3/V
 including alpha, and skinned geometry retains its colors. `COLOR_1` remains unsupported.
 The instancing example now combines per-instance brightness and vertex gradients. Canvas2D
 remains 2D-only; these additions do not add a 3D software renderer.
+
+## 35. Point, Spot and Cascaded Shadows (P37)
+
+`scene.shadows.enabled` enables the depth atlas on either GPU backend. `mapSize` is
+the resolution **per tile**, not the whole atlas; active tiles occupy a square grid.
+The device's maximum texture/framebuffer dimensions still apply. Eight point lights,
+eight spot lights and four directional cascades need at most 60 tiles. Each point
+light draws every caster six times; use shadow-casting lights sparingly.
+
+Point and spot lights accept `castShadow` (default false), `shadowNear` (default 0.1)
+and `shadowFar` (default 50). A positive `range` replaces the shadow far plane.
+The near plane must be positive and smaller than the far plane. A shadow-casting
+spot requires `outerAngle < Math.PI / 2`. Point shadows select one of six perspective
+faces; spot shadows use the light's outer cone. They affect only that light's direct
+diffuse/specular contribution, not ambient or environment lighting.
+
+Directional shadows retain the fixed `extent`/`target` camera by default.
+Set `scene.shadows.cascades` to 2–4 to fit slices of the active perspective or
+orthographic camera. `cascadeDistance` (default 100) limits their view depth;
+`cascadeLambda` (default 0.5, range 0–1) mixes uniform and logarithmic splits.
+Each cascade uses a bounding sphere and texel-snapped projection translation.
+Receivers past the final split are unshadowed. Transitions are hard, without blending.
+
+All tiles use clamped 3×3 depth PCF with the existing normalized depth `bias`.
+`Mesh.castShadow` and `receiveShadow`, instancing, deformation and alpha masks
+continue to apply. There is no slope-scaled bias, cube-face seam filtering, temporal
+stabilization across changing camera orientations, cached static shadows, or
+Canvas2D 3D rendering. `/examples/shadows3d/` exposes each shadow mode and both flags.

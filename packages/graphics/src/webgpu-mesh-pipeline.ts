@@ -10,13 +10,13 @@ import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import {
   activeBackground,
   activeEnvironment,
-  computeShadowMatrix,
   fillEnvironmentData,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import {
   ENVIRONMENT_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
@@ -74,7 +74,7 @@ export class WebGPUMeshPipeline {
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
-  private readonly sceneData = new Float32Array(308);
+  private readonly sceneData = new Float32Array(288);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
@@ -85,7 +85,11 @@ export class WebGPUMeshPipeline {
   private environmentView: GPUTextureView;
   private backgroundView: GPUTextureView;
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
-  private readonly shadowMatrix = new Matrix4();
+  private readonly atlas = new ShadowAtlas();
+  private readonly shadowBuffer: GPUBuffer;
+  private readonly projectionBuffer: GPUBuffer;
+  private readonly projectionGroup: GPUBindGroup;
+  private readonly projectionOffsets = [0];
   private readonly sceneBuffer: GPUBuffer;
   private readonly sampler: GPUSampler;
   private readonly whiteTexture: GPUTexture;
@@ -159,6 +163,7 @@ export class WebGPUMeshPipeline {
     private readonly sceneLayout: GPUBindGroupLayout,
     private readonly meshLayout: GPUBindGroupLayout,
     private readonly materialLayout: GPUBindGroupLayout,
+    projectionLayout: GPUBindGroupLayout,
     private readonly post: WebGPUPostPipeline,
     private readonly format: GPUTextureFormat,
     private readonly sampleCount: number,
@@ -166,6 +171,20 @@ export class WebGPUMeshPipeline {
     this.sceneBuffer = device.createBuffer({
       size: this.sceneData.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.shadowBuffer = device.createBuffer({
+      size: this.atlas.data.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.projectionBuffer = device.createBuffer({
+      size: this.atlas.projections.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    this.projectionGroup = device.createBindGroup({
+      layout: projectionLayout,
+      entries: [
+        { binding: 0, resource: { buffer: this.projectionBuffer, size: 64 } },
+      ],
     });
     this.sampler = device.createSampler({
       minFilter: 'linear',
@@ -272,6 +291,11 @@ export class WebGPUMeshPipeline {
           visibility: GPUShaderStage.FRAGMENT,
           texture: { sampleType: 'float' },
         },
+        {
+          binding: 5,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: { type: 'uniform' },
+        },
       ],
     });
     const meshLayout = device.createBindGroupLayout({
@@ -299,6 +323,19 @@ export class WebGPUMeshPipeline {
     });
     const layout = device.createPipelineLayout({
       bindGroupLayouts: [sceneLayout, meshLayout, materialLayout],
+    });
+    const projectionLayout = device.createBindGroupLayout({
+      entries: [
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: {
+            type: 'uniform',
+            hasDynamicOffset: true,
+            minBindingSize: 64,
+          },
+        },
+      ],
     });
     const buffers: GPUVertexBufferLayout[] = [
       {
@@ -374,7 +411,14 @@ export class WebGPUMeshPipeline {
       },
     });
     const shadowPipeline = device.createRenderPipeline({
-      layout,
+      layout: device.createPipelineLayout({
+        bindGroupLayouts: [
+          sceneLayout,
+          meshLayout,
+          materialLayout,
+          projectionLayout,
+        ],
+      }),
       vertex: { module, entryPoint: 'shadowVertex', buffers },
       fragment: { module, entryPoint: 'shadowFragment', targets: [] },
       primitive: { topology: 'triangle-list' },
@@ -423,6 +467,7 @@ export class WebGPUMeshPipeline {
         sceneLayout,
         meshLayout,
         materialLayout,
+        projectionLayout,
         post,
         format,
         sampleCount,
@@ -467,6 +512,8 @@ export class WebGPUMeshPipeline {
         return false;
       }
       validateRenderSettings(scene);
+      fillLightingData(scene, this.lightingData);
+      this.atlas.update(scene, aspect);
       this.ensureShadow(scene);
       this.ensureEnvironment(scene);
       this.prepareScene(scene, aspect);
@@ -566,6 +613,7 @@ export class WebGPUMeshPipeline {
         { binding: 2, resource: this.environmentView },
         { binding: 3, resource: this.environmentSampler },
         { binding: 4, resource: this.backgroundView },
+        { binding: 5, resource: { buffer: this.shadowBuffer } },
       ],
     });
   }
@@ -580,7 +628,7 @@ export class WebGPUMeshPipeline {
       }
       return;
     }
-    const size = scene.shadows.mapSize;
+    const size = this.atlas.size;
     if (size > this.device.limits.maxTextureDimension2D)
       throw new GraphicsError(
         `WebGPU shadow map size ${size} exceeds this device's texture limit.`,
@@ -613,21 +661,24 @@ export class WebGPUMeshPipeline {
     data[16] = scene.camera3D.position.x;
     data[17] = scene.camera3D.position.y;
     data[18] = scene.camera3D.position.z;
-    if (scene.shadows.enabled) computeShadowMatrix(scene, this.shadowMatrix);
-    else this.shadowMatrix.identity();
-    data.set(this.shadowMatrix.elements, 20);
-    data[36] = scene.shadows.enabled ? 1 : 0;
-    data[37] = scene.shadows.bias;
-    fillLightingData(scene, this.lightingData);
-    data.set(this.lightingData, 40);
-    data[50] = scene.postProcessing.enabled ? 1 : 0;
+    data.set(this.lightingData, 20);
+    data[30] = scene.postProcessing.enabled ? 1 : 0;
     this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
-    data.set(this.invViewProjection.elements, 244);
+    data.set(this.invViewProjection.elements, 224);
     fillEnvironmentData(scene, this.environmentData);
-    data.set(this.environmentData, 260);
+    data.set(this.environmentData, 240);
     fillFogData(scene, this.fogData);
-    data.set(this.fogData, 300);
+    data.set(this.fogData, 280);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
+    this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
+    if (this.atlas.count)
+      this.device.queue.writeBuffer(
+        this.projectionBuffer,
+        0,
+        this.atlas.projections,
+        0,
+        this.atlas.count * 64,
+      );
   }
 
   /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
@@ -695,14 +746,22 @@ export class WebGPUMeshPipeline {
     this.shadowAttachment.view = this.shadowView;
     const pass = encoder.beginRenderPass(this.shadowDescriptor);
     try {
-      pass.setViewport(0, 0, this.shadowSize, this.shadowSize, 0, 1);
       pass.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.shadowSceneBindGroup);
-      for (const object of this.draws)
-        if (object.castShadow) {
-          this.drawMesh(pass, object);
-          this.stats.shadowDrawCalls++;
-        }
+      const tileSize = this.atlas.size / this.atlas.grid;
+      for (let tile = 0; tile < this.atlas.count; tile++) {
+        const x = (tile % this.atlas.grid) * tileSize;
+        const y = Math.floor(tile / this.atlas.grid) * tileSize;
+        pass.setViewport(x, y, tileSize, tileSize, 0, 1);
+        pass.setScissorRect(x, y, tileSize, tileSize);
+        this.projectionOffsets[0] = tile * 256;
+        pass.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
+        for (const object of this.draws)
+          if (object.castShadow) {
+            this.drawMesh(pass, object);
+            this.stats.shadowDrawCalls++;
+          }
+      }
     } finally {
       pass.end();
       this.shadowAttachment.view = undefined;
@@ -1170,6 +1229,8 @@ export class WebGPUMeshPipeline {
     this.shadowTexture = undefined;
     this.shadowView = undefined;
     this.sceneBuffer.destroy();
+    this.shadowBuffer.destroy();
+    this.projectionBuffer.destroy();
     this.whiteTexture.destroy();
     this.emptyShadow.destroy();
     this.identityBuffer.destroy();

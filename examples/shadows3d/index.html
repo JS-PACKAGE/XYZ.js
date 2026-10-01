@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XYZ.js Shadow atlas</title>
+    <style>
+      body {
+        margin: 24px;
+        background: #171c27;
+        color: #e8edf7;
+        font: 16px system-ui;
+      }
+      canvas {
+        width: min(100%, 960px);
+        height: auto;
+        display: block;
+      }
+      label {
+        margin-right: 20px;
+      }
+      a {
+        color: #aacbff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Shadow atlas</h1>
+    <p id="status">Initializing…</p>
+    <p>
+      <label
+        >Light
+        <select id="mode">
+          <option value="point">Point: six faces</option>
+          <option value="spot">Spot</option>
+          <option value="directional">Directional</option>
+          <option value="cascade">Four cascades</option>
+        </select></label
+      ><label><input id="shadows" type="checkbox" checked />Shadows</label
+      ><label
+        ><input id="receive" type="checkbox" checked />Floor receives</label
+      ><label><input id="cast" type="checkbox" checked />Objects cast</label>
+    </p>
+    <canvas id="game"></canvas>
+    <p>
+      Drag to orbit; scroll to inspect cascade coverage. Canvas2D intentionally
+      has no 3D rendering.
+    </p>
+    <a href="../">Examples</a>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

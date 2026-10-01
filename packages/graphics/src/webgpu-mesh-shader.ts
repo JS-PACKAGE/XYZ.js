@@ -1,3 +1,5 @@
+import { atlasWGSL } from './shadow-shaders.js';
+
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
 struct SpotLight {
@@ -6,8 +8,6 @@ struct SpotLight {
 struct SceneUniforms {
   viewProjection: mat4x4f,
   camera: vec4f,
-  shadowMatrix: mat4x4f,
-  shadowParams: vec4f,
   lightDirection: vec4f,
   lightColorAmbient: vec4f,
   counts: vec4f,
@@ -43,6 +43,7 @@ struct MeshUniforms {
 @group(2) @binding(7) var normalSampler: sampler;
 @group(2) @binding(8) var occlusionSampler: sampler;
 @group(2) @binding(9) var emissiveSampler: sampler;
+${atlasWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
@@ -84,7 +85,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   return transformVertex(input, scene.viewProjection);
 }
 @vertex fn shadowVertex(input: VertexInput) -> VertexOutput {
-  return transformVertex(input, scene.shadowMatrix);
+  return transformVertex(input, shadowProjection);
 }
 fn decodeSRGB(c: vec3f) -> vec3f {
   return select(pow(max((c + 0.055) / 1.055, vec3f(0.0)), vec3f(2.4)), c / 12.92, c <= vec3f(0.04045));
@@ -119,23 +120,6 @@ fn environmentBRDF(nv: f32, rough: f32) -> vec2f {
   let r = rough * c0 + c1;
   let a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
   return vec2f(-1.04, 1.04) * a004 + r.zw;
-}
-fn shadowVisibility(world: vec3f) -> f32 {
-  if (scene.shadowParams.x < 0.5 || mesh.settings.z < 0.5) { return 1.0; }
-  let clip = scene.shadowMatrix * vec4f(world, 1.0);
-  let ndc = clip.xyz / clip.w;
-  let uv = vec2f(ndc.x * 0.5 + 0.5, 0.5 - ndc.y * 0.5);
-  if (any(uv < vec2f(0.0)) || any(uv > vec2f(1.0)) || ndc.z < 0.0 || ndc.z > 1.0) { return 1.0; }
-  let size = vec2i(textureDimensions(shadowMap));
-  let pixel = vec2i(uv * vec2f(size));
-  var visibility = 0.0;
-  for (var y = -1; y <= 1; y++) {
-    for (var x = -1; x <= 1; x++) {
-      let depth = textureLoad(shadowMap, clamp(pixel + vec2i(x,y), vec2i(0), size - vec2i(1)), 0);
-      visibility += select(0.0, 1.0, ndc.z - scene.shadowParams.y <= depth);
-    }
-  }
-  return visibility / 9.0;
 }
 fn attenuation(distance: f32, range: f32) -> f32 {
   var falloff = 1.0;
@@ -182,7 +166,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
 }
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   let texel = textureSample(baseMap, materialSampler, input.uv);
-  let visibility = shadowVisibility(input.world);
+  let visibility = directionalShadow(input.world);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
   let direction = safeNormal(scene.lightDirection.xyz);
@@ -193,14 +177,14 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     for (var i = 0u; i < u32(scene.counts.x); i++) {
       let lightData = scene.points[i];
       let delta = lightData.positionRange.xyz-input.world;
-      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*max(dot(safeNormal(normal),safeNormal(delta)),0.0);
+      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*max(dot(safeNormal(normal),safeNormal(delta)),0.0)*pointShadow(i,input.world,lightData.positionRange.xyz);
     }
     for (var i = 0u; i < u32(scene.counts.y); i++) {
       let lightData = scene.spots[i];
       let delta = lightData.positionRange.xyz-input.world;
       let l = safeNormal(delta);
       let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0);
+      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0)*spotShadow(i,input.world);
     }
     // Legacy base map remains premultiplied to retain filtered translucent edges.
     let rgb = texel.rgb*mesh.tint.rgb*input.color.rgb*illumination*mesh.tint.a*input.color.a;
@@ -252,14 +236,14 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
-    color += brdf(n,v,safeNormal(delta),base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w);
+    color += brdf(n,v,safeNormal(delta),base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
   }
   for (var i = 0u; i < u32(scene.counts.y); i++) {
     let lightData = scene.spots[i];
     let delta = lightData.positionRange.xyz-input.world;
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-    color += brdf(n,v,l,base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone;
+    color += brdf(n,v,l,base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
   }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }

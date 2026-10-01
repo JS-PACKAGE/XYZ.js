@@ -1,4 +1,5 @@
 import { Vector3 } from '../../math/src/index.js';
+import { shadowLimits } from '../../../src/data/rendering.js';
 
 export interface PointLightOptions {
   position?: Vector3 | [number, number, number];
@@ -6,6 +7,10 @@ export interface PointLightOptions {
   intensity?: number;
   /** Zero means no finite range cutoff. */
   range?: number;
+  castShadow?: boolean;
+  shadowNear?: number;
+  /** Shadow far plane when range is zero; otherwise range sets the far plane. */
+  shadowFar?: number;
 }
 
 export interface SpotLightOptions extends PointLightOptions {
@@ -55,6 +60,16 @@ function validatePoint(light: PointLight): void {
   finite(light.range, 'Light range');
   if (light.intensity < 0 || light.range < 0)
     throw new RangeError('Light intensity and range cannot be negative.');
+  if (typeof light.castShadow !== 'boolean')
+    throw new TypeError('Light castShadow must be boolean.');
+  finite(light.shadowNear, 'Light shadow near');
+  finite(light.shadowFar, 'Light shadow far');
+  if (
+    light.shadowNear <= 0 ||
+    light.shadowFar <= light.shadowNear ||
+    (light.castShadow && light.range > 0 && light.range <= light.shadowNear)
+  )
+    throw new RangeError('Light shadow clipping requires 0 < near < far.');
 }
 
 /** World-space inverse-square light. Mutated inputs are revalidated when rendering. */
@@ -63,6 +78,9 @@ export class PointLight {
   color: [number, number, number];
   intensity: number;
   range: number;
+  castShadow: boolean;
+  shadowNear: number;
+  shadowFar: number;
 
   constructor(options: PointLightOptions = {}) {
     this.position = copyVector(options.position, 0, 0, 0, 'Light position');
@@ -72,6 +90,9 @@ export class PointLight {
     this.color = [color[0], color[1], color[2]];
     this.intensity = options.intensity ?? 1;
     this.range = options.range ?? 0;
+    this.castShadow = options.castShadow ?? false;
+    this.shadowNear = options.shadowNear ?? shadowLimits.near;
+    this.shadowFar = options.shadowFar ?? shadowLimits.far;
     validatePoint(this);
   }
 
@@ -114,5 +135,9 @@ export class SpotLight extends PointLight {
       Math.fround(Math.cos(this.outerAngle))
     )
       throw new RangeError('Spot cone angles must remain distinct in Float32.');
+    if (this.castShadow && this.outerAngle >= Math.PI / 2)
+      throw new RangeError(
+        'A shadow-casting spot cone must be narrower than PI / 2.',
+      );
   }
 }

@@ -576,3 +576,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：新增 8 個顏色測試，涵蓋獨立儲存、修改／移除、alpha 與錯誤原子性、instance 預設／索引／版本、glTF RGB／RGBA／normalized byte 與不支援屬性。typecheck、lint 與完整 66 檔／468 tests 通過。
 - **實際瀏覽器**：managed Chromium，正式 Game／Renderer 路徑，WebGPU 與 WebGL2 各自讀回三個四邊形：紅色／綠色 instances 與共用幾何的白色普通 Mesh。初始 RGB 為 [255,0,0]／[0,255,0]／[255,255,255]；頂點 RGB 與 alpha 皆 0.5 後，紅色樣本為 [67,5,9]（背景參與混合）；移除頂點色並把紅 instance 改藍後為 [0,0,255]／[0,255,0]／[255,255,255]，兩 backend 結果一致。另渲染 2,145 頂點球體，涵蓋共用白色 buffer 擴容再切換自有顏色 buffer，console 無錯誤。Instancing 範例兩 backend 截圖確認漸層與個別亮度。
 - **未驗**：其他瀏覽器、實際 glTF 蒙皮動畫顏色與陰影 alpha 的像素對照；build 尚未執行。沒有把這些未驗項記為通過。
+
+## P37 Point／Spot 與 Cascaded Shadows（2026-10-01，限定已測環境）
+
+- **新增**：Point／Spot `castShadow`、near／far clipping；單一 depth atlas、point 六面與 spot 光錐投影；Directional 2–4 cascades、uniform／log splits、texel snapping；3×3 PCF；`examples/shadows3d/` 與 gallery 登錄。保留預設單片 directional shadow。
+- **自動化**：新增 5 個 shadow camera 測試，驗證六軸與 clipping、spot 光錐邊界／非法 clipping、cascade 切片中心與相機移動、正交 near=0 的切片八角覆蓋，以及移除／關閉陰影不留 stale slots。完整 67 檔／473 tests、typecheck、lint 通過。
+- **實際瀏覽器**：managed Chromium 的 WebGPU／WebGL2 均以正式 Game／Renderer 渲染 point、spot、四 cascades；範例截圖顯示三種投影，原 pbr3d directional 範例仍正常。獨立 320×200 場景即時像素回讀，point 開關造成 7,915／7,916 像素 RGB sum 減少 >30，spot 為 7,720／7,722，cascade 為 592／602。關閉 floor.receiveShadow 或 caster.castShadow 與全關陰影的畫面完全相同；重新開啟與原畫面完全相同；每格由 256 改成 512 後三種模式仍有陰影，console／page error 為 0。
+- **限制與未驗**：其他瀏覽器、最大 60 格負載／效能、實際 glTF alpha mask 或蒙皮／instancing shadow 的像素對照未測。沒有 cube-face seam filtering、cascade blending、slope bias 或靜態快取。mapSize 指每格解析度，整張 atlas 尺寸仍需符合裝置上限。build 延後最後整合執行。

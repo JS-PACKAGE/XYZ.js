@@ -1,4 +1,5 @@
 import { Vector3 } from '../../math/src/index.js';
+import { shadowLimits } from '../../../src/data/rendering.js';
 
 export interface ShadowSettingsOptions {
   enabled?: boolean;
@@ -9,6 +10,11 @@ export interface ShadowSettingsOptions {
   far?: number;
   bias?: number;
   target?: Vector3;
+  /** One keeps the fixed directional frustum; two to four fit camera-depth slices. */
+  cascades?: number;
+  cascadeDistance?: number;
+  /** Blend between uniform (0) and logarithmic (1) cascade splits. */
+  cascadeLambda?: number;
 }
 
 export type ToneMapping = 'none' | 'aces';
@@ -33,7 +39,7 @@ function nonnegative(value: number, name: string): void {
   if (value < 0) throw new RangeError(`${name} cannot be negative.`);
 }
 
-/** Directional shadows only; settings remain mutable and are validated each render. */
+/** Directional cascades and point/spot atlas shadows; mutable settings are validated each render. */
 export class ShadowSettings {
   enabled: boolean;
   mapSize: number;
@@ -42,14 +48,21 @@ export class ShadowSettings {
   far: number;
   bias: number;
   target: Vector3;
+  cascades: number;
+  cascadeDistance: number;
+  cascadeLambda: number;
 
   constructor(options: ShadowSettingsOptions = {}) {
     this.enabled = options.enabled ?? false;
-    this.mapSize = options.mapSize ?? 1024;
+    this.mapSize = options.mapSize ?? shadowLimits.mapSize;
     this.extent = options.extent ?? 10;
-    this.near = options.near ?? 0.1;
-    this.far = options.far ?? 50;
+    this.near = options.near ?? shadowLimits.near;
+    this.far = options.far ?? shadowLimits.far;
     this.bias = options.bias ?? 0.002;
+    this.cascades = options.cascades ?? 1;
+    this.cascadeDistance =
+      options.cascadeDistance ?? shadowLimits.cascadeDistance;
+    this.cascadeLambda = options.cascadeLambda ?? shadowLimits.cascadeLambda;
     if (options.target !== undefined && !(options.target instanceof Vector3))
       throw new TypeError('Shadow target must be a Vector3.');
     this.target = options.target?.clone() ?? new Vector3();
@@ -69,6 +82,24 @@ export class ShadowSettings {
         'Shadow extent and near plane must be positive, and far must exceed near.',
       );
     nonnegative(this.bias, 'Shadow bias');
+    if (
+      !Number.isInteger(this.cascades) ||
+      this.cascades < 1 ||
+      this.cascades > shadowLimits.cascades
+    )
+      throw new RangeError(
+        `Shadow cascades must be an integer in 1..${shadowLimits.cascades}.`,
+      );
+    finite(this.cascadeDistance, 'Cascade distance');
+    finite(this.cascadeLambda, 'Cascade lambda');
+    if (
+      this.cascadeDistance <= 0 ||
+      this.cascadeLambda < 0 ||
+      this.cascadeLambda > 1
+    )
+      throw new RangeError(
+        'Cascade distance must be positive and lambda within 0..1.',
+      );
     if (!(this.target instanceof Vector3))
       throw new TypeError('Shadow target must be a Vector3.');
     finite(this.target.x, 'Shadow target');

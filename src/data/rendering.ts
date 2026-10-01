@@ -34,3 +34,16 @@ export const renderingLimits = Object.freeze({
 
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export const FOG_FLOAT_COUNT = 8;
+
+export const shadowLimits = Object.freeze({
+  cascades: 4,
+  maps: 4 + MAX_POINT_LIGHTS * 6 + MAX_SPOT_LIGHTS,
+  mapSize: 1024,
+  near: 0.1,
+  far: 50,
+  cascadeDistance: 100,
+  cascadeLambda: 0.5,
+});
+
+/** Shadow atlas header (8 vec4) and one matrix for every possible tile. */
+export const SHADOW_FLOAT_COUNT = 32 + shadowLimits.maps * 16;

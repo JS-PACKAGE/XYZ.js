@@ -114,6 +114,14 @@ const examples: readonly Example[] = [
     renderers: only3d,
   },
   {
+    slug: 'shadows3d',
+    title: 'Shadow atlas',
+    summary:
+      'Point six-face shadows, spot shadows and camera-fitted directional cascades.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
     slug: 'particles2d',
     title: 'Particles',
     summary: 'Selectable emitter presets with live parameters and counts.',

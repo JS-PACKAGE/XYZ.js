@@ -522,3 +522,25 @@ RGB 必須有限且非負，alpha 必須在 [0, 1]。直接修改 `geometry.colo
 顏色屬性不影響自發光。glTF `COLOR_0` 支援 float 與 normalized unsigned-byte／unsigned-short
 的 VEC3／VEC4 accessor（保留 alpha），蒙皮幾何也保留顏色；仍不支援 `COLOR_1`。
 Instancing 範例現在同時展示逐 instance 亮度與頂點漸層。Canvas2D 維持 2D-only。
+
+## 35. Point、Spot 與 Cascaded Shadows（P37）
+
+`scene.shadows.enabled` 在兩個 GPU backend 啟用 depth atlas。`mapSize` 是**每格**
+解析度，啟用的陰影格排列為方形網格，整張 atlas 仍受裝置 texture／framebuffer 上限限制。
+最多八個 point、八個 spot 加四個 directional cascades，共 60 格。每個 point 光源
+需要把所有 caster 畫六次，請節制使用投影光源。
+
+Point 與 spot 接受 `castShadow`（預設 false）、`shadowNear`（預設 0.1）、
+`shadowFar`（預設 50）；正值 `range` 取代陰影遠平面。近平面必須大於零且小於遠平面，
+投影 spot 的 `outerAngle` 必須小於 `Math.PI / 2`。Point 依接收點方向選擇六個透視面
+之一；spot 使用外側光錐。陰影只衰減該光源的直接 diffuse／specular，不影響 ambient／environment。
+
+Directional 預設保留固定 `extent`／`target` 投影。把 `scene.shadows.cascades` 設成
+2–4，會依目前透視或正交相機的 view-depth 切片擬合投影；`cascadeDistance`（預設 100）
+限制最遠覆蓋距離，`cascadeLambda`（預設 0.5，範圍 0–1）混合均勻與對數切分。
+每片使用包圍球並把投影平移吸附至 texel 網格；最後一片之外不投影，切片之間沒有混合。
+
+每格以邊界 clamp 的 3×3 depth PCF 取樣，沿用 normalized depth `bias`。
+`Mesh.castShadow`／`receiveShadow`、instancing、變形與 alpha mask 仍適用。
+沒有 slope-scaled bias、cube 面接縫過濾、相機旋轉時的 temporal stabilization、
+靜態陰影快取或 Canvas2D 3D renderer。`/examples/shadows3d/` 可切換各模式與兩個 Mesh 旗標。

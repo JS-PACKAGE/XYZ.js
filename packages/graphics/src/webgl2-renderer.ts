@@ -16,13 +16,13 @@ import {
 import {
   activeBackground,
   activeEnvironment,
-  computeShadowMatrix,
   fillEnvironmentData,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
 } from '../../core/src/render-data.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import { Matrix4 } from '../../math/src/index.js';
 import {
   meshVertex,
@@ -201,7 +201,8 @@ export class WebGL2Renderer implements Renderer {
   private readonly tintData = new Float32Array(4);
   private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
   private readonly samplers = new Map<number, WebGLSampler>();
-  private readonly shadowMatrix = new Matrix4();
+  private readonly atlas = new ShadowAtlas();
+  private shadowBuffer: WebGLBuffer | undefined;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
   private floatColorBuffer = false;
@@ -344,6 +345,18 @@ export class WebGL2Renderer implements Renderer {
           this.requireGL();
         },
       });
+      this.shadowBuffer = this.createBuffer(gl);
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer);
+      gl.bufferData(
+        gl.UNIFORM_BUFFER,
+        this.atlas.data.byteLength,
+        gl.DYNAMIC_DRAW,
+      );
+      gl.uniformBlockBinding(
+        this.meshProgram,
+        gl.getUniformBlockIndex(this.meshProgram, 'ShadowData'),
+        0,
+      );
       for (const name of [
         'viewProjection',
         'model',
@@ -358,8 +371,7 @@ export class WebGL2Renderer implements Renderer {
         'doubleSided',
         'linearOutput',
         'cameraPosition',
-        'shadowMatrix',
-        'shadowSettings',
+        'receiveShadow',
         'image',
         'metallicRoughnessMap',
         'normalMap',
@@ -742,6 +754,9 @@ export class WebGL2Renderer implements Renderer {
       if (scene) {
         validateRenderSettings(scene);
         fillLightingData(scene, this.lightingData);
+        this.atlas.update(scene, logicalWidth / logicalHeight);
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
         collectRenderCommands2D(
           scene,
           logicalWidth,
@@ -1055,11 +1070,7 @@ export class WebGL2Renderer implements Renderer {
     const camera = scene.camera3D.position;
     gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
     gl.uniform1i(uniforms.linearOutput, scene.postProcessing.enabled ? 1 : 0);
-    gl.uniformMatrix4fv(
-      uniforms.shadowMatrix,
-      false,
-      this.shadowMatrix.elements,
-    );
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindSampler(5, null);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTarget?.texture ?? null);
@@ -1111,13 +1122,7 @@ export class WebGL2Renderer implements Renderer {
       tint[2] = material.color[2];
       tint[3] = material.opacity;
       gl.uniform4fv(uniforms.tint, tint);
-      gl.uniform4f(
-        uniforms.shadowSettings,
-        scene.shadows.enabled ? 1 : 0,
-        object.receiveShadow ? 1 : 0,
-        scene.shadows.bias,
-        1 / scene.shadows.mapSize,
-      );
+      gl.uniform1i(uniforms.receiveShadow, object.receiveShadow ? 1 : 0);
       this.bindMaterialTexture(
         material.texture,
         0,
@@ -1327,7 +1332,7 @@ export class WebGL2Renderer implements Renderer {
 
   private drawShadows(scene: Scene): void {
     const gl = this.gl!;
-    const size = scene.shadows.mapSize;
+    const size = this.atlas.size;
     if (size > this.maxWidth || size > this.maxHeight)
       throw new GraphicsError(
         `WebGL2 shadow map size ${size} exceeds this device's framebuffer limit.`,
@@ -1337,7 +1342,6 @@ export class WebGL2Renderer implements Renderer {
       this.shadowTarget = undefined;
       this.shadowTarget = this.createTarget(size, size, true);
     }
-    computeShadowMatrix(scene, this.shadowMatrix);
     const uniforms = this.shadowUniforms;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowTarget.framebuffer);
     gl.disable(gl.SCISSOR_TEST);
@@ -1349,48 +1353,60 @@ export class WebGL2Renderer implements Renderer {
     gl.clearDepth(1);
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.shadowProgram!);
-    gl.uniformMatrix4fv(
-      uniforms.viewProjection,
-      false,
-      this.shadowMatrix.elements,
-    );
-    gl.disable(gl.CULL_FACE);
-    for (const object of scene.objects) {
-      if (
-        !(object instanceof Mesh) ||
-        !object.worldVisible ||
-        !object.castShadow ||
-        (object.material.opacity <= 0 &&
-          (!(object.material instanceof PBRMaterial) ||
-            object.material.alphaMode === 'BLEND')) ||
-        object.material.texture.destroyed ||
-        object.geometry.indices.length === 0
-      )
-        continue;
-      object.updateDeformation();
-      const material = object.material;
-      const pbr = material instanceof PBRMaterial;
-      gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
-      gl.uniform1f(uniforms.opacity, material.opacity);
-      gl.uniform1i(uniforms.doubleSided, pbr && !material.doubleSided ? 0 : 1);
-      gl.uniform1i(
-        uniforms.alphaMode,
-        pbr
-          ? material.alphaMode === 'OPAQUE'
-            ? 0
-            : material.alphaMode === 'MASK'
-              ? 1
-              : 2
-          : 2,
+    gl.enable(gl.SCISSOR_TEST);
+    const tileSize = scene.shadows.mapSize;
+    for (let tile = 0; tile < this.atlas.count; tile++) {
+      const x = (tile % this.atlas.grid) * tileSize;
+      const y = Math.floor(tile / this.atlas.grid) * tileSize;
+      gl.viewport(x, y, tileSize, tileSize);
+      gl.scissor(x, y, tileSize, tileSize);
+      gl.uniformMatrix4fv(
+        uniforms.viewProjection,
+        false,
+        this.atlas.matrices[tile]!.elements,
       );
-      this.bindMaterialTexture(
-        material.texture,
-        0,
-        pbr ? material.textureSampler : undefined,
-      );
-      this.drawMesh(object, uniforms);
-      this.stats.shadowDrawCalls++;
+      gl.disable(gl.CULL_FACE);
+      for (const object of scene.objects) {
+        if (
+          !(object instanceof Mesh) ||
+          !object.worldVisible ||
+          !object.castShadow ||
+          (object.material.opacity <= 0 &&
+            (!(object.material instanceof PBRMaterial) ||
+              object.material.alphaMode === 'BLEND')) ||
+          object.material.texture.destroyed ||
+          object.geometry.indices.length === 0
+        )
+          continue;
+        object.updateDeformation();
+        const material = object.material;
+        const pbr = material instanceof PBRMaterial;
+        gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
+        gl.uniform1f(uniforms.opacity, material.opacity);
+        gl.uniform1i(
+          uniforms.doubleSided,
+          pbr && !material.doubleSided ? 0 : 1,
+        );
+        gl.uniform1i(
+          uniforms.alphaMode,
+          pbr
+            ? material.alphaMode === 'OPAQUE'
+              ? 0
+              : material.alphaMode === 'MASK'
+                ? 1
+                : 2
+            : 2,
+        );
+        this.bindMaterialTexture(
+          material.texture,
+          0,
+          pbr ? material.textureSampler : undefined,
+        );
+        this.drawMesh(object, uniforms);
+        this.stats.shadowDrawCalls++;
+      }
     }
+    gl.disable(gl.SCISSOR_TEST);
   }
 
   private preparePostTarget(width: number, height: number): void {
@@ -1897,6 +1913,7 @@ export class WebGL2Renderer implements Renderer {
       }
       for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
+      if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
       if (this.postTarget) this.deleteTarget(this.postTarget);
       if (this.shadowProgram) gl.deleteProgram(this.shadowProgram);
       if (this.postProgram) gl.deleteProgram(this.postProgram);

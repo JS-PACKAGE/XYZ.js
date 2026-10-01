@@ -1,3 +1,5 @@
+import { atlasGLSL } from './shadow-shaders.js';
+
 export const meshVertex = `#version 300 es
 precision highp float;
 layout(location=0) in vec3 position;
@@ -57,9 +59,9 @@ uniform int alphaMode;
 uniform bool doubleSided;
 uniform bool linearOutput;
 uniform vec3 cameraPosition;
-uniform mat4 shadowMatrix;
-uniform vec4 shadowSettings; // enabled, receive, bias, texel size
+uniform bool receiveShadow;
 out vec4 color;
+${atlasGLSL}
 const float PI = 3.141592653589793;
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
@@ -91,19 +93,6 @@ vec2 environmentBRDF(float nv, float rough) {
   vec4 r = rough * c0 + c1;
   float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
   return vec2(-1.04, 1.04) * a004 + r.zw;
-}
-float shadowVisibility() {
-  if (shadowSettings.x == 0.0 || shadowSettings.y == 0.0) return 1.0;
-  vec4 p = shadowMatrix * vec4(vPosition, 1.0);
-  vec3 projected = p.xyz / p.w;
-  vec2 uv = projected.xy * .5 + .5;
-  if (projected.z <= 0.0 || projected.z >= 1.0 || any(lessThan(uv, vec2(0.0))) || any(greaterThan(uv, vec2(1.0)))) return 1.0;
-  float result = 0.0;
-  for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++) {
-    float depth = texture(shadowMap, uv + vec2(float(x), float(y)) * shadowSettings.w).r;
-    result += projected.z - shadowSettings.z <= depth ? 1.0 : 0.0;
-  }
-  return result / 9.0;
 }
 vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l) {
   float nl = max(dot(n, l), 0.0);
@@ -160,7 +149,7 @@ void main() {
     sampled.xy *= surface.z;
     n = normalize(mat3(t * inverseScale, b * inverseScale, n) * sampled);
   }
-  float visibility = shadowVisibility();
+  float visibility = directionalShadow();
   vec3 direction = lighting[0].xyz;
   vec3 l = direction / max(length(direction), .000001);
   vec3 result;
@@ -188,7 +177,7 @@ void main() {
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
-      result += brdf(base, metallic, roughness, n, v, delta / max(sqrt(d2), .000001)) * c.rgb * c.w * attenuation(d2, p.w);
+      result += brdf(base, metallic, roughness, n, v, delta / max(sqrt(d2), .000001)) * c.rgb * c.w * attenuation(d2, p.w) * pointShadow(i,p.xyz);
     }
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].y)) break;
@@ -197,7 +186,7 @@ void main() {
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
-      result += brdf(base, metallic, roughness, n, v, sl) * c.rgb * c.w * attenuation(d2, p.w) * cone;
+      result += brdf(base, metallic, roughness, n, v, sl) * c.rgb * c.w * attenuation(d2, p.w) * cone * spotShadow(i);
     }
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));
     if (!linearOutput) result = encodeSRGB(result);
@@ -209,7 +198,7 @@ void main() {
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
-      illumination += c.rgb * c.w * attenuation(d2,p.w) * max(dot(n, delta / max(sqrt(d2), .000001)),0.0);
+      illumination += c.rgb * c.w * attenuation(d2,p.w) * max(dot(n, delta / max(sqrt(d2), .000001)),0.0) * pointShadow(i,p.xyz);
     }
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].y)) break;
@@ -217,7 +206,7 @@ void main() {
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
-      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[22 + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0);
+      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[22 + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0) * spotShadow(i);
     }
     result = base * illumination;
     if (linearOutput) result = decodeSRGB(result);
