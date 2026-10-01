@@ -8,6 +8,11 @@ export interface ShadowSettingsOptions {
     far?: number;
     bias?: number;
     target?: Vector3;
+    /** One keeps the fixed directional frustum; two to four fit camera-depth slices. */
+    cascades?: number;
+    cascadeDistance?: number;
+    /** Blend between uniform (0) and logarithmic (1) cascade splits. */
+    cascadeLambda?: number;
 }
 export type ToneMapping = 'none' | 'aces';
 export interface PostProcessingSettingsOptions {
@@ -18,8 +23,22 @@ export interface PostProcessingSettingsOptions {
     bloomThreshold?: number;
     /** Neighbor sampling radius in output pixels. */
     bloomRadius?: number;
+    /** Screen-space antialiasing after tone mapping, before the 2D overlay. */
+    fxaa?: boolean;
+    ssao?: boolean;
+    /** World-space AO sampling radius. */
+    ssaoRadius?: number;
+    ssaoStrength?: number;
+    ssaoBias?: number;
+    depthOfField?: boolean;
+    /** View depth in world units, not Euclidean distance to the camera. */
+    dofFocusDistance?: number;
+    /** View-depth interval over which blur grows to its maximum. */
+    dofFocusRange?: number;
+    /** Maximum circle radius in backing pixels. */
+    dofBlurRadius?: number;
 }
-/** Directional shadows only; settings remain mutable and are validated each render. */
+/** Directional cascades and point/spot atlas shadows; mutable settings are validated each render. */
 export declare class ShadowSettings {
     enabled: boolean;
     mapSize: number;
@@ -28,6 +47,9 @@ export declare class ShadowSettings {
     far: number;
     bias: number;
     target: Vector3;
+    cascades: number;
+    cascadeDistance: number;
+    cascadeLambda: number;
     constructor(options?: ShadowSettingsOptions);
     validate(): void;
 }
@@ -39,6 +61,15 @@ export declare class PostProcessingSettings {
     bloomStrength: number;
     bloomThreshold: number;
     bloomRadius: number;
+    fxaa: boolean;
+    ssao: boolean;
+    ssaoRadius: number;
+    ssaoStrength: number;
+    ssaoBias: number;
+    depthOfField: boolean;
+    dofFocusDistance: number;
+    dofFocusRange: number;
+    dofBlurRadius: number;
     constructor(options?: PostProcessingSettingsOptions);
     validate(): void;
 }

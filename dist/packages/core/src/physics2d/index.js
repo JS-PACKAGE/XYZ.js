@@ -1,2 +1,2 @@
-export{Collider2D,Colliders}from"./collider.js";export{RigidBody2D}from"./body.js";export{PhysicsWorld2D}from"./world.js";export{Trigger2D}from"./trigger.js";
+export{Collider2D,Colliders}from"./collider.js";export{RigidBody2D}from"./body.js";export{PhysicsWorld2D}from"./world.js";export{Trigger2D}from"./trigger.js";export{DistanceJoint,Joint2D,MouseJoint,PrismaticJoint,RevoluteJoint,WeldJoint}from"./joints.js";export{StaticChain2D,StaticConcave2D,decomposeConvex,maxConcaveVertices}from"./shapes.js";export{PhysicsDebugDraw2D}from"./debug-draw.js";
 //# sourceMappingURL=index.js.map

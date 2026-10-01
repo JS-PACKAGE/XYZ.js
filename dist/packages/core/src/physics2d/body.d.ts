@@ -9,6 +9,8 @@ export interface RigidBodyOptions {
     angularDamping?: number;
     gravityScale?: number;
     lockRotation?: boolean;
+    ccd?: boolean;
+    allowSleep?: boolean;
 }
 /** Independent state bound by GameObject.body; simulation starts only when its owner has a collider. */
 export declare class RigidBody2D {
@@ -24,9 +26,32 @@ export declare class RigidBody2D {
     private angularDrag;
     private gravityMultiplier;
     private spin;
+    private sleeping;
+    private sleepEnabled;
+    private idleTime;
+    private sleepX;
+    private sleepY;
+    private sleepAngle;
+    private sleepScaleX;
+    private sleepScaleY;
     readonly type: 'static' | 'dynamic';
     lockRotation: boolean;
+    /**
+     * Sweeps this dynamic body's translation against static, non-sensor colliders each step so
+     * fast moves cannot tunnel through thin walls. Rotation is not swept.
+     */
+    ccd: boolean;
     constructor(options?: RigidBodyOptions);
+    get allowSleep(): boolean;
+    set allowSleep(value: boolean);
+    get isSleeping(): boolean;
+    wake(): void;
+    /** @internal Solver writes must not reset the inactivity timer. */
+    setSolverAngularVelocity(value: number): void;
+    /** @internal Accumulate inactivity after constraint solving. */
+    updateSleep(dt: number): boolean;
+    /** @internal Called only when every dynamic member of the contact group is idle. */
+    sleep(): void;
     get owner(): GameObject | undefined;
     get mass(): number;
     set mass(value: number);

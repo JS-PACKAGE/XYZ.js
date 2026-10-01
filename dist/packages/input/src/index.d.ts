@@ -1,7 +1,10 @@
 import { Vector2 } from '../../math/src/index.js';
 import { ActionMap, GamepadState } from './gamepad.js';
+import { GestureRecognizer } from './gestures.js';
+export { GestureRecognizer } from './gestures.js';
+export type { GestureDetail, GestureOptions, GesturePhase, GesturePoint, GestureThresholds, GestureType, } from './gestures.js';
 export { ActionMap, GamepadState, gamepadAxisIndex, gamepadButtonIndex, } from './gamepad.js';
-export type { ActionKeyboard, GamepadAxisName, GamepadBinding, GamepadButtonName, GamepadSnapshot, GamepadStick, } from './gamepad.js';
+export type { ActionKeyboard, GamepadAxisName, GamepadBinding, GamepadButtonName, GamepadMapping, GamepadRumbleOptions, GamepadSnapshot, GamepadVibrationActuator, GamepadStick, } from './gamepad.js';
 export interface PointerSample {
     id: number;
     type: string;
@@ -40,6 +43,8 @@ export declare class Keyboard {
 export declare class Pointer {
     private readonly canvas;
     private readonly getSize;
+    private readonly observe?;
+    private readonly onReset?;
     readonly position: Vector2;
     private readonly down;
     private readonly pressed;
@@ -66,7 +71,7 @@ export declare class Pointer {
     constructor(canvas: HTMLCanvasElement, getSize: () => {
         width: number;
         height: number;
-    });
+    }, observe?: ((sample: PointerSample) => void) | undefined, onReset?: (() => void) | undefined);
     get active(): boolean;
     isDown(button: number): boolean;
     wasPressed(button: number): boolean;
@@ -102,6 +107,8 @@ export declare class InputManager {
     private readonly canvas;
     readonly keyboard: Keyboard;
     readonly pointer: Pointer;
+    /** Tap, double tap, long press, swipe, pan, pinch and rotate recognized from `pointer`. */
+    readonly gestures: GestureRecognizer;
     /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
     readonly gamepad: GamepadState;
     /** Named actions bound to gamepad buttons, stick directions and keys. */

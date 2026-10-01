@@ -5,6 +5,8 @@ import { type Renderer, type RendererPreference } from '../../graphics/src/index
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { type TransitionOptions } from './transitions2d/index.js';
+import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
+import { I18n, type I18nOptions } from './i18n.js';
 export interface GameOptions {
     canvas: string | HTMLCanvasElement;
     renderer?: RendererPreference;
@@ -25,6 +27,20 @@ export interface GameOptions {
      * `graphicslost` and `graphicsrecovered`. Enabled by default; when false a loss is fatal.
      */
     recoverGraphics?: boolean;
+    /** Defaults to an isolated in-memory store; inject a browser backend for persistence. */
+    saveStorage?: SaveStorage;
+    saveSchema?: SaveSchema;
+    /** Locale registry, exposed as `game.i18n`; defaults to locale `en` with no messages. */
+    i18n?: I18nOptions;
+    /**
+     * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
+     * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
+     * playing as it always did.
+     */
+    audioPause?: {
+        onPause?: boolean;
+        onHidden?: boolean;
+    };
 }
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
 export interface SetSceneOptions {
@@ -42,6 +58,8 @@ export declare class Game extends EventTarget {
     readonly clock: Clock;
     readonly assets: AssetLoader;
     readonly input: InputManager;
+    readonly saves: SaveManager;
+    readonly i18n: I18n;
     readonly audio: AudioManager;
     private currentState;
     private currentScene;
@@ -67,6 +85,7 @@ export declare class Game extends EventTarget {
     private readonly previousContain;
     private readonly previousIntrinsicSize;
     private readonly autoResize;
+    private readonly audioPause;
     private readonly accessibilityManager;
     private readonly accessibilitySize;
     private constructor();

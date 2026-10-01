@@ -6,6 +6,7 @@ export interface ColliderOptions {
 }
 export declare function finite(value: number, name: string): number;
 export declare function positive(value: number, name: string): number;
+export declare function nonnegativeFinite(value: number, name: string): number;
 export declare function unsigned(value: number, name: string): number;
 /** Reusable local geometry. Bodies and scene membership belong to the owner, not the shape. */
 export declare class Collider2D {

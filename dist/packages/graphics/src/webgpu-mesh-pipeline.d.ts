@@ -3,8 +3,12 @@ import { FrameStats } from './render-stats.js';
 /** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
+    private readonly opticalPackLayout;
+    private readonly transmissionPack;
+    private readonly thicknessPack;
     private readonly pipeline;
     private readonly hdrPipeline;
+    private readonly oitPipeline;
     private readonly shadowPipeline;
     private readonly skyPipeline;
     private readonly skyHdrPipeline;
@@ -27,7 +31,6 @@ export declare class WebGPUMeshPipeline {
     readonly stats: FrameStats;
     private readonly sceneData;
     private readonly fogData;
-    private readonly environmentData;
     private readonly invViewProjection;
     private readonly environments;
     private readonly dummyEnvironment;
@@ -36,7 +39,12 @@ export declare class WebGPUMeshPipeline {
     private environmentView;
     private backgroundView;
     private readonly lightingData;
-    private readonly shadowMatrix;
+    private readonly atlas;
+    private readonly shadowBuffer;
+    private readonly sheenBuffer;
+    private readonly projectionBuffer;
+    private readonly projectionGroup;
+    private readonly projectionOffsets;
     private readonly sceneBuffer;
     private readonly sampler;
     private readonly whiteTexture;
@@ -44,8 +52,21 @@ export declare class WebGPUMeshPipeline {
     private readonly emptyShadow;
     private readonly emptyShadowView;
     private readonly identityBuffer;
+    /** Linear (1, 1, 1) for every vertex or instance that has no colors of its own. */
+    private whiteBuffer;
+    private whiteCapacity;
+    /** Replaced white buffers wait here until commands that may still bind them are submitted. */
+    private readonly retired;
     private sceneBindGroup;
     private shadowSceneBindGroup;
+    private skyBindGroup;
+    private readonly opticalTextures;
+    private readonly emptyOptical;
+    private readonly emptyOpticalView;
+    private refractionTexture;
+    private refractionView;
+    private refractionWidth;
+    private refractionHeight;
     private shadowTexture;
     private shadowView;
     private shadowSize;
@@ -59,6 +80,7 @@ export declare class WebGPUMeshPipeline {
     private msaaWidth;
     private msaaHeight;
     private frame;
+    private readonly oit;
     private readonly linearClear;
     private readonly clearComponents;
     private readonly colorAttachment;
@@ -69,6 +91,8 @@ export declare class WebGPUMeshPipeline {
     private constructor();
     static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number): Promise<WebGPUMeshPipeline>;
     resize(width: number, height: number): void;
+    private ensureRefraction;
+    private releaseRefraction;
     /** Shadows and linear HDR resolution precede the existing sprite overlay. */
     render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor): boolean;
     private createSceneGroup;
@@ -77,14 +101,21 @@ export declare class WebGPUMeshPipeline {
     /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
     private ensureEnvironment;
     private uploadEnvironment;
+    private reflectionGroup;
     private renderShadows;
     private drawMesh;
+    /** White RGBA storage also serves the RGB instance layout (every component is one). */
+    private white;
+    /** Creates or refreshes a vertex-step buffer holding `source`, which may change between frames. */
+    private colorBuffer;
     private decodeClear;
     private ensureMultisample;
     private ensureDepth;
     private cacheGeometry;
+    private syncGeometryColors;
     private cacheMesh;
     private cacheSampler;
+    private cacheOpticalMaps;
     private cacheTexture;
     private updateMesh;
     private releaseUnused;

@@ -1,4 +1,13 @@
 export type EnvironmentColor = readonly [number, number, number];
+/** Top-row-first faces in the conventional +X, -X, +Y, -Y, +Z, -Z order. */
+export type CubemapFaces<T = ArrayLike<number>> = readonly [
+    positiveX: T,
+    negativeX: T,
+    positiveY: T,
+    negativeY: T,
+    positiveZ: T,
+    negativeZ: T
+];
 export interface EnvironmentGradientOptions {
     zenith: EnvironmentColor;
     horizon: EnvironmentColor;
@@ -37,6 +46,17 @@ export declare class EnvironmentMap {
     get destroyed(): boolean;
     /** Number of mip levels; specular LOD is `roughness * (mipCount - 1)`. */
     get mipCount(): number;
+    /**
+     * Converts a cubemap to the engine's equirectangular radiance representation.
+     * Each square face contains linear RGB/RGBA pixels; output is size*4 by size*2.
+     */
+    static fromCubemap(size: number, faces: CubemapFaces, channels?: 3 | 4): EnvironmentMap;
+    /** Converts six square 8-bit sRGB ImageData faces, ignoring their alpha. */
+    static fromCubemapImageData(faces: CubemapFaces<{
+        width: number;
+        height: number;
+        data: ArrayLike<number>;
+    }>): EnvironmentMap;
     /**
      * @param data Linear-light RGB (channels = 3) or RGBA (channels = 4) floats, row-major,
      * top row first. Width must be twice the height.

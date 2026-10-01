@@ -9,9 +9,20 @@ export declare class InstancedMesh extends Mesh {
     /** Column-major matrices; use setMatrixAt to notify renderer upload caches. */
     readonly matrices: Float32Array;
     version: number;
+    private instanceColors;
+    /** Bumped by every color change so renderer upload caches refresh. */
+    colorVersion: number;
+    /**
+     * Per-instance linear RGB (three floats each), or undefined while no color was ever set, in
+     * which case every instance is white. Multiplied into the base color like vertex colors.
+     */
+    get colors(): Float32Array | undefined;
     protected get cullable(): boolean;
     constructor(options: InstancedMeshOptions);
     setMatrixAt(index: number, matrix: Matrix4): void;
+    /** Sets one instance's color; components are finite and nonnegative (above 1 brightens). */
+    setColorAt(index: number, r: number, g: number, b: number): void;
+    getColorAt(index: number, out: [number, number, number]): [number, number, number];
     getMatrixAt(index: number, out: Matrix4): Matrix4;
     private validateIndex;
 }

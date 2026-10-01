@@ -4,6 +4,7 @@ export declare const world2dLimits: Readonly<{
     mapCells: 65536;
     particles: 16384;
     physicsBodies: 16384;
+    physicsJoints: 4096;
     maxSubSteps: 120;
     solverIterations: 64;
 }>;
@@ -16,5 +17,14 @@ export declare const physicsDefaults: Readonly<{
     penetrationSlop: 0.005;
     positionCorrection: 0.6;
     restitutionThreshold: 1;
+    restitutionGravitySteps: 2;
     geometryEpsilon: 1e-8;
+    sleepLinearVelocity: 0.1;
+    sleepAngularVelocity: 0.05;
+    sleepTime: 0.5;
+    ccdTravelRatio: 0.25;
+    ccdPenetration: 0.01;
+    jointMaxCorrection: 10;
+    jointMaxAngularCorrection: 0.14;
+    jointAngularSlop: 0.035;
 }>;

@@ -9,5 +9,6 @@ export declare const gameplayAssetLimits: Readonly<{
     sampleRate: 192000;
     sampleValues: number;
     samplePlaybacks: 32;
+    audioSprites: 1024;
     playbackRate: 16;
 }>;

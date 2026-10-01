@@ -43,6 +43,7 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly skyUniforms;
     private readonly environments;
     private readonly environmentData;
+    private readonly environmentLightingData;
     private readonly fogData;
     private readonly invViewProjection;
     private readonly meshUniforms;
@@ -52,9 +53,26 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly tintData;
     private readonly meshInstances;
     private readonly samplers;
-    private readonly shadowMatrix;
+    private readonly atlas;
+    private shadowBuffer;
+    private sheenBuffer;
+    private readonly opticalTextures;
+    private readonly opticalSettings;
+    private emptyOptical;
+    private opticalPackProgram;
+    private opticalPackFramebuffer;
+    private opticalPackSide;
+    private refractionTarget;
+    private hasTransmission;
+    private linear3D;
+    private weighted;
+    private oitAccumulation;
+    private oitRevealage;
+    private oitProgram;
     private shadowTarget;
     private postTarget;
+    private fxaaProgram;
+    private fxaaTarget;
     private floatColorBuffer;
     private compositeProgram;
     private readonly compositeUniforms;
@@ -96,12 +114,18 @@ export declare class WebGL2Renderer implements Renderer {
     resize(width: number, height: number): void;
     private drawEffects2D;
     private drawComposite;
+    private collectMeshes;
+    private cacheOpticalMaps;
     private drawMeshes;
     private bindMaterialTexture;
     private cacheSampler;
     private drawMesh;
     private drawShadows;
     private preparePostTarget;
+    private prepareRefractionTarget;
+    private prepareOIT;
+    private resolveOIT;
+    private releaseOIT;
     private createTarget;
     private deleteTarget;
     private drawPost;
@@ -110,6 +134,8 @@ export declare class WebGL2Renderer implements Renderer {
     /** Uploads a half-float mip chain once per map; the map itself is immutable. */
     private uploadEnvironment;
     private drawSky;
+    /** Uploads or removes the per-vertex colors; the geometry's VAO must be bound. */
+    private syncVertexColors;
     private cacheGeometry;
     private releaseUnused;
     private createBuffer;

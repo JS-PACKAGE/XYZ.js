@@ -6,10 +6,12 @@ import type { OrthographicCamera } from './orthographic-camera.js';
 import { AnimationMixer } from './animation.js';
 import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
+import type { ReflectionProbe } from './reflection-probe.js';
 import { FogSettings, PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
+import { TweenGroup } from './tween.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
 import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
@@ -21,6 +23,8 @@ export declare class Scene {
     readonly camera2D: Camera2D;
     camera3D: PerspectiveCamera | OrthographicCamera;
     readonly timers: SceneTimers;
+    /** Scene-local tweens and timelines, advanced every frame right after `timers`. */
+    readonly tweens: TweenGroup;
     readonly animations: AnimationMixer;
     readonly physics: PhysicsWorld2D;
     readonly effects2D: PostProcessor2D[];
@@ -33,12 +37,16 @@ export declare class Scene {
     readonly spotLights: SpotLight[];
     readonly shadows: ShadowSettings;
     readonly postProcessing: PostProcessingSettings;
+    /** Weighted blended OIT trades exact layer ordering for stable intersecting transparency. */
+    transparency: 'sorted' | 'weighted';
     ambientLight: number;
     /** Distance fog for 3D meshes (WebGPU and WebGL2). */
     readonly fog: FogSettings;
     /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
     environment: EnvironmentMap | undefined;
     environmentIntensity: number;
+    /** Local IBL; the nearest containing probe overrides environment per mesh origin. */
+    readonly reflectionProbes: ReflectionProbe[];
     /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
     background: EnvironmentMap | undefined;
     backgroundIntensity: number;
@@ -50,6 +58,7 @@ export declare class Scene {
     };
     private readonly registrations;
     private readonly registeredObjects;
+    private readonly cameraDependents;
     private readonly objectUpdates;
     private nextObjectUpdate;
     private frameObjectUpdate;
@@ -91,6 +100,8 @@ export declare class Scene {
     advanceObjects(deltaTime: number, canContinue: () => boolean): void;
     /** @internal Systems/actions run first, physics then particles, final camera last. */
     advanceAfterUpdate(deltaTime: number, canContinue: () => boolean): void;
+    /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
+    updateCameraDependents(): void;
     /** Called before scene systems, once per visible frame. */
     update(deltaTime: number): void;
     destroy(): void;

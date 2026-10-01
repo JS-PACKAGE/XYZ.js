@@ -8,12 +8,15 @@ export interface TextureMaterialOptions {
     texture: Texture;
     color?: [number, number, number];
     opacity?: number;
+    /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
+    transparent?: boolean;
 }
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
 export declare class TextureMaterial {
     readonly texture: Texture;
     readonly color: [number, number, number];
     readonly opacity: number;
+    readonly transparent: boolean;
     constructor(options: TextureMaterialOptions);
 }
 export interface MeshOptions {

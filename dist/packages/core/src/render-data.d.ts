@@ -1,6 +1,7 @@
 import { Matrix4 } from '../../math/src/index.js';
 import { EnvironmentMap } from './environment.js';
 import type { Scene } from './scene.js';
+import type { Mesh } from './mesh.js';
 /** Validate mutable settings before either backend allocates frame resources. */
 export declare function validateRenderSettings(scene: Scene): void;
 /** A destroyed map is treated as absent, like a destroyed Texture on a Mesh. */
@@ -11,6 +12,8 @@ export declare function activeBackground(scene: Scene): EnvironmentMap | undefin
  * intensity, enabled, maxLod, background intensity (0 when no background).
  */
 export declare function fillEnvironmentData(scene: Scene, out: Float32Array): void;
+/** SH[36], intensity/enabled/maxLod/boxProjection, then bounds min/max and capture position. */
+export declare function fillReflectionData(scene: Scene, object: Mesh, out: Float32Array, offset?: number): EnvironmentMap | undefined;
 /**
  * Fog block shared by both backends: color.rgb, mode (0 off, 1 linear, 2 exp2),
  * near, far, density, 0. The color is authored as display sRGB and is decoded here

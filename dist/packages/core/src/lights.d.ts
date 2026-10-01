@@ -5,6 +5,10 @@ export interface PointLightOptions {
     intensity?: number;
     /** Zero means no finite range cutoff. */
     range?: number;
+    castShadow?: boolean;
+    shadowNear?: number;
+    /** Shadow far plane when range is zero; otherwise range sets the far plane. */
+    shadowFar?: number;
 }
 export interface SpotLightOptions extends PointLightOptions {
     /** Points from the light toward the illuminated surface, unlike directionalLight. */
@@ -18,6 +22,9 @@ export declare class PointLight {
     color: [number, number, number];
     intensity: number;
     range: number;
+    castShadow: boolean;
+    shadowNear: number;
+    shadowFar: number;
     constructor(options?: PointLightOptions);
     validate(): void;
 }

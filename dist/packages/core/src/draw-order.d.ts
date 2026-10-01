@@ -1,9 +1,6 @@
 import type { Mesh } from './mesh.js';
 import type { Vector3 } from '../../math/src/index.js';
-/**
- * True when the mesh blends with what is behind it and therefore depends on draw order:
- * a BLEND PBRMaterial or any material with opacity below one.
- */
+/** PBR alphaMode is authoritative; legacy textures opt in for image/vertex alpha. */
 export declare function isBlended(mesh: Mesh): boolean;
 /** Reusable state so sorting does not allocate once the pool has grown. */
 export declare class DrawSorter {

@@ -3,6 +3,7 @@ import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
 import type { LoadTask } from '../../assets/src/preload/preload-batch.js';
 import { type SampleAudioAsset } from './samples/sample-audio.js';
 import type { AudioListenerState } from './samples/spatial.js';
+import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
     readonly note: number;
@@ -66,10 +67,26 @@ export declare class AudioManager {
     private timer;
     private disposed;
     private sequence;
+    private readonly pauseReasons;
+    private pausedAt;
+    private pausedTotal;
     constructor(getScene: () => Scene | undefined, onError: (error: Error) => void);
     /** Manager-wide 3D listener used by playbacks created with `spatial` options. */
     get listener(): AudioListenerState;
     get unlocked(): boolean;
+    /** True while at least one pause reason is active (see {@link pause}). */
+    get paused(): boolean;
+    /**
+     * Freezes audio under a named reason (default `user`); it stays frozen until every reason has
+     * been {@link resume}d. OPM tracks stop sounding and their timeline stops, then continue at the
+     * next note; a note that was sounding when paused is not replayed. Sample and stream playbacks
+     * pause at their current position and resume together, and playbacks started while paused wait
+     * for the resume.
+     */
+    pause(reason?: string): void;
+    resume(reason?: string): void;
+    /** Audio-timeline seconds: wall time minus every paused interval. */
+    private clock;
     get opm(): OPMAdapter['opm'];
     unlock(): Promise<void>;
     /** Subscriber cancellation does not abort another caller's loader-owned cache request. */
@@ -80,6 +97,8 @@ export declare class AudioManager {
     loadSample(url: string, options?: {
         signal?: AbortSignal;
     }): Promise<SampleAudioAsset>;
+    /** Streams a long file without decoding it; see {@link AudioStream}. */
+    stream(url: string, options?: AudioStreamOptions): Promise<AudioStream>;
     sampleTask(key: string, url: string): LoadTask<SampleAudioAsset>;
     play(asset: AudioAsset, options?: AudioPlayOptions): AudioPlayback;
     stopScene(scene: Scene): void;
