@@ -22,8 +22,8 @@ export { UIRoot, UIElement, UILabel, UIButton, UICheckbox, UISlider, UIFocusMana
 export type { UIDimension, UILayout, UIWidgetOptions, UICheckboxOptions, UISliderOptions, } from './ui.js';
 export { FactoryRegistry, defineFactory } from './factories.js';
 export type { FactoryContext, FactoryDefinition, FactoryDefinitions, FactoryOptions, FactoryNode, FactoryServices, } from './factories.js';
-export { ContentScene, buildContentScene, parseContentScene, } from './content.js';
-export type { ContentNodeDefinition, ContentSceneDefinition, ContentBuildOptions, } from './content.js';
+export { ContentScene, buildContentScene, parseContentScene, rebuildContentScene, } from './content.js';
+export type { ContentNodeDefinition, ContentSceneDefinition, ContentBuildOptions, ContentSnapshot, } from './content.js';
 export { PointerRouter } from './gameplay/pointer-router.js';
 export type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 export { HitArea2D } from './gameplay/hit-area2d.js';

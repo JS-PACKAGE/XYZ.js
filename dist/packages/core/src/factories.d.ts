@@ -1,4 +1,5 @@
 import { SceneObject } from './scene-object.js';
+import type { Serializable } from './serialization.js';
 export interface FactoryContext<Services = void> {
     readonly services: Services;
     readonly signal: AbortSignal;
@@ -13,6 +14,10 @@ export interface FactoryDefinition<Options, Node extends SceneObject, Services =
     parse(value: unknown): Options;
     /** Return a fresh detached prefab; borrowed resources remain caller-owned. */
     create(options: Options, context: FactoryContext<Services>): Node | Promise<Node>;
+    /** Explicit stable names for every prefab descendant included in content saves. */
+    children?(node: Node): Readonly<Record<string, SceneObject>>;
+    /** Explicit adapter for the root or a named prefab member; omitted uses built-in 2D/3D state. */
+    state?(node: Node, member: SceneObject): Serializable;
 }
 export type FactoryDefinitions = Readonly<Record<string, FactoryDefinition<unknown, SceneObject, never>>>;
 export type FactoryOptions<Definition> = Definition extends {
@@ -47,7 +52,7 @@ export declare class FactoryRegistry<Definitions extends FactoryDefinitions> {
 /** @internal Claim only fresh members; validation failure never claims a borrowed descendant. */
 export declare function collectFactoryNodes(root: SceneObject, owned: Set<SceneObject>): void;
 /** @internal Never recursively dispose unclaimed descendants or borrowed resources. */
-export declare function destroyFactoryNodes(nodes: ReadonlySet<SceneObject>): void;
+export declare function destroyFactoryNodes(nodes: ReadonlySet<SceneObject>, includeFresh?: boolean): void;
 /** @internal */
 export declare function factoryAbortReason(signal: AbortSignal): unknown;
 export {};

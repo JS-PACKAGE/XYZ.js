@@ -769,3 +769,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 115／115／149 texture leases 全釋放，11／11／14 captures 全 destroy；decoded/native entries／liveBytes、borrowers、Scene／physics registrations、held attachment bytes 全為 0。Histogram／online trends／last-32 cycle observations 有界。
 - Native geometry budget 修正為 active old＋candidate mesh uniforms／真 vertex-index bytes 的工作集加 reserve，預設 320KiB；未削弱 renderer admission／減少 workload。最初 8KiB 失敗與 full Chrome app 約 31 秒自主斷線診斷皆保留，獨立無 Vite 的 35 秒 probe 也觀察斷線；改用 Playwright 正式 headless executable 後通過，未將該現象冒稱 renderer crash 根因。
 - Evidence：`.vite/production-mixed-headless-shell.json`。只有 60 秒有限觀察，不宣稱一小時 soak、process memory／GC／總 VRAM plateau；cache bytes 是引擎估計。
+
+## P49 Content 3D & Dynamic Round-trip（限定已測環境）
+
+- 真封裝 consumer 的 1375-byte JSON 重建 stable-ID parents／references／prefab children／custom factory topology，還原 3D pose／dynamic body／custom state，25 created nodes 正確清理。
+- Factory failure 不出版 candidate，borrowed 16-byte texture 保持可用；live JSON restore 的半 tick pending force／torque 經 epoch clear 後 velocity／angular／position 全為 0。修正前 velocity=.5 的失敗已實際觀察。
+- `capture`／`spawn`／`remove`／`rebuild` 走正式 ContentScene 與 factories；版本／schema／snapshot validation 保持 transactional，非任意 executable scene serialization。

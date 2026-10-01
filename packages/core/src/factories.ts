@@ -1,6 +1,7 @@
 import { GameObject } from './game-object.js';
 import { Object3D } from './object3d.js';
 import { SceneObject } from './scene-object.js';
+import type { Serializable } from './serialization.js';
 
 export interface FactoryContext<Services = void> {
   readonly services: Services;
@@ -24,6 +25,10 @@ export interface FactoryDefinition<
     options: Options,
     context: FactoryContext<Services>,
   ): Node | Promise<Node>;
+  /** Explicit stable names for every prefab descendant included in content saves. */
+  children?(node: Node): Readonly<Record<string, SceneObject>>;
+  /** Explicit adapter for the root or a named prefab member; omitted uses built-in 2D/3D state. */
+  state?(node: Node, member: SceneObject): Serializable;
 }
 
 export type FactoryDefinitions = Readonly<
@@ -68,7 +73,7 @@ export function defineFactory<
 >(
   definition: FactoryDefinition<Options, Node, Services>,
 ): FactoryDefinition<Options, Node, Services> {
-  return Object.freeze({ parse: definition.parse, create: definition.create });
+  return Object.freeze({ ...definition });
 }
 
 /** Static named definitions, with explicit parsers rather than reflected constructors. */
@@ -93,9 +98,18 @@ export class FactoryRegistry<Definitions extends FactoryDefinitions> {
         typeof definition.create !== 'function'
       )
         throw new TypeError(`Invalid factory: ${kind}.`);
+      if (
+        (definition.children !== undefined &&
+          typeof definition.children !== 'function') ||
+        (definition.state !== undefined &&
+          typeof definition.state !== 'function')
+      )
+        throw new TypeError(`Invalid factory metadata: ${kind}.`);
       table[kind] = Object.freeze({
         parse: definition.parse,
         create: definition.create,
+        ...(definition.children ? { children: definition.children } : {}),
+        ...(definition.state ? { state: definition.state } : {}),
       });
     }
     this.definitions = Object.freeze(table) as Definitions;
@@ -253,10 +267,13 @@ export function collectFactoryNodes(
 }
 
 /** @internal Never recursively dispose unclaimed descendants or borrowed resources. */
-export function destroyFactoryNodes(nodes: ReadonlySet<SceneObject>): void {
+export function destroyFactoryNodes(
+  nodes: ReadonlySet<SceneObject>,
+  includeFresh = true,
+): void {
   const owned = new Set(nodes);
   // Include fresh descendants created after context.own, but never previously owned objects.
-  for (const node of owned)
+  for (const node of includeFresh ? owned : [])
     if (node instanceof GameObject || node instanceof Object3D)
       for (const child of node.children)
         if (

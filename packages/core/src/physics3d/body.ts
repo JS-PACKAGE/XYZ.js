@@ -146,6 +146,12 @@ export class RigidBody3D {
     }
     this.idleTime += dt;
     if (this.idleTime < physics3DDefaults.sleepTime) return;
+    this.sleep();
+  }
+  /** Explicitly sleep a dynamic body, recording its pose for external-mutation wake detection. */
+  sleep(): void {
+    if (this.type !== 'dynamic' || !this.allowSleep) return;
+    this.clearForces();
     this.sleeping = true;
     this.velocity.set(0, 0, 0);
     this.angularVelocity.set(0, 0, 0);

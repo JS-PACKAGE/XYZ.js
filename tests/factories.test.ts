@@ -98,10 +98,13 @@ describe('typed content factories', () => {
       new Vector3(12, 14, 8),
     );
     const snapshot = built.serializer.capture();
-    expect(Object.keys(snapshot.objects).sort()).toEqual(['child', 'root']);
+    spatial!.position.z = 99;
+    spatial!.visible = false;
     child!.position.x = 99;
     await built.serializer.restore(snapshot);
     expect(child!.position.x).toBe(2);
+    expect(spatial!.position.z).toBe(4);
+    expect(spatial!.visible).toBe(true);
     built.scene.destroy();
     expect(built.get('child')).toBeUndefined();
     expect(() => built.require('child', 'group')).toThrow();
@@ -371,7 +374,7 @@ describe('typed content factories', () => {
     old.destroy();
     detached.destroy();
   });
-  it('registers fresh prefab descendants while assigning serializer IDs only to explicit roots', async () => {
+  it('registers fresh prefab descendants but refuses topology saves without authored child IDs', async () => {
     let child: GameObject | undefined;
     const prefabs = new FactoryRegistry({
       prefab: defineFactory({
@@ -398,7 +401,7 @@ describe('typed content factories', () => {
     expect(child?.updateWorldMatrix().transformPoint(new Vector2())).toEqual(
       new Vector2(13, 24),
     );
-    expect(Object.keys(built.serializer.capture().objects)).toEqual(['prefab']);
+    expect(() => built.capture()).toThrow('authored stable ID');
     built.scene.destroy();
     expect(child?.destroyed).toBe(true);
   });

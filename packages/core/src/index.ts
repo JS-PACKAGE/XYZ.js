@@ -56,11 +56,13 @@ export {
   ContentScene,
   buildContentScene,
   parseContentScene,
+  rebuildContentScene,
 } from './content.js';
 export type {
   ContentNodeDefinition,
   ContentSceneDefinition,
   ContentBuildOptions,
+  ContentSnapshot,
 } from './content.js';
 export { PointerRouter } from './gameplay/pointer-router.js';
 export type { PointerTargetEventDetail } from './gameplay/pointer-router.js';

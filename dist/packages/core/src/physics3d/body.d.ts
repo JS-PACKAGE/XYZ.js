@@ -55,6 +55,8 @@ export declare class RigidBody3D {
     wake(): void;
     /** @internal */
     updateSleep(dt: number): void;
+    /** Explicitly sleep a dynamic body, recording its pose for external-mutation wake detection. */
+    sleep(): void;
     /** @internal Attachment ownership survives Scene removal. */
     attach(owner: Object3D): void;
     /** @internal */

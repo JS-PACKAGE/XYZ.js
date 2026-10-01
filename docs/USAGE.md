@@ -1120,3 +1120,7 @@ Create `NavigationFollower3D` around an owned CharacterController3D, then `navig
 ## 28. Mixed Load and Soak (P48)
 
 Open `/benchmarks/mixed/`, or run `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`; use `--duration 3600` for an actual hour and `--consumer /absolute/extracted/package` for the packaged root. Keep the page visible. Review RAF tails, separately measured CPU phases and every cycle's cleanup assertions; a short successful run does not establish indefinite cache/driver-memory plateau.
+
+## 29. Save Dynamic 2D/3D Content (P49)
+
+Save `JSON.stringify(content.capture())`; reconstruct with `await rebuildContentScene(registry, JSON.parse(json), services)`, then publish candidate.scene through game.setScene. Keep the candidate ContentScene for subsequent spawn/remove/save. Factories reconstruct geometry/assets; declare children aliases/stable IDs and state adapters for named prefab descendants/custom SceneObjects. Every live object must have an authored ID; dangling references block removal. [Ownership contract](TECHNICAL.md#49-explicit-3d-and-content-round-trip-p49).

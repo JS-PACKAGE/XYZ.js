@@ -31,6 +31,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P46：有 expansion budget、可取消及 revision invalidation 的 incremental grid／graph A*。
 - P47：動態 authored connections／clearance 與實際 character 阻擋後有限重新規劃。
 - P48：[混合負載與 lifecycle soak](benchmarks/mixed/index.html)，分開 RAF／CPU phases／cache estimates。
+- P49：stable-ID 2D／3D／動態 content topology、body 與 custom state save／rebuild。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -104,6 +105,7 @@ Production additions in this round:
 - P46: incremental grid/graph A* with expansion budgets, cancellation and revision invalidation.
 - P47: dynamic authored connections/clearance and bounded replanning after real character blockage.
 - P48: [mixed load/lifecycle soak](benchmarks/mixed/index.html), separating RAF, CPU phases and cache estimates.
+- P49: stable-ID 2D/3D/dynamic content topology, body and custom-state save/rebuild.
 
 ### Current support matrix and approved expansion
 
@@ -168,6 +170,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P46：expansion budget／cancel／revision invalidation 対応の incremental grid／graph A*。
 - P47：動的 authored connections／clearance と実 character の障害後の bounded replan。
 - P48：[mixed load／lifecycle soak](benchmarks/mixed/index.html)。RAF／CPU phases／cache estimates は別に計測します。
+- P49：stable-ID の 2D／3D／動的 content topology、body、custom state の save／rebuild。
 
 ### 現在の対応表と承認済み拡張
 

@@ -1107,3 +1107,7 @@ class FixedScene extends Scene {
 ## 28. 混合負載與 Soak（P48）
 
 開啟 `/benchmarks/mixed/`，或執行 `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`。`--duration 3600` 才是一小時實跑；`--consumer /absolute/extracted/package` 驗封裝 root。保持分頁 visible，分開看 RAF tails、CPU simulation／submit／load hitches 與每次 scene cycle 的 cleanup。短跑不能證明無限長 cache／driver-memory plateau。
+
+## 29. 2D／3D 動態內容存檔（P49）
+
+用 `JSON.stringify(content.capture())` 保存，透過 `await rebuildContentScene(registry, JSON.parse(json), services)` 重建，再將 `candidate.scene` 交給 `game.setScene`。保留候選 `ContentScene` 供後續 spawn／remove／save。Factories 重建 geometry／assets；prefab descendants 必須宣告 children aliases／stable IDs，custom objects 提供 state adapter。每個 live object 都需 authored ID，dangling references 會阻止 removal。

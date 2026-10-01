@@ -1,5 +1,7 @@
 import type { Scene } from './scene.js';
-import type { GameObject } from './game-object.js';
+import { GameObject } from './game-object.js';
+import { Object3D } from './object3d.js';
+import type { SceneObject } from './scene-object.js';
 import { Text2D } from './text2d.js';
 import { assertJsonValue, StorageError, type JsonValue } from './storage.js';
 
@@ -34,13 +36,13 @@ export type UnknownSnapshotPolicy = 'ignore' | 'error';
 export class Serializer {
   private readonly entries = new Map<
     string,
-    { object: GameObject; state: Serializable }
+    { object: SceneObject; state: Serializable }
   >();
   constructor(private readonly scene: Scene) {}
   register(
     id: string,
-    object: GameObject,
-    state: Serializable = gameObjectState(object),
+    object: SceneObject,
+    state: Serializable = sceneObjectState(object),
   ): () => void {
     if (!id || this.entries.has(id))
       throw new StorageError(
@@ -52,6 +54,12 @@ export class Serializer {
         'invalid',
         'Snapshot object must belong to this Scene.',
       );
+    if (
+      !state ||
+      typeof state.serialize !== 'function' ||
+      typeof state.restore !== 'function'
+    )
+      throw new StorageError('invalid', 'Invalid Serializable adapter.');
     const entry = { object, state };
     this.entries.set(id, entry);
     return () => {
@@ -108,6 +116,172 @@ export class Serializer {
     }
     return { restored, unknown, missing };
   }
+}
+
+/** Built-in adapters are explicit; other SceneObjects require caller-authored state. */
+export function sceneObjectState(
+  object: SceneObject,
+  custom?: Serializable,
+): Serializable {
+  if (object instanceof GameObject) return gameObjectState(object, custom);
+  if (object instanceof Object3D) return object3DState(object, custom);
+  if (custom) return custom;
+  throw new StorageError(
+    'invalid',
+    'This SceneObject requires an explicit Serializable adapter.',
+  );
+}
+
+/** Local TRS/visibility and existing rigid-body state; assets and colliders stay factory-authored. */
+export function object3DState(
+  object: Object3D,
+  custom?: Serializable,
+): Serializable {
+  return {
+    serialize(): JsonValue {
+      const result: { [key: string]: JsonValue } = {
+        transform: [
+          object.position.x,
+          object.position.y,
+          object.position.z,
+          object.rotation.x,
+          object.rotation.y,
+          object.rotation.z,
+          object.rotation.w,
+          object.scale.x,
+          object.scale.y,
+          object.scale.z,
+        ],
+        visible: object.visible,
+      };
+      const body = object.body;
+      if (body)
+        result.body = {
+          type: body.type,
+          lockRotation: body.lockRotation,
+          allowSleep: body.allowSleep,
+          mass: body.mass,
+          restitution: body.restitution,
+          friction: body.friction,
+          linearDamping: body.linearDamping,
+          angularDamping: body.angularDamping,
+          gravityScale: body.gravityScale,
+          velocity: [body.velocity.x, body.velocity.y, body.velocity.z],
+          angularVelocity: [
+            body.angularVelocity.x,
+            body.angularVelocity.y,
+            body.angularVelocity.z,
+          ],
+          force: [body.force.x, body.force.y, body.force.z],
+          torque: [body.torque.x, body.torque.y, body.torque.z],
+          sleeping: body.isSleeping,
+        };
+      if (custom) result.custom = custom.serialize();
+      return result;
+    },
+    async restore(data: JsonValue): Promise<void> {
+      assertJsonValue(data);
+      if (!data || typeof data !== 'object' || Array.isArray(data))
+        throw new StorageError('invalid', 'Invalid Object3D snapshot.');
+      const transform = data.transform;
+      const saved = data.body;
+      const body = object.body;
+      const finiteArray = (
+        value: JsonValue | undefined,
+        count: number,
+      ): value is number[] =>
+        Array.isArray(value) &&
+        value.length === count &&
+        value.every((n) => typeof n === 'number' && Number.isFinite(n));
+      if (!finiteArray(transform, 10))
+        throw new StorageError(
+          'invalid',
+          'Object3D snapshot does not match the adapter.',
+        );
+      const rotationLength = Math.hypot(
+        transform[3],
+        transform[4],
+        transform[5],
+        transform[6],
+      );
+      if (
+        !Number.isFinite(rotationLength) ||
+        rotationLength === 0 ||
+        typeof data.visible !== 'boolean' ||
+        Object.hasOwn(data, 'custom') !== (custom !== undefined) ||
+        (body !== undefined && saved === undefined) ||
+        (saved !== undefined &&
+          (!body ||
+            !saved ||
+            typeof saved !== 'object' ||
+            Array.isArray(saved) ||
+            saved.type !== body.type ||
+            saved.lockRotation !== body.lockRotation ||
+            saved.allowSleep !== body.allowSleep ||
+            typeof saved.mass !== 'number' ||
+            saved.mass <= 0 ||
+            typeof saved.restitution !== 'number' ||
+            saved.restitution < 0 ||
+            saved.restitution > 1 ||
+            typeof saved.friction !== 'number' ||
+            saved.friction < 0 ||
+            typeof saved.linearDamping !== 'number' ||
+            saved.linearDamping < 0 ||
+            typeof saved.angularDamping !== 'number' ||
+            saved.angularDamping < 0 ||
+            typeof saved.gravityScale !== 'number' ||
+            !finiteArray(saved.velocity, 3) ||
+            !finiteArray(saved.angularVelocity, 3) ||
+            !finiteArray(saved.force, 3) ||
+            !finiteArray(saved.torque, 3) ||
+            typeof saved.sleeping !== 'boolean' ||
+            (saved.sleeping &&
+              (body.type !== 'dynamic' ||
+                !body.allowSleep ||
+                saved.velocity.some((n) => n !== 0) ||
+                saved.angularVelocity.some((n) => n !== 0) ||
+                saved.force.some((n) => n !== 0) ||
+                saved.torque.some((n) => n !== 0)))))
+      )
+        throw new StorageError(
+          'invalid',
+          'Object3D snapshot does not match the adapter.',
+        );
+      if (custom && Object.hasOwn(data, 'custom'))
+        await custom.restore(data.custom);
+      object.position.set(transform[0], transform[1], transform[2]);
+      object.rotation.set(
+        transform[3],
+        transform[4],
+        transform[5],
+        transform[6],
+      );
+      object.scale.set(transform[7], transform[8], transform[9]);
+      object.visible = data.visible;
+      object.validatePhysics();
+      if (body && saved && typeof saved === 'object' && !Array.isArray(saved)) {
+        body.mass = saved.mass as number;
+        body.restitution = saved.restitution as number;
+        body.friction = saved.friction as number;
+        body.linearDamping = saved.linearDamping as number;
+        body.angularDamping = saved.angularDamping as number;
+        body.gravityScale = saved.gravityScale as number;
+        // A live restore replaces both public force vectors and previously sampled world impulses.
+        body.clearForces();
+        for (const key of [
+          'velocity',
+          'angularVelocity',
+          'force',
+          'torque',
+        ] as const) {
+          const vector = saved[key] as number[];
+          body[key].set(vector[0], vector[1], vector[2]);
+        }
+        body.wake();
+        if (saved.sleeping) body.sleep();
+      }
+    },
+  };
 }
 
 /** Local transform, visibility, opacity, Text2D content and existing body velocity. Custom state is explicit. */
