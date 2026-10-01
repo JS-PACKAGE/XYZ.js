@@ -1124,3 +1124,7 @@ Open `/benchmarks/mixed/`, or run `pnpm soak:mixed --duration 60 --renderer all 
 ## 29. Save Dynamic 2D/3D Content (P49)
 
 Save `JSON.stringify(content.capture())`; reconstruct with `await rebuildContentScene(registry, JSON.parse(json), services)`, then publish candidate.scene through game.setScene. Keep the candidate ContentScene for subsequent spawn/remove/save. Factories reconstruct geometry/assets; declare children aliases/stable IDs and state adapters for named prefab descendants/custom SceneObjects. Every live object must have an authored ID; dangling references block removal. [Ownership contract](TECHNICAL.md#49-explicit-3d-and-content-round-trip-p49).
+
+## 30. Reproducible Assets and Deployment (P50)
+
+Run `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`; after `pnpm pack` and extraction, run `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2` (repeat with webgpu). Follow the pinned-toolchain/manifest/codec requirements in [Asset Recipe](ASSET-RECIPE.md). Deploy the entire dist tree, including official vendor worklet assets.

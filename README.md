@@ -32,6 +32,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P47：動態 authored connections／clearance 與實際 character 阻擋後有限重新規劃。
 - P48：[混合負載與 lifecycle soak](benchmarks/mixed/index.html)，分開 RAF／CPU phases／cache estimates。
 - P49：stable-ID 2D／3D／動態 content topology、body 與 custom state save／rebuild。
+- P50：[固定版本 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums 與真 extracted-package 部署驗證。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -106,6 +107,7 @@ Production additions in this round:
 - P47: dynamic authored connections/clearance and bounded replanning after real character blockage.
 - P48: [mixed load/lifecycle soak](benchmarks/mixed/index.html), separating RAF, CPU phases and cache estimates.
 - P49: stable-ID 2D/3D/dynamic content topology, body and custom-state save/rebuild.
+- P50: [pinned asset recipe](docs/ASSET-RECIPE.md), mip/fallback outputs, checksums and real extracted-package deployment.
 
 ### Current support matrix and approved expansion
 
@@ -171,6 +173,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P47：動的 authored connections／clearance と実 character の障害後の bounded replan。
 - P48：[mixed load／lifecycle soak](benchmarks/mixed/index.html)。RAF／CPU phases／cache estimates は別に計測します。
 - P49：stable-ID の 2D／3D／動的 content topology、body、custom state の save／rebuild。
+- P50：[固定版 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums、実 extracted-package deploy。
 
 ### 現在の対応表と承認済み拡張
 

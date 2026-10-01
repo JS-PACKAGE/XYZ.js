@@ -1,0 +1,146 @@
+import { describe, it, expect } from 'vitest';
+import { Buffer } from 'node:buffer';
+import { mkdtemp, writeFile, rm, symlink } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import {
+  parseModel,
+  preflight,
+  ingest,
+  mipChain,
+  encodeKTX2,
+  packBuffers,
+} from '../scripts/asset-recipe-lib.mjs';
+import { decodeKTX2Native } from '../packages/core/src/ktx2.ts';
+
+const document = () => ({
+  asset: { version: '2.0' },
+  accessors: [
+    { type: 'VEC3', count: 3, bufferView: 0 },
+    { type: 'VEC2', count: 3, bufferView: 1 },
+  ],
+  meshes: [
+    {
+      primitives: [{ attributes: { POSITION: 0, TEXCOORD_0: 1 }, material: 0 }],
+    },
+  ],
+  materials: [{ pbrMetallicRoughness: { baseColorTexture: { index: 0 } } }],
+  textures: [{ source: 0 }],
+});
+function glb(json, bin = Buffer.from([1, 2, 3, 4])) {
+  const text = Buffer.from(JSON.stringify(json)),
+    padding = (4 - (text.length % 4)) % 4;
+  const bytes = Buffer.alloc(28 + text.length + padding + bin.length);
+  bytes.writeUInt32LE(0x46546c67);
+  bytes.writeUInt32LE(2, 4);
+  bytes.writeUInt32LE(bytes.length, 8);
+  bytes.writeUInt32LE(text.length + padding, 12);
+  bytes.writeUInt32LE(0x4e4f534a, 16);
+  text.copy(bytes, 20);
+  bytes.fill(32, 20 + text.length, 20 + text.length + padding);
+  const offset = 20 + text.length + padding;
+  bytes.writeUInt32LE(bin.length, offset);
+  bytes.writeUInt32LE(0x004e4942, offset + 4);
+  bin.copy(bytes, offset + 8);
+  return bytes;
+}
+
+describe('headless asset recipe compatibility', () => {
+  it('rejects GLB payload length corruption rather than reading outside its chunk', () => {
+    const bytes = glb({ asset: { version: '2.0' } });
+    expect([...parseModel(bytes).binary]).toEqual([1, 2, 3, 4]);
+    bytes.writeUInt32LE(bytes.length, 12);
+    expect(() => parseModel(bytes)).toThrow('chunk range');
+  });
+  it('rejects non-triangle topology and absent texture UVs before output publication', () => {
+    const model = document();
+    model.meshes[0].primitives[0].mode = 5;
+    expect(() => preflight(model)).toThrow('TRIANGLES');
+    delete model.meshes[0].primitives[0].mode;
+    delete model.meshes[0].primitives[0].attributes.TEXCOORD_0;
+    expect(() => preflight(model)).toThrow('TEXCOORD_0');
+  });
+  it('rejects UV1 and distinct transforms across slots sharing the engine UV stream', () => {
+    const model = document();
+    model.materials[0].pbrMetallicRoughness.baseColorTexture.texCoord = 1;
+    expect(() => preflight(model)).toThrow('TEXCOORD_0');
+    delete model.materials[0].pbrMetallicRoughness.baseColorTexture.texCoord;
+    model.materials[0].normalTexture = {
+      index: 0,
+      extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
+    };
+    expect(() => preflight(model)).toThrow('one UV transform');
+  });
+  it('rejects required external codecs and a Basis texture without plain fallback', () => {
+    const model = document();
+    model.extensionsRequired = ['KHR_draco_mesh_compression'];
+    expect(() => preflight(model)).toThrow('not included');
+    delete model.extensionsRequired;
+    model.textures[0] = { extensions: { KHR_texture_basisu: { source: 1 } } };
+    expect(() => preflight(model)).toThrow('no Basis codec');
+  });
+  it('rejects unlit materials using physically based extensions', () => {
+    const model = document();
+    model.materials[0].extensions = {
+      KHR_materials_unlit: {},
+      KHR_materials_clearcoat: { clearcoatFactor: 1 },
+    };
+    expect(() => preflight(model)).toThrow('Unlit');
+  });
+  it('includes odd edge pixels in native mip levels and survives the real KTX2 decoder', async () => {
+    const rgba = [0, 0, 0, 255, 90, 30, 0, 255, 180, 60, 0, 255];
+    const levels = mipChain(3, 1, rgba);
+    const texture = await decodeKTX2Native(encodeKTX2(levels));
+    try {
+      expect(texture.format).toBe('rgba8unorm');
+      expect(
+        texture.levels.map((level) => [
+          level.width,
+          level.height,
+          [...level.data],
+        ]),
+      ).toEqual([
+        [3, 1, rgba],
+        [1, 1, [90, 30, 0, 255]],
+      ]);
+    } finally {
+      texture.destroy();
+    }
+  });
+  it('rejects an out-of-range view during payload packing', () => {
+    const model = {
+      bufferViews: [{ buffer: 0, byteOffset: 2, byteLength: 4 }],
+    };
+    expect(() => packBuffers(model, [Buffer.alloc(4)])).toThrow(
+      'out of bounds',
+    );
+  });
+  it('cannot acquire resources through a symlink escaping the authoring directory', async () => {
+    const directory = await mkdtemp(join(tmpdir(), 'xyz-recipe-test-'));
+    try {
+      await writeFile(
+        join(directory, 'outside.bin'),
+        Buffer.from([1, 2, 3, 4]),
+      );
+      const authoring = join(directory, 'inside');
+      const { mkdir } = await import('node:fs/promises');
+      await mkdir(authoring);
+      await symlink(
+        join(directory, 'outside.bin'),
+        join(authoring, 'escape.bin'),
+      );
+      await writeFile(
+        join(authoring, 'source.gltf'),
+        JSON.stringify({
+          asset: { version: '2.0' },
+          buffers: [{ byteLength: 4, uri: 'escape.bin' }],
+        }),
+      );
+      await expect(ingest(join(authoring, 'source.gltf'))).rejects.toThrow(
+        'escapes',
+      );
+    } finally {
+      await rm(directory, { recursive: true, force: true });
+    }
+  });
+});

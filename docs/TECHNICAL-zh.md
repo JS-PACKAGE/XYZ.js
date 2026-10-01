@@ -941,3 +941,9 @@ Serializer.register 接受 SceneObject。`sceneObjectState(member, custom?)` 選
 Factory 可定義 children(root) aliases 與 state(root,member) adapters；content definitions 將 children aliases 對應 globally unique stable IDs，保留 removed-child tombstones。Capture 回 version1 ContentSnapshot，含 authored JSON kind／options／IDs／references／children、SceneSnapshot 與 exact parents[id]=parentID|null。每個 live object 都需 authored ID，unnamed/manual additions 拒絕 capture。Spawn／remove／getById／destroy 管 owned registrations；surviving references 阻止 remove，foreign descendants detach 而非 destroy。
 
 `await rebuildContentScene(registry, unknownJSON, services, options?)` 預驗 topology，沿同 factories 建新 unpublished candidate，還原 exact parenting／state／ownership，再由 Game.setScene 發布。失敗只清 candidate-owned 資源。上限4,096 stable IDs、JSON depth32／65,536 values／4,096-character strings／128-character IDs／keys；parent／reference dependencies 維持無環。
+
+## 50. 版本固定的 asset recipe 與打包部署（P50）
+
+[Asset Recipe](ASSET-RECIPE.md) 說明 local glTF／GLB packing、topology／UV／material／codec preflight、RGBA8 KTX2 integer-box mips、PNG fallback／manifest／SHA256SUMS。CLI 固定 Node26.7.0／playwright-core1.63.0／Chromium153.0.8010.12 revision1243，無 hidden download／manifest shell commands／runtime dependencies。
+
+Assets:build 沿真 packaged GLTFLoader 驗 generated variants。Check:asset-deployment 在 plain HTTP import extracted pnpm pack root，畫 native／fallback，trusted click 初始化 official AudioWorklets，確認 vendor 完整與實際 fetch。Reproducibility 限同 toolchain／platform／input bytes；不含 Draco／Basis／compressed-GPU encoding、gamma／normal semantic filtering 或可聽輸出認證。

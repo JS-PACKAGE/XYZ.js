@@ -775,3 +775,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 真封裝 consumer 的 1375-byte JSON 重建 stable-ID parents／references／prefab children／custom factory topology，還原 3D pose／dynamic body／custom state，25 created nodes 正確清理。
 - Factory failure 不出版 candidate，borrowed 16-byte texture 保持可用；live JSON restore 的半 tick pending force／torque 經 epoch clear 後 velocity／angular／position 全為 0。修正前 velocity=.5 的失敗已實際觀察。
 - `capture`／`spawn`／`remove`／`rebuild` 走正式 ContentScene 與 factories；版本／schema／snapshot validation 保持 transactional，非任意 executable scene serialization。
+
+## P50 Reproducible Asset Recipe & Deployment（限定已測環境）
+
+- 同 pinned toolchain 對真 glTF／RGBA8 KTX2 supplied mips／PNG fallback 轉換兩次，7 files／5399 bytes 與 manifest SHA256 全一致；unknown toolchain／unsupported profile 明確失敗，不自製 BC／ASTC encoder。
+- 真 pack 解壓的 browser consumer 在 forced WebGL2／WebGPU 顯示 2×2／2 mips 與 fallback PNG（各 21904 colored pixels）；5 asset checksums、14 official vendor files 逐位元組驗證通過。
+- Real AudioManager.unlock=true，官方 8 processor assets 的 server responses 全 HTTP 200／2109 bytes／相同官方 checksum；worklet worker traffic 不能用 page request events 的空陣列冒稱沒載入。完整 `dist/vendor/opm/` 對官方 inventory 無 extras。
+- Build 只清理 generated vendor mirror 再複製，不修改官方 source。清理前的額外 duplicate generated files 已完整備份至自有 /tmp archive；不推論其產生原因。

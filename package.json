@@ -34,6 +34,8 @@
     "regression:browser": "node scripts/regression-browser.mjs",
     "check:tree-shaking": "node scripts/check-tree-shaking.mjs",
     "soak:mixed": "node scripts/mixed-soak.mjs",
+    "assets:build": "node scripts/build-assets.mjs",
+    "check:asset-deployment": "node scripts/verify-asset-deployment.mjs",
     "docs:api": "typedoc"
   },
   "devDependencies": {
