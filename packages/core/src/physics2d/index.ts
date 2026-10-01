@@ -11,3 +11,18 @@ export type {
 } from './world.js';
 export { Trigger2D } from './trigger.js';
 export type { TriggerOptions } from './trigger.js';
+export {
+  DistanceJoint,
+  Joint2D,
+  MouseJoint,
+  PrismaticJoint,
+  RevoluteJoint,
+  WeldJoint,
+} from './joints.js';
+export type {
+  DistanceJointOptions,
+  JointOptions,
+  MouseJointOptions,
+  PrismaticJointOptions,
+  RevoluteJointOptions,
+} from './joints.js';

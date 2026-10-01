@@ -14,6 +14,7 @@ import {
 import { RigidBody2D } from './body.js';
 import { collide, Manifold, rayDistance } from './narrowphase.js';
 import { sweepTimeOfImpact } from './sweep.js';
+import type { Joint2D } from './joints.js';
 
 export interface CollisionDetail {
   readonly self: GameObject;
@@ -53,6 +54,7 @@ class Proxy {
   inverseInertia = 0;
   sleepVisited = 0;
   sleepReady = false;
+  readonly joints: Joint2D[] = [];
   moveX = 0;
   moveY = 0;
   constructor(
@@ -130,6 +132,8 @@ export class PhysicsWorld2D {
   private readonly solveContacts: Contact[] = [];
   private readonly sleepGroup: Proxy[] = [];
   private readonly sweepProxies: Proxy[] = [];
+  private readonly jointSet = new Set<Joint2D>();
+  private readonly activeJoints: Joint2D[] = [];
   private readonly forceBodies = new Set<RigidBody2D>();
   private readonly queryManifold = new Manifold();
   private readonly positionManifold = new Manifold();
@@ -233,6 +237,7 @@ export class PhysicsWorld2D {
     const proxy = this.owners.get(owner);
     if (!proxy) return;
     this.owners.delete(owner);
+    for (const joint of [...proxy.joints]) this.removeJoint(joint);
     // Delete membership before callback dispatch: recursive unregister is harmless.
     for (const contact of proxy.contacts.values()) this.end(contact);
     proxy.contacts.clear();
@@ -449,6 +454,7 @@ export class PhysicsWorld2D {
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
         if (!sensor && !a.inverseMass && !b.inverseMass) continue;
+        if (a.joints.length && this.jointsBlockContact(a, b)) continue;
         let contact = a.contacts.get(b);
         if (!contact) {
           // The scratch manifold avoids allocating a contact for AABB-only candidates.
@@ -489,7 +495,9 @@ export class PhysicsWorld2D {
       if (!this.continuation()) return;
     }
     this.wakeContactGroups(token);
+    this.prepareJoints(dt);
     for (let iteration = 0; iteration < this.velocityIterations; iteration++) {
+      for (const joint of this.activeJoints) joint.solveVelocity(dt);
       for (const contact of this.solveContacts) {
         if (
           contact.active &&
@@ -503,6 +511,7 @@ export class PhysicsWorld2D {
       }
     }
     for (let iteration = 0; iteration < this.positionIterations; iteration++) {
+      for (const joint of this.activeJoints) joint.solvePosition();
       for (const contact of this.solveContacts) {
         if (
           contact.active &&
@@ -515,6 +524,7 @@ export class PhysicsWorld2D {
           this.solvePosition(contact);
       }
     }
+    this.breakJoints();
     for (const contact of this.solveContacts) {
       if (contact.active) this.emit(contact, 'postcollision');
       if (!this.continuation()) return;
@@ -534,6 +544,13 @@ export class PhysicsWorld2D {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
           if (!other.inverseMass || other.sleepVisited === token) continue;
+          other.sleepVisited = token;
+          this.sleepGroup.push(other);
+        }
+        for (const joint of proxy.joints) {
+          const view = joint.partner(proxy);
+          const other = view && this.owners.get(view.owner);
+          if (!other?.inverseMass || other.sleepVisited === token) continue;
           other.sleepVisited = token;
           this.sleepGroup.push(other);
         }
@@ -559,6 +576,14 @@ export class PhysicsWorld2D {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
           if (!other.inverseMass || other.sleepVisited === -token) continue;
+          if (other.body?.isSleeping) other.body.wake();
+          other.sleepVisited = -token;
+          this.sleepGroup.push(other);
+        }
+        for (const joint of proxy.joints) {
+          const view = joint.partner(proxy);
+          const other = view && this.owners.get(view.owner);
+          if (!other?.inverseMass || other.sleepVisited === -token) continue;
           if (other.body?.isSleeping) other.body.wake();
           other.sleepVisited = -token;
           this.sleepGroup.push(other);
@@ -803,6 +828,66 @@ export class PhysicsWorld2D {
     }
     results.sort((a, b) => a.distance - b.distance);
     return results;
+  }
+  /** Attaches a joint between registered bodies (or one body and a fixed world anchor). */
+  addJoint<T extends Joint2D>(joint: T): T {
+    if (this.destroyed)
+      throw new Error('Cannot add a joint to a destroyed PhysicsWorld2D.');
+    if (joint.attached || this.jointSet.has(joint))
+      throw new Error('Joint is already attached to a PhysicsWorld2D.');
+    if (this.jointSet.size >= world2dLimits.physicsJoints)
+      throw new RangeError('Physics joint budget exceeded.');
+    const a = this.owners.get(joint.bodyA);
+    const b = joint.bodyB ? this.owners.get(joint.bodyB) : undefined;
+    if (!a || (joint.bodyB && !b))
+      throw new Error(
+        'Joint bodies must be registered with this PhysicsWorld2D.',
+      );
+    if (!a.inverseMass && !b?.inverseMass)
+      throw new Error('A joint needs at least one dynamic body.');
+    joint.attach(this, a, b);
+    this.jointSet.add(joint);
+    a.body?.wake();
+    b?.body?.wake();
+    return joint;
+  }
+  removeJoint(joint: Joint2D): boolean {
+    if (!this.jointSet.delete(joint)) return false;
+    const [a, b] = joint.views;
+    joint.detach();
+    a.body?.wake();
+    b.body?.wake();
+    return true;
+  }
+  get joints(): readonly Joint2D[] {
+    return [...this.jointSet];
+  }
+  private prepareJoints(dt: number): void {
+    this.activeJoints.length = 0;
+    for (const joint of this.jointSet) {
+      const [a, b] = joint.views;
+      if (joint.resting) continue;
+      if (a.body?.isSleeping) a.body.wake();
+      if (b.body?.isSleeping) b.body.wake();
+      joint.prepare(dt);
+      this.activeJoints.push(joint);
+    }
+  }
+  private breakJoints(): void {
+    for (const joint of [...this.activeJoints]) {
+      if (
+        joint.attached &&
+        joint.reactionForce > joint.breakForce &&
+        this.removeJoint(joint)
+      )
+        joint.onBreak?.(joint);
+    }
+    this.activeJoints.length = 0;
+  }
+  private jointsBlockContact(a: Proxy, b: Proxy): boolean {
+    for (const joint of a.joints)
+      if (!joint.collideConnected && joint.partner(a) === b) return true;
+    return false;
   }
   clear(): void {
     for (const owner of this.owners.keys()) this.unregister(owner);

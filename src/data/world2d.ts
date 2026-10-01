@@ -4,6 +4,7 @@ export const world2dLimits = Object.freeze({
   mapCells: 65_536,
   particles: 16_384,
   physicsBodies: 16_384,
+  physicsJoints: 4_096,
   maxSubSteps: 120,
   solverIterations: 64,
 });
@@ -23,4 +24,7 @@ export const physicsDefaults = Object.freeze({
   sleepTime: 0.5,
   ccdTravelRatio: 0.25,
   ccdPenetration: 0.01,
+  jointMaxCorrection: 10,
+  jointMaxAngularCorrection: 0.14,
+  jointAngularSlop: 0.035,
 });

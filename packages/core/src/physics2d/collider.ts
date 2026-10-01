@@ -21,6 +21,11 @@ export function positive(value: number, name: string): number {
   if (value <= 0) throw new RangeError(`${name} must be positive.`);
   return value;
 }
+export function nonnegativeFinite(value: number, name: string): number {
+  finite(value, name);
+  if (value < 0) throw new RangeError(`${name} must be nonnegative.`);
+  return value;
+}
 export function unsigned(value: number, name: string): number {
   if (!Number.isInteger(value) || value < 0 || value > 0xffffffff)
     throw new RangeError(`${name} must be an unsigned 32-bit integer.`);
