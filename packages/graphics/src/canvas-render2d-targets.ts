@@ -30,20 +30,20 @@ export class CanvasRender2DTargets {
     this.idle();
     const size = validateRenderTextureSize2D(options);
     const canvas = document.createElement('canvas');
-    canvas.width = size.width;
-    canvas.height = size.height;
-    if (!canvas.getContext('2d'))
+    this.engine.resizeCanvas(canvas, size.width, size.height);
+    if (!canvas.getContext('2d')) {
+      this.engine.releaseCanvas(canvas);
       throw new GraphicsError('Canvas2D target unavailable.');
+    }
     const target = createOwnedRenderTexture2D(
       this.owner,
       size,
       (next) => {
         this.idle();
-        canvas.width = next.width;
-        canvas.height = next.height;
+        this.engine.resizeCanvas(canvas, next.width, next.height);
       },
       () => {
-        canvas.width = canvas.height = 1;
+        this.engine.releaseCanvas(canvas);
         this.canvases.delete(target);
       },
     );
@@ -114,11 +114,12 @@ export class CanvasRender2DTargets {
       };
       inspect(commands);
       validateRenderTextureDependencies2D(target, dependencies, this.owner);
-      scratch.width = target.width;
-      scratch.height = target.height;
+      this.engine.resizeCanvas(scratch, target.width, target.height);
       const context = scratch.getContext('2d')!;
-      if (options.clear === false)
+      if (options.clear === false) {
         context.drawImage(this.canvases.get(target)!, 0, 0);
+        this.engine.stats.draw2D();
+      }
       this.engine.draw(
         context,
         commands,
@@ -129,12 +130,14 @@ export class CanvasRender2DTargets {
         bounds,
       );
       const destination = this.canvases.get(target)!.getContext('2d')!;
+      this.engine.stats.pass2D();
       destination.globalCompositeOperation = 'copy';
       destination.drawImage(scratch, 0, 0);
+      this.engine.stats.draw2D();
       destination.globalCompositeOperation = 'source-over';
       target.publish(this.owner, dependencies);
     } finally {
-      scratch.width = scratch.height = 1;
+      this.engine.releaseCanvas(scratch);
       commands.destroy();
       this.engine.sources.endFrame();
     }

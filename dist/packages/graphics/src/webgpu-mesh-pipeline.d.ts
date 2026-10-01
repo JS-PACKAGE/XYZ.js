@@ -1,5 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
-import { FrameStats } from './render-stats.js';
+import type { FrameStats } from './render-stats.js';
 /** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
@@ -89,7 +89,7 @@ export declare class WebGPUMeshPipeline {
     private readonly shadowAttachment;
     private readonly shadowDescriptor;
     private constructor();
-    static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number): Promise<WebGPUMeshPipeline>;
+    static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number, stats: FrameStats): Promise<WebGPUMeshPipeline>;
     resize(width: number, height: number): void;
     private ensureRefraction;
     private releaseRefraction;

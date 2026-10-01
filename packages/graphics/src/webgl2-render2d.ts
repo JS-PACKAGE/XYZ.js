@@ -30,6 +30,7 @@ import { TilingSprite2D } from '../../core/src/graphics2d/tiling-sprite2d.js';
 import { Matrix3 } from '../../math/src/index.js';
 import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 import { GraphicsError } from './errors.js';
+import type { FrameStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -53,6 +54,7 @@ import {
 import {
   quadVertex2D,
   quadFragment2D,
+  spriteInstanceVertex2D,
   particleVertex2D,
   meshVertex2D,
   meshFragment2D,
@@ -95,9 +97,12 @@ interface ParticleBuffers2D {
   buffer: WebGLBuffer;
   data: Float32Array;
   versions: Float64Array;
+  slots: Uint32Array;
+  generations: Float64Array;
 }
 export interface GLRender2DHooks {
   owner: object;
+  stats: FrameStats;
   createTarget(width: number, height: number): GLTarget2D;
   deleteTarget(target: GLTarget2D): void;
   createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
@@ -128,6 +133,11 @@ export class WebGLRender2D {
   private readonly meshProgram: Program2D;
   private readonly particleProgram: Program2D;
   private readonly passProgram: Program2D;
+  private readonly spriteProgram: Program2D;
+  private readonly spriteVAO: WebGLVertexArrayObject;
+  private readonly spriteBuffer: WebGLBuffer;
+  private spriteData = new Float32Array(28 * 64);
+  private spriteCapacity = 0;
   private readonly blendProgram: Program2D;
   private readonly matrixRows = new Float32Array(20);
   private readonly dependencies: RenderTexture2D[] = [];
@@ -158,6 +168,23 @@ export class WebGLRender2D {
         'versioned particle layer',
       ),
     );
+    this.spriteProgram = this.register(
+      hooks.createProgram(
+        spriteInstanceVertex2D,
+        quadFragment2D(),
+        '2D sprite batch',
+      ),
+    );
+    const spriteVAO = gl.createVertexArray(),
+      spriteBuffer = gl.createBuffer();
+    if (!spriteVAO || !spriteBuffer) {
+      if (spriteVAO) gl.deleteVertexArray(spriteVAO);
+      if (spriteBuffer) gl.deleteBuffer(spriteBuffer);
+      throw new GraphicsError('WebGL2 sprite batch allocation failed.');
+    }
+    this.spriteVAO = spriteVAO;
+    this.spriteBuffer = spriteBuffer;
+    this.bindInstances(spriteVAO, spriteBuffer, 0);
     this.passProgram = this.register(
       hooks.createProgram(
         passVertex2D,
@@ -446,22 +473,87 @@ export class WebGLRender2D {
     commands: RenderCommandBuffer2D,
     context: Context2D,
   ): void {
-    for (const command of commands.items) {
+    this.hooks.stats.pass2D();
+    const items = commands.items;
+    for (let i = 0; i < items.length;) {
+      const command = items[i];
       this.bindTarget(context);
+      if (
+        command.kind === 'sprite' &&
+        !command.object.material &&
+        !(command.object instanceof TilingSprite2D)
+      ) {
+        const sprite = command.object;
+        let end = i + 1;
+        while (end < items.length) {
+          const next = items[end];
+          if (
+            next.kind !== 'sprite' ||
+            next.object.material ||
+            next.object instanceof TilingSprite2D ||
+            next.object.texture !== sprite.texture ||
+            (next.object.sampler?.minFilter === 'nearest') !==
+              (sprite.sampler?.minFilter === 'nearest') ||
+            (next.object.sampler?.magFilter === 'nearest') !==
+              (sprite.sampler?.magFilter === 'nearest')
+          )
+            break;
+          end++;
+        }
+        this.drawSprites(commands, i, end, context);
+        i = end;
+        continue;
+      }
       if (command.kind === 'layer')
         this.drawLayer(command.object, command.commands, context);
       else if (command.kind === 'sprite')
         this.drawSprite(command.object, context);
       else if (command.kind === 'mesh') this.drawMesh(command.object, context);
       else this.drawParticles(command.object, context);
+      i++;
     }
   }
-  private drawSprite(sprite: Sprite, context: Context2D): void {
-    const gl = this.gl,
-      quad = getSpriteQuad2D(sprite, this.quad);
-    const program = sprite.material
-      ? this.register(this.hooks.material(sprite.material))
-      : this.quadProgram;
+  private bindInstances(
+    vao: WebGLVertexArrayObject,
+    buffer: WebGLBuffer,
+    first: number,
+  ): void {
+    const gl = this.gl;
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    for (let i = 0; i < 7; i++) {
+      gl.enableVertexAttribArray(i);
+      gl.vertexAttribPointer(i, 4, gl.FLOAT, false, 112, first * 112 + i * 16);
+      gl.vertexAttribDivisor(i, 1);
+    }
+  }
+  private packQuad(data: Float32Array, offset: number, q: TextureQuad2D): void {
+    data[offset + 12] = q.x;
+    data[offset + 13] = q.y;
+    data[offset + 14] = q.width;
+    data[offset + 15] = q.height;
+    data[offset + 16] = q.u0;
+    data[offset + 17] = q.v0;
+    data[offset + 20] = q.ux;
+    data[offset + 21] = q.vx;
+    data[offset + 22] = q.uy;
+    data[offset + 23] = q.vy;
+    data[offset + 24] = Math.min(
+      q.u0,
+      q.u0 + q.ux,
+      q.u0 + q.uy,
+      q.u0 + q.ux + q.uy,
+    );
+    data[offset + 25] = Math.min(
+      q.v0,
+      q.v0 + q.vx,
+      q.v0 + q.vy,
+      q.v0 + q.vx + q.vy,
+    );
+    data[offset + 26] = Math.abs(q.ux) + Math.abs(q.uy);
+    data[offset + 27] = Math.abs(q.vx) + Math.abs(q.vy);
+  }
+  private spriteMatrix(sprite: Sprite, context: Context2D): Matrix3 {
     this.objectMatrix(sprite, context, this.matrix);
     if (sprite.roundPixels) {
       this.matrix.elements[6] =
@@ -479,6 +571,83 @@ export class WebGLRender2D {
           context.bounds.height) /
         context.target.height;
     }
+    return this.matrix;
+  }
+  private drawSprites(
+    commands: RenderCommandBuffer2D,
+    first: number,
+    end: number,
+    context: Context2D,
+  ): void {
+    const gl = this.gl,
+      count = end - first;
+    if (count * 28 > this.spriteData.length)
+      this.spriteData = new Float32Array(
+        Math.max(count * 28, this.spriteData.length * 2),
+      );
+    for (let i = first; i < end; i++) {
+      const command = commands.items[i];
+      if (command.kind !== 'sprite') continue;
+      const sprite = command.object,
+        offset = (i - first) * 28,
+        e = this.spriteMatrix(sprite, context).elements,
+        data = this.spriteData;
+      data[offset] = e[0];
+      data[offset + 1] = e[1];
+      data[offset + 2] = e[3];
+      data[offset + 3] = e[4];
+      data[offset + 4] = e[6];
+      data[offset + 5] = e[7];
+      getRelativeAppearance2D(sprite, context.root, this.appearance);
+      data.set(this.appearance, offset + 8);
+      this.packQuad(data, offset, getSpriteQuad2D(sprite, this.quad));
+    }
+    const command = commands.items[first];
+    if (command.kind !== 'sprite') return;
+    const sprite = command.object,
+      program = this.spriteProgram;
+    gl.useProgram(program.program);
+    gl.uniform2f(
+      this.uniform(program, 'viewportSize'),
+      context.bounds.width,
+      context.bounds.height,
+    );
+    gl.uniform1i(this.uniform(program, 'image'), 0);
+    gl.uniform1i(
+      this.uniform(program, 'renderSource'),
+      sprite.texture.kind === 'render' ? 1 : 0,
+    );
+    gl.uniform1i(this.uniform(program, 'tiling'), 0);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, this.hooks.source(sprite.texture));
+    gl.bindSampler(
+      0,
+      this.sampler(
+        sprite.sampler?.minFilter === 'nearest',
+        sprite.sampler?.magFilter === 'nearest',
+      ),
+    );
+    this.bindInstances(this.spriteVAO, this.spriteBuffer, 0);
+    if (this.spriteCapacity < this.spriteData.byteLength) {
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        this.spriteData.byteLength,
+        gl.DYNAMIC_DRAW,
+      );
+      this.spriteCapacity = this.spriteData.byteLength;
+    }
+    gl.bufferSubData(gl.ARRAY_BUFFER, 0, this.spriteData, 0, count * 28);
+    this.hooks.stats.upload(count * 112);
+    gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, count);
+    this.hooks.stats.draw2D(count);
+  }
+  private drawSprite(sprite: Sprite, context: Context2D): void {
+    const gl = this.gl,
+      quad = getSpriteQuad2D(sprite, this.quad);
+    const program = sprite.material
+      ? this.register(this.hooks.material(sprite.material))
+      : this.quadProgram;
+    this.spriteMatrix(sprite, context);
     getRelativeAppearance2D(sprite, context.root, this.appearance);
     this.useQuad(
       program,
@@ -540,6 +709,7 @@ export class WebGLRender2D {
       gl.uniformMatrix3fv(this.uniform(program, 'tileTransform'), false, e);
     }
     gl.drawArrays(gl.TRIANGLES, 0, 6);
+    this.hooks.stats.draw2D();
   }
   private drawMesh(mesh: Mesh2D, context: Context2D): void {
     const gl = this.gl,
@@ -578,6 +748,9 @@ export class WebGLRender2D {
       gl.bufferData(gl.ARRAY_BUFFER, entry.data, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, entry.index);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.DYNAMIC_DRAW);
+      this.hooks.stats.upload(
+        entry.data.byteLength + geometry.indices.byteLength,
+      );
       gl.enableVertexAttribArray(0);
       gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 20, 0);
       gl.enableVertexAttribArray(1);
@@ -600,10 +773,11 @@ export class WebGLRender2D {
     );
     gl.bindVertexArray(entry.vao);
     gl.drawElements(gl.TRIANGLES, geometry.indices.length, gl.UNSIGNED_INT, 0);
+    this.hooks.stats.draw2D();
   }
   private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
     const gl = this.gl,
-      stride = 24;
+      stride = 28;
     let entry = this.particles.get(layer);
     if (!entry) {
       const vao = gl.createVertexArray(),
@@ -618,31 +792,55 @@ export class WebGLRender2D {
         buffer,
         data: new Float32Array(layer.capacity * stride),
         versions: new Float64Array(layer.capacity * 4).fill(-1),
+        slots: new Uint32Array(layer.capacity).fill(0xffffffff),
+        generations: new Float64Array(layer.capacity).fill(-1),
       };
       this.particles.set(layer, entry);
-      gl.bindVertexArray(vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
       gl.bufferData(gl.ARRAY_BUFFER, entry.data.byteLength, gl.DYNAMIC_DRAW);
-      for (let i = 0; i < 6; i++) {
-        gl.enableVertexAttribArray(i);
-        gl.vertexAttribPointer(i, 4, gl.FLOAT, false, stride * 4, i * 16);
-        gl.vertexAttribDivisor(i, 1);
-      }
+      this.bindInstances(vao, buffer, 0);
     }
-    this.objectMatrix(layer, context, this.matrix);
-    this.objectMatrix(layer, context, this.mapping, true);
-    getRelativeAppearance2D(layer, context.root, this.appearance);
+    gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
+    let dirtyFirst = -1,
+      dirtyEnd = 0;
     for (let i = 0; i < layer.activeCount; i++) {
       const index = layer.activeSlotAt(i),
         slot = layer.getSlot(index),
-        offset = index * stride,
-        versions = index * 4,
-        data = entry.data;
-      gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
-      if (
-        layer.dynamicAttributes & ParticleAttribute2D.Transform ||
-        entry.versions[versions] !== slot.transformVersion
-      ) {
+        offset = i * stride,
+        versions = i * 4,
+        data = entry.data,
+        moved =
+          entry.slots[i] !== index || entry.generations[i] !== slot.generation,
+        q = getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad);
+      const transformDirty =
+        moved ||
+        !!(layer.dynamicAttributes & ParticleAttribute2D.Transform) ||
+        entry.versions[versions] !== slot.transformVersion;
+      const tintDirty =
+        moved ||
+        !!(layer.dynamicAttributes & ParticleAttribute2D.Tint) ||
+        entry.versions[versions + 1] !== slot.tintVersion;
+      const sourceDirty =
+        moved ||
+        !!(
+          layer.dynamicAttributes &
+          (ParticleAttribute2D.Source | ParticleAttribute2D.Anchor)
+        ) ||
+        entry.versions[versions + 2] !== slot.sourceVersion ||
+        entry.versions[versions + 3] !== slot.anchorVersion ||
+        data[offset + 12] !==
+          Math.fround(q.x - slot.anchorX * q.naturalWidth) ||
+        data[offset + 13] !==
+          Math.fround(q.y - slot.anchorY * q.naturalHeight) ||
+        data[offset + 14] !== Math.fround(q.width) ||
+        data[offset + 15] !== Math.fround(q.height) ||
+        data[offset + 16] !== Math.fround(q.u0) ||
+        data[offset + 17] !== Math.fround(q.v0) ||
+        data[offset + 20] !== Math.fround(q.ux) ||
+        data[offset + 21] !== Math.fround(q.vx) ||
+        data[offset + 22] !== Math.fround(q.uy) ||
+        data[offset + 23] !== Math.fround(q.vy);
+      if (transformDirty) {
         data[offset] = slot.a;
         data[offset + 1] = slot.b;
         data[offset + 2] = slot.c;
@@ -650,54 +848,61 @@ export class WebGLRender2D {
         data[offset + 4] = slot.tx;
         data[offset + 5] = slot.ty;
         data[offset + 6] = slot.space === 'world' ? 1 : 0;
-        gl.bufferSubData(gl.ARRAY_BUFFER, offset * 4, data, offset, 8);
         entry.versions[versions] = slot.transformVersion;
       }
-      if (
-        layer.dynamicAttributes & ParticleAttribute2D.Tint ||
-        entry.versions[versions + 1] !== slot.tintVersion
-      ) {
+      if (tintDirty) {
         data[offset + 8] = slot.tintR;
         data[offset + 9] = slot.tintG;
         data[offset + 10] = slot.tintB;
         data[offset + 11] = slot.tintA;
-        gl.bufferSubData(
-          gl.ARRAY_BUFFER,
-          (offset + 8) * 4,
-          data,
-          offset + 8,
-          4,
-        );
         entry.versions[versions + 1] = slot.tintVersion;
       }
-      getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad);
-      if (
-        layer.dynamicAttributes &
-          (ParticleAttribute2D.Source | ParticleAttribute2D.Anchor) ||
-        entry.versions[versions + 2] !== slot.sourceVersion ||
-        entry.versions[versions + 3] !== slot.anchorVersion
-      ) {
-        const q = this.quad;
+      if (sourceDirty) {
+        this.packQuad(data, offset, q);
         data[offset + 12] = q.x - slot.anchorX * q.naturalWidth;
         data[offset + 13] = q.y - slot.anchorY * q.naturalHeight;
-        data[offset + 14] = q.width;
-        data[offset + 15] = q.height;
-        data[offset + 16] = q.u0;
-        data[offset + 17] = q.v0;
-        data[offset + 20] = q.ux;
-        data[offset + 21] = q.vx;
-        data[offset + 22] = q.uy;
-        data[offset + 23] = q.vy;
-        gl.bufferSubData(
-          gl.ARRAY_BUFFER,
-          (offset + 12) * 4,
-          data,
-          offset + 12,
-          12,
-        );
         entry.versions[versions + 2] = slot.sourceVersion;
         entry.versions[versions + 3] = slot.anchorVersion;
       }
+      entry.slots[i] = index;
+      entry.generations[i] = slot.generation;
+      if (transformDirty || tintDirty || sourceDirty) {
+        if (dirtyFirst < 0) dirtyFirst = offset;
+        dirtyEnd = offset + stride;
+      } else if (dirtyFirst >= 0) {
+        gl.bufferSubData(
+          gl.ARRAY_BUFFER,
+          dirtyFirst * 4,
+          data,
+          dirtyFirst,
+          dirtyEnd - dirtyFirst,
+        );
+        this.hooks.stats.upload((dirtyEnd - dirtyFirst) * 4);
+        dirtyFirst = -1;
+      }
+    }
+    if (dirtyFirst >= 0) {
+      gl.bufferSubData(
+        gl.ARRAY_BUFFER,
+        dirtyFirst * 4,
+        entry.data,
+        dirtyFirst,
+        dirtyEnd - dirtyFirst,
+      );
+      this.hooks.stats.upload((dirtyEnd - dirtyFirst) * 4);
+    }
+    this.objectMatrix(layer, context, this.matrix);
+    this.objectMatrix(layer, context, this.mapping, true);
+    getRelativeAppearance2D(layer, context.root, this.appearance);
+    for (let first = 0; first < layer.activeCount;) {
+      const slot = layer.getSlot(layer.activeSlotAt(first));
+      let end = first + 1;
+      while (
+        end < layer.activeCount &&
+        layer.getSlot(layer.activeSlotAt(end)).texture === slot.texture
+      )
+        end++;
+      getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad);
       this.useQuad(
         this.particleProgram,
         context,
@@ -711,18 +916,10 @@ export class WebGLRender2D {
         false,
         this.mapping.elements,
       );
-      gl.bindVertexArray(entry.vao);
-      gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
-      for (let attribute = 0; attribute < 6; attribute++)
-        gl.vertexAttribPointer(
-          attribute,
-          4,
-          gl.FLOAT,
-          false,
-          stride * 4,
-          offset * 4 + attribute * 16,
-        );
-      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, 1);
+      this.bindInstances(entry.vao, entry.buffer, first);
+      gl.drawArraysInstanced(gl.TRIANGLES, 0, 6, end - first);
+      this.hooks.stats.draw2D(end - first);
+      first = end;
     }
   }
   private layer(
@@ -869,6 +1066,7 @@ export class WebGLRender2D {
       );
       gl.bindFramebuffer(gl.READ_FRAMEBUFFER, context.target.framebuffer);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, backdrop.framebuffer);
+      this.hooks.stats.pass2D();
       gl.blitFramebuffer(
         0,
         0,
@@ -885,6 +1083,7 @@ export class WebGLRender2D {
     try {
       this.bindTarget(context);
       const program = backdrop ? this.blendProgram : this.quadProgram;
+      this.hooks.stats.pass2D();
       this.useQuad(program, context, source, quad, transform, appearance);
       if (backdrop) {
         gl.disable(gl.BLEND);
@@ -909,6 +1108,7 @@ export class WebGLRender2D {
           gl.ONE_MINUS_SRC_ALPHA,
         );
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      this.hooks.stats.draw2D();
     } finally {
       if (backdrop) this.hooks.deleteTarget(backdrop);
     }
@@ -916,6 +1116,7 @@ export class WebGLRender2D {
   private drawMask(mask: Mask2D, target: GLTarget2D, bounds: Rect2D): void {
     const gl = this.gl;
     this.clear(target);
+    this.hooks.stats.pass2D();
     if (mask.texture) {
       getTextureQuad2D(mask.texture, mask.view, undefined, this.quad);
       const e = this.matrix.identity().elements,
@@ -937,6 +1138,7 @@ export class WebGLRender2D {
         this.appearance,
       );
       gl.drawArrays(gl.TRIANGLES, 0, 6);
+      this.hooks.stats.draw2D();
       return;
     }
     const canvas = document.createElement('canvas');
@@ -967,6 +1169,7 @@ export class WebGLRender2D {
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
     gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, gl.RGBA, gl.UNSIGNED_BYTE, canvas);
+    this.hooks.stats.upload(target.width * target.height * 4);
     gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
     gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
     canvas.width = canvas.height = 0;
@@ -984,6 +1187,7 @@ export class WebGLRender2D {
     const gl = this.gl,
       program = this.passProgram;
     this.clear(output);
+    this.hooks.stats.pass2D();
     gl.disable(gl.BLEND);
     gl.useProgram(program.program);
     gl.bindVertexArray(this.emptyVAO);
@@ -1054,6 +1258,7 @@ export class WebGLRender2D {
       gl.uniform1i(this.uniform(program, 'inverseMask'), mask?.inverse ? 1 : 0);
     }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.hooks.stats.draw2D();
   }
 
   createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D {
@@ -1152,6 +1357,7 @@ export class WebGLRender2D {
           destination.framebuffer,
         );
         this.gl.bindFramebuffer(this.gl.DRAW_FRAMEBUFFER, staging.framebuffer);
+        this.hooks.stats.pass2D();
         this.gl.blitFramebuffer(
           0,
           0,
@@ -1198,6 +1404,7 @@ export class WebGLRender2D {
         this.gl.DRAW_FRAMEBUFFER,
         destination.framebuffer,
       );
+      this.hooks.stats.pass2D();
       this.gl.blitFramebuffer(
         0,
         0,
@@ -1232,6 +1439,7 @@ export class WebGLRender2D {
       for (const effect of scene.effects2D) {
         const program = this.register(this.hooks.processor(effect));
         this.clear(output);
+        this.hooks.stats.pass2D();
         gl.disable(gl.BLEND);
         gl.bindVertexArray(this.emptyVAO);
         gl.useProgram(program.program);
@@ -1246,6 +1454,7 @@ export class WebGLRender2D {
         gl.bindTexture(gl.TEXTURE_2D, input.texture);
         gl.bindSampler(0, this.sampler(false, false));
         gl.drawArrays(gl.TRIANGLES, 0, 3);
+        this.hooks.stats.draw2D();
         const swap = input;
         input = output;
         output = swap;
@@ -1253,6 +1462,7 @@ export class WebGLRender2D {
       if (input !== target) {
         gl.bindFramebuffer(gl.READ_FRAMEBUFFER, input.framebuffer);
         gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, target.framebuffer);
+        this.hooks.stats.pass2D();
         gl.blitFramebuffer(
           0,
           0,
@@ -1384,6 +1594,7 @@ export class WebGLRender2D {
     for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
     for (const program of [
       this.quadProgram,
+      this.spriteProgram,
       this.meshProgram,
       this.particleProgram,
       this.passProgram,
@@ -1391,6 +1602,8 @@ export class WebGLRender2D {
     ])
       gl.deleteProgram(program.program);
     gl.deleteVertexArray(this.emptyVAO);
+    gl.deleteVertexArray(this.spriteVAO);
+    gl.deleteBuffer(this.spriteBuffer);
     this.targets.clear();
     this.layers.clear();
     this.meshes.clear();

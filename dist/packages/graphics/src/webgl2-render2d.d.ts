@@ -3,6 +3,7 @@ import type { Scene } from '../../core/src/scene.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import type { FrameStats } from './render-stats.js';
 import { RenderCommandBuffer2D } from './render2d-contract.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 export interface GLTarget2D {
@@ -13,6 +14,7 @@ export interface GLTarget2D {
 }
 export interface GLRender2DHooks {
     owner: object;
+    stats: FrameStats;
     createTarget(width: number, height: number): GLTarget2D;
     deleteTarget(target: GLTarget2D): void;
     createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
@@ -44,6 +46,11 @@ export declare class WebGLRender2D {
     private readonly meshProgram;
     private readonly particleProgram;
     private readonly passProgram;
+    private readonly spriteProgram;
+    private readonly spriteVAO;
+    private readonly spriteBuffer;
+    private spriteData;
+    private spriteCapacity;
     private readonly blendProgram;
     private readonly matrixRows;
     private readonly dependencies;
@@ -65,6 +72,10 @@ export declare class WebGLRender2D {
     private useQuad;
     private sampler;
     private drawCommands;
+    private bindInstances;
+    private packQuad;
+    private spriteMatrix;
+    private drawSprites;
     private drawSprite;
     private drawMesh;
     private drawParticles;

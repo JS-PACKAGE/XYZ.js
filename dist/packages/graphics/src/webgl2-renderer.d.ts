@@ -30,6 +30,7 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly meshDraws;
     private readonly drawSorter;
     readonly stats: FrameStats;
+    private readonly targetBytes;
     private maxTextureSize;
     private maxWidth;
     private maxHeight;

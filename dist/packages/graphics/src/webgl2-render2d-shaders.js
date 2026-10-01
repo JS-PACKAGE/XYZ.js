@@ -24,6 +24,30 @@ ${e}
 void main() {
   vec2 corners[6] = vec2[6](vec2(0,0),vec2(1,0),vec2(0,1),vec2(0,1),vec2(1,0),vec2(1,1));
   vec2 uv = corners[gl_VertexID]; emitVertex(localRect.xy + uv * localRect.zw, uv);
+}`;export const spriteInstanceVertex2D=`#version 300 es
+precision highp float;
+layout(location=0) in vec4 axes;
+layout(location=1) in vec4 offsetSpace;
+layout(location=2) in vec4 instanceTint;
+layout(location=3) in vec4 instanceRect;
+layout(location=4) in vec4 instanceUV;
+layout(location=5) in vec4 instanceBasis;
+layout(location=6) in vec4 instanceBounds;
+uniform vec2 viewportSize;
+out vec2 vUV;
+out vec2 vLocalUV;
+out vec2 vScreen;
+out float vOpacity;
+out vec4 vSource;
+out vec4 vTint;
+void main() {
+  vec2 corners[6] = vec2[6](vec2(0,0),vec2(1,0),vec2(0,1),vec2(0,1),vec2(1,0),vec2(1,1));
+  vec2 uv=corners[gl_VertexID], p=instanceRect.xy+uv*instanceRect.zw;
+  vec2 world=offsetSpace.xy+axes.xy*p.x+axes.zw*p.y;
+  gl_Position=vec4(world.x*2.0/viewportSize.x-1.0,1.0-world.y*2.0/viewportSize.y,0,1);
+  vUV=instanceUV.xy+instanceBasis.xy*uv.x+instanceBasis.zw*uv.y;
+  vLocalUV=uv; vScreen=world; vOpacity=instanceTint.a;
+  vTint=vec4(instanceTint.rgb,1); vSource=instanceBounds;
 }`;export const particleVertex2D=`#version 300 es
 precision highp float;
 layout(location=0) in vec4 axes;
@@ -32,6 +56,7 @@ layout(location=2) in vec4 particleTint;
 layout(location=3) in vec4 particleRect;
 layout(location=4) in vec4 particleUV;
 layout(location=5) in vec4 particleBasis;
+layout(location=6) in vec4 particleBounds;
 uniform mat3 worldTransform;
 ${e}
 void main() {
@@ -42,7 +67,7 @@ void main() {
   gl_Position = vec4(world.x*2.0/viewportSize.x-1.0,1.0-world.y*2.0/viewportSize.y,0,1);
   vUV = particleUV.xy + particleBasis.xy*uv.x + particleBasis.zw*uv.y;
   vLocalUV=uv; vScreen=world; vOpacity=appearance.a*particleTint.a;
-  vTint=vec4(appearance.rgb*particleTint.rgb,1); vSource=sourceBounds;
+  vTint=vec4(appearance.rgb*particleTint.rgb,1); vSource=particleBounds;
 }`;export const meshVertex2D=`#version 300 es
 precision highp float;
 layout(location=0) in vec2 position;

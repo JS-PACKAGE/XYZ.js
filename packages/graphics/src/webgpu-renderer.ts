@@ -72,10 +72,10 @@ interface CachedTexture {
 
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
-  private readonly idleStats = new FrameStats();
+  private readonly frameStats = new FrameStats();
 
   get stats(): RenderStats {
-    return this.meshPipeline?.stats ?? this.idleStats;
+    return this.frameStats;
   }
   readonly capabilities = {
     threeD: true,
@@ -123,6 +123,9 @@ export class WebGPURenderer implements Renderer {
 
   private readonly render2DHooks: WebGPURender2DHooks = {
     owner: this,
+    get stats(): FrameStats {
+      return (this.owner as WebGPURenderer).frameStats;
+    },
     upload: (source) => {
       const entry = this.cacheTexture(this.requireDevice(), source);
       entry.seen = this.textureFrame;
@@ -248,6 +251,8 @@ export class WebGPURenderer implements Renderer {
             device,
             format,
             () => this.destroyed || !!this.lostError,
+            () => this.frameStats,
+            () => !!this.encoder,
           );
           this.effectsPipeline = effectsPipeline;
           await effectsPipeline.initialize();
@@ -261,6 +266,7 @@ export class WebGPURenderer implements Renderer {
             format,
             () => this.destroyed,
             this.antialias ? 4 : 1,
+            this.frameStats,
           );
         }
       } finally {
@@ -407,7 +413,7 @@ export class WebGPURenderer implements Renderer {
       return snapshot;
     } catch (error) {
       this.encoder = undefined;
-      target.texture.destroy();
+      this.effectsPipeline!.destroyTexture(target.texture);
       throw error;
     } finally {
       this.captureOutput = undefined;
@@ -421,6 +427,7 @@ export class WebGPURenderer implements Renderer {
         'WebGPU beginFrame called before the preceding frame ended.',
       );
     this.encoder = device.createCommandEncoder();
+    this.frameStats.begin();
     this.frameRendered = false;
   }
 
@@ -510,6 +517,7 @@ export class WebGPURenderer implements Renderer {
           this.colorAttachment.view = source.view;
           this.colorAttachment.loadOp = 'clear';
           encoder.beginRenderPass(this.renderPassDescriptor).end();
+          this.frameStats.pass2D();
           this.colorAttachment.view = output;
         }
         native.composite(
@@ -533,6 +541,7 @@ export class WebGPURenderer implements Renderer {
         if (!drewMeshes) {
           this.colorAttachment.loadOp = 'clear';
           encoder.beginRenderPass(this.renderPassDescriptor).end();
+          this.frameStats.pass2D();
         }
         const layers = native.layers(canvas.width, canvas.height);
         this.render2D!.draw(
@@ -553,6 +562,7 @@ export class WebGPURenderer implements Renderer {
       } else if (!drewMeshes || !scene) {
         this.colorAttachment.loadOp = drewMeshes ? 'load' : 'clear';
         const pass = encoder.beginRenderPass(this.renderPassDescriptor);
+        this.frameStats.pass2D();
         if (scene) {
           pass.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
         } else {
@@ -566,6 +576,7 @@ export class WebGPURenderer implements Renderer {
           );
           pass.setPipeline(pipeline);
           pass.draw(3);
+          this.frameStats.draw2D();
         }
         pass.end();
       }
@@ -675,6 +686,7 @@ export class WebGPURenderer implements Renderer {
         { texture: resource, premultipliedAlpha: true },
         [width, height],
       );
+      this.frameStats.upload(width * height * 4);
     } catch (error) {
       resource.destroy();
       throw error;

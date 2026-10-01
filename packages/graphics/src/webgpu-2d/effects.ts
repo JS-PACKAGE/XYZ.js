@@ -8,6 +8,7 @@ import { GraphicsError } from '../errors.js';
 import { QUAD_BYTES } from '../sprite-instance.js';
 import { quadWGSL } from '../webgpu-render2d-shaders.js';
 import { postWGSL, transitionWGSL } from './shaders.js';
+import type { FrameStats } from '../render-stats.js';
 
 export const premultipliedBlend: GPUBlendState = {
   color: {
@@ -81,7 +82,7 @@ export class GPUSnapshot implements RenderSnapshot {
   destroy(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.target.texture.destroy();
+    this.owner.destroyTexture(this.target.texture);
     this.owner.snapshots.delete(this);
   }
 }
@@ -128,6 +129,9 @@ export class WebGPU2DEffects {
   private transitionIncoming: GPUColorTarget | undefined;
   private transitionOutgoing: GPUColorTarget | undefined;
   private disposed = false;
+  private readonly targetBytes = new WeakMap<GPUTexture, number>();
+  private readonly retiredBuffers: GPUBuffer[] = [];
+  private readonly retiredTextures: GPUTexture[] = [];
   private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
     view?: GPUTextureView;
   } = {
@@ -143,6 +147,8 @@ export class WebGPU2DEffects {
     private readonly device: GPUDevice,
     private readonly format: GPUTextureFormat,
     private readonly cancelled: () => boolean,
+    private readonly stats: () => FrameStats,
+    private readonly recording: () => boolean,
   ) {
     this.drawLayout = device.createBindGroupLayout({
       entries: [
@@ -349,7 +355,9 @@ export class WebGPU2DEffects {
         });
         const ownedBuffer = buffer;
         const dispose = () => {
-          ownedBuffer.destroy();
+          if (!this.disposed && this.recording())
+            this.retiredBuffers.push(ownedBuffer);
+          else ownedBuffer.destroy();
           cache.delete(effect);
           effect.removeEventListener('destroy', dispose);
         };
@@ -405,6 +413,7 @@ export class WebGPU2DEffects {
     if (changed) {
       entry.values.set(effect.uniforms);
       this.device.queue.writeBuffer(entry.buffer, 0, entry.values);
+      this.stats().upload(entry.values.byteLength);
     }
     return entry;
   }
@@ -442,11 +451,33 @@ export class WebGPU2DEffects {
           { binding: 1, resource: this.sampler },
         ],
       });
+      const bytes = width * height * 4;
+      this.targetBytes.set(texture, bytes);
+      this.stats().target(bytes);
       return { texture, view, bindGroup, width, height };
     } catch (error) {
       texture.destroy();
       throw error;
     }
+  }
+  destroyTexture(texture: GPUTexture, submitted = false): void {
+    if (!submitted && !this.disposed && this.recording()) {
+      this.retiredTextures.push(texture);
+      return;
+    }
+    const bytes = this.targetBytes.get(texture);
+    if (bytes !== undefined) {
+      this.targetBytes.delete(texture);
+      this.stats().target(-bytes);
+    }
+    texture.destroy();
+  }
+  flushRetired(): void {
+    for (const buffer of this.retiredBuffers) buffer.destroy();
+    this.retiredBuffers.length = 0;
+    for (const texture of this.retiredTextures)
+      this.destroyTexture(texture, true);
+    this.retiredTextures.length = 0;
   }
 
   frame(width: number, height: number): GPUColorTarget {
@@ -455,7 +486,7 @@ export class WebGPU2DEffects {
       this.frameTarget.width !== width ||
       this.frameTarget.height !== height
     ) {
-      this.frameTarget?.texture.destroy();
+      if (this.frameTarget) this.destroyTexture(this.frameTarget.texture);
       this.frameTarget = this.target(width, height);
       this.transitionBindGroup = undefined;
     }
@@ -473,7 +504,7 @@ export class WebGPU2DEffects {
       try {
         this.layerTargets = [first, this.target(width, height, 'rgba8unorm')];
       } catch (error) {
-        first.texture.destroy();
+        this.destroyTexture(first.texture);
         throw error;
       }
     }
@@ -482,7 +513,8 @@ export class WebGPU2DEffects {
 
   releaseLayers(): void {
     if (this.layerTargets)
-      for (const target of this.layerTargets) target.texture.destroy();
+      for (const target of this.layerTargets)
+        this.destroyTexture(target.texture);
     this.layerTargets = undefined;
   }
 
@@ -537,6 +569,7 @@ export class WebGPU2DEffects {
     if (changed) {
       this.uploadedFrameValues.set(data);
       this.device.queue.writeBuffer(this.frameBuffer, 0, data);
+      this.stats().upload(data.byteLength);
     }
   }
 
@@ -642,11 +675,13 @@ export class WebGPU2DEffects {
     this.attachment.loadOp = load ? 'load' : 'clear';
     try {
       const pass = encoder.beginRenderPass(this.passDescriptor);
+      this.stats().pass2D();
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, texture);
       pass.setBindGroup(1, uniforms ?? this.defaultUniforms);
       pass.setBindGroup(2, this.frameBindGroup);
       pass.draw(3);
+      this.stats().draw2D();
       pass.end();
     } finally {
       this.attachment.view = undefined;
@@ -660,19 +695,19 @@ export class WebGPU2DEffects {
       this.sceneTarget.width !== width ||
       this.sceneTarget.height !== height
     ) {
-      this.sceneTarget?.texture.destroy();
+      if (this.sceneTarget) this.destroyTexture(this.sceneTarget.texture);
       this.sceneTarget = this.target(width, height);
     }
     return this.sceneTarget;
   }
 
   releaseScene(): void {
-    this.sceneTarget?.texture.destroy();
+    if (this.sceneTarget) this.destroyTexture(this.sceneTarget.texture);
     this.sceneTarget = undefined;
   }
 
   releaseFrame(): void {
-    this.frameTarget?.texture.destroy();
+    if (this.frameTarget) this.destroyTexture(this.frameTarget.texture);
     this.frameTarget = undefined;
     this.transitionBindGroup = undefined;
     this.transitionIncoming = undefined;
@@ -692,6 +727,7 @@ export class WebGPU2DEffects {
     for (const snapshot of this.snapshots) snapshot.destroy();
     for (const entry of this.materials.values()) entry.dispose();
     for (const entry of this.processors.values()) entry.dispose();
+    this.flushRetired();
     this.pending.clear();
     this.frameBuffer.destroy();
     this.compositePipeline = undefined;

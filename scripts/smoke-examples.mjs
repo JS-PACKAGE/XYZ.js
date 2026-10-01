@@ -1,12 +1,12 @@
 /* global window, document, requestAnimationFrame -- used inside page.evaluate, which runs in the browser */
 import { readdir, readFile, access } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
-import { homedir } from 'node:os';
+import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
 import { createServer } from 'vite';
 import { chromium, firefox, webkit } from 'playwright-core';
+import { chromiumLaunchOptions } from './browser-launch.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -20,45 +20,6 @@ if (!browserType) throw new Error('Use --browser chromium|firefox|webkit.');
 const port = Number(option('port', '5206'));
 const only = option('example', undefined);
 const backends = option('renderer', undefined);
-
-async function chromiumPath() {
-  if (process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH)
-    return process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-  try {
-    await access(chromium.executablePath());
-    return chromium.executablePath();
-  } catch {
-    const cache =
-      process.env.PLAYWRIGHT_BROWSERS_PATH ||
-      (process.platform === 'darwin'
-        ? join(homedir(), 'Library/Caches/ms-playwright')
-        : join(homedir(), '.cache/ms-playwright'));
-    for (const name of (await readdir(cache))
-      .filter((name) => name.startsWith('chromium-'))
-      .sort()
-      .reverse()) {
-      for (const suffix of [
-        'chrome-mac-arm64/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-        'chrome-mac/Google Chrome for Testing.app/Contents/MacOS/Google Chrome for Testing',
-        'chrome-linux/chrome',
-        'chrome-linux64/chrome',
-        'chrome-win/chrome.exe',
-        'chrome-win64/chrome.exe',
-      ]) {
-        const path = resolve(cache, name, suffix);
-        try {
-          await access(path);
-          return path;
-        } catch {
-          /* Try the next cache layout. */
-        }
-      }
-    }
-    throw new Error(
-      'Chromium not found. Install it with npx playwright-core install chromium or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.',
-    );
-  }
-}
 
 const gallery = await readFile(join(root, 'examples/index.ts'), 'utf8');
 const metadata = new Map();
@@ -92,7 +53,7 @@ for (const entry of await readdir(join(root, 'examples'), {
     : supported.length
       ? supported
       : ['default']) {
-    if (backends && supported.length && !supported.includes(backends)) continue;
+    if (backends && !supported.includes(backends)) continue;
     examples.push({ slug: entry.name, renderer });
   }
 }
@@ -105,19 +66,11 @@ let browser;
 const results = [];
 try {
   await server.listen();
-  browser = await browserType.launch({
-    headless: true,
-    ...(browserName === 'chromium'
-      ? {
-          executablePath: await chromiumPath(),
-          args: [
-            '--enable-unsafe-webgpu',
-            '--enable-features=Vulkan',
-            '--use-angle=metal',
-          ],
-        }
-      : {}),
-  });
+  browser = await browserType.launch(
+    browserName === 'chromium'
+      ? await chromiumLaunchOptions()
+      : { headless: true },
+  );
   console.log(
     `${browserName} ${browser.version()} · ${process.platform}/${process.arch}`,
   );
@@ -170,7 +123,8 @@ try {
         copy.width = 64;
         copy.height = 64;
         const context = copy.getContext('2d', { willReadFrequently: true });
-        if (!context) return 'unavailable: 2D readback context';
+        if (!context)
+          throw new Error('Pixel readback unavailable: 2D copy context.');
         return await new Promise((resolve, reject) =>
           requestAnimationFrame(() => {
             try {
@@ -189,9 +143,7 @@ try {
               }
               reject(new Error('Canvas pixels are uniform/blank.'));
             } catch (error) {
-              if (error.name === 'SecurityError')
-                resolve('unavailable: cross-origin canvas');
-              else reject(error);
+              reject(error);
             }
           }),
         );

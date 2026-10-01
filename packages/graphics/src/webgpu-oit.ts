@@ -1,8 +1,10 @@
 import { oitCompositeWGSL } from './oit-shaders.js';
+import type { FrameStats } from './render-stats.js';
 
 /** Owns transient weighted accumulation/revealage, sharing the opaque depth attachment. */
 export class WebGPUOIT {
   private readonly textures: GPUTexture[] = [];
+  private residentBytes = 0;
   private width = 0;
   private height = 0;
   private group: GPUBindGroup | undefined;
@@ -12,6 +14,7 @@ export class WebGPUOIT {
   constructor(
     private readonly device: GPUDevice,
     private readonly samples: number,
+    private readonly stats: FrameStats,
   ) {
     this.layout = device.createBindGroupLayout({
       entries: [0, 1].map((binding) => ({
@@ -80,6 +83,9 @@ export class WebGPUOIT {
             GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
         });
         this.textures.push(texture);
+        const bytes = width * height * (index === 0 ? 8 : 1);
+        this.residentBytes += bytes;
+        this.stats.target(bytes);
         const view = texture.createView();
         entries.push({ binding: index, resource: view });
         const attachment: GPURenderPassColorAttachment = {
@@ -96,6 +102,8 @@ export class WebGPUOIT {
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
           });
           this.textures.push(multisample);
+          this.residentBytes += bytes * this.samples;
+          this.stats.target(bytes * this.samples);
           attachment.view = multisample.createView();
           attachment.resolveTarget = view;
           attachment.storeOp = 'discard';
@@ -118,6 +126,8 @@ export class WebGPUOIT {
   }
   release(): void {
     for (const texture of this.textures) texture.destroy();
+    this.stats.target(-this.residentBytes);
+    this.residentBytes = 0;
     this.textures.length = this.colors.length = 0;
     this.group = undefined;
     this.width = this.height = 0;

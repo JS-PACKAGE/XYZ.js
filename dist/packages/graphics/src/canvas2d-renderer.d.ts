@@ -11,7 +11,7 @@ import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d
 export declare class Canvas2DRenderer implements Renderer {
     private readonly onError;
     readonly backend: "canvas2d";
-    /** Canvas2D has no 3D pass, so every counter stays zero. */
+    private readonly frameStats;
     readonly stats: RenderStats;
     readonly capabilities: GraphicsCapabilities;
     private canvas;

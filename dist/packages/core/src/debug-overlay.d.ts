@@ -1,4 +1,5 @@
 import type { Game } from './game.js';
+import type { RenderStats } from '../../graphics/src/render-stats.js';
 export interface DebugOverlayOptions {
     /** Corner of the canvas the panel sticks to. Default `top-left`. */
     position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
@@ -17,13 +18,7 @@ export interface DebugSample {
     logicalSize: readonly [number, number];
     backingSize: readonly [number, number];
     frame: number;
-    render: {
-        readonly meshes: number;
-        readonly culled: number;
-        readonly drawCalls: number;
-        readonly triangles: number;
-        readonly shadowDrawCalls: number;
-    };
+    render: RenderStats;
     colliders: number;
     tweens: number;
     audio: string;

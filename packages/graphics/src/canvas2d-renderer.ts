@@ -39,8 +39,8 @@ const backgroundStyle = `rgba(${Math.round(background.r * 255)}, ${Math.round(ba
 /** Sprite-only fallback; visible 3D meshes are deliberately unsupported. */
 export class Canvas2DRenderer implements Renderer {
   readonly backend = 'canvas2d' as const;
-  /** Canvas2D has no 3D pass, so every counter stays zero. */
-  readonly stats: RenderStats = new FrameStats();
+  private readonly frameStats = new FrameStats();
+  readonly stats: RenderStats = this.frameStats;
   readonly capabilities: GraphicsCapabilities = Object.freeze({
     threeD: false,
     compute: false,
@@ -60,6 +60,7 @@ export class Canvas2DRenderer implements Renderer {
   );
   private readonly render2D: CanvasRender2D = new CanvasRender2D(
     this.spriteSource,
+    this.frameStats,
   );
   private readonly targetOperations: CanvasRender2DTargets =
     new CanvasRender2DTargets(
@@ -114,6 +115,7 @@ export class Canvas2DRenderer implements Renderer {
       );
     this.frameActive = true;
     this.frameRendered = false;
+    this.frameStats.begin();
   }
 
   async prepareMaterial(_material: Material2D): Promise<void> {
@@ -186,8 +188,11 @@ export class Canvas2DRenderer implements Renderer {
     try {
       this.prepareScene(scene, width, height);
       capture = document.createElement('canvas');
-      capture.width = this.canvas!.width;
-      capture.height = this.canvas!.height;
+      this.render2D.resizeCanvas(
+        capture,
+        this.canvas!.width,
+        this.canvas!.height,
+      );
       const context = capture.getContext('2d');
       if (!context)
         throw new Canvas2DInitializationError(
@@ -202,11 +207,16 @@ export class Canvas2DRenderer implements Renderer {
         width,
         height,
       );
-      const snapshot = new CanvasRenderSnapshot(this, capture, this.snapshots);
+      const snapshot = new CanvasRenderSnapshot(
+        this,
+        capture,
+        this.snapshots,
+        this.render2D,
+      );
       this.snapshots.add(snapshot);
       return snapshot;
     } catch (error) {
-      if (capture) capture.width = capture.height = 1;
+      if (capture) this.render2D.releaseCanvas(capture);
       throw error;
     } finally {
       this.commands.clear();
@@ -296,6 +306,7 @@ export class Canvas2DRenderer implements Renderer {
     logicalHeight: number,
   ): void {
     const commands = this.commands;
+    this.frameStats.pass2D();
     const scaleX = pixelWidth / logicalWidth;
     const scaleY = pixelHeight / logicalHeight;
     try {
@@ -304,10 +315,10 @@ export class Canvas2DRenderer implements Renderer {
       context.globalCompositeOperation = 'source-over';
       context.fillStyle = backgroundStyle;
       context.fillRect(0, 0, pixelWidth, pixelHeight);
+      this.frameStats.draw2D();
       if (scene) {
         const layer = (this.layerCanvas ??= document.createElement('canvas'));
-        if (layer.width !== pixelWidth) layer.width = pixelWidth;
-        if (layer.height !== pixelHeight) layer.height = pixelHeight;
+        this.render2D.resizeCanvas(layer, pixelWidth, pixelHeight);
         const layerContext = layer.getContext('2d')!;
         layerContext.setTransform(1, 0, 0, 1, 0, 0);
         layerContext.globalAlpha = 1;
@@ -317,6 +328,7 @@ export class Canvas2DRenderer implements Renderer {
         context.setTransform(1, 0, 0, 1, 0, 0);
         context.globalAlpha = 1;
         context.drawImage(layer, 0, 0);
+        this.frameStats.draw2D();
       } else {
         const side = Math.min(pixelWidth, pixelHeight);
         const centerX = pixelWidth / 2;
@@ -337,6 +349,7 @@ export class Canvas2DRenderer implements Renderer {
         context.lineTo(centerX + side * 0.35, centerY + side * 0.3);
         context.closePath();
         context.fill();
+        this.frameStats.draw2D();
       }
     } finally {
       commands.clear();
@@ -360,13 +373,18 @@ export class Canvas2DRenderer implements Renderer {
   private requireTransitionContext(): CanvasRenderingContext2D {
     if (!this.transitionCanvas) {
       const canvas = document.createElement('canvas');
-      canvas.width = this.canvas!.width;
-      canvas.height = this.canvas!.height;
+      this.render2D.resizeCanvas(
+        canvas,
+        this.canvas!.width,
+        this.canvas!.height,
+      );
       const context = canvas.getContext('2d');
-      if (!context)
+      if (!context) {
+        this.render2D.releaseCanvas(canvas);
         throw new Canvas2DInitializationError(
           'Canvas2D transition context is unavailable.',
         );
+      }
       this.transitionCanvas = canvas;
       this.transitionContext = context;
     }
@@ -378,6 +396,7 @@ export class Canvas2DRenderer implements Renderer {
     transition: TransitionFrame,
   ): void {
     const width = this.canvas!.width;
+    this.frameStats.pass2D();
     const height = this.canvas!.height;
     const progress = Math.max(0, Math.min(1, transition.progress));
     const color = transition.color;
@@ -454,6 +473,7 @@ export class Canvas2DRenderer implements Renderer {
         width,
         height,
         transition.direction,
+        this.frameStats,
       );
       context.restore();
     } else {
@@ -464,6 +484,7 @@ export class Canvas2DRenderer implements Renderer {
         context.globalCompositeOperation = 'lighter';
         context.globalAlpha = progress;
         context.drawImage(this.transitionCanvas!, 0, 0);
+        this.frameStats.draw2D();
       } else if (progress < 0.5) {
         const amount = progress * 2;
         context.globalAlpha = 1 - amount;
@@ -471,13 +492,16 @@ export class Canvas2DRenderer implements Renderer {
         context.globalCompositeOperation = 'lighter';
         context.globalAlpha = amount;
         context.fillRect(0, 0, width, height);
+        this.frameStats.draw2D();
       } else {
         const amount = progress * 2 - 1;
         context.globalAlpha = 1 - amount;
         context.fillRect(0, 0, width, height);
+        this.frameStats.draw2D();
         context.globalCompositeOperation = 'lighter';
         context.globalAlpha = amount;
         context.drawImage(this.transitionCanvas!, 0, 0);
+        this.frameStats.draw2D();
       }
     }
     context.globalAlpha = 1;
@@ -503,12 +527,15 @@ export class Canvas2DRenderer implements Renderer {
         height,
         edge,
       );
-    else context.fillRect(edge ? 0 : x, edge ? 0 : y, width, height);
+    else {
+      context.fillRect(edge ? 0 : x, edge ? 0 : y, width, height);
+      this.frameStats.draw2D();
+    }
   }
 
   private releaseTransitionTarget(): void {
     if (this.transitionCanvas)
-      this.transitionCanvas.width = this.transitionCanvas.height = 1;
+      this.render2D.releaseCanvas(this.transitionCanvas);
     this.transitionCanvas = undefined;
     this.transitionContext = undefined;
   }
@@ -560,7 +587,7 @@ export class Canvas2DRenderer implements Renderer {
     this.spriteSource.destroy();
     this.render2D.destroy();
     this.targetOperations.destroy();
-    if (this.layerCanvas) this.layerCanvas.width = this.layerCanvas.height = 1;
+    if (this.layerCanvas) this.render2D.releaseCanvas(this.layerCanvas);
     this.layerCanvas = undefined;
     this.frameActive = false;
     this.context = undefined;
@@ -588,6 +615,7 @@ class CanvasRenderSnapshot implements RenderSnapshot {
     owner: Canvas2DRenderer,
     canvas: HTMLCanvasElement,
     snapshots: Set<CanvasRenderSnapshot>,
+    private readonly engine: CanvasRender2D,
   ) {
     this.#owner = owner;
     this.#canvas = canvas;
@@ -632,13 +660,25 @@ class CanvasRenderSnapshot implements RenderSnapshot {
   ): void {
     this.assertOwner(owner);
     if (edge)
-      drawSlidingImage(context, this.#canvas!, x, y, width, height, edge);
-    else context.drawImage(this.#canvas!, x, y, width, height);
+      drawSlidingImage(
+        context,
+        this.#canvas!,
+        x,
+        y,
+        width,
+        height,
+        edge,
+        this.engine.stats,
+      );
+    else {
+      context.drawImage(this.#canvas!, x, y, width, height);
+      this.engine.stats.draw2D();
+    }
   }
 
   destroy(): void {
     if (!this.#canvas) return;
-    this.#canvas.width = this.#canvas.height = 1;
+    this.engine.releaseCanvas(this.#canvas);
     this.#canvas = undefined;
     this.#snapshots.delete(this);
   }
@@ -652,8 +692,10 @@ function drawSlidingImage(
   width: number,
   height: number,
   edge: TransitionFrame['direction'],
+  stats: FrameStats,
 ): void {
   context.drawImage(image, x, y, width, height);
+  stats.draw2D();
   const horizontal = edge === 'left' || edge === 'right';
   const trailing = edge === 'right' || edge === 'down';
   const origin = horizontal ? x : y;
@@ -699,4 +741,5 @@ function drawSlidingImage(
       1,
     );
   }
+  stats.draw2D();
 }

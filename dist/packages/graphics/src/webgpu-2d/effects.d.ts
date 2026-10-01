@@ -1,5 +1,6 @@
 import { Material2D, PostProcessor2D } from '../../../core/src/materials2d/material2d.js';
 import type { RenderSnapshot, TransitionFrame } from '../render2d-contract.js';
+import type { FrameStats } from '../render-stats.js';
 export declare const premultipliedBlend: GPUBlendState;
 export declare function createQuadPipeline(device: GPUDevice, module: GPUShaderModule, layout: GPUPipelineLayout, blend?: GPUBlendState | undefined): GPURenderPipeline;
 export interface GPUColorTarget {
@@ -32,6 +33,8 @@ export declare class WebGPU2DEffects {
     private readonly device;
     private readonly format;
     private readonly cancelled;
+    private readonly stats;
+    private readonly recording;
     readonly snapshots: Set<GPUSnapshot>;
     readonly drawLayout: GPUBindGroupLayout;
     readonly spriteTextureLayout: GPUBindGroupLayout;
@@ -61,9 +64,12 @@ export declare class WebGPU2DEffects {
     private transitionIncoming;
     private transitionOutgoing;
     private disposed;
+    private readonly targetBytes;
+    private readonly retiredBuffers;
+    private readonly retiredTextures;
     private readonly attachment;
     private readonly passDescriptor;
-    constructor(device: GPUDevice, format: GPUTextureFormat, cancelled: () => boolean);
+    constructor(device: GPUDevice, format: GPUTextureFormat, cancelled: () => boolean, stats: () => FrameStats, recording: () => boolean);
     initialize(): Promise<void>;
     module(source: string, label: string): Promise<GPUShaderModule>;
     private fullscreenPipeline;
@@ -72,6 +78,8 @@ export declare class WebGPU2DEffects {
     material(material: Material2D): PreparedEffect;
     validate(material: Material2D | PostProcessor2D): void;
     target(width: number, height: number, format?: GPUTextureFormat): GPUColorTarget;
+    destroyTexture(texture: GPUTexture, submitted?: boolean): void;
+    flushRetired(): void;
     frame(width: number, height: number): GPUColorTarget;
     layers(width: number, height: number): [GPUColorTarget, GPUColorTarget];
     releaseLayers(): void;

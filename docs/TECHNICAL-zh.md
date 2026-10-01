@@ -2,7 +2,22 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本文件描述 **1.1.0 套件**，包含 P01–P08、Text2D／SceneTimers 與 P09–P12 進階 3D 擴充。API 參考 three.js，非 drop-in 相容或全部 addons 實作，沒有新增 runtime dependency。實測與未驗證限制見 [ACCEPTANCE](../ACCEPTANCE.md)；版本與發佈由所有者決定。
+本參考描述目前 **1.7.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作 P40–P42 驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准三輪契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；無 push／publish／version change 授權。
+
+## 目前支援矩陣
+
+| 項目                             | 目前 profile／限制                                                                                                                                                                                                                                                                                      |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| WebGPU／WebGL2                   | 2D sprites／isolation／masks／blends／native materials-filters-meshes；3D lighting／PBR／instancing／shadows／post／weighted transparency。WebGPU 需安全來源，WebGL2 HDR／weighted 需 float color attachments。                                                                                         |
+| Canvas2D                         | Native 2D paint／isolation／masks／basic blends／offscreen；無可見 3D／Mesh2D、Material2D、native Filter2D、effects2D／effects3D。明確拒絕，不靜默切 backend。                                                                                                                                          |
+| Physics2D（P31）                 | Sleep、dynamic 平移對 static 非 sensor 的 CCD、五種 joints、static concave凸分割／thick chains；無 rotation／dynamic-pair CCD、dynamic concave／compound／kinematic。                                                                                                                                   |
+| glTF／KTX2（P32／P36b／P39）     | UV0 triangles／四 influences skin／morph／`COLOR_0` 與 documented extensions；拒 `COLOR_1`。Meshopt 內建，Draco／Basis codec 外部提供。KTX2 只產 base-level RGBA8，非 native compressed／一般 mip source，細節見第 30 節。                                                                              |
+| Animation（P34）                 | Ordered weighted layers／fades／crossfades／flat state machine／tween／timeline、CPU skin／morph；masks／additive／blend tree／IK、GPU skinning／animated bounds 已批准 P42，不是目前完成聲明。                                                                                                         |
+| Loss recovery                    | 預設 `recoverGraphics:true` 重建同 GPU／GL backend；舊 renderer-owned targets／snapshots 失效，失敗或關閉 recovery 為 fatal。既有 WebGL2 Chromium 證據不認證真 driver／WebGPU loss／其他 browser。                                                                                                      |
+| P40（限定驗收）                  | Adjacent 2D batching／full render metrics／deep browser regression 已在 Canvas2D／WebGL2／WebGPU Chromium 153 通過；CI 已定義、hosted CI 未執行。無新 throughput／cross-browser 認證聲明。                                                                                                              |
+| P41／P42（已批准，待實作／驗收） | P41 UI layout／widgets／focus、跨裝置 contexts、resident budget／warmup、typed factories；P42 完整可玩流程、GPU skinning／animated bounds、native compressed／mip textures、3D colliders／queries／character／dynamic bodies、navigation／pathfinding、全部 animation masks／additive／blend tree／IK。 |
+
+舊階段排除項描述當時的 bounded profile；上列明確批准項擴充其邊界，其餘 non-goals 保持不變。
 
 ## 1. 模組與執行路徑
 
@@ -148,7 +163,7 @@ running      --pause-----------> paused
 
 同一 Canvas 同時只能有一個 Game，包含初始化尚未完成的期間。Canvas claim 在開始非同步 GPU 初始化前保留，失敗或 destroy 後釋放；否則第二個 Game 會重新 configure 同一 GPUCanvasContext，第一個 loop 卻仍然執行。這個約束是資源 ownership，不是 DOM 元件是否仍存在的判斷。
 
-Fatal 執行失敗和使用者 pause 不同：Game 保留第一個 fatal failure、停止 loop 並送出 error；其後 start／resume 拒絕。沒有自動 device recovery，應 destroy 後重新 create，不可在所有 error listener 中無條件 resume。非 fatal Scene／Audio error 不一定改變 Game.state，見第 5 節。
+Fatal 執行失敗與使用者 pause 不同：Game 保留第一個 fatal failure、停止 loop／送出 error，其後 start／resume 拒絕。GPU／GL loss 預設可復原（`recoverGraphics:true`），重建同 backend，不自動切換 backend；事件／失效 handles／逾時與失敗行為見第 21 節。關閉復原或復原失敗仍 fatal，應 destroy／recreate，不可在所有 error listener 無條件 resume。非 fatal Scene／Audio error 不一定改變 Game.state。
 
 正常 destroy 應可重複呼叫，取消 RAF、移除 observer／listener、還原引擎接管的 containment 設定並釋放 Renderer。初始化任何一步失敗也要 rollback 已取得的資源。清理其中一個動作失敗，仍必須嘗試其餘清理並釋放 Canvas claim；不能留下阻止重新建立 Game 的幽靈 ownership。
 
@@ -296,7 +311,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 ## 20. Text2D 與 Scene 計時器（v1.0 後新增）
 
-本節新增能力納入 v1.1（套件 1.1.0），不包含在先前已發佈的 v1.0 tag。
+歷史 v1.1 基線（套件 1.1.0），不在先前 v1.0 tag。下方原有 style／font-loading／wrapping 排除項已由 P27 styled Text2D／font assets 擴充；UI layout／widgets／focus 現已批准 P41。歷史 release metadata 保持不變。
 
 - `await Text2D.create(text, { fontSize, fontFamily, color, padding })` 產生沿用既有 backend 貼圖路徑的 Sprite。預設值集中於 `src/data/text.ts`；換行分成靠左行，量測包含字形左右溢出與下緣。空字串透明；完整 raster canvas 配置前先驗證尺寸／像素預算。
 - Transform、anchor、opacity、visible、zIndex 與 Sprite 相同。Style 不可變，更換樣式請建立新 Text2D。自訂字型應先等待載入；字型與字形結果由瀏覽器決定。不包含自動字型載入、文字 GUI、自動換行或文字動畫系統。
@@ -321,14 +336,15 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 ### glTF、動畫與幾何更新
 
 - GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；模型引用的 buffers／images 只能從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得，data:／blob: 一律允許，其他 origin 會在發出請求前以 AssetError 拒絕；缺 normals 時產生，缺 UV 時填零。
-- 非 triangle topology、vertex colors、非 UV0 texture、額外 skin influences、shear matrix、animated matrix node，以及 POSITION／NORMAL／TANGENT 以外的 morph target attributes 明確拒絕；`extensionsRequired` 中不在下列已實作集合內的項目同樣拒絕。Morph targets 已支援：每 primitive 的 POSITION／NORMAL deltas（float 或 normalized integer，含 sparse；缺項視為零；TANGENT deltas 因 tangents 未被使用而忽略），加上 mesh／node `weights` 與 `weights` animation channels（LINEAR／STEP／CUBICSPLINE）。同一 mesh 的所有 primitives 必須有相同 target 數，node weights 數量須一致。影像解碼限制仍見第 18 節。
+- 非 triangle topology、`COLOR_1`、非 UV0 texture、額外 skin influences、shear matrix、animated matrix node、POSITION／NORMAL／TANGENT 以外的 morph attributes 明確拒絕；supported set 外的 required extension 拒絕。`COLOR_0` 現支援 float 與 normalized unsigned-byte／unsigned-short VEC3／VEC4、含 alpha（第 34 節）。Morph 支援 POSITION／NORMAL deltas（float／normalized integer／sparse、缺項為零）、mesh／node weights 與 STEP／LINEAR／CUBICSPLINE channels；TANGENT deltas 因未使用而忽略。同一 mesh 所有 primitives 的 target 數須一致、node weights 需匹配。影像解碼限制仍見第 18 節。
 - 已實作 extensions：`KHR_mesh_quantization`（整數／normalized accessors 已還原為 float）；`KHR_materials_emissive_strength`（乘上 `emissiveFactor`，負值拒絕）；`KHR_materials_unlit`，以既有 PBR 近似：黑色 base color、roughness 1、base color 導向 emission（alpha 仍取自 base color；dielectric F0 的 image-based specular 仍有微弱可見）；`KHR_texture_transform`，於 CPU 對每個 primitive 烘進 UV0（`uv' = offset + R·S·uv`，採規格的旋轉矩陣），因此同一材質的所有 texture slot 必須使用相同 transform，否則拒絕，transform 自帶的 `texCoord` 非 0 也拒絕；`KHR_lights_punctual`，以 `asset.lights`（`point: PointLight[]`、`spot: SpotLight[]`、`directional: {direction,color,intensity}[]`）提供，載入時依各 node 的 world transform 計算一次，強度為 glTF 原始光度值，缺少 `range` 視為 0（無限）。Lights 不會自動加入 Scene、不跟隨 node 動畫，directional 是否對應單一 `scene.directionalLight` 由你決定。Mipmapped sampler minification filters（9984–9987）被接受並降為對應的 nearest／linear，因為不會產生 mipmaps。其他 optional extensions 使用 core fallback 忽略。僅以合成模型的 unit tests 驗證，未跑第三方模型集。
 - P39 另支援 required `KHR_materials_ior`、`KHR_materials_specular`、`KHR_materials_clearcoat`、`KHR_materials_sheen`、`KHR_materials_transmission`、`KHR_materials_volume`；材質契約與 raster 近似見第 37 節。
+- P32 加入內建 `EXT_meshopt_compression`，透過 `dracoDecoder` 有條件支援 `KHR_draco_mesh_compression`、透過 `ktx2Transcoder` 有條件支援 `KHR_texture_basisu`，fallback 詳見第 30 節。提供 callback 不等於引擎內建 codec，也不保證外部 decoder 的品質／速度／記憶體。
 - src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、每 mesh morph targets 64、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
 - 應用在移除／停止所有 consumers 後必須 asset.dispose()，釋放 loader-owned nodes／textures。僅 Scene destroy 不釋放 asset-owned textures；仍有 live borrower 時不可 dispose。Abort／parse failure 清理自有資源。
 - KeyframeTrack(target,path,times,values,interpolation='LINEAR') 支援 `Object3D` 的 translation／rotation／scale，或 `MorphWeights` 的 `'weights'`（values 為 keys × targetCount 個 scalar，cubic triplet 對每個 weight 套用），以及 STEP／LINEAR／CUBICSPLINE。Times 為嚴格遞增非負秒數；cubic values 是 incoming tangent／value／outgoing tangent triplets。Linear Quaternion 取最短路徑，cubic 結果 normalize。
 - Morph 與 skinning 一樣在 CPU 執行：`Mesh({morph: new MorphTargets({positions,normals?,weights})})` 取得其 Geometry 的所有權（一個 Geometry 只能被 claim 一次），以 `mesh.morph.weights.set(i,w)` 驅動。`Mesh.updateDeformation()`（renderer 與 Raycaster 讀 vertices 前呼叫）只在 weight 改變時重算 `base + Σ w·Δ`、重新 normalize 被 morph 的 normals 並呼叫 `geometry.markUpdated()`；`SkinnedMesh` 先 morph bind pose 再 skin。同一 glTF node 的 primitives 共用一個 `MorphWeights`，可由 `mesh.morph.weights` 取得。每個 weight 改變的 frame 都會重新上傳整個 vertex buffer；僅有 unit tests 驗證，沒有 GPU pixel 證明。
-- AnimationClip(name,tracks) 以最後 keys 推得 duration。scene.animations.clipAction(clip) cache action；play() 開始／繼續而不重設時間，stop() 歸零但不還原 pose。loop 預設 true，wrap 時間；false 則 sample／clamp endpoint 後停止。timeScale 可負以倒播；mixer 依 action 建立／插入順序寫入，同 property 最後 playing action 優先，沒有 weights／blending。stopAll() 停止全部，destroy() 釋放。
+- `AnimationClip(name,tracks)` 由最後 keys 算 duration；`scene.animations.clipAction(clip)` cache action。`play()` 繼續而不重設時間、`stop()` 歸零而不還原 pose。Repeat／once／pingpong、reverse、weights／fades／crossfades／ordered layer blending 見第 32 節（P34），已取代 P10 無 blending 基線。`stopAll()` 停止、`destroy()` 釋放。
 - Game 在 timers 後、使用者 Scene.update 前以 clamp simulation delta 推進 scene.animations；pause／hidden 不累積，不要另外手動 update 同 mixer。SkinnedMesh 以 joint world／inverse bind 相對 mesh world 做 CPU linear-blend skinning，寫入 cloned Geometry；renderer／picking 呼叫 updateSkin()，vertex 改變增加 Geometry.version 通知 upload。Index topology 保持不可變。
 
 ### PBR、光源、陰影、HDR 與 Instancing
@@ -336,23 +352,26 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 - PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space UV0（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設 0／0.5，emissive 為零。
 - alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 預設 OPAQUE／false。PBR 以 alphaMode 為準，即使 opacity 小於一也不改分類。一般 TextureMaterial 在 opacity 小於一或明確 `transparent: true`（貼圖／頂點 alpha）時進透明 pass。預設 sorted 在 opaque／MASK 後按 bounding sphere 中心距離由遠到近，等距穩定、重用排序儲存；穿插表面仍可能錯誤，可選 weighted 近似。
 - Scene.pointLights／spotLights 接受 PointLight／SpotLight；position／color／intensity／range 可變，range=0 無限。Spot direction 指向照射表面，innerAngle／outerAngle 為弧度。最多 8 point＋8 spot，超限拒絕、不截斷。
-- scene.shadows 預設 disabled；可變 mapSize=1024、extent=10（正交完整寬高）、near=0.1、far=50、bias=0.002 與 target 控制僅方向光的 3×3 PCF。Mesh.castShadow／receiveShadow 預設 true；不支援 point／spot shadows 或 cascades。
+- `scene.shadows` 預設 disabled；mapSize=1024、extent=10、near=0.1、far=50、bias=0.002／target 保留原固定 directional camera。Mesh.castShadow／receiveShadow 預設 true。P37 已加入 point／spot shadows 與 2–4 directional cascades，共用 bounded depth atlas／3×3 PCF；光源 flags／device dimensions 見第 35 節。
 - scene.postProcessing 預設 disabled。啟用時 3D 先進 HDR floating-point attachment，再 fullscreen exposure（1）、toneMapping（預設 'aces' 或 'none'）、實際 9-tap threshold bloom（strength=0、threshold=1、radius=2 output pixels）。2D overlay 在後且不受影響；resize／disable／destroy 釋放尺寸相關 targets。WebGL2 需 EXT_color_buffer_float，缺少時明確拒絕啟用 HDR processing。
 - InstancedMesh({...meshOptions,count}) count 固定且正，matrices 初始 identity。以 setMatrixAt(index,Matrix4) 設有限、可逆 affine matrix，增加 version 通知 upload cache；getMatrixAt(index,out) 重用 out，不要直接改 matrices 而不通知。Indexed hardware instancing 共用 geometry／material，world 為 mesh.worldMatrix × instance matrix，normal 使用 inverse-transpose。
 - Environment（`EnvironmentMap`，僅 WebGPU／WebGL2）：`scene.environment` 以 image-based light 照亮 PBRMaterial，`scene.background` 繪製 skybox；兩者可用同一或不同 map，`environmentIntensity`／`backgroundIntensity`（非負，預設 1）縮放，destroyed map 視為不存在。Map 為不可變 2:1 equirect 輻射度影像（height 4..1024、width=2×height、linear light）：`fromPixels(w,h,float RGB|RGBA)`、`fromImageData(8-bit sRGB)`、`fromRGBE(hdrBytes)`（Radiance .hdr，flat 或 RLE，僅 -Y +X 方向，含邊界檢查）與程序化 `gradient({zenith,horizon,ground,sun?})`。方向約定：u=0.5 朝 −Z，v=0 為 +Y。建構時在 CPU 一次過濾（Chromium 中 2048×1024 約 160 ms）：order-2 SH irradiance（÷π、cosine 卷積）供 diffuse，最多 7 層 half-float mip，level≥2 為 cosine-power lobe（roughness=level/(mips−1)），level 1 為 box average。Shader 以 `roughness × (mips−1)` 做 `textureLod`，並用 Karis 解析 split-sum BRDF（無 LUT）。有 environment 時，PBR 略過平面 `ambientLight`，點光／方向光仍疊加；TextureMaterial 不變。Skybox 是先繪製、不使用 depth 的 fullscreen triangle，每像素反投影兩點，故 perspective 與 orthographic 相機皆可；取樣 level 0（無縮小濾波）並與 3D pass 一起 tone map。GPU 副本是以 map 為 key 的 renderer cache，不再使用或 destroy 後釋放。未實作：environment 旋轉、box-projected／視差反射、由 map 產生太陽陰影、背景模糊。已用 unit tests（SH／mips／RGBE）與 Chromium 的 WebGL2、WebGPU 驗證（天空方向、IBL 球體、HDR 路徑、orthographic、runtime 切換，無 console errors）；其他瀏覽器與真實 GPU 視覺一致性未驗證。
+- 上段「無 box-projected」是歷史 environment 基線：P38 現有 bounded baked `ReflectionProbe` box projection與cubemap輸入→equirect（第36節）；不是native cube textures／automatic probe capture。
 - Frustum culling（WebGPU／WebGL2）：每幀以相機 view-projection 建 `Frustum`，`Mesh.isInFrustum` 對幾何的 bounding sphere（`Geometry.boundingSphere`，依 `version` 快取，改頂點後需 `markUpdated`）套用 world matrix 與最大軸縮放後測試。視錐外的 mesh 不 draw，但仍保持 GPU cache；視錐外的 shadow caster 仍會畫進 shadow map。`SkinnedMesh`、`InstancedMesh` 與 morph mesh 永不剔除（變形或 per-instance 邊界未知）；其餘可設 `mesh.frustumCulled = false` 關閉。此測試保守：球體只有完全位於某平面外才剔除。只節省 draw 提交，不節省每 mesh 的 CPU 準備。
 - Fog（`scene.fog`、`FogSettings`，WebGPU／WebGL2）：預設停用；`enabled`、`mode` 為 `'linear'`（`near`<`far`，覆蓋率 `(d−near)/(far−near)` 並 clamp）或 `'exp2'`（`density`，覆蓋率 `1−exp(−(density·d)²)`），`color` 為顯示用 sRGB 0..1。`d` 是相機位置到片元的世界距離，因此 orthographic 相機也是以徑向距離計算。`TextureMaterial` 與 `PBRMaterial` 皆向 fog color 漸變；漸變作用於 premultiplied 顏色，半透明表面仍保持半透明。只有 post-processing 以 linear HDR 繪製 3D pass 時才把顏色轉為 linear。Skybox、2D overlay 與 Canvas2D 不受 fog 影響。設定可變，每幀驗證。Uniform 區塊見 `src/data/rendering.ts` 的 `FOG_FLOAT_COUNT`。已用 unit tests，以及在 Chromium WebGL2／WebGPU 的 advanced3d 範例切換驗證（無 console errors、遠處幾何明顯變淡）；兩個 backend 的逐像素一致性與其他瀏覽器未驗證。
 - 抗鋸齒（`GameOptions.antialias`，預設 `true`）：WebGPU 以 4× multisample 的 color 與 depth texture 繪製 3D pass（color 為 canvas 格式，post-processing 開啟時為 `rgba16float`），結束時 resolve 到 canvas 或 HDR target；shadow pass 與 2D overlay 不做 multisample。WebGL2 把此旗標傳給 `getContext` 的 `antialias`，預設 framebuffer 是否 multisample 由瀏覽器決定；WebGL2 的 post-processing framebuffer 與 Canvas2D 永不 multisample。`false` 則不建立 multisample texture。切換需重建 Game。在 Chromium WebGPU 上，advanced3d 畫面的獨特顏色數由 6194（關）升到 7449（開），與邊緣混色一致；未做逐像素比較，也未量測其他瀏覽器或 GPU 成本。
 - Context 遺失復原（`GameOptions.recoverGraphics`，預設 `true`；WebGL2 與 WebGPU）：`ResilientRenderer` 包住 backend。WebGL2 `webglcontextlost`（或 WebGPU `device.lost`）時，Game 送出 `graphicslost`、取消進行中的 transition、略過 frame；WebGL2 等待 `webglcontextrestored`（WebGPU 直接重新要求 device），建立並初始化替換 renderer，重新 prepare 所有仍存活的 Material2D／PostProcessor2D，還原最後尺寸，最後送出 `graphicsrecovered`。Scene、Texture、geometry 都由 CPU 持有，會延遲重新上傳。Renderer 擁有的 handle 不會保留：遺失前的 `RenderTexture2D` target 與 `RenderSnapshot` 必須重建，復原期間需要 GPU 的呼叫（`createRenderTexture`、`prepareTextures`、`captureScene` 等）會拋 `GraphicsError`。替換 renderer 初始化失敗時，Game 收到 `cause` 為該失敗的 `GraphicsError` 並像以前一樣停止；`recoverGraphics: false` 維持舊的 fatal 行為。已用 mock renderer unit tests（兩個 backend）與 Chromium 以 `WEBGL_lose_context` 驗證 WebGL2（連續兩次、含 HDR 路徑）；未在瀏覽器實測真實 WebGPU device loss，Canvas2D 沒有遺失處理。
 - WebGL2 還原逾時：若 `webglcontextrestored` 在 `graphicsRecoveryLimits.restoreTimeoutMs`（10 秒，`src/data/rendering.ts`）內沒有到達，復原以 `GraphicsError`（`cause` 說明逾時）失敗，Game 的行為與替換 renderer 無法初始化時相同。還原或 `Game.destroy()` 時計時器會被清除。WebGPU 直接要求新 device，沒有這段等待。
 - 場景效果鏈（`scene.effects3D`，WebGPU 與 WebGL2）：由 `PostProcessor2D` descriptor 組成的有序清單，WGSL／GLSL `effect(color, uv, screen)` ABI、uniforms、需先 `await graphics.preparePostProcessor(effect)` 及生命週期規則都與 `effects2D` 相同。效果鏈看到的是完成後、顯示空間、premultiplied 的 RGBA8 3D 影像（網格、skybox，啟用時含 HDR／bloom／tone mapping），其結果在繪製 2D layer 之前取代原影像，所以 sprite 與 HUD 不受處理。有效果鏈的每幀多用兩個全尺寸 RGBA8 target（WebGPU：canvas 格式的來源加上共用的 ping-pong 對；WebGL2：一個 RGBA8 color／depth target 加上 effect target），清空效果鏈或 canvas 改變大小時釋放。WebGPU 的 3D pass 仍做 multisample 並 resolve 到來源；WebGL2 的效果鏈路徑渲染到離屏 target，不做 multisample。Canvas2D 遇非空效果鏈拋 `UnsupportedGraphicsError`。對 Scene 的 `renderToTexture`／`generateTexture` 不套用。已在 Chromium 兩個 backend 以對打光立方體交換紅藍（含與不含 HDR post-processing）並與未處理畫面比較驗證；其他瀏覽器與 2D overlay 互動未測。
-- 渲染統計（`game.graphics.stats`）：每幀更新、會被重複使用的 `RenderStats` 物件，含 `frame`、`meshes`（通過材質／貼圖過濾的可見 mesh）、`culled`（被 frustum culling 剔除）、`drawCalls`、`triangles`（含 instances）與 `shadowDrawCalls`。需要的數字請自行複製；Canvas2D 維持 0，沒有 Scene 的一幀會重置計數。只回報 3D draw 提交，不含 GPU 時間或 2D sprite batch。已在 Chromium 兩個 backend 以已知幾何場景交叉驗證（4 個 mesh、1 個剔除、3 次 draw、84 個三角形）。
+- 渲染統計 `game.graphics.stats` 重用一個 `RenderStats`，需保存時請複製欄位。`meshes`／`culled`／`drawCalls`／`triangles`（含 instances）／`shadowDrawCalls` 保持 3D 定義。`frame` 記各 backend 開始的 frames，包含 2D-only。P40 加入每幀 `drawCalls2D`／`instances2D`／`renderPasses2D`／`uploadBytes` 與 resident／lifetime-peak `renderTargetBytes`／`peakRenderTargetBytes`，見第 39 節。Canvas2D 的 3D counters 為零，不是全部 2D paint／target estimate 都零。原 Chromium 3D-only check（4 meshes／1 culled／3 draws／84 triangles）是歷史證據，不作 P40 metrics 驗收。
 
 見 [advanced3d](../examples/advanced3d/) 與 [使用說明](USAGE-zh.md#11-進階-3d)。上述為 WebGPU／WebGL2 的 3D 功能，Canvas2D 仍 2D-only；Chromium 觀察不等於其他瀏覽器認證或 throughput 保證。
 
 ### 每 Slot 的 Texture Sampling
 
 PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler、normalSampler、occlusionSampler、emissiveSampler 接受 TextureSamplerOptions：minFilter／magFilter 為 'nearest' 或 'linear'，addressModeU／addressModeV 為 'clamp-to-edge'、'repeat' 或 'mirror-repeat'。一般 PBR 預設維持 linear／clamp；GLTFLoader 套用 glTF 每 slot 預設 repeat wrapping，同一 shared image 可用不同 sampler、不重複 texture ownership。sampler options 中明確的 mipmapped minification filters 仍拒絕，不支援 mipmap generation／filtering（GLTFLoader 把 glTF mipmapped filters 對應為其 base filter）。
+
+這是目前一般 texture sampler 限制，不是永久 non-goal：P42 已批准 native compressed／mip source，實作／驗收待記。EnvironmentMap 專用 roughness mips 不等於一般 Texture mip 支援。
 
 ## 22. 2D 階層與 Atlas 圖形（P13）
 
@@ -361,6 +380,7 @@ PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler�
 - Sprite.source 為 copied／frozen、有限且正尺寸的 texture 內 Rect2D，可用 fractional x／y／width／height；undefined 整張貼圖。Texture replacement 先驗現有 source 再發布。Width／height 為自然尺寸不含 scale，無 displayWidth／displayHeight。貼圖借用；SpriteSheet constructor／grid 限 immutable integer frames，支援 origin／spacing，createSprite 不 crop／copy images。
 - FrameAnimation(sprite,frames,{strategy,speed}) 綁定單 Sprite，duration 為正有限秒。Loop／pingpong／freeze／hide、frame／playing getters、play／pause／reset／reverse／goToFrame／stop；reset 恢復可見與首 frame，stop pause 加 reset。Source 使用 frozen frames，Scene 以模擬 delta 中央推進、removed object 不前進。Native animationframe／animationloop／animationend 同送 animation 與 Sprite，large dt aggregate loops；Sprite destroy pause 並清 animation reference。
 - SpriteFont 驗證 Unicode alphabet mapping，可設 caseInsensitive／fallback／glyphWidth／advance／lineHeight。SpriteText 先 preflight 有界 layout／allocation，再重用 glyphs；invalid input 不發布。支援 newline／letterSpacing／lineSpacing／left-center-right，不 import BMFont。
+- 上述無BMFont指原P13 sheet constructor，不是目前整個引擎：P27有bounded text／JSON multipage BMFont loading與metrics（第28節）。
 - NineSlice source／margins 為 integer pixels、destination 為非負有限有界尺寸（可 fractional）。Stretch／tile／tile-fit／drawCenter 由 owned pooled Sprite children 呈現；tile 使用真實 fractional source remainder，tile-fit 擬合完整 cells。小 destination 同比壓縮相對 margins，resize 先 preflight；hidden pool patches 不放大 Group bounds。兩種 composites 都只 destroy children、不 destroy borrowed Texture。
 - 三backend共用flattened affine／source／tint／opacity data，GPU／GL保留UV／adjacent order。P13 pixels／resources見ACCEPTANCE、非FPS／fullframe parity。P13–P20 profiles／formalconsumer／最後工具鏈37files252tests限定scope驗收；見[usage](USAGE-zh.md#12-atlas-圖形與-hudp13)。
 
@@ -410,6 +430,7 @@ PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler�
 - ImmutableTile {frame:number|undefined,solid,elevation,collider?,metadata?}，setTile(column,row,Partial<Tile>) preflightgraphics／shape／registration，getTile驗grid、clearTile reset。Solid預設top-leftbox／isodiamond或customconvex；可無visibleframe，screensolid拒絕。
 - tileToLocal／tileToWorld(column,row,out?)含cellelevation，orthotopleft／isotopvertex。worldToTile(point,out?) hierarchyinverse到zero-plane、可回grid外integer；無known-elevation overload。pickTile(point,out?) elevatedtopmostgraphicrectangle／diagonal-elevation-insertionorder，非alpha／exactdiamond；singularpickundefined、inverse拒絕。
 - Camera transformedconservativecull含elevation／overhang／renderOffset，只改renderEnabled、不移solids；hidden／clearedpool保留重用且不擴bounds。Edits／transform／Scene removal／destroy更新colliders，destroyownedchildren不destroyborrowedatlas。無hex／staggered／multilayer／editorimporter／navigation。
+- Navigation為原map profile排除項；P42現已批准navigation／pathfinding，editor importers／hex／staggered仍不在新批准範圍。
 
 ### Particles
 
@@ -452,6 +473,8 @@ PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler�
 
 Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepare／unload 全必做。Full SVG／HTMLText／SDF-MSDF／native vector tessellation、video／raw／compressed／mipmaps／anisotropy、其他 advanced blends、generic plugins／render layers、independent Ticker／general automatic GC 不在範圍；已觀察的 pixels 不等於 throughput／跨 browser／真實硬體／full-frame parity 證據。
 
+Compressed／mip sources是P21–P29當時排除、非永久non-goal：P32加入base-level RGBA8 KTX2／外部codec接口，P42批准native compressed／mip upload；其餘上述排除項保持。
+
 ## 29. 存檔欄位與 Scene Snapshot（P30）
 
 - `game.saves` 是建立在可注入 `SaveStorage` 上的 `SaveManager`（`GameOptions.saveStorage`、`saveSchema`）。預設為隔離的記憶體 `MemoryStorage`，所以不注入瀏覽器 backend 就不會持久化：可用 `LocalStorageBackend(namespace)` 或 `IndexedDBStorage(namespace, database)`。Backend 皆為 async、以 namespace 隔離（`clear()` 不影響其他 namespace），超過 `storageLimits.maxBytes`（2 MiB，`src/data/storage.ts`）以 `StorageError('size')` 拒絕；配額錯誤為 `'quota'`，IndexedDB 不可用為 `'unavailable'`，其他為 `'io'`。
@@ -487,8 +510,9 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 - `Timeline` 以 `add(item, at | label, offset)`、`then(item, gap)`、`label(name, at)`、`call(callback, at)` 安排 `Tween`（或巢狀 timeline），支援 `play`、`pause`、`stop`、`seek`、`timeScale`、`repeat` 與 `onComplete`。以 `seek` 拖曳只會呈現狀態：callback 只在播放經過時執行，每個 pass 一次。播放頭位於其前方的項目會被還原（後加入者先還原）。Timeline 不能包含無限重複的項目。
 - `scene.tweens`（`TweenGroup`）以 Scene 時間在 `scene.timers` 之後啟動並推進 tween 與 timeline，丟棄已完成者，`clear()` 不會讓它們跑完，並隨 Scene 銷毀。`tweens.to/from(...)` 是捷徑。2D 的 `Actions` API 不變，仍適合 sprite 序列；Tween／Timeline 針對任意屬性。
 - 限制：分層取決於順序，不是正規化加權平均；沒有 additive 或 mask 層、IK、blend tree，State machine 是扁平的（無子狀態機）。
+- 以上排除項在已批准 P42 masks／additive／blend tree／IK 實作與行為證據落地前仍為目前限制，不可用來省略批准選項。
 
-## 33. 工具：DebugOverlay、範例 Smoke、Release Workflow、Tree Shaking、Benchmarks（P35）
+## 33. 工具：DebugOverlay、範例 Smoke、Release Workflow、Tree Shaking、Benchmarks（P35 歷史基線）
 
 - `DebugOverlay.attach(game, {position, interval, extra})` 在 canvas 上方加入純 DOM 的 `<pre>`（`aria-hidden`、不接收 pointer），顯示以真實時間計算的 fps 與 ms/frame（由實際經過時間內的幀數得出，不使用被 clamp 的模擬 delta）、backend、狀態、邏輯與 backing canvas 尺寸、renderer 上一幀的 3D 計數、collider 與 tween 數量、音訊狀態與作用中的 pointer。`extra()` 可附加自訂行；`visible` 切換顯示；`destroy()` 移除，Game 被 destroy 時會自行移除。它以計時器更新（預設 250 ms，最小 16），不由引擎繪製。`formatDebugSample` 是純函式格式化器。為此新增 `PhysicsWorld2D.colliderCount`。
 - `pnpm smoke:examples`（`scripts/smoke-examples.mjs`，devDependency `playwright-core` 1.63.0，不會下載瀏覽器）啟動 Vite，依 gallery metadata 對每個範例的每個 renderer 開啟頁面；出現 console error、page error、未處理的 rejection，或縮成 64×64 回讀後只有單一顏色的 canvas 即判定失敗。選項：`--browser chromium|firefox|webkit`、`--example <slug>`、`--renderer <name>`、`--port`。Chromium 取自 Playwright 快取或 `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`。瀏覽器自行請求的 `/favicon.ico` 會被忽略；強制 canvas2d 的 3D 範例所顯示的 `Canvas2D has no 3D` 屬允許訊息。這只是「能載入且繪出、沒有錯誤」的 smoke 檢查，不是畫面或效能比較。
@@ -497,6 +521,7 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 - `benchmarks/physics2d`、`benchmarks/particles2d`、`benchmarks/3d` 與既有 `benchmarks/sprites` 共用 `benchmarks/measurement.ts`：120 暖機＋600 量測幀，每幀固定 1/60 秒模擬，1280×720，DPR 1。結果分別保留受顯示器節奏限制的 RAF 間隔（`fps`、p50/p95/max）、CPU submit 時間（`beginFrame`／`render`／`endFrame`，不等於 GPU 完成）與模擬／更新時間，並附上最後一幀的 `renderStats`（僅 3D）。分頁必須保持可見，隱藏即中止。
 - `pnpm docs:api` 以 `typedoc.json` 對 `src/index.ts` 執行 TypeDoc 0.28.20（peer 範圍包含 TypeScript 6.0.x），把 API 參考寫到 `docs/api/`（被 git、prettier、eslint 忽略；約 11 MB；撰寫當下沒有警告）。未發佈到任何地方。
 - 未提供：smoke 或 API 文件的 CI job、GPU 計時、記憶體／GC 量測。
+- P35 缺 smoke CI／debug-benchmark 只記 3D 是歷史範圍。P40 擴充 metrics／DebugOverlay 與 deep browser regression／CI；Chromium 153 實跑證據見 ACCEPTANCE，workflow file 不等於 hosted CI 已執行成功。
 
 ## 34. 3D 輔助物件：LOD、Billboard、Line3D、Text3D（P36）
 
@@ -782,3 +807,20 @@ opacity 為一的 alpha 貼圖／頂點色使用
 `new TextureMaterial({texture, transparent: true})`；Sprite3D／Text3D 自動設定。
 PBR 依 alphaMode，不使用此 legacy flag。objects3d 範例提供 weighted 開關與
 插入順序反轉；限定驗證見 ACCEPTANCE。
+
+## 39. P40 2D Batching 與 Render Metrics（限定驗收）
+
+GPU／GL 只合併相鄰相容的普通 Sprite commands：source-local UV、affine／reflection、atlas trim／rotation、tint／opacity、anchor／roundPixels 保留為逐 instance attributes。不按 texture 重排，不改 ordinary global stable z／equal-z insertion order／world→HUD。Material／tiling sprites、meshes、ParticleLayer／isolation 為普通 sprite runs 的 barriers，source／effective nearest-linear sampling／world-HUD boundaries 改變切 run。ParticleLayer 使用自有 ordered active-slot runs與versioned uploads。Native shader ABI、isolation／masks／filters／blends、P19 immutable whole-frame captures、3D HDR／MSAA／OIT stages 不變；Canvas2D 是 native paint，非 GPU instancing。
+
+| 欄位                    | 意義／reset 邊界                                                                                                   |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `drawCalls2D`           | 每幀 submitted native 2D draws／Canvas paint commands，含 effect／composition quads或paint，不是 Scene object 數。 |
+| `instances2D`           | 每幀上述 draws 的 submitted instances（含 effect quads）；Canvas paints 不代表 GPU batch parity。                  |
+| `renderPasses2D`        | 每幀 2D target passes，含 clear-only passes／local effects／composition。                                          |
+| `uploadBytes`           | 每幀真傳到 buffers／textures 的 bytes；numeric capacity-only allocation 不算 upload data。                         |
+| `renderTargetBytes`     | 目前 resident attachments bytes 估計，跨 frame begin 保留、owned target 釋放下降。                                 |
+| `peakRenderTargetBytes` | renderer 建立至今最高 resident attachments 估計，frame begin／target release 不清除。                              |
+
+`FrameStats.begin()` 清每幀 counters，但保留 resident／peak。CPU estimate依attachment format／sample count：RGBA8 4 bytes/pixel、RGBA16F 8、R8 1、depth24plus／depth32float估4。含owned 2D targets／captures／effects與tracked 3D depth／MSAA color／shadow／HDR／refraction／FXAA／weighted-OIT attachments；Canvas記RGBA offscreen caches／scratch／captures／targets。排除default framebuffer、driver allocation／alignment、source texture residency／buffers／CPU decoder allocations，不是resource總memory。這些是counters／estimates，**不是GPU timers**、GPU completion／memory／GC telemetry或效能改善證明。無Scene frame清per-frame work、resident targets／captures保留至釋放；destroy清owned targets、替換renderer有自己的lifetime peak。
+
+P41 budgets／warmup 與 P42 textures／skinning／physics／animation／navigation 是 [PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 的另列批准契約，不由 counters 推論完成。Browser 證據與新 API 細節於整合後補記，此處不聲稱新 cross-browser 認證。

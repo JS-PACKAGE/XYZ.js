@@ -3,9 +3,12 @@ import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.
 import { RenderCommandBuffer2D } from './render2d-contract.js';
 import { CanvasSpriteSource } from './canvas-sprite-source.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
+import type { FrameStats } from './render-stats.js';
 export declare class CanvasRender2D {
     readonly sources: CanvasSpriteSource;
+    readonly stats: FrameStats;
     private readonly caches;
+    private readonly canvasBytes;
     private readonly quad;
     private readonly appearance;
     private readonly matrix;
@@ -16,7 +19,10 @@ export declare class CanvasRender2D {
     private readonly maskCanvas;
     private tileMatrix;
     private readonly paths;
-    constructor(sources: CanvasSpriteSource);
+    constructor(sources: CanvasSpriteSource, stats: FrameStats);
+    /** RGBA backing-store estimates exclude browser/driver overhead. */
+    resizeCanvas(canvas: HTMLCanvasElement, width: number, height: number): void;
+    releaseCanvas(canvas: HTMLCanvasElement): void;
     preflight(commands: RenderCommandBuffer2D, depth?: number): void;
     private validateBounds;
     draw(context: CanvasRenderingContext2D, commands: RenderCommandBuffer2D, scene: Scene, scaleX: number, scaleY: number, root?: IsolatedGroup2D, bounds?: Rect2D): void;

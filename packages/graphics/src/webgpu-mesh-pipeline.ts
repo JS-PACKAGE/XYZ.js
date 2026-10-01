@@ -29,7 +29,7 @@ import { Matrix4 } from '../../math/src/index.js';
 import { WebGPUInitializationError, GraphicsError } from './errors.js';
 import { webgpuMeshShader } from './webgpu-mesh-shader.js';
 import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
-import { FrameStats } from './render-stats.js';
+import type { FrameStats } from './render-stats.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
 import { WebGPUOIT } from './webgpu-oit.js';
@@ -81,7 +81,7 @@ export class WebGPUMeshPipeline {
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
-  readonly stats = new FrameStats();
+  readonly stats: FrameStats;
   private readonly sceneData = new Float32Array(252);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
@@ -189,7 +189,8 @@ export class WebGPUMeshPipeline {
     private readonly format: GPUTextureFormat,
     private readonly sampleCount: number,
   ) {
-    this.oit = new WebGPUOIT(device, sampleCount);
+    this.stats = post.stats;
+    this.oit = new WebGPUOIT(device, sampleCount, this.stats);
     this.sceneBuffer = device.createBuffer({
       size: this.sceneData.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -203,6 +204,7 @@ export class WebGPUMeshPipeline {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.sheenBuffer, 0, sheenDirectionalAlbedo);
+    this.stats.upload(sheenDirectionalAlbedo.byteLength);
     this.projectionBuffer = device.createBuffer({
       size: this.atlas.projections.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -230,6 +232,7 @@ export class WebGPUMeshPipeline {
       {},
       [1, 1],
     );
+    this.stats.upload(4);
     this.whiteView = this.whiteTexture.createView();
     this.emptyOptical = device.createTexture({
       size: [1, 1, 2],
@@ -266,6 +269,7 @@ export class WebGPUMeshPipeline {
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.identityBuffer, 0, new Matrix4().elements);
+    this.stats.upload(64);
     this.whiteCapacity = 1024;
     this.whiteBuffer = device.createBuffer({
       size: this.whiteCapacity * 16,
@@ -276,6 +280,7 @@ export class WebGPUMeshPipeline {
       0,
       new Float32Array(this.whiteCapacity * 4).fill(1),
     );
+    this.stats.upload(this.whiteCapacity * 16);
     this.sceneBindGroup = this.createSceneGroup(this.emptyShadowView);
     this.shadowSceneBindGroup = this.sceneBindGroup;
     this.skyBindGroup = this.createSceneGroup(
@@ -289,6 +294,7 @@ export class WebGPUMeshPipeline {
     format: GPUTextureFormat,
     isDestroyed: () => boolean,
     sampleCount: number,
+    stats: FrameStats,
   ): Promise<WebGPUMeshPipeline> {
     const module = device.createShaderModule({ code: webgpuMeshShader });
     const packModule = device.createShaderModule({ code: opticalPackWGSL });
@@ -576,6 +582,7 @@ export class WebGPUMeshPipeline {
       format,
       isDestroyed,
       sampleCount,
+      stats,
     );
     try {
       return new WebGPUMeshPipeline(
@@ -610,6 +617,9 @@ export class WebGPUMeshPipeline {
       (this.depthWidth !== width || this.depthHeight !== height)
     ) {
       this.depthTexture.destroy();
+      this.stats.target(
+        -this.depthWidth * this.depthHeight * 4 * this.sampleCount,
+      );
       this.depthTexture = undefined;
       this.depthView = undefined;
     }
@@ -618,6 +628,12 @@ export class WebGPUMeshPipeline {
       (this.msaaWidth !== width || this.msaaHeight !== height)
     ) {
       this.msaaTexture.destroy();
+      this.stats.target(
+        -this.msaaWidth *
+          this.msaaHeight *
+          (this.msaaFormat === 'rgba16float' ? 8 : 4) *
+          this.sampleCount,
+      );
       this.msaaTexture = undefined;
       this.msaaView = undefined;
     }
@@ -637,14 +653,19 @@ export class WebGPUMeshPipeline {
     )
       return;
     this.refractionTexture?.destroy();
+    if (this.refractionTexture)
+      this.stats.target(-this.refractionWidth * this.refractionHeight * 8);
+    this.refractionTexture = undefined;
+    this.refractionView = undefined;
     this.refractionTexture = this.device.createTexture({
       size: [width, height],
       format: 'rgba16float',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    this.refractionView = this.refractionTexture.createView();
+    this.stats.target(width * height * 8);
     this.refractionWidth = width;
     this.refractionHeight = height;
+    this.refractionView = this.refractionTexture.createView();
     this.sceneBindGroup = this.createSceneGroup(
       this.shadowView ?? this.emptyShadowView,
     );
@@ -653,6 +674,7 @@ export class WebGPUMeshPipeline {
   private releaseRefraction(): void {
     if (!this.refractionTexture) return;
     this.refractionTexture.destroy();
+    this.stats.target(-this.refractionWidth * this.refractionHeight * 8);
     this.refractionTexture = undefined;
     this.refractionView = undefined;
     this.sceneBindGroup = this.createSceneGroup(
@@ -673,7 +695,6 @@ export class WebGPUMeshPipeline {
     this.frame++;
     for (const buffer of this.retired) buffer.destroy();
     this.retired.length = 0;
-    this.stats.begin();
     this.draws.length = 0;
     this.visibleDraws.length = 0;
     try {
@@ -860,6 +881,7 @@ export class WebGPUMeshPipeline {
     if (!scene.shadows.enabled) {
       if (this.shadowTexture) {
         this.shadowTexture.destroy();
+        this.stats.target(-this.shadowSize * this.shadowSize * 4);
         this.shadowTexture = undefined;
         this.shadowView = undefined;
         this.sceneBindGroup = this.shadowSceneBindGroup;
@@ -873,6 +895,8 @@ export class WebGPUMeshPipeline {
       );
     if (this.shadowTexture && this.shadowSize === size) return;
     this.shadowTexture?.destroy();
+    if (this.shadowTexture)
+      this.stats.target(-this.shadowSize * this.shadowSize * 4);
     this.shadowTexture = undefined;
     this.shadowView = undefined;
     const texture = this.device.createTexture({
@@ -881,6 +905,7 @@ export class WebGPUMeshPipeline {
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
+    this.stats.target(size * size * 4);
     try {
       const view = texture.createView();
       this.sceneBindGroup = this.createSceneGroup(view);
@@ -889,6 +914,7 @@ export class WebGPUMeshPipeline {
       this.shadowSize = size;
     } catch (error) {
       texture.destroy();
+      this.stats.target(-size * size * 4);
       throw error;
     }
   }
@@ -907,7 +933,9 @@ export class WebGPUMeshPipeline {
     fillFogData(scene, this.fogData);
     data.set(this.fogData, 244);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
+    this.stats.upload(data.byteLength);
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
+    this.stats.upload(this.atlas.data.byteLength);
     if (this.atlas.count)
       this.device.queue.writeBuffer(
         this.projectionBuffer,
@@ -916,6 +944,7 @@ export class WebGPUMeshPipeline {
         0,
         this.atlas.count * 64,
       );
+    if (this.atlas.count) this.stats.upload(this.atlas.count * 64 * 4);
   }
 
   /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
@@ -974,6 +1003,7 @@ export class WebGPUMeshPipeline {
             { bytesPerRow: size.width * 8 },
             [size.width, size.height],
           );
+          this.stats.upload(map.levels[level].byteLength);
         }
         entry = { texture, view: texture.createView(), seen: 0 };
       } catch (error) {
@@ -1065,6 +1095,7 @@ export class WebGPUMeshPipeline {
       0,
       new Float32Array(capacity * 4).fill(1),
     );
+    this.stats.upload(capacity * 16);
     this.whiteCapacity = capacity;
     return this.whiteBuffer;
   }
@@ -1117,16 +1148,28 @@ export class WebGPUMeshPipeline {
     )
       return this.msaaView;
     this.msaaTexture?.destroy();
+    if (this.msaaTexture)
+      this.stats.target(
+        -this.msaaWidth *
+          this.msaaHeight *
+          (this.msaaFormat === 'rgba16float' ? 8 : 4) *
+          this.sampleCount,
+      );
+    this.msaaTexture = undefined;
+    this.msaaView = undefined;
     this.msaaTexture = this.device.createTexture({
       size: [width, height],
       format,
       sampleCount: this.sampleCount,
       usage: GPUTextureUsage.RENDER_ATTACHMENT,
     });
-    this.msaaView = this.msaaTexture.createView();
+    this.stats.target(
+      width * height * (format === 'rgba16float' ? 8 : 4) * this.sampleCount,
+    );
     this.msaaFormat = format;
     this.msaaWidth = width;
     this.msaaHeight = height;
+    this.msaaView = this.msaaTexture.createView();
     return this.msaaView;
   }
 
@@ -1138,6 +1181,12 @@ export class WebGPUMeshPipeline {
     )
       return;
     this.depthTexture?.destroy();
+    if (this.depthTexture)
+      this.stats.target(
+        -this.depthWidth * this.depthHeight * 4 * this.sampleCount,
+      );
+    this.depthTexture = undefined;
+    this.depthView = undefined;
     this.depthTexture = this.device.createTexture({
       size: [width, height],
       format: 'depth24plus',
@@ -1145,9 +1194,10 @@ export class WebGPUMeshPipeline {
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
-    this.depthView = this.depthTexture.createView();
+    this.stats.target(width * height * 4 * this.sampleCount);
     this.depthWidth = width;
     this.depthHeight = height;
+    this.depthView = this.depthTexture.createView();
   }
 
   private cacheGeometry(geometry: Geometry): CachedGeometry {
@@ -1155,6 +1205,7 @@ export class WebGPUMeshPipeline {
     if (existing) {
       if (existing.version !== geometry.version) {
         this.device.queue.writeBuffer(existing.vertex, 0, geometry.vertices);
+        this.stats.upload(geometry.vertices.byteLength);
         this.syncGeometryColors(existing, geometry);
         existing.version = geometry.version;
       }
@@ -1171,7 +1222,9 @@ export class WebGPUMeshPipeline {
       });
       try {
         this.device.queue.writeBuffer(vertex, 0, geometry.vertices);
+        this.stats.upload(geometry.vertices.byteLength);
         this.device.queue.writeBuffer(index, 0, geometry.indices);
+        this.stats.upload(geometry.indices.byteLength);
         const entry: CachedGeometry = {
           vertex,
           index,
@@ -1205,6 +1258,7 @@ export class WebGPUMeshPipeline {
     } else {
       entry.colors = this.colorBuffer(entry.colors, colors);
       this.device.queue.writeBuffer(entry.colors, 0, colors);
+      this.stats.upload(colors.byteLength);
     }
   }
 
@@ -1274,9 +1328,11 @@ export class WebGPUMeshPipeline {
           usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
         });
         this.device.queue.writeBuffer(instance, 0, object.matrices);
+        this.stats.upload(object.matrices.byteLength);
         if (object.colors) {
           instanceColors = this.colorBuffer(undefined, object.colors);
           this.device.queue.writeBuffer(instanceColors, 0, object.colors);
+          this.stats.upload(object.colors.byteLength);
         }
       }
       const bindGroup = this.device.createBindGroup({
@@ -1517,6 +1573,7 @@ export class WebGPUMeshPipeline {
         { texture: resource, premultipliedAlpha: premultiplied },
         [width, height],
       );
+      this.stats.upload(width * height * 4);
       const entry = { resource, view: resource.createView(), seen: this.frame };
       cache.set(texture, entry);
       return entry;
@@ -1610,6 +1667,7 @@ export class WebGPUMeshPipeline {
       mesh.instanceVersion !== object.version
     ) {
       this.device.queue.writeBuffer(mesh.instance, 0, object.matrices);
+      this.stats.upload(object.matrices.byteLength);
       mesh.instanceVersion = object.version;
     }
     if (
@@ -1623,9 +1681,11 @@ export class WebGPUMeshPipeline {
         object.colors,
       );
       this.device.queue.writeBuffer(mesh.instanceColors, 0, object.colors);
+      this.stats.upload(object.colors.byteLength);
       mesh.instanceColorVersion = object.colorVersion;
     }
     this.device.queue.writeBuffer(mesh.uniform, 0, data);
+    this.stats.upload(data.byteLength);
   }
 
   private releaseUnused(): void {
@@ -1672,6 +1732,21 @@ export class WebGPUMeshPipeline {
   destroy(): void {
     this.oit.release();
     this.post.destroy();
+    if (this.depthTexture)
+      this.stats.target(
+        -this.depthWidth * this.depthHeight * 4 * this.sampleCount,
+      );
+    if (this.msaaTexture)
+      this.stats.target(
+        -this.msaaWidth *
+          this.msaaHeight *
+          (this.msaaFormat === 'rgba16float' ? 8 : 4) *
+          this.sampleCount,
+      );
+    if (this.shadowTexture)
+      this.stats.target(-this.shadowSize * this.shadowSize * 4);
+    if (this.refractionTexture)
+      this.stats.target(-this.refractionWidth * this.refractionHeight * 8);
     this.depthTexture?.destroy();
     this.msaaTexture?.destroy();
     this.msaaTexture = undefined;

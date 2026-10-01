@@ -22,3 +22,21 @@ jobs:
       - run: npx --yes pnpm@12.6.0 run lint
       - run: npx --yes pnpm@12.6.0 run test
       - run: npx --yes pnpm@12.6.0 run build
+      - name: Install Chromium from pinned playwright-core
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Smoke real examples on mandatory 2D backends
+        run: |
+          npx --yes pnpm@12.6.0 run smoke:examples --example gameplay2d --renderer canvas2d
+          npx --yes pnpm@12.6.0 run smoke:examples --example gameplay2d --renderer webgl2
+          npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer canvas2d
+          npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer webgl2
+      - name: Deep Chromium pixel and lifecycle regressions
+        run: npx --yes pnpm@12.6.0 run regression:browser
+      - name: Preserve browser assertions and pixel proofs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: chromium-browser-regression
+          path: .vite/browser-regression/
+          include-hidden-files: true
+          if-no-files-found: ignore

@@ -82,6 +82,12 @@ beforeEach(() => {
       drawCalls: 0,
       triangles: 0,
       shadowDrawCalls: 0,
+      drawCalls2D: 0,
+      instances2D: 0,
+      renderPasses2D: 0,
+      uploadBytes: 0,
+      renderTargetBytes: 0,
+      peakRenderTargetBytes: 0,
     },
     capabilities: {
       threeD: true,

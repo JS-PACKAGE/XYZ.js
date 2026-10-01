@@ -2,7 +2,20 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine, not a complete game. This guide covers package 1.6.0, P01–P08, Text2D/SceneTimers and P09–P12 advanced 3D, plus the v1.4/v1.5 additions. Its three.js-inspired API is not drop-in compatible and does not implement every addon; no runtime dependency was added. Versioning/publication remain the owner's decision; npm is unpublished and the root package is licensed under Apache-2.0. See [acceptance records](../ACCEPTANCE.md) for measured support and limitations.
+XYZ.js is a browser game engine; P42 also approves a full playable reference flow, not a claim that it is already delivered. This guide covers current source metadata **1.7.0 / Apache-2.0** (npm unpublished), with historical P01–P39 examples and evidence retained. The API is inspired by three.js/PixiJS/Excalibur, not drop-in or full upstream parity; no runtime dependency was added. P40 passed scoped acceptance; P41/P42 remain approved and pending. No push/publication/version change is authorized. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [acceptance records](../ACCEPTANCE.md).
+
+## Current Support at a Glance
+
+| Need                          | Available now / important boundary                                                                                                                                                                                                                                                                                                                                                                                      |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Portable 2D                   | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                                                                           |
+| 3D                            | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                                                                               |
+| Physics2D                     | Sleep, five joints, translation-only dynamic→static CCD, static concave decomposition/chains. Dynamic concave/compound and rotational/dynamic-pair CCD remain unsupported.                                                                                                                                                                                                                                              |
+| Models / textures             | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt. Draco/Basis need supplied decoders; current KTX2 is base-level RGBA8, not native compressed/mip upload.                                                                                                                                                                                                                                                 |
+| Recovery                      | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                                                                               |
+| P40 verified; P41/P42 pending | P40 batching/metrics/deep browser regression passed on three Chromium backends; hosted CI not run. P41 UI layout/widgets/focus, cross-device contexts, resident budget/warmup, typed factories and P42 full playable flow plus GPU skinning/animated bounds/native compressed-mip textures/3D colliders-queries-character-dynamic bodies/navigation-pathfinding/animation masks-additive-blend trees-IK remain pending. |
+
+Stage-specific counts and browser observations below are historical, not proof of these pending expansions.
 
 ## 1. Start the Development Environment
 
@@ -293,7 +306,7 @@ game.start();
 
 The timer uses simulation seconds: pausing freezes it, and replacing/destroying the Scene cancels it. No `setTimeout` cleanup is needed. It is not a wall-clock countdown. Cancel individual timers with `timer.cancel()`; `timer.active` reports whether they remain scheduled.
 
-Text supports newlines and normal Sprite transforms, anchor, opacity and zIndex. Await `document.fonts.load(...)` before creating labels that require a custom font. Handle `setText()` rejections; rapid overlapping updates keep only the latest request. Style is immutable and generated textures belong to the label, so do not share them with other Sprites.
+Text supports newlines and normal Sprite transforms, anchor, opacity and zIndex. Await custom font readiness and handle `setText()` rejections; overlapping updates are latest-request-wins. The original v1.1 immutable-style/no-wrap profile is historical: P27 adds styled layout and typed font assets (section 18). Generated textures belong to the label; do not share them with other Sprites.
 
 Open [Pong](../examples/pong/) to see score text, delayed serves, Pause/Resume and Restart scene. Restart while paused leaves the new scene paused until Resume.
 
@@ -339,9 +352,11 @@ if (asset.animations[0]) {
 }
 ```
 
-Here signal is your initialization AbortSignal; provide a real model URL. `parse(bytesOrJSON,baseURL,{signal})` also supports GLB/glTF. Game updates scene.animations after timers and before Scene.update; do not double-update it. Clips target TRS with STEP/LINEAR/CUBICSPLINE; last-created playing action writing the same property wins, not blends. play resumes, stop resets time without restoring pose, loop=false stops on the sampled endpoint, and negative timeScale reverses playback.
+Here signal is your initialization AbortSignal; provide a real model URL. `parse(bytesOrJSON,baseURL,{signal})` also supports GLB/glTF. Game advances scene.animations after timers and before Scene.update; do not double-update it. TRS clips support STEP/LINEAR/CUBICSPLINE, reverse, repeat/once/pingpong and P34 ordered weighted layers/fades/crossfades. At weight 1 later layers replace earlier writes; partial weights blend rather than normalize all actions. `play()` resumes; `stop()` resets time without restoring pose. See the technical animation contracts.
 
 Triangle primitives, normalized/strided/sparse accessors, textures, four-influence skins and morph targets (POSITION/NORMAL deltas, mesh/node weights, `weights` animation) are supported, along with `KHR_mesh_quantization`, `KHR_materials_emissive_strength`, `KHR_materials_unlit` (approximated), `KHR_texture_transform` (baked into UVs; one shared transform per material) and `KHR_lights_punctual` (returned as `asset.lights`, in raw glTF units; add them to the scene yourself). Other required extensions and other topology explicitly reject. CPU SkinnedMesh refreshes its cloned geometry for rendering and picking; drive morphs with `mesh.morph.weights.set(index, weight)` or a loaded clip (weights of one node's primitives are shared). Model budgets: input 32 MiB, fetched/tracked decoded 128 MiB each, lists 10,000 entries, accessor scalar elements 4,194,304, total vertices 1,000,000/indices 3,000,000, joints 256, 64 morph targets per mesh and hierarchy depth 256. These are not total process-memory limits; image post-decode caveats still apply.
+
+Current loader additions: `COLOR_0` float/normalized unsigned VEC3/VEC4 (including alpha), built-in `EXT_meshopt_compression`, conditional Draco/Basis decoder interfaces, and the documented P39 PBR extensions. Required extensions outside that supported set still reject. For Draco pass your real `dracoDecoder` through the load/parse options; it must return logical-space attributes and triangle indices matching accessors. Without it required Draco rejects; optional Draco needs real uncompressed fallback accessors. For Basis/other KTX2 formats pass a real `ktx2Transcoder` returning RGBA8; XYZ.js bundles no Draco/Basis WebAssembly. Built-in KTX2 accepts plain 2D RGB(A), no/ZLIB supercompression, base level only; `KHR_texture_basisu` is advertised only with the transcoder, otherwise a regular source fallback is needed. External decoder quality/speed/memory and a broad asset corpus are not certified. Native compressed/mip uploads are approved P42 work, not current decoder output. Details: [technical reference](TECHNICAL.md).
 
 Stop actions/remove consumers and call asset.dispose() in your resource cleanup, including on initialization failure. Scene destruction does not dispose loader-owned textures; never dispose while another live mesh borrows them. Mesh/materials do not own shared textures.
 
@@ -372,7 +387,7 @@ const instances = scene.add(
 instances.setMatrixAt(0, new Matrix4());
 ```
 
-PBR borrows base/emissive sRGB textures and linear metallicRoughness (G/B), normal and occlusion (R) maps; use the corresponding material slots and scales. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK, and doubleSided controls culling. Translucent meshes (BLEND, or opacity below 1) are drawn last, farthest first, so insertion order no longer matters for them. Scene allows 8 point and 8 spot lights; excess rejects. Only directional 3×3 PCF shadows are available (castShadow/receiveShadow per mesh); no point/spot shadows.
+PBR borrows base/emissive sRGB and linear metallicRoughness (G/B), normal/occlusion (R) maps. alphaMode selects OPAQUE/MASK/BLEND, alphaCutoff controls MASK and doubleSided controls culling. PBR alphaMode is authoritative; legacy TextureMaterial uses opacity/transparent. Default sorted translucent meshes draw farthest-first with stable ties, but intersecting surfaces can still composite incorrectly; weighted mode is an opt-in approximation. The Scene allows 8 point and 8 spot lights, rejecting excess. P37 supports point/spot shadows and 2–4 directional cascades alongside fixed directional 3×3 PCF; enable light `castShadow` as well as mesh flags. See the technical shadow limits.
 
 For image-based lighting and a skybox, build an `EnvironmentMap` from an equirect (2:1) image and assign it to the scene. It lights `PBRMaterial` only and replaces its flat `ambientLight`:
 
@@ -403,13 +418,15 @@ scene.fog.far = 30;
 
 `Game.create({ antialias })` (default `true`) enables 4× MSAA for the WebGPU 3D pass; pass `false` to save GPU cost. See the [technical notes](TECHNICAL.md#21-advanced-3d-p09p12) for what it does not cover.
 
-If the GPU context is lost (mobile tab switches, driver resets) the Game keeps running by default: listen for `graphicslost` / `graphicsrecovered`, and recreate any `RenderTexture2D` or snapshots you hold after recovery. Pass `recoverGraphics: false` to treat a loss as fatal instead.
+GPU/GL loss triggers recovery by default: observe `graphicslost` / `graphicsrecovered`; frames are skipped while the same backend is rebuilt. Recreate any old `RenderTexture2D` or snapshot handles after recovery. Recovery failure/restore timeout is fatal; `recoverGraphics:false` makes loss fatal immediately. Recorded Chromium WebGL2 `WEBGL_lose_context` checks are not evidence of real mobile/driver resets or browser WebGPU-loss certification.
 
 To post-process only the 3D image (not sprites or the HUD), prepare a `PostProcessor2D` and add it to `scene.effects3D`; it uses the same `effect(color, uv, screen)` shader signature as `effects2D`. `game.graphics.stats` reports draw calls, triangles and culled meshes for the last frame. For first-person mouse-look, create `new FirstPersonControls(camera, canvas)`, call `await controls.lock()` from a click handler, and call `controls.update(dt)` every frame.
 
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters in these options reject; glTF files that specify mipmapped filters load with the base filter.
+
+The sampler restriction is current, not a permanent exclusion: P42 native compressed/mip textures are approved and pending. EnvironmentMap roughness mips do not enable general Texture mip filtering.
 
 ## 12. Atlas Graphics and HUD (P13)
 
@@ -439,6 +456,8 @@ hud.add(sheet.createSprite(1, { anchor: [0, 0], position: [16, 16] }));
 Use `SpriteSheet.grid(texture,{frameWidth,frameHeight,columns,rows,origin:[x,y],spacing:[x,y]})` for regular cells. Sheet frames require integer source pixels; direct `sprite.source={x,y,width,height}` also allows finite fractional pixels within the texture. `undefined` restores the full image. Sprite width/height are natural source dimensions: resize with scale, not displayWidth/displayHeight. Nested groups inherit visibility, opacity, tint and z; screen roots ignore camera motion and draw after world objects. Reparent preserves local transform. Remove detaches a reusable subtree; destroy recursively destroys children without destroying borrowed textures.
 
 `new SpriteFont(sheet,{alphabet:'012AB',lineHeight:10,fallback:'0',advance:8})` maps one Unicode code point per sheet frame. `new SpriteText(font,'A012B\n210BA',{align:'center',letterSpacing:1,lineSpacing:2})` owns glyph children; synchronous `setText(text)` reuses them and preserves old text on invalid input. Without fallback an unmapped character rejects. This does not import BMFont files.
+
+That constructor maps an already provided sheet; P27 separately provides bounded text/JSON BMFont loading and multipage metrics/kerning. It is no longer correct to describe the whole engine as lacking BMFont support; see section 18 and the technical profiles.
 
 `new NineSlice(texture,{left:3,right:3,top:3,bottom:3,width:60,height:28,mode:'tile'})` borrows the texture and owns patches. Source/margins are integer pixels; optional source selects a panel inside an atlas. `resize(width,height)` accepts bounded fractional destination sizes. Stretch is default; tile clips last partial repeats (including fractional source remainder); tile-fit distributes complete repeats evenly. Small destinations compress opposite margins proportionally; `drawCenter:false` omits the center.
 
@@ -609,7 +628,7 @@ GameObject itself has no visual; add an atlas Sprite instead when displaying a b
 
 RigidBody2D exposes velocity, angularVelocity, mass, restitution, friction, linearDamping, angularDamping, gravityScale and lockRotation; applyForce/applyImpulse accept an optional world lever point, clearForces clears accumulators. No body means a static collider. Category/mask are reciprocal unsigned 32-bit filters; sensor=true detects without response. collisionstart/precollision/postcollision/collisionend carry self/other, stable normal/points, penetration, sensor and cancelResponse(); cancellation only suppresses that precollision step's response. Trigger2D clones a sensor shape, defaults to one accepted enter, accepts repeat=Infinity explicitly, and emits triggerenter/triggerexit {self,other}; it does not auto-destroy.
 
-Scene.physics.overlap(collider,owner) returns shape-accurate contacts; raycast(origin,direction,maxDistance,mask?) returns distance-sorted surface hits. Gravity, fixedDelta, maxSubSteps, velocityIterations and positionIterations are configurable. The solver is discrete and capped; droppedTime reports discarded catch-up time. High-speed tunneling is possible. No CCD, joints, sleeping, kinematic/concave/composite/edge or 3D physics.
+Scene.physics.overlap(collider,owner) returns shape-accurate contacts; raycast(origin,direction,maxDistance,mask?) returns distance-sorted surface hits. The fixed-step solver is capped; droppedTime reports discarded catch-up. P31 adds `body.ccd` for dynamic translation against static non-sensors (no rotation/dynamic-pair sweep), sleep and `DistanceJoint`/`RevoluteJoint`/`PrismaticJoint`/`WeldJoint`/`MouseJoint` through addJoint/removeJoint. `Colliders.polygon` remains strictly convex; use `StaticConcave2D`/`StaticChain2D` for static convex-piece composites. No dynamic concave/compound, kinematic/zero-width-edge or current 3D physics. P42 separately approves 3D colliders/queries/character/dynamic bodies and navigation/pathfinding; these old exclusions do not remove that scope. Full limits are in [TECHNICAL](TECHNICAL.md).
 
 ### Atlas Maps
 
@@ -647,6 +666,8 @@ map.setTile(2, 2, { solid: false });
 Use a live atlas texture large enough for the referenced frames. getTile returns an immutable cell {frame,solid,elevation,collider?,metadata?}; setTile validates a partial edit before publication, clearTile resets the cell. tileToLocal/tileToWorld include configured elevation and optionally reuse a Vector2 output. worldToTile(point,out?) returns integer coordinates (possibly outside grid) on the elevation-zero plane; pickTile handles elevated topmost graphic rectangles, not pixel alpha or exact diamond geometry. Singular inverse transforms reject, while pickTile returns undefined.
 
 Orthogonal origins are top-left; isometric origins are diamond top vertices, depth ordered by diagonal/elevation/insertion. Generated Sprite children borrow the sheet texture and remain pooled when hidden or cleared. Conservative transformed camera culling does not remove solid physics. Solids default to boxes/diamonds; collider can supply a custom convex shape. Edits/removal/destruction update Scene collision registration. Destroy maps before the separately owned atlas Texture. No editor-format imports, hex/staggered grids or navigation.
+
+That navigation exclusion belongs to the original map profile; navigation/pathfinding is now approved P42 work, pending implementation/acceptance. Editor importers/hex/staggered remain excluded.
 
 ### Particle Emitters
 
@@ -758,6 +779,8 @@ Canvas supports the approved ordinary/raster 2D profile; visible native meshes a
 
 Resources remain explicit: views, meshes, fonts and particles borrow sources; remove borrowers before destroying their owning asset. Native texture unload leaves CPU sources usable. Atlas anchors/borders, CanvasTexture updates, generated RGBA fonts, ParticleLayer and preparation/unload are required, not optional. These profiles do not promise full Pixi, HTML/SDF/video/compressed/plugin/automatic-GC parity.
 
+The compressed-source exclusion is historical P21–P29 scope: current P32 KTX2 decoding/external codecs and approved P42 native compressed/mip textures expand that boundary, not the other Pixi non-goals.
+
 The authored [fixture factory](../examples/rendering2d/fixtures.ts) produces disposable object URLs for atlas/pattern/masks and multipage text/JSON BMFont. Its real font [provenance/license](../examples/rendering2d/assets/README.md) is separate from engine licensing.
 
 ### Affine helpers: observed P21 source foundation
@@ -812,3 +835,11 @@ surfaces without exact layer sorting. It requires WebGPU or WebGL2 with float
 color attachments, and does not add multilayer refraction or transparent depth
 for SSAO/DOF. Try the toggle and reverse-order button in
 [objects3d](../examples/objects3d/index.html).
+
+## P40 Rendering Diagnostics and Browser Regression (scoped acceptance)
+
+Read `game.graphics.stats` without retaining the mutable object as a historical snapshot: copy fields you need. Existing 3D draw/triangle/shadow counters retain their definitions. `drawCalls2D`, `instances2D`, `renderPasses2D`, `uploadBytes` are per-frame CPU work counters including native effects/composition; Canvas reports paint/pass work, not GPU batch parity. `renderTargetBytes` estimates live owned attachments (including offscreen caches/captures) and `peakRenderTargetBytes` their renderer-lifetime peak; they are not reset by frame begin. Release/destroy decreases resident bytes, not the lifetime peak. These are **not GPU timers**, driver memory, general resource budgets or an FPS-improvement claim. DebugOverlay displays the new fields; [TECHNICAL](TECHNICAL.md) documents adjacent batching constraints and reset boundaries.
+
+The deep runner is `pnpm regression:browser` after `pnpm build` and `pnpm exec playwright-core install chromium`. Default required backends are Canvas2D/WebGL2; WebGPU is probed and explicitly SKIPped when unavailable. `--renderer canvas2d|webgl2|webgpu` (comma-separated list) selects required backends; requesting WebGPU or `--require-webgpu` fails if unavailable. `--output DIR` selects assertion JSON/canvas PNG artifact output (default `.vite/browser-regression`). The installed Chromium software-rendering CI gate and existing example smoke are distinct from cross-browser/real-GPU certification; WebGL context loss uses the real extension, while private-device WebGPU loss injection remains an explicit SKIP. Actual three-backend Chromium 153 evidence is in ACCEPTANCE; hosted CI has not been run.
+
+For P41/P42 approval boundaries and all third-round options, use [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md); do not treat historical non-goals as permission to omit approved work.

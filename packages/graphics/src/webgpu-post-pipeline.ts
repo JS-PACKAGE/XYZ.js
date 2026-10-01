@@ -7,6 +7,7 @@ import {
   type Camera3D,
 } from '../../core/src/orthographic-camera.js';
 import type { Matrix4 } from '../../math/src/index.js';
+import type { FrameStats } from './render-stats.js';
 
 const postShader = (sampleCount: number): string => /* wgsl */ `
 struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f };
@@ -70,6 +71,7 @@ export class WebGPUPostPipeline {
     private readonly pipeline: GPURenderPipeline,
     private readonly fxaaPipeline: GPURenderPipeline,
     private readonly format: GPUTextureFormat,
+    readonly stats: FrameStats,
   ) {
     this.fxaaSampler = device.createSampler({
       minFilter: 'linear',
@@ -82,6 +84,7 @@ export class WebGPUPostPipeline {
     format: GPUTextureFormat,
     isDestroyed: () => boolean,
     sampleCount: number,
+    stats: FrameStats,
   ): Promise<WebGPUPostPipeline> {
     const module = device.createShaderModule({ code: postShader(sampleCount) });
     const fxaaModule = device.createShaderModule({ code: fxaaWGSL });
@@ -116,7 +119,13 @@ export class WebGPUPostPipeline {
       },
       primitive: { topology: 'triangle-list' },
     });
-    return new WebGPUPostPipeline(device, pipeline, fxaaPipeline, format);
+    return new WebGPUPostPipeline(
+      device,
+      pipeline,
+      fxaaPipeline,
+      format,
+      stats,
+    );
   }
 
   target(width: number, height: number, depth: GPUTextureView): GPUTextureView {
@@ -137,6 +146,7 @@ export class WebGPUPostPipeline {
         GPUTextureUsage.TEXTURE_BINDING |
         GPUTextureUsage.COPY_SRC,
     });
+    this.stats.target(width * height * 8);
     try {
       const view = texture.createView();
       this.bindGroup = this.device.createBindGroup({
@@ -154,6 +164,7 @@ export class WebGPUPostPipeline {
       return view;
     } catch (error) {
       texture.destroy();
+      this.stats.target(-width * height * 8);
       throw error;
     }
   }
@@ -174,6 +185,7 @@ export class WebGPUPostPipeline {
       usage:
         GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
+    this.stats.target(this.width * this.height * 4);
     try {
       const view = texture.createView();
       const group = this.device.createBindGroup({
@@ -188,12 +200,14 @@ export class WebGPUPostPipeline {
       this.fxaaGroup = group;
     } catch (error) {
       texture.destroy();
+      this.stats.target(-this.width * this.height * 4);
       throw error;
     }
   }
 
   private releaseFxaa(): void {
     this.fxaaTexture?.destroy();
+    if (this.fxaaTexture) this.stats.target(-this.width * this.height * 4);
     this.fxaaTexture = undefined;
     this.fxaaView = undefined;
     this.fxaaGroup = undefined;
@@ -230,6 +244,7 @@ export class WebGPUPostPipeline {
     this.data[34] = settings.dofFocusRange;
     this.data[35] = settings.dofBlurRadius;
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
+    this.stats.upload(this.data.byteLength);
     if (fxaa) this.ensureFxaa();
     else this.releaseFxaa();
     this.attachment.view = fxaa ? this.fxaaView : view;
@@ -258,6 +273,7 @@ export class WebGPUPostPipeline {
 
   releaseTarget(): void {
     this.texture?.destroy();
+    if (this.texture) this.stats.target(-this.width * this.height * 8);
     this.releaseFxaa();
     this.texture = undefined;
     this.view = undefined;

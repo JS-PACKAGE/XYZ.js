@@ -15,6 +15,7 @@ import { CanvasSpriteSource } from './canvas-sprite-source.js';
 import { UnsupportedGraphicsError } from './errors.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 
+import type { FrameStats } from './render-stats.js';
 const zeroBounds: Rect2D = { x: 0, y: 0, width: 0, height: 0 };
 const white = new Float32Array([1, 1, 1, 1]);
 const modes: Record<string, GlobalCompositeOperation> = {
@@ -31,6 +32,7 @@ interface LayerPixels {
 }
 export class CanvasRender2D {
   private readonly caches = new Map<IsolatedGroup2D, LayerPixels>();
+  private readonly canvasBytes = new Map<HTMLCanvasElement, number>();
   private readonly quad = createTextureQuad2D();
   private readonly appearance = new Float32Array(4);
   private readonly matrix = new Matrix3();
@@ -41,7 +43,29 @@ export class CanvasRender2D {
   private readonly maskCanvas = document.createElement('canvas');
   private tileMatrix: DOMMatrix | undefined;
   private readonly paths = new WeakMap<object, Path2D>();
-  constructor(readonly sources: CanvasSpriteSource) {}
+  constructor(
+    readonly sources: CanvasSpriteSource,
+    readonly stats: FrameStats,
+  ) {}
+
+  /** RGBA backing-store estimates exclude browser/driver overhead. */
+  resizeCanvas(canvas: HTMLCanvasElement, width: number, height: number): void {
+    const previous = this.canvasBytes.get(canvas) ?? 0;
+    if (canvas.width !== width) canvas.width = width;
+    if (canvas.height !== height) canvas.height = height;
+    const bytes = width * height * 4;
+    this.canvasBytes.set(canvas, bytes);
+    this.stats.target(bytes - previous);
+  }
+
+  releaseCanvas(canvas: HTMLCanvasElement): void {
+    const bytes = this.canvasBytes.get(canvas);
+    if (bytes !== undefined) {
+      this.stats.target(-bytes);
+      this.canvasBytes.delete(canvas);
+    }
+    canvas.width = canvas.height = 1;
+  }
   preflight(commands: RenderCommandBuffer2D, depth = 0): void {
     if (depth > rendering2dLimits.layerDepth)
       throw new RangeError('Canvas2D layer depth exceeds budget.');
@@ -98,6 +122,7 @@ export class CanvasRender2D {
     root?: IsolatedGroup2D,
     bounds: Rect2D = zeroBounds,
   ): void {
+    this.stats.pass2D();
     let inverse: Matrix3 | undefined;
     if (root) {
       inverse = this.inverses.get(root);
@@ -122,8 +147,7 @@ export class CanvasRender2D {
           const canvas = pixels?.canvas ?? document.createElement('canvas');
           const width = Math.max(1, Math.ceil(local.width)),
             height = Math.max(1, Math.ceil(local.height));
-          if (canvas.width !== width) canvas.width = width;
-          if (canvas.height !== height) canvas.height = height;
+          this.resizeCanvas(canvas, width, height);
           const target = canvas.getContext('2d')!;
           target.setTransform(1, 0, 0, 1, 0, 0);
           target.globalAlpha = 1;
@@ -133,7 +157,7 @@ export class CanvasRender2D {
             this.draw(target, command.commands, scene, 1, 1, group, local);
             if (group.mask) this.mask(target, group, local);
           } catch (error) {
-            canvas.width = canvas.height = 1;
+            this.releaseCanvas(canvas);
             throw error;
           }
           pixels = { canvas, bounds: local, version: group.cacheVersion };
@@ -161,11 +185,12 @@ export class CanvasRender2D {
           this.appearance[2] !== 1
         ) {
           tinted = this.tinted;
-          if (tinted.width !== canvas.width) tinted.width = canvas.width;
-          if (tinted.height !== canvas.height) tinted.height = canvas.height;
+          this.resizeCanvas(tinted, canvas.width, canvas.height);
+          this.stats.pass2D();
           const tc = tinted.getContext('2d')!;
           tc.globalCompositeOperation = 'copy';
           tc.drawImage(canvas, 0, 0);
+          this.stats.draw2D();
           tc.globalCompositeOperation = 'source-over';
           const data = tc.getImageData(0, 0, canvas.width, canvas.height);
           for (let i = 0; i < data.data.length; i += 4)
@@ -182,6 +207,7 @@ export class CanvasRender2D {
           pixels.bounds.width || 1,
           pixels.bounds.height || 1,
         );
+        this.stats.draw2D();
         context.globalCompositeOperation = 'source-over';
       } else if (command.kind === 'sprite') {
         const sprite = command.object;
@@ -220,8 +246,8 @@ export class CanvasRender2D {
               Math.round(quad.naturalWidth * quad.resolution),
             ),
             th = Math.max(1, Math.round(quad.naturalHeight * quad.resolution));
-          if (tile.width !== tw) tile.width = tw;
-          if (tile.height !== th) tile.height = th;
+          this.resizeCanvas(tile, tw, th);
+          this.stats.pass2D();
           const tileContext = tile.getContext('2d')!;
           tileContext.clearRect(0, 0, tw, th);
           tileContext.drawImage(
@@ -229,6 +255,7 @@ export class CanvasRender2D {
             quad.trimX * quad.resolution,
             quad.trimY * quad.resolution,
           );
+          this.stats.draw2D();
           const pattern = context.createPattern(tile, 'repeat')!;
           const cs = Math.cos(sprite.tileRotation),
             sn = Math.sin(sprite.tileRotation);
@@ -250,6 +277,7 @@ export class CanvasRender2D {
           context.restore();
         } else
           context.drawImage(image, quad.x, quad.y, quad.width, quad.height);
+        this.stats.draw2D();
       } else if (command.kind === 'particles') {
         const layer = command.object;
         for (let i = 0; i < layer.activeCount; i++) {
@@ -286,6 +314,7 @@ export class CanvasRender2D {
             quad.width,
             quad.height,
           );
+          this.stats.draw2D();
         }
       }
     }
@@ -293,7 +322,7 @@ export class CanvasRender2D {
     context.globalCompositeOperation = 'source-over';
     for (const [group, pixels] of this.caches)
       if (group.destroyed || !group.isolationEnabled) {
-        pixels.canvas.width = pixels.canvas.height = 1;
+        this.releaseCanvas(pixels.canvas);
         this.caches.delete(group);
       }
   }
@@ -344,10 +373,8 @@ export class CanvasRender2D {
   ): void {
     const mask = group.mask!;
     const canvas = this.maskCanvas;
-    if (canvas.width !== context.canvas.width)
-      canvas.width = context.canvas.width;
-    if (canvas.height !== context.canvas.height)
-      canvas.height = context.canvas.height;
+    this.resizeCanvas(canvas, context.canvas.width, context.canvas.height);
+    this.stats.pass2D();
     const mc = canvas.getContext('2d')!;
     mc.setTransform(1, 0, 0, 1, 0, 0);
     mc.clearRect(0, 0, canvas.width, canvas.height);
@@ -389,18 +416,12 @@ export class CanvasRender2D {
       ? 'destination-out'
       : 'destination-in';
     context.drawImage(canvas, 0, 0);
+    this.stats.draw2D();
+    this.stats.draw2D();
     context.globalCompositeOperation = 'source-over';
   }
   destroy(): void {
-    for (const pixels of this.caches.values())
-      pixels.canvas.width = pixels.canvas.height = 1;
+    for (const canvas of this.canvasBytes.keys()) this.releaseCanvas(canvas);
     this.caches.clear();
-    this.tile.width =
-      this.tile.height =
-      this.tinted.width =
-      this.tinted.height =
-      this.maskCanvas.width =
-      this.maskCanvas.height =
-        1;
   }
 }

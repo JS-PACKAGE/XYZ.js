@@ -26,6 +26,7 @@ import { TilingSprite2D } from '../../core/src/graphics2d/tiling-sprite2d.js';
 import { Matrix3 } from '../../math/src/index.js';
 import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 import { GraphicsError } from './errors.js';
+import type { FrameStats } from './render-stats.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -87,10 +88,13 @@ interface ParticleBuffers2D {
   buffer: GPUBuffer;
   data: Float32Array;
   versions: Float64Array;
+  slots: Int32Array;
+  sourceSizes: Float64Array;
   seen: number;
 }
 export interface WebGPURender2DHooks {
   owner: object;
+  readonly stats: FrameStats;
   /** Uploads or reuses a CPU-backed source; render targets are owned here. */
   upload(source: Exclude<Texture2DSource, RenderTexture2D>): GPUTexture;
   assertIdle(): void;
@@ -152,6 +156,7 @@ export class WebGPURender2D {
   private readonly retiredTextures: GPUTexture[] = [];
   private readonly retiredBuffers: GPUBuffer[] = [];
   private readonly scratch = new Float32Array(SLOT_FLOATS);
+  private readonly uniformOffsets = [0];
   private readonly passLayout: GPUBindGroupLayout;
   private readonly passPipelineLayout: GPUPipelineLayout;
   private readonly normal: GPURenderPipeline;
@@ -351,14 +356,21 @@ export class WebGPURender2D {
     return this.effects.target(width, height, 'rgba8unorm');
   }
   private retire(target: GPUColorTarget): void {
-    this.retiredTextures.push(target.texture);
+    if (this.disposed) this.effects.destroyTexture(target.texture);
+    else this.retiredTextures.push(target.texture);
   }
   /** Call after the frame's command buffers are submitted; destroying earlier would invalidate them. */
   flushRetired(): void {
-    for (const texture of this.retiredTextures) texture.destroy();
+    for (const texture of this.retiredTextures)
+      this.effects.destroyTexture(texture);
     for (const buffer of this.retiredBuffers) buffer.destroy();
     this.retiredTextures.length = 0;
     this.retiredBuffers.length = 0;
+    this.effects.flushRetired();
+  }
+  private bindDraw(pass: GPURenderPassEncoder, slot: number): void {
+    this.uniformOffsets[0] = slot * SLOT_BYTES;
+    pass.setBindGroup(0, this.drawGroup, this.uniformOffsets);
   }
   private sampler(nearestMin: boolean, nearestMag: boolean): GPUSampler {
     const key = (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0);
@@ -587,6 +599,7 @@ export class WebGPURender2D {
       ],
     });
     this.passTarget = target;
+    this.hooks.stats.pass2D();
     return this.pass;
   }
   private closePass(): void {
@@ -645,6 +658,7 @@ export class WebGPURender2D {
       slot * SLOT_BYTES,
       this.scratch,
     );
+    this.hooks.stats.upload(SLOT_BYTES);
   }
   private objectMatrix(
     object: GameObject,
@@ -669,7 +683,7 @@ export class WebGPURender2D {
     index: number,
     quad: TextureQuad2D,
     matrix: Matrix3 | undefined,
-    tint: readonly number[] | undefined,
+    tint: ArrayLike<number> | undefined,
     anchorX: number,
     anchorY: number,
     world: boolean,
@@ -720,34 +734,79 @@ export class WebGPURender2D {
       d[o + 28] = sprite.tileRotation;
       d[o + 29] = 1;
     }
+  }
+  private uploadQuads(first: number, count: number): void {
     this.device.queue.writeBuffer(
       this.instanceBuffer,
-      index * QUAD_BYTES,
-      d,
-      o,
-      QUAD_FLOATS,
+      first * QUAD_BYTES,
+      this.instanceData,
+      first * QUAD_FLOATS,
+      count * QUAD_FLOATS,
     );
+    this.hooks.stats.upload(count * QUAD_BYTES);
   }
   private drawCommands(
     commands: RenderCommandBuffer2D,
     context: Context2D,
   ): void {
-    for (const command of commands.items) {
+    const items = commands.items;
+    for (let i = 0; i < items.length; i++) {
+      const command = items[i];
       if (command.kind === 'layer')
         this.drawLayer(command.object, command.commands, context);
-      else if (command.kind === 'sprite')
-        this.drawSprite(command.object, context);
-      else if (command.kind === 'mesh') this.drawMesh(command.object, context);
+      else if (command.kind === 'sprite') {
+        const sprite = command.object;
+        if (sprite.material || sprite instanceof TilingSprite2D)
+          this.drawSprite(sprite, context);
+        else {
+          const group = this.textureGroup(
+            this.textureOf(sprite.texture),
+            sprite.sampler?.minFilter === 'nearest',
+            sprite.sampler?.magFilter === 'nearest',
+          );
+          const first = this.slot;
+          this.packSprite(sprite, context, this.allocate(), true);
+          while (i + 1 < items.length) {
+            const next = items[i + 1];
+            if (
+              next.kind !== 'sprite' ||
+              next.object.material ||
+              next.object instanceof TilingSprite2D ||
+              next.object.worldSpace !== sprite.worldSpace ||
+              this.textureGroup(
+                this.textureOf(next.object.texture),
+                next.object.sampler?.minFilter === 'nearest',
+                next.object.sampler?.magFilter === 'nearest',
+              ) !== group
+            )
+              break;
+            i++;
+            this.packSprite(next.object, context, this.allocate(), true);
+          }
+          const count = this.slot - first;
+          this.drawUniforms(first, context);
+          this.uploadQuads(first, count);
+          const pass = this.open(context.target, false);
+          pass.setPipeline(this.normal);
+          this.bindDraw(pass, first);
+          pass.setBindGroup(1, group);
+          pass.setBindGroup(2, this.effects.defaultUniforms);
+          pass.setVertexBuffer(0, this.instanceBuffer);
+          pass.draw(6, count, 0, first);
+          this.hooks.stats.draw2D(count);
+        }
+      } else if (command.kind === 'mesh')
+        this.drawMesh(command.object, context);
       else this.drawParticles(command.object, context);
     }
   }
-  private drawSprite(sprite: Sprite, context: Context2D): void {
-    const quad = getSpriteQuad2D(sprite, this.quad),
-      pass = this.open(context.target, false),
-      slot = this.allocate();
-    const prepared = sprite.material
-      ? this.effects.material(sprite.material)
-      : undefined;
+  private packSprite(
+    sprite: Sprite,
+    context: Context2D,
+    slot: number,
+    instanceTint: boolean,
+  ): void {
+    const quad = getSpriteQuad2D(sprite, this.quad);
     this.objectMatrix(sprite, context, this.matrix);
     if (sprite.roundPixels) {
       const e = this.matrix.elements,
@@ -761,19 +820,30 @@ export class WebGPURender2D {
         target.height;
     }
     getRelativeAppearance2D(sprite, context.root, this.appearance);
-    this.drawUniforms(slot, context, undefined, undefined, this.appearance);
+    // Native materials retain their draw-uniform ABI; plain runs put appearance in each instance.
+    if (!instanceTint)
+      this.drawUniforms(slot, context, undefined, undefined, this.appearance);
     this.writeQuad(
       slot,
       quad,
       this.matrix,
-      undefined,
+      instanceTint ? this.appearance : undefined,
       0,
       0,
       false,
       sprite instanceof TilingSprite2D ? sprite : undefined,
     );
+  }
+  private drawSprite(sprite: Sprite, context: Context2D): void {
+    const slot = this.allocate();
+    const prepared = sprite.material
+      ? this.effects.material(sprite.material)
+      : undefined;
+    this.packSprite(sprite, context, slot, false);
+    this.uploadQuads(slot, 1);
+    const pass = this.open(context.target, false);
     pass.setPipeline(prepared?.layer ?? this.normal);
-    pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+    this.bindDraw(pass, slot);
     pass.setBindGroup(
       1,
       this.textureGroup(
@@ -785,6 +855,7 @@ export class WebGPURender2D {
     pass.setBindGroup(2, prepared?.bindGroup ?? this.effects.defaultUniforms);
     pass.setVertexBuffer(0, this.instanceBuffer);
     pass.draw(6, 1, 0, slot);
+    this.hooks.stats.draw2D();
   }
   private drawMesh(mesh: Mesh2D, context: Context2D): void {
     const geometry = mesh.geometry,
@@ -822,6 +893,9 @@ export class WebGPURender2D {
       }
       this.device.queue.writeBuffer(entry.vertex, 0, entry.data);
       this.device.queue.writeBuffer(entry.index, 0, geometry.indices);
+      this.hooks.stats.upload(
+        entry.data.byteLength + geometry.indices.byteLength,
+      );
       entry.version = geometry.version;
     }
     const pass = this.open(context.target, false),
@@ -838,11 +912,12 @@ export class WebGPURender2D {
       'textureMode' in mesh && mesh.textureMode === 'repeat',
     );
     pass.setPipeline(this.meshPipeline);
-    pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+    this.bindDraw(pass, slot);
     pass.setBindGroup(1, this.textureGroup(this.textureOf(mesh.texture)));
     pass.setVertexBuffer(0, entry.vertex);
     pass.setIndexBuffer(entry.index, 'uint32');
     pass.drawIndexed(geometry.indices.length);
+    this.hooks.stats.draw2D();
   }
   private drawParticles(layer: ParticleLayer2D, context: Context2D): void {
     let entry = this.particles.get(layer);
@@ -855,6 +930,8 @@ export class WebGPURender2D {
         buffer,
         data: new Float32Array(layer.capacity * QUAD_FLOATS),
         versions: new Float64Array(layer.capacity * 5).fill(-1),
+        slots: new Int32Array(layer.capacity).fill(-1),
+        sourceSizes: new Float64Array(layer.capacity * 3),
         seen: this.frame,
       };
       this.particles.set(layer, entry);
@@ -875,87 +952,132 @@ export class WebGPURender2D {
       this.appearance,
     );
     pass.setPipeline(this.normal);
-    pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+    this.bindDraw(pass, slot);
     pass.setBindGroup(2, this.effects.defaultUniforms);
     pass.setVertexBuffer(0, entry.buffer);
     let previous: GPUTexture | undefined;
+    let runStart = 0;
+    let dirtyStart = -1;
     for (let i = 0; i < layer.activeCount; i++) {
       const index = layer.activeSlotAt(i),
         slotData = layer.getSlot(index),
-        v = index * 5,
-        o = index * QUAD_FLOATS,
+        v = i * 5,
+        o = i * QUAD_FLOATS,
         versions = entry.versions;
-      getTextureQuad2D(slotData.texture, slotData.view, slotData.source, quad);
       const dynamic = layer.dynamicAttributes;
-      if (
-        dynamic &
-          (ParticleAttribute2D.Transform |
-            ParticleAttribute2D.Tint |
-            ParticleAttribute2D.Source |
-            ParticleAttribute2D.Anchor) ||
-        versions[v] !== slotData.transformVersion ||
-        versions[v + 1] !== slotData.tintVersion ||
+      const size = i * 3;
+      const sourceResolution =
+        slotData.texture.kind === 'render' ? slotData.texture.resolution : 1;
+      const moved =
+        entry.slots[i] !== index || versions[v + 4] !== slotData.generation;
+      const transform =
+        moved ||
+        (dynamic & ParticleAttribute2D.Transform) !== 0 ||
+        versions[v] !== slotData.transformVersion;
+      const tint =
+        moved ||
+        (dynamic & ParticleAttribute2D.Tint) !== 0 ||
+        versions[v + 1] !== slotData.tintVersion;
+      const source =
+        moved ||
+        (dynamic & ParticleAttribute2D.Source) !== 0 ||
         versions[v + 2] !== slotData.sourceVersion ||
-        versions[v + 3] !== slotData.anchorVersion ||
-        versions[v + 4] !== slotData.generation
-      ) {
-        data[o] = slotData.a;
-        data[o + 1] = slotData.b;
-        data[o + 2] = slotData.c;
-        data[o + 3] = slotData.d;
-        data[o + 4] = slotData.tx;
-        data[o + 5] = slotData.ty;
-        data[o + 6] = quad.x;
-        data[o + 7] = quad.y;
-        data[o + 8] = quad.width;
-        data[o + 9] = quad.height;
-        data[o + 10] = quad.naturalWidth;
-        data[o + 11] = quad.naturalHeight;
-        data[o + 12] = quad.u0;
-        data[o + 13] = quad.v0;
-        data[o + 14] = quad.ux;
-        data[o + 15] = quad.vx;
-        data[o + 16] = quad.uy;
-        data[o + 17] = quad.vy;
-        data[o + 18] = quad.trimWidth;
-        data[o + 19] = quad.trimHeight;
-        data[o + 20] = slotData.tintR;
-        data[o + 21] = slotData.tintG;
-        data[o + 22] = slotData.tintB;
-        data[o + 23] = slotData.tintA;
-        data[o + 24] =
-          data[o + 25] =
-          data[o + 26] =
-          data[o + 27] =
-          data[o + 28] =
-          data[o + 29] =
-          data[o + 31] =
-            0;
-        data[o + 30] = slotData.space === 'world' ? 1 : 0;
-        data[o + 32] = quad.trimX;
-        data[o + 33] = quad.trimY;
-        data[o + 34] = slotData.anchorX;
-        data[o + 35] = slotData.anchorY;
-        this.device.queue.writeBuffer(
-          entry.buffer,
-          o * 4,
-          data,
-          o,
-          QUAD_FLOATS,
-        );
-        versions[v] = slotData.transformVersion;
-        versions[v + 1] = slotData.tintVersion;
-        versions[v + 2] = slotData.sourceVersion;
-        versions[v + 3] = slotData.anchorVersion;
+        entry.sourceSizes[size] !== slotData.texture.width ||
+        entry.sourceSizes[size + 1] !== slotData.texture.height ||
+        entry.sourceSizes[size + 2] !== sourceResolution;
+      const anchor =
+        moved ||
+        (dynamic & ParticleAttribute2D.Anchor) !== 0 ||
+        versions[v + 3] !== slotData.anchorVersion;
+      if (transform || tint || source || anchor) {
+        entry.slots[i] = index;
+        if (dirtyStart < 0) dirtyStart = i;
+        if (transform) {
+          data[o] = slotData.a;
+          data[o + 1] = slotData.b;
+          data[o + 2] = slotData.c;
+          data[o + 3] = slotData.d;
+          data[o + 4] = slotData.tx;
+          data[o + 5] = slotData.ty;
+          data[o + 30] = slotData.space === 'world' ? 1 : 0;
+          versions[v] = slotData.transformVersion;
+        }
+        if (source) {
+          getTextureQuad2D(
+            slotData.texture,
+            slotData.view,
+            slotData.source,
+            quad,
+          );
+          data[o + 6] = quad.x;
+          data[o + 7] = quad.y;
+          data[o + 8] = quad.width;
+          data[o + 9] = quad.height;
+          data[o + 10] = quad.naturalWidth;
+          data[o + 11] = quad.naturalHeight;
+          data[o + 12] = quad.u0;
+          data[o + 13] = quad.v0;
+          data[o + 14] = quad.ux;
+          data[o + 15] = quad.vx;
+          data[o + 16] = quad.uy;
+          data[o + 17] = quad.vy;
+          data[o + 18] = quad.trimWidth;
+          data[o + 19] = quad.trimHeight;
+          data[o + 32] = quad.trimX;
+          data[o + 33] = quad.trimY;
+          versions[v + 2] = slotData.sourceVersion;
+          entry.sourceSizes[size] = slotData.texture.width;
+          entry.sourceSizes[size + 1] = slotData.texture.height;
+          entry.sourceSizes[size + 2] = sourceResolution;
+        }
+        if (tint) {
+          data[o + 20] = slotData.tintR;
+          data[o + 21] = slotData.tintG;
+          data[o + 22] = slotData.tintB;
+          data[o + 23] = slotData.tintA;
+          versions[v + 1] = slotData.tintVersion;
+        }
+        if (anchor) {
+          data[o + 34] = slotData.anchorX;
+          data[o + 35] = slotData.anchorY;
+          versions[v + 3] = slotData.anchorVersion;
+        }
         versions[v + 4] = slotData.generation;
+      } else if (dirtyStart >= 0) {
+        this.uploadParticles(entry, dirtyStart, i - dirtyStart);
+        dirtyStart = -1;
       }
       const texture = this.textureOf(slotData.texture);
       if (texture !== previous) {
+        if (previous) {
+          pass.draw(6, i - runStart, 0, runStart);
+          this.hooks.stats.draw2D(i - runStart);
+        }
         pass.setBindGroup(1, this.textureGroup(texture));
         previous = texture;
+        runStart = i;
       }
-      pass.draw(6, 1, 0, index);
     }
+    if (dirtyStart >= 0)
+      this.uploadParticles(entry, dirtyStart, layer.activeCount - dirtyStart);
+    if (previous) {
+      pass.draw(6, layer.activeCount - runStart, 0, runStart);
+      this.hooks.stats.draw2D(layer.activeCount - runStart);
+    }
+  }
+  private uploadParticles(
+    entry: ParticleBuffers2D,
+    first: number,
+    count: number,
+  ): void {
+    this.device.queue.writeBuffer(
+      entry.buffer,
+      first * QUAD_BYTES,
+      entry.data,
+      first * QUAD_FLOATS,
+      count * QUAD_FLOATS,
+    );
+    this.hooks.stats.upload(count * QUAD_BYTES);
   }
 
   // ---- isolated groups ---------------------------------------------------------------------------
@@ -1116,6 +1238,7 @@ export class WebGPURender2D {
       slot = this.allocate();
     this.drawUniforms(slot, context, undefined, undefined, appearance);
     this.writeQuad(slot, quad, transform, undefined, 0, 0, false);
+    this.uploadQuads(slot, 1);
     pass.setPipeline(
       backdrop
         ? this.multiply
@@ -1123,12 +1246,13 @@ export class WebGPURender2D {
           ? this.normal
           : this.blends[blend as 'add' | 'screen' | 'erase'],
     );
-    pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+    this.bindDraw(pass, slot);
     pass.setBindGroup(1, this.textureGroup(source.texture));
     pass.setBindGroup(2, this.effects.defaultUniforms);
     if (backdrop) pass.setBindGroup(3, this.textureGroup(backdrop.texture));
     pass.setVertexBuffer(0, this.instanceBuffer);
     pass.draw(6, 1, 0, slot);
+    this.hooks.stats.draw2D();
   }
   private drawMask(mask: Mask2D, target: GPUColorTarget, bounds: Rect2D): void {
     if (mask.texture) {
@@ -1151,12 +1275,14 @@ export class WebGPURender2D {
         slot = this.allocate();
       this.drawUniforms(slot, context, undefined, undefined, this.appearance);
       this.writeQuad(slot, this.quad, this.matrix, undefined, 0, 0, false);
+      this.uploadQuads(slot, 1);
       pass.setPipeline(this.replace);
-      pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+      this.bindDraw(pass, slot);
       pass.setBindGroup(1, this.textureGroup(this.textureOf(mask.texture)));
       pass.setBindGroup(2, this.effects.defaultUniforms);
       pass.setVertexBuffer(0, this.instanceBuffer);
       pass.draw(6, 1, 0, slot);
+      this.hooks.stats.draw2D();
       this.closePass();
       return;
     }
@@ -1189,6 +1315,7 @@ export class WebGPURender2D {
       { texture: target.texture, premultipliedAlpha: true },
       [target.width, target.height],
     );
+    this.hooks.stats.upload(target.width * target.height * 4);
     // The upload is queued immediately, so the canvas can be released only after it has been copied.
     void this.device.queue.onSubmittedWorkDone().then(() => {
       canvas.width = canvas.height = 0;
@@ -1250,6 +1377,7 @@ export class WebGPURender2D {
       slot * SLOT_BYTES,
       this.scratch,
     );
+    this.hooks.stats.upload(SLOT_BYTES);
     const auxiliary =
       mode === 4
         ? this.textureOf((filter as DisplacementFilter2D).texture)
@@ -1266,9 +1394,10 @@ export class WebGPURender2D {
     });
     const pass = this.open(output, true);
     pass.setPipeline(this.passPipeline);
-    pass.setBindGroup(0, this.drawGroup, [slot * SLOT_BYTES]);
+    this.bindDraw(pass, slot);
     pass.setBindGroup(1, group);
     pass.draw(3);
+    this.hooks.stats.draw2D();
     this.closePass();
   }
 
@@ -1286,13 +1415,14 @@ export class WebGPURender2D {
       (next) => {
         this.hooks.assertIdle();
         const replacement = this.createTarget(next.width, next.height);
-        this.retire(resource);
+        this.effects.destroyTexture(resource.texture);
         resource = replacement;
         this.targets.set(texture, resource);
       },
       () => {
         this.targets.delete(texture);
-        this.retire(resource);
+        if (this.encoder) this.retire(resource);
+        else this.effects.destroyTexture(resource.texture);
       },
     );
     this.targets.set(texture, resource);
@@ -1314,6 +1444,7 @@ export class WebGPURender2D {
       })
       .end();
     this.device.queue.submit([encoder.finish()]);
+    this.hooks.stats.pass2D();
   }
   async renderToTexture(
     target: RenderTexture2D,
@@ -1536,8 +1667,10 @@ export class WebGPURender2D {
     this.disposed = true;
     this.closePass();
     for (const entry of this.layers.values())
-      for (const target of entry.targets) target.texture.destroy();
-    for (const target of this.targets.values()) target.texture.destroy();
+      for (const target of entry.targets)
+        this.effects.destroyTexture(target.texture);
+    for (const target of this.targets.values())
+      this.effects.destroyTexture(target.texture);
     for (const entry of this.meshes.values()) {
       entry.vertex.destroy();
       entry.index.destroy();

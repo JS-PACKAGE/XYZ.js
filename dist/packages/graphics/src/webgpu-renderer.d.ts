@@ -11,7 +11,7 @@ export declare class WebGPURenderer implements Renderer {
     private readonly onError;
     private readonly antialias;
     readonly backend: "webgpu";
-    private readonly idleStats;
+    private readonly frameStats;
     get stats(): RenderStats;
     readonly capabilities: {
         threeD: boolean;

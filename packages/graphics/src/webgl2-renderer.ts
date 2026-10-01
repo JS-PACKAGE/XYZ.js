@@ -182,6 +182,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly meshDraws: Mesh[] = [];
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
+  private readonly targetBytes = new WeakMap<object, number>();
   private maxTextureSize = 0;
   private maxWidth = 0;
   private maxHeight = 0;
@@ -354,6 +355,7 @@ export class WebGL2Renderer implements Renderer {
       this.skyVAO = this.createVAO(gl);
       this.render2D = new WebGLRender2D(gl, {
         owner: this,
+        stats: this.stats,
         createTarget: (width, height) =>
           this.createTarget(width, height, false, 'rgba8', false),
         deleteTarget: (target) => this.deleteTarget(target),
@@ -709,6 +711,7 @@ export class WebGL2Renderer implements Renderer {
       );
     this.activeFrame = true;
     this.frameRendered = false;
+    this.stats.begin();
   }
 
   render(
@@ -847,7 +850,6 @@ export class WebGL2Renderer implements Renderer {
       const sceneFramebuffer = process3D
         ? this.sceneTarget!.framebuffer
         : (destination?.framebuffer ?? null);
-      this.stats.begin();
       this.hasTransmission = this.linear3D = this.weighted = false;
       if (scene) {
         validateRenderSettings(scene);
@@ -858,6 +860,7 @@ export class WebGL2Renderer implements Renderer {
         this.atlas.update(scene, logicalWidth / logicalHeight);
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
+        this.stats.upload(this.atlas.data.byteLength);
         collectRenderCommands2D(
           scene,
           logicalWidth,
@@ -1111,6 +1114,8 @@ export class WebGL2Renderer implements Renderer {
       gl.uniform4fv(native.uniforms, effect.uniforms);
       gl.bindTexture(gl.TEXTURE_2D, input.texture);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      this.stats.pass2D();
+      this.stats.draw2D();
       const swap = input;
       input = output;
       output = swap;
@@ -1181,6 +1186,8 @@ export class WebGL2Renderer implements Renderer {
       );
     }
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    this.stats.pass2D();
+    this.stats.draw2D();
     gl.bindTexture(gl.TEXTURE_2D, null);
     gl.activeTexture(gl.TEXTURE0);
   }
@@ -1716,6 +1723,7 @@ export class WebGL2Renderer implements Renderer {
         const buffer = this.createBuffer(gl);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
+        this.stats.upload(mesh.matrices.byteLength);
         entry = {
           buffer,
           version: mesh.version,
@@ -1728,6 +1736,7 @@ export class WebGL2Renderer implements Renderer {
         gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
         if (entry.version !== mesh.version) {
           gl.bufferSubData(gl.ARRAY_BUFFER, 0, mesh.matrices);
+          this.stats.upload(mesh.matrices.byteLength);
           entry.version = mesh.version;
         }
       }
@@ -1745,6 +1754,8 @@ export class WebGL2Renderer implements Renderer {
           gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
         else if (entry.colorVersion !== mesh.colorVersion)
           gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
+        if (entry.colorVersion < 0 || entry.colorVersion !== mesh.colorVersion)
+          this.stats.upload(colors.byteLength);
         entry.colorVersion = mesh.colorVersion;
         gl.enableVertexAttribArray(7);
         gl.vertexAttribPointer(7, 3, gl.FLOAT, false, 12, 0);
@@ -2088,7 +2099,7 @@ export class WebGL2Renderer implements Renderer {
         throw new GraphicsError(
           `WebGL2 ${shadow ? 'shadow' : format === 'hdr' ? 'HDR' : 'RGBA8'} framebuffer is incomplete.`,
         );
-      return {
+      const target: RenderTarget = {
         framebuffer,
         texture,
         ...(depth ? { depth } : {}),
@@ -2096,6 +2107,14 @@ export class WebGL2Renderer implements Renderer {
         width,
         height,
       };
+      const bytes =
+        width *
+        height *
+        ((shadow ? 4 : format === 'hdr' ? 8 : 4) +
+          (depth || depthTexture ? 4 : 0));
+      this.targetBytes.set(target, bytes);
+      this.stats.target(bytes);
+      return target;
     } catch (error) {
       if (framebuffer) gl.deleteFramebuffer(framebuffer);
       if (texture) gl.deleteTexture(texture);
@@ -2110,6 +2129,11 @@ export class WebGL2Renderer implements Renderer {
 
   private deleteTarget(target: RenderTarget): void {
     const gl = this.gl!;
+    const bytes = this.targetBytes.get(target);
+    if (bytes !== undefined) {
+      this.stats.target(-bytes);
+      this.targetBytes.delete(target);
+    }
     gl.deleteFramebuffer(target.framebuffer);
     gl.deleteTexture(target.texture);
     if (target.depth) gl.deleteRenderbuffer(target.depth);
@@ -2252,6 +2276,7 @@ export class WebGL2Renderer implements Renderer {
         gl.UNSIGNED_BYTE,
         texture.image,
       );
+      this.stats.upload(width * height * 4);
       const error = gl.getError();
       if (error !== gl.NO_ERROR)
         throw new GraphicsError(
@@ -2315,6 +2340,7 @@ export class WebGL2Renderer implements Renderer {
           gl.HALF_FLOAT,
           map.levels[level],
         );
+        this.stats.upload(map.levels[level].byteLength);
       }
       const error = gl.getError();
       if (error !== gl.NO_ERROR)
@@ -2375,6 +2401,7 @@ export class WebGL2Renderer implements Renderer {
       gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
       entry.colorBytes = colors.byteLength;
     }
+    this.stats.upload(colors.byteLength);
     gl.enableVertexAttribArray(8);
     gl.vertexAttribPointer(8, 4, gl.FLOAT, false, 16, 0);
   }
@@ -2387,6 +2414,7 @@ export class WebGL2Renderer implements Renderer {
         gl.bindVertexArray(existing.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, existing.vertex);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.vertices);
+        this.stats.upload(geometry.vertices.byteLength);
         this.syncVertexColors(existing, geometry);
         existing.version = geometry.version;
       }
@@ -2403,6 +2431,9 @@ export class WebGL2Renderer implements Renderer {
       gl.bufferData(gl.ARRAY_BUFFER, geometry.vertices, gl.DYNAMIC_DRAW);
       gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, index);
       gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, geometry.indices, gl.STATIC_DRAW);
+      this.stats.upload(
+        geometry.vertices.byteLength + geometry.indices.byteLength,
+      );
       gl.enableVertexAttribArray(0);
       gl.vertexAttribPointer(0, 3, gl.FLOAT, false, 32, 0);
       gl.enableVertexAttribArray(1);

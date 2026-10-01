@@ -1,4 +1,5 @@
 import type { Game } from './game.js';
+import type { RenderStats } from '../../graphics/src/render-stats.js';
 
 export interface DebugOverlayOptions {
   /** Corner of the canvas the panel sticks to. Default `top-left`. */
@@ -19,13 +20,7 @@ export interface DebugSample {
   logicalSize: readonly [number, number];
   backingSize: readonly [number, number];
   frame: number;
-  render: {
-    readonly meshes: number;
-    readonly culled: number;
-    readonly drawCalls: number;
-    readonly triangles: number;
-    readonly shadowDrawCalls: number;
-  };
+  render: RenderStats;
   colliders: number;
   tweens: number;
   audio: string;
@@ -43,6 +38,10 @@ export function formatDebugSample(sample: DebugSample): string[] {
     r.meshes + r.drawCalls + r.triangles > 0
       ? `3D ${r.meshes} meshes (${r.culled} culled) · ${r.drawCalls}+${r.shadowDrawCalls} draws · ${r.triangles} tris`
       : '3D idle',
+  );
+  lines.push(
+    `2D ${r.drawCalls2D} draws · ${r.instances2D} instances · ${r.renderPasses2D} passes`,
+    `upload ${r.uploadBytes} B/frame · targets ${r.renderTargetBytes} B (peak ${r.peakRenderTargetBytes} B, estimated)`,
   );
   lines.push(
     `physics ${sample.colliders} colliders · tweens ${sample.tweens} · pointers ${sample.pointers}`,
