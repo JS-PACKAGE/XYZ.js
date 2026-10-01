@@ -676,9 +676,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **範例／dist**：兩 backend 操作 objects3d weighted／reverse，實際 screenshot 確認交錯透明卡片與 LOD／sprite／text／ribbon 可見，page errors=[]。Built minified root entry 經正式 Game 在兩 backend 驗證交錯順序與 alpha texture 等價、空透明場景背景及 teardown，errors=[]；不是 extracted pack／plain-static 發佈驗收。遮蔽真實 WebGL2 float extension：sorted 可跑，weighted 明確報錯並 pause，不切 backend。
 - **限制與未驗**：近似權重與 half-float 累積，不保證精確逐像素／大量透明層；WebGL2 離屏單取樣。Depth effects 只看 opaque depth，transmission 不遞迴取透明層。其他瀏覽器、instancing／skinning／shadow／environment 組合、loss recovery、large-scene 成本及全部 driver resources 未測。工具 tab 跨 call 偶發 detached，採同 call 完成 open／smoke／close；並非引擎錯誤。未 commit／push／publish。
 
-## v1.8 發佈前驗證（2026-10-01）
+## v1.7 發佈前驗證（2026-10-01）
 
-- 使用者授權 push 與 GitHub v1.8 release；package metadata 更新為 1.8.0，沿用 Apache-2.0，不做 npm publish、不改歷史 tags。
+- 使用者授權 push 與 GitHub release，並於推送前更正版本為 v1.7／package 1.7.0；沿用 Apache-2.0，不做 npm publish、不改歷史 tags。原 v1.8 atomic push 因遠端新增 CNAME 被拒絕，未推送或發佈。
 - Node 26.7.0／pnpm 12.6.0：frozen install、typecheck、69 檔／545 tests、lint、build、format:check 全部通過。Build 169 個 JS files，vendor 不變。
-- pnpm pack 產生 xyz.js-1.8.0.tgz；真正解壓後以 Node ESM 消費 root API，確認 Scene transparency／TextureMaterial alpha opt-in、1.8.0／Apache-2.0 metadata 與 vendor LICENSE。此前 Chromium OIT／minified dist 證據仍依上一節限定範圍，不宣稱新的跨瀏覽器驗收。
+- 更正前曾 pack／解壓 1.8.0 metadata 並通過 Node ESM root consumer／vendor LICENSE 檢查；更正後重新封裝 1.7.0 與驗證 metadata，未把先前附件發佈。此前 Chromium OIT／minified dist 證據仍依上一節限定範圍，不宣稱新的跨瀏覽器驗收。
 - GitHub tag workflow 執行獨立 Ubuntu 工具鏈、封裝與 SHA256SUMS 上傳；實際線上發佈結果以 GitHub Release／Actions 為準。
