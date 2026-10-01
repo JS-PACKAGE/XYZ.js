@@ -50,6 +50,8 @@ class Proxy {
   readonly contacts = new Map<Proxy, Contact>();
   inverseMass = 0;
   inverseInertia = 0;
+  sleepVisited = 0;
+  sleepReady = false;
   constructor(
     readonly owner: GameObject,
     readonly collider: Collider2D,
@@ -62,7 +64,27 @@ class Proxy {
       throw new Error('Screen-space colliders are unsupported.');
     if (this.body?.type === 'dynamic' && this.owner.parent)
       throw new Error('Dynamic bodies require root world-space GameObjects.');
+    const oldX = this.geometry.x,
+      oldY = this.geometry.y,
+      oldMinX = this.geometry.minX,
+      oldMinY = this.geometry.minY,
+      oldMaxX = this.geometry.maxX,
+      oldMaxY = this.geometry.maxY;
     this.geometry.refresh(this.owner);
+    if (!this.body || this.body.type === 'static') {
+      if (
+        oldX !== this.geometry.x ||
+        oldY !== this.geometry.y ||
+        oldMinX !== this.geometry.minX ||
+        oldMinY !== this.geometry.minY ||
+        oldMaxX !== this.geometry.maxX ||
+        oldMaxY !== this.geometry.maxY
+      )
+        for (const contact of this.contacts.values()) {
+          const other = contact.a === this ? contact.b : contact.a;
+          other.body?.wake();
+        }
+    }
     this.inverseMass = this.body?.inverseMass ?? 0;
     this.inverseInertia =
       this.body && this.inverseMass && !this.body.lockRotation
@@ -96,13 +118,14 @@ function snapshotPoints(manifold: Manifold): readonly Vector2[] {
   return Object.freeze(points);
 }
 
-/** Discrete bounded 2D impulse solver. It does not implement CCD, joints or sleeping. */
+/** Bounded fixed-step 2D impulse solver. */
 export class PhysicsWorld2D {
   readonly gravity = new Vector2(0, physicsDefaults.gravityY);
   private readonly owners = new Map<GameObject, Proxy>();
   private readonly sorted: Proxy[] = [];
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
+  private readonly sleepGroup: Proxy[] = [];
   private readonly forceBodies = new Set<RigidBody2D>();
   private readonly queryManifold = new Manifold();
   private readonly positionManifold = new Manifold();
@@ -257,6 +280,8 @@ export class PhysicsWorld2D {
     this.activeContacts.delete(contact);
     contact.a.contacts.delete(contact.b);
     contact.b.contacts.delete(contact.a);
+    contact.a.body?.wake();
+    contact.b.body?.wake();
     this.emit(contact, 'collisionend');
   }
   update(
@@ -324,7 +349,7 @@ export class PhysicsWorld2D {
       }
       proxy.refresh();
       const body = proxy.body;
-      if (body?.type === 'dynamic') {
+      if (body?.type === 'dynamic' && !body.isSleeping) {
         finite(body.velocity.x, 'velocity.x');
         finite(body.velocity.y, 'velocity.y');
         body.velocity.x +=
@@ -336,10 +361,12 @@ export class PhysicsWorld2D {
             body.force.y * proxy.inverseMass) *
           dt;
         body.velocity.scale(1 / (1 + body.linearDamping * dt));
-        body.angularVelocity = body.lockRotation
-          ? 0
-          : (body.angularVelocity + body.torque * proxy.inverseInertia * dt) /
-            (1 + body.angularDamping * dt);
+        body.setSolverAngularVelocity(
+          body.lockRotation
+            ? 0
+            : (body.angularVelocity + body.torque * proxy.inverseInertia * dt) /
+                (1 + body.angularDamping * dt),
+        );
         proxy.owner.position.x += body.velocity.x * dt;
         proxy.owner.position.y += body.velocity.y * dt;
         proxy.owner.rotation += body.angularVelocity * dt;
@@ -372,6 +399,13 @@ export class PhysicsWorld2D {
         if (!collide(a.geometry, b.geometry, contact.manifold)) continue;
         contact.sensor = sensor;
         contact.seen = token;
+        if (!contact.active || sensor) {
+          if (a.body?.isSleeping) a.body.wake();
+          if (b.body?.isSleeping) b.body.wake();
+        } else if (a.body?.type === 'dynamic' && b.body?.type === 'dynamic') {
+          if (!a.body.isSleeping && b.body.isSleeping) b.body.wake();
+          if (!b.body.isSleeping && a.body.isSleeping) a.body.wake();
+        }
         contact.cancelled = false;
         contact.manifold.normalImpulses.fill(0);
         contact.manifold.tangentImpulses.fill(0);
@@ -395,6 +429,7 @@ export class PhysicsWorld2D {
       if (contact.seen !== token) this.end(contact);
       if (!this.continuation()) return;
     }
+    this.wakeContactGroups(token);
     for (let iteration = 0; iteration < this.velocityIterations; iteration++) {
       for (const contact of this.solveContacts) {
         if (
@@ -402,7 +437,8 @@ export class PhysicsWorld2D {
           !contact.cancelled &&
           !contact.sensor &&
           this.alive(contact.a) &&
-          this.alive(contact.b)
+          this.alive(contact.b) &&
+          !(contact.a.body?.isSleeping || contact.b.body?.isSleeping)
         )
           this.solveVelocity(contact);
       }
@@ -414,7 +450,8 @@ export class PhysicsWorld2D {
           !contact.cancelled &&
           !contact.sensor &&
           this.alive(contact.a) &&
-          this.alive(contact.b)
+          this.alive(contact.b) &&
+          !(contact.a.body?.isSleeping || contact.b.body?.isSleeping)
         )
           this.solvePosition(contact);
       }
@@ -422,6 +459,52 @@ export class PhysicsWorld2D {
     for (const contact of this.solveContacts) {
       if (contact.active) this.emit(contact, 'postcollision');
       if (!this.continuation()) return;
+    }
+    for (const proxy of this.sorted)
+      proxy.sleepReady = proxy.body?.updateSleep(dt) ?? false;
+    for (const start of this.sorted) {
+      if (!start.inverseMass || start.sleepVisited === token) continue;
+      this.sleepGroup.length = 0;
+      this.sleepGroup.push(start);
+      start.sleepVisited = token;
+      let ready = true;
+      for (let i = 0; i < this.sleepGroup.length; i++) {
+        const proxy = this.sleepGroup[i];
+        ready &&= proxy.sleepReady;
+        for (const contact of proxy.contacts.values()) {
+          if (contact.sensor || contact.cancelled) continue;
+          const other = contact.a === proxy ? contact.b : contact.a;
+          if (!other.inverseMass || other.sleepVisited === token) continue;
+          other.sleepVisited = token;
+          this.sleepGroup.push(other);
+        }
+      }
+      if (ready) for (const proxy of this.sleepGroup) proxy.body?.sleep();
+    }
+  }
+  private wakeContactGroups(token: number): void {
+    // Propagate through a whole stack before solving any contact.
+    for (const start of this.sorted) {
+      if (
+        !start.inverseMass ||
+        start.body?.isSleeping ||
+        start.sleepVisited === -token
+      )
+        continue;
+      this.sleepGroup.length = 0;
+      this.sleepGroup.push(start);
+      start.sleepVisited = -token;
+      for (let i = 0; i < this.sleepGroup.length; i++) {
+        const proxy = this.sleepGroup[i];
+        for (const contact of proxy.contacts.values()) {
+          if (contact.sensor || contact.cancelled) continue;
+          const other = contact.a === proxy ? contact.b : contact.a;
+          if (!other.inverseMass || other.sleepVisited === -token) continue;
+          if (other.body?.isSleeping) other.body.wake();
+          other.sleepVisited = -token;
+          this.sleepGroup.push(other);
+        }
+      }
     }
   }
   private prepareBounce(contact: Contact): void {
@@ -536,12 +619,16 @@ export class PhysicsWorld2D {
     if (a.body && a.inverseMass) {
       a.body.velocity.x -= x * a.inverseMass;
       a.body.velocity.y -= y * a.inverseMass;
-      a.body.angularVelocity -= (ax * y - ay * x) * a.inverseInertia;
+      a.body.setSolverAngularVelocity(
+        a.body.angularVelocity - (ax * y - ay * x) * a.inverseInertia,
+      );
     }
     if (b.body && b.inverseMass) {
       b.body.velocity.x += x * b.inverseMass;
       b.body.velocity.y += y * b.inverseMass;
-      b.body.angularVelocity += (bx * y - by * x) * b.inverseInertia;
+      b.body.setSolverAngularVelocity(
+        b.body.angularVelocity + (bx * y - by * x) * b.inverseInertia,
+      );
     }
   }
   private solvePosition(contact: Contact): void {

@@ -1,6 +1,7 @@
 import { Vector2 } from '../../../math/src/index.js';
 import type { GameObject } from '../game-object.js';
 import { finite, positive, ShapeGeometry } from './collider.js';
+import { physicsDefaults } from '../../../../src/data/world2d.js';
 
 export interface RigidBodyOptions {
   type?: 'static' | 'dynamic';
@@ -11,6 +12,7 @@ export interface RigidBodyOptions {
   angularDamping?: number;
   gravityScale?: number;
   lockRotation?: boolean;
+  allowSleep?: boolean;
 }
 function nonnegative(value: number, name: string): number {
   finite(value, name);
@@ -32,6 +34,14 @@ export class RigidBody2D {
   private angularDrag = 0;
   private gravityMultiplier = 1;
   private spin = 0;
+  private sleeping = false;
+  private sleepEnabled = true;
+  private idleTime = 0;
+  private sleepX = 0;
+  private sleepY = 0;
+  private sleepAngle = 0;
+  private sleepScaleX = 1;
+  private sleepScaleY = 1;
   readonly type: 'static' | 'dynamic';
   lockRotation: boolean;
 
@@ -46,6 +56,66 @@ export class RigidBody2D {
     this.angularDamping = options.angularDamping ?? 0;
     this.gravityScale = options.gravityScale ?? 1;
     this.lockRotation = options.lockRotation ?? false;
+    this.allowSleep = options.allowSleep ?? true;
+  }
+  get allowSleep(): boolean {
+    return this.sleepEnabled;
+  }
+  set allowSleep(value: boolean) {
+    this.sleepEnabled = value;
+    if (!value) this.wake();
+  }
+  get isSleeping(): boolean {
+    const owner = this.owner;
+    if (
+      this.sleeping &&
+      (this.velocity.x !== 0 ||
+        this.velocity.y !== 0 ||
+        this.spin !== 0 ||
+        (owner &&
+          (owner.position.x !== this.sleepX ||
+            owner.position.y !== this.sleepY ||
+            owner.rotation !== this.sleepAngle ||
+            owner.scale.x !== this.sleepScaleX ||
+            owner.scale.y !== this.sleepScaleY)))
+    )
+      this.wake();
+    return this.sleeping;
+  }
+  wake(): void {
+    this.sleeping = false;
+    this.idleTime = 0;
+  }
+  /** @internal Solver writes must not reset the inactivity timer. */
+  setSolverAngularVelocity(value: number): void {
+    this.spin = finite(value, 'angularVelocity');
+  }
+  /** @internal Accumulate inactivity after constraint solving. */
+  updateSleep(dt: number): boolean {
+    if (!this.allowSleep || this.type !== 'dynamic') return false;
+    if (
+      this.velocity.x ** 2 + this.velocity.y ** 2 >
+        physicsDefaults.sleepLinearVelocity ** 2 ||
+      Math.abs(this.spin) > physicsDefaults.sleepAngularVelocity
+    ) {
+      this.idleTime = 0;
+      return false;
+    }
+    this.idleTime += dt;
+    return this.idleTime >= physicsDefaults.sleepTime;
+  }
+  /** @internal Called only when every dynamic member of the contact group is idle. */
+  sleep(): void {
+    const owner = this.owner;
+    if (!owner || !this.allowSleep || this.type !== 'dynamic') return;
+    this.sleeping = true;
+    this.velocity.set(0, 0);
+    this.spin = 0;
+    this.sleepX = owner.position.x;
+    this.sleepY = owner.position.y;
+    this.sleepAngle = owner.rotation;
+    this.sleepScaleX = owner.scale.x;
+    this.sleepScaleY = owner.scale.y;
   }
   get owner(): GameObject | undefined {
     return this.owningObject;
@@ -93,6 +163,7 @@ export class RigidBody2D {
     return this.spin;
   }
   set angularVelocity(value: number) {
+    this.wake();
     this.spin = finite(value, 'angularVelocity');
   }
   get force(): Readonly<Vector2> {
@@ -145,6 +216,7 @@ export class RigidBody2D {
     if (this.type === 'static') return;
     if (worldPoint && !this.owner)
       throw new Error('A world-point force requires a bound body.');
+    this.wake();
     this.accumulatedForce.add(force);
     if (worldPoint && this.owner) {
       this.accumulatedTorque +=
@@ -162,6 +234,7 @@ export class RigidBody2D {
     if (this.type === 'static') return;
     if (worldPoint && !this.owner)
       throw new Error('A world-point impulse requires a bound body.');
+    this.wake();
     this.velocity.x += impulse.x * this.inverseMass;
     this.velocity.y += impulse.y * this.inverseMass;
     if (worldPoint && this.owner)

@@ -18,4 +18,7 @@ export const physicsDefaults = Object.freeze({
   positionCorrection: 0.6,
   restitutionThreshold: 1,
   geometryEpsilon: 1e-8,
+  sleepLinearVelocity: 0.1,
+  sleepAngularVelocity: 0.05,
+  sleepTime: 0.5,
 });
