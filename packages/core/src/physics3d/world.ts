@@ -12,6 +12,7 @@ import type { Collider3D } from './collider.js';
 import type { RigidBody3D } from './body.js';
 import { Manifold3D, Narrowphase3D } from './geometry.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { PhysicsForceAccumulator } from '../physics-force.js';
 const alwaysContinue = (): boolean => true;
 export interface PhysicsWorldOptions3D {
   gravity?: Readonly<Vector3>;
@@ -82,6 +83,7 @@ export class PhysicsWorld3D {
   private readonly inertiaB = new Vector3();
   private readonly relative = new Vector3();
   private readonly torque = new Vector3();
+  private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
   private accumulator = 0;
   private stepId = 0;
   private disposed = false;
@@ -173,6 +175,7 @@ export class PhysicsWorld3D {
     const entry = this.entries.get(object);
     if (!entry) return;
     this.entries.delete(object);
+    if (entry.body) this.forces.delete(entry.body);
     const index = this.ordered.indexOf(entry);
     if (index !== -1) this.ordered.splice(index, 1);
     for (const [a, row] of this.contacts) {
@@ -241,15 +244,48 @@ export class PhysicsWorld3D {
     if (this.valid(c.b))
       c.b.object.dispatchObjectEvent('collisionend', c.detailB);
   }
-  update(delta: number, canContinue: () => boolean = alwaysContinue): void {
+  private forceState(body: RigidBody3D): PhysicsForceAccumulator {
+    let state = this.forces.get(body);
+    if (!state) this.forces.set(body, (state = new PhysicsForceAccumulator()));
+    return state;
+  }
+  /** @internal Sample once per gameplay frame, even when no fixed tick is due. */
+  sampleForces(delta: number): void {
+    for (const entry of this.ordered)
+      if (entry.body?.type === 'dynamic')
+        this.forceState(entry.body).sample(entry.body, delta);
+  }
+  /** @internal Forces from fixed gameplay are impulses over that exact tick. */
+  sampleFixedForces(delta: number): void {
+    for (const entry of this.ordered)
+      if (entry.body?.type === 'dynamic')
+        this.forceState(entry.body).sampleFixed(entry.body, delta);
+  }
+  /** @internal Discard only simulation time omitted by the scene catch-up limit. */
+  discardFrameTime(delta: number): void {
+    for (const entry of this.ordered)
+      if (entry.body) this.forces.get(entry.body)?.discard(delta);
+  }
+  get interpolationAlpha(): number {
+    return Math.min(1, Math.max(0, this.accumulator / this.fixedDelta));
+  }
+  update(
+    delta: number,
+    canContinue: () => boolean = alwaysContinue,
+    sampleFrame = true,
+  ): void {
     finite3D(delta, 'delta');
     if (delta < 0) throw new RangeError('delta must be nonnegative.');
     if (this.disposed || !this.enabled || !canContinue()) return;
     if (this.stepping) throw new Error('Physics update is not reentrant.');
+    if (sampleFrame) this.sampleForces(delta);
     this.accumulator += delta;
     const cap = this.fixedDelta * this.maxSubSteps;
     if (this.accumulator > cap) {
       this.droppedTime += this.accumulator - cap;
+      for (const entry of this.ordered)
+        if (entry.body)
+          this.forces.get(entry.body)?.discard(this.accumulator - cap);
       this.accumulator = cap;
     }
     this.stepping = true;
@@ -279,23 +315,31 @@ export class PhysicsWorld3D {
       b.refreshInertia(e.shape);
       vector3D(b.velocity, 'velocity');
       vector3D(b.angularVelocity, 'angularVelocity');
-      if (b.type === 'static' || b.isSleeping) continue;
+      if (b.type === 'static') continue;
       if (b.type === 'dynamic') {
+        const force = this.forceState(b);
+        force.consume(b, dt);
+        // Sleeping ticks still consume their frame-time share; idle time must not dilute a later force.
+        if (b.isSleeping) continue;
         b.velocity.x +=
-          (this.gravity.x * b.gravityScale + b.force.x * b.inverseMass) * dt;
+          (this.gravity.x * b.gravityScale + force.value[0] * b.inverseMass) *
+          dt;
         b.velocity.y +=
-          (this.gravity.y * b.gravityScale + b.force.y * b.inverseMass) * dt;
+          (this.gravity.y * b.gravityScale + force.value[1] * b.inverseMass) *
+          dt;
         b.velocity.z +=
-          (this.gravity.z * b.gravityScale + b.force.z * b.inverseMass) * dt;
-        b.inverseInertia(b.torque, this.torque);
+          (this.gravity.z * b.gravityScale + force.value[2] * b.inverseMass) *
+          dt;
+        this.torque.set(force.value[3], force.value[4], force.value[5]);
+        b.inverseInertia(this.torque, this.torque);
         b.angularVelocity.x += this.torque.x * dt;
         b.angularVelocity.y += this.torque.y * dt;
         b.angularVelocity.z += this.torque.z * dt;
         b.velocity.scale(1 / (1 + b.linearDamping * dt));
         b.angularVelocity.scale(1 / (1 + b.angularDamping * dt));
-        b.clearForces();
       }
       const o = e.object;
+      o.capturePhysicsPose();
       o.position.x += b.velocity.x * dt;
       o.position.y += b.velocity.y * dt;
       o.position.z += b.velocity.z * dt;
@@ -447,6 +491,7 @@ export class PhysicsWorld3D {
         p.z -= n.z * correction * mb;
       }
     }
+    for (const e of this.ordered) if (this.valid(e)) e.object.sealPhysicsPose();
     for (const e of this.ordered) e.body?.updateSleep(dt);
   }
   private velocityAt(

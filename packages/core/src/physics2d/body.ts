@@ -26,6 +26,8 @@ export class RigidBody2D {
   readonly velocity = new Vector2();
   private readonly accumulatedForce = new Vector2();
   private accumulatedTorque = 0;
+  /** @internal Invalidates queued frame impulses when the caller clears forces. */
+  forceEpoch = 0;
   private owningObject: GameObject | undefined;
   private geometry: ShapeGeometry | undefined;
   private bodyMass = 1;
@@ -251,6 +253,7 @@ export class RigidBody2D {
           (worldPoint.y - this.owner.position.y) * impulse.x);
   }
   clearForces(): void {
+    ++this.forceEpoch;
     this.accumulatedForce.set(0, 0);
     this.accumulatedTorque = 0;
   }

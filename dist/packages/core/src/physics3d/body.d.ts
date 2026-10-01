@@ -19,6 +19,8 @@ export declare class RigidBody3D {
     readonly angularVelocity: Vector3;
     readonly force: Vector3;
     readonly torque: Vector3;
+    /** @internal Invalidates queued frame impulses when the caller clears forces. */
+    forceEpoch: number;
     readonly lockRotation: boolean;
     readonly allowSleep: boolean;
     private owningObject;

@@ -729,3 +729,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - Node 26.7.0／pnpm 12.6.0 重新執行 frozen install、typecheck、79 files／678 tests、lint、build、全倉 format:check，全部通過。Build 198 minified JavaScript files，官方 vendor unchanged。
 - 真正 `pnpm pack` 產生 `xyz.js-1.8.0.tgz`，解壓至 consumer 的 node_modules 後用 Node ESM `import ... from 'xyz.js'` 驗正式 root exports／1.8.0 metadata／Apache-2.0 LICENSE。真 Scene sphere 落地 sleep，移除支撐即 wake／下落；navigation 繞牆 cost=4／完整 route，destroy 清 registrations。封裝內 14 件官方 vendor 檔案逐位元組與來源一致，保留完整 dist 樹；輸出 V18_EXTRACTED_PACKAGE_CONSUMER_OK。
 - 本次只改版本與發佈文件，不冒稱重新進行 browser／device 驗收；P40–P42 的真 headless Chromium pixels／完整參考遊戲／失敗分支與未驗限制保留於各節。Tag workflow 另於 Ubuntu 執行工具鏈、pack 與 SHA256SUMS 上傳；實際發佈結果以 GitHub Release／Actions 為準。
+
+## P43 Fixed Simulation & Presentation（限定已測環境）
+
+- **實作**：Scene 統一 fixed gameplay，在每次 callback 後推進兩個 physics worlds；frame force／torque 按提交時間加權，fixed force 按該 tick 計 impulse。Catch-up 丟棄時間與 force share 同步移除；clear／body replacement／destroy 不保留 stale impulse。Game opt-in render matrix interpolation 不修改 authoritative pose／queries。
+- **真封裝 CPU smoke**：Node 26.7.0，實際 `pnpm pack` 解壓 root consumer，在 30／60／120／144／240 Hz 的 frame／fixed forces 下，2D／3D velocity 均為 120、fixedFrame=120、dropped time=0；呈現 matrix=.5、模擬 position=1，外部 teleport=20 不插值回舊位置。Sleeping 60 ticks 後 F120 一個 tick 在兩個維度皆 velocity=1；修正前已觀察 3D velocity=1/61，根因是 sleeping ticks 未消費 queued frame-time denominator。
+- **真 Game pixels**：自建 headless Chromium shell／獨立 profile 的 Canvas2D Game，controlled RAF 0→12.5ms 驅動正式 update／render；2×2 紅 sprite 的像素 centroid 9.5→10.5，authoritative x=12、fixedFrame=1、alpha=.5000000000000001，無 runtime errors。Destroy 後 Scene registrations=0。這是呈現契約證明，不是實際 FPS 量測。
+- **回歸**：保留 fixed simulation／force-clear／sleep-wake 行為測試；整合工作樹的 typecheck、93 files／780 tests、lint、build 已通過，這是全部本輪 source 的共用整合結果，不冒稱此單一 commit 當時含全部測試檔。Machine evidence：`.vite/production-cpu.json` 的 fixedSimulation／integrityForceRegressions；完整其他階段另記。
+- **界線**：插值預設關閉，不改碰撞判斷／input picking 的 authoritative world；沒有 FPS 提升、跨瀏覽器／真背景節流認證。套件仍 1.8.0，逐功能提交，不 push／publish。

@@ -11,6 +11,7 @@ export declare class Object3D extends SceneObject {
     private readonly descendants;
     private rigidBody;
     private collisionShape;
+    private physicsPresentation;
     get body(): RigidBody3D | undefined;
     set body(value: RigidBody3D | undefined);
     get collider(): Collider3D | undefined;
@@ -29,6 +30,10 @@ export declare class Object3D extends SceneObject {
     detachParent(): void;
     /** @internal Publishes a proposed hierarchy and returns an exact registration rollback. */
     setParentForRegistration(nextParent: Object3D | undefined): () => void;
+    /** @internal The simulation pose is never temporarily replaced for presentation. */
+    capturePhysicsPose(): void;
+    /** @internal */
+    sealPhysicsPose(): void;
     /** Recompose mutable local transforms, including every ancestor, without allocations. */
     updateWorldMatrix(): Matrix4;
     destroy(): void;

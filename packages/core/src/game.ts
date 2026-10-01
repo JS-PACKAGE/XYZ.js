@@ -1049,14 +1049,20 @@ export class Game extends EventTarget {
       this.frameEffects.transition = transition?.controller.advance(
         this.clock.deltaTime,
       );
-      this.graphics.beginFrame();
-      this.graphics.render(
-        this.currentScene,
-        this.logicalWidth,
-        this.logicalHeight,
-        this.frameEffects,
-      );
-      this.graphics.endFrame();
+      const presentedScene = this.currentScene;
+      presentedScene?.beginPresentation();
+      try {
+        this.graphics.beginFrame();
+        this.graphics.render(
+          presentedScene,
+          this.logicalWidth,
+          this.logicalHeight,
+          this.frameEffects,
+        );
+        this.graphics.endFrame();
+      } finally {
+        presentedScene?.endPresentation();
+      }
       this.accessibilityManager.update(this.currentScene);
       if (transition?.controller.complete) this.completeTransition(transition);
     } catch (cause) {

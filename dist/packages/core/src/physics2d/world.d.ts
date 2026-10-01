@@ -73,7 +73,7 @@ export declare class PhysicsWorld2D {
     private readonly sweepProxies;
     private readonly jointSet;
     private readonly activeJoints;
-    private readonly forceBodies;
+    private readonly forces;
     private readonly queryManifold;
     private readonly positionManifold;
     private readonly queryNormal;
@@ -104,7 +104,15 @@ export declare class PhysicsWorld2D {
     private alive;
     private emit;
     private end;
-    update(deltaTime: number, canContinue?: () => boolean): void;
+    private forceState;
+    /** @internal Sample frame forces even when no fixed tick is due. */
+    sampleForces(delta: number): void;
+    /** @internal Forces from fixed gameplay are impulses over that exact tick. */
+    sampleFixedForces(delta: number): void;
+    /** @internal Discard only simulation time omitted by the scene catch-up limit. */
+    discardFrameTime(delta: number): void;
+    get interpolationAlpha(): number;
+    update(deltaTime: number, canContinue?: () => boolean, sampleFrame?: boolean): void;
     /**
      * Pulls ccd bodies that moved farther than a fraction of their size back to the first
      * translation contact with a static collider, pushed slightly in so the solver sees it.

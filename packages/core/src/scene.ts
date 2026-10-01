@@ -28,6 +28,13 @@ import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
+import { simulationDefaults } from '../../../src/data/simulation.js';
+
+export interface SceneOptions {
+  readonly fixedDelta?: number;
+  readonly maxFixedSteps?: number;
+  readonly interpolatePhysics?: boolean;
+}
 
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export class Scene {
@@ -40,6 +47,46 @@ export class Scene {
   readonly animations = new AnimationMixer();
   readonly physics = new PhysicsWorld2D();
   readonly physics3D = new PhysicsWorld3D();
+  readonly fixedDelta: number;
+  readonly maxFixedSteps: number;
+  /** Opt-in rendering interpolation; simulation and queries keep their exact current poses. */
+  interpolatePhysics: boolean;
+  fixedElapsed = 0;
+  fixedFrame = 0;
+  droppedSimulationTime = 0;
+  private fixedAccumulator = 0;
+  private advancingFixed = false;
+  private presenting = false;
+  constructor(options: SceneOptions = {}) {
+    this.fixedDelta = options.fixedDelta ?? simulationDefaults.fixedDelta;
+    this.maxFixedSteps =
+      options.maxFixedSteps ?? simulationDefaults.maxFixedSteps;
+    if (
+      !Number.isFinite(this.fixedDelta) ||
+      this.fixedDelta <= 0 ||
+      !Number.isInteger(this.maxFixedSteps) ||
+      this.maxFixedSteps < 1
+    )
+      throw new RangeError(
+        'Scene fixed timing requires a positive delta and step limit.',
+      );
+    this.interpolatePhysics = options.interpolatePhysics ?? false;
+  }
+  get fixedInterpolationAlpha(): number {
+    return Math.min(1, Math.max(0, this.fixedAccumulator / this.fixedDelta));
+  }
+  /** @internal Presentation-only flag, never enabled during physics or input queries. */
+  get presentingPhysics(): boolean {
+    return this.presenting && this.interpolatePhysics;
+  }
+  /** @internal Rendering is bracketed even when a renderer throws. */
+  beginPresentation(): void {
+    this.presenting = true;
+  }
+  /** @internal */
+  endPresentation(): void {
+    this.presenting = false;
+  }
   readonly effects2D: PostProcessor2D[] = [];
   /**
    * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
@@ -334,9 +381,60 @@ export class Scene {
   /** @internal Systems/actions run first, physics then particles, final camera last. */
   advanceAfterUpdate(deltaTime: number, canContinue: () => boolean): void {
     if (!canContinue() || this.disposed) return;
-    this.physics.update(deltaTime, canContinue);
-    if (!canContinue() || this.disposed) return;
-    this.physics3D.update(deltaTime, canContinue);
+    if (!Number.isFinite(deltaTime) || deltaTime < 0)
+      throw new RangeError(
+        'Scene simulation delta must be nonnegative and finite.',
+      );
+    if (this.advancingFixed)
+      throw new Error('Scene fixed update is not reentrant.');
+    this.physics.sampleForces(deltaTime);
+    if (this.physics3D.enabled) this.physics3D.sampleForces(deltaTime);
+    const total = this.fixedAccumulator + deltaTime;
+    const available = Math.floor(
+      (total + this.fixedDelta * 1e-9) / this.fixedDelta,
+    );
+    const steps = Math.min(available, this.maxFixedSteps);
+    const remainder = Math.max(0, total - available * this.fixedDelta);
+    const dropped = Math.max(0, (available - steps) * this.fixedDelta);
+    this.droppedSimulationTime += dropped;
+    this.physics.discardFrameTime(dropped);
+    this.physics3D.discardFrameTime(dropped);
+    this.fixedAccumulator = steps * this.fixedDelta + remainder;
+    this.advancingFixed = true;
+    try {
+      for (
+        let tick = 0;
+        tick < steps && canContinue() && !this.disposed;
+        tick++
+      ) {
+        this.fixedAccumulator = Math.max(
+          0,
+          this.fixedAccumulator - this.fixedDelta,
+        );
+        this.fixedUpdate(this.fixedDelta);
+        if (!canContinue() || this.disposed) return;
+        this.physics.sampleFixedForces(this.fixedDelta);
+        if (this.physics3D.enabled)
+          this.physics3D.sampleFixedForces(this.fixedDelta);
+        this.physics.update(this.fixedDelta, canContinue, false);
+        if (!canContinue() || this.disposed) return;
+        this.physics3D.update(this.fixedDelta, canContinue, false);
+        this.fixedElapsed += this.fixedDelta;
+        ++this.fixedFrame;
+      }
+    } finally {
+      this.advancingFixed = false;
+      if (
+        this.fixedAccumulator >= this.fixedDelta &&
+        (!canContinue() || this.disposed)
+      ) {
+        const omitted =
+          Math.floor(this.fixedAccumulator / this.fixedDelta) * this.fixedDelta;
+        this.fixedAccumulator = Math.max(0, this.fixedAccumulator - omitted);
+        this.physics.discardFrameTime(omitted);
+        this.physics3D.discardFrameTime(omitted);
+      }
+    }
     if (!canContinue() || this.disposed) return;
     for (const [object, id] of this.objectUpdates) {
       if (id > this.frameObjectUpdate) break;
@@ -357,6 +455,10 @@ export class Scene {
 
   /** Called before scene systems, once per visible frame. */
   update(deltaTime: number): void {
+    void deltaTime;
+  }
+  /** Fixed gameplay runs immediately before both physics worlds, zero or more times per frame. */
+  fixedUpdate(deltaTime: number): void {
     void deltaTime;
   }
 

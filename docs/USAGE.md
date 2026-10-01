@@ -1071,3 +1071,32 @@ Open [Beacon Run](../examples/beacon-run/) through the local examples server, op
 - **Pause/settings:** Escape or **Pause** freezes timer, physics, navigation and animation while renderer/UI remain live; blur/hidden-page also pauses. **Resume run** continues. Settings traps modal focus and persists master volume, mute and reduced character motion. Gameplay audio uses an explicit pause reason, not an assumption that `Game.pause()` pauses sound.
 - **Saves:** validated local-browser storage keeps preferences and one continuation, including time/signals/player/patrol/crate transforms and velocities. Progress autosaves periodically, on collection and pause; **Save run**, **Load saved run** (restores paused), and menu **Continue saved run** support reloads. Ended runs cannot continue; missing/corrupt/storage-unavailable state reports a message instead of fabricating progress.
 - **Teardown/recovery:** **Destroy game** or non-persisted pagehide saves an unfinished run where possible and releases input contexts, controllers/follower, Scene physics/UI borrowers, audio and the shared native mip texture; reload to play again. Graphics loss pauses the run; resume after recovery. A persisted pagehide pauses rather than destroying.
+
+## 23. Fixed Gameplay and Presentation
+
+Use `fixedUpdate` for simulation-sensitive movement and continuous forces; keep frame UI and one-shot input collection in `update`. The Game advances both physics worlds after every fixed callback.
+
+```ts
+import {
+  Scene,
+  Object3D,
+  RigidBody3D,
+  SphereCollider3D,
+  Vector3,
+} from 'xyz.js';
+
+class FixedScene extends Scene {
+  readonly actor = this.add(new Object3D());
+  private readonly thrust = new Vector3(120, 0, 0);
+  constructor() {
+    super({ fixedDelta: 1 / 120, maxFixedSteps: 12, interpolatePhysics: true });
+    this.actor.collider = new SphereCollider3D(0.5);
+    this.actor.body = new RigidBody3D({ gravityScale: 0 });
+  }
+  override fixedUpdate(): void {
+    this.actor.body!.applyForce(this.thrust);
+  }
+}
+```
+
+Do not also call `physics.update`/`physics3D.update` from either hook. `fixedFrame`/`fixedElapsed` describe completed scene ticks, and `droppedSimulationTime` records bounded catch-up loss. Interpolation affects only Game rendering, not the actor's simulation position or queries. Frame-submitted forces are time-weighted, including frames with no physics tick; `clearForces()` cancels pending impulse. See [the timing contract](TECHNICAL.md#43-fixed-gameplay-frame-forces-and-presentation).

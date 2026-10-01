@@ -219,6 +219,7 @@ describe('bounded 3D primitive dynamics', () => {
     box.body!.applyForce(new Vector3(24, 0, 0));
     world.update(1 / 240);
     expect(box.position.x).toBe(5);
+    box.body!.applyForce(new Vector3(24, 0, 0));
     world.update(1 / 240);
     expect(box.body!.velocity.x).toBeCloseTo(0.1, 6);
     box.body!.applyImpulse(

@@ -29,6 +29,8 @@ export class RigidBody3D {
   readonly angularVelocity = new Vector3();
   readonly force = new Vector3();
   readonly torque = new Vector3();
+  /** @internal Invalidates queued frame impulses when the caller clears forces. */
+  forceEpoch = 0;
   readonly lockRotation: boolean;
   readonly allowSleep: boolean;
   private owningObject: Object3D | undefined;
@@ -278,6 +280,7 @@ export class RigidBody3D {
     }
   }
   clearForces(): void {
+    ++this.forceEpoch;
     this.force.set(0, 0, 0);
     this.torque.set(0, 0, 0);
   }

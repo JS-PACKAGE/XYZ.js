@@ -7,6 +7,7 @@ import {
 import { SceneObject } from './scene-object.js';
 import { RigidBody3D } from './physics3d/body.js';
 import { Collider3D, Shape3D } from './physics3d/collider.js';
+import { PhysicsPresentation3D } from './physics-presentation.js';
 
 /** A local transform and its scene-owned descendant hierarchy. */
 export class Object3D extends SceneObject {
@@ -17,6 +18,7 @@ export class Object3D extends SceneObject {
   private readonly descendants = new Set<Object3D>();
   private rigidBody: RigidBody3D | undefined;
   private collisionShape: Collider3D | undefined;
+  private physicsPresentation: PhysicsPresentation3D | undefined;
 
   get body(): RigidBody3D | undefined {
     return this.rigidBody;
@@ -38,7 +40,10 @@ export class Object3D extends SceneObject {
       value?.detach(this);
       throw error;
     }
-    if (this.rigidBody !== previous) previous?.detach(this);
+    if (this.rigidBody !== previous) {
+      previous?.detach(this);
+      this.physicsPresentation = undefined;
+    }
   }
   get collider(): Collider3D | undefined {
     return this.collisionShape;
@@ -67,7 +72,7 @@ export class Object3D extends SceneObject {
       if (this.parent)
         throw new Error('Dynamic/kinematic bodies require root Object3D.');
       if (collider?.kind === 'plane')
-        throw new Error('PlaneCollider3D is static only.');
+        throw new Error('Plane colliders are static only.');
       if (
         collider &&
         (collider.offset.x !== 0 ||
@@ -76,7 +81,10 @@ export class Object3D extends SceneObject {
       )
         throw new Error('Moving collider offsets are unsupported.');
     }
-    if (collider) new Shape3D(collider).refresh(this);
+    if (collider) {
+      const shape = new Shape3D(collider);
+      shape.refresh(this);
+    }
   }
 
   get position(): Vector3 {
@@ -173,10 +181,37 @@ export class Object3D extends SceneObject {
     };
   }
 
+  /** @internal The simulation pose is never temporarily replaced for presentation. */
+  capturePhysicsPose(): void {
+    if (!this.scene?.interpolatePhysics) return;
+    (this.physicsPresentation ??= new PhysicsPresentation3D()).capture(
+      this.transform,
+    );
+  }
+  /** @internal */
+  sealPhysicsPose(): void {
+    this.physicsPresentation?.seal(this.transform);
+  }
   /** Recompose mutable local transforms, including every ancestor, without allocations. */
   updateWorldMatrix(): Matrix4 {
     const parentMatrix = this.parent?.updateWorldMatrix();
-    const localMatrix = this.transform.updateMatrix();
+    const scene = this.scene;
+    let localMatrix: Matrix4;
+    if (
+      scene?.presentingPhysics &&
+      this.body &&
+      this.body.type !== 'static' &&
+      !this.body.isSleeping &&
+      this.physicsPresentation
+    ) {
+      const alpha = Math.min(
+        1,
+        scene.physics3D.interpolationAlpha +
+          (scene.fixedInterpolationAlpha * scene.fixedDelta) /
+            scene.physics3D.fixedDelta,
+      );
+      localMatrix = this.physicsPresentation.matrix(this.transform, alpha);
+    } else localMatrix = this.transform.updateMatrix();
     if (parentMatrix) this.worldMatrix.copy(parentMatrix).multiply(localMatrix);
     else this.worldMatrix.copy(localMatrix);
     return this.worldMatrix;

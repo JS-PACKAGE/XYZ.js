@@ -15,6 +15,7 @@ import { RigidBody2D } from './body.js';
 import { collide, Manifold, rayDistance } from './narrowphase.js';
 import { sweepTimeOfImpact } from './sweep.js';
 import type { Joint2D } from './joints.js';
+import { PhysicsForceAccumulator } from '../physics-force.js';
 
 export interface CollisionDetail {
   readonly self: GameObject;
@@ -166,7 +167,7 @@ export class PhysicsWorld2D {
   private readonly sweepProxies: Proxy[] = [];
   private readonly jointSet = new Set<Joint2D>();
   private readonly activeJoints: Joint2D[] = [];
-  private readonly forceBodies = new Set<RigidBody2D>();
+  private readonly forces = new WeakMap<RigidBody2D, PhysicsForceAccumulator>();
   private readonly queryManifold = new Manifold();
   private readonly positionManifold = new Manifold();
   private readonly queryNormal = new Vector2();
@@ -269,6 +270,7 @@ export class PhysicsWorld2D {
     const proxy = this.owners.get(owner);
     if (!proxy) return;
     this.owners.delete(owner);
+    if (proxy.body) this.forces.delete(proxy.body);
     for (const joint of [...proxy.joints]) this.removeJoint(joint);
     // Delete membership before callback dispatch: recursive unregister is harmless.
     for (const contact of proxy.contacts.values()) this.end(contact);
@@ -325,9 +327,35 @@ export class PhysicsWorld2D {
     contact.b.body?.wake();
     this.emit(contact, 'collisionend');
   }
+  private forceState(body: RigidBody2D): PhysicsForceAccumulator {
+    let state = this.forces.get(body);
+    if (!state) this.forces.set(body, (state = new PhysicsForceAccumulator()));
+    return state;
+  }
+  /** @internal Sample frame forces even when no fixed tick is due. */
+  sampleForces(delta: number): void {
+    for (const proxy of this.owners.values())
+      if (proxy.body?.type === 'dynamic')
+        this.forceState(proxy.body).sample(proxy.body, delta);
+  }
+  /** @internal Forces from fixed gameplay are impulses over that exact tick. */
+  sampleFixedForces(delta: number): void {
+    for (const proxy of this.owners.values())
+      if (proxy.body?.type === 'dynamic')
+        this.forceState(proxy.body).sampleFixed(proxy.body, delta);
+  }
+  /** @internal Discard only simulation time omitted by the scene catch-up limit. */
+  discardFrameTime(delta: number): void {
+    for (const proxy of this.owners.values())
+      if (proxy.body) this.forces.get(proxy.body)?.discard(delta);
+  }
+  get interpolationAlpha(): number {
+    return Math.min(1, Math.max(0, this.accumulator / this.fixedDelta));
+  }
   update(
     deltaTime: number,
     canContinue: () => boolean = continueSimulation,
+    sampleFrame = true,
   ): void {
     finite(deltaTime, 'deltaTime');
     if (deltaTime < 0) throw new RangeError('deltaTime must be nonnegative.');
@@ -340,6 +368,7 @@ export class PhysicsWorld2D {
     }
     finite(this.gravity.x, 'gravity.x');
     finite(this.gravity.y, 'gravity.y');
+    if (sampleFrame) this.sampleForces(deltaTime);
     const total = finite(this.accumulator + deltaTime, 'accumulated time');
     const available = Math.floor(
       (total + this.fixedDelta * 1e-9) / this.fixedDelta,
@@ -352,6 +381,9 @@ export class PhysicsWorld2D {
         ? Math.max(0, total - this.maxSubSteps * this.fixedDelta - remainder)
         : 0;
     this.droppedTime += discarded;
+    if (discarded > 0)
+      for (const proxy of this.owners.values())
+        if (proxy.body) this.forces.get(proxy.body)?.discard(discarded);
     this.accumulator =
       available > this.maxSubSteps
         ? this.maxSubSteps * this.fixedDelta + remainder
@@ -372,8 +404,6 @@ export class PhysicsWorld2D {
         }
       }
     } finally {
-      for (const body of this.forceBodies) body.clearForces();
-      this.forceBodies.clear();
       this.solveContacts.length = 0;
       this.stepping = false;
       this.continuation = continueSimulation;
@@ -439,34 +469,39 @@ export class PhysicsWorld2D {
       }
       proxy.refresh();
       const body = proxy.body;
-      if (body?.type === 'dynamic' && !body.isSleeping) {
-        finite(body.velocity.x, 'velocity.x');
-        finite(body.velocity.y, 'velocity.y');
-        body.velocity.x +=
-          (this.gravity.x * body.gravityScale +
-            body.force.x * proxy.inverseMass) *
-          dt;
-        body.velocity.y +=
-          (this.gravity.y * body.gravityScale +
-            body.force.y * proxy.inverseMass) *
-          dt;
-        body.velocity.scale(1 / (1 + body.linearDamping * dt));
-        body.setSolverAngularVelocity(
-          body.lockRotation
-            ? 0
-            : (body.angularVelocity + body.torque * proxy.inverseInertia * dt) /
-                (1 + body.angularDamping * dt),
-        );
-        if (body.ccd) {
-          proxy.moveX = body.velocity.x * dt;
-          proxy.moveY = body.velocity.y * dt;
-          this.sweepProxies.push(proxy);
+      if (body?.type === 'dynamic') {
+        const force = this.forceState(body);
+        force.consume(body, dt);
+        if (!body.isSleeping) {
+          finite(body.velocity.x, 'velocity.x');
+          finite(body.velocity.y, 'velocity.y');
+          proxy.owner.capturePhysicsPose();
+          body.velocity.x +=
+            (this.gravity.x * body.gravityScale +
+              force.value[0] * proxy.inverseMass) *
+            dt;
+          body.velocity.y +=
+            (this.gravity.y * body.gravityScale +
+              force.value[1] * proxy.inverseMass) *
+            dt;
+          body.velocity.scale(1 / (1 + body.linearDamping * dt));
+          body.setSolverAngularVelocity(
+            body.lockRotation
+              ? 0
+              : (body.angularVelocity +
+                  force.value[5] * proxy.inverseInertia * dt) /
+                  (1 + body.angularDamping * dt),
+          );
+          if (body.ccd) {
+            proxy.moveX = body.velocity.x * dt;
+            proxy.moveY = body.velocity.y * dt;
+            this.sweepProxies.push(proxy);
+          }
+          proxy.owner.position.x += body.velocity.x * dt;
+          proxy.owner.position.y += body.velocity.y * dt;
+          proxy.owner.rotation += body.angularVelocity * dt;
+          proxy.refresh();
         }
-        proxy.owner.position.x += body.velocity.x * dt;
-        proxy.owner.position.y += body.velocity.y * dt;
-        proxy.owner.rotation += body.angularVelocity * dt;
-        this.forceBodies.add(body);
-        proxy.refresh();
       }
       this.sorted.push(proxy);
     }
@@ -561,6 +596,8 @@ export class PhysicsWorld2D {
       if (contact.active) this.emit(contact, 'postcollision');
       if (!this.continuation()) return;
     }
+    for (const proxy of this.sorted)
+      if (this.alive(proxy)) proxy.owner.sealPhysicsPose();
     for (const proxy of this.sorted)
       proxy.sleepReady = proxy.body?.updateSleep(dt) ?? false;
     for (const start of this.sorted) {

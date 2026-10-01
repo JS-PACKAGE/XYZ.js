@@ -19,6 +19,11 @@ import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
+export interface SceneOptions {
+    readonly fixedDelta?: number;
+    readonly maxFixedSteps?: number;
+    readonly interpolatePhysics?: boolean;
+}
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export declare class Scene {
     readonly world: World;
@@ -30,6 +35,24 @@ export declare class Scene {
     readonly animations: AnimationMixer;
     readonly physics: PhysicsWorld2D;
     readonly physics3D: PhysicsWorld3D;
+    readonly fixedDelta: number;
+    readonly maxFixedSteps: number;
+    /** Opt-in rendering interpolation; simulation and queries keep their exact current poses. */
+    interpolatePhysics: boolean;
+    fixedElapsed: number;
+    fixedFrame: number;
+    droppedSimulationTime: number;
+    private fixedAccumulator;
+    private advancingFixed;
+    private presenting;
+    constructor(options?: SceneOptions);
+    get fixedInterpolationAlpha(): number;
+    /** @internal Presentation-only flag, never enabled during physics or input queries. */
+    get presentingPhysics(): boolean;
+    /** @internal Rendering is bracketed even when a renderer throws. */
+    beginPresentation(): void;
+    /** @internal */
+    endPresentation(): void;
     readonly effects2D: PostProcessor2D[];
     /**
      * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
@@ -110,6 +133,8 @@ export declare class Scene {
     updateCameraDependents(): void;
     /** Called before scene systems, once per visible frame. */
     update(deltaTime: number): void;
+    /** Fixed gameplay runs immediately before both physics worlds, zero or more times per frame. */
+    fixedUpdate(deltaTime: number): void;
     destroy(): void;
     /** Release scene-owned resources synchronously; called exactly once. */
     protected onDestroy(): void;

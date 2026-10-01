@@ -1058,3 +1058,32 @@ Mip 尺寸逐層減半（向下取整，最小一），payload 必須符合 exac
 - **Pause／settings：**Escape／**Pause** 凍結 timer／physics／navigation／animation，renderer／UI 仍運作；blur／hidden-page 也暫停。**Resume run** 繼續。Settings 限制 modal focus，並保存 master volume／mute／reduced character motion。遊戲音訊用 explicit pause reason，不假設 `Game.pause()` 會停聲。
 - **存讀檔：**經驗證的本瀏覽器 local storage 保存 preferences 與一份 continuation，含時間／信標／player／patrol／crates transforms 與 velocities。定期、收集信標與 pause 自動存檔；**Save run**、**Load saved run**（讀回仍 paused）、menu **Continue saved run** 支援 reload。已結束 run 不可繼續；missing／corrupt／storage unavailable 會顯示訊息，不捏造進度。
 - **清理／復原：** **Destroy game** 或 non-persisted pagehide 儘可能保存未完成 run，釋放 input contexts／controllers／follower、Scene physics／UI borrowers、audio 與 shared native mip texture；reload 才能再玩。Graphics loss 暫停 run，復原後手動 resume；persisted pagehide 只暫停不 destroy。
+
+## 23. Fixed Gameplay 與呈現
+
+對模擬時間敏感的移動與持續力放在 `fixedUpdate`；frame UI 與一次性 input 命令收集留在 `update`。Game 在每個 fixed callback 後推進兩個 physics worlds。
+
+```ts
+import {
+  Scene,
+  Object3D,
+  RigidBody3D,
+  SphereCollider3D,
+  Vector3,
+} from 'xyz.js';
+
+class FixedScene extends Scene {
+  readonly actor = this.add(new Object3D());
+  private readonly thrust = new Vector3(120, 0, 0);
+  constructor() {
+    super({ fixedDelta: 1 / 120, maxFixedSteps: 12, interpolatePhysics: true });
+    this.actor.collider = new SphereCollider3D(0.5);
+    this.actor.body = new RigidBody3D({ gravityScale: 0 });
+  }
+  override fixedUpdate(): void {
+    this.actor.body!.applyForce(this.thrust);
+  }
+}
+```
+
+兩個 hooks 都不要額外呼叫 `physics.update`／`physics3D.update`。`fixedFrame`／`fixedElapsed` 表示已完成 Scene ticks，`droppedSimulationTime` 記 bounded catch-up 丟棄時間。插值只影響 Game render，不改 actor 模擬位置或 queries。Frame 提交的力依時間加權，沒有 physics tick 的 frames 也正確保留；`clearForces()` 取消待消費 impulse。詳見[時間契約](TECHNICAL-zh.md#43-fixed-gameplayframe-forces-與呈現插值)。

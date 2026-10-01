@@ -137,3 +137,11 @@ Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 
 
 - **P42 native render**：SkinnedMesh 的 immutable influence streams／morphed bind pose 走 GPU／GL color 與 shadow pipelines；joint palette changed-only upload、transformed influence boxes union 產 conservative animated sphere，Raycaster／updateSkin 另按需更新 exact CPU mirror。Joint-only motion 不重算所有 vertices，CPU morph、picker 的成本分開；renderer cache allocations 各自納入 residency、loss 從活著的 CPU sources 重建，不聲稱全 driver memory／FPS 改善。
 - **P42 reference**：[Beacon Run](examples/beacon-run/) 是 root Game consumer，retained canvas UI、capsule controller／動態 crates／authored patrol graph、mask-additive-tree-IK skin animation、native mips、official OPM 與 validated local save；Canvas2D 顯示 3D unsupported，不做假 3D fallback。實際 flow／backend 證據記於 ACCEPTANCE。
+
+## 本輪 P43–P57 production closure
+
+完整批准範圍與逐功能 commit gates 見 PLAN；package／vendor／歷史 tags 不变，不 push／publish。新能力須走現有 Game／Scene／公開 root facade，不建立第二套 physics／renderer／content convention。
+
+- **P43 時間：** Scene 可配置 fixed gameplay timing；frame／fixed force impulse 分開計時，兩 physics worlds 保持各自 step size，catch-up cap 不憑空保留 discarded force。Game presentation 才啟用 moving-body matrix interpolation，authoritative transform／query 不被暫時改寫，默認關閉以保持既有呈現契約。
+
+此節描述新設計契約，通過與限制仍只由 ACCEPTANCE 的實跑紀錄決定。

@@ -49,6 +49,7 @@ export declare class PhysicsWorld3D {
     private readonly inertiaB;
     private readonly relative;
     private readonly torque;
+    private readonly forces;
     private accumulator;
     private stepId;
     private disposed;
@@ -66,7 +67,15 @@ export declare class PhysicsWorld3D {
     private valid;
     private start;
     private end;
-    update(delta: number, canContinue?: () => boolean): void;
+    private forceState;
+    /** @internal Sample once per gameplay frame, even when no fixed tick is due. */
+    sampleForces(delta: number): void;
+    /** @internal Forces from fixed gameplay are impulses over that exact tick. */
+    sampleFixedForces(delta: number): void;
+    /** @internal Discard only simulation time omitted by the scene catch-up limit. */
+    discardFrameTime(delta: number): void;
+    get interpolationAlpha(): number;
+    update(delta: number, canContinue?: () => boolean, sampleFrame?: boolean): void;
     private step;
     private velocityAt;
     private movingAtContact;

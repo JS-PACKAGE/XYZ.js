@@ -15,6 +15,7 @@ import {
   isInteractionEvent2D,
   type InteractionPhase2D,
 } from './gameplay/interaction-events.js';
+import { PhysicsPresentation2D } from './physics-presentation.js';
 
 /** Public 2D facade; entities and component registration belong to Scene. */
 export class GameObject extends SceneObject {
@@ -46,6 +47,7 @@ export class GameObject extends SceneObject {
   private actionQueue: ActionQueue | undefined;
   private rigidBody: RigidBody2D | undefined;
   private collisionShape: Collider2D | undefined;
+  private physicsPresentation: PhysicsPresentation2D | undefined;
   override addEventListener(
     type: string,
     callback: EventListenerOrEventListenerObject | null,
@@ -111,7 +113,10 @@ export class GameObject extends SceneObject {
       value?.detach(this);
       throw error;
     }
-    if (this.rigidBody !== previous) previous?.detach(this);
+    if (this.rigidBody !== previous) {
+      previous?.detach(this);
+      this.physicsPresentation = undefined;
+    }
   }
   get collider(): Collider2D | undefined {
     return this.collisionShape;
@@ -305,9 +310,35 @@ export class GameObject extends SceneObject {
     this.ancestor?.descendants.delete(this);
     this.ancestor = undefined;
   }
+  /** @internal Stores only the previous fixed simulation pose. */
+  capturePhysicsPose(): void {
+    if (!this.scene?.interpolatePhysics) return;
+    (this.physicsPresentation ??= new PhysicsPresentation2D()).capture(
+      this.transform,
+    );
+  }
+  /** @internal */
+  sealPhysicsPose(): void {
+    this.physicsPresentation?.seal(this.transform);
+  }
   updateWorldMatrix(): Matrix3 {
     const parentMatrix = this.parent?.updateWorldMatrix();
-    const localMatrix = this.transform.updateMatrix();
+    const scene = this.scene;
+    let localMatrix: Matrix3;
+    if (
+      scene?.presentingPhysics &&
+      this.body?.type === 'dynamic' &&
+      !this.body.isSleeping &&
+      this.physicsPresentation
+    ) {
+      const alpha = Math.min(
+        1,
+        scene.physics.interpolationAlpha +
+          (scene.fixedInterpolationAlpha * scene.fixedDelta) /
+            scene.physics.fixedDelta,
+      );
+      localMatrix = this.physicsPresentation.matrix(this.transform, alpha);
+    } else localMatrix = this.transform.updateMatrix();
     if (parentMatrix) this.worldMatrix.copy(parentMatrix).multiply(localMatrix);
     else this.worldMatrix.copy(localMatrix);
     return this.worldMatrix;

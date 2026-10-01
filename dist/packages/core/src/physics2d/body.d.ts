@@ -17,6 +17,8 @@ export declare class RigidBody2D {
     readonly velocity: Vector2;
     private readonly accumulatedForce;
     private accumulatedTorque;
+    /** @internal Invalidates queued frame impulses when the caller clears forces. */
+    forceEpoch: number;
     private owningObject;
     private geometry;
     private bodyMass;

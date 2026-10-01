@@ -2,6 +2,7 @@ export { Clock } from './clock.js';
 export { Game } from './game.js';
 export type { GameOptions, ResourceBudgets, WarmupOptions, WarmupProgress, WarmupLease, GameState, SetSceneOptions, SceneTransitionEventDetail, } from './game.js';
 export { Scene } from './scene.js';
+export type { SceneOptions } from './scene.js';
 export { SceneObject } from './scene-object.js';
 export { GameObject } from './game-object.js';
 export { RuntimeError } from './errors.js';

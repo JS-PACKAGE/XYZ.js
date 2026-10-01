@@ -35,6 +35,7 @@ export declare class GameObject extends SceneObject {
     private actionQueue;
     private rigidBody;
     private collisionShape;
+    private physicsPresentation;
     addEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
     removeEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | EventListenerOptions): void;
     dispatchEvent(event: Event): boolean;
@@ -80,6 +81,10 @@ export declare class GameObject extends SceneObject {
     remove(child: GameObject): boolean;
     /** @internal Scene detaches roots without mutating subtree ownership. */
     detachParent(): void;
+    /** @internal Stores only the previous fixed simulation pose. */
+    capturePhysicsPose(): void;
+    /** @internal */
+    sealPhysicsPose(): void;
     updateWorldMatrix(): Matrix3;
     getLocalBounds(out?: Rect2D): Rect2D;
     toWorld(point: Vector2, out?: Vector2): Vector2;
