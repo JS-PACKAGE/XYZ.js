@@ -13,6 +13,13 @@ import { Vector2 } from '../../math/src/index.js';
 import { UITextInput } from './ui-text-input.js';
 export { UITextInput } from './ui-text-input.js';
 export type { UITextInputOptions } from './ui-text-input.js';
+import { UIScrollView, UIVirtualList } from './ui-scroll.js';
+export { UIScrollView, UIVirtualList } from './ui-scroll.js';
+export type {
+  UIScrollViewOptions,
+  UIVirtualListOptions,
+  UIVirtualListKey,
+} from './ui-scroll.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
 
@@ -126,6 +133,7 @@ abstract class UIControl extends UIElement {
     this.pointerEnabled = true;
     this.interactiveChildren = false;
     this.cursor = 'pointer';
+    this.eventPropagation = 'hierarchy';
     this.accessibility = {
       role,
       label,
@@ -557,6 +565,8 @@ export class UIFocusManager {
     if (node && (!node.layoutWidth || !node.layoutHeight)) this.root.reflow();
     if (node && !this.eligible(node)) return false;
     if (node) {
+      for (let parent = node.parent; parent; parent = parent.parent)
+        if (parent instanceof UIScrollView) parent.reveal(node);
       if (this.root.isLive)
         this.root.boundGame?.accessibility.update(this.root.scene);
       this.root.synchronizeSemantics();
@@ -600,7 +610,35 @@ export class UIFocusManager {
   blurNative(node: Focusable): void {
     if (this.current === node) this.acceptNative(undefined);
   }
+  /** Focus traversal within one retained row, including nested controls. */
+  focusWithin(container: UIElement, direction: number): boolean {
+    const nodes: Focusable[] = [];
+    this.collect(container, nodes);
+    return (
+      nodes.length > 0 &&
+      this.focus(nodes[direction < 0 ? nodes.length - 1 : 0])
+    );
+  }
+  /** @internal Allows virtual rows to preserve ordinary intra-row traversal. */
+  hasAdjacentWithin(
+    container: UIElement,
+    node: GameObject,
+    direction: number,
+  ): boolean {
+    const nodes: Focusable[] = [];
+    this.collect(container, nodes);
+    const index = nodes.indexOf(node as Focusable) + (direction < 0 ? -1 : 1);
+    return index >= 0 && index < nodes.length;
+  }
   move(direction: number): boolean {
+    if (this.current) {
+      for (let parent = this.current.parent; parent; parent = parent.parent)
+        if (
+          parent instanceof UIVirtualList &&
+          parent.moveFocus(this.current, direction)
+        )
+          return true;
+    }
     const nodes: Focusable[] = [];
     this.collect(this.modal ?? this.root, nodes);
     if (!nodes.length) {

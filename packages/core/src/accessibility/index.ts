@@ -400,7 +400,7 @@ export class AccessibilityManager {
     if (!changed) return entry.clipCoverage;
     let parent: HTMLElement = entry.host;
     for (const slot of entry.clips) {
-      parent.append(slot.wrapper);
+      if (slot.wrapper.parentElement !== parent) parent.append(slot.wrapper);
       parent = slot.wrapper;
       const shape = this.shape(slot.mask);
       slot.definition.setAttribute('width', String(width));
@@ -416,7 +416,7 @@ export class AccessibilityManager {
         `matrix(${Array.from(slot.transform).join(' ')})`,
       );
     }
-    parent.append(entry.node);
+    if (entry.node.parentElement !== parent) parent.append(entry.node);
     if (!entry.clips.length) return width > 0 && height > 0;
     // Native coverage of the semantic box determines fully clipped visibility; images remain bounds-only.
     const canvas = (this.coverageCanvas ??=

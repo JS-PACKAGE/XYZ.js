@@ -1,4 +1,5 @@
 import type { Game } from './game.js';
+import { GameObject } from './game-object.js';
 import { UIElement } from './ui-layout.js';
 import type { UILayout } from './ui-layout.js';
 import { Text2D } from './text2d.js';
@@ -9,6 +10,8 @@ import type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 import { UITextInput } from './ui-text-input.js';
 export { UITextInput } from './ui-text-input.js';
 export type { UITextInputOptions } from './ui-text-input.js';
+export { UIScrollView, UIVirtualList } from './ui-scroll.js';
+export type { UIScrollViewOptions, UIVirtualListOptions, UIVirtualListKey, } from './ui-scroll.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
 export interface UIWidgetOptions {
@@ -118,6 +121,10 @@ export declare class UIFocusManager {
     acceptNative(node: Focusable | undefined): void;
     /** @internal */
     blurNative(node: Focusable): void;
+    /** Focus traversal within one retained row, including nested controls. */
+    focusWithin(container: UIElement, direction: number): boolean;
+    /** @internal Allows virtual rows to preserve ordinary intra-row traversal. */
+    hasAdjacentWithin(container: UIElement, node: GameObject, direction: number): boolean;
     move(direction: number): boolean;
     pushModal(container: UIElement): void;
     popModal(): void;

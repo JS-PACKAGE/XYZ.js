@@ -788,3 +788,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 自有 headless Chromium／independent profile，在 Canvas2D／WebGL2／WebGPU 的正式 Game／Scene／UIRoot 實測全部 passed：透明 native input、canvas text visuals、trusted keyboard selection [4,5]／Backspace、native browser undo（execCommand）與 value 同步。
 - Synthetic composition start／update／input／end 顯示 isComposing true→false、值「語喵」；這不是 OS／硬體 IME 認證。UTF-16 selection、modal focus trap／pop restore、pause-resume、context／listener teardown 皆覆蓋。
 - remove 後 listener 立即 inert，native DOM 依 semantic frame 清理（2 RAF 後 disconnected）；Game.destroy 後 semantic nodes／objects／attachments=0，errors=[]。Evidence：`.vite/production-ui.json` 與三 backend PNG。
+
+## P52 ScrollView & Keyed Virtual List（限定已測環境）
+
+- 三 backend actual UI surface 覆蓋 16 controls 的 focus reveal（scrollY=384）、viewport clip 下 hidden button click=0、wheel／empty-viewport drag 384→344。
+- 10000 stable-key items 只 prepare 12 rows，實際 mounted=6。Trusted Tab 9000→9001；整體 reversal 後 key9001 的同 row／native focus 保持，scrollY=31936、mounted=6；destroy 無 semantic／row leaks。
+- 真瀏覽器先抓到 reorder focus 丟失：focused key 必須 reveal 新位置；semantic wrapper 不可無條件重新 append 已聚焦 DOM。已修正並由三 backend 再實測通過，保留 consumer-visible focus-reorder regression。

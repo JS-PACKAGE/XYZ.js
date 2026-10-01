@@ -1146,3 +1146,7 @@ field.setSelectionRange(0, field.value.length);
 ```
 
 Keyboard/clipboard/undo/IME edit the native transparent input, while canvas draws text/selection/caret. Offsets and maxLength use UTF-16. Focus after publication/layout; normal gameplay keyboard polling excludes editing targets. [Events and limits](TECHNICAL.md#51-native-editing-canvas-text-input-p51).
+
+## 32. Scroll and Bounded Virtual Lists (P52)
+
+Add widgets through `view.content.add(widget)` on UIScrollView; set a finite viewport layout and use scrollTo/reveal. UIVirtualList requires a synchronous fresh-detached owned-row factory and synchronous bind that resets reused item state; prepare async canvas widgets before passing them to that factory. Stable keys preserve active rows on reorder, focusKey reveals unmounted rows, and mounted/pool counts stay bounded. Destroy any unused prepared rows yourself. [Viewport/focus contract](TECHNICAL.md#52-scrolling-focus-reveal-and-virtual-lists-p52).

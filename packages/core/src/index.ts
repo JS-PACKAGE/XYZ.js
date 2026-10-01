@@ -36,6 +36,8 @@ export {
   UISlider,
   UIFocusManager,
   UITextInput,
+  UIScrollView,
+  UIVirtualList,
 } from './ui.js';
 export type {
   UIDimension,
@@ -44,6 +46,9 @@ export type {
   UICheckboxOptions,
   UISliderOptions,
   UITextInputOptions,
+  UIScrollViewOptions,
+  UIVirtualListOptions,
+  UIVirtualListKey,
 } from './ui.js';
 export { FactoryRegistry, defineFactory } from './factories.js';
 export type {

@@ -953,3 +953,9 @@ Assets:build 沿真 packaged GLTFLoader 驗 generated variants。Check:asset-dep
 `await UITextInput.create({value?,maxLength?,label?,disabled?,layout?,textStyle?})` 使用真正透明 native input 提供 single-line editing／clipboard／undo／IME；text／background／selection／caret 仍由 canvas 畫。Readonly value／selectionStart／selectionEnd／selectionDirection／isComposing、async setValue 與 setSelectionRange 採 UTF-16 offsets。Programmatic values 去 CR／LF 並套 maxLength；既有 Text2D raster／input budgets 不變。
 
 Compositionstart／update／end 帶 data／originalEvent，input 帶 value／isComposing／originalEvent，change／focus／blur relay 原生狀態。Focus 清 held state 並排除 gameplay keyboard actions，不攔截正常 editing keys。Native semantic geometry／clipping 沿 logical canvas placement／lifecycle；無 password profile，synthetic composition 只能證明 relay／visual state，不能冒稱實體 OS IME。
+
+## 52. 捲動、focus reveal 與虛擬列表（P52）
+
+`new UIScrollView({layout?,contentLayout?,horizontal=false,vertical=true})` 經 view.content.add(child) 加 owned content。ScrollTo clamp offsets，reveal 轉換 descendant 四角；renderer mask／pointer／native semantic coverage 同 viewport。Wheel line／page deltas normalize，nested viewport clamped 時向外 yield。Mouse 可拖空白 viewport，controls 保留 editing；touch／pen 可跨 controls pan。Focus 先 reveal 內再外 scroll，最後 native focus。
+
+`new UIVirtualList<T>({items,rowHeight,key,createRow,bindRow,unbindRow?,overscan=1,layout?})` snapshot items、preflight unique string／finite-number keys。Factory 同步回 fresh detached owned UIElement；bind 必須 reset reused row state。Mounted 限 viewport＋overscan＋最多一個 focused row，detached pool 有界重用、surplus destroy。Active keyed identity 保留 reorder。Row／keyOf／setItems／materializedCount／pooledCount／focusKey(key,direction=1) 提供真正 bounded virtualization，不是把所有 rows 都 mount。

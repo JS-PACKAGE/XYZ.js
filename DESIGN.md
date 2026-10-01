@@ -144,5 +144,6 @@ Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 
 
 - **P43 時間：** Scene 可配置 fixed gameplay timing；frame／fixed force impulse 分開計時，兩 physics worlds 保持各自 step size，catch-up cap 不憑空保留 discarded force。Game presentation 才啟用 moving-body matrix interpolation，authoritative transform／query 不被暫時改寫，默認關閉以保持既有呈現契約。
 - **導航：** 同步與 incremental jobs 共用同一 `A*`；owner 限 workspace 數，revision edits invalidate pending jobs。動態 follower 使用 authored anchors／agent radius，不宣稱自動 navmesh／nearest-node projection；物理阻擋只在該 route 排除 connection，replan 有有限 expansion／retry budget。
+- **UI：** 原生透明 input 只負責 editing／IME／selection／focus，視覺仍 canvas。UIElement 可承載 borrowed masks，未啟用 isolation 時維持普通 ordering；scroll 的 clipping 必須同時約束 renderer／pointer／semantic coverage。虛擬列表維持 keyed identity、有限 mounted／pooled rows，focus reveal 不能用 mounted-all 假虛擬化。
 
 此節描述新設計契約，通過與限制仍只由 ACCEPTANCE 的實跑紀錄決定。

@@ -167,6 +167,9 @@ export class UIElement extends IsolatedGroup2D {
   }
   protected stateChanged(): void {}
   protected arranged(): void {}
+  protected arrangeChildren(): boolean {
+    return false;
+  }
   protected padding(side: number): number {
     const padding = this.spec.padding ?? 0;
     return typeof padding === 'number' ? padding : padding[side];
@@ -242,6 +245,7 @@ export class UIElement extends IsolatedGroup2D {
     this.arrangedHeight = this.limit(height, false);
     this.layoutDirty = false;
     this.arranged();
+    if (this.arrangeChildren()) return;
     const innerWidth = Math.max(
       0,
       this.arrangedWidth - this.padding(1) - this.padding(3),

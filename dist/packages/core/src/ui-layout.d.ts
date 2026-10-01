@@ -45,6 +45,7 @@ export declare class UIElement extends IsolatedGroup2D {
     protected inspectLayout(): boolean;
     protected stateChanged(): void;
     protected arranged(): void;
+    protected arrangeChildren(): boolean;
     protected padding(side: number): number;
     private limit;
     private dimension;
