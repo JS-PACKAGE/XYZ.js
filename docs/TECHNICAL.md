@@ -505,3 +505,23 @@ Required components include anchors/borders, CanvasTexture, generated font atlas
 - `Line3D(points, {material, width, closed})` draws a polyline as camera-facing ribbons: one quad (4 vertices) per segment, rebuilt each frame in the object's local space, with `setPoint`/`point`/`pointCount`; `width` is in local units across the ribbon and may be changed. The point count is fixed at construction. Segments are independent quads, so very sharp corners show a small gap or overlap, there is no per-vertex width or color and no round joins. UVs run 0–1 across the ribbon and along the whole line.
 - `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` rasterizes the text with a 2D canvas into an owned `Texture` and shows it on a `Billboard` whose width follows the text's aspect ratio and whose height is `height` (world units). The text is fixed at creation (create another to change it), the texture is released on `destroy()`, the quad blends normally and has no depth-correct sorting against other transparent objects.
 - Limits: no LOD cross-fade, no screen-size based switching, no depth-aware thick line caps, no multi-line text layout or right-to-left shaping beyond what the browser's `fillText` gives, and these helpers are not rendered by Canvas2D (no 3D there).
+
+### Vertex and Instance Colors (P36b)
+
+`GeometryData.colors` and `geometry.setColors(colors)` accept linear RGB or RGBA per vertex.
+Geometry copies the input into RGBA storage, supplying alpha 1 for RGB; `setColors(undefined)`
+removes it. RGB components are finite and nonnegative; alpha is in [0, 1]. If you edit
+`geometry.colors` in place, call `markUpdated()` to refresh GPU uploads.
+
+`InstancedMesh.setColorAt(index, r, g, b)` sets linear RGB multipliers per instance;
+`getColorAt(index, out)` reads them into a reusable tuple. Unset instances are white, and
+storage is allocated only when a color is first set. Matrix and color uploads are versioned
+independently. Use `setColorAt` rather than editing `colors` directly.
+
+Both GPU backends multiply vertex RGB, instance RGB and material tint into the base color.
+Vertex alpha also affects blending and PBR alpha masks, including shadow masks; OPAQUE PBR
+materials still ignore alpha as required by glTF. Color attributes do not affect emissive light.
+glTF `COLOR_0` supports float and normalized unsigned-byte/unsigned-short VEC3/VEC4 accessors,
+including alpha, and skinned geometry retains its colors. `COLOR_1` remains unsupported.
+The instancing example now combines per-instance brightness and vertex gradients. Canvas2D
+remains 2D-only; these additions do not add a 3D software renderer.

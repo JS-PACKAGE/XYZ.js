@@ -51,6 +51,8 @@ struct VertexInput {
   @location(4) instance1: vec4f,
   @location(5) instance2: vec4f,
   @location(6) instance3: vec4f,
+  @location(7) instanceColor: vec3f,
+  @location(8) vertexColor: vec4f,
 };
 struct VertexOutput {
   @builtin(position) position: vec4f,
@@ -58,6 +60,7 @@ struct VertexOutput {
   @location(1) uv: vec2f,
   @location(2) world: vec3f,
   @location(3) @interpolate(flat) orientation: f32,
+  @location(4) color: vec4f,
 };
 fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
@@ -74,6 +77,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   output.uv = input.uv;
   output.world = world.xyz;
   output.orientation = select(-1.0,1.0,determinant >= 0.0);
+  output.color = vec4f(input.instanceColor, 1.0) * input.vertexColor;
   return output;
 }
 @vertex fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -159,7 +163,7 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
 @fragment fn shadowFragment(input: VertexOutput, @builtin(front_facing) front: bool) {
   let texel = textureSample(baseMap, materialSampler, input.uv);
   let effectiveFront = front == (input.orientation > 0.0);
-  let alpha = texel.a * mesh.tint.a;
+  let alpha = texel.a * mesh.tint.a * input.color.a;
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
   let blended = mesh.settings.w > 1.5;
   if (mesh.material.x > 0.5 && ((!effectiveFront && mesh.settings.y < 0.5) || (masked && alpha < mesh.settings.x) || (blended && alpha <= 0.0))) { discard; }
@@ -179,7 +183,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   let texel = textureSample(baseMap, materialSampler, input.uv);
   let visibility = shadowVisibility(input.world);
-  let sampledAlpha = texel.a * mesh.tint.a;
+  let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
   let direction = safeNormal(scene.lightDirection.xyz);
   if (mesh.material.x < 0.5) {
@@ -199,7 +203,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
       illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0);
     }
     // Legacy base map remains premultiplied to retain filtered translucent edges.
-    let rgb = texel.rgb*mesh.tint.rgb*illumination*mesh.tint.a;
+    let rgb = texel.rgb*mesh.tint.rgb*input.color.rgb*illumination*mesh.tint.a*input.color.a;
     if (scene.counts.z > 0.5) { return vec4f(applyFog(decodeSRGB(rgb/max(opacity,0.000001))*opacity,opacity,input.world),opacity); }
     return vec4f(applyFog(rgb,opacity,input.world),opacity);
   }
@@ -220,7 +224,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   let effectiveFront = front == (input.orientation > 0.0);
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
   if ((!effectiveFront && mesh.settings.y < 0.5) || (masked && sampledAlpha < mesh.settings.x)) { discard; }
-  let base = decodeSRGB(texel.rgb)*mesh.tint.rgb;
+  let base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
   let metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
   let rough = clamp(mesh.material.z*select(1.0,mr.g,mesh.maps.x > 0.5),0.04,1.0);
   var n = safeNormal(input.normal)*select(-1.0,1.0,effectiveFront);

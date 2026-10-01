@@ -3,6 +3,8 @@ export interface GeometryData {
   normals: ArrayLike<number>;
   uvs: ArrayLike<number>;
   indices: ArrayLike<number>;
+  /** Optional linear RGB or RGBA per vertex, multiplied into the base color. */
+  colors?: ArrayLike<number>;
 }
 
 function positive(value: number, name: string): void {
@@ -21,6 +23,51 @@ export class Geometry {
   readonly vertices: Float32Array;
   readonly indices: Uint32Array;
   version = 0;
+  private vertexColors: Float32Array | undefined;
+
+  /**
+   * Per-vertex linear RGBA (four floats per vertex) or undefined. Renderers multiply it into
+   * the base color, together with `InstancedMesh` colors and the material tint.
+   * Replace the array with {@link setColors}, or edit it in place and call {@link markUpdated}.
+   */
+  get colors(): Float32Array | undefined {
+    return this.vertexColors;
+  }
+
+  /** Copies RGB(A) colors, supplying alpha 1 for RGB input, or removes vertex colors. */
+  setColors(colors: ArrayLike<number> | undefined): void {
+    if (colors === undefined) {
+      if (this.vertexColors === undefined) return;
+      this.vertexColors = undefined;
+      this.version++;
+      return;
+    }
+    const count = this.vertices.length / 8;
+    const components = colors.length / count;
+    if (components !== 3 && components !== 4)
+      throw new RangeError(
+        'Geometry colors must contain RGB or RGBA per vertex.',
+      );
+    const copy = new Float32Array(count * 4);
+    for (let vertex = 0; vertex < count; vertex++) {
+      for (let component = 0; component < 4; component++) {
+        const value =
+          component < components ? colors[vertex * components + component] : 1;
+        if (
+          !Number.isFinite(value) ||
+          value < 0 ||
+          !Number.isFinite(Math.fround(value)) ||
+          (component === 3 && value > 1)
+        )
+          throw new RangeError(
+            'Geometry colors must be finite, nonnegative, with alpha in [0, 1].',
+          );
+        copy[vertex * 4 + component] = value;
+      }
+    }
+    this.vertexColors = copy;
+    this.version++;
+  }
 
   markUpdated(): void {
     this.version++;
@@ -79,6 +126,10 @@ export class Geometry {
     }
     this.vertices = vertices;
     this.indices = copiedIndices;
+    if (data.colors !== undefined) {
+      this.setColors(data.colors);
+      this.version = 0;
+    }
   }
 
   private boundsVersion = -1;

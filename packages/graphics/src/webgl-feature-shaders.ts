@@ -4,12 +4,15 @@ layout(location=0) in vec3 position;
 layout(location=1) in vec3 normal;
 layout(location=2) in vec2 uv;
 layout(location=3) in mat4 instanceMatrix;
+layout(location=7) in vec3 instanceColor;
+layout(location=8) in vec4 vertexColor;
 uniform mat4 viewProjection;
 uniform mat4 model;
 uniform bool instanced;
 out vec3 vPosition;
 out vec3 vNormal;
 out vec2 vUV;
+out vec4 vColor;
 flat out float vOrientation;
 void main() {
   mat4 world = model;
@@ -25,6 +28,7 @@ void main() {
   vNormal = determinant == 0.0 ? vec3(0.0) : cofactor * normal / determinant;
   vPosition = p.xyz;
   vUV = uv;
+  vColor = vec4(instanceColor, 1.0) * vertexColor;
 }`;
 
 export const meshFragment = `#version 300 es
@@ -32,6 +36,7 @@ precision highp float;
 in vec3 vPosition;
 in vec3 vNormal;
 in vec2 vUV;
+in vec4 vColor;
 flat in float vOrientation;
 uniform sampler2D image;
 uniform sampler2D metallicRoughnessMap;
@@ -135,7 +140,7 @@ vec3 applyFog(vec3 rgb, float opacity) {
 }
 void main() {
   vec4 texel = texture(image, vUV);
-  float opacity = texel.a * tint.a;
+  float opacity = texel.a * tint.a * vColor.a;
   if (pbr) {
     if (alphaMode == 1 && opacity < emission.w) discard;
     if (alphaMode != 2) opacity = 1.0;
@@ -159,9 +164,9 @@ void main() {
   vec3 direction = lighting[0].xyz;
   vec3 l = direction / max(length(direction), .000001);
   vec3 result;
-  vec3 base = texel.rgb * tint.rgb;
+  vec3 base = texel.rgb * tint.rgb * vColor.rgb;
   if (pbr) {
-    base = decodeSRGB(texel.rgb) * tint.rgb;
+    base = decodeSRGB(texel.rgb) * tint.rgb * vColor.rgb;
     vec4 mr = maps.x != 0 ? texture(metallicRoughnessMap, vUV) : vec4(1.0);
     float metallic = clamp(surface.x * mr.b, 0.0, 1.0);
     float roughness = clamp(surface.y * mr.g, .04, 1.0);
@@ -223,6 +228,7 @@ void main() {
 export const shadowFragment = `#version 300 es
 precision highp float;
 in vec2 vUV;
+in vec4 vColor;
 flat in float vOrientation;
 uniform bool doubleSided;
 uniform sampler2D image;
@@ -231,7 +237,7 @@ uniform float opacity;
 uniform int alphaMode;
 void main() {
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
-  float alpha = texture(image, vUV).a * opacity;
+  float alpha = texture(image, vUV).a * opacity * vColor.a;
   if (alphaMode == 1 && alpha < alphaCutoff) discard;
   if (alphaMode == 2 && alpha <= 0.0) discard;
 }`;

@@ -23,7 +23,13 @@ function cloneGeometry(source: Geometry): Geometry {
     uvs[i * 2] = source.vertices[i * 8 + 6];
     uvs[i * 2 + 1] = source.vertices[i * 8 + 7];
   }
-  return new Geometry({ positions, normals, uvs, indices: source.indices });
+  return new Geometry({
+    positions,
+    normals,
+    uvs,
+    indices: source.indices,
+    colors: source.colors,
+  });
 }
 
 /** Owns deformed geometry; source geometry, joints and material remain borrowed. */

@@ -569,3 +569,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：`tests/objects3d.test.ts` 11 個（Billboard 球面／圓柱對透視相機、正交相機與父層位置、LOD 排序與距離選擇、hysteresis、Line3D 的帶寬與翻面、封閉環與父層變換、參數驗證、Scene 每幀呼叫與隱藏／移除後停止）。完整套件目前 65 檔／460 測試通過；`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過。`Text3D` 需要 2D canvas，只在瀏覽器驗證，沒有單元測試。
 - **實際瀏覽器**：managed headless Chromium 的 webgl2 與 webgpu 開啟 `examples/objects3d/`：把相機距離調到 8／14／22／35 時 LOD 依序為 32×16 球、12×6 球、6×3 球、立方體；繞行 120° 的截圖顯示 Billboard 卡片、Text3D 文字與螺旋 Line3D 帶皆正對相機；console 無 error。
 - **未驗**：canvas2d（無 3D）；Firefox／Safari 的 `Text3D` 字型光柵化；大量 Billboard／Line3D（>1,000）的每幀 CPU 成本；Line3D 每幀重建頂點後的 GPU 上傳成本；與透明物件的排序。`build` 未執行。
+
+## P36b 頂點與 Instance 顏色（2026-10-01，限定已測環境）
+
+- **新增**：Geometry RGB／RGBA 顏色、`setColors`；InstancedMesh `setColorAt`／`getColorAt`；WebGPU／WebGL2 顏色屬性與 alpha／shadow mask；glTF `COLOR_0`，蒙皮保留顏色。Instancing 範例加入 instance 亮度與頂點漸層。
+- **自動化**：新增 8 個顏色測試，涵蓋獨立儲存、修改／移除、alpha 與錯誤原子性、instance 預設／索引／版本、glTF RGB／RGBA／normalized byte 與不支援屬性。typecheck、lint 與完整 66 檔／468 tests 通過。
+- **實際瀏覽器**：managed Chromium，正式 Game／Renderer 路徑，WebGPU 與 WebGL2 各自讀回三個四邊形：紅色／綠色 instances 與共用幾何的白色普通 Mesh。初始 RGB 為 [255,0,0]／[0,255,0]／[255,255,255]；頂點 RGB 與 alpha 皆 0.5 後，紅色樣本為 [67,5,9]（背景參與混合）；移除頂點色並把紅 instance 改藍後為 [0,0,255]／[0,255,0]／[255,255,255]，兩 backend 結果一致。另渲染 2,145 頂點球體，涵蓋共用白色 buffer 擴容再切換自有顏色 buffer，console 無錯誤。Instancing 範例兩 backend 截圖確認漸層與個別亮度。
+- **未驗**：其他瀏覽器、實際 glTF 蒙皮動畫顏色與陰影 alpha 的像素對照；build 尚未執行。沒有把這些未驗項記為通過。

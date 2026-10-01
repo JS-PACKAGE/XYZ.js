@@ -110,6 +110,19 @@ try {
             }),
           ),
         );
+        const mesh = this.batches[batch]!;
+        const vertexColors = new Float32Array(
+          (mesh.geometry.vertices.length / 8) * 3,
+        );
+        for (let vertex = 0; vertex < vertexColors.length / 3; vertex++) {
+          const shade = mesh.geometry.vertices[vertex * 8 + 1]! > 0 ? 1 : 0.25;
+          vertexColors.fill(shade, vertex * 3, vertex * 3 + 3);
+        }
+        mesh.geometry.setColors(vertexColors);
+        for (let instance = 0; instance < count; instance++) {
+          const brightness = 0.35 + (0.65 * (instance % 7)) / 6;
+          mesh.setColorAt(instance, brightness, brightness, brightness);
+        }
       }
       // Ordinary meshes hovering around the grid edge: frustum culling applies to these,
       // so the culled count changes as the orbiting camera turns.
@@ -208,7 +221,7 @@ try {
   };
   let rafHandle = requestAnimationFrame(tick);
 
-  status.textContent = `${runtime.graphics.backend} · InstancedMesh ×${BATCHES}, per-frame setMatrixAt, engine RenderStats`;
+  status.textContent = `${runtime.graphics.backend} · InstancedMesh ×${BATCHES}, per-instance color, vertex gradients, per-frame setMatrixAt, engine RenderStats`;
   window.addEventListener('pagehide', (event) => {
     if (event.persisted) return;
     cancelAnimationFrame(rafHandle);

@@ -505,3 +505,20 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 - `Line3D(points, {material, width, closed})` 以面向相機的帶狀四邊形繪製折線：每段一個四邊形（4 個頂點），每幀在物件本地座標重建，提供 `setPoint`／`point`／`pointCount`；`width` 為本地單位的帶寬，可修改。點數在建構時固定。各段是獨立四邊形，銳角處會有小縫或重疊，沒有逐頂點寬度或顏色，也沒有圓角接合。UV 在帶寬方向為 0–1，沿整條線為 0–1。
 - `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` 用 2D canvas 把文字繪成自有的 `Texture`，顯示在 `Billboard` 上；寬度依文字長寬比，高度為 `height`（世界單位）。文字在建立時固定（要改就重新建立），`destroy()` 釋放紋理；四邊形以一般方式混合，不與其他透明物件做深度正確排序。
 - 限制：沒有 LOD 交叉淡化、沒有依螢幕大小切換、沒有深度感知的粗線端點、沒有多行排版，也沒有超出瀏覽器 `fillText` 的雙向文字整形；這些輔助物件不會由 Canvas2D 繪製（該 backend 沒有 3D）。
+
+### 頂點與 Instance 顏色（P36b）
+
+`GeometryData.colors` 與 `geometry.setColors(colors)` 接受每個頂點的線性 RGB 或 RGBA。
+Geometry 複製輸入為 RGBA，RGB 輸入補 alpha 1；`setColors(undefined)` 移除顏色。
+RGB 必須有限且非負，alpha 必須在 [0, 1]。直接修改 `geometry.colors` 後要呼叫
+`markUpdated()` 更新 GPU 上傳。
+
+`InstancedMesh.setColorAt(index, r, g, b)` 設定個別 instance 的線性 RGB 乘數；
+`getColorAt(index, out)` 寫入可重用 tuple。尚未設定的 instance 為白色，首次設定時
+才配置儲存空間；矩陣與顏色分別追蹤上傳版本。請透過 `setColorAt` 修改，不直接寫入 `colors`。
+
+兩個 GPU backend 都把頂點 RGB、instance RGB 與材質 tint 乘入底色。頂點 alpha
+也影響混合、PBR alpha mask 與陰影遮罩；OPAQUE PBR 材質依 glTF 規則忽略 alpha。
+顏色屬性不影響自發光。glTF `COLOR_0` 支援 float 與 normalized unsigned-byte／unsigned-short
+的 VEC3／VEC4 accessor（保留 alpha），蒙皮幾何也保留顏色；仍不支援 `COLOR_1`。
+Instancing 範例現在同時展示逐 instance 亮度與頂點漸層。Canvas2D 維持 2D-only。

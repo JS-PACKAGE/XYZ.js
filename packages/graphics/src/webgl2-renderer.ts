@@ -98,6 +98,9 @@ interface CachedGeometry {
   vao: WebGLVertexArrayObject;
   vertex: WebGLBuffer;
   index: WebGLBuffer;
+  /** Per-vertex RGB buffer; undefined when the geometry has none (attribute 8 is constant white). */
+  colors: WebGLBuffer | undefined;
+  colorBytes: number;
   seen: number;
   version: number;
 }
@@ -105,6 +108,9 @@ interface CachedGeometry {
 interface CachedInstances {
   buffer: WebGLBuffer;
   version: number;
+  /** Per-instance RGB buffer, created when the InstancedMesh first has colors. */
+  colors: WebGLBuffer | undefined;
+  colorVersion: number;
   seen: number;
 }
 
@@ -1247,13 +1253,22 @@ export class WebGL2Renderer implements Renderer {
       mesh.updateWorldMatrix().elements,
     );
     gl.bindVertexArray(geometry.vao);
+    // Generic attribute values are context state, so the white default is set on every draw.
+    gl.vertexAttrib3f(7, 1, 1, 1);
+    gl.vertexAttrib4f(8, 1, 1, 1, 1);
     if (mesh instanceof InstancedMesh) {
       let entry = this.meshInstances.get(mesh);
       if (!entry) {
         const buffer = this.createBuffer(gl);
         gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
         gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
-        entry = { buffer, version: mesh.version, seen: this.frame };
+        entry = {
+          buffer,
+          version: mesh.version,
+          colors: undefined,
+          colorVersion: -1,
+          seen: this.frame,
+        };
         this.meshInstances.set(mesh, entry);
       } else {
         gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
@@ -1267,6 +1282,22 @@ export class WebGL2Renderer implements Renderer {
         gl.enableVertexAttribArray(3 + column);
         gl.vertexAttribPointer(3 + column, 4, gl.FLOAT, false, 64, column * 16);
         gl.vertexAttribDivisor(3 + column, 1);
+      }
+      const colors = mesh.colors;
+      if (colors) {
+        if (!entry.colors) entry.colors = this.createBuffer(gl);
+        gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors);
+        if (entry.colorVersion < 0)
+          gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+        else if (entry.colorVersion !== mesh.colorVersion)
+          gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
+        entry.colorVersion = mesh.colorVersion;
+        gl.enableVertexAttribArray(7);
+        gl.vertexAttribPointer(7, 3, gl.FLOAT, false, 12, 0);
+        gl.vertexAttribDivisor(7, 1);
+      } else {
+        gl.disableVertexAttribArray(7);
+        gl.vertexAttribDivisor(7, 0);
       }
       gl.uniform1i(uniforms.instanced, 1);
       gl.drawElementsInstanced(
@@ -1282,6 +1313,8 @@ export class WebGL2Renderer implements Renderer {
         gl.disableVertexAttribArray(3 + column);
         gl.vertexAttribDivisor(3 + column, 0);
       }
+      gl.disableVertexAttribArray(7);
+      gl.vertexAttribDivisor(7, 0);
       gl.uniform1i(uniforms.instanced, 0);
       gl.drawElements(
         gl.TRIANGLES,
@@ -1655,6 +1688,31 @@ export class WebGL2Renderer implements Renderer {
     gl.bindVertexArray(null);
   }
 
+  /** Uploads or removes the per-vertex colors; the geometry's VAO must be bound. */
+  private syncVertexColors(entry: CachedGeometry, geometry: Geometry): void {
+    const gl = this.gl!;
+    const colors = geometry.colors;
+    if (!colors) {
+      if (entry.colors) {
+        gl.deleteBuffer(entry.colors);
+        entry.colors = undefined;
+        entry.colorBytes = 0;
+      }
+      gl.disableVertexAttribArray(8);
+      return;
+    }
+    if (!entry.colors) entry.colors = this.createBuffer(gl);
+    gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors);
+    if (entry.colorBytes === colors.byteLength)
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
+    else {
+      gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
+      entry.colorBytes = colors.byteLength;
+    }
+    gl.enableVertexAttribArray(8);
+    gl.vertexAttribPointer(8, 4, gl.FLOAT, false, 16, 0);
+  }
+
   private cacheGeometry(geometry: Geometry): CachedGeometry {
     const gl = this.gl!;
     const existing = this.geometries.get(geometry);
@@ -1663,6 +1721,7 @@ export class WebGL2Renderer implements Renderer {
         gl.bindVertexArray(existing.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, existing.vertex);
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.vertices);
+        this.syncVertexColors(existing, geometry);
         existing.version = geometry.version;
       }
       return existing;
@@ -1684,14 +1743,22 @@ export class WebGL2Renderer implements Renderer {
       gl.vertexAttribPointer(1, 3, gl.FLOAT, false, 32, 12);
       gl.enableVertexAttribArray(2);
       gl.vertexAttribPointer(2, 2, gl.FLOAT, false, 32, 24);
-      gl.bindVertexArray(null);
-      const entry = {
+      const entry: CachedGeometry = {
         vao,
         vertex,
         index,
+        colors: undefined,
+        colorBytes: 0,
         seen: this.frame,
         version: geometry.version,
       };
+      try {
+        this.syncVertexColors(entry, geometry);
+      } catch (error) {
+        if (entry.colors) gl.deleteBuffer(entry.colors);
+        throw error;
+      }
+      gl.bindVertexArray(null);
       this.geometries.set(geometry, entry);
       return entry;
     } catch (error) {
@@ -1715,11 +1782,13 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteVertexArray(entry.vao);
         gl.deleteBuffer(entry.vertex);
         gl.deleteBuffer(entry.index);
+        if (entry.colors) gl.deleteBuffer(entry.colors);
         this.geometries.delete(geometry);
       }
     for (const [mesh, entry] of this.meshInstances)
       if (entry.seen !== this.frame) {
         gl.deleteBuffer(entry.buffer);
+        if (entry.colors) gl.deleteBuffer(entry.colors);
         this.meshInstances.delete(mesh);
       }
     for (const [map, entry] of this.environments)
@@ -1820,9 +1889,12 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteVertexArray(entry.vao);
         gl.deleteBuffer(entry.vertex);
         gl.deleteBuffer(entry.index);
+        if (entry.colors) gl.deleteBuffer(entry.colors);
       }
-      for (const entry of this.meshInstances.values())
+      for (const entry of this.meshInstances.values()) {
         gl.deleteBuffer(entry.buffer);
+        if (entry.colors) gl.deleteBuffer(entry.colors);
+      }
       for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.postTarget) this.deleteTarget(this.postTarget);

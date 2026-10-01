@@ -33,6 +33,8 @@ import { FrameStats } from './render-stats.js';
 interface CachedGeometry {
   vertex: GPUBuffer;
   index: GPUBuffer;
+  /** Per-vertex RGB, or undefined when the geometry has none (a shared white buffer is bound). */
+  colors: GPUBuffer | undefined;
   version: number;
   seen: number;
 }
@@ -42,6 +44,9 @@ interface CachedMesh {
   materialGroup: GPUBindGroup;
   instance: GPUBuffer;
   instanceVersion: number;
+  /** Per-instance RGB, or undefined while the InstancedMesh has no colors. */
+  instanceColors: GPUBuffer | undefined;
+  instanceColorVersion: number;
   data: Float32Array;
   seen: number;
 }
@@ -88,6 +93,11 @@ export class WebGPUMeshPipeline {
   private readonly emptyShadow: GPUTexture;
   private readonly emptyShadowView: GPUTextureView;
   private readonly identityBuffer: GPUBuffer;
+  /** Linear (1, 1, 1) for every vertex or instance that has no colors of its own. */
+  private whiteBuffer: GPUBuffer;
+  private whiteCapacity = 0;
+  /** Replaced white buffers wait here until commands that may still bind them are submitted. */
+  private readonly retired: GPUBuffer[] = [];
   private sceneBindGroup: GPUBindGroup;
   private shadowSceneBindGroup: GPUBindGroup;
   private shadowTexture: GPUTexture | undefined;
@@ -202,6 +212,16 @@ export class WebGPUMeshPipeline {
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.identityBuffer, 0, new Matrix4().elements);
+    this.whiteCapacity = 1024;
+    this.whiteBuffer = device.createBuffer({
+      size: this.whiteCapacity * 16,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(
+      this.whiteBuffer,
+      0,
+      new Float32Array(this.whiteCapacity * 4).fill(1),
+    );
     this.sceneBindGroup = this.createSceneGroup(this.emptyShadowView);
     this.shadowSceneBindGroup = this.sceneBindGroup;
   }
@@ -298,6 +318,15 @@ export class WebGPUMeshPipeline {
           { shaderLocation: 5, offset: 32, format: 'float32x4' },
           { shaderLocation: 6, offset: 48, format: 'float32x4' },
         ],
+      },
+      {
+        arrayStride: 12,
+        stepMode: 'instance',
+        attributes: [{ shaderLocation: 7, offset: 0, format: 'float32x3' }],
+      },
+      {
+        arrayStride: 16,
+        attributes: [{ shaderLocation: 8, offset: 0, format: 'float32x4' }],
       },
     ];
     const blend: GPUBlendState = {
@@ -427,6 +456,8 @@ export class WebGPUMeshPipeline {
     clearValue: GPUColor,
   ): boolean {
     this.frame++;
+    for (const buffer of this.retired) buffer.destroy();
+    this.retired.length = 0;
     this.stats.begin();
     this.draws.length = 0;
     this.visibleDraws.length = 0;
@@ -683,13 +714,48 @@ export class WebGPUMeshPipeline {
     const mesh = this.meshes.get(object)!;
     pass.setBindGroup(1, mesh.bindGroup);
     pass.setBindGroup(2, mesh.materialGroup);
+    const instances = object instanceof InstancedMesh ? object.count : 1;
     pass.setVertexBuffer(0, geometry.vertex);
     pass.setVertexBuffer(1, mesh.instance);
-    pass.setIndexBuffer(geometry.index, 'uint32');
-    pass.drawIndexed(
-      object.geometry.indices.length,
-      object instanceof InstancedMesh ? object.count : 1,
+    pass.setVertexBuffer(2, mesh.instanceColors ?? this.white(instances));
+    pass.setVertexBuffer(
+      3,
+      geometry.colors ?? this.white(object.geometry.vertices.length / 8),
     );
+    pass.setIndexBuffer(geometry.index, 'uint32');
+    pass.drawIndexed(object.geometry.indices.length, instances);
+  }
+
+  /** White RGBA storage also serves the RGB instance layout (every component is one). */
+  private white(count: number): GPUBuffer {
+    if (count <= this.whiteCapacity) return this.whiteBuffer;
+    // Grow geometrically so a scene that adds meshes one at a time does not reallocate each time.
+    const capacity = Math.max(count, this.whiteCapacity * 2, 1024);
+    this.retired.push(this.whiteBuffer);
+    this.whiteBuffer = this.device.createBuffer({
+      size: capacity * 16,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(
+      this.whiteBuffer,
+      0,
+      new Float32Array(capacity * 4).fill(1),
+    );
+    this.whiteCapacity = capacity;
+    return this.whiteBuffer;
+  }
+
+  /** Creates or refreshes a vertex-step buffer holding `source`, which may change between frames. */
+  private colorBuffer(
+    current: GPUBuffer | undefined,
+    source: Float32Array,
+  ): GPUBuffer {
+    if (current && current.size === source.byteLength) return current;
+    current?.destroy();
+    return this.device.createBuffer({
+      size: source.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
   }
 
   private decodeClear(value: GPUColor): GPUColorDict {
@@ -764,6 +830,7 @@ export class WebGPUMeshPipeline {
     if (existing) {
       if (existing.version !== geometry.version) {
         this.device.queue.writeBuffer(existing.vertex, 0, geometry.vertices);
+        this.syncGeometryColors(existing, geometry);
         existing.version = geometry.version;
       }
       return existing;
@@ -780,12 +847,19 @@ export class WebGPUMeshPipeline {
       try {
         this.device.queue.writeBuffer(vertex, 0, geometry.vertices);
         this.device.queue.writeBuffer(index, 0, geometry.indices);
-        const entry = {
+        const entry: CachedGeometry = {
           vertex,
           index,
+          colors: undefined,
           version: geometry.version,
           seen: this.frame,
         };
+        try {
+          this.syncGeometryColors(entry, geometry);
+        } catch (error) {
+          entry.colors?.destroy();
+          throw error;
+        }
         this.geometries.set(geometry, entry);
         return entry;
       } catch (error) {
@@ -795,6 +869,17 @@ export class WebGPUMeshPipeline {
     } catch (error) {
       vertex.destroy();
       throw error;
+    }
+  }
+
+  private syncGeometryColors(entry: CachedGeometry, geometry: Geometry): void {
+    const colors = geometry.colors;
+    if (!colors) {
+      entry.colors?.destroy();
+      entry.colors = undefined;
+    } else {
+      entry.colors = this.colorBuffer(entry.colors, colors);
+      this.device.queue.writeBuffer(entry.colors, 0, colors);
     }
   }
 
@@ -825,6 +910,7 @@ export class WebGPUMeshPipeline {
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let instance = this.identityBuffer;
+    let instanceColors: GPUBuffer | undefined;
     try {
       if (object instanceof InstancedMesh) {
         instance = this.device.createBuffer({
@@ -832,6 +918,10 @@ export class WebGPUMeshPipeline {
           usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
         });
         this.device.queue.writeBuffer(instance, 0, object.matrices);
+        if (object.colors) {
+          instanceColors = this.colorBuffer(undefined, object.colors);
+          this.device.queue.writeBuffer(instanceColors, 0, object.colors);
+        }
       }
       const bindGroup = this.device.createBindGroup({
         layout: this.meshLayout,
@@ -883,6 +973,9 @@ export class WebGPUMeshPipeline {
         materialGroup,
         instance,
         instanceVersion: object instanceof InstancedMesh ? object.version : 0,
+        instanceColors,
+        instanceColorVersion:
+          object instanceof InstancedMesh ? object.colorVersion : 0,
         data: new Float32Array(36),
         seen: this.frame,
       };
@@ -890,6 +983,7 @@ export class WebGPUMeshPipeline {
       return entry;
     } catch (error) {
       uniform.destroy();
+      instanceColors?.destroy();
       if (instance !== this.identityBuffer) instance.destroy();
       throw error;
     }
@@ -1016,6 +1110,19 @@ export class WebGPUMeshPipeline {
       this.device.queue.writeBuffer(mesh.instance, 0, object.matrices);
       mesh.instanceVersion = object.version;
     }
+    if (
+      object instanceof InstancedMesh &&
+      object.colors &&
+      (mesh.instanceColors === undefined ||
+        mesh.instanceColorVersion !== object.colorVersion)
+    ) {
+      mesh.instanceColors = this.colorBuffer(
+        mesh.instanceColors,
+        object.colors,
+      );
+      this.device.queue.writeBuffer(mesh.instanceColors, 0, object.colors);
+      mesh.instanceColorVersion = object.colorVersion;
+    }
     this.device.queue.writeBuffer(mesh.uniform, 0, data);
   }
 
@@ -1024,11 +1131,13 @@ export class WebGPUMeshPipeline {
       if (entry.seen !== this.frame) {
         entry.vertex.destroy();
         entry.index.destroy();
+        entry.colors?.destroy();
         this.geometries.delete(geometry);
       }
     for (const [object, entry] of this.meshes)
       if (entry.seen !== this.frame) {
         entry.uniform.destroy();
+        entry.instanceColors?.destroy();
         if (entry.instance !== this.identityBuffer) entry.instance.destroy();
         this.meshes.delete(object);
       }
@@ -1064,13 +1173,17 @@ export class WebGPUMeshPipeline {
     this.whiteTexture.destroy();
     this.emptyShadow.destroy();
     this.identityBuffer.destroy();
+    this.whiteBuffer.destroy();
+    for (const buffer of this.retired.splice(0)) buffer.destroy();
     for (const entry of this.geometries.values()) {
       entry.vertex.destroy();
       entry.index.destroy();
+      entry.colors?.destroy();
     }
     this.geometries.clear();
     for (const entry of this.meshes.values()) {
       entry.uniform.destroy();
+      entry.instanceColors?.destroy();
       if (entry.instance !== this.identityBuffer) entry.instance.destroy();
     }
     this.meshes.clear();

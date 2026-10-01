@@ -1307,13 +1307,31 @@ export class GLTFLoader {
             throw new AssetError(
               'More than four skin influences are unsupported.',
             );
-          if (attributes.COLOR_0 !== undefined)
-            throw new AssetError('Vertex colors are unsupported.');
+          if (attributes.COLOR_1 !== undefined)
+            throw new AssetError('Only COLOR_0 vertex colors are supported.');
+          // glTF colors are linear and modulate both base RGB and alpha.
+          const color =
+            attributes.COLOR_0 === undefined
+              ? undefined
+              : readAccessor(attributes.COLOR_0);
+          if (
+            color &&
+            ((color.type !== 'VEC3' && color.type !== 'VEC4') ||
+              color.count !== position.count ||
+              !(
+                color.component === 5126 ||
+                ([5121, 5123].includes(color.component) && color.normalized)
+              ))
+          )
+            throw new AssetError(
+              'COLOR_0 requires float or normalized VEC3/VEC4 data.',
+            );
           context.reserve(
             position.count * 8 * 4 +
               indices.length * 4 +
               (normal ? 0 : position.count * 3 * 4) +
-              (uv ? 0 : position.count * 2 * 4),
+              (uv ? 0 : position.count * 2 * 4) +
+              (color ? position.count * 4 * 4 : 0),
           );
           const materialIndex =
             primitive.material === undefined
@@ -1348,6 +1366,7 @@ export class GLTFLoader {
             normals: normal?.data ?? this.normals(position.data, indices),
             uvs: uvData,
             indices,
+            colors: color?.data,
           });
           const morph = morphWeights
             ? readMorph(primitive, position.count, morphWeights)
@@ -1372,7 +1391,8 @@ export class GLTFLoader {
               position.count * 8 * 4 * 3 +
                 indices.length * 4 +
                 position.count * 4 * 8 +
-                skin.joints.length * 16 * 16,
+                skin.joints.length * 16 * 16 +
+                (color ? position.count * 4 * 4 : 0),
             );
             nodes[i].add(
               new SkinnedMesh({
