@@ -133,4 +133,32 @@ describe('physics character graph following', () => {
       obstacle.destroy();
     }
   });
+  it('does not mistake sub-tolerance motion for contact and progresses on the next update', () => {
+    const { scene, object, character } = characterWithObstacle();
+    const graph = new NavigationGraph3D({
+      nodes: [
+        { id: 'start', position: new Vector3(0, 1, 0) },
+        { id: 'goal', position: new Vector3(0, 1, 2) },
+      ],
+      connections: [{ from: 'start', to: 'goal', cost: 2 }],
+    });
+    const follower = new PathFollower3D(character, { speed: 2 });
+    try {
+      follower.setPath(graph.findPath('start', 'goal'));
+      follower.update(1e-10);
+      expect(follower.state).toBe('following');
+      expect(object.position).toEqual(new Vector3(0, 1, 0));
+      follower.update(0.1);
+      expect(follower.state).toBe('following');
+      expect(object.position.z).toBeCloseTo(0.2);
+      follower.update(1);
+      expect(follower.state).toBe('finished');
+      expect(object.position).toEqual(new Vector3(0, 1, 2));
+    } finally {
+      follower.destroy();
+      character.destroy();
+      scene.destroy();
+      graph.destroy();
+    }
+  });
 });

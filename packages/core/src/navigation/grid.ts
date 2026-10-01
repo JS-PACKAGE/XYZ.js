@@ -9,10 +9,13 @@ export interface NavigationCellState2D {
   readonly walkable: boolean;
   /** Positive traversal multiplier, charged on entering this cell. */
   readonly cost: number;
+  /** Authored maximum agent radius in cell-space units; Infinity is unconstrained. */
+  readonly clearance: number;
 }
 export interface NavigationCellEdit2D extends NavigationCell2D {
   readonly walkable?: boolean;
   readonly cost?: number;
+  readonly clearance?: number;
 }
 export interface NavigationGridOptions2D {
   readonly columns: number;
@@ -22,6 +25,7 @@ export interface NavigationGridSearchOptions2D {
   readonly diagonal?: boolean;
   /** When false, both orthogonal neighbors must be walkable for a diagonal. */
   readonly cornerCutting?: boolean;
+  readonly agentRadius?: number;
 }
 export interface NavigationGridPath2D {
   readonly status: 'found' | 'unreachable';
@@ -36,10 +40,12 @@ export class NavigationGrid2D {
   readonly rows: number;
   private readonly walkable: Uint8Array;
   private readonly costs: Float64Array;
+  private readonly clearance: Float64Array;
   private readonly searches: NavigationSearchPool<NavigationGridPath2D>;
   private readonly paths = new WeakSet<NavigationGridPath2D>();
   private minimumCost = 1;
   private currentRevision = 0;
+  private disposed = false;
 
   constructor(options: NavigationGridOptions2D) {
     const { columns, rows } = options;
@@ -57,6 +63,7 @@ export class NavigationGrid2D {
     this.rows = rows;
     this.walkable = new Uint8Array(columns * rows).fill(1);
     this.costs = new Float64Array(columns * rows).fill(1);
+    this.clearance = new Float64Array(columns * rows).fill(Infinity);
     this.searches = new NavigationSearchPool(columns * rows);
   }
 
@@ -69,6 +76,7 @@ export class NavigationGrid2D {
     return Object.freeze({
       walkable: this.walkable[index] === 1,
       cost: this.costs[index]!,
+      clearance: this.clearance[index]!,
     });
   }
 
@@ -82,6 +90,7 @@ export class NavigationGrid2D {
 
   /** All edits preflight before publication; repeated coordinates apply in order. */
   setCells(edits: readonly NavigationCellEdit2D[]): void {
+    if (this.disposed) throw new Error('Navigation grid is destroyed.');
     if (edits.length > navigationLimits.gridCells)
       throw new RangeError('Navigation edit exceeds the cell budget.');
     const candidates = new Map<number, NavigationCellState2D>();
@@ -96,26 +105,38 @@ export class NavigationGrid2D {
         edit.cost === undefined
           ? (prior?.cost ?? this.costs[index]!)
           : edit.cost;
+      const clearance =
+        edit.clearance === undefined
+          ? (prior?.clearance ?? this.clearance[index]!)
+          : edit.clearance;
       if (
         typeof walkable !== 'boolean' ||
+        !(
+          clearance === Infinity ||
+          (Number.isFinite(clearance) &&
+            clearance >= 0 &&
+            clearance <= navigationLimits.coordinateExtent)
+        ) ||
         !Number.isFinite(cost) ||
         cost <= 0 ||
         cost > navigationLimits.cost
       )
         throw new RangeError(
-          'Navigation cells require boolean walkability and positive finite cost.',
+          'Navigation cells require boolean walkability, positive finite cost and nonnegative clearance.',
         );
-      candidates.set(index, { walkable, cost });
+      candidates.set(index, { walkable, cost, clearance });
     }
     let changed = false;
     for (const [index, candidate] of candidates) {
       if (
         (this.walkable[index] === 1) !== candidate.walkable ||
-        this.costs[index] !== candidate.cost
+        this.costs[index] !== candidate.cost ||
+        this.clearance[index] !== candidate.clearance
       ) {
         changed = true;
         this.walkable[index] = candidate.walkable ? 1 : 0;
         this.costs[index] = candidate.cost;
+        this.clearance[index] = candidate.clearance;
       }
     }
     if (!changed) return;
@@ -131,7 +152,11 @@ export class NavigationGrid2D {
 
   /** A snapshot remains immutable but is stale after any effective cell edit. */
   isPathCurrent(path: NavigationGridPath2D): boolean {
-    return this.paths.has(path) && path.revision === this.currentRevision;
+    return (
+      !this.disposed &&
+      this.paths.has(path) &&
+      path.revision === this.currentRevision
+    );
   }
 
   findPath(
@@ -155,8 +180,19 @@ export class NavigationGrid2D {
     const target = { column: goal.column, row: goal.row };
     const diagonal = options.diagonal ?? false;
     const cornerCutting = options.cornerCutting ?? false;
+    const radius = options.agentRadius ?? 0;
+    if (
+      !Number.isFinite(radius) ||
+      radius < 0 ||
+      radius > navigationLimits.coordinateExtent
+    )
+      throw new RangeError(
+        'Navigation agent radius exceeds its nonnegative finite bound.',
+      );
+    const traversable = (node: number) =>
+      this.walkable[node] === 1 && this.clearance[node]! >= radius;
     return this.searches.create({
-      from: this.walkable[from] && this.walkable[to] ? from : -1,
+      from: traversable(from) && traversable(to) ? from : -1,
       to,
       estimate: (node) =>
         this.heuristic(
@@ -176,13 +212,13 @@ export class NavigationGrid2D {
             const y = row + dy;
             if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) continue;
             const next = y * this.columns + x;
-            if (!this.walkable[next]) continue;
+            if (!traversable(next)) continue;
             const isDiagonal = dx !== 0 && dy !== 0;
             if (
               isDiagonal &&
               !cornerCutting &&
-              (!this.walkable[row * this.columns + x] ||
-                !this.walkable[y * this.columns + column])
+              (!traversable(row * this.columns + x) ||
+                !traversable(y * this.columns + column))
             )
               continue;
             const distance =
@@ -217,6 +253,7 @@ export class NavigationGrid2D {
 
   /** Cancels active jobs and releases retained search workspaces. */
   destroy(): void {
+    this.disposed = true;
     this.searches.destroy();
   }
 

@@ -1112,3 +1112,7 @@ Read a copy of `scene.physics3D.stats` after a fixed tick/query to retain candid
 ## 26. Incremental Navigation (P46)
 
 Create `new NavigationGrid2D({columns:64,rows:64})`, then `grid.createSearch({column:0,row:0},{column:63,row:63})`. Call `job.step(32)` once per gameplay tick; consume `job.result` only at terminal found/unreachable. Cancel abandoned jobs; grid edits invalidate pending jobs. Eight simultaneous jobs per owner is a deliberate bound, not an unlimited scheduler.
+
+## 27. Dynamic Authored Routes (P47)
+
+Create `NavigationFollower3D` around an owned CharacterController3D, then `navigate({graph,start,goal,agentRadius})` and update it from fixed gameplay. Update authored topology with graph.setConnection/setConnections; use clearance as a radius in world units. Revision/physical blockage initiates bounded replanning from the last reached anchor; do not keep moving with a stale path. [States and limits](TECHNICAL.md#47-dynamic-navigation-and-replanning-p47).

@@ -143,5 +143,6 @@ Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 
 完整批准範圍與逐功能 commit gates 見 PLAN；package／vendor／歷史 tags 不变，不 push／publish。新能力須走現有 Game／Scene／公開 root facade，不建立第二套 physics／renderer／content convention。
 
 - **P43 時間：** Scene 可配置 fixed gameplay timing；frame／fixed force impulse 分開計時，兩 physics worlds 保持各自 step size，catch-up cap 不憑空保留 discarded force。Game presentation 才啟用 moving-body matrix interpolation，authoritative transform／query 不被暫時改寫，默認關閉以保持既有呈現契約。
+- **導航：** 同步與 incremental jobs 共用同一 `A*`；owner 限 workspace 數，revision edits invalidate pending jobs。動態 follower 使用 authored anchors／agent radius，不宣稱自動 navmesh／nearest-node projection；物理阻擋只在該 route 排除 connection，replan 有有限 expansion／retry budget。
 
 此節描述新設計契約，通過與限制仍只由 ACCEPTANCE 的實跑紀錄決定。

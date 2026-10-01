@@ -7,10 +7,13 @@ export interface NavigationCellState2D {
     readonly walkable: boolean;
     /** Positive traversal multiplier, charged on entering this cell. */
     readonly cost: number;
+    /** Authored maximum agent radius in cell-space units; Infinity is unconstrained. */
+    readonly clearance: number;
 }
 export interface NavigationCellEdit2D extends NavigationCell2D {
     readonly walkable?: boolean;
     readonly cost?: number;
+    readonly clearance?: number;
 }
 export interface NavigationGridOptions2D {
     readonly columns: number;
@@ -20,6 +23,7 @@ export interface NavigationGridSearchOptions2D {
     readonly diagonal?: boolean;
     /** When false, both orthogonal neighbors must be walkable for a diagonal. */
     readonly cornerCutting?: boolean;
+    readonly agentRadius?: number;
 }
 export interface NavigationGridPath2D {
     readonly status: 'found' | 'unreachable';
@@ -33,10 +37,12 @@ export declare class NavigationGrid2D {
     readonly rows: number;
     private readonly walkable;
     private readonly costs;
+    private readonly clearance;
     private readonly searches;
     private readonly paths;
     private minimumCost;
     private currentRevision;
+    private disposed;
     constructor(options: NavigationGridOptions2D);
     get revision(): number;
     getCell(column: number, row: number): NavigationCellState2D;

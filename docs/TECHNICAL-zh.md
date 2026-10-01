@@ -919,3 +919,11 @@ World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests �
 `grid.createSearch(start, goal, options?)`／`graph.createSearch(startID, goalID, options?)` 回傳 `NavigationSearchJob<Path>`；`step(maxExpansions)` 每次至多處理指定 integer budget（0–65,536），expansion 計 popped nodes，含 goal；零不推進。Status 是 pending／found／unreachable／cancelled／invalidated，只有 found／unreachable 有 result。Cancel 是 terminal／idempotent，edits invalidates pending jobs；同步 findPath drains 同一 deterministic indexed A*。
 
 每 owner 至多八個獨立 concurrent jobs，以有界 workspace pool 重用；terminal 狀態釋放 owner／workspace，destroy 取消 jobs 並清 pool。第九個 job 報錯，不無限制配置 scratch。
+
+## 47. 動態導航與重新規劃（P47）
+
+Graph connection 預設 enabled／clearance Infinity。`setConnection(index, {enabled?, clearance?})`／atomic `setConnections([{index,...}])` 修改 undirected connection 的兩向，只有有效 edits 增加 revision。`getConnectionIndex(from,to)` 找 authored connection，path 具有必要 revision，isPathCurrent 同時查 owner identity／revision。AgentRadius 是半徑，graph 用 world units、grid 用 cell units；clearance 是 authored data，不自動 bake geometry。
+
+`new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?})` 借用 controller／graph。Navigate 傳 `{graph,start,goal,agentRadius}` 啟動 incremental job；每 update 推進一次 budget（default32，max65,536），經真 CharacterController3D.move 移動。Graph stale 時先停止舊路徑，從最後已到 authored anchor replan。物理 blocked 時僅在本次 route 排除該 connection，先返回 anchor 再走 detour；revision 清 local exclusions。每 navigate 的 retry 有限（default／max8）。
+
+狀態區分 searching／following／paused／finished／blocked／unreachable／stopped／destroyed。Pause 凍結搜尋與移動，stop／setPath／destroy 清 pending job，borrowed owners 被 destroy 時安全停止。PathFollower3D 保留簡單 explicit waypoint 契約；不宣稱 nearest-node projection／自動 navmesh。

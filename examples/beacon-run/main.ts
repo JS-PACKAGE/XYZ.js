@@ -1026,6 +1026,7 @@ class BeaconScene extends Scene {
     const target = this.graph.nodes[save.enemyTarget]!;
     const route: NavigationGraphPath3D = {
       status: 'found',
+      revision: this.graph.revision,
       nodes: [target],
       cost: Math.hypot(
         this.enemy.position.x - target.position.x,

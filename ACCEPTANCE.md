@@ -755,3 +755,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - Root grid／graph incremental jobs 在 expansion budgets 1／2 下與同步最短 route 同 cost；cancel、revision invalidation、workspace bounds／destroy 都由真封裝 CPU smoke 覆蓋。
 - Owner 使用有限 workspace／expansion budget；同步與增量共用搜尋核心，不另建假 worker／無預算 fallback。保留 deterministic route／budget／transition regressions。
+
+## P47 Dynamic Navigation & Physical Replan（限定已測環境）
+
+- 動態連線／clearance／revision 與 follower bounded replans 已整合；consumer 的真 capsule 受物理阻擋後 replan 一次，替代 route 最大 z=2，41 ticks 抵達 [4,1,0]；最大一次位移 .30000000000000027。
+- 以 controller 的 blocked 結果為準；零 displacement 不因 floating tolerance 誤判。No stale route、cancel／destroy 與再修改 blocking 的行為保留回歸。
+- 仍是 authored anchors／connections，不宣稱自動 navmesh／nearest-node projection。

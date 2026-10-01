@@ -13,8 +13,15 @@ export type {
   NavigationConnection3D,
   NavigationGraphOptions3D,
   NavigationGraphPath3D,
+  NavigationGraphSearchOptions3D,
+  NavigationConnectionEdit3D,
 } from './graph.js';
-export { PathFollower3D } from './follower.js';
-export type { PathFollowerState3D, PathFollowerOptions3D } from './follower.js';
+export { PathFollower3D, NavigationFollower3D } from './follower.js';
+export type {
+  PathFollowerState3D,
+  PathFollowerOptions3D,
+  NavigationFollowerOptions3D,
+  NavigationRoute3D,
+} from './follower.js';
 export { NavigationSearchJob } from './jobs.js';
 export type { NavigationSearchStatus } from './jobs.js';

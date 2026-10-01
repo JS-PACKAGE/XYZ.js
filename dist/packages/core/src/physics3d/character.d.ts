@@ -46,6 +46,7 @@ export declare class CharacterController3D {
     private readonly result;
     constructor(object: Object3D, world: PhysicsWorld3D, options?: CharacterControllerOptions3D);
     get grounded(): boolean;
+    get destroyed(): boolean;
     private assertPose;
     private remember;
     private advance;

@@ -118,6 +118,9 @@ export class CharacterController3D {
   get grounded(): boolean {
     return this.groundedState;
   }
+  get destroyed(): boolean {
+    return this.disposed;
+  }
   private assertPose(): void {
     const o = this.object;
     if (o.destroyed || o.parent || !(o.collider instanceof CapsuleCollider3D))
