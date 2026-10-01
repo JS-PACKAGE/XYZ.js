@@ -107,6 +107,13 @@ const examples: readonly Example[] = [
     renderers: only3d,
   },
   {
+    slug: 'objects3d',
+    title: '3D objects',
+    summary: 'LOD, camera-facing Billboard, Text3D labels and Line3D ribbons.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
     slug: 'particles2d',
     title: 'Particles',
     summary: 'Selectable emitter presets with live parameters and counts.',

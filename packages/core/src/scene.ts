@@ -19,6 +19,7 @@ import { SceneObject } from './scene-object.js';
 import { Sprite } from './sprite.js';
 import { SceneTimers } from './scene-timers.js';
 import { TweenGroup } from './tween.js';
+import { isCameraDependent, type CameraDependent3D } from './objects3d.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
 import { ParticleEmitter } from './particles2d/index.js';
 import type { PostProcessor2D } from './materials2d/index.js';
@@ -63,6 +64,7 @@ export class Scene {
   };
   private readonly registrations = new Map<SceneObject, Entity>();
   private readonly registeredObjects = new Set<SceneObject>();
+  private readonly cameraDependents = new Set<Object3D & CameraDependent3D>();
   private readonly objectUpdates = new Map<GameObject, number>();
   private nextObjectUpdate = 0;
   private frameObjectUpdate = 0;
@@ -149,6 +151,7 @@ export class Scene {
       if (object instanceof GameObject) this.physics.register(object);
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
+      if (isCameraDependent(object)) this.cameraDependents.add(object);
       if (object instanceof GameObject)
         this.objectUpdates.set(object, ++this.nextObjectUpdate);
     } catch (error) {
@@ -182,6 +185,7 @@ export class Scene {
     if (entity === undefined) return;
     this.registrations.delete(object);
     this.registeredObjects.delete(object);
+    if (isCameraDependent(object)) this.cameraDependents.delete(object);
     if (object instanceof GameObject) this.objectUpdates.delete(object);
     object.detach(this);
     this.world.removeEntity(entity);
@@ -312,6 +316,14 @@ export class Scene {
     }
     if (canContinue() && !this.disposed)
       this.camera2D.updateBehaviors(deltaTime);
+    if (canContinue() && !this.disposed) this.updateCameraDependents();
+  }
+
+  /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
+  updateCameraDependents(): void {
+    for (const object of [...this.cameraDependents]) {
+      if (object.worldVisible) object.updateForCamera(this.camera3D);
+    }
   }
 
   /** Called before scene systems, once per visible frame. */

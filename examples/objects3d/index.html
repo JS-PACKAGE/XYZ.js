@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · 3D objects</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      #info {
+        font-variant-numeric: tabular-nums;
+        white-space: pre-line;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>3D objects</h1>
+    <p>
+      Orbit the camera with the slider. The sphere switches between three
+      <code>LOD</code> levels by distance, the textured card is a spherical
+      <code>Billboard</code>, the label is <code>Text3D</code>, and the ribbon
+      is a camera-facing <code>Line3D</code>.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+        </select></label
+      >
+      <label
+        >Camera distance
+        <input
+          id="distance"
+          type="range"
+          min="3"
+          max="40"
+          step="0.5"
+          value="8"
+        />
+        <output id="distance-value">8.0</output></label
+      >
+      <label
+        >Orbit
+        <input
+          id="orbit"
+          type="range"
+          min="-180"
+          max="180"
+          step="1"
+          value="30"
+        />
+        <output id="orbit-value">30°</output></label
+      >
+    </div>
+    <canvas id="game" aria-label="3D object helpers"></canvas>
+    <p id="info" aria-live="off">Loading…</p>
+    <p id="status" role="status">Loading…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

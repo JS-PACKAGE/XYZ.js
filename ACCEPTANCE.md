@@ -562,3 +562,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **Benchmarks（managed Chromium、webgl2、1280×720、DPR 1、一次執行，非統計樣本）**：physics2d 600 圓：RAF 60.0 fps，CPU submit 平均 0.42 ms，物理步進平均 7.43 ms（603 colliders）；particles2d 4×8,192：38.0 fps（p95 33.4 ms），CPU submit 平均 20.76 ms，粒子更新 5.44 ms（32,632 活躍）；3d 400 mesh：webgl2 與 webgpu 皆 60.0 fps，submit 0.38／0.65 ms，渲染統計 400 次 draw call。RAF 受顯示器 60 Hz 限制，所以 60 fps 的項目只表示「達到更新率」，不是上限。**WebGPU 上的 physics／particles 與其他瀏覽器未測**。
 - **Release workflow**：已用 `pnpm pack` 在本機產生 tgz 並計算 SHA-256，確認 tarball 內容；**GitHub Actions 尚未實際執行**，`gh release create` 步驟與權限未驗證。
 - **未驗**：smoke 腳本沒有加入 CI；Firefox 兩個範例的差異原因；TypeDoc 輸出的內容品質與連結（只確認產生成功、無警告）；DebugOverlay 在 `position: static` 以外的版面（例如 CSS transform 的祖先）下的定位；`build` 未執行。
+
+## P36 3D 輔助物件：LOD、Billboard、Line3D、Text3D（2026-10-01，限定已測環境）
+
+- **新增**：`LOD`、`Billboard`、`Line3D`、`Text3D`、`CameraDependent3D`／`isCameraDependent`，Scene 每幀在渲染前呼叫 `updateForCamera`；範例 `examples/objects3d/`。不涉及 GPU 管線變更。
+- **自動化**：`tests/objects3d.test.ts` 11 個（Billboard 球面／圓柱對透視相機、正交相機與父層位置、LOD 排序與距離選擇、hysteresis、Line3D 的帶寬與翻面、封閉環與父層變換、參數驗證、Scene 每幀呼叫與隱藏／移除後停止）。完整套件目前 65 檔／460 測試通過；`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過。`Text3D` 需要 2D canvas，只在瀏覽器驗證，沒有單元測試。
+- **實際瀏覽器**：managed headless Chromium 的 webgl2 與 webgpu 開啟 `examples/objects3d/`：把相機距離調到 8／14／22／35 時 LOD 依序為 32×16 球、12×6 球、6×3 球、立方體；繞行 120° 的截圖顯示 Billboard 卡片、Text3D 文字與螺旋 Line3D 帶皆正對相機；console 無 error。
+- **未驗**：canvas2d（無 3D）；Firefox／Safari 的 `Text3D` 字型光柵化；大量 Billboard／Line3D（>1,000）的每幀 CPU 成本；Line3D 每幀重建頂點後的 GPU 上傳成本；與透明物件的排序。`build` 未執行。

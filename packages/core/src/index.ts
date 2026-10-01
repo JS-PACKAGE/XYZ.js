@@ -150,3 +150,18 @@ export * from './serialization.js';
 export * from './i18n.js';
 export { DebugOverlay, formatDebugSample } from './debug-overlay.js';
 export type { DebugOverlayOptions, DebugSample } from './debug-overlay.js';
+export {
+  Billboard,
+  LOD,
+  Line3D,
+  Text3D,
+  isCameraDependent,
+} from './objects3d.js';
+export type {
+  BillboardMode,
+  BillboardOptions,
+  CameraDependent3D,
+  Line3DOptions,
+  LODLevel,
+  Text3DOptions,
+} from './objects3d.js';
