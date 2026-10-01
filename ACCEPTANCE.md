@@ -515,3 +515,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：`tests/storage.test.ts` 8 個測試（round trip 與資料分離、依序 migration 且不改寫原儲存、corrupt／checksum／未來版本／schema 無效保留原文、非法 JSON 拒絕、namespace 隔離與位元組上限、localStorage quota 轉型與 IndexedDB 不可用、snapshot 擷取還原、unknown／missing id 與 strict 模式不套用）。完整套件目前 50 檔／348 測試通過；`tsc -p tsconfig.check.json`、`eslint .` 無輸出（通過）。歷史測試數保留不改。
 - **實際瀏覽器**：managed headless Chromium 的 canvas2d，localStorage 與 IndexedDB 各自移動、儲存、重新載入頁面後還原位置（localStorage x=180、IndexedDB x=130），console 無錯誤。
 - **未驗**：webgpu／webgl2 下 save-lab、Firefox／Safari 的 localStorage／IndexedDB 行為（含私密模式配額）、跨分頁並行寫入、真實配額耗盡、IndexedDB 在 `onblocked` 的實況。`build` 未執行（`dist/` 於發佈時一併重建）。
+
+## P30b i18n（2026-10-01，限定已測環境）
+
+- **新增**：`game.i18n`（`I18n`、`I18nError`、`bindText`）；`examples/save-lab/` 加入英文／繁體中文／日文切換。
+- **自動化**：`tests/i18n.test.ts` 7 個測試（巢狀 key 與 locale lineage／fallback、插值與跳脫與缺參數、複數與數字格式、missing 政策、無效 tag 與表、localechange 次數、bindText 同步／解除／destroyed 忽略）。完整套件目前 51 檔／355 測試通過；`tsc -p tsconfig.check.json`、`eslint` 無輸出（通過）。
+- **實際瀏覽器**：managed headless Chromium 在 canvas2d／webgl2／webgpu 開啟 save-lab（`lang=zh-Hant`）後切換到日文，Text2D 與狀態列重繪為日文，存檔後訊息為「保存しました」，console 無 error／warning；canvas2d 截圖確認日文 Text2D 顯示。
+- **未驗**：Firefox／Safari；`Intl.PluralRules` 在 `ar`／`ru` 等多形式語言的實際輸出（只測了 en／zh-Hant）；RTL 排版與雙向文字；字型缺字回退。

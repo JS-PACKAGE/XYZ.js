@@ -7,6 +7,7 @@ import {
   Sprite,
   Text2D,
   Texture,
+  type I18nParams,
   type RendererPreference,
   isSceneSnapshot,
   type SaveStorage,
@@ -19,10 +20,12 @@ const $ = <T extends HTMLElement>(id: string): T =>
   document.querySelector<T>(`#${id}`)!;
 const storageSelect = $<HTMLSelectElement>('storage');
 const slotSelect = $<HTMLSelectElement>('slot');
+const langSelect = $<HTMLSelectElement>('lang');
 const status = $<HTMLParagraphElement>('status');
 
 storageSelect.value = params.get('storage') ?? 'local';
 slotSelect.value = params.get('slot') ?? 'one';
+langSelect.value = params.get('lang') ?? 'en';
 // Storage and renderer are fixed at Game.create, so changing them reloads the page.
 storageSelect.addEventListener('change', () => {
   const url = new URL(location.href);
@@ -37,6 +40,42 @@ const release = (): void => {
   texture?.destroy();
 };
 
+const messages = {
+  en: {
+    title: 'Move, save, reload the page.',
+    ready: 'Ready',
+    empty: 'Slot {slot} is empty',
+    corrupt: 'Slot {slot} is corrupt',
+    loaded: 'Loaded {slot}: x={x}',
+    unsaved: 'x={x} (unsaved)',
+    saved: 'Saved {slot}',
+    removed: 'Removed {slot}',
+    slots: { one: '{count} slot stored', other: '{count} slots stored' },
+  },
+  'zh-Hant': {
+    title: '移動、存檔，然後重新載入頁面。',
+    ready: '就緒',
+    empty: '欄位 {slot} 是空的',
+    corrupt: '欄位 {slot} 已損毀',
+    loaded: '已載入 {slot}：x={x}',
+    unsaved: 'x={x}（尚未存檔）',
+    saved: '已儲存 {slot}',
+    removed: '已移除 {slot}',
+    slots: { other: '已存 {count} 個欄位' },
+  },
+  ja: {
+    title: '動かして保存し、ページを再読み込みします。',
+    ready: '準備完了',
+    empty: 'スロット {slot} は空です',
+    corrupt: 'スロット {slot} は破損しています',
+    loaded: '{slot} を読み込みました：x={x}',
+    unsaved: 'x={x}（未保存）',
+    saved: '{slot} を保存しました',
+    removed: '{slot} を削除しました',
+    slots: { other: '{count} スロット保存済み' },
+  },
+};
+
 try {
   const saveStorage: SaveStorage =
     storageSelect.value === 'indexed'
@@ -48,6 +87,7 @@ try {
     height: HEIGHT,
     renderer: (params.get('renderer') ?? 'auto') as RendererPreference,
     saveStorage,
+    i18n: { locale: langSelect.value, fallback: 'en', messages },
   });
   const runtime = game;
   runtime.addEventListener('error', (event) => {
@@ -81,56 +121,72 @@ try {
   const scene = new SaveScene();
   scene.serializer.register('player', scene.player);
   await runtime.setScene(scene);
-  const label = await Text2D.create('Move, save, reload the page.', {
-    fontSize: 18,
-    color: '#ffffff',
-  });
-  label.position.set(WIDTH / 2, 30);
-  scene.add(label);
+  const title = await Text2D.create('', { fontSize: 18, color: '#ffffff' });
+  title.position.set(WIDTH / 2, 30);
+  scene.add(title);
+  const message = await Text2D.create('', { fontSize: 16, color: '#ffd34a' });
+  message.position.set(WIDTH / 2, HEIGHT - 30);
+  scene.add(message);
+  runtime.i18n.bindText(title, 'title');
   runtime.start();
 
-  const report = async (message: string): Promise<void> => {
+  // The last report is kept as key + params so a language switch can re-render it.
+  let last: { key: string; values: I18nParams } = { key: 'ready', values: {} };
+  const render = async (): Promise<void> => {
     const slots = await runtime.saves.slots();
-    status.textContent = `${runtime.graphics.backend} · ${storageSelect.value} · slots [${slots.join(', ')}] · ${message}`;
-    await label.setText(message);
+    const text = runtime.i18n.t(last.key, last.values);
+    status.textContent = `${runtime.graphics.backend} · ${storageSelect.value} · ${runtime.i18n.t('slots', { count: slots.length })} · ${text}`;
+    await message.setText(text);
   };
+  const report = (key: string, values: I18nParams = {}): Promise<void> => {
+    last = { key, values };
+    return render();
+  };
+  const slot = (): string => slotSelect.value;
   const load = async (): Promise<void> => {
-    const result = await runtime.saves.load(slotSelect.value);
+    const result = await runtime.saves.load(slot());
     if (result.status === 'missing') {
-      await report(`slot ${slotSelect.value} is empty`);
+      await report('empty', { slot: slot() });
     } else if (result.status === 'corrupt') {
-      await report(
-        `slot ${slotSelect.value} is corrupt: ${result.error.message}`,
-      );
+      await report('corrupt', { slot: slot() });
     } else {
       const { data } = result.record;
       if (!isSceneSnapshot(data)) throw new Error('Slot is not a snapshot.');
       await scene.serializer.restore(data);
-      await report(
-        `loaded ${slotSelect.value}: x=${scene.player.position.x.toFixed(0)} (saved ${result.record.metadata.savedAt})`,
-      );
+      await report('loaded', {
+        slot: slot(),
+        x: Math.round(scene.player.position.x),
+      });
     }
   };
 
+  langSelect.addEventListener('change', () => {
+    runtime.i18n.setLocale(langSelect.value);
+    const url = new URL(location.href);
+    url.searchParams.set('lang', langSelect.value);
+    history.replaceState(null, '', url);
+    void render();
+  });
   $('move').addEventListener('click', () => {
     const next = scene.player.position.x + 50;
     scene.player.position.set(next > WIDTH - 40 ? 80 : next, HEIGHT / 2);
-    void report(`x=${scene.player.position.x.toFixed(0)} (unsaved)`);
+    void report('unsaved', { x: Math.round(scene.player.position.x) });
   });
   $('save').addEventListener('click', () => {
     const snapshot = scene.serializer.capture();
     void runtime.saves
-      .save(slotSelect.value, snapshot, scene.playTime)
-      .then(() => report(`saved ${slotSelect.value}`))
-      .catch((error: unknown) =>
-        report(error instanceof Error ? error.message : String(error)),
-      );
+      .save(slot(), snapshot, scene.playTime)
+      .then(() => report('saved', { slot: slot() }))
+      .catch((error: unknown) => {
+        status.textContent =
+          error instanceof Error ? error.message : String(error);
+      });
   });
   $('load').addEventListener('click', () => void load());
   $('remove').addEventListener('click', () => {
     void runtime.saves
-      .remove(slotSelect.value)
-      .then(() => report(`removed ${slotSelect.value}`));
+      .remove(slot())
+      .then(() => report('removed', { slot: slot() }));
   });
 
   await load();

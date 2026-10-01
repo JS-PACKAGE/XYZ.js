@@ -19,6 +19,7 @@ import {
 } from './transitions2d/index.js';
 import { AccessibilityManager } from './accessibility/index.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
+import { I18n, type I18nOptions } from './i18n.js';
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -51,6 +52,8 @@ export interface GameOptions {
   /** Defaults to an isolated in-memory store; inject a browser backend for persistence. */
   saveStorage?: SaveStorage;
   saveSchema?: SaveSchema;
+  /** Locale registry, exposed as `game.i18n`; defaults to locale `en` with no messages. */
+  i18n?: I18nOptions;
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -79,6 +82,7 @@ export class Game extends EventTarget {
   readonly assets = new AssetLoader();
   readonly input: InputManager;
   readonly saves: SaveManager;
+  readonly i18n: I18n;
   readonly audio = new AudioManager(
     () => this.currentScene,
     (error) =>
@@ -131,6 +135,7 @@ export class Game extends EventTarget {
     this.autoResize = options.autoResize !== false;
     this.input = new InputManager(canvas, () => this);
     this.saves = new SaveManager(options.saveStorage, options.saveSchema);
+    this.i18n = new I18n(options.i18n);
     this.accessibilityManager = new AccessibilityManager(canvas, () => {
       this.accessibilitySize.width = this.logicalWidth;
       this.accessibilitySize.height = this.logicalHeight;
@@ -773,9 +778,13 @@ export class Game extends EventTarget {
     try {
       try {
         try {
-          this.accessibilityManager.destroy();
+          try {
+            this.accessibilityManager.destroy();
+          } finally {
+            this.input.destroy();
+          }
         } finally {
-          this.input.destroy();
+          this.i18n.destroy();
         }
       } finally {
         this.observer?.disconnect();

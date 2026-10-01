@@ -110,3 +110,4 @@ export type { Rect2D, ColorRGBA } from './gameplay/contracts.js';
 export * from './graphics2d/index.js';
 export * from './storage.js';
 export * from './serialization.js';
+export * from './i18n.js';
