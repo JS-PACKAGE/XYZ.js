@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.7.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P40–P42 passed scoped Chromium acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.8.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P40–P42 passed scoped Chromium acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Current Support at a Glance
 

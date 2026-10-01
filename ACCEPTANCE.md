@@ -722,3 +722,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **界線**：native compressed codecs 不內建 Basis／Draco，default ordinary KTX2 base RGBA8 path 不變；explicit native opt-in 才保留全部 supplied levels。無新 runtime dependency／official vendor patch／版本或 release 修改，feature commit 不 push／publish。Safari／Firefox／Edge、實體手把／觸控、真正 driver reset／BFCache、喇叭聽感、hosted CI 與 performance／FPS improvement 未驗，不從單一 Chromium pixels／CPU byte estimates 外推。
 - **失敗／邊界流程**：每個 case 自己獨立 headless Chromium，以真 HTTP 503 驗 asset error→可信 Retry→menu／muted play；實際損毀 continuation／preferences envelope 顯示 warning、new run 重寫有效 records；注入 browser Storage SecurityError 仍可遊玩／pause；注入 AudioContext.resume rejection 顯示 unlock error後 muted 重玩。Canvas unsupported 也經實際正式初始化／清理；全部 expected app errors 有記錄、unexpected page errors=[]，各 case Destroy cleanup true。Timeout 分支用**導航前安裝的受控 browser RAF clock**推進76秒，真 Game→Scene timer降到0／lost／restart；不是75秒 wall-clock／背景分頁認證。長時間 native wait 曾終止於 closed context，未記為通過；clock 不能在 Game 已排 native RAF 後才替換。六 case reports／PNG 在 `.vite/p42-beacon-errors/`，throwaway drivers 驗後移除。
 - **文件驗證**：全倉 format:check 通過；八件變更文件的250個相對 links（含 Markdown heading anchors）全部有效。README 中／英／日、雙語 USAGE／TECHNICAL、PLAN／DESIGN 同步目前契約，歷史數量／日期保留。文件檢查不冒稱重新驗證其他 browser／hardware。
+
+## v1.8 發佈前驗證（限定已測環境）
+
+- 使用者於 P40／P41／P42 獨立提交後授權推送及 GitHub v1.8 發佈；package metadata 更新為 1.8.0／Apache-2.0。保留歷史 tags／附件，不做 npm publish；README、PLAN、DESIGN 與雙語 USAGE／TECHNICAL 同步版本與本次授權。
+- Node 26.7.0／pnpm 12.6.0 重新執行 frozen install、typecheck、79 files／678 tests、lint、build、全倉 format:check，全部通過。Build 198 minified JavaScript files，官方 vendor unchanged。
+- 真正 `pnpm pack` 產生 `xyz.js-1.8.0.tgz`，解壓至 consumer 的 node_modules 後用 Node ESM `import ... from 'xyz.js'` 驗正式 root exports／1.8.0 metadata／Apache-2.0 LICENSE。真 Scene sphere 落地 sleep，移除支撐即 wake／下落；navigation 繞牆 cost=4／完整 route，destroy 清 registrations。封裝內 14 件官方 vendor 檔案逐位元組與來源一致，保留完整 dist 樹；輸出 V18_EXTRACTED_PACKAGE_CONSUMER_OK。
+- 本次只改版本與發佈文件，不冒稱重新進行 browser／device 驗收；P40–P42 的真 headless Chromium pixels／完整參考遊戲／失敗分支與未驗限制保留於各節。Tag workflow 另於 Ubuntu 執行工具鏈、pack 與 SHA256SUMS 上傳；實際發佈結果以 GitHub Release／Actions 為準。
