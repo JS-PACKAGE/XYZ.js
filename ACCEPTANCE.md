@@ -508,3 +508,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **資訊性（非弱點）**：glTF 允許 Float32 範圍內的極大有限值（例如 `emissiveStrength: 3e38`、light `intensity`）；相乘溢位會被 `PBRMaterial` 以 RangeError 拒絕，但單獨的極大值會被接受，可能在 shader 中產生 Infinity 並造成畫面異常，不涉及記憶體安全。若要收緊，可對這些欄位加合理上限。`recoverGraphics` 在 WebGL2 等待 `webglcontextrestored` 時沒有逾時；若瀏覽器永不還原，畫面會停止更新而不會送出 error。CI 的 GitHub Actions 用 `@v4` tag 而非 commit SHA 釘選。
 - **結論與未驗**：未發現已確認的可利用弱點，因此沒有程式碼修改或新增回歸測試。未涵蓋：真實瀏覽器 GPU driver／WebGPU 實作缺陷、Pointer Lock 與 Gamepad 實機行為、跨來源 CSP 部署設定、Audio 解碼器（瀏覽器內建）、對全部舊模組（v1.3 以前）的重新審查（僅依賴其既有測試與先前的強化紀錄）。此結果不代表安全稽核完成。
 - **掃描後修補（同日）**：(1) `ResilientRenderer` 等待 `webglcontextrestored` 加上 10 秒逾時（`graphicsRecoveryLimits.restoreTimeoutMs`），逾時以 `GraphicsError` 結束復原並讓 Game 停止，還原或 destroy 時清除計時器；新增 2 個以 fake timers 驅動的測試（不依賴實際時間）。(2) `.github/workflows/ci.yml` 的 `actions/checkout`、`actions/setup-node` 改用 v4 tag 解析出的 commit SHA 釘選（註解保留 `# v4`）。GitHub Actions 仍未實際執行此變更。glTF 極大有限值未動，維持資訊性。
+
+## P30 存檔與 Scene Snapshot（2026-10-01，限定已測環境）
+
+- **新增**：`game.saves`（`SaveManager`）、`MemoryStorage`／`LocalStorageBackend`／`IndexedDBStorage`、`Serializer`／`gameObjectState`／`isSceneSnapshot`，範例 `examples/save-lab/`。與前述弱點掃描的「危險 sink」清單相比，`localStorage`／`indexedDB` 現在由 `packages/core/src/storage.ts` 使用，掃描結論不涵蓋此新程式碼。
+- **自動化**：`tests/storage.test.ts` 8 個測試（round trip 與資料分離、依序 migration 且不改寫原儲存、corrupt／checksum／未來版本／schema 無效保留原文、非法 JSON 拒絕、namespace 隔離與位元組上限、localStorage quota 轉型與 IndexedDB 不可用、snapshot 擷取還原、unknown／missing id 與 strict 模式不套用）。完整套件目前 50 檔／348 測試通過；`tsc -p tsconfig.check.json`、`eslint .` 無輸出（通過）。歷史測試數保留不改。
+- **實際瀏覽器**：managed headless Chromium 的 canvas2d，localStorage 與 IndexedDB 各自移動、儲存、重新載入頁面後還原位置（localStorage x=180、IndexedDB x=130），console 無錯誤。
+- **未驗**：webgpu／webgl2 下 save-lab、Firefox／Safari 的 localStorage／IndexedDB 行為（含私密模式配額）、跨分頁並行寫入、真實配額耗盡、IndexedDB 在 `onblocked` 的實況。`build` 未執行（`dist/` 於發佈時一併重建）。

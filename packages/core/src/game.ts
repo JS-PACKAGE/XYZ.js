@@ -18,6 +18,7 @@ import {
   type TransitionOptions,
 } from './transitions2d/index.js';
 import { AccessibilityManager } from './accessibility/index.js';
+import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 
 class SceneCancelledError extends RuntimeError {
   constructor() {
@@ -47,6 +48,9 @@ export interface GameOptions {
    * `graphicslost` and `graphicsrecovered`. Enabled by default; when false a loss is fatal.
    */
   recoverGraphics?: boolean;
+  /** Defaults to an isolated in-memory store; inject a browser backend for persistence. */
+  saveStorage?: SaveStorage;
+  saveSchema?: SaveSchema;
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -74,6 +78,7 @@ export class Game extends EventTarget {
   readonly clock: Clock;
   readonly assets = new AssetLoader();
   readonly input: InputManager;
+  readonly saves: SaveManager;
   readonly audio = new AudioManager(
     () => this.currentScene,
     (error) =>
@@ -125,6 +130,7 @@ export class Game extends EventTarget {
     this.fixedPixelRatio = options.pixelRatio;
     this.autoResize = options.autoResize !== false;
     this.input = new InputManager(canvas, () => this);
+    this.saves = new SaveManager(options.saveStorage, options.saveSchema);
     this.accessibilityManager = new AccessibilityManager(canvas, () => {
       this.accessibilitySize.width = this.logicalWidth;
       this.accessibilitySize.height = this.logicalHeight;

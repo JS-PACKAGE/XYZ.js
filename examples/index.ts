@@ -1,4 +1,4 @@
-type Tag = '2D' | '3D' | 'Audio' | 'Input' | 'Assets' | 'Benchmark';
+type Tag = '2D' | '3D' | 'Audio' | 'Input' | 'Assets' | 'Data' | 'Benchmark';
 type Renderer = 'auto' | 'webgpu' | 'webgl2' | 'canvas2d';
 
 interface Example {
@@ -126,6 +126,14 @@ const examples: readonly Example[] = [
     summary:
       'Live keyboard, pointer and gamepad state plus a remappable action map.',
     tags: ['2D', 'Input'],
+    renderers: all2d,
+  },
+  {
+    slug: 'save-lab',
+    title: 'Save lab',
+    summary:
+      'Named save slots in localStorage or IndexedDB, scene snapshots and reload restore.',
+    tags: ['2D', 'Data'],
     renderers: all2d,
   },
   {

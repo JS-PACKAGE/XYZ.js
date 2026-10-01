@@ -444,3 +444,11 @@ PBRMaterial options 與唯讀 fields textureSampler、metallicRoughnessSampler�
 - P29 fixed-capacity drop-new ParticleLayer、versioned static setters／dynamic fields 重用 P17 simulation；prepareTextures／unload 區分 native upload 與 borrowed CPU source，unload 不 destroy CPU image。
 
 Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepare／unload 全必做。Full SVG／HTMLText／SDF-MSDF／native vector tessellation、video／raw／compressed／mipmaps／anisotropy、其他 advanced blends、generic plugins／render layers、independent Ticker／general automatic GC 不在範圍；已觀察的 pixels 不等於 throughput／跨 browser／真實硬體／full-frame parity 證據。
+
+## 29. 存檔欄位與 Scene Snapshot（P30）
+
+- `game.saves` 是建立在可注入 `SaveStorage` 上的 `SaveManager`（`GameOptions.saveStorage`、`saveSchema`）。預設為隔離的記憶體 `MemoryStorage`，所以不注入瀏覽器 backend 就不會持久化：可用 `LocalStorageBackend(namespace)` 或 `IndexedDBStorage(namespace, database)`。Backend 皆為 async、以 namespace 隔離（`clear()` 不影響其他 namespace），超過 `storageLimits.maxBytes`（2 MiB，`src/data/storage.ts`）以 `StorageError('size')` 拒絕；配額錯誤為 `'quota'`，IndexedDB 不可用為 `'unavailable'`，其他為 `'io'`。
+- `save(slot, data, playTime?)` 只接受純 JSON：NaN／Infinity、function、symbol、bigint、`undefined`、Date、class instance、循環參照與稀疏陣列都以 `StorageError('invalid')` 拒絕，不會被悄悄轉型。儲存的 envelope 含 record（`version`、`data`、`metadata.savedAt／playTime`）與非密碼學 FNV-1a checksum，只偵測意外損毀，不防竄改。
+- `load(slot)` 回傳 `{status:'missing'}`、`{status:'loaded', record}` 或 `{status:'corrupt', raw, error}`。損毀、較新版本、checksum 不符或 schema 驗證失敗的內容會保留原文並回報，不會刪除或覆寫。舊版本依序逐版呼叫 `SaveSchema.migrate(fromVersion, data)`（原儲存內容在下次 `save` 前不會被改寫），migrate 後再跑 `validate(data)`。
+- `Serializer(scene)` 是明確、opt-in 的註冊表：`register(id, object, state?)` 將穩定 id 綁到該 Scene 內的 GameObject（預設 `gameObjectState` 擷取 local position／rotation／scale／pivot／skew、visibility、opacity、`RigidBody2D` 速度與 `Text2D.text`；自訂狀態傳入 `Serializable`）。`capture()` 回傳分離的 JSON-safe `SceneSnapshot`；`restore(snapshot, 'ignore' | 'error')` 先驗證整份 snapshot，回報 `{restored, unknown, missing}`，`'error'` 在 id 不一致時於套用任何內容前就拋錯。它不會建立物件、組件、資產或 Scene，遊戲必須先重建 Scene 再 restore。`isSceneSnapshot(value)` 用於縮窄載入的 JSON。
+- 不涵蓋：加密、雲端同步、跨分頁鎖、任意物件的自動反射，以及 GPU／資產資源的快照。

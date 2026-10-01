@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Save laboratory</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #172334;
+        color: white;
+        margin: 24px;
+      }
+      canvas {
+        width: 640px;
+        height: 300px;
+        max-width: 100%;
+        background: #25354c;
+      }
+      button,
+      select {
+        margin: 8px;
+        padding: 8px;
+      }
+      #status {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Save laboratory</h1>
+    <label
+      >Storage
+      <select id="storage">
+        <option value="local">localStorage</option>
+        <option value="indexed">IndexedDB</option>
+      </select></label
+    >
+    <label
+      >Slot
+      <select id="slot">
+        <option>one</option>
+        <option>two</option>
+      </select></label
+    >
+    <button id="move">Move +50</button><button id="save">Save</button
+    ><button id="load">Load</button><button id="remove">Remove slot</button>
+    <p>
+      Reload automatically restores the selected slot. Use ?renderer=canvas2d,
+      webgl2 or webgpu.
+    </p>
+    <canvas id="game"></canvas>
+    <p id="status">Starting…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
