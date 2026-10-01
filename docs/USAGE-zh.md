@@ -1149,3 +1149,7 @@ Native transparent input 處理 keyboard／clipboard／undo／IME；canvas 畫�
 ## 35. Continuous 3D Translation（P55）
 
 `new RigidBody3D({ continuous: true })` 讓 dynamic body 以真 shape 對 static walls／mesh／compound 做 sweep。每 tick 解決 first impact，不包含 rotational／dynamic-pair CCD；仍應使用合理 fixed steps。Iteration exhaustion 只保留 proven-free prefix，不虛構 collision／impulse。
+
+## 36. 消費 Root Motion（P56）
+
+建立 `AnimationRootMotion(skeletonRoot, { target: actor })`，並用 `setRootMotion` 將同一 binding 附加到 locomotion actions。也可提供 sink，把 reused body-local deltas 轉成 world coordinates，交给 `CharacterController3D.move`。從 fixedUpdate 推進專用 `AnimationMixer`，避免又由 `Scene.animations` 重複 advance。

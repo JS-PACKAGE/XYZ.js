@@ -1162,3 +1162,7 @@ Build CompoundCollider3D from flat child collider/position/rotation/scale descri
 ## 35. Continuous 3D Translation (P55)
 
 Opt a dynamic body into `new RigidBody3D({continuous:true})` to sweep its actual shape against static walls/mesh/compound targets. This resolves the first impact per tick, not rotational or dynamic-pair CCD; keep fixed steps reasonably small. [Policy and public sweep](TECHNICAL.md#55-bounded-3d-continuous-translation-p55).
+
+## 36. Consume Root Motion (P56)
+
+Create AnimationRootMotion(skeletonRoot,{target:actor}) and assign that same binding to each locomotion action via setRootMotion. Alternatively provide a sink, transform reused body-local deltas into world coordinates and pass them to CharacterController3D.move. A dedicated AnimationMixer advanced from fixedUpdate avoids double-advancing Scene.animations. [Loops, callbacks, units and ownership](TECHNICAL.md#56-animation-root-motion-p56).

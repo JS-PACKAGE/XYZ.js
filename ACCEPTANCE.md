@@ -809,3 +809,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 真封裝 velocity=600 的 9 primitive×static target combinations（primitive／mesh／compound）全部無 tunneling，x≈-.26／-.25、velocity=0、各 1 contact；off-center impact 的 angular response=499.569。
 - First-impact translation CCD 走正式 shared index／sweeps／contact response，filters／rebound／destroy 維持回歸。明示不含 rotational CCD／dynamic-pair CCD，不以降速／增厚牆或靜默 clamp velocity 假通過。
+
+## P56 Animation Root Motion（限定已測環境）
+
+- 真封裝 root stride／loop turn delta=[-1,1,0]、reverse／seek 的 reset 邊界與 blending／pause 契約已驗；兩次 strides 交給真 capsule controller，受牆阻擋於 x=.647，原 skeleton root 不被偷偷移動。
+- Translation／rotation delta 提供 gameplay 消費，不自動覆蓋 authoritative body／碰撞；保留 loop／reverse／ping-pong／seek／blend／ownership consumer-visible regressions。

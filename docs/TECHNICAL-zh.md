@@ -977,3 +977,9 @@ Dynamic primitive compound 的 uniform-density COM 必須在 root origin。Scale
 `new RigidBody3D({continuous:true})` 開啟 dynamic nonsensor 對 static targets 的 translation CCD；immutable／default false。先 discrete rotation，再用該固定 orientation 的真 sphere／OBB／capsule／primitive compound sweep reciprocal-filtered static primitive／mesh／compound。每 tick 第一 impact 截短 translation，unused time 丟棄，普通 surface contacts／events 解線角速度。
 
 不含 rotation／dynamic-pair／kinematic／sensor time-of-impact／arbitrary deformation CCD。Iteration exhaustion 保留 proven-free prefix，不捏造 hit／event／impulse。World.sweep(collider,object,displacement,options?,out?) 提供 finite-shape translation／optional output reuse，拒 moving mesh／plane，distance 是 world units；bounded public query exhaustion 回 no hit。Object3D snapshot 的 immutable policy 加 continuous。
+
+## 56. Animation root motion（P56）
+
+`new AnimationRootMotion(root, {target | sink})`；`mixer.clipAction(clip).setRootMotion(binding).play()`，locomotion layers 共用同 binding。Mixer 抽 translation／rotation，不再同時移 skeleton root；repeat rigid accumulation 含 turning／reverse／pingpong／once，尊重 masks／fades／ordered blending／additive。Seek／stop reset 不 teleport；callbacks／constraints 後才 flush，seek／stop／clear／destroy／error 取消 pending output。
+
+Root finite／rigid／unit scale，animated root scale／duplicate TR channels 原子拒絕；target／sink 互斥，direct target 不可是 skeleton root。Reused readonly delta translation 是 body-local，rotation 是 post-composed local increment；保留需 copy，character／physics sink 需轉 world coordinates。Direct target 依 local orientation 旋轉 translation，再移 parent-space position。Fixed gameplay 用獨立 owned AnimationMixer 由 fixedUpdate 推，不 double-advance 自動更新的 Scene mixer。Clear 只放 binding registrations，不 destroy borrowed targets；KeyframeTrack.sampleValues(time,Float64Array) 不改 target。

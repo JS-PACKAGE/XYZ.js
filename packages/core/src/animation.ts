@@ -1,5 +1,9 @@
 import { Quaternion } from '../../math/src/index.js';
 import {
+  AnimationRootMotionSampler,
+  type AnimationRootMotion,
+} from './animation-root-motion.js';
+import {
   AnimationPoseOverlay,
   blendRotation,
   multiplyRotation,
@@ -91,6 +95,15 @@ export class KeyframeTrack {
    * already holds, so a later, lower-weight track layers over an earlier one.
    */
   sample(time: number, weight = 1, reference?: Float64Array): void {
+    this.sampleValues(time, this.scratch);
+    if (reference) this.applyAdditive(this.scratch, weight, reference);
+    else this.apply(this.scratch, weight);
+  }
+
+  /** Samples without touching the borrowed target; `out` must have exactly `size` elements. */
+  sampleValues(time: number, out: Float64Array): void {
+    if (!Number.isFinite(time) || out.length !== this.size)
+      throw new RangeError('Invalid animation sample time or output size.');
     const times = this.times,
       values = this.values,
       size = this.size;
@@ -130,7 +143,6 @@ export class KeyframeTrack {
         wb = Math.sin(t * angle) / sine;
       }
     }
-    const out = this.scratch;
     for (let j = 0; j < size; j++) {
       if (cubic && first !== second) {
         const t2 = t * t,
@@ -142,8 +154,12 @@ export class KeyframeTrack {
           (t3 - t2) * dt * values[b - size + j];
       } else out[j] = wa * values[a + j] + wb * sign * values[b + j];
     }
-    if (reference) this.applyAdditive(out, weight, reference);
-    else this.apply(out, weight);
+    if (this.path === 'rotation') {
+      const length = Math.hypot(out[0], out[1], out[2], out[3]);
+      if (!length)
+        throw new RangeError('Sampled animation quaternion is zero.');
+      for (let j = 0; j < 4; j++) out[j] /= length;
+    }
   }
 
   private applyAdditive(
@@ -278,6 +294,27 @@ export class AnimationAction {
   loopMode: AnimationLoopMode = 'repeat';
   mask: AnimationMask | undefined;
   private references: readonly Float64Array[] | undefined;
+  private motion: AnimationRootMotionSampler | undefined;
+
+  /** Extracts root TR deltas instead of writing those tracks to the skeleton root. */
+  setRootMotion(binding: AnimationRootMotion | undefined): this {
+    if (binding && !this.mixer)
+      throw new Error('Root motion requires an AnimationMixer.');
+    const next = binding
+      ? new AnimationRootMotionSampler(binding, this.clip)
+      : undefined;
+    if (binding) binding.attach(this, this.mixer!);
+    if (this.motion?.binding !== binding) this.motion?.release(this);
+    else this.motion?.cancel(this);
+    this.motion = next;
+    return this;
+  }
+
+  /** @internal Releases borrowed root bindings when the mixer is cleared. */
+  releaseRootMotion(): void {
+    this.motion?.release(this);
+    this.motion = undefined;
+  }
 
   /** Mixer-owned actions can use explicit reference-relative TRS/morph deltas. */
   setAdditive(reference: AnimationReferencePose | undefined): this {
@@ -324,6 +361,7 @@ export class AnimationAction {
   }
   set time(value: number) {
     finiteTime(value, 'Animation time');
+    this.motion?.cancel(this);
     this.clipTime = this.elapsed = value;
   }
   /** Weight after fading; this is what the mixer applies. */
@@ -353,6 +391,7 @@ export class AnimationAction {
   }
   stop(): this {
     this.playing = false;
+    this.motion?.cancel(this);
     this.successor = undefined;
     this.clipTime = this.elapsed = 0;
     this.fade = this.fadeTarget = 1;
@@ -408,6 +447,7 @@ export class AnimationAction {
 
   /** Advances time and fading, then samples the clip with `effectiveWeight`; false if not playing. */
   update(delta: number): boolean {
+    finiteTime(delta, 'Animation delta');
     if (!this.playing) return false;
     if (this.references && !this.mixer)
       throw new Error('Additive action is detached from its AnimationMixer.');
@@ -450,9 +490,26 @@ export class AnimationAction {
       const phase = ((next % period) + period) % period;
       this.clipTime = phase <= duration ? phase : period - phase;
     }
+    if (this.motion) {
+      if (!this.mixer)
+        throw new Error(
+          'Root motion action is detached from its AnimationMixer.',
+        );
+      this.mixer.collectRootMotion(this.motion.binding);
+      this.motion.sample(
+        this,
+        previous,
+        this.elapsed,
+        this.loopMode,
+        this.effectiveWeight,
+        this.mask,
+        !!this.references,
+      );
+    }
     const weight = this.effectiveWeight;
     for (let i = 0; i < this.clip.tracks.length; i++) {
       const track = this.clip.tracks[i];
+      if (this.motion?.extracts(track)) continue;
       const channelWeight =
         weight * (this.mask?.weight(track.target, track.path) ?? 1);
       if (channelWeight <= 0) continue;
@@ -496,6 +553,12 @@ export class AnimationMixer {
   >();
   private readonly running: AnimationAction[] = [];
   private readonly evaluating: AnimationController[] = [];
+  private readonly rootMotions = new Set<AnimationRootMotion>();
+
+  /** @internal Pending root output is flushed only after callbacks survive the tick. */
+  collectRootMotion(binding: AnimationRootMotion): void {
+    this.rootMotions.add(binding);
+  }
 
   addConstraint(constraint: AnimationConstraint): () => void {
     if (this.destroyed) throw new Error('AnimationMixer is destroyed.');
@@ -552,6 +615,8 @@ export class AnimationMixer {
     this.updating = true;
     const generation = this.generation;
     try {
+      for (const binding of this.rootMotions) binding.reset();
+      this.rootMotions.clear();
       for (const paths of this.overlays.values())
         for (const overlay of paths.values()) overlay.restore();
       this.evaluating.length = 0;
@@ -582,7 +647,14 @@ export class AnimationMixer {
         for (const channel of constraint.channels)
           this.sealOverlay(channel.target, channel.path);
       }
+      for (const binding of this.rootMotions) {
+        if (this.destroyed || this.paused || this.generation !== generation)
+          return;
+        binding.flush();
+      }
     } finally {
+      for (const binding of this.rootMotions) binding.reset();
+      this.rootMotions.clear();
       this.running.length = this.evaluating.length = 0;
       this.updating = false;
     }
@@ -594,6 +666,8 @@ export class AnimationMixer {
   /** Stops playback/controllers/constraints and releases their borrowed pose bindings. */
   clear(): void {
     this.generation++;
+    for (const binding of this.rootMotions) binding.reset();
+    this.rootMotions.clear();
     this.stopAll();
     for (const paths of this.overlays.values())
       for (const overlay of paths.values()) overlay.restore();
@@ -602,7 +676,10 @@ export class AnimationMixer {
     this.constraints.clear();
     for (const controller of this.controllers) controller.destroy?.();
     this.controllers.clear();
-    for (const action of this.actions.values()) action.mixer = undefined;
+    for (const action of this.actions.values()) {
+      action.releaseRootMotion();
+      action.mixer = undefined;
+    }
     this.actions.clear();
     this.running.length = this.evaluating.length = 0;
   }

@@ -1,3 +1,4 @@
+import { type AnimationRootMotion } from './animation-root-motion.js';
 import type { AnimationMask, AnimationPoseChannel, AnimationReferencePose, AnimationTarget } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
 import { MorphWeights } from './morph.js';
@@ -21,6 +22,8 @@ export declare class KeyframeTrack {
      * already holds, so a later, lower-weight track layers over an earlier one.
      */
     sample(time: number, weight?: number, reference?: Float64Array): void;
+    /** Samples without touching the borrowed target; `out` must have exactly `size` elements. */
+    sampleValues(time: number, out: Float64Array): void;
     private applyAdditive;
     /** Writes `out` to the target; a weight below 1 layers it over the target's current pose. */
     private apply;
@@ -55,6 +58,11 @@ export declare class AnimationAction {
     loopMode: AnimationLoopMode;
     mask: AnimationMask | undefined;
     private references;
+    private motion;
+    /** Extracts root TR deltas instead of writing those tracks to the skeleton root. */
+    setRootMotion(binding: AnimationRootMotion | undefined): this;
+    /** @internal Releases borrowed root bindings when the mixer is cleared. */
+    releaseRootMotion(): void;
     /** Mixer-owned actions can use explicit reference-relative TRS/morph deltas. */
     setAdditive(reference: AnimationReferencePose | undefined): this;
     private clipTime;
@@ -114,6 +122,9 @@ export declare class AnimationMixer {
     private readonly overlays;
     private readonly running;
     private readonly evaluating;
+    private readonly rootMotions;
+    /** @internal Pending root output is flushed only after callbacks survive the tick. */
+    collectRootMotion(binding: AnimationRootMotion): void;
     addConstraint(constraint: AnimationConstraint): () => void;
     /** @internal Captures the base once, even when several overlays affect the same channel. */
     captureOverlay(target: AnimationTarget, path: AnimationPath, create?: boolean): void;
