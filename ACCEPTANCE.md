@@ -830,3 +830,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 正式 Playwright launcher 使用 pinned headless shell，保留 explicit executable override 的驗證與錯誤；獨立 full-app probe 曾於約 31.6 s 自行結束，未捏造原因。最後完整 smoke 與 soak 均用 headless shell 通過。自有 browser／profile 與本輪自有 Vite 服務已清理，未連接使用者 browser／relay。
 - 限制：未執行 hosted Ubuntu CI、其他 browser／driver／硬體認證、OS／硬體 IME、真 WebGPU driver-loss 或一小時 soak；本機結果不外推以上項目。歷史驗收日期與當時 test counts 保留。
 - 九份本輪文件的 278 個相對連結／heading anchors 全部通過檢查；文件格式檢查通過，不將文件檢查記成重新驗證 browser runtime。
+
+## v1.9 發佈前驗證（限定已測環境）
+
+- 使用者於 P43–P57 分功能提交後授權提交、推送與 GitHub v1.9 發佈；package metadata 更新為 1.9.0／Apache-2.0。前述 1.8.0／不推送記錄是當時狀態；本次不做 npm publish，不改歷史 tags。
+- 重新執行 frozen install、typecheck、test（93 files／780 tests）、lint、build（210 minified JavaScript modules）及全倉 format:check，全部通過。此輪只變更版本與文件，不冒稱重新跑 browser／device 驗收。
+- 真正 pnpm pack 產生 xyz.js-1.9.0.tgz；解壓後以 Node ESM 正式套件入口驗證 1.9.0 metadata、Apache-2.0 LICENSE 與 Scene／GameObject ownership／destroy，輸出 V19_EXTRACTED_PACKAGE_CONSUMER_OK。14 件官方 vendor 檔案逐位元組一致。初次 smoke 錯將已解除 ownership 的 undefined 判為 null，依正式契約修正 smoke 後通過，未修改引擎。
+- 推送 v1.9 tag 觸發既有 GitHub Release workflow，必須先通過共用 CI 才能封裝及上傳 tgz／SHA256SUMS；線上執行與發佈結果以 GitHub Actions／Release 為準。

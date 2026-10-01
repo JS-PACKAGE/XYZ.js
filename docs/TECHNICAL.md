@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This reference covers the current **1.8.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not P40–P42 acceptance. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define the approved P40–P42 contracts; [ACCEPTANCE](../ACCEPTANCE.md) alone records exercised support and unverified limits. The user authorized pushing and the GitHub v1.8 release, not npm publication.
+This reference covers the current **1.9.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define the approved contracts through P57; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user authorized pushing and the GitHub v1.9 release, not npm publication.
 
 ## Current Support Matrix
 

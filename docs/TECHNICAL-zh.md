@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述目前 **1.8.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作 P40–P42 驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准三輪契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 push 與 GitHub v1.8 release，不做 npm publish。
+本參考描述目前 **1.9.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P57 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 push 與 GitHub v1.9 release，不做 npm publish。
 
 ## 目前支援矩陣
 

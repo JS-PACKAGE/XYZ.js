@@ -1,6 +1,6 @@
 # Reproducible headless asset recipe
 
-This development-time recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads a codec, invokes shell commands from an asset, or modifies the official OPM vendor tree. Runtime package metadata remains 1.8.0.
+This development-time recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads a codec, invokes shell commands from an asset, or modifies the official OPM vendor tree. Runtime package metadata is 1.9.0.
 
 ## Prerequisites and commands
 
@@ -15,7 +15,7 @@ node scripts/build-assets.mjs --input examples/asset-recipe/source.gltf --out /t
 diff /tmp/xyz-assets-a/SHA256SUMS /tmp/xyz-assets-b/SHA256SUMS
 pnpm pack --pack-destination /tmp
 mkdir /tmp/xyz-packed-consumer
-tar -xzf /tmp/xyz.js-1.8.0.tgz -C /tmp/xyz-packed-consumer
+tar -xzf /tmp/xyz.js-1.9.0.tgz -C /tmp/xyz-packed-consumer
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgl2
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgpu
 ```
