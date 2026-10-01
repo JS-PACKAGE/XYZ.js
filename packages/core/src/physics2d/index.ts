@@ -26,3 +26,10 @@ export type {
   PrismaticJointOptions,
   RevoluteJointOptions,
 } from './joints.js';
+export {
+  StaticChain2D,
+  StaticConcave2D,
+  decomposeConvex,
+  maxConcaveVertices,
+} from './shapes.js';
+export type { StaticChainOptions, StaticShapeOptions } from './shapes.js';
