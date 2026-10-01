@@ -131,6 +131,7 @@ describe('glTF extensions', () => {
     'KHR_materials_specular',
     'KHR_materials_clearcoat',
     'KHR_materials_sheen',
+    'KHR_materials_transmission',
   ])('rejects %s combined with unlit', async (extension) => {
     installImages();
     await expect(
@@ -156,6 +157,10 @@ describe('glTF extensions', () => {
     ['KHR_materials_clearcoat', { clearcoatRoughnessFactor: 1.1 }],
     ['KHR_materials_sheen', { sheenColorFactor: [1, 1.1, 1] }],
     ['KHR_materials_sheen', { sheenRoughnessFactor: -1 }],
+    ['KHR_materials_transmission', { transmissionFactor: 1.1 }],
+    ['KHR_materials_volume', { thicknessFactor: -1 }],
+    ['KHR_materials_volume', { attenuationDistance: 0 }],
+    ['KHR_materials_volume', { attenuationColor: [1, -1, 1] }],
   ])('rejects invalid %s factors %j', async (extension, factors) => {
     installImages();
     await expect(
@@ -163,13 +168,27 @@ describe('glTF extensions', () => {
         JSON.stringify(
           model(
             {
-              extensions: { [extension as string]: factors },
+              extensions: {
+                ...(extension === 'KHR_materials_volume'
+                  ? { KHR_materials_transmission: {} }
+                  : {}),
+                [extension as string]: factors,
+              },
             },
             { extensionsRequired: [extension] },
           ),
         ),
       ),
     ).rejects.toMatchObject({ cause: expect.any(RangeError) });
+  });
+
+  it('rejects a volume without a transmitting material', async () => {
+    installImages();
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify(model({ extensions: { KHR_materials_volume: {} } })),
+      ),
+    ).rejects.toBeInstanceOf(AssetError);
   });
 
   it.each([
@@ -180,6 +199,8 @@ describe('glTF extensions', () => {
     ['KHR_materials_clearcoat', 'clearcoatNormalTexture'],
     ['KHR_materials_sheen', 'sheenColorTexture'],
     ['KHR_materials_sheen', 'sheenRoughnessTexture'],
+    ['KHR_materials_transmission', 'transmissionTexture'],
+    ['KHR_materials_volume', 'thicknessTexture'],
   ])('rejects an incompatible transform on %s %s', async (extension, slot) => {
     installImages();
     await expect(
@@ -188,6 +209,9 @@ describe('glTF extensions', () => {
           model({
             pbrMetallicRoughness: { baseColorTexture: { index: 0 } },
             extensions: {
+              ...(extension === 'KHR_materials_volume'
+                ? { KHR_materials_transmission: {} }
+                : {}),
               [extension]: {
                 [slot]: {
                   index: 0,

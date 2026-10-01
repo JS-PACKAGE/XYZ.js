@@ -133,7 +133,9 @@ export class WebGPUPostPipeline {
       size: [width, height],
       format: 'rgba16float',
       usage:
-        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        GPUTextureUsage.RENDER_ATTACHMENT |
+        GPUTextureUsage.TEXTURE_BINDING |
+        GPUTextureUsage.COPY_SRC,
     });
     try {
       const view = texture.createView();
@@ -154,6 +156,14 @@ export class WebGPUPostPipeline {
       texture.destroy();
       throw error;
     }
+  }
+
+  copyColor(encoder: GPUCommandEncoder, destination: GPUTexture): void {
+    encoder.copyTextureToTexture(
+      { texture: this.texture! },
+      { texture: destination },
+      [this.width, this.height],
+    );
   }
 
   private ensureFxaa(): void {
@@ -196,9 +206,11 @@ export class WebGPUPostPipeline {
     camera: Camera3D,
     inverseVP: Matrix4,
   ): void {
-    this.data[0] = settings.exposure;
-    this.data[1] = settings.toneMapping === 'aces' ? 1 : 0;
-    this.data[2] = settings.bloomStrength;
+    const enabled = settings.enabled;
+    const fxaa = enabled && settings.fxaa;
+    this.data[0] = enabled ? settings.exposure : 1;
+    this.data[1] = enabled && settings.toneMapping === 'aces' ? 1 : 0;
+    this.data[2] = enabled ? settings.bloomStrength : 0;
     this.data[3] = settings.bloomThreshold;
     this.data[4] = this.width;
     this.data[5] = this.height;
@@ -209,25 +221,25 @@ export class WebGPUPostPipeline {
     this.data[26] = camera instanceof OrthographicCamera ? 1 : 0;
     const e = camera.matrix.elements;
     this.data[27] = Math.hypot(e[1]!, e[5]!, e[9]!);
-    this.data[28] = settings.ssao ? 1 : 0;
+    this.data[28] = enabled && settings.ssao ? 1 : 0;
     this.data[29] = settings.ssaoRadius;
     this.data[30] = settings.ssaoStrength;
     this.data[31] = settings.ssaoBias;
-    this.data[32] = settings.depthOfField ? 1 : 0;
+    this.data[32] = enabled && settings.depthOfField ? 1 : 0;
     this.data[33] = settings.dofFocusDistance;
     this.data[34] = settings.dofFocusRange;
     this.data[35] = settings.dofBlurRadius;
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
-    if (settings.fxaa) this.ensureFxaa();
+    if (fxaa) this.ensureFxaa();
     else this.releaseFxaa();
-    this.attachment.view = settings.fxaa ? this.fxaaView : view;
+    this.attachment.view = fxaa ? this.fxaaView : view;
     try {
       const pass = encoder.beginRenderPass(this.descriptor);
       pass.setPipeline(this.pipeline);
       pass.setBindGroup(0, this.bindGroup!);
       pass.draw(3);
       pass.end();
-      if (settings.fxaa) {
+      if (fxaa) {
         this.attachment.view = view;
         const fxaa = encoder.beginRenderPass(this.descriptor);
         fxaa.setPipeline(this.fxaaPipeline);

@@ -19,9 +19,15 @@ function deferred<T>() {
 }
 
 function gpuFixture() {
-  vi.stubGlobal('GPUShaderStage', { VERTEX: 1, FRAGMENT: 2 });
+  vi.stubGlobal('GPUShaderStage', { VERTEX: 1, FRAGMENT: 2, COMPUTE: 4 });
   vi.stubGlobal('GPUBufferUsage', { UNIFORM: 64, COPY_DST: 8, VERTEX: 32 });
-  vi.stubGlobal('GPUTextureUsage', { TEXTURE_BINDING: 4, COPY_DST: 2 });
+  vi.stubGlobal('GPUTextureUsage', {
+    COPY_SRC: 1,
+    COPY_DST: 2,
+    TEXTURE_BINDING: 4,
+    STORAGE_BINDING: 8,
+    RENDER_ATTACHMENT: 16,
+  });
   let width = 128;
   let height = 64;
   let mutations = 0;
@@ -68,6 +74,9 @@ function gpuFixture() {
       };
     },
     createRenderPipeline() {
+      return {};
+    },
+    createComputePipeline() {
       return {};
     },
     createBindGroupLayout() {

@@ -323,6 +323,7 @@ These additions ship in v1.1 (package 1.1.0), not the previously published v1.0 
 - `GLTFLoader.load(url,{signal,allowedOrigins})` and `parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?)` return `GLTFAsset` with scene:Group, animations:AnimationClip[] and idempotent dispose(). External/embedded buffers and images, relative URIs, GLB 2, triangle primitives, normalized/strided/sparse accessors, node TRS and decomposable affine TRS matrices, metallic-roughness materials, UV0 textures, and skins with up to four influences are supported. Buffers/images referenced by the model may be fetched only from the model's own origin (`baseURL`) or from origins listed in `allowedOrigins` (e.g. `['https://cdn.example']`); `data:`/`blob:` URIs are always allowed, and any other origin rejects with `AssetError` before a request is made. Missing normals are generated and missing UVs are zero.
 - Non-triangle topology, vertex colors, UV sets other than UV0, extra skin influences, shear matrices, animated matrix nodes, and morph target attributes other than POSITION/NORMAL/TANGENT reject explicitly, as does any `extensionsRequired` entry outside the implemented set below. Morph targets are supported: per-primitive POSITION and NORMAL deltas (float or normalized integer, including sparse; missing entries are zero; TANGENT deltas are ignored because tangents are not consumed) with mesh/node `weights`, and `weights` animation channels (LINEAR/STEP/CUBICSPLINE). All primitives of a mesh must declare the same target count and a node's weights must match it. Image decoder limits remain those in section 18.
 - Implemented extensions: `KHR_mesh_quantization` (integer/normalized accessors are already dequantized to float); `KHR_materials_emissive_strength` (multiplies `emissiveFactor`, negative rejects); `KHR_materials_unlit`, approximated with existing PBR as black base color, roughness 1, and base color routed to emission (alpha still comes from base color; image-based specular of a dielectric F0 remains faintly visible); `KHR_texture_transform`, baked into UV0 on the CPU per primitive (`uv' = offset + R·S·uv` with the spec's rotation matrix), so every texture slot of one material must share the same transform or the model rejects, and a transform's own `texCoord` other than 0 rejects; `KHR_lights_punctual`, exposed as `asset.lights` (`point: PointLight[]`, `spot: SpotLight[]`, `directional: {direction,color,intensity}[]`) evaluated once at load at each node's world transform, with raw glTF photometric intensity and `range` absent → 0 (unbounded). Lights are not added to a Scene automatically, do not follow node animation, and directional lights map to the single `scene.directionalLight` only by your choice. Mipmapped sampler minification filters (9984–9987) are accepted and degrade to the matching nearest/linear filter because no mipmaps are generated. Other optional extensions are ignored using their core fallback. Verified with unit tests on synthetic models only; no third-party model corpus was run.
+- P39 also implements required `KHR_materials_ior`, `KHR_materials_specular`, `KHR_materials_clearcoat`, `KHR_materials_sheen`, `KHR_materials_transmission` and `KHR_materials_volume`; see section 37 for material contracts and raster approximations.
 - `src/data/models.ts` fixes input at 32 MiB, aggregate fetched and tracked decoded allocations at 128 MiB each, entries per top-level list at 10,000, accessor scalar elements at 4,194,304, total vertices at 1,000,000, indices at 3,000,000, joints per skin at 256, morph targets per mesh at 64, and hierarchy depth at 256. Limits reject rather than truncate; these accounting budgets are not a total browser-memory guarantee.
 - Applications must call `asset.dispose()` after removing/stopping all consumers: it destroys loader-owned nodes and textures. Scene destruction alone does not release the asset's owned textures; do not dispose while another live object borrows them. Abort/parse failure cleans up owned resources.
 - `KeyframeTrack(target,path,times,values,interpolation='LINEAR')` targets translation/rotation/scale on an `Object3D`, or `'weights'` on a `MorphWeights` (values are `keys × targetCount` scalars; cubic triplets apply per weight); STEP, LINEAR and CUBICSPLINE are supported. Times are increasing nonnegative seconds; cubic values use incoming tangent/value/outgoing tangent triplets. Linear Quaternion interpolation uses the shortest path; cubic results are normalized.
@@ -689,3 +690,49 @@ environment; that filter is not a dedicated Charlie convolution. This and the
 finite lookup resolution are approximations, not a strict energy-conservation or
 reference-renderer guarantee. Equations and layering are described in the
 [sheen specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen).
+
+### Transmission and Volume (P39d)
+
+`transmission` is 0–1 (default 0); `transmissionTexture` multiplies it by linear
+R. It replaces diffuse response, not specular reflection or alpha coverage,
+and has no effect on a fully metallic base. `thickness` is finite and
+nonnegative in mesh-local units (default 0); `thicknessTexture` multiplies it by
+linear G. Their `transmissionSampler` / `thicknessSampler` follow the borrowed
+slot contract. `attenuationColor` is linear RGB in 0–1 (default white);
+`attenuationDistance` is positive in world units (default `Infinity`, disabling
+absorption). Beer–Lambert attenuation is `color ** (worldLength / distance)`.
+
+Zero thickness is a thin wall without macroscopic refraction. A positive
+thickness denotes a closed volume: back faces are discarded even when
+`doubleSided` is true. A Snell ray uses the base IOR; its local thickness is
+converted to world length with the inverse object-and-instance transform,
+including nonuniform scale. Its projected endpoint samples the opaque scene.
+Rough transmission uses a nine-tap screen-space filter, with blur reducing to
+zero at IOR 1; this is not a reference GGX BTDF convolution.
+
+Visible transmission lazily enables a linear HDR capture, even with
+`postProcessing.enabled = false`. Sky and opaque nontransmitting objects render
+first; then transmitting and alpha-blended objects render against that snapshot.
+Depth survives the split; WebGPU stores and reloads its MSAA attachment, while
+WebGL2 retains the existing single-sample HDR target. Disabled postprocessing
+uses a neutral sRGB resolve, not configured exposure, tone mapping or effects.
+The capture resizes with the canvas and is released when no longer needed.
+WebGL2 requires `EXT_color_buffer_float`; unavailable HDR support rejects rather
+than silently rendering an opaque substitute.
+Two optical maps of arbitrary, independent dimensions share a packed two-layer
+array. Native texels are copied once without resampling; metadata preserves
+nearest/linear min/mag filtering and clamp/repeat/mirror addressing. The material
+and scene together remain within the 16 sampled-texture minimum on both backends.
+
+GLTFLoader accepts required transmission/volume extensions, factors, maps and
+samplers with the existing UV0/shared-transform restriction. Volume requires
+transmission; unlit combinations reject. Alpha mode remains independent.
+See the [transmission](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
+and [volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)
+specifications.
+
+This raster approximation sees opaque objects, not recursively transmitted or
+alpha-blended layers. Offscreen samples clamp to the capture edge. It does not
+ray-trace an exit surface, handle nested IOR/camera-inside total internal
+reflection, scatter light, or cast colored/transmitted shadows; the existing
+opaque shadow silhouettes remain.

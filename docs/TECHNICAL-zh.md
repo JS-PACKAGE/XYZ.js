@@ -323,6 +323,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 - GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；模型引用的 buffers／images 只能從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得，data:／blob: 一律允許，其他 origin 會在發出請求前以 AssetError 拒絕；缺 normals 時產生，缺 UV 時填零。
 - 非 triangle topology、vertex colors、非 UV0 texture、額外 skin influences、shear matrix、animated matrix node，以及 POSITION／NORMAL／TANGENT 以外的 morph target attributes 明確拒絕；`extensionsRequired` 中不在下列已實作集合內的項目同樣拒絕。Morph targets 已支援：每 primitive 的 POSITION／NORMAL deltas（float 或 normalized integer，含 sparse；缺項視為零；TANGENT deltas 因 tangents 未被使用而忽略），加上 mesh／node `weights` 與 `weights` animation channels（LINEAR／STEP／CUBICSPLINE）。同一 mesh 的所有 primitives 必須有相同 target 數，node weights 數量須一致。影像解碼限制仍見第 18 節。
 - 已實作 extensions：`KHR_mesh_quantization`（整數／normalized accessors 已還原為 float）；`KHR_materials_emissive_strength`（乘上 `emissiveFactor`，負值拒絕）；`KHR_materials_unlit`，以既有 PBR 近似：黑色 base color、roughness 1、base color 導向 emission（alpha 仍取自 base color；dielectric F0 的 image-based specular 仍有微弱可見）；`KHR_texture_transform`，於 CPU 對每個 primitive 烘進 UV0（`uv' = offset + R·S·uv`，採規格的旋轉矩陣），因此同一材質的所有 texture slot 必須使用相同 transform，否則拒絕，transform 自帶的 `texCoord` 非 0 也拒絕；`KHR_lights_punctual`，以 `asset.lights`（`point: PointLight[]`、`spot: SpotLight[]`、`directional: {direction,color,intensity}[]`）提供，載入時依各 node 的 world transform 計算一次，強度為 glTF 原始光度值，缺少 `range` 視為 0（無限）。Lights 不會自動加入 Scene、不跟隨 node 動畫，directional 是否對應單一 `scene.directionalLight` 由你決定。Mipmapped sampler minification filters（9984–9987）被接受並降為對應的 nearest／linear，因為不會產生 mipmaps。其他 optional extensions 使用 core fallback 忽略。僅以合成模型的 unit tests 驗證，未跑第三方模型集。
+- P39 另支援 required `KHR_materials_ior`、`KHR_materials_specular`、`KHR_materials_clearcoat`、`KHR_materials_sheen`、`KHR_materials_transmission`、`KHR_materials_volume`；材質契約與 raster 近似見第 37 節。
 - src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、每 mesh morph targets 64、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
 - 應用在移除／停止所有 consumers 後必須 asset.dispose()，釋放 loader-owned nodes／textures。僅 Scene destroy 不釋放 asset-owned textures；仍有 live borrower 時不可 dispose。Abort／parse failure 清理自有資源。
 - KeyframeTrack(target,path,times,values,interpolation='LINEAR') 支援 `Object3D` 的 translation／rotation／scale，或 `MorphWeights` 的 `'weights'`（values 為 keys × targetCount 個 scalar，cubic triplet 對每個 weight 套用），以及 STEP／LINEAR／CUBICSPLINE。Times 為嚴格遞增非負秒數；cubic values 是 incoming tangent／value／outgoing tangent triplets。Linear Quaternion 取最短路徑，cubic 結果 normalize。
@@ -657,3 +658,43 @@ Sheen IBL 使用 directional albedo 與既有 roughness-filtered environment，
 該 filter 並非專用 Charlie convolution。這些近似與有限 lookup 解析度不保證嚴格
 energy conservation 或 reference-renderer 精度。方程與 layering 見
 [sheen 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen)。
+
+### Transmission 與 Volume（P39d）
+
+`transmission` 為 0–1（預設 0），`transmissionTexture` 取 linear R 相乘；
+取代 diffuse response，不移除 specular reflection，也不改 alpha coverage；
+fully metallic base 不受影響。`thickness` 是 mesh-local units 的有限非負值
+（預設 0），`thicknessTexture` 取 linear G 相乘。`transmissionSampler`／
+`thicknessSampler` 沿用借用 slot 契約。`attenuationColor` 是 0–1 linear RGB
+（預設白色）；`attenuationDistance` 是 world units 的正值（預設 `Infinity`，
+停用吸收）。Beer–Lambert 衰減為 `color ** (worldLength / distance)`。
+
+厚度為零是沒有宏觀折射的 thin wall；正厚度代表 closed volume，即使
+`doubleSided` 為 true 仍丟棄 back faces。Snell ray 使用 base IOR；透過 object
+與 instance 的 inverse transform，將 local thickness 換算成 world length，
+包含非均勻縮放，再將 ray endpoint 投影到 opaque scene。Rough transmission
+使用 nine-tap screen-space filter，IOR 1 時 blur 為零，不是 reference GGX
+BTDF convolution。
+
+可見 transmission 即使在 `postProcessing.enabled = false` 時，也 lazy 建立
+linear HDR capture。先畫 sky 與不透光、不傳光物件，再畫 transmitting 與
+alpha-blended 物件；後者取樣前者的 snapshot。兩階段保留 depth；WebGPU 以
+store／load 延續 MSAA attachment，WebGL2 沿用既有單取樣 HDR target。
+停用 postprocessing 時只做 neutral sRGB resolve，不套用設定中的 exposure、
+tone mapping 或 effects。Capture 隨 canvas resize，不再需要時釋放。
+WebGL2 需要 `EXT_color_buffer_float`，缺少 HDR 支援時明確拒絕，不假裝以不透明
+材質替代。
+兩個不同尺寸的光學 maps 共用 packed two-layer array；native texels 只複製一次、
+不重取樣，metadata 保留 nearest／linear min／mag 與 clamp／repeat／mirror。
+材質加上 scene 仍符合兩 backend 最低 16 sampled textures 限制。
+
+GLTFLoader 支援 required transmission／volume extensions、factors、maps 與
+samplers，沿用 UV0／shared-transform 限制；volume 必須搭配 transmission，
+unlit 共存會拒絕。Alpha mode 保持獨立。規格見
+[transmission](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
+與 [volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)。
+
+此 raster 近似只看到 opaque 物件，不遞迴合成 transmitting／alpha-blended 層；
+offscreen samples clamp 到 capture 邊界。不做 exit-surface ray tracing、
+nested IOR／camera-inside total internal reflection、scattering 或彩色／傳光
+陰影；仍沿用既有不透明 shadow silhouettes。

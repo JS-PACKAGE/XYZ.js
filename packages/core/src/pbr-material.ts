@@ -36,6 +36,14 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   sheenRoughnessTexture?: Texture;
   sheenColorSampler?: TextureSamplerOptions;
   sheenRoughnessSampler?: TextureSamplerOptions;
+  transmission?: number;
+  transmissionTexture?: Texture;
+  transmissionSampler?: TextureSamplerOptions;
+  thickness?: number;
+  thicknessTexture?: Texture;
+  thicknessSampler?: TextureSamplerOptions;
+  attenuationDistance?: number;
+  attenuationColor?: [number, number, number];
   metallicRoughnessTexture?: Texture;
   normalTexture?: Texture;
   normalScale?: number;
@@ -125,6 +133,16 @@ export class PBRMaterial extends TextureMaterial {
   readonly sheenRoughnessTexture: Texture | undefined;
   readonly sheenColorSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly sheenRoughnessSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly transmission: number;
+  /** Linear R, independent of alpha coverage. */
+  readonly transmissionTexture: Texture | undefined;
+  readonly transmissionSampler: Readonly<TextureSamplerOptions> | undefined;
+  /** Mesh-local thickness; zero selects a thin wall. */
+  readonly thickness: number;
+  readonly thicknessTexture: Texture | undefined;
+  readonly thicknessSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly attenuationDistance: number;
+  readonly attenuationColor: [number, number, number];
   /** Linear texture: roughness in G, metallic in B. */
   readonly metallicRoughnessTexture: Texture | undefined;
   /** Linear tangent-space normal texture, using UV0. */
@@ -186,6 +204,28 @@ export class PBRMaterial extends TextureMaterial {
     unit(sheenRoughness, 'Sheen roughness');
     textureSlot(options.sheenColorTexture, 'Sheen color texture');
     textureSlot(options.sheenRoughnessTexture, 'Sheen roughness texture');
+    const transmission = options.transmission ?? 0;
+    const thickness = options.thickness ?? 0;
+    const attenuationDistance = options.attenuationDistance ?? Infinity;
+    const attenuationColor = options.attenuationColor ?? [1, 1, 1];
+    unit(transmission, 'Transmission factor');
+    finite(thickness, 'Volume thickness');
+    if (thickness < 0)
+      throw new RangeError('Volume thickness cannot be negative.');
+    if (
+      !(attenuationDistance > 0) ||
+      (attenuationDistance !== Infinity &&
+        !Number.isFinite(attenuationDistance))
+    )
+      throw new RangeError(
+        'Attenuation distance must be positive or Infinity.',
+      );
+    if (!Array.isArray(attenuationColor) || attenuationColor.length !== 3)
+      throw new RangeError('Attenuation color must contain three components.');
+    for (const value of attenuationColor)
+      unit(value, 'Attenuation color component');
+    textureSlot(options.transmissionTexture, 'Transmission texture');
+    textureSlot(options.thicknessTexture, 'Thickness texture');
     const normalScale = options.normalScale ?? 1;
     const occlusionStrength = options.occlusionStrength ?? 1;
     const alphaCutoff = options.alphaCutoff ?? 0;
@@ -245,6 +285,14 @@ export class PBRMaterial extends TextureMaterial {
     this.sheenRoughnessTexture = options.sheenRoughnessTexture;
     this.sheenColorSampler = samplerOptions(options.sheenColorSampler);
     this.sheenRoughnessSampler = samplerOptions(options.sheenRoughnessSampler);
+    this.transmission = transmission;
+    this.transmissionTexture = options.transmissionTexture;
+    this.transmissionSampler = samplerOptions(options.transmissionSampler);
+    this.thickness = thickness;
+    this.thicknessTexture = options.thicknessTexture;
+    this.thicknessSampler = samplerOptions(options.thicknessSampler);
+    this.attenuationDistance = attenuationDistance;
+    this.attenuationColor = [...attenuationColor] as [number, number, number];
     this.metallicRoughnessTexture = options.metallicRoughnessTexture;
     this.normalTexture = options.normalTexture;
     this.normalScale = normalScale;

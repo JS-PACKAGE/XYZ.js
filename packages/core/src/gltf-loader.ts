@@ -311,6 +311,8 @@ const supportedExtensions = new Set([
   'KHR_materials_specular',
   'KHR_materials_clearcoat',
   'KHR_materials_sheen',
+  'KHR_materials_transmission',
+  'KHR_materials_volume',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -985,6 +987,18 @@ export class GLTFLoader {
           extensions.KHR_materials_sheen === undefined
             ? undefined
             : object(extensions.KHR_materials_sheen, 'sheen');
+        const transmission =
+          extensions.KHR_materials_transmission === undefined
+            ? undefined
+            : object(extensions.KHR_materials_transmission, 'transmission');
+        const volume =
+          extensions.KHR_materials_volume === undefined
+            ? undefined
+            : object(extensions.KHR_materials_volume, 'volume');
+        if (volume && !transmission)
+          throw new AssetError(
+            'Volume materials require a transmission extension.',
+          );
         const clearcoatNormal =
           clearcoat?.clearcoatNormalTexture === undefined
             ? undefined
@@ -992,9 +1006,12 @@ export class GLTFLoader {
                 clearcoat.clearcoatNormalTexture,
                 'clearcoat normal texture',
               );
-        if (unlit && (ior || specular || clearcoat || sheen))
+        if (
+          unlit &&
+          (ior || specular || clearcoat || sheen || transmission || volume)
+        )
           throw new AssetError(
-            'IOR, specular, clearcoat and sheen extensions cannot be combined with unlit.',
+            'PBR material extensions cannot be combined with unlit.',
           );
         const specularMap = await readTexture(specular?.specularTexture);
         const specularColorMap = await readTexture(
@@ -1009,6 +1026,10 @@ export class GLTFLoader {
         const sheenRoughnessMap = await readTexture(
           sheen?.sheenRoughnessTexture,
         );
+        const transmissionMap = await readTexture(
+          transmission?.transmissionTexture,
+        );
+        const thicknessMap = await readTexture(volume?.thicknessTexture);
         let strength = 1;
         if (extensions.KHR_materials_emissive_strength !== undefined) {
           const ext = object(
@@ -1038,6 +1059,8 @@ export class GLTFLoader {
           clearcoatNormalMap,
           sheenColorMap,
           sheenRoughnessMap,
+          transmissionMap,
+          thicknessMap,
         ].filter((slot) => slot !== undefined);
         const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
         if (keys.size > 1)
@@ -1131,6 +1154,27 @@ export class GLTFLoader {
             sheenRoughnessTexture: sheenRoughnessMap?.texture,
             sheenColorSampler: sheenColorMap?.sampler,
             sheenRoughnessSampler: sheenRoughnessMap?.sampler,
+            transmission: number(
+              transmission?.transmissionFactor ?? 0,
+              'transmission factor',
+            ),
+            transmissionTexture: transmissionMap?.texture,
+            transmissionSampler: transmissionMap?.sampler,
+            thickness: number(volume?.thicknessFactor ?? 0, 'volume thickness'),
+            thicknessTexture: thicknessMap?.texture,
+            thicknessSampler: thicknessMap?.sampler,
+            attenuationDistance:
+              volume?.attenuationDistance === undefined
+                ? Infinity
+                : number(volume.attenuationDistance, 'attenuation distance'),
+            attenuationColor:
+              volume?.attenuationColor === undefined
+                ? [1, 1, 1]
+                : (vector(volume.attenuationColor, 3, 'attenuation color') as [
+                    number,
+                    number,
+                    number,
+                  ]),
             metallicRoughnessTexture: metallicRoughness?.texture,
             metallicRoughnessSampler: metallicRoughness?.sampler,
             normalTexture: normalMap?.texture,

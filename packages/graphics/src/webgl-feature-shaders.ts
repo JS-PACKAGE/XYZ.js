@@ -1,6 +1,7 @@
 import { atlasGLSL } from './shadow-shaders.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
 import { sheenGLSL } from './sheen-shaders.js';
+import { transmissionGLSL } from './transmission-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -18,6 +19,9 @@ out vec3 vNormal;
 out vec2 vUV;
 out vec4 vColor;
 flat out float vOrientation;
+flat out vec3 vLocal0;
+flat out vec3 vLocal1;
+flat out vec3 vLocal2;
 void main() {
   mat4 world = model;
   if (instanced) world = model * instanceMatrix;
@@ -29,7 +33,9 @@ void main() {
   float determinant = dot(m[0], a);
   vOrientation = determinant < 0.0 ? -1.0 : 1.0;
   mat3 cofactor = mat3(a, cross(m[2], m[0]), cross(m[0], m[1]));
-  vNormal = determinant == 0.0 ? vec3(0.0) : cofactor * normal / determinant;
+  mat3 normalMatrix = determinant == 0.0 ? mat3(0.0) : cofactor/determinant;
+  vLocal0 = normalMatrix[0]; vLocal1 = normalMatrix[1]; vLocal2 = normalMatrix[2];
+  vNormal = normalMatrix*normal;
   vPosition = p.xyz;
   vUV = uv;
   vColor = vec4(instanceColor, 1.0) * vertexColor;
@@ -41,6 +47,9 @@ in vec3 vPosition;
 in vec3 vNormal;
 in vec2 vUV;
 in vec4 vColor;
+flat in vec3 vLocal0;
+flat in vec3 vLocal1;
+flat in vec3 vLocal2;
 flat in float vOrientation;
 uniform sampler2D image;
 uniform sampler2D metallicRoughnessMap;
@@ -60,6 +69,13 @@ uniform vec4 sheen; // linear RGB, roughness
 uniform vec4 sheenMaps; // color map, roughness map, unused, unused
 uniform sampler2D sheenColorMap;
 uniform sampler2D sheenRoughnessMap;
+uniform vec4 transmission; // strength, local thickness, inverse attenuation distance, IOR
+uniform vec3 attenuationColor;
+uniform vec4 transmissionMapSettings;
+uniform vec4 thicknessMapSettings;
+uniform highp sampler2DArray opticalMaps;
+uniform sampler2D opaqueScene;
+uniform mat4 viewProjection;
 uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
@@ -78,6 +94,7 @@ uniform bool receiveShadow;
 out vec4 color;
 ${atlasGLSL}
 const float PI = 3.141592653589793;
+${transmissionGLSL}
 ${sheenGLSL}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
@@ -110,7 +127,7 @@ vec2 environmentBRDF(float nv, float rough) {
   float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
   return vec2(-1.04, 1.04) * a004 + r.zw;
 }
-vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, vec3 dielectricF0, float weight) {
+vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, vec3 dielectricF0, float weight, float transmission) {
   float nl = max(dot(n, l), 0.0);
   float nv = max(dot(n, v), .0001);
   vec3 h = (v + l) / max(length(v + l), .000001);
@@ -126,7 +143,7 @@ vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, ve
   vec3 dielectric = dielectricF0 + (vec3(weight)-dielectricF0)*(specularParams.y > .5 ? 0.0 : grazing);
   vec3 f = mix(dielectric,base+(1.0-base)*grazing,metallic);
   float remaining = 1.0-max(max(dielectric.r,dielectric.g),dielectric.b);
-  return (remaining*(1.0-metallic)*base/PI + d*g*f/max(4.0*nv*nl,.0001))*nl;
+  return (remaining*(1.0-metallic)*(1.0-transmission)*base/PI + d*g*f/max(4.0*nv*nl,.0001))*nl;
 }
 float clearcoatLobe(vec3 n, vec3 v, vec3 l, float rough) {
   float nl = max(dot(n,l),0.0), nv = max(dot(n,v),.000001);
@@ -163,7 +180,7 @@ void main() {
     if (alphaMode != 2) opacity = 1.0;
   }
   bool front = gl_FrontFacing == (vOrientation > 0.0);
-  if (pbr && !doubleSided && !front) discard;
+  if (pbr && (!doubleSided || transmission.y > 0.0) && !front) discard;
   vec3 n = vNormal / max(length(vNormal), .000001);
   if (pbr && !front) n = -n;
   vec3 nc = n;
@@ -200,6 +217,11 @@ void main() {
     float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
+    float transmissionWeight = 0.0, thickness = transmission.y;
+    if (transmission.x > 0.0) {
+      transmissionWeight = transmission.x*opticalSample(vUV,transmissionMapSettings,0).r;
+      thickness *= opticalSample(vUV,thicknessMapSettings,1).g;
+    }
     vec3 sheenTint = sheen.rgb;
     float sheenRoughness = sheen.w;
     if (any(greaterThan(sheen.rgb,vec3(0.0)))) {
@@ -218,14 +240,14 @@ void main() {
     coatRoughness = clamp(coatRoughness,.04,1.0);
     float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
     vec3 coating = vec3(0.0);
-    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * ao * (environment[9].y > 0.5 ? 0.0 : 1.0);
+    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * (1.0-transmissionWeight) * ao * (environment[9].y > 0.5 ? 0.0 : 1.0);
     if (environment[9].y > 0.5) {
       float nv = max(dot(n, v), .0001);
       vec2 ab = environmentBRDF(nv, roughness);
       vec3 dielectric = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
       vec3 reflected = mix(dielectric,base*ab.x+vec3(ab.y),metallic);
       vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
-      vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
+      vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*(1.0-transmissionWeight)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
       result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
       if (sheenMax > 0.0) {
         vec3 sheenRadiance = textureLod(environmentMap,equirectUV(reflect(-v,n)),sheenRoughness*environment[9].z).rgb;
@@ -237,7 +259,7 @@ void main() {
         coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao*environment[9].x;
       }
     }
-    result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight, transmissionWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
     if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     for (int i = 0; i < 8; i++) {
@@ -247,7 +269,7 @@ void main() {
       float d2 = dot(delta, delta);
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*pointShadow(i,p.xyz);
       vec3 pl = delta/max(sqrt(d2),.000001);
-      result += brdf(base,metallic,roughness,n,v,pl,dielectricF0,specularWeight)*incident;
+      result += brdf(base,metallic,roughness,n,v,pl,dielectricF0,specularWeight,transmissionWeight)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
     }
@@ -259,9 +281,25 @@ void main() {
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
-      result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight)*incident;
+      result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight,transmissionWeight)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,sl,coatRoughness)*coatFresnel*incident;
+    }
+    if (transmissionWeight > 0.0 && metallic < 1.0) {
+      vec3 ray = refract(-v,n,1.0/max(transmission.w,1.0));
+      ray /= max(length(ray),.000001);
+      float localLength = length(vec3(dot(vLocal0,ray),dot(vLocal1,ray),dot(vLocal2,ray)));
+      float distance = localLength > 0.0 ? thickness/max(localLength,.000001) : 0.0;
+      vec2 uv = gl_FragCoord.xy/vec2(textureSize(opaqueScene,0));
+      if (distance > 0.0) {
+        vec4 exit = viewProjection*vec4(vPosition+ray*distance,1.0);
+        if (exit.w > .000001) uv = exit.xy/exit.w*.5+.5;
+      }
+      vec3 transmitted = roughTransmission(uv,roughness,transmission.w);
+      if (distance > 0.0 && transmission.z > 0.0) transmitted *= pow(attenuationColor.rgb,vec3(distance*transmission.z));
+      vec2 ab = environmentBRDF(max(dot(n,v),.0001),roughness);
+      vec3 fresnel = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
+      result += transmitted*base*transmissionWeight*(1.0-metallic)*max(1.0-max(max(fresnel.r,fresnel.g),fresnel.b),0.0);
     }
     if (sheenMax > 0.0) result = result*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting;
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));

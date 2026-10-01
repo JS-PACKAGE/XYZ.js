@@ -1,6 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
-import { DrawSorter } from '../../core/src/draw-order.js';
+import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
 import { Mesh } from '../../core/src/mesh.js';
 import {
   type Material2D,
@@ -36,6 +36,8 @@ import {
   skyFragment,
 } from './webgl-feature-shaders.js';
 import { fxaaGLSL } from './fxaa-shaders.js';
+import { opticalPackGLSL } from './optical-pack-shaders.js';
+import { fillOpticalMapSettings } from './optical-maps.js';
 import { type Texture2DSource, Texture } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
@@ -208,6 +210,18 @@ export class WebGL2Renderer implements Renderer {
   private readonly atlas = new ShadowAtlas();
   private shadowBuffer: WebGLBuffer | undefined;
   private sheenBuffer: WebGLBuffer | undefined;
+  private readonly opticalTextures = new Map<
+    PBRMaterial,
+    { resource: WebGLTexture; seen: number }
+  >();
+  private readonly opticalSettings = new Float32Array(8);
+  private emptyOptical: WebGLTexture | undefined;
+  private opticalPackProgram: WebGLProgram | undefined;
+  private opticalPackFramebuffer: WebGLFramebuffer | undefined;
+  private opticalPackSide: WebGLUniformLocation | null = null;
+  private refractionTarget: RenderTarget | undefined;
+  private hasTransmission = false;
+  private linear3D = false;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
   private fxaaProgram: WebGLProgram | undefined;
@@ -375,6 +389,29 @@ export class WebGL2Renderer implements Renderer {
         gl.getUniformBlockIndex(this.meshProgram, 'SheenLookup'),
         1,
       );
+      this.opticalPackProgram = this.createProgram(
+        gl,
+        postVertex,
+        opticalPackGLSL,
+        'optical packing',
+      );
+      this.opticalPackFramebuffer = gl.createFramebuffer() ?? undefined;
+      this.emptyOptical = gl.createTexture() ?? undefined;
+      if (!this.opticalPackFramebuffer || !this.emptyOptical)
+        throw new WebGL2InitializationError(
+          'WebGL2 optical resource allocation failed.',
+        );
+      gl.activeTexture(gl.TEXTURE0 + 14);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 2);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.useProgram(this.opticalPackProgram);
+      gl.uniform1i(gl.getUniformLocation(this.opticalPackProgram, 'image'), 0);
+      this.opticalPackSide = gl.getUniformLocation(
+        this.opticalPackProgram,
+        'side',
+      );
       for (const name of [
         'viewProjection',
         'model',
@@ -408,6 +445,12 @@ export class WebGL2Renderer implements Renderer {
         'sheenMaps',
         'sheenColorMap',
         'sheenRoughnessMap',
+        'transmission',
+        'attenuationColor',
+        'transmissionMapSettings',
+        'thicknessMapSettings',
+        'opticalMaps',
+        'opaqueScene',
         'shadowMap',
         'environment[0]',
         'environmentMap',
@@ -791,8 +834,11 @@ export class WebGL2Renderer implements Renderer {
         ? this.sceneTarget!.framebuffer
         : (destination?.framebuffer ?? null);
       this.stats.begin();
+      this.hasTransmission = this.linear3D = false;
       if (scene) {
         validateRenderSettings(scene);
+        this.collectMeshes(scene, logicalWidth / logicalHeight);
+        this.linear3D = scene.postProcessing.enabled || this.hasTransmission;
         fillLightingData(scene, this.lightingData);
         this.atlas.update(scene, logicalWidth / logicalHeight);
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
@@ -815,8 +861,7 @@ export class WebGL2Renderer implements Renderer {
           this.deleteTarget(this.shadowTarget);
           this.shadowTarget = undefined;
         }
-        if (scene.postProcessing.enabled)
-          this.preparePostTarget(canvas.width, canvas.height);
+        if (this.linear3D) this.preparePostTarget(canvas.width, canvas.height);
         else if (this.postTarget) {
           this.deleteTarget(this.postTarget);
           this.postTarget = undefined;
@@ -825,23 +870,33 @@ export class WebGL2Renderer implements Renderer {
           this.deleteTarget(this.fxaaTarget);
           this.fxaaTarget = undefined;
         }
-      } else this.commands.clear();
+        if (this.hasTransmission)
+          this.prepareRefractionTarget(canvas.width, canvas.height);
+        else if (this.refractionTarget) {
+          this.deleteTarget(this.refractionTarget);
+          this.refractionTarget = undefined;
+        }
+      } else {
+        this.commands.clear();
+        if (this.refractionTarget) {
+          this.deleteTarget(this.refractionTarget);
+          this.refractionTarget = undefined;
+        }
+      }
       gl.bindFramebuffer(
         gl.FRAMEBUFFER,
-        scene?.postProcessing.enabled
-          ? this.postTarget!.framebuffer
-          : sceneFramebuffer,
+        this.linear3D ? this.postTarget!.framebuffer : sceneFramebuffer,
       );
       gl.disable(gl.SCISSOR_TEST);
       gl.viewport(0, 0, canvas.width, canvas.height);
       gl.clearColor(
-        scene?.postProcessing.enabled
+        this.linear3D
           ? this.decodeColor(defaults.clearColor.r)
           : defaults.clearColor.r,
-        scene?.postProcessing.enabled
+        this.linear3D
           ? this.decodeColor(defaults.clearColor.g)
           : defaults.clearColor.g,
-        scene?.postProcessing.enabled
+        this.linear3D
           ? this.decodeColor(defaults.clearColor.b)
           : defaults.clearColor.b,
         defaults.clearColor.a,
@@ -854,8 +909,7 @@ export class WebGL2Renderer implements Renderer {
       if (scene) {
         this.drawMeshes(scene, logicalWidth / logicalHeight);
         gl.disable(gl.DEPTH_TEST);
-        if (scene.postProcessing.enabled)
-          this.drawPost(scene, sceneFramebuffer);
+        if (this.linear3D) this.drawPost(scene, sceneFramebuffer);
         if (process3D)
           this.drawEffects2D(
             chain3D!,
@@ -1087,6 +1141,112 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE0);
   }
 
+  private collectMeshes(scene: Scene, aspect: number): void {
+    this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
+    const draws = this.meshDraws;
+    draws.length = 0;
+    for (const object of scene.objects) {
+      if (
+        !(object instanceof Mesh) ||
+        !object.worldVisible ||
+        (object.material.opacity <= 0 &&
+          (!(object.material instanceof PBRMaterial) ||
+            object.material.alphaMode === 'BLEND')) ||
+        object.material.texture.destroyed ||
+        object.geometry.indices.length === 0
+      )
+        continue;
+      this.stats.meshes++;
+      if (!object.isInFrustum(this.frustum)) {
+        this.stats.culled++;
+        continue;
+      }
+      draws.push(object);
+      if (
+        object.material instanceof PBRMaterial &&
+        (!(object instanceof InstancedMesh) || object.count > 0)
+      ) {
+        this.cacheOpticalMaps(object.material);
+        if (object.material.transmission > 0) this.hasTransmission = true;
+      }
+    }
+    this.drawSorter.sort(draws, scene.camera3D.position);
+  }
+
+  private cacheOpticalMaps(material: PBRMaterial): void {
+    const a = material.transmissionTexture,
+      b = material.thicknessTexture;
+    if (!a && !b) return;
+    if (a?.destroyed || b?.destroyed)
+      throw new GraphicsError('WebGL2 optical map has been destroyed.');
+    const existing = this.opticalTextures.get(material);
+    if (existing) {
+      existing.seen = this.frame;
+      return;
+    }
+    const gl = this.gl!;
+    const side = Math.ceil(
+      Math.sqrt(
+        Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
+      ),
+    );
+    const resource = gl.createTexture();
+    if (!resource)
+      throw new GraphicsError('WebGL2 optical array allocation failed.');
+    try {
+      gl.activeTexture(gl.TEXTURE0 + 14);
+      gl.bindSampler(14, null);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, resource);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 2);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.useProgram(this.opticalPackProgram!);
+      gl.uniform1i(this.opticalPackSide, side);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.opticalPackFramebuffer!);
+      gl.viewport(0, 0, side, side);
+      gl.disable(gl.BLEND);
+      gl.disable(gl.DEPTH_TEST);
+      gl.disable(gl.CULL_FACE);
+      gl.disable(gl.SCISSOR_TEST);
+      gl.bindVertexArray(this.triangleVAO!);
+      gl.activeTexture(gl.TEXTURE0);
+      gl.bindSampler(0, null);
+      for (let layer = 0; layer < 2; layer++) {
+        const source = layer === 0 ? a : b;
+        if (!source) continue;
+        const entry = this.cacheTexture(source);
+        entry.seen = this.frame;
+        gl.bindTexture(gl.TEXTURE_2D, entry.resource);
+        gl.framebufferTextureLayer(
+          gl.FRAMEBUFFER,
+          gl.COLOR_ATTACHMENT0,
+          resource,
+          0,
+          layer,
+        );
+        if (
+          gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE
+        )
+          throw new GraphicsError(
+            'WebGL2 optical packing framebuffer is incomplete.',
+          );
+        gl.drawArrays(gl.TRIANGLES, 0, 3);
+      }
+      this.opticalTextures.set(material, { resource, seen: this.frame });
+    } catch (error) {
+      gl.deleteTexture(resource);
+      throw error;
+    } finally {
+      gl.framebufferTextureLayer(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        null,
+        0,
+        0,
+      );
+    }
+  }
+
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
     const uniforms = this.meshUniforms;
@@ -1113,7 +1273,7 @@ export class WebGL2Renderer implements Renderer {
     );
     const camera = scene.camera3D.position;
     gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
-    gl.uniform1i(uniforms.linearOutput, scene.postProcessing.enabled ? 1 : 0);
+    gl.uniform1i(uniforms.linearOutput, this.linear3D ? 1 : 0);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
     gl.activeTexture(gl.TEXTURE5);
@@ -1124,189 +1284,257 @@ export class WebGL2Renderer implements Renderer {
     gl.depthMask(true);
     // Shader-side winding handles mixed mirrored instances in a single draw.
     gl.disable(gl.CULL_FACE);
+    gl.activeTexture(gl.TEXTURE0 + 15);
+    gl.bindSampler(15, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.refractionTarget?.texture ?? null);
+    gl.uniform1i(uniforms.opaqueScene, 15);
+    gl.uniform1i(uniforms.opticalMaps, 14);
+    gl.activeTexture(gl.TEXTURE0 + 14);
+    gl.bindSampler(14, null);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical!);
     const draws = this.meshDraws;
-    draws.length = 0;
-    for (const object of scene.objects) {
-      if (
-        !(object instanceof Mesh) ||
-        !object.worldVisible ||
-        (object.material.opacity <= 0 &&
-          (!(object.material instanceof PBRMaterial) ||
-            object.material.alphaMode === 'BLEND')) ||
-        object.material.texture.destroyed ||
-        object.geometry.indices.length === 0
-      )
-        continue;
-      this.stats.meshes++;
-      if (!object.isInFrustum(this.frustum)) {
-        this.stats.culled++;
-        continue;
-      }
-      draws.push(object);
-    }
-    this.drawSorter.sort(draws, scene.camera3D.position);
-    for (const object of draws) {
-      object.updateDeformation();
-      const material = object.material;
-      const pbr = material instanceof PBRMaterial;
-      gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
-      gl.uniform1i(uniforms.doubleSided, pbr && !material.doubleSided ? 0 : 1);
-      gl.uniform1i(
-        uniforms.alphaMode,
-        pbr
-          ? material.alphaMode === 'OPAQUE'
-            ? 0
-            : material.alphaMode === 'MASK'
+    const phases = this.hasTransmission ? 2 : 1;
+    for (let phase = 0; phase < phases; phase++) {
+      for (const object of draws) {
+        if (this.hasTransmission) {
+          const deferred =
+            isBlended(object) ||
+            (object.material instanceof PBRMaterial &&
+              object.material.transmission > 0);
+          if (deferred !== (phase === 1)) continue;
+        }
+        object.updateDeformation();
+        const material = object.material;
+        const pbr = material instanceof PBRMaterial;
+        gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
+        gl.uniform1i(
+          uniforms.doubleSided,
+          pbr && !material.doubleSided ? 0 : 1,
+        );
+        gl.uniform1i(
+          uniforms.alphaMode,
+          pbr
+            ? material.alphaMode === 'OPAQUE'
+              ? 0
+              : material.alphaMode === 'MASK'
+                ? 1
+                : 2
+            : 2,
+        );
+        const tint = this.tintData;
+        tint[0] = material.color[0];
+        tint[1] = material.color[1];
+        tint[2] = material.color[2];
+        tint[3] = material.opacity;
+        gl.uniform4fv(uniforms.tint, tint);
+        gl.uniform1i(uniforms.receiveShadow, object.receiveShadow ? 1 : 0);
+        this.bindMaterialTexture(
+          material.texture,
+          0,
+          pbr ? material.textureSampler : undefined,
+        );
+        if (pbr) {
+          gl.uniform4f(
+            uniforms.transmission,
+            material.transmission,
+            material.thickness,
+            1 / material.attenuationDistance,
+            material.ior,
+          );
+          gl.uniform3f(
+            uniforms.attenuationColor,
+            material.attenuationColor[0],
+            material.attenuationColor[1],
+            material.attenuationColor[2],
+          );
+          fillOpticalMapSettings(
+            this.opticalSettings,
+            0,
+            material.transmissionTexture,
+            material.transmissionSampler,
+          );
+          fillOpticalMapSettings(
+            this.opticalSettings,
+            4,
+            material.thicknessTexture,
+            material.thicknessSampler,
+          );
+          gl.uniform4f(
+            uniforms.transmissionMapSettings,
+            this.opticalSettings[0]!,
+            this.opticalSettings[1]!,
+            this.opticalSettings[2]!,
+            this.opticalSettings[3]!,
+          );
+          gl.uniform4f(
+            uniforms.thicknessMapSettings,
+            this.opticalSettings[4]!,
+            this.opticalSettings[5]!,
+            this.opticalSettings[6]!,
+            this.opticalSettings[7]!,
+          );
+          gl.activeTexture(gl.TEXTURE0 + 14);
+          gl.bindSampler(14, null);
+          gl.bindTexture(
+            gl.TEXTURE_2D_ARRAY,
+            this.opticalTextures.get(material)?.resource ?? this.emptyOptical!,
+          );
+          gl.uniform4f(
+            uniforms.specularColor,
+            material.specularColor[0],
+            material.specularColor[1],
+            material.specularColor[2],
+            material.ior === 0
               ? 1
-              : 2
-          : 2,
-      );
-      const tint = this.tintData;
-      tint[0] = material.color[0];
-      tint[1] = material.color[1];
-      tint[2] = material.color[2];
-      tint[3] = material.opacity;
-      gl.uniform4fv(uniforms.tint, tint);
-      gl.uniform1i(uniforms.receiveShadow, object.receiveShadow ? 1 : 0);
-      this.bindMaterialTexture(
-        material.texture,
-        0,
-        pbr ? material.textureSampler : undefined,
-      );
-      if (pbr) {
-        gl.uniform4f(
-          uniforms.specularColor,
-          material.specularColor[0],
-          material.specularColor[1],
-          material.specularColor[2],
-          material.ior === 0
-            ? 1
-            : ((material.ior - 1) / (material.ior + 1)) ** 2,
-        );
-        gl.uniform4f(
-          uniforms.specularParams,
-          material.specular,
-          material.ior === 0 ? 1 : 0,
-          material.specularTexture ? 1 : 0,
-          material.specularColorTexture ? 1 : 0,
-        );
-        gl.uniform1i(uniforms.specularMap, 7);
-        gl.uniform1i(uniforms.specularColorMap, 8);
-        this.bindMaterialTexture(
-          material.specularTexture ?? material.texture,
-          7,
-          material.specularSampler,
-        );
-        this.bindMaterialTexture(
-          material.specularColorTexture ?? material.texture,
-          8,
-          material.specularColorSampler,
-        );
-        gl.uniform4f(
-          uniforms.clearcoat,
-          material.clearcoat,
-          material.clearcoatRoughness,
-          material.clearcoatNormalScale,
-          0,
-        );
-        gl.uniform4f(
-          uniforms.clearcoatMaps,
-          material.clearcoatTexture ? 1 : 0,
-          material.clearcoatRoughnessTexture ? 1 : 0,
-          material.clearcoatNormalTexture ? 1 : 0,
-          0,
-        );
-        gl.uniform1i(uniforms.clearcoatMap, 9);
-        gl.uniform1i(uniforms.clearcoatRoughnessMap, 10);
-        gl.uniform1i(uniforms.clearcoatNormalMap, 11);
-        this.bindMaterialTexture(
-          material.clearcoatTexture ?? material.texture,
-          9,
-          material.clearcoatSampler,
-        );
-        this.bindMaterialTexture(
-          material.clearcoatRoughnessTexture ?? material.texture,
-          10,
-          material.clearcoatRoughnessSampler,
-        );
-        this.bindMaterialTexture(
-          material.clearcoatNormalTexture ?? material.texture,
-          11,
-          material.clearcoatNormalSampler,
-        );
-        gl.uniform4f(
-          uniforms.sheen,
-          material.sheenColor[0],
-          material.sheenColor[1],
-          material.sheenColor[2],
-          material.sheenRoughness,
-        );
-        gl.uniform4f(
-          uniforms.sheenMaps,
-          material.sheenColorTexture ? 1 : 0,
-          material.sheenRoughnessTexture ? 1 : 0,
-          0,
-          0,
-        );
-        gl.uniform1i(uniforms.sheenColorMap, 12);
-        gl.uniform1i(uniforms.sheenRoughnessMap, 13);
-        this.bindMaterialTexture(
-          material.sheenColorTexture ?? material.texture,
-          12,
-          material.sheenColorSampler,
-        );
-        this.bindMaterialTexture(
-          material.sheenRoughnessTexture ?? material.texture,
-          13,
-          material.sheenRoughnessSampler,
-        );
-        gl.uniform4f(
-          uniforms.surface,
-          material.metallic,
-          material.roughness,
-          material.normalScale,
-          material.occlusionStrength,
-        );
-        gl.uniform4f(
-          uniforms.emission,
-          material.emissive[0],
-          material.emissive[1],
-          material.emissive[2],
-          material.alphaCutoff,
-        );
-        gl.uniform4i(
-          uniforms.maps,
-          material.metallicRoughnessTexture ? 1 : 0,
-          material.normalTexture ? 1 : 0,
-          material.occlusionTexture ? 1 : 0,
-          material.emissiveTexture ? 1 : 0,
-        );
-        this.bindMaterialTexture(
-          material.metallicRoughnessTexture ?? material.texture,
-          1,
-          material.metallicRoughnessSampler,
-        );
-        this.bindMaterialTexture(
-          material.normalTexture ?? material.texture,
-          2,
-          material.normalSampler,
-        );
-        this.bindMaterialTexture(
-          material.occlusionTexture ?? material.texture,
-          3,
-          material.occlusionSampler,
-        );
-        this.bindMaterialTexture(
-          material.emissiveTexture ?? material.texture,
-          4,
-          material.emissiveSampler,
+              : ((material.ior - 1) / (material.ior + 1)) ** 2,
+          );
+          gl.uniform4f(
+            uniforms.specularParams,
+            material.specular,
+            material.ior === 0 ? 1 : 0,
+            material.specularTexture ? 1 : 0,
+            material.specularColorTexture ? 1 : 0,
+          );
+          gl.uniform1i(uniforms.specularMap, 7);
+          gl.uniform1i(uniforms.specularColorMap, 8);
+          this.bindMaterialTexture(
+            material.specularTexture ?? material.texture,
+            7,
+            material.specularSampler,
+          );
+          this.bindMaterialTexture(
+            material.specularColorTexture ?? material.texture,
+            8,
+            material.specularColorSampler,
+          );
+          gl.uniform4f(
+            uniforms.clearcoat,
+            material.clearcoat,
+            material.clearcoatRoughness,
+            material.clearcoatNormalScale,
+            0,
+          );
+          gl.uniform4f(
+            uniforms.clearcoatMaps,
+            material.clearcoatTexture ? 1 : 0,
+            material.clearcoatRoughnessTexture ? 1 : 0,
+            material.clearcoatNormalTexture ? 1 : 0,
+            0,
+          );
+          gl.uniform1i(uniforms.clearcoatMap, 9);
+          gl.uniform1i(uniforms.clearcoatRoughnessMap, 10);
+          gl.uniform1i(uniforms.clearcoatNormalMap, 11);
+          this.bindMaterialTexture(
+            material.clearcoatTexture ?? material.texture,
+            9,
+            material.clearcoatSampler,
+          );
+          this.bindMaterialTexture(
+            material.clearcoatRoughnessTexture ?? material.texture,
+            10,
+            material.clearcoatRoughnessSampler,
+          );
+          this.bindMaterialTexture(
+            material.clearcoatNormalTexture ?? material.texture,
+            11,
+            material.clearcoatNormalSampler,
+          );
+          gl.uniform4f(
+            uniforms.sheen,
+            material.sheenColor[0],
+            material.sheenColor[1],
+            material.sheenColor[2],
+            material.sheenRoughness,
+          );
+          gl.uniform4f(
+            uniforms.sheenMaps,
+            material.sheenColorTexture ? 1 : 0,
+            material.sheenRoughnessTexture ? 1 : 0,
+            0,
+            0,
+          );
+          gl.uniform1i(uniforms.sheenColorMap, 12);
+          gl.uniform1i(uniforms.sheenRoughnessMap, 13);
+          this.bindMaterialTexture(
+            material.sheenColorTexture ?? material.texture,
+            12,
+            material.sheenColorSampler,
+          );
+          this.bindMaterialTexture(
+            material.sheenRoughnessTexture ?? material.texture,
+            13,
+            material.sheenRoughnessSampler,
+          );
+          gl.uniform4f(
+            uniforms.surface,
+            material.metallic,
+            material.roughness,
+            material.normalScale,
+            material.occlusionStrength,
+          );
+          gl.uniform4f(
+            uniforms.emission,
+            material.emissive[0],
+            material.emissive[1],
+            material.emissive[2],
+            material.alphaCutoff,
+          );
+          gl.uniform4i(
+            uniforms.maps,
+            material.metallicRoughnessTexture ? 1 : 0,
+            material.normalTexture ? 1 : 0,
+            material.occlusionTexture ? 1 : 0,
+            material.emissiveTexture ? 1 : 0,
+          );
+          this.bindMaterialTexture(
+            material.metallicRoughnessTexture ?? material.texture,
+            1,
+            material.metallicRoughnessSampler,
+          );
+          this.bindMaterialTexture(
+            material.normalTexture ?? material.texture,
+            2,
+            material.normalSampler,
+          );
+          this.bindMaterialTexture(
+            material.occlusionTexture ?? material.texture,
+            3,
+            material.occlusionSampler,
+          );
+          this.bindMaterialTexture(
+            material.emissiveTexture ?? material.texture,
+            4,
+            material.emissiveSampler,
+          );
+        }
+        this.drawMesh(object, uniforms);
+        this.stats.draw(
+          object.geometry.indices.length,
+          object instanceof InstancedMesh ? object.count : 1,
         );
       }
-      this.drawMesh(object, uniforms);
-      this.stats.draw(
-        object.geometry.indices.length,
-        object instanceof InstancedMesh ? object.count : 1,
-      );
+      if (this.hasTransmission && phase === 0) {
+        const width = this.postTarget!.width,
+          height = this.postTarget!.height;
+        gl.bindFramebuffer(gl.READ_FRAMEBUFFER, this.postTarget!.framebuffer);
+        gl.bindFramebuffer(
+          gl.DRAW_FRAMEBUFFER,
+          this.refractionTarget!.framebuffer,
+        );
+        gl.blitFramebuffer(
+          0,
+          0,
+          width,
+          height,
+          0,
+          0,
+          width,
+          height,
+          gl.COLOR_BUFFER_BIT,
+          gl.NEAREST,
+        );
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
+      }
     }
     draws.length = 0;
   }
@@ -1543,13 +1771,30 @@ export class WebGL2Renderer implements Renderer {
   private preparePostTarget(width: number, height: number): void {
     if (!this.floatColorBuffer)
       throw new GraphicsError(
-        'WebGL2 HDR postprocessing requires EXT_color_buffer_float.',
+        'WebGL2 HDR rendering requires EXT_color_buffer_float.',
       );
     if (this.postTarget?.width === width && this.postTarget.height === height)
       return;
     if (this.postTarget) this.deleteTarget(this.postTarget);
     this.postTarget = undefined;
     this.postTarget = this.createTarget(width, height, false, 'hdr', 'texture');
+  }
+
+  private prepareRefractionTarget(width: number, height: number): void {
+    if (
+      this.refractionTarget?.width === width &&
+      this.refractionTarget.height === height
+    )
+      return;
+    if (this.refractionTarget) this.deleteTarget(this.refractionTarget);
+    this.refractionTarget = undefined;
+    this.refractionTarget = this.createTarget(
+      width,
+      height,
+      false,
+      'hdr',
+      false,
+    );
   }
 
   private createTarget(
@@ -1700,7 +1945,9 @@ export class WebGL2Renderer implements Renderer {
   private drawPost(scene: Scene, destination: WebGLFramebuffer | null): void {
     const gl = this.gl!;
     const settings = scene.postProcessing;
-    if (settings.fxaa) {
+    const enabled = settings.enabled;
+    const fxaa = enabled && settings.fxaa;
+    if (fxaa) {
       if (
         !this.fxaaTarget ||
         this.fxaaTarget.width !== this.postTarget!.width ||
@@ -1722,7 +1969,7 @@ export class WebGL2Renderer implements Renderer {
     }
     gl.bindFramebuffer(
       gl.FRAMEBUFFER,
-      settings.fxaa ? this.fxaaTarget!.framebuffer : destination,
+      fxaa ? this.fxaaTarget!.framebuffer : destination,
     );
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
@@ -1734,14 +1981,14 @@ export class WebGL2Renderer implements Renderer {
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.texture);
     gl.uniform4f(
       this.postUniforms.settings,
-      settings.exposure,
-      settings.bloomStrength,
+      enabled ? settings.exposure : 1,
+      enabled ? settings.bloomStrength : 0,
       settings.bloomThreshold,
       settings.bloomRadius,
     );
     gl.uniform1i(
       this.postUniforms.aces,
-      settings.toneMapping === 'aces' ? 1 : 0,
+      enabled && settings.toneMapping === 'aces' ? 1 : 0,
     );
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
@@ -1764,21 +2011,21 @@ export class WebGL2Renderer implements Renderer {
     );
     gl.uniform4f(
       this.postUniforms.ssao,
-      settings.ssao ? 1 : 0,
+      enabled && settings.ssao ? 1 : 0,
       settings.ssaoRadius,
       settings.ssaoStrength,
       settings.ssaoBias,
     );
     gl.uniform4f(
       this.postUniforms.dof,
-      settings.depthOfField ? 1 : 0,
+      enabled && settings.depthOfField ? 1 : 0,
       settings.dofFocusDistance,
       settings.dofFocusRange,
       settings.dofBlurRadius,
     );
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
-    if (settings.fxaa) {
+    if (fxaa) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
       gl.useProgram(this.fxaaProgram!);
       gl.bindTexture(gl.TEXTURE_2D, this.fxaaTarget!.texture);
@@ -1921,7 +2168,7 @@ export class WebGL2Renderer implements Renderer {
     gl.uniform2f(
       this.skyUniforms.sky,
       scene.backgroundIntensity,
-      scene.postProcessing.enabled ? 1 : 0,
+      this.linear3D ? 1 : 0,
     );
     gl.activeTexture(gl.TEXTURE0);
     gl.bindSampler(0, null);
@@ -2041,6 +2288,15 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteTexture(entry.resource);
         this.environments.delete(map);
       }
+    for (const [material, entry] of this.opticalTextures)
+      if (
+        entry.seen !== this.frame ||
+        material.transmissionTexture?.destroyed ||
+        material.thicknessTexture?.destroyed
+      ) {
+        gl.deleteTexture(entry.resource);
+        this.opticalTextures.delete(material);
+      }
   }
 
   private createBuffer(gl: WebGL2RenderingContext): WebGLBuffer {
@@ -2144,6 +2400,13 @@ export class WebGL2Renderer implements Renderer {
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
       if (this.sheenBuffer) gl.deleteBuffer(this.sheenBuffer);
+      if (this.refractionTarget) this.deleteTarget(this.refractionTarget);
+      if (this.emptyOptical) gl.deleteTexture(this.emptyOptical);
+      if (this.opticalPackProgram) gl.deleteProgram(this.opticalPackProgram);
+      if (this.opticalPackFramebuffer)
+        gl.deleteFramebuffer(this.opticalPackFramebuffer);
+      for (const entry of this.opticalTextures.values())
+        gl.deleteTexture(entry.resource);
       if (this.postTarget) this.deleteTarget(this.postTarget);
       if (this.fxaaTarget) this.deleteTarget(this.fxaaTarget);
       if (this.fxaaProgram) gl.deleteProgram(this.fxaaProgram);
@@ -2162,6 +2425,7 @@ export class WebGL2Renderer implements Renderer {
     this.meshInstances.clear();
     this.environments.clear();
     this.samplers.clear();
+    this.opticalTextures.clear();
     this.snapshots.clear();
     this.materials.clear();
     this.processors.clear();

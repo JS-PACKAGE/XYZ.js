@@ -72,3 +72,6 @@ export const depthPostDefaults = Object.freeze({
   dofSamples: 24,
   dofGoldenAngle: 2.399963229728653,
 });
+
+/** Screen-space rough transmission uses a bounded nine-tap approximation. */
+export const transmissionBlurFraction = 0.04;

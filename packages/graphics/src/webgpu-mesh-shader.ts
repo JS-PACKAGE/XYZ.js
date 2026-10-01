@@ -1,5 +1,6 @@
 import { atlasWGSL } from './shadow-shaders.js';
 import { sheenWGSL } from './sheen-shaders.js';
+import { transmissionWGSL } from './transmission-shaders.js';
 
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -33,6 +34,10 @@ struct MeshUniforms {
   clearcoatMaps: vec4f,
   sheen: vec4f,
   sheenMaps: vec4f,
+  transmission: vec4f,
+  attenuation: vec4f,
+  transmissionMapSettings: vec4f,
+  thicknessMapSettings: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -64,8 +69,10 @@ struct MeshUniforms {
 @group(2) @binding(21) var sheenRoughnessMap: texture_2d<f32>;
 @group(2) @binding(22) var sheenColorSampler: sampler;
 @group(2) @binding(23) var sheenRoughnessSampler: sampler;
+@group(2) @binding(24) var opticalMaps: texture_2d_array<f32>;
 ${atlasWGSL}
 ${sheenWGSL}
+${transmissionWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
@@ -84,6 +91,9 @@ struct VertexOutput {
   @location(2) world: vec3f,
   @location(3) @interpolate(flat) orientation: f32,
   @location(4) color: vec4f,
+  @location(5) @interpolate(flat) local0: vec3f,
+  @location(6) @interpolate(flat) local1: vec3f,
+  @location(7) @interpolate(flat) local2: vec3f,
 };
 fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
@@ -101,6 +111,9 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   output.world = world.xyz;
   output.orientation = select(-1.0,1.0,determinant >= 0.0);
   output.color = vec4f(input.instanceColor, 1.0) * input.vertexColor;
+  output.local0 = normalMatrix[0];
+  output.local1 = normalMatrix[1];
+  output.local2 = normalMatrix[2];
   return output;
 }
 @vertex fn vertexMain(input: VertexInput) -> VertexOutput {
@@ -148,7 +161,7 @@ fn attenuation(distance: f32, range: f32) -> f32 {
   if (range > 0.0) { falloff = pow(max(1.0 - pow(distance / range, 4.0), 0.0), 2.0); }
   return falloff / max(distance * distance, 0.01);
 }
-fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, dielectricF0: vec3f, weight: f32) -> vec3f {
+fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, dielectricF0: vec3f, weight: f32, transmission: f32) -> vec3f {
   let h = safeNormal(v+l);
   let nl = max(dot(n,l),0.0);
   let nv = max(dot(n,v),0.000001);
@@ -164,7 +177,7 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, diele
   let dielectric = dielectricF0 + (vec3f(weight)-dielectricF0)*select(grazing,0.0,mesh.specularParams.y > 0.5);
   let fresnel = mix(dielectric,base+(vec3f(1.0)-base)*grazing,metal);
   let specular = distribution*geometry*fresnel/max(4.0*nv*nl,0.000001);
-  let diffuse = (1.0-max(max(dielectric.r,dielectric.g),dielectric.b))*(1.0-metal)*base/3.14159265359;
+  let diffuse = (1.0-max(max(dielectric.r,dielectric.g),dielectric.b))*(1.0-metal)*(1.0-transmission)*base/3.14159265359;
   return (diffuse+specular)*nl;
 }
 // Clearcoat Fresnel is applied by the layer, including attenuation of emission.
@@ -244,7 +257,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   if (mesh.maps.w > 0.5) { emission = textureSample(emissiveMap, emissiveSampler, input.uv).rgb; }
   let effectiveFront = front == (input.orientation > 0.0);
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
-  if ((!effectiveFront && mesh.settings.y < 0.5) || (masked && sampledAlpha < mesh.settings.x)) { discard; }
+  if ((!effectiveFront && (mesh.settings.y < 0.5 || mesh.transmission.y > 0.0)) || (masked && sampledAlpha < mesh.settings.x)) { discard; }
   let base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
   let metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
   let rough = clamp(mesh.material.z*select(1.0,mr.g,mesh.maps.x > 0.5),0.04,1.0);
@@ -278,6 +291,12 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     }
   }
   let v = safeNormal(scene.camera.xyz-input.world);
+  var transmission = 0.0;
+  var thickness = mesh.transmission.y;
+  if (mesh.transmission.x > 0.0) {
+    transmission = mesh.transmission.x*opticalSample(input.uv,mesh.transmissionMapSettings,0).r;
+    thickness *= opticalSample(input.uv,mesh.thicknessMapSettings,1).g;
+  }
   var sheenTint = mesh.sheen.rgb;
   var sheenRoughness = mesh.sheen.w;
   if (any(mesh.sheen.rgb > vec3f(0.0))) {
@@ -294,14 +313,14 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   if (coatWeight > 0.0) { coatFresnel = 0.04+0.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0); }
   let occlusion = select(1.0,mix(1.0,ao,mesh.emissiveOcclusion.w),mesh.maps.z > 0.5);
   let useEnvironment = scene.envParams.y > 0.5;
-  var color = base*(1.0-metal)*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
+  var color = base*(1.0-metal)*(1.0-transmission)*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
   if (useEnvironment) {
     let nv = max(dot(n,v),0.0001);
     let ab = environmentBRDF(nv,rough);
     let dielectric = select(dielectricF0*ab.x+vec3f(specularWeight*ab.y),dielectricF0,mesh.specularParams.y > 0.5);
     let specularColor = mix(dielectric,base*ab.x+vec3f(ab.y),metal);
     let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
-    let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
+    let diffuseLight = shIrradiance(n)*base*(1.0-metal)*(1.0-transmission)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
     color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
     if (sheenMax > 0.0) {
       let sheenRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),sheenRoughness*scene.envParams.z).rgb;
@@ -313,14 +332,14 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
       coating += coatRadiance*(0.04*coatAB.x+coatAB.y)*occlusion*scene.envParams.x;
     }
   }
-  color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight,transmission)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
   if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,direction,sheenRoughness)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,direction,coatRoughness)*coatFresnel*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
-    color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight)*incident;
+    color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight,transmission)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,safeNormal(delta),sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,safeNormal(delta),coatRoughness)*coatFresnel*incident; }
   }
@@ -330,9 +349,24 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
-    color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight)*incident;
+    color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight,transmission)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,l,sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*incident; }
+  }
+  if (transmission > 0.0 && metal < 1.0) {
+    let ray = safeNormal(refract(-v,n,1.0/max(mesh.transmission.w,1.0)));
+    let localLength = length(vec3f(dot(input.local0,ray),dot(input.local1,ray),dot(input.local2,ray)));
+    let distance = select(0.0,thickness/max(localLength,0.000001),localLength > 0.0);
+    var uv = input.position.xy/vec2f(textureDimensions(backgroundMap));
+    if (distance > 0.0) {
+      let exit = scene.viewProjection*vec4f(input.world+ray*distance,1.0);
+      if (exit.w > 0.000001) { uv = exit.xy/exit.w*vec2f(0.5,-0.5)+vec2f(0.5); }
+    }
+    var transmitted = roughTransmission(uv,rough,mesh.transmission.w);
+    if (distance > 0.0 && mesh.transmission.z > 0.0) { transmitted *= pow(mesh.attenuation.rgb,vec3f(distance*mesh.transmission.z)); }
+    let ab = environmentBRDF(max(dot(n,v),0.0001),rough);
+    let fresnel = select(dielectricF0*ab.x+vec3f(specularWeight*ab.y),dielectricF0,mesh.specularParams.y > 0.5);
+    color += transmitted*base*transmission*(1.0-metal)*max(1.0-max(max(fresnel.r,fresnel.g),fresnel.b),0.0);
   }
   if (sheenMax > 0.0) { color = color*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting; }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
