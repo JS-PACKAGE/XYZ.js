@@ -26,7 +26,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 
 本輪 production 擴充：
 
-- P44：共用 CI／release browser gate，保留實際 native submitted-frame pixels 與失敗證據；hosted Ubuntu 結果不由本機推論。
+- P44：共用 CI／release browser gate，保留實際 native submitted-frame pixels 與失敗證據；Linux launcher 啟用 SwiftShader Vulkan compositor，已在隔離 Ubuntu 24.04 arm64 重現並修正 swap-buffer 失敗，hosted Ubuntu x64 修正仍待驗。
 - P45：共用 3D AABB hierarchy 與 candidate statistics；公開 mutable transforms 的 refresh 仍為 O(n)。
 - P46：有 expansion budget、可取消及 revision invalidation 的 incremental grid／graph A*。
 - P47：動態 authored connections／clearance 與實際 character 阻擋後有限重新規劃。
@@ -108,7 +108,7 @@ Fixed gameplay, time-weighted forces and opt-in physics presentation use `Scene.
 
 Production additions in this round:
 
-- P44: shared CI/release browser gate with native submitted-frame pixels and failure evidence; local success is not hosted Ubuntu proof.
+- P44: shared CI/release browser gate with native submitted-frame pixels and failure evidence; the Linux launcher enables the SwiftShader Vulkan compositor. Swap-buffer failure was reproduced and fixed on isolated Ubuntu 24.04 arm64; the hosted Ubuntu x64 correction remains unverified.
 - P45: shared 3D AABB hierarchy and candidate statistics; mutable public poses still need O(n) refresh.
 - P46: incremental grid/graph A* with expansion budgets, cancellation and revision invalidation.
 - P47: dynamic authored connections/clearance and bounded replanning after real character blockage.
@@ -181,7 +181,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 
 今回の production 拡張：
 
-- P44：native submitted-frame pixels／失敗証拠を残す共通 CI／release browser gate。本機の成功は hosted Ubuntu の証明ではありません。
+- P44：native submitted-frame pixels／失敗証拠を残す共通 CI／release browser gate。Linux launcher は SwiftShader Vulkan compositor を有効化し、隔離 Ubuntu 24.04 arm64 で swap-buffer の失敗再現と修正を確認済み。Hosted Ubuntu x64 の修正確認は未実施です。
 - P45：共用 3D AABB hierarchy／candidate statistics。公開 mutable pose の refresh は O(n) です。
 - P46：expansion budget／cancel／revision invalidation 対応の incremental grid／graph A*。
 - P47：動的 authored connections／clearance と実 character の障害後の bounded replan。

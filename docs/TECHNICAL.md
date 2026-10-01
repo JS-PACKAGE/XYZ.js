@@ -958,6 +958,8 @@ CI's reusable verification job is a required dependency of tag release, before p
 
 Browser fixtures capture the actual submitted frame: GPUTexture copy before presentation with aligned MAP_READ/BGRA conversion, or synchronous Canvas2D/WebGL sampling. Pixel assertions are unchanged. The fixture reports GPU destroy call stacks, loss/error timelines and nested recovery causes; these diagnostics do not certify the unresolved historical Ubuntu GPU failure as fixed.
 
+The shared Linux Chromium launcher selects SwiftShader for ANGLE and Dawn, and enables compositor Vulkan backing with `--enable-features=Vulkan` / `--use-vulkan=swiftshader`. Chromium 153 disables GL/WebGPU interop when using SwiftShader; selecting the WebGPU adapter alone does not provide a canvas swap-buffer backing. Isolated Ubuntu 24.04 arm64 reproduced the missing `SharedImageBackingFactory` failure before this correction and passed required three-backend regression afterward. Hosted Ubuntu x64 verification remains pending; renderer recovery, error handling and assertions are unchanged.
+
 ## 45. Shared 3D Spatial Index (P45)
 
 World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. Internal CCD refits individual leaves in O(log n); infinite planes remain unavoidable candidates.

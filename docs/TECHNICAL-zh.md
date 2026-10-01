@@ -908,6 +908,8 @@ CI 的 reusable verification job 是 tag release 的必要前置，通過前不�
 
 Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned MAP_READ／BGRA 轉換，Canvas2D／WebGL 則同步取樣，原像素 assertions 不變。報告保存 GPU destroy call stack、loss／error timeline 與巢狀 recovery cause；診斷改善不等於歷史 Ubuntu GPU 失敗已實跑修復。
 
+共用 Linux Chromium launcher 為 ANGLE／Dawn 選 SwiftShader，並以 `--enable-features=Vulkan`／`--use-vulkan=swiftshader` 啟用 compositor 的 Vulkan backing。Chromium 153 在 SwiftShader 下停用 GL／WebGPU interop，單選 WebGPU adapter 不足以提供 canvas swap-buffer backing。隔離 Ubuntu 24.04 arm64 已先重現缺少 `SharedImageBackingFactory`，修正後 required 三 backend regression 通過；hosted Ubuntu x64 修正仍待驗，renderer recovery／錯誤處理／assertions 不變。
+
 ## 45. 共用 3D spatial index（P45）
 
 Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。Internal CCD 單 leaf refit O(log n)，infinite planes 仍是必要 candidates。

@@ -24,6 +24,9 @@ export async function chromiumLaunchOptions() {
             '--use-angle=swiftshader',
             '--enable-unsafe-swiftshader',
             '--use-webgpu-adapter=swiftshader',
+            // SwiftShader disables GL/WebGPU interop; canvas swap buffers need Vulkan backing.
+            '--enable-features=Vulkan',
+            '--use-vulkan=swiftshader',
           ]
         : process.platform === 'darwin'
           ? ['--use-angle=metal']
