@@ -111,7 +111,30 @@ export type {
 } from './ktx2.js';
 export { decodeMeshopt } from './meshopt.js';
 export type { MeshoptFilter, MeshoptMode } from './meshopt.js';
-export type { AnimationPath, Interpolation } from './animation.js';
+export type {
+  AnimationController,
+  AnimationEventType,
+  AnimationListener,
+  AnimationLoopMode,
+  AnimationPath,
+  Interpolation,
+} from './animation.js';
+export { AnimationStateMachine } from './animation-state.js';
+export type {
+  AnimationParameter,
+  AnimationParameters,
+  AnimationStateChangeDetail,
+  AnimationStateDefinition,
+  AnimationStateMachineOptions,
+  AnimationTransition,
+} from './animation-state.js';
+export { Timeline, Tween, TweenGroup } from './tween.js';
+export type {
+  TimelineOptions,
+  Tweenable,
+  TweenEasing,
+  TweenOptions,
+} from './tween.js';
 export type { SkinnedMeshOptions } from './skinned-mesh.js';
 export { Group2D } from './gameplay/group2d.js';
 export { ScreenElement } from './gameplay/screen-element.js';

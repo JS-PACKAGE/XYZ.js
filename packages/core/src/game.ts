@@ -883,8 +883,11 @@ export class Game extends EventTarget {
         !this.activeTransition?.controller.blockInput
       )
         scene.routePointers(this.input.pointer, this.canUpdateScene);
-      if (scene && this.canUpdateScene())
+      if (scene && this.canUpdateScene()) {
         scene.timers.update(this.clock.deltaTime);
+        // A timer callback may have destroyed the scene or stopped the game.
+        if (this.canUpdateScene()) scene.tweens.update(this.clock.deltaTime);
+      }
       if (this.currentState !== 'running') return;
       if (scene && this.canUpdateScene())
         scene.beginObjectUpdates(this.clock.deltaTime, this.canUpdateScene);

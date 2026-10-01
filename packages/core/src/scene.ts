@@ -18,6 +18,7 @@ import { GameObject } from './game-object.js';
 import { SceneObject } from './scene-object.js';
 import { Sprite } from './sprite.js';
 import { SceneTimers } from './scene-timers.js';
+import { TweenGroup } from './tween.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
 import { ParticleEmitter } from './particles2d/index.js';
 import type { PostProcessor2D } from './materials2d/index.js';
@@ -31,6 +32,8 @@ export class Scene {
   readonly camera2D = new Camera2D();
   camera3D: PerspectiveCamera | OrthographicCamera = new PerspectiveCamera();
   readonly timers = new SceneTimers();
+  /** Scene-local tweens and timelines, advanced every frame right after `timers`. */
+  readonly tweens = new TweenGroup();
   readonly animations = new AnimationMixer();
   readonly physics = new PhysicsWorld2D();
   readonly effects2D: PostProcessor2D[] = [];
@@ -320,6 +323,7 @@ export class Scene {
     if (this.disposed) return;
     this.disposed = true;
     this.timers.destroy();
+    this.tweens.destroy();
     this.controller?.abort();
     const errors: unknown[] = [];
     try {

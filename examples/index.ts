@@ -99,6 +99,14 @@ const examples: readonly Example[] = [
     renderers: all2d,
   },
   {
+    slug: 'animation-lab',
+    title: 'Animation lab',
+    summary:
+      'Animation state machine with cross-fades, plus Tween and Timeline.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
     slug: 'particles2d',
     title: 'Particles',
     summary: 'Selectable emitter presets with live parameters and counts.',
