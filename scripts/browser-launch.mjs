@@ -20,7 +20,11 @@ export async function chromiumLaunchOptions() {
     args: [
       '--enable-unsafe-webgpu',
       ...(process.platform === 'linux'
-        ? ['--use-angle=swiftshader', '--enable-unsafe-swiftshader']
+        ? [
+            '--use-angle=swiftshader',
+            '--enable-unsafe-swiftshader',
+            '--use-webgpu-adapter=swiftshader',
+          ]
         : process.platform === 'darwin'
           ? ['--use-angle=metal']
           : []),
