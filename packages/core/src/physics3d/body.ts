@@ -22,6 +22,8 @@ export interface RigidBodyOptions3D {
   gravityScale?: number;
   lockRotation?: boolean;
   allowSleep?: boolean;
+  /** Fixed-orientation translation CCD against static shapes; one impact per fixed tick, no rotation/dynamic-pair CCD. */
+  continuous?: boolean;
 }
 /** Root dynamic/kinematic body with analytic primitive or uniform-density compound inertia. */
 export class RigidBody3D {
@@ -34,6 +36,7 @@ export class RigidBody3D {
   forceEpoch = 0;
   readonly lockRotation: boolean;
   readonly allowSleep: boolean;
+  readonly continuous: boolean;
   private owningObject: Object3D | undefined;
   private shape: Shape3D | undefined;
   private bodyMass = 1;
@@ -64,6 +67,7 @@ export class RigidBody3D {
     this.gravityScale = options.gravityScale ?? 1;
     this.lockRotation = options.lockRotation ?? false;
     this.allowSleep = options.allowSleep ?? true;
+    this.continuous = options.continuous ?? false;
   }
   get owner(): Object3D | undefined {
     return this.owningObject;

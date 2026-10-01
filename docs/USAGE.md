@@ -1158,3 +1158,7 @@ Attach `new TriangleMeshCollider3D(xyz, triangleIndices, {sidedness:'double'})` 
 ## 34. Compound Shapes (P54)
 
 Build CompoundCollider3D from flat child collider/position/rotation/scale descriptors. Center primitive children at their uniform-density COM before attaching a dynamic body; root filters apply to the union and gaps stay empty. A mesh child makes the whole compound static-only. [Inertia and bounds](TECHNICAL.md#54-compound-colliders-and-inertia-p54).
+
+## 35. Continuous 3D Translation (P55)
+
+Opt a dynamic body into `new RigidBody3D({continuous:true})` to sweep its actual shape against static walls/mesh/compound targets. This resolves the first impact per tick, not rotational or dynamic-pair CCD; keep fixed steps reasonably small. [Policy and public sweep](TECHNICAL.md#55-bounded-3d-continuous-translation-p55).

@@ -910,7 +910,7 @@ Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned 
 
 ## 45. 共用 3D spatial index（P45）
 
-Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。infinite planes 仍是必要 candidates。
+Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。Internal CCD 單 leaf refit O(log n)，infinite planes 仍是必要 candidates。
 
 World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query；destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。
 
@@ -971,3 +971,9 @@ Sidedness double（default）是雙面零厚度 surface，不是 closed-solid co
 `new CompoundCollider3D(children, options?)` 擁有1–64 flat immutable children：sphere／box／capsule／static mesh，無 nested／infinite plane。CompoundChild3D 包含 collider、explicit position／unit Quaternion rotation／positive scale，預設 origin／identity／unit；child offset 在該 transform 內套用。Root filters／sensor 適用所有 children。Sphere／capsule 及最終 world transform 需 uniform scale，拒 shear／reflection；mesh child 令 compound static-only。
 
 Dynamic primitive compound 的 uniform-density COM 必須在 root origin。Scaled volume 分配 mass，rotated analytic inertia＋完整 parallel-axis tensor 保留 off-diagonal terms；重疊 child solids 的 mass 分別計算，collision 是保留 gaps 的 union。至多八個 deepest deterministic contacts、各自 normal 沿標準 impulse solver。
+
+## 55. 有界 3D continuous translation（P55）
+
+`new RigidBody3D({continuous:true})` 開啟 dynamic nonsensor 對 static targets 的 translation CCD；immutable／default false。先 discrete rotation，再用該固定 orientation 的真 sphere／OBB／capsule／primitive compound sweep reciprocal-filtered static primitive／mesh／compound。每 tick 第一 impact 截短 translation，unused time 丟棄，普通 surface contacts／events 解線角速度。
+
+不含 rotation／dynamic-pair／kinematic／sensor time-of-impact／arbitrary deformation CCD。Iteration exhaustion 保留 proven-free prefix，不捏造 hit／event／impulse。World.sweep(collider,object,displacement,options?,out?) 提供 finite-shape translation／optional output reuse，拒 moving mesh／plane，distance 是 world units；bounded public query exhaustion 回 no hit。Object3D snapshot 的 immutable policy 加 continuous。

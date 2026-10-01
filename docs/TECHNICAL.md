@@ -960,7 +960,7 @@ Browser fixtures capture the actual submitted frame: GPUTexture copy before pres
 
 ## 45. Shared 3D Spatial Index (P45)
 
-World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. infinite planes remain unavoidable candidates.
+World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. Internal CCD refits individual leaves in O(log n); infinite planes remain unavoidable candidates.
 
 `world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.
 
@@ -1021,3 +1021,9 @@ Sidedness `double` (default) is a two-sided zero-thickness surface, not closed-s
 `new CompoundCollider3D(children, options?)` owns 1–64 flat immutable child descriptors: sphere/box/capsule/static mesh only, no nested/infinite plane. Each `CompoundChild3D` has a collider and explicit position/unit-Quaternion rotation/positive scale, default origin/identity/unit; child offset is applied within that transform. Root filters/sensor govern all children. Sphere/capsule and their resulting world transform require uniform scale; shear/reflection reject; any mesh child makes the compound static-only.
 
 Dynamic primitive compounds require uniform-density center of mass at the root origin. Scaled volumes distribute mass; rotated analytic inertia and full parallel-axis tensor retain off-diagonal terms. Overlapping child solids count separately for mass; collision is their gap-preserving union. Up to eight deepest deterministic contacts with individual normals feed the standard impulse solver.
+
+## 55. Bounded 3D Continuous Translation (P55)
+
+`new RigidBody3D({continuous:true})` opts dynamic nonsensor bodies into static-target translation CCD; immutable/default false. Discrete rotation occurs first, then the actual sphere/OBB/capsule/primitive-compound sweeps at that fixed orientation against reciprocal-filtered static primitive/mesh/compound targets. First impact truncates translation, unused time is discarded, and normal surface contacts/events resolve linear/angular velocity.
+
+No rotation, dynamic-pair, kinematic, sensor time-of-impact or arbitrary deformation CCD. Iteration exhaustion keeps the proven-free prefix without fabricating a hit/event/impulse. `world.sweep(collider, object, displacement, options?, out?)` exposes finite-shape translation and optional output reuse, rejects moving mesh/plane, and returns distance in world units; bounded public query exhaustion returns no hit. Object3D snapshot immutable policy now includes continuous.

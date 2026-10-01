@@ -804,3 +804,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - Child-local transforms 的真封裝 ray gap hit 為 z=3、lobe distance=2.75，combined tensor inertia 的非中心 force/angular response 實測；沒有以整個外框填滿 gap。
 - Flat compound／supported child profiles、local scale／volume／inertia、ray／overlap／sweep／contacts 與 moving-body validation 保留回歸；不加入遞迴 compound／moving plane-mesh 支援。
+
+## P55 Translation CCD（限定已測環境）
+
+- 真封裝 velocity=600 的 9 primitive×static target combinations（primitive／mesh／compound）全部無 tunneling，x≈-.26／-.25、velocity=0、各 1 contact；off-center impact 的 angular response=499.569。
+- First-impact translation CCD 走正式 shared index／sweeps／contact response，filters／rebound／destroy 維持回歸。明示不含 rotational CCD／dynamic-pair CCD，不以降速／增厚牆或靜默 clamp velocity 假通過。

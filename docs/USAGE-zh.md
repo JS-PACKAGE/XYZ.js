@@ -1145,3 +1145,7 @@ Native transparent input 處理 keyboard／clipboard／undo／IME；canvas 畫�
 ## 34. Compound Shapes（P54）
 
 `CompoundCollider3D` 使用 flat child collider／position／rotation／scale descriptors。Dynamic primitive children 先按 uniform-density COM 置中，root filters 套到 union，真 gaps 保持空隙；包含 mesh child 的 compound 必須 static。Inertia 包括 rotated child tensor／parallel-axis terms，不是外框近似。
+
+## 35. Continuous 3D Translation（P55）
+
+`new RigidBody3D({ continuous: true })` 讓 dynamic body 以真 shape 對 static walls／mesh／compound 做 sweep。每 tick 解決 first impact，不包含 rotational／dynamic-pair CCD；仍應使用合理 fixed steps。Iteration exhaustion 只保留 proven-free prefix，不虛構 collision／impulse。

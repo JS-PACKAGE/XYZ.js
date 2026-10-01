@@ -37,6 +37,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal 與 bounded keyed rows。
 - P53：static `TriangleMeshCollider3D`／triangle BVH、實際 contacts／ray／sweep。
 - P54：`CompoundCollider3D` 的 child-local union／真 gaps／combined inertia。
+- P55：opt-in static-target 3D translation CCD；不涵蓋 rotation／dynamic-pair CCD。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -116,6 +117,7 @@ Production additions in this round:
 - P52: `UIScrollView`/`UIVirtualList`, clip-aware input, focus reveal and bounded keyed rows.
 - P53: static `TriangleMeshCollider3D`/triangle BVH with real contacts/ray/sweep.
 - P54: `CompoundCollider3D` child-local unions, real gaps and combined inertia.
+- P55: opt-in static-target 3D translation CCD, excluding rotational/dynamic-pair CCD.
 
 ### Current support matrix and approved expansion
 
@@ -186,6 +188,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal／bounded keyed rows。
 - P53：static `TriangleMeshCollider3D`／triangle BVH、実 contacts／ray／sweep。
 - P54：`CompoundCollider3D` の child-local union／実 gaps／combined inertia。
+- P55：opt-in static-target 3D translation CCD。rotation／dynamic-pair CCD は対象外です。
 
 ### 現在の対応表と承認済み拡張
 

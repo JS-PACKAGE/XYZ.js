@@ -31,7 +31,7 @@ export interface PhysicsContact3D {
     readonly point: Readonly<Vector3>;
     readonly sensor: boolean;
 }
-/** Deterministic discrete primitive/mesh/compound solver. */
+/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. No joints or rotational/dynamic-pair CCD. */
 export declare class PhysicsWorld3D {
     readonly gravity: Vector3;
     readonly fixedDelta: number;
@@ -63,6 +63,10 @@ export declare class PhysicsWorld3D {
     private readonly inertiaA;
     private readonly inertiaB;
     private readonly relative;
+    private readonly ccdDisplacement;
+    private readonly ccdOptions;
+    private ccdHit;
+    private sweepSafeFraction;
     private readonly torque;
     private readonly forces;
     private accumulator;
@@ -109,6 +113,8 @@ export declare class PhysicsWorld3D {
     sweepCapsule(object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
     /** @internal Bounded minimum-translation recovery from primitive overlaps; failure restores the original pose. */
     recoverCapsule(object: Object3D, limit: number, options: PhysicsQueryOptions3D): boolean;
+    /** Exact shape translation query. Mesh/plane query shapes are static-only and rejected. */
+    sweep(collider: Collider3D, object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
     private sweepShape;
     private sweepPair;
     destroy(): void;

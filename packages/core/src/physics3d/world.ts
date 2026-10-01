@@ -70,7 +70,7 @@ class Contact3D {
     readonly b: Entry3D,
   ) {}
 }
-/** Deterministic discrete primitive/mesh/compound solver. */
+/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. No joints or rotational/dynamic-pair CCD. */
 export class PhysicsWorld3D {
   readonly gravity = new Vector3(0, -9.81, 0);
   readonly fixedDelta: number;
@@ -106,6 +106,10 @@ export class PhysicsWorld3D {
   private readonly inertiaA = new Vector3();
   private readonly inertiaB = new Vector3();
   private readonly relative = new Vector3();
+  private readonly ccdDisplacement = new Vector3();
+  private readonly ccdOptions: PhysicsQueryOptions3D = {};
+  private ccdHit: PhysicsHit3D | undefined;
+  private sweepSafeFraction = 1;
   private readonly torque = new Vector3();
   private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
   private accumulator = 0;
@@ -392,9 +396,38 @@ export class PhysicsWorld3D {
           s - h * (w.x * x + w.y * y + w.z * z),
         ).normalize();
       }
-      o.position.x += b.velocity.x * dt;
-      o.position.y += b.velocity.y * dt;
-      o.position.z += b.velocity.z * dt;
+      e.shape.refresh(o);
+      this.ccdDisplacement.set(
+        b.velocity.x * dt,
+        b.velocity.y * dt,
+        b.velocity.z * dt,
+      );
+      let fraction = 1;
+      if (b.type === 'dynamic' && b.continuous && !e.shape.collider.sensor) {
+        this.ccdOptions.ignore = o;
+        this.ccdOptions.mask = e.shape.collider.mask;
+        this.ccdHit ??= {
+          object: o,
+          collider: e.shape.collider,
+          point: new Vector3(),
+          normal: new Vector3(),
+          distance: 0,
+        };
+        const hit = this.sweepShape(
+          e.shape,
+          this.ccdDisplacement,
+          this.ccdOptions,
+          this.ccdHit,
+          false,
+          true,
+        );
+        if (hit)
+          fraction = Math.min(1, hit.distance / this.ccdDisplacement.length());
+        fraction = Math.min(fraction, this.sweepSafeFraction);
+      }
+      o.position.x += this.ccdDisplacement.x * fraction;
+      o.position.y += this.ccdDisplacement.y * fraction;
+      o.position.z += this.ccdDisplacement.z * fraction;
       e.shape.refresh(o);
       this.index.update(e);
       b.refreshInertia(e.shape);
@@ -845,13 +878,29 @@ export class PhysicsWorld3D {
     p.set(x, y, z);
     return false;
   }
-
+  /** Exact shape translation query. Mesh/plane query shapes are static-only and rejected. */
+  sweep(
+    collider: Collider3D,
+    object: Object3D,
+    displacement: Readonly<Vector3>,
+    options: PhysicsQueryOptions3D = {},
+    out?: PhysicsHit3D,
+  ): PhysicsHit3D | undefined {
+    vector3D(displacement, 'displacement');
+    const entry = this.entries.get(object);
+    const shape =
+      entry?.shape.collider === collider ? entry.shape : new Shape3D(collider);
+    shape.refresh(object);
+    shape.validateMoving('kinematic');
+    return this.sweepShape(shape, displacement, options, out, false);
+  }
   private sweepShape(
     shape: Shape3D,
     displacement: Readonly<Vector3>,
     options: PhysicsQueryOptions3D,
     out: PhysicsHit3D | undefined,
     inside: boolean,
+    staticOnly = false,
   ): PhysicsHit3D | undefined {
     const dx = displacement.x,
       dy = displacement.y,
@@ -860,14 +909,26 @@ export class PhysicsWorld3D {
     if (len < 1e-12) return undefined;
     let nearest = 1 + 1e-10,
       result: PhysicsHit3D | undefined;
+    this.sweepSafeFraction = 1;
     this.queryBounds.swept(
       shape.bounds,
       displacement,
       physics3DDefaults.sweepTolerance,
     );
-    this.candidates(this.queryBounds);
+    if (staticOnly) {
+      this.index.query(this.queryBounds, this.queryCandidates);
+      this.counters.queryCandidates = this.queryCandidates.length;
+    } else this.candidates(this.queryBounds);
     for (const e of this.queryCandidates) {
-      if (!this.accepts(e, options) || e.shape === shape) continue;
+      if (
+        !this.accepts(e, options) ||
+        e.shape === shape ||
+        (staticOnly &&
+          ((e.body && e.body.type !== 'static') ||
+            e.shape.collider.sensor ||
+            !(shape.collider.category & e.shape.collider.mask)))
+      )
+        continue;
       const movingCount =
         shape.collider.kind === 'compound' ? shape.children.length : 1;
       const targetCount =
@@ -919,6 +980,7 @@ export class PhysicsWorld3D {
               dz,
               nearest,
               inside,
+              staticOnly,
             );
             if (t >= nearest) continue;
             nearest = t;
@@ -949,6 +1011,7 @@ export class PhysicsWorld3D {
     dz: number,
     limit: number,
     inside: boolean,
+    conservative: boolean,
   ): number {
     let t = 0,
       translated = 0;
@@ -975,6 +1038,9 @@ export class PhysicsWorld3D {
         t += m.distance / closing;
         if (t > limit || t > 1) return Infinity;
       }
+      // Exhaustion is not a fabricated hit. CCD retains only the proven-free translation prefix.
+      if (conservative)
+        this.sweepSafeFraction = Math.min(this.sweepSafeFraction, translated);
       return Infinity;
     } finally {
       shape.translate(-dx * translated, -dy * translated, -dz * translated);
@@ -995,6 +1061,8 @@ export class PhysicsWorld3D {
     this.pairCandidates.length = 0;
     this.queryCandidates.length = 0;
     this.sweepTriangles.length = 0;
+    this.ccdHit = undefined;
+    this.ccdOptions.ignore = undefined;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     this.counters.queryCandidates = 0;

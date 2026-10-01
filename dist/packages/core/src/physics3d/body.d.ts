@@ -11,6 +11,8 @@ export interface RigidBodyOptions3D {
     gravityScale?: number;
     lockRotation?: boolean;
     allowSleep?: boolean;
+    /** Fixed-orientation translation CCD against static shapes; one impact per fixed tick, no rotation/dynamic-pair CCD. */
+    continuous?: boolean;
 }
 /** Root dynamic/kinematic body with analytic primitive or uniform-density compound inertia. */
 export declare class RigidBody3D {
@@ -23,6 +25,7 @@ export declare class RigidBody3D {
     forceEpoch: number;
     readonly lockRotation: boolean;
     readonly allowSleep: boolean;
+    readonly continuous: boolean;
     private owningObject;
     private shape;
     private bodyMass;

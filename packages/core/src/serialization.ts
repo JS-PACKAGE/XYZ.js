@@ -160,6 +160,7 @@ export function object3DState(
           type: body.type,
           lockRotation: body.lockRotation,
           allowSleep: body.allowSleep,
+          continuous: body.continuous,
           mass: body.mass,
           restitution: body.restitution,
           friction: body.friction,
@@ -218,6 +219,7 @@ export function object3DState(
             saved.type !== body.type ||
             saved.lockRotation !== body.lockRotation ||
             saved.allowSleep !== body.allowSleep ||
+            saved.continuous !== body.continuous ||
             typeof saved.mass !== 'number' ||
             saved.mass <= 0 ||
             typeof saved.restitution !== 'number' ||
