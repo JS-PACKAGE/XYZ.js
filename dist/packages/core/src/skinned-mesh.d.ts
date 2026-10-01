@@ -1,5 +1,7 @@
 import { Matrix4 } from '../../math/src/index.js';
-import { Mesh, type MeshOptions } from './mesh.js';
+import { Geometry } from './geometry.js';
+import { Mesh } from './mesh.js';
+import type { MeshOptions } from './mesh.js';
 import { Object3D } from './object3d.js';
 export interface SkinnedMeshOptions extends MeshOptions {
     joints: readonly Object3D[];
@@ -7,21 +9,38 @@ export interface SkinnedMeshOptions extends MeshOptions {
     jointIndices: ArrayLike<number>;
     weights: ArrayLike<number>;
 }
-/** Owns deformed geometry; source geometry, joints and material remain borrowed. */
+/** Native bind-pose streams and an on-demand exact CPU picking mirror; joints remain borrowed. */
 export declare class SkinnedMesh extends Mesh {
     readonly joints: readonly Object3D[];
     readonly inverseBindMatrices: readonly Matrix4[];
-    private readonly jointIndices;
-    private readonly weights;
+    readonly jointIndices: Uint32Array;
+    readonly weights: Float32Array;
+    readonly jointPalette: Float32Array;
+    paletteVersion: number;
+    private readonly skinGeometry;
     private readonly bindVertices;
     private readonly matrices;
-    private readonly previous;
+    private readonly influenceBounds;
+    private readonly sphere;
     private readonly inverse;
     private readonly blend;
     private initialized;
+    private deformationVersion;
+    private mirrorVersion;
     protected get cullable(): boolean;
+    get renderGeometry(): Geometry;
+    get boundingSphere(): Readonly<{
+        x: number;
+        y: number;
+        z: number;
+        radius: number;
+    }>;
     constructor(options: SkinnedMeshOptions);
     /** Morphs the bind pose first, then skins it. */
     updateDeformation(): void;
+    /** Updates only the palette and conservative bounds; joint motion never deforms all vertices. */
+    updateRenderDeformation(): void;
     updateSkin(): void;
+    private refreshInfluenceBounds;
+    private refreshAnimatedBounds;
 }

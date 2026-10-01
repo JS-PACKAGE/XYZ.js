@@ -103,6 +103,24 @@ export class Mesh extends Object3D {
   /** Set false to always submit this mesh even when it lies outside the camera frustum. */
   frustumCulled = true;
 
+  /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
+  get renderGeometry(): Geometry {
+    return this.geometry;
+  }
+
+  get boundingSphere(): Readonly<{
+    x: number;
+    y: number;
+    z: number;
+    radius: number;
+  }> {
+    return this.geometry.boundingSphere;
+  }
+
+  updateRenderDeformation(): void {
+    this.updateDeformation();
+  }
+
   /** Deformed and instanced meshes keep bind-pose or per-instance bounds unreliable. */
   protected get cullable(): boolean {
     return this.morph === undefined;
@@ -110,7 +128,7 @@ export class Mesh extends Object3D {
 
   /** Squared distance from a world-space point to this mesh's bounding-sphere center. */
   distanceSquaredTo(x: number, y: number, z: number): number {
-    const sphere = this.geometry.boundingSphere;
+    const sphere = this.boundingSphere;
     const e = this.updateWorldMatrix().elements;
     const dx = e[0] * sphere.x + e[4] * sphere.y + e[8] * sphere.z + e[12] - x;
     const dy = e[1] * sphere.x + e[5] * sphere.y + e[9] * sphere.z + e[13] - y;
@@ -123,17 +141,25 @@ export class Mesh extends Object3D {
    * so callers may use it before drawing. Non-finite bounds are treated as visible.
    */
   isInFrustum(frustum: Frustum): boolean {
+    this.updateRenderDeformation();
     if (!this.frustumCulled || !this.cullable) return true;
-    const sphere = this.geometry.boundingSphere;
+    const sphere = this.boundingSphere;
     const e = this.updateWorldMatrix().elements;
     const x = e[0] * sphere.x + e[4] * sphere.y + e[8] * sphere.z + e[12];
     const y = e[1] * sphere.x + e[5] * sphere.y + e[9] * sphere.z + e[13];
     const z = e[2] * sphere.x + e[6] * sphere.y + e[10] * sphere.z + e[14];
-    const scale = Math.max(
-      Math.hypot(e[0], e[1], e[2]),
-      Math.hypot(e[4], e[5], e[6]),
-      Math.hypot(e[8], e[9], e[10]),
+    // The induced-norm bound remains conservative under shear from parent transforms.
+    const columnSum = Math.max(
+      Math.abs(e[0]) + Math.abs(e[1]) + Math.abs(e[2]),
+      Math.abs(e[4]) + Math.abs(e[5]) + Math.abs(e[6]),
+      Math.abs(e[8]) + Math.abs(e[9]) + Math.abs(e[10]),
     );
+    const rowSum = Math.max(
+      Math.abs(e[0]) + Math.abs(e[4]) + Math.abs(e[8]),
+      Math.abs(e[1]) + Math.abs(e[5]) + Math.abs(e[9]),
+      Math.abs(e[2]) + Math.abs(e[6]) + Math.abs(e[10]),
+    );
+    const scale = Math.sqrt(columnSum * rowSum);
     const radius = sphere.radius * scale;
     if (!Number.isFinite(x + y + z + radius)) return true;
     return frustum.intersectsSphere(x, y, z, radius);

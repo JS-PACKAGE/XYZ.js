@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAAA,OAAO,MAAM,kBAAoB,CAC/B,WAAY,EAAI,IAChB,YAAa,GACb,iBAAkB,GAClB,YAAa,KACb,cAAe,KACf,WAAY,IACZ,qBAAsB,GACtB,cAAe,IACf,qBAAsB,IACtB,UAAW,GACX,gBAAiB,GACjB,eAAgB,KAChB,cAAe,KACf,oBAAqB,CACb","sources":["../../../src/data/physics3d.ts"],"names":[],"file":"physics3d.js"}

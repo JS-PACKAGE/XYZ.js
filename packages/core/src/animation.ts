@@ -1,3 +1,15 @@
+import { Quaternion } from '../../math/src/index.js';
+import {
+  AnimationPoseOverlay,
+  blendRotation,
+  multiplyRotation,
+} from './animation-pose.js';
+import type {
+  AnimationMask,
+  AnimationPoseChannel,
+  AnimationReferencePose,
+  AnimationTarget,
+} from './animation-pose.js';
 import type { Object3D } from './object3d.js';
 import { MorphWeights } from './morph.js';
 
@@ -10,6 +22,9 @@ export class KeyframeTrack {
   readonly values: Float32Array;
   readonly size: number;
   private readonly scratch: Float64Array;
+  private readonly deltaRotation = new Quaternion();
+  private readonly referenceRotation = new Quaternion();
+  private readonly identityRotation = new Quaternion();
   constructor(
     readonly target: Object3D | MorphWeights,
     readonly path: AnimationPath,
@@ -75,7 +90,7 @@ export class KeyframeTrack {
    * Samples the track at `time` into its target. Weights below 1 blend over what the target
    * already holds, so a later, lower-weight track layers over an earlier one.
    */
-  sample(time: number, weight = 1): void {
+  sample(time: number, weight = 1, reference?: Float64Array): void {
     const times = this.times,
       values = this.values,
       size = this.size;
@@ -127,7 +142,55 @@ export class KeyframeTrack {
           (t3 - t2) * dt * values[b - size + j];
       } else out[j] = wa * values[a + j] + wb * sign * values[b + j];
     }
-    this.apply(out, weight);
+    if (reference) this.applyAdditive(out, weight, reference);
+    else this.apply(out, weight);
+  }
+
+  private applyAdditive(
+    out: Float64Array,
+    weight: number,
+    reference: Float64Array,
+  ): void {
+    if (weight <= 0) return;
+    const target = this.target;
+    if (target instanceof MorphWeights) {
+      for (let i = 0; i < this.size; i++)
+        target.set(i, target.get(i) + (out[i] - reference[i]) * weight);
+    } else if (this.path === 'rotation') {
+      this.referenceRotation.set(
+        -reference[0],
+        -reference[1],
+        -reference[2],
+        reference[3],
+      );
+      this.deltaRotation.set(out[0], out[1], out[2], out[3]).normalize();
+      multiplyRotation(
+        this.referenceRotation,
+        this.deltaRotation,
+        this.deltaRotation,
+      );
+      blendRotation(
+        this.identityRotation,
+        this.deltaRotation,
+        weight,
+        this.deltaRotation,
+      );
+      multiplyRotation(target.rotation, this.deltaRotation, target.rotation);
+    } else {
+      const v = this.path === 'translation' ? target.position : target.scale;
+      if (this.path === 'translation')
+        v.set(
+          v.x + (out[0] - reference[0]) * weight,
+          v.y + (out[1] - reference[1]) * weight,
+          v.z + (out[2] - reference[2]) * weight,
+        );
+      else
+        v.set(
+          v.x * (1 + (out[0] / reference[0] - 1) * weight),
+          v.y * (1 + (out[1] / reference[1] - 1) * weight),
+          v.z * (1 + (out[2] / reference[2] - 1) * weight),
+        );
+    }
   }
 
   /** Writes `out` to the target; a weight below 1 layers it over the target's current pose. */
@@ -190,6 +253,15 @@ export type AnimationListener = (action: AnimationAction) => void;
 /** Something the mixer consults before advancing actions, such as an AnimationStateMachine. */
 export interface AnimationController {
   evaluate(delta: number): void;
+  destroy?(): void;
+}
+
+/** Post-sampling local-pose solver; borrows targets and runs before renderer deformation. */
+export interface AnimationConstraint {
+  enabled: boolean;
+  readonly channels: readonly AnimationPoseChannel[];
+  solve(delta: number): void;
+  destroy(): void;
 }
 
 function finiteTime(value: number, label: string): number {
@@ -204,6 +276,20 @@ export class AnimationAction {
   /** Base blend weight in [0, 1]; multiplied by the fade factor. */
   weight = 1;
   loopMode: AnimationLoopMode = 'repeat';
+  mask: AnimationMask | undefined;
+  private references: readonly Float64Array[] | undefined;
+
+  /** Mixer-owned actions can use explicit reference-relative TRS/morph deltas. */
+  setAdditive(reference: AnimationReferencePose | undefined): this {
+    if (reference && !this.mixer)
+      throw new Error(
+        'Additive actions require an AnimationMixer to restore their base pose.',
+      );
+    this.references = reference
+      ? this.clip.tracks.map((track) => reference.channel(track))
+      : undefined;
+    return this;
+  }
   private clipTime = 0;
   private elapsed = 0;
   private fade = 1;
@@ -323,6 +409,8 @@ export class AnimationAction {
   /** Advances time and fading, then samples the clip with `effectiveWeight`; false if not playing. */
   update(delta: number): boolean {
     if (!this.playing) return false;
+    if (this.references && !this.mixer)
+      throw new Error('Additive action is detached from its AnimationMixer.');
     if (!Number.isFinite(this.timeScale) || !Number.isFinite(this.elapsed))
       throw new RangeError('Animation time must be finite.');
     if (this.fadeRate > 0) {
@@ -363,7 +451,15 @@ export class AnimationAction {
       this.clipTime = phase <= duration ? phase : period - phase;
     }
     const weight = this.effectiveWeight;
-    for (const track of this.clip.tracks) track.sample(this.clipTime, weight);
+    for (let i = 0; i < this.clip.tracks.length; i++) {
+      const track = this.clip.tracks[i];
+      const channelWeight =
+        weight * (this.mask?.weight(track.target, track.path) ?? 1);
+      if (channelWeight <= 0) continue;
+      this.mixer?.captureOverlay(track.target, track.path, !!this.references);
+      track.sample(this.clipTime, channelWeight, this.references?.[i]);
+      this.mixer?.sealOverlay(track.target, track.path);
+    }
     if (wraps > 0)
       for (const listener of [...this.listeners.loop]) listener(this);
     if (finished) {
@@ -390,6 +486,41 @@ export class AnimationMixer {
   private readonly actions = new Map<AnimationClip, AnimationAction>();
   private readonly controllers = new Set<AnimationController>();
   private destroyed = false;
+  paused = false;
+  private updating = false;
+  private generation = 0;
+  private readonly constraints = new Set<AnimationConstraint>();
+  private readonly overlays = new Map<
+    AnimationTarget,
+    Map<AnimationPath, AnimationPoseOverlay>
+  >();
+  private readonly running: AnimationAction[] = [];
+  private readonly evaluating: AnimationController[] = [];
+
+  addConstraint(constraint: AnimationConstraint): () => void {
+    if (this.destroyed) throw new Error('AnimationMixer is destroyed.');
+    this.constraints.add(constraint);
+    return () => this.constraints.delete(constraint);
+  }
+
+  /** @internal Captures the base once, even when several overlays affect the same channel. */
+  captureOverlay(
+    target: AnimationTarget,
+    path: AnimationPath,
+    create = true,
+  ): void {
+    let paths = this.overlays.get(target);
+    if (!create && !paths?.get(path)?.captured) return;
+    if (!paths) this.overlays.set(target, (paths = new Map()));
+    let overlay = paths.get(path);
+    if (!overlay)
+      paths.set(path, (overlay = new AnimationPoseOverlay(target, path)));
+    overlay.capture();
+  }
+  /** @internal Record owned writes before user callbacks can clear or replace their pose. */
+  sealOverlay(target: AnimationTarget, path: AnimationPath): void {
+    this.overlays.get(target)?.get(path)?.seal();
+  }
   clipAction(clip: AnimationClip): AnimationAction {
     if (this.destroyed) throw new Error('AnimationMixer is destroyed.');
     let action = this.actions.get(clip);
@@ -402,6 +533,7 @@ export class AnimationMixer {
   }
   /** @internal Controllers evaluate before each update so they can start fades. */
   addController(controller: AnimationController): () => void {
+    if (this.destroyed) throw new Error('AnimationMixer is destroyed.');
     this.controllers.add(controller);
     return () => this.controllers.delete(controller);
   }
@@ -414,19 +546,69 @@ export class AnimationMixer {
   update(delta: number): void {
     if (!Number.isFinite(delta) || delta < 0)
       throw new RangeError('Animation delta must be nonnegative and finite.');
-    if (this.destroyed) return;
-    for (const controller of [...this.controllers]) controller.evaluate(delta);
-    const running = [...this.actions.values()];
-    for (const action of running) action.update(delta);
-    for (const action of running) action.supersede();
+    if (this.destroyed || this.paused) return;
+    if (this.updating)
+      throw new Error('AnimationMixer update is not reentrant.');
+    this.updating = true;
+    const generation = this.generation;
+    try {
+      for (const paths of this.overlays.values())
+        for (const overlay of paths.values()) overlay.restore();
+      this.evaluating.length = 0;
+      for (const controller of this.controllers)
+        this.evaluating.push(controller);
+      for (const controller of this.evaluating) {
+        if (this.destroyed || this.paused || this.generation !== generation)
+          return;
+        if (this.controllers.has(controller)) controller.evaluate(delta);
+      }
+      this.running.length = 0;
+      for (const action of this.actions.values()) this.running.push(action);
+      for (const action of this.running) {
+        if (this.destroyed || this.paused || this.generation !== generation)
+          return;
+        if (this.actions.get(action.clip) === action) action.update(delta);
+      }
+      if (this.destroyed || this.paused || this.generation !== generation)
+        return;
+      for (const action of this.running) action.supersede();
+      for (const constraint of this.constraints) {
+        if (this.destroyed || this.paused || this.generation !== generation)
+          return;
+        if (!constraint.enabled) continue;
+        for (const channel of constraint.channels)
+          this.captureOverlay(channel.target, channel.path);
+        constraint.solve(delta);
+        for (const channel of constraint.channels)
+          this.sealOverlay(channel.target, channel.path);
+      }
+    } finally {
+      this.running.length = this.evaluating.length = 0;
+      this.updating = false;
+    }
   }
   stopAll(): void {
     for (const action of this.actions.values()) action.stop();
+    for (const constraint of this.constraints) constraint.enabled = false;
+  }
+  /** Stops playback/controllers/constraints and releases their borrowed pose bindings. */
+  clear(): void {
+    this.generation++;
+    this.stopAll();
+    for (const paths of this.overlays.values())
+      for (const overlay of paths.values()) overlay.restore();
+    this.overlays.clear();
+    for (const constraint of this.constraints) constraint.destroy();
+    this.constraints.clear();
+    for (const controller of this.controllers) controller.destroy?.();
+    this.controllers.clear();
+    for (const action of this.actions.values()) action.mixer = undefined;
+    this.actions.clear();
+    this.running.length = this.evaluating.length = 0;
   }
   destroy(): void {
-    this.stopAll();
-    this.actions.clear();
-    this.controllers.clear();
+    if (this.destroyed) return;
     this.destroyed = true;
+    this.clear();
   }
 }

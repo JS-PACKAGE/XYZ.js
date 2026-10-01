@@ -1,0 +1,9 @@
+export const navigationLimits = Object.freeze({
+  gridCells: 65_536,
+  graphNodes: 8_192,
+  graphConnections: 65_536,
+  nodeIdLength: 128,
+  coordinateExtent: 1_000_000_000,
+  cost: 1_000_000_000,
+  followerSpeed: 1_000_000,
+});

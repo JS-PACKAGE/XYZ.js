@@ -25,8 +25,8 @@ struct MeshUniforms {
   settings: vec4f,
   specularColor: vec4f,
   specularParams: vec4f,
-  clearcoat: vec4f,
-  clearcoatMaps: vec4f,
+  clearcoat: vec4f, // strength, roughness, normal scale, native skin enabled
+  clearcoatMaps: vec4f, // map flags, raw native base alpha
   sheen: vec4f,
   sheenMaps: vec4f,
   transmission: vec4f,
@@ -45,6 +45,7 @@ struct MeshUniforms {
 @group(0) @binding(3) var environmentSampler: sampler;
 @group(0) @binding(4) var backgroundMap: texture_2d<f32>;
 @group(1) @binding(0) var<uniform> mesh: MeshUniforms;
+@group(1) @binding(1) var<storage, read> jointPalette: array<mat4x4f>;
 @group(2) @binding(0) var baseMap: texture_2d<f32>;
 @group(2) @binding(1) var materialSampler: sampler;
 @group(2) @binding(2) var metallicRoughnessMap: texture_2d<f32>;
@@ -84,6 +85,8 @@ struct VertexInput {
   @location(6) instance3: vec4f,
   @location(7) instanceColor: vec3f,
   @location(8) vertexColor: vec4f,
+  @location(9) joints: vec4u,
+  @location(10) weights: vec4f,
 };
 struct VertexOutput {
   @builtin(position) position: vec4f,
@@ -97,6 +100,17 @@ struct VertexOutput {
   @location(7) @interpolate(flat) local2: vec3f,
 };
 fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
+  let skin = jointPalette[input.joints.x] * input.weights.x
+    + jointPalette[input.joints.y] * input.weights.y
+    + jointPalette[input.joints.z] * input.weights.z
+    + jointPalette[input.joints.w] * input.weights.w;
+  let skinCofactor = mat3x3f(cross(skin[1].xyz, skin[2].xyz),
+    cross(skin[2].xyz, skin[0].xyz), cross(skin[0].xyz, skin[1].xyz));
+  let skinSign = select(1.0, -1.0, dot(skin[0].xyz, skinCofactor[0]) < 0.0);
+  let skinDirection = skinSign * skinCofactor * input.normal;
+  let skinLength = length(skinDirection);
+  let skinNormal = select(input.normal,
+    skinDirection / select(1.0, skinLength, skinLength > 0.0), mesh.clearcoat.w > 0.5);
   let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
   let a = model[0].xyz;
   let b = model[1].xyz;
@@ -104,10 +118,11 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let determinant = dot(a, cross(b, c));
   let inverseDet = select(0.0, 1.0 / determinant, determinant != 0.0);
   let normalMatrix = mat3x3f(cross(b,c), cross(c,a), cross(a,b)) * inverseDet;
-  let world = model * vec4f(input.position, 1.0);
+  let local = skin * vec4f(input.position, 1.0);
+  let world = model * vec4f(local.xyz, 1.0);
   var output: VertexOutput;
   output.position = projection * world;
-  output.normal = normalMatrix * input.normal;
+  output.normal = normalMatrix * skinNormal;
   output.uv = input.uv;
   output.world = world.xyz;
   output.orientation = select(-1.0,1.0,determinant >= 0.0);
@@ -236,7 +251,8 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0)*spotShadow(i,input.world);
     }
     // Legacy base map remains premultiplied to retain filtered translucent edges.
-    let rgb = texel.rgb*mesh.tint.rgb*input.color.rgb*illumination*mesh.tint.a*input.color.a;
+    let baseAlpha = select(1.0, texel.a, mesh.clearcoatMaps.w > 0.5);
+    let rgb = texel.rgb*baseAlpha*mesh.tint.rgb*input.color.rgb*illumination*mesh.tint.a*input.color.a;
     if (scene.counts.z > 0.5) { return vec4f(applyFog(decodeSRGB(rgb/max(opacity,0.000001))*opacity,opacity,input.world),opacity); }
     return vec4f(applyFog(rgb,opacity,input.world),opacity);
   }

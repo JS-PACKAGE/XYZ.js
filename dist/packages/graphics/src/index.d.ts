@@ -3,6 +3,7 @@ import type { RenderStats } from './render-stats.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/index.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
@@ -37,6 +38,7 @@ export interface GraphicsCapabilities {
     readonly storageBuffers: boolean;
     readonly instancing: boolean;
     readonly maxTextureSize: number;
+    readonly supportedTextureFormats: readonly NativeTextureFormat[];
 }
 export interface Renderer {
     readonly backend: GraphicsBackend;

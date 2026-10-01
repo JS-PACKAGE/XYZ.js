@@ -3,6 +3,7 @@ import { World } from '../../ecs/src/world.js';
 import { Camera2D } from './camera2d.js';
 import { PerspectiveCamera } from './perspective-camera.js';
 import type { OrthographicCamera } from './orthographic-camera.js';
+import { Object3D } from './object3d.js';
 import { AnimationMixer } from './animation.js';
 import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
@@ -13,6 +14,7 @@ import { SceneObject } from './scene-object.js';
 import { SceneTimers } from './scene-timers.js';
 import { TweenGroup } from './tween.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
+import { PhysicsWorld3D } from './physics3d/world.js';
 import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
@@ -27,6 +29,7 @@ export declare class Scene {
     readonly tweens: TweenGroup;
     readonly animations: AnimationMixer;
     readonly physics: PhysicsWorld2D;
+    readonly physics3D: PhysicsWorld3D;
     readonly effects2D: PostProcessor2D[];
     /**
      * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
@@ -76,6 +79,9 @@ export declare class Scene {
     get destroyed(): boolean;
     has(object: SceneObject): boolean;
     add<T extends SceneObject>(object: T): T;
+    /** @internal Object3D.add registers and publishes the final parent before add events. */
+    addChild<T extends Object3D>(object: T, parent: Object3D): T;
+    private addObject;
     private register;
     remove(object: SceneObject): boolean;
     private unregister;

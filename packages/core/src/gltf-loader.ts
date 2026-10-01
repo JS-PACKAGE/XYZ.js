@@ -14,11 +14,13 @@ import { Geometry } from './geometry.js';
 import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
-import { PBRMaterial, type TextureSamplerOptions } from './pbr-material.js';
+import { PBRMaterial } from './pbr-material.js';
+import type { TextureSamplerOptions } from './pbr-material.js';
 import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 import { decodeMeshopt } from './meshopt.js';
-import { decodeKTX2, isKTX2, type KTX2Transcoder } from './ktx2.js';
+import { decodeKTX2, decodeKTX2Native, isKTX2 } from './ktx2.js';
+import type { KTX2Transcoder, KTX2NativeTranscoder } from './ktx2.js';
 
 export interface GLTFDirectionalLight {
   /** Unit vector the light travels along (the node's −Z axis in world space). */
@@ -56,6 +58,9 @@ export interface GLTFLoadOptions {
    * to uncompressed 8-bit RGB(A) with no or ZLIB supercompression.
    */
   ktx2Transcoder?: KTX2Transcoder;
+  /** Preserve GPU payloads and all mips instead of decoding KTX2 images to bitmaps. */
+  nativeTextures?: boolean;
+  ktx2NativeTranscoder?: KTX2NativeTranscoder;
 }
 /** `attributes` maps glTF semantics to Draco attribute unique ids from the extension. */
 export interface DracoDecodeRequest {
@@ -451,7 +456,8 @@ export class GLTFLoader {
             !(
               supportedExtensions.has(name) ||
               (name === 'KHR_draco_mesh_compression' && options.dracoDecoder) ||
-              (name === 'KHR_texture_basisu' && options.ktx2Transcoder)
+              (name === 'KHR_texture_basisu' &&
+                (options.ktx2Transcoder || options.nativeTextures))
             )
           )
             throw new AssetError('Required glTF extensions are unsupported.');
@@ -819,6 +825,18 @@ export class GLTFLoader {
           data = new Uint8Array(view.buffer, view.offset, view.length);
         }
         if (mimeType === 'image/ktx2' || isKTX2(data)) {
+          if (options.nativeTextures) {
+            const texture = await decodeKTX2Native(
+              data,
+              options.ktx2NativeTranscoder,
+              context.signal,
+            );
+            context.textures.push(texture);
+            context.signal.throwIfAborted();
+            context.reserve(texture.byteLength);
+            imageCache.set(id, texture);
+            return texture;
+          }
           const image = await decodeKTX2(
             data,
             options.ktx2Transcoder,
@@ -893,8 +911,6 @@ export class GLTFLoader {
           texture.sampler === undefined
             ? {}
             : reference(samplerDefs, texture.sampler, 'sampler');
-        // Mipmapped filters (9984–9987) are accepted: images are never mipmapped,
-        // so they degrade to the matching nearest/linear base filter.
         const mipmapped: Record<number, number> = {
           9984: 9728,
           9985: 9729,
@@ -916,13 +932,26 @@ export class GLTFLoader {
           throw new AssetError('Invalid glTF sampler wrapping mode.');
         return {
           texture: await readImage(
-            basisu !== undefined && options.ktx2Transcoder
+            basisu !== undefined &&
+              (options.ktx2Transcoder || options.nativeTextures)
               ? basisu
               : (texture.source ?? basisu),
           ),
           sampler: {
             minFilter: min === 9728 ? 'nearest' : 'linear',
             magFilter: mag === 9728 ? 'nearest' : 'linear',
+            ...(options.nativeTextures
+              ? {
+                  mipmapFilter:
+                    sampler.minFilter === 9984 || sampler.minFilter === 9985
+                      ? ('nearest' as const)
+                      : ('linear' as const),
+                  lodMaxClamp:
+                    sampler.minFilter === 9728 || sampler.minFilter === 9729
+                      ? 0
+                      : 32,
+                }
+              : {}),
             addressModeU,
             addressModeV,
           },

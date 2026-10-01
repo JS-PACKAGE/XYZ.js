@@ -1,0 +1,16 @@
+export const physics3DDefaults = {
+  fixedDelta: 1 / 120,
+  maxSubSteps: 12,
+  solverIterations: 12,
+  contactSlop: 0.002,
+  contactMargin: 0.004,
+  correction: 0.65,
+  restitutionThreshold: 0.5,
+  sleepVelocity: 0.05,
+  sleepAngularVelocity: 0.08,
+  sleepTime: 0.6,
+  sweepIterations: 48,
+  sweepTolerance: 0.0001,
+  characterSkin: 0.003,
+  characterIterations: 8,
+} as const;

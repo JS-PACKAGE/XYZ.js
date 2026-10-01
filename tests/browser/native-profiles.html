@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>XYZ.js P42 native profiles</title>
+    <style>
+      body {
+        margin: 12px;
+        background: #152036;
+        color: #fff;
+        font: 14px system-ui;
+      }
+      canvas {
+        display: block;
+        width: 256px;
+        height: 256px;
+      }
+      #report {
+        white-space: pre-wrap;
+        max-width: 960px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas
+      id="game"
+      width="256"
+      height="256"
+      aria-label="Native profile oracle"
+    ></canvas>
+    <pre id="report" data-state="loading"></pre>
+    <script type="module" src="./native-profiles.ts"></script>
+  </body>
+</html>

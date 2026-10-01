@@ -1,5 +1,14 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import { NativeTexture2D } from '../../assets/src/native-texture.js';
+import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
+import {
+  compressionFeatures,
+  nativeUploadFormat,
+  uploadNativeWebGPU,
+  validateNativeWebGPU,
+  webgpuTextureFormats,
+} from './native-texture-upload.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type {
@@ -181,6 +190,7 @@ export class WebGPURenderer implements Renderer {
     storageBuffers: true,
     instancing: true,
     maxTextureSize: 0,
+    supportedTextureFormats: [] as readonly NativeTextureFormat[],
   };
   private canvas: HTMLCanvasElement | undefined;
   private context: GPUCanvasContext | undefined;
@@ -270,7 +280,11 @@ export class WebGPURenderer implements Renderer {
           'WebGPU is unavailable: the browser could not provide a GPU adapter.',
         );
       }
-      const device = await adapter.requestDevice();
+      const device = await adapter.requestDevice({
+        requiredFeatures: compressionFeatures.filter((feature) =>
+          adapter.features.has(feature),
+        ),
+      });
       if (this.destroyed) {
         device.destroy();
         throw new GraphicsError(
@@ -279,6 +293,7 @@ export class WebGPURenderer implements Renderer {
       }
       this.device = device;
       this.capabilities.maxTextureSize = device.limits.maxTextureDimension2D;
+      this.capabilities.supportedTextureFormats = webgpuTextureFormats(device);
       // Install this before any asynchronous shader validation, so initialization-time loss is detected.
       void device.lost.then((info) => {
         if (this.destroyed) return;
@@ -781,7 +796,9 @@ export class WebGPURenderer implements Renderer {
         `WebGPU texture size ${width}×${height} exceeds this device's maximum texture dimension of ${limit} pixels per side.`,
       );
     }
-    const bytes = width * height * 4;
+    const native = texture instanceof NativeTexture2D;
+    if (native) validateNativeWebGPU(device, texture);
+    const bytes = native ? texture.byteLength : width * height * 4;
     const allocation =
       existing?.allocation ??
       this.residency.textures.allocate(bytes, () => {
@@ -798,18 +815,21 @@ export class WebGPURenderer implements Renderer {
         ? existing!.resource
         : device.createTexture({
             size: [width, height],
-            format: 'rgba8unorm',
+            mipLevelCount: native ? texture.levels.length : 1,
+            format: native ? nativeUploadFormat(texture.format) : 'rgba8unorm',
             usage:
               GPUTextureUsage.TEXTURE_BINDING |
               GPUTextureUsage.COPY_DST |
-              GPUTextureUsage.RENDER_ATTACHMENT,
+              (native ? 0 : GPUTextureUsage.RENDER_ATTACHMENT),
           });
-      device.queue.copyExternalImageToTexture(
-        { source: texture.image },
-        { texture: resource, premultipliedAlpha: true },
-        [width, height],
-      );
-      this.frameStats.upload(width * height * 4);
+      if (native) uploadNativeWebGPU(device, resource, texture);
+      else
+        device.queue.copyExternalImageToTexture(
+          { source: texture.image },
+          { texture: resource, premultipliedAlpha: true },
+          [width, height],
+        );
+      this.frameStats.upload(bytes);
     } catch (error) {
       if (!reuse) {
         resource?.destroy();

@@ -117,6 +117,7 @@ export class Canvas2DRenderer implements Renderer {
     storageBuffers: false,
     instancing: false,
     maxTextureSize: MAX_SIZE,
+    supportedTextureFormats: Object.freeze([]),
   });
   private canvas: HTMLCanvasElement | undefined;
   private context: CanvasRenderingContext2D | undefined;

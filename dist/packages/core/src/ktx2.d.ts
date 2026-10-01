@@ -1,3 +1,5 @@
+import { NativeTexture2D } from '../../assets/src/native-texture.js';
+import type { NativeTextureOptions } from '../../assets/src/native-texture.js';
 /** One mip level exactly as stored in the file, before any supercompression is undone. */
 export interface KTX2Level {
     readonly data: Uint8Array;
@@ -43,3 +45,7 @@ export declare function parseKTX2(bytes: Uint8Array): KTX2Container;
  * maps or 3D, and mip levels beyond the base are ignored.
  */
 export declare function decodeKTX2(bytes: Uint8Array, transcoder?: KTX2Transcoder, signal?: AbortSignal): Promise<KTX2Image>;
+/** Injected real transcoder; must return all native mip payloads, not decoded-image placeholders. */
+export type KTX2NativeTranscoder = (container: KTX2Container) => NativeTextureOptions | Promise<NativeTextureOptions>;
+/** Preserves every mip of directly supported GPU formats; never silently decompresses to RGBA. */
+export declare function decodeKTX2Native(bytes: Uint8Array, transcoder?: KTX2NativeTranscoder, signal?: AbortSignal): Promise<NativeTexture2D>;

@@ -4,6 +4,9 @@ export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 export interface TextureSamplerOptions {
     minFilter?: 'nearest' | 'linear';
     magFilter?: 'nearest' | 'linear';
+    mipmapFilter?: 'nearest' | 'linear';
+    lodMinClamp?: number;
+    lodMaxClamp?: number;
     addressModeU?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
     addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
 }

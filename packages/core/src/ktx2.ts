@@ -1,5 +1,15 @@
 import { AssetError } from '../../assets/src/index.js';
 import { assetLimits } from '../../../src/data/assets.js';
+import {
+  NativeTexture2D,
+  nativeTextureFormats,
+  nativeTextureLayout,
+} from '../../assets/src/native-texture.js';
+import type {
+  NativeTextureFormat,
+  NativeTextureMip,
+  NativeTextureOptions,
+} from '../../assets/src/native-texture.js';
 
 /** One mip level exactly as stored in the file, before any supercompression is undone. */
 export interface KTX2Level {
@@ -222,4 +232,85 @@ export async function decodeKTX2(
       throw new AssetError('KTX2 transcoder returned an invalid RGBA image.');
   }
   return image;
+}
+
+/** Injected real transcoder; must return all native mip payloads, not decoded-image placeholders. */
+export type KTX2NativeTranscoder = (
+  container: KTX2Container,
+) => NativeTextureOptions | Promise<NativeTextureOptions>;
+
+/** Preserves every mip of directly supported GPU formats; never silently decompresses to RGBA. */
+export async function decodeKTX2Native(
+  bytes: Uint8Array,
+  transcoder?: KTX2NativeTranscoder,
+  signal?: AbortSignal,
+): Promise<NativeTexture2D> {
+  signal?.throwIfAborted();
+  const container = parseKTX2(bytes);
+  if (
+    container.layerCount > 1 ||
+    container.faceCount !== 1 ||
+    container.height === 0
+  )
+    fail('native textures require a plain 2D image');
+  const { width, height } = container;
+  if (
+    width > assetLimits.textureDimension ||
+    height > assetLimits.textureDimension
+  )
+    fail('native dimensions exceed the texture budget');
+  const format = (
+    Object.keys(nativeTextureFormats) as NativeTextureFormat[]
+  ).find((key) => nativeTextureFormats[key][3] === container.vkFormat);
+  const direct =
+    format !== undefined &&
+    (container.supercompression === 0 || container.supercompression === 3);
+  let options: NativeTextureOptions;
+  if (direct) {
+    if (
+      container.levels.length >
+      Math.floor(Math.log2(Math.max(width, height))) + 1
+    )
+      fail('too many mip levels for image dimensions');
+    const levels: NativeTextureMip[] = [];
+    let total = 0;
+    for (let i = 0; i < container.levels.length; i++) {
+      const mipWidth = Math.max(1, Math.floor(width / 2 ** i));
+      const mipHeight = Math.max(1, Math.floor(height / 2 ** i));
+      const layout = nativeTextureLayout(format, mipWidth, mipHeight);
+      total += layout.byteLength;
+      if (total > assetLimits.nativeTextureBytes)
+        fail('native mip chain exceeds the byte budget');
+      const level = container.levels[i]!;
+      if (
+        container.supercompression === 3 &&
+        level.uncompressedByteLength !== layout.byteLength
+      )
+        fail('native inflated byte length does not match block layout');
+      const data =
+        container.supercompression === 3
+          ? await inflate(level.data, layout.byteLength, signal)
+          : level.data;
+      if (data.byteLength !== layout.byteLength)
+        fail('native level size does not match block layout');
+      levels.push({ width: mipWidth, height: mipHeight, data });
+    }
+    options = { format, width, height, levels };
+  } else {
+    if (!transcoder)
+      throw new AssetError(
+        'This KTX2 payload requires a native KTX2 transcoder.',
+      );
+    options = await transcoder(container);
+    if (
+      options.width !== width ||
+      options.height !== height ||
+      options.levels.length !== container.levels.length
+    )
+      throw new AssetError(
+        'Native KTX2 transcoder must preserve image dimensions and every mip.',
+      );
+  }
+  signal?.throwIfAborted();
+  return new NativeTexture2D(options);
 }

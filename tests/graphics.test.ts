@@ -59,6 +59,7 @@ function gpuFixture() {
     },
   } as unknown as HTMLCanvasElement;
   const device = {
+    features: new Set<string>(),
     limits: { maxTextureDimension2D: 4096 },
     lost: new Promise<GPUDeviceLostInfo>(() => {}),
     addEventListener() {},
@@ -110,7 +111,10 @@ function gpuFixture() {
   const installGPU = (requestDevice: () => Promise<GPUDevice>) => {
     vi.stubGlobal('navigator', {
       gpu: {
-        requestAdapter: async () => ({ requestDevice }),
+        requestAdapter: async () => ({
+          features: new Set<string>(),
+          requestDevice,
+        }),
         getPreferredCanvasFormat: () => 'bgra8unorm',
       },
     });

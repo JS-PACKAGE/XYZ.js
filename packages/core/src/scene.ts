@@ -22,6 +22,7 @@ import { SceneTimers } from './scene-timers.js';
 import { TweenGroup } from './tween.js';
 import { isCameraDependent, type CameraDependent3D } from './objects3d.js';
 import { PhysicsWorld2D } from './physics2d/world.js';
+import { PhysicsWorld3D } from './physics3d/world.js';
 import { ParticleEmitter } from './particles2d/index.js';
 import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
@@ -38,6 +39,7 @@ export class Scene {
   readonly tweens = new TweenGroup();
   readonly animations = new AnimationMixer();
   readonly physics = new PhysicsWorld2D();
+  readonly physics3D = new PhysicsWorld3D();
   readonly effects2D: PostProcessor2D[] = [];
   /**
    * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order
@@ -108,6 +110,19 @@ export class Scene {
   }
 
   add<T extends SceneObject>(object: T): T {
+    return this.addObject(object, true);
+  }
+
+  /** @internal Object3D.add registers and publishes the final parent before add events. */
+  addChild<T extends Object3D>(object: T, parent: Object3D): T {
+    return this.addObject(object, false, parent);
+  }
+
+  private addObject<T extends SceneObject>(
+    object: T,
+    detachRoot: boolean,
+    parent?: Object3D,
+  ): T {
     if (this.disposed) throw new Error('Cannot add to a destroyed Scene.');
     if (this.registrations.has(object)) return object;
     const subtree: SceneObject[] = [object];
@@ -122,6 +137,10 @@ export class Scene {
       }
     }
     const added: SceneObject[] = [];
+    const restoreParent =
+      object instanceof Object3D && (parent || (detachRoot && object.parent))
+        ? object.setParentForRegistration(parent)
+        : undefined;
     try {
       for (const member of subtree) {
         if (this.registrations.has(member)) continue;
@@ -130,10 +149,10 @@ export class Scene {
       }
     } catch (error) {
       for (let i = added.length - 1; i >= 0; i--) this.unregister(added[i]);
+      restoreParent?.();
       throw error;
     }
-    if (object instanceof Object3D || object instanceof GameObject)
-      object.detachParent();
+    if (object instanceof GameObject) object.detachParent();
     for (const member of added) {
       if (member.scene === this && !member.destroyed)
         member.dispatchObjectEvent('add', { scene: this });
@@ -154,6 +173,7 @@ export class Scene {
         this.world.addComponent(entity, Transform3D, object.transform);
       if (object instanceof Mesh) this.world.addComponent(entity, Mesh, object);
       if (object instanceof GameObject) this.physics.register(object);
+      if (object instanceof Object3D) this.physics3D.register(object);
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
       if (isCameraDependent(object)) this.cameraDependents.add(object);
@@ -161,6 +181,7 @@ export class Scene {
         this.objectUpdates.set(object, ++this.nextObjectUpdate);
     } catch (error) {
       if (object instanceof GameObject) this.physics.unregister(object);
+      if (object instanceof Object3D) this.physics3D.unregister(object);
       if (entity !== undefined) this.world.removeEntity(entity);
       object.detach(this);
       throw error;
@@ -195,6 +216,7 @@ export class Scene {
     object.detach(this);
     this.world.removeEntity(entity);
     if (object instanceof GameObject) this.physics.unregister(object);
+    if (object instanceof Object3D) this.physics3D.unregister(object);
     if (object instanceof GameObject) this.pointerRouter?.forget(object);
   }
 
@@ -314,6 +336,8 @@ export class Scene {
     if (!canContinue() || this.disposed) return;
     this.physics.update(deltaTime, canContinue);
     if (!canContinue() || this.disposed) return;
+    this.physics3D.update(deltaTime, canContinue);
+    if (!canContinue() || this.disposed) return;
     for (const [object, id] of this.objectUpdates) {
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
@@ -381,6 +405,11 @@ export class Scene {
     }
     try {
       this.physics.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.physics3D.destroy();
     } catch (error) {
       errors.push(error);
     }

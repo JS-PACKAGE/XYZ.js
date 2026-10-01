@@ -5,7 +5,7 @@ import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { FrameStats } from './render-stats.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
-/** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
+/** Persistent 3D resources, native joint palettes and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
     private readonly opticalPackLayout;
@@ -62,6 +62,8 @@ export declare class WebGPUMeshPipeline {
     /** Linear (1, 1, 1) for every vertex or instance that has no colors of its own. */
     private whiteBuffer;
     private whiteCapacity;
+    private influenceBuffer;
+    private influenceCapacity;
     /** Replaced white buffers wait here until commands that may still bind them are submitted. */
     private readonly retired;
     private sceneBindGroup;
@@ -118,6 +120,7 @@ export declare class WebGPUMeshPipeline {
     private drawMesh;
     /** White RGBA storage also serves the RGB instance layout (every component is one). */
     private white;
+    private defaultInfluences;
     /** Creates or refreshes a vertex-step buffer holding `source`, which may change between frames. */
     private colorBuffer;
     private decodeClear;

@@ -1,4 +1,7 @@
-import { XYZError } from '../../graphics/src/errors.js';
+import { Texture } from './texture.js';
+export { AssetError, Texture } from './texture.js';
+export { NativeTexture2D } from './native-texture.js';
+export type { NativeTextureFormat, NativeTextureMip, NativeTextureOptions, } from './native-texture.js';
 import type { LoadTask } from './preload/preload-batch.js';
 export { PreloadBatch } from './preload/preload-batch.js';
 export type { LoadTask, PreloadProgress, PreloadState, } from './preload/preload-batch.js';
@@ -15,22 +18,6 @@ export type { ManifestAssetType, ManifestEntry, AssetManifestOptions, ManifestAs
 export interface ResourceLoadOptions {
     signal?: AbortSignal;
     maxBytes?: number;
-}
-export declare class AssetError extends XYZError {
-}
-/** Owns its decoded bitmap; destroying a Sprite does not destroy its Texture. */
-export declare class Texture {
-    readonly image: ImageBitmap;
-    readonly kind = "image";
-    readonly version = 0;
-    readonly width: number;
-    readonly height: number;
-    private disposed;
-    constructor(image: ImageBitmap);
-    /** Decode into a separately owned bitmap with straight (not premultiplied) alpha. */
-    static fromImage(source: ImageBitmapSource): Promise<Texture>;
-    get destroyed(): boolean;
-    destroy(): void;
 }
 export interface AssetLoaderOptions {
     /** RGBA decoded bitmap estimate; does not bound decoder transient memory. */

@@ -1,0 +1,2 @@
+export const physics3DDefaults={fixedDelta:1/120,maxSubSteps:12,solverIterations:12,contactSlop:.002,contactMargin:.004,correction:.65,restitutionThreshold:.5,sleepVelocity:.05,sleepAngularVelocity:.08,sleepTime:.6,sweepIterations:48,sweepTolerance:1e-4,characterSkin:.003,characterIterations:8};
+//# sourceMappingURL=physics3d.js.map

@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Beacon Run · XYZ.js</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        font:
+          16px/1.5 system-ui,
+          sans-serif;
+        background: #07121e;
+        color: #eaf6ff;
+      }
+      body {
+        margin: 0;
+        padding: 20px;
+        max-width: 1100px;
+        margin-inline: auto;
+      }
+      header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+      }
+      h1 {
+        margin: 0;
+        font-size: 24px;
+        letter-spacing: 0.12em;
+      }
+      a {
+        color: #81eacb;
+      }
+      button {
+        font: inherit;
+        padding: 8px 16px;
+        border: 1px solid #759aaf;
+        border-radius: 8px;
+        background: #143047;
+        color: inherit;
+      }
+      button:focus-visible,
+      canvas:focus-visible {
+        outline: 3px solid #7af0c2;
+        outline-offset: 3px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        height: auto;
+        aspect-ratio: 1100/720;
+        border-radius: 14px;
+        background: #0c1a2a;
+        touch-action: none;
+      }
+      #status {
+        min-height: 24px;
+        color: #99daca;
+      }
+      #boot {
+        color: #f4c98b;
+      }
+      .instructions {
+        color: #b8ccdc;
+        font-size: 14px;
+      }
+      @media (max-width: 650px) {
+        body {
+          padding: 8px;
+        }
+        h1 {
+          font-size: 18px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>BEACON RUN</h1>
+      <nav>
+        <a href="../">Examples</a>
+        <button id="destroy" type="button">Destroy game</button>
+      </nav>
+    </header>
+    <p id="boot" role="status">Preparing renderer and retained UI…</p>
+    <canvas
+      id="game"
+      width="1100"
+      height="720"
+      tabindex="0"
+      aria-label="Beacon Run arena. WASD or arrow keys move; Space jumps; Escape pauses."
+    ></canvas>
+    <p id="status" role="status" aria-live="polite">Loading…</p>
+    <p class="instructions">
+      Collect all four cyan beacons, then return to the green extraction pad
+      before 75 seconds. Avoid the red patrol drone. WASD / arrows: move ·
+      Space: jump · Escape: pause. The retained canvas direction sliders also
+      support pointer, touch and keyboard input. Tab reaches the engine’s
+      semantic controls; UI focus takes precedence over movement. Pause freezes
+      gameplay, physics, timer and animation — not the UI or renderer. Saves
+      stay in this browser; Continue restores a validated run after reload.
+    </p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

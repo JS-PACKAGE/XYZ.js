@@ -36,9 +36,10 @@
 - Scene 可替換 PerspectiveCamera／OrthographicCamera，提供 lookAt；OrbitControls 只接管指定 Canvas 並需 destroy。Raycaster 使用世界距離精確雙面三角形交點，涵蓋階層、instance 與變形後的 skin。
 - GLTFLoader 支援受預算限制的 glTF 2.0／GLB triangles、TRS、材質／textures／skins、morph targets（POSITION／NORMAL、weights animation）與 transform clips；必要 extension、其他 topology 明確拒絕。Morph 為 CPU 端，於 renderer／Raycaster 讀 vertices 前由 `Mesh.updateDeformation()` 重算。GLTFAsset.dispose 由應用負責，Scene 清理不代替 loader-owned textures 的釋放。
 - Game 在 timers 後、使用者 update 前推進 scene.animations，使用同一模擬 delta；mixer 依 action 插入順序寫入，不提供 blending。CPU skinning 更新自有 geometry，vertex-only markUpdated 通知 GPU cache，index topology 不可變。
-- 此節的「無 blending」是 P10 歷史基線：P34 現已支援 order-dependent weighted layers／fade／crossfade／flat state machine；mask／additive／blend tree／IK 則已批准納入 P42，尚待實作與驗收。GPU skinning／animated bounds 同列 P42，不能用原 CPU profile 排除。
+- 此節的「無 blending」是 P10 歷史基線：P34 已支援 order-dependent weighted layers／fade／crossfade／flat state machine；P42 再加入 mask／reference-relative additive／blend tree／two-bone IK、native GPU skinning 與 conservative animated bounds。原 CPU profile 不再是這些批准項的能力上限，限定驗收見 ACCEPTANCE。
 - P11 原先僅方向光 shadows／P12 HDR instancing，WebGL2 HDR 需 EXT_color_buffer_float；這是當時基線，P37 現有 point／spot／directional cascades（depth atlas／PCF）、P38 cubemap-input EnvironmentMap／baked reflection probes／FXAA／SSAO／DOF，P39 bounded glTF PBR extensions。EnvironmentMap 仍是 CPU preprocessing 的 equirect radiance／SH／roughness mip，不是 native cube texture／automatic probe capture。
 - v1.4 之後的 3D／執行期補強（皆為 additive，細節與驗證範圍見 TECHNICAL）：視錐剔除（保守 bounding sphere，skinned／instanced／morph 不剔除，shadow caster 仍進 shadow pass）、glTF 常用 extension（emissive strength、unlit 近似、texture transform 烘進 UV0、lights_punctual 以 `asset.lights` 回傳）、`scene.fog`、WebGPU 4× MSAA（`Game.create({antialias})`）、半透明由遠到近排序、`scene.effects3D`（重用 PostProcessor2D ABI，只處理 3D 影像）、`FirstPersonControls`（Pointer Lock）、`graphics.stats`，以及由 `ResilientRenderer` 提供的 WebGL2 context／WebGPU device 遺失復原（Game 送出 `graphicslost`／`graphicsrecovered`）。皆無新增 runtime dependency；WebGPU 真實 device loss、實體手把、聽感與其他瀏覽器仍未驗證。
+- 上段的「skinned 不剔除／GPU device loss 未驗」是當時基線；目前 P42 以 conservative animated bounds 做 skin culling，並實跑 fixture-only GPUDevice.destroy→正式 recovery，與 uncontrolled driver reset／跨瀏覽器認證仍分開。
 - API 是 three.js-inspired，非 drop-in 相容或全部 addons；Canvas2D 仍 2D-only、沒有新增 runtime dependency。當時 package 1.1.0／不自動提交或發佈的紀錄不改寫；目前 metadata 與本輪 P40–P42 提交授權依 PLAN，實測／未驗以 ACCEPTANCE 為準。
 
 ## Excalibur 參考擴充：P13–P20 profiles／共用整合已驗收
@@ -117,7 +118,7 @@ transmission 仍只看 opaque snapshot。WebGPU 保留 MSAA，WebGL2 離屏單�
 要求 float color attachment。這是 bounded-weight 近似，不是 depth peeling。
 尺寸相關 targets 隨 resize、停用／無 Scene、destroy 清理，prepared pipeline 保留。
 
-## P40／P41 已限定驗收；P42 待整合驗收
+## P40–P42 已限定驗收
 
 使用者批准三輪及 P42 全部 advanced options；由主代理在各輪行為證據與整合驗收後分階段提交，不 push／publish／version change。上述歷史提交限制不覆蓋此授權，歷史 release／counts／dates 不改寫。
 
@@ -130,5 +131,9 @@ transmission 仍只看 opaque snapshot。WebGPU 保留 MSAA，WebGL2 離屏單�
 - **P41 typed authoring**：FactoryRegistry／defineFactory 使用 explicit options parser／注入 services，fresh detached owned prefab subtree；context.own 在 fallible await 前，borrowed resources 保持 caller-owned。parseContentScene／buildContentScene 對 version-1 finite JSON IDs／parents／reference aliases 全 preflight，產 new unpublished Scene，再由 Game.setScene 發布；content.get／require typed lookup，serializer 只 explicit 2D IDs，不含 reflection／eval／automatic resource ownership／3D serialization。正式 [authoring-lab](examples/authoring-lab/) 沿 root facade，詳見雙語 USAGE／TECHNICAL。
 - **P42 full playable reference**：真正可完成與重玩的載入／選單／遊玩／pause／settings／結果／restart／save-load／teardown flow，包含 native input／audio unlock／failure handling。不是只把 API demos 串成 gallery。
 - **P42 全部 advanced profiles**：GPU skinning＋animated bounds 需保持 rendering／shadows／picking 一致；native compressed／mip texture 格式需明示 device feature／GL extension、level/block validation、ownership／loss reupload，外部 Basis／Draco codec 不冒稱內建。3D colliders／queries／character＋dynamic rigid bodies 必須有真正接觸／query／motion 行為；navigation／pathfinding 必須計算並執行路徑；animation masks／additive／blend tree／IK 必須接既有 mixer 的 simulation lifecycle。具體新 API 由實作後記入 TECHNICAL，backend restrictions 不能隱性縮減已批准範圍。
+- **P42 CPU profiles（已限定驗收）**：Scene owns PhysicsWorld3D，Object3D attachment／hierarchy validation transaction；Game after-update 依序 2D／3D fixed-step physics→particles→camera。Primitive sphere／OBB／capsule／two-sided plane manifold＋linear／angular impulse／sleep；upright unit root character 借 world，caller gravity／jump，結果重用。World.enabled／animations.paused 讓 gameplay freeze 而 Game HUD 仍推進；不等於 Game.pause。Weighted finite grid／immutable authored graph A*，follower 透過真 character.move、blocked explicit resume，非自動 navmesh。Mixer explicit mask／reference-relative additive overlays 在下次 sample 前 restore base；synchronized 1D／triangulated 2D tree、post-sampling direct two-bone IK；borrow targets，clear／destroy 不接管它們。限制與實跑數據見 TECHNICAL／ACCEPTANCE。
 
-Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 alpha）、拒 `COLOR_1`。P32 meshopt 內建；Draco 需 `GLTFLoadOptions.dracoDecoder`，KTX2 內建僅 RGB(A)／ZLIB base-level RGBA8 decode，Basis／其他格式需 `ktx2Transcoder`，現無 native BC／ASTC／ETC2 upload／一般 mip source。接口與實際 codec corpus／driver support 分開，詳見雙語 TECHNICAL；P42 核准的 native compressed／mip 尚非完成聲明。
+Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 alpha）、拒 `COLOR_1`，meshopt 內建、Draco 外部注入。P42 的 `nativeTextures:true`／`decodeKTX2Native` 保留全部 supplied mips；RGBA8／BC／ETC2-EAC／ASTC native payload 以 exact block layout／byte budget 驗證，Basis／其他編碼需 `ktx2NativeTranscoder`。GPU feature／GL extension 決定可用格式，Canvas2D 明確拒 native payload；原 ordinary RGBA8 decode 仍預設，不捏造 decoded image。
+
+- **P42 native render**：SkinnedMesh 的 immutable influence streams／morphed bind pose 走 GPU／GL color 與 shadow pipelines；joint palette changed-only upload、transformed influence boxes union 產 conservative animated sphere，Raycaster／updateSkin 另按需更新 exact CPU mirror。Joint-only motion 不重算所有 vertices，CPU morph、picker 的成本分開；renderer cache allocations 各自納入 residency、loss 從活著的 CPU sources 重建，不聲稱全 driver memory／FPS 改善。
+- **P42 reference**：[Beacon Run](examples/beacon-run/) 是 root Game consumer，retained canvas UI、capsule controller／動態 crates／authored patrol graph、mask-additive-tree-IK skin animation、native mips、official OPM 與 validated local save；Canvas2D 顯示 3D unsupported，不做假 3D fallback。實際 flow／backend 證據記於 ACCEPTANCE。

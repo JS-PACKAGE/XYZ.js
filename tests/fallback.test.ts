@@ -32,7 +32,9 @@ function setup(gpu: boolean): void {
       ? {
           gpu: {
             requestAdapter: async () => ({
+              features: new Set<string>(),
               requestDevice: async () => ({
+                features: new Set<string>(),
                 limits: { maxTextureDimension2D: 4096 },
                 lost: new Promise(() => {}),
                 addEventListener() {},

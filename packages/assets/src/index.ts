@@ -1,4 +1,11 @@
-import { XYZError } from '../../graphics/src/errors.js';
+import { AssetError, Texture } from './texture.js';
+export { AssetError, Texture } from './texture.js';
+export { NativeTexture2D } from './native-texture.js';
+export type {
+  NativeTextureFormat,
+  NativeTextureMip,
+  NativeTextureOptions,
+} from './native-texture.js';
 import { assetLimits } from '../../../src/data/assets.js';
 import { readResponse } from './read-response.js';
 import { gameplayAssetLimits } from '../../../src/data/gameplay-assets.js';
@@ -40,63 +47,6 @@ export type {
 export interface ResourceLoadOptions {
   signal?: AbortSignal;
   maxBytes?: number;
-}
-
-export class AssetError extends XYZError {}
-
-/** Owns its decoded bitmap; destroying a Sprite does not destroy its Texture. */
-export class Texture {
-  readonly kind = 'image';
-  readonly version = 0;
-  readonly width: number;
-  readonly height: number;
-  private disposed = false;
-
-  constructor(readonly image: ImageBitmap) {
-    if (
-      !Number.isFinite(image.width) ||
-      !Number.isFinite(image.height) ||
-      image.width <= 0 ||
-      image.height <= 0
-    )
-      throw new AssetError('A texture must have positive, finite dimensions.');
-    if (
-      image.width > assetLimits.textureDimension ||
-      image.height > assetLimits.textureDimension ||
-      image.width * image.height > assetLimits.texturePixels
-    )
-      throw new AssetError(
-        'Texture exceeds the decoded image resource budget.',
-      );
-    this.width = image.width;
-    this.height = image.height;
-  }
-
-  /** Decode into a separately owned bitmap with straight (not premultiplied) alpha. */
-  static async fromImage(source: ImageBitmapSource): Promise<Texture> {
-    let bitmap: ImageBitmap;
-    try {
-      bitmap = await createImageBitmap(source, { premultiplyAlpha: 'none' });
-    } catch (error) {
-      throw new AssetError('Unable to decode texture image.', { cause: error });
-    }
-    try {
-      return new Texture(bitmap);
-    } catch (error) {
-      bitmap.close();
-      throw error;
-    }
-  }
-
-  get destroyed(): boolean {
-    return this.disposed;
-  }
-
-  destroy(): void {
-    if (this.disposed) return;
-    this.disposed = true;
-    this.image.close();
-  }
 }
 
 export interface AssetLoaderOptions {

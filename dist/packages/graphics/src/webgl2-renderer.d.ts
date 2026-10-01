@@ -1,7 +1,8 @@
 import type { Scene } from '../../core/src/scene.js';
 import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 import type { Geometry } from '../../core/src/geometry.js';
-import { type Texture2DSource, Texture } from '../../assets/src/index.js';
+import { Texture } from '../../assets/src/index.js';
+import type { Texture2DSource } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { type RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
@@ -65,7 +66,9 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly lightingData;
     private readonly tintData;
     private readonly meshInstances;
+    private readonly meshSkins;
     private readonly samplers;
+    private supportedTextureFormats;
     private readonly atlas;
     private shadowBuffer;
     private sheenBuffer;
@@ -133,6 +136,7 @@ export declare class WebGL2Renderer implements Renderer {
     private bindMaterialTexture;
     private cacheSampler;
     private drawMesh;
+    private cacheSkin;
     private cacheInstances;
     private drawShadows;
     private preparePostTarget;

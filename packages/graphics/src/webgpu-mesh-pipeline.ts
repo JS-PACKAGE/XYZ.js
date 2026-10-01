@@ -2,11 +2,10 @@ import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
 import { Mesh } from '../../core/src/mesh.js';
-import {
-  PBRMaterial,
-  type TextureSamplerOptions,
-} from '../../core/src/pbr-material.js';
+import { PBRMaterial } from '../../core/src/pbr-material.js';
+import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
+import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
   activeBackground,
   activeEnvironment,
@@ -25,6 +24,12 @@ import {
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import { NativeTexture2D } from '../../assets/src/native-texture.js';
+import {
+  nativeUploadFormat,
+  uploadNativeWebGPU,
+  validateNativeWebGPU,
+} from './native-texture-upload.js';
 import { Matrix4 } from '../../math/src/index.js';
 import { WebGPUInitializationError, GraphicsError } from './errors.js';
 import { webgpuMeshShader } from './webgpu-mesh-shader.js';
@@ -56,6 +61,9 @@ interface CachedMesh {
   /** Per-instance RGB, or undefined while the InstancedMesh has no colors. */
   instanceColors: GPUBuffer | undefined;
   instanceColorVersion: number;
+  palette: GPUBuffer | undefined;
+  influences: GPUBuffer | undefined;
+  paletteVersion: number;
   data: Float32Array;
   seen: number;
 }
@@ -75,14 +83,14 @@ interface CachedEnvironment {
   refraction?: GPUTextureView;
 }
 
-/** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
+/** Persistent 3D resources, native joint palettes and hardware instances. */
 export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private textureEpoch = 0;
   private readonly meshes = new Map<Mesh, CachedMesh>();
   private readonly textures = new Map<Texture, CachedTexture>();
   private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
-  private readonly samplers = new Map<number, GPUSampler>();
+  private readonly samplers = new Map<string, GPUSampler>();
   private readonly draws: Mesh[] = [];
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
@@ -115,6 +123,8 @@ export class WebGPUMeshPipeline {
   /** Linear (1, 1, 1) for every vertex or instance that has no colors of its own. */
   private whiteBuffer: GPUBuffer;
   private whiteCapacity = 0;
+  private influenceBuffer: GPUBuffer | undefined;
+  private influenceCapacity = 0;
   /** Replaced white buffers wait here until commands that may still bind them are submitted. */
   private readonly retired: GPUBuffer[] = [];
   private sceneBindGroup: GPUBindGroup;
@@ -226,6 +236,7 @@ export class WebGPUMeshPipeline {
     this.sampler = device.createSampler({
       minFilter: 'linear',
       magFilter: 'linear',
+      mipmapFilter: 'linear',
       addressModeU: 'clamp-to-edge',
       addressModeV: 'clamp-to-edge',
     });
@@ -274,7 +285,10 @@ export class WebGPUMeshPipeline {
     this.backgroundView = this.dummyEnvironmentView;
     this.identityBuffer = device.createBuffer({
       size: 64,
-      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+      usage:
+        GPUBufferUsage.VERTEX |
+        GPUBufferUsage.STORAGE |
+        GPUBufferUsage.COPY_DST,
     });
     device.queue.writeBuffer(this.identityBuffer, 0, new Matrix4().elements);
     this.stats.upload(64);
@@ -394,6 +408,11 @@ export class WebGPUMeshPipeline {
           visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
           buffer: { type: 'uniform' },
         },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.VERTEX,
+          buffer: { type: 'read-only-storage' },
+        },
       ],
     });
     const materialLayout = device.createBindGroupLayout({
@@ -472,6 +491,13 @@ export class WebGPUMeshPipeline {
       {
         arrayStride: 16,
         attributes: [{ shaderLocation: 8, offset: 0, format: 'float32x4' }],
+      },
+      {
+        arrayStride: 32,
+        attributes: [
+          { shaderLocation: 9, offset: 0, format: 'uint32x4' },
+          { shaderLocation: 10, offset: 16, format: 'float32x4' },
+        ],
       },
     ];
     const blend: GPUBlendState = {
@@ -740,9 +766,9 @@ export class WebGPUMeshPipeline {
         const inView = object.isInFrustum(this.frustum);
         this.stats.meshes++;
         if (!inView) this.stats.culled++;
-        object.updateDeformation();
+        object.updateRenderDeformation();
         object.updateWorldMatrix();
-        const geometry = this.cacheGeometry(object.geometry);
+        const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
         this.updateMesh(scene, object, mesh);
@@ -997,12 +1023,12 @@ export class WebGPUMeshPipeline {
     this.geometries.get(geometry)?.allocation.destroy();
   }
   prepareMesh(mesh: Mesh): void {
-    mesh.updateDeformation();
-    this.cacheGeometry(mesh.geometry);
+    mesh.updateRenderDeformation();
+    this.cacheGeometry(mesh.renderGeometry);
     this.cacheMesh(mesh);
   }
   unloadTexture(texture: Texture2DSource): void {
-    if (texture.kind !== 'image') return;
+    if (texture.kind !== 'image' && texture.kind !== 'native') return;
     this.textures.get(texture)?.allocation.destroy();
     this.premultipliedTextures.get(texture)?.allocation.destroy();
     for (const [material, entry] of this.opticalTextures)
@@ -1112,7 +1138,7 @@ export class WebGPUMeshPipeline {
   }
 
   private drawMesh(pass: GPURenderPassEncoder, object: Mesh): void {
-    const geometry = this.geometries.get(object.geometry)!;
+    const geometry = this.geometries.get(object.renderGeometry)!;
     const mesh = this.meshes.get(object)!;
     pass.setBindGroup(1, mesh.bindGroup);
     pass.setBindGroup(2, mesh.materialGroup);
@@ -1123,6 +1149,11 @@ export class WebGPUMeshPipeline {
     pass.setVertexBuffer(
       3,
       geometry.colors ?? this.white(object.geometry.vertices.length / 8),
+    );
+    pass.setVertexBuffer(
+      4,
+      mesh.influences ??
+        this.defaultInfluences(object.renderGeometry.vertices.length / 8),
     );
     pass.setIndexBuffer(geometry.index, 'uint32');
     pass.drawIndexed(object.geometry.indices.length, instances);
@@ -1146,6 +1177,23 @@ export class WebGPUMeshPipeline {
     this.stats.upload(capacity * 16);
     this.whiteCapacity = capacity;
     return this.whiteBuffer;
+  }
+
+  private defaultInfluences(count: number): GPUBuffer {
+    if (this.influenceBuffer && count <= this.influenceCapacity)
+      return this.influenceBuffer;
+    const capacity = Math.max(count, this.influenceCapacity * 2, 1024);
+    if (this.influenceBuffer) this.retired.push(this.influenceBuffer);
+    const source = new Float32Array(capacity * 8);
+    for (let i = 0; i < capacity; i++) source[i * 8 + 4] = 1;
+    this.influenceBuffer = this.device.createBuffer({
+      size: source.byteLength,
+      usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+    });
+    this.device.queue.writeBuffer(this.influenceBuffer, 0, source);
+    this.stats.upload(source.byteLength);
+    this.influenceCapacity = capacity;
+    return this.influenceBuffer;
   }
 
   /** Creates or refreshes a vertex-step buffer holding `source`, which may change between frames. */
@@ -1383,9 +1431,14 @@ export class WebGPUMeshPipeline {
       ? this.cacheOpticalMaps(material)
       : this.emptyOpticalView;
     const existing = this.meshes.get(object);
+    const skin = object instanceof SkinnedMesh ? object : undefined;
+    const skinBytes = skin
+      ? skin.jointPalette.byteLength + skin.weights.length * 8
+      : 0;
     if (existing) {
       existing.allocation.resize(
         existing.uniform.size +
+          skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength +
               Math.max(
@@ -1394,6 +1447,11 @@ export class WebGPUMeshPipeline {
               )
             : 0),
       );
+      if (skin && existing.paletteVersion !== skin.paletteVersion) {
+        this.device.queue.writeBuffer(existing.palette!, 0, skin.jointPalette);
+        this.stats.upload(skin.jointPalette.byteLength);
+        existing.paletteVersion = skin.paletteVersion;
+      }
       if (existing.textureEpoch === this.textureEpoch) return existing;
     }
     const allocation =
@@ -1401,6 +1459,7 @@ export class WebGPUMeshPipeline {
       this.residency.geometry.allocate(
         304 +
           REFLECTION_FLOAT_COUNT * 4 +
+          skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength + (object.colors?.byteLength ?? 0)
             : 0),
@@ -1409,6 +1468,8 @@ export class WebGPUMeshPipeline {
           if (!cached) return;
           cached.uniform.destroy();
           cached.instanceColors?.destroy();
+          cached.palette?.destroy();
+          cached.influences?.destroy();
           if (cached.instance !== this.identityBuffer)
             cached.instance.destroy();
           this.meshes.delete(object);
@@ -1417,11 +1478,41 @@ export class WebGPUMeshPipeline {
     let uniform = existing?.uniform;
     let instance = existing?.instance ?? this.identityBuffer;
     let instanceColors = existing?.instanceColors;
+    let palette = existing?.palette;
+    let influences = existing?.influences;
     try {
       uniform ??= this.device.createBuffer({
         size: 304 + REFLECTION_FLOAT_COUNT * 4,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
+      if (!existing && skin) {
+        if (
+          skin.jointPalette.byteLength >
+          this.device.limits.maxStorageBufferBindingSize
+        )
+          throw new GraphicsError(
+            'Skin palette exceeds the WebGPU storage buffer limit.',
+          );
+        palette = this.device.createBuffer({
+          size: skin.jointPalette.byteLength,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        const data = new ArrayBuffer(skin.weights.length * 8);
+        const indices = new Uint32Array(data),
+          weights = new Float32Array(data);
+        for (let i = 0; i < skin.weights.length; i++) {
+          const offset = Math.floor(i / 4) * 8 + (i % 4);
+          indices[offset] = skin.jointIndices[i];
+          weights[offset + 4] = skin.weights[i];
+        }
+        influences = this.device.createBuffer({
+          size: data.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+        this.device.queue.writeBuffer(palette, 0, skin.jointPalette);
+        this.device.queue.writeBuffer(influences, 0, data);
+        this.stats.upload(skin.jointPalette.byteLength + data.byteLength);
+      }
       if (!existing && object instanceof InstancedMesh) {
         instance = this.device.createBuffer({
           size: object.matrices.byteLength,
@@ -1439,7 +1530,13 @@ export class WebGPUMeshPipeline {
         existing?.bindGroup ??
         this.device.createBindGroup({
           layout: this.meshLayout,
-          entries: [{ binding: 0, resource: { buffer: uniform } }],
+          entries: [
+            { binding: 0, resource: { buffer: uniform } },
+            {
+              binding: 1,
+              resource: { buffer: palette ?? this.identityBuffer },
+            },
+          ],
         });
       const materialGroup = this.device.createBindGroup({
         layout: this.materialLayout,
@@ -1543,6 +1640,9 @@ export class WebGPUMeshPipeline {
         instanceColors,
         instanceColorVersion:
           object instanceof InstancedMesh ? object.colorVersion : 0,
+        palette,
+        influences,
+        paletteVersion: skin?.paletteVersion ?? 0,
         data: new Float32Array(76 + REFLECTION_FLOAT_COUNT),
         seen: this.frame,
       };
@@ -1554,6 +1654,8 @@ export class WebGPUMeshPipeline {
       if (!existing) {
         uniform?.destroy();
         instanceColors?.destroy();
+        palette?.destroy();
+        influences?.destroy();
         if (instance !== this.identityBuffer) instance.destroy();
         allocation.destroy();
       }
@@ -1566,25 +1668,19 @@ export class WebGPUMeshPipeline {
     const magFilter = options?.magFilter ?? 'linear';
     const addressModeU = options?.addressModeU ?? 'clamp-to-edge';
     const addressModeV = options?.addressModeV ?? 'clamp-to-edge';
-    const key =
-      (minFilter === 'nearest' ? 1 : 0) |
-      (magFilter === 'nearest' ? 2 : 0) |
-      (addressModeU === 'repeat'
-        ? 4
-        : addressModeU === 'mirror-repeat'
-          ? 8
-          : 0) |
-      (addressModeV === 'repeat'
-        ? 16
-        : addressModeV === 'mirror-repeat'
-          ? 32
-          : 0);
-    if (key === 0) return this.sampler;
+    const mipmapFilter = options?.mipmapFilter ?? 'linear';
+    const lodMinClamp = options?.lodMinClamp ?? 0;
+    const lodMaxClamp = options?.lodMaxClamp ?? 32;
+    if (!options) return this.sampler;
+    const key = `${minFilter}/${magFilter}/${mipmapFilter}/${addressModeU}/${addressModeV}/${lodMinClamp}/${lodMaxClamp}`;
     const existing = this.samplers.get(key);
     if (existing) return existing;
     const sampler = this.device.createSampler({
       minFilter,
       magFilter,
+      mipmapFilter,
+      lodMinClamp,
+      lodMaxClamp,
       addressModeU,
       addressModeV,
     });
@@ -1683,30 +1779,33 @@ export class WebGPUMeshPipeline {
       throw new GraphicsError(
         `WebGPU texture size ${width}×${height} exceeds this device's maximum texture dimension of ${limit} pixels per side.`,
       );
-    const allocation = this.residency.textures.allocate(
-      width * height * 4,
-      () => {
-        cache.get(texture)?.resource.destroy();
-        cache.delete(texture);
-        this.textureEpoch++;
-      },
-    );
+    const native = texture instanceof NativeTexture2D;
+    if (native) validateNativeWebGPU(this.device, texture);
+    const bytes = native ? texture.byteLength : width * height * 4;
+    const allocation = this.residency.textures.allocate(bytes, () => {
+      cache.get(texture)?.resource.destroy();
+      cache.delete(texture);
+      this.textureEpoch++;
+    });
     let resource: GPUTexture | undefined;
     try {
       resource = this.device.createTexture({
         size: [width, height],
-        format: 'rgba8unorm',
+        mipLevelCount: native ? texture.levels.length : 1,
+        format: native ? nativeUploadFormat(texture.format) : 'rgba8unorm',
         usage:
           GPUTextureUsage.TEXTURE_BINDING |
           GPUTextureUsage.COPY_DST |
-          GPUTextureUsage.RENDER_ATTACHMENT,
+          (native ? 0 : GPUTextureUsage.RENDER_ATTACHMENT),
       });
-      this.device.queue.copyExternalImageToTexture(
-        { source: texture.image },
-        { texture: resource, premultipliedAlpha: premultiplied },
-        [width, height],
-      );
-      this.stats.upload(width * height * 4);
+      if (native) uploadNativeWebGPU(this.device, resource, texture);
+      else
+        this.device.queue.copyExternalImageToTexture(
+          { source: texture.image },
+          { texture: resource, premultipliedAlpha: premultiplied },
+          [width, height],
+        );
+      this.stats.upload(bytes);
       const entry = {
         resource,
         allocation,
@@ -1798,6 +1897,8 @@ export class WebGPUMeshPipeline {
       data[33] = 1;
     }
     data[34] = object.receiveShadow ? 1 : 0;
+    data[47] = object instanceof SkinnedMesh ? 1 : 0;
+    data[51] = material.texture.kind === 'native' ? 1 : 0;
     mesh.environment =
       material instanceof PBRMaterial
         ? fillReflectionData(scene, object, data, 76)
@@ -1910,6 +2011,7 @@ export class WebGPUMeshPipeline {
     this.opticalTextures.clear();
     this.identityBuffer.destroy();
     this.whiteBuffer.destroy();
+    this.influenceBuffer?.destroy();
     for (const buffer of this.retired.splice(0)) buffer.destroy();
     for (const entry of this.geometries.values()) {
       entry.vertex.destroy();
@@ -1920,6 +2022,8 @@ export class WebGPUMeshPipeline {
     for (const entry of this.meshes.values()) {
       entry.uniform.destroy();
       entry.instanceColors?.destroy();
+      entry.palette?.destroy();
+      entry.influences?.destroy();
       if (entry.instance !== this.identityBuffer) entry.instance.destroy();
     }
     this.meshes.clear();

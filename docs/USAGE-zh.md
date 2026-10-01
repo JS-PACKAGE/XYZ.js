@@ -2,20 +2,20 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎；P42 另批准完整可玩參考流程，不表示已交付。目前 metadata **1.7.0／Apache-2.0**（npm 未發佈），P01–P40 歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。P40／P41 已限定驗收；P42 全批准 scope 待整合驗收。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.7.0／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。P40–P42 已限定 Chromium 驗收。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
 
 ## 目前支援速查
 
-| 需求                      | 目前可用／重要邊界                                                                                                                                                                                                                                                                                                                                                                          |
-| ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 跨 backend 2D             | 三 backend Sprite／HUD／atlas／raster／isolation／masks／basic blends。Native Material2D／Filter2D／Mesh2D 僅 GPU／GL，Canvas 明確拒絕。                                                                                                                                                                                                                                                    |
-| 3D                        | 只有 WebGPU／WebGL2；PBR／instancing／shadows／post／weighted transparency 為明記的 bounded profiles。WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                                                                                                     |
-| Physics2D                 | Sleep／五種 joints／dynamic平移→static CCD／static concave凸分割與chains；無 dynamic concave／compound、rotation／dynamic-pair CCD。                                                                                                                                                                                                                                                        |
-| Models／textures          | glTF `COLOR_0` 支援、拒 `COLOR_1`；meshopt 內建。Draco／Basis需外部decoder，目前 KTX2 為 base-level RGBA8，非 native compressed／mip upload。                                                                                                                                                                                                                                               |
-| Recovery                  | GPU／GL 預設 `recoverGraphics:true` 重建同 backend，舊 RenderTextures／snapshots需重建；失敗為 fatal，非真 driver／跨browser認證。                                                                                                                                                                                                                                                          |
-| P40／P41 已驗；P42 待整合 | P41 UI/layout/focus、contexts、budgets/warmup、typed content 通過三 backend built-root Chromium regression；touch injection／模擬 Gamepad snapshots 不認證實體裝置。P42 完整可玩流程、GPU skinning／animated bounds、native compressed／mip textures、3D colliders／queries／character／dynamic bodies、navigation／pathfinding、animation masks／additive／blend tree／IK 全部待整合驗收。 |
+| 需求             | 目前可用／重要邊界                                                                                                                                                                                                                                                                                                |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 跨 backend 2D    | 三 backend Sprite／HUD／atlas／raster／isolation／masks／basic blends。Native Material2D／Filter2D／Mesh2D 僅 GPU／GL，Canvas 明確拒絕。                                                                                                                                                                          |
+| 3D               | 只有 WebGPU／WebGL2；PBR／instancing／shadows／post／weighted transparency 為明記的 bounded profiles。WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                           |
+| Physics2D        | Sleep／五種 joints／dynamic平移→static CCD／static concave凸分割與chains；無 dynamic concave／compound、rotation／dynamic-pair CCD。                                                                                                                                                                              |
+| Models／textures | glTF `COLOR_0` 支援、`COLOR_1` 拒絕；meshopt 內建、Draco／Basis codecs 外部提供。普通 KTX2 為 base-level RGBA8；opt-in native KTX2 保留全部 mips。`NativeTexture2D` 支援 RGBA8 與 capability-gated BC／ETC2／ASTC，Canvas 拒絕 native sources。                                                                   |
+| Recovery         | GPU／GL 預設 `recoverGraphics:true` 重建同 backend，舊 RenderTextures／snapshots需重建；失敗為 fatal，非真 driver／跨browser認證。                                                                                                                                                                                |
+| P40–P42 限定驗收 | P41 UI／contexts／budgets／warmup／typed content 通過三 backend built-root regression。P42 native GPU skin／animated bounds／mips、3D physics／dynamics／queries／capsule movement、authored navigation、masks／additive／blend trees／two-bone IK 與完整 Beacon Run 已限定驗收。非實體裝置／跨瀏覽器／效能認證。 |
 
-下方各階段 counts／browser observations 保留為歷史，不作待驗擴充的證據。
+下方各階段 counts／browser observations 保留為歷史，目前 P42 證據另記於 ACCEPTANCE。
 
 ## 1. 啟動開發環境
 
@@ -28,26 +28,27 @@ npx pnpm@12.6.0 dev
 
 執行 `npx pnpm@12.6.0 examples` 會啟動伺服器並開啟範例目錄 `http://127.0.0.1:5173/examples/`（可依功能篩選並逐 backend 開啟），或直接開啟 `http://127.0.0.1:5173/examples/showcase/` 看 2D、3D 與音訊整合；音訊必須點擊按鈕解鎖。開發伺服器只綁定 localhost。不要直接以 `file://` 開啟頁面；WebGPU／AudioWorklet 需要安全來源，正式部署使用 HTTPS。
 
-| 範例                                        | 用途                                                          |
-| ------------------------------------------- | ------------------------------------------------------------- |
-| [triangle](../examples/triangle/)           | WebGPU triangle、暫停／繼續／銷毀                             |
-| [sprite](../examples/sprite/)               | 共用貼圖、透明度、排序與音效                                  |
-| [pong](../examples/pong/)                   | 鍵盤、pointer、gamepad、相機與計分                            |
-| [cube3d](../examples/cube3d/)               | 透視、光照、depth 與貼圖                                      |
-| [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities                                  |
-| [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio                                     |
-| [advanced3d](../examples/advanced3d/)       | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR |
-| [physics2d](../examples/physics2d/)         | 剛體、材質、sensor trigger、重力                              |
-| [particles2d](../examples/particles2d/)     | Emitter 預設、burst、nozzle、加法混合圖層                     |
-| [tilemap2d](../examples/tilemap2d/)         | Tile 圖層、tile 碰撞、相機 follow／bounds／shake／zoom        |
-| [transitions2d](../examples/transitions2d/) | fade／crossfade／slide、easing、取消、Scene timers            |
-| [ui2d](../examples/ui2d/)                   | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                  |
-| [input-lab](../examples/input-lab/)         | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap           |
-| [audio-lab](../examples/audio-lab/)         | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch           |
-| [pbr3d](../examples/pbr3d/)                 | PBR 網格、陰影、環境光、霧、exposure／bloom                   |
-| [instancing3d](../examples/instancing3d/)   | InstancedMesh 批次、culling 探針、RenderStats                 |
-| [picking3d](../examples/picking3d/)         | 巢狀 Group、OrbitControls、Raycaster、相機投影切換            |
-| [gltf3d](../examples/gltf3d/)               | 蒙皮 glTF 動畫播放、morph targets                             |
+| 範例                                        | 用途                                                                                                                        |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [triangle](../examples/triangle/)           | WebGPU triangle、暫停／繼續／銷毀                                                                                           |
+| [sprite](../examples/sprite/)               | 共用貼圖、透明度、排序與音效                                                                                                |
+| [pong](../examples/pong/)                   | 鍵盤、pointer、gamepad、相機與計分                                                                                          |
+| [cube3d](../examples/cube3d/)               | 透視、光照、depth 與貼圖                                                                                                    |
+| [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities                                                                                                |
+| [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio                                                                                                   |
+| [beacon-run](../examples/beacon-run/)       | 四信標撤離遊戲、3D physics／navigation／animation、menu／HUD／pause／settings／save-load／audio／cleanup；限定 GPU／GL 驗收 |
+| [advanced3d](../examples/advanced3d/)       | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR                                                               |
+| [physics2d](../examples/physics2d/)         | 剛體、材質、sensor trigger、重力                                                                                            |
+| [particles2d](../examples/particles2d/)     | Emitter 預設、burst、nozzle、加法混合圖層                                                                                   |
+| [tilemap2d](../examples/tilemap2d/)         | Tile 圖層、tile 碰撞、相機 follow／bounds／shake／zoom                                                                      |
+| [transitions2d](../examples/transitions2d/) | fade／crossfade／slide、easing、取消、Scene timers                                                                          |
+| [ui2d](../examples/ui2d/)                   | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                                                                                |
+| [input-lab](../examples/input-lab/)         | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap                                                                         |
+| [audio-lab](../examples/audio-lab/)         | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch                                                                         |
+| [pbr3d](../examples/pbr3d/)                 | PBR 網格、陰影、環境光、霧、exposure／bloom                                                                                 |
+| [instancing3d](../examples/instancing3d/)   | InstancedMesh 批次、culling 探針、RenderStats                                                                               |
+| [picking3d](../examples/picking3d/)         | 巢狀 Group、OrbitControls、Raycaster、相機投影切換                                                                          |
+| [gltf3d](../examples/gltf3d/)               | 蒙皮 glTF 動畫播放、morph targets                                                                                           |
 
 ## 2. 在自己的網站使用
 
@@ -352,9 +353,9 @@ if (asset.animations[0]) {
 
 Signal 為 initialize 的 AbortSignal，URL 需真實模型；`parse(bytesOrJSON,baseURL,{signal})` 也支援 GLB／glTF。Game 在 timers 後、Scene.update 前推進 scene.animations，不重複 update。TRS clips 支援 STEP／LINEAR／CUBICSPLINE、reverse／repeat-once-pingpong 與 P34 ordered weighted layers／fades／crossfades；weight 1 後層取代前層、partial weights 做 blending而非全 action正規化平均。`play()` 繼續、`stop()` 歸零不還原 pose，完整契約見技術參考。
 
-支援 triangle、normalized／strided／sparse accessors、textures、四 influences skins 與 morph targets（POSITION／NORMAL deltas、mesh／node weights、`weights` animation），並支援 `KHR_mesh_quantization`、`KHR_materials_emissive_strength`、`KHR_materials_unlit`（近似）、`KHR_texture_transform`（烘進 UV；同一材質須共用同一 transform）與 `KHR_lights_punctual`（以 `asset.lights` 回傳，為 glTF 原始單位，需自行加入 scene）；其他必要 extensions、其他 topology 明確拒絕。CPU SkinnedMesh 更新 cloned geometry 供 renderer／picking 使用；morph 以 `mesh.morph.weights.set(index, weight)` 或載入的 clip 驅動（同一 node 的 primitives 共用 weights）。預算：input 32 MiB、fetched／tracked decoded 各 128 MiB、list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000／indices 3,000,000、joints 256、每 mesh 64 個 morph targets、hierarchy depth 256。這不是 process-memory 總上限；影像解碼後檢查的限制仍適用。
+支援 triangle、normalized／strided／sparse accessors、textures、四 influences skins 與 morph targets（POSITION／NORMAL deltas、mesh／node weights、`weights` animation），並支援 `KHR_mesh_quantization`、`KHR_materials_emissive_strength`、`KHR_materials_unlit`（近似）、`KHR_texture_transform`（烘進 UV；同一材質须共用同一 transform）與 `KHR_lights_punctual`（以 `asset.lights` 回傳，為 glTF 原始單位，需自行加入 scene）；其他必要 extensions、其他 topology 明確拒絕。SkinnedMesh 原生 GPU palette 用於 renderer，CPU deformation oracle 用於 bounds／picking；morph 以 `mesh.morph.weights.set(index, weight)` 或載入的 clip 驅動（同一 node 的 primitives 共用 weights）。預算：input 32 MiB、fetched／tracked decoded 各 128 MiB、list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000／indices 3,000,000、joints 256、每 mesh 64 個 morph targets、hierarchy depth 256。這不是 process-memory 總上限；影像解碼後檢查的限制仍適用。
 
-Current loader 增量：`COLOR_0` float／normalized unsigned VEC3／VEC4（含 alpha）、內建 `EXT_meshopt_compression`、有條件 Draco／Basis decoder接口與P39明記的PBR extensions；supported set外的required extension仍拒絕。Draco 請將真實 `dracoDecoder` 傳入 load／parse options，回傳符合accessors的logical-space attributes／triangle indices；缺decoder時required Draco拒絕、optional需真uncompressed fallback accessors。Basis／其他KTX2請提供回RGBA8的真實`ktx2Transcoder`，XYZ不內建Draco／Basis WebAssembly。內建KTX2只接受plain 2D RGB(A)／no或ZLIB supercompression／base level；有transcoder才advertise `KHR_texture_basisu`，否則需regular source fallback。外部decoder品質／速度／memory與廣泛asset corpus未認證；native compressed／mip upload是批准P42工作、不是目前decode output，詳見[技術參考](TECHNICAL-zh.md)。
+Current loader 增量含 `COLOR_0` float／normalized unsigned VEC3／VEC4（含 alpha）、內建 meshopt、外部 Draco／Basis decoder 接口與 P39 PBR extensions；不支援的 required extensions 拒絕。真實 `dracoDecoder` 需回傳符合 accessors 的 logical-space attributes／triangle indices；缺 decoder 時 required Draco 拒絕，optional 需真實 uncompressed fallback。預設 KTX2 回 base-level RGBA8，使用內建 plain 2D RGB(A)／no或ZLIB decode 或提供的 `ktx2Transcoder`；不內建 Draco／Basis WebAssembly。Opt-in `nativeTextures: true` 保留全部 KTX2 mips，需外部 codec 的 encoding 使用 `ktx2NativeTranscoder`。`KHR_texture_basisu` 使用 transcoder 或 native path，否則需 regular source fallback。Decoder 品質／速度／memory 與廣泛 asset corpus 未認證。見[第22節](#22-p42-3d-gameplay-與動畫)。
 
 清理時先停止 actions／移除 consumers，再 asset.dispose()，初始化失敗也需清理。Scene destroy 不 dispose loader-owned textures；仍有 live borrower 不可 dispose。Mesh／materials 不擁有共享 textures。
 
@@ -422,9 +423,9 @@ GPU／GL loss 預設觸發復原：監聽 `graphicslost`／`graphicsrecovered`�
 
 HDR exposure／ACES 與實際 9-tap threshold bloom 在不受影響的 2D overlay 前執行。WebGL2 需 EXT_color_buffer_float，缺少時啟用 HDR 明確失敗。InstancedMesh count 固定，setMatrixAt 增加 version，getMatrixAt(index,out) 讀取；不要直接改 raw matrices。World 為 mesh world × instance matrix。完整預設與限制見 [技術契約](TECHNICAL-zh.md#21-進階-3dp09p12)。
 
-各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，同一 shared image 保留不同 samplers；這些 options 中明確的 mipmapped min filters 拒絕，glTF 檔案指定 mipmapped filters 時則以 base filter 載入。
+各 map 可設定 textureSampler／metallicRoughnessSampler／normalSampler／occlusionSampler／emissiveSampler，含 minFilter／magFilter（'nearest'|'linear'）與 addressModeU/V（'clamp-to-edge'|'repeat'|'mirror-repeat'）。一般 PBR 預設 linear／clamp，glTF 預設 repeat，共用 image 保留不同 samplers。Native sources 可加 `mipmapFilter`／`lodMinClamp`／`lodMaxClamp`；opt-in native glTF 保留 mip sampling。普通 image textures 仍為 base-level sources。
 
-Sampler限制為目前契約、不是永久排除：P42 native compressed／mip textures已批准、待實作／驗收；EnvironmentMap roughness mips不開啟一般Texture mip filtering。
+Native mip upload 已限定 P42 驗收。EnvironmentMap roughness mips 是另一條路徑；native source 建立與 device format 檢查見第22節。
 
 ## 12. Atlas 圖形與 HUD（P13）
 
@@ -665,7 +666,7 @@ map.setTile(2, 2, { solid: false });
 
 Orthogonal origin top-left，isometric為diamond頂點、diagonal／elevation／insertion depth。Generated Sprite pool借sheet Texture，hidden／cleared不反覆建children。Transformed camera conservative culling不移除solids；預設box／diamond或custom convex collider。Edit／remove／destroy更新Scene collision registration；先destroy maps，再由owner destroy atlas。無editor format importer／hex／staggered／navigation。
 
-上述navigation是原map profile排除項；P42現已批准navigation／pathfinding、待實作／驗收，editor importer／hex／staggered仍排除。
+上述 navigation 是原 map profile 排除項；P42 現已提供有限 authored grid／graph pathfinding 與 character following，editor importer／hex／staggered 仍排除。
 
 ### Particle Emitters
 
@@ -777,7 +778,7 @@ Canvas 為批准 ordinary／raster 2D profile；visible native meshes／native f
 
 Ownership 明確：views／meshes／fonts／particles 借 source，先 remove borrowers 再 destroy owning asset。Native texture unload 後 CPU source 仍可用。Atlas anchors／borders、CanvasTexture updates、generated RGBA fonts、ParticleLayer、prepare／unload 全必做，不是 optional。非 full Pixi／HTML-SDF-video-compressed-plugin-generalGC parity。
 
-Compressed source排除是P21–P29歷史scope：目前P32 KTX2 decode／外部codecs與批准P42 native compressed／mip textures擴充該邊界，其餘Pixi non-goals不變。
+Compressed source 排除是 P21–P29 歷史 scope：P32 KTX2 decode／外部 codecs 與 P42 native compressed／mip profiles 擴充該邊界，其餘 Pixi non-goals 不變。實測 formats 與未驗限制見 ACCEPTANCE。
 
 Authored [fixture factory](../examples/rendering2d/fixtures.ts) 產生可 dispose object URLs，涵蓋 atlas／pattern／masks／multipage text-JSON BMFont。真實 font 的 [provenance／license](../examples/rendering2d/assets/README.md) 與 engine license 分開。
 
@@ -961,3 +962,99 @@ await game.setScene(content.scene, { warmup: { maxItems: 2 } });
 Loader textures：`const lease = await game.assets.acquireTexture(url)`，借 `lease.texture`，移除全部 borrowers 後 `lease.release()`；legacy loadTexture pin 到 unload／destroy。Manual `await game.warmup(scene, options)` 回 lease，需 release；setScene warmup 保護 candidate 到 scene lifetime，combined budget 不足不損舊 frame。Items／milliseconds 在資源間判斷，單項可超時，dependency snapshot 不追蹤 mutations，progress 不計舊 scene prelude。
 
 Decoded CPU／native texture／native geometry 是獨立 cache estimates；native LRU 只淘汰 idle／未 active／未 retained allocations，可 reprepare，不動 borrowed CPU ownership。Canvas native residency 為零；caller bitmaps／derivedCanvas／attachments／scratch／driver／pipelines 排除，不是 total VRAM／process memory 上限。分別觀察 game.assets.residency／game.graphics.residency。
+
+## 22. P42 3D Gameplay 與動畫
+
+Root API 提供有限 3D primitive physics、capsule movement、authored waypoint navigation 與 bounded animation profiles，契約見 [TECHNICAL](TECHNICAL-zh.md#42-p42-native-rendering物理navigation-與動畫-profiles)。Active Scene 自動推進 physics；character／path 更新由 gameplay 明示控制。
+
+```ts
+import {
+  Scene,
+  Object3D,
+  Vector3,
+  PlaneCollider3D,
+  CapsuleCollider3D,
+  CharacterController3D,
+  NavigationGraph3D,
+  PathFollower3D,
+} from 'xyz.js';
+
+const scene = new Scene();
+const floor = new Object3D();
+floor.collider = new PlaneCollider3D();
+scene.add(floor);
+const player = new Object3D();
+player.collider = new CapsuleCollider3D(0.25, 1.5);
+player.position.set(0, 1, 0);
+scene.add(player);
+const character = new CharacterController3D(player, scene.physics3D);
+const graph = new NavigationGraph3D({
+  nodes: [
+    { id: 'start', position: new Vector3(0, 1, 0) },
+    { id: 'goal', position: new Vector3(2, 1, 2) },
+  ],
+  connections: [{ from: 'start', to: 'goal', cost: Math.sqrt(8) }],
+});
+const follower = new PathFollower3D(character, { speed: 2 });
+follower.setPath(graph.findPath('start', 'goal'));
+let playing = true;
+scene.update = (deltaSeconds: number): void => {
+  if (playing) follower.update(deltaSeconds);
+};
+function setGameplayPaused(paused: boolean): void {
+  playing = !paused;
+  scene.physics3D.enabled = !paused;
+  scene.animations.paused = paused;
+}
+// await game.setScene(scene) 發布，再 game.start()。
+// Gameplay teardown：follower.destroy(); character.destroy();
+// Scene／Game teardown 負責自己的 objects／worlds。
+```
+
+Graph points 是 capsule center，需自行 author obstacle-safe routes。Controller 不提供 gravity／jump，要用自己的 displacement 呼叫 character.move；其 result／contacts 重用，跨下一次 move 保留時需 copy。Blocked follower 必須在障礙改變後 explicit resume。Gameplay pause 保持 Game running，HUD 才能繼續操作；Game.pause 則凍結整個 simulation，兩者音訊都需 explicit pause／resume。
+
+動畫用 AnimationMask 明示 channel allowlist；AnimationReferencePose 配 action.setAdditive 建立 reference-relative overlay。AnimationBlendTree 接管同步 leaf actions，支援 1D points 或 explicit triangulated 2D parameters。Direct root／middle／tip chain 可將 TwoBoneIKConstraint 加到同一 mixer；sampling／IK 早於 Scene.update，gameplay 仍可調整 final pose。Mixer 借用 targets，clear／destroy 釋放 playback／constraints，不 destroy targets。
+
+### Native skin 與 mip textures
+
+WebGPU／WebGL2 原生繪製 skin palette；保守 animated bounds 使用 transformed influence boxes，exact CPU deformation 僅在 queries 按需更新。Morph 先於 skinning。這是有限 profile，不是 throughput 聲明。Native textures 也只支援 GPU／GL；請查實際裝置的 `game.graphics.capabilities.supportedTextureFormats`，不要只看 backend 名稱。
+
+```ts
+import { NativeTexture2D, decodeKTX2Native, GLTFLoader } from 'xyz.js';
+import type { NativeTextureMip } from 'xyz.js';
+
+const levels: NativeTextureMip[] = [
+  { width: 2, height: 2, data: new Uint8Array(16).fill(255) },
+  { width: 1, height: 1, data: new Uint8Array([255, 255, 255, 255]) },
+];
+const texture = new NativeTexture2D({
+  format: 'rgba8unorm',
+  width: 2,
+  height: 2,
+  levels,
+});
+// Material 使用 texture；textureSampler 明示啟用 mip sampling：
+// { minFilter: 'linear', magFilter: 'linear', mipmapFilter: 'linear', lodMaxClamp: 1 }
+const response = await fetch('/assets/model.ktx2');
+if (!response.ok) throw new Error(`KTX2 HTTP ${response.status}`);
+const native = await decodeKTX2Native(
+  new Uint8Array(await response.arrayBuffer()),
+);
+const asset = await new GLTFLoader().load('/assets/model.glb', {
+  nativeTextures: true,
+});
+// 先移除所有 borrowers，再 texture.destroy()、native.destroy()、asset.dispose()。
+```
+
+Mip 尺寸逐層減半（向下取整，最小一），payload 必須符合 exact RGBA／block layout。Native KTX2 對支援的 Vulkan formats／無或 ZLIB supercompression 保留每一 mip；Basis／其他 encoding 需真實 `KTX2NativeTranscoder`（glTF option `ktx2NativeTranscoder`），不能用普通回 RGBA 的 `ktx2Transcoder` 替代。不支援的 format 明確拒絕，不解壓替代也不切 backend；普通 image 與預設 base-level KTX2 路徑不變。Root profiles 見 [技術第 42 節](TECHNICAL-zh.md#42-p42-native-rendering物理navigation-與動畫-profiles)，native 證據／限制見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+### 遊玩 Beacon Run
+
+透過本機 examples server 開啟 [Beacon Run](../examples/beacon-run/)，可加 `?renderer=webgpu` 或 `?renderer=webgl2`。Canvas2D（含 `auto` 降到 Canvas）會明確顯示不支援 3D，不會替換成 2D 遊戲。完整 GPU／GL 遊玩流程已限定 P42 驗收。
+
+- **Loading／menu：**顯示 pipeline warmup 與真實 OPM assets fetch progress；資產失敗可按 **Retry asset loading**。**Start with sound** 需可信 pointer click 或 semantic control 的 Enter／Space 操作；fetch 本身不 unlock／decode audio。**Play muted** 不需解鎖音訊；Settings 提供 **Enable sound / retry unlock**。
+- **目標／HUD：**75 秒內收齊四個青色信標，再回綠色撤離平台。避開紅色巡邏 drone；遭攔截或時間歸零即失敗。可推動 dynamic crates 或跳過障礙。HUD 顯示信標數／剩餘時間／狀態，勝敗畫面可 **Restart run** 或 **Main menu**。
+- **操作：**WASD／方向鍵或 standard gamepad 左搖桿移動；著地時 Space／gamepad A／canvas **Jump** 跳躍。方向 sliders 支援 pointer／touch／keyboard，release／cancel／blur 歸零。Tab 可到引擎 semantic controls；UI focus 優先於 world movement。按 **Return focus to arena** 或點 arena 恢復遊戲操作。
+- **Pause／settings：**Escape／**Pause** 凍結 timer／physics／navigation／animation，renderer／UI 仍運作；blur／hidden-page 也暫停。**Resume run** 繼續。Settings 限制 modal focus，並保存 master volume／mute／reduced character motion。遊戲音訊用 explicit pause reason，不假設 `Game.pause()` 會停聲。
+- **存讀檔：**經驗證的本瀏覽器 local storage 保存 preferences 與一份 continuation，含時間／信標／player／patrol／crates transforms 與 velocities。定期、收集信標與 pause 自動存檔；**Save run**、**Load saved run**（讀回仍 paused）、menu **Continue saved run** 支援 reload。已結束 run 不可繼續；missing／corrupt／storage unavailable 會顯示訊息，不捏造進度。
+- **清理／復原：** **Destroy game** 或 non-persisted pagehide 儘可能保存未完成 run，釋放 input contexts／controllers／follower、Scene physics／UI borrowers、audio 與 shared native mip texture；reload 才能再玩。Graphics loss 暫停 run，復原後手動 resume；persisted pagehide 只暫停不 destroy。

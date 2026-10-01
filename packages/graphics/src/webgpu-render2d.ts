@@ -627,6 +627,7 @@ export class WebGPURender2D {
     appearance?: Float32Array,
     uv?: TextureQuad2D,
     repeat = false,
+    native = false,
   ): void {
     const s = this.scratch,
       target = context.target,
@@ -650,6 +651,7 @@ export class WebGPURender2D {
     s[15] = w?.[4] ?? 1;
     s[16] = w?.[6] ?? 0;
     s[17] = w?.[7] ?? 0;
+    s[31] = native ? 1 : 0;
     for (let i = 0; i < 4; i++) s[20 + i] = appearance?.[i] ?? 1;
     if (uv) {
       s[24] = uv.u0;
@@ -829,7 +831,16 @@ export class WebGPURender2D {
     getRelativeAppearance2D(sprite, context.root, this.appearance);
     // Native materials retain their draw-uniform ABI; plain runs put appearance in each instance.
     if (!instanceTint)
-      this.drawUniforms(slot, context, undefined, undefined, this.appearance);
+      this.drawUniforms(
+        slot,
+        context,
+        undefined,
+        undefined,
+        this.appearance,
+        undefined,
+        false,
+        sprite.texture.kind === 'native',
+      );
     this.writeQuad(
       slot,
       quad,
@@ -840,6 +851,8 @@ export class WebGPURender2D {
       false,
       sprite instanceof TilingSprite2D ? sprite : undefined,
     );
+    this.instanceData[slot * QUAD_FLOATS + 31] =
+      sprite.texture.kind === 'native' ? 2 : 0;
   }
   private drawSprite(sprite: Sprite, context: Context2D): void {
     const slot = this.allocate();
@@ -945,6 +958,7 @@ export class WebGPURender2D {
       this.appearance,
       this.quad,
       'textureMode' in mesh && mesh.textureMode === 'repeat',
+      mesh.texture.kind === 'native',
     );
     pass.setPipeline(this.meshPipeline);
     this.bindDraw(pass, slot);
@@ -1081,6 +1095,7 @@ export class WebGPURender2D {
           data[o + 18] = quad.trimWidth;
           data[o + 19] = quad.trimHeight;
           data[o + 32] = quad.trimX;
+          data[o + 31] = slotData.texture.kind === 'native' ? 2 : 0;
           data[o + 33] = quad.trimY;
           versions[v + 2] = slotData.sourceVersion;
           entry.sourceSizes[size] = slotData.texture.width;

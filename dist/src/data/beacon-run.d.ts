@@ -1,0 +1,16 @@
+export declare const beaconRunDefaults: Readonly<{
+    width: 1100;
+    height: 720;
+    duration: 75;
+    playerSpeed: 4.5;
+    opponentSpeed: 2.4;
+    jumpSpeed: 5.8;
+    gravity: 14;
+    collectionRadius: 0.85;
+    captureRadius: 0.8;
+    captureGrace: 3;
+    autosaveSeconds: 2;
+    maxFrameDelta: 0.05;
+    volume: 0.45;
+    arenaHalfExtent: 8;
+}>;

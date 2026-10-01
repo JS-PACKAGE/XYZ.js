@@ -1,4 +1,8 @@
 import type {
+  AnimationMask,
+  AnimationReferencePose,
+} from './animation-pose.js';
+import type {
   AnimationAction,
   AnimationClip,
   AnimationController,
@@ -14,6 +18,8 @@ export interface AnimationStateDefinition {
   /** `true`/omitted repeats, `false` plays once; or a loop mode. */
   loop?: boolean | AnimationLoopMode;
   speed?: number;
+  mask?: AnimationMask;
+  additiveReference?: AnimationReferencePose;
 }
 
 export interface AnimationTransition {
@@ -86,6 +92,9 @@ export class AnimationStateMachine
       if (state.speed !== undefined && !Number.isFinite(state.speed))
         throw new RangeError(`State "${name}" speed must be finite.`);
       loopMode(state.loop);
+      if (state.additiveReference)
+        for (const track of state.clip.tracks)
+          state.additiveReference.channel(track);
     }
     for (const transition of this.transitions) {
       if (
@@ -234,6 +243,8 @@ export class AnimationStateMachine
     const next = this.mixer.clipAction(definition.clip);
     next.loopMode = loopMode(definition.loop);
     next.timeScale = definition.speed ?? 1;
+    next.mask = definition.mask;
+    next.setAdditive(definition.additiveReference);
     const outgoing =
       previous === undefined
         ? undefined

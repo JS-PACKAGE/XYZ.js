@@ -1,3 +1,4 @@
+import type { AnimationMask, AnimationReferencePose } from './animation-pose.js';
 import type { AnimationAction, AnimationClip, AnimationController, AnimationLoopMode, AnimationMixer } from './animation.js';
 export type AnimationParameter = number | boolean;
 export type AnimationParameters = Readonly<Record<string, AnimationParameter>>;
@@ -6,6 +7,8 @@ export interface AnimationStateDefinition {
     /** `true`/omitted repeats, `false` plays once; or a loop mode. */
     loop?: boolean | AnimationLoopMode;
     speed?: number;
+    mask?: AnimationMask;
+    additiveReference?: AnimationReferencePose;
 }
 export interface AnimationTransition {
     /** Source state, or `*` for any state other than the destination. */

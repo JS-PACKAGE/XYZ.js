@@ -14,6 +14,7 @@ struct VertexOutput {
   @location(3) uvx: vec4f,
   @location(4) uvy: vec4f,
   @location(5) tile: vec4f,
+  @location(6) @interpolate(flat) native: u32,
 };
 fn project(local: vec2f, world: bool, roundPixels: bool) -> vec4f {
   var axes = draw.values[1]; var offset = draw.values[2].xy;
@@ -22,12 +23,13 @@ fn project(local: vec2f, world: bool, roundPixels: bool) -> vec4f {
   if (roundPixels) { screen = floor(screen * draw.values[0].zw + vec2f(0.5)) / draw.values[0].zw; }
   return vec4f(screen.x * 2.0 / draw.values[0].x - 1.0, 1.0 - screen.y * 2.0 / draw.values[0].y, 0.0, 1.0);
 }
-fn sampleFrame(unit: vec2f, uvx: vec4f, uvy: vec4f) -> vec4f {
+fn sampleFrame(unit: vec2f, uvx: vec4f, uvy: vec4f, native: u32) -> vec4f {
   let origin = uvx.xy; let x = uvx.zw; let y = uvy.xy;
   let end = origin + x + y;
   let inset = min(vec2f(0.5) / vec2f(textureDimensions(spriteTexture)), abs(end - origin) * 0.5);
   let uv = clamp(origin + x * unit.x + y * unit.y, min(origin, end) + inset, max(origin, end) - inset);
-  return textureSampleLevel(spriteTexture, spriteSampler, uv, 0.0);
+  let color = textureSampleLevel(spriteTexture, spriteSampler, uv, 0.0);
+  return vec4f(color.rgb * select(1.0, color.a, native != 0u), color.a);
 }
 `;export function quadWGSL(t,n=!1){return`${e}
 ${n?`@group(3) @binding(0) var destinationTexture: texture_2d<f32>; @group(3) @binding(1) var destinationSampler: sampler;`:``}
@@ -44,12 +46,13 @@ struct QuadInput {
   let local = input.rect.zw + corner * input.size.xy - input.trimAnchor.zw * input.size.zw;
   let transformed = input.rect.xy + input.axes.xy * local.x + input.axes.zw * local.y;
   var output: VertexOutput;
-  output.position = project(transformed, input.flags.z != 0.0, input.flags.w != 0.0);
+  output.position = project(transformed, input.flags.z != 0.0, input.flags.w == 1.0);
   output.screen = vec2f((output.position.x + 1.0) * 0.5, (1.0 - output.position.y) * 0.5) * draw.values[0].xy;
   output.uvQ = vec3f(corner, 1.0);
   output.tint = input.tint * draw.values[5];
   output.uvx = input.uvx; output.uvy = input.uvy;
   output.tile = vec4f(0.0);
+  output.native = select(0u, 1u, input.flags.w >= 2.0);
   if (input.flags.y != 0.0) {
     let p = corner * input.size.xy - input.tile.xy;
     let c = cos(input.flags.x); let s = sin(input.flags.x);
@@ -67,7 +70,7 @@ ${t??`fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f { return color;
     if (any(unit < input.tile.xy) || any(unit >= input.tile.xy + input.tile.zw)) { discard; }
     unit = (unit - input.tile.xy) / input.tile.zw;
   }
-  let texel = sampleFrame(unit, input.uvx, input.uvy);
+  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native);
   let color = vec4f(texel.rgb * input.tint.rgb * input.tint.a, texel.a * input.tint.a);
   ${n?`let destination = textureSampleLevel(destinationTexture,destinationSampler,input.screen / draw.values[0].xy,0.0);
   return vec4f(color.rgb*destination.rgb+color.rgb*(1.0-destination.a)+destination.rgb*(1.0-color.a),color.a+destination.a*(1.0-color.a));`:`return effect(color, unit, input.screen);`}
@@ -78,12 +81,13 @@ struct MeshInput { @location(0) position: vec2f, @location(1) uvQ: vec3f, };
   output.position = project(input.position, false, false);
   output.screen = vec2f(0.0); output.uvQ = input.uvQ;
   output.tint = draw.values[5]; output.uvx = draw.values[6]; output.uvy = draw.values[7];
+  output.native = u32(draw.values[7].w);
   output.tile = vec4f(0.0); return output;
 }
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var unit = input.uvQ.xy / input.uvQ.z;
   if (draw.values[7].z != 0.0) { unit.x = fract(unit.x); }
-  let texel = sampleFrame(unit, input.uvx, input.uvy);
+  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native);
   return vec4f(texel.rgb * input.tint.rgb * input.tint.a, texel.a * input.tint.a);
 }`;export const localPassWGSL=`
 struct Settings { values: array<vec4f,16>, };

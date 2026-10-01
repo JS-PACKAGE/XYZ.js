@@ -15,6 +15,14 @@ const only3d: readonly Renderer[] = ['auto', 'webgpu', 'webgl2'];
 
 const examples: readonly Example[] = [
   {
+    slug: 'beacon-run',
+    title: 'Beacon Run',
+    summary:
+      'Playable 3D mission with native skin/mips, capsule physics, dynamic crates, navigation, canvas UI, sound and saved progress.',
+    tags: ['3D', 'Input', 'Audio', 'Data'],
+    renderers: only3d,
+  },
+  {
     slug: 'triangle',
     title: 'Triangle',
     summary: 'The smallest WebGPU frame with Pause, Resume and Destroy.',

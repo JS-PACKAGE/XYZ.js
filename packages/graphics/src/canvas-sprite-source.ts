@@ -21,6 +21,10 @@ export class CanvasSpriteSource {
   prepare(source: Texture2DSource): CanvasImageSource {
     if (source.destroyed)
       throw new GraphicsError('Cannot prepare a destroyed texture.');
+    if (source.kind === 'native')
+      throw new GraphicsError(
+        'Canvas2D does not support native texture payloads.',
+      );
     if (source.kind === 'render') return this.renderImage(source);
     let entry = this.sources.get(source);
     if (!entry) {

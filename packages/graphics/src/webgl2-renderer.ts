@@ -9,10 +9,9 @@ import {
 } from '../../core/src/materials2d/material2d.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
-import {
-  PBRMaterial,
-  type TextureSamplerOptions,
-} from '../../core/src/pbr-material.js';
+import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
+import { PBRMaterial } from '../../core/src/pbr-material.js';
+import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 import {
   activeBackground,
   fillReflectionData,
@@ -37,7 +36,14 @@ import {
 import { fxaaGLSL } from './fxaa-shaders.js';
 import { opticalPackGLSL } from './optical-pack-shaders.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
-import { type Texture2DSource, Texture } from '../../assets/src/index.js';
+import { Texture } from '../../assets/src/index.js';
+import type { Texture2DSource } from '../../assets/src/index.js';
+import { NativeTexture2D } from '../../assets/src/native-texture.js';
+import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
+import {
+  uploadNativeWebGL,
+  webglTextureFormats,
+} from './native-texture-upload.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { WebGLRender2D } from './webgl2-render2d.js';
@@ -133,6 +139,15 @@ interface CachedInstances {
   /** Per-instance RGB buffer, created when the InstancedMesh first has colors. */
   colors: WebGLBuffer | undefined;
   colorVersion: number;
+  seen: number;
+}
+
+interface CachedSkin {
+  allocation: ResidencyAllocation;
+  indices: WebGLBuffer;
+  weights: WebGLBuffer;
+  palette: WebGLTexture;
+  version: number;
   seen: number;
 }
 
@@ -267,8 +282,9 @@ export class WebGL2Renderer implements Renderer {
           }
         },
         mesh: (mesh) => {
-          mesh.updateDeformation();
-          this.cacheGeometry(mesh.geometry);
+          mesh.updateRenderDeformation();
+          this.cacheGeometry(mesh.renderGeometry);
+          if (mesh instanceof SkinnedMesh) this.cacheSkin(mesh);
           const material = mesh.material;
           this.cacheTexture(material.texture);
           if (material instanceof PBRMaterial) {
@@ -344,7 +360,9 @@ export class WebGL2Renderer implements Renderer {
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly tintData = new Float32Array(4);
   private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
-  private readonly samplers = new Map<number, WebGLSampler>();
+  private readonly meshSkins = new Map<SkinnedMesh, CachedSkin>();
+  private readonly samplers = new Map<string, WebGLSampler>();
+  private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private shadowBuffer: WebGLBuffer | undefined;
   private sheenBuffer: WebGLBuffer | undefined;
@@ -390,6 +408,7 @@ export class WebGL2Renderer implements Renderer {
       storageBuffers: false,
       instancing: true,
       maxTextureSize: this.maxTextureSize,
+      supportedTextureFormats: this.supportedTextureFormats,
     };
   }
 
@@ -443,6 +462,7 @@ export class WebGL2Renderer implements Renderer {
       );
       this.floatColorBuffer =
         gl.getExtension('EXT_color_buffer_float') !== null;
+      this.supportedTextureFormats = webglTextureFormats(gl);
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
       this.triangleProgram = this.createProgram(
         gl,
@@ -560,6 +580,8 @@ export class WebGL2Renderer implements Renderer {
         'viewProjection',
         'model',
         'instanced',
+        'skinned',
+        'jointPalette',
         'lighting[0]',
         'tint',
         'surface',
@@ -610,6 +632,8 @@ export class WebGL2Renderer implements Renderer {
         'viewProjection',
         'model',
         'instanced',
+        'skinned',
+        'jointPalette',
         'image',
         'alphaCutoff',
         'opacity',
@@ -1542,7 +1566,7 @@ export class WebGL2Renderer implements Renderer {
               object.material.transmission > 0);
           if (deferred !== (phase === 1)) continue;
         }
-        object.updateDeformation();
+        object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         if (pbr) {
@@ -1835,9 +1859,10 @@ export class WebGL2Renderer implements Renderer {
         : options.addressModeV === 'mirror-repeat'
           ? 2
           : 0;
-    const key = min + mag * 2 + u * 4 + v * 12;
-    // Texture uploads already use linear/clamp, so no sampler object is needed.
-    if (key === 3) return null;
+    const mip = options.mipmapFilter ?? 'linear';
+    const lodMin = options.lodMinClamp ?? 0;
+    const lodMax = options.lodMaxClamp ?? 32;
+    const key = `${min}/${mag}/${mip}/${u}/${v}/${lodMin}/${lodMax}`;
     const existing = this.samplers.get(key);
     if (existing) return existing;
     const gl = this.gl!;
@@ -1847,7 +1872,13 @@ export class WebGL2Renderer implements Renderer {
     gl.samplerParameteri(
       sampler,
       gl.TEXTURE_MIN_FILTER,
-      min ? gl.LINEAR : gl.NEAREST,
+      mip === 'nearest'
+        ? min
+          ? gl.LINEAR_MIPMAP_NEAREST
+          : gl.NEAREST_MIPMAP_NEAREST
+        : min
+          ? gl.LINEAR_MIPMAP_LINEAR
+          : gl.NEAREST_MIPMAP_LINEAR,
     );
     gl.samplerParameteri(
       sampler,
@@ -1864,6 +1895,8 @@ export class WebGL2Renderer implements Renderer {
       gl.TEXTURE_WRAP_T,
       v === 1 ? gl.REPEAT : v === 2 ? gl.MIRRORED_REPEAT : gl.CLAMP_TO_EDGE,
     );
+    gl.samplerParameterf(sampler, gl.TEXTURE_MIN_LOD, lodMin);
+    gl.samplerParameterf(sampler, gl.TEXTURE_MAX_LOD, lodMax);
     this.samplers.set(key, sampler);
     return sampler;
   }
@@ -1873,7 +1906,7 @@ export class WebGL2Renderer implements Renderer {
     uniforms: Record<string, WebGLUniformLocation | null>,
   ): void {
     const gl = this.gl!;
-    const geometry = this.cacheGeometry(mesh.geometry);
+    const geometry = this.cacheGeometry(mesh.renderGeometry);
     geometry.seen = this.frame;
     gl.uniformMatrix4fv(
       uniforms.model,
@@ -1884,6 +1917,29 @@ export class WebGL2Renderer implements Renderer {
     // Generic attribute values are context state, so the white default is set on every draw.
     gl.vertexAttrib3f(7, 1, 1, 1);
     gl.vertexAttrib4f(8, 1, 1, 1, 1);
+    const skin = mesh instanceof SkinnedMesh ? this.cacheSkin(mesh) : undefined;
+    gl.uniform1i(uniforms.skinned, skin ? 1 : 0);
+    if (skin) {
+      gl.activeTexture(gl.TEXTURE0 + 16);
+      gl.bindTexture(gl.TEXTURE_2D, skin.palette);
+      gl.bindSampler(16, null);
+      gl.uniform1i(uniforms.jointPalette, 16);
+      gl.bindBuffer(gl.ARRAY_BUFFER, skin.indices);
+      gl.enableVertexAttribArray(9);
+      gl.vertexAttribIPointer(9, 4, gl.UNSIGNED_INT, 16, 0);
+      gl.vertexAttribDivisor(9, 0);
+      gl.bindBuffer(gl.ARRAY_BUFFER, skin.weights);
+      gl.enableVertexAttribArray(10);
+      gl.vertexAttribPointer(10, 4, gl.FLOAT, false, 16, 0);
+      gl.vertexAttribDivisor(10, 0);
+    } else {
+      gl.disableVertexAttribArray(9);
+      gl.disableVertexAttribArray(10);
+      gl.vertexAttribI4ui(9, 0, 0, 0, 0);
+      gl.vertexAttrib4f(10, 1, 0, 0, 0);
+      // Samplers require a complete float-compatible texture even in an untaken branch.
+      gl.uniform1i(uniforms.jointPalette, 0);
+    }
     if (mesh instanceof InstancedMesh) {
       const entry = this.cacheInstances(mesh);
       gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
@@ -1926,6 +1982,94 @@ export class WebGL2Renderer implements Renderer {
         0,
       );
     }
+  }
+
+  private cacheSkin(mesh: SkinnedMesh): CachedSkin {
+    const gl = this.gl!;
+    let entry = this.meshSkins.get(mesh);
+    if (!entry) {
+      if (mesh.joints.length > this.maxTextureSize)
+        throw new GraphicsError(
+          'Skin palette exceeds the WebGL2 texture height limit.',
+        );
+      const bytes =
+        mesh.jointIndices.byteLength +
+        mesh.weights.byteLength +
+        mesh.jointPalette.byteLength;
+      const allocation = this.residency.geometry.allocate(bytes, () => {
+        const cached = this.meshSkins.get(mesh);
+        if (!cached) return;
+        gl.deleteBuffer(cached.indices);
+        gl.deleteBuffer(cached.weights);
+        gl.deleteTexture(cached.palette);
+        this.meshSkins.delete(mesh);
+      });
+      let indices: WebGLBuffer | undefined, weights: WebGLBuffer | undefined;
+      let palette: WebGLTexture | undefined;
+      try {
+        indices = this.createBuffer(gl);
+        weights = this.createBuffer(gl);
+        palette = gl.createTexture() ?? undefined;
+        if (!palette)
+          throw new GraphicsError('WebGL2 could not allocate a joint palette.');
+        gl.bindBuffer(gl.ARRAY_BUFFER, indices);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.jointIndices, gl.STATIC_DRAW);
+        gl.bindBuffer(gl.ARRAY_BUFFER, weights);
+        gl.bufferData(gl.ARRAY_BUFFER, mesh.weights, gl.STATIC_DRAW);
+        gl.activeTexture(gl.TEXTURE0 + 16);
+        gl.bindTexture(gl.TEXTURE_2D, palette);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA32F,
+          4,
+          mesh.joints.length,
+          0,
+          gl.RGBA,
+          gl.FLOAT,
+          mesh.jointPalette,
+        );
+        this.stats.upload(bytes);
+        entry = {
+          allocation,
+          indices,
+          weights,
+          palette,
+          version: mesh.paletteVersion,
+          seen: this.frame,
+        };
+        this.meshSkins.set(mesh, entry);
+      } catch (error) {
+        if (indices) gl.deleteBuffer(indices);
+        if (weights) gl.deleteBuffer(weights);
+        if (palette) gl.deleteTexture(palette);
+        allocation.destroy();
+        throw error;
+      }
+    } else if (entry.version !== mesh.paletteVersion) {
+      gl.activeTexture(gl.TEXTURE0 + 16);
+      gl.bindTexture(gl.TEXTURE_2D, entry.palette);
+      gl.texSubImage2D(
+        gl.TEXTURE_2D,
+        0,
+        0,
+        0,
+        4,
+        mesh.joints.length,
+        gl.RGBA,
+        gl.FLOAT,
+        mesh.jointPalette,
+      );
+      this.stats.upload(mesh.jointPalette.byteLength);
+      entry.version = mesh.paletteVersion;
+    }
+    entry.allocation.touch();
+    entry.seen = this.frame;
+    return entry;
   }
 
   private cacheInstances(mesh: InstancedMesh): CachedInstances {
@@ -2038,7 +2182,7 @@ export class WebGL2Renderer implements Renderer {
           object.geometry.indices.length === 0
         )
           continue;
-        object.updateDeformation();
+        object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
@@ -2460,14 +2604,20 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         `WebGL2 texture size ${width}×${height} exceeds its device budget.`,
       );
+    const native = texture instanceof NativeTexture2D;
+    if (native && !this.supportedTextureFormats.includes(texture.format))
+      throw new GraphicsError(
+        `WebGL2 does not support native texture format ${texture.format}.`,
+      );
+    const bytes = native ? texture.byteLength : width * height * 4;
     const allocation =
       existing?.allocation ??
-      this.residency.textures.allocate(width * height * 4, () => {
+      this.residency.textures.allocate(bytes, () => {
         const cached = this.textures.get(texture);
         if (cached) gl.deleteTexture(cached.resource);
         this.textures.delete(texture);
       });
-    if (existing) allocation.resize(width * height * 4);
+    if (existing) allocation.resize(bytes);
     const resource = existing?.resource ?? gl.createTexture();
     if (!resource) {
       allocation.destroy();
@@ -2477,19 +2627,30 @@ export class WebGL2Renderer implements Renderer {
       gl.bindTexture(gl.TEXTURE_2D, resource);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(
+        gl.TEXTURE_2D,
+        gl.TEXTURE_MIN_FILTER,
+        native ? gl.LINEAR_MIPMAP_LINEAR : gl.LINEAR,
+      );
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(
+      gl.texParameteri(
         gl.TEXTURE_2D,
-        0,
-        gl.RGBA,
-        gl.RGBA,
-        gl.UNSIGNED_BYTE,
-        texture.image,
+        gl.TEXTURE_MAX_LEVEL,
+        native ? texture.levels.length - 1 : 0,
       );
-      this.stats.upload(width * height * 4);
+      if (native) uploadNativeWebGL(gl, texture);
+      else
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          texture.image,
+        );
+      this.stats.upload(bytes);
       const error = gl.getError();
       if (error !== gl.NO_ERROR)
         throw new GraphicsError(
@@ -2735,6 +2896,9 @@ export class WebGL2Renderer implements Renderer {
       for (const entry of this.meshInstances.values())
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
+      for (const entry of this.meshSkins.values())
+        if (entry.seen !== this.frame && !entry.allocation.references)
+          entry.allocation.destroy();
     }
     for (const [map, entry] of this.environments)
       if (
@@ -2857,6 +3021,11 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteBuffer(entry.buffer);
         if (entry.colors) gl.deleteBuffer(entry.colors);
       }
+      for (const entry of this.meshSkins.values()) {
+        gl.deleteBuffer(entry.indices);
+        gl.deleteBuffer(entry.weights);
+        gl.deleteTexture(entry.palette);
+      }
       for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
@@ -2884,6 +3053,7 @@ export class WebGL2Renderer implements Renderer {
     this.textures.clear();
     this.geometries.clear();
     this.meshInstances.clear();
+    this.meshSkins.clear();
     this.environments.clear();
     this.samplers.clear();
     this.opticalTextures.clear();

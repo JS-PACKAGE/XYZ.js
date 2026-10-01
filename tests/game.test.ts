@@ -98,6 +98,7 @@ beforeEach(() => {
       storageBuffers: true,
       instancing: true,
       maxTextureSize: 4096,
+      supportedTextureFormats: [],
     },
     residency: new NativeResidency(),
     configureResidency: vi.fn(),

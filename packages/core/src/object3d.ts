@@ -5,6 +5,8 @@ import {
   type Vector3,
 } from '../../math/src/index.js';
 import { SceneObject } from './scene-object.js';
+import { RigidBody3D } from './physics3d/body.js';
+import { Collider3D, Shape3D } from './physics3d/collider.js';
 
 /** A local transform and its scene-owned descendant hierarchy. */
 export class Object3D extends SceneObject {
@@ -13,6 +15,69 @@ export class Object3D extends SceneObject {
   visible = true;
   private ancestor: Object3D | undefined;
   private readonly descendants = new Set<Object3D>();
+  private rigidBody: RigidBody3D | undefined;
+  private collisionShape: Collider3D | undefined;
+
+  get body(): RigidBody3D | undefined {
+    return this.rigidBody;
+  }
+  set body(value: RigidBody3D | undefined) {
+    if (value === this.rigidBody) return;
+    if (this.destroyed)
+      throw new Error('Cannot change a destroyed Object3D body.');
+    if (value && !(value instanceof RigidBody3D))
+      throw new TypeError('Invalid RigidBody3D.');
+    const previous = this.rigidBody;
+    value?.attach(this);
+    this.rigidBody = value;
+    try {
+      this.validatePhysics();
+      this.scene?.physics3D.register(this);
+    } catch (error) {
+      if (this.rigidBody === value) this.rigidBody = previous;
+      value?.detach(this);
+      throw error;
+    }
+    if (this.rigidBody !== previous) previous?.detach(this);
+  }
+  get collider(): Collider3D | undefined {
+    return this.collisionShape;
+  }
+  set collider(value: Collider3D | undefined) {
+    if (value === this.collisionShape) return;
+    if (this.destroyed)
+      throw new Error('Cannot change a destroyed Object3D collider.');
+    if (value && !(value instanceof Collider3D))
+      throw new TypeError('Invalid Collider3D.');
+    const previous = this.collisionShape;
+    this.collisionShape = value;
+    try {
+      this.validatePhysics();
+      this.scene?.physics3D.register(this);
+    } catch (error) {
+      if (this.collisionShape === value) this.collisionShape = previous;
+      throw error;
+    }
+  }
+  /** @internal Attachment validation also applies before Scene ownership begins. */
+  validatePhysics(): void {
+    const body = this.body,
+      collider = this.collider;
+    if (body && body.type !== 'static') {
+      if (this.parent)
+        throw new Error('Dynamic/kinematic bodies require root Object3D.');
+      if (collider?.kind === 'plane')
+        throw new Error('PlaneCollider3D is static only.');
+      if (
+        collider &&
+        (collider.offset.x !== 0 ||
+          collider.offset.y !== 0 ||
+          collider.offset.z !== 0)
+      )
+        throw new Error('Moving collider offsets are unsupported.');
+    }
+    if (collider) new Shape3D(collider).refresh(this);
+  }
 
   get position(): Vector3 {
     return this.transform.position;
@@ -54,8 +119,24 @@ export class Object3D extends SceneObject {
     if (child.scene && child.scene !== this.scene)
       throw new Error('Cannot reparent an Object3D across scenes.');
     if (child.parent === this) return child;
-    // Registration preflights the entire subtree before the previous parent changes.
-    if (this.scene && child.scene !== this.scene) this.scene.add(child);
+    if (child.body && child.body.type !== 'static')
+      throw new Error('Dynamic/kinematic bodies require root Object3D.');
+    // Validate the proposed world transform before registration or unlinking the old parent.
+    const previousParent = child.ancestor;
+    child.ancestor = this;
+    try {
+      const pending = [child as Object3D];
+      for (let i = 0; i < pending.length; i++) {
+        pending[i].validatePhysics();
+        for (const descendant of pending[i].children) pending.push(descendant);
+      }
+    } finally {
+      child.ancestor = previousParent;
+    }
+    if (this.scene && child.scene !== this.scene) {
+      this.scene.addChild(child, this);
+      return child;
+    }
     child.detachParent();
     child.ancestor = this;
     this.descendants.add(child);
@@ -75,6 +156,23 @@ export class Object3D extends SceneObject {
     this.ancestor = undefined;
   }
 
+  /** @internal Publishes a proposed hierarchy and returns an exact registration rollback. */
+  setParentForRegistration(nextParent: Object3D | undefined): () => void {
+    const parent = this.ancestor;
+    const siblings = parent ? [...parent.descendants] : undefined;
+    this.detachParent();
+    this.ancestor = nextParent;
+    nextParent?.descendants.add(this);
+    return () => {
+      this.detachParent();
+      this.ancestor = parent;
+      if (parent && siblings) {
+        parent.descendants.clear();
+        for (const sibling of siblings) parent.descendants.add(sibling);
+      }
+    };
+  }
+
   /** Recompose mutable local transforms, including every ancestor, without allocations. */
   updateWorldMatrix(): Matrix4 {
     const parentMatrix = this.parent?.updateWorldMatrix();
@@ -88,6 +186,9 @@ export class Object3D extends SceneObject {
     if (this.destroyed) return;
     const children = [...this.descendants];
     const errors: unknown[] = [];
+    this.rigidBody?.detach(this);
+    this.rigidBody = undefined;
+    this.collisionShape = undefined;
     this.detachParent();
     try {
       super.destroy();

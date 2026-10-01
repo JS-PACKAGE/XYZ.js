@@ -7,12 +7,17 @@ import { oitWeightGLSL } from './oit-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
+precision highp int;
 layout(location=0) in vec3 position;
 layout(location=1) in vec3 normal;
 layout(location=2) in vec2 uv;
 layout(location=3) in mat4 instanceMatrix;
 layout(location=7) in vec3 instanceColor;
 layout(location=8) in vec4 vertexColor;
+layout(location=9) in uvec4 jointIndices;
+layout(location=10) in vec4 jointWeights;
+uniform highp sampler2D jointPalette;
+uniform bool skinned;
 uniform mat4 viewProjection;
 uniform mat4 model;
 uniform bool instanced;
@@ -24,10 +29,32 @@ flat out float vOrientation;
 flat out vec3 vLocal0;
 flat out vec3 vLocal1;
 flat out vec3 vLocal2;
+mat4 jointMatrix(uint index) {
+  int row = int(index);
+  return mat4(texelFetch(jointPalette, ivec2(0,row),0),
+    texelFetch(jointPalette, ivec2(1,row),0),
+    texelFetch(jointPalette, ivec2(2,row),0),
+    texelFetch(jointPalette, ivec2(3,row),0));
+}
 void main() {
   mat4 world = model;
   if (instanced) world = model * instanceMatrix;
-  vec4 p = world * vec4(position, 1.0);
+  vec4 local = vec4(position, 1.0);
+  vec3 localNormal = normal;
+  if (skinned) {
+    mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
+      + jointMatrix(jointIndices.y) * jointWeights.y
+      + jointMatrix(jointIndices.z) * jointWeights.z
+      + jointMatrix(jointIndices.w) * jointWeights.w;
+    local = vec4((skin * local).xyz, 1.0);
+    mat3 cofactor = mat3(cross(skin[1].xyz,skin[2].xyz),
+      cross(skin[2].xyz,skin[0].xyz),cross(skin[0].xyz,skin[1].xyz));
+    float sign = dot(skin[0].xyz,cofactor[0]) < 0.0 ? -1.0 : 1.0;
+    vec3 direction = sign * cofactor * normal;
+    float directionLength = length(direction);
+    localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
+  }
+  vec4 p = world * local;
   vec4 clip = viewProjection * p;
   gl_Position = vec4(clip.xy, clip.z * 2.0 - clip.w, clip.w);
   mat3 m = mat3(world);
@@ -37,7 +64,7 @@ void main() {
   mat3 cofactor = mat3(a, cross(m[2], m[0]), cross(m[0], m[1]));
   mat3 normalMatrix = determinant == 0.0 ? mat3(0.0) : cofactor/determinant;
   vLocal0 = normalMatrix[0]; vLocal1 = normalMatrix[1]; vLocal2 = normalMatrix[2];
-  vNormal = normalMatrix*normal;
+  vNormal = normalMatrix*localNormal;
   vPosition = p.xyz;
   vUV = uv;
   vColor = vec4(instanceColor, 1.0) * vertexColor;

@@ -4,11 +4,22 @@ import { GameObject } from '../packages/core/src/game-object.js';
 import { Scene } from '../packages/core/src/scene.js';
 import { SceneObject } from '../packages/core/src/scene-object.js';
 import { Group } from '../packages/core/src/group.js';
+import { Object3D } from '../packages/core/src/object3d.js';
+import { RigidBody3D } from '../packages/core/src/physics3d/body.js';
+import {
+  BoxCollider3D,
+  SphereCollider3D,
+} from '../packages/core/src/physics3d/collider.js';
 import {
   AnimationClip,
   KeyframeTrack,
 } from '../packages/core/src/animation.js';
-import { Transform2D, Vector2 } from '../packages/math/src/index.js';
+import {
+  Transform2D,
+  Transform3D,
+  Vector2,
+  Vector3,
+} from '../packages/math/src/index.js';
 import {
   createRenderer,
   type Renderer,
@@ -104,6 +115,7 @@ beforeEach(() => {
       storageBuffers: true,
       instancing: true,
       maxTextureSize: 4096,
+      supportedTextureFormats: [],
     },
     residency: new NativeResidency(),
     configureResidency: vi.fn(),
@@ -408,6 +420,144 @@ describe('Scene ownership and Game integration', () => {
     expect(object.scene).toBeUndefined();
     expect(() => scene.add(new GameObject())).toThrow();
   });
+
+  it('rejects an invalid detached sphere without changing hierarchy or registrations', () => {
+    const scene = new Scene();
+    const existing = scene.add(new Object3D());
+    existing.collider = new SphereCollider3D(1);
+    const entities = [...scene.world.query(Transform3D)];
+    const parent = new Object3D();
+    parent.scale.set(2, 1, 1);
+    const before = parent.add(new Object3D());
+    const sphere = new Object3D();
+    sphere.scale.set(0.5, 1, 1);
+    parent.add(sphere);
+    sphere.body = new RigidBody3D({ type: 'static' });
+    sphere.collider = new SphereCollider3D(1);
+    const after = parent.add(new Object3D());
+    const add = vi.fn();
+    sphere.addEventListener('add', add);
+
+    expect(() => scene.add(sphere)).toThrow();
+    expect(sphere.parent).toBe(parent);
+    expect([...parent.children]).toEqual([before, sphere, after]);
+    expect(sphere.scene).toBeUndefined();
+    expect([...scene.objects]).toEqual([existing]);
+    expect([...scene.world.query(Transform3D)]).toEqual(entities);
+    expect(scene.physics3D.has(sphere)).toBe(false);
+    expect(scene.physics3D.has(existing)).toBe(true);
+    expect(scene.physics3D.size).toBe(1);
+    expect(add).not.toHaveBeenCalled();
+  });
+
+  it('rolls back partially registered descendants and restores the original root order', () => {
+    const scene = new Scene();
+    const parent = new Object3D();
+    parent.scale.set(2, 1, 1);
+    const before = parent.add(new Object3D());
+    const root = parent.add(new Object3D());
+    const valid = root.add(new Object3D());
+    valid.collider = new BoxCollider3D(new Vector3(1, 1, 1));
+    const invalid = root.add(new Object3D());
+    invalid.scale.set(0.5, 1, 1);
+    invalid.collider = new SphereCollider3D(1);
+    const after = parent.add(new Object3D());
+
+    expect(() => scene.add(root)).toThrow();
+    expect(root.parent).toBe(parent);
+    expect([...parent.children]).toEqual([before, root, after]);
+    expect([...root.children]).toEqual([valid, invalid]);
+    for (const object of [root, valid, invalid]) {
+      expect(object.scene).toBeUndefined();
+      expect(scene.has(object)).toBe(false);
+      expect(scene.physics3D.has(object)).toBe(false);
+    }
+    expect([...scene.world.query(Transform3D)]).toEqual([]);
+    expect(scene.objects.size).toBe(0);
+  });
+
+  it('registers a detached moving root using its local pose rather than its former parent', () => {
+    const scene = new Scene();
+    scene.physics3D.gravity.set(0, 0, 0);
+    const parent = new Object3D();
+    parent.position.set(100, 20, 0);
+    const moving = parent.add(new Object3D());
+    moving.position.set(3, 4, 0);
+    moving.body = new RigidBody3D({ type: 'static' });
+    moving.collider = new SphereCollider3D(1);
+    // Model a preexisting nested moving body; admission must validate its eventual root.
+    Object.defineProperty(moving.body, 'type', { value: 'dynamic' });
+    parent.scale.set(2, 1, 1);
+    moving.body.velocity.set(6, 0, 0);
+
+    scene.add(moving);
+    expect(moving.parent).toBeUndefined();
+    expect(parent.children.has(moving)).toBe(false);
+    expect(scene.physics3D.has(moving)).toBe(true);
+    scene.physics3D.update(scene.physics3D.fixedDelta);
+    expect(moving.position.x).toBeCloseTo(3 + 6 * scene.physics3D.fixedDelta);
+    expect(moving.position.y).toBe(4);
+    const hit = scene.physics3D.raycast(
+      new Vector3(0, 4, 0),
+      new Vector3(1, 0, 0),
+      10,
+    );
+    expect(hit?.object).toBe(moving);
+    expect(hit?.distance).toBeCloseTo(moving.position.x - 1);
+  });
+
+  it('registers parented static spheres against the final composed transform', () => {
+    const scene = new Scene();
+    const parent = new Object3D();
+    parent.scale.set(2, 1, 1);
+    scene.add(parent);
+    const sphere = new Object3D();
+    sphere.collider = new SphereCollider3D(1);
+    sphere.scale.set(0.5, 1, 1);
+
+    parent.add(sphere);
+    expect(sphere.parent).toBe(parent);
+    expect(scene.physics3D.has(sphere)).toBe(true);
+    const hit = scene.physics3D.raycast(
+      new Vector3(-3, 0, 0),
+      new Vector3(1, 0, 0),
+      10,
+    );
+    expect(hit?.object).toBe(sphere);
+    expect(hit?.distance).toBeCloseTo(2);
+  });
+
+  it.each(['destroy', 'remove'] as const)(
+    'does not undo an add listener that %ss its newly parented child',
+    (action) => {
+      const scene = new Scene();
+      const parent = scene.add(new Object3D());
+      const oldParent = new Object3D();
+      const child = oldParent.add(new Object3D());
+      const descendant = child.add(new Object3D());
+      child.collider = new SphereCollider3D(1);
+      let published = false;
+      child.addEventListener('add', () => {
+        published = child.parent === parent && parent.children.has(child);
+        if (action === 'destroy') child.destroy();
+        else parent.remove(child);
+      });
+
+      parent.add(child);
+      expect(published).toBe(true);
+      expect(child.parent).toBeUndefined();
+      expect(oldParent.children.has(child)).toBe(false);
+      expect(parent.children.has(child)).toBe(false);
+      expect(child.destroyed).toBe(action === 'destroy');
+      expect(descendant.destroyed).toBe(action === 'destroy');
+      expect(child.scene).toBeUndefined();
+      expect(descendant.scene).toBeUndefined();
+      expect(scene.has(child)).toBe(false);
+      expect(scene.has(descendant)).toBe(false);
+      expect(scene.physics3D.has(child)).toBe(false);
+      expect([...scene.objects]).toEqual([parent]);
+    },
+  );
 
   it('prepares atomically and executes scene update before systems and renderer', async () => {
     const game = await createGame();

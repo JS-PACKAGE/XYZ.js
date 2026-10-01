@@ -1,3 +1,4 @@
+import type { AnimationMask, AnimationPoseChannel, AnimationReferencePose, AnimationTarget } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
 import { MorphWeights } from './morph.js';
 export type AnimationPath = 'translation' | 'rotation' | 'scale' | 'weights';
@@ -11,12 +12,16 @@ export declare class KeyframeTrack {
     readonly values: Float32Array;
     readonly size: number;
     private readonly scratch;
+    private readonly deltaRotation;
+    private readonly referenceRotation;
+    private readonly identityRotation;
     constructor(target: Object3D | MorphWeights, path: AnimationPath, times: ArrayLike<number>, values: ArrayLike<number>, interpolation?: Interpolation);
     /**
      * Samples the track at `time` into its target. Weights below 1 blend over what the target
      * already holds, so a later, lower-weight track layers over an earlier one.
      */
-    sample(time: number, weight?: number): void;
+    sample(time: number, weight?: number, reference?: Float64Array): void;
+    private applyAdditive;
     /** Writes `out` to the target; a weight below 1 layers it over the target's current pose. */
     private apply;
 }
@@ -32,6 +37,14 @@ export type AnimationListener = (action: AnimationAction) => void;
 /** Something the mixer consults before advancing actions, such as an AnimationStateMachine. */
 export interface AnimationController {
     evaluate(delta: number): void;
+    destroy?(): void;
+}
+/** Post-sampling local-pose solver; borrows targets and runs before renderer deformation. */
+export interface AnimationConstraint {
+    enabled: boolean;
+    readonly channels: readonly AnimationPoseChannel[];
+    solve(delta: number): void;
+    destroy(): void;
 }
 export declare class AnimationAction {
     readonly clip: AnimationClip;
@@ -40,6 +53,10 @@ export declare class AnimationAction {
     /** Base blend weight in [0, 1]; multiplied by the fade factor. */
     weight: number;
     loopMode: AnimationLoopMode;
+    mask: AnimationMask | undefined;
+    private references;
+    /** Mixer-owned actions can use explicit reference-relative TRS/morph deltas. */
+    setAdditive(reference: AnimationReferencePose | undefined): this;
     private clipTime;
     private elapsed;
     private fade;
@@ -90,6 +107,18 @@ export declare class AnimationMixer {
     private readonly actions;
     private readonly controllers;
     private destroyed;
+    paused: boolean;
+    private updating;
+    private generation;
+    private readonly constraints;
+    private readonly overlays;
+    private readonly running;
+    private readonly evaluating;
+    addConstraint(constraint: AnimationConstraint): () => void;
+    /** @internal Captures the base once, even when several overlays affect the same channel. */
+    captureOverlay(target: AnimationTarget, path: AnimationPath, create?: boolean): void;
+    /** @internal Record owned writes before user callbacks can clear or replace their pose. */
+    sealOverlay(target: AnimationTarget, path: AnimationPath): void;
     clipAction(clip: AnimationClip): AnimationAction;
     /** @internal Controllers evaluate before each update so they can start fades. */
     addController(controller: AnimationController): () => void;
@@ -97,5 +126,7 @@ export declare class AnimationMixer {
     raise(action: AnimationAction): void;
     update(delta: number): void;
     stopAll(): void;
+    /** Stops playback/controllers/constraints and releases their borrowed pose bindings. */
+    clear(): void;
     destroy(): void;
 }

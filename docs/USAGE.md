@@ -2,20 +2,20 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine; P42 also approves a full playable reference flow, not a claim that it is delivered. Current metadata is **1.7.0 / Apache-2.0** (npm unpublished); historical P01–P40 evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P40/P41 passed scoped acceptance; P42 approved options await integration acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.7.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P40–P42 passed scoped Chromium acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Current Support at a Glance
 
-| Need                          | Available now / important boundary                                                                                                                                                                                                                                                                                                                                                                                                         |
-| ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Portable 2D                   | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                                                                                              |
-| 3D                            | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                                                                                                  |
-| Physics2D                     | Sleep, five joints, translation-only dynamic→static CCD, static concave decomposition/chains. Dynamic concave/compound and rotational/dynamic-pair CCD remain unsupported.                                                                                                                                                                                                                                                                 |
-| Models / textures             | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt. Draco/Basis need supplied decoders; current KTX2 is base-level RGBA8, not native compressed/mip upload.                                                                                                                                                                                                                                                                    |
-| Recovery                      | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                                                                                                  |
-| P40/P41 verified; P42 pending | P41 UI/layout/focus, contexts, budgets/warmup and typed content passed three-backend built-root Chromium regression. Injected touch and simulated gamepad snapshots do not certify physical devices. P42 full playable flow, GPU skinning/animated bounds, native compressed/mip textures, 3D colliders/queries/character/dynamic bodies, navigation/pathfinding and animation masks/additive/blend trees/IK await integration acceptance. |
+| Need                      | Available now / important boundary                                                                                                                                                                                                                                                                                                                             |
+| ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Portable 2D               | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                  |
+| 3D                        | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                      |
+| Physics2D                 | Sleep, five joints, translation-only dynamic→static CCD, static concave decomposition/chains. Dynamic concave/compound and rotational/dynamic-pair CCD remain unsupported.                                                                                                                                                                                     |
+| Models / textures         | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt, external Draco/Basis codecs. Ordinary KTX2 decodes base-level RGBA8; opt-in native KTX2 preserves all mips. `NativeTexture2D` supports RGBA8 and capability-gated BC/ETC2/ASTC; Canvas rejects native sources.                                                                                 |
+| Recovery                  | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                      |
+| P40–P42 scoped acceptance | P41 UI/contexts/budgets/warmup/typed content passed three-backend built-root regression. P42 native GPU skin/animated bounds/mips, 3D physics/dynamics/queries/capsule movement, authored navigation, masks/additive/blend trees/two-bone IK and complete Beacon Run passed scoped acceptance. No physical-device, cross-browser or performance certification. |
 
-Stage-specific counts and browser observations below are historical, not proof of these pending expansions.
+Stage-specific counts and browser observations below are historical; current P42 evidence is recorded separately in ACCEPTANCE.
 
 ## 1. Start the Development Environment
 
@@ -28,26 +28,27 @@ npx pnpm@12.6.0 dev
 
 Run `npx pnpm@12.6.0 examples` to start the server and open the gallery at `http://127.0.0.1:5173/examples/` (filters by feature, per-backend links), or open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio. Click the audio button to unlock playback. The development server binds only to localhost. Do not open pages with `file://`: WebGPU and AudioWorklet require a secure context; use HTTPS in production.
 
-| Example                                     | Purpose                                                            |
-| ------------------------------------------- | ------------------------------------------------------------------ |
-| [triangle](../examples/triangle/)           | WebGPU triangle, pause/resume/destroy                              |
-| [sprite](../examples/sprite/)               | Shared textures, opacity, ordering, sound                          |
-| [pong](../examples/pong/)                   | Keyboard, pointer, gamepad, camera, scoring                        |
-| [cube3d](../examples/cube3d/)               | Perspective, lighting, depth, textures                             |
-| [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities                                 |
-| [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio                                   |
-| [advanced3d](../examples/advanced3d/)       | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR |
-| [physics2d](../examples/physics2d/)         | Bodies, materials, sensor trigger, gravity                         |
-| [particles2d](../examples/particles2d/)     | Emitter presets, bursts, nozzles, additive layer                   |
-| [tilemap2d](../examples/tilemap2d/)         | Tile layers, tile collision, camera follow/bounds/shake/zoom       |
-| [transitions2d](../examples/transitions2d/) | fade/crossfade/slide, easing, cancellation, Scene timers           |
-| [ui2d](../examples/ui2d/)                   | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons           |
-| [input-lab](../examples/input-lab/)         | Keyboard/pointer/gamepad state, rebindable ActionMap               |
-| [audio-lab](../examples/audio-lab/)         | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch           |
-| [pbr3d](../examples/pbr3d/)                 | PBR grid, shadows, environment, fog, exposure/bloom                |
-| [instancing3d](../examples/instancing3d/)   | InstancedMesh batches, culling probes, RenderStats                 |
-| [picking3d](../examples/picking3d/)         | Nested Groups, OrbitControls, Raycaster, camera projection         |
-| [gltf3d](../examples/gltf3d/)               | Skinned glTF clip playback, morph targets                          |
+| Example                                     | Purpose                                                                                                                                     |
+| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [triangle](../examples/triangle/)           | WebGPU triangle, pause/resume/destroy                                                                                                       |
+| [sprite](../examples/sprite/)               | Shared textures, opacity, ordering, sound                                                                                                   |
+| [pong](../examples/pong/)                   | Keyboard, pointer, gamepad, camera, scoring                                                                                                 |
+| [cube3d](../examples/cube3d/)               | Perspective, lighting, depth, textures                                                                                                      |
+| [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities                                                                                                          |
+| [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio                                                                                                            |
+| [beacon-run](../examples/beacon-run/)       | Playable four-beacon extraction, 3D physics/navigation/animation, menu/HUD/pause/settings/save-load/audio/cleanup; scoped GPU/GL acceptance |
+| [advanced3d](../examples/advanced3d/)       | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR                                                                          |
+| [physics2d](../examples/physics2d/)         | Bodies, materials, sensor trigger, gravity                                                                                                  |
+| [particles2d](../examples/particles2d/)     | Emitter presets, bursts, nozzles, additive layer                                                                                            |
+| [tilemap2d](../examples/tilemap2d/)         | Tile layers, tile collision, camera follow/bounds/shake/zoom                                                                                |
+| [transitions2d](../examples/transitions2d/) | fade/crossfade/slide, easing, cancellation, Scene timers                                                                                    |
+| [ui2d](../examples/ui2d/)                   | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons                                                                                    |
+| [input-lab](../examples/input-lab/)         | Keyboard/pointer/gamepad state, rebindable ActionMap                                                                                        |
+| [audio-lab](../examples/audio-lab/)         | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch                                                                                    |
+| [pbr3d](../examples/pbr3d/)                 | PBR grid, shadows, environment, fog, exposure/bloom                                                                                         |
+| [instancing3d](../examples/instancing3d/)   | InstancedMesh batches, culling probes, RenderStats                                                                                          |
+| [picking3d](../examples/picking3d/)         | Nested Groups, OrbitControls, Raycaster, camera projection                                                                                  |
+| [gltf3d](../examples/gltf3d/)               | Skinned glTF clip playback, morph targets                                                                                                   |
 
 ## 2. Use It on Your Website
 
@@ -354,9 +355,9 @@ if (asset.animations[0]) {
 
 Here signal is your initialization AbortSignal; provide a real model URL. `parse(bytesOrJSON,baseURL,{signal})` also supports GLB/glTF. Game advances scene.animations after timers and before Scene.update; do not double-update it. TRS clips support STEP/LINEAR/CUBICSPLINE, reverse, repeat/once/pingpong and P34 ordered weighted layers/fades/crossfades. At weight 1 later layers replace earlier writes; partial weights blend rather than normalize all actions. `play()` resumes; `stop()` resets time without restoring pose. See the technical animation contracts.
 
-Triangle primitives, normalized/strided/sparse accessors, textures, four-influence skins and morph targets (POSITION/NORMAL deltas, mesh/node weights, `weights` animation) are supported, along with `KHR_mesh_quantization`, `KHR_materials_emissive_strength`, `KHR_materials_unlit` (approximated), `KHR_texture_transform` (baked into UVs; one shared transform per material) and `KHR_lights_punctual` (returned as `asset.lights`, in raw glTF units; add them to the scene yourself). Other required extensions and other topology explicitly reject. CPU SkinnedMesh refreshes its cloned geometry for rendering and picking; drive morphs with `mesh.morph.weights.set(index, weight)` or a loaded clip (weights of one node's primitives are shared). Model budgets: input 32 MiB, fetched/tracked decoded 128 MiB each, lists 10,000 entries, accessor scalar elements 4,194,304, total vertices 1,000,000/indices 3,000,000, joints 256, 64 morph targets per mesh and hierarchy depth 256. These are not total process-memory limits; image post-decode caveats still apply.
+Triangle primitives, normalized/strided/sparse accessors, textures, four-influence skins and morph targets (POSITION/NORMAL deltas, mesh/node weights, `weights` animation) are supported, along with `KHR_mesh_quantization`, `KHR_materials_emissive_strength`, `KHR_materials_unlit` (approximated), `KHR_texture_transform` (baked into UVs; one shared transform per material) and `KHR_lights_punctual` (returned as `asset.lights`, in raw glTF units; add them to the scene yourself). Other required extensions and other topology explicitly reject. SkinnedMesh uses native GPU palettes for rendering and a CPU deformation oracle for bounds/picking; drive morphs with `mesh.morph.weights.set(index, weight)` or a loaded clip (weights of one node's primitives are shared). Model budgets: input 32 MiB, fetched/tracked decoded 128 MiB each, lists 10,000 entries, accessor scalar elements 4,194,304, total vertices 1,000,000/indices 3,000,000, joints 256, 64 morph targets per mesh and hierarchy depth 256. These are not total process-memory limits; image post-decode caveats still apply.
 
-Current loader additions: `COLOR_0` float/normalized unsigned VEC3/VEC4 (including alpha), built-in `EXT_meshopt_compression`, conditional Draco/Basis decoder interfaces, and the documented P39 PBR extensions. Required extensions outside that supported set still reject. For Draco pass your real `dracoDecoder` through the load/parse options; it must return logical-space attributes and triangle indices matching accessors. Without it required Draco rejects; optional Draco needs real uncompressed fallback accessors. For Basis/other KTX2 formats pass a real `ktx2Transcoder` returning RGBA8; XYZ.js bundles no Draco/Basis WebAssembly. Built-in KTX2 accepts plain 2D RGB(A), no/ZLIB supercompression, base level only; `KHR_texture_basisu` is advertised only with the transcoder, otherwise a regular source fallback is needed. External decoder quality/speed/memory and a broad asset corpus are not certified. Native compressed/mip uploads are approved P42 work, not current decoder output. Details: [technical reference](TECHNICAL.md).
+Current loader additions include `COLOR_0` float/normalized unsigned VEC3/VEC4 (including alpha), built-in `EXT_meshopt_compression`, external Draco/Basis decoder interfaces and documented P39 PBR extensions. Unsupported required extensions reject. A real `dracoDecoder` must return logical-space attributes/triangle indices matching accessors; without it required Draco rejects and optional Draco needs real uncompressed fallback accessors. Default KTX2 decoding returns base-level RGBA8 using built-in plain 2D RGB(A) no/ZLIB decoding or a supplied `ktx2Transcoder`; XYZ.js bundles no Draco/Basis WebAssembly. Opt-in `nativeTextures: true` preserves every KTX2 mip and accepts `ktx2NativeTranscoder` for encodings requiring an external codec. `KHR_texture_basisu` uses the transcoder or native path, otherwise a regular source fallback is needed. Decoder quality/speed/memory and a broad asset corpus are not certified. See [section 22](#22-p42-3d-gameplay-and-animation).
 
 Stop actions/remove consumers and call asset.dispose() in your resource cleanup, including on initialization failure. Scene destruction does not dispose loader-owned textures; never dispose while another live mesh borrows them. Mesh/materials do not own shared textures.
 
@@ -424,9 +425,9 @@ To post-process only the 3D image (not sprites or the HUD), prepare a `PostProce
 
 HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D overlay. WebGL2 requires EXT_color_buffer_float; requested HDR processing explicitly fails without it. InstancedMesh count is fixed; setMatrixAt increments version and getMatrixAt(index,out) reads a transform. Do not mutate raw matrices directly. World transforms compose mesh world × instance matrix. See the [technical contracts](TECHNICAL.md#21-advanced-3d-p09p12) for detailed defaults and supported boundaries.
 
-For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; loaded glTF defaults to repeat and preserves separate samplers on shared images. Explicit mipmapped min filters in these options reject; glTF files that specify mipmapped filters load with the base filter.
+For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; glTF defaults to repeat and preserves separate samplers on shared images. Native sources additionally use `mipmapFilter`, `lodMinClamp` and `lodMaxClamp`; opt-in native glTF loading preserves mip sampling. Ordinary image textures remain base-level sources.
 
-The sampler restriction is current, not a permanent exclusion: P42 native compressed/mip textures are approved and pending. EnvironmentMap roughness mips do not enable general Texture mip filtering.
+Native mip uploads passed scoped P42 acceptance. EnvironmentMap roughness mips are a separate path. See section 22 for native source construction and device-format checks.
 
 ## 12. Atlas Graphics and HUD (P13)
 
@@ -667,7 +668,7 @@ Use a live atlas texture large enough for the referenced frames. getTile returns
 
 Orthogonal origins are top-left; isometric origins are diamond top vertices, depth ordered by diagonal/elevation/insertion. Generated Sprite children borrow the sheet texture and remain pooled when hidden or cleared. Conservative transformed camera culling does not remove solid physics. Solids default to boxes/diamonds; collider can supply a custom convex shape. Edits/removal/destruction update Scene collision registration. Destroy maps before the separately owned atlas Texture. No editor-format imports, hex/staggered grids or navigation.
 
-That navigation exclusion belongs to the original map profile; navigation/pathfinding is now approved P42 work, pending implementation/acceptance. Editor importers/hex/staggered remain excluded.
+That navigation exclusion belongs to the original map profile; P42 now provides finite authored grid/graph pathfinding and character following. Editor importers/hex/staggered remain excluded.
 
 ### Particle Emitters
 
@@ -779,7 +780,7 @@ Canvas supports the approved ordinary/raster 2D profile; visible native meshes a
 
 Resources remain explicit: views, meshes, fonts and particles borrow sources; remove borrowers before destroying their owning asset. Native texture unload leaves CPU sources usable. Atlas anchors/borders, CanvasTexture updates, generated RGBA fonts, ParticleLayer and preparation/unload are required, not optional. These profiles do not promise full Pixi, HTML/SDF/video/compressed/plugin/automatic-GC parity.
 
-The compressed-source exclusion is historical P21–P29 scope: current P32 KTX2 decoding/external codecs and approved P42 native compressed/mip textures expand that boundary, not the other Pixi non-goals.
+The compressed-source exclusion is historical P21–P29 scope: P32 KTX2 decoding/external codecs and P42 native compressed/mip profiles expand that boundary, not the other Pixi non-goals. Exercised formats and remaining limits are in ACCEPTANCE.
 
 The authored [fixture factory](../examples/rendering2d/fixtures.ts) produces disposable object URLs for atlas/pattern/masks and multipage text/JSON BMFont. Its real font [provenance/license](../examples/rendering2d/assets/README.md) is separate from engine licensing.
 
@@ -974,3 +975,99 @@ Call `context.own` before fallible awaits in async factories; return fresh detac
 For loader textures use `const lease = await game.assets.acquireTexture(url)` and borrow `lease.texture`; remove borrowers before `lease.release()`. Legacy loadTexture pins until unload/destroy. Manual `await game.warmup(scene, options)` leases must be released explicitly; setScene warmup protects the candidate for scene lifetime and preserves the old scene on combined-budget failure. Item/time boundaries are between resources; one resource can exceed the chunk time, and dependency snapshots do not track mutations. Progress excludes old-scene protection prelude.
 
 Decoded CPU/native texture/native geometry budgets are independent cache estimates. Native eviction only affects idle unprotected allocations and allows reprepare, not borrowed CPU ownership. Canvas native residency is zero. Caller bitmaps/derivedCanvas/attachments/scratch/driver/pipelines are excluded; budgets are not total VRAM or hard process-memory limits. Inspect `game.assets.residency` and `game.graphics.residency` separately.
+
+## 22. P42 3D Gameplay and Animation
+
+The root API includes finite 3D primitive physics, capsule movement, authored waypoint navigation and the bounded animation profiles described in [TECHNICAL](TECHNICAL.md#42-p42-native-rendering-physics-navigation-and-animation-profiles). Physics runs automatically with the active Scene; character/path updates are explicitly gameplay-controlled.
+
+```ts
+import {
+  Scene,
+  Object3D,
+  Vector3,
+  PlaneCollider3D,
+  CapsuleCollider3D,
+  CharacterController3D,
+  NavigationGraph3D,
+  PathFollower3D,
+} from 'xyz.js';
+
+const scene = new Scene();
+const floor = new Object3D();
+floor.collider = new PlaneCollider3D();
+scene.add(floor);
+const player = new Object3D();
+player.collider = new CapsuleCollider3D(0.25, 1.5);
+player.position.set(0, 1, 0);
+scene.add(player);
+const character = new CharacterController3D(player, scene.physics3D);
+const graph = new NavigationGraph3D({
+  nodes: [
+    { id: 'start', position: new Vector3(0, 1, 0) },
+    { id: 'goal', position: new Vector3(2, 1, 2) },
+  ],
+  connections: [{ from: 'start', to: 'goal', cost: Math.sqrt(8) }],
+});
+const follower = new PathFollower3D(character, { speed: 2 });
+follower.setPath(graph.findPath('start', 'goal'));
+let playing = true;
+scene.update = (deltaSeconds: number): void => {
+  if (playing) follower.update(deltaSeconds);
+};
+function setGameplayPaused(paused: boolean): void {
+  playing = !paused;
+  scene.physics3D.enabled = !paused;
+  scene.animations.paused = paused;
+}
+// Publish with await game.setScene(scene), then game.start().
+// On owned gameplay teardown: follower.destroy(); character.destroy();
+// Scene/Game teardown handles its objects and worlds.
+```
+
+Graph points are capsule centers; author obstacle-safe routes yourself. The controller does not supply gravity or jumping: call `character.move` with your own displacement when those are needed. Copy its reused movement/contact values before the next move. A blocked follower needs explicit `resume()` after the obstruction changes. Gameplay pause keeps Game running so engine HUD controls remain interactive; `Game.pause()` instead freezes the entire simulation. Audio must be paused/resumed explicitly in either case.
+
+For animation, assign explicit `AnimationMask` channel allowlists; use `AnimationReferencePose` with `action.setAdditive` for reference-relative overlays. `AnimationBlendTree` owns synchronized leaf actions for 1D points or explicitly triangulated 2D parameters. Add `TwoBoneIKConstraint` to the same mixer for a direct root/middle/tip chain. Animation sampling/IK precedes Scene.update, so gameplay can adjust the final pose afterward. Mixers borrow targets; clear/destroy releases playback/constraints, not those objects.
+
+### Native skin and mip textures
+
+WebGPU/WebGL2 render skin palettes natively; conservative animated bounds use transformed influence boxes, while exact CPU deformation is lazy for queries. Morph deformation precedes skinning. This is a bounded profile, not a throughput claim. Native textures likewise require GPU/GL: check `game.graphics.capabilities.supportedTextureFormats` for the actual device, not just the backend name.
+
+```ts
+import { NativeTexture2D, decodeKTX2Native, GLTFLoader } from 'xyz.js';
+import type { NativeTextureMip } from 'xyz.js';
+
+const levels: NativeTextureMip[] = [
+  { width: 2, height: 2, data: new Uint8Array(16).fill(255) },
+  { width: 1, height: 1, data: new Uint8Array([255, 255, 255, 255]) },
+];
+const texture = new NativeTexture2D({
+  format: 'rgba8unorm',
+  width: 2,
+  height: 2,
+  levels,
+});
+// Assign texture to a material; opt into mip sampling with textureSampler:
+// { minFilter: 'linear', magFilter: 'linear', mipmapFilter: 'linear', lodMaxClamp: 1 }
+const response = await fetch('/assets/model.ktx2');
+if (!response.ok) throw new Error(`KTX2 HTTP ${response.status}`);
+const native = await decodeKTX2Native(
+  new Uint8Array(await response.arrayBuffer()),
+);
+const asset = await new GLTFLoader().load('/assets/model.glb', {
+  nativeTextures: true,
+});
+// Remove all borrowers first, then texture.destroy(), native.destroy(), asset.dispose().
+```
+
+Mip dimensions halve (rounded down, minimum one); each payload must match its exact RGBA/block layout. Native KTX2 preserves every supplied mip for supported Vulkan formats with no/ZLIB supercompression. Basis or other encodings require a real `KTX2NativeTranscoder` (glTF option `ktx2NativeTranscoder`), not the ordinary RGBA `ktx2Transcoder`. Unsupported formats reject without decompression or backend switching; ordinary images and the default base-level KTX2 path are unchanged. See [technical section 42](TECHNICAL.md#42-p42-native-rendering-physics-navigation-and-animation-profiles) for root profiles and [ACCEPTANCE](../ACCEPTANCE.md) for native evidence and limits.
+
+### Play Beacon Run
+
+Open [Beacon Run](../examples/beacon-run/) through the local examples server, optionally with `?renderer=webgpu` or `?renderer=webgl2`. Canvas2D (including an `auto` fallback to Canvas) shows an explicit unsupported-3D error; it does not substitute a 2D game. Complete GPU/GL gameplay flows passed scoped P42 acceptance.
+
+- **Loading/menu:** pipeline warmup and real OPM asset fetches show progress. On asset failure choose **Retry asset loading**. **Start with sound** needs a trusted pointer click or Enter/Space activation of its semantic control; fetch alone does not unlock/decode audio. **Play muted** starts without audio unlock. Settings offers **Enable sound / retry unlock**.
+- **Play:** collect all four cyan beacons and return to the green extraction pad before the 75-second timer expires. Avoid the red patrol drone; interception or timeout loses. Push dynamic crates or jump around obstacles. The HUD shows signals/time and status; win/lose panels offer **Restart run** or **Main menu**.
+- **Controls:** WASD/arrows or the standard gamepad left stick move; Space/gamepad A or the canvas **Jump** button jumps when grounded. Pointer/touch/keyboard direction sliders reset on release/cancel/blur. Tab reaches engine semantic controls; focused UI takes precedence over world movement. Use **Return focus to arena** or click the arena to return to gameplay.
+- **Pause/settings:** Escape or **Pause** freezes timer, physics, navigation and animation while renderer/UI remain live; blur/hidden-page also pauses. **Resume run** continues. Settings traps modal focus and persists master volume, mute and reduced character motion. Gameplay audio uses an explicit pause reason, not an assumption that `Game.pause()` pauses sound.
+- **Saves:** validated local-browser storage keeps preferences and one continuation, including time/signals/player/patrol/crate transforms and velocities. Progress autosaves periodically, on collection and pause; **Save run**, **Load saved run** (restores paused), and menu **Continue saved run** support reloads. Ended runs cannot continue; missing/corrupt/storage-unavailable state reports a message instead of fabricating progress.
+- **Teardown/recovery:** **Destroy game** or non-persisted pagehide saves an unfinished run where possible and releases input contexts, controllers/follower, Scene physics/UI borrowers, audio and the shared native mip texture; reload to play again. Graphics loss pauses the run; resume after recovery. A persisted pagehide pauses rather than destroying.

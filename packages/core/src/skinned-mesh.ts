@@ -1,6 +1,7 @@
 import { Matrix4 } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
-import { Mesh, type MeshOptions } from './mesh.js';
+import { Mesh } from './mesh.js';
+import type { MeshOptions } from './mesh.js';
 import { Object3D } from './object3d.js';
 
 export interface SkinnedMeshOptions extends MeshOptions {
@@ -32,21 +33,41 @@ function cloneGeometry(source: Geometry): Geometry {
   });
 }
 
-/** Owns deformed geometry; source geometry, joints and material remain borrowed. */
+/** Native bind-pose streams and an on-demand exact CPU picking mirror; joints remain borrowed. */
 export class SkinnedMesh extends Mesh {
   readonly joints: readonly Object3D[];
   readonly inverseBindMatrices: readonly Matrix4[];
-  private readonly jointIndices: Uint32Array;
-  private readonly weights: Float32Array;
+  readonly jointIndices: Uint32Array;
+  readonly weights: Float32Array;
+  readonly jointPalette: Float32Array;
+  paletteVersion = 0;
+  private readonly skinGeometry: Geometry;
   private readonly bindVertices: Float32Array;
   private readonly matrices: Matrix4[];
-  private readonly previous: Float32Array;
+  private readonly influenceBounds: Float32Array;
+  private readonly sphere = { x: 0, y: 0, z: 0, radius: 0 };
   private readonly inverse = new Matrix4();
   private readonly blend = new Matrix4();
   private initialized = false;
+  private deformationVersion = 0;
+  private mirrorVersion = -1;
 
   protected override get cullable(): boolean {
-    return false;
+    return true;
+  }
+
+  override get renderGeometry(): Geometry {
+    return this.skinGeometry;
+  }
+
+  override get boundingSphere(): Readonly<{
+    x: number;
+    y: number;
+    z: number;
+    radius: number;
+  }> {
+    this.updateRenderDeformation();
+    return this.sphere;
   }
 
   constructor(options: SkinnedMeshOptions) {
@@ -79,10 +100,12 @@ export class SkinnedMesh extends Mesh {
       return matrix;
     });
     this.matrices = options.joints.map(() => new Matrix4());
-    this.previous = new Float32Array(options.joints.length * 16);
+    this.jointPalette = new Float32Array(options.joints.length * 16);
+    this.influenceBounds = new Float32Array(options.joints.length * 6);
     this.jointIndices = new Uint32Array(count * 4);
     this.weights = new Float32Array(count * 4);
-    this.bindVertices = this.geometry.vertices.slice();
+    this.skinGeometry = cloneGeometry(options.geometry);
+    this.bindVertices = this.skinGeometry.vertices;
     for (let i = 0; i < count; i++) {
       let total = 0;
       for (let j = 0; j < 4; j++) {
@@ -105,6 +128,7 @@ export class SkinnedMesh extends Mesh {
       for (let j = 0; j < 4; j++)
         this.weights[i * 4 + j] = options.weights[i * 4 + j] / total;
     }
+    this.refreshInfluenceBounds();
   }
 
   /** Morphs the bind pose first, then skins it. */
@@ -112,10 +136,15 @@ export class SkinnedMesh extends Mesh {
     this.updateSkin();
   }
 
-  updateSkin(): void {
+  /** Updates only the palette and conservative bounds; joint motion never deforms all vertices. */
+  override updateRenderDeformation(): void {
     this.inverse.copy(this.updateWorldMatrix()).invert();
     let changed = !this.initialized;
-    if (this.morph?.apply(this.bindVertices)) changed = true;
+    const morphed = this.morph?.apply(this.bindVertices) ?? false;
+    if (morphed) {
+      this.skinGeometry.markUpdated();
+      this.refreshInfluenceBounds();
+    }
     for (let i = 0; i < this.joints.length; i++) {
       const matrix = this.matrices[i]
         .copy(this.inverse)
@@ -123,11 +152,20 @@ export class SkinnedMesh extends Mesh {
         .multiply(this.inverseBindMatrices[i]);
       for (let j = 0; j < 16; j++) {
         const k = i * 16 + j;
-        if (matrix.elements[j] !== this.previous[k]) changed = true;
-        this.previous[k] = matrix.elements[j];
+        if (matrix.elements[j] !== this.jointPalette[k]) changed = true;
+        this.jointPalette[k] = matrix.elements[j];
       }
     }
-    if (!changed) return;
+    if (!changed && !morphed) return;
+    if (changed) this.paletteVersion++;
+    this.initialized = true;
+    this.deformationVersion++;
+    this.refreshAnimatedBounds();
+  }
+
+  updateSkin(): void {
+    this.updateRenderDeformation();
+    if (this.mirrorVersion === this.deformationVersion) return;
     const out = this.geometry.vertices,
       source = this.bindVertices;
     for (let i = 0; i < out.length / 8; i++) {
@@ -169,7 +207,75 @@ export class SkinnedMesh extends Mesh {
       out[offset + 4] = length ? ty / length : 0;
       out[offset + 5] = length ? tz / length : 0;
     }
-    this.initialized = true;
+    this.mirrorVersion = this.deformationVersion;
     this.geometry.markUpdated();
+  }
+
+  private refreshInfluenceBounds(): void {
+    const bounds = this.influenceBounds;
+    for (let joint = 0; joint < this.joints.length; joint++) {
+      const offset = joint * 6;
+      bounds.fill(Infinity, offset, offset + 3);
+      bounds.fill(-Infinity, offset + 3, offset + 6);
+    }
+    for (let vertex = 0; vertex < this.bindVertices.length / 8; vertex++)
+      for (let influence = 0; influence < 4; influence++) {
+        const index = vertex * 4 + influence;
+        if (this.weights[index] === 0) continue;
+        const offset = this.jointIndices[index] * 6;
+        for (let axis = 0; axis < 3; axis++) {
+          const value = this.bindVertices[vertex * 8 + axis];
+          bounds[offset + axis] = Math.min(bounds[offset + axis], value);
+          bounds[offset + 3 + axis] = Math.max(
+            bounds[offset + 3 + axis],
+            value,
+          );
+        }
+      }
+  }
+
+  private refreshAnimatedBounds(): void {
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
+    for (let joint = 0; joint < this.joints.length; joint++) {
+      const offset = joint * 6,
+        bounds = this.influenceBounds;
+      if (bounds[offset] === Infinity) continue;
+      const e = this.matrices[joint].elements;
+      for (let corner = 0; corner < 8; corner++) {
+        const x = bounds[offset + (corner & 1 ? 3 : 0)];
+        const y = bounds[offset + (corner & 2 ? 4 : 1)];
+        const z = bounds[offset + (corner & 4 ? 5 : 2)];
+        const tx = e[0] * x + e[4] * y + e[8] * z + e[12];
+        const ty = e[1] * x + e[5] * y + e[9] * z + e[13];
+        const tz = e[2] * x + e[6] * y + e[10] * z + e[14];
+        minX = Math.min(minX, tx);
+        minY = Math.min(minY, ty);
+        minZ = Math.min(minZ, tz);
+        maxX = Math.max(maxX, tx);
+        maxY = Math.max(maxY, ty);
+        maxZ = Math.max(maxZ, tz);
+      }
+    }
+    // Nonnegative normalized weights make every blended point a convex combination
+    // inside this union of transformed influence boxes, including negative morph weights.
+    this.sphere.x = (minX + maxX) * 0.5;
+    this.sphere.y = (minY + maxY) * 0.5;
+    this.sphere.z = (minZ + maxZ) * 0.5;
+    const radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) * 0.5;
+    this.sphere.radius =
+      radius +
+      Math.max(
+        1,
+        radius,
+        Math.abs(this.sphere.x),
+        Math.abs(this.sphere.y),
+        Math.abs(this.sphere.z),
+      ) *
+        0.000001;
   }
 }

@@ -41,6 +41,15 @@ export declare class Mesh extends Object3D {
     constructor(options: MeshOptions);
     /** Set false to always submit this mesh even when it lies outside the camera frustum. */
     frustumCulled: boolean;
+    /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
+    get renderGeometry(): Geometry;
+    get boundingSphere(): Readonly<{
+        x: number;
+        y: number;
+        z: number;
+        radius: number;
+    }>;
+    updateRenderDeformation(): void;
     /** Deformed and instanced meshes keep bind-pose or per-instance bounds unreliable. */
     protected get cullable(): boolean;
     /** Squared distance from a world-space point to this mesh's bounding-sphere center. */

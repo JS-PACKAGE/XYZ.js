@@ -119,6 +119,26 @@ export {
   AnimationAction,
   KeyframeTrack,
 } from './animation.js';
+export * from './physics3d/index.js';
+export * from './navigation/index.js';
+export { AnimationMask, AnimationReferencePose } from './animation-pose.js';
+export type {
+  AnimationMaskEntry,
+  AnimationReferenceEntry,
+  AnimationPoseChannel,
+  AnimationTarget,
+} from './animation-pose.js';
+export { AnimationBlendTree } from './animation-blend-tree.js';
+export type {
+  AnimationBlendPoint1D,
+  AnimationBlendPoint2D,
+  AnimationBlendTreeTiming,
+  AnimationBlendTree1DOptions,
+  AnimationBlendTree2DOptions,
+  AnimationBlendTreeOptions,
+} from './animation-blend-tree.js';
+export { TwoBoneIKConstraint } from './animation-ik.js';
+export type { TwoBoneIKOptions, TwoBoneIKStatus } from './animation-ik.js';
 export { SkinnedMesh } from './skinned-mesh.js';
 export type { Camera3D } from './orthographic-camera.js';
 export type { RaycastHit } from './raycaster.js';
@@ -142,17 +162,19 @@ export type {
   DracoDecodeResult,
   DracoDecoder,
 } from './gltf-loader.js';
-export { decodeKTX2, isKTX2, parseKTX2 } from './ktx2.js';
+export { decodeKTX2, decodeKTX2Native, isKTX2, parseKTX2 } from './ktx2.js';
 export type {
   KTX2Container,
   KTX2Image,
   KTX2Level,
   KTX2Transcoder,
+  KTX2NativeTranscoder,
 } from './ktx2.js';
 export { decodeMeshopt } from './meshopt.js';
 export type { MeshoptFilter, MeshoptMode } from './meshopt.js';
 export type {
   AnimationController,
+  AnimationConstraint,
   AnimationEventType,
   AnimationListener,
   AnimationLoopMode,

@@ -329,6 +329,11 @@ try {
       await page.locator('#destroy').click();
       await awaitState('destroyed');
       await runAuthoring(page, backend, result, awaitState);
+      await page.goto(
+        `http://127.0.0.1:${port}/tests/browser/native-profiles.html?renderer=${backend}`,
+        { waitUntil: 'domcontentloaded' },
+      );
+      await awaitState('passed');
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

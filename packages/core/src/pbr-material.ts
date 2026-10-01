@@ -6,6 +6,9 @@ export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 export interface TextureSamplerOptions {
   minFilter?: 'nearest' | 'linear';
   magFilter?: 'nearest' | 'linear';
+  mipmapFilter?: 'nearest' | 'linear';
+  lodMinClamp?: number;
+  lodMaxClamp?: number;
   addressModeU?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
   addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
 }
@@ -86,9 +89,24 @@ function samplerOptions(
       value.minFilter !== 'linear') ||
     (value.magFilter !== undefined &&
       value.magFilter !== 'nearest' &&
-      value.magFilter !== 'linear')
+      value.magFilter !== 'linear') ||
+    (value.mipmapFilter !== undefined &&
+      value.mipmapFilter !== 'nearest' &&
+      value.mipmapFilter !== 'linear')
   )
     throw new RangeError('Texture sampler filters must be nearest or linear.');
+  const lodMin = value.lodMinClamp ?? 0,
+    lodMax = value.lodMaxClamp ?? 32;
+  if (
+    !Number.isFinite(lodMin) ||
+    !Number.isFinite(lodMax) ||
+    lodMin < 0 ||
+    lodMax < lodMin ||
+    lodMax > 32
+  )
+    throw new RangeError(
+      'Texture sampler LOD clamps must satisfy 0 <= min <= max <= 32.',
+    );
   for (const mode of [value.addressModeU, value.addressModeV])
     if (
       mode !== undefined &&
