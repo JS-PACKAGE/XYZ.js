@@ -37,7 +37,8 @@
       <code>Billboard</code>, the label is <code>Text3D</code>, and the ribbon
       is a camera-facing <code>Line3D</code>. The lower-left
       <code>Sprite3D</code>
-      borrows the same atlas; change its frame with the button.
+      borrows the same atlas; change its frame with the button. A clipped
+      <code>Decal</code> wraps the front of each LOD mesh.
     </p>
     <div class="controls">
       <label
@@ -73,6 +74,7 @@
         <output id="orbit-value">30°</output></label
       >
       <button id="frame" type="button">Next sprite frame</button>
+      <button id="decal" type="button">Hide decals</button>
     </div>
     <canvas id="game" aria-label="3D object helpers"></canvas>
     <p id="info" aria-live="off">Loading…</p>

@@ -1,5 +1,6 @@
 import {
   Billboard,
+  Decal,
   Game,
   Geometry,
   Line3D,
@@ -52,6 +53,7 @@ try {
 
   class Gallery extends Scene {
     readonly lod = new LOD();
+    readonly decals: Decal[] = [];
     readonly card = this.add(
       new Billboard({
         material,
@@ -93,6 +95,15 @@ try {
         new Mesh({ geometry: Geometry.sphere(0.8, 6, 3), material }),
         new Mesh({ geometry: Geometry.cube(1.2), material }),
       ];
+      for (const target of detail)
+        this.decals.push(
+          new Decal({
+            target,
+            material,
+            position: [0, 0, 0.65],
+            size: [0.7, 0.7, 0.6],
+          }),
+        );
       [0, 10, 18, 28].forEach((from, i) => this.lod.addLevel(detail[i]!, from));
       this.lod.hysteresis = 0.5;
       this.lod.position.set(0, 0, 0);
@@ -124,6 +135,12 @@ try {
     frame = (frame + 1) % sheet.frames.length;
     scene.sprite.setSource(sheet.getFrame(frame));
   });
+  let decalsVisible = true;
+  $('decal').addEventListener('click', () => {
+    decalsVisible = !decalsVisible;
+    for (const decal of scene.decals) decal.visible = decalsVisible;
+    $('decal').textContent = decalsVisible ? 'Hide decals' : 'Show decals';
+  });
   const aim = (): void => {
     scene.aim(Number(distance.value), Number(orbit.value));
     $('distance-value').textContent = Number(distance.value).toFixed(1);
@@ -139,7 +156,7 @@ try {
     $('info').textContent =
       `LOD level ${scene.lod.level} (${names[scene.lod.level] ?? 'not yet chosen'}) at distance ${Number(distance.value).toFixed(1)}\nbillboard facing ${scene.card.mode}, ribbon points ${scene.ribbon.pointCount}, Sprite3D frame ${frame + 1}/${sheet.frames.length}`;
   }, 100);
-  status.textContent = `${runtime.graphics.backend} · LOD, Billboard, Sprite3D, Text3D, Line3D`;
+  status.textContent = `${runtime.graphics.backend} · LOD, Billboard, Sprite3D, Decal, Text3D, Line3D`;
   window.addEventListener('pagehide', (event) => {
     if (event.persisted) return;
     window.clearInterval(report);

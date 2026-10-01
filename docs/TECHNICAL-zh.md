@@ -520,6 +520,24 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 
 objects3d gallery 的 **Next sprite frame** 按鈕會循環切換四個 atlas 區域。
 
+### Decal（P36d）
+
+`new Decal({target, material, position, rotation?, size, normalOffset?, cullBackfaces?})`
+用有方向的 projector box 六個平面裁切接收網格的真實三角形。`position` 為世界中心，
+`rotation` 為 XYZ Euler radians 或 Quaternion，`size` 為世界單位的寬／高／深，
+本地 +Z 朝接收表面外側。UV 取 projector X／Y，V 向下；背面預設不產生貼花，
+可設 `cullBackfaces: false`。沒有表面交集時拋 RangeError，且不掛上子物件，
+不以浮空四邊形代替；拒絕不可逆的 receiver transform。
+
+結果會自動掛在 `target` 下，跟隨其階層並隨 receiver 銷毀。幾何與 UV 只在建立時烘焙；
+頂點變形或改 projector 必須建立新 decal。建立時支援旋轉／非等比縮放的父群組，
+預設 0.001 世界單位的 normal lift 透過 inverse-transpose 法線計算，也會烘焙，
+所以之後 receiver 縮放會一併縮放 lift。借用 TextureMaterial（含 PBR 子類）及其紋理，
+不投影陰影，可接收陰影。Instanced／skinned／morph receiver 明確拒絕，
+不假裝貼花能跟隨變形。Canvas2D 維持 2D-only。
+
+objects3d gallery 的 **Hide decals** 按鈕會切換每一個 LOD 網格上的投影貼花。
+
 ### 頂點與 Instance 顏色（P36b）
 
 `GeometryData.colors` 與 `geometry.setColors(colors)` 接受每個頂點的線性 RGB 或 RGBA。

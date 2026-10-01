@@ -522,6 +522,27 @@ CanvasTexture2D/TextureView2D and Canvas2D rendering are not supported by this 3
 
 The objects3d gallery's **Next sprite frame** button cycles the four atlas regions.
 
+### Decal (P36d)
+
+`new Decal({target, material, position, rotation?, size, normalOffset?, cullBackfaces?})`
+clips the receiver's actual triangles against six planes of an oriented projector box.
+`position` is its world-space center, `rotation` is XYZ Euler radians or a Quaternion,
+and `size` is world-space width/height/depth; local +Z points out of the receiver.
+UVs use projector X/Y, with V downward. Backfaces are omitted unless `cullBackfaces: false`.
+An empty intersection throws RangeError without attaching a child; it never creates a
+substitute quad. Singular receiver transforms are rejected.
+
+The result is automatically attached to `target`, so it follows the receiver hierarchy
+and is destroyed with it. Geometry and UVs are baked once; vertex deformation or changing
+the projector requires a new decal. Rotated/nonuniform parents are supported at creation;
+the default 0.001 world-unit normal lift uses inverse-transpose normals and is baked too,
+so later receiver scaling also scales that lift. The decal borrows its TextureMaterial
+(including PBR subclasses) and textures, does not cast shadows, and may receive shadows.
+Instanced, skinned and morph receivers are rejected rather than silently detaching the
+decal from their deformation. Canvas2D remains 2D-only.
+
+The objects3d gallery's **Hide decals** button toggles the projected patch on every LOD.
+
 ### Vertex and Instance Colors (P36b)
 
 `GeometryData.colors` and `geometry.setColors(colors)` accept linear RGB or RGBA per vertex.

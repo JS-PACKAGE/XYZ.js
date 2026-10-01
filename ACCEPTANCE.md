@@ -648,3 +648,12 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **Gallery**：WebGPU 的 Next sprite frame 改變 28,390 channels，四次切換回初始全畫面零差異；WebGL2 點擊 frame、orbit=120°，直接 canvas PNG 確認 sprite 與既有 Billboard／LOD／Line3D／Text3D 可見，page error 為 0。
 - **環境限制**：managed browser 的 native RAF 不送幀；獨立 headed Chromium 加 `--disable-frame-rate-limit` 後 native RAF 與 Gallery 正常。此為功能驗證設定，不是效能量測。viewport screenshot 仍超時，使用 canvas PNG；WebGL2 在 endFrame 同步複製以避免未保留 drawing buffer 被呈現後清空。
 - **未驗**：其他瀏覽器、atlas 邊緣 padding／mip、父群組旋轉與非等比縮放（同 Billboard 明確不補償）、大量 sprite 成本；不支援動態 2D texture 或 Canvas2D 3D。build 延後最後整合。
+
+## P36d Projected Decal（2026-10-01，限定已測環境）
+
+- **新增**：六平面裁切實際 receiver 三角形、projector UV、背面排除及 world normal lift；產生 Mesh 並自動掛在 receiver 下，不用浮空 quad。建立時計入旋轉／非等比父群組；沒有交集或 singular transform 明確報錯，geometry／UV／lift 靜態烘焙。
+- **自動化**：四個永久測試涵蓋深度／寬高 clipping 的面積與 UV、恰在邊界的三角形及 winding、非等比父群組的世界尺寸／lift／移動，以及 miss／背面失敗不掛子物件。完整 68 檔／542 tests、typecheck、lint、format:check 通過。
+- **Clipping smoke**：瀏覽器產生 1,000 個固定 seed 三角形，與獨立 polygon-area oracle 比較，337 個有交集；最大面積差 1.775e-8，所有輸出位於 projector box 內。此為一次性驗證，未新增永久 wiring 測試。
+- **實際瀏覽器**：獨立 Chromium 150（同 P36c 關閉 frame-rate limiter 的驗證環境），WebGL2／WebGPU、192×192 正式 Game／Renderer。半透明圓形圖案投影球體後改變 5,790／5,865 channels；178 個貼花三角形的 Z 範圍 .550552–1.001，直接 canvas PNG 確認貼合曲面。hidden 與原場景全畫面零差異；receiver destroy 移除 decal，借用紋理仍有效。
+- **Gallery**：兩 backend 的 Hide decals 改變 8,603／8,602 channels，重新顯示後與初始全畫面零差異。WebGL2 的距離 14／22／35 正常切換至 LOD 1／2／3，page error 為 0。
+- **限制與未驗**：靜態幾何，不追蹤 projector 或頂點變形；明確拒絕 instanced／skinned／morph receiver。之後的 receiver scaling 同時縮放 lift。PBR normal maps／shadow 合用、負 scale、其他瀏覽器與大型 receiver 建立成本未測；build 延後最後整合。

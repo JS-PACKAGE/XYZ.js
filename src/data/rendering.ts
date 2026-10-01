@@ -75,3 +75,6 @@ export const depthPostDefaults = Object.freeze({
 
 /** Screen-space rough transmission uses a bounded nine-tap approximation. */
 export const transmissionBlurFraction = 0.04;
+
+/** World-space lift at decal creation; later receiver scaling also scales this baked lift. */
+export const decalNormalOffset = 0.001;

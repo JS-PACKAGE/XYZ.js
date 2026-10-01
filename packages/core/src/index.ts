@@ -168,3 +168,5 @@ export type {
   LODLevel,
   Text3DOptions,
 } from './objects3d.js';
+export { Decal } from './decal.js';
+export type { DecalOptions } from './decal.js';
