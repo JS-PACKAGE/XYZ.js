@@ -213,7 +213,7 @@ export class Sprite3D extends Mesh implements CameraDependent3D {
   private region: Readonly<Rect2D>;
 
   constructor(options: Sprite3DOptions) {
-    const material = new TextureMaterial(options);
+    const material = new TextureMaterial({ ...options, transparent: true });
     const full = validatedRegion(options.texture, {
       x: 0,
       y: 0,
@@ -462,7 +462,7 @@ export class Text3D extends Billboard {
       castShadow: options.castShadow,
       receiveShadow: options.receiveShadow,
       mode: options.mode,
-      material: new TextureMaterial({ texture }),
+      material: new TextureMaterial({ texture, transparent: true }),
       width: height * aspect,
       height,
     });

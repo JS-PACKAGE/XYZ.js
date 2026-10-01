@@ -9,6 +9,8 @@ export interface TextureMaterialOptions {
   texture: Texture;
   color?: [number, number, number];
   opacity?: number;
+  /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
+  transparent?: boolean;
 }
 
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
@@ -16,6 +18,7 @@ export class TextureMaterial {
   readonly texture: Texture;
   readonly color: [number, number, number];
   readonly opacity: number;
+  readonly transparent: boolean;
 
   constructor(options: TextureMaterialOptions) {
     if (!(options.texture instanceof Texture))
@@ -34,9 +37,15 @@ export class TextureMaterial {
     const opacity = options.opacity ?? 1;
     if (!Number.isFinite(opacity) || opacity < 0 || opacity > 1)
       throw new RangeError('Material opacity must be between 0 and 1.');
+    if (
+      options.transparent !== undefined &&
+      typeof options.transparent !== 'boolean'
+    )
+      throw new TypeError('Material transparent must be a boolean.');
     this.texture = options.texture;
     this.color = [...color] as [number, number, number];
     this.opacity = opacity;
+    this.transparent = opacity < 1 || options.transparent === true;
   }
 }
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
-import { DrawSorter, isBlended } from '../packages/core/src/draw-order.js';
+import { DrawSorter } from '../packages/core/src/draw-order.js';
 import { Geometry } from '../packages/core/src/geometry.js';
 import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
@@ -14,14 +14,18 @@ const texture = new Texture({
 
 function mesh(
   z: number,
-  options: { opacity?: number; alphaMode?: 'OPAQUE' | 'BLEND' | 'MASK' } = {},
+  options: {
+    opacity?: number;
+    transparent?: boolean;
+    alphaMode?: 'OPAQUE' | 'BLEND' | 'MASK';
+  } = {},
 ): Mesh {
   return new Mesh({
     geometry: Geometry.cube(1),
     material:
       options.alphaMode !== undefined
-        ? new PBRMaterial({ texture, alphaMode: options.alphaMode })
-        : new TextureMaterial({ texture, opacity: options.opacity }),
+        ? new PBRMaterial({ texture, ...options })
+        : new TextureMaterial({ texture, ...options }),
     position: [0, 0, z],
   });
 }
@@ -99,12 +103,14 @@ describe('DrawSorter', () => {
   });
 });
 
-describe('isBlended', () => {
-  it('flags translucent materials only', () => {
-    expect(isBlended(mesh(0))).toBe(false);
-    expect(isBlended(mesh(0, { opacity: 0.99 }))).toBe(true);
-    expect(isBlended(mesh(0, { alphaMode: 'BLEND' }))).toBe(true);
-    expect(isBlended(mesh(0, { alphaMode: 'MASK' }))).toBe(false);
-    expect(isBlended(mesh(0, { alphaMode: 'OPAQUE' }))).toBe(false);
+describe('transparent pass classification', () => {
+  it('sorts alpha textures after opaque and masked materials regardless of their opacity factor', () => {
+    const image = mesh(-10, { transparent: true });
+    const solid = mesh(0, { alphaMode: 'OPAQUE', opacity: 0.2 });
+    const cutout = mesh(1, { alphaMode: 'MASK', opacity: 0.2 });
+    const glass = mesh(-20, { alphaMode: 'BLEND' });
+    const draws = [image, solid, glass, cutout];
+    new DrawSorter().sort(draws, camera);
+    expect(draws).toEqual([solid, cutout, glass, image]);
   });
 });

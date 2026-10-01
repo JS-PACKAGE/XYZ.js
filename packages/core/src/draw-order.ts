@@ -7,15 +7,12 @@ interface SortEntry {
   distance: number;
 }
 
-/**
- * True when the mesh blends with what is behind it and therefore depends on draw order:
- * a BLEND PBRMaterial or any material with opacity below one.
- */
+/** PBR alphaMode is authoritative; legacy textures opt in for image/vertex alpha. */
 export function isBlended(mesh: Mesh): boolean {
   const material = mesh.material;
-  if (material instanceof PBRMaterial && material.alphaMode === 'BLEND')
-    return true;
-  return material.opacity < 1;
+  return material instanceof PBRMaterial
+    ? material.alphaMode === 'BLEND'
+    : material.transparent;
 }
 
 /** Reusable state so sorting does not allocate once the pool has grown. */
