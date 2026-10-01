@@ -309,3 +309,115 @@ describe('scene environment settings', () => {
     expect(() => validateRenderSettings(scene)).toThrow(TypeError);
   });
 });
+
+describe('cubemap environments', () => {
+  it('preserves world-direction colors across every face orientation', () => {
+    const size = 16;
+    const faces = Array.from({ length: 6 }, (_, face) => {
+      const pixels = new Float32Array(size * size * 3);
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++) {
+          const u = (2 * (x + 0.5)) / size - 1,
+            v = (2 * (y + 0.5)) / size - 1;
+          const direction = [
+            [1, -v, -u],
+            [-1, -v, u],
+            [u, 1, v],
+            [u, -1, -v],
+            [u, -v, 1],
+            [-u, -v, -1],
+          ][face]!;
+          const length = Math.hypot(...direction);
+          for (let c = 0; c < 3; c++)
+            pixels[(y * size + x) * 3 + c] = (direction[c]! / length + 1) / 2;
+        }
+      return pixels;
+    }) as [
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+    ];
+    const map = EnvironmentMap.fromCubemap(size, faces);
+    const pixels = map.levels[0]!;
+    for (let y = 0; y < map.height; y += 2)
+      for (let x = 0; x < map.width; x += 2) {
+        const phi = ((x + 0.5) / map.width - 0.5) * Math.PI * 2,
+          theta = ((y + 0.5) / map.height) * Math.PI;
+        const expected = [
+          Math.sin(theta) * Math.sin(phi),
+          Math.cos(theta),
+          -Math.sin(theta) * Math.cos(phi),
+        ];
+        for (let c = 0; c < 3; c++)
+          expect(
+            Math.abs(
+              halfToFloat(pixels[(y * map.width + x) * 4 + c]!) -
+                (expected[c]! + 1) / 2,
+            ),
+          ).toBeLessThan(0.025);
+      }
+    faces[0].fill(0);
+    expect(halfToFloat(pixels[(16 * map.width + 48) * 4]!)).toBeGreaterThan(
+      0.9,
+    );
+    map.destroy();
+  });
+
+  it('decodes sRGB faces once and ignores alpha', () => {
+    const data = new Uint8ClampedArray(4 * 4 * 4);
+    for (let p = 0; p < 16; p++) {
+      data[p * 4] = 188;
+      data[p * 4 + 1] = 255;
+    }
+    const face = { width: 4, height: 4, data };
+    const map = EnvironmentMap.fromCubemapImageData([
+      face,
+      face,
+      face,
+      face,
+      face,
+      face,
+    ]);
+    for (let p = 0; p < map.width * map.height; p++) {
+      expect(halfToFloat(map.levels[0]![p * 4]!)).toBeCloseTo(0.503, 2);
+      expect(halfToFloat(map.levels[0]![p * 4 + 1]!)).toBe(1);
+      expect(halfToFloat(map.levels[0]![p * 4 + 3]!)).toBe(1);
+    }
+    map.destroy();
+  });
+
+  it('rejects mismatched faces and radiance before filtering', () => {
+    const valid = new Float32Array(4 * 4 * 3).fill(1);
+    const faces: [
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+    ] = [valid, valid, valid, valid, valid, valid];
+    expect(() => EnvironmentMap.fromCubemap(0, faces)).toThrow(RangeError);
+    expect(() => EnvironmentMap.fromCubemap(4096, faces)).toThrow(RangeError);
+    faces[5] = valid.subarray(1);
+    expect(() => EnvironmentMap.fromCubemap(4, faces)).toThrow(/dimensions/);
+    faces[5] = valid.slice();
+    faces[5][5] = -1;
+    expect(() => EnvironmentMap.fromCubemap(4, faces)).toThrow(/nonnegative/);
+    faces[5][5] = Number.NaN;
+    expect(() => EnvironmentMap.fromCubemap(4, faces)).toThrow(RangeError);
+    const face = { width: 4, height: 4, data: new Uint8Array(64) };
+    expect(() =>
+      EnvironmentMap.fromCubemapImageData([
+        face,
+        face,
+        face,
+        face,
+        face,
+        { ...face, height: 2 },
+      ]),
+    ).toThrow(/dimensions/);
+  });
+});

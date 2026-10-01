@@ -553,3 +553,22 @@ All tiles use clamped 3×3 depth PCF with the existing normalized depth `bias`.
 continue to apply. There is no slope-scaled bias, cube-face seam filtering, temporal
 stabilization across changing camera orientations, cached static shadows, or
 Canvas2D 3D rendering. `/examples/shadows3d/` exposes each shadow mode and both flags.
+
+## 36. Cubemap Environments (P38a)
+
+`EnvironmentMap.fromCubemap(size, faces, channels = 3)` accepts six equal square
+linear RGB/RGBA arrays in **+X, −X, +Y, −Y, +Z, −Z** order (`CubemapFaces`).
+Rows run top to bottom. The face U/V directions are respectively
+−Z/−Y, +Z/−Y, +X/+Z, +X/−Z, +X/−Y and −X/−Y.
+Alpha is ignored. Radiance must be finite and nonnegative.
+`fromCubemapImageData(faces)` accepts six equal square RGBA ImageData-like objects,
+decodes 8-bit sRGB to linear radiance, and also ignores alpha.
+
+Construction bilinearly converts the faces to the existing equirectangular
+representation at `4 * size` × `2 * size`, then performs the same SH and roughness
+mip filtering as other environments. This is an input-format conversion, **not a
+native GPU cube texture**; faces clamp at their edges during conversion.
+The existing environment size limits apply to the converted image. Inputs are not
+retained, and uploads, cache eviction and `destroy()` use the existing lifecycle.
+Both background and diffuse/specular IBL accept the resulting map. The PBR example
+has a six-face cubemap switch; sharply colored faces make orientation visible.

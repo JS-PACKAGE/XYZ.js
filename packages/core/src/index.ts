@@ -41,6 +41,7 @@ export { EnvironmentMap } from './environment.js';
 export type {
   EnvironmentColor,
   EnvironmentGradientOptions,
+  CubemapFaces,
 } from './environment.js';
 export { Mesh, TextureMaterial } from './mesh.js';
 export type { MeshOptions, TextureMaterialOptions } from './mesh.js';

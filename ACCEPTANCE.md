@@ -583,3 +583,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：新增 5 個 shadow camera 測試，驗證六軸與 clipping、spot 光錐邊界／非法 clipping、cascade 切片中心與相機移動、正交 near=0 的切片八角覆蓋，以及移除／關閉陰影不留 stale slots。完整 67 檔／473 tests、typecheck、lint 通過。
 - **實際瀏覽器**：managed Chromium 的 WebGPU／WebGL2 均以正式 Game／Renderer 渲染 point、spot、四 cascades；範例截圖顯示三種投影，原 pbr3d directional 範例仍正常。獨立 320×200 場景即時像素回讀，point 開關造成 7,915／7,916 像素 RGB sum 減少 >30，spot 為 7,720／7,722，cascade 為 592／602。關閉 floor.receiveShadow 或 caster.castShadow 與全關陰影的畫面完全相同；重新開啟與原畫面完全相同；每格由 256 改成 512 後三種模式仍有陰影，console／page error 為 0。
 - **限制與未驗**：其他瀏覽器、最大 60 格負載／效能、實際 glTF alpha mask 或蒙皮／instancing shadow 的像素對照未測。沒有 cube-face seam filtering、cascade blending、slope bias 或靜態快取。mapSize 指每格解析度，整張 atlas 尺寸仍需符合裝置上限。build 延後最後整合執行。
+
+## P38a Cubemap Environment（2026-10-01，限定已測環境）
+
+- **新增**：`EnvironmentMap.fromCubemap`、`fromCubemapImageData`、公開 `CubemapFaces`；六面轉既有 equirectangular 格式，沿用 SH／roughness mip／GPU cache 生命週期；PBR 範例的六面環境開關。
+- **自動化**：新增 3 個測試涵蓋六面的方向與面內旋轉、輸入修改不影響輸出、sRGB 解碼／忽略 alpha、尺寸與非法 radiance。完整 67 檔／476 tests、typecheck、lint 通過。
+- **實際瀏覽器**：managed Chromium 的 WebGPU 與 WebGL2 切換 PBR 範例 cubemap；截圖確認彩色六面背景與金屬球上的方向性反射，切回原 procedural environment 正常，page error 為 0。
+- **限制與未驗**：不是原生 GPU cube texture；轉換時每面邊緣 clamp。未測六張外部影像的網路載入、其他瀏覽器與最大尺寸效能。Reflection probe 尚未包含在本功能提交；build 延後最後整合執行。

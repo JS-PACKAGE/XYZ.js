@@ -544,3 +544,18 @@ Directional 預設保留固定 `extent`／`target` 投影。把 `scene.shadows.c
 `Mesh.castShadow`／`receiveShadow`、instancing、變形與 alpha mask 仍適用。
 沒有 slope-scaled bias、cube 面接縫過濾、相機旋轉時的 temporal stabilization、
 靜態陰影快取或 Canvas2D 3D renderer。`/examples/shadows3d/` 可切換各模式與兩個 Mesh 旗標。
+
+## 36. Cubemap Environment（P38a）
+
+`EnvironmentMap.fromCubemap(size, faces, channels = 3)` 接受六個同尺寸正方形
+線性 RGB／RGBA 陣列，依 **+X、−X、+Y、−Y、+Z、−Z** 排列（`CubemapFaces`）。
+列由上往下；各面的 U／V 方向依序為 −Z／−Y、+Z／−Y、+X／+Z、+X／−Z、
++X／−Y、−X／−Y。忽略 alpha，radiance 必須有限且非負。
+`fromCubemapImageData(faces)` 接受六個同尺寸正方形 RGBA ImageData-like 物件，
+將 8-bit sRGB 解碼為線性 radiance，同樣忽略 alpha。
+
+建構時以雙線性取樣轉為現有的 `4 * size` × `2 * size` equirectangular 格式，
+接著沿用 SH 與 roughness mip 過濾。這是**輸入格式轉換，不是原生 GPU cube texture**；
+轉換時每個面的邊緣使用 clamp。轉換結果仍受既有 environment 尺寸限制，不保留
+輸入陣列，上傳、cache eviction 與 `destroy()` 生命週期不變。背景與 diffuse／specular
+IBL 都能使用結果。PBR 範例加入六面 cubemap 開關，以明顯面色展示方向。

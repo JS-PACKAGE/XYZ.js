@@ -21,6 +21,7 @@ const listeners = new AbortController();
 let game: Game | undefined;
 let white: Texture | undefined;
 let environment: EnvironmentMap | undefined;
+let cubemap: EnvironmentMap | undefined;
 let controls: OrbitControls | undefined;
 let effect: PostProcessor2D | undefined;
 function release(): void {
@@ -28,6 +29,7 @@ function release(): void {
   controls?.destroy();
   effect?.destroy();
   environment?.destroy();
+  cubemap?.destroy();
   white?.destroy();
 }
 function cleanup(): void {
@@ -62,6 +64,24 @@ try {
     sun: { direction: [0.5, 0.7, 0.4], color: [16, 13, 9], radius: 0.08 },
     width: 128,
   });
+  const face = (r: number, g: number, b: number): ImageData => {
+    const image = new ImageData(16, 16);
+    for (let p = 0; p < 16 * 16; p++) {
+      image.data[p * 4] = r;
+      image.data[p * 4 + 1] = g;
+      image.data[p * 4 + 2] = b;
+      image.data[p * 4 + 3] = 255;
+    }
+    return image;
+  };
+  cubemap = EnvironmentMap.fromCubemapImageData([
+    face(220, 80, 70),
+    face(80, 200, 200),
+    face(110, 160, 240),
+    face(50, 45, 40),
+    face(230, 180, 75),
+    face(160, 90, 210),
+  ]);
   effect = new PostProcessor2D({
     wgsl: `fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
       let p = uv * 2.0 - 1.0;
@@ -153,6 +173,8 @@ try {
       this.fog.density = Number(input('fog').value);
       this.fog.enabled = this.fog.density > 0;
       this.environmentIntensity = Number(input('environment').value);
+      this.environment = input('cubemap').checked ? cubemap : environment;
+      this.background = this.environment;
       this.effects3D.length = 0;
       if (input('vignette').checked) this.effects3D.push(vignette);
       readout.textContent = `Shadows ${this.shadows.enabled ? 'on' : 'off'} · directional ${this.directionalLight.intensity ? 'on' : 'off'} · point ${this.point.intensity ? 'on' : 'off'} at X ${this.point.position.x.toFixed(1)} · exposure ${this.postProcessing.exposure.toFixed(2)} · bloom ${this.postProcessing.bloomStrength.toFixed(2)} · fog ${this.fog.density.toFixed(3)} · environment ${this.environmentIntensity.toFixed(2)} · vignette ${this.effects3D.length ? 'on' : 'off'}`;

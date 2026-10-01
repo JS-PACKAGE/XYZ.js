@@ -2,6 +2,16 @@ import { environmentLimits } from '../../../src/data/rendering.js';
 
 export type EnvironmentColor = readonly [number, number, number];
 
+/** Top-row-first faces in the conventional +X, -X, +Y, -Y, +Z, -Z order. */
+export type CubemapFaces<T = ArrayLike<number>> = readonly [
+  positiveX: T,
+  negativeX: T,
+  positiveY: T,
+  negativeY: T,
+  positiveZ: T,
+  negativeZ: T,
+];
+
 export interface EnvironmentGradientOptions {
   zenith: EnvironmentColor;
   horizon: EnvironmentColor;
@@ -213,6 +223,136 @@ export class EnvironmentMap {
   /** Number of mip levels; specular LOD is `roughness * (mipCount - 1)`. */
   get mipCount(): number {
     return this.levelSizes.length;
+  }
+
+  /**
+   * Converts a cubemap to the engine's equirectangular radiance representation.
+   * Each square face contains linear RGB/RGBA pixels; output is size*4 by size*2.
+   */
+  static fromCubemap(
+    size: number,
+    faces: CubemapFaces,
+    channels: 3 | 4 = 3,
+  ): EnvironmentMap {
+    if (
+      !Number.isInteger(size) ||
+      size * 2 < environmentLimits.minHeight ||
+      size * 4 > environmentLimits.maxWidth
+    )
+      throw new RangeError('Cubemap face size exceeds the environment limits.');
+    if ((channels !== 3 && channels !== 4) || faces.length !== 6)
+      throw new RangeError('Cubemap requires six RGB or RGBA faces.');
+    for (const face of faces) {
+      if (face.length !== size * size * channels)
+        throw new RangeError(
+          'Cubemap faces must have the same square dimensions.',
+        );
+      for (let pixel = 0; pixel < size * size; pixel++)
+        for (let channel = 0; channel < 3; channel++) {
+          const value = face[pixel * channels + channel];
+          if (!Number.isFinite(value) || value < 0)
+            throw new RangeError(
+              'Cubemap radiance must be finite and nonnegative.',
+            );
+        }
+    }
+    const width = size * 4,
+      height = size * 2;
+    const linear = new Float32Array(width * height * 3);
+    const direction: [number, number, number] = [0, 0, 0];
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        equirectDirection((x + 0.5) / width, (y + 0.5) / height, direction);
+        const [dx, dy, dz] = direction;
+        const ax = Math.abs(dx),
+          ay = Math.abs(dy),
+          az = Math.abs(dz);
+        let face: number, u: number, v: number;
+        if (ax >= ay && ax >= az) {
+          face = dx >= 0 ? 0 : 1;
+          u = (dx >= 0 ? -dz : dz) / ax;
+          v = -dy / ax;
+        } else if (ay >= az) {
+          face = dy >= 0 ? 2 : 3;
+          u = dx / ay;
+          v = (dy >= 0 ? dz : -dz) / ay;
+        } else {
+          face = dz >= 0 ? 4 : 5;
+          u = (dz >= 0 ? dx : -dx) / az;
+          v = -dy / az;
+        }
+        const sx = (u + 1) * 0.5 * size - 0.5,
+          sy = (v + 1) * 0.5 * size - 0.5;
+        const ix = Math.floor(sx),
+          iy = Math.floor(sy),
+          fx = sx - ix,
+          fy = sy - iy;
+        const x0 = Math.max(0, Math.min(size - 1, ix)),
+          x1 = Math.max(0, Math.min(size - 1, ix + 1));
+        const y0 = Math.max(0, Math.min(size - 1, iy)),
+          y1 = Math.max(0, Math.min(size - 1, iy + 1));
+        const data = faces[face]!;
+        for (let c = 0; c < 3; c++) {
+          const top =
+            Math.min(data[(y0 * size + x0) * channels + c], HALF_MAX) *
+              (1 - fx) +
+            Math.min(data[(y0 * size + x1) * channels + c], HALF_MAX) * fx;
+          const bottom =
+            Math.min(data[(y1 * size + x0) * channels + c], HALF_MAX) *
+              (1 - fx) +
+            Math.min(data[(y1 * size + x1) * channels + c], HALF_MAX) * fx;
+          linear[(y * width + x) * 3 + c] = top * (1 - fy) + bottom * fy;
+        }
+      }
+    return new EnvironmentMap(width, height, linear);
+  }
+
+  /** Converts six square 8-bit sRGB ImageData faces, ignoring their alpha. */
+  static fromCubemapImageData(
+    faces: CubemapFaces<{
+      width: number;
+      height: number;
+      data: ArrayLike<number>;
+    }>,
+  ): EnvironmentMap {
+    const size = faces[0].width;
+    if (
+      faces.length !== 6 ||
+      !Number.isInteger(size) ||
+      size * 2 < environmentLimits.minHeight ||
+      size * 4 > environmentLimits.maxWidth
+    )
+      throw new RangeError(
+        'Cubemap requires six faces within the environment limits.',
+      );
+    const linear = faces.map((face) => {
+      if (
+        face.width !== size ||
+        face.height !== size ||
+        face.data.length !== size * size * 4
+      )
+        throw new RangeError(
+          'Cubemap ImageData faces must have equal square dimensions.',
+        );
+      const data = new Float32Array(size * size * 3);
+      for (let p = 0; p < size * size; p++)
+        for (let c = 0; c < 3; c++) {
+          const s = face.data[p * 4 + c] / 255;
+          if (!Number.isFinite(s) || s < 0 || s > 1)
+            throw new RangeError('Cubemap ImageData must be 8-bit.');
+          data[p * 3 + c] =
+            s <= 0.04045 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+        }
+      return data;
+    }) as [
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+      Float32Array,
+    ];
+    return EnvironmentMap.fromCubemap(size, linear);
   }
 
   /**
