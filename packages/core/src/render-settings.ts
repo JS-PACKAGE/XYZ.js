@@ -1,5 +1,9 @@
 import { Vector3 } from '../../math/src/index.js';
-import { shadowLimits, fxaaDefaults } from '../../../src/data/rendering.js';
+import {
+  shadowLimits,
+  fxaaDefaults,
+  depthPostDefaults,
+} from '../../../src/data/rendering.js';
 
 export interface ShadowSettingsOptions {
   enabled?: boolean;
@@ -29,6 +33,18 @@ export interface PostProcessingSettingsOptions {
   bloomRadius?: number;
   /** Screen-space antialiasing after tone mapping, before the 2D overlay. */
   fxaa?: boolean;
+  ssao?: boolean;
+  /** World-space AO sampling radius. */
+  ssaoRadius?: number;
+  ssaoStrength?: number;
+  ssaoBias?: number;
+  depthOfField?: boolean;
+  /** View depth in world units, not Euclidean distance to the camera. */
+  dofFocusDistance?: number;
+  /** View-depth interval over which blur grows to its maximum. */
+  dofFocusRange?: number;
+  /** Maximum circle radius in backing pixels. */
+  dofBlurRadius?: number;
 }
 
 function finite(value: number, name: string): void {
@@ -119,6 +135,14 @@ export class PostProcessingSettings {
   bloomThreshold: number;
   bloomRadius: number;
   fxaa: boolean;
+  ssao: boolean;
+  ssaoRadius: number;
+  ssaoStrength: number;
+  ssaoBias: number;
+  depthOfField: boolean;
+  dofFocusDistance: number;
+  dofFocusRange: number;
+  dofBlurRadius: number;
 
   constructor(options: PostProcessingSettingsOptions = {}) {
     this.enabled = options.enabled ?? false;
@@ -128,6 +152,17 @@ export class PostProcessingSettings {
     this.bloomThreshold = options.bloomThreshold ?? 1;
     this.bloomRadius = options.bloomRadius ?? 2;
     this.fxaa = options.fxaa ?? fxaaDefaults.enabled;
+    this.ssao = options.ssao ?? depthPostDefaults.ssao;
+    this.ssaoRadius = options.ssaoRadius ?? depthPostDefaults.ssaoRadius;
+    this.ssaoStrength = options.ssaoStrength ?? depthPostDefaults.ssaoStrength;
+    this.ssaoBias = options.ssaoBias ?? depthPostDefaults.ssaoBias;
+    this.depthOfField = options.depthOfField ?? depthPostDefaults.depthOfField;
+    this.dofFocusDistance =
+      options.dofFocusDistance ?? depthPostDefaults.dofFocusDistance;
+    this.dofFocusRange =
+      options.dofFocusRange ?? depthPostDefaults.dofFocusRange;
+    this.dofBlurRadius =
+      options.dofBlurRadius ?? depthPostDefaults.dofBlurRadius;
     this.validate();
   }
 
@@ -136,6 +171,27 @@ export class PostProcessingSettings {
       throw new TypeError('Postprocessing enabled setting must be boolean.');
     if (typeof this.fxaa !== 'boolean')
       throw new TypeError('Postprocessing fxaa setting must be boolean.');
+    if (
+      typeof this.ssao !== 'boolean' ||
+      typeof this.depthOfField !== 'boolean'
+    )
+      throw new TypeError('SSAO and depthOfField settings must be boolean.');
+    nonnegative(this.ssaoRadius, 'SSAO radius');
+    nonnegative(this.ssaoStrength, 'SSAO strength');
+    nonnegative(this.ssaoBias, 'SSAO bias');
+    nonnegative(this.dofFocusDistance, 'DOF focus distance');
+    nonnegative(this.dofFocusRange, 'DOF focus range');
+    nonnegative(this.dofBlurRadius, 'DOF blur radius');
+    if (
+      this.ssaoRadius === 0 ||
+      this.ssaoStrength > 2 ||
+      this.dofFocusDistance === 0 ||
+      this.dofFocusRange === 0 ||
+      this.dofBlurRadius > depthPostDefaults.maximumBlurRadius
+    )
+      throw new RangeError(
+        `SSAO requires radius > 0 and strength <= 2; DOF requires positive focus distance/range and blur radius <= ${depthPostDefaults.maximumBlurRadius}.`,
+      );
     if (this.toneMapping !== 'none' && this.toneMapping !== 'aces')
       throw new RangeError('Tone mapping must be none or aces.');
     nonnegative(this.exposure, 'Exposure');

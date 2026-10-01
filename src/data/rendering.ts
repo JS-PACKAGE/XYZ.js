@@ -56,3 +56,19 @@ export const fxaaDefaults = Object.freeze({
   minimumReduction: 1 / 128,
   maximumSpan: 8,
 });
+
+export const depthPostDefaults = Object.freeze({
+  ssao: false,
+  ssaoRadius: 0.75,
+  ssaoStrength: 1,
+  ssaoBias: 0.02,
+  depthOfField: false,
+  dofFocusDistance: 10,
+  dofFocusRange: 2,
+  dofBlurRadius: 8,
+  maximumBlurRadius: 64,
+  ssaoDirections: 8,
+  ssaoRings: 2,
+  dofSamples: 24,
+  dofGoldenAngle: 2.399963229728653,
+});

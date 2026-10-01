@@ -1,11 +1,18 @@
 import type { PostProcessingSettings } from '../../core/src/render-settings.js';
 import { GraphicsError, WebGPUInitializationError } from './errors.js';
 import { fxaaWGSL } from './fxaa-shaders.js';
+import { depthPostWGSL } from './depth-post-shaders.js';
+import {
+  OrthographicCamera,
+  type Camera3D,
+} from '../../core/src/orthographic-camera.js';
+import type { Matrix4 } from '../../math/src/index.js';
 
-const postShader = /* wgsl */ `
-struct Settings { values: vec4f, viewport: vec4f };
+const postShader = (sampleCount: number): string => /* wgsl */ `
+struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f };
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> settings: Settings;
+${depthPostWGSL(sampleCount)}
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
   let positions = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
   return vec4f(positions[index],0.0,1.0);
@@ -14,8 +21,8 @@ struct Settings { values: vec4f, viewport: vec4f };
   let size = vec2i(textureDimensions(source));
   let pixel = clamp(vec2i(position.xy),vec2i(0),size-vec2i(1));
   let radius = i32(min(floor(settings.viewport.z+0.5),f32(max(size.x,size.y))));
-  let sample = textureLoad(source,pixel,0);
-  var color = sample.rgb/max(sample.a,0.000001);
+  let sample = focusedSample(pixel);
+  var color = sample.rgb/max(sample.a,0.000001)*ambientOcclusion(pixel);
   var bloom = vec3f(0.0);
   if (settings.values.z > 0.0) {
     for (var y = -1; y <= 1; y++) {
@@ -47,7 +54,7 @@ export class WebGPUPostPipeline {
   private readonly fxaaSampler: GPUSampler;
   private width = 0;
   private height = 0;
-  private readonly data = new Float32Array(8);
+  private readonly data = new Float32Array(36);
   private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
     view?: GPUTextureView;
   } = {
@@ -74,8 +81,9 @@ export class WebGPUPostPipeline {
     device: GPUDevice,
     format: GPUTextureFormat,
     isDestroyed: () => boolean,
+    sampleCount: number,
   ): Promise<WebGPUPostPipeline> {
-    const module = device.createShaderModule({ code: postShader });
+    const module = device.createShaderModule({ code: postShader(sampleCount) });
     const fxaaModule = device.createShaderModule({ code: fxaaWGSL });
     const [info, fxaaInfo] = await Promise.all([
       module.getCompilationInfo(),
@@ -111,13 +119,13 @@ export class WebGPUPostPipeline {
     return new WebGPUPostPipeline(device, pipeline, fxaaPipeline, format);
   }
 
-  target(width: number, height: number): GPUTextureView {
+  target(width: number, height: number, depth: GPUTextureView): GPUTextureView {
     if (this.texture && this.width === width && this.height === height)
       return this.view!;
     this.releaseTarget();
     if (!this.buffer) {
       this.buffer = this.device.createBuffer({
-        size: 32,
+        size: this.data.byteLength,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
     }
@@ -134,6 +142,7 @@ export class WebGPUPostPipeline {
         entries: [
           { binding: 0, resource: view },
           { binding: 1, resource: { buffer: this.buffer } },
+          { binding: 2, resource: depth },
         ],
       });
       this.texture = texture;
@@ -184,6 +193,8 @@ export class WebGPUPostPipeline {
     encoder: GPUCommandEncoder,
     view: GPUTextureView,
     settings: PostProcessingSettings,
+    camera: Camera3D,
+    inverseVP: Matrix4,
   ): void {
     this.data[0] = settings.exposure;
     this.data[1] = settings.toneMapping === 'aces' ? 1 : 0;
@@ -192,6 +203,20 @@ export class WebGPUPostPipeline {
     this.data[4] = this.width;
     this.data[5] = this.height;
     this.data[6] = settings.bloomRadius;
+    this.data.set(inverseVP.elements, 8);
+    this.data[24] = camera.near;
+    this.data[25] = camera.far;
+    this.data[26] = camera instanceof OrthographicCamera ? 1 : 0;
+    const e = camera.matrix.elements;
+    this.data[27] = Math.hypot(e[1]!, e[5]!, e[9]!);
+    this.data[28] = settings.ssao ? 1 : 0;
+    this.data[29] = settings.ssaoRadius;
+    this.data[30] = settings.ssaoStrength;
+    this.data[31] = settings.ssaoBias;
+    this.data[32] = settings.depthOfField ? 1 : 0;
+    this.data[33] = settings.dofFocusDistance;
+    this.data[34] = settings.dofFocusRange;
+    this.data[35] = settings.dofBlurRadius;
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
     if (settings.fxaa) this.ensureFxaa();
     else this.releaseFxaa();

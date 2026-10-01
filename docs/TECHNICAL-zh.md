@@ -571,3 +571,26 @@ overlay 之前加入 fullscreen FXAA。它過濾 resolve 後影像的高對比�
 啟用時才配置一個輸出尺寸 color target，停用 FXAA／postprocessing、resize 或 destroy
 時釋放。它是單幀 spatial AA，不是 temporal AA，可能柔化細緻紋理，不處理稍後的 2D UI，
 並且需要既有 HDR postprocessing capability。
+
+### SSAO 與 Depth of Field（P38c）
+
+兩者都需要 `scene.postProcessing.enabled`。Scene depth 可取樣：WebGPU 取最靠近的
+MSAA depth sample，WebGL2 則在 single-sample HDR target 使用 depth texture。
+View-depth 重建支援透視／正交相機，包含正交 near = 0。
+
+- `ssao` 啟用 deterministic 16-tap screen-space ambient occlusion。`ssaoRadius`
+  是正值 world-space 取樣半徑（預設 0.75）；`ssaoStrength` 為 0–2（預設 1），
+  `ssaoBias` 為非負 world-space elevation 閾值（預設 0.02）。由鄰近 depth 重建法線，
+  在輪廓處選較短的 depth derivative。這個 **post** AO 乘入整個 3D shaded color，
+  不是只乘 material 的 ambient term；sky／畫面外樣本不遮蔽。沒有 temporal accumulation、
+  denoising 或隱藏幾何的 AO。
+- `depthOfField` 啟用線性 HDR 上的 24-tap disk defocus。`dofFocusDistance` 是正值
+  相機 **view depth**（預設 10），不是到眼睛的距離；`dofFocusRange`（正值，預設 2）
+  決定 depth 差異增加多少才達到最大 `dofBlurRadius`（backing pixels，預設 8，0–64）。
+  焦內像素不變，背景模糊會排除清晰前景樣本。這是 screen-space 近似，不是物理 thin lens：
+  無法重建被遮住的背景，也無法正確合成所有近／遠 bokeh 層；大半徑可能顯出稀疏取樣痕跡。
+
+Defocus／AO 在 bloom／tone mapping 前，FXAA／`effects3D` 在後，稍後的 2D overlay
+不受影響。Kernel 只建立一次，不在每個 fragment 計算三角函數；停用效果時跳過 depth
+取樣。PBR 範例提供兩個開關與 focus-depth slider。透明層使用現有 mesh pass 已寫入的
+depth，沒有另做透明 depth 解法；GPU 成本隨 kernel 與 MSAA sample 數增加。

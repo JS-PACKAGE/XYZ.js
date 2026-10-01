@@ -455,6 +455,7 @@ export class WebGPUMeshPipeline {
       device,
       format,
       isDestroyed,
+      sampleCount,
     );
     try {
       return new WebGPUMeshPipeline(
@@ -552,7 +553,9 @@ export class WebGPUMeshPipeline {
       const background = activeBackground(scene);
       if (!this.draws.length && !postEnabled && !background) return false;
       this.ensureDepth(width, height);
-      const target = postEnabled ? this.post.target(width, height) : view;
+      const target = postEnabled
+        ? this.post.target(width, height, this.depthView!)
+        : view;
       if (this.sampleCount > 1) {
         // Multisampled color resolves into the canvas (or HDR target) at pass end.
         this.colorAttachment.view = this.ensureMultisample(
@@ -591,7 +594,14 @@ export class WebGPUMeshPipeline {
       } finally {
         pass.end();
       }
-      if (postEnabled) this.post.render(encoder, view, scene.postProcessing);
+      if (postEnabled)
+        this.post.render(
+          encoder,
+          view,
+          scene.postProcessing,
+          scene.camera3D,
+          this.invViewProjection,
+        );
       return true;
     } finally {
       this.colorAttachment.view = undefined;
@@ -877,7 +887,8 @@ export class WebGPUMeshPipeline {
       size: [width, height],
       format: 'depth24plus',
       sampleCount: this.sampleCount,
-      usage: GPUTextureUsage.RENDER_ATTACHMENT,
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
     });
     this.depthView = this.depthTexture.createView();
     this.depthWidth = width;

@@ -171,6 +171,10 @@ try {
       this.postProcessing.exposure = Number(input('exposure').value);
       this.postProcessing.bloomStrength = Number(input('bloom').value);
       this.postProcessing.fxaa = input('fxaa').checked;
+      this.postProcessing.ssao = input('ssao').checked;
+      this.postProcessing.depthOfField = input('dof').checked;
+      this.postProcessing.dofFocusDistance = Number(input('focus').value);
+      this.postProcessing.dofBlurRadius = 12;
       this.fog.density = Number(input('fog').value);
       this.fog.enabled = this.fog.density > 0;
       this.environmentIntensity = Number(input('environment').value);

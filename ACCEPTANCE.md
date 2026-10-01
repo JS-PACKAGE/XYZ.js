@@ -597,3 +597,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：既有完整 67 檔／476 tests、typecheck、lint 通過。沒有新增僅驗證 shader wiring 的永久測試。
 - **實際瀏覽器**：managed Chromium WebGPU／WebGL2，PBR 範例啟用 FXAA 截圖正常，另以正式 Game 路徑、antialias=false、192×128 白三角即時像素讀回；兩 backend 結果一致：中間亮度邊緣像素由 0 增為 275，共 1,155 bytes 改變，角落維持 [6,9,17,255]。停用 FXAA 與原畫面完全相同；停用／重開 postprocessing 後與啟用畫面完全相同；resize 為 160×100 後仍有 213 個中間亮度邊緣像素。page error 為 0。
 - **限制與未驗**：不是 temporal AA，也不處理稍後的 2D UI；細節可能柔化。其他瀏覽器、透明邊緣與高解析度成本未測。build 延後最後整合執行。
+
+## P38c SSAO 與 Depth of Field（2026-10-01，限定已測環境）
+
+- **新增**：可取樣 scene depth（WebGPU 取最近 MSAA sample、WebGL2 HDR depth texture）、透視／正交 view-depth 重建、16-tap SSAO、24-tap disk defocus、focus distance／range／blur radius；PBR 範例開關與 focus slider。停用效果跳過 depth 取樣，kernel 只建立一次。
+- **自動化**：既有完整 67 檔／476 tests、typecheck、lint 通過；GPU 效果以真實 renderer smoke 驗證，沒有增加 source-text／shader wiring 測試。
+- **實際瀏覽器**：managed Chromium，兩 backend，正式 Game 路徑，antialias 開／關與透視／正交（near=0）共八組。SSAO strength=0 或停用時與原畫面完全相同；cube／floor contact 場景在預設 antialias 下，RGB sum 變暗 >9 的像素為 WebGPU 398／708（透視／正交），WebGL2 390／636。獨立白三角設 focus depth=3 時畫面完全不變，改為 10 則有數千 bytes 改變；停用 DOF 回到原畫面，與 FXAA 合用有額外可觀察的像素變化，停用／重新啟用 postprocessing 後畫面完全相同。192×128→160×100→256×128 的 resize 後仍有 2,554–3,433 個 defocused 像素，page error 為 0。
+- **修正的邊界**：孤立三角輪廓最初有 1–4 個像素被錯誤 AO，原因是 depth derivative 跨到空背景而產生不可靠法線；現在遇到超出取樣半徑的 derivative 不計 AO。兩 backend、透視／正交、192×128／160×100 的同一路徑確認錯誤變暗像素為 0。沒有永久 GPU regression suite，這個分支仍以即時 smoke 覆蓋。
+- **限制與未驗**：AO 是 shaded-color post multiplier，不是只作用於 ambient；沒有 temporal accumulation／denoising。DOF 是 screen-space 近似，無法重建遮蔽背景或正確合成所有 near／far bokeh，最大半徑可能有稀疏取樣痕跡。其他瀏覽器、透明層、GPU 耗時與大型場景成本未測。build 延後最後整合執行。

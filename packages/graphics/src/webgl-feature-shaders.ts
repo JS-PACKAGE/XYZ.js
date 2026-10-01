@@ -1,4 +1,5 @@
 import { atlasGLSL } from './shadow-shaders.js';
+import { depthPostGLSL } from './depth-post-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -244,12 +245,13 @@ uniform sampler2D image;
 uniform vec4 settings; // exposure, strength, threshold, radius
 uniform bool aces;
 out vec4 color;
+${depthPostGLSL}
 vec3 sampleAt(ivec2 p) {
   return texelFetch(image, clamp(p, ivec2(0), textureSize(image, 0) - 1), 0).rgb;
 }
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
-  vec3 result = sampleAt(p);
+  vec3 result = focusedSample(p).rgb*ambientOcclusion(p);
   if (settings.y > 0.0) {
     vec3 bloom = vec3(0.0);
     ivec2 size = textureSize(image, 0);

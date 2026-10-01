@@ -586,3 +586,33 @@ Enabling it lazily allocates one output-sized color target; disabling it, disabl
 postprocessing, resizing or destroying releases that target. It is ordinary
 single-frame spatial AA, not temporal AA, and may soften fine textures. It does
 not antialias the later 2D UI and requires the existing HDR postprocessing capability.
+
+### SSAO and Depth of Field (P38c)
+
+These effects require `scene.postProcessing.enabled`. The main scene depth is
+sampleable: WebGPU takes the closest MSAA depth sample, while WebGL2 uses a depth
+texture on its single-sample HDR target. View-depth reconstruction supports both
+perspective and orthographic cameras, including orthographic near = 0.
+
+- `ssao` enables deterministic, 16-tap screen-space ambient occlusion. `ssaoRadius`
+  is a positive world-space sampling radius (default 0.75), `ssaoStrength` is 0–2
+  (default 1), and `ssaoBias` is a nonnegative world-space elevation threshold
+  (default 0.02). Normals are reconstructed from nearby depth, choosing the shorter
+  depth derivative at silhouettes. This **post** AO multiplies the entire shaded
+  3D color, not just the material's ambient term. Sky and out-of-screen samples do
+  not occlude. There is no temporal accumulation, denoising or hidden-geometry AO.
+- `depthOfField` enables a 24-tap disk defocus in linear HDR color.
+  `dofFocusDistance` is positive camera **view depth** (default 10), not distance
+  from the eye; `dofFocusRange` (positive, default 2) is the depth difference over
+  which blur grows to `dofBlurRadius` (backing pixels, default 8, range 0–64).
+  Focused pixels remain unchanged; sharp foreground samples are excluded from
+  background blur. This is an approximate screen-space effect, not a physical
+  thin lens: it cannot reconstruct occluded backgrounds or correctly composite
+  all near/far bokeh layers. Large blur radii can show sparse-sampling artifacts.
+
+Defocus and AO run before bloom/tone mapping; FXAA and `effects3D` run afterward,
+and the later 2D overlay remains unaffected. Kernels are baked once, not evaluated
+with trigonometry per fragment. Disabled effects skip their depth sampling. The PBR
+example exposes both effects and a focus-depth slider. Transparent layers use the
+depth already written by the existing mesh pass; there is no separate transparent
+depth solution. GPU cost rises with the enabled kernels and MSAA sample count.

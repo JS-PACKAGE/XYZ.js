@@ -24,6 +24,7 @@ import {
 import type { EnvironmentMap } from '../../core/src/environment.js';
 import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import { Matrix4 } from '../../math/src/index.js';
+import { OrthographicCamera } from '../../core/src/orthographic-camera.js';
 import {
   meshVertex,
   meshFragment,
@@ -119,6 +120,7 @@ interface RenderTarget {
   framebuffer: WebGLFramebuffer;
   texture: WebGLTexture;
   depth?: WebGLRenderbuffer;
+  depthTexture?: WebGLTexture;
   width: number;
   height: number;
 }
@@ -405,7 +407,16 @@ export class WebGL2Renderer implements Renderer {
         );
       for (const name of ['invViewProjection', 'backgroundMap', 'sky'])
         this.skyUniforms[name] = gl.getUniformLocation(this.skyProgram, name);
-      for (const name of ['image', 'settings', 'aces'])
+      for (const name of [
+        'image',
+        'settings',
+        'aces',
+        'depthImage',
+        'inverseVP',
+        'clip',
+        'ssao',
+        'dof',
+      ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
         'image',
@@ -1428,7 +1439,7 @@ export class WebGL2Renderer implements Renderer {
       return;
     if (this.postTarget) this.deleteTarget(this.postTarget);
     this.postTarget = undefined;
-    this.postTarget = this.createTarget(width, height, false);
+    this.postTarget = this.createTarget(width, height, false, 'hdr', 'texture');
   }
 
   private createTarget(
@@ -1436,14 +1447,23 @@ export class WebGL2Renderer implements Renderer {
     height: number,
     shadow: boolean,
     format: 'hdr' | 'rgba8' = 'hdr',
-    withDepth = true,
+    withDepth: boolean | 'texture' = true,
   ): RenderTarget {
     const gl = this.gl!;
     const framebuffer = gl.createFramebuffer();
     const texture = gl.createTexture();
-    const depth = shadow || !withDepth ? null : gl.createRenderbuffer();
+    const depth =
+      shadow || !withDepth || withDepth === 'texture'
+        ? null
+        : gl.createRenderbuffer();
+    const depthTexture =
+      !shadow && withDepth === 'texture' ? gl.createTexture() : null;
     try {
-      if (!framebuffer || !texture || (!shadow && withDepth && !depth))
+      if (
+        !framebuffer ||
+        !texture ||
+        (!shadow && withDepth && !depth && !depthTexture)
+      )
         throw new GraphicsError(
           'WebGL2 could not allocate an offscreen render target.',
         );
@@ -1509,6 +1529,31 @@ export class WebGL2Renderer implements Renderer {
             depth,
           );
         }
+        if (depthTexture) {
+          gl.bindTexture(gl.TEXTURE_2D, depthTexture);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+          gl.texImage2D(
+            gl.TEXTURE_2D,
+            0,
+            gl.DEPTH_COMPONENT24,
+            width,
+            height,
+            0,
+            gl.DEPTH_COMPONENT,
+            gl.UNSIGNED_INT,
+            null,
+          );
+          gl.framebufferTexture2D(
+            gl.FRAMEBUFFER,
+            gl.DEPTH_ATTACHMENT,
+            gl.TEXTURE_2D,
+            depthTexture,
+            0,
+          );
+        }
       }
       if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
         throw new GraphicsError(
@@ -1518,6 +1563,7 @@ export class WebGL2Renderer implements Renderer {
         framebuffer,
         texture,
         ...(depth ? { depth } : {}),
+        ...(depthTexture ? { depthTexture } : {}),
         width,
         height,
       };
@@ -1525,6 +1571,7 @@ export class WebGL2Renderer implements Renderer {
       if (framebuffer) gl.deleteFramebuffer(framebuffer);
       if (texture) gl.deleteTexture(texture);
       if (depth) gl.deleteRenderbuffer(depth);
+      if (depthTexture) gl.deleteTexture(depthTexture);
       throw error;
     } finally {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -1537,6 +1584,7 @@ export class WebGL2Renderer implements Renderer {
     gl.deleteFramebuffer(target.framebuffer);
     gl.deleteTexture(target.texture);
     if (target.depth) gl.deleteRenderbuffer(target.depth);
+    if (target.depthTexture) gl.deleteTexture(target.depthTexture);
   }
 
   private drawPost(scene: Scene, destination: WebGLFramebuffer | null): void {
@@ -1585,6 +1633,40 @@ export class WebGL2Renderer implements Renderer {
       this.postUniforms.aces,
       settings.toneMapping === 'aces' ? 1 : 0,
     );
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindSampler(1, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);
+    gl.uniform1i(this.postUniforms.depthImage, 1);
+    this.invViewProjection.copy(scene.camera3D.matrix).invert();
+    gl.uniformMatrix4fv(
+      this.postUniforms.inverseVP,
+      false,
+      this.invViewProjection.elements,
+    );
+    const camera = scene.camera3D;
+    const e = camera.matrix.elements;
+    gl.uniform4f(
+      this.postUniforms.clip,
+      camera.near,
+      camera.far,
+      camera instanceof OrthographicCamera ? 1 : 0,
+      Math.hypot(e[1]!, e[5]!, e[9]!),
+    );
+    gl.uniform4f(
+      this.postUniforms.ssao,
+      settings.ssao ? 1 : 0,
+      settings.ssaoRadius,
+      settings.ssaoStrength,
+      settings.ssaoBias,
+    );
+    gl.uniform4f(
+      this.postUniforms.dof,
+      settings.depthOfField ? 1 : 0,
+      settings.dofFocusDistance,
+      settings.dofFocusRange,
+      settings.dofBlurRadius,
+    );
+    gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (settings.fxaa) {
       gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
