@@ -1,6 +1,7 @@
 import { Vector3 } from '../../../math/src/index.js';
+import type { Matrix4 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
-import { Bounds3D } from './spatial.js';
+import { Bounds3D, SpatialIndex3D } from './spatial.js';
 export declare function finite3D(value: number, name: string): number;
 export declare function positive3D(value: number, name: string): number;
 export declare function nonnegative3D(value: number, name: string): number;
@@ -11,9 +12,9 @@ export interface ColliderOptions3D {
     category?: number;
     mask?: number;
 }
-/** Immutable primitive descriptor. One primitive per Object3D; no compound/mesh shapes. */
+/** Immutable collider descriptor. Geometry is snapshotted before attachment. */
 export declare abstract class Collider3D {
-    abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane';
+    abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane' | 'mesh';
     readonly offset: Readonly<Vector3>;
     readonly sensor: boolean;
     readonly category: number;
@@ -43,6 +44,28 @@ export declare class PlaneCollider3D extends Collider3D {
     readonly normal: Readonly<Vector3>;
     constructor(normal?: Readonly<Vector3>, options?: ColliderOptions3D);
 }
+export interface TriangleMeshOptions3D extends ColliderOptions3D {
+    /** 'front' uses counterclockwise winding; 'double' is a two-sided surface, not a closed solid. */
+    sidedness?: 'double' | 'front';
+}
+/** Static indexed triangle surface. Bake owns copies; replace the attachment to update transactionally. */
+export declare class TriangleMeshCollider3D extends Collider3D {
+    readonly kind = "mesh";
+    readonly positions: readonly number[];
+    readonly indices: readonly number[];
+    readonly sidedness: 'double' | 'front';
+    constructor(positions: ArrayLike<number>, indices: ArrayLike<number>, options?: TriangleMeshOptions3D);
+}
+/** @internal A transformed BVH leaf, reused across pose changes. */
+export declare class Triangle3D {
+    readonly order: number;
+    readonly a: Vector3;
+    readonly b: Vector3;
+    readonly c: Vector3;
+    readonly normal: Vector3;
+    readonly bounds: Bounds3D;
+    constructor(order: number);
+}
 /** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
 export declare class Shape3D {
     readonly collider: Collider3D;
@@ -54,9 +77,14 @@ export declare class Shape3D {
     readonly normal: Vector3;
     readonly bounds: Bounds3D;
     readonly vertices: Vector3[];
+    readonly triangles: Triangle3D[];
+    readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
+    private readonly meshMatrix;
     radius: number;
     constructor(collider: Collider3D);
     refresh(object: Object3D): void;
+    refreshMatrix(matrix: Matrix4): void;
+    validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void;
     updateBounds(): void;
     translate(x: number, y: number, z: number): void;
 }

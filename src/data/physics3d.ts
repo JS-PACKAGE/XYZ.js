@@ -13,4 +13,6 @@ export const physics3DDefaults = {
   sweepTolerance: 0.0001,
   characterSkin: 0.003,
   characterIterations: 8,
+  maxMeshTriangles: 100000,
+  geometryTolerance: 1e-10,
 } as const;

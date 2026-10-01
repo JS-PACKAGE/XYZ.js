@@ -794,3 +794,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 三 backend actual UI surface 覆蓋 16 controls 的 focus reveal（scrollY=384）、viewport clip 下 hidden button click=0、wheel／empty-viewport drag 384→344。
 - 10000 stable-key items 只 prepare 12 rows，實際 mounted=6。Trusted Tab 9000→9001；整體 reversal 後 key9001 的同 row／native focus 保持，scrollY=31936、mounted=6；destroy 無 semantic／row leaks。
 - 真瀏覽器先抓到 reorder focus 丟失：focused key 必須 reveal 新位置；semantic wrapper 不可無條件重新 append 已聚焦 DOM。已修正並由三 backend 再實測通過，保留 consumer-visible focus-reorder regression。
+
+## P53 Static Triangle Mesh Collider（限定已測環境）
+
+- 真封裝 triangle BVH／narrowphase 的 three supported primitives 於 mesh rest heights .247633／.247633／.497633，ray distance=2、edge sweep fraction=.7763914、capsule grounded y=.50299998；不是外框假碰撞。
+- Sidedness、degenerate／ownership validation、scale、candidate triangle limits 與 moving-mesh rejection 保留回歸。靜態 mesh profile，不宣稱 dynamic triangle mesh／arbitrary concave moving bodies。

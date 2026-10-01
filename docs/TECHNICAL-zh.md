@@ -959,3 +959,9 @@ Compositionstart／update／end 帶 data／originalEvent，input 帶 value／isC
 `new UIScrollView({layout?,contentLayout?,horizontal=false,vertical=true})` 經 view.content.add(child) 加 owned content。ScrollTo clamp offsets，reveal 轉換 descendant 四角；renderer mask／pointer／native semantic coverage 同 viewport。Wheel line／page deltas normalize，nested viewport clamped 時向外 yield。Mouse 可拖空白 viewport，controls 保留 editing；touch／pen 可跨 controls pan。Focus 先 reveal 內再外 scroll，最後 native focus。
 
 `new UIVirtualList<T>({items,rowHeight,key,createRow,bindRow,unbindRow?,overscan=1,layout?})` snapshot items、preflight unique string／finite-number keys。Factory 同步回 fresh detached owned UIElement；bind 必須 reset reused row state。Mounted 限 viewport＋overscan＋最多一個 focused row，detached pool 有界重用、surplus destroy。Active keyed identity 保留 reorder。Row／keyOf／setItems／materializedCount／pooledCount／focusKey(key,direction=1) 提供真正 bounded virtualization，不是把所有 rows 都 mount。
+
+## 53. 靜態三角網格 collider（P53）
+
+`new TriangleMeshCollider3D(positions, indices, options?: TriangleMeshOptions3D)` 擁有 bounded immutable xyz／index snapshots 與 baked triangle BVH。更新需換新 descriptor 原子 rebake，borrowed render geometry 修改不改 collision。含 mesh children 的 compound 也 static-only；支援 positive orthogonal transform／nonuniform positive scale，shear／reflection／degenerate／overflow 拒絕且保留原 attachment。
+
+Sidedness double（default）是雙面零厚度 surface，不是 closed-solid containment；front 採 counterclockwise normal，排除 back-side approaches／contacts。Primitive-triangle distance／SAT、真 edge／face contacts、ray／translation sweep、rigid solver／capsule controller 共用 transformed triangles／BVH。

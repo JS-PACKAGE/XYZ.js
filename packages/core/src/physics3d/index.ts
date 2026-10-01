@@ -4,6 +4,8 @@ export {
   BoxCollider3D,
   CapsuleCollider3D,
   PlaneCollider3D,
+  TriangleMeshCollider3D,
+  type TriangleMeshOptions3D,
   type ColliderOptions3D,
 } from './collider.js';
 export { RigidBody3D, type RigidBodyOptions3D } from './body.js';

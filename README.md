@@ -35,6 +35,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P50：[固定版本 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums 與真 extracted-package 部署驗證。
 - P51：`UITextInput` 以透明原生 input 處理 IME／selection／editing，視覺維持 canvas。
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal 與 bounded keyed rows。
+- P53：static `TriangleMeshCollider3D`／triangle BVH、實際 contacts／ray／sweep。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -112,6 +113,7 @@ Production additions in this round:
 - P50: [pinned asset recipe](docs/ASSET-RECIPE.md), mip/fallback outputs, checksums and real extracted-package deployment.
 - P51: `UITextInput` uses transparent native editing/IME/selection with canvas visuals.
 - P52: `UIScrollView`/`UIVirtualList`, clip-aware input, focus reveal and bounded keyed rows.
+- P53: static `TriangleMeshCollider3D`/triangle BVH with real contacts/ray/sweep.
 
 ### Current support matrix and approved expansion
 
@@ -180,6 +182,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P50：[固定版 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums、実 extracted-package deploy。
 - P51：`UITextInput` は透明 native input で IME／selection／editing を処理し、visuals は canvas に維持します。
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal／bounded keyed rows。
+- P53：static `TriangleMeshCollider3D`／triangle BVH、実 contacts／ray／sweep。
 
 ### 現在の対応表と承認済み拡張
 

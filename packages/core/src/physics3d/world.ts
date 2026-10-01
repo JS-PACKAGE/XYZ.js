@@ -4,6 +4,8 @@ import {
   Shape3D,
   SphereCollider3D,
   CapsuleCollider3D,
+  Triangle3D,
+  TriangleMeshCollider3D,
   finite3D,
   positive3D,
   vector3D,
@@ -68,7 +70,7 @@ class Contact3D {
     readonly b: Entry3D,
   ) {}
 }
-/** Deterministic bounded discrete primitive solver. No joints/mesh/compound/rotation CCD. */
+/** Deterministic discrete primitive/mesh solver. */
 export class PhysicsWorld3D {
   readonly gravity = new Vector3(0, -9.81, 0);
   readonly fixedDelta: number;
@@ -82,6 +84,8 @@ export class PhysicsWorld3D {
   private readonly pairCandidates: Entry3D[] = [];
   private readonly queryCandidates: Entry3D[] = [];
   private readonly queryBounds = new Bounds3D();
+  private readonly sweepTriangles: Triangle3D[] = [];
+  private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
   private nextOrder = 0;
   private readonly counters = {
@@ -143,17 +147,20 @@ export class PhysicsWorld3D {
     if (b?.type !== 'static' && b && object.parent)
       throw new Error('Dynamic/kinematic bodies require root Object3D.');
     if (c && b && b.type !== 'static') {
-      if (c.kind === 'plane')
-        throw new Error('PlaneCollider3D is static only.');
+      if (c.kind === 'plane' || c.kind === 'mesh')
+        throw new Error(
+          'PlaneCollider3D/TriangleMeshCollider3D are static only.',
+        );
       if (c.offset.x !== 0 || c.offset.y !== 0 || c.offset.z !== 0)
         throw new Error(
           'Moving body collider offsets are unsupported (origin is center of mass).',
         );
     }
     if (c) {
-      const shape = this.entries.get(object)?.shape;
-      if (shape?.collider === c) shape.refresh(object);
-      else new Shape3D(c).refresh(object);
+      const previous = this.entries.get(object)?.shape;
+      const shape = previous?.collider === c ? previous : new Shape3D(c);
+      shape.refresh(object);
+      if (b) shape.validateMoving(b.type);
     }
   }
   /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */
@@ -337,6 +344,7 @@ export class PhysicsWorld3D {
   private step(dt: number, canContinue: () => boolean): void {
     ++this.stepId;
     this.active.length = 0;
+    this.refreshIndex();
     for (const e of this.ordered) {
       this.validate(e.object);
       const b = e.body;
@@ -348,6 +356,7 @@ export class PhysicsWorld3D {
       if (b.type === 'dynamic') {
         const force = this.forceState(b);
         force.consume(b, dt);
+        // Sleeping ticks still consume their frame-time share; idle time must not dilute a later force.
         if (b.isSleeping) continue;
         b.velocity.x +=
           (this.gravity.x * b.gravityScale + force.value[0] * b.inverseMass) *
@@ -368,9 +377,6 @@ export class PhysicsWorld3D {
       }
       const o = e.object;
       o.capturePhysicsPose();
-      o.position.x += b.velocity.x * dt;
-      o.position.y += b.velocity.y * dt;
-      o.position.z += b.velocity.z * dt;
       if (!b.lockRotation) {
         const q = o.rotation,
           w = b.angularVelocity,
@@ -386,10 +392,13 @@ export class PhysicsWorld3D {
           s - h * (w.x * x + w.y * y + w.z * z),
         ).normalize();
       }
+      o.position.x += b.velocity.x * dt;
+      o.position.y += b.velocity.y * dt;
+      o.position.z += b.velocity.z * dt;
       e.shape.refresh(o);
+      this.index.update(e);
       b.refreshInertia(e.shape);
     }
-    this.refreshIndex();
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     for (const a of this.ordered) {
@@ -423,13 +432,15 @@ export class PhysicsWorld3D {
         m.count = q.count;
         for (let k = 0; k < m.count; k++) {
           m.points[k].copy(q.points[k]);
+          m.normals[k].copy(q.normals[k]);
           m.depths[k] = q.depths[k];
           contact.normalImpulses[k] = 0;
           contact.tangentImpulses[k] = 0;
           this.velocityAt(a.body, m.points[k], this.relative);
           this.velocityAt(b.body, m.points[k], this.impulse);
           this.relative.subtract(this.impulse);
-          const vn = this.relative.dot(m.normal),
+          const n = m.normals[k],
+            vn = this.relative.dot(n),
             bounce = Math.max(
               a.body?.restitution ?? 0,
               b.body?.restitution ?? 0,
@@ -437,9 +448,9 @@ export class PhysicsWorld3D {
           contact.targets[k] =
             vn < -physics3DDefaults.restitutionThreshold ? -vn * bounce : 0;
           contact.tangent[k].copy(this.relative);
-          contact.tangent[k].x -= m.normal.x * vn;
-          contact.tangent[k].y -= m.normal.y * vn;
-          contact.tangent[k].z -= m.normal.z * vn;
+          contact.tangent[k].x -= n.x * vn;
+          contact.tangent[k].y -= n.y * vn;
+          contact.tangent[k].z -= n.z * vn;
           contact.tangent[k].normalize();
         }
         contact.seen = this.stepId;
@@ -511,6 +522,32 @@ export class PhysicsWorld3D {
         mb = b?.inverseMass ?? 0,
         sum = ma + mb;
       if (sum === 0) continue;
+      if (
+        c.a.shape.collider.kind === 'mesh' ||
+        c.b.shape.collider.kind === 'mesh'
+      ) {
+        const m = c.manifold;
+        for (let k = 0; k < m.count; k++) {
+          const correction =
+              (Math.max(0, m.depths[k] - physics3DDefaults.contactSlop) *
+                physics3DDefaults.correction) /
+              (sum * m.count),
+            n = m.normals[k];
+          if (ma && a && !a.isSleeping) {
+            const p = c.a.object.position;
+            p.x += n.x * correction * ma;
+            p.y += n.y * correction * ma;
+            p.z += n.z * correction * ma;
+          }
+          if (mb && b && !b.isSleeping) {
+            const p = c.b.object.position;
+            p.x -= n.x * correction * mb;
+            p.y -= n.y * correction * mb;
+            p.z -= n.z * correction * mb;
+          }
+        }
+        continue;
+      }
       const correction =
           (Math.max(0, -c.manifold.distance - physics3DDefaults.contactSlop) *
             physics3DDefaults.correction) /
@@ -529,8 +566,11 @@ export class PhysicsWorld3D {
         p.z -= n.z * correction * mb;
       }
     }
-    for (const e of this.ordered) if (this.valid(e)) e.object.sealPhysicsPose();
-    for (const e of this.ordered) e.body?.updateSleep(dt);
+    for (const e of this.ordered) {
+      if (!this.valid(e)) continue;
+      e.object.sealPhysicsPose();
+      e.body?.updateSleep(dt);
+    }
   }
   private velocityAt(
     body: RigidBody3D | undefined,
@@ -608,7 +648,7 @@ export class PhysicsWorld3D {
       b = c.b.body,
       m = c.manifold,
       p = m.points[k],
-      n = m.normal;
+      n = m.normals[k];
     this.velocityAt(a, p, this.relative);
     this.velocityAt(b, p, this.impulse);
     this.relative.subtract(this.impulse);
@@ -803,6 +843,7 @@ export class PhysicsWorld3D {
     p.set(x, y, z);
     return false;
   }
+
   private sweepShape(
     shape: Shape3D,
     displacement: Readonly<Vector3>,
@@ -825,57 +866,100 @@ export class PhysicsWorld3D {
     this.candidates(this.queryBounds);
     for (const e of this.queryCandidates) {
       if (!this.accepts(e, options) || e.shape === shape) continue;
-      let t = 0,
-        translated = 0;
-      try {
-        for (
-          let iteration = 0;
-          iteration < physics3DDefaults.sweepIterations;
-          iteration++
-        ) {
-          const move = t - translated;
-          shape.translate(dx * move, dy * move, dz * move);
-          translated = t;
-          const m = this.queryManifold;
-          this.queryNarrow.collide(shape, e.shape, m);
-          const closing = -(
-            dx * m.normal.x +
-            dy * m.normal.y +
-            dz * m.normal.z
-          );
-          if (m.distance <= physics3DDefaults.sweepTolerance) {
-            if (
-              (inside ||
-                closing > 1e-10 ||
-                m.distance < -physics3DDefaults.contactSlop) &&
-              t < nearest
-            ) {
-              nearest = t;
-              result = out ??
-                result ?? {
-                  object: e.object,
-                  collider: e.shape.collider,
-                  point: new Vector3(),
-                  normal: new Vector3(),
-                  distance: 0,
-                };
-              result.object = e.object;
-              result.collider = e.shape.collider;
-              result.distance = t * len;
-              result.point.copy(m.points[0]);
-              result.normal.copy(m.normal);
-            }
-            break;
-          }
-          if (closing <= 1e-12) break;
-          t += m.distance / closing;
-          if (t > nearest || t > 1) break;
-        }
-      } finally {
-        shape.translate(-dx * translated, -dy * translated, -dz * translated);
+      const moving = shape;
+      const target = e.shape;
+      if (moving.collider.kind === 'mesh' || moving.collider.kind === 'plane')
+        continue;
+      this.leafBounds.swept(
+        moving.bounds,
+        displacement,
+        physics3DDefaults.sweepTolerance,
+      );
+      if (!this.leafBounds.overlaps(target.bounds)) continue;
+      if (target.collider instanceof TriangleMeshCollider3D)
+        target.triangleIndex!.query(this.leafBounds, this.sweepTriangles);
+      const triangleCount =
+        target.collider.kind === 'mesh' ? this.sweepTriangles.length : 1;
+      for (let k = 0; k < triangleCount; k++) {
+        const triangle =
+          target.collider.kind === 'mesh' ? this.sweepTriangles[k] : undefined;
+        if (
+          triangle &&
+          (target.collider as TriangleMeshCollider3D).sidedness === 'front' &&
+          (moving.center.x - triangle.a.x) * triangle.normal.x +
+            (moving.center.y - triangle.a.y) * triangle.normal.y +
+            (moving.center.z - triangle.a.z) * triangle.normal.z <
+            -physics3DDefaults.sweepTolerance
+        )
+          continue;
+        const t = this.sweepPair(
+          moving,
+          target,
+          triangle,
+          dx,
+          dy,
+          dz,
+          nearest,
+          inside,
+        );
+        if (t >= nearest) continue;
+        nearest = t;
+        result = out ??
+          result ?? {
+            object: e.object,
+            collider: e.shape.collider,
+            point: new Vector3(),
+            normal: new Vector3(),
+            distance: 0,
+          };
+        result.object = e.object;
+        result.collider = e.shape.collider;
+        result.distance = t * len;
+        result.point.copy(this.queryManifold.points[0]);
+        result.normal.copy(this.queryManifold.normal);
       }
     }
     return result;
+  }
+  private sweepPair(
+    shape: Shape3D,
+    target: Shape3D,
+    triangle: Triangle3D | undefined,
+    dx: number,
+    dy: number,
+    dz: number,
+    limit: number,
+    inside: boolean,
+  ): number {
+    let t = 0,
+      translated = 0;
+    try {
+      for (
+        let iteration = 0;
+        iteration < physics3DDefaults.sweepIterations;
+        iteration++
+      ) {
+        const move = t - translated;
+        shape.translate(dx * move, dy * move, dz * move);
+        translated = t;
+        const m = this.queryManifold;
+        if (triangle) this.queryNarrow.triangle(shape, triangle, m);
+        else this.queryNarrow.collide(shape, target, m);
+        const closing = -(dx * m.normal.x + dy * m.normal.y + dz * m.normal.z);
+        if (m.distance <= physics3DDefaults.sweepTolerance)
+          return inside ||
+            closing > 1e-10 ||
+            m.distance < -physics3DDefaults.contactSlop
+            ? t
+            : Infinity;
+        if (closing <= 1e-12 || !Number.isFinite(m.distance)) return Infinity;
+        t += m.distance / closing;
+        if (t > limit || t > 1) return Infinity;
+      }
+      return Infinity;
+    } finally {
+      shape.translate(-dx * translated, -dy * translated, -dz * translated);
+    }
   }
   destroy(): void {
     if (this.disposed || this.destroying) return;
@@ -891,6 +975,7 @@ export class PhysicsWorld3D {
     this.index.clear();
     this.pairCandidates.length = 0;
     this.queryCandidates.length = 0;
+    this.sweepTriangles.length = 0;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     this.counters.queryCandidates = 0;

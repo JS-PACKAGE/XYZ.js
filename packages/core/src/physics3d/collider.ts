@@ -1,6 +1,8 @@
 import { Vector3 } from '../../../math/src/index.js';
+import type { Matrix4 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
-import { Bounds3D } from './spatial.js';
+import { Bounds3D, SpatialIndex3D } from './spatial.js';
+import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 
 export function finite3D(value: number, name: string): number {
   if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite.`);
@@ -27,9 +29,9 @@ export interface ColliderOptions3D {
   category?: number;
   mask?: number;
 }
-/** Immutable primitive descriptor. One primitive per Object3D; no compound/mesh shapes. */
+/** Immutable collider descriptor. Geometry is snapshotted before attachment. */
 export abstract class Collider3D {
-  abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane';
+  abstract readonly kind: 'sphere' | 'box' | 'capsule' | 'plane' | 'mesh';
   readonly offset: Readonly<Vector3>;
   readonly sensor: boolean;
   readonly category: number;
@@ -96,6 +98,74 @@ export class PlaneCollider3D extends Collider3D {
   }
 }
 
+export interface TriangleMeshOptions3D extends ColliderOptions3D {
+  /** 'front' uses counterclockwise winding; 'double' is a two-sided surface, not a closed solid. */
+  sidedness?: 'double' | 'front';
+}
+/** Static indexed triangle surface. Bake owns copies; replace the attachment to update transactionally. */
+export class TriangleMeshCollider3D extends Collider3D {
+  readonly kind = 'mesh';
+  readonly positions: readonly number[];
+  readonly indices: readonly number[];
+  readonly sidedness: 'double' | 'front';
+  constructor(
+    positions: ArrayLike<number>,
+    indices: ArrayLike<number>,
+    options: TriangleMeshOptions3D = {},
+  ) {
+    super(options);
+    if (
+      !Number.isInteger(positions.length) ||
+      !Number.isInteger(indices.length) ||
+      positions.length < 9 ||
+      positions.length % 3 ||
+      positions.length > physics3DDefaults.maxMeshTriangles * 9 ||
+      indices.length < 3 ||
+      indices.length % 3 ||
+      indices.length / 3 > physics3DDefaults.maxMeshTriangles
+    )
+      throw new RangeError('Mesh requires bounded indexed xyz triangles.');
+    const p = Array.from(positions),
+      ix = Array.from(indices);
+    for (const v of p) finite3D(v, 'mesh position');
+    for (const i of ix)
+      if (!Number.isInteger(i) || i < 0 || i >= p.length / 3)
+        throw new RangeError('Mesh index out of range.');
+    for (let i = 0; i < ix.length; i += 3) {
+      const a = ix[i] * 3,
+        b = ix[i + 1] * 3,
+        c = ix[i + 2] * 3;
+      const ux = p[b] - p[a],
+        uy = p[b + 1] - p[a + 1],
+        uz = p[b + 2] - p[a + 2];
+      const vx = p[c] - p[a],
+        vy = p[c + 1] - p[a + 1],
+        vz = p[c + 2] - p[a + 2];
+      if (
+        finite3D(
+          Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
+          'triangle area',
+        ) <= physics3DDefaults.geometryTolerance
+      )
+        throw new RangeError('Degenerate mesh triangle.');
+    }
+    this.sidedness = options.sidedness ?? 'double';
+    if (this.sidedness !== 'front' && this.sidedness !== 'double')
+      throw new RangeError('Invalid mesh sidedness.');
+    this.positions = Object.freeze(p);
+    this.indices = Object.freeze(ix);
+  }
+}
+/** @internal A transformed BVH leaf, reused across pose changes. */
+export class Triangle3D {
+  readonly a = new Vector3();
+  readonly b = new Vector3();
+  readonly c = new Vector3();
+  readonly normal = new Vector3();
+  readonly bounds = new Bounds3D();
+  constructor(readonly order: number) {}
+}
+
 /** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
 export class Shape3D {
   readonly center = new Vector3();
@@ -110,10 +180,23 @@ export class Shape3D {
   readonly normal = new Vector3();
   readonly bounds = new Bounds3D();
   readonly vertices = Array.from({ length: 8 }, () => new Vector3());
+  readonly triangles: Triangle3D[] = [];
+  readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
+  private readonly meshMatrix: Float64Array | undefined;
   radius = 0;
-  constructor(readonly collider: Collider3D) {}
+  constructor(readonly collider: Collider3D) {
+    if (collider instanceof TriangleMeshCollider3D) {
+      this.triangleIndex = new SpatialIndex3D<Triangle3D>();
+      this.meshMatrix = new Float64Array(16).fill(NaN);
+      for (let i = 0; i < collider.indices.length / 3; i++)
+        this.triangles.push(new Triangle3D(i));
+    }
+  }
   refresh(object: Object3D): void {
-    const e = object.updateWorldMatrix().elements;
+    this.refreshMatrix(object.updateWorldMatrix());
+  }
+  refreshMatrix(matrix: Matrix4): void {
+    const e = matrix.elements;
     const x = this.axes[0].set(e[0], e[1], e[2]),
       y = this.axes[1].set(e[4], e[5], e[6]),
       z = this.axes[2].set(e[8], e[9], e[10]);
@@ -141,6 +224,12 @@ export class Shape3D {
       e[13] + e[1] * o.x + e[5] * o.y + e[9] * o.z,
       e[14] + e[2] * o.x + e[6] * o.y + e[10] * o.z,
     );
+    if (
+      !Number.isFinite(this.center.x) ||
+      !Number.isFinite(this.center.y) ||
+      !Number.isFinite(this.center.z)
+    )
+      throw new RangeError('Transformed collider center must be finite.');
     if (
       this.collider instanceof SphereCollider3D ||
       this.collider instanceof CapsuleCollider3D
@@ -188,7 +277,67 @@ export class Shape3D {
         )
         .normalize();
     }
+    if (this.collider instanceof TriangleMeshCollider3D) {
+      let changed = false;
+      const cache = this.meshMatrix!,
+        index = this.triangleIndex!;
+      for (let i = 0; i < 16; i++) if (cache[i] !== e[i]) changed = true;
+      if (changed) {
+        const c = this.collider,
+          p = c.positions,
+          ix = c.indices;
+        for (const t of this.triangles) {
+          for (let j = 0; j < 3; j++) {
+            const v = j === 0 ? t.a : j === 1 ? t.b : t.c,
+              at = ix[t.order * 3 + j] * 3;
+            const px = p[at] + o.x,
+              py = p[at + 1] + o.y,
+              pz = p[at + 2] + o.z;
+            v.set(
+              e[12] + e[0] * px + e[4] * py + e[8] * pz,
+              e[13] + e[1] * px + e[5] * py + e[9] * pz,
+              e[14] + e[2] * px + e[6] * py + e[10] * pz,
+            );
+            if (
+              !Number.isFinite(v.x) ||
+              !Number.isFinite(v.y) ||
+              !Number.isFinite(v.z)
+            )
+              throw new RangeError('Transformed mesh vertices must be finite.');
+          }
+          const ux = t.b.x - t.a.x,
+            uy = t.b.y - t.a.y,
+            uz = t.b.z - t.a.z;
+          const vx = t.c.x - t.a.x,
+            vy = t.c.y - t.a.y,
+            vz = t.c.z - t.a.z;
+          positive3D(
+            Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
+            'transformed triangle area',
+          );
+          t.normal
+            .set(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
+            .normalize();
+          t.bounds.reset();
+          t.bounds.add(t.a);
+          t.bounds.add(t.b);
+          t.bounds.add(t.c);
+        }
+        if (Number.isNaN(cache[0])) index.rebuild(this.triangles);
+        else index.refit();
+        for (let i = 0; i < 16; i++) cache[i] = e[i];
+        this.updateBounds();
+      }
+      return;
+    }
     this.updateBounds();
+  }
+  validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void {
+    if (
+      type !== 'static' &&
+      (this.collider.kind === 'plane' || this.collider.kind === 'mesh')
+    )
+      throw new Error('Triangle mesh/plane geometry is static only.');
   }
   updateBounds(): void {
     const b = this.bounds;
@@ -198,6 +347,11 @@ export class Shape3D {
       b.max.set(Infinity, Infinity, Infinity);
     } else if (this.collider.kind === 'box') {
       for (const p of this.vertices) b.add(p);
+    } else if (this.collider.kind === 'mesh') {
+      for (const t of this.triangles) {
+        b.add(t.bounds.min);
+        b.add(t.bounds.max);
+      }
     } else {
       b.min.set(
         Math.min(this.start.x, this.end.x) - this.radius,
@@ -232,6 +386,7 @@ export class Shape3D {
       this.end.y += y;
       this.end.z += z;
     }
+
     this.bounds.min.x += x;
     this.bounds.min.y += y;
     this.bounds.min.z += z;

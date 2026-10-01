@@ -1,17 +1,34 @@
 import { Vector3 } from '../../../math/src/index.js';
-import { Shape3D } from './collider.js';
+import { Shape3D, Triangle3D, TriangleMeshCollider3D } from './collider.js';
+import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 
 /** @internal Signed separation and B-to-A normal. Reused for solver and conservative advancement. */
 export class Manifold3D {
   readonly normal = new Vector3();
   readonly points = Array.from({ length: 8 }, () => new Vector3());
+  readonly normals = Array.from({ length: 8 }, () => new Vector3());
   readonly depths = new Float64Array(8);
   count = 0;
   distance = Infinity;
-  add(point: Readonly<Vector3>, depth: number): void {
-    if (this.count === 8) return;
-    this.points[this.count].set(point.x, point.y, point.z);
-    this.depths[this.count++] = depth;
+  add(
+    point: Readonly<Vector3>,
+    depth: number,
+    normal: Readonly<Vector3> = this.normal,
+  ): void {
+    let slot = this.count;
+    if (slot === 8) {
+      slot = 0;
+      for (let i = 1; i < 8; i++)
+        if (this.depths[i] < this.depths[slot]) slot = i;
+      if (depth <= this.depths[slot]) return;
+    } else this.count++;
+    this.points[slot].set(point.x, point.y, point.z);
+    this.normals[slot].set(normal.x, normal.y, normal.z);
+    this.depths[slot] = depth;
+  }
+  flip(): void {
+    this.normal.scale(-1);
+    for (let i = 0; i < this.count; i++) this.normals[i].scale(-1);
   }
 }
 const clamp = (v: number, lo: number, hi: number): number =>
@@ -42,6 +59,277 @@ export class Narrowphase3D {
   private readonly edgeA1 = new Vector3();
   private readonly edgeB0 = new Vector3();
   private readonly edgeB1 = new Vector3();
+  private readonly triangleCandidates: Triangle3D[] = [];
+  private readonly triangleManifold = new Manifold3D();
+  private readonly closest = new Vector3();
+  private readonly bestP = new Vector3();
+  private readonly bestQ = new Vector3();
+  private readonly triangleEdge = new Vector3();
+  private pointTriangle(
+    p: Readonly<Vector3>,
+    t: Triangle3D,
+    out: Vector3,
+  ): void {
+    const a = t.a,
+      b = t.b,
+      c = t.c;
+    const ux = b.x - a.x,
+      uy = b.y - a.y,
+      uz = b.z - a.z,
+      vx = c.x - a.x,
+      vy = c.y - a.y,
+      vz = c.z - a.z;
+    const px = p.x - a.x,
+      py = p.y - a.y,
+      pz = p.z - a.z;
+    const d1 = ux * px + uy * py + uz * pz,
+      d2 = vx * px + vy * py + vz * pz;
+    if (d1 <= 0 && d2 <= 0) {
+      out.copy(a);
+      return;
+    }
+    const bx = p.x - b.x,
+      by = p.y - b.y,
+      bz = p.z - b.z,
+      d3 = ux * bx + uy * by + uz * bz,
+      d4 = vx * bx + vy * by + vz * bz;
+    if (d3 >= 0 && d4 <= d3) {
+      out.copy(b);
+      return;
+    }
+    const vc = d1 * d4 - d3 * d2;
+    if (vc <= 0 && d1 >= 0 && d3 <= 0) {
+      const s = d1 / (d1 - d3);
+      out.set(a.x + ux * s, a.y + uy * s, a.z + uz * s);
+      return;
+    }
+    const cx = p.x - c.x,
+      cy = p.y - c.y,
+      cz = p.z - c.z,
+      d5 = ux * cx + uy * cy + uz * cz,
+      d6 = vx * cx + vy * cy + vz * cz;
+    if (d6 >= 0 && d5 <= d6) {
+      out.copy(c);
+      return;
+    }
+    const vb = d5 * d2 - d1 * d6;
+    if (vb <= 0 && d2 >= 0 && d6 <= 0) {
+      const s = d2 / (d2 - d6);
+      out.set(a.x + vx * s, a.y + vy * s, a.z + vz * s);
+      return;
+    }
+    const va = d3 * d6 - d5 * d4;
+    if (va <= 0 && d4 - d3 >= 0 && d5 - d6 >= 0) {
+      const s = (d4 - d3) / (d4 - d3 + (d5 - d6));
+      out.set(
+        b.x + (c.x - b.x) * s,
+        b.y + (c.y - b.y) * s,
+        b.z + (c.z - b.z) * s,
+      );
+      return;
+    }
+    const inv = 1 / (va + vb + vc),
+      s = vb * inv,
+      r = vc * inv;
+    out.set(
+      a.x + ux * s + vx * r,
+      a.y + uy * s + vy * r,
+      a.z + uz * s + vz * r,
+    );
+  }
+  private roundTriangle(a: Shape3D, t: Triangle3D, out: Manifold3D): void {
+    let best = Infinity;
+    for (let i = 0; i < 2; i++) {
+      const p = i === 0 ? a.start : a.end;
+      this.pointTriangle(p, t, this.closest);
+      const dx = p.x - this.closest.x,
+        dy = p.y - this.closest.y,
+        dz = p.z - this.closest.z,
+        dist = dx * dx + dy * dy + dz * dz;
+      if (dist < best) {
+        best = dist;
+        this.bestP.copy(p);
+        this.bestQ.copy(this.closest);
+      }
+    }
+    for (let i = 0; i < 3; i++) {
+      const p = i === 0 ? t.a : i === 1 ? t.b : t.c,
+        q = i === 0 ? t.b : i === 1 ? t.c : t.a;
+      this.segment(a.start, a.end, p, q, this.p, this.q);
+      const dx = this.p.x - this.q.x,
+        dy = this.p.y - this.q.y,
+        dz = this.p.z - this.q.z,
+        dist = dx * dx + dy * dy + dz * dz;
+      if (dist < best) {
+        best = dist;
+        this.bestP.copy(this.p);
+        this.bestQ.copy(this.q);
+      }
+    }
+    const n = t.normal,
+      d0 =
+        (a.start.x - t.a.x) * n.x +
+        (a.start.y - t.a.y) * n.y +
+        (a.start.z - t.a.z) * n.z;
+    const d1 =
+      (a.end.x - t.a.x) * n.x +
+      (a.end.y - t.a.y) * n.y +
+      (a.end.z - t.a.z) * n.z;
+    if (d0 * d1 <= 0 && Math.abs(d0 - d1) > 1e-16) {
+      const s = d0 / (d0 - d1);
+      this.p.set(
+        a.start.x + (a.end.x - a.start.x) * s,
+        a.start.y + (a.end.y - a.start.y) * s,
+        a.start.z + (a.end.z - a.start.z) * s,
+      );
+      this.pointTriangle(this.p, t, this.q);
+      const dx = this.p.x - this.q.x,
+        dy = this.p.y - this.q.y,
+        dz = this.p.z - this.q.z;
+      if (dx * dx + dy * dy + dz * dz < 1e-18) {
+        best = 0;
+        this.bestP.copy(this.p);
+        this.bestQ.copy(this.q);
+      }
+    }
+    const dist = Math.sqrt(best);
+    if (dist > 1e-10)
+      out.normal.set(
+        (this.bestP.x - this.bestQ.x) / dist,
+        (this.bestP.y - this.bestQ.y) / dist,
+        (this.bestP.z - this.bestQ.z) / dist,
+      );
+    else {
+      const side =
+        (a.center.x - t.a.x) * n.x +
+        (a.center.y - t.a.y) * n.y +
+        (a.center.z - t.a.z) * n.z;
+      out.normal.copy(n).scale(side >= 0 ? 1 : -1);
+    }
+    out.distance = dist - a.radius;
+    if (best === 0 && d0 * d1 < 0) {
+      const side = out.normal.dot(n) >= 0 ? 1 : -1;
+      out.distance = Math.min(d0 * side, d1 * side) - a.radius;
+    }
+    out.add(this.bestQ, -out.distance);
+  }
+  private boxTriangle(a: Shape3D, t: Triangle3D, out: Manifold3D): void {
+    let best = -Infinity;
+    for (let i = 0; i < 13; i++) {
+      let n: Readonly<Vector3>;
+      if (i === 0) n = t.normal;
+      else if (i < 4) n = a.axes[i - 1];
+      else {
+        const edge = Math.floor((i - 4) / 3),
+          p = edge === 0 ? t.a : edge === 1 ? t.b : t.c,
+          q = edge === 0 ? t.b : edge === 1 ? t.c : t.a;
+        this.triangleEdge.set(q.x - p.x, q.y - p.y, q.z - p.z);
+        n = cross(this.triangleEdge, a.axes[(i - 4) % 3], this.axis);
+      }
+      const len = Math.hypot(n.x, n.y, n.z);
+      if (len < 1e-10) continue;
+      const center = a.center.dot(n),
+        r = this.radius(a, n);
+      const pa = t.a.dot(n),
+        pb = t.b.dot(n),
+        pc = t.c.dot(n),
+        lo = Math.min(pa, pb, pc),
+        hi = Math.max(pa, pb, pc);
+      const plus = (center - r - hi) / len,
+        minus = (lo - center - r) / len,
+        sep = Math.max(plus, minus);
+      if (sep > best) {
+        best = sep;
+        out.normal
+          .set(n.x / len, n.y / len, n.z / len)
+          .scale(plus >= minus ? 1 : -1);
+      }
+    }
+    out.distance = best;
+    let src = this.polygonA,
+      dst = this.polygonB,
+      count = 3;
+    src[0].copy(t.a);
+    src[1].copy(t.b);
+    src[2].copy(t.c);
+    for (let i = 0; i < 3; i++)
+      for (let side = -1; side <= 1; side += 2) {
+        const n = a.axes[i],
+          h = i === 0 ? a.half.x : i === 1 ? a.half.y : a.half.z;
+        let next = 0;
+        for (let j = 0; j < count; j++) {
+          const p = src[j],
+            q = src[(j + 1) % count];
+          const dp =
+            side *
+              ((p.x - a.center.x) * n.x +
+                (p.y - a.center.y) * n.y +
+                (p.z - a.center.z) * n.z) -
+            h;
+          const dq =
+            side *
+              ((q.x - a.center.x) * n.x +
+                (q.y - a.center.y) * n.y +
+                (q.z - a.center.z) * n.z) -
+            h;
+          if (dp <= 1e-10) dst[next++].copy(p);
+          if (dp < 0 !== dq < 0) {
+            const s = dp / (dp - dq);
+            dst[next++].set(
+              p.x + (q.x - p.x) * s,
+              p.y + (q.y - p.y) * s,
+              p.z + (q.z - p.z) * s,
+            );
+          }
+        }
+        count = next;
+        const tmp = src;
+        src = dst;
+        dst = tmp;
+      }
+    for (let i = 0; i < count; i++) out.add(src[i], -best);
+    if (out.count === 0) {
+      this.pointTriangle(a.center, t, this.q);
+      out.add(this.q, -best);
+    }
+  }
+  private mesh(a: Shape3D, b: Shape3D, out: Manifold3D): void {
+    b.triangleIndex!.query(
+      a.bounds,
+      this.triangleCandidates,
+      physics3DDefaults.contactMargin,
+    );
+    for (const t of this.triangleCandidates) {
+      if (
+        (b.collider as TriangleMeshCollider3D).sidedness === 'front' &&
+        (a.center.x - t.a.x) * t.normal.x +
+          (a.center.y - t.a.y) * t.normal.y +
+          (a.center.z - t.a.z) * t.normal.z <
+          -physics3DDefaults.sweepTolerance
+      )
+        continue;
+      const m = this.triangleManifold;
+      m.count = 0;
+      m.distance = Infinity;
+      if (a.collider.kind === 'box') this.boxTriangle(a, t, m);
+      else this.roundTriangle(a, t, m);
+      if (m.distance < out.distance) {
+        if (out.distance > physics3DDefaults.contactMargin) out.count = 0;
+        out.distance = m.distance;
+        out.normal.copy(m.normal);
+      }
+      if (m.distance <= physics3DDefaults.contactMargin || out.count === 0)
+        for (let i = 0; i < m.count; i++)
+          out.add(m.points[i], m.depths[i], m.normals[i]);
+    }
+  }
+  /** @internal Exact round-triangle distance or conservative OBB-triangle SAT separation. */
+  triangle(shape: Shape3D, triangle: Triangle3D, out: Manifold3D): void {
+    out.count = 0;
+    out.distance = Infinity;
+    if (shape.collider.kind === 'box') this.boxTriangle(shape, triangle, out);
+    else this.roundTriangle(shape, triangle, out);
+  }
   /** Exact closest points between two finite line segments, including point segments. */
   segment(
     a: Readonly<Vector3>,
@@ -470,16 +758,29 @@ export class Narrowphase3D {
     out.distance = Infinity;
     const ak = a.collider.kind,
       bk = b.collider.kind;
+
+    if (ak === 'mesh' && bk === 'mesh') return;
+    if ((ak === 'mesh' && bk === 'plane') || (ak === 'plane' && bk === 'mesh'))
+      return;
+    if (bk === 'mesh') {
+      this.mesh(a, b, out);
+      return;
+    }
+    if (ak === 'mesh') {
+      this.mesh(b, a, out);
+      out.flip();
+      return;
+    }
     if (ak === 'plane' && bk === 'plane') return;
     if (bk === 'plane') this.plane(a, b, out);
     else if (ak === 'plane') {
       this.plane(b, a, out);
-      out.normal.scale(-1);
+      out.flip();
     } else if (ak === 'box' && bk === 'box') this.boxes(a, b, out);
     else if (bk === 'box') this.segmentBox(a, b, out);
     else if (ak === 'box') {
       this.segmentBox(b, a, out);
-      out.normal.scale(-1);
+      out.flip();
     } else this.roundRound(a, b, out);
   }
 }

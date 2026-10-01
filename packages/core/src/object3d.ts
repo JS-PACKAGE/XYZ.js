@@ -71,8 +71,8 @@ export class Object3D extends SceneObject {
     if (body && body.type !== 'static') {
       if (this.parent)
         throw new Error('Dynamic/kinematic bodies require root Object3D.');
-      if (collider?.kind === 'plane')
-        throw new Error('Plane colliders are static only.');
+      if (collider?.kind === 'plane' || collider?.kind === 'mesh')
+        throw new Error('Plane and triangle mesh colliders are static only.');
       if (
         collider &&
         (collider.offset.x !== 0 ||
@@ -84,6 +84,7 @@ export class Object3D extends SceneObject {
     if (collider) {
       const shape = new Shape3D(collider);
       shape.refresh(this);
+      if (body) shape.validateMoving(body.type);
     }
   }
 

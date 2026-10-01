@@ -1150,3 +1150,7 @@ Keyboard/clipboard/undo/IME edit the native transparent input, while canvas draw
 ## 32. Scroll and Bounded Virtual Lists (P52)
 
 Add widgets through `view.content.add(widget)` on UIScrollView; set a finite viewport layout and use scrollTo/reveal. UIVirtualList requires a synchronous fresh-detached owned-row factory and synchronous bind that resets reused item state; prepare async canvas widgets before passing them to that factory. Stable keys preserve active rows on reorder, focusKey reveals unmounted rows, and mounted/pool counts stay bounded. Destroy any unused prepared rows yourself. [Viewport/focus contract](TECHNICAL.md#52-scrolling-focus-reveal-and-virtual-lists-p52).
+
+## 33. Triangle Floors and Walls (P53)
+
+Attach `new TriangleMeshCollider3D(xyz, triangleIndices, {sidedness:'double'})` to a static/collider-only Object3D. It is a surface, not volumetric solid containment; use front for authored counterclockwise one-sided collision. Replacing the descriptor rebakes owned geometry; changing a Mesh's render vertices alone does not. [Transforms and queries](TECHNICAL.md#53-static-triangle-mesh-colliders-p53).

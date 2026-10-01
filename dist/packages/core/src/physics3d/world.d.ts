@@ -31,7 +31,7 @@ export interface PhysicsContact3D {
     readonly point: Readonly<Vector3>;
     readonly sensor: boolean;
 }
-/** Deterministic bounded discrete primitive solver. No joints/mesh/compound/rotation CCD. */
+/** Deterministic discrete primitive/mesh solver. */
 export declare class PhysicsWorld3D {
     readonly gravity: Vector3;
     readonly fixedDelta: number;
@@ -45,6 +45,8 @@ export declare class PhysicsWorld3D {
     private readonly pairCandidates;
     private readonly queryCandidates;
     private readonly queryBounds;
+    private readonly sweepTriangles;
+    private readonly leafBounds;
     private indexDirty;
     private nextOrder;
     private readonly counters;
@@ -108,5 +110,6 @@ export declare class PhysicsWorld3D {
     /** @internal Bounded minimum-translation recovery from primitive overlaps; failure restores the original pose. */
     recoverCapsule(object: Object3D, limit: number, options: PhysicsQueryOptions3D): boolean;
     private sweepShape;
+    private sweepPair;
     destroy(): void;
 }
