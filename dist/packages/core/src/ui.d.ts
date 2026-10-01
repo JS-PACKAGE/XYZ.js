@@ -6,6 +6,9 @@ import type { Text2DOptions } from './text2d.js';
 import { Sprite } from './sprite.js';
 import { Graphics2D } from './graphics2d/graphics2d.js';
 import type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
+import { UITextInput } from './ui-text-input.js';
+export { UITextInput } from './ui-text-input.js';
+export type { UITextInputOptions } from './ui-text-input.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
 export interface UIWidgetOptions {
@@ -97,7 +100,7 @@ export declare class UISlider extends UIControl {
     protected arranged(): void;
     private positionThumb;
 }
-type Focusable = UIButton | UICheckbox | UISlider;
+type Focusable = UIButton | UICheckbox | UISlider | UITextInput;
 export declare class UIFocusManager {
     private readonly root;
     private current?;

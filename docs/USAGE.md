@@ -1128,3 +1128,21 @@ Save `JSON.stringify(content.capture())`; reconstruct with `await rebuildContent
 ## 30. Reproducible Assets and Deployment (P50)
 
 Run `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`; after `pnpm pack` and extraction, run `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2` (repeat with webgpu). Follow the pinned-toolchain/manifest/codec requirements in [Asset Recipe](ASSET-RECIPE.md). Deploy the entire dist tree, including official vendor worklet assets.
+
+## 31. Native Text Editing (P51)
+
+```ts
+const root = scene.add(new UIRoot(game, { direction: 'column', gap: 8 }));
+const field = root.add(
+  await UITextInput.create({
+    label: 'Name',
+    value: '語',
+    maxLength: 32,
+    layout: { width: 280, height: 40 },
+  }),
+);
+root.focus.focus(field);
+field.setSelectionRange(0, field.value.length);
+```
+
+Keyboard/clipboard/undo/IME edit the native transparent input, while canvas draws text/selection/caret. Offsets and maxLength use UTF-16. Focus after publication/layout; normal gameplay keyboard polling excludes editing targets. [Events and limits](TECHNICAL.md#51-native-editing-canvas-text-input-p51).

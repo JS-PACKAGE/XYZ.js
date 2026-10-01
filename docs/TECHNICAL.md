@@ -997,3 +997,9 @@ Factories may declare `children(root)` aliases and `state(root, member)` adapter
 See [Asset Recipe](ASSET-RECIPE.md) for reproducible local glTF/GLB packing, topology/UV/material/codec preflight, RGBA8 KTX2 integer-box mip generation, PNG fallback, manifest and SHA256SUMS. The CLI pins Node26.7.0/playwright-core1.63.0/Chromium153.0.8010.12 (revision1243); no hidden downloads, manifest shell commands or runtime dependencies.
 
 `assets:build` validates generated variants through the real packaged GLTFLoader. `check:asset-deployment` imports an extracted `pnpm pack` root over plain HTTP, renders native/fallback variants and trusted-click initializes official AudioWorklets, checking vendor completeness and real fetches. Reproducibility is for the same pinned toolchain/platform/input bytes. No Draco/Basis/compressed-GPU encoder, semantic gamma/normal filtering or audible-output certification is claimed.
+
+## 51. Native Editing, Canvas Text Input (P51)
+
+`await UITextInput.create({value?,maxLength?,label?,disabled?,layout?,textStyle?})` provides single-line editing, clipboard/undo/IME via a genuinely native transparent input; text/background/selection/caret remain canvas-rendered. Readonly value/selectionStart/selectionEnd/selectionDirection/isComposing, async setValue, and setSelectionRange use UTF-16 offsets. Programmatic values strip CR/LF and apply maxLength; existing Text2D raster/input budgets still apply.
+
+Compositionstart/update/end include data/originalEvent; input includes value/isComposing/originalEvent, and change/focus/blur relay native editing state. Focus suppresses game keyboard actions and resets held state, without stealing normal browser editing keys. Native semantic geometry/clipping follows logical canvas placement and lifecycle. No password profile; synthetic composition events verify wiring/visual state, not a physical OS IME.

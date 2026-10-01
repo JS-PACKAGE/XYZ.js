@@ -1,5 +1,5 @@
 import { GameObject } from './game-object.js';
-import { ScreenElement } from './gameplay/screen-element.js';
+import { IsolatedGroup2D } from './rendering2d/isolated-group.js';
 import type { Rect2D } from './gameplay/contracts.js';
 import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 
@@ -83,7 +83,7 @@ function snapshot(layout: UILayout): Readonly<UILayout> {
 }
 
 /** Retained screen-space container. Only UIElement children participate in layout. */
-export class UIElement extends ScreenElement {
+export class UIElement extends IsolatedGroup2D {
   private spec: Readonly<UILayout>;
   private unavailable = false;
   private measuredWidth = 0;
@@ -97,6 +97,7 @@ export class UIElement extends ScreenElement {
   protected layoutDirty = true;
   constructor(layout: UILayout = {}) {
     super();
+    this.space = 'screen';
     this.spec = snapshot(layout);
     this.addEventListener('remove', () => this.invalidateLayout());
   }

@@ -1,5 +1,5 @@
 import { GameObject } from './game-object.js';
-import { ScreenElement } from './gameplay/screen-element.js';
+import { IsolatedGroup2D } from './rendering2d/isolated-group.js';
 import type { Rect2D } from './gameplay/contracts.js';
 export type UIDimension = number | 'auto' | 'fill';
 export interface UILayout {
@@ -16,7 +16,7 @@ export interface UILayout {
     readonly justify?: 'start' | 'center' | 'end' | 'space-between';
 }
 /** Retained screen-space container. Only UIElement children participate in layout. */
-export declare class UIElement extends ScreenElement {
+export declare class UIElement extends IsolatedGroup2D {
     private spec;
     private unavailable;
     private measuredWidth;

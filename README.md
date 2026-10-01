@@ -33,6 +33,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P48：[混合負載與 lifecycle soak](benchmarks/mixed/index.html)，分開 RAF／CPU phases／cache estimates。
 - P49：stable-ID 2D／3D／動態 content topology、body 與 custom state save／rebuild。
 - P50：[固定版本 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums 與真 extracted-package 部署驗證。
+- P51：`UITextInput` 以透明原生 input 處理 IME／selection／editing，視覺維持 canvas。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -108,6 +109,7 @@ Production additions in this round:
 - P48: [mixed load/lifecycle soak](benchmarks/mixed/index.html), separating RAF, CPU phases and cache estimates.
 - P49: stable-ID 2D/3D/dynamic content topology, body and custom-state save/rebuild.
 - P50: [pinned asset recipe](docs/ASSET-RECIPE.md), mip/fallback outputs, checksums and real extracted-package deployment.
+- P51: `UITextInput` uses transparent native editing/IME/selection with canvas visuals.
 
 ### Current support matrix and approved expansion
 
@@ -174,6 +176,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P48：[mixed load／lifecycle soak](benchmarks/mixed/index.html)。RAF／CPU phases／cache estimates は別に計測します。
 - P49：stable-ID の 2D／3D／動的 content topology、body、custom state の save／rebuild。
 - P50：[固定版 asset recipe](docs/ASSET-RECIPE.md)、mip／fallback outputs、checksums、実 extracted-package deploy。
+- P51：`UITextInput` は透明 native input で IME／selection／editing を処理し、visuals は canvas に維持します。
 
 ### 現在の対応表と承認済み拡張
 

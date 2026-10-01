@@ -1115,3 +1115,21 @@ class FixedScene extends Scene {
 ## 30. 可重現 Assets 與部署（P50）
 
 執行 `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`。`pnpm pack` 並解壓後，執行 `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2`，再驗 webgpu。依[Asset Recipe](ASSET-RECIPE.md) 的 pinned toolchain／manifest／codec 限制；部署完整 dist tree，包含官方 vendor worklet，不能只複製 root JS。
+
+## 31. 原生文字編輯（P51）
+
+```ts
+const root = scene.add(new UIRoot(game, { direction: 'column', gap: 8 }));
+const field = root.add(
+  await UITextInput.create({
+    label: '名字',
+    value: '語',
+    maxLength: 32,
+    layout: { width: 280, height: 40 },
+  }),
+);
+root.focus.focus(field);
+field.setSelectionRange(0, field.value.length);
+```
+
+Native transparent input 處理 keyboard／clipboard／undo／IME；canvas 畫文字、selection、caret。Offsets 與 maxLength 是 UTF-16；先 publish／layout 再 focus，正常 gameplay keyboard polling 排除 editing targets。合成 composition 測試不等於實體 OS IME 認證。

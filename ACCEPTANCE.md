@@ -782,3 +782,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 真 pack 解壓的 browser consumer 在 forced WebGL2／WebGPU 顯示 2×2／2 mips 與 fallback PNG（各 21904 colored pixels）；5 asset checksums、14 official vendor files 逐位元組驗證通過。
 - Real AudioManager.unlock=true，官方 8 processor assets 的 server responses 全 HTTP 200／2109 bytes／相同官方 checksum；worklet worker traffic 不能用 page request events 的空陣列冒稱沒載入。完整 `dist/vendor/opm/` 對官方 inventory 無 extras。
 - Build 只清理 generated vendor mirror 再複製，不修改官方 source。清理前的額外 duplicate generated files 已完整備份至自有 /tmp archive；不推論其產生原因。
+
+## P51 Native UITextInput & IME（限定已測環境）
+
+- 自有 headless Chromium／independent profile，在 Canvas2D／WebGL2／WebGPU 的正式 Game／Scene／UIRoot 實測全部 passed：透明 native input、canvas text visuals、trusted keyboard selection [4,5]／Backspace、native browser undo（execCommand）與 value 同步。
+- Synthetic composition start／update／input／end 顯示 isComposing true→false、值「語喵」；這不是 OS／硬體 IME 認證。UTF-16 selection、modal focus trap／pop restore、pause-resume、context／listener teardown 皆覆蓋。
+- remove 後 listener 立即 inert，native DOM 依 semantic frame 清理（2 RAF 後 disconnected）；Game.destroy 後 semantic nodes／objects／attachments=0，errors=[]。Evidence：`.vite/production-ui.json` 與三 backend PNG。

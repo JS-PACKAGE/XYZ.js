@@ -5,6 +5,7 @@ export interface AccessibilityOptions2D {
     readonly label: string;
     readonly tabIndex?: number;
     readonly disabled?: boolean;
+    readonly nativeInput?: boolean;
 }
 /** Invisible semantics only; exact native geometric masks never replace canvas visuals. */
 export declare class AccessibilityManager {

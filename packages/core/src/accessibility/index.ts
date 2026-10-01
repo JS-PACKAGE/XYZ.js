@@ -10,6 +10,7 @@ export interface AccessibilityOptions2D {
   readonly label: string;
   readonly tabIndex?: number;
   readonly disabled?: boolean;
+  readonly nativeInput?: boolean;
 }
 interface ClipShape {
   readonly data: string;
@@ -25,7 +26,7 @@ interface SemanticClip {
   readonly transform: Float64Array;
 }
 interface SemanticEntry {
-  readonly node: HTMLDivElement;
+  readonly node: HTMLElement;
   readonly host: HTMLDivElement;
   readonly controller: AbortController;
   readonly generation: number;
@@ -109,8 +110,7 @@ export class AccessibilityManager {
       object.registrationGeneration === entry.generation &&
       this.entries.get(object) === entry &&
       !!object.accessibility &&
-      !object.accessibility.disabled &&
-      entry.coverage;
+      (type === 'blur' || (!object.accessibility.disabled && entry.coverage));
     if (!guard()) return;
     let stopped = false,
       immediate = false;
@@ -155,7 +155,9 @@ export class AccessibilityManager {
   private create(object: GameObject): SemanticEntry {
     const document = this.canvas.ownerDocument;
     const host = document.createElement('div'),
-      node = document.createElement('div');
+      node: HTMLElement = document.createElement(
+        object.accessibility?.nativeInput ? 'input' : 'div',
+      );
     node.dataset.xyzAccessibility = '';
     host.dataset.xyzAccessibilityHost = '';
     Object.assign(host.style, {
@@ -168,6 +170,10 @@ export class AccessibilityManager {
     Object.assign(node.style, {
       position: 'absolute',
       inset: '0',
+      width: '100%',
+      height: '100%',
+      minWidth: '0',
+      boxSizing: 'border-box',
       opacity: '0',
       pointerEvents: 'none',
       margin: '0',
@@ -178,6 +184,7 @@ export class AccessibilityManager {
       color: 'transparent',
       outline: 'none',
     });
+    if (node.tagName === 'INPUT') (node as HTMLInputElement).type = 'text';
     host.append(node);
     const entry: SemanticEntry = {
       node,
@@ -208,6 +215,7 @@ export class AccessibilityManager {
     node.addEventListener(
       'keydown',
       (event) => {
+        if (object.accessibility?.nativeInput) return;
         if (
           object.accessibility?.disabled ||
           event.repeat ||
@@ -230,6 +238,7 @@ export class AccessibilityManager {
     node.addEventListener(
       'keyup',
       (event) => {
+        if (object.accessibility?.nativeInput) return;
         if (event.code !== 'Space' || !entry.spaceDown) return;
         entry.spaceDown = false;
         event.preventDefault();
@@ -445,6 +454,9 @@ export class AccessibilityManager {
     return false;
   }
   private remove(object: GameObject, entry: SemanticEntry): void {
+    if (entry.node === entry.node.ownerDocument.activeElement)
+      entry.node.blur();
+    object.dispatchEvent(new CustomEvent('semanticdetach'));
     entry.controller.abort();
     entry.host.remove();
     for (const clip of entry.clips) clip.definition.remove();
@@ -509,6 +521,8 @@ export class AccessibilityManager {
         typeof semantic.role !== 'string' ||
         !semantic.role.trim() ||
         typeof semantic.label !== 'string' ||
+        (semantic.nativeInput !== undefined &&
+          typeof semantic.nativeInput !== 'boolean') ||
         (semantic.disabled !== undefined &&
           typeof semantic.disabled !== 'boolean') ||
         (semantic.tabIndex !== undefined &&
@@ -520,6 +534,13 @@ export class AccessibilityManager {
           'Accessibility requires role, label, boolean disabled, and an integer tabIndex from -1 to 32767.',
         );
       let entry = this.entries.get(object);
+      if (
+        entry &&
+        (entry.node.tagName === 'INPUT') !== !!semantic.nativeInput
+      ) {
+        this.remove(object, entry);
+        entry = undefined;
+      }
       if (!entry) {
         entry = this.create(object);
         this.entries.set(object, entry);
@@ -529,6 +550,8 @@ export class AccessibilityManager {
       node.setAttribute('aria-label', semantic.label);
       node.setAttribute('aria-disabled', String(semantic.disabled ?? false));
       node.tabIndex = semantic.disabled ? -1 : (semantic.tabIndex ?? 0);
+      if (node.tagName === 'INPUT')
+        (node as HTMLInputElement).disabled = semantic.disabled ?? false;
       object.getWorldBounds(this.bounds);
       let minX = this.bounds.x,
         minY = this.bounds.y,

@@ -947,3 +947,9 @@ Factory 可定義 children(root) aliases 與 state(root,member) adapters；conte
 [Asset Recipe](ASSET-RECIPE.md) 說明 local glTF／GLB packing、topology／UV／material／codec preflight、RGBA8 KTX2 integer-box mips、PNG fallback／manifest／SHA256SUMS。CLI 固定 Node26.7.0／playwright-core1.63.0／Chromium153.0.8010.12 revision1243，無 hidden download／manifest shell commands／runtime dependencies。
 
 Assets:build 沿真 packaged GLTFLoader 驗 generated variants。Check:asset-deployment 在 plain HTTP import extracted pnpm pack root，畫 native／fallback，trusted click 初始化 official AudioWorklets，確認 vendor 完整與實際 fetch。Reproducibility 限同 toolchain／platform／input bytes；不含 Draco／Basis／compressed-GPU encoding、gamma／normal semantic filtering 或可聽輸出認證。
+
+## 51. 原生 editing、canvas 文字輸入（P51）
+
+`await UITextInput.create({value?,maxLength?,label?,disabled?,layout?,textStyle?})` 使用真正透明 native input 提供 single-line editing／clipboard／undo／IME；text／background／selection／caret 仍由 canvas 畫。Readonly value／selectionStart／selectionEnd／selectionDirection／isComposing、async setValue 與 setSelectionRange 採 UTF-16 offsets。Programmatic values 去 CR／LF 並套 maxLength；既有 Text2D raster／input budgets 不變。
+
+Compositionstart／update／end 帶 data／originalEvent，input 帶 value／isComposing／originalEvent，change／focus／blur relay 原生狀態。Focus 清 held state 並排除 gameplay keyboard actions，不攔截正常 editing keys。Native semantic geometry／clipping 沿 logical canvas placement／lifecycle；無 password profile，synthetic composition 只能證明 relay／visual state，不能冒稱實體 OS IME。

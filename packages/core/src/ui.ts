@@ -10,6 +10,9 @@ import { GraphicsPath2D } from './graphics2d/graphics-path2d.js';
 import type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 import type { InputContext } from '../../input/src/index.js';
 import { Vector2 } from '../../math/src/index.js';
+import { UITextInput } from './ui-text-input.js';
+export { UITextInput } from './ui-text-input.js';
+export type { UITextInputOptions } from './ui-text-input.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
 
@@ -498,7 +501,7 @@ export class UISlider extends UIControl {
   }
 }
 
-type Focusable = UIButton | UICheckbox | UISlider;
+type Focusable = UIButton | UICheckbox | UISlider | UITextInput;
 interface ModalEntry {
   container: UIElement;
   previous?: Focusable;
@@ -544,7 +547,8 @@ export class UIFocusManager {
     if (
       node instanceof UIButton ||
       node instanceof UICheckbox ||
-      node instanceof UISlider
+      node instanceof UISlider ||
+      node instanceof UITextInput
     )
       if (this.eligible(node)) out.push(node);
     for (const child of node.children) this.collect(child, out);
@@ -552,6 +556,11 @@ export class UIFocusManager {
   focus(node: Focusable | undefined): boolean {
     if (node && (!node.layoutWidth || !node.layoutHeight)) this.root.reflow();
     if (node && !this.eligible(node)) return false;
+    if (node) {
+      if (this.root.isLive)
+        this.root.boundGame?.accessibility.update(this.root.scene);
+      this.root.synchronizeSemantics();
+    }
     if (this.root.boundGame) {
       if (!node) {
         this.requested = undefined;
@@ -583,6 +592,8 @@ export class UIFocusManager {
     this.current = node;
     this.currentGeneration = node?.registrationGeneration ?? 0;
     this.root.synchronizeInputScope();
+    if (node instanceof UITextInput)
+      this.root.boundGame?.input.keyboard.reset();
     node?.showFocus(true);
   }
   /** @internal */
@@ -788,11 +799,13 @@ export class UIRoot extends UIElement {
     else this.context?.deactivate();
   }
   private handleKey(control: Focusable, event: KeyboardEvent): void {
+    if (control instanceof UITextInput && event.code !== 'Tab') return;
     if (
       event.type === 'keyup' &&
       (event.code === 'Enter' || event.code === 'Space')
     ) {
-      control.showPressed(false, 'native');
+      if (!(control instanceof UITextInput))
+        control.showPressed(false, 'native');
       return;
     }
     if (
@@ -805,7 +818,11 @@ export class UIRoot extends UIElement {
       event.metaKey
     )
       return;
-    if (event.code === 'Enter' || event.code === 'Space') {
+    if (event.isComposing || event.keyCode === 229) return;
+    if (
+      !(control instanceof UITextInput) &&
+      (event.code === 'Enter' || event.code === 'Space')
+    ) {
       control.showPressed(
         event.type === 'keydown' && !event.shiftKey,
         'native',
@@ -846,10 +863,13 @@ export class UIRoot extends UIElement {
     if (
       node instanceof UIButton ||
       node instanceof UICheckbox ||
-      node instanceof UISlider
+      node instanceof UISlider ||
+      node instanceof UITextInput
     ) {
       node.syncState();
       const element = this.boundGame?.accessibility.element(node);
+      if (node instanceof UITextInput && element?.tagName === 'INPUT')
+        node.bindNative(element as HTMLInputElement);
       let scope = this.nativeScopes.get(node);
       if (
         element &&
@@ -950,6 +970,7 @@ export class UIRoot extends UIElement {
     const context = this.context;
     if (!context?.active) return;
     const current = this.focus.focused;
+    if (current instanceof UITextInput) return;
     if (context.wasPressed('next') || context.wasPressed('down')) {
       if (current instanceof UISlider) current.increment(-1);
       else this.focus.move(1);
@@ -965,12 +986,18 @@ export class UIRoot extends UIElement {
       if (current instanceof UISlider) current.increment(1);
       else this.focus.move(1);
     }
-    this.focus.focused?.showPressed(context.isDown('activate'), 'context');
-    if (context.wasPressed('activate')) this.focus.focused?.activate();
+    const activating = this.focus.focused;
+    if (activating && !(activating instanceof UITextInput)) {
+      activating.showPressed(context.isDown('activate'), 'context');
+      if (context.wasPressed('activate')) activating.activate();
+    }
   }
   private releaseBindings(): void {
     this.context?.deactivate();
-    for (const scope of this.nativeScopes.values()) scope.controller.abort();
+    for (const [control, scope] of this.nativeScopes) {
+      if (control instanceof UITextInput) control.unbindNative();
+      scope.controller.abort();
+    }
     this.nativeScopes.clear();
     this.focus.clear();
   }
