@@ -33,6 +33,7 @@ import {
   skyVertex,
   skyFragment,
 } from './webgl-feature-shaders.js';
+import { fxaaGLSL } from './fxaa-shaders.js';
 import { type Texture2DSource, Texture } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
@@ -205,6 +206,8 @@ export class WebGL2Renderer implements Renderer {
   private shadowBuffer: WebGLBuffer | undefined;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
+  private fxaaProgram: WebGLProgram | undefined;
+  private fxaaTarget: RenderTarget | undefined;
   private floatColorBuffer = false;
   private compositeProgram: WebGLProgram | undefined;
   private readonly compositeUniforms: Record<
@@ -305,6 +308,9 @@ export class WebGL2Renderer implements Renderer {
         postFragment,
         'postprocessing',
       );
+      this.fxaaProgram = this.createProgram(gl, postVertex, fxaaGLSL, 'FXAA');
+      gl.useProgram(this.fxaaProgram);
+      gl.uniform1i(gl.getUniformLocation(this.fxaaProgram, 'image'), 0);
       this.compositeProgram = this.createProgram(
         gl,
         layerVertex,
@@ -780,6 +786,10 @@ export class WebGL2Renderer implements Renderer {
         else if (this.postTarget) {
           this.deleteTarget(this.postTarget);
           this.postTarget = undefined;
+        }
+        if (!scene.postProcessing.enabled && this.fxaaTarget) {
+          this.deleteTarget(this.fxaaTarget);
+          this.fxaaTarget = undefined;
         }
       } else this.commands.clear();
       gl.bindFramebuffer(
@@ -1532,7 +1542,30 @@ export class WebGL2Renderer implements Renderer {
   private drawPost(scene: Scene, destination: WebGLFramebuffer | null): void {
     const gl = this.gl!;
     const settings = scene.postProcessing;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
+    if (settings.fxaa) {
+      if (
+        !this.fxaaTarget ||
+        this.fxaaTarget.width !== this.postTarget!.width ||
+        this.fxaaTarget.height !== this.postTarget!.height
+      ) {
+        if (this.fxaaTarget) this.deleteTarget(this.fxaaTarget);
+        this.fxaaTarget = undefined;
+        this.fxaaTarget = this.createTarget(
+          this.postTarget!.width,
+          this.postTarget!.height,
+          false,
+          'rgba8',
+          false,
+        );
+      }
+    } else if (this.fxaaTarget) {
+      this.deleteTarget(this.fxaaTarget);
+      this.fxaaTarget = undefined;
+    }
+    gl.bindFramebuffer(
+      gl.FRAMEBUFFER,
+      settings.fxaa ? this.fxaaTarget!.framebuffer : destination,
+    );
     gl.disable(gl.BLEND);
     gl.disable(gl.DEPTH_TEST);
     gl.disable(gl.CULL_FACE);
@@ -1553,6 +1586,12 @@ export class WebGL2Renderer implements Renderer {
       settings.toneMapping === 'aces' ? 1 : 0,
     );
     gl.drawArrays(gl.TRIANGLES, 0, 3);
+    if (settings.fxaa) {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, destination);
+      gl.useProgram(this.fxaaProgram!);
+      gl.bindTexture(gl.TEXTURE_2D, this.fxaaTarget!.texture);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    }
   }
 
   private decodeColor(value: number): number {
@@ -1915,6 +1954,8 @@ export class WebGL2Renderer implements Renderer {
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
       if (this.postTarget) this.deleteTarget(this.postTarget);
+      if (this.fxaaTarget) this.deleteTarget(this.fxaaTarget);
+      if (this.fxaaProgram) gl.deleteProgram(this.fxaaProgram);
       if (this.shadowProgram) gl.deleteProgram(this.shadowProgram);
       if (this.postProgram) gl.deleteProgram(this.postProgram);
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);

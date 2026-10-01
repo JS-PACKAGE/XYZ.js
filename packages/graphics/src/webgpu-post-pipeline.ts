@@ -1,5 +1,6 @@
 import type { PostProcessingSettings } from '../../core/src/render-settings.js';
 import { GraphicsError, WebGPUInitializationError } from './errors.js';
+import { fxaaWGSL } from './fxaa-shaders.js';
 
 const postShader = /* wgsl */ `
 struct Settings { values: vec4f, viewport: vec4f };
@@ -40,6 +41,10 @@ export class WebGPUPostPipeline {
   private view: GPUTextureView | undefined;
   private bindGroup: GPUBindGroup | undefined;
   private buffer: GPUBuffer | undefined;
+  private fxaaTexture: GPUTexture | undefined;
+  private fxaaView: GPUTextureView | undefined;
+  private fxaaGroup: GPUBindGroup | undefined;
+  private readonly fxaaSampler: GPUSampler;
   private width = 0;
   private height = 0;
   private readonly data = new Float32Array(8);
@@ -56,7 +61,14 @@ export class WebGPUPostPipeline {
   private constructor(
     private readonly device: GPUDevice,
     private readonly pipeline: GPURenderPipeline,
-  ) {}
+    private readonly fxaaPipeline: GPURenderPipeline,
+    private readonly format: GPUTextureFormat,
+  ) {
+    this.fxaaSampler = device.createSampler({
+      minFilter: 'linear',
+      magFilter: 'linear',
+    });
+  }
 
   static async initialize(
     device: GPUDevice,
@@ -64,12 +76,18 @@ export class WebGPUPostPipeline {
     isDestroyed: () => boolean,
   ): Promise<WebGPUPostPipeline> {
     const module = device.createShaderModule({ code: postShader });
-    const info = await module.getCompilationInfo();
+    const fxaaModule = device.createShaderModule({ code: fxaaWGSL });
+    const [info, fxaaInfo] = await Promise.all([
+      module.getCompilationInfo(),
+      fxaaModule.getCompilationInfo(),
+    ]);
     if (isDestroyed())
       throw new GraphicsError(
         'WebGPU renderer was destroyed during initialization.',
       );
-    const errors = info.messages.filter((message) => message.type === 'error');
+    const errors = [...info.messages, ...fxaaInfo.messages].filter(
+      (message) => message.type === 'error',
+    );
     if (errors.length)
       throw new WebGPUInitializationError(
         `WebGPU post shader compilation failed: ${errors.map((message) => `${message.lineNum}:${message.linePos} ${message.message}`).join('; ')}`,
@@ -80,7 +98,17 @@ export class WebGPUPostPipeline {
       fragment: { module, entryPoint: 'fragmentMain', targets: [{ format }] },
       primitive: { topology: 'triangle-list' },
     });
-    return new WebGPUPostPipeline(device, pipeline);
+    const fxaaPipeline = device.createRenderPipeline({
+      layout: 'auto',
+      vertex: { module: fxaaModule, entryPoint: 'vertexMain' },
+      fragment: {
+        module: fxaaModule,
+        entryPoint: 'fragmentMain',
+        targets: [{ format }],
+      },
+      primitive: { topology: 'triangle-list' },
+    });
+    return new WebGPUPostPipeline(device, pipeline, fxaaPipeline, format);
   }
 
   target(width: number, height: number): GPUTextureView {
@@ -119,6 +147,39 @@ export class WebGPUPostPipeline {
     }
   }
 
+  private ensureFxaa(): void {
+    if (this.fxaaTexture) return;
+    const texture = this.device.createTexture({
+      size: [this.width, this.height],
+      format: this.format,
+      usage:
+        GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+    });
+    try {
+      const view = texture.createView();
+      const group = this.device.createBindGroup({
+        layout: this.fxaaPipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: view },
+          { binding: 1, resource: this.fxaaSampler },
+        ],
+      });
+      this.fxaaTexture = texture;
+      this.fxaaView = view;
+      this.fxaaGroup = group;
+    } catch (error) {
+      texture.destroy();
+      throw error;
+    }
+  }
+
+  private releaseFxaa(): void {
+    this.fxaaTexture?.destroy();
+    this.fxaaTexture = undefined;
+    this.fxaaView = undefined;
+    this.fxaaGroup = undefined;
+  }
+
   render(
     encoder: GPUCommandEncoder,
     view: GPUTextureView,
@@ -132,13 +193,23 @@ export class WebGPUPostPipeline {
     this.data[5] = this.height;
     this.data[6] = settings.bloomRadius;
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
-    this.attachment.view = view;
+    if (settings.fxaa) this.ensureFxaa();
+    else this.releaseFxaa();
+    this.attachment.view = settings.fxaa ? this.fxaaView : view;
     try {
       const pass = encoder.beginRenderPass(this.descriptor);
       pass.setPipeline(this.pipeline);
       pass.setBindGroup(0, this.bindGroup!);
       pass.draw(3);
       pass.end();
+      if (settings.fxaa) {
+        this.attachment.view = view;
+        const fxaa = encoder.beginRenderPass(this.descriptor);
+        fxaa.setPipeline(this.fxaaPipeline);
+        fxaa.setBindGroup(0, this.fxaaGroup!);
+        fxaa.draw(3);
+        fxaa.end();
+      }
     } finally {
       this.attachment.view = undefined;
     }
@@ -150,6 +221,7 @@ export class WebGPUPostPipeline {
 
   releaseTarget(): void {
     this.texture?.destroy();
+    this.releaseFxaa();
     this.texture = undefined;
     this.view = undefined;
     this.bindGroup = undefined;

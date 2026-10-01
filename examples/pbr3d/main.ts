@@ -170,6 +170,7 @@ try {
       this.marker.visible = input('point').checked;
       this.postProcessing.exposure = Number(input('exposure').value);
       this.postProcessing.bloomStrength = Number(input('bloom').value);
+      this.postProcessing.fxaa = input('fxaa').checked;
       this.fog.density = Number(input('fog').value);
       this.fog.enabled = this.fog.density > 0;
       this.environmentIntensity = Number(input('environment').value);

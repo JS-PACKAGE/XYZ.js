@@ -572,3 +572,17 @@ The existing environment size limits apply to the converted image. Inputs are no
 retained, and uploads, cache eviction and `destroy()` use the existing lifecycle.
 Both background and diffuse/specular IBL accept the resulting map. The PBR example
 has a six-face cubemap switch; sharply colored faces make orientation visible.
+
+### FXAA (P38b)
+
+With `scene.postProcessing.enabled = true`, `scene.postProcessing.fxaa = true`
+adds a fullscreen FXAA pass after HDR exposure/bloom/tone mapping and sRGB encoding,
+before `effects3D` and the 2D overlay. It filters high-contrast edges in the resolved
+image, so it can complement MSAA or run when `GameOptions.antialias` is false.
+The default is false; algorithm thresholds and the maximum 8-pixel span live in
+`src/data/rendering.ts`. Low-contrast regions keep their center sample.
+
+Enabling it lazily allocates one output-sized color target; disabling it, disabling
+postprocessing, resizing or destroying releases that target. It is ordinary
+single-frame spatial AA, not temporal AA, and may soften fine textures. It does
+not antialias the later 2D UI and requires the existing HDR postprocessing capability.

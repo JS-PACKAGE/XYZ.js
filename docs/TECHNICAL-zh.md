@@ -559,3 +559,15 @@ Directional 預設保留固定 `extent`／`target` 投影。把 `scene.shadows.c
 轉換時每個面的邊緣使用 clamp。轉換結果仍受既有 environment 尺寸限制，不保留
 輸入陣列，上傳、cache eviction 與 `destroy()` 生命週期不變。背景與 diffuse／specular
 IBL 都能使用結果。PBR 範例加入六面 cubemap 開關，以明顯面色展示方向。
+
+### FXAA（P38b）
+
+在 `scene.postProcessing.enabled = true` 時，把 `scene.postProcessing.fxaa` 設成
+true 會在 HDR exposure／bloom／tone mapping 與 sRGB 編碼之後，`effects3D` 和 2D
+overlay 之前加入 fullscreen FXAA。它過濾 resolve 後影像的高對比邊緣，可搭配 MSAA，
+也可用於 `GameOptions.antialias = false`。預設 false；演算法閾值與最多 8-pixel 取樣跨度
+位於 `src/data/rendering.ts`，低對比區域保留中心樣本。
+
+啟用時才配置一個輸出尺寸 color target，停用 FXAA／postprocessing、resize 或 destroy
+時釋放。它是單幀 spatial AA，不是 temporal AA，可能柔化細緻紋理，不處理稍後的 2D UI，
+並且需要既有 HDR postprocessing capability。

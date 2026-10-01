@@ -590,3 +590,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：新增 3 個測試涵蓋六面的方向與面內旋轉、輸入修改不影響輸出、sRGB 解碼／忽略 alpha、尺寸與非法 radiance。完整 67 檔／476 tests、typecheck、lint 通過。
 - **實際瀏覽器**：managed Chromium 的 WebGPU 與 WebGL2 切換 PBR 範例 cubemap；截圖確認彩色六面背景與金屬球上的方向性反射，切回原 procedural environment 正常，page error 為 0。
 - **限制與未驗**：不是原生 GPU cube texture；轉換時每面邊緣 clamp。未測六張外部影像的網路載入、其他瀏覽器與最大尺寸效能。Reflection probe 尚未包含在本功能提交；build 延後最後整合執行。
+
+## P38b FXAA（2026-10-01，限定已測環境）
+
+- **新增**：`PostProcessingSettings.fxaa`（預設 false）；HDR resolve／tone mapping 後、effects3D／2D overlay 前的單幀 FXAA；lazy color target、停用／resize／destroy 釋放；PBR 範例開關。
+- **自動化**：既有完整 67 檔／476 tests、typecheck、lint 通過。沒有新增僅驗證 shader wiring 的永久測試。
+- **實際瀏覽器**：managed Chromium WebGPU／WebGL2，PBR 範例啟用 FXAA 截圖正常，另以正式 Game 路徑、antialias=false、192×128 白三角即時像素讀回；兩 backend 結果一致：中間亮度邊緣像素由 0 增為 275，共 1,155 bytes 改變，角落維持 [6,9,17,255]。停用 FXAA 與原畫面完全相同；停用／重開 postprocessing 後與啟用畫面完全相同；resize 為 160×100 後仍有 213 個中間亮度邊緣像素。page error 為 0。
+- **限制與未驗**：不是 temporal AA，也不處理稍後的 2D UI；細節可能柔化。其他瀏覽器、透明邊緣與高解析度成本未測。build 延後最後整合執行。

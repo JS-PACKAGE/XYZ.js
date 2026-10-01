@@ -47,3 +47,12 @@ export const shadowLimits = Object.freeze({
 
 /** Shadow atlas header (8 vec4) and one matrix for every possible tile. */
 export const SHADOW_FLOAT_COUNT = 32 + shadowLimits.maps * 16;
+
+export const fxaaDefaults = Object.freeze({
+  enabled: false,
+  minimumContrast: 0.0312,
+  relativeContrast: 0.125,
+  directionReduction: 0.125,
+  minimumReduction: 1 / 128,
+  maximumSpan: 8,
+});

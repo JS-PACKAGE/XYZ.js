@@ -1,5 +1,5 @@
 import { Vector3 } from '../../math/src/index.js';
-import { shadowLimits } from '../../../src/data/rendering.js';
+import { shadowLimits, fxaaDefaults } from '../../../src/data/rendering.js';
 
 export interface ShadowSettingsOptions {
   enabled?: boolean;
@@ -27,6 +27,8 @@ export interface PostProcessingSettingsOptions {
   bloomThreshold?: number;
   /** Neighbor sampling radius in output pixels. */
   bloomRadius?: number;
+  /** Screen-space antialiasing after tone mapping, before the 2D overlay. */
+  fxaa?: boolean;
 }
 
 function finite(value: number, name: string): void {
@@ -116,6 +118,7 @@ export class PostProcessingSettings {
   bloomStrength: number;
   bloomThreshold: number;
   bloomRadius: number;
+  fxaa: boolean;
 
   constructor(options: PostProcessingSettingsOptions = {}) {
     this.enabled = options.enabled ?? false;
@@ -124,12 +127,15 @@ export class PostProcessingSettings {
     this.bloomStrength = options.bloomStrength ?? 0;
     this.bloomThreshold = options.bloomThreshold ?? 1;
     this.bloomRadius = options.bloomRadius ?? 2;
+    this.fxaa = options.fxaa ?? fxaaDefaults.enabled;
     this.validate();
   }
 
   validate(): void {
     if (typeof this.enabled !== 'boolean')
       throw new TypeError('Postprocessing enabled setting must be boolean.');
+    if (typeof this.fxaa !== 'boolean')
+      throw new TypeError('Postprocessing fxaa setting must be boolean.');
     if (this.toneMapping !== 'none' && this.toneMapping !== 'aces')
       throw new RangeError('Tone mapping must be none or aces.');
     nonnegative(this.exposure, 'Exposure');
