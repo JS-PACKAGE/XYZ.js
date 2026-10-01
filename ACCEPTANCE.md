@@ -529,3 +529,12 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **自動化**：新增 `tests/physics2d-sleep.test.ts`（含 restitution 回歸）、`physics2d-ccd.test.ts`（5）、`physics2d-joints.test.ts`（10）、`physics2d-shapes.test.ts`（4）、`physics2d-debug.test.ts`（3，含 region 過濾）。完整套件目前 56 檔／381 測試通過；`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過。歷史測試數保留不改。
 - **實際瀏覽器**：managed headless Chromium 在 canvas2d／webgl2／webgpu 開啟 `examples/physics2d-lab/`：8 個 joint 運作；CCD 開啟時以 4000 px/s 發射的子彈被 4 px 薄牆擋住，關閉後穿牆；8 顆球落入凹形杯後全部休眠（Sleeping: 8）；以 canvas 上的 PointerEvent 拖曳彈簧重物時 joint 數 8→9→8；canvas2d 重新載入後 console 無 error／warning（debug overlay 預設啟用，需 `region` 才不會在子彈飛出世界時 raster 超出預算——此問題在實測中發現並修正）。
 - **未驗**：dynamic 對 dynamic 的 CCD、旋轉掃掠、joint warm starting 的穩定性（硬鏈需更多 iterations）、Firefox／Safari、實機 touch 拖曳、大量 body（>1,000）下 sleep／CCD／debug overlay 的效能。Debug overlay 每次 refresh 重新 rasterize，未量測其 CPU 成本。`build` 未執行（`dist/` 於發佈時一併重建）。
+
+## P32 glTF 壓縮與 KTX2（2026-10-01，限定已測環境）
+
+- **新增**：`decodeMeshopt`（`EXT_meshopt_compression`，含 fallback buffer）、`GLTFLoadOptions.dracoDecoder`（`KHR_draco_mesh_compression` 的可注入解碼器）、`parseKTX2`／`decodeKTX2`／`GLTFLoadOptions.ktx2Transcoder`（`KHR_texture_basisu` 與未壓縮／ZLIB 的 KTX2）。
+- **對照官方實作**：以 npm `meshoptimizer@1.3.0` 的官方編碼器產生資料，並以官方 wasm 解碼器對照。拋棄式差異測試共 450 個案例（vertex v0／v1 × 7 種 stride × 10 種數量 × 3 種資料，triangle 與 index sequence 的 16／32 位元各數種大小，octahedral 8／16、quaternion、exponential、color 8／16 filter）：449 個與官方輸出逐位元組相同；quaternion 有 1 個位元組差 1 個最小單位（浮點精度）。永久測試使用其中 10 組小型向量（`tests/fixtures/meshopt-vectors.ts`，記錄產生器與版本）。
+- **Draco 實測**：以 npm `draco3d@1.5.7` 內附的官方 `bunny.drc`（34,834 點、69,451 面）在拋棄式測試中透過 `dracoDecoder` 載入，通過 loader 的索引與長度驗證（該檔因體積不納入 repo）；永久測試用假解碼器涵蓋錯誤長度、NaN、缺屬性、索引越界與 fallback。
+- **自動化**：`tests/meshopt.test.ts` 11、`tests/gltf-compression.test.ts` 6、`tests/ktx2.test.ts` 6。完整套件目前 59 檔／404 測試通過；`tsc -p tsconfig.check.json`、`eslint .`、`prettier --check .` 通過。
+- **實際瀏覽器**：managed headless Chromium（webgl2 分頁）用真實編碼的 meshopt 資料與 `CompressionStream('deflate')` 產生的 ZLIB KTX2 載入同一個 glTF，頂點數 5、索引 `[0,1,2,0,2,3,4,0,1]`（triangle codec 可旋轉三角形頂點順序）、`POSITION[2]=[2,2,0]`，console 無 error。
+- **未驗**：真實 Basis Universal／Zstandard transcoder 的整合（只用假 transcoder 驗證介面）、大型壓縮模型的解碼時間與記憶體、`COLOR` filter 的 16 位元路徑在真實模型上的表現、Firefox／Safari 的 `DecompressionStream`、原生壓縮 GPU 紋理上傳（未實作）、`KHR_draco_mesh_compression` 搭配 morph target 或 sparse accessor 的組合。`build` 未執行（`dist/` 於發佈時重建）。

@@ -17,6 +17,8 @@ import { Mesh } from './mesh.js';
 import { PBRMaterial, type TextureSamplerOptions } from './pbr-material.js';
 import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
+import { decodeMeshopt } from './meshopt.js';
+import { decodeKTX2, isKTX2, type KTX2Transcoder } from './ktx2.js';
 
 export interface GLTFDirectionalLight {
   /** Unit vector the light travels along (the node's −Z axis in world space). */
@@ -41,7 +43,37 @@ export interface GLTFLoadOptions {
   signal?: AbortSignal;
   /** Extra origins from which model-referenced buffers/images may be fetched; the model's own origin is always allowed. */
   allowedOrigins?: readonly string[];
+  /**
+   * Decoder for KHR_draco_mesh_compression. XYZ.js bundles no Draco WebAssembly: supply one
+   * (for example wrapping the official draco3d decoder). Without it a Draco-compressed primitive
+   * is accepted only when it also carries uncompressed fallback accessors.
+   */
+  dracoDecoder?: DracoDecoder;
+  /**
+   * Transcoder for KHR_texture_basisu and any KTX2 image that is not plain 8-bit RGB(A). XYZ.js
+   * bundles no Basis Universal WebAssembly; without a transcoder `KHR_texture_basisu` is not
+   * advertised, a texture's regular `source` is used when it has one, and KTX2 images are limited
+   * to uncompressed 8-bit RGB(A) with no or ZLIB supercompression.
+   */
+  ktx2Transcoder?: KTX2Transcoder;
 }
+/** `attributes` maps glTF semantics to Draco attribute unique ids from the extension. */
+export interface DracoDecodeRequest {
+  readonly data: Uint8Array;
+  readonly attributes: Readonly<Record<string, number>>;
+}
+/**
+ * Values are in the accessor's logical space: dequantized floats for float accessors, normalized
+ * floats for normalized integer accessors, plain numbers otherwise. `indices` holds triangle
+ * indices and is required when the primitive has an `indices` accessor.
+ */
+export interface DracoDecodeResult {
+  readonly indices?: ArrayLike<number>;
+  readonly attributes: Readonly<Record<string, ArrayLike<number>>>;
+}
+export type DracoDecoder = (
+  request: DracoDecodeRequest,
+) => DracoDecodeResult | Promise<DracoDecodeResult>;
 type RecordData = Record<string, unknown>;
 function object(value: unknown, label: string): RecordData {
   if (!value || typeof value !== 'object' || Array.isArray(value))
@@ -278,6 +310,7 @@ const supportedExtensions = new Set([
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
+  'EXT_meshopt_compression',
 ]);
 
 /** offset.x, offset.y, rotation, scale.x, scale.y */
@@ -407,7 +440,14 @@ export class GLTFLoader {
         if (!Array.isArray(document.extensionsRequired))
           throw new AssetError('extensionsRequired must be an array.');
         for (const name of document.extensionsRequired)
-          if (typeof name !== 'string' || !supportedExtensions.has(name))
+          if (
+            typeof name !== 'string' ||
+            !(
+              supportedExtensions.has(name) ||
+              (name === 'KHR_draco_mesh_compression' && options.dracoDecoder) ||
+              (name === 'KHR_texture_basisu' && options.ktx2Transcoder)
+            )
+          )
             throw new AssetError('Required glTF extensions are unsupported.');
       }
       const bufferDefs = list(document.buffers, 'buffers'),
@@ -421,7 +461,8 @@ export class GLTFLoader {
         materialDefs = list(document.materials, 'materials');
       const animationDefs = list(document.animations, 'animations'),
         sceneDefs = list(document.scenes, 'scenes');
-      const buffers: ArrayBuffer[] = [];
+      // EXT_meshopt_compression may mark a buffer as an uncompressed fallback that is never loaded.
+      const buffers: (ArrayBuffer | undefined)[] = [];
       for (let i = 0; i < bufferDefs.length; i++) {
         const def = bufferDefs[i],
           length = integer(
@@ -429,6 +470,20 @@ export class GLTFLoader {
             'buffer byteLength',
             modelLimits.decodedBytes,
           );
+        const meshopt =
+          def.extensions === undefined
+            ? undefined
+            : object(def.extensions, 'buffer extensions')
+                .EXT_meshopt_compression;
+        if (meshopt !== undefined) {
+          const fallback = object(meshopt, 'meshopt buffer').fallback;
+          if (fallback !== undefined && typeof fallback !== 'boolean')
+            throw new AssetError('Meshopt fallback must be boolean.');
+          if (fallback === true) {
+            buffers.push(undefined);
+            continue;
+          }
+        }
         const data =
           def.uri === undefined
             ? i === 0
@@ -444,21 +499,72 @@ export class GLTFLoader {
         buffers.push(data);
       }
       const views = viewDefs.map((def) => {
-        const buffer = reference(buffers, def.buffer, 'bufferView buffer');
         const offset = integer(def.byteOffset ?? 0, 'bufferView offset'),
-          length = integer(def.byteLength, 'bufferView length');
-        const declared = integer(
-          reference(bufferDefs, def.buffer, 'buffer').byteLength,
-          'buffer length',
-        );
-        if (offset + length > declared)
-          throw new AssetError('bufferView is out of bounds.');
+          length = integer(
+            def.byteLength,
+            'bufferView length',
+            modelLimits.decodedBytes,
+          );
         const stride =
           def.byteStride === undefined
             ? undefined
             : integer(def.byteStride, 'byteStride', 252);
         if (stride !== undefined && (stride < 4 || stride % 4))
           throw new AssetError('Invalid bufferView stride.');
+        const compressed =
+          def.extensions === undefined
+            ? undefined
+            : object(def.extensions, 'bufferView extensions')
+                .EXT_meshopt_compression;
+        if (compressed !== undefined) {
+          // The view's own buffer/offset describe the uncompressed fallback and are not read.
+          const ext = object(compressed, 'meshopt bufferView');
+          const sourceIndex = integer(ext.buffer, 'meshopt buffer');
+          const source = reference(buffers, sourceIndex, 'meshopt buffer');
+          const sourceLength = integer(
+            bufferDefs[sourceIndex].byteLength,
+            'meshopt buffer length',
+          );
+          const start = integer(ext.byteOffset ?? 0, 'meshopt byteOffset'),
+            size = integer(ext.byteLength, 'meshopt byteLength'),
+            step = integer(ext.byteStride, 'meshopt byteStride', 256),
+            count = integer(
+              ext.count,
+              'meshopt count',
+              modelLimits.accessorElements,
+            );
+          if (
+            !source ||
+            !count ||
+            !step ||
+            step * count !== length ||
+            (stride !== undefined && stride !== step) ||
+            start + size > sourceLength
+          )
+            throw new AssetError('Invalid meshopt bufferView.');
+          context.reserve(length);
+          const decoded = new Uint8Array(length);
+          decodeMeshopt(
+            decoded,
+            count,
+            step,
+            new Uint8Array(source, start, size),
+            ext.mode,
+            ext.filter,
+          );
+          return { buffer: decoded.buffer, offset: 0, length, stride };
+        }
+        const buffer = reference(buffers, def.buffer, 'bufferView buffer');
+        if (!buffer)
+          throw new AssetError(
+            'bufferView references an unloaded fallback buffer.',
+          );
+        const declared = integer(
+          reference(bufferDefs, def.buffer, 'buffer').byteLength,
+          'buffer length',
+        );
+        if (offset + length > declared)
+          throw new AssetError('bufferView is out of bounds.');
         return { buffer, offset, length, stride };
       });
       const accessors = new Map<number, AccessorData>();
@@ -579,6 +685,100 @@ export class GLTFLoader {
         accessors.set(id, result);
         return result;
       };
+      // KHR_draco_mesh_compression: an injected decoder supplies the vertex data that the
+      // primitive's bufferView-less accessors describe; decoded values replace the accessor cache.
+      for (const mesh of meshDefs)
+        for (const primitive of list(mesh.primitives, 'primitives')) {
+          const ext =
+            primitive.extensions === undefined
+              ? undefined
+              : object(primitive.extensions, 'primitive extensions')
+                  .KHR_draco_mesh_compression;
+          if (ext === undefined) continue;
+          const draco = object(ext, 'draco primitive');
+          const attributes = object(
+            primitive.attributes,
+            'primitive attributes',
+          );
+          const dracoAttributes = object(draco.attributes, 'draco attributes');
+          if (!options.dracoDecoder) {
+            // Without a decoder only a primitive that carries uncompressed fallback data loads.
+            const position = reference(
+              accessorDefs,
+              attributes.POSITION,
+              'POSITION accessor',
+            );
+            if (position.bufferView === undefined)
+              throw new AssetError(
+                'Draco-compressed primitive requires GLTFLoadOptions.dracoDecoder.',
+              );
+            continue;
+          }
+          const view = reference(views, draco.bufferView, 'draco bufferView');
+          const request: Record<string, number> = {};
+          for (const [semantic, id] of Object.entries(dracoAttributes)) {
+            if (attributes[semantic] === undefined)
+              throw new AssetError(
+                'Draco attribute is missing from primitive attributes.',
+              );
+            request[semantic] = integer(id, 'draco attribute id');
+          }
+          if (request.POSITION === undefined)
+            throw new AssetError('Draco primitive requires POSITION.');
+          context.signal.throwIfAborted();
+          const result = await options.dracoDecoder({
+            data: new Uint8Array(view.buffer, view.offset, view.length),
+            attributes: Object.freeze({ ...request }),
+          });
+          context.signal.throwIfAborted();
+          const store = (
+            id: unknown,
+            values: ArrayLike<number> | undefined,
+            label: string,
+          ): void => {
+            const def = reference(accessorDefs, id, `${label} accessor`);
+            const component = integer(def.componentType, 'componentType');
+            const type = typeof def.type === 'string' ? def.type : '';
+            const size = Object.hasOwn(sizes, type) ? sizes[type] : 0;
+            const count = integer(
+              def.count,
+              'accessor count',
+              modelLimits.accessorElements,
+            );
+            if (
+              !Object.hasOwn(components, component) ||
+              !size ||
+              type.startsWith('MAT') ||
+              !count ||
+              count * size > modelLimits.accessorElements
+            )
+              throw new AssetError(`Invalid Draco ${label} accessor.`);
+            if (!values || values.length !== count * size)
+              throw new AssetError(
+                `Draco decoder returned the wrong ${label} length.`,
+              );
+            context.reserve(count * size * 4);
+            const data = new Float32Array(count * size);
+            for (let i = 0; i < data.length; i++) {
+              const value = values[i];
+              if (!Number.isFinite(value))
+                throw new AssetError(`Draco ${label} values must be finite.`);
+              data[i] = value;
+            }
+            accessors.set(integer(id, 'accessor index'), {
+              data,
+              count,
+              size,
+              component,
+              normalized: def.normalized === true,
+              type,
+            });
+          };
+          for (const semantic of Object.keys(request))
+            store(attributes[semantic], result.attributes[semantic], semantic);
+          if (primitive.indices !== undefined)
+            store(primitive.indices, result.indices, 'indices');
+        }
       // Validate even unreferenced accessors, so malformed required binary data cannot hide in an unused scene.
       for (let i = 0; i < accessorDefs.length; i++) readAccessor(i);
       const imageCache = new Map<number, Texture>();
@@ -587,29 +787,51 @@ export class GLTFLoader {
           cached = imageCache.get(id);
         if (cached) return cached;
         const def = reference(imageDefs, id, 'image');
-        let blob: Blob;
+        let source: Blob | ImageData;
+        let data: Uint8Array;
+        const mimeType: unknown = def.mimeType;
         if (def.uri !== undefined) {
           const bytes = await context.resource(
             def.uri,
             assetLimits.textureBytes,
           );
           context.reserve(bytes.byteLength);
-          blob = new Blob([bytes]);
+          data = new Uint8Array(bytes);
         } else {
           const view = reference(views, def.bufferView, 'image bufferView');
-          if (def.mimeType !== 'image/png' && def.mimeType !== 'image/jpeg')
+          if (
+            mimeType !== 'image/png' &&
+            mimeType !== 'image/jpeg' &&
+            mimeType !== 'image/ktx2'
+          )
             throw new AssetError(
-              'Embedded images require PNG or JPEG MIME type.',
+              'Embedded images require PNG, JPEG or KTX2 MIME type.',
             );
           if (view.length > assetLimits.textureBytes)
             throw new AssetError('Embedded image exceeds byte budget.');
           context.reserve(view.length);
-          blob = new Blob(
-            [new Uint8Array(view.buffer, view.offset, view.length)],
-            { type: def.mimeType },
-          );
+          data = new Uint8Array(view.buffer, view.offset, view.length);
         }
-        const texture = await context.texture(blob);
+        if (mimeType === 'image/ktx2' || isKTX2(data)) {
+          const image = await decodeKTX2(
+            data,
+            options.ktx2Transcoder,
+            context.signal,
+          );
+          source = new ImageData(
+            new Uint8ClampedArray(
+              image.data.buffer as ArrayBuffer,
+              image.data.byteOffset,
+              image.data.length,
+            ),
+            image.width,
+            image.height,
+          );
+        } else
+          source = new Blob([data as BlobPart], {
+            type: typeof mimeType === 'string' ? mimeType : '',
+          });
+        const texture = await context.texture(source);
         imageCache.set(id, texture);
         return texture;
       };
@@ -652,6 +874,15 @@ export class GLTFLoader {
         if (texCoord !== undefined && texCoord !== 0)
           throw new AssetError('Only TEXCOORD_0 textures are supported.');
         const texture = reference(textureDefs, def.index, 'texture');
+        const basisuExtension =
+          texture.extensions === undefined
+            ? undefined
+            : object(texture.extensions, 'texture extensions')
+                .KHR_texture_basisu;
+        const basisu =
+          basisuExtension === undefined
+            ? undefined
+            : object(basisuExtension, 'KHR_texture_basisu').source;
         const sampler =
           texture.sampler === undefined
             ? {}
@@ -678,7 +909,11 @@ export class GLTFLoader {
         if (!addressModeU || !addressModeV)
           throw new AssetError('Invalid glTF sampler wrapping mode.');
         return {
-          texture: await readImage(texture.source),
+          texture: await readImage(
+            basisu !== undefined && options.ktx2Transcoder
+              ? basisu
+              : (texture.source ?? basisu),
+          ),
           sampler: {
             minFilter: min === 9728 ? 'nearest' : 'linear',
             magFilter: mag === 9728 ? 'nearest' : 'linear',

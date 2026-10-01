@@ -97,6 +97,20 @@ export type {
 } from './render-settings.js';
 export type { InstancedMeshOptions } from './instanced-mesh.js';
 export type { GLTFLoadOptions } from './gltf-loader.js';
+export type {
+  DracoDecodeRequest,
+  DracoDecodeResult,
+  DracoDecoder,
+} from './gltf-loader.js';
+export { decodeKTX2, isKTX2, parseKTX2 } from './ktx2.js';
+export type {
+  KTX2Container,
+  KTX2Image,
+  KTX2Level,
+  KTX2Transcoder,
+} from './ktx2.js';
+export { decodeMeshopt } from './meshopt.js';
+export type { MeshoptFilter, MeshoptMode } from './meshopt.js';
 export type { AnimationPath, Interpolation } from './animation.js';
 export type { SkinnedMeshOptions } from './skinned-mesh.js';
 export { Group2D } from './gameplay/group2d.js';
