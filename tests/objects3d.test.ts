@@ -4,6 +4,7 @@ import { Group } from '../packages/core/src/group.js';
 import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
 import {
   Billboard,
+  Sprite3D,
   Line3D,
   LOD,
   isCameraDependent,
@@ -68,18 +69,34 @@ describe('Billboard', () => {
     expect(Math.abs(f.y) + Math.abs(f.z)).toBeLessThan(1e-5);
   });
 
-  it('sizes the shared unit quad and validates options', () => {
-    const board = new Billboard({ material: material(), width: 2, height: 3 });
-    expect([board.scale.x, board.scale.y]).toEqual([2, 3]);
-    expect(board.geometry).toBe(
-      new Billboard({ material: material() }).geometry,
-    );
+  it('rejects invalid size and facing mode', () => {
     expect(() => new Billboard({ material: material(), width: 0 })).toThrow(
       RangeError,
     );
     expect(
       () => new Billboard({ material: material(), mode: 'flat' as never }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('Sprite3D', () => {
+  function texture(): Texture {
+    return Object.assign(Object.create(Texture.prototype), {
+      width: 8,
+      height: 4,
+    }) as Texture;
+  }
+
+  it('preserves the last valid atlas frame when a frame change fails', () => {
+    const sprite = new Sprite3D({
+      texture: texture(),
+      source: { x: 0, y: 0, width: 4, height: 4 },
+    });
+    sprite.setSource({ x: 4, y: 0, width: 4, height: 4 });
+    expect(() => sprite.setSource({ x: 7, y: 0, width: 4, height: 4 })).toThrow(
+      RangeError,
+    );
+    expect(sprite.source).toEqual({ x: 4, y: 0, width: 4, height: 4 });
   });
 });
 

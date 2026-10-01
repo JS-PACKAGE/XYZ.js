@@ -507,6 +507,19 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 - `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` 用 2D canvas 把文字繪成自有的 `Texture`，顯示在 `Billboard` 上；寬度依文字長寬比，高度為 `height`（世界單位）。文字在建立時固定（要改就重新建立），`destroy()` 釋放紋理；四邊形以一般方式混合，不與其他透明物件做深度正確排序。
 - 限制：沒有 LOD 交叉淡化、沒有依螢幕大小切換、沒有深度感知的粗線端點、沒有多行排版，也沒有超出瀏覽器 `fillText` 的雙向文字整形；這些輔助物件不會由 Canvas2D 繪製（該 backend 沒有 3D）。
 
+### Sprite3D（P36c）
+
+`new Sprite3D({texture, source?, width?, height?, mode?, color?, opacity?, position…})`
+建立不受光照、面向相機的 atlas 圖像。它借用靜態 `Texture` 並擁有自己的四邊形；
+銷毀 sprite 不會銷毀紋理。`source` 是整數、位於紋理範圍內的實體像素矩形，
+可使用 `SpriteSheet.getFrame()`。寬度預設一個世界單位，省略高度時依初始區域的長寬比決定。
+`setSource(rect)` 只改 UV，不裁切 bitmap，也不改世界尺寸；`setSource()` 還原整張紋理。
+無效 frame 不會改變原有 frame。線性過濾的 atlas 邊緣需要 padding。
+面向模式及根層／只有平移的父群組限制同 Billboard，陰影預設關閉。
+不接受 CanvasTexture2D／TextureView2D，也不由 Canvas2D 繪製。
+
+objects3d gallery 的 **Next sprite frame** 按鈕會循環切換四個 atlas 區域。
+
 ### 頂點與 Instance 顏色（P36b）
 
 `GeometryData.colors` 與 `geometry.setColors(colors)` 接受每個頂點的線性 RGB 或 RGBA。

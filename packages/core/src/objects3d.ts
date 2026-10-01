@@ -3,10 +3,17 @@ import { Matrix4, Vector3 } from '../../math/src/index.js';
 import { lookAtRotation } from './camera-utils.js';
 import { Geometry } from './geometry.js';
 import { Group } from './group.js';
-import { Mesh, TextureMaterial, type MeshOptions } from './mesh.js';
+import {
+  Mesh,
+  TextureMaterial,
+  type MeshOptions,
+  type TextureMaterialOptions,
+} from './mesh.js';
 import type { Object3D } from './object3d.js';
 import { OrthographicCamera } from './orthographic-camera.js';
 import type { PerspectiveCamera } from './perspective-camera.js';
+import type { Rect2D } from './gameplay/contracts.js';
+import { validatedRegion } from './graphics2d/sprite-sheet.js';
 
 type Camera3D = PerspectiveCamera | OrthographicCamera;
 
@@ -122,6 +129,32 @@ export class LOD extends Group implements CameraDependent3D {
 
 export type BillboardMode = 'spherical' | 'cylindrical';
 
+const facingTarget = new Vector3();
+
+function faceCamera(
+  object: Object3D,
+  camera: Camera3D,
+  mode: BillboardMode,
+): void {
+  const p = worldPosition(object, tmp);
+  const t = facingTarget;
+  if (camera instanceof OrthographicCamera) {
+    const q = camera.rotation;
+    const fx = -2 * (q.x * q.z + q.w * q.y);
+    const fy = -2 * (q.y * q.z - q.w * q.x);
+    const fz = -(1 - 2 * (q.x * q.x + q.y * q.y));
+    t.set(p.x + fx, mode === 'cylindrical' ? p.y : p.y + fy, p.z + fz);
+  } else {
+    t.set(
+      2 * p.x - camera.position.x,
+      mode === 'cylindrical' ? p.y : 2 * p.y - camera.position.y,
+      2 * p.z - camera.position.z,
+    );
+  }
+  // Local +Z faces the camera when local -Z aims away from it.
+  lookAtRotation(p, t, object.rotation);
+}
+
 export interface BillboardOptions extends Omit<
   MeshOptions,
   'geometry' | 'material'
@@ -143,7 +176,6 @@ let unitQuad: Geometry | undefined;
  */
 export class Billboard extends Mesh implements CameraDependent3D {
   mode: BillboardMode;
-  private readonly target = new Vector3();
 
   constructor(options: BillboardOptions) {
     super(
@@ -164,24 +196,92 @@ export class Billboard extends Mesh implements CameraDependent3D {
   }
 
   updateForCamera(camera: Camera3D): void {
-    const p = worldPosition(this, tmp);
-    const t = this.target;
-    if (camera instanceof OrthographicCamera) {
-      // Parallel projection: face against the view direction instead of toward a point.
-      const q = camera.rotation;
-      const fx = -2 * (q.x * q.z + q.w * q.y);
-      const fy = -2 * (q.y * q.z - q.w * q.x);
-      const fz = -(1 - 2 * (q.x * q.x + q.y * q.y));
-      t.set(p.x + fx, this.mode === 'cylindrical' ? p.y : p.y + fy, p.z + fz);
-    } else {
-      t.set(
-        2 * p.x - camera.position.x,
-        this.mode === 'cylindrical' ? p.y : 2 * p.y - camera.position.y,
-        2 * p.z - camera.position.z,
-      );
+    faceCamera(this, camera, this.mode);
+  }
+}
+
+export interface Sprite3DOptions
+  extends Omit<BillboardOptions, 'material'>, TextureMaterialOptions {
+  /** Atlas region in physical pixels. World size does not change with later frames. */
+  source?: Rect2D;
+}
+
+/** Camera-facing, unlit image in world space; borrows its Texture and owns its atlas quad. */
+export class Sprite3D extends Mesh implements CameraDependent3D {
+  mode: BillboardMode;
+  private readonly fullSource: Readonly<Rect2D>;
+  private region: Readonly<Rect2D>;
+
+  constructor(options: Sprite3DOptions) {
+    const material = new TextureMaterial(options);
+    const full = validatedRegion(options.texture, {
+      x: 0,
+      y: 0,
+      width: options.texture.width,
+      height: options.texture.height,
+    });
+    const region = options.source
+      ? validatedRegion(options.texture, options.source)
+      : full;
+    const width = options.width ?? 1;
+    const height = options.height ?? (width * region.height) / region.width;
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    )
+      throw new RangeError('Sprite3D size must be positive and finite.');
+    const mode = options.mode ?? 'spherical';
+    if (mode !== 'spherical' && mode !== 'cylindrical')
+      throw new RangeError('Unknown sprite facing mode.');
+    super(meshOptions(options, Geometry.quad(), material));
+    this.scale.set(this.scale.x * width, this.scale.y * height, this.scale.z);
+    this.castShadow = options.castShadow ?? false;
+    this.receiveShadow = options.receiveShadow ?? false;
+    this.mode = mode;
+    this.fullSource = full;
+    this.region = region;
+    this.applySource();
+  }
+
+  get texture(): Texture {
+    return this.material.texture;
+  }
+
+  get source(): Readonly<Rect2D> {
+    return this.region;
+  }
+
+  /** Changes UVs without allocating a cropped bitmap or resizing the sprite. */
+  setSource(source: Rect2D = this.fullSource): this {
+    const previous = this.region;
+    if (
+      !this.texture.destroyed &&
+      source.x === previous.x &&
+      source.y === previous.y &&
+      source.width === previous.width &&
+      source.height === previous.height
+    )
+      return this;
+    this.region = validatedRegion(this.texture, source);
+    this.applySource();
+    return this;
+  }
+
+  private applySource(): void {
+    const { x, y, width, height } = this.region;
+    const vertices = this.geometry.vertices;
+    for (let i = 0; i < 4; i++) {
+      vertices[i * 8 + 6] =
+        (x + (i === 1 || i === 2 ? width : 0)) / this.texture.width;
+      vertices[i * 8 + 7] = (y + (i >= 2 ? height : 0)) / this.texture.height;
     }
-    // lookAt points local -Z at the target, so aiming away from the camera turns +Z toward it.
-    lookAtRotation(p, t, this.rotation);
+    this.geometry.markUpdated();
+  }
+
+  updateForCamera(camera: Camera3D): void {
+    faceCamera(this, camera, this.mode);
   }
 }
 

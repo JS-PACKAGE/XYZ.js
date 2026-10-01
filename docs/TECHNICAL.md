@@ -507,6 +507,21 @@ Required components include anchors/borders, CanvasTexture, generated font atlas
 - `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` rasterizes the text with a 2D canvas into an owned `Texture` and shows it on a `Billboard` whose width follows the text's aspect ratio and whose height is `height` (world units). The text is fixed at creation (create another to change it), the texture is released on `destroy()`, the quad blends normally and has no depth-correct sorting against other transparent objects.
 - Limits: no LOD cross-fade, no screen-size based switching, no depth-aware thick line caps, no multi-line text layout or right-to-left shaping beyond what the browser's `fillText` gives, and these helpers are not rendered by Canvas2D (no 3D there).
 
+### Sprite3D (P36c)
+
+`new Sprite3D({texture, source?, width?, height?, mode?, color?, opacity?, position…})`
+creates an unlit, camera-facing atlas image. It borrows a static `Texture` and owns its quad;
+destroying the sprite does not destroy the texture. `source` is an integer, in-bounds
+physical-pixel rectangle, also obtainable from `SpriteSheet.getFrame()`. Width defaults to
+one world unit; omitted height follows the initial region's aspect ratio.
+`setSource(rect)` changes UVs without cropping a bitmap or changing world size;
+`setSource()` restores the full texture. Invalid frames leave the previous frame intact.
+Linear filtering across atlas edges requires padded frames. Facing modes and the
+root/translation-only-parent restriction match Billboard; shadows default off.
+CanvasTexture2D/TextureView2D and Canvas2D rendering are not supported by this 3D helper.
+
+The objects3d gallery's **Next sprite frame** button cycles the four atlas regions.
+
 ### Vertex and Instance Colors (P36b)
 
 `GeometryData.colors` and `geometry.setColors(colors)` accept linear RGB or RGBA per vertex.

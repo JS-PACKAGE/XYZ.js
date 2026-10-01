@@ -639,3 +639,12 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **體積與生命週期**：256×256、antialias=true 的棋盤背景，改 IOR／thickness 可觀察折射位移，roughness=.8 明顯模糊；直接擷取 canvas PNG 確認可見色吸收與折射（viewport screenshot API 超時，未取得 viewport 截圖）。Scale [2,1,.5] 的中心 [160,102,124,255]，旋轉 Y=π/2 後 [99,29,124,255]，符合 world-length 改變。兩個非均勻／旋轉 instances 與等效獨立 Mesh 全畫面零差異；開啟 sky／IBL／cascade shadows／SSAO／DOF／FXAA 後，no-scene／opaque-only 切換再回到玻璃仍零差異，128×128→96×80→128×128 正常；page error 為 0。
 - **Coverage 與 disabled post**：兩 backend、96×96，OPAQUE 材質 opacity=0 與 1 全畫面零差異；disabled post 下設定非中性的 exposure／ACES／bloom／AO／DOF／FXAA，與 neutral settings 全畫面零差異，未被 opaque quad 覆蓋的 clear color 為 [6,9,17,255]。遮蔽真實 WebGL2 context 的 float extension 後，disabled post 下仍明確拋 GraphicsError，沒有不透明替代。
 - **限制與未驗**：只擷取 opaque nontransmitting 物件，不做透明多層遞迴、exit-surface ray tracing、nested IOR／camera-inside TIR、scattering 或彩色／傳光陰影；offscreen clamp、nine-tap screen-space roughness filter 均為近似。WebGPU 延續 MSAA attachment，WebGL2 沿用單取樣 HDR target，需要 EXT_color_buffer_float。其他瀏覽器、skinned-volume 組合與大型場景成本未測，沒有永久 GPU regression suite；build 延後最後整合執行。
+
+## P36c Sprite3D（2026-10-01，限定已測環境）
+
+- **新增**：靜態 Texture 的世界空間 sprite、pixel-region atlas／`setSource`、球面／圓柱 camera-facing，與 Billboard 共用朝向計算；獨立可更新 quad、借用紋理，世界尺寸不隨 frame 變動。objects3d 範例新增 frame 按鈕。
+- **自動化**：新增無效 frame 不破壞既有 frame 的狀態轉移測試；完整 67 檔／538 tests、typecheck、lint、format:check 通過。刪除既有 Billboard 的 quad identity／scale forwarding 實作細節斷言，保留參數及朝向行為測試。
+- **實際瀏覽器**：獨立 Chromium 150、WebGPU／WebGL2 正式 Game／Renderer，96×96。紅 frame 中心 [255,0,0,255]、半透明綠 frame [3,132,8,255]；非法越界 frame 拋錯且全畫面零差異，切回紅 frame 全畫面零差異。透視 spherical／cylindrical 與正交 spherical 都可見；sprite destroy 後借用 Texture 仍有效。
+- **Gallery**：WebGPU 的 Next sprite frame 改變 28,390 channels，四次切換回初始全畫面零差異；WebGL2 點擊 frame、orbit=120°，直接 canvas PNG 確認 sprite 與既有 Billboard／LOD／Line3D／Text3D 可見，page error 為 0。
+- **環境限制**：managed browser 的 native RAF 不送幀；獨立 headed Chromium 加 `--disable-frame-rate-limit` 後 native RAF 與 Gallery 正常。此為功能驗證設定，不是效能量測。viewport screenshot 仍超時，使用 canvas PNG；WebGL2 在 endFrame 同步複製以避免未保留 drawing buffer 被呈現後清空。
+- **未驗**：其他瀏覽器、atlas 邊緣 padding／mip、父群組旋轉與非等比縮放（同 Billboard 明確不補償）、大量 sprite 成本；不支援動態 2D texture 或 Canvas2D 3D。build 延後最後整合。

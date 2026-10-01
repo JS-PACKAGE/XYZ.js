@@ -153,6 +153,7 @@ export { DebugOverlay, formatDebugSample } from './debug-overlay.js';
 export type { DebugOverlayOptions, DebugSample } from './debug-overlay.js';
 export {
   Billboard,
+  Sprite3D,
   LOD,
   Line3D,
   Text3D,
@@ -161,6 +162,7 @@ export {
 export type {
   BillboardMode,
   BillboardOptions,
+  Sprite3DOptions,
   CameraDependent3D,
   Line3DOptions,
   LODLevel,

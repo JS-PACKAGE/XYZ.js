@@ -6,6 +6,8 @@ import {
   LOD,
   Mesh,
   Scene,
+  Sprite3D,
+  SpriteSheet,
   Text3D,
   TextureMaterial,
   Vector3,
@@ -43,6 +45,10 @@ try {
     new URL('../sprite/texture.png', import.meta.url).href,
   );
   const material = new TextureMaterial({ texture });
+  const sheet = SpriteSheet.grid(texture, {
+    frameWidth: Math.max(1, Math.floor(texture.width / 2)),
+    frameHeight: Math.max(1, Math.floor(texture.height / 2)),
+  });
 
   class Gallery extends Scene {
     readonly lod = new LOD();
@@ -52,6 +58,15 @@ try {
         width: 1.4,
         height: 1.4,
         position: [-3, 1, 0],
+      }),
+    );
+    readonly sprite = this.add(
+      new Sprite3D({
+        texture,
+        source: sheet.getFrame(0),
+        width: 1.2,
+        height: 1.2,
+        position: [-3, -1, 0],
       }),
     );
     readonly ribbon = this.add(
@@ -104,6 +119,11 @@ try {
     color: '#ffe08a',
   });
   scene.add(scene.label);
+  let frame = 0;
+  $('frame').addEventListener('click', () => {
+    frame = (frame + 1) % sheet.frames.length;
+    scene.sprite.setSource(sheet.getFrame(frame));
+  });
   const aim = (): void => {
     scene.aim(Number(distance.value), Number(orbit.value));
     $('distance-value').textContent = Number(distance.value).toFixed(1);
@@ -117,9 +137,9 @@ try {
   const report = window.setInterval(() => {
     const names = ['sphere 32×16', 'sphere 12×6', 'sphere 6×3', 'cube'];
     $('info').textContent =
-      `LOD level ${scene.lod.level} (${names[scene.lod.level] ?? 'not yet chosen'}) at distance ${Number(distance.value).toFixed(1)}\nbillboard facing ${scene.card.mode}, ribbon points ${scene.ribbon.pointCount}`;
+      `LOD level ${scene.lod.level} (${names[scene.lod.level] ?? 'not yet chosen'}) at distance ${Number(distance.value).toFixed(1)}\nbillboard facing ${scene.card.mode}, ribbon points ${scene.ribbon.pointCount}, Sprite3D frame ${frame + 1}/${sheet.frames.length}`;
   }, 100);
-  status.textContent = `${runtime.graphics.backend} · LOD, Billboard, Text3D, Line3D`;
+  status.textContent = `${runtime.graphics.backend} · LOD, Billboard, Sprite3D, Text3D, Line3D`;
   window.addEventListener('pagehide', (event) => {
     if (event.persisted) return;
     window.clearInterval(report);
