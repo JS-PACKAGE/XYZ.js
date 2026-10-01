@@ -594,3 +594,25 @@ Defocus／AO 在 bloom／tone mapping 前，FXAA／`effects3D` 在後，稍後�
 不受影響。Kernel 只建立一次，不在每個 fragment 計算三角函數；停用效果時跳過 depth
 取樣。PBR 範例提供兩個開關與 focus-depth slider。透明層使用現有 mesh pass 已寫入的
 depth，沒有另做透明 depth 解法；GPU 成本隨 kernel 與 MSAA sample 數增加。
+
+## 37. IOR 與 Specular 材質（P39a）
+
+`PBRMaterial` 新增 `ior`（預設 1.5）、`specular`（0–1，預設 1）與
+`specularColor`（linear RGB、非負、預設白色，允許大於 1）。
+IOR 必須至少為 1 或恰為 0；0 是 glTF 的 angle-independent dielectric Fresnel
+相容模式，不是物理折射率。IOR 1 的正入射反射為零，但仍有 grazing reflection。
+
+`specularTexture` 取 **linear alpha**，`specularColorTexture` 取 **sRGB RGB**。
+對應的 `specularSampler`／`specularColorSampler` 沿用既有每 slot 取樣契約，
+所有貼圖都借用。WebGPU／WebGL2 的直接光與 specular IBL 都套用因素與貼圖；
+正入射反射為 `min(specularColor × ((ior-1)/(ior+1))², 1) × specular`。
+強度為零會移除 dielectric reflection（包含 grazing），不影響 metallic reflection。
+Diffuse 能量以 RGB dielectric reflectance 的最大值扣除，不產生互補色 diffuse tint。
+
+GLTFLoader 接受 required `KHR_materials_ior`／`KHR_materials_specular`，
+包含兩個貼圖 slots 與 samplers；不可與 `KHR_materials_unlit` 共存。
+所有 material textures 仍須使用 UV0、共享相同的 baked `KHR_texture_transform`，
+不相容的 transforms 明確拒絕。Environment prefilter／解析 split-sum BRDF 仍是
+既有近似，沒有宣稱 reference path tracer 精度。規格見
+[IOR](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
+與 [specular](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular)。

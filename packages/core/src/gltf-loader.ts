@@ -307,6 +307,8 @@ function scalar(
 const supportedExtensions = new Set([
   'KHR_materials_emissive_strength',
   'KHR_materials_unlit',
+  'KHR_materials_ior',
+  'KHR_materials_specular',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -965,6 +967,22 @@ export class GLTFLoader {
             ? {}
             : object(def.extensions, 'material extensions');
         const unlit = extensions.KHR_materials_unlit !== undefined;
+        const ior =
+          extensions.KHR_materials_ior === undefined
+            ? undefined
+            : object(extensions.KHR_materials_ior, 'IOR');
+        const specular =
+          extensions.KHR_materials_specular === undefined
+            ? undefined
+            : object(extensions.KHR_materials_specular, 'specular');
+        if (unlit && (ior || specular))
+          throw new AssetError(
+            'IOR and specular extensions cannot be combined with unlit.',
+          );
+        const specularMap = await readTexture(specular?.specularTexture);
+        const specularColorMap = await readTexture(
+          specular?.specularColorTexture,
+        );
         let strength = 1;
         if (extensions.KHR_materials_emissive_strength !== undefined) {
           const ext = object(
@@ -987,6 +1005,8 @@ export class GLTFLoader {
           normalMap,
           occlusionMap,
           emissiveMap,
+          specularMap,
+          specularColorMap,
         ].filter((slot) => slot !== undefined);
         const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
         if (keys.size > 1)
@@ -1032,6 +1052,20 @@ export class GLTFLoader {
             metallic: number(pbr.metallicFactor ?? 1, 'metallic'),
             roughness: number(pbr.roughnessFactor ?? 1, 'roughness'),
             emissive: emissiveFactor,
+            ior: number(ior?.ior ?? 1.5, 'IOR'),
+            specular: number(specular?.specularFactor ?? 1, 'specular factor'),
+            specularColor:
+              specular?.specularColorFactor === undefined
+                ? [1, 1, 1]
+                : (vector(
+                    specular.specularColorFactor,
+                    3,
+                    'specular color',
+                  ) as [number, number, number]),
+            specularTexture: specularMap?.texture,
+            specularSampler: specularMap?.sampler,
+            specularColorTexture: specularColorMap?.texture,
+            specularColorSampler: specularColorMap?.sampler,
             metallicRoughnessTexture: metallicRoughness?.texture,
             metallicRoughnessSampler: metallicRoughness?.sampler,
             normalTexture: normalMap?.texture,

@@ -385,6 +385,10 @@ export class WebGL2Renderer implements Renderer {
         'normalMap',
         'occlusionMap',
         'emissiveMap',
+        'specularMap',
+        'specularColorMap',
+        'specularColor',
+        'specularParams',
         'shadowMap',
         'environment[0]',
         'environmentMap',
@@ -1151,6 +1155,34 @@ export class WebGL2Renderer implements Renderer {
       );
       if (pbr) {
         gl.uniform4f(
+          uniforms.specularColor,
+          material.specularColor[0],
+          material.specularColor[1],
+          material.specularColor[2],
+          material.ior === 0
+            ? 1
+            : ((material.ior - 1) / (material.ior + 1)) ** 2,
+        );
+        gl.uniform4f(
+          uniforms.specularParams,
+          material.specular,
+          material.ior === 0 ? 1 : 0,
+          material.specularTexture ? 1 : 0,
+          material.specularColorTexture ? 1 : 0,
+        );
+        gl.uniform1i(uniforms.specularMap, 7);
+        gl.uniform1i(uniforms.specularColorMap, 8);
+        this.bindMaterialTexture(
+          material.specularTexture ?? material.texture,
+          7,
+          material.specularSampler,
+        );
+        this.bindMaterialTexture(
+          material.specularColorTexture ?? material.texture,
+          8,
+          material.specularColorSampler,
+        );
+        gl.uniform4f(
           uniforms.surface,
           material.metallic,
           material.roughness,
@@ -1706,7 +1738,6 @@ export class WebGL2Renderer implements Renderer {
     if (!resource)
       throw new GraphicsError('WebGL2 could not allocate a texture.');
     try {
-      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, resource);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
@@ -1759,7 +1790,6 @@ export class WebGL2Renderer implements Renderer {
     if (!resource)
       throw new GraphicsError('WebGL2 could not allocate a texture.');
     try {
-      gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, resource);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);

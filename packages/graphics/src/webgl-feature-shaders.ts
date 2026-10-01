@@ -46,6 +46,10 @@ uniform sampler2D metallicRoughnessMap;
 uniform sampler2D normalMap;
 uniform sampler2D occlusionMap;
 uniform sampler2D emissiveMap;
+uniform sampler2D specularMap;
+uniform sampler2D specularColorMap;
+uniform vec4 specularColor; // linear color.rgb, IOR-derived reflectance
+uniform vec4 specularParams; // strength, zero-IOR mode, strengthMap, colorMap
 uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
@@ -95,7 +99,7 @@ vec2 environmentBRDF(float nv, float rough) {
   float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
   return vec2(-1.04, 1.04) * a004 + r.zw;
 }
-vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l) {
+vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, vec3 dielectricF0, float weight) {
   float nl = max(dot(n, l), 0.0);
   float nv = max(dot(n, v), .0001);
   vec3 h = (v + l) / max(length(v + l), .000001);
@@ -107,9 +111,11 @@ vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l) {
   float d = a2 / max(PI * denominator * denominator, .000001);
   float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
   float g = nv / (nv * (1.0 - k) + k) * nl / (nl * (1.0 - k) + k);
-  vec3 f0 = mix(vec3(.04), base, metallic);
-  vec3 f = f0 + (1.0 - f0) * pow(1.0 - vh, 5.0);
-  return ((1.0 - f) * (1.0 - metallic) * base / PI + d * g * f / max(4.0 * nv * nl, .0001)) * nl;
+  float grazing = pow(1.0-vh,5.0);
+  vec3 dielectric = dielectricF0 + (vec3(weight)-dielectricF0)*(specularParams.y > .5 ? 0.0 : grazing);
+  vec3 f = mix(dielectric,base+(1.0-base)*grazing,metallic);
+  float remaining = 1.0-max(max(dielectric.r,dielectric.g),dielectric.b);
+  return (remaining*(1.0-metallic)*base/PI + d*g*f/max(4.0*nv*nl,.0001))*nl;
 }
 float attenuation(float distanceSquared, float range) {
   float factor = 1.0;
@@ -160,6 +166,9 @@ void main() {
     vec4 mr = maps.x != 0 ? texture(metallicRoughnessMap, vUV) : vec4(1.0);
     float metallic = clamp(surface.x * mr.b, 0.0, 1.0);
     float roughness = clamp(surface.y * mr.g, .04, 1.0);
+    float specularWeight = specularParams.x*(specularParams.z > .5 ? texture(specularMap,vUV).a : 1.0);
+    vec3 specularTint = specularColor.rgb*(specularParams.w > .5 ? decodeSRGB(texture(specularColorMap,vUV).rgb) : vec3(1.0));
+    vec3 dielectricF0 = min(specularTint*specularColor.w,vec3(1.0))*specularWeight;
     float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
@@ -167,18 +176,19 @@ void main() {
     if (environment[9].y > 0.5) {
       float nv = max(dot(n, v), .0001);
       vec2 ab = environmentBRDF(nv, roughness);
-      vec3 specularColor = mix(vec3(.04), base, metallic) * ab.x + vec3(ab.y);
+      vec3 dielectric = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
+      vec3 reflected = mix(dielectric,base*ab.x+vec3(ab.y),metallic);
       vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
-      vec3 diffuseLight = shIrradiance(n) * base * (1.0 - metallic) * max(vec3(1.0) - specularColor, vec3(0.0));
-      result += (diffuseLight + radiance * specularColor) * ao * environment[9].x;
+      vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
+      result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
     }
-    result += brdf(base, metallic, roughness, n, v, l) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
-      result += brdf(base, metallic, roughness, n, v, delta / max(sqrt(d2), .000001)) * c.rgb * c.w * attenuation(d2, p.w) * pointShadow(i,p.xyz);
+      result += brdf(base, metallic, roughness, n, v, delta / max(sqrt(d2), .000001), dielectricF0, specularWeight) * c.rgb * c.w * attenuation(d2, p.w) * pointShadow(i,p.xyz);
     }
     for (int i = 0; i < 8; i++) {
       if (i >= int(lighting[2].y)) break;
@@ -187,7 +197,7 @@ void main() {
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
-      result += brdf(base, metallic, roughness, n, v, sl) * c.rgb * c.w * attenuation(d2, p.w) * cone * spotShadow(i);
+      result += brdf(base, metallic, roughness, n, v, sl, dielectricF0, specularWeight) * c.rgb * c.w * attenuation(d2, p.w) * cone * spotShadow(i);
     }
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));
     if (!linearOutput) result = encodeSRGB(result);

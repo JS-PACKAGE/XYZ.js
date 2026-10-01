@@ -319,6 +319,10 @@ export class WebGPUMeshPipeline {
         { binding: 7, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
         { binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 10, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: {} },
+        { binding: 12, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        { binding: 13, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
       ],
     });
     const layout = device.createPipelineLayout({
@@ -973,10 +977,18 @@ export class WebGPUMeshPipeline {
       pbr && material.emissiveTexture
         ? this.cacheTexture(material.emissiveTexture, false).view
         : this.whiteView;
+    const specular =
+      pbr && material.specularTexture
+        ? this.cacheTexture(material.specularTexture, false).view
+        : this.whiteView;
+    const specularColor =
+      pbr && material.specularColorTexture
+        ? this.cacheTexture(material.specularColorTexture, false).view
+        : this.whiteView;
     const existing = this.meshes.get(object);
     if (existing) return existing;
     const uniform = this.device.createBuffer({
-      size: 144,
+      size: 176,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let instance = this.identityBuffer;
@@ -1035,6 +1047,20 @@ export class WebGPUMeshPipeline {
               ? this.cacheSampler(material.emissiveSampler)
               : this.sampler,
           },
+          { binding: 10, resource: specular },
+          { binding: 11, resource: specularColor },
+          {
+            binding: 12,
+            resource: pbr
+              ? this.cacheSampler(material.specularSampler)
+              : this.sampler,
+          },
+          {
+            binding: 13,
+            resource: pbr
+              ? this.cacheSampler(material.specularColorSampler)
+              : this.sampler,
+          },
         ],
       });
       const entry = {
@@ -1046,7 +1072,7 @@ export class WebGPUMeshPipeline {
         instanceColors,
         instanceColorVersion:
           object instanceof InstancedMesh ? object.colorVersion : 0,
-        data: new Float32Array(36),
+        data: new Float32Array(44),
         seen: this.frame,
       };
       this.meshes.set(object, entry);
@@ -1161,6 +1187,15 @@ export class WebGPUMeshPipeline {
       data[31] = material.emissiveTexture ? 1 : 0;
       data[32] = material.alphaCutoff;
       data[33] = material.doubleSided ? 1 : 0;
+      data[36] = material.specularColor[0];
+      data[37] = material.specularColor[1];
+      data[38] = material.specularColor[2];
+      data[39] =
+        material.ior === 0 ? 1 : ((material.ior - 1) / (material.ior + 1)) ** 2;
+      data[40] = material.specular;
+      data[41] = material.ior === 0 ? 1 : 0;
+      data[42] = material.specularTexture ? 1 : 0;
+      data[43] = material.specularColorTexture ? 1 : 0;
       data[35] =
         material.alphaMode === 'OPAQUE'
           ? 0

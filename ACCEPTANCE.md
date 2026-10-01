@@ -605,3 +605,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **實際瀏覽器**：managed Chromium，兩 backend，正式 Game 路徑，antialias 開／關與透視／正交（near=0）共八組。SSAO strength=0 或停用時與原畫面完全相同；cube／floor contact 場景在預設 antialias 下，RGB sum 變暗 >9 的像素為 WebGPU 398／708（透視／正交），WebGL2 390／636。獨立白三角設 focus depth=3 時畫面完全不變，改為 10 則有數千 bytes 改變；停用 DOF 回到原畫面，與 FXAA 合用有額外可觀察的像素變化，停用／重新啟用 postprocessing 後畫面完全相同。192×128→160×100→256×128 的 resize 後仍有 2,554–3,433 個 defocused 像素，page error 為 0。
 - **修正的邊界**：孤立三角輪廓最初有 1–4 個像素被錯誤 AO，原因是 depth derivative 跨到空背景而產生不可靠法線；現在遇到超出取樣半徑的 derivative 不計 AO。兩 backend、透視／正交、192×128／160×100 的同一路徑確認錯誤變暗像素為 0。沒有永久 GPU regression suite，這個分支仍以即時 smoke 覆蓋。
 - **限制與未驗**：AO 是 shaded-color post multiplier，不是只作用於 ambient；沒有 temporal accumulation／denoising。DOF 是 screen-space 近似，無法重建遮蔽背景或正確合成所有 near／far bokeh，最大半徑可能有稀疏取樣痕跡。其他瀏覽器、透明層、GPU 耗時與大型場景成本未測。build 延後最後整合執行。
+
+## P39a PBR IOR 與 Specular（2026-10-01，限定已測環境）
+
+- **新增**：`PBRMaterial` IOR／specular strength／linear RGB tint、兩個借用貼圖 slots／samplers；WebGPU／WebGL2 的直接光與 IBL；glTF required `KHR_materials_ior`／`KHR_materials_specular`。strength texture 取 linear A，color texture 取 sRGB RGB；IOR=0 相容模式、IOR≥1、color>1、metallic 不受 dielectric strength 影響。
+- **自動化**：新增 16 個參數／glTF 拒絕測試，涵蓋非有限與越界 factors、sampler、不相容 unlit 與 UV transform；完整 67 檔／492 tests、typecheck、lint、format:check 通過。
+- **實際瀏覽器**：managed Chromium，兩 backend、128×128、正式 Game／Renderer，direct／IBL 各自比較：specular=0 改變 2,520／4,764 bytes；IOR=2.42 改變 4,176／4,764 bytes；alpha=0、alpha=128 的 strength map 與相對應 factor、RGB=[128,255,255] map 與 sRGB decode factor 均為 0 bytes 差異。metallic=1 時改 IOR／specular／tint 為 0 bytes 差異。另把含兩個 required extensions、真實 PNG alpha／color maps 的 glTF 載入並渲染，兩 backend 都與同等直接建構材質完全相同，中心像素 [4,15,9,255]；page error 為 0。
+- **根因修正**：WebGL2 的 texture／environment 首次 upload 強制切到 texture unit 0，覆蓋別的 slot，導致第一幀材質貼圖與 IBL 錯誤；現在沿用呼叫者選定的 unit。同一 smoke 在修正前出現 map／factor 差異及第一幀 IBL 漏失，修正後所有 map 等價比較為零，direct／IBL 的因素差異也與 WebGPU 一致。
+- **限制與未驗**：仍沿用近似 environment mip filter／解析 split-sum BRDF，不宣稱 reference-renderer 精度。其他瀏覽器、large／非均勻貼圖與 glTF skinned material 的組合未測；沒有永久 GPU regression suite。build 延後最後整合執行。

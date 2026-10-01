@@ -26,6 +26,8 @@ struct MeshUniforms {
   emissiveOcclusion: vec4f,
   maps: vec4f,
   settings: vec4f,
+  specularColor: vec4f,
+  specularParams: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -43,6 +45,10 @@ struct MeshUniforms {
 @group(2) @binding(7) var normalSampler: sampler;
 @group(2) @binding(8) var occlusionSampler: sampler;
 @group(2) @binding(9) var emissiveSampler: sampler;
+@group(2) @binding(10) var specularMap: texture_2d<f32>;
+@group(2) @binding(11) var specularColorMap: texture_2d<f32>;
+@group(2) @binding(12) var specularSampler: sampler;
+@group(2) @binding(13) var specularColorSampler: sampler;
 ${atlasWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
@@ -126,7 +132,7 @@ fn attenuation(distance: f32, range: f32) -> f32 {
   if (range > 0.0) { falloff = pow(max(1.0 - pow(distance / range, 4.0), 0.0), 2.0); }
   return falloff / max(distance * distance, 0.01);
 }
-fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> vec3f {
+fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, dielectricF0: vec3f, weight: f32) -> vec3f {
   let h = safeNormal(v+l);
   let nl = max(dot(n,l),0.0);
   let nv = max(dot(n,v),0.000001);
@@ -138,10 +144,11 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32) -> ve
   let distribution = alpha2 / max(3.14159265359*denominator*denominator,0.000001);
   let k = (rough+1.0)*(rough+1.0)/8.0;
   let geometry = (nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
-  let f0 = mix(vec3f(0.04),base,metal);
-  let fresnel = f0 + (vec3f(1.0)-f0)*pow(1.0-vh,5.0);
+  let grazing = pow(1.0-vh,5.0);
+  let dielectric = dielectricF0 + (vec3f(weight)-dielectricF0)*select(grazing,0.0,mesh.specularParams.y > 0.5);
+  let fresnel = mix(dielectric,base+(vec3f(1.0)-base)*grazing,metal);
   let specular = distribution*geometry*fresnel/max(4.0*nv*nl,0.000001);
-  let diffuse = (vec3f(1.0)-fresnel)*(1.0-metal)*base/3.14159265359;
+  let diffuse = (1.0-max(max(dielectric.r,dielectric.g),dielectric.b))*(1.0-metal)*base/3.14159265359;
   return (diffuse+specular)*nl;
 }
 @fragment fn shadowFragment(input: VertexOutput, @builtin(front_facing) front: bool) {
@@ -211,6 +218,11 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   let base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
   let metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
   let rough = clamp(mesh.material.z*select(1.0,mr.g,mesh.maps.x > 0.5),0.04,1.0);
+  var specularWeight = mesh.specularParams.x;
+  if (mesh.specularParams.z > 0.5) { specularWeight *= textureSample(specularMap,specularSampler,input.uv).a; }
+  var specularTint = mesh.specularColor.rgb;
+  if (mesh.specularParams.w > 0.5) { specularTint *= decodeSRGB(textureSample(specularColorMap,specularColorSampler,input.uv).rgb); }
+  let dielectricF0 = min(specularTint*mesh.specularColor.w,vec3f(1.0))*specularWeight;
   var n = safeNormal(input.normal)*select(-1.0,1.0,effectiveFront);
   if (mesh.maps.y > 0.5) {
     let perpendicularY = cross(dy,n);
@@ -227,23 +239,24 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   if (useEnvironment) {
     let nv = max(dot(n,v),0.0001);
     let ab = environmentBRDF(nv,rough);
-    let specularColor = mix(vec3f(0.04),base,metal)*ab.x + vec3f(ab.y);
+    let dielectric = select(dielectricF0*ab.x+vec3f(specularWeight*ab.y),dielectricF0,mesh.specularParams.y > 0.5);
+    let specularColor = mix(dielectric,base*ab.x+vec3f(ab.y),metal);
     let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
-    let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(vec3f(1.0)-specularColor,vec3f(0.0));
+    let diffuseLight = shIrradiance(n)*base*(1.0-metal)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
     color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
   }
-  color += brdf(n,v,direction,base,metal,rough)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
-    color += brdf(n,v,safeNormal(delta),base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
+    color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
   }
   for (var i = 0u; i < u32(scene.counts.y); i++) {
     let lightData = scene.spots[i];
     let delta = lightData.positionRange.xyz-input.world;
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-    color += brdf(n,v,l,base,metal,rough)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
+    color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight)*lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
   }
   color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }

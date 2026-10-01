@@ -616,3 +616,29 @@ with trigonometry per fragment. Disabled effects skip their depth sampling. The 
 example exposes both effects and a focus-depth slider. Transparent layers use the
 depth already written by the existing mesh pass; there is no separate transparent
 depth solution. GPU cost rises with the enabled kernels and MSAA sample count.
+
+## 37. IOR and Specular Materials (P39a)
+
+`PBRMaterial` adds `ior` (default 1.5), `specular` (0–1, default 1), and
+`specularColor` (linear RGB, nonnegative, default white; values above 1 are valid).
+IOR is either at least 1 or exactly 0. The latter is the glTF compatibility mode
+with angle-independent dielectric Fresnel, not a physical index of refraction.
+IOR 1 has zero normal-incidence reflectance but still reflects at grazing angles.
+
+`specularTexture` uses **linear alpha**, while `specularColorTexture` uses **sRGB
+RGB**. Their respective `specularSampler` / `specularColorSampler` options follow
+the existing per-slot sampling contract. All textures are borrowed. Both WebGPU
+and WebGL2 apply the factors and maps to direct lighting and specular IBL:
+normal-incidence reflectance is `min(specularColor × ((ior-1)/(ior+1))², 1) × specular`.
+Zero specular strength removes dielectric reflection including grazing response;
+metallic reflection is unaffected. Diffuse energy uses the maximum RGB dielectric
+reflectance, avoiding complementary-color diffuse tint.
+
+GLTFLoader accepts required `KHR_materials_ior` and `KHR_materials_specular`,
+including both texture slots and samplers. They cannot coexist with
+`KHR_materials_unlit`. As with other slots, all material textures must use UV0 and
+agree on their baked `KHR_texture_transform`; incompatible transforms reject.
+The existing approximate environment prefilter / analytic split-sum BRDF remains;
+this is not a reference-path-tracer accuracy claim. See the
+[IOR specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
+and [specular specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular).

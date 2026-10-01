@@ -14,6 +14,13 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   metallic?: number;
   roughness?: number;
   emissive?: [number, number, number];
+  ior?: number;
+  specular?: number;
+  specularColor?: [number, number, number];
+  specularTexture?: Texture;
+  specularColorTexture?: Texture;
+  specularSampler?: TextureSamplerOptions;
+  specularColorSampler?: TextureSamplerOptions;
   metallicRoughnessTexture?: Texture;
   normalTexture?: Texture;
   normalScale?: number;
@@ -77,6 +84,14 @@ export class PBRMaterial extends TextureMaterial {
   readonly metallic: number;
   readonly roughness: number;
   readonly emissive: [number, number, number];
+  readonly ior: number;
+  readonly specular: number;
+  readonly specularColor: [number, number, number];
+  /** Linear strength in A; specular color RGB is decoded from sRGB. */
+  readonly specularTexture: Texture | undefined;
+  readonly specularColorTexture: Texture | undefined;
+  readonly specularSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly specularColorSampler: Readonly<TextureSamplerOptions> | undefined;
   /** Linear texture: roughness in G, metallic in B. */
   readonly metallicRoughnessTexture: Texture | undefined;
   /** Linear tangent-space normal texture, using UV0. */
@@ -102,6 +117,22 @@ export class PBRMaterial extends TextureMaterial {
     const metallic = options.metallic ?? 0;
     const roughness = options.roughness ?? 0.5;
     const emissive = options.emissive ?? [0, 0, 0];
+    const ior = options.ior ?? 1.5;
+    const specular = options.specular ?? 1;
+    const specularColor = options.specularColor ?? [1, 1, 1];
+    finite(ior, 'Index of refraction');
+    if (ior !== 0 && ior < 1)
+      throw new RangeError('Index of refraction must be zero or at least one.');
+    unit(specular, 'Specular strength');
+    if (!Array.isArray(specularColor) || specularColor.length !== 3)
+      throw new RangeError('Specular color must contain three components.');
+    for (const value of specularColor) {
+      finite(value, 'Specular color component');
+      if (value < 0)
+        throw new RangeError('Specular color components cannot be negative.');
+    }
+    textureSlot(options.specularTexture, 'Specular texture');
+    textureSlot(options.specularColorTexture, 'Specular color texture');
     const normalScale = options.normalScale ?? 1;
     const occlusionStrength = options.occlusionStrength ?? 1;
     const alphaCutoff = options.alphaCutoff ?? 0;
@@ -135,6 +166,13 @@ export class PBRMaterial extends TextureMaterial {
     this.metallic = metallic;
     this.roughness = roughness;
     this.emissive = [emissive[0], emissive[1], emissive[2]];
+    this.ior = ior;
+    this.specular = specular;
+    this.specularColor = [...specularColor] as [number, number, number];
+    this.specularTexture = options.specularTexture;
+    this.specularColorTexture = options.specularColorTexture;
+    this.specularSampler = samplerOptions(options.specularSampler);
+    this.specularColorSampler = samplerOptions(options.specularColorSampler);
     this.metallicRoughnessTexture = options.metallicRoughnessTexture;
     this.normalTexture = options.normalTexture;
     this.normalScale = normalScale;

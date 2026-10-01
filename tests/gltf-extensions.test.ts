@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { AssetError } from '../packages/assets/src/index.js';
 import { GLTFLoader } from '../packages/core/src/gltf-loader.js';
 import { Mesh } from '../packages/core/src/mesh.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
@@ -124,6 +125,70 @@ describe('glTF extensions', () => {
       ),
     ).rejects.toThrow(/negative/);
   });
+
+  it.each(['KHR_materials_ior', 'KHR_materials_specular'])(
+    'rejects %s combined with unlit',
+    async (extension) => {
+      installImages();
+      await expect(
+        new GLTFLoader().parse(
+          JSON.stringify(
+            model(
+              {
+                extensions: { [extension]: {}, KHR_materials_unlit: {} },
+              },
+              { extensionsRequired: [extension] },
+            ),
+          ),
+        ),
+      ).rejects.toBeInstanceOf(AssetError);
+    },
+  );
+
+  it.each([
+    ['KHR_materials_ior', { ior: -1 }],
+    ['KHR_materials_ior', { ior: 0.5 }],
+    ['KHR_materials_specular', { specularFactor: 1.1 }],
+    ['KHR_materials_specular', { specularColorFactor: [1, -1, 1] }],
+  ])('rejects invalid %s factors %j', async (extension, factors) => {
+    installImages();
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify(
+          model(
+            {
+              extensions: { [extension as string]: factors },
+            },
+            { extensionsRequired: [extension] },
+          ),
+        ),
+      ),
+    ).rejects.toMatchObject({ cause: expect.any(RangeError) });
+  });
+
+  it.each(['specularTexture', 'specularColorTexture'])(
+    'rejects an incompatible transform on %s',
+    async (slot) => {
+      installImages();
+      await expect(
+        new GLTFLoader().parse(
+          JSON.stringify(
+            model({
+              pbrMetallicRoughness: { baseColorTexture: { index: 0 } },
+              extensions: {
+                KHR_materials_specular: {
+                  [slot]: {
+                    index: 0,
+                    extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
+                  },
+                },
+              },
+            }),
+          ),
+        ),
+      ).rejects.toBeInstanceOf(AssetError);
+    },
+  );
 
   it('maps KHR_materials_unlit base color to emission with no diffuse response', async () => {
     const { asset, material } = await load(
