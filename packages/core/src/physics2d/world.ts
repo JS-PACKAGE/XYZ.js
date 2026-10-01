@@ -157,6 +157,11 @@ export class PhysicsWorld2D {
   private readonly sorted: Proxy[] = [];
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
+
+  /** Number of registered colliders, static ones included. */
+  get colliderCount(): number {
+    return this.owners.size;
+  }
   private readonly sleepGroup: Proxy[] = [];
   private readonly sweepProxies: Proxy[] = [];
   private readonly jointSet = new Set<Joint2D>();

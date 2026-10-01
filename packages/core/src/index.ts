@@ -148,3 +148,5 @@ export * from './graphics2d/index.js';
 export * from './storage.js';
 export * from './serialization.js';
 export * from './i18n.js';
+export { DebugOverlay, formatDebugSample } from './debug-overlay.js';
+export type { DebugOverlayOptions, DebugSample } from './debug-overlay.js';

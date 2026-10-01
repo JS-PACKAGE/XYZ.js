@@ -1,0 +1,12 @@
+{
+  "$schema": "https://typedoc.org/schema.json",
+  "entryPoints": ["src/index.ts"],
+  "tsconfig": "tsconfig.json",
+  "out": "docs/api",
+  "name": "XYZ.js API",
+  "excludeInternal": true,
+  "excludePrivate": true,
+  "readme": "none",
+  "validation": { "invalidLink": true, "notExported": false },
+  "treatWarningsAsErrors": false
+}

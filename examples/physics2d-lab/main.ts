@@ -1,5 +1,6 @@
 import {
   Colliders,
+  DebugOverlay,
   DistanceJoint,
   Game,
   MouseJoint,
@@ -286,6 +287,14 @@ try {
     await runtime.setScene(scene);
   };
 
+  // The canvas has no positioned parent here; the panel adds one.
+  let panel: DebugOverlay | undefined;
+  $<HTMLInputElement>('stats-overlay').addEventListener('change', (event) => {
+    panel?.destroy();
+    panel = (event.currentTarget as HTMLInputElement).checked
+      ? DebugOverlay.attach(runtime, { position: 'top-right' })
+      : undefined;
+  });
   debugToggle.addEventListener('change', () => {
     if (debug) debug.visible = debugToggle.checked;
   });

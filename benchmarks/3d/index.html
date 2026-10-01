@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="zh-Hant">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js — 3D (400 meshes) benchmark</title>
+    <style>
+      body {
+        background: #101521;
+        color: #eee;
+        font: 16px system-ui;
+        margin: 20px;
+      }
+      canvas {
+        display: block;
+        width: 1280px;
+        height: 720px;
+        max-width: 100%;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+      a {
+        color: #9cf;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>3D (400 meshes) benchmark</h1>
+    <p>
+      400 rotating cubes share one geometry and material under a perspective
+      camera. 120 warmup frames + 600 measured frames at a fixed 1/60 s
+      simulation step. Keep this tab visible. Default: direct WebGPU, DPR 1. Use
+      <code>?renderer=auto</code>, <code>webgpu</code>, <code>webgl2</code> or
+      <code>canvas2d</code> to compare.
+    </p>
+    <canvas id="game"></canvas>
+    <pre id="result" role="status">Loading…</pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

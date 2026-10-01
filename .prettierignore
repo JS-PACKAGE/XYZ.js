@@ -4,3 +4,4 @@ coverage/
 .vite/
 pnpm-lock.yaml
 vendor/
+docs/api/
