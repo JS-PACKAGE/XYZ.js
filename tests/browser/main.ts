@@ -164,7 +164,6 @@ try {
   runtime.addEventListener('graphicslost', (event) => {
     const detail = errorDetail((event as CustomEvent<Error>).detail);
     report.graphicsEvents!.push(`Game graphicslost: ${detail}`);
-    console.error(`Game graphicslost: ${detail}`);
     output.textContent = JSON.stringify(report);
   });
   check(

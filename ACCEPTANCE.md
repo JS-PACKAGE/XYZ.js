@@ -838,3 +838,4 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 真正 pnpm pack 產生 xyz.js-1.9.0.tgz；解壓後以 Node ESM 正式套件入口驗證 1.9.0 metadata、Apache-2.0 LICENSE 與 Scene／GameObject ownership／destroy，輸出 V19_EXTRACTED_PACKAGE_CONSUMER_OK。14 件官方 vendor 檔案逐位元組一致。初次 smoke 錯將已解除 ownership 的 undefined 判為 null，依正式契約修正 smoke 後通過，未修改引擎。
 - 推送 v1.9 tag 觸發既有 GitHub Release workflow，必須先通過共用 CI 才能封裝及上傳 tgz／SHA256SUMS；線上執行與發佈結果以 GitHub Actions／Release 為準。
 - 首次 hosted Ubuntu Release run 36915861881：工具鏈、四項 example smoke 與 Canvas2D／WebGL2 deep regression 通過；WebGPU 首個 atlas 場景 device loss，recovery 無 adapter，release 正確被阻止。新增 fixture graphicslost 原因記錄；macOS WebGPU diagnostic smoke 通過，不把本機通過當成 Linux 修復證明。使用者明確授權修正後重建 v1.9 tag。
+- 保留 graphicslost 原因於 JSON，不將預期 WebGL loss 事件寫為 console error；各 backend 改用獨立 browser process，避免故意 context-loss 後沿用同一 GPU process。macOS 三 backend deep regression、typecheck、targeted lint／format 通過；Linux 成因與修復以後續 hosted run 為準，未降低任何 assertion／gate。

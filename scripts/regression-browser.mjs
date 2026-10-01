@@ -258,10 +258,11 @@ async function runAuthoring(page, backend, result, awaitState) {
 try {
   await server.listen();
   launch = await chromiumLaunchOptions();
-  browser = await chromium.launch(launch);
   if (!explicitlySelected && !selected.includes('webgpu'))
     selected.push('webgpu');
   for (const backend of selected) {
+    // GPU/context loss is deliberately injected; do not reuse its browser GPU process.
+    browser = await chromium.launch(launch);
     const context = await browser.newContext({
       viewport: { width: 800, height: 700 },
       deviceScaleFactor: 1,
@@ -361,6 +362,7 @@ try {
         );
     } finally {
       await context.close();
+      await browser.close();
     }
     results.push(result);
   }
