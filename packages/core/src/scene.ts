@@ -48,6 +48,8 @@ export class Scene {
   readonly spotLights: SpotLight[] = [];
   readonly shadows = new ShadowSettings();
   readonly postProcessing = new PostProcessingSettings();
+  /** Weighted blended OIT trades exact layer ordering for stable intersecting transparency. */
+  transparency: 'sorted' | 'weighted' = 'sorted';
   ambientLight = 0.3;
   /** Distance fog for 3D meshes (WebGPU and WebGL2). */
   readonly fog = new FogSettings();

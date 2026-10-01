@@ -2,6 +2,7 @@ import { atlasWGSL } from './shadow-shaders.js';
 import { sheenWGSL } from './sheen-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
 import { reflectionProbeWGSL } from './reflection-probe-shaders.js';
+import { oitWeightWGSL } from './oit-shaders.js';
 
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -218,7 +219,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   }
   return mix(rgb, scene.fogColor.rgb * opacity, amount);
 }
-@fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
+fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let texel = textureSample(baseMap, materialSampler, input.uv);
   let visibility = directionalShadow(input.world);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
@@ -379,6 +380,22 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   if (coatWeight > 0.0) { color = color*(1.0-coatWeight*coatFresnel)+coating*coatWeight; }
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),opacity);
+}
+${oitWeightWGSL}
+@fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
+  return shadeMesh(input,front);
+}
+struct OITOutput {
+  @location(0) accumulation: vec4f,
+  @location(1) revealage: vec4f,
+};
+@fragment fn oitFragment(input: VertexOutput, @builtin(front_facing) front: bool) -> OITOutput {
+  let color=shadeMesh(input,front);
+  let weight=transparencyWeight(color.a,input.position.z);
+  var output: OITOutput;
+  output.accumulation=color*weight;
+  output.revealage=vec4f(color.a);
+  return output;
 }
 struct SkyOutput {
   @builtin(position) position: vec4f,

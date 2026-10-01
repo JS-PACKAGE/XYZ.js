@@ -223,7 +223,7 @@ See ACCEPTANCE for before/after measurements. Test-side interception of real GPU
 - Geometry copies and validates custom position/normal/uv/index data, interleaves vertices at a stride of eight floats, and uses Uint32Array indices. Index topology stays immutable. After deliberately changing vertex position/normal/UV data, call `markUpdated()` to increment `version` and notify renderer upload caches. cube/sphere/plane/quad provide outward normals and winding; BoxGeometry.unit is a named primitive geometry factory.
 - Mesh does not destroy shared Geometry, TextureMaterial, or Texture. Material provides a texture, RGB tint, and opacity. The camera computes view-projection from fov/near/far, position, and Quaternion rotation.
 - WebGPU uses a shared mesh pipeline, a reused uniform buffer per mesh, and geometry/texture caches. Normals use the inverse-transpose of the model 3×3 matrix, supporting nonuniform scale. Lighting combines ambient and directional diffuse terms.
-- The 3D pass uses depth24plus, a less comparison, and depth writes. A separate color-load pass overlays Sprites. Material alpha uses premultiplied blending. 3D submits in Scene order and writes depth; callers must insert overlapping transparent geometry back-to-front. Order-independent transparency is not provided.
+- The 3D pass uses depth24plus and less comparison; a separate color-load pass overlays Sprites. Default sorted transparency retains depth writes and premultiplied blending. Opt-in weighted transparency tests opaque depth without writing transparent depth; see the transparency section below.
 - Resize preserves shaders, geometry, and textures while replacing size-dependent depth/HDR attachments; destroy releases GPU caches.
 
 ## 14. Compatibility (P06)
@@ -334,7 +334,7 @@ These additions ship in v1.1 (package 1.1.0), not the previously published v1.0 
 ### PBR, Lighting, Shadows, HDR, and Instancing
 
 - `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space UV0 (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Metallic/roughness default to 0/0.5; emissive defaults to zero.
-- alphaMode is OPAQUE, MASK (alphaCutoff) or BLEND; doubleSided controls culling and backface normals. Direct construction defaults to BLEND (MASK when positive cutoff supplied), doubleSided=true; glTF uses its OPAQUE/false defaults. Blended meshes (a BLEND `PBRMaterial` or any material with opacity < 1) are drawn after all others, farthest to nearest by camera-to-bounding-sphere-center distance; opaque and MASK meshes keep insertion order, ties keep insertion order, and the sort is done in place without per-frame allocation once warm. The sort is per object, so intersecting or self-overlapping translucent meshes, and a `TextureMaterial` whose texture has alpha at opacity 1, can still composite wrongly; no order-independent transparency is provided. TextureMaterial retains legacy diffuse lighting.
+- alphaMode is OPAQUE, MASK (alphaCutoff) or BLEND; doubleSided controls culling and backface normals. Direct construction defaults to BLEND (MASK when positive cutoff supplied), doubleSided=true; glTF uses its OPAQUE/false defaults. PBR alphaMode is authoritative even with opacity below one. Legacy TextureMaterial enters the transparent pass with opacity below one or explicit `transparent: true` (for texture/vertex alpha). Default sorted meshes follow opaque/MASK meshes, farthest to nearest by bounding-sphere-center distance, with stable ties and reusable sort storage. Intersecting surfaces can still composite incorrectly; opt into weighted transparency when that approximation is preferable.
 - Scene.pointLights and spotLights accept PointLight/SpotLight. Position/color/intensity/range are mutable; range=0 is unlimited. Spot direction points toward the illuminated surface and innerAngle/outerAngle are radians. At most 8 point and 8 spot lights are supported; exceeding limits rejects, not truncates.
 - scene.shadows defaults disabled. Mutable mapSize=1024, extent=10 (full orthographic width/height), near=0.1, far=50, bias=0.002 and target configure directional-only 3×3 PCF. Mesh.castShadow/receiveShadow default true. Point/spot shadows and cascades are not supported.
 - scene.postProcessing defaults disabled. When enabled, 3D renders into an HDR floating-point attachment before fullscreen exposure (default 1), toneMapping ('aces' default or 'none') and actual 9-tap threshold bloom (strength=0, threshold=1, radius=2 output pixels). The 2D overlay runs afterward and is unaffected. Resize/disable/destroy release size-dependent targets. WebGL2 requires EXT_color_buffer_float and explicitly rejects requested HDR processing when unavailable.
@@ -504,7 +504,7 @@ Required components include anchors/borders, CanvasTexture, generated font atlas
 - `LOD` is a `Group` whose children are levels: `addLevel(object, distance)` (levels are kept sorted; the child is hidden until selected). Each frame the level with the largest `distance` not exceeding the distance between the LOD's world position and the camera is the only visible one; `level` reports its index. `hysteresis` (world units, default 0) keeps the current level until the camera is that far beyond the boundary being crossed, to avoid flicker. Distance is to the LOD's origin, not a bounding volume.
 - `Billboard` is a `Mesh` on a shared unit quad with `width`/`height` (the quad's scale) and `mode` `'spherical'` (fully faces the camera) or `'cylindrical'` (turns around the Y axis only). It overwrites its own rotation every frame from its world position, so parent rotation and non-uniform parent scale are not compensated; keep billboards in the Scene root or under translation-only groups. Orthographic cameras are faced against the view direction.
 - `Line3D(points, {material, width, closed})` draws a polyline as camera-facing ribbons: one quad (4 vertices) per segment, rebuilt each frame in the object's local space, with `setPoint`/`point`/`pointCount`; `width` is in local units across the ribbon and may be changed. The point count is fixed at construction. Segments are independent quads, so very sharp corners show a small gap or overlap, there is no per-vertex width or color and no round joins. UVs run 0–1 across the ribbon and along the whole line.
-- `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` rasterizes the text with a 2D canvas into an owned `Texture` and shows it on a `Billboard` whose width follows the text's aspect ratio and whose height is `height` (world units). The text is fixed at creation (create another to change it), the texture is released on `destroy()`, the quad blends normally and has no depth-correct sorting against other transparent objects.
+- `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` rasterizes text into an owned Texture displayed on a Billboard. Width follows text aspect ratio, height is in world units, text is fixed at creation, and destroy releases its texture. Like Sprite3D, it opts into the transparent pass; per-object sorted or weighted approximation applies.
 - Limits: no LOD cross-fade, no screen-size based switching, no depth-aware thick line caps, no multi-line text layout or right-to-left shaping beyond what the browser's `fillText` gives, and these helpers are not rendered by Canvas2D (no 3D there).
 
 ### Sprite3D (P36c)
@@ -810,3 +810,25 @@ alpha-blended layers. Offscreen samples clamp to the capture edge. It does not
 ray-trace an exit surface, handle nested IOR/camera-inside total internal
 reflection, scatter light, or cast colored/transmitted shadows; the existing
 opaque shadow silhouettes remain.
+
+## Weighted 3D Transparency
+
+Set `scene.transparency = 'weighted'` to opt into weighted blended OIT; `'sorted'`
+remains the default. WebGPU accumulates weighted linear color and revealage with
+MRT; WebGL2 uses separate accumulation and revealage passes. Transparent fragments
+test opaque depth but do not write depth. The result is composited into HDR before
+tone mapping, effects3D and the unchanged 2D overlay. WebGL2 requires
+`EXT_color_buffer_float`; requested unsupported rendering fails explicitly.
+
+This is an approximation, not exact per-pixel sorting or depth peeling. Colors
+can differ from sorted blending, half-float accumulation has finite range, and
+many layers can lose precision. WebGPU retains 4× MSAA when enabled; WebGL2 uses
+single-sample offscreen attachments. SSAO/DOF see opaque depth, not transparent
+surfaces. Transmission still samples only the existing opaque snapshot, not
+other transparent layers. Size-dependent OIT targets are released on resize,
+disable/no scene, and destroy. Canvas2D remains 2D-only.
+
+Use `new TextureMaterial({texture, transparent: true})` for alpha textures or
+vertex colors at opacity one. Sprite3D/Text3D set this automatically. PBR uses
+`alphaMode`, not that legacy flag. The objects3d example provides a weighted
+toggle and insertion-order reversal; scoped verification is in ACCEPTANCE.

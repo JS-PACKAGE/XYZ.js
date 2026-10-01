@@ -41,6 +41,8 @@ function vector(value: Vector3, name: string): void {
 
 /** Validate mutable settings before either backend allocates frame resources. */
 export function validateRenderSettings(scene: Scene): void {
+  if (scene.transparency !== 'sorted' && scene.transparency !== 'weighted')
+    throw new RangeError('Scene transparency must be sorted or weighted.');
   if (!(scene.shadows instanceof ShadowSettings))
     throw new TypeError('Scene shadows must be ShadowSettings.');
   if (!(scene.postProcessing instanceof PostProcessingSettings))

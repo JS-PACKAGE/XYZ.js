@@ -73,6 +73,7 @@ import {
   processorFragment,
 } from './webgl-2d/shaders.js';
 
+import { oitCompositeGLSL } from './oit-shaders.js';
 interface CachedEnvironment {
   resource: WebGLTexture;
   seen: number;
@@ -226,6 +227,10 @@ export class WebGL2Renderer implements Renderer {
   private refractionTarget: RenderTarget | undefined;
   private hasTransmission = false;
   private linear3D = false;
+  private weighted = false;
+  private oitAccumulation: RenderTarget | undefined;
+  private oitRevealage: RenderTarget | undefined;
+  private oitProgram: WebGLProgram | undefined;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
   private fxaaProgram: WebGLProgram | undefined;
@@ -456,6 +461,7 @@ export class WebGL2Renderer implements Renderer {
         'opticalMaps',
         'opaqueScene',
         'shadowMap',
+        'oitPass',
         'environment[0]',
         'environmentMap',
         'probeMin',
@@ -842,11 +848,12 @@ export class WebGL2Renderer implements Renderer {
         ? this.sceneTarget!.framebuffer
         : (destination?.framebuffer ?? null);
       this.stats.begin();
-      this.hasTransmission = this.linear3D = false;
+      this.hasTransmission = this.linear3D = this.weighted = false;
       if (scene) {
         validateRenderSettings(scene);
         this.collectMeshes(scene, logicalWidth / logicalHeight);
-        this.linear3D = scene.postProcessing.enabled || this.hasTransmission;
+        this.linear3D =
+          scene.postProcessing.enabled || this.hasTransmission || this.weighted;
         fillLightingData(scene, this.lightingData);
         this.atlas.update(scene, logicalWidth / logicalHeight);
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
@@ -871,6 +878,7 @@ export class WebGL2Renderer implements Renderer {
         }
         if (this.linear3D) this.preparePostTarget(canvas.width, canvas.height);
         else if (this.postTarget) {
+          this.releaseOIT();
           this.deleteTarget(this.postTarget);
           this.postTarget = undefined;
         }
@@ -886,11 +894,22 @@ export class WebGL2Renderer implements Renderer {
         }
       } else {
         this.commands.clear();
+        this.releaseOIT();
+        if (this.postTarget) {
+          this.deleteTarget(this.postTarget);
+          this.postTarget = undefined;
+        }
+        if (this.fxaaTarget) {
+          this.deleteTarget(this.fxaaTarget);
+          this.fxaaTarget = undefined;
+        }
         if (this.refractionTarget) {
           this.deleteTarget(this.refractionTarget);
           this.refractionTarget = undefined;
         }
       }
+      if (this.weighted) this.prepareOIT(canvas.width, canvas.height);
+      else this.releaseOIT();
       gl.bindFramebuffer(
         gl.FRAMEBUFFER,
         this.linear3D ? this.postTarget!.framebuffer : sceneFramebuffer,
@@ -1026,8 +1045,25 @@ export class WebGL2Renderer implements Renderer {
       (this.postTarget.width !== pixelWidth ||
         this.postTarget.height !== pixelHeight)
     ) {
+      this.releaseOIT();
       this.deleteTarget(this.postTarget);
       this.postTarget = undefined;
+    }
+    if (
+      this.refractionTarget &&
+      (this.refractionTarget.width !== pixelWidth ||
+        this.refractionTarget.height !== pixelHeight)
+    ) {
+      this.deleteTarget(this.refractionTarget);
+      this.refractionTarget = undefined;
+    }
+    if (
+      this.fxaaTarget &&
+      (this.fxaaTarget.width !== pixelWidth ||
+        this.fxaaTarget.height !== pixelHeight)
+    ) {
+      this.deleteTarget(this.fxaaTarget);
+      this.fxaaTarget = undefined;
     }
     if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
       if (this.frameTarget) this.deleteTarget(this.frameTarget);
@@ -1171,6 +1207,12 @@ export class WebGL2Renderer implements Renderer {
       }
       draws.push(object);
       if (
+        scene.transparency === 'weighted' &&
+        isBlended(object) &&
+        (!(object instanceof InstancedMesh) || object.count > 0)
+      )
+        this.weighted = true;
+      if (
         object.material instanceof PBRMaterial &&
         (!(object instanceof InstancedMesh) || object.count > 0)
       ) {
@@ -1178,7 +1220,8 @@ export class WebGL2Renderer implements Renderer {
         if (object.material.transmission > 0) this.hasTransmission = true;
       }
     }
-    this.drawSorter.sort(draws, scene.camera3D.position);
+    if (scene.transparency === 'sorted')
+      this.drawSorter.sort(draws, scene.camera3D.position);
   }
 
   private cacheOpticalMaps(material: PBRMaterial): void {
@@ -1292,10 +1335,33 @@ export class WebGL2Renderer implements Renderer {
     gl.bindSampler(14, null);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical!);
     const draws = this.meshDraws;
-    const phases = this.hasTransmission ? 2 : 1;
+    const basePhases = this.hasTransmission ? 2 : 1;
+    const phases = basePhases + (this.weighted ? 2 : 0);
     for (let phase = 0; phase < phases; phase++) {
+      const oitPass = phase >= basePhases ? phase - basePhases + 1 : 0;
+      gl.uniform1i(uniforms.oitPass, oitPass);
+      if (oitPass) {
+        gl.bindFramebuffer(
+          gl.FRAMEBUFFER,
+          (oitPass === 1 ? this.oitAccumulation : this.oitRevealage)!
+            .framebuffer,
+        );
+        gl.clearColor(
+          oitPass === 1 ? 0 : 1,
+          oitPass === 1 ? 0 : 1,
+          oitPass === 1 ? 0 : 1,
+          oitPass === 1 ? 0 : 1,
+        );
+        gl.clear(gl.COLOR_BUFFER_BIT);
+        gl.depthMask(false);
+        gl.blendFunc(
+          oitPass === 1 ? gl.ONE : gl.ZERO,
+          oitPass === 1 ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA,
+        );
+      }
       for (const object of draws) {
-        if (this.hasTransmission) {
+        if (this.weighted && isBlended(object) !== oitPass > 0) continue;
+        if (!oitPass && this.hasTransmission) {
           const deferred =
             isBlended(object) ||
             (object.material instanceof PBRMaterial &&
@@ -1557,6 +1623,9 @@ export class WebGL2Renderer implements Renderer {
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
       }
     }
+    if (this.weighted) this.resolveOIT();
+    gl.depthMask(true);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     draws.length = 0;
   }
 
@@ -1792,10 +1861,11 @@ export class WebGL2Renderer implements Renderer {
   private preparePostTarget(width: number, height: number): void {
     if (!this.floatColorBuffer)
       throw new GraphicsError(
-        'WebGL2 HDR rendering requires EXT_color_buffer_float.',
+        `WebGL2 ${this.weighted ? 'weighted transparency' : 'HDR rendering'} requires EXT_color_buffer_float.`,
       );
     if (this.postTarget?.width === width && this.postTarget.height === height)
       return;
+    this.releaseOIT();
     if (this.postTarget) this.deleteTarget(this.postTarget);
     this.postTarget = undefined;
     this.postTarget = this.createTarget(width, height, false, 'hdr', 'texture');
@@ -1816,6 +1886,89 @@ export class WebGL2Renderer implements Renderer {
       'hdr',
       false,
     );
+  }
+
+  private prepareOIT(width: number, height: number): void {
+    const gl = this.gl!;
+    if (
+      this.oitAccumulation?.width === width &&
+      this.oitAccumulation.height === height
+    )
+      return;
+    this.releaseOIT();
+    try {
+      this.oitAccumulation = this.createTarget(
+        width,
+        height,
+        false,
+        'hdr',
+        false,
+      );
+      this.oitRevealage = this.createTarget(
+        width,
+        height,
+        false,
+        'rgba8',
+        false,
+      );
+      for (const target of [this.oitAccumulation, this.oitRevealage]) {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        gl.framebufferTexture2D(
+          gl.FRAMEBUFFER,
+          gl.DEPTH_ATTACHMENT,
+          gl.TEXTURE_2D,
+          this.postTarget!.depthTexture!,
+          0,
+        );
+        if (
+          gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE
+        )
+          throw new GraphicsError(
+            'WebGL2 weighted transparency framebuffer is incomplete.',
+          );
+      }
+      if (!this.oitProgram) {
+        this.oitProgram = this.createProgram(
+          gl,
+          postVertex,
+          oitCompositeGLSL,
+          'weighted transparency',
+        );
+        gl.useProgram(this.oitProgram);
+        gl.uniform1i(gl.getUniformLocation(this.oitProgram, 'accumulation'), 0);
+        gl.uniform1i(gl.getUniformLocation(this.oitProgram, 'revealage'), 1);
+      }
+    } catch (error) {
+      this.releaseOIT();
+      throw error;
+    }
+  }
+
+  private resolveOIT(): void {
+    const gl = this.gl!,
+      program = this.oitProgram!;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
+    gl.disable(gl.DEPTH_TEST);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    gl.useProgram(program);
+    gl.bindVertexArray(this.triangleVAO!);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindSampler(0, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.oitAccumulation!.texture);
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindSampler(1, null);
+    gl.bindTexture(gl.TEXTURE_2D, this.oitRevealage!.texture);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+    gl.activeTexture(gl.TEXTURE0);
+    gl.bindTexture(gl.TEXTURE_2D, null);
+  }
+
+  private releaseOIT(): void {
+    if (this.oitAccumulation) this.deleteTarget(this.oitAccumulation);
+    if (this.oitRevealage) this.deleteTarget(this.oitRevealage);
+    this.oitAccumulation = this.oitRevealage = undefined;
   }
 
   private createTarget(
@@ -2390,6 +2543,9 @@ export class WebGL2Renderer implements Renderer {
     this.canvas?.removeEventListener('webglcontextlost', this.onContextLost);
     const gl = this.gl;
     if (gl) {
+      this.releaseOIT();
+      if (this.oitProgram) gl.deleteProgram(this.oitProgram);
+      this.oitProgram = undefined;
       this.render2D?.destroy();
       for (const snapshot of this.snapshots.keys()) snapshot.destroy();
       for (const [effect, entry] of this.materials) {
@@ -2456,6 +2612,9 @@ export class WebGL2Renderer implements Renderer {
     this.sceneTarget = undefined;
     this.shadowTarget = undefined;
     this.postTarget = undefined;
+    this.refractionTarget = undefined;
+    this.fxaaTarget = undefined;
+    this.meshDraws.length = 0;
     this.render2D = undefined;
     this.commands.destroy();
     this.gl = undefined;

@@ -102,3 +102,13 @@
 ### 發佈與驗收界線
 
 GitHub v1.2維持exact source commit `299afe29713b71dca2d120d3a4452812208c3c27`（historical source package1.1.0）；external release asset `xyz.js-1.2.0.tgz`內metadata1.2.0，323codefiles byte-identical，Pixi working changes不在release。實際asset SHA與修正事實見ACCEPTANCE；不改上述歷史localpack／252證據。本輪不授權version／license／deps／git／release變更。
+
+## Weighted 3D transparency
+
+Scene 的 `transparency` 預設 sorted；weighted 路徑把透明 mesh 與 opaque／MASK
+分開。PBR alphaMode 為準，TextureMaterial 的 opacity 或 transparent flag 決定分類。
+WebGPU 使用 MRT 加權累積／revealage，WebGL2 分兩次 draw，均測 opaque depth
+且不寫透明 depth。先合成 HDR，再做 post／effects3D／2D／transition；
+transmission 仍只看 opaque snapshot。WebGPU 保留 MSAA，WebGL2 離屏單取樣並
+要求 float color attachment。這是 bounded-weight 近似，不是 depth peeling。
+尺寸相關 targets 隨 resize、停用／無 Scene、destroy 清理，prepared pipeline 保留。

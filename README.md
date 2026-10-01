@@ -49,6 +49,8 @@ Build 自動最小化 `dist/` 的引擎 JavaScript，保留 ESM 目錄、公開�
 
 v1.4／v1.5 新增（皆 additive，無新 runtime dependency）：空間音效（`sample.play(..., { spatial })`、`audio.listener`）、標準 mapping Gamepad、glTF morph targets、`EnvironmentMap`（IBL＋skybox）、視錐剔除、glTF 常用 extension（emissive strength／unlit 近似／texture transform／lights_punctual）、`scene.fog`、WebGPU 4× MSAA（`antialias`，預設 true）、半透明排序、`scene.effects3D`、`FirstPersonControls`（Pointer Lock）、`graphics.stats`，以及 WebGL2 context／WebGPU device 遺失復原（`recoverGraphics`，預設 true；遺失後 RenderTexture2D／snapshot 需重建）。WebGPU 真實 device loss、Pointer Lock 實機、實體手把與空間音效聽感尚未驗證；glTF `COLOR_0` 頂點色仍被拒絕，Draco／KTX2 因需外部 decoder 不支援。
 
+新增 opt-in `scene.transparency = 'weighted'`（WebGPU／WebGL2）：加權透明近似，預設 sorted 不變；objects3d 可切換並反轉插入順序。不是精確逐像素排序或多層折射，WebGL2 需 float color attachment。驗證範圍見 [ACCEPTANCE](ACCEPTANCE.md)。
+
 可執行範例：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音訊同場）、`advanced3d`（進階 3D，含 Environment 與 fog）、`gameplay2d`、`rendering2d`。驗收證據見 `ACCEPTANCE.md`；本倉庫不自動 push／publish。
 
 已驗證 managed Chromium 150；Safari／Edge／Firefox、實體 gamepad、真實背景分頁／BFCache 矩陣、跨螢幕 DPR 與 driver reset 尚未認證。WebGPU／AudioWorklet 需要安全來源；benchmark 的約 60fps 不是跨裝置保證。
@@ -68,6 +70,8 @@ P18 is accepted in the recorded Chromium scope: task-count PreloadBatch, Scene.p
 P14 accepts target-only lifecycle/pointer/drag, Actions/Easings and CameraStrategies. P15–P17 are proven on all three backends: discrete linear/angular circle/box/convex physics/Trigger2D, TileMap/IsometricMap solids/elevation/culling, seeded CPU ParticleEmitter local/world pools, pause and borrowed-texture teardown. No CCD/joints/concave physics/GPU particles/editor importer. P20 GPU/GL native Material2D/ordered PostProcessor2D process transparent 2D world+HUD only, leaving 3D/HDR unchanged; await prepareMaterial/preparePostProcessor, with explicit Canvas2D UnsupportedGraphicsError. Prepared entries survive resize/disable until descriptor destruction, mutable targets release, owned captures survive/scale. P19 actual three-backend Game handoff/pause/resize/Promise completion/final easing endpoint, the formal P13–P20 playground and final toolchain37files/252tests are accepted. See the bilingual guides.
 
 P21–P29 are approved bounded PixiJS-inspired profiles, now integrated and exercised in one environment only (macOS arm64 managed headless Chromium with a WebGPU adapter): one shared 2D command stream across all three backends for affine utilities, atlases, raster paths, offscreen isolation, masks, blends, native filters/meshes, text/assets, opt-in interaction/accessibility and particles/preparation. The formal [examples/rendering2d](examples/rendering2d/index.html) example runs on all three; Canvas explicitly rejects native filters and visible meshes. This is neither full Pixi parity nor cross-browser, real-hardware or performance evidence, and it is not part of GitHub v1.2. See [ACCEPTANCE](ACCEPTANCE.md) for verified scope and unverified items, and [PLAN](PLAN.md) for the profiles.
+
+Opt-in `scene.transparency = 'weighted'` adds approximate weighted transparency on WebGPU/WebGL2; sorted remains the default. The objects3d example toggles it and reverses insertion order. This is not exact per-pixel sorting or multilayer refraction; WebGL2 requires float color attachments. See [ACCEPTANCE](ACCEPTANCE.md) for verification scope.
 
 ```ts
 import { Game } from 'xyz.js';
@@ -124,6 +128,8 @@ Node >=26 と pnpm 12.6.0 を使用します。`npx pnpm@12.6.0 install`、`npx 
 Build は `dist/` のエンジン JavaScript を自動的に最小化し、ESM 構造、公開名、型宣言、source maps を保持します。最小化済みの公式 OPM vendor は変更せずコピーします。エンジン JS 36 ファイルのサイズは約 48% 減少し、最新の安全性修正と配布検証では 17 ファイル／82 テストが通過しました。
 
 v1.4／v1.5 の追加（すべて additive、runtime dependency の追加なし）：空間サンプル音声（`sample.play(..., { spatial })`、`audio.listener`）、標準 mapping の Gamepad、glTF morph targets、`EnvironmentMap`（IBL＋skybox）、視錐台カリング、glTF の主要 extension（emissive strength／unlit 近似／texture transform／lights_punctual）、`scene.fog`、WebGPU 4× MSAA（`antialias`、既定 true）、半透明ソート、`scene.effects3D`、`FirstPersonControls`（Pointer Lock）、`graphics.stats`、WebGL2 context／WebGPU device の消失復旧（`recoverGraphics`、既定 true。消失後は RenderTexture2D／snapshot を作り直す）。実際の WebGPU device loss、Pointer Lock 実機、実機 gamepad、空間音声の聴感は未検証です。glTF `COLOR_0` 頂点カラーは引き続き拒否され、Draco／KTX2 は外部 decoder が必要なため非対応です。
+
+`scene.transparency = 'weighted'` で WebGPU／WebGL2 の近似 weighted transparency を有効化できます。既定は sorted のままです。objects3d で切替と挿入順の反転を試せます。厳密なピクセル単位ソートや多層屈折ではなく、WebGL2 は float color attachment が必要です。検証範囲は [ACCEPTANCE](ACCEPTANCE.md) を参照してください。
 
 実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）、`advanced3d`（Environment と fog を含む）、`gameplay2d`、`rendering2d`。検証結果と制限は `ACCEPTANCE.md` を参照してください。このリポジトリは自動で push／publish しません。
 

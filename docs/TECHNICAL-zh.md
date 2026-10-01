@@ -223,7 +223,7 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - Geometry 拷貝並驗證自訂 position／normal／uv／index，合併為 stride=8 floats，indices 為 Uint32Array。Index topology 不可變；刻意修改 vertex 的 position／normal／UV 後，呼叫 markUpdated() 增加 version 通知 renderer upload cache。cube／sphere／plane／quad 提供 outward normals／winding；BoxGeometry.unit 為命名基本幾何工廠。
 - Mesh 不銷毀共享 Geometry／TextureMaterial／Texture。Material 提供 texture、RGB tint 與 opacity；相機由 fov／near／far、position／Quaternion rotation 計算 view-projection。
 - WebGPU 使用共用 mesh pipeline、每 mesh 重用 uniform buffer、geometry／texture cache。normal 使用 model 3×3 inverse-transpose，支持非均勻 scale。光照為 ambient 加 directional diffuse。
-- 3D pass 使用 depth24plus／less／depth write，再以 load color 的獨立 pass 疊加 Sprite。材質 alpha 採 premultiplied blending；3D 依 Scene 順序提交並寫 depth，透明幾何若相互交疊需由呼叫者按遠到近加入，不提供 order-independent transparency。
+- 3D pass 使用 depth24plus／less，再以 load color 的獨立 pass 疊加 Sprite。預設 sorted 透明保留 depth write 與 premultiplied blending；opt-in weighted 透明只測 opaque depth、不寫透明 depth，詳見下方透明章節。
 - resize 保留 shader／geometry／texture，替換尺寸相關 depth／HDR attachments；destroy 釋放 GPU caches。
 
 ## 14. Compatibility（P06）
@@ -334,7 +334,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 ### PBR、光源、陰影、HDR 與 Instancing
 
 - PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space UV0（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設 0／0.5，emissive 為零。
-- alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 依規格預設 OPAQUE／false。Blended mesh（BLEND 的 `PBRMaterial`，或 opacity < 1 的任何材質）會在其餘物件之後、依相機到 bounding sphere 中心的距離由遠到近繪製；opaque 與 MASK 保持插入順序，距離相同也保持插入順序，排序原地進行、暖機後不逐幀配置。排序以物件為單位，因此互相穿插或自身重疊的半透明 mesh，以及 opacity 為 1 但貼圖帶 alpha 的 `TextureMaterial`，仍可能合成錯誤；不提供 order-independent transparency。TextureMaterial 保持原 diffuse lighting。
+- alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 預設 OPAQUE／false。PBR 以 alphaMode 為準，即使 opacity 小於一也不改分類。一般 TextureMaterial 在 opacity 小於一或明確 `transparent: true`（貼圖／頂點 alpha）時進透明 pass。預設 sorted 在 opaque／MASK 後按 bounding sphere 中心距離由遠到近，等距穩定、重用排序儲存；穿插表面仍可能錯誤，可選 weighted 近似。
 - Scene.pointLights／spotLights 接受 PointLight／SpotLight；position／color／intensity／range 可變，range=0 無限。Spot direction 指向照射表面，innerAngle／outerAngle 為弧度。最多 8 point＋8 spot，超限拒絕、不截斷。
 - scene.shadows 預設 disabled；可變 mapSize=1024、extent=10（正交完整寬高）、near=0.1、far=50、bias=0.002 與 target 控制僅方向光的 3×3 PCF。Mesh.castShadow／receiveShadow 預設 true；不支援 point／spot shadows 或 cascades。
 - scene.postProcessing 預設 disabled。啟用時 3D 先進 HDR floating-point attachment，再 fullscreen exposure（1）、toneMapping（預設 'aces' 或 'none'）、實際 9-tap threshold bloom（strength=0、threshold=1、radius=2 output pixels）。2D overlay 在後且不受影響；resize／disable／destroy 釋放尺寸相關 targets。WebGL2 需 EXT_color_buffer_float，缺少時明確拒絕啟用 HDR processing。
@@ -504,7 +504,7 @@ Anchors／borders、CanvasTexture、generated font atlas、ParticleLayer、prepa
 - `LOD` 是 `Group`，其子物件即各層級：`addLevel(object, distance)`（層級自動依距離排序；子物件在被選中前為隱藏）。每幀選出 `distance` 不超過「LOD 世界位置到相機距離」的最大層級，只有它可見；`level` 回報其索引。`hysteresis`（世界單位，預設 0）讓相機必須越過正在跨越的邊界這麼遠才切換，避免閃爍。距離是到 LOD 原點，不是包圍體。
 - `Billboard` 是共用單位四邊形的 `Mesh`，`width`／`height` 為其縮放，`mode` 為 `'spherical'`（完全面向相機）或 `'cylindrical'`（只繞 Y 軸）。它每幀依世界位置覆寫自己的旋轉，所以不補償父層旋轉與非等比縮放；請放在 Scene 根或只有平移的群組下。正交相機會對著視線方向。
 - `Line3D(points, {material, width, closed})` 以面向相機的帶狀四邊形繪製折線：每段一個四邊形（4 個頂點），每幀在物件本地座標重建，提供 `setPoint`／`point`／`pointCount`；`width` 為本地單位的帶寬，可修改。點數在建構時固定。各段是獨立四邊形，銳角處會有小縫或重疊，沒有逐頂點寬度或顏色，也沒有圓角接合。UV 在帶寬方向為 0–1，沿整條線為 0–1。
-- `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` 用 2D canvas 把文字繪成自有的 `Texture`，顯示在 `Billboard` 上；寬度依文字長寬比，高度為 `height`（世界單位）。文字在建立時固定（要改就重新建立），`destroy()` 釋放紋理；四邊形以一般方式混合，不與其他透明物件做深度正確排序。
+- `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` 光柵化成自有 Texture 並顯示於 Billboard；寬度依文字比例、height 為世界單位，文字建立後固定，destroy 釋放紋理。與 Sprite3D 一樣自動進透明 pass，適用物件排序或 weighted 近似。
 - 限制：沒有 LOD 交叉淡化、沒有依螢幕大小切換、沒有深度感知的粗線端點、沒有多行排版，也沒有超出瀏覽器 `fillText` 的雙向文字整形；這些輔助物件不會由 Canvas2D 繪製（該 backend 沒有 3D）。
 
 ### Sprite3D（P36c）
@@ -762,3 +762,23 @@ unlit 共存會拒絕。Alpha mode 保持獨立。規格見
 offscreen samples clamp 到 capture 邊界。不做 exit-surface ray tracing、
 nested IOR／camera-inside total internal reflection、scattering 或彩色／傳光
 陰影；仍沿用既有不透明 shadow silhouettes。
+
+## Weighted 3D 透明
+
+以 `scene.transparency = 'weighted'` 啟用 weighted blended OIT；預設仍為
+`'sorted'`。WebGPU 以 MRT 累積加權線性顏色與 revealage；WebGL2 分成
+accumulation 與 revealage 兩個 pass。透明片元測試 opaque depth，但不寫 depth；
+結果合成到 HDR，再經 tone mapping、effects3D 與原本的 2D overlay。
+WebGL2 需要 `EXT_color_buffer_float`，缺少時明確報錯。
+
+這不是精確逐像素排序或 depth peeling。顏色可能不同於 sorted blending；
+half-float 累積範圍有限，大量重疊層可能損失精度。WebGPU 保留啟用時的
+4× MSAA，WebGL2 使用單取樣離屏 attachments。SSAO／DOF 只看到 opaque
+depth，無透明表面深度；transmission 仍只取既有 opaque snapshot，不遞迴取樣
+透明層。尺寸相關 OIT targets 在 resize、停用／無 Scene、destroy 時釋放。
+Canvas2D 仍僅支援 2D。
+
+opacity 為一的 alpha 貼圖／頂點色使用
+`new TextureMaterial({texture, transparent: true})`；Sprite3D／Text3D 自動設定。
+PBR 依 alphaMode，不使用此 legacy flag。objects3d 範例提供 weighted 開關與
+插入順序反轉；限定驗證見 ACCEPTANCE。

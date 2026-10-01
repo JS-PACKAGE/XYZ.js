@@ -797,3 +797,18 @@ await game.graphics.renderToTexture(target, group); // never advances simulation
 const pixels = await game.graphics.extractPixels(target); // straight-alpha RGBA
 target.destroy();
 ```
+
+## Weighted 3D transparency
+
+```ts
+scene.transparency = 'weighted'; // default: 'sorted'
+const material = new TextureMaterial({ texture, transparent: true });
+```
+
+Use `transparent: true` for TextureMaterial texture/vertex alpha at opacity one;
+opacity below one already opts in. PBR uses `alphaMode: 'BLEND'`.
+Sprite3D/Text3D opt in automatically. Weighted OIT approximates intersecting
+surfaces without exact layer sorting. It requires WebGPU or WebGL2 with float
+color attachments, and does not add multilayer refraction or transparent depth
+for SSAO/DOF. Try the toggle and reverse-order button in
+[objects3d](../examples/objects3d/index.html).

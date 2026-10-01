@@ -32,6 +32,7 @@ import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
 import { FrameStats } from './render-stats.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
+import { WebGPUOIT } from './webgpu-oit.js';
 
 interface CachedGeometry {
   vertex: GPUBuffer;
@@ -132,6 +133,7 @@ export class WebGPUMeshPipeline {
   private msaaWidth = 0;
   private msaaHeight = 0;
   private frame = 0;
+  private readonly oit: WebGPUOIT;
   private readonly linearClear = { r: 0, g: 0, b: 0, a: 1 };
   private readonly clearComponents = new Float32Array(4);
   private readonly colorAttachment: Omit<
@@ -175,6 +177,7 @@ export class WebGPUMeshPipeline {
     private readonly thicknessPack: GPUComputePipeline,
     private readonly pipeline: GPURenderPipeline,
     private readonly hdrPipeline: GPURenderPipeline,
+    private readonly oitPipeline: GPURenderPipeline,
     private readonly shadowPipeline: GPURenderPipeline,
     private readonly skyPipeline: GPURenderPipeline,
     private readonly skyHdrPipeline: GPURenderPipeline,
@@ -186,6 +189,7 @@ export class WebGPUMeshPipeline {
     private readonly format: GPUTextureFormat,
     private readonly sampleCount: number,
   ) {
+    this.oit = new WebGPUOIT(device, sampleCount);
     this.sceneBuffer = device.createBuffer({
       size: this.sceneData.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -499,6 +503,33 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     });
+    const additive: GPUBlendComponent = { srcFactor: 'one', dstFactor: 'one' };
+    const reveal: GPUBlendComponent = {
+      srcFactor: 'zero',
+      dstFactor: 'one-minus-src-alpha',
+    };
+    const oitPipeline = device.createRenderPipeline({
+      layout,
+      vertex: { module, entryPoint: 'vertexMain', buffers },
+      fragment: {
+        module,
+        entryPoint: 'oitFragment',
+        targets: [
+          {
+            format: 'rgba16float',
+            blend: { color: additive, alpha: additive },
+          },
+          { format: 'r8unorm', blend: { color: reveal, alpha: reveal } },
+        ],
+      },
+      primitive: { topology: 'triangle-list' },
+      multisample: { count: sampleCount },
+      depthStencil: {
+        format: 'depth24plus',
+        depthWriteEnabled: false,
+        depthCompare: 'less',
+      },
+    });
     const shadowPipeline = device.createRenderPipeline({
       layout: device.createPipelineLayout({
         bindGroupLayouts: [
@@ -554,6 +585,7 @@ export class WebGPUMeshPipeline {
         thicknessPack,
         pipeline,
         hdrPipeline,
+        oitPipeline,
         shadowPipeline,
         skyPipeline,
         skyHdrPipeline,
@@ -572,6 +604,7 @@ export class WebGPUMeshPipeline {
   }
 
   resize(width: number, height: number): void {
+    this.oit.resize(width, height);
     if (
       this.depthTexture &&
       (this.depthWidth !== width || this.depthHeight !== height)
@@ -580,6 +613,19 @@ export class WebGPUMeshPipeline {
       this.depthTexture = undefined;
       this.depthView = undefined;
     }
+    if (
+      this.msaaTexture &&
+      (this.msaaWidth !== width || this.msaaHeight !== height)
+    ) {
+      this.msaaTexture.destroy();
+      this.msaaTexture = undefined;
+      this.msaaView = undefined;
+    }
+    if (
+      this.refractionTexture &&
+      (this.refractionWidth !== width || this.refractionHeight !== height)
+    )
+      this.releaseRefraction();
     this.post.resize(width, height);
   }
 
@@ -634,6 +680,7 @@ export class WebGPUMeshPipeline {
       if (!scene) {
         this.post.releaseTarget();
         this.releaseRefraction();
+        this.oit.release();
         return false;
       }
       validateRenderSettings(scene);
@@ -643,6 +690,7 @@ export class WebGPUMeshPipeline {
       this.ensureEnvironment(scene);
       this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
       let hasTransmission = false;
+      let weighted = false;
       for (const object of scene.objects) {
         if (
           !(object instanceof Mesh) ||
@@ -669,6 +717,8 @@ export class WebGPUMeshPipeline {
         this.updateMesh(scene, object, mesh);
         this.draws.push(object);
         if (inView) this.visibleDraws.push(object);
+        if (inView && scene.transparency === 'weighted' && isBlended(object))
+          weighted = true;
         if (
           inView &&
           object.material instanceof PBRMaterial &&
@@ -676,9 +726,12 @@ export class WebGPUMeshPipeline {
         )
           hasTransmission = true;
       }
-      this.drawSorter.sort(this.visibleDraws, scene.camera3D.position);
+      if (scene.transparency === 'sorted')
+        this.drawSorter.sort(this.visibleDraws, scene.camera3D.position);
+      if (!weighted) this.oit.release();
       if (scene.shadows.enabled) this.renderShadows(encoder);
-      const linear = scene.postProcessing.enabled || hasTransmission;
+      const linear =
+        scene.postProcessing.enabled || hasTransmission || weighted;
       this.prepareScene(scene, aspect, linear);
       if (!linear) this.post.releaseTarget();
       if (hasTransmission) this.ensureRefraction(width, height);
@@ -719,6 +772,7 @@ export class WebGPUMeshPipeline {
           pass.setBindGroup(0, this.sceneBindGroup);
           pass.setPipeline(linear ? this.hdrPipeline : this.pipeline);
           for (const object of this.visibleDraws) {
+            if (weighted && isBlended(object)) continue;
             if (hasTransmission) {
               const deferred =
                 isBlended(object) ||
@@ -741,6 +795,27 @@ export class WebGPUMeshPipeline {
         }
         if (hasTransmission && phase === 0)
           this.post.copyColor(encoder, this.refractionTexture!);
+      }
+      if (weighted) {
+        const pass = this.oit.begin(encoder, width, height, this.depthView!);
+        try {
+          pass.setPipeline(this.oitPipeline);
+          for (const object of this.visibleDraws) {
+            if (!isBlended(object)) continue;
+            pass.setBindGroup(
+              0,
+              this.reflectionGroup(this.meshes.get(object)!.environment),
+            );
+            this.drawMesh(pass, object);
+            this.stats.draw(
+              object.geometry.indices.length,
+              object instanceof InstancedMesh ? object.count : 1,
+            );
+          }
+        } finally {
+          pass.end();
+        }
+        this.oit.resolve(encoder, target);
       }
       if (linear)
         this.post.render(
@@ -1595,6 +1670,7 @@ export class WebGPUMeshPipeline {
   }
 
   destroy(): void {
+    this.oit.release();
     this.post.destroy();
     this.depthTexture?.destroy();
     this.msaaTexture?.destroy();
@@ -1612,6 +1688,8 @@ export class WebGPUMeshPipeline {
     this.whiteTexture.destroy();
     this.emptyShadow.destroy();
     this.refractionTexture?.destroy();
+    this.refractionTexture = undefined;
+    this.refractionView = undefined;
     this.emptyOptical.destroy();
     for (const entry of this.opticalTextures.values()) entry.resource.destroy();
     this.opticalTextures.clear();

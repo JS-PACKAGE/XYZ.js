@@ -54,6 +54,7 @@ try {
   class Gallery extends Scene {
     readonly lod = new LOD();
     readonly decals: Decal[] = [];
+    readonly translucent: Mesh[] = [];
     readonly card = this.add(
       new Billboard({
         material,
@@ -108,6 +109,23 @@ try {
       this.lod.hysteresis = 0.5;
       this.lod.position.set(0, 0, 0);
       this.add(this.lod);
+      for (const side of [-1, 1]) {
+        this.translucent.push(
+          this.add(
+            new Mesh({
+              geometry: Geometry.quad(1.6, 1.2),
+              material: new TextureMaterial({
+                texture,
+                color: side < 0 ? [1, 0.15, 0.15] : [0.15, 0.4, 1],
+                opacity: 0.55,
+              }),
+              position: [0, -1.5, 0.8],
+              rotation: [0, side * 0.7, 0],
+              castShadow: false,
+            }),
+          ),
+        );
+      }
       this.camera3D.far = 200;
     }
 
@@ -141,6 +159,16 @@ try {
     for (const decal of scene.decals) decal.visible = decalsVisible;
     $('decal').textContent = decalsVisible ? 'Hide decals' : 'Show decals';
   });
+  $('oit').addEventListener('change', () => {
+    scene.transparency = $<HTMLInputElement>('oit').checked
+      ? 'weighted'
+      : 'sorted';
+  });
+  $('order').addEventListener('click', () => {
+    scene.translucent.reverse();
+    for (const mesh of scene.translucent) scene.remove(mesh);
+    for (const mesh of scene.translucent) scene.add(mesh);
+  });
   const aim = (): void => {
     scene.aim(Number(distance.value), Number(orbit.value));
     $('distance-value').textContent = Number(distance.value).toFixed(1);
@@ -154,7 +182,7 @@ try {
   const report = window.setInterval(() => {
     const names = ['sphere 32×16', 'sphere 12×6', 'sphere 6×3', 'cube'];
     $('info').textContent =
-      `LOD level ${scene.lod.level} (${names[scene.lod.level] ?? 'not yet chosen'}) at distance ${Number(distance.value).toFixed(1)}\nbillboard facing ${scene.card.mode}, ribbon points ${scene.ribbon.pointCount}, Sprite3D frame ${frame + 1}/${sheet.frames.length}`;
+      `LOD level ${scene.lod.level} (${names[scene.lod.level] ?? 'not yet chosen'}) at distance ${Number(distance.value).toFixed(1)}\nbillboard facing ${scene.card.mode}, ribbon points ${scene.ribbon.pointCount}, Sprite3D frame ${frame + 1}/${sheet.frames.length}, transparency ${scene.transparency}`;
   }, 100);
   status.textContent = `${runtime.graphics.backend} · LOD, Billboard, Sprite3D, Decal, Text3D, Line3D`;
   window.addEventListener('pagehide', (event) => {

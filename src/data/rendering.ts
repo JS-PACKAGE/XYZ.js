@@ -15,6 +15,13 @@ export const ENVIRONMENT_FLOAT_COUNT = 40;
 /** Mesh-local IBL block adds box bounds and capture position to the environment block. */
 export const REFLECTION_FLOAT_COUNT = ENVIRONMENT_FLOAT_COUNT + 12;
 
+/** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
+export const oitSettings = Object.freeze({
+  scale: 100,
+  minWeight: 0.01,
+  maxWeight: 30,
+});
+
 export const environmentLimits = Object.freeze({
   /** Equirect width cap; height is width / 2. */
   maxWidth: 2048,

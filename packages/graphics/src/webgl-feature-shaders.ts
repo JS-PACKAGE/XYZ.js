@@ -3,6 +3,7 @@ import { depthPostGLSL } from './depth-post-shaders.js';
 import { sheenGLSL } from './sheen-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
 import { reflectionProbeGLSL } from './reflection-probe-shaders.js';
+import { oitWeightGLSL } from './oit-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -97,11 +98,13 @@ uniform bool linearOutput;
 uniform vec3 cameraPosition;
 uniform bool receiveShadow;
 out vec4 color;
+uniform int oitPass;
 ${atlasGLSL}
 const float PI = 3.141592653589793;
 ${transmissionGLSL}
 ${sheenGLSL}
 ${reflectionProbeGLSL}
+${oitWeightGLSL}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -178,7 +181,7 @@ vec3 applyFog(vec3 rgb, float opacity) {
   }
   return mix(rgb, fog[0].rgb * opacity, amount);
 }
-void main() {
+void shadeMesh() {
   vec4 texel = texture(image, vUV);
   float opacity = texel.a * tint.a * vColor.a;
   if (pbr) {
@@ -187,6 +190,12 @@ void main() {
   }
   bool front = gl_FrontFacing == (vOrientation > 0.0);
   if (pbr && (!doubleSided || transmission.y > 0.0) && !front) discard;
+  if (oitPass > 0 && opacity <= 0.0) discard;
+  // Revealage depends only on coverage; do not evaluate lighting a second time.
+  if (oitPass == 2) {
+    color = vec4(opacity);
+    return;
+  }
   vec3 n = vNormal / max(length(vNormal), .000001);
   if (pbr && !front) n = -n;
   vec3 nc = n;
@@ -333,6 +342,10 @@ void main() {
     if (linearOutput) result = decodeSRGB(result);
   }
   color = vec4(applyFog(result * opacity, opacity), opacity);
+}
+void main() {
+  shadeMesh();
+  if (oitPass == 1) color *= transparencyWeight(color.a,gl_FragCoord.z);
 }`;
 
 export const shadowFragment = `#version 300 es

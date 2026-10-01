@@ -795,3 +795,17 @@ await game.graphics.renderToTexture(target, group); // 不推進 simulation
 const pixels = await game.graphics.extractPixels(target); // straight-alpha RGBA
 target.destroy();
 ```
+
+## Weighted 3D 透明
+
+```ts
+scene.transparency = 'weighted'; // 預設：'sorted'
+const material = new TextureMaterial({ texture, transparent: true });
+```
+
+TextureMaterial 的貼圖／頂點 alpha 在 opacity 為一時使用 transparent；
+opacity 小於一已自動加入。PBR 使用 `alphaMode: 'BLEND'`，
+Sprite3D／Text3D 自動設定。Weighted OIT 近似交錯表面，不是精確逐層排序；
+需要 WebGPU 或支援 float color attachment 的 WebGL2，也不提供多層折射或
+SSAO／DOF 的透明 depth。可於 [objects3d](../examples/objects3d/index.html)
+操作開關及反轉順序按鈕。
