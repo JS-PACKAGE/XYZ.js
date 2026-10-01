@@ -983,3 +983,9 @@ Dynamic primitive compound 的 uniform-density COM 必須在 root origin。Scale
 `new AnimationRootMotion(root, {target | sink})`；`mixer.clipAction(clip).setRootMotion(binding).play()`，locomotion layers 共用同 binding。Mixer 抽 translation／rotation，不再同時移 skeleton root；repeat rigid accumulation 含 turning／reverse／pingpong／once，尊重 masks／fades／ordered blending／additive。Seek／stop reset 不 teleport；callbacks／constraints 後才 flush，seek／stop／clear／destroy／error 取消 pending output。
 
 Root finite／rigid／unit scale，animated root scale／duplicate TR channels 原子拒絕；target／sink 互斥，direct target 不可是 skeleton root。Reused readonly delta translation 是 body-local，rotation 是 post-composed local increment；保留需 copy，character／physics sink 需轉 world coordinates。Direct target 依 local orientation 旋轉 translation，再移 parent-space position。Fixed gameplay 用獨立 owned AnimationMixer 由 fixedUpdate 推，不 double-advance 自動更新的 Scene mixer。Clear 只放 binding registrations，不 destroy borrowed targets；KeyframeTrack.sampleValues(time,Float64Array) 不改 target。
+
+## 57. 明確 bind-pose retargeting（P57）
+
+`new AnimationRetargeter(mappings, {sourceRoot,targetRoot,rootTranslationScale?}).retarget(sourceClip,name?)` 回獨立 AnimationClip，沿既有 mixer／skin／root-motion。Mapping 包含 source／target／explicit bind translation／rotation／scale，optional translationScale；每 animated node 與 non-root direct parent 需一對一 mapping。Bind space 排除 skeleton 外 scene placement，不猜名稱。
+
+World／local rest-rotation 與 parent-frame translation correction 保留 STEP／LINEAR／CUBICSPLINE，analytic 轉換 cubic tangents，不改 source tracks／arrays／live poses。Root factor default1，non-root 用 target/source local bind-offset length；source零／target非零需 explicit factor。Factor finite nonnegative，零鎖 translation。Bind／animated scale 必須 positive uniform，cubic extrema 在 Float32 轉換前後都驗；morph／shear／reflection／duplicate channels／incomplete mapping／hierarchy change／destroyed nodes 在回 clip 前拒絕。

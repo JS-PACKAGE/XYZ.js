@@ -814,3 +814,19 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 真封裝 root stride／loop turn delta=[-1,1,0]、reverse／seek 的 reset 邊界與 blending／pause 契約已驗；兩次 strides 交給真 capsule controller，受牆阻擋於 x=.647，原 skeleton root 不被偷偷移動。
 - Translation／rotation delta 提供 gameplay 消費，不自動覆蓋 authoritative body／碰撞；保留 loop／reverse／ping-pong／seek／blend／ownership consumer-visible regressions。
+
+## P57 Explicit Animation Retargeting（限定已測環境）
+
+- 真封裝 explicit bind mappings 跨 rest-axis／比例產生 target pose 與改變 skinned vertex，source tracks／source ownership 保持不變；保留 interpolation、mapping／transactional validation、destruction regressions。
+- 只做明示 mapping／bind transforms 的 retarget，不宣稱 humanoid auto-rig／automatic bone matching。P43–P57 CPU smoke 合計 733 assertions（含 424 lifecycle cleanup assertions），實際 suite count 及最後工具鏈結果另以整合驗證為準。
+
+## P43–P57 本輪完整整合驗證（限定本機環境）
+
+- Node 26.7.0／pnpm 12.6.0，frozen install、typecheck、test（93 files／780 tests）、lint、build（210 JavaScript modules）與 format:check 全部通過；每個功能另以只含該階段與既有階段的獨立 staged tree 完成相同檢查，並連同相符 dist 逐功能提交。套件維持 1.8.0，不 push／publish／改 tag。
+- 自有 isolated headless Chromium 153.0.8010.12／macOS arm64：完整 gallery smoke 89/89；Canvas2D／WebGL2／WebGPU deep regression 全部通過適用項目。真 WebGL context loss 已覆蓋；WebGPU 真 device-loss injection 明示 SKIP，Canvas2D 的 GPU／3D 項目亦明示 SKIP，不以 SKIP 冒充完成。
+- 正式 Game 的受控 RAF＋實際 Canvas2D readback 證明 presentation：red pixel centroid 9.5→10.5、authoritative body x=12、fixedFrame=1、alpha≈0.5；不是測試矩陣代替實際渲染。Evidence：`.vite/production-p43-game-presentation.json`。
+- 解壓封裝的 CPU consumer smoke 733 assertions；三 backend 原生文字編輯／composition／scroll／10000 keyed rows 的實際 UI 與 PNG 皆通過。兩次 asset recipe manifest SHA256 相同，解壓封裝於 WebGL2／WebGPU 實際畫出 native mips 與 PNG fallback；AudioManager unlock 與八份官方 AudioWorklet 的真 HTTP 載入皆通過。
+- 混合 soak：WebGPU 60.011 s／11 cycles、WebGL2 60.014 s／11 cycles、Canvas2D 60.022 s／14 cycles；Scene／physics registrations、decoded／native entries 與 live bytes／borrowers、held attachments 清理後皆為 0，leases 與 captures 全數配對釋放。RAF mean 分別 16.666／16.731／17.840 ms，CPU simulation／physics／submit 分開記錄；這不是 GPU completion／VRAM 或 process-memory plateau 證明。Evidence：`.vite/production-mixed-headless-shell.json`。
+- 正式 Playwright launcher 使用 pinned headless shell，保留 explicit executable override 的驗證與錯誤；獨立 full-app probe 曾於約 31.6 s 自行結束，未捏造原因。最後完整 smoke 與 soak 均用 headless shell 通過。自有 browser／profile 與本輪自有 Vite 服務已清理，未連接使用者 browser／relay。
+- 限制：未執行 hosted Ubuntu CI、其他 browser／driver／硬體認證、OS／硬體 IME、真 WebGPU driver-loss 或一小時 soak；本機結果不外推以上項目。歷史驗收日期與當時 test counts 保留。
+- 九份本輪文件的 278 個相對連結／heading anchors 全部通過檢查；文件格式檢查通過，不將文件檢查記成重新驗證 browser runtime。

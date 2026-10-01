@@ -1166,3 +1166,7 @@ Opt a dynamic body into `new RigidBody3D({continuous:true})` to sweep its actual
 ## 36. Consume Root Motion (P56)
 
 Create AnimationRootMotion(skeletonRoot,{target:actor}) and assign that same binding to each locomotion action via setRootMotion. Alternatively provide a sink, transform reused body-local deltas into world coordinates and pass them to CharacterController3D.move. A dedicated AnimationMixer advanced from fixedUpdate avoids double-advancing Scene.animations. [Loops, callbacks, units and ownership](TECHNICAL.md#56-animation-root-motion-p56).
+
+## 37. Retarget Before Playback (P57)
+
+Declare one-to-one source/target nodes and explicit bind transforms in AnimationRetargeter mappings, including each non-root direct parent; set corresponding skeleton roots. Retarget the source clip once, then use the resulting clip with the existing target mixer/skin/root-motion consumers. Never mutate source tracks to adapt them. [Scale/interpolation restrictions](TECHNICAL.md#57-explicit-bind-pose-retargeting-p57).

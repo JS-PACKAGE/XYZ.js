@@ -75,6 +75,8 @@ export { TwoBoneIKConstraint } from './animation-ik.js';
 export type { TwoBoneIKOptions, TwoBoneIKStatus } from './animation-ik.js';
 export { AnimationRootMotion } from './animation-root-motion.js';
 export type { AnimationRootMotionDelta, AnimationRootMotionOptions, } from './animation-root-motion.js';
+export { AnimationRetargeter } from './animation-retarget.js';
+export type { AnimationBindTransform, AnimationRetargetMapping, AnimationRetargetOptions, } from './animation-retarget.js';
 export { SkinnedMesh } from './skinned-mesh.js';
 export type { Camera3D } from './orthographic-camera.js';
 export type { RaycastHit } from './raycaster.js';

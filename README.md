@@ -39,6 +39,7 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 - P54：`CompoundCollider3D` 的 child-local union／真 gaps／combined inertia。
 - P55：opt-in static-target 3D translation CCD；不涵蓋 rotation／dynamic-pair CCD。
 - P56：可交由 actor／controller 消費的 animation root motion。
+- P57：explicit bind-pose animation retargeting；不修改 source tracks。
 
 ### 目前支援矩陣與已批准擴充
 
@@ -120,6 +121,7 @@ Production additions in this round:
 - P54: `CompoundCollider3D` child-local unions, real gaps and combined inertia.
 - P55: opt-in static-target 3D translation CCD, excluding rotational/dynamic-pair CCD.
 - P56: animation root motion consumed by an actor/controller.
+- P57: explicit bind-pose animation retargeting without mutating source tracks.
 
 ### Current support matrix and approved expansion
 
@@ -192,6 +194,7 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 - P54：`CompoundCollider3D` の child-local union／実 gaps／combined inertia。
 - P55：opt-in static-target 3D translation CCD。rotation／dynamic-pair CCD は対象外です。
 - P56：actor／controller が消費できる animation root motion。
+- P57：source tracks を変更しない explicit bind-pose animation retargeting。
 
 ### 現在の対応表と承認済み拡張
 
