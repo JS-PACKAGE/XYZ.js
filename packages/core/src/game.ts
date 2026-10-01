@@ -54,6 +54,12 @@ export interface GameOptions {
   saveSchema?: SaveSchema;
   /** Locale registry, exposed as `game.i18n`; defaults to locale `en` with no messages. */
   i18n?: I18nOptions;
+  /**
+   * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
+   * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
+   * playing as it always did.
+   */
+  audioPause?: { onPause?: boolean; onHidden?: boolean };
 }
 
 export type GameState = 'idle' | 'running' | 'paused' | 'destroyed';
@@ -116,6 +122,7 @@ export class Game extends EventTarget {
   private readonly previousContain: { value: string; priority: string };
   private readonly previousIntrinsicSize: { value: string; priority: string };
   private readonly autoResize: boolean;
+  private readonly audioPause: { onPause: boolean; onHidden: boolean };
   private readonly accessibilityManager: AccessibilityManager;
   private readonly accessibilitySize = { width: 0, height: 0 };
 
@@ -136,6 +143,10 @@ export class Game extends EventTarget {
     this.input = new InputManager(canvas, () => this);
     this.saves = new SaveManager(options.saveStorage, options.saveSchema);
     this.i18n = new I18n(options.i18n);
+    this.audioPause = {
+      onPause: options.audioPause?.onPause ?? false,
+      onHidden: options.audioPause?.onHidden ?? false,
+    };
     this.accessibilityManager = new AccessibilityManager(canvas, () => {
       this.accessibilitySize.width = this.logicalWidth;
       this.accessibilitySize.height = this.logicalHeight;
@@ -398,6 +409,7 @@ export class Game extends EventTarget {
     }
     if (this.currentState === 'running') return;
     this.currentState = 'running';
+    if (this.audioPause.onPause) this.audio.resume('game');
     this.clock.suspend();
     this.input.reset();
     if (!document.hidden) this.requestId = requestAnimationFrame(this.onFrame);
@@ -567,6 +579,7 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed' || this.currentState === 'paused')
       return;
     this.currentState = 'paused';
+    if (this.audioPause.onPause) this.audio.pause('game');
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     this.clock.suspend();
@@ -834,6 +847,10 @@ export class Game extends EventTarget {
   }
 
   private readonly onVisibilityChange = (): void => {
+    if (this.audioPause.onHidden) {
+      if (document.hidden) this.audio.pause('hidden');
+      else this.audio.resume('hidden');
+    }
     this.clock.suspend();
     this.currentScene?.resetPointerRouting();
     this.accessibilityManager.reset();

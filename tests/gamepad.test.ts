@@ -211,3 +211,137 @@ describe('InputManager gamepad integration', () => {
     expect(input.gamepad.connected).toBe(false);
   });
 });
+
+function withId(
+  base: GamepadSnapshot,
+  id: string,
+  extra: Partial<GamepadSnapshot> = {},
+): GamepadSnapshot {
+  return { ...base, id, ...extra };
+}
+
+describe('GamepadState mappings for non-standard pads', () => {
+  const generic = (buttons: Record<number, number>, axes: number[]) =>
+    withId(
+      pad({ mapping: '', buttons, axes }),
+      'Vendor Pad (Vendor: 1234 Product: abcd)',
+    );
+
+  it('ignores a non-standard pad until a matching mapping is added, then reads it through the mapping', () => {
+    const state = new GamepadState();
+    const raw = generic({ 2: 1, 5: 1 }, [0.9, -0.9, 0, 0, -1, 1]);
+    state.update([raw]);
+    expect(state.connected).toBe(false);
+    const remove = state.addMapping({
+      match: 'product: abcd',
+      name: 'Vendor pad',
+      buttons: { a: 2, b: 5 },
+      triggerAxes: { lt: 4, rt: 5 },
+      axes: { leftX: 0, leftY: { index: 1, invert: true } },
+    });
+    state.update([raw]);
+    expect(state.connected).toBe(true);
+    expect(state.mapping?.name).toBe('Vendor pad');
+    expect(state.isDown('a')).toBe(true);
+    expect(state.isDown('b')).toBe(true);
+    // Axis triggers: -1 is released, +1 is fully pressed.
+    expect(state.button('lt')).toBe(0);
+    expect(state.button('rt')).toBe(1);
+    expect(state.axis('leftX')).toBeGreaterThan(0.5);
+    // Raw y is -0.9 and the mapping inverts it.
+    expect(state.axis('leftY')).toBeGreaterThan(0.5);
+    // Unlisted outputs stay neutral rather than reading unrelated raw indices.
+    expect(state.button('x')).toBe(0);
+    expect(state.axis('rightX')).toBe(0);
+    remove();
+    state.update([raw]);
+    expect(state.connected).toBe(false);
+  });
+
+  it('lets the newest matching mapping win, matches RegExps and never remaps standard pads', () => {
+    const state = new GamepadState();
+    state.addMapping({ match: /vendor/i, buttons: { a: 0 } });
+    state.addMapping({ match: 'vendor', buttons: { a: 3 } });
+    state.update([generic({ 0: 1, 3: 0 }, [0, 0, 0, 0])]);
+    expect(state.isDown('a')).toBe(false);
+    state.update([generic({ 0: 0, 3: 1 }, [0, 0, 0, 0])]);
+    expect(state.isDown('a')).toBe(true);
+    const standard = withId(pad({ buttons: { 0: 1 } }), 'Vendor standard pad');
+    state.reset();
+    state.update([standard]);
+    expect(state.mapping).toBeUndefined();
+    expect(state.isDown('a')).toBe(true);
+  });
+
+  it('rejects malformed mappings', () => {
+    const state = new GamepadState();
+    expect(() => state.addMapping({ match: '' })).toThrow(RangeError);
+    expect(() => state.addMapping({ match: 'x', buttons: { a: -1 } })).toThrow(
+      RangeError,
+    );
+    expect(() =>
+      state.addMapping({ match: 'x', axes: { leftX: 1.5 } }),
+    ).toThrow(RangeError);
+    expect(() =>
+      state.addMapping({ match: 'x', buttons: { nope: 1 } as never }),
+    ).toThrow();
+  });
+});
+
+describe('GamepadState rumble', () => {
+  it('plays a dual-rumble effect with clamped parameters and reports completion', async () => {
+    const state = new GamepadState();
+    const playEffect = vi.fn(async () => 'complete');
+    const reset = vi.fn(async () => 'complete');
+    state.update([
+      withId(pad(), 'p', {
+        vibrationActuator: { type: 'dual-rumble', playEffect, reset },
+      }),
+    ]);
+    expect(
+      await state.rumble({
+        duration: 300,
+        strong: 0.8,
+        weak: 0.2,
+        startDelay: 10,
+      }),
+    ).toBe(true);
+    expect(playEffect).toHaveBeenCalledWith('dual-rumble', {
+      startDelay: 10,
+      duration: 300,
+      weakMagnitude: 0.2,
+      strongMagnitude: 0.8,
+    });
+    await state.rumble();
+    expect(playEffect).toHaveBeenLastCalledWith('dual-rumble', {
+      startDelay: 0,
+      duration: 200,
+      weakMagnitude: 1,
+      strongMagnitude: 1,
+    });
+    expect(await state.stopRumble()).toBe(true);
+    playEffect.mockResolvedValueOnce('preempted');
+    expect(await state.rumble()).toBe(false);
+    playEffect.mockRejectedValueOnce(new Error('gone'));
+    expect(await state.rumble()).toBe(false);
+    await expect(state.rumble({ strong: 2 })).rejects.toThrow(RangeError);
+    await expect(state.rumble({ duration: 6000 })).rejects.toThrow(RangeError);
+    await expect(state.rumble({ startDelay: -1 })).rejects.toThrow(RangeError);
+  });
+
+  it('falls back to legacy pulse actuators and is a no-op without a pad or actuator', async () => {
+    const state = new GamepadState();
+    expect(await state.rumble()).toBe(false);
+    expect(await state.stopRumble()).toBe(false);
+    state.update([pad()]);
+    expect(await state.rumble()).toBe(false);
+    const pulse = vi.fn(async () => true);
+    state.update([withId(pad(), 'p', { hapticActuators: [{ pulse }] })]);
+    expect(await state.rumble({ strong: 0.3, weak: 0.9, duration: 50 })).toBe(
+      true,
+    );
+    expect(pulse).toHaveBeenCalledWith(0.9, 50);
+    state.reset();
+    expect(await state.rumble()).toBe(false);
+  });
+});

@@ -277,6 +277,43 @@ describe('AudioManager orchestration', () => {
     manager.destroy();
   });
 
+  it('freezes the OPM timeline while paused and continues without skipping or replaying', () => {
+    vi.useFakeTimers();
+    const { clock, api } = mock;
+    const manager = new AudioManager(
+      () => undefined,
+      () => {},
+    );
+    const notes = [
+      { note: 60, time: 0, duration: 0.05 },
+      { note: 62, time: 1, duration: 0.05 },
+      { note: 64, time: 2, duration: 0.05 },
+    ];
+    manager.play(asset(manager, notes, 'music', false, 3));
+    expect(api.play.mock.calls.map((call) => call[2])).toEqual([60]);
+    clock.now = 0.95;
+    vi.advanceTimersByTime(25);
+    expect(api.play.mock.calls.map((call) => call[2])).toEqual([60, 62]);
+    manager.pause('hidden');
+    manager.pause('game');
+    expect(manager.paused).toBe(true);
+    // Ten seconds pass while frozen: nothing may be scheduled, not even the missed note.
+    clock.now = 10.95;
+    vi.advanceTimersByTime(250);
+    expect(api.play.mock.calls.map((call) => call[2])).toEqual([60, 62]);
+    manager.resume('hidden');
+    expect(manager.paused).toBe(true);
+    manager.resume('game');
+    expect(manager.paused).toBe(false);
+    // 10 s of pause are removed from the timeline, so the third note is still ~1.05 s away.
+    vi.advanceTimersByTime(25);
+    expect(api.play.mock.calls.map((call) => call[2])).toEqual([60, 62]);
+    clock.now = 11.95;
+    vi.advanceTimersByTime(25);
+    expect(api.play.mock.calls.map((call) => call[2])).toEqual([60, 62, 64]);
+    manager.destroy();
+  });
+
   it('rejects a loop period that would omit trailing notes', async () => {
     vi.stubGlobal(
       'fetch',

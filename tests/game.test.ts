@@ -365,4 +365,37 @@ describe('Game canvas ownership and lifecycle', () => {
     expect([game.width, game.height]).toEqual([1280, 720]);
     game.destroy();
   });
+
+  it('ties audio pause to game pause/resume and page visibility only when asked', async () => {
+    const optedIn = await Game.create({
+      canvas: canvas as unknown as HTMLCanvasElement,
+      audioPause: { onPause: true, onHidden: true },
+    });
+    const pause = vi.spyOn(optedIn.audio, 'pause');
+    const resume = vi.spyOn(optedIn.audio, 'resume');
+    optedIn.start();
+    optedIn.pause();
+    expect(pause).toHaveBeenLastCalledWith('game');
+    optedIn.resume();
+    expect(resume).toHaveBeenLastCalledWith('game');
+    (document as { hidden: boolean }).hidden = true;
+    documentEvents.dispatchEvent(new Event('visibilitychange'));
+    expect(pause).toHaveBeenLastCalledWith('hidden');
+    (document as { hidden: boolean }).hidden = false;
+    documentEvents.dispatchEvent(new Event('visibilitychange'));
+    expect(resume).toHaveBeenLastCalledWith('hidden');
+    optedIn.destroy();
+
+    const defaults = await Game.create({
+      canvas: canvas as unknown as HTMLCanvasElement,
+    });
+    const untouched = vi.spyOn(defaults.audio, 'pause');
+    defaults.start();
+    defaults.pause();
+    (document as { hidden: boolean }).hidden = true;
+    documentEvents.dispatchEvent(new Event('visibilitychange'));
+    expect(untouched).not.toHaveBeenCalled();
+    (document as { hidden: boolean }).hidden = false;
+    defaults.destroy();
+  });
 });

@@ -46,6 +46,21 @@ export type GamepadBinding =
     }
   | { readonly key: string };
 
+/** Structural subset of `GamepadHapticActuator` (Chromium's dual-rumble effect). */
+export interface GamepadVibrationActuator {
+  readonly type?: string;
+  playEffect?(
+    type: string,
+    params: {
+      startDelay?: number;
+      duration: number;
+      weakMagnitude?: number;
+      strongMagnitude?: number;
+    },
+  ): Promise<string>;
+  reset?(): Promise<string>;
+}
+
 /** Structural subset of `Gamepad`, so tests and non-DOM hosts can supply snapshots. */
 export interface GamepadSnapshot {
   readonly index: number;
@@ -54,11 +69,51 @@ export interface GamepadSnapshot {
   readonly mapping: string;
   readonly buttons: ReadonlyArray<{ readonly value: number }>;
   readonly axes: ReadonlyArray<number>;
+  readonly vibrationActuator?: GamepadVibrationActuator | null;
+  /** Older Firefox haptics: `pulse(intensity, durationMs)`. */
+  readonly hapticActuators?: ReadonlyArray<{
+    pulse?(value: number, duration: number): Promise<boolean>;
+  }>;
 }
 
 /**
- * Tracks one standard-mapping gamepad. Non-standard devices are ignored rather than
- * guessed at: their button order is vendor specific and cannot be named reliably.
+ * Maps a non-standard pad's raw indices onto the standard layout. The browser only guarantees
+ * the standard layout for pads it recognizes; for anything else the order is vendor specific, so
+ * the mapping has to come from you (or from testing the device). Indices that are not listed read
+ * as released/centered.
+ */
+export interface GamepadMapping {
+  /** Matches `pad.id`: a string as a case-insensitive substring, or a RegExp. */
+  readonly match: string | RegExp;
+  readonly name?: string;
+  /** Raw `buttons[]` index for each standard button. */
+  readonly buttons?: Partial<Record<GamepadButtonName, number>>;
+  /** Triggers reported on axes in [-1, 1] (-1 released): raw `axes[]` index per trigger. */
+  readonly triggerAxes?: Partial<Record<'lt' | 'rt', number>>;
+  /** Raw `axes[]` index per stick axis; `invert` flips the sign. */
+  readonly axes?: Partial<
+    Record<
+      GamepadAxisName,
+      number | { readonly index: number; readonly invert?: boolean }
+    >
+  >;
+}
+
+export interface GamepadRumbleOptions {
+  /** Milliseconds, default 200, at most 5000. */
+  duration?: number;
+  /** Low-frequency motor in [0, 1]; default 1. */
+  strong?: number;
+  /** High-frequency motor in [0, 1]; defaults to `strong`. */
+  weak?: number;
+  /** Milliseconds before the effect starts, default 0. */
+  startDelay?: number;
+}
+
+/**
+ * Tracks one gamepad. Standard-mapping pads work out of the box. Non-standard devices are
+ * ignored unless a {@link GamepadMapping} matching their id was added: their button order is
+ * vendor specific and cannot be guessed reliably.
  */
 export class GamepadState {
   private padIndex = -1;
@@ -69,6 +124,9 @@ export class GamepadState {
   private values: number[] = new Array<number>(BUTTON_NAMES.length).fill(0);
   private previous: number[] = new Array<number>(BUTTON_NAMES.length).fill(0);
   private rawAxes: number[] = [0, 0, 0, 0];
+  private readonly profiles: GamepadMapping[] = [];
+  private activePad: GamepadSnapshot | undefined;
+  private activeProfile: GamepadMapping | undefined;
 
   /** Index of the active pad, or -1 while none is connected with the standard mapping. */
   get index(): number {
@@ -81,6 +139,97 @@ export class GamepadState {
 
   get connected(): boolean {
     return this.padIndex >= 0;
+  }
+
+  /** The mapping applied to the active pad, or undefined for a standard-layout pad. */
+  get mapping(): GamepadMapping | undefined {
+    return this.activeProfile;
+  }
+
+  /**
+   * Registers a mapping for non-standard pads whose `id` matches. Later registrations win.
+   * Returns a function that removes it.
+   */
+  addMapping(mapping: GamepadMapping): () => void {
+    const checkIndex = (value: number, label: string): void => {
+      if (!Number.isInteger(value) || value < 0 || value > 255)
+        throw new RangeError(`${label} must be an integer within 0..255.`);
+    };
+    if (typeof mapping.match === 'string' ? !mapping.match : !mapping.match)
+      throw new RangeError('Gamepad mapping needs a non-empty match.');
+    for (const [name, index] of Object.entries(mapping.buttons ?? {})) {
+      buttonSlot(name as GamepadButtonName);
+      checkIndex(index, `buttons.${name}`);
+    }
+    for (const [name, index] of Object.entries(mapping.triggerAxes ?? {}))
+      checkIndex(index, `triggerAxes.${name}`);
+    for (const [name, entry] of Object.entries(mapping.axes ?? {})) {
+      axisSlot(name as GamepadAxisName);
+      checkIndex(
+        typeof entry === 'number' ? entry : entry.index,
+        `axes.${name}`,
+      );
+    }
+    const stored = { ...mapping };
+    this.profiles.push(stored);
+    return () => {
+      const at = this.profiles.indexOf(stored);
+      if (at >= 0) this.profiles.splice(at, 1);
+    };
+  }
+
+  /**
+   * Plays a dual-rumble effect on the active pad. Resolves true when it ran to completion and
+   * false when the pad has no usable actuator, the effect was replaced, or the browser refused.
+   */
+  async rumble(options: GamepadRumbleOptions = {}): Promise<boolean> {
+    const duration = options.duration ?? 200;
+    const strong = options.strong ?? 1;
+    const weak = options.weak ?? strong;
+    const startDelay = options.startDelay ?? 0;
+    if (!Number.isFinite(duration) || duration < 0 || duration > 5000)
+      throw new RangeError('Rumble duration must be within 0..5000 ms.');
+    if (!Number.isFinite(startDelay) || startDelay < 0 || startDelay > 5000)
+      throw new RangeError('Rumble startDelay must be within 0..5000 ms.');
+    for (const magnitude of [strong, weak])
+      if (!Number.isFinite(magnitude) || magnitude < 0 || magnitude > 1)
+        throw new RangeError('Rumble magnitudes must be within 0..1.');
+    const pad = this.activePad;
+    if (!pad) return false;
+    try {
+      const actuator = pad.vibrationActuator;
+      if (actuator?.playEffect) {
+        const result = await actuator.playEffect(
+          actuator.type ?? 'dual-rumble',
+          {
+            startDelay,
+            duration,
+            weakMagnitude: weak,
+            strongMagnitude: strong,
+          },
+        );
+        return result === 'complete';
+      }
+      const legacy = pad.hapticActuators?.[0];
+      if (legacy?.pulse) {
+        if (startDelay > 0)
+          await new Promise((resolve) => setTimeout(resolve, startDelay));
+        return await legacy.pulse(Math.max(strong, weak), duration);
+      }
+    } catch {
+      // A pad that vanished or a browser that refused simply has no rumble.
+    }
+    return false;
+  }
+
+  /** Cancels the current rumble effect; false when there was nothing to cancel. */
+  async stopRumble(): Promise<boolean> {
+    try {
+      const result = await this.activePad?.vibrationActuator?.reset?.();
+      return result === 'complete';
+    } catch {
+      return false;
+    }
   }
 
   /** Lock selection to a `navigator.getGamepads()` slot, or undefined for the first standard pad. */
@@ -174,6 +323,8 @@ export class GamepadState {
     const next = new Array<number>(BUTTON_NAMES.length).fill(0);
     const switched = (pad?.index ?? -1) !== this.padIndex;
     if (!pad) {
+      this.activePad = undefined;
+      this.activeProfile = undefined;
       // A vanished pad reports released edges once, then stays neutral.
       this.previous = this.values;
       this.values = next;
@@ -182,14 +333,40 @@ export class GamepadState {
       this.padId = '';
       return;
     }
+    const profile =
+      pad.mapping === 'standard' ? undefined : this.profileFor(pad);
     for (const [slot, name] of BUTTON_NAMES.entries()) {
-      const raw = pad.buttons[gamepadButtonIndex[name]]?.value;
-      next[slot] = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw)) : 0;
+      let raw: number | undefined;
+      if (!profile) raw = pad.buttons[gamepadButtonIndex[name]]?.value;
+      else {
+        const index = profile.buttons?.[name];
+        if (index !== undefined) raw = pad.buttons[index]?.value;
+        else if (
+          (name === 'lt' || name === 'rt') &&
+          profile.triggerAxes?.[name] !== undefined
+        ) {
+          // Axis triggers rest at -1 and press toward +1.
+          const axis = pad.axes[profile.triggerAxes[name]!];
+          raw = Number.isFinite(axis) ? (axis + 1) / 2 : 0;
+        }
+      }
+      next[slot] = Number.isFinite(raw) ? Math.min(1, Math.max(0, raw!)) : 0;
     }
     this.rawAxes = AXIS_NAMES.map((name) => {
-      const raw = pad.axes[gamepadAxisIndex[name]];
-      return Number.isFinite(raw) ? Math.min(1, Math.max(-1, raw)) : 0;
+      let raw: number | undefined;
+      if (!profile) raw = pad.axes[gamepadAxisIndex[name]];
+      else {
+        const entry = profile.axes?.[name];
+        if (entry !== undefined) {
+          const index = typeof entry === 'number' ? entry : entry.index;
+          raw = pad.axes[index];
+          if (typeof entry !== 'number' && entry.invert) raw = -raw!;
+        }
+      }
+      return Number.isFinite(raw) ? Math.min(1, Math.max(-1, raw!)) : 0;
     });
+    this.activePad = pad;
+    this.activeProfile = profile;
     // A newly selected pad must not report already-held buttons as fresh presses.
     this.previous = switched ? next.slice() : this.values;
     this.values = next;
@@ -199,6 +376,8 @@ export class GamepadState {
 
   /** @internal */
   reset(): void {
+    this.activePad = undefined;
+    this.activeProfile = undefined;
     this.values.fill(0);
     this.previous.fill(0);
     this.rawAxes = [0, 0, 0, 0];
@@ -206,11 +385,21 @@ export class GamepadState {
     this.padId = '';
   }
 
+  private profileFor(pad: GamepadSnapshot): GamepadMapping | undefined {
+    for (let i = this.profiles.length - 1; i >= 0; i--)
+      if (matches(this.profiles[i]!.match, pad.id)) return this.profiles[i];
+    return undefined;
+  }
+
   private select(
     pads: ArrayLike<GamepadSnapshot | null>,
   ): GamepadSnapshot | undefined {
     const usable = (pad: GamepadSnapshot | null | undefined) =>
-      pad && pad.connected && pad.mapping === 'standard' ? pad : undefined;
+      pad &&
+      pad.connected &&
+      (pad.mapping === 'standard' || this.profileFor(pad))
+        ? pad
+        : undefined;
     if (this.preferred !== undefined) return usable(pads[this.preferred]);
     for (let i = 0; i < pads.length; i++) {
       const pad = usable(pads[i]);
@@ -218,6 +407,12 @@ export class GamepadState {
     }
     return undefined;
   }
+}
+
+function matches(pattern: string | RegExp, id: string): boolean {
+  return typeof pattern === 'string'
+    ? id.toLowerCase().includes(pattern.toLowerCase())
+    : new RegExp(pattern.source, pattern.flags.replace(/[gy]/g, '')).test(id);
 }
 
 function buttonSlot(name: GamepadButtonName): number {

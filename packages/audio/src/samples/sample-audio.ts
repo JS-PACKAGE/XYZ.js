@@ -5,6 +5,11 @@ import type { Scene } from '../../../core/src/scene.js';
 import type { AudioChannelName } from '../audio-manager.js';
 import { AudioError } from '../errors.js';
 import { SamplePlayback, type SamplePlayOptions } from './sample-playback.js';
+import {
+  AudioStream,
+  whenPlayable,
+  type AudioStreamOptions,
+} from './stream.js';
 import { AudioListenerState } from './spatial.js';
 
 interface SampleHost {
@@ -23,10 +28,17 @@ interface SampleRecord {
   readonly persistent: boolean;
 }
 
+/** Seconds into the decoded buffer; `end` is exclusive of later sprites sharing the file. */
+export interface AudioSpriteRange {
+  readonly start: number;
+  readonly end: number;
+}
+
 /** Encoded bytes are loader-owned; decoded metadata stays unavailable before unlock/decode. */
 export class SampleAudioAsset {
   private buffer?: AudioBuffer;
   private decoding?: Promise<void>;
+  private readonly spriteRanges = new Map<string, AudioSpriteRange>();
   loop = false;
   persistent = false;
 
@@ -50,6 +62,62 @@ export class SampleAudioAsset {
 
   get channels(): number | undefined {
     return this.buffer?.numberOfChannels;
+  }
+
+  /** Names of the defined sprites in definition order. */
+  get sprites(): readonly string[] {
+    return [...this.spriteRanges.keys()];
+  }
+
+  /**
+   * Names sections of this one decoded buffer so many short sounds share a single file and
+   * decode. Ranges are in seconds, are validated against the decoded duration when played, and
+   * may overlap. Redefining a name replaces it.
+   */
+  defineSprites(ranges: Readonly<Record<string, AudioSpriteRange>>): void {
+    const entries = Object.entries(ranges);
+    if (
+      this.spriteRanges.size + entries.length >
+      gameplayAssetLimits.audioSprites
+    )
+      throw new AudioError('Audio sprite budget is exhausted.');
+    for (const [name, range] of entries) {
+      if (
+        !name ||
+        !Number.isFinite(range.start) ||
+        !Number.isFinite(range.end) ||
+        range.start < 0 ||
+        range.start >= range.end
+      )
+        throw new AudioError(
+          `Audio sprite "${name}" must satisfy 0 <= start < end.`,
+        );
+    }
+    for (const [name, range] of entries)
+      this.spriteRanges.set(name, { start: range.start, end: range.end });
+  }
+
+  /** Plays one defined sprite; `loop` repeats only that section. */
+  async playSprite(
+    name: string,
+    options: Omit<SamplePlayOptions, 'region' | 'offset'> = {},
+  ): Promise<SamplePlayback> {
+    const range = this.spriteRanges.get(name);
+    if (!range) throw new AudioError(`Unknown audio sprite "${name}".`);
+    this.engine.requireContext();
+    const scene = options.scene ?? this.engine.currentScene;
+    await this.decode();
+    if (range.end > this.buffer!.duration)
+      throw new AudioError(
+        `Audio sprite "${name}" ends after the decoded duration.`,
+      );
+    return this.engine.play(this.buffer!, {
+      ...options,
+      scene,
+      region: range,
+      loop: options.loop ?? false,
+      persistent: options.persistent ?? this.persistent,
+    });
   }
 
   decode(): Promise<void> {
@@ -128,7 +196,13 @@ export class SampleAudioEngine {
   private readonly lifetime = new AbortController();
   private readonly cache = new Map<string, CachedSample>();
   private readonly assets = new Set<SampleAudioAsset>();
-  private readonly playbacks = new Map<SamplePlayback, SampleRecord>();
+  private readonly playbacks = new Map<
+    SamplePlayback | AudioStream,
+    SampleRecord
+  >();
+  /** Playbacks paused by the manager's pause policy, resumed together. */
+  private readonly suspended = new Set<SamplePlayback | AudioStream>();
+  private holding = false;
   private master?: GainNode;
   private buses?: Record<AudioChannelName, GainNode>;
   private disposed = false;
@@ -235,7 +309,119 @@ export class SampleAudioEngine {
       scene: options.scene,
       persistent: options.persistent ?? false,
     });
+    if (this.holding) {
+      playback.pause();
+      this.suspended.add(playback);
+    }
     return playback;
+  }
+
+  /**
+   * Starts a streamed (not decoded) playback of a long file through an HTMLAudioElement. Resolves
+   * once the element can play; `autoplay` (default true) then starts it.
+   */
+  async stream(
+    url: string,
+    options: AudioStreamOptions = {},
+  ): Promise<AudioStream> {
+    const context = this.requireContext();
+    const channel = options.channel ?? 'music';
+    if (channel !== 'music' && channel !== 'sfx' && channel !== 'ui')
+      throw new AudioError('Unknown audio channel.');
+    const scene = options.scene ?? this.currentScene;
+    if (scene?.destroyed)
+      throw new AudioError('Cannot play audio in a destroyed Scene.');
+    if (this.playbacks.size >= gameplayAssetLimits.samplePlaybacks)
+      throw new AudioError('Sample playback budget is exhausted.');
+    let resolved: URL;
+    try {
+      const base =
+        (typeof document !== 'undefined' ? document.baseURI : undefined) ??
+        (typeof location !== 'undefined' ? location.href : undefined);
+      resolved = new URL(url, base);
+    } catch (error) {
+      throw new AudioError('Invalid stream URL.', { cause: error });
+    }
+    if (!['http:', 'https:', 'blob:', 'data:'].includes(resolved.protocol))
+      throw new AudioError('Unsupported stream URL protocol.');
+    const startTime = options.startTime ?? 0;
+    if (!Number.isFinite(startTime) || startTime < 0)
+      throw new AudioError('Stream startTime must be finite and nonnegative.');
+    if (options.signal?.aborted) throw options.signal.reason;
+    const media = new Audio();
+    const crossOrigin =
+      options.crossOrigin ??
+      (typeof location !== 'undefined' &&
+      resolved.protocol.startsWith('http') &&
+      resolved.origin !== location.origin
+        ? 'anonymous'
+        : undefined);
+    if (crossOrigin) media.crossOrigin = crossOrigin;
+    media.preload = 'auto';
+    media.src = resolved.href;
+    let stream: AudioStream | undefined;
+    let source: MediaElementAudioSourceNode | undefined;
+    let gain: GainNode | undefined;
+    try {
+      await whenPlayable(media, options.signal, this.lifetime.signal);
+      this.requireContext();
+      this.ensureBuses(context);
+      // A media element may only be wrapped once, so the nodes live as long as the stream.
+      source = context.createMediaElementSource(media);
+      gain = context.createGain();
+      source.connect(gain);
+      gain.connect(this.buses![channel]);
+      stream = new AudioStream(
+        media,
+        source,
+        gain,
+        (finished) => {
+          this.playbacks.delete(finished);
+          this.suspended.delete(finished);
+        },
+        options,
+      );
+      this.playbacks.set(stream, {
+        scene,
+        persistent: options.persistent ?? false,
+      });
+      if (startTime > 0) media.currentTime = startTime;
+      if (options.autoplay ?? true) {
+        // While the manager is paused the stream waits for the resume instead of starting.
+        if (this.holding) this.suspended.add(stream);
+        else await stream.play();
+      }
+      return stream;
+    } catch (error) {
+      if (stream) stream.stop();
+      else {
+        source?.disconnect();
+        gain?.disconnect();
+        media.removeAttribute('src');
+        media.load();
+      }
+      throw error;
+    }
+  }
+
+  /** Pauses every playing sample and stream; `resume` restarts exactly those. */
+  suspend(): void {
+    this.holding = true;
+    for (const playback of this.playbacks.keys()) {
+      if (playback.state !== 'playing') continue;
+      playback.pause();
+      this.suspended.add(playback);
+    }
+  }
+
+  resume(): void {
+    this.holding = false;
+    for (const playback of this.suspended) {
+      if (playback.state !== 'paused') continue;
+      if (playback instanceof AudioStream) void playback.play().catch(() => {});
+      else playback.resume();
+    }
+    this.suspended.clear();
   }
 
   refreshGains(): void {
@@ -261,8 +447,9 @@ export class SampleAudioEngine {
     this.lifetime.abort(error);
     for (const entry of this.cache.values()) entry.controller.abort(error);
     this.cache.clear();
-    for (const playback of this.playbacks.keys()) playback.stop();
+    for (const playback of [...this.playbacks.keys()]) playback.stop();
     this.playbacks.clear();
+    this.suspended.clear();
     for (const asset of this.assets) asset.dispose();
     this.assets.clear();
     if (this.buses) {

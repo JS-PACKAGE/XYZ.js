@@ -199,6 +199,47 @@ try {
     true,
   );
 
+  const gestureLog: string[] = [];
+  for (const type of [
+    'tap',
+    'doubletap',
+    'longpress',
+    'swipe',
+    'pan',
+    'pinch',
+    'rotate',
+  ] as const)
+    runtime.input.gestures.on(type, (detail) => {
+      // Pan/pinch/rotate report every change; log only their boundaries.
+      if (detail.phase === 'change') return;
+      const extra =
+        detail.type === 'swipe'
+          ? ` ${detail.direction}`
+          : detail.type === 'pinch'
+            ? ` ×${detail.scale.toFixed(2)}`
+            : detail.type === 'rotate'
+              ? ` ${detail.rotation.toFixed(2)} rad`
+              : detail.type === 'pan'
+                ? ` Δ${detail.translation.x.toFixed(0)},${detail.translation.y.toFixed(0)}`
+                : '';
+      gestureLog.push(`${detail.type}:${detail.phase}${extra}`);
+      if (gestureLog.length > 8) gestureLog.shift();
+      $('gestures').textContent = gestureLog.join('\n');
+    });
+  const rumbleButton = $<HTMLButtonElement>('rumble');
+  rumbleButton.disabled = false;
+  rumbleButton.addEventListener('click', async () => {
+    const played = await gamepad.rumble({
+      duration: 400,
+      strong: 0.8,
+      weak: 0.4,
+    });
+    status.textContent = played
+      ? 'Rumble completed.'
+      : gamepad.connected
+        ? 'This pad or browser has no usable rumble actuator.'
+        : 'Connect a standard-mapping gamepad first.';
+  });
   const padButtons = Object.keys(gamepadButtonIndex) as GamepadButtonName[];
   const report = window.setInterval(() => {
     if (rebinding) {

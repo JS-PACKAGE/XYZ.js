@@ -11,6 +11,7 @@ import {
   type SampleAudioAsset,
 } from './samples/sample-audio.js';
 import type { AudioListenerState } from './samples/spatial.js';
+import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
@@ -149,6 +150,9 @@ export class AudioManager {
   private timer: number | undefined;
   private disposed = false;
   private sequence = 0;
+  private readonly pauseReasons = new Set<string>();
+  private pausedAt: number | undefined;
+  private pausedTotal = 0;
 
   constructor(
     private readonly getScene: () => Scene | undefined,
@@ -169,6 +173,49 @@ export class AudioManager {
 
   get unlocked(): boolean {
     return this.adapter.unlocked;
+  }
+
+  /** True while at least one pause reason is active (see {@link pause}). */
+  get paused(): boolean {
+    return this.pauseReasons.size > 0;
+  }
+
+  /**
+   * Freezes audio under a named reason (default `user`); it stays frozen until every reason has
+   * been {@link resume}d. OPM tracks stop sounding and their timeline stops, then continue at the
+   * next note; a note that was sounding when paused is not replayed. Sample and stream playbacks
+   * pause at their current position and resume together, and playbacks started while paused wait
+   * for the resume.
+   */
+  pause(reason = 'user'): void {
+    if (this.disposed) return;
+    this.pauseReasons.add(reason);
+    if (this.pausedAt !== undefined) return;
+    this.pausedAt = this.adapter.now;
+    for (let slot = 0; slot < VOICE_COUNT; slot++) {
+      if (!this.slots[slot]) continue;
+      try {
+        this.adapter.reset(slot);
+      } catch (error) {
+        this.report(error);
+      }
+      this.slots[slot] = undefined;
+    }
+    this.samples.suspend();
+  }
+
+  resume(reason = 'user'): void {
+    if (this.disposed || !this.pauseReasons.delete(reason)) return;
+    if (this.pauseReasons.size > 0 || this.pausedAt === undefined) return;
+    this.pausedTotal += this.adapter.now - this.pausedAt;
+    this.pausedAt = undefined;
+    this.samples.resume();
+    this.tick();
+  }
+
+  /** Audio-timeline seconds: wall time minus every paused interval. */
+  private clock(): number {
+    return (this.pausedAt ?? this.adapter.now) - this.pausedTotal;
   }
 
   get opm(): OPMAdapter['opm'] {
@@ -257,6 +304,11 @@ export class AudioManager {
     return this.samples.load(url, options);
   }
 
+  /** Streams a long file without decoding it; see {@link AudioStream}. */
+  stream(url: string, options: AudioStreamOptions = {}): Promise<AudioStream> {
+    return this.samples.stream(url, options);
+  }
+
   sampleTask(key: string, url: string): LoadTask<SampleAudioAsset> {
     return { key, load: (signal) => this.loadSample(url, { signal }) };
   }
@@ -283,7 +335,7 @@ export class AudioManager {
       scene,
       persistent: options.persistent ?? asset.persistent,
       loop: options.loop ?? asset.loop,
-      startedAt: this.adapter.now,
+      startedAt: this.clock(),
       cycle: 0,
       index: 0,
     });
@@ -326,7 +378,7 @@ export class AudioManager {
     if (!record) return;
     this.playbacks.delete(playback);
     playback.finish('stopped');
-    const now = this.adapter.now;
+    const now = this.clock();
     for (let slot = 0; slot < VOICE_COUNT; slot++) {
       const reservation = this.slots[slot];
       if (reservation?.playback !== playback) continue;
@@ -456,8 +508,8 @@ export class AudioManager {
   }
 
   private tick(): void {
-    if (this.disposed) return;
-    const now = this.adapter.now;
+    if (this.disposed || this.pausedAt !== undefined) return;
+    const now = this.clock();
     for (let slot = 0; slot < VOICE_COUNT; slot++) {
       const reservation = this.slots[slot];
       if (reservation && reservation.until <= now) this.slots[slot] = undefined;

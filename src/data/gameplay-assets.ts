@@ -9,5 +9,6 @@ export const gameplayAssetLimits = Object.freeze({
   sampleRate: 192000,
   sampleValues: 8 * 1024 * 1024,
   samplePlaybacks: 32,
+  audioSprites: 1024,
   playbackRate: 16,
 });

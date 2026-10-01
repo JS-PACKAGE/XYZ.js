@@ -8,6 +8,7 @@ import {
   type AudioPlayback,
   type RendererPreference,
   type SampleAudioAsset,
+  type AudioStream,
   type SamplePlayback,
 } from '../../src/index.js';
 import { createPcm16Wav } from '../gameplay2d/fixtures.js';
@@ -31,6 +32,10 @@ const controls = [
   'loop',
   'sample',
   'stop-all',
+  'sprite-head',
+  'sprite-tail',
+  'stream',
+  'pause-audio',
   'master-volume',
   'sfx-volume',
   'music-volume',
@@ -87,6 +92,8 @@ try {
     readonly sfxPlaybacks: AudioPlayback[] = [];
     musicPlayback: AudioPlayback | undefined;
     pcmPlayback: SamplePlayback | undefined;
+    spritePlayback: SamplePlayback | undefined;
+    streamPlayback: AudioStream | undefined;
     private readonly lamps = [
       [0.3, 0.8, 1, 1],
       [1, 0.75, 0.25, 1],
@@ -199,7 +206,51 @@ try {
   $('stop-all').addEventListener('click', () => {
     scene.musicPlayback?.stop();
     scene.pcmPlayback?.stop();
+    scene.spritePlayback?.stop();
+    scene.streamPlayback?.stop();
     for (const playback of scene.sfxPlaybacks) playback.stop();
+  });
+  scene.sample!.defineSprites({
+    head: { start: 0, end: 0.2 },
+    tail: { start: 0.25, end: 0.5 },
+  });
+  const playSprite = (name: string, spriteLoop: boolean) => async () => {
+    scene.spritePlayback?.stop();
+    try {
+      scene.spritePlayback = await scene.sample!.playSprite(name, {
+        channel: 'sfx',
+        scene,
+        volume: 0.6,
+        loop: spriteLoop,
+      });
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : String(error);
+    }
+  };
+  $('sprite-head').addEventListener('click', playSprite('head', false));
+  $('sprite-tail').addEventListener('click', playSprite('tail', true));
+  $('stream').addEventListener('click', async () => {
+    scene.streamPlayback?.stop();
+    try {
+      scene.streamPlayback = await runtime.audio.stream(sampleURL, {
+        channel: 'music',
+        scene,
+        loop: true,
+        volume: 0.5,
+      });
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : String(error);
+    }
+  });
+  $('pause-audio').addEventListener('click', (event) => {
+    if (runtime.audio.paused) runtime.audio.resume();
+    else runtime.audio.pause();
+    (event.currentTarget as HTMLButtonElement).textContent = runtime.audio
+      .paused
+      ? 'Resume audio'
+      : 'Pause audio';
   });
   const bindVolume = (id: string, apply: (value: number) => void): void => {
     const slider = $<HTMLInputElement>(`${id}-volume`);
@@ -228,6 +279,8 @@ try {
       `OPM SFX handles playing: ${scene.playingSfx}`,
       `OPM music: ${scene.musicPlayback?.state ?? 'idle'}`,
       `PCM sample: ${pcm?.state ?? 'idle'}${pcm ? ` at ${pcm.position.toFixed(2)}s` : ''} · decoded ${scene.sample?.decoded ?? false}${scene.sample?.duration ? ` · ${scene.sample.duration.toFixed(2)}s @ ${scene.sample.sampleRate} Hz` : ''}`,
+      `Sprites: ${scene.sample?.sprites.join(', ') || 'none'} · sprite ${scene.spritePlayback?.state ?? 'idle'}${scene.spritePlayback ? ` at ${scene.spritePlayback.position.toFixed(2)}s` : ''}`,
+      `Stream: ${scene.streamPlayback?.state ?? 'idle'}${scene.streamPlayback ? ` at ${scene.streamPlayback.position.toFixed(2)}s` : ''} · audio ${runtime.audio.paused ? 'PAUSED' : 'running'}`,
     ].join('\n');
   }, 100);
 

@@ -1,6 +1,17 @@
 import { Vector2 } from '../../math/src/index.js';
 import { inputLimits } from '../../../src/data/input.js';
 import { ActionMap, GamepadState } from './gamepad.js';
+import { GestureRecognizer } from './gestures.js';
+
+export { GestureRecognizer } from './gestures.js';
+export type {
+  GestureDetail,
+  GestureOptions,
+  GesturePhase,
+  GesturePoint,
+  GestureThresholds,
+  GestureType,
+} from './gestures.js';
 
 export {
   ActionMap,
@@ -13,7 +24,10 @@ export type {
   GamepadAxisName,
   GamepadBinding,
   GamepadButtonName,
+  GamepadMapping,
+  GamepadRumbleOptions,
   GamepadSnapshot,
+  GamepadVibrationActuator,
   GamepadStick,
 } from './gamepad.js';
 
@@ -195,6 +209,7 @@ export class Pointer {
     sample.sequence = ++this.sequence;
     sample.originalEvent = event;
     sample.deltaX = sample.deltaY = sample.deltaZ = undefined;
+    this.observe?.(sample);
     if (
       kind === 'cancel' ||
       (kind === 'up' && event.pointerType === 'touch') ||
@@ -206,6 +221,8 @@ export class Pointer {
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly getSize: () => { width: number; height: number },
+    private readonly observe?: (sample: PointerSample) => void,
+    private readonly onReset?: () => void,
   ) {}
 
   get active(): boolean {
@@ -380,6 +397,7 @@ export class Pointer {
   /** @internal */
   reset(): void {
     this.generation++;
+    this.onReset?.();
     for (const id of this.pointers.keys()) this.releaseCapture(id);
     this.pointers.clear();
     this.down.clear();
@@ -443,6 +461,8 @@ export class Pointer {
 export class InputManager {
   readonly keyboard = new Keyboard();
   readonly pointer: Pointer;
+  /** Tap, double tap, long press, swipe, pan, pinch and rotate recognized from `pointer`. */
+  readonly gestures = new GestureRecognizer();
   /** First standard-mapping gamepad with deadzones, analog buttons and press edges. */
   readonly gamepad = new GamepadState();
   /** Named actions bound to gamepad buttons, stick directions and keys. */
@@ -482,7 +502,12 @@ export class InputManager {
     private readonly canvas: HTMLCanvasElement,
     getSize: () => { width: number; height: number },
   ) {
-    this.pointer = new Pointer(canvas, getSize);
+    this.pointer = new Pointer(
+      canvas,
+      getSize,
+      (sample) => this.gestures.feed(sample),
+      () => this.gestures.reset(),
+    );
     // Minimal headless canvas/window stand-ins may not implement EventTarget.
     // When they do, listener registration errors are real initialization failures.
     try {
@@ -513,6 +538,7 @@ export class InputManager {
 
   update(): void {
     if (this.destroyed) return;
+    this.gestures.update();
     if (typeof navigator === 'undefined' || !navigator.getGamepads) {
       this.gamepadSnapshot = NO_GAMEPADS;
     } else {
@@ -539,6 +565,7 @@ export class InputManager {
     if (this.destroyed) return;
     this.destroyed = true;
     this.reset();
+    this.gestures.destroy();
     const canvas = this.canvas;
     if (typeof canvas.removeEventListener === 'function') {
       canvas.removeEventListener('pointerenter', this.onPointerEnter);

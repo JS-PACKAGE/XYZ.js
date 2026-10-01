@@ -17,6 +17,11 @@ export interface SamplePlayOptions extends AudioPlayOptions {
   spatial?: SpatialAudioOptions;
   /** Absolute AudioContext time, independent of the Game clock. */
   scheduledStartTime?: number;
+  /**
+   * Restricts playback to part of the buffer (an audio sprite). `offset` stays an absolute buffer
+   * position and defaults to `region.start`; a looping playback loops inside the region.
+   */
+  region?: { readonly start: number; readonly end: number };
 }
 
 export type SamplePlaybackState = 'playing' | 'paused' | 'stopped' | 'ended';
@@ -32,6 +37,9 @@ export class SamplePlayback {
   private speed: number;
   private level: number;
   readonly loop: boolean;
+  private readonly regionStart: number;
+  private readonly regionEnd: number;
+  private readonly regional: boolean;
 
   /** @internal */
   constructor(
@@ -41,7 +49,21 @@ export class SamplePlayback {
     options: SamplePlayOptions,
     private readonly release: (playback: SamplePlayback) => void,
   ) {
-    this.offset = options.offset ?? 0;
+    const region = options.region;
+    this.regional = region !== undefined;
+    this.regionStart = region?.start ?? 0;
+    this.regionEnd = region?.end ?? buffer.duration;
+    if (
+      !Number.isFinite(this.regionStart) ||
+      !Number.isFinite(this.regionEnd) ||
+      this.regionStart < 0 ||
+      this.regionStart >= this.regionEnd ||
+      this.regionEnd > buffer.duration
+    )
+      throw new AudioError(
+        'Sample region must satisfy 0 <= start < end <= decoded duration.',
+      );
+    this.offset = options.offset ?? this.regionStart;
     this.startsAt = options.scheduledStartTime ?? context.currentTime;
     this.speed = options.playbackRate ?? 1;
     this.level = options.volume ?? 1;
@@ -55,7 +77,7 @@ export class SamplePlayback {
     this.checkVolume(this.level);
     const spatial = options.spatial && checkSpatialOptions(options.spatial);
     this.startsAt = Math.max(this.startsAt, context.currentTime);
-    if (this.loop) this.offset %= buffer.duration;
+    if (this.loop) this.offset = this.wrap(this.offset);
     this.gain = context.createGain();
     this.gain.gain.value = this.level;
     if (spatial) {
@@ -82,9 +104,7 @@ export class SamplePlayback {
     if (this.status === 'playing')
       position +=
         Math.max(0, this.context.currentTime - this.startsAt) * this.speed;
-    return this.loop
-      ? position % this.buffer.duration
-      : Math.min(position, this.buffer.duration);
+    return this.loop ? this.wrap(position) : Math.min(position, this.regionEnd);
   }
 
   get volume(): number {
@@ -155,7 +175,7 @@ export class SamplePlayback {
       throw new AudioError('Cannot seek a finished sample playback.');
     const scheduled = Math.max(this.startsAt, this.context.currentTime);
     this.clearSource();
-    this.offset = this.loop ? seconds % this.buffer.duration : seconds;
+    this.offset = this.loop ? this.wrap(seconds) : seconds;
     this.startsAt = scheduled;
     if (this.status === 'playing') {
       try {
@@ -181,13 +201,17 @@ export class SamplePlayback {
     const source = this.context.createBufferSource();
     source.buffer = this.buffer;
     source.loop = this.loop;
+    if (this.loop && this.regional) {
+      source.loopStart = this.regionStart;
+      source.loopEnd = this.regionEnd;
+    }
     source.playbackRate.value = this.speed;
     source.connect(this.gain);
     this.source = source;
     source.onended = () => {
       if (this.source !== source || this.status !== 'playing') return;
       this.source = undefined;
-      this.offset = this.buffer.duration;
+      this.offset = this.regionEnd;
       this.status = 'ended';
       source.disconnect();
       this.gain.disconnect();
@@ -195,7 +219,9 @@ export class SamplePlayback {
       this.release(this);
     };
     try {
-      source.start(this.startsAt, this.offset);
+      if (this.regional && !this.loop)
+        source.start(this.startsAt, this.offset, this.regionEnd - this.offset);
+      else source.start(this.startsAt, this.offset);
     } catch (error) {
       this.source = undefined;
       source.onended = null;
@@ -216,10 +242,22 @@ export class SamplePlayback {
     }
   }
 
+  /** Folds a position into the playable span; the whole buffer unless a region was given. */
+  private wrap(position: number): number {
+    const length = this.regionEnd - this.regionStart;
+    return this.regionStart + ((position - this.regionStart) % length);
+  }
+
   private checkPosition(value: number): void {
-    if (!Number.isFinite(value) || value < 0 || value > this.buffer.duration)
+    if (
+      !Number.isFinite(value) ||
+      value < this.regionStart ||
+      value > this.regionEnd
+    )
       throw new AudioError(
-        'Sample position must be within the decoded duration.',
+        this.regional
+          ? 'Sample position must be within the sprite region.'
+          : 'Sample position must be within the decoded duration.',
       );
   }
 
