@@ -610,6 +610,44 @@ retained, and uploads, cache eviction and `destroy()` use the existing lifecycle
 Both background and diffuse/specular IBL accept the resulting map. The PBR example
 has a six-face cubemap switch; sharply colored faces make orientation visible.
 
+### Local Reflection Probes (P38d)
+
+`scene.reflectionProbes` contains borrowed `ReflectionProbe` objects:
+
+```ts
+scene.reflectionProbes.push(
+  new ReflectionProbe({
+    environment: roomRadiance,
+    position: [0, 1, 0],
+    min: [-3, 0, -3],
+    max: [3, 3, 3],
+  }),
+);
+```
+
+`position` is the capture position; `min`/`max` are an axis-aligned **world-space**
+influence box. They accept tuples or Vector3 at construction and remain mutable
+Vector3 fields. Bounds must have positive extent and contain the capture position.
+`enabled` and `boxProjection` default to true; `intensity` defaults to 1 and is
+independent of the global `environmentIntensity`. Invalid mutations fail rendering
+validation rather than uploading invalid uniforms.
+
+For each Mesh, its world origin selects the nearest enabled, live-map probe whose
+inclusive box contains that origin; equal distances use array order. Outside all
+boxes, or when a map is destroyed, the global environment is used. Selection applies
+to the whole mesh, including all instances, without spatial blending. Probe radiance
+supplies diffuse SH and specular, clearcoat and sheen IBL, not the sky background.
+Box projection intersects the reflected ray with the box and redirects sampling from
+the capture position; fragments outside the box keep the uncorrected direction.
+
+These are **baked radiance probes**, not automatic scene capture or screen-space
+reflections. Supply an EnvironmentMap from a captured cubemap, HDR image or other
+existing constructor. Maps remain immutable and borrowed: replacing/removing probes
+or destroying the Scene does not destroy them. Uploads reuse the environment cache;
+no additional material texture unit is consumed. WebGPU and WebGL2 support probes;
+Canvas2D does not render 3D. The PBR example can enable a local box over its right
+two columns while retaining the global sky.
+
 ### FXAA (P38b)
 
 With `scene.postProcessing.enabled = true`, `scene.postProcessing.fxaa = true`

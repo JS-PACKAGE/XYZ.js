@@ -592,6 +592,39 @@ Directional 預設保留固定 `extent`／`target` 投影。把 `scene.shadows.c
 輸入陣列，上傳、cache eviction 與 `destroy()` 生命週期不變。背景與 diffuse／specular
 IBL 都能使用結果。PBR 範例加入六面 cubemap 開關，以明顯面色展示方向。
 
+### 局部 Reflection Probe（P38d）
+
+`scene.reflectionProbes` 放置借用的 `ReflectionProbe`：
+
+```ts
+scene.reflectionProbes.push(
+  new ReflectionProbe({
+    environment: roomRadiance,
+    position: [0, 1, 0],
+    min: [-3, 0, -3],
+    max: [3, 3, 3],
+  }),
+);
+```
+
+`position` 是 capture 位置，`min`／`max` 是軸對齊的**世界空間**影響範圍。
+建構時接受 tuple 或 Vector3，建構後為可變 Vector3。各軸範圍必須為正，
+且包含 capture 位置。`enabled`／`boxProjection` 預設 true，`intensity` 預設 1，
+獨立於全域 `environmentIntensity`。非法欄位修改會在 rendering validation
+報錯，不會上傳無效 uniform。
+
+每個 Mesh 依世界原點選擇包含該原點、啟用且 map 未銷毀的最近 probe；
+邊界包含在內，等距時採陣列順序。未落在任何範圍或 map 銷毀時使用全域 environment。
+選擇作用於整個網格及其所有 instances，不做空間混合。Probe 提供 diffuse SH、
+specular／clearcoat／sheen IBL，不改 sky background。Box projection 把反射射線
+與 box 相交，再從 capture 位置取樣；box 外的片元保留未校正方向。
+
+這是**烘焙 radiance probe**，不自動擷取場景，也不是 screen-space reflection。
+透過既有 EnvironmentMap constructor 載入 captured cubemap、HDR 或其他來源。
+Map 不可變且由外部管理；替換／移除 probe 或銷毀 Scene 不會銷毀它。
+上傳共用 environment cache，不多占 material texture unit。WebGPU／WebGL2 支援，
+Canvas2D 不繪製 3D。PBR 範例可在右側兩欄啟用局部 box，同時保留全域天空。
+
 ### FXAA（P38b）
 
 在 `scene.postProcessing.enabled = true` 時，把 `scene.postProcessing.fxaa` 設成

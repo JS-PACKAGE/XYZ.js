@@ -7,6 +7,7 @@ import {
   PBRMaterial,
   PointLight,
   EnvironmentMap,
+  ReflectionProbe,
   OrbitControls,
   Vector3,
   PostProcessor2D,
@@ -103,6 +104,13 @@ try {
       range: 14,
     });
     readonly marker: Mesh;
+    readonly localProbe = new ReflectionProbe({
+      environment: cubemap!,
+      position: [2, 3.3, 0],
+      min: [0.6, 0, -2],
+      max: [4, 8, 2],
+      enabled: false,
+    });
     constructor() {
       super();
       this.camera3D.position.set(8, 7, 15);
@@ -110,6 +118,7 @@ try {
       this.environment = environment;
       this.background = environment;
       this.backgroundIntensity = 0.6;
+      this.reflectionProbes.push(this.localProbe);
       this.shadows.extent = 20;
       this.shadows.target.set(0, 2, 0);
       this.shadows.far = 50;
@@ -178,11 +187,13 @@ try {
       this.fog.density = Number(input('fog').value);
       this.fog.enabled = this.fog.density > 0;
       this.environmentIntensity = Number(input('environment').value);
+      this.localProbe.intensity = this.environmentIntensity;
+      this.localProbe.enabled = input('probe').checked;
       this.environment = input('cubemap').checked ? cubemap : environment;
       this.background = this.environment;
       this.effects3D.length = 0;
       if (input('vignette').checked) this.effects3D.push(vignette);
-      readout.textContent = `Shadows ${this.shadows.enabled ? 'on' : 'off'} · directional ${this.directionalLight.intensity ? 'on' : 'off'} · point ${this.point.intensity ? 'on' : 'off'} at X ${this.point.position.x.toFixed(1)} · exposure ${this.postProcessing.exposure.toFixed(2)} · bloom ${this.postProcessing.bloomStrength.toFixed(2)} · fog ${this.fog.density.toFixed(3)} · environment ${this.environmentIntensity.toFixed(2)} · vignette ${this.effects3D.length ? 'on' : 'off'}`;
+      readout.textContent = `Shadows ${this.shadows.enabled ? 'on' : 'off'} · directional ${this.directionalLight.intensity ? 'on' : 'off'} · point ${this.point.intensity ? 'on' : 'off'} at X ${this.point.position.x.toFixed(1)} · exposure ${this.postProcessing.exposure.toFixed(2)} · bloom ${this.postProcessing.bloomStrength.toFixed(2)} · fog ${this.fog.density.toFixed(3)} · environment ${this.environmentIntensity.toFixed(2)} · local probe ${this.localProbe.enabled ? 'on' : 'off'} · vignette ${this.effects3D.length ? 'on' : 'off'}`;
     }
     override update(dt: number): void {
       if (input('animate').checked) this.angle += dt * 0.3;

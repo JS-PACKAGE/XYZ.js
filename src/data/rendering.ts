@@ -12,6 +12,8 @@ export const LIGHTING_FLOAT_COUNT =
 
 /** Environment block: nine SH vec4 followed by intensity/background/mip data. */
 export const ENVIRONMENT_FLOAT_COUNT = 40;
+/** Mesh-local IBL block adds box bounds and capture position to the environment block. */
+export const REFLECTION_FLOAT_COUNT = ENVIRONMENT_FLOAT_COUNT + 12;
 
 export const environmentLimits = Object.freeze({
   /** Equirect width cap; height is width / 2. */

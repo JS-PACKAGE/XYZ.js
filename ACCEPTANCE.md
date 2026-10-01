@@ -657,3 +657,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **實際瀏覽器**：獨立 Chromium 150（同 P36c 關閉 frame-rate limiter 的驗證環境），WebGL2／WebGPU、192×192 正式 Game／Renderer。半透明圓形圖案投影球體後改變 5,790／5,865 channels；178 個貼花三角形的 Z 範圍 .550552–1.001，直接 canvas PNG 確認貼合曲面。hidden 與原場景全畫面零差異；receiver destroy 移除 decal，借用紋理仍有效。
 - **Gallery**：兩 backend 的 Hide decals 改變 8,603／8,602 channels，重新顯示後與初始全畫面零差異。WebGL2 的距離 14／22／35 正常切換至 LOD 1／2／3，page error 為 0。
 - **限制與未驗**：靜態幾何，不追蹤 projector 或頂點變形；明確拒絕 instanced／skinned／morph receiver。之後的 receiver scaling 同時縮放 lift。PBR normal maps／shadow 合用、負 scale、其他瀏覽器與大型 receiver 建立成本未測；build 延後最後整合。
+
+## P38d Local Reflection Probes（2026-10-01，限定已測環境）
+
+- **新增**：每網格世界原點選擇最近的有效 box probe；局部 diffuse SH／specular／clearcoat／sheen IBL、box-projected reflection、全域 fallback；重用 environment texture slot／cache。PBR 範例右側兩欄 probe 開關。
+- **自動化**：三個測試涵蓋父群組移動、等距順序、含邊界／出界、disabled／destroyed map 狀態轉移，以及可變 bounds 的非法狀態／修復。完整 69 檔／545 tests、typecheck、lint、format:check 通過。
+- **實際瀏覽器**：自有 headed Chromium 150、原生 RAF、`--disable-frame-rate-limit`（非效能量測），WebGPU／WebGL2 的 192² 畫面同時顯示紅／綠局部反射與藍色全域 fallback，沒有最後一個 draw uniform 覆蓋其他網格的問題；intensity = 0 黑色、disabled／destroyed 恢復藍色。六面 map 的偏心 quad 在 box projection 開／關時分別取到 +X 紅色／+Z 藍色，resize 後恢復紅色；Game 銷毀後 borrowed map／Texture 仍有效。
+- **實際範例**：native RAF 的 PBR 範例（shadow／HDR／bloom，WebGPU 預設 4× MSAA）切換 probe：WebGPU 93,800、WebGL2 91,897 個 color channel 改變，停用後兩者與原畫面 0 差異。實際 canvas 截圖確認只有右側局部反射變色，背景保持不變。
+- **限制與未驗**：使用已烘焙的 EnvironmentMap，不含自動場景 capture、動態 reflection、空間 blending 或旋轉影響 box。InstancedMesh 共用 mesh 原點的選擇；未驗其他瀏覽器、最大數量及效能。build 延至最後整合。

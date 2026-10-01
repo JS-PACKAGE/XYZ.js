@@ -10,7 +10,7 @@ import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import {
   activeBackground,
   activeEnvironment,
-  fillEnvironmentData,
+  fillReflectionData,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
@@ -18,9 +18,9 @@ import {
 import type { EnvironmentMap } from '../../core/src/environment.js';
 import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import {
-  ENVIRONMENT_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  REFLECTION_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
@@ -45,6 +45,7 @@ interface CachedMesh {
   uniform: GPUBuffer;
   bindGroup: GPUBindGroup;
   materialGroup: GPUBindGroup;
+  environment: EnvironmentMap | undefined;
   instance: GPUBuffer;
   instanceVersion: number;
   /** Per-instance RGB, or undefined while the InstancedMesh has no colors. */
@@ -62,6 +63,9 @@ interface CachedEnvironment {
   texture: GPUTexture;
   view: GPUTextureView;
   seen: number;
+  group?: GPUBindGroup;
+  shadow?: GPUTextureView;
+  refraction?: GPUTextureView;
 }
 
 /** Persistent 3D resources, including versioned CPU skinning and hardware instances. */
@@ -77,9 +81,8 @@ export class WebGPUMeshPipeline {
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
-  private readonly sceneData = new Float32Array(288);
+  private readonly sceneData = new Float32Array(252);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
-  private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
   private readonly dummyEnvironment: GPUTexture;
@@ -663,7 +666,7 @@ export class WebGPUMeshPipeline {
         const geometry = this.cacheGeometry(object.geometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
-        this.updateMesh(object, mesh);
+        this.updateMesh(scene, object, mesh);
         this.draws.push(object);
         if (inView) this.visibleDraws.push(object);
         if (
@@ -723,6 +726,10 @@ export class WebGPUMeshPipeline {
                   object.material.transmission > 0);
               if (deferred !== (phase === 1)) continue;
             }
+            pass.setBindGroup(
+              0,
+              this.reflectionGroup(this.meshes.get(object)!.environment),
+            );
             this.drawMesh(pass, object);
             this.stats.draw(
               object.geometry.indices.length,
@@ -758,13 +765,14 @@ export class WebGPUMeshPipeline {
   private createSceneGroup(
     view: GPUTextureView,
     image = this.refractionView ?? this.dummyEnvironmentView,
+    environment = this.environmentView,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.sceneLayout,
       entries: [
         { binding: 0, resource: { buffer: this.sceneBuffer } },
         { binding: 1, resource: view },
-        { binding: 2, resource: this.environmentView },
+        { binding: 2, resource: environment },
         { binding: 3, resource: this.environmentSampler },
         { binding: 4, resource: image },
         { binding: 5, resource: { buffer: this.shadowBuffer } },
@@ -820,10 +828,9 @@ export class WebGPUMeshPipeline {
     data[30] = linear ? 1 : 0;
     this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
     data.set(this.invViewProjection.elements, 224);
-    fillEnvironmentData(scene, this.environmentData);
-    data.set(this.environmentData, 240);
+    data[243] = activeBackground(scene) ? scene.backgroundIntensity : 0;
     fillFogData(scene, this.fogData);
-    data.set(this.fogData, 280);
+    data.set(this.fogData, 244);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
     if (this.atlas.count)
@@ -902,6 +909,27 @@ export class WebGPUMeshPipeline {
     }
     entry.seen = this.frame;
     return entry.view;
+  }
+
+  private reflectionGroup(
+    environment: EnvironmentMap | undefined,
+  ): GPUBindGroup {
+    if (!environment) return this.sceneBindGroup;
+    const view = this.uploadEnvironment(environment);
+    if (view === this.environmentView) return this.sceneBindGroup;
+    const entry = this.environments.get(environment)!;
+    const shadow = this.shadowView ?? this.emptyShadowView;
+    const refraction = this.refractionView ?? this.dummyEnvironmentView;
+    if (
+      !entry.group ||
+      entry.shadow !== shadow ||
+      entry.refraction !== refraction
+    ) {
+      entry.group = this.createSceneGroup(shadow, refraction, view);
+      entry.shadow = shadow;
+      entry.refraction = refraction;
+    }
+    return entry.group;
   }
 
   private renderShadows(encoder: GPUCommandEncoder): void {
@@ -1159,7 +1187,7 @@ export class WebGPUMeshPipeline {
     const existing = this.meshes.get(object);
     if (existing) return existing;
     const uniform = this.device.createBuffer({
-      size: 304,
+      size: 304 + REFLECTION_FLOAT_COUNT * 4,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
     });
     let instance = this.identityBuffer;
@@ -1274,12 +1302,13 @@ export class WebGPUMeshPipeline {
         uniform,
         bindGroup,
         materialGroup,
+        environment: undefined,
         instance,
         instanceVersion: object instanceof InstancedMesh ? object.version : 0,
         instanceColors,
         instanceColorVersion:
           object instanceof InstancedMesh ? object.colorVersion : 0,
-        data: new Float32Array(76),
+        data: new Float32Array(76 + REFLECTION_FLOAT_COUNT),
         seen: this.frame,
       };
       this.meshes.set(object, entry);
@@ -1422,7 +1451,7 @@ export class WebGPUMeshPipeline {
     }
   }
 
-  private updateMesh(object: Mesh, mesh: CachedMesh): void {
+  private updateMesh(scene: Scene, object: Mesh, mesh: CachedMesh): void {
     const material = object.material;
     const data = mesh.data;
     data.set(object.worldMatrix.elements, 0);
@@ -1497,6 +1526,10 @@ export class WebGPUMeshPipeline {
       data[33] = 1;
     }
     data[34] = object.receiveShadow ? 1 : 0;
+    mesh.environment =
+      material instanceof PBRMaterial
+        ? fillReflectionData(scene, object, data, 76)
+        : undefined;
     if (
       object instanceof InstancedMesh &&
       mesh.instanceVersion !== object.version

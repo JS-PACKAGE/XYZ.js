@@ -15,8 +15,7 @@ import {
 } from '../../core/src/pbr-material.js';
 import {
   activeBackground,
-  activeEnvironment,
-  fillEnvironmentData,
+  fillReflectionData,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
@@ -49,6 +48,7 @@ import {
 } from './render-texture2d.js';
 import {
   ENVIRONMENT_FLOAT_COUNT,
+  REFLECTION_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
@@ -194,7 +194,11 @@ export class WebGL2Renderer implements Renderer {
   private readonly skyUniforms: Record<string, WebGLUniformLocation | null> =
     {};
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
-  private readonly environmentData = new Float32Array(ENVIRONMENT_FLOAT_COUNT);
+  private readonly environmentData = new Float32Array(REFLECTION_FLOAT_COUNT);
+  private readonly environmentLightingData = this.environmentData.subarray(
+    0,
+    ENVIRONMENT_FLOAT_COUNT,
+  );
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
@@ -454,6 +458,10 @@ export class WebGL2Renderer implements Renderer {
         'shadowMap',
         'environment[0]',
         'environmentMap',
+        'probeMin',
+        'probeMax',
+        'probePosition',
+        'probeBoxProjection',
         'fog[0]',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
@@ -1260,17 +1268,8 @@ export class WebGL2Renderer implements Renderer {
     );
     this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
     gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
-    fillEnvironmentData(scene, this.environmentData);
-    gl.uniform4fv(uniforms['environment[0]'], this.environmentData);
     fillFogData(scene, this.fogData);
     gl.uniform4fv(uniforms['fog[0]'], this.fogData);
-    const environment = activeEnvironment(scene);
-    gl.activeTexture(gl.TEXTURE6);
-    gl.bindSampler(6, null);
-    gl.bindTexture(
-      gl.TEXTURE_2D,
-      environment ? this.uploadEnvironment(environment).resource : null,
-    );
     const camera = scene.camera3D.position;
     gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
     gl.uniform1i(uniforms.linearOutput, this.linear3D ? 1 : 0);
@@ -1306,6 +1305,28 @@ export class WebGL2Renderer implements Renderer {
         object.updateDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
+        if (pbr) {
+          const environment = fillReflectionData(
+            scene,
+            object,
+            this.environmentData,
+          );
+          const data = this.environmentData;
+          gl.uniform4fv(
+            uniforms['environment[0]'],
+            this.environmentLightingData,
+          );
+          gl.uniform3f(uniforms.probeMin, data[40], data[41], data[42]);
+          gl.uniform3f(uniforms.probeMax, data[44], data[45], data[46]);
+          gl.uniform3f(uniforms.probePosition, data[48], data[49], data[50]);
+          gl.uniform1i(uniforms.probeBoxProjection, data[39] ? 1 : 0);
+          gl.activeTexture(gl.TEXTURE6);
+          gl.bindSampler(6, null);
+          gl.bindTexture(
+            gl.TEXTURE_2D,
+            environment ? this.uploadEnvironment(environment).resource : null,
+          );
+        }
         gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
         gl.uniform1i(
           uniforms.doubleSided,

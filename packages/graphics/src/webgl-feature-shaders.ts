@@ -2,6 +2,7 @@ import { atlasGLSL } from './shadow-shaders.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
 import { sheenGLSL } from './sheen-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
+import { reflectionProbeGLSL } from './reflection-probe-shaders.js';
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -80,6 +81,10 @@ uniform sampler2D shadowMap;
 uniform vec4 lighting[51];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
 uniform sampler2D environmentMap;
+uniform vec3 probeMin;
+uniform vec3 probeMax;
+uniform vec3 probePosition;
+uniform bool probeBoxProjection;
 uniform vec4 fog[2]; // color.rgb/mode(0 off,1 linear,2 exp2), near/far/density/0
 uniform vec4 tint;
 uniform vec4 surface; // metallic, roughness, normalScale, occlusionStrength
@@ -96,6 +101,7 @@ ${atlasGLSL}
 const float PI = 3.141592653589793;
 ${transmissionGLSL}
 ${sheenGLSL}
+${reflectionProbeGLSL}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -246,16 +252,16 @@ void main() {
       vec2 ab = environmentBRDF(nv, roughness);
       vec3 dielectric = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
       vec3 reflected = mix(dielectric,base*ab.x+vec3(ab.y),metallic);
-      vec3 radiance = textureLod(environmentMap, equirectUV(reflect(-v, n)), roughness * environment[9].z).rgb;
+      vec3 radiance = textureLod(environmentMap, equirectUV(probeReflection(vPosition,reflect(-v, n))), roughness * environment[9].z).rgb;
       vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*(1.0-transmissionWeight)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
       result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
       if (sheenMax > 0.0) {
-        vec3 sheenRadiance = textureLod(environmentMap,equirectUV(reflect(-v,n)),sheenRoughness*environment[9].z).rgb;
+        vec3 sheenRadiance = textureLod(environmentMap,equirectUV(probeReflection(vPosition,reflect(-v,n))),sheenRoughness*environment[9].z).rgb;
         sheenLighting += sheenRadiance*sheenEnergy*ao*environment[9].x;
       }
       if (coatWeight > 0.0) {
         vec2 coatAB = environmentBRDF(max(dot(nc,v),.0001),coatRoughness);
-        vec3 coatRadiance = textureLod(environmentMap,equirectUV(reflect(-v,nc)),coatRoughness*environment[9].z).rgb;
+        vec3 coatRadiance = textureLod(environmentMap,equirectUV(probeReflection(vPosition,reflect(-v,nc))),coatRoughness*environment[9].z).rgb;
         coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao*environment[9].x;
       }
     }

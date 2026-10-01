@@ -1,6 +1,7 @@
 import { atlasWGSL } from './shadow-shaders.js';
 import { sheenWGSL } from './sheen-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
+import { reflectionProbeWGSL } from './reflection-probe-shaders.js';
 
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -16,7 +17,6 @@ struct SceneUniforms {
   points: array<PointLight, 8>,
   spots: array<SpotLight, 8>,
   invViewProjection: mat4x4f,
-  envSH: array<vec4f, 9>,
   envParams: vec4f,
   fogColor: vec4f,
   fogParams: vec4f,
@@ -38,6 +38,11 @@ struct MeshUniforms {
   attenuation: vec4f,
   transmissionMapSettings: vec4f,
   thicknessMapSettings: vec4f,
+  envSH: array<vec4f, 9>,
+  envParams: vec4f,
+  probeMin: vec4f,
+  probeMax: vec4f,
+  probePosition: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -73,6 +78,7 @@ struct MeshUniforms {
 ${atlasWGSL}
 ${sheenWGSL}
 ${transmissionWGSL}
+${reflectionProbeWGSL}
 struct VertexInput {
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
@@ -137,15 +143,15 @@ fn equirectUV(direction: vec3f) -> vec2f {
   return vec2f(atan2(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
 }
 fn shIrradiance(n: vec3f) -> vec3f {
-  var c = scene.envSH[0].rgb * 0.282095;
-  c += scene.envSH[1].rgb * (0.488603 * n.y);
-  c += scene.envSH[2].rgb * (0.488603 * n.z);
-  c += scene.envSH[3].rgb * (0.488603 * n.x);
-  c += scene.envSH[4].rgb * (1.092548 * n.x * n.y);
-  c += scene.envSH[5].rgb * (1.092548 * n.y * n.z);
-  c += scene.envSH[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
-  c += scene.envSH[7].rgb * (1.092548 * n.x * n.z);
-  c += scene.envSH[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
+  var c = mesh.envSH[0].rgb * 0.282095;
+  c += mesh.envSH[1].rgb * (0.488603 * n.y);
+  c += mesh.envSH[2].rgb * (0.488603 * n.z);
+  c += mesh.envSH[3].rgb * (0.488603 * n.x);
+  c += mesh.envSH[4].rgb * (1.092548 * n.x * n.y);
+  c += mesh.envSH[5].rgb * (1.092548 * n.y * n.z);
+  c += mesh.envSH[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
+  c += mesh.envSH[7].rgb * (1.092548 * n.x * n.z);
+  c += mesh.envSH[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
   return max(c, vec3f(0.0));
 }
 // Karis' analytic split-sum approximation; avoids a BRDF lookup texture.
@@ -312,24 +318,24 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   var coating = vec3f(0.0);
   if (coatWeight > 0.0) { coatFresnel = 0.04+0.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0); }
   let occlusion = select(1.0,mix(1.0,ao,mesh.emissiveOcclusion.w),mesh.maps.z > 0.5);
-  let useEnvironment = scene.envParams.y > 0.5;
+  let useEnvironment = mesh.envParams.y > 0.5;
   var color = base*(1.0-metal)*(1.0-transmission)*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
   if (useEnvironment) {
     let nv = max(dot(n,v),0.0001);
     let ab = environmentBRDF(nv,rough);
     let dielectric = select(dielectricF0*ab.x+vec3f(specularWeight*ab.y),dielectricF0,mesh.specularParams.y > 0.5);
     let specularColor = mix(dielectric,base*ab.x+vec3f(ab.y),metal);
-    let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),rough*scene.envParams.z).rgb;
+    let radiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(probeReflection(input.world,reflect(-v,n))),rough*mesh.envParams.z).rgb;
     let diffuseLight = shIrradiance(n)*base*(1.0-metal)*(1.0-transmission)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
-    color += (diffuseLight + radiance*specularColor)*occlusion*scene.envParams.x;
+    color += (diffuseLight + radiance*specularColor)*occlusion*mesh.envParams.x;
     if (sheenMax > 0.0) {
-      let sheenRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,n)),sheenRoughness*scene.envParams.z).rgb;
-      sheenLighting += sheenRadiance*sheenEnergy*occlusion*scene.envParams.x;
+      let sheenRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(probeReflection(input.world,reflect(-v,n))),sheenRoughness*mesh.envParams.z).rgb;
+      sheenLighting += sheenRadiance*sheenEnergy*occlusion*mesh.envParams.x;
     }
     if (coatWeight > 0.0) {
       let coatAB = environmentBRDF(max(dot(nc,v),0.0001),coatRoughness);
-      let coatRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(reflect(-v,nc)),coatRoughness*scene.envParams.z).rgb;
-      coating += coatRadiance*(0.04*coatAB.x+coatAB.y)*occlusion*scene.envParams.x;
+      let coatRadiance = textureSampleLevel(environmentMap,environmentSampler,equirectUV(probeReflection(input.world,reflect(-v,nc))),coatRoughness*mesh.envParams.z).rgb;
+      coating += coatRadiance*(0.04*coatAB.x+coatAB.y)*occlusion*mesh.envParams.x;
     }
   }
   color += brdf(n,v,direction,base,metal,rough,dielectricF0,specularWeight,transmission)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;

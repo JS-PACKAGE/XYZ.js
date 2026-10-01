@@ -18,6 +18,8 @@ import {
   ShadowSettings,
 } from './render-settings.js';
 import type { Scene } from './scene.js';
+import type { Mesh } from './mesh.js';
+import { ReflectionProbe, selectReflectionProbe } from './reflection-probe.js';
 
 function finite(value: number, name: string): void {
   if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value)))
@@ -56,6 +58,15 @@ export function validateRenderSettings(scene: Scene): void {
       throw new TypeError(`Scene ${name} must be an EnvironmentMap.`);
   nonnegative(scene.environmentIntensity, 'Environment intensity');
   nonnegative(scene.backgroundIntensity, 'Background intensity');
+  if (!Array.isArray(scene.reflectionProbes))
+    throw new TypeError('Scene reflectionProbes must be an array.');
+  for (const probe of scene.reflectionProbes) {
+    if (!(probe instanceof ReflectionProbe))
+      throw new TypeError(
+        'Scene reflectionProbes must contain ReflectionProbe objects.',
+      );
+    probe.validate();
+  }
 }
 
 /** A destroyed map is treated as absent, like a destroyed Texture on a Mesh. */
@@ -87,6 +98,37 @@ export function fillEnvironmentData(scene: Scene, out: Float32Array): void {
   out[37] = environment ? 1 : 0;
   out[38] = environment ? environment.mipCount - 1 : 0;
   out[39] = activeBackground(scene) ? scene.backgroundIntensity : 0;
+}
+/** SH[36], intensity/enabled/maxLod/boxProjection, then bounds min/max and capture position. */
+export function fillReflectionData(
+  scene: Scene,
+  object: Mesh,
+  out: Float32Array,
+  offset = 0,
+): EnvironmentMap | undefined {
+  const probe = selectReflectionProbe(scene, object);
+  const environment = probe?.environment ?? activeEnvironment(scene);
+  if (environment) out.set(environment.sh, offset);
+  else out.fill(0, offset, offset + 36);
+  out[offset + 36] = environment
+    ? (probe?.intensity ?? scene.environmentIntensity)
+    : 0;
+  out[offset + 37] = environment ? 1 : 0;
+  out[offset + 38] = environment ? environment.mipCount - 1 : 0;
+  out[offset + 39] = probe?.boxProjection ? 1 : 0;
+  out.fill(0, offset + 40, offset + 52);
+  if (probe) {
+    out[offset + 40] = probe.min.x;
+    out[offset + 41] = probe.min.y;
+    out[offset + 42] = probe.min.z;
+    out[offset + 44] = probe.max.x;
+    out[offset + 45] = probe.max.y;
+    out[offset + 46] = probe.max.z;
+    out[offset + 48] = probe.position.x;
+    out[offset + 49] = probe.position.y;
+    out[offset + 50] = probe.position.z;
+  }
+  return environment;
 }
 
 function decodeSRGB(value: number): number {

@@ -8,6 +8,7 @@ import { Object3D } from './object3d.js';
 import { AnimationMixer } from './animation.js';
 import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
+import type { ReflectionProbe } from './reflection-probe.js';
 import {
   FogSettings,
   PostProcessingSettings,
@@ -53,6 +54,8 @@ export class Scene {
   /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
   environment: EnvironmentMap | undefined;
   environmentIntensity = 1;
+  /** Local IBL; the nearest containing probe overrides environment per mesh origin. */
+  readonly reflectionProbes: ReflectionProbe[] = [];
   /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
   background: EnvironmentMap | undefined;
   backgroundIntensity = 1;
