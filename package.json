@@ -1,6 +1,6 @@
 {
   "name": "xyz.js",
-  "version": "1.12.3",
+  "version": "1.12.4",
   "description": "Browser-native TypeScript game engine",
   "type": "module",
   "private": false,

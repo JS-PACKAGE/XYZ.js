@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-**目前支援規範：**[v1.12.3 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.3/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+**目前支援規範：**[v1.12.4 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.4/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.12.3／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權新的 GitHub v1.12.3 發佈，保留失敗的 v1.12.2 tag；此處不宣稱 hosted 驗證或發佈已完成。
+本參考描述 **1.12.4／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。v1.12.3 production gate 失敗後，使用者已授權新的 GitHub v1.12.4 發佈，保留 v1.12.2 與 v1.12.3 tags。v1.12.4 仍待 CI 與 release 驗證，此處不宣稱 hosted 驗證或發佈已完成。Windows CI 測試設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的 browser／host／path 證據擴充。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 

@@ -1,8 +1,8 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.12.3**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.12.4**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
-**Current / 目前 / 現在:** [v1.12.3 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.12.3/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
+**Current / 目前 / 現在:** [v1.12.4 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.12.4/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
 
 GitHub **v1.10** uses `xyz.js-1.10.0.tgz` and `SHA256SUMS`, published only after the shared CI gates pass. It adds P58–P70 lazy startup, pinned semantic assets, scoped resource ownership, safe save-candidate publication, observability, shared navigation budgets, moving-platform/crouch controllers, 3D joints, dynamic/angular CCD, collision-derived navigation, international text geometry and native audio effects/automation/world bindings, plus eight English demos and Node 22/24/26 CI. Support remains limited to documented profiles. Earlier releases remain unchanged; v1.9 introduced P43–P57 and v1.8 introduced P40–P42/Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
 
@@ -10,7 +10,7 @@ GitHub **v1.11 / 1.11.0** packages P71–P87 and all 45 direct-launch examples. 
 
 GitHub **v1.12.1 / package 1.12.1** packages P88–P96 while retaining 1.x compatibility. The tag-triggered workflow verifies CI before publishing `xyz.js-1.12.1.tgz` and `SHA256SUMS`. The failed `v1.12` and `v1.12.0` tags remain unchanged; corrected verification uses the new patch tag. 本次發佈納入 P88–P96 與 release-gate 修正，不擴大實機或效能認證；今回の公開は P88–P96 と release-gate 修正を含み、実機・性能の検証範囲を拡張しません。
 
-GitHub **v1.12.3 / package 1.12.3** retains the committed P97–P103 API compatibility assurance against the published v1.12.1 baseline, calibrated performance gates, integrated long-run tooling, installed asset tools, current/versioned API documentation, strict archive inventory and physical-qualification evidence tools, plus official OPM.js **1.8.0** (tag `v1.8`) with the 1.x public contract retained. The pushed `v1.12.2` tag remains unchanged: [Release run 37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) failed the macOS dense2d performance gate despite functional PASS and created no GitHub Release. The user authorizes the genuine dense2d performance fix and pushing `main` and the new `v1.12.3` tag for the existing CI-gated Release workflow to publish `xyz.js-1.12.3.tgz` and `SHA256SUMS`; no npm publish. This authorization is not a claim that v1.12.3 local or hosted gates passed. Historical releases, failed tags and the published v1.12.1 compatibility baseline remain unchanged. Physical qualification remains **BLOCKED** where owned hardware or authorization is unavailable; this release adds no physical-device, Safari, audible-output, assistive-technology or driver-reset certification. 本次發佈不擴大實機認證；今回の公開は実機の検証範囲を拡張しません。
+GitHub **v1.12.4 / package 1.12.4** retains the committed P97–P103 API compatibility assurance against the published v1.12.1 baseline, calibrated performance gates, integrated long-run tooling, installed asset tools, current/versioned API documentation, strict archive inventory and physical-qualification evidence tools, plus official OPM.js **1.8.0** (tag `v1.8`) with the 1.x public contract retained. The pushed `v1.12.2` and `v1.12.3` tags remain unchanged. [Release run 37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) failed the macOS dense2d performance gate despite functional PASS. The v1.12.3 dense2d fix then achieved functional and performance PASS (CPU frame p95 32.5 ms), but [Release run 37071402430](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37071402430) failed the 2D, 3D and navigation RAF gates; neither failed run created a GitHub Release. The user authorizes investigating these RAF failures, fixing their confirmed cause, and pushing `main` and the new `v1.12.4` tag for the CI-gated Release workflow to publish `xyz.js-1.12.4.tgz` and `SHA256SUMS`; no npm publish or historical tag rewriting. Windows CI coverage is being added in this patch; execution is pending and configured coverage is not verified Windows compatibility. This authorization is not a claim that v1.12.4 local or hosted gates passed. Historical releases and the published v1.12.1 compatibility baseline remain unchanged. Physical qualification remains **BLOCKED** where owned hardware or authorization is unavailable; this release adds no physical-device, Safari, audible-output, assistive-technology or driver-reset certification. 本次發佈不擴大實機認證；今回の公開は実機の検証範囲を拡張しません。
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [Security policy](SECURITY.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -18,7 +18,7 @@ GitHub **v1.12.3 / package 1.12.3** retains the committed P97–P103 API compati
 
 ### 目前可用
 
-目前規範以 [v1.12.3 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
+目前規範以 [v1.12.4 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
 
 引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js v1.8.0（tag `v1.8`）；在使用者手勢中呼叫 `await game.audio.unlock()`。上游雖可選聲部數，引擎仍維持八個隔離 slot；此 vendor 升級不新增引擎功能或擴大認證範圍。
 
@@ -118,7 +118,7 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 
 ### Available now
 
-[Current v1.12.3 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
+[Current v1.12.4 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
 
 Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js v1.8.0 (tag `v1.8`); call `await game.audio.unlock()` from a user gesture. Despite upstream selectable voice counts, the engine retains eight isolated slots; this vendor upgrade adds no engine features or certification claims.
 
@@ -209,7 +209,7 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 
 ### 現在利用可能
 
-現在の規範は [v1.12.3 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
+現在の規範は [v1.12.4 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
 
 Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js v1.8.0（tag `v1.8`）を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。上流では声部数を選択できますが、エンジンは八つの隔離 slot を維持します。この vendor 更新はエンジンの新機能や認証範囲を追加しません。
 
@@ -360,7 +360,7 @@ Static site／完整靜態網站／静的サイト：`npx pnpm@12.6.0 build:site
 
 Smoke owns a separate muted browser and native zero-gain output sinks; signal evidence is not audible-output, Safari, physical-device or assistive-technology certification. Smoke 僅用自有靜音 browser／zero-gain sinks，不冒稱可聽輸出、Safari、實機或輔具認證。独立 muted browser／zero-gain sinks の信号は可聴出力・Safari・実機・支援技術の認証ではありません。
 
-Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.12.3.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
+Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.12.4.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
 
 `lightweight2d`, `resource-lifecycle`, `text-i18n`, `audio-effects`, `motion2d`, `tiled-import` and `accessibility-game` offer portable 2D paths. Native 3D examples require WebGPU/WebGL2 and report Canvas2D unsupported. Trusted audio unlock is still required; physical audio and OS IME remain outside automated certification.
 

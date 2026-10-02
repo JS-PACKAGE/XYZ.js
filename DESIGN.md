@@ -2,7 +2,7 @@
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
-目前 root metadata 是 `1.12.3`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
+目前 root metadata 是 `1.12.4`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序同步 DPR→Clock→Camera2D viewport→Input→Scene timers→Scene animations→Scene.update→World Systems→Renderer，最後清除 input edges。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，初始化失敗或 destroy 釋放 ownership。第一個 fatal frame／graphics failure 會被保留並送出 error；失敗後 resume 明確拒絕。Scene 準備失敗與 Audio 排程錯誤也可送出 error，但不把 graphics 鎖成 fatal。
@@ -235,7 +235,7 @@ v1.12.1 mixer保留已生效且target／tau未變的single-target native duck cu
 
 ## P97–P103 工程保障與消費端工具邊界
 
-當時 v1.12.2／package 1.12.2 納入已提交的 P97–P103 相容性／效能／長跑保障、資產 CLI、現行與版本化 API 文件、archive inventory 及實體證據工具，以及官方 OPM.js 1.8.0（tag `v1.8`）更新，維持 1.x 公開契約。已推送的 v1.12.2 tag 保留不變；[Release run 37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) 的 macOS dense2d 功能 PASS，但效能 gate 失敗，未建立 GitHub Release。本輪使用者批准真正修正 dense2d 效能及升版 1.12.3，授權推送 main／新 v1.12.3 tag，由既有 CI／Release workflow 發佈 GitHub 套件與 checksum，不做 npm publish；不宣稱 v1.12.3 本機或 hosted gates 已通過。已發佈 v1.12.1 相容性 baseline、歷史 tags／日期／counts 不變；實體資格 blockers 不因工具或 vendor 更新而解除，不新增實機認證。
+當時 v1.12.2／package 1.12.2 納入已提交的 P97–P103 相容性／效能／長跑保障、資產 CLI、現行與版本化 API 文件、archive inventory 及實體證據工具，以及官方 OPM.js 1.8.0（tag `v1.8`）更新，維持 1.x 公開契約。已推送的 v1.12.2／v1.12.3 tags 保留不變；[Release run 37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) 的 macOS dense2d 功能 PASS，但效能 gate 失敗。v1.12.3 的 dense2d 修正已取得功能與效能 PASS（CPU frame p95 32.5ms），但 [Release run 37071402430](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37071402430) 的 2D／3D／navigation RAF gates 失敗；兩次失敗均未建立 GitHub Release。本輪使用者批准先調查 RAF 失敗並修正確認的原因、升版 1.12.4，授權推送 main／新 v1.12.4 tag，由 CI／Release workflow 發佈 GitHub 套件與 checksum，不做 npm publish。Windows CI 覆蓋正在加入，配置整合與執行待完成，不代表已驗證 Windows 相容性；不宣稱 v1.12.4 本機或 hosted gates 已通過。已發佈 v1.12.1 相容性 baseline、歷史 tags／日期／counts 不變；實體資格 blockers 不因工具或 vendor 更新而解除，不新增實機認證。
 
 - **API 相容（P97）：** Baseline 是已發佈 v1.12.1 archive（SHA256 `a0c2b6ba…`，commit `ee0c1a18…`）的宣告檔 hash；對 root exports 生成雙向 strict callable shadow、constructor／overload／setter write type、generic 約束、implementor／options 與 protected／abstract 義務。原宣告保留 polymorphic `this` 與方法 bivariance，不以全面改寫成 call signature 冒充 strict。完全相同且 relative-import 依賴閉包也相同的宣告才共用 TypeScript identity，任何依賴變更都移出共用集合。這只證明 TypeScript source 相容，timing／ownership／event 行為仍靠實 consumer 與 runtime 證據。
 - **效能門檻（P98）：** Calibration 與 certification 是兩個命令；profile 綁 host／GPU／backend／quality／device／launch args 與 workload revision。Loading／steady 的 RAF p95／max／hitch fraction 與 CPU frame／submit 分開，不重試失敗 gate。歷史 revision 3 的 dense sensor workload 沿用既有 O(N²) sweep（當時不宣稱優化），曾將 colliders 由 96 降至 48，因 96 個在當時本 host 約 200ms／frame，無法在 180s bounded deadline 內完成 900 個量測 frames；此為歷史紀錄，不是目前 workload。當前 `productionRegressionWorkload` 為 revision 4／96 colliders，本輪真正效能修正不得縮減此 workload 或放寬既有 gates。

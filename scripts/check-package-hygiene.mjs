@@ -28,6 +28,15 @@ const usage =
   'Usage: node scripts/check-package-hygiene.mjs [--output directory] [--archive package.tgz] | --print-files';
 async function command(binary, args, cwd, logPath) {
   const chunks = [];
+  // Windows .cmd shims cannot be spawned directly; invoke npm's bundled JS
+  // entry point without a shell so archive/output paths remain literal arguments.
+  if (binary === 'npx' && process.platform === 'win32') {
+    args = [
+      join(dirname(process.execPath), 'node_modules/npm/bin/npx-cli.js'),
+      ...args,
+    ];
+    binary = process.execPath;
+  }
   const child = spawn(binary, args, {
     cwd,
     env: process.env,

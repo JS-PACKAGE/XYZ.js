@@ -2,9 +2,9 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-**Current normative entry:** [v1.12.3 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.12.3/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
+**Current normative entry:** [v1.12.4 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.12.4/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
 
-XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.12.3 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations are not physical-device certification. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.12.4 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations and configured Windows CI testing are not physical-device or Windows-driver certification; browser qualification requires actual recorded evidence. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Historical Stage-Profile Orientation
 
@@ -101,7 +101,7 @@ From the engine repository, build/pack once and create an empty destination:
 ```sh
 npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
-node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.3.tgz --name my-game
+node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.4.tgz --name my-game
 npx pnpm@12.6.0 --dir /absolute/my-game install
 npx pnpm@12.6.0 --dir /absolute/my-game dev
 npx pnpm@12.6.0 --dir /absolute/my-game build
@@ -1367,6 +1367,6 @@ The final two commands run inside a generated starter. The teardown-only benchma
 
 ## 41. Current documentation and consumer tools (P97–P103)
 
-[CURRENT](CURRENT.md) is the normative v1.12.3 capability/API/support entry; older versioned recipes above remain historical profiles. `pnpm docs:api` generates searchable public root-export documentation at `.vite/site/api/1.12.3/`; `pnpm build:site` includes the same portal in the deployed static site. Ownership/abort/cleanup examples are included there.
+[CURRENT](CURRENT.md) is the normative v1.12.4 capability/API/support entry; older versioned recipes above remain historical profiles. `pnpm docs:api` generates searchable public root-export documentation at `.vite/site/api/1.12.4/`; `pnpm build:site` includes the same portal in the deployed static site. Ownership/abort/cleanup examples are included there.
 
 Installed `pnpm exec xyz-assets preflight --manifest project.json` validates project references through actual loaders; `build --manifest project.json --out NEW_DIRECTORY` publishes checksummed assets without overwriting source. See [asset recipe](ASSET-RECIPE.md) for schema, pinned development tooling and optional model conversion. Reviewed host/backend performance profiles and physical qualification have separate statuses/limits in CURRENT: calibration is not certification, and unavailable physical evidence remains BLOCKED.

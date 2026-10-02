@@ -403,7 +403,7 @@ function diagnosticRecord(diagnostic, contracts) {
     diagnostic.file && diagnostic.start !== undefined
       ? contracts.find(
           (item) =>
-            item.file === diagnostic.file.fileName &&
+            resolve(item.file) === resolve(diagnostic.file.fileName) &&
             diagnostic.start >= item.start &&
             diagnostic.start < item.end,
         )
