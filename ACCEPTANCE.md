@@ -1018,6 +1018,14 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - Instrumented `ERR_ABORTED` 僅在**同一request ID**、native完整EOF／host200finish／精確bytes+SHA、無abort/cancel，且發生在failure/destroy前時才分類 completed EOF；不是忽略所有aborts。Owned negative staging真的取消8MiBbody，實際same harness exit1、唯一`net::ERR_ABORTED` fatal；兩catalog與links仍PASS。原本未instrument的abort仍unclassified。
 - Audio證據 `.vite/audio-native-load/p71-resume-final-summary.json` 與各三引擎report；Worker證據 `.vite/p82-default-builtroot.json`；bg228 fullsite `.vite/site-smoke-final-freeze/run-vH2WYS/results.json`；intentional cancel `.vite/site-smoke-negative-canonical/run-Kgcin0/results.json`。Original／refrozen／corner diagnosis／final3Dconsumerreports與screenshots另保留owned evidence directories，不混成一次rerun。
 
+### 最終 optimized source 工具鏈（2026-10-02）
+
+- Canvas snapshot 修正整合後，完整 `typecheck`、`lint`、`format:check`、`test`、`build`、`check:tree-shaking`、`build-site` 全部實際成功；**117 test files／967 tests**，268 JavaScript files由2530959 minified前bytes降至1342284 bytes，official vendor不改。這不是沿用修正前的工具鏈結果。
+- 最終8份多語主文件共 **391個相對links／anchors**，檔案存在與Markdown heading檢查errors0；證據 `.vite/final-doc-links.json`。文件檢查不冒稱runtime驗證。
+- 上述最終build的optimized deployed site再完整執行一次，**212/212 renderer routes／45 direct directories／兩catalog／199 links全PASS**；site仍54 HTML entries。本次browser是私有managed Chromium153.0.8010.12，launch mute與native zero-gain safety都有記錄，root/gallery實際截圖已目視。結果 `.vite/site-smoke-optimized-final/run-uerXqx/results.json`，不是拿bg228 site當最終Canvas修正後的證據。
+- 最終optimized tarball SHA256 `2ff001d8a71b9858990bfdb651e1331513449260ecd2bcb5757197d6101e061a`；2D／3D都再次獨立fresh install／typecheck／build／installed CLI help與兩template generation成功。Root canonical emitted engine、兩installed與兩deployed trees各818files逐bytes一致，sorted `{name,bytes,sha256}` inventory JSON的SHA256皆 `dae828a276f288b9ab34ace77fafae0a956cbac3807146e90fca80d702f3b9f0`；canonical14 vendor原檔未改。
+- 此tar的新owned nativeCanvas2D `/relative/courier/` 真menu／unlock／play／keyboardmove／pause／save／reload／Continue exact checkpoint／destroy成功，10張screenshots與532個finished HTTP requests／16worklets／8gain0 physical sinks／8contextsclosed，unresolved errors0。One reportedabort保留same-request EOF bytes/hash分類證據。未改的full3D／P74原生故障恢復沿用上述bg228／原始reports，不假裝全部重跑。最終consumer report `/tmp/xyz-starter-final-lineage-evidence-05Pa0X/report.json`；所有owned browsers／servers已關閉，throwaway fixtures已移除，證據與tar保留。
+
 ### 未取得或禁止的實體驗收
 
 - **BLOCKED**：安全可控owned physical mobile／gamepad／OS IME／background-thermal session不可得；設定中Zhuyin／device list／emulation不構成場景證據。Safari preserve：不連入或操控使用者Safari/sharedsessions。
