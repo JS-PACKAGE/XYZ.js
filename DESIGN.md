@@ -226,3 +226,7 @@ consumer編譯由獨立gate守護，不宣稱這等於完整nested-signature相�
 
 實際驗收、failed-before／passed-after與日期見ACCEPTANCE；所有physical／audible／OS／
 Safari／driver限制保持具名，不由desktop automation或模擬profile解除。
+
+### v1.12.0 release verification scheduling
+
+Site smoke以sorted source index modulo的1-based `--shard index/count`（count≤32）分配example；每個example保留全部既有backend cases，filters在assignment之後套用。每shard獨立server／owned muted Chromium／output，完整驗catalogue及links，report保留available／planned／completed／exercised stable IDs；empty、blocked-only或incomplete不能PASS。CI四個必要macOS／Metal jobs並行，production baseline／installed starter在另一macOS job，不與site browser爭同一runner；native audio保留原Linux／PulseAudio環境與精度assertion，獨立必要job。既有Linux三engine regression仍保留；此排程不是multi-thread renderer或跨平台FPS保證。Starter collection driver用真實held keys到公開HUD collection狀態，保留authored-clock bound／wall watchdog及其後自然90秒玩法。

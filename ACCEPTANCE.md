@@ -1119,3 +1119,21 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metadata 升至 **1.12.0／Apache-2.0**，推送 main 與新 v1.12 tag，沿既有 shared CI／Release workflow 封裝 GitHub Release、tarball 與 SHA256SUMS；不做 npm publish、不改歷史 tags。上述 1.11.0 snapshots、counts、hashes 與未推送敘述均保留為當時事實，新附件 identity 須另外驗證。實機、安全授權與效能限制不因發佈解除。
 
 本次升版後 frozen install／format:check／strict typecheck／122 files、994 tests／lint／build／710 export API compatibility／source及built-root tree-shaking／pack皆成功。Extracted 1.12.0 archive 正式 root import、281 runtime exports、Vector3 length=5 與 installed CLI help 已實際執行。本機 tarball SHA256 `7f861b5b41e09b6036859a98b375c0bcd447efb3f5337b5537837ea2e8f191d7`；GitHub 附件待 CI 發佈後另核對，不以本機封裝推定 hosted gates 通過。
+
+### v1.12 hosted gate failure 與修正範圍
+
+原 [Release run 37019862988](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37019862988) 的 Node 22／24／26 quality 與十個 browser matrix jobs 均成功，但新增 release-surfaces gate 失敗，因此沒有發佈附件。完整原始 reports 保留在 `.vite/v1.12-ci-failure/`。
+
+- Site 實際跑了全部212條案例，十條失敗；重負載 native-material／instancing 等 screenshot 等待 RAF／compositor 超時，總耗時約50分鐘。不能把「拆 shard」當成已修復 pixel 驗證。新增 deterministic CI shards 後仍保留每個 example 的全部 backend profiles、可見拒絕與 catalogue／links checks。
+- Linux runner 明確使用 ANGLE／Vulkan SwiftShader 軟體 GPU。2D production steady RAF mean80.219ms、GPU pass mean78.355ms、CPU frame mean1.788ms；3D已初始化、進入measuring並留下native live screenshot，但未在180秒內完成測量。軟體 GPU 負載是有證據支持的原因推論，不冒稱取得3D失敗當下的完整GPU進度。CI改用既有macOS／Metal runner，保留baseline workload、600 steady frames、180秒measurement timeout與teardown≤5000ms，不降低品質或放寬門檻，也不代表Linux performance通過。
+- Starter兩維度皆在line231等crystal的5000ms gate失敗。原harness以wall-clock held-key長度推定到達，但正式遊戲clamp每幀delta至0.03，慢host實際未走到target。修正僅harness，以真實可信鍵盤及native畫面位置／collection觀察驅動，不teleport、不改遊戲速度、不fake HUD。
+- 使用者另要求詳盡英文 `SECURITY.md`，納入正式套件及README導覽。原v1.12 tag保持不變；新修正將以獨立v1.12.0 tag重新經完整CI後發佈，沒有force retag或跳過失敗gate。
+
+### v1.12.0 修正後本機整合證據
+
+- 完整 frozen install、format:check、strict typecheck、122 files／994 tests、lint、build:site、710 export compatibility及source／built-root tree-shaking皆成功。正式native surface assertions未更改：四個獨立owned Chromium並行完整跑45 examples／212 cases，分別56／51／51／54 cases，全部PASS；union零missing／duplicate，每shard均驗兩catalogues與local links。證據 `.vite/v1.12-fixes/site-union-proof.json`，不是僅以partition arithmetic冒稱完整runtime。
+- 在owned macOS／ANGLE Metal Apple M5執行原始baseline WebGL2 production command：2D／3D均完成120 warmup／600 steady／180 loading CPU samples，errors空，teardown各3ms≤5000ms；`.vite/v1.12-fixes/benchmark-{2d,3d}.json`。Vite dynamic-import warning仍存在但不阻止PASS，沒有以suppression假冒修復；此為該host的測量，不解除原Linux軟體GPU失敗或實機／60FPS限制。
+- Fresh `xyz.js-1.12.0.tgz` SHA256 `5ab12058b562b629301a5efe6cbf89b2c6a44b9207275286e8e4d95fba06955b`，兩starter獨立install／build／production deployment，可信keyboard實際collection、pause／reload／continue、自然90秒玩法、restart／destroy、portable settings／saves及offline update／rollback均PASS；`.vite/v1.12-fixes/starters/results.json`。新collection driver以五個HUD gameplay seconds及原mode 30000ms wall watchdog界定，不再用固定wall-time移動推測到達；90秒玩法150000ms completion bound不變。
+- 額外owned CDP CPU throttle6、零增速與零state mutation下，2D／3D均實際收取一顆crystal，wall267／2562ms、HUD elapsed0／2seconds，page errors空；`.vite/v1.12-fixes/slow-crystal-proof.json`。Native compositor截圖已目視確認角色、四顆剩餘crystals、paused checkpoint。此是模擬CPU壓力，不是physical low-tier證明。
+- `SECURITY.md` 為詳盡英文政策，說明private reporting、無SLA／backport承諾、trust boundaries、bounded assets、native shaders／workers、official OPM供應鏈、portable saves、CSP／offline與安全測試限制；已確認GitHub private vulnerability reporting enabled，未提交report。README已連結，package明確包含政策。Hosted v1.12.0 CI及正式附件另驗，不將本機PASS當成hosted成功。
+- 最後額外macOS並行native audio有一頁reference max error `0.000020429491996765137` 超過既有門檻，另一頁PASS；zero-gain安全sink及八個owned contexts cleanup均正常，原始FAIL保留 `.vite/v1.12-fixes/audio-native/results.json`，不重試、不放寬tolerance。Peak在0.3466666666666667s control boundary，兩參考的native calls非atomic，sample-boundary race目前僅[INFERENCE]，未證明root cause，**不宣稱macOS音訊已修復／通過**。此變更不需要搬音訊host：正式必要audio job保留原v1.12 hosted已PASS的Linux／PulseAudio環境，與需要Metal的production／starters分開；新hosted結果仍待驗。文件relative links434／anchors78零失敗，後續format:check成功。

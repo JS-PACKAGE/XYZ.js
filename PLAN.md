@@ -317,3 +317,7 @@ P88–P96 的可達正式實作已完成，依階段分開提交並保留 1.11.0
 品質 profiles 的 PASS 僅限明示 operator gate：high WebGPU 3D 未達 60 FPS，
 短期 memory trends 不認證無 leak，CDP pressure 不認證 physical low-tier hardware。
 前述實機／安全授權 blocker 保留；新 hosted CI job 僅完成設定，未冒稱本輪遠端已執行。
+
+### v1.12.0 release gate 修正
+
+原v1.12 tag保留為當時snapshot，hosted新增surface gate失敗，沒有附件。使用者後續要求英文SECURITY.md與site smoke並行；目前以四個獨立macOS／Metal site shards保留完整212 cases，release-surfaces另以相同host跑原baseline production workload與fresh starters。Linux既有三engine regression matrix仍保留，不將Metal結果宣稱為Linux效能修復；新v1.12.0 tag須等所有CI jobs通過。詳見 [ACCEPTANCE](ACCEPTANCE.md) 與 [SECURITY](SECURITY.md)。

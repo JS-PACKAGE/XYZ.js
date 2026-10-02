@@ -31,14 +31,19 @@ for (let index = 2; index < process.argv.length; index += 2) {
   const name = process.argv[index],
     value = process.argv[index + 1];
   if (
-    !['--site', '--output', '--example', '--renderer', '--timeout'].includes(
-      name,
-    ) ||
+    ![
+      '--site',
+      '--output',
+      '--example',
+      '--renderer',
+      '--timeout',
+      '--shard',
+    ].includes(name) ||
     !value ||
     value.startsWith('--')
   )
     throw new Error(
-      'Usage: node scripts/smoke-site.mjs [--site .vite/site] [--output directory] [--example slug] [--renderer auto|canvas2d|webgl2|webgpu] [--timeout milliseconds]',
+      'Usage: node scripts/smoke-site.mjs [--site .vite/site] [--output directory] [--example slug] [--renderer auto|canvas2d|webgl2|webgpu] [--timeout milliseconds] [--shard index/count]',
     );
   options.set(name, value);
 }
@@ -48,13 +53,42 @@ if (!Number.isInteger(timeout) || timeout < 1000 || timeout > 180000)
 const renderer = options.get('--renderer');
 if (renderer && !['auto', 'canvas2d', 'webgl2', 'webgpu'].includes(renderer))
   throw new Error('Unknown renderer.');
+const shardArgument = options.get('--shard') ?? '1/1';
+const shardMatch = /^([1-9]\d*)\/([1-9]\d*)$/.exec(shardArgument);
+if (
+  !shardMatch ||
+  Number(shardMatch[2]) > 32 ||
+  Number(shardMatch[1]) > Number(shardMatch[2])
+)
+  throw new Error('Shard must be index/count with 1 <= index <= count <= 32.');
+const shard = {
+  index: Number(shardMatch[1]),
+  count: Number(shardMatch[2]),
+  id: `${shardMatch[1]}-of-${shardMatch[2]}`,
+  requested: options.has('--shard'),
+  partition: 'sorted-source-index-modulo; filters apply after assignment',
+};
 const site = resolve(root, options.get('--site') ?? '.vite/site');
 const outputRoot = resolve(root, options.get('--output') ?? '.vite/site-smoke');
 await mkdir(outputRoot, { recursive: true });
-const output = await mkdtemp(join(outputRoot, 'run-'));
+const output = await mkdtemp(
+  join(outputRoot, shard.requested ? `shard-${shard.id}-` : 'run-'),
+);
 const results = [],
   catalogue = [],
   linkChecks = [];
+const coverage = {
+  cataloguePaths: ['/', '/examples/'],
+  filters: {
+    example: options.get('--example') ?? null,
+    renderer: renderer ?? null,
+  },
+  sourceExamples: [],
+  assignedExamples: [],
+  selectedExamples: [],
+  availableCases: [],
+  plannedCases: [],
+};
 let browser, server, launch, capabilities, startupError, toolchain;
 let interrupted = false;
 const onSignal = () => {
@@ -89,6 +123,9 @@ async function sourceExampleIndexes(directory = join(root, 'examples')) {
 }
 function filename(path, profile) {
   return `${path.replace(/^\/examples\//, '').replace(/[^a-zA-Z0-9_-]+/g, '_')}-${profile}`;
+}
+function caseIdentity(path, profile) {
+  return profile === 'default' ? path : `${path}?renderer=${profile}`;
 }
 const rejectionPattern =
   /UnsupportedGraphicsError|no\s*3d\s*capability|2d-only|(?:canvas\s*2d|canvas2d)[\s\S]{0,150}(?:unsupported|no 3d|not supported|does not support|does not render|cannot|requires|unavailable)|(?:requires|unsupported|not supported)[\s\S]{0,150}(?:webgpu|webgl2)/i;
@@ -379,6 +416,8 @@ async function inspectExample(path, profile, expectedRejection) {
   const name = filename(path, profile);
   const row = {
     kind: 'example',
+    caseId: caseIdentity(path, profile),
+    shardId: shard.id,
     url: url.href,
     sourceIndex: path,
     profile,
@@ -661,6 +700,20 @@ try {
   const expected = await sourceExampleIndexes();
   if (!expected.length)
     throw new Error('No source example index.html files discovered.');
+  coverage.sourceExamples = expected;
+  coverage.assignedExamples = expected.filter(
+    (_, index) => index % shard.count === shard.index - 1,
+  );
+  coverage.selectedExamples = coverage.assignedExamples.filter((path) => {
+    const slug = decodeURIComponent(
+      path.slice('/examples/'.length).replace(/\/index\.html$/, ''),
+    );
+    return !options.has('--example') || slug === options.get('--example');
+  });
+  if (!coverage.selectedExamples.length)
+    throw new Error(
+      `Shard ${shard.id} selects no source examples after filtering; empty shards cannot pass.`,
+    );
   const require = createRequire(import.meta.url),
     packagePath = require.resolve('playwright-core/package.json');
   const metadata = JSON.parse(await readFile(packagePath, 'utf8'));
@@ -694,10 +747,7 @@ try {
   await inspectCatalogue('/', expected);
   await inspectCatalogue('/examples/', expected);
   for (const path of expected) {
-    const slug = decodeURIComponent(
-      path.slice('/examples/'.length).replace(/\/index\.html$/, ''),
-    );
-    if (options.has('--example') && slug !== options.get('--example')) continue;
+    // Partition examples, not profiles: one owner retains every route for an example.
     const cards = catalogue.filter(
       (card) =>
         new URL(card.href).origin === server.origin &&
@@ -713,23 +763,53 @@ try {
       (card) => /\b3D\b/.test(card.tags) && !/\b2D\b/.test(card.tags),
     );
     if (threeDOnly && profiles.size > 1) profiles.add('canvas2d');
-    for (const profile of renderer ? [renderer] : profiles) {
-      if (renderer && !profiles.has(renderer)) {
-        results.push({
-          kind: 'example',
-          sourceIndex: path,
-          url: `${server.origin}${path}?renderer=${renderer}`,
-          profile,
-          result: 'BLOCKED',
-          backendLimit:
-            'Not advertised as a selectable backend by actual gallery DOM; no false support claim.',
-        });
-        continue;
-      }
-      await inspectExample(path, profile, threeDOnly && profile === 'canvas2d');
-    }
+    const cases = [...profiles].map((profile) => ({
+      caseId: caseIdentity(path, profile),
+      sourceIndex: path,
+      profile,
+      expectedRejection: threeDOnly && profile === 'canvas2d',
+      advertised: true,
+    }));
+    coverage.availableCases.push(...cases);
+    if (!coverage.selectedExamples.includes(path)) continue;
+    coverage.plannedCases.push(
+      ...(renderer
+        ? [
+            cases.find((entry) => entry.profile === renderer) ?? {
+              caseId: caseIdentity(path, renderer),
+              sourceIndex: path,
+              profile: renderer,
+              expectedRejection: threeDOnly && renderer === 'canvas2d',
+              advertised: false,
+            },
+          ]
+        : cases),
+    );
   }
-  if (!results.some((row) => row.kind === 'example'))
+  for (const entry of coverage.plannedCases) {
+    if (!entry.advertised) {
+      results.push({
+        kind: 'example',
+        caseId: entry.caseId,
+        shardId: shard.id,
+        sourceIndex: entry.sourceIndex,
+        url: `${server.origin}${entry.caseId}`,
+        profile: entry.profile,
+        result: 'BLOCKED',
+        backendLimit:
+          'Not advertised as a selectable backend by actual gallery DOM; no false support claim.',
+      });
+      continue;
+    }
+    await inspectExample(
+      entry.sourceIndex,
+      entry.profile,
+      entry.expectedRejection,
+    );
+  }
+  if (
+    !results.some((row) => row.kind === 'example' && row.result !== 'BLOCKED')
+  )
     throw new Error('No matching example URLs exercised.');
 } catch (error) {
   startupError = {
@@ -738,11 +818,25 @@ try {
     cause: error.cause ? String(error.cause) : undefined,
   };
 } finally {
+  const exampleResults = results.filter((row) => row.kind === 'example');
+  coverage.completedCaseIds = exampleResults.map((row) => row.caseId);
+  coverage.exercisedCaseIds = exampleResults
+    .filter((row) => row.result !== 'BLOCKED')
+    .map((row) => row.caseId);
+  coverage.complete =
+    coverage.plannedCases.length > 0 &&
+    coverage.plannedCases.length === coverage.completedCaseIds.length &&
+    coverage.plannedCases.length === coverage.exercisedCaseIds.length &&
+    coverage.plannedCases.every(
+      (entry, index) => entry.caseId === coverage.completedCaseIds[index],
+    );
   const report = {
     scope:
       'Production static deployment and native visible surface only. Every feature needs its separate targeted acceptance proof.',
     site,
     output,
+    shard,
+    coverage,
     origin: server?.origin,
     browser: browserIdentity('chromium', browser, launch),
     toolchain,
@@ -763,14 +857,15 @@ try {
     startupError,
     interrupted,
     catalogue: results.filter((row) => row.kind === 'catalogue'),
-    results: results.filter((row) => row.kind === 'example'),
+    results: exampleResults,
     linkChecks,
     serverRequests: server?.requests,
   };
   const failed =
     !!startupError ||
     interrupted ||
-    !results.length ||
+    !coverage.complete ||
+    !coverage.exercisedCaseIds.length ||
     results.some((row) => row.result !== 'PASS') ||
     linkChecks.some((check) => check.result !== 'PASS');
   report.result = failed ? 'FAIL' : 'PASS';
@@ -783,6 +878,13 @@ try {
       JSON.stringify(
         {
           result: report.result,
+          shard,
+          coverage: {
+            availableCases: coverage.availableCases.length,
+            plannedCases: coverage.plannedCases.length,
+            exercisedCases: coverage.exercisedCaseIds.length,
+            complete: coverage.complete,
+          },
           output,
           report: join(output, 'results.json'),
           startupError,

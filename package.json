@@ -21,6 +21,7 @@
     "xyz-create": "scripts/create-game.mjs"
   },
   "files": [
+    "SECURITY.md",
     "dist/src",
     "dist/packages",
     "dist/vendor/opm/LICENSE",

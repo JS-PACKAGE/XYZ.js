@@ -1340,3 +1340,9 @@ origin data. Opt-out builds remove stale generated worker artifacts. Offline pro
 must use fresh production navigation, actual native module/node loads and
 manifest response verification—not page-network request counts, which omit
 AudioWorklet fetches. No offline streaming-media or arbitrary-origin caching promise.
+
+### Release verification and security policy
+
+The deployed-site CLI accepts `--shard index/count`, with a one-based index and count up to 32. Sorted source-example ordinals are partitioned modulo the count before filters; every assigned example retains all advertised backend profiles and explicit unsupported-3D rejection. Each shard owns its server, managed muted Chromium process and output. Both catalogues and links are checked; reports retain full available/planned/completed/exercised case identities, and empty, blocked-only or incomplete shards fail. All four required CI shard jobs must pass.
+
+The current site and production/starter jobs use macOS/Metal; native audio retains its original Linux/PulseAudio environment in a separate required job, without changing reference tolerances. Linux/SwiftShader browser regression jobs remain separate. The production baseline frame counts, measurement deadline and teardown threshold are unchanged. These are host-scoped software/runtime checks, not Linux performance recovery or universal FPS certification. The starter harness drives trusted keyboard collection to the public HUD state rather than inferring movement from a wall-clock delay; subsequent natural gameplay, saves and offline gates remain required. See [parallel commands](USAGE.md) and the detailed [security policy](../SECURITY.md); actual hosted results and original failures remain in [ACCEPTANCE](../ACCEPTANCE.md).

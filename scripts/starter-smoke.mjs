@@ -76,13 +76,60 @@ async function saved(page) {
     { timeout: 30000 },
   );
 }
-async function hold(page, key, milliseconds) {
+async function acquireCrystal(page, kind) {
+  // These clear, single-leg routes need no wall-time estimate of player speed.
+  // 2D approaches the bottom-left crystal diagonally; 3D approaches the center.
+  const keys = kind === '2d' ? ['ArrowUp', 'ArrowRight'] : ['ArrowUp'];
+  const before = await page.locator('#hud').innerText();
+  const match = /^Crystals: 0\/5 · Seconds: (\d+)$/.exec(before);
+  check(match, `${kind}: acquisition did not start with a fresh gameplay HUD`);
+  const startSeconds = Number(match[1]);
+  const startedAt = Date.now();
+  const held = [];
   await page.locator('#game').focus();
-  await page.keyboard.down(key);
   try {
-    await page.waitForTimeout(milliseconds);
+    for (const key of keys) {
+      await page.keyboard.down(key);
+      held.push(key);
+    }
+    const reached = await page.waitForFunction(
+      (startSeconds) => {
+        const hud = document.querySelector('#hud')?.textContent ?? '';
+        const match = /^Crystals: (\d)\/5 · Seconds: (\d+)$/.exec(hud);
+        if (!match) throw new Error(`Unrecognized acquisition HUD: ${hud}`);
+        const crystals = Number(match[1]);
+        const gameplaySeconds = startSeconds - Number(match[2]);
+        const mode = document.querySelector('#mode')?.textContent;
+        if (
+          crystals > 0 ||
+          gameplaySeconds >= 5 ||
+          mode !== 'Deliver the crystals!'
+        )
+          return { hud, crystals, gameplaySeconds, mode };
+        return false;
+      },
+      startSeconds,
+      { timeout: 30000 },
+    );
+    const evidence = await reached.jsonValue();
+    await reached.dispose();
+    check(
+      evidence.crystals > 0 &&
+        evidence.mode === 'Deliver the crystals!' &&
+        evidence.gameplaySeconds < 5,
+      `${kind}: clear crystal route was not reached within five HUD seconds: ${evidence.hud}; ${evidence.mode}`,
+    );
+    return {
+      target: kind === '2d' ? 'bottom-left crystal' : 'center crystal',
+      keys,
+      before,
+      ...evidence,
+      wallMilliseconds: Date.now() - startedAt,
+      wallLimitMilliseconds: 30000,
+      gameplayLimitSeconds: 5,
+    };
   } finally {
-    await page.keyboard.up(key);
+    for (const key of held.reverse()) await page.keyboard.up(key);
   }
 }
 async function capture(page, kind, stage, row) {
@@ -220,22 +267,8 @@ try {
       await page.locator('#start').click();
       await mode(page, 'Deliver the crystals!');
       await capture(page, kind, 'play', row);
-      // Reach a real crystal with trusted held keys, through the authored arena.
-      if (kind === '2d') {
-        await hold(page, 'ArrowUp', 1750);
-        await hold(page, 'ArrowRight', 390);
-      } else {
-        await hold(page, 'ArrowLeft', 1500);
-        await hold(page, 'ArrowUp', 3000);
-      }
-      await page.waitForFunction(
-        () =>
-          /Crystals: [1-5]\/5/.test(
-            document.querySelector('#hud')?.textContent ?? '',
-          ),
-        undefined,
-        { timeout: 5000 },
-      );
+      row.crystalAcquisition = await acquireCrystal(page, kind);
+      await capture(page, kind, 'crystal', row);
       await page.keyboard.press('Escape');
       await mode(page, 'Paused — checkpoint saved when storage is available.');
       await saved(page);

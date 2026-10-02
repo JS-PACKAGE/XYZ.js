@@ -116,6 +116,25 @@ npx pnpm@12.6.0 smoke:site
 
 The website builder emits root/gallery/every example and benchmark HTML into `.vite/site/`, copies the complete engine `dist/` unchanged to `engine/`, and preserves fixtures/public assets/module workers. Deploy the entire output to root or a subpath on an HTTP/HTTPS static server with directory indexes; no Vite dev middleware or `file://` is required or supported. `smoke:site` exercises the built static tree in its own managed muted Chromium, with native zero-gain physical-output sinks. It does not certify audible output, Safari, physical hardware or screen readers; inspect its actual report before claiming success.
 
+For parallel verification, run all four shards after the single local site build (POSIX shell):
+
+```sh
+pids=""
+for shard in 1 2 3 4; do
+  node scripts/smoke-site.mjs --shard "$shard/4" --output ".vite/site-smoke/shard-$shard-of-4" &
+  pids="$pids $!"
+done
+status=0
+for pid in $pids; do
+  wait "$pid" || status=1
+done
+test "$status" -eq 0
+```
+
+`--shard index/count` is 1-based, with `1 <= index <= count <= 32`. Sorted source example paths are assigned by ordinal modulo count before filters; every example's original renderer routes (including explicit unsupported Canvas2D/3D checks) remain together. Every shard still verifies both complete catalogues and their local links. `results.json` records the shard identity, full available case manifest, ordered planned/completed/exercised case IDs and completeness; empty selections, unavailable backends, missing cases and failures cannot pass. `--example` and `--renderer` remain diagnostic filters, not full-site coverage; omit `--shard` for a single-example run unless its assigned shard is known. Without `--shard`, the original complete serial execution remains.
+
+This is concurrent independent Node/browser processes, **not JavaScript threads inside a page**. Each process owns its static server, muted managed Chromium and unique output directory; all shards must succeed before claiming complete coverage. CI builds the site independently in four required macOS/Metal-host shard jobs; production workloads/starters run in another macOS job, while native audio retains its original Linux/PulseAudio environment in a separate required job. The reusable CI workflow gates release on all jobs. No retries, workload reductions or timeout relaxations are introduced. Reports retain available, planned, completed and exercised case identities; preserve every shard report to audit their union. This schedules work concurrently; it does not certify speedups, Linux software-GPU workloads, physical low-tier hardware or universal FPS.
+
 Create `index.html`:
 
 ```html

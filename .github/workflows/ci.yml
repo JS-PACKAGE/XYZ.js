@@ -97,9 +97,51 @@ jobs:
           include-hidden-files: true
           if-no-files-found: warn
 
+  deployed-site:
+    name: Deployed site / macOS owned Chromium / shard ${{ matrix.shard }} of 4
+    # Native Metal host scope; unchanged workloads/timeouts, not a Linux or FPS claim.
+    runs-on: macos-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - name: Build this runner's complete static deployment
+        run: npx --yes pnpm@12.6.0 run build:site
+      - name: Install this shard's owned native browser
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Provide an inaudible native audio device
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=xyz_site_shard_${{ matrix.shard }}
+          pactl set-default-sink xyz_site_shard_${{ matrix.shard }}
+          pactl set-sink-volume xyz_site_shard_${{ matrix.shard }} 0%
+          pactl info
+      - name: Smoke every assigned deployed example and both complete catalogues
+        run: npx --yes pnpm@12.6.0 run smoke:site --shard ${{ matrix.shard }}/4 --output .vite/site-smoke/shard-${{ matrix.shard }}-of-4
+      - name: Preserve this shard's ordered coverage and visible evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: deployed-site-node-26-shard-${{ matrix.shard }}-of-4
+          path: .vite/site-smoke/shard-${{ matrix.shard }}-of-4/
+          include-hidden-files: true
+          if-no-files-found: warn
+
   release-surfaces:
-    name: Installed starters, deployed site, audio and production workload
-    runs-on: ubuntu-24.04
+    name: Installed starters and production workload / macOS owned Chromium
+    runs-on: macos-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
@@ -109,25 +151,12 @@ jobs:
         with:
           node-version: '26'
       - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
-      - name: Build the actual static deployment and release package
-        run: npx --yes pnpm@12.6.0 run build:site
+      - name: Build the release package
+        run: npx --yes pnpm@12.6.0 run build
       - name: Preserve the supported 1.x source consumer contract
         run: node scripts/check-api-compatibility.mjs
       - name: Install one owned native browser
         run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
-      - name: Provide an inaudible native audio device
-        run: |
-          sudo apt-get install -y pulseaudio
-          pulseaudio --start --exit-idle-time=-1
-          pactl load-module module-null-sink sink_name=xyz_release_surfaces
-          pactl set-default-sink xyz_release_surfaces
-          pactl set-sink-volume xyz_release_surfaces 0%
-          pactl info
-      - name: Smoke every deployed site surface
-        run: npx --yes pnpm@12.6.0 run smoke:site
-      - name: Exercise muted native concurrent audio and owned teardown
-        if: success() || failure()
-        run: npx --yes pnpm@12.6.0 run audio:native-load --browser chromium --concurrency 2
       - name: Measure the production workload with a host-scoped teardown hang guard
         if: success() || failure()
         # This is an explicit hosted-runner lifecycle bound, not a universal FPS guarantee.
@@ -141,10 +170,41 @@ jobs:
         with:
           name: release-surfaces-node-26
           path: |
-            .vite/site-smoke/
-            .vite/audio-native-load/
             .vite/production-workloads/
             .vite/starter-smoke/
             .vite/api-compatibility/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  release-audio:
+    name: Native concurrent audio / Linux owned Chromium
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run build
+      - run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Preserve the original inaudible native Linux audio device
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=xyz_release_audio
+          pactl set-default-sink xyz_release_audio
+          pactl set-sink-volume xyz_release_audio 0%
+          pactl info
+      - name: Exercise muted native concurrent audio and owned teardown
+        run: npx --yes pnpm@12.6.0 run audio:native-load --browser chromium --concurrency 2
+      - name: Preserve native signal, reference and cleanup evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-audio-node-26
+          path: .vite/audio-native-load/
           include-hidden-files: true
           if-no-files-found: warn
