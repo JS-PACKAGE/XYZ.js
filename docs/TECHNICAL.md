@@ -1235,3 +1235,28 @@ missing selected UVs and malformed pairs reject. Existing decoded-resource,
 morph, hierarchy and palette budgets remain applicable; native fixture evidence
 does not certify an arbitrary third-party asset corpus.
 
+### Authored polygon and partitioned navigation
+
+`NavigationMesh3D({polygons,links?,tileSize?})` snapshots convex, coplanar surfaces
+with ordered vertices and certified `clearanceHeight`. Exact shared 3D edges form
+portals; overlapping XZ floors do not create connections. Projection evaluates
+actual surface height, horizontal/vertical limits and agent radius/headroom.
+Paths carry polygon corridors and clearance-certified surface waypoints; noncoplanar
+seams and authored special links are not replaced with straight motion through air.
+`NavigationMeshFollower3D` requires the appropriate center-to-feet offset and
+actual special-link handler/completion, and moves via capsule collision.
+
+`NavigationTiledGraph3D({tiles,seams,tileSize?})` snapshots existing authored or
+collision-baked sampled graphs and explicit certified seam connections. Use
+`NavigationTiledGraph3D.nodeId(tileId,localId)` for seam endpoints. The existing
+`NavigationGraph3D` keeps its 8,192-node limit. The new aggregate profile allows
+262,144 nodes, 2,097,152 connections and 1,024 tiles; preflight occurs before copying
+tile graphs. The polygon profile allows 262,144 polygons with at most 16 vertices
+each. Other spatial/adjacency limits are in `src/data/navigation.ts`; these are
+bounded admission limits, not process-memory or frame-time guarantees.
+
+New queries use spatial projection and sparse search state. Cooperative work
+includes reconstruction and smoothing, not only A* expansion. Respect revisions,
+cancellation and shared scheduler budgets; rebuild/replan when geometry changes.
+Invalid or unsafe spatial indices reject rather than entering an unbounded loop.
+The original sampled/grid APIs remain available.

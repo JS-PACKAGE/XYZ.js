@@ -47,3 +47,24 @@ export type {
   NavigationSurfaceBakeOptions3D,
   NavigationSurfaceLink3D,
 } from './bake.js';
+export { NavigationMesh3D } from './mesh.js';
+export type {
+  NavigationPolygon3D,
+  NavigationMeshLink3D,
+  NavigationMeshOptions3D,
+  NavigationMeshSearchOptions3D,
+  NavigationMeshProjection3D,
+  NavigationMeshWaypoint3D,
+  NavigationMeshPath3D,
+} from './mesh.js';
+export { NavigationMeshFollower3D } from './mesh-follower.js';
+export type {
+  NavigationMeshLinkTraversal3D,
+  NavigationMeshFollowerOptions3D,
+} from './mesh-follower.js';
+export { NavigationTiledGraph3D } from './tiled-graph.js';
+export type {
+  NavigationGraphTile3D,
+  NavigationTiledGraphOptions3D,
+} from './tiled-graph.js';
+export { PartitionNavigationJob } from './partition-search.js';

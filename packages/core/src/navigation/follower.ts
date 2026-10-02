@@ -1,7 +1,7 @@
 import { Vector3 } from '../../../math/src/math3d.js';
 import { navigationLimits } from '../../../../src/data/navigation.js';
 import type { CharacterController3D } from '../physics3d/character.js';
-import { NavigationGraph3D } from './graph.js';
+import type { NavigationGraph3D } from './graph.js';
 import type {
   NavigationGraphPath3D,
   NavigationConnection3D,
@@ -89,7 +89,7 @@ export class PathFollower3D {
     if (
       path.status !== 'found' ||
       path.nodes.length === 0 ||
-      path.nodes.length > navigationLimits.graphNodes ||
+      path.nodes.length > navigationLimits.partitionNodes ||
       !Number.isFinite(path.cost) ||
       path.cost < 0
     )
@@ -269,7 +269,14 @@ export interface NavigationFollowerOptions3D extends PathFollowerOptions3D {
   ) => 'pending' | 'complete' | 'blocked';
 }
 export interface NavigationRoute3D {
-  readonly graph: NavigationGraph3D;
+  readonly graph: Pick<
+    NavigationGraph3D,
+    | 'scheduleSearch'
+    | 'revision'
+    | 'destroyed'
+    | 'connections'
+    | 'getConnectionIndex'
+  >;
   /** Explicit authored anchor; the character must be able to return to it. */
   readonly start: string;
   readonly goal: string;

@@ -1175,3 +1175,25 @@ influences。UV2+、更多 skin sets、缺少指定 UV 或 malformed pairs 拒�
 既有 decoded-resource／morph／hierarchy／palette budgets 保留；native fixtures
 不等於任意第三方 asset corpus 認證。
 
+### Authored polygon 與 partitioned navigation
+
+`NavigationMesh3D({polygons,links?,tileSize?})` snapshot ordered vertices、
+convex／coplanar surfaces 與作者認證的 `clearanceHeight`。完全相同的3D shared
+edges 建立 portals；XZ 重疊的不同樓層不會自動相接。Projection 計算真 surface
+height、horizontal／vertical limits、agent radius／headroom。Path 帶 polygon
+corridor 與 clearance-certified surface waypoints；noncoplanar seams／special links
+不以穿越空氣的直線代替。`NavigationMeshFollower3D` 需正確 center-to-feet offset、
+實際 special-link handler／completion，並以 capsule collision 移動。
+
+`NavigationTiledGraph3D({tiles,seams,tileSize?})` snapshot 既有 authored 或
+collision-baked sampled graphs，加明示 certified seams；端點使用
+`NavigationTiledGraph3D.nodeId(tileId,localId)`。既有 `NavigationGraph3D` 保留8,192
+nodes上限；新 aggregate profile 允許262,144 nodes、2,097,152 connections、
+1,024 tiles，copy前先檢查總預算。Polygon profile允許262,144 polygons、每片最多16
+vertices；其他 spatial／adjacency limits 見 `src/data/navigation.ts`。
+這些是 bounded admission limits，不是 process-memory 或 frame-time 保證。
+
+新 queries 使用 spatial projection／sparse search；cooperative work 包含
+reconstruction／smoothing，不只 A* expansion。遵守 revision／cancel／shared
+scheduler budgets，geometry 改變時 rebuild／replan。Unsafe spatial indices 會拒絕，
+不進入無界迴圈；原 sampled／grid APIs 仍可用。

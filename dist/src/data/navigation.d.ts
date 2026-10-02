@@ -17,4 +17,18 @@ export declare const navigationLimits: Readonly<{
     maxSurfaceLayers: 8;
     supportSamples: 4;
     maxSupportSamples: 32;
+    meshPolygons: 262144;
+    meshVertices: 16;
+    meshVertexEdges: 64;
+    meshLinksPerPolygon: 16;
+    meshTileSize: 64;
+    meshTilesPerPolygon: 64;
+    meshTilePolygons: 512;
+    partitionNodes: 262144;
+    partitionConnections: 2097152;
+    partitionTileNodes: 8192;
+    partitionNodeEdges: 64;
+    projectionTiles: 4096;
+    partitionTiles: 1024;
+    partitionSeams: 65536;
 }>;

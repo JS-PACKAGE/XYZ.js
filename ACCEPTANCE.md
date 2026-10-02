@@ -1081,3 +1081,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - Production workloads提供frozen baseline／low／high工作量與實際viewport／backing／counts驗證；CLI提供native、simulated-low-tier及heavy CDP CPU／network pressure，報告明列 `actualLowTierHardware:false`。120 warmup／600 steady／180 loading frames，RAF、CPU simulation／submit、native GPU pass sum、JS heap／RSS／GC及engine estimates分開，不冒充VRAM或呈現fps。
 - 十一份完成報告：九份只通過明示teardown<=5000ms gate，兩份WebGPU baseline因未提供operator thresholds維持BLOCKED；最初simulated navigation timeout兩份FAIL保留。修正owned Vite HMR／watch及有界navigation等待後低品質兩種pressure均完成，沒有放寬metric thresholds。證據 `.vite/p92-measurement-summary.json`及其原報告。
 - 例如high WebGPU 3D的steady RAF mean47.4427ms／p9583.5ms、CPU submit p958.5ms、native recorded GPU passes p95141.75ms（430 samples），**不是60FPS達標**。所有短期heap trend為insufficient-data；不宣稱長期無leak、實機低階裝置或完整profiles×backends效能認證。
+
+### P93 — Authored polygon／partition navigation
+
+- NavigationMesh3D提供真convex coplanar authored polygons、3D shared-edge portals／height／radius／headroom／floors／special links與clearance smoothing；NavigationTiledGraph3D提供bounded snapshots及certified seams。既有graph8192上限保留，partition aggregate262144 nodes／2097152 edges／1024 tiles admission先於copy；construction／query均拒絕不安全tile indexing。1.x原grid API不替換。
+- Cooperative工作預算涵蓋reconstruction／smoothing；Mesh follower以實際capsule執行feet／center座標及special-link traversal，不以傳送或2D高度投影假冒。
+- 實際Scene／capsule smoke `NAVIGATION_SCALE_SMOKE_OK`：10000 polygons只取4candidates，visited100／work419；10000 sampled nodes總work30003、每次max17。實際capsule到X=3.5及5.5附近、link後Y=3.702。證據 `.vite/navigation-scale/report.json`；共享CPU build/query時間為觀察，不是isolated scalability或所有nav corpus認證。
