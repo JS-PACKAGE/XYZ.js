@@ -130,7 +130,9 @@ async function runAuthoring(page, backend, result, awaitState) {
   await page.mouse.up();
   await page.waitForFunction(() => window.__xyzP41?.clicks === 1);
   await page.evaluate(() => {
-    const original = navigator.getGamepads.bind(navigator);
+    const original = Object.getOwnPropertyDescriptor(navigator, 'getGamepads');
+    window.__p41NativeGamepadPolling =
+      typeof navigator.getGamepads === 'function';
     const pad = (index, value) => ({
       id: 'XYZ regression simulated standard gamepad',
       index,
@@ -145,7 +147,7 @@ async function runAuthoring(page, backend, result, awaitState) {
       })),
     });
     window.__p41SimulatedPads = [pad(7, 0), pad(2, 0.8)];
-    window.__p41OriginalPads = original;
+    window.__p41OriginalPadDescriptor = original;
     Object.defineProperty(navigator, 'getGamepads', {
       configurable: true,
       value: () => window.__p41SimulatedPads,
@@ -200,10 +202,9 @@ async function runAuthoring(page, backend, result, awaitState) {
       window.__xyzP41?.confirms === 1 && window.__xyzP41?.defaultConfirms === 1,
   );
   await page.evaluate(() => {
-    Object.defineProperty(navigator, 'getGamepads', {
-      configurable: true,
-      value: window.__p41OriginalPads,
-    });
+    const original = window.__p41OriginalPadDescriptor;
+    if (original) Object.defineProperty(navigator, 'getGamepads', original);
+    else delete navigator.getGamepads;
   });
   await page.waitForFunction(() => window.__xyzP41?.confirmValue === 0);
   await page.keyboard.down('ArrowRight');
@@ -266,6 +267,9 @@ async function runAuthoring(page, backend, result, awaitState) {
   result.authoring = {
     playwrightTouchInjection: true,
     simulatedGamepadSnapshots: true,
+    nativeGamepadPolling: await page.evaluate(
+      () => window.__p41NativeGamepadPolling,
+    ),
     physicalDeviceCertification: false,
     proof,
     probe: await page.evaluate(() => ({ ...window.__xyzP41 })),

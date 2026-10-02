@@ -101,6 +101,8 @@ Managed Chromium/Firefox/WebKit browser runs establish only their recorded paths
 
 Configured Windows CI testing does not certify physical Windows hardware or drivers. Browser qualification expands only with actual recorded evidence for the tested browser, host and paths; a configured job or pending CI run is not a passing result.
 
+Windows hosted Chromium is configured for Microsoft's **WARP CPU rasterizer** through ANGLE D3D11 and Dawn; WebGPU remains required, not relabeled as a physical GPU result. The Windows jobs start existing audio services and retain endpoint inventory, but install no extra audio driver or trusted publisher certificate. A browser requiring an unavailable native audio endpoint remains a failed gate, not an emulated unlock success.
+
 Historical guides and upgrade profiles: [English usage](https://github.com/YueyuHoshizora/XYZ.js/blob/main/docs/USAGE.md), [繁體中文使用說明](https://github.com/YueyuHoshizora/XYZ.js/blob/main/docs/USAGE-zh.md), [English technical reference](https://github.com/YueyuHoshizora/XYZ.js/blob/main/docs/TECHNICAL.md), [繁體中文技術參考](https://github.com/YueyuHoshizora/XYZ.js/blob/main/docs/TECHNICAL-zh.md), [asset recipe](https://github.com/YueyuHoshizora/XYZ.js/blob/main/docs/ASSET-RECIPE.md). These retain historical version strings/counts; this page and the generated root API are the current entry points.
 
 ## Performance qualification

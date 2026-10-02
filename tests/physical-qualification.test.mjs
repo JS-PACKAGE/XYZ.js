@@ -1,7 +1,14 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtemp, writeFile, readFile, rm, symlink } from 'node:fs/promises';
+import {
+  mkdtemp,
+  mkdir,
+  writeFile,
+  readFile,
+  rm,
+  symlink,
+} from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { join, relative } from 'node:path';
 import { Buffer } from 'node:buffer';
 import {
   prepare,
@@ -245,29 +252,67 @@ describe('physical qualification human trust boundaries', () => {
       );
     });
   });
-  it('rejects changed native capture and escaped artifact symlinks', async () => {
+  it('rejects changed native capture', async () => {
     await using(undefined, async ({ root, path, reviewPath }) => {
       await writeFile(join(root, 'capture.bin'), 'not a native capture');
       expect((await verifyEvidence(path, reviewPath)).status).toBe('BLOCKED');
-      const outside = await mkdtemp(
-        join(tmpdir(), 'xyz-qualification-outside-'),
-      );
-      try {
-        await writeFile(join(outside, 'diagnostic'), 'outside-owned-test-file');
-        await rm(join(root, 'diagnostic.bin'));
-        await symlink(
-          join(outside, 'diagnostic'),
-          join(root, 'diagnostic.bin'),
-        );
-        expect(
-          (await verifyEvidence(path, reviewPath)).failures.some((failure) =>
-            failure.includes('within evidence directory'),
-          ),
-        ).toBe(true);
-      } finally {
-        await rm(outside, { recursive: true, force: true });
-      }
     });
+  });
+  it.each(['relative', 'symlink'])(
+    'rejects %s artifact escapes even when outside bytes and review match',
+    async (kind) => {
+      await using(
+        undefined,
+        async ({ root, path, reviewPath, evidence, review }) => {
+          expect((await verifyEvidence(path, reviewPath)).status).toBe(
+            'PHYSICAL-PASS-HUMAN-ATTESTED',
+          );
+          const outside = await mkdtemp(`${root}-outside-`);
+          try {
+            const diagnostic = join(root, 'diagnostic.bin');
+            const escaped = join(outside, 'diagnostic.bin');
+            await writeFile(escaped, await readFile(diagnostic));
+            if (kind === 'symlink') {
+              await rm(diagnostic);
+              await symlink(escaped, diagnostic);
+            } else {
+              evidence.artifacts.find(
+                (artifact) => artifact.id === 'diagnostic',
+              ).path = relative(root, escaped);
+              await writeFile(path, JSON.stringify(evidence));
+              review.evidenceSha256 = digest(await readFile(path));
+              await writeFile(reviewPath, JSON.stringify(review));
+            }
+            const result = await verifyEvidence(path, reviewPath);
+            expect(result).toMatchObject({
+              status: 'BLOCKED',
+              certification: false,
+            });
+          } finally {
+            await rm(outside, { recursive: true, force: true });
+          }
+        },
+      );
+    },
+  );
+  it('accepts reviewed artifacts in nested evidence directories', async () => {
+    await using(
+      undefined,
+      async ({ root, path, reviewPath, evidence, review }) => {
+        await mkdir(join(root, 'artifacts'));
+        for (const artifact of evidence.artifacts) {
+          const data = await readFile(join(root, artifact.path));
+          artifact.path = `artifacts/${artifact.id}.bin`;
+          await writeFile(join(root, artifact.path), data);
+        }
+        await writeFile(path, JSON.stringify(evidence));
+        review.evidenceSha256 = digest(await readFile(path));
+        await writeFile(reviewPath, JSON.stringify(review));
+        const result = await verifyEvidence(path, reviewPath);
+        expect(result.status).toBe('PHYSICAL-PASS-HUMAN-ATTESTED');
+        expect(result.failures).toEqual([]);
+      },
+    );
   });
   it.each(['physical-audio', 'spoken-at'])(
     'keeps %s blocked under no-sound authorization',

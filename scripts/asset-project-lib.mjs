@@ -1,5 +1,12 @@
 import { readFile, realpath, stat } from 'node:fs/promises';
-import { resolve, relative, dirname, isAbsolute, extname } from 'node:path';
+import {
+  resolve,
+  relative,
+  dirname,
+  isAbsolute,
+  extname,
+  sep,
+} from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { TextDecoder } from 'node:util';
 import {
@@ -50,7 +57,7 @@ export function jsonLocation(path) {
 }
 const contained = (root, path) => {
   const rel = relative(root, path);
-  return rel !== '..' && !rel.startsWith('../') && !isAbsolute(rel);
+  return rel !== '..' && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
 };
 const hasControlCharacters = (value) => {
   for (let index = 0; index < value.length; index++)

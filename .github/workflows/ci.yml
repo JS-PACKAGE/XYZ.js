@@ -107,6 +107,21 @@ jobs:
           pactl load-module module-null-sink sink_name=xyz_ci
           pactl set-default-sink xyz_ci
           pactl info
+      - name: Inspect and start existing Windows audio services
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          foreach ($name in @('AudioEndpointBuilder', 'AudioSrv')) {
+            Set-Service -Name $name -StartupType Manual
+            Start-Service -Name $name
+          }
+          New-Item -ItemType Directory -Force .vite/windows-host | Out-Null
+          @{
+            services = @(Get-Service AudioEndpointBuilder,AudioSrv | Select-Object Name,Status)
+            soundDevices = @(Get-CimInstance Win32_SoundDevice | Select-Object Name,Status,Manufacturer)
+            endpoints = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Select-Object FriendlyName,Status)
+          } | ConvertTo-Json -Depth 5 | Tee-Object -FilePath .vite/windows-host/audio.json
       - name: Smoke built-root examples on explicit Canvas2D
         run: |
           npx --yes pnpm@12.6.0 run smoke:examples --browser ${{ matrix.engine }} --example gameplay2d --renderer canvas2d
@@ -121,10 +136,13 @@ jobs:
           DEBUG: pw:browser
         run: npx --yes pnpm@12.6.0 run regression:browser --browser ${{ matrix.engine }} ${{ matrix.engine == 'chromium' && '--require-webgpu' || '' }}
       - name: Desktop native interaction and reload
+        if: success() || (failure() && runner.os == 'Windows')
         run: node scripts/platform-browser.mjs --browser ${{ matrix.engine }}
       - name: Separately labeled mobile viewport and touch emulation
+        if: success() || (failure() && runner.os == 'Windows')
         run: node scripts/platform-browser.mjs --browser ${{ matrix.engine }} --mode mobile-emulation
       - name: Retained bidi and grapheme editing pixel proofs
+        if: success() || (failure() && runner.os == 'Windows')
         run: npx --yes pnpm@12.6.0 run smoke:text --browser ${{ matrix.engine }}
       - name: Preserve measured engine reports and pixel proofs
         if: always()
@@ -136,6 +154,7 @@ jobs:
             .vite/platform-browser/
             .vite/example-smoke/
             .vite/text-layout/
+            .vite/windows-host/
           include-hidden-files: true
           if-no-files-found: warn
 
@@ -199,12 +218,27 @@ jobs:
         run: node scripts/check-api-compatibility.mjs
       - name: Install one owned native browser
         run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
-      - name: Collect temporary engine-free RAF attribution on this host
-        run: node scripts/raf-host-diagnostic.mjs
       - name: Enforce host-scoped production frame, hitch and lifecycle budgets
         if: success() || failure()
         # Explicit initial operator policy, not repeated hosted calibration or a universal FPS guarantee.
         run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000
+      - name: Collect temporary production RAF and compositor attribution
+        if: success() || failure()
+        run: |
+          diagnostic_status=0
+          node --import ./scripts/raf-production-attribution.mjs scripts/production-workloads.mjs --renderer webgl2 --workloads 2d,navigation --output .vite/raf-production-measurement || diagnostic_status=$?
+          test "$diagnostic_status" -eq 1
+          node --input-type=module -e "
+            import { readFile } from 'node:fs/promises';
+            const raw = JSON.parse(await readFile('.vite/raf-production-attribution/report.json', 'utf8'));
+            const measured = JSON.parse(await readFile('.vite/raf-production-measurement/report.json', 'utf8'));
+            if (!raw.runtimeComplete || !measured.results.every(result => result.functionalStatus === 'PASS' && result.performanceStatus === 'BLOCKED')) throw new Error('Incomplete diagnostic or unexpected workload failure.');
+            if (raw.traces.length !== 2 || raw.traces.some(trace => trace.overwritten || !trace.events.some(event => event.name === 'FireAnimationFrame'))) throw new Error('Compositor trace capture incomplete.');
+            for (const workload of ['2d', 'navigation']) {
+              if (!raw.pages.some(page => new URL(page.url).searchParams.get('workload') === workload && page.frames?.count > 0)) throw new Error('Missing raw workload frames: ' + workload);
+            }
+            console.log('Measurement-only RAF attribution complete; not certification.');
+          "
       - name: Pack, install, deploy and play both independent starter games
         if: success() || failure()
         run: npx --yes pnpm@12.6.0 run smoke:starters
@@ -217,7 +251,8 @@ jobs:
             .vite/production-workloads/
             .vite/starter-smoke/
             .vite/api-compatibility/
-            .vite/raf-host-diagnostic/
+            .vite/raf-production-attribution/
+            .vite/raf-production-measurement/
           include-hidden-files: true
           if-no-files-found: warn
 

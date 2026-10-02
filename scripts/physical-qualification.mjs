@@ -1,6 +1,6 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { createHash, randomUUID } from 'node:crypto';
-import { dirname, resolve, relative, isAbsolute } from 'node:path';
+import { dirname, resolve, relative, isAbsolute, sep } from 'node:path';
 
 export const gates = [
   'physical-mobile',
@@ -236,7 +236,11 @@ export async function verifyEvidence(path, reviewPath) {
         throw new Error('Artifact path must be relative.');
       const actual = await realpath(resolve(root, artifact.path));
       const within = relative(root, actual);
-      if (within === '..' || within.startsWith('../') || isAbsolute(within))
+      if (
+        within === '..' ||
+        within.startsWith(`..${sep}`) ||
+        isAbsolute(within)
+      )
         throw new Error(
           'Artifact must stay within evidence directory, including symlinks.',
         );

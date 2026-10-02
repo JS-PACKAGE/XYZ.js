@@ -38,7 +38,12 @@ export async function browserLaunchOptions(browserName) {
           ]
         : process.platform === 'darwin'
           ? ['--use-angle=metal']
-          : []),
+          : process.platform === 'win32'
+            ? [
+                // Windows Dawn selects by ANGLE's D3D11 LUID; WARP supplies it without a physical GPU.
+                '--use-angle=d3d11-warp',
+              ]
+            : []),
     ],
   };
 }
