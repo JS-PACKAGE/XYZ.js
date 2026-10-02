@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>XYZ.js — Native materials and spatial lights</title>
+    <style>
+      body {
+        margin: 0;
+        background: #101827;
+        color: #e7edf9;
+        font:
+          16px system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1100px;
+        margin: auto;
+        padding: 20px;
+      }
+      a {
+        color: #9bd5ff;
+      }
+      h1 {
+        font-size: 1.5rem;
+      }
+      fieldset {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: center;
+        border: 1px solid #53627c;
+        border-radius: 8px;
+        padding: 12px;
+        margin: 12px 0;
+      }
+      label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 6px;
+        background: #25354c;
+        color: inherit;
+        border: 1px solid #90a7c7;
+        border-radius: 4px;
+      }
+      button:focus-visible,
+      input:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #fbd879;
+        outline-offset: 3px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: #070a10;
+        border-radius: 8px;
+      }
+      #stats {
+        font-variant-numeric: tabular-nums;
+      }
+      #status {
+        min-height: 1.4em;
+      }
+      p {
+        line-height: 1.5;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">All examples</a>
+      <h1>Native per-mesh shaders and spatial lights</h1>
+      <p>
+        The foreground sphere uses authored WGSL/GLSL vertex deformation and a
+        borrowed pattern texture. Twenty-four local point lights and twenty-four
+        spot lights illuminate separate tiles; bounded selection follows each
+        mesh, not a single scene-wide light list. No audio is created.
+      </p>
+      <fieldset>
+        <legend>Live native controls</legend>
+        <label
+          >Renderer
+          <select id="backend">
+            <option value="auto">Auto</option>
+            <option value="webgpu">WebGPU</option>
+            <option value="webgl2">WebGL2</option>
+            <option value="canvas2d">Canvas2D (unsupported)</option>
+          </select></label
+        ><label
+          >Deformation
+          <input
+            id="deformation"
+            type="range"
+            min="0"
+            max="0.5"
+            step="0.01"
+            value="0.25" /></label
+        ><label
+          >Surface tint <input id="tint" type="color" value="#f589da" /></label
+        ><label><input id="animate" type="checkbox" checked /> Animate</label
+        ><label
+          ><input id="lights" type="checkbox" checked /> Local lights</label
+        ><label><input id="shadows" type="checkbox" /> Shadows</label
+        ><label
+          ><input id="weighted" type="checkbox" /> Weighted transparency</label
+        ><button id="invalid" type="button">Show shader failure</button>
+      </fieldset>
+      <canvas
+        id="game"
+        width="960"
+        height="540"
+        aria-label="A deforming patterned sphere and rows of locally lit colored tiles"
+      ></canvas>
+      <p id="status" role="status" aria-live="polite">
+        Preparing native pipelines…
+      </p>
+      <p id="stats"></p>
+      <p>
+        The failure button prepares an invalid descriptor without publishing it;
+        the running scene remains intact. Canvas2D cannot run custom 3D shaders
+        and reports that limitation explicitly. Deformation bounds are declared
+        conservatively so native culling keeps the moving surface visible.
+      </p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
