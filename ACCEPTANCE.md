@@ -1038,3 +1038,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 使用者在 P71–P87 分功能提交後另要求「發佈v1.11 然後推送」。本次 metadata 升至 **1.11.0／Apache-2.0**，推送 main／新 v1.11 tag，由既有 Release workflow 通過 shared CI gates 後封裝 GitHub Release；不做 npm publish，不改歷史 tags。
 
 上述 2026-10-02 的 1.10.0 tarball hashes、測試 counts 與 native reports 保留原樣，是當時已驗證的整合證據，不是新版本附件 identity。版本升級不解除 physical／audible／Safari／OS assistive／driver-reset blockers，也不補授 upstream attestation。新發佈附件須另核對 SHA256SUMS。
+
+### v1.11 hosted 發佈結果
+
+main／v1.11 tag 已推送，release commit `766327ebe3e4985edcaedb6c375061271503de7b`。Release run [36996651680](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/36996651680) 全部14 jobs成功：Node22／24／26 quality、Ubuntu三引擎×三Node、macOS WebKit及封裝發佈。
+
+本次本機 frozen install／format:check／typecheck／lint／117 files、967 tests／build／tree-shaking／pack皆成功。Extracted 1.11.0 archive 的正式 root import、Vector3計算、273個exports與installed CLI help已實際執行；throwaway extraction已移除。9份發佈文件387個相對file links存在檢查errors0（本次未重新驗anchors）。
+
+GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正式附件 `xyz.js-1.11.0.tgz`／`SHA256SUMS` 已下載，checksum通過且archive與上述本機封裝逐位元組相同，SHA256 `cebc0dff6ea22365a2b63cae0d49d5f6ddc473c4da4dc1f57bca101f108cdcce`。npm未發佈；歷史與實機限制不變。
