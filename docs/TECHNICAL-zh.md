@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述目前 **1.10.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P70 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 GitHub v1.10 release，不做 npm publish。
+本參考描述目前 **1.10.0／Apache-2.0** source 套件；npm 未發佈。以下各階段日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P87 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；先前 GitHub release 授權不代表本輪擴充獲准發佈。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
@@ -12,7 +12,7 @@
 | --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | WebGPU／WebGL2        | 2D sprites／isolation／masks／blends／native materials-filters-meshes；3D lighting／PBR／instancing／shadows／post／weighted transparency。WebGPU 需安全來源，WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                    |
 | Canvas2D              | Native 2D paint／isolation／masks／basic blends／offscreen；無可見 3D／Mesh2D、Material2D、native Filter2D、effects2D／effects3D。明確拒絕，不靜默切 backend。                                                                                                                                                                                                     |
-| Physics2D（P31）      | Sleep、dynamic 平移對 static 非 sensor 的 CCD、五種 joints、static concave凸分割／thick chains；無 rotation／dynamic-pair CCD、dynamic concave／compound／kinematic。                                                                                                                                                                                              |
+| Physics2D（P76）      | Sleep、kinematic、bounded relative 平移／旋轉 CCD、凸形 character sweep／平台 carry；五種 joints、static concave 分割／thick chains。Sensor 仍 discrete，無 dynamic concave／compound／deformation CCD。                                                                                                                                                           |
 | glTF／KTX2（P32–P42） | UV0 triangles／四 influences skin／morph／COLOR_0；拒 COLOR_1。Meshopt 內建、Draco／Basis 外部提供。預設 KTX2 為 base RGBA8；native opt-in 保留支援 GPU payload／supplied mips（第 30、42 節）。                                                                                                                                                                   |
 | Animation（P34–P42）  | Ordered layers／fades／crossfades／flat state machine／tween／timeline、masks／additive references、1D／triangulated 2D blend trees／two-bone IK。Native GPU skinning／lazy exact CPU queries／保守 animated bounds 已限定 P42 驗收。                                                                                                                              |
 | Loss recovery         | 預設 `recoverGraphics:true` 重建同 GPU／GL backend；舊 renderer-owned targets／snapshots 失效，失敗或關閉 recovery 為 fatal。P42 實跑 Chromium WEBGL_lose_context 與 fixture-only GPUDevice.destroy；非 driver reset／跨瀏覽器認證。                                                                                                                               |
@@ -353,7 +353,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 - PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space UV0（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設 0／0.5，emissive 為零。
 - alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 預設 OPAQUE／false。PBR 以 alphaMode 為準，即使 opacity 小於一也不改分類。一般 TextureMaterial 在 opacity 小於一或明確 `transparent: true`（貼圖／頂點 alpha）時進透明 pass。預設 sorted 在 opaque／MASK 後按 bounding sphere 中心距離由遠到近，等距穩定、重用排序儲存；穿插表面仍可能錯誤，可選 weighted 近似。
-- Scene.pointLights／spotLights 接受 PointLight／SpotLight；position／color／intensity／range 可變，range=0 無限。Spot direction 指向照射表面，innerAngle／outerAngle 為弧度。最多 8 point＋8 spot，超限拒絕、不截斷。
+- Scene.pointLights／spotLights 接受可變 PointLight／SpotLight pools；range=0 無限，spot angles 為弧度。P84 以 bounded selection 取代原八燈 Scene 上限，見第59節；shadow atlas 限制獨立。
 - `scene.shadows` 預設 disabled；mapSize=1024、extent=10、near=0.1、far=50、bias=0.002／target 保留原固定 directional camera。Mesh.castShadow／receiveShadow 預設 true。P37 已加入 point／spot shadows 與 2–4 directional cascades，共用 bounded depth atlas／3×3 PCF；光源 flags／device dimensions 見第 35 節。
 - scene.postProcessing 預設 disabled。啟用時 3D 先進 HDR floating-point attachment，再 fullscreen exposure（1）、toneMapping（預設 'aces' 或 'none'）、實際 9-tap threshold bloom（strength=0、threshold=1、radius=2 output pixels）。2D overlay 在後且不受影響；resize／disable／destroy 釋放尺寸相關 targets。WebGL2 需 EXT_color_buffer_float，缺少時明確拒絕啟用 HDR processing。
 - InstancedMesh({...meshOptions,count}) count 固定且正，matrices 初始 identity。以 setMatrixAt(index,Matrix4) 設有限、可逆 affine matrix，增加 version 通知 upload cache；getMatrixAt(index,out) 重用 out，不要直接改 matrices 而不通知。Indexed hardware instancing 共用 geometry／material，world 為 mesh.worldMatrix × instance matrix，normal 使用 inverse-transpose。
@@ -414,13 +414,13 @@ PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter
 
 ### Physics
 
-- Root RigidBody2D／RigidBodyOptions、Collider2D／Colliders／ColliderKind／ColliderOptions、PhysicsWorld2D／PhysicsWorldOptions／CollisionDetail／ContactQuery／PhysicsRayHit、Trigger2D／TriggerOptions。Scene.physics自動註冊GameObject.body／collider，collider-only static。Bodytype static／dynamic immutable；velocity mutableVector2、angularVelocity radians／秒、mass>0、restitution[0,1]、friction／damping≥0、finitegravityScale／lockRotation。ApplyForce／applyImpulse(Vector2,worldPoint?)有leverarmtorque，clearForces清累積。
-- Centered circle／box／polygon＋optionallocaloffset geometrysnapshot；3–32strictconvexvertices／normalizewinding、拒degenerate／star／concave。Geometryextent1,000,000、nonsingulartransform、circle uniformabsolute worldscale；dynamicworldroot／nestedstatic、無screenphysics。Scale更新geometry／inertia。
-- Discrete fixed-step sweep broadphase、circle／convex exact contacts 與 clipped faces，iterative linear／angular restitution／tangent friction／position correction。Default gravityY980／fixedDelta1/120／maxSubSteps12／velocityIterations8／positionIterations3；step 正 finite、substeps1–120／iterations1–64，≤16,384 colliders。DroppedTime 累積 discarded catch-up。P43 的 frame force／torque 採時間加權 impulse，保留未完成 tick 的貢獻；fixed gameplay force 排入後續 physics step，clearForces 也取消 queue（第 43 節）。此 2D world 無 kinematic body、dynamic 凹形／compound body、零寬 edge 或 3D；未啟用 `ccd` 與 dynamic 對 dynamic 仍可能高速穿隧。
+- Root exports RigidBody2D／RigidBodyOptions、Collider2D／Colliders／ColliderKind／ColliderOptions、PhysicsWorld2D／PhysicsWorldOptions／CollisionDetail／ContactQuery／PhysicsRayHit、Trigger2D／TriggerOptions。Scene.physics 自動註冊 GameObject.body／collider；collider-only 為 static。不可變 body type 是 static／dynamic／kinematic；velocity 為 Vector2，angularVelocity 為弧度／秒。Kinematic 使用規定速度、零反質量／慣性；dynamic 保留 force／damping／gravity／sleep。
+- Collider snapshot 為 centered circle／box／strictly convex polygon＋optional offset；polygon 3–32 vertices，invalid／degenerate／concave 拒絕。Extent 上限1,000,000；transform nonsingular，circle uniform scale。所有 non-static body 必須 world root，nested static 可 affine；無 screen physics。Scale 更新 geometry／inertia。
+- Discrete fixed-step broadphase／exact convex contacts 使用 iterative linear／angular impulse 與 positional correction。Default gravityY980／fixedDelta1/120／maxSubSteps12／velocityIterations8／positionIterations3；step 正 finite、substeps1–120／iterations1–64，≤16,384 colliders；droppedTime 報 discarded catch-up。P43 time-weighted force／torque 保留 unfinished-tick contribution，fixed force 排下個 step，clearForces 取消 queue。無 dynamic concave／compound／zero-width edges／3D；無 CCD 可穿隧。
 - Reciprocaluint32category／mask default1／all，sensor只detect。collisionstart／precollision／postcollision／collisionend detail {self,other,normal,points,penetration,sensor,cancelResponse} stable snapshots／receiverreversednormal／currentstep-onlycancel；callbackfilter／remove／destroy保safeend。overlap(collider,owner) exactContactQuery[]排self／reciprocalfilter，raycast(origin,direction,maxDistance,mask?) normalize非零direction、sortedPhysicsRayHit[]。
 - Trigger2D(collider,{filter?,repeat?,onEnter?}) clone static sensor，default1acceptedenter／repeat0inactive／Infinityexplicit，triggerenter／triggerexit {self,other}／readonlyremainingRepeats，filterreject不耗count、不autodestroy。
 - Sleeping（P31）：dynamic body 的線速度低於 `physicsDefaults.sleepLinearVelocity`（0.1）且角速度低於 `sleepAngularVelocity`（0.05）持續 `sleepTime`（0.5 秒）才會休眠，而且必須是其非 sensor 接觸群組內所有 dynamic body 都閒置，所以一疊物體會一起休眠。休眠 body 不做積分與接觸求解，速度歸零。以下情況會喚醒：`applyForce`／`applyImpulse`／`velocity`／`angularVelocity`／`wake()`、transform 被修改（`isSleeping` 比較入睡時記下的姿態）、sensor 接觸、運動中的 body 碰到該群組、接觸結束或接觸中的 static collider 移動。`RigidBodyOptions.allowSleep`（預設 true，亦有 setter）與 `body.isSleeping` 為對外介面；`isSleeping` 是 getter，偵測到姿態或速度變化時可能順便喚醒 body。
-- 連續碰撞（P31）：`RigidBodyOptions.ccd`／`body.ccd`（預設 false）會在每個 fixed step 對 dynamic body 的位移做 sweep，對象是通過 reciprocal category／mask 的 static、非 sensor collider。只有當該 step 位移超過 `physicsDefaults.ccdTravelRatio`（0.25）倍的 body AABB 較小邊長時才執行。對凸形平移是精確的（circle 與凸多邊形，以該配對的 ray 對 Minkowski difference 計算）：body 被拉回到第一次接觸點，再沿運動方向推入 `ccdPenetration`（0.01），讓一般 solver 以不變的速度套用 restitution、friction 與修正。限制：step 內旋轉不做 sweep、只掃 static 目標（dynamic 對 dynamic 的穿隧仍在）、step 開始時已有 active contact 的配對會略過，成本為每 step O(ccd body 數 × collider 數)。
+- Continuous collision：RigidBodyOptions.ccd／body.ccd 預設 false；P76 以 bounded relative rigid-motion CCD、真 contact response／explicit exhaustion 取代 P31 translation-only static-target algorithm（第59節）。
 - Joints（P31）：`scene.physics.addJoint(joint)` 可附加 `DistanceJoint`（剛性，或以 `frequencyHz`／`dampingRatio` 變成軟彈簧）、`RevoluteJoint`（銷接，可選角度限制與馬達）、`PrismaticJoint`（沿軸滑動，含位移限制與馬達，旋轉鎖定）、`WeldJoint`，以及 `MouseJoint`（朝 `setTarget(x, y)` 軟拖曳，受 `maxForce` 限制）；以 `removeJoint`／`joints` 管理（上限 4,096）。Body 必須已註冊、至少一個為 dynamic，任一 body 被 unregister 時 joint 會自動分離。`anchor` 是 `bodyA` 上的世界座標點，`anchorB`（預設同 `anchor`）是 `bodyB` 上的世界座標點；兩者於附加時依當下姿態轉成 body-local anchor，不含 scale。未給 `bodyB` 時固定世界成為 A 側，所以角度、位移、軸與馬達速度都是該 body 相對世界的值。拘束使用不含 warm starting 的 sequential impulses，沿用既有 velocity／position iterations，很硬的鏈需要更多 `velocityIterations`。jointed body 預設不互相碰撞（`collideConnected` 可開），會成群休眠，joint 會喚醒休眠的夥伴。`breakForce` 在該 step 的 anchor 反作用力（每秒衝量）超過時移除 joint 並呼叫一次 `onBreak`。限制：無 rope／gear／pulley／wheel／friction joint，無 warm starting。
 - 凹形與 chain（P31）：`decomposeConvex(vertices)` 將簡單多邊形（任一繞向、最多 256 個頂點、容許共線點）以 ear clipping 加 Hertel–Mehlhorn 合併，切成最多 32 頂點、嚴格凸且逆時針的片段；自交或零面積輸入拋 `RangeError`，片段數不保證最少。`StaticConcave2D(vertices, options?)` 是子物件為 static 凸片段的 GameObject（`friction`、`restitution`、`category`、`mask` 套用到每片），可移動或仿射縮放，但沒有 dynamic 的凹形 body。`StaticChain2D(points, {closed?, thickness?})` 每段建立一個細長凸四邊形（預設厚度 2，兩端各延伸半個厚度）。Chain 是有厚度的實心帶，不是零寬 edge：比厚度更薄的 body，或每 step 移動超過厚度者，除非使用 `ccd` 仍可能穿隧。以 `scene.add(shape)` 加入，各子物件如同 collider-only 物件註冊。
 - Restitution 門檻（P31）：接觸的接近速度超過 `max(restitutionThreshold 1, |gravity| × fixedDelta × restitutionGravitySteps 2)` 才會反彈，所以像素尺度下靜止在重力中的彈性 body 能穩定並休眠，不會永遠抖動；強烈撞擊仍會反彈。
@@ -467,6 +467,7 @@ PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter
 - P22 immutable views 借同一 source，記錄 physical frame／trim／orig、clockwise 0／90、resolution／anchors／borders。Atlas acquisition 擁有 pages，普通 views／Sprites 不擁有。Tiling transforms／nearest-linear／roundPixels 為有限 profile。
 - P23 Graphics 為 bounded Canvas2D raster textures，含 centered strokes／curves／holes／gradient／local patterns；放大超過 raster resolution 可模糊，非 GPU vectors／full SVG importer。
 - P24 renderer-bound mutable offscreen targets 不同於 P19 opaque immutable whole-frame RenderSnapshot。明確 isolation 才佔一個 outer ordering slot，普通 Group 仍 global sort；cache 變更須手動 updateCache，children 繼續 simulation。CanvasTexture 擁有 versioned snapshot，extract／generated CPU texture 獨立 ownership。
+- 目前 Canvas2D 的完整未 tint image frame 借既有 versioned source snapshot，不為每 sprite 重畫 shared scratch。Cropped／packed-rotated／flipped／tinted frame 保留 pixel conversion path；source version invalidation／borrowed ownership 不變。Native 效能觀察只涵蓋已記錄的 workload／host，不承諾通用 FPS。
 - P25 rectangle／path masks picking 含 geometric holes；image mask 只測 transformed source bounds，不讀 pixel alpha。預設 alpha 有意不同於 Pixi red。Premultiplied erase 只影響 earlier transparent 2D，不擦 3D／P12。Masks／五 blends 目標三 backend；ordered Alpha／ColorMatrix／Blur／Noise／Displacement native filters 目標 GPU／GL，Canvas 必須明確拒絕。
 - P26 native meshes／plane／rope／true projective quad 目標 GPU／GL，triangle picking／invalid quad atomic reject。Canvas visible meshes 必須 UnsupportedGraphicsError，不暗示 software fallback／backend switch。
 - P27 browser-shaped Text2D 不同於 code-point SpriteText；後者不承諾 grapheme／ligature shaping。Bounded text／JSON multipage BMFont 含 proportional metrics／zero-area whitespace／kerning。FontFace、dynamic RGBA atlas generation／owned manifest unload 必做；aliases／bundles 重用 PreloadBatch task-count progress。
@@ -483,7 +484,7 @@ Compressed／mip sources是P21–P29當時排除、非永久non-goal：P32加入
 - `save(slot, data, playTime?)` 只接受純 JSON：NaN／Infinity、function、symbol、bigint、`undefined`、Date、class instance、循環參照與稀疏陣列都以 `StorageError('invalid')` 拒絕，不會被悄悄轉型。儲存的 envelope 含 record（`version`、`data`、`metadata.savedAt／playTime`）與非密碼學 FNV-1a checksum，只偵測意外損毀，不防竄改。
 - `load(slot)` 回傳 `{status:'missing'}`、`{status:'loaded', record}` 或 `{status:'corrupt', raw, error}`。損毀、較新版本、checksum 不符或 schema 驗證失敗的內容會保留原文並回報，不會刪除或覆寫。舊版本依序逐版呼叫 `SaveSchema.migrate(fromVersion, data)`（原儲存內容在下次 `save` 前不會被改寫），migrate 後再跑 `validate(data)`。
 - `Serializer(scene)` 是明確、opt-in 的註冊表：`register(id, object, state?)` 將穩定 id 綁到該 Scene 內的 `SceneObject`。預設 `sceneObjectState` 對 2D 選用 `gameObjectState`（transform、visibility、opacity、`RigidBody2D` 速度及 `Text2D.text`），對 3D 選用 `object3DState`（transform 與 rigid-body 狀態）；其他物件型別須明確提供 `Serializable`。`capture()` 回傳分離的 JSON-safe `SceneSnapshot`。`restore(snapshot, 'ignore' | 'error')` 先驗證 JSON 結構與 id，再套用 adapter，回報 `{restored, unknown, missing}`；`'error'` 在 id 不一致時於套用前拋錯。Adapter 專屬驗證發生在套用時，live restore 並不是跨 adapter 的交易。它不會建立物件、組件、資產或 Scene；動態內容先用 `ContentScene.rebuild()` 重建再 restore。`isSceneSnapshot(value)` 用於縮窄載入的 JSON。
-- 不涵蓋：加密、雲端同步、跨分頁鎖、任意物件的自動反射，以及 GPU／資產資源的快照。
+- 不涵蓋加密、雲端同步、任意物件自動反射與 GPU／資產 snapshot；P74 新增有界原生跨分頁協調（第59節）。
 - `game.i18n`（`GameOptions.i18n`，`I18n` 類別，為 `EventTarget`）保存各 locale 的訊息表。巢狀表會攤平成點分隔 key（`menu.start`）；所有 key 都是 `Intl.PluralRules` 類別且含字串 `other` 的表視為複數訊息（因此只含這類 key 的巢狀表無法表達）。查詢會先走目前 locale 的父層（`zh-Hant-TW` → `zh-Hant` → `zh`），再走各 `fallback` locale 及其父層。`{name}` 以 `params` 插值，數字以目前 locale 的 `Intl.NumberFormat` 格式化；`{{`、`}}` 為字面大括號；缺少參數會拋 `I18nError`。複數訊息需要有限數字 `count`。缺 key 預設回傳 key 本身，也可設 `missing: 'error'` 拋錯或傳入函式。`formatNumber`／`formatDate` 包裝 `Intl`；locale tag 會正規化，無效 tag 拋錯。
 - `setLocale()` 只在 locale 真的改變時送出 `localechange`（`detail: {locale, previous}`）並更新所有 `bindText(text2d, key, params)` 綁定。綁定經 `Text2D.setText` 重新 rasterize（沿用其 latest-wins 規則），失敗透過 `logger` 記錄，Text2D 被 destroy 時自動解除，`Game.destroy()` 會清掉全部綁定。不是單一 key 的動態文字（例如狀態列）需由呼叫端在 `localechange` 時自行重繪。訊息不會自動從檔案載入；請自行載入 JSON 後呼叫 `addMessages`。
 
@@ -531,7 +532,7 @@ Compressed／mip sources是P21–P29當時排除、非永久non-goal：P32加入
 - `Billboard` 是共用單位四邊形的 `Mesh`，`width`／`height` 為其縮放，`mode` 為 `'spherical'`（完全面向相機）或 `'cylindrical'`（只繞 Y 軸）。它每幀依世界位置覆寫自己的旋轉，所以不補償父層旋轉與非等比縮放；請放在 Scene 根或只有平移的群組下。正交相機會對著視線方向。
 - `Line3D(points, {material, width, closed})` 以面向相機的帶狀四邊形繪製折線：每段一個四邊形（4 個頂點），每幀在物件本地座標重建，提供 `setPoint`／`point`／`pointCount`；`width` 為本地單位的帶寬，可修改。點數在建構時固定。各段是獨立四邊形，銳角處會有小縫或重疊，沒有逐頂點寬度或顏色，也沒有圓角接合。UV 在帶寬方向為 0–1，沿整條線為 0–1。
 - `Text3D.create(text, {fontSize, fontFamily, color, height, padding, mode, position…})` 光柵化成自有 Texture 並顯示於 Billboard；寬度依文字比例、height 為世界單位，文字建立後固定，destroy 釋放紋理。與 Sprite3D 一樣自動進透明 pass，適用物件排序或 weighted 近似。
-- 限制：沒有 LOD 交叉淡化、沒有依螢幕大小切換、沒有深度感知的粗線端點、沒有多行排版，也沒有超出瀏覽器 `fillText` 的雙向文字整形；這些輔助物件不會由 Canvas2D 繪製（該 backend 沒有 3D）。
+- P79 新增 screen-size LOD、coverage cross-fade 與 HLOD（第59節），取代原 LOD 排除。仍無 depth-aware thick-line caps／多行文字排版；shaping 受 browser fillText 限制。Canvas2D 不畫這些 3D helpers。
 
 ### Sprite3D（P36c）
 
@@ -1010,7 +1011,7 @@ Lease／scope.attach(detach) 登記 synchronous consumer teardown，先 detach �
 
 Scene subsystems lazy initialize；讀 diagnostics 不初始化 navigation。Scene.navigation 以 round-robin／owner-fair admission 管 searches／bakes，所有 NPC 共用單一 hard cooperative work-unit cap；pending jobs 不各配置 A* workspace，既有 owner workspace limit 仍在。Pause／lifecycle 按契約 freeze／retire。CPU milliseconds threshold 僅 cooperative／observational，不是 preemptive deadline，單 unit／decoder 可超時。Per-asset／decoded-cache／native-residency／attachment estimates 分開，非 process／driver memory 全域保證。
 
-GPU timing opt-in（GpuTimingOptions），maxInFlight 預設4／最高32、warmup預設120frames、sampleInterval 控頻。GpuTimingStats 是 reused latest asynchronous result，不一定屬本幀；unsupported／disabled／pending／invalid 的 milliseconds／sampledFrame／source／maximum 等按狀態 nullable，null 不等於零。WebGPU timestamp-query／WebGL disjoint-query 是 native GPU duration；Canvas unsupported。Pending／skipped／invalid 解釋缺樣；RSS／VSZ 非 VRAM，heap／GC／CPU submission／RAF／GPU duration 不能混稱。Startup bundle 變小，但 shared root facade reachability 仍在，非 microengine／FPS 保證。
+GPU timing opt-in（GpuTimingOptions），maxInFlight default4／max32、warmup default120frames、sampleInterval 控頻。GpuTimingStats 是 reused latest async result，不一定本幀；unavailable／invalid values nullable，null 非零。WebGPU 是真正 render／compute pass duration 精確總和 native-pass-sum，不含 pass 間空檔／queue wait／presentation；WebGL disjoint query 是 native-command-interval；Canvas unsupported。Collection counters 解釋缺樣；RSS／VSZ 非 VRAM，heap／GC／CPU submit／RAF cadence／GPU duration 分開。Startup bundle reachability 變小，不是 microengine／FPS 保證。Workload／platform 邊界見第59節。
 
 ### 資產與 typed Draco
 
@@ -1035,3 +1036,111 @@ Audio.master／music／sfx／ui.setEffects snapshot validated biquad／compresso
 取消 automation 使用已追蹤的 per-context target-exponential 與有限 crossfade 精確 envelope，不依賴可選的原生 `cancelAndHoldAtTime`，也不以 `AudioParam.value` 近似。Listener transform 有原生 AudioParams 時用之，否則走原生 position／orientation setters；這仍是同一條正式 audio graph，不是 Firefox 專用實作。
 
 BindListener(object)／bindEmitter(object,spatialPlayback) 借 world objects，simulation／world transforms 後跟隨。AudioTransformBinding.unbind(stop=true) 預設 stop emitter，絕不 destroy object；ended／stopped playback／owner destroy retire bindings。Sample／stream／official OPM effects／spatial analyser 證據非 physical speaker certification。Desktop／emulation smoke 不推論一小時、simulated low-tier、mobile devices、Safari 或 OS IME 已驗。
+
+## 59. Production 擴充契約（P71–P87）
+
+以下為 **1.10.0** 目前 source 契約，不是新 native 驗收；歷史 counts／日期保留，最終實測僅由 [ACCEPTANCE](../ACCEPTANCE.md) 記錄。舊排除只由下列具名 profile 取代。
+
+### Audio 與發行消費端（P71–P73）
+
+Autoplay stream 先連接 native source／bus，並在第一個 await 前呼叫 media play；Web Audio unlock 不是全域 media autoplay 授權。也可 autoplay:false 預載後在可信手勢直接 play。Pending acquisition 同步預留 ownership／budget，取消涵蓋首次 play。Play 依 generation single-flight；pause／stop 使舊意圖失效，晚到 completion 不得 pause／activate successor。Native rejection 保留 AudioError.cause；manager resume error 送 error hook 與 stream error event。OPMAdapter.setPaused() 回 Promise<void>，manager pause／resume 仍是同步 owner-policy 操作。
+
+每個 native context 保留自己已渲染的 gain envelope；control 一次取樣 local clocks、映射剩餘 manager-time delay，支援時 native cancel-and-hold，否則使用精確 modeled envelope。Clock drift／control arrival 不是 hard-real-time 保證；官方 OPM contexts／DSP 不改。
+
+獨立 2D／3D starters 僅從完整 local tarball／built package 安裝後 import xyz.js root，不需 npm publish。Generator 拒絕 nonempty／symlink destination。完整 engine dist 必須保留為 engine/，包含相對 modules／workers／worklets／vendor；部署整個 starter output，3D 拒 Canvas2D。Package／tool 最低版本以 package.json 為準，不由新階段推論升版。
+
+### Durable checkpoint（P74）
+
+SaveRecord.revision 受 checksum 保護；legacy 為0。成功 load／save／remove 的觀測自動 guard 後續 write，expectedRevision 提供明示 CAS。Blind first write 不保證未觀測 application snapshot 的新鮮度。同 storage 操作按 invocation order 排序；coordination 為 process／web-locks／indexeddb。無 atomic mutate 的 custom backend 僅 process-local；LocalStorage SaveManager 要求 native Web Locks，IndexedDB 在 transaction complete 才 acknowledge。Stale／unsupported 拒絕。
+
+成功 save 保留有效 last-known-good envelope；load(slot,{recovery:true}) 唯讀 backup，不改損壞 primary。restore() 明示安裝新 revision 並 archive 被替換 raw；damagedPayload()／damagedPayloads() 在 manager remove／clear 後仍保留 forensic 原文。Backup revision 不是目前 CAS token。Memory／IndexedDB mutation atomic；localStorage 多 key 即使排序，也**不是 crash-atomic／fsync durability**。
+
+AutosaveController 提供 dirty／saving／saved／error／cancelled／destroyed lifecycle、request／flush／明示 retry／cancel／destroy。Failure 維持可見，timer／edit 不 silent retry；stale 先 load／resolve。Abort 阻止 queued／precommit，不回滾已發出的 custom write。Owner teardown 清 timer／listener；application 顯示 state／recovery／conflict controls。
+
+### Motion 與有限 navigation（P76–P78）
+
+2D CCD 是 bounded relative rigid 平移／旋轉 conservative advancement；exhaustion 只保留 proven-free motion，ccdStats 報省略 suffix，保留 velocity、不偽造 impact。Sensor discrete，無 dynamic concave／compound／deforming sweep。CharacterController2D 借用已註冊 upright root convex owner／kinematic body，缺 body 才自建。在 Scene.fixedUpdate 呼叫 move(displacement,{epoch:scene.fixedFrame})，caller 提供 +Y-down gravity／jump。Slope／stair／slide／recovery 與旋轉／平移 local-anchor carry 有界；每 epoch 只消費一次 carry。Jump／teleport／scale change／blocked carry／support remove-re-register 會 detach。Destroy 只移除自建 body；保留 reused result vectors 必須 copy。
+
+Scene.createLocomotion3D(controller,options) 擁有 CharacterLocomotion3D，在 caller fixedUpdate 後、physics 前一次推進。不得另 manual advance 或把獨立 mixer 加入一般 Scene animations。它借用 upright unit-scale capsule controller／visual root，自有 mixer／state／root binding，body-local root stride 經 swept move。Gravity／jump／air control 是 velocity-driven，不消費 root vertical／pitch／roll。Explicit phase names／authored motion speed 決定 state／rate；measured locomotion velocity 不含 carry。Pause／seek／stop／callback cancellation 丟棄 stale root work，destroy 保留 borrowed objects。
+
+NavigationSurfaceBakeJob3D 每 XZ cell 保留 descending support slots（default4／max8，總 slots≤8192），有限 interior samples＋swept capsule clearance。Overflow 拒絕、不發布半成品；同 XZ floors 無 implicit edge，合法 stairs／authored special link 才換層。NavigationGraph3D.project() 強制水平／垂直距離上限，回 nearest certified sampled node，不是 polygon snapping；超過 baked agent radius 拒絕。traverseLink 必須真移動並回 pending／complete／blocked；無 handler 則 block／replan，complete 要求抵達 destination。Scene bake／search 共用 cooperative quota；revision／cancel 使 stale route 失效。有限 sampling 不是 continuum support certification／polygon navmesh。
+
+### Visibility、native descriptor 與 lights（P79／P80／P84）
+
+RenderVisibilityCache 分開 color visibility／shadow casters；offscreen／occluded active-LOD casters 及完整 shadow instance streams 不受 packed color instances 取代。Mutable pose 仍 O(meshes × ancestor refresh＋active skin joints)，一般 BVH refit O(meshes)，membership rebuild O(meshes log meshes)，instance tests O(instances)，HLOD aggregate O(detail descendants)。Reuse 不代表零 pose work。Screen-size LOD 用 logical pixels；LOD／HLOD transition 真畫 coverage，不是 RGB darkening。Replacement destroy owned nodes，不 destroy borrowed geometry／material／textures。
+
+Opt-in native depth occlusion 必須 completed zero-sample exact-state proof；camera／geometry／pose／skin／texture／fade／depth 改動立即 invalidates。Pending／stale／unsupported／exhausted 一律 visible。Queries bounded／async、不同步等待；frustum 不冒稱 occlusion。Custom depth-changing material 保守使 proof 失效；unbounded deformation 維持 visible。
+
+NativeMaterial3D 繼承 TextureMaterial，immutable WGSL／GLSL hooks（xyzDeform／xyzSurface）、64 finite Float32 mutable uniforms、最多四 borrowed textures；無 transpiler／arbitrary bindgroups。setUniforms 驗更新，public view 在 prepare／submit 前驗。Optional finite nonnegative deformationBounds 限 final mesh-local displacement；未提供則 disable bounds culling。Destroy descriptor 釋 renderer entries、不 destroy borrowed textures。Prepare／warmup async／fallible，caller 處理 reject／cancel；loss 僅保留 live ownership 並在同 backend rebuild。Canvas2D 明確拒，不 silent ignore。ABI／lifetime 契約不是 final native acceptance。
+
+LightSelectionOptions.exceedPolicy 為 select／error；每種 pool≤1024，native shading slots 仍 bounded。按 priority／contribution／draw bounds（camera-selected visible draws）選取，不是 clustered／unlimited lighting。Culled 與 relevant overflow 分開計；error 拒超額 relevant lights，select 明示省略低順位 contribution；shadow atlas capacity 獨立。
+
+### Streaming、trusted workers 與 authored maps（P81–P83）
+
+Scene.createWorldStreaming() 擁有 controller／Game-local ResourcePool leases；loader 在 fallible await 前 own root。每 cell 原子發布完整 subtree，僅 active 才提供 authoritative physics／navigation，detached ready／prefetch 不提供。Pause 可完成 acquisition 但不改 membership，resume 先 reselect。Disable／destroy 同步 retire。Active／pending／resident／admission hard caps 計 cells／reservations，不是 VRAM／CPU deadline；cancelled non-cooperative load 到 settle 才釋 reservation。Late result destroy，共享 borrowers 不因其他 cell retire 失效。Error 明示、retry caller initiated。Nav seam 需恰兩個 live coincident authored owners，否則 closed／error；topology replace cancel 舊 graph routes。
+
+NativeWorkerPool 真執行 trusted native module Worker，不 eval／Blob asset code／main-thread fallback。FIFO slots／queue／bytes／timeout bounded；僅 dispatch 才 transfer detach input，queued abort 不 detach。Running abort／supersede terminate worker；failure 不 silent retry。Worker context.own()／definition release(raw) 回收 failed／unpublished／late envelopes；成功 result 交 caller。Destroy terminate／reject pending。requestBytes 是 declared array storage，不是 JS heap；transfer／copy counters 排除 envelope／browser overhead。publishHeightfieldGeometry() 仍在 main thread 做真 Geometry validate／interleave／copy；publication bytes／time 與 queue／dispatch／compute／awaited time 分开，部署保留 emitted worker modules。
+
+Tiled profile 為 finite orthogonal right-down JSON atlas maps、embedded／external tilesets、八種 GID transform、bounded primitive properties、真 solid-tile／rectangle／circle／convex-polygon collision（含 rotation／sensor）。TiledContent.setGid() 同步 display／collision。Unsupported orientation／infinite chunks／base64／compression／group／image／parallax／animation／template 等欄位精確拒絕，不 silent drop。URL origins／redirects／bytes／atlas dimensions 有界。Content scopes own nodes／colliders／leases；failure／abort／late decode cleanup，external texture borrowed；destroy 先移 collision registration 再 release lease。
+
+### Analytic particles、timing 與 platform gates（P75／P85／P86）
+
+GPUParticleEmitter3D 使用 WGSL／GLSL vertex analytic simulation；CPU 只存 bounded birth／sequence／affine metadata，不模擬粒子 motion。Capacity≤65536、rate≤1000000/s、lifetime≤3600s；chronological drop-new 推進 sequence，不 backlog。Local 用 current affine，world 保留 birth affine；rate birth 採 current tick pose，不插值 historical nozzle。Stop 讓 survivors aging，pause 凍 command time／credit，explicit burst 仍允許；clear／detach／destroy 釋 native buffers。Premultiplied depth-tested billboards 無 depth write／shadow／per-particle sort／weighted OIT。Loss 由 retained metadata rebuild；Canvas2D 拒 prepare／visible particles，不 CPU fallback。
+
+GpuTimingStats.scope 在 WebGPU 為 native-pass-sum：真正 render／compute passes 的精確 duration 總和，**不是 frame total／JS time／queue wait／pass 間空檔／display presentation time**。WebGL 是 native-command-interval，Canvas unsupported。Empty／quantized-zero／incomplete／invalid samples nullable；pass budget overflow 使整 sample 失效，不回 partial duration。Latest result async。Production workload 報 authored counts、loading／steady stages、RAF intervals、CPU work／submit、GPU duration／hitches、分開 heap／RSS／residency estimates；只有明示 device-specific threshold 可 pass／fail。
+
+Physical mobile／gamepad／OS IME／audio／background／thermal／driver／assistive gates 需真 device／browser／version／source／session 與 independent capture。Emulation／inventory／AX tree／managed browser probe 不能認證；缺證據具名 BLOCKED。不授權操作 Safari／user browsers／OS 或 driver reset。User 禁止發聲使 audible／real spoken-output certification blocked；silent probe 用 separately owned browser＋zero-gain output safety，不靠 headless 假設。
+
+### Presentation preferences 與 keyboard semantics（P87）
+
+Game-owned AccessibilityPreferences 合併 OS defaults／player overrides（textScale／highContrast／reducedMotion），set／reset／export／bindMotion／destroy 有明確 owner lifetime。UIRoot.applyPreferences() 真 rerasterize／reflow canvas text／control／input／caret／focus-hit geometry；新 mounted subtree 可明示 await。Semantic DOM 只 mirror interaction／announcement，不畫視覺替代；UILabel semantics opt-in。
+
+Reduced motion gate requested／publication-time Game transitions，安全完成 active decorative transition。Preference tween／duration／delta helpers 與 bound decorative animation owner 不凍 essential simulation／locomotion。AccessibilityManager.announce() 擁有 bounded polite／assertive region；modal scopes hide inactive semantics、trap Tab／ShiftTab，Escape dispatch modalclose。Application 明示 close／restore focus；disabled control 不 focus／activate。Remap 用既有 ActionMap 並保留 navigation keys。Keyboard／semantic proof 不是 screenreader certification。
+
+## 60. 版本相容性政策與升級指南（P73）
+
+唯一支援的引擎 import 是 `xyz.js`；`packages/` 內部路徑不是 consumer API。
+能力／ownership 目錄見第 59 節，可執行目錄見
+[Examples](../examples/index.html)，打包／部署見 [Usage](./USAGE-zh.md)。
+不支援的 backend／格式會明確拒絕。
+
+正式發行遵循 semantic versioning：新增相容 API 使用 minor，不相容公開契約
+必須使用 major 並附遷移步驟；平台驗證不由版本號推導。P71–P87 是既有
+`1.10.0` 套件的**已核准、未發行 source 擴充**，尚未升版或發佈。
+不能因兩份未發行 snapshot 版本相同就假設 API 完全一致，也不能把新增能力
+當成歷史發行附件的驗證結果。
+
+從原 P70 source／release 升級時：
+
+1. 將 deep imports 改為公開 root，重建完整套件並部署整個 `dist/`，保留未改動的
+   `vendor/opm/`。Standalone starter 必須來自該份 built directory／tarball，
+   重新 typecheck／build，並保留 emitted worker modules。
+2. `OPMAdapter.setPaused()` 改為 await 並處理 rejection；
+   `AudioManager.pause/resume` 仍是同步 owner policy。Unlock／play 要在可信手勢中
+   呼叫；也可先 `autoplay:false` 預載，再於手勢中直接 `play()`。
+3. 舊 save envelope 以 revision 0 讀取，不在 load 時改寫。編輯前先 load，處理
+   `stale`／`unsupported`，備份先 explicit recovery 再 restore。
+   LocalStorage manager 寫入需要原生 Web Locks，不可用時選 IndexedDB；
+   沒有 atomic `mutate` 的 custom storage 只有 process-local 保證。
+   不要 raw-clear reserved revision／archive keys，也不要把備份的舊 revision
+   當作目前的 CAS token。
+4. Application exhaustive switches 要處理新增 `kinematic` 2D body。
+   Nonstatic body 保持 unparented，character／locomotion 每 fixed epoch 只推進一次，
+   不要再用另一個 mixer 重複消費 Scene-owned root motion。
+5. Navigation bake 預設改為有限的四層 support；明示 layer budget、
+   horizontal／vertical projection limits 與實際 special-link traversal，
+   streamed graph revision 改變時重建／replan。
+6. Native mesh material／analytic particles 是 native-only 資源；publication 前
+   prepare，自行提供 WGSL／GLSL，全部 consumers retire 前保留 borrowed textures。
+   GLSL stage-only intrinsic 以 `XYZ_VERTEX`／`XYZ_FRAGMENT`／`XYZ_SHADOW` guards
+   隔離。Scene light pool、bounded per-draw selection 與 shadow allocation 分別處理。
+   自訂 `Renderer` 必須實作 `prepareGpuParticles(emitter)`；不支援的 backend
+   必須拒絕 preparation，不得靜默略過。
+7. Timing consumer 改用 `scope:'native-pass-sum'`：WebGPU duration 不含 queue、
+   presentation／pass gaps，保留 nullable sample，分開 RAF／CPU、memory domains
+   及裝置門檻。套用玩家 presentation preferences 但不停止必要 gameplay；
+   reduced motion 也在 asynchronous capture 後 gate transition。
+
+遷移時保留舊 save fixtures 與代表性可玩流程。只有實際執行的 final scenario
+可寫入 [Acceptance](../ACCEPTANCE.md)；實體硬體、Safari、spoken output／輔具
+認證不得由 desktop automation 繼承。

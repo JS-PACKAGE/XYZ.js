@@ -248,3 +248,37 @@ P58–P70 的批准功能已實作並有逐項限定 runtime 證據，見 [本�
 ### v1.10 hosted 發佈結果
 
 使用者授權後 main 與 v1.10 tag 推送成功；Release run [36966119517](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/36966119517) 的 14 jobs 全數通過，包括三 Node quality、Ubuntu 九組 browser matrix、macOS WebKit 與 release。GitHub v1.10 正式附件為 xyz.js-1.10.0.tgz／SHA256SUMS，下載 checksum 通過且與已驗本機 consumer 封裝逐位元組相同。此前 hosted 待驗／未觸發敘述保留為當時紀錄；不擴稱實機硬體／Safari／driver 或音訊 stress 認證，不做 npm publish、不移動歷史 tags。
+
+## 本輪批准：P71–P87 production integration（working-tree 實作與限定驗證）
+
+使用者於 v1.10 發佈後的缺口分析回覆「全做吧」，批准下列核心補強與選配能力。沿正式 Game／Scene／root facade 增量實作，套件維持 1.10.0；本輪不自動 commit／push／tag／publish。此表保留需求與 gate；新增實作與 native 證據見 ACCEPTANCE，不覆寫歷史版本的 dates／counts／限制，也不把實機 blocked 標成完成。
+
+| 階段 | 完整範圍                                                                                       | 可觀察 gate                                                                                                                              |
+| ---- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| P71  | WebKit 並行 stream 與 audio automation 可靠性                                                  | 真 native 併發播放／效果／cancel 與 per-context clock；錯誤不得 suppression／silent retry；官方 OPM 不改                                 |
+| P72  | 獨立 2D／3D starters 與安全生成器                                                              | 解壓套件 consumer，loading→menu／unlock→play／pause／settings→results／restart／persistent save→destroy；正式 production 部署含 vendor   |
+| P73  | 現行 API／能力契約、版本相容性政策與升級指南                                                   | 現況與歷史分開；公開入口、ownership／timing／unsupported、版本差異與遷移步驟可查                                                         |
+| P74  | 存檔 revision／排序、跨分頁協調、有效備份恢復與 autosave 狀態                                  | 舊寫不能覆新、真跨頁競寫；失敗可見、corrupt 原文保留、last-known-good 恢復與 migration／candidate 契約                                   |
+| P75  | 實機與平台品質 gates                                                                           | 實體 mobile／gamepad／OS IME／audio／background／thermal／driver identity 與真實證據；設備不可得具名 blocked，不用 emulation 填 pass     |
+| P76  | 2D kinematic／character／支撐與 dynamic/angular CCD                                            | 真可玩平台關卡；跨 render rate 落地／坡階／moving carry／jump detach；高速 dynamic pair／旋轉碰撞、filters／impulses／有限 budget        |
+| P77  | Fixed-step animation locomotion                                                                | 獨立 mixer 接 root motion／character／gravity／jump／blocked movement；pause／seek／support、無 double advance／drift                    |
+| P78  | 多層 sampled navigation bake                                                                   | 同 XZ 多樓面、合法階梯／顯式跨層 links、clearance／revision／cancel、共用 scheduler quota；不冒稱 polygon navmesh                        |
+| P79  | Render visibility index、instance／morph culling、screen-size LOD／cross-fade、HLOD／occlusion | 保守可見集合、真 native 遮擋證據、shadow／picking 不失真、moving camera／occluder 不漏畫；量測前不宣稱性能提升                           |
+| P80  | Per-mesh native 3D shader material                                                             | GPU／GL 真 vertex／surface、uniform／texture ABI；skin／instance／shadow／transparency／loss／cleanup 與明確 compile failure             |
+| P81  | 世界分區 streaming                                                                             | 真 asset／physics／navigation 進退區、快速反向取消、atomic publication、shared leases、seams／budget／teardown                           |
+| P82  | Native CPU worker jobs                                                                         | Trusted module、bounded queues／transfers、真 worker execution、abort／late result／destroy；主線程與結果成本分開                        |
+| P83  | Tiled JSON 正式關卡匯入                                                                        | 有限 orthogonal maps、tilesets／layers／GID flags／object colliders、精確 unsupported；正式 package render／physics／ownership           |
+| P84  | 大量局部光源與有效選光                                                                         | 16+ 局部燈真 coverage／attenuation、bounded selection／shadow atlas／統計；不只增加常數                                                  |
+| P85  | GPU particles                                                                                  | GPU／GL 原生模擬與繪製、seed／rate／burst／space／capacity／pause／loss／cleanup；CPU 模擬不得冒稱 GPU                                   |
+| P86  | WebGPU timing 根因與目標 workload                                                              | 真有效 native timing 或精確 capability 證據；代表性 2D／3D frame-time／hitch／memory 門檻，不混淆 RAF／CPU／GPU／VRAM                    |
+| P87  | 可完成遊戲的 accessibility 流程                                                                | Keyboard／focus／modal／status announcement、text scale／contrast／reduced motion 與 canvas 同步；真輔具證據獨立，不用 DOM snapshot 認證 |
+
+仍不做 Visual Editor／Visual Scripting／Shader Graph／Networking／GUI Inspector／Native Runtime／software rasterizer／Shader IR。本輪 P83 僅批准既有引擎的外部關卡格式匯入，P80 僅批准原生 shader 契約，不取消上述 non-goals。Safari preserve 維持：不得操作使用者 Safari／foreign drivers 或以未授權 OS 操作取得證據。實機與 driver-reset 驗收若缺獨立設備／明確安全授權，保留 blocker；其餘可實作與驗證工作不得因此縮減。
+
+### 本輪實作狀態與交付範圍
+
+P71–P74、P76–P87 的正式 runtime／consumer／工具／範例已接入既有架構；P75 提供實機 evidence gates 與 read-only host inventory。實際驗證包含三引擎 native 靜音 audio、獨立 2D／3D 安裝與部署、native 跨頁 save／恢復、可玩角色／多層路徑、GPU／GL 圖形與 cleanup、default emitted worker、Tiled 與完整鍵盤 accessibility。P86 的各 workload 門檻及失敗前後結果獨立記錄，不等於 universal FPS／low-tier／一小時認證。
+
+45 個 example directories 均有直接啟動頁，根目錄與 `/examples/` 共用唯一 metadata catalog。靜態 site 建置產生 54 HTML entries，正式 HTTP smoke 實際檢查 212 條 renderer routes；3D-only 的 Canvas 路徑必須顯示 unsupported，而不是假裝提供 Canvas3D。部署整棵 `.vite/site/`，不可只搬 HTML 或遺漏 engine／workers／14 件官方 OPM vendor。
+
+所有 browser 證據使用自行啟動的獨立 managed processes；音訊在播放前接 native zero-gain physical sinks，Chromium 另加 mute。使用者 Safari／shared sessions、實體發聲、OS／driver 修改未操作。Physical mobile／gamepad／OS IME／background-thermal／真輔具／driver-reset 仍因 owned 設備或安全授權不足而 blocked；可取得的正式工作不因此省略。官方 OPM upstream v1.1.0 重新下載曾回 404，只證明本機 canonical vendor 的逐位元組 identity，不冒稱獨立上游 attestation。

@@ -162,6 +162,29 @@ P58–P70 依使用者授權分功能提交後納入 **v1.10／1.10.0**；GitHub
 
 Desktop Chromium／Firefox／managed WebKit 與 mobile emulation 證據不得擴寫成 native Safari／physical mobile／gamepad／OS IME 認證；不干預使用者 Safari 或 foreign drivers。要求一小時／simulated low-tier 不等已量測，最新完成窗口與硬體限制由 ACCEPTANCE 記錄。
 
-根 index 與 examples index 共用 `examples/index.ts` metadata／module-relative URL resolution 與 CSS，不複製兩份 catalog；35 個 English demos 使用正式 facade，3D 僅 GPU／GL、forced backend errors 明示。多語樣本是資料，不是 authored UI／comments 的語言。Package 最低 Node22 與 repository tools 的22.13.0最低 minor 分開；asset recipe26.7.0是獨立 reproducibility pin。CI 的三 Node×三 engines 與既有 macOS gate 不等 hosted runtime 證據。
+根 index 與 examples index 共用 `examples/index.ts` metadata／module-relative URL resolution 與 CSS，不複製兩份 catalog；v1.10 當時為 35 個 demos，本輪增至 45 個，directory URL 直接執行。3D 僅 GPU／GL，forced unsupported 必須明示。多語樣本是資料，不是 authored UI／comments 的語言。Package 最低 Node22 與 repository tools 的要求分開；目前工作工具採 Node >=26／pnpm12.6.0，asset recipe26.7.0是獨立 reproducibility pin。CI 的三 Node×三 engines 與既有 macOS gate 不等 hosted runtime 證據。
 
 v1.10 的 GitHub Release run 36966119517 已通過全部 14 jobs，含 Ubuntu x64 三 Node×三 engines 與 macOS WebKit gate；下載附件 checksum／本機 consumer 封裝 identity 已確認。上文舊階段的 hosted 待驗敘述是當時限制，新 hosted 證據詳見 ACCEPTANCE；這不改變 Safari／實機／driver、無效 GPU timestamp 或 WebKit 並行 audio stress 的能力邊界。
+
+## P71–P87 integration 邊界（已實作、限定 native 證據）
+
+完整範圍與可觀察 gates 見 PLAN。維持單一 Game／Scene、公開 root facade、內部 ECS、正式三 backend 及官方 OPM；不建立第二套 physics／animation／assets cache／renderer。
+
+- **可靠性：** Audio 仍使用原生 per-context clock；真播放錯誤不可被 retry／suppression 掩蓋。存檔的 durable write ordering／跨頁 coordination 與 fresh Scene publication 是不同交易邊界；原 payload、schema migration 與 consumer error 必須保持可觀察。
+- **玩法：** 2D kinematic／controller／CCD 沿既有 world ownership 與 iterative solver；fixed locomotion 借用獨立 mixer／controller，不重複推進 Scene mixer。多層 bake 仍使用共用 scheduler 與 revision guards，不把 sampled lattice 改名 polygon navmesh。
+- **規模化：** Visibility／LOD／HLOD／occlusion 不可刪除仍需 shadow 的物件或以舊遮擋結果漏畫。公開 mutable pose 的正確性優先於 dirty-cache 宣稱。Streaming 沿 ResourcePool／scope 與既有內容／物理／導航清理；workers 必須真正執行於 native worker。
+- **原生圖形：** 自訂 3D material、有效選光與 GPU particles 接既有 GPU／GL 管線及 loss／residency／cleanup；Canvas2D 對不可支援能力明確拒絕。Vertex／surface shader 不等於 fullscreen post，也不建立 Shader IR／transpiler。
+- **交付：** Starters 是独立套件 consumer，不引用引擎内部 source。Tiled 匯入選明確有限 profile，unsupported 必須定位報錯。Accessibility visuals 仍由引擎繪製，DOM 只語意／editing／focus。
+- **證據：** Platform／driver／輔具認證、browser emulation、native GPU timing 與 consumer workload 各自有 provenance；不可用其中一項替代另一項。無設備／無安全授權具名 blocked，不能編造 certification。
+
+### 本輪具體生命週期與有限 profile
+
+- **Audio／save：** Stream loading 可先 `autoplay:false`，可信 gesture 直接啟動；pause／stop／cancel 能 supersede startup。驗收等待原本發出的 native resume promises，cleanup 後再次檢查錯誤，不隱藏晚到失敗。SaveManager revision／CAS 以 native IndexedDB transaction 或 LocalStorage Web Locks 協調，後者不宣稱 crash atomic；recovery 只讀，explicit restore 才封存 corrupt 原 bytes／恢復 backup。Autosave owner 必須 destroy，stale／failed write 不靜默週期重試。
+- **Motion／navigation：** 2D controller 在 fixed epoch 消耗一次 support carry，借 world/body 不取代 solver；relative dynamic/angular CCD 以有限 work budget 保留 proven-free prefix。Locomotion 使用 Scene-owned 獨立 fixed mixer，fade revival 清除已過期 successor，root motion 不重複累積。Navigation 以有限 support slots 保留同 XZ 多樓面；explicit lift links 必須真正執行 traversal handler。地面微小負高度容差只適用已證明 support 的 route，不讓角色穿牆。
+- **Visibility：** Indexed visible draws、screen-size complementary LOD／HLOD 與 conservative instance/morph bounds 保留完整 shadow casters／picking。Occlusion 只用 matching camera／occluder／target 狀態的原生深度 query；pending 或 stale proof 不隱藏物件。Borrowed textures 不隨 proxy replacement dispose，mutable pose checks 不冒稱 changed-only O(1)。
+- **Graphics：** NativeMaterial3D 提供 WGSL／GLSL vertex/surface ABI，compile 失敗不能 publication；native loss 後同 backend 重建。Point／spot Scene pools 各1024，每 draw 各32，shadow 預算各8與有限 reach 分開。GPU particles 的 CPU 只管理 bounded births／time／ownership，native vertex shader 計算運動，不宣稱 compute simulation／CPU particle colliders。
+- **Streaming／workers：** World cells 共用 bounded admission、detached candidate scope 與 atomic Scene membership；取消後 late reservations 至 settlement 才釋放。Native worker default module URL 隨完整 dist 部署；轉移輸入即 detached，未發布 native payload 必須 reclamation，geometry publication 的 validate/interleave/copy 另外計價。
+- **Canvas／import：** Tiled 僅 finite orthogonal JSON／atlas／GID transforms／tile及object colliders，未知 profile 精確拒絕，範例尊重 forced backend。Canvas full untinted texture frames 直接借既有 versioned snapshot，避免每 sprite 重畫 shared scratch；tinted／cropped／rotated／flipped view 保留原像素路徑，不新增 texture cache 或改 ownership。
+- **Measurement／accessibility：** WebGPU 實測 actual native pass-sum，不含 queue／gaps／presentation，也不以 RAF 當 GPU completion。固定品質 workload 量測 steady 與 overlapping asset load；live screenshot 在 warmup、Game.destroy 前取得，避免以已清空 GPU canvas 當視覺證據。Accessibility preferences 同步真 canvas text／contrast／motion；DOM 僅 semantic focus/modal/live announcement，真 OS 輔具證據另列 blocked。
+
+套件／site 只交付 canonical 14 件 immutable OPM vendor；source/dist/site 中既有額外編號副本屬使用者資料，不刪除。獨立 consumer 必須保留完整 engine/dist/vendor/workers，不能只複製入口 bundle。完整實作不等 release 或全平台驗收；歷史與最新限定證據及外部 blockers 由 ACCEPTANCE 分開記錄。
