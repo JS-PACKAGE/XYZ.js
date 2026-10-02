@@ -11,37 +11,88 @@ permissions:
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: Node ${{ matrix.node }} quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
-          node-version: 26
+          node-version: ${{ matrix.node }}
       - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
       - run: npx --yes pnpm@12.6.0 run format:check
       - run: npx --yes pnpm@12.6.0 run typecheck
       - run: npx --yes pnpm@12.6.0 run lint
       - run: npx --yes pnpm@12.6.0 run test
       - run: npx --yes pnpm@12.6.0 run build
-      - name: Install Chromium from pinned playwright-core
-        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
-      - name: Smoke real examples on mandatory 2D backends
+
+  browser:
+    name: ${{ matrix.engine }} / Node ${{ matrix.node }} / ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        node: ['22', '24', '26']
+        engine: [chromium, firefox, webkit]
+        os: [ubuntu-24.04]
+        include:
+          - os: macos-latest
+            engine: webkit
+            node: '26'
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run build
+      - name: Install the pinned Playwright engine and system prerequisites
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps ${{ matrix.engine }}
+      - name: Provide Firefox with a native headless audio output
+        if: matrix.os == 'ubuntu-24.04' && matrix.engine == 'firefox'
         run: |
-          npx --yes pnpm@12.6.0 run smoke:examples --example gameplay2d --renderer canvas2d
-          npx --yes pnpm@12.6.0 run smoke:examples --example gameplay2d --renderer webgl2
-          npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer canvas2d
-          npx --yes pnpm@12.6.0 run smoke:examples --example rendering2d --renderer webgl2
-      - name: Deep Chromium pixel and lifecycle regressions
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=xyz_ci
+          pactl set-default-sink xyz_ci
+          pactl info
+      - name: Smoke built-root examples on explicit Canvas2D
+        run: |
+          npx --yes pnpm@12.6.0 run smoke:examples --browser ${{ matrix.engine }} --example gameplay2d --renderer canvas2d
+          npx --yes pnpm@12.6.0 run smoke:examples --browser ${{ matrix.engine }} --example rendering2d --renderer canvas2d
+      - name: Preserve mandatory Chromium native example gates
+        if: matrix.engine == 'chromium'
+        run: |
+          npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example gameplay2d --renderer webgl2
+          npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example rendering2d --renderer webgl2
+      - name: Deep native pixel and lifecycle regressions without retries
         env:
           DEBUG: pw:browser
-        run: npx --yes pnpm@12.6.0 run regression:browser
-      - name: Preserve browser assertions and pixel proofs
+        run: npx --yes pnpm@12.6.0 run regression:browser --browser ${{ matrix.engine }} ${{ matrix.engine == 'chromium' && '--require-webgpu' || '' }}
+      - name: Desktop native interaction and reload
+        run: node scripts/platform-browser.mjs --browser ${{ matrix.engine }}
+      - name: Separately labeled mobile viewport and touch emulation
+        run: node scripts/platform-browser.mjs --browser ${{ matrix.engine }} --mode mobile-emulation
+      - name: Retained bidi and grapheme editing pixel proofs
+        run: npx --yes pnpm@12.6.0 run smoke:text --browser ${{ matrix.engine }}
+      - name: Preserve measured engine reports and pixel proofs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: chromium-browser-regression
+          name: browser-${{ matrix.os }}-${{ matrix.engine }}-node-${{ matrix.node }}
           path: |
             .vite/browser-regression/
+            .vite/platform-browser/
             .vite/example-smoke/
+            .vite/text-layout/
           include-hidden-files: true
-          if-no-files-found: ignore
+          if-no-files-found: warn

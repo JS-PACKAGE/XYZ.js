@@ -13,7 +13,7 @@
 
 ## 驗證與文件
 
-工具鏈要求 Node >=26、pnpm 12.6.0（`package.json`）；無本機 pnpm 可用 `npx pnpm@12.6.0`。依變更執行 install、build、typecheck、test、lint、format:check；功能階段整合後須完整執行，不可將未執行記成通過。`examples` script 開啟 `/examples/` 範例目錄頁；`dev` 下驗證各 `/examples/<name>/` 範例（新增範例須同步 `examples/index.ts` 目錄與 README／USAGE 表格）；圖形／音訊改動應涵蓋 showcase 及 backend／unlock／cleanup 分支。負載量測用 `/benchmarks/sprites/`，保持分頁可見並分別記錄 RAF／CPU submit。
+工具鏈最低支援 Node.js 22（目前固定工具鏈需 Node >=22.13.0）、pnpm 12.6.0（`package.json`）；無本機 pnpm 可用 `npx pnpm@12.6.0`。依變更執行 install、build、typecheck、test、lint、format:check；功能階段整合後須完整執行，不可將未執行記成通過。`examples` script 開啟 `/examples/` 範例目錄頁；`dev` 下驗證各 `/examples/<name>/` 範例（新增範例須同步 `examples/index.ts` 目錄與 README／USAGE 表格）；圖形／音訊改動應涵蓋 showcase 及 backend／unlock／cleanup 分支。負載量測用 `/benchmarks/sprites/`，保持分頁可見並分別記錄 RAF／CPU submit。
 
 同步 README 中／英／日說明、PLAN、DESIGN、技術文件及 ACCEPTANCE；AGENTS 是共用執行規範的單一來源，`CLAUDE.md` 以 `@AGENTS.md` 引用並補充弱點掃描與安全控制，不重複共用規範。歷史驗收保留原測試數與日期，清楚標示「當時」與「目前」。文件變更檢查相對連結與格式，不能冒稱重新驗證 runtime。根套件授權為 Apache-2.0（所有者已授權，見根目錄 `LICENSE`；v1.5 及更早 tag 的發佈附件仍標示 UNLICENSED）；build 複製 vendor，發佈／部署必須保留完整 `dist/` 目錄樹，包含 `dist/vendor/opm/`。
 

@@ -19,7 +19,7 @@ Stage-specific counts and browser observations below are historical; current P42
 
 ## 1. Start the Development Environment
 
-Use Node >=26 and pnpm 12.6.0. From the repository root:
+The minimum supported Node.js major is 22. Use Node >=22.13.0 (required by the pinned lint/test toolchain) and pnpm 12.6.0. From the repository root:
 
 ```sh
 npx pnpm@12.6.0 install

@@ -19,7 +19,7 @@ XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 me
 
 ## 1. 啟動開發環境
 
-需要 Node >=26 與 pnpm 12.6.0。在倉庫根目錄執行：
+最低支援 Node.js 22；目前固定 lint／test 工具鏈需 Node >=22.13.0，搭配 pnpm 12.6.0。在倉庫根目錄執行：
 
 ```sh
 npx pnpm@12.6.0 install
