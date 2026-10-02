@@ -163,3 +163,5 @@ P58–P70 依使用者授權分功能提交後納入 **v1.10／1.10.0**；GitHub
 Desktop Chromium／Firefox／managed WebKit 與 mobile emulation 證據不得擴寫成 native Safari／physical mobile／gamepad／OS IME 認證；不干預使用者 Safari 或 foreign drivers。要求一小時／simulated low-tier 不等已量測，最新完成窗口與硬體限制由 ACCEPTANCE 記錄。
 
 根 index 與 examples index 共用 `examples/index.ts` metadata／module-relative URL resolution 與 CSS，不複製兩份 catalog；35 個 English demos 使用正式 facade，3D 僅 GPU／GL、forced backend errors 明示。多語樣本是資料，不是 authored UI／comments 的語言。Package 最低 Node22 與 repository tools 的22.13.0最低 minor 分開；asset recipe26.7.0是獨立 reproducibility pin。CI 的三 Node×三 engines 與既有 macOS gate 不等 hosted runtime 證據。
+
+v1.10 的 GitHub Release run 36966119517 已通過全部 14 jobs，含 Ubuntu x64 三 Node×三 engines 與 macOS WebKit gate；下載附件 checksum／本機 consumer 封裝 identity 已確認。上文舊階段的 hosted 待驗敘述是當時限制，新 hosted 證據詳見 ACCEPTANCE；這不改變 Safari／實機／driver、無效 GPU timestamp 或 WebKit 並行 audio stress 的能力邊界。

@@ -244,3 +244,7 @@ P58–P70 的批准功能已實作並有逐項限定 runtime 證據，見 [本�
 - 根 `/index.html` 與 `/examples/` 共用一份 35-entry English catalog，新增 lightweight2d／resource-lifecycle／character-platforms／joints3d／ccd3d／navigation-bake／text-i18n／audio-effects 八個正式 root-facade consumers。範例 UI／說明／註解用英文，多語字典與文字內容僅為 localization／bidi 示範資料；不以 mock／第二套 engine 展示能力。
 - Node 最低 major=22；遠端 fast-forward 保留 package `>=22.0.0`，固定 repository lint/test 工具鏈需至少 22.13.0。獨立資產 reproducibility recipe 仍 exact Node26.7.0 pin，不誤當全專案最低版本。README 中／英／日與雙語技術／使用文件同步。
 - 參考 [OPM.js CI](https://github.com/YueyuHoshizora/OPM.js/blob/main/.github/workflows/ci.yml)，Node22／24／26 quality matrix 與 Ubuntu 三 Node×Chromium／Firefox／WebKit 九 browser jobs，保留 macOS WebKit／Node26 gate、native Chromium WebGPU 必要 gate與 Firefox PulseAudio。Local matrix 與 hosted CI 分開記錄；本輪不 push／觸發外部 workflow。
+
+### v1.10 hosted 發佈結果
+
+使用者授權後 main 與 v1.10 tag 推送成功；Release run [36966119517](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/36966119517) 的 14 jobs 全數通過，包括三 Node quality、Ubuntu 九組 browser matrix、macOS WebKit 與 release。GitHub v1.10 正式附件為 xyz.js-1.10.0.tgz／SHA256SUMS，下載 checksum 通過且與已驗本機 consumer 封裝逐位元組相同。此前 hosted 待驗／未觸發敘述保留為當時紀錄；不擴稱實機硬體／Safari／driver 或音訊 stress 認證，不做 npm publish、不移動歷史 tags。
