@@ -283,3 +283,26 @@ P71–P74、P76–P87 的正式 runtime／consumer／工具／範例已接入既
 45 個 example directories 均有直接啟動頁，根目錄與 `/examples/` 共用唯一 metadata catalog。靜態 site 建置產生 54 HTML entries，正式 HTTP smoke 實際檢查 212 條 renderer routes；3D-only 的 Canvas 路徑必須顯示 unsupported，而不是假裝提供 Canvas3D。部署整棵 `.vite/site/`，不可只搬 HTML 或遺漏 engine／workers／14 件官方 OPM vendor。
 
 所有 browser 證據使用自行啟動的獨立 managed processes；音訊在播放前接 native zero-gain physical sinks，Chromium 另加 mute。使用者 Safari／shared sessions、實體發聲、OS／driver 修改未操作。Physical mobile／gamepad／OS IME／background-thermal／真輔具／driver-reset 仍因 owned 設備或安全授權不足而 blocked；可取得的正式工作不因此省略。官方 OPM upstream v1.1.0 重新下載曾回 404，只證明本機 canonical vendor 的逐位元組 identity，不冒稱獨立上游 attestation。
+
+## 本輪批准：P88–P96 compatibility、interoperability 與 deployment
+
+使用者於 v1.11 缺口分析後要求「全都做了吧」，並明確選擇維持 **1.x 相容**。
+已發佈 tag 不移動；本輪不 push／tag／publish，不自動變更套件版本。
+各階段完成實作與實際 gate 後依 AGENTS 分別建立 `[Pxx]` commit；
+完成狀態與新證據另記 ACCEPTANCE，以下是批准範圍，不是驗收宣告。
+
+| 階段 | 範圍                                                                                  | Gate                                                                                                                         |
+| ---- | ------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
+| P88  | Renderer 1.x source compatibility、公開出口與 consumer 相容 gate                      | v1.10 自訂 Renderer 編譯；缺少新增 capability 明確拒絕；保留已發佈 value/type exports                                        |
+| P89  | CI integration：完整 site、native muted audio、production workload、packaged starters | Fresh archive 安裝／部署與真 gameplay；各 gate 自動執行、錯誤失敗、證據保留                                                  |
+| P90  | glTF 多 UV、各材質 map 獨立 transform、八 skin influences                             | 真 UV0/UV1 fixture pixels、CPU/native deformation、預算／ownership／錯誤分支                                                 |
+| P91  | Tiled infinite chunks、groups、image/parallax、animation、compressed data、templates  | 負座標／繼承與 runtime collider、pause／edit／cleanup；bounded decode／取消與明確 unsupported                                |
+| P92  | 品質與裝置壓力 profiles                                                               | baseline/low/high 固定 workload、native/simulated 分開；CPU／RAF／GPU／memory 與 explicit operator gates                     |
+| P93  | 大世界 navigation 與 polygon navmesh                                                  | 真 surface projection／corridor／clearance／多樓層／tile seam；revision／cancel／scheduler budgets；保留 sampled API         |
+| P94  | Shadow 品質／靜態快取、visibility scalability、native extension 契約                  | GPU/GL 真 pixels 與 cache invalidation；mutable pose 正確；CPU 成本量測，不以配置數冒充 FPS                                  |
+| P95  | 可重用 settings persistence 與 portable save                                          | reload／reset／bindings／migration；valid fresh candidate、invalid/conflict 不污染 live state；兩 starters 實際流程          |
+| P96  | Opt-in offline 與 strict CSP deployment                                               | 真 installed production app offline reload、base-relative vendor/worker/worklet、versioned atomic cache update、CSP 正負案例 |
+
+既定 non-goals 維持。Physical mobile／gamepad／OS IME／thermal／spoken AT／driver-reset
+仍須 owned 設備與安全授權；工具可取得的工作全部完成，不以模擬證據填補 physical PASS。
+OPM official vendor 維持 immutable，不能為 CSP／offline 改官方檔或新增私人 DSP patch。

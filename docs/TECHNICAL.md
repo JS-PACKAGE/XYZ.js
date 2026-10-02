@@ -1188,8 +1188,11 @@ When moving from the earlier P70 source/release:
    textures until all consumers retire. GLSL stage-only intrinsics require
    `XYZ_VERTEX`/`XYZ_FRAGMENT`/`XYZ_SHADOW` guards. Handle bounded per-draw lighting
    selection separately from the Scene light pool and shadow allocation.
-   Custom `Renderer` implementations must implement `prepareGpuParticles(emitter)`;
-   unsupported backends must reject preparation instead of silently skipping it.
+   `prepareGpuParticles(emitter)` is optional on custom `Renderer` implementations
+   to retain source compatibility with earlier 1.x implementors. Check for the
+   method before calling it. Built-in wrappers reject a missing method with
+   `UnsupportedGraphicsError`; a backend that provides the method but cannot
+   support particles must also reject preparation rather than silently skip it.
 7. Update timing consumers for `scope:'native-pass-sum'`: WebGPU durations exclude
    queue/presentation and pass gaps. Keep nullable samples and separate RAF/CPU,
    memory domains and device-specific thresholds. Apply player presentation

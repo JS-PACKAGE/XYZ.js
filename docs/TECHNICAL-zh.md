@@ -1134,8 +1134,10 @@ Reduced motion gate requested／publication-time Game transitions，安全完成
    prepare，自行提供 WGSL／GLSL，全部 consumers retire 前保留 borrowed textures。
    GLSL stage-only intrinsic 以 `XYZ_VERTEX`／`XYZ_FRAGMENT`／`XYZ_SHADOW` guards
    隔離。Scene light pool、bounded per-draw selection 與 shadow allocation 分別處理。
-   自訂 `Renderer` 必須實作 `prepareGpuParticles(emitter)`；不支援的 backend
-   必須拒絕 preparation，不得靜默略過。
+   自訂 `Renderer` 的 `prepareGpuParticles(emitter)` 為 optional，維持 1.x
+   舊實作者的 source compatibility；呼叫前須檢查方法是否存在。正式包裝器
+   對缺少該方法的 renderer 拋出 `UnsupportedGraphicsError`；已提供方法但
+   不支援粒子的 backend 也必須拒絕 preparation，不得靜默略過。
 7. Timing consumer 改用 `scope:'native-pass-sum'`：WebGPU duration 不含 queue、
    presentation／pass gaps，保留 nullable sample，分開 RAF／CPU、memory domains
    及裝置門檻。套用玩家 presentation preferences 但不停止必要 gameplay；

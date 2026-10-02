@@ -1,0 +1,3552 @@
+[
+  {
+    "name": "AccessibilityManager",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AccessibilityOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AccessibilityPreferenceOverrides",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AccessibilityPreferences",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AccessibilityPreferenceValues",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Action",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActionBinding",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActionHandle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActionKeyboard",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActionMap",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ActionOwner",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActionQueue",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Actions",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "ActionState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ActivePointer",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Affine2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AlphaFilter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationAction",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationBindTransform",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendPoint1D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendPoint2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendTree",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendTree1DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendTree2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendTreeOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationBlendTreeTiming",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationClip",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationConstraint",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationController",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationEventType",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationFrame2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationListener",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationLoopMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationMask",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationMaskEntry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationMixer",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationParameter",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationParameters",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationPath",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationPoseChannel",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationReferenceEntry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationReferencePose",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationRetargeter",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationRetargetMapping",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationRetargetOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationRootMotion",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationRootMotionDelta",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationRootMotionOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationStateChangeDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationStateDefinition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationStateMachine",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AnimationStateMachineOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationTarget",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AnimationTransition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "assertJsonValue",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "AssetBundleCapabilities",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetBundleDescriptor",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetBundleFile",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetBundleLoadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetBundleVariant",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AssetLoader",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AssetLoaderOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AssetManifest",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AssetManifestOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AtlasAnimationFrame2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AtlasAsset",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AtlasLoader",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AtlasLoadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioActivity",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioAsset",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioBusName",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioChannel",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioChannelName",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioDuckingRule",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioEffect",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioListenerState",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioManager",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioNote",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioPlayback",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioPlayOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioSpriteRange",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioStream",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioStreamOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioStreamState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AudioTransformBinding",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AudioVec3",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AutosaveController",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "AutosaveOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AutosaveState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "AutosaveStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BallSocketJoint3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BallSocketJointOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Billboard",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BillboardMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BillboardOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BiquadEffect",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BitmapFontAsset",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BitmapFontData",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BitmapFontLoader",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BitmapGlyph",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BitmapKerning",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BlendMode2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BlurFilter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BoundingSphere3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "BoxCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BoxGeometry",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "BrowserTextLayout",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "buildContentScene",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Camera2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Camera3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CameraBehavior2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CameraController2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CameraDependent3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CameraFollowOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CameraShakeOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CameraStrategies",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Canvas2DInitializationError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CanvasTexture2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CapsuleCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CharacterController2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CharacterController3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CharacterControllerOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterControllerOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterLocomotion3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CharacterLocomotionOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterMovementOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterMovementOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterMoveResult2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterMoveResult3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterStance3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterStanceResult3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterSupportDetachReason2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CharacterSupportDetachReason3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Clock",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Collider2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Collider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ColliderKind",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ColliderOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ColliderOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Colliders",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "CollisionDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ColorMatrixFilter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ColorRGBA",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CompoundChild3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CompoundCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "CompoundTransform3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "CompressorEffect",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContactQuery",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentBuildOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentLoadCoordinator",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ContentLoadResult",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentNodeDefinition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentPublicationHost",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentScene",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ContentSceneDefinition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ContentSnapshot",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "createGeometryWorkerPool",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "createRenderer",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "createTiledContent",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "CubemapFaces",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DebugOverlay",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "DebugOverlayOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DebugSample",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Decal",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "DecalOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DecodedTextureResidency",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "decodeHeightfieldGeometryRequest",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "decodeHeightfieldGeometryResult",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "decodeKTX2",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "decodeKTX2Native",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "decodeMeshopt",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "decomposeConvex",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "defineFactory",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "DisplacementFilter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "DistanceJoint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "DistanceJoint3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "DistanceJointOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DistanceJointOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DracoAccessorInfo",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DracoDecoder",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DracoDecodeRequest",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DracoDecodeResult",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "DynamicBitmapFontOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Easing",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Easings",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "EnvironmentColor",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "EnvironmentGradientOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "EnvironmentMap",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ExtractPixelsOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryContext",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryDefinition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryDefinitions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryNode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FactoryRegistry",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FactoryServices",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Filter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FilterKind2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FirstPersonControls",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FirstPersonKeys",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FogMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FogSettings",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FogSettingsOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FontAsset",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FontAssetOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "formatDebugSample",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "FrameAnimation",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "FrameAnimationOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FrameEffects",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "FrameWorkStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Frustum",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GainCurve",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Game",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GameObject",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "gameObjectState",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "GameOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "gamepadAxisIndex",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "GamepadAxisName",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadBinding",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "gamepadButtonIndex",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "GamepadButtonName",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadMapping",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadRumbleOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadSnapshot",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadState",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GamepadStick",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GamepadVibrationActuator",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GameState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "generateBitmapFont",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "GenerateTextureOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Geometry",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Geometry2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Geometry2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GeometryData",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "geometryWorkerURL",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "GestureDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GestureOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GesturePhase",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GesturePoint",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GestureRecognizer",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GestureThresholds",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GestureType",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GLTFAsset",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GLTFDirectionalLight",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GLTFLights",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GLTFLoader",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GLTFLoadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GPUParticleColor",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GPUParticleEmitter3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GPUParticleEmitter3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GPUParticleVector3",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GpuTimingOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GpuTimingStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GpuTimingStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "graphemeBoundaries",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Graphics2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Graphics2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GraphicsBackend",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GraphicsBackendUnavailableError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GraphicsCapabilities",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GraphicsError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GraphicsInstruction2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "GraphicsPath2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "GraphicsResidency",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Group",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Group2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "heightfieldGeometryJob",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "HeightfieldGeometryRequest",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "HeightfieldGeometryResult",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "HingeJoint3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "HingeJointOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "HitArea2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "HitAreaKind2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "HLOD",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "HLODOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18n",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "I18nBinding",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18nError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "I18nLocaleChangeDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18nMessage",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18nOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18nParams",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "I18nTable",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "IndexedDBStorage",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "InputContext",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "InputContextOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "InputContexts",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "InputManager",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "installWorkerJobs",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "InstancedMesh",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "InstancedMeshOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "InteractionPhase2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Interpolation",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "isCameraDependent",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "isKTX2",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "IsolatedGroup2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "IsometricMap",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "IsometricMapOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "isSceneSnapshot",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Joint2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Joint3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "JointOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "JointOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "JsonValue",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Keyboard",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "KeyframeTrack",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "KTX2Container",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "KTX2Image",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "KTX2Level",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "KTX2NativeTranscoder",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "KTX2Transcoder",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LightSelectionCount",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LightSelectionOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LightSelectionStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Line3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Line3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "loadAssetBundle",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "LoadTask",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "loadTiledMap",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "LocalStorageBackend",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "LocomotionAnimation3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LocomotionInput3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LocomotionPhase3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LOD",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "LODLevel",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "LODOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "logger",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "LogLevel",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ManifestAssetType",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ManifestAssetTypes",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ManifestEntry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ManifestLease",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Mask2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Mask2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Material2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "MaterialAlphaMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Matrix3",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Matrix4",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "maxConcaveVertices",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "MemoryStorage",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Mesh",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Mesh2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Mesh2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MeshoptFilter",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MeshOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MeshoptMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MissingKeyPolicy",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MorphTargetData",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "MorphTargets",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "MorphWeights",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "MouseJoint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "MouseJointOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeEffect2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeMaterial3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NativeMaterial3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeTextStyle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeTexture2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NativeTextureFormat",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeTextureMip",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeTextureOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NativeWorkerPool",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NativeWorkerPoolOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationCell2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationCellEdit2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationCellState2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationConnection3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationConnectionEdit3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationFollower3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationFollowerOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGraph3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationGraphOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGraphPath3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGraphSearchOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGrid2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationGridBakeJob2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationGridBakeOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGridOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGridPath2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationGridSearchOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationLatticeMapping",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationLatticeOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationLinkTraversal3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationNode3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationProjection3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationProjectionOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationRoute3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationScheduledSearch",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationScheduler",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationSchedulerOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationSchedulerStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationSearchJob",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationSearchOwner",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationSearchStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationSurfaceBakeJob3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NavigationSurfaceBakeOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationSurfaceLink3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NavigationWork",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NineSlice",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "NineSliceMode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NineSliceOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "NoiseFilter2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Object3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "object3DState",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "OcclusionCandidate",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "OcclusionProofSource",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "OPMAdapter",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "OPMOperator",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "OPMVoice",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "OrbitControls",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "OrthographicCamera",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Paint2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "parseAssetBundle",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "parseContentScene",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "parseKTX2",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "parseTiledMap",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "parseTiledTileset",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "ParticleAttribute2D",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "ParticleEmitter",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ParticleEmitterOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleLayer2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ParticleLayer2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleNozzle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleSlot2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleSource2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ParticleTransform2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PathCommand2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PathFollower3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PathFollowerOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PathFollowerState3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PBRMaterial",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PBRMaterialOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PerspectiveCamera",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PerspectiveQuad2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PerspectiveQuad2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsContact3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugContact",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugDraw2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugDrawConfig",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugDrawOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugJoint",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugShape",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsDebugSnapshot",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsHit3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsQueryOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsQueryOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsRaycastAllOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsRayHit",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsStats3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsSweepResult2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsWorld2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PhysicsWorld3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PhysicsWorldOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PhysicsWorldOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Plane2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Plane2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PlaneCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PluralCategory",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Pointer",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PointerRouter",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PointerSample",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PointerTargetEventDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PointLight",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PointLightOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PostProcessingSettings",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PostProcessingSettingsOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PostProcessor2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PreloadBatch",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PreloadProgress",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PreloadState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PreparationResource",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "PreparedAudioImpulse",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PreparedResourceLease",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Primitive2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PrismaticJoint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "PrismaticJointOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "processHeightfieldGeometry",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "produceTiledContentNode",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "PublishedWorkerGeometry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "publishHeightfieldGeometry",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Quaternion",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Raycaster",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RaycastHit",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "rebuildContentScene",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "Rect2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ReflectionProbe",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ReflectionProbeOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Renderer",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RendererPreference",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderSnapshot",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderTexture2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RenderTextureOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderToTextureOptions2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderVisibilityCache",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RenderVisibilityEntry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderVisibilityOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RenderVisibilitySet",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ResidencyBudgetOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResidencyStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceBudgets",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceKind",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceLease",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ResourceLoadContext",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceLoadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceOwnership",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourcePool",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ResourcePreparationOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceRequest",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ResourceScope",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ReverbEffect",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RevoluteJoint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RevoluteJointOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RigidBody2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RigidBody3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "RigidBodyOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RigidBodyOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Rope2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Rope2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "RuntimeError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SampleAudioAsset",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SamplePlayback",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SamplePlaybackState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SamplePlayOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveLoadResult",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveManager",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SaveMetadata",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveReadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveRecord",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveRecovery",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveSchema",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveStorage",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SaveWriteOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Scene",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SceneObject",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "sceneObjectState",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "SceneOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SceneSnapshot",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SceneTimers",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SceneTransitionEventDetail",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ScheduledNavigationFollower",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ScreenElement",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "selectAssetBundleVariant",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "SelectedLights",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Serializable",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Serializer",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SetSceneOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ShadowSettings",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "ShadowSettingsOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SkinnedMesh",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SkinnedMeshOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "snapGrapheme",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "SnapshotRestoreReport",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpatialAudioOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpatialAudioPlayback",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpatialDistanceModel",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpatialLightSelector",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpatialPanningModel",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SphereCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpotLight",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpotLightOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Sprite",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Sprite3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Sprite3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteFont",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpriteFontOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteSampler2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteSheet",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpriteSheetGridOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteSheetSpriteOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "SpriteText",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "SpriteTextOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "StaticChain2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "StaticChainOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "StaticConcave2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "StaticShapeOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "StorageCoordination",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "StorageError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "StorageErrorCode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "StorageMutation",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Stroke2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Text2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Text2DLayout",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Text2DLineLayout",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Text2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Text2DStyle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Text3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Text3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextCaretAffinity",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextCaretPosition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextDirection",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextSelectionRect",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Texture",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Texture2DSource",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextureBorders2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextureLease",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TextureMaterial",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TextureMaterialOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextureRect2D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextureSamplerOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TextureView2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TextureView2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Tile",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledAsset",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TiledContent",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "tiledContentFactory",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "TiledContentNode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TiledFactoryOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledLayer",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledLoadOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledMapData",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledObject",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledProperties",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TiledTileMap",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TiledTileset",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TileMap",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TileMapOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TilingSprite2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TilingSprite2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Timeline",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TimelineOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TimerHandle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "ToneMapping",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Transform2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Transform2DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Transform3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Transform3DOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TransitionController",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TransitionFrame",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TransitionOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TriangleMeshCollider3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TriangleMeshOptions3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Trigger2D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TriggerOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "trustedHeightfieldGeometryJob",
+    "value": true,
+    "type": false
+  },
+  {
+    "name": "TrustedWorkerJob",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "Tween",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Tweenable",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TweenEasing",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TweenGroup",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TweenOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TwoBoneIKConstraint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "TwoBoneIKOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "TwoBoneIKStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIButton",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UICheckbox",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UICheckboxOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIDimension",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIElement",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UIFocusManager",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UILabel",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UILayout",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIRoot",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UIScrollView",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UIScrollViewOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UISlider",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UISliderOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UITextInput",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UITextInputOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UITextInputSelectionGeometry",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIVirtualList",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "UIVirtualListKey",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIVirtualListOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UIWidgetOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UnknownSnapshotPolicy",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "UnsupportedGraphicsError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Vector2",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "Vector3",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "VirtualInput",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "VisibleInstances",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WarmupLease",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WarmupOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WarmupProgress",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WebGL2ContextLostError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WebGL2InitializationError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WebGPUDeviceLostError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WebGPUInitializationError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WebGPUNotSupportedError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WeldJoint",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WorkerJobContext",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobDefinition",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobError",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WorkerJobErrorCode",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobHandle",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobHost",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobOutput",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobResult",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerJobTiming",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorkerPoolStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingBounds",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingCandidate",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingCell",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingCellState",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingCellStatus",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingController",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingFailure",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingLoadContext",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingNavigation3D",
+    "value": true,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingNavigationFragment3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingOptions",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingPoint",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingPortal3D",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "WorldStreamingStats",
+    "value": false,
+    "type": true
+  },
+  {
+    "name": "XYZError",
+    "value": true,
+    "type": true
+  }
+]

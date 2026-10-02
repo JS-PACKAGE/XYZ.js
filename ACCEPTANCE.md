@@ -1046,3 +1046,13 @@ main／v1.11 tag 已推送，release commit `766327ebe3e4985edcaedb6c37506127150
 本次本機 frozen install／format:check／typecheck／lint／117 files、967 tests／build／tree-shaking／pack皆成功。Extracted 1.11.0 archive 的正式 root import、Vector3計算、273個exports與installed CLI help已實際執行；throwaway extraction已移除。9份發佈文件387個相對file links存在檢查errors0（本次未重新驗anchors）。
 
 GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正式附件 `xyz.js-1.11.0.tgz`／`SHA256SUMS` 已下載，checksum通過且archive與上述本機封裝逐位元組相同，SHA256 `cebc0dff6ea22365a2b63cae0d49d5f6ddc473c4da4dc1f57bca101f108cdcce`。npm未發佈；歷史與實機限制不變。
+
+## P88–P96 1.x 相容擴充（2026-10-02，未發佈）
+
+使用者批准全部 gap 修正並選擇維持1.x相容。Metadata 仍為1.11.0；不改既有 tags、不 push／publish／另建 release。本輪各階段只依具名實際 gates 驗收，不沿用上節歷史 counts 或解除實機限制。
+
+### P88 — Renderer compatibility 與公開 API gate
+
+- `Renderer.prepareGpuParticles` 改為 optional；Presented／Resilient wrappers 對缺失能力明示 `UnsupportedGraphicsError`，不把不支援的 emitter 登記為恢復資源。Throwaway actual-wrapper API smoke 已實際拒絕 preparation，隨後 legacy renderer 仍可提交一幀且不觸發 recovery。使用 legacy renderer／canvas stand-ins，不冒稱 native pixels；fixture已移除，證據 `.vite/p88-compat-smoke.json`。
+- 公開 gate 保留原v1.11 declarations產生的 **710個value／type exports**，維護中的v1.10 custom Renderer consumer已strict編譯成功。Snapshot區分value/type namespaces；並非710個runtime exports，也不是所有歷史nested signatures的完整認證。證據 `.vite/api-compatibility/report.json`。
+- Node **26.7.0**／pnpm **12.6.0** frozen install成功；當時整合tree的strict typecheck、122 files／994 tests、lint與API gate皆實際通過。這是本輪當時工具鏈證據，最終工具鏈及native gates另記，不把歷史117／967改寫。

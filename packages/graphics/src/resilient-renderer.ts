@@ -22,6 +22,7 @@ import type {
 } from './render-texture2d.js';
 import {
   GraphicsError,
+  UnsupportedGraphicsError,
   WebGL2ContextLostError,
   WebGPUDeviceLostError,
 } from './errors.js';
@@ -224,8 +225,14 @@ export class ResilientRenderer implements Renderer {
         this.replacement = next;
         for (const material of this.materials.keys())
           if (!material.destroyed) await next.prepareMaterial(material);
-        for (const emitter of this.gpuParticles.keys())
-          if (!emitter.destroyed) await next.prepareGpuParticles(emitter);
+        for (const emitter of this.gpuParticles.keys()) {
+          if (emitter.destroyed) continue;
+          if (!next.prepareGpuParticles)
+            throw new UnsupportedGraphicsError(
+              'The replacement renderer does not support GPU particle preparation.',
+            );
+          await next.prepareGpuParticles(emitter);
+        }
         for (const processor of this.processors)
           if (!processor.destroyed) await next.preparePostProcessor(processor);
         for (const [texture, registration] of this.textures) {
@@ -351,6 +358,10 @@ export class ResilientRenderer implements Renderer {
   }
   async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
     const renderer = this.requireReady();
+    if (!renderer.prepareGpuParticles)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support GPU particle preparation.',
+      );
     const existing = this.gpuParticles.get(emitter);
     const registration =
       existing ??

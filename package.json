@@ -64,6 +64,7 @@
     "platform:safari": "node scripts/safari-platform.mjs",
     "smoke:text": "node scripts/text-layout-smoke.mjs",
     "check:tree-shaking": "node scripts/check-tree-shaking.mjs",
+    "check:api-compatibility": "node scripts/check-api-compatibility.mjs",
     "soak:mixed": "node scripts/mixed-soak.mjs",
     "assets:build": "node scripts/build-assets.mjs",
     "check:asset-deployment": "node scripts/verify-asset-deployment.mjs",

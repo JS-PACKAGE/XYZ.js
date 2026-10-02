@@ -1,8 +1,10 @@
 import { graphicsRecoveryLimits } from '../src/data/rendering.js';
 import { describe, expect, it, vi } from 'vitest';
 import { ResilientRenderer } from '../packages/graphics/src/resilient-renderer.js';
+import { GPUParticleEmitter3D } from '../packages/core/src/gpu-particles3d.js';
 import {
   GraphicsError,
+  UnsupportedGraphicsError,
   WebGL2ContextLostError,
   WebGPUDeviceLostError,
 } from '../packages/graphics/src/errors.js';
@@ -118,6 +120,20 @@ async function settle(): Promise<void> {
 }
 
 describe('ResilientRenderer', () => {
+  it('rejects missing optional particle preparation without poisoning a legacy renderer', async () => {
+    const { renderer, created, canvas } = setup();
+    const emitter = new GPUParticleEmitter3D({ capacity: 4 });
+    await renderer.initialize(canvas);
+    await expect(renderer.prepareGpuParticles(emitter)).rejects.toBeInstanceOf(
+      UnsupportedGraphicsError,
+    );
+    renderer.render();
+    expect(created[0].frames).toBe(1);
+    expect(renderer.isRecovering).toBe(false);
+    emitter.destroy();
+    renderer.destroy();
+  });
+
   it('delegates normally and forwards non-loss errors', async () => {
     const { renderer, created, report, canvas } = setup();
     await renderer.initialize(canvas);

@@ -97,6 +97,10 @@ export class PresentedRenderer implements Renderer {
   }
   async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
     this.requireContext();
+    if (!this.renderer.prepareGpuParticles)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support GPU particle preparation.',
+      );
     return this.renderer.prepareGpuParticles(emitter);
   }
   async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
