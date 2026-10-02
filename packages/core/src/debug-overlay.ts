@@ -140,8 +140,8 @@ export class DebugOverlay {
       backingSize: [game.canvas.width, game.canvas.height],
       frame: game.clock.frame,
       render: stats,
-      colliders: scene?.physics.colliderCount ?? 0,
-      tweens: scene?.tweens.size ?? 0,
+      colliders: scene?.initializedPhysics?.colliderCount ?? 0,
+      tweens: scene?.initializedTweens?.size ?? 0,
       audio: game.audio.unlocked
         ? game.audio.paused
           ? 'paused'

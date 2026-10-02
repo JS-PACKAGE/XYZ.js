@@ -40,13 +40,87 @@ export interface SceneOptions {
 export class Scene {
   readonly world = new World();
   readonly camera2D = new Camera2D();
-  camera3D: PerspectiveCamera | OrthographicCamera = new PerspectiveCamera();
-  readonly timers = new SceneTimers();
+  private camera3DValue: PerspectiveCamera | OrthographicCamera | undefined;
+  private timerQueue: SceneTimers | undefined;
+  private tweenGroup: TweenGroup | undefined;
+  private animationMixer: AnimationMixer | undefined;
+  private physicsWorld: PhysicsWorld2D | undefined;
+  private physicsWorld3D: PhysicsWorld3D | undefined;
+  get camera3D(): PerspectiveCamera | OrthographicCamera {
+    if (!this.camera3DValue) {
+      this.assertCanInitialize();
+      this.camera3DValue = new PerspectiveCamera();
+    }
+    return this.camera3DValue;
+  }
+  set camera3D(value: PerspectiveCamera | OrthographicCamera) {
+    this.assertCanInitialize();
+    this.camera3DValue = value;
+  }
+  get timers(): SceneTimers {
+    if (!this.timerQueue) {
+      this.assertCanInitialize();
+      this.timerQueue = new SceneTimers();
+    }
+    return this.timerQueue;
+  }
   /** Scene-local tweens and timelines, advanced every frame right after `timers`. */
-  readonly tweens = new TweenGroup();
-  readonly animations = new AnimationMixer();
-  readonly physics = new PhysicsWorld2D();
-  readonly physics3D = new PhysicsWorld3D();
+  get tweens(): TweenGroup {
+    if (!this.tweenGroup) {
+      this.assertCanInitialize();
+      this.tweenGroup = new TweenGroup();
+    }
+    return this.tweenGroup;
+  }
+  get animations(): AnimationMixer {
+    if (!this.animationMixer) {
+      this.assertCanInitialize();
+      this.animationMixer = new AnimationMixer();
+    }
+    return this.animationMixer;
+  }
+  get physics(): PhysicsWorld2D {
+    if (!this.physicsWorld) {
+      this.assertCanInitialize();
+      this.physicsWorld = new PhysicsWorld2D();
+    }
+    return this.physicsWorld;
+  }
+  get physics3D(): PhysicsWorld3D {
+    if (!this.physicsWorld3D) {
+      this.assertCanInitialize();
+      this.physicsWorld3D = new PhysicsWorld3D();
+    }
+    return this.physicsWorld3D;
+  }
+  /** @internal Diagnostics must not activate otherwise unused services. */
+  get initializedPhysics(): PhysicsWorld2D | undefined {
+    return this.physicsWorld;
+  }
+  /** @internal */
+  get initializedPhysics3D(): PhysicsWorld3D | undefined {
+    return this.physicsWorld3D;
+  }
+  /** @internal */
+  get initializedTweens(): TweenGroup | undefined {
+    return this.tweenGroup;
+  }
+  /** @internal Frame hooks advance acquired services without initializing them. */
+  advanceTimers(deltaTime: number): void {
+    if (!this.disposed) this.timerQueue?.update(deltaTime);
+  }
+  /** @internal */
+  advanceTweens(deltaTime: number): void {
+    if (!this.disposed) this.tweenGroup?.update(deltaTime);
+  }
+  /** @internal */
+  advanceAnimations(deltaTime: number): void {
+    if (!this.disposed) this.animationMixer?.update(deltaTime);
+  }
+  private assertCanInitialize(): void {
+    if (this.disposed)
+      throw new Error('Cannot initialize services on a destroyed Scene.');
+  }
   readonly fixedDelta: number;
   readonly maxFixedSteps: number;
   /** Opt-in rendering interpolation; simulation and queries keep their exact current poses. */
@@ -71,6 +145,7 @@ export class Scene {
         'Scene fixed timing requires a positive delta and step limit.',
       );
     this.interpolatePhysics = options.interpolatePhysics ?? false;
+
   }
   get fixedInterpolationAlpha(): number {
     return Math.min(1, Math.max(0, this.fixedAccumulator / this.fixedDelta));
@@ -93,43 +168,116 @@ export class Scene {
    * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
    */
   readonly effects3D: PostProcessor2D[] = [];
-  readonly pointLights: PointLight[] = [];
-  readonly spotLights: SpotLight[] = [];
-  readonly shadows = new ShadowSettings();
-  readonly postProcessing = new PostProcessingSettings();
+  private pointLightList: PointLight[] | undefined;
+  private spotLightList: SpotLight[] | undefined;
+  get pointLights(): PointLight[] {
+    if (!this.pointLightList) {
+      this.assertCanInitialize();
+      this.pointLightList = [];
+    }
+    return this.pointLightList;
+  }
+  get spotLights(): SpotLight[] {
+    if (!this.spotLightList) {
+      this.assertCanInitialize();
+      this.spotLightList = [];
+    }
+    return this.spotLightList;
+  }
+  private shadowSettings: ShadowSettings | undefined;
+  private postProcessingSettings: PostProcessingSettings | undefined;
+  get shadows(): ShadowSettings {
+    if (!this.shadowSettings) {
+      this.assertCanInitialize();
+      this.shadowSettings = new ShadowSettings();
+    }
+    return this.shadowSettings;
+  }
+  get postProcessing(): PostProcessingSettings {
+    if (!this.postProcessingSettings) {
+      this.assertCanInitialize();
+      this.postProcessingSettings = new PostProcessingSettings();
+    }
+    return this.postProcessingSettings;
+  }
   /** Weighted blended OIT trades exact layer ordering for stable intersecting transparency. */
   transparency: 'sorted' | 'weighted' = 'sorted';
   ambientLight = 0.3;
   /** Distance fog for 3D meshes (WebGPU and WebGL2). */
-  readonly fog = new FogSettings();
+  private fogSettings: FogSettings | undefined;
+  get fog(): FogSettings {
+    if (!this.fogSettings) {
+      this.assertCanInitialize();
+      this.fogSettings = new FogSettings();
+    }
+    return this.fogSettings;
+  }
   /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
   environment: EnvironmentMap | undefined;
   environmentIntensity = 1;
   /** Local IBL; the nearest containing probe overrides environment per mesh origin. */
-  readonly reflectionProbes: ReflectionProbe[] = [];
+  private reflectionProbeList: ReflectionProbe[] | undefined;
+  get reflectionProbes(): ReflectionProbe[] {
+    if (!this.reflectionProbeList) {
+      this.assertCanInitialize();
+      this.reflectionProbeList = [];
+    }
+    return this.reflectionProbeList;
+  }
   /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
   background: EnvironmentMap | undefined;
   backgroundIntensity = 1;
   /** Direction points from a surface toward the light. */
-  directionalLight = {
-    direction: new Vector3(1, 1, 1).normalize(),
-    color: [1, 1, 1] as [number, number, number],
-    intensity: 0.7,
-  };
+  private directionalLightValue:
+    | {
+        direction: Vector3;
+        color: [number, number, number];
+        intensity: number;
+      }
+    | undefined;
+  get directionalLight(): {
+    direction: Vector3;
+    color: [number, number, number];
+    intensity: number;
+  } {
+    if (!this.directionalLightValue) {
+      this.assertCanInitialize();
+      this.directionalLightValue = {
+        direction: new Vector3(1, 1, 1).normalize(),
+        color: [1, 1, 1],
+        intensity: 0.7,
+      };
+    }
+    return this.directionalLightValue;
+  }
+  set directionalLight(value: {
+    direction: Vector3;
+    color: [number, number, number];
+    intensity: number;
+  }) {
+    this.assertCanInitialize();
+    this.directionalLightValue = value;
+  }
   private readonly registrations = new Map<SceneObject, Entity>();
   private readonly registeredObjects = new Set<SceneObject>();
-  private readonly cameraDependents = new Set<Object3D & CameraDependent3D>();
+  private meshCount = 0;
+  private cameraDependents: Set<Object3D & CameraDependent3D> | undefined;
   private readonly objectUpdates = new Map<GameObject, number>();
   private nextObjectUpdate = 0;
   private frameObjectUpdate = 0;
   private pointerRouter: PointerRouter | undefined;
   /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
   get pointerEvents(): PointerRouter {
-    return (this.pointerRouter ??= new PointerRouter(this));
+    if (!this.pointerRouter) {
+      this.assertCanInitialize();
+      this.pointerRouter = new PointerRouter(this);
+    }
+    return this.pointerRouter;
   }
 
   /** @internal Input routing is independent of subclass Scene.update. */
   routePointers(pointer: Pointer, canContinue: () => boolean): void {
+    if (this.disposed) return;
     if (this.pointerRouter || pointer.samples.length)
       (this.pointerRouter ??= new PointerRouter(this)).update(
         pointer,
@@ -146,6 +294,14 @@ export class Scene {
 
   get objects(): ReadonlySet<SceneObject> {
     return this.registeredObjects;
+  }
+  /** @internal Backends skip 3D camera/lighting work for sprite-only scenes. */
+  get has3DContent(): boolean {
+    return (
+      this.meshCount !== 0 ||
+      (!!this.background && !this.background.destroyed) ||
+      this.effects3D.length !== 0
+    );
   }
 
   get destroyed(): boolean {
@@ -219,16 +375,20 @@ export class Scene {
       if (object instanceof Object3D)
         this.world.addComponent(entity, Transform3D, object.transform);
       if (object instanceof Mesh) this.world.addComponent(entity, Mesh, object);
-      if (object instanceof GameObject) this.physics.register(object);
-      if (object instanceof Object3D) this.physics3D.register(object);
+      if (object instanceof GameObject && (object.body || object.collider))
+        this.physics.register(object);
+      if (object instanceof Object3D && (object.body || object.collider))
+        this.physics3D.register(object);
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
-      if (isCameraDependent(object)) this.cameraDependents.add(object);
+      if (object instanceof Mesh) ++this.meshCount;
+      if (isCameraDependent(object))
+        (this.cameraDependents ??= new Set()).add(object);
       if (object instanceof GameObject)
         this.objectUpdates.set(object, ++this.nextObjectUpdate);
     } catch (error) {
-      if (object instanceof GameObject) this.physics.unregister(object);
-      if (object instanceof Object3D) this.physics3D.unregister(object);
+      if (object instanceof GameObject) this.physicsWorld?.unregister(object);
+      if (object instanceof Object3D) this.physicsWorld3D?.unregister(object);
       if (entity !== undefined) this.world.removeEntity(entity);
       object.detach(this);
       throw error;
@@ -258,12 +418,13 @@ export class Scene {
     if (entity === undefined) return;
     this.registrations.delete(object);
     this.registeredObjects.delete(object);
-    if (isCameraDependent(object)) this.cameraDependents.delete(object);
+    if (object instanceof Mesh) --this.meshCount;
+    if (isCameraDependent(object)) this.cameraDependents?.delete(object);
     if (object instanceof GameObject) this.objectUpdates.delete(object);
     object.detach(this);
     this.world.removeEntity(entity);
-    if (object instanceof GameObject) this.physics.unregister(object);
-    if (object instanceof Object3D) this.physics3D.unregister(object);
+    if (object instanceof GameObject) this.physicsWorld?.unregister(object);
+    if (object instanceof Object3D) this.physicsWorld3D?.unregister(object);
     if (object instanceof GameObject) this.pointerRouter?.forget(object);
   }
 
@@ -387,8 +548,9 @@ export class Scene {
       );
     if (this.advancingFixed)
       throw new Error('Scene fixed update is not reentrant.');
-    this.physics.sampleForces(deltaTime);
-    if (this.physics3D.enabled) this.physics3D.sampleForces(deltaTime);
+    this.physicsWorld?.sampleForces(deltaTime);
+    if (this.physicsWorld3D?.enabled)
+      this.physicsWorld3D.sampleForces(deltaTime);
     const total = this.fixedAccumulator + deltaTime;
     const available = Math.floor(
       (total + this.fixedDelta * 1e-9) / this.fixedDelta,
@@ -397,8 +559,8 @@ export class Scene {
     const remainder = Math.max(0, total - available * this.fixedDelta);
     const dropped = Math.max(0, (available - steps) * this.fixedDelta);
     this.droppedSimulationTime += dropped;
-    this.physics.discardFrameTime(dropped);
-    this.physics3D.discardFrameTime(dropped);
+    this.physicsWorld?.discardFrameTime(dropped);
+    this.physicsWorld3D?.discardFrameTime(dropped);
     this.fixedAccumulator = steps * this.fixedDelta + remainder;
     this.advancingFixed = true;
     try {
@@ -413,12 +575,12 @@ export class Scene {
         );
         this.fixedUpdate(this.fixedDelta);
         if (!canContinue() || this.disposed) return;
-        this.physics.sampleFixedForces(this.fixedDelta);
-        if (this.physics3D.enabled)
-          this.physics3D.sampleFixedForces(this.fixedDelta);
-        this.physics.update(this.fixedDelta, canContinue, false);
+        this.physicsWorld?.sampleFixedForces(this.fixedDelta);
+        if (this.physicsWorld3D?.enabled)
+          this.physicsWorld3D.sampleFixedForces(this.fixedDelta);
+        this.physicsWorld?.update(this.fixedDelta, canContinue, false);
         if (!canContinue() || this.disposed) return;
-        this.physics3D.update(this.fixedDelta, canContinue, false);
+        this.physicsWorld3D?.update(this.fixedDelta, canContinue, false);
         this.fixedElapsed += this.fixedDelta;
         ++this.fixedFrame;
       }
@@ -431,8 +593,8 @@ export class Scene {
         const omitted =
           Math.floor(this.fixedAccumulator / this.fixedDelta) * this.fixedDelta;
         this.fixedAccumulator = Math.max(0, this.fixedAccumulator - omitted);
-        this.physics.discardFrameTime(omitted);
-        this.physics3D.discardFrameTime(omitted);
+        this.physicsWorld?.discardFrameTime(omitted);
+        this.physicsWorld3D?.discardFrameTime(omitted);
       }
     }
     if (!canContinue() || this.disposed) return;
@@ -448,6 +610,7 @@ export class Scene {
 
   /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
   updateCameraDependents(): void {
+    if (this.disposed || !this.cameraDependents?.size) return;
     for (const object of [...this.cameraDependents]) {
       if (object.worldVisible) object.updateForCamera(this.camera3D);
     }
@@ -465,12 +628,12 @@ export class Scene {
   destroy(): void {
     if (this.disposed) return;
     this.disposed = true;
-    this.timers.destroy();
-    this.tweens.destroy();
+    this.timerQueue?.destroy();
+    this.tweenGroup?.destroy();
     this.controller?.abort();
     const errors: unknown[] = [];
     try {
-      this.animations.destroy();
+      this.animationMixer?.destroy();
     } catch (error) {
       errors.push(error);
     }
@@ -506,12 +669,12 @@ export class Scene {
       }
     }
     try {
-      this.physics.destroy();
+      this.physicsWorld?.destroy();
     } catch (error) {
       errors.push(error);
     }
     try {
-      this.physics3D.destroy();
+      this.physicsWorld3D?.destroy();
     } catch (error) {
       errors.push(error);
     }

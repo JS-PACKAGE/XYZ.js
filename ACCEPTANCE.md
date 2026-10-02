@@ -849,3 +849,12 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 正式 launcher（非 probe wrapper）以 `--require-webgpu` 執行 Canvas2D／WebGL2／WebGPU deep regression 全部通過適用項目，四項 workflow example smoke 全部通過。真 WebGL loss／restore 保持驗證；主 Game fixture 的 WebGPU public canvas loss injection 仍明示 SKIP，既有 native-profile fixture-only loss/replay 與 uncontrolled driver reset 分開。實際 WebGPU atlas PNG 已觀察；evidence `.vite/v19-linux-vulkan-fixed/`。
 - 修正後 macOS arm64 再跑 frozen install、format:check、typecheck、lint、93 files／780 tests、build（210 modules）及 `--require-webgpu` 三 backend deep regression 全部通過。八份同步文件的 274 個相對連結存在性檢查通過，格式檢查通過；本輪沒有新增公開 API、修改 vendor 或建立只檢查旗標字串的測試。
 - 限制：本機 Linux arm64 修正已實測，hosted Ubuntu x64 尚未套用並驗證；不宣稱 hosted CI／v1.9 Release 已恢復，也不認證其他 browser／driver／硬體。
+
+## P58–P70 2026-10-02 unreleased working tree：逐階段證據
+
+本節依本輪 runtime handoff 與實際 observability JSON 記錄時間順序上的新工作，不改寫上述歷史日期、counts、release 或限制。以下證據取得於分功能提交前的 working tree；使用者後續授權依 P58–P70 分別建立 commit。Package metadata 仍 1.9.0／Apache-2.0，未 push／publish／改版本，以下功能不是既有 v1.9 release 的完成宣告。
+
+### P58 — Startup／lazy subsystems
+
+- Canvas2D startup 實際不載 GPU startup chunks；普通 Sprite 不初始化 physics／3D services。Source startup 158990 gzip bytes、built-root startup 146413 gzip bytes，對照先前 214169 gzip bytes；math consumer 722／726 minified bytes。入口 startup 與完整 reachable chunks 分開，不將共享 facade 冒稱 microengine，也不推論每個 consumer 的同等縮減。
+- 成本 runtime smoke 的 static root trailing slash 與 RAF 內 native readback 修正後通過：source／built-root Canvas 首幀 pixel `[235,41,67,255]`、零 GPU implementation downloads、13 個未使用 services 皆未初始化。Forced backends、auto→GL→Canvas、native GPU configure failure、GL loss／GPUDevice.destroy 同 backend recovery，以及 3D→2D render target bytes 回落均實驗證；不是僅靜態 bundle counts。

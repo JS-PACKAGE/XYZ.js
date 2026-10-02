@@ -1028,15 +1028,6 @@ export class WebGL2Renderer implements Renderer {
         : (destination?.framebuffer ?? null);
       this.hasTransmission = this.linear3D = this.weighted = false;
       if (scene) {
-        validateRenderSettings(scene);
-        this.collectMeshes(scene, logicalWidth / logicalHeight);
-        this.linear3D =
-          scene.postProcessing.enabled || this.hasTransmission || this.weighted;
-        fillLightingData(scene, this.lightingData);
-        this.atlas.update(scene, logicalWidth / logicalHeight);
-        gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
-        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
-        this.stats.upload(this.atlas.data.byteLength);
         collectRenderCommands2D(
           scene,
           logicalWidth,
@@ -1050,6 +1041,17 @@ export class WebGL2Renderer implements Renderer {
           logicalHeight,
           Math.max(canvas.width / logicalWidth, canvas.height / logicalHeight),
         );
+      } else this.commands.clear();
+      if (scene?.has3DContent) {
+        validateRenderSettings(scene);
+        this.collectMeshes(scene, logicalWidth / logicalHeight);
+        this.linear3D =
+          scene.postProcessing.enabled || this.hasTransmission || this.weighted;
+        fillLightingData(scene, this.lightingData);
+        this.atlas.update(scene, logicalWidth / logicalHeight);
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
+        this.stats.upload(this.atlas.data.byteLength);
         if (scene.shadows.enabled) this.drawShadows(scene);
         else if (this.shadowTarget) {
           this.deleteTarget(this.shadowTarget);
@@ -1072,7 +1074,10 @@ export class WebGL2Renderer implements Renderer {
           this.refractionTarget = undefined;
         }
       } else {
-        this.commands.clear();
+        if (this.shadowTarget) {
+          this.deleteTarget(this.shadowTarget);
+          this.shadowTarget = undefined;
+        }
         this.releaseOIT();
         if (this.postTarget) {
           this.deleteTarget(this.postTarget);
@@ -1113,7 +1118,8 @@ export class WebGL2Renderer implements Renderer {
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       if (scene) {
-        this.drawMeshes(scene, logicalWidth / logicalHeight);
+        if (scene.has3DContent)
+          this.drawMeshes(scene, logicalWidth / logicalHeight);
         gl.disable(gl.DEPTH_TEST);
         if (this.linear3D) this.drawPost(scene, sceneFramebuffer);
         if (process3D)

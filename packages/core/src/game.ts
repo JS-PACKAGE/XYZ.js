@@ -1023,15 +1023,15 @@ export class Game extends EventTarget {
       )
         scene.routePointers(this.input.pointer, this.canUpdateScene);
       if (scene && this.canUpdateScene()) {
-        scene.timers.update(this.clock.deltaTime);
+        scene.advanceTimers(this.clock.deltaTime);
         // A timer callback may have destroyed the scene or stopped the game.
-        if (this.canUpdateScene()) scene.tweens.update(this.clock.deltaTime);
+        if (this.canUpdateScene()) scene.advanceTweens(this.clock.deltaTime);
       }
       if (this.currentState !== 'running') return;
       if (scene && this.canUpdateScene())
         scene.beginObjectUpdates(this.clock.deltaTime, this.canUpdateScene);
       if (scene && scene === this.currentScene && !scene.destroyed)
-        scene.animations.update(this.clock.deltaTime);
+        scene.advanceAnimations(this.clock.deltaTime);
       if (scene && this.canUpdateScene())
         scene.advanceFrameAnimations(this.clock.deltaTime, this.canUpdateScene);
       if (scene && this.canUpdateScene())

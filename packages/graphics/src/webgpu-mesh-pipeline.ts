@@ -734,10 +734,48 @@ export class WebGPUMeshPipeline {
     this.draws.length = 0;
     this.visibleDraws.length = 0;
     try {
-      if (!scene) {
+      if (!scene?.has3DContent) {
         this.post.releaseTarget();
-        this.releaseRefraction();
         this.oit.release();
+        if (this.depthTexture) {
+          this.depthTexture.destroy();
+          this.stats.target(
+            -this.depthWidth * this.depthHeight * 4 * this.sampleCount,
+          );
+          this.depthTexture = undefined;
+          this.depthView = undefined;
+        }
+        if (this.msaaTexture) {
+          this.msaaTexture.destroy();
+          this.stats.target(
+            -this.msaaWidth *
+              this.msaaHeight *
+              (this.msaaFormat === 'rgba16float' ? 8 : 4) *
+              this.sampleCount,
+          );
+          this.msaaTexture = undefined;
+          this.msaaView = undefined;
+        }
+        if (this.shadowTexture) {
+          this.shadowTexture.destroy();
+          this.stats.target(-this.shadowSize * this.shadowSize * 4);
+          this.shadowTexture = undefined;
+          this.shadowView = undefined;
+          this.sceneBindGroup = this.shadowSceneBindGroup;
+        }
+        this.releaseRefraction();
+        if (
+          this.environmentView !== this.dummyEnvironmentView ||
+          this.backgroundView !== this.dummyEnvironmentView
+        ) {
+          this.environmentView = this.backgroundView =
+            this.dummyEnvironmentView;
+          this.shadowSceneBindGroup = this.createSceneGroup(
+            this.emptyShadowView,
+            this.dummyEnvironmentView,
+          );
+          this.sceneBindGroup = this.skyBindGroup = this.shadowSceneBindGroup;
+        }
         return false;
       }
       validateRenderSettings(scene);

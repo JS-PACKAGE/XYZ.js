@@ -28,13 +28,33 @@ export interface SceneOptions {
 export declare class Scene {
     readonly world: World;
     readonly camera2D: Camera2D;
-    camera3D: PerspectiveCamera | OrthographicCamera;
-    readonly timers: SceneTimers;
+    private camera3DValue;
+    private timerQueue;
+    private tweenGroup;
+    private animationMixer;
+    private physicsWorld;
+    private physicsWorld3D;
+    get camera3D(): PerspectiveCamera | OrthographicCamera;
+    set camera3D(value: PerspectiveCamera | OrthographicCamera);
+    get timers(): SceneTimers;
     /** Scene-local tweens and timelines, advanced every frame right after `timers`. */
-    readonly tweens: TweenGroup;
-    readonly animations: AnimationMixer;
-    readonly physics: PhysicsWorld2D;
-    readonly physics3D: PhysicsWorld3D;
+    get tweens(): TweenGroup;
+    get animations(): AnimationMixer;
+    get physics(): PhysicsWorld2D;
+    get physics3D(): PhysicsWorld3D;
+    /** @internal Diagnostics must not activate otherwise unused services. */
+    get initializedPhysics(): PhysicsWorld2D | undefined;
+    /** @internal */
+    get initializedPhysics3D(): PhysicsWorld3D | undefined;
+    /** @internal */
+    get initializedTweens(): TweenGroup | undefined;
+    /** @internal Frame hooks advance acquired services without initializing them. */
+    advanceTimers(deltaTime: number): void;
+    /** @internal */
+    advanceTweens(deltaTime: number): void;
+    /** @internal */
+    advanceAnimations(deltaTime: number): void;
+    private assertCanInitialize;
     readonly fixedDelta: number;
     readonly maxFixedSteps: number;
     /** Opt-in rendering interpolation; simulation and queries keep their exact current poses. */
@@ -59,32 +79,45 @@ export declare class Scene {
      * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
      */
     readonly effects3D: PostProcessor2D[];
-    readonly pointLights: PointLight[];
-    readonly spotLights: SpotLight[];
-    readonly shadows: ShadowSettings;
-    readonly postProcessing: PostProcessingSettings;
+    private pointLightList;
+    private spotLightList;
+    get pointLights(): PointLight[];
+    get spotLights(): SpotLight[];
+    private shadowSettings;
+    private postProcessingSettings;
+    get shadows(): ShadowSettings;
+    get postProcessing(): PostProcessingSettings;
     /** Weighted blended OIT trades exact layer ordering for stable intersecting transparency. */
     transparency: 'sorted' | 'weighted';
     ambientLight: number;
     /** Distance fog for 3D meshes (WebGPU and WebGL2). */
-    readonly fog: FogSettings;
+    private fogSettings;
+    get fog(): FogSettings;
     /** Image-based lighting for PBRMaterial; replaces `ambientLight` for those materials. */
     environment: EnvironmentMap | undefined;
     environmentIntensity: number;
     /** Local IBL; the nearest containing probe overrides environment per mesh origin. */
-    readonly reflectionProbes: ReflectionProbe[];
+    private reflectionProbeList;
+    get reflectionProbes(): ReflectionProbe[];
     /** Skybox drawn behind 3D objects. May be the same map as `environment`. */
     background: EnvironmentMap | undefined;
     backgroundIntensity: number;
     /** Direction points from a surface toward the light. */
-    directionalLight: {
+    private directionalLightValue;
+    get directionalLight(): {
         direction: Vector3;
         color: [number, number, number];
         intensity: number;
     };
+    set directionalLight(value: {
+        direction: Vector3;
+        color: [number, number, number];
+        intensity: number;
+    });
     private readonly registrations;
     private readonly registeredObjects;
-    private readonly cameraDependents;
+    private meshCount;
+    private cameraDependents;
     private readonly objectUpdates;
     private nextObjectUpdate;
     private frameObjectUpdate;
@@ -99,6 +132,8 @@ export declare class Scene {
     private controller;
     private disposed;
     get objects(): ReadonlySet<SceneObject>;
+    /** @internal Backends skip 3D camera/lighting work for sprite-only scenes. */
+    get has3DContent(): boolean;
     get destroyed(): boolean;
     has(object: SceneObject): boolean;
     add<T extends SceneObject>(object: T): T;

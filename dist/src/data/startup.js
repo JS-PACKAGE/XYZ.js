@@ -1,0 +1,2 @@
+export const startupBaseline={minifiedBytes:841577,gzipBytes:214169};export const startupBudgets={mathMinifiedBytes:4096,canvasInitialMinifiedBytes:startupBaseline.minifiedBytes-1,canvasInitialGzipBytes:startupBaseline.gzipBytes-1,canvasStartupMinifiedBytes:startupBaseline.minifiedBytes-1,canvasStartupGzipBytes:startupBaseline.gzipBytes-1,lazyMinifiedBytes:startupBaseline.minifiedBytes,lazyGzipBytes:startupBaseline.gzipBytes};
+//# sourceMappingURL=startup.js.map

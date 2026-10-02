@@ -4,11 +4,6 @@ import {
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
 } from './errors.js';
-import { WebGPURenderer } from './webgpu-renderer.js';
-import { WebGL2Renderer } from './webgl2-renderer.js';
-import { Canvas2DRenderer } from './canvas2d-renderer.js';
-import { PresentedRenderer } from './presented-renderer.js';
-import { ResilientRenderer } from './resilient-renderer.js';
 import type { RenderStats } from './render-stats.js';
 import type {
   Material2D,
@@ -168,22 +163,7 @@ export async function createRenderer(
       else initializationError = error;
     };
     const antialias = options.antialias ?? true;
-    const renderer =
-      backend === 'canvas2d'
-        ? new Canvas2DRenderer(report)
-        : options.recover === false
-          ? backend === 'webgpu'
-            ? new WebGPURenderer(report, antialias)
-            : new WebGL2Renderer(report, antialias)
-          : new ResilientRenderer(
-              backend,
-              (handler) =>
-                backend === 'webgpu'
-                  ? new WebGPURenderer(handler, antialias)
-                  : new WebGL2Renderer(handler, antialias),
-              report,
-              options,
-            );
+    let renderer: Renderer | undefined;
     // A bound context cannot change type. Failed candidates never bind the user's canvas.
     const target =
       preference === 'auto' ? document.createElement('canvas') : canvas;
@@ -192,6 +172,27 @@ export async function createRenderer(
       target.height = canvas.height;
     }
     try {
+      // Static imports would fetch every backend during Canvas2D startup. Import the selected
+      // constructor before wrapping: recovery stays synchronous and uses only that backend.
+      let create: (handler: (error: Error) => void) => Renderer;
+      if (backend === 'canvas2d') {
+        const { Canvas2DRenderer } = await import('./canvas2d-renderer.js');
+        create = (handler) => new Canvas2DRenderer(handler);
+      } else if (backend === 'webgpu') {
+        const { WebGPURenderer } = await import('./webgpu-renderer.js');
+        create = (handler) =>
+          new WebGPURenderer(handler, antialias);
+      } else {
+        const { WebGL2Renderer } = await import('./webgl2-renderer.js');
+        create = (handler) =>
+          new WebGL2Renderer(handler, antialias);
+      }
+      if (backend === 'canvas2d' || options.recover === false)
+        renderer = create(report);
+      else {
+        const { ResilientRenderer } = await import('./resilient-renderer.js');
+        renderer = new ResilientRenderer(backend, create, report, options);
+      }
       renderer.configureResidency(options.residency ?? {});
       await renderer.initialize(target);
       if (initializationError) throw initializationError;
@@ -199,7 +200,7 @@ export async function createRenderer(
       active = false;
       let failure = cause;
       try {
-        renderer.destroy();
+        renderer?.destroy();
       } catch (cleanup) {
         failure = new AggregateError(
           [cause, cleanup],
@@ -218,14 +219,16 @@ export async function createRenderer(
       continue;
     }
     if (preference === 'auto') {
-      const presented = new PresentedRenderer(renderer, target);
+      let presented: Renderer | undefined;
       try {
+        const { PresentedRenderer } = await import('./presented-renderer.js');
+        presented = new PresentedRenderer(renderer, target);
         await presented.initialize(canvas);
         if (initializationError) throw initializationError;
       } catch (cause) {
         active = false;
         try {
-          presented.destroy();
+          (presented ?? renderer).destroy();
         } catch (cleanup) {
           const failure = new AggregateError(
             [cause, cleanup],
