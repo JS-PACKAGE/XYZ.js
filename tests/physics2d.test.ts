@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GameObject } from '../packages/core/src/game-object.js';
 import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import { Scene } from '../packages/core/src/scene.js';
+import { SceneObject } from '../packages/core/src/scene-object.js';
 import { Vector2 } from '../packages/math/src/index.js';
 import {
   Colliders,
@@ -28,6 +29,10 @@ function advance(world: PhysicsWorld2D, seconds: number): void {
   for (let i = 0; i < Math.round(seconds / world.fixedDelta); i++)
     world.update(world.fixedDelta);
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 // Assertions observe outcomes and contact transitions, not solver internals or forwarding.
 describe('bounded rigid body physics', () => {
@@ -257,6 +262,199 @@ describe('bounded rigid body physics', () => {
     expect(moving.body!.velocity.x).toBeCloseTo(0);
     expect(snapshot!.normal.x).toBe(normalX);
     expect(snapshot!.points[0].x).toBe(pointX);
+  });
+
+  it('retains dense sensor contacts and late listener exit/reentry', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const owners = Array.from({ length: 8 }, () => {
+      const owner = new GameObject();
+      owner.collider = Colliders.circle(1);
+      owner.collider.sensor = true;
+      world.register(owner);
+      return owner;
+    });
+    world.update(world.fixedDelta);
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(28);
+
+    const transitions: string[] = [];
+    owners[0].addEventListener('collisionstart', () =>
+      transitions.push('start'),
+    );
+    owners[0].addEventListener('collisionend', () => transitions.push('end'));
+    owners[0].position.x = 10;
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(21);
+    owners[0].position.x = 0;
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(28);
+    expect(transitions).toEqual([
+      ...Array<string>(7).fill('end'),
+      ...Array<string>(7).fill('start'),
+    ]);
+  });
+
+  it('observes listeners added by the opposite receiver before their same-tick delivery', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const a = new GameObject(),
+      b = new GameObject();
+    a.collider = Colliders.circle(1);
+    a.collider.sensor = true;
+    b.collider = Colliders.circle(1);
+    b.position.x = 1;
+    const events: string[] = [];
+    a.addEventListener('collisionstart', () => {
+      events.push('a:start');
+      b.addEventListener('collisionstart', (event) => {
+        const detail = (event as CustomEvent<CollisionDetail>).detail;
+        expect(detail.self).toBe(b);
+        expect(detail.other).toBe(a);
+        expect(detail.normal.x).toBe(-1);
+        events.push('b:start');
+      });
+      b.addEventListener('postcollision', () => events.push('b:post'));
+    });
+    a.addEventListener('precollision', () => {
+      events.push('a:pre');
+      b.addEventListener('precollision', () => events.push('b:pre'));
+    });
+    world.register(a);
+    world.register(b);
+    world.update(world.fixedDelta);
+    expect(events).toEqual(['a:start', 'b:start', 'a:pre', 'b:pre', 'b:post']);
+    expect(world.debugSnapshot().contacts).toHaveLength(1);
+    expect(a.position.x).toBe(0);
+    expect(b.position.x).toBe(1);
+  });
+
+  it('honors a late precollision subscriber and rejects cancellation from its old snapshot', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const wall = object(Colliders.box(2, 10), 0, 0, { type: 'static' });
+    const moving = object(Colliders.circle(1), 1.9, 0);
+    moving.body!.velocity.x = -2;
+    let snapshot: CollisionDetail | undefined;
+    wall.addEventListener('precollision', () => {
+      if (snapshot) snapshot.cancelResponse();
+      else
+        moving.addEventListener(
+          'precollision',
+          (event) => {
+            snapshot = (event as CustomEvent<CollisionDetail>).detail;
+            snapshot.cancelResponse();
+          },
+          { once: true },
+        );
+    });
+    const post = vi.fn();
+    moving.addEventListener('postcollision', post);
+    world.register(wall);
+    world.register(moving);
+    world.update(world.fixedDelta);
+    expect(moving.body!.velocity.x).toBe(-2);
+    expect(snapshot!.self).toBe(moving);
+    expect(snapshot!.other).toBe(wall);
+    const pointX = snapshot!.points[0].x;
+    world.update(world.fixedDelta);
+    expect(moving.body!.velocity.x).toBeCloseTo(0);
+    expect(snapshot!.points[0].x).toBe(pointX);
+    expect(post).toHaveBeenCalledTimes(2);
+  });
+
+  it('preserves collision observation and cancellation through dispatchEvent overrides', () => {
+    class CancellingObject extends GameObject {
+      readonly events: string[] = [];
+      override dispatchEvent(event: Event): boolean {
+        if (
+          event.type === 'collisionstart' ||
+          event.type === 'precollision' ||
+          event.type === 'postcollision' ||
+          event.type === 'collisionend'
+        ) {
+          this.events.push(event.type);
+          if (event.type === 'precollision')
+            (event as CustomEvent<CollisionDetail>).detail.cancelResponse();
+        }
+        return super.dispatchEvent(event);
+      }
+    }
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const moving = new CancellingObject();
+    moving.collider = Colliders.circle(1);
+    moving.body = new RigidBody2D();
+    moving.position.x = -1.9;
+    moving.body.velocity.x = 2;
+    const wall = object(Colliders.box(2, 10), 0, 0, { type: 'static' });
+    world.register(moving);
+    world.register(wall);
+    world.update(world.fixedDelta);
+    expect(moving.body.velocity.x).toBe(2);
+    world.unregister(wall);
+    expect(moving.events).toEqual([
+      'collisionstart',
+      'precollision',
+      'postcollision',
+      'collisionend',
+    ]);
+    expect(world.debugSnapshot().contacts).toEqual([]);
+  });
+
+  it.each([
+    ['GameObject', GameObject.prototype],
+    ['SceneObject', SceneObject.prototype],
+    ['EventTarget', EventTarget.prototype],
+  ] as const)(
+    'preserves %s prototype dispatch interception without subscribers',
+    (_, prototype) => {
+      const world = new PhysicsWorld2D({ gravity: [0, 0] });
+      const a = new GameObject(),
+        b = new GameObject();
+      a.collider = Colliders.circle(1);
+      a.collider.sensor = true;
+      b.collider = Colliders.circle(1);
+      world.register(a);
+      world.register(b);
+      const dispatch = vi.spyOn(prototype, 'dispatchEvent');
+      world.update(world.fixedDelta);
+      expect(dispatch.mock.calls.map(([event]) => event.type)).toEqual([
+        'collisionstart',
+        'collisionstart',
+        'precollision',
+        'precollision',
+        'postcollision',
+        'postcollision',
+      ]);
+    },
+  );
+
+  it('ends a contact once when its first start receiver removes itself', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const a = new GameObject(),
+      b = new GameObject();
+    a.collider = Colliders.circle(1);
+    a.collider.sensor = true;
+    b.collider = Colliders.circle(1);
+    const start = vi.fn(),
+      end = vi.fn(),
+      pre = vi.fn(),
+      post = vi.fn();
+    a.addEventListener('collisionstart', () => {
+      world.unregister(a);
+      a.destroy();
+    });
+    b.addEventListener('collisionstart', start);
+    b.addEventListener('collisionend', end);
+    b.addEventListener('precollision', pre);
+    b.addEventListener('postcollision', post);
+    world.register(a);
+    world.register(b);
+    world.update(world.fixedDelta);
+    world.update(world.fixedDelta);
+    expect(a.destroyed).toBe(true);
+    expect(start).not.toHaveBeenCalled();
+    expect(pre).not.toHaveBeenCalled();
+    expect(post).not.toHaveBeenCalled();
+    expect(end).toHaveBeenCalledTimes(1);
+    expect(world.debugSnapshot().contacts).toEqual([]);
   });
 
   it('matches fixed-step partitions, clears forces once, and caps catchup', () => {

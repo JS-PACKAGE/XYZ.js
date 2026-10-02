@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-**目前支援規範：**[v1.12.2 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.2/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+**目前支援規範：**[v1.12.3 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.3/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.12.2／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權 GitHub v1.12.2 發佈。
+本參考描述 **1.12.3／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權新的 GitHub v1.12.3 發佈，保留失敗的 v1.12.2 tag；此處不宣稱 hosted 驗證或發佈已完成。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
@@ -421,6 +421,7 @@ PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter
 - Collider snapshot 為 centered circle／box／strictly convex polygon＋optional offset；polygon 3–32 vertices，invalid／degenerate／concave 拒絕。Extent 上限1,000,000；transform nonsingular，circle uniform scale。所有 non-static body 必須 world root，nested static 可 affine；無 screen physics。Scale 更新 geometry／inertia。
 - Discrete fixed-step broadphase／exact convex contacts 使用 iterative linear／angular impulse 與 positional correction。Default gravityY980／fixedDelta1/120／maxSubSteps12／velocityIterations8／positionIterations3；step 正 finite、substeps1–120／iterations1–64，≤16,384 colliders；droppedTime 報 discarded catch-up。P43 time-weighted force／torque 保留 unfinished-tick contribution，fixed force 排下個 step，clearForces 取消 queue。無 dynamic concave／compound／zero-width edges／3D；無 CCD 可穿隧。
 - Reciprocaluint32category／mask default1／all，sensor只detect。collisionstart／precollision／postcollision／collisionend detail {self,other,normal,points,penetration,sensor,cancelResponse} stable snapshots／receiverreversednormal／currentstep-onlycancel；callbackfilter／remove／destroy保safeend。overlap(collider,owner) exactContactQuery[]排self／reciprocalfilter，raycast(origin,direction,maxDistance,mask?) normalize非零direction、sortedPhysicsRayHit[]。
+- v1.12.3 對不可觀察的 receiver 不建立 collision snapshot／event，sensor 不計算不使用的 restitution；contact membership 與 response 語意不變。每個 receiver 前檢查 observation，callback 中新增 listener 仍收到當次事件，custom dispatch interception 也保留。實測 frame time 與未放寬的 host-scoped gates 分別記 ACCEPTANCE。
 - Trigger2D(collider,{filter?,repeat?,onEnter?}) clone static sensor，default1acceptedenter／repeat0inactive／Infinityexplicit，triggerenter／triggerexit {self,other}／readonlyremainingRepeats，filterreject不耗count、不autodestroy。
 - Sleeping（P31）：dynamic body 的線速度低於 `physicsDefaults.sleepLinearVelocity`（0.1）且角速度低於 `sleepAngularVelocity`（0.05）持續 `sleepTime`（0.5 秒）才會休眠，而且必須是其非 sensor 接觸群組內所有 dynamic body 都閒置，所以一疊物體會一起休眠。休眠 body 不做積分與接觸求解，速度歸零。以下情況會喚醒：`applyForce`／`applyImpulse`／`velocity`／`angularVelocity`／`wake()`、transform 被修改（`isSleeping` 比較入睡時記下的姿態）、sensor 接觸、運動中的 body 碰到該群組、接觸結束或接觸中的 static collider 移動。`RigidBodyOptions.allowSleep`（預設 true，亦有 setter）與 `body.isSleeping` 為對外介面；`isSleeping` 是 getter，偵測到姿態或速度變化時可能順便喚醒 body。
 - Continuous collision：RigidBodyOptions.ccd／body.ccd 預設 false；P76 以 bounded relative rigid-motion CCD、真 contact response／explicit exhaustion 取代 P31 translation-only static-target algorithm（第59節）。

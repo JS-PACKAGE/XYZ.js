@@ -1,4 +1,5 @@
 import type { Scene } from './scene.js';
+import { observeObjectEventTypes } from './event-observers.js';
 
 /** Base facade for scene-owned objects, independent of 2D or 3D transforms. */
 export abstract class SceneObject extends EventTarget {
@@ -17,8 +18,11 @@ export abstract class SceneObject extends EventTarget {
     options?: boolean | AddEventListenerOptions,
   ): void {
     super.addEventListener(type, callback, options);
-    if (callback && !(typeof options === 'object' && options.signal?.aborted))
-      (this.observedEventTypes ??= new Set()).add(type);
+    if (callback && !(typeof options === 'object' && options.signal?.aborted)) {
+      if (!this.observedEventTypes)
+        observeObjectEventTypes(this, (this.observedEventTypes = new Set()));
+      this.observedEventTypes.add(type);
+    }
   }
 
   /** @internal Untouched pooled sprites need no lifecycle Event allocations. */

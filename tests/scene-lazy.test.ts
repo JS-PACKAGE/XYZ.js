@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { Texture } from '../packages/assets/src/texture.js';
 import { Scene } from '../packages/core/src/scene.js';
 import { Sprite } from '../packages/core/src/sprite.js';
@@ -116,5 +116,45 @@ describe('scene lazy service lifetime', () => {
     expect(calls).toBe(1);
     expect(() => timers.after(0, () => calls++)).toThrow();
     expect(() => scene.animations).toThrow('destroyed Scene');
+  });
+
+  it('retains native lifecycle once, removal, and abort semantics', () => {
+    const object = new GameObject();
+    const alreadyAborted = new AbortController();
+    alreadyAborted.abort();
+    const ignored = vi.fn();
+    object.addEventListener('preupdate', ignored, {
+      signal: alreadyAborted.signal,
+    });
+    object.emitUpdate('preupdate', 0.2);
+    expect(ignored).not.toHaveBeenCalled();
+
+    const once = vi.fn();
+    object.addEventListener('preupdate', once, { once: true });
+    object.emitUpdate('preupdate', 0.3);
+    object.emitUpdate('preupdate', 0.4);
+    expect(once).toHaveBeenCalledTimes(1);
+    expect(
+      (once.mock.calls[0][0] as CustomEvent<{ dt: number }>).detail,
+    ).toEqual({
+      dt: 0.3,
+    });
+
+    const removed = vi.fn();
+    object.addEventListener('postupdate', removed);
+    object.removeEventListener('postupdate', removed);
+    object.emitUpdate('postupdate', 0.5);
+    expect(removed).not.toHaveBeenCalled();
+
+    const controller = new AbortController();
+    const aborted = vi.fn(),
+      destroyed = vi.fn();
+    object.addEventListener('destroy', aborted, { signal: controller.signal });
+    object.addEventListener('destroy', destroyed);
+    controller.abort();
+    object.destroy();
+    object.destroy();
+    expect(aborted).not.toHaveBeenCalled();
+    expect(destroyed).toHaveBeenCalledTimes(1);
   });
 });

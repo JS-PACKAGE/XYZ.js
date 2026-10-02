@@ -1,5 +1,8 @@
 import { Vector2 } from '../../../math/src/index.js';
 import type { GameObject } from '../game-object.js';
+import { GameObject as RuntimeGameObject } from '../game-object.js';
+import { SceneObject } from '../scene-object.js';
+import { hasObjectEventObservers } from '../event-observers.js';
 import {
   physicsDefaults,
   world2dLimits,
@@ -173,6 +176,9 @@ function boundedInteger(value: number, maximum: number, name: string): number {
 const compareBounds = (a: Proxy, b: Proxy): number =>
   a.geometry.minX - b.geometry.minX;
 const continueSimulation = (): boolean => true;
+// Collision dispatch must remain observable through subclass and prototype overrides.
+const dispatchGameObjectEvent = RuntimeGameObject.prototype.dispatchEvent;
+const dispatchSceneObjectEvent = SceneObject.prototype.dispatchEvent;
 function snapshotPoints(manifold: Manifold): readonly Vector2[] {
   const points = new Array<Vector2>(manifold.count);
   for (let i = 0; i < manifold.count; i++)
@@ -378,6 +384,12 @@ export class PhysicsWorld2D {
       if (!this.alive(self)) continue;
       if (name !== 'collisionend' && (!contact.active || !this.alive(other)))
         continue;
+      if (
+        self.owner.dispatchEvent === dispatchGameObjectEvent &&
+        SceneObject.prototype.dispatchEvent === dispatchSceneObjectEvent &&
+        !hasObjectEventObservers(self.owner, name)
+      )
+        continue;
       const sign = receiver ? -1 : 1,
         m = contact.manifold;
       const step = this.stepToken;
@@ -542,7 +554,7 @@ export class PhysicsWorld2D {
       !this.alive(b)
     )
       return false;
-    this.prepareBounce(contact);
+    if (!contact.sensor) this.prepareBounce(contact);
     this.solveContacts.push(contact);
     return true;
   }

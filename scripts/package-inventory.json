@@ -60,6 +60,7 @@
     "packages/core/src/draw-order",
     "packages/core/src/environment",
     "packages/core/src/errors",
+    "packages/core/src/event-observers",
     "packages/core/src/factories",
     "packages/core/src/first-person-controls",
     "packages/core/src/frame-work",

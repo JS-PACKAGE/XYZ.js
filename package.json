@@ -1,6 +1,6 @@
 {
   "name": "xyz.js",
-  "version": "1.12.2",
+  "version": "1.12.3",
   "description": "Browser-native TypeScript game engine",
   "type": "module",
   "private": false,
@@ -85,6 +85,7 @@
     "dist/packages/core/src/draw-order.{js,js.map,d.ts}",
     "dist/packages/core/src/environment.{js,js.map,d.ts}",
     "dist/packages/core/src/errors.{js,js.map,d.ts}",
+    "dist/packages/core/src/event-observers.{js,js.map,d.ts}",
     "dist/packages/core/src/factories.{js,js.map,d.ts}",
     "dist/packages/core/src/first-person-controls.{js,js.map,d.ts}",
     "dist/packages/core/src/frame-work.{js,js.map,d.ts}",

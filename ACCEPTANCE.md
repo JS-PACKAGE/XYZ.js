@@ -1,6 +1,6 @@
 # XYZ.js 驗收紀錄
 
-**目前 metadata：1.12.2／Apache-2.0，npm 未發佈；最新已確認 GitHub Release 仍為 1.12.1。** v1.12.2 已獲授權推送與發佈，實際結果見末節；既有 [v1.12.1 最終確認](#v1121-github-release-最終確認) 保留為歷史。P97–P103 工程保障與 OPM 更新的實測證據另記，不沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
+**目前 metadata：1.12.3／Apache-2.0，npm 未發佈；最新已確認 GitHub Release 仍為 1.12.1。** v1.12.2 已推送但 hosted 效能 gate 失敗，未建立 Release；使用者另授權修正後發佈新 v1.12.3，保留 v1.12.2 tag。實際結果見末節；既有 [v1.12.1 最終確認](#v1121-github-release-最終確認) 保留為歷史。P97–P103 工程保障與 OPM 更新的實測證據另記，不沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
 
 **P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
@@ -1208,3 +1208,11 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - 本節是發佈準備，不表示 hosted CI 或 GitHub Release 已完成；正式 run／附件 identity 於實際成功後另記。
 - 發佈前 API gate 最初拒絕 OPM 升級外洩的 readonly handles／ReadonlyMap 與 v6 voice 型別。使用者選擇保留 1.x 契約；adapter 現保留 published v1 voice、mutable voices Map 與 writable escape-hatch handles，內部仍使用官方 v6、panic／dispose，未修改 vendor 或放寬 checker。修正後 737 exports／2810 directional contracts、710 historical namespaces 與五個 consumers 通過。
 - 本機 frozen install、build、typecheck、127 files／1040 tests、lint、package hygiene 與 build:site 通過；生成 API 位於 `api/1.12.2/`。Managed Chromium 相容 smoke 實跑 legacy voice／registry／handles、reset 後 replay 與八個 contexts 全部 closed；兩頁 concurrent native audio gate 通過。這不是 hosted CI 或實體聽感認證。
+- main 與 annotated `v1.12.2` tag 已推送至 `a8f020c11ddbe1cd73979e4f832cdf6ad13aa96b`。[Release run 37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) 的品質、browser matrix、site shards、native audio 與 installed starters 通過，但 hosted macOS WebGL2 `dense2d` functional PASS／performance FAIL：steady RAF p95 283.5ms（上限150）、CPU frame p95 276ms（上限120）、hitch fraction 1（上限0.3）；Release job 因此 skipped，沒有發佈附件。不重試原樣失敗 gate、不放寬 budgets。
+
+## v1.12.3 效能修正與發佈準備（2026-10-03）
+
+- 使用者在 v1.12.2 gate 失敗後選擇修正真實效能問題、改發新 `v1.12.3`；保留既有 `v1.12.2` tag，不重寫歷史、不繞過 CI、不 npm publish。此處僅記授權，修正與驗證結果於實際完成後補記。
+- 根因修正：96 circles／4,560 overlapping contacts 在每個 fixed tick 原本即使沒有 pre／post listener 仍建立 18,240 份事件 payload；現在僅在 receiver 可觀察時配置，逐 receiver 保留 callback 中新增 listener、response cancellation、dispatch override 與 remove／destroy lifecycle。Sensor 不做不使用的 restitution 計算，未縮減 workload／改 budgets。Internal observer registry 不改公開 SceneObject／PhysicsWorld2D 宣告，沒有新增 root API。
+- 最終 source 的 build、typecheck、127 files／1049 tests、lint、format:check、737 exports／2810 directional contracts、710 historical namespaces／五個 consumers、package hygiene 及 build:site 通過；API 生成於 `api/1.12.3/`。十份變更文件的相對檔案連結檢查沒有缺檔。前期測試 instrumentation 曾因 debugSnapshot 自身 clone／CustomEvent type 宣告失敗，已移除 incidental allocation assertions，保留 consumer-visible 事件與 contact 回歸；未放寬 checker。
+- 同一 Apple M5／managed Chromium 153／WebGL2 的 unchanged revision 4／96 colliders 實跑：修正前 steady RAF p95 133.5ms、CPU frame p95 126.5ms、hitches 91/600；最終修正後 RAF p95 17ms、CPU frame p95 9.25ms、hitches 0/600，loading RAF p95 16.75ms／CPU p95 9.5ms，teardown 8.4ms。4,560 contacts、exit／re-entry functional PASS。證據為 `.vite/dense2d-before-1.12.3/` 與 `.vite/dense2d-final-1.12.3/`；未提供此本機 pinned profile，runner 正確回報 measurement-only／performance BLOCKED（exit1），不是 hosted certification。Hosted gate 仍須在新 tag 實跑，不以本機結果冒稱其通過。
