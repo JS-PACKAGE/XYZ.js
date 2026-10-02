@@ -5,6 +5,30 @@ import {
   UIElement,
   UIButton,
 } from '../packages/core/src/ui.js';
+import type * as TextLayoutModule from '../packages/core/src/text-layout.js';
+
+// These tests exercise the native editing/lifetime contract. Browser Range
+// geometry is covered by the real-browser text-layout smoke, not a DOM fake.
+vi.mock('../packages/core/src/text-layout.js', async (importOriginal) => {
+  const original = await importOriginal<typeof TextLayoutModule>();
+  return {
+    ...original,
+    BrowserTextLayout: class {
+      baseline = 18;
+      width = 0;
+      setText(text: string) {
+        this.width = text.length * 10;
+      }
+      caret(index: number, affinity: 'upstream' | 'downstream') {
+        return { index, x: 0, affinity };
+      }
+      selection() {
+        return [];
+      }
+      destroy() {}
+    },
+  };
+});
 
 beforeEach(() => {
   vi.stubGlobal(
@@ -48,6 +72,9 @@ class NativeInput extends EventTarget {
   disabled = false;
   maxLength = -1;
   autocomplete = '';
+  style = { font: '', letterSpacing: '', lineHeight: '' };
+  dir = '';
+  lang = '';
   selectionStart = 0;
   selectionEnd = 0;
   selectionDirection: 'forward' | 'backward' | 'none' = 'none';
@@ -86,6 +113,19 @@ describe('canvas text input/native editing boundary', () => {
     expect(() => field.setSelectionRange(NaN, 1)).toThrow(RangeError);
     field.destroy();
     await expect(field.setValue('late')).rejects.toThrow();
+  });
+  it('never truncates a programmatic value inside a surrogate, combining mark or ZWJ family', async () => {
+    const field = await UITextInput.create({ value: 'x👨‍👩‍👧‍👦z', maxLength: 6 });
+    expect(field.value).toBe('x');
+    await field.setValue('e\u0301z');
+    expect(field.value).toBe('e\u0301z');
+    field.setSelectionRange(1, 1);
+    // Native offsets are deliberately not rewritten to visual cluster edges.
+    expect([field.selectionStart, field.selectionEnd]).toEqual([1, 1]);
+    field.destroy();
+    const short = await UITextInput.create({ value: 'e\u0301', maxLength: 1 });
+    expect(short.value).toBe('');
+    short.destroy();
   });
   it('cancels composition and rejects stale native editing after detach/removal', async () => {
     const root = new UIRoot();

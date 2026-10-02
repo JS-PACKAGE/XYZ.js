@@ -35,6 +35,7 @@
     "platform:browser": "node scripts/platform-browser.mjs",
     "platform:manual": "node scripts/platform-manual.mjs",
     "platform:safari": "node scripts/safari-platform.mjs",
+    "smoke:text": "node scripts/text-layout-smoke.mjs",
     "check:tree-shaking": "node scripts/check-tree-shaking.mjs",
     "soak:mixed": "node scripts/mixed-soak.mjs",
     "assets:build": "node scripts/build-assets.mjs",

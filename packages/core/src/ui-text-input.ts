@@ -1,6 +1,12 @@
 import { UIElement } from './ui-layout.js';
 import type { UIWidgetOptions, UIRoot } from './ui.js';
 import { Text2D } from './text2d.js';
+import type { Text2DOptions, Text2DStyle } from './text2d.js';
+import { BrowserTextLayout, textFont } from './text-layout.js';
+import type { TextCaretPosition, TextSelectionRect } from './text-layout.js';
+import type { TextCaretAffinity } from './text-graphemes.js';
+import { graphemeBoundaries, snapGrapheme } from './text-graphemes.js';
+import { textLayoutLimits } from '../../../src/data/text.js';
 import { Graphics2D } from './graphics2d/graphics2d.js';
 import { GraphicsPath2D } from './graphics2d/graphics-path2d.js';
 import { Sprite } from './sprite.js';
@@ -12,6 +18,12 @@ import { uiDefaults, uiLimits } from '../../../src/data/ui.js';
 export interface UITextInputOptions extends UIWidgetOptions {
   readonly value?: string;
   readonly maxLength?: number;
+}
+
+export interface UITextInputSelectionGeometry {
+  /** Texture-local visual position; index is a UTF-16 grapheme boundary. */
+  readonly caret: TextCaretPosition;
+  readonly rectangles: readonly TextSelectionRect[];
 }
 
 /** Browser editing/IME owns the value; every visible pixel belongs to the canvas. */
@@ -27,9 +39,12 @@ export class UITextInput extends UIElement {
   private nativeController?: AbortController;
   private graphic?: Text2D;
   private background?: Graphics2D;
-  private selection?: Sprite;
+  private readonly selections: Sprite[] = [];
   private caret?: Sprite;
-  private context?: CanvasRenderingContext2D;
+  private measurement?: BrowserTextLayout;
+  private measuredText?: string;
+  private measuredStyle?: Text2DStyle;
+  private activeAffinity: TextCaretAffinity = 'downstream';
   private horizontalOffset = 0;
   private revision = 0;
   private readonly point = new Vector2();
@@ -82,19 +97,21 @@ export class UITextInput extends UIElement {
       const detail = (event as CustomEvent<PointerTargetEventDetail>).detail;
       if (detail.button !== 0 || this.effectiveDisabled) return;
       this.root()?.focus.focus(this);
-      const index = this.pointerIndex(detail.screen);
-      this.dragStart = index;
-      this.setSelectionRange(index, index);
+      const hit = this.pointerPosition(detail.screen);
+      this.dragStart = hit.index;
+      this.setSelectionRange(hit.index, hit.index, 'none', hit.affinity);
     });
     this.addEventListener('pointermove', (event) => {
       if (this.dragStart === undefined) return;
-      const index = this.pointerIndex(
+      const hit = this.pointerPosition(
         (event as CustomEvent<PointerTargetEventDetail>).detail.screen,
       );
+      const index = hit.index;
       this.setSelectionRange(
         Math.min(index, this.dragStart),
         Math.max(index, this.dragStart),
         index < this.dragStart ? 'backward' : 'forward',
+        hit.affinity,
       );
     });
     for (const type of ['pointerup', 'pointerupoutside', 'pointercancel'])
@@ -116,10 +133,16 @@ export class UITextInput extends UIElement {
         ]),
       );
       field.background.anchor.set(0, 0);
-      field.selection = field.add(
-        new Sprite({ texture: field.background.texture, anchor: [0, 0] }),
+      field.selections.push(
+        field.add(
+          new Sprite({
+            texture: field.background.texture,
+            anchor: [0, 0],
+            zIndex: 1,
+          }),
+        ),
       );
-      field.selection.tint = [0.18, 0.48, 0.8, 1];
+      field.selections[0]!.tint = [0.18, 0.48, 0.8, 1];
       field.graphic = field.add(
         await Text2D.create(field.content, {
           fontSize: 18,
@@ -131,18 +154,17 @@ export class UITextInput extends UIElement {
         }),
       );
       field.graphic.anchor.set(0, 0);
+      field.graphic.zIndex = 2;
       field.caret = field.add(
-        new Sprite({ texture: field.background.texture, anchor: [0, 0] }),
+        new Sprite({
+          texture: field.background.texture,
+          anchor: [0, 0],
+          zIndex: 3,
+        }),
       );
       field.caret.tint = [0.65, 0.9, 1, 1];
-      const context = document.createElement('canvas').getContext('2d');
-      if (!context)
-        throw new Error('Canvas2D is required for text selection metrics.');
-      field.context = context;
-      const style = field.graphic.style;
-      context.font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize}px ${style.fontFamily}`;
-      if ('letterSpacing' in context)
-        context.letterSpacing = `${style.letterSpacing}px`;
+      field.measurement = new BrowserTextLayout();
+      field.updateMeasurement();
       field.syncState();
       field.paintSelection();
       return field;
@@ -161,7 +183,12 @@ export class UITextInput extends UIElement {
     if (typeof value !== 'string')
       throw new TypeError('Text input value must be a string.');
     const line = value.replace(/[\r\n]/g, '');
-    return this.maxLength === undefined ? line : line.slice(0, this.maxLength);
+    if (this.maxLength === undefined || line.length <= this.maxLength)
+      return line;
+    return line.slice(
+      0,
+      snapGrapheme(graphemeBoundaries(line), this.maxLength, 'upstream'),
+    );
   }
   get value(): string {
     return this.content;
@@ -189,21 +216,104 @@ export class UITextInput extends UIElement {
     }
     await this.refreshText();
   }
+
+  async setTextStyle(style: Text2DOptions): Promise<void> {
+    if (this.destroyed) throw new Error('Cannot update destroyed UITextInput.');
+    await this.graphic?.setStyle({
+      ...style,
+      wrapWidth: undefined,
+      align: 'left',
+    });
+    if (this.destroyed) return;
+    this.updateMeasurement();
+    if (this.native) this.configureNative(this.native);
+    this.paintSelection();
+  }
+
+  async refreshFonts(): Promise<void> {
+    if (this.destroyed) throw new Error('Cannot update destroyed UITextInput.');
+    await this.graphic?.refreshFonts();
+    if (this.destroyed) return;
+    this.measuredStyle = undefined;
+    this.updateMeasurement();
+    this.paintSelection();
+  }
+
+  get selectionGeometry(): UITextInputSelectionGeometry {
+    const line = this.graphic?.layout.lines[0];
+    const active = this.direction === 'backward' ? this.start : this.end;
+    const caret = this.measurement?.caret(active, this.activeAffinity) ?? {
+      index: 0,
+      x: 0,
+      affinity: 'downstream' as const,
+    };
+    return Object.freeze({
+      caret: Object.freeze({ ...caret, x: caret.x + (line?.x ?? 0) }),
+      rectangles: Object.freeze(
+        (this.measurement?.selection(this.start, this.end) ?? []).map((rect) =>
+          Object.freeze({
+            ...rect,
+            x: rect.x + (line?.x ?? 0),
+            y:
+              rect.y +
+              (line?.baseline ?? 0) -
+              (this.measurement?.baseline ?? 0),
+          }),
+        ),
+      ),
+    });
+  }
+
+  private updateMeasurement(): void {
+    if (
+      !this.graphic ||
+      !this.measurement ||
+      this.graphic.text !== this.content
+    )
+      return;
+    const style = this.graphic.style;
+    if (this.measuredText === this.content && this.measuredStyle === style)
+      return;
+    this.measurement.setText(this.content, style);
+    const width = this.graphic.layout.lines[0]?.width ?? 0;
+    if (
+      Math.abs(this.measurement.width - width) > textLayoutLimits.metricsEpsilon
+    )
+      throw new Error(
+        'Native shaped selection metrics differ from Canvas font metrics; refresh fonts before editing.',
+      );
+    this.measuredText = this.content;
+    this.measuredStyle = style;
+  }
+
+  private configureNative(input: HTMLInputElement): void {
+    if (!this.graphic) return;
+    const style = this.graphic.style;
+    input.dir = style.direction;
+    input.lang = style.locale;
+    // The native element remains the editing/IME/accessibility surface only.
+    input.style.font = textFont(style);
+    input.style.letterSpacing = `${style.letterSpacing}px`;
+    input.style.lineHeight = `${style.lineHeight}px`;
+  }
   setSelectionRange(
     start: number,
     end: number,
     direction: 'forward' | 'backward' | 'none' = 'none',
+    affinity: TextCaretAffinity = 'downstream',
   ): void {
     if (this.destroyed) throw new Error('Cannot select destroyed UITextInput.');
     if (
       !Number.isInteger(start) ||
       !Number.isInteger(end) ||
-      !['forward', 'backward', 'none'].includes(direction)
+      !['forward', 'backward', 'none'].includes(direction) ||
+      !['upstream', 'downstream'].includes(affinity)
     )
       throw new RangeError('Invalid selection range.');
     this.end = Math.max(0, Math.min(end, this.content.length));
     this.start = Math.max(0, Math.min(start, this.end));
     this.direction = direction;
+    this.activeAffinity = affinity;
     this.native?.setSelectionRange(this.start, this.end, direction);
     this.paintSelection();
   }
@@ -216,6 +326,7 @@ export class UITextInput extends UIElement {
     this.unbindNative();
     this.native = input;
     input.value = this.content;
+    this.configureNative(input);
     if (this.maxLength !== undefined) input.maxLength = this.maxLength;
     input.disabled = this.effectiveDisabled;
     input.autocomplete = 'off';
@@ -224,9 +335,18 @@ export class UITextInput extends UIElement {
     const options = { signal: controller.signal };
     const selection = () => {
       if (this.native !== input) return;
+      const changed =
+        this.start !== input.selectionStart ||
+        this.end !== input.selectionEnd ||
+        this.direction !== input.selectionDirection;
       this.start = input.selectionStart ?? 0;
       this.end = input.selectionEnd ?? this.start;
       this.direction = input.selectionDirection ?? 'none';
+      // Never rewrite native UTF-16 selections during composition. Visual
+      // geometry expands/snap clusters without mutating the editing boundary.
+      if (changed)
+        this.activeAffinity =
+          this.direction === 'backward' ? 'upstream' : 'downstream';
       this.paintSelection();
     };
     input.addEventListener(
@@ -308,54 +428,70 @@ export class UITextInput extends UIElement {
   private async refreshText(): Promise<void> {
     const revision = ++this.revision;
     await this.graphic?.setText(this.content);
-    if (!this.destroyed && revision === this.revision) this.paintSelection();
-  }
-  private advance(index: number): number {
-    return this.context?.measureText(this.content.slice(0, index)).width ?? 0;
-  }
-  private pointerIndex(screen: Vector2): number {
-    this.toLocal(screen, this.point);
-    const x = this.point.x - this.padding(3) + this.horizontalOffset;
-    let previous = 0;
-    for (let i = 0; i < this.content.length;) {
-      const next = i + (this.content.codePointAt(i)! > 0xffff ? 2 : 1);
-      const width = this.advance(next);
-      if (x < (previous + width) / 2) return i;
-      previous = width;
-      i = next;
+    if (!this.destroyed && revision === this.revision) {
+      this.updateMeasurement();
+      this.paintSelection();
     }
-    return this.content.length;
+  }
+  private pointerPosition(screen: Vector2): TextCaretPosition {
+    this.toLocal(screen, this.point);
+    const origin = this.graphic?.layout.lines[0]?.x ?? 0;
+    const x = this.point.x - this.padding(3) + this.horizontalOffset - origin;
+    return (
+      this.measurement?.hitTest(x) ?? { index: 0, x: 0, affinity: 'downstream' }
+    );
   }
   private paintSelection(): void {
-    if (!this.graphic || !this.caret || !this.selection) return;
-    const left = this.advance(this.start),
-      right = this.advance(this.end);
-    const active = this.direction === 'backward' ? left : right;
+    if (!this.graphic || !this.caret || !this.background) return;
+    const geometry = this.selectionGeometry;
+    const active = geometry.caret.x;
     const available = Math.max(
       0,
       this.layoutWidth - this.padding(3) - this.padding(1),
     );
     this.horizontalOffset = Math.max(
       0,
-      Math.min(this.horizontalOffset, active),
+      Math.min(
+        this.horizontalOffset,
+        active,
+        Math.max(0, Math.max(this.graphic.width, active + 2) - available),
+      ),
     );
     if (active - this.horizontalOffset > available - 2)
       this.horizontalOffset = Math.max(0, active - available + 2);
     const y = Math.max(0, (this.layoutHeight - this.graphic.height) / 2);
     this.graphic.position.set(this.padding(3) - this.horizontalOffset, y);
-    this.selection.position.set(
-      this.padding(3) + left - this.horizontalOffset,
-      y,
-    );
-    this.selection.scale.set(right - left, this.graphic.height);
-    this.selection.visible =
-      this.focused && this.start !== this.end && !this.effectiveDisabled;
+    while (this.selections.length < geometry.rectangles.length) {
+      const selection = this.add(
+        new Sprite({
+          texture: this.background.texture,
+          anchor: [0, 0],
+          zIndex: 1,
+        }),
+      );
+      selection.tint = [0.18, 0.48, 0.8, 1];
+      this.selections.push(selection);
+    }
+    const current = this.graphic.text === this.content;
+    for (let i = 0; i < this.selections.length; i++) {
+      const selection = this.selections[i]!,
+        rect = geometry.rectangles[i];
+      selection.visible =
+        !!rect && current && this.focused && !this.effectiveDisabled;
+      if (rect) {
+        selection.position.set(
+          this.padding(3) + rect.x - this.horizontalOffset,
+          y + rect.y,
+        );
+        selection.scale.set(rect.width, rect.height);
+      }
+    }
     this.caret.position.set(
       this.padding(3) + active - this.horizontalOffset,
       y,
     );
     this.caret.scale.set(1, this.graphic.height);
-    this.caret.visible = this.focused && !this.effectiveDisabled;
+    this.caret.visible = current && this.focused && !this.effectiveDisabled;
   }
   protected override arranged(): void {
     this.background?.scale.set(this.layoutWidth, this.layoutHeight);
@@ -407,6 +543,8 @@ export class UITextInput extends UIElement {
   override destroy(): void {
     if (this.destroyed) return;
     this.unbindNative();
+    this.measurement?.destroy();
+    this.measurement = undefined;
     super.destroy();
   }
 }

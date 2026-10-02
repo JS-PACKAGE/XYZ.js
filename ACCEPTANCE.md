@@ -917,3 +917,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 真 collision bake alternative path cost=6；120 NPC／120 replans、187 ticks、maximum aggregate work=17，走 shared scheduler 與 character 路徑，而非獨立無預算搜尋。Clearance／slope／step、edit／rebake／cancel 與 scheduler lifecycle 在限定 bake profile 內。
 - Bake 是 sampled topmost single-layer grid／surface graph，不是 polygon／multi-layer navmesh；不把此限制隱藏成完整 geometry navigation certification。
+
+### P69 — International text visuals
+
+- 初次真 RTL screenshot 暴露 consumer bug：reference ink 339 px／1762 pixels，actual 僅 6 px／34 pixels；layoutWidth=920 但 pre-arrange horizontalOffset=340.078125。修正 paintSelection 依實際可用寬度 clamp 後 actual 337 px／1526 pixels、offset=0。
+- Native browser driver 另畫完整 Hebrew reference，要求 visible width≥90%／ink≥70%，保存 `rtl-full-paragraph.png`。Chromium 三 backend、Firefox Canvas／GL、WebKit 三 backend 共八個適用組合通過；bidi discontiguous selections、direction／locale、ZWJ／combining grapheme boundaries、native caret／trusted Unicode editing／UTF-16 selection、CJK readiness／fallback 持續通過。Synthetic composition 不等於 OS／硬體 IME；Text3D native fillText 限制不因此取消。

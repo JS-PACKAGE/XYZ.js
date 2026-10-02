@@ -4,17 +4,31 @@ import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 import { textDefaults } from '../../../src/data/text.js';
 import { AssetError, Texture, TextureView2D } from '../../assets/src/index.js';
 import { Sprite } from './sprite.js';
+import {
+  paragraphDirection,
+  textFont,
+  waitForTextFonts,
+} from './text-layout.js';
+import type { TextDirection } from './text-layout.js';
+import { graphemeBoundaries } from './text-graphemes.js';
 
 export interface Text2DOptions {
   fontSize?: number;
   fontFamily?: string;
+  /** CSS fallback family list, shared by Canvas and native selection metrics. */
+  fontFallback?: string;
+  /** Base paragraph direction; auto uses the browser's first-strong resolver. */
+  direction?: TextDirection;
+  locale?: string;
+  /** wait loads declared web fonts; current freezes today's available fallback. */
+  fontReadiness?: 'wait' | 'current';
   fontWeight?: string | number;
   fontStyle?: 'normal' | 'italic' | 'oblique';
   color?: string;
   padding?: number;
   wrapWidth?: number;
   breakWords?: boolean;
-  align?: 'left' | 'center' | 'right';
+  align?: 'left' | 'center' | 'right' | 'start' | 'end';
   lineHeight?: number;
   letterSpacing?: number;
   stroke?: Readonly<{ color: string; width: number }>;
@@ -32,10 +46,32 @@ export type Text2DStyle = Readonly<
     Pick<Text2DOptions, 'wrapWidth' | 'stroke' | 'shadow'>
 >;
 
+export interface Text2DLineLayout {
+  readonly text: string;
+  readonly direction: 'ltr' | 'rtl';
+  readonly x: number;
+  readonly baseline: number;
+  readonly width: number;
+}
+export interface Text2DLayout {
+  readonly lines: readonly Text2DLineLayout[];
+  readonly width: number;
+  readonly height: number;
+  readonly fontReadiness: 'ready' | 'current' | 'unavailable';
+}
+interface RasterizedText {
+  readonly texture: Texture;
+  readonly layout: Text2DLayout;
+}
+
 function snapshotStyle(options: Text2DOptions): Text2DStyle {
   const style = {
     fontSize: options.fontSize ?? textDefaults.fontSize,
     fontFamily: options.fontFamily ?? textDefaults.fontFamily,
+    fontFallback: options.fontFallback ?? textDefaults.fontFallback,
+    direction: options.direction ?? textDefaults.direction,
+    locale: options.locale ?? textDefaults.locale,
+    fontReadiness: options.fontReadiness ?? textDefaults.fontReadiness,
     fontWeight: options.fontWeight ?? 'normal',
     fontStyle: options.fontStyle ?? 'normal',
     color: options.color ?? textDefaults.color,
@@ -76,7 +112,12 @@ function snapshotStyle(options: Text2DOptions): Text2DStyle {
     !style.fontFamily.trim() ||
     !style.color ||
     !['normal', 'italic', 'oblique'].includes(style.fontStyle) ||
-    !['left', 'center', 'right'].includes(style.align) ||
+    !['left', 'center', 'right', 'start', 'end'].includes(style.align) ||
+    !['ltr', 'rtl', 'auto'].includes(style.direction) ||
+    !['wait', 'current'].includes(style.fontReadiness) ||
+    !style.fontFallback.trim() ||
+    (style.locale !== '' &&
+      Intl.getCanonicalLocales(style.locale).length !== 1) ||
     (typeof style.fontWeight === 'number'
       ? !Number.isFinite(style.fontWeight) ||
         style.fontWeight < 1 ||
@@ -126,6 +167,7 @@ export class Text2D extends Sprite {
     private content: string,
     style: Text2DStyle,
     private ownedTexture: Texture,
+    private displayedLayout: Text2DLayout,
   ) {
     super({
       view: new TextureView2D(ownedTexture, {
@@ -147,7 +189,8 @@ export class Text2D extends Sprite {
     options: Text2DOptions = {},
   ): Promise<Text2D> {
     const style = snapshotStyle(options);
-    return new Text2D(text, style, await Text2D.rasterize(text, style));
+    const raster = await Text2D.rasterize(text, style);
+    return new Text2D(text, style, raster.texture, raster.layout);
   }
 
   get text(): string {
@@ -155,6 +198,16 @@ export class Text2D extends Sprite {
   }
   get style(): Text2DStyle {
     return this.displayedStyle;
+  }
+
+  get layout(): Text2DLayout {
+    return this.displayedLayout;
+  }
+
+  /** Explicitly re-resolve fonts after a FontFace/fallback change. */
+  async refreshFonts(): Promise<void> {
+    if (this.destroyed) throw new AssetError('Cannot update destroyed Text2D.');
+    await this.refresh(true);
   }
 
   async setText(text: string): Promise<void> {
@@ -172,15 +225,16 @@ export class Text2D extends Sprite {
     await this.refresh();
   }
 
-  private async refresh(): Promise<void> {
+  private async refresh(force = false): Promise<void> {
     const revision = ++this.revision;
     const text = this.requestedText;
     const style = this.requestedStyle;
     // Returning to the displayed state supersedes any pending raster without redrawing.
-    if (text === this.content && style === this.displayedStyle) return;
-    let texture: Texture;
+    if (!force && text === this.content && style === this.displayedStyle)
+      return;
+    let raster: RasterizedText;
     try {
-      texture = await Text2D.rasterize(text, style);
+      raster = await Text2D.rasterize(text, style);
     } catch (error) {
       if (revision === this.revision) {
         this.requestedText = this.content;
@@ -188,6 +242,7 @@ export class Text2D extends Sprite {
       }
       throw error;
     }
+    const { texture, layout } = raster;
     if (this.destroyed || revision !== this.revision) {
       texture.destroy();
       return;
@@ -201,6 +256,7 @@ export class Text2D extends Sprite {
     this.ownedTexture = texture;
     this.content = text;
     this.displayedStyle = style;
+    this.displayedLayout = layout;
     previous.destroy();
   }
 
@@ -220,18 +276,22 @@ export class Text2D extends Sprite {
   private static async rasterize(
     text: string,
     style: Text2DStyle,
-  ): Promise<Texture> {
+  ): Promise<RasterizedText> {
     Text2D.validateText(text);
+    if (style.fontReadiness === 'wait' && document.fonts)
+      await waitForTextFonts(text, style);
     const canvas = document.createElement('canvas');
+    canvas.lang = style.locale;
     canvas.width = canvas.height = 1;
     const context = canvas.getContext('2d');
     if (!context)
       throw new AssetError('Canvas2D is required to rasterize text.');
-    const font = `${style.fontStyle} ${style.fontWeight} ${style.fontSize}px ${style.fontFamily}`;
+    const font = textFont(style);
     const configure = () => {
       context.font = font;
       context.textAlign = 'left';
       context.textBaseline = 'alphabetic';
+      context.fontKerning = 'auto';
       if ('letterSpacing' in context)
         context.letterSpacing = `${style.letterSpacing}px`;
       else if (style.letterSpacing !== 0)
@@ -241,15 +301,22 @@ export class Text2D extends Sprite {
     };
     configure();
     const lines: string[] = [];
+    const directions: ('ltr' | 'rtl')[] = [];
     for (const paragraph of text.split(/\r\n|\r|\n/)) {
+      const direction = paragraphDirection(paragraph, style);
+      context.direction = direction;
+      const pushLine = (value: string): void => {
+        lines.push(value);
+        directions.push(direction);
+      };
       if (style.wrapWidth === undefined) {
-        lines.push(paragraph);
+        pushLine(paragraph);
         continue;
       }
       let line = '';
       for (const token of paragraph.match(/\S+|\s+/gu) ?? []) {
         if (line && context.measureText(line + token).width > style.wrapWidth) {
-          lines.push(line.trimEnd());
+          pushLine(line.trimEnd());
           line = '';
         }
         if (!line && /^\s+$/u.test(token)) continue;
@@ -257,34 +324,44 @@ export class Text2D extends Sprite {
           style.breakWords &&
           context.measureText(token).width > style.wrapWidth
         ) {
-          for (const point of token) {
+          const boundaries = graphemeBoundaries(token, style.locale);
+          for (let index = 1; index < boundaries.length; index++) {
+            const point = token.slice(boundaries[index - 1], boundaries[index]);
             if (
               line &&
               context.measureText(line + point).width > style.wrapWidth
             ) {
-              lines.push(line);
+              pushLine(line);
               line = '';
             }
             line += point;
           }
         } else line += token;
       }
-      lines.push(line.trimEnd());
+      pushLine(line.trimEnd());
     }
-    const widths = lines.map((line) => context.measureText(line).width);
+    const widths = lines.map((line, index) => {
+      context.direction = directions[index]!;
+      return context.measureText(line).width;
+    });
     const layoutWidth = style.wrapWidth ?? Math.max(0, ...widths);
-    const offsets = widths.map((width) =>
-      style.align === 'center'
+    const offsets = widths.map((width, index) => {
+      const right =
+        style.align === 'right' ||
+        (style.align === 'start' && directions[index] === 'rtl') ||
+        (style.align === 'end' && directions[index] === 'ltr');
+      return style.align === 'center'
         ? (layoutWidth - width) / 2
-        : style.align === 'right'
+        : right
           ? layoutWidth - width
-          : 0,
-    );
+          : 0;
+    });
     let left = 0,
       right = layoutWidth,
       top = -style.fontSize,
       bottom = (lines.length - 1) * style.lineHeight + style.fontSize * 0.25;
     for (let i = 0; i < lines.length; i++) {
+      context.direction = directions[i]!;
       const metrics = context.measureText(lines[i]!);
       left = Math.min(left, offsets[i]! - metrics.actualBoundingBoxLeft);
       right = Math.max(
@@ -345,15 +422,39 @@ export class Text2D extends Sprite {
       context.shadowOffsetX = shadow.offsetX! * style.resolution;
       context.shadowOffsetY = shadow.offsetY! * style.resolution;
     }
+    const layoutLines: Text2DLineLayout[] = [];
     for (let i = 0; i < lines.length; i++) {
       const x = style.padding + insetLeft - left + offsets[i]!;
       const y = style.padding + insetTop - top + i * style.lineHeight;
+      context.direction = directions[i]!;
+      layoutLines.push(
+        Object.freeze({
+          text: lines[i]!,
+          direction: directions[i]!,
+          x,
+          baseline: y,
+          width: widths[i]!,
+        }),
+      );
       if (style.stroke && style.stroke.width)
         context.strokeText(lines[i]!, x, y);
       context.fillText(lines[i]!, x, y);
     }
     try {
-      return await Texture.fromImage(canvas);
+      const texture = await Texture.fromImage(canvas);
+      return {
+        texture,
+        layout: Object.freeze({
+          lines: Object.freeze(layoutLines),
+          width: width / style.resolution,
+          height: height / style.resolution,
+          fontReadiness: !document.fonts
+            ? 'unavailable'
+            : style.fontReadiness === 'wait'
+              ? 'ready'
+              : 'current',
+        }),
+      };
     } finally {
       canvas.width = canvas.height = 0;
     }

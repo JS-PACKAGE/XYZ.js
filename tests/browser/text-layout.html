@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>XYZ shaped text smoke</title>
+    <style>
+      @font-face {
+        font-family: XYZSmokeAbel;
+        src: url('/examples/rendering2d/assets/Abel-Regular.ttf')
+          format('truetype');
+        font-display: block;
+      }
+      body {
+        margin: 0;
+        background: #102034;
+        color: white;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+      }
+      #status {
+        padding: 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <canvas id="game"></canvas>
+    <div id="status">
+      Loading declared font, canvas UI and native editing bridge…
+    </div>
+    <script type="module">
+      import { installTextLayoutSmoke } from '/scripts/text-layout-browser.ts';
+      try {
+        window.textLayoutSmoke = await installTextLayoutSmoke(
+          document.querySelector('#game'),
+        );
+        document.querySelector('#status').textContent = JSON.stringify({
+          backend: window.textLayoutSmoke.backend,
+          failures: window.textLayoutSmoke.failures,
+          fontReady: window.textLayoutSmoke.fontReady,
+        });
+      } catch (error) {
+        window.textLayoutSmoke = { ready: false, failures: [String(error)] };
+        document.querySelector('#status').textContent = String(error);
+      }
+    </script>
+  </body>
+</html>
