@@ -74,7 +74,6 @@ export class OPMAdapter {
   private unlocking: Promise<void> | undefined;
   private destroyed = false;
   private frozen = false;
-  private readonly contextTransitions = new Map<AudioContext, Promise<void>>();
   private contextList: readonly AudioContext[] = [];
 
   constructor(private readonly output?: OutputRouter) {}
@@ -84,22 +83,15 @@ export class OPMAdapter {
     return this.contextList;
   }
 
-  setPaused(paused: boolean): void {
+  /** Native calls happen in the caller's turn, including a trusted resume gesture. */
+  async setPaused(paused: boolean): Promise<void> {
     this.frozen = paused;
-    for (const context of this.contexts) this.transitionContext(context);
-  }
-
-  private transitionContext(context: AudioContext): void {
-    const previous = this.contextTransitions.get(context) ?? Promise.resolve();
-    const next = previous
-      .catch(() => {})
-      .then(async () => {
+    await Promise.all(
+      this.contexts.map((context) => {
         if (context.state === 'closed' || this.destroyed) return;
-        if (this.frozen) await context.suspend();
-        else await context.resume();
-      });
-    this.contextTransitions.set(context, next);
-    void next.catch(() => {});
+        return paused ? context.suspend() : context.resume();
+      }),
+    );
   }
 
   static async validateVoice(value: unknown): Promise<OPMVoice> {
@@ -184,7 +176,9 @@ export class OPMAdapter {
       }
       this.slots = slots;
       this.contextList = Object.freeze(slots.map((slot) => slot.opm.context!));
-      for (const context of this.contexts) this.transitionContext(context);
+      await this.setPaused(this.frozen);
+      if (this.destroyed)
+        throw new AudioError('Audio adapter has been destroyed');
     } catch (error) {
       failed = true;
       for (const slot of slots) this.dispose(slot);
@@ -279,7 +273,6 @@ export class OPMAdapter {
     this.slots = [];
     this.contextList = [];
     this.pendingSlots = undefined;
-    this.contextTransitions.clear();
   }
 
   private getSlot(index: number): Slot {

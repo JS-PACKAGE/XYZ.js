@@ -42,6 +42,7 @@ export declare class SamplePlayback {
     constructor(context: AudioContext, buffer: AudioBuffer, bus: GainNode, options: SamplePlayOptions, release: (playback: SamplePlayback) => void, activity?: ((active: boolean, delay?: number) => void) | undefined);
     get state(): SamplePlaybackState;
     get position(): number;
+    private positionAt;
     get volume(): number;
     set volume(value: number);
     /** World-space emitter position, or undefined for non-spatial playbacks. */

@@ -20,6 +20,7 @@ export interface AudioStreamOptions extends AudioPlayOptions {
    * headers the Web Audio graph receives silence, so such URLs fail to play instead.
    */
   crossOrigin?: 'anonymous' | 'use-credentials';
+  /** Cancels acquisition, including the initial playback request, until `stream()` resolves. */
   signal?: AbortSignal;
 }
 
@@ -37,6 +38,8 @@ export class AudioStream extends EventTarget {
   private disposed = false;
   private readonly pauseReasons = new Set<string>();
   private readonly panner?: PannerNode;
+  private generation = 0;
+  private pending?: { generation: number; promise: Promise<void> };
 
   /** @internal */
   constructor(
@@ -50,6 +53,7 @@ export class AudioStream extends EventTarget {
     super();
     this.level = options.volume ?? 1;
     checkVolume(this.level);
+    this.playbackRate = options.playbackRate ?? 1;
     gain.gain.value = this.level;
     if (options.spatial) {
       const spatial = checkSpatialOptions(options.spatial);
@@ -61,7 +65,6 @@ export class AudioStream extends EventTarget {
       this.panner.connect(gain);
     }
     media.loop = options.loop ?? false;
-    media.playbackRate = options.playbackRate ?? 1;
     media.addEventListener('ended', this.onEnded);
     media.addEventListener('error', this.onError);
   }
@@ -133,33 +136,60 @@ export class AudioStream extends EventTarget {
     this.media.playbackRate = value;
   }
 
-  /** Resolves once playback has started; rejects if the browser refuses (for example autoplay). */
-  async play(reason = 'user'): Promise<void> {
+  /**
+   * Requests native playback synchronously, preserving the caller's user gesture. Concurrent
+   * calls share one request. A pause/stop supersedes it; late completion cannot restart playback.
+   */
+  play(reason = 'user'): Promise<void> {
     if (this.status === 'stopped')
-      throw new AudioError('Cannot play a stopped audio stream.');
+      return Promise.reject(
+        new AudioError('Cannot play a stopped audio stream.'),
+      );
     this.pauseReasons.delete(reason);
-    if (this.pauseReasons.size) return;
+    if (this.pauseReasons.size || this.status === 'playing')
+      return Promise.resolve();
+    if (this.pending?.generation === this.generation)
+      return this.pending.promise;
+    const generation = this.generation;
+    let native: Promise<void>;
     try {
-      await this.media.play();
+      native = this.media.play();
     } catch (error) {
-      throw new AudioError('Unable to start audio stream playback.', {
-        cause: error,
+      return Promise.reject(
+        new AudioError('Unable to start audio stream playback.', {
+          cause: error,
+        }),
+      );
+    }
+    const promise = native
+      .then(() => {
+        if (generation !== this.generation)
+          throw new AudioError('Audio stream playback was interrupted.', {
+            cause: new DOMException('Playback was superseded.', 'AbortError'),
+          });
+        this.status = 'playing';
+        this.activity?.(true);
+      })
+      .catch((error: unknown) => {
+        if (error instanceof AudioError) throw error;
+        throw new AudioError('Unable to start audio stream playback.', {
+          cause: error,
+        });
+      })
+      .finally(() => {
+        if (this.pending?.generation === generation) this.pending = undefined;
       });
-    }
-    if (this.disposed || this.pauseReasons.size) {
-      this.media.pause();
-      return;
-    }
-    this.status = 'playing';
-    this.activity?.(true);
+    this.pending = { generation, promise };
+    return promise;
   }
 
   pause(reason = 'user'): void {
     if (this.disposed) return;
     this.pauseReasons.add(reason);
+    this.generation++;
+    this.media.pause();
     if (this.status !== 'playing') return;
     this.status = 'paused';
-    this.media.pause();
     this.activity?.(false);
   }
 
@@ -175,6 +205,7 @@ export class AudioStream extends EventTarget {
   stop(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.generation++;
     this.status = 'stopped';
     this.pauseReasons.clear();
     this.activity?.(false);
@@ -192,6 +223,7 @@ export class AudioStream extends EventTarget {
 
   private readonly onEnded = (): void => {
     if (this.status !== 'playing') return;
+    this.generation++;
     this.status = 'ended';
     this.activity?.(false);
     this.dispatchEvent(new Event('ended'));
@@ -199,6 +231,7 @@ export class AudioStream extends EventTarget {
 
   private readonly onError = (): void => {
     if (this.status === 'stopped') return;
+    this.generation++;
     this.activity?.(false);
     this.media.pause();
     this.status = 'paused';
@@ -248,6 +281,8 @@ export function whenPlayable(
       reject(signal?.reason ?? lifetime.reason);
     };
     if (signal?.aborted || lifetime.aborted) return aborted();
+    if (media.error) return failed();
+    if (media.readyState >= 3) return ready();
     media.addEventListener('canplay', ready);
     media.addEventListener('error', failed);
     signal?.addEventListener('abort', aborted);

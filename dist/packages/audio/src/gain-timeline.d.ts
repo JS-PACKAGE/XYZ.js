@@ -6,6 +6,10 @@ export declare class GainTimeline {
     private segments;
     constructor(initial?: number);
     valueAt(time: number): number;
+    isRampingAt(time: number): boolean;
+    /** Copies schedules onto another context's captured clock, without sharing mutable segments. */
+    copy(offset: number): GainTimeline;
+    validateRamp(value: number, start: number, duration: number, curve?: GainCurve): number;
     ramp(value: number, start: number, duration: number, curve?: GainCurve): void;
     cancel(time: number): number;
     /** Replays only the current/future envelope onto an independent native context clock. */

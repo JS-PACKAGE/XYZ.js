@@ -255,6 +255,7 @@ export class AudioManager {
       bus: (context, channel) => this.mixer.input(context, channel),
       activity: (channel, delay) => this.mixer.acquire(channel, delay),
       contexts: () => this.adapter.contexts,
+      report: (error) => this.report(error),
     });
   }
 
@@ -350,7 +351,9 @@ export class AudioManager {
       this.slots[slot] = undefined;
     }
     this.samples.suspend();
-    this.adapter.setPaused(true);
+    void this.adapter
+      .setPaused(true)
+      .catch((error: unknown) => this.report(error));
   }
 
   resume(reason = 'user'): void {
@@ -359,7 +362,9 @@ export class AudioManager {
     this.pausedTotal += this.adapter.now - this.pausedAt;
     this.pausedAt = undefined;
     this.samples.resume();
-    this.adapter.setPaused(false);
+    void this.adapter
+      .setPaused(false)
+      .catch((error: unknown) => this.report(error));
     this.tick();
   }
 
@@ -379,7 +384,7 @@ export class AudioManager {
       if (this.disposed)
         throw new AudioError('AudioManager has been destroyed.');
       this.listener.apply();
-      if (this.paused) this.adapter.setPaused(true);
+      if (this.paused) await this.adapter.setPaused(true);
     } catch (error) {
       if (!this.adapter.unlocked) this.mixer.clearContexts();
       if (error instanceof AudioError) throw error;

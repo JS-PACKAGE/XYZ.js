@@ -37,6 +37,7 @@ export declare class AudioMixer {
     setEffects(name: AudioBusName, input: readonly AudioEffect[]): void;
     setGain(name: AudioBusName, value: number): void;
     automate(name: AudioBusName, value: number, time: number, duration: number, curve?: GainCurve): void;
+    private scheduleGain;
     cancelAutomation(name: AudioBusName, time?: number): number;
     setDucking(input: readonly AudioDuckingRule[]): void;
     /** Activity lasts through an optional native-time reservation, including OPM release tails. */

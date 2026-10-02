@@ -48,13 +48,12 @@ export declare class OPMAdapter {
     private unlocking;
     private destroyed;
     private frozen;
-    private readonly contextTransitions;
     private contextList;
     constructor(output?: OutputRouter | undefined);
     /** Context-local graphs cannot share native nodes across these eight clocks. */
     get contexts(): readonly AudioContext[];
-    setPaused(paused: boolean): void;
-    private transitionContext;
+    /** Native calls happen in the caller's turn, including a trusted resume gesture. */
+    setPaused(paused: boolean): Promise<void>;
     static validateVoice(value: unknown): Promise<OPMVoice>;
     get unlocked(): boolean;
     get now(): number;

@@ -23,6 +23,7 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/minify-dist.mjs && node scripts/copy-vendor.mjs",
+    "audio:native-load": "node scripts/audio-native-load.mjs",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
     "dev": "vite --host 127.0.0.1",

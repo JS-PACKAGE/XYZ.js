@@ -31,12 +31,28 @@ export class GainTimeline {
     return value;
   }
 
-  ramp(
+  isRampingAt(time: number): boolean {
+    for (const segment of this.segments)
+      if (segment.start <= time && segment.end > time) return true;
+    return false;
+  }
+  /** Copies schedules onto another context's captured clock, without sharing mutable segments. */
+  copy(offset: number): GainTimeline {
+    const result = new GainTimeline(this.initial);
+    result.segments = this.segments.map((segment) => ({
+      ...segment,
+      start: segment.start + offset,
+      end: segment.end + offset,
+    }));
+    return result;
+  }
+
+  validateRamp(
     value: number,
     start: number,
     duration: number,
     curve: GainCurve = 'linear',
-  ): void {
+  ): number {
     if (
       !Number.isFinite(value) ||
       value < 0 ||
@@ -54,6 +70,16 @@ export class GainTimeline {
     const from = this.valueAt(start);
     if (curve === 'exponential' && (from <= 0 || value <= 0))
       throw new AudioError('Exponential gain automation cannot touch zero.');
+    return from;
+  }
+
+  ramp(
+    value: number,
+    start: number,
+    duration: number,
+    curve: GainCurve = 'linear',
+  ): void {
+    const from = this.validateRamp(value, start, duration, curve);
     this.cancel(start);
     this.segments.push({
       start,

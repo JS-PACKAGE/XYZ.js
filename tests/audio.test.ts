@@ -22,7 +22,7 @@ const mock = vi.hoisted(() => {
     stop: vi.fn(),
     reset: vi.fn(),
     setGain: vi.fn(),
-    setPaused: vi.fn(),
+    setPaused: vi.fn().mockResolvedValue(undefined),
     setPosition: vi.fn(),
     contexts: [],
     destroy: vi.fn(),

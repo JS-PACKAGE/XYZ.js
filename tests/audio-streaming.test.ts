@@ -2,9 +2,12 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SampleAudioEngine } from '../packages/audio/src/samples/sample-audio.js';
 import { SamplePlayback } from '../packages/audio/src/samples/sample-playback.js';
 import type { AudioStream } from '../packages/audio/src/samples/stream.js';
+import type { Scene } from '../packages/core/src/scene.js';
+import { gameplayAssetLimits } from '../src/data/gameplay-assets.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 class FakeContext {
@@ -150,6 +153,7 @@ class FakeMedia extends EventTarget {
   paused = true;
   error: { code: number } | null = null;
   playCalls = 0;
+  playResult?: () => Promise<void>;
   constructor() {
     super();
     FakeMedia.instances.push(this);
@@ -157,7 +161,7 @@ class FakeMedia extends EventTarget {
   play() {
     this.playCalls++;
     this.paused = false;
-    return Promise.resolve();
+    return this.playResult?.() ?? Promise.resolve();
   }
   pause() {
     this.paused = true;
@@ -302,11 +306,173 @@ describe('audio streaming', () => {
     await Promise.resolve();
     controller.abort(new Error('cancelled'));
     await expect(aborted).rejects.toThrow('cancelled');
-    expect(native.media).toHaveLength(0);
+    expect(native.media.every((node) => !node.connected)).toBe(true);
     await expect(
       engine.stream('data:audio/wav;base64,DDDD', {
         signal: controller.signal,
       }),
     ).rejects.toThrow('cancelled');
+  });
+  it('requests autoplay before readiness and preserves the browser rejection cause', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      engine = engineWith(native);
+    const pending = engine.stream('data:audio/wav;base64,AAAA');
+    const media = FakeMedia.instances[0]!;
+    expect(media.playCalls).toBe(1);
+    // A later native request, unlike the initial request, can be refused by autoplay policy.
+    media.dispatchEvent(new Event('canplay'));
+    const stream = await pending;
+    stream.pause();
+    const cause = new DOMException('Gesture required.', 'NotAllowedError');
+    media.playResult = () => Promise.reject(cause);
+    await expect(stream.play()).rejects.toMatchObject({ cause });
+    expect(stream.state).toBe('paused');
+    engine.destroy();
+    expect(media.src).toBe('');
+    expect(native.media.every((node) => !node.connected)).toBe(true);
+  });
+
+  it('reserves pending stream acquisitions against the shared playback budget', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      engine = engineWith(native);
+    const pending = Array.from(
+      { length: gameplayAssetLimits.samplePlaybacks },
+      () => engine.stream('data:audio/wav;base64,AAAA', { autoplay: false }),
+    );
+    const settled = Promise.allSettled(pending);
+    await expect(
+      engine.stream('data:audio/wav;base64,BBBB', { autoplay: false }),
+    ).rejects.toThrow('budget');
+    expect(() => engine.play(native.buffer, {})).toThrow('budget');
+    engine.destroy();
+    const results = await settled;
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    expect(native.media.every((node) => !node.connected)).toBe(true);
+    expect(FakeMedia.instances.every((media) => media.src === '')).toBe(true);
+  });
+
+  it('cancels unpublished scene streams while detaching persistent acquisitions', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      scene = { destroyed: false } as Scene,
+      engine = engineWith(native);
+    const local = engine.stream('data:audio/wav;base64,AAAA', {
+      scene,
+      autoplay: false,
+    });
+    const rejected = expect(local).rejects.toThrow('stopped');
+    const retained = engine.stream('data:audio/wav;base64,BBBB', {
+      scene,
+      persistent: true,
+      autoplay: false,
+    });
+    engine.stopScene(scene);
+    await rejected;
+    FakeMedia.instances[1]!.dispatchEvent(new Event('canplay'));
+    const stream = await retained;
+    expect(stream.state).toBe('paused');
+    expect(native.media[0]!.connected).toBe(false);
+    expect(native.media[1]!.connected).toBe(true);
+    engine.destroy();
+    expect(native.media[1]!.connected).toBe(false);
+  });
+
+  it('aborts acquisition after readiness while native playback is still pending', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      engine = engineWith(native),
+      controller = new AbortController();
+    let finish!: () => void;
+    vi.spyOn(FakeMedia.prototype, 'play').mockImplementation(function (
+      this: FakeMedia,
+    ) {
+      this.playCalls++;
+      return new Promise<void>((resolve) => {
+        finish = resolve;
+      });
+    });
+    const pending = engine.stream('data:audio/wav;base64,AAAA', {
+      signal: controller.signal,
+    });
+    const media = FakeMedia.instances[0]!;
+    media.dispatchEvent(new Event('canplay'));
+    const reason = new Error('Acquisition cancelled.');
+    const rejected = expect(pending).rejects.toBe(reason);
+    controller.abort(reason);
+    await rejected;
+    finish();
+    await Promise.resolve();
+    expect(media.paused).toBe(true);
+    expect(media.src).toBe('');
+    expect(native.media[0]!.connected).toBe(false);
+    engine.destroy();
+  });
+
+  it('shares concurrent requests and prevents an old completion from pausing its successor', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      engine = engineWith(native);
+    const stream = (await opened(
+      engine.stream('data:audio/wav;base64,AAAA', { autoplay: false }),
+    )) as AudioStream;
+    const media = FakeMedia.instances[0]!;
+    const completions: Array<() => void> = [];
+    media.playResult = () =>
+      new Promise<void>((resolve) => completions.push(resolve));
+    const first = stream.play(),
+      concurrent = stream.play();
+    const interrupted = Promise.allSettled([first, concurrent]);
+    stream.pause();
+    const successor = stream.play();
+    completions[1]!();
+    await successor;
+    completions[0]!();
+    const results = await interrupted;
+    expect(results.every((result) => result.status === 'rejected')).toBe(true);
+    expect(media.playCalls).toBe(2);
+    expect(stream.state).toBe('playing');
+    expect(media.paused).toBe(false);
+    engine.destroy();
+  });
+
+  it('surfaces manager resume failures on the stream and the manager error hook', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      report = vi.fn(),
+      engine = new SampleAudioEngine({
+        context: () => native.context,
+        scene: () => undefined,
+        bus: () => native.createGain(),
+        report,
+      });
+    const stream = (await opened(
+      engine.stream('data:audio/wav;base64,AAAA'),
+    )) as AudioStream;
+    const media = FakeMedia.instances[0]!,
+      cause = new DOMException('Native playback refused.', 'NotAllowedError'),
+      errors: Error[] = [];
+    stream.addEventListener('error', (event) =>
+      errors.push((event as CustomEvent<Error>).detail),
+    );
+    engine.suspend();
+    media.playResult = () => Promise.reject(cause);
+    const failed = new Promise<void>((resolve) =>
+      stream.addEventListener('error', () => resolve(), { once: true }),
+    );
+    engine.resume();
+    await failed;
+    expect(errors[0]).toMatchObject({ cause });
+    expect(report).toHaveBeenCalledWith(errors[0]);
+    expect(stream.state).toBe('paused');
+    expect(media.playCalls).toBe(2);
+    engine.destroy();
   });
 });

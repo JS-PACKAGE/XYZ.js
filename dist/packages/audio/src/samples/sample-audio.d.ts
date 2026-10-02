@@ -10,6 +10,7 @@ interface SampleHost {
     bus(context: AudioContext, channel: AudioChannelName): GainNode;
     activity?(channel: AudioChannelName, delay?: number): AudioActivity;
     contexts?(): readonly AudioContext[];
+    report?(error: Error): void;
 }
 /** Seconds into the decoded buffer; `end` is exclusive of later sprites sharing the file. */
 export interface AudioSpriteRange {
@@ -68,8 +69,9 @@ export declare class SampleAudioEngine {
     }): Promise<SampleAudioAsset>;
     play(buffer: AudioBuffer, options: SamplePlayOptions): SamplePlayback;
     /**
-     * Starts a streamed (not decoded) playback of a long file through an HTMLAudioElement. Resolves
-     * once the element can play; `autoplay` (default true) then starts it.
+     * Reserves ownership and the playback budget before waiting for readiness. Autoplay requests
+     * native playback before the first await so a caller's gesture belongs to this media element.
+     * The signal cancels acquisition through readiness/playback, not the returned stream's lifetime.
      */
     stream(url: string, options?: AudioStreamOptions): Promise<AudioStream>;
     /** Pauses every playing sample and stream; `resume` restarts exactly those. */

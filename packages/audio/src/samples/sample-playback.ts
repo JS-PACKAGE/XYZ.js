@@ -53,6 +53,7 @@ export class SamplePlayback {
     private readonly activity?: (active: boolean, delay?: number) => void,
   ) {
     const region = options.region;
+    const now = context.currentTime;
     this.regional = region !== undefined;
     this.regionStart = region?.start ?? 0;
     this.regionEnd = region?.end ?? buffer.duration;
@@ -67,7 +68,7 @@ export class SamplePlayback {
         'Sample region must satisfy 0 <= start < end <= decoded duration.',
       );
     this.offset = options.offset ?? this.regionStart;
-    this.startsAt = options.scheduledStartTime ?? context.currentTime;
+    this.startsAt = options.scheduledStartTime ?? now;
     this.speed = options.playbackRate ?? 1;
     this.level = options.volume ?? 1;
     this.loop = options.loop ?? false;
@@ -79,7 +80,7 @@ export class SamplePlayback {
     this.checkRate(this.speed);
     this.checkVolume(this.level);
     const spatial = options.spatial && checkSpatialOptions(options.spatial);
-    this.startsAt = Math.max(this.startsAt, context.currentTime);
+    this.startsAt = Math.max(this.startsAt, now);
     if (this.loop) this.offset = this.wrap(this.offset);
     this.gain = context.createGain();
     this.gain.gain.value = this.level;
@@ -91,10 +92,7 @@ export class SamplePlayback {
     } else this.gain.connect(bus);
     try {
       this.startSource();
-      this.activity?.(
-        true,
-        Math.max(0, this.startsAt - this.context.currentTime),
-      );
+      this.activity?.(true, Math.max(0, this.startsAt - now));
     } catch (error) {
       this.gain.disconnect();
       this.panner?.disconnect();
@@ -107,10 +105,13 @@ export class SamplePlayback {
   }
 
   get position(): number {
+    return this.positionAt(this.context.currentTime);
+  }
+
+  private positionAt(now: number): number {
     let position = this.offset;
     if (this.status === 'playing')
-      position +=
-        Math.max(0, this.context.currentTime - this.startsAt) * this.speed;
+      position += Math.max(0, now - this.startsAt) * this.speed;
     return this.loop ? this.wrap(position) : Math.min(position, this.regionEnd);
   }
 
@@ -150,9 +151,9 @@ export class SamplePlayback {
 
   set playbackRate(value: number) {
     this.checkRate(value);
-    this.offset = this.position;
-    if (this.context.currentTime >= this.startsAt)
-      this.startsAt = this.context.currentTime;
+    const now = this.context.currentTime;
+    this.offset = this.positionAt(now);
+    if (now >= this.startsAt) this.startsAt = now;
     this.speed = value;
     if (this.source) this.source.playbackRate.value = value;
   }
@@ -161,8 +162,9 @@ export class SamplePlayback {
     if (this.status === 'stopped' || this.status === 'ended') return;
     this.pauseReasons.add(reason);
     if (this.status !== 'playing') return;
-    this.offset = this.position;
-    this.startDelay = Math.max(0, this.startsAt - this.context.currentTime);
+    const now = this.context.currentTime;
+    this.offset = this.positionAt(now);
+    this.startDelay = Math.max(0, this.startsAt - now);
     this.status = 'paused';
     this.clearSource();
     this.activity?.(false);
@@ -175,14 +177,12 @@ export class SamplePlayback {
       this.status !== 'paused'
     )
       return;
-    this.startsAt = this.context.currentTime + this.startDelay;
+    const now = this.context.currentTime;
+    this.startsAt = now + this.startDelay;
     this.status = 'playing';
     try {
       this.startSource();
-      this.activity?.(
-        true,
-        Math.max(0, this.startsAt - this.context.currentTime),
-      );
+      this.activity?.(true, this.startDelay);
     } catch (error) {
       this.status = 'paused';
       this.pauseReasons.add(reason);

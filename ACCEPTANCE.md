@@ -948,3 +948,32 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 推送 v1.10 tag 觸發既有 Release workflow：共用 Node22／24／26 quality 與三 engines browser gates 成功後，才封裝並上傳 tgz／SHA256SUMS；線上執行與發佈結果以 GitHub Actions／Release 為準。Safari、實機 mobile／gamepad／OS IME／driver、WebGPU timestamp invalid 與 WebKit concurrent audio 等既有未驗／限制不因版本號消失。
 - Hosted [Release run 36966119517](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/36966119517) 全部 14 jobs success：Node22／24／26 quality、Ubuntu24.04 三 Node×Chromium／Firefox／WebKit 九組 browser jobs、macOS WebKit／Node26，以及 release。Chromium 保留 required WebGPU／GL native gates，三 engines 均執行 desktop／mobile emulation／bidi pixel proofs；未降低 assertions、未增加 retries／skip。這是新增 hosted 證據，不改寫先前 Linux 修正的當時待驗紀錄。
 - [GitHub v1.10](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.10) 正式發佈（非 draft／prerelease），附件 xyz.js-1.10.0.tgz／SHA256SUMS 已下載，shasum -a 256 -c 通過。Tarball SHA256 為 `40e35bbf9da9cc8a31486e3de7a42412de011e15bb2c3b554f9a00665844e7d3`，與前述已實際驗證的本機封裝逐位元組一致，故相同 root consumer／14 件官方 vendor 證據適用於發佈附件。Tag 固定在 release metadata commit 90ec809；後續 hosted 結果文件獨立提交，不移動 tag。
+
+## P71–P87 原始需求與驗收 gates
+
+使用者於 v1.10 後批准全部缺口補強；完整範圍見 PLAN 的 P71–P87 表。此節保留批准當時的驗收要求，不改寫歷史 dates／counts／release facts；套件維持 1.10.0。後續實作／限定 native 證據如下，不能由功能清單推論 platform certification。
+
+每個階段须記錄實際 source／package consumer、backend／browser／OS／設備、命令與 runtime 證據。功能不可用時必須區分實作缺陷、明確 unsupported、設備／授權缺少與尚未執行；不以 scaffold／exports／mock／non-blank 畫面替代指定行為驗收。
+
+- P71：已知 WebKit concurrent AudioError／control-arrival 差異作為修正基準；保持真 native playback error 可見，官方 vendor 不改。
+- P72–P74：獨立 2D／3D consumer 完整可玩與持久存檔、正式部署；版本／API 契約可查；排序／跨頁競寫／corrupt recovery／autosave 成功及失敗均可觀察。
+- P75／P87：真 mobile／gamepad／OS IME／audio／background／thermal／driver／輔具與自動化證據分開；Safari preserve。缺少可安全使用的設備／session／授權時具名 blocked，不能冒稱 pass。
+- P76–P78：真平台角色運動／高速 2D 碰撞、fixed locomotion 無 drift、同 XZ 多層路徑與合法 connectors，所有 lifecycle／revision／quota 邊界。
+- P79–P85：正式 GPU／GL visibility／LOD／HLOD／occlusion／custom shader／lights／particles pixels 與 loss／cleanup；streaming 真內容／資產／物理／導航；worker 真 execution；Tiled 真匯出格式。
+- P86：WebGPU timing 根因與有效或 unsupported 證據；代表性 workload 有明確配置及門檻，RAF／CPU submit／GPU completion／heap／RSS／VRAM 不混用。
+
+## P71–P87 working-tree 驗證（2026-10-02，未發佈）
+
+正式 runtime／公開 root／starters／範例／工具已整合；下列是實際執行過的限定證據，不是全平台認證。Metadata 保持 **1.10.0／Apache-2.0**；驗證當時未 commit／push／tag／publish，之後依使用者要求分功能提交，仍未 push／tag／publish。歷史驗收原 dates／counts 保留。Source／dist／site 既有額外編號 vendor 副本未刪除；package/site 僅 allowlist canonical 14 件官方檔案。
+
+### 環境、獨立性與靜音
+
+- 本機 formal shell Node **26.7.0**／pnpm **12.6.0**；eval host 的 Node26.3.0 是不同 runtime，不混記。Playwright-managed Chromium **153.0.8010.12**、Firefox **155**、WebKit **26.6**；read-only 實機 inventory 為 Mac17,3／Apple M5／24GB／macOS27.0.1 build26A434。Native GL identity 為 Apple M5 ANGLE Metal，WebGPU 為 browser-exposed Apple metal-3；driver version 未暴露。
+- 每個 native session 由本輪自行 launch，在私有 context／page／ephemeral server 上執行並關閉。未連入 shared browser／使用者 Safari，未調 OS／foreign driver。
+- Audio 在 native playback 前接 gain0 physical destinations，media 先受 guarded routing 控制；Chromium 另加 `--mute-audio`。Read-only analyser 在 sink 上游量測 real PCM。這是 signal proof，不是 speakers／audible output／Safari 認證；全程不向實體裝置發出聲音。
+
+### 正式功能與可觀察結果
+
+| 階段 | 實際證據與保留邊界                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| ---- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P71  | WebKit／Chromium／Firefox 各一次 concurrency2 的6頁 native load gates 全 PASS。8個原生 contexts、3 streams／4 samples／real OPM mix、constant signal／lowpass attenuation；reference max error **0**（原1e-6 assertion不變）。Pause8 clocks advance0；等待8個原發出的 resume promises後8 clocks running／3 streams playing。Cleanup後 errors[]／pageErrors[]、8 contexts closed／graph0／sources stopped／URLs0。PCM proof 是 mixed music，不冒稱逐 source isolated proof。                                                                                                                                                                                                                                                                        |

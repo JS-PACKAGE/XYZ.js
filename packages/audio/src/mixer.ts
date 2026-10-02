@@ -47,7 +47,8 @@ interface BusGraph {
 }
 interface ContextGraph {
   context: AudioContext;
-  offset: number;
+  controlTime: number;
+  envelopes: Record<AudioBusName, GainTimeline>;
   buses: Record<AudioBusName, BusGraph>;
 }
 const names: readonly AudioBusName[] = ['master', 'music', 'sfx', 'ui'];
@@ -104,9 +105,12 @@ export class AudioMixer {
     if (this.graphs.has(context)) return;
     const previousPrimary = this.primary;
     this.primary ??= context;
+    const contextNow = context.currentTime;
+    const now = context === this.primary ? contextNow : this.currentTime;
     const graph: ContextGraph = {
       context,
-      offset: context.currentTime - this.currentTime,
+      controlTime: contextNow,
+      envelopes: {} as Record<AudioBusName, GainTimeline>,
       buses: {} as Record<AudioBusName, BusGraph>,
     };
     try {
@@ -130,7 +134,9 @@ export class AudioMixer {
         chain.output.connect(volume);
         volume.connect(duck);
         duck.connect(analyser);
-        this.envelopes[name].apply(volume.gain, this.currentTime, graph.offset);
+        const envelope = this.envelopes[name].copy(contextNow - now);
+        graph.envelopes[name] = envelope;
+        envelope.apply(volume.gain, contextNow);
       }
       graph.buses.master.analyser.connect(context.destination);
       for (const name of ['music', 'sfx', 'ui'] as const)
@@ -184,8 +190,15 @@ export class AudioMixer {
           (now - bus.chainFadeStartedAt) / audioDefaults.effectCrossfade,
         ),
       );
-      bus.chain.output.gain.cancelScheduledValues(now);
-      bus.chain.output.gain.setValueAtTime(held, now);
+      if (
+        held < 1 &&
+        typeof bus.chain.output.gain.cancelAndHoldAtTime === 'function'
+      )
+        bus.chain.output.gain.cancelAndHoldAtTime(now);
+      else {
+        bus.chain.output.gain.cancelScheduledValues(now);
+        bus.chain.output.gain.setValueAtTime(held, now);
+      }
       bus.chain.output.gain.linearRampToValueAtTime(
         0,
         now + audioDefaults.effectCrossfade,
@@ -207,7 +220,15 @@ export class AudioMixer {
   }
 
   setGain(name: AudioBusName, value: number): void {
-    this.automate(name, value, this.currentTime, audioDefaults.gainSmoothing);
+    const now = this.currentTime;
+    this.scheduleGain(
+      name,
+      value,
+      now,
+      audioDefaults.gainSmoothing,
+      'linear',
+      now,
+    );
   }
   automate(
     name: AudioBusName,
@@ -216,31 +237,78 @@ export class AudioMixer {
     duration: number,
     curve: GainCurve = 'linear',
   ): void {
+    this.scheduleGain(name, value, time, duration, curve, this.currentTime);
+  }
+
+  private scheduleGain(
+    name: AudioBusName,
+    value: number,
+    time: number,
+    duration: number,
+    curve: GainCurve,
+    now: number,
+  ): void {
     if (this.disposed) throw new AudioError('Audio mixer has been destroyed.');
-    if (time < this.currentTime)
+    if (time < now)
       throw new AudioError('Gain automation cannot start in the past.');
-    const envelope = this.envelopes[name];
-    envelope.ramp(value, time, duration, curve);
-    for (const graph of this.graphs.values())
-      envelope.apply(
-        graph.buses[name].volume.gain,
-        this.currentTime,
-        graph.offset,
+    this.envelopes[name].validateRamp(value, time, duration, curve);
+    // Capture every clock before mutating any envelope; preparation is atomic across contexts.
+    for (const graph of this.graphs.values()) {
+      graph.controlTime =
+        graph.context === this.primary ? now : graph.context.currentTime;
+      graph.envelopes[name].validateRamp(
+        value,
+        graph.controlTime + (time - now),
+        duration,
+        curve,
       );
+    }
+    this.envelopes[name].ramp(value, time, duration, curve);
+    for (const graph of this.graphs.values()) {
+      const contextNow = graph.controlTime,
+        start = contextNow + (time - now);
+      const envelope = graph.envelopes[name],
+        param = graph.buses[name].volume.gain;
+      const from = envelope.valueAt(start),
+        ramping = envelope.isRampingAt(start);
+      envelope.ramp(value, start, duration, curve);
+      if (typeof param.cancelAndHoldAtTime === 'function') {
+        param.cancelAndHoldAtTime(start);
+        if (duration === 0) param.setValueAtTime(value, start);
+        else {
+          // cancelAndHold is a no-op on a constant parameter: anchor a delayed ramp explicitly.
+          if (!ramping) param.setValueAtTime(from, start);
+          if (curve === 'exponential')
+            param.exponentialRampToValueAtTime(value, start + duration);
+          else param.linearRampToValueAtTime(value, start + duration);
+        }
+      } else envelope.apply(param, contextNow);
+    }
   }
   cancelAutomation(name: AudioBusName, time?: number): number {
+    if (this.disposed) throw new AudioError('Audio mixer has been destroyed.');
     const now = this.currentTime;
     time ??= now;
     if (!Number.isFinite(time) || time < now)
       throw new AudioError('Cancellation time must not be in the past.');
     const envelope = this.envelopes[name];
     const value = envelope.cancel(time);
-    for (const graph of this.graphs.values())
-      envelope.apply(graph.buses[name].volume.gain, now, graph.offset);
+    for (const graph of this.graphs.values()) {
+      const contextNow =
+        graph.context === this.primary ? now : graph.context.currentTime;
+      const at = contextNow + (time - now);
+      const local = graph.envelopes[name],
+        param = graph.buses[name].volume.gain;
+      local.cancel(at);
+      if (typeof param.cancelAndHoldAtTime === 'function')
+        param.cancelAndHoldAtTime(at);
+      else local.apply(param, contextNow);
+    }
     return value;
   }
 
   setDucking(input: readonly AudioDuckingRule[]): void {
+    if (this.disposed) throw new AudioError('Audio mixer has been destroyed.');
     this.rules = Object.freeze(
       input.map((rule) => {
         if (
@@ -275,10 +343,11 @@ export class AudioMixer {
       Number.isNaN(duration)
     )
       throw new AudioError('Invalid audio activity interval.');
+    const now = this.currentTime;
     const record: ActivityRecord = {
       channel,
-      start: this.currentTime + delay,
-      end: this.currentTime + delay + duration,
+      start: now + delay,
+      end: now + delay + duration,
       enabled: true,
     };
     this.activities.add(record);
@@ -322,15 +391,21 @@ export class AudioMixer {
         boundaries.add(activity.end);
     }
     const times = [...boundaries].sort((a, b) => a - b);
-    for (const graph of this.graphs.values())
+    for (const graph of this.graphs.values()) {
+      const contextNow =
+        graph.context === this.primary ? now : graph.context.currentTime;
       for (const name of names) {
         const bus = graph.buses[name],
           param = bus.duck.gain;
-        const contextNow = graph.context.currentTime;
+        // One captured clock serves every bus in this context for this control operation.
         // Keep the exact rendered target envelope; AudioParam.value is not a held value.
         const held = duckValueAt(bus.duckPlan, contextNow);
-        param.cancelScheduledValues(contextNow);
-        param.setValueAtTime(held, contextNow);
+        if (typeof param.cancelAndHoldAtTime === 'function')
+          param.cancelAndHoldAtTime(contextNow);
+        else {
+          param.cancelScheduledValues(contextNow);
+          param.setValueAtTime(held, contextNow);
+        }
         bus.duckPlan.length = 0;
         let previousTarget: number | undefined;
         for (const time of times) {
@@ -360,7 +435,7 @@ export class AudioMixer {
             }
           }
           if (target === previousTarget) continue;
-          const at = Math.max(contextNow, time + graph.offset);
+          const at = contextNow + (time - now);
           const tau =
             Math.max(
               audioDefaults.gainSmoothing,
@@ -373,20 +448,24 @@ export class AudioMixer {
           previousTarget = target;
         }
       }
+    }
   }
 
   private collect(): void {
     let pending = false;
+    const now = this.currentTime;
     for (const activity of this.activities) {
-      if (activity.end <= this.currentTime) this.activities.delete(activity);
+      if (activity.end <= now) this.activities.delete(activity);
       else if (Number.isFinite(activity.end)) pending = true;
     }
-    for (const graph of this.graphs.values())
+    for (const graph of this.graphs.values()) {
+      const contextNow =
+        graph.context === this.primary ? now : graph.context.currentTime;
       for (const name of names) {
         const bus = graph.buses[name];
         for (let i = bus.retired.length - 1; i >= 0; i--) {
           const retired = bus.retired[i]!;
-          if (graph.context.currentTime < retired.until) {
+          if (contextNow < retired.until) {
             pending = true;
             continue;
           }
@@ -395,6 +474,7 @@ export class AudioMixer {
           bus.retired.splice(i, 1);
         }
       }
+    }
     if (!pending) {
       clearInterval(this.cleanupTimer);
       this.cleanupTimer = undefined;

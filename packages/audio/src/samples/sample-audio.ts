@@ -19,6 +19,7 @@ interface SampleHost {
   bus(context: AudioContext, channel: AudioChannelName): GainNode;
   activity?(channel: AudioChannelName, delay?: number): AudioActivity;
   contexts?(): readonly AudioContext[];
+  report?(error: Error): void;
 }
 
 interface CachedSample {
@@ -331,8 +332,9 @@ export class SampleAudioEngine {
   }
 
   /**
-   * Starts a streamed (not decoded) playback of a long file through an HTMLAudioElement. Resolves
-   * once the element can play; `autoplay` (default true) then starts it.
+   * Reserves ownership and the playback budget before waiting for readiness. Autoplay requests
+   * native playback before the first await so a caller's gesture belongs to this media element.
+   * The signal cancels acquisition through readiness/playback, not the returned stream's lifetime.
    */
   async stream(
     url: string,
@@ -372,14 +374,21 @@ export class SampleAudioEngine {
         : undefined);
     if (crossOrigin) media.crossOrigin = crossOrigin;
     media.preload = 'auto';
-    media.src = resolved.href;
+    const preparation = new AbortController();
     let stream: AudioStream | undefined;
     let source: MediaElementAudioSourceNode | undefined;
     let gain: GainNode | undefined;
+    const aborted = (): void => {
+      preparation.abort(options.signal?.reason ?? this.lifetime.signal.reason);
+      stream?.stop();
+    };
+    const reportError = (event: Event): void => {
+      this.host.report?.((event as CustomEvent<Error>).detail);
+    };
     try {
       let activity: AudioActivity | undefined;
-      await whenPlayable(media, options.signal, this.lifetime.signal);
-      this.requireContext();
+      options.signal?.addEventListener('abort', aborted, { once: true });
+      this.lifetime.signal.addEventListener('abort', aborted, { once: true });
       this.listener.apply();
       // A media element may only be wrapped once, so the nodes live as long as the stream.
       source = context.createMediaElementSource(media);
@@ -391,6 +400,13 @@ export class SampleAudioEngine {
         source,
         gain,
         (finished) => {
+          if (!preparation.signal.aborted)
+            preparation.abort(
+              new AudioError('Audio stream acquisition was stopped.', {
+                cause: new DOMException('Stream was stopped.', 'AbortError'),
+              }),
+            );
+          finished.removeEventListener('error', reportError);
           this.playbacks.delete(finished);
           this.suspended.delete(finished);
           activity?.release();
@@ -403,18 +419,23 @@ export class SampleAudioEngine {
           } else if (!activity) activity = this.host.activity?.(channel);
         },
       );
+      stream.addEventListener('error', reportError);
       this.playbacks.set(stream, {
         scene,
         persistent: options.persistent ?? false,
       });
+      const playable = whenPlayable(media, options.signal, preparation.signal);
+      media.src = resolved.href;
       if (startTime > 0) media.currentTime = startTime;
+      let playing: Promise<void> | undefined;
       if (options.autoplay ?? true) {
-        // While the manager is paused the stream waits for the resume instead of starting.
         if (this.holding) {
           stream.pause('manager');
           this.suspended.add(stream);
-        } else await stream.play();
+        } else playing = stream.play();
       }
+      await subscribeLoad(Promise.all([playable, playing]), preparation.signal);
+      this.requireContext();
       return stream;
     } catch (error) {
       if (stream) stream.stop();
@@ -425,6 +446,9 @@ export class SampleAudioEngine {
         media.load();
       }
       throw error;
+    } finally {
+      options.signal?.removeEventListener('abort', aborted);
+      this.lifetime.signal.removeEventListener('abort', aborted);
     }
   }
 
@@ -443,8 +467,32 @@ export class SampleAudioEngine {
     for (const playback of this.suspended) {
       if (playback.state !== 'paused') continue;
       if (playback instanceof AudioStream)
-        void playback.play('manager').catch(() => {});
-      else playback.resume('manager');
+        void playback.play('manager').catch((error: unknown) => {
+          playback.dispatchEvent(
+            new CustomEvent<Error>('error', {
+              detail:
+                error instanceof Error
+                  ? error
+                  : new AudioError('Unable to resume audio stream.', {
+                      cause: error,
+                    }),
+            }),
+          );
+        });
+      else {
+        try {
+          playback.resume('manager');
+        } catch (error) {
+          const failure =
+            error instanceof Error
+              ? error
+              : new AudioError('Unable to resume sample audio.', {
+                  cause: error,
+                });
+          if (!this.host.report) throw failure;
+          this.host.report(failure);
+        }
+      }
     }
     this.suspended.clear();
   }
