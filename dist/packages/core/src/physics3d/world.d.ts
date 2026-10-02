@@ -12,6 +12,11 @@ export interface PhysicsStats3D {
     readonly refits: number;
     readonly poseChecks: number;
     readonly indexGeneration: number;
+    readonly ccdTests: number;
+    readonly ccdIterations: number;
+    readonly ccdImpacts: number;
+    readonly ccdExhaustions: number;
+    readonly ccdLimitedTime: number;
     readonly jointRows: number;
     readonly jointIterations: number;
 }
@@ -41,7 +46,7 @@ export interface PhysicsContact3D {
     readonly point: Readonly<Vector3>;
     readonly sensor: boolean;
 }
-/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. Iterative joints; no rotational/dynamic-pair CCD. */
+/** Deterministic primitive/mesh/compound impulses, iterative joints and opt-in rigid-motion CCD. */
 export declare class PhysicsWorld3D {
     readonly gravity: Vector3;
     readonly fixedDelta: number;
@@ -58,6 +63,11 @@ export declare class PhysicsWorld3D {
     private readonly sweepTriangles;
     private readonly leafBounds;
     private indexDirty;
+    private readonly sweptIndex;
+    private readonly sweptEntries;
+    private readonly ccdCandidates;
+    private sweptIndexDirty;
+    private readonly ccd;
     private readonly constraints;
     private readonly jointSnapshot;
     private readonly jointLinks;
@@ -82,9 +92,6 @@ export declare class PhysicsWorld3D {
     private readonly inertiaB;
     private readonly relative;
     private readonly ccdDisplacement;
-    private readonly ccdOptions;
-    private ccdHit;
-    private sweepSafeFraction;
     private readonly torque;
     private readonly forces;
     private accumulator;
@@ -120,6 +127,9 @@ export declare class PhysicsWorld3D {
     get interpolationAlpha(): number;
     update(delta: number, canContinue?: () => boolean, sampleFrame?: boolean): void;
     private solveJoints;
+    private prepareContact;
+    private moveBodies;
+    private integrateContinuous;
     private step;
     private velocityAt;
     private movingAtContact;

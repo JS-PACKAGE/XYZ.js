@@ -908,3 +908,7 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 ### P66 — 3D joints
 
 - Built-root vehicle spring suspension、hinge axis／limits／motor 與 articulated chain 實際 linear／angular response 通過，含 ball/socket angular constraints 與 ownership／cleanup；不是 debug geometry 或 export wiring 證據。
+
+### P67 — Dynamic／rotational CCD
+
+- 真相向 dynamic pair ±600 bounce、rotational blade 與 compound／mesh stop 已驗，維持 filters／contact response，不降速或加厚牆。Blade 13 iterations、1 impact、1 次 budget exhaustion，保留 conservative prefix 並誠實回報，不宣稱任意 rotational motion 都能無界求解。

@@ -17,6 +17,11 @@ import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
 import { Joint3D } from './joints.js';
+import {
+  ContinuousCollision3D,
+  integrateRotation3D,
+  rigidSweptBounds3D,
+} from './ccd.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -26,6 +31,11 @@ export interface PhysicsStats3D {
   readonly refits: number;
   readonly poseChecks: number;
   readonly indexGeneration: number;
+  readonly ccdTests: number;
+  readonly ccdIterations: number;
+  readonly ccdImpacts: number;
+  readonly ccdExhaustions: number;
+  readonly ccdLimitedTime: number;
   readonly jointRows: number;
   readonly jointIterations: number;
 }
@@ -63,6 +73,13 @@ interface Entry3D {
   readonly bounds: Bounds3D;
   readonly order: number;
   indexedRevision: number;
+  ccdShape: Shape3D | undefined;
+  ccdStopped: boolean;
+}
+interface SweptEntry3D {
+  readonly entry: Entry3D;
+  readonly bounds: Bounds3D;
+  readonly order: number;
 }
 class Contact3D {
   readonly manifold = new Manifold3D();
@@ -80,7 +97,7 @@ class Contact3D {
     readonly b: Entry3D,
   ) {}
 }
-/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. Iterative joints; no rotational/dynamic-pair CCD. */
+/** Deterministic primitive/mesh/compound impulses, iterative joints and opt-in rigid-motion CCD. */
 export class PhysicsWorld3D {
   readonly gravity = new Vector3(0, -9.81, 0);
   readonly fixedDelta: number;
@@ -97,6 +114,11 @@ export class PhysicsWorld3D {
   private readonly sweepTriangles: Triangle3D[] = [];
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
+  private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
+  private readonly sweptEntries: SweptEntry3D[] = [];
+  private readonly ccdCandidates: SweptEntry3D[] = [];
+  private sweptIndexDirty = true;
+  private readonly ccd = new ContinuousCollision3D();
   private readonly constraints: Joint3D[] = [];
   private readonly jointSnapshot: Joint3D[] = [];
   private readonly jointLinks = new Map<Object3D, Joint3D[]>();
@@ -114,6 +136,11 @@ export class PhysicsWorld3D {
     refits: 0,
     poseChecks: 0,
     indexGeneration: 0,
+    ccdTests: 0,
+    ccdIterations: 0,
+    ccdImpacts: 0,
+    ccdExhaustions: 0,
+    ccdLimitedTime: 0,
     jointRows: 0,
     jointIterations: 0,
   };
@@ -131,9 +158,6 @@ export class PhysicsWorld3D {
   private readonly inertiaB = new Vector3();
   private readonly relative = new Vector3();
   private readonly ccdDisplacement = new Vector3();
-  private readonly ccdOptions: PhysicsQueryOptions3D = {};
-  private ccdHit: PhysicsHit3D | undefined;
-  private sweepSafeFraction = 1;
   private readonly torque = new Vector3();
   private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
   private accumulator = 0;
@@ -277,6 +301,8 @@ export class PhysicsWorld3D {
           bounds: shape.bounds,
           order: this.nextOrder++,
           indexedRevision: -1,
+          ccdShape: undefined,
+          ccdStopped: false,
         }
       : undefined;
     if (next) {
@@ -295,6 +321,12 @@ export class PhysicsWorld3D {
     ) {
       this.entries.set(object, next);
       this.ordered.push(next);
+      this.sweptEntries.push({
+        entry: next,
+        bounds: new Bounds3D(),
+        order: next.order,
+      });
+      this.sweptIndexDirty = true;
       this.indexDirty = true;
     }
   }
@@ -311,6 +343,9 @@ export class PhysicsWorld3D {
     const index = this.ordered.indexOf(entry);
     if (index !== -1) this.ordered.splice(index, 1);
     this.indexDirty = true;
+    const swept = this.sweptEntries.findIndex((item) => item.entry === entry);
+    if (swept !== -1) this.sweptEntries.splice(swept, 1);
+    this.sweptIndexDirty = true;
     for (const [a, row] of this.contacts) {
       for (const [b, c] of row)
         if (a === entry || b === entry) {
@@ -444,21 +479,209 @@ export class PhysicsWorld3D {
     for (const joint of this.jointSnapshot)
       if (joint.belongsTo(this)) joint.solveVelocity();
   }
+  private prepareContact(a: Entry3D, b: Entry3D, q: Manifold3D): Contact3D {
+    let row = this.contacts.get(a),
+      contact = row?.get(b);
+    if (!contact) {
+      contact = new Contact3D(a, b);
+      if (!row) this.contacts.set(a, (row = new Map()));
+      row.set(b, contact);
+    }
+    const m = contact.manifold;
+    m.normal.copy(q.normal);
+    m.distance = q.distance;
+    m.count = q.count;
+    for (let k = 0; k < m.count; k++) {
+      m.points[k].copy(q.points[k]);
+      m.normals[k].copy(q.normals[k]);
+      m.depths[k] = q.depths[k];
+      contact.normalImpulses[k] = 0;
+      contact.tangentImpulses[k] = 0;
+      this.velocityAt(a.body, m.points[k], this.relative);
+      this.velocityAt(b.body, m.points[k], this.impulse);
+      this.relative.subtract(this.impulse);
+      const n = m.normals[k],
+        vn = this.relative.dot(n),
+        bounce = Math.max(a.body?.restitution ?? 0, b.body?.restitution ?? 0);
+      contact.targets[k] =
+        vn < -physics3DDefaults.restitutionThreshold ? -vn * bounce : 0;
+      contact.tangent[k].copy(this.relative);
+      contact.tangent[k].x -= n.x * vn;
+      contact.tangent[k].y -= n.y * vn;
+      contact.tangent[k].z -= n.z * vn;
+      contact.tangent[k].normalize();
+    }
+    contact.seen = this.stepId;
+    return contact;
+  }
+  private moveBodies(dt: number): void {
+    if (dt <= 0) return;
+    for (const e of this.ordered) {
+      const b = e.body;
+      if (!b || b.type === 'static' || b.isSleeping || e.ccdStopped) continue;
+      const o = e.object;
+      o.position.x += b.velocity.x * dt;
+      o.position.y += b.velocity.y * dt;
+      o.position.z += b.velocity.z * dt;
+      if (!b.lockRotation)
+        integrateRotation3D(o.rotation, b.angularVelocity, dt, o.rotation);
+      if (e.shape.refresh(o)) ++this.counters.refreshedLeaves;
+      b.refreshInertia(e.shape);
+    }
+  }
+  private integrateContinuous(dt: number, canContinue: () => boolean): void {
+    let continuous = false;
+    for (const entry of this.ordered)
+      if (entry.body?.type === 'dynamic' && entry.body.continuous) {
+        continuous = true;
+        break;
+      }
+    if (!continuous) {
+      this.moveBodies(dt);
+      return;
+    }
+    let remaining = dt,
+      events = 0;
+    while (remaining > 1e-12 && events < physics3DDefaults.ccdMaxImpacts) {
+      for (const item of this.sweptEntries) {
+        rigidSweptBounds3D(
+          item.entry,
+          remaining,
+          item.bounds,
+          this.ccdDisplacement,
+        );
+        if (!this.sweptIndexDirty) this.sweptIndex.update(item);
+      }
+      if (this.sweptIndexDirty) {
+        this.sweptIndex.rebuild(this.sweptEntries);
+        this.sweptIndexDirty = false;
+      }
+      let nearest = Infinity,
+        safe = Infinity;
+      let hitA: Entry3D | undefined,
+        hitB: Entry3D | undefined,
+        limitedA: Entry3D | undefined,
+        limitedB: Entry3D | undefined;
+      for (const item of this.sweptEntries) {
+        const continuousEntry = item.entry;
+        if (
+          continuousEntry.body?.type !== 'dynamic' ||
+          !continuousEntry.body.continuous
+        )
+          continue;
+        this.sweptIndex.query(item.bounds, this.ccdCandidates);
+        for (const other of this.ccdCandidates) {
+          const otherEntry = other.entry;
+          if (
+            otherEntry === continuousEntry ||
+            (otherEntry.body?.type === 'dynamic' &&
+              otherEntry.body.continuous &&
+              otherEntry.order < continuousEntry.order)
+          )
+            continue;
+          const a =
+              continuousEntry.order < otherEntry.order
+                ? continuousEntry
+                : otherEntry,
+            b =
+              continuousEntry.order < otherEntry.order
+                ? otherEntry
+                : continuousEntry,
+            ca = a.shape.collider,
+            cb = b.shape.collider;
+          if (
+            !(ca.category & cb.mask) ||
+            !(cb.category & ca.mask) ||
+            this.connected(a, b)
+          )
+            continue;
+          const sensor = ca.sensor || cb.sensor;
+          if (sensor && this.contacts.get(a)?.get(b)?.seen === this.stepId)
+            continue;
+          ++this.counters.ccdTests;
+          const time = this.ccd.timeOfImpact(
+            a,
+            b,
+            remaining,
+            Math.min(nearest, safe),
+          );
+          this.counters.ccdIterations += this.ccd.iterations;
+          if (this.ccd.exhausted && !sensor && this.ccd.safeTime < safe) {
+            safe = this.ccd.safeTime;
+            limitedA = a;
+            limitedB = b;
+          }
+          if (time < nearest) {
+            nearest = time;
+            hitA = a;
+            hitB = b;
+          }
+        }
+      }
+      if (safe <= nearest && limitedA && limitedB) {
+        this.moveBodies(safe);
+        remaining -= safe;
+        limitedA.ccdStopped = true;
+        limitedB.ccdStopped = true;
+        ++this.counters.ccdExhaustions;
+        this.counters.ccdLimitedTime += remaining;
+        ++events;
+        continue;
+      }
+      if (!hitA || !hitB || nearest > remaining) {
+        this.moveBodies(remaining);
+        return;
+      }
+      this.moveBodies(nearest);
+      remaining -= nearest;
+      this.narrow.collide(hitA.shape, hitB.shape, this.queryManifold);
+      if (this.queryManifold.distance > physics3DDefaults.contactMargin) {
+        hitA.ccdStopped = true;
+        hitB.ccdStopped = true;
+        ++this.counters.ccdExhaustions;
+        this.counters.ccdLimitedTime += remaining;
+        ++events;
+        continue;
+      }
+      const contact = this.prepareContact(hitA, hitB, this.queryManifold);
+      if (!contact.started) this.start(contact);
+      if (!canContinue() || this.disposed) return;
+      if (!this.valid(hitA) || !this.valid(hitB)) {
+        ++events;
+        continue;
+      }
+      if (!hitA.shape.collider.sensor && !hitB.shape.collider.sensor) {
+        hitA.body?.wake();
+        hitB.body?.wake();
+        for (
+          let iteration = 0;
+          iteration < this.solverIterations;
+          iteration++
+        ) {
+          for (let k = 0; k < contact.manifold.count; k++)
+            this.solve(contact, k);
+          this.solveJoints();
+        }
+      }
+      ++this.counters.ccdImpacts;
+      ++events;
+    }
+    if (remaining > 1e-12) {
+      ++this.counters.ccdExhaustions;
+      this.counters.ccdLimitedTime += remaining;
+    }
+  }
   private step(dt: number, canContinue: () => boolean): void {
     ++this.stepId;
     this.active.length = 0;
+    this.counters.ccdTests = 0;
+    this.counters.ccdIterations = 0;
+    this.counters.ccdImpacts = 0;
+    this.counters.ccdExhaustions = 0;
+    this.counters.ccdLimitedTime = 0;
     this.refreshIndex();
-    this.jointSnapshot.length = 0;
-    this.counters.jointRows = 0;
-    for (const joint of this.constraints) {
-      joint.prepare(dt);
-      this.counters.jointRows += joint.solverRowCount;
-      this.jointSnapshot.push(joint);
-    }
-    this.counters.jointIterations = 0;
-    for (let iteration = 0; iteration < this.solverIterations; iteration++)
-      this.solveJoints();
     for (const e of this.ordered) {
+      e.ccdStopped = false;
       this.validate(e.object);
       const b = e.body;
       if (!b) continue;
@@ -488,59 +711,21 @@ export class PhysicsWorld3D {
         b.velocity.scale(1 / (1 + b.linearDamping * dt));
         b.angularVelocity.scale(1 / (1 + b.angularDamping * dt));
       }
-      const o = e.object;
-      o.capturePhysicsPose();
-      if (!b.lockRotation) {
-        const q = o.rotation,
-          w = b.angularVelocity,
-          x = q.x,
-          y = q.y,
-          z = q.z,
-          s = q.w,
-          h = dt / 2;
-        q.set(
-          x + h * (w.x * s + w.y * z - w.z * y),
-          y + h * (-w.x * z + w.y * s + w.z * x),
-          z + h * (w.x * y - w.y * x + w.z * s),
-          s - h * (w.x * x + w.y * y + w.z * z),
-        ).normalize();
-      }
-      e.shape.refresh(o);
-      this.ccdDisplacement.set(
-        b.velocity.x * dt,
-        b.velocity.y * dt,
-        b.velocity.z * dt,
-      );
-      let fraction = 1;
-      if (b.type === 'dynamic' && b.continuous && !e.shape.collider.sensor) {
-        this.ccdOptions.ignore = o;
-        this.ccdOptions.mask = e.shape.collider.mask;
-        this.ccdHit ??= {
-          object: o,
-          collider: e.shape.collider,
-          point: new Vector3(),
-          normal: new Vector3(),
-          distance: 0,
-        };
-        const hit = this.sweepShape(
-          e.shape,
-          this.ccdDisplacement,
-          this.ccdOptions,
-          this.ccdHit,
-          false,
-          true,
-        );
-        if (hit)
-          fraction = Math.min(1, hit.distance / this.ccdDisplacement.length());
-        fraction = Math.min(fraction, this.sweepSafeFraction);
-      }
-      o.position.x += this.ccdDisplacement.x * fraction;
-      o.position.y += this.ccdDisplacement.y * fraction;
-      o.position.z += this.ccdDisplacement.z * fraction;
-      e.shape.refresh(o);
-      this.index.update(e);
-      b.refreshInertia(e.shape);
+      e.object.capturePhysicsPose();
     }
+    this.jointSnapshot.length = 0;
+    this.counters.jointRows = 0;
+    for (const joint of this.constraints) {
+      joint.prepare(dt);
+      this.counters.jointRows += joint.solverRowCount;
+      this.jointSnapshot.push(joint);
+    }
+    this.counters.jointIterations = 0;
+    for (let iteration = 0; iteration < this.solverIterations; iteration++)
+      this.solveJoints();
+    this.integrateContinuous(dt, canContinue);
+    if (!canContinue() || this.disposed) return;
+    this.refreshIndex();
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     for (const a of this.ordered) {
@@ -557,46 +742,11 @@ export class PhysicsWorld3D {
         if (!(ca.category & cb.mask) || !(cb.category & ca.mask)) continue;
         if (this.connected(a, b)) continue;
         if (!a.body && !b.body && !ca.sensor && !cb.sensor) continue;
-        let row = this.contacts.get(a);
-        let contact = row?.get(b);
         this.counters.narrowphaseTests++;
         this.narrow.collide(a.shape, b.shape, this.queryManifold);
         if (this.queryManifold.distance > physics3DDefaults.contactMargin)
           continue;
-        if (!contact) {
-          contact = new Contact3D(a, b);
-          if (!row) this.contacts.set(a, (row = new Map()));
-          row.set(b, contact);
-        }
-        const m = contact.manifold,
-          q = this.queryManifold;
-        m.normal.copy(q.normal);
-        m.distance = q.distance;
-        m.count = q.count;
-        for (let k = 0; k < m.count; k++) {
-          m.points[k].copy(q.points[k]);
-          m.normals[k].copy(q.normals[k]);
-          m.depths[k] = q.depths[k];
-          contact.normalImpulses[k] = 0;
-          contact.tangentImpulses[k] = 0;
-          this.velocityAt(a.body, m.points[k], this.relative);
-          this.velocityAt(b.body, m.points[k], this.impulse);
-          this.relative.subtract(this.impulse);
-          const n = m.normals[k],
-            vn = this.relative.dot(n),
-            bounce = Math.max(
-              a.body?.restitution ?? 0,
-              b.body?.restitution ?? 0,
-            );
-          contact.targets[k] =
-            vn < -physics3DDefaults.restitutionThreshold ? -vn * bounce : 0;
-          contact.tangent[k].copy(this.relative);
-          contact.tangent[k].x -= n.x * vn;
-          contact.tangent[k].y -= n.y * vn;
-          contact.tangent[k].z -= n.z * vn;
-          contact.tangent[k].normalize();
-        }
-        contact.seen = this.stepId;
+        const contact = this.prepareContact(a, b, this.queryManifold);
         this.active.push(contact);
       }
     }
@@ -975,7 +1125,7 @@ export class PhysicsWorld3D {
     shape.radius += padding;
     shape.updateBounds();
     try {
-      return this.sweepShape(shape, displacement, options, out, false, false, object);
+      return this.sweepShape(shape, displacement, options, out, false, object);
     } finally {
       shape.radius = radius;
       shape.updateBounds();
@@ -1073,7 +1223,7 @@ export class PhysicsWorld3D {
         : (this.sweepQueryShape = new Shape3D(collider));
     shape.refresh(object);
     shape.validateMoving('kinematic');
-    return this.sweepShape(shape, displacement, options, out, false, false, object);
+    return this.sweepShape(shape, displacement, options, out, false, object);
   }
   private sweepShape(
     shape: Shape3D,
@@ -1081,7 +1231,6 @@ export class PhysicsWorld3D {
     options: PhysicsQueryOptions3D,
     out: PhysicsHit3D | undefined,
     inside: boolean,
-    staticOnly = false,
     ignoreOwner?: Object3D,
   ): PhysicsHit3D | undefined {
     const dx = displacement.x,
@@ -1091,25 +1240,17 @@ export class PhysicsWorld3D {
     if (len < 1e-12) return undefined;
     let nearest = 1 + 1e-10,
       result: PhysicsHit3D | undefined;
-    this.sweepSafeFraction = 1;
     this.queryBounds.swept(
       shape.bounds,
       displacement,
       physics3DDefaults.sweepTolerance,
     );
-    if (staticOnly) {
-      this.index.query(this.queryBounds, this.queryCandidates);
-      this.counters.queryCandidates = this.queryCandidates.length;
-    } else this.candidates(this.queryBounds);
+    this.candidates(this.queryBounds);
     for (const e of this.queryCandidates) {
       if (
         !this.accepts(e, options) ||
         e.shape === shape ||
-        e.object === ignoreOwner ||
-        (staticOnly &&
-          ((e.body && e.body.type !== 'static') ||
-            e.shape.collider.sensor ||
-            !(shape.collider.category & e.shape.collider.mask)))
+        e.object === ignoreOwner
       )
         continue;
       const movingCount =
@@ -1163,7 +1304,6 @@ export class PhysicsWorld3D {
               dz,
               nearest,
               inside,
-              staticOnly,
             );
             if (t >= nearest) continue;
             nearest = t;
@@ -1194,7 +1334,6 @@ export class PhysicsWorld3D {
     dz: number,
     limit: number,
     inside: boolean,
-    conservative: boolean,
   ): number {
     let t = 0,
       translated = 0;
@@ -1221,9 +1360,7 @@ export class PhysicsWorld3D {
         t += m.distance / closing;
         if (t > limit || t > 1) return Infinity;
       }
-      // Exhaustion is not a fabricated hit. CCD retains only the proven-free translation prefix.
-      if (conservative)
-        this.sweepSafeFraction = Math.min(this.sweepSafeFraction, translated);
+      // Iteration exhaustion is not a fabricated query hit.
       return Infinity;
     } finally {
       shape.translate(-dx * translated, -dy * translated, -dz * translated);
@@ -1247,13 +1384,14 @@ export class PhysicsWorld3D {
     for (const joint of this.constraints) joint.detach();
     this.constraints.length = 0;
     this.jointLinks.clear();
+    ++this.counters.indexGeneration;
     this.jointSnapshot.length = 0;
-    this.ccdHit = undefined;
-    this.ccdOptions.ignore = undefined;
+    this.sweptEntries.length = 0;
+    this.ccdCandidates.length = 0;
+    this.sweptIndex.clear();
     this.placementShape = undefined;
     this.capsuleQueryShape = undefined;
     this.sweepQueryShape = undefined;
-    ++this.counters.indexGeneration;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     this.counters.queryCandidates = 0;

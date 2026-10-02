@@ -11,6 +11,8 @@ export declare const physics3DDefaults: {
     readonly sleepTime: 0.6;
     readonly sweepIterations: 48;
     readonly sweepTolerance: 0.0001;
+    readonly ccdIterations: 96;
+    readonly ccdMaxImpacts: 16;
     readonly jointBias: 0.2;
     readonly jointMaxBias: 10;
     readonly characterSkin: 0.003;

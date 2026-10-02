@@ -22,7 +22,7 @@ export interface RigidBodyOptions3D {
   gravityScale?: number;
   lockRotation?: boolean;
   allowSleep?: boolean;
-  /** Fixed-orientation translation CCD against static shapes; one impact per fixed tick, no rotation/dynamic-pair CCD. */
+  /** Opt-in conservative rigid-motion CCD, including rotation and moving-body pairs. */
   continuous?: boolean;
 }
 /** Root dynamic/kinematic body with analytic primitive or uniform-density compound inertia. */

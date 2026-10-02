@@ -10,6 +10,75 @@ import {
   TriangleMeshCollider3D,
 } from '../packages/core/src/physics3d/index.js';
 
+it('resolves opposing fast dynamic bodies at relative TOI, including restitution and swept sensors', () => {
+  const scene = new Scene(),
+    bodies: Object3D[] = [];
+  for (const sign of [-1, 1]) {
+    const object = new Object3D();
+    object.position.x = sign * 3;
+    object.collider = new SphereCollider3D(0.25);
+    object.body = new RigidBody3D({
+      continuous: true,
+      lockRotation: true,
+      restitution: 1,
+      gravityScale: 0,
+      allowSleep: false,
+    });
+    object.body.velocity.x = -sign * 600;
+    bodies.push(scene.add(object));
+  }
+  const sensor = new Object3D();
+  sensor.position.x = -2;
+  sensor.collider = new BoxCollider3D(new Vector3(0.01, 1, 1), {
+    sensor: true,
+  });
+  scene.add(sensor);
+  let impacts = 0,
+    triggers = 0;
+  bodies[0].addEventListener('collisionstart', (event) => {
+    const detail = (event as CustomEvent<{ sensor: boolean }>).detail;
+    if (detail.sensor) triggers++;
+    else impacts++;
+  });
+  scene.physics3D.update(scene.physics3D.fixedDelta);
+  expect(bodies[0].body!.velocity.x).toBeCloseTo(-600, 3);
+  expect(bodies[1].body!.velocity.x).toBeCloseTo(600, 3);
+  expect(bodies[0].position.x).toBeLessThan(bodies[1].position.x);
+  expect(impacts).toBe(1);
+  expect(triggers).toBe(1);
+  scene.destroy();
+});
+
+it('finds an angular thin-box impact even when both endpoint poses miss a static mesh', () => {
+  const scene = new Scene(),
+    obstacle = new Object3D(),
+    blade = new Object3D();
+  obstacle.collider = new TriangleMeshCollider3D(
+    [1, 0.7, -0.3, 1, 1.4, -0.3, 1, 1.4, 0.3, 1, 0.7, 0.3],
+    [0, 1, 2, 0, 2, 3],
+  );
+  scene.add(obstacle);
+  blade.collider = new BoxCollider3D(new Vector3(2, 0.02, 0.02));
+  blade.body = new RigidBody3D({
+    continuous: true,
+    gravityScale: 0,
+    allowSleep: false,
+    friction: 0,
+  });
+  const initial = Math.PI / (2 * scene.physics3D.fixedDelta);
+  blade.body.angularVelocity.z = initial;
+  scene.add(blade);
+  let starts = 0;
+  blade.addEventListener('collisionstart', () => starts++);
+  scene.physics3D.update(scene.physics3D.fixedDelta);
+  expect(starts).toBe(1);
+  expect(blade.body.angularVelocity.z).toBeLessThan(initial - 1);
+  expect(
+    2 * Math.atan2(Math.abs(blade.rotation.z), blade.rotation.w),
+  ).toBeLessThan(1.5);
+  scene.destroy();
+});
+
 it('refreshes exact static/ancestor mutations without recomputing unchanged query geometry', () => {
   const scene = new Scene(),
     parent = new Object3D(),
