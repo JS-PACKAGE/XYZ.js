@@ -2,7 +2,7 @@
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
-目前 root metadata 是 `1.12.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
+目前 root metadata 是 `1.12.1`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序同步 DPR→Clock→Camera2D viewport→Input→Scene timers→Scene animations→Scene.update→World Systems→Renderer，最後清除 input edges。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，初始化失敗或 destroy 釋放 ownership。第一個 fatal frame／graphics failure 會被保留並送出 error；失敗後 resume 明確拒絕。Scene 準備失敗與 Audio 排程錯誤也可送出 error，但不把 graphics 鎖成 fatal。
@@ -230,3 +230,5 @@ Safari／driver限制保持具名，不由desktop automation或模擬profile解�
 ### v1.12.0 release verification scheduling
 
 Site smoke以sorted source index modulo的1-based `--shard index/count`（count≤32）分配example；每個example保留全部既有backend cases，filters在assignment之後套用。每shard獨立server／owned muted Chromium／output，完整驗catalogue及links，report保留available／planned／completed／exercised stable IDs；empty、blocked-only或incomplete不能PASS。CI四個必要macOS／Metal jobs並行，production baseline／installed starter在另一macOS job，不與site browser爭同一runner；native audio保留原Linux／PulseAudio環境與精度assertion，獨立必要job。既有Linux三engine regression仍保留；此排程不是multi-thread renderer或跨平台FPS保證。Starter collection driver用真實held keys到公開HUD collection狀態，保留authored-clock bound／wall watchdog及其後自然90秒玩法。
+
+v1.12.1 mixer保留已生效且target／tau未變的single-target native duck curve，ownership重疊不重複cancel／retarget；新future target仍追加在原curve，已有future plan／tau或target改變則重建captured-clock排程。Portable-settings remap以可信KeyL到一個HUD gameplay second，再pause並驗正式download checkpoint位移，不以固定350ms wall hold假定幀數。Native reference tolerance、contexts與workload不縮減。

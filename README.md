@@ -1,12 +1,12 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.12.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.12.1**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
 GitHub **v1.10** uses `xyz.js-1.10.0.tgz` and `SHA256SUMS`, published only after the shared CI gates pass. It adds P58–P70 lazy startup, pinned semantic assets, scoped resource ownership, safe save-candidate publication, observability, shared navigation budgets, moving-platform/crouch controllers, 3D joints, dynamic/angular CCD, collision-derived navigation, international text geometry and native audio effects/automation/world bindings, plus eight English demos and Node 22/24/26 CI. Support remains limited to documented profiles. Earlier releases remain unchanged; v1.9 introduced P43–P57 and v1.8 introduced P40–P42/Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
 
 GitHub **v1.11 / 1.11.0** packages P71–P87 and all 45 direct-launch examples. The tag-triggered Release workflow verifies the shared CI gates before publishing `xyz.js-1.11.0.tgz` and `SHA256SUMS`. Existing physical-device, audible-output, Safari, assistive-technology and driver-reset limitations remain unchanged. 本次發佈不擴大驗收範圍；今回の公開は検証範囲を拡張しません。
 
-GitHub **v1.12.0 / package 1.12.0** packages P88–P96 while retaining 1.x compatibility. The tag-triggered workflow verifies CI before publishing `xyz.js-1.12.0.tgz` and `SHA256SUMS`. The initial `v1.12` tag remains unchanged after its failed release gate; corrected verification uses the new `v1.12.0` tag. 本次發佈納入 P88–P96，不擴大實機或效能認證；今回の公開は P88–P96 を含み、実機・性能の検証範囲を拡張しません。
+GitHub **v1.12.1 / package 1.12.1** packages P88–P96 while retaining 1.x compatibility. The tag-triggered workflow verifies CI before publishing `xyz.js-1.12.1.tgz` and `SHA256SUMS`. The failed `v1.12` and `v1.12.0` tags remain unchanged; corrected verification uses the new patch tag. 本次發佈納入 P88–P96 與 release-gate 修正，不擴大實機或效能認證；今回の公開は P88–P96 と release-gate 修正を含み、実機・性能の検証範囲を拡張しません。
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [Security policy](SECURITY.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 

@@ -242,4 +242,44 @@ describe('independent mixer clocks', () => {
     );
     mixer.destroy();
   });
+
+  for (const nativeHold of [false, true])
+    it(`updates a same-target attack and removes an obsolete release (native hold=${nativeHold})`, () => {
+      const native = new RenderContext(nativeHold),
+        mixer = new AudioMixer();
+      mixer.attach(native.context);
+      mixer.setDucking([
+        {
+          source: 'sfx',
+          target: 'music',
+          gain: 0.2,
+          attack: 0.3,
+          release: 0.6,
+        },
+      ]);
+      const first = mixer.acquire('sfx');
+      native.time = 0.1;
+      mixer.setDucking([
+        {
+          source: 'sfx',
+          target: 'music',
+          gain: 0.2,
+          attack: 0.6,
+          release: 0.6,
+        },
+      ]);
+      const rendered = mixer.analyser('music') as unknown as RenderNode;
+      expect(rendered.render(0.2)).toBeCloseTo(0.2 + 0.8 * Math.exp(-1.5));
+      native.time = 0.2;
+      first.release(0.2);
+      const releaseFrom = 0.2 + 0.8 * Math.exp(-2.5);
+      expect(rendered.render(0.5)).toBeCloseTo(
+        1 + (releaseFrom - 1) * Math.exp(-0.5),
+      );
+      native.time = 0.3;
+      mixer.acquire('sfx');
+      // The new owner keeps ducking beyond the first owner's scheduled release.
+      expect(rendered.render(0.6)).toBeCloseTo(0.2 + 0.8 * Math.exp(-3.5));
+      mixer.destroy();
+    });
 });

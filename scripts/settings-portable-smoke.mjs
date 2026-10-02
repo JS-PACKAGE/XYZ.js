@@ -135,9 +135,36 @@ export async function verifyPortableSettings(browser, url, kind, output) {
     await source.locator('#start').click();
     await status(source, 'mode', 'Deliver the crystals!');
     await source.locator('#game').focus();
+    const movementStart = await source.locator('#hud').innerText();
+    const movementMatch = /^Crystals: \d\/5 · Seconds: (\d+)$/.exec(
+      movementStart,
+    );
+    assert.ok(movementMatch, 'Remapped movement requires a playing HUD');
+    const movementSeconds = Number(movementMatch[1]);
+    let movement;
     await source.keyboard.down('KeyL');
-    await source.waitForTimeout(350);
-    await source.keyboard.up('KeyL');
+    try {
+      const reached = await source.waitForFunction(
+        (startSeconds) => {
+          const hud = document.querySelector('#hud')?.textContent ?? '';
+          const match = /^Crystals: \d\/5 · Seconds: (\d+)$/.exec(hud);
+          if (!match) throw new Error(`Unrecognized remap HUD: ${hud}`);
+          const gameplaySeconds = startSeconds - Number(match[1]);
+          const mode = document.querySelector('#mode')?.textContent;
+          return gameplaySeconds >= 1 || mode !== 'Deliver the crystals!'
+            ? { hud, gameplaySeconds, mode }
+            : false;
+        },
+        movementSeconds,
+        { timeout: 30000 },
+      );
+      movement = await reached.jsonValue();
+      await reached.dispose();
+      assert.equal(movement.mode, 'Deliver the crystals!');
+      assert.ok(movement.gameplaySeconds < 5);
+    } finally {
+      await source.keyboard.up('KeyL');
+    }
     await source.keyboard.press('Escape');
     await status(source, 'save-status', 'Checkpoint and settings saved.');
     const checkpoint = await download(
@@ -245,6 +272,12 @@ export async function verifyPortableSettings(browser, url, kind, output) {
       status: 'passed',
       restoredSettings: true,
       nativeRemap: true,
+      remappedMovement: {
+        key: 'KeyL',
+        beforeHUD: movementStart,
+        ...movement,
+        exportedPosition: checkpointData.checkpoint.position,
+      },
       freshTransfer: true,
       invalidSettingsAndSavePreserved: true,
       originalRejectedBytes: true,

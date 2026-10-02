@@ -400,13 +400,6 @@ export class AudioMixer {
         // One captured clock serves every bus in this context for this control operation.
         // Keep the exact rendered target envelope; AudioParam.value is not a held value.
         const held = duckValueAt(bus.duckPlan, contextNow);
-        if (typeof param.cancelAndHoldAtTime === 'function')
-          param.cancelAndHoldAtTime(contextNow);
-        else {
-          param.cancelScheduledValues(contextNow);
-          param.setValueAtTime(held, contextNow);
-        }
-        bus.duckPlan.length = 0;
         let previousTarget: number | undefined;
         for (const time of times) {
           let target = 1,
@@ -441,6 +434,28 @@ export class AudioMixer {
               audioDefaults.gainSmoothing,
               target < (previousTarget ?? held) ? attack : release,
             ) / 3;
+          if (previousTarget === undefined) {
+            const previous = bus.duckPlan[0];
+            // Overlapping owners do not restart an unchanged native envelope.
+            // Repeated hold/target calls can introduce a render-boundary step.
+            if (
+              bus.duckPlan.length === 1 &&
+              previous &&
+              previous.at <= contextNow &&
+              previous.target === target &&
+              previous.tau === tau
+            ) {
+              previousTarget = target;
+              continue;
+            }
+            if (typeof param.cancelAndHoldAtTime === 'function')
+              param.cancelAndHoldAtTime(contextNow);
+            else {
+              param.cancelScheduledValues(contextNow);
+              param.setValueAtTime(held, contextNow);
+            }
+            bus.duckPlan.length = 0;
+          }
           // Every future boundary starts at the previous target's exact exponential value.
           const from = duckValueAt(bus.duckPlan, at, held);
           param.setTargetAtTime(target, at, tau);

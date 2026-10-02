@@ -1,6 +1,6 @@
 # Reproducible headless asset recipe
 
-This **v1.12 / 1.12.0** development recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads codecs, executes asset-provided commands, or modifies official OPM bytes. Historical P50 evidence remains in ACCEPTANCE; release verification does not imply cross-platform codec certification.
+This **v1.12.1 / 1.12.1** development recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads codecs, executes asset-provided commands, or modifies official OPM bytes. Historical P50 evidence remains in ACCEPTANCE; release verification does not imply cross-platform codec certification.
 
 ## Prerequisites and commands
 

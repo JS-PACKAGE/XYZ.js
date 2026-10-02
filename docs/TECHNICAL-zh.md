@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述 **1.12.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P96 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權 GitHub v1.12 發佈。
+本參考描述 **1.12.1／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P96 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權 GitHub v1.12 發佈。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
@@ -1273,3 +1273,5 @@ streaming media或任意origin快取。
 Deployed-site CLI支援1-based `--shard index/count`，count≤32。先以sorted source-example ordinal modulo分配，再套filters；每個example保留全部advertised backend profiles與unsupported 3D明示拒絕。每shard自有server／managed muted Chromium process／output，完整驗兩catalogues及links；report保留available／planned／completed／exercised IDs，empty、blocked-only或incomplete均FAIL。四個必要CI shard jobs全部通過才可發佈。
 
 目前site與production／starter jobs使用macOS／Metal；native audio保留原Linux／PulseAudio環境、reference tolerance及獨立必要job。Linux／SwiftShader browser regression matrix另保留。原production baseline frame counts、measurement deadline與teardown threshold不變，不能宣稱Linux效能修復或universal FPS認證。Starter harness以可信鍵盤到公開HUD collection狀態，不再以wall-clock delay推測移動；其後自然玩法、saves及offline gates仍必要。操作見 [USAGE](USAGE-zh.md)，詳盡英文 [SECURITY](../SECURITY.md) 說明安全政策；實際hosted結果與原FAIL見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+v1.12.1 reliability patch保留已生效且target／tau未變的single-target duck envelope，不因ownership重疊重啟。新future transitions仍追加在原curve，target／tau或既有future plan改變則按captured native clock重建，不以sampled `AudioParam.value`猜hold。Portable-settings harness以可信remapped input到一個HUD gameplay second後驗downloaded checkpoint，原位移門檻不變。Native reference精度、concurrency、八context workload與owned teardown均保留。
