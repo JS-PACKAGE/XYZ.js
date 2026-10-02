@@ -39,13 +39,18 @@
     "dist/vendor/opm/dist/worklet/processor.js",
     "scripts/create-game.mjs",
     "scripts/starter-package.mjs",
+    "scripts/offline-deployment.mjs",
+    "scripts/deployment-server.mjs",
+    "scripts/offline",
     "starters"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/minify-dist.mjs && node scripts/copy-vendor.mjs",
+    "smoke:offline": "node scripts/offline-browser.mjs",
     "build:site": "pnpm build && node scripts/build-site.mjs",
     "smoke:site": "node scripts/smoke-site.mjs",
+    "smoke:starters": "node scripts/starter-smoke.mjs",
     "create:game": "node scripts/create-game.mjs",
     "audio:native-load": "node scripts/audio-native-load.mjs",
     "benchmark:production": "node scripts/production-workloads.mjs",
@@ -68,8 +73,7 @@
     "soak:mixed": "node scripts/mixed-soak.mjs",
     "assets:build": "node scripts/build-assets.mjs",
     "check:asset-deployment": "node scripts/verify-asset-deployment.mjs",
-    "docs:api": "typedoc",
-    "smoke:starters": "node scripts/starter-smoke.mjs"
+    "docs:api": "typedoc"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",

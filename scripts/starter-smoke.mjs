@@ -21,12 +21,10 @@ import { setTimeout } from 'node:timers';
 import { chromium } from 'playwright-core';
 import { createGame } from './create-game.mjs';
 import { browserLaunchOptions, browserIdentity } from './browser-launch.mjs';
-import {
-  installSilentSurface,
-  pngPixels,
-  staticSiteServer,
-} from './site-smoke-support.mjs';
+import { installSilentSurface, pngPixels } from './site-smoke-support.mjs';
+import { verifyOfflineDeployment } from './offline-browser.mjs';
 import { verifyPortableSettings } from './settings-portable-smoke.mjs';
+import { serveDeployment } from './deployment-server.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -160,6 +158,7 @@ try {
       );
       await command(['build'], game, `${kind}-build.log`, {
         GAME_BASE: `/games/${kind}/`,
+        GAME_OFFLINE: '1',
       });
       await cp(join(game, 'dist'), join(output, `${kind}-deployment`), {
         recursive: true,
@@ -174,11 +173,10 @@ try {
         ).dependencies['xyz.js'],
       };
       // Serve only deployed files; neither the repository nor node_modules is reachable.
-      const deployed = join(workspace, 'deployed', kind);
-      await cp(join(game, 'dist'), join(deployed, 'games', kind), {
-        recursive: true,
+      server = await serveDeployment({
+        directory: join(game, 'dist'),
+        base: `/games/${kind}/`,
       });
-      server = await staticSiteServer(deployed);
       context = await browser.newContext({
         viewport: { width: 1100, height: 1000 },
         deviceScaleFactor: 1,
@@ -206,7 +204,7 @@ try {
         await new Promise((accept) => setTimeout(accept, 500));
         await route.continue();
       });
-      const url = `${server.origin}/games/${kind}/?renderer=${kind === '2d' ? 'canvas2d' : 'webgl2'}`;
+      const url = `${server.url}?renderer=${kind === '2d' ? 'canvas2d' : 'webgl2'}`;
       await page.goto(url, { waitUntil: 'domcontentloaded' });
       await mode(page, 'Loading release assets…');
       check(
@@ -362,6 +360,12 @@ try {
       );
       await server.close();
       server = undefined;
+      row.offline = await verifyOfflineDeployment({
+        directory: join(game, 'dist'),
+        template: kind,
+        base: `/games/${kind}/`,
+        output: join(output, `${kind}-offline`),
+      });
       row.status = 'passed';
     } catch (error) {
       row.status = 'failed';

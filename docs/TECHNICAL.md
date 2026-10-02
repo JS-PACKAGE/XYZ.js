@@ -1322,3 +1322,21 @@ device profiles report real host identity or explicit CDP CPU/network pressure,
 never physical low-tier provenance. Keep RAF, CPU submission, nullable native-pass
 GPU time and separate memory domains. No operator limits means measured/BLOCKED,
 not performance PASS; CI's 5,000 ms teardown bound is only a host-scoped hang guard.
+
+Starter production builds opt in with `GAME_OFFLINE=1` and base-relative
+`GAME_BASE`. Ship the entire generated deployment tree, including OPM/vendor,
+module workers/worklets and `deployment-policy.json`/header artifacts. Configure
+the host to actually apply the documented CSP, or use the packaged
+`scripts/deployment-server.mjs`; a JSON file alone does not enforce a policy.
+The default policy contains neither inline-script/style permission nor eval.
+
+The generated worker embeds a complete versioned manifest and verifies resource
+hashes/MIME before publishing a cache generation; credentials, private/no-store
+responses and arbitrary runtime URLs are not cached. A failed update keeps the
+prior complete generation. Activation waits for old tabs rather than forcefully
+mixing versions; the previous generation remains available for rollback.
+Uninstall removes only owned registrations/caches, not player saves or unrelated
+origin data. Opt-out builds remove stale generated worker artifacts. Offline proof
+must use fresh production navigation, actual native module/node loads and
+manifest response verification—not page-network request counts, which omit
+AudioWorklet fetches. No offline streaming-media or arbitrary-origin caching promise.

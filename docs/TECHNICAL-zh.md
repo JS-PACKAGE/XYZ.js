@@ -1252,3 +1252,18 @@ CPU／network pressure，不能當physical low-tier provenance。RAF、CPU submi
 nullable native-pass GPU time與memory domains分開記；無operator limits時為
 measured／BLOCKED而非performance PASS，CI的5,000ms teardown只有host-scoped
 hang guard意義。
+
+Starter production build以 `GAME_OFFLINE=1` opt-in，加base-relative `GAME_BASE`；
+部署完整產物樹，包括OPM／vendor、module worker／worklet、
+`deployment-policy.json`／header artifacts。Host需真的套CSP，或使用套件內
+`scripts/deployment-server.mjs`；僅放JSON不會強制policy。預設不允許inline
+script／style，也不允許eval。
+
+Worker嵌入完整versioned manifest，驗hash／MIME後才發布cache generation；
+credentials、private／no-store responses、任意runtime URLs不快取。Failed update
+保留前一整套generation；activation等待舊tabs離開，不強制混版，保留上一代rollback。
+Uninstall只刪自有registrations／caches，不刪player saves或其他origin data；
+opt-out build移除舊generated worker artifacts。Offline proof必須fresh production
+navigation、真native module／node loads與manifest response verification，
+不是漏掉AudioWorklet fetches的page-network request counts。不承諾offline
+streaming media或任意origin快取。

@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 import process from 'node:process';
+import { resolve } from 'node:path';
+import { prepareDeployment } from './scripts/offline-deployment.mjs';
 const base = process.env.GAME_BASE ?? './';
+let output;
 if (
   base !== './' &&
   (!base.startsWith('/') ||
@@ -28,6 +31,18 @@ export default defineConfig({
                 : base + 'engine/src/index.js',
             external: true,
           };
+      },
+    },
+    {
+      name: 'strict-csp-offline-deployment',
+      apply: 'build',
+      configResolved(config) {
+        output = resolve(config.root, config.build.outDir);
+      },
+      async closeBundle() {
+        await prepareDeployment(output, {
+          offline: process.env.GAME_OFFLINE === '1',
+        });
       },
     },
   ],

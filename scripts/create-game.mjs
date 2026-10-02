@@ -79,6 +79,21 @@ export async function createGame(args) {
       errorOnExist: true,
       force: false,
     });
+  await cp(
+    join(root, 'scripts/offline-deployment.mjs'),
+    join(target, 'scripts/offline-deployment.mjs'),
+    { errorOnExist: true, force: false },
+  );
+  await cp(join(root, 'scripts/offline'), join(target, 'scripts/offline'), {
+    recursive: true,
+    errorOnExist: true,
+    force: false,
+  });
+  await cp(
+    join(root, 'scripts/deployment-server.mjs'),
+    join(target, 'scripts/deployment-server.mjs'),
+    { errorOnExist: true, force: false },
+  );
   await mkdir(join(target, 'vendor'), { recursive: true });
   const dependency = packageInfo.directory
     ? 'vendor/xyz.js'
