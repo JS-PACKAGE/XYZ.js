@@ -19,7 +19,7 @@ export interface TextureCoordinateOptions {
 }
 export interface TextureCoordinates {
     readonly texCoord: 0 | 1;
-    /** [a,b,c,d,tx,ty]: u'=a*u+c*v+tx; v'=b*u+d*v+ty. */
+    /** Affine `[a,b,c,d,tx,ty]`: `u'=a*u+c*v+tx; v'=b*u+d*v+ty`. */
     readonly transform: readonly [number, number, number, number, number, number];
 }
 export interface PBRMaterialOptions extends TextureMaterialOptions {
