@@ -1,3 +1,4 @@
+import { beginTimedRenderPass } from './gpu-timing.js';
 import {
   Texture,
   type Texture2DSource,
@@ -595,7 +596,7 @@ export class WebGPURender2D {
   private open(target: GPUColorTarget, clear: boolean): GPURenderPassEncoder {
     if (this.pass && this.passTarget === target && !clear) return this.pass;
     this.closePass();
-    this.pass = this.encoder!.beginRenderPass({
+    this.pass = beginTimedRenderPass(this.encoder!, {
       colorAttachments: [
         {
           view: target.view,

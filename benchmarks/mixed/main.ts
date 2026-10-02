@@ -482,7 +482,10 @@ class MixedScene extends Scene {
     if (params.get('network') === '1') {
       await timed(networkWorkload, async () => {
         const response = await fetch(
-          `/__xyz-soak-network?cycle=${cycle}&asset=${assetChanges}`,
+          new URL(
+            `./network.bin?cycle=${cycle}&asset=${assetChanges}`,
+            import.meta.url,
+          ),
           { cache: 'no-store' },
         );
         if (!response.ok)

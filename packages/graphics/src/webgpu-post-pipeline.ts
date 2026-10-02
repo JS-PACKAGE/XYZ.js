@@ -1,3 +1,4 @@
+import { beginTimedRenderPass } from './gpu-timing.js';
 import type { PostProcessingSettings } from '../../core/src/render-settings.js';
 import { GraphicsError, WebGPUInitializationError } from './errors.js';
 import { fxaaWGSL } from './fxaa-shaders.js';
@@ -249,14 +250,14 @@ export class WebGPUPostPipeline {
     else this.releaseFxaa();
     this.attachment.view = fxaa ? this.fxaaView : view;
     try {
-      const pass = encoder.beginRenderPass(this.descriptor);
+      const pass = beginTimedRenderPass(encoder, this.descriptor);
       pass.setPipeline(this.pipeline);
       pass.setBindGroup(0, this.bindGroup!);
       pass.draw(3);
       pass.end();
       if (fxaa) {
         this.attachment.view = view;
-        const fxaa = encoder.beginRenderPass(this.descriptor);
+        const fxaa = beginTimedRenderPass(encoder, this.descriptor);
         fxaa.setPipeline(this.fxaaPipeline);
         fxaa.setBindGroup(0, this.fxaaGroup!);
         fxaa.draw(3);

@@ -46,6 +46,7 @@
     "build": "tsc -p tsconfig.json && node scripts/minify-dist.mjs && node scripts/copy-vendor.mjs",
     "create:game": "node scripts/create-game.mjs",
     "audio:native-load": "node scripts/audio-native-load.mjs",
+    "benchmark:production": "node scripts/production-workloads.mjs",
     "platform:gate": "node scripts/platform-hardware.mjs",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",

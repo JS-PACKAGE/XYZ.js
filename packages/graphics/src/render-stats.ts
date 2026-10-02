@@ -20,6 +20,8 @@ export type GpuTimingStatus =
 export interface GpuTimingStats {
   readonly status: GpuTimingStatus;
   readonly source: 'webgpu-timestamp-query' | 'webgl2-disjoint-query' | null;
+  /** WebGPU sums recorded real passes; WebGL measures the native query command interval. */
+  readonly scope: 'native-pass-sum' | 'native-command-interval' | null;
   readonly reason: string | null;
   readonly milliseconds: number | null;
   readonly sampledFrame: number | null;
@@ -38,6 +40,7 @@ export interface GpuTimingStats {
 export class GpuFrameTiming implements GpuTimingStats {
   status: GpuTimingStatus = 'disabled';
   source: GpuTimingStats['source'] = null;
+  scope: GpuTimingStats['scope'] = null;
   reason: string | null = 'GPU timing was not requested.';
   milliseconds: number | null = null;
   sampledFrame: number | null = null;

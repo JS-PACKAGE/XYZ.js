@@ -1,3 +1,4 @@
+import { beginTimedRenderPass } from '../gpu-timing.js';
 import {
   Material2D,
   PostProcessor2D,
@@ -674,7 +675,7 @@ export class WebGPU2DEffects {
     this.attachment.view = output;
     this.attachment.loadOp = load ? 'load' : 'clear';
     try {
-      const pass = encoder.beginRenderPass(this.passDescriptor);
+      const pass = beginTimedRenderPass(encoder, this.passDescriptor);
       this.stats().pass2D();
       pass.setPipeline(pipeline);
       pass.setBindGroup(0, texture);

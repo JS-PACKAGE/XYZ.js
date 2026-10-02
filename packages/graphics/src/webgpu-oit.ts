@@ -1,3 +1,4 @@
+import { beginTimedRenderPass } from './gpu-timing.js';
 import { oitCompositeWGSL } from './oit-shaders.js';
 import type { FrameStats } from './render-stats.js';
 
@@ -52,13 +53,13 @@ export class WebGPUOIT {
   ): GPURenderPassEncoder {
     if (this.width !== width || this.height !== height || !this.group)
       this.allocate(width, height);
-    return encoder.beginRenderPass({
+    return beginTimedRenderPass(encoder, {
       colorAttachments: this.colors,
       depthStencilAttachment: { view: depth, depthReadOnly: true },
     });
   }
   resolve(encoder: GPUCommandEncoder, target: GPUTextureView): void {
-    const pass = encoder.beginRenderPass({
+    const pass = beginTimedRenderPass(encoder, {
       colorAttachments: [{ view: target, loadOp: 'load', storeOp: 'store' }],
     });
     try {

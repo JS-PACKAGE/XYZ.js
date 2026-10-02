@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { BoundedTiming, BoundedTrend } from '../benchmarks/measurement.js';
 import { GpuFrameTiming } from '../packages/graphics/src/render-stats.js';
-import { configureGpuTiming } from '../packages/graphics/src/gpu-timing.js';
+import {
+  configureGpuTiming,
+  nativePassDurationNanoseconds,
+} from '../packages/graphics/src/gpu-timing.js';
 
 describe('asynchronous GPU sample availability', () => {
   it('never converts disabled, invalid or disjoint samples to successful zero timing', () => {
@@ -40,6 +43,42 @@ describe('asynchronous GPU sample availability', () => {
       ).toThrow(RangeError);
     },
   );
+});
+
+describe('native pass duration boundaries', () => {
+  it('preserves small durations above the safe absolute-clock range and excludes inter-pass gaps', () => {
+    const clock = 2n ** 60n;
+    expect(
+      nativePassDurationNanoseconds(
+        new BigUint64Array([
+          clock,
+          clock + 17n,
+          clock + 1_000_000n,
+          clock + 1_000_023n,
+        ]),
+      ),
+    ).toBe(40n);
+  });
+  it('never reports a partial aggregate if any pass is missing or reversed', () => {
+    expect(
+      nativePassDurationNanoseconds(new BigUint64Array([5n, 8n, 0n, 0n])),
+    ).toBeNull();
+    expect(
+      nativePassDurationNanoseconds(new BigUint64Array([5n, 8n, 9n, 4n])),
+    ).toBeNull();
+    expect(nativePassDurationNanoseconds(new BigUint64Array([5n]))).toBeNull();
+  });
+  it('accepts a legitimate zero origin but not an entirely quantized zero duration or inexact conversion', () => {
+    expect(nativePassDurationNanoseconds(new BigUint64Array([0n, 19n]))).toBe(
+      19n,
+    );
+    expect(
+      nativePassDurationNanoseconds(new BigUint64Array([19n, 19n])),
+    ).toBeNull();
+    expect(
+      nativePassDurationNanoseconds(new BigUint64Array([0n, 2n ** 53n])),
+    ).toBeNull();
+  });
 });
 
 describe('bounded trend evidence', () => {

@@ -48,46 +48,125 @@ interface GpuSlot {
   query: GPUQuerySet;
   resolve: GPUBuffer;
   readback: GPUBuffer;
-  start: GPUComputePassDescriptor;
-  end: GPUComputePassDescriptor;
+  writes: (GPURenderPassTimestampWrites & GPUComputePassTimestampWrites)[];
   frame: number;
+  passes: number;
+  overflow: boolean;
   busy: boolean;
 }
 
-/** Empty timestamp passes bracket all commands in the frame's encoder, not queue wait/present. */
+const timedEncoders = new WeakMap<GPUCommandEncoder, WebGpuTimer>();
+
+/** Integer subtraction preserves duration precision even when absolute GPU clocks exceed 2^53. */
+export function nativePassDurationNanoseconds(
+  values: BigUint64Array,
+): bigint | null {
+  if (!values.length || values.length % 2) return null;
+  let total = 0n;
+  for (let index = 0; index < values.length; index += 2) {
+    const start = values[index]!;
+    const end = values[index + 1]!;
+    if (end < start || (start === 0n && end === 0n)) return null;
+    total += end - start;
+  }
+  // Equal nonzero ticks may be quantized; only the complete positive sum is usable.
+  return total > 0n && total <= 9007199254740991n ? total : null;
+}
+
+/** Timestamp only real native passes. The native API consumes descriptors synchronously. */
+export function beginTimedRenderPass(
+  encoder: GPUCommandEncoder,
+  descriptor: GPURenderPassDescriptor,
+): GPURenderPassEncoder {
+  const previous = descriptor.timestampWrites;
+  const writes = timedEncoders.get(encoder)?.nextPass();
+  if (writes && !previous) descriptor.timestampWrites = writes;
+  try {
+    return encoder.beginRenderPass(descriptor);
+  } finally {
+    if (previous) descriptor.timestampWrites = previous;
+    else delete descriptor.timestampWrites;
+    if (writes && previous) timedEncoders.get(encoder)?.conflict();
+  }
+}
+
+export function beginTimedComputePass(
+  encoder: GPUCommandEncoder,
+  descriptor: GPUComputePassDescriptor,
+): GPUComputePassEncoder {
+  const previous = descriptor.timestampWrites;
+  const writes = timedEncoders.get(encoder)?.nextPass();
+  if (writes && !previous) descriptor.timestampWrites = writes;
+  try {
+    return encoder.beginComputePass(descriptor);
+  } finally {
+    if (previous) descriptor.timestampWrites = previous;
+    else delete descriptor.timestampWrites;
+    if (writes && previous) timedEncoders.get(encoder)?.conflict();
+  }
+}
+
+/** Sum of real render/compute pass durations, excluding inter-pass gaps, queue wait and present. */
 export class WebGpuTimer {
   private readonly slots: GpuSlot[] = [];
   private active: GpuSlot | undefined;
+  private encoder: GPUCommandEncoder | undefined;
   private destroyed = false;
   constructor(
     private readonly stats: GpuFrameTiming,
     device: GPUDevice,
   ) {
     stats.source = 'webgpu-timestamp-query';
+    stats.scope = 'native-pass-sum';
+    const count = gpuTimingDefaults.maxTimedPasses * 2;
     for (let index = 0; index < stats.maxInFlight; index++) {
-      const query = device.createQuerySet({ type: 'timestamp', count: 2 });
-      const resolve = device.createBuffer({
-        size: 256,
-        usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
-      });
-      const readback = device.createBuffer({
-        size: 16,
-        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
-      });
-      this.slots.push({
-        query,
-        resolve,
-        readback,
-        frame: 0,
-        busy: false,
-        start: {
-          timestampWrites: { querySet: query, beginningOfPassWriteIndex: 0 },
-        },
-        end: { timestampWrites: { querySet: query, endOfPassWriteIndex: 1 } },
-      });
+      let query: GPUQuerySet | undefined;
+      let resolve: GPUBuffer | undefined;
+      let readback: GPUBuffer | undefined;
+      try {
+        query = device.createQuerySet({ type: 'timestamp', count });
+        const size = Math.ceil((count * 8) / 256) * 256;
+        resolve = device.createBuffer({
+          size,
+          usage: GPUBufferUsage.QUERY_RESOLVE | GPUBufferUsage.COPY_SRC,
+        });
+        readback = device.createBuffer({
+          size,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+        const querySet = query;
+        this.slots.push({
+          query,
+          resolve,
+          readback,
+          writes: Array.from(
+            { length: gpuTimingDefaults.maxTimedPasses },
+            (_, pass) => ({
+              querySet,
+              beginningOfPassWriteIndex: pass * 2,
+              endOfPassWriteIndex: pass * 2 + 1,
+            }),
+          ),
+          frame: 0,
+          passes: 0,
+          overflow: false,
+          busy: false,
+        });
+      } catch (error) {
+        readback?.destroy();
+        resolve?.destroy();
+        query?.destroy();
+        this.destroy();
+        stats.unavailable(
+          'error',
+          `GPU timestamp allocation failed: ${String(error)}`,
+        );
+        throw error;
+      }
     }
   }
   begin(encoder: GPUCommandEncoder, frame: number): void {
+    if (this.active) this.abort();
     if (
       this.destroyed ||
       frame <= this.stats.warmupFrames ||
@@ -106,43 +185,74 @@ export class WebGpuTimer {
     }
     slot.busy = true;
     slot.frame = frame;
+    slot.passes = 0;
+    slot.overflow = false;
     this.active = slot;
+    this.encoder = encoder;
+    timedEncoders.set(encoder, this);
     this.stats.pending++;
-    encoder.beginComputePass(slot.start).end();
+  }
+  nextPass(): GPURenderPassTimestampWrites | undefined {
+    const slot = this.active;
+    if (!slot || slot.overflow) return undefined;
+    if (slot.passes >= slot.writes.length) {
+      slot.overflow = true;
+      return undefined;
+    }
+    return slot.writes[slot.passes++];
+  }
+  conflict(): void {
+    if (this.active) this.active.overflow = true;
+  }
+  private detach(): void {
+    if (this.encoder) timedEncoders.delete(this.encoder);
+    this.encoder = undefined;
   }
   end(encoder: GPUCommandEncoder): void {
     const slot = this.active;
+    this.detach();
     if (!slot) return;
-    encoder.beginComputePass(slot.end).end();
-    encoder.resolveQuerySet(slot.query, 0, 2, slot.resolve, 0);
-    encoder.copyBufferToBuffer(slot.resolve, 0, slot.readback, 0, 16);
+    if (!slot.passes || slot.overflow) {
+      this.stats.skipped++;
+      this.stats.unavailable(
+        'pending',
+        slot.overflow
+          ? 'Native pass timestamp capacity exceeded or descriptor already owns timestamps; no partial duration reported.'
+          : 'No timed native render/compute passes in this frame.',
+      );
+      slot.busy = false;
+      this.active = undefined;
+      this.stats.pending--;
+      return;
+    }
+    const count = slot.passes * 2;
+    encoder.resolveQuerySet(slot.query, 0, count, slot.resolve, 0);
+    encoder.copyBufferToBuffer(slot.resolve, 0, slot.readback, 0, count * 8);
   }
   submitted(): void {
     const slot = this.active;
+    this.detach();
     this.active = undefined;
     if (!slot) return;
+    const size = slot.passes * 16;
+    // Called only after queue.submit. mapAsync waits for this buffer's submitted copy,
+    // without globally draining the queue or synchronizing subsequent frames.
     void slot.readback
-      .mapAsync(GPUMapMode.READ)
+      .mapAsync(GPUMapMode.READ, 0, size)
       .then(() => {
         if (this.destroyed) return;
         try {
-          const values = new BigUint64Array(slot.readback.getMappedRange());
-          const delta = values[1]! - values[0]!;
-          // Reject wrap/reversed/missing timestamps rather than inventing a zero sample.
-          if (
-            values[0] === 0n ||
-            values[1] === 0n ||
-            delta <= 0n ||
-            delta > 9007199254740991n
-          ) {
+          const values = new BigUint64Array(
+            slot.readback.getMappedRange(0, size),
+          );
+          const total = nativePassDurationNanoseconds(values);
+          if (total === null) {
             this.stats.invalid++;
             this.stats.unavailable(
               'pending',
-              'WebGPU timestamps are unavailable or invalid.',
+              'Real native pass timestamps were zero, reversed, quantized to zero or outside exact duration range. Run the engine-free timestamp probe for this adapter/browser session; no timing fallback.',
             );
-          } else {
-            this.stats.sample(slot.frame, Number(delta) / 1_000_000);
-          }
+          } else this.stats.sample(slot.frame, Number(total) / 1_000_000);
         } finally {
           slot.readback.unmap();
           slot.busy = false;
@@ -163,6 +273,7 @@ export class WebGpuTimer {
       });
   }
   abort(): void {
+    this.detach();
     if (!this.active) return;
     this.active.busy = false;
     this.active = undefined;
@@ -172,6 +283,7 @@ export class WebGpuTimer {
   destroy(lost = false): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.detach();
     this.active = undefined;
     for (const slot of this.slots) {
       slot.readback.destroy();
@@ -209,6 +321,7 @@ export class WebGlTimer {
     private readonly extension: DisjointTimerExtension,
   ) {
     stats.source = 'webgl2-disjoint-query';
+    stats.scope = 'native-command-interval';
     for (let index = 0; index < stats.maxInFlight; index++) {
       const query = gl.createQuery();
       if (!query) {

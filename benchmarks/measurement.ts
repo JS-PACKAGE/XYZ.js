@@ -129,7 +129,7 @@ export function measure(
           workload: options.workload,
           ...options.finalMetrics?.(),
           notes:
-            'RAF intervals are display-paced wall time. CPU submit measures beginFrame/render/endFrame only, excluding simulation and not waiting for GPU completion. Opt-in GPU timestamps asynchronously bracket native frame commands, excluding queue wait/presentation; null/status explicitly marks disabled, unsupported or pending samples. RenderStats residency is an attachment estimate, not total VRAM. Canvas2D has 2D paint counters but no 3D counters. Fixed 1/60-second simulation per RAF. Setup/teardown excluded; no GC measurement in this short collector.',
+            'RAF intervals are display-paced wall time. CPU submit measures beginFrame/render/endFrame only, excluding simulation and not waiting for GPU completion. Opt-in WebGPU timestamps sum instrumented native render/compute pass durations; WebGL measures its native command interval. The explicit GPU scope excludes queue wait/presentation, and the WebGPU sum excludes between-pass gaps. Null/status marks disabled, unsupported or pending/invalid samples. RenderStats residency is an attachment estimate, not total VRAM. Canvas2D has 2D paint counters but no 3D counters. Fixed 1/60-second simulation per RAF. Setup/teardown excluded; no GC measurement in this short collector.',
         };
         cleanup();
         resolve(result);

@@ -48,6 +48,23 @@ export class CanvasSpriteSource {
     tint: ArrayLike<number>,
   ): HTMLCanvasElement {
     const image = this.prepare(source);
+    // Full untinted frames already have a versioned snapshot. Repainting the
+    // shared scratch per sprite forces unnecessary native canvas dependencies.
+    if (
+      source.kind !== 'render' &&
+      tint[0] === 1 &&
+      tint[1] === 1 &&
+      tint[2] === 1 &&
+      quad.u0 === 0 &&
+      quad.v0 === 0 &&
+      quad.ux === 1 &&
+      quad.vx === 0 &&
+      quad.uy === 0 &&
+      quad.vy === 1 &&
+      quad.trimWidth * quad.resolution === source.width &&
+      quad.trimHeight * quad.resolution === source.height
+    )
+      return this.sources.get(source)!.canvas;
     const canvas = (this.scratch ??= document.createElement('canvas'));
     const width = Math.max(1, Math.round(quad.trimWidth * quad.resolution)),
       height = Math.max(1, Math.round(quad.trimHeight * quad.resolution));

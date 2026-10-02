@@ -147,7 +147,12 @@ try {
           configureServer(vite) {
             const payload = Buffer.alloc(soakWorkload.networkPayloadBytes, 85);
             vite.middlewares.use((request, response, next) => {
-              if (!request.url?.startsWith('/__xyz-soak-network?')) {
+              if (
+                !new URL(
+                  request.url ?? '/',
+                  'http://127.0.0.1',
+                ).pathname.endsWith('/benchmarks/mixed/network.bin')
+              ) {
                 next();
                 return;
               }
