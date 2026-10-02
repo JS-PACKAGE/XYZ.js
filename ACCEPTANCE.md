@@ -879,3 +879,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - Built-root runtime 驗證 shared asset acquisitions、strict consumer barriers、last release、失敗 release 保留 retry，以及 cancelled late factory 經 tracked `ctx.own` rollback。Actual Game cancellation disposal counts `[1,1,1,1]`、independent spawn scopes=2；texture／model／font／audio／custom ownership 不提前 destroy shared borrower。
 - Cancellation cleanup 等 successful consumer barriers；未 claim 的 external async side effects 仍由 caller 負責，不冒稱任意 Promise 都可強制取消。
+
+### P62 — Fresh save candidate publication
+
+- 新 content loader 在 schema migration 後建立新 candidate、完成全部 restore 才 guarded publication；後方 adapter failure 保留舊 Scene，cancel／supersession 清候選。Built-root fresh-load／scope runtime proof 通過，不以部分 live mutation 當 transactional load。
+- Legacy `Serializer.restore` 仍是 sequential、nontransactional；新契約不偽稱舊 API 原地還原已改成 atomic。

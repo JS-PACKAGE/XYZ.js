@@ -71,6 +71,11 @@ export type {
   ContentBuildOptions,
   ContentSnapshot,
 } from './content.js';
+export { ContentLoadCoordinator } from './content-storage.js';
+export type {
+  ContentPublicationHost,
+  ContentLoadResult,
+} from './content-storage.js';
 export { PointerRouter } from './gameplay/pointer-router.js';
 export type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 export { HitArea2D } from './gameplay/hit-area2d.js';

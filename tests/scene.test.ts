@@ -668,6 +668,52 @@ describe('Scene ownership and Game integration', () => {
     game.destroy();
   });
 
+  it('cancels an externally aborted candidate without losing the published Scene', async () => {
+    const game = await createGame();
+    const active = new LoggingScene('active', calls);
+    await game.setScene(active);
+    let finish!: () => void;
+    let preparationSignal: AbortSignal | undefined;
+    class DeferredScene extends Scene {
+      protected override async initialize(
+        _game: Game,
+        signal: AbortSignal,
+      ): Promise<void> {
+        preparationSignal = signal;
+        await new Promise<void>((resolve) => {
+          finish = resolve;
+        });
+      }
+    }
+    const controller = new AbortController();
+    const candidate = new DeferredScene();
+    const switching = game.setScene(candidate, { signal: controller.signal });
+    await Promise.resolve();
+    controller.abort();
+    expect(preparationSignal?.aborted).toBe(true);
+    expect(candidate.destroyed).toBe(true);
+    expect(game.scene).toBe(active);
+    expect(active.destroyed).toBe(false);
+    finish();
+    await expect(switching).rejects.toThrow('cancelled');
+    expect(game.scene).toBe(active);
+    game.destroy();
+  });
+
+  it('does not roll back a published Scene when its preparation signal aborts later', async () => {
+    const game = await createGame();
+    const active = new Scene();
+    await game.setScene(active);
+    const candidate = new Scene();
+    const controller = new AbortController();
+    await game.setScene(candidate, { signal: controller.signal });
+    controller.abort();
+    expect(game.scene).toBe(candidate);
+    expect(candidate.destroyed).toBe(false);
+    expect(active.destroyed).toBe(true);
+    game.destroy();
+  });
+
   it('destroy cancels pending work and start(scene) reports asynchronous failure without rejection', async () => {
     const game = await createGame();
     const failure = new Error('init failed');

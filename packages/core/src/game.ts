@@ -27,6 +27,15 @@ import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import { warmupScene } from '../../graphics/src/warmup.js';
 import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+import type {
+  FactoryDefinitions,
+  FactoryRegistry,
+  FactoryServices,
+} from './factories.js';
+import type {
+  ContentLoadCoordinator,
+  ContentPublicationHost,
+} from './content-storage.js';
 export type {
   WarmupOptions,
   WarmupProgress,
@@ -87,6 +96,8 @@ export interface SetSceneOptions {
   transition?: TransitionOptions;
   /** Warm the initialized candidate in bounded RAF chunks before atomic publication. */
   warmup?: WarmupOptions;
+  /** Cancel candidate preparation before publication; a published Scene is never rolled back. */
+  signal?: AbortSignal;
 }
 export interface SceneTransitionEventDetail {
   readonly from: Scene;
@@ -151,6 +162,7 @@ export class Game extends EventTarget {
   private currentWarmup: WarmupLease | undefined;
   private readonly warmupProtections = new Map<WarmupLease, () => void>();
   private resourcePool: ResourcePool | undefined;
+  private contentLifetime: AbortController | undefined;
 
   /** Shared acquisition ownership is lazy and local to this Game. */
   get resources(): ResourcePool {
@@ -160,6 +172,47 @@ export class Game extends EventTarget {
       this.resourcePool = new ResourcePool(this.assets);
     }
     return this.resourcePool;
+  }
+
+  /** Load/migrate/restore a fresh candidate before the existing Scene publication barrier. */
+  async createContentLoader<Definitions extends FactoryDefinitions>(
+    registry: FactoryRegistry<Definitions>,
+    services: FactoryServices<Definitions>,
+  ): Promise<ContentLoadCoordinator<Definitions>> {
+    if (this.currentState === 'destroyed')
+      throw new RuntimeError(
+        'Cannot create a content loader for a destroyed Game.',
+      );
+    const { ContentLoadCoordinator } = await import('./content-storage.js');
+    if (this.state === 'destroyed')
+      throw new RuntimeError(
+        'Game was destroyed while creating a content loader.',
+      );
+    this.contentLifetime ??= new AbortController();
+    const host: ContentPublicationHost<Definitions> & { readonly owner: Game } =
+      {
+        owner: this,
+        signal: this.contentLifetime.signal,
+        get destroyed() {
+          return this.owner.state === 'destroyed';
+        },
+        get revision() {
+          return this.owner.sceneVersion;
+        },
+        get scene() {
+          return this.owner.scene;
+        },
+        async publish(candidate, signal, expectedRevision) {
+          signal.throwIfAborted();
+          if (
+            this.owner.state === 'destroyed' ||
+            this.owner.sceneVersion !== expectedRevision
+          )
+            throw new SceneCancelledError();
+          await this.owner.setScene(candidate.scene, { signal });
+        },
+      };
+    return new ContentLoadCoordinator(registry, services, this.resources, host);
   }
 
   get accessibility(): AccessibilityManager {
@@ -537,6 +590,7 @@ export class Game extends EventTarget {
       throw new RuntimeError('Cannot set a Scene on a destroyed Game.');
     if (this.switchingScene)
       throw new RuntimeError('Cannot switch Scenes during scene disposal.');
+    options.signal?.throwIfAborted();
     if (next === this.pendingScene) return this.pendingCompletion;
     const transition = options.transition
       ? new TransitionController(options.transition)
@@ -565,6 +619,17 @@ export class Game extends EventTarget {
     const prior = this.pendingScene;
     this.pendingScene = next;
     const version = ++this.sceneVersion;
+    let abortCleanupError: unknown;
+    const abortCandidate = (): void => {
+      if (this.pendingScene !== next || this.currentScene === next) return;
+      try {
+        next.cancel();
+      } catch (error) {
+        abortCleanupError = error;
+      }
+    };
+    options.signal?.addEventListener('abort', abortCandidate, { once: true });
+    if (options.signal?.aborted) abortCandidate();
     try {
       this.cancelTransition();
       if (prior) {
@@ -578,6 +643,7 @@ export class Game extends EventTarget {
     } catch (error) {
       transition?.destroy();
       if (this.pendingScene === next) this.pendingScene = undefined;
+      options.signal?.removeEventListener('abort', abortCandidate);
       try {
         next.cancel();
       } catch (cleanupError) {
@@ -593,6 +659,7 @@ export class Game extends EventTarget {
       let snapshot: RenderSnapshot | undefined;
       let warmed: WarmupLease | undefined;
       try {
+        options.signal?.throwIfAborted();
         if (signal.aborted) throw new SceneCancelledError();
         await next.prepare(this, signal);
         if (options.warmup) {
@@ -617,6 +684,8 @@ export class Game extends EventTarget {
           }
         }
         options.warmup?.signal?.throwIfAborted();
+        if (abortCleanupError !== undefined) throw abortCleanupError;
+        options.signal?.throwIfAborted();
         if (
           signal.aborted ||
           version !== this.sceneVersion ||
@@ -637,6 +706,7 @@ export class Game extends EventTarget {
             this.logicalWidth,
             this.logicalHeight,
           );
+          options.signal?.throwIfAborted();
           if (
             signal.aborted ||
             version !== this.sceneVersion ||
@@ -647,6 +717,7 @@ export class Game extends EventTarget {
           transition!.attachSnapshot(snapshot);
           snapshot = undefined;
         }
+        options.signal?.removeEventListener('abort', abortCandidate);
         this.pendingScene = undefined;
         this.pendingCompletion = undefined;
         this.switchingScene = true;
@@ -680,9 +751,15 @@ export class Game extends EventTarget {
           this.pendingCompletion = undefined;
         }
         const reason =
-          signal.aborted && this.currentScene !== next
-            ? new SceneCancelledError()
-            : error;
+          abortCleanupError !== undefined
+            ? new AggregateError(
+                [error, abortCleanupError],
+                'Scene cancellation and cleanup failed.',
+                { cause: abortCleanupError },
+              )
+            : signal.aborted && this.currentScene !== next
+              ? new SceneCancelledError()
+              : error;
         if (this.currentScene !== next) {
           try {
             next.cancel();
@@ -696,6 +773,7 @@ export class Game extends EventTarget {
         }
         throw reason;
       } finally {
+        options.signal?.removeEventListener('abort', abortCandidate);
         warmed?.release();
         snapshot?.destroy();
         if (this.activeTransition?.controller !== transition)
@@ -799,6 +877,9 @@ export class Game extends EventTarget {
     this.pause();
     this.currentState = 'destroyed';
     this.sceneVersion++;
+    this.contentLifetime?.abort(
+      new RuntimeError('Game content owner was destroyed.'),
+    );
     for (const controller of this.warmupControllers)
       controller.abort(new RuntimeError('Game was destroyed during warmup.'));
     for (const lease of this.warmupLeases) lease.release();

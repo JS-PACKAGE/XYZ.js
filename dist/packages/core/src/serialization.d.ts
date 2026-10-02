@@ -27,6 +27,8 @@ export declare class Serializer {
     constructor(scene: Scene);
     register(id: string, object: SceneObject, state?: Serializable): () => void;
     capture(): SceneSnapshot;
+    /** Live, sequential restoration: custom async adapters can partially mutate before failure.
+     * Use rebuildContentScene/ContentLoadCoordinator for isolated candidate publication instead. */
     restore(snapshot: SceneSnapshot, policy?: UnknownSnapshotPolicy): Promise<SnapshotRestoreReport>;
 }
 /** Built-in adapters are explicit; other SceneObjects require caller-authored state. */

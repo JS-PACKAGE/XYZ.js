@@ -78,6 +78,8 @@ export class Serializer {
     }
     return JSON.parse(JSON.stringify({ version: 1, objects })) as SceneSnapshot;
   }
+  /** Live, sequential restoration: custom async adapters can partially mutate before failure.
+   * Use rebuildContentScene/ContentLoadCoordinator for isolated candidate publication instead. */
   async restore(
     snapshot: SceneSnapshot,
     policy: UnknownSnapshotPolicy = 'ignore',

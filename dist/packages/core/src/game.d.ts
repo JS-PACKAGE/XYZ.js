@@ -9,6 +9,8 @@ import { AccessibilityManager } from './accessibility/index.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+import type { FactoryDefinitions, FactoryRegistry, FactoryServices } from './factories.js';
+import type { ContentLoadCoordinator } from './content-storage.js';
 export type { WarmupOptions, WarmupProgress, WarmupLease, } from '../../graphics/src/warmup.js';
 export interface ResourceBudgets {
     decodedTextureBytes?: number;
@@ -57,6 +59,8 @@ export interface SetSceneOptions {
     transition?: TransitionOptions;
     /** Warm the initialized candidate in bounded RAF chunks before atomic publication. */
     warmup?: WarmupOptions;
+    /** Cancel candidate preparation before publication; a published Scene is never rolled back. */
+    signal?: AbortSignal;
 }
 export interface SceneTransitionEventDetail {
     readonly from: Scene;
@@ -105,8 +109,11 @@ export declare class Game extends EventTarget {
     private currentWarmup;
     private readonly warmupProtections;
     private resourcePool;
+    private contentLifetime;
     /** Shared acquisition ownership is lazy and local to this Game. */
     get resources(): ResourcePool;
+    /** Load/migrate/restore a fresh candidate before the existing Scene publication barrier. */
+    createContentLoader<Definitions extends FactoryDefinitions>(registry: FactoryRegistry<Definitions>, services: FactoryServices<Definitions>): Promise<ContentLoadCoordinator<Definitions>>;
     get accessibility(): AccessibilityManager;
     warmup(scene: Scene, options?: WarmupOptions): Promise<WarmupLease>;
     private constructor();

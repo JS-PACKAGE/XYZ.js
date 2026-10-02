@@ -24,6 +24,8 @@ export { FactoryRegistry, defineFactory } from './factories.js';
 export type { FactoryContext, FactoryDefinition, FactoryDefinitions, FactoryOptions, FactoryNode, FactoryServices, } from './factories.js';
 export { ContentScene, buildContentScene, parseContentScene, rebuildContentScene, } from './content.js';
 export type { ContentNodeDefinition, ContentSceneDefinition, ContentBuildOptions, ContentSnapshot, } from './content.js';
+export { ContentLoadCoordinator } from './content-storage.js';
+export type { ContentPublicationHost, ContentLoadResult, } from './content-storage.js';
 export { PointerRouter } from './gameplay/pointer-router.js';
 export type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 export { HitArea2D } from './gameplay/hit-area2d.js';
