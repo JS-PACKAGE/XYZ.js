@@ -1,4 +1,4 @@
-/* global window, document, location, requestAnimationFrame -- browser evaluation */
+/* global window, document, location, requestAnimationFrame, Headers, Request, Blob, crypto -- browser evaluation */
 import {
   readFile,
   readdir,
@@ -7,7 +7,14 @@ import {
   mkdtemp,
   writeFile,
 } from 'node:fs/promises';
-import { join, resolve, relative, isAbsolute } from 'node:path';
+import {
+  join,
+  resolve,
+  relative,
+  isAbsolute,
+  dirname,
+  basename,
+} from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
@@ -18,6 +25,7 @@ import { checksum } from './asset-recipe-lib.mjs';
 import { assetRecipe } from '../src/data/asset-recipe.ts';
 import { modelLimits } from '../src/data/models.ts';
 
+import { externalCodecs, loadRecipeProfile } from './asset-recipe-codecs.mjs';
 const readBounded = async (path, cap) => {
   if ((await stat(path)).size > cap)
     throw new Error('Deployment metadata exceeds byte budget.');
@@ -30,13 +38,14 @@ const readBounded = async (path, cap) => {
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
 if (
-  args.length < 4 ||
+  (args.length !== 4 && args.length !== 6 && args.length !== 8) ||
   args[0] !== '--package' ||
   args[2] !== '--bundle' ||
-  (args.length !== 4 && (args.length !== 6 || args[4] !== '--renderer'))
+  (args.length >= 6 && args[4] !== '--renderer') ||
+  (args.length === 8 && args[6] !== '--profile')
 )
   throw new Error(
-    'Usage: node scripts/verify-asset-deployment.mjs --package extracted/package --bundle built/bundle [--renderer webgl2|webgpu]',
+    'Usage: node scripts/verify-asset-deployment.mjs --package extracted/package --bundle built/bundle [--renderer webgl2|webgpu [--profile trusted-profile.json]]',
   );
 const consumer = await realpath(resolve(args[1])),
   bundle = await realpath(resolve(args[3]));
@@ -59,8 +68,8 @@ const manifest = JSON.parse(
   await readBounded(join(bundle, 'manifest.json'), modelLimits.inputBytes),
 );
 if (
-  manifest.version !== 1 ||
-  manifest.profile !== 'xyz-gltf2-triangles-uv0-rgba8' ||
+  manifest.version !== assetRecipe.version ||
+  manifest.profile !== assetRecipe.bundleProfile ||
   !Array.isArray(manifest.files) ||
   manifest.files.length > assetRecipe.outputFiles
 )
@@ -68,9 +77,6 @@ if (
 if (
   !Array.isArray(manifest.textures) ||
   manifest.textures.length > modelLimits.entries ||
-  manifest.codecs?.draco !== 'not-included' ||
-  manifest.codecs?.basis !== 'not-included' ||
-  manifest.codecs?.texture !== 'uncompressed-rgba8' ||
   manifest.toolchain?.node !== assetRecipe.node ||
   manifest.toolchain?.playwright !== assetRecipe.playwright ||
   manifest.toolchain?.chromium !== assetRecipe.chromium ||
@@ -90,6 +96,7 @@ const safeFile = async (base, name) => {
 };
 let bytes = 0;
 const sums = new Map();
+const byteIdentities = new Map();
 for (const line of (
   await readBounded(join(bundle, 'SHA256SUMS'), assetRecipe.outputFiles * 100)
 )
@@ -118,6 +125,7 @@ for (const file of [
   );
   if (hash !== file.sha256 || hash !== sums.get(file.path))
     throw new Error(`Bundle checksum mismatch: ${file.path}`);
+  byteIdentities.set(file.path, { bytes: size, sha256: hash });
 }
 const expectedFiles = [
   ...manifest.files.map((file) => file.path),
@@ -156,29 +164,154 @@ for (const path of vendorFiles)
     checksum(await readFile(join(packed, path)))
   )
     throw new Error(`Official vendor bytes changed: ${path}`);
-const session = await assetBrowser({ engine: join(consumer, 'dist'), bundle });
+const profilePath = args.length === 8 ? resolve(args[7]) : undefined;
+const codecs = await externalCodecs(
+  await loadRecipeProfile(profilePath),
+  profilePath,
+  tmpdir(),
+);
+const session = await assetBrowser({
+  engine: join(consumer, 'dist'),
+  bundle,
+  recipe: join(root, 'scripts'),
+  ...(codecs.dracoPaths
+    ? {
+        decoder: dirname(codecs.dracoPaths.decoder),
+        decoderWasm: dirname(codecs.dracoPaths.decoderWasm),
+      }
+    : {}),
+});
 const errors = [],
+  failedRequests = [],
   pageWorklets = [];
 session.page.on('pageerror', (error) => errors.push(error.message));
 session.page.on('response', (response) => {
+  if (response.status() >= 400)
+    errors.push(`HTTP ${response.status()}: ${response.url()}`);
   if (response.url().includes('/vendor/opm/dist/worklet/'))
     pageWorklets.push({ url: response.url(), status: response.status() });
 });
 session.page.on('requestfailed', (request) =>
-  errors.push(
-    `Request failed: ${request.url()}: ${request.failure()?.errorText}`,
-  ),
+  failedRequests.push({
+    url: request.url(),
+    requestId: request.headers()['x-xyz-deployment-request'],
+    errorText: request.failure()?.errorText,
+    method: request.method(),
+    type: request.resourceType(),
+    timing: request.timing(),
+    failedAt: Date.now(),
+  }),
 );
 try {
   const evidence = await mkdtemp(join(tmpdir(), 'xyz-asset-deployment-'));
   const results = [];
+  // Observe the loader's actual reader, not a cloned/second request. Chromium can
+  // report ERR_ABORTED after a Fetch stream has reached EOF; only exact bytes,
+  // their manifest pin, and this same completed host response can disambiguate it.
+  await session.page.evaluate(() => {
+    const nativeFetch = window.fetch;
+    window.deploymentTransfers = [];
+    window.deploymentTransferHashes = [];
+    window.deploymentLoads = [];
+    window.fetch = async (input, init) => {
+      const url = new URL(
+        input instanceof Request ? input.url : input,
+        location.href,
+      );
+      if (
+        url.origin !== location.origin ||
+        !url.pathname.startsWith('/bundle/')
+      )
+        return nativeFetch(input, init);
+      const entry = {
+        requestId: `deployment-${window.deploymentTransfers.length}`,
+        url: url.href,
+        load: window.deploymentLoad?.file,
+        startedAt: Date.now(),
+        aborted: false,
+        canceled: false,
+      };
+      window.deploymentTransfers.push(entry);
+      const headers = new Headers(
+        init?.headers ?? (input instanceof Request ? input.headers : undefined),
+      );
+      headers.set('X-XYZ-Deployment-Request', entry.requestId);
+      const signal =
+        init?.signal ?? (input instanceof Request ? input.signal : undefined);
+      entry.aborted = !!signal?.aborted;
+      signal?.addEventListener(
+        'abort',
+        () => {
+          entry.aborted = true;
+        },
+        { once: true },
+      );
+      const response = await nativeFetch(input, { ...init, headers });
+      entry.status = response.status;
+      if (response.body) {
+        const getReader = response.body.getReader.bind(response.body);
+        response.body.getReader = (...args) => {
+          const reader = getReader(...args);
+          const read = reader.read.bind(reader),
+            cancel = reader.cancel.bind(reader);
+          const chunks = [];
+          reader.read = (...args) =>
+            read(...args).then((result) => {
+              if (result.value) chunks.push(result.value);
+              if (result.done) {
+                entry.completedAt = Date.now();
+                window.deploymentTransferHashes.push(
+                  (async () => {
+                    const bytes = await new Blob(chunks).arrayBuffer();
+                    entry.bytes = bytes.byteLength;
+                    entry.sha256 = [
+                      ...new Uint8Array(
+                        await crypto.subtle.digest('SHA-256', bytes),
+                      ),
+                    ]
+                      .map((byte) => byte.toString(16).padStart(2, '0'))
+                      .join('');
+                  })(),
+                );
+              }
+              return result;
+            });
+          reader.cancel = (...args) => {
+            entry.canceled = true;
+            return cancel(...args);
+          };
+          return reader;
+        };
+      }
+      return response;
+    };
+  });
+  if (codecs.dracoPaths)
+    await session.page.evaluate(
+      async ({ script, wasm }) => {
+        const { createDracoBrowserDecoder } =
+          await import('/recipe/asset-recipe-browser-codecs.mjs');
+        window.recipeDracoDecoder = await createDracoBrowserDecoder(
+          script,
+          wasm,
+        );
+      },
+      {
+        script: `/decoder/${basename(codecs.dracoPaths.decoder)}`,
+        wasm: `/decoderWasm/${basename(codecs.dracoPaths.decoderWasm)}`,
+      },
+    );
   for (const [file, nativeTextures] of [
     ['model.gltf', true],
     ['fallback.gltf', false],
+    ['manifest.json', undefined],
   ]) {
     const result = await session.page.evaluate(
       async ({ file, nativeTextures, renderer }) => {
         const engine = await import('/engine/src/index.js');
+        const lifecycle = { file, startedAt: Date.now() };
+        window.deploymentLoads.push(lifecycle);
+        window.deploymentLoad = lifecycle;
         const game = await engine.Game.create({
           canvas: '#game',
           width: 256,
@@ -188,10 +321,20 @@ try {
         });
         let asset;
         try {
-          asset = await new engine.GLTFLoader().load(
-            new URL(`/bundle/${file}`, location.href).href,
-            { nativeTextures },
-          );
+          asset =
+            file === 'manifest.json'
+              ? await engine.loadAssetBundle(
+                  new URL('/bundle/manifest.json', location.href).href,
+                  {
+                    renderer: game.graphics,
+                    loader: new engine.GLTFLoader(),
+                    options: { dracoDecoder: window.recipeDracoDecoder },
+                  },
+                )
+              : await new engine.GLTFLoader().load(
+                  new URL(`/bundle/${file}`, location.href).href,
+                  { nativeTextures },
+                );
           const scene = new engine.Scene();
           scene.camera3D.position.set(0, 0, 3);
           scene.camera3D.lookAt(new engine.Vector3(0, 0, 0));
@@ -208,6 +351,7 @@ try {
           const formats = [...textures].map((texture) => ({
             kind: texture.kind,
             levels: texture.levels?.length ?? 1,
+            format: texture.format ?? 'raster',
             width: texture.width,
             height: texture.height,
           }));
@@ -244,9 +388,11 @@ try {
             renderer: game.graphics.backend,
             coloredPixels: colored,
             formats,
+            bundleVariant: asset.bundleVariant,
             image: copy.toDataURL('image/png').split(',')[1],
           };
         } finally {
+          lifecycle.destroyedAt = Date.now();
           try {
             game.destroy();
           } finally {
@@ -258,13 +404,14 @@ try {
     );
     const { image, ...measurement } = result;
     for (const texture of manifest.textures) {
-      const expected = nativeTextures ? texture.levels : 1;
+      const native = result.bundleVariant?.nativeTextures ?? nativeTextures;
+      const expected = native ? texture.levels : 1;
       if (
         !result.formats.some(
           (format) =>
             format.width === texture.width &&
             format.height === texture.height &&
-            format.kind === (nativeTextures ? 'native' : 'image') &&
+            format.kind === (native ? 'native' : 'image') &&
             format.levels === expected,
         )
       )
@@ -273,7 +420,14 @@ try {
         );
     }
     await writeFile(
-      join(evidence, file === 'model.gltf' ? 'native.png' : 'fallback.png'),
+      join(
+        evidence,
+        file === 'manifest.json'
+          ? 'selected.png'
+          : file === 'model.gltf'
+            ? 'native.png'
+            : 'fallback.png',
+      ),
       Buffer.from(image, 'base64'),
       { flag: 'wx' },
     );
@@ -309,6 +463,76 @@ try {
     window.consumerAudio.destroy();
     return result;
   });
+  await session.page.waitForLoadState('networkidle');
+  const network = await session.page.evaluate(async () => {
+    await Promise.all(window.deploymentTransferHashes);
+    return {
+      transfers: window.deploymentTransfers,
+      loads: window.deploymentLoads,
+    };
+  });
+  const completedStreamTeardowns = [];
+  for (const failure of failedRequests) {
+    const transfer = network.transfers.find(
+      (entry) => entry.requestId === failure.requestId,
+    );
+    const pathname = new URL(failure.url).pathname;
+    const expected = byteIdentities.get(pathname.slice('/bundle/'.length));
+    const hosted = session.requests.filter(
+      (entry) => entry.requestId === failure.requestId,
+    );
+    const lifecycle = network.loads.find(
+      (entry) => entry.file === transfer?.load,
+    );
+    if (
+      failure.errorText === 'net::ERR_ABORTED' &&
+      failure.method === 'GET' &&
+      failure.type === 'fetch' &&
+      transfer &&
+      expected &&
+      lifecycle &&
+      transfer.url === failure.url &&
+      transfer.status === 200 &&
+      !transfer.aborted &&
+      !transfer.canceled &&
+      transfer.completedAt <= failure.failedAt &&
+      failure.failedAt < lifecycle.destroyedAt &&
+      transfer.bytes === expected.bytes &&
+      transfer.sha256 === expected.sha256 &&
+      hosted.length === 1 &&
+      hosted[0].url === pathname &&
+      hosted[0].status === 200 &&
+      hosted[0].finished &&
+      hosted[0].bytes === expected.bytes &&
+      hosted[0].sha256 === expected.sha256
+    ) {
+      completedStreamTeardowns.push({
+        ...failure,
+        transfer,
+        hosted: hosted[0],
+      });
+    } else {
+      errors.push(`Request failed: ${JSON.stringify(failure)}`);
+    }
+  }
+  for (const request of session.requests)
+    if (!request.finished || request.error || request.status >= 400)
+      errors.push(`Host request failed: ${JSON.stringify(request)}`);
+  await writeFile(
+    join(evidence, 'network.json'),
+    JSON.stringify(
+      {
+        ...network,
+        failedRequests,
+        completedStreamTeardowns,
+        serverRequests: session.requests,
+        errors,
+      },
+      null,
+      2,
+    ),
+    { flag: 'wx' },
+  );
   // AudioWorklet loading may occur outside Playwright's page-network target.
   // The actual static host records completed responses, independently of CDP visibility.
   const workletPath = '/engine/vendor/opm/dist/worklet/processor.js';
@@ -337,20 +561,26 @@ try {
         },
       )}`,
     );
-  if (errors.length) throw new Error(errors.join('\n'));
-  console.log(
-    JSON.stringify({
-      package: metadata.version,
-      toolchain: session.toolchain,
-      assetChecksums: manifest.files.length,
-      vendorFiles: vendorFiles.length,
-      results,
-      audio,
-      worklets,
-      pageWorklets,
-      evidence,
-    }),
+  const report = {
+    package: metadata.version,
+    toolchain: session.toolchain,
+    assetChecksums: manifest.files.length,
+    vendorFiles: vendorFiles.length,
+    results,
+    audio,
+    worklets,
+    pageWorklets,
+    completedStreamTeardowns,
+    errors,
+    evidence,
+  };
+  await writeFile(
+    join(evidence, 'report.json'),
+    JSON.stringify(report, null, 2),
+    { flag: 'wx' },
   );
+  if (errors.length) throw new Error(JSON.stringify(report));
+  console.log(JSON.stringify(report));
 } finally {
   await session.page
     .evaluate(() => window.consumerAudio?.destroy())

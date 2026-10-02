@@ -85,7 +85,7 @@ export function parseModel(bytes) {
 }
 
 /** Never fetch URLs or follow symlinks outside the input directory. */
-export async function ingest(input) {
+export async function ingest(input, codecs) {
   input = await realpath(input);
   const base = dirname(input),
     sources = [],
@@ -179,8 +179,10 @@ export async function ingest(input) {
     }
     images.push({ bytes, mimeType: def.mimeType });
   }
-  preflight(document);
-  return { document, buffers, images, sources };
+  const asset = { document, buffers, images, sources };
+  if (codecs) await codecs.decodeDraco(asset);
+  preflight(asset.document, { basis: !!codecs?.basis });
+  return asset;
 }
 
 const supported = new Set([
@@ -197,16 +199,19 @@ const supported = new Set([
   'KHR_mesh_quantization',
   'EXT_meshopt_compression',
 ]);
-export function preflight(document) {
+export function preflight(document, codecs = {}) {
   if (
     document.extensionsRequired !== undefined &&
     !Array.isArray(document.extensionsRequired)
   )
     throw new Error('extensionsRequired must be an array.');
   for (const extension of document.extensionsRequired ?? [])
-    if (!supported.has(extension))
+    if (
+      !supported.has(extension) &&
+      !(extension === 'KHR_texture_basisu' && codecs.basis)
+    )
       throw new Error(
-        `Required codec/extension ${extension} is not included. Export uncompressed glTF; Draco/Basis tools are not bundled.`,
+        `Required codec/extension ${extension} is not included. Configure verified official codec tools.`,
       );
   for (const name of [
     'nodes',
@@ -293,9 +298,11 @@ export function preflight(document) {
       throw new Error('Skin joint budget exceeded.');
   for (const texture of table(document, 'textures')) {
     if (texture.extensions?.KHR_texture_basisu) {
-      if (texture.source === undefined)
+      if (codecs.basis)
+        texture.source = texture.extensions.KHR_texture_basisu.source;
+      else if (texture.source === undefined)
         throw new Error(
-          'Basis requires an uncompressed source fallback; no Basis codec is bundled.',
+          'Basis requires an uncompressed source fallback; no Basis codec is configured.',
         );
       delete texture.extensions.KHR_texture_basisu;
     }
@@ -303,6 +310,9 @@ export function preflight(document) {
   document.extensionsUsed = (document.extensionsUsed ?? []).filter(
     (name) =>
       name !== 'KHR_draco_mesh_compression' && name !== 'KHR_texture_basisu',
+  );
+  document.extensionsRequired = (document.extensionsRequired ?? []).filter(
+    (name) => name !== 'KHR_texture_basisu',
   );
   for (const material of materials) {
     for (const name of Object.keys(material.extensions ?? {}))
@@ -355,8 +365,13 @@ function textureSlots(material) {
   return slots;
 }
 
-/** Integer box filter, including odd edge pixels; no platform-dependent canvas scaling. */
-export function mipChain(width, height, rgba) {
+/** Explicit semantics: no material-name or slot inference. */
+export function mipChain(
+  width,
+  height,
+  rgba,
+  semantics = { kind: 'linear', alpha: 'straight' },
+) {
   integer(width, 'texture width', assetLimits.textureDimension);
   integer(height, 'texture height', assetLimits.textureDimension);
   if (
@@ -366,7 +381,31 @@ export function mipChain(width, height, rgba) {
     rgba.length !== width * height * 4
   )
     throw new Error('Invalid texture dimensions/pixels.');
+  if (
+    !['linear', 'srgb', 'normal'].includes(semantics.kind) ||
+    !['straight', 'premultiplied', 'opaque'].includes(semantics.alpha)
+  )
+    throw new Error('Invalid explicit texture semantics.');
+  if (semantics.kind === 'normal' && semantics.alpha === 'premultiplied')
+    throw new Error('Normal maps cannot use premultiplied alpha.');
+  const linear = (v) =>
+    v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  const srgb = (v) =>
+    v <= 0.0031308 ? v * 12.92 : 1.055 * v ** (1 / 2.4) - 0.055;
+  const byte = (v) => Math.max(0, Math.min(255, Math.round(v * 255)));
   const levels = [{ width, height, data: Buffer.from(rgba) }];
+  if (semantics.alpha === 'opaque')
+    for (let i = 3; i < levels[0].data.length; i += 4) levels[0].data[i] = 255;
+  if (semantics.alpha === 'premultiplied') {
+    // XYZ materials consume straight alpha; normalize explicitly declared input once.
+    for (let i = 0; i < levels[0].data.length; i += 4) {
+      const alpha = levels[0].data[i + 3] / 255;
+      for (let c = 0; c < 3; c++)
+        levels[0].data[i + c] = alpha
+          ? byte(levels[0].data[i + c] / 255 / alpha)
+          : 0;
+    }
+  }
   while (width > 1 || height > 1) {
     const source = levels.at(-1).data,
       w = Math.max(1, width >> 1),
@@ -379,15 +418,41 @@ export function mipChain(width, height, rgba) {
           y0 = Math.floor((y * height) / h),
           y1 = Math.floor(((y + 1) * height) / h),
           count = (x1 - x0) * (y1 - y0);
-        for (let c = 0; c < 4; c++) {
-          let sum = 0;
-          for (let sy = y0; sy < y1; sy++)
-            for (let sx = x0; sx < x1; sx++)
-              sum += source[(sy * width + sx) * 4 + c];
-          data[(y * w + x) * 4 + c] = Math.floor(
-            (sum + Math.floor(count / 2)) / count,
-          );
+        const sums = [0, 0, 0];
+        let alpha = 0;
+        for (let sy = y0; sy < y1; sy++)
+          for (let sx = x0; sx < x1; sx++) {
+            const offset = (sy * width + sx) * 4;
+            const a = source[offset + 3] / 255;
+            alpha += a;
+            for (let c = 0; c < 3; c++) {
+              let value = source[offset + c] / 255;
+              if (semantics.kind === 'srgb') value = linear(value);
+              if (semantics.kind === 'normal') value = value * 2 - 1;
+              sums[c] +=
+                value *
+                (semantics.alpha !== 'opaque' && semantics.kind !== 'normal'
+                  ? a
+                  : 1);
+            }
+          }
+        const offset = (y * w + x) * 4;
+        if (semantics.kind === 'normal') {
+          const length = Math.hypot(...sums);
+          for (let c = 0; c < 3; c++)
+            data[offset + c] = byte(
+              ((length > 1e-12 ? sums[c] / length : c === 2 ? 1 : 0) + 1) / 2,
+            );
+        } else {
+          for (let c = 0; c < 3; c++) {
+            let value =
+              sums[c] / (semantics.alpha !== 'opaque' ? alpha || 1 : count);
+            if (semantics.kind === 'srgb') value = srgb(value);
+            data[offset + c] = byte(value);
+          }
         }
+        data[offset + 3] =
+          semantics.alpha === 'opaque' ? 255 : byte(alpha / count);
       }
     levels.push({ width: w, height: h, data });
     width = w;

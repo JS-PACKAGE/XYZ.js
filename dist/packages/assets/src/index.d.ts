@@ -15,6 +15,8 @@ export { generateBitmapFont } from './fonts/generate-bitmap-font.js';
 export type { DynamicBitmapFontOptions } from './fonts/generate-bitmap-font.js';
 export { AssetManifest } from './manifest/asset-manifest.js';
 export type { ManifestAssetType, ManifestEntry, AssetManifestOptions, ManifestAssetTypes, } from './manifest/asset-manifest.js';
+export { loadAssetBundle, parseAssetBundle, selectAssetBundleVariant, } from './asset-bundle.js';
+export type { AssetBundleDescriptor, AssetBundleFile, AssetBundleVariant, AssetBundleCapabilities, AssetBundleLoadOptions, } from './asset-bundle.js';
 export interface ResourceLoadOptions {
     signal?: AbortSignal;
     maxBytes?: number;

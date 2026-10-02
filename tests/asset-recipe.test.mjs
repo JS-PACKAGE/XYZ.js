@@ -107,6 +107,29 @@ describe('headless asset recipe compatibility', () => {
       texture.destroy();
     }
   });
+  it('filters sRGB in linear light and prevents transparent colors bleeding into straight-alpha mips', () => {
+    const color = mipChain(2, 1, [0, 0, 0, 255, 255, 255, 255, 255], {
+      kind: 'srgb',
+      alpha: 'straight',
+    });
+    expect([...color[1].data]).toEqual([188, 188, 188, 255]);
+    const alpha = mipChain(2, 1, [255, 0, 0, 255, 0, 0, 255, 0], {
+      kind: 'srgb',
+      alpha: 'straight',
+    });
+    expect([...alpha[1].data]).toEqual([255, 0, 0, 128]);
+  });
+  it('renormalizes averaged normal vectors rather than shortening their lighting magnitude', () => {
+    const levels = mipChain(2, 1, [255, 128, 128, 255, 128, 255, 128, 255], {
+      kind: 'normal',
+      alpha: 'opaque',
+    });
+    const normal = [...levels[1].data]
+      .slice(0, 3)
+      .map((v) => (v / 255) * 2 - 1);
+    expect(Math.hypot(...normal)).toBeCloseTo(1, 2);
+    expect(normal[0]).toBeCloseTo(normal[1], 3);
+  });
   it('rejects an out-of-range view during payload packing', () => {
     const model = {
       bufferViews: [{ buffer: 0, byteOffset: 2, byteLength: 4 }],

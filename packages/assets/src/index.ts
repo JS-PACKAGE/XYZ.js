@@ -43,6 +43,18 @@ export type {
   AssetManifestOptions,
   ManifestAssetTypes,
 } from './manifest/asset-manifest.js';
+export {
+  loadAssetBundle,
+  parseAssetBundle,
+  selectAssetBundleVariant,
+} from './asset-bundle.js';
+export type {
+  AssetBundleDescriptor,
+  AssetBundleFile,
+  AssetBundleVariant,
+  AssetBundleCapabilities,
+  AssetBundleLoadOptions,
+} from './asset-bundle.js';
 
 export interface ResourceLoadOptions {
   signal?: AbortSignal;

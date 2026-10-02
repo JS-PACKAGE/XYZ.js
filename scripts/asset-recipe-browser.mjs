@@ -38,13 +38,27 @@ export async function assetBrowser(mounts) {
   );
   const requests = [];
   const server = createServer(async (request, response) => {
-    const observation = { url: request.url, method: request.method };
-    response.once('finish', () => {
+    const observation = {
+      url: request.url,
+      method: request.method,
+      ...(request.headers['x-xyz-deployment-request']
+        ? {
+            requestId: request.headers['x-xyz-deployment-request'],
+          }
+        : {}),
+    };
+    const record = (finished) => {
       if (requests.length < assetRecipe.outputFiles)
         requests.push({
           ...observation,
           status: response.statusCode,
+          finished,
+          completedAt: Date.now(),
         });
+    };
+    response.once('finish', () => record(true));
+    response.once('close', () => {
+      if (!response.writableFinished) record(false);
     });
     try {
       const pathname = decodeURIComponent(
@@ -79,6 +93,7 @@ export async function assetBrowser(mounts) {
       const type =
         {
           '.js': 'text/javascript',
+          '.mjs': 'text/javascript',
           '.json': 'application/json',
           '.gltf': 'model/gltf+json',
           '.ktx2': 'image/ktx2',
@@ -88,7 +103,10 @@ export async function assetBrowser(mounts) {
         }[extname(path)] ?? 'application/octet-stream';
       const payload = await readFile(path);
       observation.bytes = payload.length;
-      if (pathname.includes('/vendor/opm/dist/worklet/'))
+      if (
+        pathname.startsWith('/bundle/') ||
+        pathname.includes('/vendor/opm/dist/worklet/')
+      )
         observation.sha256 = checksum(payload);
       response.writeHead(200, {
         'Content-Type': type,
@@ -113,6 +131,8 @@ export async function assetBrowser(mounts) {
         `Chromium ${browser.version()} does not match pinned ${pin.browserVersion} (revision ${pin.revision}). Install the repository-pinned Chromium; unknown executables are not accepted.`,
       );
     const page = await browser.newPage();
+    page.setDefaultTimeout(assetRecipe.codecTimeoutMilliseconds);
+    page.setDefaultNavigationTimeout(assetRecipe.codecTimeoutMilliseconds);
     const origin = `http://127.0.0.1:${server.address().port}`;
     await page.goto(origin);
     return {
@@ -126,8 +146,8 @@ export async function assetBrowser(mounts) {
         chromium: pin.browserVersion,
         revision: pin.revision,
         raster: 'chromium-imagebitmap-rgba8-no-colorspace-conversion',
-        mip: 'integer-box-v1',
-        ktx2: 'rgba8-unorm-v1',
+        mip: 'semantic-box-srgb-linear-normal-alpha-v2',
+        ktx2: 'rgba8-and-external-gpu-blocks-v2',
         png: 'zlib-level9-filter0-v1',
       },
       close: async () => {

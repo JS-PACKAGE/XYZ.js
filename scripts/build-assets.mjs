@@ -1,4 +1,4 @@
-/* global Blob, createImageBitmap, OffscreenCanvas, atob, location -- browser evaluation */
+/* global Blob, createImageBitmap, OffscreenCanvas, atob, location, window -- browser evaluation */
 import {
   access,
   mkdir,
@@ -8,7 +8,7 @@ import {
   rmdir,
   writeFile,
 } from 'node:fs/promises';
-import { dirname, resolve, join } from 'node:path';
+import { dirname, resolve, join, basename } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
@@ -16,6 +16,7 @@ import { Buffer } from 'node:buffer';
 import { assetLimits } from '../src/data/assets.ts';
 import { modelLimits } from '../src/data/models.ts';
 import { assetRecipe } from '../src/data/asset-recipe.ts';
+import { setTimeout, clearTimeout } from 'node:timers';
 import {
   ingest,
   packBuffers,
@@ -26,12 +27,22 @@ import {
   encodePNG,
 } from './asset-recipe-lib.mjs';
 import { assetBrowser } from './asset-recipe-browser.mjs';
+import {
+  externalCodecs,
+  loadRecipeProfile,
+  platformFormats,
+} from './asset-recipe-codecs.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
-if (args.length !== 4 || args[0] !== '--input' || args[2] !== '--out')
+if (
+  (args.length !== 4 && args.length !== 6) ||
+  args[0] !== '--input' ||
+  args[2] !== '--out' ||
+  (args.length === 6 && args[4] !== '--profile')
+)
   throw new Error(
-    'Usage: node scripts/build-assets.mjs --input path/model.gltf|model.glb --out new/bundle-directory',
+    'Usage: node scripts/build-assets.mjs --input path/model.gltf|model.glb --out new/bundle-directory [--profile trusted-profile.json]',
   );
 const input = resolve(args[1]),
   output = resolve(args[3]);
@@ -43,15 +54,75 @@ try {
 } catch (error) {
   if (error.code !== 'ENOENT') throw error;
 }
-const asset = await ingest(input);
+const profilePath = args.length === 6 ? resolve(args[5]) : undefined;
+const profile = await loadRecipeProfile(profilePath);
 await mkdir(dirname(output), { recursive: true });
 const temporary = await mkdtemp(join(dirname(output), '.xyz-assets-'));
 let session;
 try {
+  const codecs = await externalCodecs(profile, profilePath, temporary);
+  const asset = await ingest(input, codecs);
+  let dracoDocument;
+  if (profile.draco) {
+    await codecs.encodeDraco(asset);
+    dracoDocument = globalThis.structuredClone(asset.document);
+    for (const mesh of asset.document.meshes ?? [])
+      for (const primitive of mesh.primitives ?? [])
+        delete primitive.extensions?.KHR_draco_mesh_compression;
+    asset.document.extensionsUsed = (
+      asset.document.extensionsUsed ?? []
+    ).filter((n) => n !== 'KHR_draco_mesh_compression');
+    asset.document.extensionsRequired = (
+      asset.document.extensionsRequired ?? []
+    ).filter((n) => n !== 'KHR_draco_mesh_compression');
+  }
   session = await assetBrowser({
     engine: join(root, 'dist'),
     bundle: temporary,
+    recipe: join(root, 'scripts'),
+    ...(codecs.dracoPaths
+      ? {
+          decoder: dirname(codecs.dracoPaths.decoder),
+          decoderWasm: dirname(codecs.dracoPaths.decoderWasm),
+        }
+      : {}),
   });
+  const evaluate = async (fn, argument) => {
+    let timer;
+    try {
+      return await Promise.race([
+        session.page.evaluate(fn, argument),
+        new Promise((_, reject) => {
+          timer = setTimeout(
+            () =>
+              reject(
+                new Error(
+                  'Asset browser preflight exceeded its finite deadline.',
+                ),
+              ),
+            assetRecipe.codecTimeoutMilliseconds,
+          );
+        }),
+      ]);
+    } finally {
+      clearTimeout(timer);
+    }
+  };
+  if (codecs.dracoPaths)
+    await evaluate(
+      async ({ script, wasm }) => {
+        const { createDracoBrowserDecoder } =
+          await import('/recipe/asset-recipe-browser-codecs.mjs');
+        window.recipeDracoDecoder = await createDracoBrowserDecoder(
+          script,
+          wasm,
+        );
+      },
+      {
+        script: `/decoder/${basename(codecs.dracoPaths.decoder)}`,
+        wasm: `/decoderWasm/${basename(codecs.dracoPaths.decoderWasm)}`,
+      },
+    );
   const files = [];
   let totalBytes = 0;
   const emit = async (name, bytes) => {
@@ -65,9 +136,14 @@ try {
     files.push({ path: name, bytes: bytes.length, sha256: checksum(bytes) });
   };
   await emit('payload.bin', packBuffers(asset.document, asset.buffers));
+  if (dracoDocument) packBuffers(dracoDocument, asset.buffers);
   const fallback = globalThis.structuredClone(asset.document),
     imageIndices = new Map(),
     textureRecords = [];
+  const variantImages = Object.fromEntries(
+    profile.formats.map((format) => [format, []]),
+  );
+  const variantModels = [];
   // Pack only images used by regular texture sources. Optional Basis sources were removed in preflight.
   const used = [
     ...new Set(
@@ -79,8 +155,21 @@ try {
   for (const index of used) {
     if (!Number.isSafeInteger(index) || !asset.images[index])
       throw new Error('Texture has no regular image source.');
-    const image = asset.images[index];
-    const raster = await session.page.evaluate(
+    let image = asset.images[index];
+    if (
+      image.mimeType === 'image/ktx2' ||
+      image.bytes.subarray(0, 4).equals(Buffer.from([171, 75, 84, 88]))
+    ) {
+      const vk = image.bytes.length >= 48 ? image.bytes.readUInt32LE(12) : -1;
+      const compression =
+        image.bytes.length >= 48 ? image.bytes.readUInt32LE(44) : -1;
+      if (![23, 29, 37, 43].includes(vk) || ![0, 3].includes(compression))
+        image = {
+          bytes: await codecs.decodeBasis(image.bytes),
+          mimeType: 'image/png',
+        };
+    }
+    const raster = await evaluate(
       async ({ base64, mimeType, limits }) => {
         const bytes = Uint8Array.from(atob(base64), (character) =>
           character.charCodeAt(0),
@@ -135,7 +224,32 @@ try {
         limits: assetLimits,
       },
     );
-    const levels = mipChain(raster.width, raster.height, raster.rgba);
+    const semantics = profile.textures[String(index)] ?? profile.defaultTexture;
+    if (!semantics)
+      throw new Error(
+        `Image ${index} requires explicit texture semantics in --profile.`,
+      );
+    const levels = mipChain(
+      raster.width,
+      raster.height,
+      raster.rgba,
+      semantics,
+    );
+    const compressed = await codecs.encodeTexture(levels, semantics);
+    const variants = {};
+    for (const format of profile.formats) {
+      const bytes = compressed.variants[format];
+      const name = `texture-${checksum(bytes)}.ktx2`;
+      if (!files.some((file) => file.path === name)) await emit(name, bytes);
+      variantImages[format].push({ uri: name, mimeType: 'image/ktx2' });
+      variants[format] = { path: name, format: platformFormats[format].format };
+    }
+    let basisName;
+    if (compressed.basis) {
+      basisName = `texture-${checksum(compressed.basis)}.ktx2`;
+      if (!files.some((file) => file.path === basisName))
+        await emit(basisName, compressed.basis);
+    }
     const ktx = encodeKTX2(levels),
       png = encodePNG(levels[0]);
     const nativeName = `texture-${checksum(ktx)}.ktx2`,
@@ -154,6 +268,9 @@ try {
       levels: levels.length,
       format: 'rgba8unorm',
       native: nativeName,
+      semantics,
+      variants,
+      ...(basisName ? { basis: basisName } : {}),
       fallback: fallbackName,
     });
   }
@@ -162,40 +279,81 @@ try {
   for (const document of [asset.document, fallback])
     for (const texture of document.textures ?? [])
       texture.source = imageIndices.get(texture.source);
-  for (const [name, document] of [
-    ['model.gltf', asset.document],
-    ['fallback.gltf', fallback],
-  ]) {
-    const bytes = Buffer.from(canonical(document) + '\n');
+  const documents = [
+    {
+      name: 'model.gltf',
+      document: asset.document,
+      nativeTextures: true,
+      formats: ['rgba8unorm'],
+      codec: 'none',
+    },
+    {
+      name: 'fallback.gltf',
+      document: fallback,
+      nativeTextures: false,
+      formats: [],
+      codec: 'none',
+    },
+  ];
+  for (const format of profile.formats) {
+    const document = globalThis.structuredClone(asset.document);
+    document.images = variantImages[format];
+    documents.unshift({
+      name: `model-${format}.gltf`,
+      document,
+      nativeTextures: true,
+      formats: [platformFormats[format].format],
+      codec: 'none',
+    });
+  }
+  if (dracoDocument) {
+    for (const variant of [...documents]) {
+      const document = globalThis.structuredClone(dracoDocument);
+      document.images = variant.document.images;
+      for (const texture of document.textures ?? [])
+        texture.source = imageIndices.get(texture.source);
+      documents.unshift({
+        ...variant,
+        name: variant.name.replace('.gltf', '-draco.gltf'),
+        document,
+        codec: 'draco',
+      });
+    }
+  }
+  for (const variant of documents) {
+    const bytes = Buffer.from(canonical(variant.document) + '\n');
     if (bytes.length > modelLimits.inputBytes)
       throw new Error('Output glTF exceeds engine input budget.');
-    await emit(name, bytes);
+    await emit(variant.name, bytes);
+    variantModels.push({
+      path: variant.name,
+      nativeTextures: variant.nativeTextures,
+      formats: variant.formats,
+      codec: variant.codec,
+    });
   }
   // The packaged parser, not a parallel validator, proves accessor/material/animation compatibility.
-  for (const [name, nativeTextures] of [
-    ['model.gltf', true],
-    ['fallback.gltf', false],
-  ])
-    await session.page.evaluate(
+  for (const { name, nativeTextures } of documents)
+    await evaluate(
       async ({ name, nativeTextures }) => {
         const { GLTFLoader } = await import('/engine/src/index.js');
         const asset = await new GLTFLoader().load(
           new URL(`/bundle/${name}`, location.href).href,
-          { nativeTextures },
+          { nativeTextures, dracoDecoder: window.recipeDracoDecoder },
         );
         asset.dispose();
       },
       { name, nativeTextures },
     );
   const manifest = {
-    version: 1,
-    profile: 'xyz-gltf2-triangles-uv0-rgba8',
-    toolchain: session.toolchain,
+    version: assetRecipe.version,
+    profile: assetRecipe.bundleProfile,
+    toolchain: { ...session.toolchain, external: codecs.tools },
     codecs: {
       meshopt: 'engine-built-in-decoder-preserve-only',
-      draco: 'not-included',
-      basis: 'not-included',
-      texture: 'uncompressed-rgba8',
+      draco: codecs.tools.draco ? 'official-draco3d-1.5.7' : 'not-configured',
+      basis: codecs.basis ? 'official-basis-2.50-uastc' : 'not-configured',
+      texture: profile.formats,
     },
     model: {
       url: 'model.gltf',
@@ -203,6 +361,7 @@ try {
       fallback: 'fallback.gltf',
       fallbackOptions: { nativeTextures: false },
     },
+    variants: variantModels,
     textures: textureRecords,
     sources: asset.sources,
     files: [...files].sort((a, b) =>

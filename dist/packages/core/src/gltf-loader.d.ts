@@ -44,10 +44,16 @@ export interface GLTFLoadOptions {
     nativeTextures?: boolean;
     ktx2NativeTranscoder?: KTX2NativeTranscoder;
 }
+export interface DracoAccessorInfo {
+    readonly componentType: number;
+    readonly normalized: boolean;
+}
 /** `attributes` maps glTF semantics to Draco attribute unique ids from the extension. */
 export interface DracoDecodeRequest {
     readonly data: Uint8Array;
     readonly attributes: Readonly<Record<string, number>>;
+    /** Declared glTF scalar semantics; Draco's storage type alone cannot convey normalization. */
+    readonly accessors: Readonly<Record<string, DracoAccessorInfo>>;
 }
 /**
  * Values are in the accessor's logical space: dequantized floats for float accessors, normalized

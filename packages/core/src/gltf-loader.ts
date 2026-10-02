@@ -62,10 +62,16 @@ export interface GLTFLoadOptions {
   nativeTextures?: boolean;
   ktx2NativeTranscoder?: KTX2NativeTranscoder;
 }
+export interface DracoAccessorInfo {
+  readonly componentType: number;
+  readonly normalized: boolean;
+}
 /** `attributes` maps glTF semantics to Draco attribute unique ids from the extension. */
 export interface DracoDecodeRequest {
   readonly data: Uint8Array;
   readonly attributes: Readonly<Record<string, number>>;
+  /** Declared glTF scalar semantics; Draco's storage type alone cannot convey normalization. */
+  readonly accessors: Readonly<Record<string, DracoAccessorInfo>>;
 }
 /**
  * Values are in the accessor's logical space: dequantized floats for float accessors, normalized
@@ -728,12 +734,33 @@ export class GLTFLoader {
           }
           const view = reference(views, draco.bufferView, 'draco bufferView');
           const request: Record<string, number> = {};
+          const accessorTypes: Record<string, DracoAccessorInfo> = {};
           for (const [semantic, id] of Object.entries(dracoAttributes)) {
             if (attributes[semantic] === undefined)
               throw new AssetError(
                 'Draco attribute is missing from primitive attributes.',
               );
             request[semantic] = integer(id, 'draco attribute id');
+            const def = reference(
+              accessorDefs,
+              attributes[semantic],
+              'Draco accessor',
+            );
+            const componentType = integer(def.componentType, 'componentType');
+            const normalized = def.normalized === true;
+            if (
+              !Object.hasOwn(components, componentType) ||
+              (def.normalized !== undefined &&
+                typeof def.normalized !== 'boolean') ||
+              (normalized && (componentType === 5125 || componentType === 5126))
+            )
+              throw new AssetError(
+                'Invalid Draco accessor component or normalization.',
+              );
+            accessorTypes[semantic] = Object.freeze({
+              componentType,
+              normalized,
+            });
           }
           if (request.POSITION === undefined)
             throw new AssetError('Draco primitive requires POSITION.');
@@ -741,6 +768,7 @@ export class GLTFLoader {
           const result = await options.dracoDecoder({
             data: new Uint8Array(view.buffer, view.offset, view.length),
             attributes: Object.freeze({ ...request }),
+            accessors: Object.freeze(accessorTypes),
           });
           context.signal.throwIfAborted();
           const store = (

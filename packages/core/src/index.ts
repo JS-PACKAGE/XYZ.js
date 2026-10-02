@@ -179,6 +179,7 @@ export type {
 export type { InstancedMeshOptions } from './instanced-mesh.js';
 export type { GLTFLoadOptions } from './gltf-loader.js';
 export type {
+  DracoAccessorInfo,
   DracoDecodeRequest,
   DracoDecodeResult,
   DracoDecoder,

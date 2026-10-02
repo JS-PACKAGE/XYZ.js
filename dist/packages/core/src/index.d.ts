@@ -85,7 +85,7 @@ export type { PointLightOptions, SpotLightOptions } from './lights.js';
 export type { ShadowSettingsOptions, PostProcessingSettingsOptions, ToneMapping, FogMode, FogSettingsOptions, } from './render-settings.js';
 export type { InstancedMeshOptions } from './instanced-mesh.js';
 export type { GLTFLoadOptions } from './gltf-loader.js';
-export type { DracoDecodeRequest, DracoDecodeResult, DracoDecoder, } from './gltf-loader.js';
+export type { DracoAccessorInfo, DracoDecodeRequest, DracoDecodeResult, DracoDecoder, } from './gltf-loader.js';
 export { decodeKTX2, decodeKTX2Native, isKTX2, parseKTX2 } from './ktx2.js';
 export type { KTX2Container, KTX2Image, KTX2Level, KTX2Transcoder, KTX2NativeTranscoder, } from './ktx2.js';
 export { decodeMeshopt } from './meshopt.js';
