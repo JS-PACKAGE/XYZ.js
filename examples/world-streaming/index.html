@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · World streaming</title>
+    <style>
+      body {
+        margin: 2rem;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 900px);
+        aspect-ratio: 2 / 1;
+      }
+      button,
+      select,
+      input {
+        margin: 0.25rem;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <p><a href="../">Back to examples</a></p>
+    <h1>World streaming</h1>
+    <p>
+      Three fetched terrain cells share one decoded texture and one pooled
+      geometry. Only published cells supply colliders and seam navigation.
+      Preparation can finish while paused, but publication cannot.
+    </p>
+    <label
+      >Backend
+      <select id="backend">
+        <option>auto</option>
+        <option>webgpu</option>
+        <option>webgl2</option>
+        <option>canvas2d</option>
+      </select></label
+    >
+    <label
+      >Preparation delay
+      <input id="delay" type="number" min="0" max="3000" value="350" />
+      ms</label
+    >
+    <div>
+      <button id="west">West</button><button id="center">Center</button
+      ><button id="seam">Center / east seam</button
+      ><button id="east">East</button>
+      <button id="reverse">Rapid reverse</button
+      ><button id="route">Walk across seam</button
+      ><button id="retire">Retire all</button> <button id="pause">Pause</button
+      ><button id="fail">Fail next cell load</button
+      ><button id="retry">Retry errors</button
+      ><button id="destroy">Destroy</button>
+    </div>
+    <canvas id="game"></canvas>
+    <p id="status" role="status">Loading…</p>
+    <pre id="stats"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

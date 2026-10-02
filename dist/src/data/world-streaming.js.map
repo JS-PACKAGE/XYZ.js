@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAAA,OAAO,MAAM,qBAAuB,OAAO,OAAO,CAChD,MAAO,KACP,SAAU,GACV,YAAa,GACb,aAAc,EACd,cAAe,GACf,mBAAoB,EACpB,kBAAmB,KACnB,iBAAkB,IAClB,wBAAyB,GACzB,sBAAuB,GACvB,cAAe,IAChB,CAAA","sources":["../../../src/data/world-streaming.ts"],"names":[],"file":"world-streaming.js"}
