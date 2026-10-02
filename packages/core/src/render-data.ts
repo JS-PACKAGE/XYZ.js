@@ -3,6 +3,7 @@ import {
   ENVIRONMENT_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  LIGHTING_POINT_ID_OFFSET,
   MAX_POINT_LIGHTS,
   MAX_SPOT_LIGHTS,
   POINT_LIGHT_OFFSET,
@@ -20,6 +21,7 @@ import {
 import type { Scene } from './scene.js';
 import type { Mesh } from './mesh.js';
 import { ReflectionProbe, selectReflectionProbe } from './reflection-probe.js';
+import type { SelectedLights } from './light-selection.js';
 
 function finite(value: number, name: string): void {
   if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value)))
@@ -162,21 +164,28 @@ export function fillFogData(scene: Scene, out: Float32Array): void {
  * Allocation-free vec4-aligned lighting block, with offsets in src/data/rendering.ts:
  * direction.xyz/intensity, directional color.rgb/ambient, pointCount/spotCount/0/0;
  * points: position.xyz/range, color.rgb/intensity;
- * spots: point fields, normalized light-to-surface direction.xyz/cosOuter, cosInner/0/0/0.
+ * spots: point fields, normalized light-to-surface direction.xyz/cosOuter, cosInner/id/0/0;
+ * point identities follow the spot slots. IDs key bounded shadow maps independently of order.
  * Unused slots are cleared so a reused block never retains lights removed from a Scene.
  */
-export function fillLightingData(scene: Scene, out: Float32Array): void {
+export function fillLightingData(
+  scene: Scene,
+  out: Float32Array,
+  selected?: SelectedLights,
+): void {
   if (!(out instanceof Float32Array) || out.length < LIGHTING_FLOAT_COUNT)
     throw new RangeError(
       `Lighting output requires at least ${LIGHTING_FLOAT_COUNT} Float32 values.`,
     );
-  if (!Array.isArray(scene.pointLights) || !Array.isArray(scene.spotLights))
-    throw new TypeError('Scene pointLights and spotLights must be arrays.');
-  const pointCount = scene.pointLights.length;
-  const spotCount = scene.spotLights.length;
+  const points = selected?.pointLights ?? scene.pointLights;
+  const spots = selected?.spotLights ?? scene.spotLights;
+  if (!Array.isArray(points) || !Array.isArray(spots))
+    throw new TypeError('Lighting pointLights and spotLights must be arrays.');
+  const pointCount = points.length;
+  const spotCount = spots.length;
   if (pointCount > MAX_POINT_LIGHTS || spotCount > MAX_SPOT_LIGHTS)
     throw new RangeError(
-      `A Scene supports at most ${MAX_POINT_LIGHTS} point lights and ${MAX_SPOT_LIGHTS} spot lights.`,
+      `A lighting draw supports at most ${MAX_POINT_LIGHTS} point lights and ${MAX_SPOT_LIGHTS} spot lights; use SpatialLightSelector for larger scene pools.`,
     );
   const directional = scene.directionalLight;
   vector(directional.direction, 'Directional light direction');
@@ -201,12 +210,13 @@ export function fillLightingData(scene: Scene, out: Float32Array): void {
   out[10] = 0;
   out[11] = 0;
   for (let i = 0; i < pointCount; i++) {
-    const light = scene.pointLights[i];
+    const light = points[i];
     if (!(light instanceof PointLight))
       throw new TypeError('Scene pointLights must contain PointLight objects.');
     light.validate();
     const offset = POINT_LIGHT_OFFSET + i * POINT_LIGHT_STRIDE;
     writePoint(light, out, offset);
+    out[LIGHTING_POINT_ID_OFFSET + i] = light.id;
   }
   out.fill(
     0,
@@ -214,7 +224,7 @@ export function fillLightingData(scene: Scene, out: Float32Array): void {
     SPOT_LIGHT_OFFSET,
   );
   for (let i = 0; i < spotCount; i++) {
-    const light = scene.spotLights[i];
+    const light = spots[i];
     if (!(light instanceof SpotLight))
       throw new TypeError('Scene spotLights must contain SpotLight objects.');
     light.validate();
@@ -227,15 +237,16 @@ export function fillLightingData(scene: Scene, out: Float32Array): void {
     out[offset + 10] = direction.z / length;
     out[offset + 11] = Math.cos(light.outerAngle);
     out[offset + 12] = Math.cos(light.innerAngle);
-    out[offset + 13] = 0;
+    out[offset + 13] = light.id;
     out[offset + 14] = 0;
     out[offset + 15] = 0;
   }
   out.fill(
     0,
     SPOT_LIGHT_OFFSET + spotCount * SPOT_LIGHT_STRIDE,
-    LIGHTING_FLOAT_COUNT,
+    LIGHTING_POINT_ID_OFFSET,
   );
+  out.fill(0, LIGHTING_POINT_ID_OFFSET + pointCount, LIGHTING_FLOAT_COUNT);
 }
 
 function writePoint(

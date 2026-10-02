@@ -5,6 +5,8 @@ export interface PointLightOptions {
     intensity?: number;
     /** Zero means no finite range cutoff. */
     range?: number;
+    /** Higher values win bounded shading and shadow allocation before contribution. */
+    priority?: number;
     castShadow?: boolean;
     shadowNear?: number;
     /** Shadow far plane when range is zero; otherwise range sets the far plane. */
@@ -18,10 +20,14 @@ export interface SpotLightOptions extends PointLightOptions {
 }
 /** World-space inverse-square light. Mutated inputs are revalidated when rendering. */
 export declare class PointLight {
+    /** Stable, exactly representable in Float32; independent of scene array order. */
+    private readonly identity;
+    get id(): number;
     position: Vector3;
     color: [number, number, number];
     intensity: number;
     range: number;
+    priority: number;
     castShadow: boolean;
     shadowNear: number;
     shadowFar: number;

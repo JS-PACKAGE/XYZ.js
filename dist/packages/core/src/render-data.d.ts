@@ -2,6 +2,7 @@ import { Matrix4 } from '../../math/src/index.js';
 import { EnvironmentMap } from './environment.js';
 import type { Scene } from './scene.js';
 import type { Mesh } from './mesh.js';
+import type { SelectedLights } from './light-selection.js';
 /** Validate mutable settings before either backend allocates frame resources. */
 export declare function validateRenderSettings(scene: Scene): void;
 /** A destroyed map is treated as absent, like a destroyed Texture on a Mesh. */
@@ -24,10 +25,11 @@ export declare function fillFogData(scene: Scene, out: Float32Array): void;
  * Allocation-free vec4-aligned lighting block, with offsets in src/data/rendering.ts:
  * direction.xyz/intensity, directional color.rgb/ambient, pointCount/spotCount/0/0;
  * points: position.xyz/range, color.rgb/intensity;
- * spots: point fields, normalized light-to-surface direction.xyz/cosOuter, cosInner/0/0/0.
+ * spots: point fields, normalized light-to-surface direction.xyz/cosOuter, cosInner/id/0/0;
+ * point identities follow the spot slots. IDs key bounded shadow maps independently of order.
  * Unused slots are cleared so a reused block never retains lights removed from a Scene.
  */
-export declare function fillLightingData(scene: Scene, out: Float32Array): void;
+export declare function fillLightingData(scene: Scene, out: Float32Array, selected?: SelectedLights): void;
 /**
  * Right-handed directional shadow view-projection with depth in [0, 1].
  * WebGL remaps rasterized clip Z to [-W, W], but shadow sampling uses this matrix directly.

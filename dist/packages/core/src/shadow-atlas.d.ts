@@ -10,6 +10,21 @@ export declare class ShadowAtlas {
     count: number;
     grid: number;
     size: number;
+    readonly stats: {
+        points: {
+            requested: number;
+            allocated: number;
+            overflow: number;
+        };
+        spots: {
+            requested: number;
+            allocated: number;
+            overflow: number;
+        };
+    };
+    private readonly points;
+    private readonly spots;
+    private readonly identities;
     private readonly inverse;
     private readonly perspective;
     private readonly orthographic;
@@ -20,6 +35,11 @@ export declare class ShadowAtlas {
     private readonly target;
     private readonly forward;
     update(scene: Scene, aspect: number): void;
+    /** A missing/budget-exceeded identity is unshadowed, regardless of shading order. */
+    pointBase(id: number): number;
+    spotBase(id: number): number;
+    private countRequested;
+    private selectShadows;
     private projectLight;
     private fitCascades;
 }

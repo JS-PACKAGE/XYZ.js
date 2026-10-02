@@ -1,15 +1,21 @@
-import { shadowLimits } from '../../../src/data/rendering.js';
+import {
+  LIGHTING_POINT_ID_OFFSET,
+  SPOT_LIGHT_OFFSET,
+  SPOT_LIGHT_STRIDE,
+  shadowLimits,
+} from '../../../src/data/rendering.js';
 
 export const atlasWGSL = /* wgsl */ `
 struct ShadowUniforms {
   params: vec4f, splits: vec4f, forward: vec4f, camera: vec4f,
   points: array<vec4f, 2>, spots: array<vec4f, 2>,
+  pointIds: array<vec4f, 2>, spotIds: array<vec4f, 2>,
   matrices: array<mat4x4f, ${shadowLimits.maps}>,
 };
 @group(0) @binding(5) var<uniform> atlas: ShadowUniforms;
 @group(3) @binding(0) var<uniform> shadowProjection: mat4x4f;
 fn atlasVisibility(index: i32, world: vec3f) -> f32 {
-  if (index < 0 || atlas.params.x < 0.5 || mesh.settings.z < 0.5) { return 1.0; }
+  if (index < 0 || f32(index) >= atlas.params.x || mesh.settings.z < 0.5) { return 1.0; }
   let p = atlas.matrices[u32(index)] * vec4f(world, 1.0);
   if (p.w <= 0.0) { return 1.0; }
   let projected = p.xyz / p.w;
@@ -44,12 +50,24 @@ fn cubeFace(delta: vec3f) -> i32 {
   return select(5,4,delta.z >= 0.0);
 }
 fn pointShadow(index: u32, world: vec3f, position: vec3f) -> f32 {
-  let base = i32(atlas.points[index/4u][index%4u]);
-  if (base < 0) { return 1.0; }
-  return atlasVisibility(base+cubeFace(world-position),world);
+  let id = scene.pointIds[index/4u][index%4u];
+  for (var slot = 0u; slot < ${shadowLimits.pointLights}u; slot++) {
+    if (atlas.pointIds[slot/4u][slot%4u] == id) {
+      let base = i32(atlas.points[slot/4u][slot%4u]);
+      if (base < 0) { return 1.0; }
+      return atlasVisibility(base+cubeFace(world-position),world);
+    }
+  }
+  return 1.0;
 }
 fn spotShadow(index: u32, world: vec3f) -> f32 {
-  return atlasVisibility(i32(atlas.spots[index/4u][index%4u]),world);
+  let id = scene.spots[index].inner.y;
+  for (var slot = 0u; slot < ${shadowLimits.spotLights}u; slot++) {
+    if (atlas.spotIds[slot/4u][slot%4u] == id) {
+      return atlasVisibility(i32(atlas.spots[slot/4u][slot%4u]),world);
+    }
+  }
+  return 1.0;
 }
 `;
 
@@ -57,10 +75,11 @@ export const atlasGLSL = /* glsl */ `
 layout(std140) uniform ShadowData {
   vec4 atlasParams, atlasSplits, atlasForward, atlasCamera;
   vec4 atlasPoints[2], atlasSpots[2];
+  vec4 atlasPointIds[2], atlasSpotIds[2];
   mat4 atlasMatrices[${shadowLimits.maps}];
 };
 float atlasVisibility(int index) {
-  if (index < 0 || atlasParams.x < .5 || !receiveShadow) return 1.0;
+  if (index < 0 || float(index) >= atlasParams.x || !receiveShadow) return 1.0;
   vec4 p = atlasMatrices[index] * vec4(vPosition,1.0);
   if (p.w <= 0.0) return 1.0;
   vec3 projected = p.xyz/p.w;
@@ -93,11 +112,22 @@ int cubeFace(vec3 delta) {
   return delta.z >= 0.0 ? 4 : 5;
 }
 float pointShadow(int index, vec3 position) {
-  int base = int(atlasPoints[index/4][index%4]);
-  if (base < 0) return 1.0;
-  return atlasVisibility(base+cubeFace(vPosition-position));
+  float id = lighting[${LIGHTING_POINT_ID_OFFSET / 4} + index/4][index%4];
+  for (int slot=0;slot<${shadowLimits.pointLights};slot++) {
+    if (atlasPointIds[slot/4][slot%4] == id) {
+      int base = int(atlasPoints[slot/4][slot%4]);
+      if (base < 0) return 1.0;
+      return atlasVisibility(base+cubeFace(vPosition-position));
+    }
+  }
+  return 1.0;
 }
 float spotShadow(int index) {
-  return atlasVisibility(int(atlasSpots[index/4][index%4]));
+  float id = lighting[${SPOT_LIGHT_OFFSET / 4} + index * ${SPOT_LIGHT_STRIDE / 4} + 3].y;
+  for (int slot=0;slot<${shadowLimits.spotLights};slot++) {
+    if (atlasSpotIds[slot/4][slot%4] == id)
+      return atlasVisibility(int(atlasSpots[slot/4][slot%4]));
+  }
+  return 1.0;
 }
 `;

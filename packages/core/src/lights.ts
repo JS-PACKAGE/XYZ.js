@@ -1,12 +1,22 @@
 import { Vector3 } from '../../math/src/index.js';
 import { shadowLimits } from '../../../src/data/rendering.js';
 
+let nextLightId = 1;
+
+function allocateLightId(): number {
+  if (nextLightId > 0xffffff)
+    throw new RangeError('Light identity space exhausted.');
+  return nextLightId++;
+}
+
 export interface PointLightOptions {
   position?: Vector3 | [number, number, number];
   color?: [number, number, number];
   intensity?: number;
   /** Zero means no finite range cutoff. */
   range?: number;
+  /** Higher values win bounded shading and shadow allocation before contribution. */
+  priority?: number;
   castShadow?: boolean;
   shadowNear?: number;
   /** Shadow far plane when range is zero; otherwise range sets the far plane. */
@@ -58,6 +68,7 @@ function validatePoint(light: PointLight): void {
   }
   finite(light.intensity, 'Light intensity');
   finite(light.range, 'Light range');
+  finite(light.priority, 'Light priority');
   if (light.intensity < 0 || light.range < 0)
     throw new RangeError('Light intensity and range cannot be negative.');
   if (typeof light.castShadow !== 'boolean')
@@ -74,10 +85,16 @@ function validatePoint(light: PointLight): void {
 
 /** World-space inverse-square light. Mutated inputs are revalidated when rendering. */
 export class PointLight {
+  /** Stable, exactly representable in Float32; independent of scene array order. */
+  private readonly identity = allocateLightId();
+  get id(): number {
+    return this.identity;
+  }
   position: Vector3;
   color: [number, number, number];
   intensity: number;
   range: number;
+  priority: number;
   castShadow: boolean;
   shadowNear: number;
   shadowFar: number;
@@ -90,6 +107,7 @@ export class PointLight {
     this.color = [color[0], color[1], color[2]];
     this.intensity = options.intensity ?? 1;
     this.range = options.range ?? 0;
+    this.priority = options.priority ?? 0;
     this.castShadow = options.castShadow ?? false;
     this.shadowNear = options.shadowNear ?? shadowLimits.near;
     this.shadowFar = options.shadowFar ?? shadowLimits.far;

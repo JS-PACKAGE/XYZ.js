@@ -7,7 +7,8 @@ import { computeShadowMatrix } from './render-data.js';
 import { OrthographicCamera } from './orthographic-camera.js';
 import { PerspectiveCamera } from './perspective-camera.js';
 import type { Scene } from './scene.js';
-import type { PointLight } from './lights.js';
+import type { PointLight, SpotLight } from './lights.js';
+import { validateLightPool } from './light-selection.js';
 
 const faces: readonly (readonly [number, number, number])[] = [
   [1, 0, 0],
@@ -31,6 +32,13 @@ export class ShadowAtlas {
   count = 0;
   grid = 1;
   size = 0;
+  readonly stats = {
+    points: { requested: 0, allocated: 0, overflow: 0 },
+    spots: { requested: 0, allocated: 0, overflow: 0 },
+  };
+  private readonly points: PointLight[] = [];
+  private readonly spots: SpotLight[] = [];
+  private readonly identities = new Set<number>();
   private readonly inverse = new Matrix4();
   private readonly perspective = new PerspectiveCamera();
   private readonly orthographic = new OrthographicCamera();
@@ -42,11 +50,32 @@ export class ShadowAtlas {
   private readonly forward = new Vector3();
 
   update(scene: Scene, aspect: number): void {
+    if (!Number.isFinite(aspect) || aspect <= 0)
+      throw new RangeError('Shadow atlas aspect must be positive and finite.');
+    validateLightPool(scene);
+    this.identities.clear();
+    for (const pool of [scene.pointLights, scene.spotLights])
+      for (const light of pool) {
+        if (this.identities.has(light.id))
+          throw new RangeError(
+            'Scene light pools cannot contain duplicate identities.',
+          );
+        this.identities.add(light.id);
+      }
     const settings = scene.shadows;
     settings.validate();
     this.count = 0;
+    this.points.length = this.spots.length = 0;
+    this.stats.points.requested =
+      this.stats.points.allocated =
+      this.stats.points.overflow =
+        0;
+    this.stats.spots.requested =
+      this.stats.spots.allocated =
+      this.stats.spots.overflow =
+        0;
     this.data.fill(0);
-    this.data.fill(-1, 16, 32);
+    this.data.fill(-1, 16, 48);
     if (!settings.enabled) {
       this.size = 0;
       return;
@@ -72,11 +101,23 @@ export class ShadowAtlas {
       this.count = 1;
       this.data[4] = camera.far;
     } else this.fitCascades(scene, aspect);
-    for (let i = 0; i < scene.pointLights.length; i++) {
-      const light = scene.pointLights[i]!;
-      light.validate();
-      if (!light.castShadow || light.intensity === 0) continue;
+    this.selectShadows(
+      scene.pointLights,
+      this.points,
+      shadowLimits.pointLights,
+    );
+    this.selectShadows(scene.spotLights, this.spots, shadowLimits.spotLights);
+    this.stats.points.requested = this.countRequested(scene.pointLights);
+    this.stats.spots.requested = this.countRequested(scene.spotLights);
+    this.stats.points.allocated = this.points.length;
+    this.stats.spots.allocated = this.spots.length;
+    this.stats.points.overflow =
+      this.stats.points.requested - this.points.length;
+    this.stats.spots.overflow = this.stats.spots.requested - this.spots.length;
+    for (let i = 0; i < this.points.length; i++) {
+      const light = this.points[i]!;
       this.data[16 + i] = this.count;
+      this.data[32 + i] = light.id;
       for (const face of faces) {
         this.target.set(
           light.position.x + face[0],
@@ -86,11 +127,10 @@ export class ShadowAtlas {
         this.projectLight(light, Math.PI / 2);
       }
     }
-    for (let i = 0; i < scene.spotLights.length; i++) {
-      const light = scene.spotLights[i]!;
-      light.validate();
-      if (!light.castShadow || light.intensity === 0) continue;
+    for (let i = 0; i < this.spots.length; i++) {
+      const light = this.spots[i]!;
       this.data[24 + i] = this.count;
+      this.data[40 + i] = light.id;
       this.target.copy(light.position).add(light.direction);
       this.projectLight(light, light.outerAngle * 2);
     }
@@ -101,8 +141,52 @@ export class ShadowAtlas {
     this.data[2] = settings.mapSize;
     this.data[3] = settings.bias;
     for (let i = 0; i < this.count; i++) {
-      this.data.set(this.matrices[i]!.elements, 32 + i * 16);
+      this.data.set(this.matrices[i]!.elements, 48 + i * 16);
       this.projections.set(this.matrices[i]!.elements, i * 64);
+    }
+  }
+
+  /** A missing/budget-exceeded identity is unshadowed, regardless of shading order. */
+  pointBase(id: number): number {
+    for (let i = 0; i < this.points.length; i++)
+      if (this.points[i]!.id === id) return this.data[16 + i]!;
+    return -1;
+  }
+
+  spotBase(id: number): number {
+    for (let i = 0; i < this.spots.length; i++)
+      if (this.spots[i]!.id === id) return this.data[24 + i]!;
+    return -1;
+  }
+
+  private countRequested(pool: readonly PointLight[]): number {
+    let count = 0;
+    for (const light of pool)
+      if (light.castShadow && light.intensity > 0) count++;
+    return count;
+  }
+
+  private selectShadows<T extends PointLight>(
+    pool: readonly T[],
+    out: T[],
+    cap: number,
+  ): void {
+    for (const light of pool) {
+      if (!light.castShadow || light.intensity === 0) continue;
+      let index = 0;
+      while (
+        index < out.length &&
+        (out[index]!.priority > light.priority ||
+          (out[index]!.priority === light.priority &&
+            (out[index]!.intensity > light.intensity ||
+              (out[index]!.intensity === light.intensity &&
+                out[index]!.id < light.id))))
+      )
+        index++;
+      if (index >= cap) continue;
+      for (let i = Math.min(out.length, cap - 1); i > index; i--)
+        out[i] = out[i - 1]!;
+      out[index] = light;
     }
   }
 

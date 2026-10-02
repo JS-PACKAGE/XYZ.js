@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAAA,OAAS,sBAAkB,yBAAuB,iBAGlD,OAAO,MAAM,qBAAuB,OAAO,OAAO,CAChD,YAAa,KACb,YAAaA,EACb,WAAYC,CACb,CAAA","sources":["../../../src/data/lights.ts"],"names":["MAX_POINT_LIGHTS","MAX_SPOT_LIGHTS"],"file":"lights.js"}
