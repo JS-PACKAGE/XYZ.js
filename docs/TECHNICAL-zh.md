@@ -597,12 +597,23 @@ Point 與 spot 接受 `castShadow`（預設 false）、`shadowNear`（預設 0.1
 Directional 預設保留固定 `extent`／`target` 投影。把 `scene.shadows.cascades` 設成
 2–4，會依目前透視或正交相機的 view-depth 切片擬合投影；`cascadeDistance`（預設 100）
 限制最遠覆蓋距離，`cascadeLambda`（預設 0.5，範圍 0–1）混合均勻與對數切分。
-每片使用包圍球並把投影平移吸附至 texel 網格；最後一片之外不投影，切片之間沒有混合。
+每片使用包圍球並把投影平移吸附至 texel 網格；最後一片之外不投影。P94 以
+`cascadeBlend`（預設0.1、範圍0–0.5）混合重疊區域；零保留 hard transitions。
 
-每格以邊界 clamp 的 3×3 depth PCF 取樣，沿用 normalized depth `bias`。
-`Mesh.castShadow`／`receiveShadow`、instancing、變形與 alpha mask 仍適用。
-沒有 slope-scaled bias、cube 面接縫過濾、相機旋轉時的 temporal stabilization、
-靜態陰影快取或 Canvas2D 3D renderer。`/examples/shadows3d/` 可切換各模式與兩個 Mesh 旗標。
+每格保留 3×3 depth PCF 與 normalized depth `bias`。P94 加入 receiver-plane
+slope correction（`slopeBias` 預設1、有限非負、零關閉），point-light angular taps
+跨接縫時會選相鄰 cube face。`Mesh.castShadow`／`receiveShadow`、instancing、
+變形與各 map 獨立 alpha sampling 仍適用；沒有相機旋轉時的 temporal
+accumulation／stabilization，也沒有 Canvas2D 3D renderer。
+
+`scene.shadows.cache` 預設true；只有 light／camera／caster／resource 的完整
+tracked snapshots 相同才重用整張 atlas，不使用可能碰撞的 hashes。Mutable parent
+pose、變形、instance／geometry versions、alpha sampling、visibility／membership、
+resize／graphics loss 都會 invalidate。資源仍需遵守既有 update APIs；外部無 version
+的變更呼叫 `scene.shadows.invalidate()`。Native material 預設
+`shadowCache:'dynamic'`；opt-in `'tracked'` 表示其陰影 inputs 遵守上述更新契約。
+Optional renderer counters `shadowPasses`／`shadowCacheHits` 是提交 pass 次數，
+不是 GPU time 或 FPS。`/examples/shadows3d/` 可切換各模式與兩個 Mesh 旗標。
 
 ## 36. Cubemap Environment（P38a）
 
@@ -1197,3 +1208,22 @@ vertices；其他 spatial／adjacency limits 見 `src/data/navigation.ts`。
 reconstruction／smoothing，不只 A* expansion。遵守 revision／cancel／shared
 scheduler budgets，geometry 改變時 rebuild／replan。Unsafe spatial indices 會拒絕，
 不進入無界迴圈；原 sampled／grid APIs 仍可用。
+
+### Native extension、visibility 與 deployment 界線
+
+Native hooks 使用engine-owned `XYZVertex`／fixed uniform-map ABI；不重宣告engine
+struct、不加entry points、private resources或第二套shader語言。GLSL stage-only
+操作以 `XYZ_VERTEX`／`XYZ_FRAGMENT`／`XYZ_SHADOW` guard。Preparation檢查真native
+device limits；active GL private uniforms／blocks拒絕，不靜默讀零。四張maps仍為
+borrowed，必須存活至所有consumer退場；tracked native shadow cache是明示
+deterministic-input承諾，不假設任意shader hook可安全快取。
+
+Visibility保留O(mesh) raw mutable-pose checks，跳過未變的BVH refits／instance
+filtering。`RenderVisibilitySet.boundsRefits`是CPU bookkeeping；20,000-instance、
+1,000／4,000-mesh gather證據不是GPU completion或FPS。Production
+`baseline|low|high`品質dimensions／counts在 `src/data/observability.ts`。
+`native|simulated-low-tier|simulated-low-tier-heavy`分別回報真host或明示CDP
+CPU／network pressure，不能當physical low-tier provenance。RAF、CPU submit、
+nullable native-pass GPU time與memory domains分開記；無operator limits時為
+measured／BLOCKED而非performance PASS，CI的5,000ms teardown只有host-scoped
+hang guard意義。

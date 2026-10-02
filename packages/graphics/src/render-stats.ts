@@ -99,6 +99,10 @@ export interface RenderStats {
   readonly triangles: number;
   /** Indexed draw calls in the shadow pass. */
   readonly shadowDrawCalls: number;
+  /** Actual native atlas depth passes; absent on legacy third-party renderers. */
+  readonly shadowPasses?: number;
+  /** Frames reusing a valid unchanged atlas; absent on legacy third-party renderers. */
+  readonly shadowCacheHits?: number;
   /** Native 2D draw commands, including local effects and composition. */
   readonly drawCalls2D: number;
   /** Instances submitted by native 2D draws, including effect quads. */
@@ -124,6 +128,8 @@ export class FrameStats implements RenderStats {
   drawCalls = 0;
   triangles = 0;
   shadowDrawCalls = 0;
+  shadowPasses = 0;
+  shadowCacheHits = 0;
   drawCalls2D = 0;
   instances2D = 0;
   renderPasses2D = 0;
@@ -144,6 +150,8 @@ export class FrameStats implements RenderStats {
     this.drawCalls = 0;
     this.triangles = 0;
     this.shadowDrawCalls = 0;
+    this.shadowPasses = 0;
+    this.shadowCacheHits = 0;
     this.drawCalls2D = 0;
     this.instances2D = 0;
     this.renderPasses2D = 0;

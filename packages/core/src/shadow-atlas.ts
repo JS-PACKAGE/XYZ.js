@@ -140,6 +140,10 @@ export class ShadowAtlas {
     this.data[1] = this.grid;
     this.data[2] = settings.mapSize;
     this.data[3] = settings.bias;
+    const quality = 48 + shadowLimits.maps * 16;
+    this.data[quality] = settings.cascadeBlend;
+    this.data[quality + 1] = Math.max(camera.near, settings.near);
+    this.data[quality + 2] = settings.slopeBias;
     for (let i = 0; i < this.count; i++) {
       this.data.set(this.matrices[i]!.elements, 48 + i * 16);
       this.projections.set(this.matrices[i]!.elements, i * 64);
@@ -230,7 +234,12 @@ export class ShadowAtlas {
         const a = this.nearCorners[i % 4]!,
           b = this.farCorners[i % 4]!;
         const t =
-          ((i < 4 ? previous : split) - camera.near) /
+          ((i < 4
+            ? previous -
+              (previous - (cascade > 1 ? this.data[2 + cascade]! : near)) *
+                settings.cascadeBlend
+            : split) -
+            camera.near) /
           (camera.far - camera.near);
         const corner = this.corners[i]!;
         corner.set(

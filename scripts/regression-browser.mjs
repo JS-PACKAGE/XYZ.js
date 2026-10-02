@@ -75,6 +75,10 @@ const server = await createServer({
         find: '../src/index.js',
         replacement: join(root, 'dist/src/index.js'),
       },
+      {
+        find: '../../packages/core/src/shadow-atlas.js',
+        replacement: join(root, 'dist/packages/core/src/shadow-atlas.js'),
+      },
     ],
   },
   server: { host: '127.0.0.1', port, strictPort: true },
@@ -374,6 +378,21 @@ try {
         .click();
       await page.locator('#finish').click();
       await awaitState('passed');
+      await page.goto(
+        `http://127.0.0.1:${port}/tests/browser/graphics-quality.html?renderer=${backend}`,
+        { waitUntil: 'domcontentloaded' },
+      );
+      await awaitState('passed');
+      if (browserName === 'chromium' && backend !== 'canvas2d') {
+        const quality = result.phases.at(-1);
+        const loss = quality.scenarios.find(
+          (scenario) => scenario.name === 'native-loss-shadow-invalidation',
+        );
+        if (!loss || loss.metrics.unsupported)
+          throw new Error(
+            `Required native shadow recovery proof missing: ${loss?.metrics.unsupported ?? 'scenario absent'}`,
+          );
+      }
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

@@ -19,6 +19,12 @@ export interface ShadowSettingsOptions {
   cascadeDistance?: number;
   /** Blend between uniform (0) and logarithmic (1) cascade splits. */
   cascadeLambda?: number;
+  /** Fraction of each cascade depth interval blended into the following cascade. */
+  cascadeBlend?: number;
+  /** Receiver-plane depth slope multiplier, in shadow texels. Zero disables it. */
+  slopeBias?: number;
+  /** Reuse unchanged native depth atlases. Untracked native shaders always redraw. */
+  cache?: boolean;
 }
 
 export type ToneMapping = 'none' | 'aces';
@@ -69,6 +75,10 @@ export class ShadowSettings {
   cascades: number;
   cascadeDistance: number;
   cascadeLambda: number;
+  cascadeBlend: number;
+  slopeBias: number;
+  cache: boolean;
+  private cacheRevision = 0;
 
   constructor(options: ShadowSettingsOptions = {}) {
     this.enabled = options.enabled ?? false;
@@ -81,10 +91,23 @@ export class ShadowSettings {
     this.cascadeDistance =
       options.cascadeDistance ?? shadowLimits.cascadeDistance;
     this.cascadeLambda = options.cascadeLambda ?? shadowLimits.cascadeLambda;
+    this.cascadeBlend = options.cascadeBlend ?? shadowLimits.cascadeBlend;
+    this.slopeBias = options.slopeBias ?? shadowLimits.slopeBias;
+    this.cache = options.cache ?? true;
     if (options.target !== undefined && !(options.target instanceof Vector3))
       throw new TypeError('Shadow target must be a Vector3.');
     this.target = options.target?.clone() ?? new Vector3();
     this.validate();
+  }
+
+  /** Force the next native shadow pass after an external/unversioned resource change. */
+  invalidate(): void {
+    ++this.cacheRevision;
+  }
+
+  /** @internal */
+  get revision(): number {
+    return this.cacheRevision;
   }
 
   validate(): void {
@@ -100,6 +123,12 @@ export class ShadowSettings {
         'Shadow extent and near plane must be positive, and far must exceed near.',
       );
     nonnegative(this.bias, 'Shadow bias');
+    nonnegative(this.slopeBias, 'Shadow slope bias');
+    finite(this.cascadeBlend, 'Cascade blend');
+    if (this.cascadeBlend < 0 || this.cascadeBlend > 0.5)
+      throw new RangeError('Cascade blend must be within 0..0.5.');
+    if (typeof this.cache !== 'boolean')
+      throw new TypeError('Shadow cache setting must be boolean.');
     if (
       !Number.isInteger(this.cascades) ||
       this.cascades < 1 ||

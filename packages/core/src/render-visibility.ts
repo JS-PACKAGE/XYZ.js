@@ -67,6 +67,8 @@ export class RenderVisibilitySet {
   boxTests = 0;
   sphereTests = 0;
   instanceTests = 0;
+  /** BVH nodes refitted this gather; unchanged world bounds require no refit. */
+  boundsRefits = 0;
   frustumCulled = 0;
   occlusionCulled = 0;
   epoch = 0;
@@ -78,6 +80,7 @@ interface Record3D {
   candidate: OcclusionCandidate;
   instanceVersion: number;
   colorVersion: number;
+  instanceEpoch: number;
   drawable: boolean;
   colorVisible: boolean;
   seen: number;
@@ -150,7 +153,9 @@ export class RenderVisibilityCache {
       out.instanceTests =
         0;
     out.frustumCulled = out.occlusionCulled = 0;
+    out.boundsRefits = 0;
     let changed = false;
+    let boundsChanged = false;
     if (this.scene !== scene) {
       this.clear();
       this.scene = scene;
@@ -160,6 +165,7 @@ export class RenderVisibilityCache {
       this.sync(scene.renderMeshes);
       this.revision = scene.renderMeshRevision;
       changed = true;
+      boundsChanged = true;
     }
     for (const mesh of out.entries.keys())
       if (!this.records.has(mesh)) out.entries.delete(mesh);
@@ -228,7 +234,10 @@ export class RenderVisibilityCache {
               : 0
           : 0;
       for (let i = 0; i < values.length; i++) {
-        if (!Object.is(stamp[16 + i], values[i])) changed = true;
+        if (!Object.is(stamp[16 + i], values[i])) {
+          changed = true;
+          if (i < 4 || i === 7) boundsChanged = true;
+        }
         stamp[16 + i] = values[i]!;
       }
       out.entries.set(mesh, entry);
@@ -277,7 +286,7 @@ export class RenderVisibilityCache {
       this.root = this.build(0, this.leaves.length);
     }
     if (this.root) {
-      this.refit(this.root);
+      if (boundsChanged) this.refit(this.root, out);
       this.gather(this.root, camera, frustum, out, options, height);
     }
     // BVH traversal order must not change equal-depth/transparent insertion ordering.
@@ -327,6 +336,7 @@ export class RenderVisibilityCache {
             },
             instanceVersion: -1,
             colorVersion: -1,
+            instanceEpoch: -1,
             drawable: false,
             colorVisible: false,
             seen: this.frame,
@@ -365,7 +375,8 @@ export class RenderVisibilityCache {
     return node;
   }
 
-  private refit(node: Node3D): void {
+  private refit(node: Node3D, out: RenderVisibilitySet): void {
+    out.boundsRefits++;
     if (node.record) {
       const mesh = node.record.entry.mesh,
         s = node.record.entry.sphere;
@@ -383,8 +394,8 @@ export class RenderVisibilityCache {
     } else {
       const left = node.left!,
         right = node.right!;
-      this.refit(left);
-      this.refit(right);
+      this.refit(left, out);
+      this.refit(right, out);
       node.minX = Math.min(left.minX, right.minX);
       node.maxX = Math.max(left.maxX, right.maxX);
       node.minY = Math.min(left.minY, right.minY);
@@ -501,6 +512,8 @@ export class RenderVisibilityCache {
         count: 0,
         version: 0,
       };
+    if (record.instanceEpoch === this.epoch) return packed.count > 0;
+    record.instanceEpoch = this.epoch;
     const sphere = mesh.geometry.boundingSphere,
       displacement = mesh.material.deformationBounds;
     const base = this.baseSphere;

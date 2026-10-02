@@ -71,6 +71,11 @@ import {
   MATERIAL_UV_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import { fillMaterialUV } from './material-uv.js';
+import { ShadowCache } from './shadow-cache.js';
+import {
+  validateNativeMaterialGL,
+  validateNativeMaterialGLResources,
+} from './native-material-limits.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -415,6 +420,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly samplers = new Map<string, WebGLSampler>();
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
+  private readonly shadowCache = new ShadowCache();
   private shadowBuffer: WebGLBuffer | undefined;
   private sheenBuffer: WebGLBuffer | undefined;
   private readonly opticalTextures = new Map<
@@ -864,6 +870,7 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.requireGL();
     material.validate();
     if (this.nativeMaterials.has(material)) return;
+    validateNativeMaterialGL(gl);
     const vertex = nativeMeshGLSL(material.glsl, 'vertex');
     const program = this.createProgram(
       gl,
@@ -890,6 +897,8 @@ export class WebGL2Renderer implements Renderer {
         'xyzMap2',
         'xyzMap3',
       ];
+      validateNativeMaterialGLResources(gl, program, names);
+      validateNativeMaterialGLResources(gl, shadow, names);
       for (const name of names) {
         uniforms[name] = gl.getUniformLocation(program, name);
         shadowUniforms[name] = gl.getUniformLocation(shadow, name);
@@ -1746,7 +1755,6 @@ export class WebGL2Renderer implements Renderer {
               object.material.transmission > 0);
           if (deferred !== (phase === 1)) continue;
         }
-        object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         if (material instanceof NativeMaterial3D) {
@@ -2150,11 +2158,7 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl!;
     const geometry = this.cacheGeometry(mesh.renderGeometry);
     geometry.seen = this.frame;
-    gl.uniformMatrix4fv(
-      uniforms.model,
-      false,
-      mesh.updateWorldMatrix().elements,
-    );
+    gl.uniformMatrix4fv(uniforms.model, false, mesh.worldMatrix.elements);
     gl.bindVertexArray(geometry.vao);
     // Generic attribute values are context state, so the white default is set on every draw.
     gl.vertexAttrib3f(7, 1, 1, 1);
@@ -2439,7 +2443,23 @@ export class WebGL2Renderer implements Renderer {
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       this.shadowTarget = undefined;
       this.shadowTarget = this.createTarget(size, size, true);
+      this.shadowCache.invalidate();
     }
+    if (
+      !this.shadowCache.needsRender(
+        scene,
+        this.atlas,
+        this.visibility.shadows,
+        this.visibility.entries,
+        this.canvas!.width,
+        this.canvas!.height,
+      )
+    ) {
+      this.shadowCache.commit();
+      this.stats.shadowCacheHits++;
+      return;
+    }
+    this.stats.shadowPasses++;
     let uniforms = this.shadowUniforms;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowTarget.framebuffer);
     gl.disable(gl.SCISSOR_TEST);
@@ -2465,7 +2485,6 @@ export class WebGL2Renderer implements Renderer {
       );
       gl.disable(gl.CULL_FACE);
       for (const object of this.visibility.shadows) {
-        object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         if (material instanceof NativeMaterial3D) {
@@ -2527,6 +2546,7 @@ export class WebGL2Renderer implements Renderer {
       }
     }
     gl.disable(gl.SCISSOR_TEST);
+    this.shadowCache.commit();
   }
 
   private preparePostTarget(width: number, height: number): void {

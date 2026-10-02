@@ -12,6 +12,8 @@ export interface NativeMaterial3DOptions extends TextureMaterialOptions {
   readonly label?: string;
   /** Maximum final mesh-local vertex displacement; absent means unbounded and disables bounds culling. */
   readonly deformationBounds?: number;
+  /** Tracked hooks promise deterministic output from vertex inputs, uniforms and borrowed maps only. */
+  shadowCache?: 'dynamic' | 'tracked';
 }
 
 /** Per-mesh native shader hooks; resources remain caller-owned, including on loss. */
@@ -22,6 +24,7 @@ export class NativeMaterial3D extends TextureMaterial {
   private readonly borrowedMaps: readonly Texture[];
   override readonly deformationBounds: number | undefined;
   readonly uniforms = new Float32Array(nativeMaterial3DLimits.uniformFloats);
+  readonly shadowCache: 'dynamic' | 'tracked';
   private readonly listeners = new Set<() => void>();
   private disposed = false;
 
@@ -57,6 +60,15 @@ export class NativeMaterial3D extends TextureMaterial {
         'NativeMaterial3D deformationBounds must be finite and nonnegative.',
       );
     this.deformationBounds = options.deformationBounds;
+    if (
+      options.shadowCache !== undefined &&
+      options.shadowCache !== 'dynamic' &&
+      options.shadowCache !== 'tracked'
+    )
+      throw new TypeError(
+        'NativeMaterial3D shadowCache must be dynamic or tracked.',
+      );
+    this.shadowCache = options.shadowCache ?? 'dynamic';
     this.wgslSource = options.wgsl;
     this.glslSource = options.glsl;
     this.label = options.label ?? 'NativeMaterial3D';

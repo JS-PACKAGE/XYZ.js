@@ -1087,3 +1087,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - NavigationMesh3D提供真convex coplanar authored polygons、3D shared-edge portals／height／radius／headroom／floors／special links與clearance smoothing；NavigationTiledGraph3D提供bounded snapshots及certified seams。既有graph8192上限保留，partition aggregate262144 nodes／2097152 edges／1024 tiles admission先於copy；construction／query均拒絕不安全tile indexing。1.x原grid API不替換。
 - Cooperative工作預算涵蓋reconstruction／smoothing；Mesh follower以實際capsule執行feet／center座標及special-link traversal，不以傳送或2D高度投影假冒。
 - 實際Scene／capsule smoke `NAVIGATION_SCALE_SMOKE_OK`：10000 polygons只取4candidates，visited100／work419；10000 sampled nodes總work30003、每次max17。實際capsule到X=3.5及5.5附近、link後Y=3.702。證據 `.vite/navigation-scale/report.json`；共享CPU build/query時間為觀察，不是isolated scalability或所有nav corpus認證。
+
+### P94 — Native 契約、shadow品質／cache與visibility
+
+- 正式WebGPU／WebGL2提供cascade overlap blend、receiver-plane slope correction、point angular跨face PCF及whole-atlas static cache；exact snapshots涵蓋camera／light／parent／deformation／membership／maps／native state／resize／loss。Native hooks預設dynamic，tracked cache為caller明示deterministic-input契約；真正device limits與active GL私有uniform／block在prepare拒絕，既有valid shader後續可render／recover。
+- Chromium正式native harness WebGL2十三、WebGPU十二、Canvas2D一scenario PASS（GL新增有效compile但私有active resources必拒絕）；各native loss／recover1。Cascade有4371transition pixels、CPU oracle max error0.7806052643/255；slope fixture移除12552acne pixels，point seam fixtureRGB為零。Static repeat shadow passes0，十一類invalidation各重draw1並與uncached pixels一致；證據在 `.vite/p88-p96-browser-final/chromium/results.json`。
+- 初次20,000 instances測試20,000／bounds refit1，unchanged後兩者0但pose check1；1,000／4,000 meshes refits1999／7999降0，raw mutable pose checks仍1000／4000，visible526／1400。避免重複CPU deformation及unchanged refits，不宣稱O(mesh)檢查消失；gather為CPU bookkeeping，沒有拿配置／CPU時間當GPU完成或FPS改善。

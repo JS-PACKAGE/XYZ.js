@@ -68,6 +68,7 @@ export declare class WebGPUMeshPipeline {
     private backgroundView;
     private readonly lightingData;
     private readonly atlas;
+    private readonly shadowCache;
     private readonly shadowBuffer;
     private readonly sheenBuffer;
     private readonly projectionBuffer;

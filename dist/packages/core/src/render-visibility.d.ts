@@ -50,6 +50,8 @@ export declare class RenderVisibilitySet {
     boxTests: number;
     sphereTests: number;
     instanceTests: number;
+    /** BVH nodes refitted this gather; unchanged world bounds require no refit. */
+    boundsRefits: number;
     frustumCulled: number;
     occlusionCulled: number;
     epoch: number;

@@ -610,13 +610,25 @@ Set `scene.shadows.cascades` to 2–4 to fit slices of the active perspective or
 orthographic camera. `cascadeDistance` (default 100) limits their view depth;
 `cascadeLambda` (default 0.5, range 0–1) mixes uniform and logarithmic splits.
 Each cascade uses a bounding sphere and texel-snapped projection translation.
-Receivers past the final split are unshadowed. Transitions are hard, without blending.
+Receivers past the final split are unshadowed. P94 blends overlapping cascade
+regions using `cascadeBlend` (default 0.1, range 0–0.5); zero retains hard transitions.
 
-All tiles use clamped 3×3 depth PCF with the existing normalized depth `bias`.
-`Mesh.castShadow` and `receiveShadow`, instancing, deformation and alpha masks
-continue to apply. There is no slope-scaled bias, cube-face seam filtering, temporal
-stabilization across changing camera orientations, cached static shadows, or
-Canvas2D 3D rendering. `/examples/shadows3d/` exposes each shadow mode and both flags.
+All tiles retain 3×3 depth PCF and normalized depth `bias`. P94 adds receiver-plane
+slope correction (`slopeBias`, default 1; finite, nonnegative; zero disables it)
+and angular point-light taps that select the adjacent cube face at a seam.
+`Mesh.castShadow` and `receiveShadow`, instancing, deformation and per-map alpha
+masks continue to apply. There is no temporal accumulation/stabilization across
+changing camera orientations or Canvas2D 3D rendering.
+
+`scene.shadows.cache` defaults to true. The whole atlas is reused only when exact
+tracked light/camera/caster/resource snapshots match; mutable parent poses,
+deformation, instance/geometry versions, alpha sampling, visibility/membership,
+resize and graphics loss invalidate it. Follow existing resource update APIs;
+call `scene.shadows.invalidate()` for external, otherwise unversioned changes.
+Native materials default to `shadowCache:'dynamic'`; opt-in `'tracked'` promises
+that their shadow inputs follow those tracked updates. Optional renderer counters
+`shadowPasses`/`shadowCacheHits` describe submitted passes, not GPU time or FPS.
+`/examples/shadows3d/` exposes each shadow mode and both Mesh flags.
 
 ## 36. Cubemap Environments (P38a)
 
@@ -1260,3 +1272,24 @@ includes reconstruction and smoothing, not only A* expansion. Respect revisions,
 cancellation and shared scheduler budgets; rebuild/replan when geometry changes.
 Invalid or unsafe spatial indices reject rather than entering an unbounded loop.
 The original sampled/grid APIs remain available.
+
+### Native extension, visibility and deployment boundaries
+
+Native hooks use the engine-owned `XYZVertex` and fixed uniform/map ABI; do not
+redeclare engine structs, add entry points, private resources or a second shader
+language. Guard GLSL stage-only operations with `XYZ_VERTEX`/`XYZ_FRAGMENT`/
+`XYZ_SHADOW`. Preparation checks actual native device limits; active GL private
+uniforms/blocks reject instead of silently reading zero. The four maps remain
+borrowed and must survive all consumers. Tracked native shadow caching is an
+explicit deterministic-input promise, not an automatic assumption about arbitrary
+shader hooks.
+
+Visibility keeps O(mesh) raw mutable-pose checks but skips unchanged BVH refits and
+instance filtering. `RenderVisibilitySet.boundsRefits` is CPU bookkeeping;
+20,000-instance and 1,000/4,000-mesh gather evidence is not GPU completion or FPS.
+Production `baseline|low|high` quality dimensions/counts live in
+`src/data/observability.ts`. `native|simulated-low-tier|simulated-low-tier-heavy`
+device profiles report real host identity or explicit CDP CPU/network pressure,
+never physical low-tier provenance. Keep RAF, CPU submission, nullable native-pass
+GPU time and separate memory domains. No operator limits means measured/BLOCKED,
+not performance PASS; CI's 5,000 ms teardown bound is only a host-scoped hang guard.

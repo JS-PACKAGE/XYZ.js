@@ -54,8 +54,11 @@ export declare const shadowLimits: Readonly<{
     far: 50;
     cascadeDistance: 100;
     cascadeLambda: 0.5;
+    cascadeBlend: 0.1;
+    slopeBias: 1;
+    maximumSlopeBias: 0.05;
 }>;
-/** Shadow atlas header (12 vec4) and one matrix for every budgeted tile. */
+/** Shadow atlas header (12 vec4), matrices, then quality controls (one vec4). */
 export declare const SHADOW_FLOAT_COUNT: number;
 export declare const fxaaDefaults: Readonly<{
     enabled: false;

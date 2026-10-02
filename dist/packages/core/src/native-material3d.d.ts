@@ -10,6 +10,8 @@ export interface NativeMaterial3DOptions extends TextureMaterialOptions {
     readonly label?: string;
     /** Maximum final mesh-local vertex displacement; absent means unbounded and disables bounds culling. */
     readonly deformationBounds?: number;
+    /** Tracked hooks promise deterministic output from vertex inputs, uniforms and borrowed maps only. */
+    shadowCache?: 'dynamic' | 'tracked';
 }
 /** Per-mesh native shader hooks; resources remain caller-owned, including on loss. */
 export declare class NativeMaterial3D extends TextureMaterial {
@@ -19,6 +21,7 @@ export declare class NativeMaterial3D extends TextureMaterial {
     private readonly borrowedMaps;
     readonly deformationBounds: number | undefined;
     readonly uniforms: Float32Array<ArrayBuffer>;
+    readonly shadowCache: 'dynamic' | 'tracked';
     private readonly listeners;
     private disposed;
     constructor(options: NativeMaterial3DOptions);

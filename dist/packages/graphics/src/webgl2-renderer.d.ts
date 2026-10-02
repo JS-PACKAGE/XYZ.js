@@ -87,6 +87,7 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly samplers;
     private supportedTextureFormats;
     private readonly atlas;
+    private readonly shadowCache;
     private shadowBuffer;
     private sheenBuffer;
     private readonly opticalTextures;

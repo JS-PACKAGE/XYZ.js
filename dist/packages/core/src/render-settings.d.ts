@@ -13,6 +13,12 @@ export interface ShadowSettingsOptions {
     cascadeDistance?: number;
     /** Blend between uniform (0) and logarithmic (1) cascade splits. */
     cascadeLambda?: number;
+    /** Fraction of each cascade depth interval blended into the following cascade. */
+    cascadeBlend?: number;
+    /** Receiver-plane depth slope multiplier, in shadow texels. Zero disables it. */
+    slopeBias?: number;
+    /** Reuse unchanged native depth atlases. Untracked native shaders always redraw. */
+    cache?: boolean;
 }
 export type ToneMapping = 'none' | 'aces';
 export interface PostProcessingSettingsOptions {
@@ -50,7 +56,15 @@ export declare class ShadowSettings {
     cascades: number;
     cascadeDistance: number;
     cascadeLambda: number;
+    cascadeBlend: number;
+    slopeBias: number;
+    cache: boolean;
+    private cacheRevision;
     constructor(options?: ShadowSettingsOptions);
+    /** Force the next native shadow pass after an external/unversioned resource change. */
+    invalidate(): void;
+    /** @internal */
+    get revision(): number;
     validate(): void;
 }
 /** Fullscreen HDR processing after 3D and before the unaffected 2D overlay. */

@@ -260,7 +260,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
 }
 fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, materialUV(input,0u)));
-  let visibility = directionalShadow(input.world);
+  let visibility = directionalShadow(input.world,input.normal);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
   let direction = safeNormal(scene.lightDirection.xyz);
@@ -271,14 +271,14 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     for (var i = 0u; i < u32(scene.counts.x); i++) {
       let lightData = scene.points[i];
       let delta = lightData.positionRange.xyz-input.world;
-      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*max(dot(safeNormal(normal),safeNormal(delta)),0.0)*pointShadow(i,input.world,lightData.positionRange.xyz);
+      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*max(dot(safeNormal(normal),safeNormal(delta)),0.0)*pointShadow(i,input.world,lightData.positionRange.xyz,input.normal);
     }
     for (var i = 0u; i < u32(scene.counts.y); i++) {
       let lightData = scene.spots[i];
       let delta = lightData.positionRange.xyz-input.world;
       let l = safeNormal(delta);
       let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0)*spotShadow(i,input.world);
+      illumination += lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*max(dot(safeNormal(normal),l),0.0)*spotShadow(i,input.world,input.normal);
     }
     // Legacy base map remains premultiplied to retain filtered translucent edges.
     let baseAlpha = select(1.0, texel.a, mesh.clearcoatMaps.w > 0.5);
@@ -391,7 +391,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   for (var i = 0u; i < u32(scene.counts.x); i++) {
     let lightData = scene.points[i];
     let delta = lightData.positionRange.xyz-input.world;
-    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz);
+    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz,input.normal);
     color += brdf(n,v,safeNormal(delta),base,metal,rough,dielectricF0,specularWeight,transmission)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,safeNormal(delta),sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,safeNormal(delta),coatRoughness)*coatFresnel*incident; }
@@ -401,7 +401,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let delta = lightData.positionRange.xyz-input.world;
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
-    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world);
+    let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world,input.normal);
     color += brdf(n,v,l,base,metal,rough,dielectricF0,specularWeight,transmission)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,l,sheenRoughness)*incident; }
     if (coatWeight > 0.0) { coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*incident; }

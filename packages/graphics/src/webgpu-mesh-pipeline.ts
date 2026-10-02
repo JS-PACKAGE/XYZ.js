@@ -38,6 +38,8 @@ import {
   REFLECTION_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import { fillMaterialUV } from './material-uv.js';
+import { ShadowCache } from './shadow-cache.js';
+import { validateNativeMaterialGPU } from './native-material-limits.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -167,6 +169,7 @@ export class WebGPUMeshPipeline {
   private backgroundView: GPUTextureView;
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly atlas = new ShadowAtlas();
+  private readonly shadowCache = new ShadowCache();
   private readonly shadowBuffer: GPUBuffer;
   private readonly sheenBuffer: GPUBuffer;
   private readonly projectionBuffer: GPUBuffer;
@@ -1009,8 +1012,6 @@ export class WebGPUMeshPipeline {
           );
         if (object.material instanceof NativeMaterial3D)
           object.material.validate();
-        object.updateRenderDeformation();
-        object.updateWorldMatrix();
         const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
@@ -1023,7 +1024,8 @@ export class WebGPUMeshPipeline {
           this.blendedDraw,
         );
       if (!weighted) this.oit.release();
-      if (scene.shadows.enabled) this.renderShadows(encoder);
+      if (scene.shadows.enabled)
+        this.renderShadows(encoder, scene, width, height);
       const linear =
         scene.postProcessing.enabled || hasTransmission || weighted;
       this.prepareScene(scene, aspect, linear);
@@ -1203,6 +1205,7 @@ export class WebGPUMeshPipeline {
       this.shadowTexture = texture;
       this.shadowView = view;
       this.shadowSize = size;
+      this.shadowCache.invalidate();
     } catch (error) {
       texture.destroy();
       this.stats.target(-size * size * 4);
@@ -1295,6 +1298,7 @@ export class WebGPUMeshPipeline {
     if (this.destroyed)
       throw new GraphicsError('Cannot prepare on a destroyed native renderer.');
     if (this.nativeMaterials.has(material)) return;
+    validateNativeMaterialGPU(this.device.limits);
     const pending = this.pendingMaterials.get(material);
     if (pending) return pending;
     const work = (async () => {
@@ -1485,7 +1489,27 @@ export class WebGPUMeshPipeline {
     return entry.sceneGroup;
   }
 
-  private renderShadows(encoder: GPUCommandEncoder): void {
+  private renderShadows(
+    encoder: GPUCommandEncoder,
+    scene: Scene,
+    width: number,
+    height: number,
+  ): void {
+    if (
+      !this.shadowCache.needsRender(
+        scene,
+        this.atlas,
+        this.draws,
+        this.visibility.entries,
+        width,
+        height,
+      )
+    ) {
+      this.shadowCache.commit();
+      this.stats.shadowCacheHits++;
+      return;
+    }
+    this.stats.shadowPasses++;
     this.shadowAttachment.view = this.shadowView;
     const pass = beginTimedRenderPass(encoder, this.shadowDescriptor);
     try {
@@ -1505,6 +1529,7 @@ export class WebGPUMeshPipeline {
             this.stats.shadowDrawCalls++;
           }
       }
+      this.shadowCache.commit();
     } finally {
       pass.end();
       this.shadowAttachment.view = undefined;
