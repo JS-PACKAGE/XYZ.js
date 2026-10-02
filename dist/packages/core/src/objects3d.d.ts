@@ -5,35 +5,82 @@ import type { Object3D } from './object3d.js';
 import { OrthographicCamera } from './orthographic-camera.js';
 import type { PerspectiveCamera } from './perspective-camera.js';
 import type { Rect2D } from './gameplay/contracts.js';
+import { type BoundingSphere3D } from './render-bounds.js';
 type Camera3D = PerspectiveCamera | OrthographicCamera;
 /**
  * Objects that need the camera before each draw. The Scene calls `updateForCamera` once per
  * frame, after all simulation and before rendering, for every registered object that has it.
  */
 export interface CameraDependent3D {
-    updateForCamera(camera: Camera3D): void;
+    updateForCamera(camera: Camera3D, viewportHeight?: number, timeSeconds?: number): void;
 }
 export declare function isCameraDependent(object: unknown): object is Object3D & CameraDependent3D;
 export interface LODLevel {
-    /** Object shown from this distance on; it becomes a child of the LOD. */
+    /** Object becomes an owned child; its geometry/material/texture remain borrowed. */
     readonly object: Object3D;
     readonly distance: number;
+    /** Minimum projected diameter in logical viewport pixels, independent of DPR. */
+    readonly screenSize?: number;
 }
-/**
- * Shows exactly one child by camera distance. Levels are kept sorted by `distance`; the farthest
- * level whose distance has been reached is visible and the rest are hidden. `hysteresis` (world
- * units) keeps a level from flickering when the camera hovers at a boundary.
- */
+export interface LODOptions {
+    hysteresis?: number;
+    crossFadeDuration?: number;
+    /** Local sphere radius used by screen-size LOD. */
+    screenRadius?: number;
+}
+/** Distance or projected-size selection with native-rendered coverage transitions. */
 export declare class LOD extends Group implements CameraDependent3D {
     private readonly entries;
     private current;
-    /** World units a level must be passed by before switching away from the current one. */
+    private screenMode;
+    private weights;
+    private fromWeights;
+    private fadeStarted;
+    private fading;
+    private readonly screenSphere;
+    /** World units for distance levels, logical viewport pixels for screen-size levels. */
     hysteresis: number;
+    crossFadeDuration: number;
+    screenRadius: number;
+    constructor(options?: LODOptions);
     get levels(): readonly LODLevel[];
-    /** Index into `levels` of the visible level, or -1 before the first update. */
     get level(): number;
     addLevel(object: Object3D, distance: number): this;
-    updateForCamera(camera: Camera3D): void;
+    addScreenLevel(object: Object3D, minimumPixels: number): this;
+    removeLevel(object: Object3D, destroy?: boolean): boolean;
+    private insertLevel;
+    private resetSelection;
+    /** Native Scene supplies logical viewport/time; one-argument legacy distance LOD still works. */
+    updateForCamera(camera: Camera3D, viewportHeight?: number, timeSeconds?: number): void;
+    updateForRender(camera: Camera3D, viewportHeight: number, timeSeconds: number): void;
+    /** Native color/shadow/picking consumers can inspect the same active branch weight. */
+    renderWeight(object: Object3D): number;
+    protected projectedDiameter(camera: Camera3D, viewportHeight: number): number;
+    private validateSettings;
+    private select;
+    private advanceFade;
+}
+/** Conservative projected diameter; near-plane intersections retain highest detail. */
+export declare function projectedSphereDiameter(sphere: Readonly<BoundingSphere3D>, camera: Camera3D, viewportHeight: number): number;
+export interface HLODOptions extends LODOptions {
+    proxy: Object3D;
+    children: readonly Object3D[];
+    /** Switch to the child aggregate above this logical-pixel diameter. */
+    screenSize: number;
+}
+/** Owns detail/proxy nodes; replacing them retires nodes, never borrowed render resources. */
+export declare class HLOD extends LOD {
+    readonly detail: Group;
+    private proxyObject;
+    private readonly aggregateSphere;
+    private readonly childSphere;
+    private readonly pending;
+    readonly screenSize: number;
+    constructor(options: HLODOptions);
+    get proxy(): Object3D;
+    replaceProxy(proxy: Object3D): void;
+    replaceChildren(children: readonly Object3D[]): void;
+    protected projectedDiameter(camera: Camera3D, viewportHeight: number): number;
 }
 export type BillboardMode = 'spherical' | 'cylindrical';
 export interface BillboardOptions extends Omit<MeshOptions, 'geometry' | 'material'> {

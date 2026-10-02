@@ -11,5 +11,5 @@ export declare class DrawSorter {
      * blended meshes follow farthest-to-nearest (distance from the camera to each
      * bounding-sphere center; equal distances keep insertion order).
      */
-    sort(draws: Mesh[], camera: Vector3): void;
+    sort(draws: Mesh[], camera: Vector3, blended?: (mesh: Mesh) => boolean): void;
 }

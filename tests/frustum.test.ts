@@ -69,7 +69,7 @@ describe('Mesh culling', () => {
     expect(cube([12, 0, 0], 40).isInFrustum(frustum)).toBe(true);
   });
 
-  it('honors frustumCulled = false and never culls instanced meshes', () => {
+  it('honors the opt-out and culls an offscreen instance aggregate', () => {
     const frustum = cameraFrustum();
     const far = cube([50, 0, 0]);
     far.frustumCulled = false;
@@ -80,7 +80,7 @@ describe('Mesh culling', () => {
       count: 1,
       position: [50, 0, 0],
     });
-    expect(instanced.isInFrustum(frustum)).toBe(true);
+    expect(instanced.isInFrustum(frustum)).toBe(false);
   });
 
   it('refreshes bounds after vertices change', () => {

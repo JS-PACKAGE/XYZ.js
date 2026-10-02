@@ -52,4 +52,24 @@ export class Frustum {
         return false;
     return true;
   }
+
+  /** Positive-vertex AABB test; invalid bounds deliberately remain visible. */
+  intersectsBox(
+    minX: number,
+    minY: number,
+    minZ: number,
+    maxX: number,
+    maxY: number,
+    maxZ: number,
+  ): boolean {
+    if (!Number.isFinite(minX + minY + minZ + maxX + maxY + maxZ)) return true;
+    const p = this.planes;
+    for (let i = 0; i < 24; i += 4) {
+      const x = p[i] >= 0 ? maxX : minX;
+      const y = p[i + 1] >= 0 ? maxY : minY;
+      const z = p[i + 2] >= 0 ? maxZ : minZ;
+      if (p[i] * x + p[i + 1] * y + p[i + 2] * z + p[i + 3] < 0) return false;
+    }
+    return true;
+  }
 }

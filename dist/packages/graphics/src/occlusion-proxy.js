@@ -1,0 +1,2 @@
+export const occlusionProxyVertices=new Float32Array([0,0,0,1,0,0,1,1,0,0,1,0,0,0,1,1,0,1,1,1,1,0,1,1]);export const occlusionProxyIndices=new Uint16Array([0,2,1,0,3,2,4,5,6,4,6,7,0,1,5,0,5,4,3,7,6,3,6,2,0,4,7,0,7,3,1,2,6,1,6,5]);
+//# sourceMappingURL=occlusion-proxy.js.map

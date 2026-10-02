@@ -1,5 +1,6 @@
 import { Matrix4 } from '../../math/src/index.js';
 import { Mesh, type MeshOptions } from './mesh.js';
+import { type BoundingSphere3D } from './render-bounds.js';
 export interface InstancedMeshOptions extends MeshOptions {
     count: number;
 }
@@ -17,7 +18,13 @@ export declare class InstancedMesh extends Mesh {
      * which case every instance is white. Multiplied into the base color like vertex colors.
      */
     get colors(): Float32Array | undefined;
-    protected get cullable(): boolean;
+    private boundsVersion;
+    private geometryBoundsVersion;
+    private readonly aggregate;
+    private readonly instanceSphere;
+    private readonly instanceDeformationSphere;
+    /** Bounds include every local instance, not just the mesh's base geometry. */
+    get boundingSphere(): Readonly<BoundingSphere3D>;
     constructor(options: InstancedMeshOptions);
     setMatrixAt(index: number, matrix: Matrix4): void;
     /** Sets one instance's color; components are finite and nonnegative (above 1 brightens). */

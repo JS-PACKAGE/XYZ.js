@@ -10,4 +10,6 @@ export declare class Frustum {
     setFromMatrix(viewProjection: Matrix4): this;
     /** True unless the sphere lies completely outside one plane. */
     intersectsSphere(x: number, y: number, z: number, radius: number): boolean;
+    /** Positive-vertex AABB test; invalid bounds deliberately remain visible. */
+    intersectsBox(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean;
 }

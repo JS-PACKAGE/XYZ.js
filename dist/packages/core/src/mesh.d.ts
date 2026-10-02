@@ -4,6 +4,7 @@ import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
 import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
+import { type BoundingSphere3D } from './render-bounds.js';
 export interface TextureMaterialOptions {
     texture: Texture;
     color?: [number, number, number];
@@ -17,6 +18,8 @@ export declare class TextureMaterial {
     readonly color: [number, number, number];
     readonly opacity: number;
     readonly transparent: boolean;
+    /** Maximum final mesh-local vertex displacement; undefined means unbounded native output. */
+    readonly deformationBounds: number | undefined;
     constructor(options: TextureMaterialOptions);
 }
 export interface MeshOptions {
@@ -41,6 +44,10 @@ export declare class Mesh extends Object3D {
     constructor(options: MeshOptions);
     /** Set false to always submit this mesh even when it lies outside the camera frustum. */
     frustumCulled: boolean;
+    /** Opt-in native depth queries. Unsupported, pending, or stale proofs remain visible. */
+    occlusionCulled: boolean;
+    private readonly worldSphere;
+    private readonly deformationSphere;
     /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
     get renderGeometry(): Geometry;
     get boundingSphere(): Readonly<{
@@ -50,7 +57,7 @@ export declare class Mesh extends Object3D {
         radius: number;
     }>;
     updateRenderDeformation(): void;
-    /** Deformed and instanced meshes keep bind-pose or per-instance bounds unreliable. */
+    /** CPU morph bounds follow the current weights; skinned meshes override their bounds. */
     protected get cullable(): boolean;
     /** Squared distance from a world-space point to this mesh's bounding-sphere center. */
     distanceSquaredTo(x: number, y: number, z: number): number;
@@ -59,6 +66,8 @@ export declare class Mesh extends Object3D {
      * so callers may use it before drawing. Non-finite bounds are treated as visible.
      */
     isInFrustum(frustum: Frustum): boolean;
+    /** Caller-owned output; mutable poses and pending deformation are refreshed by default. */
+    getWorldBoundingSphere(out: BoundingSphere3D, refresh?: boolean): BoundingSphere3D;
     /**
      * Applies pending morph weights to the geometry. Renderers and raycasts call this
      * before reading vertices; unchanged weights cost one integer comparison.

@@ -25,12 +25,16 @@ export class DrawSorter {
    * blended meshes follow farthest-to-nearest (distance from the camera to each
    * bounding-sphere center; equal distances keep insertion order).
    */
-  sort(draws: Mesh[], camera: Vector3): void {
+  sort(
+    draws: Mesh[],
+    camera: Vector3,
+    blended: (mesh: Mesh) => boolean = isBlended,
+  ): void {
     const active = this.active;
     let kept = 0;
     for (let i = 0; i < draws.length; i++) {
       const mesh = draws[i];
-      if (!isBlended(mesh)) {
+      if (!blended(mesh)) {
         draws[kept++] = mesh;
         continue;
       }

@@ -4,6 +4,11 @@ import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
 import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
+import {
+  transformSphere,
+  sphereIsFinite,
+  type BoundingSphere3D,
+} from './render-bounds.js';
 
 export interface TextureMaterialOptions {
   texture: Texture;
@@ -19,6 +24,8 @@ export class TextureMaterial {
   readonly color: [number, number, number];
   readonly opacity: number;
   readonly transparent: boolean;
+  /** Maximum final mesh-local vertex displacement; undefined means unbounded native output. */
+  readonly deformationBounds: number | undefined = 0;
 
   constructor(options: TextureMaterialOptions) {
     if (!(options.texture instanceof Texture))
@@ -102,6 +109,20 @@ export class Mesh extends Object3D {
 
   /** Set false to always submit this mesh even when it lies outside the camera frustum. */
   frustumCulled = true;
+  /** Opt-in native depth queries. Unsupported, pending, or stale proofs remain visible. */
+  occlusionCulled = false;
+  private readonly worldSphere: BoundingSphere3D = {
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0,
+  };
+  private readonly deformationSphere: BoundingSphere3D = {
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0,
+  };
 
   /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
   get renderGeometry(): Geometry {
@@ -121,9 +142,9 @@ export class Mesh extends Object3D {
     this.updateDeformation();
   }
 
-  /** Deformed and instanced meshes keep bind-pose or per-instance bounds unreliable. */
+  /** CPU morph bounds follow the current weights; skinned meshes override their bounds. */
   protected get cullable(): boolean {
-    return this.morph === undefined;
+    return true;
   }
 
   /** Squared distance from a world-space point to this mesh's bounding-sphere center. */
@@ -141,28 +162,41 @@ export class Mesh extends Object3D {
    * so callers may use it before drawing. Non-finite bounds are treated as visible.
    */
   isInFrustum(frustum: Frustum): boolean {
-    this.updateRenderDeformation();
+    const sphere = this.getWorldBoundingSphere(this.worldSphere);
     if (!this.frustumCulled || !this.cullable) return true;
+    if (!sphereIsFinite(sphere)) return true;
+    return frustum.intersectsSphere(
+      sphere.x,
+      sphere.y,
+      sphere.z,
+      sphere.radius,
+    );
+  }
+
+  /** Caller-owned output; mutable poses and pending deformation are refreshed by default. */
+  getWorldBoundingSphere(
+    out: BoundingSphere3D,
+    refresh = true,
+  ): BoundingSphere3D {
+    if (refresh) {
+      this.updateRenderDeformation();
+      this.updateWorldMatrix();
+    }
     const sphere = this.boundingSphere;
-    const e = this.updateWorldMatrix().elements;
-    const x = e[0] * sphere.x + e[4] * sphere.y + e[8] * sphere.z + e[12];
-    const y = e[1] * sphere.x + e[5] * sphere.y + e[9] * sphere.z + e[13];
-    const z = e[2] * sphere.x + e[6] * sphere.y + e[10] * sphere.z + e[14];
-    // The induced-norm bound remains conservative under shear from parent transforms.
-    const columnSum = Math.max(
-      Math.abs(e[0]) + Math.abs(e[1]) + Math.abs(e[2]),
-      Math.abs(e[4]) + Math.abs(e[5]) + Math.abs(e[6]),
-      Math.abs(e[8]) + Math.abs(e[9]) + Math.abs(e[10]),
-    );
-    const rowSum = Math.max(
-      Math.abs(e[0]) + Math.abs(e[4]) + Math.abs(e[8]),
-      Math.abs(e[1]) + Math.abs(e[5]) + Math.abs(e[9]),
-      Math.abs(e[2]) + Math.abs(e[6]) + Math.abs(e[10]),
-    );
-    const scale = Math.sqrt(columnSum * rowSum);
-    const radius = sphere.radius * scale;
-    if (!Number.isFinite(x + y + z + radius)) return true;
-    return frustum.intersectsSphere(x, y, z, radius);
+    const displacement = this.material.deformationBounds;
+    if (displacement === undefined) {
+      out.x = out.y = out.z = 0;
+      out.radius = Infinity;
+      return out;
+    }
+    if (displacement === 0)
+      return transformSphere(sphere, this.worldMatrix, out);
+    const expanded = this.deformationSphere;
+    expanded.x = sphere.x;
+    expanded.y = sphere.y;
+    expanded.z = sphere.z;
+    expanded.radius = sphere.radius + displacement;
+    return transformSphere(expanded, this.worldMatrix, out);
   }
   /**
    * Applies pending morph weights to the geometry. Renderers and raycasts call this

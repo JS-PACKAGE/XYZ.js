@@ -1,5 +1,9 @@
 import { Matrix4 } from '../../math/src/index.js';
 import { Mesh, type MeshOptions } from './mesh.js';
+import {
+  transformSphereElements,
+  type BoundingSphere3D,
+} from './render-bounds.js';
 
 export interface InstancedMeshOptions extends MeshOptions {
   count: number;
@@ -23,8 +27,70 @@ export class InstancedMesh extends Mesh {
     return this.instanceColors;
   }
 
-  protected override get cullable(): boolean {
-    return false;
+  private boundsVersion = -1;
+  private geometryBoundsVersion = -1;
+  private readonly aggregate: BoundingSphere3D = {
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0,
+  };
+  private readonly instanceSphere: BoundingSphere3D = {
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0,
+  };
+  private readonly instanceDeformationSphere: BoundingSphere3D = {
+    x: 0,
+    y: 0,
+    z: 0,
+    radius: 0,
+  };
+
+  /** Bounds include every local instance, not just the mesh's base geometry. */
+  override get boundingSphere(): Readonly<BoundingSphere3D> {
+    if (
+      this.boundsVersion === this.version &&
+      this.geometryBoundsVersion === this.geometry.version
+    )
+      return this.aggregate;
+    const sphere = super.boundingSphere,
+      displacement = this.material.deformationBounds;
+    const base = this.instanceDeformationSphere;
+    base.x = sphere.x;
+    base.y = sphere.y;
+    base.z = sphere.z;
+    base.radius =
+      displacement === undefined ? Infinity : sphere.radius + displacement;
+    let minX = Infinity,
+      minY = Infinity,
+      minZ = Infinity;
+    let maxX = -Infinity,
+      maxY = -Infinity,
+      maxZ = -Infinity;
+    for (let index = 0; index < this.count; index++) {
+      const s = transformSphereElements(
+        base,
+        this.matrices,
+        index * 16,
+        this.instanceSphere,
+      );
+      minX = Math.min(minX, s.x - s.radius);
+      minY = Math.min(minY, s.y - s.radius);
+      minZ = Math.min(minZ, s.z - s.radius);
+      maxX = Math.max(maxX, s.x + s.radius);
+      maxY = Math.max(maxY, s.y + s.radius);
+      maxZ = Math.max(maxZ, s.z + s.radius);
+    }
+    this.aggregate.x = (minX + maxX) / 2;
+    this.aggregate.y = (minY + maxY) / 2;
+    this.aggregate.z = (minZ + maxZ) / 2;
+    this.aggregate.radius =
+      Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+    this.boundsVersion = this.version;
+    this.geometryBoundsVersion = this.geometry.version;
+    return this.aggregate;
   }
 
   constructor(options: InstancedMeshOptions) {
