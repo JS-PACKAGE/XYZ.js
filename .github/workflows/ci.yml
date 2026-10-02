@@ -35,6 +35,18 @@ jobs:
         run: npx --yes pnpm@12.6.0 run check:api-compatibility
       - name: Reject representative breaking declarations without mutating sources
         run: node scripts/check-api-compatibility.mjs --negative-smoke
+      - name: Verify approved archives under clean and polluted workspaces
+        run: npx --yes pnpm@12.6.0 run check:package-hygiene
+      - name: Preserve declaration and package-content evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: contracts-node-${{ matrix.node }}
+          path: |
+            .vite/api-compatibility/
+            .vite/package-hygiene/
+          include-hidden-files: true
+          if-no-files-found: warn
 
   browser:
     name: ${{ matrix.engine }} / Node ${{ matrix.node }} / ${{ matrix.os }}

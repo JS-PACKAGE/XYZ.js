@@ -24,6 +24,10 @@ jobs:
       - run: npx --yes pnpm@12.6.0 run build
       - name: Pack release archive
         run: npx --yes pnpm@12.6.0 pack --pack-destination release-assets
+      - name: Verify the exact approved release archive before publication
+        run: |
+          VERSION=$(node -p 'JSON.parse(require("node:fs").readFileSync("package.json", "utf8")).version')
+          node scripts/check-package-hygiene.mjs --archive "release-assets/xyz.js-${VERSION}.tgz"
       - name: Generate SHA256SUMS
         working-directory: release-assets
         run: sha256sum *.tgz > SHA256SUMS
