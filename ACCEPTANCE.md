@@ -1,6 +1,6 @@
 # XYZ.js 驗收紀錄
 
-**目前已發佈版本：1.12.1／Apache-2.0，npm 未發佈。** 正式 GitHub Release、archive identity 與 hosted CI 證據見 [v1.12.1 最終確認](#v1121-github-release-最終確認)。P97–P103 是本輪批准的工作，尚未驗收；其實際結果另記，不能沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
+**目前 metadata：1.12.2／Apache-2.0，npm 未發佈；最新已確認 GitHub Release 仍為 1.12.1。** v1.12.2 已獲授權推送與發佈，實際結果見末節；既有 [v1.12.1 最終確認](#v1121-github-release-最終確認) 保留為歷史。P97–P103 工程保障與 OPM 更新的實測證據另記，不沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
 
 **P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
@@ -1200,3 +1200,11 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - frozen install、build、typecheck、127 files／1040 tests、lint、format:check 通過；package hygiene 實際封裝驗證通過。
 - Managed Chromium 153.0.8010.12／macOS arm64 的原生 audio gate 通過：trusted unlock、八個 contexts、OPM／sample／stream 與 effects、pause／resume、八個 contexts 全部 closed，無 page／audio errors。額外實際 adapter smoke 確認 SFX reset 不斷 BGM、panic 後 active voices／pending events 為零且 node identity 不變、reset 後可再播放、destroy 全部關閉。
 - Showcase 的 auto／WebGPU／WebGL2／Canvas2D 四條正式路徑皆呈現 non-blank 且無 browser errors。此輪不發聲、不聲稱人耳聽感／實體音訊或其他瀏覽器認證；不更新 XYZ.js 版本、不提交或發佈。
+
+## v1.12.2 發佈準備（2026-10-03）
+
+- 使用者授權升版 1.12.2、推送 main 與新 tag `v1.12.2`，由既有 Release workflow 通過共用 CI gates 後產生 `xyz.js-1.12.2.tgz` 與 `SHA256SUMS`。不 npm publish，不修改歷史 tags。
+- 納入已提交的 P97–P103 工程保障／消費端工具與官方 OPM.js 1.8.0 更新；聲部隔離、trusted unlock 與完整 vendor 部署契約不變。實體 qualification 維持 BLOCKED，不因 release 成功改標通過。
+- 本節是發佈準備，不表示 hosted CI 或 GitHub Release 已完成；正式 run／附件 identity 於實際成功後另記。
+- 發佈前 API gate 最初拒絕 OPM 升級外洩的 readonly handles／ReadonlyMap 與 v6 voice 型別。使用者選擇保留 1.x 契約；adapter 現保留 published v1 voice、mutable voices Map 與 writable escape-hatch handles，內部仍使用官方 v6、panic／dispose，未修改 vendor 或放寬 checker。修正後 737 exports／2810 directional contracts、710 historical namespaces 與五個 consumers 通過。
+- 本機 frozen install、build、typecheck、127 files／1040 tests、lint、package hygiene 與 build:site 通過；生成 API 位於 `api/1.12.2/`。Managed Chromium 相容 smoke 實跑 legacy voice／registry／handles、reset 後 replay 與八個 contexts 全部 closed；兩頁 concurrent native audio gate 通過。這不是 hosted CI 或實體聽感認證。

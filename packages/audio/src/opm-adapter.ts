@@ -15,7 +15,7 @@ export interface OPMOperator {
 }
 
 export interface OPMVoice {
-  version?: 1 | 6;
+  version?: 1;
   name?: string;
   algorithm: number;
   feedback: number;
@@ -25,9 +25,9 @@ export interface OPMVoice {
 }
 
 interface OfficialOPM {
-  readonly context: AudioContext | null;
-  readonly node: AudioWorkletNode | null;
-  voices: ReadonlyMap<string, OPMVoice>;
+  context: AudioContext | null;
+  node: AudioWorkletNode | null;
+  voices: Map<string, OPMVoice>;
   loadVoice(name: string, voice: unknown): void;
   start(): Promise<void>;
   playNote(options: {
@@ -37,15 +37,104 @@ interface OfficialOPM {
     duration: number;
   }): number;
   stop(id: number): void;
-  panic(): number;
-  dispose(): Promise<void>;
   close(): Promise<void>;
 }
 
-type OPMConstructor = new () => OfficialOPM;
+interface NativeVoice extends Omit<OPMVoice, 'version'> {
+  version: 6;
+}
+
+interface NativeOPM extends Omit<OfficialOPM, 'voices' | 'playNote'> {
+  voices: ReadonlyMap<string, NativeVoice>;
+  playNote(options: {
+    voice?: string | OPMVoice | NativeVoice;
+    note: number;
+    time?: number;
+    duration: number;
+  }): number;
+  panic(): number;
+  dispose(): Promise<void>;
+}
+
+type OPMConstructor = new () => NativeOPM;
+
+// Keep the published engine schema while retaining all upstream expressive fields.
+const normalizedVoices = new WeakMap<OPMVoice, NativeVoice>();
+
+function engineVoice(voice: NativeVoice): OPMVoice {
+  const result: OPMVoice = {
+    ...voice,
+    version: 1,
+    ops: voice.ops.map((op) => ({
+      ...op,
+      adsr: { ...op.adsr },
+    })) as OPMVoice['ops'],
+    lfo: voice.lfo ? { ...voice.lfo } : undefined,
+  };
+  normalizedVoices.set(result, { ...result, version: 6 });
+  return result;
+}
+
+function nativeVoice(voice: OPMVoice): OPMVoice | NativeVoice {
+  const normalized = normalizedVoices.get(voice);
+  if (!normalized) return voice;
+  // Assets are frozen; mutable escape-hatch patches must retain caller edits.
+  return Object.isFrozen(voice) ? normalized : { ...voice, version: 6 };
+}
+
+/** User-approved 1.x escape-hatch compatibility; vendor instances stay untouched. */
+function legacyOPM(native: NativeOPM): OfficialOPM {
+  const voices = new Map(
+    [...native.voices].map(([name, voice]) => [name, engineVoice(voice)]),
+  );
+  return {
+    get context() {
+      return native.context;
+    },
+    set context(value) {
+      native.context = value;
+    },
+    get node() {
+      return native.node;
+    },
+    set node(value) {
+      native.node = value;
+    },
+    voices,
+    loadVoice(name, voice) {
+      native.loadVoice(
+        name,
+        typeof voice === 'object' &&
+          voice !== null &&
+          normalizedVoices.has(voice as OPMVoice)
+          ? nativeVoice(voice as OPMVoice)
+          : voice,
+      );
+      voices.set(name, engineVoice(native.voices.get(name)!));
+    },
+    start: () => native.start(),
+    playNote(options) {
+      const voice =
+        typeof options.voice === 'string'
+          ? voices.get(options.voice)
+          : options.voice;
+      if (typeof options.voice === 'string' && !voice)
+        throw new AudioError(`Unknown voice: ${options.voice}`);
+      return native.playNote({
+        ...options,
+        voice: voice ? nativeVoice(voice) : undefined,
+      });
+    },
+    stop: (id) => {
+      native.stop(id);
+    },
+    close: () => native.close(),
+  };
+}
 
 interface Slot {
-  opm: OfficialOPM;
+  opm: NativeOPM;
+  legacy?: OfficialOPM;
   gain?: GainNode;
   noteId?: number;
   panner?: PannerNode;
@@ -100,7 +189,7 @@ export class OPMAdapter {
     const OPM = await loadOPM();
     const opm = new OPM();
     opm.loadVoice('validated', value);
-    return opm.voices.get('validated')!;
+    return engineVoice(opm.voices.get('validated')!);
   }
 
   get unlocked(): boolean {
@@ -112,7 +201,9 @@ export class OPMAdapter {
   }
 
   get opm(): OfficialOPM | undefined {
-    return this.unlocked ? this.slots[0].opm : undefined;
+    if (!this.unlocked) return undefined;
+    const slot = this.slots[0];
+    return (slot.legacy ??= legacyOPM(slot.opm));
   }
 
   /** @internal Native PCM shares the first existing context; worklet reset leaves it alive. */
@@ -218,7 +309,7 @@ export class OPMAdapter {
       channel.panner = panner;
     } else channel.gain!.connect(output);
     channel.noteId = channel.opm.playNote({
-      voice,
+      voice: nativeVoice(voice),
       note,
       time: delay,
       duration,

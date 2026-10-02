@@ -1,6 +1,6 @@
 # Reproducible headless asset recipe
 
-This **v1.12.1 / 1.12.1** development recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads codecs, executes asset-provided commands, or modifies official OPM bytes. Historical P50 evidence remains in ACCEPTANCE; release verification does not imply cross-platform codec certification.
+This **v1.12.2 / 1.12.2** development recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads codecs, executes asset-provided commands, or modifies official OPM bytes. Historical P50 evidence remains in ACCEPTANCE; release verification does not imply cross-platform codec certification.
 
 Current support/API boundaries are normative in [CURRENT](CURRENT.md); this recipe describes the production tool profile, not a new browser/physical certification.
 
@@ -35,7 +35,7 @@ node scripts/build-assets.mjs --input examples/asset-recipe/source.gltf --out /t
 diff /tmp/xyz-assets-a/SHA256SUMS /tmp/xyz-assets-b/SHA256SUMS
 pnpm pack --pack-destination /tmp
 mkdir /tmp/xyz-packed-consumer
-tar -xzf /tmp/xyz.js-1.12.1.tgz -C /tmp/xyz-packed-consumer
+tar -xzf /tmp/xyz.js-1.12.2.tgz -C /tmp/xyz-packed-consumer
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgl2
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgpu
 ```
