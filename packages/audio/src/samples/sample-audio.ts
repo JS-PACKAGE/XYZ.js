@@ -11,11 +11,14 @@ import {
   type AudioStreamOptions,
 } from './stream.js';
 import { AudioListenerState } from './spatial.js';
+import type { AudioActivity } from '../mixer.js';
 
 interface SampleHost {
   context(): AudioContext | undefined;
   scene(): Scene | undefined;
-  volume(channel: AudioChannelName | 'master'): number;
+  bus(context: AudioContext, channel: AudioChannelName): GainNode;
+  activity?(channel: AudioChannelName, delay?: number): AudioActivity;
+  contexts?(): readonly AudioContext[];
 }
 
 interface CachedSample {
@@ -203,12 +206,12 @@ export class SampleAudioEngine {
   /** Playbacks paused by the manager's pause policy, resumed together. */
   private readonly suspended = new Set<SamplePlayback | AudioStream>();
   private holding = false;
-  private master?: GainNode;
-  private buses?: Record<AudioChannelName, GainNode>;
   private disposed = false;
-  readonly listener = new AudioListenerState(() => this.host.context());
+  readonly listener: AudioListenerState;
 
-  constructor(private readonly host: SampleHost) {}
+  constructor(private readonly host: SampleHost) {
+    this.listener = new AudioListenerState(() => host.context(), host.contexts);
+  }
 
   get signal(): AbortSignal {
     return this.lifetime.signal;
@@ -297,20 +300,31 @@ export class SampleAudioEngine {
       throw new AudioError('Cannot play audio in a destroyed Scene.');
     if (this.playbacks.size >= gameplayAssetLimits.samplePlaybacks)
       throw new AudioError('Sample playback budget is exhausted.');
-    this.ensureBuses(context);
+    this.listener.apply();
+    let activity: AudioActivity | undefined;
     const playback = new SamplePlayback(
       context,
       buffer,
-      this.buses![channel],
+      this.host.bus(context, channel),
       options,
-      (finished) => this.playbacks.delete(finished),
+      (finished) => {
+        activity?.release();
+        this.playbacks.delete(finished);
+        this.suspended.delete(finished);
+      },
+      (active, delay) => {
+        if (!active) {
+          activity?.release();
+          activity = undefined;
+        } else if (!activity) activity = this.host.activity?.(channel, delay);
+      },
     );
     this.playbacks.set(playback, {
       scene: options.scene,
       persistent: options.persistent ?? false,
     });
     if (this.holding) {
-      playback.pause();
+      playback.pause('manager');
       this.suspended.add(playback);
     }
     return playback;
@@ -363,14 +377,15 @@ export class SampleAudioEngine {
     let source: MediaElementAudioSourceNode | undefined;
     let gain: GainNode | undefined;
     try {
+      let activity: AudioActivity | undefined;
       await whenPlayable(media, options.signal, this.lifetime.signal);
       this.requireContext();
-      this.ensureBuses(context);
+      this.listener.apply();
       // A media element may only be wrapped once, so the nodes live as long as the stream.
       source = context.createMediaElementSource(media);
       gain = context.createGain();
       source.connect(gain);
-      gain.connect(this.buses![channel]);
+      gain.connect(this.host.bus(context, channel));
       stream = new AudioStream(
         media,
         source,
@@ -378,8 +393,15 @@ export class SampleAudioEngine {
         (finished) => {
           this.playbacks.delete(finished);
           this.suspended.delete(finished);
+          activity?.release();
         },
         options,
+        (active) => {
+          if (!active) {
+            activity?.release();
+            activity = undefined;
+          } else if (!activity) activity = this.host.activity?.(channel);
+        },
       );
       this.playbacks.set(stream, {
         scene,
@@ -388,8 +410,10 @@ export class SampleAudioEngine {
       if (startTime > 0) media.currentTime = startTime;
       if (options.autoplay ?? true) {
         // While the manager is paused the stream waits for the resume instead of starting.
-        if (this.holding) this.suspended.add(stream);
-        else await stream.play();
+        if (this.holding) {
+          stream.pause('manager');
+          this.suspended.add(stream);
+        } else await stream.play();
       }
       return stream;
     } catch (error) {
@@ -408,8 +432,8 @@ export class SampleAudioEngine {
   suspend(): void {
     this.holding = true;
     for (const playback of this.playbacks.keys()) {
-      if (playback.state !== 'playing') continue;
-      playback.pause();
+      if (playback.state === 'stopped' || playback.state === 'ended') continue;
+      playback.pause('manager');
       this.suspended.add(playback);
     }
   }
@@ -418,18 +442,11 @@ export class SampleAudioEngine {
     this.holding = false;
     for (const playback of this.suspended) {
       if (playback.state !== 'paused') continue;
-      if (playback instanceof AudioStream) void playback.play().catch(() => {});
-      else playback.resume();
+      if (playback instanceof AudioStream)
+        void playback.play('manager').catch(() => {});
+      else playback.resume('manager');
     }
     this.suspended.clear();
-  }
-
-  refreshGains(): void {
-    if (this.disposed || !this.master || !this.buses) return;
-    this.master.gain.value = this.host.volume('master');
-    this.buses.music.gain.value = this.host.volume('music');
-    this.buses.sfx.gain.value = this.host.volume('sfx');
-    this.buses.ui.gain.value = this.host.volume('ui');
   }
 
   stopScene(scene: Scene): void {
@@ -452,29 +469,5 @@ export class SampleAudioEngine {
     this.suspended.clear();
     for (const asset of this.assets) asset.dispose();
     this.assets.clear();
-    if (this.buses) {
-      this.buses.music.disconnect();
-      this.buses.sfx.disconnect();
-      this.buses.ui.disconnect();
-    }
-    this.master?.disconnect();
-    this.buses = undefined;
-    this.master = undefined;
-  }
-
-  private ensureBuses(context: AudioContext): void {
-    if (this.buses) return;
-    this.master = context.createGain();
-    this.master.connect(context.destination);
-    this.buses = {
-      music: context.createGain(),
-      sfx: context.createGain(),
-      ui: context.createGain(),
-    };
-    this.buses.music.connect(this.master);
-    this.buses.sfx.connect(this.master);
-    this.buses.ui.connect(this.master);
-    this.refreshGains();
-    this.listener.apply();
   }
 }

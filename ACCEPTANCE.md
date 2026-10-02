@@ -922,3 +922,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 初次真 RTL screenshot 暴露 consumer bug：reference ink 339 px／1762 pixels，actual 僅 6 px／34 pixels；layoutWidth=920 但 pre-arrange horizontalOffset=340.078125。修正 paintSelection 依實際可用寬度 clamp 後 actual 337 px／1526 pixels、offset=0。
 - Native browser driver 另畫完整 Hebrew reference，要求 visible width≥90%／ink≥70%，保存 `rtl-full-paragraph.png`。Chromium 三 backend、Firefox Canvas／GL、WebKit 三 backend 共八個適用組合通過；bidi discontiguous selections、direction／locale、ZWJ／combining grapheme boundaries、native caret／trusted Unicode editing／UTF-16 selection、CJK readiness／fallback 持續通過。Synthetic composition 不等於 OS／硬體 IME；Text3D native fillText 限制不因此取消。
+
+### P70 — Native audio graph／automation／world binding
+
+- Chromium trusted unlock、實際 sample／stream／官方 OPM 在八 WebAudio contexts 通過：RMS base .517515、EQ .034139、compress .056392、duck .103607、overlap .103473、release .51737、held .568333、cancelled .295261、fade 0、reverb .112539；stream .517607→.004304、OPM .113162→.0002198，spatial near .201561／far .0287268。
+- Context-time automation／pause／cancel-hold、convolution immutable copy、borrower-safe world-transform following 與 binding lifecycle 已有 native Chromium proof；analyser RMS 不等於 physical audio hardware certification。
+- Firefox 缺原生 `cancelAndHoldAtTime` 的精確 exponential／effect crossfade hold 修正已完成，不使用 `AudioParam.value` 近似。Native Firefox 155 八 contexts sample／stream／官方 OPM／effects／overlap／automation／pause／world bindings 通過：base .516477、duck .103586、overlap .103628、release .517345；rapid model error 2.56e-8、native reference error 0。Chromium 153 同路徑通過，rapid native reference error 2.98e-8；WebKit default cancellation clock 只取樣一次，避免 currentTime 跨 tick 判為過去。
+- Managed WebKit 26.6 serial 八-context native audio run 通過；後續 concurrent run 仍觀察到原生 `stream.play()` AudioError 與 control-arrival reference difference .003699，因此不宣稱 WebKit streaming 在並行負載下穩定認證。不 suppression／retry／fake fallback，也不更動官方 DSP。正式 platform unlock 矩陣通過與這個更強的 audio stress 限制分開記錄。

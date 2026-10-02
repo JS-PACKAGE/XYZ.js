@@ -10,7 +10,25 @@ import {
   SampleAudioEngine,
   type SampleAudioAsset,
 } from './samples/sample-audio.js';
-import type { AudioListenerState } from './samples/spatial.js';
+import {
+  checkSpatialOptions,
+  validateVec3,
+  type AudioListenerState,
+  type SpatialAudioOptions,
+  type AudioVec3,
+} from './samples/spatial.js';
+import {
+  AudioMixer,
+  type AudioDuckingRule,
+  type AudioActivity,
+} from './mixer.js';
+import { PreparedAudioImpulse, type AudioEffect } from './effects.js';
+import type { GainCurve } from './gain-timeline.js';
+import type { Object3D } from '../../core/src/object3d.js';
+import {
+  AudioTransformBinding,
+  type SpatialAudioPlayback,
+} from './bindings.js';
 import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
@@ -25,6 +43,7 @@ export interface AudioPlayOptions {
   scene?: Scene;
   persistent?: boolean;
   loop?: boolean;
+  spatial?: SpatialAudioOptions;
 }
 
 /** A gain control shared by every playing voice in its channel. */
@@ -34,6 +53,7 @@ export class AudioChannel {
   constructor(
     readonly name: AudioChannelName | 'master',
     private readonly refresh: () => void,
+    private readonly mixer?: AudioMixer,
   ) {}
 
   get volume(): number {
@@ -45,6 +65,34 @@ export class AudioChannel {
       throw new AudioError('Audio volume must be finite and within 0..1.');
     this.level = value;
     this.refresh();
+  }
+
+  get effects(): readonly AudioEffect[] {
+    return this.mixer?.getEffects(this.name) ?? [];
+  }
+  setEffects(effects: readonly AudioEffect[]): void {
+    if (!this.mixer)
+      throw new AudioError('Channel is not attached to an audio manager.');
+    this.mixer.setEffects(this.name, effects);
+  }
+  /** Absolute manager AudioContext time; all independent contexts receive mapped schedules. */
+  automate(
+    value: number,
+    time: number,
+    duration = 0,
+    curve: GainCurve = 'linear',
+  ): void {
+    if (!this.mixer)
+      throw new AudioError('Channel is not attached to an audio manager.');
+    this.mixer.automate(this.name, value, time, duration, curve);
+  }
+  cancelAutomation(time?: number): number {
+    if (!this.mixer)
+      throw new AudioError('Channel is not attached to an audio manager.');
+    return this.mixer.cancelAutomation(this.name, time);
+  }
+  analyser(contextIndex = 0): AnalyserNode | undefined {
+    return this.mixer?.analyser(this.name, contextIndex);
   }
 }
 
@@ -86,7 +134,27 @@ export class AudioAsset {
 export class AudioPlayback {
   private status: 'playing' | 'stopped' | 'ended' = 'playing';
 
-  constructor(private readonly manager: AudioManager) {}
+  constructor(
+    private readonly manager: AudioManager,
+    private spatial?: Required<SpatialAudioOptions>,
+  ) {}
+
+  get position3D(): Readonly<AudioVec3> | undefined {
+    return this.spatial?.position;
+  }
+  set position3D(value: Readonly<AudioVec3> | undefined) {
+    if (!this.spatial || !value)
+      throw new AudioError('Playback was not created with spatial options.');
+    validateVec3(value, 'Spatial position');
+    this.spatial.position.x = value.x;
+    this.spatial.position.y = value.y;
+    this.spatial.position.z = value.z;
+    this.manager.movePlayback(this, this.spatial.position);
+  }
+  /** @internal */
+  get spatialOptions(): Required<SpatialAudioOptions> | undefined {
+    return this.spatial;
+  }
 
   get state(): 'playing' | 'stopped' | 'ended' {
     return this.status;
@@ -122,6 +190,7 @@ interface ReservedSlot {
   startedAt: number;
   until: number;
   sequence: number;
+  activity: AudioActivity;
 }
 
 interface CachedAudio {
@@ -136,10 +205,29 @@ const CHANNEL_ORDER = ['music', 'ui', 'sfx'] as const;
 
 /** Schedules a bounded lookahead; each slot owns an independent OPM voice. */
 export class AudioManager {
-  readonly master = new AudioChannel('master', () => this.refreshGains());
-  readonly music = new AudioChannel('music', () => this.refreshGains());
-  readonly sfx = new AudioChannel('sfx', () => this.refreshGains());
-  readonly ui = new AudioChannel('ui', () => this.refreshGains());
+  private readonly mixer = new AudioMixer();
+  readonly master = new AudioChannel(
+    'master',
+    () => this.mixer.setGain('master', this.master.volume),
+    this.mixer,
+  );
+  readonly music = new AudioChannel(
+    'music',
+    () => this.mixer.setGain('music', this.music.volume),
+    this.mixer,
+  );
+  readonly sfx = new AudioChannel(
+    'sfx',
+    () => this.mixer.setGain('sfx', this.sfx.volume),
+    this.mixer,
+  );
+  readonly ui = new AudioChannel(
+    'ui',
+    () => this.mixer.setGain('ui', this.ui.volume),
+    this.mixer,
+  );
+  private readonly bindings = new Set<AudioTransformBinding>();
+  private listenerBinding?: AudioTransformBinding;
 
   private readonly adapter: OPMAdapter;
   private readonly samples: SampleAudioEngine;
@@ -158,11 +246,15 @@ export class AudioManager {
     private readonly getScene: () => Scene | undefined,
     private readonly onError: (error: Error) => void,
   ) {
-    this.adapter = new OPMAdapter();
+    this.adapter = new OPMAdapter((context, channel) =>
+      this.mixer.input(context, channel),
+    );
     this.samples = new SampleAudioEngine({
       context: () => this.adapter.sampleContext,
       scene: this.getScene,
-      volume: (channel) => this[channel].volume,
+      bus: (context, channel) => this.mixer.input(context, channel),
+      activity: (channel, delay) => this.mixer.acquire(channel, delay),
+      contexts: () => this.adapter.contexts,
     });
   }
 
@@ -178,6 +270,61 @@ export class AudioManager {
   /** True while at least one pause reason is active (see {@link pause}). */
   get paused(): boolean {
     return this.pauseReasons.size > 0;
+  }
+
+  /** Clock used by channel gain automation; frozen while the native contexts are paused. */
+  get currentTime(): number {
+    return this.mixer.currentTime;
+  }
+  get audioContextCount(): number {
+    return this.mixer.contextCount;
+  }
+  prepareImpulse(buffer: AudioBuffer): PreparedAudioImpulse {
+    return new PreparedAudioImpulse(buffer);
+  }
+  setDucking(rules: readonly AudioDuckingRule[]): void {
+    this.mixer.setDucking(rules);
+  }
+  acquireActivity(channel: AudioChannelName): AudioActivity {
+    return this.mixer.acquire(channel);
+  }
+  bindListener(object: Object3D): AudioTransformBinding {
+    const binding = new AudioTransformBinding(
+      object,
+      this.listener,
+      true,
+      (value) => {
+        this.bindings.delete(value);
+        if (this.listenerBinding === value) this.listenerBinding = undefined;
+      },
+    );
+    this.listenerBinding?.unbind();
+    this.listenerBinding = binding;
+    this.bindings.add(binding);
+    return binding;
+  }
+  bindEmitter(
+    object: Object3D,
+    playback: SpatialAudioPlayback,
+  ): AudioTransformBinding {
+    const binding = new AudioTransformBinding(
+      object,
+      playback,
+      false,
+      (value) => this.bindings.delete(value),
+    );
+    this.bindings.add(binding);
+    return binding;
+  }
+  /** Game calls after Scene updates, independently of renderer/backend. */
+  updateBindings(): void {
+    for (const binding of this.bindings) binding.update();
+  }
+  /** @internal */
+  movePlayback(playback: AudioPlayback, position: Readonly<AudioVec3>): void {
+    for (let slot = 0; slot < VOICE_COUNT; slot++)
+      if (this.slots[slot]?.playback === playback)
+        this.adapter.setPosition(slot, position);
   }
 
   /**
@@ -199,9 +346,11 @@ export class AudioManager {
       } catch (error) {
         this.report(error);
       }
+      this.slots[slot]?.activity.release();
       this.slots[slot] = undefined;
     }
     this.samples.suspend();
+    this.adapter.setPaused(true);
   }
 
   resume(reason = 'user'): void {
@@ -210,6 +359,7 @@ export class AudioManager {
     this.pausedTotal += this.adapter.now - this.pausedAt;
     this.pausedAt = undefined;
     this.samples.resume();
+    this.adapter.setPaused(false);
     this.tick();
   }
 
@@ -228,7 +378,10 @@ export class AudioManager {
       await this.adapter.unlock();
       if (this.disposed)
         throw new AudioError('AudioManager has been destroyed.');
+      this.listener.apply();
+      if (this.paused) this.adapter.setPaused(true);
     } catch (error) {
+      if (!this.adapter.unlocked) this.mixer.clearContexts();
       if (error instanceof AudioError) throw error;
       throw new AudioError('Unable to unlock audio.', { cause: error });
     }
@@ -327,7 +480,10 @@ export class AudioManager {
     const scene = options.scene ?? this.getScene();
     if (scene?.destroyed)
       throw new AudioError('Cannot play audio in a destroyed Scene.');
-    const playback = new AudioPlayback(this);
+    const playback = new AudioPlayback(
+      this,
+      options.spatial && checkSpatialOptions(options.spatial),
+    );
     this.playbacks.set(playback, {
       playback,
       asset,
@@ -347,6 +503,8 @@ export class AudioManager {
 
   stopScene(scene: Scene): void {
     this.samples.stopScene(scene);
+    for (const binding of this.bindings)
+      if (binding.scene === scene) binding.unbind();
     for (const record of this.playbacks.values()) {
       if (record.scene !== scene) continue;
       if (record.persistent) record.scene = undefined;
@@ -361,6 +519,7 @@ export class AudioManager {
       } catch (error) {
         this.report(error);
       }
+      reservation.activity.release();
       this.slots[slot] = undefined;
     }
     this.stopIdleTimer();
@@ -385,18 +544,24 @@ export class AudioManager {
       try {
         if (immediate) {
           this.adapter.reset(slot);
+          reservation.activity.release();
           this.slots[slot] = undefined;
         } else {
           this.adapter.stop(slot);
           // A queued note was canceled; an active voice still needs its release interval.
-          if (reservation.startedAt > now) this.slots[slot] = undefined;
-          else
+          if (reservation.startedAt > now) {
+            reservation.activity.release();
+            this.slots[slot] = undefined;
+          } else {
             reservation.until = Math.min(
               reservation.until,
               now + record.asset.releaseTime,
             );
+            reservation.activity.release(record.asset.releaseTime);
+          }
         }
       } catch (error) {
+        reservation.activity.release();
         this.slots[slot] = undefined;
         this.report(error);
       }
@@ -409,6 +574,9 @@ export class AudioManager {
     this.disposed = true;
     clearInterval(this.timer);
     this.timer = undefined;
+    for (const binding of this.bindings) binding.unbind();
+    this.bindings.clear();
+    this.listenerBinding = undefined;
     this.samples.destroy();
     for (const entry of this.cache.values()) entry.controller.abort();
     this.cache.clear();
@@ -416,6 +584,7 @@ export class AudioManager {
     this.playbacks.clear();
     this.slots.fill(undefined);
     this.adapter.destroy();
+    this.mixer.destroy();
   }
 
   private async fetchAudio(
@@ -512,7 +681,10 @@ export class AudioManager {
     const now = this.clock();
     for (let slot = 0; slot < VOICE_COUNT; slot++) {
       const reservation = this.slots[slot];
-      if (reservation && reservation.until <= now) this.slots[slot] = undefined;
+      if (reservation && reservation.until <= now) {
+        reservation.activity.release();
+        this.slots[slot] = undefined;
+      }
     }
     // Reserve music/UI first; only a playing or releasing SFX may be stolen.
     for (const channel of CHANNEL_ORDER) {
@@ -584,7 +756,9 @@ export class AudioManager {
         note.note,
         delay,
         remaining,
-        this.gain(record.channel),
+        1,
+        record.channel,
+        record.playback.spatialOptions,
       );
     }
   }
@@ -608,6 +782,7 @@ export class AudioManager {
         }
       }
       if (!oldest) return undefined;
+      oldest.activity.release();
       this.adapter.reset(slot);
     }
     this.slots[slot] = {
@@ -618,28 +793,13 @@ export class AudioManager {
       startedAt: startsAt,
       until: Math.max(now, startsAt) + duration + record.asset.releaseTime,
       sequence: ++this.sequence,
+      activity: this.mixer.acquire(
+        record.channel,
+        Math.max(0, startsAt - now),
+        duration + record.asset.releaseTime,
+      ),
     };
     return slot;
-  }
-
-  private gain(channel: AudioChannelName): number {
-    return this.master.volume * this[channel].volume;
-  }
-
-  private refreshGains(): void {
-    this.samples.refreshGains();
-    if (this.disposed || !this.unlocked) return;
-    for (let index = 0; index < VOICE_COUNT; index++) {
-      const slot = this.slots[index];
-      if (!slot) continue;
-      try {
-        this.adapter.setGain(index, this.gain(slot.channel));
-      } catch (error) {
-        const playback = slot.playback;
-        this.stopPlayback(playback, true);
-        this.report(error);
-      }
-    }
   }
 
   private stopIdleTimer(): void {

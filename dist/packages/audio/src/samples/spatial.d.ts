@@ -14,6 +14,7 @@ export interface SpatialAudioOptions {
     distanceModel?: SpatialDistanceModel;
     panningModel?: SpatialPanningModel;
 }
+export declare function validateVec3(value: AudioVec3, name: string): void;
 export declare function checkVec3(value: AudioVec3, name: string): AudioVec3;
 /** Validated once so a bad option cannot leave a half-built PannerNode graph. */
 export declare function checkSpatialOptions(options: SpatialAudioOptions): Required<SpatialAudioOptions>;
@@ -24,13 +25,14 @@ export declare function applyPannerOptions(panner: PannerNode, spatial: Required
  */
 export declare class AudioListenerState {
     private readonly context;
+    private readonly contexts?;
     private pos;
     private fwd;
     private upward;
     /** Untouched listeners leave the browser's native defaults alone. */
     private touched;
     /** @internal */
-    constructor(context: () => AudioContext | undefined);
+    constructor(context: () => AudioContext | undefined, contexts?: (() => readonly AudioContext[]) | undefined);
     get position(): Readonly<AudioVec3>;
     get forward(): Readonly<AudioVec3>;
     get up(): Readonly<AudioVec3>;
@@ -39,4 +41,5 @@ export declare class AudioListenerState {
     setOrientation(forward: AudioVec3, up?: AudioVec3): void;
     /** @internal Replays retained state; called after unlock and on each change. */
     apply(): void;
+    private applyTo;
 }

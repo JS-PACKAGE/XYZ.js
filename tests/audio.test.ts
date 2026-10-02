@@ -22,6 +22,9 @@ const mock = vi.hoisted(() => {
     stop: vi.fn(),
     reset: vi.fn(),
     setGain: vi.fn(),
+    setPaused: vi.fn(),
+    setPosition: vi.fn(),
+    contexts: [],
     destroy: vi.fn(),
   };
   return { clock, api };
@@ -173,24 +176,16 @@ describe('AudioManager orchestration', () => {
     manager.destroy();
   });
 
-  it('updates active channel gains without accepting invalid volume', () => {
-    vi.useFakeTimers();
-    const { api } = mock;
+  it('rejects invalid channel volume without changing its previous level', () => {
     const manager = new AudioManager(
       () => undefined,
       () => {},
     );
-    const note = [{ note: 60, time: 0, duration: 1 }];
-    manager.play(asset(manager, note, 'music'));
-    manager.play(asset(manager, note));
-    manager.master.volume = 0.5;
-    manager.music.volume = 0.25;
-    expect(api.setGain).toHaveBeenLastCalledWith(1, 0.5);
-    expect(api.setGain).toHaveBeenCalledWith(0, 0.125);
+    manager.sfx.volume = 0.4;
     expect(() => {
       manager.sfx.volume = Number.NaN;
     }).toThrow(AudioError);
-    expect(manager.sfx.volume).toBe(1);
+    expect(manager.sfx.volume).toBe(0.4);
     manager.destroy();
   });
 

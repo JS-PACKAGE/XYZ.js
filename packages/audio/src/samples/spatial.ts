@@ -22,7 +22,7 @@ export interface SpatialAudioOptions {
 const DISTANCE_MODELS: readonly string[] = ['linear', 'inverse', 'exponential'];
 const PANNING_MODELS: readonly string[] = ['equalpower', 'HRTF'];
 
-export function checkVec3(value: AudioVec3, name: string): AudioVec3 {
+export function validateVec3(value: AudioVec3, name: string): void {
   if (
     !value ||
     !Number.isFinite(value.x) ||
@@ -30,6 +30,10 @@ export function checkVec3(value: AudioVec3, name: string): AudioVec3 {
     !Number.isFinite(value.z)
   )
     throw new AudioError(`${name} must have finite x, y and z.`);
+}
+
+export function checkVec3(value: AudioVec3, name: string): AudioVec3 {
+  validateVec3(value, name);
   return { x: value.x, y: value.y, z: value.z };
 }
 
@@ -83,14 +87,6 @@ export function applyPannerOptions(
   panner.positionZ.value = spatial.position.z;
 }
 
-function cross(a: AudioVec3, b: AudioVec3): AudioVec3 {
-  return {
-    x: a.y * b.z - a.z * b.y,
-    y: a.z * b.x - a.x * b.z,
-    z: a.x * b.y - a.y * b.x,
-  };
-}
-
 function lengthSquared(v: AudioVec3): number {
   return v.x * v.x + v.y * v.y + v.z * v.z;
 }
@@ -107,7 +103,10 @@ export class AudioListenerState {
   private touched = false;
 
   /** @internal */
-  constructor(private readonly context: () => AudioContext | undefined) {}
+  constructor(
+    private readonly context: () => AudioContext | undefined,
+    private readonly contexts?: () => readonly AudioContext[],
+  ) {}
 
   get position(): Readonly<AudioVec3> {
     return this.pos;
@@ -122,39 +121,80 @@ export class AudioListenerState {
   }
 
   setPosition(x: number, y: number, z: number): void {
-    this.pos = checkVec3({ x, y, z }, 'Listener position');
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z))
+      throw new AudioError('Listener position must have finite x, y and z.');
+    this.pos.x = x;
+    this.pos.y = y;
+    this.pos.z = z;
     this.touched = true;
     this.apply();
   }
 
   /** Forward and up must be non-zero and not parallel. */
   setOrientation(forward: AudioVec3, up: AudioVec3 = this.upward): void {
-    const f = checkVec3(forward, 'Listener forward');
-    const u = checkVec3(up, 'Listener up');
+    validateVec3(forward, 'Listener forward');
+    validateVec3(up, 'Listener up');
+    const f = forward,
+      u = up;
     if (lengthSquared(f) === 0 || lengthSquared(u) === 0)
       throw new AudioError('Listener orientation vectors must be non-zero.');
-    const normal = cross(f, u);
-    if (lengthSquared(normal) <= 1e-12 * lengthSquared(f) * lengthSquared(u))
+    const nx = f.y * u.z - f.z * u.y,
+      ny = f.z * u.x - f.x * u.z,
+      nz = f.x * u.y - f.y * u.x;
+    if (
+      nx * nx + ny * ny + nz * nz <=
+      1e-12 * lengthSquared(f) * lengthSquared(u)
+    )
       throw new AudioError('Listener forward and up must not be parallel.');
-    this.fwd = f;
-    this.upward = u;
+    this.fwd.x = f.x;
+    this.fwd.y = f.y;
+    this.fwd.z = f.z;
+    this.upward.x = u.x;
+    this.upward.y = u.y;
+    this.upward.z = u.z;
     this.touched = true;
     this.apply();
   }
 
   /** @internal Replays retained state; called after unlock and on each change. */
   apply(): void {
-    const context = this.context();
-    if (!this.touched || !context || context.state === 'closed') return;
+    if (!this.touched) return;
+    const contexts = this.contexts?.();
+    if (contexts) {
+      for (const context of contexts) this.applyTo(context);
+    } else {
+      const context = this.context();
+      if (context) this.applyTo(context);
+    }
+  }
+
+  private applyTo(context: AudioContext): void {
+    if (context.state === 'closed') return;
     const listener = context.listener;
-    listener.positionX.value = this.pos.x;
-    listener.positionY.value = this.pos.y;
-    listener.positionZ.value = this.pos.z;
-    listener.forwardX.value = this.fwd.x;
-    listener.forwardY.value = this.fwd.y;
-    listener.forwardZ.value = this.fwd.z;
-    listener.upX.value = this.upward.x;
-    listener.upY.value = this.upward.y;
-    listener.upZ.value = this.upward.z;
+    // Firefox exposes the standard vector setters, but not the listener AudioParams.
+    if (listener.positionX) {
+      listener.positionX.value = this.pos.x;
+      listener.positionY.value = this.pos.y;
+      listener.positionZ.value = this.pos.z;
+    } else {
+      listener.setPosition(this.pos.x, this.pos.y, this.pos.z);
+    }
+    if (listener.forwardX) {
+      listener.forwardX.value = this.fwd.x;
+      listener.forwardY.value = this.fwd.y;
+      listener.forwardZ.value = this.fwd.z;
+      listener.upX.value = this.upward.x;
+      listener.upY.value = this.upward.y;
+      listener.upZ.value = this.upward.z;
+    } else {
+      listener.setOrientation(
+        this.fwd.x,
+        this.fwd.y,
+        this.fwd.z,
+        this.upward.x,
+        this.upward.y,
+        this.upward.z,
+      );
+    }
   }
 }

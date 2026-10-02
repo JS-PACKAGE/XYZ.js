@@ -2,7 +2,12 @@ import type { Scene } from '../../core/src/scene.js';
 import { OPMAdapter, type OPMVoice } from './opm-adapter.js';
 import type { LoadTask } from '../../assets/src/preload/preload-batch.js';
 import { type SampleAudioAsset } from './samples/sample-audio.js';
-import type { AudioListenerState } from './samples/spatial.js';
+import { type AudioListenerState, type SpatialAudioOptions, type AudioVec3 } from './samples/spatial.js';
+import { AudioMixer, type AudioDuckingRule, type AudioActivity } from './mixer.js';
+import { PreparedAudioImpulse, type AudioEffect } from './effects.js';
+import type { GainCurve } from './gain-timeline.js';
+import type { Object3D } from '../../core/src/object3d.js';
+import { AudioTransformBinding, type SpatialAudioPlayback } from './bindings.js';
 import type { AudioStream, AudioStreamOptions } from './samples/stream.js';
 export type AudioChannelName = 'music' | 'sfx' | 'ui';
 export interface AudioNote {
@@ -15,15 +20,23 @@ export interface AudioPlayOptions {
     scene?: Scene;
     persistent?: boolean;
     loop?: boolean;
+    spatial?: SpatialAudioOptions;
 }
 /** A gain control shared by every playing voice in its channel. */
 export declare class AudioChannel {
     readonly name: AudioChannelName | 'master';
     private readonly refresh;
+    private readonly mixer?;
     private level;
-    constructor(name: AudioChannelName | 'master', refresh: () => void);
+    constructor(name: AudioChannelName | 'master', refresh: () => void, mixer?: AudioMixer | undefined);
     get volume(): number;
     set volume(value: number);
+    get effects(): readonly AudioEffect[];
+    setEffects(effects: readonly AudioEffect[]): void;
+    /** Absolute manager AudioContext time; all independent contexts receive mapped schedules. */
+    automate(value: number, time: number, duration?: number, curve?: GainCurve): void;
+    cancelAutomation(time?: number): number;
+    analyser(contextIndex?: number): AnalyserNode | undefined;
 }
 /** Loaded voice and note data are immutable; only playback defaults may change. */
 export declare class AudioAsset {
@@ -44,8 +57,13 @@ export declare class AudioAsset {
 }
 export declare class AudioPlayback {
     private readonly manager;
+    private spatial?;
     private status;
-    constructor(manager: AudioManager);
+    constructor(manager: AudioManager, spatial?: Required<SpatialAudioOptions> | undefined);
+    get position3D(): Readonly<AudioVec3> | undefined;
+    set position3D(value: Readonly<AudioVec3> | undefined);
+    /** @internal */
+    get spatialOptions(): Required<SpatialAudioOptions> | undefined;
     get state(): 'playing' | 'stopped' | 'ended';
     stop(): void;
     /** @internal */
@@ -55,10 +73,13 @@ export declare class AudioPlayback {
 export declare class AudioManager {
     private readonly getScene;
     private readonly onError;
+    private readonly mixer;
     readonly master: AudioChannel;
     readonly music: AudioChannel;
     readonly sfx: AudioChannel;
     readonly ui: AudioChannel;
+    private readonly bindings;
+    private listenerBinding?;
     private readonly adapter;
     private readonly samples;
     private readonly cache;
@@ -76,6 +97,18 @@ export declare class AudioManager {
     get unlocked(): boolean;
     /** True while at least one pause reason is active (see {@link pause}). */
     get paused(): boolean;
+    /** Clock used by channel gain automation; frozen while the native contexts are paused. */
+    get currentTime(): number;
+    get audioContextCount(): number;
+    prepareImpulse(buffer: AudioBuffer): PreparedAudioImpulse;
+    setDucking(rules: readonly AudioDuckingRule[]): void;
+    acquireActivity(channel: AudioChannelName): AudioActivity;
+    bindListener(object: Object3D): AudioTransformBinding;
+    bindEmitter(object: Object3D, playback: SpatialAudioPlayback): AudioTransformBinding;
+    /** Game calls after Scene updates, independently of renderer/backend. */
+    updateBindings(): void;
+    /** @internal */
+    movePlayback(playback: AudioPlayback, position: Readonly<AudioVec3>): void;
     /**
      * Freezes audio under a named reason (default `user`); it stays frozen until every reason has
      * been {@link resume}d. OPM tracks stop sounding and their timeline stops, then continue at the
@@ -111,8 +144,6 @@ export declare class AudioManager {
     private tick;
     private schedule;
     private reserve;
-    private gain;
-    private refreshGains;
     private stopIdleTimer;
     private report;
 }

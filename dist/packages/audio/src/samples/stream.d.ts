@@ -1,4 +1,5 @@
 import type { AudioPlayOptions } from '../audio-manager.js';
+import { type AudioVec3 } from './spatial.js';
 export interface AudioStreamOptions extends AudioPlayOptions {
     volume?: number;
     playbackRate?: number;
@@ -25,11 +26,14 @@ export declare class AudioStream extends EventTarget {
     private readonly source;
     private readonly gain;
     private readonly release;
+    private readonly activity?;
     private status;
     private level;
     private disposed;
+    private readonly pauseReasons;
+    private readonly panner?;
     /** @internal */
-    constructor(media: HTMLAudioElement, source: MediaElementAudioSourceNode, gain: GainNode, release: (stream: AudioStream) => void, options: AudioStreamOptions);
+    constructor(media: HTMLAudioElement, source: MediaElementAudioSourceNode, gain: GainNode, release: (stream: AudioStream) => void, options: AudioStreamOptions, activity?: ((active: boolean) => void) | undefined);
     get state(): AudioStreamState;
     /** Seconds. */
     get position(): number;
@@ -39,11 +43,13 @@ export declare class AudioStream extends EventTarget {
     set loop(value: boolean);
     get volume(): number;
     set volume(value: number);
+    get position3D(): Readonly<AudioVec3> | undefined;
+    set position3D(value: Readonly<AudioVec3> | undefined);
     get playbackRate(): number;
     set playbackRate(value: number);
     /** Resolves once playback has started; rejects if the browser refuses (for example autoplay). */
-    play(): Promise<void>;
-    pause(): void;
+    play(reason?: string): Promise<void>;
+    pause(reason?: string): void;
     seek(seconds: number): void;
     stop(): void;
     private readonly onEnded;

@@ -1,3 +1,5 @@
+import type { AudioChannelName } from './audio-manager.js';
+import { type SpatialAudioOptions, type AudioVec3 } from './samples/spatial.js';
 export interface OPMOperator {
     ratio: number;
     level: number;
@@ -37,12 +39,22 @@ interface OfficialOPM {
     stop(id: number): void;
     close(): Promise<void>;
 }
+type OutputRouter = (context: AudioContext, channel: AudioChannelName) => AudioNode;
 /** Eight live AudioContexts/worklets isolate voice stealing at the cost of idle resources; destroy closes them. */
 export declare class OPMAdapter {
+    private readonly output?;
     private slots;
     private pendingSlots;
     private unlocking;
     private destroyed;
+    private frozen;
+    private readonly contextTransitions;
+    private contextList;
+    constructor(output?: OutputRouter | undefined);
+    /** Context-local graphs cannot share native nodes across these eight clocks. */
+    get contexts(): readonly AudioContext[];
+    setPaused(paused: boolean): void;
+    private transitionContext;
     static validateVoice(value: unknown): Promise<OPMVoice>;
     get unlocked(): boolean;
     get now(): number;
@@ -51,8 +63,9 @@ export declare class OPMAdapter {
     get sampleContext(): AudioContext | undefined;
     unlock(): Promise<void>;
     private initialize;
-    play(slot: number, voice: OPMVoice, note: number, delay: number, duration: number, gain: number): void;
+    play(slot: number, voice: OPMVoice, note: number, delay: number, duration: number, gain: number, bus?: AudioChannelName, spatial?: Required<SpatialAudioOptions>): void;
     stop(slot: number): void;
+    setPosition(slot: number, position: Readonly<AudioVec3>): void;
     reset(slot: number): void;
     setGain(slot: number, value: number): void;
     destroy(): void;

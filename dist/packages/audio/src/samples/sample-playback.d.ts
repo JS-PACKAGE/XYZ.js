@@ -23,6 +23,7 @@ export declare class SamplePlayback {
     private readonly context;
     private readonly buffer;
     private readonly release;
+    private readonly activity?;
     private status;
     private source?;
     private readonly gain;
@@ -35,8 +36,10 @@ export declare class SamplePlayback {
     private readonly regionStart;
     private readonly regionEnd;
     private readonly regional;
+    private readonly pauseReasons;
+    private startDelay;
     /** @internal */
-    constructor(context: AudioContext, buffer: AudioBuffer, bus: GainNode, options: SamplePlayOptions, release: (playback: SamplePlayback) => void);
+    constructor(context: AudioContext, buffer: AudioBuffer, bus: GainNode, options: SamplePlayOptions, release: (playback: SamplePlayback) => void, activity?: ((active: boolean, delay?: number) => void) | undefined);
     get state(): SamplePlaybackState;
     get position(): number;
     get volume(): number;
@@ -46,8 +49,8 @@ export declare class SamplePlayback {
     set position3D(value: Readonly<AudioVec3>);
     get playbackRate(): number;
     set playbackRate(value: number);
-    pause(): void;
-    resume(): void;
+    pause(reason?: string): void;
+    resume(reason?: string): void;
     seek(seconds: number): void;
     stop(): void;
     private startSource;

@@ -28,3 +28,14 @@ export type {
   SpatialDistanceModel,
   SpatialPanningModel,
 } from './samples/spatial.js';
+export { PreparedAudioImpulse } from './effects.js';
+export type {
+  AudioEffect,
+  BiquadEffect,
+  CompressorEffect,
+  ReverbEffect,
+} from './effects.js';
+export type { AudioBusName, AudioDuckingRule, AudioActivity } from './mixer.js';
+export type { GainCurve } from './gain-timeline.js';
+export { AudioTransformBinding } from './bindings.js';
+export type { SpatialAudioPlayback } from './bindings.js';

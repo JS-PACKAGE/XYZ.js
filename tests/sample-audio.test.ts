@@ -3,6 +3,8 @@ import { SampleAudioEngine } from '../packages/audio/src/samples/sample-audio.js
 import { SamplePlayback } from '../packages/audio/src/samples/sample-playback.js';
 import type { Scene } from '../packages/core/src/scene.js';
 import { gameplayAssetLimits } from '../src/data/gameplay-assets.js';
+import { Object3D } from '../packages/core/src/object3d.js';
+import { AudioTransformBinding } from '../packages/audio/src/bindings.js';
 
 function deferred<T>() {
   let resolve!: (value: T) => void;
@@ -42,6 +44,16 @@ class NativeAudioModel {
       connect() {},
       disconnect() {},
     } as unknown as GainNode;
+  }
+
+  createPanner() {
+    return {
+      positionX: { value: 0 },
+      positionY: { value: 0 },
+      positionZ: { value: 0 },
+      connect() {},
+      disconnect() {},
+    } as unknown as PannerNode;
   }
 
   createBufferSource() {
@@ -170,6 +182,70 @@ describe('sample source timeline', () => {
     expect(playback.volume).toBe(1);
     playback.stop();
   });
+
+  it('requires every pause owner to release and retains a future start delay across pause', () => {
+    const native = new NativeAudioModel();
+    const playback = new SamplePlayback(
+      native.context,
+      native.buffer,
+      native.createGain(),
+      { scheduledStartTime: 2 },
+      () => {},
+    );
+    native.currentTime = 0.5;
+    playback.pause('manager');
+    playback.pause('user');
+    native.currentTime = 10;
+    playback.resume('manager');
+    expect(playback.state).toBe('paused');
+    playback.resume('user');
+    expect(playback.state).toBe('playing');
+    native.currentTime = 11;
+    expect(playback.position).toBe(0);
+    native.currentTime = 11.75;
+    expect(playback.position).toBeCloseTo(0.25);
+    playback.stop();
+    playback.resume('user');
+    expect(playback.state).toBe('stopped');
+  });
+
+  it('follows parented world transforms and releases emitter ownership without destroying borrowed objects', () => {
+    const native = new NativeAudioModel();
+    const parent = new Object3D(),
+      emitter = new Object3D();
+    parent.position.x = 3;
+    emitter.position.x = 2;
+    parent.add(emitter);
+    const playback = new SamplePlayback(
+      native.context,
+      native.buffer,
+      native.createGain(),
+      { spatial: { position: { x: 0, y: 0, z: 0 } } },
+      () => {},
+    );
+    const binding = new AudioTransformBinding(
+      emitter,
+      playback,
+      false,
+      () => {},
+    );
+    expect(playback.position3D?.x).toBe(5);
+    parent.position.x = -4;
+    binding.update();
+    expect(playback.position3D?.x).toBe(-2);
+    parent.remove(emitter);
+    binding.update();
+    expect(playback.position3D?.x).toBe(2);
+    binding.unbind(false);
+    expect(playback.state).toBe('playing');
+    expect(emitter.destroyed).toBe(false);
+    const next = new AudioTransformBinding(emitter, playback, false, () => {});
+    emitter.destroy();
+    expect(next.destroyed).toBe(true);
+    expect(playback.state).toBe('stopped');
+    expect(parent.destroyed).toBe(false);
+    parent.destroy();
+  });
 });
 
 describe('sample cache and lifetime', () => {
@@ -186,7 +262,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => (unlocked ? native.context : undefined),
       scene: () => undefined,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const sample = await engine.load('https://example.test/tone.wav#one');
     expect(await engine.load('https://example.test/./tone.wav#two')).toBe(
@@ -219,7 +295,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => undefined,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const controller = new AbortController();
     const first = engine.load('https://example.test/a.wav', {
@@ -251,7 +327,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => scene,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const sample = await engine.load('https://example.test/a.wav');
     const owned = await sample.play();
@@ -278,7 +354,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => undefined,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const sample = await engine.load('https://example.test/a.wav');
     for (const buffer of [
@@ -318,7 +394,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => undefined,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     await expect(
       engine.load('https://example.test/a.wav'),
@@ -345,7 +421,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => undefined,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const pending = engine.load('https://example.test/a.wav');
     engine.destroy();
@@ -371,7 +447,7 @@ describe('sample cache and lifetime', () => {
     const engine = new SampleAudioEngine({
       context: () => native.context,
       scene: () => current,
-      volume: () => 1,
+      bus: () => native.createGain(),
     });
     const sample = await engine.load('https://example.test/a.wav');
     const pending = sample.play();

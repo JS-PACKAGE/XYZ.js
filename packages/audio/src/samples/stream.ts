@@ -1,6 +1,12 @@
 import { gameplayAssetLimits } from '../../../../src/data/gameplay-assets.js';
 import type { AudioPlayOptions } from '../audio-manager.js';
 import { AudioError } from '../errors.js';
+import {
+  applyPannerOptions,
+  checkSpatialOptions,
+  validateVec3,
+  type AudioVec3,
+} from './spatial.js';
 
 export interface AudioStreamOptions extends AudioPlayOptions {
   volume?: number;
@@ -29,6 +35,8 @@ export class AudioStream extends EventTarget {
   private status: AudioStreamState = 'paused';
   private level: number;
   private disposed = false;
+  private readonly pauseReasons = new Set<string>();
+  private readonly panner?: PannerNode;
 
   /** @internal */
   constructor(
@@ -37,11 +45,21 @@ export class AudioStream extends EventTarget {
     private readonly gain: GainNode,
     private readonly release: (stream: AudioStream) => void,
     options: AudioStreamOptions,
+    private readonly activity?: (active: boolean) => void,
   ) {
     super();
     this.level = options.volume ?? 1;
     checkVolume(this.level);
     gain.gain.value = this.level;
+    if (options.spatial) {
+      const spatial = checkSpatialOptions(options.spatial);
+      this.panner = gain.context.createPanner();
+      applyPannerOptions(this.panner, spatial);
+      // The engine supplies a gain connected to the selected bus. Insert the emitter before it.
+      source.disconnect();
+      source.connect(this.panner);
+      this.panner.connect(gain);
+    }
     media.loop = options.loop ?? false;
     media.playbackRate = options.playbackRate ?? 1;
     media.addEventListener('ended', this.onEnded);
@@ -81,6 +99,24 @@ export class AudioStream extends EventTarget {
     this.gain.gain.value = value;
   }
 
+  get position3D(): Readonly<AudioVec3> | undefined {
+    return this.panner
+      ? {
+          x: this.panner.positionX.value,
+          y: this.panner.positionY.value,
+          z: this.panner.positionZ.value,
+        }
+      : undefined;
+  }
+  set position3D(value: Readonly<AudioVec3> | undefined) {
+    if (!this.panner || !value)
+      throw new AudioError('Stream was not created with spatial options.');
+    validateVec3(value, 'Spatial position');
+    this.panner.positionX.value = value.x;
+    this.panner.positionY.value = value.y;
+    this.panner.positionZ.value = value.z;
+  }
+
   get playbackRate(): number {
     return this.media.playbackRate;
   }
@@ -98,9 +134,11 @@ export class AudioStream extends EventTarget {
   }
 
   /** Resolves once playback has started; rejects if the browser refuses (for example autoplay). */
-  async play(): Promise<void> {
+  async play(reason = 'user'): Promise<void> {
     if (this.status === 'stopped')
       throw new AudioError('Cannot play a stopped audio stream.');
+    this.pauseReasons.delete(reason);
+    if (this.pauseReasons.size) return;
     try {
       await this.media.play();
     } catch (error) {
@@ -108,14 +146,21 @@ export class AudioStream extends EventTarget {
         cause: error,
       });
     }
-    if (this.status === 'paused' || this.status === 'ended')
-      this.status = 'playing';
+    if (this.disposed || this.pauseReasons.size) {
+      this.media.pause();
+      return;
+    }
+    this.status = 'playing';
+    this.activity?.(true);
   }
 
-  pause(): void {
+  pause(reason = 'user'): void {
+    if (this.disposed) return;
+    this.pauseReasons.add(reason);
     if (this.status !== 'playing') return;
     this.status = 'paused';
     this.media.pause();
+    this.activity?.(false);
   }
 
   seek(seconds: number): void {
@@ -131,6 +176,8 @@ export class AudioStream extends EventTarget {
     if (this.disposed) return;
     this.disposed = true;
     this.status = 'stopped';
+    this.pauseReasons.clear();
+    this.activity?.(false);
     this.media.removeEventListener('ended', this.onEnded);
     this.media.removeEventListener('error', this.onError);
     this.media.pause();
@@ -139,17 +186,22 @@ export class AudioStream extends EventTarget {
     this.media.load();
     this.source.disconnect();
     this.gain.disconnect();
+    this.panner?.disconnect();
     this.release(this);
   }
 
   private readonly onEnded = (): void => {
     if (this.status !== 'playing') return;
     this.status = 'ended';
+    this.activity?.(false);
     this.dispatchEvent(new Event('ended'));
   };
 
   private readonly onError = (): void => {
     if (this.status === 'stopped') return;
+    this.activity?.(false);
+    this.media.pause();
+    this.status = 'paused';
     const code = this.media.error?.code;
     this.dispatchEvent(
       new CustomEvent<Error>('error', {

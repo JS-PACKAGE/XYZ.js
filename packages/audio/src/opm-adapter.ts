@@ -1,5 +1,11 @@
 import { audioDefaults } from '../../../src/data/audio.js';
 import { AudioError } from './errors.js';
+import type { AudioChannelName } from './audio-manager.js';
+import {
+  applyPannerOptions,
+  type SpatialAudioOptions,
+  type AudioVec3,
+} from './samples/spatial.js';
 
 export interface OPMOperator {
   ratio: number;
@@ -40,7 +46,13 @@ interface Slot {
   opm: OfficialOPM;
   gain?: GainNode;
   noteId?: number;
+  panner?: PannerNode;
 }
+
+type OutputRouter = (
+  context: AudioContext,
+  channel: AudioChannelName,
+) => AudioNode;
 
 async function loadOPM(): Promise<OPMConstructor> {
   // The vendored OPM tree is copied unchanged beside compiled output, so a static bundled import would break its processor URL.
@@ -61,6 +73,34 @@ export class OPMAdapter {
   private pendingSlots: Slot[] | undefined;
   private unlocking: Promise<void> | undefined;
   private destroyed = false;
+  private frozen = false;
+  private readonly contextTransitions = new Map<AudioContext, Promise<void>>();
+  private contextList: readonly AudioContext[] = [];
+
+  constructor(private readonly output?: OutputRouter) {}
+
+  /** Context-local graphs cannot share native nodes across these eight clocks. */
+  get contexts(): readonly AudioContext[] {
+    return this.contextList;
+  }
+
+  setPaused(paused: boolean): void {
+    this.frozen = paused;
+    for (const context of this.contexts) this.transitionContext(context);
+  }
+
+  private transitionContext(context: AudioContext): void {
+    const previous = this.contextTransitions.get(context) ?? Promise.resolve();
+    const next = previous
+      .catch(() => {})
+      .then(async () => {
+        if (context.state === 'closed' || this.destroyed) return;
+        if (this.frozen) await context.suspend();
+        else await context.resume();
+      });
+    this.contextTransitions.set(context, next);
+    void next.catch(() => {});
+  }
 
   static async validateVoice(value: unknown): Promise<OPMVoice> {
     const OPM = await loadOPM();
@@ -134,10 +174,22 @@ export class OPMAdapter {
       );
       if (this.destroyed)
         throw new AudioError('Audio adapter has been destroyed');
+      // Publish graphs in slot order, not network/worklet startup completion order.
+      for (const slot of slots) {
+        const context = slot.opm.context!;
+        slot.gain!.disconnect();
+        slot.gain!.connect(
+          this.output?.(context, 'sfx') ?? context.destination,
+        );
+      }
       this.slots = slots;
+      this.contextList = Object.freeze(slots.map((slot) => slot.opm.context!));
+      for (const context of this.contexts) this.transitionContext(context);
     } catch (error) {
       failed = true;
       for (const slot of slots) this.dispose(slot);
+      this.slots = [];
+      this.contextList = [];
       throw error;
     } finally {
       this.pendingSlots = undefined;
@@ -151,9 +203,24 @@ export class OPMAdapter {
     delay: number,
     duration: number,
     gain: number,
+    bus: AudioChannelName = 'sfx',
+    spatial?: Required<SpatialAudioOptions>,
   ): void {
     const channel = this.getSlot(slot);
     channel.gain!.gain.value = gain;
+    channel.gain!.disconnect();
+    channel.panner?.disconnect();
+    channel.panner = undefined;
+    const output =
+      this.output?.(channel.opm.context!, bus) ??
+      channel.opm.context!.destination;
+    if (spatial) {
+      const panner = channel.opm.context!.createPanner();
+      applyPannerOptions(panner, spatial);
+      channel.gain!.connect(panner);
+      panner.connect(output);
+      channel.panner = panner;
+    } else channel.gain!.connect(output);
     channel.noteId = channel.opm.playNote({
       voice,
       note,
@@ -168,6 +235,14 @@ export class OPMAdapter {
       channel.opm.stop(channel.noteId);
       channel.noteId = undefined;
     }
+  }
+
+  setPosition(slot: number, position: Readonly<AudioVec3>): void {
+    const panner = this.getSlot(slot).panner;
+    if (!panner) return;
+    panner.positionX.value = position.x;
+    panner.positionY.value = position.y;
+    panner.positionZ.value = position.z;
   }
 
   reset(slot: number): void {
@@ -202,7 +277,9 @@ export class OPMAdapter {
     for (const slot of this.slots) this.dispose(slot);
     for (const slot of this.pendingSlots ?? []) this.dispose(slot);
     this.slots = [];
+    this.contextList = [];
     this.pendingSlots = undefined;
+    this.contextTransitions.clear();
   }
 
   private getSlot(index: number): Slot {
@@ -236,6 +313,8 @@ export class OPMAdapter {
       }
       slot.gain = undefined;
     }
+    slot.panner?.disconnect();
+    slot.panner = undefined;
     slot.noteId = undefined;
     const context = slot.opm.context;
     slot.opm.context = null;

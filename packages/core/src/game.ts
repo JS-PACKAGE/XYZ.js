@@ -1190,6 +1190,7 @@ export class Game extends EventTarget {
       }
       if (scene && this.canUpdateScene())
         scene.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene);
+      if (this.currentState === 'running') this.audio.updateBindings();
       if (frameWork)
         frameWork.afterUpdateMs = performance.now() - workStartedAt;
       if (this.currentState !== 'running') return;

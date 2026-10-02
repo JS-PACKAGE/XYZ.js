@@ -3,7 +3,7 @@ import type { AudioPlayOptions } from '../audio-manager.js';
 import {
   applyPannerOptions,
   checkSpatialOptions,
-  checkVec3,
+  validateVec3,
   type AudioVec3,
   type SpatialAudioOptions,
 } from './spatial.js';
@@ -40,6 +40,8 @@ export class SamplePlayback {
   private readonly regionStart: number;
   private readonly regionEnd: number;
   private readonly regional: boolean;
+  private readonly pauseReasons = new Set<string>();
+  private startDelay = 0;
 
   /** @internal */
   constructor(
@@ -48,6 +50,7 @@ export class SamplePlayback {
     bus: GainNode,
     options: SamplePlayOptions,
     private readonly release: (playback: SamplePlayback) => void,
+    private readonly activity?: (active: boolean, delay?: number) => void,
   ) {
     const region = options.region;
     this.regional = region !== undefined;
@@ -88,6 +91,10 @@ export class SamplePlayback {
     } else this.gain.connect(bus);
     try {
       this.startSource();
+      this.activity?.(
+        true,
+        Math.max(0, this.startsAt - this.context.currentTime),
+      );
     } catch (error) {
       this.gain.disconnect();
       this.panner?.disconnect();
@@ -131,10 +138,10 @@ export class SamplePlayback {
   set position3D(value: Readonly<AudioVec3>) {
     if (!this.panner)
       throw new AudioError('Playback was not created with spatial options.');
-    const v = checkVec3(value, 'Spatial position');
-    this.panner.positionX.value = v.x;
-    this.panner.positionY.value = v.y;
-    this.panner.positionZ.value = v.z;
+    validateVec3(value, 'Spatial position');
+    this.panner.positionX.value = value.x;
+    this.panner.positionY.value = value.y;
+    this.panner.positionZ.value = value.z;
   }
 
   get playbackRate(): number {
@@ -150,21 +157,35 @@ export class SamplePlayback {
     if (this.source) this.source.playbackRate.value = value;
   }
 
-  pause(): void {
+  pause(reason = 'user'): void {
+    if (this.status === 'stopped' || this.status === 'ended') return;
+    this.pauseReasons.add(reason);
     if (this.status !== 'playing') return;
     this.offset = this.position;
+    this.startDelay = Math.max(0, this.startsAt - this.context.currentTime);
     this.status = 'paused';
     this.clearSource();
+    this.activity?.(false);
   }
 
-  resume(): void {
-    if (this.status !== 'paused') return;
-    this.startsAt = this.context.currentTime;
+  resume(reason = 'user'): void {
+    if (
+      !this.pauseReasons.delete(reason) ||
+      this.pauseReasons.size ||
+      this.status !== 'paused'
+    )
+      return;
+    this.startsAt = this.context.currentTime + this.startDelay;
     this.status = 'playing';
     try {
       this.startSource();
+      this.activity?.(
+        true,
+        Math.max(0, this.startsAt - this.context.currentTime),
+      );
     } catch (error) {
       this.status = 'paused';
+      this.pauseReasons.add(reason);
       throw error;
     }
   }
@@ -182,6 +203,8 @@ export class SamplePlayback {
         this.startSource();
       } catch (error) {
         this.status = 'paused';
+        this.pauseReasons.add('user');
+        this.activity?.(false);
         throw error;
       }
     }
@@ -192,6 +215,8 @@ export class SamplePlayback {
     this.offset = this.position;
     this.status = 'stopped';
     this.clearSource();
+    this.pauseReasons.clear();
+    this.activity?.(false);
     this.gain.disconnect();
     this.panner?.disconnect();
     this.release(this);
@@ -213,6 +238,8 @@ export class SamplePlayback {
       this.source = undefined;
       this.offset = this.regionEnd;
       this.status = 'ended';
+      this.pauseReasons.clear();
+      this.activity?.(false);
       source.disconnect();
       this.gain.disconnect();
       this.panner?.disconnect();

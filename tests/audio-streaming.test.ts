@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SampleAudioEngine } from '../packages/audio/src/samples/sample-audio.js';
 import { SamplePlayback } from '../packages/audio/src/samples/sample-playback.js';
+import type { AudioStream } from '../packages/audio/src/samples/stream.js';
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -171,7 +172,7 @@ function engineWith(native: FakeContext) {
   const engine = new SampleAudioEngine({
     context: () => native.context,
     scene: () => undefined,
-    volume: () => 1,
+    bus: () => native.createGain(),
   });
   return engine;
 }
@@ -257,6 +258,24 @@ describe('audio streaming', () => {
     expect(stoppedByUser.state).toBe('paused');
     engine.destroy();
     expect(stream.state).toBe('stopped');
+  });
+
+  it('does not resume a stream the user pauses during a manager freeze', async () => {
+    vi.stubGlobal('Audio', FakeMedia);
+    FakeMedia.instances.length = 0;
+    const native = new FakeContext(),
+      engine = engineWith(native);
+    const stream = (await opened(
+      engine.stream('data:audio/wav;base64,AAAA'),
+    )) as AudioStream;
+    engine.suspend();
+    stream.pause();
+    engine.resume();
+    await Promise.resolve();
+    expect(stream.state).toBe('paused');
+    await stream.play();
+    expect(stream.state).toBe('playing');
+    engine.destroy();
   });
 
   it('rejects bad URLs, failed loads and aborts, without leaking a stream', async () => {

@@ -3,10 +3,13 @@ import type { AudioChannelName } from '../audio-manager.js';
 import { SamplePlayback, type SamplePlayOptions } from './sample-playback.js';
 import { AudioStream, type AudioStreamOptions } from './stream.js';
 import { AudioListenerState } from './spatial.js';
+import type { AudioActivity } from '../mixer.js';
 interface SampleHost {
     context(): AudioContext | undefined;
     scene(): Scene | undefined;
-    volume(channel: AudioChannelName | 'master'): number;
+    bus(context: AudioContext, channel: AudioChannelName): GainNode;
+    activity?(channel: AudioChannelName, delay?: number): AudioActivity;
+    contexts?(): readonly AudioContext[];
 }
 /** Seconds into the decoded buffer; `end` is exclusive of later sprites sharing the file. */
 export interface AudioSpriteRange {
@@ -53,8 +56,6 @@ export declare class SampleAudioEngine {
     /** Playbacks paused by the manager's pause policy, resumed together. */
     private readonly suspended;
     private holding;
-    private master?;
-    private buses?;
     private disposed;
     readonly listener: AudioListenerState;
     constructor(host: SampleHost);
@@ -74,9 +75,7 @@ export declare class SampleAudioEngine {
     /** Pauses every playing sample and stream; `resume` restarts exactly those. */
     suspend(): void;
     resume(): void;
-    refreshGains(): void;
     stopScene(scene: Scene): void;
     destroy(): void;
-    private ensureBuses;
 }
 export {};
