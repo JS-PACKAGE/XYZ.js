@@ -58,7 +58,8 @@ export interface Renderer {
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
-    prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
+    /** Optional for 1.x custom renderers; callers must reject unsupported preparation. */
+    prepareGpuParticles?(emitter: GPUParticleEmitter3D): Promise<void>;
     preparePostProcessor(processor: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: RenderToTextureOptions2D): Promise<void>;
