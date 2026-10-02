@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This reference covers the current **1.11.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define approved contracts through P87; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user separately authorized GitHub v1.11 publication.
+This reference covers **1.12.0 / Apache-2.0**; npm is unpublished. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define approved contracts through P96; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. Historical dates, counts and release metadata remain historical evidence. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependencies. The user authorized GitHub v1.12 publication.
 
 Production contracts in section 58 are included in **v1.10 / 1.10.0**. Release packaging does not expand the documented platform, hardware or performance evidence.
 

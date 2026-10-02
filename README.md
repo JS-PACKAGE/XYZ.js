@@ -1,10 +1,12 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.11.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. P58–P70 local integration passed **104 files/859 tests**, with 117/117 example renderer routes and scoped Chromium/Firefox/managed WebKit evidence. These are documented browser/emulation observations, not physical-device certification; limitations are in [ACCEPTANCE](ACCEPTANCE.md). Historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.12.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
 GitHub **v1.10** uses `xyz.js-1.10.0.tgz` and `SHA256SUMS`, published only after the shared CI gates pass. It adds P58–P70 lazy startup, pinned semantic assets, scoped resource ownership, safe save-candidate publication, observability, shared navigation budgets, moving-platform/crouch controllers, 3D joints, dynamic/angular CCD, collision-derived navigation, international text geometry and native audio effects/automation/world bindings, plus eight English demos and Node 22/24/26 CI. Support remains limited to documented profiles. Earlier releases remain unchanged; v1.9 introduced P43–P57 and v1.8 introduced P40–P42/Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
 
 GitHub **v1.11 / 1.11.0** packages P71–P87 and all 45 direct-launch examples. The tag-triggered Release workflow verifies the shared CI gates before publishing `xyz.js-1.11.0.tgz` and `SHA256SUMS`. Existing physical-device, audible-output, Safari, assistive-technology and driver-reset limitations remain unchanged. 本次發佈不擴大驗收範圍；今回の公開は検証範囲を拡張しません。
+
+GitHub **v1.12 / 1.12.0** packages P88–P96 while retaining 1.x compatibility. The tag-triggered workflow verifies CI before publishing `xyz.js-1.12.0.tgz` and `SHA256SUMS`. 本次發佈納入 P88–P96，不擴大實機或效能認證；今回の公開は P88–P96 を含み、実機・性能の検証範囲を拡張しません。
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -348,7 +350,7 @@ Static site／完整靜態網站／静的サイト：`npx pnpm@12.6.0 build:site
 
 Smoke owns a separate muted browser and native zero-gain output sinks; signal evidence is not audible-output, Safari, physical-device or assistive-technology certification. Smoke 僅用自有靜音 browser／zero-gain sinks，不冒稱可聽輸出、Safari、實機或輔具認證。独立 muted browser／zero-gain sinks の信号は可聴出力・Safari・実機・支援技術の認証ではありません。
 
-Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.11.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。See paired usage guides.
+Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.12.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
 
 `lightweight2d`, `resource-lifecycle`, `text-i18n`, `audio-effects`, `motion2d`, `tiled-import` and `accessibility-game` offer portable 2D paths. Native 3D examples require WebGPU/WebGL2 and report Canvas2D unsupported. Trusted audio unlock is still required; physical audio and OS IME remain outside automated certification.
 

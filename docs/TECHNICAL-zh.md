@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述目前 **1.11.0／Apache-2.0** source 套件；npm 未發佈。以下各階段日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P87 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已另授權 GitHub v1.11 發佈。
+本參考描述 **1.12.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P96 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權 GitHub v1.12 發佈。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 

@@ -1113,3 +1113,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - Chromium153三backends、Firefox155及managed WebKit26.6的Canvas2D／WebGL2 native gates PASS，`.vite/p88-p96-browser-final/`。完整deployed site212 cases PASS，`.vite/p88-p96-site-smoke/run-S5vqCB/results.json`。Native concurrent audio scheduler/reference修正初始unity event後，兩page分別25344／25600 samples最大差0、八contexts clocks／pause／resume／close及resources0通過，`.vite/p88-p96-audio-native-reference-final/results.json`；既有前失敗不抹除。
 - 八份整合文件重新檢查398 relative-file links／70heading anchors、零失敗，`.vite/docs-link-evidence-final.json`；此為inline Markdown file/heading檢查，不是remote URLs或完整Markdown renderer認證。中／英／日README、雙語usage／technical、PLAN／DESIGN與各phase紀錄同步；原歷史日期／counts保留為當時。測試archive／screenshots／原FAIL與PASS reports保留，temporary phase builds與opt-out app移除。
 - **仍BLOCKED／未認證**：owned physical mobile／gamepad／OS IME／background-thermal／spoken assistive technology／driver-reset、實體可聽audio與physical low-tier；沒有操作使用者Safari／shared browser／OS／driver、沒有發聲或更改安全授權。Managed WebKit不是Safari實機認證，短期memory不是長期無leak，profiles不是universal FPS，新CI配置不是本輪hosted run。未push／tag／publish，套件仍1.11.0。
+
+## v1.12 發佈授權（2026-10-02）
+
+P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metadata 升至 **1.12.0／Apache-2.0**，推送 main 與新 v1.12 tag，沿既有 shared CI／Release workflow 封裝 GitHub Release、tarball 與 SHA256SUMS；不做 npm publish、不改歷史 tags。上述 1.11.0 snapshots、counts、hashes 與未推送敘述均保留為當時事實，新附件 identity 須另外驗證。實機、安全授權與效能限制不因發佈解除。
+
+本次升版後 frozen install／format:check／strict typecheck／122 files、994 tests／lint／build／710 export API compatibility／source及built-root tree-shaking／pack皆成功。Extracted 1.12.0 archive 正式 root import、281 runtime exports、Vector3 length=5 與 installed CLI help 已實際執行。本機 tarball SHA256 `7f861b5b41e09b6036859a98b375c0bcd447efb3f5337b5537837ea2e8f191d7`；GitHub 附件待 CI 發佈後另核對，不以本機封裝推定 hosted gates 通過。
