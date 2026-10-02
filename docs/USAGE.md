@@ -2,11 +2,13 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
+**Current normative entry:** [v1.12.1 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.12.1/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
+
 XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.12.1 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations are not physical-device certification. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
-## Current Support at a Glance
+## Historical Stage-Profile Orientation
 
-| Need                      | Available now / important boundary                                                                                                                                                                                                                                                                                                                             |
+| Need                      | Historical stage profile / boundary                                                                                                                                                                                                                                                                                                                            |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Portable 2D               | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                  |
 | 3D                        | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                      |
@@ -15,7 +17,7 @@ XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Curr
 | Recovery                  | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                      |
 | P40–P42 scoped acceptance | P41 UI/contexts/budgets/warmup/typed content passed three-backend built-root regression. P42 native GPU skin/animated bounds/mips, 3D physics/dynamics/queries/capsule movement, authored navigation, masks/additive/blend trees/two-bone IK and complete Beacon Run passed scoped acceptance. No physical-device, cross-browser or performance certification. |
 
-Stage-specific counts and browser observations below are historical; current P42 evidence is recorded separately in ACCEPTANCE.
+Stage-specific counts, browser observations and original exclusions below are historical. Use CURRENT for the normative matrix and ACCEPTANCE for recorded evidence; package metadata alone does not certify a browser or physical device.
 
 ## 1. Start the Development Environment
 
@@ -99,7 +101,7 @@ From the engine repository, build/pack once and create an empty destination:
 ```sh
 npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
-node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.0.tgz --name my-game
+node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.1.tgz --name my-game
 npx pnpm@12.6.0 --dir /absolute/my-game install
 npx pnpm@12.6.0 --dir /absolute/my-game dev
 npx pnpm@12.6.0 --dir /absolute/my-game build
@@ -1196,7 +1198,7 @@ Create `NavigationFollower3D` around an owned CharacterController3D, then `navig
 
 ## 28. Mixed Load and Soak (P48)
 
-Open `/benchmarks/mixed/`, or run `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`; use `--duration 3600` for an actual hour and `--consumer /absolute/extracted/package` for the packaged root. Keep the page visible. Review RAF tails, separately measured CPU phases and every cycle's cleanup assertions; a short successful run does not establish indefinite cache/driver-memory plateau.
+Open `/benchmarks/mixed/`, or run `pnpm soak:mixed --preset smoke --duration 60 --renderer all --parallel 1 --output /tmp/mixed.json --timeout 400`; use `--preset hour --timeout 3900` for an actual hour per backend and `--consumer /absolute/extracted/package` for the packaged root. `--parallel 1` shares host contention; `--parallel 0` runs three backends sequentially and requires more than three hours overall. Keep the page visible. Review RAF tails, separately measured CPU phases and every cycle's cleanup assertions; a short successful run does not establish indefinite cache/driver-memory plateau.
 
 ## 29. Save Dynamic 2D/3D Content (P49)
 
@@ -1362,3 +1364,9 @@ node node_modules/xyz.js/scripts/deployment-server.mjs dist /games/2d/ 4173
 ```
 
 The final two commands run inside a generated starter. The teardown-only benchmark bound is a runner/cleanup guard, not a frame-rate gate; supply target-specific RAF/CPU/GPU/residency limits for performance qualification. Production headers, offline gameplay, native audio/worker behavior and physical-device certification remain distinct evidence.
+
+## 41. Current documentation and consumer tools (P97–P103)
+
+[CURRENT](CURRENT.md) is the normative v1.12.1 capability/API/support entry; older versioned recipes above remain historical profiles. `pnpm docs:api` generates searchable public root-export documentation at `.vite/site/api/1.12.1/`; `pnpm build:site` includes the same portal in the deployed static site. Ownership/abort/cleanup examples are included there.
+
+Installed `pnpm exec xyz-assets preflight --manifest project.json` validates project references through actual loaders; `build --manifest project.json --out NEW_DIRECTORY` publishes checksummed assets without overwriting source. See [asset recipe](ASSET-RECIPE.md) for schema, pinned development tooling and optional model conversion. Reviewed host/backend performance profiles and physical qualification have separate statuses/limits in CURRENT: calibration is not certification, and unavailable physical evidence remains BLOCKED.

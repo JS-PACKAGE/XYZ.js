@@ -11,6 +11,7 @@ import {
 } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import console from 'node:console';
+import process from 'node:process';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL, URL } from 'node:url';
 import { build } from 'vite';
@@ -183,67 +184,134 @@ async function publishGeneratedFiles(stage) {
   );
 }
 
-const input = await entries();
-await verifyDist();
+async function buildDocumentation(stage) {
+  const { version } = JSON.parse(
+    await readFile(join(root, 'package.json'), 'utf8'),
+  );
+  if (!/^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/.test(version))
+    throw new Error('Invalid documentation package version.');
+  const { Application } = await import('typedoc');
+  const application = await Application.bootstrapWithPlugins({
+    options: join(root, 'typedoc.json'),
+    out: join(stage, 'api', version),
+    name: `XYZ.js API v${version}`,
+  });
+  const project = await application.convert();
+  if (!project) throw new Error('TypeDoc failed to convert the public API.');
+  application.validate(project);
+  if (application.logger.hasErrors())
+    throw new Error('TypeDoc API validation failed.');
+  await application.generateDocs(project, join(stage, 'api', version));
+  if (application.logger.hasErrors())
+    throw new Error('TypeDoc failed to generate the API portal.');
+  await access(join(stage, 'api', version, 'index.html'));
+  await access(join(stage, 'api', version, 'assets/search.js'));
+  const examplesLink = docsOnly
+    ? 'https://github.com/YueyuHoshizora/XYZ.js/tree/main/examples'
+    : '../examples/index.html';
+  const portal = (apiLink) => `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>XYZ.js documentation · v${version}</title></head>
+<body><main><h1>XYZ.js documentation · v${version}</h1>
+<p><a href="${apiLink}">Current contracts and searchable public API v${version}</a></p>
+<p>目前契約與 API 搜尋 · 現在の契約と API 検索</p>
+<p>Browser runtime profiles, ownership, abort and cleanup are documented with the root exports.
+Historical acceptance is not a current capability or physical qualification claim.</p>
+<p><a href="https://github.com/YueyuHoshizora/XYZ.js/blob/main/ACCEPTANCE.md">Historical acceptance and unverified limits</a></p>
+<p><a href="${examplesLink}">Examples</a></p></main></body></html>
+`;
+  await mkdir(join(stage, 'docs'), { recursive: true });
+  await writeFile(
+    join(stage, 'docs/index.html'),
+    portal(`../api/${version}/index.html`),
+  );
+  await writeFile(
+    join(stage, 'api/index.html'),
+    portal(`./${version}/index.html`),
+  );
+  return version;
+}
+
+const args = process.argv.slice(2);
+if (args.some((arg) => arg !== '--docs-only') || args.length > 1)
+  throw new Error('Usage: node scripts/build-site.mjs [--docs-only]');
+const docsOnly = args.includes('--docs-only');
+const input = docsOnly ? [] : await entries();
+if (!docsOnly) await verifyDist();
 await ensureSafeOutput(join(root, '.vite'));
 await mkdir(join(root, '.vite'), { recursive: true });
 const stage = await mkdtemp(join(root, '.vite/site-build-'));
 try {
-  await build({
-    configFile: false,
-    root,
-    base: './',
-    publicDir: false,
-    cacheDir: join(stage, '.cache'),
-    plugins: [portableModules(root)],
-    worker: { format: 'es', plugins: () => [portableModules(root)] },
-    build: {
-      target: 'es2022',
-      outDir: stage,
-      emptyOutDir: false,
-      assetsInlineLimit: 0,
-      sourcemap: false,
-      rolldownOptions: { input: input.map((name) => join(root, name)) },
-    },
-  });
-  for (const entry of input) await access(join(stage, entry));
-  for (const name of await files(stage)) {
-    if (!/\.[cm]?js$/.test(name)) continue;
-    const code = await readFile(join(stage, name), 'utf8');
-    if (
-      code.includes('__XYZ_SITE_ENGINE__') ||
-      code.includes('__XYZ_SITE_PATH_')
-    )
-      throw new Error(`Unresolved deployment URL in generated module: ${name}`);
-  }
-  const vendorRoot = join(root, 'dist/vendor/opm');
-  const canonicalVendor = new Set(['']);
-  for (const name of await files(join(root, 'vendor/opm'))) {
-    canonicalVendor.add(name);
-    let directory = dirname(name);
-    while (directory !== '.') {
-      canonicalVendor.add(slash(directory));
-      directory = dirname(directory);
+  const documentationVersion = await buildDocumentation(stage);
+  if (!docsOnly) {
+    await build({
+      configFile: false,
+      root,
+      base: './',
+      publicDir: false,
+      cacheDir: join(stage, '.cache'),
+      plugins: [portableModules(root)],
+      worker: { format: 'es', plugins: () => [portableModules(root)] },
+      build: {
+        target: 'es2022',
+        outDir: stage,
+        emptyOutDir: false,
+        assetsInlineLimit: 0,
+        sourcemap: false,
+        rolldownOptions: { input: input.map((name) => join(root, name)) },
+      },
+    });
+    for (const entry of input) await access(join(stage, entry));
+    const homepage = join(stage, 'index.html');
+    const html = await readFile(homepage, 'utf8');
+    await writeFile(
+      homepage,
+      html.replace(
+        /<body\b[^>]*>/i,
+        '$&<nav aria-label="Documentation"><a href="./docs/index.html">Current contracts / searchable API</a></nav>',
+      ),
+    );
+    for (const name of await files(stage)) {
+      if (!/\.[cm]?js$/.test(name)) continue;
+      const code = await readFile(join(stage, name), 'utf8');
+      if (
+        code.includes('__XYZ_SITE_ENGINE__') ||
+        code.includes('__XYZ_SITE_PATH_')
+      )
+        throw new Error(
+          `Unresolved deployment URL in generated module: ${name}`,
+        );
     }
+    const vendorRoot = join(root, 'dist/vendor/opm');
+    const canonicalVendor = new Set(['']);
+    for (const name of await files(join(root, 'vendor/opm'))) {
+      canonicalVendor.add(name);
+      let directory = dirname(name);
+      while (directory !== '.') {
+        canonicalVendor.add(slash(directory));
+        directory = dirname(directory);
+      }
+    }
+    await cp(join(root, 'dist'), join(stage, 'engine'), {
+      recursive: true,
+      // Local numbered copies remain untouched but are not official deployment files.
+      filter: (path) => {
+        const name = slash(relative(vendorRoot, path));
+        return (
+          name === '..' || name.startsWith('../') || canonicalVendor.has(name)
+        );
+      },
+    });
+    await copyFixtures(stage);
+    await writeFile(
+      join(stage, 'site-entries.json'),
+      JSON.stringify(input, null, 2) + '\n',
+    );
   }
-  await cp(join(root, 'dist'), join(stage, 'engine'), {
-    recursive: true,
-    // Local numbered copies remain untouched but are not official deployment files.
-    filter: (path) => {
-      const name = slash(relative(vendorRoot, path));
-      return (
-        name === '..' || name.startsWith('../') || canonicalVendor.has(name)
-      );
-    },
-  });
-  await copyFixtures(stage);
-  await writeFile(
-    join(stage, 'site-entries.json'),
-    JSON.stringify(input, null, 2) + '\n',
-  );
   await publishGeneratedFiles(stage);
   console.log(
-    `Built ${input.length} HTML entries in .vite/site (public engine: engine/src/index.js).`,
+    `Built ${input.length} example HTML entries and searchable API v${documentationVersion} in .vite/site.`,
   );
 } finally {
   await rm(stage, { recursive: true, force: true });

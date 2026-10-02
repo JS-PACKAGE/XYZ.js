@@ -2,11 +2,16 @@
   "$schema": "https://typedoc.org/schema.json",
   "entryPoints": ["src/index.ts"],
   "tsconfig": "tsconfig.json",
-  "out": "docs/api",
-  "name": "XYZ.js API",
+  "out": ".vite/site/api/1.12.1",
+  "name": "XYZ.js API v1.12.1",
   "excludeInternal": true,
   "excludePrivate": true,
   "readme": "none",
+  "projectDocuments": ["docs/CURRENT.md"],
+  "searchInComments": true,
+  "searchInDocuments": true,
+  "cleanOutputDir": false,
+  "cacheBust": false,
   "validation": { "invalidLink": true, "notExported": false },
   "treatWarningsAsErrors": false
 }

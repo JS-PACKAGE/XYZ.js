@@ -2,11 +2,13 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
+**目前規範入口：**[v1.12.1 契約、公開 API 與支援邊界](CURRENT.md)。`pnpm docs:api` 生成可搜尋的 root API；`pnpm build:site` 將它納入靜態產物 `api/1.12.1/`（入口 `docs/`）。本頁保留各版本 recipes 與歷史升級／驗收紀錄，這些紀錄不重定義目前支援。
+
 XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.12.1／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Browser／emulation 觀察不是實機認證。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
 
-## 目前支援速查
+## 歷史階段 profile 導覽
 
-| 需求             | 目前可用／重要邊界                                                                                                                                                                                                                                                                                                |
+| 需求             | 歷史階段 profile／邊界                                                                                                                                                                                                                                                                                            |
 | ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 跨 backend 2D    | 三 backend Sprite／HUD／atlas／raster／isolation／masks／basic blends。Native Material2D／Filter2D／Mesh2D 僅 GPU／GL，Canvas 明確拒絕。                                                                                                                                                                          |
 | 3D               | 只有 WebGPU／WebGL2；PBR／instancing／shadows／post／weighted transparency 為明記的 bounded profiles。WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                           |
@@ -15,7 +17,7 @@ XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 me
 | Recovery         | GPU／GL 預設 `recoverGraphics:true` 重建同 backend，舊 RenderTextures／snapshots需重建；失敗為 fatal，非真 driver／跨browser認證。                                                                                                                                                                                |
 | P40–P42 限定驗收 | P41 UI／contexts／budgets／warmup／typed content 通過三 backend built-root regression。P42 native GPU skin／animated bounds／mips、3D physics／dynamics／queries／capsule movement、authored navigation、masks／additive／blend trees／two-bone IK 與完整 Beacon Run 已限定驗收。非實體裝置／跨瀏覽器／效能認證。 |
 
-下方各階段 counts／browser observations 保留為歷史，目前 P42 證據另記於 ACCEPTANCE。
+下方各階段 counts、browser observations 與原排除項保留為歷史。目前規範矩陣見 CURRENT，實跑證據見 ACCEPTANCE；metadata 不代表瀏覽器或實機認證。
 
 ## 1. 啟動開發環境
 
@@ -99,7 +101,7 @@ Build 將最小化的引擎 JavaScript、TypeScript 宣告及 source maps 輸出
 ```sh
 npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
-node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.0.tgz --name my-game
+node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.1.tgz --name my-game
 npx pnpm@12.6.0 --dir /absolute/my-game install
 npx pnpm@12.6.0 --dir /absolute/my-game dev
 npx pnpm@12.6.0 --dir /absolute/my-game build
@@ -1183,7 +1185,7 @@ class FixedScene extends Scene {
 
 ## 28. 混合負載與 Soak（P48）
 
-開啟 `/benchmarks/mixed/`，或執行 `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json`。`--duration 3600` 才是一小時實跑；`--consumer /absolute/extracted/package` 驗封裝 root。保持分頁 visible，分開看 RAF tails、CPU simulation／submit／load hitches 與每次 scene cycle 的 cleanup。短跑不能證明無限長 cache／driver-memory plateau。
+開啟 `/benchmarks/mixed/`，或執行 `pnpm soak:mixed --preset smoke --duration 60 --renderer all --parallel 1 --output /tmp/mixed.json --timeout 400`。`--preset hour --timeout 3900` 驗每個 backend 一小時實跑；`--parallel 1` 同時執行並共享 host 負載，`--parallel 0` 依序執行三個 backend 需超過三小時。`--consumer /absolute/extracted/package` 驗封裝 root。保持分頁 visible，分開看 RAF tails、CPU simulation／submit／load hitches 與每次 scene cycle 的 cleanup。短跑不能證明無限長 cache／driver-memory plateau。
 
 ## 29. 2D／3D 動態內容存檔（P49）
 
@@ -1349,3 +1351,9 @@ node node_modules/xyz.js/scripts/deployment-server.mjs dist /games/2d/ 4173
 ```
 
 最後兩行在 generated starter 內執行。只有 teardown bound 的 benchmark 是 runner／cleanup guard，不是幀率 gate；效能資格另提供目標裝置的 RAF／CPU／GPU／residency limits。Production headers、offline gameplay、native audio／worker 與實機認證仍是不同證據。
+
+## 41. 目前文件與 consumer 工具（P97–P103）
+
+[CURRENT](CURRENT.md) 是 v1.12.1 capability／API／support 規範入口；上方舊版 recipes 保留歷史 profiles。`pnpm docs:api` 在 `.vite/site/api/1.12.1/` 生成可搜尋的公開 root-export 文件；`pnpm build:site` 將相同 portal 納入部署網站，含 ownership／abort／cleanup 範例。
+
+安裝後以 `pnpm exec xyz-assets preflight --manifest project.json` 經實際 loader 驗證 references；`build --manifest project.json --out NEW_DIRECTORY` 發佈 checksummed assets，不覆寫來源。[資產 recipe](ASSET-RECIPE.md) 說明 schema、固定版開發工具與 opt-in model conversion。Reviewed host／backend 效能 profile 及 physical qualification 的狀態／邊界見 CURRENT：校準不是認證，無法取得的實機證據仍 BLOCKED。

@@ -2,13 +2,15 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
+**目前支援規範：**[v1.12.1 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.1/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+
 本參考描述 **1.12.1／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P96 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者已授權 GitHub v1.12 發佈。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
-## 目前支援矩陣
+## 歷史階段 profile 導覽
 
-| 項目                       | 目前 profile／限制                                                                                                                                                                                                                                                                                                                                                 |
+| 項目                       | 歷史階段 profile／限制                                                                                                                                                                                                                                                                                                                                             |
 | -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | WebGPU／WebGL2             | 2D sprites／isolation／masks／blends／native materials-filters-meshes；3D lighting／PBR／instancing／shadows／post／weighted transparency。WebGPU 需安全來源，WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                    |
 | Canvas2D                   | Native 2D paint／isolation／masks／basic blends／offscreen；無可見 3D／Mesh2D、Material2D、native Filter2D、effects2D／effects3D。明確拒絕，不靜默切 backend。                                                                                                                                                                                                     |
@@ -19,7 +21,7 @@
 | P40（限定驗收）            | Adjacent 2D batching／full render metrics／deep browser regression 已在 Canvas2D／WebGL2／WebGPU Chromium 153 通過；CI 已定義、hosted CI 未執行。無新 throughput／cross-browser 認證聲明。                                                                                                                                                                         |
 | P41／P42 限定驗收          | P41 UI／contexts／residency／warmup／typed content 通過三 backend built-root Chromium regression。P42 native skin／animated bounds／mips 與完整 Beacon Run 通過 forced GPU／GL 路徑，primitive 3D physics／dynamics、authored navigation、animation masks／additive／blend trees／IK 已整合。Touch injection／模擬 gamepad 非實體裝置認證，實際證據見 ACCEPTANCE。 |
 
-舊階段排除項描述當時的 bounded profile；上列明確批准項擴充其邊界，其餘 non-goals 保持不變。
+此表為歷史階段 profile 摘要，不是目前規範矩陣。舊階段排除項描述當時範圍；CURRENT 定義目前邊界，ACCEPTANCE 保留實跑環境與限制。
 
 ## 1. 模組與執行路徑
 
@@ -1164,6 +1166,8 @@ Reduced motion gate requested／publication-time Game transitions，安全完成
 
 ## 61. 1.x 相容擴充契約（P88–P96）
 
+此節保留 P88–P96 基線；原 nested-signature checker 限制屬歷史。目前 safeguards／工具與精確 root-export 文件見 [CURRENT](CURRENT.md)。
+
 既有 root export names 全部保留；`check:api-compatibility` 檢查 value／type
 namespaces 與維護中的 legacy custom Renderer consumer，不是完整歷史 nested
 signature checker。Native capabilities 仍需明示，Canvas2D 維持2D-only。
@@ -1275,3 +1279,9 @@ Deployed-site CLI支援1-based `--shard index/count`，count≤32。先以sorted
 目前site與production／starter jobs使用macOS／Metal；native audio保留原Linux／PulseAudio環境、reference tolerance及獨立必要job。Linux／SwiftShader browser regression matrix另保留。原production baseline frame counts、measurement deadline與teardown threshold不變，不能宣稱Linux效能修復或universal FPS認證。Starter harness以可信鍵盤到公開HUD collection狀態，不再以wall-clock delay推測移動；其後自然玩法、saves及offline gates仍必要。操作見 [USAGE](USAGE-zh.md)，詳盡英文 [SECURITY](../SECURITY.md) 說明安全政策；實際hosted結果與原FAIL見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 v1.12.1 reliability patch保留已生效且target／tau未變的single-target duck envelope，不因ownership重疊重啟。新future transitions仍追加在原curve，target／tau或既有future plan改變則按captured native clock重建，不以sampled `AudioParam.value`猜hold。Portable-settings harness以可信remapped input到一個HUD gameplay second後驗downloaded checkpoint，原位移門檻不變。Native reference精度、concurrency、八context workload與owned teardown均保留。
+
+## 62. 目前工程保障（P97–P103）
+
+[CURRENT](CURRENT.md) 將目前 support／API／ownership 規範與上方歷史驗收／升級基線分開。TypeDoc 轉換 `src/index.ts`、將目前契約納入搜尋，經 staged site builder 發佈 relative-link-safe 版本目錄；generated HTML 不追蹤、不放進引擎 archive。
+
+Project preflight 經實際 model／map／atlas／font loaders 驗證 bounded immutable snapshots，提供 file／location 診斷並只發佈新目錄。Archive hygiene 比對 clean／disposable polluted workspace 的 approved paths／bytes。效能校準與獨立 reviewed-profile gate 分開，綁定 host／GPU／backend／workloads，測 loading／steady frame、CPU／hitch，不只有 teardown。實機 evidence 驗證綁 source／session identity 與 exact artifact bytes、要求 independent named human review；不以密碼學宣稱物理真實性，亦不用 managed engine／合成輸入代替實機。

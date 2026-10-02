@@ -2,6 +2,8 @@
 
 Browser-native TypeScript game engine. Package metadata is **1.12.1**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
+**Current / 目前 / 現在:** [v1.12.1 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.12.1/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
+
 GitHub **v1.10** uses `xyz.js-1.10.0.tgz` and `SHA256SUMS`, published only after the shared CI gates pass. It adds P58–P70 lazy startup, pinned semantic assets, scoped resource ownership, safe save-candidate publication, observability, shared navigation budgets, moving-platform/crouch controllers, 3D joints, dynamic/angular CCD, collision-derived navigation, international text geometry and native audio effects/automation/world bindings, plus eight English demos and Node 22/24/26 CI. Support remains limited to documented profiles. Earlier releases remain unchanged; v1.9 introduced P43–P57 and v1.8 introduced P40–P42/Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
 
 GitHub **v1.11 / 1.11.0** packages P71–P87 and all 45 direct-launch examples. The tag-triggered Release workflow verifies the shared CI gates before publishing `xyz.js-1.11.0.tgz` and `SHA256SUMS`. Existing physical-device, audible-output, Safari, assistive-technology and driver-reset limitations remain unchanged. 本次發佈不擴大驗收範圍；今回の公開は検証範囲を拡張しません。
@@ -13,6 +15,8 @@ GitHub **v1.12.1 / package 1.12.1** packages P88–P96 while retaining 1.x compa
 ## 繁體中文
 
 ### 目前可用
+
+目前規範以 [v1.12.1 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
 
 引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js；在使用者手勢中呼叫 `await game.audio.unlock()`。
 
@@ -61,9 +65,9 @@ P71–P87 當時的45個線上範例共212條實際 renderer routes 通過，三
 - P56：可交由 actor／controller 消費的 animation root motion。
 - P57：explicit bind-pose animation retargeting；不修改 source tracks。
 
-### 目前支援矩陣與已批准擴充
+### 歷史階段矩陣與批准範圍（目前規範見 CURRENT）
 
-| 能力           | 目前契約／限制                                                                                                                                                                                                                                                                                                       |
+| 能力           | 歷史階段契約／限制                                                                                                                                                                                                                                                                                                   |
 | -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2D／3D backend | 三 backend 共用 2D ordering／isolation／masks；3D、native Material2D／Filter2D／Mesh2D 僅 WebGPU／WebGL2，Canvas2D 明確拒絕，不切 backend。                                                                                                                                                                          |
 | Physics2D      | Kinematic／convex character motion／bounded relative dynamic與rotational CCD；sleep／五種 joints／static concave凸片。Sensor discrete；無 dynamic concave／compound／deforming sweeps。                                                                                                                              |
@@ -112,6 +116,8 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 
 ### Available now
 
+[Current v1.12.1 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
+
 Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js; call `await game.audio.unlock()` from a user gesture.
 
 Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic cameras and lookAt, OrbitControls, exact Raycaster picking, glTF 2.0/GLB, keyframes and native GPU skin palettes (lazy exact CPU queries/conservative animated bounds), PBR/point/spot lights, directional PCF shadows, InstancedMesh and HDR exposure/ACES/bloom before the unaffected 2D overlay. P42 bounded physics/navigation/animation profiles and Beacon Run passed scoped Chromium acceptance. The API is three.js-inspired, not drop-in/all-addon parity; no runtime dependency was added. See the bilingual technical references.
@@ -159,9 +165,9 @@ Production additions in this round:
 - P56: animation root motion consumed by an actor/controller.
 - P57: explicit bind-pose animation retargeting without mutating source tracks.
 
-### Current support matrix and approved expansion
+### Historical stage matrix and approved scope (current contracts: CURRENT)
 
-| Capability       | Current contract / restriction                                                                                                                                                                                                                                                                                                                                                          |
+| Capability       | Historical stage contract / restriction                                                                                                                                                                                                                                                                                                                                                 |
 | ---------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2D / 3D backends | All three share 2D ordering/isolation/masks; 3D and native Material2D/Filter2D/Mesh2D require WebGPU/WebGL2. Canvas2D explicitly rejects them without switching backend.                                                                                                                                                                                                                |
 | Physics2D        | Kinematic bodies, convex character motion and bounded relative dynamic/rotational CCD; sleep/five joints/static concave pieces. Sensors remain discrete; no dynamic concave/compound/deforming sweeps.                                                                                                                                                                                  |
@@ -200,6 +206,8 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 ## 日本語
 
 ### 現在利用可能
+
+現在の規範は [v1.12.1 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
 
 Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。
 
@@ -248,9 +256,9 @@ P71–P87 当時は45個のオンライン example directories の実 renderer r
 - P56：actor／controller が消費できる animation root motion。
 - P57：source tracks を変更しない explicit bind-pose animation retargeting。
 
-### 現在の対応表と承認済み拡張
+### 過去の段階別対応表と承認範囲（現在の規範は CURRENT）
 
-| 機能           | 現在の契約／制限                                                                                                                                                                                                                                                                                                                                            |
+| 機能           | 過去の段階別契約／制限                                                                                                                                                                                                                                                                                                                                      |
 | -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | 2D／3D backend | 三 backend で 2D ordering／isolation／masks を共有。3D、native Material2D／Filter2D／Mesh2D は WebGPU／WebGL2 のみ。Canvas2D は拒否し backend を切り替えません。                                                                                                                                                                                            |
 | Physics2D      | Kinematic／convex character motion／上限付き相対 dynamic・rotational CCD、sleep／五種 joints／static concave pieces。Sensor は discrete、dynamic concave／compound／deforming sweeps は非対応。                                                                                                                                                             |
@@ -350,7 +358,7 @@ Static site／完整靜態網站／静的サイト：`npx pnpm@12.6.0 build:site
 
 Smoke owns a separate muted browser and native zero-gain output sinks; signal evidence is not audible-output, Safari, physical-device or assistive-technology certification. Smoke 僅用自有靜音 browser／zero-gain sinks，不冒稱可聽輸出、Safari、實機或輔具認證。独立 muted browser／zero-gain sinks の信号は可聴出力・Safari・実機・支援技術の認証ではありません。
 
-Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.12.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
+Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.12.1.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
 
 `lightweight2d`, `resource-lifecycle`, `text-i18n`, `audio-effects`, `motion2d`, `tiled-import` and `accessibility-game` offer portable 2D paths. Native 3D examples require WebGPU/WebGL2 and report Canvas2D unsupported. Trusted audio unlock is still required; physical audio and OS IME remain outside automated certification.
 

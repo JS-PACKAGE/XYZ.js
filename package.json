@@ -76,7 +76,7 @@
     "soak:mixed": "node scripts/mixed-soak.mjs",
     "assets:build": "node scripts/build-assets.mjs",
     "check:asset-deployment": "node scripts/verify-asset-deployment.mjs",
-    "docs:api": "typedoc"
+    "docs:api": "node scripts/build-site.mjs --docs-only"
   },
   "devDependencies": {
     "@eslint/js": "10.0.1",
