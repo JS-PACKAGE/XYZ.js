@@ -4,11 +4,13 @@ import {
   SaveManager,
   IndexedDBStorage,
   AutosaveController,
+  type InputContext,
   type Texture,
   type JsonValue,
   type RendererPreference,
 } from 'xyz.js';
 import { en, zhHant, type Locale, type Message } from './locales.js';
+import { attachSettings, type SettingsUI } from './settings.js';
 import './style.css';
 export type Outcome = 'playing' | 'won' | 'lost';
 export interface Checkpoint {
@@ -20,6 +22,8 @@ export interface Checkpoint {
 export interface Controls {
   held: Set<string>;
   jump: boolean;
+  actions?: InputContext;
+  down(action: string): boolean;
 }
 export interface Arena extends Scene {
   reset(): void;
@@ -39,6 +43,7 @@ interface Preferences {
   muted: boolean;
 }
 interface Saved {
+  kind: '2d' | '3d';
   preferences: Preferences;
   checkpoint: Checkpoint | null;
 }
@@ -87,7 +92,12 @@ export async function boot(
   create: (texture: Texture, controls: Controls, events: Events) => Arena,
 ): Promise<void> {
   const lifetime = new AbortController();
-  const controls: Controls = { held: new Set(), jump: false };
+  const controls: Controls = {
+    held: new Set(),
+    jump: false,
+    down: (action) =>
+      controls.held.has(action) || !!controls.actions?.isDown(action),
+  };
   const preferences: Preferences = {
     locale: navigator.language.startsWith('zh') ? 'zh-Hant' : 'en',
     volume: 0.4,
@@ -103,6 +113,8 @@ export async function boot(
   let hudCount = 0,
     hudTime = 90;
   let autosave: AutosaveController | undefined;
+  let settingsUI: SettingsUI | undefined;
+  let buildArena: (() => Arena) | undefined;
   let recoveryPending = false,
     corruptBlocked = false;
   let saveStatus: Message = 'missing';
@@ -120,6 +132,9 @@ export async function boot(
   };
   function render(): void {
     document.documentElement.lang = preferences.locale;
+    settingsUI?.render(mode);
+    if (mode === 'playing') controls.actions?.activate();
+    else controls.actions?.deactivate();
     document.title = t('title');
     for (const node of document.querySelectorAll<HTMLElement>('[data-i18n]'))
       node.textContent = t(node.dataset.i18n as Message);
@@ -190,7 +205,12 @@ export async function boot(
   const saves = new SaveManager(
     new IndexedDBStorage('crystal-courier-' + kind),
     {
-      version: 1,
+      version: 2,
+      migrate: (_version, value) => {
+        if (!value || typeof value !== 'object' || Array.isArray(value))
+          throw new Error('Invalid legacy checkpoint.');
+        return { ...value, kind };
+      },
       validate: (value) => {
         if (!value || typeof value !== 'object' || Array.isArray(value))
           return false;
@@ -198,6 +218,7 @@ export async function boot(
           p = data.preferences;
         return (
           !!p &&
+          data.kind === kind &&
           ['en', 'zh-Hant'].includes(p.locale) &&
           typeof p.muted === 'boolean' &&
           Number.isFinite(p.volume) &&
@@ -214,6 +235,7 @@ export async function boot(
     return JSON.parse(
       JSON.stringify({
         preferences,
+        kind,
         checkpoint: runStarted ? arena!.snapshot() : pending,
       }),
     ) as JsonValue;
@@ -240,21 +262,51 @@ export async function boot(
     render();
     void save();
   }
-  function play(restore: boolean): void {
-    if (!arena || !game || !readySound || cleaned) return;
-    resetInput();
-    if (restore && pending) arena.restore(pending);
-    else arena.reset();
-    runStarted = true;
-    const snapshot = arena.snapshot();
-    mode = snapshot.outcome;
-    hudCount = snapshot.collected.filter(Boolean).length;
-    hudTime = snapshot.remaining;
-    game.start();
-    if (mode !== 'playing') game.pause();
+  async function play(restore: boolean): Promise<void> {
+    if (
+      !arena ||
+      !game ||
+      !readySound ||
+      cleaned ||
+      !buildArena ||
+      mode === 'loading' ||
+      settingsUI?.busy
+    )
+      return;
+    const previousMode = mode;
+    const old = arena;
+    const candidate = buildArena();
+    mode = 'loading';
     render();
-    element<HTMLCanvasElement>('game').focus();
-    void save();
+    try {
+      if (restore && pending) candidate.restore(pending);
+      else candidate.reset();
+      await game.setScene(candidate, { signal: lifetime.signal });
+      if (cleaned) return;
+      arena = candidate;
+      old.dispose?.();
+      resetInput();
+      runStarted = true;
+      const snapshot = arena.snapshot();
+      mode = snapshot.outcome;
+      hudCount = snapshot.collected.filter(Boolean).length;
+      hudTime = snapshot.remaining;
+      game.start();
+      if (mode !== 'playing') game.pause();
+      render();
+      element<HTMLCanvasElement>('game').focus();
+      void save();
+    } catch (error) {
+      if (game.scene !== candidate) {
+        candidate.dispose?.();
+        candidate.destroy();
+      }
+      if (!cleaned) {
+        mode = previousMode;
+        showError('loadError', error);
+        render();
+      }
+    }
   }
   function destroy(): void {
     if (cleaned) return;
@@ -263,6 +315,8 @@ export async function boot(
     resetInput();
     lifetime.abort();
     autosave?.destroy();
+    settingsUI?.destroy();
+    settingsUI = undefined;
     saves.destroy();
     try {
       arena?.dispose?.();
@@ -286,9 +340,15 @@ export async function boot(
   const click = (id: string, action: () => void): void =>
     listen(element(id), 'click', action);
   click('destroy', destroy);
-  click('start', () => play(false));
-  click('restart', () => play(false));
-  click('continue', () => play(true));
+  click('start', () => {
+    void play(false);
+  });
+  click('restart', () => {
+    void play(false);
+  });
+  click('continue', () => {
+    void play(true);
+  });
   click('save', () => {
     void save();
   });
@@ -395,16 +455,6 @@ export async function boot(
     if (game)
       game.audio.master.volume = preferences.muted ? 0 : preferences.volume;
   });
-  const keys: Record<string, string> = {
-    KeyW: 'up',
-    ArrowUp: 'up',
-    KeyS: 'down',
-    ArrowDown: 'down',
-    KeyA: 'left',
-    ArrowLeft: 'left',
-    KeyD: 'right',
-    ArrowRight: 'right',
-  };
   listen(window, 'keydown', ((event: KeyboardEvent) => {
     if (event.code === 'Escape') {
       pause();
@@ -417,14 +467,7 @@ export async function boot(
       event.target instanceof HTMLButtonElement
     )
       return;
-    const action = keys[event.code];
-    if (action || event.code === 'Space') event.preventDefault();
-    if (action) controls.held.add(action);
-    if (event.code === 'Space' && !event.repeat) controls.jump = true;
-  }) as EventListener);
-  listen(window, 'keyup', ((event: KeyboardEvent) => {
-    const action = keys[event.code];
-    if (action) controls.held.delete(action);
+    if (!event.ctrlKey && !event.metaKey) event.preventDefault();
   }) as EventListener);
   listen(window, 'blur', () => {
     resetInput();
@@ -497,7 +540,7 @@ export async function boot(
       }),
     ]);
     if (cleaned) return;
-    arena = create(texture, controls, {
+    const events: Events = {
       collect: () => {
         if (!preferences.muted && game?.audio.unlocked) {
           try {
@@ -529,7 +572,9 @@ export async function boot(
         if (mode === 'playing' && !recoveryPending && !corruptBlocked)
           autosave?.request();
       },
-    });
+    };
+    buildArena = () => create(texture, controls, events);
+    arena = buildArena();
     await game.setScene(arena);
     if (cleaned) return;
     try {
@@ -561,6 +606,39 @@ export async function boot(
     }
     readySound = preferences.muted;
     game.audio.master.volume = preferences.muted ? 0 : preferences.volume;
+    settingsUI = await attachSettings(
+      game,
+      controls,
+      saves,
+      kind,
+      lifetime.signal,
+      () => mode,
+      (checkpoint) => {
+        pending = checkpoint;
+        saveStatus = 'restored';
+        render();
+      },
+      (record) => {
+        const candidate = create(texture, controls, {
+          collect() {},
+          finish() {},
+          hud() {},
+        });
+        try {
+          const data = record.data as unknown as Saved;
+          if (!data.checkpoint)
+            throw new Error('The imported file has no checkpoint.');
+          candidate.restore(data.checkpoint);
+        } finally {
+          candidate.dispose?.();
+          candidate.destroy();
+        }
+      },
+    );
+    if (cleaned) {
+      settingsUI.destroy();
+      return;
+    }
     autosave = new AutosaveController(saves, {
       slot: 'checkpoint',
       capture,

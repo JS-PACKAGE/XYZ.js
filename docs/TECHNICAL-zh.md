@@ -1209,6 +1209,31 @@ reconstruction／smoothing，不只 A* expansion。遵守 revision／cancel／sh
 scheduler budgets，geometry 改變時 rebuild／replan。Unsafe spatial indices 會拒絕，
 不進入無界迴圈；原 sampled／grid APIs 仍可用。
 
+### Settings 與 portable files
+
+`SettingsManager(storage,preferences,namedContexts,{slot?,signal?})` 接完整
+game-local action contexts，constructor捕捉 defaults。Stored v2 含 accessibility
+overrides／bindings；accessibility-only v1 migration 補上這些 default bindings。
+`load`／`save`／`reset`／`importFile`／`exportFile`／`destroy` 沿用 save envelope、
+完整 validation、revision／CAS 與 cancellation。Missing／unknown contexts 或
+actions 在 apply 前拒絕。Reset／import 先完成 durable write 再替換 runtime policy；
+省略的 accessibility overrides 回到跟隨OS，`replace` 只發布一次 policy change。
+Settings owner 不擁有傳入的 preferences／contexts／storage。
+
+`PortableSaveFiles(saves,{slot,validateCandidate})` export JSON Blob 或 import 至
+既有 durable checkpoint slot；讀取 text 前檢查2 MiB上限。Import在async preflight
+前固定 observed expected revision；先 migration／完整 envelope validation，
+再由 caller 建立、restore、dispose **fresh candidate**。Callback必須遵守signal，
+清完全部 candidate resources；成功才到CAS storage，回傳record而非改live Scene。
+Fresh Scene publication 是 application 另一個 guarded transaction。
+Superseded／aborted／invalid／conflicting import不覆寫slot或patch目前Scene；
+destroy只取消helper工作，不destroy傳入SaveManager。
+
+`downloadSaveFile(blob,filename)` 需在 trusted click 呼叫，回傳object-URL cleanup
+ownership；先async準備，再提供獨立download click。Rejected檔案保留原Blob bytes
+供救援，不靜默reserialize。兩個starter checkpoint皆為dimension-tagged v2；
+跨dimension restore明確拒絕。
+
 ### Native extension、visibility 與 deployment 界線
 
 Native hooks 使用engine-owned `XYZVertex`／fixed uniform-map ABI；不重宣告engine

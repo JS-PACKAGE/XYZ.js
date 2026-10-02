@@ -192,15 +192,17 @@ class Courier extends Scene implements Arena {
     if (this.outcome !== 'playing') return;
     const dt = Math.min(delta, 0.03);
     this.remaining = Math.max(0, this.remaining - dt);
-    if (this.controls.jump && this.character.grounded) this.velocity = 6;
+    if (
+      (this.controls.jump || this.controls.actions?.wasPressed('jump')) &&
+      this.character.grounded
+    )
+      this.velocity = 6;
     this.controls.jump = false;
     this.velocity -= 16 * dt;
     const x =
-      Number(this.controls.held.has('right')) -
-      Number(this.controls.held.has('left'));
+      Number(this.controls.down('right')) - Number(this.controls.down('left'));
     const z =
-      Number(this.controls.held.has('down')) -
-      Number(this.controls.held.has('up'));
+      Number(this.controls.down('down')) - Number(this.controls.down('up'));
     const length = Math.max(1, Math.hypot(x, z));
     const result = this.character.move(
       this.motion.set(

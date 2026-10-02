@@ -120,11 +120,9 @@ class Courier extends Scene implements Arena {
     const dt = Math.min(delta, 0.03);
     this.remaining = Math.max(0, this.remaining - dt);
     let dx =
-      Number(this.controls.held.has('right')) -
-      Number(this.controls.held.has('left'));
+      Number(this.controls.down('right')) - Number(this.controls.down('left'));
     let dy =
-      Number(this.controls.held.has('down')) -
-      Number(this.controls.held.has('up'));
+      Number(this.controls.down('down')) - Number(this.controls.down('up'));
     const length = Math.max(1, Math.hypot(dx, dy));
     dx = (dx / length) * dt * 180;
     dy = (dy / length) * dt * 180;

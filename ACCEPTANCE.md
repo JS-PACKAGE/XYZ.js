@@ -1093,3 +1093,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - 正式WebGPU／WebGL2提供cascade overlap blend、receiver-plane slope correction、point angular跨face PCF及whole-atlas static cache；exact snapshots涵蓋camera／light／parent／deformation／membership／maps／native state／resize／loss。Native hooks預設dynamic，tracked cache為caller明示deterministic-input契約；真正device limits與active GL私有uniform／block在prepare拒絕，既有valid shader後續可render／recover。
 - Chromium正式native harness WebGL2十三、WebGPU十二、Canvas2D一scenario PASS（GL新增有效compile但私有active resources必拒絕）；各native loss／recover1。Cascade有4371transition pixels、CPU oracle max error0.7806052643/255；slope fixture移除12552acne pixels，point seam fixtureRGB為零。Static repeat shadow passes0，十一類invalidation各重draw1並與uncached pixels一致；證據在 `.vite/p88-p96-browser-final/chromium/results.json`。
 - 初次20,000 instances測試20,000／bounds refit1，unchanged後兩者0但pose check1；1,000／4,000 meshes refits1999／7999降0，raw mutable pose checks仍1000／4000，visible526／1400。避免重複CPU deformation及unchanged refits，不宣稱O(mesh)檢查消失；gather為CPU bookkeeping，沒有拿配置／CPU時間當GPU完成或FPS改善。
+
+### P95 — Settings persistence／portable saves
+
+- SettingsManager整合既有storage／preferences／完整named action contexts，v2 bindings+preferences及v1 migration；reset／import驗證與durable CAS成功後才apply，omitted overrides恢復OS政策。PortableSaveFiles在text allocation前限制2MiB、固定observed revision、完整migration／envelope validation及fresh disposable candidate preflight；不直接patch live Scene，取消／supersede／conflict不覆寫slot。
+- 2D／3D正式starter提供trusted settings remap／reset及兩步download／import；dimension-tagged v2 checkpoint拒絕cross-dimensional restore。修復實際Destroy時nullable owner仍被render讀取的cleanup root cause，不略過該流程。
+- Fresh 1.11.0 archive分別installed／built／deployed兩starter，自然90秒玩法與KeyL remap、text1.5、contrast／motion、reload／reset、download、獨立context import／fresh continue、invalid bytes preserve及cleanup均PASS。`.vite/starter-smoke-verified-final/results.json` 的兩 `portableSettings.status` 均passed；不是只以mock或unit forwarding推定。

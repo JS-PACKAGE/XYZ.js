@@ -6,6 +6,8 @@ export interface AccessibilityPreferenceValues {
     readonly reducedMotion: boolean;
 }
 export type AccessibilityPreferenceOverrides = Partial<AccessibilityPreferenceValues>;
+/** Shared preflight for persistence; never installs media listeners or changes policy. */
+export declare function validateAccessibilityOverrides(values: unknown): asserts values is AccessibilityPreferenceOverrides;
 /** Game-local policy. Essential movement is never paused by a presentation preference. */
 export declare class AccessibilityPreferences extends EventTarget {
     private overrides;
@@ -17,6 +19,8 @@ export declare class AccessibilityPreferences extends EventTarget {
     constructor(source?: Pick<Window, 'matchMedia'> | undefined);
     get values(): Readonly<AccessibilityPreferenceValues>;
     set(values: AccessibilityPreferenceOverrides): void;
+    /** Replace all overrides in one notification; omitted fields resume OS policy. */
+    replace(values: AccessibilityPreferenceOverrides): void;
     /** Removes player overrides; reads current media values without changing OS settings. */
     reset(): void;
     export(): AccessibilityPreferenceOverrides;

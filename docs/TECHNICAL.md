@@ -1273,6 +1273,35 @@ cancellation and shared scheduler budgets; rebuild/replan when geometry changes.
 Invalid or unsafe spatial indices reject rather than entering an unbounded loop.
 The original sampled/grid APIs remain available.
 
+### Settings and portable files
+
+Construct `SettingsManager(storage,preferences,namedContexts,{slot?,signal?})`
+with complete game-local action contexts. Defaults are captured at construction;
+v2 stores accessibility overrides plus bindings, and migration from accessibility-only
+v1 supplies those default bindings. `load`, `save`, `reset`, `importFile`,
+`exportFile` and `destroy` use existing save envelopes, validation, revision/CAS
+and cancellation. Unknown/missing contexts or actions reject before apply. Reset
+and imports finish durable writes before replacing runtime policy. Omitted
+accessibility overrides follow the OS again; `replace` publishes one policy change.
+The settings owner does not own the supplied preferences, contexts or storage.
+
+`PortableSaveFiles(saves,{slot,validateCandidate})` exports a JSON Blob or imports
+one into the existing durable checkpoint slot. Its 2 MiB file bound is checked
+before text allocation. Import fixes the observed expected revision before
+asynchronous preflight; migration and complete envelope validation precede a
+caller-owned **fresh, disposable** candidate build/restore. The callback must honor
+its signal and retire every candidate resource. Only successful preflight reaches
+CAS storage; it returns a record, not a live Scene mutation. Fresh Scene publication
+is the application’s separate guarded transaction. Superseded/aborted/invalid/conflicting
+imports do not overwrite a slot or patch the current Scene. Destroy cancels this
+helper’s work, not its supplied SaveManager.
+
+`downloadSaveFile(blob,filename)` must run from a trusted click and returns object-URL
+cleanup ownership. Prepare asynchronously, then expose a separate download click.
+Keep rejected original Blob bytes available for recovery rather than silently
+reserializing them. Both starter checkpoints are dimension-tagged v2 records;
+cross-dimensional restore rejects.
+
 ### Native extension, visibility and deployment boundaries
 
 Native hooks use the engine-owned `XYZVertex` and fixed uniform/map ABI; do not

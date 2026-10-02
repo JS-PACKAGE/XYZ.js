@@ -10,6 +10,29 @@ export interface AccessibilityPreferenceValues {
 export type AccessibilityPreferenceOverrides =
   Partial<AccessibilityPreferenceValues>;
 
+/** Shared preflight for persistence; never installs media listeners or changes policy. */
+export function validateAccessibilityOverrides(
+  values: unknown,
+): asserts values is AccessibilityPreferenceOverrides {
+  if (!values || typeof values !== 'object' || Array.isArray(values))
+    throw new TypeError('Accessibility preferences require an object.');
+  for (const key of Object.keys(values)) {
+    if (!['textScale', 'highContrast', 'reducedMotion'].includes(key))
+      throw new TypeError(`Unknown accessibility preference: ${key}.`);
+    const value = (values as Record<string, unknown>)[key];
+    if (key === 'textScale') {
+      if (
+        typeof value !== 'number' ||
+        !Number.isFinite(value) ||
+        value < accessibilityLimits.minimumTextScale ||
+        value > accessibilityLimits.maximumTextScale
+      )
+        throw new RangeError('Text scale must be between 1 and 2.');
+    } else if (typeof value !== 'boolean')
+      throw new TypeError(`${key} must be boolean.`);
+  }
+}
+
 /** Game-local policy. Essential movement is never paused by a presentation preference. */
 export class AccessibilityPreferences extends EventTarget {
   private overrides: AccessibilityPreferenceOverrides = {};
@@ -66,24 +89,15 @@ export class AccessibilityPreferences extends EventTarget {
   }
   set(values: AccessibilityPreferenceOverrides): void {
     this.assertLive();
-    if (!values || typeof values !== 'object' || Array.isArray(values))
-      throw new TypeError('Accessibility preferences require an object.');
-    for (const key of Object.keys(values)) {
-      if (!['textScale', 'highContrast', 'reducedMotion'].includes(key))
-        throw new TypeError(`Unknown accessibility preference: ${key}.`);
-      const value = values[key as keyof AccessibilityPreferenceValues];
-      if (key === 'textScale') {
-        if (
-          typeof value !== 'number' ||
-          !Number.isFinite(value) ||
-          value < accessibilityLimits.minimumTextScale ||
-          value > accessibilityLimits.maximumTextScale
-        )
-          throw new RangeError('Text scale must be between 1 and 2.');
-      } else if (typeof value !== 'boolean')
-        throw new TypeError(`${key} must be boolean.`);
-    }
+    validateAccessibilityOverrides(values);
     this.overrides = { ...this.overrides, ...values };
+    this.refresh();
+  }
+  /** Replace all overrides in one notification; omitted fields resume OS policy. */
+  replace(values: AccessibilityPreferenceOverrides): void {
+    this.assertLive();
+    validateAccessibilityOverrides(values);
+    this.overrides = { ...values };
     this.refresh();
   }
   /** Removes player overrides; reads current media values without changing OS settings. */

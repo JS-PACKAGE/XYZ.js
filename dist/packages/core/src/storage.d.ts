@@ -121,6 +121,14 @@ export declare class SaveManager {
     private expected;
     save(slot: string, data: JsonValue, playTime?: number, options?: SaveWriteOptions): Promise<SaveRecord>;
     private migrate;
+    /** Revision observed by the last successful load/write, including removed slots. */
+    observedRevision(slot: string): number | undefined;
+    /** Decode and migrate a portable envelope without observing or changing any slot. */
+    decodeImport(raw: string, options?: {
+        signal?: AbortSignal;
+    }): Promise<SaveRecord>;
+    /** Export a detached, validated envelope; revision remains informational on import. */
+    export(slot: string, options?: SaveReadOptions): Promise<string>;
     load(slot: string, options?: SaveReadOptions): Promise<SaveLoadResult>;
     /** Explicitly restore backup; retain the exact damaged primary under its forensic key. */
     restore(slot: string, options?: SaveWriteOptions): Promise<SaveRecord>;

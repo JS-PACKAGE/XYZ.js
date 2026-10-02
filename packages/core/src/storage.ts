@@ -737,6 +737,31 @@ export class SaveManager {
     this.validate(record.data);
     return record;
   }
+  /** Revision observed by the last successful load/write, including removed slots. */
+  observedRevision(slot: string): number | undefined {
+    this.assertActive();
+    return this.revisions.get(slot);
+  }
+  /** Decode and migrate a portable envelope without observing or changing any slot. */
+  async decodeImport(
+    raw: string,
+    options: { signal?: AbortSignal } = {},
+  ): Promise<SaveRecord> {
+    this.assertActive(options.signal);
+    checkSize(raw);
+    return this.migrate(raw, options.signal);
+  }
+
+  /** Export a detached, validated envelope; revision remains informational on import. */
+  async export(slot: string, options: SaveReadOptions = {}): Promise<string> {
+    const loaded = await this.load(slot, options);
+    if (loaded.status === 'corrupt') throw loaded.error;
+    if (loaded.status === 'missing')
+      throw new StorageError('invalid', 'No save exists in this slot.');
+    const raw = encode(loaded.record);
+    checkSize(raw);
+    return raw;
+  }
   async load(
     slot: string,
     options: SaveReadOptions = {},

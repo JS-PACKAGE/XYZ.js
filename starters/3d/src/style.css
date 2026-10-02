@@ -15,7 +15,7 @@ main {
   padding: 20px;
 }
 h1 {
-  font-size: 1.6rem;
+  font-size: 1.6em;
 }
 canvas {
   display: block;
@@ -79,4 +79,15 @@ fieldset {
   * {
     scroll-behavior: auto;
   }
+}
+main[data-contrast='true'] {
+  background: #000;
+  color: #fff;
+}
+main[data-contrast='true'] button,
+main[data-contrast='true'] input,
+main[data-contrast='true'] select {
+  color: #fff;
+  background: #000;
+  border: 2px solid #fff;
 }

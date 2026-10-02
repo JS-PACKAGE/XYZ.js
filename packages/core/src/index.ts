@@ -308,6 +308,17 @@ export type {
   AccessibilityPreferenceValues,
   AccessibilityPreferenceOverrides,
 } from './accessibility/preferences.js';
+export { SettingsManager } from './accessibility/settings.js';
+export type {
+  PlayerSettings,
+  SettingsOptions,
+} from './accessibility/settings.js';
+export {
+  PortableSaveFiles,
+  readSaveFile,
+  downloadSaveFile,
+} from './portable-save.js';
+export type { PortableSaveOptions } from './portable-save.js';
 export {
   TiledTileMap,
   TiledContent,

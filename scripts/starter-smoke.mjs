@@ -26,6 +26,7 @@ import {
   pngPixels,
   staticSiteServer,
 } from './site-smoke-support.mjs';
+import { verifyPortableSettings } from './settings-portable-smoke.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -353,6 +354,12 @@ try {
       await context.close();
       context = undefined;
       page = undefined;
+      row.portableSettings = await verifyPortableSettings(
+        browser,
+        url,
+        kind,
+        join(output, `${kind}-portable-settings`),
+      );
       await server.close();
       server = undefined;
       row.status = 'passed';
