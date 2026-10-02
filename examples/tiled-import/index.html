@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>XYZ.js · Tiled import</title>
+    <style>
+      body {
+        margin: 0;
+        background: #101923;
+        color: #ecf4ff;
+        font:
+          16px system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 900px;
+        margin: auto;
+        padding: 20px;
+      }
+      canvas {
+        width: 100%;
+        max-width: 768px;
+        background: #152536;
+        border: 1px solid #65809a;
+        image-rendering: pixelated;
+      }
+      button {
+        font: inherit;
+        padding: 10px;
+        margin: 4px;
+      }
+      button:focus-visible {
+        outline: 3px solid #ff0;
+      }
+      a {
+        color: #9bddff;
+      }
+      #status {
+        white-space: pre-wrap;
+        min-height: 5em;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">Examples</a>
+      <h1>Tiled JSON import</h1>
+      <p>
+        This real finite orthogonal map loads an external Tiled tileset and
+        asymmetric atlas. The five green tiles demonstrate normal, horizontal,
+        vertical, diagonal, and combined GID transforms. The lower-right empty
+        cell contains a real imported rectangle collider.
+      </p>
+      <canvas
+        id="game"
+        width="768"
+        height="384"
+        aria-label="Imported Tiled map with five distinct GID transforms"
+      ></canvas>
+      <div>
+        <button id="mutate" disabled>Change first tile</button
+        ><button id="query" disabled>Query tile and wall collision</button
+        ><button id="visibility" disabled>Toggle layer visibility</button
+        ><button id="destroy" disabled>Destroy game and resources</button>
+      </div>
+      <pre id="status" role="status">
+Loading map, external tileset and atlas…</pre>
+      <p>
+        Changing the first tile replaces its atlas frame and removes/restores
+        its solid collider. Visibility affects drawing, not collision. Destroy
+        tears down the validated content owner and its image leases.
+      </p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
