@@ -18,7 +18,7 @@ GitHub **v1.12.1 / package 1.12.1** packages P88–P96 while retaining 1.x compa
 
 目前規範以 [v1.12.1 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
 
-引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js；在使用者手勢中呼叫 `await game.audio.unlock()`。
+引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js v1.8.0（tag `v1.8`）；在使用者手勢中呼叫 `await game.audio.unlock()`。上游雖可選聲部數，引擎仍維持八個隔離 slot；此 vendor 升級不新增引擎功能或擴大認證範圍。
 
 新增 3D：Object3D／Group 階層、透視／正交相機與 lookAt、OrbitControls、精確 Raycaster、glTF 2.0／GLB、關鍵幀與 native GPU skin palette（lazy exact CPU queries／保守 animated bounds）、PBR／點光源／聚光燈、方向光 PCF 陰影、InstancedMesh，以及 HDR exposure／ACES／bloom（2D overlay 不受影響）。P42 的 bounded physics／navigation／animation profiles 與 Beacon Run 已限定 Chromium 驗收。API 參考 three.js，非 drop-in replacement／全 addons；無新 runtime dependency。詳細限制見雙語技術參考。
 
@@ -118,7 +118,7 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 
 [Current v1.12.1 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
 
-Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js; call `await game.audio.unlock()` from a user gesture.
+Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js v1.8.0 (tag `v1.8`); call `await game.audio.unlock()` from a user gesture. Despite upstream selectable voice counts, the engine retains eight isolated slots; this vendor upgrade adds no engine features or certification claims.
 
 Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic cameras and lookAt, OrbitControls, exact Raycaster picking, glTF 2.0/GLB, keyframes and native GPU skin palettes (lazy exact CPU queries/conservative animated bounds), PBR/point/spot lights, directional PCF shadows, InstancedMesh and HDR exposure/ACES/bloom before the unaffected 2D overlay. P42 bounded physics/navigation/animation profiles and Beacon Run passed scoped Chromium acceptance. The API is three.js-inspired, not drop-in/all-addon parity; no runtime dependency was added. See the bilingual technical references.
 
@@ -209,7 +209,7 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 
 現在の規範は [v1.12.1 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
 
-Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。
+Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js v1.8.0（tag `v1.8`）を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。上流では声部数を選択できますが、エンジンは八つの隔離 slot を維持します。この vendor 更新はエンジンの新機能や認証範囲を追加しません。
 
 高度な 3D は Object3D／Group 階層、透視／正投影カメラと lookAt、OrbitControls、正確な Raycaster、glTF 2.0／GLB、キーフレームと native GPU skin palette（lazy exact CPU queries／保守的 animated bounds）、PBR／点光源／スポットライト、方向光 PCF シャドウ、InstancedMesh、2D overlay 前の HDR exposure／ACES／bloom を提供します。P42 の限定 physics／navigation／animation profiles と Beacon Run は Chromium の限定環境で検証済みです。Three.js 参考 API は互換置換／全 addons 対応ではなく、runtime dependency 追加なし。制限は技術参照へ。
 

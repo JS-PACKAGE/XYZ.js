@@ -36,7 +36,7 @@ src/index.ts                    Unified ESM / TypeScript API
   ├─ packages/assets           AssetLoader / Texture / AssetError
   ├─ packages/input            Keyboard / Pointer / Gamepad
   └─ packages/audio            AudioManager / Asset / Channel / OPMAdapter
-       └─ vendor/opm           Official OPM.js v1.1.0
+       └─ vendor/opm           Official OPM.js v1.8.0 (tag v1.8)
 
 requestAnimationFrame(timestamp)
   → Synchronize DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
@@ -256,11 +256,12 @@ See ACCEPTANCE for before/after measurements. Test-side interception of real GPU
 ## 15. Audio
 
 - `game.audio.load(url)` shares pending/cache entries by canonical URL, ignoring fragments. Failures evict entries; destroy immediately cancels pending waits. JSON must contain an officially parseable `voice` and nonempty `notes`: MIDI 0–127, time ≥0, and duration (0,60] seconds. Optional channel (music/sfx/ui), loop, and duration specify defaults and loop period; the period cannot end before the final note. Loaded voice/notes are immutable. See [sfx.json](../examples/sprite/sfx.json) and [music.json](../examples/sprite/music.json).
+- Voice validation normalizes through the official v6 format while retaining legacy v1 input support; historical acceptance records remain unchanged.
 - Call `await game.audio.unlock()` from a user gesture such as a click. Before unlock, play throws AudioError rather than silently creating AudioContexts or queuing playback. OPMAdapter may import the official module while validating a loaded voice, but only unlock creates the eight contexts/worklets. Each slot reserves one voice including ADSR release and guard. Master/channel volumes in 0–1 multiply through GainNodes.
-- Official OPM globally steals the oldest voice for a ninth voice, and soft stop retains a release tail. Eight isolated instances therefore allow SFX overflow without interrupting BGM or forking the vendor. Only the oldest SFX may be hard-reset. If none is available, skip the new note without cancelling the music track. The budget includes UI and release tails.
+- Official OPM.js v1.8.0 supports selectable voice counts, but XYZ.js retains eight isolated instances with one reserved voice per slot. Soft stop retains a release tail; isolation allows SFX overflow without interrupting BGM or forking the vendor. Only the oldest SFX may be cleared through official `opm.panic()`, preserving the managed node and routing; teardown uses official `opm.dispose()`. If none is available, skip the new note without cancelling the music track. The budget includes UI and release tails. This vendor upgrade adds no engine features or certification claims.
 - Scheduling uses a 25ms timer and 100ms lookahead. After throttling, skip missed loops rather than replaying the entire missed song. Timing/slot constants live in `src/data/audio.ts`. Game pause does not mean audio pause; explicitly stop when needed.
 - `asset.play(options)` and `game.audio.play(asset, options)` return AudioPlayback; stop preserves natural release. Playback belongs to the current Scene by default or an explicitly supplied `scene`. Without a Scene, stop, completion, or Game destruction governs its lifetime. Scene destruction hard-cancels nonpersistent scheduling and release tails. `persistent:true` survives Scene changes, but Game destruction closes everything. `game.audio.opm` exposes the first official instance as an advanced escape hatch; direct use bypasses budgeting and lifecycle management.
-- The vendor tree contains the [source and SHA256 manifest](../vendor/opm/manifest.json) and [official Apache-2.0 LICENSE](../vendor/opm/LICENSE), without private patches. The root package is separately licensed under Apache-2.0. Build copies the complete vendor into dist, preserving relative chunk/worklet URLs. Deployment must retain the entire dist tree, and AudioWorklet also requires a secure context.
+- The vendor tree contains the [source and SHA256 manifest](../vendor/opm/manifest.json) and [official Apache-2.0 LICENSE](../vendor/opm/LICENSE), without private patches. The root package is separately licensed under Apache-2.0. Build copies the complete vendor into dist, preserving relative module/worklet URLs. Deployment must retain the entire dist tree, and AudioWorklet also requires a secure context.
 
 ## 16. Logging and Hardening
 
@@ -309,7 +310,7 @@ Security-fix verification on 2026-09-30 covered 17 files / 82 tests and integrat
 
 Build minifies every engine-generated `.js` file in dist individually using the minifier exported by the existing Vite development dependency. It preserves ES2022 ESM, relative module paths, exported symbols, public property names, and function/class names (including error names). It does not bundle modules, modify source files, or add runtime dependencies. TypeScript declarations remain unchanged; minifier maps are composed with TypeScript maps and referenced by sourceMappingURL.
 
-The official OPM distribution is already minified and is copied byte-for-byte, retaining its LICENSE, manifest, chunks, and worklet URLs. It is deliberately excluded from re-minification to preserve release checksum integrity.
+The official OPM distribution is already minified and is copied byte-for-byte, retaining its LICENSE, manifest, modules, and worklet URLs. It is deliberately excluded from re-minification to preserve release checksum integrity.
 
 The verified build reduced 36 engine JavaScript files from 189,706 to 98,707 bytes (about 48%, excluding maps, declarations, and vendor). All 46 distribution JavaScript files include those 36 files and 10 official vendor files. Static HTTP smoke loaded the documented ESM example without Vite transformation, exercised keyboard movement, read back a rendered pixel, preserved error names, and unlocked an official audio worklet. Minification reduces file size; it is neither encryption nor a security boundary.
 

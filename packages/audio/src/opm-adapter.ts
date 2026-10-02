@@ -15,7 +15,7 @@ export interface OPMOperator {
 }
 
 export interface OPMVoice {
-  version?: 1;
+  version?: 1 | 6;
   name?: string;
   algorithm: number;
   feedback: number;
@@ -25,9 +25,9 @@ export interface OPMVoice {
 }
 
 interface OfficialOPM {
-  context: AudioContext | null;
-  node: AudioWorkletNode | null;
-  voices: Map<string, OPMVoice>;
+  readonly context: AudioContext | null;
+  readonly node: AudioWorkletNode | null;
+  voices: ReadonlyMap<string, OPMVoice>;
   loadVoice(name: string, voice: unknown): void;
   start(): Promise<void>;
   playNote(options: {
@@ -37,6 +37,8 @@ interface OfficialOPM {
     duration: number;
   }): number;
   stop(id: number): void;
+  panic(): number;
+  dispose(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -241,24 +243,9 @@ export class OPMAdapter {
 
   reset(slot: number): void {
     const channel = this.getSlot(slot);
-    const context = channel.opm.context!;
-    const node = channel.opm.node;
-    // Replacing the worklet discards both queued notes and releasing voices in this slot.
-    const replacement = new AudioWorkletNode(context, 'opm-processor', {
-      outputChannelCount: [2],
-    });
-    try {
-      node?.disconnect();
-      node?.port.close();
-      channel.opm.node = null;
-      channel.noteId = undefined;
-      replacement.connect(channel.gain!);
-      channel.opm.node = replacement;
-    } catch (error) {
-      replacement.disconnect();
-      replacement.port.close();
-      throw error;
-    }
+    // Official panic discards queued notes and release tails without replacing its managed node.
+    channel.opm.panic();
+    channel.noteId = undefined;
   }
 
   setGain(slot: number, value: number): void {
@@ -284,20 +271,7 @@ export class OPMAdapter {
   }
 
   private dispose(slot: Slot): void {
-    const node = slot.opm.node;
-    slot.opm.node = null;
-    if (node) {
-      try {
-        node.disconnect();
-      } catch {
-        /* Already disconnected or closed. */
-      }
-      try {
-        node.port.close();
-      } catch {
-        /* Already closed. */
-      }
-    }
+    void slot.opm.dispose().catch(() => {});
     if (slot.gain) {
       try {
         slot.gain.disconnect();
@@ -309,14 +283,6 @@ export class OPMAdapter {
     slot.panner?.disconnect();
     slot.panner = undefined;
     slot.noteId = undefined;
-    const context = slot.opm.context;
-    slot.opm.context = null;
-    if (context) {
-      try {
-        void context.close().catch(() => {});
-      } catch {
-        /* Context already closed. */
-      }
-    }
+    // OPM owns its context, processor port and pending command lifecycle.
   }
 }

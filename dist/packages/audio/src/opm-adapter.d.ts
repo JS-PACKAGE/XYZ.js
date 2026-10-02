@@ -12,7 +12,7 @@ export interface OPMOperator {
     };
 }
 export interface OPMVoice {
-    version?: 1;
+    version?: 1 | 6;
     name?: string;
     algorithm: number;
     feedback: number;
@@ -25,9 +25,9 @@ export interface OPMVoice {
     modIndex?: number;
 }
 interface OfficialOPM {
-    context: AudioContext | null;
-    node: AudioWorkletNode | null;
-    voices: Map<string, OPMVoice>;
+    readonly context: AudioContext | null;
+    readonly node: AudioWorkletNode | null;
+    voices: ReadonlyMap<string, OPMVoice>;
     loadVoice(name: string, voice: unknown): void;
     start(): Promise<void>;
     playNote(options: {
@@ -37,6 +37,8 @@ interface OfficialOPM {
         duration: number;
     }): number;
     stop(id: number): void;
+    panic(): number;
+    dispose(): Promise<void>;
     close(): Promise<void>;
 }
 type OutputRouter = (context: AudioContext, channel: AudioChannelName) => AudioNode;

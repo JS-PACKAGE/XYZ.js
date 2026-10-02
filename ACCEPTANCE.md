@@ -1192,3 +1192,11 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - Read-only inventory 記錄本機 MacBook Air／Apple M5／24GB；不以 system metadata 推定 connected hardware 的 ownership 或實際輸入。
 - `node scripts/physical-negative-smoke.mjs` 實際拒絕九類 synthetic／emulated evidence，全部 BLOCKED 且 certification=false：mobile、gamepad、OS IME、audio、background、BFCache、thermal、spoken AT、driver recovery。
 - 尚缺 owned-device 實際操作、必要安全授權與 independent artifact review；沒有操作使用者 Safari／shared sessions、OS／driver 或發聲。Collector 啟動與 desktop automation 不解除上述 blocker。
+
+## OPM.js vendor 更新（2026-10-03，未發佈）
+
+- 由官方 [v1.8 release](https://github.com/YueyuHoshizora/OPM.js/releases/tag/v1.8) 更新至 1.8.0；下載附件 `opm.js-1.8.0.tgz` 的 SHA-256 為 `bee862d5b3ccaa7c4e8ff959583873c78a8ca8a9f56f4d8b039e490e498e2587`，與 release asset digest／說明相符。完整 132 個 dist 檔與 LICENSE 在 vendor／build 與官方附件逐位元組一致；manifest 與兩份封裝 allowlist 同步，沒有修改官方 DSP。
+- 保留八個隔離 slots／contexts 與既有 BGM／SFX 預算。Adapter 改用官方 `panic()` 取消排程與 release tails，保留 managed node／routing；以 `dispose()` 關閉官方 context／port／生命週期，不再改寫 readonly handles。舊 v1 voice 載入後由官方正規化為 v6。
+- frozen install、build、typecheck、127 files／1040 tests、lint、format:check 通過；package hygiene 實際封裝驗證通過。
+- Managed Chromium 153.0.8010.12／macOS arm64 的原生 audio gate 通過：trusted unlock、八個 contexts、OPM／sample／stream 與 effects、pause／resume、八個 contexts 全部 closed，無 page／audio errors。額外實際 adapter smoke 確認 SFX reset 不斷 BGM、panic 後 active voices／pending events 為零且 node identity 不變、reset 後可再播放、destroy 全部關閉。
+- Showcase 的 auto／WebGPU／WebGL2／Canvas2D 四條正式路徑皆呈現 non-blank 且無 browser errors。此輪不發聲、不聲稱人耳聽感／實體音訊或其他瀏覽器認證；不更新 XYZ.js 版本、不提交或發佈。
