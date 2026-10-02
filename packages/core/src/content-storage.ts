@@ -12,6 +12,9 @@ import {
   type SaveLoadResult,
   type SaveManager,
   type SaveRecord,
+  type SaveReadOptions,
+  type SaveWriteOptions,
+  type SaveRecovery,
 } from './storage.js';
 
 export interface ContentPublicationHost<
@@ -36,6 +39,7 @@ export type ContentLoadResult<Definitions extends FactoryDefinitions> =
   | {
       status: 'loaded';
       record: SaveRecord;
+      recovery?: SaveRecovery;
       content: ContentScene<Definitions>;
     };
 
@@ -51,6 +55,7 @@ interface PendingContent<Definitions extends FactoryDefinitions> {
 export class ContentLoadCoordinator<Definitions extends FactoryDefinitions> {
   private pending?: PendingContent<Definitions>;
   private disposed = false;
+  private readonly lifetime = new AbortController();
 
   constructor(
     private readonly registry: FactoryRegistry<Definitions>,
@@ -64,18 +69,27 @@ export class ContentLoadCoordinator<Definitions extends FactoryDefinitions> {
     slot: string,
     content: ContentScene<Definitions>,
     playTime = 0,
+    options: SaveWriteOptions = {},
   ): Promise<SaveRecord> {
     if (this.disposed || this.host.destroyed)
       throw new DOMException('Content owner is destroyed.', 'AbortError');
     const snapshot: unknown = content.capture();
     assertJsonValue(snapshot);
-    return saves.save(slot, snapshot, playTime);
+    const signals = [
+      this.lifetime.signal,
+      options.signal,
+      this.host.signal,
+    ].filter((signal): signal is AbortSignal => signal !== undefined);
+    return saves.save(slot, snapshot, playTime, {
+      ...options,
+      signal: signals.length ? AbortSignal.any(signals) : undefined,
+    });
   }
 
   async load(
     saves: SaveManager,
     slot: string,
-    options: { signal?: AbortSignal } = {},
+    options: SaveReadOptions = {},
   ): Promise<ContentLoadResult<Definitions>> {
     if (this.disposed || this.host.destroyed)
       throw new DOMException('Content owner is destroyed.', 'AbortError');
@@ -114,7 +128,10 @@ export class ContentLoadCoordinator<Definitions extends FactoryDefinitions> {
     signal.addEventListener('abort', cancelCandidate, { once: true });
     try {
       assertCurrent();
-      const loaded = await subscribeLoad(saves.load(slot), signal);
+      const loaded = await subscribeLoad(
+        saves.load(slot, { ...options, signal }),
+        signal,
+      );
       assertCurrent();
       if (loaded.status !== 'loaded') return loaded;
       const candidate = await rebuildContentScene(
@@ -133,7 +150,7 @@ export class ContentLoadCoordinator<Definitions extends FactoryDefinitions> {
           'Content candidate was not published.',
           'AbortError',
         );
-      return { status: 'loaded', record: loaded.record, content: candidate };
+      return { ...loaded, content: candidate };
     } catch (error) {
       if (pending.cleanupError !== undefined)
         throw new AggregateError(
@@ -174,6 +191,9 @@ export class ContentLoadCoordinator<Definitions extends FactoryDefinitions> {
   /** The Game owner calls this during destruction, including while a migration/factory is pending. */
   destroy(): void {
     this.disposed = true;
+    this.lifetime.abort(
+      new DOMException('Content owner is destroyed.', 'AbortError'),
+    );
     this.cancel(new DOMException('Content owner is destroyed.', 'AbortError'));
   }
 }

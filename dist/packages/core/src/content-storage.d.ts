@@ -2,7 +2,7 @@ import type { ResourcePool } from '../../assets/src/resource-scope.js';
 import { ContentScene } from './content.js';
 import type { FactoryDefinitions, FactoryRegistry, FactoryServices } from './factories.js';
 import type { Scene } from './scene.js';
-import { type SaveLoadResult, type SaveManager, type SaveRecord } from './storage.js';
+import { type SaveLoadResult, type SaveManager, type SaveRecord, type SaveReadOptions, type SaveWriteOptions, type SaveRecovery } from './storage.js';
 export interface ContentPublicationHost<Definitions extends FactoryDefinitions> {
     readonly destroyed: boolean;
     /** Changes when any scene publication/preparation supersedes this load. */
@@ -18,6 +18,7 @@ export type ContentLoadResult<Definitions extends FactoryDefinitions> = Exclude<
 }> | {
     status: 'loaded';
     record: SaveRecord;
+    recovery?: SaveRecovery;
     content: ContentScene<Definitions>;
 };
 /** SaveManager migration → fresh factory candidate → complete restoration → guarded publication.
@@ -30,11 +31,10 @@ export declare class ContentLoadCoordinator<Definitions extends FactoryDefinitio
     private readonly host;
     private pending?;
     private disposed;
+    private readonly lifetime;
     constructor(registry: FactoryRegistry<Definitions>, services: FactoryServices<Definitions>, resources: ResourcePool, host: ContentPublicationHost<Definitions>);
-    save(saves: SaveManager, slot: string, content: ContentScene<Definitions>, playTime?: number): Promise<SaveRecord>;
-    load(saves: SaveManager, slot: string, options?: {
-        signal?: AbortSignal;
-    }): Promise<ContentLoadResult<Definitions>>;
+    save(saves: SaveManager, slot: string, content: ContentScene<Definitions>, playTime?: number, options?: SaveWriteOptions): Promise<SaveRecord>;
+    load(saves: SaveManager, slot: string, options?: SaveReadOptions): Promise<ContentLoadResult<Definitions>>;
     cancel(reason?: unknown): void;
     /** The Game owner calls this during destruction, including while a migration/factory is pending. */
     destroy(): void;
