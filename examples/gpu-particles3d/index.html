@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>XYZ.js — native GPU particles3D</title>
+    <style>
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #101522;
+        color: #eef2ff;
+        font: 16px system-ui;
+      }
+      main {
+        max-width: 960px;
+        margin: auto;
+      }
+      canvas {
+        width: 100%;
+        aspect-ratio: 16/9;
+        border: 1px solid #49618d;
+      }
+      nav {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 16px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 8px;
+      }
+      output {
+        display: block;
+        margin: 12px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">Back to examples gallery</a>
+      <h1>Native GPU particles3D</h1>
+      <p>
+        Left cyan: local space follows the moving nozzle. Right orange: world
+        space keeps its birth transform. Seeded velocity, gravity, size and
+        color are evaluated in native vertex shaders, not on the CPU.
+      </p>
+      <label
+        >Backend
+        <select id="backend">
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D (unsupported)</option>
+        </select></label
+      >
+      <nav aria-label="Particle controls">
+        <button id="burst">Burst 5000 / drop-new</button>
+        <button id="pause">Pause emitters</button>
+        <button id="stop">Stop / start emission</button>
+        <button id="clear">Clear commands</button>
+        <button id="restart">Restart seed/time</button>
+        <button id="destroy">Destroy emitters</button>
+      </nav>
+      <canvas
+        id="game"
+        aria-label="Two animated native GPU particle fountains"
+      ></canvas>
+      <output id="stats" aria-live="off"></output>
+      <output id="status" aria-live="polite"
+        >Preparing native pipelines…</output
+      >
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

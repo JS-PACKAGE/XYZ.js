@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AACA,OAAO,MAAM,qBAAuB,OAAO,OAAO,CAChD,YAAa,MACb,QAAS,IACT,YAAa,KACb,aAAc,IACd,kBAAmB,IACpB,CAAA,EAED,OAAO,MAAM,4BAA8B,GAC3C,OAAO,MAAM,4BAA8B","sources":["../../../src/data/gpu-particles3d.ts"],"names":[],"file":"gpu-particles3d.js"}
