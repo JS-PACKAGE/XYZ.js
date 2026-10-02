@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Fixed locomotion · XYZ.js</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #101923;
+        color: #e5edf6;
+        max-width: 1000px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      a {
+        color: #83dbea;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: #182635;
+      }
+      button {
+        font: inherit;
+        padding: 8px;
+        margin: 4px;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Examples</a>
+    <h1>Fixed character locomotion</h1>
+    <p>
+      WASD / arrows walk and turn; Shift runs; Space jumps. Walk into the purple
+      wall: extracted root motion goes through real capsule collision, never
+      directly into the body pose. Board the gold moving/rotating platform.
+    </p>
+    <p>
+      This is an upright capsule driver with explicit clips, gravity and jump,
+      not a universal character controller. Root-motion vertical translation and
+      pitch/roll are excluded. WebGPU / WebGL2 only.
+    </p>
+    <button id="pause">Toggle pause</button
+    ><button id="seek">Seek current clip to 0.7 s</button
+    ><button id="stop">Stop</button><button id="start">Start</button
+    ><button id="platform">Board moving platform</button
+    ><button id="reset">Reset</button><button id="destroy">Destroy</button>
+    <canvas id="game" aria-label="Fixed root-motion locomotion course"></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <pre id="stats"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

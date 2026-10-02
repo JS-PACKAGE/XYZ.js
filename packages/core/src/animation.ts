@@ -401,6 +401,8 @@ export class AnimationAction {
   /** Starts playing with the fade factor rising from 0 to 1 over `duration` seconds. */
   fadeIn(duration: number): this {
     finiteTime(duration, 'Fade duration');
+    // Reviving an outgoing action cancels its old cross-fade retirement.
+    this.successor = undefined;
     // An action that is still fading out resumes from its current factor instead of popping to 0.
     const from = this.playing ? this.fade : 0;
     this.play();

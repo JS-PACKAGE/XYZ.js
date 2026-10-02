@@ -73,6 +73,25 @@ describe('AnimationAction blending', () => {
     expect(target.position.x).toBeCloseTo(25);
   });
 
+  it('keeps a revived incoming action playing after an interrupted cross-fade', () => {
+    const target = new Group();
+    const mixer = new AnimationMixer();
+    const walk = mixer.clipAction(slide(target, 0, 10, 10, 'walk')).play();
+    const run = mixer.clipAction(slide(target, 100, 200, 10, 'run'));
+    for (let cycle = 0; cycle < 3; cycle++) {
+      walk.crossFadeTo(run, 0.5);
+      mixer.update(0.1);
+      run.crossFadeTo(walk, 0.5);
+      mixer.update(0.5);
+      expect(walk.playing).toBe(true);
+      expect(run.playing).toBe(false);
+      expect(walk.effectiveWeight).toBe(1);
+      const before = target.position.x;
+      mixer.update(0.25);
+      expect(target.position.x - before).toBeCloseTo(0.25);
+    }
+  });
+
   it('fades a single action in from the current pose', () => {
     const target = new Group();
     target.position.set(4, 0, 0);
