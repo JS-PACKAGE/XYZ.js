@@ -1,6 +1,8 @@
 # XYZ.js 驗收紀錄
 
-**目前狀態：1.0.0 的 P01–P08 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。套件未 npm publish，授權仍為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
+**目前已發佈版本：1.12.1／Apache-2.0，npm 未發佈。** 正式 GitHub Release、archive identity 與 hosted CI 證據見 [v1.12.1 最終確認](#v1121-github-release-最終確認)。P97–P103 是本輪批准的工作，尚未驗收；其實際結果另記，不能沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
+
+**P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
 以下各階段保留**當時**的測試數、環境與觀察，不以最新結果改寫歷史。P01 當時只有 WebGPU；目前三級 fallback 以 P06 及後續紀錄為準。未驗證的平台、硬體與效能項目仍不視為通過。
 
@@ -1152,3 +1154,41 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - 下載正式 `xyz.js-1.12.1.tgz`／`SHA256SUMS`，`shasum -a 256 -c SHA256SUMS` 成功；SHA256 `a0c2b6baf04b8a81db51eae92cd20fd1c79c4822bd2d8e8f84ce30835887c196`。此與乾淨committed v1.12.1 tree封裝、hosted完整installed starter gameplay使用的archive **三者逐位元组相同**；前述含本機template `.vite` caches的supplemental tar保持原SHA，不冒稱那份cache-bearing archive等同正式附件。正式package metadata1.12.1、Apache-2.0、統一root exports及英文SECURITY.md已確認。
 - 下載全部四shard reports，45 examples／212 cases的stable manifest union零missing／duplicate，56／51／51／54全部PASS，各job177／203／211／257s；每shard兩個完整catalogues及local links。證據 `.vite/v1.12.1-host/verification-summary.json`，native owned Chromium153／darwin arm64；並行排程與runner環境均改變，不由wall-time差異推論純sharding speedup。
 - Hosted原baseline 2D／3D均完成120／600／180 CPU frame samples，errors空、teardown38.9／5.5ms≤5000。實際GPU provenance是ANGLE Metal **Apple Paravirtual device**，steady有效GPU samples537／445，RAF p95=50.25／66.75ms、CPU submit p95=1.75／17.25ms；不宣稱60FPS、physical Apple GPU或原Linux軟體GPU效能已修復。Linux native audio兩頁各45568 rendered samples、44100Hz、max error0<原0.000001門檻，八contexts完整closed／playback stopped／URLs零；兩starter自然90s玩法、portable remap／save及offline update／rollback全PASS。證據 `.vite/v1.12.1-host/{audio,surfaces}/`。Physical／audible／Safari／assistive-technology／low-tier／driver limits維持具名。
+
+## P97–P103 本輪工程保障驗證（2026-10-03，未發佈）
+
+### P97 — 公開 API 相容性
+
+- 以已發佈 v1.12.1 宣告檔為 baseline；正式 checker 通過 737 exports、2810 directional contracts、710 historical export namespaces 與五份 versioned consumers。35 組 designed smoke 通過，包含 constructor narrowing、recursive generic graph、inferred literal、setter write type 與 `this is` predicate。
+- 修正 independent review 發現的 recursive identity、setter write-type 遺漏與 predicate projection；保留 strict shadow 的雙向等價規則，setter widening 也會被其拒絕，不宣稱所有語意相容的擴寬都接受。宣告檢查不證明 runtime timing、ownership 或 events。
+
+### P98 — 可校準的效能 gate
+
+- 實作綁定 host、GPU、backend、launch arguments 與 workload identity 的 calibration 與 certification 雙命令；loading 與 steady 階段分開，量測 RAF p95／max／hitch 與 CPU frame／submit，不重試失敗 gate。
+- 初始 180s deadline 於 96 個 dense colliders 超時的 FAIL 保留；後續將量測 deadline 設為 300s（revision 4），完整 96-collider 工作量於 Apple M5 WebGL2 成功完成 5 次 calibration（25 runs，542.8 秒）並產生 `.vite/p97-p103/perf-profile-original.json`。
+- 獨立 certification 命令驗證該 pinned profile，5 種 workloads 全部 PASS（81.0 秒）：2d（steady RAF p95=17ms）、3d（steady RAF p95=16.8ms）、dense2d（steady RAF p95=50.25ms、max=200ms）、navigation（steady RAF p95=16.8ms）、visibility（steady RAF p95=16.8ms）；teardown 全數 ≤ 4.5ms。
+- 負向驗證：不可能達到的 gate（`stages.steady.rafP95Ms=1`）回報 exit 1 與 FAIL；不完整 matrix 被拒絕。觀察到 max 指標偶有自然抖動，未藉由放寬門檻掩飾。
+- 證據：`.vite/p97-p103/perf-profile-original.json`、`perf-original-calibration/`、`perf-original-certify/`、`perf-negative/`。
+
+### P99 — 跨子系統一小時整合長跑
+
+- 真正一小時（3600 秒 active simulation）、三 backend 並行執行完成：`.vite/p97-p103/mixed-hour.json`（exit 0，總耗時 3611.3 秒）。單一 Scene 完整涵蓋 streaming collision、scheduler routes、character、3D rigid bodies、pause、IndexedDB SceneSnapshot、crossfade、同 backend recovery 與恢復玩法。
+- 三個 backend 實跑秒數、completed cycles 與清理驗證：
+  - **WebGPU**：3604.7 秒，73 cycles，74 assertions 全部通過；830 leases acquired／released，73 captures created／destroyed，native textures 與 geometry live bytes 歸 0（peak 分別為 413KB／935KB），held render target bytes 0，errors 為空。
+  - **Canvas2D**：3605.2 秒，569 cycles，570 assertions 全部通過；17525 leases acquired／released，569 captures created／destroyed，live bytes 歸 0，errors 為空。
+  - **WebGL2**：3607.2 秒，169 cycles，170 assertions 全部通過；1482 leases acquired／released，169 captures created／destroyed，native textures 與 geometry live bytes 歸 0，held render target bytes 0，errors 為空。
+- 修正 initial navigation bake 在 restore／registration 後才完成，以及 candidate warmup 與 live simulation 交錯的問題。WebGPU renderer destroy 會使 renderer-owned RenderTexture2D 失效；native 3D recovery 包含重建管線與 frame-paced 恢復，watchdog 設為 400s 以容納量測到的 recovery 間隔，不宣稱恢復已瞬間完成。
+- 既有短程 smoke 證據保留於 `.vite/p97-p103/mixed-smoke-final.json`。
+
+### P100–P102 — 已執行的消費端與文件證據
+
+- Installed archive 的 `xyz-create`、`xyz-assets`、`xyz-build-assets` 已實際執行；macOS realpath alias 的 CLI guard 與 lazy Playwright CJS interop 已修正。真實 model／texture／font／map corpus 保留 provenance 與 licenses；installed model consumer 的 WebGL2／WebGPU reports 無 failures，不使用替代 demo renderer。
+- TypeDoc 與 build:site 已成功生成目前版本文件；目前契約見 `docs/CURRENT.md`，歷史 counts 不改寫。工具 browser session 中途 detached 的 collector 互動只算已啟動，不算完整操作驗收。
+- Archive hygiene 通過 893 approved files；clean／disposable polluted workspace 依 approved paths、bytes 與 executable flags 比對。Package metadata 僅容許 pnpm pack 移除 `packageManager` 與 key order 正規化，其餘以深度相等驗證；archive 間仍精確 bytes 比對。Metadata／binary regression tests 22 項通過。
+- 本輪 full suite：127 files／1040 tests；typecheck、lint、format:check、tree-shaking 與正式 API checker 已成功執行。上述為當時執行結果，不代表後續文件修改也已重新檢查。
+
+### P103 — 實體資格流程與 blocker
+
+- Read-only inventory 記錄本機 MacBook Air／Apple M5／24GB；不以 system metadata 推定 connected hardware 的 ownership 或實際輸入。
+- `node scripts/physical-negative-smoke.mjs` 實際拒絕九類 synthetic／emulated evidence，全部 BLOCKED 且 certification=false：mobile、gamepad、OS IME、audio、background、BFCache、thermal、spoken AT、driver recovery。
+- 尚缺 owned-device 實際操作、必要安全授權與 independent artifact review；沒有操作使用者 Safari／shared sessions、OS／driver 或發聲。Collector 啟動與 desktop automation 不解除上述 blocker。

@@ -323,3 +323,26 @@ P88–P96 的可達正式實作已完成，依階段分開提交並保留 1.11.0
 原v1.12 tag保留為當時snapshot，hosted新增surface gate失敗，沒有附件。使用者後續要求英文SECURITY.md與site smoke並行；目前以四個獨立macOS／Metal site shards保留完整212 cases，release-surfaces另以相同host跑原baseline production workload與fresh starters。Linux既有三engine regression matrix仍保留，不將Metal結果宣稱為Linux效能修復；新v1.12.0 tag須等所有CI jobs通過。詳見 [ACCEPTANCE](ACCEPTANCE.md) 與 [SECURITY](SECURITY.md)。
 
 v1.12.0 hosted四個site shards與原production benchmark已PASS，但portable-settings remap仍用350ms wall hold，且Linux concurrent audio有unchanged duck retarget邊界reference失敗；驗收保留原FAIL，不重跑／放寬threshold假冒修復。v1.12.1 patch使未變更single-target curve保持連續、仍處理new future boundaries與tau change；remap以一個HUD gameplay second驅動，exported checkpoint位移門檻不變。原tags不移動，新patch仍走全部CI gates。
+
+## 本輪批准：P97–P103 工程保障與消費端工具
+
+使用者在 v1.12.1 缺口評估後要求「全部都做」。沿用 1.x 相容、零新增
+runtime dependency 與既定 non-goals；不升版、不推送、不建立 tag 或發佈。
+各階段實作與實際驗證完成後依 AGENTS 分開建立 `[Pxx]` commit。
+以下是批准範圍，不是通過宣告；實際結果另記 ACCEPTANCE。
+
+| 階段 | 範圍                         | 驗收指標                                                                                                                                                                               |
+| ---- | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| P97  | 完整公開 API 相容性保障      | 已發佈宣告 baseline、nested signatures／constructor／options／return／implementor 契約、舊 consumer 編譯及 timing／ownership／events 行為；兼容新增通過、破壞變更拒絕                  |
+| P98  | 可校準的效能回歸門檻         | Host／backend／quality provenance 綁定的 RAF／CPU／hitch gate；loading 與 steady 分開，dense physics／navigation replanning／大型可見及不可見場景保留語意驗證                          |
+| P99  | 目前版本跨子系統長時間驗證   | 實際一小時整合 streaming／physics／navigation／pause／save-restore／scene transition／同 backend recovery 與恢復玩法；記錄版本 identity、leases／targets／audio／heap／errors／cleanup |
+| P100 | 專案級資產工具與合法真實語料 | 安裝套件即可使用 authoring／preflight；整體 models／maps／atlases／fonts／references／deployment paths 檢查、檔案及位置診斷、固定來源與授權的真實資產                                  |
+| P101 | 目前版本正式文件             | 現行 capability／API／support matrix 與歷史分開；可搜尋、具版本的公開 API reference；task-based ownership／abort／cleanup；中英日 README 與雙語操作／技術文件同步                      |
+| P102 | 嚴格套件內容保障             | 明示 approved archive inventory，排除 caches／dev 污染；相同 build／toolchain 下 clean 與 disposable polluted workspace 的批准路徑及內容相同                                           |
+| P103 | 實體平台資格流程與證據界線   | Owned device 的 iOS／Android／gamepad／OS IME／background／BFCache／thermal／spoken AT／driver recovery 可執行流程；identity／operator／artifact 驗證；不可得證據具名 BLOCKED          |
+
+P103 不授權操作使用者 Safari／shared sessions、OS／driver 或實體發聲。
+Managed WebKit、viewport／touch emulation、合成事件、CPU pressure 與人工 attestation
+均不得冒稱獨立實體認證；缺 owned hardware／安全授權時，完成可達工具並保留 blocker。
+P98 的量測不承諾 universal 60 FPS；P99 的 heap 趨勢及 tracked resources 不等於
+全程序無 leak 或 driver VRAM 上限。既有 FAIL、歷史驗收與已發佈 tags 保留。

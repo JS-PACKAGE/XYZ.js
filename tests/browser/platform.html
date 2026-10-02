@@ -25,10 +25,11 @@
     <h1>Native platform probe — not device certification</h1>
     <p>
       Use ?renderer=canvas2d, webgl2, or webgpu. Edit the canvas text field with
-      a real IME, click/tap Canvas action and Unlock audio, background/return to
-      this page, then save and reload. Automation composition events are
-      synthetic; real IME, audible output, hardware input and driver reset
-      require operator evidence.
+      a real IME, click/tap Canvas action, background/return to this page, then
+      save and reload. Add &amp;physical=1 for the owned-device interaction
+      collector (audio unlock is disabled). Do not enable or play audible
+      output. Automation composition is synthetic; real hardware/OS scenarios
+      require independently reviewed operator evidence.
     </p>
     <canvas id="game"></canvas>
     <button id="lifecycle">Check resize / pause / resume / pixels</button>

@@ -10,6 +10,7 @@ import {
   type RendererPreference,
 } from '../../src/index.js';
 import { frameProofs, errorDetail } from './frame-proof.js';
+import { installPhysicalCollector } from './physical-qualification.js';
 
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const output = document.querySelector<HTMLPreElement>('#report')!;
@@ -162,6 +163,7 @@ try {
     }),
   );
   audio.addEventListener('click', () => {
+    if (new URLSearchParams(location.search).has('physical')) return;
     void runtime.audio
       .unlock()
       .then(() => {
@@ -297,24 +299,28 @@ try {
     });
     publish();
   });
-  addEventListener(
-    'pagehide',
-    () => {
-      try {
-        destroy();
-        sessionStorage.setItem(
-          'xyz-platform-pagehide',
-          JSON.stringify({
-            state: runtime.state,
-            sceneDestroyed: scene.destroyed,
-          }),
-        );
-      } catch (error) {
-        fail(error);
-      }
-    },
-    { once: true },
-  );
+  addEventListener('pagehide', (event) => {
+    try {
+      if (!event.persisted) destroy();
+      sessionStorage.setItem(
+        'xyz-platform-pagehide',
+        JSON.stringify({
+          persisted: event.persisted,
+          state: runtime.state,
+          sceneDestroyed: scene.destroyed,
+        }),
+      );
+    } catch (error) {
+      fail(error);
+    }
+  });
+  if (new URLSearchParams(location.search).has('physical')) {
+    installPhysicalCollector(
+      runtime,
+      () => scene.ticks,
+      () => captured.next(),
+    );
+  }
   document.querySelector('#download')!.addEventListener('click', () => {
     const operator =
       document.querySelector<HTMLTextAreaElement>('#operator')!.value;

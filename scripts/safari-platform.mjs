@@ -12,13 +12,22 @@ import { Buffer } from 'node:buffer';
 import assert from 'node:assert/strict';
 import { createServer } from 'vite';
 import { probeBackends } from './browser-launch.mjs';
+import { readAuthorization } from './physical-authorization.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const options = new Map();
 const args = process.argv.slice(2);
 for (let i = 0; i < args.length; i++) {
   const name = args[i];
-  if (!['--renderer', '--port', '--driver-port', '--output'].includes(name))
+  if (
+    ![
+      '--renderer',
+      '--port',
+      '--driver-port',
+      '--output',
+      '--authorization',
+    ].includes(name)
+  )
     throw new Error(`Unknown option ${name}.`);
   const value = args[++i];
   if (!value || value.startsWith('--'))
@@ -43,6 +52,12 @@ const driverPort = Number(options.get('--driver-port') ?? 5315);
 for (const value of [port, driverPort])
   if (!Number.isInteger(value) || value < 1 || value > 65535)
     throw new Error('Invalid port.');
+// This must happen before creating output, reserving ports or starting Safari/driver.
+const authorization = await readAuthorization(
+  options.get('--authorization'),
+  'native-safari-automation',
+  `http://127.0.0.1:${port}`,
+);
 const directory = resolve(
   root,
   options.get('--output') ?? '.vite/platform-safari',
@@ -329,8 +344,11 @@ try {
       result.pagehide = await execute(
         'return JSON.parse(sessionStorage.getItem("xyz-platform-pagehide"));',
       );
-      assert.equal(result.pagehide.state, 'destroyed');
-      assert.equal(result.pagehide.sceneDestroyed, true);
+      assert.equal(
+        result.pagehide.state,
+        result.pagehide.persisted ? 'running' : 'destroyed',
+      );
+      assert.equal(result.pagehide.sceneDestroyed, !result.pagehide.persisted);
       await execute(
         'window.__xyzPlatform.destroy(); return window.__xyzPlatform.report.destroyed;',
       );
@@ -369,6 +387,10 @@ try {
     JSON.stringify(
       {
         mode: 'native-Safari-desktop-WebDriver',
+        authorization,
+        physicalCertification: false,
+        trustBoundary:
+          'Native desktop WebDriver automation is not physical mobile/OS input qualification.',
         physicalMobileDeviceCertification: false,
         realOSIMECertification: false,
         hardwareGamepadCertification: false,

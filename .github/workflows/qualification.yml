@@ -1,0 +1,72 @@
+name: Long-duration and calibration evidence
+
+on:
+  schedule:
+    - cron: '0 4 * * 0'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: Owned-runner evidence to collect (no physical certification)
+        type: choice
+        default: mixed-hour
+        options: [mixed-hour, performance-calibration]
+
+permissions:
+  contents: read
+
+jobs:
+  mixed-hour:
+    if: github.event_name == 'schedule' || inputs.mode == 'mixed-hour'
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run build
+      - run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Exercise integrated current-engine gameplay for an hour per backend
+        run: |
+          mkdir -p .vite/qualification
+          node scripts/mixed-soak.mjs --renderer all --preset hour --parallel 1 --output .vite/qualification/mixed-hour.json --timeout 3900
+      - name: Preserve exact identity, outcomes and resource evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: current-engine-mixed-hour
+          path: .vite/qualification/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  performance-calibration:
+    if: github.event_name == 'workflow_dispatch' && inputs.mode == 'performance-calibration'
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run build
+      - run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Collect five planned successful runs without certifying the generated profile
+        run: |
+          mkdir -p .vite/qualification
+          node scripts/production-workloads.mjs --renderer webgl2 --calibrate .vite/qualification/production.profile.json --runs 5 --output .vite/qualification/calibration
+      - name: Independently exercise the generated host-scoped profile
+        run: node scripts/production-workloads.mjs --renderer webgl2 --profile .vite/qualification/production.profile.json --output .vite/qualification/independent-regression
+      - name: Preserve reviewable calibration and independent observations
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-calibration-not-automatically-adopted
+          path: .vite/qualification/
+          include-hidden-files: true
+          if-no-files-found: warn

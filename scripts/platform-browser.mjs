@@ -375,9 +375,13 @@ try {
       const hidden = await page.evaluate(() =>
         JSON.parse(sessionStorage.getItem('xyz-platform-pagehide')),
       );
-      if (hidden?.state !== 'destroyed' || !hidden.sceneDestroyed)
+      const expectedState = hidden?.persisted ? 'running' : 'destroyed';
+      if (
+        hidden?.state !== expectedState ||
+        hidden.sceneDestroyed !== !hidden.persisted
+      )
         throw new Error(
-          `Native pagehide did not clean up Game/Scene: ${JSON.stringify(hidden)}`,
+          `Native pagehide violated persisted lifetime: ${JSON.stringify(hidden)}`,
         );
       result.pageLifecycle = {
         result: 'PASS',
