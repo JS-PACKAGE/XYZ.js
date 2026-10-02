@@ -2,7 +2,7 @@
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
-目前 root metadata 是 `1.9.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
+目前 root metadata 是 `1.10.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序同步 DPR→Clock→Camera2D viewport→Input→Scene timers→Scene animations→Scene.update→World Systems→Renderer，最後清除 input edges。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，初始化失敗或 destroy 釋放 ownership。第一個 fatal frame／graphics failure 會被保留並送出 error；失敗後 resume 明確拒絕。Scene 準備失敗與 Audio 排程錯誤也可送出 error，但不把 graphics 鎖成 fatal。
@@ -149,9 +149,9 @@ Current loader 支援 `COLOR_0`（float／normalized unsigned VEC3／VEC4，含 
 
 此節描述新設計契約，通過與限制仍只由 ACCEPTANCE 的實跑紀錄決定。
 
-## 未發佈 production engine 擴充（1.9.0 working tree）
+## v1.10 production engine 擴充（1.10.0）
 
-本輪新增契約 **UNRELEASED**；依使用者授權分功能提交，package 版本／歷史 release／dates／counts 不改寫，不 push／publish／version change。精確 APIs 見 [TECHNICAL](docs/TECHNICAL.md#58-unreleased-production-contracts-190-working-tree)／[中文](docs/TECHNICAL-zh.md#58-未發佈-production-契約190-working-tree)，實測只以 ACCEPTANCE 為準。
+P58–P70 依使用者授權分功能提交後納入 **v1.10／1.10.0**；GitHub 發佈由既有 CI gate 控制，不做 npm publish，不改寫歷史 release／dates／counts。精確 APIs 見 [TECHNICAL](docs/TECHNICAL.md#58-production-contracts-v110)／[中文](docs/TECHNICAL-zh.md#58-production-契約v110)，實測與未驗限制只以 ACCEPTANCE 為準。
 
 - **Ownership／publication：** Game-local ResourcePool 沿既有 loader/cache；ResourceScope／Lease 以 request identity 共用 acquisition、owned／borrowed 明確區分。Context.own 在 fallible await 前登記，abort／late results 可 rollback；consumer detach 必須先成功才 release resource，失敗保留供 retry，不 dispose live borrower。Content candidate scope fresh／forked，由 owned Scene／subtree 接管；fresh rebuild→Game.setScene 才 atomic publish，legacy in-place Serializer.restore 不宣稱 transaction。
 - **Startup／quota／observability：** Lazy Scene subsystems 不因讀 stats 初始化。NavigationScheduler 為全 Scene owner-fair admission／round-robin work quota，非 per-NPC budget；CPU milliseconds 僅 cooperative observation，非 preemption。Spatial 保留 O(N) mutable-pose checks，僅 geometry refresh/refit changed-only。Bounded opt-in GPU queries 的 unsupported／pending／invalid 結果 nullable，不偽裝零；heap／GC／RSS／VSZ／native GPU timestamps 分開，RSS 非 VRAM、RAF 非 presentation completion，不宣稱 FPS 提升或 microengine。

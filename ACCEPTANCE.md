@@ -939,3 +939,10 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - CI 定義為 Node 22／24／26 quality jobs、Ubuntu 三 Node×三 engines 九 browser jobs，另保留 macOS WebKit／Node26 gate；Firefox Linux 提供 native PulseAudio null sink。未 push／觸發 hosted workflow。Safari explicit-preserve、真行動／低階硬體、OS IME／gamepad／driver、host freeze unsupported，以及 WebGPU timestamp invalid／WebKit concurrent audio 限制均保留。
 - 最終整合後 Node 26.7.0／pnpm 12.6.0 再次完整執行 lint、format:check、typecheck、104 files／859 tests、build（229 JS modules：2172592→1150101 bytes）與 check:tree-shaking，全部 exit 0。Lint 也暴露一個範例遺失 error cause（已修）；`.vite/` 暫存證據目錄與 `.prettierignore` 一致地排除於 ESLint。
 - 分功能提交時，P58–P70 的隔離 index 快照逐階段通過 typecheck，涉及 runtime 的階段各自重建對應 dist；最終隔離快照以既有工具直接執行 lint、format:check、typecheck、104 files／859 tests、build 與 check:tree-shaking，全數通過。Chromium 153 built-root `lightweight2d`／Canvas2D 再 smoke：1/1 non-blank、無 page error；10 份文件的 327 個相對 Markdown 路徑／heading links 通過。這輪沒有重跑九組 browser 矩陣、hour soak 或 Safari gate，也沒有 push／觸發 hosted CI；11 個既有未追蹤編號 vendor 副本保持原樣，不列入 commit。
+
+## v1.10 發佈前驗證（限定已測環境）
+
+- 使用者於 P58–P70 分功能提交後授權 GitHub v1.10 發佈；package metadata 更新為 1.10.0／Apache-2.0，推送 main 與新 tag。前述 1.9.0 working-tree／不推送敘述是當時狀態；不做 npm publish，不改歷史 tags。
+- Node 26.7.0／pnpm 12.6.0 重新執行 frozen install、typecheck、104 files／859 tests、lint、build（229 minified JavaScript modules：2172592→1150101 bytes）、format:check 與 check:tree-shaking，全數通過。10 份文件的 327 個相對 Markdown 路徑／heading links 通過；本輪版本／文件調整未宣稱重新跑 browser matrix、hour soak 或硬體 gate。
+- 真正 pnpm pack 產生 xyz.js-1.10.0.tgz；解壓後以 Node ESM 正式 root 入口驗證版本／Apache-2.0 LICENSE 與 ResourcePool 跨 scope acquisition：同 request 只 load 一次，第一個 scope release 不 dispose，最後 borrower release 才 dispose 一次，輸出 V110_EXTRACTED_PACKAGE_CONSUMER_OK。14 件官方 OPM vendor 檔案逐位元組一致，保留完整 dist 目錄树。
+- 推送 v1.10 tag 觸發既有 Release workflow：共用 Node22／24／26 quality 與三 engines browser gates 成功後，才封裝並上傳 tgz／SHA256SUMS；線上執行與發佈結果以 GitHub Actions／Release 為準。Safari、實機 mobile／gamepad／OS IME／driver、WebGPU timestamp invalid 與 WebKit concurrent audio 等既有未驗／限制不因版本號消失。

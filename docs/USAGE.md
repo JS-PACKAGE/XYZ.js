@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.9.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P43–P57 passed scoped macOS/headless Chromium acceptance. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.10.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. P58–P70 have scoped desktop-browser and mobile-emulation evidence, not physical-device certification. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Current Support at a Glance
 
@@ -1173,7 +1173,7 @@ Build CompoundCollider3D from flat child collider/position/rotation/scale descri
 
 ## 35. Continuous 3D Translation (historical P55)
 
-P55 introduced `new RigidBody3D({continuous:true})` for static-target translation sweeps. That historical exclusion of rotation/dynamic pairs is superseded by the unreleased bounded dynamic-pair/angular solver in section 38; public translation sweeps keep their translation-only contract. Keep fixed steps reasonably small. Iteration exhaustion retains only a proven-free prefix rather than inventing an impact. [Current bounded policy](TECHNICAL.md#55-bounded-3d-continuous-rigid-motion-p55-unreleased-expansion).
+P55 introduced `new RigidBody3D({continuous:true})` for static-target translation sweeps. That historical exclusion of rotation/dynamic pairs is superseded by the v1.10 bounded dynamic-pair/angular solver in section 38; public translation sweeps keep their translation-only contract. Keep fixed steps reasonably small. Iteration exhaustion retains only a proven-free prefix rather than inventing an impact. [Current bounded policy](TECHNICAL.md#55-bounded-3d-continuous-rigid-motion-p55-v110-expansion).
 
 ## 36. Consume Root Motion (P56)
 
@@ -1183,9 +1183,9 @@ Create AnimationRootMotion(skeletonRoot,{target:actor}) and assign that same bin
 
 Declare one-to-one source/target nodes and explicit bind transforms in AnimationRetargeter mappings, including each non-root direct parent; set corresponding skeleton roots. Retarget the source clip once, then use the resulting clip with the existing target mixer/skin/root-motion consumers. Never mutate source tracks to adapt them. [Scale/interpolation restrictions](TECHNICAL.md#57-explicit-bind-pose-retargeting-p57).
 
-## 38. Unreleased Production Working Tree
+## 38. Production Contracts (v1.10)
 
-These additions are **unreleased**, not changes to published v1.9 assets. Metadata remains **1.9.0 / Apache-2.0**; historical dates/counts above remain historical. [Technical contracts](TECHNICAL.md) define bounds, ownership and error behavior; [asset recipe](ASSET-RECIPE.md) defines the real external toolchain.
+These additions are included in **v1.10 / 1.10.0 / Apache-2.0**, not changes to published v1.9 assets; historical dates/counts above remain historical. [Technical contracts](TECHNICAL.md) define bounds, ownership and error behavior; [asset recipe](ASSET-RECIPE.md) defines the real external toolchain.
 
 - **Startup:** Scene physics/animation/3D camera/navigation initialize on use. Canvas startup does not load GPU backend chunks; shared root-facade reachability remains, so this is not a separate microengine.
 - **Assets:** pinned official Basis v2_50 and Draco 1.5.7 produce semantic gamma/normal/alpha mips, BC7/ETC2 RGBA8/ASTC 4×4, universal Basis and PNG/RGBA fallbacks, plus compressed/expanded glTF. Runtime selection is capability-driven, not silent backend switching. Codecs remain external, with no runtime dependency added. Typed Draco preserves raw/normalized/logical accessor metadata; do not assume arbitrary UInt32 values survive the entire Float32 glTF consumer path.

@@ -1,8 +1,8 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.9.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. P43–P57 local integration passed **93 files/780 tests**, with 89/89 example smoke and at least 60 seconds of mixed soak per backend. These are scoped macOS/headless Chromium observations, not cross-browser certification; limitations are in [ACCEPTANCE](ACCEPTANCE.md). Historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.10.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. P58–P70 local integration passed **104 files/859 tests**, with 117/117 example renderer routes and scoped Chromium/Firefox/managed WebKit evidence. These are documented browser/emulation observations, not physical-device certification; limitations are in [ACCEPTANCE](ACCEPTANCE.md). Historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
-GitHub **v1.9** uses `xyz.js-1.9.0.tgz` and `SHA256SUMS`. It includes P43–P57 fixed simulation/presentation, native frame regression/release gates, spatial indexing, incremental/dynamic navigation, mixed lifecycle measurements, dynamic scene serialization, reproducible asset deployment, native text editing, scroll/virtual lists, triangle/compound colliders, translation CCD, root motion and explicit animation retargeting. Support is limited to documented profiles. Earlier releases remain unchanged; v1.8 introduced P40–P42 and Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
+GitHub **v1.10** uses `xyz.js-1.10.0.tgz` and `SHA256SUMS`, published only after the shared CI gates pass. It adds P58–P70 lazy startup, pinned semantic assets, scoped resource ownership, safe save-candidate publication, observability, shared navigation budgets, moving-platform/crouch controllers, 3D joints, dynamic/angular CCD, collision-derived navigation, international text geometry and native audio effects/automation/world bindings, plus eight English demos and Node 22/24/26 CI. Support remains limited to documented profiles. Earlier releases remain unchanged; v1.9 introduced P43–P57 and v1.8 introduced P40–P42/Beacon Run. Deploy the complete `dist/` tree, including `dist/vendor/opm/`.
 
 文件導覽／Documentation／資料：[計畫與範圍](PLAN.md) · [驗收與 commits](ACCEPTANCE.md) · [設計](DESIGN.md) · 使用說明 [English](docs/USAGE.md)／[繁體中文](docs/USAGE-zh.md) · 技術參考 [English](docs/TECHNICAL.md)／[繁體中文](docs/TECHNICAL-zh.md) · [執行指引](AGENTS.md) · [工作約定](CLAUDE.md)。
 
@@ -24,9 +24,9 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 
 本輪新增 fixed gameplay／時間加權 force 與 opt-in physics presentation；使用 `Scene.fixedUpdate()`、`new Scene({ interpolatePhysics: true })`，不要從 hook 再呼叫 physics world update。新驗收與限制見 [ACCEPTANCE](ACCEPTANCE.md)，歷史測試數仍保留。
 
-### 未發佈 production working tree（不是 v1.9 release）
+### v1.10 production 契約
 
-Package 保持 **1.9.0**，以下新功能已依 P58–P70 分功能 commit，尚未 push／publish：lazy Scene subsystems／Canvas startup 不載入 GPU chunks；固定版官方 Basis／Draco semantic asset pipeline 與 capability 選擇／fallback；ResourcePool／ResourceScope 共享 leases、取消 rollback 與 fresh save candidate publication；Scene 共用 navigation work quota、changed-only spatial geometry refresh；3D moving support／crouch、distance／ball-socket／hinge joints、dynamic-pair／angular CCD；collision-derived navigation bake／NPC scheduling；bidi／grapheme／fallback-font native text；native audio effects／ducking／automation／world bindings。參見[新使用契約](docs/USAGE-zh.md#38-未發佈-production-working-tree)與[技術參考](docs/TECHNICAL-zh.md)。
+Package **1.10.0** 納入以下 P58–P70 分功能提交：lazy Scene subsystems／Canvas startup 不載入 GPU chunks；固定版官方 Basis／Draco semantic asset pipeline 與 capability 選擇／fallback；ResourcePool／ResourceScope 共享 leases、取消 rollback 與 fresh save candidate publication；Scene 共用 navigation work quota、changed-only spatial geometry refresh；3D moving support／crouch、distance／ball-socket／hinge joints、dynamic-pair／angular CCD；collision-derived navigation bake／NPC scheduling；bidi／grapheme／fallback-font native text；native audio effects／ducking／automation／world bindings。參見[新使用契約](docs/USAGE-zh.md#38-production-契約v110)與[技術參考](docs/TECHNICAL-zh.md)。GitHub 發佈須通過既有 CI gates，不做 npm publish。
 
 目前證據涵蓋 Chromium 153／Firefox 155／managed WebKit 26.6 的限定 browser paths（Firefox 無可用 WebGPU adapter）、實際官方 codec CLI 與 native WebAudio signal measurements；managed WebKit **不是 Safari 認證**。10 秒 observability smoke 量測 heap／GC／RSS 與 native GL GPU timestamps；RSS 不是 VRAM，短測不是一小時或 low-tier 證明。尚無實機 mobile／OS IME／gamepad／音訊硬體認證；mobile emulation 不等於實機。最終結果以 [ACCEPTANCE](ACCEPTANCE.md) 為準。2D CCD 仍 translation-only；Text3D 仍 native fillText；3D bake 是 topmost single-layer sampled graph，不是 polygon／multilayer navmesh；spatial pose checks 仍 O(N)。
 
@@ -112,9 +112,9 @@ P21–P29 are approved bounded PixiJS-inspired profiles, now integrated and exer
 
 Fixed gameplay, time-weighted forces and opt-in physics presentation use `Scene.fixedUpdate()` and `new Scene({ interpolatePhysics: true })`; do not manually advance physics from that hook. New evidence and limits are in [ACCEPTANCE](ACCEPTANCE.md); historical counts remain historical.
 
-### Unreleased production working tree (not the v1.9 release)
+### v1.10 Production Contracts
 
-Package metadata stays **1.9.0**; these additions are committed separately as P58–P70, not pushed/published: lazy Scene subsystems and GPU-free Canvas startup chunks; pinned official Basis/Draco semantic asset production and capability selection/fallback; ResourcePool/ResourceScope shared leases, cancellation rollback and fresh save-candidate publication; aggregate Scene navigation work quotas and changed-only spatial geometry refresh; 3D moving supports/crouch, distance/ball-socket/hinge joints and dynamic-pair/angular CCD; collision-derived navigation baking/NPC scheduling; bidi/grapheme/fallback-font native text; native audio effects/ducking/automation/world bindings. See [new usage contracts](docs/USAGE.md#38-unreleased-production-working-tree) and [technical reference](docs/TECHNICAL.md).
+Package **1.10.0** includes the separately committed P58–P70 additions: lazy Scene subsystems and GPU-free Canvas startup chunks; pinned official Basis/Draco semantic asset production and capability selection/fallback; ResourcePool/ResourceScope shared leases, cancellation rollback and fresh save-candidate publication; aggregate Scene navigation work quotas and changed-only spatial geometry refresh; 3D moving supports/crouch, distance/ball-socket/hinge joints and dynamic-pair/angular CCD; collision-derived navigation baking/NPC scheduling; bidi/grapheme/fallback-font native text; native audio effects/ducking/automation/world bindings. See [new usage contracts](docs/USAGE.md#38-production-contracts-v110) and [technical reference](docs/TECHNICAL.md). GitHub publication requires the existing CI gates; npm remains unpublished.
 
 Current scoped evidence includes Chromium 153/Firefox 155/managed WebKit 26.6 browser paths (Firefox has no supported WebGPU adapter), actual official codec CLI runs and native WebAudio signal measurements. Managed WebKit is **not Safari certification**. A 10-second observability smoke measured heap/GC/RSS and native GL GPU timestamps; RSS is not VRAM and short runs do not prove an hour or low-tier performance. Physical mobile, OS IME, gamepads and audio hardware are not certified; mobile emulation is not device proof. Final evidence belongs in [ACCEPTANCE](ACCEPTANCE.md). 2D CCD remains translation-only; Text3D remains native fillText; 3D baking is a topmost single-layer sampled graph, not a polygon/multilayer navmesh; spatial pose checks remain O(N).
 
@@ -131,7 +131,7 @@ Production additions in this round:
 - P52: `UIScrollView`/`UIVirtualList`, clip-aware input, focus reveal and bounded keyed rows.
 - P53: static `TriangleMeshCollider3D`/triangle BVH with real contacts/ray/sweep.
 - P54: `CompoundCollider3D` child-local unions, real gaps and combined inertia.
-- P55 (historical): opt-in static-target 3D translation CCD, then excluding rotational/dynamic-pair CCD. See unreleased extensions above.
+- P55 (historical): opt-in static-target 3D translation CCD, then excluding rotational/dynamic-pair CCD. See v1.10 extensions above.
 - P56: animation root motion consumed by an actor/controller.
 - P57: explicit bind-pose animation retargeting without mutating source tracks.
 
@@ -171,7 +171,7 @@ Historical v1.4/v1.5 additions (additive, no new runtime dependency): spatial sa
 
 Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, `showcase` (2D + 3D + audio), `advanced3d` (with Environment and fog), `gameplay2d` and `rendering2d`. See `ACCEPTANCE.md` for evidence and limitations. This repository does not push or publish automatically.
 
-Historical observations used managed Chromium 150. New unreleased browser evidence and remaining hardware/platform limits are stated above; Safari/Edge certification, physical gamepads, cross-monitor DPR and real driver resets remain unverified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
+Historical observations used managed Chromium 150. Current browser evidence and remaining hardware/platform limits are stated above; Safari/Edge certification, physical gamepads, cross-monitor DPR and real driver resets remain unverified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
 
 ## 日本語
 
@@ -191,9 +191,9 @@ P21–P29 の限定 PixiJS-inspired profiles は統合済みで、単一環境�
 
 Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fixedUpdate()` と `new Scene({ interpolatePhysics: true })` を使います。Hook 内で physics を二重更新しないでください。新しい証拠と制限は [ACCEPTANCE](ACCEPTANCE.md)、旧テスト数は当時の記録です。
 
-### 未リリース production working tree（v1.9 release ではない）
+### v1.10 Production 契約
 
-Package metadata は **1.9.0** のまま、追加機能は P58–P70 ごとに commit 済みで、未 push／publish です：lazy Scene subsystems／Canvas 起動で GPU chunks を読まない構成、固定版公式 Basis／Draco semantic asset pipeline と capability 選択／fallback、ResourcePool／ResourceScope の共有 leases／取消 rollback／fresh save candidate publication、Scene 共通 navigation work quota／変更時のみ spatial geometry refresh、3D moving support／crouch／distance・ball-socket・hinge joints／dynamic-pair・angular CCD、collision-derived navigation bake／NPC scheduling、bidi／grapheme／fallback-font native text、native audio effects／ducking／automation／world bindings。[新 usage contracts](docs/USAGE.md#38-unreleased-production-working-tree) と[技術参照](docs/TECHNICAL.md)を参照してください。
+Package **1.10.0** は P58–P70 ごとに commit した追加機能を含みます：lazy Scene subsystems／Canvas 起動で GPU chunks を読まない構成、固定版公式 Basis／Draco semantic asset pipeline と capability 選択／fallback、ResourcePool／ResourceScope の共有 leases／取消 rollback／fresh save candidate publication、Scene 共通 navigation work quota／変更時のみ spatial geometry refresh、3D moving support／crouch／distance・ball-socket・hinge joints／dynamic-pair・angular CCD、collision-derived navigation bake／NPC scheduling、bidi／grapheme／fallback-font native text、native audio effects／ducking／automation／world bindings。[新 usage contracts](docs/USAGE.md#38-production-contracts-v110) と[技術参照](docs/TECHNICAL.md)を参照してください。GitHub 公開は既存 CI gates の通過が必要で、npm は未公開です。
 
 限定証拠は Chromium 153／Firefox 155／managed WebKit 26.6 の browser paths（Firefox の WebGPU adapter は非対応）、実公式 codec CLI と native WebAudio signal measurements です。Managed WebKit は **Safari 認証ではありません**。10 秒 observability smoke は heap／GC／RSS と native GL GPU timestamps を測定しましたが、RSS は VRAM ではなく、一時間／low-tier の証明でもありません。実機 mobile／OS IME／gamepad／音声 hardware は未認証、mobile emulation は実機証拠ではありません。最終証拠は [ACCEPTANCE](ACCEPTANCE.md) を参照。2D CCD は translation-only、Text3D は native fillText のまま。3D bake は topmost single-layer sampled graph で polygon／multilayer navmesh ではなく、spatial pose checks は O(N) です。
 
@@ -210,7 +210,7 @@ Package metadata は **1.9.0** のまま、追加機能は P58–P70 ごとに c
 - P52：`UIScrollView`／`UIVirtualList`、clip-aware input／focus reveal／bounded keyed rows。
 - P53：static `TriangleMeshCollider3D`／triangle BVH、実 contacts／ray／sweep。
 - P54：`CompoundCollider3D` の child-local union／実 gaps／combined inertia。
-- P55（歴史）：opt-in static-target 3D translation CCD。当時 rotation／dynamic-pair CCD は対象外。未リリース拡張は上記参照。
+- P55（歴史）：opt-in static-target 3D translation CCD。当時 rotation／dynamic-pair CCD は対象外。v1.10 拡張は上記参照。
 - P56：actor／controller が消費できる animation root motion。
 - P57：source tracks を変更しない explicit bind-pose animation retargeting。
 
@@ -250,7 +250,7 @@ v1.4／v1.5 の歴史的追加（additive、runtime dependency 追加なし）�
 
 実行可能なサンプル：`triangle`、`sprite`、`pong`、`cube3d`、`fallback-demo`、`showcase`（2D＋3D＋音声）、`advanced3d`（Environment と fog を含む）、`gameplay2d`、`rendering2d`。検証結果と制限は `ACCEPTANCE.md` を参照してください。このリポジトリは自動で push／publish しません。
 
-歴史的観察は managed Chromium 150 を使用しました。新しい未リリース browser 証拠と hardware／platform 制限は上記参照。Safari／Edge 認証、実機 gamepad、モニター間 DPR と実 driver reset は未確認です。WebGPU／AudioWorklet にはセキュアなオリジンが必要です。約 60fps は全環境の保証ではありません。
+歴史的観察は managed Chromium 150 を使用しました。現在の browser 証拠と hardware／platform 制限は上記参照。Safari／Edge 認証、実機 gamepad、モニター間 DPR と実 driver reset は未確認です。WebGPU／AudioWorklet にはセキュアなオリジンが必要です。約 60fps は全環境の保証ではありません。
 
 ## Examples／範例／サンプル
 

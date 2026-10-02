@@ -2,9 +2,9 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This reference covers the current **1.9.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define the approved contracts through P57; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user authorized pushing and the GitHub v1.9 release, not npm publication.
+This reference covers the current **1.10.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define the approved contracts through P70; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user authorized the GitHub v1.10 release, not npm publication.
 
-New production contracts in section 58 are **UNRELEASED working-tree additions**; unchanged 1.9.0 metadata and historical release authorization do not publish them.
+Production contracts in section 58 are included in **v1.10 / 1.10.0**. Release packaging does not expand the documented platform, hardware or performance evidence.
 
 ## Current Support Matrix
 
@@ -1000,7 +1000,7 @@ Factories may declare `children(root)` aliases and `state(root, member)` adapter
 
 See [Asset Recipe](ASSET-RECIPE.md) for reproducible local glTF/GLB packing, topology/UV/material/codec preflight, v2 explicit semantic mip generation, native compressed/universal Basis/RGBA8 KTX2, PNG fallback, typed Draco/expanded glTF, manifest and SHA256SUMS. The CLI pins Node26.7.0/playwright-core1.63.0/Chromium153.0.8010.12 (revision1243); no hidden downloads, manifest shell commands or runtime dependencies.
 
-`assets:build` validates generated variants through the real packaged GLTFLoader. `check:asset-deployment` imports an extracted `pnpm pack` root over plain HTTP, renders native/fallback/runtime-selected variants and trusted-click initializes official AudioWorklets, checking vendor completeness and real fetches. The unreleased v2 recipe supports pinned external Basis/Draco and explicit semantic filtering; reproducibility and hardware limits are recorded separately in ACCEPTANCE.
+`assets:build` validates generated variants through the real packaged GLTFLoader. `check:asset-deployment` imports an extracted `pnpm pack` root over plain HTTP, renders native/fallback/runtime-selected variants and trusted-click initializes official AudioWorklets, checking vendor completeness and real fetches. The v1.10 v2 recipe supports pinned external Basis/Draco and explicit semantic filtering; reproducibility and hardware limits are recorded separately in ACCEPTANCE.
 
 ## 51. Native Editing, Canvas Text Input (P51)
 
@@ -1026,7 +1026,7 @@ Sidedness `double` (default) is a two-sided zero-thickness surface, not closed-s
 
 Dynamic primitive compounds require uniform-density center of mass at the root origin. Scaled volumes distribute mass; rotated analytic inertia and full parallel-axis tensor retain off-diagonal terms. Overlapping child solids count separately for mass; collision is their gap-preserving union. Up to eight deepest deterministic contacts with individual normals feed the standard impulse solver.
 
-## 55. Bounded 3D Continuous Rigid Motion (P55, unreleased expansion)
+## 55. Bounded 3D Continuous Rigid Motion (P55, v1.10 expansion)
 
 `new RigidBody3D({continuous:true})` opts dynamic nonsensor bodies into bounded conservative-advancement CCD. Relative translation and angular motion cover dynamic pairs and moving kinematic targets, with actual sphere/OBB/capsule/primitive-compound geometry and static mesh/compound surfaces. Reciprocal filters and ordinary surface contact impulses/events remain authoritative.
 
@@ -1044,9 +1044,9 @@ Root pose is finite/rigid/unit scale; animated root scale or duplicate TR channe
 
 World/local rest-rotation correction and parent-frame translation correction preserve STEP/LINEAR/CUBICSPLINE, analytically transforming cubic tangents without modifying source tracks/arrays/live poses. Root translation defaults to factor1; non-root factors use target/source local bind-offset length, with explicit factor required for zero source/nonzero target offset. Factors are finite nonnegative (zero locks translation). Positive uniform bind/animated scales only; cubic scale extrema validate before/after Float32 conversion. Morph tracks, shear/reflection, duplicate channels, incomplete mappings, changed hierarchy/destroyed nodes reject before a clip is returned.
 
-## 58. Unreleased Production Contracts (1.9.0 working tree)
+## 58. Production Contracts (v1.10)
 
-These additions are **unreleased**; the unchanged package version is not a new 1.9.0 release. Earlier dates, counts and exclusions remain historical evidence. [ACCEPTANCE](../ACCEPTANCE.md) distinguishes measured paths from unsupported or unmeasured platforms.
+These P58–P70 additions are included in **v1.10 / 1.10.0**, not changes to earlier release assets. Earlier dates, counts and exclusions remain historical evidence. [ACCEPTANCE](../ACCEPTANCE.md) distinguishes measured paths from unsupported or unmeasured platforms.
 
 ### Resource ownership and fresh publication
 

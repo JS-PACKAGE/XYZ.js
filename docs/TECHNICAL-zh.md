@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述目前 **1.9.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P57 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 push 與 GitHub v1.9 release，不做 npm publish。
+本參考描述目前 **1.10.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P70 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 GitHub v1.10 release，不做 npm publish。
 
-第58節新增 production 契約是 **UNRELEASED working-tree additions**；不變的1.9.0 metadata／歷史發佈授權不代表已發佈本輪。
+第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
 ## 目前支援矩陣
 
@@ -994,9 +994,9 @@ Root finite／rigid／unit scale，animated root scale／duplicate TR channels �
 
 World／local rest-rotation 與 parent-frame translation correction 保留 STEP／LINEAR／CUBICSPLINE，analytic 轉換 cubic tangents，不改 source tracks／arrays／live poses。Root factor default1，non-root 用 target/source local bind-offset length；source零／target非零需 explicit factor。Factor finite nonnegative，零鎖 translation。Bind／animated scale 必須 positive uniform，cubic extrema 在 Float32 轉換前後都驗；morph／shear／reflection／duplicate channels／incomplete mapping／hierarchy change／destroyed nodes 在回 clip 前拒絕。
 
-## 58. 未發佈 production 契約（1.9.0 working tree）
+## 58. Production 契約（v1.10）
 
-以下是 **UNRELEASED** 工作樹能力；package version 未變，不代表另一次 1.9.0 release。歷史日期／counts／exclusions 保留；[ACCEPTANCE](../ACCEPTANCE.md) 分開實測、unsupported 與未驗項。
+以下 P58–P70 能力納入 **v1.10／1.10.0**，不是修改既有 release assets。歷史日期／counts／exclusions 保留；[ACCEPTANCE](../ACCEPTANCE.md) 分開實測、unsupported 與未驗項。
 
 ### 資源 ownership 與 fresh publication
 
