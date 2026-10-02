@@ -1,6 +1,6 @@
 /* global document, performance -- Playwright callbacks */
-import { access, readFile, writeFile } from 'node:fs/promises';
-import { resolve, join } from 'node:path';
+import { access, readFile, readdir, lstat, writeFile } from 'node:fs/promises';
+import { resolve, join, dirname, relative } from 'node:path';
 import { fileURLToPath, pathToFileURL, URL, URLSearchParams } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
@@ -10,6 +10,10 @@ import { chromiumLaunchOptions } from './browser-launch.mjs';
 import { cpus, release as osRelease, totalmem } from 'node:os';
 import { Buffer } from 'node:buffer';
 import { startSoakObservability } from './soak-observability.mjs';
+import { createHash } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { installMixedSoakSurface } from './mixed-soak-surface.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -30,13 +34,14 @@ const allowed = new Set([
   'gpuTiming',
   'frameBudgetMs',
   'parallel',
+  'packageArchive',
 ]);
 const options = new Map();
 for (let index = 0; index < args.length; index += 2) {
   const name = args[index]?.replace(/^--/, '');
   if (!allowed.has(name) || args[index + 1] === undefined || options.has(name))
     throw new Error(
-      'Use --renderer all|webgpu|webgl2|canvas2d --preset standard|hour --parallel 0|1 --profile native|simulated-low-tier|simulated-low-tier-heavy --duration seconds --cycle seconds --bodies count --warmup frames --seed integer --memorySample seconds --gpuTiming 0|1 --frameBudgetMs milliseconds --port port --output file --consumer extracted-package-directory --timeout seconds.',
+      'Use --renderer all|webgpu|webgl2|canvas2d --preset smoke|standard|hour --parallel 0|1 --profile native|simulated-low-tier|simulated-low-tier-heavy --duration seconds --cycle seconds --bodies count --warmup frames --seed integer --memorySample seconds --gpuTiming 0|1 --frameBudgetMs milliseconds --port port --output file --consumer extracted-package-directory --packageArchive matching-tgz --timeout seconds.',
     );
   options.set(name, args[index + 1]);
 }
@@ -55,8 +60,8 @@ const { measurementDefaults, soakProfiles, soakWorkload } = await import(
   new URL('./data/observability.js', pathToFileURL(entry))
 );
 const preset = options.get('preset') ?? 'standard';
-if (!['standard', 'hour'].includes(preset))
-  throw new Error('--preset must be standard|hour.');
+if (!['smoke', 'standard', 'hour'].includes(preset))
+  throw new Error('--preset must be smoke|standard|hour.');
 const profileName = options.get('profile') ?? 'native';
 const profile = soakProfiles[profileName];
 if (!Object.hasOwn(soakProfiles, profileName))
@@ -75,10 +80,18 @@ if (options.has('parallel') && !['0', '1'].includes(options.get('parallel')))
   throw new Error('--parallel must be 0|1.');
 const duration = Number(
   options.get('duration') ??
-    (preset === 'hour' ? measurementDefaults.longDurationSeconds : 60),
+    (preset === 'hour'
+      ? measurementDefaults.longDurationSeconds
+      : preset === 'smoke'
+        ? 30
+        : 60),
 );
 if (!Number.isFinite(duration) || duration < 1 || duration > 604800)
   throw new Error('--duration must be in [1, 604800].');
+if (preset === 'hour' && duration < 3600)
+  throw new Error(
+    '--preset hour requires at least 3600 actual seconds per backend; use smoke for short runs.',
+  );
 const timeoutSeconds = Number(options.get('timeout') ?? duration + 180);
 if (!Number.isFinite(timeoutSeconds) || timeoutSeconds < 1)
   throw new Error('--timeout must be positive and finite.');
@@ -92,6 +105,89 @@ if (backends.some((value) => !['webgpu', 'webgl2', 'canvas2d'].includes(value)))
 const port = Number(options.get('port') ?? 5211);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65535)
   throw new Error('--port must be a valid port.');
+const execute = promisify(execFile);
+async function treeIdentity(base, names) {
+  const files = [];
+  const visit = async (name) => {
+    const entries = await readdir(join(base, name), { withFileTypes: true });
+    for (const item of entries) {
+      const child = join(name, item.name);
+      if (item.isDirectory()) await visit(child);
+      else if (item.isFile()) files.push(child);
+      else
+        throw new Error(
+          `Identity cannot include a nonregular path: ${join(base, child)}`,
+        );
+    }
+  };
+  for (const name of names) {
+    const metadata = await lstat(join(base, name));
+    if (metadata.isDirectory()) await visit(name);
+    else if (metadata.isFile()) files.push(name);
+    else
+      throw new Error(
+        `Identity cannot include a nonregular path: ${join(base, name)}`,
+      );
+  }
+  files.sort();
+  const hash = createHash('sha256');
+  for (const name of files) {
+    const bytes = await readFile(join(base, name));
+    hash.update(relative(base, join(base, name)).split('\\').join('/'));
+    hash.update('\0');
+    hash.update(createHash('sha256').update(bytes).digest());
+  }
+  return {
+    sha256: hash.digest('hex'),
+    files: files.length,
+    algorithm:
+      'sorted relative UTF-8 path + NUL + SHA256(file bytes), SHA256 aggregate',
+  };
+}
+const runtimeRoot = dirname(dirname(entry));
+const sourceRevision = (
+  await execute('git', ['rev-parse', 'HEAD'], { cwd: root })
+).stdout.trim();
+const sourceInputs = [
+  'src',
+  'packages',
+  'vendor',
+  'package.json',
+  'pnpm-lock.yaml',
+  'tsconfig.json',
+];
+const harnessInputs = [
+  'benchmarks/mixed',
+  'benchmarks/measurement.ts',
+  'benchmarks/observability.ts',
+  'scripts/mixed-soak.mjs',
+  'scripts/mixed-soak-surface.mjs',
+  'scripts/soak-observability.mjs',
+  'scripts/browser-launch.mjs',
+];
+const identity = {
+  sourceRevision,
+  sourceTree: await treeIdentity(root, sourceInputs),
+  emittedRuntimeTree: await treeIdentity(runtimeRoot, ['.']),
+  harnessTree: await treeIdentity(root, harnessInputs),
+  packageManifestSha256: createHash('sha256')
+    .update(await readFile(join(consumer, 'package.json')))
+    .digest('hex'),
+  packageArchiveSha256: options.has('packageArchive')
+    ? createHash('sha256')
+        .update(await readFile(resolve(options.get('packageArchive'))))
+        .digest('hex')
+    : null,
+  packageTree: options.has('consumer')
+    ? await treeIdentity(consumer, ['.'])
+    : null,
+  archiveScope:
+    'Optional supplied archive byte SHA256; extracted package tree is independently hashed. The soak does not attest archive-to-directory equivalence.',
+  emittedEntry: relative(consumer, entry),
+  engineSourceTransforms: false,
+  hmr: false,
+};
+const runStarted = new Date().toISOString();
 let server;
 const ownedBrowsers = new Map();
 const browserVersions = new Map();
@@ -104,7 +200,11 @@ try {
     let browser;
     let context;
     try {
-      browser = await chromium.launch(await chromiumLaunchOptions());
+      const launch = await chromiumLaunchOptions();
+      browser = await chromium.launch({
+        ...launch,
+        args: [...launch.args, '--mute-audio'],
+      });
       browserVersions.set(backend, browser.version());
       context = await browser.newContext({ deviceScaleFactor: 1 });
       const page = await context.newPage();
@@ -167,10 +267,17 @@ try {
           enforce: 'pre',
           resolveId(source, importer) {
             if (
-              importer?.endsWith('/benchmarks/mixed/main.ts') &&
+              importer?.includes('/benchmarks/mixed/') &&
               source === '../../src/index.js'
             )
               return entry;
+            const data = source.match(
+              /^(?:\.\.\/){1,2}src\/data\/(observability|rendering)\.js$/,
+            );
+            if (importer?.includes('/benchmarks/') && data)
+              return fileURLToPath(
+                new URL(`./data/${data[1]}.js`, pathToFileURL(entry)),
+              );
           },
         },
       ],
@@ -198,11 +305,7 @@ try {
     };
     const onPageError = (error) => recordError(error.message);
     const onConsole = (message) => {
-      if (
-        message.type() === 'error' &&
-        !message.location().url.endsWith('/favicon.ico')
-      )
-        recordError(message.text());
+      if (message.type() === 'error') recordError(message.text());
     };
     page.on('pageerror', onPageError);
     page.on('console', onConsole);
@@ -252,6 +355,7 @@ try {
           source: 'no CPU/network emulation',
         };
       await page.addInitScript(() => {
+        // Visibility evidence stays bounded for the true one-hour window.
         const events = [];
         globalThis.__xyzVisibilityEvidence = events;
         const record = () => {
@@ -264,6 +368,7 @@ try {
         record();
         document.addEventListener('visibilitychange', record);
       });
+      await page.addInitScript(installMixedSoakSurface);
       collector = await startSoakObservability(
         browser,
         context,
@@ -277,6 +382,7 @@ try {
         waitUntil: 'load',
         timeout: 30000,
       });
+      await page.locator('#start:not([hidden])').click({ timeout: 30000 });
       await page.waitForFunction(
         () =>
           globalThis.document
@@ -296,6 +402,32 @@ try {
         recordError(evidence.data.error ?? 'Benchmark failed.');
       if (evidence.data.backend !== backend && evidence.state === 'complete')
         recordError('Forced backend did not match actual backend.');
+      if (
+        evidence.state === 'complete' &&
+        evidence.data.elapsedSeconds < duration
+      )
+        recordError(
+          'Active integrated scenario did not reach the requested duration.',
+        );
+      if (
+        evidence.state === 'complete' &&
+        (evidence.data.integrated?.saveRoundTrips !==
+          evidence.data.completedCycles ||
+          evidence.data.integrated?.sceneTransitions !==
+            evidence.data.completedCycles)
+      )
+        recordError(
+          'A counted cycle omitted actual durable save/restore or Scene transition.',
+        );
+      if (
+        evidence.state === 'complete' &&
+        backend !== 'canvas2d' &&
+        evidence.data.integrated?.graphicsRecoveries !==
+          evidence.data.completedCycles
+      )
+        recordError(
+          'A native counted cycle omitted actual same-backend graphics recovery.',
+        );
     } catch (error) {
       recordError(error instanceof Error ? error.message : String(error));
     } finally {
@@ -377,8 +509,18 @@ try {
     );
   }
 }
+const identityAfter = {
+  sourceTree: await treeIdentity(root, sourceInputs),
+  emittedRuntimeTree: await treeIdentity(runtimeRoot, ['.']),
+  harnessTree: await treeIdentity(root, harnessInputs),
+};
+for (const name of Object.keys(identityAfter))
+  if (identityAfter[name].sha256 !== identity[name].sha256)
+    infrastructureErrors.push(
+      `Run identity changed during measurement: ${name}.`,
+    );
 const report = {
-  schema: 'xyz-mixed-soak-driver-v2',
+  schema: 'xyz-mixed-soak-driver-v3',
   browser: browserVersions.values().next().value ?? null,
   browserVersions: Object.fromEntries(browserVersions),
   platform: process.platform,
@@ -387,6 +529,10 @@ const report = {
   cpu: { model: cpus()[0]?.model ?? null, logicalCores: cpus().length },
   physicalMemoryBytes: totalmem(),
   preset,
+  runStarted,
+  runFinished: new Date().toISOString(),
+  identity,
+  identityAfter,
   profile: {
     name: profileName,
     requested: profile,
@@ -403,6 +549,8 @@ const report = {
     : 'sequential',
   pageLifecycle:
     'independent owned browser/context/page per backend, prepared before Vite',
+  audioSafety:
+    'Native per-context zero-gain sinks installed before engine scripts; Chromium additionally muted. Trusted click unlock, real decoded native PCM/Scene ownership/pause/resume/closed contexts; no physical audible qualification.',
   infrastructureErrors,
   results,
 };

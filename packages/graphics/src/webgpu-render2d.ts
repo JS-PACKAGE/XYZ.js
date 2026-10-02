@@ -1744,8 +1744,7 @@ export class WebGPURender2D {
     for (const entry of this.layers.values())
       for (const target of entry.targets)
         this.effects.destroyTexture(target.texture);
-    for (const target of this.targets.values())
-      this.effects.destroyTexture(target.texture);
+    for (const target of this.targets.keys()) target.destroy();
     for (const entry of this.meshes.values()) {
       entry.vertex.destroy();
       entry.index.destroy();

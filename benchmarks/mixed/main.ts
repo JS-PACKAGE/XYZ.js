@@ -1,5 +1,6 @@
 import {
   Game,
+  GraphicsError,
   Scene,
   Geometry,
   Mesh,
@@ -24,6 +25,8 @@ import {
   type ResidencyStats,
   type ResourceBudgets,
   type TextureLease,
+  isSceneSnapshot,
+  type SceneSnapshot,
 } from '../../src/index.js';
 import { BoundedTiming, BoundedTrend, settings } from '../measurement.js';
 import { BrowserObservations, browserProvenance } from '../observability.js';
@@ -31,6 +34,21 @@ import {
   measurementDefaults,
   soakWorkload,
 } from '../../src/data/observability.js';
+import {
+  LIGHTING_FLOAT_COUNT,
+  MATERIAL_UV_FLOAT_COUNT,
+  REFLECTION_FLOAT_COUNT,
+  nativeMaterial3DLimits,
+} from '../../src/data/rendering.js';
+import {
+  JourneyAssets,
+  StreamingJourney,
+  assertSilentNative,
+  journeyCounters,
+  nativeSurface,
+  ownedSaveStorage,
+  proveRenderedActor,
+} from './journey.js';
 
 const params = new URLSearchParams(location.search);
 function number(
@@ -45,11 +63,25 @@ function number(
   return value;
 }
 const output = document.querySelector<HTMLPreElement>('#result')!;
-type Phase = 'setup' | 'warmup' | 'running' | 'churn' | 'capture' | 'cleanup';
+type Phase =
+  | 'setup'
+  | 'warmup'
+  | 'running'
+  | 'churn'
+  | 'pause'
+  | 'save'
+  | 'transition'
+  | 'recovery'
+  | 'capture'
+  | 'cleanup';
 const phases: Phase[] = [
   'setup',
   'warmup',
   'running',
+  'pause',
+  'save',
+  'transition',
+  'recovery',
   'churn',
   'capture',
   'cleanup',
@@ -81,6 +113,8 @@ const operations = {
   scenePublishAndWarmupMs: new BoundedTiming(),
   captureWallMs: new BoundedTiming(),
   cleanupMs: new BoundedTiming(),
+  saveRestoreMs: new BoundedTiming(),
+  graphicsRecoveryMs: new BoundedTiming(),
 };
 const frameWorkTimings = {
   totalMs: new BoundedTiming(),
@@ -114,6 +148,15 @@ let game: Game | undefined;
 let resourceBudgets: ResourceBudgets | undefined;
 let budgetAccounting: Readonly<Record<string, number>> | undefined;
 let rafHandle = 0;
+const journeyAssets = new JourneyAssets();
+const saveStorage = ownedSaveStorage();
+let pausedCycles = 0;
+let saveRoundTrips = 0;
+let sceneTransitions = 0;
+let graphicsLosses = 0;
+let graphicsRecoveries = 0;
+let cleanedGraphicsEpochs = 0;
+const integratedTail: unknown[] = [];
 let failure: unknown;
 let simulationMs = 0;
 let completedCycles = 0;
@@ -230,10 +273,12 @@ class MixedScene extends Scene {
     [];
   private bake?: NavigationGridBakeJob2D;
   private readonly obstacle = new GameObject();
+  journey?: StreamingJourney;
   uiLease?: TextureLease;
   constructor(
     private readonly count: number,
     private readonly threeD: boolean,
+    private readonly saved?: SceneSnapshot,
   ) {
     super({ navigationWorkBudget: soakWorkload.navigationWorkBudget });
     // A wall with alternating doors forces actual changing detours.
@@ -309,7 +354,7 @@ class MixedScene extends Scene {
             new Sprite({
               texture: this.leases[index % 4]!.texture,
               scale: [0.2, 0.2],
-              space: 'screen',
+              space: 'world',
             }),
           ),
         );
@@ -321,7 +366,8 @@ class MixedScene extends Scene {
           texture: this.uiLease.texture,
           scale: [0.5, 0.5],
           position: [1150, 80],
-          space: 'screen',
+          // The marker shares gameplay ordering; screen UI must not cover the corridor.
+          space: 'world',
         }),
       ),
     );
@@ -356,7 +402,20 @@ class MixedScene extends Scene {
       [-12, 45],
     ]);
     this.add(this.obstacle);
-    this.bake = this.navigation.scheduleBake(
+    this.journey = await StreamingJourney.create(
+      this,
+      runtime,
+      journeyAssets,
+      signal,
+    );
+    for (let index = 0; index < this.meshes.length; index++)
+      this.journey.serializer.register(`body-${index}`, this.meshes[index]!);
+    if (this.saved) await this.journey.restore(this.saved);
+    // Bake snapshots the live Physics2D geometry revision, which also changes
+    // as the streamed actor moves. Take the real bake once all registrations
+    // and restoration are final, and advance it with the Scene's own bounded
+    // scheduler before publication so the collision result is not racing motion.
+    const initialBake = this.navigation.scheduleBake(
       new NavigationGridBakeJob2D(this.physics, {
         columns: soakWorkload.bakeColumns,
         rows: soakWorkload.bakeRows,
@@ -365,11 +424,15 @@ class MixedScene extends Scene {
         agentRadius: 3,
       }),
     );
+    for (let step = 0; step < 64 && initialBake.status === 'pending'; step++)
+      this.navigation.update();
+    this.bake = initialBake;
   }
   override update(delta: number): void {
     const start = performance.now();
     try {
       this.elapsed += delta;
+      this.journey!.update(delta);
       if (this.pendingRoute && this.pendingRoute.status !== 'pending') {
         const path = this.pendingRoute.result;
         if (path?.status === 'found') {
@@ -530,6 +593,7 @@ class MixedScene extends Scene {
     }
   }
   protected override onDestroy(): void {
+    this.journey?.destroy();
     this.grid.destroy();
     this.bake?.cancel();
     this.bake?.result?.destroy();
@@ -545,9 +609,13 @@ class MixedScene extends Scene {
 }
 function sceneCleanup(scene: Scene): void {
   assert(
-    scene.destroyed && scene.objects.size === 0 && scene.physics3D.size === 0,
+    scene.destroyed &&
+      scene.objects.size === 0 &&
+      scene.physics3D.size === 0 &&
+      scene.physics.colliderCount === 0,
     'Scene registrations did not reach zero.',
   );
+  if (scene instanceof MixedScene) scene.journey!.assertCleanup();
   cleanupAssertions++;
 }
 
@@ -560,13 +628,24 @@ try {
   randomState = seed;
   const cube = Geometry.cube();
   const cubeBufferBytes = cube.vertices.byteLength + cube.indices.byteLength;
-  // Current WebGPU plain Mesh uses 304 + 52*4 uniform bytes per object;
-  // geometry residency includes those uniforms, not just shared vertex/index data.
-  const meshUniformBytes = 304 + 52 * 4;
-  const sceneGeometryBytes = cubeBufferBytes + count * meshUniformBytes;
+  // WebGPU residency charges both current shader ABI blocks per plain Mesh.
+  // Two distinct Scenes coexist during candidate warmup and crossfade.
+  const meshUniformBytes =
+    (76 +
+      REFLECTION_FLOAT_COUNT +
+      nativeMaterial3DLimits.uniformFloats +
+      4 +
+      MATERIAL_UV_FLOAT_COUNT) *
+    Float32Array.BYTES_PER_ELEMENT;
+  const meshSceneUniformBytes =
+    (20 + LIGHTING_FLOAT_COUNT + 28) * Float32Array.BYTES_PER_ELEMENT;
+  const meshResidencyBytes = meshUniformBytes + meshSceneUniformBytes;
+  const sceneGeometryBytes = cubeBufferBytes + count * meshResidencyBytes;
   budgetAccounting = {
     cubeBufferBytes,
     meshUniformBytes,
+    meshSceneUniformBytes,
+    meshResidencyBytes,
     sceneGeometryBytes,
     overlappingScenes: 2,
     warmupGeometryWorkingSetBytes: 2 * sceneGeometryBytes,
@@ -587,6 +666,7 @@ try {
       pixelRatio: 1,
       autoResize: false,
       resourceBudgets,
+      saveStorage,
       gpuTiming: { enabled: params.get('gpuTiming') !== '0' },
       frameWorkBudgetMs: number('frameBudgetMs', 1000 / 60, 0.1, 1000),
     }),
@@ -600,8 +680,26 @@ try {
   runtime.addEventListener('error', (event) => {
     failure = (event as CustomEvent<Error>).detail;
   });
-  const heldStats = runtime.graphics.stats;
-  const heldResidency = runtime.graphics.residency;
+  await journeyAssets.initialize(runtime);
+  let heldStats = runtime.graphics.stats;
+  let heldResidency = runtime.graphics.residency;
+  runtime.addEventListener('graphicslost', () => {
+    graphicsLosses++;
+  });
+  runtime.addEventListener('graphicsrecovered', () => {
+    assert(
+      heldStats.renderTargetBytes === 0 &&
+        heldResidency.textures.liveBytes === 0 &&
+        heldResidency.geometry.liveBytes === 0,
+      'Retired native graphics epoch must release tracked targets/residency.',
+    );
+    cleanedGraphicsEpochs++;
+    graphicsRecoveries++;
+    heldStats = runtime.graphics.stats;
+    heldResidency = runtime.graphics.residency;
+    lastGpuSample = 0;
+    gpuFrameIds.fill(0);
+  });
   const originalBegin = runtime.graphics.beginFrame.bind(runtime.graphics);
   const originalEnd = runtime.graphics.endFrame.bind(runtime.graphics);
   let submitStart = 0;
@@ -685,6 +783,8 @@ try {
         decodedBytes: runtime.assets.residency.liveBytes,
         nativeTextureBytes: runtime.graphics.residency.textures.liveBytes,
         nativeGeometryBytes: runtime.graphics.residency.geometry.liveBytes,
+        integrated: current?.journey?.observe(),
+        nativeAudio: assertSilentNative(),
       };
     }
     rafHandle = requestAnimationFrame(observe);
@@ -692,18 +792,26 @@ try {
   rafHandle = requestAnimationFrame(observe);
   const started = performance.now();
   const deadline = started + duration * 1000;
-  let current: MixedScene | undefined;
+  let current = new MixedScene(count, runtime.graphics.capabilities.threeD);
+  await timed(operations.scenePublishAndWarmupMs, () =>
+    runtime.setScene(current, { warmup: { maxItems: 4, maxMilliseconds: 4 } }),
+  );
+  runtime.start();
+  const until = async (
+    condition: () => boolean,
+    description: string,
+    timeoutMs = 20000,
+  ): Promise<void> => {
+    const limit = performance.now() + timeoutMs;
+    while (!condition() && !failure && performance.now() < limit)
+      await wait(20);
+    if (failure) throw failure;
+    assert(condition(), `Integrated cycle timed out: ${description}.`);
+  };
   do {
-    phase = 'setup';
-    const next = new MixedScene(count, runtime.graphics.capabilities.threeD);
-    const old = current;
-    await timed(operations.scenePublishAndWarmupMs, () =>
-      runtime.setScene(next, { warmup: { maxItems: 4, maxMilliseconds: 4 } }),
-    );
-    current = next;
-    if (old) sceneCleanup(old);
-    if (runtime.state === 'idle') runtime.start();
-    else runtime.resume();
+    const next = current;
+    const journey = next.journey!;
+    const goalBefore = journey.goals;
     phase = 'warmup';
     const warmupStart = observedFrames;
     while (
@@ -712,17 +820,64 @@ try {
     )
       await wait(10);
     phase = 'running';
-    const cycleEnd = Math.min(
-      deadline,
-      performance.now() + cycleSeconds * 1000,
-    );
-    while (performance.now() < cycleEnd) {
-      await wait(Math.min(500, Math.max(0, cycleEnd - performance.now())));
+    const cycleEnd = performance.now() + cycleSeconds * 1000;
+    const gameplayLimit = performance.now() + 20000 + cycleSeconds * 1000;
+    while (performance.now() < cycleEnd || journey.goals === goalBefore) {
+      assert(
+        performance.now() < gameplayLimit,
+        'Initial integrated gameplay did not reach its real streamed navigation goal.',
+      );
+      await wait(100);
       phase = 'churn';
       await next.churn(runtime, completedCycles + 1);
       phase = 'running';
     }
     runtime.pause();
+    phase = 'pause';
+    runtime.audio.pause('mixed-cycle');
+    const pausedSnapshot = journey.serializer.capture();
+    const pausedObservation = journey.observe();
+    await wait(150);
+    assert(
+      JSON.stringify(journey.serializer.capture()) ===
+        JSON.stringify(pausedSnapshot),
+      'Pause must freeze player, rigid bodies and custom gameplay state.',
+    );
+    assert(
+      journey.playback.state === 'paused' &&
+        journey.playback.position === pausedObservation.audioPosition,
+      'Explicit audio pause must freeze the native sample timeline.',
+    );
+    pausedCycles++;
+    phase = 'save';
+    const loadedSnapshot = await timed(operations.saveRestoreMs, async () => {
+      const record = await runtime.saves.save(
+        'integrated-cycle',
+        pausedSnapshot,
+        journey.elapsed,
+      );
+      const loaded = await runtime.saves.load('integrated-cycle');
+      assert(
+        loaded.status === 'loaded',
+        'Owned native IndexedDB must load the saved cycle.',
+      );
+      if (loaded.status !== 'loaded')
+        throw new Error('Saved cycle did not load.');
+      assert(
+        loaded.record.revision === record.revision &&
+          loaded.record.metadata.playTime === journey.elapsed &&
+          JSON.stringify(loaded.record.data) === JSON.stringify(pausedSnapshot),
+        'Durable save metadata and complete Scene state must round-trip exactly.',
+      );
+      assert(
+        isSceneSnapshot(loaded.record.data),
+        'Durable cycle must contain the formal SceneSnapshot.',
+      );
+      if (!isSceneSnapshot(loaded.record.data))
+        throw new Error('Saved data is not a SceneSnapshot.');
+      saveRoundTrips++;
+      return loaded.record.data;
+    });
     phase = 'capture';
     await timed(operations.captureWallMs, async () => {
       const lease = runtime.graphics.retainFrameResources();
@@ -761,6 +916,206 @@ try {
         }
       }
     });
+    const beforeReplacement = journey.observe();
+    const beforePixel = await proveRenderedActor(runtime, journey);
+    runtime.audio.resume('mixed-cycle');
+    phase = 'transition';
+    const restored = new MixedScene(
+      count,
+      runtime.graphics.capabilities.threeD,
+      loadedSnapshot,
+    );
+    // Candidate initialization and warmup await native submissions; keep the
+    // live 200-body Scene paused until the formal transition has actually begun
+    // so that cost is not charged to every RAF, then resume to complete the
+    // crossfade on the real clock.
+    await timed(operations.scenePublishAndWarmupMs, async () => {
+      const switching = runtime.setScene(restored, {
+        warmup: { maxItems: 4, maxMilliseconds: 4 },
+        transition: { kind: 'crossfade', duration: 0.15 },
+      });
+      const guard = performance.now() + 60000;
+      while (!runtime.transitioning && performance.now() < guard) {
+        if (
+          await Promise.race([
+            switching.then(() => true),
+            wait(10).then(() => false),
+          ])
+        )
+          break;
+      }
+      runtime.resume();
+      await switching;
+    });
+    current = restored;
+    sceneTransitions++;
+    await until(
+      () => next.journey!.stream.stats.pending === 0,
+      'retired Scene async resource settlement',
+    );
+    sceneCleanup(next);
+    assert(
+      runtime.scene === restored &&
+        !runtime.transitioning &&
+        runtime.state === 'running',
+      'Formal Scene transition must finish and publish the restored candidate.',
+    );
+    const continued = restored.journey!;
+    const afterPublication = continued.observe();
+    const beforeRecoveryBodyPositions = new Float64Array(
+      restored.meshes.length * 3,
+    );
+    for (let index = 0; index < restored.meshes.length; index++) {
+      const position = restored.meshes[index]!.position;
+      beforeRecoveryBodyPositions[index * 3] = position.x;
+      beforeRecoveryBodyPositions[index * 3 + 1] = position.y;
+      beforeRecoveryBodyPositions[index * 3 + 2] = position.z;
+    }
+    const routesBeforeRecovery = journeyCounters.routes;
+    const publicationsBeforeRecovery = journeyCounters.streamingPublications;
+    const retirementsBeforeRecovery = journeyCounters.streamingRetirements;
+    let recovery: unknown = {
+      status: 'unavailable',
+      reason: 'Canvas2D has no native graphics-loss/recovery capability.',
+    };
+    if (runtime.graphics.backend !== 'canvas2d') {
+      phase = 'recovery';
+      await until(
+        () => continued.stream.stats.active > 0,
+        'restored actor current streamed cell',
+      );
+      await timed(operations.graphicsRecoveryMs, async () => {
+        const lostBefore = graphicsLosses;
+        const recoveredBefore = graphicsRecoveries;
+        const backendBefore = runtime.graphics.backend;
+        const invalidatedTarget = runtime.graphics.createRenderTexture({
+          width: 64,
+          height: 64,
+        });
+        try {
+          if (backendBefore === 'webgl2') {
+            const extension = runtime.canvas
+              .getContext('webgl2')
+              ?.getExtension('WEBGL_lose_context');
+            assert(
+              Boolean(extension),
+              'Owned WebGL2 context must expose actual API-loss injection; no emulation/skip.',
+            );
+            extension!.loseContext();
+            await until(
+              () => graphicsLosses === lostBefore + 1,
+              'native WebGL context loss event',
+            );
+            extension!.restoreContext();
+          } else nativeSurface().loseOwnedDevice();
+          await until(
+            () =>
+              graphicsLosses === lostBefore + 1 &&
+              graphicsRecoveries === recoveredBefore + 1,
+            'same-backend native graphics recovery',
+            120000,
+          );
+          assert(
+            runtime.graphics.backend === backendBefore &&
+              runtime.state === 'running',
+            'Graphics recovery must retain the exact requested backend and live Game.',
+          );
+          assert(
+            invalidatedTarget.destroyed,
+            'Pre-loss renderer-owned target must invalidate rather than silently survive.',
+          );
+          let resizeRejected = false;
+          try {
+            invalidatedTarget.resize({ width: 32, height: 32 });
+          } catch (error) {
+            resizeRejected = error instanceof GraphicsError;
+          }
+          assert(
+            resizeRejected,
+            'A pre-loss target must reject resize through its stale owner.',
+          );
+          let readbackRejected = false;
+          try {
+            await runtime.graphics.extractPixels(invalidatedTarget);
+          } catch (error) {
+            readbackRejected = error instanceof GraphicsError;
+          }
+          assert(
+            readbackRejected,
+            'The replacement renderer must reject pre-loss target readback.',
+          );
+          recovery = {
+            status: 'recovered',
+            mechanism:
+              backendBefore === 'webgl2'
+                ? 'owned WEBGL_lose_context/restoreContext'
+                : 'owned native GPUDevice.destroy',
+            backendBefore,
+            backendAfter: runtime.graphics.backend,
+            oldTarget: {
+              destroyed: invalidatedTarget.destroyed,
+              resizeRejected,
+              readbackRejected,
+            },
+          };
+        } finally {
+          invalidatedTarget.destroy();
+        }
+      });
+    }
+    phase = 'running';
+    await until(
+      () =>
+        continued.goals > beforeReplacement.goals &&
+        continued.distance > beforeReplacement.distance + 144 &&
+        journeyCounters.routes > routesBeforeRecovery &&
+        journeyCounters.streamingPublications > publicationsBeforeRecovery &&
+        journeyCounters.streamingRetirements > retirementsBeforeRecovery,
+      'post-restore/recovery actor goal, scheduled navigation, physics sweeps and streaming publication/retirement',
+    );
+    await until(
+      () =>
+        assertSilentNative().contextStates.every(
+          (state) => state === 'running',
+        ) && continued.playback.state === 'playing',
+      'native audio resume',
+    );
+    const audioPosition = continued.playback.position;
+    await wait(100);
+    assert(
+      continued.playback.position !== audioPosition,
+      'Native Scene audio must continue after restore/recovery.',
+    );
+    let changed3DBodyPoses = 0;
+    for (let index = 0; index < restored.meshes.length; index++) {
+      const position = restored.meshes[index]!.position;
+      if (
+        Math.hypot(
+          position.x - beforeRecoveryBodyPositions[index * 3]!,
+          position.y - beforeRecoveryBodyPositions[index * 3 + 1]!,
+          position.z - beforeRecoveryBodyPositions[index * 3 + 2]!,
+        ) > 1e-6
+      )
+        changed3DBodyPoses++;
+    }
+    assert(
+      runtime.graphics.backend === 'canvas2d' || changed3DBodyPoses > 0,
+      'Native 3D dynamic bodies must actually continue moving after restore/recovery.',
+    );
+    const afterPixel = await proveRenderedActor(runtime, continued);
+    integratedTail.push({
+      cycle: completedCycles + 1,
+      saved: beforeReplacement,
+      afterPublication,
+      continued: continued.observe(),
+      changed3DBodyPoses,
+      pixelsBeforeRestore: beforePixel,
+      pixelsAfterRecovery: afterPixel,
+      recovery,
+      native: assertSilentNative(),
+    });
+    if (integratedTail.length > measurementDefaults.tailSamples)
+      integratedTail.shift();
     const decoded = runtime.assets.residency;
     const native = runtime.graphics.residency;
     assert(
@@ -782,9 +1137,22 @@ try {
   const backend = runtime.graphics.backend;
   const renderStats = { ...heldStats, gpuTiming: { ...heldStats.gpuTiming } };
   const browserMeasurements = browserObservations.stop();
+  const gameplayElapsedSeconds = (performance.now() - started) / 1000;
+  await saveStorage.clear();
+  assert(
+    (await saveStorage.keys()).length === 0,
+    'Owned durable save namespace must clear during cleanup.',
+  );
   phase = 'cleanup';
   const cleanupStart = performance.now();
   runtime.destroy();
+  await until(
+    () =>
+      current.journey!.stream.stats.pending === 0 &&
+      assertSilentNative().contextStates.every((state) => state === 'closed'),
+    'final streaming settlement and native audio context closure',
+  );
+  journeyAssets.destroy();
   operations.cleanupMs.add(performance.now() - cleanupStart);
   sceneCleanup(current!);
   cancelAnimationFrame(rafHandle);
@@ -819,8 +1187,38 @@ try {
     navigationBakesCompleted > 0 && navigationBakedBlockedCells > 0,
     'No geometry navigation bake detected the real collider.',
   );
+  assert(
+    pausedCycles === completedCycles &&
+      saveRoundTrips === completedCycles &&
+      sceneTransitions === completedCycles &&
+      journeyCounters.restoredSnapshots === completedCycles,
+    'Every counted cycle must contain pause, durable state restore and a completed Scene transition.',
+  );
+  assert(
+    journeyCounters.collisionBlocks > 0 &&
+      journeyCounters.goals >= completedCycles * 2 &&
+      journeyCounters.streamingPublications > 0 &&
+      journeyCounters.streamingRetirements > 0,
+    'Integrated actor must complete real collision/navigation/streaming gameplay outcomes.',
+  );
+  assert(
+    journeyCounters.scopesCreated === journeyCounters.scopesReleased &&
+      journeyCounters.textureLeasesAcquired ===
+        journeyCounters.textureLeasesReleased &&
+      journeyCounters.audioPlaybacksCreated ===
+        journeyCounters.audioPlaybacksStopped,
+    'Integrated scopes, texture leases and Scene audio ownership must balance.',
+  );
+  assert(
+    backend === 'canvas2d'
+      ? graphicsRecoveries === 0
+      : graphicsRecoveries === completedCycles &&
+          graphicsLosses === completedCycles &&
+          cleanedGraphicsEpochs === completedCycles,
+    'Every native cycle must recover its actual graphics backend and release the retired epoch.',
+  );
   const result = {
-    schema: 'xyz-mixed-soak-v2',
+    schema: 'xyz-mixed-soak-v3',
     date: new Date().toISOString(),
     userAgent: navigator.userAgent,
     backend,
@@ -831,6 +1229,24 @@ try {
       note: 'CDP throttling is simulated CPU/network pressure, not actual low-tier hardware.',
     },
     browserMeasurements,
+    integrated: {
+      counters: { ...journeyCounters },
+      pausedCycles,
+      saveRoundTrips,
+      sceneTransitions,
+      graphicsLosses,
+      graphicsRecoveries,
+      cleanedGraphicsEpochs,
+      recoveryStatus:
+        backend === 'canvas2d'
+          ? 'unavailable: Canvas2D has no context/device-loss capability'
+          : 'actual owned native API-loss/recovery',
+      retainedCycles: integratedTail,
+      nativeAudioAfterCleanup: assertSilentNative(),
+      savedNamespaceEntriesAfterCleanup: 0,
+      scope:
+        'One actor consumes scheduler routes through CharacterController2D sweeps against Scene-owned streaming collision cells; the same formal Scene saves/restores player, body/custom state and all native 3D rigid bodies before a crossfade, then continues gameplay after recovery.',
+    },
     gpu: {
       timing: renderStats.gpuTiming,
       observedExecutionMs: gpuExecution.snapshot(),
@@ -841,7 +1257,7 @@ try {
           renderStats.gpuTiming.samples
         : null,
       scope:
-        'Asynchronous native frame commands only, excludes queue wait and presentation. Observer histograms can miss multiple completions between RAFs; renderer aggregate includes every valid completed query.',
+        'Asynchronous native frame commands only, excludes queue wait and presentation. Histograms span graphics epochs; timing/meanCompletedExecutionMs are the final epoch only. Observer histograms can miss multiple completions between RAFs; renderer aggregate includes every valid completed query.',
     },
     frameWork: {
       budgetMs: runtime.frameWork.budgetMs,
@@ -866,8 +1282,8 @@ try {
     },
     variant:
       backend === 'canvas2d'
-        ? '2d-navigation-ui-render-churn (3D unsupported)'
-        : '3d-physics-navigation-ui-render-churn',
+        ? 'integrated-streaming-2d-physics-navigation-save-transition-audio (native recovery/3D explicitly unavailable)'
+        : 'integrated-streaming-2d-gameplay-3d-physics-navigation-save-transition-native-recovery-audio',
     config: {
       durationSeconds: duration,
       cycleSeconds,
@@ -880,7 +1296,8 @@ try {
       resourceBudgets,
       budgetAccounting,
     },
-    elapsedSeconds: (performance.now() - started) / 1000,
+    elapsedSeconds: gameplayElapsedSeconds,
+    elapsedIncludingCleanupSeconds: (performance.now() - started) / 1000,
     completedCycles,
     frameIntervalMs: allRaf.snapshot(),
     phases: Object.fromEntries(
@@ -925,6 +1342,9 @@ try {
       assertions: cleanupAssertions,
       registrations: current!.objects.size,
       physicsRegistrations: current!.physics3D.size,
+      physics2DRegistrations: current.physics.colliderCount,
+      streaming: { ...current.journey!.stream.stats },
+      resourcePoolDestroyed: runtime.resources.destroyed,
       leasesAcquired,
       leasesReleased,
       capturesCreated,
@@ -936,9 +1356,10 @@ try {
     notes: [
       'Native browser RAF wall intervals, not synthetic FPS. Histogram p50/p95 are 0.25ms upper bucket estimates; null means empty or percentile overflow beyond 1024ms. Exact max/mean and >50ms counts remain tracked.',
       'CPU frameWork follows the full Game pipeline and separately reports navigation and afterUpdate (including physics/particles/camera/audio). Legacy cpuSimulationWorkMs remains Scene.update+ECS World.update only. CPU submit never waits for GPU; operation timings are awaited wall durations, not exclusive CPU time.',
-      'Setup, warmup, running, churn, capture and cleanup are separate; mixed RAF observer also runs while Game is paused for capture. Overall frameIntervalMs includes phase-boundary stalls; phase-specific intervals crossing boundaries are discarded. Warmup samples are not steady-state samples.',
+      'Setup, warmup, running, churn, pause, save, transition, recovery, capture and cleanup are separate; mixed RAF observer also runs while Game is paused. Overall frameIntervalMs includes phase-boundary stalls; phase-specific intervals crossing boundaries are discarded. Warmup samples are not steady-state samples.',
       'Engine cache/attachment estimates, browser JS heap estimates and runner CDP heap/OS process RSS are separate observations, never total VRAM. Bounded tail trends classify only after sufficient time/samples with absolute+relative tolerances and sustained-growth thresholds; positive slopes alone are not leak assertions. GC is supported only where real CDP trace events are available.',
-      'Duration is a finite minimum observation deadline; one in-flight setup/churn/capture/cleanup finishes after it. Seed fixes authored random workload, not browser frame timing or solver scheduling.',
+      'Duration is a finite minimum active mixed observation deadline, excluding final teardown; the complete in-flight integrated cycle finishes after it. Seed fixes authored random workload, not browser frame timing or solver scheduling.',
+      'Recovery destroys only the fixture-owned GPUDevice or loses/restores the fixture-owned WebGL context. Canvas native recovery is explicitly unavailable; none of these observations qualify physical driver-reset, global VRAM bounds or leak-free behavior.',
     ],
   };
   output.textContent = JSON.stringify(result, null, 2);
@@ -969,6 +1390,7 @@ try {
   };
   try {
     game?.destroy();
+    journeyAssets.destroy();
   } catch (cleanupError) {
     reportError = new AggregateError(
       [error, cleanupError],
@@ -976,13 +1398,22 @@ try {
     );
   }
   output.textContent = JSON.stringify({
-    schema: 'xyz-mixed-soak-v2',
+    schema: 'xyz-mixed-soak-v3',
     error: String(
       reportError instanceof Error ? reportError.stack : reportError,
     ),
     completedCycles,
     phase,
     failureContext,
+    integrated: {
+      counters: { ...journeyCounters },
+      pausedCycles,
+      saveRoundTrips,
+      sceneTransitions,
+      graphicsLosses,
+      graphicsRecoveries,
+      retainedCycles: integratedTail,
+    },
   });
   output.dataset.state = 'failed';
 }

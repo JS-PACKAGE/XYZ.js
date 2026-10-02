@@ -1,6 +1,7 @@
 import {
   AlphaFilter2D,
   Game,
+  GraphicsError,
   IsolatedGroup2D,
   LocalStorageBackend,
   Mask2D,
@@ -735,6 +736,10 @@ try {
       .catch(fail);
   });
   destroyButton.addEventListener('click', () => {
+    const lifecycleTarget = runtime.graphics.createRenderTexture({
+      width: 32,
+      height: 32,
+    });
     const statsBeforeDestroy = runtime.graphics.stats;
     release();
     begin('destroy-lifecycle');
@@ -742,6 +747,21 @@ try {
       runtime.state === 'destroyed' && saveScene.destroyed,
       'destroy disposes Game and active Scene',
     );
+    check(
+      lifecycleTarget.destroyed,
+      'renderer destruction invalidates externally held RenderTexture2D handles',
+    );
+    let resizeError: unknown;
+    try {
+      lifecycleTarget.resize({ width: 16, height: 16 });
+    } catch (error) {
+      resizeError = error;
+    }
+    check(
+      resizeError instanceof GraphicsError,
+      'invalidated target resize rejects before any stale renderer native allocation',
+    );
+    lifecycleTarget.destroy();
     check(
       statsBeforeDestroy.renderTargetBytes === 0 &&
         runtime.graphics.stats.renderTargetBytes === 0,
