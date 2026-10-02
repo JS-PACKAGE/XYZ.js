@@ -1,5 +1,50 @@
+export interface GpuTimingOptions {
+    /** Disabled by default; WebGPU negotiates timestamp-query during initialization. */
+    enabled?: boolean;
+    maxInFlight?: number;
+    /** Rendered frames excluded before issuing samples. */
+    warmupFrames?: number;
+    sampleInterval?: number;
+}
+export type GpuTimingStatus = 'disabled' | 'unsupported' | 'pending' | 'available' | 'disjoint' | 'lost' | 'error';
+/** Latest asynchronous result, not necessarily the current rendered frame. */
+export interface GpuTimingStats {
+    readonly status: GpuTimingStatus;
+    readonly source: 'webgpu-timestamp-query' | 'webgl2-disjoint-query' | null;
+    readonly reason: string | null;
+    readonly milliseconds: number | null;
+    readonly sampledFrame: number | null;
+    readonly samples: number;
+    readonly totalMilliseconds: number;
+    readonly maximumMilliseconds: number | null;
+    readonly pending: number;
+    readonly skipped: number;
+    readonly invalid: number;
+    readonly warmupFrames: number;
+    readonly sampleInterval: number;
+    readonly maxInFlight: number;
+}
+/** Renderer-owned reused record; null is never a successful zero-time sample. */
+export declare class GpuFrameTiming implements GpuTimingStats {
+    status: GpuTimingStatus;
+    source: GpuTimingStats['source'];
+    reason: string | null;
+    milliseconds: number | null;
+    sampledFrame: number | null;
+    samples: number;
+    totalMilliseconds: number;
+    maximumMilliseconds: number | null;
+    pending: number;
+    skipped: number;
+    invalid: number;
+    warmupFrames: number;
+    sampleInterval: number;
+    maxInFlight: number;
+    unavailable(status: GpuTimingStatus, reason: string): void;
+    sample(frame: number, milliseconds: number): void;
+}
 /**
- * CPU-side counters and render-target estimates for the last rendered frame.
+ * CPU-side counters, asynchronous GPU samples and render-target estimates.
  * The object is reused and overwritten every frame: copy fields to retain them.
  */
 export interface RenderStats {
@@ -27,6 +72,9 @@ export interface RenderStats {
     readonly renderTargetBytes: number;
     /** Highest estimated resident render-target bytes since creation. */
     readonly peakRenderTargetBytes: number;
+    /** CPU elapsed beginFrame through endFrame; never waits for GPU completion. */
+    readonly cpuSubmitMs: number | null;
+    readonly gpuTiming: GpuTimingStats;
 }
 /** Mutable implementation owned by a renderer. */
 export declare class FrameStats implements RenderStats {
@@ -42,8 +90,13 @@ export declare class FrameStats implements RenderStats {
     uploadBytes: number;
     renderTargetBytes: number;
     peakRenderTargetBytes: number;
+    cpuSubmitMs: number | null;
+    readonly gpuTiming: GpuFrameTiming;
+    private submitStart;
     /** Starts a new frame's counters. */
     begin(): void;
+    /** Finishes CPU submission measurement independently of asynchronous GPU results. */
+    submit(): void;
     /** Records one indexed main-pass draw. */
     draw(indexCount: number, instances: number): void;
     /** Records a native 2D draw and its submitted instance count. */

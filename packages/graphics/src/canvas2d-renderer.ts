@@ -24,7 +24,12 @@ import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { CanvasRender2D } from './canvas-render2d.js';
-import { FrameStats, type RenderStats } from './render-stats.js';
+import {
+  FrameStats,
+  type RenderStats,
+  type GpuTimingOptions,
+} from './render-stats.js';
+import { configureGpuTiming } from './gpu-timing.js';
 import {
   RenderTexture2D,
   assertRenderTextureOwner2D,
@@ -153,7 +158,16 @@ export class Canvas2DRenderer implements Renderer {
     this.onError(new GraphicsError('Canvas2D rendering context was lost.'));
   };
 
-  constructor(private readonly onError: (error: Error) => void) {}
+  constructor(
+    private readonly onError: (error: Error) => void,
+    gpuTiming: GpuTimingOptions = {},
+  ) {
+    if (configureGpuTiming(this.frameStats.gpuTiming, gpuTiming))
+      this.frameStats.gpuTiming.unavailable(
+        'unsupported',
+        'Canvas2D exposes no GPU timer queries.',
+      );
+  }
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.context)
@@ -615,6 +629,7 @@ export class Canvas2DRenderer implements Renderer {
     if (!this.frameActive || !this.frameRendered)
       throw new GraphicsError('Canvas2D endFrame requires a rendered frame.');
     this.frameActive = false;
+    this.frameStats.submit();
   }
 
   resize(width: number, height: number): void {

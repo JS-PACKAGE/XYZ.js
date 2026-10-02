@@ -34,6 +34,7 @@ import {
   residencyLease,
 } from '../packages/graphics/src/preparation.js';
 
+import { FrameStats } from '../packages/graphics/src/render-stats.js';
 vi.mock('../packages/graphics/src/index.js', async (original) => ({
   ...(await original<{ createRenderer: typeof createRenderer }>()),
   createRenderer: vi.fn(),
@@ -94,20 +95,7 @@ beforeEach(() => {
   nextFrame = 0;
   renderer = {
     backend: 'webgpu',
-    stats: {
-      frame: 0,
-      meshes: 0,
-      culled: 0,
-      drawCalls: 0,
-      triangles: 0,
-      shadowDrawCalls: 0,
-      drawCalls2D: 0,
-      instances2D: 0,
-      renderPasses2D: 0,
-      uploadBytes: 0,
-      renderTargetBytes: 0,
-      peakRenderTargetBytes: 0,
-    },
+    stats: new FrameStats(),
     capabilities: {
       threeD: true,
       compute: true,

@@ -6,7 +6,7 @@ import type { Texture2DSource } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import { type RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
-import { FrameStats } from './render-stats.js';
+import { FrameStats, type GpuTimingOptions } from './render-stats.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
@@ -36,6 +36,8 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly meshDraws;
     private readonly drawSorter;
     readonly stats: FrameStats;
+    private readonly gpuTimingEnabled;
+    private gpuTimer;
     readonly residency: NativeResidency;
     private readonly preparedGeometry;
     configureResidency(options: ResidencyBudgetOptions): void;
@@ -101,7 +103,7 @@ export declare class WebGL2Renderer implements Renderer {
     private sceneTarget;
     get capabilities(): GraphicsCapabilities;
     private readonly onContextLost;
-    constructor(onError: (error: Error) => void, antialias?: boolean);
+    constructor(onError: (error: Error) => void, antialias?: boolean, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {

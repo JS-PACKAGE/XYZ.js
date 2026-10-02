@@ -5,7 +5,7 @@ import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
-import { type RenderStats } from './render-stats.js';
+import { type RenderStats, type GpuTimingOptions } from './render-stats.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 import { Geometry } from '../../core/src/geometry.js';
 import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
@@ -39,7 +39,7 @@ export declare class Canvas2DRenderer implements Renderer {
     private frameRendered;
     private destroyed;
     private readonly onContextLost;
-    constructor(onError: (error: Error) => void);
+    constructor(onError: (error: Error) => void, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
     prepareMaterial(_material: Material2D): Promise<void>;

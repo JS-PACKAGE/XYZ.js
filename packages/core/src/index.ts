@@ -3,6 +3,7 @@ export { Game } from './game.js';
 export type {
   GameOptions,
   ResourceBudgets,
+  FrameWorkStats,
   WarmupOptions,
   WarmupProgress,
   WarmupLease,

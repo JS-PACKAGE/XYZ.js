@@ -1,5 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
-import type { RenderStats } from './render-stats.js';
+import type { GpuTimingOptions, RenderStats } from './render-stats.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/index.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -15,7 +15,7 @@ export type { GraphicsResidency, ResidencyBudgetOptions, ResidencyStats, } from 
 export type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions, } from './preparation.js';
 export { RenderTexture2D } from './render-texture2d.js';
 export type { RenderTextureOptions2D } from './render-texture2d.js';
-export type { RenderStats } from './render-stats.js';
+export type { GpuTimingOptions, GpuTimingStats, GpuTimingStatus, RenderStats, } from './render-stats.js';
 export interface RenderToTextureOptions2D {
     clear?: boolean;
     bounds?: Rect2D;
@@ -74,4 +74,5 @@ export declare function createRenderer(canvas: HTMLCanvasElement, preference: Re
     onLost?(error: Error): void;
     onRecovered?(): void;
     residency?: ResidencyBudgetOptions;
+    gpuTiming?: GpuTimingOptions;
 }): Promise<Renderer>;

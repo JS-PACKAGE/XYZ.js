@@ -4,7 +4,7 @@ import {
   GraphicsBackendUnavailableError,
   UnsupportedGraphicsError,
 } from './errors.js';
-import type { RenderStats } from './render-stats.js';
+import type { GpuTimingOptions, RenderStats } from './render-stats.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -38,7 +38,12 @@ export type {
 } from './preparation.js';
 export { RenderTexture2D } from './render-texture2d.js';
 export type { RenderTextureOptions2D } from './render-texture2d.js';
-export type { RenderStats } from './render-stats.js';
+export type {
+  GpuTimingOptions,
+  GpuTimingStats,
+  GpuTimingStatus,
+  RenderStats,
+} from './render-stats.js';
 
 export interface RenderToTextureOptions2D {
   clear?: boolean;
@@ -144,6 +149,7 @@ export async function createRenderer(
     onLost?(error: Error): void;
     onRecovered?(): void;
     residency?: ResidencyBudgetOptions;
+    gpuTiming?: GpuTimingOptions;
   } = {},
 ): Promise<Renderer> {
   if (!['auto', 'webgpu', 'webgl2', 'canvas2d'].includes(preference))
@@ -177,15 +183,15 @@ export async function createRenderer(
       let create: (handler: (error: Error) => void) => Renderer;
       if (backend === 'canvas2d') {
         const { Canvas2DRenderer } = await import('./canvas2d-renderer.js');
-        create = (handler) => new Canvas2DRenderer(handler);
+        create = (handler) => new Canvas2DRenderer(handler, options.gpuTiming);
       } else if (backend === 'webgpu') {
         const { WebGPURenderer } = await import('./webgpu-renderer.js');
         create = (handler) =>
-          new WebGPURenderer(handler, antialias);
+          new WebGPURenderer(handler, antialias, options.gpuTiming);
       } else {
         const { WebGL2Renderer } = await import('./webgl2-renderer.js');
         create = (handler) =>
-          new WebGL2Renderer(handler, antialias);
+          new WebGL2Renderer(handler, antialias, options.gpuTiming);
       }
       if (backend === 'canvas2d' || options.recover === false)
         renderer = create(report);

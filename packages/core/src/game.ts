@@ -12,6 +12,7 @@ import {
   type RendererPreference,
   type FrameEffects,
   type RenderSnapshot,
+  type GpuTimingOptions,
 } from '../../graphics/src/index.js';
 import type { PreparedResourceLease } from '../../graphics/src/index.js';
 import { Scene } from './scene.js';
@@ -27,6 +28,8 @@ import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import { warmupScene } from '../../graphics/src/warmup.js';
 import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+import { FrameWorkCounter, type FrameWorkStats } from './frame-work.js';
+export type { FrameWorkStats } from './frame-work.js';
 import type {
   FactoryDefinitions,
   FactoryRegistry,
@@ -75,6 +78,8 @@ export interface GameOptions {
    * `graphicslost` and `graphicsrecovered`. Enabled by default; when false a loss is fatal.
    */
   recoverGraphics?: boolean;
+  /** Optional native GPU timestamps; unsupported backends report an explicit status. */
+  gpuTiming?: GpuTimingOptions;
   /** Defaults to an isolated in-memory store; inject a browser backend for persistence. */
   saveStorage?: SaveStorage;
   saveSchema?: SaveSchema;
@@ -82,6 +87,8 @@ export interface GameOptions {
   i18n?: I18nOptions;
   /** Independent decoded CPU / native texture / native geometry cache estimates. */
   resourceBudgets?: ResourceBudgets;
+  /** Opt-in whole-frame CPU target and stage attribution; callbacks cannot be preempted. */
+  frameWorkBudgetMs?: number;
   /**
    * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
    * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
@@ -140,6 +147,10 @@ export class Game extends EventTarget {
   private loadingScene: Scene | undefined;
   private activeTransition: ActiveSceneTransition | undefined;
   private readonly frameEffects: FrameEffects = {};
+  private readonly frameWorkCounter = new FrameWorkCounter();
+  get frameWork(): FrameWorkStats {
+    return this.frameWorkCounter;
+  }
   private sceneVersion = 0;
   private switchingScene = false;
   private requestId: number | undefined;
@@ -308,6 +319,7 @@ export class Game extends EventTarget {
     this.input = new InputManager(canvas, () => this);
     this.saves = new SaveManager(options.saveStorage, options.saveSchema);
     this.i18n = new I18n(options.i18n);
+    this.frameWorkCounter.budgetMs = options.frameWorkBudgetMs ?? null;
     this.audioPause = {
       onPause: options.audioPause?.onPause ?? false,
       onHidden: options.audioPause?.onHidden ?? false,
@@ -406,6 +418,14 @@ export class Game extends EventTarget {
         'Canvas pixelRatio must be a finite positive number.',
       );
     }
+    if (
+      options.frameWorkBudgetMs !== undefined &&
+      (!Number.isFinite(options.frameWorkBudgetMs) ||
+        options.frameWorkBudgetMs <= 0)
+    )
+      throw new RuntimeError(
+        'frameWorkBudgetMs must be a finite positive CPU target.',
+      );
     const clock = new Clock(options.maxDeltaTime);
     if (claimedCanvases.has(canvas)) {
       throw new RuntimeError(
@@ -427,6 +447,7 @@ export class Game extends EventTarget {
         {
           antialias: options.antialias,
           recover: options.recoverGraphics,
+          gpuTiming: options.gpuTiming,
           residency: {
             textureBytes: options.resourceBudgets?.nativeTextureBytes,
             geometryBytes: options.resourceBudgets?.nativeGeometryBytes,
@@ -1110,6 +1131,11 @@ export class Game extends EventTarget {
   private readonly onFrame = (timestamp: number): void => {
     this.requestId = undefined;
     if (this.currentState !== 'running' || document.hidden) return;
+    const frameWork = this.frameWorkCounter.enabled
+      ? this.frameWorkCounter
+      : undefined;
+    frameWork?.begin(this.clock.frame + 1);
+    let workStartedAt = frameWork ? performance.now() : 0;
     try {
       const ratio =
         this.fixedPixelRatio ??
@@ -1148,14 +1174,21 @@ export class Game extends EventTarget {
       if (this.currentState !== 'running') return;
       if (scene && scene === this.currentScene && !scene.destroyed)
         scene.world.update(this.clock.deltaTime);
+      if (frameWork) {
+        frameWork.simulationMs = performance.now() - workStartedAt;
+        workStartedAt = performance.now();
+      }
       if (scene && this.canUpdateScene())
         scene.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene);
+      if (frameWork)
+        frameWork.afterUpdateMs = performance.now() - workStartedAt;
       if (this.currentState !== 'running') return;
       const transition = this.activeTransition;
       this.frameEffects.transition = transition?.controller.advance(
         this.clock.deltaTime,
       );
       const presentedScene = this.currentScene;
+      if (frameWork) workStartedAt = performance.now();
       presentedScene?.beginPresentation();
       try {
         this.graphics.beginFrame();
@@ -1169,6 +1202,8 @@ export class Game extends EventTarget {
       } finally {
         presentedScene?.endPresentation();
       }
+      if (frameWork)
+        frameWork.renderSubmitMs = performance.now() - workStartedAt;
       this.accessibilityManager.update(this.currentScene);
       if (transition?.controller.complete) this.completeTransition(transition);
     } catch (cause) {
@@ -1181,6 +1216,7 @@ export class Game extends EventTarget {
     } finally {
       this.updatingScene = undefined;
       this.input.endFrame();
+      frameWork?.finish();
     }
     if (this.currentState === 'running')
       this.requestId = requestAnimationFrame(this.onFrame);

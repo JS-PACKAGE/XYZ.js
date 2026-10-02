@@ -1,7 +1,7 @@
 import { AssetLoader, ResourcePool, type PreloadBatch } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
-import { type Renderer, type RendererPreference } from '../../graphics/src/index.js';
+import { type Renderer, type RendererPreference, type GpuTimingOptions } from '../../graphics/src/index.js';
 import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { type TransitionOptions } from './transitions2d/index.js';
@@ -9,6 +9,8 @@ import { AccessibilityManager } from './accessibility/index.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
+import { type FrameWorkStats } from './frame-work.js';
+export type { FrameWorkStats } from './frame-work.js';
 import type { FactoryDefinitions, FactoryRegistry, FactoryServices } from './factories.js';
 import type { ContentLoadCoordinator } from './content-storage.js';
 export type { WarmupOptions, WarmupProgress, WarmupLease, } from '../../graphics/src/warmup.js';
@@ -37,6 +39,8 @@ export interface GameOptions {
      * `graphicslost` and `graphicsrecovered`. Enabled by default; when false a loss is fatal.
      */
     recoverGraphics?: boolean;
+    /** Optional native GPU timestamps; unsupported backends report an explicit status. */
+    gpuTiming?: GpuTimingOptions;
     /** Defaults to an isolated in-memory store; inject a browser backend for persistence. */
     saveStorage?: SaveStorage;
     saveSchema?: SaveSchema;
@@ -44,6 +48,8 @@ export interface GameOptions {
     i18n?: I18nOptions;
     /** Independent decoded CPU / native texture / native geometry cache estimates. */
     resourceBudgets?: ResourceBudgets;
+    /** Opt-in whole-frame CPU target and stage attribution; callbacks cannot be preempted. */
+    frameWorkBudgetMs?: number;
     /**
      * Freezes `game.audio` together with the game. `onPause` follows `pause()`/`resume()`;
      * `onHidden` follows the page becoming hidden or visible. Both default to false, so audio keeps
@@ -87,6 +93,8 @@ export declare class Game extends EventTarget {
     private loadingScene;
     private activeTransition;
     private readonly frameEffects;
+    private readonly frameWorkCounter;
+    get frameWork(): FrameWorkStats;
     private sceneVersion;
     private switchingScene;
     private requestId;

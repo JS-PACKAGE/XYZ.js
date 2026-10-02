@@ -64,7 +64,8 @@ import {
   WebGL2ContextLostError,
   WebGL2InitializationError,
 } from './errors.js';
-import { FrameStats } from './render-stats.js';
+import { FrameStats, type GpuTimingOptions } from './render-stats.js';
+import { configureGpuTiming, WebGlTimer } from './gpu-timing.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import {
   collectRenderCommands2D,
@@ -213,6 +214,8 @@ export class WebGL2Renderer implements Renderer {
   private readonly meshDraws: Mesh[] = [];
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
+  private readonly gpuTimingEnabled: boolean;
+  private gpuTimer: WebGlTimer | undefined;
   readonly residency = new NativeResidency();
   private readonly preparedGeometry = new Set<ResidencyAllocation>();
   configureResidency(options: ResidencyBudgetOptions): void {
@@ -425,7 +428,10 @@ export class WebGL2Renderer implements Renderer {
   constructor(
     private readonly onError: (error: Error) => void,
     private readonly antialias = true,
-  ) {}
+    gpuTiming: GpuTimingOptions = {},
+  ) {
+    this.gpuTimingEnabled = configureGpuTiming(this.stats.gpuTiming, gpuTiming);
+  }
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.gl)
@@ -443,6 +449,16 @@ export class WebGL2Renderer implements Renderer {
           'WebGL2 canvas context is unavailable: canvas.getContext("webgl2") returned null.',
         );
       this.gl = gl;
+      if (this.gpuTimingEnabled) {
+        const extension = gl.getExtension('EXT_disjoint_timer_query_webgl2');
+        if (extension)
+          this.gpuTimer = new WebGlTimer(this.stats.gpuTiming, gl, extension);
+        else
+          this.stats.gpuTiming.unavailable(
+            'unsupported',
+            'EXT_disjoint_timer_query_webgl2 is unavailable.',
+          );
+      }
       this.canvas = canvas;
       canvas.addEventListener('webglcontextlost', this.onContextLost);
       this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
@@ -887,6 +903,7 @@ export class WebGL2Renderer implements Renderer {
     this.residency.beginFrame();
     this.frameRendered = false;
     this.stats.begin();
+    this.gpuTimer?.begin(this.stats.frame);
   }
 
   render(
@@ -953,6 +970,7 @@ export class WebGL2Renderer implements Renderer {
       this.snapshots.set(snapshot, target);
       return snapshot;
     } catch (error) {
+      this.gpuTimer?.abort();
       this.residency.abortFrame();
       this.deleteTarget(target);
       throw error;
@@ -1194,10 +1212,12 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.requireGL();
     if (!this.activeFrame || !this.frameRendered)
       throw new GraphicsError('WebGL2 endFrame requires a rendered frame.');
+    this.gpuTimer?.end();
     gl.flush();
     this.activeFrame = false;
     if (publishFrame) this.residency.endFrame();
     else this.residency.abortFrame();
+    this.stats.submit();
   }
 
   resize(width: number, height: number): void {
@@ -2994,6 +3014,8 @@ export class WebGL2Renderer implements Renderer {
     this.destroyed = true;
     this.canvas?.removeEventListener('webglcontextlost', this.onContextLost);
     const gl = this.gl;
+    this.gpuTimer?.destroy(!!this.lostError);
+    this.gpuTimer = undefined;
     if (gl) {
       this.residency.clear();
       this.preparedGeometry.clear();

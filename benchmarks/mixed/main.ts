@@ -20,6 +20,11 @@ import {
   type TextureLease,
 } from '../../src/index.js';
 import { BoundedTiming, BoundedTrend, settings } from '../measurement.js';
+import { BrowserObservations, browserProvenance } from '../observability.js';
+import {
+  measurementDefaults,
+  soakWorkload,
+} from '../../src/data/observability.js';
 
 const params = new URLSearchParams(location.search);
 function number(
@@ -71,6 +76,29 @@ const operations = {
   captureWallMs: new BoundedTiming(),
   cleanupMs: new BoundedTiming(),
 };
+const frameWorkTimings = {
+  totalMs: new BoundedTiming(),
+  simulationMs: new BoundedTiming(),
+  navigationMs: new BoundedTiming(),
+  afterUpdateMs: new BoundedTiming(),
+  renderSubmitMs: new BoundedTiming(),
+};
+const frameWorkTimingNames = Object.keys(
+  frameWorkTimings,
+) as (keyof typeof frameWorkTimings)[];
+const gpuExecution = new BoundedTiming();
+const steadyGpuExecution = new BoundedTiming();
+const gpuFrameIds = new Float64Array(soakWorkload.gpuPhaseHistoryFrames);
+const gpuFramePhases = new Uint8Array(soakWorkload.gpuPhaseHistoryFrames);
+let lastGpuSample = 0;
+let unattributedGpuSamples = 0;
+let lastWorkFrame = 0;
+let frameWorkOverBudget = 0;
+let nextObservationSeconds = 0;
+let networkRequests = 0;
+let networkBytes = 0;
+const networkWorkload = new BoundedTiming();
+let browserObservations: BrowserObservations | undefined;
 let phase: Phase = 'setup';
 let game: Game | undefined;
 let resourceBudgets: ResourceBudgets | undefined;
@@ -90,6 +118,9 @@ let foundRoutes = 0;
 let candidateMax = 0;
 let narrowphaseMax = 0;
 let physicsStatsAvailable = false;
+let spatialRefreshMaximum: number | null = null;
+let spatialPoseChecksMaximum: number | null = null;
+let spatialRefitsMaximum: number | null = null;
 const allRaf = new BoundedTiming();
 const trends = {
   decodedBytes: new BoundedTrend(),
@@ -346,13 +377,34 @@ class MixedScene extends Scene {
         body.velocity.y = Math.max(body.velocity.y, 2);
         const stats = (
           this.physics3D as typeof this.physics3D & {
-            stats?: { candidatePairs: number; narrowphaseTests: number };
+            stats?: {
+              candidatePairs: number;
+              narrowphaseTests: number;
+              refreshedLeaves?: number;
+              poseChecks?: number;
+              refits?: number;
+            };
           }
         ).stats;
         if (stats) {
           physicsStatsAvailable = true;
           candidateMax = Math.max(candidateMax, stats.candidatePairs);
           narrowphaseMax = Math.max(narrowphaseMax, stats.narrowphaseTests);
+          if (stats.refreshedLeaves !== undefined)
+            spatialRefreshMaximum = Math.max(
+              spatialRefreshMaximum ?? 0,
+              stats.refreshedLeaves,
+            );
+          if (stats.poseChecks !== undefined)
+            spatialPoseChecksMaximum = Math.max(
+              spatialPoseChecksMaximum ?? 0,
+              stats.poseChecks,
+            );
+          if (stats.refits !== undefined)
+            spatialRefitsMaximum = Math.max(
+              spatialRefitsMaximum ?? 0,
+              stats.refits,
+            );
         }
       }
     } finally {
@@ -360,6 +412,23 @@ class MixedScene extends Scene {
     }
   }
   async churn(runtime: Game, cycle: number): Promise<void> {
+    if (params.get('network') === '1') {
+      await timed(networkWorkload, async () => {
+        const response = await fetch(
+          `/__xyz-soak-network?cycle=${cycle}&asset=${assetChanges}`,
+          { cache: 'no-store' },
+        );
+        if (!response.ok)
+          throw new Error(`Network workload HTTP ${response.status}.`);
+        const bytes = (await response.arrayBuffer()).byteLength;
+        if (bytes !== soakWorkload.networkPayloadBytes)
+          throw new Error(
+            'Network workload endpoint did not serve the bounded payload.',
+          );
+        networkRequests++;
+        networkBytes += bytes;
+      });
+    }
     const next = await image(runtime);
     try {
       const previous = this.uiLease!;
@@ -430,9 +499,16 @@ try {
       pixelRatio: 1,
       autoResize: false,
       resourceBudgets,
+      gpuTiming: { enabled: params.get('gpuTiming') !== '0' },
+      frameWorkBudgetMs: number('frameBudgetMs', 1000 / 60, 0.1, 1000),
     }),
   );
   const runtime = game;
+  const provenance = await browserProvenance(
+    runtime.canvas,
+    runtime.graphics.backend,
+  );
+  browserObservations = new BrowserObservations();
   runtime.addEventListener('error', (event) => {
     failure = (event as CustomEvent<Error>).detail;
   });
@@ -453,6 +529,9 @@ try {
   };
   runtime.graphics.endFrame = () => {
     originalEnd();
+    const gpuFrame = runtime.graphics.stats.frame;
+    gpuFrameIds[gpuFrame % gpuFrameIds.length] = gpuFrame;
+    gpuFramePhases[gpuFrame % gpuFramePhases.length] = phases.indexOf(phase);
     if (submitting)
       timings[phase].cpuSubmitMs.add(performance.now() - submitStart);
     submitting = false;
@@ -471,6 +550,47 @@ try {
     previous = timestamp;
     lastPhase = phase;
     observedFrames++;
+    browserObservations!.sample(timestamp);
+    const sample = heldStats.gpuTiming;
+    if (
+      sample.status === 'available' &&
+      sample.sampledFrame !== null &&
+      sample.milliseconds !== null &&
+      sample.sampledFrame > lastGpuSample
+    ) {
+      lastGpuSample = sample.sampledFrame;
+      gpuExecution.add(sample.milliseconds);
+      const slot = sample.sampledFrame % gpuFrameIds.length;
+      if (gpuFrameIds[slot] === sample.sampledFrame) {
+        if (gpuFramePhases[slot] === phases.indexOf('running'))
+          steadyGpuExecution.add(sample.milliseconds);
+      } else unattributedGpuSamples++;
+    }
+    const work = runtime.frameWork;
+    if (work.enabled && work.frame > lastWorkFrame) {
+      lastWorkFrame = work.frame;
+      for (const name of frameWorkTimingNames)
+        frameWorkTimings[name].add(work[name]);
+      if (work.overBudget) frameWorkOverBudget++;
+
+    }
+    const observationSeconds = (performance.now() - started) / 1000;
+    if (observationSeconds >= nextObservationSeconds) {
+      nextObservationSeconds =
+        observationSeconds + measurementDefaults.memorySampleSeconds;
+      (
+        globalThis as typeof globalThis & { __xyzSoakObservation?: unknown }
+      ).__xyzSoakObservation = {
+        phase,
+        completedCycles,
+        elapsedSeconds: (performance.now() - started) / 1000,
+        frameWork: { ...work },
+        renderStats: { ...heldStats, gpuTiming: { ...heldStats.gpuTiming } },
+        decodedBytes: runtime.assets.residency.liveBytes,
+        nativeTextureBytes: runtime.graphics.residency.textures.liveBytes,
+        nativeGeometryBytes: runtime.graphics.residency.geometry.liveBytes,
+      };
+    }
     rafHandle = requestAnimationFrame(observe);
   };
   rafHandle = requestAnimationFrame(observe);
@@ -553,17 +673,19 @@ try {
         native.geometry.liveBytes <= native.geometry.budgetBytes,
       'Cache budget exceeded.',
     );
-    trends.decodedBytes.add(decoded.liveBytes);
-    trends.nativeTextureBytes.add(native.textures.liveBytes);
-    trends.nativeGeometryBytes.add(native.geometry.liveBytes);
-    trends.attachmentBytes.add(heldStats.renderTargetBytes);
+    const cycleTime = (performance.now() - started) / 1000;
+    trends.decodedBytes.add(decoded.liveBytes, cycleTime);
+    trends.nativeTextureBytes.add(native.textures.liveBytes, cycleTime);
+    trends.nativeGeometryBytes.add(native.geometry.liveBytes, cycleTime);
+    trends.attachmentBytes.add(heldStats.renderTargetBytes, cycleTime);
     trends.decodedEvictions.add(decoded.evictions);
     trends.nativeTextureEvictions.add(native.textures.evictions);
     completedCycles++;
     output.textContent = `Running ${runtime.graphics.backend}: ${completedCycles} cycles, ${((performance.now() - started) / 1000).toFixed(1)} seconds`;
   } while (performance.now() < deadline);
   const backend = runtime.graphics.backend;
-  const renderStats = { ...heldStats };
+  const renderStats = { ...heldStats, gpuTiming: { ...heldStats.gpuTiming } };
+  const browserMeasurements = browserObservations.stop();
   phase = 'cleanup';
   const cleanupStart = performance.now();
   runtime.destroy();
@@ -598,10 +720,47 @@ try {
   );
   assert(foundRoutes > 0, 'No navigation route completed.');
   const result = {
-    schema: 'xyz-mixed-soak-v1',
+    schema: 'xyz-mixed-soak-v2',
     date: new Date().toISOString(),
     userAgent: navigator.userAgent,
     backend,
+    provenance,
+    profile: {
+      name: params.get('profile') ?? 'native',
+      simulated: (params.get('profile') ?? 'native') !== 'native',
+      note: 'CDP throttling is simulated CPU/network pressure, not actual low-tier hardware.',
+    },
+    browserMeasurements,
+    gpu: {
+      timing: renderStats.gpuTiming,
+      observedExecutionMs: gpuExecution.snapshot(),
+      observedSteadyExecutionMs: steadyGpuExecution.snapshot(),
+      unattributedGpuSamples,
+      meanCompletedExecutionMs: renderStats.gpuTiming.samples
+        ? renderStats.gpuTiming.totalMilliseconds /
+          renderStats.gpuTiming.samples
+        : null,
+      scope:
+        'Asynchronous native frame commands only, excludes queue wait and presentation. Observer histograms can miss multiple completions between RAFs; renderer aggregate includes every valid completed query.',
+    },
+    frameWork: {
+      budgetMs: runtime.frameWork.budgetMs,
+      overBudgetFrames: frameWorkOverBudget,
+      stages: Object.fromEntries(
+        Object.entries(frameWorkTimings).map(([name, value]) => [
+          name,
+          value.snapshot(),
+        ]),
+      ),
+      scope:
+        'CPU frame budget is a reporting target, not preemption; user callbacks and atomic collision work can exceed it.',
+    },
+    networkWorkload: {
+      requested: params.get('network') === '1',
+      requests: networkRequests,
+      bytes: networkBytes,
+      wallMs: networkWorkload.snapshot(),
+    },
     variant:
       backend === 'canvas2d'
         ? '2d-navigation-ui-render-churn (3D unsupported)'
@@ -648,6 +807,9 @@ try {
       physics3D: backend !== 'canvas2d',
       colliderCount: backend === 'canvas2d' ? 0 : count + 1,
       physicsStatsAvailable,
+      spatialRefreshesMax: spatialRefreshMaximum,
+      spatialPoseChecksMax: spatialPoseChecksMaximum,
+      spatialRefitsMax: spatialRefitsMaximum,
       candidatePairsMax: physicsStatsAvailable ? candidateMax : null,
       narrowphaseTestsMax: physicsStatsAvailable ? narrowphaseMax : null,
     },
@@ -666,9 +828,9 @@ try {
     },
     notes: [
       'Native browser RAF wall intervals, not synthetic FPS. Histogram p50/p95 are 0.25ms upper bucket estimates; null means empty or percentile overflow beyond 1024ms. Exact max/mean and >50ms counts remain tracked.',
-      'CPU simulation work sums Scene.update and ECS World.update only; physics update calls are measured separately. Engine input/timers/animation/layout are excluded. CPU submit measures Game beginFrame through endFrame; neither waits for GPU completion. Operation timings are awaited wall durations, not exclusive CPU time.',
+      'CPU frameWork follows the full Game pipeline and separately reports navigation and afterUpdate (including physics/particles/camera/audio). Legacy cpuSimulationWorkMs remains Scene.update+ECS World.update only. CPU submit never waits for GPU; operation timings are awaited wall durations, not exclusive CPU time.',
       'Setup, warmup, running, churn, capture and cleanup are separate; mixed RAF observer also runs while Game is paused for capture. Overall frameIntervalMs includes phase-boundary stalls; phase-specific intervals crossing boundaries are discarded. Warmup samples are not steady-state samples.',
-      'Cache byte estimates and per-cycle online slopes/tail ranges are observations, not process memory, GC, total VRAM or proof of a plateau. Last 32 cycle observations retained; no unbounded trace. Canvas native cache counts stay zero.',
+      'Engine cache/attachment estimates, browser JS heap estimates and runner CDP heap/OS process RSS are separate observations, never total VRAM. Bounded tail trends classify only after sufficient time/samples with absolute+relative tolerances and sustained-growth thresholds; positive slopes alone are not leak assertions. GC is supported only where real CDP trace events are available.',
       'Duration is a finite minimum observation deadline; one in-flight setup/churn/capture/cleanup finishes after it. Seed fixes authored random workload, not browser frame timing or solver scheduling.',
     ],
   };
@@ -677,6 +839,7 @@ try {
 } catch (error) {
   let reportError = error;
   cancelAnimationFrame(rafHandle);
+  browserObservations?.stop();
   const failureContext = {
     resourceBudgets,
     budgetAccounting,
@@ -688,7 +851,10 @@ try {
             textures: residencySnapshot(game.graphics.residency.textures),
             geometry: residencySnapshot(game.graphics.residency.geometry),
           },
-          renderStats: { ...game.graphics.stats },
+          renderStats: {
+            ...game.graphics.stats,
+            gpuTiming: { ...game.graphics.stats.gpuTiming },
+          },
         }
       : null,
     nativeAllocationRequestBytes: null,
@@ -703,7 +869,7 @@ try {
     );
   }
   output.textContent = JSON.stringify({
-    schema: 'xyz-mixed-soak-v1',
+    schema: 'xyz-mixed-soak-v2',
     error: String(
       reportError instanceof Error ? reportError.stack : reportError,
     ),

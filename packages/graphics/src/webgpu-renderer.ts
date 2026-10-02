@@ -25,7 +25,12 @@ import {
 } from './errors.js';
 import type { Renderer } from './index.js';
 import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
-import { FrameStats, type RenderStats } from './render-stats.js';
+import {
+  FrameStats,
+  type RenderStats,
+  type GpuTimingOptions,
+} from './render-stats.js';
+import { configureGpuTiming, WebGpuTimer } from './gpu-timing.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -98,6 +103,8 @@ interface CachedTexture {
 export class WebGPURenderer implements Renderer {
   readonly backend = 'webgpu' as const;
   private readonly frameStats = new FrameStats();
+  private readonly gpuTimingEnabled: boolean;
+  private gpuTimer: WebGpuTimer | undefined;
   readonly residency = new NativeResidency();
   private readonly preparedGeometry = new Set<ResidencyAllocation>();
   configureResidency(options: ResidencyBudgetOptions): void {
@@ -254,7 +261,13 @@ export class WebGPURenderer implements Renderer {
   constructor(
     private readonly onError: (error: Error) => void,
     private readonly antialias = true,
-  ) {}
+    gpuTiming: GpuTimingOptions = {},
+  ) {
+    this.gpuTimingEnabled = configureGpuTiming(
+      this.frameStats.gpuTiming,
+      gpuTiming,
+    );
+  }
 
   async initialize(canvas: HTMLCanvasElement): Promise<void> {
     if (this.destroyed || this.device || this.initializing) {
@@ -280,11 +293,19 @@ export class WebGPURenderer implements Renderer {
           'WebGPU is unavailable: the browser could not provide a GPU adapter.',
         );
       }
-      const device = await adapter.requestDevice({
-        requiredFeatures: compressionFeatures.filter((feature) =>
-          adapter.features.has(feature),
-        ),
-      });
+      const requiredFeatures = compressionFeatures.filter((feature) =>
+        adapter.features.has(feature),
+      );
+      if (this.gpuTimingEnabled) {
+        if (adapter.features.has('timestamp-query'))
+          requiredFeatures.push('timestamp-query');
+        else
+          this.frameStats.gpuTiming.unavailable(
+            'unsupported',
+            'WebGPU adapter does not expose timestamp-query.',
+          );
+      }
+      const device = await adapter.requestDevice({ requiredFeatures });
       if (this.destroyed) {
         device.destroy();
         throw new GraphicsError(
@@ -292,6 +313,8 @@ export class WebGPURenderer implements Renderer {
         );
       }
       this.device = device;
+      if (this.gpuTimingEnabled && device.features.has('timestamp-query'))
+        this.gpuTimer = new WebGpuTimer(this.frameStats.gpuTiming, device);
       this.capabilities.maxTextureSize = device.limits.maxTextureDimension2D;
       this.capabilities.supportedTextureFormats = webgpuTextureFormats(device);
       // Install this before any asynchronous shader validation, so initialization-time loss is detected.
@@ -527,6 +550,7 @@ export class WebGPURenderer implements Renderer {
       this.effectsPipeline!.snapshots.add(snapshot);
       return snapshot;
     } catch (error) {
+      this.gpuTimer?.abort();
       this.encoder = undefined;
       this.residency.abortFrame();
       this.effectsPipeline!.destroyTexture(target.texture);
@@ -545,6 +569,7 @@ export class WebGPURenderer implements Renderer {
     this.encoder = device.createCommandEncoder();
     this.residency.beginFrame();
     this.frameStats.begin();
+    this.gpuTimer?.begin(this.encoder, this.frameStats.frame);
     this.frameRendered = false;
   }
 
@@ -712,6 +737,7 @@ export class WebGPURenderer implements Renderer {
     if (!this.encoder || !this.frameRendered) {
       throw new GraphicsError('WebGPU endFrame requires a rendered frame.');
     }
+    this.gpuTimer?.end(this.encoder);
     const commandBuffer = this.encoder.finish();
     this.encoder = undefined;
     this.submissions.push(commandBuffer);
@@ -719,12 +745,15 @@ export class WebGPURenderer implements Renderer {
     try {
       device.queue.submit(this.submissions);
       submitted = true;
+      this.gpuTimer?.submitted();
     } finally {
       this.submissions.length = 0;
+      if (!submitted) this.gpuTimer?.abort();
       this.render2D?.flushRetired();
       this.releaseUnusedTextures();
       if (submitted && publishFrame) this.residency.endFrame();
       else this.residency.abortFrame();
+      this.frameStats.submit();
     }
   }
 
@@ -866,6 +895,8 @@ export class WebGPURenderer implements Renderer {
   }
 
   private releaseResources(): void {
+    this.gpuTimer?.destroy(!!this.lostError);
+    this.gpuTimer = undefined;
     this.encoder = undefined;
     this.colorAttachment.view = undefined;
     this.submissions.length = 0;

@@ -1,5 +1,86 @@
+export interface GpuTimingOptions {
+  /** Disabled by default; WebGPU negotiates timestamp-query during initialization. */
+  enabled?: boolean;
+  maxInFlight?: number;
+  /** Rendered frames excluded before issuing samples. */
+  warmupFrames?: number;
+  sampleInterval?: number;
+}
+
+export type GpuTimingStatus =
+  | 'disabled'
+  | 'unsupported'
+  | 'pending'
+  | 'available'
+  | 'disjoint'
+  | 'lost'
+  | 'error';
+
+/** Latest asynchronous result, not necessarily the current rendered frame. */
+export interface GpuTimingStats {
+  readonly status: GpuTimingStatus;
+  readonly source: 'webgpu-timestamp-query' | 'webgl2-disjoint-query' | null;
+  readonly reason: string | null;
+  readonly milliseconds: number | null;
+  readonly sampledFrame: number | null;
+  readonly samples: number;
+  readonly totalMilliseconds: number;
+  readonly maximumMilliseconds: number | null;
+  readonly pending: number;
+  readonly skipped: number;
+  readonly invalid: number;
+  readonly warmupFrames: number;
+  readonly sampleInterval: number;
+  readonly maxInFlight: number;
+}
+
+/** Renderer-owned reused record; null is never a successful zero-time sample. */
+export class GpuFrameTiming implements GpuTimingStats {
+  status: GpuTimingStatus = 'disabled';
+  source: GpuTimingStats['source'] = null;
+  reason: string | null = 'GPU timing was not requested.';
+  milliseconds: number | null = null;
+  sampledFrame: number | null = null;
+  samples = 0;
+  totalMilliseconds = 0;
+  maximumMilliseconds: number | null = null;
+  pending = 0;
+  skipped = 0;
+  invalid = 0;
+  warmupFrames = 0;
+  sampleInterval = 1;
+  maxInFlight = 0;
+
+  unavailable(status: GpuTimingStatus, reason: string): void {
+    this.status = status;
+    this.reason = reason;
+    this.milliseconds = null;
+    this.sampledFrame = null;
+  }
+
+  sample(frame: number, milliseconds: number): void {
+    if (!Number.isFinite(milliseconds) || milliseconds <= 0) {
+      this.invalid++;
+      this.unavailable('pending', 'Timestamp was zero, reversed or invalid.');
+      return;
+    }
+    this.status = 'available';
+    this.reason = null;
+    if (this.sampledFrame === null || frame >= this.sampledFrame) {
+      this.milliseconds = milliseconds;
+      this.sampledFrame = frame;
+    }
+    this.samples++;
+    this.totalMilliseconds += milliseconds;
+    this.maximumMilliseconds = Math.max(
+      this.maximumMilliseconds ?? 0,
+      milliseconds,
+    );
+  }
+}
+
 /**
- * CPU-side counters and render-target estimates for the last rendered frame.
+ * CPU-side counters, asynchronous GPU samples and render-target estimates.
  * The object is reused and overwritten every frame: copy fields to retain them.
  */
 export interface RenderStats {
@@ -27,6 +108,9 @@ export interface RenderStats {
   readonly renderTargetBytes: number;
   /** Highest estimated resident render-target bytes since creation. */
   readonly peakRenderTargetBytes: number;
+  /** CPU elapsed beginFrame through endFrame; never waits for GPU completion. */
+  readonly cpuSubmitMs: number | null;
+  readonly gpuTiming: GpuTimingStats;
 }
 
 /** Mutable implementation owned by a renderer. */
@@ -43,10 +127,15 @@ export class FrameStats implements RenderStats {
   uploadBytes = 0;
   renderTargetBytes = 0;
   peakRenderTargetBytes = 0;
+  cpuSubmitMs: number | null = null;
+  readonly gpuTiming = new GpuFrameTiming();
+  private submitStart = 0;
 
   /** Starts a new frame's counters. */
   begin(): void {
     this.frame++;
+    this.submitStart = performance.now();
+    this.cpuSubmitMs = null;
     this.meshes = 0;
     this.culled = 0;
     this.drawCalls = 0;
@@ -56,6 +145,11 @@ export class FrameStats implements RenderStats {
     this.instances2D = 0;
     this.renderPasses2D = 0;
     this.uploadBytes = 0;
+  }
+
+  /** Finishes CPU submission measurement independently of asynchronous GPU results. */
+  submit(): void {
+    this.cpuSubmitMs = performance.now() - this.submitStart;
   }
 
   /** Records one indexed main-pass draw. */
