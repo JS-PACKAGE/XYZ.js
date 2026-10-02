@@ -1075,3 +1075,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - 正式resource／content／Scene架構支援finite／infinite orthogonal atlas maps、負座標chunks、nested groups、repeat／parallax image layers、Scene-clock atlas animation、array／strict base64及native gzip／zlib、relative object templates／overrides／cycle拒絕；display與colliders原子建構及清理。Imported bounds內可edit；非orthogonal／非right-down／image-collection及其他列明不支援profiles仍拒絕。
 - Cells262144、chunks4096、layers128、frames65536、JSON8MiB／image32MiB admission維持有界，不以截斷、缺colliders或空fallback假裝匯入成功。
 - Owned Chromium三backends正式content path的first／paused readback均 `[36,104,68,64]`，resume後 `[68,120,255,64]`；capsule實際支撐Y=13.005474573771183，刪negative solid後三backend均落下至Y>63。Trusted Pan／group toggle／negative edit／pause-resume及cleanup亦通過。`.vite/tiled-profiles/report.json`、最終三引擎native browser報告的Tiled兩phases皆PASS；不是其他Tiled orientations認證。
+
+### P92 — 品質／裝置效能 profiles
+
+- Production workloads提供frozen baseline／low／high工作量與實際viewport／backing／counts驗證；CLI提供native、simulated-low-tier及heavy CDP CPU／network pressure，報告明列 `actualLowTierHardware:false`。120 warmup／600 steady／180 loading frames，RAF、CPU simulation／submit、native GPU pass sum、JS heap／RSS／GC及engine estimates分開，不冒充VRAM或呈現fps。
+- 十一份完成報告：九份只通過明示teardown<=5000ms gate，兩份WebGPU baseline因未提供operator thresholds維持BLOCKED；最初simulated navigation timeout兩份FAIL保留。修正owned Vite HMR／watch及有界navigation等待後低品質兩種pressure均完成，沒有放寬metric thresholds。證據 `.vite/p92-measurement-summary.json`及其原報告。
+- 例如high WebGPU 3D的steady RAF mean47.4427ms／p9583.5ms、CPU submit p958.5ms、native recorded GPU passes p95141.75ms（430 samples），**不是60FPS達標**。所有短期heap trend為insufficient-data；不宣稱長期無leak、實機低階裝置或完整profiles×backends效能認證。

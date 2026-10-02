@@ -68,3 +68,57 @@ export declare const productionWorkload: Readonly<{
     overlaySprites3D: 64;
     hitchMilliseconds: 50;
 }>;
+/** Authored quality tiers; changing tier changes workload, not measured device identity. */
+export declare const productionQualityProfiles: Readonly<{
+    baseline: Readonly<{
+        width: 1280;
+        height: 720;
+        pixelRatio: 1;
+        warmupFrames: 120;
+        measuredFrames: 600;
+        loadStageFrames: 180;
+        textures: 8;
+        sprites2D: 768;
+        transparentSprites2D: 128;
+        meshes3D: 256;
+        transparentMeshes3D: 64;
+        pointLights: 8;
+        spotLights: 4;
+        overlaySprites3D: 64;
+        hitchMilliseconds: 50;
+    }>;
+    low: Readonly<{
+        width: 960;
+        height: 540;
+        sprites2D: 384;
+        transparentSprites2D: 64;
+        meshes3D: 128;
+        transparentMeshes3D: 32;
+        pointLights: 4;
+        spotLights: 2;
+        overlaySprites3D: 32;
+        pixelRatio: 1;
+        warmupFrames: 120;
+        measuredFrames: 600;
+        loadStageFrames: 180;
+        textures: 8;
+        hitchMilliseconds: 50;
+    }>;
+    high: Readonly<{
+        width: 1920;
+        height: 1080;
+        sprites2D: 1536;
+        transparentSprites2D: 256;
+        meshes3D: 512;
+        transparentMeshes3D: 128;
+        pointLights: 16;
+        spotLights: 8;
+        overlaySprites3D: 128;
+        pixelRatio: 1;
+        warmupFrames: 120;
+        measuredFrames: 600;
+        loadStageFrames: 180;
+        textures: 8;
+        hitchMilliseconds: 50;
+    }>;
+}>;

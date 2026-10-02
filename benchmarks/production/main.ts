@@ -11,13 +11,21 @@ import {
   type Texture,
   type TextureLease,
 } from '../../src/index.js';
-import { productionWorkload as counts } from '../../src/data/observability.js';
+import { productionQualityProfiles } from '../../src/data/observability.js';
 import { BoundedTiming } from '../measurement.js';
 import { BrowserObservations, browserProvenance } from '../observability.js';
 
 const params = new URLSearchParams(location.search);
 const kind = params.get('workload') ?? '2d';
 const backend = params.get('renderer') ?? 'webgpu';
+const quality = params.get('quality') ?? 'baseline';
+if (!Object.hasOwn(productionQualityProfiles, quality))
+  throw new Error('Use quality=baseline|low|high.');
+const counts =
+  productionQualityProfiles[quality as keyof typeof productionQualityProfiles];
+const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
+canvas.style.width = `${counts.width}px`;
+canvas.style.height = `${counts.height}px`;
 if (
   !['2d', '3d'].includes(kind) ||
   !['canvas2d', 'webgl2', 'webgpu'].includes(backend)
@@ -75,14 +83,18 @@ class WorkloadScene extends Scene {
     super();
     const spriteCount =
       kind === '2d' ? counts.sprites2D : counts.overlaySprites3D;
+    const spriteRowHeight = Math.min(
+      28,
+      counts.height / Math.ceil(spriteCount / 32),
+    );
     for (let index = 0; index < spriteCount; index++) {
       this.movingSprites.push(
         this.add(
           new Sprite({
             texture: assets[index % assets.length]!,
             position: [
-              (index % 32) * 40 + 20,
-              Math.floor(index / 32) * 28 + 14,
+              (index % 32) * (counts.width / 32) + counts.width / 64,
+              Math.floor(index / 32) * spriteRowHeight + spriteRowHeight / 2,
             ],
             scale: [0.35, 0.35],
             opacity: index < counts.transparentSprites2D ? 0.55 : 1,
@@ -95,6 +107,8 @@ class WorkloadScene extends Scene {
       this.ambientLight = 0.2;
       this.directionalLight.intensity = 1;
       const geometry = Geometry.cube();
+      const columns = Math.ceil(Math.sqrt(counts.meshes3D));
+      const rows = Math.ceil(counts.meshes3D / columns);
       for (let index = 0; index < counts.meshes3D; index++) {
         const transparent = index < counts.transparentMeshes3D;
         const material = new PBRMaterial({
@@ -110,8 +124,8 @@ class WorkloadScene extends Scene {
               geometry,
               material,
               position: [
-                ((index % 16) - 7.5) * 1.4,
-                (Math.floor(index / 16) - 7.5) * 1.1,
+                ((index % columns) - (columns - 1) / 2) * (22.4 / columns),
+                (Math.floor(index / columns) - (rows - 1) / 2) * (17.6 / rows),
                 -(index % 4),
               ],
               scale: [0.6, 0.6, 0.6],
@@ -122,7 +136,12 @@ class WorkloadScene extends Scene {
       for (let index = 0; index < counts.pointLights; index++)
         this.pointLights.push(
           new PointLight({
-            position: [(index - 3.5) * 3, 2, 5],
+            position: [
+              (index - (counts.pointLights - 1) / 2) *
+                (24 / counts.pointLights),
+              2,
+              5,
+            ],
             intensity: 12,
             range: 18,
           }),
@@ -130,7 +149,11 @@ class WorkloadScene extends Scene {
       for (let index = 0; index < counts.spotLights; index++)
         this.spotLights.push(
           new SpotLight({
-            position: [(index - 1.5) * 5, 8, 5],
+            position: [
+              (index - (counts.spotLights - 1) / 2) * (20 / counts.spotLights),
+              8,
+              5,
+            ],
             direction: [0, -1, -0.5],
             intensity: 15,
             range: 24,
@@ -306,6 +329,7 @@ try {
     date: new Date().toISOString(),
     workload: kind,
     backend,
+    quality,
     provenance,
     counts,
     operations,
