@@ -21,6 +21,16 @@ export {
   type PhysicsStats3D,
 } from './world.js';
 export {
+  Joint3D,
+  DistanceJoint3D,
+  BallSocketJoint3D,
+  HingeJoint3D,
+  type JointOptions3D,
+  type DistanceJointOptions3D,
+  type BallSocketJointOptions3D,
+  type HingeJointOptions3D,
+} from './joints.js';
+export {
   CharacterController3D,
   type CharacterControllerOptions3D,
   type CharacterMoveResult3D,

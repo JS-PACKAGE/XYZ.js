@@ -16,6 +16,7 @@ import { Manifold3D, Narrowphase3D } from './geometry.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
+import { Joint3D } from './joints.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -25,6 +26,8 @@ export interface PhysicsStats3D {
   readonly refits: number;
   readonly poseChecks: number;
   readonly indexGeneration: number;
+  readonly jointRows: number;
+  readonly jointIterations: number;
 }
 const alwaysContinue = (): boolean => true;
 export interface PhysicsWorldOptions3D {
@@ -77,7 +80,7 @@ class Contact3D {
     readonly b: Entry3D,
   ) {}
 }
-/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. No joints or rotational/dynamic-pair CCD. */
+/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. Iterative joints; no rotational/dynamic-pair CCD. */
 export class PhysicsWorld3D {
   readonly gravity = new Vector3(0, -9.81, 0);
   readonly fixedDelta: number;
@@ -94,6 +97,9 @@ export class PhysicsWorld3D {
   private readonly sweepTriangles: Triangle3D[] = [];
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
+  private readonly constraints: Joint3D[] = [];
+  private readonly jointSnapshot: Joint3D[] = [];
+  private readonly jointLinks = new Map<Object3D, Joint3D[]>();
   private readonly placementMatrix = new Matrix4();
   private readonly placementPosition = new Vector3();
   private placementShape: Shape3D | undefined;
@@ -108,6 +114,8 @@ export class PhysicsWorld3D {
     refits: 0,
     poseChecks: 0,
     indexGeneration: 0,
+    jointRows: 0,
+    jointIterations: 0,
   };
   readonly stats: PhysicsStats3D = this.counters;
   private readonly contacts = new Map<Entry3D, Map<Entry3D, Contact3D>>();
@@ -164,6 +172,64 @@ export class PhysicsWorld3D {
   get geometryRevision(): number {
     this.refreshIndex();
     return this.counters.indexGeneration;
+  }
+  get joints(): readonly Joint3D[] {
+    return this.constraints;
+  }
+  addJoint<T extends Joint3D>(joint: T): T {
+    if (this.disposed) throw new Error('PhysicsWorld3D is destroyed.');
+    if (!(joint instanceof Joint3D)) throw new TypeError('Invalid Joint3D.');
+    if (joint.attached) throw new Error('Joint3D is already attached.');
+    const a = this.entries.get(joint.bodyA),
+      b = joint.bodyB ? this.entries.get(joint.bodyB) : undefined;
+    if (!a?.body || (joint.bodyB && !b))
+      throw new Error(
+        'Joint bodies must be registered in this PhysicsWorld3D.',
+      );
+    if (a.body.type !== 'dynamic' && b?.body?.type !== 'dynamic')
+      throw new Error('A joint requires at least one dynamic body.');
+    this.validate(a.object);
+    if (b) this.validate(b.object);
+    joint.attach(this);
+    this.constraints.push(joint);
+    let links = this.jointLinks.get(joint.bodyA);
+    if (!links) this.jointLinks.set(joint.bodyA, (links = []));
+    links.push(joint);
+    if (joint.bodyB) {
+      links = this.jointLinks.get(joint.bodyB);
+      if (!links) this.jointLinks.set(joint.bodyB, (links = []));
+      links.push(joint);
+    }
+    return joint;
+  }
+  removeJoint(joint: Joint3D): boolean {
+    const index = this.constraints.indexOf(joint);
+    if (index < 0) return false;
+    this.constraints.splice(index, 1);
+    for (let side = 0; side < 2; side++) {
+      const object = side === 0 ? joint.bodyA : joint.bodyB;
+      if (!object) continue;
+      const links = this.jointLinks.get(object);
+      if (!links) continue;
+      const slot = links.indexOf(joint);
+      if (slot >= 0) links.splice(slot, 1);
+      if (links.length === 0) this.jointLinks.delete(object);
+    }
+    joint.detach();
+    return true;
+  }
+  private connected(a: Entry3D, b: Entry3D): boolean {
+    const links = this.jointLinks.get(a.object);
+    if (!links) return false;
+    for (const joint of links)
+      if (
+        !joint.collideConnected &&
+        joint.enabled &&
+        ((joint.bodyA === a.object && joint.bodyB === b.object) ||
+          (joint.bodyA === b.object && joint.bodyB === a.object))
+      )
+        return true;
+    return false;
   }
   /** @internal Preflight before changing either attachment or hierarchy. */
   validate(object: Object3D): void {
@@ -235,6 +301,11 @@ export class PhysicsWorld3D {
   unregister(object: Object3D): void {
     const entry = this.entries.get(object);
     if (!entry) return;
+    for (let i = this.constraints.length - 1; i >= 0; i--) {
+      const joint = this.constraints[i];
+      if (joint.bodyA === object || joint.bodyB === object)
+        this.removeJoint(joint);
+    }
     this.entries.delete(object);
     if (entry.body) this.forces.delete(entry.body);
     const index = this.ordered.indexOf(entry);
@@ -367,10 +438,26 @@ export class PhysicsWorld3D {
       this.stepping = false;
     }
   }
+  private solveJoints(): void {
+    if (this.jointSnapshot.length === 0) return;
+    ++this.counters.jointIterations;
+    for (const joint of this.jointSnapshot)
+      if (joint.belongsTo(this)) joint.solveVelocity();
+  }
   private step(dt: number, canContinue: () => boolean): void {
     ++this.stepId;
     this.active.length = 0;
     this.refreshIndex();
+    this.jointSnapshot.length = 0;
+    this.counters.jointRows = 0;
+    for (const joint of this.constraints) {
+      joint.prepare(dt);
+      this.counters.jointRows += joint.solverRowCount;
+      this.jointSnapshot.push(joint);
+    }
+    this.counters.jointIterations = 0;
+    for (let iteration = 0; iteration < this.solverIterations; iteration++)
+      this.solveJoints();
     for (const e of this.ordered) {
       this.validate(e.object);
       const b = e.body;
@@ -468,6 +555,7 @@ export class PhysicsWorld3D {
         const ca = a.shape.collider,
           cb = b.shape.collider;
         if (!(ca.category & cb.mask) || !(cb.category & ca.mask)) continue;
+        if (this.connected(a, b)) continue;
         if (!a.body && !b.body && !ca.sensor && !cb.sensor) continue;
         let row = this.contacts.get(a);
         let contact = row?.get(b);
@@ -525,7 +613,8 @@ export class PhysicsWorld3D {
       if (!c.started) this.start(c);
       if (!canContinue() || this.disposed) return;
     }
-    for (let iteration = 0; iteration < this.solverIterations; iteration++)
+    for (let iteration = 0; iteration < this.solverIterations; iteration++) {
+      this.solveJoints();
       for (const c of this.active) {
         if (
           c.ended ||
@@ -562,6 +651,18 @@ export class PhysicsWorld3D {
           continue;
         for (let k = 0; k < c.manifold.count; k++) this.solve(c, k);
       }
+    }
+    for (const joint of this.jointSnapshot) {
+      if (!joint.belongsTo(this)) continue;
+      if (
+        joint.reactionForce > joint.breakForce ||
+        joint.reactionTorque > joint.breakTorque
+      ) {
+        this.removeJoint(joint);
+        joint.onBreak?.(joint);
+        if (!canContinue() || this.disposed) return;
+      }
+    }
     for (const c of this.active) {
       if (
         c.ended ||
@@ -1143,6 +1244,10 @@ export class PhysicsWorld3D {
     this.pairCandidates.length = 0;
     this.queryCandidates.length = 0;
     this.sweepTriangles.length = 0;
+    for (const joint of this.constraints) joint.detach();
+    this.constraints.length = 0;
+    this.jointLinks.clear();
+    this.jointSnapshot.length = 0;
     this.ccdHit = undefined;
     this.ccdOptions.ignore = undefined;
     this.placementShape = undefined;

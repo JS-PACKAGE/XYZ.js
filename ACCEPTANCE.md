@@ -904,3 +904,7 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 ### P65 — Moving support／stance
 
 - Built-root 真 character sweep 驗 moving lift translation／yaw carry、jump／support removal detach、wall slide、ceiling crush／rotation；crouch／blocked stand 原子保持姿態與 feet invariant。不是直接 teleport 穿過 blocker；此證據不改寫歷史 2D translation-only controller 限制。
+
+### P66 — 3D joints
+
+- Built-root vehicle spring suspension、hinge axis／limits／motor 與 articulated chain 實際 linear／angular response 通過，含 ball/socket angular constraints 與 ownership／cleanup；不是 debug geometry 或 export wiring 證據。

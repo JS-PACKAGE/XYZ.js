@@ -2,6 +2,7 @@ import { Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import { CapsuleCollider3D } from './collider.js';
 import type { Collider3D } from './collider.js';
+import { Joint3D } from './joints.js';
 export interface PhysicsStats3D {
     readonly candidatePairs: number;
     readonly narrowphaseTests: number;
@@ -11,6 +12,8 @@ export interface PhysicsStats3D {
     readonly refits: number;
     readonly poseChecks: number;
     readonly indexGeneration: number;
+    readonly jointRows: number;
+    readonly jointIterations: number;
 }
 export interface PhysicsWorldOptions3D {
     gravity?: Readonly<Vector3>;
@@ -38,7 +41,7 @@ export interface PhysicsContact3D {
     readonly point: Readonly<Vector3>;
     readonly sensor: boolean;
 }
-/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. No joints or rotational/dynamic-pair CCD. */
+/** Deterministic primitive/mesh/compound solver; optional bounded static-target translation CCD. Iterative joints; no rotational/dynamic-pair CCD. */
 export declare class PhysicsWorld3D {
     readonly gravity: Vector3;
     readonly fixedDelta: number;
@@ -55,6 +58,9 @@ export declare class PhysicsWorld3D {
     private readonly sweepTriangles;
     private readonly leafBounds;
     private indexDirty;
+    private readonly constraints;
+    private readonly jointSnapshot;
+    private readonly jointLinks;
     private readonly placementMatrix;
     private readonly placementPosition;
     private placementShape;
@@ -92,6 +98,10 @@ export declare class PhysicsWorld3D {
     get size(): number;
     /** Mutation-aware geometry generation; query-only probes never change it. */
     get geometryRevision(): number;
+    get joints(): readonly Joint3D[];
+    addJoint<T extends Joint3D>(joint: T): T;
+    removeJoint(joint: Joint3D): boolean;
+    private connected;
     /** @internal Preflight before changing either attachment or hierarchy. */
     validate(object: Object3D): void;
     /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */
@@ -109,6 +119,7 @@ export declare class PhysicsWorld3D {
     discardFrameTime(delta: number): void;
     get interpolationAlpha(): number;
     update(delta: number, canContinue?: () => boolean, sampleFrame?: boolean): void;
+    private solveJoints;
     private step;
     private velocityAt;
     private movingAtContact;

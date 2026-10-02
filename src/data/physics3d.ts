@@ -11,6 +11,8 @@ export const physics3DDefaults = {
   sleepTime: 0.6,
   sweepIterations: 48,
   sweepTolerance: 0.0001,
+  jointBias: 0.2,
+  jointMaxBias: 10,
   characterSkin: 0.003,
   characterIterations: 8,
   maxMeshTriangles: 100000,
