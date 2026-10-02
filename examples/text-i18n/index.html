@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Text & international editing</title>
+    <style>
+      body {
+        background: #101b2b;
+        color: #e7f1ff;
+        font: 16px system-ui;
+        max-width: 960px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      a {
+        color: #8edfff;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        border: 1px solid #456;
+        border-radius: 8px;
+      }
+      label,
+      button {
+        display: inline-block;
+        margin: 8px;
+      }
+      input,
+      select,
+      button {
+        font: inherit;
+      }
+      pre {
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+      }
+      button {
+        padding: 6px 12px;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>Text & international editing</h1>
+    <p>
+      Click the canvas field or Tab to its accessible native textbox. Type,
+      paste, drag-select and use native arrow keys. Visible glyphs, selection
+      and caret are retained engine UI, not an HTML rendering overlay. OS IME is
+      not certified; font coverage depends on your system.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D</option>
+      </select></label
+    ><label
+      >Preset
+      <select id="preset">
+        <option value="mixed">Mixed scripts</option>
+        <option value="rtl">Hebrew / Arabic</option>
+        <option value="clusters">CJK / emoji / combining</option>
+      </select></label
+    ><label
+      >Direction
+      <select id="direction">
+        <option>auto</option>
+        <option>ltr</option>
+        <option>rtl</option>
+      </select></label
+    ><label
+      >Font
+      <select id="font">
+        <option value="system">System fallback</option>
+        <option value="abel">Declared Abel + system fallback</option>
+      </select></label
+    ><label
+      >Field width
+      <input id="width" type="range" min="280" max="850" value="820" /></label
+    ><label
+      >Size <input id="size" type="range" min="18" max="40" value="28"
+    /></label>
+    <div>
+      <button id="focus">Focus editor</button
+      ><button id="all">Select all</button
+      ><button id="previous">Previous grapheme</button
+      ><button id="next">Next grapheme</button
+      ><button id="bidi">Disjoint bidi selection</button
+      ><button id="reset">Reset preset</button
+      ><button id="destroy">Destroy</button>
+    </div>
+    <canvas
+      id="game"
+      width="900"
+      height="330"
+      aria-label="Engine text editing canvas"
+    ></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <pre id="metrics" aria-live="off"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

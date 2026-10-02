@@ -222,10 +222,75 @@ const examples: readonly Example[] = [
     tags: ['2D', 'Input', 'Assets', 'Data'],
     renderers: all2d,
   },
+  {
+    slug: 'lightweight2d',
+    title: 'Lightweight 2D startup',
+    summary:
+      'Animated 2D scene, pause and cleanup, render stats and honest lazy-service initialization flags.',
+    tags: ['2D', 'Benchmark'],
+    renderers: all2d,
+  },
+  {
+    slug: 'resource-lifecycle',
+    title: 'Resource scopes & safe publication',
+    summary:
+      'Shared asset leases, owned releases and fresh save/content candidates that preserve the active scene on rejected loads.',
+    tags: ['2D', 'Assets', 'Data'],
+    renderers: all2d,
+  },
+  {
+    slug: 'character-platforms',
+    title: 'Character & moving platforms',
+    summary:
+      'Walk, jump and crouch on moving and rotating supports, with ceiling-blocked standing and live support state.',
+    tags: ['3D', 'Input'],
+    renderers: only3d,
+  },
+  {
+    slug: 'joints3d',
+    title: '3D constraints & hinge motor',
+    summary:
+      'Real distance, hinge and ball-socket constraints, a suspended rig, motor controls and live constraint metrics.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
+    slug: 'ccd3d',
+    title: 'Dynamic & rotational CCD',
+    summary:
+      'Fire fast dynamic bodies and rotate collision geometry, compare continuous collision and inspect real solver counters.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
+    slug: 'navigation-bake',
+    title: 'Navigation bake & shared budget',
+    summary:
+      'Bake collision geometry, route many agents around obstacles and tune their aggregate Scene navigation work quota.',
+    tags: ['3D', 'Benchmark'],
+    renderers: only3d,
+  },
+  {
+    slug: 'text-i18n',
+    title: 'Bidi & grapheme text editing',
+    summary:
+      'Engine-rendered RTL, CJK and emoji editing with native text input, visual selection and grapheme-aware carets.',
+    tags: ['2D', 'Input'],
+    renderers: all2d,
+  },
+  {
+    slug: 'audio-effects',
+    title: 'Audio effects & spatial bindings',
+    summary:
+      'Trusted audio unlock, native bus effects, overlapping ducking, automation and a scene-bound moving emitter.',
+    tags: ['2D', 'Audio'],
+    renderers: all2d,
+  },
 ];
 
 const filters = document.querySelector<HTMLFieldSetElement>('#filters')!;
 const grid = document.querySelector<HTMLUListElement>('#grid')!;
+const examplesURL = new URL('./', import.meta.url);
 
 function card(example: Example): HTMLLIElement {
   const item = document.createElement('li');
@@ -233,7 +298,7 @@ function card(example: Example): HTMLLIElement {
 
   const heading = document.createElement('h2');
   const link = document.createElement('a');
-  link.href = `./${example.slug}/`;
+  link.href = new URL(`${example.slug}/`, examplesURL).href;
   link.textContent = example.title;
   heading.append(link);
 
@@ -255,7 +320,10 @@ function card(example: Example): HTMLLIElement {
     backends.append('Backend:');
     for (const renderer of example.renderers) {
       const backend = document.createElement('a');
-      backend.href = `./${example.slug}/?renderer=${renderer}`;
+      backend.href = new URL(
+        `${example.slug}/?renderer=${renderer}`,
+        examplesURL,
+      ).href;
       backend.textContent = renderer;
       backends.append(backend);
     }

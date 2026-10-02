@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>3D continuous collision</title>
+    <style>
+      body {
+        margin: 24px auto;
+        max-width: 960px;
+        padding: 0 16px;
+        background: #101827;
+        color: #e6edf7;
+        font: 16px system-ui;
+      }
+      a {
+        color: #91ccff;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 900px;
+        aspect-ratio: 2;
+        height: auto;
+        background: #172033;
+      }
+      label,
+      button {
+        margin: 8px;
+        display: inline-block;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 6px;
+      }
+      #stats {
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>3D continuous collision</h1>
+    <p>
+      Fire a one-fixed-step crossing: cyan and orange dynamic projectiles, or a
+      rotating cyan blade sweeping an orange target. CCD disabled can tunnel
+      even when the end poses are separated. The simulation pauses after one
+      real 1/120-second physics step so the result stays visible.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+      </select></label
+    ><label
+      >Scenario
+      <select id="scenario">
+        <option value="pair">Moving dynamic pair</option>
+        <option value="rotation">Rotating geometry</option>
+      </select></label
+    ><label
+      ><input id="ccd" type="checkbox" checked />Continuous collision</label
+    ><button id="fire">Fire / reset (Space)</button
+    ><button id="destroy">Destroy</button
+    ><canvas id="game" aria-label="3D collision experiment"></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <p id="stats" aria-live="polite"></p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

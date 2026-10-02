@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html lang="en">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -25,16 +25,19 @@
   </head>
   <body>
     <h1>Texture &amp; Sprite</h1>
-    <p>兩個 Sprite 共用同一張貼圖；切換排序與透明度查看交疊結果。</p>
+    <p>
+      Two sprites share one texture. Change their order and opacity to inspect
+      overlap.
+    </p>
     <canvas id="game"></canvas>
-    <button id="order" disabled>切換前後順序</button>
-    <button id="opacity" disabled>切換透明度</button>
+    <button id="order" disabled>Swap draw order</button>
+    <button id="opacity" disabled>Toggle opacity</button>
     <p id="status" role="status">Loading</p>
-    <button id="audio" disabled>啟用音訊並播放六聲部 BGM</button>
-    <button id="sfx" disabled>連發四個 SFX</button>
-    <button id="stop-audio" disabled>停止音訊</button>
+    <button id="audio" disabled>Enable audio and play six-voice music</button>
+    <button id="sfx" disabled>Play four SFX</button>
+    <button id="stop-audio" disabled>Stop audio</button>
     <p id="audio-status" role="status">
-      Audio locked — 首次手勢前不建立 AudioContext。
+      Audio locked — no AudioContext is created before the first gesture.
     </p>
     <script type="module" src="./main.ts"></script>
   </body>

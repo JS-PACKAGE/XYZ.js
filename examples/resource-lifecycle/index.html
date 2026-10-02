@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Resource lifecycle</title>
+    <style>
+      body {
+        margin: 2rem auto;
+        padding: 0 1rem;
+        max-width: 960px;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      a {
+        color: #86dfd4;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        background: #101724;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.65rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 0.4rem 0.6rem;
+      }
+      #stats,
+      #leases {
+        font-variant-numeric: tabular-nums;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>Resource lifecycle · Fresh worlds</h1>
+    <p>
+      The large teal beacon belongs to the active content scene. Gold satellites
+      are separate ResourceScope borrowers of one owned texture: the last
+      release disposes it. Controls use real leases and counters from this
+      example’s load/dispose callbacks.
+    </p>
+    <p>
+      Save, move the beacon, then load a fresh candidate. Only complete
+      candidates publish; invalid snapshots and a deliberately failing factory
+      retain the same active scene. Each candidate owns its own beacon texture.
+      Saves here are in memory, not persisted across reloads.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <button id="acquire" type="button" disabled>
+        Acquire shared satellite
+      </button>
+      <button id="release-one" type="button" disabled>
+        Release one / retry
+      </button>
+      <button id="release-all" type="button" disabled>
+        Release all / retry
+      </button>
+      <button id="hold-detach" type="button" disabled>
+        Fail one detach once
+      </button>
+    </div>
+    <div class="controls">
+      <button id="move" type="button" disabled>Move + recolor beacon</button>
+      <button id="save" type="button" disabled>Save active</button>
+      <button id="load" type="button" disabled>Load fresh / retry</button>
+      <button id="invalid" type="button" disabled>
+        Reject invalid snapshot
+      </button>
+      <button id="factory-fail" type="button" disabled>
+        Reject failed factory
+      </button>
+      <button id="destroy" type="button" disabled>Destroy</button>
+    </div>
+    <canvas
+      id="game"
+      aria-label="Active teal beacon and shared gold satellites"
+    ></canvas>
+    <p id="stats">Loading…</p>
+    <p id="leases">Loading…</p>
+    <p id="status" role="status">Starting…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,88 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Shared navigation bake</title>
+    <style>
+      body {
+        margin: 24px auto;
+        max-width: 960px;
+        padding: 0 16px;
+        background: #101827;
+        color: #e6edf7;
+        font: 16px system-ui;
+      }
+      a {
+        color: #91ccff;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        max-width: 900px;
+        aspect-ratio: 2;
+        height: auto;
+        background: #172033;
+      }
+      label,
+      button {
+        margin: 8px;
+        display: inline-block;
+      }
+      select,
+      button {
+        font: inherit;
+        padding: 6px;
+      }
+      #stats {
+        white-space: pre-wrap;
+        font-family: monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>Collision-baked navigation</h1>
+    <p>
+      A sampled XZ surface is baked with exact physics queries. Green cells are
+      walkable; red cells are blocked. Twelve capsule agents share one Scene
+      scheduler and take alternate routes around the physical walls. Agents
+      ignore each other, but collide with the scenery.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+      </select></label
+    ><label
+      >Aggregate work quota
+      <select id="budget">
+        <option value="16">16 / frame</option>
+        <option value="64" selected>64 / frame</option>
+        <option value="256">256 / frame</option>
+      </select></label
+    ><label
+      >Goal
+      <select id="goal">
+        <option value="upper">Upper right</option>
+        <option value="lower">Lower right</option>
+      </select></label
+    ><button id="route">Route / reset</button
+    ><button id="destroy">Destroy</button
+    ><canvas
+      id="game"
+      aria-label="Baked navigation cells and moving agents"
+    ></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <p id="stats" aria-live="polite"></p>
+    <p>
+      Changing quota rebuilds the Scene with a new real scheduler budget and
+      rebakes the same geometry. The quota bounds aggregate logical work, not
+      milliseconds: CPU timing is an observer, not preemption. This is a finite
+      single-layer sampled surface, not a polygon navmesh.
+    </p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

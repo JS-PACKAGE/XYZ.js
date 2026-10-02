@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>3D joints · XYZ.js</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #101923;
+        color: #e5edf6;
+        max-width: 1000px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      a {
+        color: #83dbea;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: #182635;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 8px;
+        margin: 4px;
+      }
+      pre {
+        white-space: pre-wrap;
+        font: 14px monospace;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Examples</a>
+    <h1>3D constraint workshop</h1>
+    <p>
+      Gold: motorized HingeJoint3D pendulum. Teal: a suspended DistanceJoint3D
+      chain; red: its rigid payload, attached by a BallSocketJoint3D with zero
+      swing and twist limits. These are the engine's exported APIs: there are no
+      RevoluteJoint3D or FixedJoint3D aliases.
+    </p>
+    <label for="backend">Renderer</label
+    ><select id="backend">
+      <option value="auto">Auto</option>
+      <option value="webgpu">WebGPU</option>
+      <option value="webgl2">WebGL2</option></select
+    ><label><input id="motor" type="checkbox" checked /> Hinge motor</label
+    ><button id="reverse">Reverse motor</button
+    ><button id="push">Push chain</button><button id="reset">Reset rig</button
+    ><button id="destroy">Destroy demo</button
+    ><canvas id="game" aria-label="3D suspended constrained rig"></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <pre id="stats" aria-live="off"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Native audio effects & spatial buses</title>
+    <style>
+      body {
+        background: #101b2b;
+        color: #e7f1ff;
+        font: 16px system-ui;
+        max-width: 960px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      a {
+        color: #8edfff;
+      }
+      canvas {
+        width: 100%;
+        height: auto;
+        border: 1px solid #456;
+        border-radius: 8px;
+      }
+      label,
+      button {
+        display: inline-block;
+        margin: 8px;
+      }
+      input,
+      select,
+      button {
+        font: inherit;
+      }
+      button {
+        padding: 6px 12px;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>Native audio effects & spatial buses</h1>
+    <p>
+      Start quietly; use headphones for left/right motion. The mint listener and
+      amber emitter borrow real scene transforms. Native EQ, compressor and
+      convolution process the PCM loop; no custom DSP. Duck voices overlap until
+      individually stopped. Graph measurements are not speaker certification.
+    </p>
+    <label
+      >Renderer
+      <select id="backend">
+        <option value="auto">Auto</option>
+        <option value="webgpu">WebGPU</option>
+        <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D</option>
+      </select></label
+    ><button id="unlock">Unlock audio</button>
+    <fieldset id="controls" disabled>
+      <legend>Native graph controls</legend>
+      <button id="play">Play spatial loop</button
+      ><button id="stream">Play stream instead</button
+      ><button id="stop">Stop all</button
+      ><button id="pause">Pause / resume audio</button
+      ><label><input id="eq" type="checkbox" />Low-pass EQ</label
+      ><label
+        >Cutoff
+        <input
+          id="cutoff"
+          type="range"
+          min="100"
+          max="2400"
+          value="450" /></label
+      ><label><input id="compressor" type="checkbox" />Compressor</label
+      ><label><input id="reverb" type="checkbox" />Convolution echo</label
+      ><label
+        >Music bus volume
+        <input id="volume" type="range" min="0" max="100" value="65" /></label
+      ><button id="fade">Automate to 10% over 4s</button
+      ><button id="hold">Cancel & hold</button
+      ><button id="duck-a">Start duck A</button
+      ><button id="duck-b">Start duck B</button
+      ><button id="release-a">Release A</button
+      ><button id="release-b">Release B</button
+      ><label><input id="motion" type="checkbox" checked />Emitter motion</label
+      ><label
+        >Listener X
+        <input id="listener" type="range" min="-4" max="4" step="0.1" value="0"
+      /></label>
+    </fieldset>
+    <button id="destroy">Destroy</button
+    ><canvas
+      id="game"
+      width="900"
+      height="300"
+      aria-label="Top view of moving sound source and listener"
+    ></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <pre id="metrics"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

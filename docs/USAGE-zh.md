@@ -28,27 +28,37 @@ npx pnpm@12.6.0 dev
 
 執行 `npx pnpm@12.6.0 examples` 會啟動伺服器並開啟範例目錄 `http://127.0.0.1:5173/examples/`（可依功能篩選並逐 backend 開啟），或直接開啟 `http://127.0.0.1:5173/examples/showcase/` 看 2D、3D 與音訊整合；音訊必須點擊按鈕解鎖。開發伺服器只綁定 localhost。不要直接以 `file://` 開啟頁面；WebGPU／AudioWorklet 需要安全來源，正式部署使用 HTTPS。
 
-| 範例                                        | 用途                                                                                                                        |
-| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| [triangle](../examples/triangle/)           | WebGPU triangle、暫停／繼續／銷毀                                                                                           |
-| [sprite](../examples/sprite/)               | 共用貼圖、透明度、排序與音效                                                                                                |
-| [pong](../examples/pong/)                   | 鍵盤、pointer、gamepad、相機與計分                                                                                          |
-| [cube3d](../examples/cube3d/)               | 透視、光照、depth 與貼圖                                                                                                    |
-| [fallback-demo](../examples/fallback-demo/) | 切換 backend 與 capabilities                                                                                                |
-| [showcase](../examples/showcase/)           | Scene 切換、2D＋3D＋audio                                                                                                   |
-| [beacon-run](../examples/beacon-run/)       | 四信標撤離遊戲、3D physics／navigation／animation、menu／HUD／pause／settings／save-load／audio／cleanup；限定 GPU／GL 驗收 |
-| [advanced3d](../examples/advanced3d/)       | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR                                                               |
-| [physics2d](../examples/physics2d/)         | 剛體、材質、sensor trigger、重力                                                                                            |
-| [particles2d](../examples/particles2d/)     | Emitter 預設、burst、nozzle、加法混合圖層                                                                                   |
-| [tilemap2d](../examples/tilemap2d/)         | Tile 圖層、tile 碰撞、相機 follow／bounds／shake／zoom                                                                      |
-| [transitions2d](../examples/transitions2d/) | fade／crossfade／slide、easing、取消、Scene timers                                                                          |
-| [ui2d](../examples/ui2d/)                   | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                                                                                |
-| [input-lab](../examples/input-lab/)         | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap                                                                         |
-| [audio-lab](../examples/audio-lab/)         | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch                                                                         |
-| [pbr3d](../examples/pbr3d/)                 | PBR 網格、陰影、環境光、霧、exposure／bloom                                                                                 |
-| [instancing3d](../examples/instancing3d/)   | InstancedMesh 批次、culling 探針、RenderStats                                                                               |
-| [picking3d](../examples/picking3d/)         | 巢狀 Group、OrbitControls、Raycaster、相機投影切換                                                                          |
-| [gltf3d](../examples/gltf3d/)               | 蒙皮 glTF 動畫播放、morph targets                                                                                           |
+也可開啟根目錄的[範例索引](../index.html)：`http://127.0.0.1:5173/index.html`。兩個入口共用 35 個範例的目錄、功能分類與 backend 連結；範例介面／說明／註解使用英文，多語文字與 localization 訊息是明確標示的示範資料。新增的四個 2D 範例支援 `auto|webgpu|webgl2|canvas2d`；`character-platforms`、`joints3d`、`ccd3d`、`navigation-bake` 僅支援 `auto|webgpu|webgl2`。
+
+| 範例                                                    | 用途                                                                                                                        |
+| ------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| [triangle](../examples/triangle/)                       | WebGPU triangle、暫停／繼續／銷毀                                                                                           |
+| [sprite](../examples/sprite/)                           | 共用貼圖、透明度、排序與音效                                                                                                |
+| [pong](../examples/pong/)                               | 鍵盤、pointer、gamepad、相機與計分                                                                                          |
+| [cube3d](../examples/cube3d/)                           | 透視、光照、depth 與貼圖                                                                                                    |
+| [fallback-demo](../examples/fallback-demo/)             | 切換 backend 與 capabilities                                                                                                |
+| [showcase](../examples/showcase/)                       | Scene 切換、2D＋3D＋audio                                                                                                   |
+| [beacon-run](../examples/beacon-run/)                   | 四信標撤離遊戲、3D physics／navigation／animation、menu／HUD／pause／settings／save-load／audio／cleanup；限定 GPU／GL 驗收 |
+| [advanced3d](../examples/advanced3d/)                   | 階層、controls／picking、glTF skin、PBR／陰影、instances／HDR                                                               |
+| [physics2d](../examples/physics2d/)                     | 剛體、材質、sensor trigger、重力                                                                                            |
+| [particles2d](../examples/particles2d/)                 | Emitter 預設、burst、nozzle、加法混合圖層                                                                                   |
+| [tilemap2d](../examples/tilemap2d/)                     | Tile 圖層、tile 碰撞、相機 follow／bounds／shake／zoom                                                                      |
+| [transitions2d](../examples/transitions2d/)             | fade／crossfade／slide、easing、取消、Scene timers                                                                          |
+| [ui2d](../examples/ui2d/)                               | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                                                                                |
+| [input-lab](../examples/input-lab/)                     | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap                                                                         |
+| [audio-lab](../examples/audio-lab/)                     | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch                                                                         |
+| [pbr3d](../examples/pbr3d/)                             | PBR 網格、陰影、環境光、霧、exposure／bloom                                                                                 |
+| [instancing3d](../examples/instancing3d/)               | InstancedMesh 批次、culling 探針、RenderStats                                                                               |
+| [picking3d](../examples/picking3d/)                     | 巢狀 Group、OrbitControls、Raycaster、相機投影切換                                                                          |
+| [gltf3d](../examples/gltf3d/)                           | 蒙皮 glTF 動畫播放、morph targets                                                                                           |
+| [lightweight2d](../examples/lightweight2d/)             | 螢火蟲場景、暫停／繼續／重設／銷毀、graphics stats 與未使用服務狀態                                                         |
+| [resource-lifecycle](../examples/resource-lifecycle/)   | 共用 leases、release 失敗重試、記憶體存檔、拒絕載入隔離與 fresh publication                                                 |
+| [character-platforms](../examples/character-platforms/) | 行走／跳躍／蹲下、移動升降台、旋轉承接與天花板阻擋站立                                                                      |
+| [joints3d](../examples/joints3d/)                       | hinge motor、distance chain、angular-locked ball socket 與誤差讀值                                                          |
+| [ccd3d](../examples/ccd3d/)                             | dynamic-pair／rotational CCD 開關對照、真實 fixed-step contacts                                                             |
+| [navigation-bake](../examples/navigation-bake/)         | collision surface bake、切換目的地與 Scene aggregate navigation quota                                                       |
+| [text-i18n](../examples/text-i18n/)                     | native canvas bidi／grapheme 編輯、selection geometry 與字型 fallback                                                       |
+| [audio-effects](../examples/audio-effects/)             | trusted unlock、PCM／stream、effects、duck release、cancel-hold 與空間綁定                                                  |
 
 ## 2. 在自己的網站使用
 

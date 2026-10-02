@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Lightweight 2D</title>
+    <style>
+      body {
+        margin: 2rem auto;
+        padding: 0 1rem;
+        max-width: 960px;
+        background: #101724;
+        color: #d9edff;
+        font: 16px system-ui;
+      }
+      a {
+        color: #86dfd4;
+      }
+      canvas {
+        display: block;
+        width: min(100%, 800px);
+        aspect-ratio: 16 / 9;
+        background: #101724;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        align-items: center;
+        margin: 1rem 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 0.4rem 0.65rem;
+      }
+      #stats,
+      #services {
+        font-variant-numeric: tabular-nums;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Example gallery</a>
+    <h1>Lightweight 2D · Firefly garden</h1>
+    <p>
+      Only Canvas-generated textures, Sprite, Text2D and a Scene update loop.
+      Pause freezes the fireflies; reset returns them to their original flight
+      phase.
+    </p>
+    <p>
+      Canvas2D needs no GPU renderer. GPU backend modules are loaded lazily when
+      selected; this is the normal Game runtime, not a separate “microengine” or
+      a promise of zero framework overhead. Unused physics, navigation and tween
+      services stay uninitialized.
+    </p>
+    <div class="controls">
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="webgpu">WebGPU</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="canvas2d">Canvas2D</option>
+        </select></label
+      >
+      <button id="pause" type="button" disabled>Pause</button>
+      <button id="resume" type="button" disabled>Resume</button>
+      <button id="reset" type="button" disabled>Reset flight</button>
+      <button id="destroy" type="button" disabled>Destroy</button>
+    </div>
+    <canvas id="game" aria-label="Animated firefly garden"></canvas>
+    <p id="stats">Loading graphics counters…</p>
+    <p id="services">Loading service flags…</p>
+    <p id="status" role="status">Starting…</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

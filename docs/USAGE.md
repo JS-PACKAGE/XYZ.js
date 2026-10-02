@@ -28,27 +28,37 @@ npx pnpm@12.6.0 dev
 
 Run `npx pnpm@12.6.0 examples` to start the server and open the gallery at `http://127.0.0.1:5173/examples/` (filters by feature, per-backend links), or open `http://127.0.0.1:5173/examples/showcase/` for integrated 2D, 3D, and audio. Click the audio button to unlock playback. The development server binds only to localhost. Do not open pages with `file://`: WebGPU and AudioWorklet require a secure context; use HTTPS in production.
 
-| Example                                     | Purpose                                                                                                                                     |
-| ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| [triangle](../examples/triangle/)           | WebGPU triangle, pause/resume/destroy                                                                                                       |
-| [sprite](../examples/sprite/)               | Shared textures, opacity, ordering, sound                                                                                                   |
-| [pong](../examples/pong/)                   | Keyboard, pointer, gamepad, camera, scoring                                                                                                 |
-| [cube3d](../examples/cube3d/)               | Perspective, lighting, depth, textures                                                                                                      |
-| [fallback-demo](../examples/fallback-demo/) | Backend selection and capabilities                                                                                                          |
-| [showcase](../examples/showcase/)           | Scene switching, 2D + 3D + audio                                                                                                            |
-| [beacon-run](../examples/beacon-run/)       | Playable four-beacon extraction, 3D physics/navigation/animation, menu/HUD/pause/settings/save-load/audio/cleanup; scoped GPU/GL acceptance |
-| [advanced3d](../examples/advanced3d/)       | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR                                                                          |
-| [physics2d](../examples/physics2d/)         | Bodies, materials, sensor trigger, gravity                                                                                                  |
-| [particles2d](../examples/particles2d/)     | Emitter presets, bursts, nozzles, additive layer                                                                                            |
-| [tilemap2d](../examples/tilemap2d/)         | Tile layers, tile collision, camera follow/bounds/shake/zoom                                                                                |
-| [transitions2d](../examples/transitions2d/) | fade/crossfade/slide, easing, cancellation, Scene timers                                                                                    |
-| [ui2d](../examples/ui2d/)                   | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons                                                                                    |
-| [input-lab](../examples/input-lab/)         | Keyboard/pointer/gamepad state, rebindable ActionMap                                                                                        |
-| [audio-lab](../examples/audio-lab/)         | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch                                                                                    |
-| [pbr3d](../examples/pbr3d/)                 | PBR grid, shadows, environment, fog, exposure/bloom                                                                                         |
-| [instancing3d](../examples/instancing3d/)   | InstancedMesh batches, culling probes, RenderStats                                                                                          |
-| [picking3d](../examples/picking3d/)         | Nested Groups, OrbitControls, Raycaster, camera projection                                                                                  |
-| [gltf3d](../examples/gltf3d/)               | Skinned glTF clip playback, morph targets                                                                                                   |
+Alternatively open the root [example index](../index.html) at `http://127.0.0.1:5173/index.html`. Both indexes use the same 35-example catalog, feature filters and backend links. Instructions and controls are English; multilingual text and localization messages are labelled sample data. The new 2D examples support `auto|webgpu|webgl2|canvas2d`; `character-platforms`, `joints3d`, `ccd3d` and `navigation-bake` support `auto|webgpu|webgl2` only.
+
+| Example                                                 | Purpose                                                                                                                                     |
+| ------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| [triangle](../examples/triangle/)                       | WebGPU triangle, pause/resume/destroy                                                                                                       |
+| [sprite](../examples/sprite/)                           | Shared textures, opacity, ordering, sound                                                                                                   |
+| [pong](../examples/pong/)                               | Keyboard, pointer, gamepad, camera, scoring                                                                                                 |
+| [cube3d](../examples/cube3d/)                           | Perspective, lighting, depth, textures                                                                                                      |
+| [fallback-demo](../examples/fallback-demo/)             | Backend selection and capabilities                                                                                                          |
+| [showcase](../examples/showcase/)                       | Scene switching, 2D + 3D + audio                                                                                                            |
+| [beacon-run](../examples/beacon-run/)                   | Playable four-beacon extraction, 3D physics/navigation/animation, menu/HUD/pause/settings/save-load/audio/cleanup; scoped GPU/GL acceptance |
+| [advanced3d](../examples/advanced3d/)                   | Hierarchy, controls/picking, glTF skin, PBR/shadows, instances/HDR                                                                          |
+| [physics2d](../examples/physics2d/)                     | Bodies, materials, sensor trigger, gravity                                                                                                  |
+| [particles2d](../examples/particles2d/)                 | Emitter presets, bursts, nozzles, additive layer                                                                                            |
+| [tilemap2d](../examples/tilemap2d/)                     | Tile layers, tile collision, camera follow/bounds/shake/zoom                                                                                |
+| [transitions2d](../examples/transitions2d/)             | fade/crossfade/slide, easing, cancellation, Scene timers                                                                                    |
+| [ui2d](../examples/ui2d/)                               | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons                                                                                    |
+| [input-lab](../examples/input-lab/)                     | Keyboard/pointer/gamepad state, rebindable ActionMap                                                                                        |
+| [audio-lab](../examples/audio-lab/)                     | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch                                                                                    |
+| [pbr3d](../examples/pbr3d/)                             | PBR grid, shadows, environment, fog, exposure/bloom                                                                                         |
+| [instancing3d](../examples/instancing3d/)               | InstancedMesh batches, culling probes, RenderStats                                                                                          |
+| [picking3d](../examples/picking3d/)                     | Nested Groups, OrbitControls, Raycaster, camera projection                                                                                  |
+| [gltf3d](../examples/gltf3d/)                           | Skinned glTF clip playback, morph targets                                                                                                   |
+| [lightweight2d](../examples/lightweight2d/)             | Firefly garden, pause/resume/reset/destroy, actual graphics stats and unused-service flags                                                  |
+| [resource-lifecycle](../examples/resource-lifecycle/)   | Shared leases, failed-release retry, in-memory saves, rejected-load isolation and fresh publication                                         |
+| [character-platforms](../examples/character-platforms/) | Walk/jump/crouch, moving lift, rotating support and blocked standing                                                                        |
+| [joints3d](../examples/joints3d/)                       | Motorized hinge, distance-linked chain, angular-locked ball socket and live error metrics                                                   |
+| [ccd3d](../examples/ccd3d/)                             | Dynamic-pair/rotational CCD, on/off comparison and real fixed-step contacts                                                                 |
+| [navigation-bake](../examples/navigation-bake/)         | Bake collision surfaces, change goals and tune the aggregate Scene navigation quota                                                         |
+| [text-i18n](../examples/text-i18n/)                     | Native canvas editing of bidi/grapheme samples, selection geometry and font fallback                                                        |
+| [audio-effects](../examples/audio-effects/)             | Trusted unlock, PCM/stream playback, effects, duck release, cancel-hold and spatial binding                                                 |
 
 ## 2. Use It on Your Website
 

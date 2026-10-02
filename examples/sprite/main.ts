@@ -76,7 +76,7 @@ try {
             music.play();
             burst.disabled = stop.disabled = false;
             audioStatus.textContent =
-              'Audio unlocked · 六聲部 BGM；SFX 溢位只搶最舊 SFX。';
+              'Audio unlocked · Six-voice music; SFX overflow only steals the oldest SFX.';
           })
           .catch((error: unknown) => {
             audioStatus.textContent = String(error);
@@ -84,7 +84,8 @@ try {
       });
       burst.addEventListener('click', () => {
         for (let i = 0; i < 4; i++) runtime.audio.play(sound);
-        audioStatus.textContent = '已連發四個 SFX；BGM 排程保留。';
+        audioStatus.textContent =
+          'Four SFX played; music scheduling is preserved.';
       });
       stop.addEventListener('click', () => {
         music.stop();

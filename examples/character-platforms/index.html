@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Character platforms · XYZ.js</title>
+    <style>
+      body {
+        font: 16px system-ui;
+        background: #101923;
+        color: #e5edf6;
+        max-width: 1000px;
+        margin: 24px auto;
+        padding: 0 16px;
+      }
+      a {
+        color: #83dbea;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16/9;
+        background: #182635;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 8px;
+        margin: 4px;
+      }
+      button {
+        touch-action: none;
+      }
+      #stats {
+        white-space: pre-wrap;
+        font: 14px monospace;
+      }
+      fieldset {
+        margin: 12px 0;
+      }
+    </style>
+  </head>
+  <body>
+    <a href="../">← Examples</a>
+    <h1>Character platforms</h1>
+    <p>
+      WASD / arrow keys walk; Space jumps. Hold the movement buttons or tap them
+      with a keyboard. Ride the gold lift and teal rotating deck. The purple
+      roof admits a crouched capsule, but blocks standing.
+    </p>
+    <label for="backend">Renderer</label
+    ><select id="backend">
+      <option value="auto">Auto</option>
+      <option value="webgpu">WebGPU</option>
+      <option value="webgl2">WebGL2</option>
+    </select>
+    <fieldset>
+      <legend>Movement</legend>
+      <button data-move="up">Forward ↑</button
+      ><button data-move="down">Back ↓</button
+      ><button data-move="left">Left ←</button
+      ><button data-move="right">Right →</button><button id="jump">Jump</button
+      ><button id="crouch">Crouch</button><button id="stand">Stand</button>
+    </fieldset>
+    <fieldset>
+      <legend>Visit a station</legend>
+      <button id="lift">Board lift</button
+      ><button id="rotate">Board rotating deck</button
+      ><button id="ceiling">Enter low ceiling (crouched)</button
+      ><button id="reset">Reset to ground</button
+      ><button id="destroy">Destroy demo</button>
+    </fieldset>
+    <canvas id="game" aria-label="3D character collision course"></canvas>
+    <p id="status" role="status">Initializing…</p>
+    <pre id="stats" aria-live="off"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

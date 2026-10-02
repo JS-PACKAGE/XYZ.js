@@ -1,0 +1,102 @@
+body {
+  margin: 2rem auto;
+  max-width: 1100px;
+  padding: 0 1rem;
+  background: #101724;
+  color: #d9edff;
+  font: 16px system-ui;
+}
+h1 {
+  margin-bottom: 0.25rem;
+}
+p.lead {
+  margin-top: 0;
+  color: #9db4cc;
+}
+fieldset {
+  border: 0;
+  padding: 0;
+  margin: 1.25rem 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+legend {
+  position: absolute;
+  left: -9999px;
+}
+label.chip {
+  cursor: pointer;
+  padding: 0.25rem 0.75rem;
+  border: 1px solid #2c4461;
+  border-radius: 999px;
+}
+label.chip:has(input:checked) {
+  background: #2c4461;
+}
+label.chip:has(input:focus-visible) {
+  outline: 2px solid #7cc4ff;
+}
+label.chip input {
+  position: absolute;
+  opacity: 0;
+}
+ul#grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 300px), 1fr));
+  gap: 1rem;
+}
+ul#grid > li {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  padding: 1rem;
+  border: 1px solid #22344b;
+  border-radius: 10px;
+  background: #152033;
+}
+li h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+li h2 a {
+  color: #7cc4ff;
+  text-decoration: none;
+}
+li h2 a:hover,
+li h2 a:focus-visible {
+  text-decoration: underline;
+}
+li p {
+  margin: 0;
+  flex: 1;
+  color: #c3d6ea;
+  font-size: 0.95rem;
+}
+.tags,
+.backends {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  font-size: 0.8rem;
+}
+.tags span {
+  padding: 0 0.5rem;
+  border-radius: 4px;
+  background: #22344b;
+}
+.backends a {
+  color: #9db4cc;
+}
+footer {
+  margin-top: 2rem;
+  color: #9db4cc;
+  font-size: 0.9rem;
+}
+footer a,
+.lead a {
+  color: #7cc4ff;
+}
