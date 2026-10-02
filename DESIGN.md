@@ -184,7 +184,45 @@ v1.10 的 GitHub Release run 36966119517 已通過全部 14 jobs，含 Ubuntu x6
 - **Visibility：** Indexed visible draws、screen-size complementary LOD／HLOD 與 conservative instance/morph bounds 保留完整 shadow casters／picking。Occlusion 只用 matching camera／occluder／target 狀態的原生深度 query；pending 或 stale proof 不隱藏物件。Borrowed textures 不隨 proxy replacement dispose，mutable pose checks 不冒稱 changed-only O(1)。
 - **Graphics：** NativeMaterial3D 提供 WGSL／GLSL vertex/surface ABI，compile 失敗不能 publication；native loss 後同 backend 重建。Point／spot Scene pools 各1024，每 draw 各32，shadow 預算各8與有限 reach 分開。GPU particles 的 CPU 只管理 bounded births／time／ownership，native vertex shader 計算運動，不宣稱 compute simulation／CPU particle colliders。
 - **Streaming／workers：** World cells 共用 bounded admission、detached candidate scope 與 atomic Scene membership；取消後 late reservations 至 settlement 才釋放。Native worker default module URL 隨完整 dist 部署；轉移輸入即 detached，未發布 native payload 必須 reclamation，geometry publication 的 validate/interleave/copy 另外計價。
-- **Canvas／import：** Tiled 僅 finite orthogonal JSON／atlas／GID transforms／tile及object colliders，未知 profile 精確拒絕，範例尊重 forced backend。Canvas full untinted texture frames 直接借既有 versioned snapshot，避免每 sprite 重畫 shared scratch；tinted／cropped／rotated／flipped view 保留原像素路徑，不新增 texture cache 或改 ownership。
+- **Canvas／import：** P83當時的Tiled profile僅 finite orthogonal JSON／atlas／GID transforms／tile及object colliders；P91擴充範圍見下節，其他未知profile仍精確拒絕，範例尊重forced backend。Canvas full untinted texture frames直接借既有versioned snapshot，避免每sprite重畫shared scratch；tinted／cropped／rotated／flipped view保留原像素路徑，不新增texture cache或改ownership。
 - **Measurement／accessibility：** WebGPU 實測 actual native pass-sum，不含 queue／gaps／presentation，也不以 RAF 當 GPU completion。固定品質 workload 量測 steady 與 overlapping asset load；live screenshot 在 warmup、Game.destroy 前取得，避免以已清空 GPU canvas 當視覺證據。Accessibility preferences 同步真 canvas text／contrast／motion；DOM 僅 semantic focus/modal/live announcement，真 OS 輔具證據另列 blocked。
 
 套件／site 只交付 canonical 14 件 immutable OPM vendor；source/dist/site 中既有額外編號副本屬使用者資料，不刪除。獨立 consumer 必須保留完整 engine/dist/vendor/workers，不能只複製入口 bundle。完整實作不等 release 或全平台驗收；歷史與最新限定證據及外部 blockers 由 ACCEPTANCE 分開記錄。
+
+## P88–P96 1.x 相容擴充邊界
+
+依使用者選擇保留1.x公開入口與既有implementors；新Renderer capability為optional，
+呼叫端明確拒絕缺少能力，不用假的no-op／Canvas 3D替代。舊value／type exports與
+consumer編譯由獨立gate守護，不宣稱這等於完整nested-signature相容性認證。
+
+- **Assets／graphics：** Geometry只加optional UV1，舊UV0 layout保留；材質借用maps，
+  各map持有immutable UV selection／affine transform。glTF不改共用UV，不截八個skin
+  influences；CPU oracle、native color／alpha shadows使用同一正式資料。Shader hooks
+  沿既有固定WGSL／GLSL ABI，prepare檢查真device limits與active resources，不建Shader IR。
+- **Tiled：** Native bounded gzip／zlib與raw base64沿AssetLoader cancellation／budgets；
+  infinite sparse chunks、nested groups、repeat/parallax images、Scene-owned animation與
+  object templates接原TiledContent／ResourcePool。Display／collider edits同一交易，
+  pause與scope cleanup不另建clock/cache/physics。
+- **Navigation：** 新authored convex polygon surface是獨立真mesh profile，不把舊sampled
+  lattice改名。Partitioned graphs仍snapshot既有bakes，加explicit certified seams；
+  sparse projection/search與reconstruction/smoothing皆守共用scheduler work。Follower沿
+  capsule collision與真正special-link traversal，geometry revisions不可沿用舊route。
+- **Visibility／shadows：** 保留raw mutable-pose correctness與完整casters；只消除未變的
+  BVH refits／instance filtering／重複CPU工作。整atlas cache用完整tracked snapshots，
+  不用碰撞hash；native hooks預設dynamic，tracked為明示promise。Overlap／slope／point
+  seams接現有GPU／GL shadow pipeline，resize／loss/recovery退場舊cache。
+- **Settings／save：** SettingsManager組合既有preferences／InputContexts／SaveManager，
+  不建立第二套bindings格式或storage。Portable file先bounded read、migration、fresh
+  disposable candidate validation，再CAS；durablewrite與fresh Scene publication仍是
+  兩個transaction，invalid/import-conflict不污染live world。
+- **Deployment：** Starter是fresh archive獨立consumer；opt-in offline generator保存
+  complete versioned public tree、hash／MIME驗證、原CSP header、atomic install及上一代rollback。
+  不cache credentials/private responses，不force mixed-generation activation，
+  uninstall只清owned worker/cache，不清player saves／其他origin data，不修改official vendor。
+- **Evidence：** CI配置接actual site／muted native audio／production／fresh-pack gameplay；
+  hosted執行結果另記，不以YAML當PASS。Quality／CDP pressure與physical hardware分開；
+  RAF／CPU／nullable native-pass GPU time／memory分開，hang guard不是FPS承諾。
+  Offline worklet證據依真module/node lifecycle與manifest responses，不依漏訊號的page-network counts。
+
+實際驗收、failed-before／passed-after與日期見ACCEPTANCE；所有physical／audible／OS／
+Safari／driver限制保持具名，不由desktop automation或模擬profile解除。

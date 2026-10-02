@@ -306,3 +306,13 @@ P71–P74、P76–P87 的正式 runtime／consumer／工具／範例已接入既
 既定 non-goals 維持。Physical mobile／gamepad／OS IME／thermal／spoken AT／driver-reset
 仍須 owned 設備與安全授權；工具可取得的工作全部完成，不以模擬證據填補 physical PASS。
 OPM official vendor 維持 immutable，不能為 CSP／offline 改官方檔或新增私人 DSP patch。
+
+### 本輪交付狀態
+
+P88–P96 的可達正式實作已完成，依階段分開提交並保留 1.11.0；沒有 push／tag／publish。
+三引擎 native browser、完整 deployed site、native zero-gain audio、fresh installed
+2D／3D starter 的 gameplay／settings／offline update／rollback 已實際驗證；
+詳細 scopes、失敗前後與證據見 ACCEPTANCE 的 P88–P96 紀錄。
+品質 profiles 的 PASS 僅限明示 operator gate：high WebGPU 3D 未達 60 FPS，
+短期 memory trends 不認證無 leak，CDP pressure 不認證 physical low-tier hardware。
+前述實機／安全授權 blocker 保留；新 hosted CI job 僅完成設定，未冒稱本輪遠端已執行。
