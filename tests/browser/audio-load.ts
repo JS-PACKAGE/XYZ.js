@@ -371,6 +371,9 @@ try {
           referenceSource.offset.value = 0.25;
           referenceVolume = primary!.createGain();
           referenceDuck = primary!.createGain();
+          // A pristine parameter's cancelAndHold is a no-op. Anchor the initial
+          // constant so the first target has the mixer's native event history.
+          referenceDuck.gain.setValueAtTime(1, 0);
           referenceSource.connect(referenceVolume);
           referenceVolume.connect(referenceDuck);
           referenceDuck.connect(recorder, 0, 1);

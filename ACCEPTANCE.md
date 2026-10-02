@@ -1056,3 +1056,10 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - `Renderer.prepareGpuParticles` 改為 optional；Presented／Resilient wrappers 對缺失能力明示 `UnsupportedGraphicsError`，不把不支援的 emitter 登記為恢復資源。Throwaway actual-wrapper API smoke 已實際拒絕 preparation，隨後 legacy renderer 仍可提交一幀且不觸發 recovery。使用 legacy renderer／canvas stand-ins，不冒稱 native pixels；fixture已移除，證據 `.vite/p88-compat-smoke.json`。
 - 公開 gate 保留原v1.11 declarations產生的 **710個value／type exports**，維護中的v1.10 custom Renderer consumer已strict編譯成功。Snapshot區分value/type namespaces；並非710個runtime exports，也不是所有歷史nested signatures的完整認證。證據 `.vite/api-compatibility/report.json`。
 - Node **26.7.0**／pnpm **12.6.0** frozen install成功；當時整合tree的strict typecheck、122 files／994 tests、lint與API gate皆實際通過。這是本輪當時工具鏈證據，最終工具鏈及native gates另記，不把歷史117／967改寫。
+
+### P89 — release-surface CI gates
+
+- 新增獨立 `release-surfaces` job：Node26 frozen install、正式 site build、1.x API gate、owned Chromium／null audio sink、全 site、concurrent native audio、WebGL2 production teardown bound、fresh archive installed 2D／3D gameplay；失敗仍保留 artifacts。這是已配置的 CI，不宣稱新的 hosted run 已執行。
+- 本機正式部署 site **212 cases PASS**，54 HTML entries／45 examples；證據 `.vite/p88-p96-site-smoke/run-S5vqCB/results.json`。Native concurrent audio2最終兩頁reference差異皆為0，八contexts pause／resume／close及資源cleanup通過；`.vite/p88-p96-audio-native-reference-final/results.json`。最初reference缺少unity初始事件的原FAIL保留，經native scheduler before／after證據修正reference，不改engine／vendor、不放寬容差。
+- Fresh archive的兩個獨立安裝production starters已實際完成trusted input、checkpoint reload／continue、90秒natural results、restart與Destroy；八個native contexts均closed，settings／portable subgate亦通過。`.vite/starter-smoke-complete/results.json` 保留後續offline assertion的整體FAIL；完整offline／update gate於P96另記，不把subgate當成full PASS。
+- 另外將**只含P88／P89 staged source**的獨立tree實際build、fresh pack、兩starter獨立install／build／自然90秒gameplay，兩者均完整PASS；不依賴後續settings／offline實作。證據 `.vite/p89-independent-staged-starters-final/results.json`，對應P89的基礎CI helper；後續階段再擴充相同helper。

@@ -96,3 +96,55 @@ jobs:
             .vite/text-layout/
           include-hidden-files: true
           if-no-files-found: warn
+
+  release-surfaces:
+    name: Installed starters, deployed site, audio and production workload
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - name: Build the actual static deployment and release package
+        run: npx --yes pnpm@12.6.0 run build:site
+      - name: Preserve the supported 1.x source consumer contract
+        run: node scripts/check-api-compatibility.mjs
+      - name: Install one owned native browser
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Provide an inaudible native audio device
+        run: |
+          sudo apt-get install -y pulseaudio
+          pulseaudio --start --exit-idle-time=-1
+          pactl load-module module-null-sink sink_name=xyz_release_surfaces
+          pactl set-default-sink xyz_release_surfaces
+          pactl set-sink-volume xyz_release_surfaces 0%
+          pactl info
+      - name: Smoke every deployed site surface
+        run: npx --yes pnpm@12.6.0 run smoke:site
+      - name: Exercise muted native concurrent audio and owned teardown
+        if: success() || failure()
+        run: npx --yes pnpm@12.6.0 run audio:native-load --browser chromium --concurrency 2
+      - name: Measure the production workload with a host-scoped teardown hang guard
+        if: success() || failure()
+        # This is an explicit hosted-runner lifecycle bound, not a universal FPS guarantee.
+        run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --limit operations.teardownWallMs=5000
+      - name: Pack, install, deploy and play both independent starter games
+        if: success() || failure()
+        run: npx --yes pnpm@12.6.0 run smoke:starters
+      - name: Preserve release surface reports, screenshots and install/build logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-surfaces-node-26
+          path: |
+            .vite/site-smoke/
+            .vite/audio-native-load/
+            .vite/production-workloads/
+            .vite/starter-smoke/
+            .vite/api-compatibility/
+          include-hidden-files: true
+          if-no-files-found: warn
