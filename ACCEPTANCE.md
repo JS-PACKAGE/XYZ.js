@@ -1063,3 +1063,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - 本機正式部署 site **212 cases PASS**，54 HTML entries／45 examples；證據 `.vite/p88-p96-site-smoke/run-S5vqCB/results.json`。Native concurrent audio2最終兩頁reference差異皆為0，八contexts pause／resume／close及資源cleanup通過；`.vite/p88-p96-audio-native-reference-final/results.json`。最初reference缺少unity初始事件的原FAIL保留，經native scheduler before／after證據修正reference，不改engine／vendor、不放寬容差。
 - Fresh archive的兩個獨立安裝production starters已實際完成trusted input、checkpoint reload／continue、90秒natural results、restart與Destroy；八個native contexts均closed，settings／portable subgate亦通過。`.vite/starter-smoke-complete/results.json` 保留後續offline assertion的整體FAIL；完整offline／update gate於P96另記，不把subgate當成full PASS。
 - 另外將**只含P88／P89 staged source**的獨立tree實際build、fresh pack、兩starter獨立install／build／自然90秒gameplay，兩者均完整PASS；不依賴後續settings／offline實作。證據 `.vite/p89-independent-staged-starters-final/results.json`，對應P89的基礎CI helper；後續階段再擴充相同helper。
+
+### P90 — glTF 多 UV／per-map transforms／eight-influence skin
+
+- 正式loader／Geometry／PBR／native GPU與GL color及alpha-shadow paths支援UV0／UV1、十四map獨立affine transforms、兩組成對JOINTS／WEIGHTS且完整正規化八influences。舊UV0 layout及預設四influences保留；缺referenced UV、UV2+、不成對或第三組influences明示拒絕。Recipes使用同一有效profile，不另CPU bake UV。
+- Chromium153的WebGL2／WebGPU、Firefox155與managed WebKit26.6的WebGL2 rendered fixture gates皆PASS；十四maps對獨立baked reference一致，eighth joint初始及位移9的native／CPU meanRGBError均0。證據 `.vite/p88-p96-browser-final/{chromium,firefox,webkit}/results.json`。這是fixture correctness，不是任意第三方asset corpus或FPS認證。
+- P90-only source／shader／uniform ABI另由獨立staged tree實際strict build、minify及official vendor copy成功，269 JS files；phase-specific dist隨本階段提交，未混入P94 cache／shadow品質／native-resource gates。舊禁止合法UV1／獨立transform的incidental tests已刪，不重新釘死舊限制。

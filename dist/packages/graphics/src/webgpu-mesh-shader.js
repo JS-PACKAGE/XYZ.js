@@ -1,4 +1,4 @@
-import{MAX_POINT_LIGHTS as e,MAX_SPOT_LIGHTS as t,nativeMaterial3DLimits as n}from"../../../src/data/rendering.js";import{atlasWGSL as r}from"./shadow-shaders.js";import{sheenWGSL as i}from"./sheen-shaders.js";import{transmissionWGSL as a}from"./transmission-shaders.js";import{reflectionProbeWGSL as o}from"./reflection-probe-shaders.js";import{oitWeightWGSL as s}from"./oit-shaders.js";export const webgpuMeshShader=`
+import{MAX_POINT_LIGHTS as e,MAX_SPOT_LIGHTS as t,nativeMaterial3DLimits as n,materialTextureSlots as r}from"../../../src/data/rendering.js";import{atlasWGSL as i}from"./shadow-shaders.js";import{sheenWGSL as a}from"./sheen-shaders.js";import{transmissionWGSL as o}from"./transmission-shaders.js";import{reflectionProbeWGSL as s}from"./reflection-probe-shaders.js";import{oitWeightWGSL as c}from"./oit-shaders.js";export const webgpuMeshShader=`
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
 struct SpotLight {
   positionRange: vec4f, colorIntensity: vec4f, directionOuter: vec4f, inner: vec4f,
@@ -41,6 +41,7 @@ struct MeshUniforms {
   probePosition: vec4f,
   custom: array<vec4f, ${n.uniformFloats/4}>,
   fade: vec4f,
+  coordinates: array<vec4f, ${r.length*2}>,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -74,10 +75,10 @@ struct MeshUniforms {
 @group(2) @binding(22) var sheenColorSampler: sampler;
 @group(2) @binding(23) var sheenRoughnessSampler: sampler;
 @group(2) @binding(24) var opticalMaps: texture_2d_array<f32>;
-${r}
 ${i}
 ${a}
 ${o}
+${s}
 struct VertexInput {
   @location(0) position: vec3f,
   @location(1) normal: vec3f,
@@ -90,6 +91,9 @@ struct VertexInput {
   @location(8) vertexColor: vec4f,
   @location(9) joints: vec4u,
   @location(10) weights: vec4f,
+  @location(11) uv1: vec2f,
+  @location(12) joints1: vec4u,
+  @location(13) weights1: vec4f,
 };
 struct VertexOutput {
   @builtin(position) position: vec4f,
@@ -101,6 +105,7 @@ struct VertexOutput {
   @location(5) @interpolate(flat) local0: vec3f,
   @location(6) @interpolate(flat) local1: vec3f,
   @location(7) @interpolate(flat) local2: vec3f,
+  @location(8) uv1: vec2f,
 };
 struct XYZVertex { position: vec3f, normal: vec3f };
 /* XYZ_NATIVE_HOOKS */
@@ -115,7 +120,11 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skin = jointPalette[input.joints.x] * input.weights.x
     + jointPalette[input.joints.y] * input.weights.y
     + jointPalette[input.joints.z] * input.weights.z
-    + jointPalette[input.joints.w] * input.weights.w;
+    + jointPalette[input.joints.w] * input.weights.w
+    + jointPalette[input.joints1.x] * input.weights1.x
+    + jointPalette[input.joints1.y] * input.weights1.y
+    + jointPalette[input.joints1.z] * input.weights1.z
+    + jointPalette[input.joints1.w] * input.weights1.w;
   let skinCofactor = mat3x3f(cross(skin[1].xyz, skin[2].xyz),
     cross(skin[2].xyz, skin[0].xyz), cross(skin[0].xyz, skin[1].xyz));
   let skinSign = select(1.0, -1.0, dot(skin[0].xyz, skinCofactor[0]) < 0.0);
@@ -137,6 +146,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   output.position = projection * world;
   output.normal = normalMatrix * skinNormal;
   output.uv = input.uv;
+  output.uv1 = input.uv1;
   output.world = world.xyz;
   output.orientation = select(-1.0,1.0,determinant >= 0.0);
   output.color = vec4f(input.instanceColor, 1.0) * input.vertexColor;
@@ -221,9 +231,15 @@ fn clearcoatLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32) -> f32 {
   let geometry = (nv/(nv*(1.0-k)+k))*(nl/(nl*(1.0-k)+k));
   return distribution*geometry*nl/max(4.0*nv*nl,0.000001);
 }
+fn materialUV(input: VertexOutput, slot: u32) -> vec2f {
+  let a = mesh.coordinates[slot*2u];
+  let b = mesh.coordinates[slot*2u+1u];
+  let uv = select(input.uv,input.uv1,b.z>0.5);
+  return vec2f(a.x*uv.x+a.z*uv.y,a.y*uv.x+a.w*uv.y)+b.xy;
+}
 @fragment fn shadowFragment(input: VertexOutput, @builtin(front_facing) front: bool) {
   if (mesh.fade.x < 1.0 && f32((u32(input.position.x) + u32(input.position.y) * 3u) % 16u) / 16.0 >= mesh.fade.x) { discard; }
-  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, input.uv));
+  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, materialUV(input,0u)));
   let effectiveFront = front == (input.orientation > 0.0);
   let alpha = texel.a * mesh.tint.a * input.color.a;
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
@@ -243,7 +259,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   return mix(rgb, scene.fogColor.rgb * opacity, amount);
 }
 fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
-  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, input.uv));
+  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, materialUV(input,0u)));
   let visibility = directionalShadow(input.world);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
@@ -271,21 +287,21 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     return vec4f(applyFog(rgb,opacity,input.world),opacity);
   }
   var mr = vec4f(1.0);
-  if (mesh.maps.x > 0.5) { mr = textureSample(metallicRoughnessMap, metallicRoughnessSampler, input.uv); }
+  if (mesh.maps.x > 0.5) { mr = textureSample(metallicRoughnessMap, metallicRoughnessSampler, materialUV(input,1u)); }
   var mappedNormal = vec3f(0.0,0.0,1.0);
   var dx = vec3f(0.0); var dy = vec3f(0.0);
   var du = vec2f(0.0); var dv = vec2f(0.0);
   if (mesh.maps.y > 0.5) {
-    mappedNormal = textureSample(normalMap, normalSampler, input.uv).xyz * 2.0 - 1.0;
+    mappedNormal = textureSample(normalMap, normalSampler, materialUV(input,2u)).xyz * 2.0 - 1.0;
   }
   if (mesh.maps.y > 0.5 || (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)) {
     dx = dpdx(input.world); dy = -dpdy(input.world);
-    du = dpdx(input.uv); dv = -dpdy(input.uv);
+    du = dpdx(materialUV(input,2u)); dv = -dpdy(materialUV(input,2u));
   }
   var ao = 1.0;
-  if (mesh.maps.z > 0.5) { ao = textureSample(occlusionMap, occlusionSampler, input.uv).r; }
+  if (mesh.maps.z > 0.5) { ao = textureSample(occlusionMap, occlusionSampler, materialUV(input,3u)).r; }
   var emission = vec3f(1.0);
-  if (mesh.maps.w > 0.5) { emission = textureSample(emissiveMap, emissiveSampler, input.uv).rgb; }
+  if (mesh.maps.w > 0.5) { emission = textureSample(emissiveMap, emissiveSampler, materialUV(input,4u)).rgb; }
   let effectiveFront = front == (input.orientation > 0.0);
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
   if ((!effectiveFront && (mesh.settings.y < 0.5 || mesh.transmission.y > 0.0)) || (masked && sampledAlpha < mesh.settings.x)) { discard; }
@@ -293,15 +309,15 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
   let rough = clamp(mesh.material.z*select(1.0,mr.g,mesh.maps.x > 0.5),0.04,1.0);
   var specularWeight = mesh.specularParams.x;
-  if (mesh.specularParams.z > 0.5) { specularWeight *= textureSample(specularMap,specularSampler,input.uv).a; }
+  if (mesh.specularParams.z > 0.5) { specularWeight *= textureSample(specularMap,specularSampler,materialUV(input,5u)).a; }
   var specularTint = mesh.specularColor.rgb;
-  if (mesh.specularParams.w > 0.5) { specularTint *= decodeSRGB(textureSample(specularColorMap,specularColorSampler,input.uv).rgb); }
+  if (mesh.specularParams.w > 0.5) { specularTint *= decodeSRGB(textureSample(specularColorMap,specularColorSampler,materialUV(input,6u)).rgb); }
   let dielectricF0 = min(specularTint*mesh.specularColor.w,vec3f(1.0))*specularWeight;
   var coatWeight = mesh.clearcoat.x;
   var coatRoughness = mesh.clearcoat.y;
   if (coatWeight > 0.0) {
-    if (mesh.clearcoatMaps.x > 0.5) { coatWeight *= textureSample(clearcoatMap,clearcoatSampler,input.uv).r; }
-    if (mesh.clearcoatMaps.y > 0.5) { coatRoughness *= textureSample(clearcoatRoughnessMap,clearcoatRoughnessSampler,input.uv).g; }
+    if (mesh.clearcoatMaps.x > 0.5) { coatWeight *= textureSample(clearcoatMap,clearcoatSampler,materialUV(input,7u)).r; }
+    if (mesh.clearcoatMaps.y > 0.5) { coatRoughness *= textureSample(clearcoatRoughnessMap,clearcoatRoughnessSampler,materialUV(input,8u)).g; }
   }
   coatRoughness = clamp(coatRoughness,0.04,1.0);
   var n = safeNormal(input.normal)*select(-1.0,1.0,effectiveFront);
@@ -317,22 +333,28 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       n = safeNormal(frame*vec3f(mappedNormal.xy*mesh.material.w,mappedNormal.z));
     }
     if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5) {
-      let sampled = textureSample(clearcoatNormalMap,clearcoatNormalSampler,input.uv).xyz*2.0-1.0;
-      nc = safeNormal(frame*vec3f(sampled.xy*mesh.clearcoat.z,sampled.z));
+      let coatUV = materialUV(input,9u);
+      let coatDu = dpdx(coatUV); let coatDv = -dpdy(coatUV);
+      let coatTangent = perpendicularY*coatDu.x + perpendicularX*coatDv.x;
+      let coatBitangent = perpendicularY*coatDu.y + perpendicularX*coatDv.y;
+      let coatScale = inverseSqrt(max(max(dot(coatTangent,coatTangent),dot(coatBitangent,coatBitangent)),0.000001));
+      let coatFrame = mat3x3f(coatTangent*coatScale,coatBitangent*coatScale,nc);
+      let sampled = textureSample(clearcoatNormalMap,clearcoatNormalSampler,coatUV).xyz*2.0-1.0;
+      nc = safeNormal(coatFrame*vec3f(sampled.xy*mesh.clearcoat.z,sampled.z));
     }
   }
   let v = safeNormal(scene.camera.xyz-input.world);
   var transmission = 0.0;
   var thickness = mesh.transmission.y;
   if (mesh.transmission.x > 0.0) {
-    transmission = mesh.transmission.x*opticalSample(input.uv,mesh.transmissionMapSettings,0).r;
-    thickness *= opticalSample(input.uv,mesh.thicknessMapSettings,1).g;
+    transmission = mesh.transmission.x*opticalSample(materialUV(input,12u),mesh.transmissionMapSettings,0).r;
+    thickness *= opticalSample(materialUV(input,13u),mesh.thicknessMapSettings,1).g;
   }
   var sheenTint = mesh.sheen.rgb;
   var sheenRoughness = mesh.sheen.w;
   if (any(mesh.sheen.rgb > vec3f(0.0))) {
-    if (mesh.sheenMaps.x > 0.5) { sheenTint *= decodeSRGB(textureSample(sheenColorMap,sheenColorSampler,input.uv).rgb); }
-    if (mesh.sheenMaps.y > 0.5) { sheenRoughness *= textureSample(sheenRoughnessMap,sheenRoughnessSampler,input.uv).a; }
+    if (mesh.sheenMaps.x > 0.5) { sheenTint *= decodeSRGB(textureSample(sheenColorMap,sheenColorSampler,materialUV(input,10u)).rgb); }
+    if (mesh.sheenMaps.y > 0.5) { sheenRoughness *= textureSample(sheenRoughnessMap,sheenRoughnessSampler,materialUV(input,11u)).a; }
   }
   sheenRoughness = clamp(sheenRoughness,0.04,1.0);
   let sheenMax = max(max(sheenTint.r,sheenTint.g),sheenTint.b);
@@ -405,7 +427,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),opacity);
 }
-${s}
+${c}
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   return shadeMesh(input,front) * mesh.fade.x;
 }

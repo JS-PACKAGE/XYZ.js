@@ -2,6 +2,8 @@ export interface GeometryData {
     positions: ArrayLike<number>;
     normals: ArrayLike<number>;
     uvs: ArrayLike<number>;
+    /** Optional TEXCOORD_1; UV0 remains in the legacy interleaved vertex stream. */
+    uvs1?: ArrayLike<number>;
     indices: ArrayLike<number>;
     /** Optional linear RGB or RGBA per vertex, multiplied into the base color. */
     colors?: ArrayLike<number>;
@@ -11,6 +13,8 @@ export declare class Geometry {
     /** xyz, normal xyz, uv, interleaved at a stride of eight floats. */
     readonly vertices: Float32Array;
     readonly indices: Uint32Array;
+    /** Two floats per vertex; edit in place then call markUpdated, like vertices. */
+    readonly uvs1: Float32Array | undefined;
     version: number;
     private vertexColors;
     /**

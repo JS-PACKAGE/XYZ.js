@@ -87,7 +87,7 @@ export type { AnimationBindTransform, AnimationRetargetMapping, AnimationRetarge
 export { SkinnedMesh } from './skinned-mesh.js';
 export type { Camera3D } from './orthographic-camera.js';
 export type { RaycastHit } from './raycaster.js';
-export type { PBRMaterialOptions, MaterialAlphaMode, TextureSamplerOptions, } from './pbr-material.js';
+export type { PBRMaterialOptions, MaterialAlphaMode, TextureSamplerOptions, MaterialTextureSlot, TextureCoordinateOptions, TextureCoordinates, } from './pbr-material.js';
 export type { PointLightOptions, SpotLightOptions } from './lights.js';
 export type { ShadowSettingsOptions, PostProcessingSettingsOptions, ToneMapping, FogMode, FogSettingsOptions, } from './render-settings.js';
 export type { InstancedMeshOptions } from './instanced-mesh.js';

@@ -80,6 +80,7 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly postUniforms;
     private readonly lightingData;
     private readonly tintData;
+    private readonly materialUVData;
     private readonly meshInstances;
     private readonly visibleMeshInstances;
     private readonly meshSkins;
@@ -171,6 +172,7 @@ export declare class WebGL2Renderer implements Renderer {
     private drawSky;
     /** Uploads or removes the per-vertex colors; the geometry's VAO must be bound. */
     private syncVertexColors;
+    private syncVertexUV;
     private cacheGeometry;
     private releaseUnused;
     private createBuffer;

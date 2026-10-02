@@ -60,16 +60,15 @@ describe('headless asset recipe compatibility', () => {
     delete model.meshes[0].primitives[0].attributes.TEXCOORD_0;
     expect(() => preflight(model)).toThrow('TEXCOORD_0');
   });
-  it('rejects UV1 and distinct transforms across slots sharing the engine UV stream', () => {
+  it('requires the UV stream selected by a per-slot transform override', () => {
     const model = document();
-    model.materials[0].pbrMetallicRoughness.baseColorTexture.texCoord = 1;
-    expect(() => preflight(model)).toThrow('TEXCOORD_0');
-    delete model.materials[0].pbrMetallicRoughness.baseColorTexture.texCoord;
-    model.materials[0].normalTexture = {
-      index: 0,
-      extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
+    model.materials[0].pbrMetallicRoughness.baseColorTexture.extensions = {
+      KHR_texture_transform: { texCoord: 1, offset: [0.5, 0] },
     };
-    expect(() => preflight(model)).toThrow('one UV transform');
+    expect(() => preflight(model)).toThrow('TEXCOORD_1');
+    model.meshes[0].primitives[0].attributes.TEXCOORD_1 = 1;
+    model.materials[0].normalTexture = { index: 0, texCoord: 2 };
+    expect(() => preflight(model)).toThrow('texture texCoord');
   });
   it('rejects required external codecs and a Basis texture without plain fallback', () => {
     const model = document();

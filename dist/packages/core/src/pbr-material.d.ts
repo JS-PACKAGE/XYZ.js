@@ -10,7 +10,21 @@ export interface TextureSamplerOptions {
     addressModeU?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
     addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
 }
+export type MaterialTextureSlot = 'texture' | 'metallicRoughness' | 'normal' | 'occlusion' | 'emissive' | 'specular' | 'specularColor' | 'clearcoat' | 'clearcoatRoughness' | 'clearcoatNormal' | 'sheenColor' | 'sheenRoughness' | 'transmission' | 'thickness';
+export interface TextureCoordinateOptions {
+    texCoord?: 0 | 1;
+    offset?: readonly [number, number];
+    rotation?: number;
+    scale?: readonly [number, number];
+}
+export interface TextureCoordinates {
+    readonly texCoord: 0 | 1;
+    /** [a,b,c,d,tx,ty]: u'=a*u+c*v+tx; v'=b*u+d*v+ty. */
+    readonly transform: readonly [number, number, number, number, number, number];
+}
 export interface PBRMaterialOptions extends TextureMaterialOptions {
+    /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
+    textureCoordinates?: Partial<Record<MaterialTextureSlot, TextureCoordinateOptions>>;
     metallic?: number;
     roughness?: number;
     emissive?: [number, number, number];
@@ -61,6 +75,7 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
 }
 /** Metallic-roughness material; all texture slots borrow, never own, their Texture. */
 export declare class PBRMaterial extends TextureMaterial {
+    readonly textureCoordinates: Readonly<Partial<Record<MaterialTextureSlot, TextureCoordinates>>>;
     readonly metallic: number;
     readonly roughness: number;
     readonly emissive: [number, number, number];
@@ -101,7 +116,7 @@ export declare class PBRMaterial extends TextureMaterial {
     readonly attenuationColor: [number, number, number];
     /** Linear texture: roughness in G, metallic in B. */
     readonly metallicRoughnessTexture: Texture | undefined;
-    /** Linear tangent-space normal texture, using UV0. */
+    /** Linear tangent-space normal texture, with its own UV selection and transform. */
     readonly normalTexture: Texture | undefined;
     readonly normalScale: number;
     /** Linear occlusion in R; affects indirect illumination only. */

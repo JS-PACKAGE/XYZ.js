@@ -6,6 +6,9 @@ export declare const nativeMaterial3DLimits: Readonly<{
     textures: 4;
     sourceCharacters: 65536;
 }>;
+/** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
+export declare const materialTextureSlots: readonly ["texture", "metallicRoughness", "normal", "occlusion", "emissive", "specular", "specularColor", "clearcoat", "clearcoatRoughness", "clearcoatNormal", "sheenColor", "sheenRoughness", "transmission", "thickness"];
+export declare const MATERIAL_UV_FLOAT_COUNT: number;
 /** Shared vec4-aligned light block used by both graphics backends. Offsets are floats. */
 export declare const POINT_LIGHT_OFFSET = 12;
 export declare const POINT_LIGHT_STRIDE = 8;

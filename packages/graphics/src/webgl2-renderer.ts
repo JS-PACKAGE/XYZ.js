@@ -68,7 +68,9 @@ import {
   REFLECTION_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  MATERIAL_UV_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
+import { fillMaterialUV } from './material-uv.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   GraphicsError,
@@ -140,6 +142,7 @@ interface CachedGeometry {
   /** Per-vertex RGB buffer; undefined when the geometry has none (attribute 8 is constant white). */
   colors: WebGLBuffer | undefined;
   colorBytes: number;
+  uvs1: WebGLBuffer | undefined;
   seen: number;
   version: number;
 }
@@ -402,6 +405,7 @@ export class WebGL2Renderer implements Renderer {
     {};
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly tintData = new Float32Array(4);
+  private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
   private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
   private readonly visibleMeshInstances = new Map<
     InstancedMesh,
@@ -699,6 +703,10 @@ export class WebGL2Renderer implements Renderer {
         'meshFade',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
+      this.meshUniforms['materialCoordinates[0]'] = gl.getUniformLocation(
+        this.meshProgram,
+        'materialCoordinates[0]',
+      );
       for (const name of [
         'viewProjection',
         'model',
@@ -711,6 +719,7 @@ export class WebGL2Renderer implements Renderer {
         'doubleSided',
         'alphaMode',
         'meshFade',
+        'materialCoordinates[0]',
       ])
         this.shadowUniforms[name] = gl.getUniformLocation(
           this.shadowProgram,
@@ -1761,6 +1770,8 @@ export class WebGL2Renderer implements Renderer {
           uniforms = this.meshUniforms;
           gl.useProgram(this.meshProgram!);
         }
+        fillMaterialUV(material, object.renderGeometry, this.materialUVData);
+        gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
         gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
         fillLightingData(
           scene,
@@ -2148,6 +2159,7 @@ export class WebGL2Renderer implements Renderer {
     // Generic attribute values are context state, so the white default is set on every draw.
     gl.vertexAttrib3f(7, 1, 1, 1);
     gl.vertexAttrib4f(8, 1, 1, 1, 1);
+    gl.vertexAttrib2f(11, 0, 0);
     const skin = mesh instanceof SkinnedMesh ? this.cacheSkin(mesh) : undefined;
     gl.uniform1i(uniforms.skinned, skin ? 1 : 0);
     if (skin) {
@@ -2157,15 +2169,47 @@ export class WebGL2Renderer implements Renderer {
       gl.uniform1i(uniforms.jointPalette, 16);
       gl.bindBuffer(gl.ARRAY_BUFFER, skin.indices);
       gl.enableVertexAttribArray(9);
-      gl.vertexAttribIPointer(9, 4, gl.UNSIGNED_INT, 16, 0);
+      gl.vertexAttribIPointer(
+        9,
+        4,
+        gl.UNSIGNED_INT,
+        mesh instanceof SkinnedMesh ? mesh.influencesPerVertex * 4 : 16,
+        0,
+      );
       gl.vertexAttribDivisor(9, 0);
       gl.bindBuffer(gl.ARRAY_BUFFER, skin.weights);
       gl.enableVertexAttribArray(10);
-      gl.vertexAttribPointer(10, 4, gl.FLOAT, false, 16, 0);
+      gl.vertexAttribPointer(
+        10,
+        4,
+        gl.FLOAT,
+        false,
+        mesh instanceof SkinnedMesh ? mesh.influencesPerVertex * 4 : 16,
+        0,
+      );
       gl.vertexAttribDivisor(10, 0);
+      if (mesh instanceof SkinnedMesh && mesh.influencesPerVertex === 8) {
+        gl.bindBuffer(gl.ARRAY_BUFFER, skin.indices);
+        gl.enableVertexAttribArray(12);
+        gl.vertexAttribIPointer(12, 4, gl.UNSIGNED_INT, 32, 16);
+        gl.vertexAttribDivisor(12, 0);
+        gl.bindBuffer(gl.ARRAY_BUFFER, skin.weights);
+        gl.enableVertexAttribArray(13);
+        gl.vertexAttribPointer(13, 4, gl.FLOAT, false, 32, 16);
+        gl.vertexAttribDivisor(13, 0);
+      } else {
+        gl.disableVertexAttribArray(12);
+        gl.disableVertexAttribArray(13);
+        gl.vertexAttribI4ui(12, 0, 0, 0, 0);
+        gl.vertexAttrib4f(13, 0, 0, 0, 0);
+      }
     } else {
       gl.disableVertexAttribArray(9);
       gl.disableVertexAttribArray(10);
+      gl.disableVertexAttribArray(12);
+      gl.disableVertexAttribArray(13);
+      gl.vertexAttribI4ui(12, 0, 0, 0, 0);
+      gl.vertexAttrib4f(13, 0, 0, 0, 0);
       gl.vertexAttribI4ui(9, 0, 0, 0, 0);
       gl.vertexAttrib4f(10, 1, 0, 0, 0);
       // Samplers require a complete float-compatible texture even in an untaken branch.
@@ -2445,6 +2489,8 @@ export class WebGL2Renderer implements Renderer {
           uniforms = this.shadowUniforms;
           gl.useProgram(this.shadowProgram!);
         }
+        fillMaterialUV(material, object.renderGeometry, this.materialUVData);
+        gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
         gl.uniformMatrix4fv(
           uniforms.viewProjection,
           false,
@@ -3067,6 +3113,24 @@ export class WebGL2Renderer implements Renderer {
     gl.vertexAttribPointer(8, 4, gl.FLOAT, false, 16, 0);
   }
 
+  private syncVertexUV(entry: CachedGeometry, geometry: Geometry): void {
+    const gl = this.gl!,
+      uv = geometry.uvs1;
+    if (!uv) {
+      if (entry.uvs1) gl.deleteBuffer(entry.uvs1);
+      entry.uvs1 = undefined;
+      gl.disableVertexAttribArray(11);
+    } else {
+      entry.uvs1 ??= this.createBuffer(gl);
+      gl.bindBuffer(gl.ARRAY_BUFFER, entry.uvs1);
+      gl.bufferData(gl.ARRAY_BUFFER, uv, gl.DYNAMIC_DRAW);
+      this.stats.upload(uv.byteLength);
+      gl.enableVertexAttribArray(11);
+      gl.vertexAttribPointer(11, 2, gl.FLOAT, false, 8, 0);
+      gl.vertexAttribDivisor(11, 0);
+    }
+  }
+
   private cacheGeometry(geometry: Geometry): CachedGeometry {
     const gl = this.gl!;
     const existing = this.geometries.get(geometry);
@@ -3074,7 +3138,8 @@ export class WebGL2Renderer implements Renderer {
       existing.allocation.resize(
         geometry.vertices.byteLength +
           geometry.indices.byteLength +
-          (geometry.colors?.byteLength ?? 0),
+          (geometry.colors?.byteLength ?? 0) +
+          (geometry.uvs1?.byteLength ?? 0),
       );
       if (existing.version !== geometry.version) {
         gl.bindVertexArray(existing.vao);
@@ -3082,6 +3147,7 @@ export class WebGL2Renderer implements Renderer {
         gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.vertices);
         this.stats.upload(geometry.vertices.byteLength);
         this.syncVertexColors(existing, geometry);
+        this.syncVertexUV(existing, geometry);
         existing.version = geometry.version;
       }
       return existing;
@@ -3089,7 +3155,8 @@ export class WebGL2Renderer implements Renderer {
     const allocation = this.residency.geometry.allocate(
       geometry.vertices.byteLength +
         geometry.indices.byteLength +
-        (geometry.colors?.byteLength ?? 0),
+        (geometry.colors?.byteLength ?? 0) +
+        (geometry.uvs1?.byteLength ?? 0),
       () => {
         const cached = this.geometries.get(geometry);
         if (!cached) return;
@@ -3097,6 +3164,7 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteBuffer(cached.vertex);
         gl.deleteBuffer(cached.index);
         if (cached.colors) gl.deleteBuffer(cached.colors);
+        if (cached.uvs1) gl.deleteBuffer(cached.uvs1);
         this.geometries.delete(geometry);
       },
     );
@@ -3128,13 +3196,16 @@ export class WebGL2Renderer implements Renderer {
         index,
         colors: undefined,
         colorBytes: 0,
+        uvs1: undefined,
         seen: this.frame,
         version: geometry.version,
       };
       try {
         this.syncVertexColors(entry, geometry);
+        this.syncVertexUV(entry, geometry);
       } catch (error) {
         if (entry.colors) gl.deleteBuffer(entry.colors);
+        if (entry.uvs1) gl.deleteBuffer(entry.uvs1);
         throw error;
       }
       gl.bindVertexArray(null);

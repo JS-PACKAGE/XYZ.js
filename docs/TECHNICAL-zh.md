@@ -8,16 +8,16 @@
 
 ## 目前支援矩陣
 
-| 項目                  | 目前 profile／限制                                                                                                                                                                                                                                                                                                                                                 |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| WebGPU／WebGL2        | 2D sprites／isolation／masks／blends／native materials-filters-meshes；3D lighting／PBR／instancing／shadows／post／weighted transparency。WebGPU 需安全來源，WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                    |
-| Canvas2D              | Native 2D paint／isolation／masks／basic blends／offscreen；無可見 3D／Mesh2D、Material2D、native Filter2D、effects2D／effects3D。明確拒絕，不靜默切 backend。                                                                                                                                                                                                     |
-| Physics2D（P76）      | Sleep、kinematic、bounded relative 平移／旋轉 CCD、凸形 character sweep／平台 carry；五種 joints、static concave 分割／thick chains。Sensor 仍 discrete，無 dynamic concave／compound／deformation CCD。                                                                                                                                                           |
-| glTF／KTX2（P32–P42） | UV0 triangles／四 influences skin／morph／COLOR_0；拒 COLOR_1。Meshopt 內建、Draco／Basis 外部提供。預設 KTX2 為 base RGBA8；native opt-in 保留支援 GPU payload／supplied mips（第 30、42 節）。                                                                                                                                                                   |
-| Animation（P34–P42）  | Ordered layers／fades／crossfades／flat state machine／tween／timeline、masks／additive references、1D／triangulated 2D blend trees／two-bone IK。Native GPU skinning／lazy exact CPU queries／保守 animated bounds 已限定 P42 驗收。                                                                                                                              |
-| Loss recovery         | 預設 `recoverGraphics:true` 重建同 GPU／GL backend；舊 renderer-owned targets／snapshots 失效，失敗或關閉 recovery 為 fatal。P42 實跑 Chromium WEBGL_lose_context 與 fixture-only GPUDevice.destroy；非 driver reset／跨瀏覽器認證。                                                                                                                               |
-| P40（限定驗收）       | Adjacent 2D batching／full render metrics／deep browser regression 已在 Canvas2D／WebGL2／WebGPU Chromium 153 通過；CI 已定義、hosted CI 未執行。無新 throughput／cross-browser 認證聲明。                                                                                                                                                                         |
-| P41／P42 限定驗收     | P41 UI／contexts／residency／warmup／typed content 通過三 backend built-root Chromium regression。P42 native skin／animated bounds／mips 與完整 Beacon Run 通過 forced GPU／GL 路徑，primitive 3D physics／dynamics、authored navigation、animation masks／additive／blend trees／IK 已整合。Touch injection／模擬 gamepad 非實體裝置認證，實際證據見 ACCEPTANCE。 |
+| 項目                       | 目前 profile／限制                                                                                                                                                                                                                                                                                                                                                 |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| WebGPU／WebGL2             | 2D sprites／isolation／masks／blends／native materials-filters-meshes；3D lighting／PBR／instancing／shadows／post／weighted transparency。WebGPU 需安全來源，WebGL2 HDR／weighted 需 float color attachments。                                                                                                                                                    |
+| Canvas2D                   | Native 2D paint／isolation／masks／basic blends／offscreen；無可見 3D／Mesh2D、Material2D、native Filter2D、effects2D／effects3D。明確拒絕，不靜默切 backend。                                                                                                                                                                                                     |
+| Physics2D（P76）           | Sleep、kinematic、bounded relative 平移／旋轉 CCD、凸形 character sweep／平台 carry；五種 joints、static concave 分割／thick chains。Sensor 仍 discrete，無 dynamic concave／compound／deformation CCD。                                                                                                                                                           |
+| glTF／KTX2（P32–P42／P90） | UV0／UV1 triangles、四／八 influences skin、morph、COLOR_0；拒 COLOR_1。Meshopt 內建、Draco／Basis 外部提供。預設 KTX2 為 base RGBA8；native opt-in 保留支援 GPU payload／supplied mips（第30、42節）。                                                                                                                                                            |
+| Animation（P34–P42）       | Ordered layers／fades／crossfades／flat state machine／tween／timeline、masks／additive references、1D／triangulated 2D blend trees／two-bone IK。Native GPU skinning／lazy exact CPU queries／保守 animated bounds 已限定 P42 驗收。                                                                                                                              |
+| Loss recovery              | 預設 `recoverGraphics:true` 重建同 GPU／GL backend；舊 renderer-owned targets／snapshots 失效，失敗或關閉 recovery 為 fatal。P42 實跑 Chromium WEBGL_lose_context 與 fixture-only GPUDevice.destroy；非 driver reset／跨瀏覽器認證。                                                                                                                               |
+| P40（限定驗收）            | Adjacent 2D batching／full render metrics／deep browser regression 已在 Canvas2D／WebGL2／WebGPU Chromium 153 通過；CI 已定義、hosted CI 未執行。無新 throughput／cross-browser 認證聲明。                                                                                                                                                                         |
+| P41／P42 限定驗收          | P41 UI／contexts／residency／warmup／typed content 通過三 backend built-root Chromium regression。P42 native skin／animated bounds／mips 與完整 Beacon Run 通過 forced GPU／GL 路徑，primitive 3D physics／dynamics、authored navigation、animation masks／additive／blend trees／IK 已整合。Touch injection／模擬 gamepad 非實體裝置認證，實際證據見 ACCEPTANCE。 |
 
 舊階段排除項描述當時的 bounded profile；上列明確批准項擴充其邊界，其餘 non-goals 保持不變。
 
@@ -337,9 +337,9 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 ### glTF、動畫與幾何更新
 
-- GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB 2、triangle primitives、normalized／strided／sparse accessors、node TRS 與可分解 affine TRS matrices、metallic-roughness 材質、UV0 textures，以及最多四個 influences 的 skins；模型引用的 buffers／images 只能從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得，data:／blob: 一律允許，其他 origin 會在發出請求前以 AssetError 拒絕；缺 normals 時產生，缺 UV 時填零。
-- 非 triangle topology、`COLOR_1`、非 UV0 texture、額外 skin influences、shear matrix、animated matrix node、POSITION／NORMAL／TANGENT 以外的 morph attributes 明確拒絕；supported set 外的 required extension 拒絕。`COLOR_0` 現支援 float 與 normalized unsigned-byte／unsigned-short VEC3／VEC4、含 alpha（第 34 節）。Morph 支援 POSITION／NORMAL deltas（float／normalized integer／sparse、缺項為零）、mesh／node weights 與 STEP／LINEAR／CUBICSPLINE channels；TANGENT deltas 因未使用而忽略。同一 mesh 所有 primitives 的 target 數須一致、node weights 需匹配。影像解碼限制仍見第 18 節。
-- 已實作 extensions：`KHR_mesh_quantization`（整數／normalized accessors 已還原為 float）；`KHR_materials_emissive_strength`（乘上 `emissiveFactor`，負值拒絕）；`KHR_materials_unlit`，以既有 PBR 近似：黑色 base color、roughness 1、base color 導向 emission（alpha 仍取自 base color；dielectric F0 的 image-based specular 仍有微弱可見）；`KHR_texture_transform`，於 CPU 對每個 primitive 烘進 UV0（`uv' = offset + R·S·uv`，採規格的旋轉矩陣），因此同一材質的所有 texture slot 必須使用相同 transform，否則拒絕，transform 自帶的 `texCoord` 非 0 也拒絕；`KHR_lights_punctual`，以 `asset.lights`（`point: PointLight[]`、`spot: SpotLight[]`、`directional: {direction,color,intensity}[]`）提供，載入時依各 node 的 world transform 計算一次，強度為 glTF 原始光度值，缺少 `range` 視為 0（無限）。Lights 不會自動加入 Scene、不跟隨 node 動畫，directional 是否對應單一 `scene.directionalLight` 由你決定。Mipmapped sampler minification filters（9984–9987）被接受並降為對應的 nearest／linear，因為不會產生 mipmaps。其他 optional extensions 使用 core fallback 忽略。僅以合成模型的 unit tests 驗證，未跑第三方模型集。
+- GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB2、triangle primitives、normalized／strided／sparse accessors、node TRS與可分解 affine TRS matrices、metallic-roughness 材質、UV0／UV1 textures、四／八 influences skins。引用的 buffers／images 只從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得；data:／blob: 一律允許，其他 origin 在請求前以 AssetError 拒絕。缺 normals 時產生；缺 referenced UV stream 明示拒絕，untextured geometry 可保留 zero UV0。
+- 非 triangle topology、`COLOR_1`、UV2+、超過兩組成對 skin influences、shear matrix、animated matrix node、POSITION／NORMAL／TANGENT 以外的 morph attributes 明確拒絕；supported set 外 required extension 拒絕。`COLOR_0` 支援 float與normalized unsigned-byte／unsigned-short VEC3／VEC4、含alpha（第34節）。Morph 支援 POSITION／NORMAL deltas（float／normalized integer／sparse、缺項零）、mesh／node weights與STEP／LINEAR／CUBICSPLINE channels；未使用的TANGENT deltas忽略。同一mesh primitives的target數須一致、node weights需匹配。影像解碼限制仍見第18節。
+- 已實作 extensions：`KHR_mesh_quantization`（整數／normalized accessors 已還原為 float）；`KHR_materials_emissive_strength`（乘上 `emissiveFactor`，負值拒絕）；`KHR_materials_unlit`，以既有 PBR 近似：黑色 base color、roughness1、base color 導向 emission（alpha 仍取 base color，dielectric F0 的 image-based specular 仍微弱可見）；`KHR_texture_transform` 每個 map 獨立保留 `uv' = offset + R·S·uv`，支援 UV0／UV1 與 extension 的 `texCoord` override，不要求 shared transform，UV2+拒絕。`KHR_lights_punctual` 以 `asset.lights`（`point: PointLight[]`／`spot: SpotLight[]`／`directional: {direction,color,intensity}[]`）提供，載入時依各 node world transform 計算一次，保留 glTF 原始光度值，缺 `range` 視為0（無限）。Lights 不自動加入 Scene／跟隨 node 動畫，directional 是否對應 `scene.directionalLight` 由 caller 決定。Mipmapped minification filters9984–9987接受並降為對應 nearest／linear，不產生 mipmaps。其他 optional extensions 使用 core fallback。原 unit 證據使用合成模型；P90另有 native GPU／GL 各map reference與八influences fixture，不宣稱第三方模型集認證。
 - P39 另支援 required `KHR_materials_ior`、`KHR_materials_specular`、`KHR_materials_clearcoat`、`KHR_materials_sheen`、`KHR_materials_transmission`、`KHR_materials_volume`；材質契約與 raster 近似見第 37 節。
 - P32 加入內建 `EXT_meshopt_compression`，透過 `dracoDecoder` 有條件支援 `KHR_draco_mesh_compression`、透過 `ktx2Transcoder` 有條件支援 `KHR_texture_basisu`，fallback 詳見第 30 節。提供 callback 不等於引擎內建 codec，也不保證外部 decoder 的品質／速度／記憶體。
 - src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、每 mesh morph targets 64、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
@@ -351,7 +351,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 ### PBR、光源、陰影、HDR 與 Instancing
 
-- PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space UV0（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設 0／0.5，emissive 為零。
+- PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space、使用該 map 獨立 transform 後的 UV0／UV1 derivatives（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設0／0.5，emissive 為零。
 - alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 預設 OPAQUE／false。PBR 以 alphaMode 為準，即使 opacity 小於一也不改分類。一般 TextureMaterial 在 opacity 小於一或明確 `transparent: true`（貼圖／頂點 alpha）時進透明 pass。預設 sorted 在 opaque／MASK 後按 bounding sphere 中心距離由遠到近，等距穩定、重用排序儲存；穿插表面仍可能錯誤，可選 weighted 近似。
 - Scene.pointLights／spotLights 接受可變 PointLight／SpotLight pools；range=0 無限，spot angles 為弧度。P84 以 bounded selection 取代原八燈 Scene 上限，見第59節；shadow atlas 限制獨立。
 - `scene.shadows` 預設 disabled；mapSize=1024、extent=10、near=0.1、far=50、bias=0.002／target 保留原固定 directional camera。Mesh.castShadow／receiveShadow 預設 true。P37 已加入 point／spot shadows 與 2–4 directional cascades，共用 bounded depth atlas／3×3 PCF；光源 flags／device dimensions 見第 35 節。
@@ -703,8 +703,8 @@ Diffuse 能量以 RGB dielectric reflectance 的最大值扣除，不產生互�
 
 GLTFLoader 接受 required `KHR_materials_ior`／`KHR_materials_specular`，
 包含兩個貼圖 slots 與 samplers；不可與 `KHR_materials_unlit` 共存。
-所有 material textures 仍須使用 UV0、共享相同的 baked `KHR_texture_transform`，
-不相容的 transforms 明確拒絕。Environment prefilter／解析 split-sum BRDF 仍是
+各 material map 可獨立選 UV0／UV1及 affine `KHR_texture_transform`，不要求 shared
+transform。Environment prefilter／解析 split-sum BRDF 仍是
 既有近似，沒有宣稱 reference path tracer 精度。規格見
 [IOR](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
 與 [specular](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular)。
@@ -720,11 +720,11 @@ linear R 乘強度，`clearcoatRoughnessTexture` 以 linear G 乘粗糙度。
 固定 IOR 1.5 的 microfacet layer 在 base 上反射 directional／point／spot／environment
 lighting，包含 metallic 表面；view-normal Fresnel 同時衰減底層 lighting **與 emission**。
 強度 0 跳過 layer；roughness 的數值下限與 base BRDF 相同為 0.04。
-這是無限薄 coating，不做 refraction 或層間 scattering。獨立法線沿用 UV0 derivative
-tangent frame，沒有匯入 MikkTSpace tangents。
+這是無限薄 coating，不做 refraction 或層間 scattering。獨立法線使用該 map 的
+transformed UV0／UV1 derivative tangent frame，不匯入 MikkTSpace tangents。
 
 GLTFLoader 接受 required `KHR_materials_clearcoat`、factors、三個 maps、normal scale
-與 samplers，沿用 shared-transform 限制，與 unlit 共存會拒絕。
+與 samplers，各 map 獨立 UV0／UV1 transform；與 unlit 共存會拒絕。
 Layering 採用 [clearcoat 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)
 中的 non-normative simple Fresnel model；環境光仍採既有解析 split-sum 近似。
 
@@ -780,7 +780,7 @@ WebGL2 需要 `EXT_color_buffer_float`，缺少 HDR 支援時明確拒絕，不�
 材質加上 scene 仍符合兩 backend 最低 16 sampled textures 限制。
 
 GLTFLoader 支援 required transmission／volume extensions、factors、maps 與
-samplers，沿用 UV0／shared-transform 限制；volume 必須搭配 transmission，
+samplers，各 map 獨立 UV0／UV1 transform；volume 必須搭配 transmission，
 unlit 共存會拒絕。Alpha mode 保持獨立。規格見
 [transmission](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
 與 [volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)。
@@ -1146,3 +1146,28 @@ Reduced motion gate requested／publication-time Game transitions，安全完成
 遷移時保留舊 save fixtures 與代表性可玩流程。只有實際執行的 final scenario
 可寫入 [Acceptance](../ACCEPTANCE.md)；實體硬體、Safari、spoken output／輔具
 認證不得由 desktop automation 繼承。
+
+## 61. 1.x 相容擴充契約（P88–P96）
+
+既有 root export names 全部保留；`check:api-compatibility` 檢查 value／type
+namespaces 與維護中的 legacy custom Renderer consumer，不是完整歷史 nested
+signature checker。Native capabilities 仍需明示，Canvas2D 維持2D-only。
+
+### UV coordinates 與 skin 資料
+
+`Geometry` 可提供 `uvs1`；未提供時不改原 UV0／interleaved layout。
+`PBRMaterialOptions.textureCoordinates` 將 `MaterialTextureSlot` 對應至
+`{texCoord:0|1,offset:[u,v],rotation,scale:[u,v]}`。材質暴露 frozen coordinates，
+affine `[a,b,c,d,tx,ty]` 表示 `u'=a*u+c*v+tx; v'=b*u+d*v+ty`。
+Slots 為 `texture`、`metallicRoughness`、`normal`、`occlusion`、`emissive`、
+`specular`、`specularColor`、`clearcoat`、`clearcoatRoughness`、`clearcoatNormal`、
+`sheenColor`、`sheenRoughness`、`transmission`、`thickness`。Normal 與 clearcoat-normal
+使用自己選擇／轉換後的 UV derivatives；shadow alpha 使用 base map coordinates。
+
+glTF 保留 UV0／UV1 與獨立 KHR transforms，不烘改共用 vertex UV。
+`SkinnedMesh.influencesPerVertex` 預設4、可明示8；成對 `JOINTS_1`／`WEIGHTS_1`
+提供另外四個，CPU bounds／picking 與 native renderer 都保留全部八個 normalize
+influences。UV2+、更多 skin sets、缺少指定 UV 或 malformed pairs 拒絕。
+既有 decoded-resource／morph／hierarchy／palette budgets 保留；native fixtures
+不等於任意第三方 asset corpus 認證。
+

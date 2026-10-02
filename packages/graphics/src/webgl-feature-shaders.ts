@@ -4,6 +4,7 @@ import {
   MAX_SPOT_LIGHTS,
   SPOT_LIGHT_OFFSET,
   nativeMaterial3DLimits,
+  materialTextureSlots,
 } from '../../../src/data/rendering.js';
 import { atlasGLSL } from './shadow-shaders.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
@@ -11,6 +12,15 @@ import { sheenGLSL } from './sheen-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
 import { reflectionProbeGLSL } from './reflection-probe-shaders.js';
 import { oitWeightGLSL } from './oit-shaders.js';
+
+const materialUVGLSL = `
+in vec2 vUV1;
+uniform vec4 materialCoordinates[${materialTextureSlots.length * 2}];
+vec2 materialUV(int slot) {
+  vec4 a = materialCoordinates[slot*2], b = materialCoordinates[slot*2+1];
+  vec2 uv = b.z>.5 ? vUV1 : vUV;
+  return vec2(a.x*uv.x+a.z*uv.y,a.y*uv.x+a.w*uv.y)+b.xy;
+}`;
 
 export const meshVertex = `#version 300 es
 precision highp float;
@@ -23,6 +33,9 @@ layout(location=7) in vec3 instanceColor;
 layout(location=8) in vec4 vertexColor;
 layout(location=9) in uvec4 jointIndices;
 layout(location=10) in vec4 jointWeights;
+layout(location=11) in vec2 uv1;
+layout(location=12) in uvec4 jointIndices1;
+layout(location=13) in vec4 jointWeights1;
 uniform highp sampler2D jointPalette;
 uniform bool skinned;
 uniform mat4 viewProjection;
@@ -31,6 +44,7 @@ uniform bool instanced;
 out vec3 vPosition;
 out vec3 vNormal;
 out vec2 vUV;
+out vec2 vUV1;
 out vec4 vColor;
 flat out float vOrientation;
 flat out vec3 vLocal0;
@@ -57,7 +71,11 @@ void main() {
     mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
       + jointMatrix(jointIndices.y) * jointWeights.y
       + jointMatrix(jointIndices.z) * jointWeights.z
-      + jointMatrix(jointIndices.w) * jointWeights.w;
+      + jointMatrix(jointIndices.w) * jointWeights.w
+      + jointMatrix(jointIndices1.x) * jointWeights1.x
+      + jointMatrix(jointIndices1.y) * jointWeights1.y
+      + jointMatrix(jointIndices1.z) * jointWeights1.z
+      + jointMatrix(jointIndices1.w) * jointWeights1.w;
     local = vec4((skin * local).xyz, 1.0);
     mat3 cofactor = mat3(cross(skin[1].xyz,skin[2].xyz),
       cross(skin[2].xyz,skin[0].xyz),cross(skin[0].xyz,skin[1].xyz));
@@ -79,6 +97,7 @@ void main() {
   vNormal = normalMatrix*localNormal;
   vPosition = p.xyz;
   vUV = uv;
+  vUV1 = uv1;
   vColor = vec4(instanceColor, 1.0) * vertexColor;
 }`;
 
@@ -142,6 +161,16 @@ uniform float meshFade;
 /* XYZ_SURFACE_HOOKS */
 vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 /* XYZ_SURFACE_HOOKS_END */
+${materialUVGLSL}
+mat3 materialNormalFrame(vec3 n, vec2 uv) {
+  vec3 dp1 = dFdx(vPosition), dp2 = dFdy(vPosition);
+  vec2 duv1 = dFdx(uv), duv2 = dFdy(uv);
+  vec3 dp2perp = cross(dp2,n), dp1perp = cross(n,dp1);
+  vec3 t = dp2perp*duv1.x+dp1perp*duv2.x;
+  vec3 b = dp2perp*duv1.y+dp1perp*duv2.y;
+  float scale = inversesqrt(max(max(dot(t,t),dot(b,b)),.000001));
+  return mat3(t*scale,b*scale,n);
+}
 ${atlasGLSL}
 const float PI = 3.141592653589793;
 ${transmissionGLSL}
@@ -225,7 +254,7 @@ vec3 applyFog(vec3 rgb, float opacity) {
   return mix(rgb, fog[0].rgb * opacity, amount);
 }
 void shadeMesh() {
-  vec4 texel = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV));
+  vec4 texel = xyzSurface(vPosition,vNormal,vUV,texture(image, materialUV(0)));
   float opacity = texel.a * tint.a * vColor.a;
   if (pbr) {
     if (alphaMode == 1 && opacity < emission.w) discard;
@@ -242,22 +271,15 @@ void shadeMesh() {
   vec3 n = vNormal / max(length(vNormal), .000001);
   if (pbr && !front) n = -n;
   vec3 nc = n;
-  if (pbr && (maps.y != 0 || (clearcoat.x > 0.0 && clearcoatMaps.z > .5))) {
-    vec3 dp1 = dFdx(vPosition), dp2 = dFdy(vPosition);
-    vec2 duv1 = dFdx(vUV), duv2 = dFdy(vUV);
-    vec3 dp2perp = cross(dp2, n), dp1perp = cross(n, dp1);
-    vec3 t = dp2perp * duv1.x + dp1perp * duv2.x;
-    vec3 b = dp2perp * duv1.y + dp1perp * duv2.y;
-    float inverseScale = inversesqrt(max(max(dot(t,t), dot(b,b)), .000001));
-    mat3 frame = mat3(t*inverseScale,b*inverseScale,n);
-    if (maps.y != 0) {
-      vec3 sampled = texture(normalMap,vUV).xyz*2.0-1.0;
-      n = normalize(frame*vec3(sampled.xy*surface.z,sampled.z));
-    }
-    if (clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
-      vec3 sampled = texture(clearcoatNormalMap,vUV).xyz*2.0-1.0;
-      nc = normalize(frame*vec3(sampled.xy*clearcoat.z,sampled.z));
-    }
+  if (pbr && maps.y != 0) {
+    vec2 uv = materialUV(2);
+    vec3 sampled = texture(normalMap,uv).xyz*2.0-1.0;
+    n = normalize(materialNormalFrame(n,uv)*vec3(sampled.xy*surface.z,sampled.z));
+  }
+  if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
+    vec2 uv = materialUV(9);
+    vec3 sampled = texture(clearcoatNormalMap,uv).xyz*2.0-1.0;
+    nc = normalize(materialNormalFrame(nc,uv)*vec3(sampled.xy*clearcoat.z,sampled.z));
   }
   float visibility = directionalShadow();
   vec3 direction = lighting[0].xyz;
@@ -266,25 +288,25 @@ void shadeMesh() {
   vec3 base = texel.rgb * tint.rgb * vColor.rgb;
   if (pbr) {
     base = decodeSRGB(texel.rgb) * tint.rgb * vColor.rgb;
-    vec4 mr = maps.x != 0 ? texture(metallicRoughnessMap, vUV) : vec4(1.0);
+    vec4 mr = maps.x != 0 ? texture(metallicRoughnessMap, materialUV(1)) : vec4(1.0);
     float metallic = clamp(surface.x * mr.b, 0.0, 1.0);
     float roughness = clamp(surface.y * mr.g, .04, 1.0);
-    float specularWeight = specularParams.x*(specularParams.z > .5 ? texture(specularMap,vUV).a : 1.0);
-    vec3 specularTint = specularColor.rgb*(specularParams.w > .5 ? decodeSRGB(texture(specularColorMap,vUV).rgb) : vec3(1.0));
+    float specularWeight = specularParams.x*(specularParams.z > .5 ? texture(specularMap,materialUV(5)).a : 1.0);
+    vec3 specularTint = specularColor.rgb*(specularParams.w > .5 ? decodeSRGB(texture(specularColorMap,materialUV(6)).rgb) : vec3(1.0));
     vec3 dielectricF0 = min(specularTint*specularColor.w,vec3(1.0))*specularWeight;
-    float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, vUV).r, surface.w) : 1.0;
+    float ao = maps.z != 0 ? mix(1.0, texture(occlusionMap, materialUV(3)).r, surface.w) : 1.0;
     vec3 view = cameraPosition - vPosition;
     vec3 v = view / max(length(view), .000001);
     float transmissionWeight = 0.0, thickness = transmission.y;
     if (transmission.x > 0.0) {
-      transmissionWeight = transmission.x*opticalSample(vUV,transmissionMapSettings,0).r;
-      thickness *= opticalSample(vUV,thicknessMapSettings,1).g;
+      transmissionWeight = transmission.x*opticalSample(materialUV(12),transmissionMapSettings,0).r;
+      thickness *= opticalSample(materialUV(13),thicknessMapSettings,1).g;
     }
     vec3 sheenTint = sheen.rgb;
     float sheenRoughness = sheen.w;
     if (any(greaterThan(sheen.rgb,vec3(0.0)))) {
-      if (sheenMaps.x > .5) sheenTint *= decodeSRGB(texture(sheenColorMap,vUV).rgb);
-      if (sheenMaps.y > .5) sheenRoughness *= texture(sheenRoughnessMap,vUV).a;
+      if (sheenMaps.x > .5) sheenTint *= decodeSRGB(texture(sheenColorMap,materialUV(10)).rgb);
+      if (sheenMaps.y > .5) sheenRoughness *= texture(sheenRoughnessMap,materialUV(11)).a;
     }
     sheenRoughness = clamp(sheenRoughness,.04,1.0);
     float sheenMax = max(max(sheenTint.r,sheenTint.g),sheenTint.b);
@@ -292,8 +314,8 @@ void shadeMesh() {
     vec3 sheenLighting = vec3(0.0);
     float coatWeight = clearcoat.x, coatRoughness = clearcoat.y;
     if (coatWeight > 0.0) {
-      if (clearcoatMaps.x > .5) coatWeight *= texture(clearcoatMap,vUV).r;
-      if (clearcoatMaps.y > .5) coatRoughness *= texture(clearcoatRoughnessMap,vUV).g;
+      if (clearcoatMaps.x > .5) coatWeight *= texture(clearcoatMap,materialUV(7)).r;
+      if (clearcoatMaps.y > .5) coatRoughness *= texture(clearcoatRoughnessMap,materialUV(8)).g;
     }
     coatRoughness = clamp(coatRoughness,.04,1.0);
     float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
@@ -360,7 +382,7 @@ void shadeMesh() {
       result += transmitted*base*transmissionWeight*(1.0-metallic)*max(1.0-max(max(fresnel.r,fresnel.g),fresnel.b),0.0);
     }
     if (sheenMax > 0.0) result = result*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting;
-    result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, vUV).rgb) : vec3(1.0));
+    result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, materialUV(4)).rgb) : vec3(1.0));
     if (coatWeight > 0.0) result = result*(1.0-coatWeight*coatFresnel)+coating*coatWeight;
     if (!linearOutput) result = encodeSRGB(result);
   } else {
@@ -407,10 +429,11 @@ uniform float alphaCutoff;
 uniform float opacity;
 uniform float meshFade;
 uniform int alphaMode;
+${materialUVGLSL}
 void main() {
   if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
-  float alpha = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV)).a * opacity * vColor.a;
+  float alpha = xyzSurface(vPosition,vNormal,vUV,texture(image, materialUV(0))).a * opacity * vColor.a;
   if (alphaMode == 1 && alpha < alphaCutoff) discard;
   if (alphaMode == 2 && alpha <= 0.0) discard;
 }`;

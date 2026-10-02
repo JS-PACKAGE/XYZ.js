@@ -241,6 +241,26 @@ export function preflight(document, codecs = {}) {
     for (const primitive of mesh.primitives) {
       if ((primitive.mode ?? 4) !== 4)
         throw new Error('Only TRIANGLES topology is supported.');
+      const attributes = primitive.attributes ?? {};
+      for (const semantic of Object.keys(attributes)) {
+        if (/^TEXCOORD_/.test(semantic) && !/^TEXCOORD_[01]$/.test(semantic))
+          throw new Error('Only TEXCOORD_0 and TEXCOORD_1 are supported.');
+        if (
+          /^(JOINTS|WEIGHTS)_/.test(semantic) &&
+          !/^(JOINTS|WEIGHTS)_[01]$/.test(semantic)
+        )
+          throw new Error('More than eight skin influences are unsupported.');
+      }
+      if (
+        (attributes.JOINTS_1 === undefined) !==
+          (attributes.WEIGHTS_1 === undefined) ||
+        (attributes.JOINTS_0 === undefined) !==
+          (attributes.WEIGHTS_0 === undefined) ||
+        (attributes.JOINTS_1 !== undefined && attributes.JOINTS_0 === undefined)
+      )
+        throw new Error(
+          'Skin influence sets require paired joints and weights.',
+        );
       const position = item(
         accessors,
         primitive.attributes?.POSITION,
@@ -281,11 +301,17 @@ export function preflight(document, codecs = {}) {
       }
       if (primitive.material !== undefined) {
         const material = item(materials, primitive.material, 'material');
-        if (
-          textureSlots(material).length &&
-          primitive.attributes?.TEXCOORD_0 === undefined
-        )
-          throw new Error('Textured primitives require TEXCOORD_0.');
+        for (const slot of textureSlots(material)) {
+          const texCoord =
+            slot.extensions?.KHR_texture_transform?.texCoord ??
+            slot.texCoord ??
+            0;
+          integer(texCoord, 'texture texCoord', 1);
+          if (primitive.attributes?.[`TEXCOORD_${texCoord}`] === undefined)
+            throw new Error(
+              `Textured primitives require TEXCOORD_${texCoord}.`,
+            );
+        }
       }
     }
   }
@@ -336,19 +362,11 @@ export function preflight(document, codecs = {}) {
       ].some((name) => extensions[name])
     )
       throw new Error('Unlit cannot use PBR extensions.');
-    const transforms = textureSlots(material).map((slot) => {
+    for (const slot of textureSlots(material)) {
       const transform = slot.extensions?.KHR_texture_transform ?? {};
-      if ((transform.texCoord ?? slot.texCoord ?? 0) !== 0)
-        throw new Error('Only TEXCOORD_0 is supported.');
+      integer(transform.texCoord ?? slot.texCoord ?? 0, 'texture texCoord', 1);
       item(table(document, 'textures'), slot.index, 'texture');
-      return canonical([
-        transform.offset ?? [0, 0],
-        transform.rotation ?? 0,
-        transform.scale ?? [1, 1],
-      ]);
-    });
-    if (new Set(transforms).size > 1)
-      throw new Error('All material textures must share one UV transform.');
+    }
   }
 }
 function textureSlots(material) {

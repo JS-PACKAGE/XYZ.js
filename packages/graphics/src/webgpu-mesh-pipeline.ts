@@ -34,8 +34,10 @@ import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
   nativeMaterial3DLimits,
+  MATERIAL_UV_FLOAT_COUNT,
   REFLECTION_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
+import { fillMaterialUV } from './material-uv.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -57,7 +59,11 @@ import type { NativeResidency, ResidencyAllocation } from './residency.js';
 const emptyGpuEmitters: readonly GPUParticleEmitter3D[] = [];
 const emptyMeshes: readonly Mesh[] = [];
 const meshUniformFloats =
-  76 + REFLECTION_FLOAT_COUNT + nativeMaterial3DLimits.uniformFloats + 4;
+  76 +
+  REFLECTION_FLOAT_COUNT +
+  nativeMaterial3DLimits.uniformFloats +
+  4 +
+  MATERIAL_UV_FLOAT_COUNT;
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -65,6 +71,7 @@ interface CachedGeometry {
   index: GPUBuffer;
   /** Per-vertex RGB, or undefined when the geometry has none (a shared white buffer is bound). */
   colors: GPUBuffer | undefined;
+  uvs1: GPUBuffer | undefined;
   version: number;
   seen: number;
 }
@@ -589,11 +596,17 @@ export class WebGPUMeshPipeline {
         attributes: [{ shaderLocation: 8, offset: 0, format: 'float32x4' }],
       },
       {
-        arrayStride: 32,
+        arrayStride: 64,
         attributes: [
           { shaderLocation: 9, offset: 0, format: 'uint32x4' },
           { shaderLocation: 10, offset: 16, format: 'float32x4' },
+          { shaderLocation: 12, offset: 32, format: 'uint32x4' },
+          { shaderLocation: 13, offset: 48, format: 'float32x4' },
         ],
+      },
+      {
+        arrayStride: 8,
+        attributes: [{ shaderLocation: 11, offset: 0, format: 'float32x2' }],
       },
     ];
     const blend: GPUBlendState = {
@@ -1555,6 +1568,7 @@ export class WebGPUMeshPipeline {
       mesh.influences ??
         this.defaultInfluences(object.renderGeometry.vertices.length / 8),
     );
+    pass.setVertexBuffer(5, geometry.uvs1 ?? geometry.vertex);
     pass.setIndexBuffer(geometry.index, 'uint32');
     pass.drawIndexed(object.geometry.indices.length, instances);
     return instances;
@@ -1585,8 +1599,8 @@ export class WebGPUMeshPipeline {
       return this.influenceBuffer;
     const capacity = Math.max(count, this.influenceCapacity * 2, 1024);
     if (this.influenceBuffer) this.retired.push(this.influenceBuffer);
-    const source = new Float32Array(capacity * 8);
-    for (let i = 0; i < capacity; i++) source[i * 8 + 4] = 1;
+    const source = new Float32Array(capacity * 16);
+    for (let i = 0; i < capacity; i++) source[i * 16 + 4] = 1;
     this.influenceBuffer = this.device.createBuffer({
       size: source.byteLength,
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -1703,12 +1717,14 @@ export class WebGPUMeshPipeline {
       existing.allocation.resize(
         geometry.vertices.byteLength +
           geometry.indices.byteLength +
-          (geometry.colors?.byteLength ?? 0),
+          (geometry.colors?.byteLength ?? 0) +
+          (geometry.uvs1?.byteLength ?? 0),
       );
       if (existing.version !== geometry.version) {
         this.device.queue.writeBuffer(existing.vertex, 0, geometry.vertices);
         this.stats.upload(geometry.vertices.byteLength);
         this.syncGeometryColors(existing, geometry);
+        this.syncGeometryUV(existing, geometry);
         existing.version = geometry.version;
       }
       return existing;
@@ -1716,13 +1732,15 @@ export class WebGPUMeshPipeline {
     const allocation = this.residency.geometry.allocate(
       geometry.vertices.byteLength +
         geometry.indices.byteLength +
-        (geometry.colors?.byteLength ?? 0),
+        (geometry.colors?.byteLength ?? 0) +
+        (geometry.uvs1?.byteLength ?? 0),
       () => {
         const cached = this.geometries.get(geometry);
         if (!cached) return;
         cached.vertex.destroy();
         cached.index.destroy();
         cached.colors?.destroy();
+        cached.uvs1?.destroy();
         this.geometries.delete(geometry);
       },
     );
@@ -1746,13 +1764,16 @@ export class WebGPUMeshPipeline {
           vertex,
           index,
           colors: undefined,
+          uvs1: undefined,
           version: geometry.version,
           seen: this.frame,
         };
         try {
           this.syncGeometryColors(entry, geometry);
+          this.syncGeometryUV(entry, geometry);
         } catch (error) {
           entry.colors?.destroy();
+          entry.uvs1?.destroy();
           throw error;
         }
         this.geometries.set(geometry, entry);
@@ -1777,6 +1798,18 @@ export class WebGPUMeshPipeline {
       entry.colors = this.colorBuffer(entry.colors, colors);
       this.device.queue.writeBuffer(entry.colors, 0, colors);
       this.stats.upload(colors.byteLength);
+    }
+  }
+
+  private syncGeometryUV(entry: CachedGeometry, geometry: Geometry): void {
+    const uv = geometry.uvs1;
+    if (!uv) {
+      entry.uvs1?.destroy();
+      entry.uvs1 = undefined;
+    } else {
+      entry.uvs1 = this.colorBuffer(entry.uvs1, uv);
+      this.device.queue.writeBuffer(entry.uvs1, 0, uv);
+      this.stats.upload(uv.byteLength);
     }
   }
 
@@ -1842,7 +1875,8 @@ export class WebGPUMeshPipeline {
     const existing = this.meshes.get(object);
     const skin = object instanceof SkinnedMesh ? object : undefined;
     const skinBytes = skin
-      ? skin.jointPalette.byteLength + skin.weights.length * 8
+      ? skin.jointPalette.byteLength +
+        (skin.renderGeometry.vertices.length / 8) * 64
       : 0;
     if (existing) {
       existing.allocation.resize(
@@ -1912,14 +1946,22 @@ export class WebGPUMeshPipeline {
           size: skin.jointPalette.byteLength,
           usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
         });
-        const data = new ArrayBuffer(skin.weights.length * 8);
+        const count = skin.renderGeometry.vertices.length / 8;
+        const data = new ArrayBuffer(count * 64);
         const indices = new Uint32Array(data),
           weights = new Float32Array(data);
-        for (let i = 0; i < skin.weights.length; i++) {
-          const offset = Math.floor(i / 4) * 8 + (i % 4);
-          indices[offset] = skin.jointIndices[i];
-          weights[offset + 4] = skin.weights[i];
-        }
+        for (let vertex = 0; vertex < count; vertex++)
+          for (
+            let influence = 0;
+            influence < skin.influencesPerVertex;
+            influence++
+          ) {
+            const source = vertex * skin.influencesPerVertex + influence;
+            const at =
+              vertex * 16 + (influence < 4 ? influence : influence + 4);
+            indices[at] = skin.jointIndices[source]!;
+            weights[at + 4] = skin.weights[source]!;
+          }
         influences = this.device.createBuffer({
           size: data.byteLength,
           usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
@@ -2324,6 +2366,12 @@ export class WebGPUMeshPipeline {
     const visibility = this.visibility.entries.get(object);
     data[customOffset + nativeMaterial3DLimits.uniformFloats] =
       visibility?.fade ?? 1;
+    fillMaterialUV(
+      material,
+      object.renderGeometry,
+      data,
+      customOffset + nativeMaterial3DLimits.uniformFloats + 4,
+    );
     const packed = visibility?.instances;
     if (
       packed &&

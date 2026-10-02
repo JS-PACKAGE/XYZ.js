@@ -152,6 +152,7 @@ export declare class WebGPUMeshPipeline {
     private ensureDepth;
     private cacheGeometry;
     private syncGeometryColors;
+    private syncGeometryUV;
     private cacheMesh;
     private cacheSampler;
     private cacheOpticalMaps;

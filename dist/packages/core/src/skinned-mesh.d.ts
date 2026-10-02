@@ -8,6 +8,8 @@ export interface SkinnedMeshOptions extends MeshOptions {
     inverseBindMatrices?: readonly Matrix4[];
     jointIndices: ArrayLike<number>;
     weights: ArrayLike<number>;
+    /** Four preserves the 1.x stream contract; eight consumes both glTF influence sets. */
+    influencesPerVertex?: 4 | 8;
 }
 /** Native bind-pose streams and an on-demand exact CPU picking mirror; joints remain borrowed. */
 export declare class SkinnedMesh extends Mesh {
@@ -15,6 +17,7 @@ export declare class SkinnedMesh extends Mesh {
     readonly inverseBindMatrices: readonly Matrix4[];
     readonly jointIndices: Uint32Array;
     readonly weights: Float32Array;
+    readonly influencesPerVertex: 4 | 8;
     readonly jointPalette: Float32Array;
     paletteVersion: number;
     private readonly skinGeometry;

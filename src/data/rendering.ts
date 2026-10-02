@@ -8,6 +8,25 @@ export const nativeMaterial3DLimits = Object.freeze({
   sourceCharacters: 65536,
 });
 
+/** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
+export const materialTextureSlots = Object.freeze([
+  'texture',
+  'metallicRoughness',
+  'normal',
+  'occlusion',
+  'emissive',
+  'specular',
+  'specularColor',
+  'clearcoat',
+  'clearcoatRoughness',
+  'clearcoatNormal',
+  'sheenColor',
+  'sheenRoughness',
+  'transmission',
+  'thickness',
+] as const);
+export const MATERIAL_UV_FLOAT_COUNT = materialTextureSlots.length * 8;
+
 /** Shared vec4-aligned light block used by both graphics backends. Offsets are floats. */
 export const POINT_LIGHT_OFFSET = 12;
 export const POINT_LIGHT_STRIDE = 8;

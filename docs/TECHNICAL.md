@@ -13,7 +13,7 @@ Production contracts in section 58 are included in **v1.10 / 1.10.0**. Release p
 | WebGPU / WebGL2             | 2D sprites, isolation/masks/blends, native materials/filters/meshes; 3D lighting/PBR/instancing/shadows/post/weighted transparency. WebGPU needs a secure origin; WebGL2 HDR/weighted transparency require floating-point color attachments.                                                                                                                                                                                 |
 | Canvas2D                    | Native 2D paint, isolation/masks/basic blends/offscreen textures; no visible 3D or Mesh2D, Material2D, native Filter2D, effects2D/effects3D. Unsupported requests reject rather than silently switching backend.                                                                                                                                                                                                             |
 | Physics2D (P76)             | Sleep, kinematic bodies, bounded relative translation/rotation CCD, convex character sweeps and platform carry; five joint types and static concave decomposition/thick chains. Sensors remain discrete; no dynamic concave/compound or deformation CCD.                                                                                                                                                                     |
-| glTF / KTX2 (P32–P42)       | UV0 triangles/four-influence skin/morph/`COLOR_0` and documented extensions; `COLOR_1` rejected. Meshopt is built in; Draco/Basis codecs are external. Default KTX2 remains base RGBA8; opt-in native sources preserve supported GPU payloads and supplied mips (sections 30, 42).                                                                                                                                           |
+| glTF / KTX2 (P32–P42/P90)   | UV0/UV1 triangles, four/eight-influence skin, morph, `COLOR_0` and documented extensions; `COLOR_1` rejected. Meshopt is built in; Draco/Basis codecs are external. Default KTX2 remains base RGBA8; opt-in native sources preserve supported GPU payloads and supplied mips (sections 30, 42).                                                                                                                              |
 | Animation (P34–P42)         | Ordered layers/fades/crossfades/flat state machine/tween/timeline, explicit masks/additive references, 1D/triangulated 2D blend trees and two-bone IK. Native GPU skinning, lazy exact CPU queries and conservative animated bounds passed scoped P42 acceptance.                                                                                                                                                            |
 | Loss recovery               | Default `recoverGraphics:true` rebuilds GPU/GL on the same backend; old renderer-owned targets/snapshots are invalid. Failure or opting out is fatal. P42 exercised actual WEBGL_lose_context and fixture-only GPUDevice.destroy on Chromium; this is not driver-reset or cross-browser certification.                                                                                                                       |
 | P40 (scoped acceptance)     | Adjacent 2D batching, full render metrics and deep browser regression passed on Canvas2D/WebGL2/WebGPU Chromium 153; CI configuration added, hosted CI not run. No throughput or cross-browser certification.                                                                                                                                                                                                                |
@@ -337,9 +337,9 @@ Historical v1.1 baseline (package 1.1.0), not the previously published v1.0 tag.
 
 ### glTF, Animation, and Geometry Updates
 
-- `GLTFLoader.load(url,{signal,allowedOrigins})` and `parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?)` return `GLTFAsset` with scene:Group, animations:AnimationClip[] and idempotent dispose(). External/embedded buffers and images, relative URIs, GLB 2, triangle primitives, normalized/strided/sparse accessors, node TRS and decomposable affine TRS matrices, metallic-roughness materials, UV0 textures, and skins with up to four influences are supported. Buffers/images referenced by the model may be fetched only from the model's own origin (`baseURL`) or from origins listed in `allowedOrigins` (e.g. `['https://cdn.example']`); `data:`/`blob:` URIs are always allowed, and any other origin rejects with `AssetError` before a request is made. Missing normals are generated and missing UVs are zero.
-- Non-triangle topology, `COLOR_1`, UV sets other than UV0, extra skin influences, shear matrices, animated matrix nodes, and morph attributes other than POSITION/NORMAL/TANGENT reject explicitly; required extensions outside the supported set reject. `COLOR_0` now supports float and normalized unsigned-byte/unsigned-short VEC3/VEC4, including alpha (section 34). Morph targets support POSITION/NORMAL deltas (float/normalized integer, sparse; missing entries zero), mesh/node weights and STEP/LINEAR/CUBICSPLINE weights channels. TANGENT deltas are ignored because tangents are not consumed. All primitives of one mesh require the same target count; node weights must match. Image decoder limits remain in section 18.
-- Implemented extensions: `KHR_mesh_quantization` (integer/normalized accessors are already dequantized to float); `KHR_materials_emissive_strength` (multiplies `emissiveFactor`, negative rejects); `KHR_materials_unlit`, approximated with existing PBR as black base color, roughness 1, and base color routed to emission (alpha still comes from base color; image-based specular of a dielectric F0 remains faintly visible); `KHR_texture_transform`, baked into UV0 on the CPU per primitive (`uv' = offset + R·S·uv` with the spec's rotation matrix), so every texture slot of one material must share the same transform or the model rejects, and a transform's own `texCoord` other than 0 rejects; `KHR_lights_punctual`, exposed as `asset.lights` (`point: PointLight[]`, `spot: SpotLight[]`, `directional: {direction,color,intensity}[]`) evaluated once at load at each node's world transform, with raw glTF photometric intensity and `range` absent → 0 (unbounded). Lights are not added to a Scene automatically, do not follow node animation, and directional lights map to the single `scene.directionalLight` only by your choice. Mipmapped sampler minification filters (9984–9987) are accepted and degrade to the matching nearest/linear filter because no mipmaps are generated. Other optional extensions are ignored using their core fallback. Verified with unit tests on synthetic models only; no third-party model corpus was run.
+- `GLTFLoader.load(url,{signal,allowedOrigins})` and `parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?)` return `GLTFAsset` with scene:Group, animations:AnimationClip[] and idempotent dispose(). External/embedded buffers and images, relative URIs, GLB 2, triangle primitives, normalized/strided/sparse accessors, node TRS and decomposable affine TRS matrices, metallic-roughness materials, UV0/UV1 textures, and four/eight-influence skins are supported. Buffers/images referenced by the model may be fetched only from the model's own origin (`baseURL`) or from origins listed in `allowedOrigins` (e.g. `['https://cdn.example']`); `data:`/`blob:` URIs are always allowed, and any other origin rejects with `AssetError` before a request is made. Missing normals are generated; missing referenced UV streams reject. Untextured geometry may keep zero UV0.
+- Non-triangle topology, `COLOR_1`, UV2+, more than two paired skin-influence sets, shear matrices, animated matrix nodes, and morph attributes other than POSITION/NORMAL/TANGENT reject explicitly; required extensions outside the supported set reject. `COLOR_0` supports float and normalized unsigned-byte/unsigned-short VEC3/VEC4, including alpha (section 34). Morph targets support POSITION/NORMAL deltas (float/normalized integer, sparse; missing entries zero), mesh/node weights and STEP/LINEAR/CUBICSPLINE weights channels. TANGENT deltas are ignored because tangents are not consumed. All primitives of one mesh require the same target count; node weights must match. Image decoder limits remain in section 18.
+- Implemented extensions: `KHR_mesh_quantization` (integer/normalized accessors are already dequantized to float); `KHR_materials_emissive_strength` (multiplies `emissiveFactor`, negative rejects); `KHR_materials_unlit`, approximated with existing PBR as black base color, roughness 1, and base color routed to emission (alpha still comes from base color; image-based specular of a dielectric F0 remains faintly visible); `KHR_texture_transform`, retained independently for each material map as `uv' = offset + R·S·uv`, with UV0/UV1 and the extension's `texCoord` override. Maps need not share transforms; UV2+ rejects. `KHR_lights_punctual` is exposed as `asset.lights` (`point: PointLight[]`, `spot: SpotLight[]`, `directional: {direction,color,intensity}[]`) evaluated once at load at each node's world transform, with raw glTF photometric intensity and `range` absent → 0 (unbounded). Lights are not added to a Scene automatically, do not follow node animation, and directional lights map to the single `scene.directionalLight` only by your choice. Mipmapped sampler minification filters (9984–9987) are accepted and degrade to the matching nearest/linear filter because no mipmaps are generated. Other optional extensions are ignored using their core fallback. Initial tests used synthetic models; P90 adds native GPU/GL per-map references and an eight-influence fixture, not third-party model-corpus certification.
 - P39 also implements required `KHR_materials_ior`, `KHR_materials_specular`, `KHR_materials_clearcoat`, `KHR_materials_sheen`, `KHR_materials_transmission` and `KHR_materials_volume`; see section 37 for material contracts and raster approximations.
 - P32 adds built-in `EXT_meshopt_compression`, conditional `KHR_draco_mesh_compression` via `dracoDecoder`, and conditional `KHR_texture_basisu` via `ktx2Transcoder`; see section 30 for fallback behavior. Supplying a callback is not bundled codec support or certification of external decoder quality, speed or memory use.
 - `src/data/models.ts` fixes input at 32 MiB, aggregate fetched and tracked decoded allocations at 128 MiB each, entries per top-level list at 10,000, accessor scalar elements at 4,194,304, total vertices at 1,000,000, indices at 3,000,000, joints per skin at 256, morph targets per mesh at 64, and hierarchy depth at 256. Limits reject rather than truncate; these accounting budgets are not a total browser-memory guarantee.
@@ -351,7 +351,7 @@ Historical v1.1 baseline (package 1.1.0), not the previously published v1.0 tag.
 
 ### PBR, Lighting, Shadows, HDR, and Instancing
 
-- `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space UV0 (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Metallic/roughness default to 0/0.5; emissive defaults to zero.
+- `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space using its independently transformed UV0/UV1 derivatives (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Metallic/roughness default to 0/0.5; emissive defaults to zero.
 - alphaMode is OPAQUE, MASK (alphaCutoff) or BLEND; doubleSided controls culling and backface normals. Direct construction defaults to BLEND (MASK when positive cutoff supplied), doubleSided=true; glTF uses its OPAQUE/false defaults. PBR alphaMode is authoritative even with opacity below one. Legacy TextureMaterial enters the transparent pass with opacity below one or explicit `transparent: true` (for texture/vertex alpha). Default sorted meshes follow opaque/MASK meshes, farthest to nearest by bounding-sphere-center distance, with stable ties and reusable sort storage. Intersecting surfaces can still composite incorrectly; opt into weighted transparency when that approximation is preferable.
 - Scene.pointLights and spotLights accept mutable PointLight/SpotLight pools; range=0 is unlimited and spot angles are radians. P84 replaces the original eight-light scene limit with bounded selection; see section 59. Shadow atlas limits remain independent.
 - `scene.shadows` defaults disabled; mapSize=1024, extent=10, near=0.1, far=50, bias=0.002 and target retain the original fixed directional camera. Mesh.castShadow/receiveShadow default true. P37 adds point/spot shadows and 2–4 directional cascades using a bounded depth atlas and 3×3 PCF; see section 35, including light flags and device-dimension limits.
@@ -738,8 +738,8 @@ reflectance, avoiding complementary-color diffuse tint.
 
 GLTFLoader accepts required `KHR_materials_ior` and `KHR_materials_specular`,
 including both texture slots and samplers. They cannot coexist with
-`KHR_materials_unlit`. As with other slots, all material textures must use UV0 and
-agree on their baked `KHR_texture_transform`; incompatible transforms reject.
+`KHR_materials_unlit`. Each map independently selects UV0/UV1 and its affine
+`KHR_texture_transform`; transforms need not agree.
 The existing approximate environment prefilter / analytic split-sum BRDF remains;
 this is not a reference-path-tracer accuracy claim. See the
 [IOR specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
@@ -759,10 +759,10 @@ lighting above the base material, including metallic surfaces. View-normal Fresn
 attenuates the underlying lighting **and emission**. Intensity 0 skips the layer.
 The numerical roughness floor is 0.04, as in the base BRDF; this is an infinitely
 thin coat, not refraction or inter-layer scattering. Independent normals use the
-existing UV0 derivative tangent frame, not imported MikkTSpace tangents.
+map's independently transformed UV0/UV1 derivative tangent frame, not imported MikkTSpace tangents.
 
 GLTFLoader accepts required `KHR_materials_clearcoat`, its factors, all three maps,
-normal scale and samplers, with the existing shared-transform restriction.
+normal scale and samplers, with independent per-map UV0/UV1 transforms.
 Combining it with unlit rejects. Layering follows the non-normative simple Fresnel
 model in the [clearcoat specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat);
 the environment contribution retains the existing analytic split-sum approximation.
@@ -826,7 +826,7 @@ nearest/linear min/mag filtering and clamp/repeat/mirror addressing. The materia
 and scene together remain within the 16 sampled-texture minimum on both backends.
 
 GLTFLoader accepts required transmission/volume extensions, factors, maps and
-samplers with the existing UV0/shared-transform restriction. Volume requires
+samplers with independent per-map UV0/UV1 transforms. Volume requires
 transmission; unlit combinations reject. Alpha mode remains independent.
 See the [transmission](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_transmission)
 and [volume](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_volume)
@@ -1203,3 +1203,31 @@ Keep prior save fixtures and representative playable flows during migration.
 Only exercised final scenarios belong in [Acceptance](../ACCEPTANCE.md);
 physical hardware, Safari, spoken output and assistive claims cannot be inherited
 from automated desktop probes.
+
+## 61. Compatible expansion contracts (P88–P96)
+
+All existing root export names are retained. `check:api-compatibility` checks
+their value/type namespaces and the maintained legacy custom Renderer consumer;
+it is not a comprehensive historical nested-signature checker. Native capabilities
+remain explicit, and Canvas2D is still 2D-only.
+
+### UV coordinates and skin data
+
+`Geometry` accepts optional `uvs1`; the original UV0/interleaved layout is unchanged
+when absent. `PBRMaterialOptions.textureCoordinates` maps `MaterialTextureSlot`
+to `{ texCoord:0|1, offset:[u,v], rotation, scale:[u,v] }`. The material exposes
+frozen coordinates with affine `[a,b,c,d,tx,ty]`, meaning
+`u'=a*u+c*v+tx; v'=b*u+d*v+ty`. Slots are `texture`, `metallicRoughness`, `normal`,
+`occlusion`, `emissive`, `specular`, `specularColor`, `clearcoat`,
+`clearcoatRoughness`, `clearcoatNormal`, `sheenColor`, `sheenRoughness`,
+`transmission`, and `thickness`. Normal and clearcoat-normal maps use derivatives
+of their own selected/transformed UVs; shadow alpha uses the base map coordinates.
+
+glTF preserves UV0/UV1 and independent KHR transforms instead of modifying shared
+vertex UVs. `SkinnedMesh.influencesPerVertex` is 4 by default or explicitly 8.
+Paired `JOINTS_1`/`WEIGHTS_1` supply the additional four; CPU bounds/picking and
+native rendering retain all eight normalized influences. UV2+, extra skin sets,
+missing selected UVs and malformed pairs reject. Existing decoded-resource,
+morph, hierarchy and palette budgets remain applicable; native fixture evidence
+does not certify an arbitrary third-party asset corpus.
+

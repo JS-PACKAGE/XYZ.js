@@ -43,6 +43,61 @@ function skin(joints: Group[], morph?: MorphTargets): SkinnedMesh {
 }
 
 describe('native skin streams and exact CPU queries', () => {
+  it('accepts an eight-influence vertex whose weight is entirely in the second set', () => {
+    const joints = Array.from({ length: 8 }, () => new Group());
+    joints[7].position.x = 9;
+    const geometry = Geometry.quad(1, 1);
+    const indices = new Uint32Array(32),
+      weights = new Float32Array(32);
+    for (let vertex = 0; vertex < 4; vertex++) {
+      for (let influence = 0; influence < 8; influence++)
+        indices[vertex * 8 + influence] = influence;
+      weights[vertex * 8 + 7] = 0.75;
+    }
+    const mesh = new SkinnedMesh({
+      geometry,
+      material: material(),
+      joints,
+      jointIndices: indices,
+      weights,
+      influencesPerVertex: 8,
+    });
+    try {
+      mesh.updateSkin();
+      for (let vertex = 0; vertex < 4; vertex++)
+        expect(mesh.geometry.vertices[vertex * 8]).toBeCloseTo(
+          geometry.vertices[vertex * 8] + 9,
+        );
+      weights.fill(0);
+      expect(
+        () =>
+          new SkinnedMesh({
+            geometry,
+            material: mesh.material,
+            joints,
+            jointIndices: indices,
+            weights,
+            influencesPerVertex: 8,
+          }),
+      ).toThrow(/positive total/);
+      weights[7] = 1;
+      indices[7] = 8;
+      expect(
+        () =>
+          new SkinnedMesh({
+            geometry,
+            material: mesh.material,
+            joints,
+            jointIndices: indices,
+            weights,
+            influencesPerVertex: 8,
+          }),
+      ).toThrow(/invalid/);
+    } finally {
+      mesh.material.texture.destroy();
+    }
+  });
+
   it('moves into the frustum before culling without deforming the bind stream or CPU mirror', () => {
     const joint = new Group(),
       mesh = skin([joint]);

@@ -13,7 +13,40 @@ export interface TextureSamplerOptions {
   addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
 }
 
+export type MaterialTextureSlot =
+  | 'texture'
+  | 'metallicRoughness'
+  | 'normal'
+  | 'occlusion'
+  | 'emissive'
+  | 'specular'
+  | 'specularColor'
+  | 'clearcoat'
+  | 'clearcoatRoughness'
+  | 'clearcoatNormal'
+  | 'sheenColor'
+  | 'sheenRoughness'
+  | 'transmission'
+  | 'thickness';
+
+export interface TextureCoordinateOptions {
+  texCoord?: 0 | 1;
+  offset?: readonly [number, number];
+  rotation?: number;
+  scale?: readonly [number, number];
+}
+
+export interface TextureCoordinates {
+  readonly texCoord: 0 | 1;
+  /** [a,b,c,d,tx,ty]: u'=a*u+c*v+tx; v'=b*u+d*v+ty. */
+  readonly transform: readonly [number, number, number, number, number, number];
+}
+
 export interface PBRMaterialOptions extends TextureMaterialOptions {
+  /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
+  textureCoordinates?: Partial<
+    Record<MaterialTextureSlot, TextureCoordinateOptions>
+  >;
   metallic?: number;
   roughness?: number;
   emissive?: [number, number, number];
@@ -120,8 +153,70 @@ function samplerOptions(
   return Object.freeze({ ...value });
 }
 
+function textureCoordinates(
+  options: PBRMaterialOptions['textureCoordinates'],
+): Readonly<Partial<Record<MaterialTextureSlot, TextureCoordinates>>> {
+  const result: Partial<Record<MaterialTextureSlot, TextureCoordinates>> = {};
+  const slots: readonly MaterialTextureSlot[] = [
+    'texture',
+    'metallicRoughness',
+    'normal',
+    'occlusion',
+    'emissive',
+    'specular',
+    'specularColor',
+    'clearcoat',
+    'clearcoatRoughness',
+    'clearcoatNormal',
+    'sheenColor',
+    'sheenRoughness',
+    'transmission',
+    'thickness',
+  ];
+  if (options !== undefined) {
+    if (!options || typeof options !== 'object' || Array.isArray(options))
+      throw new TypeError('Texture coordinates must be a per-map object.');
+    for (const key of Object.keys(options)) {
+      if (!slots.includes(key as MaterialTextureSlot))
+        throw new RangeError('Unknown material texture coordinate slot.');
+      const value = options[key as MaterialTextureSlot];
+      if (!value || typeof value !== 'object' || Array.isArray(value))
+        throw new TypeError('Texture coordinate options must be an object.');
+      const texCoord = value.texCoord ?? 0;
+      if (texCoord !== 0 && texCoord !== 1)
+        throw new RangeError('Texture coordinates require UV0 or UV1.');
+      const offset = value.offset ?? [0, 0],
+        scale = value.scale ?? [1, 1];
+      if (offset.length !== 2 || scale.length !== 2)
+        throw new RangeError('UV offset and scale require two components.');
+      const rotation = value.rotation ?? 0;
+      for (const component of [...offset, ...scale, rotation])
+        finite(component, 'Texture transform');
+      const cos = Math.cos(rotation),
+        sin = Math.sin(rotation);
+      const transform: [number, number, number, number, number, number] = [
+        cos * scale[0],
+        sin * scale[0],
+        -sin * scale[1],
+        cos * scale[1],
+        offset[0],
+        offset[1],
+      ];
+      for (const component of transform) finite(component, 'Texture transform');
+      result[key as MaterialTextureSlot] = Object.freeze({
+        texCoord,
+        transform: Object.freeze(transform),
+      });
+    }
+  }
+  return Object.freeze(result);
+}
+
 /** Metallic-roughness material; all texture slots borrow, never own, their Texture. */
 export class PBRMaterial extends TextureMaterial {
+  readonly textureCoordinates: Readonly<
+    Partial<Record<MaterialTextureSlot, TextureCoordinates>>
+  >;
   readonly metallic: number;
   readonly roughness: number;
   readonly emissive: [number, number, number];
@@ -163,7 +258,7 @@ export class PBRMaterial extends TextureMaterial {
   readonly attenuationColor: [number, number, number];
   /** Linear texture: roughness in G, metallic in B. */
   readonly metallicRoughnessTexture: Texture | undefined;
-  /** Linear tangent-space normal texture, using UV0. */
+  /** Linear tangent-space normal texture, with its own UV selection and transform. */
   readonly normalTexture: Texture | undefined;
   readonly normalScale: number;
   /** Linear occlusion in R; affects indirect illumination only. */
@@ -183,6 +278,7 @@ export class PBRMaterial extends TextureMaterial {
 
   constructor(options: PBRMaterialOptions) {
     super(options);
+    this.textureCoordinates = textureCoordinates(options.textureCoordinates);
     const metallic = options.metallic ?? 0;
     const roughness = options.roughness ?? 0.5;
     const emissive = options.emissive ?? [0, 0, 0];

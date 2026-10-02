@@ -77,11 +77,6 @@ async function load(document: unknown) {
   return { asset, mesh, material: mesh.material as PBRMaterial };
 }
 
-function uvs(mesh: Mesh): number[] {
-  const v = mesh.geometry.vertices;
-  return [v[6], v[7], v[14], v[15], v[22], v[23]];
-}
-
 describe('glTF extensions', () => {
   it('rejects unknown required extensions but accepts implemented ones', async () => {
     installImages();
@@ -191,40 +186,6 @@ describe('glTF extensions', () => {
     ).rejects.toBeInstanceOf(AssetError);
   });
 
-  it.each([
-    ['KHR_materials_specular', 'specularTexture'],
-    ['KHR_materials_specular', 'specularColorTexture'],
-    ['KHR_materials_clearcoat', 'clearcoatTexture'],
-    ['KHR_materials_clearcoat', 'clearcoatRoughnessTexture'],
-    ['KHR_materials_clearcoat', 'clearcoatNormalTexture'],
-    ['KHR_materials_sheen', 'sheenColorTexture'],
-    ['KHR_materials_sheen', 'sheenRoughnessTexture'],
-    ['KHR_materials_transmission', 'transmissionTexture'],
-    ['KHR_materials_volume', 'thicknessTexture'],
-  ])('rejects an incompatible transform on %s %s', async (extension, slot) => {
-    installImages();
-    await expect(
-      new GLTFLoader().parse(
-        JSON.stringify(
-          model({
-            pbrMetallicRoughness: { baseColorTexture: { index: 0 } },
-            extensions: {
-              ...(extension === 'KHR_materials_volume'
-                ? { KHR_materials_transmission: {} }
-                : {}),
-              [extension]: {
-                [slot]: {
-                  index: 0,
-                  extensions: { KHR_texture_transform: { offset: [0.5, 0] } },
-                },
-              },
-            },
-          }),
-        ),
-      ),
-    ).rejects.toBeInstanceOf(AssetError);
-  });
-
   it('maps KHR_materials_unlit base color to emission with no diffuse response', async () => {
     const { asset, material } = await load(
       model({
@@ -242,51 +203,6 @@ describe('glTF extensions', () => {
     expect(material.opacity).toBeCloseTo(0.5);
     expect(material.emissiveTexture).toBe(material.texture);
     asset.dispose();
-  });
-
-  it('bakes KHR_texture_transform (offset, rotation, scale) into UV0', async () => {
-    const transform = {
-      offset: [0.5, 0.25],
-      rotation: Math.PI / 2,
-      scale: [2, 3],
-    };
-    const { asset, mesh } = await load(
-      model({
-        pbrMetallicRoughness: {
-          baseColorTexture: {
-            index: 0,
-            extensions: { KHR_texture_transform: transform },
-          },
-        },
-      }),
-    );
-    // uv' = offset + R * S * uv, R = [[cos, sin], [-sin, cos]].
-    const [u0, v0, u1, v1, u2, v2] = uvs(mesh);
-    expect([u0, v0]).toEqual([0.5, 0.25].map((x) => expect.closeTo(x, 5)));
-    expect(u1).toBeCloseTo(0.5);
-    expect(v1).toBeCloseTo(0.25 - 2);
-    expect(u2).toBeCloseTo(0.5 + 3);
-    expect(v2).toBeCloseTo(0.25);
-    asset.dispose();
-  });
-
-  it('rejects materials whose textures use different transforms', async () => {
-    installImages();
-    await expect(
-      new GLTFLoader().parse(
-        JSON.stringify(
-          model({
-            pbrMetallicRoughness: {
-              baseColorTexture: {
-                index: 0,
-                extensions: { KHR_texture_transform: { scale: [2, 2] } },
-              },
-            },
-            emissiveTexture: { index: 0 },
-          }),
-        ),
-      ),
-    ).rejects.toThrow(/same KHR_texture_transform/);
   });
 
   it('accepts mipmapped minification filters as their base filter', async () => {

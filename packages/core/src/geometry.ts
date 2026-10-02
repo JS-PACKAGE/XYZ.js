@@ -2,6 +2,8 @@ export interface GeometryData {
   positions: ArrayLike<number>;
   normals: ArrayLike<number>;
   uvs: ArrayLike<number>;
+  /** Optional TEXCOORD_1; UV0 remains in the legacy interleaved vertex stream. */
+  uvs1?: ArrayLike<number>;
   indices: ArrayLike<number>;
   /** Optional linear RGB or RGBA per vertex, multiplied into the base color. */
   colors?: ArrayLike<number>;
@@ -22,6 +24,8 @@ export class Geometry {
   /** xyz, normal xyz, uv, interleaved at a stride of eight floats. */
   readonly vertices: Float32Array;
   readonly indices: Uint32Array;
+  /** Two floats per vertex; edit in place then call markUpdated, like vertices. */
+  readonly uvs1: Float32Array | undefined;
   version = 0;
   private vertexColors: Float32Array | undefined;
 
@@ -126,6 +130,20 @@ export class Geometry {
     }
     this.vertices = vertices;
     this.indices = copiedIndices;
+    if (data.uvs1 !== undefined) {
+      if (data.uvs1.length !== count * 2)
+        throw new RangeError('Geometry UV1 counts must match positions.');
+      const copy = new Float32Array(count * 2);
+      for (let i = 0; i < copy.length; i++) {
+        const value = data.uvs1[i];
+        if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value)))
+          throw new RangeError(
+            'Geometry UV1 must be finite and fit in Float32.',
+          );
+        copy[i] = value;
+      }
+      this.uvs1 = copy;
+    }
     if (data.colors !== undefined) {
       this.setColors(data.colors);
       this.version = 0;

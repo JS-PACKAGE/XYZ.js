@@ -188,6 +188,9 @@ export type {
   PBRMaterialOptions,
   MaterialAlphaMode,
   TextureSamplerOptions,
+  MaterialTextureSlot,
+  TextureCoordinateOptions,
+  TextureCoordinates,
 } from './pbr-material.js';
 export type { PointLightOptions, SpotLightOptions } from './lights.js';
 export type {

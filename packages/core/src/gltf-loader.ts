@@ -15,7 +15,10 @@ import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
 import { PBRMaterial } from './pbr-material.js';
-import type { TextureSamplerOptions } from './pbr-material.js';
+import type {
+  TextureSamplerOptions,
+  TextureCoordinateOptions,
+} from './pbr-material.js';
 import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 import { decodeMeshopt } from './meshopt.js';
@@ -330,12 +333,10 @@ const supportedExtensions = new Set([
   'EXT_meshopt_compression',
 ]);
 
-/** offset.x, offset.y, rotation, scale.x, scale.y */
-type UVTransform = readonly [number, number, number, number, number];
 interface TextureSlot {
   texture: Texture;
   sampler: TextureSamplerOptions;
-  transform: UVTransform | undefined;
+  coordinates: TextureCoordinateOptions;
 }
 
 /** Dependency-free glTF 2.0 triangle/TRS/skin loader. Unsupported required extensions are rejected. */
@@ -901,7 +902,7 @@ export class GLTFLoader {
       ): Promise<TextureSlot | undefined> => {
         if (info === undefined) return undefined;
         const def = object(info, 'texture info');
-        let transform: UVTransform | undefined;
+        let coordinates: TextureCoordinateOptions = {};
         let texCoord = def.texCoord;
         if (def.extensions !== undefined) {
           const extensions = object(def.extensions, 'texture extensions');
@@ -913,18 +914,15 @@ export class GLTFLoader {
               scale =
                 t.scale === undefined ? [1, 1] : vector(t.scale, 2, 'scale'),
               rotation = number(t.rotation ?? 0, 'rotation');
-            if (
-              offset[0] !== 0 ||
-              offset[1] !== 0 ||
-              rotation !== 0 ||
-              scale[0] !== 1 ||
-              scale[1] !== 1
-            )
-              transform = [offset[0], offset[1], rotation, scale[0], scale[1]];
+            coordinates = {
+              offset: offset as [number, number],
+              scale: scale as [number, number],
+              rotation,
+            };
           }
         }
-        if (texCoord !== undefined && texCoord !== 0)
-          throw new AssetError('Only TEXCOORD_0 textures are supported.');
+        coordinates.texCoord = integer(texCoord ?? 0, 'texture texCoord', 1) as
+          0 | 1;
         const texture = reference(textureDefs, def.index, 'texture');
         const basisuExtension =
           texture.extensions === undefined
@@ -983,7 +981,7 @@ export class GLTFLoader {
             addressModeU,
             addressModeV,
           },
-          transform,
+          coordinates,
         };
       };
       let white: Texture | undefined;
@@ -992,8 +990,6 @@ export class GLTFLoader {
           new ImageData(new Uint8ClampedArray([255, 255, 255, 255]), 1, 1),
         ));
       const materials: PBRMaterial[] = [];
-      /** Baked into UV0 of every primitive using the material (parallel to `materials`). */
-      const materialTransforms: (UVTransform | undefined)[] = [];
       for (const def of materialDefs) {
         const pbr =
           def.pbrMetallicRoughness === undefined
@@ -1102,29 +1098,34 @@ export class GLTFLoader {
         const normalMap = await readTexture(normal),
           occlusionMap = await readTexture(occlusion),
           emissiveMap = await readTexture(def.emissiveTexture);
-        // UVs are transformed on the CPU, so every texture slot of a material must agree.
-        const slots = [
-          base,
-          metallicRoughness,
-          normalMap,
-          occlusionMap,
-          emissiveMap,
-          specularMap,
-          specularColorMap,
-          clearcoatMap,
-          clearcoatRoughnessMap,
-          clearcoatNormalMap,
-          sheenColorMap,
-          sheenRoughnessMap,
-          transmissionMap,
-          thicknessMap,
-        ].filter((slot) => slot !== undefined);
-        const keys = new Set(slots.map((slot) => slot.transform?.join(',')));
-        if (keys.size > 1)
-          throw new AssetError(
-            'All textures of a material must share the same KHR_texture_transform.',
-          );
-        materialTransforms.push(slots[0]?.transform);
+        const textureCoordinates = {
+          ...(base ? { texture: base.coordinates } : {}),
+          ...(metallicRoughness
+            ? { metallicRoughness: metallicRoughness.coordinates }
+            : {}),
+          ...(normalMap ? { normal: normalMap.coordinates } : {}),
+          ...(occlusionMap ? { occlusion: occlusionMap.coordinates } : {}),
+          ...(emissiveMap ? { emissive: emissiveMap.coordinates } : {}),
+          ...(specularMap ? { specular: specularMap.coordinates } : {}),
+          ...(specularColorMap
+            ? { specularColor: specularColorMap.coordinates }
+            : {}),
+          ...(clearcoatMap ? { clearcoat: clearcoatMap.coordinates } : {}),
+          ...(clearcoatRoughnessMap
+            ? { clearcoatRoughness: clearcoatRoughnessMap.coordinates }
+            : {}),
+          ...(clearcoatNormalMap
+            ? { clearcoatNormal: clearcoatNormalMap.coordinates }
+            : {}),
+          ...(sheenColorMap ? { sheenColor: sheenColorMap.coordinates } : {}),
+          ...(sheenRoughnessMap
+            ? { sheenRoughness: sheenRoughnessMap.coordinates }
+            : {}),
+          ...(transmissionMap
+            ? { transmission: transmissionMap.coordinates }
+            : {}),
+          ...(thicknessMap ? { thickness: thicknessMap.coordinates } : {}),
+        };
         const emissiveFactor = (
           def.emissiveFactor === undefined
             ? [0, 0, 0]
@@ -1136,6 +1137,9 @@ export class GLTFLoader {
             new PBRMaterial({
               texture: base?.texture ?? (await getWhite()),
               textureSampler: base?.sampler,
+              textureCoordinates: base
+                ? { texture: base.coordinates, emissive: base.coordinates }
+                : {},
               color: [0, 0, 0],
               opacity: factor[3],
               alphaMode,
@@ -1157,6 +1161,7 @@ export class GLTFLoader {
           new PBRMaterial({
             texture: base?.texture ?? (await getWhite()),
             textureSampler: base?.sampler,
+            textureCoordinates,
             color: factor.slice(0, 3) as [number, number, number],
             opacity: factor[3],
             alphaMode,
@@ -1486,26 +1491,52 @@ export class GLTFLoader {
               normal.count !== position.count)
           )
             throw new AssetError('Invalid vertex normals.');
-          const uv =
-            attributes.TEXCOORD_0 === undefined
-              ? undefined
-              : readAccessor(attributes.TEXCOORD_0);
-          if (
-            uv &&
-            (uv.type !== 'VEC2' ||
+          for (const semantic of Object.keys(attributes)) {
+            if (
+              /^TEXCOORD_/.test(semantic) &&
+              semantic !== 'TEXCOORD_0' &&
+              semantic !== 'TEXCOORD_1'
+            )
+              throw new AssetError(
+                'Only TEXCOORD_0 and TEXCOORD_1 are supported.',
+              );
+            if (
+              /^(JOINTS|WEIGHTS)_/.test(semantic) &&
+              !/^(JOINTS|WEIGHTS)_[01]$/.test(semantic)
+            )
+              throw new AssetError(
+                'More than eight skin influences are unsupported.',
+              );
+          }
+          const readUV = (semantic: string): AccessorData | undefined => {
+            if (attributes[semantic] === undefined) return undefined;
+            const uv = readAccessor(attributes[semantic]);
+            if (
+              uv.type !== 'VEC2' ||
               uv.count !== position.count ||
               !(
                 uv.component === 5126 ||
                 ([5121, 5123].includes(uv.component) && uv.normalized)
-              ))
-          )
-            throw new AssetError('Invalid UV0 accessor.');
+              )
+            )
+              throw new AssetError(`Invalid ${semantic} accessor.`);
+            return uv;
+          };
+          const uv = readUV('TEXCOORD_0'),
+            uv1 = readUV('TEXCOORD_1');
           if (
-            attributes.JOINTS_1 !== undefined ||
-            attributes.WEIGHTS_1 !== undefined
+            (attributes.JOINTS_1 === undefined) !==
+            (attributes.WEIGHTS_1 === undefined)
+          )
+            throw new AssetError('JOINTS_1 and WEIGHTS_1 must be paired.');
+          if (
+            (attributes.JOINTS_0 === undefined) !==
+              (attributes.WEIGHTS_0 === undefined) ||
+            (attributes.JOINTS_1 !== undefined &&
+              attributes.JOINTS_0 === undefined)
           )
             throw new AssetError(
-              'More than four skin influences are unsupported.',
+              'Skin influence sets require paired JOINTS_0 and WEIGHTS_0.',
             );
           if (attributes.COLOR_1 !== undefined)
             throw new AssetError('Only COLOR_0 vertex colors are supported.');
@@ -1531,7 +1562,8 @@ export class GLTFLoader {
               indices.length * 4 +
               (normal ? 0 : position.count * 3 * 4) +
               (uv ? 0 : position.count * 2 * 4) +
-              (color ? position.count * 4 * 4 : 0),
+              (color ? position.count * 4 * 4 : 0) +
+              (uv1 ? position.count * 2 * 4 : 0),
           );
           const materialIndex =
             primitive.material === undefined
@@ -1541,30 +1573,20 @@ export class GLTFLoader {
             materialIndex === undefined
               ? await defaultMaterial()
               : reference(materials, materialIndex, 'material');
-          let uvData: Float32Array =
-            uv?.data ?? new Float32Array(position.count * 2);
-          const transform =
-            materialIndex === undefined
-              ? undefined
-              : materialTransforms[materialIndex];
-          if (transform) {
-            // Accessor data may be shared between primitives, so transform a copy.
-            const [ox, oy, rotation, sx, sy] = transform,
-              cos = Math.cos(rotation),
-              sin = Math.sin(rotation);
-            uvData = new Float32Array(uvData.length);
-            const source = uv?.data;
-            for (let j = 0; j < uvData.length; j += 2) {
-              const u = (source?.[j] ?? 0) * sx,
-                v = (source?.[j + 1] ?? 0) * sy;
-              uvData[j] = ox + cos * u + sin * v;
-              uvData[j + 1] = oy - sin * u + cos * v;
-            }
+          for (const coordinates of Object.values(
+            material.textureCoordinates,
+          )) {
+            if ((coordinates.texCoord === 0 ? uv : uv1) === undefined)
+              throw new AssetError(
+                `Material requires missing TEXCOORD_${coordinates.texCoord}.`,
+              );
           }
+          const uvData = uv?.data ?? new Float32Array(position.count * 2);
           const geometry = new Geometry({
             positions: position.data,
             normals: normal?.data ?? this.normals(position.data, indices),
             uvs: uvData,
+            uvs1: uv1?.data,
             indices,
             colors: color?.data,
           });
@@ -1572,36 +1594,67 @@ export class GLTFLoader {
             ? readMorph(primitive, position.count, morphWeights)
             : undefined;
           if (skin) {
-            const joint = readAccessor(attributes.JOINTS_0),
-              weights = readAccessor(attributes.WEIGHTS_0);
-            if (
-              joint.type !== 'VEC4' ||
-              joint.normalized ||
-              ![5121, 5123].includes(joint.component) ||
-              joint.count !== position.count ||
-              weights.type !== 'VEC4' ||
-              weights.count !== position.count ||
-              !(
-                weights.component === 5126 ||
-                ([5121, 5123].includes(weights.component) && weights.normalized)
+            const influencesPerVertex =
+              attributes.JOINTS_1 === undefined ? 4 : 8;
+            const sets = influencesPerVertex / 4;
+            const jointSets: AccessorData[] = [],
+              weightSets: AccessorData[] = [];
+            for (let set = 0; set < sets; set++) {
+              const joint = readAccessor(attributes[`JOINTS_${set}`]),
+                weights = readAccessor(attributes[`WEIGHTS_${set}`]);
+              if (
+                joint.type !== 'VEC4' ||
+                joint.normalized ||
+                ![5121, 5123].includes(joint.component) ||
+                joint.count !== position.count ||
+                weights.type !== 'VEC4' ||
+                weights.count !== position.count ||
+                !(
+                  weights.component === 5126 ||
+                  ([5121, 5123].includes(weights.component) &&
+                    weights.normalized)
+                )
               )
-            )
-              throw new AssetError('Invalid skin attributes.');
+                throw new AssetError('Invalid skin attributes.');
+              jointSets.push(joint);
+              weightSets.push(weights);
+            }
             context.reserve(
               position.count * 8 * 4 * 3 +
-                indices.length * 4 +
-                position.count * 4 * 8 +
+                indices.length * 4 * 2 +
+                position.count *
+                  influencesPerVertex *
+                  8 *
+                  (sets === 2 ? 2 : 1) +
                 skin.joints.length * 16 * 16 +
-                (color ? position.count * 4 * 4 : 0),
+                (uv1 ? position.count * 2 * 4 * 2 : 0) +
+                (color ? position.count * 4 * 4 * 2 : 0),
             );
+            let jointIndices = jointSets[0].data,
+              weights = weightSets[0].data;
+            if (sets === 2) {
+              jointIndices = new Float32Array(position.count * 8);
+              weights = new Float32Array(position.count * 8);
+              for (let vertex = 0; vertex < position.count; vertex++) {
+                for (let set = 0; set < 2; set++) {
+                  for (let influence = 0; influence < 4; influence++) {
+                    const source = vertex * 4 + influence;
+                    const target = vertex * 8 + set * 4 + influence;
+                    jointIndices[target] = jointSets[set].data[source];
+                    weights[target] = weightSets[set].data[source];
+                  }
+                }
+              }
+            }
             nodes[i].add(
               new SkinnedMesh({
                 geometry,
                 material,
                 morph,
                 ...skin,
-                jointIndices: joint.data,
-                weights: weights.data,
+                jointIndices,
+                weights,
+                influencesPerVertex,
               }),
             );
           } else nodes[i].add(new Mesh({ geometry, material, morph }));

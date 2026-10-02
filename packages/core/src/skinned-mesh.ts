@@ -9,6 +9,8 @@ export interface SkinnedMeshOptions extends MeshOptions {
   inverseBindMatrices?: readonly Matrix4[];
   jointIndices: ArrayLike<number>;
   weights: ArrayLike<number>;
+  /** Four preserves the 1.x stream contract; eight consumes both glTF influence sets. */
+  influencesPerVertex?: 4 | 8;
 }
 
 function cloneGeometry(source: Geometry): Geometry {
@@ -28,6 +30,7 @@ function cloneGeometry(source: Geometry): Geometry {
     positions,
     normals,
     uvs,
+    uvs1: source.uvs1,
     indices: source.indices,
     colors: source.colors,
   });
@@ -39,6 +42,7 @@ export class SkinnedMesh extends Mesh {
   readonly inverseBindMatrices: readonly Matrix4[];
   readonly jointIndices: Uint32Array;
   readonly weights: Float32Array;
+  readonly influencesPerVertex: 4 | 8;
   readonly jointPalette: Float32Array;
   paletteVersion = 0;
   private readonly skinGeometry: Geometry;
@@ -73,10 +77,14 @@ export class SkinnedMesh extends Mesh {
   constructor(options: SkinnedMeshOptions) {
     super({ ...options, geometry: cloneGeometry(options.geometry) });
     const count = this.geometry.vertices.length / 8;
+    const influences = options.influencesPerVertex ?? 4;
+    if (influences !== 4 && influences !== 8)
+      throw new RangeError('Skin influences per vertex must be four or eight.');
+    this.influencesPerVertex = influences;
     if (
       !options.joints.length ||
-      options.jointIndices.length !== count * 4 ||
-      options.weights.length !== count * 4 ||
+      options.jointIndices.length !== count * influences ||
+      options.weights.length !== count * influences ||
       (options.inverseBindMatrices &&
         options.inverseBindMatrices.length !== options.joints.length)
     )
@@ -102,14 +110,14 @@ export class SkinnedMesh extends Mesh {
     this.matrices = options.joints.map(() => new Matrix4());
     this.jointPalette = new Float32Array(options.joints.length * 16);
     this.influenceBounds = new Float32Array(options.joints.length * 6);
-    this.jointIndices = new Uint32Array(count * 4);
-    this.weights = new Float32Array(count * 4);
+    this.jointIndices = new Uint32Array(count * influences);
+    this.weights = new Float32Array(count * influences);
     this.skinGeometry = cloneGeometry(options.geometry);
     this.bindVertices = this.skinGeometry.vertices;
     for (let i = 0; i < count; i++) {
       let total = 0;
-      for (let j = 0; j < 4; j++) {
-        const k = i * 4 + j,
+      for (let j = 0; j < influences; j++) {
+        const k = i * influences + j,
           joint = options.jointIndices[k],
           weight = options.weights[k];
         if (
@@ -125,8 +133,9 @@ export class SkinnedMesh extends Mesh {
       }
       if (!Number.isFinite(total) || total <= 0)
         throw new RangeError('Skin weights must have a positive total.');
-      for (let j = 0; j < 4; j++)
-        this.weights[i * 4 + j] = options.weights[i * 4 + j] / total;
+      for (let j = 0; j < influences; j++)
+        this.weights[i * influences + j] =
+          options.weights[i * influences + j] / total;
     }
     this.refreshInfluenceBounds();
   }
@@ -171,10 +180,11 @@ export class SkinnedMesh extends Mesh {
     for (let i = 0; i < out.length / 8; i++) {
       const e = this.blend.elements;
       e.fill(0);
-      for (let j = 0; j < 4; j++) {
-        const weight = this.weights[i * 4 + j];
+      for (let j = 0; j < this.influencesPerVertex; j++) {
+        const index = i * this.influencesPerVertex + j;
+        const weight = this.weights[index];
         if (weight === 0) continue;
-        const joint = this.matrices[this.jointIndices[i * 4 + j]].elements;
+        const joint = this.matrices[this.jointIndices[index]].elements;
         for (let k = 0; k < 16; k++) e[k] += weight * joint[k];
       }
       const offset = i * 8,
@@ -219,8 +229,12 @@ export class SkinnedMesh extends Mesh {
       bounds.fill(-Infinity, offset + 3, offset + 6);
     }
     for (let vertex = 0; vertex < this.bindVertices.length / 8; vertex++)
-      for (let influence = 0; influence < 4; influence++) {
-        const index = vertex * 4 + influence;
+      for (
+        let influence = 0;
+        influence < this.influencesPerVertex;
+        influence++
+      ) {
+        const index = vertex * this.influencesPerVertex + influence;
         if (this.weights[index] === 0) continue;
         const offset = this.jointIndices[index] * 6;
         for (let axis = 0; axis < 3; axis++) {

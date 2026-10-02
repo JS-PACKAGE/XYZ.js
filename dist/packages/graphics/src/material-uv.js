@@ -1,0 +1,2 @@
+import{materialTextureSlots as e}from"../../../src/data/rendering.js";import{PBRMaterial as t}from"../../core/src/pbr-material.js";import{GraphicsError as n}from"./errors.js";export function fillMaterialUV(r,i,a,o=0){for(let s=0;s<e.length;s++){let c=r instanceof t?r.textureCoordinates[e[s]]:void 0;if(c?.texCoord===1&&!i.uvs1)throw new n(`Material ${e[s]} requires absent TEXCOORD_1.`);let l=o+s*8;if(c){for(let e=0;e<6;e++)a[l+e]=c.transform[e];a[l+6]=c.texCoord}else a[l]=a[l+3]=1,a[l+1]=a[l+2]=a[l+4]=a[l+5]=a[l+6]=0;a[l+7]=0}}
+//# sourceMappingURL=material-uv.js.map
