@@ -2,6 +2,24 @@
 
 This **v1.12.1 / 1.12.1** development recipe uses the existing engine and pinned development browser. It adds no runtime dependency and never downloads codecs, executes asset-provided commands, or modifies official OPM bytes. Historical P50 evidence remains in ACCEPTANCE; release verification does not imply cross-platform codec certification.
 
+Current support/API boundaries are normative in [CURRENT](CURRENT.md); this recipe describes the production tool profile, not a new browser/physical certification.
+
+## Installed project preflight and build
+
+The installed package exposes the development CLI `xyz-assets`; it uses the package's built engine, not repository TypeScript paths. Provide the pinned Node/browser development tooling listed below (the consumer needs `playwright-core` 1.63.0 and the matching managed Chromium). This is not a new engine runtime dependency.
+
+```sh
+pnpm exec xyz-assets preflight --manifest /absolute/assets/project.json
+pnpm exec xyz-assets build --manifest /absolute/assets/project.json --out /absolute/new-deployment
+# Optional, build-only: --profile /absolute/trusted-profile.json
+```
+
+A project manifest has `version: 1`, nonempty `entries` with unique `id`, `type`, local deployment-relative `url`, optional `dependsOn` asset IDs and loader `options`, and optional named `bundles` of asset IDs. Supported types are `model`, `map`, `tileset`, `atlas`, `bitmapFont`, `font`, `texture`, `json`, `text`, and `binary`. Model-only `recipe: true` runs semantic conversion; generated entries point to `__xyz/model-N/model.gltf` with a descriptor and native-texture options. This project manifest is distinct from the recipe's platform-variant descriptor and runtime authoring manifests.
+
+Preflight walks referenced model buffers/images, Tiled tilesets/templates/file properties, atlas pages and BMFont pages, then validates immutable snapshots through the actual browser parsers/loaders. Remote/absolute URLs, traversal or symlink escapes, reserved output paths and missing dependencies reject with JSON `file`, `location`, and `message` diagnostics. Build requires a nonexistent destination; it stages, validates, writes `project-manifest.json`/`SHA256SUMS`, and publishes without overwriting source assets. SIGINT/SIGTERM cancel owned work; pages, browser, localhost server and staging are cleaned up. No asset-provided commands execute.
+
+The representative repository corpus is `tests/fixtures/asset-project/`: imported model/image/font material retains its provenance, upstream commits/checksums and license files. These fixtures are not an assertion of every third-party format or codec being supported.
+
 ## Prerequisites and commands
 
 Use **Node 26.7.0**, **pnpm 12.6.0**, **playwright-core 1.63.0**, and **Chromium 153.0.8010.12 (revision 1243)**. Pins live in `src/data/asset-recipe.ts`; the CLI checks both installed browser metadata and the launched browser version. Install dependencies with the existing frozen lockfile. If needed, explicitly install the known browser with `pnpm exec playwright-core install chromium`. A `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` override must still match the pin. The recipe itself never installs or downloads anything.
@@ -17,7 +35,7 @@ node scripts/build-assets.mjs --input examples/asset-recipe/source.gltf --out /t
 diff /tmp/xyz-assets-a/SHA256SUMS /tmp/xyz-assets-b/SHA256SUMS
 pnpm pack --pack-destination /tmp
 mkdir /tmp/xyz-packed-consumer
-tar -xzf /tmp/xyz.js-1.12.0.tgz -C /tmp/xyz-packed-consumer
+tar -xzf /tmp/xyz.js-1.12.1.tgz -C /tmp/xyz-packed-consumer
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgl2
 node scripts/verify-asset-deployment.mjs --package /tmp/xyz-packed-consumer/package --bundle /tmp/xyz-assets-a --renderer webgpu
 ```
@@ -37,7 +55,7 @@ For example: `pnpm assets:build --input authoring/model.glb --out public/assets/
 
 ## Preflight and conversion
 
-The profile is **glTF 2.0, triangle topology, one TEXCOORD_0 stream, engine-supported materials/extensions**. Preflight rejects UV1, absent UVs on textured primitives, conflicting per-material transforms, unsupported extensions/material combinations, invalid primitive counts and resource budgets. Required external codecs need independently pinned tools; absent tools/fallbacks reject. The packaged GLTFLoader validates generated variants, accessors, hierarchy, skins, animations, materials, images and aggregate budgets before publication.
+The profile is **glTF 2.0, triangle topology, TEXCOORD_0 and TEXCOORD_1, engine-supported materials/extensions**. Preflight rejects higher UV streams, absent selected UV streams on textured primitives, unsupported extensions/material combinations, invalid primitive counts and resource budgets. Each material map independently selects UV0/UV1 (including `KHR_texture_transform.texCoord`) and retains its own affine transform; distinct transforms are not a conflict and are not baked into shared vertex UVs. Required external codecs need independently pinned tools; absent tools/fallbacks reject. The packaged GLTFLoader validates generated variants, accessors, hierarchy, skins, animations, materials, images and aggregate budgets.
 
 All actual buffer payloads are packed into one 4-byte-aligned `payload.bin`; every bufferView and preserved meshopt compressed-source offset is relocated. GLB embedded images are externalized. Used texture sources are converted to:
 

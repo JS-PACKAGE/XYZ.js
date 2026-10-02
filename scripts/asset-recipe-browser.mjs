@@ -1,19 +1,25 @@
 import { createServer } from 'node:http';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import { resolve, relative, isAbsolute, extname } from 'node:path';
-import { createRequire } from 'node:module';
 import { URL } from 'node:url';
 import process from 'node:process';
-import { chromium } from 'playwright-core';
 import { chromiumLaunchOptions } from './browser-launch.mjs';
-import { assetRecipe } from '../src/data/asset-recipe.ts';
+import { assetRecipe, consumerTool } from './asset-tool-paths.mjs';
 import { checksum } from './asset-recipe-lib.mjs';
-const require = createRequire(import.meta.url);
+import { pathToFileURL } from 'node:url';
 
 export async function assetBrowser(mounts) {
   if (process.versions.node !== assetRecipe.node)
     throw new Error(`Asset recipe requires Node ${assetRecipe.node}.`);
-  const packagePath = require.resolve('playwright-core/package.json');
+  const packagePath = consumerTool('playwright-core/package.json');
+  const namespace = await import(
+    pathToFileURL(consumerTool('playwright-core'))
+  );
+  const { chromium } = namespace.default ?? namespace;
+  if (typeof chromium?.launch !== 'function')
+    throw new Error(
+      'Resolved playwright-core does not expose the Chromium launcher.',
+    );
   const metadata = JSON.parse(await readFile(packagePath, 'utf8'));
   if (metadata.version !== assetRecipe.playwright)
     throw new Error(
@@ -98,6 +104,14 @@ export async function assetBrowser(mounts) {
           '.gltf': 'model/gltf+json',
           '.ktx2': 'image/ktx2',
           '.png': 'image/png',
+          '.jpg': 'image/jpeg',
+          '.jpeg': 'image/jpeg',
+          '.webp': 'image/webp',
+          '.ttf': 'font/ttf',
+          '.woff': 'font/woff',
+          '.woff2': 'font/woff2',
+          '.tmj': 'application/json',
+          '.tsj': 'application/json',
           '.bin': 'application/octet-stream',
           '.wasm': 'application/wasm',
         }[extname(path)] ?? 'application/octet-stream';
@@ -135,6 +149,7 @@ export async function assetBrowser(mounts) {
     page.setDefaultNavigationTimeout(assetRecipe.codecTimeoutMilliseconds);
     const origin = `http://127.0.0.1:${server.address().port}`;
     await page.goto(origin);
+    let closing;
     return {
       page,
       origin,
@@ -150,12 +165,15 @@ export async function assetBrowser(mounts) {
         ktx2: 'rgba8-and-external-gpu-blocks-v2',
         png: 'zlib-level9-filter0-v1',
       },
-      close: async () => {
-        try {
-          await browser.close();
-        } finally {
-          await new Promise((resolve) => server.close(resolve));
-        }
+      close: () => {
+        closing ??= (async () => {
+          try {
+            await browser.close();
+          } finally {
+            await new Promise((resolve) => server.close(resolve));
+          }
+        })();
+        return closing;
       },
     };
   } catch (error) {

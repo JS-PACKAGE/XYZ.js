@@ -1,0 +1,87 @@
+{
+  "version": 1,
+  "sources": [
+    {
+      "path": "Box.glb",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/Box/glTF-Binary/Box.glb",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "ed52f7192b8311d700ac0ce80644e3852cd01537e4d62241b9acba023da3d54e",
+      "bytes": 1664,
+      "license": "CC-BY-4.0",
+      "attribution": "2017 Cesium",
+      "changes": "none"
+    },
+    {
+      "path": "Box-attribution.txt",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/Box/README.md",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "ae63b4ad1c8136b881686e66faf930c9b9e71fa823a7a4b1738076ae06739c35",
+      "bytes": 898,
+      "license": "CC-BY-4.0",
+      "attribution": "2017 Cesium",
+      "changes": "none"
+    },
+    {
+      "path": "CC-BY-4.0.txt",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/LICENSES/CC-BY-4.0.txt",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "c8041334a99cb48852b2139253cbde5f8ac87e27f124aed51223e0d5bf0080eb",
+      "bytes": 13034,
+      "license": "CC-BY-4.0",
+      "attribution": "Creative Commons",
+      "changes": "none"
+    },
+    {
+      "path": "Avocado.jpg",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/Avocado/screenshot/screenshot.jpg",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "e054be44df4b4f6ff99cf3467d78951b32557e6b6816a2a28af422db1abd98b4",
+      "bytes": 3414,
+      "license": "CC0-1.0",
+      "attribution": "Microsoft",
+      "changes": "none"
+    },
+    {
+      "path": "Avocado-attribution.txt",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/Models/Avocado/README.md",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "076b9fbb0bd7ccf39a3dcba838544331dfa71186014c24141929fbcb3e2a507e",
+      "bytes": 969,
+      "license": "CC0-1.0",
+      "attribution": "Microsoft",
+      "changes": "none"
+    },
+    {
+      "path": "CC0-1.0.txt",
+      "url": "https://raw.githubusercontent.com/KhronosGroup/glTF-Sample-Assets/edc7c9e67c639d230715049ee31f9a96a6babbbe/LICENSES/CC0-1.0.txt",
+      "commit": "edc7c9e67c639d230715049ee31f9a96a6babbbe",
+      "sha256": "a43fc2004d1e073f1107a1f6146664d08dae6cea93cb828742a4bec6da828e91",
+      "bytes": 6533,
+      "license": "CC0-1.0",
+      "attribution": "Creative Commons",
+      "changes": "none"
+    },
+    {
+      "path": "Abel-Regular.ttf",
+      "url": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/abel/Abel-Regular.ttf",
+      "commit": "9710da1eacb3be272583c3224dcb70f9da6eadbb",
+      "sha256": "8809dcad25318225052f88333e208c5aad4adcb7b2c934c135735ec19aa410b4",
+      "bytes": 35220,
+      "license": "OFL-1.1",
+      "attribution": "2011 Matthew Desmond, Reserved Font Name Abel",
+      "changes": "none"
+    },
+    {
+      "path": "OFL.txt",
+      "url": "https://raw.githubusercontent.com/google/fonts/9710da1eacb3be272583c3224dcb70f9da6eadbb/ofl/abel/OFL.txt",
+      "commit": "9710da1eacb3be272583c3224dcb70f9da6eadbb",
+      "sha256": "4f4bc3806a1e55789c6ef75ca5fc628297b05292f74966474dc0d40324abc609",
+      "bytes": 4418,
+      "license": "OFL-1.1",
+      "attribution": "2011 Matthew Desmond, Reserved Font Name Abel",
+      "changes": "none"
+    }
+  ],
+  "authored": ["project.json", "map.tmj", "tileset.tsj", "atlas.json"],
+  "authoredLicense": "Repository LICENSE; reference descriptors only, no modification of upstream payloads."
+}

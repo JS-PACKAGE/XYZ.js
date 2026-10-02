@@ -9,7 +9,7 @@ import { setTimeout, clearTimeout } from 'node:timers';
 import { URL } from 'node:url';
 import { createDracoAdapter } from './asset-recipe-draco.mjs';
 import { verifyFile } from './asset-recipe-codecs.mjs';
-import { assetRecipe } from '../src/data/asset-recipe.ts';
+import { assetRecipe } from './asset-tool-paths.mjs';
 export async function createDracoWorkerAdapter(pin, base) {
   if (pin.version !== assetRecipe.dracoVersion)
     throw new Error('Draco version pin must be 1.5.7.');

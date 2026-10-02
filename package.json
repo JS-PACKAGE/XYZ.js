@@ -18,7 +18,9 @@
     }
   },
   "bin": {
-    "xyz-create": "scripts/create-game.mjs"
+    "xyz-create": "scripts/create-game.mjs",
+    "xyz-assets": "scripts/asset-project.mjs",
+    "xyz-build-assets": "scripts/build-assets.mjs"
   },
   "files": [
     "SECURITY.md",

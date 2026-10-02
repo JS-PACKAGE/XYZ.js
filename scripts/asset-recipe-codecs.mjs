@@ -12,8 +12,7 @@ import { promisify } from 'node:util';
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
 import { checksum, encodePNG } from './asset-recipe-lib.mjs';
-import { assetRecipe } from '../src/data/asset-recipe.ts';
-import { assetLimits } from '../src/data/assets.ts';
+import { assetRecipe, assetLimits } from './asset-tool-paths.mjs';
 import { createDracoWorkerAdapter } from './asset-recipe-draco-worker.mjs';
 const exec = promisify(execFile);
 export const platformFormats = Object.freeze({

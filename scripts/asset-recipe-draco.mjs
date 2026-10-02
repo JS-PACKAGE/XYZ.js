@@ -1,8 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import { Buffer } from 'node:buffer';
 import { pathToFileURL } from 'node:url';
-import { assetRecipe } from '../src/data/asset-recipe.ts';
-import { modelLimits } from '../src/data/models.ts';
+import { assetRecipe, modelLimits } from './asset-tool-paths.mjs';
 import { decodeDracoAttribute } from './asset-recipe-browser-codecs.mjs';
 const components = { SCALAR: 1, VEC2: 2, VEC3: 3, VEC4: 4 };
 const types = {

@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "entries": [
+    {
+      "id": "box",
+      "type": "model",
+      "url": "Box.glb",
+      "recipe": true,
+      "dependsOn": ["box-attribution", "cc-by"]
+    },
+    {
+      "id": "map",
+      "type": "map",
+      "url": "map.tmj",
+      "dependsOn": ["tileset", "avocado-attribution", "cc0"]
+    },
+    {
+      "id": "tileset",
+      "type": "tileset",
+      "url": "tileset.tsj",
+      "dependsOn": ["preview"]
+    },
+    {
+      "id": "atlas",
+      "type": "atlas",
+      "url": "atlas.json",
+      "dependsOn": ["preview"]
+    },
+    { "id": "preview", "type": "texture", "url": "Avocado.jpg" },
+    {
+      "id": "abel",
+      "type": "font",
+      "url": "Abel-Regular.ttf",
+      "options": { "family": "Abel" },
+      "dependsOn": ["ofl"]
+    },
+    { "id": "box-attribution", "type": "text", "url": "Box-attribution.txt" },
+    {
+      "id": "avocado-attribution",
+      "type": "text",
+      "url": "Avocado-attribution.txt"
+    },
+    { "id": "cc-by", "type": "text", "url": "CC-BY-4.0.txt" },
+    { "id": "cc0", "type": "text", "url": "CC0-1.0.txt" },
+    { "id": "ofl", "type": "text", "url": "OFL.txt" },
+    { "id": "provenance", "type": "json", "url": "provenance.json" }
+  ],
+  "bundles": {
+    "scene": ["box", "map", "atlas", "abel"],
+    "legal": [
+      "box-attribution",
+      "avocado-attribution",
+      "cc-by",
+      "cc0",
+      "ofl",
+      "provenance"
+    ]
+  }
+}

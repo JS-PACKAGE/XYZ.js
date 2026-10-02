@@ -4,9 +4,7 @@ import { readFile, realpath, stat } from 'node:fs/promises';
 import { resolve, relative, dirname, isAbsolute } from 'node:path';
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
-import { modelLimits } from '../src/data/models.ts';
-import { assetLimits } from '../src/data/assets.ts';
-import { assetRecipe } from '../src/data/asset-recipe.ts';
+import { modelLimits, assetLimits, assetRecipe } from './asset-tool-paths.mjs';
 
 export const checksum = (bytes) =>
   createHash('sha256').update(bytes).digest('hex');
@@ -199,6 +197,12 @@ const supported = new Set([
   'KHR_mesh_quantization',
   'EXT_meshopt_compression',
 ]);
+export function recipeSupportsExtension(name) {
+  return (
+    supported.has(name) ||
+    ['KHR_draco_mesh_compression', 'KHR_texture_basisu'].includes(name)
+  );
+}
 export function preflight(document, codecs = {}) {
   if (
     document.extensionsRequired !== undefined &&

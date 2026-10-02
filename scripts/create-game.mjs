@@ -5,6 +5,7 @@ import {
   readdir,
   readFile,
   lstat,
+  realpath,
   writeFile,
 } from 'node:fs/promises';
 import { resolve, dirname, join } from 'node:path';
@@ -124,7 +125,8 @@ export async function createGame(args) {
 }
 if (
   process.argv[1] &&
-  resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+  (await realpath(process.argv[1]).catch(() => undefined)) ===
+    fileURLToPath(import.meta.url)
 ) {
   createGame(process.argv.slice(2)).catch((error) => {
     console.error(error.message);
