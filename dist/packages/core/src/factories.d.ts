@@ -1,8 +1,11 @@
+import type { ResourceScope } from '../../assets/src/resource-scope.js';
 import { SceneObject } from './scene-object.js';
 import type { Serializable } from './serialization.js';
 export interface FactoryContext<Services = void> {
     readonly services: Services;
     readonly signal: AbortSignal;
+    /** Candidate-local owned/borrowed acquisitions; supplied by content builds using a ResourcePool. */
+    readonly resources?: ResourceScope;
     readonly id: string | undefined;
     /** Only aliases explicitly declared by this content node are available. */
     reference(alias: string): SceneObject;
@@ -12,7 +15,8 @@ export interface FactoryContext<Services = void> {
 export interface FactoryDefinition<Options, Node extends SceneObject, Services = void> {
     /** Must reject invalid options by throwing; no unchecked JSON-to-options cast. */
     parse(value: unknown): Options;
-    /** Return a fresh detached prefab; borrowed resources remain caller-owned. */
+    /** Return a fresh detached prefab; borrowed resources remain caller-owned.
+     * Claim consumers with context.own before awaiting; unclaimed async/external effects remain caller responsibility. */
     create(options: Options, context: FactoryContext<Services>): Node | Promise<Node>;
     /** Explicit stable names for every prefab descendant included in content saves. */
     children?(node: Node): Readonly<Record<string, SceneObject>>;
@@ -47,6 +51,8 @@ export declare class FactoryRegistry<Definitions extends FactoryDefinitions> {
         signal?: AbortSignal;
         id?: string;
         reference?: (alias: string) => SceneObject;
+        resources?: ResourceScope;
+        onOwn?: (nodes: ReadonlySet<SceneObject>) => void;
     }): Promise<FactoryNode<Definitions[Kind]>>;
 }
 /** @internal Claim only fresh members; validation failure never claims a borrowed descendant. */

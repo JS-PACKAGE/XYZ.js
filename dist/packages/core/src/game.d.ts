@@ -1,4 +1,4 @@
-import { AssetLoader, type PreloadBatch } from '../../assets/src/index.js';
+import { AssetLoader, ResourcePool, type PreloadBatch } from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
 import { type Renderer, type RendererPreference } from '../../graphics/src/index.js';
@@ -104,6 +104,9 @@ export declare class Game extends EventTarget {
     private readonly warmupLeases;
     private currentWarmup;
     private readonly warmupProtections;
+    private resourcePool;
+    /** Shared acquisition ownership is lazy and local to this Game. */
+    get resources(): ResourcePool;
     get accessibility(): AccessibilityManager;
     warmup(scene: Scene, options?: WarmupOptions): Promise<WarmupLease>;
     private constructor();

@@ -1,5 +1,10 @@
 import { contentLimits } from '../../../src/data/content.js';
 import {
+  ResourcePool,
+  type ResourceScope,
+} from '../../assets/src/resource-scope.js';
+import { subscribeLoad } from '../../assets/src/preload/subscribe-load.js';
+import {
   FactoryRegistry,
   collectFactoryNodes,
   destroyFactoryNodes,
@@ -45,6 +50,9 @@ export interface ContentSceneDefinition<
 }
 export interface ContentBuildOptions {
   readonly signal?: AbortSignal;
+  /** A fresh candidate scope is created, or forked from resources; neither owns borrowed services. */
+  readonly resourcePool?: ResourcePool;
+  readonly resources?: ResourceScope;
 }
 
 export interface ContentSnapshot<
@@ -64,6 +72,7 @@ interface ContentEntry {
   alias?: string;
   state: Serializable;
   unregister?: () => void;
+  resources?: ResourceScope;
 }
 
 type NodeAt<
@@ -73,6 +82,44 @@ type NodeAt<
 > = FactoryNode<
   Definitions[Extract<Definition['nodes'][number], { readonly id: Id }>['kind']]
 >;
+
+/** Scope release runs in Scene's existing post-object teardown hook, not on acquisition abort. */
+class ResourceContentScene extends Scene {
+  private readonly spawnedResources = new Set<ResourceScope>();
+  constructor(readonly resources: ResourceScope | undefined) {
+    super();
+  }
+
+  adoptResources(resources: ResourceScope): void {
+    this.spawnedResources.add(resources);
+  }
+
+  releaseResources(resources: ResourceScope): void {
+    resources.release();
+    this.spawnedResources.delete(resources);
+  }
+
+  protected override onDestroy(): void {
+    const errors: unknown[] = [];
+    try {
+      this.resources?.release();
+    } catch (error) {
+      errors.push(error);
+    }
+    for (const resources of this.spawnedResources) {
+      try {
+        this.releaseResources(resources);
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length)
+      throw new AggregateError(
+        errors,
+        'Content scene resources failed to release.',
+      );
+  }
+}
 
 /** A built Scene, including an explicit factory-authored topology ledger. Publish with Game.setScene. */
 export class ContentScene<
@@ -92,6 +139,7 @@ export class ContentScene<
     private readonly owned: Set<SceneObject>,
     private readonly registry: FactoryRegistry<Definitions>,
     private readonly services: FactoryServices<Definitions>,
+    readonly resources?: ResourceScope,
   ) {
     this.serializer = new Serializer(scene);
     for (const [id, entry] of entries)
@@ -189,10 +237,43 @@ export class ContentScene<
   ): Promise<FactoryNode<Definitions[Node['kind']]>> {
     if (this.mutating || this.scene.destroyed)
       throw new Error('Content is unavailable for mutation.');
+    if (
+      options.resourcePool &&
+      options.resources &&
+      options.resources.pool !== options.resourcePool
+    )
+      throw new Error('Content resource scope belongs to another pool.');
     this.mutating = true;
     const fresh = new Set<SceneObject>();
     const added = new Map<string, ContentEntry>();
+    let resources: ResourceScope | undefined;
+    const signals = [
+      options.signal,
+      this.resources?.signal,
+      options.resources?.signal,
+    ].filter((signal): signal is AbortSignal => signal !== undefined);
+    const signal = signals.length
+      ? AbortSignal.any(signals)
+      : new AbortController().signal;
+    let cancellationError: unknown;
+    const cancel = () => {
+      try {
+        destroyFactoryNodes(fresh, false);
+        resources?.release();
+      } catch (error) {
+        cancellationError = error;
+      }
+    };
+    signal.addEventListener('abort', cancel, { once: true });
     try {
+      if (signal.aborted) throw factoryAbortReason(signal);
+      resources =
+        options.resources?.fork() ??
+        (options.resourcePool
+          ? options.resourcePool.createScope()
+          : this.resources?.fork());
+      if (resources && this.scene instanceof ResourceContentScene)
+        this.scene.adoptResources(resources);
       const validated = validateContent(this.registry, {
         version: 1,
         nodes: [...this.definitions.values(), definition],
@@ -200,7 +281,6 @@ export class ContentScene<
       const authored = validated.definition.nodes.find(
         (node) => node.id === definition.id,
       )!;
-      const signal = options.signal ?? new AbortController().signal;
       await createContentNode(
         this.registry,
         authored,
@@ -210,6 +290,7 @@ export class ContentScene<
         this.entries,
         added,
         fresh,
+        resources,
       );
       const root = added.get(authored.id)!.node;
       const parent =
@@ -248,18 +329,30 @@ export class ContentScene<
       return root as FactoryNode<Definitions[Node['kind']]>;
     } catch (error) {
       for (const entry of added.values()) entry.unregister?.();
+      const cleanupErrors: unknown[] =
+        cancellationError === undefined ? [] : [cancellationError];
       try {
         destroyFactoryNodes(fresh, false);
       } catch (cleanupError) {
-        throw new AggregateError(
-          [error, cleanupError],
-          'Dynamic content creation and cleanup failed.',
-          { cause: cleanupError },
-        );
+        cleanupErrors.push(cleanupError);
       }
+      try {
+        if (resources && this.scene instanceof ResourceContentScene)
+          this.scene.releaseResources(resources);
+        else resources?.release();
+      } catch (cleanupError) {
+        cleanupErrors.push(cleanupError);
+      }
+      if (cleanupErrors.length)
+        throw new AggregateError(
+          [error, ...cleanupErrors],
+          'Dynamic content creation and cleanup failed.',
+          { cause: error },
+        );
       throw error;
     } finally {
       this.mutating = false;
+      signal.removeEventListener('abort', cancel);
     }
   }
 
@@ -296,6 +389,11 @@ export class ContentScene<
         )
       )
         throw new Error(`Content ${rootId} still references a removed ID.`);
+    const resources = new Set<ResourceScope>();
+    for (const key of removedIds) {
+      const scope = this.entries.get(key)?.resources;
+      if (scope) resources.add(scope);
+    }
     this.mutating = true;
     try {
       for (const key of removedIds) {
@@ -315,7 +413,23 @@ export class ContentScene<
         }
       }
       for (const node of removed) this.owned.delete(node);
-      destroyFactoryNodes(removed, false);
+      const errors: unknown[] = [];
+      try {
+        destroyFactoryNodes(removed, false);
+      } catch (error) {
+        errors.push(error);
+      }
+      for (const scope of resources) {
+        try {
+          if (this.scene instanceof ResourceContentScene)
+            this.scene.releaseResources(scope);
+          else scope.release();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      if (errors.length)
+        throw new AggregateError(errors, 'Content removal cleanup failed.');
       return true;
     } finally {
       this.mutating = false;
@@ -325,10 +439,13 @@ export class ContentScene<
   /** Used for an unpublished candidate on rebuild failure; foreign nodes are never destroyed. */
   destroy(): void {
     for (const entry of this.entries.values()) entry.unregister?.();
-    cleanupContent(this.scene, this.owned);
-    this.entries.clear();
-    this.definitions.clear();
-    this.owned.clear();
+    try {
+      cleanupContent(this.scene, this.owned);
+    } finally {
+      this.entries.clear();
+      this.definitions.clear();
+      this.owned.clear();
+    }
   }
 }
 
@@ -594,9 +711,27 @@ export async function buildContentScene<
   const signal = options.signal ?? new AbortController().signal;
   if (signal.aborted) throw factoryAbortReason(signal);
   const { ordered, parsedOptions } = validateContent(registry, definition);
-  const scene = new Scene();
+  if (
+    options.resourcePool &&
+    options.resources &&
+    options.resources.pool !== options.resourcePool
+  )
+    throw new Error('Content resource scope belongs to another pool.');
+  const resources =
+    options.resources?.fork() ?? options.resourcePool?.createScope();
+  const scene = new ResourceContentScene(resources);
+  let cancellationError: unknown;
+  const cancel = () => {
+    try {
+      cleanupContent(scene, owned);
+    } catch (error) {
+      cancellationError = error;
+    }
+  };
+  signal.addEventListener('abort', cancel, { once: true });
   const entries = new Map<string, ContentEntry>();
   const owned = new Set<SceneObject>();
+  if (signal.aborted) cancel();
   try {
     for (const entry of ordered)
       await createContentNode(
@@ -608,6 +743,7 @@ export async function buildContentScene<
         entries,
         entries,
         owned,
+        resources?.fork(),
       );
     if (signal.aborted) throw factoryAbortReason(signal);
     // Constructors can touch earlier references. Recheck roots before any registration.
@@ -635,8 +771,15 @@ export async function buildContentScene<
       owned,
       registry,
       services,
+      resources,
     );
   } catch (error) {
+    if (cancellationError !== undefined)
+      throw new AggregateError(
+        [error, cancellationError],
+        'Content cancellation and cleanup failed.',
+        { cause: error },
+      );
     try {
       cleanupContent(scene, owned);
     } catch (cleanupError) {
@@ -647,6 +790,8 @@ export async function buildContentScene<
       );
     }
     throw error;
+  } finally {
+    signal.removeEventListener('abort', cancel);
   }
 }
 
@@ -724,7 +869,18 @@ export async function rebuildContentScene<
     services,
     options,
   );
+  let cancellationError: unknown;
+  const cancel = () => {
+    try {
+      candidate.destroy();
+    } catch (error) {
+      cancellationError = error;
+    }
+  };
+  options.signal?.addEventListener('abort', cancel, { once: true });
+  if (options.signal?.aborted) cancel();
   try {
+    if (options.signal?.aborted) throw factoryAbortReason(options.signal);
     for (const id of ids) {
       const node = candidate.getById(id)!;
       if (node instanceof GameObject || node instanceof Object3D)
@@ -735,7 +891,10 @@ export async function rebuildContentScene<
       if (typeof parent === 'string')
         attachParent(candidate.getById(id)!, candidate.getById(parent)!);
     }
-    await candidate.serializer.restore(state, 'error');
+    await subscribeLoad(
+      candidate.serializer.restore(state, 'error'),
+      options.signal,
+    );
     if (options.signal?.aborted) throw factoryAbortReason(options.signal);
     // Explicit adapters may await or invoke lifecycle callbacks; neither may change the candidate's topology.
     if (candidate.scene.objects.size !== ids.size)
@@ -754,6 +913,12 @@ export async function rebuildContentScene<
     }
     return candidate;
   } catch (error) {
+    if (cancellationError !== undefined)
+      throw new AggregateError(
+        [error, cancellationError],
+        'Content cancellation and cleanup failed.',
+        { cause: error },
+      );
     try {
       candidate.destroy();
     } catch (cleanupError) {
@@ -764,6 +929,8 @@ export async function rebuildContentScene<
       );
     }
     throw error;
+  } finally {
+    options.signal?.removeEventListener('abort', cancel);
   }
 }
 
@@ -776,11 +943,24 @@ async function createContentNode<Definitions extends FactoryDefinitions>(
   available: ReadonlyMap<string, ContentEntry>,
   destination: Map<string, ContentEntry>,
   owned: Set<SceneObject>,
+  resources?: ResourceScope,
 ): Promise<void> {
   if (signal.aborted) throw factoryAbortReason(signal);
+  const subtree = new Set<SceneObject>();
   const node = await registry.createParsed(entry.kind, options, services, {
     signal,
     id: entry.id,
+    resources,
+    onOwn(nodes) {
+      for (const member of nodes) {
+        if (owned.has(member) && !subtree.has(member))
+          throw new Error(
+            'Factory prefabs share an object across content IDs.',
+          );
+        subtree.add(member);
+        owned.add(member);
+      }
+    },
     reference(alias) {
       const id =
         entry.references && Object.hasOwn(entry.references, alias)
@@ -794,13 +974,8 @@ async function createContentNode<Definitions extends FactoryDefinitions>(
       return referenced;
     },
   });
-  const subtree = new Set<SceneObject>();
+  if (signal.aborted) throw factoryAbortReason(signal);
   collectFactoryNodes(node, subtree);
-  for (const member of subtree) {
-    if (owned.has(member))
-      throw new Error('Factory prefabs share an object across content IDs.');
-    owned.add(member);
-  }
   const factory = registry.definitions[entry.kind] as unknown as {
     children?(root: SceneObject): Readonly<Record<string, SceneObject>>;
     state?(root: SceneObject, member: SceneObject): Serializable;
@@ -860,6 +1035,7 @@ async function createContentNode<Definitions extends FactoryDefinitions>(
       rootId: entry.id,
       alias,
       state,
+      ...(alias === undefined && resources ? { resources } : {}),
     });
   }
 }

@@ -874,3 +874,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - 真 typed Draco CLI／decoder 驗證 skinned joints／weights／color／UV、raw／normalized／logical accessor metadata；UINT32 `[16777217,33554435,1073741823]` 在 adapter boundary 精確保留。更高 UInt32 官方 encoder 拒絕，GLTFLoader custom UInt32→Float32 仍有限制，不宣稱 whole-32-bit consumer path。
 - 最終獨立解壓 consumer `/tmp/xyz-production-consumer-8F1InC/consumer-final/package`，tgz SHA256 `6f00498f9436673231c1858b9814df6dadb75d3c264b45b9e13c4d5c7dcc8eed`；native WebGL2／WebGPU deployment 通過：17 checksums、14 件官方 vendor inventory、3 models／21904 colored pixels、native 3 mips＋raster 1 mip、manifest fallback-draco、八份官方 worklets、trusted unlock。
 - 初始 WebGPU verifier 將成功 stream EOF 後 `net::ERR_ABORTED` 誤列失敗。Independent engine-free 1200 native fetch experiment：stream 99 次該事件，arrayBuffer 0／400，exact bytes 保持；未改 asset engine。Classifier 只接受同 request-ID、server finish／完整 delivered bytes、manifest SHA／EOF 且在 `Game.destroy` 前完成、沒有實際 abort/cancel 的已驗成功請求；不是 blanket cancellation suppression。真 negative abort、hash corruption、pageerror 仍 fatal。
+
+### P61 — Acquisition／release scopes
+
+- Built-root runtime 驗證 shared asset acquisitions、strict consumer barriers、last release、失敗 release 保留 retry，以及 cancelled late factory 經 tracked `ctx.own` rollback。Actual Game cancellation disposal counts `[1,1,1,1]`、independent spawn scopes=2；texture／model／font／audio／custom ownership 不提前 destroy shared borrower。
+- Cancellation cleanup 等 successful consumer barriers；未 claim 的 external async side effects 仍由 caller 負責，不冒稱任意 Promise 都可強制取消。

@@ -6,9 +6,23 @@ import {
   type BitmapFontAsset,
 } from '../fonts/bitmap-font.js';
 import { FontAsset, type FontAssetOptions } from '../fonts/font-asset.js';
+import {
+  ResourcePool,
+  ResourceScope,
+  type ResourceLease,
+  type ResourceRequest,
+} from '../resource-scope.js';
 
 export type ManifestAssetType =
-  'texture' | 'binary' | 'text' | 'json' | 'font' | 'bitmapFont' | 'custom';
+  | 'texture'
+  | 'binary'
+  | 'text'
+  | 'json'
+  | 'font'
+  | 'bitmapFont'
+  | 'model'
+  | 'audio'
+  | 'custom';
 interface ManifestBase {
   readonly aliases: string | readonly string[];
 }
@@ -35,7 +49,7 @@ export type ManifestEntry = ManifestBase &
         readonly format?: 'text' | 'json';
       }
     | {
-        readonly type: 'custom';
+        readonly type: 'model' | 'audio' | 'custom';
         readonly load: (signal: AbortSignal) => Promise<unknown>;
         readonly owned: boolean;
         readonly dispose?: (value: unknown) => void;
@@ -53,6 +67,47 @@ export interface ManifestAssetTypes {
   font: FontAsset;
   bitmapFont: BitmapFontAsset;
   custom: unknown;
+  model: unknown;
+  audio: unknown;
+}
+
+/** An explicit scene/candidate acquisition; releasing does not affect another manifest lease. */
+export class ManifestLease {
+  constructor(
+    readonly resources: ResourceScope,
+    private readonly aliases: ReadonlyMap<string, ManifestEntry>,
+    private readonly values: ReadonlyMap<ManifestEntry, ResourceLease<unknown>>,
+  ) {}
+
+  lease<T extends ManifestAssetType>(
+    alias: string,
+    type: T,
+  ): ResourceLease<ManifestAssetTypes[T]> {
+    const entry = this.aliases.get(alias);
+    const value = entry && this.values.get(entry);
+    if (
+      !entry ||
+      entry.type !== type ||
+      !value ||
+      value.released ||
+      this.resources.destroyed
+    )
+      throw new AssetError(
+        'Manifest alias is not ready with the requested type.',
+      );
+    return value as ResourceLease<ManifestAssetTypes[T]>;
+  }
+
+  get<T extends ManifestAssetType>(
+    alias: string,
+    type: T,
+  ): ManifestAssetTypes[T] {
+    return this.lease(alias, type).value;
+  }
+
+  release(): void {
+    this.resources.release();
+  }
 }
 
 /** Aliases compile to the existing Scene-compatible task-count PreloadBatch. */
@@ -61,6 +116,10 @@ export class AssetManifest {
   private readonly bundles: Readonly<Record<string, readonly string[]>>;
   private readonly values = new Map<ManifestEntry, unknown>();
   private active?: PreloadBatch;
+  private readonly requests = new WeakMap<
+    ResourcePool,
+    Map<ManifestEntry, ResourceRequest<unknown>>
+  >();
 
   constructor(options: AssetManifestOptions) {
     if (
@@ -93,15 +152,19 @@ export class AssetManifest {
           'json',
           'font',
           'bitmapFont',
+          'model',
+          'audio',
           'custom',
         ].includes(input.type)
       )
         throw new RangeError('Unsupported manifest asset type.');
       if (
-        input.type === 'custom'
+        input.type === 'custom' ||
+        input.type === 'model' ||
+        input.type === 'audio'
           ? typeof input.load !== 'function' ||
             (input.owned && typeof input.dispose !== 'function')
-          : !input.url.trim()
+          : !('url' in input) || !input.url.trim()
       )
         throw new RangeError('Invalid manifest acquisition.');
       const entry = Object.freeze({
@@ -161,7 +224,7 @@ export class AssetManifest {
           signal.addEventListener('abort', cleanup, { once: true });
         }
         if (this.values.has(entry)) return this.values.get(entry);
-        const value = await this.acquire(loader, entry, signal);
+        const value = await this.acquireValue(loader, entry, signal);
         if (signal.aborted || settled) {
           this.release(entry, value);
           signal.throwIfAborted();
@@ -198,6 +261,72 @@ export class AssetManifest {
         'Manifest alias is not ready with the requested type.',
       );
     return this.values.get(entry) as ManifestAssetTypes[T];
+  }
+
+  /** All-or-nothing lifetime acquisition. Reuse the pool across scene scopes to share owned work. */
+  async acquire(
+    pool: ResourcePool,
+    selections: readonly string[],
+    options: { signal?: AbortSignal; scope?: ResourceScope } = {},
+  ): Promise<ManifestLease> {
+    const entries = this.resolve(selections);
+    if (options.scope && options.scope.pool !== pool)
+      throw new AssetError('Manifest scope belongs to another ResourcePool.');
+    const resources = options.scope
+      ? options.scope.fork({ signal: options.signal })
+      : pool.createScope({ signal: options.signal });
+    const values = new Map<ManifestEntry, ResourceLease<unknown>>();
+    let requests = this.requests.get(pool);
+    if (!requests) {
+      requests = new Map();
+      this.requests.set(pool, requests);
+    }
+    try {
+      await Promise.all(
+        entries.map(async (entry) => {
+          let lease: ResourceLease<unknown>;
+          if (entry.type === 'texture' && !entry.owned)
+            lease = await resources.acquireTexture(entry.url);
+          else {
+            let request = requests.get(entry);
+            if (!request) {
+              request = Object.freeze<ResourceRequest<unknown>>({
+                kind:
+                  entry.type === 'texture'
+                    ? 'texture'
+                    : entry.type === 'font' || entry.type === 'bitmapFont'
+                      ? 'font'
+                      : entry.type === 'model' || entry.type === 'audio'
+                        ? entry.type
+                        : 'custom',
+                ownership: this.isOwned(entry) ? 'owned' : 'borrowed',
+                load: (signal: AbortSignal) =>
+                  this.acquireValue(pool.loader, entry, signal),
+                ...(this.isOwned(entry)
+                  ? { dispose: (value: unknown) => this.release(entry, value) }
+                  : {}),
+              });
+              requests!.set(entry, request);
+            }
+            lease = await resources.acquire(request);
+          }
+          values.set(entry, lease);
+        }),
+      );
+      resources.signal.throwIfAborted();
+      return new ManifestLease(resources, this.aliases, values);
+    } catch (error) {
+      try {
+        resources.release(error);
+      } catch (cleanupError) {
+        throw new AggregateError(
+          [error, cleanupError],
+          'Manifest acquisition and cleanup failed.',
+          { cause: cleanupError },
+        );
+      }
+      throw error;
+    }
   }
 
   /** Explicit caller barrier: detach every borrower before releasing owned acquisitions. */
@@ -241,18 +370,26 @@ export class AssetManifest {
     return (
       entry.type === 'font' ||
       entry.type === 'bitmapFont' ||
-      ((entry.type === 'texture' || entry.type === 'custom') &&
+      ((entry.type === 'texture' ||
+        entry.type === 'custom' ||
+        entry.type === 'model' ||
+        entry.type === 'audio') &&
         entry.owned === true)
     );
   }
 
   private release(entry: ManifestEntry, value: unknown): void {
     if (!this.isOwned(entry)) return;
-    if (entry.type === 'custom') entry.dispose!(value);
+    if (
+      entry.type === 'custom' ||
+      entry.type === 'model' ||
+      entry.type === 'audio'
+    )
+      entry.dispose!(value);
     else (value as Texture | FontAsset | BitmapFontAsset).destroy();
   }
 
-  private acquire(
+  private acquireValue(
     loader: AssetLoader,
     entry: ManifestEntry,
     signal: AbortSignal,
@@ -279,6 +416,8 @@ export class AssetManifest {
       case 'json':
         return loader.loadJSON(entry.url, { maxBytes: entry.maxBytes, signal });
       case 'custom':
+      case 'model':
+      case 'audio':
         return entry.load(signal);
     }
   }

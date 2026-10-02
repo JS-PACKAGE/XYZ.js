@@ -1,3 +1,4 @@
+import type { ResourceScope } from '../../assets/src/resource-scope.js';
 import { GameObject } from './game-object.js';
 import { Object3D } from './object3d.js';
 import { SceneObject } from './scene-object.js';
@@ -6,6 +7,8 @@ import type { Serializable } from './serialization.js';
 export interface FactoryContext<Services = void> {
   readonly services: Services;
   readonly signal: AbortSignal;
+  /** Candidate-local owned/borrowed acquisitions; supplied by content builds using a ResourcePool. */
+  readonly resources?: ResourceScope;
   readonly id: string | undefined;
   /** Only aliases explicitly declared by this content node are available. */
   reference(alias: string): SceneObject;
@@ -20,7 +23,8 @@ export interface FactoryDefinition<
 > {
   /** Must reject invalid options by throwing; no unchecked JSON-to-options cast. */
   parse(value: unknown): Options;
-  /** Return a fresh detached prefab; borrowed resources remain caller-owned. */
+  /** Return a fresh detached prefab; borrowed resources remain caller-owned.
+   * Claim consumers with context.own before awaiting; unclaimed async/external effects remain caller responsibility. */
   create(
     options: Options,
     context: FactoryContext<Services>,
@@ -149,27 +153,30 @@ export class FactoryRegistry<Definitions extends FactoryDefinitions> {
       signal?: AbortSignal;
       id?: string;
       reference?: (alias: string) => SceneObject;
+      resources?: ResourceScope;
+      onOwn?: (nodes: ReadonlySet<SceneObject>) => void;
     } = {},
   ): Promise<FactoryNode<Definitions[Kind]>> {
     if (!this.has(kind)) throw new Error(`Unknown factory: ${kind}.`);
-    const signal = settings.signal ?? new AbortController().signal;
+    const resourceSignal = settings.resources?.signal;
+    const signal =
+      settings.signal && resourceSignal && settings.signal !== resourceSignal
+        ? AbortSignal.any([settings.signal, resourceSignal])
+        : (settings.signal ?? resourceSignal ?? new AbortController().signal);
     if (signal.aborted) throw factoryAbortReason(signal);
     const owned = new Set<SceneObject>();
     const roots = new Set<SceneObject>();
     let finished = false;
+    settings.resources?.attach(() => destroyFactoryNodes(owned));
     const own = <Node extends SceneObject>(node: Node): Node => {
       if (finished) {
-        if (!roots.has(node)) {
-          const late = new Set<SceneObject>();
-          try {
-            collectFactoryNodes(node, late);
-          } finally {
-            destroyFactoryNodes(late);
-          }
-        }
+        if (!roots.has(node)) collectFactoryNodes(node, owned);
+        destroyFactoryNodes(owned);
+        settings.resources?.release();
         throw factoryAbortReason(signal);
       }
       collectFactoryNodes(node, owned);
+      settings.onOwn?.(owned);
       roots.add(node);
       if (signal.aborted) {
         destroyFactoryNodes(owned);
@@ -179,13 +186,27 @@ export class FactoryRegistry<Definitions extends FactoryDefinitions> {
     };
     let abort: (() => void) | undefined;
     const cancelled = new Promise<never>((_resolve, reject) => {
-      abort = () => reject(factoryAbortReason(signal));
+      abort = () => {
+        finished = true;
+        try {
+          destroyFactoryNodes(owned);
+          reject(factoryAbortReason(signal));
+        } catch (error) {
+          reject(
+            new AggregateError(
+              [factoryAbortReason(signal), error],
+              'Factory cancellation and cleanup failed.',
+            ),
+          );
+        }
+      };
       signal.addEventListener('abort', abort, { once: true });
     });
     const context: FactoryContext<DefinitionServices<Definitions[Kind]>> = {
       services: services as DefinitionServices<Definitions[Kind]>,
       signal,
       id: settings.id,
+      resources: settings.resources,
       own,
       reference:
         settings.reference ??
@@ -217,6 +238,7 @@ export class FactoryRegistry<Definitions extends FactoryDefinitions> {
       finished = true;
       try {
         destroyFactoryNodes(owned);
+        settings.resources?.release();
       } catch (cleanupError) {
         throw new AggregateError(
           [error, cleanupError],

@@ -1,3 +1,4 @@
+import { ResourcePool, type ResourceScope } from '../../assets/src/resource-scope.js';
 import { FactoryRegistry } from './factories.js';
 import type { FactoryDefinitions, FactoryNode, FactoryOptions, FactoryServices } from './factories.js';
 import { Scene } from './scene.js';
@@ -21,6 +22,9 @@ export interface ContentSceneDefinition<Definitions extends FactoryDefinitions> 
 }
 export interface ContentBuildOptions {
     readonly signal?: AbortSignal;
+    /** A fresh candidate scope is created, or forked from resources; neither owns borrowed services. */
+    readonly resourcePool?: ResourcePool;
+    readonly resources?: ResourceScope;
 }
 export interface ContentSnapshot<Definitions extends FactoryDefinitions = FactoryDefinitions> {
     readonly version: 1;
@@ -36,6 +40,7 @@ interface ContentEntry {
     alias?: string;
     state: Serializable;
     unregister?: () => void;
+    resources?: ResourceScope;
 }
 type NodeAt<Definitions extends FactoryDefinitions, Definition extends ContentSceneDefinition<Definitions>, Id extends string> = FactoryNode<Definitions[Extract<Definition['nodes'][number], {
     readonly id: Id;
@@ -48,9 +53,10 @@ export declare class ContentScene<Definitions extends FactoryDefinitions, Defini
     private readonly owned;
     private readonly registry;
     private readonly services;
+    readonly resources?: ResourceScope | undefined;
     readonly serializer: Serializer;
     private mutating;
-    constructor(scene: Scene, entries: Map<string, ContentEntry>, definitions: Map<string, ContentNodeDefinition<Definitions>>, owned: Set<SceneObject>, registry: FactoryRegistry<Definitions>, services: FactoryServices<Definitions>);
+    constructor(scene: Scene, entries: Map<string, ContentEntry>, definitions: Map<string, ContentNodeDefinition<Definitions>>, owned: Set<SceneObject>, registry: FactoryRegistry<Definitions>, services: FactoryServices<Definitions>, resources?: ResourceScope | undefined);
     get<Id extends Definition['nodes'][number]['id']>(id: Id): NodeAt<Definitions, Definition, Id> | undefined;
     /** Runtime IDs (including prefab children) without pretending their subtype is known. */
     getById(id: string): SceneObject | undefined;

@@ -36,13 +36,24 @@ export type {
 } from './fonts/bitmap-font.js';
 export { generateBitmapFont } from './fonts/generate-bitmap-font.js';
 export type { DynamicBitmapFontOptions } from './fonts/generate-bitmap-font.js';
-export { AssetManifest } from './manifest/asset-manifest.js';
+export { AssetManifest, ManifestLease } from './manifest/asset-manifest.js';
 export type {
   ManifestAssetType,
   ManifestEntry,
   AssetManifestOptions,
   ManifestAssetTypes,
 } from './manifest/asset-manifest.js';
+export {
+  ResourceLease,
+  ResourcePool,
+  ResourceScope,
+} from './resource-scope.js';
+export type {
+  ResourceKind,
+  ResourceLoadContext,
+  ResourceOwnership,
+  ResourceRequest,
+} from './resource-scope.js';
 export {
   loadAssetBundle,
   parseAssetBundle,

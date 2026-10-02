@@ -1,5 +1,9 @@
 import { defaults } from '../../../src/data/defaults.js';
-import { AssetLoader, type PreloadBatch } from '../../assets/src/index.js';
+import {
+  AssetLoader,
+  ResourcePool,
+  type PreloadBatch,
+} from '../../assets/src/index.js';
 import { InputManager } from '../../input/src/index.js';
 import { AudioManager } from '../../audio/src/audio-manager.js';
 import {
@@ -146,6 +150,18 @@ export class Game extends EventTarget {
   private readonly warmupLeases = new Set<WarmupLease>();
   private currentWarmup: WarmupLease | undefined;
   private readonly warmupProtections = new Map<WarmupLease, () => void>();
+  private resourcePool: ResourcePool | undefined;
+
+  /** Shared acquisition ownership is lazy and local to this Game. */
+  get resources(): ResourcePool {
+    if (!this.resourcePool) {
+      if (this.currentState === 'destroyed')
+        throw new RuntimeError('Cannot create resources for a destroyed Game.');
+      this.resourcePool = new ResourcePool(this.assets);
+    }
+    return this.resourcePool;
+  }
+
   get accessibility(): AccessibilityManager {
     return this.accessibilityManager;
   }
@@ -819,10 +835,19 @@ export class Game extends EventTarget {
     } finally {
       claimedCanvases.delete(this.canvas);
     }
+    let resourcesDetached = true;
     try {
-      this.assets.destroy();
+      this.resourcePool?.destroy();
     } catch (error) {
+      resourcesDetached = false;
       errors.push(error);
+    }
+    if (resourcesDetached) {
+      try {
+        this.assets.destroy();
+      } catch (error) {
+        errors.push(error);
+      }
     }
     try {
       this.audio.destroy();
