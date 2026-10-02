@@ -5,6 +5,11 @@ export interface PhysicsStats3D {
     readonly candidatePairs: number;
     readonly narrowphaseTests: number;
     readonly queryCandidates: number;
+    /** Cumulative geometry refreshes and changed hierarchy nodes, not pose scans. */
+    readonly refreshedLeaves: number;
+    readonly refits: number;
+    readonly poseChecks: number;
+    readonly indexGeneration: number;
 }
 export interface PhysicsWorldOptions3D {
     gravity?: Readonly<Vector3>;
@@ -78,6 +83,8 @@ export declare class PhysicsWorld3D {
     constructor(options?: PhysicsWorldOptions3D);
     has(object: Object3D): boolean;
     get size(): number;
+    /** Mutation-aware geometry generation; query-only probes never change it. */
+    get geometryRevision(): number;
     /** @internal Preflight before changing either attachment or hierarchy. */
     validate(object: Object3D): void;
     /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */

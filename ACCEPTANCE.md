@@ -895,3 +895,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - `.vite/mixed-native-hour.json` 的 isolated packed consumer／unique cache／HMR-off 一小時實測完成：Canvas／GL／GPU elapsed 3601.1663／3602.4244／3602.5382 s，834／537／537 cycles，全 passed／errors=0。RAF mean 16.9770／23.4185／23.4256 ms；CPU render-submit mean 10.2155／0.3220／0.4543 ms，兩者不可混用。GL 96392 valid native queries，aggregate mean 1.9588 ms／max 13.876291 ms／invalid 0；GPU 0 valid／96120 invalid，milliseconds=null，Canvas unsupported。
 - 同一一小時 native CDP heap first 534528 bytes、last Canvas／GL／GPU 14021452／27402036／30464008 bytes；尾端分類 plateau／variable／variable，renderer RSS last 306348032／282214400／278577152 bytes，尾端皆 plateau。GC observed events 2036／40979／40733、wall durations 2919.736／21318.518／21960.292 ms，bounded trace windows 有 drain gaps／unmatched events，沒有 forced GC，不把 GC durations 當純 stop-the-world pauses。RSS／VSZ／GPU-process RSS 不是 VRAM；尾端分類不是 leak-free 認證。
 - 一小時 leases 8622／4518／4504 全配對釋放，captures 834／537／537 全配對 destroy；registrations／physics registrations／decoded/native live bytes／held targets 全歸零，navigation maximum work=512。此 snapshot 早於最後 Firefox audio hold／listener 修正，不冒稱該 audio patch 跑滿一小時。先前中止 runner 仍不算 pass；真低階／硬體／VRAM plateau 限制保留。
+
+### P64 — Scene quota／changed-only spatial
+
+- 共享 Scene scheduler aggregate work／expansion quota、pause／lifecycle／debug stats 已驗；low-tier 三 backend maximum navigation work=512，bounded cooperative units 不超 quota。
+- 100 unchanged spatial queries 產生 0 geometry refresh／refit，mutable transforms 保持 query 結果；pose checks 仍 O(N)，不宣稱整個 query sublinear，亦不以 stale bounds 換成本。

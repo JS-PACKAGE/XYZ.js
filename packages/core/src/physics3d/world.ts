@@ -20,6 +20,11 @@ export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
   readonly queryCandidates: number;
+  /** Cumulative geometry refreshes and changed hierarchy nodes, not pose scans. */
+  readonly refreshedLeaves: number;
+  readonly refits: number;
+  readonly poseChecks: number;
+  readonly indexGeneration: number;
 }
 const alwaysContinue = (): boolean => true;
 export interface PhysicsWorldOptions3D {
@@ -53,6 +58,7 @@ interface Entry3D {
   body: RigidBody3D | undefined;
   readonly bounds: Bounds3D;
   readonly order: number;
+  indexedRevision: number;
 }
 class Contact3D {
   readonly manifold = new Manifold3D();
@@ -92,6 +98,10 @@ export class PhysicsWorld3D {
     candidatePairs: 0,
     narrowphaseTests: 0,
     queryCandidates: 0,
+    refreshedLeaves: 0,
+    refits: 0,
+    poseChecks: 0,
+    indexGeneration: 0,
   };
   readonly stats: PhysicsStats3D = this.counters;
   private readonly contacts = new Map<Entry3D, Map<Entry3D, Contact3D>>();
@@ -144,6 +154,11 @@ export class PhysicsWorld3D {
   get size(): number {
     return this.entries.size;
   }
+  /** Mutation-aware geometry generation; query-only probes never change it. */
+  get geometryRevision(): number {
+    this.refreshIndex();
+    return this.counters.indexGeneration;
+  }
   /** @internal Preflight before changing either attachment or hierarchy. */
   validate(object: Object3D): void {
     const c = object.collider,
@@ -189,10 +204,11 @@ export class PhysicsWorld3D {
           body: object.body,
           bounds: shape.bounds,
           order: this.nextOrder++,
+          indexedRevision: -1,
         }
       : undefined;
     if (next) {
-      next.shape.refresh(object);
+      if (next.shape.refresh(object)) ++this.counters.refreshedLeaves;
       next.body?.refreshInertia(next.shape);
     }
     if (previous) this.unregister(object);
@@ -729,12 +745,22 @@ export class PhysicsWorld3D {
     this.solverImpulse(b, p, this.impulse, -1);
   }
   private refreshIndex(): void {
-    // Public transforms are mutable; refresh is mandatory even for static/sleeping entries.
-    for (const e of this.ordered) e.shape.refresh(e.object);
+    // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
+    let changed = this.indexDirty;
+    for (const e of this.ordered) {
+      ++this.counters.poseChecks;
+      if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
+      if (e.indexedRevision !== e.shape.revision) {
+        changed = true;
+        if (!this.indexDirty) this.counters.refits += this.index.update(e);
+        e.indexedRevision = e.shape.revision;
+      }
+    }
     if (this.indexDirty) {
       this.index.rebuild(this.ordered);
       this.indexDirty = false;
-    } else this.index.refit();
+    }
+    if (changed) ++this.counters.indexGeneration;
   }
   private candidates(bounds: Bounds3D): void {
     this.refreshIndex();
@@ -1063,6 +1089,7 @@ export class PhysicsWorld3D {
     this.sweepTriangles.length = 0;
     this.ccdHit = undefined;
     this.ccdOptions.ignore = undefined;
+    ++this.counters.indexGeneration;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
     this.counters.queryCandidates = 0;

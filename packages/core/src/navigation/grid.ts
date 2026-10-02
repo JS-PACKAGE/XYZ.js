@@ -1,5 +1,9 @@
 import { navigationLimits } from '../../../../src/data/navigation.js';
 import { NavigationSearchJob, NavigationSearchPool } from './jobs.js';
+import {
+  NavigationScheduler,
+  type NavigationScheduledSearch,
+} from './scheduler.js';
 
 export interface NavigationCell2D {
   readonly column: number;
@@ -69,6 +73,35 @@ export class NavigationGrid2D {
 
   get revision(): number {
     return this.currentRevision;
+  }
+
+  get destroyed(): boolean {
+    return this.disposed;
+  }
+  get availableSearchSlots(): number {
+    return this.searches.availableSlots;
+  }
+
+  scheduleSearch(
+    scheduler: NavigationScheduler,
+    start: NavigationCell2D,
+    goal: NavigationCell2D,
+    options: NavigationGridSearchOptions2D = {},
+  ): NavigationScheduledSearch<NavigationGridPath2D> {
+    this.index(start.column, start.row);
+    this.index(goal.column, goal.row);
+    if (this.disposed) throw new Error('Navigation grid is destroyed.');
+    const radius = options.agentRadius ?? 0;
+    if (
+      !Number.isFinite(radius) ||
+      radius < 0 ||
+      radius > navigationLimits.coordinateExtent
+    )
+      throw new RangeError('Invalid navigation agent radius.');
+    const from = { ...start },
+      to = { ...goal },
+      profile = { ...options };
+    return scheduler.schedule(this, () => this.createSearch(from, to, profile));
   }
 
   getCell(column: number, row: number): NavigationCellState2D {

@@ -24,7 +24,7 @@ export declare class SpatialIndex3D<T extends SpatialItem3D> {
     rebuild(items: readonly T[]): void;
     private build;
     refit(): void;
-    update(item: T): void;
+    update(item: T): number;
     query(bounds: Bounds3D, out: T[], margin?: number): void;
     clear(): void;
 }

@@ -51,6 +51,10 @@ export class RigidBody3D {
   private readonly inverseDiagonal = new Vector3();
   private readonly inverseTensor = new Float64Array(6);
   private readonly transformed = new Vector3();
+  private inertiaRevision = -1;
+  private inertiaMass = NaN;
+  private readonly inertiaScale = new Vector3(NaN, NaN, NaN);
+  private inertiaShape: Shape3D | undefined;
   constructor(options: RigidBodyOptions3D = {}) {
     this.type = options.type ?? 'dynamic';
     if (
@@ -189,13 +193,27 @@ export class RigidBody3D {
     if (this.owner === owner) {
       this.owningObject = undefined;
       this.shape = undefined;
+      this.inertiaRevision = -1;
+      this.inertiaShape = undefined;
     }
   }
   /** @internal Recompute analytic primitive inertia after mutable pose/scale changes. */
   refreshInertia(shape: Shape3D): void {
+    const previous = this.inertiaShape;
     this.shape = shape;
+    if (this.type !== 'dynamic' || this.lockRotation) return;
+    const s = shape.worldScale;
+    if (
+      previous === shape &&
+      this.inertiaMass === this.mass &&
+      (shape.collider.kind === 'compound'
+        ? this.inertiaRevision === shape.inertiaRevision
+        : this.inertiaScale.x === s.x &&
+          this.inertiaScale.y === s.y &&
+          this.inertiaScale.z === s.z)
+    )
+      return;
     if (shape.collider instanceof CompoundCollider3D) {
-      if (this.type !== 'dynamic') return;
       let xx = 0,
         yy = 0,
         zz = 0,
@@ -240,6 +258,10 @@ export class RigidBody3D {
       d[4] = (xy * yz - xz * yy) / determinant;
       d[5] = (xy * xz - xx * yz) / determinant;
     } else this.primitiveInertia(shape, this.mass);
+    this.inertiaRevision = shape.inertiaRevision;
+    this.inertiaMass = this.mass;
+    this.inertiaScale.copy(s);
+    this.inertiaShape = shape;
   }
   private primitiveInertia(shape: Shape3D, m: number): void {
     const c = shape.collider;

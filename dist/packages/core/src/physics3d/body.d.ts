@@ -40,6 +40,10 @@ export declare class RigidBody3D {
     private readonly inverseDiagonal;
     private readonly inverseTensor;
     private readonly transformed;
+    private inertiaRevision;
+    private inertiaMass;
+    private readonly inertiaScale;
+    private inertiaShape;
     constructor(options?: RigidBodyOptions3D);
     get owner(): Object3D | undefined;
     get mass(): number;

@@ -1179,6 +1179,16 @@ export class Game extends EventTarget {
         workStartedAt = performance.now();
       }
       if (scene && this.canUpdateScene())
+        scene.advanceNavigation(this.clock.deltaTime);
+      if (frameWork) {
+        frameWork.navigationMs = performance.now() - workStartedAt;
+        const navigation = scene?.initializedNavigation?.stats;
+        frameWork.navigationWork = navigation?.work ?? 0;
+        frameWork.navigationExpansions = navigation?.expansions ?? 0;
+        frameWork.navigationBakeWork = navigation?.bakeWork ?? 0;
+        workStartedAt = performance.now();
+      }
+      if (scene && this.canUpdateScene())
         scene.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene);
       if (frameWork)
         frameWork.afterUpdateMs = performance.now() - workStartedAt;

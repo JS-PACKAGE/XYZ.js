@@ -29,11 +29,15 @@ import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
 import { simulationDefaults } from '../../../src/data/simulation.js';
+import { NavigationScheduler } from './navigation/scheduler.js';
+import { navigationLimits } from '../../../src/data/navigation.js';
 
 export interface SceneOptions {
   readonly fixedDelta?: number;
   readonly maxFixedSteps?: number;
   readonly interpolatePhysics?: boolean;
+  /** Aggregate admissions, searches and collision-bake work per visible Game frame. */
+  readonly navigationWorkBudget?: number;
 }
 
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
@@ -46,6 +50,29 @@ export class Scene {
   private animationMixer: AnimationMixer | undefined;
   private physicsWorld: PhysicsWorld2D | undefined;
   private physicsWorld3D: PhysicsWorld3D | undefined;
+  private navigationScheduler: NavigationScheduler | undefined;
+  private readonly navigationWorkBudget: number;
+
+  get navigation(): NavigationScheduler {
+    if (!this.navigationScheduler) {
+      this.assertCanInitialize();
+      this.navigationScheduler = new NavigationScheduler({
+        workBudget: this.navigationWorkBudget,
+      });
+    }
+    return this.navigationScheduler;
+  }
+  /** @internal Reading counters never admits work or initializes a scheduler. */
+  get initializedNavigation(): NavigationScheduler | undefined {
+    return this.navigationScheduler;
+  }
+  /** @internal Game invokes once, not once per fixed catch-up tick. */
+  advanceNavigation(deltaTime: number): void {
+    if (this.disposed || !this.navigationScheduler) return;
+    this.navigationScheduler.update();
+    if (!this.disposed) this.navigationScheduler.updateFollowers(deltaTime);
+  }
+
   get camera3D(): PerspectiveCamera | OrthographicCamera {
     if (!this.camera3DValue) {
       this.assertCanInitialize();
@@ -145,7 +172,16 @@ export class Scene {
         'Scene fixed timing requires a positive delta and step limit.',
       );
     this.interpolatePhysics = options.interpolatePhysics ?? false;
-
+    this.navigationWorkBudget =
+      options.navigationWorkBudget ?? navigationLimits.sceneWork;
+    if (
+      !Number.isInteger(this.navigationWorkBudget) ||
+      this.navigationWorkBudget < 1 ||
+      this.navigationWorkBudget > navigationLimits.scheduledWork
+    )
+      throw new RangeError(
+        `navigationWorkBudget must be an integer in [1, ${navigationLimits.scheduledWork}].`,
+      );
   }
   get fixedInterpolationAlpha(): number {
     return Math.min(1, Math.max(0, this.fixedAccumulator / this.fixedDelta));
@@ -632,6 +668,11 @@ export class Scene {
     this.tweenGroup?.destroy();
     this.controller?.abort();
     const errors: unknown[] = [];
+    try {
+      this.navigationScheduler?.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
     try {
       this.animationMixer?.destroy();
     } catch (error) {

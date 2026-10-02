@@ -6,3 +6,5 @@ export { PathFollower3D, NavigationFollower3D } from './follower.js';
 export type { PathFollowerState3D, PathFollowerOptions3D, NavigationFollowerOptions3D, NavigationRoute3D, } from './follower.js';
 export { NavigationSearchJob } from './jobs.js';
 export type { NavigationSearchStatus } from './jobs.js';
+export { NavigationScheduler, NavigationScheduledSearch } from './scheduler.js';
+export type { NavigationSchedulerOptions, NavigationSchedulerStats, NavigationWork, NavigationSearchOwner, ScheduledNavigationFollower, } from './scheduler.js';

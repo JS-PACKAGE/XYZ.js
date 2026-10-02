@@ -3,7 +3,10 @@ import { navigationLimits } from '../../../../src/data/navigation.js';
 import type { CharacterController3D } from '../physics3d/character.js';
 import { NavigationGraph3D } from './graph.js';
 import type { NavigationGraphPath3D } from './graph.js';
-import type { NavigationSearchJob } from './jobs.js';
+import {
+  NavigationScheduler,
+  type NavigationScheduledSearch,
+} from './scheduler.js';
 
 export type PathFollowerState3D =
   | 'stopped'
@@ -204,10 +207,12 @@ export class PathFollower3D {
 }
 
 export interface NavigationFollowerOptions3D extends PathFollowerOptions3D {
-  /** Node expansions per update; no wall-clock or synchronous path recompute. */
+  /** Standalone scheduler work budget; Scene-bound searches use the Scene aggregate budget. */
   readonly expansionBudget?: number;
   /** Total replans per navigate call, including revision invalidations. */
   readonly maxReplans?: number;
+  /** Searches share the Scene scheduler by default; movement remains explicitly updated. */
+  readonly scheduler?: NavigationScheduler;
 }
 export interface NavigationRoute3D {
   readonly graph: NavigationGraph3D;
@@ -221,7 +226,7 @@ export interface NavigationRoute3D {
 export class NavigationFollower3D extends PathFollower3D {
   private route: NavigationRoute3D | undefined;
   private path: NavigationGraphPath3D | undefined;
-  private job: NavigationSearchJob<NavigationGraphPath3D> | undefined;
+  private job: NavigationScheduledSearch<NavigationGraphPath3D> | undefined;
   private anchor = '';
   private readonly excluded = new Set<number>();
   private observedRevision = 0;
@@ -230,6 +235,8 @@ export class NavigationFollower3D extends PathFollower3D {
   private pausedState: PathFollowerState3D = 'stopped';
   readonly expansionBudget: number;
   readonly maxReplans: number;
+  readonly scheduler: NavigationScheduler;
+  private readonly ownsScheduler: boolean;
 
   constructor(
     controller: CharacterController3D,
@@ -252,12 +259,23 @@ export class NavigationFollower3D extends PathFollower3D {
       );
     this.expansionBudget = budget;
     this.maxReplans = retries;
+    const sceneScheduler =
+      options.scheduler === undefined
+        ? controller.object.scene?.navigation
+        : undefined;
+    this.ownsScheduler =
+      options.scheduler === undefined && sceneScheduler === undefined;
+    this.scheduler =
+      options.scheduler ??
+      sceneScheduler ??
+      new NavigationScheduler({ workBudget: budget });
   }
 
   get replanCount(): number {
     return this.retries;
   }
-  get searchJob(): NavigationSearchJob<NavigationGraphPath3D> | undefined {
+  get searchJob():
+    NavigationScheduledSearch<NavigationGraphPath3D> | undefined {
     return this.job;
   }
 
@@ -279,9 +297,14 @@ export class NavigationFollower3D extends PathFollower3D {
       throw new RangeError(
         'Navigation requires a nonnegative finite agent radius.',
       );
-    const job = route.graph.createSearch(route.start, route.goal, {
-      agentRadius: route.agentRadius,
-    });
+    const job = route.graph.scheduleSearch(
+      this.scheduler,
+      route.start,
+      route.goal,
+      {
+        agentRadius: route.agentRadius,
+      },
+    );
     this.stop();
     this.route = Object.freeze({ ...route });
     this.anchor = route.start;
@@ -330,6 +353,7 @@ export class NavigationFollower3D extends PathFollower3D {
       throw new RangeError(
         'Path follower delta must be finite and nonnegative.',
       );
+    if (this.ownsScheduler) this.scheduler.update(this.expansionBudget);
     const controller = this.character!;
     if (
       controller.object.destroyed ||
@@ -358,7 +382,6 @@ export class NavigationFollower3D extends PathFollower3D {
     }
     if (this.currentState === 'searching') {
       const job = this.job!;
-      job.step(this.expansionBudget);
       if (job.status === 'pending') return;
       this.job = undefined;
       if (job.status === 'cancelled') {
@@ -398,6 +421,8 @@ export class NavigationFollower3D extends PathFollower3D {
 
   override destroy(): void {
     this.clearNavigation();
+    this.scheduler.removeFollower(this);
+    if (this.ownsScheduler) this.scheduler.destroy();
     super.destroy();
   }
 
@@ -413,10 +438,15 @@ export class NavigationFollower3D extends PathFollower3D {
     }
     this.retries++;
     const route = this.route!;
-    this.job = route.graph.createSearch(this.anchor, route.goal, {
-      agentRadius: route.agentRadius,
-      excludedConnections: [...this.excluded],
-    });
+    this.job = route.graph.scheduleSearch(
+      this.scheduler,
+      this.anchor,
+      route.goal,
+      {
+        agentRadius: route.agentRadius,
+        excludedConnections: [...this.excluded],
+      },
+    );
     this.currentState = 'searching';
   }
 

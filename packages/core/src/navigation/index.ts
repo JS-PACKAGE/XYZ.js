@@ -25,3 +25,11 @@ export type {
 } from './follower.js';
 export { NavigationSearchJob } from './jobs.js';
 export type { NavigationSearchStatus } from './jobs.js';
+export { NavigationScheduler, NavigationScheduledSearch } from './scheduler.js';
+export type {
+  NavigationSchedulerOptions,
+  NavigationSchedulerStats,
+  NavigationWork,
+  NavigationSearchOwner,
+  ScheduledNavigationFollower,
+} from './scheduler.js';

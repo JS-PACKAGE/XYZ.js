@@ -98,16 +98,22 @@ export declare class Shape3D {
     readonly vertices: Vector3[];
     readonly triangles: Triangle3D[];
     readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
-    private readonly meshMatrix;
+    private meshIndexed;
     readonly children: Shape3D[];
     readonly massCenter: Vector3;
     volume: number;
     private readonly childLocal;
     private readonly childWorld;
     radius: number;
+    private readonly poseMatrix;
+    /** @internal Changes only after shape geometry/bounds are refreshed. */
+    revision: number;
+    /** @internal Translation does not invalidate angular inertia. */
+    inertiaRevision: number;
+    readonly worldScale: Vector3;
     constructor(collider: Collider3D, needsVolume?: boolean);
-    refresh(object: Object3D): void;
-    refreshMatrix(matrix: Matrix4): void;
+    refresh(object: Object3D): boolean;
+    refreshMatrix(matrix: Matrix4): boolean;
     /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */
     validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void;
     updateBounds(): void;

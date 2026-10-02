@@ -1,6 +1,10 @@
 import { Vector3 } from '../../../math/src/math3d.js';
 import { navigationLimits } from '../../../../src/data/navigation.js';
 import { NavigationSearchJob, NavigationSearchPool } from './jobs.js';
+import {
+  NavigationScheduler,
+  type NavigationScheduledSearch,
+} from './scheduler.js';
 
 export interface NavigationNode3D {
   readonly id: string;
@@ -169,6 +173,45 @@ export class NavigationGraph3D {
 
   get connections(): readonly NavigationConnection3D[] {
     return this.currentConnections;
+  }
+  get availableSearchSlots(): number {
+    return this.searches.availableSlots;
+  }
+
+  scheduleSearch(
+    scheduler: NavigationScheduler,
+    start: string,
+    goal: string,
+    options: NavigationGraphSearchOptions3D = {},
+  ): NavigationScheduledSearch<NavigationGraphPath3D> {
+    this.getNode(start);
+    this.getNode(goal);
+    if (this.disposed) throw new Error('Navigation graph is destroyed.');
+    const radius = options.agentRadius ?? 0;
+    if (
+      !Number.isFinite(radius) ||
+      radius < 0 ||
+      radius > navigationLimits.coordinateExtent
+    )
+      throw new RangeError('Invalid navigation agent radius.');
+    if (
+      (options.excludedConnections?.length ?? 0) >
+        navigationLimits.graphConnections ||
+      options.excludedConnections?.some(
+        (index) =>
+          !Number.isInteger(index) ||
+          index < 0 ||
+          index >= this.currentConnections.length,
+      )
+    )
+      throw new RangeError('Invalid navigation connection exclusions.');
+    const profile = {
+      ...options,
+      excludedConnections: options.excludedConnections?.slice(),
+    };
+    return scheduler.schedule(this, () =>
+      this.createSearch(start, goal, profile),
+    );
   }
   get revision(): number {
     return this.currentRevision;

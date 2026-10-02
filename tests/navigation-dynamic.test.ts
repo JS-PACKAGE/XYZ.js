@@ -68,6 +68,11 @@ function dispose(value: NavigationFixture) {
   value.graph.destroy();
 }
 
+function advance(follower: NavigationFollower3D, deltaSeconds: number): void {
+  follower.scheduler.update(1);
+  follower.update(deltaSeconds);
+}
+
 describe('revisioned authored clearance', () => {
   it('filters narrow graph connections by radius, invalidates jobs and snapshots only on effective atomic edits', () => {
     const graph = routes();
@@ -149,20 +154,18 @@ describe('bounded dynamic character navigation', () => {
         goal: 'goal',
         agentRadius: 0.25,
       });
-      const job = follower.searchJob!;
-      follower.update(1);
-      expect(job.expansions).toBe(1);
+      advance(follower, 1);
       expect(object.position).toEqual(new Vector3(0, 1, 0));
       follower.pause();
-      follower.update(10);
-      expect(job.expansions).toBe(1);
+      advance(follower, 10);
+      expect(object.position).toEqual(new Vector3(0, 1, 0));
       follower.resume();
       let observedReplan = false;
       for (let tick = 0; tick < 200 && follower.state !== 'finished'; tick++) {
         const currentJob = follower.searchJob;
         const expansions = currentJob?.expansions ?? 0;
         const before = object.position.clone();
-        follower.update(0.1);
+        advance(follower, 0.1);
         if (currentJob)
           expect(currentJob.expansions - expansions).toBeLessThanOrEqual(1);
         expect(
@@ -196,7 +199,7 @@ describe('bounded dynamic character navigation', () => {
       });
       const staleJob = value.follower.searchJob!;
       value.graph.setConnection(0, { enabled: false });
-      value.follower.update(10);
+      advance(value.follower, 10);
       expect(staleJob.status).toBe('invalidated');
       expect(value.object.position).toEqual(new Vector3(0, 1, 0));
       for (
@@ -204,7 +207,7 @@ describe('bounded dynamic character navigation', () => {
         tick < 100 && value.follower.state !== 'finished';
         tick++
       )
-        value.follower.update(0.1);
+        advance(value.follower, 0.1);
       expect(value.follower.state).toBe('finished');
       expect(value.follower.replanCount).toBe(1);
     } finally {
@@ -225,17 +228,17 @@ describe('bounded dynamic character navigation', () => {
         goal: 'goal',
         agentRadius: 0.25,
       });
-      for (let tick = 0; tick < 10; tick++) value.follower.update(0.1);
+      for (let tick = 0; tick < 10; tick++) advance(value.follower, 0.1);
       expect(value.follower.state).toBe('unreachable');
       value.graph.setConnection(0, { enabled: true });
-      for (let tick = 0; tick < 30; tick++) value.follower.update(0.1);
+      for (let tick = 0; tick < 30; tick++) advance(value.follower, 0.1);
       expect(value.follower.state).toBe('blocked');
       expect(value.follower.searchJob).toBeUndefined();
       expect(value.follower.replanCount).toBe(2);
       const position = value.object.position.clone();
       for (let tick = 0; tick < 20; tick++) {
         value.graph.setConnection(1, { enabled: tick % 2 === 0 });
-        value.follower.update(1);
+        advance(value.follower, 1);
       }
       expect(value.follower.state).toBe('blocked');
       expect(value.follower.replanCount).toBe(2);
@@ -257,7 +260,7 @@ describe('bounded dynamic character navigation', () => {
       value.follower.navigate(contract);
       const cancelled = value.follower.searchJob!;
       cancelled.cancel();
-      value.follower.update(0.1);
+      advance(value.follower, 0.1);
       expect(value.follower.state).toBe('stopped');
       value.follower.navigate(contract);
       const stopped = value.follower.searchJob!;
@@ -266,7 +269,7 @@ describe('bounded dynamic character navigation', () => {
       value.follower.navigate(contract);
       const removed = value.follower.searchJob!;
       value.scene.remove(value.object);
-      value.follower.update(0.1);
+      advance(value.follower, 0.1);
       expect(removed.status).toBe('cancelled');
       expect(value.follower.state).toBe('stopped');
       value.scene.add(value.object);
@@ -293,7 +296,7 @@ describe('bounded dynamic character navigation', () => {
       });
       const job = value.follower.searchJob!;
       value.character.destroy();
-      value.follower.update(0.1);
+      advance(value.follower, 0.1);
       expect(job.status).toBe('cancelled');
       expect(value.follower.state).toBe('stopped');
     } finally {
@@ -308,7 +311,7 @@ describe('bounded dynamic character navigation', () => {
         agentRadius: 0.25,
       });
       other.graph.destroy();
-      other.follower.update(0.1);
+      advance(other.follower, 0.1);
       expect(other.follower.state).toBe('stopped');
     } finally {
       dispose(other);

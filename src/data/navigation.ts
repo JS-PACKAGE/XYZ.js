@@ -10,4 +10,6 @@ export const navigationLimits = Object.freeze({
   expansionsPerStep: 65_536,
   followerExpansions: 32,
   followerReplans: 8,
+  sceneWork: 256,
+  scheduledWork: 4_096,
 });

@@ -1,5 +1,6 @@
 import { Vector3 } from '../../../math/src/math3d.js';
 import { NavigationSearchJob } from './jobs.js';
+import { NavigationScheduler, type NavigationScheduledSearch } from './scheduler.js';
 export interface NavigationNode3D {
     readonly id: string;
     readonly position: Readonly<Vector3>;
@@ -48,6 +49,8 @@ export declare class NavigationGraph3D {
     private readonly paths;
     constructor(options: NavigationGraphOptions3D);
     get connections(): readonly NavigationConnection3D[];
+    get availableSearchSlots(): number;
+    scheduleSearch(scheduler: NavigationScheduler, start: string, goal: string, options?: NavigationGraphSearchOptions3D): NavigationScheduledSearch<NavigationGraphPath3D>;
     get revision(): number;
     get destroyed(): boolean;
     isPathCurrent(path: NavigationGraphPath3D): boolean;

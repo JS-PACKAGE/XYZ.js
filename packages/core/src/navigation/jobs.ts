@@ -103,6 +103,12 @@ export class NavigationSearchPool<Path> {
   private disposed = false;
   constructor(private readonly capacity: number) {}
 
+  get availableSlots(): number {
+    return this.disposed
+      ? 0
+      : navigationLimits.concurrentSearches - this.active.size;
+  }
+
   create(plan: SearchPlan<Path>): NavigationSearchJob<Path> {
     if (this.disposed) throw new Error('Navigation owner is destroyed.');
     if (this.active.size >= navigationLimits.concurrentSearches)

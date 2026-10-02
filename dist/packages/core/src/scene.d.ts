@@ -19,10 +19,13 @@ import type { PostProcessor2D } from './materials2d/index.js';
 import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
+import { NavigationScheduler } from './navigation/scheduler.js';
 export interface SceneOptions {
     readonly fixedDelta?: number;
     readonly maxFixedSteps?: number;
     readonly interpolatePhysics?: boolean;
+    /** Aggregate admissions, searches and collision-bake work per visible Game frame. */
+    readonly navigationWorkBudget?: number;
 }
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export declare class Scene {
@@ -34,6 +37,13 @@ export declare class Scene {
     private animationMixer;
     private physicsWorld;
     private physicsWorld3D;
+    private navigationScheduler;
+    private readonly navigationWorkBudget;
+    get navigation(): NavigationScheduler;
+    /** @internal Reading counters never admits work or initializes a scheduler. */
+    get initializedNavigation(): NavigationScheduler | undefined;
+    /** @internal Game invokes once, not once per fixed catch-up tick. */
+    advanceNavigation(deltaTime: number): void;
     get camera3D(): PerspectiveCamera | OrthographicCamera;
     set camera3D(value: PerspectiveCamera | OrthographicCamera);
     get timers(): SceneTimers;

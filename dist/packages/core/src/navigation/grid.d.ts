@@ -1,4 +1,5 @@
 import { NavigationSearchJob } from './jobs.js';
+import { NavigationScheduler, type NavigationScheduledSearch } from './scheduler.js';
 export interface NavigationCell2D {
     readonly column: number;
     readonly row: number;
@@ -45,6 +46,9 @@ export declare class NavigationGrid2D {
     private disposed;
     constructor(options: NavigationGridOptions2D);
     get revision(): number;
+    get destroyed(): boolean;
+    get availableSearchSlots(): number;
+    scheduleSearch(scheduler: NavigationScheduler, start: NavigationCell2D, goal: NavigationCell2D, options?: NavigationGridSearchOptions2D): NavigationScheduledSearch<NavigationGridPath2D>;
     getCell(column: number, row: number): NavigationCellState2D;
     setCell(column: number, row: number, state: Partial<NavigationCellState2D>): void;
     /** All edits preflight before publication; repeated coordinates apply in order. */

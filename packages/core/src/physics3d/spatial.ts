@@ -145,15 +145,35 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
       else n.bounds.union(n.left!.bounds, n.right!.bounds);
     }
   }
-  update(item: T): void {
+  update(item: T): number {
     let node = this.leafNodes.get(item);
-    if (!node) return;
-    node.bounds.union(item.bounds, item.bounds);
-    node = node.parent;
+    if (!node) return 0;
+    let count = 0;
     while (node) {
-      node.bounds.union(node.left!.bounds, node.right!.bounds);
+      const b = node.bounds,
+        left = node.item ? item.bounds : node.left!.bounds,
+        right = node.item ? item.bounds : node.right!.bounds;
+      const x0 = Math.min(left.min.x, right.min.x),
+        y0 = Math.min(left.min.y, right.min.y),
+        z0 = Math.min(left.min.z, right.min.z),
+        x1 = Math.max(left.max.x, right.max.x),
+        y1 = Math.max(left.max.y, right.max.y),
+        z1 = Math.max(left.max.z, right.max.z);
+      if (
+        b.min.x === x0 &&
+        b.min.y === y0 &&
+        b.min.z === z0 &&
+        b.max.x === x1 &&
+        b.max.y === y1 &&
+        b.max.z === z1
+      )
+        break;
+      b.min.set(x0, y0, z0);
+      b.max.set(x1, y1, z1);
+      ++count;
       node = node.parent;
     }
+    return count;
   }
   query(bounds: Bounds3D, out: T[], margin = 0): void {
     out.length = 0;

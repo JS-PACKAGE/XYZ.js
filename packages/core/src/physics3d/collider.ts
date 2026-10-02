@@ -269,20 +269,25 @@ export class Shape3D {
   readonly vertices = Array.from({ length: 8 }, () => new Vector3());
   readonly triangles: Triangle3D[] = [];
   readonly triangleIndex: SpatialIndex3D<Triangle3D> | undefined;
-  private readonly meshMatrix: Float64Array | undefined;
+  private meshIndexed = false;
   readonly children: Shape3D[] = [];
   readonly massCenter = new Vector3();
   volume = 0;
   private readonly childLocal: Matrix4[] = [];
   private readonly childWorld: Matrix4 | undefined;
   radius = 0;
+  private readonly poseMatrix = new Float64Array(16).fill(NaN);
+  /** @internal Changes only after shape geometry/bounds are refreshed. */
+  revision = 0;
+  /** @internal Translation does not invalidate angular inertia. */
+  inertiaRevision = 0;
+  readonly worldScale = new Vector3();
   constructor(
     readonly collider: Collider3D,
     private readonly needsVolume = false,
   ) {
     if (collider instanceof TriangleMeshCollider3D) {
       this.triangleIndex = new SpatialIndex3D<Triangle3D>();
-      this.meshMatrix = new Float64Array(16).fill(NaN);
       for (let i = 0; i < collider.indices.length / 3; i++)
         this.triangles.push(new Triangle3D(i));
     }
@@ -299,17 +304,28 @@ export class Shape3D {
         );
       }
   }
-  refresh(object: Object3D): void {
-    this.refreshMatrix(object.updateWorldMatrix());
+  refresh(object: Object3D): boolean {
+    return this.refreshMatrix(object.updateWorldMatrix());
   }
-  refreshMatrix(matrix: Matrix4): void {
+  refreshMatrix(matrix: Matrix4): boolean {
     const e = matrix.elements;
+    let changed = false,
+      linearChanged = false;
+    for (let i = 0; i < 16; i++)
+      if (this.poseMatrix[i] !== e[i]) {
+        changed = true;
+        if (i < 12) linearChanged = true;
+      }
+    if (!changed) return false;
+    // A failed mutable-pose validation must not leave partially refreshed geometry cached.
+    this.poseMatrix[0] = NaN;
     const x = this.axes[0].set(e[0], e[1], e[2]),
       y = this.axes[1].set(e[4], e[5], e[6]),
       z = this.axes[2].set(e[8], e[9], e[10]);
     const sx = positive3D(x.length(), 'world scale.x'),
       sy = positive3D(y.length(), 'world scale.y'),
       sz = positive3D(z.length(), 'world scale.z');
+    this.worldScale.set(sx, sy, sz);
     x.scale(1 / sx);
     y.scale(1 / sy);
     z.scale(1 / sz);
@@ -385,57 +401,55 @@ export class Shape3D {
         .normalize();
     }
     if (this.collider instanceof TriangleMeshCollider3D) {
-      let changed = false;
-      const cache = this.meshMatrix!,
-        index = this.triangleIndex!;
-      for (let i = 0; i < 16; i++) if (cache[i] !== e[i]) changed = true;
-      if (changed) {
-        const c = this.collider,
-          p = c.positions,
-          ix = c.indices;
-        for (const t of this.triangles) {
-          for (let j = 0; j < 3; j++) {
-            const v = j === 0 ? t.a : j === 1 ? t.b : t.c,
-              at = ix[t.order * 3 + j] * 3;
-            const px = p[at] + o.x,
-              py = p[at + 1] + o.y,
-              pz = p[at + 2] + o.z;
-            v.set(
-              e[12] + e[0] * px + e[4] * py + e[8] * pz,
-              e[13] + e[1] * px + e[5] * py + e[9] * pz,
-              e[14] + e[2] * px + e[6] * py + e[10] * pz,
-            );
-            if (
-              !Number.isFinite(v.x) ||
-              !Number.isFinite(v.y) ||
-              !Number.isFinite(v.z)
-            )
-              throw new RangeError('Transformed mesh vertices must be finite.');
-          }
-          const ux = t.b.x - t.a.x,
-            uy = t.b.y - t.a.y,
-            uz = t.b.z - t.a.z;
-          const vx = t.c.x - t.a.x,
-            vy = t.c.y - t.a.y,
-            vz = t.c.z - t.a.z;
-          positive3D(
-            Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
-            'transformed triangle area',
+      const index = this.triangleIndex!;
+      const c = this.collider,
+        p = c.positions,
+        ix = c.indices;
+      for (const t of this.triangles) {
+        for (let j = 0; j < 3; j++) {
+          const v = j === 0 ? t.a : j === 1 ? t.b : t.c,
+            at = ix[t.order * 3 + j] * 3;
+          const px = p[at] + o.x,
+            py = p[at + 1] + o.y,
+            pz = p[at + 2] + o.z;
+          v.set(
+            e[12] + e[0] * px + e[4] * py + e[8] * pz,
+            e[13] + e[1] * px + e[5] * py + e[9] * pz,
+            e[14] + e[2] * px + e[6] * py + e[10] * pz,
           );
-          t.normal
-            .set(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
-            .normalize();
-          t.bounds.reset();
-          t.bounds.add(t.a);
-          t.bounds.add(t.b);
-          t.bounds.add(t.c);
+          if (
+            !Number.isFinite(v.x) ||
+            !Number.isFinite(v.y) ||
+            !Number.isFinite(v.z)
+          )
+            throw new RangeError('Transformed mesh vertices must be finite.');
         }
-        if (Number.isNaN(cache[0])) index.rebuild(this.triangles);
-        else index.refit();
-        for (let i = 0; i < 16; i++) cache[i] = e[i];
-        this.updateBounds();
+        const ux = t.b.x - t.a.x,
+          uy = t.b.y - t.a.y,
+          uz = t.b.z - t.a.z;
+        const vx = t.c.x - t.a.x,
+          vy = t.c.y - t.a.y,
+          vz = t.c.z - t.a.z;
+        positive3D(
+          Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
+          'transformed triangle area',
+        );
+        t.normal
+          .set(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx)
+          .normalize();
+        t.bounds.reset();
+        t.bounds.add(t.a);
+        t.bounds.add(t.b);
+        t.bounds.add(t.c);
       }
-      return;
+      if (!this.meshIndexed) index.rebuild(this.triangles);
+      else index.refit();
+      this.meshIndexed = true;
+      this.updateBounds();
+      this.poseMatrix.set(e);
+      ++this.revision;
+      if (linearChanged) ++this.inertiaRevision;
+      return true;
     }
     if (this.collider instanceof CompoundCollider3D) {
       this.volume = 0;
@@ -470,6 +484,10 @@ export class Shape3D {
         Math.PI * this.radius * this.radius * (h + (4 * this.radius) / 3);
     }
     this.updateBounds();
+    this.poseMatrix.set(e);
+    ++this.revision;
+    if (linearChanged) ++this.inertiaRevision;
+    return true;
   }
   /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */
   validateMoving(type: 'dynamic' | 'kinematic' | 'static'): void {
@@ -533,6 +551,9 @@ export class Shape3D {
     }
   }
   translate(x: number, y: number, z: number): void {
+    // Translation queries temporarily move geometry independently of its owner.
+    this.poseMatrix[0] = NaN;
+    ++this.revision;
     this.center.x += x;
     this.center.y += y;
     this.center.z += z;
