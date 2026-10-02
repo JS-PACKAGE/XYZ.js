@@ -1171,9 +1171,9 @@ Attach `new TriangleMeshCollider3D(xyz, triangleIndices, {sidedness:'double'})` 
 
 Build CompoundCollider3D from flat child collider/position/rotation/scale descriptors. Center primitive children at their uniform-density COM before attaching a dynamic body; root filters apply to the union and gaps stay empty. A mesh child makes the whole compound static-only. [Inertia and bounds](TECHNICAL.md#54-compound-colliders-and-inertia-p54).
 
-## 35. Continuous 3D Translation (P55)
+## 35. Continuous 3D Translation (historical P55)
 
-Opt a dynamic body into `new RigidBody3D({continuous:true})` to sweep its actual shape against static walls/mesh/compound targets. This resolves the first impact per tick, not rotational or dynamic-pair CCD; keep fixed steps reasonably small. [Policy and public sweep](TECHNICAL.md#55-bounded-3d-continuous-translation-p55).
+P55 introduced `new RigidBody3D({continuous:true})` for static-target translation sweeps. That historical exclusion of rotation/dynamic pairs is superseded by the unreleased bounded dynamic-pair/angular solver in section 38; public translation sweeps keep their translation-only contract. Keep fixed steps reasonably small. Iteration exhaustion retains only a proven-free prefix rather than inventing an impact. [Current bounded policy](TECHNICAL.md#55-bounded-3d-continuous-rigid-motion-p55-unreleased-expansion).
 
 ## 36. Consume Root Motion (P56)
 
@@ -1182,3 +1182,59 @@ Create AnimationRootMotion(skeletonRoot,{target:actor}) and assign that same bin
 ## 37. Retarget Before Playback (P57)
 
 Declare one-to-one source/target nodes and explicit bind transforms in AnimationRetargeter mappings, including each non-root direct parent; set corresponding skeleton roots. Retarget the source clip once, then use the resulting clip with the existing target mixer/skin/root-motion consumers. Never mutate source tracks to adapt them. [Scale/interpolation restrictions](TECHNICAL.md#57-explicit-bind-pose-retargeting-p57).
+
+## 38. Unreleased Production Working Tree
+
+These additions are **unreleased**, not changes to published v1.9 assets. Metadata remains **1.9.0 / Apache-2.0**; historical dates/counts above remain historical. [Technical contracts](TECHNICAL.md) define bounds, ownership and error behavior; [asset recipe](ASSET-RECIPE.md) defines the real external toolchain.
+
+- **Startup:** Scene physics/animation/3D camera/navigation initialize on use. Canvas startup does not load GPU backend chunks; shared root-facade reachability remains, so this is not a separate microengine.
+- **Assets:** pinned official Basis v2_50 and Draco 1.5.7 produce semantic gamma/normal/alpha mips, BC7/ETC2 RGBA8/ASTC 4×4, universal Basis and PNG/RGBA fallbacks, plus compressed/expanded glTF. Runtime selection is capability-driven, not silent backend switching. Codecs remain external, with no runtime dependency added. Typed Draco preserves raw/normalized/logical accessor metadata; do not assume arbitrary UInt32 values survive the entire Float32 glTF consumer path.
+- **Ownership/save publication:** use ResourcePool scopes for shared acquisitions, candidate rollback and borrower-first teardown. Register factory-created nodes through `ctx.own`; late cancelled factories are tracked. Fresh save candidates publish only after successful preparation; failure/cancellation preserves the previous live scene. Cleanup failures are surfaced and retained for retry, not swallowed.
+- **Measured work:** spatial queries refresh/refit geometry only when changed, but public mutable pose checks remain O(N). Navigation searches, admissions and collision bakes share one bounded cooperative Scene quota per visible Game frame, not an independent budget per NPC. Pause/lifecycle cancellation and debug counters are integrated. Work units are not a preemptive millisecond guarantee.
+- **3D physics:** upright capsule controllers carry moving/rotating support motion, detach on jump/removal/teleport and preserve feet while changing stance; blocked standing remains crouched. Distance, ball-socket and hinge joints include bounded spring/motor/limit/break profiles. Opt-in continuous bodies now cover dynamic pairs and angular motion; exhausted CCD retains conservative free motion and reports exhaustion. This does **not** expand Physics2D translation-only CCD.
+- **Navigation:** `NavigationGridBakeJob2D` samples collision occupancy; `NavigationSurfaceBakeJob3D` samples the topmost single walkable layer and capsule edge clearance. Bake/rebake publication is atomic and revision-sensitive. This is a finite lattice graph, not polygon or multilayer navmesh generation.
+- **Text:** native 2D text/input supports bidi visual order, grapheme-safe caret/selection and fallback font runs. Trusted browser editing evidence is not OS IME certification. Text3D still uses native fillText, not the new 2D run/caret renderer.
+- **Audio:** channel/master native biquad, compressor and prepared convolution effects apply to sample/stream/OPM sources; activity-driven ducking, absolute manager-clock automation/cancel-and-hold, and listener/emitter world bindings use the existing eight contexts. Pause uses explicit audio reasons, not implicit `Game.pause()`. Bindings borrow objects/playbacks; unbind before owner teardown.
+
+### Aggregate navigation example
+
+This runs in an existing page with an initialized `game`; normal Game frames advance the scheduler, so do not update it again from each NPC:
+
+```ts
+import { Scene, NavigationGrid2D } from 'xyz.js';
+
+const scene = new Scene({ navigationWorkBudget: 32 });
+await game.setScene(scene);
+const grid = new NavigationGrid2D({ columns: 8, rows: 8 });
+const search = grid.scheduleSearch(
+  scene.navigation,
+  { column: 0, row: 0 },
+  { column: 7, row: 7 },
+);
+// Inspect search.status/result and a copy of scene.navigation.stats on later frames.
+// Scene destruction cancels scene-owned scheduled work.
+```
+
+### Native music processing example
+
+Call from a trusted user gesture on an initialized `game`. These settings process actual music routed through the manager, not a synthetic mock:
+
+```ts
+await game.audio.unlock();
+game.audio.music.setEffects([
+  { type: 'biquad', filter: 'lowpass', frequency: 1800, Q: 0.7 },
+  { type: 'compressor', threshold: -24, ratio: 4 },
+]);
+game.audio.setDucking([
+  { source: 'sfx', target: 'music', gain: 0.25, attack: 0.02, release: 0.2 },
+]);
+game.audio.music.automate(0.5, game.audio.currentTime, 0.3, 'linear');
+// Real active sfx playbacks duck music automatically.
+// game.audio.music.cancelAutomation() holds the current gain.
+```
+
+### Verification and runnable diagnostics
+
+Use `pnpm check:tree-shaking`, `pnpm platform:browser` and `pnpm smoke:text` for focused diagnostics. Asset commands require real paths: `pnpm assets:build --input /absolute/model.gltf --out /absolute/new-bundle --profile /absolute/trusted-profile.json`, then `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /absolute/new-bundle --renderer webgl2 --profile /absolute/trusted-profile.json`. Output must not already exist; profile setup is documented in [asset recipe](ASSET-RECIPE.md). For mixed runtime measurement use `pnpm soak:mixed --duration 3600 --renderer all --output /tmp/mixed-hour.json`; specifying an hour is not evidence that an hour was completed. Keep the page visible and use the observability instructions in [ACCEPTANCE](../ACCEPTANCE.md).
+
+Current handoff evidence includes scoped Chromium 153/Firefox 155/managed WebKit 26.6 paths (Firefox WebGPU adapter unsupported), actual pinned codec CLI runs, built-root physics/navigation/resource scenarios and native Chromium WebAudio signal measurements. The 10-second native Apple M5 shared-host observability smoke measured heap/GC/RSS and GL GPU timestamps; Canvas GPU timing is unsupported (`null`). RSS is not VRAM. Hour/low-tier results require separately recorded completed runs. Mobile emulation is not physical-device certification. Safari formal verification, physical mobile/gamepad/audio hardware and OS IME remain unverified; do not run Safari automation against another owner's session. Final platform reruns and long-run evidence are recorded in ACCEPTANCE, not inferred from these examples.

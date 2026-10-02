@@ -4,6 +4,8 @@ English · [Traditional Chinese](TECHNICAL-zh.md)
 
 This reference covers the current **1.9.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define the approved contracts through P57; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user authorized pushing and the GitHub v1.9 release, not npm publication.
 
+New production contracts in section 58 are **UNRELEASED working-tree additions**; unchanged 1.9.0 metadata and historical release authorization do not publish them.
+
 ## Current Support Matrix
 
 | Surface                     | Current supported profile / restriction                                                                                                                                                                                                                                                                                                                                                                                      |
@@ -922,7 +924,7 @@ The default fixed step is 1/120 second with bounded substeps and reported `dropp
 
 `CharacterController3D(object, world, options?)` borrows a live registered upright root capsule with unit scale, zero offset and a kinematic body; it creates that body only when absent. `move(displacement)` performs bounded overlap recovery, conservative capsule sweep/slide, slope/ground probing, stepping and optional dynamic-body push. The caller supplies gravity/jump displacement and delta; yaw is allowed. Its result and contact views are reused until the next move: copy values that must survive. Destroy releases only a body created by that controller, never the borrowed object/world.
 
-This is a bounded primitive gameplay profile: discrete rigid bodies can tunnel at high speed. It is not a general CCD/rotational-sweep solver, joint system, mesh/concave/compound collision engine or arbitrary-scale character controller.
+The original P42 primitive-only exclusions are historical: sections 53–55/58 add static mesh, primitive compounds, bounded rigid-motion CCD, joints and moving-support/crouch. Discrete bodies without continuous still can tunnel; arbitrary-scale characters, deformation CCD and moving mesh remain outside the profile.
 
 ### Deterministic pathfinding
 
@@ -962,7 +964,7 @@ The shared Linux Chromium launcher selects SwiftShader for ANGLE and Dawn, and e
 
 ## 45. Shared 3D Spatial Index (P45)
 
-World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses require O(n) bounds refresh/refit at each fixed tick and public query. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. Internal CCD refits individual leaves in O(log n); infinite planes remain unavoidable candidates.
+World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses still require O(N) pose checks at each fixed tick and public query. Geometry refresh and hierarchy refits are changed-only; unchanged queries perform neither. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. Infinite planes remain unavoidable candidates.
 
 `world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.
 
@@ -976,7 +978,7 @@ Each owner admits at most eight independent jobs and reuses bounded workspaces; 
 
 Graph connections default to enabled with infinite authored clearance. `setConnection(index, {enabled?, clearance?})` / atomic `setConnections([{index, ...}])` updates both directions for an undirected connection and increments revision only for effective changes. `getConnectionIndex(from,to)` identifies the authored connection; paths carry required revision and `isPathCurrent` checks owner identity/revision. `agentRadius` is a radius, in world units for graphs and cell units for grids; clearance is authored, not automatically baked from geometry.
 
-`new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?})` borrows controller/graph. `navigate({graph,start,goal,agentRadius})` starts an incremental job; each `update(delta)` advances one search budget (default 32, maximum 65,536) and moves through actual `CharacterController3D.move`. A stale graph is rejected before movement; replan starts from the last reached authored anchor. Physical blockage locally excludes the traversed connection and returns toward that anchor before following a detour. Revision clears local exclusions; retries are bounded (default/maximum eight per navigation request).
+`new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?, scheduler?})` borrows controller/graph. Scene-attached controllers share `scene.navigation` by default: search admission and expansions consume one aggregate Scene quota, not a quota per NPC. Movement remains explicitly updated. A stale graph is rejected before movement; replan starts from the last reached authored anchor. Physical blockage locally excludes the traversed connection and returns toward that anchor before following a detour. Revision clears local exclusions; retries are bounded.
 
 States distinguish searching/following/paused/finished/blocked/unreachable/stopped/destroyed. Pause freezes search and movement; stop/setPath/destroy retires pending jobs, and destroyed borrowed owners stop safely. `PathFollower3D` remains the explicit simple-waypoint consumer; neither follower claims automatic nearest-node projection or navmesh generation.
 
@@ -984,7 +986,7 @@ States distinguish searching/following/paused/finished/blocked/unreachable/stopp
 
 `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json` exercises actual Game RAF/start/pause/resume/setScene/destroy, body load, changing grid routes, retained widgets, decoded/native residency, warmup, captures and lease cleanup. `/benchmarks/mixed/` is the interactive surface. The Canvas2D variant explicitly omits unsupported 3D. `--consumer /absolute/extracted/package` selects the packaged root; `--duration 3600` requests an hour rather than implying that the default 60-second window establishes a long-term plateau.
 
-The bounded histogram uses 4,096 bins of 0.25 ms; p50/p95 are bucket upper bounds, and overflow above 1,024 ms is reported as null rather than hidden. Keep the tab visible. Overall RAF includes boundary hitches; per-phase RAF excludes crossing intervals. Scene/ECS, physics and CPU submission are separate, as are asset/capture/cleanup wall times. There is no GPU-completion timer, whole-driver/GC-memory claim or implied FPS improvement. Reports retain at most 32 cycle trends and assert owned-registration/lease/capture/residency cleanup at every boundary.
+The bounded histogram uses 4,096 bins of 0.25 ms; p50/p95 are bucket upper bounds, and overflow above 1,024 ms is reported as null rather than hidden. Keep the tab visible. Overall RAF includes boundary hitches; per-phase RAF excludes crossing intervals. Scene/ECS, physics and CPU submission are separate, as are asset/capture/cleanup wall times. Opt-in native GPU timestamps and measured heap/GC/process RSS/VSZ are separate observations, not presentation FPS, whole-driver memory or VRAM. Reports retain bounded trends and assert owned-registration/lease/capture/residency cleanup at every boundary. A requested duration is not evidence that an hour or low-tier hardware was measured; consult ACCEPTANCE.
 
 ## 49. Explicit 3D and Content Round-trip (P49)
 
@@ -996,9 +998,9 @@ Factories may declare `children(root)` aliases and `state(root, member)` adapter
 
 ## 50. Pinned Asset Recipe and Packaged Deployment (P50)
 
-See [Asset Recipe](ASSET-RECIPE.md) for reproducible local glTF/GLB packing, topology/UV/material/codec preflight, RGBA8 KTX2 integer-box mip generation, PNG fallback, manifest and SHA256SUMS. The CLI pins Node26.7.0/playwright-core1.63.0/Chromium153.0.8010.12 (revision1243); no hidden downloads, manifest shell commands or runtime dependencies.
+See [Asset Recipe](ASSET-RECIPE.md) for reproducible local glTF/GLB packing, topology/UV/material/codec preflight, v2 explicit semantic mip generation, native compressed/universal Basis/RGBA8 KTX2, PNG fallback, typed Draco/expanded glTF, manifest and SHA256SUMS. The CLI pins Node26.7.0/playwright-core1.63.0/Chromium153.0.8010.12 (revision1243); no hidden downloads, manifest shell commands or runtime dependencies.
 
-`assets:build` validates generated variants through the real packaged GLTFLoader. `check:asset-deployment` imports an extracted `pnpm pack` root over plain HTTP, renders native/fallback variants and trusted-click initializes official AudioWorklets, checking vendor completeness and real fetches. Reproducibility is for the same pinned toolchain/platform/input bytes. No Draco/Basis/compressed-GPU encoder, semantic gamma/normal filtering or audible-output certification is claimed.
+`assets:build` validates generated variants through the real packaged GLTFLoader. `check:asset-deployment` imports an extracted `pnpm pack` root over plain HTTP, renders native/fallback/runtime-selected variants and trusted-click initializes official AudioWorklets, checking vendor completeness and real fetches. The unreleased v2 recipe supports pinned external Basis/Draco and explicit semantic filtering; reproducibility and hardware limits are recorded separately in ACCEPTANCE.
 
 ## 51. Native Editing, Canvas Text Input (P51)
 
@@ -1024,11 +1026,11 @@ Sidedness `double` (default) is a two-sided zero-thickness surface, not closed-s
 
 Dynamic primitive compounds require uniform-density center of mass at the root origin. Scaled volumes distribute mass; rotated analytic inertia and full parallel-axis tensor retain off-diagonal terms. Overlapping child solids count separately for mass; collision is their gap-preserving union. Up to eight deepest deterministic contacts with individual normals feed the standard impulse solver.
 
-## 55. Bounded 3D Continuous Translation (P55)
+## 55. Bounded 3D Continuous Rigid Motion (P55, unreleased expansion)
 
-`new RigidBody3D({continuous:true})` opts dynamic nonsensor bodies into static-target translation CCD; immutable/default false. Discrete rotation occurs first, then the actual sphere/OBB/capsule/primitive-compound sweeps at that fixed orientation against reciprocal-filtered static primitive/mesh/compound targets. First impact truncates translation, unused time is discarded, and normal surface contacts/events resolve linear/angular velocity.
+`new RigidBody3D({continuous:true})` opts dynamic nonsensor bodies into bounded conservative-advancement CCD. Relative translation and angular motion cover dynamic pairs and moving kinematic targets, with actual sphere/OBB/capsule/primitive-compound geometry and static mesh/compound surfaces. Reciprocal filters and ordinary surface contact impulses/events remain authoritative.
 
-No rotation, dynamic-pair, kinematic, sensor time-of-impact or arbitrary deformation CCD. Iteration exhaustion keeps the proven-free prefix without fabricating a hit/event/impulse. `world.sweep(collider, object, displacement, options?, out?)` exposes finite-shape translation and optional output reuse, rejects moving mesh/plane, and returns distance in world units; bounded public query exhaustion returns no hit. Object3D snapshot immutable policy now includes continuous.
+Iteration/impact-budget exhaustion retains only the proven collision-free prefix and discards unproven time; it does not fabricate a hit, event or impulse. Inspect `ccdTests`, `ccdIterations`, `ccdImpacts`, `ccdExhaustions`, `ccdLimitedTime`. No sensor time-of-impact, moving mesh/plane or deformation CCD. `world.sweep(collider, object, displacement, options?, out?)` remains a fixed-orientation translation query, with world-unit distance and optional result reuse; query exhaustion returns no hit. Immutable snapshot policy includes continuous.
 
 ## 56. Animation Root Motion (P56)
 
@@ -1041,3 +1043,45 @@ Root pose is finite/rigid/unit scale; animated root scale or duplicate TR channe
 `new AnimationRetargeter(mappings, {sourceRoot,targetRoot,rootTranslationScale?}).retarget(sourceClip, name?)` returns an independent AnimationClip for existing mixer/skin/root-motion consumers. Mappings supply source/target and explicit bind translation/rotation/scale, optionally translationScale; every animated node and each non-root direct parent must map one-to-one. Outside scene placement is excluded from bind space; no name guesses.
 
 World/local rest-rotation correction and parent-frame translation correction preserve STEP/LINEAR/CUBICSPLINE, analytically transforming cubic tangents without modifying source tracks/arrays/live poses. Root translation defaults to factor1; non-root factors use target/source local bind-offset length, with explicit factor required for zero source/nonzero target offset. Factors are finite nonnegative (zero locks translation). Positive uniform bind/animated scales only; cubic scale extrema validate before/after Float32 conversion. Morph tracks, shear/reflection, duplicate channels, incomplete mappings, changed hierarchy/destroyed nodes reject before a clip is returned.
+
+## 58. Unreleased Production Contracts (1.9.0 working tree)
+
+These additions are **unreleased**; the unchanged package version is not a new 1.9.0 release. Earlier dates, counts and exclusions remain historical evidence. [ACCEPTANCE](../ACCEPTANCE.md) distinguishes measured paths from unsupported or unmeasured platforms.
+
+### Resource ownership and fresh publication
+
+`ResourcePool(loader).createScope({signal?})` creates a candidate/Scene-local `ResourceScope`; `fork`, `acquire(request)`, `acquireTexture`, `own`, `borrow`, `attach`, `cancelPending`, `release` use the existing loader/cache. The same `ResourceRequest` object shares one acquisition across scopes, not merely equal URLs/options. Owned requests require `dispose`; borrowed values are never destroyed. Call load-context `own(value)` before fallible awaits so abort/failure can reclaim partial and late non-cooperative results. A caller abort retires its subscription, not a surviving subscriber's acquisition.
+
+Lease/scope `attach(detach)` registers synchronous consumer removal before last-resource disposal. Failed detachment retains the resource and failing callback for retry; release reports aggregate errors rather than freeing a live borrower's resource. `cancelPending` aborts acquisition only; owner teardown removes consumers before `release`. Texture acquisitions hold existing decoded-cache leases. Pool destruction releases scopes, not unrelated caller-owned services.
+
+`AssetManifest.acquire(pool, selections, {signal?,scope?})` returns a scoped `ManifestLease`; aliases/groups resolve shared acquisitions without duplicating ownership. Content build/rebuild options accept `resourcePool` or `resources`; candidate scopes are fresh/forked, passed through factory context, adopted only by their owned Scene/subtree and rolled back on failure/cancellation. `rebuildContentScene` restores into a fresh unpublished candidate, then `game.setScene(candidate.scene)` prepares and atomically publishes it. This does **not** turn legacy in-place `Serializer.restore` into an atomic transaction. The old active Scene survives candidate failure; explicit borrowed services stay caller-owned.
+
+### Budgets, timing and startup
+
+Scene subsystems initialize lazily; reading diagnostic counters must not initialize navigation. `scene.navigation` schedules searches/bakes with round-robin, owner-fair admission and one hard cooperative work-unit cap. Pending jobs do not each allocate an A* workspace; owner workspace limits still apply. Pause/lifecycle retire or freeze the appropriate work. CPU time thresholds are observational/cooperative, not preemptive deadlines: one unit or decoder can exceed them. Existing per-asset, decoded-cache, native-residency and attachment estimates remain separate budgets, never a total process/driver-memory guarantee.
+
+GPU timing is opt-in (`GpuTimingOptions`), bounded by `maxInFlight` (default 4, maximum 32), warmup (default 120 frames) and sample interval. `GpuTimingStats` is a reused latest asynchronous result, not necessarily this frame. Unsupported/disabled/pending/invalid readings keep `milliseconds`, frame/source/max values nullable as appropriate; null is not zero. WebGPU timestamp-query and WebGL disjoint queries report native GPU duration; Canvas GPU timing is unsupported. Skipped/invalid/pending counters explain collection gaps. RSS/VSZ are process memory, not VRAM; heap/GC, CPU submission, RAF cadence and GPU duration must not be conflated. Source/built bundle reachability is smaller but the shared root facade remains, not a microengine or FPS claim.
+
+### Assets and typed Draco
+
+The v2 descriptor (`xyz-gltf2-semantic-platform-v2`) is distinct from authoring `AssetManifest`. `parseAssetBundle`, `selectAssetBundleVariant`, `loadAssetBundle(uri,{renderer,loader,options?,manifestSHA256?})` select the first compatible ordered variant using 3D support, texture dimensions/native formats and Draco availability. WebGPU compressed block restrictions also participate. Raster/uncompressed fallback is mandatory; Canvas rejects 3D. Availability may select fallback **before decoding**; corrupt hashes, fetch/parse/decode failure are fatal, not a reason to silently retry a lower variant.
+
+Selected model/resources are size/SHA-256 verified, rewritten to protected temporary Blob URLs, parsed by the existing loader, then URLs are revoked. Caller removes consumers before returned `asset.dispose()`; abort after parse disposes the owned result. Optional trusted manifest pin protects descriptor integrity; self-declared hashes are not signatures. Draco requests include accessor `componentType` and `normalized` metadata; adapters must preserve raw integer streams separately from logical normalized values, including joints/weights/colors/UVs. Adapter proof preserves tested UINT32 values above Float32 exact range; official encoder upper-UInt32 rejection and existing custom UINT32→Float32 consumer limits prevent claiming full 32-bit end-to-end precision.
+
+### Physics and navigation
+
+3D moving-support carry uses support-local foot anchors, swept carry/slide and yaw; an epoch consumes support motion once. Jump/removal/teleport/loss/blocked detach are explicit, as are `carryBlocked` and `unresolvedPenetration` for unsafe ceiling/crush placement. Caller still supplies gravity/jump motion. Crouching changes the capsule straight-segment height, retains radius/feet, and blocked standing leaves crouch intact; movement/stance results and vectors are reused.
+
+`DistanceJoint3D` (rigid or compliant frequency/damping spring), `BallSocketJoint3D` (cone/twist limits), and `HingeJoint3D` (limits/torque-bounded motor) share the world's sequential linear/angular impulse solver and inverse inertia. World owns registered joint lifecycle; body removal/destroy retires constraints. These are bounded iterative constraints, not an exact industrial articulation solver.
+
+Spatial counters separate cumulative `poseChecks` from changed `refreshedLeaves`/`refits` and `indexGeneration`. `NavigationGridBakeJob2D` combines sampled lattice occupancy, authored blocked cells and physics; `NavigationSurfaceBakeJob3D` samples the topmost walkable surface within explicit Y bounds, slope/step/capsule clearance and swept connections. Mapping snapshots origin/rotation/cell size. Revision changes invalidate work; completed output publishes atomically. This is sampled **single-layer** lattice navigation, not polygon/multilayer navmesh generation or arbitrary nearest-node projection.
+
+### Native text and audio
+
+Text layout supports explicit `ltr | rtl | auto`, browser bidi shaping/fallback fonts and grapheme-aware caret/selection/hit geometry. Native editing selection offsets remain UTF-16; do not treat code-unit length as grapheme count. Browser shaping/DOM geometry is used for layout; native editing remains transparent and canvas-rendered. This does not replace Text3D's native `fillText` profile or certify physical OS IME/font availability.
+
+`audio.master/music/sfx/ui.setEffects` snapshots validated biquad/compressor/reverb chains across the actual native contexts. `prepareImpulse(AudioBuffer)` owns immutable PCM copies; disposal prevents new uses without destroying already-retained graphs or caller buffers. `setDucking` uses playback activity/release tails, not timer-only approximations; overlapping activities do not release ducking prematurely, paused sources do not duck. `automate`/`cancelAutomation` use absolute manager AudioContext seconds and cancel-and-hold semantics, not Game elapsed time. Game pause remains independent; explicitly paused native contexts freeze their clock.
+
+Cancellation retains the exact tracked per-context target-exponential and finite crossfade envelopes without relying on optional native `cancelAndHoldAtTime` or approximating from `AudioParam.value`. Listener transforms use native AudioParams when available and the native position/orientation setters otherwise; this is the same formal audio graph, not a separate Firefox implementation.
+
+`bindListener(object)`/`bindEmitter(object,spatialPlayback)` borrow world objects and follow after simulation/world transforms. `AudioTransformBinding.unbind(stop=true)` stops emitter playback by default but never destroys the object; ended/stopped playback and owner destruction retire bindings. Native sample/stream/official OPM effects and spatial analyser evidence are not physical speaker/hardware certification. No hour, simulated low-tier run, mobile device, Safari or OS IME support is inferred from desktop/emulation smoke evidence.

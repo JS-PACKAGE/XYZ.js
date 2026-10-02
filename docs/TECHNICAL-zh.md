@@ -4,6 +4,8 @@
 
 本參考描述目前 **1.9.0／Apache-2.0** source 套件；npm 未發佈。以下各階段的日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P57 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已授權 push 與 GitHub v1.9 release，不做 npm publish。
 
+第58節新增 production 契約是 **UNRELEASED working-tree additions**；不變的1.9.0 metadata／歷史發佈授權不代表已發佈本輪。
+
 ## 目前支援矩陣
 
 | 項目                  | 目前 profile／限制                                                                                                                                                                                                                                                                                                                                                 |
@@ -872,7 +874,7 @@ raycast／overlap／sweepSphere／sweepCapsule 依 transformed primitive geometr
 
 CharacterController3D(object, world, options?) 借用已註冊、upright、unit scale、zero-offset root capsule 與 kinematic body；只有沒有 body 時才自建。move(displacement) 執行 bounded overlap recovery、conservative capsule sweep／slide、slope／ground probe、step 與可選 dynamic-body push；caller 提供 gravity／jump displacement／delta，允許 yaw。Result／contacts 重用至下一次 move，需跨呼叫保留的值應複製。Destroy 只移除 controller 自建 body，不 destroy borrowed object／world。
 
-這是有限 primitive gameplay profile：discrete rigid bodies 高速仍可能 tunneling。沒有一般 CCD／rotation sweep、3D joints、mesh／concave／compound collision 或任意縮放角色控制器。
+原 P42 primitive-only exclusions 是歷史：第53–55／58節加入 static mesh／primitive compound／bounded rigid-motion CCD／joints／moving-support-crouch。未開 continuous 的 discrete bodies 仍可 tunneling；arbitrary-scale character／deformation CCD／moving mesh 仍不支援。
 
 ### Deterministic pathfinding
 
@@ -912,7 +914,7 @@ Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned 
 
 ## 45. 共用 3D spatial index（P45）
 
-Solver pairs、overlap／ray／sweep／controller queries 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 要每 fixed tick／public query O(n) refresh／refit，hierarchical candidate traversal 不代表整個 query 已 sublinear。Internal CCD 單 leaf refit O(log n)，infinite planes 仍是必要 candidates。
+Solver pairs、overlap／ray／sweep／controller 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 每 fixed tick／public query 仍需 O(N) pose checks，但 geometry refresh／refit 僅處理變更，unchanged queries 不 refresh／refit。Candidate traversal 不代表整個 query sublinear；infinite planes 仍是必要 candidates。
 
 World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query；destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。
 
@@ -926,7 +928,7 @@ World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests �
 
 Graph connection 預設 enabled／clearance Infinity。`setConnection(index, {enabled?, clearance?})`／atomic `setConnections([{index,...}])` 修改 undirected connection 的兩向，只有有效 edits 增加 revision。`getConnectionIndex(from,to)` 找 authored connection，path 具有必要 revision，isPathCurrent 同時查 owner identity／revision。AgentRadius 是半徑，graph 用 world units、grid 用 cell units；clearance 是 authored data，不自動 bake geometry。
 
-`new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?})` 借用 controller／graph。Navigate 傳 `{graph,start,goal,agentRadius}` 啟動 incremental job；每 update 推進一次 budget（default32，max65,536），經真 CharacterController3D.move 移動。Graph stale 時先停止舊路徑，從最後已到 authored anchor replan。物理 blocked 時僅在本次 route 排除該 connection，先返回 anchor 再走 detour；revision 清 local exclusions。每 navigate 的 retry 有限（default／max8）。
+`new NavigationFollower3D(controller, {speed?, arrivalTolerance?, expansionBudget?, maxReplans?, scheduler?})` 借用 controller／graph。Scene-attached controller 預設共用 scene.navigation：admission／expansions 消耗單一 Scene aggregate quota，不是每 NPC 各有 quota；movement 仍由 caller update。Stale graph 先停止舊路徑，由最後已到 authored anchor replan。Physical blockage 僅在本 route 排除該 connection，返回 anchor 再走 detour；revision 清 exclusions，retry 有界。
 
 狀態區分 searching／following／paused／finished／blocked／unreachable／stopped／destroyed。Pause 凍結搜尋與移動，stop／setPath／destroy 清 pending job，borrowed owners 被 destroy 時安全停止。PathFollower3D 保留簡單 explicit waypoint 契約；不宣稱 nearest-node projection／自動 navmesh。
 
@@ -934,7 +936,7 @@ Graph connection 預設 enabled／clearance Infinity。`setConnection(index, {en
 
 `pnpm soak:mixed --duration 60 --renderer all --output /tmp/mixed.json` 執行真正 Game RAF／start／pause／resume／setScene／destroy、body 負載、動態 grid routes、retained widgets、decoded／native residency、warmup、capture／lease cleanup。互動頁是 `/benchmarks/mixed/`；Canvas2D variant 明示省略不支援的 3D。`--consumer /absolute/extracted/package` 選打包 root；`--duration 3600` 才要求一小時，不能用預設 60 秒宣稱長時間 plateau。
 
-Bounded histogram 4,096 個 0.25ms bins；p50／p95 是 bucket 上界，>1,024ms overflow 回 null，不藏掉慢幀。保持分頁可見；overall RAF 包含 boundary hitches，phase RAF 排除跨 phase interval。Scene／ECS、physics、CPU submit 分開記錄，asset／capture／cleanup 記 wall time；不是 GPU completion timer／whole-driver／GC memory／FPS 提升證明。最多保存 32 cycle trends，每 boundary assert owned registration／lease／capture／residency cleanup。
+Bounded histogram 4,096 個 0.25ms bins；p50／p95 為 bucket 上界，>1,024ms overflow 回 null。保持分頁可見；overall RAF 含 boundary hitches，phase RAF 排除跨 phase interval。Scene／ECS、physics、CPU submit 與 asset／capture／cleanup wall time 分開。Opt-in native GPU timestamps、實測 heap／GC／process RSS／VSZ 各自記錄，不等於 presentation FPS／whole-driver memory／VRAM。Trend 有界，每 boundary assert owned cleanup；要求 duration 不等於實測一小時／低階硬體，證據見 ACCEPTANCE。
 
 ## 49. 明確 3D 與 content round-trip（P49）
 
@@ -946,9 +948,9 @@ Factory 可定義 children(root) aliases 與 state(root,member) adapters；conte
 
 ## 50. 版本固定的 asset recipe 與打包部署（P50）
 
-[Asset Recipe](ASSET-RECIPE.md) 說明 local glTF／GLB packing、topology／UV／material／codec preflight、RGBA8 KTX2 integer-box mips、PNG fallback／manifest／SHA256SUMS。CLI 固定 Node26.7.0／playwright-core1.63.0／Chromium153.0.8010.12 revision1243，無 hidden download／manifest shell commands／runtime dependencies。
+[Asset Recipe](ASSET-RECIPE.md) 說明 local glTF／GLB packing、topology／UV／material／codec preflight、v2 explicit semantic mips、native compressed／universal Basis／RGBA8 KTX2、PNG fallback、typed Draco／expanded glTF／manifest／SHA256SUMS。CLI 固定 Node26.7.0／playwright-core1.63.0／Chromium153.0.8010.12 revision1243，無 hidden download／manifest shell commands／runtime dependencies。
 
-Assets:build 沿真 packaged GLTFLoader 驗 generated variants。Check:asset-deployment 在 plain HTTP import extracted pnpm pack root，畫 native／fallback，trusted click 初始化 official AudioWorklets，確認 vendor 完整與實際 fetch。Reproducibility 限同 toolchain／platform／input bytes；不含 Draco／Basis／compressed-GPU encoding、gamma／normal semantic filtering 或可聽輸出認證。
+Assets:build 沿真 packaged GLTFLoader 驗 generated variants。Check:asset-deployment 在 plain HTTP import extracted pnpm pack root，畫 native／fallback／runtime-selected variants，trusted click 初始化 official AudioWorklets，確認 vendor 完整與實際 fetch。未發佈 v2 支援 pinned external Basis／Draco 與 explicit semantic filtering；reproducibility／hardware limits 另記 ACCEPTANCE。
 
 ## 51. 原生 editing、canvas 文字輸入（P51）
 
@@ -974,11 +976,11 @@ Sidedness double（default）是雙面零厚度 surface，不是 closed-solid co
 
 Dynamic primitive compound 的 uniform-density COM 必須在 root origin。Scaled volume 分配 mass，rotated analytic inertia＋完整 parallel-axis tensor 保留 off-diagonal terms；重疊 child solids 的 mass 分別計算，collision 是保留 gaps 的 union。至多八個 deepest deterministic contacts、各自 normal 沿標準 impulse solver。
 
-## 55. 有界 3D continuous translation（P55）
+## 55. 有界 3D continuous rigid motion（P55，未發佈擴充）
 
-`new RigidBody3D({continuous:true})` 開啟 dynamic nonsensor 對 static targets 的 translation CCD；immutable／default false。先 discrete rotation，再用該固定 orientation 的真 sphere／OBB／capsule／primitive compound sweep reciprocal-filtered static primitive／mesh／compound。每 tick 第一 impact 截短 translation，unused time 丟棄，普通 surface contacts／events 解線角速度。
+`new RigidBody3D({continuous:true})` 開啟 dynamic nonsensor 的 bounded conservative-advancement CCD。Relative translation／angular motion 涵蓋 dynamic pairs／moving kinematic targets，使用真 sphere／OBB／capsule／primitive compound 與 static mesh／compound surface；reciprocal filters、普通 contact impulses／events 不變。
 
-不含 rotation／dynamic-pair／kinematic／sensor time-of-impact／arbitrary deformation CCD。Iteration exhaustion 保留 proven-free prefix，不捏造 hit／event／impulse。World.sweep(collider,object,displacement,options?,out?) 提供 finite-shape translation／optional output reuse，拒 moving mesh／plane，distance 是 world units；bounded public query exhaustion 回 no hit。Object3D snapshot 的 immutable policy 加 continuous。
+Iteration／impact budget exhaustion 只保留 proven-free prefix、丟棄未證明時間，不捏造 hit／event／impulse。觀察 ccdTests／ccdIterations／ccdImpacts／ccdExhaustions／ccdLimitedTime。無 sensor TOI／moving mesh-plane／deformation CCD。World.sweep 仍為固定 orientation translation query，distance 是 world units、可重用 out；query exhaustion 回 no hit。Immutable snapshot policy 包含 continuous。
 
 ## 56. Animation root motion（P56）
 
@@ -991,3 +993,45 @@ Root finite／rigid／unit scale，animated root scale／duplicate TR channels �
 `new AnimationRetargeter(mappings, {sourceRoot,targetRoot,rootTranslationScale?}).retarget(sourceClip,name?)` 回獨立 AnimationClip，沿既有 mixer／skin／root-motion。Mapping 包含 source／target／explicit bind translation／rotation／scale，optional translationScale；每 animated node 與 non-root direct parent 需一對一 mapping。Bind space 排除 skeleton 外 scene placement，不猜名稱。
 
 World／local rest-rotation 與 parent-frame translation correction 保留 STEP／LINEAR／CUBICSPLINE，analytic 轉換 cubic tangents，不改 source tracks／arrays／live poses。Root factor default1，non-root 用 target/source local bind-offset length；source零／target非零需 explicit factor。Factor finite nonnegative，零鎖 translation。Bind／animated scale 必須 positive uniform，cubic extrema 在 Float32 轉換前後都驗；morph／shear／reflection／duplicate channels／incomplete mapping／hierarchy change／destroyed nodes 在回 clip 前拒絕。
+
+## 58. 未發佈 production 契約（1.9.0 working tree）
+
+以下是 **UNRELEASED** 工作樹能力；package version 未變，不代表另一次 1.9.0 release。歷史日期／counts／exclusions 保留；[ACCEPTANCE](../ACCEPTANCE.md) 分開實測、unsupported 與未驗項。
+
+### 資源 ownership 與 fresh publication
+
+`ResourcePool(loader).createScope({signal?})` 產 candidate／Scene-local ResourceScope；fork／acquire(request)／acquireTexture／own／borrow／attach／cancelPending／release 沿既有 loader/cache。同一 ResourceRequest **物件 identity** 跨 scopes 共用 acquisition，不只比較 URL/options。Owned request 必須 dispose，borrowed 不 destroy；load context.own(value) 必須在 fallible await 前登記，才能清 partial／late non-cooperative results。單 subscriber abort 不中止其他存活 subscriber。
+
+Lease／scope.attach(detach) 登記 synchronous consumer teardown，先 detach 才 last-resource dispose。Detach 失敗保留資源與 failing callback 供 retry，以 AggregateError 回報，不能釋放 live borrower。CancelPending 僅取消 acquisition；owner 先移除 consumers 再 release。Texture acquisition 持既有 decoded-cache lease；pool destruction 不 destroy unrelated caller services。
+
+`AssetManifest.acquire(pool,selections,{signal?,scope?})` 回 scoped ManifestLease，aliases／groups 共用 acquisition 而不重複 ownership。Content build／rebuild options 接受 resourcePool／resources，新建或 fork candidate scope，經 factory context 傳入，僅由 owned Scene／subtree adopt；failure／cancel rollback。RebuildContentScene 先建 fresh unpublished candidate，再 Game.setScene prepare／原子 publish；**不**把 legacy in-place Serializer.restore 宣稱為 atomic transaction。失敗保留 old active Scene，borrowed services 仍 caller-owned。
+
+### 預算、timing 與 startup
+
+Scene subsystems lazy initialize；讀 diagnostics 不初始化 navigation。Scene.navigation 以 round-robin／owner-fair admission 管 searches／bakes，所有 NPC 共用單一 hard cooperative work-unit cap；pending jobs 不各配置 A* workspace，既有 owner workspace limit 仍在。Pause／lifecycle 按契約 freeze／retire。CPU milliseconds threshold 僅 cooperative／observational，不是 preemptive deadline，單 unit／decoder 可超時。Per-asset／decoded-cache／native-residency／attachment estimates 分開，非 process／driver memory 全域保證。
+
+GPU timing opt-in（GpuTimingOptions），maxInFlight 預設4／最高32、warmup預設120frames、sampleInterval 控頻。GpuTimingStats 是 reused latest asynchronous result，不一定屬本幀；unsupported／disabled／pending／invalid 的 milliseconds／sampledFrame／source／maximum 等按狀態 nullable，null 不等於零。WebGPU timestamp-query／WebGL disjoint-query 是 native GPU duration；Canvas unsupported。Pending／skipped／invalid 解釋缺樣；RSS／VSZ 非 VRAM，heap／GC／CPU submission／RAF／GPU duration 不能混稱。Startup bundle 變小，但 shared root facade reachability 仍在，非 microengine／FPS 保證。
+
+### 資產與 typed Draco
+
+V2 `xyz-gltf2-semantic-platform-v2` descriptor 與 authoring AssetManifest 不同。ParseAssetBundle／selectAssetBundleVariant／loadAssetBundle(uri,{renderer,loader,options?,manifestSHA256?}) 按 ordered variants 選第一個符合 3D／dimensions／native formats／Draco availability 者，WebGPU compressed block restrictions 亦納入。必須有 raster／uncompressed fallback；Canvas 拒 3D。Fallback 只因 **decode 前 availability** 選擇；hash／fetch／parse／decode 失敗是 fatal，不靜默降級重試。
+
+Selected model/resources 先 size／SHA-256 驗證，改用 protected temporary Blob URLs，沿現 loader parse 後 revoke。Caller 先移 consumers 再 asset.dispose；parse 後 abort 會 dispose owned result。Optional trusted manifest pin 提供 integrity，自報 hashes 非 signature。Draco request accessors 含 componentType／normalized；adapter 要區分 raw integer 與 logical normalized streams（joints／weights／colors／UV）。已測 adapter 可保留高於 Float32 exact range 的 UINT32，但官方 encoder upper-UInt32 rejection 與既有 custom UINT32→Float32 consumer limit，不能宣稱完整 32-bit end-to-end precision。
+
+### Physics 與 navigation
+
+CharacterController3D 以 support-local foot anchor／swept carry-slide／yaw 跟 moving support；epoch 內僅 consume 一次 support motion。Jump／removed／teleport／lost／blocked detach 有明確原因，carryBlocked／unresolvedPenetration 揭露 ceiling／crush 無安全位置，不假裝成功。Caller 仍供 gravity／jump。Crouch 改 capsule straight-segment height、保留 radius／feet，blocked stand 保持 crouch；move／stance result vectors 重用。
+
+DistanceJoint3D（rigid 或 frequency／damping spring）、BallSocketJoint3D（cone／twist）、HingeJoint3D（angular stops／torque-limited motor）共用 world sequential 線角 impulse／inverse inertia；world owns registration lifecycle，body removal／destroy 退休 constraints。這是 bounded iterative constraints，非精確工業 articulation solver。
+
+Spatial counters 將 cumulative poseChecks 與 changed refreshedLeaves／refits／indexGeneration 分開。NavigationGridBakeJob2D 合 lattice occupancy／authored blocked cells／physics；NavigationSurfaceBakeJob3D 在 explicit Y bounds 取 topmost walkable surface、檢 slope／step／capsule clearance／swept connections。Mapping snapshot origin／rotation／cellSize；revision invalidate pending work，completed output 原子 publish。這是 sampled **single-layer** lattice，不是 polygon／multilayer navmesh 或 arbitrary nearest-node projection。
+
+### Native text 與 audio
+
+Text layout 支援 ltr／rtl／auto、browser bidi shaping／fallback fonts 與 grapheme-aware caret／selection／hit geometry；native editing offsets 仍 UTF-16，不把 code-unit length 當 grapheme count。DOM/browser 負責 shaping/layout，native editing transparent、visual canvas。Text3D native fillText profile 不變，無 physical OS IME／font availability 認證。
+
+Audio.master／music／sfx／ui.setEffects snapshot validated biquad／compressor／reverb chains，部署到真 native contexts。PrepareImpulse(AudioBuffer) owns immutable PCM copies；dispose 阻止新使用，不 destroy caller buffer 或已 retained graph。SetDucking 用 playback activity／release tails；overlap 不提早 release，paused source 不 duck。Automate／cancelAutomation 使用 absolute manager AudioContext seconds／cancel-and-hold，非 Game elapsed；Game pause 獨立，explicit native-context pause 才凍 clock。
+
+取消 automation 使用已追蹤的 per-context target-exponential 與有限 crossfade 精確 envelope，不依賴可選的原生 `cancelAndHoldAtTime`，也不以 `AudioParam.value` 近似。Listener transform 有原生 AudioParams 時用之，否則走原生 position／orientation setters；這仍是同一條正式 audio graph，不是 Firefox 專用實作。
+
+BindListener(object)／bindEmitter(object,spatialPlayback) 借 world objects，simulation／world transforms 後跟隨。AudioTransformBinding.unbind(stop=true) 預設 stop emitter，絕不 destroy object；ended／stopped playback／owner destroy retire bindings。Sample／stream／official OPM effects／spatial analyser 證據非 physical speaker certification。Desktop／emulation smoke 不推論一小時、simulated low-tier、mobile devices、Safari 或 OS IME 已驗。

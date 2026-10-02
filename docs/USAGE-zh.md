@@ -1158,9 +1158,9 @@ Native transparent input 處理 keyboard／clipboard／undo／IME；canvas 畫�
 
 `CompoundCollider3D` 使用 flat child collider／position／rotation／scale descriptors。Dynamic primitive children 先按 uniform-density COM 置中，root filters 套到 union，真 gaps 保持空隙；包含 mesh child 的 compound 必須 static。Inertia 包括 rotated child tensor／parallel-axis terms，不是外框近似。
 
-## 35. Continuous 3D Translation（P55）
+## 35. Continuous 3D Translation（歷史 P55）
 
-`new RigidBody3D({ continuous: true })` 讓 dynamic body 以真 shape 對 static walls／mesh／compound 做 sweep。每 tick 解決 first impact，不包含 rotational／dynamic-pair CCD；仍應使用合理 fixed steps。Iteration exhaustion 只保留 proven-free prefix，不虛構 collision／impulse。
+P55 的 `new RigidBody3D({ continuous: true })` 原先只對 static targets 做 translation sweep。當時 rotation／dynamic-pair 排除已由第 38 節未發佈 bounded solver 擴充；public translation sweeps 仍只掃平移。仍應使用合理 fixed steps；iteration exhaustion 只保留 proven-free prefix，不虛構 collision／impulse。
 
 ## 36. 消費 Root Motion（P56）
 
@@ -1169,3 +1169,59 @@ Native transparent input 處理 keyboard／clipboard／undo／IME；canvas 畫�
 ## 37. 播放前 Retarget（P57）
 
 `AnimationRetargeter` mappings 宣告一對一 source／target nodes、explicit bind transforms、每個 non-root 的 direct parent，並指定對應 skeleton roots。先 retarget source clip，再用現有 target mixer／skin／root-motion consumer 播放。不要修改 source tracks；scale／interpolation 限制以[技術契約](TECHNICAL-zh.md)為準。
+
+## 38. 未發佈 Production Working Tree
+
+以下功能**尚未發佈**，不是修改已發佈 v1.9 assets。Metadata 保持 **1.9.0／Apache-2.0**，上述歷史日期／counts 不變。Bounds／ownership／errors 以[技術契約](TECHNICAL-zh.md)為準；真外部工具鏈見[asset recipe](ASSET-RECIPE.md)。
+
+- **Startup：**Scene physics／animation／3D camera／navigation 在使用時才初始化。Canvas startup 不載入 GPU backend chunks；shared root facade reachability 仍存在，不是獨立 microengine。
+- **Assets：**固定官方 Basis v2_50／Draco 1.5.7 產出 semantic gamma／normal／alpha mips、BC7／ETC2 RGBA8／ASTC 4×4、universal Basis／PNG／RGBA fallback，以及 compressed／expanded glTF。Runtime 按 capability 選擇，不偷偷切 backend。Codecs 仍外部提供，未加 runtime dependency。Typed Draco 保留 raw／normalized／logical accessor metadata；不能宣稱任意 UInt32 經整個 Float32 glTF consumer path 仍無損。
+- **Ownership／save publication：**ResourcePool scopes 支援 shared acquisitions、candidate rollback 與 borrower-first teardown。Factory nodes 必須以 `ctx.own` 登記，取消後晚到結果也追蹤。Fresh save candidate 準備成功才 publish，失敗／取消保留原 live scene。Cleanup 失敗明確回報且保留供 retry，不吞錯。
+- **Work：**Spatial queries 僅變更時 refresh／refit geometry，但 public mutable pose checks 仍 O(N)。Navigation searches／admissions／collision bakes 共用每 visible Game frame 一份 bounded cooperative Scene quota，不是每 NPC 各自 budget。整合 pause／lifecycle cancellation／debug counters；work units 不是 preemptive milliseconds 保證。
+- **3D physics：**Upright capsule controller 跟隨 moving／rotating support，jump／removal／teleport 時 detach；stance 變更保留腳底，blocked stand 保持 crouched。Distance／ball-socket／hinge joints 提供 bounded spring／motor／limit／break profiles。Opt-in continuous bodies 擴充 dynamic-pair／angular motion；CCD 耗盡保留 conservative free motion 並回報 exhaustion。**Physics2D CCD 仍 translation-only**。
+- **Navigation：**`NavigationGridBakeJob2D` 採樣 collision occupancy；`NavigationSurfaceBakeJob3D` 採樣 topmost single walkable layer 與 capsule edge clearance。Bake／rebake 原子 publish、依 revision invalidation；這是 finite lattice graph，不是 polygon／multilayer navmesh。
+- **Text：**Native 2D text／input 支援 bidi visual order、grapheme-safe caret／selection／fallback-font runs。Trusted browser editing 不等於 OS IME 認證。Text3D 仍 native fillText，不使用新的 2D run／caret renderer。
+- **Audio：**Channel／master native biquad／compressor／prepared convolution effects 處理 sample／stream／OPM；activity ducking、absolute manager-clock automation／cancel-and-hold、listener／emitter world bindings 共用既有八 contexts。Pause 用 explicit audio reasons，不假設 `Game.pause()` 停聲。Bindings 借用 objects／playbacks，owner teardown 前 unbind。
+
+### 共用 navigation quota 範例
+
+在已有 initialized `game` 的頁面執行；Game 正常 frame 推進 scheduler，不要每 NPC 又 update 一次：
+
+```ts
+import { Scene, NavigationGrid2D } from 'xyz.js';
+
+const scene = new Scene({ navigationWorkBudget: 32 });
+await game.setScene(scene);
+const grid = new NavigationGrid2D({ columns: 8, rows: 8 });
+const search = grid.scheduleSearch(
+  scene.navigation,
+  { column: 0, row: 0 },
+  { column: 7, row: 7 },
+);
+// 後續 frames 檢查 search.status/result 與複製的 scene.navigation.stats。
+// Scene destruction 取消 scene-owned scheduled work。
+```
+
+### Native music processing 範例
+
+從 trusted user gesture 呼叫，使用 initialized `game`；設定處理實際 manager music，不是 mock：
+
+```ts
+await game.audio.unlock();
+game.audio.music.setEffects([
+  { type: 'biquad', filter: 'lowpass', frequency: 1800, Q: 0.7 },
+  { type: 'compressor', threshold: -24, ratio: 4 },
+]);
+game.audio.setDucking([
+  { source: 'sfx', target: 'music', gain: 0.25, attack: 0.02, release: 0.2 },
+]);
+game.audio.music.automate(0.5, game.audio.currentTime, 0.3, 'linear');
+// 真 active sfx playbacks 自動 duck music。
+// game.audio.music.cancelAutomation() 保留目前 gain。
+```
+
+### 驗證與可執行 diagnostics
+
+使用 `pnpm check:tree-shaking`、`pnpm platform:browser`、`pnpm smoke:text` 執行 focused diagnostics。Asset commands 需真實 paths：`pnpm assets:build --input /absolute/model.gltf --out /absolute/new-bundle --profile /absolute/trusted-profile.json`，再執行 `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /absolute/new-bundle --renderer webgl2 --profile /absolute/trusted-profile.json`。Output 必須尚不存在；profile 設定見 [asset recipe](ASSET-RECIPE.md)。Mixed measurement 使用 `pnpm soak:mixed --duration 3600 --renderer all --output /tmp/mixed-hour.json`；指定一小時不代表已完成量測。保持頁面 visible，observability 操作見 [ACCEPTANCE](../ACCEPTANCE.md)。
+
+目前 handoff 證據包括限定 Chromium 153／Firefox 155／managed WebKit 26.6 paths（Firefox WebGPU adapter unsupported）、真固定版 codec CLI、built-root physics／navigation／resources scenarios、native Chromium WebAudio signal measurements。10 秒 native Apple M5 shared-host observability smoke 量測 heap／GC／RSS 與 GL GPU timestamps；Canvas GPU timing unsupported（`null`），RSS 不是 VRAM。一小時／low-tier 必須另外完成並記錄；mobile emulation 不是實機認證。Safari formal verification／實機 mobile／gamepad／音訊硬體／OS IME 未驗證；不可對他人的 Safari session 執行 automation。最終 platform reruns／long-run 證據記於 ACCEPTANCE，不從這些範例推論。
