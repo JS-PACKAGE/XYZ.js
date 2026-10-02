@@ -7,6 +7,9 @@ export declare const world2dLimits: Readonly<{
     physicsJoints: 4096;
     maxSubSteps: 120;
     solverIterations: 64;
+    ccdIterations: 512;
+    ccdImpacts: 64;
+    characterIterations: 32;
 }>;
 export declare const physicsDefaults: Readonly<{
     fixedDelta: number;
@@ -22,8 +25,17 @@ export declare const physicsDefaults: Readonly<{
     sleepLinearVelocity: 0.1;
     sleepAngularVelocity: 0.05;
     sleepTime: 0.5;
-    ccdTravelRatio: 0.25;
-    ccdPenetration: 0.01;
+    ccdIterations: 64;
+    ccdImpacts: 8;
+    sweepTolerance: 0.0001;
+    characterSkin: 0.02;
+    characterStepHeight: 8;
+    characterGroundSnap: 0.5;
+    characterIterations: 8;
+    characterMaxRecovery: 32;
+    characterMaxSupportDisplacement: 128;
+    characterCarryAngleStep: number;
+    characterSupportTransformTolerance: 0.00001;
     jointMaxCorrection: 10;
     jointMaxAngularCorrection: 0.14;
     jointAngularSlop: 0.035;

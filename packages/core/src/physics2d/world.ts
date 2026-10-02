@@ -13,7 +13,7 @@ import {
 } from './collider.js';
 import { RigidBody2D } from './body.js';
 import { collide, Manifold, rayDistance } from './narrowphase.js';
-import { sweepTimeOfImpact } from './sweep.js';
+import { ContinuousCollision2D, ShapeMotion2D } from './ccd.js';
 import type { Joint2D } from './joints.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
 
@@ -41,12 +41,31 @@ export interface PhysicsRayHit {
   readonly point: Vector2;
   readonly normal: Vector2;
 }
+export interface PhysicsQueryOptions2D {
+  ignore?: GameObject;
+  ignoreOther?: GameObject;
+  mask?: number;
+  includeSensors?: boolean;
+}
+/** Sweep normal points away from the obstacle, unlike pair contact normals. */
+export interface PhysicsSweepResult2D {
+  hit: boolean;
+  owner: GameObject | undefined;
+  collider: Collider2D | undefined;
+  fraction: number;
+  safeFraction: number;
+  exhausted: boolean;
+  readonly point: Vector2;
+  readonly normal: Vector2;
+}
 export interface PhysicsWorldOptions {
   gravity?: [number, number];
   fixedDelta?: number;
   maxSubSteps?: number;
   velocityIterations?: number;
   positionIterations?: number;
+  ccdIterations?: number;
+  ccdImpacts?: number;
 }
 export interface PhysicsDebugShape {
   readonly kind: 'circle' | 'polygon';
@@ -82,9 +101,11 @@ class Proxy {
   inverseInertia = 0;
   sleepVisited = 0;
   sleepReady = false;
+  registration = 0;
+  ccdStopped = false;
+  ccdUnproven = false;
   readonly joints: Joint2D[] = [];
-  moveX = 0;
-  moveY = 0;
+  readonly motion: ShapeMotion2D;
   private observedGeometry = -1;
   private observedCategory = -1;
   private observedMask = -1;
@@ -107,32 +128,24 @@ class Proxy {
     readonly body: RigidBody2D | undefined,
   ) {
     this.geometry = new ShapeGeometry(collider);
+    this.motion = new ShapeMotion2D(this.geometry);
   }
   refresh(): void {
     if (this.owner.worldSpace !== 'world')
       throw new Error('Screen-space colliders are unsupported.');
-    if (this.body?.type === 'dynamic' && this.owner.parent)
-      throw new Error('Dynamic bodies require root world-space GameObjects.');
-    const oldX = this.geometry.x,
-      oldY = this.geometry.y,
-      oldMinX = this.geometry.minX,
-      oldMinY = this.geometry.minY,
-      oldMaxX = this.geometry.maxX,
-      oldMaxY = this.geometry.maxY;
+    if (this.body && this.body.type !== 'static' && this.owner.parent)
+      throw new Error('Moving bodies require root world-space GameObjects.');
+    const revision = this.geometry.revision;
     this.geometry.refresh(this.owner);
-    if (!this.body || this.body.type === 'static') {
-      if (
-        oldX !== this.geometry.x ||
-        oldY !== this.geometry.y ||
-        oldMinX !== this.geometry.minX ||
-        oldMinY !== this.geometry.minY ||
-        oldMaxX !== this.geometry.maxX ||
-        oldMaxY !== this.geometry.maxY
-      )
-        for (const contact of this.contacts.values()) {
-          const other = contact.a === this ? contact.b : contact.a;
-          other.body?.wake();
-        }
+    if (
+      (!this.body || this.body.type !== 'dynamic') &&
+      revision !== this.geometry.revision
+    ) {
+      for (const contact of this.contacts.values()) {
+        const other = contact.a === this ? contact.b : contact.a;
+        if (!contact.sensor && !contact.cancelled) other.body?.wake();
+      }
+      for (const joint of this.joints) joint.partner(this)?.body?.wake();
     }
     this.inverseMass = this.body?.inverseMass ?? 0;
     this.inverseInertia =
@@ -180,7 +193,17 @@ export class PhysicsWorld2D {
     return this.owners.size;
   }
   private readonly sleepGroup: Proxy[] = [];
-  private readonly sweepProxies: Proxy[] = [];
+  private readonly continuous = new ContinuousCollision2D();
+  private readonly impactManifold = new Manifold();
+  /** Diagnostics for the most recently simulated fixed tick; velocity is never clamped. */
+  readonly ccdStats = {
+    iterations: 0,
+    impacts: 0,
+    budgetExhaustions: 0,
+    stoppedTime: 0,
+  };
+  private continuousIterations: number = physicsDefaults.ccdIterations;
+  private continuousImpacts: number = physicsDefaults.ccdImpacts;
   private readonly jointSet = new Set<Joint2D>();
   private readonly activeJoints: Joint2D[] = [];
   private readonly forces = new WeakMap<RigidBody2D, PhysicsForceAccumulator>();
@@ -188,6 +211,7 @@ export class PhysicsWorld2D {
   private readonly positionManifold = new Manifold();
   private readonly queryNormal = new Vector2();
   private readonly queryGeometries = new WeakMap<Collider2D, ShapeGeometry>();
+  private readonly queryMotions = new WeakMap<Collider2D, ShapeMotion2D>();
   private continuation: () => boolean = continueSimulation;
   private accumulator = 0;
   private stepToken = 0;
@@ -199,6 +223,7 @@ export class PhysicsWorld2D {
   private positionPasses: number = physicsDefaults.positionIterations;
   droppedTime = 0;
   private geometryVersion = 0;
+  private registrationVersion = 0;
   /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
   get geometryRevision(): number {
     for (const proxy of this.owners.values()) {
@@ -221,6 +246,8 @@ export class PhysicsWorld2D {
       options.velocityIterations ?? this.velocityIterations;
     this.positionIterations =
       options.positionIterations ?? this.positionIterations;
+    this.ccdIterations = options.ccdIterations ?? this.ccdIterations;
+    this.ccdImpacts = options.ccdImpacts ?? this.ccdImpacts;
   }
   get destroyed(): boolean {
     return this.disposed;
@@ -261,6 +288,35 @@ export class PhysicsWorld2D {
       'positionIterations',
     );
   }
+  get ccdIterations(): number {
+    return this.continuousIterations;
+  }
+  set ccdIterations(value: number) {
+    this.continuousIterations = boundedInteger(
+      value,
+      world2dLimits.ccdIterations,
+      'ccdIterations',
+    );
+  }
+  get ccdImpacts(): number {
+    return this.continuousImpacts;
+  }
+  set ccdImpacts(value: number) {
+    this.continuousImpacts = boundedInteger(
+      value,
+      world2dLimits.ccdImpacts,
+      'ccdImpacts',
+    );
+  }
+  /** Membership and replacement token for borrowed character supports. */
+  has(owner: GameObject, collider = owner.collider): boolean {
+    const proxy = this.owners.get(owner);
+    return !!proxy && proxy.collider === collider && this.alive(proxy);
+  }
+  /** Removed/replaced/re-registered supports invalidate borrowed local anchors. */
+  membershipRevision(owner: GameObject): number {
+    return this.owners.get(owner)?.registration ?? -1;
+  }
 
   /** @internal Called transactionally by Scene and facade body/collider setters. */
   register(owner: GameObject): void {
@@ -291,6 +347,7 @@ export class PhysicsWorld2D {
     )
       return;
     this.owners.set(owner, proxy);
+    proxy.registration = ++this.registrationVersion;
     this.geometryVersion++;
   }
   unregister(owner: GameObject): void {
@@ -437,57 +494,177 @@ export class PhysicsWorld2D {
       this.continuation = continueSimulation;
     }
   }
-  /**
-   * Pulls ccd bodies that moved farther than a fraction of their size back to the first
-   * translation contact with a static collider, pushed slightly in so the solver sees it.
-   */
-  private sweepFastBodies(): void {
-    for (const proxy of this.sweepProxies) {
-      if (!this.alive(proxy)) continue;
-      const dx = proxy.moveX,
-        dy = proxy.moveY;
-      const distance = Math.hypot(dx, dy);
-      const g = proxy.geometry;
+  private advanceBodies(dt: number): void {
+    for (const proxy of this.sorted) {
+      const body = proxy.body;
       if (
-        distance <=
-        Math.min(g.maxX - g.minX, g.maxY - g.minY) *
-          physicsDefaults.ccdTravelRatio
+        !this.alive(proxy) ||
+        !body ||
+        body.type === 'static' ||
+        body.isSleeping ||
+        proxy.ccdStopped
       )
         continue;
-      const minX = g.minX + Math.min(0, -dx),
-        maxX = g.maxX + Math.max(0, -dx),
-        minY = g.minY + Math.min(0, -dy),
-        maxY = g.maxY + Math.max(0, -dy);
-      let first = Infinity;
-      for (const other of this.owners.values()) {
-        if (
-          other === proxy ||
-          other.inverseMass ||
-          other.collider.sensor ||
-          proxy.collider.sensor ||
-          !(proxy.collider.category & other.collider.mask) ||
-          !(other.collider.category & proxy.collider.mask) ||
-          other.geometry.maxX < minX ||
-          other.geometry.minX > maxX ||
-          other.geometry.maxY < minY ||
-          other.geometry.minY > maxY ||
-          proxy.contacts.has(other) ||
-          !this.alive(other)
-        )
-          continue;
-        first = Math.min(first, sweepTimeOfImpact(g, dx, dy, other.geometry));
-      }
-      if (first >= 1) continue;
-      const remaining = (1 - first) * distance;
-      const push = Math.min(physicsDefaults.ccdPenetration, remaining / 2);
-      proxy.owner.position.x += -dx * (1 - first) + (dx / distance) * push;
-      proxy.owner.position.y += -dy * (1 - first) + (dy / distance) * push;
+      proxy.owner.position.x += body.velocity.x * dt;
+      proxy.owner.position.y += body.velocity.y * dt;
+      if (!body.lockRotation) proxy.owner.rotation += body.angularVelocity * dt;
       proxy.refresh();
+    }
+  }
+  private activate(contact: Contact, token: number): boolean {
+    const { a, b, manifold: m } = contact;
+    contact.sensor = a.collider.sensor || b.collider.sensor;
+    contact.seen = token;
+    contact.cancelled = false;
+    m.normalImpulses.fill(0);
+    m.tangentImpulses.fill(0);
+    if (!contact.active) {
+      contact.active = true;
+      a.contacts.set(b, contact);
+      b.contacts.set(a, contact);
+      this.activeContacts.add(contact);
+      a.body?.wake();
+      b.body?.wake();
+      this.emit(contact, 'collisionstart');
+    }
+    if (
+      !this.continuation() ||
+      !contact.active ||
+      !this.alive(a) ||
+      !this.alive(b)
+    )
+      return false;
+    this.emit(contact, 'precollision');
+    if (
+      !this.continuation() ||
+      !contact.active ||
+      !this.alive(a) ||
+      !this.alive(b)
+    )
+      return false;
+    this.prepareBounce(contact);
+    this.solveContacts.push(contact);
+    return true;
+  }
+  private integrateContinuous(dt: number, token: number): void {
+    const stats = this.ccdStats;
+    stats.iterations =
+      stats.impacts =
+      stats.budgetExhaustions =
+      stats.stoppedTime =
+        0;
+    let remaining = dt;
+    while (remaining > 1e-12 && this.continuation()) {
+      let first = Infinity,
+        safe = Infinity,
+        impactA: Proxy | undefined,
+        impactB: Proxy | undefined;
+      for (const proxy of this.sorted) {
+        proxy.ccdUnproven = false;
+        if (proxy.ccdStopped)
+          proxy.motion.setExplicit(
+            proxy.owner.position.x,
+            proxy.owner.position.y,
+            0,
+            0,
+          );
+        else proxy.motion.set(proxy.owner, proxy.body);
+      }
+      for (let i = 0; i < this.sorted.length; i++) {
+        const a = this.sorted[i];
+        if (!this.alive(a) || !a.body?.ccd) continue;
+        for (let j = 0; j < this.sorted.length; j++) {
+          const b = this.sorted[j];
+          if (
+            a === b ||
+            (b.body?.ccd && j <= i) ||
+            !this.alive(b) ||
+            (!a.inverseMass && !b.inverseMass) ||
+            a.collider.sensor ||
+            b.collider.sensor ||
+            !(a.collider.category & b.collider.mask) ||
+            !(b.collider.category & a.collider.mask) ||
+            this.jointsBlockContact(a, b)
+          )
+            continue;
+          const existing = a.contacts.get(b);
+          if (existing?.seen === token && existing.cancelled) continue;
+          const time = this.continuous.timeOfImpact(
+            a.motion,
+            b.motion,
+            remaining,
+            stats.impacts >= this.ccdImpacts
+              ? 0
+              : Math.max(0, this.ccdIterations - stats.iterations),
+          );
+          stats.iterations += this.continuous.iterations;
+          if (this.continuous.exhausted) {
+            safe = Math.min(safe, this.continuous.safeTime);
+            a.ccdUnproven = b.ccdUnproven = true;
+          }
+          if (time < first) {
+            first = time;
+            impactA = a;
+            impactB = b;
+            const m = this.continuous.manifold,
+              out = this.impactManifold;
+            out.nx = m.nx;
+            out.ny = m.ny;
+            out.penetration = m.penetration;
+            out.count = m.count;
+            for (let k = 0; k < m.count; k++) out.points[k].copy(m.points[k]);
+          }
+        }
+      }
+      if (Number.isFinite(safe) && safe <= first) {
+        const proven = Math.min(remaining, safe);
+        this.advanceBodies(proven);
+        remaining -= proven;
+        stats.stoppedTime = Math.max(stats.stoppedTime, remaining);
+        stats.budgetExhaustions++;
+        for (const proxy of this.sorted)
+          if (proxy.ccdUnproven && proxy.body?.type !== 'static')
+            proxy.ccdStopped = true;
+        continue;
+      }
+      if (!impactA || !impactB || first > remaining) {
+        this.advanceBodies(remaining);
+        return;
+      }
+      this.advanceBodies(first);
+      remaining -= first;
+      const contact =
+          impactA.contacts.get(impactB) ?? new Contact(impactA, impactB),
+        m = contact.manifold,
+        hit = this.impactManifold;
+      const sign = contact.a === impactA ? 1 : -1;
+      m.nx = hit.nx * sign;
+      m.ny = hit.ny * sign;
+      m.penetration = hit.penetration;
+      m.count = hit.count;
+      for (let k = 0; k < hit.count; k++) m.points[k].copy(hit.points[k]);
+      if (contact.seen !== token) {
+        if (!this.activate(contact, token)) {
+          if (!this.continuation()) return;
+          continue;
+        }
+      } else this.prepareBounce(contact);
+      if (!contact.cancelled && contact.active) {
+        impactA.body?.wake();
+        impactB.body?.wake();
+        for (let pass = 0; pass < this.velocityIterations; pass++)
+          this.solveVelocity(contact);
+      }
+      stats.impacts++;
+      if (stats.impacts >= this.ccdImpacts) {
+        stats.budgetExhaustions++;
+        stats.stoppedTime = Math.max(stats.stoppedTime, remaining);
+        impactA.ccdStopped = impactB.ccdStopped = true;
+      }
     }
   }
   private simulate(dt: number): void {
     this.sorted.length = 0;
-    this.sweepProxies.length = 0;
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
     for (const proxy of this.owners.values()) {
@@ -496,6 +673,7 @@ export class PhysicsWorld2D {
         continue;
       }
       proxy.refresh();
+      proxy.ccdStopped = false;
       const body = proxy.body;
       if (body?.type === 'dynamic') {
         const force = this.forceState(body);
@@ -520,20 +698,17 @@ export class PhysicsWorld2D {
                   force.value[5] * proxy.inverseInertia * dt) /
                   (1 + body.angularDamping * dt),
           );
-          if (body.ccd) {
-            proxy.moveX = body.velocity.x * dt;
-            proxy.moveY = body.velocity.y * dt;
-            this.sweepProxies.push(proxy);
-          }
-          proxy.owner.position.x += body.velocity.x * dt;
-          proxy.owner.position.y += body.velocity.y * dt;
-          proxy.owner.rotation += body.angularVelocity * dt;
-          proxy.refresh();
         }
+      } else if (body?.type === 'kinematic') {
+        finite(body.velocity.x, 'velocity.x');
+        finite(body.velocity.y, 'velocity.y');
+        finite(body.angularVelocity, 'angularVelocity');
+        proxy.owner.capturePhysicsPose();
       }
       this.sorted.push(proxy);
     }
-    this.sweepFastBodies();
+    this.integrateContinuous(dt, token);
+    if (!this.continuation()) return;
     this.sorted.sort(compareBounds);
     for (let i = 0; i < this.sorted.length; i++) {
       const a = this.sorted[i];
@@ -556,6 +731,7 @@ export class PhysicsWorld2D {
           if (!collide(a.geometry, b.geometry, this.queryManifold)) continue;
           contact = new Contact(a, b);
         }
+        if (contact.seen === token) continue;
         if (!collide(a.geometry, b.geometry, contact.manifold)) continue;
         contact.sensor = sensor;
         contact.seen = token;
@@ -566,23 +742,7 @@ export class PhysicsWorld2D {
           if (!a.body.isSleeping && b.body.isSleeping) b.body.wake();
           if (!b.body.isSleeping && a.body.isSleeping) a.body.wake();
         }
-        contact.cancelled = false;
-        contact.manifold.normalImpulses.fill(0);
-        contact.manifold.tangentImpulses.fill(0);
-        if (!contact.active) {
-          contact.active = true;
-          a.contacts.set(b, contact);
-          b.contacts.set(a, contact);
-          this.activeContacts.add(contact);
-          this.emit(contact, 'collisionstart');
-        }
-        if (!this.continuation()) return;
-        if (!contact.active || !this.alive(a) || !this.alive(b)) continue;
-        this.emit(contact, 'precollision');
-        if (!this.continuation()) return;
-        if (!contact.active || !this.alive(a) || !this.alive(b)) continue;
-        this.prepareBounce(contact);
-        this.solveContacts.push(contact);
+        if (!this.activate(contact, token) && !this.continuation()) return;
       }
     }
     for (const contact of this.activeContacts) {
@@ -640,6 +800,13 @@ export class PhysicsWorld2D {
         for (const contact of proxy.contacts.values()) {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
+          if (
+            other.body?.type === 'kinematic' &&
+            (other.body.velocity.x !== 0 ||
+              other.body.velocity.y !== 0 ||
+              other.body.angularVelocity !== 0)
+          )
+            ready = false;
           if (!other.inverseMass || other.sleepVisited === token) continue;
           other.sleepVisited = token;
           this.sleepGroup.push(other);
@@ -647,6 +814,13 @@ export class PhysicsWorld2D {
         for (const joint of proxy.joints) {
           const view = joint.partner(proxy);
           const other = view && this.owners.get(view.owner);
+          if (
+            view?.body?.type === 'kinematic' &&
+            (view.body.velocity.x !== 0 ||
+              view.body.velocity.y !== 0 ||
+              view.body.angularVelocity !== 0)
+          )
+            ready = false;
           if (!other?.inverseMass || other.sleepVisited === token) continue;
           other.sleepVisited = token;
           this.sleepGroup.push(other);
@@ -706,20 +880,26 @@ export class PhysicsWorld2D {
       const point = m.points[i];
       const av = a.body?.velocity,
         bv = b.body?.velocity;
-      const aw = a.inverseMass ? (a.body?.angularVelocity ?? 0) : 0;
-      const bw = b.inverseMass ? (b.body?.angularVelocity ?? 0) : 0;
+      const aw =
+        a.body && a.body.type !== 'static' && !a.body.lockRotation
+          ? a.body.angularVelocity
+          : 0;
+      const bw =
+        b.body && b.body.type !== 'static' && !b.body.lockRotation
+          ? b.body.angularVelocity
+          : 0;
       const ax = point.x - a.owner.position.x,
         ay = point.y - a.owner.position.y;
       const bx = point.x - b.owner.position.x,
         by = point.y - b.owner.position.y;
       const vx =
-        (b.inverseMass ? (bv?.x ?? 0) : 0) -
+        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
         bw * by -
-        ((a.inverseMass ? (av?.x ?? 0) : 0) - aw * ay);
+        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
       const vy =
-        (b.inverseMass ? (bv?.y ?? 0) : 0) +
+        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
         bw * bx -
-        ((a.inverseMass ? (av?.y ?? 0) : 0) + aw * ax);
+        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
       const speed = vx * m.nx + vy * m.ny;
       m.bounceVelocities[i] = speed < -threshold ? -restitution * speed : 0;
     }
@@ -745,16 +925,22 @@ export class PhysicsWorld2D {
       if (denominator <= 0) continue;
       const av = a.body?.velocity,
         bv = b.body?.velocity;
-      let aw = a.inverseMass ? (a.body?.angularVelocity ?? 0) : 0;
-      let bw = b.inverseMass ? (b.body?.angularVelocity ?? 0) : 0;
+      let aw =
+        a.body && a.body.type !== 'static' && !a.body.lockRotation
+          ? a.body.angularVelocity
+          : 0;
+      let bw =
+        b.body && b.body.type !== 'static' && !b.body.lockRotation
+          ? b.body.angularVelocity
+          : 0;
       let vx =
-        (b.inverseMass ? (bv?.x ?? 0) : 0) -
+        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
         bw * by -
-        ((a.inverseMass ? (av?.x ?? 0) : 0) - aw * ay);
+        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
       let vy =
-        (b.inverseMass ? (bv?.y ?? 0) : 0) +
+        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
         bw * bx -
-        ((a.inverseMass ? (av?.y ?? 0) : 0) + aw * ax);
+        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
       const previous = m.normalImpulses[i];
       m.normalImpulses[i] = Math.max(
         0,
@@ -763,16 +949,22 @@ export class PhysicsWorld2D {
       );
       const impulse = m.normalImpulses[i] - previous;
       this.impulse(a, b, impulse * m.nx, impulse * m.ny, ax, ay, bx, by);
-      aw = a.inverseMass ? (a.body?.angularVelocity ?? 0) : 0;
-      bw = b.inverseMass ? (b.body?.angularVelocity ?? 0) : 0;
+      aw =
+        a.body && a.body.type !== 'static' && !a.body.lockRotation
+          ? a.body.angularVelocity
+          : 0;
+      bw =
+        b.body && b.body.type !== 'static' && !b.body.lockRotation
+          ? b.body.angularVelocity
+          : 0;
       vx =
-        (b.inverseMass ? (bv?.x ?? 0) : 0) -
+        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
         bw * by -
-        ((a.inverseMass ? (av?.x ?? 0) : 0) - aw * ay);
+        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
       vy =
-        (b.inverseMass ? (bv?.y ?? 0) : 0) +
+        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
         bw * bx -
-        ((a.inverseMass ? (av?.y ?? 0) : 0) + aw * ax);
+        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
       const tx = -m.ny,
         ty = m.nx,
         at = ax * ty - ay * tx,
@@ -883,6 +1075,95 @@ export class PhysicsWorld2D {
       });
     }
     return results;
+  }
+  /** Shape-accurate rigid translation sweep against current poses, with a proven-free prefix. */
+  sweep(
+    collider: Collider2D,
+    owner: GameObject,
+    displacement: Readonly<Vector2>,
+    options: PhysicsQueryOptions2D = {},
+    out: PhysicsSweepResult2D = {
+      hit: false,
+      owner: undefined,
+      collider: undefined,
+      fraction: 1,
+      safeFraction: 1,
+      exhausted: false,
+      point: new Vector2(),
+      normal: new Vector2(),
+    },
+  ): PhysicsSweepResult2D {
+    if (this.destroyed)
+      throw new Error('Cannot query a destroyed PhysicsWorld2D.');
+    finite(displacement.x, 'displacement.x');
+    finite(displacement.y, 'displacement.y');
+    const mask = unsigned(options.mask ?? 0xffffffff, 'mask');
+    let motion = this.queryMotions.get(collider);
+    if (!motion) {
+      motion = new ShapeMotion2D(new ShapeGeometry(collider));
+      this.queryMotions.set(collider, motion);
+    }
+    motion.geometry.refresh(owner);
+    motion.setExplicit(
+      owner.position.x,
+      owner.position.y,
+      displacement.x,
+      displacement.y,
+    );
+    out.hit = false;
+    out.owner = undefined;
+    out.collider = undefined;
+    out.fraction = out.safeFraction = 1;
+    out.exhausted = false;
+    out.normal.set(0, 0);
+    out.point.set(0, 0);
+    for (const proxy of this.owners.values()) {
+      if (
+        proxy.owner === owner ||
+        proxy.owner === options.ignore ||
+        proxy.owner === options.ignoreOther ||
+        !this.alive(proxy) ||
+        (!options.includeSensors && proxy.collider.sensor) ||
+        !(collider.category & proxy.collider.mask) ||
+        !(proxy.collider.category & collider.mask & mask)
+      )
+        continue;
+      proxy.refresh();
+      proxy.motion.setExplicit(
+        proxy.owner.position.x,
+        proxy.owner.position.y,
+        0,
+        0,
+      );
+      const time = this.continuous.timeOfImpact(
+        motion,
+        proxy.motion,
+        1,
+        this.ccdIterations,
+      );
+      if (this.continuous.exhausted) {
+        out.exhausted = true;
+        out.safeFraction = Math.min(out.safeFraction, this.continuous.safeTime);
+      }
+      if (time < out.fraction) {
+        const m = this.continuous.manifold;
+        out.hit = true;
+        out.owner = proxy.owner;
+        out.collider = proxy.collider;
+        out.fraction = time;
+        out.normal.set(-m.nx, -m.ny);
+        out.point.copy(m.points[0]);
+      }
+    }
+    out.safeFraction = Math.min(out.safeFraction, out.fraction);
+    if (out.safeFraction < out.fraction) {
+      out.hit = false;
+      out.owner = undefined;
+      out.collider = undefined;
+      out.normal.set(0, 0);
+      out.point.set(0, 0);
+    }
+    return out;
   }
   raycast(
     origin: Vector2,

@@ -145,8 +145,8 @@ export class GameObject extends SceneObject {
     for (const child of this.descendants) child.assertPhysicsSpace();
   }
   private assertParentingPhysics(child: GameObject): void {
-    if (child.body?.type === 'dynamic')
-      throw new Error('Dynamic bodies require root GameObjects.');
+    if (child.body && child.body.type !== 'static')
+      throw new Error('Moving bodies require root GameObjects.');
     if (this.worldSpace === 'screen') child.assertPhysicsSpace();
   }
 
@@ -327,7 +327,8 @@ export class GameObject extends SceneObject {
     let localMatrix: Matrix3;
     if (
       scene?.presentingPhysics &&
-      this.body?.type === 'dynamic' &&
+      this.body &&
+      this.body.type !== 'static' &&
       !this.body.isSleeping &&
       this.physicsPresentation
     ) {

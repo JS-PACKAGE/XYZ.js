@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Moving platforms 2D</title>
+    <style>
+      body {
+        margin: 0;
+        background: #101923;
+        color: #ecf4ff;
+        font:
+          16px system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1020px;
+        margin: auto;
+        padding: 20px;
+      }
+      canvas {
+        width: 100%;
+        background: #152536;
+        border: 1px solid #65809a;
+        touch-action: none;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 9px 14px;
+        margin: 4px;
+      }
+      button:focus-visible,
+      select:focus-visible {
+        outline: 3px solid #ffd45b;
+        outline-offset: 3px;
+      }
+      #stats {
+        white-space: pre-wrap;
+        min-height: 5em;
+      }
+      a {
+        color: #9bddff;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">Examples</a>
+      <h1>Moving platforms 2D</h1>
+      <p>
+        Collect all three gold beacons. Move with A/D or arrows, Space to jump,
+        R to restart. Ride the translating lift, climb the slope and stairs,
+        then jump onto the rotating deck. Falling resets your position, not your
+        score.
+      </p>
+      <label
+        >Renderer
+        <select id="backend">
+          <option value="auto">Auto</option>
+          <option value="canvas2d">Canvas2D</option>
+          <option value="webgl2">WebGL2</option>
+          <option value="webgpu">WebGPU</option>
+        </select></label
+      >
+      <button id="fire">Fire CCD challenges</button
+      ><button id="reset">Restart level</button
+      ><button id="destroy">Destroy</button>
+      <p id="status" role="status">Loading…</p>
+      <canvas
+        id="game"
+        width="960"
+        height="540"
+        aria-label="Playable 2D platform level; keyboard controls described above"
+      ></canvas>
+      <div aria-label="Movement controls">
+        <button data-move="left">Move left</button
+        ><button id="jump">Jump</button
+        ><button data-move="right">Move right</button>
+      </div>
+      <pre id="stats" aria-live="off"></pre>
+      <p>
+        The upper lane is real physics: a 9,000 px/s projectile bounces off a 2
+        px wall; opposing dynamic bodies exchange impulses; a rotating thin
+        blade stops on the small obstacle. No velocity clamp, artificial wall
+        thickness, or physics-debug rendering.
+      </p>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

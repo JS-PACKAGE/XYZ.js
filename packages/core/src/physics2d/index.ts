@@ -8,6 +8,8 @@ export type {
   ContactQuery,
   PhysicsRayHit,
   PhysicsWorldOptions,
+  PhysicsQueryOptions2D,
+  PhysicsSweepResult2D,
 } from './world.js';
 export { Trigger2D } from './trigger.js';
 export type { TriggerOptions } from './trigger.js';
@@ -44,3 +46,10 @@ export type {
   PhysicsDebugShape,
   PhysicsDebugSnapshot,
 } from './world.js';
+export { CharacterController2D } from './character.js';
+export type {
+  CharacterControllerOptions2D,
+  CharacterMovementOptions2D,
+  CharacterMoveResult2D,
+  CharacterSupportDetachReason2D,
+} from './character.js';

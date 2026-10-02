@@ -4,7 +4,7 @@ import { finite, positive, ShapeGeometry } from './collider.js';
 import { physicsDefaults } from '../../../../src/data/world2d.js';
 
 export interface RigidBodyOptions {
-  type?: 'static' | 'dynamic';
+  type?: 'static' | 'dynamic' | 'kinematic';
   mass?: number;
   restitution?: number;
   friction?: number;
@@ -45,17 +45,14 @@ export class RigidBody2D {
   private sleepAngle = 0;
   private sleepScaleX = 1;
   private sleepScaleY = 1;
-  readonly type: 'static' | 'dynamic';
+  readonly type: 'static' | 'dynamic' | 'kinematic';
   lockRotation: boolean;
-  /**
-   * Sweeps this dynamic body's translation against static, non-sensor colliders each step so
-   * fast moves cannot tunnel through thin walls. Rotation is not swept.
-   */
+  /** Conservative translation/rotation CCD against static, dynamic and kinematic solid bodies. */
   ccd: boolean;
 
   constructor(options: RigidBodyOptions = {}) {
     this.type = options.type ?? 'dynamic';
-    if (this.type !== 'static' && this.type !== 'dynamic')
+    if (!['static', 'dynamic', 'kinematic'].includes(this.type))
       throw new RangeError('Invalid body type.');
     this.mass = options.mass ?? 1;
     this.restitution = options.restitution ?? 0;
@@ -200,10 +197,10 @@ export class RigidBody2D {
     if (owner.destroyed)
       throw new Error('Cannot attach a body to a destroyed GameObject.');
     if (
-      this.type === 'dynamic' &&
+      this.type !== 'static' &&
       (owner.parent || owner.worldSpace !== 'world')
     )
-      throw new Error('Dynamic bodies require root world-space GameObjects.');
+      throw new Error('Moving bodies require root world-space GameObjects.');
     if (owner.worldSpace !== 'world')
       throw new Error('Screen-space physics is unsupported.');
     this.owningObject = owner;
@@ -222,7 +219,7 @@ export class RigidBody2D {
       finite(worldPoint.x, 'worldPoint.x');
       finite(worldPoint.y, 'worldPoint.y');
     }
-    if (this.type === 'static') return;
+    if (this.type !== 'dynamic') return;
     if (worldPoint && !this.owner)
       throw new Error('A world-point force requires a bound body.');
     this.wake();
@@ -240,7 +237,7 @@ export class RigidBody2D {
       finite(worldPoint.x, 'worldPoint.x');
       finite(worldPoint.y, 'worldPoint.y');
     }
-    if (this.type === 'static') return;
+    if (this.type !== 'dynamic') return;
     if (worldPoint && !this.owner)
       throw new Error('A world-point impulse requires a bound body.');
     this.wake();

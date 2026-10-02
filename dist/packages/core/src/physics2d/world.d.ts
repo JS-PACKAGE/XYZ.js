@@ -26,12 +26,31 @@ export interface PhysicsRayHit {
     readonly point: Vector2;
     readonly normal: Vector2;
 }
+export interface PhysicsQueryOptions2D {
+    ignore?: GameObject;
+    ignoreOther?: GameObject;
+    mask?: number;
+    includeSensors?: boolean;
+}
+/** Sweep normal points away from the obstacle, unlike pair contact normals. */
+export interface PhysicsSweepResult2D {
+    hit: boolean;
+    owner: GameObject | undefined;
+    collider: Collider2D | undefined;
+    fraction: number;
+    safeFraction: number;
+    exhausted: boolean;
+    readonly point: Vector2;
+    readonly normal: Vector2;
+}
 export interface PhysicsWorldOptions {
     gravity?: [number, number];
     fixedDelta?: number;
     maxSubSteps?: number;
     velocityIterations?: number;
     positionIterations?: number;
+    ccdIterations?: number;
+    ccdImpacts?: number;
 }
 export interface PhysicsDebugShape {
     readonly kind: 'circle' | 'polygon';
@@ -70,7 +89,17 @@ export declare class PhysicsWorld2D {
     /** Number of registered colliders, static ones included. */
     get colliderCount(): number;
     private readonly sleepGroup;
-    private readonly sweepProxies;
+    private readonly continuous;
+    private readonly impactManifold;
+    /** Diagnostics for the most recently simulated fixed tick; velocity is never clamped. */
+    readonly ccdStats: {
+        iterations: number;
+        impacts: number;
+        budgetExhaustions: number;
+        stoppedTime: number;
+    };
+    private continuousIterations;
+    private continuousImpacts;
     private readonly jointSet;
     private readonly activeJoints;
     private readonly forces;
@@ -78,6 +107,7 @@ export declare class PhysicsWorld2D {
     private readonly positionManifold;
     private readonly queryNormal;
     private readonly queryGeometries;
+    private readonly queryMotions;
     private continuation;
     private accumulator;
     private stepToken;
@@ -89,6 +119,7 @@ export declare class PhysicsWorld2D {
     private positionPasses;
     droppedTime: number;
     private geometryVersion;
+    private registrationVersion;
     /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
     get geometryRevision(): number;
     constructor(options?: PhysicsWorldOptions);
@@ -101,6 +132,14 @@ export declare class PhysicsWorld2D {
     set velocityIterations(value: number);
     get positionIterations(): number;
     set positionIterations(value: number);
+    get ccdIterations(): number;
+    set ccdIterations(value: number);
+    get ccdImpacts(): number;
+    set ccdImpacts(value: number);
+    /** Membership and replacement token for borrowed character supports. */
+    has(owner: GameObject, collider?: Collider2D | undefined): boolean;
+    /** Removed/replaced/re-registered supports invalidate borrowed local anchors. */
+    membershipRevision(owner: GameObject): number;
     /** @internal Called transactionally by Scene and facade body/collider setters. */
     register(owner: GameObject): void;
     unregister(owner: GameObject): void;
@@ -116,11 +155,9 @@ export declare class PhysicsWorld2D {
     discardFrameTime(delta: number): void;
     get interpolationAlpha(): number;
     update(deltaTime: number, canContinue?: () => boolean, sampleFrame?: boolean): void;
-    /**
-     * Pulls ccd bodies that moved farther than a fraction of their size back to the first
-     * translation contact with a static collider, pushed slightly in so the solver sees it.
-     */
-    private sweepFastBodies;
+    private advanceBodies;
+    private activate;
+    private integrateContinuous;
     private simulate;
     private wakeContactGroups;
     private prepareBounce;
@@ -128,6 +165,8 @@ export declare class PhysicsWorld2D {
     private impulse;
     private solvePosition;
     overlap(collider: Collider2D, owner: GameObject): readonly ContactQuery[];
+    /** Shape-accurate rigid translation sweep against current poses, with a proven-free prefix. */
+    sweep(collider: Collider2D, owner: GameObject, displacement: Readonly<Vector2>, options?: PhysicsQueryOptions2D, out?: PhysicsSweepResult2D): PhysicsSweepResult2D;
     raycast(origin: Vector2, direction: Vector2, maxDistance: number, mask?: number): readonly PhysicsRayHit[];
     /** Attaches a joint between registered bodies (or one body and a fixed world anchor). */
     addJoint<T extends Joint2D>(joint: T): T;

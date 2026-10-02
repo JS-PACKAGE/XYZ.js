@@ -45,7 +45,9 @@ const poseB: Pose = { x: 0, y: 0, angle: 0 };
 const scratchVelocity = { x: 0, y: 0 };
 
 function angularVelocity(view: JointBodyView): number {
-  return view.inverseMass && view.body ? view.body.angularVelocity : 0;
+  return view.body && view.body.type !== 'static' && !view.body.lockRotation
+    ? view.body.angularVelocity
+    : 0;
 }
 function addVelocity(
   view: JointBodyView,
@@ -65,9 +67,9 @@ function move(view: JointBodyView, x: number, y: number, angle: number): void {
   view.owner.rotation += angle;
 }
 const linearX = (view: JointBodyView): number =>
-  view.inverseMass && view.body ? view.body.velocity.x : 0;
+  view.body && view.body.type !== 'static' ? view.body.velocity.x : 0;
 const linearY = (view: JointBodyView): number =>
-  view.inverseMass && view.body ? view.body.velocity.y : 0;
+  view.body && view.body.type !== 'static' ? view.body.velocity.y : 0;
 
 export interface JointOptions {
   /** Body whose registered collider and RigidBody2D take part in the world. */
@@ -190,7 +192,11 @@ export abstract class Joint2D {
   /** @internal Both ends are static or asleep. */
   get resting(): boolean {
     const asleep = (view: JointBodyView): boolean =>
-      !view.inverseMass || (view.body?.isSleeping ?? true);
+      view.body?.type === 'kinematic'
+        ? view.body.velocity.x === 0 &&
+          view.body.velocity.y === 0 &&
+          view.body.angularVelocity === 0
+        : !view.inverseMass || (view.body?.isSleeping ?? true);
     return asleep(this.viewA) && asleep(this.viewB);
   }
   /** @internal */
