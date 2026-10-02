@@ -9,28 +9,26 @@
   <body>
     <h1>XYZ.js example index</h1>
     <p class="lead">
-      Run <code>pnpm dev</code>, then choose an interactive example by feature
-      or backend. This page shares its catalog with
-      <a href="./examples/">/examples/</a>. WebGPU and AudioWorklet require a
-      secure context: use <code>http://127.0.0.1</code>, not
-      <code>file://</code>. 3D examples support WebGPU and WebGL2; Canvas2D is
-      only available for 2D examples.
+      Choose an interactive example by feature or backend. Every example starts
+      when its URL opens; this page shares its complete catalog with
+      <a href="./examples/">/examples/</a>. Use <code>pnpm dev</code> locally,
+      or deploy the complete <code>pnpm build:site</code> output over HTTPS.
+      WebGPU and AudioWorklet require a secure context, not
+      <code>file://</code>. Canvas2D is available only for 2D examples.
     </p>
     <fieldset id="filters">
       <legend>Filter by feature</legend>
     </fieldset>
-    <ul id="grid"></ul>
-    <noscript
-      >The example catalog requires JavaScript and the development
-      server.</noscript
-    >
+    <ul id="grid" data-examples-base="./examples/"></ul>
+    <noscript>The interactive example catalog requires JavaScript.</noscript>
     <footer>
       Benchmarks (keep the tab visible while measuring):
       <a href="./benchmarks/sprites/">1,000 sprites</a>,
       <a href="./benchmarks/physics2d/">600 physics circles</a>,
       <a href="./benchmarks/particles2d/">32,768 particles</a>,
-      <a href="./benchmarks/3d/">400 3D meshes</a> and
-      <a href="./benchmarks/mixed/">mixed lifecycle soak</a>.
+      <a href="./benchmarks/3d/">400 3D meshes</a>,
+      <a href="./benchmarks/mixed/">mixed lifecycle soak</a> and
+      <a href="./benchmarks/production/">production game workloads</a>.
     </footer>
     <script type="module" src="./examples/index.ts"></script>
   </body>

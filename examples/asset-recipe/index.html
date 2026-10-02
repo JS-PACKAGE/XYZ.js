@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js · Asset recipe source</title>
+    <style>
+      body {
+        margin: 0;
+        background: #101827;
+        color: #e7edf9;
+        font:
+          16px system-ui,
+          sans-serif;
+      }
+      main {
+        max-width: 1000px;
+        margin: auto;
+        padding: 20px;
+      }
+      a {
+        color: #9bd5ff;
+      }
+      .controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        align-items: center;
+        margin: 16px 0;
+      }
+      button,
+      select {
+        font: inherit;
+        padding: 6px;
+      }
+      canvas {
+        display: block;
+        width: 100%;
+        aspect-ratio: 16 / 9;
+        background: #07101c;
+      }
+      pre {
+        overflow-wrap: anywhere;
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <a href="../">All examples</a>
+      <h1>Asset recipe source</h1>
+      <p>
+        This is the authored glTF fixture used by the offline asset recipe,
+        loaded and rendered through the public engine API. It is the source
+        fixture, not a claim that an optimized bundle has been generated. Drag
+        to orbit and scroll to zoom.
+      </p>
+      <div class="controls">
+        <label
+          >Renderer
+          <select id="backend">
+            <option value="auto">Auto</option>
+            <option value="webgpu">WebGPU</option>
+            <option value="webgl2">WebGL2</option>
+            <option value="canvas2d">Canvas2D (no 3D)</option>
+          </select></label
+        >
+        <button id="pause" disabled>Pause</button>
+        <button id="destroy" disabled>Destroy</button>
+      </div>
+      <p id="status" role="status">Loading authored glTF…</p>
+      <canvas id="game" aria-label="Textured authored glTF fixture"></canvas>
+      <pre id="readout"></pre>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

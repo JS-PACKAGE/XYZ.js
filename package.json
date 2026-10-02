@@ -44,6 +44,8 @@
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/minify-dist.mjs && node scripts/copy-vendor.mjs",
+    "build:site": "pnpm build && node scripts/build-site.mjs",
+    "smoke:site": "node scripts/smoke-site.mjs",
     "create:game": "node scripts/create-game.mjs",
     "audio:native-load": "node scripts/audio-native-load.mjs",
     "benchmark:production": "node scripts/production-workloads.mjs",

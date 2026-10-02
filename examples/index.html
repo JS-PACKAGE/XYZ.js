@@ -9,22 +9,25 @@
   <body>
     <h1>XYZ.js examples</h1>
     <p class="lead">
-      Every page runs straight from the dev server (<code>pnpm examples</code>).
-      Use a supported browser over <code>http://127.0.0.1</code>: WebGPU and
-      AudioWorklet need a secure context, so never open these with
-      <code>file://</code>.
+      Every example starts when its URL opens. Use
+      <code>pnpm examples</code> locally, or deploy the complete
+      <code>pnpm build:site</code> output over HTTPS. WebGPU and AudioWorklet
+      need a secure context, so never open these with <code>file://</code>.
     </p>
     <fieldset id="filters">
       <legend>Filter by feature</legend>
     </fieldset>
-    <ul id="grid"></ul>
+    <ul id="grid" data-examples-base="./"></ul>
+    <noscript>The interactive example catalog requires JavaScript.</noscript>
     <footer>
       <a href="../index.html">Project index</a> · Also see the benchmarks (keep
       the tab visible while measuring):
       <a href="../benchmarks/sprites/">1,000 sprites</a>,
       <a href="../benchmarks/physics2d/">600 physics circles</a>,
-      <a href="../benchmarks/particles2d/">32,768 particles</a> and
-      <a href="../benchmarks/3d/">400 3D meshes</a>.
+      <a href="../benchmarks/particles2d/">32,768 particles</a>,
+      <a href="../benchmarks/3d/">400 3D meshes</a>,
+      <a href="../benchmarks/mixed/">mixed lifecycle soak</a> and
+      <a href="../benchmarks/production/">production game workloads</a>.
     </footer>
     <script type="module" src="./index.ts"></script>
   </body>

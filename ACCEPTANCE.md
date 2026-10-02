@@ -1012,6 +1012,12 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - Live screenshots在warmup、Game.destroy前取得並實際目視：可見768sprites或256cubes與64overlay，不能拿teardown後清空GPUcanvas的舊截圖當visualproof。Steady／loading不混入capture；完整raw metrics／livePNG／原始FAIL保留於 `.vite/production-workloads/`，native對照與pixel結果於 `.vite/native-canvas-cadence.json`／`.vite/canvas-snapshot-native-pixels.json`。
 - Peak decoded estimate32768 bytes，最大native texture49152、geometry1082256、render-target36864000 bytes；七個supplied checks在五組均PASS。GPU duration scope與RAF不同，**39ms pass-sum不表示已證明60FPS presentation**。
 
+### 線上範例、真正取消與交付 identity
+
+- 根catalog與`/examples/`共用唯一metadata，45個direct directories各自啟動；site54 HTML entries含nested demo與6 benchmarks。正式HTTP deployed smoke實際 **212/212 renderer routes PASS**、兩catalog PASS、199 link checks PASS；不得把45×5理論數225寫成實測數。Supported profiles有nativeactualpixels；3D-only forcedCanvas顯示明確unsupported，不宣稱Canvas3D。
+- Instrumented `ERR_ABORTED` 僅在**同一request ID**、native完整EOF／host200finish／精確bytes+SHA、無abort/cancel，且發生在failure/destroy前時才分類 completed EOF；不是忽略所有aborts。Owned negative staging真的取消8MiBbody，實際same harness exit1、唯一`net::ERR_ABORTED` fatal；兩catalog與links仍PASS。原本未instrument的abort仍unclassified。
+- Audio證據 `.vite/audio-native-load/p71-resume-final-summary.json` 與各三引擎report；Worker證據 `.vite/p82-default-builtroot.json`；bg228 fullsite `.vite/site-smoke-final-freeze/run-vH2WYS/results.json`；intentional cancel `.vite/site-smoke-negative-canonical/run-Kgcin0/results.json`。Original／refrozen／corner diagnosis／final3Dconsumerreports與screenshots另保留owned evidence directories，不混成一次rerun。
+
 ### 未取得或禁止的實體驗收
 
 - **BLOCKED**：安全可控owned physical mobile／gamepad／OS IME／background-thermal session不可得；設定中Zhuyin／device list／emulation不構成場景證據。Safari preserve：不連入或操控使用者Safari/sharedsessions。

@@ -264,9 +264,9 @@ const examples: readonly Example[] = [
   },
   {
     slug: 'navigation-bake',
-    title: 'Navigation bake & shared budget',
+    title: 'Multilayer navigation & shared budget',
     summary:
-      'Bake collision geometry, route many agents around obstacles and tune their aggregate Scene navigation work quota.',
+      'Bake bridge and underpass surfaces, route 120 capsules via real stairs and bound their shared navigation work.',
     tags: ['3D', 'Benchmark'],
     renderers: only3d,
   },
@@ -286,11 +286,91 @@ const examples: readonly Example[] = [
     tags: ['2D', 'Audio'],
     renderers: all2d,
   },
+  {
+    slug: 'motion2d',
+    title: '2D character & continuous motion',
+    summary:
+      'Swept kinematic movement, slopes and stairs, moving supports and dynamic/rotational CCD.',
+    tags: ['2D', 'Input'],
+    renderers: all2d,
+  },
+  {
+    slug: 'locomotion3d',
+    title: 'Fixed-step animated locomotion',
+    summary:
+      'Animation-driven capsule motion with gravity, jumping, collision and moving-platform support.',
+    tags: ['3D', 'Input'],
+    renderers: only3d,
+  },
+  {
+    slug: 'world-visibility',
+    title: 'World visibility & HLOD',
+    summary:
+      'Conservative native occlusion, screen-size coverage fades, HLOD replacement and visible instance packing.',
+    tags: ['3D', 'Benchmark'],
+    renderers: only3d,
+  },
+  {
+    slug: 'native-material3d',
+    title: 'Native shaders & local lights',
+    summary:
+      'Per-mesh WGSL/GLSL deformation and textures with bounded camera/mesh-aware local-light selection.',
+    tags: ['3D'],
+    renderers: only3d,
+  },
+  {
+    slug: 'world-streaming',
+    title: 'Owned world streaming',
+    summary:
+      'Fetched shared terrain assets, prefetched cells, atomic colliders and revision-safe navigation seams.',
+    tags: ['3D', 'Assets', 'Data'],
+    renderers: only3d,
+  },
+  {
+    slug: 'cpu-workers',
+    title: 'Native CPU workers',
+    summary:
+      'Real worker terrain processing, transfer/copy accounting, responsive heartbeats and hard cancellation.',
+    tags: ['3D', 'Assets', 'Benchmark'],
+    renderers: only3d,
+  },
+  {
+    slug: 'tiled-import',
+    title: 'Tiled level import',
+    summary:
+      'Orthogonal external tilesets, flipped GIDs, typed content and live owned tile/object colliders.',
+    tags: ['2D', 'Assets'],
+    renderers: all2d,
+  },
+  {
+    slug: 'gpu-particles3d',
+    title: 'GPU 3D particles',
+    summary:
+      'Seeded native analytic particles with local/world birth space, capacity policies and explicit teardown.',
+    tags: ['3D', 'Benchmark'],
+    renderers: ['webgpu', 'webgl2'],
+  },
+  {
+    slug: 'accessibility-game',
+    title: 'Accessible game flow',
+    summary:
+      'Playable keyboard-only route, settings, remapping, modal focus and reduced-motion/contrast preferences.',
+    tags: ['2D', 'Input', 'Data'],
+    renderers: all2d,
+  },
+  {
+    slug: 'asset-recipe',
+    title: 'Asset recipe source',
+    summary:
+      'Run the authored glTF recipe fixture through the public loader, native rendering and deterministic cleanup.',
+    tags: ['3D', 'Assets'],
+    renderers: only3d,
+  },
 ];
 
 const filters = document.querySelector<HTMLFieldSetElement>('#filters')!;
 const grid = document.querySelector<HTMLUListElement>('#grid')!;
-const examplesURL = new URL('./', import.meta.url);
+const examplesURL = new URL(grid.dataset.examplesBase!, document.baseURI);
 
 function card(example: Example): HTMLLIElement {
   const item = document.createElement('li');
