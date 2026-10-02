@@ -43,6 +43,8 @@ export declare class ShapeGeometry {
     maxX: number;
     maxY: number;
     inertiaPerMass: number;
+    /** @internal Changes only after a successful world-geometry refresh. */
+    revision: number;
     private readonly matrixSnapshot;
     constructor(collider: Collider2D);
     refresh(owner: GameObject): void;

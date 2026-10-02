@@ -8,3 +8,5 @@ export { NavigationSearchJob } from './jobs.js';
 export type { NavigationSearchStatus } from './jobs.js';
 export { NavigationScheduler, NavigationScheduledSearch } from './scheduler.js';
 export type { NavigationSchedulerOptions, NavigationSchedulerStats, NavigationWork, NavigationSearchOwner, ScheduledNavigationFollower, } from './scheduler.js';
+export { NavigationGridBakeJob2D, NavigationSurfaceBakeJob3D, NavigationLatticeMapping, } from './bake.js';
+export type { NavigationLatticeOptions, NavigationGridBakeOptions2D, NavigationSurfaceBakeOptions3D, } from './bake.js';

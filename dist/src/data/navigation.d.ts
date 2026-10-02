@@ -12,4 +12,5 @@ export declare const navigationLimits: Readonly<{
     followerReplans: 8;
     sceneWork: 256;
     scheduledWork: 4096;
+    bakeSkin: 0.002;
 }>;

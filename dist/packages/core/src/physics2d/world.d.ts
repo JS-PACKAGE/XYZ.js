@@ -88,6 +88,9 @@ export declare class PhysicsWorld2D {
     private velocityPasses;
     private positionPasses;
     droppedTime: number;
+    private geometryVersion;
+    /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
+    get geometryRevision(): number;
     constructor(options?: PhysicsWorldOptions);
     get destroyed(): boolean;
     get fixedDelta(): number;

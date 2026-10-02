@@ -166,6 +166,8 @@ export class ShapeGeometry {
   maxX = 0;
   maxY = 0;
   inertiaPerMass = 0;
+  /** @internal Changes only after a successful world-geometry refresh. */
+  revision = 0;
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
   constructor(readonly collider: Collider2D) {
     this.points = new Float64Array(collider.vertices.length * 2);
@@ -208,6 +210,7 @@ export class ShapeGeometry {
       positive(this.inertiaPerMass, 'world geometry inertia');
       for (let i = 0; i < TRANSFORM_INDICES.length; i++)
         this.matrixSnapshot[i] = e[TRANSFORM_INDICES[i]];
+      this.revision++;
       return;
     }
     this.minX = this.minY = Infinity;
@@ -244,6 +247,7 @@ export class ShapeGeometry {
     positive(this.inertiaPerMass, 'world geometry inertia');
     for (let i = 0; i < TRANSFORM_INDICES.length; i++)
       this.matrixSnapshot[i] = e[TRANSFORM_INDICES[i]];
+    this.revision++;
   }
   contains(x: number, y: number): boolean {
     if (this.collider.kind === 'circle')

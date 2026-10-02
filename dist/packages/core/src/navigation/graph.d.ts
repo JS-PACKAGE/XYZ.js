@@ -4,6 +4,7 @@ import { NavigationScheduler, type NavigationScheduledSearch } from './scheduler
 export interface NavigationNode3D {
     readonly id: string;
     readonly position: Readonly<Vector3>;
+    readonly walkable?: boolean;
 }
 export interface NavigationConnection3D {
     readonly from: string;
@@ -38,18 +39,21 @@ export interface NavigationGraphPath3D {
 }
 /** Authored waypoint graph with revisioned connection state, not an automatic navmesh. */
 export declare class NavigationGraph3D {
-    readonly nodes: readonly NavigationNode3D[];
+    private currentNodes;
     private currentConnections;
-    private readonly indices;
-    private readonly edges;
+    private indices;
+    private edges;
     private readonly searches;
-    private readonly heuristicScale;
+    private heuristicScale;
     private currentRevision;
     private disposed;
     private readonly paths;
     constructor(options: NavigationGraphOptions3D);
     get connections(): readonly NavigationConnection3D[];
+    get nodes(): readonly NavigationNode3D[];
     get availableSearchSlots(): number;
+    /** Atomic sampled-surface rebake; stable IDs keep live followers' route anchors valid. */
+    replaceGeometry(options: NavigationGraphOptions3D): void;
     scheduleSearch(scheduler: NavigationScheduler, start: string, goal: string, options?: NavigationGraphSearchOptions3D): NavigationScheduledSearch<NavigationGraphPath3D>;
     get revision(): number;
     get destroyed(): boolean;

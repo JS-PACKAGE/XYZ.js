@@ -8,9 +8,15 @@ import {
   BoxCollider3D,
   PlaneCollider3D,
   Object3D,
+  GameObject,
+  Collider2D,
+  Vector2,
   Vector3,
   Sprite,
   NavigationGrid2D,
+  NavigationGridBakeJob2D,
+  type NavigationScheduledSearch,
+  type NavigationGridPath2D,
   UIRoot,
   UILabel,
   UIButton,
@@ -94,7 +100,11 @@ let lastGpuSample = 0;
 let unattributedGpuSamples = 0;
 let lastWorkFrame = 0;
 let frameWorkOverBudget = 0;
+let navigationWorkMaximum = 0;
+let navigationBakeWork = 0;
 let nextObservationSeconds = 0;
+let navigationBakesCompleted = 0;
+let navigationBakedBlockedCells = 0;
 let networkRequests = 0;
 let networkBytes = 0;
 const networkWorkload = new BoundedTiming();
@@ -215,12 +225,17 @@ class MixedScene extends Scene {
   private waypoint = 0;
   private route: ReadonlyArray<{ column: number; row: number }> = [];
   private readonly leases: TextureLease[] = [];
+  private pendingRoute?: NavigationScheduledSearch<NavigationGridPath2D>;
+  private readonly backgroundRoutes: NavigationScheduledSearch<NavigationGridPath2D>[] =
+    [];
+  private bake?: NavigationGridBakeJob2D;
+  private readonly obstacle = new GameObject();
   uiLease?: TextureLease;
   constructor(
     private readonly count: number,
     private readonly threeD: boolean,
   ) {
-    super();
+    super({ navigationWorkBudget: soakWorkload.navigationWorkBudget });
     // A wall with alternating doors forces actual changing detours.
     for (let row = 0; row < 47; row++)
       this.grid.setCell(24, row, { walkable: false });
@@ -333,27 +348,79 @@ class MixedScene extends Scene {
       this.nextRoute = this.elapsed;
     });
     root.focus.focus(this.button);
+    this.obstacle.position.set(580, 320);
+    this.obstacle.collider = new Collider2D('polygon', 0, [
+      [-12, -45],
+      [12, -45],
+      [12, 45],
+      [-12, 45],
+    ]);
+    this.add(this.obstacle);
+    this.bake = this.navigation.scheduleBake(
+      new NavigationGridBakeJob2D(this.physics, {
+        columns: soakWorkload.bakeColumns,
+        rows: soakWorkload.bakeRows,
+        cellSize: soakWorkload.bakeCellSize,
+        origin: new Vector2(420, 180),
+        agentRadius: 3,
+      }),
+    );
   }
   override update(delta: number): void {
     const start = performance.now();
     try {
       this.elapsed += delta;
+      if (this.pendingRoute && this.pendingRoute.status !== 'pending') {
+        const path = this.pendingRoute.result;
+        if (path?.status === 'found') {
+          foundRoutes++;
+          this.route = path.cells;
+          this.waypoint = 0;
+        }
+        this.pendingRoute = undefined;
+      }
+      if (this.bake && this.bake.status !== 'pending') {
+        const baked = this.bake.result;
+        if (baked) {
+          navigationBakesCompleted++;
+          for (let row = 0; row < baked.rows; row++)
+            for (let column = 0; column < baked.columns; column++)
+              if (!baked.getCell(column, row).walkable)
+                navigationBakedBlockedCells++;
+          baked.destroy();
+        }
+        this.bake = undefined;
+      }
       if (this.elapsed >= this.nextRoute) {
-        this.nextRoute = this.elapsed + 0.5;
+        this.nextRoute = this.elapsed + soakWorkload.routeIntervalSeconds;
+        this.pendingRoute?.cancel();
+        for (const route of this.backgroundRoutes) route.cancel();
+        this.backgroundRoutes.length = 0;
         const door = routeChanges % 2 ? 12 : 35;
         this.grid.setCells([
           { column: 24, row: 12, walkable: door === 12 },
           { column: 24, row: 35, walkable: door === 35 },
         ]);
-        const path = this.grid.findPath(
+        this.pendingRoute = this.grid.scheduleSearch(
+          this.navigation,
           { column: 1, row: 1 },
           { column: 46, row: 46 },
           { diagonal: true },
         );
+        for (
+          let index = 0;
+          index < soakWorkload.navigationConcurrentSearches - 1;
+          index++
+        )
+          this.backgroundRoutes.push(
+            this.grid.scheduleSearch(
+              this.navigation,
+              { column: 2, row: index + 2 },
+              { column: 45, row: 43 - index },
+              { diagonal: true },
+            ),
+          );
         routeChanges++;
-        if (path.status === 'found') foundRoutes++;
-        this.route = path.cells;
-        this.waypoint = 0;
       }
       if (this.route.length) {
         this.waypoint = (this.waypoint + 1) % this.route.length;
@@ -429,6 +496,18 @@ class MixedScene extends Scene {
         networkBytes += bytes;
       });
     }
+    if (!this.bake) {
+      this.obstacle.rotation += 0.25;
+      this.bake = this.navigation.scheduleBake(
+        new NavigationGridBakeJob2D(this.physics, {
+          columns: soakWorkload.bakeColumns,
+          rows: soakWorkload.bakeRows,
+          cellSize: soakWorkload.bakeCellSize,
+          origin: new Vector2(420, 180),
+          agentRadius: 3,
+        }),
+      );
+    }
     const next = await image(runtime);
     try {
       const previous = this.uiLease!;
@@ -448,6 +527,12 @@ class MixedScene extends Scene {
     }
   }
   protected override onDestroy(): void {
+    this.grid.destroy();
+    this.bake?.cancel();
+    this.bake?.result?.destroy();
+    this.pendingRoute?.cancel();
+    for (const route of this.backgroundRoutes) route.cancel();
+    this.backgroundRoutes.length = 0;
     for (const lease of this.leases) release(lease);
     this.leases.length = 0;
     if (this.uiLease) release(this.uiLease);
@@ -572,7 +657,15 @@ try {
       for (const name of frameWorkTimingNames)
         frameWorkTimings[name].add(work[name]);
       if (work.overBudget) frameWorkOverBudget++;
-
+      navigationWorkMaximum = Math.max(
+        navigationWorkMaximum,
+        work.navigationWork,
+      );
+      navigationBakeWork += work.navigationBakeWork;
+      assert(
+        work.navigationWork <= soakWorkload.navigationWorkBudget,
+        'Scene aggregate navigation work quota was exceeded.',
+      );
     }
     const observationSeconds = (performance.now() - started) / 1000;
     if (observationSeconds >= nextObservationSeconds) {
@@ -719,6 +812,10 @@ try {
     'Capture/texture lease lifecycle imbalance.',
   );
   assert(foundRoutes > 0, 'No navigation route completed.');
+  assert(
+    navigationBakesCompleted > 0 && navigationBakedBlockedCells > 0,
+    'No geometry navigation bake detected the real collider.',
+  );
   const result = {
     schema: 'xyz-mixed-soak-v2',
     date: new Date().toISOString(),
@@ -752,8 +849,11 @@ try {
           value.snapshot(),
         ]),
       ),
+      navigationWorkQuota: soakWorkload.navigationWorkBudget,
+      navigationWorkMaximum,
+      navigationBakeWork,
       scope:
-        'CPU frame budget is a reporting target, not preemption; user callbacks and atomic collision work can exceed it.',
+        'CPU frame budget is a reporting target, not preemption. Navigation search+bake work has a hard aggregate cooperative quota; user callbacks and atomic collision work can exceed the CPU target.',
     },
     networkWorkload: {
       requested: params.get('network') === '1',
@@ -810,6 +910,10 @@ try {
       spatialRefreshesMax: spatialRefreshMaximum,
       spatialPoseChecksMax: spatialPoseChecksMaximum,
       spatialRefitsMax: spatialRefitsMaximum,
+      navigationBakesCompleted,
+      navigationBakedBlockedCells,
+      navigationConcurrency: soakWorkload.navigationConcurrentSearches,
+      geometryBakePhysics2D: true,
       candidatePairsMax: physicsStatsAvailable ? candidateMax : null,
       narrowphaseTestsMax: physicsStatsAvailable ? narrowphaseMax : null,
     },

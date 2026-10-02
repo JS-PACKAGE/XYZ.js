@@ -12,4 +12,5 @@ export const navigationLimits = Object.freeze({
   followerReplans: 8,
   sceneWork: 256,
   scheduledWork: 4_096,
+  bakeSkin: 0.002,
 });

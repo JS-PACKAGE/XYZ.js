@@ -912,3 +912,8 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 ### P67 — Dynamic／rotational CCD
 
 - 真相向 dynamic pair ±600 bounce、rotational blade 與 compound／mesh stop 已驗，維持 filters／contact response，不降速或加厚牆。Blade 13 iterations、1 impact、1 次 budget exhaustion，保留 conservative prefix 並誠實回報，不宣稱任意 rotational motion 都能無界求解。
+
+### P68 — Collision bake／NPC scheduling
+
+- 真 collision bake alternative path cost=6；120 NPC／120 replans、187 ticks、maximum aggregate work=17，走 shared scheduler 與 character 路徑，而非獨立無預算搜尋。Clearance／slope／step、edit／rebake／cancel 與 scheduler lifecycle 在限定 bake profile 內。
+- Bake 是 sampled topmost single-layer grid／surface graph，不是 polygon／multi-layer navmesh；不把此限制隱藏成完整 geometry navigation certification。

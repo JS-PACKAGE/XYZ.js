@@ -1078,13 +1078,23 @@ export class PhysicsWorld3D {
       (direction.y / len) * maxDistance,
       (direction.z / len) * maxDistance,
     );
-    return this.sweepShape(
+    const hit = this.sweepShape(
       this.queryShape,
       this.impulse,
       options,
       undefined,
       true,
     );
+    // A point exactly on a two-sided plane has no stable signed side after rounding.
+    if (
+      hit?.collider.kind === 'plane' &&
+      hit.normal.x * direction.x +
+        hit.normal.y * direction.y +
+        hit.normal.z * direction.z >
+        0
+    )
+      hit.normal.set(-hit.normal.x, -hit.normal.y, -hit.normal.z);
+    return hit;
   }
   /** Translation-only conservative advancement against exact primitive distance. No AABB-expanded corner proxy. */
   sweepSphere(

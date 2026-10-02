@@ -9,6 +9,7 @@ import {
 export interface NavigationNode3D {
   readonly id: string;
   readonly position: Readonly<Vector3>;
+  readonly walkable?: boolean;
 }
 export interface NavigationConnection3D {
   readonly from: string;
@@ -49,12 +50,12 @@ interface Edge {
 
 /** Authored waypoint graph with revisioned connection state, not an automatic navmesh. */
 export class NavigationGraph3D {
-  readonly nodes: readonly NavigationNode3D[];
+  private currentNodes: readonly NavigationNode3D[];
   private currentConnections: readonly NavigationConnection3D[];
-  private readonly indices = new Map<string, number>();
-  private readonly edges: Edge[][];
+  private indices = new Map<string, number>();
+  private edges: Edge[][];
   private readonly searches: NavigationSearchPool<NavigationGraphPath3D>;
-  private readonly heuristicScale: number;
+  private heuristicScale: number;
   private currentRevision = 0;
   private disposed = false;
   private readonly paths = new WeakSet<NavigationGraphPath3D>();
@@ -70,6 +71,8 @@ export class NavigationGraph3D {
       );
     const nodes: NavigationNode3D[] = [];
     for (const node of options.nodes) {
+      if (node.walkable !== undefined && typeof node.walkable !== 'boolean')
+        throw new RangeError('Navigation node walkability must be boolean.');
       if (
         typeof node.id !== 'string' ||
         node.id.length === 0 ||
@@ -95,10 +98,11 @@ export class NavigationGraph3D {
         Object.freeze({
           id: node.id,
           position: Object.freeze(new Vector3(x, y, z)),
+          walkable: node.walkable ?? true,
         }),
       );
     }
-    this.nodes = Object.freeze(nodes);
+    this.currentNodes = Object.freeze(nodes);
     this.edges = Array.from({ length: nodes.length }, () => []);
     this.searches = new NavigationSearchPool(nodes.length);
     const connections: NavigationConnection3D[] = [];
@@ -174,8 +178,31 @@ export class NavigationGraph3D {
   get connections(): readonly NavigationConnection3D[] {
     return this.currentConnections;
   }
+  get nodes(): readonly NavigationNode3D[] {
+    return this.currentNodes;
+  }
   get availableSearchSlots(): number {
     return this.searches.availableSlots;
+  }
+
+  /** Atomic sampled-surface rebake; stable IDs keep live followers' route anchors valid. */
+  replaceGeometry(options: NavigationGraphOptions3D): void {
+    if (this.disposed) throw new Error('Navigation graph is destroyed.');
+    if (
+      options.nodes.length !== this.nodes.length ||
+      options.nodes.some((node, index) => node.id !== this.nodes[index]!.id)
+    )
+      throw new RangeError(
+        'A rebake must preserve sampled node IDs and order.',
+      );
+    const candidate = new NavigationGraph3D(options);
+    this.searches.invalidate();
+    this.currentNodes = candidate.currentNodes;
+    this.currentConnections = candidate.currentConnections;
+    this.edges = candidate.edges;
+    this.indices = candidate.indices;
+    this.heuristicScale = candidate.heuristicScale;
+    this.currentRevision++;
   }
 
   scheduleSearch(
@@ -343,7 +370,7 @@ export class NavigationGraph3D {
     const revision = this.currentRevision;
     const target = this.nodes[to]!.position;
     return this.searches.create({
-      from,
+      from: this.nodes[from]!.walkable && this.nodes[to]!.walkable ? from : -1,
       to,
       estimate: (node) => this.heuristic(node, target),
       expand: (current, search) => {
@@ -351,6 +378,7 @@ export class NavigationGraph3D {
           const connection = this.currentConnections[edge.connection]!;
           if (
             !connection.enabled ||
+            !this.nodes[edge.to]!.walkable ||
             connection.clearance! < radius ||
             excluded.has(edge.connection)
           )

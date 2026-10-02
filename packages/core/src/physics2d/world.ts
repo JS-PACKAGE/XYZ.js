@@ -85,6 +85,22 @@ class Proxy {
   readonly joints: Joint2D[] = [];
   moveX = 0;
   moveY = 0;
+  private observedGeometry = -1;
+  private observedCategory = -1;
+  private observedMask = -1;
+  private observedSensor = false;
+  geometryChanged(): boolean {
+    const changed =
+      this.observedGeometry !== this.geometry.revision ||
+      this.observedCategory !== this.collider.category ||
+      this.observedMask !== this.collider.mask ||
+      this.observedSensor !== this.collider.sensor;
+    this.observedGeometry = this.geometry.revision;
+    this.observedCategory = this.collider.category;
+    this.observedMask = this.collider.mask;
+    this.observedSensor = this.collider.sensor;
+    return changed;
+  }
   constructor(
     readonly owner: GameObject,
     readonly collider: Collider2D,
@@ -182,6 +198,16 @@ export class PhysicsWorld2D {
   private velocityPasses: number = physicsDefaults.velocityIterations;
   private positionPasses: number = physicsDefaults.positionIterations;
   droppedTime = 0;
+  private geometryVersion = 0;
+  /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
+  get geometryRevision(): number {
+    for (const proxy of this.owners.values()) {
+      if (!this.alive(proxy)) continue;
+      proxy.refresh();
+      if (proxy.geometryChanged()) this.geometryVersion++;
+    }
+    return this.geometryVersion;
+  }
 
   constructor(options: PhysicsWorldOptions = {}) {
     if (options.gravity)
@@ -265,11 +291,13 @@ export class PhysicsWorld2D {
     )
       return;
     this.owners.set(owner, proxy);
+    this.geometryVersion++;
   }
   unregister(owner: GameObject): void {
     const proxy = this.owners.get(owner);
     if (!proxy) return;
     this.owners.delete(owner);
+    this.geometryVersion++;
     if (proxy.body) this.forces.delete(proxy.body);
     for (const joint of [...proxy.joints]) this.removeJoint(joint);
     // Delete membership before callback dispatch: recursive unregister is harmless.
