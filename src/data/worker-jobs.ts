@@ -1,0 +1,15 @@
+export const workerJobLimits = Object.freeze({
+  workers: 8,
+  defaultWorkers: 2,
+  queuedJobs: 128,
+  defaultQueuedJobs: 16,
+  requestBytes: 64 * 1024 * 1024,
+  resultBytes: 64 * 1024 * 1024,
+  admittedBytes: 128 * 1024 * 1024,
+  executionMilliseconds: 30_000,
+  typeLength: 128,
+  keyLength: 256,
+  errorLength: 4_096,
+  geometryVertices: 1_048_576,
+  geometryIterations: 512,
+});
