@@ -43,6 +43,12 @@ console.log(
 console.log(
   'No browser opened. Download operator observations and measured JSON in the page; neither certifies untested devices.',
 );
+console.log(
+  `Representative workloads: http://${host}:${port}/benchmarks/production/?workload=2d&renderer=webgpu (use workload=3d for the medium 3D profile).`,
+);
+console.log(
+  'Native hardware evidence requirements: node scripts/platform-hardware.mjs --instructions. Validate captured artifacts with --verify evidence.json; this never auto-passes physical hardware. Driver reset is never executed.',
+);
 if (host !== '127.0.0.1' && host !== 'localhost' && host !== '::1')
   console.warn(
     'Explicit non-loopback host exposes a Vite development server. Use only a trusted test network; mobile secure-context APIs need HTTPS or approved secure port forwarding.',
