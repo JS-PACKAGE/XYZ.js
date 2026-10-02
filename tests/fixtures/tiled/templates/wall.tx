@@ -1,0 +1,1 @@
+{"type":"template","object":{"name":"wall","width":16,"height":16,"rotation":0,"properties":[{"name":"sensor","type":"bool","value":true}]}}

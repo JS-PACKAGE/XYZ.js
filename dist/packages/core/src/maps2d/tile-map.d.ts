@@ -3,12 +3,17 @@ import type { Camera2D } from '../camera2d.js';
 import { Group2D } from '../gameplay/group2d.js';
 import { SpriteSheet } from '../graphics2d/sprite-sheet.js';
 import { Collider2D } from '../physics2d/index.js';
+import type { Sprite } from '../sprite.js';
 export interface TileMapOptions {
     columns: number;
     rows: number;
     tileWidth: number;
     tileHeight: number;
     sheet: SpriteSheet;
+    /** Sparse imports can retain far-apart chunks without allocating the gaps. */
+    sparse?: boolean;
+    originColumn?: number;
+    originRow?: number;
 }
 export interface Tile {
     readonly frame: number | undefined;
@@ -24,9 +29,12 @@ export declare class TileMap extends Group2D {
     readonly tileWidth: number;
     readonly tileHeight: number;
     readonly sheet: SpriteSheet;
+    readonly originColumn: number;
+    readonly originRow: number;
     protected isometric: boolean;
     protected elevationStep: number;
     private readonly slots;
+    private readonly sparseSlots;
     private readonly configuredSlots;
     private readonly local;
     private readonly corner;
@@ -35,6 +43,7 @@ export declare class TileMap extends Group2D {
     constructor(options: TileMapOptions);
     private index;
     getTile(column: number, row: number): Tile;
+    protected tileSprite(column: number, row: number): Sprite | undefined;
     /** Validates the entire edit before publishing a new immutable cell snapshot. */
     setTile(column: number, row: number, partial: Partial<Tile>): void;
     clearTile(column: number, row: number): void;

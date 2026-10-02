@@ -1,5 +1,6 @@
 import { tiledLimits } from '../../../src/data/tiled.js';
 import { readResponse } from './read-response.js';
+import { normalizeTiledMap } from './tiled-normalize.js';
 import type {
   ResourcePool,
   ResourceScope,
@@ -27,6 +28,7 @@ export class TiledAsset {
     readonly data: TiledMapData,
     readonly textures: ReadonlyMap<TiledTileset, Texture2DSource>,
     readonly scope: ResourceScope,
+    readonly imageTextures: ReadonlyMap<number, Texture2DSource> = new Map(),
   ) {}
   destroy(): void {
     this.scope.release();
@@ -96,6 +98,7 @@ export async function loadTiledMap(
         throw new TiledError('url', `origin/protocol denied: ${u.origin}`);
       return u.href;
     };
+    let jsonBytes = 0;
     const json = async (href: string): Promise<unknown> => {
       const response = await fetch(href, {
         signal: scope.signal,
@@ -108,6 +111,9 @@ export async function loadTiledMap(
         tiledLimits.jsonBytes,
         scope.signal,
       );
+      jsonBytes += blob.size;
+      if (jsonBytes > tiledLimits.jsonBytes)
+        throw new TiledError(href, 'aggregate JSON byte budget exceeded');
       const value: unknown = JSON.parse(await blob.text());
       scope.signal.throwIfAborted();
       return value;
@@ -141,6 +147,7 @@ export async function loadTiledMap(
       sets.push(parsed);
       imageURLs.set(parsed, resolve(parsed.image, base));
     }
+    await normalizeTiledMap(raw, href, resolve, json, scope.signal);
     const data = parseTiledMap(raw, sets),
       textures = new Map<TiledTileset, Texture2DSource>();
     for (const ts of sets) {
@@ -160,8 +167,23 @@ export async function loadTiledMap(
         );
       textures.set(ts, texture);
     }
+    const imageTextures = new Map<number, Texture2DSource>();
+    for (const layer of data.layers) {
+      if (layer.type !== 'imagelayer') continue;
+      const imageURL = resolve(layer.image!, href);
+      const borrowed = options.textures?.get(imageURL);
+      const texture = borrowed
+        ? scope.borrow(borrowed).value
+        : (await scope.acquire(imageRequest(pool, imageURL))).value;
+      if (
+        texture.destroyed ||
+        texture.width * texture.height * 4 > tiledLimits.imageBytes
+      )
+        throw new TiledError(layer.name, 'decoded image exceeds byte budget');
+      imageTextures.set(layer.id, texture);
+    }
     scope.signal.throwIfAborted();
-    return new TiledAsset(data, textures, scope);
+    return new TiledAsset(data, textures, scope, imageTextures);
   } catch (error) {
     scope.release(error);
     throw error;

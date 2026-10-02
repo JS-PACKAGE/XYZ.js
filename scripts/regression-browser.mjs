@@ -71,6 +71,10 @@ const server = await createServer({
         find: '../../src/index.js',
         replacement: join(root, 'dist/src/index.js'),
       },
+      {
+        find: '../src/index.js',
+        replacement: join(root, 'dist/src/index.js'),
+      },
     ],
   },
   server: { host: '127.0.0.1', port, strictPort: true },
@@ -345,6 +349,31 @@ try {
             `Required Chromium native loss proof missing: ${loss?.skip ?? 'scenario absent'}`,
           );
       }
+      await page.goto(
+        `http://127.0.0.1:${port}/tests/browser/tiled-profiles.html?renderer=${backend}`,
+        { waitUntil: 'domcontentloaded' },
+      );
+      await awaitState('interactive');
+      await page
+        .getByRole('button', { name: 'Pan camera', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Toggle group', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Toggle group', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Edit negative solid', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Pause / resume', exact: true })
+        .click();
+      await page
+        .getByRole('button', { name: 'Pause / resume', exact: true })
+        .click();
+      await page.locator('#finish').click();
+      await awaitState('passed');
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

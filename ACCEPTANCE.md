@@ -1069,3 +1069,9 @@ GitHub [v1.11](https://github.com/YueyuHoshizora/XYZ.js/releases/tag/v1.11) 正�
 - 正式loader／Geometry／PBR／native GPU與GL color及alpha-shadow paths支援UV0／UV1、十四map獨立affine transforms、兩組成對JOINTS／WEIGHTS且完整正規化八influences。舊UV0 layout及預設四influences保留；缺referenced UV、UV2+、不成對或第三組influences明示拒絕。Recipes使用同一有效profile，不另CPU bake UV。
 - Chromium153的WebGL2／WebGPU、Firefox155與managed WebKit26.6的WebGL2 rendered fixture gates皆PASS；十四maps對獨立baked reference一致，eighth joint初始及位移9的native／CPU meanRGBError均0。證據 `.vite/p88-p96-browser-final/{chromium,firefox,webkit}/results.json`。這是fixture correctness，不是任意第三方asset corpus或FPS認證。
 - P90-only source／shader／uniform ABI另由獨立staged tree實際strict build、minify及official vendor copy成功，269 JS files；phase-specific dist隨本階段提交，未混入P94 cache／shadow品質／native-resource gates。舊禁止合法UV1／獨立transform的incidental tests已刪，不重新釘死舊限制。
+
+### P91 — Tiled 實用匯入 profiles
+
+- 正式resource／content／Scene架構支援finite／infinite orthogonal atlas maps、負座標chunks、nested groups、repeat／parallax image layers、Scene-clock atlas animation、array／strict base64及native gzip／zlib、relative object templates／overrides／cycle拒絕；display與colliders原子建構及清理。Imported bounds內可edit；非orthogonal／非right-down／image-collection及其他列明不支援profiles仍拒絕。
+- Cells262144、chunks4096、layers128、frames65536、JSON8MiB／image32MiB admission維持有界，不以截斷、缺colliders或空fallback假裝匯入成功。
+- Owned Chromium三backends正式content path的first／paused readback均 `[36,104,68,64]`，resume後 `[68,120,255,64]`；capsule實際支撐Y=13.005474573771183，刪negative solid後三backend均落下至Y>63。Trusted Pan／group toggle／negative edit／pause-resume及cleanup亦通過。`.vite/tiled-profiles/report.json`、最終三引擎native browser報告的Tiled兩phases皆PASS；不是其他Tiled orientations認證。

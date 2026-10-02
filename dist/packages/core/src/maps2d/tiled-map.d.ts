@@ -4,6 +4,8 @@ import { Group2D } from '../gameplay/group2d.js';
 import { TileMap, type Tile } from './tile-map.js';
 /** Editable atlas plane; GID flags are applied after TileMap's normal cell publication. */
 export declare class TiledTileMap extends TileMap {
+    /** @internal Importer-supplied atlas animation definitions. */
+    tileset?: TiledTileset;
     setTile(column: number, row: number, partial: Partial<Tile>): void;
 }
 export declare class TiledContent extends Group2D {

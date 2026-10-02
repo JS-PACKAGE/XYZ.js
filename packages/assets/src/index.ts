@@ -75,6 +75,8 @@ export type {
   TiledProperties,
   TiledObject,
   TiledLayer,
+  TiledChunk,
+  TiledAnimationFrame,
   TiledTileset,
   TiledMapData,
 } from './tiled-parser.js';

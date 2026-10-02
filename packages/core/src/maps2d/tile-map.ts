@@ -13,6 +13,10 @@ export interface TileMapOptions {
   tileWidth: number;
   tileHeight: number;
   sheet: SpriteSheet;
+  /** Sparse imports can retain far-apart chunks without allocating the gaps. */
+  sparse?: boolean;
+  originColumn?: number;
+  originRow?: number;
 }
 
 export interface Tile {
@@ -54,9 +58,12 @@ export class TileMap extends Group2D {
   readonly tileWidth: number;
   readonly tileHeight: number;
   readonly sheet: SpriteSheet;
+  readonly originColumn: number;
+  readonly originRow: number;
   protected isometric = false;
   protected elevationStep = 0;
   private readonly slots: (TileSlot | undefined)[];
+  private readonly sparseSlots: Map<number, TileSlot> | undefined;
   private readonly configuredSlots: TileSlot[] = [];
   private readonly local = new Vector2();
   private readonly corner = new Vector2();
@@ -71,7 +78,8 @@ export class TileMap extends Group2D {
       !Number.isSafeInteger(rows) ||
       columns <= 0 ||
       rows <= 0 ||
-      columns * rows > world2dLimits.mapCells
+      !Number.isSafeInteger(columns * rows) ||
+      (!options.sparse && columns * rows > world2dLimits.mapCells)
     )
       throw new RangeError(
         'Tile grid exceeds the positive integer cell budget.',
@@ -93,31 +101,57 @@ export class TileMap extends Group2D {
     this.tileWidth = tileWidth;
     this.tileHeight = tileHeight;
     this.sheet = sheet;
-    this.slots = new Array<TileSlot | undefined>(columns * rows);
+    this.originColumn = options.originColumn ?? 0;
+    this.originRow = options.originRow ?? 0;
+    if (
+      ![
+        this.originColumn,
+        this.originRow,
+        this.originColumn + columns,
+        this.originRow + rows,
+      ].every(Number.isSafeInteger)
+    )
+      throw new RangeError(
+        'Tile origins must stay within the safe integer range.',
+      );
+    this.sparseSlots = options.sparse ? new Map() : undefined;
+    this.slots = options.sparse
+      ? []
+      : new Array<TileSlot | undefined>(columns * rows);
   }
 
   private index(column: number, row: number): number {
     if (
       !Number.isInteger(column) ||
       !Number.isInteger(row) ||
-      column < 0 ||
-      row < 0 ||
-      column >= this.columns ||
-      row >= this.rows
+      column < this.originColumn ||
+      row < this.originRow ||
+      column >= this.originColumn + this.columns ||
+      row >= this.originRow + this.rows
     )
       throw new RangeError('Tile coordinates are outside the grid.');
-    return row * this.columns + column;
+    return (row - this.originRow) * this.columns + column - this.originColumn;
   }
 
   getTile(column: number, row: number): Tile {
-    return this.slots[this.index(column, row)]?.tile ?? emptyTile;
+    const index = this.index(column, row);
+    return (
+      (this.sparseSlots?.get(index) ?? this.slots[index])?.tile ?? emptyTile
+    );
+  }
+
+  protected tileSprite(column: number, row: number): Sprite | undefined {
+    const index = this.index(column, row);
+    return (this.sparseSlots?.get(index) ?? this.slots[index])?.sprite;
   }
 
   /** Validates the entire edit before publishing a new immutable cell snapshot. */
   setTile(column: number, row: number, partial: Partial<Tile>): void {
     if (this.destroyed) throw new Error('Cannot edit a destroyed TileMap.');
     const index = this.index(column, row);
-    const existing = this.slots[index];
+    const existing = this.sparseSlots?.get(index) ?? this.slots[index];
+    if (!existing && this.configuredSlots.length >= world2dLimits.mapCells)
+      throw new RangeError('Configured tiles exceed the cell budget.');
     const previous = existing?.tile ?? emptyTile;
     const candidate = { ...previous, ...partial };
     if (
@@ -203,7 +237,8 @@ export class TileMap extends Group2D {
       throw error;
     }
     slot.tile = tile;
-    this.slots[index] = slot;
+    if (this.sparseSlots) this.sparseSlots.set(index, slot);
+    else this.slots[index] = slot;
     if (!existing) this.configuredSlots.push(slot);
     if (this.scene) this.updateCulling(this.scene.camera2D);
   }
@@ -317,8 +352,8 @@ export class TileMap extends Group2D {
       )
         continue;
       const sprite = slot.sprite;
-      const x = sprite.position.x - (this.isometric ? this.tileWidth / 2 : 0);
-      const y = sprite.position.y;
+      const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
+      const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
       if (
         this.local.x < x ||
         this.local.x >= x + this.tileWidth ||
@@ -337,7 +372,10 @@ export class TileMap extends Group2D {
     }
     return selected < 0
       ? undefined
-      : out.set(selected % this.columns, Math.floor(selected / this.columns));
+      : out.set(
+          (selected % this.columns) + this.originColumn,
+          Math.floor(selected / this.columns) + this.originRow,
+        );
   }
 
   /** Render-time hook: conservative viewport inverse keeps affine/elevated graphics intact. */
@@ -382,8 +420,8 @@ export class TileMap extends Group2D {
     for (const slot of this.configuredSlots) {
       if (!slot.sprite) continue;
       const sprite = slot.sprite;
-      const x = sprite.position.x - (this.isometric ? this.tileWidth / 2 : 0);
-      const y = sprite.position.y;
+      const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
+      const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
       sprite.renderEnabled =
         visible &&
         sprite.visible &&
@@ -408,6 +446,7 @@ export class TileMap extends Group2D {
     } finally {
       this.slots.length = 0;
       this.configuredSlots.length = 0;
+      this.sparseSlots?.clear();
     }
   }
 }

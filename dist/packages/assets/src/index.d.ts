@@ -20,7 +20,7 @@ export type { ResourceKind, ResourceLoadContext, ResourceOwnership, ResourceRequ
 export { loadAssetBundle, parseAssetBundle, selectAssetBundleVariant, } from './asset-bundle.js';
 export type { AssetBundleDescriptor, AssetBundleFile, AssetBundleVariant, AssetBundleCapabilities, AssetBundleLoadOptions, } from './asset-bundle.js';
 export { TiledError, parseTiledMap, parseTiledTileset, } from './tiled-parser.js';
-export type { TiledProperties, TiledObject, TiledLayer, TiledTileset, TiledMapData, } from './tiled-parser.js';
+export type { TiledProperties, TiledObject, TiledLayer, TiledChunk, TiledAnimationFrame, TiledTileset, TiledMapData, } from './tiled-parser.js';
 export { TiledAsset, loadTiledMap } from './tiled-loader.js';
 export type { TiledLoadOptions } from './tiled-loader.js';
 export { NativeWorkerPool, WorkerJobError } from './worker-jobs.js';

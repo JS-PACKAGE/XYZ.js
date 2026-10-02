@@ -1081,7 +1081,11 @@ Scene.createWorldStreaming() 擁有 controller／Game-local ResourcePool leases�
 
 NativeWorkerPool 真執行 trusted native module Worker，不 eval／Blob asset code／main-thread fallback。FIFO slots／queue／bytes／timeout bounded；僅 dispatch 才 transfer detach input，queued abort 不 detach。Running abort／supersede terminate worker；failure 不 silent retry。Worker context.own()／definition release(raw) 回收 failed／unpublished／late envelopes；成功 result 交 caller。Destroy terminate／reject pending。requestBytes 是 declared array storage，不是 JS heap；transfer／copy counters 排除 envelope／browser overhead。publishHeightfieldGeometry() 仍在 main thread 做真 Geometry validate／interleave／copy；publication bytes／time 與 queue／dispatch／compute／awaited time 分开，部署保留 emitted worker modules。
 
-Tiled profile 為 finite orthogonal right-down JSON atlas maps、embedded／external tilesets、八種 GID transform、bounded primitive properties、真 solid-tile／rectangle／circle／convex-polygon collision（含 rotation／sensor）。TiledContent.setGid() 同步 display／collision。Unsupported orientation／infinite chunks／base64／compression／group／image／parallax／animation／template 等欄位精確拒絕，不 silent drop。URL origins／redirects／bytes／atlas dimensions 有界。Content scopes own nodes／colliders／leases；failure／abort／late decode cleanup，external texture borrowed；destroy 先移 collision registration 再 release lease。
+原 P83 finite orthogonal right-down atlas profile 由 P91 擴充：finite／infinite JSON maps、負座標 sparse chunks、可編輯 nested groups、repeat／parallax image layers、atlas animation 與相對 object templates。`parseTiledMap()` 接受陣列與嚴格 uncompressed base64；`TiledLoader` 另做 bounded native gzip／zlib 解壓及 template resolution。Opacity／visibility／offset 沿 group 繼承；animation 由 Scene 管理並隨 lifecycle 暫停。Template cycle／overlapping chunks 明確拒絕。
+
+保留 embedded／external atlas tilesets、八種 GID transform、bounded primitive properties、真 solid-tile／rectangle／circle／convex-polygon collision。`TiledContent.setGid()` 一起更新 display／collision；infinite map 編輯限已匯入 chunk bounding grid。預算包含262144 cells、4096 chunks、128 layers、65536 atlas frames、aggregate8 MiB JSON／32 MiB images。Nonorthogonal／非 right-down、image-collection tilesets、tile／text／polyline／point objects、transparent-color image layers 仍 unsupported，不 silent drop。
+
+URL origins／redirects／decoded bytes／atlas dimensions 保持有界。Content scopes own nodes／colliders／leases；failure／abort／late decode cleanup，external texture borrowed；destroy 先移 collision registration 再 release lease。各 backend 的 native 證據見 [ACCEPTANCE](../ACCEPTANCE.md)，不能從匯入 profile 推論。
 
 ### Analytic particles、timing 與 platform gates（P75／P85／P86）
 

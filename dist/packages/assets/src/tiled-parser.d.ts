@@ -19,7 +19,7 @@ export interface TiledObject {
 export interface TiledLayer {
     id: number;
     name: string;
-    type: 'tilelayer' | 'objectgroup';
+    type: 'tilelayer' | 'objectgroup' | 'group' | 'imagelayer';
     opacity: number;
     visible: boolean;
     x: number;
@@ -27,6 +27,25 @@ export interface TiledLayer {
     properties: TiledProperties;
     data: readonly number[];
     objects: readonly TiledObject[];
+    parentId?: number;
+    parallaxX?: number;
+    parallaxY?: number;
+    image?: string;
+    repeatX?: boolean;
+    repeatY?: boolean;
+    chunks?: readonly TiledChunk[];
+}
+export interface TiledChunk {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    data: readonly number[];
+}
+export interface TiledAnimationFrame {
+    tileid: number;
+    /** Tiled durations are milliseconds. */
+    duration: number;
 }
 export interface TiledTileset {
     firstgid: number;
@@ -42,6 +61,7 @@ export interface TiledTileset {
     spacing: number;
     properties: TiledProperties;
     tiles: ReadonlyMap<number, TiledProperties>;
+    animations?: ReadonlyMap<number, readonly TiledAnimationFrame[]>;
 }
 export interface TiledMapData {
     width: number;
@@ -51,9 +71,15 @@ export interface TiledMapData {
     properties: TiledProperties;
     layers: readonly TiledLayer[];
     tilesets: readonly TiledTileset[];
+    infinite?: boolean;
+    parallaxOriginX?: number;
+    parallaxOriginY?: number;
 }
 type Obj = Record<string, unknown>;
 export declare function tiledRecord(value: unknown, path: string): Obj;
 export declare function parseTiledTileset(value: unknown, firstgid: number, path?: string): TiledTileset;
 export declare function parseTiledMap(value: unknown, tilesets: readonly TiledTileset[]): TiledMapData;
+/** Strict, bounded uint32 little-endian data for the synchronous parser. */
+export declare function decodeTiledBase64(value: string, count: number, path: string): number[];
+export declare function tiledBase64Bytes(value: string, maxBytes: number, path: string): Uint8Array<ArrayBuffer>;
 export {};

@@ -6,6 +6,9 @@ import {
 } from '../../../assets/src/tiled-parser.js';
 import { GameObject } from '../game-object.js';
 import { Group2D } from '../gameplay/group2d.js';
+import { FrameAnimation } from '../gameplay/frame-animation.js';
+import { TilingSprite2D } from '../graphics2d/tiling-sprite2d.js';
+import { Vector2, type Matrix3 } from '../../../math/src/index.js';
 import { SpriteSheet } from '../graphics2d/sprite-sheet.js';
 import { Colliders } from '../physics2d/index.js';
 import { Sprite } from '../sprite.js';
@@ -13,20 +16,15 @@ import { TileMap, type Tile } from './tile-map.js';
 
 /** Editable atlas plane; GID flags are applied after TileMap's normal cell publication. */
 export class TiledTileMap extends TileMap {
+  /** @internal Importer-supplied atlas animation definitions. */
+  tileset?: TiledTileset;
   override setTile(column: number, row: number, partial: Partial<Tile>): void {
     super.setTile(column, row, partial);
     const tile = this.getTile(column, row);
-    let sprite: Sprite | undefined;
-    for (const child of this.children)
-      if (
-        child instanceof Sprite &&
-        child.position.x === column * this.tileWidth &&
-        child.position.y === row * this.tileHeight
-      ) {
-        sprite = child;
-        break;
-      }
-    if (!sprite || tile.frame === undefined) return;
+    const sprite = this.tileSprite(column, row);
+    if (!sprite) return;
+    sprite.animation = undefined;
+    if (tile.frame === undefined) return;
     const gid =
       typeof tile.metadata === 'object' &&
       tile.metadata !== null &&
@@ -50,6 +48,80 @@ export class TiledTileMap extends TileMap {
       ((d ? this.tileWidth : this.tileHeight) / frame.height) *
         (d ? (h ? 1 : -1) : v ? -1 : 1),
     );
+    const animation = this.tileset?.animations?.get(tile.frame);
+    if (animation)
+      new FrameAnimation(
+        sprite,
+        animation.map((frame) => ({
+          source: this.sheet.getFrame(frame.tileid),
+          duration: frame.duration / 1000,
+        })),
+      ).play();
+    if (this.scene) this.updateCulling(this.scene.camera2D);
+  }
+}
+
+/** Camera displacement is composed at matrix consumption, including final camera follow. */
+class TiledLayerGroup extends Group2D {
+  imageSprite?: TilingSprite2D;
+  private readonly corner = new Vector2();
+  constructor(
+    private readonly layer: TiledLayer,
+    private readonly asset: TiledAsset,
+    private readonly parentPX: number,
+    private readonly parentPY: number,
+  ) {
+    super();
+  }
+  override updateWorldMatrix(): Matrix3 {
+    const matrix = super.updateWorldMatrix();
+    const camera = this.scene?.camera2D;
+    if (!camera) return matrix;
+    const e = matrix.elements;
+    e[6] +=
+      (this.parentPX - (this.layer.parallaxX ?? 1)) *
+      (camera.position.x - (this.asset.data.parallaxOriginX ?? 0));
+    e[7] +=
+      (this.parentPY - (this.layer.parallaxY ?? 1)) *
+      (camera.position.y - (this.asset.data.parallaxOriginY ?? 0));
+    const sprite = this.imageSprite;
+    if (sprite) {
+      const det = e[0] * e[4] - e[1] * e[3];
+      if (!Number.isFinite(det) || det === 0) return matrix;
+      let minX = Infinity,
+        minY = Infinity,
+        maxX = -Infinity,
+        maxY = -Infinity;
+      for (let i = 0; i < 4; i++) {
+        camera.screenToWorld(
+          this.corner.set(
+            i & 1 ? camera.viewportWidth : 0,
+            i & 2 ? camera.viewportHeight : 0,
+          ),
+          this.corner,
+        );
+        const x = this.corner.x - e[6],
+          y = this.corner.y - e[7];
+        const lx = (e[4] * x - e[3] * y) / det,
+          ly = (e[0] * y - e[1] * x) / det;
+        minX = Math.min(minX, lx);
+        maxX = Math.max(maxX, lx);
+        minY = Math.min(minY, ly);
+        maxY = Math.max(maxY, ly);
+      }
+      const x = this.layer.repeatX
+        ? Math.floor(minX / sprite.tileWidth) * sprite.tileWidth
+        : 0;
+      const y = this.layer.repeatY
+        ? Math.floor(minY / sprite.tileHeight) * sprite.tileHeight
+        : 0;
+      sprite.position.set(x, y);
+      sprite.resize(
+        this.layer.repeatX ? maxX - x + sprite.tileWidth : sprite.tileWidth,
+        this.layer.repeatY ? maxY - y + sprite.tileHeight : sprite.tileHeight,
+      );
+    }
+    return matrix;
   }
 }
 export class TiledContent extends Group2D {
@@ -64,18 +136,44 @@ export class TiledContent extends Group2D {
       throw new TiledError('asset', 'resource owner has been released');
     try {
       for (const [depth, layer] of asset.data.layers.entries()) {
-        const group = new Group2D();
+        const parentLayer = asset.data.layers.find(
+          (l) => l.id === layer.parentId,
+        );
+        const group = new TiledLayerGroup(
+          layer,
+          asset,
+          parentLayer?.parallaxX ?? 1,
+          parentLayer?.parallaxY ?? 1,
+        );
         group.position.set(layer.x, layer.y);
         group.opacity = layer.opacity;
         group.visible = layer.visible;
         group.zIndex =
           typeof layer.properties.depth === 'number'
             ? layer.properties.depth
-            : depth;
-        this.add(group);
+            : layer.type === 'group'
+              ? 0
+              : depth;
+        (layer.parentId === undefined
+          ? this
+          : this.layers.get(layer.parentId)!
+        ).add(group);
         this.layers.set(layer.id, group);
         if (layer.type === 'tilelayer') {
           const planes = new Map<TiledTileset, TiledTileMap>();
+          const chunks = layer.chunks;
+          const originColumn = chunks?.length
+            ? Math.min(...chunks.map((c) => c.x))
+            : 0;
+          const originRow = chunks?.length
+            ? Math.min(...chunks.map((c) => c.y))
+            : 0;
+          const columns = chunks?.length
+            ? Math.max(...chunks.map((c) => c.x + c.width)) - originColumn
+            : Math.max(1, asset.data.width);
+          const rows = chunks?.length
+            ? Math.max(...chunks.map((c) => c.y + c.height)) - originRow
+            : Math.max(1, asset.data.height);
           for (const ts of asset.data.tilesets) {
             const frames = Array.from({ length: ts.tileCount }, (_, i) => ({
               x: ts.margin + (i % ts.columns) * (ts.tileWidth + ts.spacing),
@@ -86,25 +184,54 @@ export class TiledContent extends Group2D {
               height: ts.tileHeight,
             }));
             const plane = new TiledTileMap({
-              columns: asset.data.width,
-              rows: asset.data.height,
+              columns,
+              rows,
+              originColumn,
+              originRow,
+              sparse: asset.data.infinite === true,
               tileWidth: asset.data.tileWidth,
               tileHeight: asset.data.tileHeight,
               sheet: new SpriteSheet(asset.textures.get(ts)!, frames),
             });
+            plane.tileset = ts;
             group.add(plane);
             planes.set(ts, plane);
           }
           this.tileMaps.set(layer.id, planes);
-          for (let i = 0; i < layer.data.length; i++)
-            if (layer.data[i])
-              this.setGid(
-                layer.id,
-                i % asset.data.width,
-                Math.floor(i / asset.data.width),
-                layer.data[i]!,
-              );
-        } else this.addObjects(group, layer);
+          if (chunks) {
+            for (const chunk of chunks)
+              for (let i = 0; i < chunk.data.length; i++)
+                if (chunk.data[i])
+                  this.setGid(
+                    layer.id,
+                    chunk.x + (i % chunk.width),
+                    chunk.y + Math.floor(i / chunk.width),
+                    chunk.data[i]!,
+                  );
+          } else
+            for (let i = 0; i < layer.data.length; i++)
+              if (layer.data[i])
+                this.setGid(
+                  layer.id,
+                  i % asset.data.width,
+                  Math.floor(i / asset.data.width),
+                  layer.data[i]!,
+                );
+        } else if (layer.type === 'objectgroup') this.addObjects(group, layer);
+        else if (layer.type === 'imagelayer') {
+          const texture = asset.imageTextures.get(layer.id);
+          if (!texture)
+            throw new TiledError(layer.name, 'image layer texture is missing');
+          if (layer.repeatX || layer.repeatY) {
+            group.imageSprite = new TilingSprite2D({
+              texture,
+              anchor: [0, 0],
+              width: texture.width,
+              height: texture.height,
+            });
+            group.add(group.imageSprite);
+          } else group.add(new Sprite({ texture, anchor: [0, 0] }));
+        }
       }
       asset.scope.attach(() => this.destroy());
     } catch (error) {
@@ -163,7 +290,12 @@ export class TiledContent extends Group2D {
       });
     }
     for (const [other, plane] of planes)
-      if (other !== ts) plane.clearTile(column, row);
+      if (
+        other !== ts &&
+        (plane.getTile(column, row).frame !== undefined ||
+          plane.getTile(column, row).solid)
+      )
+        plane.clearTile(column, row);
   }
   override destroy(): void {
     if (this.destroyed) return;

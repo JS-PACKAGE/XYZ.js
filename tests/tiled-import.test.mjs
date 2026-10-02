@@ -85,9 +85,7 @@ describe('finite Tiled import', () => {
     expect(() =>
       parseTiledMap({ ...map, orientation: 'isometric' }, [ts]),
     ).toThrow('map.orientation');
-    expect(() => parseTiledMap({ ...map, infinite: true }, [ts])).toThrow(
-      'map.infinite',
-    );
+    expect(() => parseTiledMap({ ...map, infinite: true }, [ts])).toThrow();
     const bad = globalThis.structuredClone(map);
     bad.layers[0].data[0] = 7;
     expect(() => parseTiledMap(bad, [ts])).toThrow('unresolved GID');

@@ -10,7 +10,8 @@ export declare class TiledAsset {
     readonly data: TiledMapData;
     readonly textures: ReadonlyMap<TiledTileset, Texture2DSource>;
     readonly scope: ResourceScope;
-    constructor(data: TiledMapData, textures: ReadonlyMap<TiledTileset, Texture2DSource>, scope: ResourceScope);
+    readonly imageTextures: ReadonlyMap<number, Texture2DSource>;
+    constructor(data: TiledMapData, textures: ReadonlyMap<TiledTileset, Texture2DSource>, scope: ResourceScope, imageTextures?: ReadonlyMap<number, Texture2DSource>);
     destroy(): void;
 }
 export declare function loadTiledMap(pool: ResourcePool, url: string, options?: TiledLoadOptions): Promise<TiledAsset>;
