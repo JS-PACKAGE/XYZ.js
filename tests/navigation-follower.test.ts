@@ -161,4 +161,54 @@ describe('physics character graph following', () => {
       graph.destroy();
     }
   });
+
+  it('follows authored waypoints above grounded skin without hiding a real wall', () => {
+    const { scene, object, character, obstacle } = characterWithObstacle();
+    const floor = new Object3D();
+    floor.collider = new BoxCollider3D(new Vector3(8, 0.25, 2));
+    floor.position.set(2, 0, 0);
+    scene.add(floor);
+    scene.remove(obstacle);
+    const graph = new NavigationGraph3D({
+      nodes: [
+        { id: 'start', position: new Vector3(0, 1, 0) },
+        { id: 'goal', position: new Vector3(4, 1, 0) },
+      ],
+      connections: [{ from: 'start', to: 'goal', cost: 4 }],
+    });
+    const follower = new PathFollower3D(character, { speed: 2 });
+    const advance = () => {
+      for (let tick = 0; tick < 100 && follower.state === 'following'; tick++)
+        follower.update(0.05);
+    };
+    try {
+      object.position.y = 1 + character.skin;
+      character.move(new Vector3(0, -0.1, 0));
+      expect(character.grounded).toBe(true);
+      expect(object.position.y).toBeGreaterThan(1);
+      follower.setPath(graph.findPath('start', 'goal'));
+      advance();
+      expect(follower.state).toBe('finished');
+      expect(object.position.x).toBeCloseTo(4);
+      expect(character.grounded).toBe(true);
+
+      scene.add(obstacle);
+      follower.setPath(graph.findPath('goal', 'start'));
+      advance();
+      expect(follower.state).toBe('blocked');
+      expect(object.position.x).toBeGreaterThan(2.7);
+      expect(object.position.x).toBeLessThan(2.9);
+      scene.remove(obstacle);
+      follower.resume();
+      advance();
+      expect(follower.state).toBe('finished');
+      expect(object.position.x).toBeCloseTo(0);
+    } finally {
+      follower.destroy();
+      character.destroy();
+      scene.destroy();
+      obstacle.destroy();
+      graph.destroy();
+    }
+  });
 });

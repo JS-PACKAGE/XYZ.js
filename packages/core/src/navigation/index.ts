@@ -15,6 +15,8 @@ export type {
   NavigationGraphPath3D,
   NavigationGraphSearchOptions3D,
   NavigationConnectionEdit3D,
+  NavigationProjectionOptions3D,
+  NavigationProjection3D,
 } from './graph.js';
 export { PathFollower3D, NavigationFollower3D } from './follower.js';
 export type {
@@ -22,6 +24,7 @@ export type {
   PathFollowerOptions3D,
   NavigationFollowerOptions3D,
   NavigationRoute3D,
+  NavigationLinkTraversal3D,
 } from './follower.js';
 export { NavigationSearchJob } from './jobs.js';
 export type { NavigationSearchStatus } from './jobs.js';
@@ -42,4 +45,5 @@ export type {
   NavigationLatticeOptions,
   NavigationGridBakeOptions2D,
   NavigationSurfaceBakeOptions3D,
+  NavigationSurfaceLink3D,
 } from './bake.js';

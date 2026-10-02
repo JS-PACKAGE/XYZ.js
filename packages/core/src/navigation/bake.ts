@@ -48,10 +48,20 @@ export interface NavigationSurfaceBakeOptions3D extends NavigationLatticeOptions
   readonly agentHeight: number;
   readonly maxSlopeAngle?: number;
   readonly stepHeight?: number;
+  /** Fixed slots per XZ cell, descending support height. Overflow fails rather than dropping floors. */
+  readonly maxLayers?: number;
+  /** Interior support samples per edge; finite sampled lattice, not a polygon navmesh. */
+  readonly supportSamples?: number;
+  /** Explicit elevator/ladder/teleport links; execution requires a follower traversal handler. */
+  readonly links?: readonly NavigationSurfaceLink3D[];
   readonly query?: PhysicsQueryOptions3D;
   readonly target?: NavigationGraph3D;
   /** Additional authored geometry revision, alongside the physics world revision. */
   readonly geometryRevision?: () => number;
+}
+export interface NavigationSurfaceLink3D extends NavigationConnection3D {
+  readonly kind: 'special';
+  readonly linkId: string;
 }
 
 /** Mapping uses cell centers and snapshots its transform; caller owns the returned vector. */
@@ -125,8 +135,16 @@ export class NavigationLatticeMapping {
       ? { column, row }
       : undefined;
   }
-  nodeId(column: number, row: number): string {
-    return `${column}:${row}`;
+  nodeId(column: number, row: number, layer = 0): string {
+    if (
+      !Number.isInteger(layer) ||
+      layer < 0 ||
+      layer >= navigationLimits.maxSurfaceLayers
+    )
+      throw new RangeError(
+        'Navigation surface layer exceeds its bounded slot profile.',
+      );
+    return layer === 0 ? `${column}:${row}` : `${column}:${row}:${layer}`;
   }
 }
 
@@ -269,17 +287,23 @@ export class NavigationGridBakeJob2D {
   }
 }
 
-/** Finite single-layer sampled surface graph, not a polygon navmesh. Each work unit is one public physics query. */
+/** Multi-surface finite lattice. One public query/candidate transition per work unit;
+ * graph publication occurs only after all samples, clearance, support and sweeps complete.
+ * Slots are descending surfaces in each cell, not global storeys or a polygon navmesh.
+ */
 export class NavigationSurfaceBakeJob3D {
   readonly mapping: NavigationLatticeMapping;
+  readonly maxLayers: number;
   private state: NavigationSearchStatus = 'pending';
   private count = 0;
   private cursor = 0;
-  private phase = 0;
+  private layer = -1;
   private edgeCursor = 0;
   private edgePhase = 0;
+  private linkCursor = 0;
   private readonly nodes: NavigationNode3D[] = [];
   private readonly connections: NavigationConnection3D[] = [];
+  private readonly feet: number[] = [];
   private readonly probe = new Object3D();
   private readonly shape: CapsuleCollider3D;
   private readonly point = new Vector2();
@@ -289,6 +313,7 @@ export class NavigationSurfaceBakeJob3D {
   private readonly slope: number;
   private readonly stepHeight: number;
   private readonly offset: number;
+  private readonly supportSamples: number;
   private readonly query: PhysicsQueryOptions3D;
   private readonly revision: number | undefined;
   private readonly worldRevision: number;
@@ -304,33 +329,41 @@ export class NavigationSurfaceBakeJob3D {
         options.origin &&
         new Vector3(options.origin.x, options.origin.y, options.origin.z),
       query: { ...options.query },
+      links: options.links?.map((link) => ({ ...link })),
     };
     this.mapping = new NavigationLatticeMapping(
       options,
       options.origin?.x,
       options.origin?.z,
     );
-    const size = options.columns * options.rows;
+    this.maxLayers = options.maxLayers ?? navigationLimits.surfaceLayers;
+    this.supportSamples =
+      options.supportSamples ?? navigationLimits.supportSamples;
     this.slope = options.maxSlopeAngle ?? Math.PI / 4;
     this.stepHeight = options.stepHeight ?? 0;
+    const size = options.columns * options.rows * this.maxLayers;
     if (
+      !Number.isSafeInteger(this.maxLayers) ||
+      this.maxLayers < 1 ||
+      this.maxLayers > navigationLimits.maxSurfaceLayers ||
+      !Number.isSafeInteger(this.supportSamples) ||
+      this.supportSamples < 1 ||
+      this.supportSamples > navigationLimits.maxSupportSamples ||
       size > navigationLimits.graphNodes ||
       !Number.isFinite(options.minY) ||
       !Number.isFinite(options.maxY) ||
       options.maxY <= options.minY ||
-      Math.max(Math.abs(options.minY), Math.abs(options.maxY)) +
-        options.agentHeight >
-        navigationLimits.coordinateExtent ||
       !Number.isFinite(options.agentHeight) ||
       options.agentHeight < 2 * options.agentRadius ||
       !Number.isFinite(this.slope) ||
       this.slope < 0 ||
       this.slope >= Math.PI / 2 ||
       !Number.isFinite(this.stepHeight) ||
-      this.stepHeight < 0
+      this.stepHeight < 0 ||
+      (options.links?.length ?? 0) > navigationLimits.graphConnections
     )
       throw new RangeError(
-        'Invalid finite surface bake bounds or agent profile.',
+        'Invalid bounded multi-surface lattice or agent profile.',
       );
     this.shape = new CapsuleCollider3D(
       options.agentRadius,
@@ -341,11 +374,12 @@ export class NavigationSurfaceBakeJob3D {
     if (
       Math.max(Math.abs(options.minY), Math.abs(options.maxY)) +
         this.offset +
-        options.agentRadius * (1 / Math.cos(this.slope) - 1) >
+        options.agentRadius * (1 / Math.cos(this.slope) - 1) +
+        this.stepHeight >
       navigationLimits.coordinateExtent
     )
       throw new RangeError(
-        'Surface agent slope clearance exceeds coordinate bounds.',
+        'Surface agent clearance exceeds coordinate bounds.',
       );
     this.query = { ...options.query };
     this.revision = options.target?.revision;
@@ -354,16 +388,30 @@ export class NavigationSurfaceBakeJob3D {
     if (
       options.target &&
       (options.target.nodes.length !== size ||
-        options.target.nodes.some(
-          (node, index) =>
+        options.target.nodes.some((node, index) => {
+          const cell = Math.floor(index / this.maxLayers);
+          return (
             node.id !==
             this.mapping.nodeId(
-              index % options.columns,
-              Math.floor(index / options.columns),
-            ),
-        ))
+              cell % options.columns,
+              Math.floor(cell / options.columns),
+              index % this.maxLayers,
+            )
+          );
+        }))
     )
-      throw new RangeError('Surface rebake must preserve lattice IDs.');
+      throw new RangeError(
+        'Surface rebake must preserve lattice dimensions and layer slots.',
+      );
+    // Preflight explicit links before performing any geometry work.
+    if (
+      this.options.links?.some(
+        (link) => link.kind !== 'special' || !link.linkId,
+      )
+    )
+      throw new RangeError(
+        'Surface connectors must be explicit named special links.',
+      );
   }
   get status(): NavigationSearchStatus {
     return this.state;
@@ -377,181 +425,43 @@ export class NavigationSurfaceBakeJob3D {
   step(budget: number): NavigationSearchStatus {
     validateBudget(budget);
     if (this.state !== 'pending') return this.state;
-    if (
-      this.world.geometryRevision !== this.worldRevision ||
-      this.options.geometryRevision?.() !== this.sourceRevision ||
-      (this.options.target &&
-        (this.options.target.destroyed ||
-          this.options.target.revision !== this.revision))
-    ) {
+    if (this.stale()) {
       this.state = 'invalidated';
       this.release();
       return this.state;
     }
-    const size = this.mapping.columns * this.mapping.rows;
-    for (let work = 0; work < budget && this.state === 'pending'; work++) {
-      if (this.cursor < size) {
-        if (this.phase === 0) {
-          const column = this.cursor % this.mapping.columns,
-            row = Math.floor(this.cursor / this.mapping.columns);
-          this.mapping.cellToWorld(column, row, this.point);
-          this.ray.set(this.point.x, this.options.maxY, this.point.y);
-          const hit = this.world.raycast(
-            this.ray,
-            this.down,
-            this.options.maxY - this.options.minY,
-            this.query,
-          );
-          const walkable =
-            hit !== undefined && hit.normal.y >= Math.cos(this.slope);
-          // A sphere tangent to a slope needs radius / normal.y of vertical clearance.
-          const supportOffset =
-            this.offset +
-            (walkable ? this.options.agentRadius * (1 / hit!.normal.y - 1) : 0);
-          const position = new Vector3(
-            this.point.x,
-            (hit?.point.y ?? this.options.minY) + supportOffset,
-            this.point.y,
-          );
-          this.nodes.push({
-            id: this.mapping.nodeId(column, row),
-            position,
-            walkable,
-          });
-          if (walkable) this.phase = 1;
-          else this.cursor++;
+    const cells = this.mapping.columns * this.mapping.rows;
+    try {
+      for (let work = 0; work < budget && this.state === 'pending'; work++) {
+        if (this.cursor < cells) this.sampleCell();
+        else if (this.edgeCursor < this.nodes.length * 2 * this.maxLayers)
+          this.sampleEdge();
+        else if (this.linkCursor < (this.options.links?.length ?? 0)) {
+          if (this.connections.length === navigationLimits.graphConnections)
+            throw new RangeError('Surface connection limit exceeded.');
+          this.connections.push(this.options.links![this.linkCursor++]!);
         } else {
-          const node = this.nodes[this.cursor]!;
-          this.probe.position.copy(node.position);
-          if (this.world.overlap(this.shape, this.probe, this.query).length > 0)
-            this.nodes[this.cursor] = { ...node, walkable: false };
-          this.phase = 0;
-          this.cursor++;
-        }
-      } else if (this.edgeCursor < size * 2) {
-        const fromIndex = Math.floor(this.edgeCursor / 2),
-          horizontal = this.edgeCursor % 2 === 0;
-        const valid = horizontal
-          ? (fromIndex % this.mapping.columns) + 1 < this.mapping.columns
-          : fromIndex + this.mapping.columns < size;
-        const a = this.nodes[fromIndex]!,
-          b = this.nodes[fromIndex + (horizontal ? 1 : this.mapping.columns)];
-        const rise =
-          valid && b ? Math.abs(a.position.y - b.position.y) : Infinity;
-        if (
-          !valid ||
-          !b ||
-          !a.walkable ||
-          !b.walkable ||
-          rise >
-            Math.max(
-              this.stepHeight,
-              Math.tan(this.slope) * this.mapping.cellSize,
-            )
-        ) {
-          this.edgeCursor++;
-          this.edgePhase = 0;
-          this.count++;
-          continue;
-        }
-        const raised =
-          Math.max(a.position.y, b.position.y) + navigationLimits.bakeSkin;
-        let clear: boolean;
-        if (this.edgePhase === 0) {
-          this.ray.set(
-            (a.position.x + b.position.x) / 2,
-            this.options.maxY,
-            (a.position.z + b.position.z) / 2,
-          );
-          const hit = this.world.raycast(
-            this.ray,
-            this.down,
-            this.options.maxY - this.options.minY,
-            this.query,
-          );
-          clear =
-            hit !== undefined &&
-            hit.normal.y >= Math.cos(this.slope) &&
-            Math.abs(
-              hit.point.y +
-                this.offset +
-                this.options.agentRadius * (1 / hit.normal.y - 1) -
-                (a.position.y + b.position.y) / 2,
-            ) <=
-              this.stepHeight + navigationLimits.bakeSkin;
-        } else if (this.edgePhase < 3) {
-          const node = this.edgePhase === 1 ? a : b;
-          this.probe.position.copy(node.position);
-          this.motion.set(0, raised - node.position.y, 0);
-          const hit = this.world.sweepCapsule(
-            this.probe,
-            this.motion,
-            this.query,
-          );
-          clear =
-            !hit ||
-            hit.distance >= this.motion.length() - navigationLimits.bakeSkin;
-        } else {
-          this.probe.position.set(a.position.x, raised, a.position.z);
-          this.motion.set(
-            b.position.x - a.position.x,
-            0,
-            b.position.z - a.position.z,
-          );
-          const hit = this.world.sweepCapsule(
-            this.probe,
-            this.motion,
-            this.query,
-          );
-          clear =
-            !hit ||
-            hit.distance >= this.motion.length() - navigationLimits.bakeSkin;
-        }
-        if (!clear) {
-          this.edgeCursor++;
-          this.edgePhase = 0;
-        } else if (++this.edgePhase === 4) {
-          this.connections.push({
-            from: a.id,
-            to: b.id,
-            cost: Math.hypot(
-              b.position.x - a.position.x,
-              b.position.y - a.position.y,
-              b.position.z - a.position.z,
-            ),
-            clearance: this.options.agentRadius,
-          });
-          this.edgeCursor++;
-          this.edgePhase = 0;
-        }
-      } else {
-        if (
-          this.world.geometryRevision !== this.worldRevision ||
-          this.options.geometryRevision?.() !== this.sourceRevision ||
-          (this.options.target &&
-            (this.options.target.destroyed ||
-              this.options.target.revision !== this.revision))
-        ) {
-          this.state = 'invalidated';
+          if (this.stale()) {
+            this.state = 'invalidated';
+            this.release();
+            return this.state;
+          }
+          const geometry = { nodes: this.nodes, connections: this.connections };
+          if (this.options.target) {
+            this.options.target.replaceGeometry(geometry);
+            this.value = this.options.target;
+          } else this.value = new NavigationGraph3D(geometry);
+          this.state = 'found';
           this.release();
-          return this.state;
         }
-        const geometry = { nodes: this.nodes, connections: this.connections };
-        if (this.options.target) {
-          this.options.target.replaceGeometry(geometry);
-          this.value = this.options.target;
-        } else this.value = new NavigationGraph3D(geometry);
-        this.state = 'found';
-        this.release();
+        this.count++;
       }
-      this.count++;
+    } catch (error) {
+      this.state = 'cancelled';
+      this.release();
+      throw error;
     }
-    if (
-      this.state === 'pending' &&
-      (this.world.geometryRevision !== this.worldRevision ||
-        this.options.geometryRevision?.() !== this.sourceRevision ||
-        (this.options.target && this.options.target.revision !== this.revision))
-    ) {
+    if (this.state === 'pending' && this.stale()) {
       this.state = 'invalidated';
       this.release();
     }
@@ -562,8 +472,185 @@ export class NavigationSurfaceBakeJob3D {
     this.state = 'cancelled';
     this.release();
   }
+  private stale(): boolean {
+    return (
+      this.world.geometryRevision !== this.worldRevision ||
+      this.options.geometryRevision?.() !== this.sourceRevision ||
+      !!(
+        this.options.target &&
+        (this.options.target.destroyed ||
+          this.options.target.revision !== this.revision)
+      )
+    );
+  }
+  private sampleCell(): void {
+    const column = this.cursor % this.mapping.columns,
+      row = Math.floor(this.cursor / this.mapping.columns);
+    const base = this.cursor * this.maxLayers;
+    if (this.layer < 0) {
+      this.mapping.cellToWorld(column, row, this.point);
+      this.ray.set(this.point.x, this.options.maxY, this.point.y);
+      const hits = this.world.raycastAll(
+        this.ray,
+        this.down,
+        this.options.maxY - this.options.minY,
+        this.query,
+      );
+      let layers = 0,
+        previous = Infinity;
+      for (const hit of hits) {
+        if (
+          hit.normal.y < Math.cos(this.slope) ||
+          previous - hit.point.y <= navigationLimits.bakeSkin
+        )
+          continue;
+        if (layers === this.maxLayers)
+          throw new RangeError(
+            'Surface layer slot limit exceeded; increase maxLayers or narrow bounds.',
+          );
+        const offset =
+          this.offset + this.options.agentRadius * (1 / hit.normal.y - 1);
+        this.nodes.push({
+          id: this.mapping.nodeId(column, row, layers++),
+          position: new Vector3(
+            this.point.x,
+            hit.point.y + offset,
+            this.point.y,
+          ),
+          walkable: true,
+          clearance: this.options.agentRadius,
+          surfaceY: hit.point.y,
+        });
+        this.feet.push(hit.point.y);
+        previous = hit.point.y;
+      }
+      for (; layers < this.maxLayers; layers++) {
+        this.nodes.push({
+          id: this.mapping.nodeId(column, row, layers),
+          position: new Vector3(
+            this.point.x,
+            this.options.minY + this.offset,
+            this.point.y,
+          ),
+          walkable: false,
+          clearance: 0,
+        });
+        this.feet.push(this.options.minY);
+      }
+      this.layer = 0;
+    } else {
+      const index = base + this.layer,
+        node = this.nodes[index]!;
+      if (node.walkable) {
+        this.probe.position.copy(node.position);
+        if (this.world.overlap(this.shape, this.probe, this.query).length > 0)
+          this.nodes[index] = { ...node, walkable: false };
+      }
+      if (++this.layer === this.maxLayers) {
+        this.layer = -1;
+        this.cursor++;
+      }
+    }
+  }
+  private sampleEdge(): void {
+    const fromIndex = Math.floor(this.edgeCursor / (2 * this.maxLayers));
+    const lane = Math.floor(this.edgeCursor / this.maxLayers) % 2;
+    const targetLayer = this.edgeCursor % this.maxLayers;
+    const cell = Math.floor(fromIndex / this.maxLayers);
+    const valid =
+      lane === 0
+        ? (cell % this.mapping.columns) + 1 < this.mapping.columns
+        : cell + this.mapping.columns <
+          this.mapping.columns * this.mapping.rows;
+    const toIndex =
+      (cell + (lane === 0 ? 1 : this.mapping.columns)) * this.maxLayers +
+      targetLayer;
+    const a = this.nodes[fromIndex]!,
+      b = this.nodes[toIndex];
+    const rise = b
+      ? Math.abs(this.feet[fromIndex]! - this.feet[toIndex]!)
+      : Infinity;
+    if (
+      !valid ||
+      !b ||
+      !a.walkable ||
+      !b.walkable ||
+      rise >
+        Math.max(
+          this.stepHeight,
+          Math.tan(this.slope) * this.mapping.cellSize,
+        ) +
+          navigationLimits.bakeSkin
+    ) {
+      this.nextEdge();
+      return;
+    }
+    const raised =
+      Math.max(a.position.y, b.position.y) + navigationLimits.bakeSkin;
+    let clear: boolean;
+    if (this.edgePhase < this.supportSamples) {
+      const t = (this.edgePhase + 1) / (this.supportSamples + 1);
+      const expected =
+        this.feet[fromIndex]! +
+        (this.feet[toIndex]! - this.feet[fromIndex]!) * t;
+      const allowance = this.stepHeight + navigationLimits.bakeSkin;
+      this.ray.set(
+        a.position.x + (b.position.x - a.position.x) * t,
+        expected + allowance,
+        a.position.z + (b.position.z - a.position.z) * t,
+      );
+      const hit = this.world.raycast(
+        this.ray,
+        this.down,
+        allowance * 2,
+        this.query,
+      );
+      clear =
+        !!hit &&
+        hit.normal.y >= Math.cos(this.slope) &&
+        Math.abs(hit.point.y - expected) <= allowance;
+    } else {
+      const phase = this.edgePhase - this.supportSamples;
+      if (phase < 2) {
+        const node = phase === 0 ? a : b;
+        this.probe.position.copy(node.position);
+        this.motion.set(0, raised - node.position.y, 0);
+      } else {
+        this.probe.position.set(a.position.x, raised, a.position.z);
+        this.motion.set(
+          b.position.x - a.position.x,
+          0,
+          b.position.z - a.position.z,
+        );
+      }
+      const hit = this.world.sweepCapsule(this.probe, this.motion, this.query);
+      clear =
+        !hit ||
+        hit.distance >= this.motion.length() - navigationLimits.bakeSkin;
+    }
+    if (!clear) this.nextEdge();
+    else if (++this.edgePhase === this.supportSamples + 3) {
+      if (this.connections.length === navigationLimits.graphConnections)
+        throw new RangeError('Surface connection limit exceeded.');
+      this.connections.push({
+        from: a.id,
+        to: b.id,
+        cost: Math.hypot(
+          b.position.x - a.position.x,
+          b.position.y - a.position.y,
+          b.position.z - a.position.z,
+        ),
+        clearance: this.options.agentRadius,
+      });
+      this.nextEdge();
+    }
+  }
+  private nextEdge(): void {
+    this.edgeCursor++;
+    this.edgePhase = 0;
+  }
   private release(): void {
-    this.nodes.length = this.connections.length = 0;
+    this.nodes.length = this.connections.length = this.feet.length = 0;
     this.probe.destroy();
   }
 }

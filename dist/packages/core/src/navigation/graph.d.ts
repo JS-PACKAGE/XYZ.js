@@ -5,6 +5,10 @@ export interface NavigationNode3D {
     readonly id: string;
     readonly position: Readonly<Vector3>;
     readonly walkable?: boolean;
+    /** Maximum certified radius; omitted on authored nodes means unconstrained. */
+    readonly clearance?: number;
+    /** Baked support height. Surface followers let the capsule controller climb steps rather than fly. */
+    readonly surfaceY?: number;
 }
 export interface NavigationConnection3D {
     readonly from: string;
@@ -16,6 +20,9 @@ export interface NavigationConnection3D {
     readonly enabled?: boolean;
     /** Authored maximum agent radius in world units; omitted means unconstrained. */
     readonly clearance?: number;
+    /** Special links require an explicit follower traversal handler, never straight-line movement. */
+    readonly kind?: 'walk' | 'special';
+    readonly linkId?: string;
 }
 export interface NavigationGraphOptions3D {
     readonly nodes: readonly NavigationNode3D[];
@@ -35,6 +42,17 @@ export interface NavigationGraphPath3D {
     readonly status: 'found' | 'unreachable';
     readonly nodes: readonly NavigationNode3D[];
     readonly cost: number;
+    readonly revision: number;
+}
+export interface NavigationProjectionOptions3D {
+    readonly maxDistance: number;
+    /** Prevents selecting a bridge deck when projecting a character underneath it. */
+    readonly maxVerticalDistance: number;
+    readonly agentRadius?: number;
+}
+export interface NavigationProjection3D {
+    readonly node: NavigationNode3D;
+    readonly distance: number;
     readonly revision: number;
 }
 /** Authored waypoint graph with revisioned connection state, not an automatic navmesh. */
@@ -63,6 +81,8 @@ export declare class NavigationGraph3D {
     /** Atomic edits. Undirected connection state affects both directions. */
     setConnections(edits: readonly NavigationConnectionEdit3D[]): void;
     getNode(id: string): NavigationNode3D;
+    /** Bounded nearest certified node, not arbitrary navmesh/geometry projection. */
+    project(position: Readonly<Vector3>, options: NavigationProjectionOptions3D): NavigationProjection3D | undefined;
     findPath(start: string, goal: string, options?: NavigationGraphSearchOptions3D): NavigationGraphPath3D;
     createSearch(start: string, goal: string, options?: NavigationGraphSearchOptions3D): NavigationSearchJob<NavigationGraphPath3D>;
     destroy(): void;

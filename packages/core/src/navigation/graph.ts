@@ -10,6 +10,10 @@ export interface NavigationNode3D {
   readonly id: string;
   readonly position: Readonly<Vector3>;
   readonly walkable?: boolean;
+  /** Maximum certified radius; omitted on authored nodes means unconstrained. */
+  readonly clearance?: number;
+  /** Baked support height. Surface followers let the capsule controller climb steps rather than fly. */
+  readonly surfaceY?: number;
 }
 export interface NavigationConnection3D {
   readonly from: string;
@@ -21,6 +25,9 @@ export interface NavigationConnection3D {
   readonly enabled?: boolean;
   /** Authored maximum agent radius in world units; omitted means unconstrained. */
   readonly clearance?: number;
+  /** Special links require an explicit follower traversal handler, never straight-line movement. */
+  readonly kind?: 'walk' | 'special';
+  readonly linkId?: string;
 }
 export interface NavigationGraphOptions3D {
   readonly nodes: readonly NavigationNode3D[];
@@ -40,6 +47,17 @@ export interface NavigationGraphPath3D {
   readonly status: 'found' | 'unreachable';
   readonly nodes: readonly NavigationNode3D[];
   readonly cost: number;
+  readonly revision: number;
+}
+export interface NavigationProjectionOptions3D {
+  readonly maxDistance: number;
+  /** Prevents selecting a bridge deck when projecting a character underneath it. */
+  readonly maxVerticalDistance: number;
+  readonly agentRadius?: number;
+}
+export interface NavigationProjection3D {
+  readonly node: NavigationNode3D;
+  readonly distance: number;
   readonly revision: number;
 }
 interface Edge {
@@ -73,6 +91,20 @@ export class NavigationGraph3D {
     for (const node of options.nodes) {
       if (node.walkable !== undefined && typeof node.walkable !== 'boolean')
         throw new RangeError('Navigation node walkability must be boolean.');
+      const clearance = node.clearance ?? Infinity;
+      if (!(
+        clearance === Infinity ||
+        (Number.isFinite(clearance) &&
+          clearance >= 0 &&
+          clearance <= navigationLimits.coordinateExtent)
+      ))
+        throw new RangeError('Invalid navigation node clearance.');
+      if (
+        node.surfaceY !== undefined &&
+        (!Number.isFinite(node.surfaceY) ||
+          Math.abs(node.surfaceY) > navigationLimits.coordinateExtent)
+      )
+        throw new RangeError('Invalid sampled support height.');
       if (
         typeof node.id !== 'string' ||
         node.id.length === 0 ||
@@ -99,6 +131,8 @@ export class NavigationGraph3D {
           id: node.id,
           position: Object.freeze(new Vector3(x, y, z)),
           walkable: node.walkable ?? true,
+          clearance,
+          surfaceY: node.surfaceY,
         }),
       );
     }
@@ -114,10 +148,18 @@ export class NavigationGraph3D {
       const directed = connection.directed ?? false;
       const enabled = connection.enabled ?? true;
       const clearance = connection.clearance ?? Infinity;
+      const kind = connection.kind ?? 'walk';
+      const linkId = connection.linkId;
       if (
         from === undefined ||
         to === undefined ||
         from === to ||
+        (kind !== 'walk' && kind !== 'special') ||
+        (kind === 'special' &&
+          (typeof linkId !== 'string' ||
+            linkId.length === 0 ||
+            linkId.length > navigationLimits.nodeIdLength)) ||
+        (kind === 'walk' && linkId !== undefined) ||
         typeof directed !== 'boolean' ||
         typeof enabled !== 'boolean' ||
         !(
@@ -165,6 +207,8 @@ export class NavigationGraph3D {
           directed,
           enabled,
           clearance,
+          kind,
+          linkId,
         }),
       );
     }
@@ -326,6 +370,57 @@ export class NavigationGraph3D {
     if (index === undefined) throw new RangeError('Unknown navigation node.');
     return this.nodes[index]!;
   }
+  /** Bounded nearest certified node, not arbitrary navmesh/geometry projection. */
+  project(
+    position: Readonly<Vector3>,
+    options: NavigationProjectionOptions3D,
+  ): NavigationProjection3D | undefined {
+    if (this.disposed) throw new Error('Navigation graph is destroyed.');
+    const radius = options.agentRadius ?? 0;
+    if (
+      ![
+        position.x,
+        position.y,
+        position.z,
+        options.maxDistance,
+        options.maxVerticalDistance,
+        radius,
+      ].every(
+        (value) =>
+          Number.isFinite(value) &&
+          Math.abs(value) <= navigationLimits.coordinateExtent,
+      ) ||
+      options.maxDistance < 0 ||
+      options.maxVerticalDistance < 0 ||
+      radius < 0
+    )
+      throw new RangeError(
+        'Projection requires explicit finite distance bounds and agent radius.',
+      );
+    let nearest: NavigationNode3D | undefined,
+      distance = options.maxDistance;
+    for (const node of this.nodes) {
+      if (
+        !node.walkable ||
+        node.clearance! < radius ||
+        Math.abs(node.position.y - position.y) > options.maxVerticalDistance
+      )
+        continue;
+      const candidate = Math.hypot(
+        node.position.x - position.x,
+        node.position.y - position.y,
+        node.position.z - position.z,
+      );
+      if (candidate < distance || (candidate === distance && !nearest)) {
+        nearest = node;
+        distance = candidate;
+      }
+    }
+    return (
+      nearest &&
+      Object.freeze({ node: nearest, distance, revision: this.revision })
+    );
+  }
 
   findPath(
     start: string,
@@ -370,7 +465,13 @@ export class NavigationGraph3D {
     const revision = this.currentRevision;
     const target = this.nodes[to]!.position;
     return this.searches.create({
-      from: this.nodes[from]!.walkable && this.nodes[to]!.walkable ? from : -1,
+      from:
+        this.nodes[from]!.walkable &&
+        this.nodes[to]!.walkable &&
+        this.nodes[from]!.clearance! >= radius &&
+        this.nodes[to]!.clearance! >= radius
+          ? from
+          : -1,
       to,
       estimate: (node) => this.heuristic(node, target),
       expand: (current, search) => {
@@ -379,6 +480,7 @@ export class NavigationGraph3D {
           if (
             !connection.enabled ||
             !this.nodes[edge.to]!.walkable ||
+            this.nodes[edge.to]!.clearance! < radius ||
             connection.clearance! < radius ||
             excluded.has(edge.connection)
           )

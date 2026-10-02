@@ -74,6 +74,14 @@ try {
       this.box([0, -0.25, 0], [18, 0.5, 12], [0.15, 0.2, 0.27], true);
       this.box([-1.5, 1, -1.5], [1, 2, 7], [0.85, 0.55, 0.18], true);
       this.box([2.5, 1, 2], [1, 2, 6], [0.85, 0.55, 0.18], true);
+      this.box([0, 2.3, 0.5], [8, 0.2, 3], [0.3, 0.38, 0.52], true);
+      for (let step = 1; step <= 3; step++)
+        this.box(
+          [-7.5 + step, step * 0.3, 0.5],
+          [1, step * 0.6, 1],
+          [0.5, 0.55, 0.65],
+          true,
+        );
       this.bake = this.navigation.scheduleBake(
         new NavigationSurfaceBakeJob3D(this.physics3D, {
           columns: 18,
@@ -81,10 +89,11 @@ try {
           cellSize: 1,
           origin: new Vector3(-9, 0, -6),
           minY: -0.1,
-          maxY: 0.8,
+          maxY: 3,
           agentRadius: 0.2,
           agentHeight: 0.8,
-          stepHeight: 0.1,
+          stepHeight: 0.65,
+          maxLayers: 4,
           query: { mask: 1 },
         }),
       );
@@ -117,16 +126,25 @@ try {
       if (graph && !this.published) {
         this.published = true;
         for (const node of graph.nodes) {
-          if (node.walkable !== false) ++this.walkable;
+          if (node.walkable === false) continue;
+          ++this.walkable;
           this.box(
-            [node.position.x, 0.025, node.position.z],
+            [node.position.x, node.position.y - 0.38, node.position.z],
             [0.72, 0.03, 0.72],
-            node.walkable === false ? [0.65, 0.18, 0.2] : [0.15, 0.45, 0.3],
+            node.position.y > 2 ? [0.3, 0.65, 0.8] : [0.15, 0.45, 0.3],
           );
         }
-        for (let i = 0; i < 12; ++i) {
+        const target = graph.project(
+          new Vector3(0.5, goal.value === 'upper' ? 2.802 : 0.402, 0.5),
+          { maxDistance: 0.2, maxVerticalDistance: 0.1, agentRadius: 0.2 },
+        )?.node;
+        if (!target)
+          throw new Error(
+            'Selected bridge/underpass goal was not baked walkable.',
+          );
+        for (let i = 0; i < 120; ++i) {
           const row = 1 + (i % 10),
-            column = 1 + Math.floor(i / 10);
+            column = 1 + (Math.floor(i / 10) % 2);
           const start = graph.nodes.find(
             (node) => node.id === this.bake.mapping.nodeId(column, row),
           );
@@ -152,6 +170,7 @@ try {
           const controller = new CharacterController3D(agent, this.physics3D, {
             mask: 1,
             groundSnap: 0.1,
+            stepHeight: 0.65,
           });
           const follower = new NavigationFollower3D(controller, {
             speed: 1.6 + i * 0.04,
@@ -163,7 +182,7 @@ try {
           follower.navigate({
             graph,
             start: start.id,
-            goal: this.bake.mapping.nodeId(16, goal.value === 'upper' ? 1 : 10),
+            goal: target.id,
             agentRadius: 0.2,
           });
         }
@@ -172,7 +191,7 @@ try {
       this.peakWork = Math.max(this.peakWork, s.work);
       const states = this.followers.map((follower) => follower.state);
       $('stats').textContent =
-        `Bake: ${this.bake.status} · query work ${this.bake.expansions}\nOccupancy: ${this.walkable} walkable / 216 cells\nAggregate work ${s.work} <= quota ${this.navigation.workBudget} · peak ${this.peakWork}\nBake work ${s.bakeWork} · expansions ${s.expansions} · total work ${s.totalWork}\nPending ${s.queued + s.active} · completed jobs ${s.completed}\nAgents: searching ${states.filter((s) => s === 'searching').length}, moving ${states.filter((s) => s === 'following').length}, arrived ${states.filter((s) => s === 'finished').length}, blocked/unreachable ${states.filter((s) => s === 'blocked' || s === 'unreachable').length}\nObserved update-to-update interval: ${this.observedFrame.toFixed(2)} ms (includes rendering, not a CPU deadline)`;
+        `Bake: ${this.bake.status} · query work ${this.bake.expansions}\nOccupancy: ${this.walkable} walkable surfaces / 216 XZ cells × ${this.bake.maxLayers} layer slots\nAggregate work ${s.work} <= quota ${this.navigation.workBudget} · peak ${this.peakWork}\nBake work ${s.bakeWork} · expansions ${s.expansions} · total work ${s.totalWork}\nPending ${s.queued + s.active} · completed jobs ${s.completed}\nAgents: searching ${states.filter((s) => s === 'searching').length}, moving ${states.filter((s) => s === 'following').length}, arrived ${states.filter((s) => s === 'finished').length}, blocked/unreachable ${states.filter((s) => s === 'blocked' || s === 'unreachable').length}\nObserved update-to-update interval: ${this.observedFrame.toFixed(2)} ms (includes rendering, not a CPU deadline)`;
     }
     override destroy(): void {
       for (const follower of this.followers) follower.destroy();

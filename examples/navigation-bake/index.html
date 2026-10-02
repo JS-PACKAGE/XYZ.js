@@ -44,10 +44,10 @@
     <a href="../">← Example gallery</a>
     <h1>Collision-baked navigation</h1>
     <p>
-      A sampled XZ surface is baked with exact physics queries. Green cells are
-      walkable; red cells are blocked. Twelve capsule agents share one Scene
-      scheduler and take alternate routes around the physical walls. Agents
-      ignore each other, but collide with the scenery.
+      Multiple overlapping XZ surfaces are baked with exact physics queries.
+      Green nodes mark the ground and blue nodes mark the bridge. 120 capsule
+      agents share one Scene scheduler; only supported stairs connect the bridge
+      and underpass. Agents ignore each other but collide with the scenery.
     </p>
     <label
       >Renderer
@@ -55,6 +55,7 @@
         <option value="auto">Auto</option>
         <option value="webgpu">WebGPU</option>
         <option value="webgl2">WebGL2</option>
+        <option value="canvas2d">Canvas2D (no 3D)</option>
       </select></label
     ><label
       >Aggregate work quota
@@ -66,8 +67,8 @@
     ><label
       >Goal
       <select id="goal">
-        <option value="upper">Upper right</option>
-        <option value="lower">Lower right</option>
+        <option value="upper">Bridge deck</option>
+        <option value="lower">Under the bridge</option>
       </select></label
     ><button id="route">Route / reset</button
     ><button id="destroy">Destroy</button
@@ -81,7 +82,7 @@
       Changing quota rebuilds the Scene with a new real scheduler budget and
       rebakes the same geometry. The quota bounds aggregate logical work, not
       milliseconds: CPU timing is an observer, not preemption. This is a finite
-      single-layer sampled surface, not a polygon navmesh.
+      multilayer sampled lattice with explicit bounds, not a polygon navmesh.
     </p>
     <script type="module" src="./main.ts"></script>
   </body>

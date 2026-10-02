@@ -2,7 +2,11 @@ import { Vector3 } from '../../../math/src/math3d.js';
 import { navigationLimits } from '../../../../src/data/navigation.js';
 import type { CharacterController3D } from '../physics3d/character.js';
 import { NavigationGraph3D } from './graph.js';
-import type { NavigationGraphPath3D } from './graph.js';
+import type {
+  NavigationGraphPath3D,
+  NavigationConnection3D,
+  NavigationNode3D,
+} from './graph.js';
 import {
   NavigationScheduler,
   type NavigationScheduledSearch,
@@ -29,8 +33,9 @@ export class PathFollower3D {
   protected nextWaypoint = 0;
   protected currentState: PathFollowerState3D = 'stopped';
   private currentSpeed: number;
-  private readonly arrivalTolerance: number;
+  protected readonly arrivalTolerance: number;
   private readonly displacement = new Vector3();
+  private sampledSurface = false;
 
   constructor(
     controller: CharacterController3D,
@@ -107,6 +112,9 @@ export class PathFollower3D {
       waypoints.push(Object.freeze(new Vector3(x, y, z)));
     }
     this.waypoints = Object.freeze(waypoints);
+    this.sampledSurface = path.nodes.every(
+      (node) => node.surfaceY !== undefined,
+    );
     this.nextWaypoint = 0;
     this.currentState = 'following';
   }
@@ -149,6 +157,7 @@ export class PathFollower3D {
     }
     let budget = deltaSeconds * this.currentSpeed;
     while (this.nextWaypoint < this.waypoints.length) {
+      if (!this.beforeWaypoint(this.nextWaypoint, deltaSeconds)) return;
       const target = this.waypoints[this.nextWaypoint]!;
       const position = character.object.position;
       this.displacement.set(
@@ -156,19 +165,53 @@ export class PathFollower3D {
         target.y - position.y,
         target.z - position.z,
       );
+      const supportSurface =
+        this.sampledSurface || (character.grounded && this.displacement.y <= 0);
+      const verticalTolerance = supportSurface
+        ? character.skin + navigationLimits.bakeSkin
+        : 0;
+      if (
+        supportSurface &&
+        this.displacement.y <= 0 &&
+        Math.abs(this.displacement.y) <= verticalTolerance
+      )
+        this.displacement.y = 0;
       const distance = this.displacement.length();
       if (distance <= this.arrivalTolerance) {
         this.nextWaypoint++;
         continue;
       }
       if (budget <= 0) return;
-      const step = Math.min(distance, budget);
-      this.displacement.scale(step / distance);
+      // Execute the same swept raise-then-traverse corridor certified by the bake.
+      // A partial diagonal step can hit a tread corner before the controller's
+      // grounded step probe has enough horizontal travel to find the next support.
+      if (
+        this.sampledSurface &&
+        this.displacement.y > 0 &&
+        this.displacement.y <= character.stepHeight + character.skin
+      ) {
+        this.displacement.x = this.displacement.z = 0;
+        this.displacement.y += character.skin;
+      }
+      // Descending diagonally enters the old tread before leaving it. Traverse
+      // the already-swept horizontal corridor first, then lower onto the destination.
+      if (
+        this.sampledSurface &&
+        this.displacement.y < 0 &&
+        Math.hypot(this.displacement.x, this.displacement.z) >
+          this.arrivalTolerance
+      )
+        this.displacement.y = 0;
+      const movementDistance = this.displacement.length();
+      const step = Math.min(movementDistance, budget);
+      this.displacement.scale(step / movementDistance);
       const movement = character.move(this.displacement);
       budget = Math.max(0, budget - step);
       const remaining = Math.hypot(
         target.x - position.x,
-        target.y - position.y,
+        supportSurface && Math.abs(target.y - position.y) <= verticalTolerance
+          ? 0
+          : target.y - position.y,
         target.z - position.z,
       );
       if (remaining <= this.arrivalTolerance) {
@@ -200,6 +243,11 @@ export class PathFollower3D {
     this.currentState = 'destroyed';
   }
 
+  /** Navigation special links can suspend ordinary capsule movement at a segment boundary. */
+  protected beforeWaypoint(index: number, deltaSeconds: number): boolean;
+  protected beforeWaypoint(): boolean {
+    return true;
+  }
   protected assertLive(): void {
     if (this.currentState === 'destroyed')
       throw new Error('Path follower is destroyed.');
@@ -213,6 +261,12 @@ export interface NavigationFollowerOptions3D extends PathFollowerOptions3D {
   readonly maxReplans?: number;
   /** Searches share the Scene scheduler by default; movement remains explicitly updated. */
   readonly scheduler?: NavigationScheduler;
+  /** Called once per update while a special link is active. Handler owns actual elevator/ladder
+   * motion; completion is accepted only at the destination. No handler means blocked/replan.
+   */
+  readonly traverseLink?: (
+    context: NavigationLinkTraversal3D,
+  ) => 'pending' | 'complete' | 'blocked';
 }
 export interface NavigationRoute3D {
   readonly graph: NavigationGraph3D;
@@ -220,6 +274,13 @@ export interface NavigationRoute3D {
   readonly start: string;
   readonly goal: string;
   readonly agentRadius: number;
+}
+export interface NavigationLinkTraversal3D {
+  readonly connection: NavigationConnection3D;
+  readonly from: NavigationNode3D;
+  readonly to: NavigationNode3D;
+  readonly controller: CharacterController3D;
+  readonly deltaSeconds: number;
 }
 
 /** Borrowed graph/controller; bounded jobs are owned and cancelled with this follower. */
@@ -237,12 +298,14 @@ export class NavigationFollower3D extends PathFollower3D {
   readonly maxReplans: number;
   readonly scheduler: NavigationScheduler;
   private readonly ownsScheduler: boolean;
+  private readonly traverseLink: NavigationFollowerOptions3D['traverseLink'];
 
   constructor(
     controller: CharacterController3D,
     options: NavigationFollowerOptions3D = {},
   ) {
     super(controller, options);
+    this.traverseLink = options.traverseLink;
     const budget =
       options.expansionBudget ?? navigationLimits.followerExpansions;
     const retries = options.maxReplans ?? navigationLimits.followerReplans;
@@ -419,6 +482,57 @@ export class NavigationFollower3D extends PathFollower3D {
     }
   }
 
+  protected override beforeWaypoint(
+    index: number,
+    deltaSeconds: number,
+  ): boolean {
+    const path = this.path,
+      route = this.route;
+    if (!path || !route || index === 0) return true;
+    const from = path.nodes[index - 1]!,
+      to = path.nodes[index]!;
+    const connectionIndex = route.graph.getConnectionIndex(from.id, to.id);
+    if (connectionIndex === undefined) {
+      this.currentState = 'blocked';
+      return false;
+    }
+    const connection = route.graph.connections[connectionIndex]!;
+    if (connection.kind !== 'special') return true;
+    const result =
+      this.traverseLink?.({
+        connection,
+        from,
+        to,
+        controller: this.character!,
+        deltaSeconds,
+      }) ?? 'blocked';
+    if (
+      this.route !== route ||
+      !this.character ||
+      this.character.destroyed ||
+      this.currentState !== 'following' ||
+      route.graph.destroyed ||
+      route.graph.revision !== path.revision
+    )
+      return false;
+    if (result === 'pending') return false;
+    const position = this.character!.object.position;
+    if (
+      result === 'complete' &&
+      Math.hypot(
+        position.x - to.position.x,
+        position.y - to.position.y,
+        position.z - to.position.z,
+      ) <= this.arrivalTolerance
+    ) {
+      this.nextWaypoint++;
+      if (this.nextWaypoint === this.waypoints.length)
+        this.currentState = 'finished';
+      return false;
+    }
+    this.currentState = 'blocked';
+    return false;
+  }
   override destroy(): void {
     this.clearNavigation();
     this.scheduler.removeFollower(this);

@@ -22,6 +22,8 @@ import {
   integrateRotation3D,
   rigidSweptBounds3D,
 } from './ccd.js';
+import { rayIntersections3D } from './ray-intersections.js';
+import { physicsRayLimits } from '../../../../src/data/physics-ray.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -51,6 +53,11 @@ export interface PhysicsQueryOptions3D {
   includeSensors?: boolean;
   ignore?: Object3D;
   ignoreAlso?: Object3D;
+}
+export interface PhysicsRaycastAllOptions3D extends PhysicsQueryOptions3D {
+  /** Overflow throws; never returns an incomplete set disguised as complete. */
+  readonly maxHits?: number;
+  readonly maxTests?: number;
 }
 export interface PhysicsHit3D {
   object: Object3D;
@@ -1095,6 +1102,114 @@ export class PhysicsWorld3D {
     )
       hit.normal.set(-hit.normal.x, -hit.normal.y, -hit.normal.z);
     return hit;
+  }
+  /** Sorted analytic boundary hits, including every intersected triangle/compound child.
+   * Solid inside starts return the exit boundary, unlike the nearest raycast API's distance 0.
+   * Duplicate mesh seam hits are coalesced; filters and borrowed collider ownership are unchanged.
+   */
+  raycastAll(
+    origin: Readonly<Vector3>,
+    direction: Readonly<Vector3>,
+    maxDistance: number,
+    options: PhysicsRaycastAllOptions3D = {},
+  ): PhysicsHit3D[] {
+    vector3D(origin, 'origin');
+    vector3D(direction, 'direction');
+    positive3D(maxDistance, 'maxDistance');
+    const length = positive3D(direction.length(), 'direction length');
+    const maxHits = options.maxHits ?? physicsRayLimits.hits;
+    const maxTests = options.maxTests ?? physicsRayLimits.tests;
+    if (
+      !Number.isSafeInteger(maxHits) ||
+      maxHits < 1 ||
+      maxHits > physicsRayLimits.hits ||
+      !Number.isSafeInteger(maxTests) ||
+      maxTests < 1 ||
+      maxTests > physicsRayLimits.tests
+    )
+      throw new RangeError(
+        'Ray intersection limits exceed their bounded integer profile.',
+      );
+    const unit = this.impulse.set(
+      direction.x / length,
+      direction.y / length,
+      direction.z / length,
+    );
+    this.queryBounds.reset();
+    this.queryBounds.add(origin);
+    this.queryBounds.add(
+      this.queryShape.center.set(
+        origin.x + unit.x * maxDistance,
+        origin.y + unit.y * maxDistance,
+        origin.z + unit.z * maxDistance,
+      ),
+    );
+    this.candidates(this.queryBounds);
+    const hits: PhysicsHit3D[] = [];
+    let tests = 0;
+    for (const entry of this.queryCandidates) {
+      if (!this.accepts(entry, options)) continue;
+      const shape = entry.shape;
+      const count =
+        shape.collider.kind === 'compound' ? shape.children.length : 1;
+      const emit = (
+        distance: number,
+        nx: number,
+        ny: number,
+        nz: number,
+      ): void => {
+        if (hits.length === maxHits)
+          throw new RangeError('Ray intersection hit limit exceeded.');
+        hits.push({
+          object: entry.object,
+          collider: shape.collider,
+          distance,
+          point: new Vector3(
+            origin.x + unit.x * distance,
+            origin.y + unit.y * distance,
+            origin.z + unit.z * distance,
+          ),
+          normal: new Vector3(nx, ny, nz),
+        });
+      };
+      for (let i = 0; i < count; i++) {
+        const leaf =
+          shape.collider.kind === 'compound' ? shape.children[i]! : shape;
+        if (!leaf.bounds.overlaps(this.queryBounds)) continue;
+        if (leaf.collider.kind === 'mesh') {
+          leaf.triangleIndex!.query(this.queryBounds, this.sweepTriangles);
+          for (const triangle of this.sweepTriangles) {
+            if (++tests > maxTests)
+              throw new RangeError('Ray intersection test limit exceeded.');
+            rayIntersections3D(leaf, origin, unit, maxDistance, emit, triangle);
+          }
+        } else {
+          if (++tests > maxTests)
+            throw new RangeError('Ray intersection test limit exceeded.');
+          rayIntersections3D(leaf, origin, unit, maxDistance, emit);
+        }
+      }
+    }
+    hits.sort((a, b) => a.distance - b.distance);
+    let write = 0;
+    for (let i = 0; i < hits.length; i++) {
+      const hit = hits[i]!;
+      let duplicate = false;
+      for (let j = write - 1; j >= 0; j--) {
+        const prior = hits[j]!;
+        if (hit.distance - prior.distance > physicsRayLimits.tolerance) break;
+        if (
+          hit.object === prior.object &&
+          hit.normal.dot(prior.normal) > 1 - physicsRayLimits.tolerance
+        ) {
+          duplicate = true;
+          break;
+        }
+      }
+      if (!duplicate) hits[write++] = hit;
+    }
+    hits.length = write;
+    return hits;
   }
   /** Translation-only conservative advancement against exact primitive distance. No AABB-expanded corner proxy. */
   sweepSphere(

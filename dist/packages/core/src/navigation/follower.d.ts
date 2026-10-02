@@ -1,7 +1,7 @@
 import { Vector3 } from '../../../math/src/math3d.js';
 import type { CharacterController3D } from '../physics3d/character.js';
 import { NavigationGraph3D } from './graph.js';
-import type { NavigationGraphPath3D } from './graph.js';
+import type { NavigationGraphPath3D, NavigationConnection3D, NavigationNode3D } from './graph.js';
 import { NavigationScheduler, type NavigationScheduledSearch } from './scheduler.js';
 export type PathFollowerState3D = 'stopped' | 'following' | 'searching' | 'unreachable' | 'paused' | 'blocked' | 'finished' | 'destroyed';
 export interface PathFollowerOptions3D {
@@ -15,8 +15,9 @@ export declare class PathFollower3D {
     protected nextWaypoint: number;
     protected currentState: PathFollowerState3D;
     private currentSpeed;
-    private readonly arrivalTolerance;
+    protected readonly arrivalTolerance: number;
     private readonly displacement;
+    private sampledSurface;
     constructor(controller: CharacterController3D, options?: PathFollowerOptions3D);
     get state(): PathFollowerState3D;
     get waypointIndex(): number;
@@ -30,6 +31,8 @@ export declare class PathFollower3D {
     stop(): void;
     update(deltaSeconds: number): void;
     destroy(): void;
+    /** Navigation special links can suspend ordinary capsule movement at a segment boundary. */
+    protected beforeWaypoint(index: number, deltaSeconds: number): boolean;
     protected assertLive(): void;
 }
 export interface NavigationFollowerOptions3D extends PathFollowerOptions3D {
@@ -39,6 +42,10 @@ export interface NavigationFollowerOptions3D extends PathFollowerOptions3D {
     readonly maxReplans?: number;
     /** Searches share the Scene scheduler by default; movement remains explicitly updated. */
     readonly scheduler?: NavigationScheduler;
+    /** Called once per update while a special link is active. Handler owns actual elevator/ladder
+     * motion; completion is accepted only at the destination. No handler means blocked/replan.
+     */
+    readonly traverseLink?: (context: NavigationLinkTraversal3D) => 'pending' | 'complete' | 'blocked';
 }
 export interface NavigationRoute3D {
     readonly graph: NavigationGraph3D;
@@ -46,6 +53,13 @@ export interface NavigationRoute3D {
     readonly start: string;
     readonly goal: string;
     readonly agentRadius: number;
+}
+export interface NavigationLinkTraversal3D {
+    readonly connection: NavigationConnection3D;
+    readonly from: NavigationNode3D;
+    readonly to: NavigationNode3D;
+    readonly controller: CharacterController3D;
+    readonly deltaSeconds: number;
 }
 /** Borrowed graph/controller; bounded jobs are owned and cancelled with this follower. */
 export declare class NavigationFollower3D extends PathFollower3D {
@@ -62,6 +76,7 @@ export declare class NavigationFollower3D extends PathFollower3D {
     readonly maxReplans: number;
     readonly scheduler: NavigationScheduler;
     private readonly ownsScheduler;
+    private readonly traverseLink;
     constructor(controller: CharacterController3D, options?: NavigationFollowerOptions3D);
     get replanCount(): number;
     get searchJob(): NavigationScheduledSearch<NavigationGraphPath3D> | undefined;
@@ -72,6 +87,7 @@ export declare class NavigationFollower3D extends PathFollower3D {
     resume(): void;
     stop(): void;
     update(deltaSeconds: number): void;
+    protected beforeWaypoint(index: number, deltaSeconds: number): boolean;
     destroy(): void;
     private beginReplan;
     private clearNavigation;

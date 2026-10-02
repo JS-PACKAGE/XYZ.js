@@ -13,4 +13,8 @@ export const navigationLimits = Object.freeze({
   sceneWork: 256,
   scheduledWork: 4_096,
   bakeSkin: 0.002,
+  surfaceLayers: 4,
+  maxSurfaceLayers: 8,
+  supportSamples: 4,
+  maxSupportSamples: 32,
 });

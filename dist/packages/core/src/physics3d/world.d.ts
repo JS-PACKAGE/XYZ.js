@@ -32,6 +32,11 @@ export interface PhysicsQueryOptions3D {
     ignore?: Object3D;
     ignoreAlso?: Object3D;
 }
+export interface PhysicsRaycastAllOptions3D extends PhysicsQueryOptions3D {
+    /** Overflow throws; never returns an incomplete set disguised as complete. */
+    readonly maxHits?: number;
+    readonly maxTests?: number;
+}
 export interface PhysicsHit3D {
     object: Object3D;
     collider: Collider3D;
@@ -143,6 +148,11 @@ export declare class PhysicsWorld3D {
     overlap(collider: Collider3D, object: Object3D, options?: PhysicsQueryOptions3D): PhysicsHit3D[];
     /** Closest world-distance ray hit. Inside starts report distance 0; normalized direction is not required. */
     raycast(origin: Readonly<Vector3>, direction: Readonly<Vector3>, maxDistance: number, options?: PhysicsQueryOptions3D): PhysicsHit3D | undefined;
+    /** Sorted analytic boundary hits, including every intersected triangle/compound child.
+     * Solid inside starts return the exit boundary, unlike the nearest raycast API's distance 0.
+     * Duplicate mesh seam hits are coalesced; filters and borrowed collider ownership are unchanged.
+     */
+    raycastAll(origin: Readonly<Vector3>, direction: Readonly<Vector3>, maxDistance: number, options?: PhysicsRaycastAllOptions3D): PhysicsHit3D[];
     /** Translation-only conservative advancement against exact primitive distance. No AABB-expanded corner proxy. */
     sweepSphere(center: Readonly<Vector3>, radius: number, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
     sweepCapsule(object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D, padding?: number): PhysicsHit3D | undefined;
