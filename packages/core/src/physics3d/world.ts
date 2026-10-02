@@ -1,4 +1,4 @@
-import { Vector3 } from '../../../math/src/index.js';
+import { Matrix4, Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import {
   Shape3D,
@@ -37,6 +37,7 @@ export interface PhysicsQueryOptions3D {
   mask?: number;
   includeSensors?: boolean;
   ignore?: Object3D;
+  ignoreAlso?: Object3D;
 }
 export interface PhysicsHit3D {
   object: Object3D;
@@ -93,6 +94,11 @@ export class PhysicsWorld3D {
   private readonly sweepTriangles: Triangle3D[] = [];
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
+  private readonly placementMatrix = new Matrix4();
+  private readonly placementPosition = new Vector3();
+  private placementShape: Shape3D | undefined;
+  private capsuleQueryShape: Shape3D | undefined;
+  private sweepQueryShape: Shape3D | undefined;
   private nextOrder = 0;
   private readonly counters = {
     candidatePairs: 0,
@@ -771,6 +777,7 @@ export class PhysicsWorld3D {
     return (
       this.valid(e) &&
       e.object !== options.ignore &&
+      e.object !== options.ignoreAlso &&
       (options.includeSensors || !e.shape.collider.sensor) &&
       !!(e.shape.collider.category & (options.mask ?? 0xffffffff))
     );
@@ -851,14 +858,27 @@ export class PhysicsWorld3D {
     displacement: Readonly<Vector3>,
     options: PhysicsQueryOptions3D = {},
     out?: PhysicsHit3D,
+    padding = 0,
   ): PhysicsHit3D | undefined {
     if (!(object.collider instanceof CapsuleCollider3D))
       throw new TypeError('Capsule sweep requires CapsuleCollider3D.');
     vector3D(displacement, 'displacement');
-    const registered = this.entries.get(object);
-    const shape = registered?.shape ?? new Shape3D(object.collider);
+    finite3D(padding, 'padding');
+    if (padding < 0) throw new RangeError('padding must be nonnegative.');
+    const shape =
+      this.capsuleQueryShape?.collider === object.collider
+        ? this.capsuleQueryShape
+        : (this.capsuleQueryShape = new Shape3D(object.collider));
     shape.refresh(object);
-    return this.sweepShape(shape, displacement, options, out, false);
+    const radius = shape.radius;
+    shape.radius += padding;
+    shape.updateBounds();
+    try {
+      return this.sweepShape(shape, displacement, options, out, false, false, object);
+    } finally {
+      shape.radius = radius;
+      shape.updateBounds();
+    }
   }
   /** @internal Bounded minimum-translation recovery from primitive overlaps; failure restores the original pose. */
   recoverCapsule(
@@ -904,6 +924,39 @@ export class PhysicsWorld3D {
     p.set(x, y, z);
     return false;
   }
+  /** Transactional stance clearance at a root pose; neither attachment nor owner pose is modified. */
+  canPlaceCapsule(
+    object: Object3D,
+    collider: CapsuleCollider3D,
+    position: Readonly<Vector3>,
+    options: PhysicsQueryOptions3D = {},
+  ): boolean {
+    if (object.parent)
+      throw new Error('Capsule placement requires a root Object3D.');
+    if (!(collider instanceof CapsuleCollider3D))
+      throw new TypeError('Capsule placement requires CapsuleCollider3D.');
+    vector3D(position, 'position');
+    const shape =
+      this.placementShape?.collider === collider
+        ? this.placementShape
+        : (this.placementShape = new Shape3D(collider));
+    this.placementPosition.set(position.x, position.y, position.z);
+    shape.refreshMatrix(
+      this.placementMatrix.compose(
+        this.placementPosition,
+        object.rotation,
+        object.scale,
+      ),
+    );
+    this.candidates(shape.bounds);
+    for (const entry of this.queryCandidates) {
+      if (entry.object === object || !this.accepts(entry, options)) continue;
+      this.queryNarrow.collide(shape, entry.shape, this.queryManifold);
+      if (this.queryManifold.distance < -physics3DDefaults.sweepTolerance)
+        return false;
+    }
+    return true;
+  }
   /** Exact shape translation query. Mesh/plane query shapes are static-only and rejected. */
   sweep(
     collider: Collider3D,
@@ -913,12 +966,13 @@ export class PhysicsWorld3D {
     out?: PhysicsHit3D,
   ): PhysicsHit3D | undefined {
     vector3D(displacement, 'displacement');
-    const entry = this.entries.get(object);
     const shape =
-      entry?.shape.collider === collider ? entry.shape : new Shape3D(collider);
+      this.sweepQueryShape?.collider === collider
+        ? this.sweepQueryShape
+        : (this.sweepQueryShape = new Shape3D(collider));
     shape.refresh(object);
     shape.validateMoving('kinematic');
-    return this.sweepShape(shape, displacement, options, out, false);
+    return this.sweepShape(shape, displacement, options, out, false, false, object);
   }
   private sweepShape(
     shape: Shape3D,
@@ -927,6 +981,7 @@ export class PhysicsWorld3D {
     out: PhysicsHit3D | undefined,
     inside: boolean,
     staticOnly = false,
+    ignoreOwner?: Object3D,
   ): PhysicsHit3D | undefined {
     const dx = displacement.x,
       dy = displacement.y,
@@ -949,6 +1004,7 @@ export class PhysicsWorld3D {
       if (
         !this.accepts(e, options) ||
         e.shape === shape ||
+        e.object === ignoreOwner ||
         (staticOnly &&
           ((e.body && e.body.type !== 'static') ||
             e.shape.collider.sensor ||
@@ -1089,6 +1145,9 @@ export class PhysicsWorld3D {
     this.sweepTriangles.length = 0;
     this.ccdHit = undefined;
     this.ccdOptions.ignore = undefined;
+    this.placementShape = undefined;
+    this.capsuleQueryShape = undefined;
+    this.sweepQueryShape = undefined;
     ++this.counters.indexGeneration;
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;

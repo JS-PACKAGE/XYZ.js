@@ -35,3 +35,33 @@ it('refreshes exact static/ancestor mutations without recomputing unchanged quer
   expect(world.raycast(origin, direction, 10)?.distance).toBeCloseTo(4);
   scene.destroy();
 });
+
+it('keeps placement and padded sweep probes transactional and out of geometry generations', () => {
+  const scene = new Scene(),
+    capsule = new Object3D(),
+    wall = new Object3D();
+  capsule.collider = new CapsuleCollider3D(0.2, 1);
+  scene.add(capsule);
+  wall.position.x = 1;
+  wall.collider = new BoxCollider3D(new Vector3(0.1, 2, 2));
+  scene.add(wall);
+  const world = scene.physics3D,
+    revision = world.geometryRevision;
+  expect(
+    world.canPlaceCapsule(
+      capsule,
+      new CapsuleCollider3D(0.2, 2),
+      new Vector3(0.9, 0, 0),
+    ),
+  ).toBe(false);
+  expect(capsule.position.x).toBe(0);
+  expect(
+    world.sweepCapsule(capsule, new Vector3(2, 0, 0))?.distance,
+  ).toBeCloseTo(0.7, 3);
+  expect(
+    world.sweepCapsule(capsule, new Vector3(2, 0, 0), {}, undefined, 0.1)
+      ?.distance,
+  ).toBeCloseTo(0.6, 3);
+  expect(world.geometryRevision).toBe(revision);
+  scene.destroy();
+});

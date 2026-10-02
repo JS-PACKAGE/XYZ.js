@@ -247,3 +247,303 @@ describe('swept upright capsule movement', () => {
     expect(body.owner).toBeUndefined();
   });
 });
+
+describe('moving support and transactional stance', () => {
+  it('inherits lift translation, yaw rotation and pending motion only once per epoch', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    platform.body = new RigidBody3D({ type: 'kinematic' });
+    const controller = character(scene, new Vector3(1, 0.753, 0));
+    try {
+      const initial = controller.move(new Vector3(), { epoch: 0 });
+      expect(initial.support).toBe(platform);
+      const baseY = controller.object.position.y;
+      platform.position.set(0.4, -0.05, 0);
+      const lifted = controller.move(new Vector3(), { epoch: 1 });
+      expect(controller.object.position.x).toBeCloseTo(1.4, 5);
+      expect(controller.object.position.y).toBeCloseTo(baseY + 0.2, 5);
+      expect(lifted.carriedDisplacement.x).toBeCloseTo(0.4, 5);
+      expect(lifted.carriedDisplacement.y).toBeCloseTo(0.2, 5);
+      platform.position.x = 0.6;
+      const repeated = controller.move(new Vector3(), { epoch: 1 });
+      expect(repeated.carriedDisplacement.x).toBeCloseTo(0, 8);
+      expect(controller.object.position.x).toBeCloseTo(1.4, 5);
+      controller.move(new Vector3(), { epoch: 2 });
+      expect(controller.object.position.x).toBeCloseTo(1.6, 5);
+      platform.rotation.setFromEuler(0, Math.PI / 2, 0);
+      const rotated = controller.move(new Vector3(), { epoch: 3 });
+      expect(controller.object.position.x).toBeCloseTo(0.6, 5);
+      expect(controller.object.position.z).toBeCloseTo(-1, 5);
+      expect(rotated.supportYawDelta).toBeCloseTo(Math.PI / 2, 5);
+      expect(controller.object.rotation.x).toBe(0);
+      expect(controller.object.rotation.z).toBe(0);
+      expect(controller.object.rotation.y).toBeCloseTo(Math.SQRT1_2, 5);
+      expect(rotated.grounded).toBe(true);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('recovers onto a tilting walkable support without tilting the upright capsule', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    const controller = character(scene, new Vector3(1, 0.753, 0));
+    try {
+      controller.move(new Vector3());
+      platform.rotation.setFromEuler(0, 0, 0.2);
+      const result = controller.move(new Vector3());
+      expect(result.unresolvedPenetration).toBe(false);
+      expect(result.grounded).toBe(true);
+      expect(result.support).toBe(platform);
+      expect(controller.object.position.y).toBeGreaterThan(0.9);
+      expect(controller.object.rotation.x).toBe(0);
+      expect(controller.object.rotation.z).toBe(0);
+      expect(
+        scene.physics3D.canPlaceCapsule(
+          controller.object,
+          controller.object.collider as CapsuleCollider3D,
+          controller.object.position,
+          { ignore: controller.object },
+        ),
+      ).toBe(true);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('detaches a jump before inheriting changed support motion', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    const controller = character(scene);
+    try {
+      controller.move(new Vector3());
+      platform.position.x = 1;
+      const result = controller.move(new Vector3(0, 0.3, 0));
+      expect(result.supportDetached).toBe('jump');
+      expect(result.support).toBeUndefined();
+      expect(result.grounded).toBe(false);
+      expect(result.carriedDisplacement.length()).toBe(0);
+      expect(controller.object.position.x).toBe(0);
+      expect(result.displacement.y).toBeCloseTo(0.3, 5);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('rejects stale support generations, destruction and externally teleported rider anchors', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    const controller = character(scene);
+    try {
+      controller.move(new Vector3());
+      scene.remove(platform);
+      platform.position.x = 1;
+      scene.add(platform);
+      const readded = controller.move(new Vector3());
+      expect(readded.supportDetached).toBe('removed');
+      expect(readded.carriedDisplacement.length()).toBe(0);
+      expect(controller.object.position.x).toBe(0);
+      expect(readded.support).toBe(platform);
+      controller.object.position.x = 10;
+      const teleported = controller.move(new Vector3());
+      expect(teleported.supportDetached).toBe('teleport');
+      expect(teleported.support).toBeUndefined();
+      expect(teleported.carriedDisplacement.length()).toBe(0);
+      controller.object.position.x = 0;
+      controller.move(new Vector3());
+      platform.destroy();
+      const destroyed = controller.move(new Vector3());
+      expect(destroyed.supportDetached).toBe('removed');
+      expect(destroyed.support).toBeUndefined();
+      expect(destroyed.grounded).toBe(false);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('treats excessive support travel as teleport rather than sweeping the rider across the scene', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(1, 0.25, 1)),
+      new Vector3(0, -0.25, 0),
+    );
+    const controller = character(scene, undefined, {
+      maxSupportDisplacement: 2,
+    });
+    try {
+      controller.move(new Vector3());
+      platform.position.x = 10;
+      const result = controller.move(new Vector3());
+      expect(result.supportDetached).toBe('support-teleport');
+      expect(result.support).toBeUndefined();
+      expect(result.carriedDisplacement.length()).toBe(0);
+      expect(controller.object.position.x).toBe(0);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('sweeps inherited motion into a wall and retains the free sliding component', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    solid(
+      scene,
+      new BoxCollider3D(new Vector3(0.1, 2, 3)),
+      new Vector3(1, 2, 0),
+    );
+    const controller = character(scene, undefined, { stepHeight: 0 });
+    try {
+      controller.move(new Vector3());
+      platform.position.x = 2;
+      platform.position.z = 1;
+      const result = controller.move(new Vector3());
+      expect(result.carryBlocked).toBe(true);
+      expect(result.blocked).toBe(true);
+      expect(result.supportDisplacement.x).toBeCloseTo(2, 5);
+      expect(result.carriedDisplacement.x).toBeLessThan(0.65);
+      expect(controller.object.position.x).toBeLessThan(0.65);
+      expect(controller.object.position.z).toBeCloseTo(1, 5);
+      expect(result.contacts.some((hit) => hit.normal.x < -0.99)).toBe(true);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('does not recover a blocked lift through the ceiling after its sweep stops', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.1, 3)),
+      new Vector3(0, 1.8, 0),
+    );
+    const controller = character(scene);
+    try {
+      controller.move(new Vector3());
+      platform.position.y += 0.5;
+      const result = controller.move(new Vector3());
+      expect(result.carryBlocked).toBe(true);
+      expect(controller.object.position.y + 0.75).toBeLessThan(1.7);
+      expect(result.carriedDisplacement.y).toBeGreaterThan(0.18);
+      expect(result.carriedDisplacement.y).toBeLessThan(0.2);
+      expect(result.recoveryDisplacement.y).toBeCloseTo(0, 8);
+      expect(result.supportDetached).toBe('blocked');
+      expect(result.unresolvedPenetration).toBe(true);
+      const stoppedY = controller.object.position.y;
+      expect(() => controller.move(new Vector3())).toThrow(Error);
+      expect(controller.object.position.y).toBe(stoppedY);
+      platform.position.y -= 0.5;
+      const resumed = controller.move(new Vector3(0, -0.4, 0));
+      expect(resumed.unresolvedPenetration).toBe(false);
+      expect(resumed.grounded).toBe(true);
+      expect(resumed.support).toBe(platform);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('checks the rotating support arc instead of teleporting between its endpoints', () => {
+    const scene = new Scene();
+    const platform = solid(
+      scene,
+      new BoxCollider3D(new Vector3(3, 0.25, 3)),
+      new Vector3(0, -0.25, 0),
+    );
+    solid(
+      scene,
+      new BoxCollider3D(new Vector3(0.12, 1, 0.12)),
+      new Vector3(Math.SQRT2, 1, -Math.SQRT2),
+    );
+    const controller = character(scene, new Vector3(2, 0.753, 0), {
+      stepHeight: 0,
+    });
+    try {
+      controller.move(new Vector3());
+      platform.rotation.setFromEuler(0, Math.PI / 2, 0);
+      const result = controller.move(new Vector3());
+      expect(result.carryBlocked).toBe(true);
+      expect(result.contacts.some((hit) => hit.object !== platform)).toBe(true);
+      expect(
+        Math.hypot(
+          controller.object.position.x,
+          controller.object.position.z + 2,
+        ),
+      ).toBeGreaterThan(0.05);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+
+  it('keeps feet fixed when crouching, retains a blocked capsule and stands after clearing the ceiling', () => {
+    const scene = new Scene();
+    solid(scene, new PlaneCollider3D());
+    const controller = character(scene, undefined, { crouchHeight: 0.25 });
+    try {
+      controller.move(new Vector3());
+      const feet = controller.object.position.y - 0.75;
+      const crouched = controller.setStance('crouching');
+      expect(crouched.changed).toBe(true);
+      expect(controller.object.position.y - 0.375).toBeCloseTo(feet, 8);
+      const capsule = controller.object.collider;
+      const ceiling = solid(
+        scene,
+        new BoxCollider3D(new Vector3(2, 0.1, 2)),
+        new Vector3(0, 1.15, 0),
+      );
+      const beforeY = controller.object.position.y;
+      const rejected = controller.setStance('standing');
+      expect(rejected.blocked).toBe(true);
+      expect(rejected.changed).toBe(false);
+      expect(rejected.stance).toBe('crouching');
+      expect(controller.object.collider).toBe(capsule);
+      expect(controller.object.position.y).toBe(beforeY);
+      controller.move(new Vector3(3, -0.01, 0));
+      const feetBeforeStanding = controller.object.position.y - 0.375;
+      const standing = controller.setStance('standing');
+      expect(standing.blocked).toBe(false);
+      expect(standing.changed).toBe(true);
+      expect(standing.stance).toBe('standing');
+      expect(controller.object.position.y - 0.75).toBeCloseTo(
+        feetBeforeStanding,
+        5,
+      );
+      expect(scene.physics3D.has(ceiling)).toBe(true);
+    } finally {
+      controller.destroy();
+      scene.destroy();
+    }
+  });
+});

@@ -1,5 +1,6 @@
 import { Vector3 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
+import { CapsuleCollider3D } from './collider.js';
 import type { Collider3D } from './collider.js';
 export interface PhysicsStats3D {
     readonly candidatePairs: number;
@@ -21,6 +22,7 @@ export interface PhysicsQueryOptions3D {
     mask?: number;
     includeSensors?: boolean;
     ignore?: Object3D;
+    ignoreAlso?: Object3D;
 }
 export interface PhysicsHit3D {
     object: Object3D;
@@ -53,6 +55,11 @@ export declare class PhysicsWorld3D {
     private readonly sweepTriangles;
     private readonly leafBounds;
     private indexDirty;
+    private readonly placementMatrix;
+    private readonly placementPosition;
+    private placementShape;
+    private capsuleQueryShape;
+    private sweepQueryShape;
     private nextOrder;
     private readonly counters;
     readonly stats: PhysicsStats3D;
@@ -117,9 +124,11 @@ export declare class PhysicsWorld3D {
     raycast(origin: Readonly<Vector3>, direction: Readonly<Vector3>, maxDistance: number, options?: PhysicsQueryOptions3D): PhysicsHit3D | undefined;
     /** Translation-only conservative advancement against exact primitive distance. No AABB-expanded corner proxy. */
     sweepSphere(center: Readonly<Vector3>, radius: number, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
-    sweepCapsule(object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
+    sweepCapsule(object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D, padding?: number): PhysicsHit3D | undefined;
     /** @internal Bounded minimum-translation recovery from primitive overlaps; failure restores the original pose. */
     recoverCapsule(object: Object3D, limit: number, options: PhysicsQueryOptions3D): boolean;
+    /** Transactional stance clearance at a root pose; neither attachment nor owner pose is modified. */
+    canPlaceCapsule(object: Object3D, collider: CapsuleCollider3D, position: Readonly<Vector3>, options?: PhysicsQueryOptions3D): boolean;
     /** Exact shape translation query. Mesh/plane query shapes are static-only and rejected. */
     sweep(collider: Collider3D, object: Object3D, displacement: Readonly<Vector3>, options?: PhysicsQueryOptions3D, out?: PhysicsHit3D): PhysicsHit3D | undefined;
     private sweepShape;

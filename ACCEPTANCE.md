@@ -900,3 +900,7 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - 共享 Scene scheduler aggregate work／expansion quota、pause／lifecycle／debug stats 已驗；low-tier 三 backend maximum navigation work=512，bounded cooperative units 不超 quota。
 - 100 unchanged spatial queries 產生 0 geometry refresh／refit，mutable transforms 保持 query 結果；pose checks 仍 O(N)，不宣稱整個 query sublinear，亦不以 stale bounds 換成本。
+
+### P65 — Moving support／stance
+
+- Built-root 真 character sweep 驗 moving lift translation／yaw carry、jump／support removal detach、wall slide、ceiling crush／rotation；crouch／blocked stand 原子保持姿態與 feet invariant。不是直接 teleport 穿過 blocker；此證據不改寫歷史 2D translation-only controller 限制。

@@ -24,4 +24,8 @@ export {
   CharacterController3D,
   type CharacterControllerOptions3D,
   type CharacterMoveResult3D,
+  type CharacterStance3D,
+  type CharacterStanceResult3D,
+  type CharacterMovementOptions3D,
+  type CharacterSupportDetachReason3D,
 } from './character.js';
