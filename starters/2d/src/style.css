@@ -1,0 +1,82 @@
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: #101725;
+  color: #edf5ff;
+  font:
+    16px system-ui,
+    sans-serif;
+}
+main {
+  max-width: 920px;
+  margin: auto;
+  padding: 20px;
+}
+h1 {
+  font-size: 1.6rem;
+}
+canvas {
+  display: block;
+  width: 100%;
+  aspect-ratio: 5/3;
+  background: #172135;
+  border: 2px solid #52617b;
+  border-radius: 8px;
+}
+nav,
+fieldset {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 12px 0;
+}
+button,
+select,
+input {
+  font: inherit;
+}
+button,
+select {
+  padding: 9px 14px;
+  border: 1px solid #72819c;
+  border-radius: 6px;
+  background: #223348;
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.4;
+}
+button:focus-visible,
+select:focus-visible,
+input:focus-visible,
+canvas:focus-visible {
+  outline: 3px solid #ffdc70;
+  outline-offset: 3px;
+}
+button[data-move],
+#jump {
+  touch-action: none;
+}
+label {
+  display: block;
+  margin: 12px 0;
+}
+[hidden] {
+  display: none !important;
+}
+#error {
+  color: #ffb8b8;
+}
+#save-status {
+  color: #9cebc6;
+}
+fieldset {
+  border: 1px solid #52617b;
+}
+@media (prefers-reduced-motion: reduce) {
+  * {
+    scroll-behavior: auto;
+  }
+}

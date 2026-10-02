@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ Game Starter</title>
+  </head>
+  <body>
+    <main>
+      <h1 data-i18n="title"></h1>
+      <p id="instructions" data-i18n="instructions"></p>
+      <p id="mode" role="status" aria-live="polite"></p>
+      <p id="hud"></p>
+      <canvas
+        id="game"
+        width="800"
+        height="480"
+        tabindex="0"
+        aria-describedby="instructions"
+      ></canvas>
+      <nav aria-label="Game controls">
+        <button id="start" data-i18n="start" disabled></button
+        ><button id="continue" data-i18n="continue" disabled></button>
+        <button id="unlock" data-i18n="unlock" disabled></button
+        ><button id="muted" data-i18n="muted" disabled></button>
+        <button id="pause" data-i18n="pause" disabled></button
+        ><button id="resume" data-i18n="resume" hidden></button>
+        <button id="settings" data-i18n="settings" disabled></button
+        ><button id="restart" data-i18n="restart" hidden></button>
+        <button id="save" data-i18n="save" disabled></button
+        ><button id="destroy" data-i18n="destroy"></button>
+      </nav>
+      <section id="settings-panel" hidden>
+        <label
+          ><span data-i18n="locale"></span>
+          <select id="locale">
+            <option value="en">English</option>
+            <option value="zh-Hant">繁體中文</option>
+          </select></label
+        >
+        <label
+          ><span data-i18n="volume"></span>
+          <input
+            id="volume"
+            type="range"
+            min="0"
+            max="1"
+            step="0.05"
+            value="0.4"
+        /></label>
+        <label
+          ><input id="mute" type="checkbox" /><span data-i18n="mute"></span
+        ></label>
+        <button id="close-settings" data-i18n="back"></button>
+      </section>
+      <fieldset id="movement" disabled>
+        <legend data-i18n="movement"></legend>
+        <button data-move="up" data-i18n="up"></button
+        ><button data-move="left" data-i18n="left"></button
+        ><button data-move="down" data-i18n="down"></button
+        ><button data-move="right" data-i18n="right"></button
+        ><button id="jump" data-i18n="jump"></button>
+      </fieldset>
+      <p id="save-status" role="status" aria-live="polite"></p>
+      <p id="error" role="alert"></p>
+      <nav>
+        <button id="retry-save" data-i18n="retrySave" disabled></button
+        ><button id="recover-save" data-i18n="recoverSave" hidden></button
+        ><button id="reload-save" data-i18n="reloadSave" hidden></button
+        ><button id="view-damaged" data-i18n="viewDamaged"></button>
+      </nav>
+      <details id="raw-panel" hidden>
+        <summary data-i18n="damagedRaw"></summary>
+        <label
+          ><span data-i18n="damagedRaw"></span
+          ><textarea id="raw-save" readonly rows="8"></textarea>
+        </label>
+      </details>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

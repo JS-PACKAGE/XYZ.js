@@ -1,0 +1,24 @@
+{
+  "name": "xyz-game",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "packageManager": "pnpm@12.6.0",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "assets:engine": "node scripts/copy-engine.mjs",
+    "dev": "pnpm assets:engine && vite --host 127.0.0.1",
+    "typecheck": "tsc --noEmit",
+    "build": "pnpm assets:engine && pnpm typecheck && vite build",
+    "preview": "vite preview --host 127.0.0.1"
+  },
+  "dependencies": {
+    "xyz.js": "file:vendor/xyz.js.tgz"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3",
+    "vite": "8.3.1"
+  }
+}

@@ -17,12 +17,34 @@
       "import": "./dist/src/index.js"
     }
   },
+  "bin": {
+    "xyz-create": "scripts/create-game.mjs"
+  },
   "files": [
-    "dist"
+    "dist/src",
+    "dist/packages",
+    "dist/vendor/opm/LICENSE",
+    "dist/vendor/opm/manifest.json",
+    "dist/vendor/opm/dist/api/index.js",
+    "dist/vendor/opm/dist/core/index.js",
+    "dist/vendor/opm/dist/chunks/3LW4LAXR.js",
+    "dist/vendor/opm/dist/chunks/MUROU3LE.js",
+    "dist/vendor/opm/dist/chunks/PMWEZUON.js",
+    "dist/vendor/opm/dist/chunks/YTCTYSST.js",
+    "dist/vendor/opm/dist/voices/brass.js",
+    "dist/vendor/opm/dist/voices/examples.json",
+    "dist/vendor/opm/dist/voices/normalize.js",
+    "dist/vendor/opm/dist/voices/schema.js",
+    "dist/vendor/opm/dist/voices/voice.schema.json",
+    "dist/vendor/opm/dist/worklet/processor.js",
+    "scripts/create-game.mjs",
+    "scripts/starter-package.mjs",
+    "starters"
   ],
   "sideEffects": false,
   "scripts": {
     "build": "tsc -p tsconfig.json && node scripts/minify-dist.mjs && node scripts/copy-vendor.mjs",
+    "create:game": "node scripts/create-game.mjs",
     "audio:native-load": "node scripts/audio-native-load.mjs",
     "typecheck": "tsc -p tsconfig.check.json",
     "test": "vitest run",
