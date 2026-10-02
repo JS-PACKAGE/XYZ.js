@@ -22,6 +22,7 @@ export type {
 } from './ui-scroll.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
+import type { AccessibilityPreferenceValues } from './accessibility/preferences.js';
 
 export interface UIWidgetOptions {
   readonly layout?: UILayout;
@@ -62,8 +63,16 @@ function rootOf(node: GameObject): UIRoot | undefined {
 
 export class UILabel extends UIElement {
   protected textGraphic?: Text2D;
+  private readonly preferenceTextStyle: Text2DOptions;
   protected constructor(options: UIWidgetOptions) {
     super(options.layout);
+    this.preferenceTextStyle = {
+      fontSize: 18,
+      color: '#ffffff',
+      ...options.textStyle,
+    };
+    if (options.label !== undefined)
+      this.accessibility = { role: 'note', label: options.label, tabIndex: -1 };
   }
   static async create(
     text: string,
@@ -106,6 +115,20 @@ export class UILabel extends UIElement {
       throw new Error('Cannot update an unavailable UILabel.');
     await this.textGraphic.setText(text);
     if (this.destroyed) return;
+    if (this.accessibility)
+      this.accessibility = { ...this.accessibility, label: text };
+    this.intrinsicWidth = this.textGraphic.width;
+    this.intrinsicHeight = this.textGraphic.height;
+    this.invalidateLayout();
+  }
+  async applyPreferences(values: AccessibilityPreferenceValues): Promise<void> {
+    if (!this.textGraphic || this.destroyed) return;
+    await this.textGraphic.setStyle({
+      ...this.preferenceTextStyle,
+      fontSize: (this.preferenceTextStyle.fontSize ?? 18) * values.textScale,
+      color: values.highContrast ? '#ffffff' : this.preferenceTextStyle.color,
+    });
+    if (this.destroyed) return;
     this.intrinsicWidth = this.textGraphic.width;
     this.intrinsicHeight = this.textGraphic.height;
     this.invalidateLayout();
@@ -128,8 +151,17 @@ abstract class UIControl extends UIElement {
   private paintedState = -1;
   protected textInset = 0;
   private textRevision = 0;
+  private readonly preferenceTextStyle: Text2DOptions;
+  private readonly preferenceMinHeight: number;
+  private highContrast = false;
   protected constructor(role: string, label: string, options: UIWidgetOptions) {
     super({ width: 'auto', height: 40, padding: 10, ...options.layout });
+    this.preferenceTextStyle = {
+      fontSize: 18,
+      color: '#ffffff',
+      ...options.textStyle,
+    };
+    this.preferenceMinHeight = options.layout?.minHeight ?? 0;
     this.pointerEnabled = true;
     this.interactiveChildren = false;
     this.cursor = 'pointer';
@@ -240,6 +272,26 @@ abstract class UIControl extends UIElement {
       this.accessibility = { ...this.accessibility, label: text };
     this.invalidateLayout();
   }
+  async applyPreferences(values: AccessibilityPreferenceValues): Promise<void> {
+    if (!this.textGraphic || this.destroyed) return;
+    await this.textGraphic.setStyle({
+      ...this.preferenceTextStyle,
+      fontSize: (this.preferenceTextStyle.fontSize ?? 18) * values.textScale,
+      color: values.highContrast ? '#ffffff' : this.preferenceTextStyle.color,
+    });
+    if (this.destroyed) return;
+    this.intrinsicWidth = this.textGraphic.width + this.textInset;
+    this.intrinsicHeight = this.textGraphic.height;
+    this.setLayout({
+      minHeight: Math.max(
+        this.preferenceMinHeight,
+        this.intrinsicHeight + this.padding(0) + this.padding(2),
+      ),
+    });
+    this.highContrast = values.highContrast;
+    this.paintedState = -1;
+    this.stateChanged();
+  }
   protected override arranged(): void {
     this.background?.scale.set(this.layoutWidth, this.layoutHeight);
     const w = this.layoutWidth,
@@ -272,17 +324,24 @@ abstract class UIControl extends UIElement {
     if (this.accessibility && this.accessibility.disabled !== disabled)
       this.accessibility = { ...this.accessibility, disabled };
     if (this.background)
-      this.background.tint = disabled
-        ? [0.18, 0.19, 0.22, 1]
-        : pressed
-          ? [0.12, 0.28, 0.48, 1]
-          : this.hovered
-            ? [0.24, 0.4, 0.6, 1]
-            : [0.16, 0.23, 0.34, 1];
-    if (this.textGraphic) this.textGraphic.opacity = disabled ? 0.45 : 1;
+      this.background.tint = this.highContrast
+        ? disabled
+          ? [0.12, 0.12, 0.12, 1]
+          : pressed
+            ? [0.3, 0.3, 0.3, 1]
+            : [0, 0, 0, 1]
+        : disabled
+          ? [0.18, 0.19, 0.22, 1]
+          : pressed
+            ? [0.12, 0.28, 0.48, 1]
+            : this.hovered
+              ? [0.24, 0.4, 0.6, 1]
+              : [0.16, 0.23, 0.34, 1];
+    if (this.textGraphic)
+      this.textGraphic.opacity = disabled && !this.highContrast ? 0.45 : 1;
     for (const edge of this.focusEdges) {
       edge.visible = this.focused && !disabled;
-      edge.tint = [0.35, 0.78, 1, 1];
+      edge.tint = this.highContrast ? [1, 1, 0, 1] : [0.35, 0.78, 1, 1];
     }
   }
   /** @internal Synchronizes inherited disabled state without rerasterizing. */
@@ -738,11 +797,63 @@ export class UIRoot extends UIElement {
   private viewportWidth = -1;
   private viewportHeight = -1;
   private mountingGeneration: number | undefined;
+  private preferenceRevision = 0;
+  private preferenceTask = Promise.resolve();
   constructor(game?: Game, layout: UILayout = {}) {
     super({ width: 'fill', height: 'fill', ...layout });
     this.boundGame = game;
     this.addEventListener('remove', () => this.releaseBindings());
     if (game) {
+      const refreshPreferences = (): void => {
+        void this.applyPreferences(game.preferences.values).catch(
+          (error: unknown) => {
+            if (!this.destroyed)
+              this.dispatchEvent(new CustomEvent('error', { detail: error }));
+          },
+        );
+      };
+      game.preferences.addEventListener('change', refreshPreferences, {
+        signal: this.controller.signal,
+      });
+      game.canvas.ownerDocument.addEventListener(
+        'keydown',
+        (event) => {
+          if (
+            !this.isLive ||
+            !this.focus.modal ||
+            event.altKey ||
+            event.ctrlKey ||
+            event.metaKey ||
+            event.isComposing
+          )
+            return;
+          if (event.code === 'Tab') {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            if (!event.repeat) this.focus.move(event.shiftKey ? -1 : 1);
+          } else if (event.code === 'Escape' && !event.repeat) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            this.focus.modal.dispatchEvent(
+              new CustomEvent('modalclose', { cancelable: true }),
+            );
+          }
+        },
+        { capture: true, signal: this.controller.signal },
+      );
+      game.canvas.ownerDocument.addEventListener(
+        'focusin',
+        () => {
+          const modal = this.focus.modal;
+          if (!this.isLive || !modal) return;
+          const element =
+            this.focus.focused &&
+            game.accessibility.element(this.focus.focused);
+          if (game.canvas.ownerDocument.activeElement !== element)
+            this.focus.move(1);
+        },
+        { signal: this.controller.signal },
+      );
       this.context = game.input.contexts.create(`xyz-ui-${++rootSequence}`, {
         priority: 100,
         consume: true,
@@ -821,6 +932,33 @@ export class UIRoot extends UIElement {
       this.scene === game.scene &&
       this.scene.has(this)
     );
+  }
+  /** Reflows actual canvas text, hit bounds and focus geometry; never scales invisible DOM alone. */
+  applyPreferences(values: AccessibilityPreferenceValues): Promise<void> {
+    const revision = ++this.preferenceRevision;
+    // A failed rasterization is reported to the caller; later preference changes can retry.
+    this.preferenceTask = this.preferenceTask
+      .catch(() => {})
+      .then(async () => {
+        if (this.destroyed || revision !== this.preferenceRevision) return;
+        const tasks: Promise<void>[] = [];
+        const visit = (node: GameObject): void => {
+          if (
+            node instanceof UILabel ||
+            node instanceof UIControl ||
+            node instanceof UITextInput
+          )
+            tasks.push(node.applyPreferences(values));
+          for (const child of node.children) visit(child);
+        };
+        visit(this);
+        await Promise.all(tasks);
+        if (this.destroyed || revision !== this.preferenceRevision) return;
+        this.reflow();
+        if (this.isLive) this.boundGame?.accessibility.update(this.scene);
+        this.synchronizeSemantics();
+      });
+    return this.preferenceTask;
   }
   override reflow(
     width = this.boundGame?.width ?? this.layoutWidth,
@@ -972,6 +1110,8 @@ export class UIRoot extends UIElement {
   }
   /** @internal Modal changes update native traversal immediately, before another browser key event. */
   synchronizeSemantics(): void {
+    this.boundGame?.accessibility.setModal(this, this.focus.modal);
+    if (this.isLive) this.boundGame?.accessibility.update(this.scene);
     if (this.isLive) this.synchronizeNode(this);
   }
   override update(): void {
@@ -983,6 +1123,12 @@ export class UIRoot extends UIElement {
     if (this.mountingGeneration !== this.registrationGeneration) {
       if (this.mountingGeneration !== undefined) this.releaseBindings();
       this.mountingGeneration = this.registrationGeneration;
+      void this.applyPreferences(game.preferences.values).catch(
+        (error: unknown) => {
+          if (!this.destroyed)
+            this.dispatchEvent(new CustomEvent('error', { detail: error }));
+        },
+      );
     }
     if (
       this.inspectLayout() ||
@@ -1032,6 +1178,7 @@ export class UIRoot extends UIElement {
   }
   private releaseBindings(): void {
     this.context?.deactivate();
+    this.boundGame?.accessibility.setModal(this);
     for (const [control, scope] of this.nativeScopes) {
       if (control instanceof UITextInput) control.unbindNative();
       scope.controller.abort();

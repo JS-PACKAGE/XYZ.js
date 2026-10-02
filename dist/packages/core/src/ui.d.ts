@@ -14,6 +14,7 @@ export { UIScrollView, UIVirtualList } from './ui-scroll.js';
 export type { UIScrollViewOptions, UIVirtualListOptions, UIVirtualListKey, } from './ui-scroll.js';
 export { UIElement } from './ui-layout.js';
 export type { UILayout, UIDimension } from './ui-layout.js';
+import type { AccessibilityPreferenceValues } from './accessibility/preferences.js';
 export interface UIWidgetOptions {
     readonly layout?: UILayout;
     readonly label?: string;
@@ -31,11 +32,13 @@ export interface UISliderOptions extends UIWidgetOptions {
 }
 export declare class UILabel extends UIElement {
     protected textGraphic?: Text2D;
+    private readonly preferenceTextStyle;
     protected constructor(options: UIWidgetOptions);
     static create(text: string, options?: UIWidgetOptions): Promise<UILabel>;
     protected createText(text: string, options: UIWidgetOptions): Promise<void>;
     get text(): string;
     setText(text: string): Promise<void>;
+    applyPreferences(values: AccessibilityPreferenceValues): Promise<void>;
     protected arranged(): void;
 }
 /** Canvas visuals share the ordinary sprite pipeline on every backend. */
@@ -51,11 +54,15 @@ declare abstract class UIControl extends UIElement {
     private paintedState;
     protected textInset: number;
     private textRevision;
+    private readonly preferenceTextStyle;
+    private readonly preferenceMinHeight;
+    private highContrast;
     protected constructor(role: string, label: string, options: UIWidgetOptions);
     protected initializeVisuals(text: string, options: UIWidgetOptions): Promise<void>;
     protected createShape(): Sprite;
     get text(): string;
     setText(text: string): Promise<void>;
+    applyPreferences(values: AccessibilityPreferenceValues): Promise<void>;
     protected arranged(): void;
     protected stateChanged(): void;
     /** @internal Synchronizes inherited disabled state without rerasterizing. */
@@ -142,8 +149,12 @@ export declare class UIRoot extends UIElement {
     private viewportWidth;
     private viewportHeight;
     private mountingGeneration;
+    private preferenceRevision;
+    private preferenceTask;
     constructor(game?: Game, layout?: UILayout);
     get isLive(): boolean;
+    /** Reflows actual canvas text, hit bounds and focus geometry; never scales invisible DOM alone. */
+    applyPreferences(values: AccessibilityPreferenceValues): Promise<void>;
     reflow(width?: number, height?: number): void;
     /** @internal Unpublished candidates and unfocused HUDs never consume gameplay actions. */
     synchronizeInputScope(): void;

@@ -4,6 +4,7 @@ import type { Scene } from '../scene.js';
 import type { Rect2D } from '../gameplay/contracts.js';
 import type { Mask2D } from '../rendering2d/mask2d.js';
 import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
+import { accessibilityLimits } from '../../../../src/data/accessibility.js';
 
 export interface AccessibilityOptions2D {
   readonly role: string;
@@ -11,6 +12,9 @@ export interface AccessibilityOptions2D {
   readonly tabIndex?: number;
   readonly disabled?: boolean;
   readonly nativeInput?: boolean;
+  readonly language?: string;
+  readonly description?: string;
+  readonly modal?: boolean;
 }
 interface ClipShape {
   readonly data: string;
@@ -51,6 +55,16 @@ export class AccessibilityManager {
   private definitions?: SVGSVGElement;
   private coverageCanvas?: HTMLCanvasElement;
   private disposed = false;
+  private readonly liveRegions = new Map<
+    'polite' | 'assertive',
+    HTMLDivElement
+  >();
+  private readonly announcementTimers = new Map<
+    'polite' | 'assertive',
+    number
+  >();
+  private readonly modalScopes = new Map<GameObject, GameObject>();
+  private semanticSequence = 0;
   constructor(
     private readonly canvas: HTMLCanvasElement,
     private readonly getSize: () => { width: number; height: number },
@@ -90,6 +104,93 @@ export class AccessibilityManager {
     return (
       node.ownerDocument.activeElement === node && this.element(object) === node
     );
+  }
+  /** Semantic-only announcements; repeated results are reinserted rather than silently deduplicated. */
+  announce(
+    text: string,
+    options: { priority?: 'polite' | 'assertive'; language?: string } = {},
+  ): void {
+    if (this.disposed) throw new Error('Accessibility manager is destroyed.');
+    if (
+      typeof text !== 'string' ||
+      text.length > accessibilityLimits.maximumAnnouncementLength
+    )
+      throw new RangeError(
+        'Accessibility announcement exceeds the text budget.',
+      );
+    const priority = options.priority ?? 'polite';
+    if (priority !== 'polite' && priority !== 'assertive')
+      throw new TypeError('Invalid announcement priority.');
+    let region = this.liveRegions.get(priority);
+    if (!region) {
+      region = this.canvas.ownerDocument.createElement('div');
+      region.dataset.xyzAccessibilityLive = priority;
+      region.setAttribute(
+        'role',
+        priority === 'assertive' ? 'alert' : 'status',
+      );
+      region.setAttribute('aria-live', priority);
+      region.setAttribute('aria-atomic', 'true');
+      region.style.cssText =
+        'position:fixed;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);pointer-events:none';
+      this.canvas.ownerDocument.body.append(region);
+      this.liveRegions.set(priority, region);
+    }
+    clearTimeout(this.announcementTimers.get(priority));
+    region.textContent = '';
+    region.lang =
+      options.language ?? this.canvas.ownerDocument.documentElement.lang;
+    const target = region;
+    this.announcementTimers.set(
+      priority,
+      setTimeout(() => {
+        this.announcementTimers.delete(priority);
+        if (!this.disposed && this.liveRegions.get(priority) === target)
+          target.textContent = text;
+      }, accessibilityLimits.announcementDelayMs),
+    );
+  }
+  clearAnnouncements(priority?: 'polite' | 'assertive'): void {
+    for (const key of ['polite', 'assertive'] as const) {
+      if (priority && priority !== key) continue;
+      clearTimeout(this.announcementTimers.get(key));
+      this.announcementTimers.delete(key);
+      const region = this.liveRegions.get(key);
+      if (region) region.textContent = '';
+    }
+  }
+  /** A root-local modal hides background semantics from assistive navigation, not just Tab. */
+  setModal(root: GameObject, modal?: GameObject): void {
+    const previous = this.modalScopes.get(root);
+    if (previous && previous !== modal)
+      this.element(previous)?.removeAttribute('aria-owns');
+    if (modal) this.modalScopes.set(root, modal);
+    else this.modalScopes.delete(root);
+  }
+  private inScope(object: GameObject): boolean {
+    for (const [root, modal] of this.modalScopes) {
+      if (
+        root.destroyed ||
+        modal.destroyed ||
+        root.scene !== this.scene ||
+        modal.scene !== this.scene
+      ) {
+        this.modalScopes.delete(root);
+        continue;
+      }
+      let inRoot = false,
+        inModal = false;
+      for (
+        let parent: GameObject | undefined = object;
+        parent;
+        parent = parent.parent
+      ) {
+        inRoot ||= parent === root;
+        inModal ||= parent === modal;
+      }
+      if (inRoot && !inModal) return false;
+    }
+    return true;
   }
 
   private emit(
@@ -159,6 +260,7 @@ export class AccessibilityManager {
         object.accessibility?.nativeInput ? 'input' : 'div',
       );
     node.dataset.xyzAccessibility = '';
+    node.id = `xyz-semantic-${++nextMaskId}-${++this.semanticSequence}`;
     host.dataset.xyzAccessibilityHost = '';
     Object.assign(host.style, {
       position: 'fixed',
@@ -521,6 +623,11 @@ export class AccessibilityManager {
         typeof semantic.role !== 'string' ||
         !semantic.role.trim() ||
         typeof semantic.label !== 'string' ||
+        (semantic.language !== undefined &&
+          typeof semantic.language !== 'string') ||
+        (semantic.description !== undefined &&
+          typeof semantic.description !== 'string') ||
+        (semantic.modal !== undefined && typeof semantic.modal !== 'boolean') ||
         (semantic.nativeInput !== undefined &&
           typeof semantic.nativeInput !== 'boolean') ||
         (semantic.disabled !== undefined &&
@@ -548,6 +655,13 @@ export class AccessibilityManager {
       const node = entry.node;
       node.setAttribute('role', semantic.role);
       node.setAttribute('aria-label', semantic.label);
+      node.lang =
+        semantic.language ?? this.canvas.ownerDocument.documentElement.lang;
+      if (semantic.description)
+        node.setAttribute('aria-description', semantic.description);
+      else node.removeAttribute('aria-description');
+      if (semantic.modal) node.setAttribute('aria-modal', 'true');
+      else node.removeAttribute('aria-modal');
       node.setAttribute('aria-disabled', String(semantic.disabled ?? false));
       node.tabIndex = semantic.disabled ? -1 : (semantic.tabIndex ?? 0);
       if (node.tagName === 'INPUT')
@@ -570,6 +684,7 @@ export class AccessibilityManager {
       maxX = Math.min(size.width, maxX);
       maxY = Math.min(size.height, maxY);
       let visible =
+        this.inScope(object) &&
         object.worldVisible &&
         object.worldOpacity > 0 &&
         object.worldTint[3] > 0 &&
@@ -608,9 +723,28 @@ export class AccessibilityManager {
       entry.host.style.width = `${entry.width}px`;
       entry.host.style.height = `${entry.height}px`;
     }
+    for (const modal of this.modalScopes.values()) {
+      const element = this.element(modal);
+      if (!element) continue;
+      const owned: string[] = [];
+      for (const [object, entry] of this.entries) {
+        if (object === modal || !entry.coverage) continue;
+        for (let parent = object.parent; parent; parent = parent.parent)
+          if (parent === modal) {
+            owned.push(entry.node.id);
+            break;
+          }
+      }
+      element.setAttribute('aria-owns', owned.join(' '));
+    }
   }
   reset(): void {
     for (const [object, entry] of this.entries) this.remove(object, entry);
+    this.modalScopes.clear();
+    for (const timer of this.announcementTimers.values()) clearTimeout(timer);
+    this.announcementTimers.clear();
+    for (const region of this.liveRegions.values()) region.remove();
+    this.liveRegions.clear();
     this.scene = undefined;
     this.definitions?.remove();
     this.definitions = undefined;

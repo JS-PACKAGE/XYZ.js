@@ -6,6 +6,9 @@ export interface AccessibilityOptions2D {
     readonly tabIndex?: number;
     readonly disabled?: boolean;
     readonly nativeInput?: boolean;
+    readonly language?: string;
+    readonly description?: string;
+    readonly modal?: boolean;
 }
 /** Invisible semantics only; exact native geometric masks never replace canvas visuals. */
 export declare class AccessibilityManager {
@@ -20,6 +23,10 @@ export declare class AccessibilityManager {
     private definitions?;
     private coverageCanvas?;
     private disposed;
+    private readonly liveRegions;
+    private readonly announcementTimers;
+    private readonly modalScopes;
+    private semanticSequence;
     constructor(canvas: HTMLCanvasElement, getSize: () => {
         width: number;
         height: number;
@@ -27,6 +34,15 @@ export declare class AccessibilityManager {
     /** Returns only the semantic mirror belonging to the object's live registration. */
     element(object: GameObject): HTMLElement | undefined;
     focus(object: GameObject): boolean;
+    /** Semantic-only announcements; repeated results are reinserted rather than silently deduplicated. */
+    announce(text: string, options?: {
+        priority?: 'polite' | 'assertive';
+        language?: string;
+    }): void;
+    clearAnnouncements(priority?: 'polite' | 'assertive'): void;
+    /** A root-local modal hides background semantics from assistive navigation, not just Tab. */
+    setModal(root: GameObject, modal?: GameObject): void;
+    private inScope;
     private emit;
     private create;
     private shape;

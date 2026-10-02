@@ -3,6 +3,7 @@ import type { UIWidgetOptions } from './ui.js';
 import type { Text2DOptions } from './text2d.js';
 import type { TextCaretPosition, TextSelectionRect } from './text-layout.js';
 import type { TextCaretAffinity } from './text-graphemes.js';
+import type { AccessibilityPreferenceValues } from './accessibility/preferences.js';
 export interface UITextInputOptions extends UIWidgetOptions {
     readonly value?: string;
     readonly maxLength?: number;
@@ -35,6 +36,9 @@ export declare class UITextInput extends UIElement {
     private revision;
     private readonly point;
     private dragStart?;
+    private readonly preferenceTextStyle;
+    private readonly preferenceMinHeight;
+    private highContrast;
     private constructor();
     static create(options?: UITextInputOptions): Promise<UITextInput>;
     private root;
@@ -46,6 +50,7 @@ export declare class UITextInput extends UIElement {
     get isComposing(): boolean;
     setValue(value: string): Promise<void>;
     setTextStyle(style: Text2DOptions): Promise<void>;
+    applyPreferences(values: AccessibilityPreferenceValues): Promise<void>;
     refreshFonts(): Promise<void>;
     get selectionGeometry(): UITextInputSelectionGeometry;
     private updateMeasurement;

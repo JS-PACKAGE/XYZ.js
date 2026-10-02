@@ -14,6 +14,7 @@ import { Mask2D } from './rendering2d/mask2d.js';
 import { Vector2 } from '../../math/src/index.js';
 import type { PointerTargetEventDetail } from './gameplay/pointer-router.js';
 import { uiDefaults, uiLimits } from '../../../src/data/ui.js';
+import type { AccessibilityPreferenceValues } from './accessibility/preferences.js';
 
 export interface UITextInputOptions extends UIWidgetOptions {
   readonly value?: string;
@@ -49,6 +50,9 @@ export class UITextInput extends UIElement {
   private revision = 0;
   private readonly point = new Vector2();
   private dragStart?: number;
+  private readonly preferenceTextStyle: Text2DOptions;
+  private readonly preferenceMinHeight: number;
+  private highContrast = false;
   private constructor(options: UITextInputOptions) {
     super({
       width: uiDefaults.textInputWidth,
@@ -56,6 +60,12 @@ export class UITextInput extends UIElement {
       padding: uiDefaults.textInputPadding,
       ...options.layout,
     });
+    this.preferenceTextStyle = {
+      fontSize: 18,
+      color: '#ffffff',
+      ...options.textStyle,
+    };
+    this.preferenceMinHeight = options.layout?.minHeight ?? 0;
     if (
       options.maxLength !== undefined &&
       (!Number.isSafeInteger(options.maxLength) ||
@@ -228,6 +238,25 @@ export class UITextInput extends UIElement {
     this.updateMeasurement();
     if (this.native) this.configureNative(this.native);
     this.paintSelection();
+  }
+  async applyPreferences(values: AccessibilityPreferenceValues): Promise<void> {
+    if (this.destroyed) return;
+    await this.setTextStyle({
+      ...this.preferenceTextStyle,
+      fontSize: (this.preferenceTextStyle.fontSize ?? 18) * values.textScale,
+      color: values.highContrast ? '#ffffff' : this.preferenceTextStyle.color,
+    });
+    if (this.destroyed) return;
+    this.highContrast = values.highContrast;
+    this.setLayout({
+      minHeight: Math.max(
+        this.preferenceMinHeight,
+        (this.graphic?.height ?? 0) + this.padding(0) + this.padding(2),
+      ),
+    });
+    if (this.caret)
+      this.caret.tint = values.highContrast ? [1, 1, 0, 1] : [0.65, 0.9, 1, 1];
+    this.stateChanged();
   }
 
   async refreshFonts(): Promise<void> {
@@ -512,9 +541,13 @@ export class UITextInput extends UIElement {
   protected override stateChanged(): void {
     this.pointerEnabled = !this.effectiveDisabled;
     if (this.background)
-      this.background.tint = this.effectiveDisabled
-        ? [0.18, 0.19, 0.22, 1]
-        : [0.16, 0.23, 0.34, 1];
+      this.background.tint = this.highContrast
+        ? this.effectiveDisabled
+          ? [0.12, 0.12, 0.12, 1]
+          : [0, 0, 0, 1]
+        : this.effectiveDisabled
+          ? [0.18, 0.19, 0.22, 1]
+          : [0.16, 0.23, 0.34, 1];
     if (
       this.accessibility &&
       this.accessibility.disabled !== this.effectiveDisabled
