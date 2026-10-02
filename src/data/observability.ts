@@ -101,3 +101,31 @@ export const productionQualityProfiles = Object.freeze({
     overlaySprites3D: 128,
   }),
 });
+
+/** Revision changes invalidate pinned profiles when authored work or phase semantics change. */
+export const productionRegressionWorkload = Object.freeze({
+  revision: 4,
+  denseColliders: 96,
+  denseRadius: 32,
+  navigationColumns: 48,
+  navigationRows: 48,
+  navigationConcurrentSearches: 8,
+  navigationWorkBudget: 512,
+  visibleMeshes: 256,
+  invisibleMeshes: 4096,
+  mutationIntervalFrames: 60,
+  maximumWallSeconds: 300,
+  minimumSteadySeconds: 5,
+  minimumLoadingSeconds: 2,
+  teardownMaximumMs: 5000,
+});
+
+/** Calibration margins are explicit policy, never silently adapted by a failing gate. */
+export const productionCalibrationDefaults = Object.freeze({
+  minimumRuns: 3,
+  defaultRuns: 5,
+  maximumRuns: 20,
+  relativeMargin: 0.25,
+  absoluteMarginMs: 2,
+  hitchFractionMargin: 0.02,
+});

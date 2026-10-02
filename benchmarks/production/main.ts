@@ -11,7 +11,15 @@ import {
   type Texture,
   type TextureLease,
 } from '../../src/index.js';
-import { productionQualityProfiles } from '../../src/data/observability.js';
+import {
+  productionQualityProfiles,
+  productionRegressionWorkload as regressionSettings,
+} from '../../src/data/observability.js';
+import {
+  DenseOverlapWorkload,
+  ReplanningWorkload,
+  VisibilityWorkload,
+} from './regression.js';
 import { BoundedTiming } from '../measurement.js';
 import { BrowserObservations, browserProvenance } from '../observability.js';
 
@@ -23,24 +31,25 @@ if (!Object.hasOwn(productionQualityProfiles, quality))
   throw new Error('Use quality=baseline|low|high.');
 const counts =
   productionQualityProfiles[quality as keyof typeof productionQualityProfiles];
+const threeD = kind === '3d' || kind === 'visibility';
 const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 canvas.style.width = `${counts.width}px`;
 canvas.style.height = `${counts.height}px`;
 if (
-  !['2d', '3d'].includes(kind) ||
+  !['2d', '3d', 'dense2d', 'navigation', 'visibility'].includes(kind) ||
   !['canvas2d', 'webgl2', 'webgpu'].includes(backend)
 )
-  throw new Error('Use workload=2d|3d and renderer=canvas2d|webgl2|webgpu.');
+  throw new Error('Invalid production workload or renderer.');
 const output = document.querySelector<HTMLPreElement>('#result')!;
 const stages = Object.fromEntries(
   ['warmup', 'steady', 'asset-loading'].map((stage) => [
     stage,
     {
-      frameIntervalMs: new BoundedTiming(),
-      cpuFrameWorkMs: new BoundedTiming(),
-      cpuSimulationMs: new BoundedTiming(),
-      cpuSubmitMs: new BoundedTiming(),
-      gpuNativePassSumMs: new BoundedTiming(),
+      frameIntervalMs: new BoundedTiming(counts.hitchMilliseconds),
+      cpuFrameWorkMs: new BoundedTiming(counts.hitchMilliseconds),
+      cpuSimulationMs: new BoundedTiming(counts.hitchMilliseconds),
+      cpuSubmitMs: new BoundedTiming(counts.hitchMilliseconds),
+      gpuNativePassSumMs: new BoundedTiming(counts.hitchMilliseconds),
     },
   ]),
 ) as Record<string, Record<string, BoundedTiming>>;
@@ -69,6 +78,8 @@ let lastGpuFrame = 0;
 let previous = 0;
 let loadStartFrame = 0;
 let loadComplete = false;
+let stageStarted = 0;
+const stageWallMs: Record<string, number> = {};
 let failed: unknown;
 const gpuStages = new Uint8Array(512);
 const gpuFrames = new Float64Array(512);
@@ -78,11 +89,13 @@ let unattributedGpuSamples = 0;
 class WorkloadScene extends Scene {
   readonly movingSprites: Sprite[] = [];
   readonly movingMeshes: Mesh[] = [];
+  readonly dense?: DenseOverlapWorkload;
+  readonly replanning?: ReplanningWorkload;
+  readonly visibilityWorkload?: VisibilityWorkload;
   private elapsed = 0;
   constructor() {
-    super();
-    const spriteCount =
-      kind === '2d' ? counts.sprites2D : counts.overlaySprites3D;
+    super({ navigationWorkBudget: regressionSettings.navigationWorkBudget });
+    const spriteCount = threeD ? counts.overlaySprites3D : counts.sprites2D;
     const spriteRowHeight = Math.min(
       28,
       counts.height / Math.ceil(spriteCount / 32),
@@ -102,14 +115,18 @@ class WorkloadScene extends Scene {
         ),
       );
     }
-    if (kind === '3d') {
+    if (threeD) {
       this.camera3D.position.set(0, 0, 28);
       this.ambientLight = 0.2;
       this.directionalLight.intensity = 1;
       const geometry = Geometry.cube();
-      const columns = Math.ceil(Math.sqrt(counts.meshes3D));
-      const rows = Math.ceil(counts.meshes3D / columns);
-      for (let index = 0; index < counts.meshes3D; index++) {
+      const meshCount =
+        kind === 'visibility'
+          ? regressionSettings.visibleMeshes
+          : counts.meshes3D;
+      const columns = Math.ceil(Math.sqrt(meshCount));
+      const rows = Math.ceil(meshCount / columns);
+      for (let index = 0; index < meshCount; index++) {
         const transparent = index < counts.transparentMeshes3D;
         const material = new PBRMaterial({
           texture: assets[index % assets.length]!,
@@ -160,6 +177,18 @@ class WorkloadScene extends Scene {
           }),
         );
     }
+    if (kind === 'dense2d') this.dense = new DenseOverlapWorkload(this);
+    if (kind === 'navigation')
+      this.replanning = new ReplanningWorkload(
+        this,
+        this.movingSprites[this.movingSprites.length - 1]!,
+      );
+    if (kind === 'visibility')
+      this.visibilityWorkload = new VisibilityWorkload(
+        this,
+        assets[0]!,
+        this.movingMeshes.length,
+      );
   }
   override update(delta: number): void {
     for (const sprite of this.movingSprites) {
@@ -169,6 +198,14 @@ class WorkloadScene extends Scene {
     this.elapsed += delta;
     for (const mesh of this.movingMeshes)
       mesh.rotation.setFromEuler(this.elapsed * 0.2, this.elapsed * 0.4, 0);
+    this.replanning?.update();
+    this.visibilityWorkload?.update();
+  }
+  override fixedUpdate(): void {
+    this.dense?.update();
+  }
+  protected override onDestroy(): void {
+    this.replanning?.destroy();
   }
 }
 
@@ -182,11 +219,15 @@ try {
     pixelRatio: counts.pixelRatio,
     autoResize: false,
     gpuTiming: { enabled: true, warmupFrames: counts.warmupFrames },
-    frameWorkBudgetMs: 1000 / 60,
+    frameWorkBudgetMs: counts.hitchMilliseconds,
   });
   operations.gameCreateWallMs = performance.now() - start;
   const runtime = game;
-  if (kind === '3d' && !runtime.graphics.capabilities.threeD)
+  if (runtime.graphics.backend !== backend)
+    throw new Error(
+      'Functional workload failure: requested backend was not used.',
+    );
+  if (threeD && !runtime.graphics.capabilities.threeD)
     throw new Error(
       'Explicit unsupported: selected backend has no 3D renderer.',
     );
@@ -215,10 +256,19 @@ try {
     failed = (event as CustomEvent<Error>).detail;
   });
   runtime.start();
+  const measurementStarted = performance.now();
+  stageStarted = measurementStarted;
   await new Promise<void>((resolve, reject) => {
     const observe = (now: number): void => {
       try {
         if (failed) throw failed;
+        if (
+          now - measurementStarted >
+          regressionSettings.maximumWallSeconds * 1000
+        )
+          throw new Error(
+            'Workload exceeded its bounded measurement deadline.',
+          );
         if (document.hidden)
           throw new Error(
             'Workload interrupted by hidden page; results invalid.',
@@ -235,6 +285,7 @@ try {
           timing.cpuSubmitMs!.add(work.renderSubmitMs);
           frame++;
           const stats = runtime.graphics.stats;
+          scene.visibilityWorkload?.observe(stats);
           const history = stats.frame % gpuFrames.length;
           gpuFrames[history] = stats.frame;
           gpuStages[history] = stageNames.indexOf(stage);
@@ -269,13 +320,19 @@ try {
             stats.renderTargetBytes,
           );
           observations!.sample(now);
-          if (stage === 'warmup' && frame >= counts.warmupFrames)
+          if (stage === 'warmup' && frame >= counts.warmupFrames) {
+            stageWallMs[stage] = now - stageStarted;
             stage = 'steady';
+            stageStarted = now;
+          }
           if (
             stage === 'steady' &&
-            frame >= counts.warmupFrames + counts.measuredFrames
+            frame >= counts.warmupFrames + counts.measuredFrames &&
+            now - stageStarted >= regressionSettings.minimumSteadySeconds * 1000
           ) {
             stage = 'asset-loading';
+            stageWallMs.steady = now - stageStarted;
+            stageStarted = now;
             loadStartFrame = frame;
             void (async () => {
               for (let index = 0; index < counts.textures; index++) {
@@ -300,8 +357,11 @@ try {
           if (
             stage === 'asset-loading' &&
             loadComplete &&
-            frame - loadStartFrame >= counts.loadStageFrames
+            frame - loadStartFrame >= counts.loadStageFrames &&
+            now - stageStarted >=
+              regressionSettings.minimumLoadingSeconds * 1000
           ) {
+            stageWallMs[stage] = now - stageStarted;
             resolve();
             return;
           }
@@ -320,18 +380,49 @@ try {
     ...runtime.graphics.stats,
     gpuTiming: { ...runtime.graphics.stats.gpuTiming },
   };
+  const semantics = {
+    denseOverlap: scene.dense?.validate() ?? null,
+    navigationReplanning: scene.replanning?.validate() ?? null,
+    visibility: scene.visibilityWorkload?.validate() ?? null,
+  };
+  if (
+    scene.movingSprites.some(
+      (sprite) =>
+        !Number.isFinite(sprite.position.x) ||
+        !Number.isFinite(sprite.rotation),
+    ) ||
+    (threeD ? renderStats.drawCalls === 0 : renderStats.drawCalls2D === 0)
+  )
+    throw new Error(
+      'Functional workload failure: invalid poses or missing native render work.',
+    );
   start = performance.now();
   runtime.destroy();
   game = undefined;
   for (const lease of leases) lease.release();
   operations.teardownWallMs = performance.now() - start;
+  if (
+    !scene.destroyed ||
+    scene.objects.size !== 0 ||
+    runtime.assets.residency.liveBytes !== 0 ||
+    runtime.graphics.residency.textures.liveBytes !== 0 ||
+    runtime.graphics.residency.geometry.liveBytes !== 0
+  )
+    throw new Error(
+      'Functional workload failure: teardown left scene or cache allocations live.',
+    );
   const result = {
+    schema: 'xyz-production-workload-v2',
+    result: 'PASS',
     date: new Date().toISOString(),
     workload: kind,
     backend,
     quality,
     provenance,
     counts,
+    regressionSettings,
+    stageWallMs,
+    semantics,
     operations,
     stages: Object.fromEntries(
       Object.entries(stages).map(([name, timings]) => [
@@ -356,6 +447,7 @@ try {
 } catch (error) {
   output.textContent = JSON.stringify({
     result: 'FAIL',
+    failureKind: 'functional',
     error: String(error),
     workload: kind,
     backend,

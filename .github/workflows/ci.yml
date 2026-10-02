@@ -161,10 +161,10 @@ jobs:
         run: node scripts/check-api-compatibility.mjs
       - name: Install one owned native browser
         run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
-      - name: Measure the production workload with a host-scoped teardown hang guard
+      - name: Enforce host-scoped production frame, hitch and lifecycle budgets
         if: success() || failure()
-        # This is an explicit hosted-runner lifecycle bound, not a universal FPS guarantee.
-        run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --limit operations.teardownWallMs=5000
+        # Explicit initial operator policy, not repeated hosted calibration or a universal FPS guarantee.
+        run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000
       - name: Pack, install, deploy and play both independent starter games
         if: success() || failure()
         run: npx --yes pnpm@12.6.0 run smoke:starters

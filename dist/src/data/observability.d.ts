@@ -122,3 +122,29 @@ export declare const productionQualityProfiles: Readonly<{
         hitchMilliseconds: 50;
     }>;
 }>;
+/** Revision changes invalidate pinned profiles when authored work or phase semantics change. */
+export declare const productionRegressionWorkload: Readonly<{
+    revision: 4;
+    denseColliders: 96;
+    denseRadius: 32;
+    navigationColumns: 48;
+    navigationRows: 48;
+    navigationConcurrentSearches: 8;
+    navigationWorkBudget: 512;
+    visibleMeshes: 256;
+    invisibleMeshes: 4096;
+    mutationIntervalFrames: 60;
+    maximumWallSeconds: 300;
+    minimumSteadySeconds: 5;
+    minimumLoadingSeconds: 2;
+    teardownMaximumMs: 5000;
+}>;
+/** Calibration margins are explicit policy, never silently adapted by a failing gate. */
+export declare const productionCalibrationDefaults: Readonly<{
+    minimumRuns: 3;
+    defaultRuns: 5;
+    maximumRuns: 20;
+    relativeMargin: 0.25;
+    absoluteMarginMs: 2;
+    hitchFractionMargin: 0.02;
+}>;

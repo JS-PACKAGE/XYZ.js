@@ -1,0 +1,168 @@
+{
+  "schema": "xyz-production-profile-v1",
+  "name": "hosted-macos-arm64-apple-paravirtual-webgl2-initial-policy",
+  "provenance": "operator-policy",
+  "policy": {
+    "status": "UNEXECUTED_INITIAL_POLICY",
+    "basis": "v1.12.1 hosted single-run observations: steady RAF p95 50.25/66.75 ms and submit p95 1.75/17.25 ms for 2D/3D. These are observations, not repeated calibration. New workload bounds are explicit provisional operator ceilings, not measured baselines.",
+    "review": "Review all bounds before adoption. Repeated calibration must happen on the intended host in a separate command; do not generate and compare a baseline in the gate run.",
+    "hostScope": "macOS arm64, Chromium major 153, three browser-visible CPUs, exact ANGLE Metal Apple Paravirtual GPU and launch arguments. Deliberately pins the hosted runner class rather than an unknown CPU model/OS patch. Changed identity blocks. No physical-device, FPS or calibrated-host certification."
+  },
+  "expected": {
+    "platform": "darwin",
+    "architecture": "arm64",
+    "browserMajor": 153,
+    "hardwareConcurrency": 3,
+    "backend": "webgl2",
+    "quality": "baseline",
+    "device": "native",
+    "gpu": {
+      "source": "WEBGL_debug_renderer_info on renderer canvas",
+      "vendor": "Google Inc. (Apple)",
+      "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple Paravirtual device, Unspecified Version)"
+    },
+    "launchArguments": [
+      "--enable-unsafe-webgpu",
+      "--use-angle=metal",
+      "--mute-audio"
+    ]
+  },
+  "workload": {
+    "schema": "xyz-production-workload-v2",
+    "counts": {
+      "width": 1280,
+      "height": 720,
+      "pixelRatio": 1,
+      "warmupFrames": 120,
+      "measuredFrames": 600,
+      "loadStageFrames": 180,
+      "textures": 8,
+      "sprites2D": 768,
+      "transparentSprites2D": 128,
+      "meshes3D": 256,
+      "transparentMeshes3D": 64,
+      "pointLights": 8,
+      "spotLights": 4,
+      "overlaySprites3D": 64,
+      "hitchMilliseconds": 50
+    },
+    "regressionSettings": {
+      "revision": 4,
+      "denseColliders": 96,
+      "denseRadius": 32,
+      "navigationColumns": 48,
+      "navigationRows": 48,
+      "navigationConcurrentSearches": 8,
+      "navigationWorkBudget": 512,
+      "visibleMeshes": 256,
+      "invisibleMeshes": 4096,
+      "mutationIntervalFrames": 60,
+      "maximumWallSeconds": 300,
+      "minimumSteadySeconds": 5,
+      "minimumLoadingSeconds": 2,
+      "teardownMaximumMs": 5000
+    }
+  },
+  "bounds": {
+    "2d": {
+      "steady": {
+        "rafP95Ms": 75,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.2,
+        "cpuFrameP95Ms": 8,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 4,
+        "cpuSubmitMaxMs": 1500
+      },
+      "asset-loading": {
+        "rafP95Ms": 100,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.35,
+        "cpuFrameP95Ms": 12,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 8,
+        "cpuSubmitMaxMs": 1500
+      }
+    },
+    "3d": {
+      "steady": {
+        "rafP95Ms": 100,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.25,
+        "cpuFrameP95Ms": 32,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 24,
+        "cpuSubmitMaxMs": 1500
+      },
+      "asset-loading": {
+        "rafP95Ms": 150,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.35,
+        "cpuFrameP95Ms": 48,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 40,
+        "cpuSubmitMaxMs": 1500
+      }
+    },
+    "dense2d": {
+      "steady": {
+        "rafP95Ms": 150,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.3,
+        "cpuFrameP95Ms": 120,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 8,
+        "cpuSubmitMaxMs": 1500
+      },
+      "asset-loading": {
+        "rafP95Ms": 175,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.35,
+        "cpuFrameP95Ms": 140,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 12,
+        "cpuSubmitMaxMs": 1500
+      }
+    },
+    "navigation": {
+      "steady": {
+        "rafP95Ms": 100,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.25,
+        "cpuFrameP95Ms": 80,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 8,
+        "cpuSubmitMaxMs": 1500
+      },
+      "asset-loading": {
+        "rafP95Ms": 150,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.35,
+        "cpuFrameP95Ms": 100,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 12,
+        "cpuSubmitMaxMs": 1500
+      }
+    },
+    "visibility": {
+      "steady": {
+        "rafP95Ms": 150,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.3,
+        "cpuFrameP95Ms": 120,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 64,
+        "cpuSubmitMaxMs": 1500
+      },
+      "asset-loading": {
+        "rafP95Ms": 175,
+        "rafMaxMs": 1500,
+        "hitchFraction": 0.35,
+        "cpuFrameP95Ms": 140,
+        "cpuFrameMaxMs": 1500,
+        "cpuSubmitP95Ms": 80,
+        "cpuSubmitMaxMs": 1500
+      }
+    }
+  }
+}
