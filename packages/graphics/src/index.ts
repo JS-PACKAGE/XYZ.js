@@ -9,6 +9,8 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/index.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
@@ -115,7 +117,8 @@ export interface Renderer {
     width: number,
     height: number,
   ): Promise<RenderSnapshot>;
-  prepareMaterial(material: Material2D): Promise<void>;
+  prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+  prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
   preparePostProcessor(processor: PostProcessor2D): Promise<void>;
   createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
   renderToTexture(

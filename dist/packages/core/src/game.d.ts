@@ -6,6 +6,7 @@ import { Scene } from './scene.js';
 import { Clock } from './clock.js';
 import { type TransitionOptions } from './transitions2d/index.js';
 import { AccessibilityManager } from './accessibility/index.js';
+import { AccessibilityPreferences } from './accessibility/preferences.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import type { WarmupOptions, WarmupLease } from '../../graphics/src/warmup.js';
@@ -112,6 +113,8 @@ export declare class Game extends EventTarget {
     private readonly audioPause;
     private readonly accessibilityManager;
     private readonly accessibilitySize;
+    private preferencePolicy;
+    private readonly onMotionPreferenceChange;
     private readonly warmupControllers;
     private readonly warmupLeases;
     private currentWarmup;
@@ -120,6 +123,8 @@ export declare class Game extends EventTarget {
     private contentLifetime;
     /** Shared acquisition ownership is lazy and local to this Game. */
     get resources(): ResourcePool;
+    /** Player presentation policy; unused games do not install OS media listeners. */
+    get preferences(): AccessibilityPreferences;
     /** Load/migrate/restore a fresh candidate before the existing Scene publication barrier. */
     createContentLoader<Definitions extends FactoryDefinitions>(registry: FactoryRegistry<Definitions>, services: FactoryServices<Definitions>): Promise<ContentLoadCoordinator<Definitions>>;
     get accessibility(): AccessibilityManager;

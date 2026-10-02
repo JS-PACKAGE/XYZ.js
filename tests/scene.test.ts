@@ -129,6 +129,9 @@ beforeEach(() => {
     preparePostProcessor: vi.fn(async () => {
       throw new Error('Native postprocessor outside Scene fixture.');
     }),
+    prepareGpuParticles: vi.fn(async () => {
+      throw new Error('Native GPU particles outside Scene fixture.');
+    }),
     createRenderTexture: vi.fn(),
     renderToTexture: vi.fn(),
     extractPixels: vi.fn(),
@@ -218,6 +221,7 @@ function installTextureCache(
         geometry: unsupported,
         mesh: unsupported,
         particles: unsupported,
+        gpuParticles: unsupported,
         environment: unsupported,
         material: unsupported,
         post: unsupported,
@@ -814,6 +818,37 @@ describe('Scene ownership and Game integration', () => {
     expect(lifecycle).toEqual(['start', 'complete']);
     game.destroy();
     expect(snapshot.destroy).toHaveBeenCalledOnce();
+  });
+
+  it('skips decorative presentation when reduced motion changes during asynchronous capture', async () => {
+    const game = await createGame();
+    const old = new LoggingScene('old', calls);
+    await game.setScene(old);
+    game.start();
+    frame(100);
+    const capture = deferred<RenderSnapshot>();
+    const capturing = deferred<void>();
+    const snapshot = ownedSnapshot();
+    vi.mocked(renderer.captureScene).mockImplementationOnce(() => {
+      capturing.resolve();
+      return capture.promise;
+    });
+    const started = vi.fn();
+    game.addEventListener('transitionstart', started);
+    const next = new LoggingScene('next', calls);
+    const completion = game.setScene(next, {
+      transition: { kind: 'crossfade', duration: 10 },
+    });
+    await capturing.promise;
+    game.preferences.set({ reducedMotion: true });
+    capture.resolve(snapshot);
+    await completion;
+    expect(game.scene).toBe(next);
+    expect(old.destroyed).toBe(true);
+    expect(game.transitioning).toBe(false);
+    expect(started).not.toHaveBeenCalled();
+    expect(snapshot.destroy).toHaveBeenCalledOnce();
+    game.destroy();
   });
 
   it('retains the old Scene on capture failure and destroys a late superseded capture without publication', async () => {

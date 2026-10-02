@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Renderer, GraphicsBackend, GraphicsCapabilities, RenderToTextureOptions2D, ExtractPixelsOptions2D, GenerateTextureOptions2D } from './index.js';
 import type { RenderStats } from './render-stats.js';
@@ -29,7 +31,8 @@ export declare class PresentedRenderer implements Renderer {
     retainFrameResources(): PreparedResourceLease;
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
-    prepareMaterial(material: Material2D): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+    prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;

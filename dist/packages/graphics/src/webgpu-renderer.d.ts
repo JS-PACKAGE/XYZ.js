@@ -1,3 +1,5 @@
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
@@ -63,7 +65,8 @@ export declare class WebGPURenderer implements Renderer {
     private readonly render2DHooks;
     constructor(onError: (error: Error) => void, antialias?: boolean, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
-    prepareMaterial(material: Material2D): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+    prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {

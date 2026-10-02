@@ -1,6 +1,7 @@
 import { Vector3 } from '../../math/src/index.js';
 import { World } from '../../ecs/src/world.js';
 import { Camera2D } from './camera2d.js';
+import { Mesh } from './mesh.js';
 import { PerspectiveCamera } from './perspective-camera.js';
 import type { OrthographicCamera } from './orthographic-camera.js';
 import { Object3D } from './object3d.js';
@@ -20,6 +21,11 @@ import type { Pointer } from '../../input/src/index.js';
 import { PointerRouter } from './gameplay/pointer-router.js';
 import { PreloadBatch } from '../../assets/src/index.js';
 import { NavigationScheduler } from './navigation/scheduler.js';
+import { GPUParticleEmitter3D } from './gpu-particles3d.js';
+import { CharacterLocomotion3D, type CharacterLocomotionOptions3D } from './locomotion3d.js';
+import type { CharacterController3D } from './physics3d/character.js';
+import { WorldStreamingController, type WorldStreamingOptions } from './world-streaming.js';
+import { SpatialLightSelector } from './light-selection.js';
 export interface SceneOptions {
     readonly fixedDelta?: number;
     readonly maxFixedSteps?: number;
@@ -39,6 +45,24 @@ export declare class Scene {
     private physicsWorld3D;
     private navigationScheduler;
     private readonly navigationWorkBudget;
+    private locomotionDrivers;
+    private streamingControllers;
+    private lightSelector;
+    private presentationElapsed;
+    /** Scene-local simulation seconds; presentation fades never use a wall clock. */
+    get presentationTime(): number;
+    /** Logical pixels; detached scenes require an explicit viewport for screen-size LOD. */
+    get presentationViewportHeight(): number | undefined;
+    get lightSelection(): SpatialLightSelector;
+    set lightSelection(value: SpatialLightSelector);
+    createLocomotion3D(controller: CharacterController3D, options: CharacterLocomotionOptions3D): CharacterLocomotion3D;
+    createWorldStreaming(options: WorldStreamingOptions): WorldStreamingController;
+    /** @internal Reading membership does not initialize any streaming service. */
+    get initializedWorldStreaming(): ReadonlySet<WorldStreamingController> | undefined;
+    /** @internal Game applies its pause/visibility state before frame admission. */
+    setWorldStreamingPaused(paused: boolean): void;
+    /** @internal Once per visible frame, after gameplay input and before navigation. */
+    advanceWorldStreaming(canContinue: () => boolean): void;
     get navigation(): NavigationScheduler;
     /** @internal Reading counters never admits work or initializes a scheduler. */
     get initializedNavigation(): NavigationScheduler | undefined;
@@ -126,7 +150,9 @@ export declare class Scene {
     });
     private readonly registrations;
     private readonly registeredObjects;
-    private meshCount;
+    private registeredMeshes;
+    private meshRevision;
+    private registeredGPUParticles;
     private cameraDependents;
     private readonly objectUpdates;
     private nextObjectUpdate;
@@ -141,7 +167,14 @@ export declare class Scene {
     private owner;
     private controller;
     private disposed;
+    private committingStreamingMembership;
     get objects(): ReadonlySet<SceneObject>;
+    /** @internal A lazy mesh-only membership view for native render collection. */
+    get renderMeshes(): ReadonlySet<Mesh> | undefined;
+    /** @internal Membership changes only; mutable poses are checked independently. */
+    get renderMeshRevision(): number;
+    /** @internal Native emitters are lazy and do not enter the 2D update registry. */
+    get gpuParticleEmitters(): ReadonlySet<GPUParticleEmitter3D> | undefined;
     /** @internal Backends skip 3D camera/lighting work for sprite-only scenes. */
     get has3DContent(): boolean;
     get destroyed(): boolean;
@@ -149,9 +182,15 @@ export declare class Scene {
     add<T extends SceneObject>(object: T): T;
     /** @internal Object3D.add registers and publishes the final parent before add events. */
     addChild<T extends Object3D>(object: T, parent: Object3D): T;
+    /** @internal Publish owner metadata only after every subtree registration succeeds. */
+    publishStreamingSubtree(root: SceneObject, publish: () => void): void;
+    /** @internal Retire metadata before consumers observe detached subtree events. */
+    retireStreamingSubtree(root: SceneObject, retire: () => void): void;
+    private commitStreamingMembership;
     private addObject;
     private register;
     remove(object: SceneObject): boolean;
+    private removeObject;
     private unregister;
     /** @internal A Scene belongs to one Game for its lifetime, including failed preparation. */
     claim(game: Game): AbortSignal;
@@ -175,7 +214,7 @@ export declare class Scene {
     /** @internal Systems/actions run first, physics then particles, final camera last. */
     advanceAfterUpdate(deltaTime: number, canContinue: () => boolean): void;
     /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
-    updateCameraDependents(): void;
+    updateCameraDependents(viewportHeight?: number | undefined): void;
     /** Called before scene systems, once per visible frame. */
     update(deltaTime: number): void;
     /** Fixed gameplay runs immediately before both physics worlds, zero or more times per frame. */

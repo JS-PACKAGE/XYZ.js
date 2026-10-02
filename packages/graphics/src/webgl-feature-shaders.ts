@@ -1,3 +1,10 @@
+import {
+  LIGHTING_FLOAT_COUNT,
+  MAX_POINT_LIGHTS,
+  MAX_SPOT_LIGHTS,
+  SPOT_LIGHT_OFFSET,
+  nativeMaterial3DLimits,
+} from '../../../src/data/rendering.js';
 import { atlasGLSL } from './shadow-shaders.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
 import { sheenGLSL } from './sheen-shaders.js';
@@ -36,11 +43,16 @@ mat4 jointMatrix(uint index) {
     texelFetch(jointPalette, ivec2(2,row),0),
     texelFetch(jointPalette, ivec2(3,row),0));
 }
+/* XYZ_VERTEX_HOOKS */
+struct XYZVertex { vec3 position; vec3 normal; };
+XYZVertex xyzDeform(vec3 position, vec3 normal, vec2 uv) { return XYZVertex(position,normal); }
+/* XYZ_VERTEX_HOOKS_END */
 void main() {
   mat4 world = model;
   if (instanced) world = model * instanceMatrix;
-  vec4 local = vec4(position, 1.0);
-  vec3 localNormal = normal;
+  XYZVertex deformed = xyzDeform(position,normal,uv);
+  vec4 local = vec4(deformed.position, 1.0);
+  vec3 localNormal = deformed.normal;
   if (skinned) {
     mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
       + jointMatrix(jointIndices.y) * jointWeights.y
@@ -50,7 +62,7 @@ void main() {
     mat3 cofactor = mat3(cross(skin[1].xyz,skin[2].xyz),
       cross(skin[2].xyz,skin[0].xyz),cross(skin[0].xyz,skin[1].xyz));
     float sign = dot(skin[0].xyz,cofactor[0]) < 0.0 ? -1.0 : 1.0;
-    vec3 direction = sign * cofactor * normal;
+    vec3 direction = sign * cofactor * deformed.normal;
     float directionLength = length(direction);
     localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
   }
@@ -106,7 +118,7 @@ uniform highp sampler2DArray opticalMaps;
 uniform sampler2D opaqueScene;
 uniform mat4 viewProjection;
 uniform sampler2D shadowMap;
-uniform vec4 lighting[51];
+uniform vec4 lighting[${LIGHTING_FLOAT_COUNT / 4}];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
 uniform sampler2D environmentMap;
 uniform vec3 probeMin;
@@ -126,6 +138,10 @@ uniform vec3 cameraPosition;
 uniform bool receiveShadow;
 out vec4 color;
 uniform int oitPass;
+uniform float meshFade;
+/* XYZ_SURFACE_HOOKS */
+vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+/* XYZ_SURFACE_HOOKS_END */
 ${atlasGLSL}
 const float PI = 3.141592653589793;
 ${transmissionGLSL}
@@ -209,7 +225,7 @@ vec3 applyFog(vec3 rgb, float opacity) {
   return mix(rgb, fog[0].rgb * opacity, amount);
 }
 void shadeMesh() {
-  vec4 texel = texture(image, vUV);
+  vec4 texel = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV));
   float opacity = texel.a * tint.a * vColor.a;
   if (pbr) {
     if (alphaMode == 1 && opacity < emission.w) discard;
@@ -220,7 +236,7 @@ void shadeMesh() {
   if (oitPass > 0 && opacity <= 0.0) discard;
   // Revealage depends only on coverage; do not evaluate lighting a second time.
   if (oitPass == 2) {
-    color = vec4(opacity);
+    color = vec4(opacity * meshFade);
     return;
   }
   vec3 n = vNormal / max(length(vNormal), .000001);
@@ -304,7 +320,7 @@ void shadeMesh() {
     result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight, transmissionWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
     if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${MAX_POINT_LIGHTS}; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
@@ -315,13 +331,13 @@ void shadeMesh() {
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
     }
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${MAX_SPOT_LIGHTS}; i++) {
       if (i >= int(lighting[2].y)) break;
-      vec4 p = lighting[19 + i * 4], c = lighting[20 + i * 4], d = lighting[21 + i * 4];
+      vec4 p = lighting[${SPOT_LIGHT_OFFSET / 4} + i * 4], c = lighting[${SPOT_LIGHT_OFFSET / 4 + 1} + i * 4], d = lighting[${SPOT_LIGHT_OFFSET / 4 + 2} + i * 4];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
-      float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
+      float cone = smoothstep(d.w, lighting[${SPOT_LIGHT_OFFSET / 4 + 3} + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
       result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight,transmissionWeight)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
@@ -350,25 +366,25 @@ void shadeMesh() {
   } else {
     float directional = max(dot(vNormal, direction), 0.0) / max(length(vNormal) * length(direction), .000001);
     vec3 illumination = vec3(max(lighting[1].w, 0.0)) + lighting[1].rgb * (directional * max(lighting[0].w, 0.0) * visibility);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${MAX_POINT_LIGHTS}; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       illumination += c.rgb * c.w * attenuation(d2,p.w) * max(dot(n, delta / max(sqrt(d2), .000001)),0.0) * pointShadow(i,p.xyz);
     }
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${MAX_SPOT_LIGHTS}; i++) {
       if (i >= int(lighting[2].y)) break;
-      vec4 p = lighting[19 + i * 4], c = lighting[20 + i * 4], d = lighting[21 + i * 4];
+      vec4 p = lighting[${SPOT_LIGHT_OFFSET / 4} + i * 4], c = lighting[${SPOT_LIGHT_OFFSET / 4 + 1} + i * 4], d = lighting[${SPOT_LIGHT_OFFSET / 4 + 2} + i * 4];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
-      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[22 + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0) * spotShadow(i);
+      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[${SPOT_LIGHT_OFFSET / 4 + 3} + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0) * spotShadow(i);
     }
     result = base * illumination;
     if (linearOutput) result = decodeSRGB(result);
   }
-  color = vec4(applyFog(result * opacity, opacity), opacity);
+  color = vec4(applyFog(result * opacity, opacity), opacity) * meshFade;
 }
 void main() {
   shadeMesh();
@@ -377,6 +393,11 @@ void main() {
 
 export const shadowFragment = `#version 300 es
 precision highp float;
+in vec3 vPosition;
+in vec3 vNormal;
+/* XYZ_SURFACE_HOOKS */
+vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+/* XYZ_SURFACE_HOOKS_END */
 in vec2 vUV;
 in vec4 vColor;
 flat in float vOrientation;
@@ -384,10 +405,12 @@ uniform bool doubleSided;
 uniform sampler2D image;
 uniform float alphaCutoff;
 uniform float opacity;
+uniform float meshFade;
 uniform int alphaMode;
 void main() {
+  if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
-  float alpha = texture(image, vUV).a * opacity * vColor.a;
+  float alpha = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV)).a * opacity * vColor.a;
   if (alphaMode == 1 && alpha < alphaCutoff) discard;
   if (alphaMode == 2 && alpha <= 0.0) discard;
 }`;
@@ -459,3 +482,37 @@ void main() {
   if (sky.y < 0.5) c = encodeSRGB(c);
   color = vec4(c, 1.0);
 }`;
+
+/** Both languages are authored by the caller; only native hook declarations are composed. */
+export function nativeMeshGLSL(
+  source: string,
+  stage: 'vertex' | 'surface' | 'shadow',
+): string {
+  const shader =
+    stage === 'vertex'
+      ? meshVertex
+      : stage === 'shadow'
+        ? shadowFragment
+        : meshFragment;
+  const marker = stage === 'vertex' ? 'VERTEX' : 'SURFACE';
+  const start = shader.indexOf(`/* XYZ_${marker}_HOOKS */`);
+  const endMarker = `/* XYZ_${marker}_HOOKS_END */`;
+  const end = shader.indexOf(endMarker) + endMarker.length;
+  const maps =
+    stage === 'surface'
+      ? ''
+      : `uniform sampler2D xyzMap0;
+uniform sampler2D xyzMap1;
+uniform sampler2D xyzMap2;
+uniform sampler2D xyzMap3;
+`;
+  const declarations = `${stage === 'vertex' ? '#define XYZ_VERTEX 1' : '#define XYZ_FRAGMENT 1'}${stage === 'shadow' ? '\n#define XYZ_SHADOW 1' : ''}
+uniform vec4 xyzUniforms[${nativeMaterial3DLimits.uniformFloats / 4}];
+${maps}struct XYZVertex { vec3 position; vec3 normal; };
+`;
+  return (shader.slice(0, start) + declarations + source + shader.slice(end))
+    .replaceAll('metallicRoughnessMap', 'xyzMap0')
+    .replaceAll('normalMap', 'xyzMap1')
+    .replaceAll('occlusionMap', 'xyzMap2')
+    .replaceAll('emissiveMap', 'xyzMap3');
+}

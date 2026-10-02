@@ -77,6 +77,9 @@ function gpuFixture() {
     createRenderPipeline() {
       return {};
     },
+    async createRenderPipelineAsync() {
+      return {};
+    },
     createComputePipeline() {
       return {};
     },

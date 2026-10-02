@@ -112,6 +112,9 @@ beforeEach(() => {
     preparePostProcessor: vi.fn(async () => {
       throw new Error('Native postprocessor outside runtime fixture.');
     }),
+    prepareGpuParticles: vi.fn(async () => {
+      throw new Error('Native GPU particles outside runtime fixture.');
+    }),
     createRenderTexture: vi.fn(),
     renderToTexture: vi.fn(),
     extractPixels: vi.fn(),

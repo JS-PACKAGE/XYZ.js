@@ -1,3 +1,17 @@
+import type {
+  VisibleInstances,
+  RenderVisibilityOptions,
+} from '../../core/src/render-visibility.js';
+import {
+  RenderVisibilityCache,
+  RenderVisibilitySet,
+} from '../../core/src/render-visibility.js';
+import { WebGPUOcclusionBackend } from './webgpu-occlusion.js';
+import { WebGPUParticles3D } from './webgpu-particles3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { nativeMeshWGSL } from './webgpu-mesh-shader.js';
+import { beginTimedRenderPass, beginTimedComputePass } from './gpu-timing.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
@@ -19,6 +33,7 @@ import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  nativeMaterial3DLimits,
   REFLECTION_FLOAT_COUNT,
 } from '../../../src/data/rendering.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
@@ -39,6 +54,10 @@ import { fillOpticalMapSettings } from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
 import { WebGPUOIT } from './webgpu-oit.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
+const emptyGpuEmitters: readonly GPUParticleEmitter3D[] = [];
+const emptyMeshes: readonly Mesh[] = [];
+const meshUniformFloats =
+  76 + REFLECTION_FLOAT_COUNT + nativeMaterial3DLimits.uniformFloats + 4;
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -66,6 +85,15 @@ interface CachedMesh {
   paletteVersion: number;
   data: Float32Array;
   seen: number;
+  sceneBuffer: GPUBuffer;
+  sceneGroup?: GPUBindGroup;
+  sceneShadow?: GPUTextureView;
+  sceneRefraction?: GPUTextureView;
+  sceneEnvironment?: GPUTextureView;
+  visibleInstance?: GPUBuffer;
+  visibleColors?: GPUBuffer;
+  visibilityVersion?: number;
+  visibilityPayload?: VisibleInstances;
 }
 interface CachedTexture {
   allocation: ResidencyAllocation;
@@ -87,6 +115,30 @@ interface CachedEnvironment {
 export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private textureEpoch = 0;
+  private readonly nativeMaterials = new Map<
+    NativeMaterial3D,
+    { pipelines: readonly GPURenderPipeline[]; unsubscribe: () => void }
+  >();
+  private readonly pendingMaterials = new Map<
+    NativeMaterial3D,
+    Promise<void>
+  >();
+  private destroyed = false;
+  private readonly visibilityCache = new RenderVisibilityCache();
+  readonly visibility = new RenderVisibilitySet();
+  private readonly visibilityOptions: RenderVisibilityOptions = {};
+  private readonly depthTextureVersions = new WeakMap<
+    Texture2DSource,
+    number
+  >();
+  private depthRevision = 0;
+  private proofWidth = 0;
+  private proofHeight = 0;
+  private proofMode = -1;
+  private readonly gathered = new Set<Mesh>();
+  private occlusion: WebGPUOcclusionBackend | undefined;
+  private readonly blendedDraw = (mesh: Mesh): boolean =>
+    isBlended(mesh) || (this.visibility.entries.get(mesh)?.fade ?? 1) < 1;
   private readonly meshes = new Map<Mesh, CachedMesh>();
   private readonly textures = new Map<Texture, CachedTexture>();
   private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
@@ -97,7 +149,7 @@ export class WebGPUMeshPipeline {
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
   readonly stats: FrameStats;
-  private readonly sceneData = new Float32Array(252);
+  private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 28);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
@@ -206,6 +258,10 @@ export class WebGPUMeshPipeline {
     private readonly format: GPUTextureFormat,
     private readonly sampleCount: number,
     private readonly residency: NativeResidency,
+    private readonly pipelineRecipes: readonly GPURenderPipelineDescriptor[],
+    private readonly particles: WebGPUParticles3D,
+    private readonly fadedPipeline: GPURenderPipeline,
+    private readonly fadedHdrPipeline: GPURenderPipeline,
   ) {
     this.stats = post.stats;
     this.oit = new WebGPUOIT(device, sampleCount, this.stats);
@@ -417,16 +473,56 @@ export class WebGPUMeshPipeline {
     });
     const materialLayout = device.createBindGroupLayout({
       entries: [
-        { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 1, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
-        { binding: 2, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 3, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 4, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 5, visibility: GPUShaderStage.FRAGMENT, texture: {} },
-        { binding: 6, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
-        { binding: 7, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
-        { binding: 8, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
-        { binding: 9, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
+        {
+          binding: 0,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 1,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 2,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 3,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 4,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 5,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          texture: {},
+        },
+        {
+          binding: 6,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 7,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 8,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
+        {
+          binding: 9,
+          visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+          sampler: {},
+        },
         { binding: 10, visibility: GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 11, visibility: GPUShaderStage.FRAGMENT, texture: {} },
         { binding: 12, visibility: GPUShaderStage.FRAGMENT, sampler: {} },
@@ -512,7 +608,7 @@ export class WebGPUMeshPipeline {
         operation: 'add',
       },
     };
-    const pipeline = device.createRenderPipeline({
+    const pipelineRecipe: GPURenderPipelineDescriptor = {
       layout,
       vertex: { module, entryPoint: 'vertexMain', buffers },
       fragment: {
@@ -527,8 +623,9 @@ export class WebGPUMeshPipeline {
         depthWriteEnabled: true,
         depthCompare: 'less',
       },
-    });
-    const hdrPipeline = device.createRenderPipeline({
+    };
+    const pipeline = device.createRenderPipeline(pipelineRecipe);
+    const hdrRecipe: GPURenderPipelineDescriptor = {
       layout,
       vertex: { module, entryPoint: 'vertexMain', buffers },
       fragment: {
@@ -543,13 +640,14 @@ export class WebGPUMeshPipeline {
         depthWriteEnabled: true,
         depthCompare: 'less',
       },
-    });
+    };
+    const hdrPipeline = device.createRenderPipeline(hdrRecipe);
     const additive: GPUBlendComponent = { srcFactor: 'one', dstFactor: 'one' };
     const reveal: GPUBlendComponent = {
       srcFactor: 'zero',
       dstFactor: 'one-minus-src-alpha',
     };
-    const oitPipeline = device.createRenderPipeline({
+    const oitRecipe: GPURenderPipelineDescriptor = {
       layout,
       vertex: { module, entryPoint: 'vertexMain', buffers },
       fragment: {
@@ -570,8 +668,9 @@ export class WebGPUMeshPipeline {
         depthWriteEnabled: false,
         depthCompare: 'less',
       },
-    });
-    const shadowPipeline = device.createRenderPipeline({
+    };
+    const oitPipeline = device.createRenderPipeline(oitRecipe);
+    const shadowRecipe: GPURenderPipelineDescriptor = {
       layout: device.createPipelineLayout({
         bindGroupLayouts: [
           sceneLayout,
@@ -588,7 +687,21 @@ export class WebGPUMeshPipeline {
         depthWriteEnabled: true,
         depthCompare: 'less',
       },
-    });
+    };
+    const shadowPipeline = device.createRenderPipeline(shadowRecipe);
+    const fadedRecipe: GPURenderPipelineDescriptor = {
+      ...pipelineRecipe,
+      depthStencil: {
+        ...pipelineRecipe.depthStencil!,
+        depthWriteEnabled: false,
+      },
+    };
+    const fadedHdrRecipe: GPURenderPipelineDescriptor = {
+      ...hdrRecipe,
+      depthStencil: { ...hdrRecipe.depthStencil!, depthWriteEnabled: false },
+    };
+    const fadedPipeline = device.createRenderPipeline(fadedRecipe);
+    const fadedHdrPipeline = device.createRenderPipeline(fadedHdrRecipe);
     const skyPipelines = [format, 'rgba16float' as GPUTextureFormat].map(
       (targetFormat) =>
         device.createRenderPipeline({
@@ -619,7 +732,14 @@ export class WebGPUMeshPipeline {
       sampleCount,
       stats,
     );
+    let particles: WebGPUParticles3D | undefined;
     try {
+      particles = await WebGPUParticles3D.initialize(
+        device,
+        format,
+        sampleCount,
+        stats,
+      );
       return new WebGPUMeshPipeline(
         device,
         opticalPackLayout,
@@ -639,8 +759,20 @@ export class WebGPUMeshPipeline {
         format,
         sampleCount,
         residency,
+        [
+          pipelineRecipe,
+          hdrRecipe,
+          oitRecipe,
+          shadowRecipe,
+          fadedRecipe,
+          fadedHdrRecipe,
+        ],
+        particles,
+        fadedPipeline,
+        fadedHdrPipeline,
       );
     } catch (error) {
+      particles?.destroy();
       post.destroy();
       throw error;
     }
@@ -727,6 +859,7 @@ export class WebGPUMeshPipeline {
     height: number,
     aspect: number,
     clearValue: GPUColor,
+    viewportHeight = height,
   ): boolean {
     this.frame++;
     for (const buffer of this.retired) buffer.destroy();
@@ -735,6 +868,12 @@ export class WebGPUMeshPipeline {
     this.visibleDraws.length = 0;
     try {
       if (!scene?.has3DContent) {
+        this.visibilityCache.clear();
+        this.visibility.color.length = this.visibility.shadows.length = 0;
+        this.visibility.entries.clear();
+        this.visibility.occlusionCandidates.length = 0;
+        this.gathered.clear();
+        this.occlusion?.clear();
         this.post.releaseTarget();
         this.oit.release();
         if (this.depthTexture) {
@@ -779,50 +918,97 @@ export class WebGPUMeshPipeline {
         return false;
       }
       validateRenderSettings(scene);
-      fillLightingData(scene, this.lightingData);
+      scene.lightSelection.update(scene);
+      fillLightingData(scene, this.lightingData, scene.lightSelection);
       this.atlas.update(scene, aspect);
       this.ensureShadow(scene);
       this.ensureEnvironment(scene);
       this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
-      let hasTransmission = false;
-      let weighted = false;
-      for (const object of scene.objects) {
+      const mode =
+        (scene.postProcessing.enabled ? 1 : 0) |
+        (scene.transparency === 'weighted' ? 2 : 0);
+      if (
+        this.proofWidth !== width ||
+        this.proofHeight !== height ||
+        this.proofMode !== mode
+      ) {
+        this.proofWidth = width;
+        this.proofHeight = height;
+        this.proofMode = mode;
+        ++this.depthRevision;
+      }
+      for (const mesh of scene.renderMeshes ?? emptyMeshes) {
+        if (!this.occlusion && mesh.occlusionCulled)
+          this.occlusion = new WebGPUOcclusionBackend(this.device);
+        const texture = mesh.material.texture;
+        if (this.depthTextureVersions.get(texture) !== texture.version) {
+          this.depthTextureVersions.set(texture, texture.version);
+          ++this.depthRevision;
+        }
         if (
-          !(object instanceof Mesh) ||
-          !object.worldVisible ||
-          object.material.texture.destroyed ||
-          object.geometry.indices.length === 0 ||
-          (object instanceof InstancedMesh && object.count === 0)
+          mesh.worldVisible &&
+          mesh.material instanceof NativeMaterial3D &&
+          !mesh.material.transparent
         )
-          continue;
+          ++this.depthRevision;
+      }
+      const options = this.visibilityOptions;
+      options.viewportHeight = viewportHeight;
+      options.timeSeconds = scene.presentationTime;
+      options.occlusion = this.occlusion;
+      options.depthRevision = this.depthRevision;
+      this.visibilityCache.collect(
+        scene,
+        scene.camera3D,
+        this.frustum,
+        this.visibility,
+        options,
+      );
+      this.stats.meshes += this.visibility.meshChecks;
+      this.stats.culled +=
+        this.visibility.frustumCulled + this.visibility.occlusionCulled;
+      let hasTransmission = false,
+        weighted = false;
+      this.gathered.clear();
+      for (const object of this.visibility.color) {
+        this.visibleDraws.push(object);
+        this.gathered.add(object);
+        if (scene.transparency === 'weighted' && this.blendedDraw(object))
+          weighted = true;
         if (
-          object.material.opacity <= 0 &&
-          (!(object.material instanceof PBRMaterial) ||
-            object.material.alphaMode === 'BLEND')
+          object.material instanceof PBRMaterial &&
+          object.material.transmission > 0
         )
-          continue;
-        const inView = object.isInFrustum(this.frustum);
-        this.stats.meshes++;
-        if (!inView) this.stats.culled++;
+          hasTransmission = true;
+      }
+      for (const object of this.visibility.shadows) {
+        this.draws.push(object);
+        this.gathered.add(object);
+      }
+      for (const object of this.gathered) {
+        if (
+          object.material instanceof NativeMaterial3D &&
+          (object.material.destroyed ||
+            !this.nativeMaterials.has(object.material))
+        )
+          throw new GraphicsError(
+            'NativeMaterial3D must be explicitly prepared before rendering.',
+          );
+        if (object.material instanceof NativeMaterial3D)
+          object.material.validate();
         object.updateRenderDeformation();
         object.updateWorldMatrix();
         const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
         this.updateMesh(scene, object, mesh);
-        this.draws.push(object);
-        if (inView) this.visibleDraws.push(object);
-        if (inView && scene.transparency === 'weighted' && isBlended(object))
-          weighted = true;
-        if (
-          inView &&
-          object.material instanceof PBRMaterial &&
-          object.material.transmission > 0
-        )
-          hasTransmission = true;
       }
       if (scene.transparency === 'sorted')
-        this.drawSorter.sort(this.visibleDraws, scene.camera3D.position);
+        this.drawSorter.sort(
+          this.visibleDraws,
+          scene.camera3D.position,
+          this.blendedDraw,
+        );
       if (!weighted) this.oit.release();
       if (scene.shadows.enabled) this.renderShadows(encoder);
       const linear =
@@ -832,7 +1018,13 @@ export class WebGPUMeshPipeline {
       if (hasTransmission) this.ensureRefraction(width, height);
       else this.releaseRefraction();
       const background = activeBackground(scene);
-      if (!this.draws.length && !linear && !background) return false;
+      if (
+        !this.visibleDraws.length &&
+        !linear &&
+        !background &&
+        (scene.gpuParticleEmitters?.size ?? 0) === 0
+      )
+        return false;
       this.ensureDepth(width, height);
       const target = linear
         ? this.post.target(width, height, this.depthView!)
@@ -856,7 +1048,7 @@ export class WebGPUMeshPipeline {
         this.depthAttachment.depthLoadOp = phase === 0 ? 'clear' : 'load';
         this.colorAttachment.storeOp =
           this.sampleCount > 1 && phase === phases - 1 ? 'discard' : 'store';
-        const pass = encoder.beginRenderPass(this.renderPassDescriptor);
+        const pass = beginTimedRenderPass(encoder, this.renderPassDescriptor);
         try {
           pass.setViewport(0, 0, width, height, 0, 1);
           if (background && phase === 0) {
@@ -867,45 +1059,56 @@ export class WebGPUMeshPipeline {
           pass.setBindGroup(0, this.sceneBindGroup);
           pass.setPipeline(linear ? this.hdrPipeline : this.pipeline);
           for (const object of this.visibleDraws) {
-            if (weighted && isBlended(object)) continue;
+            if (weighted && this.blendedDraw(object)) continue;
             if (hasTransmission) {
               const deferred =
-                isBlended(object) ||
+                this.blendedDraw(object) ||
                 (object.material instanceof PBRMaterial &&
                   object.material.transmission > 0);
               if (deferred !== (phase === 1)) continue;
             }
             pass.setBindGroup(
               0,
-              this.reflectionGroup(this.meshes.get(object)!.environment),
+              this.reflectionGroup(this.meshes.get(object)!),
             );
-            this.drawMesh(pass, object);
-            this.stats.draw(
-              object.geometry.indices.length,
-              object instanceof InstancedMesh ? object.count : 1,
-            );
+            const instanceCount = this.drawMesh(pass, object, linear ? 1 : 0);
+            this.stats.draw(object.geometry.indices.length, instanceCount);
           }
+          if (phase === phases - 1)
+            this.particles.draw(
+              pass,
+              scene.gpuParticleEmitters ?? emptyGpuEmitters,
+              scene.camera3D,
+              aspect,
+              linear,
+            );
         } finally {
           pass.end();
         }
         if (hasTransmission && phase === 0)
           this.post.copyColor(encoder, this.refractionTexture!);
       }
+      this.occlusion?.encode(
+        encoder,
+        this.depthView!,
+        scene.camera3D.updateMatrix(aspect),
+        this.visibility.occlusionCandidates,
+        width,
+        height,
+        this.sampleCount,
+      );
       if (weighted) {
         const pass = this.oit.begin(encoder, width, height, this.depthView!);
         try {
           pass.setPipeline(this.oitPipeline);
           for (const object of this.visibleDraws) {
-            if (!isBlended(object)) continue;
+            if (!this.blendedDraw(object)) continue;
             pass.setBindGroup(
               0,
-              this.reflectionGroup(this.meshes.get(object)!.environment),
+              this.reflectionGroup(this.meshes.get(object)!),
             );
-            this.drawMesh(pass, object);
-            this.stats.draw(
-              object.geometry.indices.length,
-              object instanceof InstancedMesh ? object.count : 1,
-            );
+            const instanceCount = this.drawMesh(pass, object, 2);
+            this.stats.draw(object.geometry.indices.length, instanceCount);
           }
         } finally {
           pass.end();
@@ -936,11 +1139,12 @@ export class WebGPUMeshPipeline {
     view: GPUTextureView,
     image = this.refractionView ?? this.dummyEnvironmentView,
     environment = this.environmentView,
+    sceneBuffer = this.sceneBuffer,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.sceneLayout,
       entries: [
-        { binding: 0, resource: { buffer: this.sceneBuffer } },
+        { binding: 0, resource: { buffer: sceneBuffer } },
         { binding: 1, resource: view },
         { binding: 2, resource: environment },
         { binding: 3, resource: this.environmentSampler },
@@ -1002,12 +1206,25 @@ export class WebGPUMeshPipeline {
     data.set(this.lightingData, 20);
     data[30] = linear ? 1 : 0;
     this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
-    data.set(this.invViewProjection.elements, 224);
-    data[243] = activeBackground(scene) ? scene.backgroundIntensity : 0;
+    const tail = 20 + LIGHTING_FLOAT_COUNT;
+    data.set(this.invViewProjection.elements, tail);
+    data[tail + 19] = activeBackground(scene) ? scene.backgroundIntensity : 0;
     fillFogData(scene, this.fogData);
-    data.set(this.fogData, 244);
+    data.set(this.fogData, tail + 20);
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
     this.stats.upload(data.byteLength);
+    for (const object of this.visibleDraws) {
+      const mesh = this.meshes.get(object)!;
+      fillLightingData(
+        scene,
+        this.lightingData,
+        scene.lightSelection.selectMesh(object),
+      );
+      data.set(this.lightingData, 20);
+      data[30] = linear ? 1 : 0;
+      this.device.queue.writeBuffer(mesh.sceneBuffer, 0, data);
+      this.stats.upload(data.byteLength);
+    }
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
     this.stats.upload(this.atlas.data.byteLength);
     if (this.atlas.count)
@@ -1059,6 +1276,108 @@ export class WebGPUMeshPipeline {
   }
   unloadGeometry(geometry: Geometry): void {
     this.geometries.get(geometry)?.allocation.destroy();
+  }
+  async prepareMaterial(material: NativeMaterial3D): Promise<void> {
+    material.validate();
+    if (this.destroyed)
+      throw new GraphicsError('Cannot prepare on a destroyed native renderer.');
+    if (this.nativeMaterials.has(material)) return;
+    const pending = this.pendingMaterials.get(material);
+    if (pending) return pending;
+    const work = (async () => {
+      // Pair scopes synchronously: concurrent preparations must not pop each other's scopes.
+      this.device.pushErrorScope('validation');
+      let module: GPUShaderModule;
+      let shaderValidation: Promise<GPUError | null>;
+      try {
+        module = this.device.createShaderModule({
+          label: material.label,
+          code: nativeMeshWGSL(material.wgsl),
+        });
+      } finally {
+        shaderValidation = this.device.popErrorScope();
+      }
+      const [info, shaderError] = await Promise.all([
+        module.getCompilationInfo(),
+        shaderValidation,
+      ]);
+      const errors = info.messages.filter(
+        (message) => message.type === 'error',
+      );
+      if (errors.length)
+        throw new GraphicsError(
+          `${material.label} WGSL compilation failed: ${errors.map((message) => `${message.lineNum}:${message.linePos} ${message.message}`).join('; ')}`,
+        );
+      if (shaderError)
+        throw new GraphicsError(
+          `${material.label} WGSL validation failed: ${shaderError.message}`,
+        );
+      this.device.pushErrorScope('validation');
+      let pipelineWork: Promise<GPURenderPipeline[]>;
+      let pipelineValidation: Promise<GPUError | null>;
+      try {
+        pipelineWork = Promise.all(
+          this.pipelineRecipes.map((recipe) =>
+            this.device.createRenderPipelineAsync({
+              ...recipe,
+              label: material.label,
+              vertex: { ...recipe.vertex, module },
+              fragment: recipe.fragment
+                ? { ...recipe.fragment, module }
+                : undefined,
+              depthStencil: recipe.depthStencil
+                ? {
+                    ...recipe.depthStencil,
+                    depthWriteEnabled:
+                      recipe.depthStencil.depthWriteEnabled &&
+                      (recipe.depthStencil.format === 'depth32float' ||
+                        !material.transparent),
+                  }
+                : undefined,
+            }),
+          ),
+        );
+      } finally {
+        pipelineValidation = this.device.popErrorScope();
+      }
+      const [pipelines, pipelineError] = await Promise.all([
+        pipelineWork,
+        pipelineValidation,
+      ]).catch((error: unknown) => {
+        throw new GraphicsError(
+          `${material.label} native 3D pipeline preparation failed.`,
+          { cause: error },
+        );
+      });
+      if (pipelineError)
+        throw new GraphicsError(
+          `${material.label} native 3D pipeline validation failed: ${pipelineError.message}`,
+        );
+      if (material.destroyed || this.destroyed)
+        throw new GraphicsError('Native material preparation was invalidated.');
+      material.validate();
+      this.cacheTexture(material.texture, true);
+      for (const texture of material.textures)
+        this.cacheTexture(texture, false);
+      const unsubscribe = material.onDestroy(() => {
+        this.nativeMaterials.delete(material);
+        for (const [object, entry] of this.meshes)
+          if (object.material === material) entry.allocation.destroy();
+      });
+      this.nativeMaterials.set(material, { pipelines, unsubscribe });
+    })();
+    this.pendingMaterials.set(material, work);
+    try {
+      await work;
+    } finally {
+      this.pendingMaterials.delete(material);
+    }
+  }
+  prepareGpuParticles(emitter: GPUParticleEmitter3D): void {
+    this.particles.prepare(emitter);
+  }
+  afterSubmit(): void {
+    this.occlusion?.afterSubmit();
   }
   prepareMesh(mesh: Mesh): void {
     mesh.updateRenderDeformation();
@@ -1128,30 +1447,34 @@ export class WebGPUMeshPipeline {
     return entry.view;
   }
 
-  private reflectionGroup(
-    environment: EnvironmentMap | undefined,
-  ): GPUBindGroup {
-    if (!environment) return this.sceneBindGroup;
-    const view = this.uploadEnvironment(environment);
-    if (view === this.environmentView) return this.sceneBindGroup;
-    const entry = this.environments.get(environment)!;
+  private reflectionGroup(entry: CachedMesh): GPUBindGroup {
+    const view = entry.environment
+      ? this.uploadEnvironment(entry.environment)
+      : this.environmentView;
     const shadow = this.shadowView ?? this.emptyShadowView;
     const refraction = this.refractionView ?? this.dummyEnvironmentView;
     if (
-      !entry.group ||
-      entry.shadow !== shadow ||
-      entry.refraction !== refraction
+      !entry.sceneGroup ||
+      entry.sceneEnvironment !== view ||
+      entry.sceneShadow !== shadow ||
+      entry.sceneRefraction !== refraction
     ) {
-      entry.group = this.createSceneGroup(shadow, refraction, view);
-      entry.shadow = shadow;
-      entry.refraction = refraction;
+      entry.sceneGroup = this.createSceneGroup(
+        shadow,
+        refraction,
+        view,
+        entry.sceneBuffer,
+      );
+      entry.sceneEnvironment = view;
+      entry.sceneShadow = shadow;
+      entry.sceneRefraction = refraction;
     }
-    return entry.group;
+    return entry.sceneGroup;
   }
 
   private renderShadows(encoder: GPUCommandEncoder): void {
     this.shadowAttachment.view = this.shadowView;
-    const pass = encoder.beginRenderPass(this.shadowDescriptor);
+    const pass = beginTimedRenderPass(encoder, this.shadowDescriptor);
     try {
       pass.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.shadowSceneBindGroup);
@@ -1165,7 +1488,7 @@ export class WebGPUMeshPipeline {
         pass.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
         for (const object of this.draws)
           if (object.castShadow) {
-            this.drawMesh(pass, object);
+            this.drawMesh(pass, object, 3);
             this.stats.shadowDrawCalls++;
           }
       }
@@ -1175,15 +1498,54 @@ export class WebGPUMeshPipeline {
     }
   }
 
-  private drawMesh(pass: GPURenderPassEncoder, object: Mesh): void {
+  private drawMesh(
+    pass: GPURenderPassEncoder,
+    object: Mesh,
+    variant = 0,
+  ): number {
     const geometry = this.geometries.get(object.renderGeometry)!;
     const mesh = this.meshes.get(object)!;
+    const custom =
+      object.material instanceof NativeMaterial3D
+        ? this.nativeMaterials.get(object.material)
+        : undefined;
+    if (variant < 2 && (this.visibility.entries.get(object)?.fade ?? 1) < 1)
+      variant += 4;
+    pass.setPipeline(
+      custom
+        ? custom.pipelines[variant]
+        : variant === 5
+          ? this.fadedHdrPipeline
+          : variant === 4
+            ? this.fadedPipeline
+            : variant === 3
+              ? this.shadowPipeline
+              : variant === 2
+                ? this.oitPipeline
+                : variant === 1
+                  ? this.hdrPipeline
+                  : this.pipeline,
+    );
     pass.setBindGroup(1, mesh.bindGroup);
     pass.setBindGroup(2, mesh.materialGroup);
-    const instances = object instanceof InstancedMesh ? object.count : 1;
+    const packed =
+      variant === 3
+        ? undefined
+        : this.visibility.entries.get(object)?.instances;
+    const instances =
+      packed?.count ?? (object instanceof InstancedMesh ? object.count : 1);
     pass.setVertexBuffer(0, geometry.vertex);
-    pass.setVertexBuffer(1, mesh.instance);
-    pass.setVertexBuffer(2, mesh.instanceColors ?? this.white(instances));
+    pass.setVertexBuffer(1, packed ? mesh.visibleInstance! : mesh.instance);
+    pass.setVertexBuffer(
+      2,
+      packed
+        ? packed.colors
+          ? mesh.visibleColors!
+          : this.white(instances)
+        : object instanceof InstancedMesh && object.colors
+          ? mesh.instanceColors!
+          : this.white(instances),
+    );
     pass.setVertexBuffer(
       3,
       geometry.colors ?? this.white(object.geometry.vertices.length / 8),
@@ -1195,6 +1557,7 @@ export class WebGPUMeshPipeline {
     );
     pass.setIndexBuffer(geometry.index, 'uint32');
     pass.drawIndexed(object.geometry.indices.length, instances);
+    return instances;
   }
 
   /** White RGBA storage also serves the RGB instance layout (every component is one). */
@@ -1424,19 +1787,27 @@ export class WebGPUMeshPipeline {
     const mr =
       pbr && material.metallicRoughnessTexture
         ? this.cacheTexture(material.metallicRoughnessTexture, false).view
-        : this.whiteView;
+        : material instanceof NativeMaterial3D && material.textures[0]
+          ? this.cacheTexture(material.textures[0], false).view
+          : this.whiteView;
     const normal =
       pbr && material.normalTexture
         ? this.cacheTexture(material.normalTexture, false).view
-        : this.whiteView;
+        : material instanceof NativeMaterial3D && material.textures[1]
+          ? this.cacheTexture(material.textures[1], false).view
+          : this.whiteView;
     const ao =
       pbr && material.occlusionTexture
         ? this.cacheTexture(material.occlusionTexture, false).view
-        : this.whiteView;
+        : material instanceof NativeMaterial3D && material.textures[2]
+          ? this.cacheTexture(material.textures[2], false).view
+          : this.whiteView;
     const emissive =
       pbr && material.emissiveTexture
         ? this.cacheTexture(material.emissiveTexture, false).view
-        : this.whiteView;
+        : material instanceof NativeMaterial3D && material.textures[3]
+          ? this.cacheTexture(material.textures[3], false).view
+          : this.whiteView;
     const specular =
       pbr && material.specularTexture
         ? this.cacheTexture(material.specularTexture, false).view
@@ -1476,6 +1847,9 @@ export class WebGPUMeshPipeline {
     if (existing) {
       existing.allocation.resize(
         existing.uniform.size +
+          existing.sceneBuffer.size +
+          (existing.visibleInstance?.size ?? 0) +
+          (existing.visibleColors?.size ?? 0) +
           skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength +
@@ -1495,8 +1869,8 @@ export class WebGPUMeshPipeline {
     const allocation =
       existing?.allocation ??
       this.residency.geometry.allocate(
-        304 +
-          REFLECTION_FLOAT_COUNT * 4 +
+        meshUniformFloats * 4 +
+          this.sceneData.byteLength +
           skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength + (object.colors?.byteLength ?? 0)
@@ -1505,6 +1879,9 @@ export class WebGPUMeshPipeline {
           const cached = this.meshes.get(object);
           if (!cached) return;
           cached.uniform.destroy();
+          cached.sceneBuffer.destroy();
+          cached.visibleInstance?.destroy();
+          cached.visibleColors?.destroy();
           cached.instanceColors?.destroy();
           cached.palette?.destroy();
           cached.influences?.destroy();
@@ -1520,7 +1897,7 @@ export class WebGPUMeshPipeline {
     let influences = existing?.influences;
     try {
       uniform ??= this.device.createBuffer({
-        size: 304 + REFLECTION_FLOAT_COUNT * 4,
+        size: meshUniformFloats * 4,
         usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
       });
       if (!existing && skin) {
@@ -1681,7 +2058,11 @@ export class WebGPUMeshPipeline {
         palette,
         influences,
         paletteVersion: skin?.paletteVersion ?? 0,
-        data: new Float32Array(76 + REFLECTION_FLOAT_COUNT),
+        data: new Float32Array(meshUniformFloats),
+        sceneBuffer: this.device.createBuffer({
+          size: this.sceneData.byteLength,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        }),
         seen: this.frame,
       };
       entry.textureEpoch = this.textureEpoch;
@@ -1768,7 +2149,7 @@ export class WebGPUMeshPipeline {
             { binding: 1, resource: view },
           ],
         });
-        const pass = encoder.beginComputePass();
+        const pass = beginTimedComputePass(encoder, {});
         pass.setPipeline(
           layer === 0 ? this.transmissionPack : this.thicknessPack,
         );
@@ -1937,6 +2318,63 @@ export class WebGPUMeshPipeline {
     data[34] = object.receiveShadow ? 1 : 0;
     data[47] = object instanceof SkinnedMesh ? 1 : 0;
     data[51] = material.texture.kind === 'native' ? 1 : 0;
+    const customOffset = 76 + REFLECTION_FLOAT_COUNT;
+    if (material instanceof NativeMaterial3D)
+      data.set(material.uniforms, customOffset);
+    const visibility = this.visibility.entries.get(object);
+    data[customOffset + nativeMaterial3DLimits.uniformFloats] =
+      visibility?.fade ?? 1;
+    const packed = visibility?.instances;
+    if (
+      packed &&
+      (packed !== mesh.visibilityPayload ||
+        packed.version !== mesh.visibilityVersion)
+    ) {
+      mesh.allocation.resize(
+        mesh.uniform.size +
+          mesh.sceneBuffer.size +
+          mesh.instance.size +
+          (mesh.instanceColors?.size ?? 0) +
+          (mesh.palette?.size ?? 0) +
+          (mesh.influences?.size ?? 0) +
+          packed.matrices.byteLength +
+          (packed.colors?.byteLength ?? 0),
+      );
+      if (
+        !mesh.visibleInstance ||
+        mesh.visibleInstance.size < packed.matrices.byteLength
+      ) {
+        if (mesh.visibleInstance) this.retired.push(mesh.visibleInstance);
+        mesh.visibleInstance = this.device.createBuffer({
+          size: packed.matrices.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
+      }
+      this.device.queue.writeBuffer(
+        mesh.visibleInstance,
+        0,
+        packed.matrices.buffer,
+        packed.matrices.byteOffset,
+        packed.count * 16 * 4,
+      );
+      this.stats.upload(packed.count * 16 * 4);
+      if (packed.colors) {
+        mesh.visibleColors = this.colorBuffer(
+          mesh.visibleColors,
+          packed.colors,
+        );
+        this.device.queue.writeBuffer(
+          mesh.visibleColors,
+          0,
+          packed.colors.buffer,
+          packed.colors.byteOffset,
+          packed.count * 3 * 4,
+        );
+        this.stats.upload(packed.count * 3 * 4);
+      }
+      mesh.visibilityVersion = packed.version;
+      mesh.visibilityPayload = packed;
+    }
     mesh.environment =
       material instanceof PBRMaterial
         ? fillReflectionData(scene, object, data, 76)
@@ -2009,6 +2447,14 @@ export class WebGPUMeshPipeline {
   }
 
   destroy(): void {
+    this.destroyed = true;
+    for (const entry of this.nativeMaterials.values()) entry.unsubscribe();
+    this.nativeMaterials.clear();
+    this.visibilityCache.clear();
+    this.visibility.entries.clear();
+    this.gathered.clear();
+    this.occlusion?.destroy();
+    this.particles.destroy();
     this.oit.release();
     this.post.destroy();
     if (this.depthTexture)

@@ -19,6 +19,14 @@ export { ResourceLease, ResourcePool, ResourceScope, } from './resource-scope.js
 export type { ResourceKind, ResourceLoadContext, ResourceOwnership, ResourceRequest, } from './resource-scope.js';
 export { loadAssetBundle, parseAssetBundle, selectAssetBundleVariant, } from './asset-bundle.js';
 export type { AssetBundleDescriptor, AssetBundleFile, AssetBundleVariant, AssetBundleCapabilities, AssetBundleLoadOptions, } from './asset-bundle.js';
+export { TiledError, parseTiledMap, parseTiledTileset, } from './tiled-parser.js';
+export type { TiledProperties, TiledObject, TiledLayer, TiledTileset, TiledMapData, } from './tiled-parser.js';
+export { TiledAsset, loadTiledMap } from './tiled-loader.js';
+export type { TiledLoadOptions } from './tiled-loader.js';
+export { NativeWorkerPool, WorkerJobError } from './worker-jobs.js';
+export type { WorkerJobErrorCode, WorkerJobDefinition, WorkerJobTiming, WorkerJobResult, WorkerJobStatus, WorkerJobHandle, NativeWorkerPoolOptions, WorkerJobOptions, WorkerPoolStats, } from './worker-jobs.js';
+export { installWorkerJobs } from './worker-job-runtime.js';
+export type { WorkerJobOutput, WorkerJobContext, TrustedWorkerJob, WorkerJobHost, } from './worker-job-runtime.js';
 export interface ResourceLoadOptions {
     signal?: AbortSignal;
     maxBytes?: number;

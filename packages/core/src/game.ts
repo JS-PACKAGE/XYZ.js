@@ -24,6 +24,7 @@ import {
   type TransitionOptions,
 } from './transitions2d/index.js';
 import { AccessibilityManager } from './accessibility/index.js';
+import { AccessibilityPreferences } from './accessibility/preferences.js';
 import { SaveManager, type SaveSchema, type SaveStorage } from './storage.js';
 import { I18n, type I18nOptions } from './i18n.js';
 import { warmupScene } from '../../graphics/src/warmup.js';
@@ -168,6 +169,11 @@ export class Game extends EventTarget {
   private readonly audioPause: { onPause: boolean; onHidden: boolean };
   private readonly accessibilityManager: AccessibilityManager;
   private readonly accessibilitySize = { width: 0, height: 0 };
+  private preferencePolicy: AccessibilityPreferences | undefined;
+  private readonly onMotionPreferenceChange = (): void => {
+    if (this.preferencePolicy?.values.reducedMotion && this.activeTransition)
+      this.completeTransition(this.activeTransition);
+  };
   private readonly warmupControllers = new Set<AbortController>();
   private readonly warmupLeases = new Set<WarmupLease>();
   private currentWarmup: WarmupLease | undefined;
@@ -183,6 +189,21 @@ export class Game extends EventTarget {
       this.resourcePool = new ResourcePool(this.assets);
     }
     return this.resourcePool;
+  }
+  /** Player presentation policy; unused games do not install OS media listeners. */
+  get preferences(): AccessibilityPreferences {
+    if (!this.preferencePolicy) {
+      if (this.currentState === 'destroyed')
+        throw new RuntimeError(
+          'Cannot create preferences for a destroyed Game.',
+        );
+      this.preferencePolicy = new AccessibilityPreferences();
+      this.preferencePolicy.addEventListener(
+        'change',
+        this.onMotionPreferenceChange,
+      );
+    }
+    return this.preferencePolicy;
   }
 
   /** Load/migrate/restore a fresh candidate before the existing Scene publication barrier. */
@@ -574,6 +595,8 @@ export class Game extends EventTarget {
     this.dispatchEvent(
       new CustomEvent('transitionstart', { detail: active.detail }),
     );
+    if (this.preferencePolicy?.values.reducedMotion)
+      this.completeTransition(active);
     return active;
   }
 
@@ -599,6 +622,7 @@ export class Game extends EventTarget {
     }
     if (this.currentState === 'running') return;
     this.currentState = 'running';
+    this.currentScene?.setWorldStreamingPaused(document.hidden);
     if (this.audioPause.onPause) this.audio.resume('game');
     this.clock.suspend();
     this.input.reset();
@@ -613,8 +637,11 @@ export class Game extends EventTarget {
       throw new RuntimeError('Cannot switch Scenes during scene disposal.');
     options.signal?.throwIfAborted();
     if (next === this.pendingScene) return this.pendingCompletion;
-    const transition = options.transition
-      ? new TransitionController(options.transition)
+    const transitionOptions = options.transition
+      ? this.preferences.transition(options.transition)
+      : undefined;
+    const transition = transitionOptions
+      ? new TransitionController(transitionOptions)
       : undefined;
     if (next === this.currentScene) {
       transition?.destroy();
@@ -718,6 +745,7 @@ export class Game extends EventTarget {
         const visual = !!(
           old &&
           transition &&
+          !this.preferencePolicy?.values.reducedMotion &&
           transition.duration > 0 &&
           this.currentState !== 'idle'
         );
@@ -751,6 +779,9 @@ export class Game extends EventTarget {
           warmed = undefined;
           previousWarmup?.release();
           this.currentScene = next;
+          next.setWorldStreamingPaused(
+            this.currentState !== 'running' || document.hidden,
+          );
           this.accessibilityManager.reset();
           old?.destroy();
         } finally {
@@ -764,7 +795,7 @@ export class Game extends EventTarget {
           this.fatalError
         )
           throw new SceneCancelledError();
-        if (visual)
+        if (visual && !this.preferencePolicy?.values.reducedMotion)
           await this.beginTransition(transition!, old!, next).finished;
       } catch (error) {
         if (this.pendingScene === next) {
@@ -829,6 +860,7 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed' || this.currentState === 'paused')
       return;
     this.currentState = 'paused';
+    this.currentScene?.setWorldStreamingPaused(true);
     if (this.audioPause.onPause) this.audio.pause('game');
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
@@ -953,6 +985,20 @@ export class Game extends EventTarget {
     }
     try {
       this.audio.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.saves.destroy();
+    } catch (error) {
+      errors.push(error);
+    }
+    try {
+      this.preferencePolicy?.removeEventListener(
+        'change',
+        this.onMotionPreferenceChange,
+      );
+      this.preferencePolicy?.destroy();
     } catch (error) {
       errors.push(error);
     }
@@ -1117,6 +1163,9 @@ export class Game extends EventTarget {
       if (document.hidden) this.audio.pause('hidden');
       else this.audio.resume('hidden');
     }
+    this.currentScene?.setWorldStreamingPaused(
+      document.hidden || this.currentState !== 'running',
+    );
     this.clock.suspend();
     this.currentScene?.resetPointerRouting();
     this.accessibilityManager.reset();
@@ -1178,6 +1227,8 @@ export class Game extends EventTarget {
         frameWork.simulationMs = performance.now() - workStartedAt;
         workStartedAt = performance.now();
       }
+      if (scene && this.canUpdateScene())
+        scene.advanceWorldStreaming(this.canUpdateScene);
       if (scene && this.canUpdateScene())
         scene.advanceNavigation(this.clock.deltaTime);
       if (frameWork) {

@@ -1,3 +1,6 @@
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { beginTimedRenderPass } from './gpu-timing.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import { NativeTexture2D } from '../../assets/src/native-texture.js';
@@ -177,6 +180,7 @@ export class WebGPURenderer implements Renderer {
         },
         environment: (map) => this.meshPipeline!.prepareEnvironment(map),
         material: (material) => this.prepareMaterial(material),
+        gpuParticles: (emitter) => this.prepareGpuParticles(emitter),
         post: (post) => this.preparePostProcessor(post),
         complete: async () => {
           await device.queue.onSubmittedWorkDone();
@@ -445,11 +449,23 @@ export class WebGPURenderer implements Renderer {
     }
   }
 
-  async prepareMaterial(material: Material2D): Promise<void> {
+  async prepareMaterial(
+    material: Material2D | NativeMaterial3D,
+  ): Promise<void> {
     this.requireDevice();
+    if (material instanceof NativeMaterial3D) {
+      await this.meshPipeline!.prepareMaterial(material);
+      return;
+    }
     if (!(material instanceof Material2D))
-      throw new GraphicsError('WebGPU prepareMaterial requires a Material2D.');
+      throw new GraphicsError(
+        'WebGPU prepareMaterial requires a Material2D or NativeMaterial3D.',
+      );
     await this.effectsPipeline!.prepare(material);
+  }
+  async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
+    this.requireDevice();
+    this.meshPipeline!.prepareGpuParticles(emitter);
   }
 
   async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
@@ -654,11 +670,12 @@ export class WebGPURenderer implements Renderer {
           canvas.height,
           logicalWidth / logicalHeight,
           defaults.clearColor,
+          logicalHeight,
         );
         if (!drewMeshes) {
           this.colorAttachment.view = source.view;
           this.colorAttachment.loadOp = 'clear';
-          encoder.beginRenderPass(this.renderPassDescriptor).end();
+          beginTimedRenderPass(encoder, this.renderPassDescriptor).end();
           this.frameStats.pass2D();
           this.colorAttachment.view = output;
         }
@@ -678,11 +695,12 @@ export class WebGPURenderer implements Renderer {
           canvas.height,
           logicalWidth / logicalHeight,
           defaults.clearColor,
+          logicalHeight,
         );
       if (has2D) {
         if (!drewMeshes) {
           this.colorAttachment.loadOp = 'clear';
-          encoder.beginRenderPass(this.renderPassDescriptor).end();
+          beginTimedRenderPass(encoder, this.renderPassDescriptor).end();
           this.frameStats.pass2D();
         }
         const layers = native.layers(canvas.width, canvas.height);
@@ -703,7 +721,7 @@ export class WebGPURenderer implements Renderer {
         );
       } else if (!drewMeshes || !scene) {
         this.colorAttachment.loadOp = drewMeshes ? 'load' : 'clear';
-        const pass = encoder.beginRenderPass(this.renderPassDescriptor);
+        const pass = beginTimedRenderPass(encoder, this.renderPassDescriptor);
         this.frameStats.pass2D();
         if (scene) {
           pass.setViewport(0, 0, canvas.width, canvas.height, 0, 1);
@@ -744,6 +762,7 @@ export class WebGPURenderer implements Renderer {
     let submitted = false;
     try {
       device.queue.submit(this.submissions);
+      this.meshPipeline?.afterSubmit();
       submitted = true;
       this.gpuTimer?.submitted();
     } finally {

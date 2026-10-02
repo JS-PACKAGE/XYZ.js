@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -24,6 +26,7 @@ export declare class Canvas2DRenderer implements Renderer {
     prepareGeometry(_source: Geometry | Geometry2D): Promise<void>;
     unloadGeometry(_source: Geometry | Geometry2D): void;
     prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
+    prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     readonly capabilities: GraphicsCapabilities;
     private canvas;
     private context;
@@ -42,7 +45,7 @@ export declare class Canvas2DRenderer implements Renderer {
     constructor(onError: (error: Error) => void, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
-    prepareMaterial(_material: Material2D): Promise<void>;
+    prepareMaterial(_material: Material2D | NativeMaterial3D): Promise<void>;
     preparePostProcessor(_effect: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: {

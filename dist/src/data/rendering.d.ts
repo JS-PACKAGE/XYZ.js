@@ -1,10 +1,17 @@
-export declare const MAX_POINT_LIGHTS = 8;
-export declare const MAX_SPOT_LIGHTS = 8;
+export declare const MAX_POINT_LIGHTS = 32;
+export declare const MAX_SPOT_LIGHTS = 32;
+/** Fixed native shader ABI and bounded authored source size. */
+export declare const nativeMaterial3DLimits: Readonly<{
+    uniformFloats: 64;
+    textures: 4;
+    sourceCharacters: 65536;
+}>;
 /** Shared vec4-aligned light block used by both graphics backends. Offsets are floats. */
 export declare const POINT_LIGHT_OFFSET = 12;
 export declare const POINT_LIGHT_STRIDE = 8;
 export declare const SPOT_LIGHT_OFFSET: number;
 export declare const SPOT_LIGHT_STRIDE = 16;
+export declare const LIGHTING_POINT_ID_OFFSET: number;
 export declare const LIGHTING_FLOAT_COUNT: number;
 /** Environment block: nine SH vec4 followed by intensity/background/mip data. */
 export declare const ENVIRONMENT_FLOAT_COUNT = 40;
@@ -29,13 +36,15 @@ export declare const graphicsRecoveryLimits: Readonly<{
     restoreTimeoutMs: 10000;
 }>;
 export declare const renderingLimits: Readonly<{
-    pointLights: 8;
-    spotLights: 8;
+    pointLights: 32;
+    spotLights: 32;
 }>;
 /** Fog block shared by both graphics backends: color.rgb/mode, near/far/density/0. */
 export declare const FOG_FLOAT_COUNT = 8;
 export declare const shadowLimits: Readonly<{
     cascades: 4;
+    pointLights: 8;
+    spotLights: 8;
     maps: number;
     mapSize: 1024;
     near: 0.1;
@@ -43,7 +52,7 @@ export declare const shadowLimits: Readonly<{
     cascadeDistance: 100;
     cascadeLambda: 0.5;
 }>;
-/** Shadow atlas header (8 vec4) and one matrix for every possible tile. */
+/** Shadow atlas header (12 vec4) and one matrix for every budgeted tile. */
 export declare const SHADOW_FLOAT_COUNT: number;
 export declare const fxaaDefaults: Readonly<{
     enabled: false;

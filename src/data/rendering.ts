@@ -1,5 +1,12 @@
-export const MAX_POINT_LIGHTS = 8;
-export const MAX_SPOT_LIGHTS = 8;
+export const MAX_POINT_LIGHTS = 32;
+export const MAX_SPOT_LIGHTS = 32;
+
+/** Fixed native shader ABI and bounded authored source size. */
+export const nativeMaterial3DLimits = Object.freeze({
+  uniformFloats: 64,
+  textures: 4,
+  sourceCharacters: 65536,
+});
 
 /** Shared vec4-aligned light block used by both graphics backends. Offsets are floats. */
 export const POINT_LIGHT_OFFSET = 12;
@@ -7,8 +14,9 @@ export const POINT_LIGHT_STRIDE = 8;
 export const SPOT_LIGHT_OFFSET =
   POINT_LIGHT_OFFSET + MAX_POINT_LIGHTS * POINT_LIGHT_STRIDE;
 export const SPOT_LIGHT_STRIDE = 16;
-export const LIGHTING_FLOAT_COUNT =
+export const LIGHTING_POINT_ID_OFFSET =
   SPOT_LIGHT_OFFSET + MAX_SPOT_LIGHTS * SPOT_LIGHT_STRIDE;
+export const LIGHTING_FLOAT_COUNT = LIGHTING_POINT_ID_OFFSET + MAX_POINT_LIGHTS;
 
 /** Environment block: nine SH vec4 followed by intensity/background/mip data. */
 export const ENVIRONMENT_FLOAT_COUNT = 40;
@@ -46,7 +54,9 @@ export const FOG_FLOAT_COUNT = 8;
 
 export const shadowLimits = Object.freeze({
   cascades: 4,
-  maps: 4 + MAX_POINT_LIGHTS * 6 + MAX_SPOT_LIGHTS,
+  pointLights: 8,
+  spotLights: 8,
+  maps: 4 + 8 * 6 + 8,
   mapSize: 1024,
   near: 0.1,
   far: 50,
@@ -54,8 +64,8 @@ export const shadowLimits = Object.freeze({
   cascadeLambda: 0.5,
 });
 
-/** Shadow atlas header (8 vec4) and one matrix for every possible tile. */
-export const SHADOW_FLOAT_COUNT = 32 + shadowLimits.maps * 16;
+/** Shadow atlas header (12 vec4) and one matrix for every budgeted tile. */
+export const SHADOW_FLOAT_COUNT = 48 + shadowLimits.maps * 16;
 
 export const fxaaDefaults = Object.freeze({
   enabled: false,

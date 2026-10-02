@@ -31,6 +31,17 @@ import { PreloadBatch } from '../../assets/src/index.js';
 import { simulationDefaults } from '../../../src/data/simulation.js';
 import { NavigationScheduler } from './navigation/scheduler.js';
 import { navigationLimits } from '../../../src/data/navigation.js';
+import { GPUParticleEmitter3D } from './gpu-particles3d.js';
+import {
+  CharacterLocomotion3D,
+  type CharacterLocomotionOptions3D,
+} from './locomotion3d.js';
+import type { CharacterController3D } from './physics3d/character.js';
+import {
+  WorldStreamingController,
+  type WorldStreamingOptions,
+} from './world-streaming.js';
+import { SpatialLightSelector } from './light-selection.js';
 
 export interface SceneOptions {
   readonly fixedDelta?: number;
@@ -52,6 +63,83 @@ export class Scene {
   private physicsWorld3D: PhysicsWorld3D | undefined;
   private navigationScheduler: NavigationScheduler | undefined;
   private readonly navigationWorkBudget: number;
+  private locomotionDrivers: Set<CharacterLocomotion3D> | undefined;
+  private streamingControllers: Set<WorldStreamingController> | undefined;
+  private lightSelector: SpatialLightSelector | undefined;
+  private presentationElapsed = 0;
+
+  /** Scene-local simulation seconds; presentation fades never use a wall clock. */
+  get presentationTime(): number {
+    return this.presentationElapsed;
+  }
+  /** Logical pixels; detached scenes require an explicit viewport for screen-size LOD. */
+  get presentationViewportHeight(): number | undefined {
+    return this.owner?.height;
+  }
+  get lightSelection(): SpatialLightSelector {
+    if (!this.lightSelector) {
+      this.assertCanInitialize();
+      this.lightSelector = new SpatialLightSelector();
+    }
+    return this.lightSelector;
+  }
+  set lightSelection(value: SpatialLightSelector) {
+    this.assertCanInitialize();
+    if (!(value instanceof SpatialLightSelector))
+      throw new TypeError(
+        'Scene light selection requires a SpatialLightSelector.',
+      );
+    this.lightSelector = value;
+  }
+  createLocomotion3D(
+    controller: CharacterController3D,
+    options: CharacterLocomotionOptions3D,
+  ): CharacterLocomotion3D {
+    this.assertCanInitialize();
+    if (controller.world !== this.physicsWorld3D)
+      throw new Error('Scene locomotion requires its own physics controller.');
+    const driver = new CharacterLocomotion3D(controller, options);
+    (this.locomotionDrivers ??= new Set()).add(driver);
+    return driver;
+  }
+  createWorldStreaming(
+    options: WorldStreamingOptions,
+  ): WorldStreamingController {
+    this.assertCanInitialize();
+    if (!this.owner)
+      throw new Error('Scene streaming requires a Game-owned Scene.');
+    const controller = new WorldStreamingController(
+      this,
+      this.owner.resources,
+      options,
+    );
+    controller.setPaused(
+      this.owner.state !== 'running' ||
+        (typeof document !== 'undefined' && document.hidden),
+    );
+    (this.streamingControllers ??= new Set()).add(controller);
+    return controller;
+  }
+  /** @internal Reading membership does not initialize any streaming service. */
+  get initializedWorldStreaming():
+    ReadonlySet<WorldStreamingController> | undefined {
+    return this.streamingControllers;
+  }
+  /** @internal Game applies its pause/visibility state before frame admission. */
+  setWorldStreamingPaused(paused: boolean): void {
+    if (this.streamingControllers)
+      for (const controller of this.streamingControllers)
+        controller.setPaused(paused);
+  }
+  /** @internal Once per visible frame, after gameplay input and before navigation. */
+  advanceWorldStreaming(canContinue: () => boolean): void {
+    if (this.disposed || !this.streamingControllers) return;
+    for (const controller of this.streamingControllers) {
+      if (!canContinue() || this.disposed) return;
+      if (controller.destroyed) this.streamingControllers.delete(controller);
+      else controller.update();
+    }
+  }
 
   get navigation(): NavigationScheduler {
     if (!this.navigationScheduler) {
@@ -296,7 +384,9 @@ export class Scene {
   }
   private readonly registrations = new Map<SceneObject, Entity>();
   private readonly registeredObjects = new Set<SceneObject>();
-  private meshCount = 0;
+  private registeredMeshes: Set<Mesh> | undefined;
+  private meshRevision = 0;
+  private registeredGPUParticles: Set<GPUParticleEmitter3D> | undefined;
   private cameraDependents: Set<Object3D & CameraDependent3D> | undefined;
   private readonly objectUpdates = new Map<GameObject, number>();
   private nextObjectUpdate = 0;
@@ -327,14 +417,28 @@ export class Scene {
   private owner: Game | undefined;
   private controller: AbortController | undefined;
   private disposed = false;
+  private committingStreamingMembership = false;
 
   get objects(): ReadonlySet<SceneObject> {
     return this.registeredObjects;
   }
+  /** @internal A lazy mesh-only membership view for native render collection. */
+  get renderMeshes(): ReadonlySet<Mesh> | undefined {
+    return this.registeredMeshes;
+  }
+  /** @internal Membership changes only; mutable poses are checked independently. */
+  get renderMeshRevision(): number {
+    return this.meshRevision;
+  }
+  /** @internal Native emitters are lazy and do not enter the 2D update registry. */
+  get gpuParticleEmitters(): ReadonlySet<GPUParticleEmitter3D> | undefined {
+    return this.registeredGPUParticles;
+  }
   /** @internal Backends skip 3D camera/lighting work for sprite-only scenes. */
   get has3DContent(): boolean {
     return (
-      this.meshCount !== 0 ||
+      (this.registeredMeshes?.size ?? 0) !== 0 ||
+      (this.registeredGPUParticles?.size ?? 0) !== 0 ||
       (!!this.background && !this.background.destroyed) ||
       this.effects3D.length !== 0
     );
@@ -356,11 +460,42 @@ export class Scene {
   addChild<T extends Object3D>(object: T, parent: Object3D): T {
     return this.addObject(object, false, parent);
   }
+  /** @internal Publish owner metadata only after every subtree registration succeeds. */
+  publishStreamingSubtree(root: SceneObject, publish: () => void): void {
+    if (this.committingStreamingMembership)
+      throw new Error('Streaming membership publication is not reentrant.');
+    if (
+      root.destroyed ||
+      root.scene ||
+      ((root instanceof Object3D || root instanceof GameObject) && root.parent)
+    )
+      throw new Error(
+        'Streaming publication requires a live detached owned root.',
+      );
+    this.addObject(root, true, undefined, publish);
+  }
+  /** @internal Retire metadata before consumers observe detached subtree events. */
+  retireStreamingSubtree(root: SceneObject, retire: () => void): void {
+    if (this.committingStreamingMembership)
+      throw new Error('Streaming membership retirement is not reentrant.');
+    if (root.scene !== this)
+      throw new Error('Cannot retire a foreign streaming subtree.');
+    this.removeObject(root, retire);
+  }
+  private commitStreamingMembership(commit: () => void): void {
+    this.committingStreamingMembership = true;
+    try {
+      commit();
+    } finally {
+      this.committingStreamingMembership = false;
+    }
+  }
 
   private addObject<T extends SceneObject>(
     object: T,
     detachRoot: boolean,
     parent?: Object3D,
+    publish?: () => void,
   ): T {
     if (this.disposed) throw new Error('Cannot add to a destroyed Scene.');
     if (this.registrations.has(object)) return object;
@@ -371,6 +506,8 @@ export class Scene {
         throw new Error('Cannot add a destroyed scene object.');
       if (member.scene && member.scene !== this)
         throw new Error('Scene object already belongs to a scene.');
+      if (publish && member.scene)
+        throw new Error('Streaming subtree members must all be detached.');
       if (member instanceof Object3D || member instanceof GameObject) {
         for (const child of member.children) subtree.push(child);
       }
@@ -386,6 +523,7 @@ export class Scene {
         this.register(member);
         added.push(member);
       }
+      if (publish) this.commitStreamingMembership(publish);
     } catch (error) {
       for (let i = added.length - 1; i >= 0; i--) this.unregister(added[i]);
       restoreParent?.();
@@ -417,7 +555,12 @@ export class Scene {
         this.physics3D.register(object);
       this.registrations.set(object, entity);
       this.registeredObjects.add(object);
-      if (object instanceof Mesh) ++this.meshCount;
+      if (object instanceof Mesh) {
+        (this.registeredMeshes ??= new Set()).add(object);
+        ++this.meshRevision;
+      }
+      if (object instanceof GPUParticleEmitter3D)
+        (this.registeredGPUParticles ??= new Set()).add(object);
       if (isCameraDependent(object))
         (this.cameraDependents ??= new Set()).add(object);
       if (object instanceof GameObject)
@@ -432,6 +575,10 @@ export class Scene {
   }
 
   remove(object: SceneObject): boolean {
+    return this.removeObject(object);
+  }
+
+  private removeObject(object: SceneObject, retire?: () => void): boolean {
     if (!this.registrations.has(object)) return false;
     const subtree: SceneObject[] = [object];
     for (let i = 0; i < subtree.length; i++) {
@@ -443,6 +590,7 @@ export class Scene {
     if (object instanceof Object3D || object instanceof GameObject)
       object.detachParent();
     for (const member of subtree) this.unregister(member);
+    if (retire) this.commitStreamingMembership(retire);
     for (const member of subtree) {
       if (!member.scene) member.dispatchObjectEvent('remove', { scene: this });
     }
@@ -454,7 +602,12 @@ export class Scene {
     if (entity === undefined) return;
     this.registrations.delete(object);
     this.registeredObjects.delete(object);
-    if (object instanceof Mesh) --this.meshCount;
+    if (object instanceof Mesh) {
+      this.registeredMeshes?.delete(object);
+      ++this.meshRevision;
+    }
+    if (object instanceof GPUParticleEmitter3D)
+      this.registeredGPUParticles?.delete(object);
     if (isCameraDependent(object)) this.cameraDependents?.delete(object);
     if (object instanceof GameObject) this.objectUpdates.delete(object);
     object.detach(this);
@@ -584,6 +737,7 @@ export class Scene {
       );
     if (this.advancingFixed)
       throw new Error('Scene fixed update is not reentrant.');
+    this.presentationElapsed += deltaTime;
     this.physicsWorld?.sampleForces(deltaTime);
     if (this.physicsWorld3D?.enabled)
       this.physicsWorld3D.sampleForces(deltaTime);
@@ -611,6 +765,12 @@ export class Scene {
         );
         this.fixedUpdate(this.fixedDelta);
         if (!canContinue() || this.disposed) return;
+        if (this.locomotionDrivers)
+          for (const driver of this.locomotionDrivers) {
+            if (!canContinue() || this.disposed) return;
+            if (driver.destroyed) this.locomotionDrivers.delete(driver);
+            else driver.fixedUpdate(this.fixedDelta, this.fixedFrame);
+          }
         this.physicsWorld?.sampleFixedForces(this.fixedDelta);
         if (this.physicsWorld3D?.enabled)
           this.physicsWorld3D.sampleFixedForces(this.fixedDelta);
@@ -639,16 +799,28 @@ export class Scene {
       if (!canContinue() || this.disposed) return;
       if (object instanceof ParticleEmitter) object.updateSimulation(deltaTime);
     }
+    if (this.registeredGPUParticles)
+      for (const emitter of this.registeredGPUParticles) {
+        if (!canContinue() || this.disposed) return;
+        emitter.updateSimulation(deltaTime);
+      }
     if (canContinue() && !this.disposed)
       this.camera2D.updateBehaviors(deltaTime);
     if (canContinue() && !this.disposed) this.updateCameraDependents();
   }
 
   /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
-  updateCameraDependents(): void {
+  updateCameraDependents(
+    viewportHeight = this.presentationViewportHeight,
+  ): void {
     if (this.disposed || !this.cameraDependents?.size) return;
     for (const object of [...this.cameraDependents]) {
-      if (object.worldVisible) object.updateForCamera(this.camera3D);
+      if (object.worldVisible)
+        object.updateForCamera(
+          this.camera3D,
+          viewportHeight,
+          this.presentationTime,
+        );
     }
   }
 
@@ -668,6 +840,26 @@ export class Scene {
     this.tweenGroup?.destroy();
     this.controller?.abort();
     const errors: unknown[] = [];
+    if (this.streamingControllers) {
+      for (const controller of this.streamingControllers) {
+        try {
+          controller.destroy();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      this.streamingControllers.clear();
+    }
+    if (this.locomotionDrivers) {
+      for (const driver of this.locomotionDrivers) {
+        try {
+          driver.destroy();
+        } catch (error) {
+          errors.push(error);
+        }
+      }
+      this.locomotionDrivers.clear();
+    }
     try {
       this.navigationScheduler?.destroy();
     } catch (error) {
@@ -719,6 +911,7 @@ export class Scene {
     } catch (error) {
       errors.push(error);
     }
+    this.lightSelector?.clear();
     try {
       this.camera2D.destroy();
     } catch (error) {

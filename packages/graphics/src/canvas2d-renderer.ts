@@ -4,6 +4,8 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
   Canvas2DInitializationError,
@@ -103,17 +105,28 @@ export class Canvas2DRenderer implements Renderer {
       source instanceof Geometry ||
       source instanceof Geometry2D ||
       source instanceof Mesh ||
+      source instanceof GPUParticleEmitter3D ||
       source instanceof EnvironmentMap
     )
       throw new UnsupportedGraphicsError(
         'Canvas2D does not support native 3D or mesh preparation.',
       );
     if (source instanceof NativePost) await this.preparePostProcessor(source);
-    else if (source instanceof NativeMaterial)
+    else if (
+      source instanceof NativeMaterial ||
+      source instanceof NativeMaterial3D
+    )
       await this.prepareMaterial(source);
     else await this.prepareTextures([source]);
     options.signal?.throwIfAborted();
     return residencyLease([]);
+  }
+  prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
+  async prepareGpuParticles(): Promise<void> {
+    this.requireIdle();
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support GPU 3D particles.',
+    );
   }
   readonly capabilities: GraphicsCapabilities = Object.freeze({
     threeD: false,
@@ -202,11 +215,13 @@ export class Canvas2DRenderer implements Renderer {
     this.frameStats.begin();
   }
 
-  async prepareMaterial(_material: Material2D): Promise<void> {
+  async prepareMaterial(
+    _material: Material2D | NativeMaterial3D,
+  ): Promise<void> {
     void _material;
     this.requireContext();
     throw new UnsupportedGraphicsError(
-      'Canvas2D does not support native Sprite materials.',
+      'Canvas2D does not support native 2D or 3D materials.',
     );
   }
 
@@ -377,6 +392,13 @@ export class Canvas2DRenderer implements Renderer {
           'Canvas2D does not support visible 3D meshes.',
         );
     }
+    const gpuEmitters = scene.gpuParticleEmitters;
+    if (gpuEmitters)
+      for (const emitter of gpuEmitters)
+        if (emitter.worldVisible && emitter.activeCount > 0)
+          throw new UnsupportedGraphicsError(
+            'Canvas2D does not support visible GPU 3D particles.',
+          );
     collectRenderCommands2D(scene, width, height, commands);
     this.render2D.preflight(commands);
   }

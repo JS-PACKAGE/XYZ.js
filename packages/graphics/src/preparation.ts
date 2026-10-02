@@ -7,8 +7,10 @@ import {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
+import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 
 export type PreparationResource =
   | Texture2DSource
@@ -16,8 +18,10 @@ export type PreparationResource =
   | Geometry2D
   | Mesh
   | ParticleLayer2D
+  | GPUParticleEmitter3D
   | EnvironmentMap
   | Material2D
+  | NativeMaterial3D
   | PostProcessor2D;
 export interface ResourcePreparationOptions {
   readonly signal?: AbortSignal;
@@ -27,8 +31,9 @@ interface NativePreparationOperations {
   geometry(source: Geometry | Geometry2D): void;
   mesh(source: Mesh): void;
   particles(source: ParticleLayer2D): void;
+  gpuParticles(source: GPUParticleEmitter3D): Promise<void>;
   environment(source: EnvironmentMap): void;
-  material(source: Material2D): Promise<void>;
+  material(source: Material2D | NativeMaterial3D): Promise<void>;
   post(source: PostProcessor2D): Promise<void>;
   complete(): Promise<void>;
 }
@@ -66,6 +71,13 @@ export async function prepareNativeResource(
   options: ResourcePreparationOptions = {},
 ): Promise<PreparedResourceLease> {
   options.signal?.throwIfAborted();
+  if (resource instanceof GPUParticleEmitter3D) {
+    return completePreparation(
+      operations.gpuParticles(resource),
+      residencyLease([]),
+      options.signal,
+    );
+  }
   if (resource instanceof PostProcessor2D) {
     return completePreparation(
       operations.post(resource),
@@ -90,7 +102,10 @@ export async function prepareNativeResource(
       operations.particles(resource);
     else if (resource instanceof EnvironmentMap)
       operations.environment(resource);
-    else operations.texture(resource);
+    else if (resource instanceof NativeMaterial3D) {
+      operations.texture(resource.texture);
+      for (const texture of resource.textures) operations.texture(texture);
+    } else operations.texture(resource);
     lease = residencyLease(residency.endCapture());
   } catch (error) {
     residencyLease(residency.endCapture()).release();
@@ -98,7 +113,9 @@ export async function prepareNativeResource(
   }
   try {
     return await completePreparation(
-      operations.complete(),
+      resource instanceof NativeMaterial3D
+        ? operations.material(resource)
+        : operations.complete(),
       lease,
       options.signal,
     );

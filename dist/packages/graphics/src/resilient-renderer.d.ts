@@ -1,5 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
@@ -41,6 +43,7 @@ export declare class ResilientRenderer implements Renderer {
     private readonly prepared;
     private readonly textures;
     private readonly geometry;
+    private readonly gpuParticles;
     /** Completed recoveries, for diagnostics. */
     recoveries: number;
     constructor(backend: GraphicsBackend, create: (onError: (error: Error) => void) => Renderer, report: (error: Error) => void, hooks?: ResilientRendererHooks);
@@ -64,7 +67,8 @@ export declare class ResilientRenderer implements Renderer {
     endFrame(): void;
     resize(width: number, height: number): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
-    prepareMaterial(material: Material2D): Promise<void>;
+    prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
     preparePostProcessor(processor: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: RenderToTextureOptions2D): Promise<void>;

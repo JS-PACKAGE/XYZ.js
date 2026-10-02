@@ -3,6 +3,8 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type {
   Renderer,
@@ -87,9 +89,15 @@ export class PresentedRenderer implements Renderer {
     this.requireContext();
     this.renderer.beginFrame();
   }
-  async prepareMaterial(material: Material2D): Promise<void> {
+  async prepareMaterial(
+    material: Material2D | NativeMaterial3D,
+  ): Promise<void> {
     this.requireContext();
     return this.renderer.prepareMaterial(material);
+  }
+  async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
+    this.requireContext();
+    return this.renderer.prepareGpuParticles(emitter);
   }
   async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
     this.requireContext();

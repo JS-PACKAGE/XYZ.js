@@ -1,4 +1,4 @@
-import{atlasGLSL as e}from"./shadow-shaders.js";import{depthPostGLSL as t}from"./depth-post-shaders.js";import{sheenGLSL as n}from"./sheen-shaders.js";import{transmissionGLSL as r}from"./transmission-shaders.js";import{reflectionProbeGLSL as i}from"./reflection-probe-shaders.js";import{oitWeightGLSL as a}from"./oit-shaders.js";export const meshVertex=`#version 300 es
+import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i}from"../../../src/data/rendering.js";import{atlasGLSL as a}from"./shadow-shaders.js";import{depthPostGLSL as o}from"./depth-post-shaders.js";import{sheenGLSL as s}from"./sheen-shaders.js";import{transmissionGLSL as c}from"./transmission-shaders.js";import{reflectionProbeGLSL as l}from"./reflection-probe-shaders.js";import{oitWeightGLSL as u}from"./oit-shaders.js";export const meshVertex=`#version 300 es
 precision highp float;
 precision highp int;
 layout(location=0) in vec3 position;
@@ -29,11 +29,16 @@ mat4 jointMatrix(uint index) {
     texelFetch(jointPalette, ivec2(2,row),0),
     texelFetch(jointPalette, ivec2(3,row),0));
 }
+/* XYZ_VERTEX_HOOKS */
+struct XYZVertex { vec3 position; vec3 normal; };
+XYZVertex xyzDeform(vec3 position, vec3 normal, vec2 uv) { return XYZVertex(position,normal); }
+/* XYZ_VERTEX_HOOKS_END */
 void main() {
   mat4 world = model;
   if (instanced) world = model * instanceMatrix;
-  vec4 local = vec4(position, 1.0);
-  vec3 localNormal = normal;
+  XYZVertex deformed = xyzDeform(position,normal,uv);
+  vec4 local = vec4(deformed.position, 1.0);
+  vec3 localNormal = deformed.normal;
   if (skinned) {
     mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
       + jointMatrix(jointIndices.y) * jointWeights.y
@@ -43,7 +48,7 @@ void main() {
     mat3 cofactor = mat3(cross(skin[1].xyz,skin[2].xyz),
       cross(skin[2].xyz,skin[0].xyz),cross(skin[0].xyz,skin[1].xyz));
     float sign = dot(skin[0].xyz,cofactor[0]) < 0.0 ? -1.0 : 1.0;
-    vec3 direction = sign * cofactor * normal;
+    vec3 direction = sign * cofactor * deformed.normal;
     float directionLength = length(direction);
     localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
   }
@@ -97,7 +102,7 @@ uniform highp sampler2DArray opticalMaps;
 uniform sampler2D opaqueScene;
 uniform mat4 viewProjection;
 uniform sampler2D shadowMap;
-uniform vec4 lighting[51];
+uniform vec4 lighting[${e/4}];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
 uniform sampler2D environmentMap;
 uniform vec3 probeMin;
@@ -117,12 +122,16 @@ uniform vec3 cameraPosition;
 uniform bool receiveShadow;
 out vec4 color;
 uniform int oitPass;
-${e}
-const float PI = 3.141592653589793;
-${r}
-${n}
-${i}
+uniform float meshFade;
+/* XYZ_SURFACE_HOOKS */
+vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+/* XYZ_SURFACE_HOOKS_END */
 ${a}
+const float PI = 3.141592653589793;
+${c}
+${s}
+${l}
+${u}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -200,7 +209,7 @@ vec3 applyFog(vec3 rgb, float opacity) {
   return mix(rgb, fog[0].rgb * opacity, amount);
 }
 void shadeMesh() {
-  vec4 texel = texture(image, vUV);
+  vec4 texel = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV));
   float opacity = texel.a * tint.a * vColor.a;
   if (pbr) {
     if (alphaMode == 1 && opacity < emission.w) discard;
@@ -211,7 +220,7 @@ void shadeMesh() {
   if (oitPass > 0 && opacity <= 0.0) discard;
   // Revealage depends only on coverage; do not evaluate lighting a second time.
   if (oitPass == 2) {
-    color = vec4(opacity);
+    color = vec4(opacity * meshFade);
     return;
   }
   vec3 n = vNormal / max(length(vNormal), .000001);
@@ -295,7 +304,7 @@ void shadeMesh() {
     result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight, transmissionWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
     if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${t}; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
@@ -306,13 +315,13 @@ void shadeMesh() {
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
       if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
     }
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${n}; i++) {
       if (i >= int(lighting[2].y)) break;
-      vec4 p = lighting[19 + i * 4], c = lighting[20 + i * 4], d = lighting[21 + i * 4];
+      vec4 p = lighting[${r/4} + i * 4], c = lighting[${r/4+1} + i * 4], d = lighting[${r/4+2} + i * 4];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
-      float cone = smoothstep(d.w, lighting[22 + i * 4].x, dot(-sl, d.xyz));
+      float cone = smoothstep(d.w, lighting[${r/4+3} + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
       result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight,transmissionWeight)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
@@ -341,31 +350,36 @@ void shadeMesh() {
   } else {
     float directional = max(dot(vNormal, direction), 0.0) / max(length(vNormal) * length(direction), .000001);
     vec3 illumination = vec3(max(lighting[1].w, 0.0)) + lighting[1].rgb * (directional * max(lighting[0].w, 0.0) * visibility);
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${t}; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       illumination += c.rgb * c.w * attenuation(d2,p.w) * max(dot(n, delta / max(sqrt(d2), .000001)),0.0) * pointShadow(i,p.xyz);
     }
-    for (int i = 0; i < 8; i++) {
+    for (int i = 0; i < ${n}; i++) {
       if (i >= int(lighting[2].y)) break;
-      vec4 p = lighting[19 + i * 4], c = lighting[20 + i * 4], d = lighting[21 + i * 4];
+      vec4 p = lighting[${r/4} + i * 4], c = lighting[${r/4+1} + i * 4], d = lighting[${r/4+2} + i * 4];
       vec3 delta = p.xyz - vPosition;
       float d2 = dot(delta, delta);
       vec3 sl = delta / max(sqrt(d2), .000001);
-      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[22 + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0) * spotShadow(i);
+      illumination += c.rgb * c.w * attenuation(d2,p.w) * smoothstep(d.w,lighting[${r/4+3} + i * 4].x,dot(-sl,d.xyz)) * max(dot(n,sl),0.0) * spotShadow(i);
     }
     result = base * illumination;
     if (linearOutput) result = decodeSRGB(result);
   }
-  color = vec4(applyFog(result * opacity, opacity), opacity);
+  color = vec4(applyFog(result * opacity, opacity), opacity) * meshFade;
 }
 void main() {
   shadeMesh();
   if (oitPass == 1) color *= transparencyWeight(color.a,gl_FragCoord.z);
 }`;export const shadowFragment=`#version 300 es
 precision highp float;
+in vec3 vPosition;
+in vec3 vNormal;
+/* XYZ_SURFACE_HOOKS */
+vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+/* XYZ_SURFACE_HOOKS_END */
 in vec2 vUV;
 in vec4 vColor;
 flat in float vOrientation;
@@ -373,10 +387,12 @@ uniform bool doubleSided;
 uniform sampler2D image;
 uniform float alphaCutoff;
 uniform float opacity;
+uniform float meshFade;
 uniform int alphaMode;
 void main() {
+  if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
-  float alpha = texture(image, vUV).a * opacity * vColor.a;
+  float alpha = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV)).a * opacity * vColor.a;
   if (alphaMode == 1 && alpha < alphaCutoff) discard;
   if (alphaMode == 2 && alpha <= 0.0) discard;
 }`;export const postVertex=`#version 300 es
@@ -390,7 +406,7 @@ uniform sampler2D image;
 uniform vec4 settings; // exposure, strength, threshold, radius
 uniform bool aces;
 out vec4 color;
-${t}
+${o}
 vec3 sampleAt(ivec2 p) {
   return texelFetch(image, clamp(p, ivec2(0), textureSize(image, 0) - 1), 0).rgb;
 }
@@ -439,5 +455,103 @@ void main() {
   vec3 c = textureLod(backgroundMap, equirectUV(direction), 0.0).rgb * sky.x;
   if (sky.y < 0.5) c = encodeSRGB(c);
   color = vec4(c, 1.0);
-}`;
+}`;export function nativeMeshGLSL(e,t){let n=t===`vertex`?`#version 300 es
+precision highp float;
+precision highp int;
+layout(location=0) in vec3 position;
+layout(location=1) in vec3 normal;
+layout(location=2) in vec2 uv;
+layout(location=3) in mat4 instanceMatrix;
+layout(location=7) in vec3 instanceColor;
+layout(location=8) in vec4 vertexColor;
+layout(location=9) in uvec4 jointIndices;
+layout(location=10) in vec4 jointWeights;
+uniform highp sampler2D jointPalette;
+uniform bool skinned;
+uniform mat4 viewProjection;
+uniform mat4 model;
+uniform bool instanced;
+out vec3 vPosition;
+out vec3 vNormal;
+out vec2 vUV;
+out vec4 vColor;
+flat out float vOrientation;
+flat out vec3 vLocal0;
+flat out vec3 vLocal1;
+flat out vec3 vLocal2;
+mat4 jointMatrix(uint index) {
+  int row = int(index);
+  return mat4(texelFetch(jointPalette, ivec2(0,row),0),
+    texelFetch(jointPalette, ivec2(1,row),0),
+    texelFetch(jointPalette, ivec2(2,row),0),
+    texelFetch(jointPalette, ivec2(3,row),0));
+}
+/* XYZ_VERTEX_HOOKS */
+struct XYZVertex { vec3 position; vec3 normal; };
+XYZVertex xyzDeform(vec3 position, vec3 normal, vec2 uv) { return XYZVertex(position,normal); }
+/* XYZ_VERTEX_HOOKS_END */
+void main() {
+  mat4 world = model;
+  if (instanced) world = model * instanceMatrix;
+  XYZVertex deformed = xyzDeform(position,normal,uv);
+  vec4 local = vec4(deformed.position, 1.0);
+  vec3 localNormal = deformed.normal;
+  if (skinned) {
+    mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
+      + jointMatrix(jointIndices.y) * jointWeights.y
+      + jointMatrix(jointIndices.z) * jointWeights.z
+      + jointMatrix(jointIndices.w) * jointWeights.w;
+    local = vec4((skin * local).xyz, 1.0);
+    mat3 cofactor = mat3(cross(skin[1].xyz,skin[2].xyz),
+      cross(skin[2].xyz,skin[0].xyz),cross(skin[0].xyz,skin[1].xyz));
+    float sign = dot(skin[0].xyz,cofactor[0]) < 0.0 ? -1.0 : 1.0;
+    vec3 direction = sign * cofactor * deformed.normal;
+    float directionLength = length(direction);
+    localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
+  }
+  vec4 p = world * local;
+  vec4 clip = viewProjection * p;
+  gl_Position = vec4(clip.xy, clip.z * 2.0 - clip.w, clip.w);
+  mat3 m = mat3(world);
+  vec3 a = cross(m[1], m[2]);
+  float determinant = dot(m[0], a);
+  vOrientation = determinant < 0.0 ? -1.0 : 1.0;
+  mat3 cofactor = mat3(a, cross(m[2], m[0]), cross(m[0], m[1]));
+  mat3 normalMatrix = determinant == 0.0 ? mat3(0.0) : cofactor/determinant;
+  vLocal0 = normalMatrix[0]; vLocal1 = normalMatrix[1]; vLocal2 = normalMatrix[2];
+  vNormal = normalMatrix*localNormal;
+  vPosition = p.xyz;
+  vUV = uv;
+  vColor = vec4(instanceColor, 1.0) * vertexColor;
+}`:t===`shadow`?`#version 300 es
+precision highp float;
+in vec3 vPosition;
+in vec3 vNormal;
+/* XYZ_SURFACE_HOOKS */
+vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+/* XYZ_SURFACE_HOOKS_END */
+in vec2 vUV;
+in vec4 vColor;
+flat in float vOrientation;
+uniform bool doubleSided;
+uniform sampler2D image;
+uniform float alphaCutoff;
+uniform float opacity;
+uniform float meshFade;
+uniform int alphaMode;
+void main() {
+  if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
+  if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
+  float alpha = xyzSurface(vPosition,vNormal,vUV,texture(image, vUV)).a * opacity * vColor.a;
+  if (alphaMode == 1 && alpha < alphaCutoff) discard;
+  if (alphaMode == 2 && alpha <= 0.0) discard;
+}`:meshFragment,r=t===`vertex`?`VERTEX`:`SURFACE`,a=n.indexOf(`/* XYZ_${r}_HOOKS */`),o=`/* XYZ_${r}_HOOKS_END */`,s=n.indexOf(o)+o.length,c=t===`surface`?``:`uniform sampler2D xyzMap0;
+uniform sampler2D xyzMap1;
+uniform sampler2D xyzMap2;
+uniform sampler2D xyzMap3;
+`,l=`${t===`vertex`?`#define XYZ_VERTEX 1`:`#define XYZ_FRAGMENT 1`}${t===`shadow`?`
+#define XYZ_SHADOW 1`:``}
+uniform vec4 xyzUniforms[${i.uniformFloats/4}];
+${c}struct XYZVertex { vec3 position; vec3 normal; };
+`;return(n.slice(0,a)+l+e+n.slice(s)).replaceAll(`metallicRoughnessMap`,`xyzMap0`).replaceAll(`normalMap`,`xyzMap1`).replaceAll(`occlusionMap`,`xyzMap2`).replaceAll(`emissiveMap`,`xyzMap3`)}
 //# sourceMappingURL=webgl-feature-shaders.js.map

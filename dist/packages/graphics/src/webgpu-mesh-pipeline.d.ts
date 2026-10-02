@@ -1,3 +1,6 @@
+import { RenderVisibilitySet } from '../../core/src/render-visibility.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
@@ -24,8 +27,26 @@ export declare class WebGPUMeshPipeline {
     private readonly format;
     private readonly sampleCount;
     private readonly residency;
+    private readonly pipelineRecipes;
+    private readonly particles;
+    private readonly fadedPipeline;
+    private readonly fadedHdrPipeline;
     private readonly geometries;
     private textureEpoch;
+    private readonly nativeMaterials;
+    private readonly pendingMaterials;
+    private destroyed;
+    private readonly visibilityCache;
+    readonly visibility: RenderVisibilitySet;
+    private readonly visibilityOptions;
+    private readonly depthTextureVersions;
+    private depthRevision;
+    private proofWidth;
+    private proofHeight;
+    private proofMode;
+    private readonly gathered;
+    private occlusion;
+    private readonly blendedDraw;
     private readonly meshes;
     private readonly textures;
     private readonly premultipliedTextures;
@@ -103,7 +124,7 @@ export declare class WebGPUMeshPipeline {
     private ensureRefraction;
     private releaseRefraction;
     /** Shadows and linear HDR resolution precede the existing sprite overlay. */
-    render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor): boolean;
+    render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor, viewportHeight?: number): boolean;
     private createSceneGroup;
     private ensureShadow;
     private prepareScene;
@@ -112,6 +133,9 @@ export declare class WebGPUMeshPipeline {
     prepareEnvironment(map: EnvironmentMap): void;
     prepareGeometry(geometry: Geometry): ResidencyAllocation;
     unloadGeometry(geometry: Geometry): void;
+    prepareMaterial(material: NativeMaterial3D): Promise<void>;
+    prepareGpuParticles(emitter: GPUParticleEmitter3D): void;
+    afterSubmit(): void;
     prepareMesh(mesh: Mesh): void;
     unloadTexture(texture: Texture2DSource): void;
     private uploadEnvironment;

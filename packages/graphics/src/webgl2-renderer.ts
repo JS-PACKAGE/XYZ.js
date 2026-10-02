@@ -1,7 +1,18 @@
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { nativeMeshGLSL } from './webgl-feature-shaders.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
+import {
+  RenderVisibilityCache,
+  RenderVisibilitySet,
+  type RenderVisibilityOptions,
+  type VisibleInstances,
+} from '../../core/src/render-visibility.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
+import { WebGL2Particles3D } from './webgl2-particles3d.js';
+import { WebGLOcclusionBackend } from './webgl-occlusion.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
-import { Mesh } from '../../core/src/mesh.js';
+import type { Mesh } from '../../core/src/mesh.js';
 import {
   type Material2D,
   type PostProcessor2D,
@@ -137,9 +148,12 @@ interface CachedInstances {
   allocation: ResidencyAllocation;
   buffer: WebGLBuffer;
   version: number;
+  matrixBytes: number;
+  payload?: VisibleInstances;
   /** Per-instance RGB buffer, created when the InstancedMesh first has colors. */
   colors: WebGLBuffer | undefined;
   colorVersion: number;
+  colorBytes: number;
   seen: number;
 }
 
@@ -211,7 +225,21 @@ export class WebGL2Renderer implements Renderer {
   private destroyed = false;
   private lostError: WebGL2ContextLostError | undefined;
   private readonly frustum = new Frustum();
-  private readonly meshDraws: Mesh[] = [];
+  private readonly visibilityCache = new RenderVisibilityCache();
+  private readonly visibility = new RenderVisibilitySet();
+  private readonly visibilityOptions: RenderVisibilityOptions = {};
+  private occlusion: WebGLOcclusionBackend | undefined;
+  private particles3D: WebGL2Particles3D | undefined;
+  private readonly depthTextureVersions = new WeakMap<
+    Texture2DSource,
+    number
+  >();
+  private depthRevision = 0;
+  private depthWidth = 0;
+  private depthHeight = 0;
+  private depthMode = -1;
+  private readonly isColorBlended = (mesh: Mesh): boolean =>
+    (this.visibility.entries.get(mesh)?.fade ?? 1) < 1 || isBlended(mesh);
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
   private readonly gpuTimingEnabled: boolean;
@@ -244,6 +272,17 @@ export class WebGL2Renderer implements Renderer {
       this.preparedGeometry.add(allocation);
     }
     this.gl!.flush();
+  }
+  async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
+    const gl = this.requireGL();
+    if (this.activeFrame)
+      throw new GraphicsError(
+        'Cannot prepare GPU particles during an active frame.',
+      );
+    (this.particles3D ??= new WebGL2Particles3D(gl, this.stats)).prepare(
+      emitter,
+    );
+    gl.flush();
   }
   unloadGeometry(source: Geometry | Geometry2D): void {
     this.requireGL();
@@ -325,6 +364,7 @@ export class WebGL2Renderer implements Renderer {
           this.uploadEnvironment(map);
         },
         material: (material) => this.prepareMaterial(material),
+        gpuParticles: (emitter) => this.prepareGpuParticles(emitter),
         post: (post) => this.preparePostProcessor(post),
         complete: async () => {
           this.requireGL().flush();
@@ -363,6 +403,10 @@ export class WebGL2Renderer implements Renderer {
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly tintData = new Float32Array(4);
   private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
+  private readonly visibleMeshInstances = new Map<
+    InstancedMesh,
+    CachedInstances
+  >();
   private readonly meshSkins = new Map<SkinnedMesh, CachedSkin>();
   private readonly samplers = new Map<string, WebGLSampler>();
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
@@ -396,6 +440,16 @@ export class WebGL2Renderer implements Renderer {
     WebGLUniformLocation | null
   > = {};
   private readonly materials = new Map<Material2D, NativeProgram>();
+  private readonly nativeMaterials = new Map<
+    NativeMaterial3D,
+    {
+      program: WebGLProgram;
+      shadow: WebGLProgram;
+      uniforms: Record<string, WebGLUniformLocation | null>;
+      shadowUniforms: Record<string, WebGLUniformLocation | null>;
+      unsubscribe: () => void;
+    }
+  >();
   private readonly processors = new Map<PostProcessor2D, NativeProgram>();
   private readonly snapshots = new Map<WebGLSnapshot, RenderTarget>();
   private frameTarget: RenderTarget | undefined;
@@ -642,6 +696,7 @@ export class WebGL2Renderer implements Renderer {
         'probePosition',
         'probeBoxProjection',
         'fog[0]',
+        'meshFade',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
       for (const name of [
@@ -655,6 +710,7 @@ export class WebGL2Renderer implements Renderer {
         'opacity',
         'doubleSided',
         'alphaMode',
+        'meshFade',
       ])
         this.shadowUniforms[name] = gl.getUniformLocation(
           this.shadowProgram,
@@ -791,8 +847,72 @@ export class WebGL2Renderer implements Renderer {
         packed.allocation.destroy();
   }
 
-  async prepareMaterial(material: Material2D): Promise<void> {
-    return this.prepareNative(material, false);
+  async prepareMaterial(
+    material: Material2D | NativeMaterial3D,
+  ): Promise<void> {
+    if (!(material instanceof NativeMaterial3D))
+      return this.prepareNative(material, false);
+    const gl = this.requireGL();
+    material.validate();
+    if (this.nativeMaterials.has(material)) return;
+    const vertex = nativeMeshGLSL(material.glsl, 'vertex');
+    const program = this.createProgram(
+      gl,
+      vertex,
+      nativeMeshGLSL(material.glsl, 'surface'),
+      material.label,
+    );
+    let shadow: WebGLProgram | undefined;
+    try {
+      shadow = this.createProgram(
+        gl,
+        vertex,
+        nativeMeshGLSL(material.glsl, 'shadow'),
+        `${material.label} shadow`,
+      );
+      const uniforms: Record<string, WebGLUniformLocation | null> = {};
+      const shadowUniforms: Record<string, WebGLUniformLocation | null> = {};
+      const names = [
+        ...Object.keys(this.meshUniforms),
+        ...Object.keys(this.shadowUniforms),
+        'xyzUniforms[0]',
+        'xyzMap0',
+        'xyzMap1',
+        'xyzMap2',
+        'xyzMap3',
+      ];
+      for (const name of names) {
+        uniforms[name] = gl.getUniformLocation(program, name);
+        shadowUniforms[name] = gl.getUniformLocation(shadow, name);
+      }
+      for (const [name, binding] of [
+        ['ShadowData', 0],
+        ['SheenLookup', 1],
+      ] as const) {
+        const index = gl.getUniformBlockIndex(program, name);
+        if (index !== gl.INVALID_INDEX)
+          gl.uniformBlockBinding(program, index, binding);
+      }
+      this.cacheTexture(material.texture);
+      for (const texture of material.textures) this.cacheTexture(texture);
+      const shadowProgram = shadow;
+      const unsubscribe = material.onDestroy(() => {
+        gl.deleteProgram(program);
+        gl.deleteProgram(shadowProgram);
+        this.nativeMaterials.delete(material);
+      });
+      this.nativeMaterials.set(material, {
+        program,
+        shadow,
+        uniforms,
+        shadowUniforms,
+        unsubscribe,
+      });
+    } catch (error) {
+      gl.deleteProgram(program);
+      if (shadow) gl.deleteProgram(shadow);
+      throw error;
+    }
   }
 
   async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
@@ -1062,10 +1182,10 @@ export class WebGL2Renderer implements Renderer {
       } else this.commands.clear();
       if (scene?.has3DContent) {
         validateRenderSettings(scene);
-        this.collectMeshes(scene, logicalWidth / logicalHeight);
+        this.collectMeshes(scene, logicalWidth / logicalHeight, logicalHeight);
         this.linear3D =
           scene.postProcessing.enabled || this.hasTransmission || this.weighted;
-        fillLightingData(scene, this.lightingData);
+        scene.lightSelection.update(scene);
         this.atlas.update(scene, logicalWidth / logicalHeight);
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
@@ -1092,6 +1212,12 @@ export class WebGL2Renderer implements Renderer {
           this.refractionTarget = undefined;
         }
       } else {
+        this.visibilityCache.clear();
+        this.visibility.color.length = 0;
+        this.visibility.shadows.length = 0;
+        this.visibility.entries.clear();
+        this.visibility.occlusionCandidates.length = 0;
+        this.occlusion?.clear();
         if (this.shadowTarget) {
           this.deleteTarget(this.shadowTarget);
           this.shadowTarget = undefined;
@@ -1396,43 +1522,74 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE0);
   }
 
-  private collectMeshes(scene: Scene, aspect: number): void {
-    this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
-    const draws = this.meshDraws;
-    draws.length = 0;
-    for (const object of scene.objects) {
-      if (
-        !(object instanceof Mesh) ||
-        !object.worldVisible ||
-        (object.material.opacity <= 0 &&
-          (!(object.material instanceof PBRMaterial) ||
-            object.material.alphaMode === 'BLEND')) ||
-        object.material.texture.destroyed ||
-        object.geometry.indices.length === 0
-      )
-        continue;
-      this.stats.meshes++;
-      if (!object.isInFrustum(this.frustum)) {
-        this.stats.culled++;
-        continue;
+  private collectMeshes(
+    scene: Scene,
+    aspect: number,
+    viewportHeight: number,
+  ): void {
+    const gl = this.gl!;
+    const canvas = this.canvas!;
+    const mode =
+      (scene.postProcessing.enabled ? 1 : 0) |
+      (scene.transparency === 'weighted' ? 2 : 0);
+    if (
+      this.depthWidth !== canvas.width ||
+      this.depthHeight !== canvas.height ||
+      this.depthMode !== mode
+    ) {
+      this.depthWidth = canvas.width;
+      this.depthHeight = canvas.height;
+      this.depthMode = mode;
+      ++this.depthRevision;
+    }
+    if (scene.renderMeshes)
+      for (const mesh of scene.renderMeshes) {
+        if (!this.occlusion && mesh.occlusionCulled)
+          this.occlusion = new WebGLOcclusionBackend(gl);
+        const texture = mesh.material.texture;
+        if (this.depthTextureVersions.get(texture) !== texture.version) {
+          this.depthTextureVersions.set(texture, texture.version);
+          ++this.depthRevision;
+        }
+        // Native hooks can derive coverage from any global uniform, not just their own payload.
+        if (
+          mesh.worldVisible &&
+          mesh.material instanceof NativeMaterial3D &&
+          !mesh.material.transparent
+        )
+          ++this.depthRevision;
       }
-      draws.push(object);
-      if (
-        scene.transparency === 'weighted' &&
-        isBlended(object) &&
-        (!(object instanceof InstancedMesh) || object.count > 0)
-      )
+    this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
+    this.occlusion?.beginFrame();
+    const options = this.visibilityOptions;
+    options.viewportHeight = viewportHeight;
+    options.timeSeconds = scene.presentationTime;
+    options.depthRevision = this.depthRevision;
+    options.occlusion = this.occlusion;
+    this.visibilityCache.collect(
+      scene,
+      scene.camera3D,
+      this.frustum,
+      this.visibility,
+      options,
+    );
+    const draws = this.visibility.color;
+    this.stats.meshes =
+      this.visibility.color.length +
+      this.visibility.frustumCulled +
+      this.visibility.occlusionCulled;
+    this.stats.culled =
+      this.visibility.frustumCulled + this.visibility.occlusionCulled;
+    for (const object of draws) {
+      if (scene.transparency === 'weighted' && this.isColorBlended(object))
         this.weighted = true;
-      if (
-        object.material instanceof PBRMaterial &&
-        (!(object instanceof InstancedMesh) || object.count > 0)
-      ) {
+      if (object.material instanceof PBRMaterial) {
         this.cacheOpticalMaps(object.material);
         if (object.material.transmission > 0) this.hasTransmission = true;
       }
     }
     if (scene.transparency === 'sorted')
-      this.drawSorter.sort(draws, scene.camera3D.position);
+      this.drawSorter.sort(draws, scene.camera3D.position, this.isColorBlended);
   }
 
   private cacheOpticalMaps(material: PBRMaterial): void {
@@ -1524,22 +1681,12 @@ export class WebGL2Renderer implements Renderer {
 
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
-    const uniforms = this.meshUniforms;
+    let uniforms: Record<string, WebGLUniformLocation | null>;
     const background = activeBackground(scene);
     if (background) this.drawSky(scene, aspect, background);
-    gl.useProgram(this.meshProgram!);
-    gl.uniformMatrix4fv(
-      uniforms.viewProjection,
-      false,
-      scene.camera3D.updateMatrix(aspect).elements,
-    );
-    this.frustum.setFromMatrix(scene.camera3D.updateMatrix(aspect));
-    gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
+    const viewProjection = scene.camera3D.matrix.elements;
     fillFogData(scene, this.fogData);
-    gl.uniform4fv(uniforms['fog[0]'], this.fogData);
     const camera = scene.camera3D.position;
-    gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
-    gl.uniform1i(uniforms.linearOutput, this.linear3D ? 1 : 0);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
     gl.activeTexture(gl.TEXTURE5);
@@ -1553,17 +1700,14 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE0 + 15);
     gl.bindSampler(15, null);
     gl.bindTexture(gl.TEXTURE_2D, this.refractionTarget?.texture ?? null);
-    gl.uniform1i(uniforms.opaqueScene, 15);
-    gl.uniform1i(uniforms.opticalMaps, 14);
     gl.activeTexture(gl.TEXTURE0 + 14);
     gl.bindSampler(14, null);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical!);
-    const draws = this.meshDraws;
-    const basePhases = this.hasTransmission ? 2 : 1;
+    const draws = this.visibility.color;
+    const basePhases = 2;
     const phases = basePhases + (this.weighted ? 2 : 0);
     for (let phase = 0; phase < phases; phase++) {
       const oitPass = phase >= basePhases ? phase - basePhases + 1 : 0;
-      gl.uniform1i(uniforms.oitPass, oitPass);
       if (oitPass) {
         gl.bindFramebuffer(
           gl.FRAMEBUFFER,
@@ -1584,10 +1728,11 @@ export class WebGL2Renderer implements Renderer {
         );
       }
       for (const object of draws) {
-        if (this.weighted && isBlended(object) !== oitPass > 0) continue;
-        if (!oitPass && this.hasTransmission) {
+        const blended = this.isColorBlended(object);
+        if (this.weighted && blended !== oitPass > 0) continue;
+        if (!oitPass) {
           const deferred =
-            isBlended(object) ||
+            blended ||
             (object.material instanceof PBRMaterial &&
               object.material.transmission > 0);
           if (deferred !== (phase === 1)) continue;
@@ -1595,6 +1740,48 @@ export class WebGL2Renderer implements Renderer {
         object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
+        if (material instanceof NativeMaterial3D) {
+          const entry = this.nativeMaterials.get(material);
+          if (!entry || material.destroyed)
+            throw new GraphicsError(
+              'Visible NativeMaterial3D must be explicitly prepared before rendering.',
+            );
+          material.validate();
+          uniforms = entry.uniforms;
+          gl.useProgram(entry.program);
+          gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
+          for (let i = 0; i < 4; i++) {
+            gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+            this.bindMaterialTexture(
+              material.textures[i] ?? material.texture,
+              i + 1,
+            );
+          }
+        } else {
+          uniforms = this.meshUniforms;
+          gl.useProgram(this.meshProgram!);
+        }
+        gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
+        fillLightingData(
+          scene,
+          this.lightingData,
+          scene.lightSelection.selectMesh(object),
+        );
+        gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
+        gl.uniform4fv(uniforms['fog[0]'], this.fogData);
+        gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
+        gl.uniform1i(uniforms.linearOutput, this.linear3D ? 1 : 0);
+        gl.uniform1i(uniforms.image, 0);
+        gl.uniform1i(uniforms.shadowMap, 5);
+        gl.uniform1i(uniforms.environmentMap, 6);
+        gl.uniform1i(uniforms.opaqueScene, 15);
+        gl.uniform1i(uniforms.opticalMaps, 14);
+        gl.uniform1i(uniforms.oitPass, oitPass);
+        gl.uniform1f(
+          uniforms.meshFade,
+          this.visibility.entries.get(object)?.fade ?? 1,
+        );
+        if (!oitPass) gl.depthMask(!blended);
         if (pbr) {
           const environment = fillReflectionData(
             scene,
@@ -1818,12 +2005,18 @@ export class WebGL2Renderer implements Renderer {
             material.emissiveSampler,
           );
         }
-        this.drawMesh(object, uniforms);
+        const packed = this.visibility.entries.get(object)?.instances;
+        this.drawMesh(object, uniforms, packed);
         this.stats.draw(
           object.geometry.indices.length,
-          object instanceof InstancedMesh ? object.count : 1,
+          packed?.count ?? (object instanceof InstancedMesh ? object.count : 1),
         );
       }
+      if (phase === 0)
+        this.occlusion?.draw(
+          this.visibility.occlusionCandidates,
+          scene.camera3D.matrix,
+        );
       if (this.hasTransmission && phase === 0) {
         const width = this.postTarget!.width,
           height = this.postTarget!.height;
@@ -1846,6 +2039,17 @@ export class WebGL2Renderer implements Renderer {
         );
         gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
       }
+    }
+    if (scene.gpuParticleEmitters?.size) {
+      // Particle color belongs to the main target, never to either weighted-OIT attachment.
+      if (this.weighted)
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
+      (this.particles3D ??= new WebGL2Particles3D(gl, this.stats)).draw(
+        scene.gpuParticleEmitters,
+        scene.camera3D,
+        aspect,
+        this.linear3D,
+      );
     }
     if (this.weighted) this.resolveOIT();
     gl.depthMask(true);
@@ -1930,6 +2134,7 @@ export class WebGL2Renderer implements Renderer {
   private drawMesh(
     mesh: Mesh,
     uniforms: Record<string, WebGLUniformLocation | null>,
+    packed?: VisibleInstances,
   ): void {
     const gl = this.gl!;
     const geometry = this.cacheGeometry(mesh.renderGeometry);
@@ -1967,7 +2172,7 @@ export class WebGL2Renderer implements Renderer {
       gl.uniform1i(uniforms.jointPalette, 0);
     }
     if (mesh instanceof InstancedMesh) {
-      const entry = this.cacheInstances(mesh);
+      const entry = this.cacheInstances(mesh, packed);
       gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
       for (let column = 0; column < 4; column++) {
         gl.enableVertexAttribArray(3 + column);
@@ -1990,7 +2195,7 @@ export class WebGL2Renderer implements Renderer {
         mesh.geometry.indices.length,
         gl.UNSIGNED_INT,
         0,
-        mesh.count,
+        packed?.count ?? mesh.count,
       );
     } else {
       // Geometry VAOs can be shared by ordinary and instanced meshes.
@@ -2098,18 +2303,27 @@ export class WebGL2Renderer implements Renderer {
     return entry;
   }
 
-  private cacheInstances(mesh: InstancedMesh): CachedInstances {
+  private cacheInstances(
+    mesh: InstancedMesh,
+    packed?: VisibleInstances,
+  ): CachedInstances {
     const gl = this.gl!;
-    let entry = this.meshInstances.get(mesh);
+    const cache = packed ? this.visibleMeshInstances : this.meshInstances;
+    const matrices = packed?.matrices ?? mesh.matrices;
+    const colors = packed ? packed.colors : mesh.colors;
+    const version = packed?.version ?? mesh.version;
+    const colorVersion = packed?.version ?? mesh.colorVersion;
+    const count = packed?.count ?? mesh.count;
+    let entry = cache.get(mesh);
     if (!entry) {
       const allocation = this.residency.geometry.allocate(
-        mesh.matrices.byteLength + (mesh.colors?.byteLength ?? 0),
+        matrices.byteLength + (colors?.byteLength ?? 0),
         () => {
-          const cached = this.meshInstances.get(mesh);
+          const cached = cache.get(mesh);
           if (!cached) return;
           gl.deleteBuffer(cached.buffer);
           if (cached.colors) gl.deleteBuffer(cached.colors);
-          this.meshInstances.delete(mesh);
+          cache.delete(mesh);
         },
       );
       let buffer: WebGLBuffer;
@@ -2123,38 +2337,48 @@ export class WebGL2Renderer implements Renderer {
         buffer,
         allocation,
         version: -1,
+        matrixBytes: 0,
         colors: undefined,
         colorVersion: -1,
+        colorBytes: 0,
         seen: this.frame,
       };
-      this.meshInstances.set(mesh, entry);
+      cache.set(mesh, entry);
     }
-    entry.allocation.resize(
-      mesh.matrices.byteLength + (mesh.colors?.byteLength ?? 0),
-    );
+    if (entry.payload !== packed) {
+      entry.version = entry.colorVersion = -1;
+      entry.payload = packed;
+    }
+    entry.allocation.resize(matrices.byteLength + (colors?.byteLength ?? 0));
     gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
-    if (entry.version < 0)
-      gl.bufferData(gl.ARRAY_BUFFER, mesh.matrices, gl.DYNAMIC_DRAW);
-    else if (entry.version !== mesh.version)
-      gl.bufferSubData(gl.ARRAY_BUFFER, 0, mesh.matrices);
-    if (entry.version !== mesh.version)
-      this.stats.upload(mesh.matrices.byteLength);
-    entry.version = mesh.version;
-    const colors = mesh.colors;
+    if (entry.matrixBytes !== matrices.byteLength) {
+      gl.bufferData(gl.ARRAY_BUFFER, matrices.byteLength, gl.DYNAMIC_DRAW);
+      entry.matrixBytes = matrices.byteLength;
+      entry.version = -1;
+    }
+    if (entry.version !== version && count > 0) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, matrices, 0, count * 16);
+      this.stats.upload(count * 64);
+    }
+    entry.version = version;
     if (colors) {
       if (!entry.colors) entry.colors = this.createBuffer(gl);
       gl.bindBuffer(gl.ARRAY_BUFFER, entry.colors);
-      if (entry.colorVersion < 0)
-        gl.bufferData(gl.ARRAY_BUFFER, colors, gl.DYNAMIC_DRAW);
-      else if (entry.colorVersion !== mesh.colorVersion)
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors);
-      if (entry.colorVersion !== mesh.colorVersion)
-        this.stats.upload(colors.byteLength);
-      entry.colorVersion = mesh.colorVersion;
+      if (entry.colorBytes !== colors.byteLength) {
+        gl.bufferData(gl.ARRAY_BUFFER, colors.byteLength, gl.DYNAMIC_DRAW);
+        entry.colorBytes = colors.byteLength;
+        entry.colorVersion = -1;
+      }
+      if (entry.colorVersion !== colorVersion && count > 0) {
+        gl.bufferSubData(gl.ARRAY_BUFFER, 0, colors, 0, count * 3);
+        this.stats.upload(count * 12);
+      }
+      entry.colorVersion = colorVersion;
     } else if (entry.colors) {
       gl.deleteBuffer(entry.colors);
       entry.colors = undefined;
       entry.colorVersion = -1;
+      entry.colorBytes = 0;
     }
     entry.seen = this.frame;
     return entry;
@@ -2172,7 +2396,7 @@ export class WebGL2Renderer implements Renderer {
       this.shadowTarget = undefined;
       this.shadowTarget = this.createTarget(size, size, true);
     }
-    const uniforms = this.shadowUniforms;
+    let uniforms = this.shadowUniforms;
     gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowTarget.framebuffer);
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, size, size);
@@ -2196,23 +2420,43 @@ export class WebGL2Renderer implements Renderer {
         this.atlas.matrices[tile]!.elements,
       );
       gl.disable(gl.CULL_FACE);
-      for (const object of scene.objects) {
-        if (
-          !(object instanceof Mesh) ||
-          !object.worldVisible ||
-          !object.castShadow ||
-          (object.material.opacity <= 0 &&
-            (!(object.material instanceof PBRMaterial) ||
-              object.material.alphaMode === 'BLEND')) ||
-          object.material.texture.destroyed ||
-          object.geometry.indices.length === 0
-        )
-          continue;
+      for (const object of this.visibility.shadows) {
         object.updateRenderDeformation();
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
+        if (material instanceof NativeMaterial3D) {
+          const entry = this.nativeMaterials.get(material);
+          if (!entry || material.destroyed)
+            throw new GraphicsError(
+              'Shadow NativeMaterial3D must be explicitly prepared before rendering.',
+            );
+          material.validate();
+          uniforms = entry.shadowUniforms;
+          gl.useProgram(entry.shadow);
+          gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
+          for (let i = 0; i < 4; i++) {
+            gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+            this.bindMaterialTexture(
+              material.textures[i] ?? material.texture,
+              i + 1,
+            );
+          }
+        } else {
+          uniforms = this.shadowUniforms;
+          gl.useProgram(this.shadowProgram!);
+        }
+        gl.uniformMatrix4fv(
+          uniforms.viewProjection,
+          false,
+          this.atlas.matrices[tile]!.elements,
+        );
+        gl.uniform1i(uniforms.image, 0);
         gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
         gl.uniform1f(uniforms.opacity, material.opacity);
+        gl.uniform1f(
+          uniforms.meshFade,
+          this.visibility.entries.get(object)?.fade ?? 1,
+        );
         gl.uniform1i(
           uniforms.doubleSided,
           pbr && !material.doubleSided ? 0 : 1,
@@ -2922,6 +3166,9 @@ export class WebGL2Renderer implements Renderer {
       for (const entry of this.meshInstances.values())
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
+      for (const entry of this.visibleMeshInstances.values())
+        if (entry.seen !== this.frame && !entry.allocation.references)
+          entry.allocation.destroy();
       for (const entry of this.meshSkins.values())
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
@@ -3016,7 +3263,22 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl;
     this.gpuTimer?.destroy(!!this.lostError);
     this.gpuTimer = undefined;
+    this.occlusion?.destroy();
+    this.occlusion = undefined;
+    this.particles3D?.destroy();
+    this.particles3D = undefined;
+    this.visibilityCache.clear();
+    this.visibility.color.length = 0;
+    this.visibility.shadows.length = 0;
+    this.visibility.entries.clear();
+    this.visibility.occlusionCandidates.length = 0;
     if (gl) {
+      for (const entry of this.nativeMaterials.values()) {
+        entry.unsubscribe();
+        gl.deleteProgram(entry.program);
+        gl.deleteProgram(entry.shadow);
+      }
+      this.nativeMaterials.clear();
       this.residency.clear();
       this.preparedGeometry.clear();
       this.releaseOIT();
@@ -3046,6 +3308,10 @@ export class WebGL2Renderer implements Renderer {
         if (entry.colors) gl.deleteBuffer(entry.colors);
       }
       for (const entry of this.meshInstances.values()) {
+        gl.deleteBuffer(entry.buffer);
+        if (entry.colors) gl.deleteBuffer(entry.colors);
+      }
+      for (const entry of this.visibleMeshInstances.values()) {
         gl.deleteBuffer(entry.buffer);
         if (entry.colors) gl.deleteBuffer(entry.colors);
       }
@@ -3081,6 +3347,7 @@ export class WebGL2Renderer implements Renderer {
     this.textures.clear();
     this.geometries.clear();
     this.meshInstances.clear();
+    this.visibleMeshInstances.clear();
     this.meshSkins.clear();
     this.environments.clear();
     this.samplers.clear();
@@ -3096,7 +3363,6 @@ export class WebGL2Renderer implements Renderer {
     this.postTarget = undefined;
     this.refractionTarget = undefined;
     this.fxaaTarget = undefined;
-    this.meshDraws.length = 0;
     this.render2D = undefined;
     this.commands.destroy();
     this.gl = undefined;

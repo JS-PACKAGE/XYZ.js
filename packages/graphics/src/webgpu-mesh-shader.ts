@@ -1,3 +1,8 @@
+import {
+  MAX_POINT_LIGHTS,
+  MAX_SPOT_LIGHTS,
+  nativeMaterial3DLimits,
+} from '../../../src/data/rendering.js';
 import { atlasWGSL } from './shadow-shaders.js';
 import { sheenWGSL } from './sheen-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
@@ -15,8 +20,9 @@ struct SceneUniforms {
   lightDirection: vec4f,
   lightColorAmbient: vec4f,
   counts: vec4f,
-  points: array<PointLight, 8>,
-  spots: array<SpotLight, 8>,
+  points: array<PointLight, ${MAX_POINT_LIGHTS}>,
+  spots: array<SpotLight, ${MAX_SPOT_LIGHTS}>,
+  pointIds: array<vec4f, ${MAX_POINT_LIGHTS / 4}>,
   invViewProjection: mat4x4f,
   envParams: vec4f,
   fogColor: vec4f,
@@ -44,6 +50,8 @@ struct MeshUniforms {
   probeMin: vec4f,
   probeMax: vec4f,
   probePosition: vec4f,
+  custom: array<vec4f, ${nativeMaterial3DLimits.uniformFloats / 4}>,
+  fade: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -105,6 +113,15 @@ struct VertexOutput {
   @location(6) @interpolate(flat) local1: vec3f,
   @location(7) @interpolate(flat) local2: vec3f,
 };
+struct XYZVertex { position: vec3f, normal: vec3f };
+/* XYZ_NATIVE_HOOKS */
+fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
+  return XYZVertex(position, normal);
+}
+fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
+  return texel;
+}
+/* XYZ_NATIVE_HOOKS_END */
 fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skin = jointPalette[input.joints.x] * input.weights.x
     + jointPalette[input.joints.y] * input.weights.y
@@ -113,9 +130,10 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinCofactor = mat3x3f(cross(skin[1].xyz, skin[2].xyz),
     cross(skin[2].xyz, skin[0].xyz), cross(skin[0].xyz, skin[1].xyz));
   let skinSign = select(1.0, -1.0, dot(skin[0].xyz, skinCofactor[0]) < 0.0);
-  let skinDirection = skinSign * skinCofactor * input.normal;
+  let deformed = xyzDeform(input.position, input.normal, input.uv);
+  let skinDirection = skinSign * skinCofactor * deformed.normal;
   let skinLength = length(skinDirection);
-  let skinNormal = select(input.normal,
+  let skinNormal = select(deformed.normal,
     skinDirection / select(1.0, skinLength, skinLength > 0.0), mesh.clearcoat.w > 0.5);
   let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
   let a = model[0].xyz;
@@ -124,7 +142,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let determinant = dot(a, cross(b, c));
   let inverseDet = select(0.0, 1.0 / determinant, determinant != 0.0);
   let normalMatrix = mat3x3f(cross(b,c), cross(c,a), cross(a,b)) * inverseDet;
-  let local = skin * vec4f(input.position, 1.0);
+  let local = skin * vec4f(deformed.position, 1.0);
   let world = model * vec4f(local.xyz, 1.0);
   var output: VertexOutput;
   output.position = projection * world;
@@ -215,12 +233,13 @@ fn clearcoatLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32) -> f32 {
   return distribution*geometry*nl/max(4.0*nv*nl,0.000001);
 }
 @fragment fn shadowFragment(input: VertexOutput, @builtin(front_facing) front: bool) {
-  let texel = textureSample(baseMap, materialSampler, input.uv);
+  if (mesh.fade.x < 1.0 && f32((u32(input.position.x) + u32(input.position.y) * 3u) % 16u) / 16.0 >= mesh.fade.x) { discard; }
+  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, input.uv));
   let effectiveFront = front == (input.orientation > 0.0);
   let alpha = texel.a * mesh.tint.a * input.color.a;
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
   let blended = mesh.settings.w > 1.5;
-  if (mesh.material.x > 0.5 && ((!effectiveFront && mesh.settings.y < 0.5) || (masked && alpha < mesh.settings.x) || (blended && alpha <= 0.0))) { discard; }
+  if ((mesh.material.x > 0.5 && ((!effectiveFront && mesh.settings.y < 0.5) || (masked && alpha < mesh.settings.x) || (blended && alpha <= 0.0))) || (mesh.material.x < 0.5 && alpha <= 0.0)) { discard; }
 }
 // rgb is premultiplied by opacity, so fog fades toward fogColor * opacity and keeps transparency.
 fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
@@ -235,7 +254,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
   return mix(rgb, scene.fogColor.rgb * opacity, amount);
 }
 fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
-  let texel = textureSample(baseMap, materialSampler, input.uv);
+  let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, input.uv));
   let visibility = directionalShadow(input.world);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
@@ -399,14 +418,14 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
 }
 ${oitWeightWGSL}
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
-  return shadeMesh(input,front);
+  return shadeMesh(input,front) * mesh.fade.x;
 }
 struct OITOutput {
   @location(0) accumulation: vec4f,
   @location(1) revealage: vec4f,
 };
 @fragment fn oitFragment(input: VertexOutput, @builtin(front_facing) front: bool) -> OITOutput {
-  let color=shadeMesh(input,front);
+  let color=shadeMesh(input,front) * mesh.fade.x;
   let weight=transparencyWeight(color.a,input.position.z);
   var output: OITOutput;
   output.accumulation=color*weight;
@@ -434,3 +453,24 @@ struct SkyOutput {
   return vec4f(color, 1.0);
 }
 `;
+
+/** Compose native hook declarations, not a shader-language translator. */
+export function nativeMeshWGSL(source: string): string {
+  const start = webgpuMeshShader.indexOf('/* XYZ_NATIVE_HOOKS */');
+  const end =
+    webgpuMeshShader.indexOf('/* XYZ_NATIVE_HOOKS_END */') +
+    '/* XYZ_NATIVE_HOOKS_END */'.length;
+  return (
+    webgpuMeshShader.slice(0, start) +
+    source +
+    webgpuMeshShader.slice(end)
+  )
+    .replaceAll('metallicRoughnessMap', 'xyzMap0')
+    .replaceAll('normalMap', 'xyzMap1')
+    .replaceAll('occlusionMap', 'xyzMap2')
+    .replaceAll('emissiveMap', 'xyzMap3')
+    .replaceAll('metallicRoughnessSampler', 'xyzSampler0')
+    .replaceAll('normalSampler', 'xyzSampler1')
+    .replaceAll('occlusionSampler', 'xyzSampler2')
+    .replaceAll('emissiveSampler', 'xyzSampler3');
+}

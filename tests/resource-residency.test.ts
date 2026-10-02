@@ -262,6 +262,7 @@ describe('native cache admission', () => {
         geometry: unsupported,
         mesh: unsupported,
         particles: unsupported,
+        gpuParticles: unsupported,
         environment: unsupported,
         material: unsupported,
         post: unsupported,

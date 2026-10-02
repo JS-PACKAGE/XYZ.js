@@ -3,6 +3,8 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
@@ -68,7 +70,10 @@ export class ResilientRenderer implements Renderer {
   private recovering = false;
   private readonly abort = new AbortController();
   private replacement: Renderer | undefined;
-  private readonly materials = new Set<Material2D>();
+  private readonly materials = new Map<
+    Material2D | NativeMaterial3D,
+    () => void
+  >();
   private readonly processors = new Set<PostProcessor2D>();
   private size: { width: number; height: number } | undefined;
   private residencyOptions: ResidencyBudgetOptions = {};
@@ -84,6 +89,7 @@ export class ResilientRenderer implements Renderer {
     Geometry | Geometry2D,
     PreparationRegistration
   >();
+  private readonly gpuParticles = new Map<GPUParticleEmitter3D, () => void>();
   /** Completed recoveries, for diagnostics. */
   recoveries = 0;
 
@@ -216,8 +222,10 @@ export class ResilientRenderer implements Renderer {
         next.configureResidency(this.residencyOptions);
         await next.initialize(canvas);
         this.replacement = next;
-        for (const material of this.materials)
+        for (const material of this.materials.keys())
           if (!material.destroyed) await next.prepareMaterial(material);
+        for (const emitter of this.gpuParticles.keys())
+          if (!emitter.destroyed) await next.prepareGpuParticles(emitter);
         for (const processor of this.processors)
           if (!processor.destroyed) await next.preparePostProcessor(processor);
         for (const [texture, registration] of this.textures) {
@@ -341,16 +349,54 @@ export class ResilientRenderer implements Renderer {
   ): Promise<RenderSnapshot> {
     return this.requireReady().captureScene(scene, width, height);
   }
+  async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
+    const renderer = this.requireReady();
+    const existing = this.gpuParticles.get(emitter);
+    const registration =
+      existing ??
+      emitter.ownNative(() => {
+        this.gpuParticles.delete(emitter);
+      });
+    if (!existing) this.gpuParticles.set(emitter, registration);
+    try {
+      await renderer.prepareGpuParticles(emitter);
+      if (
+        this.destroyed ||
+        emitter.destroyed ||
+        this.gpuParticles.get(emitter) !== registration
+      )
+        throw new GraphicsError(
+          'GPU particle ownership ended during preparation.',
+        );
+    } catch (error) {
+      if (!existing && this.gpuParticles.get(emitter) === registration) {
+        this.gpuParticles.delete(emitter);
+        registration();
+      }
+      throw error;
+    }
+  }
 
-  async prepareMaterial(material: Material2D): Promise<void> {
+  async prepareMaterial(
+    material: Material2D | NativeMaterial3D,
+  ): Promise<void> {
     await this.requireReady().prepareMaterial(material);
-    if (!this.materials.has(material)) {
-      this.materials.add(material);
-      material.addEventListener(
-        'destroy',
-        () => this.materials.delete(material),
-        { once: true },
+    if (this.destroyed || material.destroyed)
+      throw new GraphicsError(
+        'Renderer or material was destroyed during preparation.',
       );
+    if (!this.materials.has(material)) {
+      const forget = (): void => {
+        this.materials.delete(material);
+      };
+      if (material instanceof NativeMaterial3D)
+        this.materials.set(material, material.onDestroy(forget));
+      else {
+        material.addEventListener('destroy', forget, { once: true });
+        this.materials.set(material, () =>
+          material.removeEventListener('destroy', forget),
+        );
+      }
     }
   }
 
@@ -433,7 +479,10 @@ export class ResilientRenderer implements Renderer {
     if (this.destroyed) return;
     this.destroyed = true;
     this.abort.abort();
+    for (const unsubscribe of this.materials.values()) unsubscribe();
     this.materials.clear();
+    for (const unsubscribe of this.gpuParticles.values()) unsubscribe();
+    this.gpuParticles.clear();
     this.processors.clear();
     for (const entry of this.prepared) entry.lease.release();
     this.prepared.clear();
