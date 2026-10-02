@@ -2,7 +2,7 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.10.0／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。P58–P70 已有限定 desktop-browser／mobile-emulation 證據，不是實機認證。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.11.0／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。P58–P70 已有限定 desktop-browser／mobile-emulation 證據，不是實機認證。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
 
 ## 目前支援速查
 
@@ -99,7 +99,7 @@ Build 將最小化的引擎 JavaScript、TypeScript 宣告及 source maps 輸出
 ```sh
 npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
-node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.10.0.tgz --name my-game
+node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.11.0.tgz --name my-game
 npx pnpm@12.6.0 --dir /absolute/my-game install
 npx pnpm@12.6.0 --dir /absolute/my-game dev
 npx pnpm@12.6.0 --dir /absolute/my-game build
@@ -1275,7 +1275,7 @@ game.audio.music.automate(0.5, game.audio.currentTime, 0.3, 'linear');
 
 ## 39. P71–P87 Production 擴充
 
-以下 working-tree 契約維持 metadata **1.10.0**、npm 未發佈。Source 交付、歷史 browser 觀察與本輪 native 驗收不同；已執行 gates 只依 [ACCEPTANCE](../ACCEPTANCE.md)，不從能力表推論 parity／認證。
+以下 v1.11 契約採 metadata **1.11.0**、npm 未發佈。Source 交付、歷史 browser 觀察與本輪 native 驗收不同；已執行 gates 只依 [ACCEPTANCE](../ACCEPTANCE.md)，不從能力表推論 parity／認證。
 
 | 能力                      | 使用契約／邊界                                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

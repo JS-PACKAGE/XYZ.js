@@ -2,7 +2,7 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-本參考描述目前 **1.10.0／Apache-2.0** source 套件；npm 未發佈。以下各階段日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P87 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；先前 GitHub release 授權不代表本輪擴充獲准發佈。
+本參考描述目前 **1.11.0／Apache-2.0** source 套件；npm 未發佈。以下各階段日期／counts／release metadata 是歷史證據，不作新階段驗收。API 參考 three.js／PixiJS／Excalibur，非 drop-in 或完整 upstream parity，未新增 runtime dependency。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P87 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制；使用者已另授權 GitHub v1.11 發佈。
 
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
@@ -1039,7 +1039,7 @@ BindListener(object)／bindEmitter(object,spatialPlayback) 借 world objects，s
 
 ## 59. Production 擴充契約（P71–P87）
 
-以下為 **1.10.0** 目前 source 契約，不是新 native 驗收；歷史 counts／日期保留，最終實測僅由 [ACCEPTANCE](../ACCEPTANCE.md) 記錄。舊排除只由下列具名 profile 取代。
+以下為 **1.11.0** 目前 source 契約，不是新 native 驗收；歷史 counts／日期保留，最終實測僅由 [ACCEPTANCE](../ACCEPTANCE.md) 記錄。舊排除只由下列具名 profile 取代。
 
 ### Audio 與發行消費端（P71–P73）
 
@@ -1106,9 +1106,9 @@ Reduced motion gate requested／publication-time Game transitions，安全完成
 
 正式發行遵循 semantic versioning：新增相容 API 使用 minor，不相容公開契約
 必須使用 major 並附遷移步驟；平台驗證不由版本號推導。P71–P87 是既有
-`1.10.0` 套件的**已核准、未發行 source 擴充**，尚未升版或發佈。
-不能因兩份未發行 snapshot 版本相同就假設 API 完全一致，也不能把新增能力
-當成歷史發行附件的驗證結果。
+套件的擴充，依使用者授權納入 **v1.11／1.11.0**。
+先前 1.10.0 working-tree snapshots 與記錄的 hashes 保留為歷史證據，
+不代表新 release archive 的 identity，也不構成歷史附件或實機認證。
 
 從原 P70 source／release 升級時：
 

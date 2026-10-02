@@ -1032,3 +1032,9 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 - **BLOCKED**：真OS assistive session／spoken output與driver-reset授權不可得；禁止發聲使physical audible／spoken-output gates不能執行。Native application loss/recovery不是實體driver reset。
 - **UNVERIFIED upstream attestation**：official OPM v1.1.0 archive／SHA256SUMS URLs及authenticated release查詢曾404；未重試／修改官方檔。Local canonical14 bytesidentity／license/manifest完整，不冒稱重新下載驗checksum通過。
 - Original unclassified centered-contact save timeout、uninstrumented textureabort、早期audio數值／cleanup失敗保留；不回填根因或叫它們PASS。獨立可重現rounded-corner與Canvashitch已各以真实rootcause修正及新的正／負或before／after證據確認，其餘未改功能沿用具名nativeproof。
+
+## v1.11 發佈授權與版本界線
+
+使用者在 P71–P87 分功能提交後另要求「發佈v1.11 然後推送」。本次 metadata 升至 **1.11.0／Apache-2.0**，推送 main／新 v1.11 tag，由既有 Release workflow 通過 shared CI gates 後封裝 GitHub Release；不做 npm publish，不改歷史 tags。
+
+上述 2026-10-02 的 1.10.0 tarball hashes、測試 counts 與 native reports 保留原樣，是當時已驗證的整合證據，不是新版本附件 identity。版本升級不解除 physical／audible／Safari／OS assistive／driver-reset blockers，也不補授 upstream attestation。新發佈附件須另核對 SHA256SUMS。

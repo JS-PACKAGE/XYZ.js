@@ -2,7 +2,7 @@
 
 English · [Traditional Chinese](TECHNICAL-zh.md)
 
-This reference covers the current **1.10.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define approved contracts through P87; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. Earlier GitHub release authorization does not authorize publishing this expansion.
+This reference covers the current **1.11.0 / Apache-2.0** source package; npm is unpublished. Stage-specific dates, counts and release metadata below are historical evidence, not acceptance for newer stages. The API is three.js/PixiJS/Excalibur-inspired, not drop-in compatible or full upstream parity, and adds no runtime dependencies. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define approved contracts through P87; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. The user separately authorized GitHub v1.11 publication.
 
 Production contracts in section 58 are included in **v1.10 / 1.10.0**. Release packaging does not expand the documented platform, hardware or performance evidence.
 
@@ -1089,7 +1089,7 @@ Cancellation retains the exact tracked per-context target-exponential and finite
 
 ## 59. Production Expansion Contracts (P71–P87)
 
-These are current source contracts in **1.10.0**, not new native acceptance. Historical counts/dates remain unchanged; only [ACCEPTANCE](../ACCEPTANCE.md) records final exercised evidence. Earlier exclusions are superseded only for the named profiles below.
+These are current source contracts in **1.11.0**, not new native acceptance. Historical counts/dates remain unchanged; only [ACCEPTANCE](../ACCEPTANCE.md) records final exercised evidence. Earlier exclusions are superseded only for the named profiles below.
 
 ### Audio and release consumers (P71–P73)
 
@@ -1157,10 +1157,10 @@ are in [Usage](./USAGE.md). Unsupported backend/format cases reject explicitly.
 Released API changes follow semantic versioning: additive contracts belong in a
 minor release; incompatible public contracts require a major release and migration
 instructions. Platform evidence is scoped independently of version numbers.
-P71–P87 are the approved **unreleased source expansion** of the existing `1.10.0`
-package; the version has not been bumped or published. Do not infer identical APIs
-from two unreleased snapshots bearing that same version, or treat their new
-capabilities as certifications of historical release artifacts.
+P71–P87 are included in **v1.11 / 1.11.0** following the user's release
+authorization. Earlier 1.10.0 working-tree snapshots and their recorded hashes
+remain historical evidence, not the identity of the new release archive.
+New capabilities do not certify historical artifacts or physical platforms.
 
 When moving from the earlier P70 source/release:
 
