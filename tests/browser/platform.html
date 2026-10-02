@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>XYZ.js native platform probe</title>
+    <style>
+      body {
+        font-family: system-ui, sans-serif;
+        background: #20232a;
+        color: white;
+      }
+      canvas {
+        display: block;
+        width: 400px;
+        height: 260px;
+        touch-action: none;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Native platform probe — not device certification</h1>
+    <p>
+      Use ?renderer=canvas2d, webgl2, or webgpu. Edit the canvas text field with
+      a real IME, click/tap Canvas action and Unlock audio, background/return to
+      this page, then save and reload. Automation composition events are
+      synthetic; real IME, audible output, hardware input and driver reset
+      require operator evidence.
+    </p>
+    <canvas id="game"></canvas>
+    <button id="lifecycle">Check resize / pause / resume / pixels</button>
+    <button id="save">Save field</button>
+    <button id="reload">Reload</button>
+    <button id="destroy">Destroy</button>
+    <label
+      >Operator device/browser/OS and observations
+      <textarea id="operator"></textarea>
+    </label>
+    <button id="download">Download measured report</button>
+    <pre id="report" data-state="starting"></pre>
+    <script type="module" src="./platform.ts"></script>
+  </body>
+</html>

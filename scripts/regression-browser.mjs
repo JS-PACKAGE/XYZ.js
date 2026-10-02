@@ -6,8 +6,12 @@ import { Buffer } from 'node:buffer';
 import process from 'node:process';
 import console from 'node:console';
 import { createServer } from 'vite';
-import { chromium } from 'playwright-core';
-import { chromiumLaunchOptions } from './browser-launch.mjs';
+import { chromium, firefox, webkit } from 'playwright-core';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+  probeBackends,
+} from './browser-launch.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -15,16 +19,19 @@ const options = new Map();
 for (let index = 0; index < args.length; index++) {
   const name = args[index];
   if (name === '--require-webgpu') options.set(name, true);
-  else if (['--renderer', '--port', '--output'].includes(name)) {
+  else if (['--browser', '--renderer', '--port', '--output'].includes(name)) {
     const value = args[++index];
     if (!value || value.startsWith('--'))
       throw new Error(`${name} needs a value.`);
     options.set(name, value);
   } else
     throw new Error(
-      `Unknown option ${name}. Use --renderer canvas2d,webgl2,webgpu, --require-webgpu, --output DIR, or --port PORT.`,
+      `Unknown option ${name}. Use --browser chromium|firefox|webkit, --renderer canvas2d,webgl2,webgpu, --require-webgpu, --output DIR, or --port PORT.`,
     );
 }
+const browserName = options.get('--browser') ?? 'chromium';
+const browserType = { chromium, firefox, webkit }[browserName];
+if (!browserType) throw new Error('Use --browser chromium|firefox|webkit.');
 const explicitlySelected = options.has('--renderer');
 const selected = (options.get('--renderer') ?? 'canvas2d,webgl2').split(',');
 if (selected.some((name) => !['canvas2d', 'webgl2', 'webgpu'].includes(name)))
@@ -35,13 +42,16 @@ if (new Set(selected).size !== selected.length)
   throw new Error('Do not select a backend twice.');
 if (options.has('--require-webgpu') && !selected.includes('webgpu'))
   selected.push('webgpu');
-const required = new Set(selected);
+const required = new Set(
+  explicitlySelected || browserName === 'chromium' ? selected : ['canvas2d'],
+);
+if (options.has('--require-webgpu')) required.add('webgpu');
 const port = Number(options.get('--port') ?? 5207);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
   throw new Error('Port must be an integer from 1 to 65535.');
 const directory = resolve(
   root,
-  options.get('--output') ?? '.vite/browser-regression',
+  options.get('--output') ?? `.vite/browser-regression/${browserName}`,
 );
 await mkdir(directory, { recursive: true });
 try {
@@ -246,7 +256,7 @@ async function runAuthoring(page, backend, result, awaitState) {
   const proof = `${backend}-authoring-ui.png`;
   await page.screenshot({ path: join(directory, proof) });
   result.authoring = {
-    chromiumTouchInjection: true,
+    playwrightTouchInjection: true,
     simulatedGamepadSnapshots: true,
     physicalDeviceCertification: false,
     proof,
@@ -257,8 +267,8 @@ async function runAuthoring(page, backend, result, awaitState) {
 }
 try {
   await server.listen();
-  launch = await chromiumLaunchOptions();
-  browser = await chromium.launch(launch);
+  launch = await browserLaunchOptions(browserName);
+  browser = await browserType.launch(launch);
   if (!explicitlySelected && !selected.includes('webgpu'))
     selected.push('webgpu');
   for (const backend of selected) {
@@ -280,31 +290,18 @@ try {
     let result = { backend, result: 'FAIL', errors, phases: [] };
     try {
       const url = `http://127.0.0.1:${port}/tests/browser/?renderer=${backend}`;
-      if (backend === 'webgpu') {
-        await page.goto(`http://127.0.0.1:${port}/tests/browser/probe.html`, {
-          waitUntil: 'domcontentloaded',
-        });
-        const availability = await page.evaluate(async () => {
-          if (!navigator.gpu) return 'navigator.gpu is unavailable';
-          try {
-            return (await navigator.gpu.requestAdapter())
-              ? null
-              : 'requestAdapter returned null';
-          } catch (error) {
-            return String(error);
-          }
-        });
-        if (availability) {
-          result = {
-            ...result,
-            result: required.has(backend) ? 'FAIL' : 'SKIP',
-            unavailable: availability,
-          };
-          if (required.has(backend))
-            errors.push(`Required WebGPU unavailable: ${availability}`);
-          results.push(result);
-          continue;
-        }
+      await page.goto(`http://127.0.0.1:${port}/tests/browser/probe.html`, {
+        waitUntil: 'domcontentloaded',
+      });
+      result.capabilities = await probeBackends(page);
+      const capability = result.capabilities[backend];
+      if (!capability.available) {
+        result.result = required.has(backend) ? 'FAIL' : 'UNSUPPORTED';
+        result.unavailable = capability.reason;
+        if (required.has(backend))
+          errors.push(`Required ${backend} unavailable: ${capability.reason}`);
+        results.push(result);
+        continue;
       }
       await page.goto(url, { waitUntil: 'networkidle' });
       const awaitState = async (expected) => {
@@ -336,6 +333,18 @@ try {
         { waitUntil: 'domcontentloaded' },
       );
       await awaitState('passed');
+      if (browserName === 'chromium' && backend !== 'canvas2d') {
+        const loss = result.phases
+          .flatMap((phase) => phase.scenarios ?? [])
+          .find(
+            (scenario) =>
+              scenario.name === 'real-context-loss-residency-replay',
+          );
+        if (!loss || loss.skip)
+          throw new Error(
+            `Required Chromium native loss proof missing: ${loss?.skip ?? 'scenario absent'}`,
+          );
+      }
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';
@@ -374,8 +383,7 @@ try {
       join(directory, 'results.json'),
       JSON.stringify(
         {
-          browser: browser?.version(),
-          platform: `${process.platform}/${process.arch}`,
+          ...browserIdentity(browserName, browser, launch),
           launchArgs: launch?.args,
           ...(startupError ? { error: startupError } : {}),
           results,

@@ -1,19 +1,27 @@
+/* global document -- evaluated in an isolated Playwright page */
 import { access } from 'node:fs/promises';
 import process from 'node:process';
 
-/** Let pinned Playwright select its native headless executable, not a full app. */
-export async function chromiumLaunchOptions() {
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
+export const browserNames = ['chromium', 'firefox', 'webkit'];
+
+/** Overrides must point to a Playwright-compatible engine, never a user profile. */
+export async function browserLaunchOptions(browserName) {
+  if (!browserNames.includes(browserName))
+    throw new Error('Use --browser chromium|firefox|webkit.');
+  const variable = `PLAYWRIGHT_${browserName.toUpperCase()}_EXECUTABLE_PATH`;
+  const executablePath = process.env[variable];
   if (executablePath) {
     try {
       await access(executablePath);
     } catch (cause) {
       throw new Error(
-        `Chromium unavailable at ${executablePath}. Run pnpm exec playwright-core install chromium or set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH.`,
+        `${browserName} unavailable at ${executablePath}. Run pnpm exec playwright-core install ${browserName} or set ${variable} to a compatible managed executable.`,
         { cause },
       );
     }
   }
+  if (browserName !== 'chromium')
+    return { headless: true, ...(executablePath ? { executablePath } : {}) };
   return {
     headless: true,
     ...(executablePath ? { executablePath } : {}),
@@ -33,4 +41,59 @@ export async function chromiumLaunchOptions() {
           : []),
     ],
   };
+}
+
+/** Compatibility for existing Chromium-only native GPU drivers. */
+export async function chromiumLaunchOptions() {
+  return browserLaunchOptions('chromium');
+}
+
+export function browserIdentity(
+  browserName,
+  browser,
+  launch,
+  mode = 'desktop-automation',
+) {
+  return {
+    engine: browserName,
+    version: browser?.version(),
+    platform: `${process.platform}/${process.arch}`,
+    mode,
+    executable: launch?.executablePath ?? 'pinned-playwright-managed',
+    physicalDeviceCertification: false,
+    safariCertification: false,
+  };
+}
+
+/** Probe native capability; successful probing is not rendering certification. */
+export async function probeBackends(page) {
+  return page.evaluate(async () => {
+    const capabilities = {};
+    for (const name of ['canvas2d', 'webgl2']) {
+      try {
+        const canvas = document.createElement('canvas');
+        const context = canvas.getContext(name === 'canvas2d' ? '2d' : name);
+        capabilities[name] = {
+          available: !!context,
+          reason: context ? null : `${name} context creation returned null`,
+        };
+        if (name === 'webgl2' && context)
+          context.getExtension('WEBGL_lose_context')?.loseContext();
+      } catch (error) {
+        capabilities[name] = { available: false, reason: String(error) };
+      }
+    }
+    try {
+      const adapter = await globalThis.navigator.gpu?.requestAdapter();
+      capabilities.webgpu = {
+        available: !!adapter,
+        reason: adapter
+          ? null
+          : 'navigator.gpu absent or requestAdapter returned null',
+      };
+    } catch (error) {
+      capabilities.webgpu = { available: false, reason: String(error) };
+    }
+    return capabilities;
+  });
 }

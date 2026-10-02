@@ -858,3 +858,11 @@ Atlas recovery owner 回報 source-root browser：CanvasTexture2D 自有 red sna
 
 - Canvas2D startup 實際不載 GPU startup chunks；普通 Sprite 不初始化 physics／3D services。Source startup 158990 gzip bytes、built-root startup 146413 gzip bytes，對照先前 214169 gzip bytes；math consumer 722／726 minified bytes。入口 startup 與完整 reachable chunks 分開，不將共享 facade 冒稱 microengine，也不推論每個 consumer 的同等縮減。
 - 成本 runtime smoke 的 static root trailing slash 與 RAF 內 native readback 修正後通過：source／built-root Canvas 首幀 pixel `[235,41,67,255]`、零 GPU implementation downloads、13 個未使用 services 皆未初始化。Forced backends、auto→GL→Canvas、native GPU configure failure、GL loss／GPUDevice.destroy 同 backend recovery，以及 3D→2D render target bytes 回落均實驗證；不是僅靜態 bundle counts。
+
+### P59 — Browser／platform matrix
+
+- Chromium 153、Firefox 155、managed WebKit 26.6 正式 deep regression：Canvas2D／WebGL2 適用項目通過；WebGPU 在 Chromium／WebKit 通過，Firefox adapter unsupported，未靜默換 backend。
+- Formal platform 的 Chromium desktop＋mobile emulation 三 backend 通過，涵蓋 pixels／UI、native touch（focus 後重讀實際 bounds）、trusted native editing、Enter keydown 的 trusted unlock、storage、pagehide、pause／resume、resize／cleanup。Synthetic composition 與 Firefox `insertText` 產生的 native composition 分開，不等於 OS IME。
+- Firefox 原生缺 `cancelAndHoldAtTime` 且 listener 九個 AudioParams 不可用，已以精確 per-context exponential／crossfade hold 與原生 legacy listener position/orientation 路徑修正。後續正式 Chromium 三 backend、Firefox Canvas／GL、managed WebKit 三 backend，各 desktop／mobile emulation 共 16 個適用組合通過；Firefox WebGPU 明列 unsupported。
+- Native Safari 27.0.1 最初自有 probe session 已建立並刪除；formal runner 因既有 pairing blocked，即使停止自有 idle driver 仍阻擋。使用者明確選擇 **PRESERVE SAFARI**：不重試、不關閉或更動使用者 Safari／OS。Managed WebKit 不等於 Safari 認證。
+- Independent engine-free CDP probe 無 freeze events 且 RAF 持續；headed／headless／minimized probe 也未轉換。此 host native freeze capability 記 unsupported，保留其他 host 有能力時的 strict actual-freeze assertion；不是 OS background freeze pass。無 Xcode simulator、adb 或實體 iOS／Android，無 OS IME／實體 gamepad／真 driver reset 證據；mobile emulation 不取代硬體 gate。

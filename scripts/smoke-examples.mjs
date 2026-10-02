@@ -6,20 +6,42 @@ import process from 'node:process';
 import console from 'node:console';
 import { createServer } from 'vite';
 import { chromium, firefox, webkit } from 'playwright-core';
-import { chromiumLaunchOptions } from './browser-launch.mjs';
+import {
+  browserLaunchOptions,
+  browserIdentity,
+  probeBackends,
+} from './browser-launch.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
+const options = new Map();
+for (let index = 0; index < args.length; index++) {
+  const name = args[index];
+  if (!['--browser', '--port', '--example', '--renderer'].includes(name))
+    throw new Error(`Unknown option ${name}.`);
+  const value = args[++index];
+  if (!value || value.startsWith('--'))
+    throw new Error(`${name} needs a value.`);
+  options.set(name.slice(2), value);
+}
 function option(name, fallback) {
-  const index = args.indexOf(`--${name}`);
-  return index < 0 ? fallback : args[index + 1];
+  return options.get(name) ?? fallback;
 }
 const browserName = option('browser', 'chromium');
 const browserType = { chromium, firefox, webkit }[browserName];
 if (!browserType) throw new Error('Use --browser chromium|firefox|webkit.');
 const port = Number(option('port', '5206'));
+if (!Number.isInteger(port) || port < 1 || port > 65535)
+  throw new Error('Port must be an integer from 1 to 65535.');
 const only = option('example', undefined);
 const backends = option('renderer', undefined);
+if (backends && !['auto', 'canvas2d', 'webgl2', 'webgpu'].includes(backends))
+  throw new Error('Use --renderer auto|canvas2d|webgl2|webgpu.');
+await access(join(root, 'dist/src/index.js')).catch(() => {
+  throw new Error(
+    'Built root entry missing. Run pnpm build before smoke:examples.',
+  );
+});
 
 const gallery = await readFile(join(root, 'examples/index.ts'), 'utf8');
 const metadata = new Map();
@@ -53,7 +75,10 @@ for (const entry of await readdir(join(root, 'examples'), {
     : supported.length
       ? supported
       : ['default']) {
-    if (backends && !supported.includes(backends)) continue;
+    if (backends && !supported.includes(backends))
+      throw new Error(
+        `${entry.name} does not support explicit renderer ${backends}.`,
+      );
     examples.push({ slug: entry.name, renderer });
   }
 }
@@ -66,22 +91,50 @@ const directory = join(
 await mkdir(directory, { recursive: true });
 const server = await createServer({
   root,
+  resolve: {
+    alias: [
+      {
+        find: '../../src/index.js',
+        replacement: join(root, 'dist/src/index.js'),
+      },
+    ],
+  },
   server: { host: '127.0.0.1', port, strictPort: true },
 });
 let browser;
 let startupError;
+let launch;
+let capabilities;
 const results = [];
 try {
   await server.listen();
-  browser = await browserType.launch(
-    browserName === 'chromium'
-      ? await chromiumLaunchOptions()
-      : { headless: true },
-  );
+  launch = await browserLaunchOptions(browserName);
+  browser = await browserType.launch(launch);
+  const probe = await browser.newPage();
+  try {
+    await probe.goto(`http://127.0.0.1:${port}/tests/browser/probe.html`);
+    capabilities = await probeBackends(probe);
+  } finally {
+    await probe.close();
+  }
   console.log(
     `${browserName} ${browser.version()} · ${process.platform}/${process.arch}`,
   );
   for (const { slug, renderer } of examples) {
+    if (capabilities[renderer] && !capabilities[renderer].available) {
+      const mandatory =
+        !!backends ||
+        renderer === 'canvas2d' ||
+        (browserName === 'chromium' && renderer === 'webgl2');
+      results.push({
+        example: slug,
+        renderer,
+        result: mandatory ? 'FAIL' : 'UNSUPPORTED',
+        pixels: 'not exercised',
+        errors: capabilities[renderer].reason,
+      });
+      continue;
+    }
     const page = await browser.newPage({
       viewport: { width: 1440, height: 1100 },
     });
@@ -185,8 +238,8 @@ try {
       join(directory, 'results.json'),
       JSON.stringify(
         {
-          browser: browser?.version(),
-          platform: `${process.platform}/${process.arch}`,
+          ...browserIdentity(browserName, browser, launch),
+          capabilities,
           ...(startupError ? { error: startupError } : {}),
           results,
         },
