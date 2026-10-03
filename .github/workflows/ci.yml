@@ -121,7 +121,8 @@ jobs:
       - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
       - run: npx --yes pnpm@12.6.0 run build
       - name: Install the pinned Playwright engine and system prerequisites
-        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps ${{ matrix.engine }}
+        # On Windows, --with-deps only runs Playwright's ~3 minute install_media_pack.ps1 for Chromium.
+        run: npx --yes pnpm@12.6.0 exec playwright-core install ${{ runner.os != 'Windows' && '--with-deps' || '' }} ${{ matrix.engine }}
       - name: Provide Firefox with a native headless audio output
         if: matrix.os == 'ubuntu-24.04' && matrix.engine == 'firefox'
         run: |
