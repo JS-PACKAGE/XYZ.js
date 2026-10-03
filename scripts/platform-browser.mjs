@@ -156,6 +156,7 @@ try {
       backend,
       result: 'FAIL',
       errors: [],
+      audioResources: [],
       compositionMode: 'synthetic-native-events-not-real-IME',
       pointerMode: 'Playwright-mouse-and-emulated-touch',
       background: {
@@ -185,6 +186,22 @@ try {
       page.on('pageerror', (error) =>
         result.errors.push(error.stack ?? error.message),
       );
+      // Passive evidence only: worklet requests may be outside the page target.
+      page.on('response', (response) => {
+        if (response.url().includes('/vendor/opm/'))
+          result.audioResources.push({
+            url: response.url(),
+            status: response.status(),
+            mime: response.headers()['content-type'],
+          });
+      });
+      page.on('requestfailed', (request) => {
+        if (request.url().includes('/vendor/opm/'))
+          result.audioResources.push({
+            url: request.url(),
+            error: request.failure()?.errorText,
+          });
+      });
       page.on('console', (message) => {
         if (
           message.type() === 'error' &&
@@ -303,11 +320,18 @@ try {
       await page.keyboard.press('Enter');
       await page.waitForFunction(
         () =>
-          window.__xyzPlatform.report.audioUnlocked &&
-          window.__xyzPlatform.report.audioGestureTrusted,
+          window.__xyzPlatform.report.error ||
+          (window.__xyzPlatform.report.audioUnlocked &&
+            window.__xyzPlatform.report.audioGestureTrusted),
         null,
         { timeout: 30000 },
       );
+      const audioReport = await page.evaluate(
+        () => window.__xyzPlatform.report,
+      );
+      if (audioReport.error) throw new Error(audioReport.error);
+      if (!audioReport.audioUnlocked || !audioReport.audioGestureTrusted)
+        throw new Error('Native trusted audio unlock did not complete.');
       await page.evaluate(() => window.__xyzPlatform.lifecycle());
       await ready();
       if (freezeCapability?.available) {

@@ -13,10 +13,20 @@ export interface FrameProofs {
 }
 
 export function errorDetail(error: unknown): string {
-  if (!(error instanceof Error)) return String(error);
-  const own = error.stack ?? error.message;
+  if (
+    !(error instanceof Error) &&
+    !(typeof DOMException !== 'undefined' && error instanceof DOMException)
+  )
+    return String(error);
+  const message = `${error.name}: ${error.message}`;
+  const stack =
+    'stack' in error && typeof error.stack === 'string' ? error.stack : '';
+  // WebKit stacks can contain only frames, omitting the actual native exception.
+  const own = stack.includes(message)
+    ? stack
+    : [message, stack].filter(Boolean).join('\n');
   const causes = error instanceof AggregateError ? [...error.errors] : [];
-  if (error.cause !== undefined) causes.push(error.cause);
+  if ('cause' in error && error.cause !== undefined) causes.push(error.cause);
   return [
     own,
     ...causes.map((cause) => `Caused by: ${errorDetail(cause)}`),
@@ -74,6 +84,7 @@ export function frameProofs(
     | { resolve(proof: FrameProof): void; reject(error: unknown): void }
     | undefined;
   let frameStarted = false;
+  let frameGraphicsEventCount = 0;
   canvas.addEventListener('webglcontextlost', (event) => {
     const { statusMessage } = event as WebGLContextEvent;
     recordGraphicsEvent(
@@ -91,6 +102,8 @@ export function frameProofs(
     throw new Error('Pixel readback unavailable: no Canvas2D copy context.');
 
   renderer.beginFrame = (): void => {
+    frameStarted = false;
+    frameGraphicsEventCount = graphicsEvents.length;
     observeDevice();
     if (renderer.backend === 'webgpu') {
       const device = activeDevice(renderer);
@@ -120,7 +133,10 @@ export function frameProofs(
     frameStarted = renderer.stats.frame > previousFrame;
   };
 
-  const capture = async (stats: RenderStats): Promise<FrameProof> => {
+  const capture = async (
+    stats: RenderStats,
+    graphicsEventCount: number,
+  ): Promise<FrameProof> => {
     const width = canvas.width;
     const height = canvas.height;
     copy.width = width;
@@ -169,11 +185,46 @@ export function frameProofs(
       } finally {
         buffer.destroy();
       }
+    } else if (renderer.backend === 'webgl2') {
+      const gl = canvas.getContext('webgl2');
+      if (!gl || gl.isContextLost())
+        throw new Error(
+          'Frame proof unavailable: WebGL context lost before readback.',
+        );
+      if (gl.getParameter(gl.READ_FRAMEBUFFER_BINDING) !== null)
+        throw new Error(
+          'Frame proof requires the submitted default WebGL framebuffer.',
+        );
+      // A compositor copy may return black after a GPU crash without throwing.
+      // Native readPixels synchronizes submission and exposes loss/readback errors.
+      const raw = new Uint8Array(width * height * 4);
+      gl.readPixels(0, 0, width, height, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+      const code = gl.getError();
+      const lost = gl.isContextLost();
+      if (lost || code !== gl.NO_ERROR) {
+        const message =
+          `WebGL frame ${stats.frame} readback failed: contextLost=${lost}, ` +
+          `error=0x${code.toString(16)}, drawCalls=${stats.drawCalls}, culled=${stats.culled}`;
+        recordGraphicsEvent(message);
+        throw new Error(message);
+      }
+      const image = context.createImageData(width, height);
+      bytes = image.data;
+      for (let y = 0; y < height; y++)
+        bytes.set(
+          raw.subarray((height - y - 1) * width * 4, (height - y) * width * 4),
+          y * width * 4,
+        );
+      context.putImageData(image, 0, 0);
     } else {
-      // WebGL's unpreserved drawing buffer is still alive in the submission task.
+      // Canvas2D has no native device or unpreserved GPU drawing buffer.
       context.drawImage(canvas, 0, 0);
       bytes = context.getImageData(0, 0, width, height).data;
     }
+    if (graphicsEvents.length !== graphicsEventCount)
+      throw new Error(
+        'Frame proof invalidated by a native graphics event during submission/readback.',
+      );
     return { bytes, width, height, stats, png: copy.toDataURL('image/png') };
   };
 
@@ -192,7 +243,10 @@ export function frameProofs(
         return;
       }
       frameStarted = false;
-      void capture({ ...renderer.stats }).then(request.resolve, request.reject);
+      void capture({ ...renderer.stats }, frameGraphicsEventCount).then(
+        request.resolve,
+        request.reject,
+      );
     } catch (error) {
       pending?.reject(error);
       pending = undefined;

@@ -25,7 +25,8 @@
     "launchArguments": [
       "--enable-unsafe-webgpu",
       "--use-angle=metal",
-      "--mute-audio"
+      "--mute-audio",
+      "--remote-debugging-port=0"
     ]
   },
   "workload": {

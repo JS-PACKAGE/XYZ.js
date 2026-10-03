@@ -68,6 +68,7 @@ let running: Promise<NativeReport> | undefined;
 let destroyed = false;
 let losses = 0;
 let recoveries = 0;
+let intentionalLoss = false;
 const textures: Texture[] = [];
 const scenes: Scene[] = [];
 const compressedReplay: Scene[] = [];
@@ -121,6 +122,7 @@ function quad(size = 1, z = 0): Geometry {
 }
 async function draw(scene: Scene, effects?: FrameEffects): Promise<ImageProof> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  if (runtimeError) throw runtimeError;
   if (losses !== recoveries)
     await waitUntil(
       () => losses === recoveries,
@@ -786,6 +788,7 @@ async function lifecycle(native: {
   }
   try {
     if (trigger) {
+      intentionalLoss = true;
       await trigger();
       await waitUntil(
         () => recoveries > recoveredBefore,
@@ -817,6 +820,7 @@ async function lifecycle(native: {
         );
     }
   } finally {
+    intentionalLoss = false;
     lease.release();
   }
 
@@ -905,8 +909,14 @@ async function execute(): Promise<NativeReport> {
       {
         antialias: false,
         recover: true,
-        onLost: () => {
+        onLost: (error) => {
           losses++;
+          if (!intentionalLoss)
+            runtimeError = new Error(
+              `Unexpected native graphics loss during ${scenario.name}; recovery cannot certify this frame.`,
+              { cause: error },
+            );
+          intentionalLoss = false;
         },
         onRecovered: () => {
           recoveries++;

@@ -49,11 +49,14 @@ export class Texture {
     return this.bitmap;
   }
 
-  /** Decode into a separately owned bitmap with straight (not premultiplied) alpha. */
+  /** Decode owned, straight-alpha texels without implementation-specific color conversion. */
   static async fromImage(source: ImageBitmapSource): Promise<Texture> {
     let bitmap: ImageBitmap;
     try {
-      bitmap = await createImageBitmap(source, { premultiplyAlpha: 'none' });
+      bitmap = await createImageBitmap(source, {
+        premultiplyAlpha: 'none',
+        colorSpaceConversion: 'none',
+      });
     } catch (error) {
       throw new AssetError('Unable to decode texture image.', { cause: error });
     }

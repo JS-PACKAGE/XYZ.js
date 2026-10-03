@@ -1,7 +1,9 @@
 /* global document -- real page lifecycle and production observer callbacks */
 import childProcess, { execFile } from 'node:child_process';
+import { readFile } from 'node:fs/promises';
 import { syncBuiltinESMExports } from 'node:module';
 import { performance } from 'node:perf_hooks';
+import { join } from 'node:path';
 import process from 'node:process';
 import { promisify } from 'node:util';
 
@@ -72,12 +74,52 @@ export async function launchForegroundBrowser(chromium, launch) {
     return child;
   };
   syncBuiltinESMExports();
-  let browser;
+  let owner;
   try {
-    browser = await chromium.launch(launch);
+    owner = await chromium.launch(launch);
   } finally {
     childProcess.spawn = nativeSpawn;
     syncBuiltinESMExports();
+  }
+  let browser;
+  try {
+    const profileArgument = nativeProcess?.arguments.find((argument) =>
+      argument.startsWith('--user-data-dir='),
+    );
+    if (!profileArgument || owner.contexts().length !== 0)
+      throw new Error('Native browser must have a fresh, unattached profile.');
+    const port = Number(
+      (
+        await readFile(
+          join(
+            profileArgument.slice('--user-data-dir='.length),
+            'DevToolsActivePort',
+          ),
+          'utf8',
+        )
+      ).split('\n')[0],
+    );
+    if (!Number.isInteger(port) || port < 1 || port > 65535)
+      throw new Error('Native browser did not expose its ephemeral CDP port.');
+    // Focus emulation belongs to each CDP handler. Sending false on a new
+    // session cannot release Playwright's original enabled capture handle.
+    // noDefaults prevents that handle from ever being installed, but only in
+    // the default context; the driver launches a fresh browser for each case.
+    browser = await chromium.connectOverCDP(`http://127.0.0.1:${port}`, {
+      noDefaults: true,
+      isLocal: true,
+    });
+    if (browser.contexts().length !== 1)
+      throw new Error(
+        'Native browser must expose exactly its default context.',
+      );
+  } catch (error) {
+    try {
+      await browser?.close();
+    } finally {
+      await owner.close();
+    }
+    throw error;
   }
   const evidence = {
     mode: 'native-foreground',
@@ -85,6 +127,8 @@ export async function launchForegroundBrowser(chromium, launch) {
     executable,
     nativeProcess,
     collectorSourceUnchanged: true,
+    defaultOverrides:
+      'Not installed: connectOverCDP noDefaults=true, fresh default context only',
     commandLineSource:
       'Native managed spawn arguments matched to the CDP browser PID',
   };
@@ -118,7 +162,17 @@ export async function launchForegroundBrowser(chromium, launch) {
       evidence.error ??= String(error);
     });
   }
-  return { browser, evidence };
+  return {
+    browser,
+    evidence,
+    close: async () => {
+      try {
+        await browser.close();
+      } finally {
+        await owner.close();
+      }
+    },
+  };
 }
 export async function installForegroundObserver(context) {
   await context.addInitScript(() => {

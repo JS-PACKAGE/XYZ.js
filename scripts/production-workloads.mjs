@@ -192,6 +192,7 @@ const server = await createServer({
   },
 });
 let browser;
+let closeForegroundBrowser;
 let presentationEvidence = {
   mode: presentationMode,
   headless: presentationMode === 'headless',
@@ -205,20 +206,25 @@ try {
   launch.args = [...(launch.args ?? []), '--mute-audio'];
   if (presentationMode === 'native-foreground') {
     launch.headless = false;
-    const launched = await launchForegroundBrowser(chromium, launch);
-    browser = launched.browser;
-    presentationEvidence = launched.evidence;
+    launch.args.push('--remote-debugging-port=0');
   } else browser = await chromium.launch(launch);
   for (let run = 1; run <= runs; run++) {
     for (const workload of workloads) {
       const prefix = calibrating ? `run-${run}-${workload}` : workload;
-      const context = await browser.newContext({
-        viewport: {
-          width: dimensions.width + 40,
-          height: dimensions.height + 200,
-        },
-        deviceScaleFactor: 1,
-      });
+      if (presentationMode === 'native-foreground') {
+        const launched = await launchForegroundBrowser(chromium, launch);
+        browser = launched.browser;
+        closeForegroundBrowser = launched.close;
+        presentationEvidence = launched.evidence;
+      }
+      const viewport = {
+        width: dimensions.width + 40,
+        height: dimensions.height + 200,
+      };
+      const context =
+        presentationMode === 'native-foreground'
+          ? browser.contexts()[0]
+          : await browser.newContext({ viewport, deviceScaleFactor: 1 });
       let page;
       const presentation = { ...presentationEvidence };
       const pressure = soakProfiles[device],
@@ -228,16 +234,14 @@ try {
         if (presentationMode === 'native-foreground')
           await installForegroundObserver(context);
         page = await context.newPage();
+        if (presentationMode === 'native-foreground')
+          await page.setViewportSize(viewport);
         page.on('pageerror', (error) => errors.push(String(error)));
         session =
           device !== 'native' || presentationMode === 'native-foreground'
             ? await context.newCDPSession(page)
             : undefined;
         if (presentationMode === 'native-foreground') {
-          // Playwright otherwise forces focus/visibility even in a headed browser.
-          await session.send('Emulation.setFocusEmulationEnabled', {
-            enabled: false,
-          });
           presentation.focusEmulationEnabled = false;
           presentation.before = await inspectForegroundPage(
             session,
@@ -413,6 +417,11 @@ try {
         await session?.detach();
         await observations?.stop();
         await context.close();
+        if (closeForegroundBrowser) {
+          await closeForegroundBrowser();
+          closeForegroundBrowser = undefined;
+          browser = undefined;
+        }
       }
       if (calibrationError) break;
     }
@@ -457,7 +466,11 @@ try {
     directory,
     host,
     engine,
-    presentation: presentationEvidence,
+    presentation: {
+      mode: presentationMode,
+      headless: presentationMode === 'headless',
+      isolatedBrowserPerWorkload: presentationMode === 'native-foreground',
+    },
     plannedRuns: runs,
     workloads,
     results,
@@ -477,6 +490,7 @@ try {
   if (calibrating ? !!calibrationError : report.status !== 'PASS')
     process.exitCode = 1;
 } finally {
-  await browser?.close();
+  if (closeForegroundBrowser) await closeForegroundBrowser();
+  else await browser?.close();
   await server.close();
 }

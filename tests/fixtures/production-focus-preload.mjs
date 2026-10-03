@@ -56,23 +56,19 @@ async function switchOwnedPage(page, newPage) {
   }
 }
 
-const launch = chromium.launch.bind(chromium);
-chromium.launch = async (options) => {
-  const browser = await launch(options);
-  const newContext = browser.newContext.bind(browser);
-  browser.newContext = async (options) => {
-    const context = await newContext(options);
-    const newPage = context.newPage.bind(context);
-    let firstPage = true;
-    context.newPage = async () => {
-      const page = await newPage();
-      if (firstPage) {
-        firstPage = false;
-        void switchOwnedPage(page, newPage);
-      }
-      return page;
-    };
-    return context;
+const connectOverCDP = chromium.connectOverCDP.bind(chromium);
+chromium.connectOverCDP = async (...options) => {
+  const browser = await connectOverCDP(...options);
+  const context = browser.contexts()[0];
+  const newPage = context.newPage.bind(context);
+  let firstPage = true;
+  context.newPage = async () => {
+    const page = await newPage();
+    if (firstPage) {
+      firstPage = false;
+      void switchOwnedPage(page, newPage);
+    }
+    return page;
   };
   return browser;
 };

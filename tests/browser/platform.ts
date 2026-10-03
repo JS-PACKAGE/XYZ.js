@@ -16,6 +16,24 @@ const canvas = document.querySelector<HTMLCanvasElement>('#game')!;
 const output = document.querySelector<HTMLPreElement>('#report')!;
 const renderer = (new URLSearchParams(location.search).get('renderer') ??
   'canvas2d') as RendererPreference;
+interface AudioDiagnostics {
+  stage: 'before-unlock' | 'after-unlock' | 'unlock-failed';
+  secureContext: boolean;
+  origin: string;
+  audioContext: string;
+  audioWorkletNode: string;
+  audioWorklet: string;
+  webAssembly: string;
+  userActivation: { isActive: boolean; hasBeenActive: boolean } | null;
+  visibility: DocumentVisibilityState;
+  focused: boolean;
+  contextCount: number;
+  primaryContext: {
+    state: AudioContextState;
+    sampleRate: number;
+    audioWorkletAddModule: string;
+  } | null;
+}
 const report = {
   renderer,
   userAgent: navigator.userAgent,
@@ -37,6 +55,7 @@ const report = {
   selection: [0, 0],
   audioUnlocked: false,
   audioGestureTrusted: false,
+  audioDiagnostics: [] as AudioDiagnostics[],
   restored: false,
   lifecycleChecked: false,
   destroyed: false,
@@ -59,6 +78,34 @@ function publish(next = state): void {
 function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
   report.assertions.push(message);
+}
+function audioDiagnostics(stage: AudioDiagnostics['stage']): AudioDiagnostics {
+  const context = game?.audio.opm?.context;
+  return {
+    stage,
+    secureContext: isSecureContext,
+    origin: location.origin,
+    audioContext: typeof globalThis.AudioContext,
+    audioWorkletNode: typeof globalThis.AudioWorkletNode,
+    audioWorklet: typeof globalThis.AudioWorklet,
+    webAssembly: typeof globalThis.WebAssembly,
+    userActivation: navigator.userActivation
+      ? {
+          isActive: navigator.userActivation.isActive,
+          hasBeenActive: navigator.userActivation.hasBeenActive,
+        }
+      : null,
+    visibility: document.visibilityState,
+    focused: document.hasFocus(),
+    contextCount: game?.audio.audioContextCount ?? 0,
+    primaryContext: context
+      ? {
+          state: context.state,
+          sampleRate: context.sampleRate,
+          audioWorkletAddModule: typeof context.audioWorklet?.addModule,
+        }
+      : null,
+  };
 }
 function fail(error: unknown): void {
   report.error = errorDetail(error);
@@ -164,9 +211,11 @@ try {
   );
   audio.addEventListener('click', () => {
     if (new URLSearchParams(location.search).has('physical')) return;
+    report.audioDiagnostics.push(audioDiagnostics('before-unlock'));
     void runtime.audio
       .unlock()
       .then(() => {
+        report.audioDiagnostics.push(audioDiagnostics('after-unlock'));
         report.audioUnlocked = runtime.audio.unlocked;
         check(
           report.audioUnlocked,
@@ -174,7 +223,10 @@ try {
         );
         publish();
       })
-      .catch(fail);
+      .catch((error: unknown) => {
+        report.audioDiagnostics.push(audioDiagnostics('unlock-failed'));
+        fail(error);
+      });
   });
   // Accessible activation originates from Enter; its semantic click is a CustomEvent.
   document.addEventListener(
