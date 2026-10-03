@@ -173,12 +173,20 @@ async function imageColorEvidence(
     );
     const inspect = (
       name: string,
-      source: HTMLCanvasElement | ImageBitmap,
+      source: HTMLCanvasElement | HTMLImageElement | ImageBitmap,
     ): void => {
       context.clearRect(0, 0, 4, 4);
       context.drawImage(source, 0, 0);
+      const width =
+        source instanceof HTMLImageElement ? source.naturalWidth : source.width;
+      const height =
+        source instanceof HTMLImageElement
+          ? source.naturalHeight
+          : source.height;
       const uploads: Record<string, unknown>[] = [];
       sources[name] = {
+        width,
+        height,
         canvasRGBA: Array.from(context.getImageData(0, 0, 4, 4).data),
         uploads,
       };
@@ -220,19 +228,80 @@ async function imageColorEvidence(
     inspect('originalCanvas', imageSources[0]);
     inspect('actualAssetBitmap', actual.image);
     const blob = await (await fetch(urls[0])).blob();
-    for (const conversion of ['default', 'none'] as const) {
-      let bitmap: ImageBitmap | undefined;
-      try {
-        bitmap = await createImageBitmap(blob, {
-          premultiplyAlpha: 'none',
-          colorSpaceConversion: conversion,
-        });
-        inspect(`blob-${conversion}`, bitmap);
-      } catch (error) {
-        sources[`blob-${conversion}`] = { error: String(error) };
-      } finally {
-        bitmap?.close();
+    evidence.blob = { type: blob.type, size: blob.size };
+    const inspectBitmap = async (
+      name: string,
+      source: ImageBitmapSource,
+      conversion: 'default' | 'none',
+    ): Promise<void> =>
+      new Promise<void>((resolve) => {
+        let expired = false;
+        const timer = window.setTimeout(() => {
+          expired = true;
+          sources[name] = { error: 'Native bitmap decode exceeded 5000ms.' };
+          resolve();
+        }, 5000);
+        void Promise.resolve()
+          .then(() =>
+            createImageBitmap(source, {
+              premultiplyAlpha: 'none',
+              colorSpaceConversion: conversion,
+            }),
+          )
+          .then(
+            (bitmap) => {
+              window.clearTimeout(timer);
+              try {
+                if (!expired) inspect(name, bitmap);
+              } catch (error) {
+                sources[name] = { error: String(error) };
+              } finally {
+                bitmap.close();
+                resolve();
+              }
+            },
+            (error: unknown) => {
+              window.clearTimeout(timer);
+              if (!expired) sources[name] = { error: String(error) };
+              resolve();
+            },
+          );
+      });
+    for (const conversion of ['default', 'none'] as const)
+      await inspectBitmap(`blob-${conversion}`, blob, conversion);
+    // The URL refers to the same Blob: no profile removal or PNG re-encoding.
+    const objectURL = URL.createObjectURL(blob);
+    const image = new Image();
+    let timer: number | undefined;
+    try {
+      await new Promise<void>((resolve, reject) => {
+        timer = window.setTimeout(
+          () => reject(new Error('Native image load exceeded 5000ms.')),
+          5000,
+        );
+        image.onload = () => resolve();
+        image.onerror = () => reject(new Error('Native image load failed.'));
+        image.src = objectURL;
+      });
+      window.clearTimeout(timer);
+      if (image.naturalWidth !== 4 || image.naturalHeight !== 4)
+        throw new Error('Native image diagnostic expected a 4×4 PNG.');
+      inspect('blob-imageElement', image);
+      for (const conversion of ['default', 'none'] as const)
+        await inspectBitmap(`imageElement-${conversion}`, image, conversion);
+      // Capture only the decoded image, never the original procedural canvas.
+      for (const conversion of ['default', 'none'] as const) {
+        context.clearRect(0, 0, 4, 4);
+        context.drawImage(image, 0, 0);
+        await inspectBitmap(`imageCanvas-${conversion}`, copy, conversion);
       }
+    } catch (error) {
+      sources['blob-imageElement'] = { error: String(error) };
+    } finally {
+      window.clearTimeout(timer);
+      image.onload = image.onerror = null;
+      image.removeAttribute('src');
+      URL.revokeObjectURL(objectURL);
     }
   } finally {
     gl.deleteFramebuffer(framebuffer);

@@ -139,23 +139,16 @@ jobs:
         run: |
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example gameplay2d --renderer webgl2
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example rendering2d --renderer webgl2
-      - name: Collect native Chromium crash evidence without changing its backend
+      - name: Collect native headless Chromium crash evidence without changing its backend
         if: runner.os == 'Windows' && matrix.engine == 'chromium'
         shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $dumpFolder = Join-Path $PWD '.vite/windows-host/crash-dumps'
-          New-Item -ItemType Directory -Force $dumpFolder | Out-Null
-          $key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\chrome.exe'
-          New-Item -Path $key -Force | Out-Null
-          New-ItemProperty -Path $key -Name DumpFolder -Value $dumpFolder -PropertyType ExpandString -Force | Out-Null
-          New-ItemProperty -Path $key -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
-          New-ItemProperty -Path $key -Name DumpCount -Value 4 -PropertyType DWord -Force | Out-Null
-          Get-ItemProperty $key | Select-Object DumpFolder,DumpType,DumpCount | ConvertTo-Json | Set-Content .vite/windows-host/crash-collection.json
+        run: ./scripts/windows-chromium-crash.ps1 -Phase setup
       - name: Deep native pixel and lifecycle regressions without retries
         if: success() || (failure() && runner.os == 'Windows')
         env:
           DEBUG: pw:browser
+          # Official symbol servers; availability for the pinned Playwright binary is not assumed.
+          _NT_SYMBOL_PATH: ${{ runner.os == 'Windows' && matrix.engine == 'chromium' && format('srv*{0}\xyz-native-symbols*https://msdl.microsoft.com/download/symbols;srv*{0}\xyz-native-symbols*https://chromium-browser-symsrv.commondatastorage.googleapis.com', runner.temp) || '' }}
         run: npx --yes pnpm@12.6.0 run regression:browser --browser ${{ matrix.engine }} ${{ matrix.engine == 'chromium' && '--require-webgpu' || '' }}
       - name: Desktop native interaction and reload
         if: success() || (failure() && runner.os == 'Windows')
@@ -170,8 +163,7 @@ jobs:
         if: always() && runner.os == 'Windows' && matrix.engine == 'chromium'
         shell: pwsh
         run: |
-          $faults = @(Get-WinEvent -FilterHashtable @{LogName='Application'; Id=1000,1001; StartTime=(Get-Date).AddHours(-1)} -ErrorAction SilentlyContinue | Where-Object { $_.Message -match 'chrome\.exe' } | Select-Object TimeCreated,Id,ProviderName,Message)
-          ConvertTo-Json -InputObject $faults -Depth 5 | Set-Content .vite/windows-host/application-faults.json
+          ./scripts/windows-chromium-crash.ps1 -Phase collect
       - name: Preserve measured engine reports and pixel proofs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
