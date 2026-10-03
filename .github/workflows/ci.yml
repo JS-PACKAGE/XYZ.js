@@ -5,6 +5,7 @@ on:
     branches: [main]
   pull_request:
   workflow_call:
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -169,6 +170,8 @@ jobs:
 
   windows-chromium-gpu-diagnostic:
     name: Windows Chromium owned GPU native exception capture (diagnostic)
+    # Manual only: it deliberately reproduces a known failure and uploads a large full-memory dump.
+    if: github.event_name == 'workflow_dispatch'
     runs-on: windows-latest
     timeout-minutes: 25
     env:
