@@ -125,6 +125,7 @@ public static class OwnedGpuDebug {
         $monitor = Start-Process -FilePath $tool -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
         $record.monitorPid = $monitor.Id
         $deadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+        $attachedSince = $null
         do {
             $monitor.Refresh()
             if ($monitor.HasExited) { throw 'ProcDump exited before debugger readiness.' }
@@ -136,8 +137,12 @@ public static class OwnedGpuDebug {
             if (-not [OwnedGpuDebug]::CheckRemoteDebuggerPresent($target.Handle, [ref]$debugged)) {
                 throw 'Cannot verify GPU debugger attachment.'
             }
-            $log = Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue
-            if ($debugged -and $log -match 'Press Ctrl-C to end monitoring') { break }
+            # Redirected ProcDump stdout is block-buffered until exit, so its banner cannot signal readiness.
+            # Native debugger attachment held while the monitor lives for a settle interval does.
+            if ($debugged) {
+                if (-not $attachedSince) { $attachedSince = [DateTimeOffset]::UtcNow }
+                elseif (([DateTimeOffset]::UtcNow - $attachedSince).TotalMilliseconds -ge 1500) { break }
+            } else { $attachedSince = $null }
             if ([DateTimeOffset]::UtcNow -gt $deadline) { throw 'ProcDump debugger readiness deadline exceeded.' }
             Start-Sleep -Milliseconds 100
         } while ($true)
@@ -153,6 +158,7 @@ public static class OwnedGpuDebug {
         }
     } catch {
         $record.error = $_.Exception.Message
+        $record.lastDebuggerPresent = $debugged
         throw
     } finally {
         try {
