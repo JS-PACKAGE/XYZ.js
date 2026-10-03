@@ -1296,3 +1296,8 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - 升版後重新執行 frozen install、build、format:check 與 exact package hygiene 通過（`.vite/v1.13-package/run-y6yxZB/report.json`，含 extracted consumer／CLI smoke）；本輪不重複宣稱前節測試為新一次執行。CI／Release hosted 結果待新 tag 實際執行。
 - Release commit `6d1a184d63dd8002390a4bc9a8afe481368b175f` 與新 `v1.13` tag 已推送。[Release run 37128842802](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37128842802) 完成 success：必要 quality／API／production budgets／installed 2d、3d starters／deployed-site／Linux native concurrent audio gates 通過。Windows Chromium／WebKit deep regressions 仍依既有使用者批准為 non-blocking failures，不宣稱已修復或 Windows 認證。
 - [GitHub v1.13](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.13) 已正式發佈 `xyz.js-1.13.0.tgz` 與 `SHA256SUMS`；下載附件後 checksum 通過，archive SHA256 `353d97d6e8fe16346fc75db04e1263bcd774fef370425d6fe1c9fe80136db915`。對下載的正式 archive 再執行 exact package hygiene／extracted consumer smoke 通過（`/tmp/xyz-v1.13-published/hygiene/run-9etwhD/report.json`）；npm 未發佈，歷史 tags 不變。
+
+## Windows 11 ARM CI runner 切換
+
+- Windows Node 22／24／26 quality、Chromium／Firefox／WebKit browser jobs 與手動 Chromium GPU diagnostic 改用 GitHub 官方 `windows-11-arm`；Linux／macOS matrix 與既有測試門檻不變。
+- 已驗證的 VB-CABLE 安裝包僅支援 x64，因此 ARM64 不執行該 driver 安裝；既有 Windows audio services／inventory 與音訊測試仍執行，不將缺少 endpoint 視為通過。不改 driver 安全 guard、不冒稱 ARM 音訊或瀏覽器已驗收；需後續 hosted CI 實跑確認。

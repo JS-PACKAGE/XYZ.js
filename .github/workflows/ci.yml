@@ -22,7 +22,7 @@ jobs:
       fail-fast: false
       matrix:
         node: ['22', '24', '26']
-        os: [ubuntu-24.04, windows-latest]
+        os: [ubuntu-24.04, windows-11-arm]
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         env:
@@ -82,13 +82,13 @@ jobs:
           - os: macos-latest
             engine: webkit
             node: '26'
-          - os: windows-latest
+          - os: windows-11-arm
             engine: chromium
             node: '26'
-          - os: windows-latest
+          - os: windows-11-arm
             engine: firefox
             node: '26'
-          - os: windows-latest
+          - os: windows-11-arm
             engine: webkit
             node: '26'
     runs-on: ${{ matrix.os }}
@@ -147,7 +147,8 @@ jobs:
             endpoints = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Select-Object FriendlyName,Status)
           } | ConvertTo-Json -Depth 5 | Tee-Object -FilePath .vite/windows-host/audio.json
       - name: Install verified signed audio on the ephemeral Windows runner
-        if: runner.os == 'Windows'
+        # The verified driver package is x64-only; never install it on ARM64.
+        if: runner.os == 'Windows' && runner.arch == 'X64'
         shell: pwsh
         timeout-minutes: 6
         env:
@@ -202,7 +203,7 @@ jobs:
     name: Windows Chromium owned GPU native exception capture (diagnostic)
     # Manual only: it deliberately reproduces a known failure and uploads a large full-memory dump.
     if: github.event_name == 'workflow_dispatch'
-    runs-on: windows-latest
+    runs-on: windows-11-arm
     timeout-minutes: 25
     env:
       XYZ_CHROMIUM_NATIVE_CAPTURE: approved-owned-gpu
