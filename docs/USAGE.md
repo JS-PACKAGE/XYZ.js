@@ -1343,6 +1343,8 @@ The production runner captures live output before teardown and accepts explicit 
 
 The hosted macOS policy runs `node scripts/production-workloads.mjs --renderer webgl2 --presentation native-foreground --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000`. The default remains `headless`; calibration and verification must use the same explicitly pinned mode. Native-foreground requires macOS and an unlocked foreground-capable desktop. Each workload owns a fresh headed browser/default context attached with public `connectOverCDP({noDefaults:true})`, rather than ineffectively sending `false` on another session. Actual native PID/AppKit/window and DOM focus/visibility are verified; missing or interrupted evidence fails. Do not alter signing, clocks, workloads or performance bounds to obtain PASS. The local real focus-loss guard passes; complete revised hosted qualification remains pending, not hardware certification.
 
+Update: [run 37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252) passed all five hosted foreground workloads and the real focus-loss guard. Release remains blocked by Windows native graphics failures. With explicit user approval, compiled-out native WebAudio/AudioWorklet in the pinned Windows WebKit is reported UNSUPPORTED, not an unlock PASS; WebKit graphics/input/lifecycle/cleanup and Windows Chromium/Firefox native audio remain required.
+
 ## 40. Compatible expansion profiles (P88–P96)
 
 These profiles retain the public 1.x root and package metadata. Historical P71–P87 restrictions above describe those stages; current extensions and their exercised evidence are recorded separately in [ACCEPTANCE](../ACCEPTANCE.md). They do not certify physical hardware.

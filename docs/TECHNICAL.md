@@ -6,6 +6,8 @@ English · [Traditional Chinese](TECHNICAL-zh.md)
 
 This reference covers **1.12.4 / Apache-2.0**; npm is unpublished. [PLAN](../PLAN.md) and [DESIGN](../DESIGN.md) define approved contracts through P103; [ACCEPTANCE](../ACCEPTANCE.md) records exercised support and unverified limits. Historical dates, counts and release metadata remain historical evidence. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependencies. Following the failed v1.12.3 production gate, the user authorized a new GitHub v1.12.4 publication, preserving the v1.12.2 and v1.12.3 tags. v1.12.4 remains pending CI and release verification; this is not a claim of completed hosted verification or publication. Configured Windows CI testing does not certify physical Windows hardware or drivers; browser qualification expands only with actual recorded browser/host/path evidence.
 
+The original five hosted workloads and real focus-loss guard passed in [CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252). Remaining native Windows graphics failures still block release. The user approved reporting **UNSUPPORTED** audio for pinned native Windows WebKit only when secure-origin probes prove `AudioContext` and `AudioWorkletNode` absent, matching upstream `ENABLE_WEB_AUDIO OFF`. All other WebKit gates and Windows Chromium/Firefox native audio assertions remain required; this does not certify Windows WebKit audio.
+
 Production contracts in section 58 are included in **v1.10 / 1.10.0**. Release packaging does not expand the documented platform, hardware or performance evidence.
 
 ## Historical Stage-Profile Orientation
@@ -224,7 +226,6 @@ See ACCEPTANCE for before/after measurements. Test-side interception of real GPU
 
 - `game.assets.loadTexture(url)` shares pending Promises and Textures by absolute URL, ignoring fragments. Failures evict the cache entry for retry. Reloading a destroyed Texture downloads and decodes again. AssetLoader.destroy aborts downloads and closes late bitmaps.
 - AssetLoader owns cached CPU ImageBitmaps. `Texture.fromImage(source)` creates an independently owned bitmap that the caller must destroy. Sprites do not own shared Textures. Game.destroy cleans up assets after the renderer.
-- Both managed image-loading paths decode with `premultiplyAlpha:'none'` and `colorSpaceConversion:'none'`, preserving encoded texture channels rather than applying browser-dependent embedded ICC conversion. This is not an automatic color-managed display-image pipeline; Canvas presentation remains browser-native.
 - Sprite provides texture, position, rotation in radians, scale, anchor (center by default), opacity, visible, and zIndex. Equal zIndex values retain Scene insertion order. Coordinates use logical CSS pixels with a top-left origin.
 - WebGPU shares one Sprite pipeline and reuses a growable instance buffer. Adjacent equal textures after sorting are batched into draws. The GPU texture cache is separate from AssetLoader; unused or destroyed assets release their GPU resources.
 - Uploads use premultiplied alpha. The shader applies opacity to both RGB and alpha; blending uses one/one-minus-src-alpha. Without a Scene, the triangle remains; with a Scene, only Scene contents are drawn.

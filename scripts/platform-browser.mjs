@@ -316,22 +316,46 @@ try {
       );
       if (!pointerTypes.includes('mouse') || !pointerTypes.includes('touch'))
         throw new Error(`Missing native pointer paths: ${pointerTypes}`);
-      await page.locator('[aria-label="Unlock audio"]').focus();
-      await page.keyboard.press('Enter');
-      await page.waitForFunction(
-        () =>
-          window.__xyzPlatform.report.error ||
-          (window.__xyzPlatform.report.audioUnlocked &&
-            window.__xyzPlatform.report.audioGestureTrusted),
-        null,
-        { timeout: 30000 },
-      );
-      const audioReport = await page.evaluate(
-        () => window.__xyzPlatform.report,
-      );
-      if (audioReport.error) throw new Error(audioReport.error);
-      if (!audioReport.audioUnlocked || !audioReport.audioGestureTrusted)
-        throw new Error('Native trusted audio unlock did not complete.');
+      const audioCapability = await page.evaluate(() => ({
+        secureContext: globalThis.isSecureContext,
+        audioContext: typeof globalThis.AudioContext,
+        audioWorkletNode: typeof globalThis.AudioWorkletNode,
+      }));
+      if (
+        process.platform === 'win32' &&
+        browserName === 'webkit' &&
+        audioCapability.secureContext &&
+        audioCapability.audioContext === 'undefined' &&
+        audioCapability.audioWorkletNode === 'undefined'
+      ) {
+        // Explicitly approved platform scope: the pinned Windows WebKit build
+        // compiles out WEB_AUDIO. Keep all non-audio platform gates below.
+        result.audio = {
+          result: 'UNSUPPORTED',
+          reason: 'Native Windows WebKit compiles out WebAudio/AudioWorklet.',
+          measured: audioCapability,
+          source:
+            'https://github.com/WebKit/WebKit/blob/4d05d732e5a84f32675bef4cc135a2e7a9269a87/Source/cmake/OptionsWin.cmake',
+        };
+      } else {
+        await page.locator('[aria-label="Unlock audio"]').focus();
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(
+          () =>
+            window.__xyzPlatform.report.error ||
+            (window.__xyzPlatform.report.audioUnlocked &&
+              window.__xyzPlatform.report.audioGestureTrusted),
+          null,
+          { timeout: 30000 },
+        );
+        const audioReport = await page.evaluate(
+          () => window.__xyzPlatform.report,
+        );
+        if (audioReport.error) throw new Error(audioReport.error);
+        if (!audioReport.audioUnlocked || !audioReport.audioGestureTrusted)
+          throw new Error('Native trusted audio unlock did not complete.');
+        result.audio = { result: 'PASS', measured: audioCapability };
+      }
       await page.evaluate(() => window.__xyzPlatform.lifecycle());
       await ready();
       if (freezeCapability?.available) {

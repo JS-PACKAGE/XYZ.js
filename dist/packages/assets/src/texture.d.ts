@@ -15,7 +15,7 @@ export declare class Texture {
         readonly height: number;
     });
     get image(): ImageBitmap;
-    /** Decode owned, straight-alpha texels without implementation-specific color conversion. */
+    /** Decode into a separately owned bitmap with straight (not premultiplied) alpha. */
     static fromImage(source: ImageBitmapSource): Promise<Texture>;
     get destroyed(): boolean;
     destroy(): void;

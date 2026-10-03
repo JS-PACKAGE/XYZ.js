@@ -6,6 +6,8 @@
 
 本參考描述 **1.12.4／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。v1.12.3 production gate 失敗後，使用者已授權新的 GitHub v1.12.4 發佈，保留 v1.12.2 與 v1.12.3 tags。v1.12.4 仍待 CI 與 release 驗證，此處不宣稱 hosted 驗證或發佈已完成。Windows CI 測試設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的 browser／host／path 證據擴充。
 
+五個原 hosted workload與真失焦guard已於[CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252)通過；Windows原生圖形failures仍阻擋發佈。使用者批准只有 pinned native WindowsWebKit在secure origin實測AudioContext／AudioWorkletNode均不存在、符合上游ENABLE_WEB_AUDIO OFF時音訊記UNSUPPORTED。WebKit其他gates及WindowsChromium／Firefox原生音訊assertions仍必須通過，不能宣稱WindowsWebKit音訊認證。
+
 第58節 production 契約納入 **v1.10／1.10.0**；發佈封裝不擴大文件記載的平台、硬體或效能證據。
 
 ## 歷史階段 profile 導覽
@@ -224,7 +226,6 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 
 - `game.assets.loadTexture(url)` 以絕對 URL（忽略 fragment）共用 pending Promise 與 Texture；失敗移除 cache，可重試。已 destroy 的 Texture 再載入會重新下載／解碼。AssetLoader.destroy 中止下載，晚到的 bitmap 仍會關閉。
 - AssetLoader 擁有 cache 中的 CPU ImageBitmap；`Texture.fromImage(source)` 建立獨立 bitmap，需由呼叫者 destroy。Sprite 不擁有共享 Texture。Game.destroy 清理 renderer 後清理 assets。
-- 兩條 managed image-loading 路徑均使用 `premultiplyAlpha:'none'` 與 `colorSpaceConversion:'none'`，保留 encoded texture channels，不套用 browser-dependent embedded ICC conversion。這不是自動色彩管理的 display-image pipeline；Canvas 呈現仍使用 browser-native。
 - Sprite 提供 texture、position、rotation（弧度）、scale、anchor（預設中心）、opacity、visible、zIndex；相同 zIndex 保持 Scene 加入順序。座標使用左上原點的 logical CSS pixels。
 - WebGPU 共用一個 Sprite pipeline，重用可成長的 instance buffer，依排序後相鄰 texture 合併 draw。GPU texture cache 與 AssetLoader 分離，未使用或已銷毀的資產會釋放 GPU resource。
 - 上傳採 premultiplied alpha，shader 同時乘 RGB／alpha 的 opacity，混色為 one／one-minus-src-alpha。無 Scene 保留 triangle；有 Scene 則只畫 Scene 內容。

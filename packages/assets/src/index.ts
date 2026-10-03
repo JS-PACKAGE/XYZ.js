@@ -535,8 +535,6 @@ export class AssetLoader {
         );
       const bitmap = await createImageBitmap(blob, {
         premultiplyAlpha: 'none',
-        // Preserve encoded texture channels instead of applying browser-specific ICC conversion.
-        colorSpaceConversion: 'none',
       });
       if (this.disposed || signal.aborted) {
         bitmap.close();

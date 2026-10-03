@@ -55,6 +55,7 @@ interface Scenario {
     decodedImageCanvasRGBA?: number[];
     webglDitherEnabled?: boolean;
     webglUnpackColorSpaceConversion?: number;
+    imageColorIsolation?: Record<string, unknown>;
     colorDiagnosticError?: string;
   };
 }
@@ -125,15 +126,121 @@ async function frames(count = 3): Promise<void> {
       requestAnimationFrame(() => resolve()),
     );
 }
+const imageSources: HTMLCanvasElement[] = [];
 function imageURL(color: string): string {
   const image = document.createElement('canvas');
   image.width = image.height = 4;
   const context = image.getContext('2d')!;
   context.fillStyle = color;
   context.fillRect(0, 0, 4, 4);
+  imageSources.push(image);
   return image.toDataURL('image/png');
 }
 const urls = [imageURL('#00ff00'), imageURL('#ff0000'), imageURL('#0000ff')];
+
+async function imageColorEvidence(
+  actual: Texture,
+): Promise<Record<string, unknown>> {
+  // Failure-only, engine-free readbacks never replace or alter the native oracle.
+  const evidence: Record<string, unknown> = {
+    encodedImageURL: urls[0],
+    sources: {},
+  };
+  const sources = evidence.sources as Record<string, unknown>;
+  const copy = document.createElement('canvas');
+  copy.width = copy.height = 4;
+  const context = copy.getContext('2d', { willReadFrequently: true })!;
+  const surface = document.createElement('canvas');
+  const gl = surface.getContext('webgl2', { antialias: false });
+  if (!gl)
+    throw new Error('Image color diagnostic WebGL2 context unavailable.');
+  const texture = gl.createTexture();
+  const framebuffer = gl.createFramebuffer();
+  try {
+    if (!texture || !framebuffer)
+      throw new Error('Image color diagnostic allocation failed.');
+    gl.bindTexture(gl.TEXTURE_2D, texture);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+    gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+    gl.framebufferTexture2D(
+      gl.FRAMEBUFFER,
+      gl.COLOR_ATTACHMENT0,
+      gl.TEXTURE_2D,
+      texture,
+      0,
+    );
+    const inspect = (
+      name: string,
+      source: HTMLCanvasElement | ImageBitmap,
+    ): void => {
+      context.clearRect(0, 0, 4, 4);
+      context.drawImage(source, 0, 0);
+      const uploads: Record<string, unknown>[] = [];
+      sources[name] = {
+        canvasRGBA: Array.from(context.getImageData(0, 0, 4, 4).data),
+        uploads,
+      };
+      for (const conversion of [gl.BROWSER_DEFAULT_WEBGL, gl.NONE]) {
+        gl.pixelStorei(gl.UNPACK_COLORSPACE_CONVERSION_WEBGL, conversion);
+        gl.texImage2D(
+          gl.TEXTURE_2D,
+          0,
+          gl.RGBA,
+          gl.RGBA,
+          gl.UNSIGNED_BYTE,
+          source,
+        );
+        const uploadError = gl.getError();
+        const framebufferStatus = gl.checkFramebufferStatus(gl.FRAMEBUFFER);
+        const raw = new Uint8Array(4 * 4 * 4);
+        if (
+          uploadError === gl.NO_ERROR &&
+          framebufferStatus === gl.FRAMEBUFFER_COMPLETE
+        )
+          gl.readPixels(0, 0, 4, 4, gl.RGBA, gl.UNSIGNED_BYTE, raw);
+        const readError = gl.getError();
+        uploads.push({
+          unpackColorSpaceConversion: conversion,
+          uploadError,
+          framebufferStatus,
+          readError,
+          contextLost: gl.isContextLost(),
+          rgba:
+            uploadError === gl.NO_ERROR &&
+            framebufferStatus === gl.FRAMEBUFFER_COMPLETE &&
+            readError === gl.NO_ERROR &&
+            !gl.isContextLost()
+              ? Array.from(raw)
+              : null,
+        });
+      }
+    };
+    inspect('originalCanvas', imageSources[0]);
+    inspect('actualAssetBitmap', actual.image);
+    const blob = await (await fetch(urls[0])).blob();
+    for (const conversion of ['default', 'none'] as const) {
+      let bitmap: ImageBitmap | undefined;
+      try {
+        bitmap = await createImageBitmap(blob, {
+          premultiplyAlpha: 'none',
+          colorSpaceConversion: conversion,
+        });
+        inspect(`blob-${conversion}`, bitmap);
+      } catch (error) {
+        sources[`blob-${conversion}`] = { error: String(error) };
+      } finally {
+        bitmap?.close();
+      }
+    }
+  } finally {
+    gl.deleteFramebuffer(framebuffer);
+    gl.deleteTexture(texture);
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  }
+  return evidence;
+}
 
 interface ActorOptions {
   x: number;
@@ -361,6 +468,9 @@ async function nativeResidency(): Promise<void> {
             scenario.readback.webglUnpackColorSpaceConversion = gl.getParameter(
               gl.UNPACK_COLORSPACE_CONVERSION_WEBGL,
             ) as number;
+            scenario.readback.imageColorIsolation = await imageColorEvidence(
+              a.texture,
+            );
           } catch (error) {
             scenario.readback.colorDiagnosticError = [
               scenario.readback.colorDiagnosticError,
