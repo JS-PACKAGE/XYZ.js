@@ -28,9 +28,21 @@ import { serveDeployment } from './deployment-server.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
-if (args.length && (args.length !== 2 || args[0] !== '--output'))
-  throw new Error('Usage: node scripts/starter-smoke.mjs [--output directory]');
-const output = resolve(root, args[1] ?? '.vite/starter-smoke');
+const options = new Map();
+for (let i = 0; i < args.length; i += 2) {
+  if (!['--output', '--template'].includes(args[i]) || !args[i + 1])
+    throw new Error(
+      'Usage: node scripts/starter-smoke.mjs [--output directory] [--template 2d|3d]',
+    );
+  options.set(args[i], args[i + 1]);
+}
+const allTemplates = ['2d', '3d'];
+const selectedTemplate = options.get('--template');
+if (selectedTemplate && !allTemplates.includes(selectedTemplate))
+  throw new Error('--template must be 2d or 3d.');
+// Both templates by default; CI runs them as separate jobs to parallelize the real-time play.
+const templates = selectedTemplate ? [selectedTemplate] : allTemplates;
+const output = resolve(root, options.get('--output') ?? '.vite/starter-smoke');
 await mkdir(output, { recursive: true });
 const workspace = await mkdtemp(join(tmpdir(), 'xyz-starter-gate-'));
 const report = {
@@ -183,7 +195,7 @@ try {
   launch.args = [...(launch.args ?? []), '--mute-audio'];
   browser = await chromium.launch(launch);
   report.browser = browserIdentity('chromium', browser, launch);
-  for (const kind of ['2d', '3d']) {
+  for (const kind of templates) {
     const row = {
       template: kind,
       status: 'starting',
@@ -445,7 +457,7 @@ console.log(
 );
 if (
   report.error ||
-  report.results.length !== 2 ||
+  report.results.length !== templates.length ||
   report.results.some((row) => row.status !== 'passed')
 )
   process.exitCode = 1;

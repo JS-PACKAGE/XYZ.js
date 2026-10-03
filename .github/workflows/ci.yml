@@ -304,7 +304,7 @@ jobs:
           if-no-files-found: warn
 
   release-surfaces:
-    name: Installed starters and production workload / macOS owned Chromium
+    name: Production workload and API compatibility / macOS owned Chromium
     runs-on: macos-latest
     timeout-minutes: 60
     steps:
@@ -342,9 +342,6 @@ jobs:
       - name: Reject genuine foreground interruptions while retaining measurements
         if: success() || failure()
         run: node scripts/check-production-foreground.mjs
-      - name: Pack, install, deploy and play both independent starter games
-        if: success() || failure()
-        run: npx --yes pnpm@12.6.0 run smoke:starters
       - name: Preserve release surface reports, screenshots and install/build logs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -353,8 +350,52 @@ jobs:
           path: |
             .vite/production-workloads/
             .vite/production-focus-guard/
-            .vite/starter-smoke/
             .vite/api-compatibility/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  starter-games:
+    name: Installed ${{ matrix.template }} starter / macOS owned Chromium
+    runs-on: macos-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        template: ['2d', '3d']
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - name: Restore the pnpm store (content-verified by the frozen lockfile)
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/pnpm-store
+          key: pnpm-store-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Restore the pinned Playwright browsers
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ${{ runner.temp }}/ms-playwright
+          key: playwright-${{ runner.os }}-${{ runner.arch }}-chromium-${{ hashFiles('pnpm-lock.yaml') }}
+      - name: Point pnpm and Playwright at the restored caches
+        run: |
+          echo "pnpm_config_store_dir=$RUNNER_TEMP/pnpm-store" >> "$GITHUB_ENV"
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/ms-playwright" >> "$GITHUB_ENV"
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - name: Build the release package
+        run: npx --yes pnpm@12.6.0 run build
+      - name: Install one owned native browser
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Pack, install, deploy and play the independent ${{ matrix.template }} starter game
+        run: node scripts/starter-smoke.mjs --template ${{ matrix.template }} --output .vite/starter-smoke/${{ matrix.template }}
+      - name: Preserve the starter report, screenshots and install/build logs
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: starter-games-node-26-${{ matrix.template }}
+          path: .vite/starter-smoke/${{ matrix.template }}/
           include-hidden-files: true
           if-no-files-found: warn
 
