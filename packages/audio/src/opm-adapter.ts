@@ -41,7 +41,7 @@ interface OfficialOPM {
 }
 
 interface NativeVoice extends Omit<OPMVoice, 'version'> {
-  version: 6;
+  version: 7;
 }
 
 interface NativeOPM extends Omit<OfficialOPM, 'voices' | 'playNote'> {
@@ -71,7 +71,7 @@ function engineVoice(voice: NativeVoice): OPMVoice {
     })) as OPMVoice['ops'],
     lfo: voice.lfo ? { ...voice.lfo } : undefined,
   };
-  normalizedVoices.set(result, { ...result, version: 6 });
+  normalizedVoices.set(result, { ...result, version: 7 });
   return result;
 }
 
@@ -79,7 +79,7 @@ function nativeVoice(voice: OPMVoice): OPMVoice | NativeVoice {
   const normalized = normalizedVoices.get(voice);
   if (!normalized) return voice;
   // Assets are frozen; mutable escape-hatch patches must retain caller edits.
-  return Object.isFrozen(voice) ? normalized : { ...voice, version: 6 };
+  return Object.isFrozen(voice) ? normalized : { ...voice, version: 7 };
 }
 
 /** User-approved 1.x escape-hatch compatibility; vendor instances stay untouched. */

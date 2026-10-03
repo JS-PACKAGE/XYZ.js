@@ -38,7 +38,7 @@ src/index.ts                    統一 ESM／TypeScript API
   ├─ packages/assets           AssetLoader／Texture／AssetError
   ├─ packages/input            Keyboard／Pointer／Gamepad
   └─ packages/audio            AudioManager／Asset／Channel／OPMAdapter
-       └─ vendor/opm           官方 OPM.js v1.8.0（tag v1.8）
+       └─ vendor/opm           官方 OPM.js v1.11.1（tag v1.11.1）
 
 requestAnimationFrame(timestamp)
   → 同步 DPR → Clock.tick(timestamp) → Camera2D.resize(logical viewport)
@@ -258,9 +258,9 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 ## 15. Audio
 
 - `game.audio.load(url)` 共享 canonical URL（忽略 fragment）的 pending/cache；失敗會逐出，destroy 立即取消等待。JSON 必須含官方可解析 `voice` 及非空 `notes`，每音符 MIDI 0–127、time ≥ 0、duration (0,60] 秒。可選 channel（music/sfx/ui）、loop、duration（loop period，不能短於最後音符結束）。載入後 voice/notes immutable；格式示例見 [sfx.json](../examples/sprite/sfx.json) 與 [music.json](../examples/sprite/music.json)。
-- Voice 驗證在內部透過官方 v6 格式正規化，仍接受 legacy v1 輸入。引擎公開的 `OPMVoice` 保留已發佈的 `version: 1` 契約，不暴露 native v6 representation；歷史驗收與升級驗證紀錄不改寫。
+- Voice 驗證在內部透過官方 v7 格式正規化，仍接受 legacy v1 輸入。引擎公開的 `OPMVoice` 保留已發佈的 `version: 1` 契約，不暴露 native v7 representation；歷史驗收與升級驗證紀錄不改寫。
 - 在使用者 click 等手勢內 `await game.audio.unlock()`；之前 play 拋 AudioError，不偷偷建立 AudioContext 或排隊。OPMAdapter 在 load 驗證 voice 時可先 import 官方模組，但僅 unlock 建立八個 context/worklet。每 slot 保留一個聲部，含 ADSR release 與 guard；master/channel volume 0–1 經 GainNode 相乘。
-- 官方 OPM.js v1.8.0 可選聲部數，但 XYZ.js 仍維持八個隔離 instance，每 slot 保留一個聲部。soft stop 仍有 release，隔離可在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以透過官方 `opm.panic()` 清除音符，保留 managed node／routing；teardown 使用官方 `opm.dispose()`。沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。此 vendor 升級不新增引擎功能或擴大認證範圍。
+- 官方 OPM.js v1.11.1（tag `v1.11.1`）可選聲部數，但 XYZ.js 仍維持八個隔離 instance，每 slot 保留一個聲部。soft stop 仍有 release，隔離可在不 fork 的情況保證 SFX overflow 不斷 BGM。只有 oldest SFX 可以透過官方 `opm.panic()` 清除音符，保留 managed node／routing；teardown 使用官方 `opm.dispose()`。沒有 SFX 可搶時略過新音符，不取消 music track。預算包含 UI 與 release。此 vendor 升級不新增引擎功能或擴大認證範圍。
 - 25ms timer、100ms lookahead；timer throttling 後跳過漏掉的 loop，不追補整首歌。時間／slot 常數集中 `src/data/audio.ts`。Game pause 不代表 audio pause；需要時明確 stop。
 - `asset.play(options)`／`game.audio.play(asset, options)` 回傳 AudioPlayback；stop 保留自然 release。預設關聯當前 Scene，也可指定 `scene`；沒有 Scene 時由 stop／結束／Game destroy 管理。Scene destroy hard-cancel 非 persistent 排程與 release；`persistent:true` 可跨 Scene，Game destroy 仍全部關閉。`game.audio.opm` 是由第一個官方 instance 支援的進階 legacy compatibility facade，並非 native instance 本身。它保留可寫 context／node handles 與可變的 voice `Map`，聲部仍使用已發佈的 v1 契約；直接操作會繞過預算／lifecycle。Managed playback／teardown 在內部使用官方 native `panic()`／`dispose()`。
 - [來源與 SHA256 manifest](../vendor/opm/manifest.json)、[官方 Apache-2.0 LICENSE](../vendor/opm/LICENSE) 位於 vendor，沒有私人 patch；根套件另以 Apache-2.0 授權。build 複製完整 vendor 到 dist，保留 modules／worklet 的相對 URL；部署必須保留整個 dist，AudioWorklet 亦需安全來源。

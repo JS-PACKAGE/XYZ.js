@@ -2,7 +2,7 @@
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
-目前 root metadata 是 `1.12.4`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
+目前 root metadata 是 `1.13.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序同步 DPR→Clock→Camera2D viewport→Input→Scene timers→Scene animations→Scene.update→World Systems→Renderer，最後清除 input edges。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，初始化失敗或 destroy 釋放 ownership。第一個 fatal frame／graphics failure 會被保留並送出 error；失敗後 resume 明確拒絕。Scene 準備失敗與 Audio 排程錯誤也可送出 error，但不把 graphics 鎖成 fatal。
@@ -18,7 +18,7 @@
 - P02 Scene 已完成：候選初始化成功才發佈，準備失敗保留舊 Scene，取消使用 AbortSignal，清理同步且只執行一次。Scene／物件均不可跨 owner 共用；移除物件可重新加入，destroy 則終結生命週期。P03 已將 Asset cache 與 renderer-specific GPU resources 分離，Sprite 支援貼圖、opacity、z-order，共用 instanced pipeline。
 - P04 已完成 Camera2D 與輸入。原 P05 範圍為 Vector3／Quaternion／Matrix4／Transform3D、Mesh（自訂頂點與 cube／sphere／plane／quad）、貼圖材質、PerspectiveCamera、depth、ambient＋directional lighting；同 Scene 先渲染 3D 再按 z-order 疊加 2D。原階段不含進階 3D／模型載入；下列 P09–P12 已擴充此範圍，自製 Shader IR 仍非目標。
 - P06 已完成三級初始化 fallback、capabilities、WebGL2 GLSL 2D／3D、Canvas2D Sprite 與跨 backend Primitive2D。Canvas2D threeD=false，遇可見 Mesh 明確拒絕；不做 software rasterizer。Capabilities 描述 backend 硬體能力，不表示已公開 custom shader／compute facade。
-- P07 當時整合 OPM.js v1.1.0 官方完整 dist／LICENSE／release checksum；目前 vendor 為官方 v1.8.0（tag `v1.8`），build 原樣複製。上游可選聲部數，但引擎仍以八個獨立 OPM instance 各保留一個聲部，總預算含 release，overflow 只以官方 `opm.panic()` 清除最舊 SFX instance 的音符，保留 managed node／routing；不影響 BGM，也不修改官方 DSP。代價是八個 AudioContexts/worklets，teardown 使用官方 `opm.dispose()`。首次手勢 unlock 前不建 AudioContext；bounded lookahead 避免填滿官方 256-event queue；Scene 清理取消非 persistent 音訊。此 vendor 升級不新增引擎功能或擴大認證範圍。
+- P07 當時整合 OPM.js v1.1.0 官方完整 dist／LICENSE／release checksum；目前 vendor 為官方 v1.11.1（tag `v1.11.1`），build 原樣複製。Voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數，但引擎仍以八個獨立 OPM instance 各保留一個聲部，總預算含 release，overflow 只以官方 `opm.panic()` 清除最舊 SFX instance 的音符，保留 managed node／routing；不影響 BGM，也不修改官方 DSP。代價是八個 AudioContexts/worklets，teardown 使用官方 `opm.dispose()`。首次手勢 unlock 前不建 AudioContext；bounded lookahead 避免填滿官方 256-event queue；Scene 清理取消非 persistent 音訊。此 vendor 升級不新增引擎功能或擴大認證範圍。
 - P08 當時完成 Error hierarchy／logger／loss cleanup／六範例與 1,000 Sprite benchmark，loss 使 Game paused／拒絕 resume且沒有 recovery；這是歷史行為，現在預設 `recoverGraphics:true` 可重建同 backend（見上方 Renderer 契約與 TECHNICAL），失敗或關閉復原才 fatal。當時獨立 `[Pxx]` commit／不 push 記錄保留。Safari／Edge／Firefox、實體 gamepad、真背景分頁／BFCache、跨螢幕 DPR／driver reset 不因現有 Chromium 證據取得認證。
 - 後續優化保持公開 API：World 按需穩定壓縮 Systems、WebGPU 只在 logical viewport 改變時重傳對應 uniform；Keyboard 在 focus 轉入 editable 後仍處理既有按鍵釋放。時間量測未證明 CPU／FPS 改善，見 ACCEPTANCE，不以 API call 減少冒充 throughput 提升。
 - 安全維護：圖片與音訊共用內部 bounded response reader，依實際 response stream bytes 計數，不信任 Content-Length。JSON 在 byte cap 後解析並檢查 notes 上限；Texture 在解碼後檢查尺寸／像素且超限釋放。依使用者選擇保留所有瀏覽器支援圖片格式，因此不宣稱防止解碼瞬間放大或提供全域 cache 預算。

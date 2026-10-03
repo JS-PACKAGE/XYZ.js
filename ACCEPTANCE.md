@@ -1,6 +1,6 @@
 # XYZ.js 驗收紀錄
 
-**目前 metadata：1.12.4／Apache-2.0，npm 未發佈；最新已確認 GitHub Release 仍為 1.12.1。** v1.12.2／v1.12.3 已推送但 hosted 效能 gates 未全通過，未建立 Release；使用者另授權調查修正後發佈新 v1.12.4，保留既有 tags，並加入 Windows CI。實際結果見末節；既有 [v1.12.1 最終確認](#v1121-github-release-最終確認) 保留為歷史。P97–P103 工程保障與 OPM 更新的實測證據另記，不沿用歷史 PASS。Physical mobile／gamepad／OS IME／background-thermal／spoken AT／driver-reset 與實體可聽 audio 的限制仍保留。
+**目前 metadata：1.13.0／Apache-2.0，npm 未發佈。** 使用者授權提交官方 OPM.js 1.11.1 更新並發佈 GitHub `v1.13`；實際 CI／發佈結果見末節。既有版本、失敗 gates 與限制保留為歷史，不由新版本號推論額外認證。
 
 **P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
@@ -1280,3 +1280,17 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - CI 速度優化(2026-10-03,僅 workflow,未改 runtime/source):加入 pnpm store 與 Playwright browsers 的 `actions/cache`(key 含 OS／arch／lockfile hash;`pnpm_config_store_dir` 與 `PLAYWRIGHT_BROWSERS_PATH` 指向 `RUNNER_TEMP`),僅用於 ci.yml,release.yml 自身不使用快取。Run [37121405619](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37121405619) attempt 1(未命中)對 attempt 2(命中):macOS Playwright install 12–18s→1–2s、pnpm install 7–9s→4–5s;Ubuntu Playwright 22→14s(`--with-deps` 的 apt 仍執行);Windows 幾乎無差(214→192s、pnpm 24→25s)。Windows 的主要耗時是 Chromium `--with-deps` 執行的 Playwright `install_media_pack.ps1`(原碼 `installDependenciesWindows`),因此 Windows 不再傳 `--with-deps`:[CI 37122570595](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37122570595) 全部 success,Windows Chromium job 463s→263s。單次 hosted 計時含 runner 變異,不是統計樣本;關鍵路徑仍是 macOS production workload(約 520–590s,由量測本身決定)。
 - 2D 粒子 CPU 剖析(本機 Apple M5／managed Chromium 153／WebGL2,`benchmarks/particles2d`,32,632 活躍粒子):預設 Sprite pool 路徑 CPU submit 平均 5.6ms、粒子更新 3.25ms、60fps;同 workload 改用 `ParticleEmitter({ target: ParticleLayer2D })` 的 submit 平均 3.04ms(約 1.85×),更新相同。CPU profile 呈平坦分佈(collectBoundary2D 約 1.4ms、getSpriteQuad2D 約 0.7ms、getWorldBounds 約 0.4ms 等),沒有單一浪費熱點,因此未修改 runtime;早期紀錄的 20.76ms 為較舊版本數字,不代表目前。臨時 benchmark／profile 腳本已移除。
 - Starter smoke 並行化(2026-10-03):本機分段計時顯示每個 starter 的 pack／install／build 約 4s,真正耗時是約 100s 的真實時間遊玩(不加速時鐘、不重試),原本 `2d`、`3d` 串行共 210s。`scripts/starter-smoke.mjs` 新增選用 `--template 2d|3d`(預設仍兩者皆跑,`smoke:starters` 行為不變;未知選項／template 報錯,結果數必須等於選定 template 數),CI 將其拆成 `starter-games` matrix 兩個獨立 job,原 `release-surfaces` 改名為 Production workload and API compatibility 並不再跑 starter。本機單跑 `--template 3d` 106s passed。[CI 37123877905](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37123877905) 全部 success:2d／3d 各約 226s、production job 189s(原合併 job 521s),整個 run 484s 對前次 528s。總 wall time 只縮短約 44s,因為 macOS jobs 增至 8 個、同時執行數受 runner 並行上限限制,實際瓶頸轉為排隊;單次 hosted 計時,非統計樣本。
+
+## OPM.js 1.11.1 vendor 更新（2026-10-03，未提交／未發佈）
+
+- 更新至官方 [v1.11.1 release](https://github.com/JS-PACKAGE/OPM.js/releases/tag/v1.11.1)，附件 `opm.js-1.11.1.tgz` SHA256 `4f5ccfcc499c5100645bba97caf9a80d6d2a6e5229c404fc11006ee1a785d58e` 與 GitHub asset digest 相符。162 個完整官方 dist 檔及 LICENSE 在 source vendor／build canonical 路徑逐位元組一致；兩份封裝 allowlist 同步為 164 個 vendor entries，無官方 DSP 修改。
+- Adapter 內部正規化版本由 v6 更新為 v7；維持公開 v1 voice／legacy facade、八個隔離 slots、官方 panic／dispose 與既有預算，不公開上游新增功能、不宣稱本引擎效能改善。
+- frozen install、build、typecheck、127 files／1059 tests、lint、format:check、API 相容檢查（737 exports／2810 directional contracts、710 historical namespaces、五個 consumers）與 package hygiene 通過。Showcase 的 auto／WebGPU／WebGL2／Canvas2D 四條正式路徑皆 non-blank、無 browser errors。
+- 首次原生音訊 gate 被工作目錄檔案同步造成的 Vite page reload 中斷：頁面重置為零 contexts／無 gestures，driver timeout，未當作音訊通過。改在 `/tmp` 隔離相同 source／build bytes 後，managed Chromium 153.0.8010.12／macOS arm64 兩頁並行 native audio gate 通過，保留原門檻／workload、無 autoplay bypass；不發聲、不推論實體聽感或其他瀏覽器認證。
+- 更新目前版本文件並保留歷史驗收數字；XYZ.js metadata 維持 1.12.4，不提交、推送或發佈。本機 vendor 同步期間出現的 15 個非 canonical 重複檔保留移至 `/tmp/xyz-opm-sync-extras/`，前版官方 dist 備份於 `/tmp/xyz-opm-1.8-backup/`，未丟棄。
+
+## v1.13 發佈（2026-10-03）
+
+- 使用者授權提交及發佈 `v1.13`，package metadata 升為 `1.13.0`；沿既有 tag-triggered CI／Release workflow 封裝 `xyz.js-1.13.0.tgz` 與 `SHA256SUMS`。不 npm publish、不移動既有 tags、不降低 gates。
+- 納入上述官方 OPM.js 1.11.1 完整 vendor／v7 內部正規化與既有本機驗證，公開 1.x API、八個隔離 slots 及認證限制不變。前節「未提交／未發佈」描述更新當時狀態。
+- 升版後重新執行 frozen install、build、format:check 與 exact package hygiene 通過（`.vite/v1.13-package/run-y6yxZB/report.json`，含 extracted consumer／CLI smoke）；本輪不重複宣稱前節測試為新一次執行。CI／Release hosted 結果待新 tag 實際執行。

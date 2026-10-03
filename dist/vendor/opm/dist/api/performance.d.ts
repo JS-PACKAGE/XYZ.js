@@ -29,6 +29,9 @@ export interface PerformancePartOptions extends PerformancePartControls {
 export interface PerformanceNoteOptions {
     velocity?: number;
 }
+export interface PerformanceNoteOffOptions {
+    force?: boolean;
+}
 export interface PerformanceKeySnapshot {
     readonly key: number;
     readonly note: number;
@@ -52,7 +55,10 @@ export interface PerformancePartSnapshot {
     readonly keys: readonly PerformanceKeySnapshot[];
 }
 export interface Performance {
-    configurePart(part: number, options: Partial<PerformancePartOptions>): void;
+    /** preserveNotes keeps existing gates when only the voice changes; default false. */
+    configurePart(part: number, options: Partial<PerformancePartOptions>, policy?: {
+        preserveNotes?: boolean;
+    }): void;
     updatePart(part: number, controls: PerformancePartControls): void;
     /** Update one physical key; inactive mono keys store controls without touching the selected gate. */
     updateKey(part: number, key: number, controls: NoteControls): boolean;
@@ -60,10 +66,12 @@ export interface Performance {
     updatePartNotes(part: number, controls: NoteControls): void;
     /** Independent key identity, not an OPM admission receipt. OPM must already be started. */
     noteOn(part: number, note: number, options?: PerformanceNoteOptions): number;
-    noteOff(part: number, key: number): boolean;
+    noteOff(part: number, key: number, options?: PerformanceNoteOffOptions): boolean;
     sustain(part: number, on: boolean): void;
     allNotesOff(part?: number): void;
     getPart(part: number): PerformancePartSnapshot;
+    /** Detached effective part defaults, including resolved voice operator controls (not per-key overrides). */
+    getPartControls(part: number): Readonly<NoteControls>;
     dispose(): void;
 }
 /** Device-agnostic key policy. No context, timers, MIDI driver or global panic is created. */

@@ -7,7 +7,7 @@
 - 維護已完成的 Game／Scene／ECS、2D／3D、三級 fallback、Input 與 Audio 正式架構；不可把未驗證的新能力標為完成。
 - 每個階段先確認該階段 `ACCEPTANCE.md` 硬指標，完成實作與實際驗證後**立即只為該階段**建立 `[Pxx]` 前綴 commit；不能跨階段合併、不能推送（push 由使用者自行操作）。
 - 維持 core／graphics／ecs／math／assets／input／audio 模組邊界及 `src/index.ts` 統一公開入口。Game facade 不外洩 GPU handle 或要求一般使用者操作 ECS 裸資料；ECS 不另加公開套件入口。可調常數放在 `src/data/`。
-- TypeScript strict、ES2022、ESM 相對 import 加 `.js`、公開型別明確、無新增 runtime 依賴。OPM.js v1.8.0（官方 tag `v1.8`）須完整 vendor 並記錄 SHA256，保留 LICENSE／manifest，不改官方檔、不自製 DSP 或保留私人 patch。上游可選聲部數不改變引擎八個隔離 slot 的契約；vendor 升級不自動公開新功能或擴大認證範圍。
+- TypeScript strict、ES2022、ESM 相對 import 加 `.js`、公開型別明確、無新增 runtime 依賴。OPM.js v1.11.1（官方 tag `v1.11.1`）須完整 vendor 並記錄 SHA256，保留 LICENSE／manifest，不改官方檔、不自製 DSP 或保留私人 patch。Voice 內部正規化為 v7，公開 `OPMVoice` 保留 `version: 1` 契約。上游可選聲部數不改變引擎八個隔離 slot 的契約；vendor 升級不自動公開新功能或擴大認證範圍。
 - P06 起 `auto` 採 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗要報錯，不得靜默切換或以獨立範例假冒正式架構。
 - 不實作 `PLAN.md` 列出的非目標功能，不宣稱未驗證的瀏覽器或三 backend 相容性。
 

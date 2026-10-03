@@ -1,26 +1,9 @@
 import type { OPM } from './index.js';
-import type { BeatSequenceEvent } from './transport.js';
-import type { BarBeat, TempoPoint, TimeSignature } from '../core/transport.js';
-export interface ArrangementLayer {
-    name: string;
-    /** Loop length in quarter notes, 0 < length <= 256. Layers stay aligned to the global beat grid. */
-    length: number;
-    /** Beat events inside [0, length). Note durations may exceed the loop length. */
-    events: readonly BeatSequenceEvent[];
-    /** Admission importance 0..127 applied to every note in this layer (maximum with a note's own value). */
-    voicePriority?: number;
-}
-export interface ArrangementSection {
-    name: string;
-    layers: readonly string[];
-}
-export interface ArrangementOptions {
-    layers: readonly ArrangementLayer[];
-    sections: readonly ArrangementSection[];
-    initialSection: string;
+import type { ArrangementDefinition } from '../core/arrangement-definition.js';
+export type { ArrangementLayer, ArrangementSection } from '../core/arrangement-definition.js';
+import type { BarBeat, TempoPoint } from '../core/transport.js';
+export interface ArrangementOptions extends ArrangementDefinition {
     bpm?: number;
-    tempoMap?: readonly TempoPoint[];
-    timeSignature?: TimeSignature;
     horizon?: number;
     interval?: number;
     onError?: (error: Error) => void;
@@ -30,6 +13,12 @@ export interface ArrangementChangeOptions {
     quantize?: 'beat' | 'bar' | number;
     /** Removed layers may finish naturally instead of being released at the boundary. Default false. */
     preserveNotes?: boolean;
+    /** Linear gain fade in seconds, 0..10; default 0. Shared layers remain continuous. */
+    fade?: number;
+}
+export interface ArrangementGainOptions {
+    quantize?: 'beat' | 'bar' | number;
+    fade?: number;
 }
 export type ArrangementState = 'stopped' | 'starting' | 'running' | 'paused' | 'disposed';
 export interface ArrangementSnapshot {
@@ -61,6 +50,7 @@ export interface Arrangement {
     stop(): void;
     switchSection(name: string, options?: ArrangementChangeOptions): number;
     setLayer(name: string, enabled: boolean, options?: ArrangementChangeOptions): number;
+    setLayerGain(name: string, gain: number, options?: ArrangementGainOptions): number;
     /** Replaces tempo from the current beat onward; notes already admitted keep their admitted audio times. */
     setTempo(bpm: number): void;
     setTempoMap(map: readonly TempoPoint[]): void;
