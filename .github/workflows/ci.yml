@@ -139,16 +139,10 @@ jobs:
         run: |
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example gameplay2d --renderer webgl2
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example rendering2d --renderer webgl2
-      - name: Collect native headless Chromium crash evidence without changing its backend
-        if: runner.os == 'Windows' && matrix.engine == 'chromium'
-        shell: pwsh
-        run: ./scripts/windows-chromium-crash.ps1 -Phase setup
       - name: Deep native pixel and lifecycle regressions without retries
         if: success() || (failure() && runner.os == 'Windows')
         env:
           DEBUG: pw:browser
-          # Official symbol servers; availability for the pinned Playwright binary is not assumed.
-          _NT_SYMBOL_PATH: ${{ runner.os == 'Windows' && matrix.engine == 'chromium' && format('srv*{0}\xyz-native-symbols*https://msdl.microsoft.com/download/symbols;srv*{0}\xyz-native-symbols*https://chromium-browser-symsrv.commondatastorage.googleapis.com', runner.temp) || '' }}
         run: npx --yes pnpm@12.6.0 run regression:browser --browser ${{ matrix.engine }} ${{ matrix.engine == 'chromium' && '--require-webgpu' || '' }}
       - name: Desktop native interaction and reload
         if: success() || (failure() && runner.os == 'Windows')
@@ -159,11 +153,6 @@ jobs:
       - name: Retained bidi and grapheme editing pixel proofs
         if: success() || (failure() && runner.os == 'Windows')
         run: npx --yes pnpm@12.6.0 run smoke:text --browser ${{ matrix.engine }}
-      - name: Preserve native Windows application fault records
-        if: always() && runner.os == 'Windows' && matrix.engine == 'chromium'
-        shell: pwsh
-        run: |
-          ./scripts/windows-chromium-crash.ps1 -Phase collect
       - name: Preserve measured engine reports and pixel proofs
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -174,6 +163,47 @@ jobs:
             .vite/platform-browser/
             .vite/example-smoke/
             .vite/text-layout/
+            .vite/windows-host/
+          include-hidden-files: true
+          if-no-files-found: warn
+
+  windows-chromium-gpu-diagnostic:
+    name: Windows Chromium owned GPU native exception capture (diagnostic)
+    runs-on: windows-latest
+    timeout-minutes: 25
+    env:
+      XYZ_CHROMIUM_NATIVE_CAPTURE: approved-owned-gpu
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        env:
+          GIT_CONFIG_COUNT: '1'
+          GIT_CONFIG_KEY_0: core.autocrlf
+          GIT_CONFIG_VALUE_0: 'false'
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: '26'
+      - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
+      - run: npx --yes pnpm@12.6.0 run build
+      - name: Install the pinned Playwright Chromium
+        run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
+      - name: Acquire and verify official signed ProcDump
+        shell: pwsh
+        run: ./scripts/windows-chromium-crash.ps1 -Phase setup
+      - name: Reproduce the unchanged WebGL2 regression with owned GPU capture
+        run: npx --yes pnpm@12.6.0 run regression:browser --browser chromium --renderer webgl2 --output .vite/browser-regression-native-capture/chromium
+      - name: Preserve native dump inventory and identity records
+        if: always()
+        shell: pwsh
+        run: ./scripts/windows-chromium-crash.ps1 -Phase collect
+      - name: Upload diagnostic evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: windows-chromium-owned-gpu-diagnostic
+          path: |
+            .vite/browser-regression-native-capture/
             .vite/windows-host/
           include-hidden-files: true
           if-no-files-found: warn

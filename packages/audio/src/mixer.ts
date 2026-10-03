@@ -394,12 +394,15 @@ export class AudioMixer {
     for (const graph of this.graphs.values()) {
       const contextNow =
         graph.context === this.primary ? now : graph.context.currentTime;
+      // A current-time target can be processed in different render quanta by successive
+      // native calls. A short future anchor keeps hold and target on the same exact curve.
+      const anchor = contextNow + audioDefaults.controlLead;
       for (const name of names) {
         const bus = graph.buses[name],
           param = bus.duck.gain;
         // One captured clock serves every bus in this context for this control operation.
         // Keep the exact rendered target envelope; AudioParam.value is not a held value.
-        const held = duckValueAt(bus.duckPlan, contextNow);
+        const held = duckValueAt(bus.duckPlan, anchor);
         let previousTarget: number | undefined;
         for (const time of times) {
           let target = 1,
@@ -428,7 +431,7 @@ export class AudioMixer {
             }
           }
           if (target === previousTarget) continue;
-          const at = contextNow + (time - now);
+          const at = anchor + (time - now);
           const tau =
             Math.max(
               audioDefaults.gainSmoothing,
@@ -441,7 +444,7 @@ export class AudioMixer {
             if (
               bus.duckPlan.length === 1 &&
               previous &&
-              previous.at <= contextNow &&
+              previous.at <= anchor &&
               previous.target === target &&
               previous.tau === tau
             ) {
@@ -449,10 +452,10 @@ export class AudioMixer {
               continue;
             }
             if (typeof param.cancelAndHoldAtTime === 'function')
-              param.cancelAndHoldAtTime(contextNow);
+              param.cancelAndHoldAtTime(anchor);
             else {
-              param.cancelScheduledValues(contextNow);
-              param.setValueAtTime(held, contextNow);
+              param.cancelScheduledValues(anchor);
+              param.setValueAtTime(held, anchor);
             }
             bus.duckPlan.length = 0;
           }

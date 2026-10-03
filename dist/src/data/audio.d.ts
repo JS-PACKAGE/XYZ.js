@@ -10,4 +10,6 @@ export declare const audioDefaults: Readonly<{
     impulseSampleRate: 192000;
     duckAttack: 0.02;
     duckRelease: 0.2;
+    /** Immediate native control starts in the future so independent calls cannot straddle a render quantum. */
+    controlLead: 0.02;
 }>;

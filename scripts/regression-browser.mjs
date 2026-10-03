@@ -12,6 +12,7 @@ import {
   browserIdentity,
   probeBackends,
 } from './browser-launch.mjs';
+import { attachOwnedGpuCapture } from './windows-chromium-capture.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -46,6 +47,22 @@ const required = new Set(
   explicitlySelected || browserName === 'chromium' ? selected : ['canvas2d'],
 );
 if (options.has('--require-webgpu')) required.add('webgpu');
+const nativeCapture = process.env.XYZ_CHROMIUM_NATIVE_CAPTURE;
+if (
+  nativeCapture &&
+  (nativeCapture !== 'approved-owned-gpu' ||
+    process.platform !== 'win32' ||
+    process.env.GITHUB_ACTIONS !== 'true' ||
+    process.env.RUNNER_ENVIRONMENT !== 'github-hosted' ||
+    browserName !== 'chromium' ||
+    Boolean(process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) ||
+    !explicitlySelected ||
+    selected.length !== 1 ||
+    selected[0] === 'canvas2d')
+)
+  throw new Error(
+    'Owned GPU capture requires an approved Windows GitHub-hosted pinned Chromium diagnostic with one explicit GPU renderer and no executable override.',
+  );
 const port = Number(options.get('--port') ?? 5207);
 if (!Number.isInteger(port) || port < 1 || port > 65535)
   throw new Error('Port must be an integer from 1 to 65535.');
@@ -300,6 +317,7 @@ try {
         errors.push(message.text());
     });
     let result = { backend, result: 'FAIL', errors, phases: [] };
+    let gpuCapture;
     try {
       const url = `http://127.0.0.1:${port}/tests/browser/?renderer=${backend}`;
       await page.goto(`http://127.0.0.1:${port}/tests/browser/probe.html`, {
@@ -340,11 +358,23 @@ try {
       await page.locator('#destroy').click();
       await awaitState('destroyed');
       await runAuthoring(page, backend, result, awaitState);
-      await page.goto(
-        `http://127.0.0.1:${port}/tests/browser/native-profiles.html?renderer=${backend}`,
-        { waitUntil: 'domcontentloaded' },
-      );
-      await awaitState('passed');
+      if (nativeCapture) {
+        gpuCapture = await attachOwnedGpuCapture(browser, root, backend);
+        result.nativeCapture = gpuCapture.ready;
+      }
+      try {
+        await page.goto(
+          `http://127.0.0.1:${port}/tests/browser/native-profiles.html?renderer=${backend}`,
+          { waitUntil: 'domcontentloaded' },
+        );
+        await awaitState('passed');
+      } finally {
+        if (gpuCapture) {
+          const capture = gpuCapture;
+          gpuCapture = undefined;
+          await capture.stop();
+        }
+      }
       if (browserName === 'chromium' && backend !== 'canvas2d') {
         const loss = result.phases
           .flatMap((phase) => phase.scenarios ?? [])
@@ -421,7 +451,11 @@ try {
           errors.push(`Failure screenshot: ${screenshotError.message}`),
         );
     } finally {
-      await context.close();
+      try {
+        await gpuCapture?.stop();
+      } finally {
+        await context.close();
+      }
     }
     results.push(result);
   }
@@ -437,6 +471,9 @@ try {
         {
           ...browserIdentity(browserName, browser, launch),
           launchArgs: launch?.args,
+          ...(nativeCapture
+            ? { diagnosticOnly: true, timingCertification: false }
+            : {}),
           ...(startupError ? { error: startupError } : {}),
           results,
         },

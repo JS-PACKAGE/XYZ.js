@@ -1283,6 +1283,7 @@ Deployed-site CLI支援1-based `--shard index/count`，count≤32。先以sorted
 目前site與production／starter jobs使用macOS／Metal；native audio保留原Linux／PulseAudio環境、reference tolerance及獨立必要job。Linux／SwiftShader browser regression matrix另保留。原production baseline frame counts、measurement deadline與teardown threshold不變，不能宣稱Linux效能修復或universal FPS認證。Starter harness以可信鍵盤到公開HUD collection狀態，不再以wall-clock delay推測移動；其後自然玩法、saves及offline gates仍必要。操作見 [USAGE](USAGE-zh.md)，詳盡英文 [SECURITY](../SECURITY.md) 說明安全政策；實際hosted結果與原FAIL見 [ACCEPTANCE](../ACCEPTANCE.md)。
 
 v1.12.1 reliability patch保留已生效且target／tau未變的single-target duck envelope，不因ownership重疊重啟。新future transitions仍追加在原curve，target／tau或既有future plan改變則按captured native clock重建，不以sampled `AudioParam.value`猜hold。Portable-settings harness以可信remapped input到一個HUD gameplay second後驗downloaded checkpoint，原位移門檻不變。Native reference精度、concurrency、八context workload與owned teardown均保留。
+v1.12.4 duck scheduler 將立即 native control 錨定在各 context captured clock 之後 `audioDefaults.controlLead`（20 ms），不再使用已過去的時間。否則在負載下連續兩次 native 呼叫（hold、target）可能被不同 render quantum 處理而差一個 quantum；未來錨點讓兩者從同一條精確曲線求值。因此 ducking 起點較請求晚 20 ms；測試與獨立 native reference 使用同一排程時間。
 
 ## 62. 目前工程保障（P97–P103）
 

@@ -1,101 +1,189 @@
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet('setup', 'collect')]
-    [string] $Phase
+    [ValidateSet('setup', 'monitor', 'collect')]
+    [string] $Phase,
+    [string] $CaptureDirectory
 )
 
 $ErrorActionPreference = 'Stop'
 if (-not $IsWindows) { throw 'Chromium native crash collection requires Windows.' }
-$directory = Join-Path $PSScriptRoot '../.vite/windows-host'
-New-Item -ItemType Directory -Force $directory | Out-Null
-$directory = (Resolve-Path -LiteralPath $directory).Path
-$dumpFolder = Join-Path $directory 'crash-dumps'
-$key = 'HKLM:\SOFTWARE\Microsoft\Windows\Windows Error Reporting\LocalDumps\chrome-headless-shell.exe'
-$configurationPath = Join-Path $directory 'crash-collection.json'
+if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted' -or
+    $env:XYZ_CHROMIUM_NATIVE_CAPTURE -cne 'approved-owned-gpu') {
+    throw 'ProcDump is restricted to explicitly approved ephemeral GitHub-hosted diagnostics.'
+}
+$ownedDir = Join-Path $PSScriptRoot '../.vite/windows-host'
+New-Item -ItemType Directory -Force $ownedDir | Out-Null
+$ownedDir = (Resolve-Path -LiteralPath $ownedDir).Path
+$tool = Join-Path $ownedDir 'procdump/procdump64.exe'
+$configurationPath = Join-Path $ownedDir 'crash-collection.json'
 
-# The pinned Windows headless shell prints StackDumpExceptionFilter's stack and
-# returns EXCEPTION_CONTINUE_SEARCH; it is not Chrome's custom Crashpad client.
-# https://github.com/chromium/chromium/blob/153.0.8010.12/base/debug/stack_trace_win.cc
-# https://github.com/chromium/chromium/blob/153.0.8010.12/headless/lib/headless_content_main_delegate.cc
-# WER's application key must match the actual executable, including its suffix.
-# https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps
+function Assert-TrustedTool {
+    $signature = Get-AuthenticodeSignature -LiteralPath $tool
+    if ($signature.Status -ne 'Valid' -or
+        $signature.SignerCertificate.Subject -notmatch '(^|,\s*)O=Microsoft Corporation(,|$)') {
+        throw 'ProcDump must have a valid Authenticode signature from Microsoft Corporation.'
+    }
+    return $signature
+}
+function Save-Json($path, $value) {
+    # Atomic publication prevents the Node readiness handshake reading partial JSON.
+    $temporary = "$path.tmp"
+    $value | ConvertTo-Json -Depth 12 | Set-Content -LiteralPath $temporary -Encoding utf8
+    Move-Item -LiteralPath $temporary -Destination $path -Force
+}
+
 if ($Phase -eq 'setup') {
-    if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_ENVIRONMENT -cne 'github-hosted') {
-        throw 'Crash-dump registry configuration is restricted to an ephemeral GitHub-hosted runner.'
-    }
-    $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
-    if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
-        throw 'WER local dump configuration requires an administrator.'
-    }
-    New-Item -ItemType Directory -Force $dumpFolder | Out-Null
-    New-Item -Path $key -Force | Out-Null
-    New-ItemProperty -Path $key -Name DumpFolder -Value $dumpFolder -PropertyType ExpandString -Force | Out-Null
-    New-ItemProperty -Path $key -Name DumpType -Value 1 -PropertyType DWord -Force | Out-Null
-    New-ItemProperty -Path $key -Name DumpCount -Value 4 -PropertyType DWord -Force | Out-Null
-    $actual = Get-ItemProperty -LiteralPath $key
-    if ($actual.DumpFolder -cne $dumpFolder -or $actual.DumpType -ne 1 -or $actual.DumpCount -ne 4) {
-        throw 'WER settings did not retain the requested application-specific mini dump configuration.'
-    }
-    [ordered]@{
+    $url = 'https://download.sysinternals.com/files/Procdump.zip'
+    $archive = Join-Path $ownedDir 'Procdump.zip'
+    Invoke-WebRequest -Uri $url -OutFile $archive
+    Expand-Archive -LiteralPath $archive -DestinationPath (Join-Path $ownedDir 'procdump') -Force
+    $signature = Assert-TrustedTool
+    Save-Json $configurationPath ([ordered]@{
         configuredAt = [DateTimeOffset]::UtcNow.ToString('o')
-        executable = 'chrome-headless-shell.exe'
-        registryKey = $key
-        dumpFolder = $actual.DumpFolder
-        dumpType = $actual.DumpType
-        dumpCount = $actual.DumpCount
-        browserArgumentsChanged = $false
-        symbolPath = $env:_NT_SYMBOL_PATH
+        packageUrl = $url
+        packageSha256 = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash
+        tool = $tool
+        toolSha256 = (Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash
+        signatureStatus = [string]$signature.Status
+        signer = $signature.SignerCertificate.Subject
+        signerThumbprint = $signature.SignerCertificate.Thumbprint
+        eulaApproval = 'explicit-user-approved; -accepteula supplied only to owned diagnostic invocation'
+        timingCertification = $false
         matchingBrowserSymbols = 'UNCONFIRMED'
-        sources = @(
-            'https://github.com/chromium/chromium/blob/153.0.8010.12/base/debug/stack_trace_win.cc',
-            'https://github.com/chromium/chromium/blob/153.0.8010.12/headless/lib/headless_content_main_delegate.cc',
-            'https://learn.microsoft.com/en-us/windows/win32/wer/collecting-user-mode-dumps',
-            'https://www.chromium.org/developers/how-tos/debugging-on-windows/windbg-help/'
-        )
-        captureStatus = 'CONFIGURED_NOT_YET_CAPTURED'
-    } | ConvertTo-Json | Set-Content -LiteralPath $configurationPath -Encoding utf8
+        sources = @('https://learn.microsoft.com/en-us/sysinternals/downloads/procdump',
+            'https://learn.microsoft.com/en-us/windows/win32/api/debugapi/nf-debugapi-checkremotedebuggerpresent',
+            'https://learn.microsoft.com/en-us/windows/win32/cimwin32prov/win32-process')
+    })
     return
 }
 
-$configuration = Get-Content -LiteralPath $configurationPath -Raw | ConvertFrom-Json
-$start = [DateTimeOffset]::Parse($configuration.configuredAt).LocalDateTime
-$faults = @()
-$eventQueryError = $null
-try {
-    $faults = @(Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Id = 1000,1001; StartTime = $start } |
-        Where-Object { $_.Message -match 'chrome-headless-shell\.exe' } |
-        Select-Object TimeCreated,Id,ProviderName,Message)
-} catch {
-    # An empty Windows event query throws too; retain the real error instead of
-    # treating absent events as proof that the native process did not crash.
-    $eventQueryError = $_.Exception.Message
+if ($Phase -eq 'monitor') {
+    $signature = Assert-TrustedTool
+    $configuration = Get-Content -LiteralPath $configurationPath -Raw | ConvertFrom-Json
+    if ((Get-FileHash -LiteralPath $tool -Algorithm SHA256).Hash -cne $configuration.toolSha256) {
+        throw 'ProcDump changed after signature-verified setup.'
+    }
+    $capture = (Resolve-Path -LiteralPath $CaptureDirectory).Path
+    if (-not $capture.StartsWith("$ownedDir$([IO.Path]::DirectorySeparatorChar)", [StringComparison]::OrdinalIgnoreCase)) {
+        throw 'Capture must remain inside the owned artifact directory.'
+    }
+    $request = Get-Content -LiteralPath (Join-Path $capture 'request.json') -Raw | ConvertFrom-Json
+    $browserPid = [int]$request.browserPid
+    $gpuPid = [int]$request.gpuPid
+    $nodePid = [int]$request.nodePid
+    if ($browserPid -le 0 -or $gpuPid -le 0 -or $nodePid -le 0) { throw 'Invalid owned PID.' }
+    $cdpBrowser = @($request.cdp.processInfo | Where-Object { $_.type -ceq 'browser' -and $_.id -eq $browserPid })
+    $cdpGpu = @($request.cdp.processInfo | Where-Object { $_.type -ceq 'GPU' -and $_.id -eq $gpuPid })
+    if ($cdpBrowser.Count -ne 1 -or $cdpGpu.Count -ne 1) { throw 'CDP did not identify the owned browser and GPU.' }
+    $expectedExecutable = (Resolve-Path -LiteralPath $request.executable).Path
+    $browserProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$browserPid"
+    $gpuProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$gpuPid"
+    $nodeProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$nodePid"
+    if (-not $browserProcess -or -not $gpuProcess -or -not $nodeProcess -or
+        $browserProcess.ParentProcessId -ne $nodePid -or $gpuProcess.ParentProcessId -ne $browserPid -or
+        $nodeProcess.ExecutablePath -ine $request.nodeExecutable -or
+        $browserProcess.ExecutablePath -ine $expectedExecutable -or $gpuProcess.ExecutablePath -ine $expectedExecutable -or
+        $browserProcess.CommandLine -match '(^|\s)--type=' -or
+        $gpuProcess.CommandLine -notmatch '(^|\s)--type=gpu-process(\s|$)' -or
+        $browserProcess.CreationDate -lt $nodeProcess.CreationDate -or $gpuProcess.CreationDate -lt $browserProcess.CreationDate) {
+        throw 'Win32_Process ownership/executable/command-line/start-time handshake failed.'
+    }
+    Add-Type -TypeDefinition @'
+using System;
+using System.Runtime.InteropServices;
+public static class OwnedGpuDebug {
+    [DllImport("kernel32.dll", SetLastError=true)]
+    public static extern bool CheckRemoteDebuggerPresent(IntPtr process, out bool present);
 }
-ConvertTo-Json -InputObject $faults -Depth 5 | Set-Content -LiteralPath (Join-Path $directory 'application-faults.json') -Encoding utf8
-$dumps = @(Get-ChildItem -LiteralPath $dumpFolder -Filter '*.dmp' -File | ForEach-Object {
+'@
+    $target = [Diagnostics.Process]::GetProcessById($gpuPid)
+    $debugged = $false
+    if (-not [OwnedGpuDebug]::CheckRemoteDebuggerPresent($target.Handle, [ref]$debugged) -or $debugged) {
+        throw 'GPU debugger state unavailable or already debugged; refusing attachment.'
+    }
+    $dumpFolder = Join-Path $capture 'crash-dumps'
+    New-Item -ItemType Directory $dumpFolder | Out-Null
+    # Full memory is explicitly approved and preserves dynamically generated fault opcodes.
+    $arguments = @('-accepteula', '-ma', '-e', '1', '-f', 'C000001D', '-n', '1', [string]$gpuPid, "`"$dumpFolder`"")
+    $stdout = Join-Path $capture 'procdump.stdout.log'
+    $stderr = Join-Path $capture 'procdump.stderr.log'
+    $record = [ordered]@{
+        startedAt = [DateTimeOffset]::UtcNow.ToString('o'); tool = $tool; arguments = $arguments
+        browser = $browserProcess | Select-Object ProcessId,ParentProcessId,ExecutablePath,CommandLine,CreationDate
+        gpu = $gpuProcess | Select-Object ProcessId,ParentProcessId,ExecutablePath,CommandLine,CreationDate
+        executableSha256 = (Get-FileHash -LiteralPath $expectedExecutable -Algorithm SHA256).Hash
+        readyAt = $null; exitCode = $null; error = $null; timingCertification = $false
+    }
+    $monitor = $null
+    try {
+        $monitor = Start-Process -FilePath $tool -ArgumentList $arguments -PassThru -NoNewWindow -RedirectStandardOutput $stdout -RedirectStandardError $stderr
+        $record.monitorPid = $monitor.Id
+        $deadline = [DateTimeOffset]::UtcNow.AddSeconds(30)
+        do {
+            $monitor.Refresh()
+            if ($monitor.HasExited) { throw 'ProcDump exited before debugger readiness.' }
+            $current = Get-CimInstance Win32_Process -Filter "ProcessId=$gpuPid"
+            if (-not $current -or $current.CreationDate -ne $gpuProcess.CreationDate -or $current.ParentProcessId -ne $browserPid) {
+                throw 'GPU identity changed before readiness.'
+            }
+            $debugged = $false
+            if (-not [OwnedGpuDebug]::CheckRemoteDebuggerPresent($target.Handle, [ref]$debugged)) {
+                throw 'Cannot verify GPU debugger attachment.'
+            }
+            $log = Get-Content -LiteralPath $stdout -Raw -ErrorAction SilentlyContinue
+            if ($debugged -and $log -match 'Press Ctrl-C to end monitoring') { break }
+            if ([DateTimeOffset]::UtcNow -gt $deadline) { throw 'ProcDump debugger readiness deadline exceeded.' }
+            Start-Sleep -Milliseconds 100
+        } while ($true)
+        $record.readyAt = [DateTimeOffset]::UtcNow.ToString('o')
+        Save-Json (Join-Path $capture 'ready.json') $record
+        while (-not (Test-Path -LiteralPath (Join-Path $capture 'stop'))) {
+            $monitor.Refresh()
+            if ($monitor.HasExited) { break }
+            # Parent disappearance must not leave an attached debugger on the runner.
+            $owner = Get-CimInstance Win32_Process -Filter "ProcessId=$nodePid"
+            if (-not $owner -or $owner.CreationDate -ne $nodeProcess.CreationDate) { break }
+            Start-Sleep -Milliseconds 100
+        }
+    } catch {
+        $record.error = $_.Exception.Message
+        throw
+    } finally {
+        try {
+            if ($monitor) {
+                $monitor.Refresh()
+                if (-not $monitor.HasExited) {
+                    # Microsoft's documented -cancel is Ctrl+C-equivalent: detach/resume, never kill the browser.
+                    & $tool -accepteula -cancel $gpuPid 2>&1 | Set-Content -LiteralPath (Join-Path $capture 'cancel.log')
+                    $record.cancelExitCode = $LASTEXITCODE
+                }
+                $monitor.WaitForExit()
+                $record.exitCode = $monitor.ExitCode
+                $record.exitedAt = [DateTimeOffset]::UtcNow.ToString('o')
+            }
+        } finally {
+            Save-Json (Join-Path $capture 'monitor-result.json') $record
+            $target.Dispose()
+        }
+    }
+    return
+}
+
+$dumps = @(Get-ChildItem -LiteralPath $ownedDir -Recurse -Filter '*.dmp' -File | ForEach-Object {
     $stream = [IO.File]::OpenRead($_.FullName)
     try {
         $header = [byte[]]::new(4)
-        $read = $stream.Read($header, 0, $header.Length)
-        $minidumpSignature = $read -eq 4 -and [Text.Encoding]::ASCII.GetString($header) -ceq 'MDMP'
+        $valid = $stream.Read($header, 0, 4) -eq 4 -and [Text.Encoding]::ASCII.GetString($header) -ceq 'MDMP'
     } finally { $stream.Dispose() }
     [ordered]@{
-        file = $_.Name
-        bytes = $_.Length
+        file = [IO.Path]::GetRelativePath($ownedDir, $_.FullName); bytes = $_.Length
         lastWriteTimeUtc = $_.LastWriteTimeUtc.ToString('o')
         sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
-        minidumpSignature = $minidumpSignature
+        minidumpSignature = $valid
     }
 })
-[ordered]@{
-    collectedAt = [DateTimeOffset]::UtcNow.ToString('o')
-    executable = $configuration.executable
-    registryKey = $key
-    dumpFolder = $dumpFolder
-    captureStatus = $(if (@($dumps | Where-Object { $_.minidumpSignature }).Count -gt 0) { 'DUMP_CAPTURED_NOT_ANALYZED' } else { 'NO_VALID_DUMP_CAPTURED' })
-    dumps = $dumps
-    applicationFaultCount = $faults.Count
-    eventQueryError = $eventQueryError
-    symbolPath = $env:_NT_SYMBOL_PATH
-    matchingBrowserSymbols = 'UNCONFIRMED'
-    sources = $configuration.sources
-} | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $directory 'crash-dump-inventory.json') -Encoding utf8
+Save-Json (Join-Path $ownedDir 'crash-dump-inventory.json') ([ordered]@{
+    collectedAt = [DateTimeOffset]::UtcNow.ToString('o'); dumps = $dumps
+    captureStatus = $(if (@($dumps | Where-Object { $_.minidumpSignature }).Count) { 'DUMP_CAPTURED_NOT_ANALYZED' } else { 'NO_VALID_DUMP_CAPTURED' })
+    timingCertification = $false; matchingBrowserSymbols = 'UNCONFIRMED'
+})

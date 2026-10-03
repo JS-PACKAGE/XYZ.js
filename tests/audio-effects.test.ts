@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { audioDefaults } from '../src/data/audio.js';
 import { GainTimeline } from '../packages/audio/src/gain-timeline.js';
 import { AudioMixer } from '../packages/audio/src/mixer.js';
 import {
@@ -227,18 +228,22 @@ describe('independent mixer clocks', () => {
     ]);
     const first = mixer.acquire('sfx');
     native.time = 0.1;
-    const rendered = mixer.analyser('music') as unknown as RenderNode,
-      held = 0.2 + 0.8 * Math.exp(-1);
+    const lead = audioDefaults.controlLead,
+      rendered = mixer.analyser('music') as unknown as RenderNode,
+      held = 0.2 + 0.8 * Math.exp(-(0.1 - lead) / 0.1);
     expect(rendered.render(0.1)).toBeCloseTo(held);
     const second = mixer.acquire('sfx');
     expect(rendered.render(0.1)).toBeCloseTo(held);
     first.release();
     native.time = 0.2;
+    // Native control begins one lead ahead, so the attack curve is still unchanged now.
     const releasedFrom = 0.2 + 0.8 * Math.exp(-2);
     second.release();
-    expect(rendered.render(0.2)).toBeCloseTo(releasedFrom);
+    expect(rendered.render(0.2)).toBeCloseTo(
+      0.2 + 0.8 * Math.exp(-(0.2 - lead) / 0.1),
+    );
     expect(rendered.render(0.4)).toBeCloseTo(
-      1 + (releasedFrom - 1) * Math.exp(-1),
+      1 + (releasedFrom - 1) * Math.exp(-(0.2 - lead) / 0.2),
     );
     mixer.destroy();
   });
@@ -269,17 +274,22 @@ describe('independent mixer clocks', () => {
         },
       ]);
       const rendered = mixer.analyser('music') as unknown as RenderNode;
-      expect(rendered.render(0.2)).toBeCloseTo(0.2 + 0.8 * Math.exp(-1.5));
+      const lead = audioDefaults.controlLead;
+      expect(rendered.render(0.2)).toBeCloseTo(
+        0.2 + 0.8 * Math.exp(-1 - (0.1 - lead) / 0.2),
+      );
       native.time = 0.2;
       first.release(0.2);
       const releaseFrom = 0.2 + 0.8 * Math.exp(-2.5);
       expect(rendered.render(0.5)).toBeCloseTo(
-        1 + (releaseFrom - 1) * Math.exp(-0.5),
+        1 + (releaseFrom - 1) * Math.exp(-(0.1 - lead) / 0.2),
       );
       native.time = 0.3;
       mixer.acquire('sfx');
       // The new owner keeps ducking beyond the first owner's scheduled release.
-      expect(rendered.render(0.6)).toBeCloseTo(0.2 + 0.8 * Math.exp(-3.5));
+      expect(rendered.render(0.6)).toBeCloseTo(
+        0.2 + 0.8 * Math.exp(-2 - (0.3 - lead) / 0.2),
+      );
       mixer.destroy();
     });
 });
