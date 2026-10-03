@@ -73,6 +73,16 @@ export function frameProofs(
   let pending:
     | { resolve(proof: FrameProof): void; reject(error: unknown): void }
     | undefined;
+  let frameStarted = false;
+  canvas.addEventListener('webglcontextlost', (event) => {
+    const { statusMessage } = event as WebGLContextEvent;
+    recordGraphicsEvent(
+      `WebGL context lost: ${statusMessage || 'No driver status message.'}`,
+    );
+  });
+  canvas.addEventListener('webglcontextrestored', () => {
+    recordGraphicsEvent('WebGL context restored');
+  });
   const beginFrame = renderer.beginFrame.bind(renderer);
   const endFrame = renderer.endFrame.bind(renderer);
   const copy = document.createElement('canvas');
@@ -105,7 +115,9 @@ export function frameProofs(
         configuredDevice = device;
       }
     }
+    const previousFrame = renderer.stats.frame;
     beginFrame();
+    frameStarted = renderer.stats.frame > previousFrame;
   };
 
   const capture = async (stats: RenderStats): Promise<FrameProof> => {
@@ -171,6 +183,15 @@ export function frameProofs(
       const request = pending;
       if (!request) return;
       pending = undefined;
+      if (!frameStarted) {
+        request.reject(
+          new Error(
+            'Frame proof requires a newly submitted frame; native recovery skipped this frame.',
+          ),
+        );
+        return;
+      }
+      frameStarted = false;
       void capture({ ...renderer.stats }).then(request.resolve, request.reject);
     } catch (error) {
       pending?.reject(error);

@@ -33,6 +33,7 @@ export function validateProfile(profile) {
     'backend',
     'quality',
     'device',
+    'presentation',
     'gpu',
     'launchArguments',
   ])
@@ -56,7 +57,8 @@ export function validateProfile(profile) {
     profile.expected.browserMajor < 1 ||
     !Number.isInteger(profile.expected.hardwareConcurrency) ||
     profile.expected.hardwareConcurrency < 1 ||
-    !Array.isArray(profile.expected.launchArguments)
+    !Array.isArray(profile.expected.launchArguments) ||
+    !['headless', 'native-foreground'].includes(profile.expected.presentation)
   )
     throw new Error('Invalid pinned browser/host identity.');
   if (
@@ -96,6 +98,7 @@ export function profileIdentity(result, host) {
     backend: result.backend,
     quality: result.quality,
     device: result.deviceProfile.name,
+    presentation: result.presentation?.mode ?? null,
     launchArguments: result.launchArguments,
   };
 }

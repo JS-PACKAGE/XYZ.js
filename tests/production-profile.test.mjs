@@ -44,6 +44,7 @@ function result(run = 1) {
     operations: { teardownWallMs: 5000 },
     browser: { version: '153.0.0.1' },
     deviceProfile: { name: 'native' },
+    presentation: { mode: 'headless' },
     errors: [],
     provenance: {
       hardwareConcurrency: 3,
@@ -107,6 +108,22 @@ describe('pinned production performance policy', () => {
     sample.provenance.gpu = structuredClone(profile.expected.gpu);
     sample.counts.measuredFrames++;
     expect(evaluateProfile(sample, profile, host, 5000).status).toBe('BLOCKED');
+  });
+  it('blocks changed or unavailable presentation rather than reusing another mode’s profile', () => {
+    const profile = baseline();
+    const sample = result();
+    sample.presentation.mode = 'native-foreground';
+    const gate = evaluateProfile(sample, profile, host, 5000);
+    expect(gate.status).toBe('BLOCKED');
+    expect(gate.mismatches).toContainEqual({
+      path: 'identity.presentation',
+      expected: 'headless',
+      actual: 'native-foreground',
+    });
+    delete sample.presentation;
+    expect(evaluateProfile(sample, profile, host, 5000).status).toBe('BLOCKED');
+    delete profile.expected.presentation;
+    expect(() => validateProfile(profile)).toThrow();
   });
   it('preserves lifecycle failure independently of profile and distinguishes functional failure', () => {
     const sample = result();

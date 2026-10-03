@@ -319,10 +319,11 @@ export async function assetProject(
   }
 }
 
+// Normalize both paths: native realpath expands Windows 8.3 aliases unlike the ESM loader.
 if (
   process.argv[1] &&
   (await realpath(process.argv[1]).catch(() => undefined)) ===
-    fileURLToPath(import.meta.url)
+    (await realpath(fileURLToPath(import.meta.url)))
 ) {
   const controller = new AbortController();
   const interrupt = () =>

@@ -33,7 +33,7 @@ fn sheenLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32) -> f32 {
 layout(std140) uniform SheenLookup { vec4 sheenLookup[${t}]; };
 float sheenSample(int x, int y) {
   int index = y*${e}+x;
-  return sheenLookup[index/4][index%4];
+  return vec4Component(sheenLookup[index/4],index%4);
 }
 float sheenAlbedo(float nv, float rough) {
   vec2 p = clamp(vec2(nv,rough)*${e}.0-.5,vec2(0.0),vec2(${e-1}.0));

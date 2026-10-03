@@ -6,7 +6,7 @@
     "status": "UNEXECUTED_INITIAL_POLICY",
     "basis": "v1.12.1 hosted single-run observations: steady RAF p95 50.25/66.75 ms and submit p95 1.75/17.25 ms for 2D/3D. These are observations, not repeated calibration. New workload bounds are explicit provisional operator ceilings, not measured baselines.",
     "review": "Review all bounds before adoption. Repeated calibration must happen on the intended host in a separate command; do not generate and compare a baseline in the gate run.",
-    "hostScope": "macOS arm64, Chromium major 153, three browser-visible CPUs, exact ANGLE Metal Apple Paravirtual GPU and launch arguments. Deliberately pins the hosted runner class rather than an unknown CPU model/OS patch. Changed identity blocks. No physical-device, FPS or calibrated-host certification."
+    "hostScope": "macOS arm64, Chromium major 153, three browser-visible CPUs, exact ANGLE Metal Apple Paravirtual GPU, native foreground presentation and launch arguments. Deliberately pins the hosted runner class rather than an unknown CPU model/OS patch. Changed identity blocks. No physical-device, FPS or calibrated-host certification."
   },
   "expected": {
     "platform": "darwin",
@@ -16,6 +16,7 @@
     "backend": "webgl2",
     "quality": "baseline",
     "device": "native",
+    "presentation": "native-foreground",
     "gpu": {
       "source": "WEBGL_debug_renderer_info on renderer canvas",
       "vendor": "Google Inc. (Apple)",

@@ -88,7 +88,7 @@ interface IMMDeviceEnumerator {
     void EnumAudioEndpoints(int flow, uint states, out IMMDeviceCollection devices);
     [PreserveSig] int GetDefaultAudioEndpoint(int flow, int role, out IMMDevice device);
 }
-[ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-C0A7B1E3BD19"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+[ComImport, Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E"), InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 interface IMMDeviceCollection {
     void GetCount(out uint count);
     void Item(uint index, out IMMDevice device);
@@ -169,9 +169,10 @@ public static class XYZWindowsAudio {
     if ($evidence.before.errors.Count -ne 0) {
         throw 'Pre-install audio inventory could not be collected completely.'
     }
-    # Microsoft documents bit 1 as kernel enforcement, bit 2 as test signing and bit 0x80 as debugger bypass.
-    if (($evidence.before.codeIntegrityOptions -band 1) -eq 0 -or ($evidence.before.codeIntegrityOptions -band 0x82) -ne 0) {
-        throw 'Native kernel driver signing enforcement must be enabled without test-signing or debugger bypass.'
+    # Preserve the hosted runner's approved existing test-signing state; independently require official Authenticode signatures below.
+    # Kernel enforcement must remain enabled and debugger bypass remains forbidden.
+    if (($evidence.before.codeIntegrityOptions -band 1) -eq 0 -or ($evidence.before.codeIntegrityOptions -band 0x80) -ne 0) {
+        throw 'Native kernel driver signing enforcement must be enabled without debugger bypass.'
     }
     if ([string]::IsNullOrWhiteSpace($env:RUNNER_TEMP)) { throw 'RUNNER_TEMP is required.' }
     $tempDirectory = Join-Path $env:RUNNER_TEMP ("xyz-windows-audio-" + [Guid]::NewGuid().ToString('N'))

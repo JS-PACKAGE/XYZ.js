@@ -12,6 +12,12 @@ import { browserLaunchOptions, browserIdentity } from './browser-launch.mjs';
 import { probeGpuTimestamps } from './gpu-timing-probe.mjs';
 import { startSoakObservability } from './soak-observability.mjs';
 import {
+  launchForegroundBrowser,
+  installForegroundObserver,
+  inspectForegroundPage,
+  readForegroundObserver,
+} from './production-foreground.mjs';
+import {
   validateProfile,
   evaluateProfile,
   calibrateProfile,
@@ -22,7 +28,7 @@ const options = new Map(),
   limits = [];
 const args = process.argv.slice(2);
 const usage =
-  'Usage: node scripts/production-workloads.mjs [--renderer webgpu|webgl2|canvas2d] [--quality baseline|low|high] [--device native|simulated-low-tier|simulated-low-tier-heavy] [--workloads comma,separated] [--profile pinned.json | --calibrate new.json --runs 5] [--output directory] [--port number] [--limit metric.path=max] ...';
+  'Usage: node scripts/production-workloads.mjs [--renderer webgpu|webgl2|canvas2d] [--quality baseline|low|high] [--device native|simulated-low-tier|simulated-low-tier-heavy] [--presentation headless|native-foreground] [--workloads comma,separated] [--profile pinned.json | --calibrate new.json --runs 5] [--output directory] [--port number] [--limit metric.path=max] ...';
 for (let i = 0; i < args.length; i++) {
   const name = args[i],
     value = args[++i];
@@ -34,6 +40,7 @@ for (let i = 0; i < args.length; i++) {
       '--limit',
       '--quality',
       '--device',
+      '--presentation',
       '--workloads',
       '--profile',
       '--calibrate',
@@ -78,6 +85,13 @@ if (
   !['native', 'simulated-low-tier', 'simulated-low-tier-heavy'].includes(device)
 )
   throw new Error('Unknown device pressure profile.');
+// Preserve the original headless contract unless native macOS presentation is
+// explicitly requested. A foreground request never falls back to headless.
+const presentationMode = options.get('--presentation') ?? 'headless';
+if (!['headless', 'native-foreground'].includes(presentationMode))
+  throw new Error('Unknown presentation mode.');
+if (presentationMode === 'native-foreground' && process.platform !== 'darwin')
+  throw new Error('Native foreground production requires a macOS desktop.');
 const available =
   renderer === 'canvas2d'
     ? ['2d', 'dense2d', 'navigation']
@@ -178,6 +192,10 @@ const server = await createServer({
   },
 });
 let browser;
+let presentationEvidence = {
+  mode: presentationMode,
+  headless: presentationMode === 'headless',
+};
 const results = [],
   measurements = [];
 let calibrationError;
@@ -185,7 +203,12 @@ try {
   await server.listen();
   const launch = await browserLaunchOptions('chromium');
   launch.args = [...(launch.args ?? []), '--mute-audio'];
-  browser = await chromium.launch(launch);
+  if (presentationMode === 'native-foreground') {
+    launch.headless = false;
+    const launched = await launchForegroundBrowser(chromium, launch);
+    browser = launched.browser;
+    presentationEvidence = launched.evidence;
+  } else browser = await chromium.launch(launch);
   for (let run = 1; run <= runs; run++) {
     for (const workload of workloads) {
       const prefix = calibrating ? `run-${run}-${workload}` : workload;
@@ -196,15 +219,38 @@ try {
         },
         deviceScaleFactor: 1,
       });
-      const page = await context.newPage();
+      let page;
+      const presentation = { ...presentationEvidence };
       const pressure = soakProfiles[device],
         errors = [];
-      page.on('pageerror', (error) => errors.push(String(error)));
       let observations, session;
       try {
+        if (presentationMode === 'native-foreground')
+          await installForegroundObserver(context);
+        page = await context.newPage();
+        page.on('pageerror', (error) => errors.push(String(error)));
         session =
-          device === 'native' ? undefined : await context.newCDPSession(page);
-        if (session) {
+          device !== 'native' || presentationMode === 'native-foreground'
+            ? await context.newCDPSession(page)
+            : undefined;
+        if (presentationMode === 'native-foreground') {
+          // Playwright otherwise forces focus/visibility even in a headed browser.
+          await session.send('Emulation.setFocusEmulationEnabled', {
+            enabled: false,
+          });
+          presentation.focusEmulationEnabled = false;
+          presentation.before = await inspectForegroundPage(
+            session,
+            page,
+            presentationEvidence,
+            true,
+          );
+          if (!presentation.before.valid)
+            throw new Error(
+              'Browser did not become a real native foreground normal window before navigation.',
+            );
+        }
+        if (device !== 'native') {
           await session.send('Emulation.setCPUThrottlingRate', {
             rate: pressure.cpuRate,
           });
@@ -249,6 +295,21 @@ try {
           { timeout: 180000 },
         );
         const result = JSON.parse(await page.locator('#result').textContent());
+        if (presentationMode === 'native-foreground') {
+          presentation.after = await inspectForegroundPage(
+            session,
+            page,
+            presentationEvidence,
+          );
+          presentation.observer = await readForegroundObserver(page, result);
+          if (!presentation.after.valid || !presentation.observer.valid) {
+            const presentationError =
+              'Production measurement lost real native foreground, page visibility/focus, or observer coverage.';
+            result.error ??= presentationError;
+            errors.push(presentationError);
+          }
+        }
+        result.presentation = presentation;
         result.nativeObservations = await observations.stop();
         observations = undefined;
         result.deviceProfile = {
@@ -256,9 +317,10 @@ try {
           ...pressure,
           simulated: device !== 'native',
           actualLowTierHardware: false,
-          source: session
-            ? 'CDP CPU throttling + network emulation'
-            : 'Native owned host, see browser provenance',
+          source:
+            device !== 'native'
+              ? 'CDP CPU throttling + network emulation'
+              : 'Native owned host, see browser provenance',
         };
         result.browser = browserIdentity('chromium', browser, launch);
         result.launchArguments = launch.args;
@@ -314,7 +376,7 @@ try {
           join(directory, `${prefix}.json`),
           `${JSON.stringify(result, null, 2)}\n`,
         );
-        results.push({ run, workload, ...result.gate });
+        results.push({ run, workload, presentation, ...result.gate });
         measurements.push(result);
         if (
           calibrating &&
@@ -337,6 +399,7 @@ try {
           errors,
           host,
           engine,
+          presentation,
         };
         results.push(result);
         await writeFile(
@@ -394,6 +457,7 @@ try {
     directory,
     host,
     engine,
+    presentation: presentationEvidence,
     plannedRuns: runs,
     workloads,
     results,

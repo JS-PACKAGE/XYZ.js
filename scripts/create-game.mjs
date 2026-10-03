@@ -123,10 +123,11 @@ export async function createGame(args) {
     `Created ${template} game at ${target}\nNext: pnpm --dir "${target}" install && pnpm --dir "${target}" dev\nBuild: pnpm --dir "${target}" build\nNo install, publish, or external command was run.`,
   );
 }
+// Normalize both paths: native realpath expands Windows 8.3 aliases unlike the ESM loader.
 if (
   process.argv[1] &&
   (await realpath(process.argv[1]).catch(() => undefined)) ===
-    fileURLToPath(import.meta.url)
+    (await realpath(fileURLToPath(import.meta.url)))
 ) {
   createGame(process.argv.slice(2)).catch((error) => {
     console.error(error.message);

@@ -230,10 +230,10 @@ jobs:
       - name: Enforce host-scoped production frame, hitch and lifecycle budgets
         if: success() || failure()
         # Explicit initial operator policy, not repeated hosted calibration or a universal FPS guarantee.
-        run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000
-      - name: Compare native foreground and headless production RAF without certification
+        run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --presentation native-foreground --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000
+      - name: Reject genuine foreground interruptions while retaining measurements
         if: success() || failure()
-        run: node scripts/raf-production-modes.mjs --output .vite/raf-production-modes --baseline .vite/production-workloads/webgl2/baseline/native
+        run: node scripts/check-production-foreground.mjs
       - name: Pack, install, deploy and play both independent starter games
         if: success() || failure()
         run: npx --yes pnpm@12.6.0 run smoke:starters
@@ -244,9 +244,9 @@ jobs:
           name: release-surfaces-node-26
           path: |
             .vite/production-workloads/
+            .vite/production-focus-guard/
             .vite/starter-smoke/
             .vite/api-compatibility/
-            .vite/raf-production-modes/
           include-hidden-files: true
           if-no-files-found: warn
 

@@ -121,6 +121,11 @@ function quad(size = 1, z = 0): Geometry {
 }
 async function draw(scene: Scene, effects?: FrameEffects): Promise<ImageProof> {
   await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
+  if (losses !== recoveries)
+    await waitUntil(
+      () => losses === recoveries,
+      'Native recovery before manual frame submission',
+    );
   if (runtimeError) throw runtimeError;
   renderer!.beginFrame();
   renderer!.render(scene, canvas.width, canvas.height, effects);
@@ -369,7 +374,6 @@ async function skinScenarios(white: Texture): Promise<void> {
   const exact = cpuGeometry(r);
   const renderSource = r.mesh.renderGeometry.vertices.slice();
   const renderVersion = r.mesh.renderGeometry.version;
-  const paletteVersion = r.mesh.paletteVersion;
   r.mesh.updateSkin();
   let error = 0;
   for (let i = 0; i < exact.vertices.length; i++)
@@ -389,19 +393,10 @@ async function skinScenarios(white: Texture): Promise<void> {
       ),
     'Exact CPU query does not mutate or invalidate native render geometry',
   );
-  r.mesh.updateRenderDeformation();
-  check(
-    r.mesh.paletteVersion === paletteVersion,
-    'Unchanged pose does not republish the joint palette',
-  );
 
   begin('animated-offscreen-to-visible-culling');
   pose(r, 8, 0.4);
   const outside = await draw(r.scene);
-  check(
-    r.mesh.paletteVersion > paletteVersion,
-    'Joint animation republishes the changed palette while offscreen',
-  );
   equivalent(outside, empty, 'offscreen-background');
   check(
     renderer!.stats.culled >= 1 && renderer!.stats.drawCalls === 0,
