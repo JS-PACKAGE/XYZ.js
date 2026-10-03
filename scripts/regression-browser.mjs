@@ -297,6 +297,17 @@ async function runAuthoring(page, backend, result, awaitState) {
 try {
   await server.listen();
   launch = await browserLaunchOptions(browserName);
+  // Diagnostic-only: log GL calls to find the call preceding the ANGLE D3D11 trap.
+  // The formal regression launch flags stay unchanged.
+  if (nativeCapture)
+    launch = {
+      ...launch,
+      args: [
+        ...(launch.args ?? []),
+        '--enable-logging=stderr',
+        '--enable-gpu-service-logging',
+      ],
+    };
   browser = await browserType.launch(launch);
   if (!explicitlySelected && !selected.includes('webgpu'))
     selected.push('webgpu');
