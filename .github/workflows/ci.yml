@@ -195,7 +195,13 @@ jobs:
         shell: pwsh
         run: ./scripts/windows-chromium-crash.ps1 -Phase setup
       - name: Reproduce the unchanged WebGL2 regression with owned GPU capture
-        run: npx --yes pnpm@12.6.0 run regression:browser --browser chromium --renderer webgl2 --output .vite/browser-regression-native-capture/chromium
+        shell: bash
+        env:
+          DEBUG: pw:browser
+        # Browser stderr (GPU service GL call log) is large; keep it as an artifact, not job log.
+        run: |
+          mkdir -p .vite/browser-regression-native-capture/chromium
+          npx --yes pnpm@12.6.0 run regression:browser --browser chromium --renderer webgl2 --output .vite/browser-regression-native-capture/chromium 2> .vite/browser-regression-native-capture/chromium/browser-stderr.log
       - name: Preserve native dump inventory and identity records
         if: always()
         shell: pwsh
