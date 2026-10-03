@@ -1,0 +1,9 @@
+{
+  "name": "OPM.js",
+  "version": "1.8.0",
+  "release": "https://github.com/YueyuHoshizora/OPM.js/releases/tag/v1.8",
+  "archive": "https://github.com/YueyuHoshizora/OPM.js/releases/download/v1.8/opm.js-1.8.0.tgz",
+  "sha256": "bee862d5b3ccaa7c4e8ff959583873c78a8ca8a9f56f4d8b039e490e498e2587",
+  "checksums": "https://api.github.com/repos/YueyuHoshizora/OPM.js/releases/assets/606513200",
+  "contents": "Complete official dist/ and LICENSE, without modifications"
+}

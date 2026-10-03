@@ -75,8 +75,14 @@ if ($Phase -eq 'monitor') {
     $cdpBrowser = @($request.cdp.processInfo | Where-Object { $_.type -ceq 'browser' -and $_.id -eq $browserPid })
     $cdpGpu = @($request.cdp.processInfo | Where-Object { $_.type -ceq 'GPU' -and $_.id -eq $gpuPid })
     if ($cdpBrowser.Count -ne 1 -or $cdpGpu.Count -ne 1) { throw 'CDP did not identify the owned browser and GPU.' }
-    $expectedExecutable = (Resolve-Path -LiteralPath $request.executable).Path
+    $browsersRoot = (Resolve-Path -LiteralPath $request.browsersRoot).Path
     $browserProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$browserPid"
+    $expectedExecutable = if ($browserProcess) { (Resolve-Path -LiteralPath $browserProcess.ExecutablePath).Path } else { $null }
+    if (-not $expectedExecutable -or
+        -not $expectedExecutable.StartsWith("$browsersRoot$([IO.Path]::DirectorySeparatorChar)", [StringComparison]::OrdinalIgnoreCase) -or
+        (Split-Path -Leaf $expectedExecutable) -inotmatch '^chrome(-headless-shell)?\.exe$') {
+        throw 'Owned browser executable is not the Playwright-managed Chromium.'
+    }
     $gpuProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$gpuPid"
     $nodeProcess = Get-CimInstance Win32_Process -Filter "ProcessId=$nodePid"
     if (-not $browserProcess -or -not $gpuProcess -or -not $nodeProcess -or

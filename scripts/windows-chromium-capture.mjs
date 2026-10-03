@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import process from 'node:process';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -10,9 +11,8 @@ export async function attachOwnedGpuCapture(browser, root, backend) {
   const cdp = await browser.newBrowserCDPSession();
   let identity;
   try {
-    const [cdpProcesses, command, version] = await Promise.all([
+    const [cdpProcesses, version] = await Promise.all([
       cdp.send('SystemInfo.getProcessInfo'),
-      cdp.send('Browser.getBrowserCommandLine'),
       cdp.send('Browser.getVersion'),
     ]);
     const require = createRequire(import.meta.url);
@@ -36,7 +36,7 @@ export async function attachOwnedGpuCapture(browser, root, backend) {
     const gpus = cdpProcesses.processInfo.filter(
       (entry) => entry.type === 'GPU',
     );
-    if (browsers.length !== 1 || gpus.length !== 1 || !command.arguments[0])
+    if (browsers.length !== 1 || gpus.length !== 1)
       throw new Error(
         'CDP must identify exactly one owned browser and GPU process.',
       );
@@ -45,7 +45,10 @@ export async function attachOwnedGpuCapture(browser, root, backend) {
       gpuPid: gpus[0].id,
       nodePid: process.pid,
       nodeExecutable: process.execPath,
-      executable: command.arguments[0],
+      browsersRoot: resolve(
+        process.env.PLAYWRIGHT_BROWSERS_PATH ||
+          resolve(homedir(), 'AppData/Local/ms-playwright'),
+      ),
       cdp: cdpProcesses,
       browserVersion: version,
       playwrightPin: pin,
