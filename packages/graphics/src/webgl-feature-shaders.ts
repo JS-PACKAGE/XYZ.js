@@ -171,6 +171,11 @@ mat3 materialNormalFrame(vec3 n, vec2 uv) {
   float scale = inversesqrt(max(max(dot(t,t),dot(b,b)),.000001));
   return mat3(t*scale,b*scale,n);
 }
+// ANGLE keys dynamic-index helpers by interface block, but emits identical HLSL
+// names for vec4 fields from different blocks. Select their components explicitly.
+float vec4Component(vec4 value, int index) {
+  return index==0 ? value.x : index==1 ? value.y : index==2 ? value.z : value.w;
+}
 ${atlasGLSL}
 const float PI = 3.141592653589793;
 ${transmissionGLSL}

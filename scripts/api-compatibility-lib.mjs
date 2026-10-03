@@ -693,6 +693,7 @@ export function checkDeclarations({
   const contracts = [];
   let contractId = 0;
   function append(file, name, direction, body) {
+    file = resolve(file);
     const before = files.get(file);
     files.set(file, `${before}\n${body}\n`);
     contracts.push({

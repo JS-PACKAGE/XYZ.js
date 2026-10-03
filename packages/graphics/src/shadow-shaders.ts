@@ -148,13 +148,13 @@ float directionalShadow() {
   int count = int(atlasForward.w), index = 0;
   float depth = dot(vPosition-atlasCamera.xyz,atlasForward.xyz);
   if (count > 1) {
-    if (depth > atlasSplits[count-1]) return 1.0;
-    for (int i=0;i<3;i++) { if (i>=count-1) break; if(depth>atlasSplits[i]) index=i+1; }
+    if (depth > vec4Component(atlasSplits,count-1)) return 1.0;
+    for (int i=0;i<3;i++) { if (i>=count-1) break; if(depth>vec4Component(atlasSplits,i)) index=i+1; }
   }
   float visibility = atlasVisibility(index,vPosition,vNormal,true);
   if (count<=1 || atlasQuality.x<=0.0) return visibility;
-  float previous = index>0 ? atlasSplits[index-1] : atlasQuality.y;
-  float split = atlasSplits[index];
+  float previous = index>0 ? vec4Component(atlasSplits,index-1) : atlasQuality.y;
+  float split = vec4Component(atlasSplits,index);
   float blend = smoothstep(split-max((split-previous)*atlasQuality.x,0.000001),split,depth);
   if (blend<=0.0) return visibility;
   float next = index+1<count ? atlasVisibility(index+1,vPosition,vNormal,true) : 1.0;
@@ -167,10 +167,10 @@ int cubeFace(vec3 delta) {
   return delta.z >= 0.0 ? 4 : 5;
 }
 float pointShadow(int index, vec3 position) {
-  float id = lighting[${LIGHTING_POINT_ID_OFFSET / 4} + index/4][index%4];
+  float id = vec4Component(lighting[${LIGHTING_POINT_ID_OFFSET / 4} + index/4],index%4);
   for (int slot=0;slot<${shadowLimits.pointLights};slot++) {
-    if (atlasPointIds[slot/4][slot%4] == id) {
-      int base = int(atlasPoints[slot/4][slot%4]);
+    if (vec4Component(atlasPointIds[slot/4],slot%4) == id) {
+      int base = int(vec4Component(atlasPoints[slot/4],slot%4));
       if (base < 0) return 1.0;
       vec3 delta = vPosition-position;
       float distance = length(delta);
@@ -191,8 +191,8 @@ float pointShadow(int index, vec3 position) {
 float spotShadow(int index) {
   float id = lighting[${SPOT_LIGHT_OFFSET / 4} + index * ${SPOT_LIGHT_STRIDE / 4} + 3].y;
   for (int slot=0;slot<${shadowLimits.spotLights};slot++) {
-    if (atlasSpotIds[slot/4][slot%4] == id)
-      return atlasVisibility(int(atlasSpots[slot/4][slot%4]),vPosition,vNormal,true);
+    if (vec4Component(atlasSpotIds[slot/4],slot%4) == id)
+      return atlasVisibility(int(vec4Component(atlasSpots[slot/4],slot%4)),vPosition,vNormal,true);
   }
   return 1.0;
 }

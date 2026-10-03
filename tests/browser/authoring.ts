@@ -49,6 +49,10 @@ interface Scenario {
   name: string;
   assertions: string[];
   skip?: string;
+  readback?: {
+    samples: { x: number; y: number; rgba: number[] }[];
+    colors: Record<string, number>;
+  };
 }
 const renderer = new URLSearchParams(location.search).get(
   'renderer',
@@ -101,8 +105,11 @@ function check(condition: boolean, message: string): void {
   scenario.assertions.push(message);
 }
 function fail(error: unknown): void {
+  // Windows WebKit's stack can contain only locations, without the Error message.
   report.error =
-    error instanceof Error ? (error.stack ?? error.message) : String(error);
+    error instanceof Error
+      ? `${String(error)}${error.stack ? `\n${error.stack}` : ''}`
+      : String(error);
   controls.abort();
   runtime?.destroy();
   for (const lease of leases) lease.release();
@@ -296,6 +303,39 @@ async function nativeResidency(): Promise<void> {
     try {
       await game.graphics.renderToTexture(target, old);
       const pixels = await game.graphics.extractPixels(target);
+      if (
+        pixels[0] !== 0 ||
+        pixels[1] !== 255 ||
+        pixels[2] !== 0 ||
+        pixels[3] !== 255
+      ) {
+        const colors = new Map<string, number>();
+        for (let offset = 0; offset < pixels.length; offset += 4) {
+          const rgba = Array.from(pixels.subarray(offset, offset + 4)).join(
+            ',',
+          );
+          colors.set(rgba, (colors.get(rgba) ?? 0) + 1);
+        }
+        scenario.readback = {
+          samples: (
+            [
+              [0, 0],
+              [31, 0],
+              [0, 31],
+              [16, 16],
+              [31, 31],
+            ] as const
+          ).map(([x, y]) => {
+            const offset = (y * 32 + x) * 4;
+            return {
+              x,
+              y,
+              rgba: Array.from(pixels.subarray(offset, offset + 4)),
+            };
+          }),
+          colors: Object.fromEntries(colors),
+        };
+      }
       check(
         pixels[0] === 0 &&
           pixels[1] === 255 &&

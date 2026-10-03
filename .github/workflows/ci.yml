@@ -122,16 +122,25 @@ jobs:
             soundDevices = @(Get-CimInstance Win32_SoundDevice | Select-Object Name,Status,Manufacturer)
             endpoints = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Select-Object FriendlyName,Status)
           } | ConvertTo-Json -Depth 5 | Tee-Object -FilePath .vite/windows-host/audio.json
+      - name: Install verified signed audio on the ephemeral Windows runner
+        if: runner.os == 'Windows'
+        shell: pwsh
+        timeout-minutes: 6
+        env:
+          XYZ_RUNNER_ENVIRONMENT: ${{ runner.environment }}
+        run: ./scripts/setup-windows-audio.ps1
       - name: Smoke built-root examples on explicit Canvas2D
+        if: success() || (failure() && runner.os == 'Windows')
         run: |
           npx --yes pnpm@12.6.0 run smoke:examples --browser ${{ matrix.engine }} --example gameplay2d --renderer canvas2d
           npx --yes pnpm@12.6.0 run smoke:examples --browser ${{ matrix.engine }} --example rendering2d --renderer canvas2d
       - name: Preserve mandatory Chromium native example gates
-        if: matrix.engine == 'chromium'
+        if: matrix.engine == 'chromium' && (success() || (failure() && runner.os == 'Windows'))
         run: |
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example gameplay2d --renderer webgl2
           npx --yes pnpm@12.6.0 run smoke:examples --browser chromium --example rendering2d --renderer webgl2
       - name: Deep native pixel and lifecycle regressions without retries
+        if: success() || (failure() && runner.os == 'Windows')
         env:
           DEBUG: pw:browser
         run: npx --yes pnpm@12.6.0 run regression:browser --browser ${{ matrix.engine }} ${{ matrix.engine == 'chromium' && '--require-webgpu' || '' }}
@@ -222,23 +231,9 @@ jobs:
         if: success() || failure()
         # Explicit initial operator policy, not repeated hosted calibration or a universal FPS guarantee.
         run: npx --yes pnpm@12.6.0 run benchmark:production --renderer webgl2 --profile benchmarks/production/hosted-macos-webgl2.policy.json --limit operations.teardownWallMs=5000
-      - name: Collect temporary production RAF and compositor attribution
+      - name: Compare native foreground and headless production RAF without certification
         if: success() || failure()
-        run: |
-          diagnostic_status=0
-          node --import ./scripts/raf-production-attribution.mjs scripts/production-workloads.mjs --renderer webgl2 --workloads 2d,navigation --output .vite/raf-production-measurement || diagnostic_status=$?
-          test "$diagnostic_status" -eq 1
-          node --input-type=module -e "
-            import { readFile } from 'node:fs/promises';
-            const raw = JSON.parse(await readFile('.vite/raf-production-attribution/report.json', 'utf8'));
-            const measured = JSON.parse(await readFile('.vite/raf-production-measurement/report.json', 'utf8'));
-            if (!raw.runtimeComplete || !measured.results.every(result => result.functionalStatus === 'PASS' && result.performanceStatus === 'BLOCKED')) throw new Error('Incomplete diagnostic or unexpected workload failure.');
-            if (raw.traces.length !== 2 || raw.traces.some(trace => trace.overwritten || !trace.events.some(event => event.name === 'FireAnimationFrame'))) throw new Error('Compositor trace capture incomplete.');
-            for (const workload of ['2d', 'navigation']) {
-              if (!raw.pages.some(page => new URL(page.url).searchParams.get('workload') === workload && page.frames?.count > 0)) throw new Error('Missing raw workload frames: ' + workload);
-            }
-            console.log('Measurement-only RAF attribution complete; not certification.');
-          "
+        run: node scripts/raf-production-modes.mjs --output .vite/raf-production-modes --baseline .vite/production-workloads/webgl2/baseline/native
       - name: Pack, install, deploy and play both independent starter games
         if: success() || failure()
         run: npx --yes pnpm@12.6.0 run smoke:starters
@@ -251,8 +246,7 @@ jobs:
             .vite/production-workloads/
             .vite/starter-smoke/
             .vite/api-compatibility/
-            .vite/raf-production-attribution/
-            .vite/raf-production-measurement/
+            .vite/raf-production-modes/
           include-hidden-files: true
           if-no-files-found: warn
 

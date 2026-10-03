@@ -39,7 +39,7 @@ export const sheenGLSL = /* glsl */ `
 layout(std140) uniform SheenLookup { vec4 sheenLookup[${vectors}]; };
 float sheenSample(int x, int y) {
   int index = y*${SHEEN_LUT_SIZE}+x;
-  return sheenLookup[index/4][index%4];
+  return vec4Component(sheenLookup[index/4],index%4);
 }
 float sheenAlbedo(float nv, float rough) {
   vec2 p = clamp(vec2(nv,rough)*${SHEEN_LUT_SIZE}.0-.5,vec2(0.0),vec2(${SHEEN_LUT_SIZE - 1}.0));
