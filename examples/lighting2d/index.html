@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>XYZ.js — Native 2D lighting</title>
+    <style>
+      body {
+        margin: 24px;
+        background: #101827;
+        color: #eef2ff;
+        font-family: system-ui;
+      }
+      canvas {
+        width: min(100%, 640px);
+        aspect-ratio: 16/9;
+        display: block;
+        border: 1px solid #718096;
+      }
+      a {
+        color: #b9d6ff;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Native normal-map lighting</h1>
+    <p>
+      Move the pointer across two identical albedos with a curved RGB normal
+      map. The right sprite tests reflection and shear.
+    </p>
+    <p>
+      <a href="?renderer=webgpu">WebGPU</a> ·
+      <a href="?renderer=webgl2">WebGL2</a> ·
+      <a href="?renderer=canvas2d">Canvas capability rejection</a>
+    </p>
+    <canvas id="game"></canvas>
+    <p id="status" role="status">Loading</p>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
