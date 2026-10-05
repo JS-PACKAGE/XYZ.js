@@ -455,7 +455,11 @@ if (
   process.argv[1] &&
   resolve(process.argv[1]) === fileURLToPath(import.meta.url)
 ) {
-  if (process.argv.length !== 4) {
+  if (process.argv.length === 3 && process.argv[2] === '--help') {
+    console.log(
+      'Usage: node scripts/produce-assets.mjs <profile.json> <NEW-output-directory>',
+    );
+  } else if (process.argv.length !== 4) {
     console.error(
       'Usage: node scripts/produce-assets.mjs <profile.json> <NEW-output-directory>',
     );
