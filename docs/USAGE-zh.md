@@ -2,9 +2,9 @@
 
 [English](USAGE.md) · 繁體中文 · [技術參考](TECHNICAL-zh.md)
 
-**目前規範入口：**[v1.12.4 契約、公開 API 與支援邊界](CURRENT.md)。`pnpm docs:api` 生成可搜尋的 root API；`pnpm build:site` 將它納入靜態產物 `api/1.12.4/`（入口 `docs/`）。本頁保留各版本 recipes 與歷史升級／驗收紀錄，這些紀錄不重定義目前支援。
+**目前規範入口：**[v1.14 契約、公開 API 與支援邊界](CURRENT.md)。`pnpm docs:api` 生成可搜尋的 root API；`pnpm build:site` 將它納入靜態產物 `api/1.14.0/`（入口 `docs/`）。本頁保留各版本 recipes 與歷史升級／驗收紀錄，這些紀錄不重定義目前支援。
 
-XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.12.4／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Browser／emulation 觀察與 Windows CI 測試設定不是實機或 Windows 驅動認證；browser qualification 需要實際記錄的證據。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
+XYZ.js 是瀏覽器遊戲引擎，包含 P42 可玩參考 Beacon Run。目前 metadata **1.14.0／Apache-2.0**（npm 未發佈），歷史證據保留。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Browser／emulation 觀察與 Windows CI 測試設定不是實機或 Windows 驅動認證；browser qualification 需要實際記錄的證據。見 [PLAN](../PLAN.md)、[技術參考](TECHNICAL-zh.md)、[驗收紀錄](../ACCEPTANCE.md)。
 
 ## 歷史階段 profile 導覽
 
@@ -49,7 +49,7 @@ npx pnpm@12.6.0 dev
 | [ui2d](../examples/ui2d/)                               | Text2D、點陣字型、NineSlice、HUD、無障礙按鈕                                                                                |
 | [input-lab](../examples/input-lab/)                     | 鍵盤／pointer／gamepad 狀態、可重新綁定的 ActionMap                                                                         |
 | [audio-lab](../examples/audio-lab/)                     | 解鎖、OPM 音樂／SFX、PCM sample、音量、PreloadBatch                                                                         |
-| [pbr3d](../examples/pbr3d/)                             | PBR 網格、陰影、環境光、霧、exposure／bloom                                                                                 |
+| [pbr3d](../examples/pbr3d/)                             | 六種程序式 PBR 預設選擇、metallic／roughness 網格、陰影、環境光、霧、exposure／bloom                                        |
 | [instancing3d](../examples/instancing3d/)               | InstancedMesh 批次、culling 探針、RenderStats                                                                               |
 | [picking3d](../examples/picking3d/)                     | 巢狀 Group、OrbitControls、Raycaster、相機投影切換                                                                          |
 | [gltf3d](../examples/gltf3d/)                           | 蒙皮 glTF 動畫播放、morph targets                                                                                           |
@@ -101,7 +101,7 @@ Build 將最小化的引擎 JavaScript、TypeScript 宣告及 source maps 輸出
 ```sh
 npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
-node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.12.4.tgz --name my-game
+node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.14.0.tgz --name my-game
 npx pnpm@12.6.0 --dir /absolute/my-game install
 npx pnpm@12.6.0 --dir /absolute/my-game dev
 npx pnpm@12.6.0 --dir /absolute/my-game build
@@ -460,6 +460,39 @@ instances.setMatrixAt(0, new Matrix4());
 ```
 
 PBR 借base／emissive sRGB與linear metallicRoughness（G／B）、normal／occlusion（R）maps。alphaMode為OPAQUE／MASK／BLEND、alphaCutoff控MASK、doubleSided控culling；PBR以alphaMode為準，legacy TextureMaterial用opacity／transparent。預設sorted半透明按距離由遠到近、等距穩定；交叉表面仍可能錯誤、weighted為opt-in近似。Scene最多8 point／8 spot、超限拒絕；P37已提供point／spot shadows與2–4 directional cascades、保留fixed directional 3×3 PCF。光源需開`castShadow`並配mesh flags，限制見技術參考。
+
+#### 可重用的程序式 PBR 預設
+
+`ProceduralMaterial.create(kind, options?)` 在 CPU 一次產生可無縫重複、具確定性的貼圖，不用外部素材或新增依賴。`ProceduralMaterialKind` 為 `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble'`（木材／磚牆／石材／金屬／布料／大理石）；`ProceduralMaterialOptions` 接受整數 `size` 32–1024（預設 256）及無號 32-bit 整數 `seed` 0–4294967295（預設 1），無效值會拒絕建立。
+
+已有 3D `scene` 時，一份預設可讓多個 mesh 借用：
+
+```js
+import { Geometry, Mesh, ProceduralMaterial } from 'xyz.js';
+
+const preset = await ProceduralMaterial.create('wood', { size: 256, seed: 7 });
+const first = scene.add(
+  new Mesh({ geometry: Geometry.cube(), material: preset.material }),
+);
+const second = scene.add(
+  new Mesh({
+    geometry: Geometry.sphere(),
+    material: preset.createMaterial({ normalScale: 0.5 }),
+  }),
+);
+second.position.x = 2;
+
+// 清理時先移除所有借用者，再釋放貼圖。
+scene.remove(first);
+scene.remove(second);
+first.destroy();
+second.destroy();
+preset.destroy();
+```
+
+唯讀 `kind`、`material`、`textures` 提供預設內容：`textures.baseColor` 的 RGB 為 sRGB；`normal` 為 linear tangent-space；`metallicRoughness` 的 G 存 roughness、B 存 metallic；`occlusion` 的 R 存 linear occlusion。四份不可變 `Texture` source 沿既有 PBR／renderer 路徑使用。預設 opaque、全部 slots 使用 repeat sampling、roughness factor 為 1；metal 的 metallic factor 為 1，其餘種類為 0。
+
+`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 `PBRMaterial`，借用同一組 maps，最後套用呼叫者覆寫，不重新產生貼圖。Scene／mesh 不自動擁有預設；同步且冪等的 `destroy()` 只釋放預設產生的貼圖，不釋放覆寫的外部貼圖。`destroyed` 回報狀態，銷毀後 `createMaterial()` 會拒絕；已釋放 maps 不可再使用。[pbr3d gallery](../examples/pbr3d/) 提供預設切換與貼圖預覽，Canvas2D 仍只支援 2D。
 
 若要 image-based lighting 與 skybox，用 2:1 equirect 影像建立 `EnvironmentMap` 並指定給 scene。它只照亮 `PBRMaterial`，並取代其平面 `ambientLight`：
 

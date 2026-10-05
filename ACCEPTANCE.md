@@ -1,6 +1,6 @@
 # XYZ.js 驗收紀錄
 
-**目前 metadata：1.13.0／Apache-2.0，npm 未發佈。** 使用者授權提交官方 OPM.js 1.11.1 更新並發佈 GitHub `v1.13`；實際 CI／發佈結果見末節。既有版本、失敗 gates 與限制保留為歷史，不由新版本號推論額外認證。
+**目前 metadata：1.14.0／Apache-2.0，npm 未發佈。** 使用者授權提交程序貼圖材質並發佈 GitHub `v1.14`；實際 CI／發佈結果見末節。既有版本、失敗 gates 與限制保留為歷史，不由新版本號推論額外認證。
 
 **P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
@@ -1301,3 +1301,19 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 
 - Windows Node 22／24／26 quality、Chromium／Firefox／WebKit browser jobs 與手動 Chromium GPU diagnostic 改用 GitHub 官方 `windows-11-arm`；Linux／macOS matrix 與既有測試門檻不變。
 - 已驗證的 VB-CABLE 安裝包僅支援 x64，因此 ARM64 不執行該 driver 安裝；既有 Windows audio services／inventory 與音訊測試仍執行，不將缺少 endpoint 視為通過。不改 driver 安全 guard、不冒稱 ARM 音訊或瀏覽器已驗收；需後續 hosted CI 實跑確認。
+
+## 程序貼圖材質預設（2026-10-05）
+
+- 新增公開 `ProceduralMaterial` 與六種可重用預設：wood／brick／stone／metal／fabric／marble。每組生成 base color、tangent normal、metallic-roughness（G／B）與 occlusion（R），具 seeded periodic fields 與 repeat samplers；沿既有 Texture／PBRMaterial／Game renderer，不新增外部資產或 runtime dependency。
+- `create(kind,{size?,seed?})` 尺寸限制為整數 32–1024、seed 為 unsigned 32-bit；預設 256／1。`material` 與 `createMaterial(overrides)` 借用生成 maps；caller 移除所有 consumers 後 `destroy()`，decode 途中失敗釋放已取得 bitmaps。Scene／Mesh 不接管預設所有權。
+- PBR3D 加入六種材質＋plain reference 切換與四張 map 預覽；immutable Mesh material 以替換 consumer 處理，重用幾何／maps，非每幀生成。套件兩份 exact allowlist 包含新增 modules；公開 root API 與多語文件同步，不升版／提交／推送／發佈。
+- macOS arm64／managed Chromium 153.0.8010.12 實際 source-Vite Game gallery：forced WebGL2、forced WebGPU、auto（選 WebGPU）各完成六材質＋plain＋返回 wood，實際 canvas 截圖各七種不同；已查看 wood／brick／fabric／marble 畫面。切換沒有重新 decode，三條路徑各 created 25／closed 25（含白色 reference），browser errors 為空。Canvas2D 明確顯示 3D unsupported。
+- built root consumer 另實際用 brick base map 作 Canvas2D Sprite，讀回 `[166,79,53,255]`；Sprite.destroy 不釋放 borrowed map，Game teardown 後預設 destroy 釋四 maps，重複 destroy 安全且 destroyed preset 拒絕 createMaterial。證據保留於 `.vite/material-presets/`，暫時 smoke script 驗後移除。
+- typecheck／build／lint／format:check 通過；整合初次完整 suite 為 128 檔／1080 測試，隨後移除只測預設值／轉接的八項測試，最終完整 suite 為 **128 檔／1072 測試通過**。v1.12.1 API 相容 gate 通過（737 historical exports／2810 directional contracts、710 namespaces、五 consumers）；exact package hygiene／extracted consumer 通過（`.vite/material-presets/package/run-HArPxS/report.json`）。九份更新文件的 429 個相對檔案連結皆存在。
+- 此次僅上述本機 Chromium 與 consumer 路徑；不宣稱其他 browser／實體裝置／效能或 loss-recovery 新資格。Browser helper 曾遇 detached-frame／reopen timeout，改用專案既有 owned Playwright launcher取得上述實際證據，沒有操作使用者瀏覽器。
+
+## v1.14 發佈準備（2026-10-05）
+
+- 使用者明確授權提交、推送及發佈 `v1.14`，metadata 升為 `1.14.0`；沿現有 tag-triggered CI／Release workflow 產生 `xyz.js-1.14.0.tgz`／`SHA256SUMS`。不 npm publish、不移動歷史 tags、不降低既有 gates。
+- 納入上一節六種程序貼圖材質、PBR gallery 與當時已實跑證據；version-only 更新與 hosted／published archive 結果另依實際執行補記，不把此前測試冒稱重新執行。
+- 既有 Windows ARM [CI37132597817](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37132597817) 的音訊 inventory 沒有 soundDevices／endpoints，Firefox 在 trusted unlock timeout。官方同一 Pack45 archive SHA256 仍是 `b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb`，INF 明列 NTARM64 與 `vbaudio_cable64arm_win10.sys`；bootstrap 選 native driver 並保留 SHA／Authenticode／Code Integrity／TrustedPublisher／active default endpoint 全部 gates。ARM 安裝與 Firefox unlock 必須由新 hosted run 實際驗證，本機 macOS 不能代驗。

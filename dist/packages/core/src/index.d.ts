@@ -66,6 +66,8 @@ export { FirstPersonControls } from './first-person-controls.js';
 export type { FirstPersonKeys } from './first-person-controls.js';
 export { Raycaster } from './raycaster.js';
 export { PBRMaterial } from './pbr-material.js';
+export { ProceduralMaterial } from './procedural-material.js';
+export type { ProceduralMaterialKind, ProceduralMaterialOptions, } from './procedural-material.js';
 export { PointLight, SpotLight } from './lights.js';
 export { ShadowSettings, PostProcessingSettings, FogSettings, } from './render-settings.js';
 export { InstancedMesh } from './instanced-mesh.js';

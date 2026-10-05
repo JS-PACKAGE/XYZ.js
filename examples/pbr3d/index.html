@@ -31,18 +31,46 @@
       input[type='range'] {
         width: 110px;
       }
+      .maps {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+      }
+      .maps figure {
+        margin: 0;
+      }
+      .maps canvas {
+        width: 96px;
+        height: 96px;
+      }
+      .maps figcaption {
+        font-size: 0.8rem;
+      }
     </style>
   </head>
   <body>
     <h1>PBR3D</h1>
     <p>
-      Metalness increases left → right; roughness increases bottom → top. Drag
-      to orbit and scroll to zoom. Compare directional shadows, a movable orange
-      point light, procedural environment lighting, distance fog, and HDR
-      exposure/bloom.
+      Choose wood, brick, stone, metal, fabric or marble, generated without
+      downloads. Metalness factors increase left → right; roughness factors
+      increase bottom → top. Both multiply the authored surface map (non-metals
+      remain dielectric). Drag to orbit and scroll to zoom. Compare shadows,
+      lights, environment, fog and HDR/bloom.
     </p>
     <canvas id="game"></canvas>
     <div class="controls">
+      <label>
+        Material
+        <select id="material">
+          <option value="wood">Wood</option>
+          <option value="brick">Brick</option>
+          <option value="stone">Stone</option>
+          <option value="metal">Brushed metal</option>
+          <option value="fabric">Woven fabric</option>
+          <option value="marble">Marble</option>
+          <option value="plain">Plain reference</option>
+        </select>
+      </label>
       <label
         ><input id="shadows" type="checkbox" checked /> Directional
         shadows</label
@@ -108,6 +136,24 @@
         >Focus depth
         <input id="focus" type="range" min="1" max="30" step="0.5" value="18"
       /></label>
+    </div>
+    <div class="maps" aria-label="Generated texture maps">
+      <figure>
+        <canvas id="base-map" width="96" height="96"></canvas>
+        <figcaption>Base color (sRGB)</figcaption>
+      </figure>
+      <figure>
+        <canvas id="normal-map" width="96" height="96"></canvas>
+        <figcaption>Tangent normal</figcaption>
+      </figure>
+      <figure>
+        <canvas id="surface-map" width="96" height="96"></canvas>
+        <figcaption>G: roughness · B: metal</figcaption>
+      </figure>
+      <figure>
+        <canvas id="occlusion-map" width="96" height="96"></canvas>
+        <figcaption>R: occlusion</figcaption>
+      </figure>
     </div>
     <p id="readout" aria-live="polite"></p>
     <p id="status" role="status">Loading…</p>

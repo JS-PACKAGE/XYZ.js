@@ -1,8 +1,10 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.13.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.14.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
-**Current / 目前 / 現在:** [v1.13 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.13.0/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
+**Current / 目前 / 現在:** [v1.14 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.14.0/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
+
+GitHub **v1.14 / package 1.14.0** adds six reusable procedural PBR material presets and an interactive texture-map gallery, without external assets or runtime dependencies. 新增木紋、磚牆、石材、金屬、布料、大理石與可重用貼圖；木材・レンガ・石材・金属・布・大理石のプリセットを追加します。Publication uses the existing CI-gated archive/checksum workflow; support evidence remains scoped to recorded checks.
 
 GitHub **v1.13 / package 1.13.0** updates the complete official OPM.js vendor to **1.11.1**, retaining the public 1.x voice API and eight isolated audio slots. The existing tag-triggered CI/Release workflow verifies the archive before publication. 本次不擴大瀏覽器、實體音訊或效能認證；今回の公開はブラウザー・実機音声・性能の認証範囲を拡張しません。
 
@@ -26,11 +28,13 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 
 ### 目前可用
 
-目前規範以 [v1.13 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
+目前規範以 [v1.14 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
 
 引擎提供 Game／Scene／ECS、2D／3D Math、Texture／Sprite、Camera／Input 與 Mesh 深度／光照管線。`auto` 依 WebGPU→WebGL2→Canvas2D 初始化降級；強制 backend 失敗不切換。以 `game.graphics.capabilities.threeD` 判斷 3D 支援，Canvas2D 只有 2D。WebGPU 需要安全來源（localhost 可用）。Audio 使用官方 OPM.js v1.11.1（tag `v1.11.1`）；在使用者手勢中呼叫 `await game.audio.unlock()`。Voice 內部正規化為 v7，公開 `OPMVoice` 仍保留 `version: 1` 契約。上游雖可選聲部數，引擎仍維持八個隔離 slot；此 vendor 升級不新增引擎功能或擴大認證範圍。
 
 新增 3D：Object3D／Group 階層、透視／正交相機與 lookAt、OrbitControls、精確 Raycaster、glTF 2.0／GLB、關鍵幀與 native GPU skin palette（lazy exact CPU queries／保守 animated bounds）、PBR／點光源／聚光燈、方向光 PCF 陰影、InstancedMesh，以及 HDR exposure／ACES／bloom（2D overlay 不受影響）。P42 的 bounded physics／navigation／animation profiles 與 Beacon Run 已限定 Chromium 驗收。API 參考 three.js，非 drop-in replacement／全 addons；無新 runtime dependency。詳細限制見雙語技術參考。
+
+可重用程序式 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` 支援 wood／brick／stone／metal／fabric／marble（木材／磚牆／石材／金屬／布料／大理石），一次產生無縫、確定性的 baseColor／normal／metallicRoughness／occlusion 貼圖，無外部素材或新增依賴。size 為整數 32–1024，seed 為無號 32-bit 整數；省略時預設 256／1。借用 `preset.material` 或以 `preset.createMaterial(overrides)` 重用 maps；先移除全部使用者再同步 `preset.destroy()`，Scene／mesh 不自動擁有預設。[使用範例](docs/USAGE-zh.md#可重用的程序式-pbr-預設)及 [pbr3d](examples/pbr3d/) 提供預設切換與貼圖預覽。實際 runtime／browser 驗證見 ACCEPTANCE。
 
 P13 新增既有 GameObject 的 2D 階層／Group2D、atlas Sprite source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice 與 ScreenElement HUD，已驗三 backend 正式路徑。Sprite width／height 是自然 source 尺寸，縮放用 scale；Sprite.source 可為 fractional pixels，SpriteSheet frames 為 integer。`/examples/gameplay2d/` 展示動畫／字形／面板／HUD。
 
@@ -126,11 +130,13 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 
 ### Available now
 
-[Current v1.13 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
+[Current v1.14 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
 
 Game/Scene/ECS, 2D/3D math, Texture/Sprite, camera/input and lit, depth-tested Mesh rendering are available. `auto` tries WebGPU→WebGL2→Canvas2D including initialization failures; forced backends never fall back. Check `game.graphics.capabilities.threeD`: Canvas2D is 2D-only. WebGPU requires a secure origin. Audio uses official OPM.js v1.11.1 (tag `v1.11.1`); call `await game.audio.unlock()` from a user gesture. Voices normalize to v7 internally while the public `OPMVoice` retains its `version: 1` contract. Despite upstream selectable voice counts, the engine retains eight isolated slots; this vendor upgrade adds no engine features or certification claims.
 
 Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic cameras and lookAt, OrbitControls, exact Raycaster picking, glTF 2.0/GLB, keyframes and native GPU skin palettes (lazy exact CPU queries/conservative animated bounds), PBR/point/spot lights, directional PCF shadows, InstancedMesh and HDR exposure/ACES/bloom before the unaffected 2D overlay. P42 bounded physics/navigation/animation profiles and Beacon Run passed scoped Chromium acceptance. The API is three.js-inspired, not drop-in/all-addon parity; no runtime dependency was added. See the bilingual technical references.
+
+Reusable procedural PBR: `await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` supports wood/brick/stone/metal/fabric/marble and generates seamless, deterministic baseColor/normal/metallicRoughness/occlusion maps once, without external assets or new dependencies. Size is an integer 32–1024 and seed is an unsigned 32-bit integer; defaults are 256/1. Borrow `preset.material` or reuse maps with `preset.createMaterial(overrides)`; remove every consumer before synchronous `preset.destroy()`. Scene/mesh do not own the preset. See the [consumer example](docs/USAGE.md#reusable-procedural-pbr-presets) and [pbr3d](examples/pbr3d/) preset selection and texture-map previews. Actual runtime/browser evidence is recorded in ACCEPTANCE.
 
 P13 adds 2D hierarchy/Group2D, atlas Sprite source/SpriteSheet, FrameAnimation, SpriteFont/SpriteText, NineSlice and ScreenElement HUD to existing GameObject, exercised on all three backends. Sprite width/height are natural source dimensions; use scale. Sprite.source permits fractional pixels; SpriteSheet frames require integer pixels. Open `/examples/gameplay2d/` for animation, glyphs, panels and HUD.
 
@@ -217,11 +223,13 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 
 ### 現在利用可能
 
-現在の規範は [v1.13 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
+現在の規範は [v1.14 契約](docs/CURRENT.md) と生成された root API です。`pnpm docs:api` で検索可能な API を生成し、`build:site` が静的サイトへ含めます。旧版・段階の記述は履歴です。managed WebKit は Safari 認証ではなく、模擬入力は実機検証ではありません。
 
 Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度と照明付き Mesh を提供します。`auto` は初期化失敗時も WebGPU→WebGL2→Canvas2D の順に降格します。強制 backend は切り替えません。`game.graphics.capabilities.threeD` で判定し、Canvas2D は 2D 専用です。WebGPU はセキュアなオリジンが必要です。音声は公式 OPM.js v1.11.1（tag `v1.11.1`）を使用し、ユーザー操作から `await game.audio.unlock()` を呼び出します。Voice は内部で v7 に正規化しますが、公開 `OPMVoice` は `version: 1` 契約を維持します。上流では声部数を選択できますが、エンジンは八つの隔離 slot を維持します。この vendor 更新はエンジンの新機能や認証範囲を追加しません。
 
 高度な 3D は Object3D／Group 階層、透視／正投影カメラと lookAt、OrbitControls、正確な Raycaster、glTF 2.0／GLB、キーフレームと native GPU skin palette（lazy exact CPU queries／保守的 animated bounds）、PBR／点光源／スポットライト、方向光 PCF シャドウ、InstancedMesh、2D overlay 前の HDR exposure／ACES／bloom を提供します。P42 の限定 physics／navigation／animation profiles と Beacon Run は Chromium の限定環境で検証済みです。Three.js 参考 API は互換置換／全 addons 対応ではなく、runtime dependency 追加なし。制限は技術参照へ。
+
+再利用可能な手続き型 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` は wood／brick／stone／metal／fabric／marble（木材／レンガ／石材／金属／布／大理石）に対応し、シームレスで決定的な baseColor／normal／metallicRoughness／occlusion maps を一度だけ生成します。外部素材・依存の追加なし。size は整数 32–1024、seed は符号なし 32-bit 整数で、既定値は 256／1。`preset.material` を借用するか `preset.createMaterial(overrides)` で maps を共有し、全利用者を取り除いてから同期 `preset.destroy()` を呼びます。Scene／mesh は preset を所有しません。[利用例](docs/USAGE.md#reusable-procedural-pbr-presets) と [pbr3d](examples/pbr3d/) のプリセット選択・テクスチャプレビューを参照してください。実際の runtime／browser 検証は ACCEPTANCE に記録します。
 
 P13 は既存 GameObject の2D階層／Group2D、atlas source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice、ScreenElement HUD を三backendで検証済みです。Sprite width／height は自然サイズ、表示サイズはscale、sourceは小数pixel可、SpriteSheet framesは整数のみ。`/examples/gameplay2d/` で確認できます。
 
@@ -331,7 +339,7 @@ Run `npx pnpm@12.6.0 dev` and open `http://127.0.0.1:5173/`. Root and `/examples
 | [ui2d](examples/ui2d/)                               | Text2D, SpriteFont／SpriteText, NineSlice, ScreenElement HUD, accessible pointer buttons                                                                                                                               |
 | [input-lab](examples/input-lab/)                     | Live Keyboard／Pointer／Gamepad state, runtime-rebindable ActionMap                                                                                                                                                    |
 | [audio-lab](examples/audio-lab/)                     | Gesture unlock, OPM music／SFX, PCM sample, channel volumes, PreloadBatch progress                                                                                                                                     |
-| [pbr3d](examples/pbr3d/)                             | PBR metallic／roughness grid, shadows, point light, environment, fog, exposure／bloom                                                                                                                                  |
+| [pbr3d](examples/pbr3d/)                             | Six procedural PBR preset selections and texture-map previews, metallic／roughness grid, shadows, point light, environment, fog, exposure／bloom                                                                       |
 | [instancing3d](examples/instancing3d/)               | Animated InstancedMesh batches, frustum-culled probe meshes, RenderStats, unclamped RAF fps                                                                                                                            |
 | [picking3d](examples/picking3d/)                     | Nested Groups, OrbitControls, Raycaster picking, perspective／orthographic switch, reparenting                                                                                                                         |
 | [gltf3d](examples/gltf3d/)                           | GLTFLoader skinned clip playback, MorphTargets driven by sliders and a weights keyframe clip                                                                                                                           |
@@ -368,7 +376,7 @@ Static site／完整靜態網站／静的サイト：`npx pnpm@12.6.0 build:site
 
 Smoke owns a separate muted browser and native zero-gain output sinks; signal evidence is not audible-output, Safari, physical-device or assistive-technology certification. Smoke 僅用自有靜音 browser／zero-gain sinks，不冒稱可聽輸出、Safari、實機或輔具認證。独立 muted browser／zero-gain sinks の信号は可聴出力・Safari・実機・支援技術の認証ではありません。
 
-Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.13.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
+Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.14.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
 
 `lightweight2d`, `resource-lifecycle`, `text-i18n`, `audio-effects`, `motion2d`, `tiled-import` and `accessibility-game` offer portable 2D paths. Native 3D examples require WebGPU/WebGL2 and report Canvas2D unsupported. Trusted audio unlock is still required; physical audio and OS IME remain outside automated certification.
 

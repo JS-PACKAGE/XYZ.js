@@ -2,7 +2,7 @@
 
 ## 強制執行範圍（硬規則）
 
-- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎；P42 另批准完整可玩參考流程，不改成只交付遊戲本體。**目前 metadata 1.13.0／Apache-2.0，npm 未發佈**。P01–P08 的 v0.0.1–v0.0.8 對應與後續各輪 counts／日期／release facts 均保留為歷史，不作新階段驗收。完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證。
+- 依《XYZ.js — Web 遊戲引擎開發企劃書》實作瀏覽器遊戲引擎；P42 另批准完整可玩參考流程，不改成只交付遊戲本體。**目前 metadata 1.14.0／Apache-2.0，npm 未發佈**。P01–P08 的 v0.0.1–v0.0.8 對應與後續各輪 counts／日期／release facts 均保留為歷史，不作新階段驗收。完成狀態以 [驗收紀錄](ACCEPTANCE.md) 為準，版本號不代表跨瀏覽器認證。
 - P01–P08 的驗收後獨立 `[Pxx]` commit 與 P09–P39 當時的提交限制是歷史規則；使用者本輪另授權 **P40／P41／P42 分階段驗收後提交**，僅由整合主代理執行。三階段完成後再授權 push 與 GitHub v1.8 release／package 1.8.0；不做 npm publish，不改歷史 tags。
 - P43–P57 已依使用者授權逐功能提交；使用者另授權推送 main 與 GitHub v1.9 release／package 1.9.0，不做 npm publish，不改歷史 tags。
 - P58–P70 已依使用者授權逐功能提交；使用者另授權 GitHub v1.10 release／package 1.10.0，推送 main 與新 tag 由既有 CI／release workflow 驗證後封裝。不做 npm publish，不改歷史 tags；以下發佈前的 working-tree／不推送敘述保留為當時狀態。
@@ -11,9 +11,16 @@
 - P97–P103 已分功能提交，當時 v1.12.2 納入官方 OPM.js1.8.0（tag `v1.8`），維持1.x契約。已推送 v1.12.2／v1.12.3 tags 不變；[Release37067932861](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37067932861) dense2d 功能 PASS／效能 FAIL，v1.12.3 dense2d 真修正後 CPU frame p9532.5ms，但 [Release37071402430](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37071402430) 2D／3D／navigation RAF FAIL，兩次未建立 Release。使用者授權調查確認根因、修正、v1.12.4、main／新 tag 推送與 GitHub 套件／checksum，並加入 Windows CI。[CI37092521565](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37092521565) Windows Node22／24／26 quality／API／negative-smoke／installed CLI、signed endpoint、Firefox完整流程 PASS；Chromium WebGL pixels／WebKit pixels與audio仍 FAIL。Hosted五個 workload PASS但失焦 guard FAIL：另一 CDP handler 的 `false` 不會撤銷原 capture。正式 driver 已改用 public `noDefaults`／每 workload 新 default context，本機真失焦 guard PASS；完整 revised hosted qualification待執行，原 counts／budgets不變，額外 loopback ephemeral transport argv明示 pin。必要 gates PASS 前不建立 v1.12.4 tag／Release，不 npm publish、不改歷史 tags／已發佈 v1.12.1 baseline，不宣稱完整 Windows／實機認證；缺 owned hardware／授權的資格仍 BLOCKED。
 - 後續 [CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252) 五原 workload及真失焦guard全PASS，RAF根因修正已完成實際hosted資格；Windows Chromium原生loss／WebKitexactpixels仍阻擋發佈。使用者明示批准 pinned WindowsWebKit編譯關閉的WebAudio／AudioWorklet記UNSUPPORTED，WebKit其他graphics／input／lifecycle／cleanup gates及WindowsChromium／Firefox音訊仍必須通過；不自製DSP／patchvendor。Color-conversion-none嘗試實跑無效撤除，不能冒稱pixel根因已修好。
 - 使用者另授權提交 OPM.js 1.11.1 更新、升版 1.13.0、推送 main／新 `v1.13` tag，沿既有 CI／Release workflow 發佈 GitHub archive 與 checksum；不做 npm publish，不改歷史 tags 或既有驗證門檻。
+- 使用者本輪授權提交程序貼圖材質、升版 1.14.0、推送 main／新 `v1.14` tag，沿既有 CI／Release workflow 發佈 GitHub archive 與 checksum；不做 npm publish、不移動歷史 tags、不降低驗證門檻。
 - 開發者對外使用統一 `xyz.js` API；ECS 保持內部資料模型。`auto` 已提供 WebGPU→WebGL2→Canvas2D 初始化降級，強制指定 backend 不得靜默切換；執行中 loss 不自動切換 backend。
 - 原 v1.0–v1.1 非目標中的場景階層、模型載入、Animation、PBR、法線貼圖與陰影依決策納入 P09–P12；Physics／Tilemap／Particle 納入 P15–P17，P30–P39 再擴充 bounded profiles。原排除的 UI layout／widgets、GPU skinning／animated bounds、native compressed／mip textures、3D physics／character／dynamic bodies、Navigation／pathfinding、animation masks／additive／blend tree／IK 已依使用者批准納入 P41／P42，下方契約不得以舊 non-goal 刪減。仍不做 Visual Editor、Visual Scripting、Shader Graph、Networking、Inspector／Scene GUI Editor、JS Software Rasterizer、自製 Shader IR／transpiler、Native Desktop Runtime；不承諾對齊 three.js addons 或 Excalibur 全部 API／plugins／main-only 功能。
 - TypeScript strict、Web 原生 API、零 runtime dependencies（P07 的 OPM.js 官方 vendor 發佈包除外）。禁止為了過關而另寫獨立 triangle demo 繞開正式 Game→Renderer→WebGPU 路徑。
+
+## 本輪批准追加：可重用程序式 PBR 與 gallery
+
+使用者批准 additive `ProceduralMaterial`／`ProceduralMaterialKind`／`ProceduralMaterialOptions`，支援 wood／brick／stone／metal／fabric／marble 六種。`create()` 一次生成 deterministic／seamless immutable baseColor／normal／metallicRoughness／occlusion maps；size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1）。預設 opaque／repeat、roughness factor 1，metal 的 metallic factor 1、其餘 0。呼叫者擁有預設，可借 `material` 或以 `createMaterial(overrides)` 重用 maps；所有使用者移除後才同步、冪等 `destroy()`，只釋放生成貼圖；`destroyed` 可查，銷毀後不再建立借用材質。
+
+整合既有 pbr3d gallery 的六種預設切換與貼圖預覽，不新增外部素材／依賴、不改共用 geometry／renderer／core-assets 邊界、不改 Scene／mesh ownership。初次實作未授權 commit／push／升版／release；使用者後續明確授權 v1.14 發佈，依頁首規則執行。實際品質與 browser 證據見 ACCEPTANCE，不由批准或文件推論驗收。
 
 ## 倉庫結構
 

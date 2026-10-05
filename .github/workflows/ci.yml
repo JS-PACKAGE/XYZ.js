@@ -147,8 +147,8 @@ jobs:
             endpoints = @(Get-PnpDevice -Class AudioEndpoint -ErrorAction SilentlyContinue | Select-Object FriendlyName,Status)
           } | ConvertTo-Json -Depth 5 | Tee-Object -FilePath .vite/windows-host/audio.json
       - name: Install verified signed audio on the ephemeral Windows runner
-        # The verified driver package is x64-only; never install it on ARM64.
-        if: runner.os == 'Windows' && runner.arch == 'X64'
+        # The pinned Pack45 contains a signed native driver for x64 and ARM64.
+        if: runner.os == 'Windows' && (runner.arch == 'X64' || runner.arch == 'ARM64')
         shell: pwsh
         timeout-minutes: 6
         env:

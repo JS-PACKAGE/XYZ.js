@@ -65,13 +65,15 @@ function Get-AudioInventory {
 }
 
 try {
+    $nativeArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToUpperInvariant()
+    $processArchitecture = [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture.ToString().ToUpperInvariant()
     if ($env:GITHUB_ACTIONS -cne 'true' -or $env:RUNNER_OS -cne 'Windows' -or
-        $env:RUNNER_ARCH -cne 'X64' -or $env:XYZ_RUNNER_ENVIRONMENT -cne 'github-hosted' -or
-        [System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture -ne [System.Runtime.InteropServices.Architecture]::X64 -or
-        [System.Runtime.InteropServices.RuntimeInformation]::ProcessArchitecture -ne [System.Runtime.InteropServices.Architecture]::X64) {
-        throw 'Audio driver installation is restricted to explicitly identified ephemeral GitHub-hosted Windows x64 runners.'
+        $env:RUNNER_ARCH -cnotin @('X64', 'ARM64') -or $env:XYZ_RUNNER_ENVIRONMENT -cne 'github-hosted' -or
+        $nativeArchitecture -cne $env:RUNNER_ARCH -or $processArchitecture -cne $nativeArchitecture) {
+        throw 'Audio driver installation is restricted to native x64 or ARM64 processes on explicitly identified ephemeral GitHub-hosted Windows runners.'
     }
     $guardPassed = $true
+    $evidence.architecture = $nativeArchitecture
     $principal = [Security.Principal.WindowsPrincipal]::new([Security.Principal.WindowsIdentity]::GetCurrent())
     if (-not $principal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)) {
         throw 'The CI process must already be an administrator; interactive elevation is forbidden.'
@@ -202,7 +204,7 @@ public static class XYZWindowsAudio {
 
     $signedFiles = @(
         @{ name = 'VBCABLE_Setup_x64.exe'; signer = 'BUREL VINCENT Entrepreneur individuel' },
-        @{ name = 'vbaudio_cable64_win10.sys'; signer = 'BUREL VINCENT Entrepreneur individuel' },
+        @{ name = $(if ($nativeArchitecture -ceq 'ARM64') { 'vbaudio_cable64arm_win10.sys' } else { 'vbaudio_cable64_win10.sys' }); signer = 'BUREL VINCENT Entrepreneur individuel' },
         @{ name = 'vbaudio_cable64_win10.cat'; signer = 'Microsoft Windows Hardware Compatibility Publisher' }
     )
     $invalidSignatures = @()
@@ -227,6 +229,7 @@ public static class XYZWindowsAudio {
     if ($invalidSignatures.Count -ne 0) { throw "Authenticode validation rejected: $($invalidSignatures -join ', ')." }
 
     # Pack45 binary parser 0x140002d20 accepts -i and -h; -h hides its own UI, not Windows security prompts.
+    # The official shared INF selects the native ARM64 driver; the x64 installer runs under Windows emulation.
     # Official readme requires a reboot. We never reboot CI or assume a successful exit means usable audio.
     $installer = Start-Process -FilePath (Join-Path $package 'VBCABLE_Setup_x64.exe') -ArgumentList '-i', '-h' -WorkingDirectory $package -PassThru
     $evidence.installer = [ordered]@{ arguments = @('-i', '-h'); timeoutSeconds = 120; exitCode = $null; timedOut = $false }

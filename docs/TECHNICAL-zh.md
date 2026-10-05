@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-**目前支援規範：**[v1.12.4 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.12.4/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+**目前支援規範：**[v1.14 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.14.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.12.4／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。v1.12.3 production gate 失敗後，使用者已授權新的 GitHub v1.12.4 發佈，保留 v1.12.2 與 v1.12.3 tags。v1.12.4 仍待 CI 與 release 驗證，此處不宣稱 hosted 驗證或發佈已完成。Windows CI 測試設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的 browser／host／path 證據擴充。
+本參考描述 **1.14.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者授權沿既有 CI gates 發佈 GitHub v1.14，保留歷史 tags；hosted 驗證與發佈實際結果另記 ACCEPTANCE。Windows CI 測試設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的 browser／host／path 證據擴充。
 
 五個原 hosted workload與真失焦guard已於[CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252)通過；Windows原生圖形failures仍阻擋發佈。使用者批准只有 pinned native WindowsWebKit在secure origin實測AudioContext／AudioWorkletNode均不存在、符合上游ENABLE_WEB_AUDIO OFF時音訊記UNSUPPORTED。WebKit其他gates及WindowsChromium／Firefox原生音訊assertions仍必須通過，不能宣稱WindowsWebKit音訊認證。
 
@@ -379,6 +379,14 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter、magFilter、mipmapFilter；address modes 為 clamp-to-edge／repeat／mirror-repeat；finite LOD clamps 必須 `0 <= lodMinClamp <= lodMaxClamp <= 32`。預設 linear／clamp，glTF 使用 repeat；同 image 可有不同 sampler、不重複 ownership。Native mip semantics 見第 42 節。
 
 一般 decoded-image texture 仍只 level zero，沒有自動 general mip generation；EnvironmentMap roughness mips 是專用路徑。
+
+### 程序式材質預設
+
+Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble'`，木材／磚牆／石材／金屬／布料／大理石）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
+
+唯讀 `textures` 包含四份 `Texture`：`baseColor`（sRGB RGB）、`normal`（linear tangent-space）、`metallicRoughness`（linear G roughness／B metallic）、`occlusion`（linear R）。唯讀 `kind` 表示種類，唯讀 `material` 為預設 `PBRMaterial`。預設 OPAQUE、每個 sampler 使用 repeat wrapping、roughness factor 為 1，metal 的 metallic factor 為 1、其他種類為 0，因此貼圖粗糙度不會再乘上一般材質的預設 0.5。
+
+`createMaterial(options?: Partial<PBRMaterialOptions>): PBRMaterial` 回傳新的材質、借用同一組 maps，最後套用呼叫者覆寫，不重新產生 maps。`destroyed` 是 getter；同步且冪等的 `destroy()` 只釋放生成貼圖，不銷毀材質、mesh 或覆寫的外部 maps。先移除所有使用者；Mesh／Scene 不自動擁有預設，銷毀後呼叫 `createMaterial()` 會拒絕。CPU 生成位於 core，透過 assets 既有 `Texture.fromImage` 邊界建立貼圖；共用 geometry、PBR shaders、backend upload／render 路徑不變，沒有逐幀生成。仍只有 WebGPU／WebGL2 支援 3D，Canvas2D 不新增 3D。[實際 consumer 範例](USAGE-zh.md#可重用的程序式-pbr-預設) 見使用說明。
 
 ## 22. 2D 階層與 Atlas 圖形（P13）
 

@@ -1,18 +1,18 @@
 ---
-title: Current contracts · v1.13
+title: Current contracts · v1.14
 ---
 
-# XYZ.js v1.13 — current contracts
+# XYZ.js v1.14 — current contracts
 
-**Normative for package 1.13.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles, not an acceptance report or an upstream compatibility promise. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/YueyuHoshizora/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
+**Normative for package 1.14.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles, not an acceptance report or an upstream compatibility promise. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/YueyuHoshizora/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
 
 ## Public API and distribution
 
-The supported public entry is `xyz.js` (or the complete built tree's `engine/src/index.js` on the static site). It exports core, graphics, math, assets, input and audio; ECS is an internal model, not a separate root export. Use the generated **API v1.13.0** portal for exact classes, types, methods and overloads. Its search includes API names, comments and this document; inherited members can be shown with the visibility filters.
+The supported public entry is `xyz.js` (or the complete built tree's `engine/src/index.js` on the static site). It exports core, graphics, math, assets, input and audio; ECS is an internal model, not a separate root export. Use the generated **API v1.14.0** portal for exact classes, types, methods and overloads. Its search includes API names, comments and this document; inherited members can be shown with the visibility filters.
 
-`pnpm docs:api` generates `.vite/site/api/1.13.0/` and its documentation landing pages. `pnpm build:site` builds the examples and the same searchable API into the complete `.vite/site/` distribution. Serve over HTTP/HTTPS and open `docs/` or `api/1.13.0/`; generated HTML is not tracked or included in the engine tarball. Relative API links and search assets stay within the version directory, so deployment under a path prefix does not require URL rewriting. Source documentation is not a claim that the hosted site has been deployed.
+`pnpm docs:api` generates `.vite/site/api/1.14.0/` and its documentation landing pages. `pnpm build:site` builds the examples and the same searchable API into the complete `.vite/site/` distribution. Serve over HTTP/HTTPS and open `docs/` or `api/1.14.0/`; generated HTML is not tracked or included in the engine tarball. Relative API links and search assets stay within the version directory, so deployment under a path prefix does not require URL rewriting. Source documentation is not a claim that the hosted site has been deployed.
 
-For standalone consumers, build and pack, then use `node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.13.0.tgz --name my-game` (or `3d`). Deploy the complete starter `dist/`. No-bundler engine deployment likewise requires the complete engine `dist/`, including the unchanged official `dist/vendor/opm/` distribution and licenses.
+For standalone consumers, build and pack, then use `node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.14.0.tgz --name my-game` (or `3d`). Deploy the complete starter `dist/`. No-bundler engine deployment likewise requires the complete engine `dist/`, including the unchanged official `dist/vendor/opm/` distribution and licenses.
 
 ## Capability matrix
 
@@ -46,6 +46,14 @@ WebGPU and AudioWorklet require a secure origin (localhost is allowed). Device a
 | Deployment / compatibility      | 1.x additive profiles, optional renderer extensions, standalone 2D/3D starters, strict-CSP hosting and opt-in offline assets. Offline support does not cache arbitrary missing resources or relax origin/security rules.                                                                                                                                |
 
 Official OPM.js v1.11.1 (tag `v1.11.1`) normalizes voices to v7 internally; the engine-exposed `OPMVoice` retains the published `version: 1` contract. `game.audio.opm` is the engine's legacy compatibility facade backed by the first official instance, not that native instance itself. It preserves writable context/node handles and a mutable voice `Map` with v1 voices. Direct escape-hatch use still bypasses engine budgeting and lifecycle management; managed playback and teardown continue to use official `panic()`/`dispose()` internally without modifying vendor bytes.
+
+### Reusable procedural PBR materials
+
+The root exports `ProceduralMaterial`, `ProceduralMaterialKind` (`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble'`) and `ProceduralMaterialOptions` (`size?: number; seed?: number`). `await ProceduralMaterial.create(kind, options?)` generates deterministic, seamlessly periodic immutable maps once on the CPU, without external assets or new dependencies. `size` is an integer 32–1024 (default 256); `seed` is an unsigned 32-bit integer 0–4294967295 (default 1). Invalid inputs reject.
+
+The caller owns the returned preset, whose readonly `kind`, `material: PBRMaterial` and `textures` expose four `Texture` sources: `baseColor` (sRGB RGB), `normal` (linear tangent-space), `metallicRoughness` (linear G roughness/B metallic) and `occlusion` (linear R). Defaults are opaque, repeat sampling for all slots, roughness factor 1 and metallic factor 1 for metal or 0 otherwise. `createMaterial(options?: Partial<PBRMaterialOptions>)` creates a fresh material borrowing its maps, with caller overrides applied last.
+
+Remove all consumers before calling synchronous, idempotent `destroy()`, which releases only generated textures, not override textures or materials. Mesh/Scene do not automatically own the preset. The `destroyed` getter reports state; `createMaterial()` rejects after destruction. Core generation uses assets' existing `Texture.fromImage`; geometry and backend rendering stay unchanged, with no frame-time generation. The [pbr3d gallery](https://github.com/YueyuHoshizora/XYZ.js/tree/main/examples/pbr3d) offers six presets and texture-map previews. Canvas2D remains 2D-only. Actual browser/runtime verification is recorded separately in ACCEPTANCE.
 
 No Visual Editor, Visual Scripting, Shader Graph, Networking, native desktop runtime, JavaScript software rasterizer, shader transpiler, full glTF extension set or drop-in three.js/PixiJS/Excalibur parity is promised.
 
@@ -135,7 +143,7 @@ This is TypeScript **source** compatibility, not runtime/behavioral, binary or a
 
 After building, run `node scripts/check-package-hygiene.mjs` (optional `--output DIRECTORY`) to compare clean/disposable polluted packs using the same built bytes and pinned pnpm 12.6.0. The reviewed inventory permits exact module outputs, CLI import closures, this source document and 164 vendor entries: all 162 unchanged official OPM.js v1.11.1 dist files, the official LICENSE and the provenance manifest, not generated site/API output. It rejects unknown/missing paths, links, unsafe entry types and invalid archive checksums/end markers, comparing every approved file's bytes/SHA and executable flags.
 
-`--archive /absolute/xyz.js-1.13.0.tgz` checks an actual supplied archive without repacking. The JSON report retains tar hashes, approved file facts and deliberately added cache/development pollution. Extracted-bin help/root math and byte-exact starter creation are consumer smoke, not installed browser gameplay; use the separate starter/browser gate for that. User source/vendor/caches are never removed to make a package pass, and this gate does not build or publish.
+`--archive /absolute/xyz.js-1.14.0.tgz` checks an actual supplied archive without repacking. The JSON report retains tar hashes, approved file facts and deliberately added cache/development pollution. Extracted-bin help/root math and byte-exact starter creation are consumer smoke, not installed browser gameplay; use the separate starter/browser gate for that. User source/vendor/caches are never removed to make a package pass, and this gate does not build or publish.
 
 ## Integrated current-version soak
 
