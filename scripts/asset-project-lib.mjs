@@ -1,3 +1,4 @@
+import { Buffer } from 'node:buffer';
 import { readFile, realpath, stat } from 'node:fs/promises';
 import {
   resolve,
@@ -81,7 +82,8 @@ export async function scanProject(manifestPath, { signal } = {}) {
   }
   const root = dirname(manifestPath);
   const files = new Map(),
-    visited = new Set();
+    visited = new Set(),
+    dependencies = new Map();
   let bytes = 0;
   const fail = (file, location, message, cause) => {
     throw new ProjectError(file, location || '/', message, { cause });
@@ -174,6 +176,8 @@ export async function scanProject(manifestPath, { signal } = {}) {
   };
   const ref = async (url, file, location, type) => {
     const target = await acquire(url, file.source, location);
+    if (!dependencies.has(file.path)) dependencies.set(file.path, new Set());
+    dependencies.get(file.path).add(target.path);
     if (type) await inspect(target, type);
     return target;
   };
@@ -401,5 +405,43 @@ export async function scanProject(manifestPath, { signal } = {}) {
           `Missing asset ID: ${id}`,
         );
   }
-  return { manifestPath, root, manifest, files, ids };
+  const entryHashes = new Map();
+  const fingerprint = (id) => {
+    const entries = new Set(),
+      paths = new Set();
+    const entryQueue = [id],
+      pathQueue = [];
+    for (let cursor = 0; cursor < entryQueue.length; cursor++) {
+      const dependency = entryQueue[cursor];
+      if (entries.has(dependency)) continue;
+      entries.add(dependency);
+      const { entry, file } = ids.get(dependency);
+      pathQueue.push(file.path);
+      entryQueue.push(...(entry.dependsOn ?? []));
+    }
+    for (let cursor = 0; cursor < pathQueue.length; cursor++) {
+      const path = pathQueue[cursor];
+      if (paths.has(path)) continue;
+      paths.add(path);
+      pathQueue.push(...(dependencies.get(path) ?? []));
+    }
+    return checksum(
+      Buffer.from(
+        JSON.stringify([
+          [...entries].sort().map((entry) => ids.get(entry).entry),
+          [...paths].sort().map((path) => [path, files.get(path).sha256]),
+        ]),
+      ),
+    );
+  };
+  for (const id of ids.keys()) entryHashes.set(id, fingerprint(id));
+  return {
+    manifestPath,
+    root,
+    manifest,
+    files,
+    ids,
+    dependencies,
+    entryHashes,
+  };
 }

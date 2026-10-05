@@ -1,0 +1,139 @@
+const require_gameplay_assets = require("../../../../src/data/gameplay-assets.cjs");
+const require_errors = require("../errors.cjs");
+const require_spatial = require("./spatial.cjs");
+//#region dist/packages/audio/src/samples/sample-playback.js
+var SamplePlayback = class {
+	context;
+	buffer;
+	release;
+	activity;
+	status = `playing`;
+	source;
+	gain;
+	panner;
+	offset;
+	startsAt;
+	speed;
+	level;
+	loop;
+	regionStart;
+	regionEnd;
+	regional;
+	pauseReasons = /* @__PURE__ */ new Set();
+	startDelay = 0;
+	constructor(e, r, a, o, s, c) {
+		this.context = e, this.buffer = r, this.release = s, this.activity = c;
+		let l = o.region, u = e.currentTime;
+		if (this.regional = l !== void 0, this.regionStart = l?.start ?? 0, this.regionEnd = l?.end ?? r.duration, !Number.isFinite(this.regionStart) || !Number.isFinite(this.regionEnd) || this.regionStart < 0 || this.regionStart >= this.regionEnd || this.regionEnd > r.duration) throw new require_errors.AudioError(`Sample region must satisfy 0 <= start < end <= decoded duration.`);
+		if (this.offset = o.offset ?? this.regionStart, this.startsAt = o.scheduledStartTime ?? u, this.speed = o.playbackRate ?? 1, this.level = o.volume ?? 1, this.loop = o.loop ?? !1, !Number.isFinite(this.startsAt) || this.startsAt < 0) throw new require_errors.AudioError(`Scheduled start time must be finite and nonnegative.`);
+		this.checkPosition(this.offset), this.checkRate(this.speed), this.checkVolume(this.level);
+		let d = o.spatial && require_spatial.checkSpatialOptions(o.spatial);
+		this.startsAt = Math.max(this.startsAt, u), this.loop && (this.offset = this.wrap(this.offset)), this.gain = e.createGain(), this.gain.gain.value = this.level, d ? (this.panner = e.createPanner(), require_spatial.applyPannerOptions(this.panner, d), this.gain.connect(this.panner), this.panner.connect(a)) : this.gain.connect(a);
+		try {
+			this.startSource(), this.activity?.(!0, Math.max(0, this.startsAt - u));
+		} catch (e) {
+			throw this.gain.disconnect(), this.panner?.disconnect(), e;
+		}
+	}
+	get state() {
+		return this.status;
+	}
+	get position() {
+		return this.positionAt(this.context.currentTime);
+	}
+	positionAt(e) {
+		let t = this.offset;
+		return this.status === `playing` && (t += Math.max(0, e - this.startsAt) * this.speed), this.loop ? this.wrap(t) : Math.min(t, this.regionEnd);
+	}
+	get volume() {
+		return this.level;
+	}
+	set volume(e) {
+		this.checkVolume(e), this.level = e, this.gain.gain.value = e;
+	}
+	get position3D() {
+		return this.panner ? {
+			x: this.panner.positionX.value,
+			y: this.panner.positionY.value,
+			z: this.panner.positionZ.value
+		} : void 0;
+	}
+	set position3D(e) {
+		if (!this.panner) throw new require_errors.AudioError(`Playback was not created with spatial options.`);
+		require_spatial.validateVec3(e, `Spatial position`), this.panner.positionX.value = e.x, this.panner.positionY.value = e.y, this.panner.positionZ.value = e.z;
+	}
+	get playbackRate() {
+		return this.speed;
+	}
+	set playbackRate(e) {
+		this.checkRate(e);
+		let t = this.context.currentTime;
+		this.offset = this.positionAt(t), t >= this.startsAt && (this.startsAt = t), this.speed = e, this.source && (this.source.playbackRate.value = e);
+	}
+	pause(e = `user`) {
+		if (this.status === `stopped` || this.status === `ended` || (this.pauseReasons.add(e), this.status !== `playing`)) return;
+		let t = this.context.currentTime;
+		this.offset = this.positionAt(t), this.startDelay = Math.max(0, this.startsAt - t), this.status = `paused`, this.clearSource(), this.activity?.(!1);
+	}
+	resume(e = `user`) {
+		if (!this.pauseReasons.delete(e) || this.pauseReasons.size || this.status !== `paused`) return;
+		let t = this.context.currentTime;
+		this.startsAt = t + this.startDelay, this.status = `playing`;
+		try {
+			this.startSource(), this.activity?.(!0, this.startDelay);
+		} catch (t) {
+			throw this.status = `paused`, this.pauseReasons.add(e), t;
+		}
+	}
+	seek(e) {
+		if (this.checkPosition(e), this.status === `ended` || this.status === `stopped`) throw new require_errors.AudioError(`Cannot seek a finished sample playback.`);
+		let t = Math.max(this.startsAt, this.context.currentTime);
+		if (this.clearSource(), this.offset = this.loop ? this.wrap(e) : e, this.startsAt = t, this.status === `playing`) try {
+			this.startSource();
+		} catch (e) {
+			throw this.status = `paused`, this.pauseReasons.add(`user`), this.activity?.(!1), e;
+		}
+	}
+	stop() {
+		this.status !== `stopped` && this.status !== `ended` && (this.offset = this.position, this.status = `stopped`, this.clearSource(), this.pauseReasons.clear(), this.activity?.(!1), this.gain.disconnect(), this.panner?.disconnect(), this.release(this));
+	}
+	startSource() {
+		let e = this.context.createBufferSource();
+		e.buffer = this.buffer, e.loop = this.loop, this.loop && this.regional && (e.loopStart = this.regionStart, e.loopEnd = this.regionEnd), e.playbackRate.value = this.speed, e.connect(this.gain), this.source = e, e.onended = () => {
+			this.source === e && this.status === `playing` && (this.source = void 0, this.offset = this.regionEnd, this.status = `ended`, this.pauseReasons.clear(), this.activity?.(!1), e.disconnect(), this.gain.disconnect(), this.panner?.disconnect(), this.release(this));
+		};
+		try {
+			this.regional && !this.loop ? e.start(this.startsAt, this.offset, this.regionEnd - this.offset) : e.start(this.startsAt, this.offset);
+		} catch (t) {
+			throw this.source = void 0, e.onended = null, e.disconnect(), t;
+		}
+	}
+	clearSource() {
+		let e = this.source;
+		if (e) {
+			this.source = void 0, e.onended = null;
+			try {
+				e.stop();
+			} finally {
+				e.disconnect();
+			}
+		}
+	}
+	wrap(e) {
+		let t = this.regionEnd - this.regionStart;
+		return this.regionStart + (e - this.regionStart) % t;
+	}
+	checkPosition(e) {
+		if (!Number.isFinite(e) || e < this.regionStart || e > this.regionEnd) throw new require_errors.AudioError(this.regional ? `Sample position must be within the sprite region.` : `Sample position must be within the decoded duration.`);
+	}
+	checkRate(t) {
+		if (!Number.isFinite(t) || t <= 0 || t > require_gameplay_assets.gameplayAssetLimits.playbackRate) throw new require_errors.AudioError(`Sample playback rate must be within (0, ${require_gameplay_assets.gameplayAssetLimits.playbackRate}].`);
+	}
+	checkVolume(e) {
+		if (!Number.isFinite(e) || e < 0 || e > 1) throw new require_errors.AudioError(`Sample volume must be finite and within 0..1.`);
+	}
+};
+//#endregion
+exports.SamplePlayback = SamplePlayback;
+
+//# sourceMappingURL=sample-playback.cjs.map

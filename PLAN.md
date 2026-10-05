@@ -356,3 +356,42 @@ Managed WebKit、viewport／touch emulation、合成事件、CPU pressure 與人
 均不得冒稱獨立實體認證；缺 owned hardware／安全授權時，完成可達工具並保留 blocker。
 P98 的量測不承諾 universal 60 FPS；P99 的 heap 趨勢及 tracked resources 不等於
 全程序無 leak 或 driver VRAM 上限。既有 FAIL、歷史驗收與已發佈 tags 保留。
+
+## 本輪批准：P104–P118 功能擴充
+
+使用者在 v1.14 的缺口分析後要求「全部都實作」。以下是批准範圍與驗收指標，
+不是完成宣告；實際結果另記 ACCEPTANCE。保持 1.x additive API、零新增 runtime
+dependency、官方 OPM immutable vendor 與既定非目標。每階段驗收後獨立
+`[Pxx]` commit；不推送、不移動 tag、不自動升版。npm 實際發佈仍須取得
+帳號權限與明確外部操作確認；發佈準備與已 publish 不可混寫。
+
+| 階段 | 範圍                        | 驗收指標                                                                                                   |
+| ---- | --------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| P104 | CJS／CDN／發佈準備          | 實際 extracted package 的 require／ESM consumers；完整 vendor／worker URL、型別、核准 inventory 不變質     |
+| P105 | Texture atlas 打包          | 產物經既有 AtlasLoader 載入；trim／padding／extrusion／多頁 bounds、像素與 ownership                       |
+| P106 | SDF／MSDF 字型              | 真正 distance fields／多通道邊緣，不以三份相同 SDF 冒充 MSDF；產生、載入與縮放繪製                         |
+| P107 | Watch／incremental／HMR     | 依賴失效、實際增量 build、immutable generation publication；失敗保留舊代、取消與 teardown                  |
+| P108 | Cutscene／Dialogue／Quest   | 模擬時間、分支／條件／選擇、seek／pause／cancel、validated save／restore 與 rewards 不重複                 |
+| P109 | Crowd／steering             | 真 reciprocal avoidance、bounded work／速度、角色 sweep 執行路徑；交會／障礙不以 teleport 假避碰           |
+| P110 | 3D debug／RNG／pool         | 真 collider／contact／joint visuals；seed／state 重現；容量／租借／reset／destroy invariants               |
+| P111 | Pinch／rotate／swipe        | 先核对既有 Gestures API；真 pointer pairing／cancel／blur／teardown，不重建第二套 input                    |
+| P112 | 2D 光照／normal maps        | GPU／GL 真 albedo-normal-light shading；變換／HUD space／批次／loss；Canvas 支援界線明示                   |
+| P113 | Video／WebCodecs textures   | 2D／3D 真逐幀像素、播放／暫停／frame ownership；decode cancellation／error／teardown                       |
+| P114 | Bounded compute             | 真 WGSL dispatch／typed buffer readback；準備／limits／loss／destroy；GL／Canvas 明示 unsupported          |
+| P115 | Render graph／custom pass   | 真 native GPU／GL 多輸入／target passes、DAG／feedback validation、依賴與資源清理                          |
+| P116 | TAA／SSR／probes            | 真 jitter／history／disocclusion、depth ray march、六面 scene capture／空間 blending；resize／loss reset   |
+| P117 | Vehicle／ragdoll／soft body | 真 suspension／輪胎 forces／constraints／deformation／contacts；重用 physics／animation ownership          |
+| P118 | Text3D／visibility          | 多行／文字更新 transaction；先核對 P79／P94 的 instance／morph culling，僅補真正缺口且不漏 shadow／picking |
+
+Physical mobile／gamepad／OS IME／audible audio／AT／driver 等資格仍需 owned fixtures，
+不得以新增程式碼或 emulation 消除現有 BLOCKED。已有 raw CDN ESM 消費能力、
+Gestures 與 visibility profiles 的實作須先核對；前次分析的未查到不視為不存在證據。
+
+### P104–P118 working-tree 交付與實測範圍
+
+本輪正式 source／公開入口／generated distribution 與 consumer 範例已整合，
+逐階段的實際功能與證據見 [ACCEPTANCE](ACCEPTANCE.md#p104p118-本輪實作與限定驗證2026-10-05未發佈)。
+目前沒有 stage／commit／push／tag／npm publish，metadata 保留 1.14.0；
+工作樹交付不冒稱依階段完成提交或包含於既有 GitHub archive。
+本機 native automation 的能力與 physical qualification 分開；
+npm 身分／名稱權限與明確外部操作確認仍 BLOCKED。

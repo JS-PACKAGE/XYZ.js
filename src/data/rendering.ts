@@ -39,8 +39,8 @@ export const LIGHTING_FLOAT_COUNT = LIGHTING_POINT_ID_OFFSET + MAX_POINT_LIGHTS;
 
 /** Environment block: nine SH vec4 followed by intensity/background/mip data. */
 export const ENVIRONMENT_FLOAT_COUNT = 40;
-/** Mesh-local IBL block adds box bounds and capture position to the environment block. */
-export const REFLECTION_FLOAT_COUNT = ENVIRONMENT_FLOAT_COUNT + 12;
+/** Global environment plus four spatial probe SH/params/bounds records. */
+export const REFLECTION_FLOAT_COUNT = (ENVIRONMENT_FLOAT_COUNT + 12) * 5;
 
 /** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
 export const oitSettings = Object.freeze({
@@ -119,3 +119,22 @@ export const transmissionBlurFraction = 0.04;
 
 /** World-space lift at decal creation; later receiver scaling also scales this baked lift. */
 export const decalNormalOffset = 0.001;
+
+/** Bounded temporal/ray-march work and dynamic capture memory. */
+export const advancedPostDefaults = Object.freeze({
+  taaHistoryWeight: 0.9,
+  taaDepthThreshold: 0.01,
+  taaCameraCutDistance: 5,
+  ssrSteps: 48,
+  ssrThickness: 0.2,
+  ssrMaxDistance: 30,
+  ssrRoughness: 0.15,
+  ssrStrength: 1,
+  maximumSSRSteps: 128,
+});
+export const reflectionCaptureLimits = Object.freeze({
+  size: 64,
+  maximumSize: 512,
+  maximumBytes: 64 * 1024 * 1024,
+  interval: 1,
+});

@@ -1,0 +1,87 @@
+const require_subscribe_load = require("../../assets/src/preload/subscribe-load.cjs");
+const require_storage = require("./storage.cjs");
+const require_content = require("./content.cjs");
+//#region dist/packages/core/src/content-storage.js
+var ContentLoadCoordinator = class {
+	registry;
+	services;
+	resources;
+	host;
+	pending;
+	disposed = !1;
+	lifetime = new AbortController();
+	constructor(e, t, n, r) {
+		this.registry = e, this.services = t, this.resources = n, this.host = r;
+	}
+	async save(e, t, r, i = 0, a = {}) {
+		if (this.disposed || this.host.destroyed) throw new DOMException(`Content owner is destroyed.`, `AbortError`);
+		let o = r.capture();
+		require_storage.assertJsonValue(o);
+		let s = [
+			this.lifetime.signal,
+			a.signal,
+			this.host.signal
+		].filter((e) => e !== void 0);
+		return e.save(t, o, i, {
+			...a,
+			signal: s.length ? AbortSignal.any(s) : void 0
+		});
+	}
+	async load(n, r, i = {}) {
+		if (this.disposed || this.host.destroyed) throw new DOMException(`Content owner is destroyed.`, `AbortError`);
+		this.cancel(new DOMException(`Content load was superseded.`, `AbortError`));
+		let a = { controller: new AbortController() };
+		this.pending = a;
+		let o = [a.controller.signal];
+		i.signal && o.push(i.signal), this.host.signal && o.push(this.host.signal);
+		let s = AbortSignal.any(o), c = this.host.revision, assertCurrent = () => {
+			if (s.throwIfAborted(), this.disposed || this.host.destroyed || this.pending !== a || this.host.revision !== c) throw new DOMException(`Content publication was superseded.`, `AbortError`);
+		}, cancelCandidate = () => {
+			if (a.candidate && this.host.scene !== a.candidate.scene) try {
+				a.candidate.destroy();
+			} catch (e) {
+				a.cleanupError = e;
+			}
+		};
+		s.addEventListener(`abort`, cancelCandidate, { once: !0 });
+		try {
+			assertCurrent();
+			let o = await require_subscribe_load.subscribeLoad(n.load(r, {
+				...i,
+				signal: s
+			}), s);
+			if (assertCurrent(), o.status !== `loaded`) return o;
+			let l = await require_content.rebuildContentScene(this.registry, o.record.data, this.services, {
+				signal: s,
+				resourcePool: this.resources
+			});
+			if (a.candidate = l, assertCurrent(), await this.host.publish(l, s, c), s.throwIfAborted(), this.host.destroyed || this.host.scene !== l.scene) throw new DOMException(`Content candidate was not published.`, `AbortError`);
+			return {
+				...o,
+				content: l
+			};
+		} catch (e) {
+			if (a.cleanupError !== void 0) throw AggregateError([e, a.cleanupError], `Content cancellation and cleanup failed.`, { cause: e });
+			let t = a.candidate;
+			if (t && this.host.scene !== t.scene) try {
+				t.destroy();
+			} catch (t) {
+				throw AggregateError([e, t], `Content load and candidate cleanup failed.`, { cause: t });
+			}
+			throw e;
+		} finally {
+			this.pending === a && (this.pending = void 0), s.removeEventListener(`abort`, cancelCandidate);
+		}
+	}
+	cancel(e = new DOMException(`Content load was cancelled.`, `AbortError`)) {
+		let t = this.pending;
+		t && t.controller.abort(e);
+	}
+	destroy() {
+		this.disposed = !0, this.lifetime.abort(new DOMException(`Content owner is destroyed.`, `AbortError`)), this.cancel(new DOMException(`Content owner is destroyed.`, `AbortError`));
+	}
+};
+//#endregion
+exports.ContentLoadCoordinator = ContentLoadCoordinator;
+
+//# sourceMappingURL=content-storage.cjs.map

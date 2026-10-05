@@ -1,0 +1,148 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_scene_object = require("./scene-object.cjs");
+const require_physics_presentation = require("./physics-presentation.cjs");
+const require_collider = require("./physics3d/collider.cjs");
+const require_body = require("./physics3d/body.cjs");
+//#region dist/packages/core/src/object3d.js
+var Object3D = class extends require_scene_object.SceneObject {
+	transform = new require_math3d.Transform3D();
+	worldMatrix = new require_math3d.Matrix4();
+	visible = !0;
+	ancestor;
+	descendants = /* @__PURE__ */ new Set();
+	rigidBody;
+	collisionShape;
+	physicsPresentation;
+	get body() {
+		return this.rigidBody;
+	}
+	set body(e) {
+		if (e === this.rigidBody) return;
+		if (this.destroyed) throw Error(`Cannot change a destroyed Object3D body.`);
+		if (e && !(e instanceof require_body.RigidBody3D)) throw TypeError(`Invalid RigidBody3D.`);
+		let t = this.rigidBody;
+		e?.attach(this), this.rigidBody = e;
+		try {
+			this.validatePhysics(), this.scene?.physics3D.register(this);
+		} catch (n) {
+			throw this.rigidBody === e && (this.rigidBody = t), e?.detach(this), n;
+		}
+		this.rigidBody !== t && (t?.detach(this), this.physicsPresentation = void 0);
+	}
+	get collider() {
+		return this.collisionShape;
+	}
+	set collider(e) {
+		if (e === this.collisionShape) return;
+		if (this.destroyed) throw Error(`Cannot change a destroyed Object3D collider.`);
+		if (e && !(e instanceof require_collider.Collider3D)) throw TypeError(`Invalid Collider3D.`);
+		let t = this.collisionShape;
+		this.collisionShape = e;
+		try {
+			this.validatePhysics(), this.scene?.physics3D.register(this);
+		} catch (n) {
+			throw this.collisionShape === e && (this.collisionShape = t), n;
+		}
+	}
+	validatePhysics() {
+		let e = this.body, t = this.collider;
+		if (e && e.type !== `static`) {
+			if (this.parent) throw Error(`Dynamic/kinematic bodies require root Object3D.`);
+			if (t?.kind === `plane` || t?.kind === `mesh`) throw Error(`Plane and triangle mesh colliders are static only.`);
+			if (t && (t.offset.x !== 0 || t.offset.y !== 0 || t.offset.z !== 0)) throw Error(`Moving collider offsets are unsupported.`);
+		}
+		if (t) {
+			let n = new require_collider.Shape3D(t);
+			n.refresh(this), e && n.validateMoving(e.type);
+		}
+	}
+	get position() {
+		return this.transform.position;
+	}
+	get rotation() {
+		return this.transform.rotation;
+	}
+	get scale() {
+		return this.transform.scale;
+	}
+	get parent() {
+		return this.ancestor;
+	}
+	get children() {
+		return this.descendants;
+	}
+	get worldVisible() {
+		if (!this.visible || this.destroyed) return !1;
+		for (let e = this.parent; e; e = e.parent) if (!e.visible || e.destroyed) return !1;
+		return !0;
+	}
+	add(e) {
+		if (this.destroyed || e.destroyed) throw Error(`Cannot parent a destroyed Object3D.`);
+		if (e === this) throw Error(`Object3D hierarchy cannot contain cycles.`);
+		for (let t = this.parent; t; t = t.parent) if (t === e) throw Error(`Object3D hierarchy cannot contain cycles.`);
+		if (e.scene && e.scene !== this.scene) throw Error(`Cannot reparent an Object3D across scenes.`);
+		if (e.parent === this) return e;
+		if (e.body && e.body.type !== `static`) throw Error(`Dynamic/kinematic bodies require root Object3D.`);
+		let t = e.ancestor;
+		e.ancestor = this;
+		try {
+			let t = [e];
+			for (let e = 0; e < t.length; e++) {
+				t[e].validatePhysics();
+				for (let n of t[e].children) t.push(n);
+			}
+		} finally {
+			e.ancestor = t;
+		}
+		return this.scene && e.scene !== this.scene ? (this.scene.addChild(e, this), e) : (e.detachParent(), e.ancestor = this, this.descendants.add(e), e);
+	}
+	remove(e) {
+		return e.parent === this && (this.scene ? this.scene.remove(e) : e.detachParent(), !0);
+	}
+	detachParent() {
+		this.ancestor?.descendants.delete(this), this.ancestor = void 0;
+	}
+	setParentForRegistration(e) {
+		let t = this.ancestor, n = t ? [...t.descendants] : void 0;
+		return this.detachParent(), this.ancestor = e, e?.descendants.add(this), () => {
+			if (this.detachParent(), this.ancestor = t, t && n) {
+				t.descendants.clear();
+				for (let e of n) t.descendants.add(e);
+			}
+		};
+	}
+	capturePhysicsPose() {
+		this.scene?.interpolatePhysics && (this.physicsPresentation ??= new require_physics_presentation.PhysicsPresentation3D()).capture(this.transform);
+	}
+	sealPhysicsPose() {
+		this.physicsPresentation?.seal(this.transform);
+	}
+	updateWorldMatrix() {
+		let e = this.parent?.updateWorldMatrix(), t = this.scene, n;
+		if (t?.presentingPhysics && this.body && this.body.type !== `static` && !this.body.isSleeping && this.physicsPresentation) {
+			let e = Math.min(1, t.physics3D.interpolationAlpha + t.fixedInterpolationAlpha * t.fixedDelta / t.physics3D.fixedDelta);
+			n = this.physicsPresentation.matrix(this.transform, e);
+		} else n = this.transform.updateMatrix();
+		return e ? this.worldMatrix.copy(e).multiply(n) : this.worldMatrix.copy(n), this.worldMatrix;
+	}
+	destroy() {
+		if (this.destroyed) return;
+		let e = [...this.descendants], t = [];
+		this.rigidBody?.detach(this), this.rigidBody = void 0, this.collisionShape = void 0, this.detachParent();
+		try {
+			super.destroy();
+		} catch (e) {
+			t.push(e);
+		}
+		for (let n of e) if (!n.destroyed) try {
+			n.destroy();
+		} catch (e) {
+			t.push(e);
+		}
+		if (t.length) throw AggregateError(t, `Object3D cleanup failed.`);
+	}
+};
+//#endregion
+exports.Object3D = Object3D;
+
+//# sourceMappingURL=object3d.cjs.map

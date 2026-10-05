@@ -18,7 +18,7 @@ export declare const LIGHTING_POINT_ID_OFFSET: number;
 export declare const LIGHTING_FLOAT_COUNT: number;
 /** Environment block: nine SH vec4 followed by intensity/background/mip data. */
 export declare const ENVIRONMENT_FLOAT_COUNT = 40;
-/** Mesh-local IBL block adds box bounds and capture position to the environment block. */
+/** Global environment plus four spatial probe SH/params/bounds records. */
 export declare const REFLECTION_FLOAT_COUNT: number;
 /** Bounded weights avoid rapidly overflowing half-float accumulation targets. */
 export declare const oitSettings: Readonly<{
@@ -87,3 +87,21 @@ export declare const depthPostDefaults: Readonly<{
 export declare const transmissionBlurFraction = 0.04;
 /** World-space lift at decal creation; later receiver scaling also scales this baked lift. */
 export declare const decalNormalOffset = 0.001;
+/** Bounded temporal/ray-march work and dynamic capture memory. */
+export declare const advancedPostDefaults: Readonly<{
+    taaHistoryWeight: 0.9;
+    taaDepthThreshold: 0.01;
+    taaCameraCutDistance: 5;
+    ssrSteps: 48;
+    ssrThickness: 0.2;
+    ssrMaxDistance: 30;
+    ssrRoughness: 0.15;
+    ssrStrength: 1;
+    maximumSSRSteps: 128;
+}>;
+export declare const reflectionCaptureLimits: Readonly<{
+    size: 64;
+    maximumSize: 512;
+    maximumBytes: number;
+    interval: 1;
+}>;

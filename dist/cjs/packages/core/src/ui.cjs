@@ -1,0 +1,682 @@
+const require_index = require("../../math/src/index.cjs");
+const require_sprite = require("./sprite.cjs");
+const require_graphics_path2d = require("./graphics2d/graphics-path2d.cjs");
+const require_text2d = require("./text2d.cjs");
+const require_graphics2d = require("./graphics2d/graphics2d.cjs");
+const require_ui_layout = require("./ui-layout.cjs");
+const require_ui_text_input = require("./ui-text-input.cjs");
+const require_ui_scroll = require("./ui-scroll.cjs");
+//#region dist/packages/core/src/ui.js
+async function square() {
+	let e = await require_graphics2d.Graphics2D.create([{
+		path: new require_graphics_path2d.GraphicsPath2D([{
+			op: `rect`,
+			x: 0,
+			y: 0,
+			width: 1,
+			height: 1
+		}]),
+		fill: `#ffffff`
+	}]);
+	return e.anchor.set(0, 0), e;
+}
+function rootOf(e) {
+	for (let t = e; t; t = t.parent) if (t instanceof UIRoot) return t;
+}
+var UILabel = class UILabel extends require_ui_layout.UIElement {
+	textGraphic;
+	preferenceTextStyle;
+	constructor(e) {
+		super(e.layout), this.preferenceTextStyle = {
+			fontSize: 18,
+			color: `#ffffff`,
+			...e.textStyle
+		}, e.label !== void 0 && (this.accessibility = {
+			role: `note`,
+			label: e.label,
+			tabIndex: -1
+		});
+	}
+	static async create(e, t = {}) {
+		let n = new UILabel(t);
+		try {
+			return await n.createText(e, t), n;
+		} catch (e) {
+			throw n.destroy(), e;
+		}
+	}
+	async createText(e, n) {
+		let r = await require_text2d.Text2D.create(e, {
+			fontSize: 18,
+			color: `#ffffff`,
+			padding: 0,
+			...n.textStyle
+		});
+		if (this.destroyed) {
+			r.destroy();
+			return;
+		}
+		r.anchor.set(0, 0), this.textGraphic = this.add(r), this.intrinsicWidth = r.width, this.intrinsicHeight = r.height, this.invalidateLayout();
+	}
+	get text() {
+		return this.textGraphic?.text ?? ``;
+	}
+	async setText(e) {
+		if (!this.textGraphic || this.destroyed) throw Error(`Cannot update an unavailable UILabel.`);
+		await this.textGraphic.setText(e), !this.destroyed && (this.accessibility &&= {
+			...this.accessibility,
+			label: e
+		}, this.intrinsicWidth = this.textGraphic.width, this.intrinsicHeight = this.textGraphic.height, this.invalidateLayout());
+	}
+	async applyPreferences(e) {
+		this.textGraphic && !this.destroyed && (await this.textGraphic.setStyle({
+			...this.preferenceTextStyle,
+			fontSize: (this.preferenceTextStyle.fontSize ?? 18) * e.textScale,
+			color: e.highContrast ? `#ffffff` : this.preferenceTextStyle.color
+		}), !this.destroyed && (this.intrinsicWidth = this.textGraphic.width, this.intrinsicHeight = this.textGraphic.height, this.invalidateLayout()));
+	}
+	arranged() {
+		this.textGraphic?.position.set(this.padding(3), this.padding(0));
+	}
+};
+var UIControl = class extends require_ui_layout.UIElement {
+	textGraphic;
+	background;
+	focusEdges = [];
+	hovered = !1;
+	down = !1;
+	nativeDown = !1;
+	contextDown = !1;
+	focused = !1;
+	paintedState = -1;
+	textInset = 0;
+	textRevision = 0;
+	preferenceTextStyle;
+	preferenceMinHeight;
+	highContrast = !1;
+	constructor(e, t, n) {
+		super({
+			width: `auto`,
+			height: 40,
+			padding: 10,
+			...n.layout
+		}), this.preferenceTextStyle = {
+			fontSize: 18,
+			color: `#ffffff`,
+			...n.textStyle
+		}, this.preferenceMinHeight = n.layout?.minHeight ?? 0, this.pointerEnabled = !0, this.interactiveChildren = !1, this.cursor = `pointer`, this.eventPropagation = `hierarchy`, this.accessibility = {
+			role: e,
+			label: t,
+			tabIndex: 0,
+			disabled: n.disabled ?? !1
+		}, this.disabled = n.disabled ?? !1, this.addEventListener(`focus`, () => {
+			this.focused = !0, rootOf(this)?.focus.acceptNative(this), this.stateChanged();
+		}), this.addEventListener(`blur`, () => {
+			this.focused = this.down = this.nativeDown = this.contextDown = !1, rootOf(this)?.focus.blurNative(this), this.stateChanged();
+		}), this.addEventListener(`activate`, () => this.activate()), this.addEventListener(`pointerenter`, () => {
+			this.hovered = !0, this.stateChanged();
+		}), this.addEventListener(`pointerleave`, () => {
+			this.hovered = !1, this.stateChanged();
+		}), this.addEventListener(`pointerdown`, (e) => {
+			let t = e.detail;
+			this.canActivate() && t.button === 0 && (this.down = !0, rootOf(this)?.focus.focus(this), this.pointerValue(t), this.stateChanged());
+		}), this.addEventListener(`pointermove`, (e) => {
+			this.down && !this.effectiveDisabled && this.pointerValue(e.detail);
+		});
+		for (let e of [
+			`pointerup`,
+			`pointerupoutside`,
+			`pointercancel`
+		]) this.addEventListener(e, () => {
+			this.down = !1, this.stateChanged();
+		});
+		this.addEventListener(`pointertap`, () => {
+			this instanceof UISlider || this.activate();
+		}), this.addEventListener(`remove`, () => {
+			this.focused = this.down = this.nativeDown = this.contextDown = this.hovered = !1, this.stateChanged();
+		});
+	}
+	async initializeVisuals(e, n) {
+		try {
+			this.background = this.add(await square());
+			for (let e = 0; e < 4; e++) this.focusEdges.push(this.createShape());
+			this.textGraphic = this.add(await require_text2d.Text2D.create(e, {
+				fontSize: 18,
+				color: `#ffffff`,
+				padding: 0,
+				...n.textStyle
+			})), this.textGraphic.anchor.set(0, 0), this.intrinsicWidth = this.textGraphic.width + this.textInset, this.intrinsicHeight = this.textGraphic.height, this.paintedState = -1, this.stateChanged(), this.invalidateLayout();
+		} catch (e) {
+			throw this.destroy(), e;
+		}
+	}
+	createShape() {
+		if (!this.background || this.destroyed) throw Error(`UI visual resource is unavailable.`);
+		return this.add(new require_sprite.Sprite({
+			texture: this.background.texture,
+			anchor: [0, 0]
+		}));
+	}
+	get text() {
+		return this.textGraphic?.text ?? ``;
+	}
+	async setText(e) {
+		if (!this.textGraphic || this.destroyed) throw Error(`Cannot update an unavailable UI control.`);
+		let t = ++this.textRevision;
+		await this.textGraphic.setText(e), !(this.destroyed || t !== this.textRevision) && (this.intrinsicWidth = this.textGraphic.width + this.textInset, this.intrinsicHeight = this.textGraphic.height, this.accessibility &&= {
+			...this.accessibility,
+			label: e
+		}, this.invalidateLayout());
+	}
+	async applyPreferences(e) {
+		this.textGraphic && !this.destroyed && (await this.textGraphic.setStyle({
+			...this.preferenceTextStyle,
+			fontSize: (this.preferenceTextStyle.fontSize ?? 18) * e.textScale,
+			color: e.highContrast ? `#ffffff` : this.preferenceTextStyle.color
+		}), !this.destroyed && (this.intrinsicWidth = this.textGraphic.width + this.textInset, this.intrinsicHeight = this.textGraphic.height, this.setLayout({ minHeight: Math.max(this.preferenceMinHeight, this.intrinsicHeight + this.padding(0) + this.padding(2)) }), this.highContrast = e.highContrast, this.paintedState = -1, this.stateChanged()));
+	}
+	arranged() {
+		this.background?.scale.set(this.layoutWidth, this.layoutHeight);
+		let e = this.layoutWidth, t = this.layoutHeight, n = Math.min(2, e / 2, t / 2);
+		for (let r = 0; r < this.focusEdges.length; r++) {
+			let i = this.focusEdges[r];
+			i.position.set(r === 3 ? e - n : 0, r === 1 ? t - n : 0), i.scale.set(r < 2 ? e : n, r < 2 ? n : t);
+		}
+		this.textGraphic?.position.set(this.padding(3), Math.max(0, (t - (this.textGraphic?.height ?? 0)) / 2)), this.stateChanged();
+	}
+	stateChanged() {
+		let e = this.effectiveDisabled;
+		e && (this.down = this.nativeDown = this.contextDown = this.hovered = !1);
+		let t = this.down || this.nativeDown || this.contextDown, n = Number(e) | Number(t) << 1 | Number(this.hovered) << 2 | Number(this.focused) << 3;
+		if (n !== this.paintedState) {
+			this.paintedState = n, this.pointerEnabled = !e, this.accessibility && this.accessibility.disabled !== e && (this.accessibility = {
+				...this.accessibility,
+				disabled: e
+			}), this.background && (this.background.tint = this.highContrast ? e ? [
+				.12,
+				.12,
+				.12,
+				1
+			] : t ? [
+				.3,
+				.3,
+				.3,
+				1
+			] : [
+				0,
+				0,
+				0,
+				1
+			] : e ? [
+				.18,
+				.19,
+				.22,
+				1
+			] : t ? [
+				.12,
+				.28,
+				.48,
+				1
+			] : this.hovered ? [
+				.24,
+				.4,
+				.6,
+				1
+			] : [
+				.16,
+				.23,
+				.34,
+				1
+			]), this.textGraphic && (this.textGraphic.opacity = e && !this.highContrast ? .45 : 1);
+			for (let t of this.focusEdges) t.visible = this.focused && !e, t.tint = this.highContrast ? [
+				1,
+				1,
+				0,
+				1
+			] : [
+				.35,
+				.78,
+				1,
+				1
+			];
+		}
+	}
+	syncState() {
+		this.stateChanged();
+	}
+	showFocus(e) {
+		this.focused = e, e || (this.nativeDown = this.contextDown = !1), this.stateChanged();
+	}
+	showPressed(e, t) {
+		t === `native` ? this.nativeDown = e : this.contextDown = e, this.stateChanged();
+	}
+	canActivate() {
+		if (this.destroyed || !this.worldVisible || this.effectiveDisabled) return !1;
+		let e = rootOf(this)?.focus.modal;
+		if (!e || this === e) return !0;
+		for (let t = this.parent; t; t = t.parent) if (t === e) return !0;
+		return !1;
+	}
+	pointerValue(e) {}
+};
+var UIButton = class UIButton extends UIControl {
+	constructor(e, t) {
+		super(`button`, t.label ?? e, t);
+	}
+	static async create(e, t = {}) {
+		let n = new UIButton(e, t);
+		return await n.initializeVisuals(e, t), n;
+	}
+	activate() {
+		this.canActivate() && this.dispatchEvent(new CustomEvent(`click`));
+	}
+};
+var UICheckbox = class UICheckbox extends UIControl {
+	selected = !1;
+	mark;
+	box;
+	constructor(e, t) {
+		super(`checkbox`, t.label ?? e, t), this.selected = t.checked ?? !1, this.textInset = 26;
+	}
+	static async create(e, t = {}) {
+		let n = new UICheckbox(e, t);
+		try {
+			return await n.initializeVisuals(e, t), n.box = n.createShape(), n.box.tint = [
+				.4,
+				.48,
+				.58,
+				1
+			], n.mark = n.createShape(), n.mark.tint = [
+				.35,
+				.9,
+				.65,
+				1
+			], n.stateChanged(), n;
+		} catch (e) {
+			throw n.destroy(), e;
+		}
+	}
+	get checked() {
+		return this.selected;
+	}
+	set checked(e) {
+		if (this.destroyed) throw Error(`Cannot update a destroyed checkbox.`);
+		e !== this.selected && (this.selected = e, this.stateChanged(), this.dispatchEvent(new CustomEvent(`change`, { detail: e })));
+	}
+	activate() {
+		this.canActivate() && (this.checked = !this.checked);
+	}
+	arranged() {
+		super.arranged(), this.textGraphic?.position.set(this.padding(3) + 26, Math.max(0, (this.layoutHeight - (this.textGraphic?.height ?? 0)) / 2));
+		let e = Math.max(0, (this.layoutHeight - 16) / 2);
+		this.box?.position.set(this.padding(3), e), this.box?.scale.set(16, 16), this.mark?.position.set(this.padding(3) + 2, e + 2), this.mark?.scale.set(12, 12);
+	}
+	stateChanged() {
+		super.stateChanged(), this.mark && (this.mark.visible = this.selected, this.mark.opacity = this.effectiveDisabled ? .45 : 1);
+	}
+};
+var UISlider = class UISlider extends UIControl {
+	min;
+	max;
+	step;
+	amount;
+	track;
+	thumb;
+	point = new require_index.Vector2();
+	constructor(e, t) {
+		if (super(`slider`, t.label ?? e, {
+			...t,
+			layout: {
+				width: 220,
+				height: 64,
+				...t.layout
+			}
+		}), this.min = t.min ?? 0, this.max = t.max ?? 1, this.step = t.step ?? .1, !Number.isFinite(this.min) || !Number.isFinite(this.max) || this.max <= this.min || !Number.isFinite(this.max - this.min) || !Number.isFinite(this.step) || this.step <= 0 || !Number.isFinite((this.max - this.min) / this.step)) throw RangeError(`Slider requires a finite increasing range and positive step.`);
+		if (!Number.isFinite(t.value ?? this.min)) throw RangeError(`Slider value must be finite.`);
+		this.amount = Math.min(this.max, Math.max(this.min, t.value ?? this.min));
+	}
+	static async create(e, t = {}) {
+		let n = new UISlider(e, t);
+		try {
+			return await n.initializeVisuals(e, t), n.track = n.createShape(), n.track.tint = [
+				.35,
+				.43,
+				.55,
+				1
+			], n.thumb = n.createShape(), n.thumb.tint = [
+				.35,
+				.9,
+				.65,
+				1
+			], n;
+		} catch (e) {
+			throw n.destroy(), e;
+		}
+	}
+	get value() {
+		return this.amount;
+	}
+	set value(e) {
+		if (this.destroyed) throw Error(`Cannot update a destroyed slider.`);
+		if (!Number.isFinite(e)) throw RangeError(`Slider value must be finite.`);
+		let t = Math.min(this.max, Math.max(this.min, e));
+		t !== this.amount && (this.amount = t, this.positionThumb(), this.dispatchEvent(new CustomEvent(`change`, { detail: t })));
+	}
+	increment(e) {
+		this.canActivate() && (this.value += e * this.step);
+	}
+	activate() {
+		this.increment(1);
+	}
+	pointerValue(e) {
+		this.toLocal(e.screen, this.point);
+		let t = Math.max(0, this.layoutWidth - this.padding(3) - this.padding(1) - 12);
+		if (t <= 0) return;
+		let n = this.min + Math.min(1, Math.max(0, (this.point.x - this.padding(3) - 6) / t)) * (this.max - this.min);
+		this.value = Math.round((n - this.min) / this.step) * this.step + this.min;
+	}
+	arranged() {
+		super.arranged(), this.textGraphic?.position.set(this.padding(3), this.padding(0));
+		let e = Math.max(0, this.layoutWidth - this.padding(3) - this.padding(1) - 12);
+		this.track?.position.set(this.padding(3) + 6, Math.max(0, this.layoutHeight - this.padding(2) - 8)), this.track?.scale.set(e, 4), this.positionThumb();
+	}
+	positionThumb() {
+		let e = Math.max(0, this.layoutWidth - this.padding(3) - this.padding(1) - 12);
+		this.thumb?.position.set(this.padding(3) + e * (this.amount - this.min) / (this.max - this.min), Math.max(0, this.layoutHeight - this.padding(2) - 12)), this.thumb?.scale.set(12, 12);
+	}
+};
+var UIFocusManager = class {
+	root;
+	current;
+	currentGeneration = 0;
+	requested;
+	requestedGeneration;
+	modals = [];
+	constructor(e) {
+		this.root = e;
+	}
+	get focused() {
+		return this.current;
+	}
+	get modal() {
+		return this.modals[this.modals.length - 1]?.container;
+	}
+	eligible(e) {
+		if (e.destroyed || !e.worldVisible || e.effectiveDisabled || e.layoutWidth <= 0 || e.layoutHeight <= 0 || this.root.scene && (e.scene !== this.root.scene || !this.root.scene.has(e))) return !1;
+		for (let t = e; t; t = t.parent) if (t === (this.modal ?? this.root)) return rootOf(e) === this.root;
+		return !1;
+	}
+	collect(e, t) {
+		(e instanceof UIButton || e instanceof UICheckbox || e instanceof UISlider || e instanceof require_ui_text_input.UITextInput) && this.eligible(e) && t.push(e);
+		for (let n of e.children) this.collect(n, t);
+	}
+	focus(e) {
+		if (e && (!e.layoutWidth || !e.layoutHeight) && this.root.reflow(), e && !this.eligible(e)) return !1;
+		if (e) {
+			for (let t = e.parent; t; t = t.parent) t instanceof require_ui_scroll.UIScrollView && t.reveal(e);
+			this.root.isLive && this.root.boundGame?.accessibility.update(this.root.scene), this.root.synchronizeSemantics();
+		}
+		return this.root.boundGame ? e ? (this.requested = e, this.requestedGeneration = e.scene ? e.registrationGeneration : void 0, this.root.isLive && this.root.boundGame.accessibility.focus(e), !0) : (this.requested = void 0, (this.current && this.root.boundGame.accessibility.element(this.current))?.blur(), this.acceptNative(void 0), !0) : (this.acceptNative(e), !0);
+	}
+	acceptNative(e) {
+		if (e && !this.eligible(e)) {
+			this.move(1);
+			return;
+		}
+		e === this.requested && (this.requested = void 0), this.current?.showFocus(!1), this.current = e, this.currentGeneration = e?.registrationGeneration ?? 0, this.root.synchronizeInputScope(), e instanceof require_ui_text_input.UITextInput && this.root.boundGame?.input.keyboard.reset(), e?.showFocus(!0);
+	}
+	blurNative(e) {
+		this.current === e && this.acceptNative(void 0);
+	}
+	focusWithin(e, t) {
+		let n = [];
+		return this.collect(e, n), n.length > 0 && this.focus(n[t < 0 ? n.length - 1 : 0]);
+	}
+	hasAdjacentWithin(e, t, n) {
+		let r = [];
+		this.collect(e, r);
+		let i = r.indexOf(t) + (n < 0 ? -1 : 1);
+		return i >= 0 && i < r.length;
+	}
+	move(e) {
+		if (this.current) {
+			for (let t = this.current.parent; t; t = t.parent) if (t instanceof require_ui_scroll.UIVirtualList && t.moveFocus(this.current, e)) return !0;
+		}
+		let t = [];
+		if (this.collect(this.modal ?? this.root, t), !t.length) return this.acceptNative(void 0), !1;
+		let n = this.current ? t.indexOf(this.current) : -1, r = n < 0 ? e < 0 ? t.length - 1 : 0 : (n + (e < 0 ? -1 : 1) + t.length) % t.length;
+		return this.focus(t[r]);
+	}
+	pushModal(e) {
+		if (e.destroyed || rootOf(e) !== this.root) throw Error(`Modal must belong to this UI root.`);
+		this.modals.push({
+			container: e,
+			previous: this.current,
+			generation: this.current?.registrationGeneration
+		}), this.root.reflow(), this.root.synchronizeSemantics(), this.move(1);
+	}
+	popModal() {
+		let e = this.modals.pop();
+		e && (this.root.synchronizeSemantics(), !(e.previous && e.previous.registrationGeneration === e.generation && this.focus(e.previous)) && (this.focus(void 0), this.move(1)));
+	}
+	synchronize() {
+		for (; this.modal && (this.modal.destroyed || rootOf(this.modal) !== this.root);) this.popModal();
+		this.current && (!this.eligible(this.current) || this.current.registrationGeneration !== this.currentGeneration) && (this.acceptNative(void 0), this.modal && this.move(1));
+		let e = this.requested;
+		e && (!this.eligible(e) || this.requestedGeneration !== void 0 && e.registrationGeneration !== this.requestedGeneration ? this.requested = void 0 : this.root.isLive && (this.requestedGeneration = e.registrationGeneration, this.root.boundGame?.accessibility.focus(e)));
+	}
+	clear() {
+		this.modals.length = 0, this.requested = void 0, this.acceptNative(void 0);
+	}
+};
+var l = 0;
+var u = /* @__PURE__ */ new WeakMap();
+var UIRoot = class extends require_ui_layout.UIElement {
+	focus = new UIFocusManager(this);
+	boundGame;
+	context;
+	nativeScopes = /* @__PURE__ */ new Map();
+	controller = new AbortController();
+	viewportWidth = -1;
+	viewportHeight = -1;
+	mountingGeneration;
+	preferenceRevision = 0;
+	preferenceTask = Promise.resolve();
+	constructor(e, t = {}) {
+		if (super({
+			width: `fill`,
+			height: `fill`,
+			...t
+		}), this.boundGame = e, this.addEventListener(`remove`, () => this.releaseBindings()), e) {
+			let refreshPreferences = () => {
+				this.applyPreferences(e.preferences.values).catch((e) => {
+					this.destroyed || this.dispatchEvent(new CustomEvent(`error`, { detail: e }));
+				});
+			};
+			e.preferences.addEventListener(`change`, refreshPreferences, { signal: this.controller.signal }), e.canvas.ownerDocument.addEventListener(`keydown`, (e) => {
+				!this.isLive || !this.focus.modal || e.altKey || e.ctrlKey || e.metaKey || e.isComposing || (e.code === `Tab` ? (e.preventDefault(), e.stopImmediatePropagation(), e.repeat || this.focus.move(e.shiftKey ? -1 : 1)) : e.code === `Escape` && !e.repeat && (e.preventDefault(), e.stopImmediatePropagation(), this.focus.modal.dispatchEvent(new CustomEvent(`modalclose`, { cancelable: !0 }))));
+			}, {
+				capture: !0,
+				signal: this.controller.signal
+			}), e.canvas.ownerDocument.addEventListener(`focusin`, () => {
+				let t = this.focus.modal;
+				if (!this.isLive || !t) return;
+				let n = this.focus.focused && e.accessibility.element(this.focus.focused);
+				e.canvas.ownerDocument.activeElement !== n && this.focus.move(1);
+			}, { signal: this.controller.signal }), this.context = e.input.contexts.create(`xyz-ui-${++l}`, {
+				priority: 100,
+				consume: !0,
+				bindings: {
+					next: [{ button: `down` }, {
+						axis: `leftY`,
+						direction: 1
+					}],
+					previous: [{ button: `up` }, {
+						axis: `leftY`,
+						direction: -1
+					}],
+					left: [
+						{ key: `ArrowLeft` },
+						{ button: `left` },
+						{
+							axis: `leftX`,
+							direction: -1
+						}
+					],
+					right: [
+						{ key: `ArrowRight` },
+						{ button: `right` },
+						{
+							axis: `leftX`,
+							direction: 1
+						}
+					],
+					down: [{ key: `ArrowDown` }],
+					up: [{ key: `ArrowUp` }],
+					activate: [
+						{ key: `Enter` },
+						{ key: `Space` },
+						{ button: `a` }
+					],
+					__pointerCapture: [{ pointerButton: 0 }]
+				}
+			});
+			let t = u.get(e.canvas);
+			if (t) t.users++;
+			else {
+				let t = e.canvas.tabIndex < 0;
+				u.set(e.canvas, {
+					users: 1,
+					previous: e.canvas.getAttribute(`tabindex`),
+					applied: t
+				}), t && (e.canvas.tabIndex = 0);
+			}
+			e.canvas.addEventListener(`pointerdown`, (t) => {
+				this.isLive && t.isPrimary && t.button === 0 && (t.preventDefault(), e.canvas.focus({ preventScroll: !0 }));
+			}, { signal: this.controller.signal }), e.canvas.addEventListener(`keydown`, (e) => {
+				!this.isLive || e.altKey || e.ctrlKey || e.metaKey || e.code === `Tab` && (e.preventDefault(), e.repeat || this.focus.move(e.shiftKey ? -1 : 1));
+			}, { signal: this.controller.signal }), e.canvas.addEventListener(`focus`, () => {
+				this.isLive && (this.focus.modal ? this.focus.move(1) : this.focus.focus(void 0), this.synchronizeInputScope());
+			}, { signal: this.controller.signal });
+		}
+	}
+	get isLive() {
+		let e = this.boundGame;
+		return !this.destroyed && this.worldVisible && !!e && e.state === `running` && !!this.scene && this.scene === e.scene && this.scene.has(this);
+	}
+	applyPreferences(e) {
+		let t = ++this.preferenceRevision;
+		return this.preferenceTask = this.preferenceTask.catch(() => {}).then(async () => {
+			if (this.destroyed || t !== this.preferenceRevision) return;
+			let n = [], visit = (t) => {
+				(t instanceof UILabel || t instanceof UIControl || t instanceof require_ui_text_input.UITextInput) && n.push(t.applyPreferences(e));
+				for (let e of t.children) visit(e);
+			};
+			visit(this), await Promise.all(n), !(this.destroyed || t !== this.preferenceRevision) && (this.reflow(), this.isLive && this.boundGame?.accessibility.update(this.scene), this.synchronizeSemantics());
+		}), this.preferenceTask;
+	}
+	reflow(e = this.boundGame?.width ?? this.layoutWidth, t = this.boundGame?.height ?? this.layoutHeight) {
+		super.reflow(e, t), this.viewportWidth = e, this.viewportHeight = t;
+	}
+	synchronizeInputScope() {
+		this.isLive && (this.focus.focused || this.focus.modal) ? this.context?.activate() : this.context?.deactivate();
+	}
+	handleKey(e, t) {
+		if (!(e instanceof require_ui_text_input.UITextInput && t.code !== `Tab`)) {
+			if (t.type === `keyup` && (t.code === `Enter` || t.code === `Space`)) {
+				e instanceof require_ui_text_input.UITextInput || e.showPressed(!1, `native`);
+				return;
+			}
+			if (!(!this.isLive || e.registrationGeneration !== this.nativeScopes.get(e)?.generation || e.effectiveDisabled || t.altKey || t.ctrlKey || t.metaKey) && !(t.isComposing || t.keyCode === 229)) {
+				if (!(e instanceof require_ui_text_input.UITextInput) && (t.code === `Enter` || t.code === `Space`)) {
+					e.showPressed(t.type === `keydown` && !t.shiftKey, `native`);
+					return;
+				}
+				t.type === `keydown` && (t.code === `Tab` ? (t.preventDefault(), t.stopPropagation(), this.focus.move(t.shiftKey ? -1 : 1)) : [
+					`ArrowLeft`,
+					`ArrowRight`,
+					`ArrowUp`,
+					`ArrowDown`,
+					`Home`,
+					`End`
+				].includes(t.code) && (t.preventDefault(), t.stopPropagation(), e instanceof UISlider ? t.code === `Home` ? e.value = e.min : t.code === `End` ? e.value = e.max : e.increment(t.code === `ArrowLeft` || t.code === `ArrowDown` ? -1 : 1) : this.focus.move(t.code === `ArrowLeft` || t.code === `ArrowUp` ? -1 : 1)));
+			}
+		}
+	}
+	synchronizeNode(e) {
+		if (e instanceof UIButton || e instanceof UICheckbox || e instanceof UISlider || e instanceof require_ui_text_input.UITextInput) {
+			e.syncState();
+			let t = this.boundGame?.accessibility.element(e);
+			e instanceof require_ui_text_input.UITextInput && t?.tagName === `INPUT` && e.bindNative(t);
+			let n = this.nativeScopes.get(e);
+			if (t && (!n || n.node !== t || n.generation !== e.registrationGeneration)) {
+				n?.controller.abort();
+				let r = new AbortController();
+				t.addEventListener(`keydown`, (t) => this.handleKey(e, t), { signal: r.signal }), t.addEventListener(`keyup`, (t) => this.handleKey(e, t), { signal: r.signal }), n = {
+					node: t,
+					controller: r,
+					generation: e.registrationGeneration
+				}, this.nativeScopes.set(e, n);
+			}
+			if (t) {
+				let r = this.focus.modal, i = !r;
+				for (let t = e; t && !i; t = t.parent) i = t === r;
+				let a = i && !e.effectiveDisabled ? 0 : -1;
+				e.accessibility && e.accessibility.tabIndex !== a && (e.accessibility = {
+					...e.accessibility,
+					tabIndex: a
+				}), t.tabIndex = a, e instanceof UICheckbox && n && n.value !== e.checked ? (t.setAttribute(`aria-checked`, String(e.checked)), n.value = e.checked) : e instanceof UISlider && n && n.value !== e.value && (n.value === void 0 && (t.setAttribute(`aria-valuemin`, String(e.min)), t.setAttribute(`aria-valuemax`, String(e.max))), t.setAttribute(`aria-valuenow`, String(e.value)), n.value = e.value);
+			}
+		}
+		for (let t of e.children) this.synchronizeNode(t);
+	}
+	synchronizeSemantics() {
+		this.boundGame?.accessibility.setModal(this, this.focus.modal), this.isLive && this.boundGame?.accessibility.update(this.scene), this.isLive && this.synchronizeNode(this);
+	}
+	update() {
+		let e = this.boundGame;
+		if (!e || !this.isLive) {
+			this.releaseBindings();
+			return;
+		}
+		this.mountingGeneration !== this.registrationGeneration && (this.mountingGeneration !== void 0 && this.releaseBindings(), this.mountingGeneration = this.registrationGeneration, this.applyPreferences(e.preferences.values).catch((e) => {
+			this.destroyed || this.dispatchEvent(new CustomEvent(`error`, { detail: e }));
+		})), (this.inspectLayout() || e.width !== this.viewportWidth || e.height !== this.viewportHeight) && this.reflow();
+		for (let [t, n] of this.nativeScopes) (t.destroyed || t.scene !== this.scene || rootOf(t) !== this || t.registrationGeneration !== n.generation || e.accessibility.element(t) !== n.node) && (n.controller.abort(), this.nativeScopes.delete(t), this.focus.focused === t && this.focus.focus(void 0));
+		this.synchronizeNode(this), this.focus.synchronize(), this.synchronizeInputScope();
+		let t = this.context;
+		if (!t?.active) return;
+		let n = this.focus.focused;
+		if (n instanceof require_ui_text_input.UITextInput) return;
+		t.wasPressed(`next`) || t.wasPressed(`down`) ? n instanceof UISlider ? n.increment(-1) : this.focus.move(1) : (t.wasPressed(`previous`) || t.wasPressed(`up`)) && (n instanceof UISlider ? n.increment(1) : this.focus.move(-1)), t.wasPressed(`left`) && (n instanceof UISlider ? n.increment(-1) : this.focus.move(-1)), t.wasPressed(`right`) && (n instanceof UISlider ? n.increment(1) : this.focus.move(1));
+		let r = this.focus.focused;
+		r && !(r instanceof require_ui_text_input.UITextInput) && (r.showPressed(t.isDown(`activate`), `context`), t.wasPressed(`activate`) && r.activate());
+	}
+	releaseBindings() {
+		this.context?.deactivate(), this.boundGame?.accessibility.setModal(this);
+		for (let [e, t] of this.nativeScopes) e instanceof require_ui_text_input.UITextInput && e.unbindNative(), t.controller.abort();
+		this.nativeScopes.clear(), this.focus.clear();
+	}
+	destroy() {
+		if (!this.destroyed) {
+			if (this.releaseBindings(), this.context?.destroy(), this.controller.abort(), this.boundGame) {
+				let e = this.boundGame.canvas, t = u.get(e);
+				t && --t.users === 0 && (u.delete(e), t.applied && e.getAttribute(`tabindex`) === `0` && (t.previous === null ? e.removeAttribute(`tabindex`) : e.setAttribute(`tabindex`, t.previous)));
+			}
+			super.destroy();
+		}
+	}
+};
+//#endregion
+exports.UIButton = UIButton;
+exports.UICheckbox = UICheckbox;
+exports.UIElement = require_ui_layout.UIElement;
+exports.UIFocusManager = UIFocusManager;
+exports.UILabel = UILabel;
+exports.UIRoot = UIRoot;
+exports.UIScrollView = require_ui_scroll.UIScrollView;
+exports.UISlider = UISlider;
+exports.UITextInput = require_ui_text_input.UITextInput;
+exports.UIVirtualList = require_ui_scroll.UIVirtualList;
+
+//# sourceMappingURL=ui.cjs.map

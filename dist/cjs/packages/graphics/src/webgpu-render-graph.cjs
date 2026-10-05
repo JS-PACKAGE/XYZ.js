@@ -1,0 +1,252 @@
+const require_errors = require("./errors.cjs");
+const require_compute = require("./compute.cjs");
+const require_render_graph_shaders = require("./render-graph-shaders.cjs");
+//#region dist/packages/graphics/src/webgpu-render-graph.js
+var WebGPURenderGraph = class {
+	device;
+	format;
+	owners = /* @__PURE__ */ new Map();
+	scene;
+	blit;
+	blitReady;
+	emptyUniforms = /* @__PURE__ */ new Float32Array(16);
+	sampler;
+	failure;
+	lifetime;
+	rejectLifetime;
+	constructor(e, t) {
+		this.device = e, this.format = t, this.sampler = e.createSampler({
+			minFilter: `linear`,
+			magFilter: `linear`
+		}), this.lifetime = new Promise((e, t) => {
+			this.rejectLifetime = t;
+		}), this.lifetime.catch(() => {}), e.lost.then((e) => this.destroy(new require_errors.WebGPUDeviceLostError(`Graph device lost: ${e.message}`)));
+	}
+	live() {
+		if (this.failure) throw this.failure;
+	}
+	async prepare(i, a = {}) {
+		this.live(), i.validate(), a.signal?.throwIfAborted();
+		let o = this.owners.get(i);
+		if (!o) {
+			let e = /* @__PURE__ */ new Map(), a = /* @__PURE__ */ new Map(), release = () => {
+				i.removeEventListener(`destroy`, release);
+				for (let e of i.passes) e.effect.removeEventListener(`destroy`, release);
+				for (let t of e.values()) t.uniforms.destroy(), t.settings.destroy();
+				e.clear();
+				for (let e of a.values()) e.texture.destroy();
+				a.clear(), this.owners.delete(i);
+			};
+			o = {
+				passes: e,
+				targets: a,
+				ready: Promise.resolve(),
+				release,
+				width: 0,
+				height: 0
+			}, this.owners.set(i, o), i.addEventListener(`destroy`, release, { once: !0 });
+			for (let e of i.passes) e.effect.addEventListener(`destroy`, release, { once: !0 });
+			let s = o;
+			o.ready = (async () => {
+				try {
+					for (let n of i.schedule) {
+						let a = i.targets.find((e) => e.name === n.output).format, o = await this.compile(require_render_graph_shaders.graphWGSL(n.effect.wgsl, n.inputs.length), n.inputs.length, a);
+						if (this.failure || this.owners.get(i) !== s || i.destroyed || n.effect.destroyed) throw o.uniforms.destroy(), o.settings.destroy(), this.failure ?? new require_errors.GraphicsError(`Graph released during compilation.`);
+						e.set(n, o);
+					}
+					this.blitReady ||= this.compile(require_render_graph_shaders.graphWGSL(require_render_graph_shaders.graphIdentityWGSL, 1), 1, this.format).then((e) => {
+						if (this.failure) throw e.uniforms.destroy(), e.settings.destroy(), this.failure;
+						return this.blit = e, e;
+					}).catch((e) => {
+						throw this.blitReady = void 0, e;
+					}), await this.blitReady, this.live(), i.validate();
+				} catch (e) {
+					throw release(), e;
+				}
+			})(), o.ready.catch(() => {});
+		}
+		await require_compute.gpuOperation(Promise.race([o.ready, this.lifetime]), a.signal, [i, ...i.passes.map((e) => e.effect)]), this.live(), i.validate();
+	}
+	async compile(e, t, n) {
+		this.device.pushErrorScope(`validation`);
+		let i, a;
+		try {
+			i = this.device.createShaderModule({ code: e });
+		} finally {
+			a = this.device.popErrorScope();
+		}
+		let [o, s] = await Promise.all([i.getCompilationInfo(), a]);
+		this.live();
+		let c = o.messages.filter((e) => e.type === `error`);
+		if (c.length) throw new require_errors.GraphicsError(`Render graph compilation failed: ${c.map((e) => `${e.lineNum}:${e.linePos} ${e.message}`).join(`; `)}`);
+		if (s) throw new require_errors.GraphicsError(`Render graph shader validation failed: ${s.message}`);
+		let l = [{
+			binding: 0,
+			visibility: GPUShaderStage.FRAGMENT,
+			texture: {}
+		}, {
+			binding: 1,
+			visibility: GPUShaderStage.FRAGMENT,
+			sampler: {}
+		}];
+		for (let e = 1; e < t; e++) l.push({
+			binding: e + 1,
+			visibility: GPUShaderStage.FRAGMENT,
+			texture: {}
+		});
+		let u = this.device.createBindGroupLayout({ entries: l }), d = this.device.createBindGroupLayout({ entries: [{
+			binding: 0,
+			visibility: GPUShaderStage.FRAGMENT,
+			buffer: { type: `uniform` }
+		}] }), f = this.device.createBindGroupLayout({ entries: [{
+			binding: 0,
+			visibility: GPUShaderStage.VERTEX | GPUShaderStage.FRAGMENT,
+			buffer: { type: `uniform` }
+		}] }), p = await this.device.createRenderPipelineAsync({
+			layout: this.device.createPipelineLayout({ bindGroupLayouts: [
+				u,
+				d,
+				f
+			] }),
+			vertex: {
+				module: i,
+				entryPoint: `vertexMain`
+			},
+			fragment: {
+				module: i,
+				entryPoint: `fragmentMain`,
+				targets: [{ format: n }]
+			},
+			primitive: { topology: `triangle-list` }
+		});
+		this.live();
+		let m = this.device.createBuffer({
+			size: 64,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+		});
+		try {
+			let e = {
+				view: void 0,
+				loadOp: `clear`,
+				storeOp: `store`
+			};
+			return {
+				pipeline: p,
+				uniforms: m,
+				settings: this.device.createBuffer({
+					size: 64,
+					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+				}),
+				settingsData: /* @__PURE__ */ new Float32Array(16),
+				inputs: [],
+				boundInputs: [],
+				groups: [],
+				attachment: e,
+				descriptor: { colorAttachments: [e] }
+			};
+		} catch (e) {
+			throw m.destroy(), e;
+		}
+	}
+	target(e, t, n) {
+		let r = this.device.createTexture({
+			size: [e, t],
+			format: n,
+			usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_SRC
+		});
+		try {
+			return {
+				texture: r,
+				view: r.createView(),
+				width: e,
+				height: t,
+				format: n
+			};
+		} catch (e) {
+			throw r.destroy(), e;
+		}
+	}
+	sceneTarget(e, t, n) {
+		this.live(), e.validate();
+		let i = this.owners.get(e);
+		if (!i || i.passes.size !== e.passes.length || !this.blit) throw new require_errors.GraphicsError(`Render graph must be prepared before rendering.`);
+		if (i.width === t && i.height === n && this.scene?.width === t && this.scene.height === n) return this.scene.view;
+		let a = e.resolutions(t, n, this.device.limits.maxTextureDimension2D), o = /* @__PURE__ */ new Map(), s;
+		try {
+			(!this.scene || this.scene.width !== t || this.scene.height !== n) && (s = this.target(t, n, this.format));
+			for (let e of a) {
+				let t = i.targets.get(e.target.name);
+				(!t || t.width !== e.width || t.height !== e.height) && o.set(e.target.name, this.target(e.width, e.height, e.target.format));
+			}
+		} catch (e) {
+			s?.texture.destroy();
+			for (let e of o.values()) e.texture.destroy();
+			throw e;
+		}
+		s && (this.scene?.texture.destroy(), this.scene = s);
+		for (let [e, t] of o) i.targets.get(e)?.texture.destroy(), i.targets.set(e, t);
+		return i.width = t, i.height = n, this.scene.view;
+	}
+	encode(e, t, n) {
+		this.live(), e.validate();
+		let i = this.owners.get(e);
+		if (!i || !this.scene || !this.blit || i.passes.size !== e.passes.length || i.targets.size !== e.targets.length) throw new require_errors.GraphicsError(`Graph resources are not prepared/resolved.`);
+		for (let n of e.schedule) {
+			let e = i.targets.get(n.output), r = i.passes.get(n);
+			for (let e = 0; e < n.inputs.length; e++) r.inputs[e] = n.inputs[e] === `$scene` ? this.scene : i.targets.get(n.inputs[e]);
+			this.draw(t, r, e.view, e.width, e.height, n.effect.uniforms);
+		}
+		this.blit.inputs[0] = i.targets.get(e.output), this.draw(t, this.blit, n, this.scene.width, this.scene.height);
+	}
+	draw(e, t, n, r, i, a = this.emptyUniforms) {
+		if (this.device.queue.writeBuffer(t.uniforms, 0, a), t.settingsData[0] = r, t.settingsData[1] = i, this.device.queue.writeBuffer(t.settings, 0, t.settingsData), t.inputs.length !== t.boundInputs.length || t.inputs.some((e, n) => e !== t.boundInputs[n])) {
+			let e = [{
+				binding: 0,
+				resource: t.inputs[0].view
+			}, {
+				binding: 1,
+				resource: this.sampler
+			}];
+			for (let n = 1; n < t.inputs.length; n++) e.push({
+				binding: n + 1,
+				resource: t.inputs[n].view
+			});
+			t.groups = [
+				this.device.createBindGroup({
+					layout: t.pipeline.getBindGroupLayout(0),
+					entries: e
+				}),
+				this.device.createBindGroup({
+					layout: t.pipeline.getBindGroupLayout(1),
+					entries: [{
+						binding: 0,
+						resource: { buffer: t.uniforms }
+					}]
+				}),
+				this.device.createBindGroup({
+					layout: t.pipeline.getBindGroupLayout(2),
+					entries: [{
+						binding: 0,
+						resource: { buffer: t.settings }
+					}]
+				})
+			], t.boundInputs = t.inputs.slice();
+		}
+		t.attachment.view = n;
+		let o = e.beginRenderPass(t.descriptor);
+		o.setPipeline(t.pipeline);
+		for (let e = 0; e < t.groups.length; e++) o.setBindGroup(e, t.groups[e]);
+		o.draw(3), o.end();
+	}
+	destroy(e = new require_errors.GraphicsError(`Render graph owner destroyed.`)) {
+		if (!this.failure) {
+			this.failure = e, this.rejectLifetime(e);
+			for (let e of this.owners.values()) e.release();
+			this.scene?.texture.destroy(), this.scene = void 0, this.blit &&= (this.blit.uniforms.destroy(), this.blit.settings.destroy(), void 0);
+		}
+	}
+};
+//#endregion
+exports.WebGPURenderGraph = WebGPURenderGraph;
+
+//# sourceMappingURL=webgpu-render-graph.cjs.map

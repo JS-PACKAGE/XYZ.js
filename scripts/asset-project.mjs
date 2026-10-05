@@ -9,6 +9,7 @@ import {
   rm,
   access,
   realpath,
+  cp,
 } from 'node:fs/promises';
 import { dirname, resolve, join } from 'node:path';
 import { tmpdir } from 'node:os';
@@ -33,18 +34,18 @@ import {
 
 export async function assetProject(
   args = process.argv.slice(2),
-  { signal } = {},
+  { signal, snapshot, previous, affected, quiet = false } = {},
 ) {
   if (args.length === 1 && args[0] === '--help') {
     console.log(
-      'Usage: xyz-assets preflight|build --manifest project.json [--out new-directory] [--profile trusted-profile.json]',
+      'Usage: xyz-assets preflight|build|watch --manifest project.json [--out new-directory] [--profile trusted-profile.json]',
     );
     return;
   }
   const [command, ...flags] = args;
-  if (!['preflight', 'build'].includes(command) || flags.length % 2)
+  if (!['preflight', 'build', 'watch'].includes(command) || flags.length % 2)
     throw new Error(
-      'Usage: xyz-assets preflight|build --manifest project.json [--out new-directory] [--profile trusted-profile.json]',
+      'Usage: xyz-assets preflight|build|watch --manifest project.json [--out new-directory] [--profile trusted-profile.json]',
     );
   const options = new Map();
   for (let i = 0; i < flags.length; i += 2) {
@@ -57,15 +58,27 @@ export async function assetProject(
   }
   if (
     !options.get('--manifest') ||
-    (command === 'build') !== options.has('--out') ||
+    (command !== 'preflight') !== options.has('--out') ||
     (command === 'preflight' && options.has('--profile'))
   )
     throw new Error(
-      'preflight requires --manifest; build requires --manifest and --out; --profile is build-only.',
+      'preflight requires --manifest; build/watch require --manifest and --out; --profile is build/watch-only.',
     );
-  const project = await scanProject(resolve(options.get('--manifest')), {
-    signal,
-  });
+  if (command === 'watch') {
+    const { watchAssetProject } = await import('./asset-project-watch.mjs');
+    const watcher = await watchAssetProject({
+      manifest: resolve(options.get('--manifest')),
+      output: resolve(options.get('--out')),
+      profile: options.get('--profile'),
+      signal,
+      build: assetProject,
+    });
+    await watcher.closed;
+    return;
+  }
+  const project =
+    snapshot ??
+    (await scanProject(resolve(options.get('--manifest')), { signal }));
   const output = options.has('--out')
     ? resolve(options.get('--out'))
     : undefined;
@@ -123,6 +136,7 @@ export async function assetProject(
       signal?.throwIfAborted();
       // Recipe conversion proves all generated variants through the official loader.
       if (command === 'build' && entry.recipe) continue;
+      if (affected && !affected.has(entry.id)) continue;
       let timer;
       try {
         const result = await Promise.race([
@@ -233,6 +247,28 @@ export async function assetProject(
       for (const [index, entry] of manifest.entries.entries()) {
         signal?.throwIfAborted();
         if (!entry.recipe) continue;
+        if (previous && affected && !affected.has(entry.id)) {
+          const old = previous.manifest.entries.find(
+            (item) => item.id === entry.id,
+          );
+          if (old?.descriptor) {
+            const directory = dirname(old.url);
+            await cp(
+              join(previous.output, directory),
+              join(staging, directory),
+              {
+                recursive: true,
+                errorOnExist: true,
+                force: false,
+              },
+            );
+            entry.url = old.url;
+            entry.descriptor = old.descriptor;
+            entry.options = old.options;
+            delete entry.recipe;
+            continue;
+          }
+        }
         const directory = `__xyz/model-${index}`;
         await buildAssets(
           [
@@ -273,7 +309,12 @@ export async function assetProject(
       )
         throw new Error('Generated project exceeds output budget.');
       files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-      const deployment = { ...manifest, toolchain, files };
+      const deployment = {
+        ...manifest,
+        toolchain,
+        entryHashes: Object.fromEntries(project.entryHashes),
+        files,
+      };
       const data = Buffer.from(canonical(deployment) + '\n');
       const sums =
         files.map((file) => `${file.sha256}  ${file.path}\n`).join('') +
@@ -307,7 +348,7 @@ export async function assetProject(
       output: output ?? null,
       toolchain,
     };
-    console.log(JSON.stringify(report));
+    if (!quiet) console.log(JSON.stringify(report));
     return report;
   } finally {
     signal?.removeEventListener('abort', abort);

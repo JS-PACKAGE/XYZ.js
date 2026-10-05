@@ -1,3 +1,4 @@
+import { Texture } from '../../assets/src/index.js';
 import { Sprite } from './sprite.js';
 import type { TextDirection } from './text-layout.js';
 export interface Text2DOptions {
@@ -45,6 +46,13 @@ export interface Text2DLayout {
     readonly height: number;
     readonly fontReadiness: 'ready' | 'current' | 'unavailable';
 }
+/** @internal An independent raster texture; ownership transfers to the caller. */
+export interface RasterizedText {
+    readonly texture: Texture;
+    readonly layout: Text2DLayout;
+}
+/** @internal Shared browser-shaped raster style for 2D and 3D labels. */
+export declare function snapshotTextStyle(options: Text2DOptions): Text2DStyle;
 /** Rasterized browser-shaped full lines, using the ordinary Sprite pipeline. */
 export declare class Text2D extends Sprite {
     private content;
@@ -67,5 +75,6 @@ export declare class Text2D extends Sprite {
     private refresh;
     protected onDestroy(): void;
     private static validateText;
-    private static rasterize;
+    /** @internal Shared raster generation; the caller owns the returned texture. */
+    static rasterize(text: string, style: Text2DStyle): Promise<RasterizedText>;
 }

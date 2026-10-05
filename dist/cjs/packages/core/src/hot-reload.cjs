@@ -1,0 +1,116 @@
+const require_assets = require("../../../src/data/assets.cjs");
+//#region dist/packages/core/src/hot-reload.js
+var HotSceneOwner = class {
+	game;
+	options;
+	disposed = !1;
+	disposal;
+	pending;
+	current;
+	jobs = /* @__PURE__ */ new Set();
+	constructor(e, t = {}) {
+		this.game = e, this.options = t;
+	}
+	replace(t) {
+		if (this.disposed) return Promise.reject(Error(`Hot scene owner is disposed.`));
+		if (this.jobs.size >= require_assets.assetLimits.hotSceneCandidates) return Promise.reject(Error(`Hot scene candidate limit exceeded.`));
+		this.pending?.abort(Error(`Hot scene candidate superseded.`));
+		let n = new AbortController();
+		this.pending = n;
+		let r = this.game.resources.createScope(), i, abort = () => {
+			try {
+				r.release(n.signal.reason);
+			} catch (e) {
+				i = e;
+			}
+		};
+		n.signal.addEventListener(`abort`, abort, { once: !0 });
+		let a = Promise.resolve().then(async () => {
+			let e = !1, a;
+			try {
+				if (n.signal.throwIfAborted(), a = await t({
+					game: this.game,
+					resources: r,
+					signal: n.signal
+				}), n.signal.throwIfAborted(), a === this.game.scene) throw Error(`A hot replacement must return a fresh Scene.`);
+				e = !0, await this.game.setScene(a, {
+					...this.options.publication,
+					signal: n.signal
+				});
+				let i = this.current;
+				return this.current = r, this.pending === n && (this.pending = void 0), n.signal.removeEventListener(`abort`, abort), i?.release(), a;
+			} catch (t) {
+				let o = [t];
+				if (i !== void 0 && o.push(i), a && e && this.game.scene === a) {
+					if (this.current !== r) {
+						let e = this.current;
+						this.current = r, n.signal.removeEventListener(`abort`, abort);
+						try {
+							e?.release();
+						} catch (e) {
+							o.push(e);
+						}
+					}
+				} else {
+					try {
+						a !== this.game.scene && a?.destroy();
+					} catch (e) {
+						o.push(e);
+					}
+					try {
+						r.release();
+					} catch (e) {
+						o.push(e);
+					}
+				}
+				throw o.length > 1 ? AggregateError(o, `Hot scene replacement cleanup failed.`, { cause: t }) : t;
+			} finally {
+				n.signal.removeEventListener(`abort`, abort), this.pending === n && (this.pending = void 0);
+			}
+		});
+		return this.jobs.add(a), a.then(() => this.jobs.delete(a), () => this.jobs.delete(a)), a;
+	}
+	dispose() {
+		if (this.disposal) return this.disposal;
+		this.disposed = !0;
+		let e = [];
+		try {
+			this.pending?.abort(Error(`Hot scene owner disposed.`));
+		} catch (t) {
+			e.push(t);
+		}
+		if (this.options.destroyGameOnDispose !== !1) try {
+			this.game.destroy();
+		} catch (t) {
+			e.push(t);
+		}
+		try {
+			this.current?.release();
+		} catch (t) {
+			e.push(t);
+		}
+		return this.current = void 0, this.disposal = Promise.allSettled(this.jobs).then(() => {
+			if (e.length) throw AggregateError(e, `Hot scene owner disposal failed.`);
+		}), this.disposal;
+	}
+};
+function bindSceneHotReload(e, t, n, r, i) {
+	t.accept(n, (t) => {
+		if (!t) {
+			i(Error(`Hot scene module failed to load.`));
+			return;
+		}
+		try {
+			e.replace(r(t)).catch(i);
+		} catch (e) {
+			i(e);
+		}
+	}), t.dispose(() => {
+		e.dispose().catch(i);
+	});
+}
+//#endregion
+exports.HotSceneOwner = HotSceneOwner;
+exports.bindSceneHotReload = bindSceneHotReload;
+
+//# sourceMappingURL=hot-reload.cjs.map

@@ -1,0 +1,1 @@
+{"version":3,"file":"group.cjs","names":["e"],"sources":["../../../../packages/core/src/group.js"],"sourcesContent":["import{Object3D as e}from\"./object3d.js\";export class Group extends e{}\n//# sourceMappingURL=group.js.map\n"],"mappings":";;AAAyC,IAAa,QAAb,cAA2BA,iBAAAA,SAAC,CAAC"}

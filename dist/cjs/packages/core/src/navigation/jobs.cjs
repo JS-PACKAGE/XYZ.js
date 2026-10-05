@@ -1,0 +1,85 @@
+const require_navigation = require("../../../../src/data/navigation.cjs");
+const require_search = require("./search.cjs");
+//#region dist/packages/core/src/navigation/jobs.js
+var NavigationSearchJob = class {
+	release;
+	workspace;
+	plan;
+	currentStatus = `pending`;
+	currentResult;
+	expanded = 0;
+	constructor(e, t, n) {
+		this.release = n, this.workspace = e, this.plan = t, e.reset(), t.from < 0 ? this.finish(`unreachable`) : e.offer(t.from, 0, t.estimate(t.from), -1);
+	}
+	get status() {
+		return this.currentStatus;
+	}
+	get result() {
+		return this.currentResult;
+	}
+	get expansions() {
+		return this.expanded;
+	}
+	step(t) {
+		if (!Number.isSafeInteger(t) || t < 0 || t > require_navigation.navigationLimits.expansionsPerStep) throw RangeError(`Navigation expansion budget exceeds its nonnegative integer bound.`);
+		if (this.currentStatus !== `pending`) return this.currentStatus;
+		let n = this.plan, r = this.workspace;
+		for (let e = 0; e < t; e++) {
+			let e = r.take();
+			if (e < 0) {
+				this.finish(`unreachable`);
+				break;
+			}
+			if (this.expanded++, e === n.to) {
+				this.finish(`found`);
+				break;
+			}
+			n.expand(e, r);
+		}
+		return this.currentStatus;
+	}
+	cancel() {
+		this.finish(`cancelled`);
+	}
+	invalidate() {
+		this.finish(`invalidated`);
+	}
+	finish(e) {
+		if (this.currentStatus !== `pending`) return;
+		let t = this.workspace;
+		(e === `found` || e === `unreachable`) && (this.currentResult = this.plan.result(e === `found`, t)), this.currentStatus = e, this.plan = void 0, this.workspace = void 0, this.release?.(this, t), this.release = void 0;
+	}
+};
+var NavigationSearchPool = class {
+	capacity;
+	free = [];
+	active = /* @__PURE__ */ new Set();
+	disposed = !1;
+	constructor(e) {
+		this.capacity = e;
+	}
+	get availableSlots() {
+		return this.disposed ? 0 : require_navigation.navigationLimits.concurrentSearches - this.active.size;
+	}
+	create(n) {
+		if (this.disposed) throw Error(`Navigation owner is destroyed.`);
+		if (this.active.size >= require_navigation.navigationLimits.concurrentSearches) throw RangeError(`Navigation concurrent search budget exhausted.`);
+		let i = new NavigationSearchJob(this.free.pop() ?? new require_search.NavigationSearch(this.capacity), n, (e, t) => {
+			this.active.delete(e), this.disposed || this.free.push(t);
+		});
+		return i.status === `pending` && this.active.add(i), i;
+	}
+	invalidate() {
+		for (let e of this.active) e.invalidate();
+	}
+	destroy() {
+		this.disposed = !0;
+		for (let e of this.active) e.cancel();
+		this.free.length = 0;
+	}
+};
+//#endregion
+exports.NavigationSearchJob = NavigationSearchJob;
+exports.NavigationSearchPool = NavigationSearchPool;
+
+//# sourceMappingURL=jobs.cjs.map

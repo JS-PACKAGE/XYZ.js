@@ -1,4 +1,4 @@
-/* global window, document, requestAnimationFrame -- used inside page.evaluate, which runs in the browser */
+/* global window, getComputedStyle -- used inside page.evaluate, which runs in the browser */
 import { readdir, readFile, access, mkdir, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
@@ -11,6 +11,7 @@ import {
   browserIdentity,
   probeBackends,
 } from './browser-launch.mjs';
+import { pngPixels } from './site-smoke-support.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -170,44 +171,46 @@ try {
         `http://127.0.0.1:${port}/examples/${slug}/?renderer=${renderer === 'default' ? 'auto' : renderer}`,
         { waitUntil: 'networkidle', timeout: 30000 },
       );
-      await page
-        .locator('canvas')
-        .first()
-        .waitFor({ state: 'visible', timeout: 15000 });
-      await page.waitForTimeout(1500);
-      pixels = await page.evaluate(async () => {
-        const source = document.querySelector('canvas');
-        if (!source || !source.width || !source.height)
+      const canvas = page.locator('canvas').first();
+      await canvas.waitFor({ state: 'visible', timeout: 15000 });
+      await canvas.scrollIntoViewIfNeeded();
+      const clip = await canvas.evaluate((element) => {
+        if (!element.width || !element.height)
           throw new Error('Canvas has no backing pixels.');
-        const copy = document.createElement('canvas');
-        copy.width = 64;
-        copy.height = 64;
-        const context = copy.getContext('2d', { willReadFrequently: true });
-        if (!context)
-          throw new Error('Pixel readback unavailable: 2D copy context.');
-        return await new Promise((resolve, reject) =>
-          requestAnimationFrame(() => {
-            try {
-              context.drawImage(source, 0, 0, 64, 64);
-              const bytes = context.getImageData(0, 0, 64, 64).data;
-              for (let i = 4; i < bytes.length; i += 4) {
-                if (
-                  bytes[i] !== bytes[0] ||
-                  bytes[i + 1] !== bytes[1] ||
-                  bytes[i + 2] !== bytes[2] ||
-                  bytes[i + 3] !== bytes[3]
-                ) {
-                  resolve('non-blank');
-                  return;
-                }
-              }
-              reject(new Error('Canvas pixels are uniform/blank.'));
-            } catch (error) {
-              reject(error);
-            }
-          }),
-        );
+        const box = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        const left =
+          parseFloat(style.borderLeftWidth) + parseFloat(style.paddingLeft);
+        const right =
+          parseFloat(style.borderRightWidth) + parseFloat(style.paddingRight);
+        const top =
+          parseFloat(style.borderTopWidth) + parseFloat(style.paddingTop);
+        const bottom =
+          parseFloat(style.borderBottomWidth) + parseFloat(style.paddingBottom);
+        return {
+          x: box.x + left,
+          y: box.y + top,
+          width: box.width - left - right,
+          height: box.height - top - bottom,
+        };
       });
+      const deadline = Date.now() + 15000;
+      do {
+        // Presented pixels remain readable when a paused WebGPU backbuffer does not.
+        const png = await page.screenshot({
+          clip,
+          type: 'png',
+          path: join(directory, `${slug}-${renderer}-canvas.png`),
+        });
+        if (pngPixels(png).nonuniform) {
+          pixels = 'non-blank';
+          break;
+        }
+      } while (Date.now() < deadline);
+      if (pixels !== 'non-blank')
+        throw new Error(
+          'Canvas pixels are uniform/blank after initialization timeout.',
+        );
     } catch (error) {
       errors.push(error.stack ?? error.message ?? String(error));
     }

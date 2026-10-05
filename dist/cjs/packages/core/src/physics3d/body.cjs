@@ -1,0 +1,186 @@
+const require_math3d = require("../../../math/src/math3d.cjs");
+const require_physics3d = require("../../../../src/data/physics3d.cjs");
+const require_collider = require("./collider.cjs");
+//#region dist/packages/core/src/physics3d/body.js
+var RigidBody3D = class {
+	type;
+	velocity = new require_math3d.Vector3();
+	angularVelocity = new require_math3d.Vector3();
+	force = new require_math3d.Vector3();
+	torque = new require_math3d.Vector3();
+	forceEpoch = 0;
+	lockRotation;
+	allowSleep;
+	continuous;
+	owningObject;
+	shape;
+	bodyMass = 1;
+	bounce = 0;
+	surfaceFriction = .5;
+	linearDrag = 0;
+	angularDrag = 0;
+	gravityMultiplier = 1;
+	sleeping = !1;
+	idleTime = 0;
+	sleepPose = /* @__PURE__ */ new Float64Array(10);
+	inverseDiagonal = new require_math3d.Vector3();
+	inverseTensor = /* @__PURE__ */ new Float64Array(6);
+	transformed = new require_math3d.Vector3();
+	inertiaRevision = -1;
+	inertiaMass = NaN;
+	inertiaScale = new require_math3d.Vector3(NaN, NaN, NaN);
+	inertiaShape;
+	constructor(e = {}) {
+		if (this.type = e.type ?? `dynamic`, this.type !== `static` && this.type !== `dynamic` && this.type !== `kinematic`) throw RangeError(`Invalid 3D body type.`);
+		this.mass = e.mass ?? 1, this.restitution = e.restitution ?? 0, this.friction = e.friction ?? .5, this.linearDamping = e.linearDamping ?? 0, this.angularDamping = e.angularDamping ?? 0, this.gravityScale = e.gravityScale ?? 1, this.lockRotation = e.lockRotation ?? !1, this.allowSleep = e.allowSleep ?? !0, this.continuous = e.continuous ?? !1;
+	}
+	get owner() {
+		return this.owningObject;
+	}
+	get mass() {
+		return this.bodyMass;
+	}
+	set mass(e) {
+		this.bodyMass = require_collider.positive3D(e, `mass`), this.wake();
+	}
+	get restitution() {
+		return this.bounce;
+	}
+	set restitution(e) {
+		if (require_collider.nonnegative3D(e, `restitution`), e > 1) throw RangeError(`Restitution must be <= 1.`);
+		this.bounce = e;
+	}
+	get friction() {
+		return this.surfaceFriction;
+	}
+	set friction(e) {
+		this.surfaceFriction = require_collider.nonnegative3D(e, `friction`);
+	}
+	get linearDamping() {
+		return this.linearDrag;
+	}
+	set linearDamping(e) {
+		this.linearDrag = require_collider.nonnegative3D(e, `linearDamping`);
+	}
+	get angularDamping() {
+		return this.angularDrag;
+	}
+	set angularDamping(e) {
+		this.angularDrag = require_collider.nonnegative3D(e, `angularDamping`);
+	}
+	get gravityScale() {
+		return this.gravityMultiplier;
+	}
+	set gravityScale(e) {
+		this.gravityMultiplier = require_collider.finite3D(e, `gravityScale`);
+	}
+	get inverseMass() {
+		return this.type === `dynamic` ? 1 / this.mass : 0;
+	}
+	get isSleeping() {
+		let e = this.owner, t = this.sleepPose;
+		return this.sleeping && e && (this.velocity.length() !== 0 || this.angularVelocity.length() !== 0 || e.position.x !== t[0] || e.position.y !== t[1] || e.position.z !== t[2] || e.rotation.x !== t[3] || e.rotation.y !== t[4] || e.rotation.z !== t[5] || e.rotation.w !== t[6] || e.scale.x !== t[7] || e.scale.y !== t[8] || e.scale.z !== t[9]) && this.wake(), this.sleeping;
+	}
+	wake() {
+		this.sleeping = !1, this.idleTime = 0;
+	}
+	updateSleep(e) {
+		if (this.type === `dynamic` && this.allowSleep && !this.sleeping) {
+			if (this.velocity.length() > require_physics3d.physics3DDefaults.sleepVelocity || this.angularVelocity.length() > require_physics3d.physics3DDefaults.sleepAngularVelocity) {
+				this.idleTime = 0;
+				return;
+			}
+			this.idleTime += e, !(this.idleTime < require_physics3d.physics3DDefaults.sleepTime) && this.sleep();
+		}
+	}
+	sleep() {
+		if (this.type !== `dynamic` || !this.allowSleep) return;
+		this.clearForces(), this.sleeping = !0, this.velocity.set(0, 0, 0), this.angularVelocity.set(0, 0, 0);
+		let e = this.owner;
+		if (!e) return;
+		let t = this.sleepPose;
+		t[0] = e.position.x, t[1] = e.position.y, t[2] = e.position.z, t[3] = e.rotation.x, t[4] = e.rotation.y, t[5] = e.rotation.z, t[6] = e.rotation.w, t[7] = e.scale.x, t[8] = e.scale.y, t[9] = e.scale.z;
+	}
+	attach(e) {
+		if (this.owner && this.owner !== e) throw Error(`RigidBody3D already has an owner.`);
+		if (e.destroyed) throw Error(`Cannot bind a destroyed Object3D.`);
+		if (this.type !== `static` && e.parent) throw Error(`Dynamic/kinematic bodies require root Object3D.`);
+		this.owningObject = e;
+	}
+	detach(e) {
+		this.owner === e && (this.owningObject = void 0, this.shape = void 0, this.inertiaRevision = -1, this.inertiaShape = void 0);
+	}
+	refreshInertia(e) {
+		let t = this.inertiaShape;
+		if (this.shape = e, this.type !== `dynamic` || this.lockRotation) return;
+		let n = e.worldScale;
+		if (!(t === e && this.inertiaMass === this.mass && (e.collider.kind === `compound` ? this.inertiaRevision === e.inertiaRevision : this.inertiaScale.x === n.x && this.inertiaScale.y === n.y && this.inertiaScale.z === n.z))) {
+			if (e.collider instanceof require_collider.CompoundCollider3D) {
+				let t = 0, n = 0, r = 0, i = 0, a = 0, o = 0;
+				for (let s of e.children) {
+					let c = this.mass * s.volume / e.volume;
+					this.primitiveInertia(s, c);
+					let l = this.inverseDiagonal;
+					for (let e = 0; e < 3; e++) {
+						let c = s.axes[e], u = 1 / (e === 0 ? l.x : e === 1 ? l.y : l.z);
+						t += u * c.x * c.x, n += u * c.y * c.y, r += u * c.z * c.z, i += u * c.x * c.y, a += u * c.x * c.z, o += u * c.y * c.z;
+					}
+					let u = s.center.x - e.center.x, d = s.center.y - e.center.y, f = s.center.z - e.center.z;
+					t += c * (d * d + f * f), n += c * (u * u + f * f), r += c * (u * u + d * d), i -= c * u * d, a -= c * u * f, o -= c * d * f;
+				}
+				let s = t * (n * r - o * o) - i * (i * r - a * o) + a * (i * o - a * n);
+				if (!(s > 0) || !Number.isFinite(s)) throw RangeError(`Invalid compound inertia.`);
+				let c = this.inverseTensor;
+				c[0] = (n * r - o * o) / s, c[1] = (t * r - a * a) / s, c[2] = (t * n - i * i) / s, c[3] = (a * o - i * r) / s, c[4] = (i * o - a * n) / s, c[5] = (i * a - t * o) / s;
+			} else this.primitiveInertia(e, this.mass);
+			this.inertiaRevision = e.inertiaRevision, this.inertiaMass = this.mass, this.inertiaScale.copy(n), this.inertiaShape = e;
+		}
+	}
+	primitiveInertia(e, r) {
+		let i = e.collider;
+		if (i instanceof require_collider.SphereCollider3D) {
+			let t = .4 * r * e.radius * e.radius;
+			this.inverseDiagonal.set(1 / t, 1 / t, 1 / t);
+		} else if (i instanceof require_collider.BoxCollider3D) {
+			let t = e.half;
+			this.inverseDiagonal.set(3 / (r * (t.y * t.y + t.z * t.z)), 3 / (r * (t.x * t.x + t.z * t.z)), 3 / (r * (t.x * t.x + t.y * t.y)));
+		} else if (i instanceof require_collider.CapsuleCollider3D) {
+			let t = e.radius, n = Math.hypot(e.end.x - e.start.x, e.end.y - e.start.y, e.end.z - e.start.z), i = r * n / (n + 4 * t / 3), a = r - i, o = i * t * t / 2 + a * 2 * t * t / 5, s = i * (3 * t * t + n * n) / 12 + a * (2 * t * t / 5 + n * n / 4 + 3 * n * t / 8);
+			this.inverseDiagonal.set(1 / s, 1 / o, 1 / s);
+		} else this.inverseDiagonal.set(0, 0, 0);
+	}
+	inverseInertia(e, t) {
+		if (this.type !== `dynamic` || this.lockRotation || !this.shape) return t.set(0, 0, 0);
+		if (this.shape.collider.kind === `compound`) {
+			let n = this.inverseTensor, r = e.x, i = e.y, a = e.z;
+			return t.set(n[0] * r + n[3] * i + n[4] * a, n[3] * r + n[1] * i + n[5] * a, n[4] * r + n[5] * i + n[2] * a);
+		}
+		let n = this.shape.axes, r = this.inverseDiagonal, i = n[0].dot(e) * r.x, a = n[1].dot(e) * r.y, o = n[2].dot(e) * r.z;
+		return t.set(n[0].x * i + n[1].x * a + n[2].x * o, n[0].y * i + n[1].y * a + n[2].y * o, n[0].z * i + n[1].z * a + n[2].z * o);
+	}
+	applyForce(e, t) {
+		if (require_collider.vector3D(e, `force`), t && require_collider.vector3D(t, `worldPoint`), this.type === `dynamic`) {
+			if (t && !this.owner) throw Error(`World-point force requires an attached body.`);
+			if (this.wake(), this.force.x += e.x, this.force.y += e.y, this.force.z += e.z, t && this.owner) {
+				let n = this.owner.position, r = t.x - n.x, i = t.y - n.y, a = t.z - n.z;
+				this.torque.x += i * e.z - a * e.y, this.torque.y += a * e.x - r * e.z, this.torque.z += r * e.y - i * e.x;
+			}
+		}
+	}
+	applyImpulse(e, t) {
+		if (require_collider.vector3D(e, `impulse`), t && require_collider.vector3D(t, `worldPoint`), this.type === `dynamic`) {
+			if (t && !this.owner) throw Error(`World-point impulse requires an attached body.`);
+			if (this.wake(), this.owner?.collider && (this.shape?.collider !== this.owner.collider && (this.shape = new require_collider.Shape3D(this.owner.collider)), this.shape.refresh(this.owner), this.refreshInertia(this.shape)), this.velocity.x += e.x * this.inverseMass, this.velocity.y += e.y * this.inverseMass, this.velocity.z += e.z * this.inverseMass, t && this.owner) {
+				let n = this.owner.position, r = t.x - n.x, i = t.y - n.y, a = t.z - n.z;
+				this.transformed.set(i * e.z - a * e.y, a * e.x - r * e.z, r * e.y - i * e.x), this.inverseInertia(this.transformed, this.transformed), this.angularVelocity.add(this.transformed);
+			}
+		}
+	}
+	clearForces() {
+		++this.forceEpoch, this.force.set(0, 0, 0), this.torque.set(0, 0, 0);
+	}
+};
+//#endregion
+exports.RigidBody3D = RigidBody3D;
+
+//# sourceMappingURL=body.cjs.map

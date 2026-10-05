@@ -1321,3 +1321,239 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - Windows ARM Firefox artifact 證明 ARM64 sys／installer／catalog Authenticode Valid、bootstrap success、active default render endpoint 存在，Code Integrity 前後均 `2630147`；desktop／mobile gates 通過。此為 ephemeral runner 的虛擬 endpoint 路徑，不是實體裝置或可聽輸出認證，未改既有 unsupported backend／WebKit audio 邊界。
 - [GitHub v1.14](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.14) 於 `2026-10-05T10:02` UTC 發佈 `xyz.js-1.14.0.tgz` 與 `SHA256SUMS`。實際下載附件並 `shasum -a 256 -c SHA256SUMS` 通過；archive SHA256 為 `1de6284d9dda1905a8ce657c4a36b8823a381f82d3867ea58e887ea339cb4ffc`。下載 archive 的 exact inventory／extracted CLI／root consumer gate 通過（`.vite/release-v1.14/published/run-nT1J6O/report.json`），不是只檢查本機重新封裝檔。
 - 本輪 frozen install／build／format:check 與本機 1.14.0 package hygiene 通過；完整 suite／typecheck／lint／API 等由上述 hosted quality jobs 實際再驗。此後只補發佈紀錄至 main，不移動 `v1.14` tag。
+
+## P104–P118 本輪實作與限定驗證（2026-10-05，未發佈）
+
+使用者批准 v1.14 缺口分析所列全部可實作功能。各階段硬指標見
+[PLAN 的 P104–P118 表格](PLAN.md#本輪批准p104p118-功能擴充)；
+以下只有目前觀察，不以批准、API 宣告或新增檔案代替 runtime 通過。
+歷史 counts／日期／CI／tags 保留，不重新標示為本輪證據。
+
+- 開工時工作目錄乾淨；Node 26.7.0／pnpm 12.6.0，frozen install 成功，
+  lockfile 未變。不升版、不推送、不移動既有 tags。
+- 重新核對現行原碼：`GestureRecognizer` 已有 pinch／rotate／swipe，
+  `RenderVisibilityCache` 已有 instance filtering／morph bounds；前次分析的
+  未查到不能當成缺少能力。只補真正缺口，避免第二套 input／visibility。
+- 原 built v1.14 root consumer 的 release-only pointer 情境：down x=0，
+  20ms 後直接 up x=120，原版錯誤送出 tap center x=0，而非 swipe x=120。
+  修正後結果須由本輪實際 smoke 與 regression 另記，不能先記通過。
+- npm registry 查詢 `xyz.js` 回 E404，標示 2016-03-04 unpublished；
+  這不證明本帳號持有名稱或可再次 publish。實際發佈需要權限／明確外部
+  動作确认；完整封裝準備與 npm 已發佈是兩件事。
+- Physical fixtures／audible／Safari／driver 與既有 Windows native 限制不因
+  本輪新增功能解除。未執行的品質、瀏覽器與封裝驗收均保持未驗。
+- Documentation-only validation after the P104–P118 source additions: scoped
+  Prettier check passed for README, PLAN, DESIGN, CURRENT, both technical and usage
+  guides, asset recipe, example catalogue, package metadata and inventory. An
+  ad-hoc Python checker run through Eval resolved 460 relative Markdown links and
+  anchors with no missing targets. This does not verify runtime, browser behavior,
+  package contents, or feature acceptance; at that point the remaining gates were unverified.
+
+### 本輪整合與證據界線
+
+- 正式 source、root exports、generated distribution、範例與雙語技術／操作文件已整合。
+  metadata 保留 `1.14.0`；本輪工作樹未 stage／commit／push／tag／publish，
+  不把既有 GitHub v1.14 archive 說成本輪產物。後續提交仍須分階段，不合併為單一
+  `[Pxx]` commit；此處的 runtime 證據不是已提交或已發佈的宣告。
+- Node 26.7.0／pnpm 12.6.0 的 build、strict typecheck、142 files／1151 tests、
+  lint、format:check 通過。刪除一項只包裝 distribution checker、且綁定錯誤文案的
+  assertion；保留真正 NodeNext require／import 型別互用 consumer。
+  歷史 1152 tests 是修改前結果，不回寫成目前數量。
+- 最終文件驗證涵蓋 11 份 Markdown：465 個 relative links 與 79 個 heading
+  anchors 全部有效；此檢查不宣稱重新驗證 runtime。自有 browser／Vite service、
+  throwaway helpers、baseline worktree／copy 與 extracted consumer copy 已清理，
+  `.vite/` 實測 report／PNG 保留。
+- Published API gate 通過 737 exports／2810 directional contracts、
+  710 historical namespaces／五份 frozen consumers；41 組 designed regressions
+  通過。Normalization 只排除相容新增與不可觀察 internals，
+  不以長度抹除 public string literals；遞迴 generic graph、optional removal、
+  新 inherited required member 與 512-character literal 的正負契約皆實跑。
+- Tree-shaking 沒有提高原有 ceilings。source Canvas startup 為
+  709409 minified／191334 gzip bytes；built root 為 709093／191253。
+  原歷史 baseline 841577／214169 不改，兩條路徑的 GPU startup chunks 都為空。
+  Bundle bytes 不等於 FPS、CPU 或 GPU performance。
+- 現行 advertised example routes 全部 160／160 通過，native canvas compositor
+  pixels 與 browser errors 實驗，不以 source 文字判斷通過。Lighting2D catalogue
+  不再宣稱 Canvas 支援，auto query 實際初始化；narrative 走統一 root API、
+  遵守 renderer query 並真的繪製 canvas 場景。Beacon Run 暫停時的 WebGPU
+  backbuffer 可已清除，改用既有 compositor PNG reader、排除 CSS border／padding、
+  等待真正 nonuniform frame，沒有降低空白畫面門檻。證據
+  `.vite/example-smoke/chromium-all-all/results.json` 與每條 canvas PNG。
+- Browser 證據是 owned Playwright Chromium 153.0.8010.12／darwin arm64
+  desktop automation，不是 physical／Safari／跨引擎 certification。
+  Advanced smoke 清理 diagnostic helpers 後，一次 fresh WebGPU page navigation
+  在原 30s load deadline 超時；該 FAIL 保留於
+  `.vite/advanced-expansion-smoke/webgpu.json`，不重試原命令或提高 deadline。
+  同版 fixture 在已啟動的 owned service 實際跑完五項 WebGPU native assertions，
+  記於 `webgpu-owned-runtime.json`；WebGL2 五項亦通過。
+  不將後者冒稱原 cold-start command 全部成功。
+
+### P104 — CJS／CDN／發佈準備
+
+- Canonical inventory 為 319 compiled modules／303 CJS modules、
+  1781 approved archive files；移除沒有 source 的舊 `physics2d/sweep` generated
+  artifacts，不將 dirty dist 升格白名單。實際、clean、disposable polluted pack
+  路徑、bytes、executable flags 相同，archive SHA256
+  `13d8a200f9944d8efcbd6745df6883ba7184de798a4202dcca746ccf9adf3638`。
+  證據 `.vite/package-hygiene/run-eE1cuB/report.json`。
+- Extracted package 的 Node 22.0.0 與 26.7.0 require／ESM consumers 實跑：
+  311 runtime exports、math、官方 OPM 非同步 voice validation 與原 ESM worker URL。
+  兩種格式各自的 Texture／Scene／Mesh constructor graph 不相同，跨格式 material
+  拒絕；canonical declaration types 互通不代表 runtime identity 互通。
+  官方 OPM.js 1.11.1 完整 vendor 保持 immutable。
+- 同一 extracted dist 經 plain static HTTP、沒有 Vite／module rewriting，
+  raw root ESM 在 Canvas／GL／GPU 都真的初始化並畫出 2D Primitive；
+  兩 native backend 追加 PBR cube 後 compositor pixels 改變、borrowed Texture
+  在 Game teardown 後仍存活，caller destroy 後釋放，HTTP／page errors 空。
+  證據 `.vite/raw-installed-runtime/report.json` 與五張 native canvas PNG。
+  Installed asset tools 另 pin Node 26.7.0／Playwright／Chromium，
+  不把 root runtime 支援 Node 22 混寫成 asset recipe 可用任意 Node。
+- 追加沒有 2D 遮擋的 raw native PBR 可視 consumer：真 Scene publication／
+  Game.start、white Texture、斜向 Camera3D 與光照；GL／GPU 分別有
+  2058／2057 個 red pixels，切換同一 material 的 color 後有相同數量 blue pixels，
+  2010／2014 個 paired pixels 真的由紅轉藍，不只比較 nonuniform／RGB 種類數。
+  兩 native context 正確、borrowed Texture teardown 通過、599 HTTP requests 無錯，
+  browser／server／extracted copy 均在 finally 清理；證據
+  `.vite/raw-installed-runtime/pbr-visible.json` 與四張 native cube PNG。
+- `npm whoami` 回 ENEEDAUTH，registry E404／2016 unpublished 不證明名稱權限。
+  npm 真 publish 仍 BLOCKED，沒有代操作帳號、升版或外部發佈。
+
+### P105 — Texture atlas
+
+- 真 CLI 將三張 PNG trim／padding／extrusion 打成三頁；AtlasLoader 載入後，
+  GPU／GL／Canvas 每張精確繪出 672 RGB pixels（7×6 trimmed pixels、scale 4）。
+  原 12×12 source bounds、offset (2,3)、透明 padding 與 extruded RGB corners 正確。
+  Game borrower destroy 不釋放 pages；atlas owner destroy 釋放全部三頁。
+- Extracted `xyz-produce-assets` 在 pinned Node 26.7.0／browser toolchain 實際產製；
+  所有 descriptor／PNG bytes 與 repository producer 相同。
+  `.vite/asset-production-runtime/report.json` 保留三 backend consumer 結果。
+
+### P106 — SDF／MSDF
+
+- Licensed Abel fixture 經 FontFace 生成真正 SDF；authored outer／hole polygon
+  生成 MSDF，633 pixels 的 RGB channels 不相同、406 個 distinct triples，
+  不是複製三份 SDF，也不宣稱 arbitrary font outline parser。
+- BitmapFontLoader／SpriteFont／SpriteText 在 GPU／GL／Canvas 以 1／2／4 倍繪製。
+  SDF glyph coverage 約 75／300／1199；MSDF 約 203／797–807／3195–3246，
+  實際 glyph coverage 小於 field rectangle，面積隨 scale² 增長。
+  Borrower／font owner teardown 與 pages ownership 正確；installed producer 的
+  SDF／MSDF descriptor、PNG bytes 亦與 source producer 相同。
+
+### P107 — Watch／incremental／HMR
+
+- 真 extracted `xyz-assets-watch` 發佈 immutable generation-1→generation-2：
+  authored PNG 紅→綠，只有 sprite entry hash／affected entry 改變，
+  stable entry hash 與舊代 PNG bytes 不變；invalid edit 保留綠色舊代。
+  同一 Game 仍運作，96×96 drawn bounds、old resources release、
+  watcher／Scene／renderer teardown 均實際通過。
+  `.vite/asset-hot-reload-O1ViJb/` 保留 consumer 證據；throwaway CLI helpers 已刪。
+- HotSceneOwner 使用既有 Game.setScene 的 transactional publication；
+  bounded scopes、latest-wins cancellation 與失敗保留 live Scene，不開第二個 loop。
+
+### P108 — Cutscene／Dialogue／Quest
+
+- Native touchscreen 經真 Game InputManager 啟動 public root narrative：
+  simulation timeline、pause／barrier／seek／cancel、條件／choices／validated save、
+  quest prerequisite／progress／一次性 rewards 與 cleanup；
+  整合 smoke 16 assertions、errors 空。
+  `.vite/narrative-runtime/report.json`，另有永久 deterministic consumer regressions。
+- Tiny infinite repeats 與 enormous delta 的 pre-fix isolated process 曾 timeout；
+  bounded-work smoke 現為有限時間 exit 0，錯誤明示，不無限阻塞 frame。
+
+### P109 — Crowd／steering
+
+- 真 Scene fixedUpdate、PathFollower3D、CapsuleCollider3D 與
+  CharacterController3D sweep 跑 1440 ticks，兩個 agent head-on 穿越，不 teleport。
+  兩種 registration order 得到相同 stable-ID traces；minimum separation
+  0.602018235、maximum speed 1.0000000000000264、兩者到達 ±2.984387814 並 finished。
+  `.vite/crowd-runtime/report.json`；交會／障礙／bottleneck 與 bounded work
+  另由 unit consumers 覆蓋。
+- 不可表示的 1e20 spatial-grid position 明確拒絕、不移動／不枚舉無界 cell；
+  repair 後同 epoch 可恢復。這不是 universal crowd throughput 認證。
+
+### P110 — 3D debug／RNG／pool
+
+- 真 collider／joint snapshot 生成 native Line3D：兩 backend 各 12 segments，
+  GPU／GL 分別改變 505／495 pixels；snapshot 不因後續 world mutation 改寫。
+- Seeded RNG state 在 narrative consumer 中 round-trip 重現；ObjectPool 的容量、
+  lease identity／reset failure／destroy 與 Scene-owned cleanup 有行為 regressions，
+  不將 allocation 減少宣稱 FPS 提升。
+
+### P111 — Pinch／rotate／swipe
+
+- 重用現有 Gestures，修正 pointerup 未經 pointermove 的最後座標。
+  Native CDP pairing／pinch 1.4→0.8／rotation π/2→0、single swipe、
+  pointercancel、blur lifecycle 與 Game.destroy 共 17 assertions 通過。
+- Harness 原本在 down／up 間等待 renderer frames，慢時真的觸發 longpress、
+  不滿足 swipe duration；原 trace 保留 `longpress-harness-failure.json`。
+  現將 native down／up 順序排入同一 protocol batch，仍驗 trusted events、
+  無 pointermove、pan translation 120／swipe final x=180，不偽造 timestamps
+  或放寬 duration。Window blur handler 是明示 simulated lifecycle event，
+  trusted CDP touch 不等於 physical touch。證據 `.vite/gesture-runtime/`。
+
+### P112 — Native 2D lighting
+
+- GPU／GL 真 albedo／normal／light shading 各改變 9216 pixels，正式 lighting
+  example 的 auto／forced native profiles 通過；transform／world-HUD spaces
+  與有界選光有 numerical／consumer regressions。
+- Canvas2D／不支援的 custom material 組合明確 UnsupportedGraphicsError，
+  不用第二 renderer 或 CPU imitation。證據 `.vite/expansion-runtime/report.json`。
+
+### P113 — Video／WebCodecs textures
+
+- GPU／GL 每條 real media consumer 的 sprite／PBR 分別 9216／1024 changed pixels；
+  actual frame advance、pause stability、external VideoFrame closure、
+  一個 native VP8 encoded chunk 解碼與 destroy 通過。
+- 保留 legacy Texture 欄位，逐幀 maps 用 additive textureSource／PBR sources／
+  native textureSources；borrowed fallback／video／Scene ownership 分開，
+  version 參與 native cache invalidation。WebCodecs 接 elementary encoded chunks，
+  不做 MP4／WebM container demux。證據 `.vite/expansion-runtime/report.json`。
+
+### P114 — Bounded compute
+
+- WebGPU 真 WGSL dispatch／typed readback 的 128 個運算結果正確；
+  malformed WGSL／aborted prepare 被拒絕。Native device loss 後 readback
+  明確拒絕不存在的 contents，reupload [4,3,2,1] 後恢復。
+- GL／Canvas 明示 unsupported，不 CPU 模擬 compute；limits／types／ownership
+  有 deterministic regressions。GPU handles 不進 public facade。
+
+### P115 — Render graph／custom pass
+
+- GPU／GL 多輸入 diamond DAG 與 uniform update 各改變 9216 pixels；
+  同一 graph 確實涵蓋 native 3D mesh＋HUD，切換 uniform 改變 2048 pixels。
+  真 capture 的 crossfade progress 0／1 保留正確 complete frame，
+  recovery 重建 graph descriptors。Feedback／cycle／resource bounds 有 regressions。
+- Smoke 使用正式 normalized color tuple，不以錯誤 transition descriptor 測引擎；
+  Canvas 明確拒絕 graph。證據 `.vite/expansion-runtime/report.json`。
+
+### P116 — TAA／SSR／probes
+
+- GPU／GL 真 TAA jitter 改變 76 pixels，history 有效後 camera cut／projection／
+  resize resets 的 history weight 為零；camera motion 輸出改變 690 pixels。
+  SSR depth-ray-march 在 opaque PBR floor 分別改變 4654／4666 pixels；
+  strength 0／roughness 1 與 SSR-off output **逐像素相同**，不是加一層 tint。
+- Probe 真六面 Scene capture 的六方向顏色、Scene edits／exclude／abort restoration
+  通過；同一 mesh 的 spatial blend 為 red [242,0,0]、
+  overlap [177,0,179]、blue [0,0,242]，不是挑選單一 probe。
+  以 root distribution native fixtures 驗證；cold-start failure 與 owned-service
+  GPU proof 的差別保留於上述證據界線。
+
+### P117 — Vehicle／ragdoll／soft body
+
+- 兩 backend 的真 fixed-step suspension／tire-force consumer 驅動速度
+  3.876689709、brake 後 0.026486906、steer yaw 0.699909536，沒有 teleport。
+  Ragdoll falling、limited hinge 約 -0.25、anchor error 0.003735598、
+  physics／animation blending 與 owned constraints teardown 通過。
+- Soft-body pins／springs／ground contacts 改變 1247 native pixels、
+  Geometry version 721，deformation 真的上傳；不宣稱 FEM／self-collision。
+  `.vite/physics-expansion-runtime/report.json` 兩 backend 各四項，errors 空。
+
+### P118 — Text3D／visibility
+
+- 真 latest-wins setText／setStyle／refreshFonts、多行 raster transaction 與
+  失敗保留舊 texture／bounds；native 最終 `Latest\nMultiline` 在 GPU／GL
+  分別有 1533／1450 green pixels，stale resources 正確釋放、外借 material 不銷毀。
+- 已核對 P79／P94 的既有 instance／morph／LOD／shadow／picking 路徑，
+  沒有再造另一 visibility index。原 instance scale 10／deformation 2 fixture
+  的保守 radius 51.641 包含 required 28.66，不以新增空 wrapper 宣稱完成。
+  Physical／Windows／Safari／audible／driver 與既有證據限制保留。

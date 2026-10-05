@@ -42,6 +42,9 @@ import {
   getRelativeAppearance2D,
   type TextureQuad2D,
 } from './sprite-instance.js';
+import { lightingGLSL, packLighting2D } from './lighting2d.js';
+import { validateSpriteLighting2D } from '../../core/src/lighting2d.js';
+import { getTextureDistanceField } from '../../assets/src/fonts/distance-field.js';
 import {
   assertRenderTextureOwner2D,
   createOwnedRenderTexture2D,
@@ -134,6 +137,9 @@ export class WebGLRender2D {
   private readonly captureCommands = new RenderCommandBuffer2D();
   private readonly emptyVAO: WebGLVertexArrayObject;
   private readonly quadProgram: Program2D;
+  private readonly lightingProgram: Program2D;
+  private readonly lightingData = new Float32Array(80);
+  private readonly uploadedLighting = new Float32Array(80).fill(NaN);
   private readonly meshProgram: Program2D;
   private readonly particleProgram: Program2D;
   private readonly passProgram: Program2D;
@@ -161,6 +167,13 @@ export class WebGLRender2D {
     this.emptyVAO = vao;
     this.quadProgram = this.register(
       hooks.createProgram(quadVertex2D, quadFragment2D(), '2D quad'),
+    );
+    this.lightingProgram = this.register(
+      hooks.createProgram(
+        quadVertex2D,
+        quadFragment2D(lightingGLSL),
+        '2D normal-map lighting',
+      ),
     );
     this.meshProgram = this.register(
       hooks.createProgram(meshVertex2D, meshFragment2D, 'indexed 2D mesh'),
@@ -292,6 +305,7 @@ export class WebGLRender2D {
         this.validateSource(command.object.texture, command.object.view);
         if (command.kind === 'sprite') {
           getSpriteQuad2D(command.object, this.quad);
+          validateSpriteLighting2D(command.object);
           if (command.object.material)
             this.hooks.material(command.object.material);
         } else {
@@ -387,6 +401,7 @@ export class WebGLRender2D {
   ): void {
     const gl = this.gl;
     gl.useProgram(program.program);
+    this.distanceField(program, 'kind' in source ? source : undefined);
     gl.bindVertexArray(this.emptyVAO);
     gl.uniformMatrix3fv(
       this.uniform(program, 'transform'),
@@ -447,6 +462,15 @@ export class WebGLRender2D {
     );
     gl.bindSampler(0, this.sampler(false, false));
   }
+  private distanceField(program: Program2D, source?: Texture2DSource): void {
+    const field =
+      source instanceof Texture ? getTextureDistanceField(source) : undefined;
+    this.gl.uniform2f(
+      this.uniform(program, 'distanceField'),
+      field ? (field.type === 'sdf' ? 1 : 2) : 0,
+      field?.range ?? 0,
+    );
+  }
   private sampler(nearestMin: boolean, nearestMag: boolean): WebGLSampler {
     const key = (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0),
       existing = this.samplers.get(key);
@@ -481,6 +505,7 @@ export class WebGLRender2D {
       if (
         command.kind === 'sprite' &&
         !command.object.material &&
+        !command.object.lighting &&
         !(command.object instanceof TilingSprite2D)
       ) {
         const sprite = command.object;
@@ -490,6 +515,7 @@ export class WebGLRender2D {
           if (
             next.kind !== 'sprite' ||
             next.object.material ||
+            next.object.lighting ||
             next.object instanceof TilingSprite2D ||
             next.object.texture !== sprite.texture ||
             (next.object.sampler?.minFilter === 'nearest') !==
@@ -607,6 +633,7 @@ export class WebGLRender2D {
     const sprite = command.object,
       program = this.spriteProgram;
     gl.useProgram(program.program);
+    this.distanceField(program, sprite.texture);
     gl.uniform2f(
       this.uniform(program, 'viewportSize'),
       context.bounds.width,
@@ -644,9 +671,11 @@ export class WebGLRender2D {
   private drawSprite(sprite: Sprite, context: Context2D): void {
     const gl = this.gl,
       quad = getSpriteQuad2D(sprite, this.quad);
-    const program = sprite.material
-      ? this.register(this.hooks.material(sprite.material))
-      : this.quadProgram;
+    const program = sprite.lighting
+      ? this.lightingProgram
+      : sprite.material
+        ? this.register(this.hooks.material(sprite.material))
+        : this.quadProgram;
     this.spriteMatrix(sprite, context);
     getRelativeAppearance2D(sprite, context.root, this.appearance);
     this.useQuad(
@@ -664,6 +693,34 @@ export class WebGLRender2D {
         sprite.sampler?.magFilter === 'nearest',
       ),
     );
+    if (sprite.lighting) {
+      this.objectMatrix(sprite, context, this.mapping, true).invert();
+      packLighting2D(sprite, this.mapping, quad, this.lightingData);
+      let changed = false;
+      for (let i = 0; i < this.lightingData.length; i++)
+        if (this.lightingData[i] !== this.uploadedLighting[i]) {
+          changed = true;
+          break;
+        }
+      if (changed) {
+        gl.uniform4fv(this.uniform(program, 'lighting[0]'), this.lightingData);
+        this.uploadedLighting.set(this.lightingData);
+      }
+      gl.uniform1i(this.uniform(program, 'normalMap'), 1);
+      gl.activeTexture(gl.TEXTURE1);
+      gl.bindTexture(
+        gl.TEXTURE_2D,
+        this.hooks.source(sprite.normalTexture ?? sprite.texture),
+      );
+      gl.bindSampler(
+        1,
+        this.sampler(
+          sprite.sampler?.minFilter === 'nearest',
+          sprite.sampler?.magFilter === 'nearest',
+        ),
+      );
+      gl.activeTexture(gl.TEXTURE0);
+    }
     if (sprite.material)
       gl.uniform4fv(
         this.uniform(program, 'uniforms[0]'),
@@ -1642,6 +1699,7 @@ export class WebGLRender2D {
     for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
     for (const program of [
       this.quadProgram,
+      this.lightingProgram,
       this.spriteProgram,
       this.meshProgram,
       this.particleProgram,

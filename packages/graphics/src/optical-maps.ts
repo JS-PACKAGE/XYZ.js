@@ -1,4 +1,4 @@
-import type { Texture } from '../../assets/src/index.js';
+import type { MaterialTexture } from '../../assets/src/texture2d.js';
 import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 
 /** A two-layer array keeps transmission + thickness inside the 16-slot baseline.
@@ -7,7 +7,7 @@ import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 export function fillOpticalMapSettings(
   data: Float32Array,
   offset: number,
-  texture: Texture | undefined,
+  texture: MaterialTexture | undefined,
   sampler: TextureSamplerOptions | undefined,
 ): void {
   data[offset] = texture?.width ?? 0;

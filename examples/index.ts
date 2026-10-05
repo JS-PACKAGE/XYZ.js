@@ -366,6 +366,46 @@ const examples: readonly Example[] = [
     tags: ['3D', 'Assets'],
     renderers: only3d,
   },
+  {
+    slug: 'narrative',
+    title: 'Narrative systems',
+    summary:
+      'Simulation-time cutscenes, branching dialogue, quest objectives, save and restore.',
+    tags: ['2D', 'Data'],
+    renderers: all2d,
+  },
+  {
+    slug: 'lighting2d',
+    title: 'Native 2D lighting',
+    summary:
+      'Normal-map lighting with pointer-controlled light; Canvas2D reports unsupported.',
+    tags: ['2D'],
+    renderers: ['auto', 'webgpu', 'webgl2'],
+  },
+  {
+    slug: 'asset-hot-reload',
+    title: 'Transactional scene hot reload',
+    summary:
+      'Vite scene edits replace successful candidates while preserving the active scene on rejection.',
+    tags: ['2D', 'Assets'],
+    renderers: [],
+  },
+  {
+    slug: 'gpu-compute',
+    title: 'Bounded GPU compute',
+    summary:
+      'Native WGSL storage buffers, ordered dependencies and typed readback; WebGPU only.',
+    tags: ['3D', 'Benchmark'],
+    renderers: ['webgpu'],
+  },
+  {
+    slug: 'render-graph',
+    title: 'Native render graph',
+    summary:
+      'A resource-scheduled native WGSL/GLSL graph with multi-input passes.',
+    tags: ['3D'],
+    renderers: ['webgpu', 'webgl2'],
+  },
 ];
 
 const filters = document.querySelector<HTMLFieldSetElement>('#filters')!;

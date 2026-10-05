@@ -5,4 +5,5 @@ export const assetLimits = Object.freeze({
   nativeTextureBytes: 32 * 1024 * 1024,
   audioBytes: 1024 * 1024,
   audioNotes: 16384,
+  hotSceneCandidates: 8,
 });

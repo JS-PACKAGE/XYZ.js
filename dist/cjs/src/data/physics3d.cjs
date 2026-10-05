@@ -1,0 +1,29 @@
+//#region dist/src/data/physics3d.js
+var physics3DDefaults = {
+	fixedDelta: 1 / 120,
+	maxSubSteps: 12,
+	solverIterations: 12,
+	contactSlop: .002,
+	contactMargin: .004,
+	correction: .65,
+	restitutionThreshold: .5,
+	sleepVelocity: .05,
+	sleepAngularVelocity: .08,
+	sleepTime: .6,
+	sweepIterations: 48,
+	sweepTolerance: 1e-4,
+	ccdIterations: 96,
+	ccdMaxImpacts: 16,
+	jointBias: .2,
+	jointMaxBias: 10,
+	characterSkin: .003,
+	characterIterations: 8,
+	maxMeshTriangles: 1e5,
+	geometryTolerance: 1e-10,
+	maxCompoundChildren: 64,
+	transformTolerance: 1e-5
+};
+//#endregion
+exports.physics3DDefaults = physics3DDefaults;
+
+//# sourceMappingURL=physics3d.cjs.map

@@ -1,0 +1,477 @@
+const require_assets = require("../../../src/data/assets.cjs");
+const require_texture = require("./texture.cjs");
+//#region dist/packages/assets/src/native-texture.js
+var nativeTextureFormats = {
+	rgba8unorm: [
+		1,
+		1,
+		4,
+		37,
+		32856,
+		``
+	],
+	"rgba8unorm-srgb": [
+		1,
+		1,
+		4,
+		43,
+		35907,
+		``
+	],
+	"bc1-rgba-unorm": [
+		4,
+		4,
+		8,
+		133,
+		33777,
+		`texture-compression-bc`
+	],
+	"bc1-rgba-unorm-srgb": [
+		4,
+		4,
+		8,
+		134,
+		35917,
+		`texture-compression-bc`
+	],
+	"bc2-rgba-unorm": [
+		4,
+		4,
+		16,
+		135,
+		33778,
+		`texture-compression-bc`
+	],
+	"bc2-rgba-unorm-srgb": [
+		4,
+		4,
+		16,
+		136,
+		35918,
+		`texture-compression-bc`
+	],
+	"bc3-rgba-unorm": [
+		4,
+		4,
+		16,
+		137,
+		33779,
+		`texture-compression-bc`
+	],
+	"bc3-rgba-unorm-srgb": [
+		4,
+		4,
+		16,
+		138,
+		35919,
+		`texture-compression-bc`
+	],
+	"bc4-r-unorm": [
+		4,
+		4,
+		8,
+		139,
+		36283,
+		`texture-compression-bc`
+	],
+	"bc4-r-snorm": [
+		4,
+		4,
+		8,
+		140,
+		36284,
+		`texture-compression-bc`
+	],
+	"bc5-rg-unorm": [
+		4,
+		4,
+		16,
+		141,
+		36285,
+		`texture-compression-bc`
+	],
+	"bc5-rg-snorm": [
+		4,
+		4,
+		16,
+		142,
+		36286,
+		`texture-compression-bc`
+	],
+	"bc6h-rgb-ufloat": [
+		4,
+		4,
+		16,
+		143,
+		36495,
+		`texture-compression-bc`
+	],
+	"bc6h-rgb-float": [
+		4,
+		4,
+		16,
+		144,
+		36494,
+		`texture-compression-bc`
+	],
+	"bc7-rgba-unorm": [
+		4,
+		4,
+		16,
+		145,
+		36492,
+		`texture-compression-bc`
+	],
+	"bc7-rgba-unorm-srgb": [
+		4,
+		4,
+		16,
+		146,
+		36493,
+		`texture-compression-bc`
+	],
+	"etc2-rgb8unorm": [
+		4,
+		4,
+		8,
+		147,
+		37492,
+		`texture-compression-etc2`
+	],
+	"etc2-rgb8unorm-srgb": [
+		4,
+		4,
+		8,
+		148,
+		37493,
+		`texture-compression-etc2`
+	],
+	"etc2-rgb8a1unorm": [
+		4,
+		4,
+		8,
+		149,
+		37494,
+		`texture-compression-etc2`
+	],
+	"etc2-rgb8a1unorm-srgb": [
+		4,
+		4,
+		8,
+		150,
+		37495,
+		`texture-compression-etc2`
+	],
+	"etc2-rgba8unorm": [
+		4,
+		4,
+		16,
+		151,
+		37496,
+		`texture-compression-etc2`
+	],
+	"etc2-rgba8unorm-srgb": [
+		4,
+		4,
+		16,
+		152,
+		37497,
+		`texture-compression-etc2`
+	],
+	"eac-r11unorm": [
+		4,
+		4,
+		8,
+		153,
+		37488,
+		`texture-compression-etc2`
+	],
+	"eac-r11snorm": [
+		4,
+		4,
+		8,
+		154,
+		37489,
+		`texture-compression-etc2`
+	],
+	"eac-rg11unorm": [
+		4,
+		4,
+		16,
+		155,
+		37490,
+		`texture-compression-etc2`
+	],
+	"eac-rg11snorm": [
+		4,
+		4,
+		16,
+		156,
+		37491,
+		`texture-compression-etc2`
+	],
+	"astc-4x4-unorm": [
+		4,
+		4,
+		16,
+		157,
+		37808,
+		`texture-compression-astc`
+	],
+	"astc-4x4-unorm-srgb": [
+		4,
+		4,
+		16,
+		158,
+		37840,
+		`texture-compression-astc`
+	],
+	"astc-5x4-unorm": [
+		5,
+		4,
+		16,
+		159,
+		37809,
+		`texture-compression-astc`
+	],
+	"astc-5x4-unorm-srgb": [
+		5,
+		4,
+		16,
+		160,
+		37841,
+		`texture-compression-astc`
+	],
+	"astc-5x5-unorm": [
+		5,
+		5,
+		16,
+		161,
+		37810,
+		`texture-compression-astc`
+	],
+	"astc-5x5-unorm-srgb": [
+		5,
+		5,
+		16,
+		162,
+		37842,
+		`texture-compression-astc`
+	],
+	"astc-6x5-unorm": [
+		6,
+		5,
+		16,
+		163,
+		37811,
+		`texture-compression-astc`
+	],
+	"astc-6x5-unorm-srgb": [
+		6,
+		5,
+		16,
+		164,
+		37843,
+		`texture-compression-astc`
+	],
+	"astc-6x6-unorm": [
+		6,
+		6,
+		16,
+		165,
+		37812,
+		`texture-compression-astc`
+	],
+	"astc-6x6-unorm-srgb": [
+		6,
+		6,
+		16,
+		166,
+		37844,
+		`texture-compression-astc`
+	],
+	"astc-8x5-unorm": [
+		8,
+		5,
+		16,
+		167,
+		37813,
+		`texture-compression-astc`
+	],
+	"astc-8x5-unorm-srgb": [
+		8,
+		5,
+		16,
+		168,
+		37845,
+		`texture-compression-astc`
+	],
+	"astc-8x6-unorm": [
+		8,
+		6,
+		16,
+		169,
+		37814,
+		`texture-compression-astc`
+	],
+	"astc-8x6-unorm-srgb": [
+		8,
+		6,
+		16,
+		170,
+		37846,
+		`texture-compression-astc`
+	],
+	"astc-8x8-unorm": [
+		8,
+		8,
+		16,
+		171,
+		37815,
+		`texture-compression-astc`
+	],
+	"astc-8x8-unorm-srgb": [
+		8,
+		8,
+		16,
+		172,
+		37847,
+		`texture-compression-astc`
+	],
+	"astc-10x5-unorm": [
+		10,
+		5,
+		16,
+		173,
+		37816,
+		`texture-compression-astc`
+	],
+	"astc-10x5-unorm-srgb": [
+		10,
+		5,
+		16,
+		174,
+		37848,
+		`texture-compression-astc`
+	],
+	"astc-10x6-unorm": [
+		10,
+		6,
+		16,
+		175,
+		37817,
+		`texture-compression-astc`
+	],
+	"astc-10x6-unorm-srgb": [
+		10,
+		6,
+		16,
+		176,
+		37849,
+		`texture-compression-astc`
+	],
+	"astc-10x8-unorm": [
+		10,
+		8,
+		16,
+		177,
+		37818,
+		`texture-compression-astc`
+	],
+	"astc-10x8-unorm-srgb": [
+		10,
+		8,
+		16,
+		178,
+		37850,
+		`texture-compression-astc`
+	],
+	"astc-10x10-unorm": [
+		10,
+		10,
+		16,
+		179,
+		37819,
+		`texture-compression-astc`
+	],
+	"astc-10x10-unorm-srgb": [
+		10,
+		10,
+		16,
+		180,
+		37851,
+		`texture-compression-astc`
+	],
+	"astc-12x10-unorm": [
+		12,
+		10,
+		16,
+		181,
+		37820,
+		`texture-compression-astc`
+	],
+	"astc-12x10-unorm-srgb": [
+		12,
+		10,
+		16,
+		182,
+		37852,
+		`texture-compression-astc`
+	],
+	"astc-12x12-unorm": [
+		12,
+		12,
+		16,
+		183,
+		37821,
+		`texture-compression-astc`
+	],
+	"astc-12x12-unorm-srgb": [
+		12,
+		12,
+		16,
+		184,
+		37853,
+		`texture-compression-astc`
+	]
+};
+function nativeTextureLayout(t, r, i) {
+	if (!Object.hasOwn(nativeTextureFormats, t)) throw new require_texture.AssetError(`Unknown native texture format: ${t}`);
+	if (!Number.isSafeInteger(r) || !Number.isSafeInteger(i) || r < 1 || i < 1 || r > require_assets.assetLimits.textureDimension || i > require_assets.assetLimits.textureDimension) throw new require_texture.AssetError(`Native texture dimensions exceed their resource budget.`);
+	let [a, o, s] = nativeTextureFormats[t], c = Math.ceil(r / a) * s, l = Math.ceil(i / o);
+	return {
+		bytesPerRow: c,
+		rows: l,
+		byteLength: c * l
+	};
+}
+var NativeTexture2D = class extends require_texture.Texture {
+	format;
+	levels;
+	byteLength;
+	constructor(t) {
+		if (super({
+			kind: `native`,
+			width: t.width,
+			height: t.height
+		}), nativeTextureLayout(t.format, t.width, t.height), !Array.isArray(t.levels) || t.levels.length < 1 || t.levels.length > Math.floor(Math.log2(Math.max(t.width, t.height))) + 1) throw new require_texture.AssetError(`Native texture requires a nonempty, bounded mip chain.`);
+		let r = 0;
+		for (let n = 0; n < t.levels.length; n++) {
+			let i = t.levels[n], a = Math.max(1, Math.floor(t.width / 2 ** n)), o = Math.max(1, Math.floor(t.height / 2 ** n)), s = nativeTextureLayout(t.format, a, o);
+			if (!i || i.width !== a || i.height !== o || !(i.data instanceof Uint8Array) || i.data.byteLength !== s.byteLength) throw new require_texture.AssetError(`Native texture mip ${n} does not match its exact block layout.`);
+			r += s.byteLength;
+		}
+		if (r > require_assets.assetLimits.nativeTextureBytes) throw new require_texture.AssetError(`Native texture exceeds its byte resource budget.`);
+		this.format = t.format, this.byteLength = r, this.levels = Object.freeze(t.levels.map((e) => Object.freeze({
+			width: e.width,
+			height: e.height,
+			data: e.data.slice()
+		})));
+	}
+};
+//#endregion
+exports.NativeTexture2D = NativeTexture2D;
+exports.nativeTextureFormats = nativeTextureFormats;
+exports.nativeTextureLayout = nativeTextureLayout;
+
+//# sourceMappingURL=native-texture.cjs.map

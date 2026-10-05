@@ -1,0 +1,141 @@
+const require_math3d = require("../../../math/src/math3d.cjs");
+const require_collider = require("./collider.cjs");
+const require_physics_profiles = require("../../../../src/data/physics-profiles.cjs");
+//#region dist/packages/core/src/physics3d/softbody.js
+var SoftBody3D = class {
+	world;
+	particles;
+	fixedDelta;
+	springs;
+	forces;
+	anchors;
+	radius;
+	drag;
+	friction;
+	iterations;
+	stretch;
+	mesh;
+	mapping;
+	difference = new require_math3d.Vector3();
+	displacement = new require_math3d.Vector3();
+	old;
+	inverse = new require_math3d.Matrix4();
+	local = new require_math3d.Vector3();
+	hit;
+	query = {};
+	accumulator = 0;
+	disposed = !1;
+	constructor(e, o) {
+		this.world = e;
+		let s = require_physics_profiles.physicsProfiles.softBody;
+		if (!o.particles.length || o.particles.length > s.maxParticles || o.springs.length > s.maxSprings) throw RangeError(`SoftBody exceeds particle/spring bounds.`);
+		if (this.particles = o.particles.map((e) => (require_collider.vector3D(e.position, `particle`), {
+			position: new require_math3d.Vector3(e.position.x, e.position.y, e.position.z),
+			velocity: new require_math3d.Vector3(),
+			mass: require_collider.positive3D(e.mass ?? 1, `mass`),
+			pinned: e.pinned ?? !1
+		})), this.anchors = this.particles.map((e) => e.position.clone()), this.forces = this.particles.map(() => new require_math3d.Vector3()), this.old = this.particles.map((e) => e.position.clone()), this.springs = o.springs.map((e) => {
+			if (this.index(e.a), this.index(e.b), e.a === e.b) throw RangeError(`Spring endpoints must differ.`);
+			let t = this.difference.copy(this.particles[e.a].position).subtract(this.particles[e.b].position).length();
+			return {
+				a: e.a,
+				b: e.b,
+				restLength: require_collider.positive3D(e.restLength ?? t, `restLength`),
+				stiffness: require_collider.nonnegative3D(e.stiffness ?? s.stiffness, `stiffness`),
+				damping: require_collider.nonnegative3D(e.damping ?? s.damping, `damping`)
+			};
+		}), this.radius = require_collider.positive3D(o.radius ?? s.radius, `radius`), this.drag = require_collider.nonnegative3D(o.drag ?? s.drag, `drag`), this.friction = require_collider.nonnegative3D(o.friction ?? .5, `friction`), this.fixedDelta = require_collider.positive3D(o.fixedDelta ?? s.fixedDelta, `fixedDelta`), this.iterations = o.iterations ?? s.iterations, !Number.isInteger(this.iterations) || this.iterations < 1 || this.iterations > 32) throw RangeError(`iterations must be within [1,32].`);
+		if (this.stretch = require_collider.positive3D(o.maxStretch ?? s.maxStretch, `maxStretch`), this.stretch < 1) throw RangeError(`maxStretch must be >= 1.`);
+		if (this.mesh = o.mesh, this.mesh) {
+			if (this.mesh.morph) throw Error(`SoftBody cannot share geometry with morph deformation.`);
+			if (!o.vertexParticles || o.vertexParticles.length !== this.mesh.geometry.vertices.length / 8) throw RangeError(`One particle mapping is required for each mesh vertex.`);
+			o.vertexParticles.forEach((e) => this.index(e)), this.mapping = [...o.vertexParticles];
+		} else if (o.vertexParticles) throw Error(`vertexParticles requires a mesh.`);
+	}
+	index(e) {
+		if (!Number.isInteger(e) || e < 0 || e >= this.particles.length) throw RangeError(`Particle index is out of range.`);
+	}
+	pin(e, t) {
+		this.index(e);
+		let n = this.particles[e];
+		t && (require_collider.vector3D(t, `pin`), n.position.set(t.x, t.y, t.z)), this.anchors[e].copy(n.position), n.velocity.set(0, 0, 0), n.pinned = !0;
+	}
+	unpin(e) {
+		this.index(e), this.particles[e].pinned = !1;
+	}
+	update(e) {
+		if (require_collider.nonnegative3D(e, `delta`), this.disposed) throw Error(`SoftBody3D is destroyed.`);
+		let t = Math.floor((this.accumulator + e) / this.fixedDelta + 1e-10);
+		if (t > require_physics_profiles.physicsProfiles.softBody.maxSubSteps) throw RangeError(`SoftBody update exceeds bounded substeps; split simulation time.`);
+		this.accumulator += e;
+		for (let e = 0; e < t; e++) this.step(this.fixedDelta), this.accumulator -= this.fixedDelta;
+		t && this.uploadMesh();
+	}
+	step(e) {
+		for (let e = 0; e < this.particles.length; e++) {
+			let t = this.particles[e];
+			this.old[e].copy(t.position), this.forces[e].copy(this.world.gravity).scale(t.mass);
+		}
+		for (let e of this.springs) {
+			let t = this.particles[e.a], n = this.particles[e.b], r = this.difference.copy(n.position).subtract(t.position), i = r.length();
+			if (i < 1e-12) continue;
+			r.scale(1 / i);
+			let a = (n.velocity.x - t.velocity.x) * r.x + (n.velocity.y - t.velocity.y) * r.y + (n.velocity.z - t.velocity.z) * r.z, o = e.stiffness * (i - e.restLength) + e.damping * a, s = this.forces[e.a], c = this.forces[e.b];
+			s.x += r.x * o, s.y += r.y * o, s.z += r.z * o, c.x -= r.x * o, c.y -= r.y * o, c.z -= r.z * o;
+		}
+		for (let t = 0; t < this.particles.length; t++) {
+			let n = this.particles[t];
+			if (n.pinned) {
+				n.position.copy(this.anchors[t]), n.velocity.set(0, 0, 0);
+				continue;
+			}
+			n.velocity.add(this.forces[t].scale(e / n.mass)).scale(Math.exp(-this.drag * e)), n.position.add(this.displacement.copy(n.velocity).scale(e));
+		}
+		for (let e = 0; e < this.iterations; e++) for (let e of this.springs) {
+			let t = this.particles[e.a], n = this.particles[e.b], r = this.difference.copy(n.position).subtract(t.position), i = r.length(), a = t.pinned ? 0 : 1 / t.mass, o = n.pinned ? 0 : 1 / n.mass;
+			i <= e.restLength * this.stretch || a + o === 0 || (r.scale((i - e.restLength * this.stretch) / i / (a + o)), t.position.x += r.x * a, t.position.y += r.y * a, t.position.z += r.z * a, n.position.x -= r.x * o, n.position.y -= r.y * o, n.position.z -= r.z * o);
+		}
+		for (let t = 0; t < this.particles.length; t++) {
+			let n = this.particles[t];
+			if (n.pinned) continue;
+			this.displacement.copy(n.position).subtract(this.old[t]);
+			let r = this.world.sweepSphere(this.old[t], this.radius, this.displacement, this.query, this.hit);
+			if (r && (this.hit = r), r) {
+				let e = this.displacement.length();
+				n.position.copy(this.old[t]).add(this.displacement.scale(e ? Math.max(0, r.distance - 1e-4) / e : 0)), n.position.x += r.normal.x * 1e-4, n.position.y += r.normal.y * 1e-4, n.position.z += r.normal.z * 1e-4;
+			}
+			if (n.velocity.copy(n.position).subtract(this.old[t]).scale(1 / e), r) {
+				let e = n.velocity.dot(r.normal);
+				e < 0 && (n.velocity.x -= r.normal.x * e, n.velocity.y -= r.normal.y * e, n.velocity.z -= r.normal.z * e), n.velocity.scale(Math.max(0, 1 - this.friction));
+			}
+			require_collider.vector3D(n.position, `integrated position`), require_collider.vector3D(n.velocity, `integrated velocity`);
+		}
+	}
+	uploadMesh() {
+		if (!this.mesh || !this.mapping) return;
+		let e = this.mesh.geometry, t = e.vertices;
+		this.inverse.copy(this.mesh.updateWorldMatrix()).invert();
+		for (let e = 0; e < this.mapping.length; e++) {
+			this.inverse.transformPoint(this.particles[this.mapping[e]].position, this.local);
+			let n = e * 8;
+			t[n] = this.local.x, t[n + 1] = this.local.y, t[n + 2] = this.local.z, t[n + 3] = t[n + 4] = t[n + 5] = 0;
+		}
+		for (let n = 0; n < e.indices.length; n += 3) {
+			let r = e.indices[n] * 8, i = e.indices[n + 1] * 8, a = e.indices[n + 2] * 8;
+			this.difference.set(t[i] - t[r], t[i + 1] - t[r + 1], t[i + 2] - t[r + 2]), this.local.set(t[a] - t[r], t[a + 1] - t[r + 1], t[a + 2] - t[r + 2]), this.difference.cross(this.local);
+			for (let e = 0; e < 3; e++) {
+				let n = e === 0 ? r : e === 1 ? i : a;
+				t[n + 3] += this.difference.x, t[n + 4] += this.difference.y, t[n + 5] += this.difference.z;
+			}
+		}
+		for (let e = 0; e < t.length; e += 8) this.local.set(t[e + 3], t[e + 4], t[e + 5]).normalize(), t[e + 3] = this.local.x, t[e + 4] = this.local.y, t[e + 5] = this.local.z;
+		e.markUpdated();
+	}
+	destroy() {
+		this.disposed = !0;
+	}
+};
+//#endregion
+exports.SoftBody3D = SoftBody3D;
+
+//# sourceMappingURL=softbody.cjs.map

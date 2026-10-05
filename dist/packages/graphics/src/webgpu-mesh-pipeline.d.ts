@@ -7,6 +7,7 @@ import type { EnvironmentMap } from '../../core/src/environment.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { FrameStats } from './render-stats.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export declare class WebGPUMeshPipeline {
@@ -63,6 +64,15 @@ export declare class WebGPUMeshPipeline {
     private readonly environments;
     private readonly dummyEnvironment;
     private readonly dummyEnvironmentView;
+    private readonly dummyEnvironmentArrayView;
+    private readonly selectedProbes;
+    private readonly probeMaps;
+    private probeTexture;
+    private probeAllocation;
+    private probeMipCount;
+    private readonly temporalState;
+    private readonly temporal;
+    private temporalActive;
     private readonly environmentSampler;
     private environmentView;
     private backgroundView;
@@ -125,13 +135,15 @@ export declare class WebGPUMeshPipeline {
     private ensureRefraction;
     private releaseRefraction;
     /** Shadows and linear HDR resolution precede the existing sprite overlay. */
-    render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor, viewportHeight?: number): boolean;
+    render(scene: Scene | undefined, encoder: GPUCommandEncoder, view: GPUTextureView, width: number, height: number, aspect: number, clearValue: GPUColor, viewportHeight?: number, captureTarget?: GPUTexture): boolean;
     private createSceneGroup;
     private ensureShadow;
     private prepareScene;
     /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
     private ensureEnvironment;
     prepareEnvironment(map: EnvironmentMap): void;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
+    invalidateTemporalHistory(): void;
     prepareGeometry(geometry: Geometry): ResidencyAllocation;
     unloadGeometry(geometry: Geometry): void;
     prepareMaterial(material: NativeMaterial3D): Promise<void>;

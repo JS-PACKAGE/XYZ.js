@@ -12,6 +12,10 @@ import type { Geometry } from '../../core/src/geometry.js';
 import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
 import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
+import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
+import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 export interface ResilientRendererHooks {
     /** Called once when the GPU context/device is lost and recovery begins. */
     onLost?(error: Error): void;
@@ -38,6 +42,7 @@ export declare class ResilientRenderer implements Renderer {
     private replacement;
     private readonly materials;
     private readonly processors;
+    private readonly graphs;
     private size;
     private residencyOptions;
     private readonly prepared;
@@ -67,6 +72,12 @@ export declare class ResilientRenderer implements Renderer {
     endFrame(): void;
     resize(width: number, height: number): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
+    prepareCompute(program: ComputeProgram, options?: ComputePreparationOptions): Promise<void>;
+    uploadCompute(buffer: ComputeBuffer, data: ComputeArray, offset?: number): void;
+    dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
+    readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
+    prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
     preparePostProcessor(processor: PostProcessor2D): Promise<void>;

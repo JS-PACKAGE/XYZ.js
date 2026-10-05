@@ -1,5 +1,5 @@
 const bindings = /* wgsl */ `
-struct DrawUniforms { values: array<vec4f, 16>, };
+struct DrawUniforms { values: array<vec4f, 32>, };
 @group(0) @binding(0) var<uniform> draw: DrawUniforms;
 @group(1) @binding(0) var spriteTexture: texture_2d<f32>;
 @group(1) @binding(1) var spriteSampler: sampler;
@@ -23,12 +23,21 @@ fn project(local: vec2f, world: bool, roundPixels: bool) -> vec4f {
   if (roundPixels) { screen = floor(screen * draw.values[0].zw + vec2f(0.5)) / draw.values[0].zw; }
   return vec4f(screen.x * 2.0 / draw.values[0].x - 1.0, 1.0 - screen.y * 2.0 / draw.values[0].y, 0.0, 1.0);
 }
-fn sampleFrame(unit: vec2f, uvx: vec4f, uvy: vec4f, native: u32) -> vec4f {
+fn sampleFrame(unit: vec2f, uvx: vec4f, uvy: vec4f, native: u32, footprint: vec2f) -> vec4f {
   let origin = uvx.xy; let x = uvx.zw; let y = uvy.xy;
   let end = origin + x + y;
   let inset = min(vec2f(0.5) / vec2f(textureDimensions(spriteTexture)), abs(end - origin) * 0.5);
   let uv = clamp(origin + x * unit.x + y * unit.y, min(origin, end) + inset, max(origin, end) - inset);
   let color = textureSampleLevel(spriteTexture, spriteSampler, uv, 0.0);
+  let field = draw.values[20].xy;
+  if (field.x > 0.0) {
+    let median = max(min(color.r, color.g), min(max(color.r, color.g), color.b));
+    let distance = select(color.r, median, field.x > 1.5) - 0.5;
+    let pixelUV = footprint * vec2f(textureDimensions(spriteTexture));
+    let screenRange = max(1.0, field.y / max(max(pixelUV.x, pixelUV.y), 0.00001));
+    let coverage = clamp(distance * screenRange + 0.5, 0.0, 1.0);
+    return vec4f(vec3f(coverage), coverage);
+  }
   return vec4f(color.rgb * select(1.0, color.a, native != 0u), color.a);
 }
 `;
@@ -68,12 +77,13 @@ struct QuadInput {
 ${effect ?? 'fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f { return color; }'}
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var unit = input.uvQ.xy;
+  let footprint = fwidth(input.uvx.xy + input.uvx.zw * unit.x + input.uvy.xy * unit.y);
   if (input.tile.z > 0.0 && input.tile.w > 0.0) {
     unit = fract(unit);
     if (any(unit < input.tile.xy) || any(unit >= input.tile.xy + input.tile.zw)) { discard; }
     unit = (unit - input.tile.xy) / input.tile.zw;
   }
-  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native);
+  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native, footprint);
   let color = vec4f(texel.rgb * input.tint.rgb * input.tint.a, texel.a * input.tint.a);
   ${
     multiply
@@ -96,8 +106,9 @@ struct MeshInput { @location(0) position: vec2f, @location(1) uvQ: vec3f, };
 }
 @fragment fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
   var unit = input.uvQ.xy / input.uvQ.z;
+  let footprint = fwidth(input.uvx.xy + input.uvx.zw * unit.x + input.uvy.xy * unit.y);
   if (draw.values[7].z != 0.0) { unit.x = fract(unit.x); }
-  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native);
+  let texel = sampleFrame(unit, input.uvx, input.uvy, input.native, footprint);
   return vec4f(texel.rgb * input.tint.rgb * input.tint.a, texel.a * input.tint.a);
 }`;
 

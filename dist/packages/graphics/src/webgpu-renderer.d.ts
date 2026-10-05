@@ -15,6 +15,10 @@ import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
 import { NativeResidency } from './residency.js';
 import type { ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
+import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
 export declare class WebGPURenderer implements Renderer {
     private readonly onError;
     private readonly antialias;
@@ -24,6 +28,16 @@ export declare class WebGPURenderer implements Renderer {
     private gpuTimer;
     readonly residency: NativeResidency;
     private readonly preparedGeometry;
+    private readonly probeCaptures;
+    private probeCaptureActive;
+    private compute;
+    private graphs;
+    prepareCompute(program: ComputeProgram, options?: ComputePreparationOptions): Promise<void>;
+    uploadCompute(buffer: ComputeBuffer, data: ComputeArray, offset?: number): void;
+    dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
+    readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
+    prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     configureResidency(options: ResidencyBudgetOptions): void;
     retainFrameResources(): PreparedResourceLease;
     prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
@@ -34,6 +48,7 @@ export declare class WebGPURenderer implements Renderer {
         threeD: boolean;
         compute: boolean;
         customShaders: boolean;
+        lighting2D: boolean;
         storageBuffers: boolean;
         instancing: boolean;
         maxTextureSize: number;

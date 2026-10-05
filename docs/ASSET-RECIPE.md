@@ -4,6 +4,35 @@ This **v1.12.4 / 1.12.4** development recipe uses the existing engine and pinned
 
 Current support/API boundaries are normative in [CURRENT](CURRENT.md); this recipe describes the production tool profile, not a new browser/physical certification.
 
+## Unreleased atlas and font production profiles
+
+P105/P106 add a repository-local, development-only producer. The existing GitHub
+v1.14 archive does not contain it; package metadata remains 1.14.0 and npm remains
+unpublished. Build the engine first and provide the pinned browser tooling described
+below. The command reserves a new output directory and refuses to overwrite it:
+
+```sh
+node scripts/produce-assets.mjs /absolute/profile.json /absolute/NEW-output-directory
+```
+
+An `atlas` profile supplies `images` entries with unique `name` and local `file`,
+optional `trim`, and optional `width`, `height`, `padding`, `extrude`, and `maxPages`.
+Defaults are 1024×1024 pages, one-pixel padding/extrusion, trimming enabled, and at
+most 16 pages. Output is `atlas.json` plus PNG pages, with original source-size and
+trim offsets for the existing `AtlasLoader`.
+
+`bitmap` and `sdf` profiles use an owned local `font`, unique Unicode `alphabet`,
+integer `size` (1–512), optional `range` (1–256; default 8), and the same page
+packing bounds. `sdf` is an actual single-channel signed distance field. `msdf`
+instead requires caller-authored glyph polygon contours and metrics; it computes
+independent RGB edge distances and does not parse TTF/OpenType outlines. Font output
+is a BMFont-compatible `font.json` plus pages for the existing font loader.
+
+The producer enforces per-file, glyph, page and aggregate pixel/work bounds. These
+profiles describe generated assets, not arbitrary codec support or browser
+qualification. The older P50 conversion recipe below remains a separate historical
+glTF profile.
+
 ## Installed project preflight and build
 
 The installed package exposes the development CLI `xyz-assets`; it uses the package's built engine, not repository TypeScript paths. Provide the pinned Node/browser development tooling listed below (the consumer needs `playwright-core` 1.63.0 and the matching managed Chromium). This is not a new engine runtime dependency.

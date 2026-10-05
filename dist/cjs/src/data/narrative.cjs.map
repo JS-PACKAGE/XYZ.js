@@ -1,0 +1,1 @@
+{"version":3,"file":"narrative.cjs","names":[],"sources":["../../../src/data/narrative.js"],"sourcesContent":["export const narrativeLimits=Object.freeze({cutsceneUpdateSteps:4096});\n//# sourceMappingURL=narrative.js.map\n"],"mappings":";AAAA,IAAa,kBAAgB,OAAO,OAAO,EAAC,qBAAoB,KAAI,CAAC"}

@@ -1,0 +1,288 @@
+const require_rendering2d = require("../../../../src/data/rendering2d.cjs");
+const require_index = require("../../../math/src/index.cjs");
+const require_game_object = require("../game-object.cjs");
+const require_accessibility = require("../../../../src/data/accessibility.cjs");
+//#region dist/packages/core/src/accessibility/index.js
+var i = `http://www.w3.org/2000/svg`;
+var a = 0;
+var AccessibilityManager = class {
+	canvas;
+	getSize;
+	entries = /* @__PURE__ */ new Map();
+	shapes = /* @__PURE__ */ new WeakMap();
+	point = new require_index.Vector2();
+	bounds = {
+		x: 0,
+		y: 0,
+		width: 0,
+		height: 0
+	};
+	transform = /* @__PURE__ */ new Float64Array(6);
+	scene;
+	definitions;
+	coverageCanvas;
+	disposed = !1;
+	liveRegions = /* @__PURE__ */ new Map();
+	announcementTimers = /* @__PURE__ */ new Map();
+	modalScopes = /* @__PURE__ */ new Map();
+	semanticSequence = 0;
+	constructor(e, t) {
+		this.canvas = e, this.getSize = t;
+	}
+	element(e) {
+		let t = this.entries.get(e), n = this.scene;
+		if (!this.disposed && t && n && !n.destroyed && !e.destroyed && e.scene === n && n.has(e) && e.registrationGeneration === t.generation && e.accessibility) return t.node;
+	}
+	focus(e) {
+		let t = this.element(e);
+		return !t || !this.entries.get(e).coverage || e.accessibility.disabled || !e.worldVisible || e.worldOpacity <= 0 || e.worldTint[3] <= 0 ? !1 : (t.focus({ preventScroll: !0 }), t.ownerDocument.activeElement === t && this.element(e) === t);
+	}
+	announce(e, t = {}) {
+		if (this.disposed) throw Error(`Accessibility manager is destroyed.`);
+		if (typeof e != `string` || e.length > require_accessibility.accessibilityLimits.maximumAnnouncementLength) throw RangeError(`Accessibility announcement exceeds the text budget.`);
+		let n = t.priority ?? `polite`;
+		if (n !== `polite` && n !== `assertive`) throw TypeError(`Invalid announcement priority.`);
+		let i = this.liveRegions.get(n);
+		i || (i = this.canvas.ownerDocument.createElement(`div`), i.dataset.xyzAccessibilityLive = n, i.setAttribute(`role`, n === `assertive` ? `alert` : `status`), i.setAttribute(`aria-live`, n), i.setAttribute(`aria-atomic`, `true`), i.style.cssText = `position:fixed;width:1px;height:1px;overflow:hidden;clip-path:inset(50%);pointer-events:none`, this.canvas.ownerDocument.body.append(i), this.liveRegions.set(n, i)), clearTimeout(this.announcementTimers.get(n)), i.textContent = ``, i.lang = t.language ?? this.canvas.ownerDocument.documentElement.lang;
+		let a = i;
+		this.announcementTimers.set(n, setTimeout(() => {
+			this.announcementTimers.delete(n), !this.disposed && this.liveRegions.get(n) === a && (a.textContent = e);
+		}, require_accessibility.accessibilityLimits.announcementDelayMs));
+	}
+	clearAnnouncements(e) {
+		for (let t of [`polite`, `assertive`]) {
+			if (e && e !== t) continue;
+			clearTimeout(this.announcementTimers.get(t)), this.announcementTimers.delete(t);
+			let n = this.liveRegions.get(t);
+			n && (n.textContent = ``);
+		}
+	}
+	setModal(e, t) {
+		let n = this.modalScopes.get(e);
+		n && n !== t && this.element(n)?.removeAttribute(`aria-owns`), t ? this.modalScopes.set(e, t) : this.modalScopes.delete(e);
+	}
+	inScope(e) {
+		for (let [t, n] of this.modalScopes) {
+			if (t.destroyed || n.destroyed || t.scene !== this.scene || n.scene !== this.scene) {
+				this.modalScopes.delete(t);
+				continue;
+			}
+			let r = !1, i = !1;
+			for (let a = e; a; a = a.parent) r ||= a === t, i ||= a === n;
+			if (r && !i) return !1;
+		}
+		return !0;
+	}
+	emit(e, t, n, r) {
+		let i = this.scene, guard = () => !this.disposed && !!i && this.scene === i && !i.destroyed && !e.destroyed && e.scene === i && i.has(e) && e.registrationGeneration === t.generation && this.entries.get(e) === t && !!e.accessibility && (n === `blur` || !e.accessibility.disabled && t.coverage);
+		if (!guard()) return;
+		let a = !1, o = !1, s = new CustomEvent(n, {
+			detail: {
+				target: e,
+				currentTarget: e,
+				phase: `target`,
+				originalEvent: r,
+				get propagationStopped() {
+					return a;
+				},
+				get immediatePropagationStopped() {
+					return o;
+				},
+				get defaultPrevented() {
+					return s.defaultPrevented;
+				},
+				stopPropagation() {
+					s.stopPropagation();
+				},
+				stopImmediatePropagation() {
+					s.stopImmediatePropagation();
+				},
+				preventDefault() {
+					s.preventDefault(), r.preventDefault();
+				}
+			},
+			cancelable: !0
+		}), c = s.stopPropagation.bind(s), l = s.stopImmediatePropagation.bind(s);
+		s.stopPropagation = () => {
+			a = !0, c();
+		}, s.stopImmediatePropagation = () => {
+			a = o = !0, l();
+		}, e.dispatchInteractionEvent(s, `target`, guard);
+	}
+	create(e) {
+		let t = this.canvas.ownerDocument, n = t.createElement(`div`), r = t.createElement(e.accessibility?.nativeInput ? `input` : `div`);
+		r.dataset.xyzAccessibility = ``, r.id = `xyz-semantic-${++a}-${++this.semanticSequence}`, n.dataset.xyzAccessibilityHost = ``, Object.assign(n.style, {
+			position: `fixed`,
+			pointerEvents: `none`,
+			margin: `0`,
+			padding: `0`,
+			border: `0`
+		}), Object.assign(r.style, {
+			position: `absolute`,
+			inset: `0`,
+			width: `100%`,
+			height: `100%`,
+			minWidth: `0`,
+			boxSizing: `border-box`,
+			opacity: `0`,
+			pointerEvents: `none`,
+			margin: `0`,
+			padding: `0`,
+			border: `0`,
+			overflow: `hidden`,
+			background: `none`,
+			color: `transparent`,
+			outline: `none`
+		}), r.tagName === `INPUT` && (r.type = `text`), n.append(r);
+		let i = {
+			node: r,
+			host: n,
+			controller: new AbortController(),
+			generation: e.registrationGeneration,
+			clips: [],
+			width: 0,
+			height: 0,
+			coverage: !1,
+			clipCoverage: !1,
+			spaceDown: !1
+		}, o = { signal: i.controller.signal };
+		return r.addEventListener(`focus`, (t) => this.emit(e, i, `focus`, t), o), r.addEventListener(`blur`, (t) => {
+			i.spaceDown = !1, this.emit(e, i, `blur`, t);
+		}, o), r.addEventListener(`keydown`, (t) => {
+			e.accessibility?.nativeInput || e.accessibility?.disabled || t.repeat || t.altKey || t.ctrlKey || t.metaKey || t.shiftKey || (t.code === `Enter` ? (t.preventDefault(), this.emit(e, i, `activate`, t)) : t.code === `Space` && (t.preventDefault(), i.spaceDown = !0));
+		}, o), r.addEventListener(`keyup`, (t) => {
+			e.accessibility?.nativeInput || t.code === `Space` && i.spaceDown && (i.spaceDown = !1, t.preventDefault(), this.emit(e, i, `activate`, t));
+		}, o), t.body.append(n), i;
+	}
+	shape(e) {
+		let t = this.shapes.get(e);
+		if (t) return t;
+		if (e.path) t = {
+			data: e.path.toSVGPathData(),
+			path: e.path.nativePath2D,
+			fillRule: e.path.fillRule
+		};
+		else {
+			let n = e.rect, r = e.texture, i = n?.x ?? 0, a = n?.y ?? 0, o = n?.width ?? e.view?.width ?? (r?.kind === `render` ? r.logicalWidth : r?.width ?? 0), s = n?.height ?? e.view?.height ?? (r?.kind === `render` ? r.logicalHeight : r?.height ?? 0), c = new Path2D();
+			c.rect(i, a, o, s), t = {
+				data: `M${i} ${a}h${o}v${s}h${-o}Z`,
+				path: c,
+				fillRule: `nonzero`
+			};
+		}
+		return this.shapes.set(e, t), t;
+	}
+	createClip(e) {
+		let t = this.canvas.ownerDocument;
+		this.definitions || (this.definitions = t.createElementNS(i, `svg`), this.definitions.setAttribute(`width`, `0`), this.definitions.setAttribute(`height`, `0`), this.definitions.setAttribute(`aria-hidden`, `true`), this.definitions.style.cssText = `position:absolute;pointer-events:none;overflow:hidden`, t.body.append(this.definitions));
+		let n = t.createElementNS(i, `mask`), r = t.createElementNS(i, `rect`), o = t.createElementNS(i, `path`), s = t.createElement(`div`), c = `xyz-semantic-mask-${a++}`;
+		return n.id = c, n.setAttribute(`maskUnits`, `userSpaceOnUse`), n.setAttribute(`maskContentUnits`, `userSpaceOnUse`), n.setAttribute(`mask-type`, `luminance`), n.setAttribute(`x`, `0`), n.setAttribute(`y`, `0`), r.setAttribute(`fill`, `white`), n.append(r, o), this.definitions.append(n), Object.assign(s.style, {
+			position: `absolute`,
+			inset: `0`,
+			pointerEvents: `none`,
+			maskImage: `url("#${c}")`,
+			maskMode: `luminance`
+		}), {
+			mask: e,
+			wrapper: s,
+			definition: n,
+			background: r,
+			path: o,
+			transform: /* @__PURE__ */ new Float64Array(6)
+		};
+	}
+	clip(e, t, r, i, a, o, s, c, l) {
+		let u = e.width !== o || e.height !== s;
+		e.width = o, e.height = s;
+		let d = 0;
+		for (let n = t; n; n = n.parent) {
+			let o = n.mask;
+			if (!o) continue;
+			let s = n.updateWorldMatrix().elements, f = o.transform, p = t.worldSpace === `world` ? r.camera2D.zoom : 1, m = t.worldSpace === `world` ? r.camera2D.renderOffset.x - r.camera2D.position.x * p : 0, h = t.worldSpace === `world` ? r.camera2D.renderOffset.y - r.camera2D.position.y * p : 0, g = this.transform;
+			g[0] = (s[0] * f[0] + s[3] * f[1]) * p * c, g[1] = (s[1] * f[0] + s[4] * f[1]) * p * l, g[2] = (s[0] * f[2] + s[3] * f[3]) * p * c, g[3] = (s[1] * f[2] + s[4] * f[3]) * p * l, g[4] = ((s[0] * f[4] + s[3] * f[5] + s[6]) * p + m - i) * c, g[5] = ((s[1] * f[4] + s[4] * f[5] + s[7]) * p + h - a) * l;
+			let _ = e.clips[d];
+			_ || (_ = this.createClip(o), e.clips.push(_), u = !0), (_.mask !== o || g.some((e, t) => e !== _.transform[t])) && (u = !0), _.mask = o, _.transform.set(g), d++;
+		}
+		for (; e.clips.length > d;) {
+			let t = e.clips.pop();
+			t.definition.remove(), t.wrapper.remove(), u = !0;
+		}
+		if (!u) return e.clipCoverage;
+		let f = e.host;
+		for (let t of e.clips) {
+			t.wrapper.parentElement !== f && f.append(t.wrapper), f = t.wrapper;
+			let e = this.shape(t.mask);
+			t.definition.setAttribute(`width`, String(o)), t.definition.setAttribute(`height`, String(s)), t.background.setAttribute(`width`, String(o)), t.background.setAttribute(`height`, String(s)), t.background.style.display = t.mask.inverse ? `` : `none`, t.path.setAttribute(`d`, e.data), t.path.setAttribute(`fill`, t.mask.inverse ? `black` : `white`), t.path.setAttribute(`fill-rule`, e.fillRule), t.path.setAttribute(`transform`, `matrix(${Array.from(t.transform).join(` `)})`);
+		}
+		if (e.node.parentElement !== f && f.append(e.node), !e.clips.length) return o > 0 && s > 0;
+		let p = this.coverageCanvas ??= this.canvas.ownerDocument.createElement(`canvas`), m = Math.ceil(o), h = Math.ceil(s);
+		if (m > require_rendering2d.rendering2dLimits.targetDimension || h > require_rendering2d.rendering2dLimits.targetDimension || m * h > require_rendering2d.rendering2dLimits.targetPixels) throw RangeError(`Accessibility clipping exceeds the finite target budget.`);
+		p.width = m, p.height = h;
+		let g = p.getContext(`2d`, { willReadFrequently: !0 });
+		if (!g) throw Error(`Canvas2D is required for geometric accessibility clipping.`);
+		g.fillStyle = `white`, g.fillRect(0, 0, o, s);
+		for (let t of e.clips) {
+			let e = t.transform;
+			g.setTransform(e[0], e[1], e[2], e[3], e[4], e[5]), g.globalCompositeOperation = t.mask.inverse ? `destination-out` : `destination-in`;
+			let n = this.shape(t.mask);
+			g.fill(n.path, n.fillRule);
+		}
+		let _ = g.getImageData(0, 0, m, h).data;
+		for (let e = 3; e < _.length; e += 4) if (_[e] !== 0) return !0;
+		return !1;
+	}
+	remove(e, t) {
+		t.node === t.node.ownerDocument.activeElement && t.node.blur(), e.dispatchEvent(new CustomEvent(`semanticdetach`)), t.controller.abort(), t.host.remove();
+		for (let e of t.clips) e.definition.remove();
+		this.entries.delete(e);
+	}
+	update(e) {
+		if (this.disposed) return;
+		if (e !== this.scene && (this.reset(), this.scene = e), !e || e.destroyed || !this.canvas.isConnected) {
+			this.reset();
+			return;
+		}
+		let n = this.canvas.getBoundingClientRect(), r = getComputedStyle(this.canvas), i = this.canvas.offsetWidth > 0 ? n.width / this.canvas.offsetWidth : 1, a = this.canvas.offsetHeight > 0 ? n.height / this.canvas.offsetHeight : 1, o = ((parseFloat(r.borderLeftWidth) || 0) + (parseFloat(r.paddingLeft) || 0)) * i, s = ((parseFloat(r.borderTopWidth) || 0) + (parseFloat(r.paddingTop) || 0)) * a, c = n.width - o - ((parseFloat(r.borderRightWidth) || 0) + (parseFloat(r.paddingRight) || 0)) * i, l = n.height - s - ((parseFloat(r.borderBottomWidth) || 0) + (parseFloat(r.paddingBottom) || 0)) * a, u = this.getSize();
+		for (let [t, n] of this.entries) (t.scene !== e || !e.has(t) || t.destroyed || !t.accessibility || t.registrationGeneration !== n.generation) && this.remove(t, n);
+		for (let i of e.objects) {
+			if (!(i instanceof require_game_object.GameObject) || !i.accessibility || i.destroyed) continue;
+			let a = i.accessibility;
+			if (typeof a.role != `string` || !a.role.trim() || typeof a.label != `string` || a.language !== void 0 && typeof a.language != `string` || a.description !== void 0 && typeof a.description != `string` || a.modal !== void 0 && typeof a.modal != `boolean` || a.nativeInput !== void 0 && typeof a.nativeInput != `boolean` || a.disabled !== void 0 && typeof a.disabled != `boolean` || a.tabIndex !== void 0 && (!Number.isInteger(a.tabIndex) || a.tabIndex < -1 || a.tabIndex > 32767)) throw TypeError(`Accessibility requires role, label, boolean disabled, and an integer tabIndex from -1 to 32767.`);
+			let d = this.entries.get(i);
+			d && d.node.tagName === `INPUT` != !!a.nativeInput && (this.remove(i, d), d = void 0), d || (d = this.create(i), this.entries.set(i, d));
+			let f = d.node;
+			f.setAttribute(`role`, a.role), f.setAttribute(`aria-label`, a.label), f.lang = a.language ?? this.canvas.ownerDocument.documentElement.lang, a.description ? f.setAttribute(`aria-description`, a.description) : f.removeAttribute(`aria-description`), a.modal ? f.setAttribute(`aria-modal`, `true`) : f.removeAttribute(`aria-modal`), f.setAttribute(`aria-disabled`, String(a.disabled ?? !1)), f.tabIndex = a.disabled ? -1 : a.tabIndex ?? 0, f.tagName === `INPUT` && (f.disabled = a.disabled ?? !1), i.getWorldBounds(this.bounds);
+			let p = this.bounds.x, m = this.bounds.y, h = p + this.bounds.width, g = m + this.bounds.height;
+			i.worldSpace === `world` && (e.camera2D.worldToScreen(this.point.set(p, m), this.point), p = this.point.x, m = this.point.y, e.camera2D.worldToScreen(this.point.set(h, g), this.point), h = this.point.x, g = this.point.y), p = Math.max(0, p), m = Math.max(0, m), h = Math.min(u.width, h), g = Math.min(u.height, g);
+			let _ = this.inScope(i) && i.worldVisible && i.worldOpacity > 0 && i.worldTint[3] > 0 && h > p && g > m && u.width > 0 && u.height > 0 && c > 0 && l > 0 && r.display !== `none` && r.visibility !== `hidden`;
+			_ &&= (d.clipCoverage = this.clip(d, i, e, p, m, (h - p) * c / u.width, (g - m) * l / u.height, c / u.width, l / u.height), d.clipCoverage), d.coverage = _, d.host.style.display = _ ? `block` : `none`, f.setAttribute(`aria-hidden`, String(!_)), (!_ || a.disabled) && (d.spaceDown = !1, f === f.ownerDocument.activeElement && f.blur()), _ && (d.host.style.left = `${n.left + o + p * c / u.width}px`, d.host.style.top = `${n.top + s + m * l / u.height}px`, d.host.style.width = `${d.width}px`, d.host.style.height = `${d.height}px`);
+		}
+		for (let e of this.modalScopes.values()) {
+			let t = this.element(e);
+			if (!t) continue;
+			let n = [];
+			for (let [t, r] of this.entries) if (t !== e && r.coverage) {
+				for (let i = t.parent; i; i = i.parent) if (i === e) {
+					n.push(r.node.id);
+					break;
+				}
+			}
+			t.setAttribute(`aria-owns`, n.join(` `));
+		}
+	}
+	reset() {
+		for (let [e, t] of this.entries) this.remove(e, t);
+		this.modalScopes.clear();
+		for (let e of this.announcementTimers.values()) clearTimeout(e);
+		this.announcementTimers.clear();
+		for (let e of this.liveRegions.values()) e.remove();
+		this.liveRegions.clear(), this.scene = void 0, this.definitions?.remove(), this.definitions = void 0, this.coverageCanvas &&= (this.coverageCanvas.width = this.coverageCanvas.height = 0, void 0);
+	}
+	destroy() {
+		this.disposed ||= (this.reset(), !0);
+	}
+};
+//#endregion
+exports.AccessibilityManager = AccessibilityManager;
+
+//# sourceMappingURL=index.cjs.map

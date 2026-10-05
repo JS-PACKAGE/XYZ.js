@@ -1,0 +1,1 @@
+{"version":3,"file":"lighting2d.cjs","names":[],"sources":["../../../src/data/lighting2d.js"],"sourcesContent":["export const lighting2dLimits=Object.freeze({lightsPerSprite:4});\n//# sourceMappingURL=lighting2d.js.map\n"],"mappings":";AAAA,IAAa,mBAAiB,OAAO,OAAO,EAAC,iBAAgB,EAAC,CAAC"}

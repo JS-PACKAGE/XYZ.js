@@ -1,0 +1,1 @@
+{"version":3,"file":"graphics2d.cjs","names":[],"sources":["../../../src/data/graphics2d.js"],"sourcesContent":["export const graphics2dLimits=Object.freeze({frames:65536,glyphs:16384,textCodeUnits:65536,tiles:16384,dimension:1048576});\n//# sourceMappingURL=graphics2d.js.map\n"],"mappings":";AAAA,IAAa,mBAAiB,OAAO,OAAO;CAAC,QAAO;CAAM,QAAO;CAAM,eAAc;CAAM,OAAM;CAAM,WAAU;AAAO,CAAC"}

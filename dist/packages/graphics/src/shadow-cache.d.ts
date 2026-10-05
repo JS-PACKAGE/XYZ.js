@@ -1,5 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
-import type { Mesh } from '../../core/src/mesh.js';
+import { type Mesh } from '../../core/src/mesh.js';
 import type { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import type { RenderVisibilityEntry } from '../../core/src/render-visibility.js';
 /** Whole-atlas reuse; a changed caster or light invalidates every tile, never just color visibility. */

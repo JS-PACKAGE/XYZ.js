@@ -26,9 +26,10 @@ export declare class WebGPUPostPipeline {
     static initialize(device: GPUDevice, format: GPUTextureFormat, isDestroyed: () => boolean, sampleCount: number, stats: FrameStats): Promise<WebGPUPostPipeline>;
     target(width: number, height: number, depth: GPUTextureView): GPUTextureView;
     copyColor(encoder: GPUCommandEncoder, destination: GPUTexture): void;
+    get colorTexture(): GPUTexture;
     private ensureFxaa;
     private releaseFxaa;
-    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4): void;
+    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4, source?: GPUTexture, depth?: GPUTextureView): void;
     resize(width: number, height: number): void;
     releaseTarget(): void;
     destroy(): void;

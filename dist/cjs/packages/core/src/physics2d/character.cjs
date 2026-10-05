@@ -1,0 +1,235 @@
+const require_index = require("../../../math/src/index.cjs");
+const require_world2d = require("../../../../src/data/world2d.cjs");
+const require_collider = require("./collider.cjs");
+const require_body = require("./body.cjs");
+//#region dist/packages/core/src/physics2d/character.js
+var c = Object.freeze({});
+var CharacterController2D = class {
+	object;
+	world;
+	skin;
+	stepHeight;
+	maxSlopeAngle;
+	groundSnap;
+	maxIterations;
+	maxRecoveryDistance;
+	maxSupportDisplacement;
+	collider;
+	createdBody;
+	query;
+	hit = {
+		hit: !1,
+		owner: void 0,
+		collider: void 0,
+		fraction: 1,
+		safeFraction: 1,
+		exhausted: !1,
+		point: new require_index.Vector2(),
+		normal: new require_index.Vector2()
+	};
+	requested = new require_index.Vector2();
+	applied = new require_index.Vector2();
+	recovery = new require_index.Vector2();
+	supportRequested = new require_index.Vector2();
+	carried = new require_index.Vector2();
+	locomotion = new require_index.Vector2();
+	localAnchor = new require_index.Vector2();
+	worldAnchor = new require_index.Vector2();
+	expected = new require_index.Vector2();
+	start = new require_index.Vector2();
+	phaseStart = new require_index.Vector2();
+	stepStart = new require_index.Vector2();
+	slideEnd = new require_index.Vector2();
+	stepObstacle = !1;
+	remaining = new require_index.Vector2();
+	motion = new require_index.Vector2();
+	pose = {
+		x: 0,
+		y: 0,
+		angle: 0,
+		sx: 1,
+		sy: 1
+	};
+	nextPose = {
+		x: 0,
+		y: 0,
+		angle: 0,
+		sx: 1,
+		sy: 1
+	};
+	supportOwner;
+	supportShape;
+	supportMembership = -1;
+	candidate;
+	candidateCollider;
+	lastEpoch;
+	pendingDetach = `none`;
+	disposed = !1;
+	groundedState = !1;
+	result;
+	constructor(e, i, c = {}) {
+		if (this.object = e, this.world = i, this.skin = require_collider.positive(c.skin ?? require_world2d.physicsDefaults.characterSkin, `skin`), this.stepHeight = require_collider.nonnegativeFinite(c.stepHeight ?? require_world2d.physicsDefaults.characterStepHeight, `stepHeight`), this.maxSlopeAngle = require_collider.nonnegativeFinite(c.maxSlopeAngle ?? Math.PI / 4, `maxSlopeAngle`), this.maxSlopeAngle >= Math.PI / 2) throw RangeError(`maxSlopeAngle must be < pi/2.`);
+		if (this.groundSnap = require_collider.nonnegativeFinite(c.groundSnap ?? require_world2d.physicsDefaults.characterGroundSnap, `groundSnap`), this.maxRecoveryDistance = require_collider.positive(c.maxRecoveryDistance ?? require_world2d.physicsDefaults.characterMaxRecovery, `maxRecoveryDistance`), this.maxSupportDisplacement = require_collider.positive(c.maxSupportDisplacement ?? require_world2d.physicsDefaults.characterMaxSupportDisplacement, `maxSupportDisplacement`), this.maxIterations = c.maxIterations ?? require_world2d.physicsDefaults.characterIterations, !Number.isInteger(this.maxIterations) || this.maxIterations < 1 || this.maxIterations > require_world2d.world2dLimits.characterIterations) throw RangeError(`Invalid character iteration budget.`);
+		if (!e.collider || e.collider.sensor) throw Error(`Character requires a solid convex collider.`);
+		if (this.collider = e.collider, this.assertPose(), !i.has(e)) throw Error(`Character must be registered with its borrowed PhysicsWorld2D.`);
+		if (e.body && e.body.type !== `kinematic`) throw Error(`Character requires a kinematic body.`);
+		this.query = { mask: require_collider.unsigned(c.mask ?? 4294967295, `mask`) }, e.body || (this.createdBody = new require_body.RigidBody2D({
+			type: `kinematic`,
+			lockRotation: !0
+		}), e.body = this.createdBody, i.register(e)), this.expected.copy(e.position), this.result = {
+			displacement: this.applied,
+			requestedDisplacement: this.requested,
+			recoveryDisplacement: this.recovery,
+			supportDisplacement: this.supportRequested,
+			carriedDisplacement: this.carried,
+			locomotionDisplacement: this.locomotion,
+			supportLocalAnchor: this.localAnchor,
+			supportWorldAnchor: this.worldAnchor,
+			support: void 0,
+			supportCollider: void 0,
+			supportDetached: `none`,
+			supportRotationDelta: 0,
+			carryBlocked: !1,
+			unresolvedPenetration: !1,
+			grounded: !1,
+			blocked: !1,
+			exhausted: !1
+		};
+	}
+	get destroyed() {
+		return this.disposed;
+	}
+	get grounded() {
+		return this.groundedState;
+	}
+	assertPose() {
+		if (this.object.destroyed || this.world.destroyed || this.object.parent || this.object.worldSpace !== `world`) throw Error(`Character requires a live world-space root and live world.`);
+		if (this.object.collider !== this.collider) throw Error(`Character collider was replaced.`);
+		if (this.object.rotation !== 0 || this.object.skew.x !== 0 || this.object.skew.y !== 0 || this.object.scale.x <= 0 || this.object.scale.y <= 0) throw Error(`Character must remain upright with positive scale and no skew.`);
+	}
+	detachSupport(e = `manual`) {
+		this.supportOwner = void 0, this.supportShape = void 0, this.supportMembership = -1, this.localAnchor.set(0, 0), this.worldAnchor.set(0, 0), this.groundedState = !1, this.pendingDetach = e;
+	}
+	readSupport(e, n) {
+		let r = e.updateWorldMatrix().elements, i = Math.hypot(r[0], r[1]), a = (r[0] * r[4] - r[1] * r[3]) / i, o = require_world2d.physicsDefaults.characterSupportTransformTolerance;
+		return !Number.isFinite(i) || !Number.isFinite(a) || i <= 1e-8 || Math.abs(a) <= 1e-8 || Math.abs(r[0] * r[3] + r[1] * r[4]) > o * i * Math.abs(a) ? !1 : (n.x = r[6], n.y = r[7], n.angle = Math.atan2(r[1], r[0]), n.sx = i, n.sy = a, !0);
+	}
+	sweep(e) {
+		return this.world.sweep(this.collider, this.object, e, this.query, this.hit);
+	}
+	recordGround() {
+		this.hit.hit && this.hit.normal.y <= -Math.cos(this.maxSlopeAngle) && (this.groundedState = !0, this.candidate = this.hit.owner, this.candidateCollider = this.hit.collider);
+	}
+	slide(e, t) {
+		this.remaining.copy(e);
+		let n = !1;
+		for (let r = 0; r < this.maxIterations; r++) {
+			let r = Math.hypot(this.remaining.x, this.remaining.y);
+			if (r < 1e-9) return n;
+			let i = this.sweep(this.remaining), a = i.hit ? Math.max(0, i.safeFraction - this.skin / r) : i.safeFraction;
+			if (this.object.position.x += this.remaining.x * a, this.object.position.y += this.remaining.y * a, i.exhausted) return this.result.exhausted = !0, !0;
+			if (!i.hit || (n = !0, t && this.recordGround(), t && i.normal.y <= -Math.cos(this.maxSlopeAngle) && Math.abs(e.x) < 1e-9 && e.y >= 0)) return n;
+			t && Math.abs(i.normal.x) > .1 && i.normal.y > -Math.cos(this.maxSlopeAngle) && (this.stepObstacle = !0), this.remaining.scale(1 - a);
+			let o = this.remaining.x * i.normal.x + this.remaining.y * i.normal.y;
+			if (o >= -1e-10) return n;
+			this.remaining.x -= i.normal.x * o, this.remaining.y -= i.normal.y * o, t && i.normal.y < 0 && i.normal.y > -Math.cos(this.maxSlopeAngle) && this.remaining.y < 0 && this.remaining.set(0, 0);
+		}
+		return this.result.exhausted = !0, !0;
+	}
+	tryStep(e) {
+		if (this.stepHeight === 0 || Math.abs(e.x) < 1e-9) return !1;
+		this.stepStart.copy(this.object.position), this.motion.set(0, -this.stepHeight);
+		let t = this.sweep(this.motion);
+		return t.hit || t.exhausted ? !1 : (this.object.position.y -= this.stepHeight, this.motion.set(e.x, 0), t = this.sweep(this.motion), t.hit || t.exhausted || (this.object.position.x += e.x, this.motion.set(0, this.stepHeight + Math.max(0, e.y) + this.groundSnap), t = this.sweep(this.motion), !t.hit || t.exhausted || t.normal.y > -Math.cos(this.maxSlopeAngle)) ? (this.object.position.copy(this.stepStart), !1) : (this.object.position.y += this.motion.y * Math.max(0, t.fraction - this.skin / this.motion.y), this.recordGround(), !0));
+	}
+	recover() {
+		let e = 0;
+		for (let t = 0; t < this.maxIterations; t++) {
+			let t = this.skin, n = 0, r = 0;
+			for (let e of this.world.overlap(this.collider, this.object)) e.sensor || e.owner === this.query.ignoreOther || !(e.collider.category & (this.query.mask ?? 4294967295)) || e.penetration <= t || (t = e.penetration, n = e.normal.x, r = e.normal.y);
+			if (n === 0 && r === 0) return;
+			let i = Math.min(t + this.skin, this.maxRecoveryDistance - e);
+			if (i <= 0) {
+				this.result.unresolvedPenetration = !0;
+				return;
+			}
+			this.motion.set(-n * i, -r * i);
+			let a = this.sweep(this.motion).safeFraction;
+			if (this.object.position.x += this.motion.x * a, this.object.position.y += this.motion.y * a, e += i * a, a < 1) {
+				this.result.unresolvedPenetration = !0;
+				return;
+			}
+		}
+		this.result.unresolvedPenetration = !0;
+	}
+	carry(e) {
+		let n = this.supportOwner;
+		if (!n) return;
+		if (!this.world.has(n, this.supportShape) || this.world.membershipRevision(n) !== this.supportMembership || this.supportShape?.sensor || !(this.collider.category & (this.supportShape?.mask ?? 0)) || !((this.supportShape?.category ?? 0) & this.collider.mask & (this.query.mask ?? 4294967295))) {
+			this.detachSupport(`removed`);
+			return;
+		}
+		if (e !== void 0 && this.lastEpoch === e) return;
+		if (this.lastEpoch = e, !this.readSupport(n, this.nextPose)) {
+			this.detachSupport(`support-teleport`);
+			return;
+		}
+		let r = this.pose, i = this.nextPose, a = require_world2d.physicsDefaults.characterSupportTransformTolerance;
+		if (Math.abs(r.sx - i.sx) > a * Math.max(r.sx, i.sx) || Math.abs(r.sy - i.sy) > a * Math.max(Math.abs(r.sy), Math.abs(i.sy))) {
+			this.detachSupport(`support-teleport`);
+			return;
+		}
+		let o = Math.atan2(Math.sin(i.angle - r.angle), Math.cos(i.angle - r.angle)), s = this.localAnchor.x * r.sx, c = this.localAnchor.y * r.sy, l = Math.cos(i.angle), u = Math.sin(i.angle), d = i.x + l * s - u * c, f = i.y + u * s + l * c;
+		if (this.supportRequested.set(d - this.object.position.x, f - this.object.position.y), this.result.supportRotationDelta = o, Math.hypot(this.supportRequested.x, this.supportRequested.y) > this.maxSupportDisplacement) {
+			this.detachSupport(`support-teleport`);
+			return;
+		}
+		let p = Math.hypot(s, c), m = Math.min(require_world2d.physicsDefaults.characterCarryAngleStep, Math.sqrt(4 * this.skin / Math.max(p, this.skin))), h = Math.max(1, Math.ceil(Math.abs(o) / m));
+		this.query.ignoreOther = n;
+		for (let e = 1; e <= h; e++) {
+			let t = e / h, n = r.angle + o * t, a = Math.cos(n), l = Math.sin(n), u = r.x + (i.x - r.x) * t + a * s - l * c, d = r.y + (i.y - r.y) * t + l * s + a * c;
+			this.motion.set(u - this.object.position.x, d - this.object.position.y);
+			let f = this.sweep(this.motion), p = Math.hypot(this.motion.x, this.motion.y), m = f.hit ? Math.max(0, f.safeFraction - this.skin / Math.max(p, this.skin)) : f.safeFraction;
+			if (this.object.position.x += this.motion.x * m, this.object.position.y += this.motion.y * m, f.hit || f.exhausted) {
+				this.result.carryBlocked = !0, this.result.exhausted ||= f.exhausted, this.detachSupport(`blocked`);
+				break;
+			}
+		}
+		this.query.ignoreOther = void 0, r.x = i.x, r.y = i.y, r.angle = i.angle, r.sx = i.sx, r.sy = i.sy;
+	}
+	move(e, t = c) {
+		if (this.destroyed) throw Error(`Cannot move a destroyed CharacterController2D.`);
+		if (this.assertPose(), !this.world.has(this.object, this.collider) || this.object.body?.type !== `kinematic`) throw Error(`Character is no longer registered with its kinematic body.`);
+		if (require_collider.finite(e.x, `displacement.x`), require_collider.finite(e.y, `displacement.y`), t.epoch !== void 0 && (!Number.isSafeInteger(t.epoch) || t.epoch < 0)) throw RangeError(`epoch must be a nonnegative safe integer.`);
+		this.start.copy(this.object.position), this.requested.copy(e), this.recovery.set(0, 0), this.supportRequested.set(0, 0), this.carried.set(0, 0), this.locomotion.set(0, 0), this.result.blocked = this.result.carryBlocked = this.result.unresolvedPenetration = this.result.exhausted = !1, this.result.supportRotationDelta = 0;
+		let n = this.groundedState;
+		(this.expected.x !== this.object.position.x || this.expected.y !== this.object.position.y) && this.detachSupport(`teleport`), t.detachSupport && this.detachSupport(`jump`), this.phaseStart.copy(this.object.position), this.carry(t.epoch), this.carried.set(this.object.position.x - this.phaseStart.x, this.object.position.y - this.phaseStart.y), this.phaseStart.copy(this.object.position), this.recover(), this.recovery.set(this.object.position.x - this.phaseStart.x, this.object.position.y - this.phaseStart.y), this.phaseStart.copy(this.object.position), this.groundedState = !1, this.candidate = void 0, this.candidateCollider = void 0;
+		let r = t.detachSupport || this.requested.y < 0;
+		if (this.stepObstacle = !1, this.result.blocked = this.slide(this.requested, !r), n && !r && this.stepObstacle && !this.result.exhausted) {
+			this.slideEnd.copy(this.object.position);
+			let e = this.groundedState, t = this.candidate, n = this.candidateCollider;
+			this.object.position.copy(this.phaseStart), this.tryStep(this.requested) ? this.result.blocked = !1 : (this.object.position.copy(this.slideEnd), this.groundedState = e, this.candidate = t, this.candidateCollider = n);
+		}
+		if (!r && this.groundSnap > 0 && !this.result.unresolvedPenetration) {
+			this.motion.set(0, this.groundSnap + this.skin);
+			let e = this.sweep(this.motion);
+			e.hit && !e.exhausted && e.normal.y <= -Math.cos(this.maxSlopeAngle) && (this.object.position.y += this.motion.y * Math.max(0, e.fraction - this.skin / this.motion.y), this.recordGround());
+		}
+		if (this.locomotion.set(this.object.position.x - this.phaseStart.x, this.object.position.y - this.phaseStart.y), this.candidate && this.candidateCollider && this.readSupport(this.candidate, this.pose)) {
+			this.supportOwner = this.candidate, this.supportShape = this.candidateCollider, this.supportMembership = this.world.membershipRevision(this.candidate);
+			let e = this.object.position.x - this.pose.x, t = this.object.position.y - this.pose.y, n = Math.cos(this.pose.angle), r = Math.sin(this.pose.angle);
+			this.localAnchor.set((n * e + r * t) / this.pose.sx, (-r * e + n * t) / this.pose.sy), this.worldAnchor.copy(this.object.position);
+		} else this.supportOwner && this.detachSupport(`lost`);
+		return this.applied.set(this.object.position.x - this.start.x, this.object.position.y - this.start.y), this.expected.copy(this.object.position), this.result.support = this.supportOwner, this.result.supportCollider = this.supportShape, this.result.supportDetached = this.pendingDetach, this.pendingDetach = `none`, this.result.grounded = this.groundedState, this.result;
+	}
+	destroy() {
+		if (!this.destroyed && (this.detachSupport(), this.disposed = !0, !this.object.destroyed && this.createdBody && this.object.body === this.createdBody)) {
+			let e = !this.world.destroyed && this.world.has(this.object);
+			this.object.body = void 0, e && this.world.register(this.object);
+		}
+	}
+};
+//#endregion
+exports.CharacterController2D = CharacterController2D;
+
+//# sourceMappingURL=character.cjs.map

@@ -1,7 +1,14 @@
 import type { Scene } from '../../core/src/scene.js';
-import type { Mesh, TextureMaterial } from '../../core/src/mesh.js';
+import {
+  materialBaseTexture,
+  type Mesh,
+  type TextureMaterial,
+} from '../../core/src/mesh.js';
 import { PBRMaterial } from '../../core/src/pbr-material.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import {
+  NativeMaterial3D,
+  nativeMaterialSources,
+} from '../../core/src/native-material3d.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import type { Geometry } from '../../core/src/geometry.js';
@@ -93,7 +100,7 @@ export class ShadowCache {
       }
       // Read mutable scalar state directly; do not rely on vector/object identity.
       const pbr = material instanceof PBRMaterial;
-      const texture = material.texture;
+      const texture = materialBaseTexture(material);
       const base = pbr ? material.textureCoordinates.texture : undefined;
       const next = this.scalarValues;
       next[0] = geometry.version;
@@ -139,7 +146,7 @@ export class ShadowCache {
           values[tail + 1 + i] = material.uniforms[i]!;
         }
         for (let i = 0; i < nativeMaterial3DLimits.textures; i++) {
-          const version = material.textures[i]?.version ?? -1;
+          const version = nativeMaterialSources(material)[i]?.version ?? -1;
           const at = tail + 1 + nativeMaterial3DLimits.uniformFloats + i;
           if (!Object.is(values[at], version)) changed = true;
           values[at] = version;

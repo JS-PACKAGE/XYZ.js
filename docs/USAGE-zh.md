@@ -79,6 +79,11 @@ npx pnpm@12.6.0 dev
 | [gpu-particles3d](../examples/gpu-particles3d/)         | Native GPU 粒子模擬／渲染                                                                                                   |
 | [accessibility-game](../examples/accessibility-game/)   | 雙語可玩鍵盤／偏好／錯誤／結果流程                                                                                          |
 | [asset-recipe](../examples/asset-recipe/)               | 資產產製與部署入口                                                                                                          |
+| [narrative](../examples/narrative/)                     | 模擬時間 cutscene、分支對話、任務進度與存檔／還原                                                                           |
+| [lighting2d](../examples/lighting2d/)                   | Native normal-map 光照；Canvas2D 明確拒絕                                                                                   |
+| [asset-hot-reload](../examples/asset-hot-reload/)       | Vite Scene 替換；候選失敗時保留舊 Scene                                                                                     |
+| [gpu-compute](../examples/gpu-compute/)                 | WebGPU WGSL storage buffer、依賴 dispatch 與型別化 readback                                                                 |
+| [render-graph](../examples/render-graph/)               | WebGPU／WebGL2 native render graph 多輸入 passes                                                                            |
 
 ## 2. 在自己的網站使用
 
@@ -1394,3 +1399,45 @@ node node_modules/xyz.js/scripts/deployment-server.mjs dist /games/2d/ 4173
 [CURRENT](CURRENT.md) 是 v1.12.4 capability／API／support 規範入口；上方舊版 recipes 保留歷史 profiles。`pnpm docs:api` 在 `.vite/site/api/1.12.4/` 生成可搜尋的公開 root-export 文件；`pnpm build:site` 將相同 portal 納入部署網站，含 ownership／abort／cleanup 範例。
 
 安裝後以 `pnpm exec xyz-assets preflight --manifest project.json` 經實際 loader 驗證 references；`build --manifest project.json --out NEW_DIRECTORY` 發佈 checksummed assets，不覆寫來源。[資產 recipe](ASSET-RECIPE.md) 說明 schema、固定版開發工具與 opt-in model conversion。Reviewed host／backend 效能 profile 及 physical qualification 的狀態／邊界見 CURRENT：校準不是認證，無法取得的實機證據仍 BLOCKED。
+
+## 未發布 source 擴充（P104–P118）
+
+這些新增內容不在既有 GitHub v1.14 archive；package metadata 仍為 1.14.0，
+npm 未發佈。實作邊界見 [CURRENT](CURRENT.md)，實際證據見
+[ACCEPTANCE](../ACCEPTANCE.md)；範例出現在 source 目錄不等於 runtime/browser
+驗收通過。安裝後 `xyz-produce-assets PROFILE.json NEW_DIRECTORY` 與
+`xyz-assets` project CLI 分開；需要 [ASSET-RECIPE](ASSET-RECIPE.md) 指定的
+pinned 開發用 browser tooling。Repository 等效入口為
+`node scripts/produce-assets.mjs PROFILE.json NEW_DIRECTORY`，同一實作產製有界
+atlas、bitmap、SDF 或 MSDF。MSDF 必須提供 polygon contours，不解析任意字型輪廓；
+WebCodecs 不做 container demux。
+
+### CommonJS 與逐幀 3D 貼圖
+
+`require('xyz.js')` 與 ESM import 使用不同 constructor graphs；應用中的引擎
+物件統一使用一種格式，不混用兩側的 Texture／Scene／Mesh。Browser／CDN
+使用完整 ESM `dist/`，包含官方 vendor 與 worker。
+
+材質既有 `texture`、PBR maps 與 native `textures` 保留 immutable `Texture`
+型別。提供實際、借用的 fallback，以 additive options 指定 canvas／video：
+
+```ts
+import { PBRMaterial, Texture, VideoTexture } from 'xyz.js';
+
+async function videoMaterial(video: HTMLVideoElement, fallback: Texture) {
+  const frames = await VideoTexture.fromVideo(video);
+  const material = new PBRMaterial({
+    texture: fallback,
+    textureSource: frames,
+    sources: { emissiveTexture: frames },
+    emissive: [1, 1, 1],
+  });
+  return { material, frames };
+}
+```
+
+先移除 material consumers，再 `frames.destroy()`；fallback 仍由呼叫者擁有。
+`PBRMaterialOptions.sources` 使用公開 `PBRTextureKey`／`PBRTextureSources`；
+NativeMaterial3D 的四個 indexed hook maps 用 `textureSources`，base map 用同一
+`textureSource`。WebCodecs 接受已設定 codec 的 elementary chunks，不解析媒體容器；
+Canvas2D 支援 video Sprite，不支援 3D material。

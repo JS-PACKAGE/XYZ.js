@@ -1,0 +1,110 @@
+const require_errors = require("./errors.cjs");
+const require_gpu_programs = require("../../../src/data/gpu-programs.cjs");
+//#region dist/packages/graphics/src/compute.js
+var ComputeBuffer = class extends EventTarget {
+	type;
+	length;
+	label;
+	disposed = !1;
+	constructor(t) {
+		if (super(), ![
+			`f32`,
+			`u32`,
+			`i32`
+		].includes(t.type)) throw TypeError(`Unknown compute scalar type.`);
+		if (!Number.isSafeInteger(t.length) || t.length < 1 || t.length * 4 > require_gpu_programs.computeLimits.bufferBytes) throw RangeError(`Compute buffer length exceeds the bounded byte budget.`);
+		this.type = t.type, this.length = t.length, this.label = t.label ?? `ComputeBuffer`;
+	}
+	get byteLength() {
+		return this.length * 4;
+	}
+	get destroyed() {
+		return this.disposed;
+	}
+	validate() {
+		if (this.disposed) throw new require_errors.GraphicsError(`ComputeBuffer is destroyed.`);
+	}
+	validateUpload(e, t = 0) {
+		if (this.validate(), !(this.type === `f32` ? e instanceof Float32Array : this.type === `u32` ? e instanceof Uint32Array : e instanceof Int32Array)) throw TypeError(`Compute upload must match the buffer scalar type.`);
+		if (this.range(t, e.length), this.type === `f32`) {
+			for (let t of e) if (!Number.isFinite(t)) throw RangeError(`Compute float inputs must be finite.`);
+		}
+	}
+	range(e, t) {
+		if (this.validate(), !Number.isSafeInteger(e) || !Number.isSafeInteger(t) || e < 0 || t < 0 || e + t > this.length) throw RangeError(`Compute element range is out of bounds.`);
+	}
+	destroy() {
+		this.disposed || (this.disposed = !0, this.dispatchEvent(new Event(`destroy`)));
+	}
+};
+var ComputeProgram = class extends EventTarget {
+	wgsl;
+	bindings;
+	workgroupSize;
+	label;
+	disposed = !1;
+	constructor(t) {
+		if (super(), typeof t.wgsl != `string` || !t.wgsl.trim() || t.wgsl.length > require_gpu_programs.computeLimits.sourceCharacters) throw TypeError(`ComputeProgram requires bounded native WGSL.`);
+		if (!t.bindings.length || t.bindings.length > require_gpu_programs.computeLimits.bindings || t.bindings.some((e) => ![
+			`f32`,
+			`u32`,
+			`i32`
+		].includes(e.type) || ![`read`, `read-write`].includes(e.access))) throw TypeError(`Compute binding descriptors are invalid.`);
+		let n = t.workgroupSize ?? [64], r = [
+			n[0],
+			n[1] ?? 1,
+			n[2] ?? 1
+		];
+		if (r.some((t) => !Number.isSafeInteger(t) || t < 1 || t > require_gpu_programs.computeLimits.workgroupDimension) || r[0] * r[1] * r[2] > require_gpu_programs.computeLimits.workgroupInvocations) throw RangeError(`Compute workgroup size exceeds engine limits.`);
+		this.wgsl = t.wgsl, this.bindings = Object.freeze(t.bindings.map((e) => Object.freeze({ ...e }))), this.workgroupSize = Object.freeze(r), this.label = t.label ?? `ComputeProgram`;
+	}
+	get destroyed() {
+		return this.disposed;
+	}
+	validate() {
+		if (this.disposed) throw new require_errors.GraphicsError(`ComputeProgram is destroyed.`);
+	}
+	validateDispatch(n) {
+		if (this.validate(), n.bindings.length !== this.bindings.length) throw RangeError(`Compute binding count mismatch.`);
+		n.bindings.forEach((e, t) => {
+			if (e.validate(), e.type !== this.bindings[t].type) throw TypeError(`Compute binding scalar mismatch.`);
+		}), n.bindings.forEach((e, r) => {
+			if (n.bindings.some((t, n) => t === e && n !== r && (this.bindings[r].access === `read-write` || this.bindings[n].access === `read-write`))) throw new require_errors.GraphicsError(`Writable compute bindings must not alias.`);
+		});
+		let r = [
+			n.workgroups[0],
+			n.workgroups[1] ?? 1,
+			n.workgroups[2] ?? 1
+		];
+		if (r.some((t) => !Number.isSafeInteger(t) || t < 1 || t > require_gpu_programs.computeLimits.dispatchDimension)) throw RangeError(`Compute dispatch exceeds engine limits.`);
+		return r;
+	}
+	destroy() {
+		this.disposed || (this.disposed = !0, this.dispatchEvent(new Event(`destroy`)));
+	}
+};
+function gpuOperation(e, n, r = []) {
+	return !n && !r.length ? e : new Promise((i, a) => {
+		let cleanup = () => {
+			n?.removeEventListener(`abort`, abort);
+			for (let e of r) e.removeEventListener(`destroy`, destroyed);
+		}, abort = () => {
+			cleanup(), a(n?.reason ?? new DOMException(`Aborted`, `AbortError`));
+		}, destroyed = () => {
+			cleanup(), a(new require_errors.GraphicsError(`GPU descriptor destroyed during operation.`));
+		};
+		n?.addEventListener(`abort`, abort, { once: !0 });
+		for (let e of r) e.addEventListener(`destroy`, destroyed, { once: !0 });
+		e.then((e) => {
+			cleanup(), i(e);
+		}, (e) => {
+			cleanup(), a(e);
+		}), n?.aborted ? abort() : r.some((e) => e.destroyed) && destroyed();
+	});
+}
+//#endregion
+exports.ComputeBuffer = ComputeBuffer;
+exports.ComputeProgram = ComputeProgram;
+exports.gpuOperation = gpuOperation;
+
+//# sourceMappingURL=compute.cjs.map

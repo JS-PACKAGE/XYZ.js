@@ -255,3 +255,40 @@ v1.12.1 mixer保留已生效且target／tau未變的single-target native duck cu
 - **文件（P101）：** `docs/CURRENT.md` 是目前規範；TypeDoc 版本化 API 由 `docs:api`／`build:site` 生成而不入 archive。歷史文件保留原日期與 counts。
 - **套件內容（P102）：** `scripts/package-inventory.json` 明列 approved files；archive 逐檔比對來源 bytes 與 executable flag。唯一語意比對例外是 `package.json`：pnpm 12 發佈時移除 `packageManager` 並重排 key，故與移除該欄位的來源做深度相等，archive 對 archive 仍逐位元組比對。
 - **實體資格（P103）：** 工具只做 read-only inventory、blocked evidence form 與 schema／artifact／review 驗證；hash 與 `isTrusted` 不證明實體。缺 owned hardware 或授權的 gate 保持 BLOCKED，不由 emulation 取代。
+
+## P104–P118 source expansion (unreleased)
+
+The approved P104–P118 work extends the single root API without changing package
+version 1.14.0, runtime dependency policy, backend ownership, or prior release
+artifacts. Existing GitHub v1.14 archive does not include these source changes; npm
+remains unpublished. Runtime acceptance is recorded separately, and the presence of
+source or examples is not evidence of execution.
+
+- Distribution and production assets: explicit CJS alongside ESM, reviewed exact
+  archive inventory, browser-built atlas/bitmap/SDF/MSDF assets, and bounded
+  generation-based asset watching. MSDF requires authored polygons; it is not a
+  general-purpose font-outline parser.
+  CJS and ESM constructor identities are separate; engine objects never cross formats.
+- Scene/gameplay systems: latest-wins hot Scene replacement, simulation-clock
+  narrative and validated progression, deterministic RNG/pool lifecycle, and bounded
+  reciprocal crowd steering that uses the existing character sweep.
+- Rendering and media: native GPU/GL 2D normal lighting, versioned video textures,
+  WebGPU-only typed compute buffers, explicit DAG render passes, TAA/SSR and
+  six-view reflection probes. Canvas2D does not emulate native shading, compute, or
+  3D.
+  Live maps use additive textureSource/PBR sources/native textureSources overrides,
+  preserving legacy Texture getters and borrowed ownership.
+- Compatibility graphs: intern only identical normalized declaration dependency
+  closures. Optional/concrete additions and unreachable internals do not manufacture
+  nominal differences in recursive generic graphs; existing public obligations,
+  inherited required members and full public literal values remain checked.
+- Physics and text: bounded vehicle forces, ragdoll ownership/blending, spring
+  soft-body deformation/contacts, reusable debug lines, and transactional
+  canvas-rasterized Text3D updates. Existing instance/morph culling is reused rather
+  than duplicated; Text3D is not SDF mesh text.
+
+Each descriptor/resource follows the existing caller/renderer ownership boundaries;
+explicit preparation, native-loss recovery, and capability rejection remain visible
+API conditions rather than hidden fallback paths. See [CURRENT](docs/CURRENT.md)
+for the normative profile bounds and [ACCEPTANCE](ACCEPTANCE.md) for observed
+evidence and blockers.

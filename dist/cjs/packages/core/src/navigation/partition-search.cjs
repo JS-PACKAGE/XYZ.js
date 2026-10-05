@@ -1,0 +1,82 @@
+const require_navigation = require("../../../../src/data/navigation.cjs");
+//#region dist/packages/core/src/navigation/partition-search.js
+var PartitionSearch = class {
+	distance = /* @__PURE__ */ new Map();
+	parent = /* @__PURE__ */ new Map();
+	scores = /* @__PURE__ */ new Map();
+	slots = /* @__PURE__ */ new Map();
+	heap = [];
+	offer(e, t, n, r) {
+		this.distance.set(e, t), this.parent.set(e, r), this.scores.set(e, n);
+		let i = this.slots.get(e), a = i ?? this.heap.length;
+		for (i === void 0 && this.heap.push(e); a > 0;) {
+			let t = a - 1 >>> 1, n = this.heap[t];
+			if (!this.before(e, n)) break;
+			this.heap[a] = n, this.slots.set(n, a), a = t;
+		}
+		this.heap[a] = e, this.slots.set(e, a);
+	}
+	take() {
+		let e = this.heap[0];
+		if (e === void 0) return;
+		this.slots.delete(e);
+		let t = this.heap.pop();
+		if (this.heap.length === 0) return e;
+		let n = 0;
+		for (; n * 2 + 1 < this.heap.length;) {
+			let e = n * 2 + 1;
+			e + 1 < this.heap.length && this.before(this.heap[e + 1], this.heap[e]) && e++;
+			let r = this.heap[e];
+			if (!this.before(r, t)) break;
+			this.heap[n] = r, this.slots.set(r, n), n = e;
+		}
+		return this.heap[n] = t, this.slots.set(t, n), e;
+	}
+	before(e, t) {
+		return this.scores.get(e) < this.scores.get(t) || this.scores.get(e) === this.scores.get(t) && e < t;
+	}
+};
+var PartitionNavigationJob = class {
+	operation;
+	current;
+	release;
+	found;
+	state = `pending`;
+	count = 0;
+	value;
+	constructor(e, t, n, r) {
+		this.operation = e, this.current = t, this.release = n, this.found = r;
+	}
+	get status() {
+		return this.state === `pending` && !this.current() && this.invalidate(), this.state;
+	}
+	get expansions() {
+		return this.count;
+	}
+	get result() {
+		return this.value;
+	}
+	step(t) {
+		if (!Number.isSafeInteger(t) || t < 0 || t > require_navigation.navigationLimits.expansionsPerStep) throw RangeError(`Invalid navigation work budget.`);
+		for (let e = 0; e < t && this.status === `pending`; e++) {
+			this.count++;
+			let e = this.operation();
+			e !== void 0 && (this.value = e, this.finish(this.found(e) ? `found` : `unreachable`));
+		}
+		return this.status;
+	}
+	cancel() {
+		this.finish(`cancelled`);
+	}
+	invalidate() {
+		this.finish(`invalidated`);
+	}
+	finish(e) {
+		this.state === `pending` && (this.state = e, this.operation = void 0, this.release?.(), this.release = void 0);
+	}
+};
+//#endregion
+exports.PartitionNavigationJob = PartitionNavigationJob;
+exports.PartitionSearch = PartitionSearch;
+
+//# sourceMappingURL=partition-search.cjs.map

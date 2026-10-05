@@ -54,6 +54,22 @@ import type {
   ResourcePreparationOptions,
 } from './preparation.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
 
 const MAX_SIZE = 8192;
 const background = defaults.clearColor;
@@ -128,12 +144,61 @@ export class Canvas2DRenderer implements Renderer {
       'Canvas2D does not support GPU 3D particles.',
     );
   }
+  prepareCompute(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void>;
+  async prepareCompute(): Promise<void> {
+    throw new UnsupportedGraphicsError('Canvas2D does not support compute.');
+  }
+  uploadCompute(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void;
+  uploadCompute(): void {
+    throw new UnsupportedGraphicsError('Canvas2D does not support compute.');
+  }
+  dispatchCompute(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void>;
+  async dispatchCompute(): Promise<void> {
+    throw new UnsupportedGraphicsError('Canvas2D does not support compute.');
+  }
+  readCompute(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray>;
+  async readCompute(): Promise<ComputeArray> {
+    throw new UnsupportedGraphicsError('Canvas2D does not support compute.');
+  }
+  prepareRenderGraph(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void>;
+  async prepareRenderGraph(): Promise<void> {
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support render graphs.',
+    );
+  }
+  captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options?: ReflectionProbeCaptureOptions,
+  ): Promise<EnvironmentMap>;
+  async captureReflectionProbe(): Promise<EnvironmentMap> {
+    throw new UnsupportedGraphicsError(
+      'Canvas2D does not support reflection capture.',
+    );
+  }
   readonly capabilities: GraphicsCapabilities = Object.freeze({
     threeD: false,
     compute: false,
     customShaders: false,
     storageBuffers: false,
     instancing: false,
+    lighting2D: false,
     maxTextureSize: MAX_SIZE,
     supportedTextureFormats: Object.freeze([]),
   });
@@ -381,6 +446,10 @@ export class Canvas2DRenderer implements Renderer {
     )
       throw new RangeError(
         'Canvas2D sprite rendering requires positive finite logical width and height.',
+      );
+    if (scene.renderGraph)
+      throw new UnsupportedGraphicsError(
+        'Canvas2D does not support render graphs.',
       );
     if (scene.effects2D.length || scene.effects3D.length)
       throw new UnsupportedGraphicsError(

@@ -14,7 +14,7 @@ import {
 } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
-import { fileURLToPath, pathToFileURL, URL } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import process from 'node:process';
 import console from 'node:console';
 import {
@@ -22,6 +22,7 @@ import {
   approvedPackagePatterns,
   inspectApprovedArchive,
 } from './package-inventory.mjs';
+import { verifyDistribution } from './check-distribution.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const usage =
@@ -159,12 +160,10 @@ async function smoke(archive, inspected, workspace, output) {
       mode: entry.executable ? 0o755 : 0o644,
     });
   }
-  const importScript = `const { Vector3 } = await import(${JSON.stringify(pathToFileURL(join(extracted, 'dist/src/index.js')).href)}); if (new Vector3(3, 4, 0).length() !== 5) throw new Error('Packed root behavior failed'); console.log('PACKED_ROOT_OK');`;
-  await command(
-    process.execPath,
-    ['--input-type=module', '-e', importScript],
-    extracted,
+  const distribution = await verifyDistribution(extracted);
+  await writeFile(
     join(output, 'packed-root.log'),
+    JSON.stringify(distribution, null, 2) + '\n',
   );
   const bins = [];
   for (const [name, path] of Object.entries(inspected.manifest.bin ?? {})) {
@@ -227,7 +226,7 @@ async function smoke(archive, inspected, workspace, output) {
   return {
     bins,
     starters,
-    root: 'Vector3(3,4,0).length() === 5',
+    distribution,
     scope:
       'Archive extraction and actual CLI/root runtime; full installed production/browser gameplay is the separate smoke:starters gate.',
   };

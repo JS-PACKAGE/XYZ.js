@@ -1,0 +1,89 @@
+const require_math3d = require("./math3d.cjs");
+//#region dist/packages/math/src/index.js
+var Vector2 = class Vector2 {
+	x;
+	y;
+	constructor(e = 0, t = 0) {
+		this.x = e, this.y = t;
+	}
+	set(e, t) {
+		return this.x = e, this.y = t, this;
+	}
+	copy(e) {
+		return this.set(e.x, e.y);
+	}
+	clone() {
+		return new Vector2(this.x, this.y);
+	}
+	add(e) {
+		return this.x += e.x, this.y += e.y, this;
+	}
+	subtract(e) {
+		return this.x -= e.x, this.y -= e.y, this;
+	}
+	scale(e) {
+		return this.x *= e, this.y *= e, this;
+	}
+	length() {
+		return Math.hypot(this.x, this.y);
+	}
+	normalize() {
+		let e = this.length();
+		return e !== 0 && this.scale(1 / e), this;
+	}
+};
+var Matrix3 = class {
+	elements = /* @__PURE__ */ new Float32Array(9);
+	constructor() {
+		this.identity();
+	}
+	identity() {
+		let e = this.elements;
+		return e[0] = 1, e[1] = 0, e[2] = 0, e[3] = 0, e[4] = 1, e[5] = 0, e[6] = 0, e[7] = 0, e[8] = 1, this;
+	}
+	copy(e) {
+		return this.elements.set(e.elements), this;
+	}
+	multiply(e) {
+		let t = this.elements, n = e.elements, r = t[0], i = t[1], a = t[3], o = t[4], s = t[6], c = t[7], l = n[0], u = n[1], d = n[3], f = n[4], p = n[6], m = n[7];
+		return t[0] = r * l + a * u, t[1] = i * l + o * u, t[3] = r * d + a * f, t[4] = i * d + o * f, t[6] = r * p + a * m + s, t[7] = i * p + o * m + c, this;
+	}
+	compose(e, t, n, r, i) {
+		let a = t + (i?.y ?? 0), o = t - (i?.x ?? 0), s = Math.cos(a), c = Math.sin(a), l = a === o, u = this.elements;
+		return u[0] = s * n.x, u[1] = c * n.x, u[2] = 0, u[3] = -(l ? c : Math.sin(o)) * n.y, u[4] = (l ? s : Math.cos(o)) * n.y, u[5] = 0, u[6] = e.x - (r?.x ?? 0) * u[0] - (r?.y ?? 0) * u[3], u[7] = e.y - (r?.x ?? 0) * u[1] - (r?.y ?? 0) * u[4], u[8] = 1, this;
+	}
+	invert() {
+		let e = this.elements, t = e[0], n = e[1], r = e[3], i = e[4], a = t * i - n * r;
+		if (a === 0 || !Number.isFinite(a)) throw RangeError(`Cannot invert a singular Matrix3`);
+		let o = e[6], s = e[7], c = 1 / a;
+		return e[0] = i * c, e[1] = -n * c, e[2] = 0, e[3] = -r * c, e[4] = t * c, e[5] = 0, e[6] = (r * s - i * o) * c, e[7] = (n * o - t * s) * c, e[8] = 1, this;
+	}
+	transformPoint(e, t = new Vector2()) {
+		let n = e.x, r = e.y, i = this.elements;
+		return t.set(i[0] * n + i[3] * r + i[6], i[1] * n + i[4] * r + i[7]);
+	}
+};
+var Transform2D = class {
+	position;
+	rotation;
+	scale;
+	pivot;
+	skew;
+	matrix = new Matrix3();
+	constructor(e = {}) {
+		this.position = e.position?.clone() ?? new Vector2(), this.rotation = e.rotation ?? 0, this.scale = e.scale?.clone() ?? new Vector2(1, 1), this.pivot = e.pivot?.clone() ?? new Vector2(), this.skew = e.skew?.clone() ?? new Vector2(), this.updateMatrix();
+	}
+	updateMatrix() {
+		return this.matrix.compose(this.position, this.rotation, this.scale, this.pivot, this.skew);
+	}
+};
+//#endregion
+exports.Matrix3 = Matrix3;
+exports.Matrix4 = require_math3d.Matrix4;
+exports.Quaternion = require_math3d.Quaternion;
+exports.Transform2D = Transform2D;
+exports.Transform3D = require_math3d.Transform3D;
+exports.Vector2 = Vector2;
+exports.Vector3 = require_math3d.Vector3;
+
+//# sourceMappingURL=index.cjs.map

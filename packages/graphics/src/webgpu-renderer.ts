@@ -62,6 +62,26 @@ import type {
   PreparedResourceLease,
   ResourcePreparationOptions,
 } from './preparation.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
+import { ProbeCaptureScheduler } from './reflection-capture.js';
+import { WebGPUCompute } from './webgpu-compute.js';
+import { WebGPURenderGraph } from './webgpu-render-graph.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
 
 const triangleShader = /* wgsl */ `
 struct VertexOutput {
@@ -110,6 +130,74 @@ export class WebGPURenderer implements Renderer {
   private gpuTimer: WebGpuTimer | undefined;
   readonly residency = new NativeResidency();
   private readonly preparedGeometry = new Set<ResidencyAllocation>();
+  private readonly probeCaptures = new ProbeCaptureScheduler();
+  private probeCaptureActive = false;
+  private compute: WebGPUCompute | undefined;
+  private graphs: WebGPURenderGraph | undefined;
+  async prepareCompute(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void> {
+    this.requireDevice();
+    return this.compute!.prepare(program, options);
+  }
+  uploadCompute(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void {
+    this.requireDevice();
+    this.compute!.upload(buffer, data, offset);
+  }
+  async dispatchCompute(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void> {
+    this.requireDevice();
+    return this.compute!.dispatch(program, options);
+  }
+  async readCompute(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray> {
+    this.requireDevice();
+    return this.compute!.read(buffer, options);
+  }
+  async prepareRenderGraph(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void> {
+    this.requireDevice();
+    return this.graphs!.prepare(graph, options);
+  }
+  async captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options: ReflectionProbeCaptureOptions = {},
+  ): Promise<EnvironmentMap> {
+    this.requireDevice();
+    if (this.probeCaptureActive || (this.encoder && this.frameRendered))
+      throw new GraphicsError(
+        'Capture requires an idle capture slot and must precede rendering or follow endFrame.',
+      );
+    this.probeCaptureActive = true;
+    try {
+      const map = await this.meshPipeline!.captureReflectionProbe(
+        scene,
+        probe,
+        options,
+      );
+      try {
+        this.requireDevice();
+        return map;
+      } catch (error) {
+        map.destroy();
+        throw error;
+      }
+    } finally {
+      this.probeCaptureActive = false;
+    }
+  }
   configureResidency(options: ResidencyBudgetOptions): void {
     if (this.encoder)
       throw new GraphicsError(
@@ -198,6 +286,7 @@ export class WebGPURenderer implements Renderer {
     threeD: true,
     compute: true,
     customShaders: true,
+    lighting2D: true,
     storageBuffers: true,
     instancing: true,
     maxTextureSize: 0,
@@ -355,6 +444,8 @@ export class WebGPURenderer implements Renderer {
       this.canvas = canvas;
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
       const format = navigator.gpu.getPreferredCanvasFormat();
+      this.compute = new WebGPUCompute(device);
+      this.graphs = new WebGPURenderGraph(device, format);
 
       device.pushErrorScope('validation');
       let shaderErrors: string[] = [];
@@ -615,6 +706,19 @@ export class WebGPURenderer implements Renderer {
       throw new RangeError(
         'WebGPU rendering requires positive finite logical width and height.',
       );
+    if (scene?.has3DContent)
+      this.probeCaptures.schedule(
+        scene,
+        (probe) => this.captureReflectionProbe(scene, probe),
+        (error) =>
+          this.onError(
+            error instanceof GraphicsError
+              ? error
+              : new GraphicsError('Automatic reflection capture failed.', {
+                  cause: error,
+                }),
+          ),
+      );
     const native = this.effectsPipeline!;
     const transition = effects?.transition;
     if (transition?.snapshot) native.snapshot(transition.snapshot);
@@ -653,8 +757,12 @@ export class WebGPURenderer implements Renderer {
     const presentationView = this.captureOutput
       ? undefined
       : context.getCurrentTexture().createView();
-    const output =
+    const graphDestination =
       this.captureOutput?.view ?? incoming?.view ?? presentationView!;
+    const graph = scene?.renderGraph;
+    const output = graph
+      ? this.graphs!.sceneTarget(graph, canvas.width, canvas.height)
+      : graphDestination;
     this.colorAttachment.view = output;
     try {
       let drewMeshes: boolean;
@@ -740,10 +848,12 @@ export class WebGPURenderer implements Renderer {
         }
         pass.end();
       }
+      if (graph) this.graphs!.encode(graph, encoder, graphDestination);
       if (transition)
         native.transition(encoder, incoming!, presentationView!, transition);
       this.frameRendered = true;
     } finally {
+      if (!this.frameRendered) this.meshPipeline!.invalidateTemporalHistory();
       this.colorAttachment.view = undefined;
       this.colorAttachment.loadOp = 'clear';
       this.colorAttachment.clearValue = defaults.clearColor;
@@ -914,6 +1024,10 @@ export class WebGPURenderer implements Renderer {
   }
 
   private releaseResources(): void {
+    this.compute?.destroy();
+    this.compute = undefined;
+    this.graphs?.destroy();
+    this.graphs = undefined;
     this.gpuTimer?.destroy(!!this.lostError);
     this.gpuTimer = undefined;
     this.encoder = undefined;

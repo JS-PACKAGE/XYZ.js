@@ -1,0 +1,32 @@
+//#region dist/packages/graphics/src/probe-texture-array.js
+function packProbeTextures(e) {
+	let t = Math.max(2, ...e.map((e) => e?.width ?? 2)), n = t / 2, r = Math.max(1, ...e.map((e) => e?.mipCount ?? 1)), i = [];
+	for (let a = 0; a < r; a++) {
+		let o = Math.max(1, t >> a), s = Math.max(1, n >> a), c = new Uint16Array(o * s * 4 * 5);
+		for (let t = 0; t < 5; t++) {
+			let n = e[t];
+			if (!n) continue;
+			let i = r === 1 ? 0 : Math.round(a / (r - 1) * (n.mipCount - 1)), l = n.levels[i], u = n.levelSizes[i];
+			for (let e = 0; e < s; e++) for (let n = 0; n < o; n++) {
+				let r = Math.min(u.width - 1, Math.floor((n + .5) * u.width / o)), i = (Math.min(u.height - 1, Math.floor((e + .5) * u.height / s)) * u.width + r) * 4, a = ((t * s + e) * o + n) * 4;
+				for (let e = 0; e < 4; e++) c[a + e] = l[i + e];
+			}
+		}
+		i.push({
+			width: o,
+			height: s,
+			data: c
+		});
+	}
+	return {
+		width: t,
+		height: n,
+		mipCount: r,
+		levels: i,
+		bytes: i.reduce((e, t) => e + t.data.byteLength, 0)
+	};
+}
+//#endregion
+exports.packProbeTextures = packProbeTextures;
+
+//# sourceMappingURL=probe-texture-array.cjs.map

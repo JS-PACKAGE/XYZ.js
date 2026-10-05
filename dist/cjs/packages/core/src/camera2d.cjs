@@ -1,0 +1,69 @@
+const require_index = require("../../math/src/index.cjs");
+const require_controller = require("./camera2d-behaviors/controller.cjs");
+//#region dist/packages/core/src/camera2d.js
+var Camera2D = class {
+	position = new require_index.Vector2();
+	renderOffset = new require_index.Vector2();
+	currentZoom = 1;
+	width = 1280;
+	height = 720;
+	behaviorController;
+	disposed = !1;
+	get controller() {
+		if (this.disposed) throw Error(`Cannot control a destroyed Camera2D.`);
+		return this.behaviorController ??= new require_controller.CameraController2D(this);
+	}
+	addBehavior(e) {
+		return this.controller.addBehavior(e);
+	}
+	removeBehavior(e) {
+		return this.behaviorController?.removeBehavior(e) ?? !1;
+	}
+	clearBehaviors() {
+		this.behaviorController?.clearBehaviors();
+	}
+	moveTo(e, t, n, r) {
+		return this.controller.moveTo(e, t, n, r);
+	}
+	zoomTo(e, t, n) {
+		return this.controller.zoomTo(e, t, n);
+	}
+	shake(e) {
+		return this.controller.shake(e);
+	}
+	updateBehaviors(e) {
+		this.behaviorController?.update(e);
+	}
+	destroy() {
+		this.disposed || (this.disposed = !0, this.behaviorController?.destroy(), this.renderOffset.set(0, 0));
+	}
+	get zoom() {
+		return this.currentZoom;
+	}
+	set zoom(e) {
+		if (!Number.isFinite(e) || e <= 0) throw RangeError(`Camera zoom must be a positive finite number.`);
+		this.currentZoom = e;
+	}
+	get viewportWidth() {
+		return this.width;
+	}
+	get viewportHeight() {
+		return this.height;
+	}
+	resize(e, t) {
+		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 0 || t < 0) throw RangeError(`Camera viewport dimensions must be finite, nonnegative numbers.`);
+		this.width = e, this.height = t;
+	}
+	worldToScreen(t, n = new require_index.Vector2()) {
+		let r = (t.x - this.position.x) * this.currentZoom + this.renderOffset.x, i = (t.y - this.position.y) * this.currentZoom + this.renderOffset.y;
+		return n.set(r, i);
+	}
+	screenToWorld(t, n = new require_index.Vector2()) {
+		let r = (t.x - this.renderOffset.x) / this.currentZoom + this.position.x, i = (t.y - this.renderOffset.y) / this.currentZoom + this.position.y;
+		return n.set(r, i);
+	}
+};
+//#endregion
+exports.Camera2D = Camera2D;
+
+//# sourceMappingURL=camera2d.cjs.map

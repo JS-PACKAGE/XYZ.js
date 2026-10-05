@@ -1,0 +1,131 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_animation_pose = require("./animation-pose.cjs");
+//#region dist/packages/core/src/animation-ik.js
+var TwoBoneIKConstraint = class {
+	enabled = !0;
+	weight;
+	minBend;
+	maxBend;
+	channels;
+	status = `idle`;
+	target;
+	pole;
+	root;
+	middle;
+	tip;
+	origin = new require_math3d.Vector3();
+	joint = new require_math3d.Vector3();
+	end = new require_math3d.Vector3();
+	goal = new require_math3d.Vector3();
+	polePoint = new require_math3d.Vector3();
+	direction = new require_math3d.Vector3();
+	bend = new require_math3d.Vector3();
+	desiredJoint = new require_math3d.Vector3();
+	desiredEnd = new require_math3d.Vector3();
+	from = new require_math3d.Vector3();
+	to = new require_math3d.Vector3();
+	swing = new require_math3d.Quaternion();
+	world = new require_math3d.Quaternion();
+	parentInverse = new require_math3d.Quaternion();
+	desiredRotation = new require_math3d.Quaternion();
+	unregister;
+	removed;
+	destroyed = !1;
+	constructor(e, t) {
+		if (this.root = t.root, this.middle = t.middle, this.tip = t.tip, this.weight = t.weight ?? 1, this.minBend = t.minBend ?? 0, this.maxBend = t.maxBend ?? Math.PI, !Number.isFinite(this.weight) || this.weight < 0 || this.weight > 1 || !Number.isFinite(this.minBend) || !Number.isFinite(this.maxBend) || this.minBend < 0 || this.maxBend > Math.PI || this.minBend > this.maxBend) throw RangeError(`Invalid IK weight or bend limits.`);
+		if (this.middle.parent !== this.root || this.tip.parent !== this.middle) throw RangeError(`IK requires a direct root/middle/tip hierarchy.`);
+		this.channels = [{
+			target: this.root,
+			path: `rotation`
+		}, {
+			target: this.middle,
+			path: `rotation`
+		}], this.removed = () => {
+			this.enabled = !1, this.status = `invalid-target`, this.setTarget(void 0), this.setPole(void 0);
+		}, this.unregister = e.addConstraint(this), this.setTarget(t.target), this.setPole(t.pole);
+	}
+	setTarget(e) {
+		return this.unwatch(this.target), this.unwatch(this.pole), this.target = e, this.watch(e), this.watch(this.pole), this;
+	}
+	setPole(e) {
+		return this.unwatch(this.pole), this.unwatch(this.target), this.pole = e, this.watch(e), this.watch(this.target), this;
+	}
+	watch(e) {
+		e && `updateWorldMatrix` in e && (e.addEventListener(`remove`, this.removed), e.addEventListener(`destroy`, this.removed));
+	}
+	unwatch(e) {
+		e && `updateWorldMatrix` in e && (e.removeEventListener(`remove`, this.removed), e.removeEventListener(`destroy`, this.removed));
+	}
+	worldPoint(e, t) {
+		if (`updateWorldMatrix` in e) {
+			if (e.destroyed) return !1;
+			let n = e.updateWorldMatrix().elements;
+			t.set(n[12], n[13], n[14]);
+		} else t.set(e.x, e.y, e.z);
+		return Number.isFinite(t.x) && Number.isFinite(t.y) && Number.isFinite(t.z);
+	}
+	solve() {
+		if (!this.enabled || this.destroyed) return;
+		if (!Number.isFinite(this.weight) || this.weight < 0 || this.weight > 1) throw RangeError(`IK weight must be in [0, 1].`);
+		if (!this.target || !this.worldPoint(this.target, this.goal) || this.pole && !this.worldPoint(this.pole, this.polePoint)) {
+			this.status = `invalid-target`, this.enabled = !1;
+			return;
+		}
+		if (this.middle.parent !== this.root || this.tip.parent !== this.middle || this.root.destroyed || this.middle.destroyed || this.tip.destroyed) {
+			this.status = `invalid-hierarchy`, this.enabled = !1;
+			return;
+		}
+		for (let e = this.tip; e; e = e.parent) {
+			let t = e.scale, n = e.rotation;
+			if (!Number.isFinite(t.x) || t.x <= 0 || Math.abs(t.x - t.y) > 1e-6 * t.x || Math.abs(t.x - t.z) > 1e-6 * t.x || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(Math.hypot(n.x, n.y, n.z, n.w)) || Math.hypot(n.x, n.y, n.z, n.w) < 1e-12) {
+				this.status = `singular`;
+				return;
+			}
+		}
+		this.worldPoint(this.root, this.origin), this.worldPoint(this.middle, this.joint), this.worldPoint(this.tip, this.end);
+		let e = this.from.copy(this.joint).subtract(this.origin).length(), t = this.to.copy(this.end).subtract(this.joint).length();
+		if (!Number.isFinite(e + t) || e < 1e-8 || t < 1e-8) {
+			this.status = `singular`;
+			return;
+		}
+		this.direction.copy(this.goal).subtract(this.origin);
+		let n = this.direction.length();
+		n < 1e-8 && (this.direction.copy(this.end).subtract(this.origin), this.direction.length() < 1e-8 && this.direction.set(1, 0, 0)), this.direction.normalize();
+		let r = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.maxBend))), i = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.minBend))), a = Math.max(1e-8, Math.max(r, Math.min(i, n)));
+		this.status = Math.abs(a - n) > 1e-6 ? `clamped` : `solved`, this.bend.copy(this.pole ? this.polePoint : this.joint).subtract(this.origin);
+		let o = this.bend.dot(this.direction);
+		if (this.bend.set(this.bend.x - this.direction.x * o, this.bend.y - this.direction.y * o, this.bend.z - this.direction.z * o), this.bend.length() < 1e-8) {
+			let e = Math.abs(this.direction.x), t = Math.abs(this.direction.y), n = Math.abs(this.direction.z);
+			this.bend.set(+(e <= t && e <= n), +(t < e && t <= n), +(n < e && n < t));
+			let r = this.bend.dot(this.direction);
+			this.bend.set(this.bend.x - this.direction.x * r, this.bend.y - this.direction.y * r, this.bend.z - this.direction.z * r);
+		}
+		this.bend.normalize();
+		let s = (e * e - t * t + a * a) / (2 * a), c = Math.sqrt(Math.max(0, e * e - s * s));
+		this.desiredJoint.set(this.origin.x + this.direction.x * s + this.bend.x * c, this.origin.y + this.direction.y * s + this.bend.y * c, this.origin.z + this.direction.z * s + this.bend.z * c), this.desiredEnd.set(this.origin.x + this.direction.x * a, this.origin.y + this.direction.y * a, this.origin.z + this.direction.z * a), this.from.copy(this.joint).subtract(this.origin), this.to.copy(this.desiredJoint).subtract(this.origin), this.rotateBone(this.root), this.worldPoint(this.middle, this.joint), this.worldPoint(this.tip, this.end), this.from.copy(this.end).subtract(this.joint), this.to.copy(this.desiredEnd).subtract(this.joint), this.rotateBone(this.middle);
+	}
+	rotateBone(e) {
+		this.from.normalize(), this.to.normalize();
+		let t = Math.max(-1, Math.min(1, this.from.dot(this.to)));
+		if (t < -.999999) {
+			this.to.copy(this.bend);
+			let e = this.to.dot(this.from);
+			this.to.set(this.to.x - this.from.x * e, this.to.y - this.from.y * e, this.to.z - this.from.z * e), this.to.length() < 1e-8 && (this.to.set(+(Math.abs(this.from.x) < .9), Math.abs(this.from.x) < .9 ? 0 : 1, 0), this.to.cross(this.from)), this.to.normalize(), this.swing.set(this.to.x, this.to.y, this.to.z, 0);
+		} else {
+			let e = this.from.x, n = this.from.y, r = this.from.z, i = this.to.x, a = this.to.y, o = this.to.z;
+			this.swing.set(n * o - r * a, r * i - e * o, e * a - n * i, 1 + t).normalize();
+		}
+		this.world.set(0, 0, 0, 1);
+		for (let t = e; t; t = t.parent) require_animation_pose.multiplyRotation(t.rotation, this.world, this.world);
+		require_animation_pose.multiplyRotation(this.swing, this.world, this.desiredRotation), this.parentInverse.set(0, 0, 0, 1);
+		for (let t = e.parent; t; t = t.parent) require_animation_pose.multiplyRotation(t.rotation, this.parentInverse, this.parentInverse);
+		this.parentInverse.set(-this.parentInverse.x, -this.parentInverse.y, -this.parentInverse.z, this.parentInverse.w), require_animation_pose.multiplyRotation(this.parentInverse, this.desiredRotation, this.desiredRotation), require_animation_pose.blendRotation(e.rotation, this.desiredRotation, this.weight, e.rotation);
+	}
+	destroy() {
+		this.destroyed ||= (this.enabled = !1, this.setTarget(void 0), this.setPole(void 0), this.unregister(), !0);
+	}
+};
+//#endregion
+exports.TwoBoneIKConstraint = TwoBoneIKConstraint;
+
+//# sourceMappingURL=animation-ik.cjs.map

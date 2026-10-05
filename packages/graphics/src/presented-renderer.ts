@@ -30,6 +30,23 @@ import type {
   PreparedResourceLease,
   ResourcePreparationOptions,
 } from './preparation.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 
 /** Auto selection keeps backend context binding away from the caller's canvas. */
 export class PresentedRenderer implements Renderer {
@@ -102,6 +119,74 @@ export class PresentedRenderer implements Renderer {
         'This renderer does not support GPU particle preparation.',
       );
     return this.renderer.prepareGpuParticles(emitter);
+  }
+  async prepareCompute(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void> {
+    this.requireContext();
+    if (!this.renderer.prepareCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    return this.renderer.prepareCompute(program, options);
+  }
+  uploadCompute(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void {
+    this.requireContext();
+    if (!this.renderer.uploadCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    this.renderer.uploadCompute(buffer, data, offset);
+  }
+  async dispatchCompute(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void> {
+    this.requireContext();
+    if (!this.renderer.dispatchCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    return this.renderer.dispatchCompute(program, options);
+  }
+  async readCompute(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray> {
+    this.requireContext();
+    if (!this.renderer.readCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    return this.renderer.readCompute(buffer, options);
+  }
+  async prepareRenderGraph(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void> {
+    this.requireContext();
+    if (!this.renderer.prepareRenderGraph)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support render graphs.',
+      );
+    return this.renderer.prepareRenderGraph(graph, options);
+  }
+  async captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options?: ReflectionProbeCaptureOptions,
+  ): Promise<EnvironmentMap> {
+    this.requireContext();
+    if (!this.renderer.captureReflectionProbe)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support reflection capture.',
+      );
+    return this.renderer.captureReflectionProbe(scene, probe, options);
   }
   async preparePostProcessor(effect: PostProcessor2D): Promise<void> {
     this.requireContext();

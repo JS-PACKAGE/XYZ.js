@@ -1,0 +1,48 @@
+//#region dist/src/data/world2d.js
+var world2dLimits = Object.freeze({
+	polygonVertices: 32,
+	geometryExtent: 1e6,
+	mapCells: 65536,
+	particles: 16384,
+	physicsBodies: 16384,
+	physicsJoints: 4096,
+	maxSubSteps: 120,
+	solverIterations: 64,
+	ccdIterations: 512,
+	ccdImpacts: 64,
+	characterIterations: 32
+});
+var physicsDefaults = Object.freeze({
+	fixedDelta: 1 / 120,
+	maxSubSteps: 12,
+	velocityIterations: 8,
+	positionIterations: 3,
+	gravityY: 980,
+	penetrationSlop: .005,
+	positionCorrection: .6,
+	restitutionThreshold: 1,
+	restitutionGravitySteps: 2,
+	geometryEpsilon: 1e-8,
+	sleepLinearVelocity: .1,
+	sleepAngularVelocity: .05,
+	sleepTime: .5,
+	ccdIterations: 64,
+	ccdImpacts: 8,
+	sweepTolerance: 1e-4,
+	characterSkin: .02,
+	characterStepHeight: 8,
+	characterGroundSnap: .5,
+	characterIterations: 8,
+	characterMaxRecovery: 32,
+	characterMaxSupportDisplacement: 128,
+	characterCarryAngleStep: Math.PI / 64,
+	characterSupportTransformTolerance: 1e-5,
+	jointMaxCorrection: 10,
+	jointMaxAngularCorrection: .14,
+	jointAngularSlop: .035
+});
+//#endregion
+exports.physicsDefaults = physicsDefaults;
+exports.world2dLimits = world2dLimits;
+
+//# sourceMappingURL=world2d.cjs.map

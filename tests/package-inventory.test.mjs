@@ -49,6 +49,7 @@ describe('reviewed package archive boundary', () => {
     const inventory = {
       schema: 1,
       compiledModules: [],
+      cjsModules: [],
       files: ['package.json'],
     };
     const source = {
@@ -202,6 +203,7 @@ describe('reviewed package archive boundary', () => {
     const inventory = {
       schema: 1,
       compiledModules: ['src/index'],
+      cjsModules: [],
       files: ['package.json'],
     };
     expect(() =>

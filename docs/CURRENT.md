@@ -4,7 +4,7 @@ title: Current contracts · v1.14
 
 # XYZ.js v1.14 — current contracts
 
-**Normative for package 1.14.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles, not an acceptance report or an upstream compatibility promise. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/YueyuHoshizora/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
+**Normative for package 1.14.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles and unreleased P104–P118 source additions, not an acceptance report or upstream compatibility promise. The existing GitHub v1.14 archive does not contain P104–P118, and the metadata remains 1.14.0. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/YueyuHoshizora/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
 
 ## Public API and distribution
 
@@ -13,6 +13,11 @@ The supported public entry is `xyz.js` (or the complete built tree's `engine/src
 `pnpm docs:api` generates `.vite/site/api/1.14.0/` and its documentation landing pages. `pnpm build:site` builds the examples and the same searchable API into the complete `.vite/site/` distribution. Serve over HTTP/HTTPS and open `docs/` or `api/1.14.0/`; generated HTML is not tracked or included in the engine tarball. Relative API links and search assets stay within the version directory, so deployment under a path prefix does not require URL rewriting. Source documentation is not a claim that the hosted site has been deployed.
 
 For standalone consumers, build and pack, then use `node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.14.0.tgz --name my-game` (or `3d`). Deploy the complete starter `dist/`. No-bundler engine deployment likewise requires the complete engine `dist/`, including the unchanged official `dist/vendor/opm/` distribution and licenses.
+
+CommonJS and ESM use separate constructor graphs. Choose one format for every
+engine object in an application; cross-format Texture/Scene/Mesh instances are
+not interchangeable. Canonical type declarations do not imply shared runtime
+identity. CDN metadata selects ESM, and publication is still a separate action.
 
 ## Capability matrix
 
@@ -28,7 +33,7 @@ These are implementation profiles, **not three-backend equivalence or physical q
 | Initialization                                                                             | `auto` tries WebGPU → WebGL2 → Canvas2D         | Forced backend never switches                   | `auto` fallback is initialization-only                                                                |
 | Runtime loss                                                                               | Default same-backend recovery                   | Default same-backend recovery                   | Recreate renderer-owned targets/snapshots after recovery; failure or `recoverGraphics:false` is fatal |
 
-WebGPU and AudioWorklet require a secure origin (localhost is allowed). Device availability is not implied by `navigator.gpu`; a compute capability flag is not a general-purpose public compute API. Native shader/particle descriptors must be prepared before rendering; callers own their destruction after removing consumers. Auto presentation uses a copy to the original canvas and is not a performance-equivalent forced backend.
+WebGPU and AudioWorklet require a secure origin (localhost is allowed). Device availability is not implied by `navigator.gpu`; the current public compute profile is the bounded WebGPU-only ComputeProgram/ComputeBuffer API. Native shader/particle descriptors must be prepared before rendering; callers own their destruction after removing consumers. Auto presentation uses a copy to the original canvas and is not a performance-equivalent forced backend.
 
 ## Shared subsystem profiles
 
@@ -54,6 +59,36 @@ The root exports `ProceduralMaterial`, `ProceduralMaterialKind` (`'wood' | 'bric
 The caller owns the returned preset, whose readonly `kind`, `material: PBRMaterial` and `textures` expose four `Texture` sources: `baseColor` (sRGB RGB), `normal` (linear tangent-space), `metallicRoughness` (linear G roughness/B metallic) and `occlusion` (linear R). Defaults are opaque, repeat sampling for all slots, roughness factor 1 and metallic factor 1 for metal or 0 otherwise. `createMaterial(options?: Partial<PBRMaterialOptions>)` creates a fresh material borrowing its maps, with caller overrides applied last.
 
 Remove all consumers before calling synchronous, idempotent `destroy()`, which releases only generated textures, not override textures or materials. Mesh/Scene do not automatically own the preset. The `destroyed` getter reports state; `createMaterial()` rejects after destruction. Core generation uses assets' existing `Texture.fromImage`; geometry and backend rendering stay unchanged, with no frame-time generation. The [pbr3d gallery](https://github.com/YueyuHoshizora/XYZ.js/tree/main/examples/pbr3d) offers six presets and texture-map previews. Canvas2D remains 2D-only. Actual browser/runtime verification is recorded separately in ACCEPTANCE.
+
+## P104–P118 additive profiles in the current source
+
+These approved profiles are being integrated against package metadata 1.14.0. They
+do not change the version, imply a new release, or certify runtime/browser behavior;
+actual evidence and remaining gaps belong in [ACCEPTANCE](../ACCEPTANCE.md). Public
+names and exact signatures are in the generated root API.
+
+| Area                            | Contract and boundary                                                                                                                                                                                                                                                                                                                                                 |
+| ------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| CommonJS / delivery             | The package has separate CommonJS and ESM consumer entries; CDN metadata remains canonical ESM. The strict package inventory must explicitly cover each reviewed output, including CommonJS artifacts. A package build is not npm publication.                                                                                                                        |
+| Atlas / distance-field fonts    | The asset producer accepts atlas, bitmap, SDF and MSDF profiles and emits pages plus descriptors consumed by existing loaders. SDF is a single-channel distance field; MSDF uses independently encoded RGB edge distances, not three duplicate SDF channels.                                                                                                          |
+| Asset watch / scene reload      | `xyz-assets watch` publishes immutable generations and advances `current.json` only on successful builds. Failed builds retain the previous generation; polling and retained generations are bounded. Vite scene reload replaces a Scene only after its candidate succeeds; it does not create another game loop or canvas owner.                                     |
+| Narrative                       | CutsceneDirector uses Scene simulation time for tracks/cues, seek, pause, cancel, repeat and barriers. Dialogue supports validated branching, conditions, variables and locale data; QuestSystem bounds progress and validates restored state so rewards are not replayed.                                                                                            |
+| Crowd / physics profiles        | Crowd steering uses reciprocal-avoidance constraints with bounded neighbor work and stable ordering, then submits preferred motion through character sweep. Physics vehicle suspension/tire forces, ragdoll joint/bone blending, soft-body springs/contacts and debug lines are bounded profiles, not general-purpose high-fidelity simulation.                       |
+| RNG / object pool               | SeededRandom supports reproducible state save/restore/clone and bounded integer/choose/shuffle operations. ObjectPool has fixed capacity and explicit create/reset/destroy callbacks; release ownership, reset failure and terminal destruction are defined.                                                                                                          |
+| Native 2D lighting              | GPU/GL Sprite normal-map shading supports bounded lights and world/screen lighting. Canvas2D explicitly rejects this feature; combining it with a custom material is unsupported.                                                                                                                                                                                     |
+| Video texture                   | VideoTexture updates a stable canvas-backed source from decoded frames; VideoTextureDecoder accepts encoded elementary chunks through WebCodecs, not MP4/container demux. Caller controls decoder configuration and ownership.                                                                                                                                        |
+| GPU compute                     | ComputeProgram/ComputeBuffer expose bounded WGSL dispatch and typed storage readback on WebGPU. WebGL2 and Canvas2D explicitly report unsupported; buffer contents must be recreated/reuploaded after loss.                                                                                                                                                           |
+| Render graph / temporal effects | Render graphs validate immutable DAGs and explicit native passes/inputs; descriptors are borrowed. TAA uses jittered history/reprojection and reset conditions; SSR ray-marches depth with environment fallback. Reflection probes capture six scene views and blend bounded environment layers. These are not Canvas features or universal image-quality guarantees. |
+| Text3D / visibility             | Text3D remains browser-rasterized canvas text, not SDF mesh text. Async updates are latest-wins and preserve the prior result on failure. Existing instance/morph culling is retained; no duplicate culling API is implied.                                                                                                                                           |
+
+WebCodecs/container support, arbitrary MSDF font-outline parsing, unbounded simulation,
+Canvas shader/compute/3D fallbacks, and cross-browser qualification are not implied.
+
+Live 3D maps are additive overrides: TextureMaterialOptions.textureSource,
+PBRMaterialOptions.sources and NativeMaterial3DOptions.textureSources. Existing
+immutable Texture options/getters retain their types; a real borrowed fallback
+is required for the base map. Renderer upload/cache/shadow tracking uses effective
+sources and versions. Remove all consumers before releasing borrowed maps.
 
 No Visual Editor, Visual Scripting, Shader Graph, Networking, native desktop runtime, JavaScript software rasterizer, shader transpiler, full glTF extension set or drop-in three.js/PixiJS/Excalibur parity is promised.
 

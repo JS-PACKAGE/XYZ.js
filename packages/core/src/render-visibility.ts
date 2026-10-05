@@ -1,6 +1,6 @@
 import { visibilityLimits } from '../../../src/data/visibility.js';
 import type { Scene } from './scene.js';
-import { Mesh } from './mesh.js';
+import { Mesh, materialBaseTexture } from './mesh.js';
 import { InstancedMesh } from './instanced-mesh.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 import { Frustum } from './frustum.js';
@@ -198,7 +198,7 @@ export class RenderVisibilityCache {
       record.colorVisible = false;
       record.drawable =
         mesh.worldVisible &&
-        !mesh.material.texture.destroyed &&
+        !materialBaseTexture(mesh.material).destroyed &&
         mesh.geometry.indices.length > 0 &&
         (mesh.material.opacity > 0 ||
           (mesh.material instanceof PBRMaterial &&
@@ -223,7 +223,7 @@ export class RenderVisibilityCache {
       values[9] = mesh instanceof InstancedMesh ? mesh.version : 0;
       values[10] = mesh instanceof InstancedMesh ? mesh.colorVersion : 0;
       values[11] = mesh instanceof SkinnedMesh ? mesh.paletteVersion : 0;
-      values[12] = mesh.material.texture.version;
+      values[12] = materialBaseTexture(mesh.material).version;
       values[13] = mesh.material.opacity;
       values[14] =
         mesh.material instanceof PBRMaterial

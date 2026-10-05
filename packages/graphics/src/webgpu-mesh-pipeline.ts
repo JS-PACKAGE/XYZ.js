@@ -9,21 +9,25 @@ import {
 import { WebGPUOcclusionBackend } from './webgpu-occlusion.js';
 import { WebGPUParticles3D } from './webgpu-particles3d.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import {
+  NativeMaterial3D,
+  nativeMaterialSources,
+} from '../../core/src/native-material3d.js';
 import { nativeMeshWGSL } from './webgpu-mesh-shader.js';
 import { beginTimedRenderPass, beginTimedComputePass } from './gpu-timing.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
-import { Mesh } from '../../core/src/mesh.js';
-import { PBRMaterial } from '../../core/src/pbr-material.js';
+import { Mesh, materialBaseTexture } from '../../core/src/mesh.js';
+import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
 import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
   activeBackground,
   activeEnvironment,
-  fillReflectionData,
+  fillProbeBlendData,
+  selectReflectionProbes,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
@@ -42,7 +46,8 @@ import { ShadowCache } from './shadow-cache.js';
 import { validateNativeMaterialGPU } from './native-material-limits.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import type { Geometry } from '../../core/src/geometry.js';
-import type { Texture, Texture2DSource } from '../../assets/src/index.js';
+import type { Texture2DSource } from '../../assets/src/index.js';
+import type { MaterialTexture } from '../../assets/src/texture2d.js';
 import { NativeTexture2D } from '../../assets/src/native-texture.js';
 import {
   nativeUploadFormat,
@@ -57,6 +62,19 @@ import type { FrameStats } from './render-stats.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
 import { WebGPUOIT } from './webgpu-oit.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import {
+  captureConfiguration,
+  encodeProbeFaces,
+  halfFloat,
+  capturedEnvironment,
+} from './reflection-capture.js';
+import { packProbeTextures } from './probe-texture-array.js';
+import { TemporalPostState } from './temporal-post.js';
+import { WebGPUTemporalPipeline } from './webgpu-temporal-pipeline.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 const emptyGpuEmitters: readonly GPUParticleEmitter3D[] = [];
 const emptyMeshes: readonly Mesh[] = [];
@@ -109,6 +127,8 @@ interface CachedTexture {
   resource: GPUTexture;
   view: GPUTextureView;
   seen: number;
+  version?: number;
+  sourceVersions?: readonly [number, number];
 }
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
@@ -149,8 +169,11 @@ export class WebGPUMeshPipeline {
   private readonly blendedDraw = (mesh: Mesh): boolean =>
     isBlended(mesh) || (this.visibility.entries.get(mesh)?.fade ?? 1) < 1;
   private readonly meshes = new Map<Mesh, CachedMesh>();
-  private readonly textures = new Map<Texture, CachedTexture>();
-  private readonly premultipliedTextures = new Map<Texture, CachedTexture>();
+  private readonly textures = new Map<MaterialTexture, CachedTexture>();
+  private readonly premultipliedTextures = new Map<
+    MaterialTexture,
+    CachedTexture
+  >();
   private readonly samplers = new Map<string, GPUSampler>();
   private readonly draws: Mesh[] = [];
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
@@ -164,6 +187,15 @@ export class WebGPUMeshPipeline {
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
   private readonly dummyEnvironment: GPUTexture;
   private readonly dummyEnvironmentView: GPUTextureView;
+  private readonly dummyEnvironmentArrayView: GPUTextureView;
+  private readonly selectedProbes: ReflectionProbe[] = [];
+  private readonly probeMaps: (EnvironmentMap | undefined)[] = [];
+  private probeTexture: GPUTexture | undefined;
+  private probeAllocation: ResidencyAllocation | undefined;
+  private probeMipCount = 1;
+  private readonly temporalState = new TemporalPostState();
+  private readonly temporal: WebGPUTemporalPipeline;
+  private temporalActive = false;
   private readonly environmentSampler: GPUSampler;
   private environmentView: GPUTextureView;
   private backgroundView: GPUTextureView;
@@ -347,7 +379,11 @@ export class WebGPUMeshPipeline {
       usage: GPUTextureUsage.TEXTURE_BINDING,
     });
     this.dummyEnvironmentView = this.dummyEnvironment.createView();
-    this.environmentView = this.dummyEnvironmentView;
+    this.dummyEnvironmentArrayView = this.dummyEnvironment.createView({
+      dimension: '2d-array',
+    });
+    this.environmentView = this.dummyEnvironmentArrayView;
+    this.temporal = new WebGPUTemporalPipeline(device, sampleCount, this.stats);
     this.backgroundView = this.dummyEnvironmentView;
     this.identityBuffer = device.createBuffer({
       size: 64,
@@ -443,7 +479,7 @@ export class WebGPUMeshPipeline {
         {
           binding: 2,
           visibility: GPUShaderStage.FRAGMENT,
-          texture: { sampleType: 'float' },
+          texture: { sampleType: 'float', viewDimension: '2d-array' },
         },
         {
           binding: 3,
@@ -796,6 +832,7 @@ export class WebGPUMeshPipeline {
 
   resize(width: number, height: number): void {
     this.oit.resize(width, height);
+    this.temporal.resize(width, height);
     if (
       this.depthTexture &&
       (this.depthWidth !== width || this.depthHeight !== height)
@@ -876,6 +913,7 @@ export class WebGPUMeshPipeline {
     aspect: number,
     clearValue: GPUColor,
     viewportHeight = height,
+    captureTarget?: GPUTexture,
   ): boolean {
     this.frame++;
     for (const buffer of this.retired) buffer.destroy();
@@ -920,17 +958,20 @@ export class WebGPUMeshPipeline {
         }
         this.releaseRefraction();
         if (
-          this.environmentView !== this.dummyEnvironmentView ||
+          this.environmentView !== this.dummyEnvironmentArrayView ||
           this.backgroundView !== this.dummyEnvironmentView
         ) {
-          this.environmentView = this.backgroundView =
-            this.dummyEnvironmentView;
+          this.probeAllocation?.destroy();
+          this.environmentView = this.dummyEnvironmentArrayView;
+          this.backgroundView = this.dummyEnvironmentView;
           this.shadowSceneBindGroup = this.createSceneGroup(
             this.emptyShadowView,
             this.dummyEnvironmentView,
           );
           this.sceneBindGroup = this.skyBindGroup = this.shadowSceneBindGroup;
         }
+        this.temporal.releaseTarget();
+        this.temporalState.invalidate();
         return false;
       }
       validateRenderSettings(scene);
@@ -956,7 +997,7 @@ export class WebGPUMeshPipeline {
       for (const mesh of scene.renderMeshes ?? emptyMeshes) {
         if (!this.occlusion && mesh.occlusionCulled)
           this.occlusion = new WebGPUOcclusionBackend(this.device);
-        const texture = mesh.material.texture;
+        const texture = materialBaseTexture(mesh.material);
         if (this.depthTextureVersions.get(texture) !== texture.version) {
           this.depthTextureVersions.set(texture, texture.version);
           ++this.depthRevision;
@@ -1027,7 +1068,27 @@ export class WebGPUMeshPipeline {
       if (scene.shadows.enabled)
         this.renderShadows(encoder, scene, width, height);
       const linear =
-        scene.postProcessing.enabled || hasTransmission || weighted;
+        !!captureTarget ||
+        scene.postProcessing.enabled ||
+        hasTransmission ||
+        weighted;
+      this.temporalActive =
+        !captureTarget &&
+        scene.postProcessing.enabled &&
+        (scene.postProcessing.taa || scene.postProcessing.ssr);
+      if (this.temporalActive)
+        this.temporalState.begin(
+          scene,
+          scene.camera3D,
+          width,
+          height,
+          scene.postProcessing,
+          aspect,
+        );
+      else {
+        this.temporal.releaseTarget();
+        this.temporalState.invalidate();
+      }
       this.prepareScene(scene, aspect, linear);
       if (!linear) this.post.releaseTarget();
       if (hasTransmission) this.ensureRefraction(width, height);
@@ -1057,7 +1118,9 @@ export class WebGPUMeshPipeline {
         ? this.decodeClear(clearValue)
         : clearValue;
       this.depthAttachment.view = this.depthView;
-      const phases = hasTransmission ? 2 : 1;
+      const ssr = this.temporalActive && scene.postProcessing.ssr;
+      const phases = hasTransmission || ssr ? 2 : 1;
+      let opaqueSSR: GPUTexture | undefined;
       for (let phase = 0; phase < phases; phase++) {
         this.colorAttachment.loadOp = phase === 0 ? 'clear' : 'load';
         this.depthAttachment.depthLoadOp = phase === 0 ? 'clear' : 'load';
@@ -1075,7 +1138,7 @@ export class WebGPUMeshPipeline {
           pass.setPipeline(linear ? this.hdrPipeline : this.pipeline);
           for (const object of this.visibleDraws) {
             if (weighted && this.blendedDraw(object)) continue;
-            if (hasTransmission) {
+            if (hasTransmission || ssr) {
               const deferred =
                 this.blendedDraw(object) ||
                 (object.material instanceof PBRMaterial &&
@@ -1100,13 +1163,37 @@ export class WebGPUMeshPipeline {
         } finally {
           pass.end();
         }
-        if (hasTransmission && phase === 0)
-          this.post.copyColor(encoder, this.refractionTexture!);
+        if (ssr && phase === 0) {
+          opaqueSSR = this.temporal.applyOpaqueSSR(
+            encoder,
+            this.post.colorTexture,
+            this.depthView!,
+            this.temporalState,
+            scene.postProcessing,
+          );
+          this.temporal.blit(
+            encoder,
+            opaqueSSR,
+            this.colorAttachment.view!,
+            this.sampleCount,
+          );
+        }
+        if (hasTransmission && phase === 0) {
+          if (ssr && this.sampleCount > 1) {
+            encoder.copyTextureToTexture(
+              { texture: opaqueSSR! },
+              { texture: this.refractionTexture! },
+              [width, height],
+            );
+          } else this.post.copyColor(encoder, this.refractionTexture!);
+        }
       }
       this.occlusion?.encode(
         encoder,
         this.depthView!,
-        scene.camera3D.updateMatrix(aspect),
+        this.temporalActive
+          ? this.temporalState.currentVP
+          : scene.camera3D.updateMatrix(aspect),
         this.visibility.occlusionCandidates,
         width,
         height,
@@ -1130,15 +1217,33 @@ export class WebGPUMeshPipeline {
         }
         this.oit.resolve(encoder, target);
       }
-      if (linear)
+      if (captureTarget) this.post.copyColor(encoder, captureTarget);
+      else if (linear) {
+        const source =
+          this.temporalActive && scene.postProcessing.taa
+            ? this.temporal.applyTAA(
+                encoder,
+                this.post.colorTexture,
+                this.depthView!,
+                this.temporalState,
+                scene.postProcessing,
+              )
+            : undefined;
         this.post.render(
           encoder,
           view,
           scene.postProcessing,
           scene.camera3D,
           this.invViewProjection,
+          source,
+          this.depthView!,
         );
+        if (this.temporalActive) this.temporalState.commit();
+      }
       return true;
+    } catch (error) {
+      this.temporalState.invalidate();
+      throw error;
     } finally {
       this.colorAttachment.view = undefined;
       this.colorAttachment.resolveTarget = undefined;
@@ -1215,13 +1320,16 @@ export class WebGPUMeshPipeline {
 
   private prepareScene(scene: Scene, aspect: number, linear: boolean): void {
     const data = this.sceneData;
-    data.set(scene.camera3D.updateMatrix(aspect).elements, 0);
+    const matrix = this.temporalActive
+      ? this.temporalState.currentVP
+      : scene.camera3D.updateMatrix(aspect);
+    data.set(matrix.elements, 0);
     data[16] = scene.camera3D.position.x;
     data[17] = scene.camera3D.position.y;
     data[18] = scene.camera3D.position.z;
     data.set(this.lightingData, 20);
     data[30] = linear ? 1 : 0;
-    this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
+    this.invViewProjection.copy(matrix).invert();
     const tail = 20 + LIGHTING_FLOAT_COUNT;
     data.set(this.invViewProjection.elements, tail);
     data[tail + 19] = activeBackground(scene) ? scene.backgroundIntensity : 0;
@@ -1257,18 +1365,56 @@ export class WebGPUMeshPipeline {
   /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
   private ensureEnvironment(scene: Scene): void {
     const environment = activeEnvironment(scene);
+    selectReflectionProbes(scene, this.selectedProbes);
+    let changed = !this.probeTexture || this.probeMaps[0] !== environment;
+    for (let i = 0; i < 4; i++)
+      if (this.probeMaps[i + 1] !== this.selectedProbes[i]?.environment)
+        changed = true;
+    if (changed) {
+      this.probeAllocation?.destroy();
+      this.probeMaps.length = 5;
+      this.probeMaps[0] = environment;
+      for (let i = 0; i < 4; i++)
+        this.probeMaps[i + 1] = this.selectedProbes[i]?.environment;
+      const packed = packProbeTextures(this.probeMaps);
+      const allocation = this.residency.textures.allocate(packed.bytes, () => {
+        this.probeTexture?.destroy();
+        this.probeTexture = undefined;
+      });
+      try {
+        const texture = this.device.createTexture({
+          size: [packed.width, packed.height, 5],
+          mipLevelCount: packed.mipCount,
+          format: 'rgba16float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+        });
+        this.probeTexture = texture;
+        for (let level = 0; level < packed.mipCount; level++) {
+          const data = packed.levels[level]!;
+          this.device.queue.writeTexture(
+            { texture, mipLevel: level },
+            data.data,
+            { bytesPerRow: data.width * 8, rowsPerImage: data.height },
+            [data.width, data.height, 5],
+          );
+          this.stats.upload(data.data.byteLength);
+        }
+        allocation.retain();
+        this.probeAllocation = allocation;
+        this.probeMipCount = packed.mipCount;
+        this.environmentView = texture.createView({ dimension: '2d-array' });
+      } catch (error) {
+        allocation.destroy();
+        throw error;
+      }
+    }
+    this.probeAllocation?.touch();
     const background = activeBackground(scene);
-    const lightingView = environment
-      ? this.uploadEnvironment(environment)
-      : this.dummyEnvironmentView;
+    const lightingView = this.environmentView;
     const backgroundView = background
       ? this.uploadEnvironment(background)
       : this.dummyEnvironmentView;
-    if (
-      lightingView === this.environmentView &&
-      backgroundView === this.backgroundView
-    )
-      return;
+    if (!changed && backgroundView === this.backgroundView) return;
     this.environmentView = lightingView;
     this.backgroundView = backgroundView;
     this.shadowSceneBindGroup = this.createSceneGroup(
@@ -1286,6 +1432,96 @@ export class WebGPUMeshPipeline {
 
   prepareEnvironment(map: EnvironmentMap): void {
     this.uploadEnvironment(map);
+  }
+
+  async captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options: ReflectionProbeCaptureOptions = {},
+  ): Promise<EnvironmentMap> {
+    if (this.destroyed)
+      throw new GraphicsError('Cannot capture on a destroyed renderer.');
+    const { size } = captureConfiguration(probe, options);
+    const rowBytes = Math.ceil((size * 8) / 256) * 256;
+    const texture = this.device.createTexture({
+      size: [size, size],
+      format: 'rgba16float',
+      usage: GPUTextureUsage.COPY_DST | GPUTextureUsage.COPY_SRC,
+    });
+    const buffers: GPUBuffer[] = [];
+    this.stats.target(size * size * 8 + rowBytes * size * 6);
+    try {
+      encodeProbeFaces(scene, probe, options, () => {
+        const buffer = this.device.createBuffer({
+          size: rowBytes * size,
+          usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+        });
+        buffers.push(buffer);
+        const encoder = this.device.createCommandEncoder();
+        this.render(
+          scene,
+          encoder,
+          this.dummyEnvironmentView,
+          size,
+          size,
+          1,
+          { r: 0, g: 0, b: 0, a: 1 },
+          size,
+          texture,
+        );
+        encoder.copyTextureToBuffer(
+          { texture },
+          { buffer, bytesPerRow: rowBytes },
+          [size, size],
+        );
+        // Submit before writing the next camera's uniform buffers.
+        this.device.queue.submit([encoder.finish()]);
+      });
+      const faces: Float32Array[] = [];
+      for (const buffer of buffers) {
+        options.signal?.throwIfAborted();
+        if (options.signal) {
+          const signal = options.signal;
+          let onAbort: (() => void) | undefined;
+          try {
+            const aborted = new Promise<never>((_resolve, reject) => {
+              onAbort = () =>
+                reject(
+                  signal.reason ??
+                    new DOMException('Capture aborted.', 'AbortError'),
+                );
+              signal.addEventListener('abort', onAbort, { once: true });
+              if (signal.aborted) onAbort();
+            });
+            await Promise.race([buffer.mapAsync(GPUMapMode.READ), aborted]);
+          } finally {
+            if (onAbort) signal.removeEventListener('abort', onAbort);
+          }
+        } else await buffer.mapAsync(GPUMapMode.READ);
+        if (this.destroyed || scene.destroyed)
+          throw new GraphicsError(
+            'Reflection capture was invalidated by renderer loss or scene disposal.',
+          );
+        const raw = new Uint16Array(buffer.getMappedRange());
+        const face = new Float32Array(size * size * 4);
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size * 4; x++)
+            face[y * size * 4 + x] = Math.max(
+              0,
+              halfFloat(raw[(y * rowBytes) / 2 + x]!),
+            );
+        faces.push(face);
+        buffer.unmap();
+      }
+      return capturedEnvironment(size, faces, options.signal);
+    } finally {
+      for (const buffer of buffers) buffer.destroy();
+      texture.destroy();
+      this.stats.target(-size * size * 8 - rowBytes * size * 6);
+    }
+  }
+  invalidateTemporalHistory(): void {
+    this.temporalState.invalidate();
   }
   prepareGeometry(geometry: Geometry): ResidencyAllocation {
     return this.cacheGeometry(geometry).allocation;
@@ -1373,8 +1609,8 @@ export class WebGPUMeshPipeline {
       if (material.destroyed || this.destroyed)
         throw new GraphicsError('Native material preparation was invalidated.');
       material.validate();
-      this.cacheTexture(material.texture, true);
-      for (const texture of material.textures)
+      this.cacheTexture(materialBaseTexture(material), true);
+      for (const texture of nativeMaterialSources(material))
         this.cacheTexture(texture, false);
       const unsubscribe = material.onDestroy(() => {
         this.nativeMaterials.delete(material);
@@ -1407,8 +1643,8 @@ export class WebGPUMeshPipeline {
     this.premultipliedTextures.get(texture)?.allocation.destroy();
     for (const [material, entry] of this.opticalTextures)
       if (
-        material.transmissionTexture === texture ||
-        material.thicknessTexture === texture
+        pbrTextureSources(material).transmissionTexture === texture ||
+        pbrTextureSources(material).thicknessTexture === texture
       )
         entry.allocation.destroy();
   }
@@ -1465,9 +1701,7 @@ export class WebGPUMeshPipeline {
   }
 
   private reflectionGroup(entry: CachedMesh): GPUBindGroup {
-    const view = entry.environment
-      ? this.uploadEnvironment(entry.environment)
-      : this.environmentView;
+    const view = this.environmentView;
     const shadow = this.shadowView ?? this.emptyShadowView;
     const refraction = this.refractionView ?? this.dummyEnvironmentView;
     if (
@@ -1841,59 +2075,53 @@ export class WebGPUMeshPipeline {
   private cacheMesh(object: Mesh): CachedMesh {
     const material = object.material;
     const pbr = material instanceof PBRMaterial;
-    const base = this.cacheTexture(material.texture, !pbr).view;
-    const mr =
-      pbr && material.metallicRoughnessTexture
-        ? this.cacheTexture(material.metallicRoughnessTexture, false).view
-        : material instanceof NativeMaterial3D && material.textures[0]
-          ? this.cacheTexture(material.textures[0], false).view
-          : this.whiteView;
-    const normal =
-      pbr && material.normalTexture
-        ? this.cacheTexture(material.normalTexture, false).view
-        : material instanceof NativeMaterial3D && material.textures[1]
-          ? this.cacheTexture(material.textures[1], false).view
-          : this.whiteView;
-    const ao =
-      pbr && material.occlusionTexture
-        ? this.cacheTexture(material.occlusionTexture, false).view
-        : material instanceof NativeMaterial3D && material.textures[2]
-          ? this.cacheTexture(material.textures[2], false).view
-          : this.whiteView;
-    const emissive =
-      pbr && material.emissiveTexture
-        ? this.cacheTexture(material.emissiveTexture, false).view
-        : material instanceof NativeMaterial3D && material.textures[3]
-          ? this.cacheTexture(material.textures[3], false).view
-          : this.whiteView;
-    const specular =
-      pbr && material.specularTexture
-        ? this.cacheTexture(material.specularTexture, false).view
+    const sources = pbr ? pbrTextureSources(material) : undefined;
+    const native =
+      material instanceof NativeMaterial3D
+        ? nativeMaterialSources(material)
+        : undefined;
+    const base = this.cacheTexture(materialBaseTexture(material), !pbr).view;
+    const mr = sources?.metallicRoughnessTexture
+      ? this.cacheTexture(sources.metallicRoughnessTexture, false).view
+      : native && native[0]
+        ? this.cacheTexture(native[0], false).view
         : this.whiteView;
-    const specularColor =
-      pbr && material.specularColorTexture
-        ? this.cacheTexture(material.specularColorTexture, false).view
+    const normal = sources?.normalTexture
+      ? this.cacheTexture(sources.normalTexture, false).view
+      : native && native[1]
+        ? this.cacheTexture(native[1], false).view
         : this.whiteView;
-    const clearcoat =
-      pbr && material.clearcoatTexture
-        ? this.cacheTexture(material.clearcoatTexture, false).view
+    const ao = sources?.occlusionTexture
+      ? this.cacheTexture(sources.occlusionTexture, false).view
+      : native && native[2]
+        ? this.cacheTexture(native[2], false).view
         : this.whiteView;
-    const clearcoatRoughness =
-      pbr && material.clearcoatRoughnessTexture
-        ? this.cacheTexture(material.clearcoatRoughnessTexture, false).view
+    const emissive = sources?.emissiveTexture
+      ? this.cacheTexture(sources.emissiveTexture, false).view
+      : native && native[3]
+        ? this.cacheTexture(native[3], false).view
         : this.whiteView;
-    const clearcoatNormal =
-      pbr && material.clearcoatNormalTexture
-        ? this.cacheTexture(material.clearcoatNormalTexture, false).view
-        : this.whiteView;
-    const sheenColor =
-      pbr && material.sheenColorTexture
-        ? this.cacheTexture(material.sheenColorTexture, false).view
-        : this.whiteView;
-    const sheenRoughness =
-      pbr && material.sheenRoughnessTexture
-        ? this.cacheTexture(material.sheenRoughnessTexture, false).view
-        : this.whiteView;
+    const specular = sources?.specularTexture
+      ? this.cacheTexture(sources.specularTexture, false).view
+      : this.whiteView;
+    const specularColor = sources?.specularColorTexture
+      ? this.cacheTexture(sources.specularColorTexture, false).view
+      : this.whiteView;
+    const clearcoat = sources?.clearcoatTexture
+      ? this.cacheTexture(sources.clearcoatTexture, false).view
+      : this.whiteView;
+    const clearcoatRoughness = sources?.clearcoatRoughnessTexture
+      ? this.cacheTexture(sources.clearcoatRoughnessTexture, false).view
+      : this.whiteView;
+    const clearcoatNormal = sources?.clearcoatNormalTexture
+      ? this.cacheTexture(sources.clearcoatNormalTexture, false).view
+      : this.whiteView;
+    const sheenColor = sources?.sheenColorTexture
+      ? this.cacheTexture(sources.sheenColorTexture, false).view
+      : this.whiteView;
+    const sheenRoughness = sources?.sheenRoughnessTexture
+      ? this.cacheTexture(sources.sheenRoughnessTexture, false).view
+      : this.whiteView;
     const optical = pbr
       ? this.cacheOpticalMaps(material)
       : this.emptyOpticalView;
@@ -2175,13 +2403,17 @@ export class WebGPUMeshPipeline {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): GPUTextureView {
-    const a = material.transmissionTexture,
-      b = material.thicknessTexture;
+    const a = pbrTextureSources(material).transmissionTexture,
+      b = pbrTextureSources(material).thicknessTexture;
     if (!a && !b) return this.emptyOpticalView;
     if (a?.destroyed || b?.destroyed)
       throw new GraphicsError('WebGPU optical map has been destroyed.');
-    const existing = this.opticalTextures.get(material);
-    if (existing) {
+    let existing = this.opticalTextures.get(material);
+    const sourceVersions = [a?.version ?? -1, b?.version ?? -1] as const;
+    if (
+      existing?.sourceVersions?.[0] === sourceVersions[0] &&
+      existing.sourceVersions[1] === sourceVersions[1]
+    ) {
       existing.allocation.touch();
       existing.seen = this.frame;
       return existing.view;
@@ -2191,20 +2423,27 @@ export class WebGPUMeshPipeline {
         Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
       ),
     );
-    const allocation = this.residency.textures.allocate(side * side * 8, () => {
-      this.opticalTextures.get(material)?.resource.destroy();
-      this.opticalTextures.delete(material);
-      this.textureEpoch++;
-    });
-    let resource: GPUTexture | undefined;
+    if (existing && existing.resource.width !== side) {
+      existing.allocation.destroy();
+      existing = undefined;
+    }
+    const allocation =
+      existing?.allocation ??
+      this.residency.textures.allocate(side * side * 8, () => {
+        this.opticalTextures.get(material)?.resource.destroy();
+        this.opticalTextures.delete(material);
+        this.textureEpoch++;
+      });
+    let resource: GPUTexture | undefined = existing?.resource;
     try {
-      resource = this.device.createTexture({
+      resource ??= this.device.createTexture({
         size: [side, side, 2],
         format: 'rgba8unorm',
         usage:
           GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
       });
-      const view = resource.createView({ dimension: '2d-array' });
+      const view =
+        existing?.view ?? resource.createView({ dimension: '2d-array' });
       const encoder = this.device.createCommandEncoder();
       for (let layer = 0; layer < 2; layer++) {
         const source = layer === 0 ? a : b;
@@ -2230,7 +2469,10 @@ export class WebGPUMeshPipeline {
         allocation,
         view,
         seen: this.frame,
+        sourceVersions,
       });
+      if (!existing) this.textureEpoch++;
+      allocation.touch();
       return view;
     } catch (error) {
       resource?.destroy();
@@ -2240,18 +2482,39 @@ export class WebGPUMeshPipeline {
   }
 
   private cacheTexture(
-    texture: Texture,
+    texture: MaterialTexture,
     premultiplied: boolean,
   ): CachedTexture {
     if (texture.destroyed)
       throw new GraphicsError('WebGPU material map has been destroyed.');
     const cache = premultiplied ? this.premultipliedTextures : this.textures;
     const existing = cache.get(texture);
-    if (existing) {
+    if (
+      existing &&
+      existing.resource.width === texture.width &&
+      existing.resource.height === texture.height
+    ) {
       existing.allocation.touch();
       existing.seen = this.frame;
+      if (existing.version !== texture.version) {
+        if (texture instanceof NativeTexture2D)
+          uploadNativeWebGPU(this.device, existing.resource, texture);
+        else
+          this.device.queue.copyExternalImageToTexture(
+            { source: texture.image },
+            { texture: existing.resource, premultipliedAlpha: premultiplied },
+            [texture.width, texture.height],
+          );
+        existing.version = texture.version;
+        this.stats.upload(
+          texture instanceof NativeTexture2D
+            ? texture.byteLength
+            : texture.width * texture.height * 4,
+        );
+      }
       return existing;
     }
+    existing?.allocation.destroy();
     const { width, height } = texture;
     const limit = this.device.limits.maxTextureDimension2D;
     if (
@@ -2297,6 +2560,7 @@ export class WebGPUMeshPipeline {
         allocation,
         view: resource.createView(),
         seen: this.frame,
+        version: texture.version,
       };
       cache.set(texture, entry);
       this.textureEpoch++;
@@ -2325,10 +2589,10 @@ export class WebGPUMeshPipeline {
       data[25] = material.emissive[1];
       data[26] = material.emissive[2];
       data[27] = material.occlusionStrength;
-      data[28] = material.metallicRoughnessTexture ? 1 : 0;
-      data[29] = material.normalTexture ? 1 : 0;
-      data[30] = material.occlusionTexture ? 1 : 0;
-      data[31] = material.emissiveTexture ? 1 : 0;
+      data[28] = pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0;
+      data[29] = pbrTextureSources(material).normalTexture ? 1 : 0;
+      data[30] = pbrTextureSources(material).occlusionTexture ? 1 : 0;
+      data[31] = pbrTextureSources(material).emissiveTexture ? 1 : 0;
       data[32] = material.alphaCutoff;
       data[33] = material.doubleSided ? 1 : 0;
       data[36] = material.specularColor[0];
@@ -2338,20 +2602,20 @@ export class WebGPUMeshPipeline {
         material.ior === 0 ? 1 : ((material.ior - 1) / (material.ior + 1)) ** 2;
       data[40] = material.specular;
       data[41] = material.ior === 0 ? 1 : 0;
-      data[42] = material.specularTexture ? 1 : 0;
-      data[43] = material.specularColorTexture ? 1 : 0;
+      data[42] = pbrTextureSources(material).specularTexture ? 1 : 0;
+      data[43] = pbrTextureSources(material).specularColorTexture ? 1 : 0;
       data[44] = material.clearcoat;
       data[45] = material.clearcoatRoughness;
       data[46] = material.clearcoatNormalScale;
-      data[48] = material.clearcoatTexture ? 1 : 0;
-      data[49] = material.clearcoatRoughnessTexture ? 1 : 0;
-      data[50] = material.clearcoatNormalTexture ? 1 : 0;
+      data[48] = pbrTextureSources(material).clearcoatTexture ? 1 : 0;
+      data[49] = pbrTextureSources(material).clearcoatRoughnessTexture ? 1 : 0;
+      data[50] = pbrTextureSources(material).clearcoatNormalTexture ? 1 : 0;
       data[52] = material.sheenColor[0];
       data[53] = material.sheenColor[1];
       data[54] = material.sheenColor[2];
       data[55] = material.sheenRoughness;
-      data[56] = material.sheenColorTexture ? 1 : 0;
-      data[57] = material.sheenRoughnessTexture ? 1 : 0;
+      data[56] = pbrTextureSources(material).sheenColorTexture ? 1 : 0;
+      data[57] = pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0;
       data[60] = material.transmission;
       data[61] = material.thickness;
       data[62] = 1 / material.attenuationDistance;
@@ -2362,13 +2626,13 @@ export class WebGPUMeshPipeline {
       fillOpticalMapSettings(
         data,
         68,
-        material.transmissionTexture,
+        pbrTextureSources(material).transmissionTexture,
         material.transmissionSampler,
       );
       fillOpticalMapSettings(
         data,
         72,
-        material.thicknessTexture,
+        pbrTextureSources(material).thicknessTexture,
         material.thicknessSampler,
       );
       data[35] =
@@ -2384,7 +2648,7 @@ export class WebGPUMeshPipeline {
     }
     data[34] = object.receiveShadow ? 1 : 0;
     data[47] = object instanceof SkinnedMesh ? 1 : 0;
-    data[51] = material.texture.kind === 'native' ? 1 : 0;
+    data[51] = materialBaseTexture(material).kind === 'native' ? 1 : 0;
     const customOffset = 76 + REFLECTION_FLOAT_COUNT;
     if (material instanceof NativeMaterial3D)
       data.set(material.uniforms, customOffset);
@@ -2448,10 +2712,8 @@ export class WebGPUMeshPipeline {
       mesh.visibilityVersion = packed.version;
       mesh.visibilityPayload = packed;
     }
-    mesh.environment =
-      material instanceof PBRMaterial
-        ? fillReflectionData(scene, object, data, 76)
-        : undefined;
+    fillProbeBlendData(scene, data, 76, this.selectedProbes);
+    for (let i = 0; i < 5; i++) data[76 + i * 52 + 38] = this.probeMipCount - 1;
     if (
       object instanceof InstancedMesh &&
       mesh.instanceVersion !== object.version
@@ -2499,8 +2761,8 @@ export class WebGPUMeshPipeline {
     this.releaseUnusedTextures(this.premultipliedTextures);
     for (const [material, entry] of this.opticalTextures)
       if (
-        material.transmissionTexture?.destroyed ||
-        material.thicknessTexture?.destroyed ||
+        pbrTextureSources(material).transmissionTexture?.destroyed ||
+        pbrTextureSources(material).thicknessTexture?.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
           entry.seen !== this.frame &&
           !entry.allocation.references)
@@ -2508,7 +2770,9 @@ export class WebGPUMeshPipeline {
         entry.allocation.destroy();
   }
 
-  private releaseUnusedTextures(cache: Map<Texture, CachedTexture>): void {
+  private releaseUnusedTextures(
+    cache: Map<MaterialTexture, CachedTexture>,
+  ): void {
     for (const [texture, entry] of cache)
       if (
         texture.destroyed ||
@@ -2521,6 +2785,8 @@ export class WebGPUMeshPipeline {
 
   destroy(): void {
     this.destroyed = true;
+    this.probeAllocation?.destroy();
+    this.temporal.destroy();
     for (const entry of this.nativeMaterials.values()) entry.unsubscribe();
     this.nativeMaterials.clear();
     this.visibilityCache.clear();

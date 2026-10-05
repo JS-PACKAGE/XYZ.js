@@ -1,0 +1,131 @@
+const require_gpu_timing = require("./gpu-timing.cjs");
+const require_oit_shaders = require("./oit-shaders.cjs");
+//#region dist/packages/graphics/src/webgpu-oit.js
+var WebGPUOIT = class {
+	device;
+	samples;
+	stats;
+	textures = [];
+	residentBytes = 0;
+	width = 0;
+	height = 0;
+	group;
+	colors = [];
+	composite;
+	layout;
+	constructor(e, n, r) {
+		this.device = e, this.samples = n, this.stats = r, this.layout = e.createBindGroupLayout({ entries: [0, 1].map((e) => ({
+			binding: e,
+			visibility: GPUShaderStage.FRAGMENT,
+			texture: { sampleType: `unfilterable-float` }
+		})) });
+		let i = e.createShaderModule({ code: require_oit_shaders.oitCompositeWGSL }), a = {
+			srcFactor: `one`,
+			dstFactor: `one-minus-src-alpha`
+		};
+		this.composite = e.createRenderPipeline({
+			layout: e.createPipelineLayout({ bindGroupLayouts: [this.layout] }),
+			vertex: {
+				module: i,
+				entryPoint: `vertexMain`
+			},
+			fragment: {
+				module: i,
+				entryPoint: `fragmentMain`,
+				targets: [{
+					format: `rgba16float`,
+					blend: {
+						color: a,
+						alpha: a
+					}
+				}]
+			},
+			primitive: { topology: `triangle-list` }
+		});
+	}
+	begin(t, n, r, i) {
+		return (this.width !== n || this.height !== r || !this.group) && this.allocate(n, r), require_gpu_timing.beginTimedRenderPass(t, {
+			colorAttachments: this.colors,
+			depthStencilAttachment: {
+				view: i,
+				depthReadOnly: !0
+			}
+		});
+	}
+	resolve(t, n) {
+		let r = require_gpu_timing.beginTimedRenderPass(t, { colorAttachments: [{
+			view: n,
+			loadOp: `load`,
+			storeOp: `store`
+		}] });
+		try {
+			r.setPipeline(this.composite), r.setBindGroup(0, this.group), r.draw(3);
+		} finally {
+			r.end();
+		}
+	}
+	allocate(e, t) {
+		this.release();
+		let n = [];
+		try {
+			for (let r = 0; r < 2; r++) {
+				let i = r === 0 ? `rgba16float` : `r8unorm`, a = this.device.createTexture({
+					size: [e, t],
+					format: i,
+					usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING
+				});
+				this.textures.push(a);
+				let o = e * t * (r === 0 ? 8 : 1);
+				this.residentBytes += o, this.stats.target(o);
+				let s = a.createView();
+				n.push({
+					binding: r,
+					resource: s
+				});
+				let c = {
+					view: s,
+					clearValue: r === 0 ? [
+						0,
+						0,
+						0,
+						0
+					] : [
+						1,
+						1,
+						1,
+						1
+					],
+					loadOp: `clear`,
+					storeOp: `store`
+				};
+				if (this.samples > 1) {
+					let n = this.device.createTexture({
+						size: [e, t],
+						format: i,
+						sampleCount: this.samples,
+						usage: GPUTextureUsage.RENDER_ATTACHMENT
+					});
+					this.textures.push(n), this.residentBytes += o * this.samples, this.stats.target(o * this.samples), c.view = n.createView(), c.resolveTarget = s, c.storeOp = `discard`;
+				}
+				this.colors.push(c);
+			}
+			this.group = this.device.createBindGroup({
+				layout: this.layout,
+				entries: n
+			}), this.width = e, this.height = t;
+		} catch (e) {
+			throw this.release(), e;
+		}
+	}
+	resize(e, t) {
+		(this.width !== e || this.height !== t) && this.release();
+	}
+	release() {
+		for (let e of this.textures) e.destroy();
+		this.stats.target(-this.residentBytes), this.residentBytes = 0, this.textures.length = this.colors.length = 0, this.group = void 0, this.width = this.height = 0;
+	}
+};
+//#endregion
+exports.WebGPUOIT = WebGPUOIT;
+
+//# sourceMappingURL=webgpu-oit.cjs.map

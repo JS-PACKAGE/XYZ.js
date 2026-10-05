@@ -1,0 +1,414 @@
+const require_world2d = require("../../../../src/data/world2d.cjs");
+const require_collider = require("./collider.cjs");
+//#region dist/packages/core/src/physics2d/joints.js
+var i = new (require("../game-object.cjs")).GameObject();
+var groundView = Object.freeze({
+	owner: i,
+	body: void 0,
+	inverseMass: 0,
+	inverseInertia: 0,
+	joints: []
+});
+function readPose(e, t) {
+	if (!e.parent) t.x = e.position.x, t.y = e.position.y, t.angle = e.rotation;
+	else {
+		let n = e.updateWorldMatrix().elements;
+		t.x = n[6], t.y = n[7], t.angle = Math.atan2(n[1], n[0]);
+	}
+	return t;
+}
+var a = {
+	x: 0,
+	y: 0,
+	angle: 0
+};
+var o = {
+	x: 0,
+	y: 0,
+	angle: 0
+};
+var s = {
+	x: 0,
+	y: 0
+};
+function angularVelocity(e) {
+	return e.body && e.body.type !== `static` && !e.body.lockRotation ? e.body.angularVelocity : 0;
+}
+function addVelocity(e, t, n, r) {
+	e.inverseMass && e.body && (e.body.velocity.x += t, e.body.velocity.y += n, e.body.setSolverAngularVelocity(e.body.angularVelocity + r));
+}
+function move(e, t, n, r) {
+	e.inverseMass && (e.owner.position.x += t, e.owner.position.y += n, e.owner.rotation += r);
+}
+var linearX = (e) => e.body && e.body.type !== `static` ? e.body.velocity.x : 0;
+var linearY = (e) => e.body && e.body.type !== `static` ? e.body.velocity.y : 0;
+var Joint2D = class {
+	bodyA;
+	bodyB;
+	collideConnected;
+	breakForce;
+	onBreak;
+	viewA = groundView;
+	viewB = groundView;
+	localAx = 0;
+	localAy = 0;
+	localBx = 0;
+	localBy = 0;
+	referenceAngle = 0;
+	rAx = 0;
+	rAy = 0;
+	rBx = 0;
+	rBy = 0;
+	mA = 0;
+	mB = 0;
+	iA = 0;
+	iB = 0;
+	reactionX = 0;
+	reactionY = 0;
+	anchor;
+	anchorB;
+	attachedWorld;
+	constructor(e) {
+		if (this.bodyA = e.bodyA, this.bodyB = e.bodyB, e.bodyA === e.bodyB) throw RangeError(`A joint needs two different bodies.`);
+		if (this.anchor = [require_collider.finite(e.anchor[0], `anchor.x`), require_collider.finite(e.anchor[1], `anchor.y`)], this.anchorB = [require_collider.finite((e.anchorB ?? e.anchor)[0], `anchorB.x`), require_collider.finite((e.anchorB ?? e.anchor)[1], `anchorB.y`)], this.collideConnected = e.collideConnected ?? !1, this.breakForce = e.breakForce ?? 1 / 0, !(this.breakForce > 0)) throw RangeError(`breakForce must be positive.`);
+	}
+	get attached() {
+		return this.attachedWorld !== void 0;
+	}
+	get reactionForce() {
+		return Math.hypot(this.reactionX, this.reactionY) * this.stepRate;
+	}
+	stepRate = 0;
+	attach(e, t, n) {
+		if (this.attachedWorld) throw Error(`Joint is already attached.`);
+		this.viewA = n ? t : groundView, this.viewB = n ?? t;
+		let r = n ? this.anchor : this.anchorB, i = n ? this.anchorB : this.anchor, s = readPose(this.viewA.owner, a), c = readPose(this.viewB.owner, o), l = Math.cos(s.angle), u = Math.sin(s.angle), d = Math.cos(c.angle), f = Math.sin(c.angle);
+		this.localAx = l * (r[0] - s.x) + u * (r[1] - s.y), this.localAy = -u * (r[0] - s.x) + l * (r[1] - s.y), this.localBx = d * (i[0] - c.x) + f * (i[1] - c.y), this.localBy = -f * (i[0] - c.x) + d * (i[1] - c.y), this.referenceAngle = c.angle - s.angle, this.initialize(s, c), this.attachedWorld = e, this.viewA !== groundView && this.viewA.joints.push(this), this.viewB.joints.push(this);
+	}
+	detach() {
+		for (let e of [this.viewA, this.viewB]) {
+			let t = e.joints.indexOf(this);
+			t >= 0 && e.joints.splice(t, 1);
+		}
+		this.attachedWorld = void 0;
+	}
+	partner(e) {
+		let t = e === this.viewA ? this.viewB : this.viewA;
+		return t === groundView ? void 0 : t;
+	}
+	get resting() {
+		let asleep = (e) => e.body?.type === `kinematic` ? e.body.velocity.x === 0 && e.body.velocity.y === 0 && e.body.angularVelocity === 0 : !e.inverseMass || (e.body?.isSleeping ?? !0);
+		return asleep(this.viewA) && asleep(this.viewB);
+	}
+	get views() {
+		return [this.viewA, this.viewB];
+	}
+	anchors() {
+		let e = readPose(this.viewA.owner, a), t = readPose(this.viewB.owner, o), n = Math.cos(e.angle), r = Math.sin(e.angle), i = Math.cos(t.angle), s = Math.sin(t.angle);
+		return [
+			e.x + n * this.localAx - r * this.localAy,
+			e.y + r * this.localAx + n * this.localAy,
+			t.x + i * this.localBx - s * this.localBy,
+			t.y + s * this.localBx + i * this.localBy
+		];
+	}
+	initialize(e, t) {}
+	prepare(e) {
+		let t = readPose(this.viewA.owner, a), n = readPose(this.viewB.owner, o), r = Math.cos(t.angle), i = Math.sin(t.angle), s = Math.cos(n.angle), c = Math.sin(n.angle);
+		this.rAx = r * this.localAx - i * this.localAy, this.rAy = i * this.localAx + r * this.localAy, this.rBx = s * this.localBx - c * this.localBy, this.rBy = c * this.localBx + s * this.localBy, this.mA = this.viewA.inverseMass, this.mB = this.viewB.inverseMass, this.iA = this.viewA.inverseInertia, this.iB = this.viewB.inverseInertia, this.reactionX = this.reactionY = 0, this.stepRate = 1 / e, this.prepareStep(e, t, n);
+	}
+	relativeAnchorVelocity(e) {
+		let t = angularVelocity(this.viewA), n = angularVelocity(this.viewB);
+		e.x = linearX(this.viewB) - n * this.rBy - (linearX(this.viewA) - t * this.rAy), e.y = linearY(this.viewB) + n * this.rBx - (linearY(this.viewA) + t * this.rAx);
+	}
+	applyImpulse(e, t) {
+		addVelocity(this.viewA, -e * this.mA, -t * this.mA, -this.iA * (this.rAx * t - this.rAy * e)), addVelocity(this.viewB, e * this.mB, t * this.mB, this.iB * (this.rBx * t - this.rBy * e)), this.reactionX += e, this.reactionY += t;
+	}
+	applyAngularImpulse(e) {
+		addVelocity(this.viewA, 0, 0, -this.iA * e), addVelocity(this.viewB, 0, 0, this.iB * e);
+	}
+	relativeAngularVelocity() {
+		return angularVelocity(this.viewB) - angularVelocity(this.viewA);
+	}
+	solvePointVelocity() {
+		let e = s;
+		this.relativeAnchorVelocity(e);
+		let t = this.mA + this.mB, n = t + this.rAy * this.rAy * this.iA + this.rBy * this.rBy * this.iB, r = -this.rAy * this.rAx * this.iA - this.rBy * this.rBx * this.iB, i = t + this.rAx * this.rAx * this.iA + this.rBx * this.rBx * this.iB, a = n * i - r * r;
+		a !== 0 && this.applyImpulse(-(i * e.x - r * e.y) / a, -(n * e.y - r * e.x) / a);
+	}
+	solvePointPosition() {
+		let e = readPose(this.viewA.owner, a), n = readPose(this.viewB.owner, o), r = Math.cos(e.angle), i = Math.sin(e.angle), s = Math.cos(n.angle), c = Math.sin(n.angle), l = r * this.localAx - i * this.localAy, u = i * this.localAx + r * this.localAy, d = s * this.localBx - c * this.localBy, f = c * this.localBx + s * this.localBy, p = n.x + d - (e.x + l), m = n.y + f - (e.y + u), h = Math.hypot(p, m), g = require_world2d.physicsDefaults.jointMaxCorrection, _ = h > g ? g / h : 1, v = this.mA + this.mB, y = v + u * u * this.iA + f * f * this.iB, b = -u * l * this.iA - f * d * this.iB, x = v + l * l * this.iA + d * d * this.iB, S = y * x - b * b;
+		if (S === 0) return h;
+		let C = -(x * p - b * m) / S * _, w = -(y * m - b * p) / S * _;
+		return move(this.viewA, -C * this.mA, -w * this.mA, -this.iA * (l * w - u * C)), move(this.viewB, C * this.mB, w * this.mB, this.iB * (d * w - f * C)), h;
+	}
+	currentAngle() {
+		return readPose(this.viewB.owner, o).angle - readPose(this.viewA.owner, a).angle - this.referenceAngle;
+	}
+};
+var DistanceJoint = class extends Joint2D {
+	type = `distance`;
+	length;
+	frequencyHz;
+	dampingRatio;
+	nx = 0;
+	ny = 0;
+	axialMass = 0;
+	gamma = 0;
+	bias = 0;
+	impulse = 0;
+	constructor(e) {
+		super(e), this.length = e.length ?? Math.hypot((e.anchorB ?? e.anchor)[0] - e.anchor[0], (e.anchorB ?? e.anchor)[1] - e.anchor[1]), this.frequencyHz = require_collider.nonnegativeFinite(e.frequencyHz ?? 0, `frequencyHz`), this.dampingRatio = require_collider.nonnegativeFinite(e.dampingRatio ?? 0, `dampingRatio`), this.length = require_collider.nonnegativeFinite(this.length, `length`);
+	}
+	prepareStep(e, t, n) {
+		let r = n.x + this.rBx - (t.x + this.rAx), i = n.y + this.rBy - (t.y + this.rAy), a = Math.hypot(r, i);
+		this.nx = a > 1e-9 ? r / a : 1, this.ny = a > 1e-9 ? i / a : 0;
+		let o = this.rAx * this.ny - this.rAy * this.nx, s = this.rBx * this.ny - this.rBy * this.nx, c = this.mA + this.mB + this.iA * o * o + this.iB * s * s;
+		if (this.axialMass = c > 0 ? 1 / c : 0, this.gamma = 0, this.bias = 0, this.impulse = 0, this.frequencyHz > 0 && this.axialMass > 0) {
+			let t = 2 * Math.PI * this.frequencyHz, n = 2 * this.axialMass * this.dampingRatio * t, r = this.axialMass * t * t, i = e * (n + e * r);
+			this.gamma = i > 0 ? 1 / i : 0, this.bias = (a - this.length) * e * r * this.gamma, this.axialMass = 1 / (c + this.gamma);
+		}
+	}
+	solveVelocity() {
+		let e = s;
+		this.relativeAnchorVelocity(e);
+		let t = this.nx * e.x + this.ny * e.y, n = -this.axialMass * (t + this.bias + this.gamma * this.impulse);
+		this.impulse += n, this.applyImpulse(n * this.nx, n * this.ny);
+	}
+	solvePosition() {
+		if (this.frequencyHz > 0) return 0;
+		let e = readPose(this.viewA.owner, a), n = readPose(this.viewB.owner, o), r = Math.cos(e.angle), i = Math.sin(e.angle), s = Math.cos(n.angle), c = Math.sin(n.angle), l = r * this.localAx - i * this.localAy, u = i * this.localAx + r * this.localAy, d = s * this.localBx - c * this.localBy, f = c * this.localBx + s * this.localBy, p = n.x + d - (e.x + l), m = n.y + f - (e.y + u), h = Math.hypot(p, m);
+		if (h < 1e-9) return 0;
+		let g = p / h, _ = m / h, v = h - this.length, y = require_world2d.physicsDefaults.jointMaxCorrection, b = Math.max(-y, Math.min(y, v)), x = l * _ - u * g, S = d * _ - f * g, C = this.mA + this.mB + this.iA * x * x + this.iB * S * S;
+		if (C <= 0) return Math.abs(v);
+		let w = -b / C;
+		return move(this.viewA, -w * g * this.mA, -w * _ * this.mA, -this.iA * w * x), move(this.viewB, w * g * this.mB, w * _ * this.mB, this.iB * w * S), Math.abs(v);
+	}
+};
+var RevoluteJoint = class extends Joint2D {
+	type = `revolute`;
+	lowerAngle;
+	upperAngle;
+	motorSpeed;
+	maxMotorTorque;
+	angularMass = 0;
+	motorImpulse = 0;
+	lowerImpulse = 0;
+	upperImpulse = 0;
+	angle = 0;
+	constructor(e) {
+		if (super(e), this.lowerAngle = e.lowerAngle ?? -1 / 0, this.upperAngle = e.upperAngle ?? 1 / 0, !(this.lowerAngle <= this.upperAngle)) throw RangeError(`lowerAngle must not exceed upperAngle.`);
+		this.motorSpeed = require_collider.finite(e.motorSpeed ?? 0, `motorSpeed`), this.maxMotorTorque = require_collider.nonnegativeFinite(e.maxMotorTorque ?? 0, `maxMotorTorque`);
+	}
+	get jointAngle() {
+		return this.angle;
+	}
+	prepareStep(e, t, n) {
+		let r = this.iA + this.iB;
+		this.angularMass = r > 0 ? 1 / r : 0, this.motorImpulse = this.lowerImpulse = this.upperImpulse = 0, this.angle = n.angle - t.angle - this.referenceAngle;
+	}
+	solveVelocity(e) {
+		if (this.maxMotorTorque > 0 && this.angularMass > 0) {
+			let t = this.relativeAngularVelocity() - this.motorSpeed, n = this.maxMotorTorque * e, r = this.motorImpulse;
+			this.motorImpulse = Math.max(-n, Math.min(n, r - this.angularMass * t)), this.applyAngularImpulse(this.motorImpulse - r);
+		}
+		if (this.angularMass > 0 && Number.isFinite(this.lowerAngle)) {
+			let t = this.angle - this.lowerAngle, n = this.relativeAngularVelocity(), r = this.lowerImpulse;
+			this.lowerImpulse = Math.max(0, r - this.angularMass * (n + Math.max(t, 0) / e)), this.applyAngularImpulse(this.lowerImpulse - r);
+		}
+		if (this.angularMass > 0 && Number.isFinite(this.upperAngle)) {
+			let t = this.upperAngle - this.angle, n = -this.relativeAngularVelocity(), r = this.upperImpulse;
+			this.upperImpulse = Math.max(0, r - this.angularMass * (n + Math.max(t, 0) / e)), this.applyAngularImpulse(-(this.upperImpulse - r));
+		}
+		this.solvePointVelocity();
+	}
+	solvePosition() {
+		let e = 0, n = this.iA + this.iB;
+		if (n > 0 && (Number.isFinite(this.lowerAngle) || Number.isFinite(this.upperAngle))) {
+			let r = this.currentAngle(), i = 0;
+			r < this.lowerAngle ? (i = Math.max(-require_world2d.physicsDefaults.jointMaxAngularCorrection, Math.min(0, r - this.lowerAngle + require_world2d.physicsDefaults.jointAngularSlop)), e = this.lowerAngle - r) : r > this.upperAngle && (i = Math.min(require_world2d.physicsDefaults.jointMaxAngularCorrection, Math.max(0, r - this.upperAngle - require_world2d.physicsDefaults.jointAngularSlop)), e = r - this.upperAngle);
+			let a = -i / n;
+			move(this.viewA, 0, 0, -this.iA * a), move(this.viewB, 0, 0, this.iB * a);
+		}
+		return Math.max(e, this.solvePointPosition());
+	}
+};
+var WeldJoint = class extends Joint2D {
+	type = `weld`;
+	angularMass = 0;
+	prepareStep() {
+		let e = this.iA + this.iB;
+		this.angularMass = e > 0 ? 1 / e : 0;
+	}
+	solveVelocity() {
+		this.angularMass > 0 && this.applyAngularImpulse(-this.angularMass * this.relativeAngularVelocity()), this.solvePointVelocity();
+	}
+	solvePosition() {
+		let e = this.iA + this.iB, n = 0;
+		if (e > 0) {
+			let r = this.currentAngle();
+			n = Math.abs(r);
+			let i = require_world2d.physicsDefaults.jointMaxAngularCorrection, a = -Math.max(-i, Math.min(i, r)) / e;
+			move(this.viewA, 0, 0, -this.iA * a), move(this.viewB, 0, 0, this.iB * a);
+		}
+		return Math.max(n, this.solvePointPosition());
+	}
+};
+var PrismaticJoint = class extends Joint2D {
+	type = `prismatic`;
+	lowerTranslation;
+	upperTranslation;
+	motorSpeed;
+	maxMotorForce;
+	worldAxis;
+	localAxisX = 1;
+	localAxisY = 0;
+	axisX = 1;
+	axisY = 0;
+	axialMass = 0;
+	a1 = 0;
+	a2 = 0;
+	s1 = 0;
+	s2 = 0;
+	translation = 0;
+	motorImpulse = 0;
+	lowerImpulse = 0;
+	upperImpulse = 0;
+	constructor(e) {
+		super(e);
+		let t = Math.hypot(e.axis[0], e.axis[1]);
+		if (!(t > 0) || !Number.isFinite(t)) throw RangeError(`axis must be a finite nonzero vector.`);
+		if (this.worldAxis = [e.axis[0] / t, e.axis[1] / t], this.lowerTranslation = e.lowerTranslation ?? -1 / 0, this.upperTranslation = e.upperTranslation ?? 1 / 0, !(this.lowerTranslation <= this.upperTranslation)) throw RangeError(`lowerTranslation must not exceed upperTranslation.`);
+		this.motorSpeed = require_collider.finite(e.motorSpeed ?? 0, `motorSpeed`), this.maxMotorForce = require_collider.nonnegativeFinite(e.maxMotorForce ?? 0, `maxMotorForce`);
+	}
+	get jointTranslation() {
+		return this.translation;
+	}
+	initialize(e) {
+		let t = Math.cos(e.angle), n = Math.sin(e.angle);
+		this.localAxisX = t * this.worldAxis[0] + n * this.worldAxis[1], this.localAxisY = -n * this.worldAxis[0] + t * this.worldAxis[1];
+	}
+	prepareStep(e, t, n) {
+		let r = Math.cos(t.angle), i = Math.sin(t.angle);
+		this.axisX = r * this.localAxisX - i * this.localAxisY, this.axisY = i * this.localAxisX + r * this.localAxisY;
+		let a = n.x + this.rBx - (t.x + this.rAx), o = n.y + this.rBy - (t.y + this.rAy);
+		this.translation = this.axisX * a + this.axisY * o;
+		let s = -this.axisY, c = this.axisX, l = a + this.rAx, u = o + this.rAy;
+		this.a1 = l * this.axisY - u * this.axisX, this.a2 = this.rBx * this.axisY - this.rBy * this.axisX, this.s1 = l * c - u * s, this.s2 = this.rBx * c - this.rBy * s;
+		let d = this.mA + this.mB + this.iA * this.a1 * this.a1 + this.iB * this.a2 * this.a2;
+		this.axialMass = d > 0 ? 1 / d : 0, this.motorImpulse = this.lowerImpulse = this.upperImpulse = 0;
+	}
+	axialVelocity() {
+		return this.axisX * (linearX(this.viewB) - linearX(this.viewA)) + this.axisY * (linearY(this.viewB) - linearY(this.viewA)) + this.a2 * angularVelocity(this.viewB) - this.a1 * angularVelocity(this.viewA);
+	}
+	applyAxial(e) {
+		let t = e * this.axisX, n = e * this.axisY;
+		addVelocity(this.viewA, -t * this.mA, -n * this.mA, -this.iA * e * this.a1), addVelocity(this.viewB, t * this.mB, n * this.mB, this.iB * e * this.a2), this.reactionX += t, this.reactionY += n;
+	}
+	solveVelocity(e) {
+		if (this.maxMotorForce > 0 && this.axialMass > 0) {
+			let t = this.maxMotorForce * e, n = this.motorImpulse;
+			this.motorImpulse = Math.max(-t, Math.min(t, n + this.axialMass * (this.motorSpeed - this.axialVelocity()))), this.applyAxial(this.motorImpulse - n);
+		}
+		if (this.axialMass > 0 && Number.isFinite(this.lowerTranslation)) {
+			let t = this.translation - this.lowerTranslation, n = this.lowerImpulse;
+			this.lowerImpulse = Math.max(0, n - this.axialMass * (this.axialVelocity() + Math.max(t, 0) / e)), this.applyAxial(this.lowerImpulse - n);
+		}
+		if (this.axialMass > 0 && Number.isFinite(this.upperTranslation)) {
+			let t = this.upperTranslation - this.translation, n = this.upperImpulse;
+			this.upperImpulse = Math.max(0, n - this.axialMass * (-this.axialVelocity() + Math.max(t, 0) / e)), this.applyAxial(-(this.upperImpulse - n));
+		}
+		let t = -this.axisY, n = this.axisX, r = t * (linearX(this.viewB) - linearX(this.viewA)) + n * (linearY(this.viewB) - linearY(this.viewA)) + this.s2 * angularVelocity(this.viewB) - this.s1 * angularVelocity(this.viewA), i = this.relativeAngularVelocity(), a = this.mA + this.mB + this.iA * this.s1 * this.s1 + this.iB * this.s2 * this.s2, o = this.iA * this.s1 + this.iB * this.s2, s = this.iA + this.iB;
+		s === 0 && (s = 1);
+		let c = a * s - o * o;
+		if (c === 0) return;
+		let l = -(s * r - o * i) / c, u = -(a * i - o * r) / c;
+		addVelocity(this.viewA, -t * l * this.mA, -n * l * this.mA, -this.iA * (l * this.s1 + u)), addVelocity(this.viewB, t * l * this.mB, n * l * this.mB, this.iB * (l * this.s2 + u)), this.reactionX += t * l, this.reactionY += n * l;
+	}
+	solvePosition() {
+		let e = readPose(this.viewA.owner, a), n = readPose(this.viewB.owner, o), r = Math.cos(e.angle), i = Math.sin(e.angle), s = Math.cos(n.angle), c = Math.sin(n.angle), l = r * this.localAx - i * this.localAy, u = i * this.localAx + r * this.localAy, d = s * this.localBx - c * this.localBy, f = c * this.localBx + s * this.localBy, p = n.x + d - (e.x + l), m = n.y + f - (e.y + u), h = r * this.localAxisX - i * this.localAxisY, g = i * this.localAxisX + r * this.localAxisY, _ = p + l, v = m + u, y = _ * g - v * h, b = d * g - f * h, x = 0, S = h * p + g * m, C = this.mA + this.mB + this.iA * y * y + this.iB * b * b;
+		if (C > 0) {
+			let e = 0;
+			if (S < this.lowerTranslation ? e = Math.max(-require_world2d.physicsDefaults.jointMaxCorrection, S - this.lowerTranslation) : S > this.upperTranslation && (e = Math.min(require_world2d.physicsDefaults.jointMaxCorrection, S - this.upperTranslation)), e !== 0) {
+				x = Math.abs(e);
+				let t = -e / C;
+				move(this.viewA, -t * h * this.mA, -t * g * this.mA, -this.iA * t * y), move(this.viewB, t * h * this.mB, t * g * this.mB, this.iB * t * b);
+			}
+		}
+		let w = readPose(this.viewA.owner, a), T = readPose(this.viewB.owner, o), E = Math.cos(w.angle), D = Math.sin(w.angle), O = Math.cos(T.angle), k = Math.sin(T.angle), A = E * this.localAx - D * this.localAy, j = D * this.localAx + E * this.localAy, M = O * this.localBx - k * this.localBy, N = k * this.localBx + O * this.localBy, P = T.x + M - (w.x + A), F = T.y + N - (w.y + j), I = E * this.localAxisX - D * this.localAxisY, L = -(D * this.localAxisX + E * this.localAxisY), R = I, z = P + A, B = F + j, V = z * R - B * L, H = M * R - N * L, U = L * P + R * F, W = T.angle - w.angle - this.referenceAngle;
+		x = Math.max(x, Math.abs(U), Math.abs(W));
+		let G = this.mA + this.mB + this.iA * V * V + this.iB * H * H, K = this.iA * V + this.iB * H, q = this.iA + this.iB;
+		q === 0 && (q = 1);
+		let J = G * q - K * K;
+		if (J !== 0) {
+			let e = -(q * U - K * W) / J, t = -(G * W - K * U) / J;
+			move(this.viewA, -L * e * this.mA, -R * e * this.mA, -this.iA * (e * V + t)), move(this.viewB, L * e * this.mB, R * e * this.mB, this.iB * (e * H + t));
+		}
+		return x;
+	}
+};
+var MouseJoint = class extends Joint2D {
+	type = `mouse`;
+	maxForce;
+	frequencyHz;
+	dampingRatio;
+	targetX;
+	targetY;
+	gamma = 0;
+	biasX = 0;
+	biasY = 0;
+	impulseX = 0;
+	impulseY = 0;
+	kXX = 0;
+	kXY = 0;
+	kYY = 0;
+	constructor(e) {
+		if (super({
+			bodyA: e.body,
+			anchor: e.target,
+			collideConnected: !0
+		}), this.targetX = require_collider.finite(e.target[0], `target.x`), this.targetY = require_collider.finite(e.target[1], `target.y`), this.maxForce = require_collider.nonnegativeFinite(e.maxForce, `maxForce`), this.frequencyHz = require_collider.nonnegativeFinite(e.frequencyHz ?? 5, `frequencyHz`), this.dampingRatio = require_collider.nonnegativeFinite(e.dampingRatio ?? .7, `dampingRatio`), this.frequencyHz <= 0) throw RangeError(`frequencyHz must be positive.`);
+	}
+	setTarget(e, t) {
+		this.targetX = require_collider.finite(e, `target.x`), this.targetY = require_collider.finite(t, `target.y`), this.viewB.body?.wake();
+	}
+	get target() {
+		return [this.targetX, this.targetY];
+	}
+	anchors() {
+		let [, , e, t] = super.anchors();
+		return [
+			this.targetX,
+			this.targetY,
+			e,
+			t
+		];
+	}
+	prepareStep(e, t, n) {
+		let r = this.mB > 0 ? 1 / this.mB : 0, i = 2 * Math.PI * this.frequencyHz, a = 2 * r * this.dampingRatio * i, o = r * i * i, s = e * (a + e * o);
+		this.gamma = s > 0 ? 1 / s : 0;
+		let c = e * o * this.gamma;
+		this.biasX = (n.x + this.rBx - this.targetX) * c, this.biasY = (n.y + this.rBy - this.targetY) * c, this.kXX = this.mB + this.iB * this.rBy * this.rBy + this.gamma, this.kXY = -this.iB * this.rBx * this.rBy, this.kYY = this.mB + this.iB * this.rBx * this.rBx + this.gamma, this.impulseX = this.impulseY = 0;
+	}
+	solveVelocity(e) {
+		let t = angularVelocity(this.viewB), n = linearX(this.viewB) - t * this.rBy, r = linearY(this.viewB) + t * this.rBx, i = this.kXX, a = this.kXY, o = this.kYY, s = i * o - a * a;
+		if (s === 0) return;
+		let c = n + this.biasX + this.gamma * this.impulseX, l = r + this.biasY + this.gamma * this.impulseY, u = -(o * c - a * l) / s, d = -(i * l - a * c) / s, f = this.impulseX, p = this.impulseY;
+		this.impulseX += u, this.impulseY += d;
+		let m = this.maxForce * e, h = Math.hypot(this.impulseX, this.impulseY);
+		h > m && (this.impulseX *= m / h, this.impulseY *= m / h), u = this.impulseX - f, d = this.impulseY - p, addVelocity(this.viewB, u * this.mB, d * this.mB, this.iB * (this.rBx * d - this.rBy * u)), this.reactionX += u, this.reactionY += d;
+	}
+	solvePosition() {
+		return 0;
+	}
+};
+//#endregion
+exports.DistanceJoint = DistanceJoint;
+exports.Joint2D = Joint2D;
+exports.MouseJoint = MouseJoint;
+exports.PrismaticJoint = PrismaticJoint;
+exports.RevoluteJoint = RevoluteJoint;
+exports.WeldJoint = WeldJoint;
+exports.groundView = groundView;
+
+//# sourceMappingURL=joints.cjs.map

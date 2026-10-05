@@ -1,0 +1,1 @@
+{"version":3,"file":"materials2d.cjs","names":[],"sources":["../../../src/data/materials2d.js"],"sourcesContent":["export const materials2dLimits=Object.freeze({sourceCharacters:65536,uniformFloats:16});\n//# sourceMappingURL=materials2d.js.map\n"],"mappings":";AAAA,IAAa,oBAAkB,OAAO,OAAO;CAAC,kBAAiB;CAAM,eAAc;AAAE,CAAC"}

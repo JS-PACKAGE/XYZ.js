@@ -191,6 +191,8 @@ export type { Camera3D } from './orthographic-camera.js';
 export type { RaycastHit } from './raycaster.js';
 export type {
   PBRMaterialOptions,
+  PBRTextureKey,
+  PBRTextureSources,
   MaterialAlphaMode,
   TextureSamplerOptions,
   MaterialTextureSlot,
@@ -282,11 +284,15 @@ export type {
   LODOptions,
   HLODOptions,
   Text3DOptions,
+  Text3DStyle,
 } from './objects3d.js';
 export { Decal } from './decal.js';
 export type { DecalOptions } from './decal.js';
 export { ReflectionProbe } from './reflection-probe.js';
-export type { ReflectionProbeOptions } from './reflection-probe.js';
+export type {
+  ReflectionProbeOptions,
+  ReflectionProbeCaptureOptions,
+} from './reflection-probe.js';
 export { NativeMaterial3D } from './native-material3d.js';
 export type { NativeMaterial3DOptions } from './native-material3d.js';
 export { GPUParticleEmitter3D } from './gpu-particles3d.js';
@@ -390,3 +396,24 @@ export type {
   PublishedWorkerGeometry,
 } from './geometry-processing.js';
 export { trustedHeightfieldGeometryJob } from './geometry-worker-job.js';
+export { SeededRandom } from './seeded-random.js';
+export { ObjectPool, ObjectPoolExhaustedError } from './object-pool.js';
+export type { ObjectPoolOptions } from './object-pool.js';
+export { HotSceneOwner, bindSceneHotReload } from './hot-reload.js';
+export type {
+  HotSceneContext,
+  HotSceneFactory,
+  HotSceneOptions,
+  SceneHotAdapter,
+} from './hot-reload.js';
+export { Light2D, Lighting2D, MAX_LIGHTS_2D } from './lighting2d.js';
+export type { Light2DOptions, Lighting2DOptions } from './lighting2d.js';
+export * from './cutscene.js';
+export * from './dialogue.js';
+export * from './quests.js';
+export type {
+  NarrativeValue,
+  NarrativeVariables,
+  NarrativeCondition,
+  NarrativeText,
+} from './narrative-data.js';

@@ -11,9 +11,13 @@ import { type RenderStats, type GpuTimingOptions } from './render-stats.js';
 import { RenderTexture2D, type RenderTextureOptions2D } from './render-texture2d.js';
 import { Geometry } from '../../core/src/geometry.js';
 import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
+import { EnvironmentMap } from '../../core/src/environment.js';
 import { NativeResidency } from './residency.js';
 import type { ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
+import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
+import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 /** Sprite-only fallback; visible 3D meshes are deliberately unsupported. */
 export declare class Canvas2DRenderer implements Renderer {
     private readonly onError;
@@ -27,6 +31,12 @@ export declare class Canvas2DRenderer implements Renderer {
     unloadGeometry(_source: Geometry | Geometry2D): void;
     prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
+    prepareCompute(program: ComputeProgram, options?: ComputePreparationOptions): Promise<void>;
+    uploadCompute(buffer: ComputeBuffer, data: ComputeArray, offset?: number): void;
+    dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
+    readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
+    prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     readonly capabilities: GraphicsCapabilities;
     private canvas;
     private context;

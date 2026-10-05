@@ -1,0 +1,119 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_rendering = require("../../../src/data/rendering.cjs");
+//#region dist/packages/core/src/render-settings.js
+function finite(e, t) {
+	if (!Number.isFinite(e) || !Number.isFinite(Math.fround(e))) throw RangeError(`${t} must be finite and fit in Float32.`);
+}
+function nonnegative(e, t) {
+	if (finite(e, t), e < 0) throw RangeError(`${t} cannot be negative.`);
+}
+var ShadowSettings = class {
+	enabled;
+	mapSize;
+	extent;
+	near;
+	far;
+	bias;
+	target;
+	cascades;
+	cascadeDistance;
+	cascadeLambda;
+	cascadeBlend;
+	slopeBias;
+	cache;
+	cacheRevision = 0;
+	constructor(n = {}) {
+		if (this.enabled = n.enabled ?? !1, this.mapSize = n.mapSize ?? require_rendering.shadowLimits.mapSize, this.extent = n.extent ?? 10, this.near = n.near ?? require_rendering.shadowLimits.near, this.far = n.far ?? require_rendering.shadowLimits.far, this.bias = n.bias ?? .002, this.cascades = n.cascades ?? 1, this.cascadeDistance = n.cascadeDistance ?? require_rendering.shadowLimits.cascadeDistance, this.cascadeLambda = n.cascadeLambda ?? require_rendering.shadowLimits.cascadeLambda, this.cascadeBlend = n.cascadeBlend ?? require_rendering.shadowLimits.cascadeBlend, this.slopeBias = n.slopeBias ?? require_rendering.shadowLimits.slopeBias, this.cache = n.cache ?? !0, n.target !== void 0 && !(n.target instanceof require_math3d.Vector3)) throw TypeError(`Shadow target must be a Vector3.`);
+		this.target = n.target?.clone() ?? new require_math3d.Vector3(), this.validate();
+	}
+	invalidate() {
+		++this.cacheRevision;
+	}
+	get revision() {
+		return this.cacheRevision;
+	}
+	validate() {
+		if (typeof this.enabled != `boolean`) throw TypeError(`Shadow enabled setting must be boolean.`);
+		if (!Number.isSafeInteger(this.mapSize) || this.mapSize < 1) throw RangeError(`Shadow map size must be a positive integer.`);
+		if (finite(this.extent, `Shadow extent`), finite(this.near, `Shadow near plane`), finite(this.far, `Shadow far plane`), this.extent <= 0 || this.near <= 0 || this.far <= this.near) throw RangeError(`Shadow extent and near plane must be positive, and far must exceed near.`);
+		if (nonnegative(this.bias, `Shadow bias`), nonnegative(this.slopeBias, `Shadow slope bias`), finite(this.cascadeBlend, `Cascade blend`), this.cascadeBlend < 0 || this.cascadeBlend > .5) throw RangeError(`Cascade blend must be within 0..0.5.`);
+		if (typeof this.cache != `boolean`) throw TypeError(`Shadow cache setting must be boolean.`);
+		if (!Number.isInteger(this.cascades) || this.cascades < 1 || this.cascades > require_rendering.shadowLimits.cascades) throw RangeError(`Shadow cascades must be an integer in 1..${require_rendering.shadowLimits.cascades}.`);
+		if (finite(this.cascadeDistance, `Cascade distance`), finite(this.cascadeLambda, `Cascade lambda`), this.cascadeDistance <= 0 || this.cascadeLambda < 0 || this.cascadeLambda > 1) throw RangeError(`Cascade distance must be positive and lambda within 0..1.`);
+		if (!(this.target instanceof require_math3d.Vector3)) throw TypeError(`Shadow target must be a Vector3.`);
+		finite(this.target.x, `Shadow target`), finite(this.target.y, `Shadow target`), finite(this.target.z, `Shadow target`);
+	}
+};
+var PostProcessingSettings = class {
+	enabled;
+	exposure;
+	toneMapping;
+	bloomStrength;
+	bloomThreshold;
+	bloomRadius;
+	fxaa;
+	ssao;
+	ssaoRadius;
+	ssaoStrength;
+	ssaoBias;
+	depthOfField;
+	dofFocusDistance;
+	dofFocusRange;
+	dofBlurRadius;
+	taa;
+	taaHistoryWeight;
+	taaDepthThreshold;
+	taaCameraCutDistance;
+	ssr;
+	ssrSteps;
+	ssrThickness;
+	ssrMaxDistance;
+	ssrRoughness;
+	ssrStrength;
+	constructor(e = {}) {
+		this.enabled = e.enabled ?? !1, this.exposure = e.exposure ?? 1, this.toneMapping = e.toneMapping ?? `aces`, this.bloomStrength = e.bloomStrength ?? 0, this.bloomThreshold = e.bloomThreshold ?? 1, this.bloomRadius = e.bloomRadius ?? 2, this.fxaa = e.fxaa ?? require_rendering.fxaaDefaults.enabled, this.ssao = e.ssao ?? require_rendering.depthPostDefaults.ssao, this.ssaoRadius = e.ssaoRadius ?? require_rendering.depthPostDefaults.ssaoRadius, this.ssaoStrength = e.ssaoStrength ?? require_rendering.depthPostDefaults.ssaoStrength, this.ssaoBias = e.ssaoBias ?? require_rendering.depthPostDefaults.ssaoBias, this.depthOfField = e.depthOfField ?? require_rendering.depthPostDefaults.depthOfField, this.dofFocusDistance = e.dofFocusDistance ?? require_rendering.depthPostDefaults.dofFocusDistance, this.dofFocusRange = e.dofFocusRange ?? require_rendering.depthPostDefaults.dofFocusRange, this.dofBlurRadius = e.dofBlurRadius ?? require_rendering.depthPostDefaults.dofBlurRadius, this.taa = e.taa ?? !1, this.taaHistoryWeight = e.taaHistoryWeight ?? require_rendering.advancedPostDefaults.taaHistoryWeight, this.taaDepthThreshold = e.taaDepthThreshold ?? require_rendering.advancedPostDefaults.taaDepthThreshold, this.taaCameraCutDistance = e.taaCameraCutDistance ?? require_rendering.advancedPostDefaults.taaCameraCutDistance, this.ssr = e.ssr ?? !1, this.ssrSteps = e.ssrSteps ?? require_rendering.advancedPostDefaults.ssrSteps, this.ssrThickness = e.ssrThickness ?? require_rendering.advancedPostDefaults.ssrThickness, this.ssrMaxDistance = e.ssrMaxDistance ?? require_rendering.advancedPostDefaults.ssrMaxDistance, this.ssrRoughness = e.ssrRoughness ?? require_rendering.advancedPostDefaults.ssrRoughness, this.ssrStrength = e.ssrStrength ?? require_rendering.advancedPostDefaults.ssrStrength, this.validate();
+	}
+	validate() {
+		if (typeof this.enabled != `boolean`) throw TypeError(`Postprocessing enabled setting must be boolean.`);
+		if (typeof this.fxaa != `boolean`) throw TypeError(`Postprocessing fxaa setting must be boolean.`);
+		if (typeof this.ssao != `boolean` || typeof this.depthOfField != `boolean`) throw TypeError(`SSAO and depthOfField settings must be boolean.`);
+		if (nonnegative(this.ssaoRadius, `SSAO radius`), nonnegative(this.ssaoStrength, `SSAO strength`), nonnegative(this.ssaoBias, `SSAO bias`), nonnegative(this.dofFocusDistance, `DOF focus distance`), nonnegative(this.dofFocusRange, `DOF focus range`), nonnegative(this.dofBlurRadius, `DOF blur radius`), this.ssaoRadius === 0 || this.ssaoStrength > 2 || this.dofFocusDistance === 0 || this.dofFocusRange === 0 || this.dofBlurRadius > require_rendering.depthPostDefaults.maximumBlurRadius) throw RangeError(`SSAO requires radius > 0 and strength <= 2; DOF requires positive focus distance/range and blur radius <= ${require_rendering.depthPostDefaults.maximumBlurRadius}.`);
+		if (this.toneMapping !== `none` && this.toneMapping !== `aces`) throw RangeError(`Tone mapping must be none or aces.`);
+		if (nonnegative(this.exposure, `Exposure`), nonnegative(this.bloomStrength, `Bloom strength`), nonnegative(this.bloomThreshold, `Bloom threshold`), nonnegative(this.bloomRadius, `Bloom radius`), typeof this.taa != `boolean` || typeof this.ssr != `boolean`) throw TypeError(`TAA and SSR settings must be boolean.`);
+		if (nonnegative(this.taaHistoryWeight, `TAA history weight`), nonnegative(this.taaDepthThreshold, `TAA depth threshold`), nonnegative(this.taaCameraCutDistance, `TAA camera cut distance`), nonnegative(this.ssrThickness, `SSR thickness`), nonnegative(this.ssrMaxDistance, `SSR distance`), nonnegative(this.ssrRoughness, `SSR roughness`), nonnegative(this.ssrStrength, `SSR strength`), this.taaHistoryWeight >= 1 || this.taaDepthThreshold === 0 || this.taaCameraCutDistance === 0 || this.ssrThickness === 0 || this.ssrMaxDistance === 0 || this.ssrRoughness > 1 || this.ssrStrength > 1 || !Number.isInteger(this.ssrSteps) || this.ssrSteps < 1 || this.ssrSteps > require_rendering.advancedPostDefaults.maximumSSRSteps) throw RangeError(`TAA requires weight < 1 and positive thresholds; SSR requires positive distance/thickness, roughness/strength <= 1, and 1..128 integer steps.`);
+	}
+};
+var FogSettings = class {
+	enabled;
+	mode;
+	color;
+	near;
+	far;
+	density;
+	constructor(e = {}) {
+		this.enabled = e.enabled ?? !1, this.mode = e.mode ?? `linear`;
+		let t = e.color ?? [
+			.7,
+			.75,
+			.8
+		];
+		this.color = [
+			t[0],
+			t[1],
+			t[2]
+		], this.near = e.near ?? 10, this.far = e.far ?? 100, this.density = e.density ?? .02, this.validate();
+	}
+	validate() {
+		if (typeof this.enabled != `boolean`) throw TypeError(`Fog enabled setting must be boolean.`);
+		if (this.mode !== `linear` && this.mode !== `exp2`) throw RangeError(`Fog mode must be linear or exp2.`);
+		if (!Array.isArray(this.color) || this.color.length !== 3) throw RangeError(`Fog color must contain three components.`);
+		for (let e = 0; e < 3; e++) if (finite(this.color[e], `Fog color component`), this.color[e] < 0 || this.color[e] > 1) throw RangeError(`Fog color components must be within 0..1.`);
+		if (nonnegative(this.near, `Fog near`), nonnegative(this.far, `Fog far`), nonnegative(this.density, `Fog density`), this.mode === `linear` && this.far <= this.near) throw RangeError(`Fog far must exceed near.`);
+	}
+};
+//#endregion
+exports.FogSettings = FogSettings;
+exports.PostProcessingSettings = PostProcessingSettings;
+exports.ShadowSettings = ShadowSettings;
+
+//# sourceMappingURL=render-settings.cjs.map

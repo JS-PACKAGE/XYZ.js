@@ -1,0 +1,1 @@
+{"version":3,"file":"content.cjs","names":[],"sources":["../../../src/data/content.js"],"sourcesContent":["export const contentLimits=Object.freeze({maxNodes:4096,maxDepth:32,maxValues:65536,maxStringLength:4096,maxKeyLength:128});\n//# sourceMappingURL=content.js.map\n"],"mappings":";AAAA,IAAa,gBAAc,OAAO,OAAO;CAAC,UAAS;CAAK,UAAS;CAAG,WAAU;CAAM,iBAAgB;CAAK,cAAa;AAAG,CAAC"}

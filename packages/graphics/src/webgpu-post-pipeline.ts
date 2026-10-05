@@ -178,6 +178,10 @@ export class WebGPUPostPipeline {
     );
   }
 
+  get colorTexture(): GPUTexture {
+    return this.texture!;
+  }
+
   private ensureFxaa(): void {
     if (this.fxaaTexture) return;
     const texture = this.device.createTexture({
@@ -220,9 +224,21 @@ export class WebGPUPostPipeline {
     settings: PostProcessingSettings,
     camera: Camera3D,
     inverseVP: Matrix4,
+    source?: GPUTexture,
+    depth?: GPUTextureView,
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
+    const group = source
+      ? this.device.createBindGroup({
+          layout: this.pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: source.createView() },
+            { binding: 1, resource: { buffer: this.buffer! } },
+            { binding: 2, resource: depth! },
+          ],
+        })
+      : this.bindGroup!;
     this.data[0] = enabled ? settings.exposure : 1;
     this.data[1] = enabled && settings.toneMapping === 'aces' ? 1 : 0;
     this.data[2] = enabled ? settings.bloomStrength : 0;
@@ -252,7 +268,7 @@ export class WebGPUPostPipeline {
     try {
       const pass = beginTimedRenderPass(encoder, this.descriptor);
       pass.setPipeline(this.pipeline);
-      pass.setBindGroup(0, this.bindGroup!);
+      pass.setBindGroup(0, group);
       pass.draw(3);
       pass.end();
       if (fxaa) {

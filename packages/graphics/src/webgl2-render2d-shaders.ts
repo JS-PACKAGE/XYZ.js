@@ -84,11 +84,20 @@ void main() { emitVertex(position, uvq.xy); vUVQ=vec3(uvq.xy*uvq.z,uvq.z); }
 const sampling = `uniform sampler2D image;
 uniform bool renderSource;
 uniform bool repeatUV;
+uniform vec2 distanceField;
 vec4 sampleSource(vec2 uv) {
   vec2 halfTexel=min(0.5/vec2(textureSize(image,0)),vSource.zw*0.5);
   uv=clamp(uv,vSource.xy+halfTexel,vSource.xy+vSource.zw-halfTexel);
   if(renderSource) uv.y=1.0-uv.y;
   vec4 c=texture(image,uv);
+  if(distanceField.x>0.0) {
+    float median=max(min(c.r,c.g),min(max(c.r,c.g),c.b));
+    float distance=(distanceField.x>1.5?median:c.r)-0.5;
+    vec2 pixelUV=fwidth(uv)*vec2(textureSize(image,0));
+    float screenRange=max(1.0,distanceField.y/max(max(pixelUV.x,pixelUV.y),0.00001));
+    float coverage=clamp(distance*screenRange+0.5,0.0,1.0);
+    return vec4(vec3(coverage),coverage);
+  }
   if(!renderSource) c.rgb*=c.a;
   return c;
 }

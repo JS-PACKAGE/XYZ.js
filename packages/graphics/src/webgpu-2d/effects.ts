@@ -159,7 +159,7 @@ export class WebGPU2DEffects {
           buffer: {
             type: 'uniform',
             hasDynamicOffset: true,
-            minBindingSize: 256,
+            minBindingSize: 512,
           },
         },
       ],

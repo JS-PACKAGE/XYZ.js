@@ -47,6 +47,9 @@ export declare class WebGLRender2D {
     private readonly captureCommands;
     private readonly emptyVAO;
     private readonly quadProgram;
+    private readonly lightingProgram;
+    private readonly lightingData;
+    private readonly uploadedLighting;
     private readonly meshProgram;
     private readonly particleProgram;
     private readonly passProgram;
@@ -74,6 +77,7 @@ export declare class WebGLRender2D {
     private bindTarget;
     private objectMatrix;
     private useQuad;
+    private distanceField;
     private sampler;
     private drawCommands;
     private bindInstances;

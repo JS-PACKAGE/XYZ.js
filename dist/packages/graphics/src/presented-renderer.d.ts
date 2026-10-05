@@ -12,6 +12,10 @@ import type { Geometry } from '../../core/src/geometry.js';
 import type { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
 import type { GraphicsResidency, ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
+import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
+import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 /** Auto selection keeps backend context binding away from the caller's canvas. */
 export declare class PresentedRenderer implements Renderer {
     private readonly renderer;
@@ -33,6 +37,12 @@ export declare class PresentedRenderer implements Renderer {
     beginFrame(): void;
     prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
+    prepareCompute(program: ComputeProgram, options?: ComputePreparationOptions): Promise<void>;
+    uploadCompute(buffer: ComputeBuffer, data: ComputeArray, offset?: number): void;
+    dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
+    readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
+    prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;

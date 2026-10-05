@@ -1,0 +1,29 @@
+//#region dist/packages/core/src/frustum.js
+var Frustum = class {
+	planes = /* @__PURE__ */ new Float64Array(24);
+	setFromMatrix(e) {
+		let t = e.elements, n = this.planes, row = (e, n) => t[n * 4 + e], set = (e, t, r, i, a) => {
+			let o = Math.hypot(t, r, i), s = o > 0 ? 1 / o : 0;
+			n[e * 4] = t * s, n[e * 4 + 1] = r * s, n[e * 4 + 2] = i * s, n[e * 4 + 3] = a * s;
+		}, plane = (e, t, n) => set(e, row(3, 0) + t * row(n, 0), row(3, 1) + t * row(n, 1), row(3, 2) + t * row(n, 2), row(3, 3) + t * row(n, 3));
+		return plane(0, 1, 0), plane(1, -1, 0), plane(2, 1, 1), plane(3, -1, 1), set(4, row(2, 0), row(2, 1), row(2, 2), row(2, 3)), plane(5, -1, 2), this;
+	}
+	intersectsSphere(e, t, n, r) {
+		let i = this.planes;
+		for (let a = 0; a < 24; a += 4) if (i[a] * e + i[a + 1] * t + i[a + 2] * n + i[a + 3] < -r) return !1;
+		return !0;
+	}
+	intersectsBox(e, t, n, r, i, a) {
+		if (!Number.isFinite(e + t + n + r + i + a)) return !0;
+		let o = this.planes;
+		for (let s = 0; s < 24; s += 4) {
+			let c = o[s] >= 0 ? r : e, l = o[s + 1] >= 0 ? i : t, u = o[s + 2] >= 0 ? a : n;
+			if (o[s] * c + o[s + 1] * l + o[s + 2] * u + o[s + 3] < 0) return !1;
+		}
+		return !0;
+	}
+};
+//#endregion
+exports.Frustum = Frustum;
+
+//# sourceMappingURL=frustum.cjs.map

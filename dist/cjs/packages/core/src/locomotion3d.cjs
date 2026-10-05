@@ -1,0 +1,172 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_animation_root_motion = require("./animation-root-motion.cjs");
+const require_animation = require("./animation.cjs");
+const require_locomotion3d = require("../../../src/data/locomotion3d.cjs");
+const require_animation_state = require("./animation-state.cjs");
+//#region dist/packages/core/src/locomotion3d.js
+function positive(e, t, n = !1) {
+	if (!Number.isFinite(e) || (n ? e < 0 : e <= 0)) throw RangeError(`${t} must be finite and ${n ? `nonnegative` : `positive`}.`);
+	return e;
+}
+function yawOf(e) {
+	return Math.atan2(2 * (e.w * e.y + e.x * e.z), 1 - 2 * (e.y * e.y + e.z * e.z));
+}
+var CharacterLocomotion3D = class {
+	controller;
+	options;
+	mixer = new require_animation.AnimationMixer();
+	animation;
+	velocity = new require_math3d.Vector3();
+	commanded = new require_math3d.Vector3();
+	displacement = new require_math3d.Vector3();
+	rootDelta = new require_math3d.Vector3();
+	worldDelta = new require_math3d.Vector3();
+	movementOptions = {};
+	bindings;
+	actions;
+	walkSpeed;
+	runSpeed;
+	acceleration;
+	deceleration;
+	gravity;
+	jumpSpeed;
+	terminalSpeed;
+	turnSpeed;
+	fadeDuration;
+	x = 0;
+	z = 0;
+	running = !1;
+	yaw;
+	jumpHeld = !1;
+	jumpPending = !1;
+	verticalSpeed = 0;
+	rootYaw = 0;
+	pausedState = !1;
+	stopped = !1;
+	disposed = !1;
+	updating = !1;
+	generation = 0;
+	lastEpoch;
+	manualAnimation = !1;
+	phaseState = `idle`;
+	moveResult;
+	constructor(e, n) {
+		if (this.controller = e, this.options = n, e.destroyed || e.object.destroyed || n.root === e.object) throw Error(`Locomotion requires a live borrowed controller and a distinct visual root.`);
+		if (n.movement !== void 0 && n.movement !== `velocity` && n.movement !== `root-motion`) throw RangeError(`Unknown locomotion movement mode.`);
+		this.walkSpeed = positive(n.walkSpeed ?? require_locomotion3d.locomotion3DDefaults.walkSpeed, `walkSpeed`), this.runSpeed = positive(n.runSpeed ?? require_locomotion3d.locomotion3DDefaults.runSpeed, `runSpeed`), this.acceleration = positive(n.acceleration ?? require_locomotion3d.locomotion3DDefaults.acceleration, `acceleration`), this.deceleration = positive(n.deceleration ?? require_locomotion3d.locomotion3DDefaults.deceleration, `deceleration`), this.gravity = positive(n.gravity ?? require_locomotion3d.locomotion3DDefaults.gravity, `gravity`, !0), this.jumpSpeed = positive(n.jumpSpeed ?? require_locomotion3d.locomotion3DDefaults.jumpSpeed, `jumpSpeed`), this.terminalSpeed = positive(n.terminalSpeed ?? require_locomotion3d.locomotion3DDefaults.terminalSpeed, `terminalSpeed`), this.turnSpeed = positive(n.turnSpeed ?? require_locomotion3d.locomotion3DDefaults.turnSpeed, `turnSpeed`, !0), this.fadeDuration = positive(n.fadeDuration ?? require_locomotion3d.locomotion3DDefaults.fadeDuration, `fadeDuration`, !0);
+		let i = Object.values(n.animations);
+		if (!i.length || i.length > require_locomotion3d.locomotion3DDefaults.maxStates) throw RangeError(`Locomotion animation count exceeds its finite state limit.`);
+		for (let e of [
+			`idle`,
+			`walk`,
+			`run`,
+			`jump`,
+			`fall`
+		]) if (!Object.hasOwn(n.animations, n.states[e])) throw RangeError(`Missing locomotion animation for ${e}.`);
+		for (let t of i) {
+			t.motionSpeed !== void 0 && positive(t.motionSpeed, `motionSpeed`), t.speed !== void 0 && positive(t.speed, `animation speed`, !0);
+			for (let r of t.clip.tracks) if (r.target === e.object || r.target === n.root && r.path === `scale`) throw Error(`Locomotion clips cannot animate the capsule owner or scale the extracted root.`);
+		}
+		this.bindings = new require_animation_root_motion.AnimationRootMotion(n.root, { sink: (e) => {
+			!this.updating || this.pausedState || this.stopped || this.disposed || (this.rootDelta.copy(e.translation), this.rootYaw = yawOf(e.rotation));
+		} }), this.actions = i.map((e) => this.mixer.clipAction(e.clip));
+		for (let e of this.actions) e.clip.tracks.some((e) => e.target === n.root && (e.path === `translation` || e.path === `rotation`)) && e.setRootMotion(this.bindings);
+		this.animation = new require_animation_state.AnimationStateMachine(this.mixer, {
+			states: n.animations,
+			initial: n.states.idle
+		});
+	}
+	get destroyed() {
+		return this.disposed;
+	}
+	get paused() {
+		return this.pausedState;
+	}
+	set paused(e) {
+		this.disposed || (this.pausedState = e, this.mixer.paused = e, this.cancelPending());
+	}
+	get phase() {
+		return this.phaseState;
+	}
+	get result() {
+		return this.moveResult;
+	}
+	get requestedSpeed() {
+		return Math.hypot(this.commanded.x, this.commanded.z);
+	}
+	setInput(e) {
+		if (this.disposed) return;
+		if (!Number.isFinite(e.x) || !Number.isFinite(e.z) || e.yaw !== void 0 && !Number.isFinite(e.yaw)) throw RangeError(`Locomotion input must be finite.`);
+		let t = Math.hypot(e.x, e.z);
+		this.x = t > 1 ? e.x / t : e.x, this.z = t > 1 ? e.z / t : e.z, this.running = e.run ?? !1, this.yaw = e.yaw, e.jump && !this.jumpHeld && !this.pausedState && !this.stopped && (this.jumpPending = !0), this.jumpHeld = e.jump ?? !1;
+	}
+	requestAnimation(e, t = 1, n = this.fadeDuration) {
+		if (!this.disposed) {
+			if (positive(t, `animation rate`, !0), positive(n, `fade duration`, !0), !Object.hasOwn(this.options.animations, e)) throw RangeError(`Unknown locomotion animation ${e}.`);
+			this.manualAnimation = !0, this.animation.current !== e && this.animation.setState(e, n), this.animation.action.timeScale = t;
+		}
+	}
+	useAutomaticAnimation() {
+		this.manualAnimation = !1;
+	}
+	seek(e) {
+		if (positive(e, `seek time`, !0), this.disposed) return;
+		let t = this.animation.current, n = this.animation.action.timeScale;
+		this.cancelPending(), this.mixer.stopAll(), this.animation.setState(t, 0), this.animation.action.timeScale = n, this.animation.action.time = e;
+	}
+	stop() {
+		this.disposed || (this.stopped = !0, this.cancelPending(), this.mixer.stopAll(), this.commanded.set(0, 0, 0), this.velocity.set(0, 0, 0), this.verticalSpeed = 0);
+	}
+	start() {
+		this.disposed || (this.stopped = !1, this.cancelPending(), this.animation.action.play());
+	}
+	cancelPending() {
+		this.generation++, this.rootDelta.set(0, 0, 0), this.rootYaw = 0, this.jumpPending = !1;
+	}
+	fixedUpdate(e, n) {
+		if (!Number.isFinite(e) || e < 0 || e > require_locomotion3d.locomotion3DDefaults.maxFixedDelta) throw RangeError(`Locomotion fixed delta must be 0..${require_locomotion3d.locomotion3DDefaults.maxFixedDelta} seconds.`);
+		if (n !== void 0 && (!Number.isSafeInteger(n) || n < 0)) throw RangeError(`Locomotion epoch must be a nonnegative safe integer.`);
+		if (this.disposed || this.controller.destroyed || this.options.root.destroyed || this.controller.object.destroyed || this.pausedState || this.mixer.paused || this.stopped || !this.controller.world.enabled || e === 0) return this.moveResult;
+		if (this.updating) throw Error(`Locomotion fixedUpdate is not reentrant.`);
+		if (n !== void 0 && n === this.lastEpoch) return this.moveResult;
+		if (n !== void 0 && this.lastEpoch !== void 0 && n < this.lastEpoch) throw RangeError(`Locomotion epochs must increase.`);
+		this.lastEpoch = n, this.updating = !0;
+		let r = this.generation;
+		try {
+			let a = this.running ? this.runSpeed : this.walkSpeed, o = this.x * a, s = this.z * a, c = o - this.commanded.x, l = s - this.commanded.z, u = Math.hypot(c, l), d = (o === 0 && s === 0 ? this.deceleration : this.acceleration) * e, f = u > 0 ? Math.min(1, d / u) : 0;
+			this.commanded.x += c * f, this.commanded.z += l * f;
+			let p = this.requestedSpeed > require_locomotion3d.locomotion3DDefaults.movingThreshold, m = this.controller.object.rotation, h = yawOf(m), g = this.yaw ?? (p ? Math.atan2(this.commanded.x, this.commanded.z) : h), _ = Math.atan2(Math.sin(g - h), Math.cos(g - h));
+			h += Math.max(-this.turnSpeed * e, Math.min(this.turnSpeed * e, _));
+			let v = !1;
+			if (this.jumpPending && this.controller.grounded && (this.verticalSpeed = this.jumpSpeed, v = !0), this.jumpPending = !1, this.controller.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed = Math.max(-this.terminalSpeed, this.verticalSpeed - this.gravity * e), this.phaseState = v || this.verticalSpeed > 0 ? `jump` : this.controller.grounded ? p ? this.running ? `run` : `walk` : `idle` : `fall`, !this.manualAnimation) {
+				let e = this.options.states[this.phaseState];
+				this.animation.current !== e && this.animation.setState(e, this.fadeDuration);
+				let t = this.options.animations[e];
+				this.animation.action.timeScale = p && t.motionSpeed !== void 0 ? this.requestedSpeed / t.motionSpeed : t.speed ?? 1;
+			}
+			if (this.rootDelta.set(0, 0, 0), this.rootYaw = 0, this.mixer.update(e), r !== this.generation || this.disposed || this.mixer.paused || this.controller.destroyed || this.controller.object.destroyed || this.options.root.destroyed) return this.moveResult;
+			m.setFromEuler(0, h, 0), this.options.movement === `root-motion` && this.controller.grounded && !v ? (this.rootDelta.y = 0, !p && !this.manualAnimation && (this.rootDelta.set(0, 0, 0), this.rootYaw = 0), require_animation_root_motion.rotateAnimationVector(m, this.rootDelta, this.worldDelta), this.displacement.set(this.worldDelta.x, this.verticalSpeed * e, this.worldDelta.z)) : (this.rootYaw = 0, this.displacement.set(this.commanded.x * e, this.verticalSpeed * e, this.commanded.z * e)), this.movementOptions.epoch = n, this.movementOptions.detachSupport = v;
+			let y = this.controller.move(this.displacement, this.movementOptions);
+			if (this.moveResult = y, this.velocity.set(y.locomotionDisplacement.x / e, y.locomotionDisplacement.y / e, y.locomotionDisplacement.z / e), y.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed > 0) {
+				for (let e of y.contacts) if (e.normal.y < -.5) {
+					this.verticalSpeed = 0;
+					break;
+				}
+			}
+			return this.options.movement === `root-motion` && m.setFromEuler(0, yawOf(m) + this.rootYaw, 0), y;
+		} finally {
+			this.rootDelta.set(0, 0, 0), this.rootYaw = 0, this.updating = !1;
+		}
+	}
+	destroy() {
+		if (!this.disposed) {
+			this.disposed = !0, this.cancelPending(), this.animation.destroy();
+			for (let e of this.actions) e.releaseRootMotion();
+			this.mixer.destroy(), this.velocity.set(0, 0, 0), this.commanded.set(0, 0, 0), this.moveResult = void 0;
+		}
+	}
+};
+//#endregion
+exports.CharacterLocomotion3D = CharacterLocomotion3D;
+
+//# sourceMappingURL=locomotion3d.cjs.map

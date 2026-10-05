@@ -62,8 +62,11 @@ import {
   quadWGSL,
 } from './webgpu-render2d-shaders.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
+import { lightingWGSL, packLighting2D } from './lighting2d.js';
+import { validateSpriteLighting2D } from '../../core/src/lighting2d.js';
+import { getTextureDistanceField } from '../../assets/src/fonts/distance-field.js';
 
-const SLOT_BYTES = 256;
+const SLOT_BYTES = 512;
 const SLOT_FLOATS = SLOT_BYTES / 4;
 const MESH_STRIDE = 20;
 type Context2D = {
@@ -165,6 +168,7 @@ export class WebGPURender2D {
   private readonly passLayout: GPUBindGroupLayout;
   private readonly passPipelineLayout: GPUPipelineLayout;
   private readonly normal: GPURenderPipeline;
+  private readonly lighting: GPURenderPipeline;
   private readonly replace: GPURenderPipeline;
   private readonly blends: Readonly<
     Record<'add' | 'screen' | 'erase', GPURenderPipeline>
@@ -177,6 +181,7 @@ export class WebGPURender2D {
   private drawGroup: GPUBindGroup;
   private instanceBuffer: GPUBuffer;
   private instanceData = new Float32Array(0);
+  private uploadedUniforms = new Float32Array(SLOT_FLOATS).fill(NaN);
   private capacity = 0;
   private required = 0;
   private slot = 0;
@@ -195,6 +200,7 @@ export class WebGPURender2D {
     private readonly hooks: WebGPURender2DHooks,
     pipelines: {
       normal: GPURenderPipeline;
+      lighting: GPURenderPipeline;
       replace: GPURenderPipeline;
       blends: Readonly<Record<'add' | 'screen' | 'erase', GPURenderPipeline>>;
       multiply: GPURenderPipeline;
@@ -205,6 +211,7 @@ export class WebGPURender2D {
     },
   ) {
     this.normal = pipelines.normal;
+    this.lighting = pipelines.lighting;
     this.replace = pipelines.replace;
     this.blends = pipelines.blends;
     this.multiply = pipelines.multiply;
@@ -236,6 +243,18 @@ export class WebGPURender2D {
     hooks: WebGPURender2DHooks,
   ): Promise<WebGPURender2D> {
     const quadModule = await effects.module(quadWGSL(), '2D quad');
+    const lightingModule = await effects.module(
+      quadWGSL(lightingWGSL),
+      '2D normal-map lighting',
+    );
+    const lightingLayout = device.createPipelineLayout({
+      bindGroupLayouts: [
+        effects.drawLayout,
+        effects.spriteTextureLayout,
+        effects.uniformLayout,
+        effects.spriteTextureLayout,
+      ],
+    });
     const multiplyModule = await effects.module(
       quadWGSL(undefined, true),
       '2D multiply layer',
@@ -304,6 +323,7 @@ export class WebGPURender2D {
     });
     const layout = effects.quadLayout;
     return new WebGPURender2D(device, effects, hooks, {
+      lighting: createQuadPipeline(device, lightingModule, lightingLayout),
       normal: createQuadPipeline(device, quadModule, layout),
       replace: createQuadPipeline(device, quadModule, layout, undefined),
       blends: {
@@ -487,6 +507,7 @@ export class WebGPURender2D {
         this.validateSource(command.object.texture, command.object.view);
         if (command.kind === 'sprite') {
           getSpriteQuad2D(command.object, this.quad);
+          validateSpriteLighting2D(command.object);
           if (command.object.material)
             this.effects.validate(command.object.material);
         } else {
@@ -541,6 +562,7 @@ export class WebGPURender2D {
       usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
     });
     this.instanceData = new Float32Array(capacity * QUAD_FLOATS);
+    this.uploadedUniforms = new Float32Array(capacity * SLOT_FLOATS).fill(NaN);
     this.drawGroup = this.createDrawGroup();
     this.capacity = capacity;
   }
@@ -629,6 +651,8 @@ export class WebGPURender2D {
     uv?: TextureQuad2D,
     repeat = false,
     native = false,
+    source?: Texture2DSource,
+    deferUpload = false,
   ): void {
     const s = this.scratch,
       target = context.target,
@@ -663,6 +687,22 @@ export class WebGPURender2D {
       s[29] = uv.vy;
       s[30] = repeat ? 1 : 0;
     }
+    const field =
+      source instanceof Texture ? getTextureDistanceField(source) : undefined;
+    s[80] = field ? (field.type === 'sdf' ? 1 : 2) : 0;
+    s[81] = field?.range ?? 0;
+    if (!deferUpload) this.uploadUniforms(slot);
+  }
+  private uploadUniforms(slot: number): void {
+    const offset = slot * SLOT_FLOATS;
+    let changed = false;
+    for (let i = 0; i < SLOT_FLOATS; i++)
+      if (this.uploadedUniforms[offset + i] !== this.scratch[i]) {
+        changed = true;
+        break;
+      }
+    if (!changed) return;
+    this.uploadedUniforms.set(this.scratch, offset);
     this.device.queue.writeBuffer(
       this.uniformBuffer,
       slot * SLOT_BYTES,
@@ -766,7 +806,11 @@ export class WebGPURender2D {
         this.drawLayer(command.object, command.commands, context);
       else if (command.kind === 'sprite') {
         const sprite = command.object;
-        if (sprite.material || sprite instanceof TilingSprite2D)
+        if (
+          sprite.lighting ||
+          sprite.material ||
+          sprite instanceof TilingSprite2D
+        )
           this.drawSprite(sprite, context);
         else {
           const group = this.textureGroup(
@@ -781,6 +825,7 @@ export class WebGPURender2D {
             if (
               next.kind !== 'sprite' ||
               next.object.material ||
+              next.object.lighting ||
               next.object instanceof TilingSprite2D ||
               next.object.worldSpace !== sprite.worldSpace ||
               this.textureGroup(
@@ -794,7 +839,17 @@ export class WebGPURender2D {
             this.packSprite(next.object, context, this.allocate(), true);
           }
           const count = this.slot - first;
-          this.drawUniforms(first, context);
+          this.drawUniforms(
+            first,
+            context,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            false,
+            false,
+            sprite.texture,
+          );
           this.uploadQuads(first, count);
           const pass = this.open(context.target, false);
           pass.setPipeline(this.normal);
@@ -841,6 +896,8 @@ export class WebGPURender2D {
         undefined,
         false,
         sprite.texture.kind === 'native',
+        sprite.texture,
+        !!sprite.lighting,
       );
     this.writeQuad(
       slot,
@@ -862,8 +919,20 @@ export class WebGPURender2D {
       : undefined;
     this.packSprite(sprite, context, slot, false);
     this.uploadQuads(slot, 1);
+    if (sprite.lighting) {
+      this.objectMatrix(sprite, context, this.mapping, true).invert();
+      packLighting2D(
+        sprite,
+        this.mapping,
+        getSpriteQuad2D(sprite, this.quad),
+        this.scratch,
+      );
+      this.uploadUniforms(slot);
+    }
     const pass = this.open(context.target, false);
-    pass.setPipeline(prepared?.layer ?? this.normal);
+    pass.setPipeline(
+      sprite.lighting ? this.lighting : (prepared?.layer ?? this.normal),
+    );
     this.bindDraw(pass, slot);
     pass.setBindGroup(
       1,
@@ -874,6 +943,15 @@ export class WebGPURender2D {
       ),
     );
     pass.setBindGroup(2, prepared?.bindGroup ?? this.effects.defaultUniforms);
+    if (sprite.lighting)
+      pass.setBindGroup(
+        3,
+        this.textureGroup(
+          this.textureOf(sprite.normalTexture ?? sprite.texture),
+          sprite.sampler?.minFilter === 'nearest',
+          sprite.sampler?.magFilter === 'nearest',
+        ),
+      );
     pass.setVertexBuffer(0, this.instanceBuffer);
     pass.draw(6, 1, 0, slot);
     this.hooks.stats.draw2D();
@@ -1445,12 +1523,7 @@ export class WebGPURender2D {
       s[1] = mask!.inverse ? 1 : 0;
       s[2] = mask!.channel === 'red' ? 1 : 0;
     }
-    this.device.queue.writeBuffer(
-      this.uniformBuffer,
-      slot * SLOT_BYTES,
-      this.scratch,
-    );
-    this.hooks.stats.upload(SLOT_BYTES);
+    this.uploadUniforms(slot);
     const auxiliary =
       mode === 4
         ? this.textureOf((filter as DisplacementFilter2D).texture)

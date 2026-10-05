@@ -4,7 +4,7 @@
 
 **目前支援規範：**[v1.14 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.14.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.14.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P103 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。使用者授權沿既有 CI gates 發佈 GitHub v1.14，保留歷史 tags；hosted 驗證與發佈實際結果另記 ACCEPTANCE。Windows CI 測試設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的 browser／host／path 證據擴充。
+本參考描述 **1.14.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P118 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。P104–P118 是尚未發佈的 source 擴充，不在既有 GitHub v1.14 archive；package metadata 仍為 1.14.0。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Windows CI 設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的證據擴充。
 
 五個原 hosted workload與真失焦guard已於[CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252)通過；Windows原生圖形failures仍阻擋發佈。使用者批准只有 pinned native WindowsWebKit在secure origin實測AudioContext／AudioWorkletNode均不存在、符合上游ENABLE_WEB_AUDIO OFF時音訊記UNSUPPORTED。WebKit其他gates及WindowsChromium／Firefox原生音訊assertions仍必須通過，不能宣稱WindowsWebKit音訊認證。
 
@@ -1300,3 +1300,26 @@ v1.12.4 duck scheduler 將立即 native control 錨定在各 context captured cl
 Project preflight 經實際 model／map／atlas／font loaders 驗證 bounded immutable snapshots，提供 file／location 診斷並只發佈新目錄。Archive hygiene 比對 clean／disposable polluted workspace 的 approved paths／bytes。效能校準與獨立 reviewed-profile gate 分開，綁定 host／GPU／backend／workloads，測 loading／steady frame、CPU／hitch，不只有 teardown。實機 evidence 驗證綁 source／session identity 與 exact artifact bytes、要求 independent named human review；不以密碼學宣稱物理真實性，亦不用 managed engine／合成輸入代替實機。
 
 效能 provenance 綁 `expected.presentation`（`headless`／`native-foreground`）；缺少或改變 mode 時 BLOCKED。Native-foreground 為每個 workload 建立獨立 macOS headed Chromium／profile，以 native spawn／CDP PID 及前後 AppKit／window 證據核對。正式 `connectOverCDP({noDefaults:true})` 只操作 default context，讓 Playwright 不安裝 focus override；新 incognito context 不適用此選項，因此不使用。另一 CDP handler 的 `enabled:false` 無法釋放原 handler 的 capture handle。Loopback ephemeral transport argv 明示 pin，不改 scheduling flags／clock／counts／budgets。每個 unchanged production callback 與 lifecycle events 觀察真 document focus／visibility，缺證據或中斷 FAIL，保留已完成量測；不是連續 OS focus sampling 或 GPU presentation completion 證明。WebGL fixtures 拒絕 skipped submission 舊 framebuffer，exact pixel oracles 不變。
+
+## 63. 未發布擴充的資源契約（P104–P118）
+
+目前 profiles 與 backend 界線見 [CURRENT](CURRENT.md)，取得／清理範例見
+[USAGE](USAGE-zh.md#commonjs-與逐幀-3d-貼圖)。CommonJS 與 ESM 使用獨立
+constructor graphs，不能互換物件 identity。部署選定的完整 output tree，
+並保留官方 ESM vendor／worker；不加入同步 Node ESM bridge 或 vendor patch。
+
+3D material 保留既有 immutable Texture properties。`texture` 為實際、借用的
+base fallback，`textureSource` 選擇 canvas／video override；PBR `sources`
+snapshot 各 slot 的 PBRTextureSources，native `textureSources` snapshot 最多
+四個 indexed hook maps。版本、residency、visibility 與 shadow invalidation
+讀取 effective sources，不只讀 fallback。材質不接管 fallback／override 所有權。
+
+Distance-field glyph pages 帶 validated SDF／MSDF metadata；native sprite
+pipeline 從單通道 distance／RGB median 重建 coverage，Canvas 使用有界、
+scale-quantized raster coverage。MSDF 產製需要自行提供 polygon contours 與
+獨立 edge coloring；所有 glyph borrowers 移除後才由 BitmapFontAsset 釋放 pages。
+
+API compatibility gate 先正規化 consumer 看不到的 private declarations，以及
+真正 additive exports／optional options，再 intern 相同且 dependency-closed 的
+遞迴圖。新增 required members、既有 signature／writability 與 public literal
+types 仍需通過原契約；runtime ownership／presentation 另靠實跑 consumer 證據。

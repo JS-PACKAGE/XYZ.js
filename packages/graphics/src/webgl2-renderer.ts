@@ -1,4 +1,20 @@
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { WebGL2RenderGraph } from './webgl2-render-graph.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import {
+  NativeMaterial3D,
+  nativeMaterialSources,
+} from '../../core/src/native-material3d.js';
 import { nativeMeshGLSL } from './webgl-feature-shaders.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
@@ -12,7 +28,7 @@ import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { WebGL2Particles3D } from './webgl2-particles3d.js';
 import { WebGLOcclusionBackend } from './webgl-occlusion.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
-import type { Mesh } from '../../core/src/mesh.js';
+import { materialBaseTexture, type Mesh } from '../../core/src/mesh.js';
 import {
   type Material2D,
   type PostProcessor2D,
@@ -21,11 +37,13 @@ import {
 import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
-import { PBRMaterial } from '../../core/src/pbr-material.js';
+import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
 import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
 import {
   activeBackground,
-  fillReflectionData,
+  activeEnvironment,
+  fillProbeBlendData,
+  selectReflectionProbes,
   fillFogData,
   fillLightingData,
   validateRenderSettings,
@@ -49,6 +67,7 @@ import { opticalPackGLSL } from './optical-pack-shaders.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
 import { Texture } from '../../assets/src/index.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
+import type { MaterialTexture } from '../../assets/src/texture2d.js';
 import { NativeTexture2D } from '../../assets/src/native-texture.js';
 import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
 import {
@@ -81,6 +100,7 @@ import {
   GraphicsError,
   WebGL2ContextLostError,
   WebGL2InitializationError,
+  UnsupportedGraphicsError,
 } from './errors.js';
 import { FrameStats, type GpuTimingOptions } from './render-stats.js';
 import { configureGpuTiming, WebGlTimer } from './gpu-timing.js';
@@ -111,6 +131,20 @@ import type {
   PreparedResourceLease,
   ResourcePreparationOptions,
 } from './preparation.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import {
+  captureConfiguration,
+  encodeProbeFaces,
+  capturedEnvironment,
+  halfFloat,
+  ProbeCaptureScheduler,
+} from './reflection-capture.js';
+import { packProbeTextures } from './probe-texture-array.js';
+import { TemporalPostState } from './temporal-post.js';
+import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
   resource: WebGLTexture;
@@ -220,6 +254,43 @@ export class WebGL2Renderer implements Renderer {
   readonly backend = 'webgl2' as const;
   private canvas: HTMLCanvasElement | undefined;
   private gl: WebGL2RenderingContext | undefined;
+  private graphs: WebGL2RenderGraph | undefined;
+  async prepareRenderGraph(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void> {
+    this.requireGL();
+    return this.graphs!.prepare(graph, options);
+  }
+  prepareCompute(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void>;
+  async prepareCompute(): Promise<void> {
+    throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
+  }
+  uploadCompute(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void;
+  uploadCompute(): void {
+    throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
+  }
+  dispatchCompute(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void>;
+  async dispatchCompute(): Promise<void> {
+    throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
+  }
+  readCompute(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray>;
+  async readCompute(): Promise<ComputeArray> {
+    throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
+  }
   private triangleProgram: WebGLProgram | undefined;
   private meshProgram: WebGLProgram | undefined;
   private triangleVAO: WebGLVertexArrayObject | undefined;
@@ -254,6 +325,104 @@ export class WebGL2Renderer implements Renderer {
   private gpuTimer: WebGlTimer | undefined;
   readonly residency = new NativeResidency();
   private readonly preparedGeometry = new Set<ResidencyAllocation>();
+  private readonly probeCaptures = new ProbeCaptureScheduler();
+  private capturingProbe = false;
+
+  async captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options: ReflectionProbeCaptureOptions = {},
+  ): Promise<EnvironmentMap> {
+    const gl = this.requireGL();
+    if (this.capturingProbe)
+      throw new GraphicsError('A reflection capture is already active.');
+    if (this.activeFrame && this.frameRendered)
+      throw new GraphicsError(
+        'Capture must precede rendering or follow endFrame.',
+      );
+    if (!this.floatColorBuffer)
+      throw new GraphicsError(
+        'Reflection capture requires EXT_color_buffer_float.',
+      );
+    const { size } = captureConfiguration(probe, options);
+    const originalTarget = this.postTarget,
+      originalRefraction = this.refractionTarget;
+    const framebuffer = gl.getParameter(
+      gl.FRAMEBUFFER_BINDING,
+    ) as WebGLFramebuffer | null;
+    const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+    const originalLinear = this.linear3D,
+      originalTransmission = this.hasTransmission,
+      originalWeighted = this.weighted;
+    const target = this.createTarget(size, size, false, 'hdr', 'texture');
+    const faces: Float32Array[] = [];
+    this.capturingProbe = true;
+    try {
+      this.postTarget = target;
+      this.refractionTarget = undefined;
+      encodeProbeFaces(scene, probe, options, () => {
+        this.collectMeshes(scene, 1, size);
+        this.linear3D = true;
+        scene.lightSelection.update(scene);
+        this.atlas.update(scene, 1);
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
+        if (scene.shadows.enabled) this.drawShadows(scene);
+        if (this.hasTransmission) this.prepareRefractionTarget(size, size);
+        if (this.weighted) this.prepareOIT(size, size);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.viewport(0, 0, size, size);
+        gl.clearColor(0, 0, 0, 1);
+        gl.depthMask(true);
+        gl.clearDepth(1);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        this.drawMeshes(scene, 1);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        const type = gl.getParameter(
+          gl.IMPLEMENTATION_COLOR_READ_TYPE,
+        ) as number;
+        const format = gl.getParameter(
+          gl.IMPLEMENTATION_COLOR_READ_FORMAT,
+        ) as number;
+        if (format !== gl.RGBA || (type !== gl.FLOAT && type !== gl.HALF_FLOAT))
+          throw new GraphicsError(
+            'Native HDR reflection readback is unsupported by this context.',
+          );
+        const raw =
+          type === gl.FLOAT
+            ? new Float32Array(size * size * 4)
+            : new Uint16Array(size * size * 4);
+        gl.readPixels(0, 0, size, size, gl.RGBA, type, raw);
+        const face = new Float32Array(raw.length);
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size * 4; x++) {
+            const value = raw[(size - y - 1) * size * 4 + x]!;
+            face[y * size * 4 + x] = Math.max(
+              0,
+              type === gl.FLOAT ? value : halfFloat(value),
+            );
+          }
+        faces.push(face);
+      });
+      this.requireGL();
+      return capturedEnvironment(size, faces, options.signal);
+    } finally {
+      this.deleteTarget(target);
+      if (this.refractionTarget) this.deleteTarget(this.refractionTarget);
+      this.postTarget = originalTarget;
+      this.refractionTarget = originalRefraction;
+      this.linear3D = originalLinear;
+      this.hasTransmission = originalTransmission;
+      this.weighted = originalWeighted;
+      this.capturingProbe = false;
+      this.occlusion?.clear();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!);
+    }
+  }
   configureResidency(options: ResidencyBudgetOptions): void {
     if (this.activeFrame)
       throw new GraphicsError(
@@ -336,34 +505,34 @@ export class WebGL2Renderer implements Renderer {
           this.cacheGeometry(mesh.renderGeometry);
           if (mesh instanceof SkinnedMesh) this.cacheSkin(mesh);
           const material = mesh.material;
-          this.cacheTexture(material.texture);
+          this.cacheTexture(materialBaseTexture(material));
           if (material instanceof PBRMaterial) {
-            if (material.metallicRoughnessTexture)
-              this.cacheTexture(material.metallicRoughnessTexture);
-            if (material.normalTexture)
-              this.cacheTexture(material.normalTexture);
-            if (material.occlusionTexture)
-              this.cacheTexture(material.occlusionTexture);
-            if (material.emissiveTexture)
-              this.cacheTexture(material.emissiveTexture);
-            if (material.specularTexture)
-              this.cacheTexture(material.specularTexture);
-            if (material.specularColorTexture)
-              this.cacheTexture(material.specularColorTexture);
-            if (material.clearcoatTexture)
-              this.cacheTexture(material.clearcoatTexture);
-            if (material.clearcoatRoughnessTexture)
-              this.cacheTexture(material.clearcoatRoughnessTexture);
-            if (material.clearcoatNormalTexture)
-              this.cacheTexture(material.clearcoatNormalTexture);
-            if (material.sheenColorTexture)
-              this.cacheTexture(material.sheenColorTexture);
-            if (material.sheenRoughnessTexture)
-              this.cacheTexture(material.sheenRoughnessTexture);
-            if (material.transmissionTexture)
-              this.cacheTexture(material.transmissionTexture);
-            if (material.thicknessTexture)
-              this.cacheTexture(material.thicknessTexture);
+            const sources = pbrTextureSources(material);
+            if (sources.metallicRoughnessTexture)
+              this.cacheTexture(sources.metallicRoughnessTexture);
+            if (sources.normalTexture) this.cacheTexture(sources.normalTexture);
+            if (sources.occlusionTexture)
+              this.cacheTexture(sources.occlusionTexture);
+            if (sources.emissiveTexture)
+              this.cacheTexture(sources.emissiveTexture);
+            if (sources.specularTexture)
+              this.cacheTexture(sources.specularTexture);
+            if (sources.specularColorTexture)
+              this.cacheTexture(sources.specularColorTexture);
+            if (sources.clearcoatTexture)
+              this.cacheTexture(sources.clearcoatTexture);
+            if (sources.clearcoatRoughnessTexture)
+              this.cacheTexture(sources.clearcoatRoughnessTexture);
+            if (sources.clearcoatNormalTexture)
+              this.cacheTexture(sources.clearcoatNormalTexture);
+            if (sources.sheenColorTexture)
+              this.cacheTexture(sources.sheenColorTexture);
+            if (sources.sheenRoughnessTexture)
+              this.cacheTexture(sources.sheenRoughnessTexture);
+            if (sources.transmissionTexture)
+              this.cacheTexture(sources.transmissionTexture);
+            if (sources.thicknessTexture)
+              this.cacheTexture(sources.thicknessTexture);
             this.cacheOpticalMaps(material);
           }
           if (mesh instanceof InstancedMesh) this.cacheInstances(mesh);
@@ -400,6 +569,15 @@ export class WebGL2Renderer implements Renderer {
     0,
     ENVIRONMENT_FLOAT_COUNT,
   );
+  private readonly selectedProbes: ReflectionProbe[] = [];
+  private readonly probeMaps: (EnvironmentMap | undefined)[] = [];
+  private probeTexture: WebGLTexture | undefined;
+  private probeAllocation: ResidencyAllocation | undefined;
+  private probeMipCount = 1;
+  private readonly probeData = this.environmentData.subarray(52);
+  private readonly temporalState = new TemporalPostState();
+  private temporal: WebGLTemporalPipeline | undefined;
+  private temporalActive = false;
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
@@ -425,7 +603,13 @@ export class WebGL2Renderer implements Renderer {
   private sheenBuffer: WebGLBuffer | undefined;
   private readonly opticalTextures = new Map<
     PBRMaterial,
-    { resource: WebGLTexture; seen: number; allocation: ResidencyAllocation }
+    {
+      resource: WebGLTexture;
+      seen: number;
+      allocation: ResidencyAllocation;
+      side: number;
+      sourceVersions: readonly [number, number];
+    }
   >();
   private readonly opticalSettings = new Float32Array(8);
   private emptyOptical: WebGLTexture | undefined;
@@ -472,6 +656,7 @@ export class WebGL2Renderer implements Renderer {
       threeD: true,
       compute: false,
       customShaders: true,
+      lighting2D: true,
       storageBuffers: false,
       instancing: true,
       maxTextureSize: this.maxTextureSize,
@@ -585,6 +770,7 @@ export class WebGL2Renderer implements Renderer {
         'skybox',
       );
       this.skyVAO = this.createVAO(gl);
+      this.graphs = new WebGL2RenderGraph(gl);
       this.render2D = new WebGLRender2D(gl, {
         owner: this,
         stats: this.stats,
@@ -701,10 +887,7 @@ export class WebGL2Renderer implements Renderer {
         'oitPass',
         'environment[0]',
         'environmentMap',
-        'probeMin',
-        'probeMax',
-        'probePosition',
-        'probeBoxProjection',
+        'probeData[0]',
         'fog[0]',
         'meshFade',
       ])
@@ -856,8 +1039,8 @@ export class WebGL2Renderer implements Renderer {
     }
     for (const [material, packed] of this.opticalTextures)
       if (
-        material.transmissionTexture === source ||
-        material.thicknessTexture === source
+        pbrTextureSources(material).transmissionTexture === source ||
+        pbrTextureSources(material).thicknessTexture === source
       )
         packed.allocation.destroy();
   }
@@ -911,8 +1094,9 @@ export class WebGL2Renderer implements Renderer {
         if (index !== gl.INVALID_INDEX)
           gl.uniformBlockBinding(program, index, binding);
       }
-      this.cacheTexture(material.texture);
-      for (const texture of material.textures) this.cacheTexture(texture);
+      this.cacheTexture(materialBaseTexture(material));
+      for (const texture of nativeMaterialSources(material))
+        this.cacheTexture(texture);
       const shadowProgram = shadow;
       const unsubscribe = material.onDestroy(() => {
         gl.deleteProgram(program);
@@ -1139,6 +1323,14 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 rendering requires positive finite logical width and height.',
       );
     this.frame++;
+    const graph = scene?.renderGraph;
+    const graphDestination = destination;
+    if (graph)
+      destination = this.graphs!.sceneTarget(
+        graph,
+        canvas.width,
+        canvas.height,
+      );
     try {
       const effects = scene?.effects2D;
       if (!this.layerTarget)
@@ -1200,6 +1392,19 @@ export class WebGL2Renderer implements Renderer {
       } else this.commands.clear();
       if (scene?.has3DContent) {
         validateRenderSettings(scene);
+        if (!this.capturingProbe)
+          this.probeCaptures.schedule(
+            scene,
+            (probe) => this.captureReflectionProbe(scene, probe),
+            (error) =>
+              this.onError(
+                error instanceof GraphicsError
+                  ? error
+                  : new GraphicsError('Automatic reflection capture failed.', {
+                      cause: error,
+                    }),
+              ),
+          );
         this.collectMeshes(scene, logicalWidth / logicalHeight, logicalHeight);
         this.linear3D =
           scene.postProcessing.enabled || this.hasTransmission || this.weighted;
@@ -1230,6 +1435,8 @@ export class WebGL2Renderer implements Renderer {
           this.refractionTarget = undefined;
         }
       } else {
+        this.temporal?.releaseTarget();
+        this.temporalState.invalidate();
         this.visibilityCache.clear();
         this.visibility.color.length = 0;
         this.visibility.shadows.length = 0;
@@ -1334,10 +1541,13 @@ export class WebGL2Renderer implements Renderer {
         gl.bindVertexArray(this.triangleVAO!);
         gl.drawArrays(gl.TRIANGLES, 0, 3);
       }
+      if (graph)
+        this.graphs!.encode(graph, graphDestination?.framebuffer ?? null);
       if (transition)
-        this.drawComposite(destination!.texture, null, transition);
+        this.drawComposite(graphDestination!.texture, null, transition);
       this.frameRendered = true;
     } finally {
+      if (!this.frameRendered) this.temporalState.invalidate();
       this.releaseUnused();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
@@ -1428,6 +1638,7 @@ export class WebGL2Renderer implements Renderer {
     }
     if (canvas.width !== pixelWidth) canvas.width = pixelWidth;
     if (canvas.height !== pixelHeight) canvas.height = pixelHeight;
+    this.temporal?.resize(pixelWidth, pixelHeight);
     const side = Math.min(pixelWidth, pixelHeight);
     this.viewportX = (pixelWidth - side) / 2;
     this.viewportY = (pixelHeight - side) / 2;
@@ -1564,7 +1775,7 @@ export class WebGL2Renderer implements Renderer {
       for (const mesh of scene.renderMeshes) {
         if (!this.occlusion && mesh.occlusionCulled)
           this.occlusion = new WebGLOcclusionBackend(gl);
-        const texture = mesh.material.texture;
+        const texture = materialBaseTexture(mesh.material);
         if (this.depthTextureVersions.get(texture) !== texture.version) {
           this.depthTextureVersions.set(texture, texture.version);
           ++this.depthRevision;
@@ -1611,13 +1822,17 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): void {
-    const a = material.transmissionTexture,
-      b = material.thicknessTexture;
+    const a = pbrTextureSources(material).transmissionTexture,
+      b = pbrTextureSources(material).thicknessTexture;
     if (!a && !b) return;
     if (a?.destroyed || b?.destroyed)
       throw new GraphicsError('WebGL2 optical map has been destroyed.');
-    const existing = this.opticalTextures.get(material);
-    if (existing) {
+    let existing = this.opticalTextures.get(material);
+    const sourceVersions = [a?.version ?? -1, b?.version ?? -1] as const;
+    if (
+      existing?.sourceVersions[0] === sourceVersions[0] &&
+      existing.sourceVersions[1] === sourceVersions[1]
+    ) {
       existing.allocation.touch();
       existing.seen = this.frame;
       return;
@@ -1628,12 +1843,18 @@ export class WebGL2Renderer implements Renderer {
         Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
       ),
     );
-    const allocation = this.residency.textures.allocate(side * side * 8, () => {
-      const cached = this.opticalTextures.get(material);
-      if (cached) gl.deleteTexture(cached.resource);
-      this.opticalTextures.delete(material);
-    });
-    const resource = gl.createTexture();
+    if (existing && existing.side !== side) {
+      existing.allocation.destroy();
+      existing = undefined;
+    }
+    const allocation =
+      existing?.allocation ??
+      this.residency.textures.allocate(side * side * 8, () => {
+        const cached = this.opticalTextures.get(material);
+        if (cached) gl.deleteTexture(cached.resource);
+        this.opticalTextures.delete(material);
+      });
+    const resource = existing?.resource ?? gl.createTexture();
     if (!resource) {
       allocation.destroy();
       throw new GraphicsError('WebGL2 optical array allocation failed.');
@@ -1642,7 +1863,8 @@ export class WebGL2Renderer implements Renderer {
       gl.activeTexture(gl.TEXTURE0 + 14);
       gl.bindSampler(14, null);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, resource);
-      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 2);
+      if (!existing)
+        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 2);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram!);
@@ -1681,7 +1903,10 @@ export class WebGL2Renderer implements Renderer {
         resource,
         allocation,
         seen: this.frame,
+        side,
+        sourceVersions,
       });
+      allocation.touch();
     } catch (error) {
       gl.deleteTexture(resource);
       allocation.destroy();
@@ -1699,10 +1924,35 @@ export class WebGL2Renderer implements Renderer {
 
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
+    this.ensureProbeEnvironment(scene);
+    this.temporalActive =
+      !this.capturingProbe &&
+      scene.postProcessing.enabled &&
+      (scene.postProcessing.taa || scene.postProcessing.ssr);
+    if (this.temporalActive) {
+      if (!this.floatColorBuffer || !this.postTarget?.depthTexture)
+        throw new GraphicsError(
+          'TAA/SSR require native HDR color and sampleable opaque depth.',
+        );
+      this.temporal ??= new WebGLTemporalPipeline(gl, this.stats);
+      this.temporalState.begin(
+        scene,
+        scene.camera3D,
+        this.postTarget.width,
+        this.postTarget.height,
+        scene.postProcessing,
+        aspect,
+      );
+    } else {
+      this.temporal?.releaseTarget();
+      this.temporalState.invalidate();
+    }
     let uniforms: Record<string, WebGLUniformLocation | null>;
     const background = activeBackground(scene);
     if (background) this.drawSky(scene, aspect, background);
-    const viewProjection = scene.camera3D.matrix.elements;
+    const viewProjection = this.temporalActive
+      ? this.temporalState.currentVP.elements
+      : scene.camera3D.matrix.elements;
     fillFogData(scene, this.fogData);
     const camera = scene.camera3D.position;
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
@@ -1770,7 +2020,8 @@ export class WebGL2Renderer implements Renderer {
           for (let i = 0; i < 4; i++) {
             gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
             this.bindMaterialTexture(
-              material.textures[i] ?? material.texture,
+              nativeMaterialSources(material)[i] ??
+                materialBaseTexture(material),
               i + 1,
             );
           }
@@ -1802,26 +2053,23 @@ export class WebGL2Renderer implements Renderer {
         );
         if (!oitPass) gl.depthMask(!blended);
         if (pbr) {
-          const environment = fillReflectionData(
+          fillProbeBlendData(
             scene,
-            object,
             this.environmentData,
+            0,
+            this.selectedProbes,
           );
-          const data = this.environmentData;
+          for (let i = 0; i < 5; i++)
+            this.environmentData[i * 52 + 38] = this.probeMipCount - 1;
+          // The baseline and local records share the packed array's roughness LOD range.
           gl.uniform4fv(
             uniforms['environment[0]'],
             this.environmentLightingData,
           );
-          gl.uniform3f(uniforms.probeMin, data[40], data[41], data[42]);
-          gl.uniform3f(uniforms.probeMax, data[44], data[45], data[46]);
-          gl.uniform3f(uniforms.probePosition, data[48], data[49], data[50]);
-          gl.uniform1i(uniforms.probeBoxProjection, data[39] ? 1 : 0);
+          gl.uniform4fv(uniforms['probeData[0]'], this.probeData);
           gl.activeTexture(gl.TEXTURE6);
           gl.bindSampler(6, null);
-          gl.bindTexture(
-            gl.TEXTURE_2D,
-            environment ? this.uploadEnvironment(environment).resource : null,
-          );
+          gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.probeTexture!);
         }
         gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
         gl.uniform1i(
@@ -1846,7 +2094,7 @@ export class WebGL2Renderer implements Renderer {
         gl.uniform4fv(uniforms.tint, tint);
         gl.uniform1i(uniforms.receiveShadow, object.receiveShadow ? 1 : 0);
         this.bindMaterialTexture(
-          material.texture,
+          materialBaseTexture(material),
           0,
           pbr ? material.textureSampler : undefined,
         );
@@ -1867,13 +2115,13 @@ export class WebGL2Renderer implements Renderer {
           fillOpticalMapSettings(
             this.opticalSettings,
             0,
-            material.transmissionTexture,
+            pbrTextureSources(material).transmissionTexture,
             material.transmissionSampler,
           );
           fillOpticalMapSettings(
             this.opticalSettings,
             4,
-            material.thicknessTexture,
+            pbrTextureSources(material).thicknessTexture,
             material.thicknessSampler,
           );
           gl.uniform4f(
@@ -1909,18 +2157,20 @@ export class WebGL2Renderer implements Renderer {
             uniforms.specularParams,
             material.specular,
             material.ior === 0 ? 1 : 0,
-            material.specularTexture ? 1 : 0,
-            material.specularColorTexture ? 1 : 0,
+            pbrTextureSources(material).specularTexture ? 1 : 0,
+            pbrTextureSources(material).specularColorTexture ? 1 : 0,
           );
           gl.uniform1i(uniforms.specularMap, 7);
           gl.uniform1i(uniforms.specularColorMap, 8);
           this.bindMaterialTexture(
-            material.specularTexture ?? material.texture,
+            pbrTextureSources(material).specularTexture ??
+              materialBaseTexture(material),
             7,
             material.specularSampler,
           );
           this.bindMaterialTexture(
-            material.specularColorTexture ?? material.texture,
+            pbrTextureSources(material).specularColorTexture ??
+              materialBaseTexture(material),
             8,
             material.specularColorSampler,
           );
@@ -1933,26 +2183,29 @@ export class WebGL2Renderer implements Renderer {
           );
           gl.uniform4f(
             uniforms.clearcoatMaps,
-            material.clearcoatTexture ? 1 : 0,
-            material.clearcoatRoughnessTexture ? 1 : 0,
-            material.clearcoatNormalTexture ? 1 : 0,
+            pbrTextureSources(material).clearcoatTexture ? 1 : 0,
+            pbrTextureSources(material).clearcoatRoughnessTexture ? 1 : 0,
+            pbrTextureSources(material).clearcoatNormalTexture ? 1 : 0,
             0,
           );
           gl.uniform1i(uniforms.clearcoatMap, 9);
           gl.uniform1i(uniforms.clearcoatRoughnessMap, 10);
           gl.uniform1i(uniforms.clearcoatNormalMap, 11);
           this.bindMaterialTexture(
-            material.clearcoatTexture ?? material.texture,
+            pbrTextureSources(material).clearcoatTexture ??
+              materialBaseTexture(material),
             9,
             material.clearcoatSampler,
           );
           this.bindMaterialTexture(
-            material.clearcoatRoughnessTexture ?? material.texture,
+            pbrTextureSources(material).clearcoatRoughnessTexture ??
+              materialBaseTexture(material),
             10,
             material.clearcoatRoughnessSampler,
           );
           this.bindMaterialTexture(
-            material.clearcoatNormalTexture ?? material.texture,
+            pbrTextureSources(material).clearcoatNormalTexture ??
+              materialBaseTexture(material),
             11,
             material.clearcoatNormalSampler,
           );
@@ -1965,20 +2218,22 @@ export class WebGL2Renderer implements Renderer {
           );
           gl.uniform4f(
             uniforms.sheenMaps,
-            material.sheenColorTexture ? 1 : 0,
-            material.sheenRoughnessTexture ? 1 : 0,
+            pbrTextureSources(material).sheenColorTexture ? 1 : 0,
+            pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0,
             0,
             0,
           );
           gl.uniform1i(uniforms.sheenColorMap, 12);
           gl.uniform1i(uniforms.sheenRoughnessMap, 13);
           this.bindMaterialTexture(
-            material.sheenColorTexture ?? material.texture,
+            pbrTextureSources(material).sheenColorTexture ??
+              materialBaseTexture(material),
             12,
             material.sheenColorSampler,
           );
           this.bindMaterialTexture(
-            material.sheenRoughnessTexture ?? material.texture,
+            pbrTextureSources(material).sheenRoughnessTexture ??
+              materialBaseTexture(material),
             13,
             material.sheenRoughnessSampler,
           );
@@ -1998,28 +2253,32 @@ export class WebGL2Renderer implements Renderer {
           );
           gl.uniform4i(
             uniforms.maps,
-            material.metallicRoughnessTexture ? 1 : 0,
-            material.normalTexture ? 1 : 0,
-            material.occlusionTexture ? 1 : 0,
-            material.emissiveTexture ? 1 : 0,
+            pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0,
+            pbrTextureSources(material).normalTexture ? 1 : 0,
+            pbrTextureSources(material).occlusionTexture ? 1 : 0,
+            pbrTextureSources(material).emissiveTexture ? 1 : 0,
           );
           this.bindMaterialTexture(
-            material.metallicRoughnessTexture ?? material.texture,
+            pbrTextureSources(material).metallicRoughnessTexture ??
+              materialBaseTexture(material),
             1,
             material.metallicRoughnessSampler,
           );
           this.bindMaterialTexture(
-            material.normalTexture ?? material.texture,
+            pbrTextureSources(material).normalTexture ??
+              materialBaseTexture(material),
             2,
             material.normalSampler,
           );
           this.bindMaterialTexture(
-            material.occlusionTexture ?? material.texture,
+            pbrTextureSources(material).occlusionTexture ??
+              materialBaseTexture(material),
             3,
             material.occlusionSampler,
           );
           this.bindMaterialTexture(
-            material.emissiveTexture ?? material.texture,
+            pbrTextureSources(material).emissiveTexture ??
+              materialBaseTexture(material),
             4,
             material.emissiveSampler,
           );
@@ -2034,8 +2293,19 @@ export class WebGL2Renderer implements Renderer {
       if (phase === 0)
         this.occlusion?.draw(
           this.visibility.occlusionCandidates,
-          scene.camera3D.matrix,
+          this.temporalActive
+            ? this.temporalState.currentVP
+            : scene.camera3D.matrix,
         );
+      if (phase === 0 && this.temporalActive && scene.postProcessing.ssr) {
+        const result = this.temporal!.applyOpaqueSSR(
+          this.postTarget!.texture,
+          this.postTarget!.depthTexture!,
+          this.temporalState,
+          scene.postProcessing,
+        );
+        this.temporal!.blit(result, this.postTarget!.framebuffer);
+      }
       if (this.hasTransmission && phase === 0) {
         const width = this.postTarget!.width,
           height = this.postTarget!.height;
@@ -2077,7 +2347,7 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private bindMaterialTexture(
-    texture: Texture,
+    texture: MaterialTexture,
     unit: number,
     sampler?: TextureSamplerOptions,
   ): void {
@@ -2500,7 +2770,8 @@ export class WebGL2Renderer implements Renderer {
           for (let i = 0; i < 4; i++) {
             gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
             this.bindMaterialTexture(
-              material.textures[i] ?? material.texture,
+              nativeMaterialSources(material)[i] ??
+                materialBaseTexture(material),
               i + 1,
             );
           }
@@ -2537,7 +2808,7 @@ export class WebGL2Renderer implements Renderer {
             : 2,
         );
         this.bindMaterialTexture(
-          material.texture,
+          materialBaseTexture(material),
           0,
           pbr ? material.textureSampler : undefined,
         );
@@ -2825,6 +3096,15 @@ export class WebGL2Renderer implements Renderer {
     const settings = scene.postProcessing;
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
+    const source =
+      this.temporalActive && settings.taa
+        ? this.temporal!.applyTAA(
+            this.postTarget!.texture,
+            this.postTarget!.depthTexture!,
+            this.temporalState,
+            settings,
+          ).texture
+        : this.postTarget!.texture;
     if (fxaa) {
       if (
         !this.fxaaTarget ||
@@ -2856,7 +3136,7 @@ export class WebGL2Renderer implements Renderer {
     gl.bindVertexArray(this.triangleVAO!);
     gl.activeTexture(gl.TEXTURE0);
     gl.bindSampler(0, null);
-    gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.texture);
+    gl.bindTexture(gl.TEXTURE_2D, source);
     gl.uniform4f(
       this.postUniforms.settings,
       enabled ? settings.exposure : 1,
@@ -2872,7 +3152,13 @@ export class WebGL2Renderer implements Renderer {
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);
     gl.uniform1i(this.postUniforms.depthImage, 1);
-    this.invViewProjection.copy(scene.camera3D.matrix).invert();
+    this.invViewProjection
+      .copy(
+        this.temporalActive
+          ? this.temporalState.currentVP
+          : scene.camera3D.matrix,
+      )
+      .invert();
     gl.uniformMatrix4fv(
       this.postUniforms.inverseVP,
       false,
@@ -2909,6 +3195,7 @@ export class WebGL2Renderer implements Renderer {
       gl.bindTexture(gl.TEXTURE_2D, this.fxaaTarget!.texture);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
     }
+    if (this.temporalActive) this.temporalState.commit();
   }
 
   private decodeColor(value: number): number {
@@ -3083,9 +3370,98 @@ export class WebGL2Renderer implements Renderer {
     }
   }
 
+  private ensureProbeEnvironment(scene: Scene): void {
+    selectReflectionProbes(scene, this.selectedProbes);
+    const environment = activeEnvironment(scene);
+    let changed = !this.probeTexture || this.probeMaps[0] !== environment;
+    for (let i = 0; i < 4; i++)
+      if (this.probeMaps[i + 1] !== this.selectedProbes[i]?.environment)
+        changed = true;
+    if (!changed) {
+      this.probeAllocation?.touch();
+      return;
+    }
+    this.probeAllocation?.destroy();
+    this.probeMaps.length = 5;
+    this.probeMaps[0] = environment;
+    for (let i = 0; i < 4; i++)
+      this.probeMaps[i + 1] = this.selectedProbes[i]?.environment;
+    const packed = packProbeTextures(this.probeMaps),
+      gl = this.gl!;
+    const allocation = this.residency.textures.allocate(packed.bytes, () => {
+      gl.deleteTexture(this.probeTexture ?? null);
+      this.probeTexture = undefined;
+    });
+    const resource = gl.createTexture();
+    if (!resource) {
+      allocation.destroy();
+      throw new GraphicsError('Cannot allocate native probe array.');
+    }
+    this.probeTexture = resource;
+    try {
+      gl.activeTexture(gl.TEXTURE6);
+      gl.bindSampler(6, null);
+      gl.bindTexture(gl.TEXTURE_2D_ARRAY, resource);
+      gl.texStorage3D(
+        gl.TEXTURE_2D_ARRAY,
+        packed.mipCount,
+        gl.RGBA16F,
+        packed.width,
+        packed.height,
+        5,
+      );
+      for (let level = 0; level < packed.mipCount; level++) {
+        const data = packed.levels[level]!;
+        gl.texSubImage3D(
+          gl.TEXTURE_2D_ARRAY,
+          level,
+          0,
+          0,
+          0,
+          data.width,
+          data.height,
+          5,
+          gl.RGBA,
+          gl.HALF_FLOAT,
+          data.data,
+        );
+        this.stats.upload(data.data.byteLength);
+      }
+      gl.texParameteri(
+        gl.TEXTURE_2D_ARRAY,
+        gl.TEXTURE_MIN_FILTER,
+        gl.LINEAR_MIPMAP_LINEAR,
+      );
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_WRAP_S, gl.REPEAT);
+      gl.texParameteri(
+        gl.TEXTURE_2D_ARRAY,
+        gl.TEXTURE_WRAP_T,
+        gl.CLAMP_TO_EDGE,
+      );
+      gl.texParameteri(
+        gl.TEXTURE_2D_ARRAY,
+        gl.TEXTURE_MAX_LEVEL,
+        packed.mipCount - 1,
+      );
+      allocation.retain();
+      this.probeAllocation = allocation;
+      this.probeMipCount = packed.mipCount;
+    } catch (error) {
+      allocation.destroy();
+      throw error;
+    }
+  }
+
   private drawSky(scene: Scene, aspect: number, map: EnvironmentMap): void {
     const gl = this.gl!;
-    this.invViewProjection.copy(scene.camera3D.updateMatrix(aspect)).invert();
+    this.invViewProjection
+      .copy(
+        this.temporalActive
+          ? this.temporalState.currentVP
+          : scene.camera3D.updateMatrix(aspect),
+      )
+      .invert();
     gl.useProgram(this.skyProgram!);
     gl.uniformMatrix4fv(
       this.skyUniforms.invViewProjection,
@@ -3274,8 +3650,8 @@ export class WebGL2Renderer implements Renderer {
         entry.allocation.destroy();
     for (const [material, entry] of this.opticalTextures)
       if (
-        material.transmissionTexture?.destroyed ||
-        material.thicknessTexture?.destroyed ||
+        pbrTextureSources(material).transmissionTexture?.destroyed ||
+        pbrTextureSources(material).thicknessTexture?.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
           entry.seen !== this.frame &&
           !entry.allocation.references)
@@ -3350,6 +3726,8 @@ export class WebGL2Renderer implements Renderer {
   destroy(): void {
     if (this.destroyed) return;
     this.destroyed = true;
+    this.graphs?.destroy();
+    this.graphs = undefined;
     this.canvas?.removeEventListener('webglcontextlost', this.onContextLost);
     const gl = this.gl;
     this.gpuTimer?.destroy(!!this.lostError);
@@ -3364,6 +3742,8 @@ export class WebGL2Renderer implements Renderer {
     this.visibility.entries.clear();
     this.visibility.occlusionCandidates.length = 0;
     if (gl) {
+      this.temporal?.destroy();
+      this.probeAllocation?.destroy();
       for (const entry of this.nativeMaterials.values()) {
         entry.unsubscribe();
         gl.deleteProgram(entry.program);

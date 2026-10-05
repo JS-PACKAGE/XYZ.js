@@ -22,6 +22,7 @@ export type {
 export { CanvasTexture2D, TextureView2D } from './texture2d.js';
 export type {
   Texture2DSource,
+  MaterialTexture,
   TextureView2DOptions,
   TextureBorders2D,
   TextureRect2D,
@@ -36,6 +37,12 @@ export type {
 } from './fonts/bitmap-font.js';
 export { generateBitmapFont } from './fonts/generate-bitmap-font.js';
 export type { DynamicBitmapFontOptions } from './fonts/generate-bitmap-font.js';
+export { VideoTexture, VideoTextureDecoder } from './video-texture.js';
+export type {
+  VideoTextureOptions,
+  VideoTextureLoadOptions,
+} from './video-texture.js';
+export type { DistanceFieldProfile } from './fonts/distance-field.js';
 export { AssetManifest, ManifestLease } from './manifest/asset-manifest.js';
 export type {
   ManifestAssetType,

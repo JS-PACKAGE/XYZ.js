@@ -1,0 +1,185 @@
+const require_texture = require("../texture.cjs");
+const require_preload_batch = require("../preload/preload-batch.cjs");
+const require_rendering2d = require("../../../../src/data/rendering2d.cjs");
+const require_font_asset = require("../fonts/font-asset.cjs");
+const require_bitmap_font = require("../fonts/bitmap-font.cjs");
+//#region dist/packages/assets/src/manifest/asset-manifest.js
+var ManifestLease = class {
+	resources;
+	aliases;
+	values;
+	constructor(e, t, n) {
+		this.resources = e, this.aliases = t, this.values = n;
+	}
+	lease(e, n) {
+		let r = this.aliases.get(e), i = r && this.values.get(r);
+		if (!r || r.type !== n || !i || i.released || this.resources.destroyed) throw new require_texture.AssetError(`Manifest alias is not ready with the requested type.`);
+		return i;
+	}
+	get(e, t) {
+		return this.lease(e, t).value;
+	}
+	release() {
+		this.resources.release();
+	}
+};
+var AssetManifest = class {
+	aliases = /* @__PURE__ */ new Map();
+	bundles;
+	values = /* @__PURE__ */ new Map();
+	active;
+	requests = /* @__PURE__ */ new WeakMap();
+	constructor(t) {
+		if (t.entries.length > require_rendering2d.rendering2dLimits.manifestEntries || Object.keys(t.bundles ?? {}).length > require_rendering2d.rendering2dLimits.manifestBundles) throw RangeError(`Manifest exceeds its entry/bundle budget.`);
+		let n = 0;
+		for (let r of t.entries) {
+			let t = typeof r.aliases == `string` ? [r.aliases] : [...r.aliases];
+			if (n += t.length, !t.length || n > require_rendering2d.rendering2dLimits.manifestEntries || t.some((e) => !e.trim() || this.aliases.has(e)) || new Set(t).size !== t.length) throw RangeError(`Manifest aliases must be unique, nonempty and bounded.`);
+			if (![
+				`texture`,
+				`binary`,
+				`text`,
+				`json`,
+				`font`,
+				`bitmapFont`,
+				`model`,
+				`audio`,
+				`custom`
+			].includes(r.type)) throw RangeError(`Unsupported manifest asset type.`);
+			if (r.type === `custom` || r.type === `model` || r.type === `audio` ? typeof r.load != `function` || r.owned && typeof r.dispose != `function` : !(`url` in r) || !r.url.trim()) throw RangeError(`Invalid manifest acquisition.`);
+			let i = Object.freeze({
+				...r,
+				aliases: Object.freeze(t),
+				...r.type === `font` ? { options: Object.freeze({
+					...r.options,
+					descriptors: Object.freeze({ ...r.options.descriptors })
+				}) } : {}
+			});
+			for (let e of t) this.aliases.set(e, i);
+		}
+		let r = Object.create(null);
+		for (let [n, i] of Object.entries(t.bundles ?? {})) {
+			if (!n.trim() || this.aliases.has(n) || i.length > require_rendering2d.rendering2dLimits.manifestEntries || i.some((e) => !this.aliases.has(e))) throw RangeError(`Bundles require nonempty names and declared aliases.`);
+			r[n] = Object.freeze([...i]);
+		}
+		this.bundles = Object.freeze(r);
+	}
+	compile(e, r) {
+		if (this.active && [`idle`, `loading`].includes(this.active.state)) throw new require_texture.AssetError(`A manifest batch is already unsettled.`);
+		let i = this.resolve(r), a = /* @__PURE__ */ new Map(), o = !1, s, cleanup = () => {
+			if (!o) {
+				o = !0;
+				for (let [e, t] of a) this.release(e, t);
+				a.clear(), s?.removeEventListener(`abort`, cleanup);
+			}
+		}, c = i.map((n) => ({
+			key: typeof n.aliases == `string` ? n.aliases : n.aliases[0],
+			load: async (r) => {
+				if (r.throwIfAborted(), s || (s = r, r.addEventListener(`abort`, cleanup, { once: !0 })), this.values.has(n)) return this.values.get(n);
+				let i = await this.acquireValue(e, n, r);
+				if (r.aborted || o) throw this.release(n, i), r.throwIfAborted(), new require_texture.AssetError(`Manifest batch no longer accepts results.`);
+				return a.set(n, i), i;
+			}
+		})), l = new require_preload_batch.PreloadBatch(c);
+		return l.addEventListener(`error`, cleanup, { once: !0 }), l.addEventListener(`complete`, () => {
+			if (!o) {
+				o = !0;
+				for (let [e, t] of a) this.values.set(e, t);
+				a.clear(), s?.removeEventListener(`abort`, cleanup);
+			}
+		}, { once: !0 }), this.active = l, l;
+	}
+	get(e, n) {
+		let r = this.aliases.get(e);
+		if (!r || r.type !== n || !this.values.has(r)) throw new require_texture.AssetError(`Manifest alias is not ready with the requested type.`);
+		return this.values.get(r);
+	}
+	async acquire(e, n, r = {}) {
+		let i = this.resolve(n);
+		if (r.scope && r.scope.pool !== e) throw new require_texture.AssetError(`Manifest scope belongs to another ResourcePool.`);
+		let a = r.scope ? r.scope.fork({ signal: r.signal }) : e.createScope({ signal: r.signal }), o = /* @__PURE__ */ new Map(), s = this.requests.get(e);
+		s || (s = /* @__PURE__ */ new Map(), this.requests.set(e, s));
+		try {
+			return await Promise.all(i.map(async (t) => {
+				let n;
+				if (t.type === `texture` && !t.owned) n = await a.acquireTexture(t.url);
+				else {
+					let r = s.get(t);
+					r || (r = Object.freeze({
+						kind: t.type === `texture` ? `texture` : t.type === `font` || t.type === `bitmapFont` ? `font` : t.type === `model` || t.type === `audio` ? t.type : `custom`,
+						ownership: this.isOwned(t) ? `owned` : `borrowed`,
+						load: (n) => this.acquireValue(e.loader, t, n),
+						...this.isOwned(t) ? { dispose: (e) => this.release(t, e) } : {}
+					}), s.set(t, r)), n = await a.acquire(r);
+				}
+				o.set(t, n);
+			})), a.signal.throwIfAborted(), new ManifestLease(a, this.aliases, o);
+		} catch (e) {
+			try {
+				a.release(e);
+			} catch (t) {
+				throw AggregateError([e, t], `Manifest acquisition and cleanup failed.`, { cause: t });
+			}
+			throw e;
+		}
+	}
+	unload(e, n) {
+		if (n.borrowersRemoved !== !0) throw new require_texture.AssetError(`Owned unload requires a borrower-removal barrier.`);
+		if (this.active && [`idle`, `loading`].includes(this.active.state)) throw new require_texture.AssetError(`Cannot unload during manifest loading.`);
+		let r = this.resolve(e);
+		for (let e of r) if (!this.isOwned(e)) throw new require_texture.AssetError(`Shared or value-only manifest acquisitions cannot be unloaded.`);
+		for (let e of r) this.values.has(e) && this.release(e, this.values.get(e)), this.values.delete(e);
+	}
+	resolve(n) {
+		if (n.length > require_rendering2d.rendering2dLimits.manifestEntries) throw RangeError(`Manifest selection exceeds its budget.`);
+		let r = /* @__PURE__ */ new Set();
+		for (let e of n) {
+			let n = this.bundles[e] ?? [e];
+			for (let e of n) {
+				let n = this.aliases.get(e);
+				if (!n) throw new require_texture.AssetError(`Unknown manifest alias or bundle: ${e}`);
+				r.add(n);
+			}
+		}
+		return [...r];
+	}
+	isOwned(e) {
+		return e.type === `font` || e.type === `bitmapFont` || (e.type === `texture` || e.type === `custom` || e.type === `model` || e.type === `audio`) && e.owned === !0;
+	}
+	release(e, t) {
+		this.isOwned(e) && (e.type === `custom` || e.type === `model` || e.type === `audio` ? e.dispose(t) : t.destroy());
+	}
+	acquireValue(e, t, n) {
+		switch (t.type) {
+			case `texture`: return t.owned ? e.loadTextureOwned(t.url, { signal: n }) : e.loadTexture(t.url, { signal: n });
+			case `font`: return require_font_asset.FontAsset.load(e, t.url, {
+				...t.options,
+				signal: n
+			});
+			case `bitmapFont`: return new require_bitmap_font.BitmapFontLoader(e).load(t.url, {
+				format: t.format,
+				signal: n
+			});
+			case `binary`: return e.loadBinary(t.url, {
+				maxBytes: t.maxBytes,
+				signal: n
+			});
+			case `text`: return e.loadText(t.url, {
+				maxBytes: t.maxBytes,
+				signal: n
+			});
+			case `json`: return e.loadJSON(t.url, {
+				maxBytes: t.maxBytes,
+				signal: n
+			});
+			case `custom`:
+			case `model`:
+			case `audio`: return t.load(n);
+		}
+	}
+};
+//#endregion
+exports.AssetManifest = AssetManifest;
+exports.ManifestLease = ManifestLease;
+
+//# sourceMappingURL=asset-manifest.cjs.map

@@ -5,4 +5,5 @@ export declare const assetLimits: Readonly<{
     nativeTextureBytes: number;
     audioBytes: number;
     audioNotes: 16384;
+    hotSceneCandidates: 8;
 }>;

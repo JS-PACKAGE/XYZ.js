@@ -59,12 +59,14 @@ export interface Text2DLayout {
   readonly height: number;
   readonly fontReadiness: 'ready' | 'current' | 'unavailable';
 }
-interface RasterizedText {
+/** @internal An independent raster texture; ownership transfers to the caller. */
+export interface RasterizedText {
   readonly texture: Texture;
   readonly layout: Text2DLayout;
 }
 
-function snapshotStyle(options: Text2DOptions): Text2DStyle {
+/** @internal Shared browser-shaped raster style for 2D and 3D labels. */
+export function snapshotTextStyle(options: Text2DOptions): Text2DStyle {
   const style = {
     fontSize: options.fontSize ?? textDefaults.fontSize,
     fontFamily: options.fontFamily ?? textDefaults.fontFamily,
@@ -188,7 +190,7 @@ export class Text2D extends Sprite {
     text: string,
     options: Text2DOptions = {},
   ): Promise<Text2D> {
-    const style = snapshotStyle(options);
+    const style = snapshotTextStyle(options);
     const raster = await Text2D.rasterize(text, style);
     return new Text2D(text, style, raster.texture, raster.layout);
   }
@@ -219,7 +221,7 @@ export class Text2D extends Sprite {
 
   /** Merges with the latest requested style and text, not an obsolete display. */
   async setStyle(options: Text2DOptions): Promise<void> {
-    const style = snapshotStyle({ ...this.requestedStyle, ...options });
+    const style = snapshotTextStyle({ ...this.requestedStyle, ...options });
     if (this.destroyed) throw new AssetError('Cannot update destroyed Text2D.');
     this.requestedStyle = style;
     await this.refresh();
@@ -273,7 +275,8 @@ export class Text2D extends Sprite {
       throw new RangeError('Text exceeds its input budget.');
   }
 
-  private static async rasterize(
+  /** @internal Shared raster generation; the caller owns the returned texture. */
+  static async rasterize(
     text: string,
     style: Text2DStyle,
   ): Promise<RasterizedText> {

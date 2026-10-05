@@ -1,0 +1,233 @@
+const require_rendering2d = require("../../../src/data/rendering2d.cjs");
+const require_index = require("../../math/src/index.cjs");
+const require_mask2d = require("./rendering2d/mask2d.cjs");
+const require_ui_layout = require("./ui-layout.cjs");
+const require_ui = require("../../../src/data/ui.cjs");
+//#region dist/packages/core/src/ui-scroll.js
+var UIScrollView = class extends require_ui_layout.UIElement {
+	content;
+	horizontal;
+	vertical;
+	x = 0;
+	y = 0;
+	extentWidth = 0;
+	extentHeight = 0;
+	drag;
+	point = new require_index.Vector2();
+	constructor(t = {}) {
+		super({
+			width: `fill`,
+			height: require_ui.uiDefaults.scrollHeight,
+			...t.layout
+		}), this.horizontal = t.horizontal ?? !1, this.vertical = t.vertical ?? !0, this.content = super.add(new require_ui_layout.UIElement({
+			width: `fill`,
+			height: `auto`,
+			...t.contentLayout
+		})), this.pointerEnabled = !0, this.eventPropagation = `hierarchy`, this.addEventListener(`wheel`, (e) => {
+			let t = e.detail;
+			if (t.defaultPrevented || this.effectiveDisabled) return;
+			let n = t.originalEvent?.deltaMode ?? 0, r = n === 1 ? require_ui.uiDefaults.wheelLinePixels : n === 2 ? this.layoutHeight : 1;
+			this.scrollTo(this.x + t.deltaX * r, this.y + t.deltaY * r) && t.preventDefault();
+		}), this.addEventListener(`pointerdown`, (e) => {
+			let t = e.detail;
+			this.drag || this.effectiveDisabled || t.button !== 0 || t.target !== this && t.originalEvent?.type === `pointerdown` && t.originalEvent.pointerType === `mouse` || (this.toLocal(t.screen, this.point), this.drag = {
+				id: t.pointerId,
+				x: this.point.x,
+				y: this.point.y,
+				offsetX: this.x,
+				offsetY: this.y
+			});
+		}, { capture: !0 }), this.addEventListener(`pointermove`, (e) => {
+			let t = e.detail;
+			this.drag && t.pointerId === this.drag.id && (this.toLocal(t.screen, this.point), Math.abs(this.drag.x - this.point.x) + Math.abs(this.drag.y - this.point.y) > require_ui.uiDefaults.scrollDragThreshold && (this.scrollTo(this.drag.offsetX + this.drag.x - this.point.x, this.drag.offsetY + this.drag.y - this.point.y), t.preventDefault(), t.stopPropagation()));
+		}, { capture: !0 });
+		for (let e of [
+			`pointerup`,
+			`pointerupoutside`,
+			`pointercancel`,
+			`remove`
+		]) this.addEventListener(e, () => {
+			this.drag = void 0;
+		}, { capture: !0 });
+	}
+	get scrollX() {
+		return this.x;
+	}
+	get scrollY() {
+		return this.y;
+	}
+	get contentWidth() {
+		return this.extentWidth;
+	}
+	get contentHeight() {
+		return this.extentHeight;
+	}
+	scrollTo(e, t) {
+		if (this.destroyed) throw Error(`Cannot scroll destroyed UIScrollView.`);
+		if (!Number.isFinite(e) || !Number.isFinite(t)) throw RangeError(`Scroll offsets must be finite.`);
+		let n = this.horizontal ? Math.min(Math.max(0, this.extentWidth - this.layoutWidth), Math.max(0, e)) : 0, r = this.vertical ? Math.min(Math.max(0, this.extentHeight - this.layoutHeight), Math.max(0, t)) : 0;
+		return this.x === n && this.y === r ? !1 : (this.x = n, this.y = r, this.content.position.set(-this.x, -this.y), this.scrolled(), this.dispatchEvent(new CustomEvent(`scroll`, { detail: {
+			x: this.x,
+			y: this.y
+		} })), !0);
+	}
+	reveal(e) {
+		let t = !1;
+		for (let n = e.parent; n; n = n.parent) if (n === this) {
+			t = !0;
+			break;
+		}
+		if (!t || e.destroyed) return;
+		let n = e.getLocalBounds(), r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0;
+		for (let [t, s] of [
+			[n.x, n.y],
+			[n.x + n.width, n.y],
+			[n.x, n.y + n.height],
+			[n.x + n.width, n.y + n.height]
+		]) e.toWorld(this.point.set(t, s), this.point), this.toLocal(this.point, this.point), r = Math.min(r, this.point.x), i = Math.min(i, this.point.y), a = Math.max(a, this.point.x), o = Math.max(o, this.point.y);
+		this.scrollTo(this.x + (r < 0 ? r : a > this.layoutWidth ? a - this.layoutWidth : 0), this.y + (i < 0 ? i : o > this.layoutHeight ? o - this.layoutHeight : 0));
+	}
+	setExtent(e, t) {
+		if (![e, t].every((e) => Number.isFinite(e) && e >= 0 && e <= require_rendering2d.rendering2dLimits.coordinate)) throw RangeError(`Scroll content exceeds bounded coordinates.`);
+		this.extentWidth = e, this.extentHeight = t, this.scrollTo(this.x, this.y), this.content.position.set(-this.x, -this.y);
+	}
+	scrolled() {}
+	arranged() {
+		this.layoutWidth > 0 && this.layoutHeight > 0 && (this.mask?.rect?.width !== this.layoutWidth || this.mask?.rect?.height !== this.layoutHeight) && (this.mask = require_mask2d.Mask2D.rectangle({
+			x: 0,
+			y: 0,
+			width: this.layoutWidth,
+			height: this.layoutHeight
+		}));
+	}
+	arrangeChildren() {
+		this.content.reflow(this.layoutWidth, this.layoutHeight);
+		let t = this.content.layoutWidth, n = this.content.layoutHeight;
+		for (let r of this.content.children) r instanceof require_ui_layout.UIElement && r.visible && !r.destroyed && (t = Math.max(t, r.position.x + r.layoutWidth), n = Math.max(n, r.position.y + r.layoutHeight));
+		return this.setExtent(t, n), !0;
+	}
+};
+var UIVirtualList = class extends UIScrollView {
+	options;
+	rowHeight;
+	overscan;
+	items = [];
+	keys = [];
+	indices = /* @__PURE__ */ new Map();
+	rows = /* @__PURE__ */ new Map();
+	pool = [];
+	reconciling = !1;
+	constructor(e) {
+		if (super({ layout: e.layout }), this.options = e, !Number.isFinite(e.rowHeight) || e.rowHeight <= 0 || e.rowHeight > require_rendering2d.rendering2dLimits.coordinate || !Number.isSafeInteger(e.overscan ?? require_ui.uiDefaults.virtualOverscan) || (e.overscan ?? require_ui.uiDefaults.virtualOverscan) < 0 || (e.overscan ?? require_ui.uiDefaults.virtualOverscan) > require_ui.uiLimits.virtualOverscan) throw RangeError(`Virtual rows require positive bounded height and nonnegative integer overscan.`);
+		this.rowHeight = e.rowHeight, this.overscan = e.overscan ?? require_ui.uiDefaults.virtualOverscan, this.setItems(e.items);
+	}
+	root() {
+		for (let e = this.parent; e; e = e.parent) if (`focus` in e && `synchronizeInputScope` in e) return e;
+	}
+	get materializedCount() {
+		return this.rows.size;
+	}
+	get pooledCount() {
+		return this.pool.length;
+	}
+	row(e) {
+		return this.rows.get(e)?.node;
+	}
+	keyOf(e) {
+		for (let t of this.rows.values()) for (let n = e; n; n = n.parent) if (n === t.node) return t.key;
+	}
+	setItems(e) {
+		if (this.destroyed) throw Error(`Cannot replace destroyed UIVirtualList.`);
+		if (e.length * this.rowHeight > require_rendering2d.rendering2dLimits.coordinate) throw RangeError(`Virtual list exceeds bounded coordinates.`);
+		let t = /* @__PURE__ */ new Map(), n = e.map((e, n) => {
+			let r = this.options.key(e, n);
+			if (typeof r != `string` && typeof r != `number` || typeof r == `number` && !Number.isFinite(r) || t.has(r)) throw TypeError(`Virtual list requires unique finite string/number keys.`);
+			return t.set(r, n), r;
+		}), i = this.root()?.focus.focused, a = i ? this.keyOf(i) : void 0;
+		this.items = [...e], this.keys = n, this.indices.clear();
+		for (let [e, n] of t) this.indices.set(e, n);
+		for (let e of this.rows.values()) {
+			let t = this.indices.get(e.key);
+			t !== void 0 && (e.index = t, this.options.bindRow(e.node, this.items[t], t, e.key));
+		}
+		this.setExtent(this.layoutWidth, e.length * this.rowHeight), this.materialize(), i && a !== void 0 && this.indices.has(a) && this.root()?.focus.focused === i && this.reveal(i), this.invalidateLayout();
+	}
+	focusKey(e, t = 1) {
+		let n = this.indices.get(e);
+		if (n === void 0 || this.destroyed || this.effectiveDisabled) return !1;
+		let r = n * this.rowHeight;
+		this.scrollTo(0, r < this.scrollY ? r : r + this.rowHeight > this.scrollY + this.layoutHeight ? r + this.rowHeight - this.layoutHeight : this.scrollY), this.materialize();
+		let i = this.rows.get(e);
+		if (!i) return !1;
+		let a = this.root();
+		return a ? a.focus.focusWithin(i.node, t) : !1;
+	}
+	moveFocus(e, t) {
+		let n = this.keyOf(e);
+		if (n === void 0) return !1;
+		let r = this.rows.get(n), i = this.root();
+		if (!i || i.focus.hasAdjacentWithin(r.node, e, t)) return !1;
+		let a = r.index + (t < 0 ? -1 : 1);
+		return a >= 0 && a < this.keys.length && this.focusKey(this.keys[a], t);
+	}
+	scrolled() {
+		this.rows && this.materialize();
+	}
+	arrangeChildren() {
+		return this.setExtent(this.layoutWidth, this.items.length * this.rowHeight), this.materialize(!0), !0;
+	}
+	materialize(t = !1) {
+		if (!(this.reconciling || this.destroyed)) {
+			this.reconciling = !0;
+			try {
+				if (Math.ceil(this.layoutHeight / this.rowHeight) + this.overscan * 2 + 2 > require_ui.uiLimits.virtualRows) throw RangeError(`Virtual viewport exceeds the bounded materialized row budget.`);
+				let n = Math.max(0, Math.floor(this.scrollY / this.rowHeight) - this.overscan), r = Math.min(this.items.length, Math.ceil((this.scrollY + this.layoutHeight) / this.rowHeight) + this.overscan), i = this.root()?.focus.focused;
+				for (let [e, t] of this.rows) {
+					let a = this.indices.get(e), o = a !== void 0 && i && this.keyOf(i) === e;
+					if (a !== void 0 && (o || a >= n && a < r)) {
+						t.index = a;
+						continue;
+					}
+					i && this.keyOf(i) === e && this.root()?.focus.focus(void 0), this.options.unbindRow?.(t.node, e), this.content.remove(t.node), this.rows.delete(e), this.pool.push(t.node);
+				}
+				for (let t = n; t < r; t++) {
+					let n = this.keys[t];
+					if (this.rows.has(n)) continue;
+					let r = this.pool.pop() ?? this.options.createRow();
+					if (!(r instanceof require_ui_layout.UIElement) || r.destroyed || r.parent || r.scene) throw Error(`createRow must return a fresh detached UIElement.`);
+					try {
+						this.options.bindRow(r, this.items[t], t, n);
+					} catch (e) {
+						throw r.destroy(), e;
+					}
+					this.rows.set(n, {
+						node: r,
+						key: n,
+						index: t
+					}), this.content.add(r);
+				}
+				for (let e of this.rows.values()) (e.node.layout.width !== this.layoutWidth || e.node.layout.height !== this.rowHeight) && e.node.setLayout({
+					width: this.layoutWidth,
+					height: this.rowHeight
+				}), (t || e.node.layoutWidth !== this.layoutWidth || e.node.layoutHeight !== this.rowHeight) && e.node.reflow(this.layoutWidth, this.rowHeight), e.node.position.set(0, e.index * this.rowHeight);
+				let o = Math.max(0, r - n) + 1;
+				for (; this.rows.size + this.pool.length > o;) this.pool.pop()?.destroy();
+			} finally {
+				this.reconciling = !1;
+			}
+		}
+	}
+	destroy() {
+		if (!this.destroyed) {
+			for (let e of this.rows.values()) this.options.unbindRow?.(e.node, e.key);
+			this.rows.clear();
+			for (let e of this.pool) e.destroy();
+			this.pool.length = 0, super.destroy();
+		}
+	}
+};
+//#endregion
+exports.UIScrollView = UIScrollView;
+exports.UIVirtualList = UIVirtualList;
+
+//# sourceMappingURL=ui-scroll.cjs.map

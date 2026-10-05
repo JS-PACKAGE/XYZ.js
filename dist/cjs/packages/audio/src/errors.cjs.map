@@ -1,0 +1,1 @@
+{"version":3,"file":"errors.cjs","names":["e"],"sources":["../../../../packages/audio/src/errors.js"],"sourcesContent":["import{XYZError as e}from\"../../graphics/src/errors.js\";export class AudioError extends e{}\n//# sourceMappingURL=errors.js.map\n"],"mappings":";;AAAwD,IAAa,aAAb,cAAgCA,eAAAA,SAAC,CAAC"}

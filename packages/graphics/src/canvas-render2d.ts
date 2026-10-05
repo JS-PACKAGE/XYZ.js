@@ -78,6 +78,13 @@ export class CanvasRender2D {
         throw new UnsupportedGraphicsError(
           'Canvas2D does not support native Sprite materials.',
         );
+      if (
+        command.kind === 'sprite' &&
+        (command.object.lighting || command.object.normalTexture)
+      )
+        throw new UnsupportedGraphicsError(
+          'Canvas2D does not support native Lighting2D; select WebGPU or WebGL2.',
+        );
       if (command.kind === 'sprite') {
         getSpriteQuad2D(command.object, this.quad);
         this.sources.prepare(command.object.texture);
@@ -213,7 +220,6 @@ export class CanvasRender2D {
         const sprite = command.object;
         const quad = getSpriteQuad2D(sprite, this.quad);
         getRelativeAppearance2D(sprite, root, this.appearance);
-        const image = this.sources.image(sprite.texture, quad, this.appearance);
         this.transform(
           context,
           sprite,
@@ -224,6 +230,18 @@ export class CanvasRender2D {
           inverse,
           bounds,
           sprite.roundPixels,
+        );
+        const matrix = context.getTransform();
+        const desiredScale =
+          Math.max(
+            Math.hypot(matrix.a, matrix.b),
+            Math.hypot(matrix.c, matrix.d),
+          ) / quad.resolution;
+        const image = this.sources.image(
+          sprite.texture,
+          quad,
+          this.appearance,
+          desiredScale,
         );
         context.globalAlpha = this.appearance[3];
         context.imageSmoothingEnabled =
@@ -241,29 +259,27 @@ export class CanvasRender2D {
           );
           context.clip();
           const tile = this.tile;
-          const tw = Math.max(
-              1,
-              Math.round(quad.naturalWidth * quad.resolution),
-            ),
-            th = Math.max(1, Math.round(quad.naturalHeight * quad.resolution));
+          const resolution = image.width / quad.trimWidth;
+          const tw = Math.max(1, Math.round(quad.naturalWidth * resolution)),
+            th = Math.max(1, Math.round(quad.naturalHeight * resolution));
           this.resizeCanvas(tile, tw, th);
           this.stats.pass2D();
           const tileContext = tile.getContext('2d')!;
           tileContext.clearRect(0, 0, tw, th);
           tileContext.drawImage(
             image,
-            quad.trimX * quad.resolution,
-            quad.trimY * quad.resolution,
+            quad.trimX * resolution,
+            quad.trimY * resolution,
           );
           this.stats.draw2D();
           const pattern = context.createPattern(tile, 'repeat')!;
           const cs = Math.cos(sprite.tileRotation),
             sn = Math.sin(sprite.tileRotation);
           const tm = (this.tileMatrix ??= new DOMMatrix());
-          tm.a = (cs * sprite.tileScale.x) / quad.resolution;
-          tm.b = (sn * sprite.tileScale.x) / quad.resolution;
-          tm.c = (-sn * sprite.tileScale.y) / quad.resolution;
-          tm.d = (cs * sprite.tileScale.y) / quad.resolution;
+          tm.a = (cs * sprite.tileScale.x) / resolution;
+          tm.b = (sn * sprite.tileScale.x) / resolution;
+          tm.c = (-sn * sprite.tileScale.y) / resolution;
+          tm.d = (cs * sprite.tileScale.y) / resolution;
           tm.e = sprite.tilePosition.x;
           tm.f = sprite.tilePosition.y;
           pattern.setTransform(tm);
@@ -294,7 +310,6 @@ export class CanvasRender2D {
           this.appearance[1] *= slot.tintG;
           this.appearance[2] *= slot.tintB;
           this.appearance[3] *= slot.tintA;
-          const image = this.sources.image(slot.texture, quad, this.appearance);
           this.transform(
             context,
             layer,
@@ -305,6 +320,16 @@ export class CanvasRender2D {
             inverse,
             bounds,
             false,
+          );
+          const matrix = context.getTransform();
+          const image = this.sources.image(
+            slot.texture,
+            quad,
+            this.appearance,
+            Math.max(
+              Math.hypot(matrix.a, matrix.b),
+              Math.hypot(matrix.c, matrix.d),
+            ) / quad.resolution,
           );
           context.globalAlpha = this.appearance[3];
           context.drawImage(

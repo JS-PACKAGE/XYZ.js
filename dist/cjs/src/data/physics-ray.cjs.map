@@ -1,0 +1,1 @@
+{"version":3,"file":"physics-ray.cjs","names":[],"sources":["../../../src/data/physics-ray.js"],"sourcesContent":["export const physicsRayLimits=Object.freeze({hits:4096,tests:262144,tolerance:1e-9});\n//# sourceMappingURL=physics-ray.js.map\n"],"mappings":";AAAA,IAAa,mBAAiB,OAAO,OAAO;CAAC,MAAK;CAAK,OAAM;CAAO,WAAU;AAAI,CAAC"}

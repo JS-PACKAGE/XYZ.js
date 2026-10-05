@@ -1,0 +1,194 @@
+const require_object3d = require("./object3d.cjs");
+const require_gpu_particles3d = require("../../../src/data/gpu-particles3d.cjs");
+//#region dist/packages/core/src/gpu-particles3d.js
+function scalar(e, t, n, r) {
+	if (!Number.isFinite(e) || e < n || e > r) throw RangeError(`${t} must be finite in [${n}, ${r}].`);
+	return e;
+}
+function tuple(e, t, n, r, i) {
+	if (e.length !== t) throw RangeError(`${n} requires ${t} components.`);
+	for (let t of e) scalar(t, n, r, i);
+	return Object.freeze([...e]);
+}
+var GPUParticleEmitter3D = class extends require_object3d.Object3D {
+	capacity;
+	rate;
+	lifetime;
+	seed;
+	space;
+	velocityMin;
+	velocityMax;
+	gravity;
+	startColor;
+	endColor;
+	startSize;
+	endSize;
+	commands;
+	commandWords;
+	births;
+	head = 0;
+	count = 0;
+	clock = 0;
+	epoch = 0;
+	fraction = 0;
+	sequence = 0;
+	running = !0;
+	frozen = !1;
+	revision = 0;
+	dropped = 0;
+	resourceOwners = /* @__PURE__ */ new Set();
+	constructor(e) {
+		super();
+		let r = require_gpu_particles3d.gpuParticles3DLimits;
+		if (!Number.isInteger(e.capacity)) throw RangeError(`GPU particle capacity must be an integer.`);
+		this.capacity = scalar(e.capacity, `capacity`, 1, r.maxCapacity), this.rate = scalar(e.rate ?? 0, `rate`, 0, r.maxRate), this.lifetime = scalar(e.lifetime ?? 2, `lifetime`, 2 ** -52, r.maxLifetime);
+		let i = e.seed ?? 1;
+		if (!Number.isInteger(i) || i < 0 || i > 4294967295) throw RangeError(`GPU particle seed must be an unsigned 32-bit integer.`);
+		if (this.seed = i, this.space = e.space ?? `local`, this.space !== `local` && this.space !== `world`) throw RangeError(`GPU particle space must be local or world.`);
+		this.velocityMin = tuple(e.velocityMin ?? [
+			0,
+			1,
+			0
+		], 3, `velocityMin`, -r.maxMagnitude, r.maxMagnitude), this.velocityMax = tuple(e.velocityMax ?? this.velocityMin, 3, `velocityMax`, -r.maxMagnitude, r.maxMagnitude);
+		for (let e = 0; e < 3; e++) if (this.velocityMax[e] < this.velocityMin[e]) throw RangeError(`velocityMax must be >= velocityMin on every axis.`);
+		this.gravity = tuple(e.gravity ?? [
+			0,
+			-1,
+			0
+		], 3, `gravity`, -r.maxMagnitude, r.maxMagnitude), this.startColor = tuple(e.startColor ?? [
+			1,
+			1,
+			1,
+			1
+		], 4, `startColor`, 0, 1), this.endColor = tuple(e.endColor ?? [
+			1,
+			1,
+			1,
+			0
+		], 4, `endColor`, 0, 1), this.startSize = scalar(e.startSize ?? .1, `startSize`, 0, r.maxMagnitude), this.endSize = scalar(e.endSize ?? this.startSize, `endSize`, 0, r.maxMagnitude), this.commands = new Float32Array(this.capacity * 20), this.commandWords = new Uint32Array(this.commands.buffer), this.births = new Float64Array(this.capacity);
+	}
+	get activeCount() {
+		return this.count;
+	}
+	get droppedCount() {
+		return this.dropped;
+	}
+	get time() {
+		return this.clock;
+	}
+	get emitting() {
+		return this.running;
+	}
+	get paused() {
+		return this.frozen;
+	}
+	start() {
+		this.assertAlive(), this.running = !0;
+	}
+	stop() {
+		this.running = !1, this.fraction = 0;
+	}
+	pause() {
+		this.assertAlive(), this.frozen = !0;
+	}
+	resume() {
+		this.assertAlive(), this.frozen = !1;
+	}
+	burst(e) {
+		if (this.assertAlive(), !Number.isSafeInteger(e) || e < 0) throw RangeError(`GPU particle burst must be a nonnegative safe integer.`);
+		let t = Math.min(e, this.capacity - this.count);
+		t && this.updateWorldMatrix();
+		for (let e = 0; e < t; e++) this.admit(this.clock, this.sequence + e);
+		return this.sequence = this.sequence + e >>> 0, this.dropped += e - t, t;
+	}
+	clear() {
+		this.head = 0, this.count = 0, this.fraction = 0, this.revision++, this.releaseNative();
+	}
+	updateSimulation(e) {
+		if (this.destroyed) return;
+		if (!Number.isFinite(e) || e < 0) throw RangeError(`GPU particle delta must be finite and nonnegative.`);
+		if (this.frozen || e === 0) return;
+		let r = this.clock + e;
+		if (!Number.isFinite(r) || r > 2 ** 53 - 1) throw RangeError(`GPU particle command clock exceeds precise time range.`);
+		if (this.running && this.rate > 0) {
+			let n = this.fraction + e * this.rate;
+			if (!Number.isSafeInteger(Math.floor(n))) throw RangeError(`GPU particle rate command count exceeds precise integer range.`);
+			let r = Math.floor(n + 1e-10), i = this.clock + (1 - this.fraction) / this.rate;
+			this.fraction = Math.max(0, n - r), r && this.updateWorldMatrix();
+			let a = 0, o = Math.max(1, Math.ceil(this.lifetime * this.rate - 1e-9));
+			for (; a < r;) {
+				let e = i + a / this.rate;
+				if (this.expire(e), this.count < this.capacity) this.admit(e, this.sequence + a), a++;
+				else {
+					let e = this.births[this.head];
+					if (e >= i && o >= this.capacity) {
+						let e = Math.floor((r - a - 1) / o);
+						if (e > 0) {
+							let n = e * o / this.rate;
+							for (let r = 0; r < this.count; r++) {
+								let i = (this.head + r) % this.capacity;
+								this.births[i] += n;
+								let a = i * 20;
+								this.commands[a] = this.births[i] - this.epoch, this.commandWords[a + 1] = this.commandWords[a + 1] + e * o >>> 0;
+							}
+							this.revision++, this.dropped += e * (o - this.capacity), a += e * o;
+							continue;
+						}
+					}
+					let n = Math.min(r, Math.max(a + 1, Math.ceil((e + this.lifetime - i) * this.rate - 1e-9)));
+					this.dropped += n - a, a = n;
+				}
+			}
+			this.sequence = this.sequence + r >>> 0;
+		}
+		this.clock = r, this.expire(r);
+		let i = Math.floor(r / require_gpu_particles3d.gpuParticles3DLimits.clockEpochSeconds) * require_gpu_particles3d.gpuParticles3DLimits.clockEpochSeconds;
+		if (i !== this.epoch) {
+			this.epoch = i;
+			for (let e = 0; e < this.count; e++) {
+				let n = (this.head + e) % this.capacity;
+				this.commands[n * 20] = this.births[n] - i;
+			}
+			this.revision++;
+		}
+	}
+	get commandData() {
+		return this.commands;
+	}
+	get commandVersion() {
+		return this.revision;
+	}
+	get commandHead() {
+		return this.head;
+	}
+	get shaderTime() {
+		return this.clock - this.epoch;
+	}
+	ownNative(e) {
+		return this.assertAlive(), this.resourceOwners.add(e), () => this.resourceOwners.delete(e);
+	}
+	detach(e) {
+		super.detach(e), this.releaseNative();
+	}
+	onDestroy() {
+		this.running = !1, this.clear(), this.commands = /* @__PURE__ */ new Float32Array(), this.commandWords = /* @__PURE__ */ new Uint32Array(), this.births = /* @__PURE__ */ new Float64Array();
+	}
+	expire(e) {
+		for (; this.count && this.births[this.head] + this.lifetime <= e + 1e-10;) this.head = (this.head + 1) % this.capacity, this.count--;
+	}
+	admit(e, n) {
+		let r = (this.head + this.count) % this.capacity, i = r * 20;
+		this.births[r] = e, this.commands[i] = e - this.epoch, this.commandWords[i + 1] = n >>> 0, this.commands.set(this.worldMatrix.elements, i + 4), this.count++, this.revision++;
+	}
+	releaseNative() {
+		for (let e of this.resourceOwners) e();
+		this.resourceOwners.clear();
+	}
+	assertAlive() {
+		if (this.destroyed) throw Error(`GPU particle emitter is destroyed.`);
+	}
+};
+//#endregion
+exports.GPUParticleEmitter3D = GPUParticleEmitter3D;
+
+//# sourceMappingURL=gpu-particles3d.cjs.map

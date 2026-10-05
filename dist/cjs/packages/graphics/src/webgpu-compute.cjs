@@ -1,0 +1,149 @@
+const require_errors = require("./errors.cjs");
+const require_gpu_programs = require("../../../src/data/gpu-programs.cjs");
+const require_compute = require("./compute.cjs");
+//#region dist/packages/graphics/src/webgpu-compute.js
+var WebGPUCompute = class {
+	device;
+	buffers = /* @__PURE__ */ new Map();
+	programs = /* @__PURE__ */ new Map();
+	staging = /* @__PURE__ */ new Set();
+	residentBytes = 0;
+	stagingBytes = 0;
+	failure;
+	lifetime;
+	rejectLifetime;
+	constructor(e) {
+		this.device = e, this.lifetime = new Promise((e, t) => {
+			this.rejectLifetime = t;
+		}), this.lifetime.catch(() => {}), e.lost.then((e) => this.destroy(new require_errors.WebGPUDeviceLostError(`Compute device lost: ${e.message}`)));
+	}
+	live() {
+		if (this.failure) throw this.failure;
+	}
+	wait(t, n, r) {
+		return require_compute.gpuOperation(Promise.race([t, this.lifetime]), r, n);
+	}
+	buffer(e) {
+		this.live(), e.validate();
+		let t = this.buffers.get(e);
+		if (t) return t.native;
+		if (e.byteLength > this.device.limits.maxStorageBufferBindingSize || e.byteLength > this.device.limits.maxBufferSize) throw RangeError(`Compute buffer exceeds device limits.`);
+		if (this.buffers.size >= require_gpu_programs.computeLimits.buffers || this.residentBytes + this.stagingBytes + e.byteLength > require_gpu_programs.computeLimits.residentBytes) throw RangeError(`Compute resident buffer budget exceeded.`);
+		let n = this.device.createBuffer({
+			label: e.label,
+			size: e.byteLength,
+			usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+		}), release = () => {
+			this.buffers.has(e) && (n.destroy(), e.removeEventListener(`destroy`, release), this.buffers.delete(e), this.residentBytes -= e.byteLength);
+		};
+		return e.addEventListener(`destroy`, release, { once: !0 }), this.buffers.set(e, {
+			native: n,
+			release
+		}), this.residentBytes += e.byteLength, n;
+	}
+	async prepare(e, t = {}) {
+		this.live(), e.validate(), t.signal?.throwIfAborted();
+		let n = this.programs.get(e);
+		if (!n) {
+			if (this.programs.size >= require_gpu_programs.computeLimits.programs) throw RangeError(`Compute prepared program budget exceeded.`);
+			let t = e.workgroupSize, i = this.device.limits;
+			if (t[0] > i.maxComputeWorkgroupSizeX || t[1] > i.maxComputeWorkgroupSizeY || t[2] > i.maxComputeWorkgroupSizeZ || t[0] * t[1] * t[2] > i.maxComputeInvocationsPerWorkgroup || e.bindings.length > i.maxStorageBuffersPerShaderStage) throw RangeError(`Compute program exceeds device limits.`);
+			let a = this.compile(e), release = () => {
+				e.removeEventListener(`destroy`, release), this.programs.delete(e);
+			};
+			n = {
+				ready: a,
+				release
+			}, this.programs.set(e, n), e.addEventListener(`destroy`, release, { once: !0 }), a.catch(() => {
+				this.programs.get(e)?.ready === a && release();
+			});
+		}
+		await this.wait(n.ready, [e], t.signal), this.live(), e.validate();
+	}
+	async compile(e) {
+		let n = e.bindings.map((e, t) => `@group(0) @binding(${t}) var<storage, ${e.access === `read` ? `read` : `read_write`}> buffer${t}: array<${e.type}>;`).join(`
+`);
+		this.device.pushErrorScope(`validation`);
+		let r, i;
+		try {
+			r = this.device.createShaderModule({
+				label: e.label,
+				code: `${n}\n${e.wgsl}\n@compute @workgroup_size(${e.workgroupSize.join(`,`)}) fn main(@builtin(global_invocation_id) index: vec3u) { compute(index); }`
+			});
+		} finally {
+			i = this.device.popErrorScope();
+		}
+		let [a, o] = await Promise.all([r.getCompilationInfo(), i]);
+		this.live(), e.validate();
+		let s = a.messages.filter((e) => e.type === `error`);
+		if (s.length) throw new require_errors.GraphicsError(`Compute compilation failed: ${s.map((e) => `${e.lineNum}:${e.linePos} ${e.message}`).join(`; `)}`);
+		if (o) throw new require_errors.GraphicsError(`Compute shader validation failed: ${o.message}`);
+		let c = this.device.createBindGroupLayout({ entries: e.bindings.map((e, t) => ({
+			binding: t,
+			visibility: GPUShaderStage.COMPUTE,
+			buffer: { type: e.access === `read` ? `read-only-storage` : `storage` }
+		})) }), l = await this.device.createComputePipelineAsync({
+			label: e.label,
+			layout: this.device.createPipelineLayout({ bindGroupLayouts: [c] }),
+			compute: {
+				module: r,
+				entryPoint: `main`
+			}
+		});
+		return this.live(), e.validate(), l;
+	}
+	upload(e, t, n = 0) {
+		this.live(), e.validateUpload(t, n), t.byteLength && this.device.queue.writeBuffer(this.buffer(e), n * 4, t.buffer, t.byteOffset, t.byteLength);
+	}
+	async dispatch(e, n) {
+		this.live(), n.signal?.throwIfAborted();
+		let r = e.validateDispatch(n);
+		if (r.some((e) => e > this.device.limits.maxComputeWorkgroupsPerDimension)) throw RangeError(`Compute dispatch exceeds device workgroup count.`);
+		await this.prepare(e, n), this.live(), n.signal?.throwIfAborted(), e.validateDispatch(n);
+		let i = await this.programs.get(e).ready;
+		this.live(), n.signal?.throwIfAborted(), e.validateDispatch(n);
+		for (let r = 0; r < n.bindings.length; r++) if (e.bindings[r].access === `read` && !this.buffers.has(n.bindings[r])) throw new require_errors.GraphicsError(`Compute input has no contents in this device generation; upload or produce it before dispatch.`);
+		let a = this.device.createBindGroup({
+			layout: i.getBindGroupLayout(0),
+			entries: n.bindings.map((e, t) => ({
+				binding: t,
+				resource: { buffer: this.buffer(e) }
+			}))
+		}), o = this.device.createCommandEncoder({ label: e.label }), s = o.beginComputePass();
+		s.setPipeline(i), s.setBindGroup(0, a), s.dispatchWorkgroups(...r), s.end(), this.device.queue.submit([o.finish()]), await this.wait(this.device.queue.onSubmittedWorkDone(), [e, ...n.bindings], n.signal), this.live(), e.validate(), n.bindings.forEach((e) => e.validate());
+	}
+	async read(e, n = {}) {
+		this.live(), n.signal?.throwIfAborted();
+		let i = n.offset ?? 0, a = n.count ?? e.length - i;
+		e.range(i, a);
+		let o = e.type === `f32` ? Float32Array : e.type === `u32` ? Uint32Array : Int32Array;
+		if (!a) return new o(0);
+		let s = this.buffers.get(e)?.native;
+		if (!s) throw new require_errors.GraphicsError(`Compute buffer has no contents in this device generation; upload or produce it before readback.`);
+		if (this.residentBytes + this.stagingBytes + a * 4 > require_gpu_programs.computeLimits.residentBytes) throw RangeError(`Compute readback staging budget exceeded.`);
+		let c = this.device.createBuffer({
+			size: a * 4,
+			usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+		});
+		this.staging.add(c), this.stagingBytes += a * 4;
+		try {
+			let t = this.device.createCommandEncoder();
+			return t.copyBufferToBuffer(s, i * 4, c, 0, a * 4), this.device.queue.submit([t.finish()]), await this.wait(c.mapAsync(GPUMapMode.READ), [e], n.signal), this.live(), e.validate(), new o(c.getMappedRange().slice(0));
+		} finally {
+			this.staging.delete(c) && (this.stagingBytes -= a * 4), c.destroy();
+		}
+	}
+	destroy(e = new require_errors.GraphicsError(`Compute owner destroyed.`)) {
+		if (!this.failure) {
+			this.failure = e, this.rejectLifetime(e);
+			for (let e of this.buffers.values()) e.release();
+			for (let e of this.programs.values()) e.release();
+			for (let e of this.staging) e.destroy();
+			this.staging.clear(), this.stagingBytes = 0;
+		}
+	}
+};
+//#endregion
+exports.WebGPUCompute = WebGPUCompute;
+
+//# sourceMappingURL=webgpu-compute.cjs.map

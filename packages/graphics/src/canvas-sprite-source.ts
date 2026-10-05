@@ -1,4 +1,9 @@
-import type { Texture2DSource } from '../../assets/src/index.js';
+import { Texture, type Texture2DSource } from '../../assets/src/index.js';
+import {
+  getTextureDistanceField,
+  getDistanceFieldRasterScale,
+  getDistanceFieldCanvas,
+} from '../../assets/src/fonts/distance-field.js';
 import type { TextureQuad2D } from './sprite-instance.js';
 import { GraphicsError } from './errors.js';
 
@@ -46,8 +51,17 @@ export class CanvasSpriteSource {
     source: Texture2DSource,
     quad: TextureQuad2D,
     tint: ArrayLike<number>,
+    desiredScale = 1,
   ): HTMLCanvasElement {
-    const image = this.prepare(source);
+    const field = source instanceof Texture && getTextureDistanceField(source);
+    const scale = field
+      ? getDistanceFieldRasterScale(source as Texture, desiredScale)
+      : 1;
+    const image = field
+      ? getDistanceFieldCanvas(source as Texture, scale)
+      : this.prepare(source);
+    const sourceWidth = Math.ceil(source.width * scale),
+      sourceHeight = Math.ceil(source.height * scale);
     // Full untinted frames already have a versioned snapshot. Repainting the
     // shared scratch per sprite forces unnecessary native canvas dependencies.
     if (
@@ -64,10 +78,16 @@ export class CanvasSpriteSource {
       quad.trimWidth * quad.resolution === source.width &&
       quad.trimHeight * quad.resolution === source.height
     )
-      return this.sources.get(source)!.canvas;
+      return image as HTMLCanvasElement;
     const canvas = (this.scratch ??= document.createElement('canvas'));
-    const width = Math.max(1, Math.round(quad.trimWidth * quad.resolution)),
-      height = Math.max(1, Math.round(quad.trimHeight * quad.resolution));
+    const width = Math.max(
+        1,
+        Math.round(quad.trimWidth * quad.resolution * scale),
+      ),
+      height = Math.max(
+        1,
+        Math.round(quad.trimHeight * quad.resolution * scale),
+      );
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
     const context = canvas.getContext('2d')!;
@@ -75,13 +95,13 @@ export class CanvasSpriteSource {
     context.clearRect(0, 0, width, height);
     context.imageSmoothingEnabled = false;
     // Invert the central UV basis: packed clockwise frames are unrotated here.
-    const a = (quad.ux * source.width) / canvas.width;
-    const b = (quad.vx * source.height) / canvas.width;
-    const c = (quad.uy * source.width) / canvas.height;
-    const d = (quad.vy * source.height) / canvas.height;
+    const a = (quad.ux * sourceWidth) / canvas.width;
+    const b = (quad.vx * sourceHeight) / canvas.width;
+    const c = (quad.uy * sourceWidth) / canvas.height;
+    const d = (quad.vy * sourceHeight) / canvas.height;
     const det = a * d - b * c;
-    const x = quad.u0 * source.width,
-      y = quad.v0 * source.height;
+    const x = quad.u0 * sourceWidth,
+      y = quad.v0 * sourceHeight;
     context.setTransform(
       d / det,
       -b / det,

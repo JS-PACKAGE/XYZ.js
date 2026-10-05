@@ -8,6 +8,7 @@ export function approvedPackageFiles(inventory) {
   if (
     inventory.schema !== 1 ||
     !Array.isArray(inventory.compiledModules) ||
+    !Array.isArray(inventory.cjsModules) ||
     !Array.isArray(inventory.files)
   )
     throw new Error('Unsupported reviewed package inventory.');
@@ -15,6 +16,9 @@ export function approvedPackageFiles(inventory) {
     ...inventory.files,
     ...inventory.compiledModules.flatMap((module) =>
       ['.js', '.js.map', '.d.ts'].map((suffix) => `dist/${module}${suffix}`),
+    ),
+    ...inventory.cjsModules.flatMap((module) =>
+      ['.cjs', '.cjs.map'].map((suffix) => `dist/cjs/${module}${suffix}`),
     ),
   ];
   const unique = new Set();
@@ -32,6 +36,7 @@ export function approvedPackagePatterns(inventory) {
     ...inventory.compiledModules.map(
       (module) => `dist/${module}.{js,js.map,d.ts}`,
     ),
+    ...inventory.cjsModules.map((module) => `dist/cjs/${module}.{cjs,cjs.map}`),
   ].sort();
 }
 function hasControlCharacters(value) {

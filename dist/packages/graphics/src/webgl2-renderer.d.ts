@@ -1,8 +1,11 @@
+import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
+import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
 import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 import type { Geometry } from '../../core/src/geometry.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 import { Texture } from '../../assets/src/index.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
@@ -15,6 +18,7 @@ import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
 import { NativeResidency } from './residency.js';
 import type { ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
+import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export declare class WebGL2Renderer implements Renderer {
     private readonly onError;
@@ -22,6 +26,12 @@ export declare class WebGL2Renderer implements Renderer {
     readonly backend: "webgl2";
     private canvas;
     private gl;
+    private graphs;
+    prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    prepareCompute(program: ComputeProgram, options?: ComputePreparationOptions): Promise<void>;
+    uploadCompute(buffer: ComputeBuffer, data: ComputeArray, offset?: number): void;
+    dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
+    readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     private triangleProgram;
     private meshProgram;
     private triangleVAO;
@@ -52,6 +62,9 @@ export declare class WebGL2Renderer implements Renderer {
     private gpuTimer;
     readonly residency: NativeResidency;
     private readonly preparedGeometry;
+    private readonly probeCaptures;
+    private capturingProbe;
+    captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     configureResidency(options: ResidencyBudgetOptions): void;
     retainFrameResources(): PreparedResourceLease;
     prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
@@ -73,6 +86,15 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly environments;
     private readonly environmentData;
     private readonly environmentLightingData;
+    private readonly selectedProbes;
+    private readonly probeMaps;
+    private probeTexture;
+    private probeAllocation;
+    private probeMipCount;
+    private readonly probeData;
+    private readonly temporalState;
+    private temporal;
+    private temporalActive;
     private readonly fogData;
     private readonly invViewProjection;
     private readonly meshUniforms;
@@ -170,6 +192,7 @@ export declare class WebGL2Renderer implements Renderer {
     private cacheTexture;
     /** Uploads a half-float mip chain once per map; the map itself is immutable. */
     private uploadEnvironment;
+    private ensureProbeEnvironment;
     private drawSky;
     /** Uploads or removes the per-vertex colors; the geometry's VAO must be bound. */
     private syncVertexColors;

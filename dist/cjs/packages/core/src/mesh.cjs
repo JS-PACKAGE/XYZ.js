@@ -1,0 +1,99 @@
+const require_texture = require("../../assets/src/texture.cjs");
+const require_texture2d = require("../../assets/src/texture2d.cjs");
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_geometry = require("./geometry.cjs");
+const require_morph = require("./morph.cjs");
+const require_object3d = require("./object3d.cjs");
+const require_render_bounds = require("./render-bounds.cjs");
+//#region dist/packages/core/src/mesh.js
+var TextureMaterial = class {
+	texture;
+	textureSource;
+	color;
+	opacity;
+	transparent;
+	deformationBounds = 0;
+	constructor(n) {
+		if (!(n.texture instanceof require_texture.Texture)) throw TypeError(`TextureMaterial requires a Texture.`);
+		if (n.textureSource !== void 0 && !(n.textureSource instanceof require_texture.Texture) && !(n.textureSource instanceof require_texture2d.CanvasTexture2D)) throw TypeError(`Texture source must be a Texture or CanvasTexture2D.`);
+		let r = n.color ?? [
+			1,
+			1,
+			1
+		];
+		if (r.length !== 3 || r.some((e) => !Number.isFinite(e) || e < 0 || e > 1)) throw RangeError(`Material color components must be finite numbers between 0 and 1.`);
+		let i = n.opacity ?? 1;
+		if (!Number.isFinite(i) || i < 0 || i > 1) throw RangeError(`Material opacity must be between 0 and 1.`);
+		if (n.transparent !== void 0 && typeof n.transparent != `boolean`) throw TypeError(`Material transparent must be a boolean.`);
+		this.texture = n.texture, this.textureSource = n.textureSource, this.color = [...r], this.opacity = i, this.transparent = i < 1 || n.transparent === !0;
+	}
+};
+function materialBaseTexture(e) {
+	return e.textureSource ?? e.texture;
+}
+var Mesh = class extends require_object3d.Object3D {
+	geometry;
+	material;
+	castShadow;
+	receiveShadow;
+	morph;
+	constructor(e) {
+		if (super(), !(e.geometry instanceof require_geometry.Geometry) || !(e.material instanceof TextureMaterial)) throw TypeError(`Mesh requires Geometry and TextureMaterial.`);
+		if (this.geometry = e.geometry, this.material = e.material, e.morph !== void 0) {
+			if (!(e.morph instanceof require_morph.MorphTargets)) throw TypeError(`Mesh morph requires MorphTargets.`);
+			e.morph.bind(e.geometry), this.morph = e.morph;
+		}
+		e.position && this.transform.position.set(...e.position), e.rotation && (e.rotation instanceof require_math3d.Quaternion ? (this.transform.rotation.x = e.rotation.x, this.transform.rotation.y = e.rotation.y, this.transform.rotation.z = e.rotation.z, this.transform.rotation.w = e.rotation.w) : this.transform.rotation.setFromEuler(...e.rotation)), e.scale && this.transform.scale.set(...e.scale), this.visible = e.visible ?? !0, this.castShadow = e.castShadow ?? !0, this.receiveShadow = e.receiveShadow ?? !0;
+	}
+	frustumCulled = !0;
+	occlusionCulled = !1;
+	worldSphere = {
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: 0
+	};
+	deformationSphere = {
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: 0
+	};
+	get renderGeometry() {
+		return this.geometry;
+	}
+	get boundingSphere() {
+		return this.geometry.boundingSphere;
+	}
+	updateRenderDeformation() {
+		this.updateDeformation();
+	}
+	get cullable() {
+		return !0;
+	}
+	distanceSquaredTo(e, t, n) {
+		let r = this.boundingSphere, i = this.updateWorldMatrix().elements, a = i[0] * r.x + i[4] * r.y + i[8] * r.z + i[12] - e, o = i[1] * r.x + i[5] * r.y + i[9] * r.z + i[13] - t, s = i[2] * r.x + i[6] * r.y + i[10] * r.z + i[14] - n;
+		return a * a + o * o + s * s;
+	}
+	isInFrustum(e) {
+		let t = this.getWorldBoundingSphere(this.worldSphere);
+		return !this.frustumCulled || !this.cullable || !require_render_bounds.sphereIsFinite(t) || e.intersectsSphere(t.x, t.y, t.z, t.radius);
+	}
+	getWorldBoundingSphere(e, t = !0) {
+		t && (this.updateRenderDeformation(), this.updateWorldMatrix());
+		let n = this.boundingSphere, r = this.material.deformationBounds;
+		if (r === void 0) return e.x = e.y = e.z = 0, e.radius = 1 / 0, e;
+		if (r === 0) return require_render_bounds.transformSphere(n, this.worldMatrix, e);
+		let i = this.deformationSphere;
+		return i.x = n.x, i.y = n.y, i.z = n.z, i.radius = n.radius + r, require_render_bounds.transformSphere(i, this.worldMatrix, e);
+	}
+	updateDeformation() {
+		this.morph?.apply(this.geometry.vertices) && this.geometry.markUpdated();
+	}
+};
+//#endregion
+exports.Mesh = Mesh;
+exports.TextureMaterial = TextureMaterial;
+exports.materialBaseTexture = materialBaseTexture;
+
+//# sourceMappingURL=mesh.cjs.map

@@ -1,0 +1,474 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_geometry = require("./geometry.cjs");
+const require_render_bounds = require("./render-bounds.cjs");
+const require_mesh = require("./mesh.cjs");
+const require_camera_utils = require("./camera-utils.cjs");
+const require_group = require("./group.cjs");
+const require_orthographic_camera = require("./orthographic-camera.cjs");
+const require_sprite_sheet = require("./graphics2d/sprite-sheet.cjs");
+const require_visibility = require("../../../src/data/visibility.cjs");
+const require_text2d = require("./text2d.cjs");
+//#region dist/packages/core/src/objects3d.js
+function isCameraDependent(e) {
+	return typeof e == `object` && !!e && typeof e.updateForCamera == `function`;
+}
+var p = new require_math3d.Vector3();
+function meshOptions(e, t, n) {
+	return {
+		geometry: t,
+		material: n,
+		position: e.position,
+		rotation: e.rotation,
+		scale: e.scale,
+		visible: e.visible,
+		castShadow: e.castShadow,
+		receiveShadow: e.receiveShadow
+	};
+}
+function worldPosition(e, t) {
+	let n = e.updateWorldMatrix().elements;
+	return t.set(n[12], n[13], n[14]);
+}
+var LOD = class extends require_group.Group {
+	entries = [];
+	current = -1;
+	screenMode = !1;
+	weights = [];
+	fromWeights = [];
+	fadeStarted = 0;
+	fading = !1;
+	screenSphere = {
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: 1
+	};
+	hysteresis = 0;
+	crossFadeDuration = 0;
+	screenRadius = require_visibility.visibilityLimits.screenRadius;
+	constructor(e = {}) {
+		super(), this.hysteresis = e.hysteresis ?? 0, this.crossFadeDuration = e.crossFadeDuration ?? 0, this.screenRadius = e.screenRadius ?? require_visibility.visibilityLimits.screenRadius, this.validateSettings();
+	}
+	get levels() {
+		return this.entries;
+	}
+	get level() {
+		return this.current;
+	}
+	addLevel(e, t) {
+		if (!Number.isFinite(t) || t < 0) throw RangeError(`LOD distance must be finite and nonnegative.`);
+		if (this.screenMode) throw Error(`Cannot mix distance and screen-size LOD levels.`);
+		return this.insertLevel({
+			object: e,
+			distance: t
+		}), this.entries.sort((e, t) => e.distance - t.distance), this;
+	}
+	addScreenLevel(e, t) {
+		if (!Number.isFinite(t) || t < 0) throw RangeError(`LOD screen size must be finite and nonnegative.`);
+		if (this.entries.length && !this.screenMode) throw Error(`Cannot mix distance and screen-size LOD levels.`);
+		return this.screenMode = !0, this.insertLevel({
+			object: e,
+			distance: 0,
+			screenSize: t
+		}), this.entries.sort((e, t) => t.screenSize - e.screenSize), this;
+	}
+	removeLevel(e, t = !1) {
+		let n = this.entries.findIndex((t) => t.object === e);
+		return n < 0 ? !1 : (this.entries.splice(n, 1), this.remove(e), e.visible = !0, t && e.destroy(), this.resetSelection(), !0);
+	}
+	insertLevel(e) {
+		if (this.entries.some((t) => t.object === e.object)) throw Error(`This object is already an LOD level.`);
+		this.add(e.object), e.object.visible = !1, this.entries.push(e), this.resetSelection();
+	}
+	resetSelection() {
+		this.current = -1, this.fading = !1, this.weights.length = this.fromWeights.length = this.entries.length, this.weights.fill(0), this.fromWeights.fill(0);
+		for (let e of this.entries) e.object.visible = !1;
+	}
+	updateForCamera(e, t, n) {
+		t !== void 0 && n !== void 0 ? this.updateForRender(e, t, n) : !this.screenMode && this.crossFadeDuration === 0 && this.select(e, 1, 0);
+	}
+	updateForRender(e, t, n) {
+		if (!Number.isFinite(t) || t <= 0 || !Number.isFinite(n)) throw RangeError(`LOD presentation requires a positive viewport and finite time.`);
+		this.select(e, t, n);
+	}
+	renderWeight(e) {
+		let t = e;
+		for (; t.parent && t.parent !== this;) t = t.parent;
+		let n = this.entries.findIndex((e) => e.object === t);
+		return n < 0 ? 1 : this.weights[n];
+	}
+	projectedDiameter(e, t) {
+		let n = this.screenSphere;
+		return n.x = n.y = n.z = 0, n.radius = this.screenRadius, require_render_bounds.transformSphere(n, this.updateWorldMatrix(), n), projectedSphereDiameter(n, e, t);
+	}
+	validateSettings() {
+		if (!Number.isFinite(this.hysteresis) || this.hysteresis < 0 || !Number.isFinite(this.crossFadeDuration) || this.crossFadeDuration < 0 || !Number.isFinite(this.screenRadius) || this.screenRadius <= 0) throw RangeError(`LOD hysteresis/fade must be nonnegative and radius positive.`);
+	}
+	select(e, t, n) {
+		if (this.validateSettings(), !this.entries.length) return;
+		this.advanceFade(n);
+		let r = worldPosition(this, p), i = this.screenMode ? this.projectedDiameter(e, t) : Math.hypot(r.x - e.position.x, r.y - e.position.y, r.z - e.position.z), a = 0;
+		if (this.screenMode) {
+			a = this.entries.length - 1;
+			for (let e = 0; e < this.entries.length; e++) if (i >= this.entries[e].screenSize) {
+				a = e;
+				break;
+			}
+		} else for (let e = 0; e < this.entries.length; e++) i >= this.entries[e].distance && (a = e);
+		let o = this.current;
+		if (o >= 0 && a !== o && this.hysteresis > 0) {
+			let e = this.screenMode ? a > o ? this.entries[o].screenSize - this.hysteresis : this.entries[o - 1].screenSize + this.hysteresis : a > o ? this.entries[o + 1].distance + this.hysteresis : this.entries[o].distance - this.hysteresis;
+			if (this.screenMode ? a > o ? i > e : i < e : a > o ? i < e : i > e) return;
+		}
+		if (a !== o) {
+			this.current = a;
+			for (let e = 0; e < this.weights.length; e++) this.fromWeights[e] = this.weights[e];
+			this.fading = o >= 0 && this.crossFadeDuration > 0, this.fadeStarted = n, this.advanceFade(n);
+		}
+	}
+	advanceFade(e) {
+		if (this.current < 0) return;
+		this.crossFadeDuration === 0 && (this.fading = !1);
+		let t = this.fading ? Math.min(1, Math.max(0, (e - this.fadeStarted) / this.crossFadeDuration)) : 1;
+		for (let e = 0; e < this.entries.length; e++) this.weights[e] = this.fromWeights[e] * (1 - t) + (e === this.current ? t : 0), this.entries[e].object.visible = this.weights[e] > 0;
+		t === 1 && (this.fading = !1);
+	}
+};
+function projectedSphereDiameter(e, t, n) {
+	if (t instanceof require_orthographic_camera.OrthographicCamera) return e.radius * 2 * t.zoom * n / t.height;
+	let r = t.rotation, i = -2 * (r.x * r.z + r.w * r.y), a = -2 * (r.y * r.z - r.w * r.x), o = -(1 - 2 * (r.x * r.x + r.y * r.y)), c = (e.x - t.position.x) * i + (e.y - t.position.y) * a + (e.z - t.position.z) * o;
+	return !Number.isFinite(c + e.radius) || c - e.radius <= t.near ? 1 / 0 : e.radius * n / (Math.tan(t.fov / 2) * (c - e.radius));
+}
+var HLOD = class extends LOD {
+	detail = new require_group.Group();
+	proxyObject;
+	aggregateSphere = {
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: 0
+	};
+	childSphere = {
+		x: 0,
+		y: 0,
+		z: 0,
+		radius: 0
+	};
+	pending = [];
+	screenSize;
+	constructor(e) {
+		if (super(e), !Number.isFinite(e.screenSize) || e.screenSize <= 0) throw RangeError(`HLOD screen size must be positive and finite.`);
+		this.screenSize = e.screenSize, this.proxyObject = e.proxy;
+		for (let t of e.children) this.detail.add(t);
+		this.addScreenLevel(this.detail, this.screenSize), this.addScreenLevel(this.proxyObject, 0);
+	}
+	get proxy() {
+		return this.proxyObject;
+	}
+	replaceProxy(e) {
+		if (e === this.proxyObject) return;
+		if (e.destroyed || e.scene && e.scene !== this.scene) throw Error(`HLOD replacement proxy must be live and belong to this scene.`);
+		let t = this.proxyObject;
+		this.addScreenLevel(e, 0), this.proxyObject = e, this.removeLevel(t, !0);
+	}
+	replaceChildren(e) {
+		let t = new Set(e);
+		if (t.size !== e.length || e.some((e) => e.destroyed || e === this || e === this.proxyObject || e === this.detail || e.scene && e.scene !== this.scene)) throw Error(`HLOD children must be unique live nodes in this scene.`);
+		for (let t of e) for (let e = this.parent; e; e = e.parent) if (t === e) throw Error(`HLOD children cannot be ancestors of their owner.`);
+		let n = [...this.detail.children].filter((e) => !t.has(e));
+		for (let t of e) this.detail.add(t);
+		for (let e of n) this.detail.remove(e), e.destroy();
+	}
+	projectedDiameter(e, t) {
+		let n = this.pending;
+		n.length = 0, n.push(this.detail);
+		let r = 1 / 0, i = 1 / 0, o = 1 / 0, s = -1 / 0, c = -1 / 0, l = -1 / 0, u = !1;
+		for (let e = 0; e < n.length; e++) {
+			let t = n[e];
+			for (let e of t.children) n.push(e);
+			if (!(t instanceof require_mesh.Mesh) || t.destroyed) continue;
+			let d = t.getWorldBoundingSphere(this.childSphere);
+			if (!Number.isFinite(d.x + d.y + d.z + d.radius)) return 1 / 0;
+			u = !0, r = Math.min(r, d.x - d.radius), s = Math.max(s, d.x + d.radius), i = Math.min(i, d.y - d.radius), c = Math.max(c, d.y + d.radius), o = Math.min(o, d.z - d.radius), l = Math.max(l, d.z + d.radius);
+		}
+		if (!u) return super.projectedDiameter(e, t);
+		let d = this.aggregateSphere;
+		return d.x = (r + s) / 2, d.y = (i + c) / 2, d.z = (o + l) / 2, d.radius = Math.hypot(s - r, c - i, l - o) / 2, projectedSphereDiameter(d, e, t);
+	}
+};
+var m = new require_math3d.Vector3();
+function faceCamera(e, t, r) {
+	let i = worldPosition(e, p), a = m;
+	if (t instanceof require_orthographic_camera.OrthographicCamera) {
+		let e = t.rotation, n = -2 * (e.x * e.z + e.w * e.y), o = -2 * (e.y * e.z - e.w * e.x), s = -(1 - 2 * (e.x * e.x + e.y * e.y));
+		a.set(i.x + n, r === `cylindrical` ? i.y : i.y + o, i.z + s);
+	} else a.set(2 * i.x - t.position.x, r === `cylindrical` ? i.y : 2 * i.y - t.position.y, 2 * i.z - t.position.z);
+	require_camera_utils.lookAtRotation(i, a, e.rotation);
+}
+var h;
+var Billboard = class extends require_mesh.Mesh {
+	mode;
+	constructor(e) {
+		super(meshOptions(e, h ??= require_geometry.Geometry.quad(1, 1), e.material));
+		let t = e.width ?? 1, n = e.height ?? 1;
+		if (!Number.isFinite(t) || !Number.isFinite(n) || t <= 0 || n <= 0) throw RangeError(`Billboard size must be positive and finite.`);
+		if (this.scale.set(this.scale.x * t, this.scale.y * n, this.scale.z), this.mode = e.mode ?? `spherical`, this.mode !== `spherical` && this.mode !== `cylindrical`) throw RangeError(`Unknown billboard mode.`);
+	}
+	updateForCamera(e) {
+		faceCamera(this, e, this.mode);
+	}
+};
+var Sprite3D = class extends require_mesh.Mesh {
+	mode;
+	fullSource;
+	region;
+	constructor(e) {
+		let t = new require_mesh.TextureMaterial({
+			...e,
+			transparent: !0
+		}), n = require_sprite_sheet.validatedRegion(e.texture, {
+			x: 0,
+			y: 0,
+			width: e.texture.width,
+			height: e.texture.height
+		}), i = e.source ? require_sprite_sheet.validatedRegion(e.texture, e.source) : n, a = e.width ?? 1, s = e.height ?? a * i.height / i.width;
+		if (!Number.isFinite(a) || !Number.isFinite(s) || a <= 0 || s <= 0) throw RangeError(`Sprite3D size must be positive and finite.`);
+		let l = e.mode ?? `spherical`;
+		if (l !== `spherical` && l !== `cylindrical`) throw RangeError(`Unknown sprite facing mode.`);
+		super(meshOptions(e, require_geometry.Geometry.quad(), t)), this.scale.set(this.scale.x * a, this.scale.y * s, this.scale.z), this.castShadow = e.castShadow ?? !1, this.receiveShadow = e.receiveShadow ?? !1, this.mode = l, this.fullSource = n, this.region = i, this.applySource();
+	}
+	get texture() {
+		return this.material.texture;
+	}
+	get source() {
+		return this.region;
+	}
+	setSource(e = this.fullSource) {
+		let t = this.region;
+		return !this.texture.destroyed && e.x === t.x && e.y === t.y && e.width === t.width && e.height === t.height ? this : (this.region = require_sprite_sheet.validatedRegion(this.texture, e), this.applySource(), this);
+	}
+	applySource() {
+		let { x: e, y: t, width: n, height: r } = this.region, i = this.geometry.vertices;
+		for (let a = 0; a < 4; a++) i[a * 8 + 6] = (e + (a === 1 || a === 2 ? n : 0)) / this.texture.width, i[a * 8 + 7] = (t + (a >= 2 ? r : 0)) / this.texture.height;
+		this.geometry.markUpdated();
+	}
+	updateForCamera(e) {
+		faceCamera(this, e, this.mode);
+	}
+};
+var Line3D = class extends require_mesh.Mesh {
+	coordinates;
+	segments;
+	closed;
+	width;
+	side = new require_math3d.Vector3();
+	view = new require_math3d.Vector3();
+	inverse = new require_math3d.Matrix4();
+	constructor(e, t) {
+		let n = t.closed ?? !1, i = n ? e.length : e.length - 1;
+		if (e.length < 2 || n && e.length < 3) throw RangeError(`A line needs at least two points (three when closed).`);
+		let a = t.width ?? .05;
+		if (!Number.isFinite(a) || a <= 0) throw RangeError(`Line width must be positive and finite.`);
+		let o = new Float32Array(i * 4 * 3), s = new Float32Array(i * 4 * 3), c = new Float32Array(i * 4 * 2), l = [];
+		for (let e = 0; e < i; e++) {
+			let t = e * 4, n = e / i, r = (e + 1) / i;
+			c.set([
+				0,
+				n,
+				1,
+				n,
+				0,
+				r,
+				1,
+				r
+			], e * 8), l.push(t, t + 1, t + 2, t + 1, t + 3, t + 2);
+		}
+		super(meshOptions(t, new require_geometry.Geometry({
+			positions: o,
+			normals: s,
+			uvs: c,
+			indices: l
+		}), t.material)), this.closed = n, this.segments = i, this.width = a, this.coordinates = new Float64Array(e.length * 3), e.forEach((e, t) => this.setPoint(t, ...e)), this.rebuild(0, 0, 1);
+	}
+	get pointCount() {
+		return this.coordinates.length / 3;
+	}
+	point(e) {
+		this.check(e);
+		let t = this.coordinates;
+		return [
+			t[e * 3],
+			t[e * 3 + 1],
+			t[e * 3 + 2]
+		];
+	}
+	setPoint(e, t, n, r) {
+		if (this.check(e), ![
+			t,
+			n,
+			r
+		].every(Number.isFinite)) throw RangeError(`Line points must be finite.`);
+		this.coordinates.set([
+			t,
+			n,
+			r
+		], e * 3);
+	}
+	updateForCamera(e) {
+		let t = this.inverse.copy(this.updateWorldMatrix()).invert().transformPoint(e.position, this.view);
+		this.rebuild(t.x, t.y, t.z);
+	}
+	check(e) {
+		if (!Number.isInteger(e) || e < 0 || e >= this.pointCount) throw RangeError(`Line point index is out of range.`);
+	}
+	rebuild(e, t, n) {
+		let r = this.coordinates, i = this.pointCount, a = this.geometry.vertices, o = this.width / 2, s = this.side;
+		for (let c = 0; c < this.segments; c++) {
+			let l = c * 3, u = (c + 1) % i * 3, d = r[u] - r[l], f = r[u + 1] - r[l + 1], p = r[u + 2] - r[l + 2], m = e - (r[l] + r[u]) / 2, h = t - (r[l + 1] + r[u + 1]) / 2, g = n - (r[l + 2] + r[u + 2]) / 2, _ = Math.hypot(m, h, g) || 1;
+			m /= _, h /= _, g /= _, s.set(f * g - p * h, p * m - d * g, d * h - f * m);
+			let v = s.length();
+			v > 1e-9 ? s.scale(o / v) : s.set(0, 0, 0);
+			let y = [
+				[
+					r[l] - s.x,
+					r[l + 1] - s.y,
+					r[l + 2] - s.z
+				],
+				[
+					r[l] + s.x,
+					r[l + 1] + s.y,
+					r[l + 2] + s.z
+				],
+				[
+					r[u] - s.x,
+					r[u + 1] - s.y,
+					r[u + 2] - s.z
+				],
+				[
+					r[u] + s.x,
+					r[u + 1] + s.y,
+					r[u + 2] + s.z
+				]
+			];
+			for (let e = 0; e < 4; e++) {
+				let t = (c * 4 + e) * 8;
+				a[t] = y[e][0], a[t + 1] = y[e][1], a[t + 2] = y[e][2], a[t + 3] = m, a[t + 4] = h, a[t + 5] = g;
+			}
+		}
+		this.geometry.markUpdated();
+	}
+};
+function text3DStyle(e) {
+	let t = e.fontSize ?? 64;
+	if (!Number.isFinite(t) || t <= 0 || t > 512) throw RangeError(`Text3D fontSize must be within (0, 512].`);
+	let n = e.height ?? 1;
+	if (!Number.isFinite(n) || n <= 0) throw RangeError(`Text3D height must be positive and finite.`);
+	return Object.freeze({
+		...require_text2d.snapshotTextStyle({
+			...e,
+			fontSize: t,
+			padding: e.padding ?? Math.round(t / 4),
+			lineHeight: e.lineHeight ?? Math.ceil(t * 1.3)
+		}),
+		height: n
+	});
+}
+var Text3D = class Text3D extends Billboard {
+	content;
+	ownedTexture;
+	displayedLayout;
+	revision = 0;
+	requestedText;
+	requestedStyle;
+	displayedStyle;
+	width;
+	height;
+	constructor(e, t, n, r, i) {
+		let a = t.height / (r.height - (r.lines.length - 1) * t.lineHeight), s = r.width * a, c = r.height * a;
+		super({
+			position: i.position,
+			rotation: i.rotation,
+			scale: i.scale,
+			visible: i.visible,
+			castShadow: i.castShadow,
+			receiveShadow: i.receiveShadow,
+			mode: i.mode,
+			material: new require_mesh.TextureMaterial({
+				texture: n,
+				transparent: !0
+			}),
+			width: s,
+			height: c
+		}), this.content = e, this.ownedTexture = n, this.displayedLayout = r, this.width = s, this.height = c, this.requestedText = e, this.requestedStyle = this.displayedStyle = t;
+	}
+	static async create(e, t = {}) {
+		if (!e) throw RangeError(`Text3D needs text.`);
+		let n = text3DStyle(t), r = await require_text2d.Text2D.rasterize(e, n);
+		try {
+			return new Text3D(e, n, r.texture, r.layout, t);
+		} catch (e) {
+			throw r.texture.destroy(), e;
+		}
+	}
+	get text() {
+		return this.content;
+	}
+	get style() {
+		return this.displayedStyle;
+	}
+	get layout() {
+		return this.displayedLayout;
+	}
+	async setText(e) {
+		if (!e) throw RangeError(`Text3D needs text.`);
+		if (this.destroyed) throw Error(`Cannot update destroyed Text3D.`);
+		this.requestedText = e, await this.refresh();
+	}
+	async setStyle(e) {
+		let t = text3DStyle({
+			...this.requestedStyle,
+			...e
+		});
+		if (this.destroyed) throw Error(`Cannot update destroyed Text3D.`);
+		this.requestedStyle = t, await this.refresh();
+	}
+	async refreshFonts() {
+		if (this.destroyed) throw Error(`Cannot update destroyed Text3D.`);
+		await this.refresh(!0);
+	}
+	async refresh(e = !1) {
+		let t = ++this.revision, n = this.requestedText, r = this.requestedStyle;
+		if (!e && n === this.content && r === this.displayedStyle) return;
+		let i;
+		try {
+			i = await require_text2d.Text2D.rasterize(n, r);
+		} catch (e) {
+			throw t === this.revision && (this.requestedText = this.content, this.requestedStyle = this.displayedStyle), e;
+		}
+		if (this.destroyed || t !== this.revision) {
+			i.texture.destroy();
+			return;
+		}
+		let a = r.height / (i.layout.height - (i.layout.lines.length - 1) * r.lineHeight), s = i.layout.width * a, c = i.layout.height * a;
+		if (!Number.isFinite(s) || !Number.isFinite(c) || s <= 0 || c <= 0) throw i.texture.destroy(), this.requestedText = this.content, this.requestedStyle = this.displayedStyle, RangeError(`Text3D world dimensions must be positive and finite.`);
+		let l = this.ownedTexture;
+		this.material = new require_mesh.TextureMaterial({
+			texture: i.texture,
+			transparent: !0
+		}), this.scale.set(this.scale.x * s / this.width, this.scale.y * c / this.height, this.scale.z), this.width = s, this.height = c, this.ownedTexture = i.texture, this.content = n, this.displayedStyle = r, this.displayedLayout = i.layout, l.destroy();
+	}
+	destroy() {
+		this.destroyed || (this.revision++, super.destroy(), this.ownedTexture.destroy());
+	}
+};
+//#endregion
+exports.Billboard = Billboard;
+exports.HLOD = HLOD;
+exports.LOD = LOD;
+exports.Line3D = Line3D;
+exports.Sprite3D = Sprite3D;
+exports.Text3D = Text3D;
+exports.isCameraDependent = isCameraDependent;
+exports.projectedSphereDiameter = projectedSphereDiameter;
+
+//# sourceMappingURL=objects3d.cjs.map

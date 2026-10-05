@@ -1,0 +1,1 @@
+{"version":3,"file":"simulation.cjs","names":[],"sources":["../../../src/data/simulation.js"],"sourcesContent":["export const simulationDefaults={fixedDelta:1/120,maxFixedSteps:12};\n//# sourceMappingURL=simulation.js.map\n"],"mappings":";AAAA,IAAa,qBAAmB;CAAC,YAAW,IAAE;CAAI,eAAc;AAAE"}

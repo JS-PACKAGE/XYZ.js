@@ -36,6 +36,11 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 
 可重用程序式 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` 支援 wood／brick／stone／metal／fabric／marble（木材／磚牆／石材／金屬／布料／大理石），一次產生無縫、確定性的 baseColor／normal／metallicRoughness／occlusion 貼圖，無外部素材或新增依賴。size 為整數 32–1024，seed 為無號 32-bit 整數；省略時預設 256／1。借用 `preset.material` 或以 `preset.createMaterial(overrides)` 重用 maps；先移除全部使用者再同步 `preset.destroy()`，Scene／mesh 不自動擁有預設。[使用範例](docs/USAGE-zh.md#可重用的程序式-pbr-預設)及 [pbr3d](examples/pbr3d/) 提供預設切換與貼圖預覽。實際 runtime／browser 驗證見 ACCEPTANCE。
 
+P104–P118 是未發布的 source 擴充：CommonJS 發佈格式、atlas／SDF／MSDF 產製、有界 asset watch／transactional Scene reload、narrative、crowd steering、RNG／pool、native 2D lighting、video texture、WebGPU compute／render graph、temporal effects／reflection probe、physics profiles 與 Text3D 更新。package metadata 仍為 1.14.0，既有 GitHub v1.14 archive 不含這些新增功能，npm 仍未發佈；source 或文件不等於實際發佈或 runtime/browser 認證。MSDF 使用自行提供的 polygon contours，不解析任意字型輪廓；WebCodecs 接受 encoded chunks、不做容器 demux。Canvas2D 明確拒絕 native 2D lighting、compute 與 3D。邊界與待驗證項見 [CURRENT](docs/CURRENT.md)／[ACCEPTANCE](ACCEPTANCE.md)。
+
+CommonJS 與 ESM 物件不要混用；逐幀 3D maps 用 additive `textureSource`／PBR
+`sources`／native `textureSources`，保留既有 Texture 型別與借用所有權。
+
 P13 新增既有 GameObject 的 2D 階層／Group2D、atlas Sprite source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice 與 ScreenElement HUD，已驗三 backend 正式路徑。Sprite width／height 是自然 source 尺寸，縮放用 scale；Sprite.source 可為 fractional pixels，SpriteSheet frames 為 integer。`/examples/gameplay2d/` 展示動畫／字形／面板／HUD。
 
 P18 已完成限定 Chromium 驗收：PreloadBatch task-count progress、Scene.preload→initialize barrier／Game.loading、bounded text／JSON／binary、unique GLTFLoader.task 與 native PCM/WAV sample alongside OPM。Unlock 前只 fetch，decode／play 要手勢 unlock，重用第一個 OPM context（共八個，不建第九個）；Game pause 不自動暫停音訊。沒有跨瀏覽器／新效能或聽見喇叭聲聲明。
@@ -138,6 +143,12 @@ Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic camera
 
 Reusable procedural PBR: `await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` supports wood/brick/stone/metal/fabric/marble and generates seamless, deterministic baseColor/normal/metallicRoughness/occlusion maps once, without external assets or new dependencies. Size is an integer 32–1024 and seed is an unsigned 32-bit integer; defaults are 256/1. Borrow `preset.material` or reuse maps with `preset.createMaterial(overrides)`; remove every consumer before synchronous `preset.destroy()`. Scene/mesh do not own the preset. See the [consumer example](docs/USAGE.md#reusable-procedural-pbr-presets) and [pbr3d](examples/pbr3d/) preset selection and texture-map previews. Actual runtime/browser evidence is recorded in ACCEPTANCE.
 
+P104–P118 are unreleased source additions: CommonJS distribution, atlas/SDF/MSDF production, bounded asset watching and transactional Scene reload, narrative systems, crowd steering, RNG/pools, native 2D lighting, video textures, WebGPU compute/render graphs, temporal effects/reflection probes, physics profiles and Text3D updates. Metadata remains 1.14.0; the existing GitHub v1.14 archive does not contain these additions, and npm remains unpublished. Source/docs are not a release or runtime/browser qualification. MSDF consumes authored polygon contours rather than parsing arbitrary font outlines; WebCodecs accepts encoded chunks, not container demux. Canvas2D explicitly rejects native 2D lighting, compute and 3D. See [CURRENT](docs/CURRENT.md) and [ACCEPTANCE](ACCEPTANCE.md) for boundaries and pending evidence.
+
+Do not mix CommonJS and ESM engine objects. Live 3D maps use additive
+`textureSource`/PBR `sources`/native `textureSources`, preserving legacy Texture
+types and borrowed ownership.
+
 P13 adds 2D hierarchy/Group2D, atlas Sprite source/SpriteSheet, FrameAnimation, SpriteFont/SpriteText, NineSlice and ScreenElement HUD to existing GameObject, exercised on all three backends. Sprite width/height are natural source dimensions; use scale. Sprite.source permits fractional pixels; SpriteSheet frames require integer pixels. Open `/examples/gameplay2d/` for animation, glyphs, panels and HUD.
 
 P18 is accepted in the recorded Chromium scope: task-count PreloadBatch, Scene.preload→initialize barrier/Game.loading, bounded text/JSON/binary, uniquely owned GLTFLoader.task, native PCM/WAV samples alongside OPM. Preunlock fetch does not decode; gesture unlock is required for decode/play, reusing the first OPM context (eight total, no ninth). Game pause does not pause audio. No new cross-browser/performance or speaker-audibility claim.
@@ -230,6 +241,12 @@ Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度
 高度な 3D は Object3D／Group 階層、透視／正投影カメラと lookAt、OrbitControls、正確な Raycaster、glTF 2.0／GLB、キーフレームと native GPU skin palette（lazy exact CPU queries／保守的 animated bounds）、PBR／点光源／スポットライト、方向光 PCF シャドウ、InstancedMesh、2D overlay 前の HDR exposure／ACES／bloom を提供します。P42 の限定 physics／navigation／animation profiles と Beacon Run は Chromium の限定環境で検証済みです。Three.js 参考 API は互換置換／全 addons 対応ではなく、runtime dependency 追加なし。制限は技術参照へ。
 
 再利用可能な手続き型 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` は wood／brick／stone／metal／fabric／marble（木材／レンガ／石材／金属／布／大理石）に対応し、シームレスで決定的な baseColor／normal／metallicRoughness／occlusion maps を一度だけ生成します。外部素材・依存の追加なし。size は整数 32–1024、seed は符号なし 32-bit 整数で、既定値は 256／1。`preset.material` を借用するか `preset.createMaterial(overrides)` で maps を共有し、全利用者を取り除いてから同期 `preset.destroy()` を呼びます。Scene／mesh は preset を所有しません。[利用例](docs/USAGE.md#reusable-procedural-pbr-presets) と [pbr3d](examples/pbr3d/) のプリセット選択・テクスチャプレビューを参照してください。実際の runtime／browser 検証は ACCEPTANCE に記録します。
+
+P104–P118 は未リリースの source 追加です。package metadata は 1.14.0 のままで、既存の GitHub v1.14 archive には含まれず、npm も未公開です。機能の説明やソース変更は公開・runtime/browser qualification を意味しません。MSDF は authored polygon contours を使い、任意 font outline の解析やWebCodecs container demuxには対応しません。Canvas2D は native 2D lighting／compute／3D を明示的に拒否します。境界と未確認 evidence は [CURRENT](docs/CURRENT.md)／[ACCEPTANCE](ACCEPTANCE.md) を参照してください。
+
+CommonJS と ESM の engine objects は混在させないでください。動画／canvas の
+3D maps は additive `textureSource`／PBR `sources`／native `textureSources` を
+使用し、既存の Texture 型と借用 ownership を維持します。
 
 P13 は既存 GameObject の2D階層／Group2D、atlas source／SpriteSheet、FrameAnimation、SpriteFont／SpriteText、NineSlice、ScreenElement HUD を三backendで検証済みです。Sprite width／height は自然サイズ、表示サイズはscale、sourceは小数pixel可、SpriteSheet framesは整数のみ。`/examples/gameplay2d/` で確認できます。
 

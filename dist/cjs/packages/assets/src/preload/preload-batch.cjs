@@ -1,0 +1,69 @@
+const require_gameplay_assets = require("../../../../src/data/gameplay-assets.cjs");
+const require_subscribe_load = require("./subscribe-load.cjs");
+//#region dist/packages/assets/src/preload/preload-batch.js
+var PreloadBatch = class extends EventTarget {
+	tasks;
+	controller = new AbortController();
+	results = /* @__PURE__ */ new Map();
+	status = `idle`;
+	snapshot;
+	pending;
+	constructor(t) {
+		if (super(), t.length > require_gameplay_assets.gameplayAssetLimits.preloadTasks) throw RangeError(`Preload batch exceeds the task budget.`);
+		let n = /* @__PURE__ */ new Set();
+		this.tasks = t.map((e) => {
+			if (!e.key || n.has(e.key) || typeof e.load != `function`) throw TypeError(`Preload tasks require unique nonempty keys and a load function.`);
+			return n.add(e.key), {
+				key: e.key,
+				load: e.load.bind(e)
+			};
+		}), this.snapshot = Object.freeze({
+			completed: 0,
+			total: t.length,
+			ratio: +!t.length
+		});
+	}
+	get state() {
+		return this.status;
+	}
+	get progress() {
+		return this.snapshot;
+	}
+	load(e = {}) {
+		if (this.pending) return this.pending;
+		if (this.status === `cancelled`) return Promise.reject(this.controller.signal.reason);
+		this.status = `loading`;
+		let abort = () => this.cancel(e.signal?.reason);
+		return e.signal?.addEventListener(`abort`, abort, { once: !0 }), e.signal?.aborted && abort(), this.pending = Promise.resolve().then(() => this.run()).finally(() => e.signal?.removeEventListener(`abort`, abort)), this.pending;
+	}
+	cancel(e = new DOMException(`Preload cancelled.`, `AbortError`)) {
+		(this.status === `idle` || this.status === `loading`) && (this.status = `cancelled`, this.controller.abort(e));
+	}
+	async run() {
+		let n = this.controller.signal;
+		try {
+			n.throwIfAborted(), this.dispatchEvent(new CustomEvent(`progress`, { detail: this.snapshot }));
+			let r = 0, worker = async () => {
+				for (; r < this.tasks.length;) {
+					n.throwIfAborted();
+					let e = this.tasks[r++], i = await require_subscribe_load.subscribeLoad(Promise.resolve().then(() => (n.throwIfAborted(), e.load(n))), n);
+					n.throwIfAborted(), this.results.set(e.key, i);
+					let a = this.results.size;
+					this.snapshot = Object.freeze({
+						completed: a,
+						total: this.tasks.length,
+						ratio: a / this.tasks.length,
+						currentKey: e.key
+					}), this.dispatchEvent(new CustomEvent(`progress`, { detail: this.snapshot }));
+				}
+			};
+			return await Promise.all(Array.from({ length: Math.min(require_gameplay_assets.gameplayAssetLimits.preloadConcurrency, this.tasks.length) }, worker)), n.throwIfAborted(), this.status = `ready`, this.dispatchEvent(new CustomEvent(`complete`, { detail: this.results })), this.results;
+		} catch (e) {
+			throw this.status !== `cancelled` && (this.status = `failed`, this.controller.abort(e), this.dispatchEvent(new CustomEvent(`error`, { detail: e }))), e;
+		}
+	}
+};
+//#endregion
+exports.PreloadBatch = PreloadBatch;
+
+//# sourceMappingURL=preload-batch.cjs.map

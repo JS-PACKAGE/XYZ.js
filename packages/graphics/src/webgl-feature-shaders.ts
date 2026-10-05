@@ -139,11 +139,8 @@ uniform mat4 viewProjection;
 uniform sampler2D shadowMap;
 uniform vec4 lighting[${LIGHTING_FLOAT_COUNT / 4}];
 uniform vec4 environment[10]; // SH0..8, then intensity, enabled, maxLod, unused
-uniform sampler2D environmentMap;
-uniform vec3 probeMin;
-uniform vec3 probeMax;
-uniform vec3 probePosition;
-uniform bool probeBoxProjection;
+uniform highp sampler2DArray environmentMap;
+uniform vec4 probeData[52];
 uniform vec4 fog[2]; // color.rgb/mode(0 off,1 linear,2 exp2), near/far/density/0
 uniform vec4 tint;
 uniform vec4 surface; // metallic, roughness, normalScale, occlusionStrength
@@ -192,18 +189,6 @@ vec3 encodeSRGB(vec3 c) {
 vec2 equirectUV(vec3 d) {
   d = normalize(d);
   return vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
-}
-vec3 shIrradiance(vec3 n) {
-  vec3 c = environment[0].rgb * 0.282095;
-  c += environment[1].rgb * (0.488603 * n.y);
-  c += environment[2].rgb * (0.488603 * n.z);
-  c += environment[3].rgb * (0.488603 * n.x);
-  c += environment[4].rgb * (1.092548 * n.x * n.y);
-  c += environment[5].rgb * (1.092548 * n.y * n.z);
-  c += environment[6].rgb * (0.315392 * (3.0 * n.z * n.z - 1.0));
-  c += environment[7].rgb * (1.092548 * n.x * n.z);
-  c += environment[8].rgb * (0.546274 * (n.x * n.x - n.y * n.y));
-  return max(c, vec3(0.0));
 }
 // Karis' analytic split-sum approximation; avoids a BRDF lookup texture.
 vec2 environmentBRDF(float nv, float rough) {
@@ -325,23 +310,25 @@ void shadeMesh() {
     coatRoughness = clamp(coatRoughness,.04,1.0);
     float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
     vec3 coating = vec3(0.0);
-    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * (1.0-transmissionWeight) * ao * (environment[9].y > 0.5 ? 0.0 : 1.0);
-    if (environment[9].y > 0.5) {
+    vec4 probeWeights = reflectionWeights(vPosition);
+    bool useEnvironment = environment[9].y > .5 || dot(probeWeights,vec4(1.0)) > 0.0;
+    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * (1.0-transmissionWeight) * ao * (useEnvironment ? 0.0 : 1.0);
+    if (useEnvironment) {
       float nv = max(dot(n, v), .0001);
       vec2 ab = environmentBRDF(nv, roughness);
       vec3 dielectric = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
       vec3 reflected = mix(dielectric,base*ab.x+vec3(ab.y),metallic);
-      vec3 radiance = textureLod(environmentMap, equirectUV(probeReflection(vPosition,reflect(-v, n))), roughness * environment[9].z).rgb;
-      vec3 diffuseLight = shIrradiance(n)*base*(1.0-metallic)*(1.0-transmissionWeight)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
-      result += (diffuseLight+radiance*reflected)*ao*environment[9].x;
+      vec3 radiance = reflectionRadiance(vPosition,reflect(-v,n),roughness,probeWeights);
+      vec3 diffuseLight = reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
+      result += (diffuseLight+radiance*reflected)*ao;
       if (sheenMax > 0.0) {
-        vec3 sheenRadiance = textureLod(environmentMap,equirectUV(probeReflection(vPosition,reflect(-v,n))),sheenRoughness*environment[9].z).rgb;
-        sheenLighting += sheenRadiance*sheenEnergy*ao*environment[9].x;
+        vec3 sheenRadiance = reflectionRadiance(vPosition,reflect(-v,n),sheenRoughness,probeWeights);
+        sheenLighting += sheenRadiance*sheenEnergy*ao;
       }
       if (coatWeight > 0.0) {
         vec2 coatAB = environmentBRDF(max(dot(nc,v),.0001),coatRoughness);
-        vec3 coatRadiance = textureLod(environmentMap,equirectUV(probeReflection(vPosition,reflect(-v,nc))),coatRoughness*environment[9].z).rgb;
-        coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao*environment[9].x;
+        vec3 coatRadiance = reflectionRadiance(vPosition,reflect(-v,nc),coatRoughness,probeWeights);
+        coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao;
       }
     }
     result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight, transmissionWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;

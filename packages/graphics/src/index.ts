@@ -28,6 +28,41 @@ import type {
   PreparedResourceLease,
   ResourcePreparationOptions,
 } from './preparation.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
+export { ComputeBuffer, ComputeProgram } from './compute.js';
+export type {
+  ComputeScalar,
+  ComputeArray,
+  ComputeBinding,
+  ComputeProgramOptions,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+export { RenderGraph } from './render-graph.js';
+export type {
+  RenderGraphFormat,
+  RenderGraphTarget,
+  RenderGraphPass,
+  RenderGraphOptions,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
 export type {
   GraphicsResidency,
   ResidencyBudgetOptions,
@@ -86,6 +121,8 @@ export interface GraphicsCapabilities {
   readonly customShaders: boolean;
   readonly storageBuffers: boolean;
   readonly instancing: boolean;
+  /** Optional for existing 1.x renderer implementations; only native backends support it. */
+  readonly lighting2D?: boolean;
   readonly maxTextureSize: number;
   readonly supportedTextureFormats: readonly NativeTextureFormat[];
 }
@@ -120,6 +157,33 @@ export interface Renderer {
   prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
   /** Optional for 1.x custom renderers; callers must reject unsupported preparation. */
   prepareGpuParticles?(emitter: GPUParticleEmitter3D): Promise<void>;
+  /** Optional native extensions retain compatibility with existing 1.x custom renderers. */
+  prepareCompute?(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void>;
+  uploadCompute?(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void;
+  dispatchCompute?(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void>;
+  readCompute?(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray>;
+  prepareRenderGraph?(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void>;
+  captureReflectionProbe?(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options?: ReflectionProbeCaptureOptions,
+  ): Promise<EnvironmentMap>;
   preparePostProcessor(processor: PostProcessor2D): Promise<void>;
   createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
   renderToTexture(

@@ -1,0 +1,156 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_animation_pose = require("./animation-pose.cjs");
+//#region dist/packages/core/src/animation-root-motion.js
+function rotateAnimationVector(e, t, n) {
+	let r = t.x, i = t.y, a = t.z, o = 2 * (e.y * a - e.z * i), s = 2 * (e.z * r - e.x * a), c = 2 * (e.x * i - e.y * r);
+	n.set(r + e.w * o + e.y * c - e.z * s, i + e.w * s + e.z * o - e.x * c, a + e.w * c + e.x * s - e.y * o);
+}
+var MotionPose = class {
+	translation = new require_math3d.Vector3();
+	rotation = new require_math3d.Quaternion();
+	identity() {
+		this.translation.set(0, 0, 0), this.rotation.set(0, 0, 0, 1);
+	}
+	copy(e) {
+		this.translation.copy(e.translation), this.rotation.copy(e.rotation);
+	}
+};
+function compose(e, t, n) {
+	let i = e.translation.x, a = e.translation.y, o = e.translation.z;
+	rotateAnimationVector(e.rotation, t.translation, n.translation), n.translation.set(n.translation.x + i, n.translation.y + a, n.translation.z + o), require_animation_pose.multiplyRotation(e.rotation, t.rotation, n.rotation);
+}
+function inverse(e, t) {
+	t.rotation.set(-e.rotation.x, -e.rotation.y, -e.rotation.z, e.rotation.w), t.translation.set(-e.translation.x, -e.translation.y, -e.translation.z), rotateAnimationVector(t.rotation, t.translation, t.translation);
+}
+var AnimationRootMotion = class {
+	root;
+	contributions = /* @__PURE__ */ new Map();
+	mixer;
+	output = new MotionPose();
+	identity = new require_math3d.Quaternion();
+	weighted = new require_math3d.Quaternion();
+	displacement = new require_math3d.Vector3();
+	target;
+	sink;
+	constructor(e, t) {
+		if (this.root = e, e.destroyed || !!t.target == !!t.sink) throw RangeError(`Root motion requires a live root and exactly one target or sink.`);
+		if (t.target === e || t.target?.destroyed) throw RangeError(`Root motion output must be a live object distinct from the skeleton root.`);
+		if (e.scale.x !== 1 || e.scale.y !== 1 || e.scale.z !== 1) throw RangeError(`Root motion requires unit root scale.`);
+		let n = e.position, r = e.rotation, i = Math.hypot(r.x, r.y, r.z, r.w);
+		if (!Number.isFinite(n.x) || !Number.isFinite(n.y) || !Number.isFinite(n.z) || !Number.isFinite(i) || i === 0) throw RangeError(`Root motion requires a finite rigid root transform.`);
+		this.target = t.target, this.sink = t.sink;
+	}
+	attach(e, t) {
+		if (this.mixer && this.mixer !== t) throw Error(`Root motion binding is already attached to another mixer.`);
+		this.mixer = t, this.contributions.has(e) || this.contributions.set(e, {
+			pose: new MotionPose(),
+			translationWeight: 0,
+			rotationWeight: 0,
+			additive: !1,
+			active: !1
+		});
+	}
+	detach(e) {
+		this.contributions.delete(e), this.contributions.size || (this.mixer = void 0);
+	}
+	cancel(e) {
+		let t = this.contributions.get(e);
+		t && (t.active = !1);
+	}
+	collect(e, t, n, r, i) {
+		let a = this.contributions.get(e);
+		if (!a) throw Error(`Root motion action is not attached.`);
+		this.contributions.delete(e), this.contributions.set(e, a), a.pose.copy(t), a.translationWeight = n, a.rotationWeight = r, a.additive = i, a.active = !0;
+	}
+	reset() {
+		for (let e of this.contributions.values()) e.active = !1;
+	}
+	flush() {
+		if (this.root.destroyed || this.target?.destroyed) return;
+		this.output.identity();
+		let e = !1;
+		for (let t of this.contributions.values()) {
+			if (!t.active) continue;
+			e = !0;
+			let i = this.output.translation, a = t.pose.translation, o = t.translationWeight;
+			t.additive ? i.set(i.x + a.x * o, i.y + a.y * o, i.z + a.z * o) : i.set(i.x + (a.x - i.x) * o, i.y + (a.y - i.y) * o, i.z + (a.z - i.z) * o), t.additive ? (require_animation_pose.blendRotation(this.identity, t.pose.rotation, t.rotationWeight, this.weighted), require_animation_pose.multiplyRotation(this.output.rotation, this.weighted, this.output.rotation)) : require_animation_pose.blendRotation(this.output.rotation, t.pose.rotation, t.rotationWeight, this.output.rotation);
+		}
+		e && (this.target ? (rotateAnimationVector(this.target.rotation, this.output.translation, this.displacement), this.target.position.add(this.displacement), require_animation_pose.multiplyRotation(this.target.rotation, this.output.rotation, this.target.rotation)) : this.sink?.(this.output));
+	}
+};
+var AnimationRootMotionSampler = class {
+	binding;
+	clip;
+	translation;
+	rotation;
+	vector = /* @__PURE__ */ new Float64Array(3);
+	quaternion = /* @__PURE__ */ new Float64Array(4);
+	restTranslation = new require_math3d.Vector3();
+	restRotation = new require_math3d.Quaternion();
+	start = new MotionPose();
+	inverseStart = new MotionPose();
+	cycle = new MotionPose();
+	power = new MotionPose();
+	factor = new MotionPose();
+	sampled = new MotionPose();
+	before = new MotionPose();
+	after = new MotionPose();
+	delta = new MotionPose();
+	constructor(e, t) {
+		this.binding = e, this.clip = t, this.restTranslation.copy(e.root.position), this.restRotation.copy(e.root.rotation).normalize();
+		let n, r;
+		for (let i of t.tracks) if (i.target === e.root) {
+			if (i.path === `scale`) throw RangeError(`Animated root scale is unsupported for root motion.`);
+			if (i.path === `translation`) {
+				if (n) throw RangeError(`Duplicate root translation track.`);
+				n = i;
+			} else if (i.path === `rotation`) {
+				if (r) throw RangeError(`Duplicate root rotation track.`);
+				r = i;
+			}
+		}
+		if (!n && !r) throw RangeError(`Clip has no tracks for the explicit root.`);
+		this.translation = n, this.rotation = r, this.poseAt(0, this.start), inverse(this.start, this.inverseStart), this.poseAt(t.duration, this.sampled), compose(this.inverseStart, this.sampled, this.cycle);
+	}
+	extracts(e) {
+		return e === this.translation || e === this.rotation;
+	}
+	cancel(e) {
+		this.binding.cancel(e);
+	}
+	release(e) {
+		this.binding.detach(e);
+	}
+	poseAt(e, t) {
+		t.translation.copy(this.restTranslation), t.rotation.copy(this.restRotation), this.translation && (this.translation.sampleValues(e, this.vector), t.translation.set(this.vector[0], this.vector[1], this.vector[2])), this.rotation && (this.rotation.sampleValues(e, this.quaternion), t.rotation.set(this.quaternion[0], this.quaternion[1], this.quaternion[2], this.quaternion[3]));
+	}
+	continuous(e, t, n) {
+		let r = this.clip.duration;
+		if (r === 0) {
+			n.identity();
+			return;
+		}
+		if (t !== `repeat`) {
+			let i = Math.max(0, Math.min(r, e));
+			if (t === `pingpong`) {
+				let t = r * 2;
+				i = (e % t + t) % t, i > r && (i = t - i);
+			}
+			this.poseAt(i, n);
+			return;
+		}
+		let i = Math.floor(e / r);
+		if (!Number.isSafeInteger(i)) throw RangeError(`Root motion loop count exceeds safe integer range.`);
+		for (this.power.identity(), this.factor.copy(this.cycle), i < 0 && (inverse(this.factor, this.factor), i = -i); i > 0;) i % 2 == 1 && compose(this.power, this.factor, this.power), i = Math.floor(i / 2), i > 0 && compose(this.factor, this.factor, this.factor);
+		this.poseAt((e % r + r) % r, this.sampled), compose(this.inverseStart, this.sampled, this.sampled), compose(this.power, this.sampled, n), compose(this.start, n, n);
+	}
+	sample(e, t, n, r, i, a, o) {
+		this.continuous(t, r, this.before), this.continuous(n, r, this.after), inverse(this.before, this.before), compose(this.before, this.after, this.delta), this.binding.collect(e, this.delta, i * (a?.weight(this.binding.root, `translation`) ?? 1), i * (a?.weight(this.binding.root, `rotation`) ?? 1), o);
+	}
+};
+//#endregion
+exports.AnimationRootMotion = AnimationRootMotion;
+exports.AnimationRootMotionSampler = AnimationRootMotionSampler;
+exports.rotateAnimationVector = rotateAnimationVector;
+
+//# sourceMappingURL=animation-root-motion.cjs.map

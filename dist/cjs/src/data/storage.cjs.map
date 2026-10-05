@@ -1,0 +1,1 @@
+{"version":3,"file":"storage.cjs","names":[],"sources":["../../../src/data/storage.js"],"sourcesContent":["export const storageLimits=Object.freeze({maxBytes:2097152,autosaveIntervalMs:5e3});\n//# sourceMappingURL=storage.js.map\n"],"mappings":";AAAA,IAAa,gBAAc,OAAO,OAAO;CAAC,UAAS;CAAQ,oBAAmB;AAAG,CAAC"}

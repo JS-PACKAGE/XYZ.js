@@ -1,0 +1,107 @@
+const require_storage = require("../../../src/data/storage.cjs");
+//#region dist/packages/core/src/autosave.js
+var AutosaveController = class extends EventTarget {
+	saves;
+	options;
+	current = Object.freeze({
+		status: `idle`,
+		pendingChanges: !1,
+		revision: null,
+		error: null,
+		retryRequired: !1
+	});
+	intervalMs;
+	timer;
+	generation = 0;
+	savedGeneration = 0;
+	epoch = 0;
+	disposed = !1;
+	active;
+	controller;
+	drain = !1;
+	ownerAbort = () => this.destroy();
+	notify;
+	constructor(t, n) {
+		if (super(), this.saves = t, this.options = n, this.intervalMs = n.intervalMs ?? require_storage.storageLimits.autosaveIntervalMs, !Number.isFinite(this.intervalMs) || this.intervalMs < 0 || this.intervalMs > 2147483647) throw RangeError(`Autosave interval must be a finite, nonnegative timer duration.`);
+		if (!n.slot) throw TypeError(`Autosave slot must be nonempty.`);
+		if (n.onState) {
+			let e = n.onState;
+			this.notify = (t) => {
+				e(t.detail);
+			}, this.addEventListener(`change`, this.notify);
+		}
+		n.signal?.addEventListener(`abort`, this.ownerAbort, { once: !0 }), n.signal?.aborted && this.destroy();
+	}
+	get state() {
+		return this.current;
+	}
+	publish(e, t = null, n = this.current.revision) {
+		this.current = Object.freeze({
+			status: e,
+			error: t,
+			revision: n,
+			pendingChanges: this.generation !== this.savedGeneration,
+			retryRequired: e === `error`
+		}), this.dispatchEvent(new CustomEvent(`change`, { detail: this.current }));
+	}
+	assertAlive() {
+		if (this.disposed) throw new DOMException(`Autosave owner is destroyed.`, `AbortError`);
+	}
+	schedule() {
+		this.timer !== void 0 || this.active || this.disposed || this.current.retryRequired || this.current.status === `cancelled` || this.generation === this.savedGeneration || (this.timer = setTimeout(() => {
+			this.timer = void 0, this.run(!1).catch(() => {});
+		}, this.intervalMs));
+	}
+	request() {
+		this.assertAlive(), this.generation++, this.current.status === `error` ? this.publish(`error`, this.current.error) : this.active && !this.controller?.signal.aborted ? this.publish(`saving`) : this.publish(`dirty`), this.schedule();
+	}
+	flush() {
+		return this.assertAlive(), this.current.retryRequired ? Promise.reject(this.current.error) : this.run(!0);
+	}
+	async retry() {
+		if (this.assertAlive(), this.active && (this.current.status === `error` || this.controller?.signal.aborted)) {
+			try {
+				await this.active;
+			} catch {}
+			this.assertAlive();
+		}
+		return this.generation === this.savedGeneration ? (this.publish(this.current.revision === null ? `idle` : `saved`), null) : ((this.current.status === `error` || this.current.status === `cancelled`) && this.publish(`dirty`), this.run(!0));
+	}
+	run(e) {
+		if (this.drain ||= e, this.active) return this.active;
+		if (this.timer !== void 0 && (clearTimeout(this.timer), this.timer = void 0), this.generation === this.savedGeneration) return Promise.resolve(null);
+		let t = this.epoch, n = new AbortController();
+		this.controller = n;
+		let attempt = async () => {
+			let e;
+			n.signal.throwIfAborted();
+			do {
+				let r = this.generation;
+				this.publish(`saving`);
+				try {
+					let i = this.options.capture();
+					if (e = await this.saves.save(this.options.slot, i, this.options.playTime?.() ?? 0, { signal: n.signal }), this.disposed || t !== this.epoch) return e;
+					this.savedGeneration = r, this.publish(this.generation === r ? `saved` : `dirty`, null, e.revision);
+				} catch (e) {
+					throw !this.disposed && t === this.epoch && this.publish(n.signal.aborted ? `cancelled` : `error`, e), e;
+				}
+			} while (this.drain && this.generation !== this.savedGeneration && !this.disposed && t === this.epoch);
+			return e;
+		}, r = Promise.resolve().then(attempt);
+		this.active = r, r.then(() => finish(), () => finish());
+		let finish = () => {
+			this.active === r && (this.active = void 0, this.controller = void 0, this.drain = !1, this.schedule());
+		};
+		return r;
+	}
+	cancel() {
+		this.assertAlive(), this.epoch++, this.timer !== void 0 && (clearTimeout(this.timer), this.timer = void 0), this.controller?.abort(new DOMException(`Autosave was cancelled.`, `AbortError`)), this.publish(`cancelled`);
+	}
+	destroy() {
+		this.disposed || (this.disposed = !0, this.epoch++, this.timer !== void 0 && (clearTimeout(this.timer), this.timer = void 0), this.controller?.abort(new DOMException(`Autosave owner is destroyed.`, `AbortError`)), this.options.signal?.removeEventListener(`abort`, this.ownerAbort), this.publish(`destroyed`), this.notify && this.removeEventListener(`change`, this.notify));
+	}
+};
+//#endregion
+exports.AutosaveController = AutosaveController;
+
+//# sourceMappingURL=autosave.cjs.map

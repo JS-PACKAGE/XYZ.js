@@ -38,6 +38,23 @@ import type {
   PreparedResourceLease,
   ResourcePreparationOptions,
 } from './preparation.js';
+import type {
+  ComputeArray,
+  ComputeBuffer,
+  ComputeProgram,
+  ComputeDispatchOptions,
+  ComputeReadOptions,
+  ComputePreparationOptions,
+} from './compute.js';
+import type {
+  RenderGraph,
+  RenderGraphPreparationOptions,
+} from './render-graph.js';
+import type {
+  ReflectionProbe,
+  ReflectionProbeCaptureOptions,
+} from '../../core/src/reflection-probe.js';
+import type { EnvironmentMap } from '../../core/src/environment.js';
 
 export interface ResilientRendererHooks {
   /** Called once when the GPU context/device is lost and recovery begins. */
@@ -76,6 +93,7 @@ export class ResilientRenderer implements Renderer {
     () => void
   >();
   private readonly processors = new Set<PostProcessor2D>();
+  private readonly graphs = new Set<RenderGraph>();
   private size: { width: number; height: number } | undefined;
   private residencyOptions: ResidencyBudgetOptions = {};
   private readonly prepared = new Set<{
@@ -235,6 +253,14 @@ export class ResilientRenderer implements Renderer {
         }
         for (const processor of this.processors)
           if (!processor.destroyed) await next.preparePostProcessor(processor);
+        for (const graph of this.graphs) {
+          if (graph.destroyed) continue;
+          if (!next.prepareRenderGraph)
+            throw new UnsupportedGraphicsError(
+              'The replacement renderer does not support render graphs.',
+            );
+          await next.prepareRenderGraph(graph);
+        }
         for (const [texture, registration] of this.textures) {
           if (texture.destroyed || texture.kind === 'render') continue;
           await next.prepareTextures([texture]);
@@ -355,6 +381,90 @@ export class ResilientRenderer implements Renderer {
     height: number,
   ): Promise<RenderSnapshot> {
     return this.requireReady().captureScene(scene, width, height);
+  }
+  async prepareCompute(
+    program: ComputeProgram,
+    options?: ComputePreparationOptions,
+  ): Promise<void> {
+    const renderer = this.requireReady();
+    if (!renderer.prepareCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    // Compute output is renderer-owned and cannot be replayed after loss.
+    return renderer.prepareCompute(program, options);
+  }
+  uploadCompute(
+    buffer: ComputeBuffer,
+    data: ComputeArray,
+    offset?: number,
+  ): void {
+    const renderer = this.requireReady();
+    if (!renderer.uploadCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    renderer.uploadCompute(buffer, data, offset);
+  }
+  async dispatchCompute(
+    program: ComputeProgram,
+    options: ComputeDispatchOptions,
+  ): Promise<void> {
+    const renderer = this.requireReady();
+    if (!renderer.dispatchCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    return renderer.dispatchCompute(program, options);
+  }
+  async readCompute(
+    buffer: ComputeBuffer,
+    options?: ComputeReadOptions,
+  ): Promise<ComputeArray> {
+    const renderer = this.requireReady();
+    if (!renderer.readCompute)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support compute.',
+      );
+    return renderer.readCompute(buffer, options);
+  }
+  async prepareRenderGraph(
+    graph: RenderGraph,
+    options?: RenderGraphPreparationOptions,
+  ): Promise<void> {
+    const renderer = this.requireReady();
+    if (!renderer.prepareRenderGraph)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support render graphs.',
+      );
+    await renderer.prepareRenderGraph(graph, options);
+    if (
+      this.destroyed ||
+      graph.destroyed ||
+      this.current !== renderer ||
+      this.recovering
+    )
+      throw new GraphicsError(
+        'Render graph ownership ended during preparation.',
+      );
+    if (!this.graphs.has(graph)) {
+      this.graphs.add(graph);
+      graph.addEventListener('destroy', () => this.graphs.delete(graph), {
+        once: true,
+      });
+    }
+  }
+  async captureReflectionProbe(
+    scene: Scene,
+    probe: ReflectionProbe,
+    options?: ReflectionProbeCaptureOptions,
+  ): Promise<EnvironmentMap> {
+    const renderer = this.requireReady();
+    if (!renderer.captureReflectionProbe)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support reflection capture.',
+      );
+    return renderer.captureReflectionProbe(scene, probe, options);
   }
   async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
     const renderer = this.requireReady();
@@ -495,6 +605,7 @@ export class ResilientRenderer implements Renderer {
     for (const unsubscribe of this.gpuParticles.values()) unsubscribe();
     this.gpuParticles.clear();
     this.processors.clear();
+    this.graphs.clear();
     for (const entry of this.prepared) entry.lease.release();
     this.prepared.clear();
     this.textures.clear();

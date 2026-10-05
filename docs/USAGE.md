@@ -79,6 +79,11 @@ Alternatively open the root [example index](../index.html) at `http://127.0.0.1:
 | [gpu-particles3d](../examples/gpu-particles3d/)         | Native GPU particle simulation/rendering                                                                                                    |
 | [accessibility-game](../examples/accessibility-game/)   | Bilingual playable keyboard/preferences/error/results flow                                                                                  |
 | [asset-recipe](../examples/asset-recipe/)               | Asset production and deployment entry                                                                                                       |
+| [narrative](../examples/narrative/)                     | Simulation-time cutscenes, branching dialogue, quest progress and save/restore                                                              |
+| [lighting2d](../examples/lighting2d/)                   | Native normal-map lighting; explicit Canvas2D capability rejection                                                                          |
+| [asset-hot-reload](../examples/asset-hot-reload/)       | Vite scene replacement, preserving the prior scene when a candidate fails                                                                   |
+| [gpu-compute](../examples/gpu-compute/)                 | WebGPU WGSL storage buffers, dependent dispatches and typed readback                                                                        |
+| [render-graph](../examples/render-graph/)               | Native WebGPU/WebGL2 render graph with multi-input passes                                                                                   |
 
 ## 2. Use It on Your Website
 
@@ -1407,3 +1412,50 @@ The final two commands run inside a generated starter. The teardown-only benchma
 [CURRENT](CURRENT.md) is the normative v1.12.4 capability/API/support entry; older versioned recipes above remain historical profiles. `pnpm docs:api` generates searchable public root-export documentation at `.vite/site/api/1.12.4/`; `pnpm build:site` includes the same portal in the deployed static site. Ownership/abort/cleanup examples are included there.
 
 Installed `pnpm exec xyz-assets preflight --manifest project.json` validates project references through actual loaders; `build --manifest project.json --out NEW_DIRECTORY` publishes checksummed assets without overwriting source. See [asset recipe](ASSET-RECIPE.md) for schema, pinned development tooling and optional model conversion. Reviewed host/backend performance profiles and physical qualification have separate statuses/limits in CURRENT: calibration is not certification, and unavailable physical evidence remains BLOCKED.
+
+## Unreleased source additions (P104–P118)
+
+These additions are not in the existing GitHub v1.14 archive. Package metadata stays
+1.14.0; npm remains unpublished. See [CURRENT](CURRENT.md) for implementation
+boundaries and [ACCEPTANCE](../ACCEPTANCE.md) for evidence. New examples are listed
+above; their presence in source is not itself a runtime/browser pass.
+
+The installed `xyz-produce-assets PROFILE.json NEW_DIRECTORY` producer is separate
+from the `xyz-assets` project CLI. Install the pinned development browser tooling
+described in [ASSET-RECIPE](ASSET-RECIPE.md). The repository equivalent is
+`node scripts/produce-assets.mjs PROFILE.json NEW_DIRECTORY`; both produce bounded
+atlas and bitmap/SDF/MSDF assets through the same implementation.
+SDF and MSDF are distinct: MSDF profiles require authored polygon contours; arbitrary font
+outline parsing and WebCodecs container demux are not provided.
+
+### CommonJS and live 3D maps
+
+`require('xyz.js')` and `import ... from 'xyz.js'` use separate constructor graphs.
+Choose one format throughout an application's engine objects; do not pass a
+CommonJS Texture/Scene/Mesh to the ESM engine or vice versa. Browser/CDN consumers
+use the complete ESM `dist/` tree, including official vendor and worker files.
+
+Legacy material `texture`, PBR map properties and native `textures` retain their
+immutable `Texture` types. Supply a real borrowed fallback and use the additive
+override options for canvas/video sources:
+
+```ts
+import { PBRMaterial, Texture, VideoTexture } from 'xyz.js';
+
+async function videoMaterial(video: HTMLVideoElement, fallback: Texture) {
+  const frames = await VideoTexture.fromVideo(video);
+  const material = new PBRMaterial({
+    texture: fallback,
+    textureSource: frames,
+    sources: { emissiveTexture: frames },
+    emissive: [1, 1, 1],
+  });
+  return { material, frames };
+}
+```
+
+Remove material consumers before destroying `frames`; the fallback remains borrowed.
+`PBRMaterialOptions.sources` uses exported `PBRTextureKey`/`PBRTextureSources`.
+NativeMaterial3D uses `textureSources` for its four indexed hook maps; the base
+map uses the same `textureSource` option. WebCodecs consumes configured elementary
+chunks, not media containers. Canvas2D supports video Sprites, not 3D materials.

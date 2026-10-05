@@ -45,6 +45,7 @@ export declare class WebGPURender2D {
     private readonly passLayout;
     private readonly passPipelineLayout;
     private readonly normal;
+    private readonly lighting;
     private readonly replace;
     private readonly blends;
     private readonly multiply;
@@ -55,6 +56,7 @@ export declare class WebGPURender2D {
     private drawGroup;
     private instanceBuffer;
     private instanceData;
+    private uploadedUniforms;
     private capacity;
     private required;
     private slot;
@@ -92,6 +94,7 @@ export declare class WebGPURender2D {
     private closePass;
     private allocate;
     private drawUniforms;
+    private uploadUniforms;
     private objectMatrix;
     private writeQuad;
     private uploadQuads;
