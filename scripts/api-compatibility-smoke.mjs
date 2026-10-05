@@ -6,6 +6,14 @@ import { checkDeclarations } from './api-compatibility-lib.mjs';
 
 export async function runNegativeSmoke(root) {
   const entry = 'dist/src/index.d.ts';
+  const recursive = {
+    [entry]:
+      "export { Parent, Options } from './parent.js'; export { Child } from './child.js';",
+    'dist/src/parent.d.ts':
+      "import { Child } from './child.js'; export interface Options { label?: string; count?: number } export declare class Parent { child: Child; constructor(options?: Options); add<T extends Parent>(value: T): T; }",
+    'dist/src/child.d.ts':
+      "import { Parent } from './parent.js'; export declare class Child { parent: Parent; run<T extends Child>(value: T): T; }",
+  };
   const cases = [
     [
       'unchanged contracts',
@@ -104,6 +112,77 @@ export async function runNegativeSmoke(root) {
       },
       undefined,
       true,
+    ],
+    [
+      'recursive graph with unrelated new export',
+      recursive,
+      {
+        ...recursive,
+        [entry]: `${recursive[entry]} export { Extra } from './child.js';`,
+        'dist/src/child.d.ts': `${recursive['dist/src/child.d.ts']} export interface Extra { enabled: boolean }`,
+      },
+      true,
+    ],
+    [
+      'recursive graph with additive options',
+      recursive,
+      {
+        ...recursive,
+        'dist/src/parent.d.ts': recursive['dist/src/parent.d.ts'].replace(
+          'count?: number',
+          'count?: number; enabled?: boolean',
+        ),
+      },
+      true,
+    ],
+    [
+      'recursive graph with inherited additive options',
+      recursive,
+      {
+        ...recursive,
+        'dist/src/parent.d.ts': recursive['dist/src/parent.d.ts'].replace(
+          'export interface Options { label?: string; count?: number }',
+          "import { TextOptions } from './options.js'; export interface Options extends TextOptions { count?: number }",
+        ),
+        'dist/src/options.d.ts':
+          'export interface TextOptions { label?: string; enabled?: boolean }',
+      },
+      true,
+    ],
+    [
+      'recursive graph still rejects removed optional input',
+      recursive,
+      {
+        ...recursive,
+        'dist/src/parent.d.ts': recursive['dist/src/parent.d.ts'].replace(
+          'label?: string;',
+          '',
+        ),
+      },
+      false,
+      /label/,
+    ],
+    [
+      'recursive graph still rejects inherited required input',
+      recursive,
+      {
+        ...recursive,
+        'dist/src/parent.d.ts': recursive['dist/src/parent.d.ts'].replace(
+          'export interface Options { label?: string; count?: number }',
+          "import { TextOptions } from './options.js'; export interface Options extends TextOptions { count?: number }",
+        ),
+        'dist/src/options.d.ts':
+          'export interface TextOptions { label?: string; enabled: boolean }',
+      },
+      false,
+      /enabled/,
+    ],
+    [
+      'long public string literal remains a contract',
+      `export declare const source: ${JSON.stringify('a'.repeat(512))};`,
+      `export declare const source: ${JSON.stringify('b'.repeat(512))};`,
+      false,
+      /source/,
     ],
     [
       'changed nested dependency is not interned',
