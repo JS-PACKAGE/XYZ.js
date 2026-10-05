@@ -6,7 +6,7 @@ import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { DisplacementFilter2D } from '../../core/src/rendering2d/filters2d.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { isNativeMaterial3D } from '../../core/src/native-material3d.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { Object3D } from '../../core/src/object3d.js';
 import type { Renderer } from './index.js';
@@ -68,8 +68,7 @@ export async function warmupScene(
       continue;
     if (object instanceof GPUParticleEmitter3D) resources.add(object);
     if (object instanceof Mesh) {
-      if (object.material instanceof NativeMaterial3D)
-        resources.add(object.material);
+      if (isNativeMaterial3D(object.material)) resources.add(object.material);
       resources.add(object);
     } else if (object instanceof Sprite) {
       resources.add(object.texture);

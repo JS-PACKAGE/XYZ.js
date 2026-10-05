@@ -4,7 +4,10 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import {
+  isNativeMaterial3D,
+  type NativeMeshMaterial,
+} from '../../core/src/native-material3d.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
@@ -128,10 +131,7 @@ export class Canvas2DRenderer implements Renderer {
         'Canvas2D does not support native 3D or mesh preparation.',
       );
     if (source instanceof NativePost) await this.preparePostProcessor(source);
-    else if (
-      source instanceof NativeMaterial ||
-      source instanceof NativeMaterial3D
-    )
+    else if (source instanceof NativeMaterial || isNativeMaterial3D(source))
       await this.prepareMaterial(source);
     else await this.prepareTextures([source]);
     options.signal?.throwIfAborted();
@@ -283,7 +283,7 @@ export class Canvas2DRenderer implements Renderer {
   }
 
   async prepareMaterial(
-    _material: Material2D | NativeMaterial3D,
+    _material: Material2D | NativeMeshMaterial,
   ): Promise<void> {
     void _material;
     this.requireContext();

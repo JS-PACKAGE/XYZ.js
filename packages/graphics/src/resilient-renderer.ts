@@ -3,7 +3,10 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import {
+  isNativeMaterial3D,
+  type NativeMeshMaterial,
+} from '../../core/src/native-material3d.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -89,7 +92,7 @@ export class ResilientRenderer implements Renderer {
   private readonly abort = new AbortController();
   private replacement: Renderer | undefined;
   private readonly materials = new Map<
-    Material2D | NativeMaterial3D,
+    Material2D | NativeMeshMaterial,
     () => void
   >();
   private readonly processors = new Set<PostProcessor2D>();
@@ -499,7 +502,7 @@ export class ResilientRenderer implements Renderer {
   }
 
   async prepareMaterial(
-    material: Material2D | NativeMaterial3D,
+    material: Material2D | NativeMeshMaterial,
   ): Promise<void> {
     await this.requireReady().prepareMaterial(material);
     if (this.destroyed || material.destroyed)
@@ -510,7 +513,7 @@ export class ResilientRenderer implements Renderer {
       const forget = (): void => {
         this.materials.delete(material);
       };
-      if (material instanceof NativeMaterial3D)
+      if (isNativeMaterial3D(material))
         this.materials.set(material, material.onDestroy(forget));
       else {
         material.addEventListener('destroy', forget, { once: true });

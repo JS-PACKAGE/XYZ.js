@@ -9,6 +9,7 @@ import {
   Matrix4,
   Mesh,
   NativeMaterial3D,
+  NativePBRMaterial,
   OrthographicCamera,
   PBRMaterial,
   PointLight,
@@ -156,6 +157,20 @@ async function run(): Promise<void> {
       rejected,
       'Canvas2D must explicitly reject 3D, not substitute software pixels.',
     );
+    let materialRejected = false;
+    try {
+      await renderer.prepareMaterial(
+        new NativePBRMaterial({
+          texture: white,
+          deformationBounds: 0,
+          wgsl: 'fn xyzPhysical(w:vec3f,n:vec3f,uv:vec2f,s:XYZPhysical)->XYZPhysical { return s; }',
+          glsl: 'XYZPhysical xyzPhysical(vec3 w,vec3 n,vec2 uv,XYZPhysical s) { return s; }',
+        }),
+      );
+    } catch {
+      materialRejected = true;
+    }
+    check(materialRejected, 'Canvas2D must reject NativePBRMaterial.');
     report.scenarios.push({
       name: 'canvas-explicit-unsupported',
       metrics: { rejected },
@@ -227,6 +242,72 @@ async function run(): Promise<void> {
       png: after.png,
     });
   }
+
+  const physicalScene = scene();
+  const omitted = new NativePBRMaterial({
+    texture: white,
+    deformationBounds: 0,
+    wgsl: identityWGSL,
+    glsl: identityGLSL,
+  });
+  owned.push(omitted);
+  let omission: unknown;
+  try {
+    await renderer.prepareMaterial(omitted);
+  } catch (error) {
+    omission = error;
+  }
+  check(
+    omission instanceof GraphicsError,
+    'A physical material without xyzPhysical must reject before draw.',
+  );
+  const physical = new NativePBRMaterial({
+    texture: white,
+    deformationBounds: 0,
+    uniforms: [1],
+    wgsl: 'fn xyzPhysical(world:vec3f,normal:vec3f,uv:vec2f,surface:XYZPhysical)->XYZPhysical { var out=surface; out.base=vec3f(mesh.custom[0].x,0.02,0.02); return out; }',
+    glsl: '#if defined(XYZ_FRAGMENT) && !defined(XYZ_SHADOW)\nXYZPhysical xyzPhysical(vec3 world,vec3 normal,vec2 uv,XYZPhysical surface) { XYZPhysical outv=surface; outv.base=vec3(xyzUniforms[0].x,0.02,0.02); return outv; }\n#endif',
+  });
+  owned.push(physical);
+  await renderer.prepareMaterial(physical);
+  physicalScene.add(
+    new Mesh({
+      geometry: Geometry.cube(),
+      material: physical,
+      castShadow: false,
+    }),
+  );
+  const colored = await draw(physicalScene);
+  let redPixels = 0;
+  for (let i = 0; i < colored.bytes.length; i += 4)
+    if (
+      colored.bytes[i]! > 80 &&
+      colored.bytes[i]! > colored.bytes[i + 1]! + 30 &&
+      colored.bytes[i]! > colored.bytes[i + 2]! + 30
+    )
+      redPixels++;
+  check(redPixels > 50, 'Physical hook must replace the decoded base color.');
+  physical.setUniforms([0]);
+  const dimmed = await draw(physicalScene);
+  let changed = 0;
+  for (let i = 0; i < colored.bytes.length; i += 4)
+    if (colored.bytes[i]! > dimmed.bytes[i]! + 40) changed++;
+  check(changed > 50, 'Mutable physical uniforms must change the lit surface.');
+  physical.destroy();
+  check(
+    !white.destroyed,
+    'Destroying a physical material must not destroy borrowed textures.',
+  );
+  report.scenarios.push({
+    name: 'native-physical-surface',
+    metrics: {
+      redPixels,
+      changed,
+      borrowedSurvived: !white.destroyed,
+      omission: (omission as Error).message,
+    },
+    png: colored.png,
+  });
 
   // Native cascade visibility encoded in R; the two individual cascades are G/B.
   // A CPU ray/plane intersection independently verifies the blended R value.

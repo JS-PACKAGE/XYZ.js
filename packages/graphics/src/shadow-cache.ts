@@ -6,7 +6,7 @@ import {
 } from '../../core/src/mesh.js';
 import { PBRMaterial } from '../../core/src/pbr-material.js';
 import {
-  NativeMaterial3D,
+  isNativeMaterial3D,
   nativeMaterialSources,
 } from '../../core/src/native-material3d.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
@@ -137,7 +137,7 @@ export class ShadowCache {
       const tail = 36;
       if (!Object.is(values[tail], base?.transform[5] ?? 0)) changed = true;
       values[tail] = base?.transform[5] ?? 0;
-      if (material instanceof NativeMaterial3D) {
+      if (isNativeMaterial3D(material)) {
         material.validate();
         if (material.shadowCache !== 'tracked') changed = true;
         for (let i = 0; i < material.uniforms.length; i++) {

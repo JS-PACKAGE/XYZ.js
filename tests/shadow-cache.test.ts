@@ -4,6 +4,7 @@ import { Geometry } from '../packages/core/src/geometry.js';
 import { Group } from '../packages/core/src/group.js';
 import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
 import { NativeMaterial3D } from '../packages/core/src/native-material3d.js';
+import { NativePBRMaterial } from '../packages/core/src/native-pbr-material.js';
 import { Scene } from '../packages/core/src/scene.js';
 import { ShadowAtlas } from '../packages/core/src/shadow-atlas.js';
 import { ShadowCache } from '../packages/graphics/src/shadow-cache.js';
@@ -95,6 +96,51 @@ describe('native shadow atlas reuse', () => {
     expect(tracked.draw()).toBe(false);
     (tracked.material as NativeMaterial3D).uniforms[0] = NaN;
     expect(() => tracked.draw()).toThrow(RangeError);
+  });
+
+  it('reads directly mutated tracked physical uniforms', () => {
+    const texture = new Texture({
+      width: 1,
+      height: 1,
+      close() {},
+    } as ImageBitmap);
+    const scene = new Scene();
+    scene.shadows.enabled = true;
+    const material = new NativePBRMaterial({
+      texture,
+      wgsl: 'fn xyzPhysical(w:vec3f,n:vec3f,uv:vec2f,s:XYZPhysical)->XYZPhysical { return s; }',
+      glsl: 'XYZPhysical xyzPhysical(vec3 w,vec3 n,vec2 uv,XYZPhysical s) { return s; }',
+      shadowCache: 'tracked',
+    });
+    const mesh = scene.add(new Mesh({ geometry: Geometry.cube(), material }));
+    const cache = new ShadowCache();
+    const atlas = new ShadowAtlas();
+    const entries = new Map([
+      [
+        mesh,
+        {
+          mesh,
+          sphere: { x: 0, y: 0, z: 0, radius: 1 },
+          fade: 1,
+          instances: undefined,
+        },
+      ],
+    ]);
+    const draw = () => {
+      mesh.updateRenderDeformation();
+      mesh.updateWorldMatrix();
+      atlas.update(scene, 1);
+      const dirty = cache.needsRender(scene, atlas, [mesh], entries, 320, 240);
+      cache.commit();
+      return dirty;
+    };
+    expect(draw()).toBe(true);
+    expect(draw()).toBe(false);
+    material.uniforms[0] = 4;
+    expect(draw()).toBe(true);
+    expect(draw()).toBe(false);
+    material.destroy();
+    texture.destroy();
   });
 
   it('rejects invalid quality controls without clamping author input', () => {
