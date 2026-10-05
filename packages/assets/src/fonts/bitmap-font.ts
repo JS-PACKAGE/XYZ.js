@@ -1,5 +1,9 @@
 import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
 import { AssetError, Texture, type AssetLoader } from '../index.js';
+import {
+  registerTextureDistanceField,
+  type DistanceFieldProfile,
+} from './distance-field.js';
 
 export interface BitmapGlyph {
   readonly id: number;
@@ -23,6 +27,7 @@ export interface BitmapFontData {
   readonly base: number;
   readonly glyphs: readonly BitmapGlyph[];
   readonly kernings: readonly BitmapKerning[];
+  readonly distanceField?: DistanceFieldProfile;
 }
 
 /** Caller-owned RGBA pages; destroy only after all SpriteText borrowers detach. */
@@ -33,6 +38,7 @@ export class BitmapFontAsset implements BitmapFontData {
   readonly glyphs: readonly BitmapGlyph[];
   readonly kernings: readonly BitmapKerning[];
   readonly pages: readonly Texture[];
+  readonly distanceField: DistanceFieldProfile | undefined;
   private disposed = false;
 
   constructor(pages: readonly Texture[], data: BitmapFontData) {
@@ -47,6 +53,12 @@ export class BitmapFontAsset implements BitmapFontData {
       )
         throw new AssetError('Bitmap glyph exceeds its page.');
     }
+    this.distanceField = data.distanceField
+      ? Object.freeze({ ...data.distanceField })
+      : undefined;
+    if (this.distanceField)
+      for (const page of pages)
+        registerTextureDistanceField(page, this.distanceField);
     this.pages = Object.freeze([...pages]);
     this.size = data.size;
     this.lineHeight = data.lineHeight;
@@ -143,7 +155,7 @@ interface FontDescriptor extends BitmapFontData {
   height: number;
 }
 
-/** AngelCode text and JSON equivalents only; no XML or distance-field fonts. */
+/** AngelCode text/JSON, including explicitly profiled SDF/MSDF pages. */
 export class BitmapFontLoader {
   constructor(private readonly loader: AssetLoader) {}
 
@@ -215,15 +227,8 @@ export class BitmapFontLoader {
           throw new AssetError('Bitmap font records exceed their budget.');
       }
     } else throw new AssetError('Unsupported bitmap font format.');
-    if (
-      !record ||
-      typeof record !== 'object' ||
-      Array.isArray(record) ||
-      record.distanceField !== undefined
-    )
-      throw new AssetError(
-        'Invalid or unsupported distance-field font descriptor.',
-      );
+    if (!record || typeof record !== 'object' || Array.isArray(record))
+      throw new AssetError('Invalid bitmap font descriptor.');
     const info = record.info as Record<string, unknown> | undefined;
     const common = record.common as Record<string, unknown> | undefined;
     if (
@@ -289,6 +294,25 @@ export class BitmapFontLoader {
         return { first: pair.first, second: pair.second, amount: pair.amount };
       },
     );
+    let distanceField: DistanceFieldProfile | undefined;
+    if (record.distanceField !== undefined) {
+      const field = record.distanceField as Record<string, unknown>;
+      if (
+        !field ||
+        typeof field !== 'object' ||
+        Array.isArray(field) ||
+        !['sdf', 'msdf'].includes(field.fieldType as string) ||
+        typeof field.distanceRange !== 'number' ||
+        !Number.isFinite(field.distanceRange) ||
+        field.distanceRange < 1 ||
+        field.distanceRange > 256
+      )
+        throw new AssetError('Invalid distance-field descriptor.');
+      distanceField = {
+        type: field.fieldType as 'sdf' | 'msdf',
+        range: field.distanceRange,
+      };
+    }
     const data = {
       size: Math.abs(info.size as number),
       lineHeight: common.lineHeight as number,
@@ -298,6 +322,7 @@ export class BitmapFontLoader {
       pages,
       width: common.scaleW as number,
       height: common.scaleH as number,
+      distanceField,
     };
     validate(data, pages.length);
     if (

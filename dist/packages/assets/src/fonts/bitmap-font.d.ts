@@ -1,4 +1,5 @@
 import { Texture, type AssetLoader } from '../index.js';
+import { type DistanceFieldProfile } from './distance-field.js';
 export interface BitmapGlyph {
     readonly id: number;
     readonly page: number;
@@ -21,6 +22,7 @@ export interface BitmapFontData {
     readonly base: number;
     readonly glyphs: readonly BitmapGlyph[];
     readonly kernings: readonly BitmapKerning[];
+    readonly distanceField?: DistanceFieldProfile;
 }
 /** Caller-owned RGBA pages; destroy only after all SpriteText borrowers detach. */
 export declare class BitmapFontAsset implements BitmapFontData {
@@ -30,6 +32,7 @@ export declare class BitmapFontAsset implements BitmapFontData {
     readonly glyphs: readonly BitmapGlyph[];
     readonly kernings: readonly BitmapKerning[];
     readonly pages: readonly Texture[];
+    readonly distanceField: DistanceFieldProfile | undefined;
     private disposed;
     constructor(pages: readonly Texture[], data: BitmapFontData);
     get destroyed(): boolean;
@@ -40,7 +43,7 @@ interface FontDescriptor extends BitmapFontData {
     width: number;
     height: number;
 }
-/** AngelCode text and JSON equivalents only; no XML or distance-field fonts. */
+/** AngelCode text/JSON, including explicitly profiled SDF/MSDF pages. */
 export declare class BitmapFontLoader {
     private readonly loader;
     constructor(loader: AssetLoader);
