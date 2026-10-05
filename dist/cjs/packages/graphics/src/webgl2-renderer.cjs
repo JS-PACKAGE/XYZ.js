@@ -331,7 +331,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				}
 			}), this.shadowBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferData(n.UNIFORM_BUFFER, this.atlas.data.byteLength, n.DYNAMIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `ShadowData`), 0), this.sheenBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.sheenBuffer), n.bufferData(n.UNIFORM_BUFFER, require_sheen.sheenDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `SheenLookup`), 1), this.opticalPackProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_optical_pack_shaders.opticalPackGLSL, `optical packing`), this.opticalPackFramebuffer = n.createFramebuffer() ?? void 0, this.emptyOptical = n.createTexture() ?? void 0, !this.opticalPackFramebuffer || !this.emptyOptical) throw new require_errors.WebGL2InitializationError(`WebGL2 optical resource allocation failed.`);
 			n.activeTexture(n.TEXTURE0 + 14), n.bindTexture(n.TEXTURE_2D_ARRAY, this.emptyOptical), n.texStorage3D(n.TEXTURE_2D_ARRAY, 1, n.RGBA8, 1, 1, 2), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MAG_FILTER, n.NEAREST), n.useProgram(this.opticalPackProgram), n.uniform1i(n.getUniformLocation(this.opticalPackProgram, `image`), 0), this.opticalPackSide = n.getUniformLocation(this.opticalPackProgram, `side`);
-			for (let e of `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.opticalMaps.opaqueScene.shadowMap.oitPass.environment[0].environmentMap.probeData[0].fog[0].meshFade`.split(`.`)) this.meshUniforms[e] = n.getUniformLocation(this.meshProgram, e);
+			for (let e of `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.opticalMaps.opaqueScene.shadowMap.oitPass.environment[0].environmentMap.probeData[0].fog[0].meshFade.tangentTexCoord.derivativeTangentSign`.split(`.`)) this.meshUniforms[e] = n.getUniformLocation(this.meshProgram, e);
 			this.meshUniforms[`materialCoordinates[0]`] = n.getUniformLocation(this.meshProgram, `materialCoordinates[0]`);
 			for (let e of [
 				`viewProjection`,
@@ -659,7 +659,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 					f.validate(), a = e.uniforms, i.useProgram(e.program), i.uniform4fv(a[`xyzUniforms[0]`], f.uniforms);
 					for (let e = 0; e < 4; e++) i.uniform1i(a[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(f)[e] ?? require_mesh.materialBaseTexture(f), e + 1);
 				} else a = this.meshUniforms, i.useProgram(this.meshProgram);
-				if (require_material_uv.fillMaterialUV(f, s.renderGeometry, this.materialUVData), i.uniform4fv(a[`materialCoordinates[0]`], this.materialUVData), i.uniformMatrix4fv(a.viewProjection, !1, c), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(s)), i.uniform4fv(a[`lighting[0]`], this.lightingData), i.uniform4fv(a[`fog[0]`], this.fogData), i.uniform3f(a.cameraPosition, l.x, l.y, l.z), i.uniform1i(a.linearOutput, +!!this.linear3D), i.uniform1i(a.image, 0), i.uniform1i(a.shadowMap, 5), i.uniform1i(a.environmentMap, 6), i.uniform1i(a.opaqueScene, 15), i.uniform1i(a.opticalMaps, 14), i.uniform1i(a.oitPass, o), i.uniform1f(a.meshFade, this.visibility.entries.get(s)?.fade ?? 1), o || i.depthMask(!u), m) {
+				if (require_material_uv.fillMaterialUV(f, s.renderGeometry, this.materialUVData), i.uniform4fv(a[`materialCoordinates[0]`], this.materialUVData), i.uniformMatrix4fv(a.viewProjection, !1, c), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(s)), i.uniform4fv(a[`lighting[0]`], this.lightingData), i.uniform4fv(a[`fog[0]`], this.fogData), i.uniform3f(a.cameraPosition, l.x, l.y, l.z), i.uniform1i(a.linearOutput, +!!this.linear3D), i.uniform1i(a.image, 0), i.uniform1i(a.shadowMap, 5), i.uniform1i(a.environmentMap, 6), i.uniform1i(a.opaqueScene, 15), i.uniform1i(a.opticalMaps, 14), i.uniform1i(a.oitPass, o), i.uniform1f(a.meshFade, this.visibility.entries.get(s)?.fade ?? 1), i.uniform1i(a.tangentTexCoord, s.renderGeometry.tangentTexCoord), i.uniform1f(a.derivativeTangentSign, s.renderGeometry.tangentConvention === `gltf` ? -1 : 1), o || i.depthMask(!u), m) {
 					require_render_data.fillProbeBlendData(e, this.environmentData, 0, this.selectedProbes);
 					for (let e = 0; e < 5; e++) this.environmentData[e * 52 + 38] = this.probeMipCount - 1;
 					i.uniform4fv(a[`environment[0]`], this.environmentLightingData), i.uniform4fv(a[`probeData[0]`], this.probeData), i.activeTexture(i.TEXTURE6), i.bindSampler(6, null), i.bindTexture(i.TEXTURE_2D_ARRAY, this.probeTexture);
@@ -950,12 +950,16 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		let n = this.gl, r = t.uvs1;
 		r ? (e.uvs1 ??= this.createBuffer(n), n.bindBuffer(n.ARRAY_BUFFER, e.uvs1), n.bufferData(n.ARRAY_BUFFER, r, n.DYNAMIC_DRAW), this.stats.upload(r.byteLength), n.enableVertexAttribArray(11), n.vertexAttribPointer(11, 2, n.FLOAT, !1, 8, 0), n.vertexAttribDivisor(11, 0)) : (e.uvs1 && n.deleteBuffer(e.uvs1), e.uvs1 = void 0, n.disableVertexAttribArray(11));
 	}
+	syncTangents(e, t) {
+		let n = this.gl, r = e.tangents !== void 0;
+		e.tangents ??= this.createBuffer(n), n.bindBuffer(n.ARRAY_BUFFER, e.tangents), r ? n.bufferSubData(n.ARRAY_BUFFER, 0, t.tangents) : n.bufferData(n.ARRAY_BUFFER, t.tangents, n.DYNAMIC_DRAW), this.stats.upload(t.tangents.byteLength), n.enableVertexAttribArray(14), n.vertexAttribPointer(14, 4, n.FLOAT, !1, 16, 0), n.vertexAttribDivisor(14, 0);
+	}
 	cacheGeometry(e) {
 		let t = this.gl, n = this.geometries.get(e);
-		if (n) return n.allocation.resize(e.vertices.byteLength + e.indices.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0)), n.version !== e.version && (t.bindVertexArray(n.vao), t.bindBuffer(t.ARRAY_BUFFER, n.vertex), t.bufferSubData(t.ARRAY_BUFFER, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.syncVertexColors(n, e), this.syncVertexUV(n, e), n.version = e.version), n;
-		let r = this.residency.geometry.allocate(e.vertices.byteLength + e.indices.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0), () => {
+		if (n) return n.allocation.resize(e.vertices.byteLength + e.indices.byteLength + e.tangents.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0)), n.version !== e.version && (t.bindVertexArray(n.vao), t.bindBuffer(t.ARRAY_BUFFER, n.vertex), t.bufferSubData(t.ARRAY_BUFFER, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.syncVertexColors(n, e), this.syncVertexUV(n, e), this.syncTangents(n, e), n.version = e.version), n;
+		let r = this.residency.geometry.allocate(e.vertices.byteLength + e.indices.byteLength + e.tangents.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0), () => {
 			let n = this.geometries.get(e);
-			n && (t.deleteVertexArray(n.vao), t.deleteBuffer(n.vertex), t.deleteBuffer(n.index), n.colors && t.deleteBuffer(n.colors), n.uvs1 && t.deleteBuffer(n.uvs1), this.geometries.delete(e));
+			n && (t.deleteVertexArray(n.vao), t.deleteBuffer(n.vertex), t.deleteBuffer(n.index), n.colors && t.deleteBuffer(n.colors), n.uvs1 && t.deleteBuffer(n.uvs1), n.tangents && t.deleteBuffer(n.tangents), this.geometries.delete(e));
 		}), i, a, o;
 		try {
 			i = this.createVAO(t), a = this.createBuffer(t), o = this.createBuffer(t), t.bindVertexArray(i), t.bindBuffer(t.ARRAY_BUFFER, a), t.bufferData(t.ARRAY_BUFFER, e.vertices, t.DYNAMIC_DRAW), t.bindBuffer(t.ELEMENT_ARRAY_BUFFER, o), t.bufferData(t.ELEMENT_ARRAY_BUFFER, e.indices, t.STATIC_DRAW), this.stats.upload(e.vertices.byteLength + e.indices.byteLength), t.enableVertexAttribArray(0), t.vertexAttribPointer(0, 3, t.FLOAT, !1, 32, 0), t.enableVertexAttribArray(1), t.vertexAttribPointer(1, 3, t.FLOAT, !1, 32, 12), t.enableVertexAttribArray(2), t.vertexAttribPointer(2, 2, t.FLOAT, !1, 32, 24);
@@ -967,13 +971,14 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				colors: void 0,
 				colorBytes: 0,
 				uvs1: void 0,
+				tangents: void 0,
 				seen: this.frame,
 				version: e.version
 			};
 			try {
-				this.syncVertexColors(n, e), this.syncVertexUV(n, e);
+				this.syncVertexColors(n, e), this.syncVertexUV(n, e), this.syncTangents(n, e);
 			} catch (e) {
-				throw n.colors && t.deleteBuffer(n.colors), n.uvs1 && t.deleteBuffer(n.uvs1), e;
+				throw n.colors && t.deleteBuffer(n.colors), n.uvs1 && t.deleteBuffer(n.uvs1), n.tangents && t.deleteBuffer(n.tangents), e;
 			}
 			return t.bindVertexArray(null), this.geometries.set(e, n), n;
 		} catch (e) {

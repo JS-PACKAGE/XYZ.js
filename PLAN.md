@@ -397,3 +397,40 @@ Gestures 與 visibility profiles 的實作須先核對；前次分析的未查�
 使用者後續授權後已建立 P104–P118 十五個功能提交及獨立共用整合提交，升版為 1.16.0；發佈結果另記 ACCEPTANCE。
 本機 native automation 的能力與 physical qualification 分開；
 npm 身分／名稱權限與明確外部操作確認仍 BLOCKED。
+
+## 本輪材質品質與製作流程擴充：P119–P136
+
+使用者授權全部實作、分功能驗收後提交；不授權 push、升版或 release。
+P119 tangent／handedness／deformation；P120 anisotropic texture filtering；
+P121 specular AA／alpha coverage／alpha-to-coverage；P122 GGX IBL／BRDF／sheen；
+P123 PBR native surface；P124 2D surface＋lighting；P125 2D occluders；
+P126 material assets／instances／variants；P127 detail／triplanar／layers；
+P128 height／parallax／weathering；P129 procedural art controls；
+P130 anisotropic BRDF；P131 iridescence；P132 bounded subsurface；
+P133 layered transmission／dispersion；P134 baked lighting；
+P135 material reference scenes；P136 lifecycle／memory／available physical qualification。
+每項沿正式 renderer、root API 與既有 content／asset 工具鏈整合，保持兩個 native
+backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽器或物理近似不能標為完成。
+各項硬指標與實際證據逐階段記錄於 ACCEPTANCE；本節是批准範圍，不是完成聲明。
+
+### P119 — tangent-space 一致性
+
+- `Geometry` 可選 `tangents`：每頂點 xyz＋handedness，複製並驗證 finite／Float32；
+  缺省時由 indexed triangles 與指定 UV0／UV1 角度加權生成；預設 UV0。
+  既有八浮點 vertex stream 與 public stride 不變；tangent 是獨立 stream，
+  不新增 runtime dependency 或 shader transpiler。
+- Morph `TANGENT` 與 POSITION／NORMAL 同步；skin 與 model 用 forward linear
+  matrix 變換 tangent、inverse transpose 變換 normal，再正交化；
+  handedness 乘上各 transform 的 determinant sign。CPU mirror 與 native palette 一致。
+- `generateMikkTangents` 使用完整 vendor 的官方 mikktspace 1.1.1 reference WASM，
+  不新增 npm runtime dependency；回傳新 geometry 與 seam `sourceVertices` remap，
+  支援 UV0／UV1、glTF handedness convention。normal-mapped glTF 缺 tangent 時自動使用，
+  seam 同步複製所有 vertex channels、morph 及四／八個 skin influences。
+- 兩個 native shader 在與 `tangentTexCoord` 一致的 identity normal／clearcoat-normal
+  上優先使用 tangent；退化、不同 UV basis、非 identity transform 或 native
+  deformation 改寫時回退各 map 導數。鏡像與非均勻縮放保留 handedness。
+  `tangentConvention` 隨 glTF authored／generated frame 保留，UV transform derivative
+  fallback 不反轉 normal-map Y，base／coat 一致。
+- glTF `TANGENT` 為 VEC4 float／normalized signed；型別不符明確拒絕，不再忽略。
+- 驗收包含鏡像 UV、負縮放、morph、skin 與兩 backend 的真像素差異；
+  不以存在 tangent buffer 代替畫面結果。

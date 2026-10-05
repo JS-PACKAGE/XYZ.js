@@ -40,6 +40,8 @@ export * from './rendering2d/geometry2d.js';
 export * from './rendering2d/mesh2d.js';
 export { Geometry, BoxGeometry } from './geometry.js';
 export type { GeometryData } from './geometry.js';
+export { generateMikkTangents } from './geometry-tangents.js';
+export type { MikkTangentsOptions, MikkTangentsResult, } from './geometry-tangents.js';
 export { Frustum } from './frustum.js';
 export { EnvironmentMap } from './environment.js';
 export type { EnvironmentColor, EnvironmentGradientOptions, CubemapFaces, } from './environment.js';

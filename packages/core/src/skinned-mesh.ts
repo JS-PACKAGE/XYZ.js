@@ -31,6 +31,9 @@ function cloneGeometry(source: Geometry): Geometry {
     normals,
     uvs,
     uvs1: source.uvs1,
+    tangents: source.tangents,
+    tangentTexCoord: source.tangentTexCoord,
+    tangentConvention: source.tangentConvention,
     indices: source.indices,
     colors: source.colors,
   });
@@ -114,6 +117,7 @@ export class SkinnedMesh extends Mesh {
     this.weights = new Float32Array(count * influences);
     this.skinGeometry = cloneGeometry(options.geometry);
     this.bindVertices = this.skinGeometry.vertices;
+    this.morph?.setTangentOutput(this.skinGeometry.tangents);
     for (let i = 0; i < count; i++) {
       let total = 0;
       for (let j = 0; j < influences; j++) {
@@ -176,7 +180,9 @@ export class SkinnedMesh extends Mesh {
     this.updateRenderDeformation();
     if (this.mirrorVersion === this.deformationVersion) return;
     const out = this.geometry.vertices,
-      source = this.bindVertices;
+      source = this.bindVertices,
+      tangents = this.geometry.tangents,
+      sourceTangents = this.skinGeometry.tangents;
     for (let i = 0; i < out.length / 8; i++) {
       const e = this.blend.elements;
       e.fill(0);
@@ -209,13 +215,30 @@ export class SkinnedMesh extends Mesh {
       const nx = source[offset + 3],
         ny = source[offset + 4],
         nz = source[offset + 5];
-      const tx = sign * (c00 * nx + c01 * ny + c02 * nz);
-      const ty = sign * (c10 * nx + c11 * ny + c12 * nz);
-      const tz = sign * (c20 * nx + c21 * ny + c22 * nz);
-      const length = Math.hypot(tx, ty, tz);
-      out[offset + 3] = length ? tx / length : 0;
-      out[offset + 4] = length ? ty / length : 0;
-      out[offset + 5] = length ? tz / length : 0;
+      const normalX = sign * (c00 * nx + c01 * ny + c02 * nz);
+      const normalY = sign * (c10 * nx + c11 * ny + c12 * nz);
+      const normalZ = sign * (c20 * nx + c21 * ny + c22 * nz);
+      const normalLength = Math.hypot(normalX, normalY, normalZ);
+      out[offset + 3] = normalLength ? normalX / normalLength : 0;
+      out[offset + 4] = normalLength ? normalY / normalLength : 0;
+      out[offset + 5] = normalLength ? normalZ / normalLength : 0;
+      const t = i * 4,
+        sx = sourceTangents[t],
+        sy = sourceTangents[t + 1],
+        sz = sourceTangents[t + 2];
+      let tx = e[0] * sx + e[4] * sy + e[8] * sz;
+      let ty = e[1] * sx + e[5] * sy + e[9] * sz;
+      let tz = e[2] * sx + e[6] * sy + e[10] * sz;
+      const projection =
+        tx * out[offset + 3] + ty * out[offset + 4] + tz * out[offset + 5];
+      tx -= projection * out[offset + 3];
+      ty -= projection * out[offset + 4];
+      tz -= projection * out[offset + 5];
+      const tangentLength = Math.hypot(tx, ty, tz);
+      tangents[t] = tangentLength ? tx / tangentLength : 0;
+      tangents[t + 1] = tangentLength ? ty / tangentLength : 0;
+      tangents[t + 2] = tangentLength ? tz / tangentLength : 0;
+      tangents[t + 3] = sourceTangents[t + 3] * sign;
     }
     this.mirrorVersion = this.deformationVersion;
     this.geometry.markUpdated();

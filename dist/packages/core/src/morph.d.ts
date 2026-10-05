@@ -19,6 +19,8 @@ export interface MorphTargetData {
     positions: ReadonlyArray<ArrayLike<number> | undefined>;
     /** Per-target normal deltas. Omitted entries leave the base normal unchanged. */
     normals?: ReadonlyArray<ArrayLike<number> | undefined>;
+    /** Per-target tangent xyz deltas. Handedness remains on the base tangent. */
+    tangents?: ReadonlyArray<ArrayLike<number> | undefined>;
     weights: MorphWeights;
 }
 /**
@@ -29,15 +31,21 @@ export declare class MorphTargets {
     readonly weights: MorphWeights;
     private readonly positions;
     private readonly normals;
+    private readonly tangents;
     private base?;
+    private baseTangents?;
+    private tangentOutput?;
     private applied;
     constructor(data: MorphTargetData);
     get targetCount(): number;
     /** @internal Captures the undeformed vertices; called once by the owning Mesh. */
     bind(geometry: Geometry): void;
+    /** @internal Retargets writes to the native skin bind stream without copying it per update. */
+    setTangentOutput(output: Float32Array): void;
     /**
-     * @internal Rewrites position and normal of `out` (interleaved stride 8) from the
-     * base when weights changed since the last call. Returns whether `out` changed.
+     * @internal Rewrites position, normal and tangent from their captured bases when
+     * weights changed. The tangent stream keeps its original handedness. Returns
+     * whether either stream changed.
      */
     apply(out: Float32Array): boolean;
 }

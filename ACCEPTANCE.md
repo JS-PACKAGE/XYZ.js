@@ -1576,3 +1576,35 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - 同 run attempt 2 最終 SUCCESS，28 jobs 通過（含 release）；既有 Windows Chromium GPU exception diagnostic 依條件 skipped。六組 Ubuntu／Windows Node22／24／26 quality／API／negative／package gates、現有 browser matrix、四組 deployed-site shards、production workloads、native concurrent audio、2D／3D installed starter 與正式封裝／exact archive gates 全部通過。這不解除既有非阻擋 Windows native、managed WebKit／physical／audible 限制，也不把前節 cold WebGPU timeout 改成 PASS。
 - [GitHub v1.16](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.16) 已建立，非 draft／prerelease，GitHub UTC 發佈時間 `2026-10-05T15:59:49Z`，tag 指向 `c77b28f395460d454635809e9dd5589d408fa73d`。正式附件為 `xyz.js-1.16.0.tgz` 與 `SHA256SUMS`；npm 未發佈，任何更早 tag 未移動。
 - 真下載正式附件後 `shasum -a 256 -c SHA256SUMS` PASS，archive SHA256：`874cbd0dc9ca9a4f45edc3aceae85d6d0ecbc313279b4ee5a8faa9f23236e8cf`。另對該附件執行 exact package hygiene PASS：完整 approved inventory／官方 vendor 與 LICENSE、五個 extracted CLI help、2D／3D scaffold、311 root require／ESM exports、實際 math／官方 OPM 非同步 validation／worker URL 及跨格式 identity 拒絕。證據 `.vite/release-v1.16/published-verification/run-ptCGgM/report.json`；此 root/archive smoke 不冒稱重新跑 installed browser gameplay，該項由 hosted gate 記錄。
+
+## P119 — tangent-space（本機 source，未發佈）
+
+- Geometry 獨立 xyz/w stream、glTF TANGENT／morph、CPU mirror 與 native forward tangent／
+  inverse-transpose normal／反射 handedness 已整合；八浮點 public stride 不變。
+- `tests/tangent.test.ts` 九個測試實跑通過：鏡像 UV、author sign／invalid w、
+  morph/reset、normal-only collapse、非均勻負 skin scale、zero／nonunit normals、
+  reference Mikk／glTF convention、UV1 與 seam channel preservation。
+  glTF regression 包含 signed normalized tangent、morph 與四／八 influence seam remap。
+- 正式 renderer 的 `node scripts/tangent-runtime.mjs` 在 managed Chromium WebGPU／
+  WebGL2 各實跑通過：鏡像 UV samples 0／114、負縮放 changed pixels 556；
+  constant bitangent 的 model reflection 與 native skin 均為35、tangent morph
+  真中心像素差67，UV1 reference Mikk tangent morph 差亦為67；CPU skin w=-1。
+  runner 實際執行 reference WASM；未用 buffer 存在／mock 作畫面證據。
+  另實跑 glTF convention＋90° UV rotation 與等價 authored frame：修正前中心
+  像素122對102（差20），保留 convention 到 derivative fallback 後兩 backend 差0。
+- `.vite/tangent-runtime/report.json` 記錄 browser identity／draw results；兩張 native
+  screenshots 隨 runner 產生並實際檢視可見表面；另外透過 browser tab 檢視
+  Advanced 3D WebGL2 的實際表面／shadow，無 page error。
+- 完整 MIT vendor 的 mikktspace 1.1.1 保留上游檔案、LICENSE／manifest，reference
+  WASM SHA256 為 `d6c3376cd4074119f249989e8c506048ed2db8b67982aa64d8795af6d5d37397`。
+  Geometry 缺省是角度加權；精確 reference generator 是公開 `generateMikkTangents`，
+  normal-mapped glTF 缺 tangent 時自動使用。未新增 npm runtime dependency，
+  未認證實體 GPU／Safari／mobile。
+- Frozen install、build、strict typecheck、完整143檔／1167測試、lint／format PASS；
+  source／built-root tree-shaking ceilings PASS。原 `MorphTargets.apply(out)` 契約不變，
+  skin tangent output 在 bind 時 retarget，不增加每次更新的 stream copy。
+- v1.12.1 API compatibility PASS（737 exports、2810 directional contracts、5 個
+  versioned consumers）；exact package hygiene／root ESM＋CJS／installed CLI smoke PASS，
+  證據 `.vite/tangent-package-final/run-fsQYsX/report.json`。Source 內嵌 WASM bytes
+  與完整 vendor 的 verified SHA256 相同；258個文件相對路徑檢查無失效。
+  這些套件／型別證據不冒稱 browser 或實機認證。

@@ -114,6 +114,7 @@ struct VertexInput {
   @location(11) uv1: vec2f,
   @location(12) joints1: vec4u,
   @location(13) weights1: vec4f,
+  @location(14) tangent: vec4f,
 };
 struct VertexOutput {
   @builtin(position) position: vec4f,
@@ -126,6 +127,7 @@ struct VertexOutput {
   @location(6) @interpolate(flat) local1: vec3f,
   @location(7) @interpolate(flat) local2: vec3f,
   @location(8) uv1: vec2f,
+  @location(9) tangent: vec4f,
 };
 struct XYZVertex { position: vec3f, normal: vec3f };
 /* XYZ_NATIVE_HOOKS */
@@ -153,6 +155,10 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinLength = length(skinDirection);
   let skinNormal = select(deformed.normal,
     skinDirection / select(1.0, skinLength, skinLength > 0.0), mesh.clearcoat.w > 0.5);
+  let skinTangentDirection = mat3x3f(skin[0].xyz, skin[1].xyz, skin[2].xyz) * input.tangent.xyz;
+  let skinTangentLength = length(skinTangentDirection);
+  let skinTangent = select(input.tangent.xyz,
+    skinTangentDirection / select(1.0, skinTangentLength, skinTangentLength > 0.0), mesh.clearcoat.w > 0.5);
   let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
   let a = model[0].xyz;
   let b = model[1].xyz;
@@ -165,10 +171,15 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   var output: VertexOutput;
   output.position = projection * world;
   output.normal = normalMatrix * skinNormal;
+  let handedness = input.tangent.w * select(1.0, skinSign, mesh.clearcoat.w > 0.5)
+    * select(-1.0, 1.0, determinant >= 0.0);
+  let unchanged = all(deformed.position == input.position) && all(deformed.normal == input.normal);
+  output.tangent = vec4f(mat3x3f(a,b,c) * skinTangent, select(0.0, handedness, unchanged));
   output.uv = input.uv;
   output.uv1 = input.uv1;
   output.world = world.xyz;
-  output.orientation = select(-1.0,1.0,determinant >= 0.0);
+  output.orientation = select(-1.0,1.0,determinant >= 0.0)
+    * select(1.0,skinSign,mesh.clearcoat.w > 0.5);
   output.color = vec4f(input.instanceColor, 1.0) * input.vertexColor;
   output.local0 = normalMatrix[0];
   output.local1 = normalMatrix[1];
@@ -331,10 +342,20 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   var n = safeNormal(input.normal)*select(-1.0,1.0,effectiveFront);
   var nc = n;
   if (mesh.maps.y > 0.5 || (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)) {
-    let perpendicularY = cross(dy,n);
-    let perpendicularX = cross(n,dx);
-    let tangent = perpendicularY*du.x + perpendicularX*dv.x;
-    let bitangent = perpendicularY*du.y + perpendicularX*dv.y;
+    let rawTangent = input.tangent.xyz - n * dot(n, input.tangent.xyz);
+    let tangentLength = length(rawTangent);
+    let mapping = mesh.coordinates[4];
+    let coordinate = mesh.coordinates[5];
+    let authored = tangentLength > 0.000001 && abs(input.tangent.w) > 0.5
+      && abs(coordinate.z-mesh.fade.y) < 0.5 && all(mapping == vec4f(1.0,0.0,0.0,1.0));
+    var tangent = rawTangent / max(tangentLength,0.000001);
+    var bitangent = cross(n, tangent) * input.tangent.w;
+    if (!authored) {
+      let perpendicularY = cross(dy,n);
+      let perpendicularX = cross(n,dx);
+      tangent = perpendicularY*du.x + perpendicularX*dv.x;
+      bitangent = (perpendicularY*du.y + perpendicularX*dv.y)*mesh.fade.z;
+    }
     let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),0.000001));
     let frame = mat3x3f(tangent*scale,bitangent*scale,n);
     if (mesh.maps.y > 0.5) {
@@ -343,8 +364,18 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5) {
       let coatUV = materialUV(input,9u);
       let coatDu = dpdx(coatUV); let coatDv = -dpdy(coatUV);
-      let coatTangent = perpendicularY*coatDu.x + perpendicularX*coatDv.x;
-      let coatBitangent = perpendicularY*coatDu.y + perpendicularX*coatDv.y;
+      let coatRawTangent = input.tangent.xyz - nc * dot(nc, input.tangent.xyz);
+      let coatTangentLength = length(coatRawTangent);
+      let coatAuthored = coatTangentLength > 0.000001 && abs(input.tangent.w) > 0.5
+        && abs(mesh.coordinates[19].z-mesh.fade.y) < 0.5 && all(mesh.coordinates[18] == vec4f(1.0,0.0,0.0,1.0));
+      var coatTangent = coatRawTangent / max(coatTangentLength,0.000001);
+      var coatBitangent = cross(nc,coatTangent)*input.tangent.w;
+      if (!coatAuthored) {
+        let perpendicularY = cross(dy,nc);
+        let perpendicularX = cross(nc,dx);
+        coatTangent = perpendicularY*coatDu.x + perpendicularX*coatDv.x;
+        coatBitangent = (perpendicularY*coatDu.y + perpendicularX*coatDv.y)*mesh.fade.z;
+      }
       let coatScale = inverseSqrt(max(max(dot(coatTangent,coatTangent),dot(coatBitangent,coatBitangent)),0.000001));
       let coatFrame = mat3x3f(coatTangent*coatScale,coatBitangent*coatScale,nc);
       let sampled = textureSample(clearcoatNormalMap,clearcoatNormalSampler,coatUV).xyz*2.0-1.0;

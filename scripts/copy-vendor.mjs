@@ -9,3 +9,8 @@ await cp(
   new URL('opm/', destination),
   { recursive: true },
 );
+await cp(
+  new URL('../vendor/mikktspace/', import.meta.url),
+  new URL('mikktspace/', destination),
+  { recursive: true },
+);

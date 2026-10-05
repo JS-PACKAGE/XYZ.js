@@ -197,6 +197,7 @@ export declare class WebGL2Renderer implements Renderer {
     /** Uploads or removes the per-vertex colors; the geometry's VAO must be bound. */
     private syncVertexColors;
     private syncVertexUV;
+    private syncTangents;
     private cacheGeometry;
     private releaseUnused;
     private createBuffer;

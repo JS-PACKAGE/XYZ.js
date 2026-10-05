@@ -28,6 +28,11 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 
 ## 繁體中文
 
+- **P119 source 更新（未發佈）**：glTF／Geometry tangent xyz＋handedness、
+  tangent morph 與反射／非均勻縮放 skin；normal 與 clearcoat 共用正式 GPU／GL 路徑。
+  `generateMikkTangents` 使用完整 MIT vendor 的 reference WASM；normal-mapped glTF
+  缺 tangent 自動生成並拆 seam，支援 UV0／UV1。平台資格限制不變。
+
 ### 目前可用
 
 目前規範以 [v1.16 契約](docs/CURRENT.md)及生成的 root API 為準；`pnpm docs:api` 提供搜尋，`build:site` 納入完整靜態網站。以下舊版／階段描述保留歷史，managed WebKit 不是 Safari、模擬輸入不是實體裝置驗收。
@@ -135,6 +140,11 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 
 ## English
 
+- **P119 source update (unreleased)**: Geometry/glTF tangent xyz + handedness,
+  tangent morphs and reflected/nonuniform skin transforms on both native backends.
+  `generateMikkTangents` uses the complete MIT-vendored reference WASM; normal-mapped
+  glTF generates missing frames with seam remapping and UV0/UV1 support. Qualification limits remain.
+
 ### Available now
 
 [Current v1.16 contracts](docs/CURRENT.md) and generated root API are normative. `pnpm docs:api` provides search; `build:site` distributes the portal. Older release/stage narratives remain historical. Managed WebKit is not Safari and simulated input is not physical qualification.
@@ -233,6 +243,11 @@ Runnable examples: `triangle`, `sprite`, `pong`, `cube3d`, `fallback-demo`, `sho
 Historical observations used managed Chromium 150. Current browser evidence and remaining hardware/platform limits are stated above; Safari/Edge certification, physical gamepads, cross-monitor DPR and real driver resets remain unverified. WebGPU/AudioWorklet require a secure origin. The ~60 fps benchmark result is not a cross-device guarantee.
 
 ## 日本語
+
+- **P119 source 更新（未公開）**：Geometry／glTF の tangent xyz＋handedness、
+  tangent morph と反転／非均等 skin 変換を native GPU／GL で使用します。
+  `generateMikkTangents` は完全な MIT vendor の reference WASM を使用し、normal-mapped
+  glTF の欠損 frame を seam remap と UV0／UV1 対応で生成します。認証範囲は不変です。
 
 ### 現在利用可能
 

@@ -4,6 +4,16 @@ export interface GeometryData {
     uvs: ArrayLike<number>;
     /** Optional TEXCOORD_1; UV0 remains in the legacy interleaved vertex stream. */
     uvs1?: ArrayLike<number>;
+    /**
+     * Optional glTF-style tangent xyz and handedness per vertex. Omitted data is
+     * generated from indexed triangles and the selected UV stream; degeneracy uses an
+     * orthonormal basis around their normal.
+     */
+    tangents?: ArrayLike<number>;
+    /** UV stream of the tangent basis; defaults to UV0. UV1 requires uvs1. */
+    tangentTexCoord?: 0 | 1;
+    /** Normal-map Y convention for derivative fallback; defaults to raw 'uv'. */
+    tangentConvention?: 'uv' | 'gltf';
     indices: ArrayLike<number>;
     /** Optional linear RGB or RGBA per vertex, multiplied into the base color. */
     colors?: ArrayLike<number>;
@@ -15,6 +25,10 @@ export declare class Geometry {
     readonly indices: Uint32Array;
     /** Two floats per vertex; edit in place then call markUpdated, like vertices. */
     readonly uvs1: Float32Array | undefined;
+    /** xyz plus glTF handedness; edit in place then call markUpdated, like vertices. */
+    readonly tangents: Float32Array;
+    readonly tangentTexCoord: 0 | 1;
+    readonly tangentConvention: 'uv' | 'gltf';
     version: number;
     private vertexColors;
     /**

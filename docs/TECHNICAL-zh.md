@@ -343,20 +343,20 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 ### glTF、動畫與幾何更新
 
 - GLTFLoader.load(url,{signal,allowedOrigins}) 與 parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?) 回傳 GLTFAsset：scene:Group、animations:AnimationClip[]、冪等 dispose()。支援外部／內嵌 buffers 和 images、relative URI、GLB2、triangle primitives、normalized／strided／sparse accessors、node TRS與可分解 affine TRS matrices、metallic-roughness 材質、UV0／UV1 textures、四／八 influences skins。引用的 buffers／images 只從模型自身 origin（baseURL）或 allowedOrigins 列出的 origin（例如 ['https://cdn.example']）取得；data:／blob: 一律允許，其他 origin 在請求前以 AssetError 拒絕。缺 normals 時產生；缺 referenced UV stream 明示拒絕，untextured geometry 可保留 zero UV0。
-- 非 triangle topology、`COLOR_1`、UV2+、超過兩組成對 skin influences、shear matrix、animated matrix node、POSITION／NORMAL／TANGENT 以外的 morph attributes 明確拒絕；supported set 外 required extension 拒絕。`COLOR_0` 支援 float與normalized unsigned-byte／unsigned-short VEC3／VEC4、含alpha（第34節）。Morph 支援 POSITION／NORMAL deltas（float／normalized integer／sparse、缺項零）、mesh／node weights與STEP／LINEAR／CUBICSPLINE channels；未使用的TANGENT deltas忽略。同一mesh primitives的target數須一致、node weights需匹配。影像解碼限制仍見第18節。
+- 非 triangle topology、`COLOR_1`、UV2+、超過兩組成對 skin influences、shear matrix、animated matrix node、POSITION／NORMAL／TANGENT 以外的 morph attributes 明確拒絕；supported set 外 required extension 拒絕。`COLOR_0` 支援 float 與 normalized unsigned-byte／unsigned-short VEC3／VEC4、含 alpha（第34節）。Morph 支援 POSITION／NORMAL／TANGENT xyz deltas（float／normalized integer／sparse、缺項零）、mesh／node weights 與 STEP／LINEAR／CUBICSPLINE channels；tangent 保留 base handedness。同一 mesh primitives 的 target 數須一致、node weights 需匹配。影像解碼限制仍見第18節。
 - 已實作 extensions：`KHR_mesh_quantization`（整數／normalized accessors 已還原為 float）；`KHR_materials_emissive_strength`（乘上 `emissiveFactor`，負值拒絕）；`KHR_materials_unlit`，以既有 PBR 近似：黑色 base color、roughness1、base color 導向 emission（alpha 仍取 base color，dielectric F0 的 image-based specular 仍微弱可見）；`KHR_texture_transform` 每個 map 獨立保留 `uv' = offset + R·S·uv`，支援 UV0／UV1 與 extension 的 `texCoord` override，不要求 shared transform，UV2+拒絕。`KHR_lights_punctual` 以 `asset.lights`（`point: PointLight[]`／`spot: SpotLight[]`／`directional: {direction,color,intensity}[]`）提供，載入時依各 node world transform 計算一次，保留 glTF 原始光度值，缺 `range` 視為0（無限）。Lights 不自動加入 Scene／跟隨 node 動畫，directional 是否對應 `scene.directionalLight` 由 caller 決定。Mipmapped minification filters9984–9987接受並降為對應 nearest／linear，不產生 mipmaps。其他 optional extensions 使用 core fallback。原 unit 證據使用合成模型；P90另有 native GPU／GL 各map reference與八influences fixture，不宣稱第三方模型集認證。
 - P39 另支援 required `KHR_materials_ior`、`KHR_materials_specular`、`KHR_materials_clearcoat`、`KHR_materials_sheen`、`KHR_materials_transmission`、`KHR_materials_volume`；材質契約與 raster 近似見第 37 節。
 - P32 加入內建 `EXT_meshopt_compression`，透過 `dracoDecoder` 有條件支援 `KHR_draco_mesh_compression`、透過 `ktx2Transcoder` 有條件支援 `KHR_texture_basisu`，fallback 詳見第 30 節。提供 callback 不等於引擎內建 codec，也不保證外部 decoder 的品質／速度／記憶體。
 - src/data/models.ts 固定 input 32 MiB、aggregate fetched 與 tracked decoded allocations 各 128 MiB；各 top-level list entries 10,000、accessor scalar elements 4,194,304、total vertices 1,000,000、indices 3,000,000、每 skin joints 256、每 mesh morph targets 64、hierarchy depth 256。超限拒絕、不截斷；此 accounting 不是整個瀏覽器記憶體保證。
 - 應用在移除／停止所有 consumers 後必須 asset.dispose()，釋放 loader-owned nodes／textures。僅 Scene destroy 不釋放 asset-owned textures；仍有 live borrower 時不可 dispose。Abort／parse failure 清理自有資源。
 - KeyframeTrack(target,path,times,values,interpolation='LINEAR') 支援 `Object3D` 的 translation／rotation／scale，或 `MorphWeights` 的 `'weights'`（values 為 keys × targetCount 個 scalar，cubic triplet 對每個 weight 套用），以及 STEP／LINEAR／CUBICSPLINE。Times 為嚴格遞增非負秒數；cubic values 是 incoming tangent／value／outgoing tangent triplets。Linear Quaternion 取最短路徑，cubic 結果 normalize。
-- Morph 在 CPU 執行：Mesh／MorphTargets 擁有 Geometry，以 weights 更新 cached bind vertices／normalized normals；SkinnedMesh 先 morph render bind pose 再 GPU skinning，exact CPU query geometry lazy 更新（第 42 節）。同一 glTF node primitives 共用 morph weights。
+- Morph 在 CPU 執行：`MorphTargets({positions,normals?,tangents?,weights})` 以 weights 更新 cached bind vertices、normalized normals 與正交化 tangents；SkinnedMesh 先 morph render bind pose 再 GPU skinning，exact CPU query geometry lazy 更新（第42節）。同一 glTF node primitives 共用 morph weights。
 - `AnimationClip(name,tracks)` 由最後 keys 算 duration；`scene.animations.clipAction(clip)` cache action。`play()` 繼續而不重設時間、`stop()` 歸零而不還原 pose。Repeat／once／pingpong、reverse、weights／fades／crossfades／ordered layer blending 見第 32 節（P34），已取代 P10 無 blending 基線。`stopAll()` 停止、`destroy()` 釋放。
 - Game 在 timers 後、Scene.update 前以 clamp simulation delta 更新 animations，pause／hidden 不累積。勿手動更新同 mixer。SkinnedMesh.updateRenderDeformation() 更新 palette／bounds；updateSkin() 為 exact queries 更新 CPU mirror，不是一般 rendering 路徑。Index topology 不變。
 
 ### PBR、光源、陰影、HDR 與 Instancing
 
-- PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space、使用該 map 獨立 transform 後的 UV0／UV1 derivatives（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。Metallic／roughness 預設0／0.5，emissive 為零。
+- PBRMaterial 繼承 TextureMaterial，全部 slots 借用。Base texture／emissiveTexture RGB 從 sRGB decode；factors／lighting 為 linear。metallicRoughnessTexture 為 linear（G roughness／B metallic）、normalTexture 為 linear tangent-space（normalScale）、occlusionTexture 為 linear R（occlusionStrength，只作用於 indirect illumination）。與 `geometry.tangentTexCoord` 一致的 identity normal map 使用 Geometry tangent；其他 UV basis、transformed 或 native-deformed surface 使用該 map 的 derivatives。Metallic／roughness 預設0／0.5，emissive 為零。
 - alphaMode 為 OPAQUE、MASK（alphaCutoff）或 BLEND；doubleSided 控制 culling／背面 normals。直接建構預設 BLEND（有正 cutoff 則 MASK）、doubleSided=true；glTF 預設 OPAQUE／false。PBR 以 alphaMode 為準，即使 opacity 小於一也不改分類。一般 TextureMaterial 在 opacity 小於一或明確 `transparent: true`（貼圖／頂點 alpha）時進透明 pass。預設 sorted 在 opaque／MASK 後按 bounding sphere 中心距離由遠到近，等距穩定、重用排序儲存；穿插表面仍可能錯誤，可選 weighted 近似。
 - Scene.pointLights／spotLights 接受可變 PointLight／SpotLight pools；range=0 無限，spot angles 為弧度。P84 以 bounded selection 取代原八燈 Scene 上限，見第59節；shadow atlas 限制獨立。
 - `scene.shadows` 預設 disabled；mapSize=1024、extent=10、near=0.1、far=50、bias=0.002／target 保留原固定 directional camera。Mesh.castShadow／receiveShadow 預設 true。P37 已加入 point／spot shadows 與 2–4 directional cascades，共用 bounded depth atlas／3×3 PCF；光源 flags／device dimensions 見第 35 節。
@@ -745,8 +745,9 @@ linear R 乘強度，`clearcoatRoughnessTexture` 以 linear G 乘粗糙度。
 固定 IOR 1.5 的 microfacet layer 在 base 上反射 directional／point／spot／environment
 lighting，包含 metallic 表面；view-normal Fresnel 同時衰減底層 lighting **與 emission**。
 強度 0 跳過 layer；roughness 的數值下限與 base BRDF 相同為 0.04。
-這是無限薄 coating，不做 refraction 或層間 scattering。獨立法線使用該 map 的
-transformed UV0／UV1 derivative tangent frame，不匯入 MikkTSpace tangents。
+這是無限薄 coating，不做 refraction 或層間 scattering。與 `geometry.tangentTexCoord`
+一致的 identity map 使用 Geometry tangent；其他 basis、coordinates／native
+deformation 保留各 map 的獨立 derivative frame。
 
 GLTFLoader 接受 required `KHR_materials_clearcoat`、factors、三個 maps、normal scale
 與 samplers，各 map 獨立 UV0／UV1 transform；與 unlit 共存會拒絕。
@@ -1193,7 +1194,8 @@ affine `[a,b,c,d,tx,ty]` 表示 `u'=a*u+c*v+tx; v'=b*u+d*v+ty`。
 Slots 為 `texture`、`metallicRoughness`、`normal`、`occlusion`、`emissive`、
 `specular`、`specularColor`、`clearcoat`、`clearcoatRoughness`、`clearcoatNormal`、
 `sheenColor`、`sheenRoughness`、`transmission`、`thickness`。Normal 與 clearcoat-normal
-使用自己選擇／轉換後的 UV derivatives；shadow alpha 使用 base map coordinates。
+在與 `geometry.tangentTexCoord` 一致的 identity map 使用 Geometry tangents，其他 coordinates 使用自己選擇／轉換後的
+UV derivatives；shadow alpha 使用 base map coordinates。
 
 glTF 保留 UV0／UV1 與獨立 KHR transforms，不烘改共用 vertex UV。
 `SkinnedMesh.influencesPerVertex` 預設4、可明示8；成對 `JOINTS_1`／`WEIGHTS_1`
@@ -1323,3 +1325,31 @@ API compatibility gate 先正規化 consumer 看不到的 private declarations�
 真正 additive exports／optional options，再 intern 相同且 dependency-closed 的
 遞迴圖。新增 required members、既有 signature／writability 與 public literal
 types 仍需通過原契約；runtime ownership／presentation 另靠實跑 consumer 證據。
+
+## P119. Tangent 與 handedness
+
+`GeometryData.tangents?: ArrayLike<number>` 每頂點提供四個 finite／Float32 可表示數值：
+非零 xyz direction 與嚴格 ±1 的 w。Geometry 複製、normalize 至 `geometry.tangents`，
+既有八浮點 vertices 不變。`GeometryData.tangentTexCoord?: 0 | 1` 指定 basis（預設
+UV0，UV1 需要 `uvs1`）。缺省 tangent 採此 basis 的角度加權 indexed triangles，退化時
+保留 finite perpendicular fallback；這個預設生成不是 reference MikkTSpace。
+`GeometryData.tangentConvention?: 'uv' | 'gltf'` 指定 derivative normal-map Y handedness
+（預設 `'uv'`）；reference generator 記錄所選 convention，glTF 包含 authored tangent
+皆設 `'gltf'`。UV transform fallback 與 clearcoat 保留此 sign，不靜默反轉 bitangent。
+
+`generateMikkTangents(source, {texCoord?: 0 | 1, convention?: 'uv' | 'gltf'})`
+執行完整 MIT vendor 的 mikktspace 1.1.1 reference WASM；預設 `'uv'` 保留 reference
+sign，`'gltf'` 套用上游 glTF sign conversion。回傳 `{geometry, sourceVertices}`，不改
+原始 source；結果在 tangent discontinuity 拆 vertex，複製所有 Geometry channels。
+`sourceVertices[newVertex]` 是原 vertex index；建立 skin／morph consumers 前須以此
+remap influences／delta arrays。GLTFLoader 在 normal／clearcoat-normal primitive
+缺 tangent 時自動處理，包含 UV1、四／八 influences；工作量受既有 model limits 限制。
+完整上游檔案、MIT [LICENSE](../vendor/mikktspace/LICENSE) 與
+[來源／已驗證 WASM SHA256](../vendor/mikktspace/manifest.json) 保留；不新增 npm runtime
+dependency，build 複製完整 vendor tree。
+
+glTF 支援 float／normalized signed BYTE／SHORT VEC4 與 TANGENT
+xyz morph deltas。CPU／native skin 與 model 使用 forward tangent、inverse-transpose
+normal、正交化及 determinant-sign handedness。直接修改 tangent 後呼叫 `markUpdated()`。
+僅 normal morph 也重投影 tangent。GPU caches 擁有 tangent buffers，計入 residency
+並在 eviction／失敗／destroy 清理。

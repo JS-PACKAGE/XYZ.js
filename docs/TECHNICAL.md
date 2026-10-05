@@ -343,20 +343,20 @@ Historical v1.1 baseline (package 1.1.0), not the previously published v1.0 tag.
 ### glTF, Animation, and Geometry Updates
 
 - `GLTFLoader.load(url,{signal,allowedOrigins})` and `parse(ArrayBuffer|string,baseURL?,{signal,allowedOrigins}?)` return `GLTFAsset` with scene:Group, animations:AnimationClip[] and idempotent dispose(). External/embedded buffers and images, relative URIs, GLB 2, triangle primitives, normalized/strided/sparse accessors, node TRS and decomposable affine TRS matrices, metallic-roughness materials, UV0/UV1 textures, and four/eight-influence skins are supported. Buffers/images referenced by the model may be fetched only from the model's own origin (`baseURL`) or from origins listed in `allowedOrigins` (e.g. `['https://cdn.example']`); `data:`/`blob:` URIs are always allowed, and any other origin rejects with `AssetError` before a request is made. Missing normals are generated; missing referenced UV streams reject. Untextured geometry may keep zero UV0.
-- Non-triangle topology, `COLOR_1`, UV2+, more than two paired skin-influence sets, shear matrices, animated matrix nodes, and morph attributes other than POSITION/NORMAL/TANGENT reject explicitly; required extensions outside the supported set reject. `COLOR_0` supports float and normalized unsigned-byte/unsigned-short VEC3/VEC4, including alpha (section 34). Morph targets support POSITION/NORMAL deltas (float/normalized integer, sparse; missing entries zero), mesh/node weights and STEP/LINEAR/CUBICSPLINE weights channels. TANGENT deltas are ignored because tangents are not consumed. All primitives of one mesh require the same target count; node weights must match. Image decoder limits remain in section 18.
+- Non-triangle topology, `COLOR_1`, UV2+, more than two paired skin-influence sets, shear matrices, animated matrix nodes, and morph attributes other than POSITION/NORMAL/TANGENT reject explicitly; required extensions outside the supported set reject. `COLOR_0` supports float and normalized unsigned-byte/unsigned-short VEC3/VEC4, including alpha (section 34). Morph targets support POSITION/NORMAL/TANGENT xyz deltas (float/normalized integer, sparse; missing entries zero), mesh/node weights and STEP/LINEAR/CUBICSPLINE weights channels. Tangent deltas preserve base handedness. All primitives of one mesh require the same target count; node weights must match. Image decoder limits remain in section 18.
 - Implemented extensions: `KHR_mesh_quantization` (integer/normalized accessors are already dequantized to float); `KHR_materials_emissive_strength` (multiplies `emissiveFactor`, negative rejects); `KHR_materials_unlit`, approximated with existing PBR as black base color, roughness 1, and base color routed to emission (alpha still comes from base color; image-based specular of a dielectric F0 remains faintly visible); `KHR_texture_transform`, retained independently for each material map as `uv' = offset + R·S·uv`, with UV0/UV1 and the extension's `texCoord` override. Maps need not share transforms; UV2+ rejects. `KHR_lights_punctual` is exposed as `asset.lights` (`point: PointLight[]`, `spot: SpotLight[]`, `directional: {direction,color,intensity}[]`) evaluated once at load at each node's world transform, with raw glTF photometric intensity and `range` absent → 0 (unbounded). Lights are not added to a Scene automatically, do not follow node animation, and directional lights map to the single `scene.directionalLight` only by your choice. Mipmapped sampler minification filters (9984–9987) are accepted and degrade to the matching nearest/linear filter because no mipmaps are generated. Other optional extensions are ignored using their core fallback. Initial tests used synthetic models; P90 adds native GPU/GL per-map references and an eight-influence fixture, not third-party model-corpus certification.
 - P39 also implements required `KHR_materials_ior`, `KHR_materials_specular`, `KHR_materials_clearcoat`, `KHR_materials_sheen`, `KHR_materials_transmission` and `KHR_materials_volume`; see section 37 for material contracts and raster approximations.
 - P32 adds built-in `EXT_meshopt_compression`, conditional `KHR_draco_mesh_compression` via `dracoDecoder`, and conditional `KHR_texture_basisu` via `ktx2Transcoder`; see section 30 for fallback behavior. Supplying a callback is not bundled codec support or certification of external decoder quality, speed or memory use.
 - `src/data/models.ts` fixes input at 32 MiB, aggregate fetched and tracked decoded allocations at 128 MiB each, entries per top-level list at 10,000, accessor scalar elements at 4,194,304, total vertices at 1,000,000, indices at 3,000,000, joints per skin at 256, morph targets per mesh at 64, and hierarchy depth at 256. Limits reject rather than truncate; these accounting budgets are not a total browser-memory guarantee.
 - Applications must call `asset.dispose()` after removing/stopping all consumers: it destroys loader-owned nodes and textures. Scene destruction alone does not release the asset's owned textures; do not dispose while another live object borrows them. Abort/parse failure cleans up owned resources.
 - `KeyframeTrack(target,path,times,values,interpolation='LINEAR')` targets translation/rotation/scale on an `Object3D`, or `'weights'` on a `MorphWeights` (values are `keys × targetCount` scalars; cubic triplets apply per weight); STEP, LINEAR and CUBICSPLINE are supported. Times are increasing nonnegative seconds; cubic values use incoming tangent/value/outgoing tangent triplets. Linear Quaternion interpolation uses the shortest path; cubic results are normalized.
-- Morphing is CPU-side: `Mesh({morph: new MorphTargets({positions,normals?,weights})})` owns its Geometry; weights drive cached `base + Σ w·Δ` deformation and normalized normals. `SkinnedMesh` morphs its render bind pose before GPU skinning; exact CPU query geometry is refreshed lazily (section 42). glTF primitives of one node share morph weights.
+- Morphing is CPU-side: `Mesh({morph: new MorphTargets({positions,normals?,tangents?,weights})})` owns its Geometry; weights drive cached `base + Σ w·Δ` deformation, normalized normals and orthogonalized tangents. `SkinnedMesh` morphs its render bind pose before GPU skinning; exact CPU query geometry is refreshed lazily (section 42). glTF primitives of one node share morph weights.
 - `AnimationClip(name,tracks)` derives duration from final keys; `scene.animations.clipAction(clip)` caches an action. `play()` resumes without resetting time; `stop()` resets time without restoring pose. Repeat/once/pingpong, reverse time, weights/fades/crossfades and ordered layer blending are documented in section 32 (P34), which supersedes the P10 no-blending baseline. `stopAll()` stops actions and `destroy()` releases them.
 - Game advances scene.animations after timers and before user Scene.update with clamped simulation delta; pause/hidden time is excluded. Do not manually update the same mixer. `SkinnedMesh.updateRenderDeformation()` updates its joint palette and animated bounds; `updateSkin()` updates the exact CPU mirror for queries, not ordinary rendering. Index topology remains immutable (section 42).
 
 ### PBR, Lighting, Shadows, HDR, and Instancing
 
-- `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space using its independently transformed UV0/UV1 derivatives (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Metallic/roughness default to 0/0.5; emissive defaults to zero.
+- `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Identity normal maps matching `geometry.tangentTexCoord` use Geometry tangents; other UV bases, transformed or native-deformed surfaces use that map's derivatives. Metallic/roughness default to 0/0.5; emissive defaults to zero.
 - alphaMode is OPAQUE, MASK (alphaCutoff) or BLEND; doubleSided controls culling and backface normals. Direct construction defaults to BLEND (MASK when positive cutoff supplied), doubleSided=true; glTF uses its OPAQUE/false defaults. PBR alphaMode is authoritative even with opacity below one. Legacy TextureMaterial enters the transparent pass with opacity below one or explicit `transparent: true` (for texture/vertex alpha). Default sorted meshes follow opaque/MASK meshes, farthest to nearest by bounding-sphere-center distance, with stable ties and reusable sort storage. Intersecting surfaces can still composite incorrectly; opt into weighted transparency when that approximation is preferable.
 - Scene.pointLights and spotLights accept mutable PointLight/SpotLight pools; range=0 is unlimited and spot angles are radians. P84 replaces the original eight-light scene limit with bounded selection; see section 59. Shadow atlas limits remain independent.
 - `scene.shadows` defaults disabled; mapSize=1024, extent=10, near=0.1, far=50, bias=0.002 and target retain the original fixed directional camera. Mesh.castShadow/receiveShadow default true. P37 adds point/spot shadows and 2–4 directional cascades using a bounded depth atlas and 3×3 PCF; see section 35, including light flags and device-dimension limits.
@@ -784,8 +784,9 @@ The fixed-IOR 1.5 microfacet layer reflects directional, point, spot and environ
 lighting above the base material, including metallic surfaces. View-normal Fresnel
 attenuates the underlying lighting **and emission**. Intensity 0 skips the layer.
 The numerical roughness floor is 0.04, as in the base BRDF; this is an infinitely
-thin coat, not refraction or inter-layer scattering. Independent normals use the
-map's independently transformed UV0/UV1 derivative tangent frame, not imported MikkTSpace tangents.
+thin coat, not refraction or inter-layer scattering. Identity maps matching
+`geometry.tangentTexCoord` use Geometry tangents; other bases, transformed coordinates
+and native deformation retain independent derivative frames.
 
 GLTFLoader accepts required `KHR_materials_clearcoat`, its factors, all three maps,
 normal scale and samplers, with independent per-map UV0/UV1 transforms.
@@ -1252,8 +1253,9 @@ frozen coordinates with affine `[a,b,c,d,tx,ty]`, meaning
 `u'=a*u+c*v+tx; v'=b*u+d*v+ty`. Slots are `texture`, `metallicRoughness`, `normal`,
 `occlusion`, `emissive`, `specular`, `specularColor`, `clearcoat`,
 `clearcoatRoughness`, `clearcoatNormal`, `sheenColor`, `sheenRoughness`,
-`transmission`, and `thickness`. Normal and clearcoat-normal maps use derivatives
-of their own selected/transformed UVs; shadow alpha uses the base map coordinates.
+`transmission`, and `thickness`. Normal and clearcoat-normal maps use Geometry tangents
+for identity maps matching `geometry.tangentTexCoord`, otherwise their own selected/transformed UV derivatives.
+Shadow alpha uses the base map coordinates.
 
 glTF preserves UV0/UV1 and independent KHR transforms instead of modifying shared
 vertex UVs. `SkinnedMesh.influencesPerVertex` is 4 by default or explicitly 8.
@@ -1400,3 +1402,34 @@ and genuinely additive exports/optional options before interning unchanged
 dependency-closed recursive graphs. New required members, changed existing
 signatures, writable contracts and public literal types remain checked; runtime
 ownership and presentation still require separate exercised consumer evidence.
+
+## P119. Tangents and handedness
+
+`GeometryData.tangents?: ArrayLike<number>` supplies four finite Float32-representable
+values per vertex: nonzero xyz direction and w exactly ±1. Geometry copies and
+normalizes directions into `geometry.tangents`; its eight-float vertices stay unchanged.
+`GeometryData.tangentTexCoord?: 0 | 1` identifies the basis (default UV0; UV1 requires
+`uvs1`). Missing tangents use angle-weighted indexed triangles on this basis with
+finite perpendicular fallback. This default is not reference MikkTSpace.
+`GeometryData.tangentConvention?: 'uv' | 'gltf'` controls derivative normal-map Y
+handedness (default `'uv'`). Reference generation records its convention and glTF
+sets `'gltf'`, including authored tangents; transformed UV fallback and clearcoat
+retain that sign rather than silently reversing the bitangent.
+
+`generateMikkTangents(source, {texCoord?: 0 | 1, convention?: 'uv' | 'gltf'})`
+executes the complete MIT-vendored mikktspace 1.1.1 reference WASM. Default convention
+`'uv'` keeps the reference sign; `'gltf'` applies the upstream glTF sign conversion.
+It returns `{geometry, sourceVertices}` without modifying source. The result has
+split vertices at tangent discontinuities and preserves all Geometry channels.
+`sourceVertices[newVertex]` is the original vertex index: remap skin influences and
+morph delta arrays before constructing their consumers. GLTFLoader handles this
+automatically for missing tangents on normal/clearcoat-normal mapped primitives,
+including UV1 and four/eight influences. Work is bounded by existing model limits.
+The upstream distribution, MIT [LICENSE](../vendor/mikktspace/LICENSE) and
+[provenance/verified WASM SHA256](../vendor/mikktspace/manifest.json) are preserved;
+there is no additional npm runtime dependency. Build copies its full vendor tree.
+glTF accepts float or normalized signed BYTE/SHORT VEC4 and TANGENT xyz morph deltas.
+CPU/native skin and model transforms use forward tangents, inverse-transpose normals,
+orthogonalization and determinant-sign handedness. Call `markUpdated()` after direct
+tangent edits. Normal-only morphs also reproject the tangent. GPU caches own their
+tangent buffers and include them in residency accounting and teardown.

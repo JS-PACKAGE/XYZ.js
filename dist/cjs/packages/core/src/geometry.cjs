@@ -9,6 +9,9 @@ var Geometry = class Geometry {
 	vertices;
 	indices;
 	uvs1;
+	tangents;
+	tangentTexCoord;
+	tangentConvention;
 	version = 0;
 	vertexColors;
 	get colors() {
@@ -34,7 +37,10 @@ var Geometry = class Geometry {
 		this.version++;
 	}
 	constructor(e) {
-		let { positions: t, normals: n, uvs: r, indices: i } = e, a = t.length / 3;
+		let { positions: t, normals: n, uvs: r, indices: i } = e;
+		if (this.tangentTexCoord = e.tangentTexCoord ?? 0, this.tangentTexCoord !== 0 && this.tangentTexCoord !== 1 || this.tangentTexCoord === 1 && e.uvs1 === void 0) throw RangeError(`Tangent basis requires an available UV0 or UV1 stream.`);
+		if (this.tangentConvention = e.tangentConvention ?? `uv`, this.tangentConvention !== `uv` && this.tangentConvention !== `gltf`) throw RangeError(`Tangent convention must be uv or gltf.`);
+		let a = t.length / 3;
 		if (!Number.isSafeInteger(a) || a < 3) throw RangeError(`Geometry requires at least three vertex positions.`);
 		if (n.length !== a * 3 || r.length !== a * 2) throw RangeError(`Geometry normal and UV counts must match positions.`);
 		if (!Number.isSafeInteger(i.length) || i.length < 3 || i.length % 3 != 0) throw RangeError(`Geometry indices must contain complete triangles.`);
@@ -67,7 +73,39 @@ var Geometry = class Geometry {
 			}
 			this.uvs1 = t;
 		}
-		e.colors !== void 0 && (this.setColors(e.colors), this.version = 0);
+		let c = new Float32Array(a * 4);
+		if (e.tangents !== void 0) {
+			if (e.tangents.length !== a * 4) throw RangeError(`Geometry tangents must contain xyz and handedness per vertex.`);
+			for (let t = 0; t < a; t++) {
+				let n = e.tangents[t * 4], r = e.tangents[t * 4 + 1], i = e.tangents[t * 4 + 2], a = e.tangents[t * 4 + 3];
+				if (!Number.isFinite(n) || !Number.isFinite(r) || !Number.isFinite(i) || a !== 1 && a !== -1 || !Number.isFinite(Math.fround(n)) || !Number.isFinite(Math.fround(r)) || !Number.isFinite(Math.fround(i))) throw RangeError(`Geometry tangents must be finite Float32 values with handedness ±1.`);
+				let o = Math.hypot(n, r, i);
+				if (o <= 1e-20) throw RangeError(`Geometry tangents must be nonzero.`);
+				c[t * 4] = n / o, c[t * 4 + 1] = r / o, c[t * 4 + 2] = i / o, c[t * 4 + 3] = a;
+			}
+		} else {
+			let e = new Float64Array(a * 3), t = new Float64Array(a * 3), n = this.tangentTexCoord === 1 ? this.uvs1 : void 0;
+			for (let r = 0; r < s.length; r += 3) {
+				let i = s[r] * 8, a = s[r + 1] * 8, c = s[r + 2] * 8, l = o[a] - o[i], u = o[a + 1] - o[i + 1], d = o[a + 2] - o[i + 2], f = o[c] - o[i], p = o[c + 1] - o[i + 1], m = o[c + 2] - o[i + 2], h = n ? n[i / 4] : o[i + 6], g = n ? n[i / 4 + 1] : o[i + 7], _ = n ? n[a / 4] : o[a + 6], v = n ? n[a / 4 + 1] : o[a + 7], y = n ? n[c / 4] : o[c + 6], b = n ? n[c / 4 + 1] : o[c + 7], x = _ - h, S = v - g, C = y - h, w = b - g, T = x * w - S * C;
+				if (Math.abs(T) <= 1e-20) continue;
+				let E = (l * w - f * S) / T, D = (u * w - p * S) / T, O = (d * w - m * S) / T, k = (f * x - l * C) / T, A = (p * x - u * C) / T, j = (m * x - d * C) / T, M = Math.hypot(E, D, O), N = Math.hypot(k, A, j);
+				if (!(M <= 1e-20 || N <= 1e-20)) for (let n = 0; n < 3; n++) {
+					let i = s[r + n], a = i * 8, c = s[r + (n + 1) % 3] * 8, l = s[r + (n + 2) % 3] * 8, u = o[c] - o[a], d = o[c + 1] - o[a + 1], f = o[c + 2] - o[a + 2], p = o[l] - o[a], m = o[l + 1] - o[a + 1], h = o[l + 2] - o[a + 2], g = Math.hypot(u, d, f) * Math.hypot(p, m, h);
+					if (g <= 1e-20) continue;
+					let _ = Math.acos(Math.max(-1, Math.min(1, (u * p + d * m + f * h) / g))), v = i * 3;
+					e[v] += E / M * _, e[v + 1] += D / M * _, e[v + 2] += O / M * _, t[v] += k / N * _, t[v + 1] += A / N * _, t[v + 2] += j / N * _;
+				}
+			}
+			for (let n = 0; n < a; n++) {
+				let r = Math.hypot(o[n * 8 + 3], o[n * 8 + 4], o[n * 8 + 5]), i = r > 0 ? o[n * 8 + 3] / r : 0, a = r > 0 ? o[n * 8 + 4] / r : 0, s = r > 0 ? o[n * 8 + 5] / r : 1, l = e[n * 3], u = e[n * 3 + 1], d = e[n * 3 + 2], f = l * i + u * a + d * s;
+				l -= i * f, u -= a * f, d -= s * f;
+				let p = Math.hypot(l, u, d);
+				p <= 1e-20 && (Math.abs(i) < .9 ? (l = 0, u = -s, d = a) : (l = s, u = 0, d = -i), p = Math.hypot(l, u, d)), c[n * 4] = l / p, c[n * 4 + 1] = u / p, c[n * 4 + 2] = d / p;
+				let m = (a * d - s * u) * t[n * 3] + (s * l - i * d) * t[n * 3 + 1] + (i * u - a * l) * t[n * 3 + 2] < 0 ? -1 : 1;
+				c[n * 4 + 3] = this.tangentConvention === `gltf` ? -m : m;
+			}
+		}
+		this.tangents = c, e.colors !== void 0 && (this.setColors(e.colors), this.version = 0);
 	}
 	boundsVersion = -1;
 	sphere = {

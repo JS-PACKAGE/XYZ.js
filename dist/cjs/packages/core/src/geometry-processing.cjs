@@ -62,7 +62,7 @@ function publishHeightfieldGeometry(e) {
 	return {
 		geometry: i,
 		publicationMilliseconds: performance.now() - n,
-		publicationCopiedBytes: i.vertices.byteLength + i.indices.byteLength
+		publicationCopiedBytes: i.vertices.byteLength + i.indices.byteLength + i.tangents.byteLength
 	};
 }
 function geometryWorkerURL() {

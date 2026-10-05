@@ -548,6 +548,14 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					offset: 0,
 					format: `float32x2`
 				}]
+			},
+			{
+				arrayStride: 16,
+				attributes: [{
+					shaderLocation: 14,
+					offset: 0,
+					format: `float32x4`
+				}]
 			}
 		], S = {
 			color: {
@@ -1118,7 +1126,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		let r = this.geometries.get(t.renderGeometry), a = this.meshes.get(t), o = t.material instanceof require_native_material3d.NativeMaterial3D ? this.nativeMaterials.get(t.material) : void 0;
 		n < 2 && (this.visibility.entries.get(t)?.fade ?? 1) < 1 && (n += 4), e.setPipeline(o ? o.pipelines[n] : n === 5 ? this.fadedHdrPipeline : n === 4 ? this.fadedPipeline : n === 3 ? this.shadowPipeline : n === 2 ? this.oitPipeline : n === 1 ? this.hdrPipeline : this.pipeline), e.setBindGroup(1, a.bindGroup), e.setBindGroup(2, a.materialGroup);
 		let s = n === 3 ? void 0 : this.visibility.entries.get(t)?.instances, c = s?.count ?? (t instanceof require_instanced_mesh.InstancedMesh ? t.count : 1);
-		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, s ? a.visibleInstance : a.instance), e.setVertexBuffer(2, s ? s.colors ? a.visibleColors : this.white(c) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? a.instanceColors : this.white(c)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, a.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setIndexBuffer(r.index, `uint32`), e.drawIndexed(t.geometry.indices.length, c), c;
+		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, s ? a.visibleInstance : a.instance), e.setVertexBuffer(2, s ? s.colors ? a.visibleColors : this.white(c) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? a.instanceColors : this.white(c)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, a.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setVertexBuffer(6, r.tangents), e.setIndexBuffer(r.index, `uint32`), e.drawIndexed(t.geometry.indices.length, c), c;
 	}
 	white(e) {
 		if (e <= this.whiteCapacity) return this.whiteBuffer;
@@ -1176,10 +1184,10 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	}
 	cacheGeometry(e) {
 		let t = this.geometries.get(e);
-		if (t) return t.allocation.resize(e.vertices.byteLength + e.indices.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0)), t.version !== e.version && (this.device.queue.writeBuffer(t.vertex, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.syncGeometryColors(t, e), this.syncGeometryUV(t, e), t.version = e.version), t;
-		let n = this.residency.geometry.allocate(e.vertices.byteLength + e.indices.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0), () => {
+		if (t) return t.allocation.resize(e.vertices.byteLength + e.indices.byteLength + e.tangents.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0)), t.version !== e.version && (this.device.queue.writeBuffer(t.vertex, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.syncGeometryColors(t, e), this.syncGeometryUV(t, e), this.device.queue.writeBuffer(t.tangents, 0, e.tangents), this.stats.upload(e.tangents.byteLength), t.version = e.version), t;
+		let n = this.residency.geometry.allocate(e.vertices.byteLength + e.indices.byteLength + e.tangents.byteLength + (e.colors?.byteLength ?? 0) + (e.uvs1?.byteLength ?? 0), () => {
 			let t = this.geometries.get(e);
-			t && (t.vertex.destroy(), t.index.destroy(), t.colors?.destroy(), t.uvs1?.destroy(), this.geometries.delete(e));
+			t && (t.vertex.destroy(), t.index.destroy(), t.colors?.destroy(), t.uvs1?.destroy(), t.tangents.destroy(), this.geometries.delete(e));
 		}), r;
 		try {
 			r = this.device.createBuffer({
@@ -1191,22 +1199,31 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST
 			});
 			try {
-				this.device.queue.writeBuffer(r, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.device.queue.writeBuffer(t, 0, e.indices), this.stats.upload(e.indices.byteLength);
-				let i = {
-					allocation: n,
-					vertex: r,
-					index: t,
-					colors: void 0,
-					uvs1: void 0,
-					version: e.version,
-					seen: this.frame
-				};
+				let i = this.device.createBuffer({
+					size: e.tangents.byteLength,
+					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
+				});
 				try {
-					this.syncGeometryColors(i, e), this.syncGeometryUV(i, e);
+					this.device.queue.writeBuffer(r, 0, e.vertices), this.stats.upload(e.vertices.byteLength), this.device.queue.writeBuffer(t, 0, e.indices), this.stats.upload(e.indices.byteLength), this.device.queue.writeBuffer(i, 0, e.tangents), this.stats.upload(e.tangents.byteLength);
+					let a = {
+						allocation: n,
+						vertex: r,
+						index: t,
+						colors: void 0,
+						uvs1: void 0,
+						tangents: i,
+						version: e.version,
+						seen: this.frame
+					};
+					try {
+						this.syncGeometryColors(a, e), this.syncGeometryUV(a, e);
+					} catch (e) {
+						throw a.colors?.destroy(), a.uvs1?.destroy(), e;
+					}
+					return this.geometries.set(e, a), a;
 				} catch (e) {
-					throw i.colors?.destroy(), i.uvs1?.destroy(), e;
+					throw i.destroy(), e;
 				}
-				return this.geometries.set(e, i), i;
 			} catch (e) {
 				throw t.destroy(), e;
 			}
@@ -1499,7 +1516,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		let o = 336;
 		r instanceof require_native_material3d.NativeMaterial3D && a.set(r.uniforms, o);
 		let s = this.visibility.entries.get(t);
-		a[o + require_rendering.nativeMaterial3DLimits.uniformFloats] = s?.fade ?? 1, require_material_uv.fillMaterialUV(r, t.renderGeometry, a, o + require_rendering.nativeMaterial3DLimits.uniformFloats + 4);
+		a[o + require_rendering.nativeMaterial3DLimits.uniformFloats] = s?.fade ?? 1, a[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 1] = t.renderGeometry.tangentTexCoord, a[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 2] = t.renderGeometry.tangentConvention === `gltf` ? -1 : 1, require_material_uv.fillMaterialUV(r, t.renderGeometry, a, o + require_rendering.nativeMaterial3DLimits.uniformFloats + 4);
 		let c = s?.instances;
 		c && (c !== n.visibilityPayload || c.version !== n.visibilityVersion) && (n.allocation.resize(n.uniform.size + n.sceneBuffer.size + n.instance.size + (n.instanceColors?.size ?? 0) + (n.palette?.size ?? 0) + (n.influences?.size ?? 0) + c.matrices.byteLength + (c.colors?.byteLength ?? 0)), (!n.visibleInstance || n.visibleInstance.size < c.matrices.byteLength) && (n.visibleInstance && this.retired.push(n.visibleInstance), n.visibleInstance = this.device.createBuffer({
 			size: c.matrices.byteLength,

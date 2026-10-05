@@ -4,6 +4,16 @@ export interface GeometryData {
   uvs: ArrayLike<number>;
   /** Optional TEXCOORD_1; UV0 remains in the legacy interleaved vertex stream. */
   uvs1?: ArrayLike<number>;
+  /**
+   * Optional glTF-style tangent xyz and handedness per vertex. Omitted data is
+   * generated from indexed triangles and the selected UV stream; degeneracy uses an
+   * orthonormal basis around their normal.
+   */
+  tangents?: ArrayLike<number>;
+  /** UV stream of the tangent basis; defaults to UV0. UV1 requires uvs1. */
+  tangentTexCoord?: 0 | 1;
+  /** Normal-map Y convention for derivative fallback; defaults to raw 'uv'. */
+  tangentConvention?: 'uv' | 'gltf';
   indices: ArrayLike<number>;
   /** Optional linear RGB or RGBA per vertex, multiplied into the base color. */
   colors?: ArrayLike<number>;
@@ -26,6 +36,10 @@ export class Geometry {
   readonly indices: Uint32Array;
   /** Two floats per vertex; edit in place then call markUpdated, like vertices. */
   readonly uvs1: Float32Array | undefined;
+  /** xyz plus glTF handedness; edit in place then call markUpdated, like vertices. */
+  readonly tangents: Float32Array;
+  readonly tangentTexCoord: 0 | 1;
+  readonly tangentConvention: 'uv' | 'gltf';
   version = 0;
   private vertexColors: Float32Array | undefined;
 
@@ -79,6 +93,17 @@ export class Geometry {
 
   constructor(data: GeometryData) {
     const { positions, normals, uvs, indices } = data;
+    this.tangentTexCoord = data.tangentTexCoord ?? 0;
+    if (
+      (this.tangentTexCoord !== 0 && this.tangentTexCoord !== 1) ||
+      (this.tangentTexCoord === 1 && data.uvs1 === undefined)
+    )
+      throw new RangeError(
+        'Tangent basis requires an available UV0 or UV1 stream.',
+      );
+    this.tangentConvention = data.tangentConvention ?? 'uv';
+    if (this.tangentConvention !== 'uv' && this.tangentConvention !== 'gltf')
+      throw new RangeError('Tangent convention must be uv or gltf.');
     const count = positions.length / 3;
     if (!Number.isSafeInteger(count) || count < 3)
       throw new RangeError(
@@ -144,6 +169,138 @@ export class Geometry {
       }
       this.uvs1 = copy;
     }
+    const tangents = new Float32Array(count * 4);
+    if (data.tangents !== undefined) {
+      if (data.tangents.length !== count * 4)
+        throw new RangeError(
+          'Geometry tangents must contain xyz and handedness per vertex.',
+        );
+      for (let i = 0; i < count; i++) {
+        const tx = data.tangents[i * 4];
+        const ty = data.tangents[i * 4 + 1];
+        const tz = data.tangents[i * 4 + 2];
+        const handedness = data.tangents[i * 4 + 3];
+        if (
+          !Number.isFinite(tx) ||
+          !Number.isFinite(ty) ||
+          !Number.isFinite(tz) ||
+          (handedness !== 1 && handedness !== -1) ||
+          !Number.isFinite(Math.fround(tx)) ||
+          !Number.isFinite(Math.fround(ty)) ||
+          !Number.isFinite(Math.fround(tz))
+        )
+          throw new RangeError(
+            'Geometry tangents must be finite Float32 values with handedness ±1.',
+          );
+        const length = Math.hypot(tx, ty, tz);
+        if (length <= 1e-20)
+          throw new RangeError('Geometry tangents must be nonzero.');
+        tangents[i * 4] = tx / length;
+        tangents[i * 4 + 1] = ty / length;
+        tangents[i * 4 + 2] = tz / length;
+        tangents[i * 4 + 3] = handedness;
+      }
+    } else {
+      const accumulated = new Float64Array(count * 3);
+      const bitangents = new Float64Array(count * 3);
+      const tangentUV = this.tangentTexCoord === 1 ? this.uvs1 : undefined;
+      for (let triangle = 0; triangle < copiedIndices.length; triangle += 3) {
+        const a = copiedIndices[triangle] * 8;
+        const b = copiedIndices[triangle + 1] * 8;
+        const c = copiedIndices[triangle + 2] * 8;
+        const ex = vertices[b] - vertices[a],
+          ey = vertices[b + 1] - vertices[a + 1],
+          ez = vertices[b + 2] - vertices[a + 2];
+        const fx = vertices[c] - vertices[a],
+          fy = vertices[c + 1] - vertices[a + 1],
+          fz = vertices[c + 2] - vertices[a + 2];
+        const ua = tangentUV ? tangentUV[a / 4] : vertices[a + 6],
+          va = tangentUV ? tangentUV[a / 4 + 1] : vertices[a + 7],
+          ub = tangentUV ? tangentUV[b / 4] : vertices[b + 6],
+          vb = tangentUV ? tangentUV[b / 4 + 1] : vertices[b + 7],
+          uc = tangentUV ? tangentUV[c / 4] : vertices[c + 6],
+          vc = tangentUV ? tangentUV[c / 4 + 1] : vertices[c + 7];
+        const du1 = ub - ua,
+          dv1 = vb - va,
+          du2 = uc - ua,
+          dv2 = vc - va;
+        const determinant = du1 * dv2 - dv1 * du2;
+        if (Math.abs(determinant) <= 1e-20) continue;
+        const tx = (ex * dv2 - fx * dv1) / determinant,
+          ty = (ey * dv2 - fy * dv1) / determinant,
+          tz = (ez * dv2 - fz * dv1) / determinant;
+        const bx = (fx * du1 - ex * du2) / determinant,
+          by = (fy * du1 - ey * du2) / determinant,
+          bz = (fz * du1 - ez * du2) / determinant;
+        const tl = Math.hypot(tx, ty, tz),
+          bl = Math.hypot(bx, by, bz);
+        if (tl <= 1e-20 || bl <= 1e-20) continue;
+        for (let corner = 0; corner < 3; corner++) {
+          const vertex = copiedIndices[triangle + corner],
+            p = vertex * 8,
+            q = copiedIndices[triangle + ((corner + 1) % 3)] * 8,
+            r = copiedIndices[triangle + ((corner + 2) % 3)] * 8;
+          const qx = vertices[q] - vertices[p],
+            qy = vertices[q + 1] - vertices[p + 1],
+            qz = vertices[q + 2] - vertices[p + 2],
+            rx = vertices[r] - vertices[p],
+            ry = vertices[r + 1] - vertices[p + 1],
+            rz = vertices[r + 2] - vertices[p + 2];
+          const lengths = Math.hypot(qx, qy, qz) * Math.hypot(rx, ry, rz);
+          if (lengths <= 1e-20) continue;
+          const angle = Math.acos(
+            Math.max(-1, Math.min(1, (qx * rx + qy * ry + qz * rz) / lengths)),
+          );
+          const o = vertex * 3;
+          accumulated[o] += (tx / tl) * angle;
+          accumulated[o + 1] += (ty / tl) * angle;
+          accumulated[o + 2] += (tz / tl) * angle;
+          bitangents[o] += (bx / bl) * angle;
+          bitangents[o + 1] += (by / bl) * angle;
+          bitangents[o + 2] += (bz / bl) * angle;
+        }
+      }
+      for (let i = 0; i < count; i++) {
+        const nl = Math.hypot(
+          vertices[i * 8 + 3],
+          vertices[i * 8 + 4],
+          vertices[i * 8 + 5],
+        );
+        const nx = nl > 0 ? vertices[i * 8 + 3] / nl : 0;
+        const ny = nl > 0 ? vertices[i * 8 + 4] / nl : 0;
+        const nz = nl > 0 ? vertices[i * 8 + 5] / nl : 1;
+        let tx = accumulated[i * 3];
+        let ty = accumulated[i * 3 + 1];
+        let tz = accumulated[i * 3 + 2];
+        const projection = tx * nx + ty * ny + tz * nz;
+        tx -= nx * projection;
+        ty -= ny * projection;
+        tz -= nz * projection;
+        let length = Math.hypot(tx, ty, tz);
+        if (length <= 1e-20) {
+          if (Math.abs(nx) < 0.9) {
+            tx = 0;
+            ty = -nz;
+            tz = ny;
+          } else {
+            tx = nz;
+            ty = 0;
+            tz = -nx;
+          }
+          length = Math.hypot(tx, ty, tz);
+        }
+        tangents[i * 4] = tx / length;
+        tangents[i * 4 + 1] = ty / length;
+        tangents[i * 4 + 2] = tz / length;
+        const handedness =
+          (ny * tz - nz * ty) * bitangents[i * 3] +
+          (nz * tx - nx * tz) * bitangents[i * 3 + 1] +
+          (nx * ty - ny * tx) * bitangents[i * 3 + 2];
+        const sign = handedness < 0 ? -1 : 1;
+        tangents[i * 4 + 3] = this.tangentConvention === 'gltf' ? -sign : sign;
+      }
+    }
+    this.tangents = tangents;
     if (data.colors !== undefined) {
       this.setColors(data.colors);
       this.version = 0;

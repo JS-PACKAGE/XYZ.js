@@ -92,6 +92,7 @@ interface CachedGeometry {
   /** Per-vertex RGB, or undefined when the geometry has none (a shared white buffer is bound). */
   colors: GPUBuffer | undefined;
   uvs1: GPUBuffer | undefined;
+  tangents: GPUBuffer;
   version: number;
   seen: number;
 }
@@ -646,6 +647,10 @@ export class WebGPUMeshPipeline {
       {
         arrayStride: 8,
         attributes: [{ shaderLocation: 11, offset: 0, format: 'float32x2' }],
+      },
+      {
+        arrayStride: 16,
+        attributes: [{ shaderLocation: 14, offset: 0, format: 'float32x4' }],
       },
     ];
     const blend: GPUBlendState = {
@@ -1828,6 +1833,7 @@ export class WebGPUMeshPipeline {
         this.defaultInfluences(object.renderGeometry.vertices.length / 8),
     );
     pass.setVertexBuffer(5, geometry.uvs1 ?? geometry.vertex);
+    pass.setVertexBuffer(6, geometry.tangents);
     pass.setIndexBuffer(geometry.index, 'uint32');
     pass.drawIndexed(object.geometry.indices.length, instances);
     return instances;
@@ -1976,6 +1982,7 @@ export class WebGPUMeshPipeline {
       existing.allocation.resize(
         geometry.vertices.byteLength +
           geometry.indices.byteLength +
+          geometry.tangents.byteLength +
           (geometry.colors?.byteLength ?? 0) +
           (geometry.uvs1?.byteLength ?? 0),
       );
@@ -1984,6 +1991,8 @@ export class WebGPUMeshPipeline {
         this.stats.upload(geometry.vertices.byteLength);
         this.syncGeometryColors(existing, geometry);
         this.syncGeometryUV(existing, geometry);
+        this.device.queue.writeBuffer(existing.tangents, 0, geometry.tangents);
+        this.stats.upload(geometry.tangents.byteLength);
         existing.version = geometry.version;
       }
       return existing;
@@ -1991,6 +2000,7 @@ export class WebGPUMeshPipeline {
     const allocation = this.residency.geometry.allocate(
       geometry.vertices.byteLength +
         geometry.indices.byteLength +
+        geometry.tangents.byteLength +
         (geometry.colors?.byteLength ?? 0) +
         (geometry.uvs1?.byteLength ?? 0),
       () => {
@@ -2000,6 +2010,7 @@ export class WebGPUMeshPipeline {
         cached.index.destroy();
         cached.colors?.destroy();
         cached.uvs1?.destroy();
+        cached.tangents.destroy();
         this.geometries.delete(geometry);
       },
     );
@@ -2014,29 +2025,41 @@ export class WebGPUMeshPipeline {
         usage: GPUBufferUsage.INDEX | GPUBufferUsage.COPY_DST,
       });
       try {
-        this.device.queue.writeBuffer(vertex, 0, geometry.vertices);
-        this.stats.upload(geometry.vertices.byteLength);
-        this.device.queue.writeBuffer(index, 0, geometry.indices);
-        this.stats.upload(geometry.indices.byteLength);
-        const entry: CachedGeometry = {
-          allocation,
-          vertex,
-          index,
-          colors: undefined,
-          uvs1: undefined,
-          version: geometry.version,
-          seen: this.frame,
-        };
+        const tangents = this.device.createBuffer({
+          size: geometry.tangents.byteLength,
+          usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST,
+        });
         try {
-          this.syncGeometryColors(entry, geometry);
-          this.syncGeometryUV(entry, geometry);
+          this.device.queue.writeBuffer(vertex, 0, geometry.vertices);
+          this.stats.upload(geometry.vertices.byteLength);
+          this.device.queue.writeBuffer(index, 0, geometry.indices);
+          this.stats.upload(geometry.indices.byteLength);
+          this.device.queue.writeBuffer(tangents, 0, geometry.tangents);
+          this.stats.upload(geometry.tangents.byteLength);
+          const entry: CachedGeometry = {
+            allocation,
+            vertex,
+            index,
+            colors: undefined,
+            uvs1: undefined,
+            tangents,
+            version: geometry.version,
+            seen: this.frame,
+          };
+          try {
+            this.syncGeometryColors(entry, geometry);
+            this.syncGeometryUV(entry, geometry);
+          } catch (error) {
+            entry.colors?.destroy();
+            entry.uvs1?.destroy();
+            throw error;
+          }
+          this.geometries.set(geometry, entry);
+          return entry;
         } catch (error) {
-          entry.colors?.destroy();
-          entry.uvs1?.destroy();
+          tangents.destroy();
           throw error;
         }
-        this.geometries.set(geometry, entry);
-        return entry;
       } catch (error) {
         index.destroy();
         throw error;
@@ -2655,6 +2678,10 @@ export class WebGPUMeshPipeline {
     const visibility = this.visibility.entries.get(object);
     data[customOffset + nativeMaterial3DLimits.uniformFloats] =
       visibility?.fade ?? 1;
+    data[customOffset + nativeMaterial3DLimits.uniformFloats + 1] =
+      object.renderGeometry.tangentTexCoord;
+    data[customOffset + nativeMaterial3DLimits.uniformFloats + 2] =
+      object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1;
     fillMaterialUV(
       material,
       object.renderGeometry,

@@ -293,3 +293,23 @@ explicit preparation, native-loss recovery, and capability rejection remain visi
 API conditions rather than hidden fallback paths. See [CURRENT](docs/CURRENT.md)
 for the normative profile bounds and [ACCEPTANCE](ACCEPTANCE.md) for observed
 evidence and blockers.
+
+## P119 tangent-space contract
+
+Geometry keeps its eight-float public vertex stride and owns a separate xyz/w
+tangent stream. Authored directions normalize without changing the supplied sign;
+missing frames use angle-weighted indexed triangles on their selected UV basis.
+The separate `generateMikkTangents` uses the unmodified MIT-vendored reference WASM
+and splits discontinuous corners into a new Geometry plus a new-to-original vertex
+map. Normal-mapped glTF uses it automatically when tangents are missing, preserving
+all vertex, morph and four/eight-influence skin channels. Normal vectors use inverse transpose,
+tangents use the forward linear transform and orthogonalization, and handedness
+includes model/skin determinant signs. CPU skin queries mirror native skinning.
+Morph tangents preserve w and reproject when normals change. Identity normal maps
+on the Geometry's UV0/UV1 basis use those tangents; different bases, transformed UVs
+and native-deformed surfaces retain per-map derivative frames. Base and coat never
+borrow one another's UV frames. Native resource caches account for and release
+the new stream. Canvas2D remains 2D-only.
+
+The source normal-map Y convention is retained through derivative fallback,
+including glTF authored frames and UV transforms, rather than inferred from winding.

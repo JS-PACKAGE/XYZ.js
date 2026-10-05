@@ -217,10 +217,11 @@ export function publishHeightfieldGeometry(
     geometry,
     publicationMilliseconds: performance.now() - started,
     publicationCopiedBytes:
-      geometry.vertices.byteLength + geometry.indices.byteLength,
+      geometry.vertices.byteLength +
+      geometry.indices.byteLength +
+      geometry.tangents.byteLength,
   };
 }
-
 /** Resolves to a real emitted .js module in the published dist tree. */
 export function geometryWorkerURL(): URL {
   return new URL('./workers/geometry.worker.js', import.meta.url);

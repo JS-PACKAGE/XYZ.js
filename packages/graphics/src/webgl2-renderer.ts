@@ -182,6 +182,7 @@ interface CachedGeometry {
   colors: WebGLBuffer | undefined;
   colorBytes: number;
   uvs1: WebGLBuffer | undefined;
+  tangents: WebGLBuffer | undefined;
   seen: number;
   version: number;
 }
@@ -890,6 +891,8 @@ export class WebGL2Renderer implements Renderer {
         'probeData[0]',
         'fog[0]',
         'meshFade',
+        'tangentTexCoord',
+        'derivativeTangentSign',
       ])
         this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
       this.meshUniforms['materialCoordinates[0]'] = gl.getUniformLocation(
@@ -2050,6 +2053,14 @@ export class WebGL2Renderer implements Renderer {
         gl.uniform1f(
           uniforms.meshFade,
           this.visibility.entries.get(object)?.fade ?? 1,
+        );
+        gl.uniform1i(
+          uniforms.tangentTexCoord,
+          object.renderGeometry.tangentTexCoord,
+        );
+        gl.uniform1f(
+          uniforms.derivativeTangentSign,
+          object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1,
         );
         if (!oitPass) gl.depthMask(!blended);
         if (pbr) {
@@ -3527,6 +3538,18 @@ export class WebGL2Renderer implements Renderer {
     }
   }
 
+  private syncTangents(entry: CachedGeometry, geometry: Geometry): void {
+    const gl = this.gl!;
+    const initialized = entry.tangents !== undefined;
+    entry.tangents ??= this.createBuffer(gl);
+    gl.bindBuffer(gl.ARRAY_BUFFER, entry.tangents);
+    if (initialized) gl.bufferSubData(gl.ARRAY_BUFFER, 0, geometry.tangents);
+    else gl.bufferData(gl.ARRAY_BUFFER, geometry.tangents, gl.DYNAMIC_DRAW);
+    this.stats.upload(geometry.tangents.byteLength);
+    gl.enableVertexAttribArray(14);
+    gl.vertexAttribPointer(14, 4, gl.FLOAT, false, 16, 0);
+    gl.vertexAttribDivisor(14, 0);
+  }
   private cacheGeometry(geometry: Geometry): CachedGeometry {
     const gl = this.gl!;
     const existing = this.geometries.get(geometry);
@@ -3534,6 +3557,7 @@ export class WebGL2Renderer implements Renderer {
       existing.allocation.resize(
         geometry.vertices.byteLength +
           geometry.indices.byteLength +
+          geometry.tangents.byteLength +
           (geometry.colors?.byteLength ?? 0) +
           (geometry.uvs1?.byteLength ?? 0),
       );
@@ -3544,6 +3568,7 @@ export class WebGL2Renderer implements Renderer {
         this.stats.upload(geometry.vertices.byteLength);
         this.syncVertexColors(existing, geometry);
         this.syncVertexUV(existing, geometry);
+        this.syncTangents(existing, geometry);
         existing.version = geometry.version;
       }
       return existing;
@@ -3551,6 +3576,7 @@ export class WebGL2Renderer implements Renderer {
     const allocation = this.residency.geometry.allocate(
       geometry.vertices.byteLength +
         geometry.indices.byteLength +
+        geometry.tangents.byteLength +
         (geometry.colors?.byteLength ?? 0) +
         (geometry.uvs1?.byteLength ?? 0),
       () => {
@@ -3561,6 +3587,7 @@ export class WebGL2Renderer implements Renderer {
         gl.deleteBuffer(cached.index);
         if (cached.colors) gl.deleteBuffer(cached.colors);
         if (cached.uvs1) gl.deleteBuffer(cached.uvs1);
+        if (cached.tangents) gl.deleteBuffer(cached.tangents);
         this.geometries.delete(geometry);
       },
     );
@@ -3593,15 +3620,18 @@ export class WebGL2Renderer implements Renderer {
         colors: undefined,
         colorBytes: 0,
         uvs1: undefined,
+        tangents: undefined,
         seen: this.frame,
         version: geometry.version,
       };
       try {
         this.syncVertexColors(entry, geometry);
         this.syncVertexUV(entry, geometry);
+        this.syncTangents(entry, geometry);
       } catch (error) {
         if (entry.colors) gl.deleteBuffer(entry.colors);
         if (entry.uvs1) gl.deleteBuffer(entry.uvs1);
+        if (entry.tangents) gl.deleteBuffer(entry.tangents);
         throw error;
       }
       gl.bindVertexArray(null);

@@ -1,5 +1,6 @@
 import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i,materialTextureSlots as a}from"../../../src/data/rendering.js";import{atlasGLSL as o}from"./shadow-shaders.js";import{depthPostGLSL as s}from"./depth-post-shaders.js";import{sheenGLSL as c}from"./sheen-shaders.js";import{transmissionGLSL as l}from"./transmission-shaders.js";import{reflectionProbeGLSL as u}from"./reflection-probe-shaders.js";import{oitWeightGLSL as d}from"./oit-shaders.js";const f=`
 in vec2 vUV1;
+in vec4 vTangent;
 uniform vec4 materialCoordinates[${a.length*2}];
 vec2 materialUV(int slot) {
   vec4 a = materialCoordinates[slot*2], b = materialCoordinates[slot*2+1];
@@ -19,6 +20,7 @@ layout(location=10) in vec4 jointWeights;
 layout(location=11) in vec2 uv1;
 layout(location=12) in uvec4 jointIndices1;
 layout(location=13) in vec4 jointWeights1;
+layout(location=14) in vec4 tangent;
 uniform highp sampler2D jointPalette;
 uniform bool skinned;
 uniform mat4 viewProjection;
@@ -28,6 +30,7 @@ out vec3 vPosition;
 out vec3 vNormal;
 out vec2 vUV;
 out vec2 vUV1;
+out vec4 vTangent;
 out vec4 vColor;
 flat out float vOrientation;
 flat out vec3 vLocal0;
@@ -50,6 +53,9 @@ void main() {
   XYZVertex deformed = xyzDeform(position,normal,uv);
   vec4 local = vec4(deformed.position, 1.0);
   vec3 localNormal = deformed.normal;
+  vec3 localTangent = tangent.xyz;
+  float handedness = tangent.w;
+  float skinOrientation = 1.0;
   if (skinned) {
     mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
       + jointMatrix(jointIndices.y) * jointWeights.y
@@ -66,6 +72,11 @@ void main() {
     vec3 direction = sign * cofactor * deformed.normal;
     float directionLength = length(direction);
     localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
+    handedness *= sign;
+    skinOrientation = sign;
+    vec3 tangentDirection = mat3(skin) * tangent.xyz;
+    float tangentLength = length(tangentDirection);
+    localTangent = tangentDirection / (tangentLength > 0.0 ? tangentLength : 1.0);
   }
   vec4 p = world * local;
   vec4 clip = viewProjection * p;
@@ -73,11 +84,14 @@ void main() {
   mat3 m = mat3(world);
   vec3 a = cross(m[1], m[2]);
   float determinant = dot(m[0], a);
-  vOrientation = determinant < 0.0 ? -1.0 : 1.0;
+  float modelOrientation = determinant < 0.0 ? -1.0 : 1.0;
+  vOrientation = modelOrientation * skinOrientation;
   mat3 cofactor = mat3(a, cross(m[2], m[0]), cross(m[0], m[1]));
   mat3 normalMatrix = determinant == 0.0 ? mat3(0.0) : cofactor/determinant;
   vLocal0 = normalMatrix[0]; vLocal1 = normalMatrix[1]; vLocal2 = normalMatrix[2];
   vNormal = normalMatrix*localNormal;
+  bool unchanged = all(equal(deformed.position,position)) && all(equal(deformed.normal,normal));
+  vTangent = vec4(m*localTangent, unchanged ? handedness*modelOrientation : 0.0);
   vPosition = p.xyz;
   vUV = uv;
   vUV1 = uv1;
@@ -136,16 +150,28 @@ uniform bool receiveShadow;
 out vec4 color;
 uniform int oitPass;
 uniform float meshFade;
+uniform int tangentTexCoord;
+uniform float derivativeTangentSign;
 /* XYZ_SURFACE_HOOKS */
 vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 /* XYZ_SURFACE_HOOKS_END */
 ${f}
-mat3 materialNormalFrame(vec3 n, vec2 uv) {
+mat3 materialNormalFrame(vec3 n, int slot) {
+  vec3 rawTangent = vTangent.xyz - n*dot(n,vTangent.xyz);
+  float tangentLength = length(rawTangent);
+  vec4 mapping = materialCoordinates[slot*2];
+  if (tangentLength > .000001 && abs(vTangent.w) > .5
+      && abs(materialCoordinates[slot*2+1].z-float(tangentTexCoord)) < .5
+      && all(equal(mapping,vec4(1.0,0.0,0.0,1.0)))) {
+    vec3 t = rawTangent / tangentLength;
+    return mat3(t,cross(n,t)*vTangent.w,n);
+  }
   vec3 dp1 = dFdx(vPosition), dp2 = dFdy(vPosition);
+  vec2 uv = materialUV(slot);
   vec2 duv1 = dFdx(uv), duv2 = dFdy(uv);
   vec3 dp2perp = cross(dp2,n), dp1perp = cross(n,dp1);
   vec3 t = dp2perp*duv1.x+dp1perp*duv2.x;
-  vec3 b = dp2perp*duv1.y+dp1perp*duv2.y;
+  vec3 b = (dp2perp*duv1.y+dp1perp*duv2.y)*derivativeTangentSign;
   float scale = inversesqrt(max(max(dot(t,t),dot(b,b)),.000001));
   return mat3(t*scale,b*scale,n);
 }
@@ -245,12 +271,12 @@ void shadeMesh() {
   if (pbr && maps.y != 0) {
     vec2 uv = materialUV(2);
     vec3 sampled = texture(normalMap,uv).xyz*2.0-1.0;
-    n = normalize(materialNormalFrame(n,uv)*vec3(sampled.xy*surface.z,sampled.z));
+    n = normalize(materialNormalFrame(n,2)*vec3(sampled.xy*surface.z,sampled.z));
   }
   if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
     vec2 uv = materialUV(9);
     vec3 sampled = texture(clearcoatNormalMap,uv).xyz*2.0-1.0;
-    nc = normalize(materialNormalFrame(nc,uv)*vec3(sampled.xy*clearcoat.z,sampled.z));
+    nc = normalize(materialNormalFrame(nc,9)*vec3(sampled.xy*clearcoat.z,sampled.z));
   }
   float visibility = directionalShadow();
   vec3 direction = lighting[0].xyz;
@@ -481,6 +507,7 @@ layout(location=10) in vec4 jointWeights;
 layout(location=11) in vec2 uv1;
 layout(location=12) in uvec4 jointIndices1;
 layout(location=13) in vec4 jointWeights1;
+layout(location=14) in vec4 tangent;
 uniform highp sampler2D jointPalette;
 uniform bool skinned;
 uniform mat4 viewProjection;
@@ -490,6 +517,7 @@ out vec3 vPosition;
 out vec3 vNormal;
 out vec2 vUV;
 out vec2 vUV1;
+out vec4 vTangent;
 out vec4 vColor;
 flat out float vOrientation;
 flat out vec3 vLocal0;
@@ -512,6 +540,9 @@ void main() {
   XYZVertex deformed = xyzDeform(position,normal,uv);
   vec4 local = vec4(deformed.position, 1.0);
   vec3 localNormal = deformed.normal;
+  vec3 localTangent = tangent.xyz;
+  float handedness = tangent.w;
+  float skinOrientation = 1.0;
   if (skinned) {
     mat4 skin = jointMatrix(jointIndices.x) * jointWeights.x
       + jointMatrix(jointIndices.y) * jointWeights.y
@@ -528,6 +559,11 @@ void main() {
     vec3 direction = sign * cofactor * deformed.normal;
     float directionLength = length(direction);
     localNormal = direction / (directionLength > 0.0 ? directionLength : 1.0);
+    handedness *= sign;
+    skinOrientation = sign;
+    vec3 tangentDirection = mat3(skin) * tangent.xyz;
+    float tangentLength = length(tangentDirection);
+    localTangent = tangentDirection / (tangentLength > 0.0 ? tangentLength : 1.0);
   }
   vec4 p = world * local;
   vec4 clip = viewProjection * p;
@@ -535,11 +571,14 @@ void main() {
   mat3 m = mat3(world);
   vec3 a = cross(m[1], m[2]);
   float determinant = dot(m[0], a);
-  vOrientation = determinant < 0.0 ? -1.0 : 1.0;
+  float modelOrientation = determinant < 0.0 ? -1.0 : 1.0;
+  vOrientation = modelOrientation * skinOrientation;
   mat3 cofactor = mat3(a, cross(m[2], m[0]), cross(m[0], m[1]));
   mat3 normalMatrix = determinant == 0.0 ? mat3(0.0) : cofactor/determinant;
   vLocal0 = normalMatrix[0]; vLocal1 = normalMatrix[1]; vLocal2 = normalMatrix[2];
   vNormal = normalMatrix*localNormal;
+  bool unchanged = all(equal(deformed.position,position)) && all(equal(deformed.normal,normal));
+  vTangent = vec4(m*localTangent, unchanged ? handedness*modelOrientation : 0.0);
   vPosition = p.xyz;
   vUV = uv;
   vUV1 = uv1;

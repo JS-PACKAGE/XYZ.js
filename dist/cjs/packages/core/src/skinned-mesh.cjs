@@ -14,6 +14,9 @@ function cloneGeometry(e) {
 		normals: i,
 		uvs: a,
 		uvs1: e.uvs1,
+		tangents: e.tangents,
+		tangentTexCoord: e.tangentTexCoord,
+		tangentConvention: e.tangentConvention,
 		indices: e.indices,
 		colors: e.colors
 	});
@@ -66,7 +69,7 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 			for (let e of o) if (!Number.isFinite(e)) throw RangeError(`Inverse bind matrices must be finite.`);
 			if (o[3] !== 0 || o[7] !== 0 || o[11] !== 0 || o[15] !== 1) throw RangeError(`Inverse bind matrices must be affine.`);
 			return i;
-		}), this.matrices = t.joints.map(() => new require_math3d.Matrix4()), this.jointPalette = new Float32Array(t.joints.length * 16), this.influenceBounds = new Float32Array(t.joints.length * 6), this.jointIndices = new Uint32Array(n * i), this.weights = new Float32Array(n * i), this.skinGeometry = cloneGeometry(t.geometry), this.bindVertices = this.skinGeometry.vertices;
+		}), this.matrices = t.joints.map(() => new require_math3d.Matrix4()), this.jointPalette = new Float32Array(t.joints.length * 16), this.influenceBounds = new Float32Array(t.joints.length * 6), this.jointIndices = new Uint32Array(n * i), this.weights = new Float32Array(n * i), this.skinGeometry = cloneGeometry(t.geometry), this.bindVertices = this.skinGeometry.vertices, this.morph?.setTangentOutput(this.skinGeometry.tangents);
 		for (let e = 0; e < n; e++) {
 			let n = 0;
 			for (let r = 0; r < i; r++) {
@@ -97,20 +100,24 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 	}
 	updateSkin() {
 		if (this.updateRenderDeformation(), this.mirrorVersion === this.deformationVersion) return;
-		let e = this.geometry.vertices, t = this.bindVertices;
-		for (let n = 0; n < e.length / 8; n++) {
-			let r = this.blend.elements;
-			r.fill(0);
+		let e = this.geometry.vertices, t = this.bindVertices, n = this.geometry.tangents, r = this.skinGeometry.tangents;
+		for (let i = 0; i < e.length / 8; i++) {
+			let a = this.blend.elements;
+			a.fill(0);
 			for (let e = 0; e < this.influencesPerVertex; e++) {
-				let t = n * this.influencesPerVertex + e, i = this.weights[t];
-				if (i === 0) continue;
-				let a = this.matrices[this.jointIndices[t]].elements;
-				for (let e = 0; e < 16; e++) r[e] += i * a[e];
+				let t = i * this.influencesPerVertex + e, n = this.weights[t];
+				if (n === 0) continue;
+				let r = this.matrices[this.jointIndices[t]].elements;
+				for (let e = 0; e < 16; e++) a[e] += n * r[e];
 			}
-			let i = n * 8, a = t[i], o = t[i + 1], s = t[i + 2];
-			e[i] = r[0] * a + r[4] * o + r[8] * s + r[12], e[i + 1] = r[1] * a + r[5] * o + r[9] * s + r[13], e[i + 2] = r[2] * a + r[6] * o + r[10] * s + r[14];
-			let c = r[5] * r[10] - r[9] * r[6], l = r[9] * r[2] - r[1] * r[10], u = r[1] * r[6] - r[5] * r[2], d = r[8] * r[6] - r[4] * r[10], f = r[0] * r[10] - r[8] * r[2], p = r[4] * r[2] - r[0] * r[6], m = r[4] * r[9] - r[8] * r[5], h = r[8] * r[1] - r[0] * r[9], g = r[0] * r[5] - r[4] * r[1], _ = r[0] * c + r[4] * l + r[8] * u < 0 ? -1 : 1, v = t[i + 3], y = t[i + 4], b = t[i + 5], x = _ * (c * v + l * y + u * b), S = _ * (d * v + f * y + p * b), C = _ * (m * v + h * y + g * b), w = Math.hypot(x, S, C);
-			e[i + 3] = w ? x / w : 0, e[i + 4] = w ? S / w : 0, e[i + 5] = w ? C / w : 0;
+			let o = i * 8, s = t[o], c = t[o + 1], l = t[o + 2];
+			e[o] = a[0] * s + a[4] * c + a[8] * l + a[12], e[o + 1] = a[1] * s + a[5] * c + a[9] * l + a[13], e[o + 2] = a[2] * s + a[6] * c + a[10] * l + a[14];
+			let u = a[5] * a[10] - a[9] * a[6], d = a[9] * a[2] - a[1] * a[10], f = a[1] * a[6] - a[5] * a[2], p = a[8] * a[6] - a[4] * a[10], m = a[0] * a[10] - a[8] * a[2], h = a[4] * a[2] - a[0] * a[6], g = a[4] * a[9] - a[8] * a[5], _ = a[8] * a[1] - a[0] * a[9], v = a[0] * a[5] - a[4] * a[1], y = a[0] * u + a[4] * d + a[8] * f < 0 ? -1 : 1, b = t[o + 3], x = t[o + 4], S = t[o + 5], C = y * (u * b + d * x + f * S), w = y * (p * b + m * x + h * S), T = y * (g * b + _ * x + v * S), E = Math.hypot(C, w, T);
+			e[o + 3] = E ? C / E : 0, e[o + 4] = E ? w / E : 0, e[o + 5] = E ? T / E : 0;
+			let D = i * 4, O = r[D], k = r[D + 1], A = r[D + 2], j = a[0] * O + a[4] * k + a[8] * A, M = a[1] * O + a[5] * k + a[9] * A, N = a[2] * O + a[6] * k + a[10] * A, P = j * e[o + 3] + M * e[o + 4] + N * e[o + 5];
+			j -= P * e[o + 3], M -= P * e[o + 4], N -= P * e[o + 5];
+			let F = Math.hypot(j, M, N);
+			n[D] = F ? j / F : 0, n[D + 1] = F ? M / F : 0, n[D + 2] = F ? N / F : 0, n[D + 3] = r[D + 3] * y;
 		}
 		this.mirrorVersion = this.deformationVersion, this.geometry.markUpdated();
 	}

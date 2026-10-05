@@ -11,6 +11,7 @@ import {
   type Interpolation,
 } from './animation.js';
 import { Geometry } from './geometry.js';
+import { generateMikkTangents, remapVertexData } from './geometry-tangents.js';
 import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
@@ -1362,9 +1363,14 @@ export class GLTFLoader {
         primitive: RecordData,
         vertexCount: number,
         weights: MorphWeights,
+        sourceVertices?: Uint32Array,
       ): MorphTargets => {
         const targets = list(primitive.targets, 'morph targets');
-        context.reserve(targets.length * vertexCount * 6 * 4);
+        const outputCount = sourceVertices?.length ?? vertexCount;
+        context.reserve(
+          targets.length * outputCount * 9 * 4 * (sourceVertices ? 2 : 1) +
+            outputCount * 12 * 4,
+        );
         const read = (accessor: unknown, label: string): Float32Array => {
           const data = readAccessor(accessor);
           if (
@@ -1373,10 +1379,13 @@ export class GLTFLoader {
             !(data.component === 5126 || data.normalized)
           )
             throw new AssetError(`Morph ${label} requires matching VEC3 data.`);
-          return data.data;
+          return sourceVertices
+            ? remapVertexData(data.data, sourceVertices, 3)
+            : data.data;
         };
         const positions: (Float32Array | undefined)[] = [],
-          normals: (Float32Array | undefined)[] = [];
+          normals: (Float32Array | undefined)[] = [],
+          tangents: (Float32Array | undefined)[] = [];
         for (const target of targets) {
           for (const key of Object.keys(target))
             if (key !== 'POSITION' && key !== 'NORMAL' && key !== 'TANGENT')
@@ -1393,8 +1402,13 @@ export class GLTFLoader {
               ? undefined
               : read(target.NORMAL, 'NORMAL'),
           );
+          tangents.push(
+            target.TANGENT === undefined
+              ? undefined
+              : read(target.TANGENT, 'TANGENT'),
+          );
         }
-        return new MorphTargets({ positions, normals, weights });
+        return new MorphTargets({ positions, normals, tangents, weights });
       };
       const nodeWeights = new Map<number, MorphWeights>();
       let totalVertices = 0,
@@ -1557,14 +1571,32 @@ export class GLTFLoader {
             throw new AssetError(
               'COLOR_0 requires float or normalized VEC3/VEC4 data.',
             );
+          const tangent =
+            attributes.TANGENT === undefined
+              ? undefined
+              : readAccessor(attributes.TANGENT);
           context.reserve(
             position.count * 8 * 4 +
               indices.length * 4 +
+              position.count * 4 * 4 +
+              (tangent ? 0 : position.count * 6 * 8) +
               (normal ? 0 : position.count * 3 * 4) +
               (uv ? 0 : position.count * 2 * 4) +
               (color ? position.count * 4 * 4 : 0) +
               (uv1 ? position.count * 2 * 4 : 0),
           );
+          if (
+            tangent &&
+            (tangent.type !== 'VEC4' ||
+              tangent.count !== position.count ||
+              !(
+                tangent.component === 5126 ||
+                ([5120, 5122].includes(tangent.component) && tangent.normalized)
+              ))
+          )
+            throw new AssetError(
+              'TANGENT requires float or normalized VEC4 data.',
+            );
           const materialIndex =
             primitive.material === undefined
               ? undefined
@@ -1582,16 +1614,50 @@ export class GLTFLoader {
               );
           }
           const uvData = uv?.data ?? new Float32Array(position.count * 2);
-          const geometry = new Geometry({
+          const normalSlot = material.normalTexture
+            ? 'normal'
+            : 'clearcoatNormal';
+          const tangentTexCoord =
+            material.textureCoordinates[normalSlot]?.texCoord ?? 0;
+          let geometry = new Geometry({
             positions: position.data,
             normals: normal?.data ?? this.normals(position.data, indices),
             uvs: uvData,
             uvs1: uv1?.data,
+            tangents: tangent?.data,
+            tangentTexCoord,
+            tangentConvention: 'gltf',
             indices,
             colors: color?.data,
           });
+          let sourceVertices: Uint32Array | undefined;
+          if (
+            !tangent &&
+            (material.normalTexture || material.clearcoatNormalTexture)
+          ) {
+            const upper = Math.min(
+              position.count + indices.length,
+              modelLimits.vertices,
+            );
+            context.reserve(
+              indices.length * 52 +
+                position.count * 4 +
+                upper * (100 + (uv1 ? 16 : 0) + (color ? 32 : 0)),
+            );
+            const result = generateMikkTangents(geometry, {
+              convention: 'gltf',
+              texCoord: tangentTexCoord,
+            });
+            geometry = result.geometry;
+            sourceVertices = result.sourceVertices;
+            totalVertices += sourceVertices.length - position.count;
+            if (totalVertices > modelLimits.vertices)
+              throw new AssetError(
+                'Tangent seam splitting exceeds model vertex budget.',
+              );
+          }
           const morph = morphWeights
-            ? readMorph(primitive, position.count, morphWeights)
+            ? readMorph(primitive, position.count, morphWeights, sourceVertices)
             : undefined;
           if (skin) {
             const influencesPerVertex =
@@ -1619,26 +1685,31 @@ export class GLTFLoader {
               jointSets.push(joint);
               weightSets.push(weights);
             }
+            const skinnedCount = geometry.vertices.length / 8;
             context.reserve(
-              position.count * 8 * 4 * 3 +
+              skinnedCount * (8 * 4 * 4 + 4 * 4 * 2) +
                 indices.length * 4 * 2 +
-                position.count *
-                  influencesPerVertex *
-                  8 *
-                  (sets === 2 ? 2 : 1) +
+                skinnedCount * influencesPerVertex * 8 * (sets === 2 ? 2 : 1) +
                 skin.joints.length * 16 * 16 +
-                (uv1 ? position.count * 2 * 4 * 2 : 0) +
-                (color ? position.count * 4 * 4 * 2 : 0),
+                (uv1 ? skinnedCount * 2 * 4 * 2 : 0) +
+                (color ? skinnedCount * 4 * 4 * 2 : 0),
             );
-            let jointIndices = jointSets[0].data,
-              weights = weightSets[0].data;
+            let jointIndices =
+              sourceVertices && sets === 1
+                ? remapVertexData(jointSets[0].data, sourceVertices, 4)
+                : jointSets[0].data;
+            let weights =
+              sourceVertices && sets === 1
+                ? remapVertexData(weightSets[0].data, sourceVertices, 4)
+                : weightSets[0].data;
             if (sets === 2) {
-              jointIndices = new Float32Array(position.count * 8);
-              weights = new Float32Array(position.count * 8);
-              for (let vertex = 0; vertex < position.count; vertex++) {
+              jointIndices = new Float32Array(skinnedCount * 8);
+              weights = new Float32Array(skinnedCount * 8);
+              for (let vertex = 0; vertex < skinnedCount; vertex++) {
                 for (let set = 0; set < 2; set++) {
                   for (let influence = 0; influence < 4; influence++) {
-                    const source = vertex * 4 + influence;
+                    const source =
+                      (sourceVertices?.[vertex] ?? vertex) * 4 + influence;
                     const target = vertex * 8 + set * 4 + influence;
                     jointIndices[target] = jointSets[set].data[source];
                     weights[target] = weightSets[set].data[source];
