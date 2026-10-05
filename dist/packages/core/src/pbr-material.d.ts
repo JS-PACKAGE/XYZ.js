@@ -1,4 +1,5 @@
 import { Texture } from '../../assets/src/index.js';
+import { type MaterialTexture } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 export interface TextureSamplerOptions {
@@ -22,7 +23,14 @@ export interface TextureCoordinates {
     /** Affine `[a,b,c,d,tx,ty]`: `u'=a*u+c*v+tx; v'=b*u+d*v+ty`. */
     readonly transform: readonly [number, number, number, number, number, number];
 }
+export declare const pbrTextureKeys: readonly ["specularTexture", "specularColorTexture", "clearcoatTexture", "clearcoatRoughnessTexture", "clearcoatNormalTexture", "sheenColorTexture", "sheenRoughnessTexture", "transmissionTexture", "thicknessTexture", "metallicRoughnessTexture", "normalTexture", "occlusionTexture", "emissiveTexture"];
+export type PBRTextureKey = (typeof pbrTextureKeys)[number];
+/** Additive per-slot overrides that may be canvas or video textures; legacy Texture options remain accepted. */
+export type PBRTextureSources = Partial<Record<PBRTextureKey, MaterialTexture>>;
+/** Effective texture for every populated slot, including canvas/video overrides. Renderers read this. */
+export declare function pbrTextureSources(material: PBRMaterial): Readonly<PBRTextureSources>;
 export interface PBRMaterialOptions extends TextureMaterialOptions {
+    sources?: PBRTextureSources;
     /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
     textureCoordinates?: Partial<Record<MaterialTextureSlot, TextureCoordinateOptions>>;
     metallic?: number;

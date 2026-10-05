@@ -4,6 +4,7 @@ import { GameObject } from './game-object.js';
 import { type ColorRGBA, type Rect2D } from './gameplay/contracts.js';
 import type { FrameAnimation } from './gameplay/frame-animation.js';
 import type { Material2D } from './materials2d/index.js';
+import type { Lighting2D } from './lighting2d.js';
 export interface SpriteSampler2D {
     minFilter?: 'nearest' | 'linear';
     magFilter?: 'nearest' | 'linear';
@@ -25,6 +26,9 @@ export interface SpriteOptions {
     tint?: ColorRGBA;
     space?: 'world' | 'screen';
     material?: Material2D;
+    lighting?: Lighting2D;
+    /** RGB tangent normals encoded [0,1], +Y down; atlas/frame layout matches albedo. */
+    normalTexture?: Texture2DSource;
     sampler?: SpriteSampler2D;
     roundPixels?: boolean;
 }
@@ -40,6 +44,8 @@ export declare class Sprite extends GameObject {
     /** Internal pool/culling switch; independent of the author's visibility. */
     renderEnabled: boolean;
     material: Material2D | undefined;
+    lighting: Lighting2D | undefined;
+    normalTexture: Texture2DSource | undefined;
     constructor(options: SpriteOptions);
     get texture(): Texture2DSource;
     set texture(value: Texture2DSource);

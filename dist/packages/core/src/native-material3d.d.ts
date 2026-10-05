@@ -1,5 +1,8 @@
 import { Texture } from '../../assets/src/index.js';
+import { type MaterialTexture } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
+/** Effective maps (canvas/video overrides applied) that renderers bind. */
+export declare function nativeMaterialSources(material: NativeMaterial3D): readonly MaterialTexture[];
 export interface NativeMaterial3DOptions extends TextureMaterialOptions {
     /** Native declarations defining xyzDeform and xyzSurface. No entry points or transpilation. */
     readonly wgsl: string;
@@ -7,6 +10,8 @@ export interface NativeMaterial3DOptions extends TextureMaterialOptions {
     readonly uniforms?: ArrayLike<number>;
     /** Four borrowed maps, available as xyzMap0..3 and xyzSampler0..3 (WGSL). */
     readonly textures?: readonly Texture[];
+    /** Additive per-index canvas/video overrides for `textures` (or extra maps when absent). */
+    readonly textureSources?: readonly MaterialTexture[];
     readonly label?: string;
     /** Maximum final mesh-local vertex displacement; absent means unbounded and disables bounds culling. */
     readonly deformationBounds?: number;

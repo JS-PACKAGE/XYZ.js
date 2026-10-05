@@ -1,4 +1,8 @@
 import { Texture } from '../../assets/src/index.js';
+import {
+  CanvasTexture2D,
+  type MaterialTexture,
+} from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
@@ -42,7 +46,36 @@ export interface TextureCoordinates {
   readonly transform: readonly [number, number, number, number, number, number];
 }
 
+export const pbrTextureKeys = [
+  'specularTexture',
+  'specularColorTexture',
+  'clearcoatTexture',
+  'clearcoatRoughnessTexture',
+  'clearcoatNormalTexture',
+  'sheenColorTexture',
+  'sheenRoughnessTexture',
+  'transmissionTexture',
+  'thicknessTexture',
+  'metallicRoughnessTexture',
+  'normalTexture',
+  'occlusionTexture',
+  'emissiveTexture',
+] as const;
+export type PBRTextureKey = (typeof pbrTextureKeys)[number];
+/** Additive per-slot overrides that may be canvas or video textures; legacy Texture options remain accepted. */
+export type PBRTextureSources = Partial<Record<PBRTextureKey, MaterialTexture>>;
+
+const pbrSourceRegistry = new WeakMap<object, Readonly<PBRTextureSources>>();
+const emptyPbrSources: Readonly<PBRTextureSources> = Object.freeze({});
+/** Effective texture for every populated slot, including canvas/video overrides. Renderers read this. */
+export function pbrTextureSources(
+  material: PBRMaterial,
+): Readonly<PBRTextureSources> {
+  return pbrSourceRegistry.get(material) ?? emptyPbrSources;
+}
+
 export interface PBRMaterialOptions extends TextureMaterialOptions {
+  sources?: PBRTextureSources;
   /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
   textureCoordinates?: Partial<
     Record<MaterialTextureSlot, TextureCoordinateOptions>
@@ -413,6 +446,26 @@ export class PBRMaterial extends TextureMaterial {
     this.occlusionTexture = options.occlusionTexture;
     this.occlusionStrength = occlusionStrength;
     this.emissiveTexture = options.emissiveTexture;
+    const sources: PBRTextureSources = {};
+    if (options.sources !== undefined) {
+      for (const key of Object.keys(options.sources))
+        if (!(pbrTextureKeys as readonly string[]).includes(key))
+          throw new TypeError(`Unknown PBR texture source ${key}.`);
+    }
+    for (const key of pbrTextureKeys) {
+      const override = options.sources?.[key];
+      if (
+        override !== undefined &&
+        !(override instanceof Texture) &&
+        !(override instanceof CanvasTexture2D)
+      )
+        throw new TypeError(
+          `${key} source must be a Texture or CanvasTexture2D.`,
+        );
+      const value = override ?? options[key];
+      if (value !== undefined) sources[key] = value;
+    }
+    pbrSourceRegistry.set(this, Object.freeze(sources));
     this.alphaCutoff = alphaCutoff;
     this.alphaMode = alphaMode;
     this.doubleSided = doubleSided;

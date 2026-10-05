@@ -1,6 +1,8 @@
 import { Texture } from './index.js';
 import type { RenderTexture2D } from '../../graphics/src/render-texture2d.js';
 export type Texture2DSource = Texture | CanvasTexture2D | RenderTexture2D;
+/** Borrowed image sources accepted by 3D materials; render targets remain 2D-only. */
+export type MaterialTexture = Texture | CanvasTexture2D;
 export interface TextureRect2D {
     x: number;
     y: number;
@@ -50,5 +52,7 @@ export declare class CanvasTexture2D {
     get version(): number;
     get destroyed(): boolean;
     update(source: CanvasImageSource): void;
+    /** Reuses the owned surface for live sources without decoding a bitmap per frame. */
+    protected copyFrame(source: CanvasImageSource): void;
     destroy(): void;
 }

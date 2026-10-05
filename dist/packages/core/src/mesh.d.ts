@@ -1,4 +1,5 @@
 import { Texture } from '../../assets/src/index.js';
+import { type MaterialTexture } from '../../assets/src/texture2d.js';
 import { Quaternion } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
@@ -7,6 +8,8 @@ import { Object3D } from './object3d.js';
 import { type BoundingSphere3D } from './render-bounds.js';
 export interface TextureMaterialOptions {
     texture: Texture;
+    /** Optional canvas/video override; `texture` remains the caller's static fallback. */
+    textureSource?: MaterialTexture;
     color?: [number, number, number];
     opacity?: number;
     /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
@@ -15,6 +18,7 @@ export interface TextureMaterialOptions {
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
 export declare class TextureMaterial {
     readonly texture: Texture;
+    readonly textureSource?: MaterialTexture;
     readonly color: [number, number, number];
     readonly opacity: number;
     readonly transparent: boolean;
@@ -22,6 +26,8 @@ export declare class TextureMaterial {
     readonly deformationBounds: number | undefined;
     constructor(options: TextureMaterialOptions);
 }
+/** Effective base-color texture: the canvas/video override when present, else `texture`. */
+export declare function materialBaseTexture(material: TextureMaterial): MaterialTexture;
 export interface MeshOptions {
     geometry: Geometry;
     material: TextureMaterial;

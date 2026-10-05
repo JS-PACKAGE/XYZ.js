@@ -1,4 +1,8 @@
 import { Texture } from '../../assets/src/index.js';
+import {
+  CanvasTexture2D,
+  type MaterialTexture,
+} from '../../assets/src/texture2d.js';
 import { Quaternion } from '../../math/src/index.js';
 import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
@@ -12,6 +16,8 @@ import {
 
 export interface TextureMaterialOptions {
   texture: Texture;
+  /** Optional canvas/video override; `texture` remains the caller's static fallback. */
+  textureSource?: MaterialTexture;
   color?: [number, number, number];
   opacity?: number;
   /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
@@ -21,6 +27,7 @@ export interface TextureMaterialOptions {
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
 export class TextureMaterial {
   readonly texture: Texture;
+  readonly textureSource?: MaterialTexture;
   readonly color: [number, number, number];
   readonly opacity: number;
   readonly transparent: boolean;
@@ -30,6 +37,14 @@ export class TextureMaterial {
   constructor(options: TextureMaterialOptions) {
     if (!(options.texture instanceof Texture))
       throw new TypeError('TextureMaterial requires a Texture.');
+    if (
+      options.textureSource !== undefined &&
+      !(options.textureSource instanceof Texture) &&
+      !(options.textureSource instanceof CanvasTexture2D)
+    )
+      throw new TypeError(
+        'Texture source must be a Texture or CanvasTexture2D.',
+      );
     const color = options.color ?? [1, 1, 1];
     if (
       color.length !== 3 ||
@@ -50,10 +65,18 @@ export class TextureMaterial {
     )
       throw new TypeError('Material transparent must be a boolean.');
     this.texture = options.texture;
+    this.textureSource = options.textureSource;
     this.color = [...color] as [number, number, number];
     this.opacity = opacity;
     this.transparent = opacity < 1 || options.transparent === true;
   }
+}
+
+/** Effective base-color texture: the canvas/video override when present, else `texture`. */
+export function materialBaseTexture(
+  material: TextureMaterial,
+): MaterialTexture {
+  return material.textureSource ?? material.texture;
 }
 
 export interface MeshOptions {

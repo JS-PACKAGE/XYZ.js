@@ -12,6 +12,7 @@ import {
 } from './gameplay/contracts.js';
 import type { FrameAnimation } from './gameplay/frame-animation.js';
 import type { Material2D } from './materials2d/index.js';
+import type { Lighting2D } from './lighting2d.js';
 
 export interface SpriteSampler2D {
   minFilter?: 'nearest' | 'linear';
@@ -35,6 +36,9 @@ export interface SpriteOptions {
   tint?: ColorRGBA;
   space?: 'world' | 'screen';
   material?: Material2D;
+  lighting?: Lighting2D;
+  /** RGB tangent normals encoded [0,1], +Y down; atlas/frame layout matches albedo. */
+  normalTexture?: Texture2DSource;
   sampler?: SpriteSampler2D;
   roundPixels?: boolean;
 }
@@ -51,6 +55,8 @@ export class Sprite extends GameObject {
   /** Internal pool/culling switch; independent of the author's visibility. */
   renderEnabled = true;
   material: Material2D | undefined;
+  lighting: Lighting2D | undefined;
+  normalTexture: Texture2DSource | undefined;
 
   constructor(options: SpriteOptions) {
     super();
@@ -74,6 +80,8 @@ export class Sprite extends GameObject {
     options.view?.validate();
     this.currentTexture = texture;
     this.material = options.material;
+    this.lighting = options.lighting;
+    this.normalTexture = options.normalTexture;
     if (options.position) this.position = new Vector2(...options.position);
     if (options.scale) this.scale = new Vector2(...options.scale);
     if (options.pivot) this.pivot = new Vector2(...options.pivot);

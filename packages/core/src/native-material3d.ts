@@ -1,6 +1,19 @@
 import { Texture } from '../../assets/src/index.js';
+import {
+  CanvasTexture2D,
+  type MaterialTexture,
+} from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import { nativeMaterial3DLimits } from '../../../src/data/rendering.js';
+
+const nativeSourceRegistry = new WeakMap<object, readonly MaterialTexture[]>();
+const emptyNativeSources: readonly MaterialTexture[] = Object.freeze([]);
+/** Effective maps (canvas/video overrides applied) that renderers bind. */
+export function nativeMaterialSources(
+  material: NativeMaterial3D,
+): readonly MaterialTexture[] {
+  return nativeSourceRegistry.get(material) ?? emptyNativeSources;
+}
 
 export interface NativeMaterial3DOptions extends TextureMaterialOptions {
   /** Native declarations defining xyzDeform and xyzSurface. No entry points or transpilation. */
@@ -9,6 +22,8 @@ export interface NativeMaterial3DOptions extends TextureMaterialOptions {
   readonly uniforms?: ArrayLike<number>;
   /** Four borrowed maps, available as xyzMap0..3 and xyzSampler0..3 (WGSL). */
   readonly textures?: readonly Texture[];
+  /** Additive per-index canvas/video overrides for `textures` (or extra maps when absent). */
+  readonly textureSources?: readonly MaterialTexture[];
   readonly label?: string;
   /** Maximum final mesh-local vertex displacement; absent means unbounded and disables bounds culling. */
   readonly deformationBounds?: number;
@@ -42,8 +57,24 @@ export class NativeMaterial3D extends TextureMaterial {
         'NativeMaterial3D requires bounded WGSL and GLSL native hooks.',
       );
     const textures = options.textures ?? [];
+    const overrides = options.textureSources ?? [];
+    const count = Math.max(textures.length, overrides.length);
+    const effective: MaterialTexture[] = [];
+    for (let i = 0; i < count; i++) {
+      const texture = overrides[i] ?? textures[i];
+      if (
+        texture === undefined ||
+        (!(texture instanceof Texture) &&
+          !(texture instanceof CanvasTexture2D)) ||
+        texture.destroyed
+      )
+        throw new TypeError(
+          'NativeMaterial3D accepts at most four live borrowed textures.',
+        );
+      effective.push(texture);
+    }
     if (
-      textures.length > nativeMaterial3DLimits.textures ||
+      count > nativeMaterial3DLimits.textures ||
       textures.some(
         (texture) => !(texture instanceof Texture) || texture.destroyed,
       )
@@ -73,6 +104,7 @@ export class NativeMaterial3D extends TextureMaterial {
     this.glslSource = options.glsl;
     this.label = options.label ?? 'NativeMaterial3D';
     this.borrowedMaps = Object.freeze([...textures]);
+    nativeSourceRegistry.set(this, Object.freeze(effective));
     if (options.uniforms) this.setUniforms(options.uniforms);
   }
 
@@ -117,7 +149,9 @@ export class NativeMaterial3D extends TextureMaterial {
     if (this.disposed) throw new Error('NativeMaterial3D is destroyed.');
     if (
       this.texture.destroyed ||
-      this.textures.some((texture) => texture.destroyed)
+      (nativeSourceRegistry.get(this) ?? []).some(
+        (texture) => texture.destroyed,
+      )
     )
       throw new Error(
         'NativeMaterial3D references a destroyed borrowed texture.',

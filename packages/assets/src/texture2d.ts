@@ -4,6 +4,8 @@ import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 import type { RenderTexture2D } from '../../graphics/src/render-texture2d.js';
 
 export type Texture2DSource = Texture | CanvasTexture2D | RenderTexture2D;
+/** Borrowed image sources accepted by 3D materials; render targets remain 2D-only. */
+export type MaterialTexture = Texture | CanvasTexture2D;
 export interface TextureRect2D {
   x: number;
   y: number;
@@ -247,6 +249,37 @@ export class CanvasTexture2D {
     this.canvas = next;
     this.revision++;
     previous.width = previous.height = 0;
+  }
+  /** Reuses the owned surface for live sources without decoding a bitmap per frame. */
+  protected copyFrame(source: CanvasImageSource): void {
+    if (this.disposed)
+      throw new AssetError('Cannot update a destroyed CanvasTexture2D.');
+    if (this.revision === Number.MAX_SAFE_INTEGER)
+      throw new RangeError('CanvasTexture2D version overflow.');
+    const [width, height] = sourceDimensions(source);
+    dimensions(width, height);
+    if (!Number.isInteger(width) || !Number.isInteger(height))
+      throw new AssetError('Canvas texture dimensions must be integer pixels.');
+    if (this.canvas.width !== width || this.canvas.height !== height) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+    }
+    const context = this.canvas.getContext('2d') as
+      CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
+    if (!context) throw new AssetError('A 2D canvas context is required.');
+    try {
+      context.clearRect(0, 0, width, height);
+      context.drawImage(source, 0, 0, width, height);
+      // Reject tainted media here, rather than deferring an opaque GPU upload failure.
+      context.getImageData(0, 0, 1, 1);
+      this.revision++;
+    } catch (error) {
+      this.canvas.width = width;
+      this.canvas.height = height;
+      throw new AssetError('Unable to copy video pixels; check media CORS.', {
+        cause: error,
+      });
+    }
   }
   destroy(): void {
     if (this.disposed) return;
