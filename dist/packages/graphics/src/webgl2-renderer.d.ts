@@ -130,6 +130,9 @@ export declare class WebGL2Renderer implements Renderer {
     private oitProgram;
     private shadowTarget;
     private postTarget;
+    private coverageTarget;
+    private coverageActive;
+    private coverageCapabilities;
     private fxaaProgram;
     private fxaaTarget;
     private floatColorBuffer;
@@ -183,6 +186,9 @@ export declare class WebGL2Renderer implements Renderer {
     private cacheSkin;
     private cacheInstances;
     private drawShadows;
+    private prepareCoverageTarget;
+    private releaseCoverageTarget;
+    private resolveCoverageTarget;
     private preparePostTarget;
     private prepareRefractionTarget;
     private prepareOIT;

@@ -1,4 +1,4 @@
-import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i,materialTextureSlots as a}from"../../../src/data/rendering.js";import{atlasGLSL as o}from"./shadow-shaders.js";import{depthPostGLSL as s}from"./depth-post-shaders.js";import{sheenGLSL as c}from"./sheen-shaders.js";import{transmissionGLSL as l}from"./transmission-shaders.js";import{reflectionProbeGLSL as u}from"./reflection-probe-shaders.js";import{oitWeightGLSL as d}from"./oit-shaders.js";const f=`
+import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i,materialTextureSlots as a,materialQuality as o}from"../../../src/data/rendering.js";import{atlasGLSL as s}from"./shadow-shaders.js";import{depthPostGLSL as c}from"./depth-post-shaders.js";import{sheenGLSL as l}from"./sheen-shaders.js";import{transmissionGLSL as u}from"./transmission-shaders.js";import{reflectionProbeGLSL as d}from"./reflection-probe-shaders.js";import{oitWeightGLSL as f}from"./oit-shaders.js";const p=`
 in vec2 vUV1;
 in vec4 vTangent;
 uniform vec4 materialCoordinates[${a.length*2}];
@@ -121,7 +121,7 @@ uniform sampler2D clearcoatMap;
 uniform sampler2D clearcoatRoughnessMap;
 uniform sampler2D clearcoatNormalMap;
 uniform vec4 sheen; // linear RGB, roughness
-uniform vec4 sheenMaps; // color map, roughness map, unused, unused
+uniform vec4 sheenMaps; // color map, roughness map, specular AA, alpha-to-coverage
 uniform sampler2D sheenColorMap;
 uniform sampler2D sheenRoughnessMap;
 uniform vec4 transmission; // strength, local thickness, inverse attenuation distance, IOR
@@ -155,7 +155,7 @@ uniform float derivativeTangentSign;
 /* XYZ_SURFACE_HOOKS */
 vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 /* XYZ_SURFACE_HOOKS_END */
-${f}
+${p}
 mat3 materialNormalFrame(vec3 n, int slot) {
   vec3 rawTangent = vTangent.xyz - n*dot(n,vTangent.xyz);
   float tangentLength = length(rawTangent);
@@ -180,12 +180,12 @@ mat3 materialNormalFrame(vec3 n, int slot) {
 float vec4Component(vec4 value, int index) {
   return index==0 ? value.x : index==1 ? value.y : index==2 ? value.z : value.w;
 }
-${o}
+${s}
 const float PI = 3.141592653589793;
-${l}
-${c}
 ${u}
+${l}
 ${d}
+${f}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -250,11 +250,32 @@ vec3 applyFog(vec3 rgb, float opacity) {
   }
   return mix(rgb, fog[0].rgb * opacity, amount);
 }
+vec3 qualityUnitNormal(vec3 value,float scale) {
+  value = vec3(value.xy*scale,value.z);
+  float square = dot(value,value);
+  return square > .000000000001 ? value*inversesqrt(square) : vec3(0.0,0.0,1.0);
+}
+vec4 filteredMaterialNormal(sampler2D source,vec2 uv,float scale) {
+  vec2 dx = dFdx(uv), dy = dFdy(uv);
+  vec2 ox = dx*.2886751345948129, oy = dy*.2886751345948129;
+  vec3 a = textureGrad(source,uv-ox-oy,dx,dy).xyz*2.0-1.0;
+  vec3 b = textureGrad(source,uv+ox-oy,dx,dy).xyz*2.0-1.0;
+  vec3 c = textureGrad(source,uv-ox+oy,dx,dy).xyz*2.0-1.0;
+  vec3 d = textureGrad(source,uv+ox+oy,dx,dy).xyz*2.0-1.0;
+  vec3 mean = .25*(qualityUnitNormal(a,scale)+qualityUnitNormal(b,scale)+qualityUnitNormal(c,scale)+qualityUnitNormal(d,scale));
+  return vec4((a+b+c+d)*.25,max(0.0,1.0-dot(mean,mean)));
+}
 void shadeMesh() {
   vec4 texel = xyzSurface(vPosition,vNormal,vUV,texture(image, materialUV(0)));
   float opacity = texel.a * tint.a * vColor.a;
+  bool coverage = pbr && sheenMaps.w > .5;
+  float coverageAlpha = 1.0;
+  if (coverage) {
+    coverageAlpha = clamp((opacity-emission.w)/max(fwidth(opacity),${o.minAlphaFootprint})+.5,0.0,1.0);
+    if (coverageAlpha <= 0.0) discard;
+  }
   if (pbr) {
-    if (alphaMode == 1 && opacity < emission.w) discard;
+    if (alphaMode == 1 && !coverage && opacity < emission.w) discard;
     if (alphaMode != 2) opacity = 1.0;
   }
   bool front = gl_FrontFacing == (vOrientation > 0.0);
@@ -268,14 +289,25 @@ void shadeMesh() {
   vec3 n = vNormal / max(length(vNormal), .000001);
   if (pbr && !front) n = -n;
   vec3 nc = n;
+  float normalVariance = 0.0, coatVariance = 0.0;
   if (pbr && maps.y != 0) {
     vec2 uv = materialUV(2);
-    vec3 sampled = texture(normalMap,uv).xyz*2.0-1.0;
+    vec3 sampled;
+    if (sheenMaps.z > 0.0) {
+      vec4 filtered = filteredMaterialNormal(normalMap,uv,surface.z);
+      sampled = filtered.xyz; normalVariance = filtered.w;
+      if (sheenMaps.z < 1.0) sampled = mix(texture(normalMap,uv).xyz*2.0-1.0,sampled,sheenMaps.z);
+    } else sampled = texture(normalMap,uv).xyz*2.0-1.0;
     n = normalize(materialNormalFrame(n,2)*vec3(sampled.xy*surface.z,sampled.z));
   }
   if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
     vec2 uv = materialUV(9);
-    vec3 sampled = texture(clearcoatNormalMap,uv).xyz*2.0-1.0;
+    vec3 sampled;
+    if (sheenMaps.z > 0.0) {
+      vec4 filtered = filteredMaterialNormal(clearcoatNormalMap,uv,clearcoat.z);
+      sampled = filtered.xyz; coatVariance = filtered.w;
+      if (sheenMaps.z < 1.0) sampled = mix(texture(clearcoatNormalMap,uv).xyz*2.0-1.0,sampled,sheenMaps.z);
+    } else sampled = texture(clearcoatNormalMap,uv).xyz*2.0-1.0;
     nc = normalize(materialNormalFrame(nc,9)*vec3(sampled.xy*clearcoat.z,sampled.z));
   }
   float visibility = directionalShadow();
@@ -315,6 +347,17 @@ void shadeMesh() {
       if (clearcoatMaps.y > .5) coatRoughness *= texture(clearcoatRoughnessMap,materialUV(8)).g;
     }
     coatRoughness = clamp(coatRoughness,.04,1.0);
+    if (sheenMaps.z > 0.0) {
+      vec3 nx = dFdx(n), ny = dFdy(n);
+      float alphaAA = roughness*roughness;
+      // Variance filters GGX alpha squared, not perceptual roughness squared.
+      roughness = sqrt(sqrt(min(1.0,alphaAA*alphaAA+min(${o.normalVarianceScale.toFixed(1)}*(dot(nx,nx)+dot(ny,ny)+normalVariance),${o.maxNormalVariance})*sheenMaps.z)));
+      if (clearcoat.x > 0.0) {
+        vec3 cx = dFdx(nc), cy = dFdy(nc);
+        float coatAlphaAA = coatRoughness*coatRoughness;
+        coatRoughness = sqrt(sqrt(min(1.0,coatAlphaAA*coatAlphaAA+min(${o.normalVarianceScale.toFixed(1)}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${o.maxNormalVariance})*sheenMaps.z)));
+      }
+    }
     float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
     vec3 coating = vec3(0.0);
     vec4 probeWeights = reflectionWeights(vPosition);
@@ -405,7 +448,9 @@ void shadeMesh() {
     result = base * illumination;
     if (linearOutput) result = decodeSRGB(result);
   }
-  color = vec4(applyFog(result * opacity, opacity), opacity) * meshFade;
+  color = coverage
+    ? vec4(applyFog(result,1.0),coverageAlpha*meshFade)
+    : vec4(applyFog(result * opacity, opacity), opacity) * meshFade;
 }
 void main() {
   shadeMesh();
@@ -426,7 +471,7 @@ uniform float alphaCutoff;
 uniform float opacity;
 uniform float meshFade;
 uniform int alphaMode;
-${f}
+${p}
 void main() {
   if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
@@ -444,7 +489,7 @@ uniform sampler2D image;
 uniform vec4 settings; // exposure, strength, threshold, radius
 uniform bool aces;
 out vec4 color;
-${s}
+${c}
 vec3 sampleAt(ivec2 p) {
   return texelFetch(image, clamp(p, ivec2(0), textureSize(image, 0) - 1), 0).rgb;
 }

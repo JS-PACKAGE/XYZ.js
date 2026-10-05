@@ -118,6 +118,33 @@ describe('headless asset recipe compatibility', () => {
     });
     expect([...alpha[1].data]).toEqual([255, 0, 0, 128]);
   });
+  it('keeps the nearest attainable cutout coverage without importing hidden transparent colors', async () => {
+    const alpha = [
+      255, 255, 255, 255, 255, 0, 255, 0, 255, 255, 0, 0, 255, 0, 0, 0,
+    ];
+    const rgba = alpha.flatMap((a) => (a ? [255, 48, 16, a] : [0, 0, 255, a]));
+    const levels = mipChain(4, 4, rgba, {
+      kind: 'linear',
+      alpha: 'straight',
+      alphaCoverageCutoff: 0.8,
+    });
+    const texture = await decodeKTX2Native(encodeKTX2(levels));
+    try {
+      const mip = texture.levels[1].data;
+      let covered = 0;
+      for (let i = 0; i < mip.length; i += 4) {
+        if (mip[i + 3] / 255 >= 0.8) {
+          covered++;
+          expect([...mip.subarray(i, i + 3)]).toEqual([255, 48, 16]);
+        } else expect([...mip.subarray(i, i + 4)]).toEqual([0, 0, 0, 0]);
+      }
+      // Three tied mip texels cannot represent the source's 9/16 coverage exactly.
+      expect(covered).toBe(3);
+      expect(texture.levels[2].data[3] / 255).toBeGreaterThanOrEqual(0.8);
+    } finally {
+      texture.destroy();
+    }
+  });
   it('renormalizes averaged normal vectors rather than shortening their lighting magnitude', () => {
     const levels = mipChain(2, 1, [255, 128, 128, 255, 128, 255, 128, 255], {
       kind: 'normal',

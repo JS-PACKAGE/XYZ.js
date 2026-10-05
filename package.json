@@ -919,6 +919,7 @@
     "platform:safari": "node scripts/safari-platform.mjs",
     "smoke:tangents": "node scripts/tangent-runtime.mjs",
     "smoke:filtering": "node scripts/filtering-runtime.mjs",
+    "smoke:material-aa": "node scripts/material-aa-runtime.mjs",
     "smoke:text": "node scripts/text-layout-smoke.mjs",
     "check:tree-shaking": "node scripts/check-tree-shaking.mjs",
     "check:api-compatibility": "node scripts/check-api-compatibility.mjs",

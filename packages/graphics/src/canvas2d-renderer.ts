@@ -200,6 +200,7 @@ export class Canvas2DRenderer implements Renderer {
     instancing: false,
     lighting2D: false,
     textureAnisotropy: Object.freeze({ maxRequest: 16, maxEffective: 1 }),
+    alphaToCoverage: Object.freeze({ rgba8Samples: 1, hdrSamples: 1 }),
     maxTextureSize: MAX_SIZE,
     supportedTextureFormats: Object.freeze([]),
   });

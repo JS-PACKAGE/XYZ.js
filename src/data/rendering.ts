@@ -8,6 +8,14 @@ export const nativeMaterial3DLimits = Object.freeze({
   sourceCharacters: 65536,
 });
 
+/** Bounded opt-in material anti-aliasing, shared by both native shaders. */
+export const materialQuality = Object.freeze({
+  samples: 4,
+  normalVarianceScale: 2,
+  maxNormalVariance: 0.18,
+  minAlphaFootprint: 1e-4,
+});
+
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
 export const materialTextureSlots = Object.freeze([
   'texture',

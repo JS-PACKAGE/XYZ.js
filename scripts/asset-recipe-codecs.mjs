@@ -11,7 +11,11 @@ import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import process from 'node:process';
 import { Buffer } from 'node:buffer';
-import { checksum, encodePNG } from './asset-recipe-lib.mjs';
+import {
+  checksum,
+  encodePNG,
+  validateTextureSemantics,
+} from './asset-recipe-lib.mjs';
 import { assetRecipe, assetLimits } from './asset-tool-paths.mjs';
 import { createDracoWorkerAdapter } from './asset-recipe-draco-worker.mjs';
 const exec = promisify(execFile);
@@ -161,12 +165,7 @@ export async function loadRecipeProfile(path) {
     profile.defaultTexture,
     ...Object.values(profile.textures),
   ])
-    if (
-      semantics &&
-      (!['linear', 'srgb', 'normal'].includes(semantics.kind) ||
-        !['straight', 'premultiplied', 'opaque'].includes(semantics.alpha))
-    )
-      throw new Error('Invalid explicit texture semantics.');
+    if (semantics) validateTextureSemantics(semantics);
   return profile;
 }
 export async function externalCodecs(profile, profilePath, staging) {

@@ -80,6 +80,10 @@ var Canvas2DRenderer = class {
 			maxRequest: 16,
 			maxEffective: 1
 		}),
+		alphaToCoverage: Object.freeze({
+			rgba8Samples: 1,
+			hdrSamples: 1
+		}),
 		maxTextureSize: w,
 		supportedTextureFormats: Object.freeze([])
 	});

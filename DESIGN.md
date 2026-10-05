@@ -329,3 +329,23 @@ mips. Normal source/atlas ownership restrictions remain. Packed optical maps
 retain their slot budget via bounded principal-axis integration rather than
 sampling across flattened native rows. No general mip generation, texture slot
 increase, backend cutover or physical qualification is implied.
+
+## P121 material quality and target ownership
+
+Core owns immutable, bounded PBR specular filtering and MASK-only coverage
+requests. Native shaders combine four-point normal-map footprint moments with
+surface-normal derivatives in GGX alpha-squared space; strength zero retains old
+sampling. Filtering is a bounded spatial approximation, not temporal or
+path-traced convergence. Absolute RGB motion and relative contrast are distinct
+qualification measures.
+
+Coverage is a genuine native sample mask, not blended alpha masquerading as
+MSAA. Opaque/depth-writing coverage draws preserve the engine's clear alpha1 so
+HDR/OIT/post do not attenuate them twice. GPU caches bounded coverage variants;
+GL owns resize/release-accounted multisample renderbuffers, resolves color/depth
+after opaque draws, and retains existing deferred/post/overlay phases.
+Probe captures use the same machinery with their own target dimensions.
+Actual format/depth sample availability is public; unsupported requests fail.
+Shadow cutoffs remain binary. Offline recipe alpha histograms rescale only
+completed mip alpha, preserve RGB/base ownership, and disclose quantization and
+tied-value limits without introducing slot inference or missing-mip fabrication.

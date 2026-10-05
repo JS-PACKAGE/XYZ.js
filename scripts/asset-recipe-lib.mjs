@@ -387,6 +387,30 @@ function textureSlots(material) {
   return slots;
 }
 
+/** Shared author-time texture semantics; coverage is explicit rather than slot-inferred. */
+export function validateTextureSemantics(semantics) {
+  if (
+    !semantics ||
+    !['linear', 'srgb', 'normal'].includes(semantics.kind) ||
+    !['straight', 'premultiplied', 'opaque'].includes(semantics.alpha)
+  )
+    throw new Error('Invalid explicit texture semantics.');
+  if (semantics.kind === 'normal' && semantics.alpha === 'premultiplied')
+    throw new Error('Normal maps cannot use premultiplied alpha.');
+  const cutoff = semantics.alphaCoverageCutoff;
+  if (
+    cutoff !== undefined &&
+    (!Number.isFinite(cutoff) ||
+      cutoff <= 0 ||
+      cutoff >= 1 ||
+      semantics.kind === 'normal' ||
+      semantics.alpha === 'opaque')
+  )
+    throw new Error(
+      'Alpha coverage requires a finite cutoff between zero and one and color alpha.',
+    );
+}
+
 /** Explicit semantics: no material-name or slot inference. */
 export function mipChain(
   width,
@@ -403,13 +427,7 @@ export function mipChain(
     rgba.length !== width * height * 4
   )
     throw new Error('Invalid texture dimensions/pixels.');
-  if (
-    !['linear', 'srgb', 'normal'].includes(semantics.kind) ||
-    !['straight', 'premultiplied', 'opaque'].includes(semantics.alpha)
-  )
-    throw new Error('Invalid explicit texture semantics.');
-  if (semantics.kind === 'normal' && semantics.alpha === 'premultiplied')
-    throw new Error('Normal maps cannot use premultiplied alpha.');
+  validateTextureSemantics(semantics);
   const linear = (v) =>
     v <= 0.04045 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
   const srgb = (v) =>
@@ -479,6 +497,48 @@ export function mipChain(
     levels.push({ width: w, height: h, data });
     width = w;
     height = h;
+  }
+  if (semantics.alphaCoverageCutoff !== undefined && levels.length > 1) {
+    const threshold = Math.ceil(semantics.alphaCoverageCutoff * 255);
+    let baseCovered = 0;
+    const base = levels[0].data;
+    for (let i = 3; i < base.length; i += 4)
+      if (base[i] >= threshold) baseCovered++;
+    const ratio = baseCovered / (base.length / 4);
+    const histogram = new Uint32Array(256);
+    // Rescale after filtering the entire chain: RGB and later mip weighting stay unchanged.
+    for (let level = 1; level < levels.length; level++) {
+      const data = levels[level].data,
+        target = (ratio * data.length) / 4;
+      histogram.fill(0);
+      let originalCovered = 0;
+      for (let i = 3; i < data.length; i += 4) {
+        histogram[data[i]]++;
+        if (data[i] >= threshold) originalCovered++;
+      }
+      let bestError = Math.abs(originalCovered - target),
+        scale = 1,
+        covered = 0;
+      for (let alpha = 255; alpha >= 1; alpha--) {
+        covered += histogram[alpha];
+        if (!histogram[alpha]) continue;
+        const error = Math.abs(covered - target);
+        const candidate = (threshold - 0.5 + 1e-9) / alpha;
+        if (
+          error < bestError ||
+          (error === bestError &&
+            Math.abs(Math.log(candidate)) < Math.abs(Math.log(scale)))
+        ) {
+          bestError = error;
+          scale = candidate;
+        }
+      }
+      // Zero coverage can be the nearest attainable result; tied minima prefer no rescale.
+      if (target < bestError) scale = 0;
+      if (scale !== 1)
+        for (let i = 3; i < data.length; i += 4)
+          data[i] = Math.min(255, Math.round(data[i] * scale));
+    }
   }
   return levels;
 }

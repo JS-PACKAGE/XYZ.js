@@ -1639,3 +1639,42 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
   停止 light animation、開六面 environment，實際畫面正常、page errors為0。
   PBR公開input仍明示原 textureSampler member，避免 declaration contract 遺失；
   runtime只在base驗證一次。版本仍1.16.0，沒有release／push。
+
+## P121 — specular／MASK anti-aliasing（2026-10-06，未發佈 source）
+
+- `specularAntiAliasing` finite0–1／default0，base＋clearcoat獨立four-point
+  normal-footprint moments與surface derivatives，在GGX alpha squared加入有界variance。
+  Flat normal opt-in／off實際GPU／GL像素差0；不是TAA、normal mip生成或path-tracer證明。
+- Native八個移動pose：GPU base relative RGB motion **0.480314→0.230390**，
+  coat **0.359722→0.238623**；GL **0.480307→0.230398／0.359722→0.238625**。
+  **Absolute RGB motion反而增加**：GPU base635682→1223225、coat350724→570004；
+  GL635667→1223273／350721→570011。擴展高光的signal／area不同，不宣稱raw variance
+  降低、radiometric energy守恆或所有場景降低閃動。
+- MASK alpha-to-coverage要求明示0<cutoff<1、transmission0；default關閉。
+  真正GPU四sample pipeline／GL MSAA color＋depth target與opaque後resolve；
+  RGB-only coverage寫入保留opaque clear alpha。Shader與資產選項都有範圍拒絕，
+  single-sample shadow仍binary cutoff，default沒有新增AA採樣成本。
+- `smoke:material-aa` 六profile通過：GPU／GL sample4/4；
+  SDR／HDR diagonal GPU新增兩個intermediate levels、116pixels改變，
+  GL新增兩個levels、78pixels改變。Weighted／HDR＋shadow3draws＋2D overlay2draws
+  實跑並確認output alpha全255、白overlay不受coverage state污染；
+  reflection capture分別346／637half-float RGB channels改變、無NaN／Infinity。
+  停用AA兩backend回報1/1並明確報錯；Canvas只回報1/1、沒有3D認證。
+  Controlled真GL缺float extension回報4/1，RGBA8 AA成功；其暗色linear8-bit精度
+  造成background byte6→0，不宣稱exact HDR色彩parity；明示HDR仍明確報錯。
+- Asset profile v2明示 `alphaCoverageCutoff`；RGBA alpha histogram在完整mips完成後
+  做closest-coverage scaling，RGB／base／source ownership不變。
+  真實CLI產生7files／4725bytes、manifest SHA256
+  `64921cfe25b4378f833fb27b88e4da0b88967c6b411b0acdb8e61b92ac7cfaf6`；
+  KTX2 cutoff0.8結果9/16→3/4→1/1，低層alpha204、visible RGB仍255/48/16。
+  Tied-alpha／quantization／1px不能精確保留，normal／opaque semantics禁止。
+  NativeTexture consumer regression亦通過；未新增lossy codec認證。
+- Frozen install、build、typecheck、完整143files／1181tests、lint、format通過。
+  P119 tangent及P120 filtering native regressions通過。v1.12.1 structural API
+  737exports／2810contracts、710historical namespaces／5consumers、
+  source＋built-root tree-shaking、exact package／installed ESM＋CJS gate通過。
+  八份文件467relative link destinations無missing path。
+- Owned Chromium153.0.8010.12、darwin/arm64 desktop automation，**不是physical
+  device／Safari／mobile資格**。另在owned interactive WebGPU HDR surface實際切換
+  coverage並檢視512×512canvas，page errors0；已關閉與釋放owned resources。
+  Package維持1.16.0，不push、不release；既有歷史驗收日期／測試數保留。

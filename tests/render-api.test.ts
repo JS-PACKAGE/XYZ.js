@@ -158,6 +158,13 @@ describe('render input validation', () => {
         mipmapFilter: 'nearest' as const,
       },
     },
+    { specularAntiAliasing: -0.1 },
+    { specularAntiAliasing: 1.1 },
+    { specularAntiAliasing: NaN },
+    { alphaToCoverage: true, alphaMode: 'OPAQUE' as const, alphaCutoff: 0.5 },
+    { alphaToCoverage: true, alphaMode: 'MASK' as const, alphaCutoff: 0 },
+    { alphaToCoverage: true, alphaMode: 'MASK' as const, alphaCutoff: 1 },
+    { alphaToCoverage: true, alphaCutoff: 0.5, transmission: 0.2 },
   ])('rejects invalid PBR factors %j', (options) => {
     expect(() => new PBRMaterial({ texture: texture(), ...options })).toThrow(
       RangeError,

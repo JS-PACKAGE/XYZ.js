@@ -103,7 +103,7 @@ var WebGL2Renderer = class {
 	depthWidth = 0;
 	depthHeight = 0;
 	depthMode = -1;
-	isColorBlended = (e) => (this.visibility.entries.get(e)?.fade ?? 1) < 1 || require_draw_order.isBlended(e);
+	isColorBlended = (e) => e.material instanceof require_pbr_material.PBRMaterial && e.material.alphaToCoverage ? !1 : (this.visibility.entries.get(e)?.fade ?? 1) < 1 || require_draw_order.isBlended(e);
 	drawSorter = new require_draw_order.DrawSorter();
 	stats = new require_render_stats.FrameStats();
 	gpuTimingEnabled;
@@ -117,11 +117,11 @@ var WebGL2Renderer = class {
 		if (this.capturingProbe) throw new require_errors.GraphicsError(`A reflection capture is already active.`);
 		if (this.activeFrame && this.frameRendered) throw new require_errors.GraphicsError(`Capture must precede rendering or follow endFrame.`);
 		if (!this.floatColorBuffer) throw new require_errors.GraphicsError(`Reflection capture requires EXT_color_buffer_float.`);
-		let { size: i } = require_reflection_capture.captureConfiguration(t, n), a = this.postTarget, o = this.refractionTarget, s = r.getParameter(r.FRAMEBUFFER_BINDING), c = r.getParameter(r.VIEWPORT), l = this.linear3D, u = this.hasTransmission, d = this.weighted, f = this.createTarget(i, i, !1, `hdr`, `texture`), p = [];
+		let { size: i } = require_reflection_capture.captureConfiguration(t, n), a = this.postTarget, o = this.refractionTarget, s = r.getParameter(r.FRAMEBUFFER_BINDING), c = r.getParameter(r.VIEWPORT), l = this.linear3D, u = this.hasTransmission, d = this.weighted, f = this.coverageActive, p = this.createTarget(i, i, !1, `hdr`, `texture`), m = [];
 		this.capturingProbe = !0;
 		try {
-			return this.postTarget = f, this.refractionTarget = void 0, require_reflection_capture.encodeProbeFaces(e, t, n, () => {
-				this.collectMeshes(e, 1, i), this.linear3D = !0, e.lightSelection.update(e), this.atlas.update(e, 1), r.bindBuffer(r.UNIFORM_BUFFER, this.shadowBuffer), r.bufferSubData(r.UNIFORM_BUFFER, 0, this.atlas.data), e.shadows.enabled && this.drawShadows(e), this.hasTransmission && this.prepareRefractionTarget(i, i), this.weighted && this.prepareOIT(i, i), r.bindFramebuffer(r.FRAMEBUFFER, f.framebuffer), r.disable(r.SCISSOR_TEST), r.viewport(0, 0, i, i), r.clearColor(0, 0, 0, 1), r.depthMask(!0), r.clearDepth(1), r.clear(r.COLOR_BUFFER_BIT | r.DEPTH_BUFFER_BIT), r.enable(r.BLEND), r.blendFunc(r.ONE, r.ONE_MINUS_SRC_ALPHA), this.drawMeshes(e, 1), r.bindFramebuffer(r.FRAMEBUFFER, f.framebuffer);
+			return this.postTarget = p, this.refractionTarget = void 0, require_reflection_capture.encodeProbeFaces(e, t, n, () => {
+				this.collectMeshes(e, 1, i), this.linear3D = !0, e.lightSelection.update(e), this.atlas.update(e, 1), r.bindBuffer(r.UNIFORM_BUFFER, this.shadowBuffer), r.bufferSubData(r.UNIFORM_BUFFER, 0, this.atlas.data), e.shadows.enabled && this.drawShadows(e), this.hasTransmission && this.prepareRefractionTarget(i, i), this.weighted && this.prepareOIT(i, i), r.bindFramebuffer(r.FRAMEBUFFER, p.framebuffer), r.disable(r.SCISSOR_TEST), r.viewport(0, 0, i, i), r.clearColor(0, 0, 0, 1), r.depthMask(!0), r.clearDepth(1), this.coverageActive || r.clear(r.COLOR_BUFFER_BIT | r.DEPTH_BUFFER_BIT), r.enable(r.BLEND), r.blendFunc(r.ONE, r.ONE_MINUS_SRC_ALPHA), this.drawMeshes(e, 1), r.bindFramebuffer(r.FRAMEBUFFER, p.framebuffer);
 				let t = r.getParameter(r.IMPLEMENTATION_COLOR_READ_TYPE);
 				if (r.getParameter(r.IMPLEMENTATION_COLOR_READ_FORMAT) !== r.RGBA || t !== r.FLOAT && t !== r.HALF_FLOAT) throw new require_errors.GraphicsError(`Native HDR reflection readback is unsupported by this context.`);
 				let n = t === r.FLOAT ? new Float32Array(i * i * 4) : new Uint16Array(i * i * 4);
@@ -131,10 +131,10 @@ var WebGL2Renderer = class {
 					let s = n[(i - e - 1) * i * 4 + o];
 					a[e * i * 4 + o] = Math.max(0, t === r.FLOAT ? s : require_reflection_capture.halfFloat(s));
 				}
-				p.push(a);
-			}), this.requireGL(), require_reflection_capture.capturedEnvironment(i, p, n.signal);
+				m.push(a);
+			}), this.requireGL(), require_reflection_capture.capturedEnvironment(i, m, n.signal);
 		} finally {
-			this.deleteTarget(f), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.postTarget = a, this.refractionTarget = o, this.linear3D = l, this.hasTransmission = u, this.weighted = d, this.capturingProbe = !1, this.occlusion?.clear(), r.bindFramebuffer(r.FRAMEBUFFER, s), r.viewport(c[0], c[1], c[2], c[3]);
+			this.deleteTarget(p), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.postTarget = a, this.refractionTarget = o, this.linear3D = l, this.hasTransmission = u, this.weighted = d, this.coverageActive = f, this.capturingProbe = !1, this.occlusion?.clear(), r.bindFramebuffer(r.FRAMEBUFFER, s), r.viewport(c[0], c[1], c[2], c[3]);
 		}
 	}
 	configureResidency(e) {
@@ -257,6 +257,12 @@ var WebGL2Renderer = class {
 	oitProgram;
 	shadowTarget;
 	postTarget;
+	coverageTarget;
+	coverageActive = !1;
+	coverageCapabilities = Object.freeze({
+		rgba8Samples: 1,
+		hdrSamples: 1
+	});
 	fxaaProgram;
 	fxaaTarget;
 	floatColorBuffer = !1;
@@ -280,7 +286,8 @@ var WebGL2Renderer = class {
 			instancing: !0,
 			maxTextureSize: this.maxTextureSize,
 			supportedTextureFormats: this.supportedTextureFormats,
-			textureAnisotropy: this.textureAnisotropy
+			textureAnisotropy: this.textureAnisotropy,
+			alphaToCoverage: this.coverageCapabilities
 		};
 	}
 	onContextLost = (e) => {
@@ -307,7 +314,20 @@ var WebGL2Renderer = class {
 				maxEffective: this.maxTextureAnisotropy
 			});
 			let r = n.getParameter(n.MAX_RENDERBUFFER_SIZE), i = n.getParameter(n.MAX_VIEWPORT_DIMS);
-			if (this.maxWidth = Math.min(this.maxTextureSize, r, i[0]), this.maxHeight = Math.min(this.maxTextureSize, r, i[1]), this.floatColorBuffer = n.getExtension(`EXT_color_buffer_float`) !== null, this.supportedTextureFormats = require_native_texture_upload.webglTextureFormats(n), this.resize(Math.max(t.width, 1), Math.max(t.height, 1)), this.triangleProgram = this.createProgram(n, `#version 300 es
+			this.maxWidth = Math.min(this.maxTextureSize, r, i[0]), this.maxHeight = Math.min(this.maxTextureSize, r, i[1]), this.floatColorBuffer = n.getExtension(`EXT_color_buffer_float`) !== null;
+			let a = 1, o = 1;
+			if (this.antialias) {
+				let e = n.getInternalformatParameter(n.RENDERBUFFER, n.DEPTH_COMPONENT24, n.SAMPLES), t = n.getInternalformatParameter(n.RENDERBUFFER, n.RGBA8, n.SAMPLES);
+				for (let n of t) n <= require_rendering.materialQuality.samples && n > a && e.includes(n) && (a = n);
+				if (this.floatColorBuffer) {
+					let t = n.getInternalformatParameter(n.RENDERBUFFER, n.RGBA16F, n.SAMPLES);
+					for (let n of t) n <= require_rendering.materialQuality.samples && n > o && e.includes(n) && (o = n);
+				}
+			}
+			if (this.coverageCapabilities = Object.freeze({
+				rgba8Samples: a,
+				hdrSamples: o
+			}), this.supportedTextureFormats = require_native_texture_upload.webglTextureFormats(n), this.resize(Math.max(t.width, 1), Math.max(t.height, 1)), this.triangleProgram = this.createProgram(n, `#version 300 es
 precision highp float;
 out vec3 vColor;
 void main() {
@@ -550,7 +570,12 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			} else this.effectTarget && this.deleteTarget(this.effectTarget), this.effectTarget = void 0;
 			d ? this.sceneTarget ??= this.createTarget(o.width, o.height, !1, `rgba8`, !0) : this.sceneTarget &&= (this.deleteTarget(this.sceneTarget), void 0);
 			let f = d ? this.sceneTarget.framebuffer : r?.framebuffer ?? null;
-			this.hasTransmission = this.linear3D = this.weighted = !1, e ? (require_render2d_contract.collectRenderCommands2D(e, s, c, this.commands), this.render2D.preflight(this.commands, e, s, c, Math.max(o.width / s, o.height / c))) : this.commands.clear(), e?.has3DContent ? (require_render_data.validateRenderSettings(e), this.capturingProbe || this.probeCaptures.schedule(e, (t) => this.captureReflectionProbe(e, t), (e) => this.onError(e instanceof require_errors.GraphicsError ? e : new require_errors.GraphicsError(`Automatic reflection capture failed.`, { cause: e }))), this.collectMeshes(e, s / c, c), this.linear3D = e.postProcessing.enabled || this.hasTransmission || this.weighted, e.lightSelection.update(e), this.atlas.update(e, s / c), a.bindBuffer(a.UNIFORM_BUFFER, this.shadowBuffer), a.bufferSubData(a.UNIFORM_BUFFER, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), e.shadows.enabled ? this.drawShadows(e) : this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.linear3D ? this.preparePostTarget(o.width, o.height) : this.postTarget &&= (this.releaseOIT(), this.deleteTarget(this.postTarget), void 0), !e.postProcessing.enabled && this.fxaaTarget && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), this.hasTransmission ? this.prepareRefractionTarget(o.width, o.height) : this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0)) : (this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0)), this.weighted ? this.prepareOIT(o.width, o.height) : this.releaseOIT(), a.bindFramebuffer(a.FRAMEBUFFER, this.linear3D ? this.postTarget.framebuffer : f), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o.width, o.height), a.clearColor(this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.r) : require_defaults.defaults.clearColor.r, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.g) : require_defaults.defaults.clearColor.g, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.b) : require_defaults.defaults.clearColor.b, require_defaults.defaults.clearColor.a), a.depthMask(!0), a.clearDepth(1), a.clear(a.COLOR_BUFFER_BIT | a.DEPTH_BUFFER_BIT), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), e ? (e.has3DContent && this.drawMeshes(e, s / c), a.disable(a.DEPTH_TEST), this.linear3D && this.drawPost(e, f), d && this.drawEffects2D(n, s, c, r?.framebuffer ?? null, this.sceneTarget, this.effectTarget, !0), a.activeTexture(a.TEXTURE0), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), a.disable(a.CULL_FACE), a.bindFramebuffer(a.FRAMEBUFFER, this.layerTarget.framebuffer), a.viewport(0, 0, o.width, o.height), a.clearColor(0, 0, 0, 0), a.clear(a.COLOR_BUFFER_BIT), this.render2D.draw(this.commands, e, this.layerTarget, s, c), t?.length ? this.drawEffects2D(t, s, c, r?.framebuffer ?? null) : this.drawComposite(this.layerTarget.texture, r?.framebuffer ?? null)) : (a.disable(a.DEPTH_TEST), a.disable(a.BLEND), a.viewport(this.viewportX, this.viewportY, this.viewportSide, this.viewportSide), a.useProgram(this.triangleProgram), a.bindVertexArray(this.triangleVAO), a.drawArrays(a.TRIANGLES, 0, 3)), l && this.graphs.encode(l, u?.framebuffer ?? null), i && this.drawComposite(u.texture, null, i), this.frameRendered = !0;
+			if (this.hasTransmission = this.linear3D = this.weighted = this.coverageActive = !1, e ? (require_render2d_contract.collectRenderCommands2D(e, s, c, this.commands), this.render2D.preflight(this.commands, e, s, c, Math.max(o.width / s, o.height / c))) : this.commands.clear(), e?.has3DContent) {
+				require_render_data.validateRenderSettings(e), this.capturingProbe || this.probeCaptures.schedule(e, (t) => this.captureReflectionProbe(e, t), (e) => this.onError(e instanceof require_errors.GraphicsError ? e : new require_errors.GraphicsError(`Automatic reflection capture failed.`, { cause: e }))), this.collectMeshes(e, s / c, c);
+				let t = e.postProcessing.enabled || this.hasTransmission || this.weighted;
+				this.linear3D = t || this.coverageActive, e.lightSelection.update(e), this.atlas.update(e, s / c), a.bindBuffer(a.UNIFORM_BUFFER, this.shadowBuffer), a.bufferSubData(a.UNIFORM_BUFFER, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), e.shadows.enabled ? this.drawShadows(e) : this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.linear3D ? this.preparePostTarget(o.width, o.height, t || this.coverageCapabilities.hdrSamples > 1 ? `hdr` : `rgba8`) : this.postTarget &&= (this.releaseOIT(), this.deleteTarget(this.postTarget), void 0), !e.postProcessing.enabled && this.fxaaTarget && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), this.hasTransmission ? this.prepareRefractionTarget(o.width, o.height) : this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
+			} else this.releaseCoverageTarget(), this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
+			this.weighted ? this.prepareOIT(o.width, o.height) : this.releaseOIT(), a.bindFramebuffer(a.FRAMEBUFFER, this.linear3D ? this.postTarget.framebuffer : f), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o.width, o.height), a.clearColor(this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.r) : require_defaults.defaults.clearColor.r, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.g) : require_defaults.defaults.clearColor.g, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.b) : require_defaults.defaults.clearColor.b, require_defaults.defaults.clearColor.a), a.depthMask(!0), a.clearDepth(1), this.coverageActive || a.clear(a.COLOR_BUFFER_BIT | a.DEPTH_BUFFER_BIT), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), e ? (e.has3DContent && this.drawMeshes(e, s / c), a.disable(a.DEPTH_TEST), this.linear3D && this.drawPost(e, f), d && this.drawEffects2D(n, s, c, r?.framebuffer ?? null, this.sceneTarget, this.effectTarget, !0), a.activeTexture(a.TEXTURE0), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), a.disable(a.CULL_FACE), a.bindFramebuffer(a.FRAMEBUFFER, this.layerTarget.framebuffer), a.viewport(0, 0, o.width, o.height), a.clearColor(0, 0, 0, 0), a.clear(a.COLOR_BUFFER_BIT), this.render2D.draw(this.commands, e, this.layerTarget, s, c), t?.length ? this.drawEffects2D(t, s, c, r?.framebuffer ?? null) : this.drawComposite(this.layerTarget.texture, r?.framebuffer ?? null)) : (a.disable(a.DEPTH_TEST), a.disable(a.BLEND), a.viewport(this.viewportX, this.viewportY, this.viewportSide, this.viewportSide), a.useProgram(this.triangleProgram), a.bindVertexArray(this.triangleVAO), a.drawArrays(a.TRIANGLES, 0, 3)), l && this.graphs.encode(l, u?.framebuffer ?? null), i && this.drawComposite(u.texture, null, i), this.frameRendered = !0;
 		} finally {
 			this.frameRendered || this.temporalState.invalidate(), this.releaseUnused(), a.bindFramebuffer(a.FRAMEBUFFER, null), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null), a.bindVertexArray(null), a.bindTexture(a.TEXTURE_2D, null), a.useProgram(null), a.depthMask(!0), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.viewport(0, 0, o.width, o.height);
 		}
@@ -567,7 +592,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 0 || t < 0) throw RangeError(`WebGL2 canvas pixel width and height must be finite, nonnegative numbers.`);
 		let r = Math.max(1, Math.round(e)), i = Math.max(1, Math.round(t));
 		if (!Number.isSafeInteger(r) || !Number.isSafeInteger(i) || r > this.maxWidth || i > this.maxHeight) throw new require_errors.GraphicsError(`WebGL2 canvas backing size ${r}×${i} exceeds this device's maximum dimensions of ${this.maxWidth}×${this.maxHeight} pixels. Reduce the canvas size or pixel ratio.`);
-		this.postTarget && (this.postTarget.width !== r || this.postTarget.height !== i) && (this.releaseOIT(), this.deleteTarget(this.postTarget), this.postTarget = void 0), this.refractionTarget && (this.refractionTarget.width !== r || this.refractionTarget.height !== i) && (this.deleteTarget(this.refractionTarget), this.refractionTarget = void 0), this.fxaaTarget && (this.fxaaTarget.width !== r || this.fxaaTarget.height !== i) && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), (n.width !== r || n.height !== i) && (this.frameTarget && this.deleteTarget(this.frameTarget), this.layerTarget && this.deleteTarget(this.layerTarget), this.effectTarget && this.deleteTarget(this.effectTarget), this.sceneTarget && this.deleteTarget(this.sceneTarget), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0), n.width !== r && (n.width = r), n.height !== i && (n.height = i), this.temporal?.resize(r, i);
+		this.postTarget && (this.postTarget.width !== r || this.postTarget.height !== i) && (this.releaseOIT(), this.releaseCoverageTarget(), this.deleteTarget(this.postTarget), this.postTarget = void 0), this.refractionTarget && (this.refractionTarget.width !== r || this.refractionTarget.height !== i) && (this.deleteTarget(this.refractionTarget), this.refractionTarget = void 0), this.fxaaTarget && (this.fxaaTarget.width !== r || this.fxaaTarget.height !== i) && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), (n.width !== r || n.height !== i) && (this.frameTarget && this.deleteTarget(this.frameTarget), this.layerTarget && this.deleteTarget(this.layerTarget), this.effectTarget && this.deleteTarget(this.effectTarget), this.sceneTarget && this.deleteTarget(this.sceneTarget), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0), n.width !== r && (n.width = r), n.height !== i && (n.height = i), this.temporal?.resize(r, i);
 		let a = Math.min(r, i);
 		this.viewportX = (r - a) / 2, this.viewportY = (i - a) / 2, this.viewportSide = a;
 	}
@@ -593,6 +618,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		r.drawArrays(r.TRIANGLES, 0, 3), this.stats.pass2D(), this.stats.draw2D(), r.bindTexture(r.TEXTURE_2D, null), r.activeTexture(r.TEXTURE0);
 	}
 	collectMeshes(e, n, r) {
+		this.coverageActive = !1;
 		let i = this.gl, a = this.canvas, o = +!!e.postProcessing.enabled | (e.transparency === `weighted` ? 2 : 0);
 		if ((this.depthWidth !== a.width || this.depthHeight !== a.height || this.depthMode !== o) && (this.depthWidth = a.width, this.depthHeight = a.height, this.depthMode = o, ++this.depthRevision), e.renderMeshes) for (let n of e.renderMeshes) {
 			!this.occlusion && n.occlusionCulled && (this.occlusion = new require_webgl_occlusion.WebGLOcclusionBackend(i));
@@ -604,8 +630,8 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		s.viewportHeight = r, s.timeSeconds = e.presentationTime, s.depthRevision = this.depthRevision, s.occlusion = this.occlusion, this.visibilityCache.collect(e, e.camera3D, this.frustum, this.visibility, s);
 		let l = this.visibility.color;
 		this.stats.meshes = this.visibility.color.length + this.visibility.frustumCulled + this.visibility.occlusionCulled, this.stats.culled = this.visibility.frustumCulled + this.visibility.occlusionCulled;
-		for (let t of l) e.transparency === `weighted` && this.isColorBlended(t) && (this.weighted = !0), t.material instanceof require_pbr_material.PBRMaterial && (this.cacheOpticalMaps(t.material), t.material.transmission > 0 && (this.hasTransmission = !0));
-		e.transparency === `sorted` && this.drawSorter.sort(l, e.camera3D.position, this.isColorBlended);
+		for (let t of l) e.transparency === `weighted` && this.isColorBlended(t) && (this.weighted = !0), t.material instanceof require_pbr_material.PBRMaterial && (t.material.alphaToCoverage && (this.coverageActive = !0), this.cacheOpticalMaps(t.material), t.material.transmission > 0 && (this.hasTransmission = !0));
+		this.coverageActive || this.releaseCoverageTarget(), e.transparency === `sorted` && this.drawSorter.sort(l, e.camera3D.position, this.isColorBlended);
 	}
 	cacheOpticalMaps(e) {
 		let t = require_pbr_material.pbrTextureSources(e).transmissionTexture, n = require_pbr_material.pbrTextureSources(e).thicknessTexture;
@@ -647,7 +673,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 	}
 	drawMeshes(e, r) {
 		let i = this.gl;
-		if (this.ensureProbeEnvironment(e), this.temporalActive = !this.capturingProbe && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr), this.temporalActive) {
+		if (this.ensureProbeEnvironment(e), this.coverageActive) {
+			let e = this.postTarget;
+			this.prepareCoverageTarget(e.width, e.height, e.format), i.bindFramebuffer(i.FRAMEBUFFER, this.coverageTarget.framebuffer), i.colorMask(!0, !0, !0, !0), i.clear(i.COLOR_BUFFER_BIT | i.DEPTH_BUFFER_BIT);
+		}
+		if (this.temporalActive = !this.capturingProbe && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr), this.temporalActive) {
 			if (!this.floatColorBuffer || !this.postTarget?.depthTexture) throw new require_errors.GraphicsError(`TAA/SSR require native HDR color and sampleable opaque depth.`);
 			this.temporal ??= new require_webgl_temporal_pipeline.WebGLTemporalPipeline(i, this.stats), this.temporalState.begin(e, e.camera3D, this.postTarget.width, this.postTarget.height, e.postProcessing, r);
 		} else this.temporal?.releaseTarget(), this.temporalState.invalidate();
@@ -665,7 +695,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				let u = this.isColorBlended(s);
 				if (this.weighted && u !== o > 0 || !o && (u || s.material instanceof require_pbr_material.PBRMaterial && s.material.transmission > 0) !== (r === 1)) continue;
 				let f = s.material, m = f instanceof require_pbr_material.PBRMaterial;
-				if (f instanceof require_native_material3d.NativeMaterial3D) {
+				if (m && f.alphaToCoverage ? (i.enable(i.SAMPLE_ALPHA_TO_COVERAGE), i.disable(i.BLEND), i.colorMask(!0, !0, !0, !1)) : (i.disable(i.SAMPLE_ALPHA_TO_COVERAGE), i.enable(i.BLEND), i.colorMask(!0, !0, !0, !0)), f instanceof require_native_material3d.NativeMaterial3D) {
 					let e = this.nativeMaterials.get(f);
 					if (!e || f.destroyed) throw new require_errors.GraphicsError(`Visible NativeMaterial3D must be explicitly prepared before rendering.`);
 					f.validate(), a = e.uniforms, i.useProgram(e.program), i.uniform4fv(a[`xyzUniforms[0]`], f.uniforms);
@@ -678,11 +708,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				}
 				i.uniform1i(a.pbr, +!!m), i.uniform1i(a.doubleSided, m && !f.doubleSided ? 0 : 1), i.uniform1i(a.alphaMode, m ? f.alphaMode === `OPAQUE` ? 0 : f.alphaMode === `MASK` ? 1 : 2 : 2);
 				let _ = this.tintData;
-				_[0] = f.color[0], _[1] = f.color[1], _[2] = f.color[2], _[3] = f.opacity, i.uniform4fv(a.tint, _), i.uniform1i(a.receiveShadow, +!!s.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(f), 0, f.textureSampler), m && (i.uniform4f(a.transmission, f.transmission, f.thickness, 1 / f.attenuationDistance, f.ior), i.uniform3f(a.attenuationColor, f.attenuationColor[0], f.attenuationColor[1], f.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, require_pbr_material.pbrTextureSources(f).transmissionTexture, f.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, require_pbr_material.pbrTextureSources(f).thicknessTexture, f.thicknessSampler, this.maxTextureAnisotropy), i.uniform4f(a.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), i.uniform4f(a.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), i.activeTexture(i.TEXTURE0 + 14), i.bindSampler(14, null), i.bindTexture(i.TEXTURE_2D_ARRAY, this.opticalTextures.get(f)?.resource ?? this.emptyOptical), i.uniform4f(a.specularColor, f.specularColor[0], f.specularColor[1], f.specularColor[2], f.ior === 0 ? 1 : ((f.ior - 1) / (f.ior + 1)) ** 2), i.uniform4f(a.specularParams, f.specular, +(f.ior === 0), +!!require_pbr_material.pbrTextureSources(f).specularTexture, +!!require_pbr_material.pbrTextureSources(f).specularColorTexture), i.uniform1i(a.specularMap, 7), i.uniform1i(a.specularColorMap, 8), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).specularTexture ?? require_mesh.materialBaseTexture(f), 7, f.specularSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).specularColorTexture ?? require_mesh.materialBaseTexture(f), 8, f.specularColorSampler), i.uniform4f(a.clearcoat, f.clearcoat, f.clearcoatRoughness, f.clearcoatNormalScale, 0), i.uniform4f(a.clearcoatMaps, +!!require_pbr_material.pbrTextureSources(f).clearcoatTexture, +!!require_pbr_material.pbrTextureSources(f).clearcoatRoughnessTexture, +!!require_pbr_material.pbrTextureSources(f).clearcoatNormalTexture, 0), i.uniform1i(a.clearcoatMap, 9), i.uniform1i(a.clearcoatRoughnessMap, 10), i.uniform1i(a.clearcoatNormalMap, 11), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatTexture ?? require_mesh.materialBaseTexture(f), 9, f.clearcoatSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(f), 10, f.clearcoatRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatNormalTexture ?? require_mesh.materialBaseTexture(f), 11, f.clearcoatNormalSampler), i.uniform4f(a.sheen, f.sheenColor[0], f.sheenColor[1], f.sheenColor[2], f.sheenRoughness), i.uniform4f(a.sheenMaps, +!!require_pbr_material.pbrTextureSources(f).sheenColorTexture, +!!require_pbr_material.pbrTextureSources(f).sheenRoughnessTexture, 0, 0), i.uniform1i(a.sheenColorMap, 12), i.uniform1i(a.sheenRoughnessMap, 13), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).sheenColorTexture ?? require_mesh.materialBaseTexture(f), 12, f.sheenColorSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).sheenRoughnessTexture ?? require_mesh.materialBaseTexture(f), 13, f.sheenRoughnessSampler), i.uniform4f(a.surface, f.metallic, f.roughness, f.normalScale, f.occlusionStrength), i.uniform4f(a.emission, f.emissive[0], f.emissive[1], f.emissive[2], f.alphaCutoff), i.uniform4i(a.maps, +!!require_pbr_material.pbrTextureSources(f).metallicRoughnessTexture, +!!require_pbr_material.pbrTextureSources(f).normalTexture, +!!require_pbr_material.pbrTextureSources(f).occlusionTexture, +!!require_pbr_material.pbrTextureSources(f).emissiveTexture), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).metallicRoughnessTexture ?? require_mesh.materialBaseTexture(f), 1, f.metallicRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).normalTexture ?? require_mesh.materialBaseTexture(f), 2, f.normalSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).occlusionTexture ?? require_mesh.materialBaseTexture(f), 3, f.occlusionSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).emissiveTexture ?? require_mesh.materialBaseTexture(f), 4, f.emissiveSampler));
+				_[0] = f.color[0], _[1] = f.color[1], _[2] = f.color[2], _[3] = f.opacity, i.uniform4fv(a.tint, _), i.uniform1i(a.receiveShadow, +!!s.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(f), 0, f.textureSampler), m && (i.uniform4f(a.transmission, f.transmission, f.thickness, 1 / f.attenuationDistance, f.ior), i.uniform3f(a.attenuationColor, f.attenuationColor[0], f.attenuationColor[1], f.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, require_pbr_material.pbrTextureSources(f).transmissionTexture, f.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, require_pbr_material.pbrTextureSources(f).thicknessTexture, f.thicknessSampler, this.maxTextureAnisotropy), i.uniform4f(a.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), i.uniform4f(a.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), i.activeTexture(i.TEXTURE0 + 14), i.bindSampler(14, null), i.bindTexture(i.TEXTURE_2D_ARRAY, this.opticalTextures.get(f)?.resource ?? this.emptyOptical), i.uniform4f(a.specularColor, f.specularColor[0], f.specularColor[1], f.specularColor[2], f.ior === 0 ? 1 : ((f.ior - 1) / (f.ior + 1)) ** 2), i.uniform4f(a.specularParams, f.specular, +(f.ior === 0), +!!require_pbr_material.pbrTextureSources(f).specularTexture, +!!require_pbr_material.pbrTextureSources(f).specularColorTexture), i.uniform1i(a.specularMap, 7), i.uniform1i(a.specularColorMap, 8), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).specularTexture ?? require_mesh.materialBaseTexture(f), 7, f.specularSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).specularColorTexture ?? require_mesh.materialBaseTexture(f), 8, f.specularColorSampler), i.uniform4f(a.clearcoat, f.clearcoat, f.clearcoatRoughness, f.clearcoatNormalScale, 0), i.uniform4f(a.clearcoatMaps, +!!require_pbr_material.pbrTextureSources(f).clearcoatTexture, +!!require_pbr_material.pbrTextureSources(f).clearcoatRoughnessTexture, +!!require_pbr_material.pbrTextureSources(f).clearcoatNormalTexture, 0), i.uniform1i(a.clearcoatMap, 9), i.uniform1i(a.clearcoatRoughnessMap, 10), i.uniform1i(a.clearcoatNormalMap, 11), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatTexture ?? require_mesh.materialBaseTexture(f), 9, f.clearcoatSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(f), 10, f.clearcoatRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).clearcoatNormalTexture ?? require_mesh.materialBaseTexture(f), 11, f.clearcoatNormalSampler), i.uniform4f(a.sheen, f.sheenColor[0], f.sheenColor[1], f.sheenColor[2], f.sheenRoughness), i.uniform4f(a.sheenMaps, +!!require_pbr_material.pbrTextureSources(f).sheenColorTexture, +!!require_pbr_material.pbrTextureSources(f).sheenRoughnessTexture, f.specularAntiAliasing, +!!f.alphaToCoverage), i.uniform1i(a.sheenColorMap, 12), i.uniform1i(a.sheenRoughnessMap, 13), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).sheenColorTexture ?? require_mesh.materialBaseTexture(f), 12, f.sheenColorSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).sheenRoughnessTexture ?? require_mesh.materialBaseTexture(f), 13, f.sheenRoughnessSampler), i.uniform4f(a.surface, f.metallic, f.roughness, f.normalScale, f.occlusionStrength), i.uniform4f(a.emission, f.emissive[0], f.emissive[1], f.emissive[2], f.alphaCutoff), i.uniform4i(a.maps, +!!require_pbr_material.pbrTextureSources(f).metallicRoughnessTexture, +!!require_pbr_material.pbrTextureSources(f).normalTexture, +!!require_pbr_material.pbrTextureSources(f).occlusionTexture, +!!require_pbr_material.pbrTextureSources(f).emissiveTexture), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).metallicRoughnessTexture ?? require_mesh.materialBaseTexture(f), 1, f.metallicRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).normalTexture ?? require_mesh.materialBaseTexture(f), 2, f.normalSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).occlusionTexture ?? require_mesh.materialBaseTexture(f), 3, f.occlusionSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(f).emissiveTexture ?? require_mesh.materialBaseTexture(f), 4, f.emissiveSampler));
 				let v = this.visibility.entries.get(s)?.instances;
 				this.drawMesh(s, a, v), this.stats.draw(s.geometry.indices.length, v?.count ?? (s instanceof require_instanced_mesh.InstancedMesh ? s.count : 1));
 			}
-			if (r === 0 && this.occlusion?.draw(this.visibility.occlusionCandidates, this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix), r === 0 && this.temporalActive && e.postProcessing.ssr) {
+			if (i.disable(i.SAMPLE_ALPHA_TO_COVERAGE), i.enable(i.BLEND), i.colorMask(!0, !0, !0, !0), r === 0 && this.occlusion?.draw(this.visibility.occlusionCandidates, this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix), r === 0 && this.coverageActive && (this.resolveCoverageTarget(), i.bindFramebuffer(i.FRAMEBUFFER, this.postTarget.framebuffer)), r === 0 && this.temporalActive && e.postProcessing.ssr) {
 				let t = this.temporal.applyOpaqueSSR(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, e.postProcessing);
 				this.temporal.blit(t, this.postTarget.framebuffer);
 			}
@@ -798,9 +828,44 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		}
 		r.disable(r.SCISSOR_TEST), this.shadowCache.commit();
 	}
-	preparePostTarget(e, t) {
-		if (!this.floatColorBuffer) throw new require_errors.GraphicsError(`WebGL2 ${this.weighted ? `weighted transparency` : `HDR rendering`} requires EXT_color_buffer_float.`);
-		(this.postTarget?.width !== e || this.postTarget.height !== t) && (this.releaseOIT(), this.postTarget && this.deleteTarget(this.postTarget), this.postTarget = void 0, this.postTarget = this.createTarget(e, t, !1, `hdr`, `texture`));
+	prepareCoverageTarget(e, t, n) {
+		let r = this.gl, i = n === `hdr` ? this.coverageCapabilities.hdrSamples : this.coverageCapabilities.rgba8Samples;
+		if (i < 2) throw new require_errors.GraphicsError(`WebGL2 ${n} alpha-to-coverage requires supported renderer antialiasing.`);
+		let a = this.coverageTarget;
+		if (a && a.width === e && a.height === t && a.format === n && a.samples === i) return;
+		this.releaseCoverageTarget();
+		let o = r.createFramebuffer(), s = r.createRenderbuffer(), c = r.createRenderbuffer();
+		try {
+			if (!o || !s || !c) throw new require_errors.GraphicsError(`WebGL2 coverage target allocation failed.`);
+			if (r.bindFramebuffer(r.FRAMEBUFFER, o), r.bindRenderbuffer(r.RENDERBUFFER, s), r.renderbufferStorageMultisample(r.RENDERBUFFER, i, n === `hdr` ? r.RGBA16F : r.RGBA8, e, t), r.framebufferRenderbuffer(r.FRAMEBUFFER, r.COLOR_ATTACHMENT0, r.RENDERBUFFER, s), r.bindRenderbuffer(r.RENDERBUFFER, c), r.renderbufferStorageMultisample(r.RENDERBUFFER, i, r.DEPTH_COMPONENT24, e, t), r.framebufferRenderbuffer(r.FRAMEBUFFER, r.DEPTH_ATTACHMENT, r.RENDERBUFFER, c), r.checkFramebufferStatus(r.FRAMEBUFFER) !== r.FRAMEBUFFER_COMPLETE) throw new require_errors.GraphicsError(`WebGL2 coverage framebuffer is incomplete.`);
+			this.coverageTarget = {
+				framebuffer: o,
+				color: s,
+				depth: c,
+				width: e,
+				height: t,
+				samples: i,
+				format: n
+			}, this.stats.target(e * t * i * (n === `hdr` ? 12 : 8));
+		} catch (e) {
+			throw o && r.deleteFramebuffer(o), s && r.deleteRenderbuffer(s), c && r.deleteRenderbuffer(c), e;
+		} finally {
+			r.bindFramebuffer(r.FRAMEBUFFER, null), r.bindRenderbuffer(r.RENDERBUFFER, null);
+		}
+	}
+	releaseCoverageTarget() {
+		let e = this.coverageTarget;
+		if (!e) return;
+		let t = this.gl;
+		t.deleteFramebuffer(e.framebuffer), t.deleteRenderbuffer(e.color), t.deleteRenderbuffer(e.depth), this.stats.target(-e.width * e.height * e.samples * (e.format === `hdr` ? 12 : 8)), this.coverageTarget = void 0;
+	}
+	resolveCoverageTarget() {
+		let e = this.coverageTarget, t = this.postTarget, n = this.gl;
+		n.bindFramebuffer(n.READ_FRAMEBUFFER, e.framebuffer), n.bindFramebuffer(n.DRAW_FRAMEBUFFER, t.framebuffer), n.blitFramebuffer(0, 0, e.width, e.height, 0, 0, e.width, e.height, n.COLOR_BUFFER_BIT | n.DEPTH_BUFFER_BIT, n.NEAREST), n.bindFramebuffer(n.FRAMEBUFFER, t.framebuffer);
+	}
+	preparePostTarget(e, t, n = `hdr`) {
+		if (n === `hdr` && !this.floatColorBuffer) throw new require_errors.GraphicsError(`WebGL2 ${this.weighted ? `weighted transparency` : `HDR rendering`} requires EXT_color_buffer_float.`);
+		(this.postTarget?.width !== e || this.postTarget.height !== t || this.postTarget.format !== n) && (this.releaseOIT(), this.postTarget && this.deleteTarget(this.postTarget), this.postTarget = void 0, this.postTarget = this.createTarget(e, t, !1, n, `texture`));
 	}
 	prepareRefractionTarget(e, t) {
 		(this.refractionTarget?.width !== e || this.refractionTarget.height !== t) && (this.refractionTarget && this.deleteTarget(this.refractionTarget), this.refractionTarget = void 0, this.refractionTarget = this.createTarget(e, t, !1, `hdr`, !1));
@@ -838,7 +903,8 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				...c ? { depth: c } : {},
 				...l ? { depthTexture: l } : {},
 				width: e,
-				height: t
+				height: t,
+				format: r
 			}, f = e * t * ((n ? 4 : r === `hdr` ? 8 : 4) + (c || l ? 4 : 0));
 			return this.targetBytes.set(d, f), this.stats.target(f), d;
 		} catch (e) {
@@ -1043,7 +1109,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		if (this.gpuTimer?.destroy(!!this.lostError), this.gpuTimer = void 0, this.occlusion?.destroy(), this.occlusion = void 0, this.particles3D?.destroy(), this.particles3D = void 0, this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, e) {
 			this.temporal?.destroy(), this.probeAllocation?.destroy();
 			for (let t of this.nativeMaterials.values()) t.unsubscribe(), e.deleteProgram(t.program), e.deleteProgram(t.shadow);
-			this.nativeMaterials.clear(), this.residency.clear(), this.preparedGeometry.clear(), this.releaseOIT(), this.oitProgram && e.deleteProgram(this.oitProgram), this.oitProgram = void 0, this.render2D?.destroy();
+			this.nativeMaterials.clear(), this.residency.clear(), this.preparedGeometry.clear(), this.releaseOIT(), this.releaseCoverageTarget(), this.oitProgram && e.deleteProgram(this.oitProgram), this.oitProgram = void 0, this.render2D?.destroy();
 			for (let e of this.snapshots.keys()) e.destroy();
 			for (let [t, n] of this.materials) t.removeEventListener(`destroy`, n.onDestroy), e.deleteProgram(n.program);
 			for (let [t, n] of this.processors) t.removeEventListener(`destroy`, n.onDestroy), e.deleteProgram(n.program);

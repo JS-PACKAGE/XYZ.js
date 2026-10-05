@@ -47,6 +47,11 @@ export interface TextureAnisotropyCapabilities {
     /** Effective engine ceiling from the driver; null when WebGPU cannot expose it. */
     readonly maxEffective: number | null;
 }
+export interface AlphaToCoverageCapabilities {
+    /** Available opt-in 3D coverage samples; one means unavailable. */
+    readonly rgba8Samples: number;
+    readonly hdrSamples: number;
+}
 export interface GraphicsCapabilities {
     readonly threeD: boolean;
     readonly compute: boolean;
@@ -57,6 +62,7 @@ export interface GraphicsCapabilities {
     readonly lighting2D?: boolean;
     /** Optional for existing 1.x renderer implementations. */
     readonly textureAnisotropy?: Readonly<TextureAnisotropyCapabilities>;
+    readonly alphaToCoverage?: Readonly<AlphaToCoverageCapabilities>;
     readonly maxTextureSize: number;
     readonly supportedTextureFormats: readonly NativeTextureFormat[];
 }

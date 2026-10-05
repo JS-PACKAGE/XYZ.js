@@ -6,7 +6,7 @@ import type { NativeTextureFormat } from '../../assets/src/native-texture.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { RenderTexture2D, RenderTextureOptions2D } from './render-texture2d.js';
-import type { Renderer } from './index.js';
+import type { AlphaToCoverageCapabilities, Renderer } from './index.js';
 import { type RenderStats, type GpuTimingOptions } from './render-stats.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
 import { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
@@ -55,6 +55,7 @@ export declare class WebGPURenderer implements Renderer {
             maxRequest: 16;
             maxEffective: null;
         }>;
+        alphaToCoverage: Readonly<AlphaToCoverageCapabilities> | undefined;
         maxTextureSize: number;
         supportedTextureFormats: readonly NativeTextureFormat[];
     };

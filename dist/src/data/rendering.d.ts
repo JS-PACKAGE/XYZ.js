@@ -6,6 +6,13 @@ export declare const nativeMaterial3DLimits: Readonly<{
     textures: 4;
     sourceCharacters: 65536;
 }>;
+/** Bounded opt-in material anti-aliasing, shared by both native shaders. */
+export declare const materialQuality: Readonly<{
+    samples: 4;
+    normalVarianceScale: 2;
+    maxNormalVariance: 0.18;
+    minAlphaFootprint: 0.0001;
+}>;
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
 export declare const materialTextureSlots: readonly ["texture", "metallicRoughness", "normal", "occlusion", "emissive", "specular", "specularColor", "clearcoat", "clearcoatRoughness", "clearcoatNormal", "sheenColor", "sheenRoughness", "transmission", "thickness"];
 export declare const MATERIAL_UV_FLOAT_COUNT: number;

@@ -3,6 +3,7 @@ const require_errors = require("./errors.cjs");
 const require_native_texture = require("../../assets/src/native-texture.cjs");
 const require_material2d = require("../../core/src/materials2d/material2d.cjs");
 const require_geometry2d = require("../../core/src/rendering2d/geometry2d.cjs");
+const require_rendering = require("../../../src/data/rendering.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_render2d_contract = require("./render2d-contract.cjs");
 const require_render_stats = require("./render-stats.cjs");
@@ -118,6 +119,7 @@ var WebGPURenderer = class {
 			maxRequest: 16,
 			maxEffective: null
 		}),
+		alphaToCoverage: void 0,
 		maxTextureSize: 0,
 		supportedTextureFormats: []
 	};
@@ -166,7 +168,12 @@ var WebGPURenderer = class {
 		}
 	};
 	constructor(e, t = !0, n = {}) {
-		this.onError = e, this.antialias = t, this.gpuTimingEnabled = require_gpu_timing.configureGpuTiming(this.frameStats.gpuTiming, n);
+		this.onError = e, this.antialias = t;
+		let r = t ? require_rendering.materialQuality.samples : 1;
+		this.capabilities.alphaToCoverage = Object.freeze({
+			rgba8Samples: r,
+			hdrSamples: r
+		}), this.gpuTimingEnabled = require_gpu_timing.configureGpuTiming(this.frameStats.gpuTiming, n);
 	}
 	async initialize(e) {
 		if (this.destroyed || this.device || this.initializing) throw new require_errors.GraphicsError(`WebGPU renderer cannot be initialized more than once.`);
@@ -192,7 +199,7 @@ var WebGPURenderer = class {
 			this.context = a, this.canvas = e, this.resize(Math.max(e.width, 1), Math.max(e.height, 1));
 			let o = navigator.gpu.getPreferredCanvasFormat();
 			this.compute = new require_webgpu_compute.WebGPUCompute(i), this.graphs = new require_webgpu_render_graph.WebGPURenderGraph(i, o), i.pushErrorScope(`validation`);
-			let l = [], h, g, v = null;
+			let l = [], g, _, y = null;
 			try {
 				a.configure({
 					device: i,
@@ -230,7 +237,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 ` }), t = await e.getCompilationInfo();
 				if (this.destroyed) throw new require_errors.GraphicsError(`WebGPU renderer was destroyed during initialization.`);
 				if (l = t.messages.filter((e) => e.type === `error`).map((e) => `${e.lineNum}:${e.linePos} ${e.message}`), l.length === 0) {
-					h = i.createRenderPipeline({
+					g = i.createRenderPipeline({
 						layout: `auto`,
 						vertex: {
 							module: e,
@@ -244,16 +251,16 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 						primitive: { topology: `triangle-list` }
 					});
 					let t = new require_effects.WebGPU2DEffects(i, o, () => this.destroyed || !!this.lostError, () => this.frameStats, () => !!this.encoder);
-					this.effectsPipeline = t, await t.initialize(), this.render2D = await require_webgpu_render2d.WebGPURender2D.create(i, t, this.render2DHooks), g = await require_webgpu_mesh_pipeline.WebGPUMeshPipeline.initialize(i, o, () => this.destroyed, this.antialias ? 4 : 1, this.frameStats, this.residency);
+					this.effectsPipeline = t, await t.initialize(), this.render2D = await require_webgpu_render2d.WebGPURender2D.create(i, t, this.render2DHooks), _ = await require_webgpu_mesh_pipeline.WebGPUMeshPipeline.initialize(i, o, () => this.destroyed, this.antialias ? require_rendering.materialQuality.samples : 1, this.frameStats, this.residency);
 				}
 			} finally {
-				v = await i.popErrorScope();
+				y = await i.popErrorScope();
 			}
 			if (this.destroyed) throw new require_errors.GraphicsError(`WebGPU renderer was destroyed during initialization.`);
 			if (l.length) throw new require_errors.WebGPUInitializationError(`WebGPU shader compilation failed: ${l.join(`; `)}`);
-			if (v) throw new require_errors.WebGPUInitializationError(`WebGPU canvas/shader/pipeline validation failed: ${v.message}`, { cause: v });
+			if (y) throw new require_errors.WebGPUInitializationError(`WebGPU canvas/shader/pipeline validation failed: ${y.message}`, { cause: y });
 			if (this.lostError) throw this.lostError;
-			this.pipeline = h, this.meshPipeline = g;
+			this.pipeline = g, this.meshPipeline = _;
 		} catch (e) {
 			let t = this.destroyed;
 			throw this.destroy(), t && !(e instanceof require_errors.GraphicsError) ? new require_errors.GraphicsError(`WebGPU renderer was destroyed during initialization.`, { cause: e }) : e instanceof require_errors.GraphicsError ? e : new require_errors.WebGPUInitializationError(`WebGPU initialization failed while requesting a device or configuring the canvas and triangle pipeline${e instanceof Error ? `: ${e.message}` : `.`}`, { cause: e });
@@ -327,27 +334,27 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		this.requireDevice();
 		let a = this.encoder, o = this.context, s = this.pipeline;
 		if (!a || !o || !s || this.frameRendered) throw new require_errors.GraphicsError(`WebGPU render requires an active frame and may be called only once per frame.`);
-		let c = this.canvas, d = n ?? (c.clientWidth || c.width), f = r ?? (c.clientHeight || c.height);
-		if (!Number.isFinite(d) || !Number.isFinite(f) || d <= 0 || f <= 0) throw RangeError(`WebGPU rendering requires positive finite logical width and height.`);
+		let c = this.canvas, u = n ?? (c.clientWidth || c.width), f = r ?? (c.clientHeight || c.height);
+		if (!Number.isFinite(u) || !Number.isFinite(f) || u <= 0 || f <= 0) throw RangeError(`WebGPU rendering requires positive finite logical width and height.`);
 		e?.has3DContent && this.probeCaptures.schedule(e, (t) => this.captureReflectionProbe(e, t), (e) => this.onError(e instanceof require_errors.GraphicsError ? e : new require_errors.GraphicsError(`Automatic reflection capture failed.`, { cause: e })));
 		let p = this.effectsPipeline, m = i?.transition;
 		m?.snapshot && p.snapshot(m.snapshot);
-		let h = e?.effects2D, g = !!h?.length, _ = e?.effects3D, y = !!_?.length;
-		(g || y || m) && p.settings(d, f, m), e ? (require_render2d_contract.collectRenderCommands2D(e, d, f, this.commands), this.textureFrame++, this.render2D.preflight(this.commands, e, d, f, Math.max(c.width / d, c.height / f))) : (this.commands.clear(), this.textureFrame++);
+		let h = e?.effects2D, g = !!h?.length, _ = e?.effects3D, v = !!_?.length;
+		(g || v || m) && p.settings(u, f, m), e ? (require_render2d_contract.collectRenderCommands2D(e, u, f, this.commands), this.textureFrame++, this.render2D.preflight(this.commands, e, u, f, Math.max(c.width / u, c.height / f))) : (this.commands.clear(), this.textureFrame++);
 		let b = !!e && (this.commands.items.length > 0 || g);
-		!b && !y && p.releaseLayers(), y || p.releaseScene(), m || p.releaseFrame();
+		!b && !v && p.releaseLayers(), v || p.releaseScene(), m || p.releaseFrame();
 		let x = m ? p.frame(c.width, c.height) : void 0, S = this.captureOutput ? void 0 : o.getCurrentTexture().createView(), C = this.captureOutput?.view ?? x?.view ?? S, w = e?.renderGraph, T = w ? this.graphs.sceneTarget(w, c.width, c.height) : C;
 		this.colorAttachment.view = T;
 		try {
 			let n;
-			if (y) {
+			if (v) {
 				let r = p.layers(c.width, c.height), i = p.scene3D(c.width, c.height);
-				n = this.meshPipeline.render(e, a, i.view, c.width, c.height, d / f, require_defaults.defaults.clearColor, f), n || (this.colorAttachment.view = i.view, this.colorAttachment.loadOp = `clear`, require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor).end(), this.frameStats.pass2D(), this.colorAttachment.view = T), p.composite(a, p.process(a, r, _, i), T, !0), n = !0;
-			} else n = this.meshPipeline.render(e, a, T, c.width, c.height, d / f, require_defaults.defaults.clearColor, f);
+				n = this.meshPipeline.render(e, a, i.view, c.width, c.height, u / f, require_defaults.defaults.clearColor, f), n || (this.colorAttachment.view = i.view, this.colorAttachment.loadOp = `clear`, require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor).end(), this.frameStats.pass2D(), this.colorAttachment.view = T), p.composite(a, p.process(a, r, _, i), T, !0), n = !0;
+			} else n = this.meshPipeline.render(e, a, T, c.width, c.height, u / f, require_defaults.defaults.clearColor, f);
 			if (b) {
 				n || (this.colorAttachment.loadOp = `clear`, require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor).end(), this.frameStats.pass2D());
 				let r = p.layers(c.width, c.height);
-				this.render2D.draw(this.commands, e, a, r[0], d, f), p.composite(a, g ? p.process(a, r, h) : r[0], T);
+				this.render2D.draw(this.commands, e, a, r[0], u, f), p.composite(a, g ? p.process(a, r, h) : r[0], T);
 			} else if (!n || !e) {
 				this.colorAttachment.loadOp = n ? `load` : `clear`;
 				let r = require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor);
@@ -389,9 +396,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		if (r?.version === t.version) return r.allocation.touch(), r;
 		let { width: s, height: c } = t, l = e.limits.maxTextureDimension2D;
 		if (!Number.isSafeInteger(s) || !Number.isSafeInteger(c) || s < 1 || c < 1 || s > l || c > l) throw new require_errors.GraphicsError(`WebGPU texture size ${s}×${c} exceeds this device's maximum texture dimension of ${l} pixels per side.`);
-		let d = t instanceof require_native_texture.NativeTexture2D;
-		d && require_native_texture_upload.validateNativeWebGPU(e, t);
-		let f = d ? t.byteLength : s * c * 4, p = r?.allocation ?? this.residency.textures.allocate(f, () => {
+		let u = t instanceof require_native_texture.NativeTexture2D;
+		u && require_native_texture_upload.validateNativeWebGPU(e, t);
+		let f = u ? t.byteLength : s * c * 4, p = r?.allocation ?? this.residency.textures.allocate(f, () => {
 			this.textures.get(t)?.resource.destroy(), this.textures.delete(t);
 		});
 		r && p.resize(f);
@@ -399,10 +406,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		try {
 			r && !m && r.resource.destroy(), h = m ? r.resource : e.createTexture({
 				size: [s, c],
-				mipLevelCount: d ? t.levels.length : 1,
-				format: d ? require_native_texture_upload.nativeUploadFormat(t.format) : `rgba8unorm`,
-				usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | (d ? 0 : GPUTextureUsage.RENDER_ATTACHMENT)
-			}), d ? require_native_texture_upload.uploadNativeWebGPU(e, h, t) : e.queue.copyExternalImageToTexture({ source: t.image }, {
+				mipLevelCount: u ? t.levels.length : 1,
+				format: u ? require_native_texture_upload.nativeUploadFormat(t.format) : `rgba8unorm`,
+				usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | (u ? 0 : GPUTextureUsage.RENDER_ATTACHMENT)
+			}), u ? require_native_texture_upload.uploadNativeWebGPU(e, h, t) : e.queue.copyExternalImageToTexture({ source: t.image }, {
 				texture: h,
 				premultipliedAlpha: !0
 			}, [s, c]), this.frameStats.upload(f);

@@ -35,6 +35,9 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 - **P120 source 更新（未發佈）**：3D／Sprite sampler 可設定 `maxAnisotropy` 1–16；
   native filtering 與 packed optical maps 已整合。Capability 區分 request／effective
   上限，WebGPU 不可查詢的 driver 上限為 null；Canvas2D 與缺 GL extension 降為 1。
+- **P121 source 更新（未發佈）**：PBR 可選 normal-footprint／specular AA、
+  MASK alpha-to-coverage；GPU／GL 使用實際 MSAA／HDR resolve 與可查詢 sample 數。
+  資產 profile 可指定 alpha-coverage mip cutoff；影子維持 binary cutoff。
 
 ### 目前可用
 
@@ -151,6 +154,9 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
   requests 1–16, including native filtering and packed optical maps. Capabilities
   distinguish request/effective limits: WebGPU's unqueryable driver limit is null;
   Canvas2D and absent GL extensions use one.
+- **P121 source update (unreleased)**: opt-in PBR normal-footprint/specular AA,
+  MASK alpha-to-coverage with real native MSAA/HDR resolve and sample capabilities,
+  plus explicit asset alpha-coverage mip cutoffs. Shadows retain binary masking.
 
 ### Available now
 
@@ -259,6 +265,9 @@ Historical observations used managed Chromium 150. Current browser evidence and 
   1–16 を native filtering／packed optical maps で使用できます。Capability は
   request／effective を分離し、取得不能な WebGPU 上限は null、Canvas2D／GL
   extension 不在時は 1 です。
+- **P121 source 更新（未公開）**：PBR の normal-footprint／specular AA、
+  MASK alpha-to-coverage を実際の MSAA／HDR resolve と sample capability で実装。
+  Asset profile は alpha-coverage mip cutoff を指定可能。影は binary cutoff のままです。
 
 ### 現在利用可能
 

@@ -1447,3 +1447,30 @@ async function videoMaterial(video: HTMLVideoElement, fallback: Texture) {
 NativeMaterial3D 的四個 indexed hook maps 用 `textureSources`，base map 用同一
 `textureSource`。WebCodecs 接受已設定 codec 的 elementary chunks，不解析媒體容器；
 Canvas2D 支援 video Sprite，不支援 3D material。
+
+## Opt-in 材質 anti-aliasing（P121，未發佈 source）
+
+已載入leaf／cutout texture的material設定
+`alphaMode: 'MASK', alphaCutoff: 0.5, alphaToCoverage: true`；
+Game維持 `antialias: true`。先看 `game.graphics.capabilities.alphaToCoverage`，
+對應target的 `hdrSamples`／`rgba8Samples` 必須大於1，缺欄位不代表支援。
+Canvas不能render這些3D material；停用AA／不支援MSAA會明確報錯。
+Noisy base／clearcoat高光可設定 `specularAntiAliasing: 1`，或較低strength減少
+normal／roughness過濾；預設關閉。仍需正確normal mips，不取代TAA／supersampling。
+
+既有trusted profile工作流程可明示產生相同cutoff的coverage mips：
+
+```json
+{
+  "version": 2,
+  "formats": [],
+  "textures": {
+    "0": { "kind": "srgb", "alpha": "straight", "alphaCoverageCutoff": 0.5 }
+  }
+}
+```
+
+執行 `xyz-build-assets --input model.gltf --out new-bundle --profile profile.json`；
+image index明示，MASK material用相同cutoff。RGB／base filtering不變；
+tied alpha／小mip／lossy compression可能無法精確保留coverage，不可套用normal／opaque。
+詳見 [有界品質契約](TECHNICAL-zh.md#p121-specular-filteringmask-coverage)。

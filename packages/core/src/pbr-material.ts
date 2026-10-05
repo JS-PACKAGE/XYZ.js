@@ -74,6 +74,10 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   >;
   metallic?: number;
   roughness?: number;
+  /** Bounded normal-footprint/derivative filtering strength [0,1], default zero. */
+  specularAntiAliasing?: number;
+  /** MASK-only coverage, requiring antialiasing and 0 < cutoff < 1; no transmission. */
+  alphaToCoverage?: boolean;
   emissive?: [number, number, number];
   ior?: number;
   specular?: number;
@@ -253,6 +257,8 @@ export class PBRMaterial extends TextureMaterial {
   readonly alphaCutoff: number;
   readonly alphaMode: MaterialAlphaMode;
   readonly doubleSided: boolean;
+  readonly specularAntiAliasing: number;
+  readonly alphaToCoverage: boolean;
   declare readonly textureSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly metallicRoughnessSampler:
     Readonly<TextureSamplerOptions> | undefined;
@@ -265,6 +271,8 @@ export class PBRMaterial extends TextureMaterial {
     this.textureCoordinates = textureCoordinates(options.textureCoordinates);
     const metallic = options.metallic ?? 0;
     const roughness = options.roughness ?? 0.5;
+    const specularAntiAliasing = options.specularAntiAliasing ?? 0;
+    unit(specularAntiAliasing, 'Specular anti-aliasing strength');
     const emissive = options.emissive ?? [0, 0, 0];
     const ior = options.ior ?? 1.5;
     const specular = options.specular ?? 1;
@@ -350,6 +358,19 @@ export class PBRMaterial extends TextureMaterial {
       );
     if (typeof doubleSided !== 'boolean')
       throw new TypeError('Double-sided material setting must be boolean.');
+    const alphaToCoverage = options.alphaToCoverage ?? false;
+    if (typeof alphaToCoverage !== 'boolean')
+      throw new TypeError('Alpha-to-coverage must be boolean.');
+    if (
+      alphaToCoverage &&
+      (alphaMode !== 'MASK' ||
+        alphaCutoff <= 0 ||
+        alphaCutoff >= 1 ||
+        transmission > 0)
+    )
+      throw new RangeError(
+        'Alpha-to-coverage requires MASK, 0 < cutoff < 1, and no transmission.',
+      );
     textureSlot(options.metallicRoughnessTexture, 'Metallic-roughness texture');
     textureSlot(options.normalTexture, 'Normal texture');
     textureSlot(options.occlusionTexture, 'Occlusion texture');
@@ -420,6 +441,8 @@ export class PBRMaterial extends TextureMaterial {
     this.alphaCutoff = alphaCutoff;
     this.alphaMode = alphaMode;
     this.doubleSided = doubleSided;
+    this.specularAntiAliasing = specularAntiAliasing;
+    this.alphaToCoverage = alphaToCoverage;
     this.metallicRoughnessSampler = samplerOptions(
       options.metallicRoughnessSampler,
     );

@@ -1466,3 +1466,34 @@ Remove material consumers before destroying `frames`; the fallback remains borro
 NativeMaterial3D uses `textureSources` for its four indexed hook maps; the base
 map uses the same `textureSource` option. WebCodecs consumes configured elementary
 chunks, not media containers. Canvas2D supports video Sprites, not 3D materials.
+
+## Opt-in material anti-aliasing (P121, unreleased source)
+
+For a loaded leaf/cutout texture, construct the material with
+`alphaMode: 'MASK', alphaCutoff: 0.5, alphaToCoverage: true`.
+Keep `Game.create({ antialias: true, ... })`; check
+`game.graphics.capabilities.alphaToCoverage` before choosing the feature.
+`hdrSamples`/`rgba8Samples` must exceed one for the corresponding target.
+Omitting the capability does not establish availability. Canvas2D cannot render
+these 3D materials, and disabled/unsupported MSAA requests fail explicitly.
+Add `specularAntiAliasing: 1` for noisy base/clearcoat highlights, or a smaller
+strength for less normal/roughness filtering. Defaults remain off. Supply proper
+normal mips; this approximation is not a substitute for TAA or supersampling.
+
+Author matching coverage mips through the existing trusted profile workflow:
+
+```json
+{
+  "version": 2,
+  "formats": [],
+  "textures": {
+    "0": { "kind": "srgb", "alpha": "straight", "alphaCoverageCutoff": 0.5 }
+  }
+}
+```
+
+Run `xyz-build-assets --input model.gltf --out new-bundle --profile profile.json`.
+The image index is explicit; use the same cutoff in the MASK material. RGB and
+base filtering stay unchanged. Tied alpha/small mips and lossy compression can
+prevent exact coverage. Do not apply this recipe to normal or opaque maps.
+See [the bounded quality contracts](TECHNICAL.md#p121-specular-filtering-and-masked-coverage).

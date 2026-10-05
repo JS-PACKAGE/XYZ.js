@@ -1470,3 +1470,52 @@ The native contracts follow [WebGPU sampler descriptors](https://gpuweb.github.i
 and the [Khronos anisotropic filtering extension](https://registry.khronos.org/webgl/extensions/EXT_texture_filter_anisotropic).
 Run `pnpm smoke:filtering` for actual oblique Game/Scene pixels, 2D normal filtering,
 batch transitions, extension absence and Canvas2D's bounded fallback.
+
+## P121. Specular filtering and masked coverage
+
+`PBRMaterialOptions.specularAntiAliasing` is a finite strength in [0,1], default
+zero. The opt-in path estimates surface-normal derivative variance and
+four-point normal-map footprint moments, for base and clearcoat independently.
+Normal-map means are blended by strength; surface derivatives and normalized
+footprint sample variance filter GGX alpha squared. With roughness r and strength s,
+`r' = fourthRoot(min(1, r^4 + min(2 * variance, 0.18) * s))`.
+The four Gauss footprint points use the map's own transformed UVs, sampler,
+gradients and supplied mips. Strength one uses four reads per enabled normal
+map; an intermediate strength also reads its original center. Zero keeps the
+original path. This bounded approximation is neither temporal AA nor exact
+BRDF integration, and cannot recover absent normal mips. See
+[perceptual material roughness](https://google.github.io/filament/notes/material_properties.html#roughnessgrayscale).
+The smoke reports absolute RGB motion and normalized RGB temporal contrast
+separately: broadened highlights can increase absolute motion while lowering
+relative contrast. Neither metric certifies radiometric energy or a universal
+reduction in flicker.
+
+`alphaToCoverage` defaults false and requires MASK, an explicit cutoff strictly
+between zero and one, and zero transmission. It requires renderer antialiasing.
+`GraphicsCapabilities.alphaToCoverage` optionally reports `rgba8Samples` and
+`hdrSamples`; one means unavailable, not a simulated implementation. WebGPU
+uses its actual four-sample pipelines; WebGL2 queries compatible color/depth
+format sample counts, bounded by four. Canvas2D reports one and remains 2D-only.
+Existing external renderer implementations may omit this capability.
+Coverage uses screen alpha derivatives and real native sample masks. Coverage
+draws stay opaque/depth-writing, including LOD fades, and write RGB only over
+the engine's opaque 3D clear alpha: HDR/composition must not multiply coverage
+again. GL allocates a multisampled color/depth target only when requested,
+resolves both after opaque geometry, then runs existing deferred transparency,
+post-processing and ordinary 2D overlays. AA-only scenes without float-color
+support can use linear RGBA8, with its lower dark-color precision; explicit HDR
+still requires its extension. Unsupported requests throw. Reflection captures
+use their own HDR resolve. Single-sample shadow maps retain binary cutoff.
+
+Version-2 asset profiles accept `alphaCoverageCutoff` strictly in (0,1) for
+explicit linear/sRGB, straight/premultiplied-input color semantics only. Normal
+and opaque semantics reject it. The existing input normalization/RGB filtering
+remains unchanged; after constructing all mips, an alpha histogram chooses the
+closest achievable base texel coverage per level by global alpha scaling.
+Base pixels and source ownership do not change. Tied alpha values, zero-alpha
+texels, small mip sizes and byte quantization can prevent exact preservation;
+lossy codecs and trilinear sampling are not guaranteed to preserve that count.
+Use the same cutoff in the material. No texture-slot inference or runtime mip
+generation is introduced. `pnpm smoke:material-aa` exercises actual native
+motion, flat normals, HDR/MSAA, weighted transparency, overlays, probe capture,
+disabled antialiasing, absent float-color support and Canvas capability limits.

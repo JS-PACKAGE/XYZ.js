@@ -52,6 +52,7 @@ export declare class WebGPUMeshPipeline {
     private readonly textures;
     private readonly premultipliedTextures;
     private readonly samplers;
+    private readonly coveragePipelines;
     private readonly draws;
     /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
     private readonly visibleDraws;

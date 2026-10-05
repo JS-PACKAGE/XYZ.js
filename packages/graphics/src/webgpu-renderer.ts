@@ -20,13 +20,14 @@ import type {
 } from './render-texture2d.js';
 import { WebGPURender2D, type WebGPURender2DHooks } from './webgpu-render2d.js';
 import { defaults } from '../../../src/data/defaults.js';
+import { materialQuality } from '../../../src/data/rendering.js';
 import {
   GraphicsError,
   WebGPUInitializationError,
   WebGPUDeviceLostError,
   WebGPUNotSupportedError,
 } from './errors.js';
-import type { Renderer } from './index.js';
+import type { AlphaToCoverageCapabilities, Renderer } from './index.js';
 import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
 import {
   FrameStats,
@@ -290,6 +291,8 @@ export class WebGPURenderer implements Renderer {
     storageBuffers: true,
     instancing: true,
     textureAnisotropy: Object.freeze({ maxRequest: 16, maxEffective: null }),
+    alphaToCoverage: undefined as
+      Readonly<AlphaToCoverageCapabilities> | undefined,
     maxTextureSize: 0,
     supportedTextureFormats: [] as readonly NativeTextureFormat[],
   };
@@ -357,6 +360,11 @@ export class WebGPURenderer implements Renderer {
     private readonly antialias = true,
     gpuTiming: GpuTimingOptions = {},
   ) {
+    const samples = antialias ? materialQuality.samples : 1;
+    this.capabilities.alphaToCoverage = Object.freeze({
+      rgba8Samples: samples,
+      hdrSamples: samples,
+    });
     this.gpuTimingEnabled = configureGpuTiming(
       this.frameStats.gpuTiming,
       gpuTiming,
@@ -497,7 +505,7 @@ export class WebGPURenderer implements Renderer {
             device,
             format,
             () => this.destroyed,
-            this.antialias ? 4 : 1,
+            this.antialias ? materialQuality.samples : 1,
             this.frameStats,
             this.residency,
           );

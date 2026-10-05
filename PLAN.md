@@ -446,3 +446,17 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   明示 null，Canvas2D 明示 1，不把 request 16 假冒實際硬體品質。
 - Packed transmission／thickness 保留獨立 sampler，使用有界 major-axis filtering，
   不增加 texture slot。兩個 native backend 以斜視高頻圖像與真像素驗證。
+
+### P121 — specular AA／alpha coverage／alpha-to-coverage
+
+- Opt-in PBR normal-footprint moments and derivative variance broaden base／
+  clearcoat GGX roughness with bounded strength; zero keeps current shading.
+  Native pixels cover noisy highlights/motion, with absolute RGB motion and
+  normalized temporal contrast reported separately; neither is a path-tracer proof.
+- Explicit asset texture semantics can preserve base alpha-test coverage in
+  generated mips without changing RGB filtering, base pixels or source ownership.
+  Quantization/tied-alpha limits are documented and validated through real KTX2.
+- MASK alpha-to-coverage uses real multisample GPU pipelines／GL state, including
+  offscreen/HDR resolve and ordinary overlay. Public availability reports actual
+  usable sample counts; antialias disabled／unsupported requests fail explicitly.
+  Shadow maps retain the same binary cutoff. Default rendering is unchanged.

@@ -27,6 +27,10 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
     textureCoordinates?: Partial<Record<MaterialTextureSlot, TextureCoordinateOptions>>;
     metallic?: number;
     roughness?: number;
+    /** Bounded normal-footprint/derivative filtering strength [0,1], default zero. */
+    specularAntiAliasing?: number;
+    /** MASK-only coverage, requiring antialiasing and 0 < cutoff < 1; no transmission. */
+    alphaToCoverage?: boolean;
     emissive?: [number, number, number];
     ior?: number;
     specular?: number;
@@ -127,6 +131,8 @@ export declare class PBRMaterial extends TextureMaterial {
     readonly alphaCutoff: number;
     readonly alphaMode: MaterialAlphaMode;
     readonly doubleSided: boolean;
+    readonly specularAntiAliasing: number;
+    readonly alphaToCoverage: boolean;
     readonly textureSampler: Readonly<TextureSamplerOptions> | undefined;
     readonly metallicRoughnessSampler: Readonly<TextureSamplerOptions> | undefined;
     readonly normalSampler: Readonly<TextureSamplerOptions> | undefined;

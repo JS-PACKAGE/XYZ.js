@@ -4,6 +4,12 @@ var nativeMaterial3DLimits = Object.freeze({
 	textures: 4,
 	sourceCharacters: 65536
 });
+var materialQuality = Object.freeze({
+	samples: 4,
+	normalVarianceScale: 2,
+	maxNormalVariance: .18,
+	minAlphaFootprint: 1e-4
+});
 var materialTextureSlots = Object.freeze([
 	`texture`,
 	`metallicRoughness`,
@@ -103,6 +109,7 @@ exports.depthPostDefaults = depthPostDefaults;
 exports.environmentLimits = environmentLimits;
 exports.fxaaDefaults = fxaaDefaults;
 exports.graphicsRecoveryLimits = graphicsRecoveryLimits;
+exports.materialQuality = materialQuality;
 exports.materialTextureSlots = materialTextureSlots;
 exports.nativeMaterial3DLimits = nativeMaterial3DLimits;
 exports.oitSettings = oitSettings;

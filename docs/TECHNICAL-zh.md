@@ -1385,3 +1385,37 @@ Native 契約依據 [WebGPU sampler descriptor](https://gpuweb.github.io/types/i
 與 [Khronos extension](https://registry.khronos.org/webgl/extensions/EXT_texture_filter_anisotropic)。
 `pnpm smoke:filtering` 實跑斜視 Game／Scene、2D normal、batch transition、
 無 extension 與 Canvas2D 限定 fallback。
+
+## P121. Specular filtering／MASK coverage
+
+`specularAntiAliasing` 是 [0,1] 的 finite strength，預設0。Opt-in 同時計算
+surface-normal derivatives 與四點 normal-map footprint moments，base／clearcoat
+獨立處理。Mean normal 按 strength 混合；surface derivatives／sample variance 過濾 GGX
+alpha squared，perceptual roughness 的公式為
+`r' = fourthRoot(min(1, r^4 + min(2 * variance, 0.18) * strength))`。
+四個 Gauss points 使用各 map 的 transformed UV、sampler、gradients 與既有 mips；
+strength1 每張啟用的 normal map 四次讀取，中間 strength 另讀 center，0保留原路徑。
+這是有界近似，不是 TAA／精確 BRDF integration，也不能重建缺少的 normal mips。
+Roughness 定義參見 [Filament](https://google.github.io/filament/notes/material_properties.html#roughnessgrayscale)。
+Smoke 分開記錄 absolute RGB motion 與 normalized RGB temporal contrast；擴展高光
+可能增加前者、降低後者，不能據此宣稱 radiometric energy 或所有場景減少閃動。
+
+`alphaToCoverage` 預設false，只接受 MASK、明示 `0 < alphaCutoff < 1` 與
+transmission0，要求 renderer antialiasing。Optional capability 的
+`rgba8Samples`／`hdrSamples` 為實際可用數，1代表不可用；GPU使用four-sample
+pipeline，GL查color／depth共同支援數並限4，Canvas仍只支援2D、回報1。
+Coverage 用 alpha derivatives 與真正 sample mask；含LOD fade時仍走opaque／
+depth-write，僅寫RGB、保留引擎3D clear的alpha1，避免HDR／composition再次乘coverage。
+GL只在需要時建立MSAA color／depth target，opaque後resolve兩者，再走既有
+transparency／post／2D overlay；reflection capture走自身HDR resolve。
+缺float-color extension時，AA-only可用較低暗色精度的linear RGBA8；明示HDR仍報錯。
+停用antialias／不支援sample count也報錯；single-sample shadow保留binary cutoff。
+
+Version2 asset profile 可為明示linear／sRGB、straight／premultiplied-input color
+semantics指定 `alphaCoverageCutoff` (0,1)；normal／opaque禁止。既有input正規化與
+RGB filtering不變，完整mip chain完成後用alpha histogram／global scaling找每層
+最接近base texel coverage的結果，不改base pixels或source ownership。
+Tied alpha、zero alpha、小尺寸與byte quantization可能無法精確保留；
+lossy codec／trilinear sampling也不保證相同比例。Material應使用相同cutoff；
+沒有slot inference／runtime mip生成。`pnpm smoke:material-aa` 實跑native motion、
+flat normal、HDR／MSAA／weighted／overlay／probe／停用AA／無float／Canvas邊界。

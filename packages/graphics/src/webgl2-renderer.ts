@@ -88,6 +88,7 @@ import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
   MATERIAL_UV_FLOAT_COUNT,
+  materialQuality,
 } from '../../../src/data/rendering.js';
 import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
@@ -106,6 +107,7 @@ import { FrameStats, type GpuTimingOptions } from './render-stats.js';
 import { configureGpuTiming, WebGlTimer } from './gpu-timing.js';
 import type {
   GraphicsCapabilities,
+  AlphaToCoverageCapabilities,
   Renderer,
   TextureAnisotropyCapabilities,
 } from './index.js';
@@ -220,6 +222,17 @@ interface RenderTarget {
   depthTexture?: WebGLTexture;
   width: number;
   height: number;
+  format?: 'hdr' | 'rgba8';
+}
+
+interface MultisampleTarget {
+  framebuffer: WebGLFramebuffer;
+  color: WebGLRenderbuffer;
+  depth: WebGLRenderbuffer;
+  width: number;
+  height: number;
+  samples: number;
+  format: 'hdr' | 'rgba8';
 }
 
 interface NativeProgram {
@@ -322,8 +335,13 @@ export class WebGL2Renderer implements Renderer {
   private depthWidth = 0;
   private depthHeight = 0;
   private depthMode = -1;
-  private readonly isColorBlended = (mesh: Mesh): boolean =>
-    (this.visibility.entries.get(mesh)?.fade ?? 1) < 1 || isBlended(mesh);
+  private readonly isColorBlended = (mesh: Mesh): boolean => {
+    if (mesh.material instanceof PBRMaterial && mesh.material.alphaToCoverage)
+      return false;
+    return (
+      (this.visibility.entries.get(mesh)?.fade ?? 1) < 1 || isBlended(mesh)
+    );
+  };
   private readonly drawSorter = new DrawSorter();
   readonly stats = new FrameStats();
   private readonly gpuTimingEnabled: boolean;
@@ -358,7 +376,8 @@ export class WebGL2Renderer implements Renderer {
     const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
     const originalLinear = this.linear3D,
       originalTransmission = this.hasTransmission,
-      originalWeighted = this.weighted;
+      originalWeighted = this.weighted,
+      originalCoverage = this.coverageActive;
     const target = this.createTarget(size, size, false, 'hdr', 'texture');
     const faces: Float32Array[] = [];
     this.capturingProbe = true;
@@ -381,7 +400,8 @@ export class WebGL2Renderer implements Renderer {
         gl.clearColor(0, 0, 0, 1);
         gl.depthMask(true);
         gl.clearDepth(1);
-        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        if (!this.coverageActive)
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
         gl.enable(gl.BLEND);
         gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
         this.drawMeshes(scene, 1);
@@ -422,6 +442,7 @@ export class WebGL2Renderer implements Renderer {
       this.linear3D = originalLinear;
       this.hasTransmission = originalTransmission;
       this.weighted = originalWeighted;
+      this.coverageActive = originalCoverage;
       this.capturingProbe = false;
       this.occlusion?.clear();
       gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
@@ -636,6 +657,10 @@ export class WebGL2Renderer implements Renderer {
   private oitProgram: WebGLProgram | undefined;
   private shadowTarget: RenderTarget | undefined;
   private postTarget: RenderTarget | undefined;
+  private coverageTarget: MultisampleTarget | undefined;
+  private coverageActive = false;
+  private coverageCapabilities: Readonly<AlphaToCoverageCapabilities> =
+    Object.freeze({ rgba8Samples: 1, hdrSamples: 1 });
   private fxaaProgram: WebGLProgram | undefined;
   private fxaaTarget: RenderTarget | undefined;
   private floatColorBuffer = false;
@@ -673,6 +698,7 @@ export class WebGL2Renderer implements Renderer {
       maxTextureSize: this.maxTextureSize,
       supportedTextureFormats: this.supportedTextureFormats,
       textureAnisotropy: this.textureAnisotropy,
+      alphaToCoverage: this.coverageCapabilities,
     };
   }
 
@@ -758,6 +784,42 @@ export class WebGL2Renderer implements Renderer {
       );
       this.floatColorBuffer =
         gl.getExtension('EXT_color_buffer_float') !== null;
+      let rgba8Samples = 1,
+        hdrSamples = 1;
+      if (this.antialias) {
+        const depthSamples = gl.getInternalformatParameter(
+          gl.RENDERBUFFER,
+          gl.DEPTH_COMPONENT24,
+          gl.SAMPLES,
+        ) as Int32Array;
+        const colorSamples = gl.getInternalformatParameter(
+          gl.RENDERBUFFER,
+          gl.RGBA8,
+          gl.SAMPLES,
+        ) as Int32Array;
+        for (const samples of colorSamples)
+          if (
+            samples <= materialQuality.samples &&
+            samples > rgba8Samples &&
+            depthSamples.includes(samples)
+          )
+            rgba8Samples = samples;
+        if (this.floatColorBuffer) {
+          const floatSamples = gl.getInternalformatParameter(
+            gl.RENDERBUFFER,
+            gl.RGBA16F,
+            gl.SAMPLES,
+          ) as Int32Array;
+          for (const samples of floatSamples)
+            if (
+              samples <= materialQuality.samples &&
+              samples > hdrSamples &&
+              depthSamples.includes(samples)
+            )
+              hdrSamples = samples;
+        }
+      }
+      this.coverageCapabilities = Object.freeze({ rgba8Samples, hdrSamples });
       this.supportedTextureFormats = webglTextureFormats(gl);
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
       this.triangleProgram = this.createProgram(
@@ -1409,7 +1471,11 @@ export class WebGL2Renderer implements Renderer {
       const sceneFramebuffer = process3D
         ? this.sceneTarget!.framebuffer
         : (destination?.framebuffer ?? null);
-      this.hasTransmission = this.linear3D = this.weighted = false;
+      this.hasTransmission =
+        this.linear3D =
+        this.weighted =
+        this.coverageActive =
+          false;
       if (scene) {
         collectRenderCommands2D(
           scene,
@@ -1441,8 +1507,9 @@ export class WebGL2Renderer implements Renderer {
               ),
           );
         this.collectMeshes(scene, logicalWidth / logicalHeight, logicalHeight);
-        this.linear3D =
+        const requiredHDR =
           scene.postProcessing.enabled || this.hasTransmission || this.weighted;
+        this.linear3D = requiredHDR || this.coverageActive;
         scene.lightSelection.update(scene);
         this.atlas.update(scene, logicalWidth / logicalHeight);
         gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
@@ -1453,7 +1520,14 @@ export class WebGL2Renderer implements Renderer {
           this.deleteTarget(this.shadowTarget);
           this.shadowTarget = undefined;
         }
-        if (this.linear3D) this.preparePostTarget(canvas.width, canvas.height);
+        if (this.linear3D)
+          this.preparePostTarget(
+            canvas.width,
+            canvas.height,
+            requiredHDR || this.coverageCapabilities.hdrSamples > 1
+              ? 'hdr'
+              : 'rgba8',
+          );
         else if (this.postTarget) {
           this.releaseOIT();
           this.deleteTarget(this.postTarget);
@@ -1470,6 +1544,7 @@ export class WebGL2Renderer implements Renderer {
           this.refractionTarget = undefined;
         }
       } else {
+        this.releaseCoverageTarget();
         this.temporal?.releaseTarget();
         this.temporalState.invalidate();
         this.visibilityCache.clear();
@@ -1518,7 +1593,8 @@ export class WebGL2Renderer implements Renderer {
       );
       gl.depthMask(true);
       gl.clearDepth(1);
-      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+      if (!this.coverageActive)
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
       gl.enable(gl.BLEND);
       gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       if (scene) {
@@ -1642,6 +1718,7 @@ export class WebGL2Renderer implements Renderer {
         this.postTarget.height !== pixelHeight)
     ) {
       this.releaseOIT();
+      this.releaseCoverageTarget();
       this.deleteTarget(this.postTarget);
       this.postTarget = undefined;
     }
@@ -1791,6 +1868,7 @@ export class WebGL2Renderer implements Renderer {
     aspect: number,
     viewportHeight: number,
   ): void {
+    this.coverageActive = false;
     const gl = this.gl!;
     const canvas = this.canvas!;
     const mode =
@@ -1848,10 +1926,12 @@ export class WebGL2Renderer implements Renderer {
       if (scene.transparency === 'weighted' && this.isColorBlended(object))
         this.weighted = true;
       if (object.material instanceof PBRMaterial) {
+        if (object.material.alphaToCoverage) this.coverageActive = true;
         this.cacheOpticalMaps(object.material);
         if (object.material.transmission > 0) this.hasTransmission = true;
       }
     }
+    if (!this.coverageActive) this.releaseCoverageTarget();
     if (scene.transparency === 'sorted')
       this.drawSorter.sort(draws, scene.camera3D.position, this.isColorBlended);
   }
@@ -1960,6 +2040,13 @@ export class WebGL2Renderer implements Renderer {
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
     this.ensureProbeEnvironment(scene);
+    if (this.coverageActive) {
+      const target = this.postTarget!;
+      this.prepareCoverageTarget(target.width, target.height, target.format!);
+      gl.bindFramebuffer(gl.FRAMEBUFFER, this.coverageTarget!.framebuffer);
+      gl.colorMask(true, true, true, true);
+      gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    }
     this.temporalActive =
       !this.capturingProbe &&
       scene.postProcessing.enabled &&
@@ -2042,6 +2129,16 @@ export class WebGL2Renderer implements Renderer {
         }
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
+        const coverage = pbr && material.alphaToCoverage;
+        if (coverage) {
+          gl.enable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+          gl.disable(gl.BLEND);
+          gl.colorMask(true, true, true, false);
+        } else {
+          gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+          gl.enable(gl.BLEND);
+          gl.colorMask(true, true, true, true);
+        }
         if (material instanceof NativeMaterial3D) {
           const entry = this.nativeMaterials.get(material);
           if (!entry || material.destroyed)
@@ -2265,8 +2362,8 @@ export class WebGL2Renderer implements Renderer {
             uniforms.sheenMaps,
             pbrTextureSources(material).sheenColorTexture ? 1 : 0,
             pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0,
-            0,
-            0,
+            material.specularAntiAliasing,
+            material.alphaToCoverage ? 1 : 0,
           );
           gl.uniform1i(uniforms.sheenColorMap, 12);
           gl.uniform1i(uniforms.sheenRoughnessMap, 13);
@@ -2335,6 +2432,9 @@ export class WebGL2Renderer implements Renderer {
           packed?.count ?? (object instanceof InstancedMesh ? object.count : 1),
         );
       }
+      gl.disable(gl.SAMPLE_ALPHA_TO_COVERAGE);
+      gl.enable(gl.BLEND);
+      gl.colorMask(true, true, true, true);
       if (phase === 0)
         this.occlusion?.draw(
           this.visibility.occlusionCandidates,
@@ -2342,6 +2442,10 @@ export class WebGL2Renderer implements Renderer {
             ? this.temporalState.currentVP
             : scene.camera3D.matrix,
         );
+      if (phase === 0 && this.coverageActive) {
+        this.resolveCoverageTarget();
+        gl.bindFramebuffer(gl.FRAMEBUFFER, this.postTarget!.framebuffer);
+      }
       if (phase === 0 && this.temporalActive && scene.postProcessing.ssr) {
         const result = this.temporal!.applyOpaqueSSR(
           this.postTarget!.texture,
@@ -2875,17 +2979,150 @@ export class WebGL2Renderer implements Renderer {
     this.shadowCache.commit();
   }
 
-  private preparePostTarget(width: number, height: number): void {
-    if (!this.floatColorBuffer)
+  private prepareCoverageTarget(
+    width: number,
+    height: number,
+    format: 'hdr' | 'rgba8',
+  ): void {
+    const gl = this.gl!;
+    const samples =
+      format === 'hdr'
+        ? this.coverageCapabilities.hdrSamples
+        : this.coverageCapabilities.rgba8Samples;
+    if (samples < 2)
+      throw new GraphicsError(
+        `WebGL2 ${format} alpha-to-coverage requires supported renderer antialiasing.`,
+      );
+    const existing = this.coverageTarget;
+    if (
+      existing &&
+      existing.width === width &&
+      existing.height === height &&
+      existing.format === format &&
+      existing.samples === samples
+    )
+      return;
+    this.releaseCoverageTarget();
+    const framebuffer = gl.createFramebuffer(),
+      color = gl.createRenderbuffer(),
+      depth = gl.createRenderbuffer();
+    try {
+      if (!framebuffer || !color || !depth)
+        throw new GraphicsError('WebGL2 coverage target allocation failed.');
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, color);
+      gl.renderbufferStorageMultisample(
+        gl.RENDERBUFFER,
+        samples,
+        format === 'hdr' ? gl.RGBA16F : gl.RGBA8,
+        width,
+        height,
+      );
+      gl.framebufferRenderbuffer(
+        gl.FRAMEBUFFER,
+        gl.COLOR_ATTACHMENT0,
+        gl.RENDERBUFFER,
+        color,
+      );
+      gl.bindRenderbuffer(gl.RENDERBUFFER, depth);
+      gl.renderbufferStorageMultisample(
+        gl.RENDERBUFFER,
+        samples,
+        gl.DEPTH_COMPONENT24,
+        width,
+        height,
+      );
+      gl.framebufferRenderbuffer(
+        gl.FRAMEBUFFER,
+        gl.DEPTH_ATTACHMENT,
+        gl.RENDERBUFFER,
+        depth,
+      );
+      if (gl.checkFramebufferStatus(gl.FRAMEBUFFER) !== gl.FRAMEBUFFER_COMPLETE)
+        throw new GraphicsError('WebGL2 coverage framebuffer is incomplete.');
+      this.coverageTarget = {
+        framebuffer,
+        color,
+        depth,
+        width,
+        height,
+        samples,
+        format,
+      };
+      this.stats.target(width * height * samples * (format === 'hdr' ? 12 : 8));
+    } catch (error) {
+      if (framebuffer) gl.deleteFramebuffer(framebuffer);
+      if (color) gl.deleteRenderbuffer(color);
+      if (depth) gl.deleteRenderbuffer(depth);
+      throw error;
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      gl.bindRenderbuffer(gl.RENDERBUFFER, null);
+    }
+  }
+
+  private releaseCoverageTarget(): void {
+    const target = this.coverageTarget;
+    if (!target) return;
+    const gl = this.gl!;
+    gl.deleteFramebuffer(target.framebuffer);
+    gl.deleteRenderbuffer(target.color);
+    gl.deleteRenderbuffer(target.depth);
+    this.stats.target(
+      -target.width *
+        target.height *
+        target.samples *
+        (target.format === 'hdr' ? 12 : 8),
+    );
+    this.coverageTarget = undefined;
+  }
+
+  private resolveCoverageTarget(): void {
+    const target = this.coverageTarget!,
+      destination = this.postTarget!,
+      gl = this.gl!;
+    gl.bindFramebuffer(gl.READ_FRAMEBUFFER, target.framebuffer);
+    gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, destination.framebuffer);
+    gl.blitFramebuffer(
+      0,
+      0,
+      target.width,
+      target.height,
+      0,
+      0,
+      target.width,
+      target.height,
+      gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT,
+      gl.NEAREST,
+    );
+    gl.bindFramebuffer(gl.FRAMEBUFFER, destination.framebuffer);
+  }
+
+  private preparePostTarget(
+    width: number,
+    height: number,
+    format: 'hdr' | 'rgba8' = 'hdr',
+  ): void {
+    if (format === 'hdr' && !this.floatColorBuffer)
       throw new GraphicsError(
         `WebGL2 ${this.weighted ? 'weighted transparency' : 'HDR rendering'} requires EXT_color_buffer_float.`,
       );
-    if (this.postTarget?.width === width && this.postTarget.height === height)
+    if (
+      this.postTarget?.width === width &&
+      this.postTarget.height === height &&
+      this.postTarget.format === format
+    )
       return;
     this.releaseOIT();
     if (this.postTarget) this.deleteTarget(this.postTarget);
     this.postTarget = undefined;
-    this.postTarget = this.createTarget(width, height, false, 'hdr', 'texture');
+    this.postTarget = this.createTarget(
+      width,
+      height,
+      false,
+      format,
+      'texture',
+    );
   }
 
   private prepareRefractionTarget(width: number, height: number): void {
@@ -3112,6 +3349,7 @@ export class WebGL2Renderer implements Renderer {
         ...(depthTexture ? { depthTexture } : {}),
         width,
         height,
+        format,
       };
       const bytes =
         width *
@@ -3827,6 +4065,7 @@ export class WebGL2Renderer implements Renderer {
       this.residency.clear();
       this.preparedGeometry.clear();
       this.releaseOIT();
+      this.releaseCoverageTarget();
       if (this.oitProgram) gl.deleteProgram(this.oitProgram);
       this.oitProgram = undefined;
       this.render2D?.destroy();

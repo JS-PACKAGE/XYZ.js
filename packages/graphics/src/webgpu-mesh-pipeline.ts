@@ -167,8 +167,13 @@ export class WebGPUMeshPipeline {
   private proofMode = -1;
   private readonly gathered = new Set<Mesh>();
   private occlusion: WebGPUOcclusionBackend | undefined;
-  private readonly blendedDraw = (mesh: Mesh): boolean =>
-    isBlended(mesh) || (this.visibility.entries.get(mesh)?.fade ?? 1) < 1;
+  private readonly blendedDraw = (mesh: Mesh): boolean => {
+    if (mesh.material instanceof PBRMaterial && mesh.material.alphaToCoverage)
+      return false;
+    return (
+      isBlended(mesh) || (this.visibility.entries.get(mesh)?.fade ?? 1) < 1
+    );
+  };
   private readonly meshes = new Map<Mesh, CachedMesh>();
   private readonly textures = new Map<MaterialTexture, CachedTexture>();
   private readonly premultipliedTextures = new Map<
@@ -176,6 +181,7 @@ export class WebGPUMeshPipeline {
     CachedTexture
   >();
   private readonly samplers = new Map<string, GPUSampler>();
+  private readonly coveragePipelines = new Map<number, GPURenderPipeline>();
   private readonly draws: Mesh[] = [];
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
@@ -1030,11 +1036,22 @@ export class WebGPUMeshPipeline {
       this.stats.culled +=
         this.visibility.frustumCulled + this.visibility.occlusionCulled;
       let hasTransmission = false,
-        weighted = false;
+        weighted = false,
+        coverage = false;
       this.gathered.clear();
       for (const object of this.visibility.color) {
         this.visibleDraws.push(object);
         this.gathered.add(object);
+        if (
+          object.material instanceof PBRMaterial &&
+          object.material.alphaToCoverage
+        ) {
+          if (this.sampleCount < 2)
+            throw new GraphicsError(
+              'WebGPU alpha-to-coverage requires renderer antialiasing.',
+            );
+          coverage = true;
+        }
         if (scene.transparency === 'weighted' && this.blendedDraw(object))
           weighted = true;
         if (
@@ -1076,7 +1093,8 @@ export class WebGPUMeshPipeline {
         !!captureTarget ||
         scene.postProcessing.enabled ||
         hasTransmission ||
-        weighted;
+        weighted ||
+        coverage;
       this.temporalActive =
         !captureTarget &&
         scene.postProcessing.enabled &&
@@ -1788,21 +1806,53 @@ export class WebGPUMeshPipeline {
         : undefined;
     if (variant < 2 && (this.visibility.entries.get(object)?.fade ?? 1) < 1)
       variant += 4;
-    pass.setPipeline(
-      custom
-        ? custom.pipelines[variant]
-        : variant === 5
-          ? this.fadedHdrPipeline
-          : variant === 4
-            ? this.fadedPipeline
-            : variant === 3
-              ? this.shadowPipeline
-              : variant === 2
-                ? this.oitPipeline
-                : variant === 1
-                  ? this.hdrPipeline
-                  : this.pipeline,
-    );
+    let pipeline = custom
+      ? custom.pipelines[variant]
+      : variant === 5
+        ? this.fadedHdrPipeline
+        : variant === 4
+          ? this.fadedPipeline
+          : variant === 3
+            ? this.shadowPipeline
+            : variant === 2
+              ? this.oitPipeline
+              : variant === 1
+                ? this.hdrPipeline
+                : this.pipeline;
+    if (
+      variant !== 3 &&
+      object.material instanceof PBRMaterial &&
+      object.material.alphaToCoverage
+    ) {
+      if (this.sampleCount < 2)
+        throw new GraphicsError(
+          'Alpha-to-coverage requires renderer antialiasing.',
+        );
+      let coveragePipeline = this.coveragePipelines.get(variant);
+      if (!coveragePipeline) {
+        const recipe = this.pipelineRecipes[variant];
+        coveragePipeline = this.device.createRenderPipeline({
+          ...recipe,
+          fragment: {
+            ...recipe.fragment!,
+            // 3D always clears opaque alpha; coverage must not attenuate it a second time.
+            targets: Array.from(recipe.fragment!.targets, (target) => ({
+              ...target!,
+              blend: undefined,
+              writeMask:
+                GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE,
+            })),
+          },
+          multisample: {
+            count: this.sampleCount,
+            alphaToCoverageEnabled: true,
+          },
+        });
+        this.coveragePipelines.set(variant, coveragePipeline);
+      }
+      pipeline = coveragePipeline;
+    }
+    pass.setPipeline(pipeline);
     pass.setBindGroup(1, mesh.bindGroup);
     pass.setBindGroup(2, mesh.materialGroup);
     const packed =
@@ -2639,6 +2689,8 @@ export class WebGPUMeshPipeline {
       data[55] = material.sheenRoughness;
       data[56] = pbrTextureSources(material).sheenColorTexture ? 1 : 0;
       data[57] = pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0;
+      data[58] = material.specularAntiAliasing;
+      data[59] = material.alphaToCoverage ? 1 : 0;
       data[60] = material.transmission;
       data[61] = material.thickness;
       data[62] = 1 / material.attenuationDistance;
@@ -2816,6 +2868,7 @@ export class WebGPUMeshPipeline {
     this.temporal.destroy();
     for (const entry of this.nativeMaterials.values()) entry.unsubscribe();
     this.nativeMaterials.clear();
+    this.coveragePipelines.clear();
     this.visibilityCache.clear();
     this.visibility.entries.clear();
     this.gathered.clear();
