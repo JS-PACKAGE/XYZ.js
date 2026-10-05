@@ -1,14 +1,46 @@
 import { Texture } from '../../assets/src/index.js';
-import { proceduralMaterialLimits } from '../../../src/data/materials.js';
+import {
+  proceduralMaterialLimits,
+  proceduralTileMeters,
+} from '../../../src/data/materials.js';
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
 import { generateProceduralMaps } from './procedural-material-maps.js';
 
 export type ProceduralMaterialKind =
-  'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble';
+  | 'wood'
+  | 'brick'
+  | 'stone'
+  | 'metal'
+  | 'fabric'
+  | 'marble'
+  | 'concrete'
+  | 'tiles'
+  | 'leather'
+  | 'sand'
+  | 'rust'
+  | 'snow';
 
 export interface ProceduralMaterialOptions {
   size?: number;
   seed?: number;
+  /** 1 keeps the authored contrast. Finite and at least 0. */
+  contrast?: number;
+  /** Added to authored roughness, then clamped. Default 0. */
+  roughnessBias?: number;
+  /** UV repeats of the generated tile. Default 1. */
+  repeats?: number;
+}
+
+/** UV repeats so one mesh of `meters` uses the preset's physical tile size. */
+export function proceduralRepeats(
+  kind: ProceduralMaterialKind,
+  meters: number,
+): number {
+  if (!Number.isFinite(meters) || meters <= 0)
+    throw new RangeError(
+      'Procedural surface size must be finite and positive.',
+    );
+  return meters / proceduralTileMeters[kind];
 }
 
 interface ProceduralTextures {
@@ -25,6 +57,12 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'metal',
   'fabric',
   'marble',
+  'concrete',
+  'tiles',
+  'leather',
+  'sand',
+  'rust',
+  'snow',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -41,6 +79,7 @@ export class ProceduralMaterial {
   private constructor(
     kind: ProceduralMaterialKind,
     textures: ProceduralTextures,
+    readonly repeats: number,
   ) {
     this.kind = kind;
     this.textures = Object.freeze(textures);
@@ -75,7 +114,25 @@ export class ProceduralMaterial {
       throw new RangeError(
         'Procedural material seed must be an unsigned 32-bit integer.',
       );
-    const maps = generateProceduralMaps(kind, size, seed);
+    const contrast = options.contrast ?? 1;
+    const roughnessBias = options.roughnessBias ?? 0;
+    const repeats = options.repeats ?? 1;
+    if (
+      !Number.isFinite(contrast) ||
+      contrast < 0 ||
+      !Number.isFinite(roughnessBias) ||
+      roughnessBias < -1 ||
+      roughnessBias > 1 ||
+      !Number.isFinite(repeats) ||
+      repeats <= 0
+    )
+      throw new RangeError(
+        'Procedural contrast must be finite and nonnegative, roughnessBias within -1..1, and repeats finite and positive.',
+      );
+    const maps = generateProceduralMaps(kind, size, seed, {
+      contrast,
+      roughnessBias,
+    });
     const acquired: Texture[] = [];
     // Sequential acquisition keeps cleanup deterministic even when decoding a later map fails.
     try {
@@ -89,12 +146,16 @@ export class ProceduralMaterial {
         image.data.set(pixels);
         acquired.push(await Texture.fromImage(image));
       }
-      return new ProceduralMaterial(kind, {
-        baseColor: acquired[0],
-        normal: acquired[1],
-        metallicRoughness: acquired[2],
-        occlusion: acquired[3],
-      });
+      return new ProceduralMaterial(
+        kind,
+        {
+          baseColor: acquired[0]!,
+          normal: acquired[1]!,
+          metallicRoughness: acquired[2]!,
+          occlusion: acquired[3]!,
+        },
+        repeats,
+      );
     } catch (error) {
       for (const texture of acquired) texture.destroy();
       throw error;
@@ -107,12 +168,22 @@ export class ProceduralMaterial {
       throw new Error(
         'Cannot create a material from a destroyed procedural preset.',
       );
+    const scale = [this.repeats, this.repeats] as const;
     return new PBRMaterial({
       texture: this.textures.baseColor,
       normalTexture: this.textures.normal,
       metallicRoughnessTexture: this.textures.metallicRoughness,
       occlusionTexture: this.textures.occlusion,
-      metallic: this.kind === 'metal' ? 1 : 0,
+      textureCoordinates:
+        this.repeats === 1
+          ? undefined
+          : {
+              texture: { scale },
+              metallicRoughness: { scale },
+              normal: { scale },
+              occlusion: { scale },
+            },
+      metallic: this.kind === 'metal' || this.kind === 'rust' ? 1 : 0,
       roughness: 1,
       alphaMode: 'OPAQUE',
       textureSampler: repeatSampler,

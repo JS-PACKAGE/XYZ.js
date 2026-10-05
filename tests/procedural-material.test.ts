@@ -10,6 +10,7 @@ import {
 import { Texture } from '../packages/assets/src/index.js';
 import {
   ProceduralMaterial,
+  proceduralRepeats,
   type ProceduralMaterialKind,
 } from '../packages/core/src/procedural-material.js';
 import {
@@ -29,6 +30,12 @@ const kinds: ProceduralMaterialKind[] = [
   'metal',
   'fabric',
   'marble',
+  'concrete',
+  'tiles',
+  'leather',
+  'sand',
+  'rust',
+  'snow',
 ];
 
 class TestImageData {
@@ -91,6 +98,7 @@ describe('periodic procedural material fields', () => {
         roughness: 0,
         occlusion: 0,
         mortar: 0,
+        metallic: 0,
       };
       const b = { ...a };
       for (const [u, v] of [
@@ -112,7 +120,8 @@ describe('periodic procedural material fields', () => {
       }
       const reds = new Set<number>(),
         roughness = new Set<number>(),
-        normals = new Set<number>();
+        normals = new Set<number>(),
+        metallic = new Set<number>();
       for (let p = 0; p < first.baseColor.length; p += 4) {
         reds.add(first.baseColor[p]);
         roughness.add(first.metallicRoughness[p + 1]);
@@ -129,7 +138,10 @@ describe('periodic procedural material fields', () => {
         const nz = (first.normal[p + 2] / 255) * 2 - 1;
         expect(Math.abs(Math.hypot(nx, ny, nz) - 1)).toBeLessThan(0.008);
         expect(first.metallicRoughness[p]).toBe(255);
-        expect(first.metallicRoughness[p + 2]).toBe(kind === 'metal' ? 255 : 0);
+        metallic.add(first.metallicRoughness[p + 2]);
+        if (kind === 'metal') expect(first.metallicRoughness[p + 2]).toBe(255);
+        else if (kind !== 'rust')
+          expect(first.metallicRoughness[p + 2]).toBe(0);
         expect(first.metallicRoughness[p + 3]).toBe(255);
         expect(first.occlusion[p]).toBeGreaterThan(0);
         expect(first.occlusion[p + 3]).toBe(255);
@@ -137,14 +149,35 @@ describe('periodic procedural material fields', () => {
       expect(reds.size).toBeGreaterThan(8);
       expect(roughness.size).toBeGreaterThan(3);
       expect(normals.size).toBeGreaterThan(3);
+      if (kind === 'rust') {
+        expect(Math.min(...metallic)).toBeLessThan(40);
+        expect(Math.max(...metallic)).toBeGreaterThan(200);
+        expect(metallic.size).toBeGreaterThan(8);
+      }
     },
   );
 
-  it('six presets produce different base colors', () => {
+  it('every preset produces a different base color', () => {
     const signatures = kinds.map((kind) =>
       Array.from(generateProceduralMaps(kind, 32, 1).baseColor).join(','),
     );
-    expect(new Set(signatures).size).toBe(6);
+    expect(new Set(signatures).size).toBe(kinds.length);
+  });
+
+  it('keeps default contrast and applies art controls only when requested', () => {
+    const plain = generateProceduralMaps('wood', 32, 1);
+    expect(generateProceduralMaps('wood', 32, 1, { contrast: 1 })).toEqual(
+      plain,
+    );
+    expect(
+      generateProceduralMaps('wood', 32, 1, { contrast: 1.8 }).baseColor,
+    ).not.toEqual(plain.baseColor);
+    expect(
+      generateProceduralMaps('wood', 32, 1, { roughnessBias: 0.2 })
+        .metallicRoughness,
+    ).not.toEqual(plain.metallicRoughness);
+    expect(proceduralRepeats('brick', 1.2)).toBeCloseTo(5);
+    expect(() => proceduralRepeats('brick', 0)).toThrow(RangeError);
   });
 
   it('wraps normal neighbors and uses negative slopes along both image UV axes', () => {
@@ -273,5 +306,19 @@ describe('procedural preset acquisition and ownership', () => {
     expect(external.destroyed).toBe(false);
     expect(() => preset.createMaterial()).toThrow('destroyed');
     external.destroy();
+  });
+
+  it('keeps new dielectrics unmetallic and lets rust use its metallic map', async () => {
+    const concrete = await ProceduralMaterial.create('concrete', { size: 32 });
+    const rust = await ProceduralMaterial.create('rust', { size: 32 });
+    expect(concrete.material.metallic).toBe(0);
+    expect(rust.material.metallic).toBe(1);
+    expect(concrete.material.metallicRoughnessTexture).toBe(
+      concrete.textures.metallicRoughness,
+    );
+    concrete.destroy();
+    rust.destroy();
+    expect(concrete.destroyed).toBe(true);
+    expect(rust.textures.baseColor.destroyed).toBe(true);
   });
 });

@@ -41,6 +41,33 @@ export interface SurfaceSample {
   roughness: number;
   occlusion: number;
   mortar: number;
+  metallic: number;
+}
+
+/** Distance to the nearest wrapped cell feature, in cell units. */
+function wrappedFeature(
+  u: number,
+  v: number,
+  cells: number,
+  seed: number,
+): number {
+  const ix = Math.floor(u * cells);
+  const iy = Math.floor(v * cells);
+  let best = 4;
+  for (let oy = -1; oy <= 1; oy++)
+    for (let ox = -1; ox <= 1; ox++) {
+      const cx = ix + ox;
+      const cy = iy + oy;
+      const wx = ((cx % cells) + cells) % cells;
+      const wy = ((cy % cells) + cells) % cells;
+      const px = (cx + hash(wx, wy, seed)) / cells;
+      const py = (cy + hash(wx, wy, seed ^ 0x9e37)) / cells;
+      const dx = u - px;
+      const dy = v - py;
+      const d = dx * dx + dy * dy;
+      if (d < best) best = d;
+    }
+  return Math.sqrt(best) * cells;
 }
 
 /** Internal CPU field sampler; coordinates are periodic in both directions. */
@@ -62,7 +89,8 @@ export function createSurfaceSampler(
       height = broad,
       roughness = preset.roughness,
       occlusion = 1,
-      mortar = 0;
+      mortar = 0,
+      metallic = kind === 'metal' ? 1 : 0;
     switch (kind) {
       case 'wood': {
         const warp = noise(u, v, 4, 2, seed ^ 71);
@@ -143,12 +171,92 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.06 * vein;
         break;
       }
+      case 'concrete': {
+        const x = fract(u * 3),
+          y = fract(v * 3);
+        const edge = Math.min(x, 1 - x, y, 1 - y);
+        const seam = 1 - smooth(clamp((edge - 0.02) / 0.035));
+        const speckle = hash(
+          Math.floor(fract(u) * 40),
+          Math.floor(fract(v) * 40),
+          seed,
+        );
+        color = 0.28 + 0.5 * speckle * (1 - seam) + 0.12 * detail;
+        height = (1 - seam) * (0.65 + 0.25 * speckle) + 0.05 * detail;
+        roughness += 0.14 * seam + 0.06 * (speckle - 0.5);
+        occlusion = 0.62 + 0.38 * (1 - seam);
+        break;
+      }
+      case 'tiles': {
+        const n = 5;
+        const x = fract(u * n),
+          y = fract(v * n);
+        const edge = Math.min(x, 1 - x, y, 1 - y);
+        const face = smooth(clamp((edge - 0.018) / 0.028));
+        const variation = hash(
+          Math.floor(u * n) % n,
+          Math.floor(v * n) % n,
+          seed,
+        );
+        color = 0.42 + 0.4 * variation + 0.08 * detail;
+        height = face * (0.82 + 0.1 * detail);
+        mortar = 1 - face;
+        roughness += 0.42 * mortar + 0.04 * (detail - 0.5);
+        occlusion = 0.58 + 0.42 * face;
+        break;
+      }
+      case 'leather': {
+        const pores = wrappedFeature(u, v, 14, seed ^ 0x51);
+        const pebble = smooth(clamp(1 - pores * 1.55));
+        color = 0.24 + 0.52 * pebble + 0.12 * detail;
+        height = 0.12 + 0.72 * pebble + 0.06 * detail;
+        roughness += 0.16 * (1 - pebble) + 0.04 * (detail - 0.5);
+        occlusion = 0.55 + 0.45 * pebble;
+        break;
+      }
+      case 'sand': {
+        const warp = noise(u, v, 3, 3, seed ^ 17);
+        const ripple =
+          0.5 + 0.5 * Math.sin(TAU * (v * 7 + 0.35 * warp) + phase);
+        const grain = noise(u, v, 48, 48, seed ^ 0x51ed);
+        color = 0.3 + 0.48 * ripple + 0.18 * grain;
+        height = 0.72 * ripple + 0.22 * grain;
+        roughness += 0.06 * (grain - 0.5);
+        occlusion = 0.82 + 0.18 * ripple;
+        break;
+      }
+      case 'rust': {
+        const pit = noise(u, v, 6, 6, seed ^ 211);
+        const flake = noise(u, v, 18, 18, seed ^ 419);
+        const corrosion = smooth(
+          clamp((pit * 0.7 + flake * 0.3 - 0.32) / 0.28),
+        );
+        color = corrosion;
+        height = 0.25 + 0.45 * (1 - corrosion) * flake - 0.2 * corrosion * pit;
+        roughness += 0.22 * corrosion + 0.05 * (flake - 0.5);
+        occlusion = 0.7 + 0.3 * (1 - corrosion);
+        metallic = 1 - corrosion;
+        break;
+      }
+      case 'snow': {
+        const drift = noise(u, v, 3, 3, seed ^ 17);
+        const spark = Math.pow(
+          hash(Math.floor(fract(u) * 48), Math.floor(fract(v) * 48), seed),
+          8,
+        );
+        color = clamp(0.22 + 0.68 * drift + 0.1 * spark);
+        height = 0.7 * drift + 0.2 * spark;
+        roughness += 0.22 * spark - 0.06 * drift;
+        occlusion = 0.88 + 0.12 * drift;
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;
     out.roughness = clamp(roughness);
     out.occlusion = occlusion;
     out.mortar = mortar;
+    out.metallic = metallic;
   };
 }
 
@@ -191,6 +299,7 @@ export function generateProceduralMaps(
   kind: ProceduralMaterialKind,
   size: number,
   seed: number,
+  controls: { contrast?: number; roughnessBias?: number } = {},
 ): ProceduralMaps {
   const maps: ProceduralMaps = {
     baseColor: new Uint8ClampedArray(size * size * 4),
@@ -207,10 +316,14 @@ export function generateProceduralMaps(
     roughness: 0,
     occlusion: 0,
     mortar: 0,
+    metallic: 0,
   };
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       sample((x + 0.5) / size, (y + 0.5) / size, surface);
+      const contrast = controls.contrast ?? 1;
+      const roughnessBias = controls.roughnessBias ?? 0;
+      surface.color = clamp(0.5 + (surface.color - 0.5) * contrast);
       const i = y * size + x,
         p = i * 4;
       heights[i] = surface.height;
@@ -224,8 +337,8 @@ export function generateProceduralMaps(
       }
       maps.baseColor[p + 3] = maps.occlusion[p + 3] = 255;
       maps.metallicRoughness[p] = 255;
-      maps.metallicRoughness[p + 1] = byte(surface.roughness);
-      maps.metallicRoughness[p + 2] = kind === 'metal' ? 255 : 0;
+      maps.metallicRoughness[p + 1] = byte(surface.roughness + roughnessBias);
+      maps.metallicRoughness[p + 2] = byte(surface.metallic);
       maps.metallicRoughness[p + 3] = 255;
     }
   writeNormals(heights, size, maps.normal);
