@@ -16,6 +16,14 @@ import type { Rect2D } from './gameplay/contracts.js';
 import { validatedRegion } from './graphics2d/sprite-sheet.js';
 import { transformSphere, type BoundingSphere3D } from './render-bounds.js';
 import { visibilityLimits } from '../../../src/data/visibility.js';
+import {
+  Text2D,
+  snapshotTextStyle,
+  type Text2DOptions,
+  type Text2DStyle,
+  type Text2DLayout,
+  type RasterizedText,
+} from './text2d.js';
 
 type Camera3D = PerspectiveCamera | OrthographicCamera;
 
@@ -746,34 +754,63 @@ export class Line3D extends Mesh implements CameraDependent3D {
   }
 }
 
-export interface Text3DOptions extends Omit<
-  BillboardOptions,
-  'material' | 'width' | 'height'
-> {
-  /** CSS font size in pixels used to rasterize; default 64. */
-  fontSize?: number;
-  /** CSS font family; default `system-ui, sans-serif`. */
-  fontFamily?: string;
-  /** CSS color; default white. */
-  color?: string;
-  /** World height of one line; the width follows the text. Default 1. */
+export interface Text3DOptions
+  extends
+    Omit<BillboardOptions, 'material' | 'width' | 'height'>,
+    Text2DOptions {
+  /** World height of one padded, browser-measured line. Default 1. */
   height?: number;
-  padding?: number;
+}
+
+export type Text3DStyle = Text2DStyle & Readonly<{ height: number }>;
+
+function text3DStyle(
+  options: Text2DOptions & { height?: number },
+): Text3DStyle {
+  const fontSize = options.fontSize ?? 64;
+  if (!Number.isFinite(fontSize) || fontSize <= 0 || fontSize > 512)
+    throw new RangeError('Text3D fontSize must be within (0, 512].');
+  const height = options.height ?? 1;
+  if (!Number.isFinite(height) || height <= 0)
+    throw new RangeError('Text3D height must be positive and finite.');
+  return Object.freeze({
+    ...snapshotTextStyle({
+      ...options,
+      fontSize,
+      padding: options.padding ?? Math.round(fontSize / 4),
+      lineHeight: options.lineHeight ?? Math.ceil(fontSize * 1.3),
+    }),
+    height,
+  });
 }
 
 /**
- * Text drawn into a canvas texture and shown on a camera-facing quad. The text is fixed when
- * created (create a new Text3D to change it); it owns its texture and releases it on destroy.
+ * Browser-shaped multiline text on a camera-facing quad. Updates publish atomically;
+ * each label owns its raster texture, while externally assigned materials stay borrowed.
  */
 export class Text3D extends Billboard {
-  private readonly ownedTexture: Texture;
+  /** Replacing this material borrows it; only generated raster textures are owned. */
+  declare material: TextureMaterial;
+  private revision = 0;
+  private requestedText: string;
+  private requestedStyle: Text3DStyle;
+  private displayedStyle: Text3DStyle;
+  private width: number;
+  private height: number;
 
   private constructor(
-    texture: Texture,
+    private content: string,
+    style: Text3DStyle,
+    private ownedTexture: Texture,
+    private displayedLayout: Text2DLayout,
     options: Text3DOptions,
-    aspect: number,
   ) {
-    const height = options.height ?? 1;
+    const unit =
+      style.height /
+      (displayedLayout.height -
+        (displayedLayout.lines.length - 1) * style.lineHeight);
+    const width = displayedLayout.width * unit;
+    const height = displayedLayout.height * unit;
     super({
       position: options.position,
       rotation: options.rotation,
@@ -782,11 +819,17 @@ export class Text3D extends Billboard {
       castShadow: options.castShadow,
       receiveShadow: options.receiveShadow,
       mode: options.mode,
-      material: new TextureMaterial({ texture, transparent: true }),
-      width: height * aspect,
+      material: new TextureMaterial({
+        texture: ownedTexture,
+        transparent: true,
+      }),
+      width,
       height,
     });
-    this.ownedTexture = texture;
+    this.width = width;
+    this.height = height;
+    this.requestedText = content;
+    this.requestedStyle = this.displayedStyle = style;
   }
 
   static async create(
@@ -794,37 +837,109 @@ export class Text3D extends Billboard {
     options: Text3DOptions = {},
   ): Promise<Text3D> {
     if (!text) throw new RangeError('Text3D needs text.');
-    const size = options.fontSize ?? 64;
-    const padding = options.padding ?? Math.round(size / 4);
-    if (!Number.isFinite(size) || size <= 0 || size > 512)
-      throw new RangeError('Text3D fontSize must be within (0, 512].');
-    const canvas = document.createElement('canvas');
-    const context = canvas.getContext('2d')!;
-    const font = `${size}px ${options.fontFamily ?? 'system-ui, sans-serif'}`;
-    context.font = font;
-    const width = Math.max(
-      1,
-      Math.ceil(context.measureText(text).width) + padding * 2,
-    );
-    const height = Math.ceil(size * 1.3) + padding * 2;
-    canvas.width = width;
-    canvas.height = height;
-    // Resizing resets the context state.
-    context.font = font;
-    context.fillStyle = options.color ?? '#ffffff';
-    context.textBaseline = 'middle';
-    context.fillText(text, padding, height / 2);
-    const texture = await Texture.fromImage(canvas);
+    const style = text3DStyle(options);
+    const raster = await Text2D.rasterize(text, style);
     try {
-      return new Text3D(texture, options, width / height);
+      return new Text3D(text, style, raster.texture, raster.layout, options);
     } catch (error) {
-      texture.destroy();
+      raster.texture.destroy();
       throw error;
     }
   }
 
+  get text(): string {
+    return this.content;
+  }
+  get style(): Text3DStyle {
+    return this.displayedStyle;
+  }
+  /** Logical-pixel layout including browser glyph overhang and descenders. */
+  get layout(): Text2DLayout {
+    return this.displayedLayout;
+  }
+
+  async setText(text: string): Promise<void> {
+    if (!text) throw new RangeError('Text3D needs text.');
+    if (this.destroyed) throw new Error('Cannot update destroyed Text3D.');
+    this.requestedText = text;
+    await this.refresh();
+  }
+
+  /** Merges with the latest requested state, including updates still rasterizing. */
+  async setStyle(options: Text2DOptions & { height?: number }): Promise<void> {
+    const style = text3DStyle({ ...this.requestedStyle, ...options });
+    if (this.destroyed) throw new Error('Cannot update destroyed Text3D.');
+    this.requestedStyle = style;
+    await this.refresh();
+  }
+
+  async refreshFonts(): Promise<void> {
+    if (this.destroyed) throw new Error('Cannot update destroyed Text3D.');
+    await this.refresh(true);
+  }
+
+  private async refresh(force = false): Promise<void> {
+    const revision = ++this.revision;
+    const text = this.requestedText;
+    const style = this.requestedStyle;
+    if (!force && text === this.content && style === this.displayedStyle)
+      return;
+    let raster: RasterizedText;
+    try {
+      raster = await Text2D.rasterize(text, style);
+    } catch (error) {
+      if (revision === this.revision) {
+        this.requestedText = this.content;
+        this.requestedStyle = this.displayedStyle;
+      }
+      throw error;
+    }
+    if (this.destroyed || revision !== this.revision) {
+      raster.texture.destroy();
+      return;
+    }
+    const unit =
+      style.height /
+      (raster.layout.height -
+        (raster.layout.lines.length - 1) * style.lineHeight);
+    const width = raster.layout.width * unit;
+    const height = raster.layout.height * unit;
+    if (
+      !Number.isFinite(width) ||
+      !Number.isFinite(height) ||
+      width <= 0 ||
+      height <= 0
+    ) {
+      raster.texture.destroy();
+      this.requestedText = this.content;
+      this.requestedStyle = this.displayedStyle;
+      throw new RangeError(
+        'Text3D world dimensions must be positive and finite.',
+      );
+    }
+    const previous = this.ownedTexture;
+    this.material = new TextureMaterial({
+      texture: raster.texture,
+      transparent: true,
+    });
+    // Preserve caller scale changes made while the raster was pending.
+    this.scale.set(
+      (this.scale.x * width) / this.width,
+      (this.scale.y * height) / this.height,
+      this.scale.z,
+    );
+    this.width = width;
+    this.height = height;
+    this.ownedTexture = raster.texture;
+    this.content = text;
+    this.displayedStyle = style;
+    this.displayedLayout = raster.layout;
+    previous.destroy();
+  }
+
   override destroy(): void {
     if (this.destroyed) return;
+    this.revision++;
     super.destroy();
     this.ownedTexture.destroy();
   }

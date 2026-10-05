@@ -6,6 +6,7 @@ import { OrthographicCamera } from './orthographic-camera.js';
 import type { PerspectiveCamera } from './perspective-camera.js';
 import type { Rect2D } from './gameplay/contracts.js';
 import { type BoundingSphere3D } from './render-bounds.js';
+import { type Text2DOptions, type Text2DStyle, type Text2DLayout } from './text2d.js';
 type Camera3D = PerspectiveCamera | OrthographicCamera;
 /**
  * Objects that need the camera before each draw. The Scene calls `updateForCamera` once per
@@ -147,25 +148,42 @@ export declare class Line3D extends Mesh implements CameraDependent3D {
     /** Lays each segment's quad flat to the viewer at `(cx, cy, cz)` (local space). */
     private rebuild;
 }
-export interface Text3DOptions extends Omit<BillboardOptions, 'material' | 'width' | 'height'> {
-    /** CSS font size in pixels used to rasterize; default 64. */
-    fontSize?: number;
-    /** CSS font family; default `system-ui, sans-serif`. */
-    fontFamily?: string;
-    /** CSS color; default white. */
-    color?: string;
-    /** World height of one line; the width follows the text. Default 1. */
+export interface Text3DOptions extends Omit<BillboardOptions, 'material' | 'width' | 'height'>, Text2DOptions {
+    /** World height of one padded, browser-measured line. Default 1. */
     height?: number;
-    padding?: number;
 }
+export type Text3DStyle = Text2DStyle & Readonly<{
+    height: number;
+}>;
 /**
- * Text drawn into a canvas texture and shown on a camera-facing quad. The text is fixed when
- * created (create a new Text3D to change it); it owns its texture and releases it on destroy.
+ * Browser-shaped multiline text on a camera-facing quad. Updates publish atomically;
+ * each label owns its raster texture, while externally assigned materials stay borrowed.
  */
 export declare class Text3D extends Billboard {
-    private readonly ownedTexture;
+    private content;
+    private ownedTexture;
+    private displayedLayout;
+    /** Replacing this material borrows it; only generated raster textures are owned. */
+    material: TextureMaterial;
+    private revision;
+    private requestedText;
+    private requestedStyle;
+    private displayedStyle;
+    private width;
+    private height;
     private constructor();
     static create(text: string, options?: Text3DOptions): Promise<Text3D>;
+    get text(): string;
+    get style(): Text3DStyle;
+    /** Logical-pixel layout including browser glyph overhang and descenders. */
+    get layout(): Text2DLayout;
+    setText(text: string): Promise<void>;
+    /** Merges with the latest requested state, including updates still rasterizing. */
+    setStyle(options: Text2DOptions & {
+        height?: number;
+    }): Promise<void>;
+    refreshFonts(): Promise<void>;
+    private refresh;
     destroy(): void;
 }
 export {};

@@ -141,17 +141,43 @@ try {
   }
 
   const scene = new Gallery();
-  scene.label = await Text3D.create('Text3D', {
+  scene.label = await Text3D.create('Text3D\nMultiline label', {
     fontSize: 72,
     height: 0.6,
     position: [0, 2, 0],
     color: '#ffe08a',
+    align: 'center',
+    wrapWidth: 420,
   });
   scene.add(scene.label);
   let frame = 0;
   $('frame').addEventListener('click', () => {
     frame = (frame + 1) % sheet.frames.length;
     scene.sprite.setSource(sheet.getFrame(frame));
+  });
+  let textRevision = 0;
+  $('text').addEventListener('click', () => {
+    const label = scene.label!;
+    const revision = ++textRevision;
+    void Promise.all([
+      label.setText(
+        revision % 2
+          ? `Live update ${revision}\nBrowser-shaped text`
+          : `Text3D ${revision}\nMultiline label`,
+      ),
+      label.setStyle({ color: revision % 2 ? '#80ffb2' : '#ffe08a' }),
+    ]).then(
+      () => {
+        if (runtime.state !== 'destroyed' && revision === textRevision)
+          $('text-state').textContent =
+            `${label.text.replaceAll('\n', ' · ')} · ${label.layout.lines.length} lines`;
+      },
+      (error: unknown) => {
+        if (revision === textRevision)
+          status.textContent =
+            error instanceof Error ? error.message : String(error);
+      },
+    );
   });
   let decalsVisible = true;
   $('decal').addEventListener('click', () => {
