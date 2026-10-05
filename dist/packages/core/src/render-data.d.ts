@@ -1,7 +1,7 @@
 import { Matrix4 } from '../../math/src/index.js';
 import { EnvironmentMap } from './environment.js';
 import type { Scene } from './scene.js';
-import type { Mesh } from './mesh.js';
+import { ReflectionProbe } from './reflection-probe.js';
 import type { SelectedLights } from './light-selection.js';
 /** Validate mutable settings before either backend allocates frame resources. */
 export declare function validateRenderSettings(scene: Scene): void;
@@ -13,8 +13,21 @@ export declare function activeBackground(scene: Scene): EnvironmentMap | undefin
  * intensity, enabled, maxLod, background intensity (0 when no background).
  */
 export declare function fillEnvironmentData(scene: Scene, out: Float32Array): void;
-/** SH[36], intensity/enabled/maxLod/boxProjection, then bounds min/max and capture position. */
-export declare function fillReflectionData(scene: Scene, object: Mesh, out: Float32Array, offset?: number): EnvironmentMap | undefined;
+export declare const MAX_REFLECTION_PROBES = 4;
+export declare const PROBE_BLEND_FLOAT_COUNT = 260;
+export declare const PROBE_BLEND_STRIDE = 52;
+/** Stable scene-order budget, independent of any mesh origin or capture distance. */
+export declare function selectReflectionProbes(scene: Scene, out: ReflectionProbe[]): ReflectionProbe[];
+/** Smooth interior influence: zero at/outside the boundary, one past the blend band. */
+export declare function reflectionProbeWeight(probe: ReflectionProbe, x: number, y: number, z: number): number;
+/** Output baseline weight followed by four local weights; overlap never dims lighting. */
+export declare function fillReflectionProbeWeights(probes: readonly ReflectionProbe[], x: number, y: number, z: number, out: Float32Array): void;
+/**
+ * Baseline SH/params/bounds (52 floats), then four identical local records.
+ * Local min.w is blendDistance; params are intensity/enabled/maxLod/boxProjection.
+ * Selection is caller-owned and reused across draws; maps remain scene-owned.
+ */
+export declare function fillProbeBlendData(scene: Scene, out: Float32Array, offset?: number, selected?: readonly ReflectionProbe[]): EnvironmentMap | undefined;
 /**
  * Fog block shared by both backends: color.rgb, mode (0 off, 1 linear, 2 exp2),
  * near, far, density, 0. The color is authored as display sRGB and is decoded here

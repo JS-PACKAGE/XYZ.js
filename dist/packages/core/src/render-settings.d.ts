@@ -43,6 +43,18 @@ export interface PostProcessingSettingsOptions {
     dofFocusRange?: number;
     /** Maximum circle radius in backing pixels. */
     dofBlurRadius?: number;
+    /** Jittered HDR temporal accumulation before tone mapping. */
+    taa?: boolean;
+    taaHistoryWeight?: number;
+    taaDepthThreshold?: number;
+    taaCameraCutDistance?: number;
+    /** Opaque depth ray-march before transparency; misses retain environment shading. */
+    ssr?: boolean;
+    ssrSteps?: number;
+    ssrThickness?: number;
+    ssrMaxDistance?: number;
+    ssrRoughness?: number;
+    ssrStrength?: number;
 }
 /** Directional cascades and point/spot atlas shadows; mutable settings are validated each render. */
 export declare class ShadowSettings {
@@ -84,6 +96,16 @@ export declare class PostProcessingSettings {
     dofFocusDistance: number;
     dofFocusRange: number;
     dofBlurRadius: number;
+    taa: boolean;
+    taaHistoryWeight: number;
+    taaDepthThreshold: number;
+    taaCameraCutDistance: number;
+    ssr: boolean;
+    ssrSteps: number;
+    ssrThickness: number;
+    ssrMaxDistance: number;
+    ssrRoughness: number;
+    ssrStrength: number;
     constructor(options?: PostProcessingSettingsOptions);
     validate(): void;
 }

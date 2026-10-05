@@ -3,6 +3,7 @@ import {
   shadowLimits,
   fxaaDefaults,
   depthPostDefaults,
+  advancedPostDefaults,
 } from '../../../src/data/rendering.js';
 
 export interface ShadowSettingsOptions {
@@ -51,6 +52,18 @@ export interface PostProcessingSettingsOptions {
   dofFocusRange?: number;
   /** Maximum circle radius in backing pixels. */
   dofBlurRadius?: number;
+  /** Jittered HDR temporal accumulation before tone mapping. */
+  taa?: boolean;
+  taaHistoryWeight?: number;
+  taaDepthThreshold?: number;
+  taaCameraCutDistance?: number;
+  /** Opaque depth ray-march before transparency; misses retain environment shading. */
+  ssr?: boolean;
+  ssrSteps?: number;
+  ssrThickness?: number;
+  ssrMaxDistance?: number;
+  ssrRoughness?: number;
+  ssrStrength?: number;
 }
 
 function finite(value: number, name: string): void {
@@ -172,6 +185,16 @@ export class PostProcessingSettings {
   dofFocusDistance: number;
   dofFocusRange: number;
   dofBlurRadius: number;
+  taa: boolean;
+  taaHistoryWeight: number;
+  taaDepthThreshold: number;
+  taaCameraCutDistance: number;
+  ssr: boolean;
+  ssrSteps: number;
+  ssrThickness: number;
+  ssrMaxDistance: number;
+  ssrRoughness: number;
+  ssrStrength: number;
 
   constructor(options: PostProcessingSettingsOptions = {}) {
     this.enabled = options.enabled ?? false;
@@ -192,6 +215,22 @@ export class PostProcessingSettings {
       options.dofFocusRange ?? depthPostDefaults.dofFocusRange;
     this.dofBlurRadius =
       options.dofBlurRadius ?? depthPostDefaults.dofBlurRadius;
+    this.taa = options.taa ?? false;
+    this.taaHistoryWeight =
+      options.taaHistoryWeight ?? advancedPostDefaults.taaHistoryWeight;
+    this.taaDepthThreshold =
+      options.taaDepthThreshold ?? advancedPostDefaults.taaDepthThreshold;
+    this.taaCameraCutDistance =
+      options.taaCameraCutDistance ?? advancedPostDefaults.taaCameraCutDistance;
+    this.ssr = options.ssr ?? false;
+    this.ssrSteps = options.ssrSteps ?? advancedPostDefaults.ssrSteps;
+    this.ssrThickness =
+      options.ssrThickness ?? advancedPostDefaults.ssrThickness;
+    this.ssrMaxDistance =
+      options.ssrMaxDistance ?? advancedPostDefaults.ssrMaxDistance;
+    this.ssrRoughness =
+      options.ssrRoughness ?? advancedPostDefaults.ssrRoughness;
+    this.ssrStrength = options.ssrStrength ?? advancedPostDefaults.ssrStrength;
     this.validate();
   }
 
@@ -227,6 +266,30 @@ export class PostProcessingSettings {
     nonnegative(this.bloomStrength, 'Bloom strength');
     nonnegative(this.bloomThreshold, 'Bloom threshold');
     nonnegative(this.bloomRadius, 'Bloom radius');
+    if (typeof this.taa !== 'boolean' || typeof this.ssr !== 'boolean')
+      throw new TypeError('TAA and SSR settings must be boolean.');
+    nonnegative(this.taaHistoryWeight, 'TAA history weight');
+    nonnegative(this.taaDepthThreshold, 'TAA depth threshold');
+    nonnegative(this.taaCameraCutDistance, 'TAA camera cut distance');
+    nonnegative(this.ssrThickness, 'SSR thickness');
+    nonnegative(this.ssrMaxDistance, 'SSR distance');
+    nonnegative(this.ssrRoughness, 'SSR roughness');
+    nonnegative(this.ssrStrength, 'SSR strength');
+    if (
+      this.taaHistoryWeight >= 1 ||
+      this.taaDepthThreshold === 0 ||
+      this.taaCameraCutDistance === 0 ||
+      this.ssrThickness === 0 ||
+      this.ssrMaxDistance === 0 ||
+      this.ssrRoughness > 1 ||
+      this.ssrStrength > 1 ||
+      !Number.isInteger(this.ssrSteps) ||
+      this.ssrSteps < 1 ||
+      this.ssrSteps > advancedPostDefaults.maximumSSRSteps
+    )
+      throw new RangeError(
+        'TAA requires weight < 1 and positive thresholds; SSR requires positive distance/thickness, roughness/strength <= 1, and 1..128 integer steps.',
+      );
   }
 }
 

@@ -1,7 +1,18 @@
 import { Vector3 } from '../../math/src/index.js';
 import { EnvironmentMap } from './environment.js';
 import type { Mesh } from './mesh.js';
-import type { Scene } from './scene.js';
+import { reflectionCaptureLimits } from '../../../src/data/rendering.js';
+
+export interface ReflectionProbeCaptureOptions {
+  size?: number;
+  near?: number;
+  far?: number;
+  includeBackground?: boolean;
+  exclude?: readonly Mesh[];
+  signal?: AbortSignal;
+  /** Upper bound for temporary native color/depth/readback storage. */
+  maxBytes?: number;
+}
 
 export interface ReflectionProbeOptions {
   environment: EnvironmentMap;
@@ -11,6 +22,11 @@ export interface ReflectionProbeOptions {
   intensity?: number;
   enabled?: boolean;
   boxProjection?: boolean;
+  blendDistance?: number;
+  /** Automatically capture at most one due probe per renderer frame. */
+  dynamic?: boolean;
+  captureInterval?: number;
+  captureSize?: number;
 }
 
 function copy(value: Vector3 | [number, number, number]): Vector3 {
@@ -54,6 +70,11 @@ export class ReflectionProbe {
   intensity: number;
   enabled: boolean;
   boxProjection: boolean;
+  blendDistance: number;
+  dynamic: boolean;
+  captureInterval: number;
+  captureSize: number;
+  private ownedCapture: EnvironmentMap | undefined;
 
   constructor(options: ReflectionProbeOptions) {
     this.environment = options.environment;
@@ -63,6 +84,11 @@ export class ReflectionProbe {
     this.intensity = options.intensity ?? 1;
     this.enabled = options.enabled ?? true;
     this.boxProjection = options.boxProjection ?? true;
+    this.blendDistance = options.blendDistance ?? 1;
+    this.dynamic = options.dynamic ?? false;
+    this.captureInterval =
+      options.captureInterval ?? reflectionCaptureLimits.interval;
+    this.captureSize = options.captureSize ?? reflectionCaptureLimits.size;
     this.validate();
   }
 
@@ -92,6 +118,20 @@ export class ReflectionProbe {
       throw new TypeError(
         'Reflection probe enabled and boxProjection must be boolean.',
       );
+    if (typeof this.dynamic !== 'boolean')
+      throw new TypeError('Reflection probe dynamic must be boolean.');
+    if (
+      !finite(this.blendDistance) ||
+      this.blendDistance <= 0 ||
+      !finite(this.captureInterval) ||
+      this.captureInterval <= 0 ||
+      !Number.isInteger(this.captureSize) ||
+      this.captureSize < 2 ||
+      this.captureSize > reflectionCaptureLimits.maximumSize
+    )
+      throw new RangeError(
+        'Probe blending/capture requires positive blend distance/interval and capture size 2..512.',
+      );
   }
 
   contains(x: number, y: number, z: number): boolean {
@@ -104,34 +144,23 @@ export class ReflectionProbe {
       z <= this.max.z
     );
   }
-}
 
-/** Object-origin selection: closest containing capture position wins; equal distances keep Scene order. */
-export function selectReflectionProbe(
-  scene: Scene,
-  object: Mesh,
-): ReflectionProbe | undefined {
-  const e = object.updateWorldMatrix().elements;
-  const x = e[12],
-    y = e[13],
-    z = e[14];
-  let selected: ReflectionProbe | undefined,
-    distance = Infinity;
-  for (const probe of scene.reflectionProbes) {
-    if (
-      !probe.enabled ||
-      probe.environment.destroyed ||
-      !probe.contains(x, y, z)
-    )
-      continue;
-    const dx = x - probe.position.x,
-      dy = y - probe.position.y,
-      dz = z - probe.position.z;
-    const squared = dx * dx + dy * dy + dz * dz;
-    if (squared < distance) {
-      selected = probe;
-      distance = squared;
+  /** Adopt an automatic capture; only previously adopted maps are released. */
+  adoptCapture(map: EnvironmentMap): void {
+    if (!(map instanceof EnvironmentMap) || map.destroyed)
+      throw new TypeError('Cannot adopt an invalid captured environment.');
+    if (this.ownedCapture === map) {
+      this.environment = map;
+      return;
     }
+    this.ownedCapture?.destroy();
+    this.ownedCapture = this.environment = map;
   }
-  return selected;
+
+  /** Releases automatic captures, never the initially borrowed environment. */
+  destroy(): void {
+    this.enabled = this.dynamic = false;
+    this.ownedCapture?.destroy();
+    this.ownedCapture = undefined;
+  }
 }

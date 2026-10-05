@@ -19,8 +19,7 @@ import {
   ShadowSettings,
 } from './render-settings.js';
 import type { Scene } from './scene.js';
-import type { Mesh } from './mesh.js';
-import { ReflectionProbe, selectReflectionProbe } from './reflection-probe.js';
+import { ReflectionProbe } from './reflection-probe.js';
 import type { SelectedLights } from './light-selection.js';
 
 function finite(value: number, name: string): void {
@@ -103,34 +102,118 @@ export function fillEnvironmentData(scene: Scene, out: Float32Array): void {
   out[38] = environment ? environment.mipCount - 1 : 0;
   out[39] = activeBackground(scene) ? scene.backgroundIntensity : 0;
 }
-/** SH[36], intensity/enabled/maxLod/boxProjection, then bounds min/max and capture position. */
-export function fillReflectionData(
+export const MAX_REFLECTION_PROBES = 4;
+export const PROBE_BLEND_FLOAT_COUNT = 260;
+export const PROBE_BLEND_STRIDE = 52;
+
+/** Stable scene-order budget, independent of any mesh origin or capture distance. */
+export function selectReflectionProbes(
   scene: Scene,
-  object: Mesh,
+  out: ReflectionProbe[],
+): ReflectionProbe[] {
+  out.length = 0;
+  for (const probe of scene.reflectionProbes) {
+    if (probe.enabled && !probe.environment.destroyed) out.push(probe);
+    if (out.length === MAX_REFLECTION_PROBES) break;
+  }
+  return out;
+}
+
+/** Smooth interior influence: zero at/outside the boundary, one past the blend band. */
+export function reflectionProbeWeight(
+  probe: ReflectionProbe,
+  x: number,
+  y: number,
+  z: number,
+): number {
+  if (!probe.enabled || probe.environment.destroyed) return 0;
+  const distance = Math.min(
+    x - probe.min.x,
+    probe.max.x - x,
+    y - probe.min.y,
+    probe.max.y - y,
+    z - probe.min.z,
+    probe.max.z - z,
+  );
+  if (distance <= 0) return 0;
+  const t = Math.min(distance / probe.blendDistance, 1);
+  return t * t * (3 - 2 * t);
+}
+
+/** Output baseline weight followed by four local weights; overlap never dims lighting. */
+export function fillReflectionProbeWeights(
+  probes: readonly ReflectionProbe[],
+  x: number,
+  y: number,
+  z: number,
+  out: Float32Array,
+): void {
+  if (out.length < 5 || probes.length > MAX_REFLECTION_PROBES)
+    throw new RangeError(
+      'Reflection weights require five outputs and at most four probes.',
+    );
+  let sum = 0;
+  for (let i = 0; i < MAX_REFLECTION_PROBES; i++) {
+    const weight =
+      i < probes.length ? reflectionProbeWeight(probes[i], x, y, z) : 0;
+    out[i + 1] = weight;
+    sum += weight;
+  }
+  out[0] = Math.max(0, 1 - sum);
+  if (sum > 1) for (let i = 1; i <= MAX_REFLECTION_PROBES; i++) out[i] /= sum;
+}
+
+/**
+ * Baseline SH/params/bounds (52 floats), then four identical local records.
+ * Local min.w is blendDistance; params are intensity/enabled/maxLod/boxProjection.
+ * Selection is caller-owned and reused across draws; maps remain scene-owned.
+ */
+export function fillProbeBlendData(
+  scene: Scene,
   out: Float32Array,
   offset = 0,
+  selected?: readonly ReflectionProbe[],
 ): EnvironmentMap | undefined {
-  const probe = selectReflectionProbe(scene, object);
-  const environment = probe?.environment ?? activeEnvironment(scene);
-  if (environment) out.set(environment.sh, offset);
-  else out.fill(0, offset, offset + 36);
-  out[offset + 36] = environment
-    ? (probe?.intensity ?? scene.environmentIntensity)
-    : 0;
-  out[offset + 37] = environment ? 1 : 0;
-  out[offset + 38] = environment ? environment.mipCount - 1 : 0;
-  out[offset + 39] = probe?.boxProjection ? 1 : 0;
-  out.fill(0, offset + 40, offset + 52);
-  if (probe) {
-    out[offset + 40] = probe.min.x;
-    out[offset + 41] = probe.min.y;
-    out[offset + 42] = probe.min.z;
-    out[offset + 44] = probe.max.x;
-    out[offset + 45] = probe.max.y;
-    out[offset + 46] = probe.max.z;
-    out[offset + 48] = probe.position.x;
-    out[offset + 49] = probe.position.y;
-    out[offset + 50] = probe.position.z;
+  if (
+    !(out instanceof Float32Array) ||
+    !Number.isInteger(offset) ||
+    offset < 0 ||
+    out.length < offset + PROBE_BLEND_FLOAT_COUNT
+  )
+    throw new RangeError(
+      `Reflection output requires ${PROBE_BLEND_FLOAT_COUNT} Float32 values.`,
+    );
+  if (selected && selected.length > MAX_REFLECTION_PROBES)
+    throw new RangeError('At most four reflection probes can be bound.');
+  out.fill(0, offset, offset + PROBE_BLEND_FLOAT_COUNT);
+  const environment = activeEnvironment(scene);
+  if (environment) {
+    out.set(environment.sh, offset);
+    out[offset + 36] = scene.environmentIntensity;
+    out[offset + 37] = 1;
+    out[offset + 38] = environment.mipCount - 1;
+  }
+  const candidates = selected ?? scene.reflectionProbes;
+  let count = 0;
+  for (const probe of candidates) {
+    if (!probe.enabled || probe.environment.destroyed) continue;
+    const start = offset + PROBE_BLEND_STRIDE * (count + 1);
+    out.set(probe.environment.sh, start);
+    out[start + 36] = probe.intensity;
+    out[start + 37] = 1;
+    out[start + 38] = probe.environment.mipCount - 1;
+    out[start + 39] = probe.boxProjection ? 1 : 0;
+    out[start + 40] = probe.min.x;
+    out[start + 41] = probe.min.y;
+    out[start + 42] = probe.min.z;
+    out[start + 43] = probe.blendDistance;
+    out[start + 44] = probe.max.x;
+    out[start + 45] = probe.max.y;
+    out[start + 46] = probe.max.z;
+    out[start + 48] = probe.position.x;
+    out[start + 49] = probe.position.y;
+    out[start + 50] = probe.position.z;
+    if (++count === MAX_REFLECTION_PROBES) break;
   }
   return environment;
 }
