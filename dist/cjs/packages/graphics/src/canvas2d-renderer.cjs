@@ -76,6 +76,10 @@ var Canvas2DRenderer = class {
 		storageBuffers: !1,
 		instancing: !1,
 		lighting2D: !1,
+		textureAnisotropy: Object.freeze({
+			maxRequest: 16,
+			maxEffective: 1
+		}),
 		maxTextureSize: w,
 		supportedTextureFormats: Object.freeze([])
 	});

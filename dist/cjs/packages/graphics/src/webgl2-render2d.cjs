@@ -156,12 +156,12 @@ var WebGLRender2D = class {
 		let r = n instanceof require_texture.Texture ? require_distance_field.getTextureDistanceField(n) : void 0;
 		this.gl.uniform2f(this.uniform(t, `distanceField`), r ? r.type === `sdf` ? 1 : 2 : 0, r?.range ?? 0);
 	}
-	sampler(e, t) {
-		let n = +!!e + (t ? 2 : 0), r = this.samplers.get(n);
-		if (r) return r;
-		let i = this.gl, a = i.createSampler();
-		if (!a) throw new require_errors.GraphicsError(`WebGL2 sampler allocation failed.`);
-		return i.samplerParameteri(a, i.TEXTURE_MIN_FILTER, e ? i.NEAREST : i.LINEAR), i.samplerParameteri(a, i.TEXTURE_MAG_FILTER, t ? i.NEAREST : i.LINEAR), i.samplerParameteri(a, i.TEXTURE_WRAP_S, i.CLAMP_TO_EDGE), i.samplerParameteri(a, i.TEXTURE_WRAP_T, i.CLAMP_TO_EDGE), this.samplers.set(n, a), a;
+	sampler(e, t, n = 1) {
+		let r = Math.min(n, this.hooks.maxTextureAnisotropy), i = +!!e + (t ? 2 : 0) + 4 * (r - 1), a = this.samplers.get(i);
+		if (a) return a;
+		let o = this.gl, c = o.createSampler();
+		if (!c) throw new require_errors.GraphicsError(`WebGL2 sampler allocation failed.`);
+		return o.samplerParameteri(c, o.TEXTURE_MIN_FILTER, r > 1 ? o.LINEAR_MIPMAP_LINEAR : e ? o.NEAREST : o.LINEAR), o.samplerParameteri(c, o.TEXTURE_MAG_FILTER, t ? o.NEAREST : o.LINEAR), o.samplerParameteri(c, o.TEXTURE_WRAP_S, o.CLAMP_TO_EDGE), o.samplerParameteri(c, o.TEXTURE_WRAP_T, o.CLAMP_TO_EDGE), this.hooks.anisotropyExtension && o.samplerParameterf(c, this.hooks.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, r), this.samplers.set(i, c), c;
 	}
 	drawCommands(e, t) {
 		this.hooks.stats.pass2D();
@@ -169,13 +169,13 @@ var WebGLRender2D = class {
 		for (let r = 0; r < n.length;) {
 			let a = n[r];
 			if (this.bindTarget(t), a.kind === `sprite` && !a.object.material && !a.object.lighting && !(a.object instanceof require_tiling_sprite2d.TilingSprite2D)) {
-				let o = a.object, s = r + 1;
-				for (; s < n.length;) {
-					let e = n[s];
-					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== o.texture || e.object.sampler?.minFilter === `nearest` != (o.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (o.sampler?.magFilter === `nearest`)) break;
-					s++;
+				let o = a.object, s = Math.min(o.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy), c = r + 1;
+				for (; c < n.length;) {
+					let e = n[c];
+					if (e.kind !== `sprite` || e.object.material || e.object.lighting || e.object instanceof require_tiling_sprite2d.TilingSprite2D || e.object.texture !== o.texture || e.object.sampler?.minFilter === `nearest` != (o.sampler?.minFilter === `nearest`) || e.object.sampler?.magFilter === `nearest` != (o.sampler?.magFilter === `nearest`) || Math.min(e.object.sampler?.maxAnisotropy ?? 1, this.hooks.maxTextureAnisotropy) !== s) break;
+					c++;
 				}
-				this.drawSprites(e, r, s, t), r = s;
+				this.drawSprites(e, r, c, t), r = c;
 				continue;
 			}
 			a.kind === `layer` ? this.drawLayer(a.object, a.commands, t) : a.kind === `sprite` ? this.drawSprite(a.object, t) : a.kind === `mesh` ? this.drawMesh(a.object, t) : this.drawParticles(a.object, t), r++;
@@ -204,18 +204,18 @@ var WebGLRender2D = class {
 		let o = e.items[t];
 		if (o.kind !== `sprite`) return;
 		let s = o.object, c = this.spriteProgram;
-		i.useProgram(c.program), this.distanceField(c, s.texture), i.uniform2f(this.uniform(c, `viewportSize`), r.bounds.width, r.bounds.height), i.uniform1i(this.uniform(c, `image`), 0), i.uniform1i(this.uniform(c, `renderSource`), +(s.texture.kind === `render`)), i.uniform1i(this.uniform(c, `tiling`), 0), i.activeTexture(i.TEXTURE0), i.bindTexture(i.TEXTURE_2D, this.hooks.source(s.texture)), i.bindSampler(0, this.sampler(s.sampler?.minFilter === `nearest`, s.sampler?.magFilter === `nearest`)), this.bindInstances(this.spriteVAO, this.spriteBuffer, 0), this.spriteCapacity < this.spriteData.byteLength && (i.bufferData(i.ARRAY_BUFFER, this.spriteData.byteLength, i.DYNAMIC_DRAW), this.spriteCapacity = this.spriteData.byteLength), i.bufferSubData(i.ARRAY_BUFFER, 0, this.spriteData, 0, a * 28), this.hooks.stats.upload(a * 112), i.drawArraysInstanced(i.TRIANGLES, 0, 6, a), this.hooks.stats.draw2D(a);
+		i.useProgram(c.program), this.distanceField(c, s.texture), i.uniform2f(this.uniform(c, `viewportSize`), r.bounds.width, r.bounds.height), i.uniform1i(this.uniform(c, `image`), 0), i.uniform1i(this.uniform(c, `renderSource`), +(s.texture.kind === `render`)), i.uniform1i(this.uniform(c, `tiling`), 0), i.activeTexture(i.TEXTURE0), i.bindTexture(i.TEXTURE_2D, this.hooks.source(s.texture)), i.bindSampler(0, this.sampler(s.sampler?.minFilter === `nearest`, s.sampler?.magFilter === `nearest`, s.sampler?.maxAnisotropy ?? 1)), this.bindInstances(this.spriteVAO, this.spriteBuffer, 0), this.spriteCapacity < this.spriteData.byteLength && (i.bufferData(i.ARRAY_BUFFER, this.spriteData.byteLength, i.DYNAMIC_DRAW), this.spriteCapacity = this.spriteData.byteLength), i.bufferSubData(i.ARRAY_BUFFER, 0, this.spriteData, 0, a * 28), this.hooks.stats.upload(a * 112), i.drawArraysInstanced(i.TRIANGLES, 0, 6, a), this.hooks.stats.draw2D(a);
 	}
 	drawSprite(e, t) {
 		let n = this.gl, r = require_sprite_instance.getSpriteQuad2D(e, this.quad), a = e.lighting ? this.lightingProgram : e.material ? this.register(this.hooks.material(e.material)) : this.quadProgram;
-		if (this.spriteMatrix(e, t), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), this.useQuad(a, t, e.texture, r, this.matrix, this.appearance), n.bindSampler(0, this.sampler(e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`)), e.lighting) {
+		if (this.spriteMatrix(e, t), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), this.useQuad(a, t, e.texture, r, this.matrix, this.appearance), n.bindSampler(0, this.sampler(e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), e.lighting) {
 			this.objectMatrix(e, t, this.mapping, !0).invert(), require_lighting2d$1.packLighting2D(e, this.mapping, r, this.lightingData);
 			let i = !1;
 			for (let e = 0; e < this.lightingData.length; e++) if (this.lightingData[e] !== this.uploadedLighting[e]) {
 				i = !0;
 				break;
 			}
-			i && (n.uniform4fv(this.uniform(a, `lighting[0]`), this.lightingData), this.uploadedLighting.set(this.lightingData)), n.uniform1i(this.uniform(a, `normalMap`), 1), n.activeTexture(n.TEXTURE1), n.bindTexture(n.TEXTURE_2D, this.hooks.source(e.normalTexture ?? e.texture)), n.bindSampler(1, this.sampler(e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`)), n.activeTexture(n.TEXTURE0);
+			i && (n.uniform4fv(this.uniform(a, `lighting[0]`), this.lightingData), this.uploadedLighting.set(this.lightingData)), n.uniform1i(this.uniform(a, `normalMap`), 1), n.activeTexture(n.TEXTURE1), n.bindTexture(n.TEXTURE_2D, this.hooks.source(e.normalTexture ?? e.texture)), n.bindSampler(1, this.sampler(e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), n.activeTexture(n.TEXTURE0);
 		}
 		if (e.material && n.uniform4fv(this.uniform(a, `uniforms[0]`), e.material.uniforms), e instanceof require_tiling_sprite2d.TilingSprite2D) {
 			let t = require_sprite_instance.getTextureQuad2D(e.texture, e.view, e.source, this.sourceQuad);

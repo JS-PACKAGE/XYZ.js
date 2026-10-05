@@ -376,7 +376,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 
 ### 每 Slot 的 Texture Sampling
 
-PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter、magFilter、mipmapFilter；address modes 為 clamp-to-edge／repeat／mirror-repeat；finite LOD clamps 必須 `0 <= lodMinClamp <= lodMaxClamp <= 32`。預設 linear／clamp，glTF 使用 repeat；同 image 可有不同 sampler、不重複 ownership。Native mip semantics 見第 42 節。
+TextureMaterial（含 NativeMaterial3D）base sampler 與 PBRMaterial per-slot TextureSamplerOptions 支援 nearest／linear 的 minFilter、magFilter、mipmapFilter；address modes 為 clamp-to-edge／repeat／mirror-repeat；finite LOD clamps 必須 `0 <= lodMinClamp <= lodMaxClamp <= 32`。預設 linear／clamp、anisotropy 1，glTF 使用 repeat；同 image 可有不同 sampler、不重複 ownership。Native mip semantics 見第 42 節。
 
 一般 decoded-image texture 仍只 level zero，沒有自動 general mip generation；EnvironmentMap roughness mips 是專用路徑。
 
@@ -1353,3 +1353,35 @@ xyz morph deltas。CPU／native skin 與 model 使用 forward tangent、inverse-
 normal、正交化及 determinant-sign handedness。直接修改 tangent 後呼叫 `markUpdated()`。
 僅 normal morph 也重投影 tangent。GPU caches 擁有 tangent buffers，計入 residency
 並在 eviction／失敗／destroy 清理。
+
+## P120. Anisotropic texture filtering
+
+`TextureSamplerOptions.maxAnisotropy?: number`／`SpriteSampler2D.maxAnisotropy?`
+是 immutable 的 integer quality request 1–16，缺省 1。大於 1 時 min／mag／
+mipmap 必須 linear，明示 nearest 組合拒絕。一般／native 3D base、所有 PBR
+slots、Sprite albedo 與 matching CPU-backed normal map 都套用 request；
+既有 normal source／dimensions 限制與 borrowing ownership 不變。
+
+`GraphicsCapabilities.textureAnisotropy?: Readonly<TextureAnisotropyCapabilities>`
+包含 `maxRequest: number`（engine ceiling 16）、`maxEffective: number | null`。
+GL 回報可用 integer driver ceiling（最多16），缺 `EXT_texture_filter_anisotropic`
+為1。Canvas2D 為1，仍不支援3D／native payload。WebGPU 實際 platform clamp 不可
+查詢，因此回報 null；接受 request 16 不代表實際以16執行。既有外部1.x renderer
+可省略此新增 capability。
+
+Native sampler／texture group cache key 含適當的 effective／requested value；
+相鄰 Sprite 按 sampler 分 batch，GL clamp 相同的 request 可合批。Sprite opt-in
+使用 gradients／supplied mips，1仍保留舊 level-zero 路徑；normal／albedo 一致，
+含 local custom material draw。Atlas 應提供 extrusion 與適當 mips，sampler
+不會自行產生 mip 或增大 padding。
+
+Flattened transmission／thickness array 不能用 hardware sampler 跨無關的 native
+rows，因此保留 independent wrap／filter，request 時沿 principal footprint
+axis 做最多16 taps 的 linear integration，含 sheared UV。這是有界 base-level
+integration，不是完整 optical mip pyramid，不保證等於 native filtering。
+Opaque／MASK／BLEND／shadow 共用 base sampler。
+
+Native 契約依據 [WebGPU sampler descriptor](https://gpuweb.github.io/types/interfaces/GPUSamplerDescriptor)
+與 [Khronos extension](https://registry.khronos.org/webgl/extensions/EXT_texture_filter_anisotropic)。
+`pnpm smoke:filtering` 實跑斜視 Game／Scene、2D normal、batch transition、
+無 extension 與 Canvas2D 限定 fallback。

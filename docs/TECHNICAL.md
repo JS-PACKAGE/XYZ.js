@@ -376,7 +376,7 @@ See [advanced3d](../examples/advanced3d/) and the [usage guide](USAGE.md#11-adva
 
 ### Per-Slot Texture Sampling
 
-PBRMaterial per-slot samplers accept `TextureSamplerOptions`: `minFilter`, `magFilter`, `mipmapFilter` are `'nearest' | 'linear'`; address modes are `'clamp-to-edge' | 'repeat' | 'mirror-repeat'`; finite LOD clamps satisfy `0 <= lodMinClamp <= lodMaxClamp <= 32`. Defaults retain linear/clamp sampling. GLTFLoader uses repeat wrapping and distinct samplers on shared images without duplicating ownership. Native supplied-mip semantics and glTF filter mapping are described in section 42.
+TextureMaterial (including NativeMaterial3D) base samplers and PBRMaterial per-slot samplers accept `TextureSamplerOptions`: `minFilter`, `magFilter`, `mipmapFilter` are `'nearest' | 'linear'`; address modes are `'clamp-to-edge' | 'repeat' | 'mirror-repeat'`; finite LOD clamps satisfy `0 <= lodMinClamp <= lodMaxClamp <= 32`. Defaults retain linear/clamp sampling and anisotropy one. GLTFLoader uses repeat wrapping and distinct samplers on shared images without duplicating ownership. Native supplied-mip semantics and glTF filter mapping are described in section 42.
 
 Ordinary decoded-image textures still have only level zero; no automatic general mip generation is provided. EnvironmentMap roughness mips remain a separate specialized path.
 
@@ -1433,3 +1433,40 @@ CPU/native skin and model transforms use forward tangents, inverse-transpose nor
 orthogonalization and determinant-sign handedness. Call `markUpdated()` after direct
 tangent edits. Normal-only morphs also reproject the tangent. GPU caches own their
 tangent buffers and include them in residency accounting and teardown.
+
+## P120. Anisotropic texture filtering
+
+`TextureSamplerOptions.maxAnisotropy?: number` and `SpriteSampler2D.maxAnisotropy?`
+are immutable integer quality requests in 1–16, default one. Values above one
+require linear min/mag/mipmap filtering; explicit nearest combinations reject.
+TextureMaterial/NativeMaterial3D base, all PBR slots, Sprite albedo and its matching
+CPU-backed normal map use the request. Existing normal-map dimension/source
+restrictions and borrowed texture ownership remain unchanged.
+
+`GraphicsCapabilities.textureAnisotropy?: Readonly<TextureAnisotropyCapabilities>`
+has `maxRequest: number` (engine ceiling 16) and `maxEffective: number | null`.
+WebGL2 reports the usable integer driver ceiling, bounded by 16, or one without
+`EXT_texture_filter_anisotropic`. Canvas2D uses one and still does not support 3D
+or native texture payloads. WebGPU reports null because its effective platform
+clamp cannot be queried; accepting a request of 16 does not certify its execution
+at 16. Existing external 1.x renderer implementations may omit the capability.
+
+Native sampler and texture-bind-group cache keys include the effective/requested
+value as appropriate. Adjacent Sprite batches split by native sampler identity;
+GL requests with the same effective clamp can share a batch. Opt-in Sprite
+filtering uses gradients and supplied mips; the legacy level-zero 2D path stays
+unchanged at one. Normal and albedo filtering agree, including local custom
+material draws. Use extruded, appropriately authored atlas mips for oblique
+sampling; changing a sampler does not generate mips or enlarge atlas padding.
+
+Flattened transmission/thickness arrays cannot use a hardware sampler across
+unrelated native rows. They retain independent wrap/filter controls and use a
+principal-footprint-axis, at-most-16-tap linear integration when requested,
+including sheared UV footprints. This bounded base-level integration is not a
+full optical-map mip pyramid or a promise of native filtering equality.
+Opaque, masked, transparent and shadow base sampling share the material sampler.
+
+The native contracts follow [WebGPU sampler descriptors](https://gpuweb.github.io/types/interfaces/GPUSamplerDescriptor)
+and the [Khronos anisotropic filtering extension](https://registry.khronos.org/webgl/extensions/EXT_texture_filter_anisotropic).
+Run `pnpm smoke:filtering` for actual oblique Game/Scene pixels, 2D normal filtering,
+batch transitions, extension absence and Canvas2D's bounded fallback.

@@ -1,5 +1,6 @@
 const require_texture = require("../../assets/src/texture.cjs");
 const require_texture2d = require("../../assets/src/texture2d.cjs");
+const require_texture_sampler = require("./texture-sampler.cjs");
 const require_mesh = require("./mesh.cjs");
 //#region dist/packages/core/src/pbr-material.js
 var pbrTextureKeys = [
@@ -17,10 +18,10 @@ var pbrTextureKeys = [
 	`occlusionTexture`,
 	`emissiveTexture`
 ];
-var r = /* @__PURE__ */ new WeakMap();
-var i = Object.freeze({});
+var i = /* @__PURE__ */ new WeakMap();
+var a = Object.freeze({});
 function pbrTextureSources(e) {
-	return r.get(e) ?? i;
+	return i.get(e) ?? a;
 }
 function finite(e, t) {
 	if (!Number.isFinite(e) || !Number.isFinite(Math.fround(e))) throw RangeError(`${t} must be finite and fit in Float32.`);
@@ -30,14 +31,6 @@ function unit(e, t) {
 }
 function textureSlot(t, n) {
 	if (t !== void 0 && !(t instanceof require_texture.Texture)) throw TypeError(`${n} must be a Texture.`);
-}
-function samplerOptions(e) {
-	if (e === void 0) return;
-	if (e.minFilter !== void 0 && e.minFilter !== `nearest` && e.minFilter !== `linear` || e.magFilter !== void 0 && e.magFilter !== `nearest` && e.magFilter !== `linear` || e.mipmapFilter !== void 0 && e.mipmapFilter !== `nearest` && e.mipmapFilter !== `linear`) throw RangeError(`Texture sampler filters must be nearest or linear.`);
-	let t = e.lodMinClamp ?? 0, n = e.lodMaxClamp ?? 32;
-	if (!Number.isFinite(t) || !Number.isFinite(n) || t < 0 || n < t || n > 32) throw RangeError(`Texture sampler LOD clamps must satisfy 0 <= min <= max <= 32.`);
-	for (let t of [e.addressModeU, e.addressModeV]) if (t !== void 0 && t !== `clamp-to-edge` && t !== `repeat` && t !== `mirror-repeat`) throw RangeError(`Texture sampler address modes must be clamp-to-edge, repeat or mirror-repeat.`);
-	return Object.freeze({ ...e });
 }
 function textureCoordinates(e) {
 	let t = {}, n = [
@@ -133,58 +126,57 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 	alphaCutoff;
 	alphaMode;
 	doubleSided;
-	textureSampler;
 	metallicRoughnessSampler;
 	normalSampler;
 	occlusionSampler;
 	emissiveSampler;
 	constructor(n) {
 		super(n), this.textureCoordinates = textureCoordinates(n.textureCoordinates);
-		let i = n.metallic ?? 0, a = n.roughness ?? .5, o = n.emissive ?? [
+		let a = n.metallic ?? 0, o = n.roughness ?? .5, s = n.emissive ?? [
 			0,
 			0,
 			0
-		], s = n.ior ?? 1.5, c = n.specular ?? 1, l = n.specularColor ?? [
+		], c = n.ior ?? 1.5, l = n.specular ?? 1, u = n.specularColor ?? [
 			1,
 			1,
 			1
 		];
-		if (finite(s, `Index of refraction`), s !== 0 && s < 1) throw RangeError(`Index of refraction must be zero or at least one.`);
-		if (unit(c, `Specular strength`), !Array.isArray(l) || l.length !== 3) throw RangeError(`Specular color must contain three components.`);
-		for (let e of l) if (finite(e, `Specular color component`), e < 0) throw RangeError(`Specular color components cannot be negative.`);
+		if (finite(c, `Index of refraction`), c !== 0 && c < 1) throw RangeError(`Index of refraction must be zero or at least one.`);
+		if (unit(l, `Specular strength`), !Array.isArray(u) || u.length !== 3) throw RangeError(`Specular color must contain three components.`);
+		for (let e of u) if (finite(e, `Specular color component`), e < 0) throw RangeError(`Specular color components cannot be negative.`);
 		textureSlot(n.specularTexture, `Specular texture`), textureSlot(n.specularColorTexture, `Specular color texture`);
-		let u = n.clearcoat ?? 0, d = n.clearcoatRoughness ?? 0, f = n.clearcoatNormalScale ?? 1;
-		unit(u, `Clearcoat factor`), unit(d, `Clearcoat roughness`), finite(f, `Clearcoat normal scale`), textureSlot(n.clearcoatTexture, `Clearcoat texture`), textureSlot(n.clearcoatRoughnessTexture, `Clearcoat roughness texture`), textureSlot(n.clearcoatNormalTexture, `Clearcoat normal texture`);
-		let p = n.sheenColor ?? [
+		let d = n.clearcoat ?? 0, f = n.clearcoatRoughness ?? 0, p = n.clearcoatNormalScale ?? 1;
+		unit(d, `Clearcoat factor`), unit(f, `Clearcoat roughness`), finite(p, `Clearcoat normal scale`), textureSlot(n.clearcoatTexture, `Clearcoat texture`), textureSlot(n.clearcoatRoughnessTexture, `Clearcoat roughness texture`), textureSlot(n.clearcoatNormalTexture, `Clearcoat normal texture`);
+		let m = n.sheenColor ?? [
 			0,
 			0,
 			0
-		], m = n.sheenRoughness ?? 0;
-		if (!Array.isArray(p) || p.length !== 3) throw RangeError(`Sheen color must contain three components.`);
-		for (let e of p) unit(e, `Sheen color component`);
-		unit(m, `Sheen roughness`), textureSlot(n.sheenColorTexture, `Sheen color texture`), textureSlot(n.sheenRoughnessTexture, `Sheen roughness texture`);
-		let h = n.transmission ?? 0, g = n.thickness ?? 0, _ = n.attenuationDistance ?? 1 / 0, v = n.attenuationColor ?? [
+		], h = n.sheenRoughness ?? 0;
+		if (!Array.isArray(m) || m.length !== 3) throw RangeError(`Sheen color must contain three components.`);
+		for (let e of m) unit(e, `Sheen color component`);
+		unit(h, `Sheen roughness`), textureSlot(n.sheenColorTexture, `Sheen color texture`), textureSlot(n.sheenRoughnessTexture, `Sheen roughness texture`);
+		let g = n.transmission ?? 0, _ = n.thickness ?? 0, v = n.attenuationDistance ?? 1 / 0, y = n.attenuationColor ?? [
 			1,
 			1,
 			1
 		];
-		if (unit(h, `Transmission factor`), finite(g, `Volume thickness`), g < 0) throw RangeError(`Volume thickness cannot be negative.`);
-		if (!(_ > 0) || _ !== 1 / 0 && !Number.isFinite(_)) throw RangeError(`Attenuation distance must be positive or Infinity.`);
-		if (!Array.isArray(v) || v.length !== 3) throw RangeError(`Attenuation color must contain three components.`);
-		for (let e of v) unit(e, `Attenuation color component`);
+		if (unit(g, `Transmission factor`), finite(_, `Volume thickness`), _ < 0) throw RangeError(`Volume thickness cannot be negative.`);
+		if (!(v > 0) || v !== 1 / 0 && !Number.isFinite(v)) throw RangeError(`Attenuation distance must be positive or Infinity.`);
+		if (!Array.isArray(y) || y.length !== 3) throw RangeError(`Attenuation color must contain three components.`);
+		for (let e of y) unit(e, `Attenuation color component`);
 		textureSlot(n.transmissionTexture, `Transmission texture`), textureSlot(n.thicknessTexture, `Thickness texture`);
-		let y = n.normalScale ?? 1, b = n.occlusionStrength ?? 1, x = n.alphaCutoff ?? 0, S = n.alphaMode ?? (x > 0 ? `MASK` : `BLEND`), C = n.doubleSided ?? !0;
-		if (unit(i, `Metallic factor`), unit(a, `Roughness factor`), unit(b, `Occlusion strength`), !Array.isArray(o) || o.length !== 3) throw RangeError(`Emissive color must contain three components.`);
-		for (let e = 0; e < 3; e++) if (finite(o[e], `Emissive color component`), o[e] < 0) throw RangeError(`Emissive color components cannot be negative.`);
-		if (finite(y, `Normal scale`), finite(x, `Alpha cutoff`), x < 0) throw RangeError(`Alpha cutoff cannot be negative.`);
-		if (S !== `OPAQUE` && S !== `MASK` && S !== `BLEND`) throw RangeError(`Material alpha mode must be OPAQUE, MASK, or BLEND.`);
-		if (typeof C != `boolean`) throw TypeError(`Double-sided material setting must be boolean.`);
-		textureSlot(n.metallicRoughnessTexture, `Metallic-roughness texture`), textureSlot(n.normalTexture, `Normal texture`), textureSlot(n.occlusionTexture, `Occlusion texture`), textureSlot(n.emissiveTexture, `Emissive texture`), this.metallic = i, this.roughness = a, this.emissive = [
-			o[0],
-			o[1],
-			o[2]
-		], this.ior = s, this.specular = c, this.specularColor = [...l], this.specularTexture = n.specularTexture, this.specularColorTexture = n.specularColorTexture, this.specularSampler = samplerOptions(n.specularSampler), this.specularColorSampler = samplerOptions(n.specularColorSampler), this.clearcoat = u, this.clearcoatRoughness = d, this.clearcoatNormalScale = f, this.clearcoatTexture = n.clearcoatTexture, this.clearcoatRoughnessTexture = n.clearcoatRoughnessTexture, this.clearcoatNormalTexture = n.clearcoatNormalTexture, this.clearcoatSampler = samplerOptions(n.clearcoatSampler), this.clearcoatRoughnessSampler = samplerOptions(n.clearcoatRoughnessSampler), this.clearcoatNormalSampler = samplerOptions(n.clearcoatNormalSampler), this.sheenColor = [...p], this.sheenRoughness = m, this.sheenColorTexture = n.sheenColorTexture, this.sheenRoughnessTexture = n.sheenRoughnessTexture, this.sheenColorSampler = samplerOptions(n.sheenColorSampler), this.sheenRoughnessSampler = samplerOptions(n.sheenRoughnessSampler), this.transmission = h, this.transmissionTexture = n.transmissionTexture, this.transmissionSampler = samplerOptions(n.transmissionSampler), this.thickness = g, this.thicknessTexture = n.thicknessTexture, this.thicknessSampler = samplerOptions(n.thicknessSampler), this.attenuationDistance = _, this.attenuationColor = [...v], this.metallicRoughnessTexture = n.metallicRoughnessTexture, this.normalTexture = n.normalTexture, this.normalScale = y, this.occlusionTexture = n.occlusionTexture, this.occlusionStrength = b, this.emissiveTexture = n.emissiveTexture;
-		let w = {};
+		let b = n.normalScale ?? 1, x = n.occlusionStrength ?? 1, S = n.alphaCutoff ?? 0, C = n.alphaMode ?? (S > 0 ? `MASK` : `BLEND`), w = n.doubleSided ?? !0;
+		if (unit(a, `Metallic factor`), unit(o, `Roughness factor`), unit(x, `Occlusion strength`), !Array.isArray(s) || s.length !== 3) throw RangeError(`Emissive color must contain three components.`);
+		for (let e = 0; e < 3; e++) if (finite(s[e], `Emissive color component`), s[e] < 0) throw RangeError(`Emissive color components cannot be negative.`);
+		if (finite(b, `Normal scale`), finite(S, `Alpha cutoff`), S < 0) throw RangeError(`Alpha cutoff cannot be negative.`);
+		if (C !== `OPAQUE` && C !== `MASK` && C !== `BLEND`) throw RangeError(`Material alpha mode must be OPAQUE, MASK, or BLEND.`);
+		if (typeof w != `boolean`) throw TypeError(`Double-sided material setting must be boolean.`);
+		textureSlot(n.metallicRoughnessTexture, `Metallic-roughness texture`), textureSlot(n.normalTexture, `Normal texture`), textureSlot(n.occlusionTexture, `Occlusion texture`), textureSlot(n.emissiveTexture, `Emissive texture`), this.metallic = a, this.roughness = o, this.emissive = [
+			s[0],
+			s[1],
+			s[2]
+		], this.ior = c, this.specular = l, this.specularColor = [...u], this.specularTexture = n.specularTexture, this.specularColorTexture = n.specularColorTexture, this.specularSampler = require_texture_sampler.samplerOptions(n.specularSampler), this.specularColorSampler = require_texture_sampler.samplerOptions(n.specularColorSampler), this.clearcoat = d, this.clearcoatRoughness = f, this.clearcoatNormalScale = p, this.clearcoatTexture = n.clearcoatTexture, this.clearcoatRoughnessTexture = n.clearcoatRoughnessTexture, this.clearcoatNormalTexture = n.clearcoatNormalTexture, this.clearcoatSampler = require_texture_sampler.samplerOptions(n.clearcoatSampler), this.clearcoatRoughnessSampler = require_texture_sampler.samplerOptions(n.clearcoatRoughnessSampler), this.clearcoatNormalSampler = require_texture_sampler.samplerOptions(n.clearcoatNormalSampler), this.sheenColor = [...m], this.sheenRoughness = h, this.sheenColorTexture = n.sheenColorTexture, this.sheenRoughnessTexture = n.sheenRoughnessTexture, this.sheenColorSampler = require_texture_sampler.samplerOptions(n.sheenColorSampler), this.sheenRoughnessSampler = require_texture_sampler.samplerOptions(n.sheenRoughnessSampler), this.transmission = g, this.transmissionTexture = n.transmissionTexture, this.transmissionSampler = require_texture_sampler.samplerOptions(n.transmissionSampler), this.thickness = _, this.thicknessTexture = n.thicknessTexture, this.thicknessSampler = require_texture_sampler.samplerOptions(n.thicknessSampler), this.attenuationDistance = v, this.attenuationColor = [...y], this.metallicRoughnessTexture = n.metallicRoughnessTexture, this.normalTexture = n.normalTexture, this.normalScale = b, this.occlusionTexture = n.occlusionTexture, this.occlusionStrength = x, this.emissiveTexture = n.emissiveTexture;
+		let T = {};
 		if (n.sources !== void 0) {
 			for (let e of Object.keys(n.sources)) if (!pbrTextureKeys.includes(e)) throw TypeError(`Unknown PBR texture source ${e}.`);
 		}
@@ -192,9 +184,9 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 			let i = n.sources?.[r];
 			if (i !== void 0 && !(i instanceof require_texture.Texture) && !(i instanceof require_texture2d.CanvasTexture2D)) throw TypeError(`${r} source must be a Texture or CanvasTexture2D.`);
 			let a = i ?? n[r];
-			a !== void 0 && (w[r] = a);
+			a !== void 0 && (T[r] = a);
 		}
-		r.set(this, Object.freeze(w)), this.alphaCutoff = x, this.alphaMode = S, this.doubleSided = C, this.textureSampler = samplerOptions(n.textureSampler), this.metallicRoughnessSampler = samplerOptions(n.metallicRoughnessSampler), this.normalSampler = samplerOptions(n.normalSampler), this.occlusionSampler = samplerOptions(n.occlusionSampler), this.emissiveSampler = samplerOptions(n.emissiveSampler);
+		i.set(this, Object.freeze(T)), this.alphaCutoff = S, this.alphaMode = C, this.doubleSided = w, this.metallicRoughnessSampler = require_texture_sampler.samplerOptions(n.metallicRoughnessSampler), this.normalSampler = require_texture_sampler.samplerOptions(n.normalSampler), this.occlusionSampler = require_texture_sampler.samplerOptions(n.occlusionSampler), this.emissiveSampler = require_texture_sampler.samplerOptions(n.emissiveSampler);
 	}
 };
 //#endregion

@@ -110,6 +110,8 @@ export interface GLRender2DHooks {
   owner: object;
   stats: FrameStats;
   residency: NativeResidency;
+  anisotropyExtension: EXT_texture_filter_anisotropic | null;
+  maxTextureAnisotropy: number;
   createTarget(width: number, height: number): GLTarget2D;
   deleteTarget(target: GLTarget2D): void;
   createProgram(vertex: string, fragment: string, label: string): WebGLProgram;
@@ -471,8 +473,17 @@ export class WebGLRender2D {
       field?.range ?? 0,
     );
   }
-  private sampler(nearestMin: boolean, nearestMag: boolean): WebGLSampler {
-    const key = (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0),
+  private sampler(
+    nearestMin: boolean,
+    nearestMag: boolean,
+    requestedAnisotropy = 1,
+  ): WebGLSampler {
+    const maxAnisotropy = Math.min(
+      requestedAnisotropy,
+      this.hooks.maxTextureAnisotropy,
+    );
+    const key =
+        (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0) + 4 * (maxAnisotropy - 1),
       existing = this.samplers.get(key);
     if (existing) return existing;
     const gl = this.gl,
@@ -481,7 +492,11 @@ export class WebGLRender2D {
     gl.samplerParameteri(
       sampler,
       gl.TEXTURE_MIN_FILTER,
-      nearestMin ? gl.NEAREST : gl.LINEAR,
+      maxAnisotropy > 1
+        ? gl.LINEAR_MIPMAP_LINEAR
+        : nearestMin
+          ? gl.NEAREST
+          : gl.LINEAR,
     );
     gl.samplerParameteri(
       sampler,
@@ -490,6 +505,12 @@ export class WebGLRender2D {
     );
     gl.samplerParameteri(sampler, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.samplerParameteri(sampler, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    if (this.hooks.anisotropyExtension)
+      gl.samplerParameterf(
+        sampler,
+        this.hooks.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT,
+        maxAnisotropy,
+      );
     this.samplers.set(key, sampler);
     return sampler;
   }
@@ -509,6 +530,10 @@ export class WebGLRender2D {
         !(command.object instanceof TilingSprite2D)
       ) {
         const sprite = command.object;
+        const anisotropy = Math.min(
+          sprite.sampler?.maxAnisotropy ?? 1,
+          this.hooks.maxTextureAnisotropy,
+        );
         let end = i + 1;
         while (end < items.length) {
           const next = items[end];
@@ -521,7 +546,11 @@ export class WebGLRender2D {
             (next.object.sampler?.minFilter === 'nearest') !==
               (sprite.sampler?.minFilter === 'nearest') ||
             (next.object.sampler?.magFilter === 'nearest') !==
-              (sprite.sampler?.magFilter === 'nearest')
+              (sprite.sampler?.magFilter === 'nearest') ||
+            Math.min(
+              next.object.sampler?.maxAnisotropy ?? 1,
+              this.hooks.maxTextureAnisotropy,
+            ) !== anisotropy
           )
             break;
           end++;
@@ -652,6 +681,7 @@ export class WebGLRender2D {
       this.sampler(
         sprite.sampler?.minFilter === 'nearest',
         sprite.sampler?.magFilter === 'nearest',
+        sprite.sampler?.maxAnisotropy ?? 1,
       ),
     );
     this.bindInstances(this.spriteVAO, this.spriteBuffer, 0);
@@ -691,6 +721,7 @@ export class WebGLRender2D {
       this.sampler(
         sprite.sampler?.minFilter === 'nearest',
         sprite.sampler?.magFilter === 'nearest',
+        sprite.sampler?.maxAnisotropy ?? 1,
       ),
     );
     if (sprite.lighting) {
@@ -717,6 +748,7 @@ export class WebGLRender2D {
         this.sampler(
           sprite.sampler?.minFilter === 'nearest',
           sprite.sampler?.magFilter === 'nearest',
+          sprite.sampler?.maxAnisotropy ?? 1,
         ),
       );
       gl.activeTexture(gl.TEXTURE0);

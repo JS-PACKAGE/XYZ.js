@@ -8,6 +8,8 @@ import type { Lighting2D } from './lighting2d.js';
 export interface SpriteSampler2D {
     minFilter?: 'nearest' | 'linear';
     magFilter?: 'nearest' | 'linear';
+    /** Integer quality request in [1,16]; nearest filtering is incompatible. */
+    maxAnisotropy?: number;
 }
 export interface SpriteOptions {
     texture?: Texture2DSource;

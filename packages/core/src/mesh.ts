@@ -8,6 +8,8 @@ import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
 import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
+import { samplerOptions } from './texture-sampler.js';
+import type { TextureSamplerOptions } from './texture-sampler.js';
 import {
   transformSphere,
   sphereIsFinite,
@@ -22,6 +24,7 @@ export interface TextureMaterialOptions {
   opacity?: number;
   /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
   transparent?: boolean;
+  textureSampler?: TextureSamplerOptions;
 }
 
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
@@ -31,6 +34,7 @@ export class TextureMaterial {
   readonly color: [number, number, number];
   readonly opacity: number;
   readonly transparent: boolean;
+  readonly textureSampler?: Readonly<TextureSamplerOptions>;
   /** Maximum final mesh-local vertex displacement; undefined means unbounded native output. */
   readonly deformationBounds: number | undefined = 0;
 
@@ -66,6 +70,7 @@ export class TextureMaterial {
       throw new TypeError('Material transparent must be a boolean.');
     this.texture = options.texture;
     this.textureSource = options.textureSource;
+    this.textureSampler = samplerOptions(options.textureSampler);
     this.color = [...color] as [number, number, number];
     this.opacity = opacity;
     this.transparent = opacity < 1 || options.transparent === true;

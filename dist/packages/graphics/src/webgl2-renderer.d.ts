@@ -73,6 +73,9 @@ export declare class WebGL2Renderer implements Renderer {
     prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     private readonly targetBytes;
     private maxTextureSize;
+    private anisotropyExtension;
+    private maxTextureAnisotropy;
+    private textureAnisotropy;
     private maxWidth;
     private maxHeight;
     private viewportX;

@@ -51,6 +51,10 @@ export declare class WebGPURenderer implements Renderer {
         lighting2D: boolean;
         storageBuffers: boolean;
         instancing: boolean;
+        textureAnisotropy: Readonly<{
+            maxRequest: 16;
+            maxEffective: null;
+        }>;
         maxTextureSize: number;
         supportedTextureFormats: readonly NativeTextureFormat[];
     };

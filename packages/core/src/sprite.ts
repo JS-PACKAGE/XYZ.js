@@ -13,10 +13,13 @@ import {
 import type { FrameAnimation } from './gameplay/frame-animation.js';
 import type { Material2D } from './materials2d/index.js';
 import type { Lighting2D } from './lighting2d.js';
+import { validateAnisotropy } from './texture-sampler.js';
 
 export interface SpriteSampler2D {
   minFilter?: 'nearest' | 'linear';
   magFilter?: 'nearest' | 'linear';
+  /** Integer quality request in [1,16]; nearest filtering is incompatible. */
+  maxAnisotropy?: number;
 }
 
 export interface SpriteOptions {
@@ -145,10 +148,12 @@ export class Sprite extends GameObject {
           value.magFilter !== 'linear'))
     )
       throw new RangeError('Sprite filters must be nearest or linear.');
+    if (value) validateAnisotropy(value);
     this.sampling = value
       ? Object.freeze({
           minFilter: value.minFilter,
           magFilter: value.magFilter,
+          maxAnisotropy: value.maxAnisotropy,
         })
       : undefined;
   }

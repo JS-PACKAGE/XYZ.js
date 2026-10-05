@@ -32,6 +32,9 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
   tangent morph 與反射／非均勻縮放 skin；normal 與 clearcoat 共用正式 GPU／GL 路徑。
   `generateMikkTangents` 使用完整 MIT vendor 的 reference WASM；normal-mapped glTF
   缺 tangent 自動生成並拆 seam，支援 UV0／UV1。平台資格限制不變。
+- **P120 source 更新（未發佈）**：3D／Sprite sampler 可設定 `maxAnisotropy` 1–16；
+  native filtering 與 packed optical maps 已整合。Capability 區分 request／effective
+  上限，WebGPU 不可查詢的 driver 上限為 null；Canvas2D 與缺 GL extension 降為 1。
 
 ### 目前可用
 
@@ -144,6 +147,10 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
   tangent morphs and reflected/nonuniform skin transforms on both native backends.
   `generateMikkTangents` uses the complete MIT-vendored reference WASM; normal-mapped
   glTF generates missing frames with seam remapping and UV0/UV1 support. Qualification limits remain.
+- **P120 source update (unreleased)**: 3D/Sprite samplers accept `maxAnisotropy`
+  requests 1–16, including native filtering and packed optical maps. Capabilities
+  distinguish request/effective limits: WebGPU's unqueryable driver limit is null;
+  Canvas2D and absent GL extensions use one.
 
 ### Available now
 
@@ -248,6 +255,10 @@ Historical observations used managed Chromium 150. Current browser evidence and 
   tangent morph と反転／非均等 skin 変換を native GPU／GL で使用します。
   `generateMikkTangents` は完全な MIT vendor の reference WASM を使用し、normal-mapped
   glTF の欠損 frame を seam remap と UV0／UV1 対応で生成します。認証範囲は不変です。
+- **P120 source 更新（未公開）**：3D／Sprite sampler の `maxAnisotropy` request
+  1–16 を native filtering／packed optical maps で使用できます。Capability は
+  request／effective を分離し、取得不能な WebGPU 上限は null、Canvas2D／GL
+  extension 不在時は 1 です。
 
 ### 現在利用可能
 

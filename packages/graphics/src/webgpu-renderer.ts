@@ -289,6 +289,7 @@ export class WebGPURenderer implements Renderer {
     lighting2D: true,
     storageBuffers: true,
     instancing: true,
+    textureAnisotropy: Object.freeze({ maxRequest: 16, maxEffective: null }),
     maxTextureSize: 0,
     supportedTextureFormats: [] as readonly NativeTextureFormat[],
   };

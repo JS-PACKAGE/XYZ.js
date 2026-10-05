@@ -19,6 +19,8 @@ export interface GLRender2DHooks {
     owner: object;
     stats: FrameStats;
     residency: NativeResidency;
+    anisotropyExtension: EXT_texture_filter_anisotropic | null;
+    maxTextureAnisotropy: number;
     createTarget(width: number, height: number): GLTarget2D;
     deleteTarget(target: GLTarget2D): void;
     createProgram(vertex: string, fragment: string, label: string): WebGLProgram;

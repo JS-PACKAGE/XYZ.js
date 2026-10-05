@@ -4,6 +4,7 @@ const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_morph = require("./morph.cjs");
 const require_object3d = require("./object3d.cjs");
+const require_texture_sampler = require("./texture-sampler.cjs");
 const require_render_bounds = require("./render-bounds.cjs");
 //#region dist/packages/core/src/mesh.js
 var TextureMaterial = class {
@@ -12,6 +13,7 @@ var TextureMaterial = class {
 	color;
 	opacity;
 	transparent;
+	textureSampler;
 	deformationBounds = 0;
 	constructor(n) {
 		if (!(n.texture instanceof require_texture.Texture)) throw TypeError(`TextureMaterial requires a Texture.`);
@@ -25,7 +27,7 @@ var TextureMaterial = class {
 		let i = n.opacity ?? 1;
 		if (!Number.isFinite(i) || i < 0 || i > 1) throw RangeError(`Material opacity must be between 0 and 1.`);
 		if (n.transparent !== void 0 && typeof n.transparent != `boolean`) throw TypeError(`Material transparent must be a boolean.`);
-		this.texture = n.texture, this.textureSource = n.textureSource, this.color = [...r], this.opacity = i, this.transparent = i < 1 || n.transparent === !0;
+		this.texture = n.texture, this.textureSource = n.textureSource, this.textureSampler = require_texture_sampler.samplerOptions(n.textureSampler), this.color = [...r], this.opacity = i, this.transparent = i < 1 || n.transparent === !0;
 	}
 };
 function materialBaseTexture(e) {

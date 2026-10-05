@@ -1,0 +1,19 @@
+//#region dist/packages/core/src/texture-sampler.js
+function validateAnisotropy(e) {
+	let t = e.maxAnisotropy ?? 1;
+	if (!Number.isInteger(t) || t < 1 || t > 16) throw RangeError(`Texture sampler anisotropy must be an integer between 1 and 16.`);
+	if (t > 1 && (e.minFilter === `nearest` || e.magFilter === `nearest` || e.mipmapFilter === `nearest`)) throw RangeError(`Anisotropic texture sampling requires linear min, mag and mipmap filters.`);
+}
+function samplerOptions(e) {
+	if (e === void 0) return;
+	if (e.minFilter !== void 0 && e.minFilter !== `nearest` && e.minFilter !== `linear` || e.magFilter !== void 0 && e.magFilter !== `nearest` && e.magFilter !== `linear` || e.mipmapFilter !== void 0 && e.mipmapFilter !== `nearest` && e.mipmapFilter !== `linear`) throw RangeError(`Texture sampler filters must be nearest or linear.`);
+	let t = e.lodMinClamp ?? 0, n = e.lodMaxClamp ?? 32;
+	if (!Number.isFinite(t) || !Number.isFinite(n) || t < 0 || n < t || n > 32) throw RangeError(`Texture sampler LOD clamps must satisfy 0 <= min <= max <= 32.`);
+	for (let t of [e.addressModeU, e.addressModeV]) if (t !== void 0 && t !== `clamp-to-edge` && t !== `repeat` && t !== `mirror-repeat`) throw RangeError(`Texture sampler address modes must be clamp-to-edge, repeat or mirror-repeat.`);
+	return validateAnisotropy(e), Object.freeze({ ...e });
+}
+//#endregion
+exports.samplerOptions = samplerOptions;
+exports.validateAnisotropy = validateAnisotropy;
+
+//# sourceMappingURL=texture-sampler.cjs.map

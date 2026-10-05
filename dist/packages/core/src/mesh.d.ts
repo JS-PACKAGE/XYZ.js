@@ -5,6 +5,7 @@ import { Geometry } from './geometry.js';
 import type { Frustum } from './frustum.js';
 import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
+import type { TextureSamplerOptions } from './texture-sampler.js';
 import { type BoundingSphere3D } from './render-bounds.js';
 export interface TextureMaterialOptions {
     texture: Texture;
@@ -14,6 +15,7 @@ export interface TextureMaterialOptions {
     opacity?: number;
     /** Include texture/vertex alpha in the transparent pass even when opacity is one. */
     transparent?: boolean;
+    textureSampler?: TextureSamplerOptions;
 }
 /** References a shared Texture; destroying a Mesh never destroys its material or texture. */
 export declare class TextureMaterial {
@@ -22,6 +24,7 @@ export declare class TextureMaterial {
     readonly color: [number, number, number];
     readonly opacity: number;
     readonly transparent: boolean;
+    readonly textureSampler?: Readonly<TextureSamplerOptions>;
     /** Maximum final mesh-local vertex displacement; undefined means unbounded native output. */
     readonly deformationBounds: number | undefined;
     constructor(options: TextureMaterialOptions);

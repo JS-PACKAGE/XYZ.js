@@ -16,10 +16,8 @@ import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
 import { PBRMaterial } from './pbr-material.js';
-import type {
-  TextureSamplerOptions,
-  TextureCoordinateOptions,
-} from './pbr-material.js';
+import type { TextureCoordinateOptions } from './pbr-material.js';
+import type { TextureSamplerOptions } from './texture-sampler.js';
 import { MorphTargets, MorphWeights } from './morph.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 import { decodeMeshopt } from './meshopt.js';

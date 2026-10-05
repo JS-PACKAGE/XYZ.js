@@ -397,11 +397,18 @@ export class WebGPURender2D {
     this.uniformOffsets[0] = slot * SLOT_BYTES;
     pass.setBindGroup(0, this.drawGroup, this.uniformOffsets);
   }
-  private sampler(nearestMin: boolean, nearestMag: boolean): GPUSampler {
-    const key = (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0);
+  private sampler(
+    nearestMin: boolean,
+    nearestMag: boolean,
+    maxAnisotropy = 1,
+  ): GPUSampler {
+    const key =
+      (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0) + 4 * (maxAnisotropy - 1);
     return (this.samplers[key] ??= this.device.createSampler({
       minFilter: nearestMin ? 'nearest' : 'linear',
       magFilter: nearestMag ? 'nearest' : 'linear',
+      mipmapFilter: maxAnisotropy > 1 ? 'linear' : 'nearest',
+      maxAnisotropy,
       addressModeU: 'clamp-to-edge',
       addressModeV: 'clamp-to-edge',
     }));
@@ -420,8 +427,10 @@ export class WebGPURender2D {
     texture: GPUTexture,
     nearestMin = false,
     nearestMag = false,
+    maxAnisotropy = 1,
   ): GPUBindGroup {
-    const key = (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0);
+    const key =
+      (nearestMin ? 1 : 0) + (nearestMag ? 2 : 0) + 4 * (maxAnisotropy - 1);
     let entries = this.groups.get(texture);
     if (!entries) {
       entries = [];
@@ -431,7 +440,10 @@ export class WebGPURender2D {
       layout: this.effects.spriteTextureLayout,
       entries: [
         { binding: 0, resource: texture.createView() },
-        { binding: 1, resource: this.sampler(nearestMin, nearestMag) },
+        {
+          binding: 1,
+          resource: this.sampler(nearestMin, nearestMag, maxAnisotropy),
+        },
       ],
     }));
   }
@@ -653,6 +665,7 @@ export class WebGPURender2D {
     native = false,
     source?: Texture2DSource,
     deferUpload = false,
+    maxAnisotropy = 1,
   ): void {
     const s = this.scratch,
       target = context.target,
@@ -691,6 +704,7 @@ export class WebGPURender2D {
       source instanceof Texture ? getTextureDistanceField(source) : undefined;
     s[80] = field ? (field.type === 'sdf' ? 1 : 2) : 0;
     s[81] = field?.range ?? 0;
+    s[82] = maxAnisotropy;
     if (!deferUpload) this.uploadUniforms(slot);
   }
   private uploadUniforms(slot: number): void {
@@ -817,6 +831,7 @@ export class WebGPURender2D {
             this.textureOf(sprite.texture),
             sprite.sampler?.minFilter === 'nearest',
             sprite.sampler?.magFilter === 'nearest',
+            sprite.sampler?.maxAnisotropy ?? 1,
           );
           const first = this.slot;
           this.packSprite(sprite, context, this.allocate(), true);
@@ -832,6 +847,7 @@ export class WebGPURender2D {
                 this.textureOf(next.object.texture),
                 next.object.sampler?.minFilter === 'nearest',
                 next.object.sampler?.magFilter === 'nearest',
+                next.object.sampler?.maxAnisotropy ?? 1,
               ) !== group
             )
               break;
@@ -849,6 +865,8 @@ export class WebGPURender2D {
             false,
             false,
             sprite.texture,
+            false,
+            sprite.sampler?.maxAnisotropy ?? 1,
           );
           this.uploadQuads(first, count);
           const pass = this.open(context.target, false);
@@ -898,6 +916,7 @@ export class WebGPURender2D {
         sprite.texture.kind === 'native',
         sprite.texture,
         !!sprite.lighting,
+        sprite.sampler?.maxAnisotropy ?? 1,
       );
     this.writeQuad(
       slot,
@@ -940,6 +959,7 @@ export class WebGPURender2D {
         this.textureOf(sprite.texture),
         sprite.sampler?.minFilter === 'nearest',
         sprite.sampler?.magFilter === 'nearest',
+        sprite.sampler?.maxAnisotropy ?? 1,
       ),
     );
     pass.setBindGroup(2, prepared?.bindGroup ?? this.effects.defaultUniforms);
@@ -950,6 +970,7 @@ export class WebGPURender2D {
           this.textureOf(sprite.normalTexture ?? sprite.texture),
           sprite.sampler?.minFilter === 'nearest',
           sprite.sampler?.magFilter === 'nearest',
+          sprite.sampler?.maxAnisotropy ?? 1,
         ),
       );
     pass.setVertexBuffer(0, this.instanceBuffer);

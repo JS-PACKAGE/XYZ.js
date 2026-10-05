@@ -4,18 +4,10 @@ import {
   type MaterialTexture,
 } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
+import { samplerOptions } from './texture-sampler.js';
+import type { TextureSamplerOptions } from './texture-sampler.js';
 
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
-
-export interface TextureSamplerOptions {
-  minFilter?: 'nearest' | 'linear';
-  magFilter?: 'nearest' | 'linear';
-  mipmapFilter?: 'nearest' | 'linear';
-  lodMinClamp?: number;
-  lodMaxClamp?: number;
-  addressModeU?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
-  addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
-}
 
 export type MaterialTextureSlot =
   | 'texture'
@@ -145,47 +137,6 @@ function textureSlot(value: Texture | undefined, name: string): void {
     throw new TypeError(`${name} must be a Texture.`);
 }
 
-function samplerOptions(
-  value: TextureSamplerOptions | undefined,
-): Readonly<TextureSamplerOptions> | undefined {
-  if (value === undefined) return undefined;
-  if (
-    (value.minFilter !== undefined &&
-      value.minFilter !== 'nearest' &&
-      value.minFilter !== 'linear') ||
-    (value.magFilter !== undefined &&
-      value.magFilter !== 'nearest' &&
-      value.magFilter !== 'linear') ||
-    (value.mipmapFilter !== undefined &&
-      value.mipmapFilter !== 'nearest' &&
-      value.mipmapFilter !== 'linear')
-  )
-    throw new RangeError('Texture sampler filters must be nearest or linear.');
-  const lodMin = value.lodMinClamp ?? 0,
-    lodMax = value.lodMaxClamp ?? 32;
-  if (
-    !Number.isFinite(lodMin) ||
-    !Number.isFinite(lodMax) ||
-    lodMin < 0 ||
-    lodMax < lodMin ||
-    lodMax > 32
-  )
-    throw new RangeError(
-      'Texture sampler LOD clamps must satisfy 0 <= min <= max <= 32.',
-    );
-  for (const mode of [value.addressModeU, value.addressModeV])
-    if (
-      mode !== undefined &&
-      mode !== 'clamp-to-edge' &&
-      mode !== 'repeat' &&
-      mode !== 'mirror-repeat'
-    )
-      throw new RangeError(
-        'Texture sampler address modes must be clamp-to-edge, repeat or mirror-repeat.',
-      );
-  return Object.freeze({ ...value });
-}
-
 function textureCoordinates(
   options: PBRMaterialOptions['textureCoordinates'],
 ): Readonly<Partial<Record<MaterialTextureSlot, TextureCoordinates>>> {
@@ -302,7 +253,7 @@ export class PBRMaterial extends TextureMaterial {
   readonly alphaCutoff: number;
   readonly alphaMode: MaterialAlphaMode;
   readonly doubleSided: boolean;
-  readonly textureSampler: Readonly<TextureSamplerOptions> | undefined;
+  declare readonly textureSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly metallicRoughnessSampler:
     Readonly<TextureSamplerOptions> | undefined;
   readonly normalSampler: Readonly<TextureSamplerOptions> | undefined;
@@ -469,7 +420,6 @@ export class PBRMaterial extends TextureMaterial {
     this.alphaCutoff = alphaCutoff;
     this.alphaMode = alphaMode;
     this.doubleSided = doubleSided;
-    this.textureSampler = samplerOptions(options.textureSampler);
     this.metallicRoughnessSampler = samplerOptions(
       options.metallicRoughnessSampler,
     );

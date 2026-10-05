@@ -1,16 +1,8 @@
 import { Texture } from '../../assets/src/index.js';
 import { type MaterialTexture } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
+import type { TextureSamplerOptions } from './texture-sampler.js';
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
-export interface TextureSamplerOptions {
-    minFilter?: 'nearest' | 'linear';
-    magFilter?: 'nearest' | 'linear';
-    mipmapFilter?: 'nearest' | 'linear';
-    lodMinClamp?: number;
-    lodMaxClamp?: number;
-    addressModeU?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
-    addressModeV?: 'clamp-to-edge' | 'repeat' | 'mirror-repeat';
-}
 export type MaterialTextureSlot = 'texture' | 'metallicRoughness' | 'normal' | 'occlusion' | 'emissive' | 'specular' | 'specularColor' | 'clearcoat' | 'clearcoatRoughness' | 'clearcoatNormal' | 'sheenColor' | 'sheenRoughness' | 'transmission' | 'thickness';
 export interface TextureCoordinateOptions {
     texCoord?: 0 | 1;

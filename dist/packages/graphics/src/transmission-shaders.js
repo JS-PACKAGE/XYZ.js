@@ -16,20 +16,44 @@ fn opticalTexel(p: vec2i, dimensions: vec2i, modes: vec2i, layer: i32) -> vec4f 
   let side = i32(textureDimensions(opticalMaps).x);
   return textureLoad(opticalMaps,vec2i(index%side,index/side),layer,0);
 }
-fn opticalSample(uv: vec2f, settings: vec4f, layer: i32) -> vec4f {
-  if (settings.x < 1.0) { return vec4f(1.0); }
+fn opticalFiltered(uv: vec2f, settings: vec4f, layer: i32, linear: bool) -> vec4f {
   let dimensions = vec2i(settings.xy);
   let address = i32(settings.z);
   let modes = vec2i(address%3,address/3);
-  let footprint = max(length(dpdx(uv)*settings.xy),length(dpdy(uv)*settings.xy));
-  let filters = i32(settings.w);
-  let linear = select(filters/2,filters%2,footprint > 1.0) != 0;
   let wrappedUV = vec2f(opticalWrapUV(uv.x,modes.x),opticalWrapUV(uv.y,modes.y));
   let p = wrappedUV*settings.xy-0.5;
   if (!linear) { return opticalTexel(vec2i(floor(p+0.5)),dimensions,modes,layer); }
   let first = vec2i(floor(p));
   let fraction = fract(p);
   return mix(mix(opticalTexel(first,dimensions,modes,layer),opticalTexel(first+vec2i(1,0),dimensions,modes,layer),fraction.x),mix(opticalTexel(first+vec2i(0,1),dimensions,modes,layer),opticalTexel(first+vec2i(1,1),dimensions,modes,layer),fraction.x),fraction.y);
+}
+fn opticalSample(uv: vec2f, settings: vec4f, layer: i32) -> vec4f {
+  if (settings.x < 1.0) { return vec4f(1.0); }
+  let dx = dpdx(uv)*settings.xy;
+  let dy = dpdy(uv)*settings.xy;
+  let filters = i32(settings.w)&3;
+  let linear = select(filters/2,filters%2,max(length(dx),length(dy)) > 1.0) != 0;
+  let maximum = i32(settings.w)/4+1;
+  if (maximum <= 1 || !linear) { return opticalFiltered(uv,settings,layer,linear); }
+  // Flattened rows cannot use a hardware sampler across unrelated texels.
+  // The principal footprint axis also handles sheared UVs.
+  let a = dx.x*dx.x+dy.x*dy.x;
+  let b = dx.x*dx.y+dy.x*dy.y;
+  let c = dx.y*dx.y+dy.y*dy.y;
+  let discriminant = sqrt(max((a-c)*(a-c)+4.0*b*b,0.0));
+  let major = max((a+c+discriminant)*0.5,0.0);
+  let minor = max((a+c-discriminant)*0.5,1.0);
+  let count = clamp(i32(ceil(sqrt(major/minor))),1,maximum);
+  if (count == 1) { return opticalFiltered(uv,settings,layer,linear); }
+  var direction = vec2f(1.0,0.0);
+  if (abs(b) > 0.00001) { direction = normalize(vec2f(b,major-a)); }
+  else if (c > a) { direction = vec2f(0.0,1.0); }
+  let axis = direction*sqrt(major)/settings.xy;
+  var result = vec4f(0.0);
+  for (var i = 0; i < count; i++) {
+    result += opticalFiltered(uv+axis*((f32(i)+0.5)/f32(count)-0.5),settings,layer,true);
+  }
+  return result/f32(count);
 }
 fn opaqueColor(uv: vec2f) -> vec3f {
   let edge = 0.5/vec2f(textureDimensions(backgroundMap));
@@ -63,20 +87,41 @@ vec4 opticalTexel(ivec2 p, ivec2 dimensions, ivec2 modes, int layer) {
   int side = textureSize(opticalMaps,0).x;
   return texelFetch(opticalMaps,ivec3(index%side,index/side,layer),0);
 }
-vec4 opticalSample(vec2 uv, vec4 settings, int layer) {
-  if (settings.x < 1.0) return vec4(1.0);
+vec4 opticalFiltered(vec2 uv, vec4 settings, int layer, bool linear) {
   ivec2 dimensions = ivec2(settings.xy);
   int address = int(settings.z);
   ivec2 modes = ivec2(address%3,address/3);
-  float footprint = max(length(dFdx(uv)*settings.xy),length(dFdy(uv)*settings.xy));
-  int filters = int(settings.w);
-  bool linear = (footprint > 1.0 ? filters%2 : filters/2) != 0;
   vec2 wrappedUV = vec2(opticalWrapUV(uv.x,modes.x),opticalWrapUV(uv.y,modes.y));
   vec2 p = wrappedUV*settings.xy-.5;
   if (!linear) return opticalTexel(ivec2(floor(p+.5)),dimensions,modes,layer);
   ivec2 first = ivec2(floor(p));
   vec2 fraction = fract(p);
   return mix(mix(opticalTexel(first,dimensions,modes,layer),opticalTexel(first+ivec2(1,0),dimensions,modes,layer),fraction.x),mix(opticalTexel(first+ivec2(0,1),dimensions,modes,layer),opticalTexel(first+ivec2(1,1),dimensions,modes,layer),fraction.x),fraction.y);
+}
+vec4 opticalSample(vec2 uv, vec4 settings, int layer) {
+  if (settings.x < 1.0) return vec4(1.0);
+  vec2 dx = dFdx(uv)*settings.xy;
+  vec2 dy = dFdy(uv)*settings.xy;
+  int filters = int(settings.w)&3;
+  bool linear = (max(length(dx),length(dy)) > 1.0 ? filters%2 : filters/2) != 0;
+  int maximum = int(settings.w)/4+1;
+  if (maximum <= 1 || !linear) return opticalFiltered(uv,settings,layer,linear);
+  float a = dx.x*dx.x+dy.x*dy.x;
+  float b = dx.x*dx.y+dy.x*dy.y;
+  float c = dx.y*dx.y+dy.y*dy.y;
+  float discriminant = sqrt(max((a-c)*(a-c)+4.0*b*b,0.0));
+  float major = max((a+c+discriminant)*.5,0.0);
+  float minor = max((a+c-discriminant)*.5,1.0);
+  int count = clamp(int(ceil(sqrt(major/minor))),1,maximum);
+  if (count == 1) return opticalFiltered(uv,settings,layer,linear);
+  vec2 direction = vec2(1.0,0.0);
+  if (abs(b) > .00001) direction = normalize(vec2(b,major-a));
+  else if (c > a) direction = vec2(0.0,1.0);
+  vec2 axis = direction*sqrt(major)/settings.xy;
+  vec4 result = vec4(0.0);
+  for (int i = 0; i < count; i++)
+    result += opticalFiltered(uv+axis*((float(i)+.5)/float(count)-.5),settings,layer,true);
+  return result/float(count);
 }
 vec3 opaqueColor(vec2 uv) {
   vec2 edge = .5/vec2(textureSize(opaqueScene,0));

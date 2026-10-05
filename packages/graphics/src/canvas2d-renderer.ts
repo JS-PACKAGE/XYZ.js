@@ -199,6 +199,7 @@ export class Canvas2DRenderer implements Renderer {
     storageBuffers: false,
     instancing: false,
     lighting2D: false,
+    textureAnisotropy: Object.freeze({ maxRequest: 16, maxEffective: 1 }),
     maxTextureSize: MAX_SIZE,
     supportedTextureFormats: Object.freeze([]),
   });

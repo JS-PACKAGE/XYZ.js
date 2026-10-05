@@ -38,7 +38,7 @@ import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
-import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
+import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
 import {
   activeBackground,
   activeEnvironment,
@@ -104,7 +104,11 @@ import {
 } from './errors.js';
 import { FrameStats, type GpuTimingOptions } from './render-stats.js';
 import { configureGpuTiming, WebGlTimer } from './gpu-timing.js';
-import type { GraphicsCapabilities, Renderer } from './index.js';
+import type {
+  GraphicsCapabilities,
+  Renderer,
+  TextureAnisotropyCapabilities,
+} from './index.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -553,6 +557,12 @@ export class WebGL2Renderer implements Renderer {
   }
   private readonly targetBytes = new WeakMap<object, number>();
   private maxTextureSize = 0;
+  private anisotropyExtension: EXT_texture_filter_anisotropic | null = null;
+  private maxTextureAnisotropy = 1;
+  private textureAnisotropy: TextureAnisotropyCapabilities = Object.freeze({
+    maxRequest: 16,
+    maxEffective: 1,
+  });
   private maxWidth = 0;
   private maxHeight = 0;
   private viewportX = 0;
@@ -662,6 +672,7 @@ export class WebGL2Renderer implements Renderer {
       instancing: true,
       maxTextureSize: this.maxTextureSize,
       supportedTextureFormats: this.supportedTextureFormats,
+      textureAnisotropy: this.textureAnisotropy,
     };
   }
 
@@ -712,6 +723,25 @@ export class WebGL2Renderer implements Renderer {
       this.canvas = canvas;
       canvas.addEventListener('webglcontextlost', this.onContextLost);
       this.maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE) as number;
+      this.anisotropyExtension = gl.getExtension(
+        'EXT_texture_filter_anisotropic',
+      );
+      if (this.anisotropyExtension)
+        this.maxTextureAnisotropy = Math.max(
+          1,
+          Math.min(
+            16,
+            Math.floor(
+              gl.getParameter(
+                this.anisotropyExtension.MAX_TEXTURE_MAX_ANISOTROPY_EXT,
+              ) as number,
+            ),
+          ),
+        );
+      this.textureAnisotropy = Object.freeze({
+        maxRequest: 16,
+        maxEffective: this.maxTextureAnisotropy,
+      });
       const renderbufferLimit = gl.getParameter(
         gl.MAX_RENDERBUFFER_SIZE,
       ) as number;
@@ -776,6 +806,8 @@ export class WebGL2Renderer implements Renderer {
         owner: this,
         stats: this.stats,
         residency: this.residency,
+        anisotropyExtension: this.anisotropyExtension,
+        maxTextureAnisotropy: this.maxTextureAnisotropy,
         createTarget: (width, height) =>
           this.createTarget(width, height, false, 'rgba8', false),
         deleteTarget: (target) => this.deleteTarget(target),
@@ -2107,7 +2139,7 @@ export class WebGL2Renderer implements Renderer {
         this.bindMaterialTexture(
           materialBaseTexture(material),
           0,
-          pbr ? material.textureSampler : undefined,
+          material.textureSampler,
         );
         if (pbr) {
           gl.uniform4f(
@@ -2128,12 +2160,14 @@ export class WebGL2Renderer implements Renderer {
             0,
             pbrTextureSources(material).transmissionTexture,
             material.transmissionSampler,
+            this.maxTextureAnisotropy,
           );
           fillOpticalMapSettings(
             this.opticalSettings,
             4,
             pbrTextureSources(material).thicknessTexture,
             material.thicknessSampler,
+            this.maxTextureAnisotropy,
           );
           gl.uniform4f(
             uniforms.transmissionMapSettings,
@@ -2392,7 +2426,11 @@ export class WebGL2Renderer implements Renderer {
     const mip = options.mipmapFilter ?? 'linear';
     const lodMin = options.lodMinClamp ?? 0;
     const lodMax = options.lodMaxClamp ?? 32;
-    const key = `${min}/${mag}/${mip}/${u}/${v}/${lodMin}/${lodMax}`;
+    const maxAnisotropy = Math.min(
+      options.maxAnisotropy ?? 1,
+      this.maxTextureAnisotropy,
+    );
+    const key = `${min}/${mag}/${mip}/${u}/${v}/${lodMin}/${lodMax}/${maxAnisotropy}`;
     const existing = this.samplers.get(key);
     if (existing) return existing;
     const gl = this.gl!;
@@ -2427,6 +2465,12 @@ export class WebGL2Renderer implements Renderer {
     );
     gl.samplerParameterf(sampler, gl.TEXTURE_MIN_LOD, lodMin);
     gl.samplerParameterf(sampler, gl.TEXTURE_MAX_LOD, lodMax);
+    if (this.anisotropyExtension)
+      gl.samplerParameterf(
+        sampler,
+        this.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT,
+        maxAnisotropy,
+      );
     this.samplers.set(key, sampler);
     return sampler;
   }
@@ -2821,7 +2865,7 @@ export class WebGL2Renderer implements Renderer {
         this.bindMaterialTexture(
           materialBaseTexture(material),
           0,
-          pbr ? material.textureSampler : undefined,
+          material.textureSampler,
         );
         this.drawMesh(object, uniforms);
         this.stats.shadowDrawCalls++;

@@ -3,6 +3,7 @@ const require_texture2d = require("../../assets/src/texture2d.cjs");
 const require_index = require("../../math/src/index.cjs");
 const require_contracts = require("./gameplay/contracts.cjs");
 const require_game_object = require("./game-object.cjs");
+const require_texture_sampler = require("./texture-sampler.cjs");
 //#region dist/packages/core/src/sprite.js
 var Sprite = class extends require_game_object.GameObject {
 	currentTexture;
@@ -50,9 +51,10 @@ var Sprite = class extends require_game_object.GameObject {
 	}
 	set sampler(e) {
 		if (e && (e.minFilter !== void 0 && e.minFilter !== `nearest` && e.minFilter !== `linear` || e.magFilter !== void 0 && e.magFilter !== `nearest` && e.magFilter !== `linear`)) throw RangeError(`Sprite filters must be nearest or linear.`);
-		this.sampling = e ? Object.freeze({
+		e && require_texture_sampler.validateAnisotropy(e), this.sampling = e ? Object.freeze({
 			minFilter: e.minFilter,
-			magFilter: e.magFilter
+			magFilter: e.magFilter,
+			maxAnisotropy: e.maxAnisotropy
 		}) : void 0;
 	}
 	get roundPixels() {

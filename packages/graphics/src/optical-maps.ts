@@ -1,5 +1,5 @@
 import type { MaterialTexture } from '../../assets/src/texture2d.js';
-import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
+import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
 
 /** A two-layer array keeps transmission + thickness inside the 16-slot baseline.
  * Native texels are flattened into compact square layers without resampling;
@@ -9,6 +9,7 @@ export function fillOpticalMapSettings(
   offset: number,
   texture: MaterialTexture | undefined,
   sampler: TextureSamplerOptions | undefined,
+  maxAnisotropy = 16,
 ): void {
   data[offset] = texture?.width ?? 0;
   data[offset + 1] = texture?.height ?? 0;
@@ -27,5 +28,6 @@ export function fillOpticalMapSettings(
   data[offset + 2] = u + v * 3;
   data[offset + 3] =
     (sampler?.minFilter === 'nearest' ? 0 : 1) +
-    (sampler?.magFilter === 'nearest' ? 0 : 2);
+    (sampler?.magFilter === 'nearest' ? 0 : 2) +
+    4 * (Math.min(sampler?.maxAnisotropy ?? 1, maxAnisotropy) - 1);
 }

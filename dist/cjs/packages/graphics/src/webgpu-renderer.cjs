@@ -114,6 +114,10 @@ var WebGPURenderer = class {
 		lighting2D: !0,
 		storageBuffers: !0,
 		instancing: !0,
+		textureAnisotropy: Object.freeze({
+			maxRequest: 16,
+			maxEffective: null
+		}),
 		maxTextureSize: 0,
 		supportedTextureFormats: []
 	};

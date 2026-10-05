@@ -1608,3 +1608,34 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
   證據 `.vite/tangent-package-final/run-fsQYsX/report.json`。Source 內嵌 WASM bytes
   與完整 vendor 的 verified SHA256 相同；258個文件相對路徑檢查無失效。
   這些套件／型別證據不冒稱 browser 或實機認證。
+
+## P120 — anisotropic filtering（本機 source，未發佈）
+
+- 硬指標：integer1–16／nearest rejection、所有3D base／PBR map、Sprite／normal、
+  native cache與batch隔離、capability request／effective分離、無extension／Canvas
+  限定fallback，以及兩個正式native renderer的真斜視畫面。
+- `smoke:filtering` 在 managed Chromium153.0.8010.12／darwin arm64 實跑通過。
+  WebGPU／GL 的 PBR、TextureMaterial、NativeMaterial3D、MASK、BLEND 各1244
+  changed pixels；PBR 中心row variance 從0到12207.90，真條紋不再被斜視mip糊掉。
+  每個3D case含1個shadow draw；NativeMaterial 明示 prepare 後執行，沒有繞過契約。
+- Packed optical request1／16 的 changed pixels GPU1244／GL1020；
+  2D CPU-backed normal map 各308。這是 bounded major-axis integration 的畫面證據，
+  不宣稱 optical mip pyramid 或兩個backend完全相同的filtering。
+- Sprite filtering切換實際batch drawCalls2D從3到2（含composition）；
+  限制真GLcontext無extension時2／2，各材質及normal request1／16差0。
+  Canvas2D使用CPU-backed source、effective1，sprite差異不變；沒有冒充native
+  payload或3D fallback。Rejected sampler update保留active state。
+- `.vite/filtering-runtime/report.json` 保存identity／pixels／batch metrics；
+  實際PNG已檢視 ordinary灰色條與anisotropic清晰條紋、2D兩條不同filtering表面。
+  GPU capability effective=null，GL本機16，extension absence／Canvas為1。
+  未新增runtime依賴、未重新認證Safari／physical GPU／mobile。
+- frozen install／build／typecheck／143 files 1173 tests／lint／format 全通過；
+  P119 native tangent／skin／morph／UV-transform smoke 回歸通過。
+  v1.12.1 compatibility（737 historical exports／2810 directional contracts／
+  710 namespaces／5 consumers）、source／built-root tree-shaking ceilings 通過。
+- 最終 exact-package hygiene／root ESM＋CJS／installed consumers 通過，
+  `.vite/filtering-package-final-contract/run-FEY7A6/report.json` 保存結果。
+  465個文件相對路徑無失效。另在獨立 owned Chromium 打開 PBR3D，切換 Marble、
+  停止 light animation、開六面 environment，實際畫面正常、page errors為0。
+  PBR公開input仍明示原 textureSampler member，避免 declaration contract 遺失；
+  runtime只在base驗證一次。版本仍1.16.0，沒有release／push。

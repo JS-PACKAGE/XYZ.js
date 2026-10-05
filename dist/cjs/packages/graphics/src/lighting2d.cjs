@@ -33,7 +33,14 @@ fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
     let mapped = basis.xy + basis.zw * uv.x + draw.values[19].xy * uv.y;
     let end = basis.xy + basis.zw + draw.values[19].xy;
     let inset = min(vec2f(0.5) / vec2f(textureDimensions(normalMap)), abs(end-basis.xy)*0.5);
-    let raw = textureSampleLevel(normalMap,normalSampler,clamp(mapped,min(basis.xy,end)+inset,max(basis.xy,end)-inset),0.0).rgb*2.0-1.0;
+    let normalUV = clamp(mapped,min(basis.xy,end)+inset,max(basis.xy,end)-inset);
+    var sampled: vec3f;
+    if (draw.values[20].z > 1.0) {
+      sampled = textureSampleGrad(normalMap,normalSampler,normalUV,dpdx(normalUV),dpdy(normalUV)).rgb;
+    } else {
+      sampled = textureSampleLevel(normalMap,normalSampler,normalUV,0.0).rgb;
+    }
+    let raw = sampled*2.0-1.0;
     let a = draw.values[7];
     n = normalize(vec3f(a.xy*raw.x+a.zw*raw.y,raw.z));
   }

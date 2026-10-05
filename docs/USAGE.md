@@ -538,6 +538,13 @@ HDR exposure/ACES and actual 9-tap threshold bloom run before the unaffected 2D 
 
 For per-map sampling, pass textureSampler/metallicRoughnessSampler/normalSampler/occlusionSampler/emissiveSampler with minFilter/magFilter ('nearest'|'linear') and addressModeU/V ('clamp-to-edge'|'repeat'|'mirror-repeat'). Ordinary PBR defaults are linear/clamp; glTF defaults to repeat and preserves separate samplers on shared images. Native sources additionally use `mipmapFilter`, `lodMinClamp` and `lodMaxClamp`; opt-in native glTF loading preserves mip sampling. Ordinary image textures remain base-level sources.
 
+For oblique surfaces, set `textureSampler: { maxAnisotropy: 8 }` (and the desired
+PBR map samplers); Sprite uses `sampler: { maxAnisotropy: 8 }`. Requests are integers
+1–16, require linear filtering above one and do not generate missing mips.
+`game.graphics.capabilities.textureAnisotropy` separates the request ceiling from
+the effective driver ceiling; WebGPU reports the latter as null, not a guarantee.
+Canvas2D/absent GL extensions use one. See [filtering limits](TECHNICAL.md#p120-anisotropic-texture-filtering).
+
 Native mip uploads passed scoped P42 acceptance. EnvironmentMap roughness mips are a separate path. See section 22 for native source construction and device-format checks.
 
 ## 12. Atlas Graphics and HUD (P13)

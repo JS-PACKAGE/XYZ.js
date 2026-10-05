@@ -313,3 +313,19 @@ the new stream. Canvas2D remains 2D-only.
 
 The source normal-map Y convention is retained through derivative fallback,
 including glTF authored frames and UV transforms, rather than inferred from winding.
+
+## P120 texture sampler contract
+
+Core owns one lightweight sampler validation module; TextureMaterial handles
+base sampling and PBR reuses it for independent map slots without double copies.
+Immutable integer anisotropy requests are bounded to 1–16 and reject nearest
+combinations above one. Native cache keys and Sprite batches include filtering
+identity; GL clamps once against the queried extension ceiling, while WebGPU
+cannot expose its effective platform clamp. Public capabilities preserve that
+unknown as null and describe Canvas2D's one, not an invented GPU guarantee.
+
+Existing level-zero 2D defaults remain; opt-in gradient sampling uses authored
+mips. Normal source/atlas ownership restrictions remain. Packed optical maps
+retain their slot budget via bounded principal-axis integration rather than
+sampling across flattened native rows. No general mip generation, texture slot
+increase, backend cutover or physical qualification is implied.

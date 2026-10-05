@@ -434,3 +434,15 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - glTF `TANGENT` 為 VEC4 float／normalized signed；型別不符明確拒絕，不再忽略。
 - 驗收包含鏡像 UV、負縮放、morph、skin 與兩 backend 的真像素差異；
   不以存在 tangent buffer 代替畫面結果。
+
+### P120 — anisotropic texture filtering
+
+- 共用 sampler 接受 integer `maxAnisotropy` 1–16，缺省 1；大於 1 時 min／mag／
+  mipmap 必須 linear，明確拒絕 nearest 組合。覆蓋 PBR 各 map、一般／native
+  3D base texture、Sprite／2D normal texture，不影響既有預設或借用 ownership。
+- WebGPU 正式 GPUSampler 與 WebGL2 extension sampler 真正套用；cache／batch
+  包含有效 anisotropy，shadow／transparent 分支一致。無 extension 降為 1。
+- 公開 capability 區分 request ceiling 與 driver maximum；WebGPU 的不可查詢上限
+  明示 null，Canvas2D 明示 1，不把 request 16 假冒實際硬體品質。
+- Packed transmission／thickness 保留獨立 sampler，使用有界 major-axis filtering，
+  不增加 texture slot。兩個 native backend 以斜視高頻圖像與真像素驗證。

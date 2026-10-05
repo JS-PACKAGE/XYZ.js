@@ -199,11 +199,11 @@ export type {
   PBRTextureKey,
   PBRTextureSources,
   MaterialAlphaMode,
-  TextureSamplerOptions,
   MaterialTextureSlot,
   TextureCoordinateOptions,
   TextureCoordinates,
 } from './pbr-material.js';
+export type { TextureSamplerOptions } from './texture-sampler.js';
 export type { PointLightOptions, SpotLightOptions } from './lights.js';
 export type {
   ShadowSettingsOptions,

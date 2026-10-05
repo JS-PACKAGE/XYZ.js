@@ -147,6 +147,17 @@ describe('render input validation', () => {
     { emissive: [0, -1, 0] as [number, number, number] },
     { textureSampler: { minFilter: 'mipmap' as 'linear' } },
     { normalSampler: { addressModeU: 'invalid' as 'repeat' } },
+    { textureSampler: { maxAnisotropy: 0 } },
+    { textureSampler: { maxAnisotropy: 17 } },
+    { textureSampler: { maxAnisotropy: 1.5 } },
+    { textureSampler: { maxAnisotropy: 2, minFilter: 'nearest' as const } },
+    { normalSampler: { maxAnisotropy: 2, magFilter: 'nearest' as const } },
+    {
+      clearcoatNormalSampler: {
+        maxAnisotropy: 2,
+        mipmapFilter: 'nearest' as const,
+      },
+    },
   ])('rejects invalid PBR factors %j', (options) => {
     expect(() => new PBRMaterial({ texture: texture(), ...options })).toThrow(
       RangeError,

@@ -41,6 +41,12 @@ export type { FrameEffects, RenderSnapshot, TransitionFrame, } from './render2d-
 export { XYZError, GraphicsError, WebGPUNotSupportedError, WebGPUInitializationError, WebGPUDeviceLostError, GraphicsBackendUnavailableError, UnsupportedGraphicsError, WebGL2InitializationError, WebGL2ContextLostError, Canvas2DInitializationError, } from './errors.js';
 export type GraphicsBackend = 'webgpu' | 'webgl2' | 'canvas2d';
 export type RendererPreference = GraphicsBackend | 'auto';
+export interface TextureAnisotropyCapabilities {
+    /** Engine request ceiling, not a claim about native filtering quality. */
+    readonly maxRequest: number;
+    /** Effective engine ceiling from the driver; null when WebGPU cannot expose it. */
+    readonly maxEffective: number | null;
+}
 export interface GraphicsCapabilities {
     readonly threeD: boolean;
     readonly compute: boolean;
@@ -49,6 +55,8 @@ export interface GraphicsCapabilities {
     readonly instancing: boolean;
     /** Optional for existing 1.x renderer implementations; only native backends support it. */
     readonly lighting2D?: boolean;
+    /** Optional for existing 1.x renderer implementations. */
+    readonly textureAnisotropy?: Readonly<TextureAnisotropyCapabilities>;
     readonly maxTextureSize: number;
     readonly supportedTextureFormats: readonly NativeTextureFormat[];
 }

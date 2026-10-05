@@ -1288,7 +1288,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 1,
-						resource: n ? this.cacheSampler(t.textureSampler) : this.sampler
+						resource: this.cacheSampler(t.textureSampler)
 					},
 					{
 						binding: 2,
@@ -1410,20 +1410,21 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 	}
 	cacheSampler(e) {
-		let t = e?.minFilter ?? `linear`, n = e?.magFilter ?? `linear`, r = e?.addressModeU ?? `clamp-to-edge`, i = e?.addressModeV ?? `clamp-to-edge`, a = e?.mipmapFilter ?? `linear`, o = e?.lodMinClamp ?? 0, s = e?.lodMaxClamp ?? 32;
+		let t = e?.minFilter ?? `linear`, n = e?.magFilter ?? `linear`, r = e?.addressModeU ?? `clamp-to-edge`, i = e?.addressModeV ?? `clamp-to-edge`, a = e?.mipmapFilter ?? `linear`, o = e?.lodMinClamp ?? 0, s = e?.lodMaxClamp ?? 32, c = e?.maxAnisotropy ?? 1;
 		if (!e) return this.sampler;
-		let c = `${t}/${n}/${a}/${r}/${i}/${o}/${s}`, l = this.samplers.get(c);
-		if (l) return l;
-		let u = this.device.createSampler({
+		let l = `${t}/${n}/${a}/${r}/${i}/${o}/${s}/${c}`, u = this.samplers.get(l);
+		if (u) return u;
+		let d = this.device.createSampler({
 			minFilter: t,
 			magFilter: n,
 			mipmapFilter: a,
 			lodMinClamp: o,
 			lodMaxClamp: s,
+			maxAnisotropy: c,
 			addressModeU: r,
 			addressModeV: i
 		});
-		return this.samplers.set(c, u), u;
+		return this.samplers.set(l, d), d;
 	}
 	cacheOpticalMaps(e) {
 		let t = require_pbr_material.pbrTextureSources(e).transmissionTexture, n = require_pbr_material.pbrTextureSources(e).thicknessTexture;

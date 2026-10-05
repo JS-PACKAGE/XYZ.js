@@ -28,7 +28,12 @@ fn sampleFrame(unit: vec2f, uvx: vec4f, uvy: vec4f, native: u32, footprint: vec2
   let end = origin + x + y;
   let inset = min(vec2f(0.5) / vec2f(textureDimensions(spriteTexture)), abs(end - origin) * 0.5);
   let uv = clamp(origin + x * unit.x + y * unit.y, min(origin, end) + inset, max(origin, end) - inset);
-  let color = textureSampleLevel(spriteTexture, spriteSampler, uv, 0.0);
+  var color: vec4f;
+  if (draw.values[20].z > 1.0) {
+    color = textureSampleGrad(spriteTexture, spriteSampler, uv, dpdx(uv), dpdy(uv));
+  } else {
+    color = textureSampleLevel(spriteTexture, spriteSampler, uv, 0.0);
+  }
   let field = draw.values[20].xy;
   if (field.x > 0.0) {
     let median = max(min(color.r, color.g), min(max(color.r, color.g), color.b));

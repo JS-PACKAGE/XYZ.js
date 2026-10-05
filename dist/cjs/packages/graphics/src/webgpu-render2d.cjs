@@ -222,11 +222,13 @@ var WebGPURender2D = class WebGPURender2D {
 	bindDraw(e, t) {
 		this.uniformOffsets[0] = t * 512, e.setBindGroup(0, this.drawGroup, this.uniformOffsets);
 	}
-	sampler(e, t) {
-		let n = +!!e + (t ? 2 : 0);
-		return this.samplers[n] ??= this.device.createSampler({
+	sampler(e, t, n = 1) {
+		let r = +!!e + (t ? 2 : 0) + 4 * (n - 1);
+		return this.samplers[r] ??= this.device.createSampler({
 			minFilter: e ? `nearest` : `linear`,
 			magFilter: t ? `nearest` : `linear`,
+			mipmapFilter: n > 1 ? `linear` : `nearest`,
+			maxAnisotropy: n,
 			addressModeU: `clamp-to-edge`,
 			addressModeV: `clamp-to-edge`
 		});
@@ -240,16 +242,16 @@ var WebGPURender2D = class WebGPURender2D {
 		}
 		return this.hooks.upload(e);
 	}
-	textureGroup(e, t = !1, n = !1) {
-		let r = +!!t + (n ? 2 : 0), i = this.groups.get(e);
-		return i || (i = [], this.groups.set(e, i)), i[r] ??= this.device.createBindGroup({
+	textureGroup(e, t = !1, n = !1, r = 1) {
+		let i = +!!t + (n ? 2 : 0) + 4 * (r - 1), a = this.groups.get(e);
+		return a || (a = [], this.groups.set(e, a)), a[i] ??= this.device.createBindGroup({
 			layout: this.effects.spriteTextureLayout,
 			entries: [{
 				binding: 0,
 				resource: e.createView()
 			}, {
 				binding: 1,
-				resource: this.sampler(t, n)
+				resource: this.sampler(t, n, r)
 			}]
 		});
 	}
@@ -364,15 +366,15 @@ var WebGPURender2D = class WebGPURender2D {
 		if (this.slot >= this.capacity) throw new require_errors.GraphicsError(`WebGPU 2D draw budget was exceeded.`);
 		return this.slot++;
 	}
-	drawUniforms(e, n, r, i, a, o, s = !1, c = !1, l, u = !1) {
-		let d = this.scratch, f = n.target, p = n.bounds;
-		d.fill(0), d[0] = p.width, d[1] = p.height, d[2] = f.width / p.width, d[3] = f.height / p.height;
-		let m = r?.elements, h = i?.elements;
-		d[4] = m?.[0] ?? 1, d[5] = m?.[1] ?? 0, d[6] = m?.[3] ?? 0, d[7] = m?.[4] ?? 1, d[8] = m?.[6] ?? 0, d[9] = m?.[7] ?? 0, d[12] = h?.[0] ?? 1, d[13] = h?.[1] ?? 0, d[14] = h?.[3] ?? 0, d[15] = h?.[4] ?? 1, d[16] = h?.[6] ?? 0, d[17] = h?.[7] ?? 0, d[31] = +!!c;
-		for (let e = 0; e < 4; e++) d[20 + e] = a?.[e] ?? 1;
-		o && (d[24] = o.u0, d[25] = o.v0, d[26] = o.ux, d[27] = o.vx, d[28] = o.uy, d[29] = o.vy, d[30] = +!!s);
-		let g = l instanceof require_texture.Texture ? require_distance_field.getTextureDistanceField(l) : void 0;
-		d[80] = g ? g.type === `sdf` ? 1 : 2 : 0, d[81] = g?.range ?? 0, u || this.uploadUniforms(e);
+	drawUniforms(e, n, r, i, a, o, s = !1, c = !1, l, u = !1, d = 1) {
+		let f = this.scratch, p = n.target, m = n.bounds;
+		f.fill(0), f[0] = m.width, f[1] = m.height, f[2] = p.width / m.width, f[3] = p.height / m.height;
+		let h = r?.elements, g = i?.elements;
+		f[4] = h?.[0] ?? 1, f[5] = h?.[1] ?? 0, f[6] = h?.[3] ?? 0, f[7] = h?.[4] ?? 1, f[8] = h?.[6] ?? 0, f[9] = h?.[7] ?? 0, f[12] = g?.[0] ?? 1, f[13] = g?.[1] ?? 0, f[14] = g?.[3] ?? 0, f[15] = g?.[4] ?? 1, f[16] = g?.[6] ?? 0, f[17] = g?.[7] ?? 0, f[31] = +!!c;
+		for (let e = 0; e < 4; e++) f[20 + e] = a?.[e] ?? 1;
+		o && (f[24] = o.u0, f[25] = o.v0, f[26] = o.ux, f[27] = o.vx, f[28] = o.uy, f[29] = o.vy, f[30] = +!!s);
+		let _ = l instanceof require_texture.Texture ? require_distance_field.getTextureDistanceField(l) : void 0;
+		f[80] = _ ? _.type === `sdf` ? 1 : 2 : 0, f[81] = _?.range ?? 0, f[82] = d, u || this.uploadUniforms(e);
 	}
 	uploadUniforms(e) {
 		let t = e * 128, n = !1;
@@ -407,14 +409,14 @@ var WebGPURender2D = class WebGPURender2D {
 				let i = r.object;
 				if (i.lighting || i.material || i instanceof require_tiling_sprite2d.TilingSprite2D) this.drawSprite(i, t);
 				else {
-					let r = this.textureGroup(this.textureOf(i.texture), i.sampler?.minFilter === `nearest`, i.sampler?.magFilter === `nearest`), o = this.slot;
+					let r = this.textureGroup(this.textureOf(i.texture), i.sampler?.minFilter === `nearest`, i.sampler?.magFilter === `nearest`, i.sampler?.maxAnisotropy ?? 1), o = this.slot;
 					for (this.packSprite(i, t, this.allocate(), !0); e + 1 < n.length;) {
 						let o = n[e + 1];
-						if (o.kind !== `sprite` || o.object.material || o.object.lighting || o.object instanceof require_tiling_sprite2d.TilingSprite2D || o.object.worldSpace !== i.worldSpace || this.textureGroup(this.textureOf(o.object.texture), o.object.sampler?.minFilter === `nearest`, o.object.sampler?.magFilter === `nearest`) !== r) break;
+						if (o.kind !== `sprite` || o.object.material || o.object.lighting || o.object instanceof require_tiling_sprite2d.TilingSprite2D || o.object.worldSpace !== i.worldSpace || this.textureGroup(this.textureOf(o.object.texture), o.object.sampler?.minFilter === `nearest`, o.object.sampler?.magFilter === `nearest`, o.object.sampler?.maxAnisotropy ?? 1) !== r) break;
 						e++, this.packSprite(o.object, t, this.allocate(), !0);
 					}
 					let s = this.slot - o;
-					this.drawUniforms(o, t, void 0, void 0, void 0, void 0, !1, !1, i.texture), this.uploadQuads(o, s);
+					this.drawUniforms(o, t, void 0, void 0, void 0, void 0, !1, !1, i.texture, !1, i.sampler?.maxAnisotropy ?? 1), this.uploadQuads(o, s);
 					let c = this.open(t.target, !1);
 					c.setPipeline(this.normal), this.bindDraw(c, o), c.setBindGroup(1, r), c.setBindGroup(2, this.effects.defaultUniforms), c.setVertexBuffer(0, this.instanceBuffer), c.draw(6, s, 0, o), this.hooks.stats.draw2D(s);
 				}
@@ -427,13 +429,13 @@ var WebGPURender2D = class WebGPURender2D {
 			let e = this.matrix.elements, n = t.target, r = t.bounds;
 			e[6] = Math.round(e[6] * n.width / r.width) * r.width / n.width, e[7] = Math.round(e[7] * n.height / r.height) * r.height / n.height;
 		}
-		require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), r || this.drawUniforms(n, t, void 0, void 0, this.appearance, void 0, !1, e.texture.kind === `native`, e.texture, !!e.lighting), this.writeQuad(n, i, this.matrix, r ? this.appearance : void 0, 0, 0, !1, e instanceof require_tiling_sprite2d.TilingSprite2D ? e : void 0), this.instanceData[n * 36 + 31] = e.texture.kind === `native` ? 2 : 0;
+		require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), r || this.drawUniforms(n, t, void 0, void 0, this.appearance, void 0, !1, e.texture.kind === `native`, e.texture, !!e.lighting, e.sampler?.maxAnisotropy ?? 1), this.writeQuad(n, i, this.matrix, r ? this.appearance : void 0, 0, 0, !1, e instanceof require_tiling_sprite2d.TilingSprite2D ? e : void 0), this.instanceData[n * 36 + 31] = e.texture.kind === `native` ? 2 : 0;
 	}
 	drawSprite(e, t) {
 		let n = this.allocate(), r = e.material ? this.effects.material(e.material) : void 0;
 		this.packSprite(e, t, n, !1), this.uploadQuads(n, 1), e.lighting && (this.objectMatrix(e, t, this.mapping, !0).invert(), require_lighting2d$1.packLighting2D(e, this.mapping, require_sprite_instance.getSpriteQuad2D(e, this.quad), this.scratch), this.uploadUniforms(n));
 		let i = this.open(t.target, !1);
-		i.setPipeline(e.lighting ? this.lighting : r?.layer ?? this.normal), this.bindDraw(i, n), i.setBindGroup(1, this.textureGroup(this.textureOf(e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`)), i.setBindGroup(2, r?.bindGroup ?? this.effects.defaultUniforms), e.lighting && i.setBindGroup(3, this.textureGroup(this.textureOf(e.normalTexture ?? e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`)), i.setVertexBuffer(0, this.instanceBuffer), i.draw(6, 1, 0, n), this.hooks.stats.draw2D();
+		i.setPipeline(e.lighting ? this.lighting : r?.layer ?? this.normal), this.bindDraw(i, n), i.setBindGroup(1, this.textureGroup(this.textureOf(e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setBindGroup(2, r?.bindGroup ?? this.effects.defaultUniforms), e.lighting && i.setBindGroup(3, this.textureGroup(this.textureOf(e.normalTexture ?? e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setVertexBuffer(0, this.instanceBuffer), i.draw(6, 1, 0, n), this.hooks.stats.draw2D();
 	}
 	prepareGeometry(e) {
 		e.validate();

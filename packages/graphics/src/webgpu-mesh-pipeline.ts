@@ -20,7 +20,7 @@ import { Frustum } from '../../core/src/frustum.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
 import { Mesh, materialBaseTexture } from '../../core/src/mesh.js';
 import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
-import type { TextureSamplerOptions } from '../../core/src/pbr-material.js';
+import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
 import {
@@ -2277,9 +2277,7 @@ export class WebGPUMeshPipeline {
           { binding: 0, resource: base },
           {
             binding: 1,
-            resource: pbr
-              ? this.cacheSampler(material.textureSampler)
-              : this.sampler,
+            resource: this.cacheSampler(material.textureSampler),
           },
           { binding: 2, resource: mr },
           { binding: 3, resource: normal },
@@ -2408,8 +2406,9 @@ export class WebGPUMeshPipeline {
     const mipmapFilter = options?.mipmapFilter ?? 'linear';
     const lodMinClamp = options?.lodMinClamp ?? 0;
     const lodMaxClamp = options?.lodMaxClamp ?? 32;
+    const maxAnisotropy = options?.maxAnisotropy ?? 1;
     if (!options) return this.sampler;
-    const key = `${minFilter}/${magFilter}/${mipmapFilter}/${addressModeU}/${addressModeV}/${lodMinClamp}/${lodMaxClamp}`;
+    const key = `${minFilter}/${magFilter}/${mipmapFilter}/${addressModeU}/${addressModeV}/${lodMinClamp}/${lodMaxClamp}/${maxAnisotropy}`;
     const existing = this.samplers.get(key);
     if (existing) return existing;
     const sampler = this.device.createSampler({
@@ -2418,6 +2417,7 @@ export class WebGPUMeshPipeline {
       mipmapFilter,
       lodMinClamp,
       lodMaxClamp,
+      maxAnisotropy,
       addressModeU,
       addressModeV,
     });
