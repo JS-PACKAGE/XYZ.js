@@ -1312,8 +1312,12 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
 - typecheck／build／lint／format:check 通過；整合初次完整 suite 為 128 檔／1080 測試，隨後移除只測預設值／轉接的八項測試，最終完整 suite 為 **128 檔／1072 測試通過**。v1.12.1 API 相容 gate 通過（737 historical exports／2810 directional contracts、710 namespaces、五 consumers）；exact package hygiene／extracted consumer 通過（`.vite/material-presets/package/run-HArPxS/report.json`）。九份更新文件的 429 個相對檔案連結皆存在。
 - 此次僅上述本機 Chromium 與 consumer 路徑；不宣稱其他 browser／實體裝置／效能或 loss-recovery 新資格。Browser helper 曾遇 detached-frame／reopen timeout，改用專案既有 owned Playwright launcher取得上述實際證據，沒有操作使用者瀏覽器。
 
-## v1.14 發佈準備（2026-10-05）
+## v1.14 發佈（2026-10-05）
 
 - 使用者明確授權提交、推送及發佈 `v1.14`，metadata 升為 `1.14.0`；沿現有 tag-triggered CI／Release workflow 產生 `xyz.js-1.14.0.tgz`／`SHA256SUMS`。不 npm publish、不移動歷史 tags、不降低既有 gates。
 - 納入上一節六種程序貼圖材質、PBR gallery 與當時已實跑證據；version-only 更新與 hosted／published archive 結果另依實際執行補記，不把此前測試冒稱重新執行。
 - 既有 Windows ARM [CI37132597817](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37132597817) 的音訊 inventory 沒有 soundDevices／endpoints，Firefox 在 trusted unlock timeout。官方同一 Pack45 archive SHA256 仍是 `b950e39f01af1d04ea623c8f6d8eb9b6ea5c477c637295fabf20631c85116bfb`，INF 明列 NTARM64 與 `vbaudio_cable64arm_win10.sys`；bootstrap 選 native driver 並保留 SHA／Authenticode／Code Integrity／TrustedPublisher／active default endpoint 全部 gates。ARM 安裝與 Firefox unlock 必須由新 hosted run 實際驗證，本機 macOS 不能代驗。
+- Release commit `01f1e81e8edd0eb4b34bfd4dd6da6a2f9fbcba30` 已推送 main 與新 annotated `v1.14` tag。[Release37292455660](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37292455660) required jobs 與發佈全部成功，包含 Linux／Windows Node 22／24／26 quality、browser matrix、四個 site shards、兩個 installed starters、production workload／API compatibility 與 native concurrent audio；Windows diagnostic job 依既有條件 skipped，不冒稱實跑。
+- Windows ARM Firefox artifact 證明 ARM64 sys／installer／catalog Authenticode Valid、bootstrap success、active default render endpoint 存在，Code Integrity 前後均 `2630147`；desktop／mobile gates 通過。此為 ephemeral runner 的虛擬 endpoint 路徑，不是實體裝置或可聽輸出認證，未改既有 unsupported backend／WebKit audio 邊界。
+- [GitHub v1.14](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.14) 於 `2026-10-05T10:02` UTC 發佈 `xyz.js-1.14.0.tgz` 與 `SHA256SUMS`。實際下載附件並 `shasum -a 256 -c SHA256SUMS` 通過；archive SHA256 為 `1de6284d9dda1905a8ce657c4a36b8823a381f82d3867ea58e887ea339cb4ffc`。下載 archive 的 exact inventory／extracted CLI／root consumer gate 通過（`.vite/release-v1.14/published/run-nT1J6O/report.json`），不是只檢查本機重新封裝檔。
+- 本輪 frozen install／build／format:check 與本機 1.14.0 package hygiene 通過；完整 suite／typecheck／lint／API 等由上述 hosted quality jobs 實際再驗。此後只補發佈紀錄至 main，不移動 `v1.14` tag。
