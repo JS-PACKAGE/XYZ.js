@@ -36,6 +36,28 @@ export class PathFollower3D {
   protected readonly arrivalTolerance: number;
   private readonly displacement = new Vector3();
   private sampledSurface = false;
+  protected samplingVelocity = false;
+  private readonly preferredVelocity = new Vector3();
+
+  /** Advances route/search state without moving the borrowed character.
+   * Crowd owns movement exclusively; special links block until ordinary following resumes.
+   */
+  samplePreferredVelocity(deltaSeconds: number, out: Vector3): Vector3 {
+    if (this.samplingVelocity)
+      throw new Error('Follower sampling is not reentrant.');
+    this.preferredVelocity.set(0, 0, 0);
+    this.samplingVelocity = true;
+    try {
+      this.update(deltaSeconds);
+      return out.copy(this.preferredVelocity);
+    } finally {
+      this.samplingVelocity = false;
+    }
+  }
+
+  get controller(): CharacterController3D | undefined {
+    return this.character;
+  }
 
   constructor(
     controller: CharacterController3D,
@@ -205,6 +227,13 @@ export class PathFollower3D {
       const movementDistance = this.displacement.length();
       const step = Math.min(movementDistance, budget);
       this.displacement.scale(step / movementDistance);
+      if (this.samplingVelocity) {
+        if (deltaSeconds > 0)
+          this.preferredVelocity
+            .copy(this.displacement)
+            .scale(1 / deltaSeconds);
+        return;
+      }
       const movement = character.move(this.displacement);
       budget = Math.max(0, budget - step);
       const remaining = Math.hypot(
@@ -505,6 +534,7 @@ export class NavigationFollower3D extends PathFollower3D {
     }
     const connection = route.graph.connections[connectionIndex]!;
     if (connection.kind !== 'special') return true;
+    if (this.samplingVelocity) return false;
     const result =
       this.traverseLink?.({
         connection,

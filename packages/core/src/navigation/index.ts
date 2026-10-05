@@ -68,3 +68,16 @@ export type {
   NavigationTiledGraphOptions3D,
 } from './tiled-graph.js';
 export { PartitionNavigationJob } from './partition-search.js';
+export { CrowdSolver } from './crowd.js';
+export type {
+  CrowdOptions,
+  CrowdAgentOptions,
+  CrowdAgentState,
+  CrowdRegistration,
+} from './crowd.js';
+export {
+  steeringSeek,
+  steeringFlee,
+  steeringArrive,
+  SteeringWander3D,
+} from './steering.js';

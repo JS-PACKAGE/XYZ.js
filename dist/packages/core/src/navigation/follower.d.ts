@@ -18,6 +18,13 @@ export declare class PathFollower3D {
     protected readonly arrivalTolerance: number;
     private readonly displacement;
     private sampledSurface;
+    protected samplingVelocity: boolean;
+    private readonly preferredVelocity;
+    /** Advances route/search state without moving the borrowed character.
+     * Crowd owns movement exclusively; special links block until ordinary following resumes.
+     */
+    samplePreferredVelocity(deltaSeconds: number, out: Vector3): Vector3;
+    get controller(): CharacterController3D | undefined;
     constructor(controller: CharacterController3D, options?: PathFollowerOptions3D);
     get state(): PathFollowerState3D;
     get waypointIndex(): number;

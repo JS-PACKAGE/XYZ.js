@@ -94,6 +94,7 @@ export class NavigationMeshFollower3D extends PathFollower3D {
       mesh = this.mesh,
       link = route?.waypoints[index]?.link;
     if (!link || index === 0) return true;
+    if (this.samplingVelocity) return false;
     const result =
       this.traverseLink?.({
         link,
