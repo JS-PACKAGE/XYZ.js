@@ -435,7 +435,8 @@ var WebGPURender2D = class WebGPURender2D {
 		let n = this.allocate(), r = e.material ? this.effects.material(e.material) : void 0;
 		this.packSprite(e, t, n, !1), this.uploadQuads(n, 1), e.lighting && (this.objectMatrix(e, t, this.mapping, !0).invert(), require_lighting2d$1.packLighting2D(e, this.mapping, require_sprite_instance.getSpriteQuad2D(e, this.quad), this.scratch), this.uploadUniforms(n));
 		let i = this.open(t.target, !1);
-		i.setPipeline(e.lighting ? this.lighting : r?.layer ?? this.normal), this.bindDraw(i, n), i.setBindGroup(1, this.textureGroup(this.textureOf(e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setBindGroup(2, r?.bindGroup ?? this.effects.defaultUniforms), e.lighting && i.setBindGroup(3, this.textureGroup(this.textureOf(e.normalTexture ?? e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setVertexBuffer(0, this.instanceBuffer), i.draw(6, 1, 0, n), this.hooks.stats.draw2D();
+		if (e.lighting && e.material && !r?.lit) throw new require_errors.GraphicsError(`A lit Material2D must be prepared before rendering.`);
+		i.setPipeline(e.lighting ? r?.lit ?? this.lighting : r?.layer ?? this.normal), this.bindDraw(i, n), i.setBindGroup(1, this.textureGroup(this.textureOf(e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setBindGroup(2, r?.bindGroup ?? this.effects.defaultUniforms), e.lighting && i.setBindGroup(3, this.textureGroup(this.textureOf(e.normalTexture ?? e.texture), e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), i.setVertexBuffer(0, this.instanceBuffer), i.draw(6, 1, 0, n), this.hooks.stats.draw2D();
 	}
 	prepareGeometry(e) {
 		e.validate();

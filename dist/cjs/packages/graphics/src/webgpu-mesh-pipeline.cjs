@@ -3,10 +3,11 @@ const require_native_texture = require("../../assets/src/native-texture.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_mesh = require("../../core/src/mesh.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
+const require_pbr_material = require("../../core/src/pbr-material.cjs");
+const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_frustum = require("../../core/src/frustum.cjs");
 const require_instanced_mesh = require("../../core/src/instanced-mesh.cjs");
-const require_pbr_material = require("../../core/src/pbr-material.cjs");
 const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 const require_render_visibility = require("../../core/src/render-visibility.cjs");
 const require_gpu_timing = require("./gpu-timing.cjs");
@@ -31,9 +32,9 @@ const require_webgpu_post_pipeline = require("./webgpu-post-pipeline.cjs");
 const require_webgpu_oit = require("./webgpu-oit.cjs");
 const require_webgpu_temporal_pipeline = require("./webgpu-temporal-pipeline.cjs");
 //#region dist/packages/graphics/src/webgpu-mesh-pipeline.js
-var te = [];
-var ne = [];
-var $ = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_rendering.MATERIAL_UV_FLOAT_COUNT;
+var oe = [];
+var se = [];
+var $ = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_rendering.MATERIAL_UV_FLOAT_COUNT + 20;
 var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	device;
 	opticalPackLayout;
@@ -713,18 +714,18 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				depthWriteEnabled: !1,
 				depthCompare: `always`
 			}
-		})), z = await require_webgpu_post_pipeline.WebGPUPostPipeline.initialize(e, t, n, i, a), W;
+		})), z = await require_webgpu_post_pipeline.WebGPUPostPipeline.initialize(e, t, n, i, a), B;
 		try {
-			return W = await require_webgpu_particles3d.WebGPUParticles3D.initialize(e, t, i, a), new WebGPUMeshPipeline(e, f, m, h, w, E, A, M, L, R, g, _, v, b, z, t, i, o, [
+			return B = await require_webgpu_particles3d.WebGPUParticles3D.initialize(e, t, i, a), new WebGPUMeshPipeline(e, f, m, h, w, E, A, M, L, R, g, _, v, b, z, t, i, o, [
 				C,
 				T,
 				k,
 				j,
 				N,
 				P
-			], W, F, I);
+			], B, F, I);
 		} catch (e) {
-			throw W?.destroy(), z.destroy(), e;
+			throw B?.destroy(), z.destroy(), e;
 		}
 	}
 	resize(e, t) {
@@ -740,66 +741,66 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	releaseRefraction() {
 		this.refractionTexture && (this.refractionTexture.destroy(), this.stats.target(-this.refractionWidth * this.refractionHeight * 8), this.refractionTexture = void 0, this.refractionView = void 0, this.sceneBindGroup = this.createSceneGroup(this.shadowView ?? this.emptyShadowView));
 	}
-	render(e, t, r, a, o, c, l, u = o, d) {
+	render(e, t, r, i, o, s, c, u = o, d) {
 		this.frame++;
 		for (let e of this.retired) e.destroy();
 		this.retired.length = 0, this.draws.length = 0, this.visibleDraws.length = 0;
 		try {
 			if (!e?.has3DContent) return this.visibilityCache.clear(), this.visibility.color.length = this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.gathered.clear(), this.occlusion?.clear(), this.post.releaseTarget(), this.oit.release(), this.depthTexture && (this.depthTexture.destroy(), this.stats.target(-this.depthWidth * this.depthHeight * 4 * this.sampleCount), this.depthTexture = void 0, this.depthView = void 0), this.msaaTexture && (this.msaaTexture.destroy(), this.stats.target(-this.msaaWidth * this.msaaHeight * (this.msaaFormat === `rgba16float` ? 8 : 4) * this.sampleCount), this.msaaTexture = void 0, this.msaaView = void 0), this.shadowTexture && (this.shadowTexture.destroy(), this.stats.target(-this.shadowSize * this.shadowSize * 4), this.shadowTexture = void 0, this.shadowView = void 0, this.sceneBindGroup = this.shadowSceneBindGroup), this.releaseRefraction(), (this.environmentView !== this.dummyEnvironmentArrayView || this.backgroundView !== this.dummyEnvironmentView) && (this.probeAllocation?.destroy(), this.environmentView = this.dummyEnvironmentArrayView, this.backgroundView = this.dummyEnvironmentView, this.shadowSceneBindGroup = this.createSceneGroup(this.emptyShadowView, this.dummyEnvironmentView), this.sceneBindGroup = this.skyBindGroup = this.shadowSceneBindGroup), this.temporal.releaseTarget(), this.temporalState.invalidate(), !1;
-			require_render_data.validateRenderSettings(e), e.lightSelection.update(e), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection), this.atlas.update(e, c), this.ensureShadow(e), this.ensureEnvironment(e), this.frustum.setFromMatrix(e.camera3D.updateMatrix(c));
-			let m = +!!e.postProcessing.enabled | (e.transparency === `weighted` ? 2 : 0);
-			(this.proofWidth !== a || this.proofHeight !== o || this.proofMode !== m) && (this.proofWidth = a, this.proofHeight = o, this.proofMode = m, ++this.depthRevision);
-			for (let t of e.renderMeshes ?? ne) {
+			require_render_data.validateRenderSettings(e), e.lightSelection.update(e), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection), this.atlas.update(e, s), this.ensureShadow(e), this.ensureEnvironment(e), this.frustum.setFromMatrix(e.camera3D.updateMatrix(s));
+			let f = +!!e.postProcessing.enabled | (e.transparency === `weighted` ? 2 : 0);
+			(this.proofWidth !== i || this.proofHeight !== o || this.proofMode !== f) && (this.proofWidth = i, this.proofHeight = o, this.proofMode = f, ++this.depthRevision);
+			for (let t of e.renderMeshes ?? se) {
 				!this.occlusion && t.occlusionCulled && (this.occlusion = new require_webgpu_occlusion.WebGPUOcclusionBackend(this.device));
 				let e = require_mesh.materialBaseTexture(t.material);
-				this.depthTextureVersions.get(e) !== e.version && (this.depthTextureVersions.set(e, e.version), ++this.depthRevision), t.worldVisible && t.material instanceof require_native_material3d.NativeMaterial3D && !t.material.transparent && ++this.depthRevision;
+				this.depthTextureVersions.get(e) !== e.version && (this.depthTextureVersions.set(e, e.version), ++this.depthRevision), t.worldVisible && require_native_material3d.isNativeMaterial3D(t.material) && !t.material.transparent && ++this.depthRevision;
 			}
-			let h = this.visibilityOptions;
-			h.viewportHeight = u, h.timeSeconds = e.presentationTime, h.occlusion = this.occlusion, h.depthRevision = this.depthRevision, this.visibilityCache.collect(e, e.camera3D, this.frustum, this.visibility, h), this.stats.meshes += this.visibility.meshChecks, this.stats.culled += this.visibility.frustumCulled + this.visibility.occlusionCulled;
-			let g = !1, v = !1, y = !1;
+			let p = this.visibilityOptions;
+			p.viewportHeight = u, p.timeSeconds = e.presentationTime, p.occlusion = this.occlusion, p.depthRevision = this.depthRevision, this.visibilityCache.collect(e, e.camera3D, this.frustum, this.visibility, p), this.stats.meshes += this.visibility.meshChecks, this.stats.culled += this.visibility.frustumCulled + this.visibility.occlusionCulled;
+			let g = !1, _ = !1, v = !1;
 			this.gathered.clear();
 			for (let t of this.visibility.color) {
 				if (this.visibleDraws.push(t), this.gathered.add(t), t.material instanceof require_pbr_material.PBRMaterial && t.material.alphaToCoverage) {
 					if (this.sampleCount < 2) throw new require_errors.GraphicsError(`WebGPU alpha-to-coverage requires renderer antialiasing.`);
-					y = !0;
+					v = !0;
 				}
-				e.transparency === `weighted` && this.blendedDraw(t) && (v = !0), t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0 && (g = !0);
+				e.transparency === `weighted` && this.blendedDraw(t) && (_ = !0), t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0 && (g = !0);
 			}
 			for (let e of this.visibility.shadows) this.draws.push(e), this.gathered.add(e);
 			for (let t of this.gathered) {
-				if (t.material instanceof require_native_material3d.NativeMaterial3D && (t.material.destroyed || !this.nativeMaterials.has(t.material))) throw new require_errors.GraphicsError(`NativeMaterial3D must be explicitly prepared before rendering.`);
-				t.material instanceof require_native_material3d.NativeMaterial3D && t.material.validate();
+				if (require_native_material3d.isNativeMaterial3D(t.material) && (t.material.destroyed || !this.nativeMaterials.has(t.material))) throw new require_errors.GraphicsError(`NativeMaterial3D must be explicitly prepared before rendering.`);
+				require_native_material3d.isNativeMaterial3D(t.material) && t.material.validate();
 				let n = this.cacheGeometry(t.renderGeometry), r = this.cacheMesh(t);
 				n.seen = r.seen = this.frame, this.updateMesh(e, t, r);
 			}
-			e.transparency === `sorted` && this.drawSorter.sort(this.visibleDraws, e.camera3D.position, this.blendedDraw), v || this.oit.release(), e.shadows.enabled && this.renderShadows(t, e, a, o);
-			let b = !!d || e.postProcessing.enabled || g || v || y;
-			this.temporalActive = !d && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr), this.temporalActive ? this.temporalState.begin(e, e.camera3D, a, o, e.postProcessing, c) : (this.temporal.releaseTarget(), this.temporalState.invalidate()), this.prepareScene(e, c, b), b || this.post.releaseTarget(), g ? this.ensureRefraction(a, o) : this.releaseRefraction();
-			let x = require_render_data.activeBackground(e);
-			if (!this.visibleDraws.length && !b && !x && (e.gpuParticleEmitters?.size ?? 0) === 0) return !1;
-			this.ensureDepth(a, o);
-			let w = b ? this.post.target(a, o, this.depthView) : r;
-			this.colorAttachment.resolveTarget = void 0, this.sampleCount > 1 ? (this.colorAttachment.view = this.ensureMultisample(b ? `rgba16float` : this.format, a, o), this.colorAttachment.resolveTarget = w) : this.colorAttachment.view = w, this.colorAttachment.clearValue = b ? this.decodeClear(l) : l, this.depthAttachment.view = this.depthView;
-			let T = this.temporalActive && e.postProcessing.ssr, E = g || T ? 2 : 1, D;
-			for (let n = 0; n < E; n++) {
-				this.colorAttachment.loadOp = n === 0 ? `clear` : `load`, this.depthAttachment.depthLoadOp = n === 0 ? `clear` : `load`, this.colorAttachment.storeOp = this.sampleCount > 1 && n === E - 1 ? `discard` : `store`;
+			e.transparency === `sorted` && this.drawSorter.sort(this.visibleDraws, e.camera3D.position, this.blendedDraw), _ || this.oit.release(), e.shadows.enabled && this.renderShadows(t, e, i, o);
+			let y = !!d || e.postProcessing.enabled || g || _ || v;
+			this.temporalActive = !d && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr), this.temporalActive ? this.temporalState.begin(e, e.camera3D, i, o, e.postProcessing, s) : (this.temporal.releaseTarget(), this.temporalState.invalidate()), this.prepareScene(e, s, y), y || this.post.releaseTarget(), g ? this.ensureRefraction(i, o) : this.releaseRefraction();
+			let b = require_render_data.activeBackground(e);
+			if (!this.visibleDraws.length && !y && !b && (e.gpuParticleEmitters?.size ?? 0) === 0) return !1;
+			this.ensureDepth(i, o);
+			let x = y ? this.post.target(i, o, this.depthView) : r;
+			this.colorAttachment.resolveTarget = void 0, this.sampleCount > 1 ? (this.colorAttachment.view = this.ensureMultisample(y ? `rgba16float` : this.format, i, o), this.colorAttachment.resolveTarget = x) : this.colorAttachment.view = x, this.colorAttachment.clearValue = y ? this.decodeClear(c) : c, this.depthAttachment.view = this.depthView;
+			let C = this.temporalActive && e.postProcessing.ssr, w = g || C ? 2 : 1, T;
+			for (let n = 0; n < w; n++) {
+				this.colorAttachment.loadOp = n === 0 ? `clear` : `load`, this.depthAttachment.depthLoadOp = n === 0 ? `clear` : `load`, this.colorAttachment.storeOp = this.sampleCount > 1 && n === w - 1 ? `discard` : `store`;
 				let r = require_gpu_timing.beginTimedRenderPass(t, this.renderPassDescriptor);
 				try {
-					r.setViewport(0, 0, a, o, 0, 1), x && n === 0 && (r.setBindGroup(0, this.skyBindGroup), r.setPipeline(b ? this.skyHdrPipeline : this.skyPipeline), r.draw(3)), r.setBindGroup(0, this.sceneBindGroup), r.setPipeline(b ? this.hdrPipeline : this.pipeline);
+					r.setViewport(0, 0, i, o, 0, 1), b && n === 0 && (r.setBindGroup(0, this.skyBindGroup), r.setPipeline(y ? this.skyHdrPipeline : this.skyPipeline), r.draw(3)), r.setBindGroup(0, this.sceneBindGroup), r.setPipeline(y ? this.hdrPipeline : this.pipeline);
 					for (let e of this.visibleDraws) {
-						if (v && this.blendedDraw(e) || (g || T) && (this.blendedDraw(e) || e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0) !== (n === 1)) continue;
+						if (_ && this.blendedDraw(e) || (g || C) && (this.blendedDraw(e) || e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0) !== (n === 1)) continue;
 						r.setBindGroup(0, this.reflectionGroup(this.meshes.get(e)));
-						let t = this.drawMesh(r, e, +!!b);
+						let t = this.drawMesh(r, e, +!!y);
 						this.stats.draw(e.geometry.indices.length, t);
 					}
-					n === E - 1 && this.particles.draw(r, e.gpuParticleEmitters ?? te, e.camera3D, c, b);
+					n === w - 1 && this.particles.draw(r, e.gpuParticleEmitters ?? oe, e.camera3D, s, y);
 				} finally {
 					r.end();
 				}
-				T && n === 0 && (D = this.temporal.applyOpaqueSSR(t, this.post.colorTexture, this.depthView, this.temporalState, e.postProcessing), this.temporal.blit(t, D, this.colorAttachment.view, this.sampleCount)), g && n === 0 && (T && this.sampleCount > 1 ? t.copyTextureToTexture({ texture: D }, { texture: this.refractionTexture }, [a, o]) : this.post.copyColor(t, this.refractionTexture));
+				C && n === 0 && (T = this.temporal.applyOpaqueSSR(t, this.post.colorTexture, this.depthView, this.temporalState, e.postProcessing), this.temporal.blit(t, T, this.colorAttachment.view, this.sampleCount)), g && n === 0 && (C && this.sampleCount > 1 ? t.copyTextureToTexture({ texture: T }, { texture: this.refractionTexture }, [i, o]) : this.post.copyColor(t, this.refractionTexture));
 			}
-			if (this.occlusion?.encode(t, this.depthView, this.temporalActive ? this.temporalState.currentVP : e.camera3D.updateMatrix(c), this.visibility.occlusionCandidates, a, o, this.sampleCount), v) {
-				let e = this.oit.begin(t, a, o, this.depthView);
+			if (this.occlusion?.encode(t, this.depthView, this.temporalActive ? this.temporalState.currentVP : e.camera3D.updateMatrix(s), this.visibility.occlusionCandidates, i, o, this.sampleCount), _) {
+				let e = this.oit.begin(t, i, o, this.depthView);
 				try {
 					e.setPipeline(this.oitPipeline);
 					for (let t of this.visibleDraws) {
@@ -811,10 +812,10 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				} finally {
 					e.end();
 				}
-				this.oit.resolve(t, w);
+				this.oit.resolve(t, x);
 			}
 			if (d) this.post.copyColor(t, d);
-			else if (b) {
+			else if (y) {
 				let n = this.temporalActive && e.postProcessing.taa ? this.temporal.applyTAA(t, this.post.colorTexture, this.depthView, this.temporalState, e.postProcessing) : void 0;
 				this.post.render(t, r, e.postProcessing, e.camera3D, this.invViewProjection, n, this.depthView), this.temporalActive && this.temporalState.commit();
 			}
@@ -1016,18 +1017,18 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			try {
 				t = this.device.createShaderModule({
 					label: e.label,
-					code: require_webgpu_mesh_shader.nativeMeshWGSL(e.wgsl)
+					code: require_webgpu_mesh_shader.nativeMeshWGSL(e.wgsl, e instanceof require_native_pbr_material.NativePBRMaterial)
 				});
 			} finally {
 				n = this.device.popErrorScope();
 			}
-			let [r, i] = await Promise.all([t.getCompilationInfo(), n]), s = r.messages.filter((e) => e.type === `error`);
-			if (s.length) throw new require_errors.GraphicsError(`${e.label} WGSL compilation failed: ${s.map((e) => `${e.lineNum}:${e.linePos} ${e.message}`).join(`; `)}`);
+			let [r, i] = await Promise.all([t.getCompilationInfo(), n]), a = r.messages.filter((e) => e.type === `error`);
+			if (a.length) throw new require_errors.GraphicsError(`${e.label} WGSL compilation failed: ${a.map((e) => `${e.lineNum}:${e.linePos} ${e.message}`).join(`; `)}`);
 			if (i) throw new require_errors.GraphicsError(`${e.label} WGSL validation failed: ${i.message}`);
 			this.device.pushErrorScope(`validation`);
-			let c, l;
+			let l, u;
 			try {
-				c = Promise.all(this.pipelineRecipes.map((n) => this.device.createRenderPipelineAsync({
+				l = Promise.all(this.pipelineRecipes.map((n) => this.device.createRenderPipelineAsync({
 					...n,
 					label: e.label,
 					vertex: {
@@ -1044,21 +1045,23 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					} : void 0
 				})));
 			} finally {
-				l = this.device.popErrorScope();
+				u = this.device.popErrorScope();
 			}
-			let [u, d] = await Promise.all([c, l]).catch((t) => {
+			let [d, f] = await Promise.all([l, u]).catch((t) => {
 				throw new require_errors.GraphicsError(`${e.label} native 3D pipeline preparation failed.`, { cause: t });
 			});
-			if (d) throw new require_errors.GraphicsError(`${e.label} native 3D pipeline validation failed: ${d.message}`);
+			if (f) throw new require_errors.GraphicsError(`${e.label} native 3D pipeline validation failed: ${f.message}`);
 			if (e.destroyed || this.destroyed) throw new require_errors.GraphicsError(`Native material preparation was invalidated.`);
-			e.validate(), this.cacheTexture(require_mesh.materialBaseTexture(e), !0);
-			for (let t of require_native_material3d.nativeMaterialSources(e)) this.cacheTexture(t, !1);
+			if (e.validate(), this.cacheTexture(require_mesh.materialBaseTexture(e), !(e instanceof require_pbr_material.PBRMaterial)), e instanceof require_native_pbr_material.NativePBRMaterial) for (let t of Object.values(require_pbr_material.pbrTextureSources(e))) t && this.cacheTexture(t, !1);
+			else for (let t of require_native_material3d.nativeMaterialSources(e)) this.cacheTexture(t, !1);
 			let p = e.onDestroy(() => {
 				this.nativeMaterials.delete(e);
 				for (let [t, n] of this.meshes) t.material === e && n.allocation.destroy();
 			});
 			this.nativeMaterials.set(e, {
-				pipelines: u,
+				module: t,
+				pipelines: d,
+				coverage: /* @__PURE__ */ new Map(),
 				unsubscribe: p
 			});
 		})();
@@ -1144,35 +1147,53 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 	}
 	drawMesh(e, t, n = 0) {
-		let r = this.geometries.get(t.renderGeometry), a = this.meshes.get(t), o = t.material instanceof require_native_material3d.NativeMaterial3D ? this.nativeMaterials.get(t.material) : void 0;
+		let r = this.geometries.get(t.renderGeometry), i = this.meshes.get(t), o = require_native_material3d.isNativeMaterial3D(t.material) ? this.nativeMaterials.get(t.material) : void 0;
 		n < 2 && (this.visibility.entries.get(t)?.fade ?? 1) < 1 && (n += 4);
 		let s = o ? o.pipelines[n] : n === 5 ? this.fadedHdrPipeline : n === 4 ? this.fadedPipeline : n === 3 ? this.shadowPipeline : n === 2 ? this.oitPipeline : n === 1 ? this.hdrPipeline : this.pipeline;
 		if (n !== 3 && t.material instanceof require_pbr_material.PBRMaterial && t.material.alphaToCoverage) {
 			if (this.sampleCount < 2) throw new require_errors.GraphicsError(`Alpha-to-coverage requires renderer antialiasing.`);
-			let e = this.coveragePipelines.get(n);
-			if (!e) {
-				let t = this.pipelineRecipes[n];
-				e = this.device.createRenderPipeline({
-					...t,
+			let e = this.pipelineRecipes[n], r = Array.from(e.fragment.targets, (e) => ({
+				...e,
+				blend: void 0,
+				writeMask: GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE
+			}));
+			if (o && require_native_material3d.isNativeMaterial3D(t.material)) {
+				let i = o.coverage.get(n);
+				i || (i = this.device.createRenderPipeline({
+					...e,
+					label: t.material.label,
+					vertex: {
+						...e.vertex,
+						module: o.module
+					},
 					fragment: {
-						...t.fragment,
-						targets: Array.from(t.fragment.targets, (e) => ({
-							...e,
-							blend: void 0,
-							writeMask: GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE
-						}))
+						...e.fragment,
+						module: o.module,
+						targets: r
 					},
 					multisample: {
 						count: this.sampleCount,
 						alphaToCoverageEnabled: !0
 					}
-				}), this.coveragePipelines.set(n, e);
+				}), o.coverage.set(n, i)), s = i;
+			} else {
+				let t = this.coveragePipelines.get(n);
+				t || (t = this.device.createRenderPipeline({
+					...e,
+					fragment: {
+						...e.fragment,
+						targets: r
+					},
+					multisample: {
+						count: this.sampleCount,
+						alphaToCoverageEnabled: !0
+					}
+				}), this.coveragePipelines.set(n, t)), s = t;
 			}
-			s = e;
 		}
-		e.setPipeline(s), e.setBindGroup(1, a.bindGroup), e.setBindGroup(2, a.materialGroup);
+		e.setPipeline(s), e.setBindGroup(1, i.bindGroup), e.setBindGroup(2, i.materialGroup);
 		let c = n === 3 ? void 0 : this.visibility.entries.get(t)?.instances, l = c?.count ?? (t instanceof require_instanced_mesh.InstancedMesh ? t.count : 1);
-		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, c ? a.visibleInstance : a.instance), e.setVertexBuffer(2, c ? c.colors ? a.visibleColors : this.white(l) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? a.instanceColors : this.white(l)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, a.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setVertexBuffer(6, r.tangents), e.setIndexBuffer(r.index, `uint32`), e.drawIndexed(t.geometry.indices.length, l), l;
+		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, c ? i.visibleInstance : i.instance), e.setVertexBuffer(2, c ? c.colors ? i.visibleColors : this.white(l) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? i.instanceColors : this.white(l)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, i.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setVertexBuffer(6, r.tangents), e.setIndexBuffer(r.index, `uint32`), e.drawIndexed(t.geometry.indices.length, l), l;
 	}
 	white(e) {
 		if (e <= this.whiteCapacity) return this.whiteBuffer;
@@ -1286,44 +1307,44 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		n ? (e.uvs1 = this.colorBuffer(e.uvs1, n), this.device.queue.writeBuffer(e.uvs1, 0, n), this.stats.upload(n.byteLength)) : (e.uvs1?.destroy(), e.uvs1 = void 0);
 	}
 	cacheMesh(e) {
-		let t = e.material, n = t instanceof require_pbr_material.PBRMaterial, r = n ? require_pbr_material.pbrTextureSources(t) : void 0, o = t instanceof require_native_material3d.NativeMaterial3D ? require_native_material3d.nativeMaterialSources(t) : void 0, s = this.cacheTexture(require_mesh.materialBaseTexture(t), !n).view, c = r?.metallicRoughnessTexture ? this.cacheTexture(r.metallicRoughnessTexture, !1).view : o && o[0] ? this.cacheTexture(o[0], !1).view : this.whiteView, l = r?.normalTexture ? this.cacheTexture(r.normalTexture, !1).view : o && o[1] ? this.cacheTexture(o[1], !1).view : this.whiteView, u = r?.occlusionTexture ? this.cacheTexture(r.occlusionTexture, !1).view : o && o[2] ? this.cacheTexture(o[2], !1).view : this.whiteView, d = r?.emissiveTexture ? this.cacheTexture(r.emissiveTexture, !1).view : o && o[3] ? this.cacheTexture(o[3], !1).view : this.whiteView, _ = r?.specularTexture ? this.cacheTexture(r.specularTexture, !1).view : this.whiteView, v = r?.specularColorTexture ? this.cacheTexture(r.specularColorTexture, !1).view : this.whiteView, y = r?.clearcoatTexture ? this.cacheTexture(r.clearcoatTexture, !1).view : this.whiteView, b = r?.clearcoatRoughnessTexture ? this.cacheTexture(r.clearcoatRoughnessTexture, !1).view : this.whiteView, x = r?.clearcoatNormalTexture ? this.cacheTexture(r.clearcoatNormalTexture, !1).view : this.whiteView, S = r?.sheenColorTexture ? this.cacheTexture(r.sheenColorTexture, !1).view : this.whiteView, C = r?.sheenRoughnessTexture ? this.cacheTexture(r.sheenRoughnessTexture, !1).view : this.whiteView, w = n ? this.cacheOpticalMaps(t) : this.emptyOpticalView, T = this.meshes.get(e), E = e instanceof require_skinned_mesh.SkinnedMesh ? e : void 0, D = E ? E.jointPalette.byteLength + E.renderGeometry.vertices.length / 8 * 64 : 0;
-		if (T && (T.allocation.resize(T.uniform.size + T.sceneBuffer.size + (T.visibleInstance?.size ?? 0) + (T.visibleColors?.size ?? 0) + D + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + Math.max(T.instanceColors?.size ?? 0, e.colors?.byteLength ?? 0) : 0)), E && T.paletteVersion !== E.paletteVersion && (this.device.queue.writeBuffer(T.palette, 0, E.jointPalette), this.stats.upload(E.jointPalette.byteLength), T.paletteVersion = E.paletteVersion), T.textureEpoch === this.textureEpoch)) return T;
-		let O = T?.allocation ?? this.residency.geometry.allocate($ * 4 + this.sceneData.byteLength + D + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0), () => {
+		let t = e.material, n = t instanceof require_pbr_material.PBRMaterial, r = n ? require_pbr_material.pbrTextureSources(t) : void 0, a = t instanceof require_native_material3d.NativeMaterial3D ? require_native_material3d.nativeMaterialSources(t) : void 0, s = this.cacheTexture(require_mesh.materialBaseTexture(t), !n).view, c = r?.metallicRoughnessTexture ? this.cacheTexture(r.metallicRoughnessTexture, !1).view : a && a[0] ? this.cacheTexture(a[0], !1).view : this.whiteView, l = r?.normalTexture ? this.cacheTexture(r.normalTexture, !1).view : a && a[1] ? this.cacheTexture(a[1], !1).view : this.whiteView, u = r?.occlusionTexture ? this.cacheTexture(r.occlusionTexture, !1).view : a && a[2] ? this.cacheTexture(a[2], !1).view : this.whiteView, d = n ? require_pbr_material.pbrEmissiveSlot(t) : void 0, f = d?.texture ? this.cacheTexture(d.texture, !1).view : a && a[3] ? this.cacheTexture(a[3], !1).view : this.whiteView, p = r?.specularTexture ? this.cacheTexture(r.specularTexture, !1).view : this.whiteView, g = r?.specularColorTexture ? this.cacheTexture(r.specularColorTexture, !1).view : this.whiteView, y = r?.clearcoatTexture ? this.cacheTexture(r.clearcoatTexture, !1).view : this.whiteView, S = r?.clearcoatRoughnessTexture ? this.cacheTexture(r.clearcoatRoughnessTexture, !1).view : this.whiteView, C = r?.clearcoatNormalTexture ? this.cacheTexture(r.clearcoatNormalTexture, !1).view : this.whiteView, w = r?.sheenColorTexture ? this.cacheTexture(r.sheenColorTexture, !1).view : this.whiteView, T = r?.sheenRoughnessTexture ? this.cacheTexture(r.sheenRoughnessTexture, !1).view : this.whiteView, E = n ? this.cacheOpticalMaps(t) : this.emptyOpticalView, D = this.meshes.get(e), O = e instanceof require_skinned_mesh.SkinnedMesh ? e : void 0, k = O ? O.jointPalette.byteLength + O.renderGeometry.vertices.length / 8 * 64 : 0;
+		if (D && (D.allocation.resize(D.uniform.size + D.sceneBuffer.size + (D.visibleInstance?.size ?? 0) + (D.visibleColors?.size ?? 0) + k + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + Math.max(D.instanceColors?.size ?? 0, e.colors?.byteLength ?? 0) : 0)), O && D.paletteVersion !== O.paletteVersion && (this.device.queue.writeBuffer(D.palette, 0, O.jointPalette), this.stats.upload(O.jointPalette.byteLength), D.paletteVersion = O.paletteVersion), D.textureEpoch === this.textureEpoch && D.material === t)) return D;
+		let A = D?.allocation ?? this.residency.geometry.allocate($ * 4 + this.sceneData.byteLength + k + (e instanceof require_instanced_mesh.InstancedMesh ? e.matrices.byteLength + (e.colors?.byteLength ?? 0) : 0), () => {
 			let t = this.meshes.get(e);
 			t && (t.uniform.destroy(), t.sceneBuffer.destroy(), t.visibleInstance?.destroy(), t.visibleColors?.destroy(), t.instanceColors?.destroy(), t.palette?.destroy(), t.influences?.destroy(), t.instance !== this.identityBuffer && t.instance.destroy(), this.meshes.delete(e));
-		}), k = T?.uniform, A = T?.instance ?? this.identityBuffer, j = T?.instanceColors, M = T?.palette, N = T?.influences;
+		}), j = D?.uniform, M = D?.instance ?? this.identityBuffer, N = D?.instanceColors, P = D?.palette, F = D?.influences;
 		try {
-			if (k ??= this.device.createBuffer({
+			if (j ??= this.device.createBuffer({
 				size: $ * 4,
 				usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-			}), !T && E) {
-				if (E.jointPalette.byteLength > this.device.limits.maxStorageBufferBindingSize) throw new require_errors.GraphicsError(`Skin palette exceeds the WebGPU storage buffer limit.`);
-				M = this.device.createBuffer({
-					size: E.jointPalette.byteLength,
+			}), !D && O) {
+				if (O.jointPalette.byteLength > this.device.limits.maxStorageBufferBindingSize) throw new require_errors.GraphicsError(`Skin palette exceeds the WebGPU storage buffer limit.`);
+				P = this.device.createBuffer({
+					size: O.jointPalette.byteLength,
 					usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
 				});
-				let e = E.renderGeometry.vertices.length / 8, t = /* @__PURE__ */ new ArrayBuffer(e * 64), n = new Uint32Array(t), r = new Float32Array(t);
-				for (let t = 0; t < e; t++) for (let e = 0; e < E.influencesPerVertex; e++) {
-					let i = t * E.influencesPerVertex + e, a = t * 16 + (e < 4 ? e : e + 4);
-					n[a] = E.jointIndices[i], r[a + 4] = E.weights[i];
+				let e = O.renderGeometry.vertices.length / 8, t = /* @__PURE__ */ new ArrayBuffer(e * 64), n = new Uint32Array(t), r = new Float32Array(t);
+				for (let t = 0; t < e; t++) for (let e = 0; e < O.influencesPerVertex; e++) {
+					let i = t * O.influencesPerVertex + e, a = t * 16 + (e < 4 ? e : e + 4);
+					n[a] = O.jointIndices[i], r[a + 4] = O.weights[i];
 				}
-				N = this.device.createBuffer({
+				F = this.device.createBuffer({
 					size: t.byteLength,
 					usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-				}), this.device.queue.writeBuffer(M, 0, E.jointPalette), this.device.queue.writeBuffer(N, 0, t), this.stats.upload(E.jointPalette.byteLength + t.byteLength);
+				}), this.device.queue.writeBuffer(P, 0, O.jointPalette), this.device.queue.writeBuffer(F, 0, t), this.stats.upload(O.jointPalette.byteLength + t.byteLength);
 			}
-			!T && e instanceof require_instanced_mesh.InstancedMesh && (A = this.device.createBuffer({
+			!D && e instanceof require_instanced_mesh.InstancedMesh && (M = this.device.createBuffer({
 				size: e.matrices.byteLength,
 				usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-			}), this.device.queue.writeBuffer(A, 0, e.matrices), this.stats.upload(e.matrices.byteLength), e.colors && (j = this.colorBuffer(void 0, e.colors), this.device.queue.writeBuffer(j, 0, e.colors), this.stats.upload(e.colors.byteLength)));
-			let r = T?.bindGroup ?? this.device.createBindGroup({
+			}), this.device.queue.writeBuffer(M, 0, e.matrices), this.stats.upload(e.matrices.byteLength), e.colors && (N = this.colorBuffer(void 0, e.colors), this.device.queue.writeBuffer(N, 0, e.colors), this.stats.upload(e.colors.byteLength)));
+			let r = D?.bindGroup ?? this.device.createBindGroup({
 				layout: this.meshLayout,
 				entries: [{
 					binding: 0,
-					resource: { buffer: k }
+					resource: { buffer: j }
 				}, {
 					binding: 1,
-					resource: { buffer: M ?? this.identityBuffer }
+					resource: { buffer: P ?? this.identityBuffer }
 				}]
 			}), i = this.device.createBindGroup({
 				layout: this.materialLayout,
@@ -1350,7 +1371,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 5,
-						resource: d
+						resource: f
 					},
 					{
 						binding: 6,
@@ -1370,11 +1391,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 10,
-						resource: _
+						resource: p
 					},
 					{
 						binding: 11,
-						resource: v
+						resource: g
 					},
 					{
 						binding: 12,
@@ -1390,11 +1411,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 15,
-						resource: b
+						resource: S
 					},
 					{
 						binding: 16,
-						resource: x
+						resource: C
 					},
 					{
 						binding: 17,
@@ -1410,11 +1431,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 20,
-						resource: S
+						resource: w
 					},
 					{
 						binding: 21,
-						resource: C
+						resource: T
 					},
 					{
 						binding: 22,
@@ -1426,23 +1447,24 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 					},
 					{
 						binding: 24,
-						resource: w
+						resource: E
 					}
 				]
-			}), a = T ?? {
-				uniform: k,
-				allocation: O,
+			}), a = D ?? {
+				uniform: j,
+				allocation: A,
 				textureEpoch: this.textureEpoch,
 				bindGroup: r,
 				materialGroup: i,
+				material: t,
 				environment: void 0,
-				instance: A,
+				instance: M,
 				instanceVersion: e instanceof require_instanced_mesh.InstancedMesh ? e.version : 0,
-				instanceColors: j,
+				instanceColors: N,
 				instanceColorVersion: e instanceof require_instanced_mesh.InstancedMesh ? e.colorVersion : 0,
-				palette: M,
-				influences: N,
-				paletteVersion: E?.paletteVersion ?? 0,
+				palette: P,
+				influences: F,
+				paletteVersion: O?.paletteVersion ?? 0,
 				data: new Float32Array($),
 				sceneBuffer: this.device.createBuffer({
 					size: this.sceneData.byteLength,
@@ -1450,9 +1472,9 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				}),
 				seen: this.frame
 			};
-			return a.textureEpoch = this.textureEpoch, a.materialGroup = i, this.meshes.set(e, a), a;
+			return a.textureEpoch = this.textureEpoch, a.material = t, a.materialGroup = i, this.meshes.set(e, a), a;
 		} catch (e) {
-			throw T || (k?.destroy(), j?.destroy(), M?.destroy(), N?.destroy(), A !== this.identityBuffer && A.destroy(), O.destroy()), e;
+			throw D || (j?.destroy(), N?.destroy(), P?.destroy(), F?.destroy(), M !== this.identityBuffer && M.destroy(), A.destroy()), e;
 		}
 	}
 	cacheSampler(e) {
@@ -1493,7 +1515,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				format: `rgba8unorm`,
 				usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING
 			});
-			let l = r?.view ?? s.createView({ dimension: `2d-array` }), u = this.device.createCommandEncoder();
+			let c = r?.view ?? s.createView({ dimension: `2d-array` }), l = this.device.createCommandEncoder();
 			for (let e = 0; e < 2; e++) {
 				let r = e === 0 ? t : n;
 				if (!r) continue;
@@ -1504,18 +1526,18 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 						resource: this.cacheTexture(r, !1).view
 					}, {
 						binding: 1,
-						resource: l
+						resource: c
 					}]
-				}), o = require_gpu_timing.beginTimedComputePass(u, {});
+				}), o = require_gpu_timing.beginTimedComputePass(l, {});
 				o.setPipeline(e === 0 ? this.transmissionPack : this.thicknessPack), o.setBindGroup(0, i), o.dispatchWorkgroups(Math.ceil(a / 8), Math.ceil(a / 8)), o.end();
 			}
-			return this.device.queue.submit([u.finish()]), this.opticalTextures.set(e, {
+			return this.device.queue.submit([l.finish()]), this.opticalTextures.set(e, {
 				resource: s,
 				allocation: o,
-				view: l,
+				view: c,
 				seen: this.frame,
 				sourceVersions: i
-			}), r || this.textureEpoch++, o.touch(), l;
+			}), r || this.textureEpoch++, o.touch(), c;
 		} catch (e) {
 			throw s?.destroy(), o.destroy(), e;
 		}
@@ -1558,19 +1580,19 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 	}
 	updateMesh(e, t, n) {
-		let r = t.material, a = n.data;
-		a.set(t.worldMatrix.elements, 0), a[16] = r.color[0], a[17] = r.color[1], a[18] = r.color[2], a[19] = r.opacity, r instanceof require_pbr_material.PBRMaterial ? (a[20] = 1, a[21] = r.metallic, a[22] = r.roughness, a[23] = r.normalScale, a[24] = r.emissive[0], a[25] = r.emissive[1], a[26] = r.emissive[2], a[27] = r.occlusionStrength, a[28] = +!!require_pbr_material.pbrTextureSources(r).metallicRoughnessTexture, a[29] = +!!require_pbr_material.pbrTextureSources(r).normalTexture, a[30] = +!!require_pbr_material.pbrTextureSources(r).occlusionTexture, a[31] = +!!require_pbr_material.pbrTextureSources(r).emissiveTexture, a[32] = r.alphaCutoff, a[33] = +!!r.doubleSided, a[36] = r.specularColor[0], a[37] = r.specularColor[1], a[38] = r.specularColor[2], a[39] = r.ior === 0 ? 1 : ((r.ior - 1) / (r.ior + 1)) ** 2, a[40] = r.specular, a[41] = +(r.ior === 0), a[42] = +!!require_pbr_material.pbrTextureSources(r).specularTexture, a[43] = +!!require_pbr_material.pbrTextureSources(r).specularColorTexture, a[44] = r.clearcoat, a[45] = r.clearcoatRoughness, a[46] = r.clearcoatNormalScale, a[48] = +!!require_pbr_material.pbrTextureSources(r).clearcoatTexture, a[49] = +!!require_pbr_material.pbrTextureSources(r).clearcoatRoughnessTexture, a[50] = +!!require_pbr_material.pbrTextureSources(r).clearcoatNormalTexture, a[52] = r.sheenColor[0], a[53] = r.sheenColor[1], a[54] = r.sheenColor[2], a[55] = r.sheenRoughness, a[56] = +!!require_pbr_material.pbrTextureSources(r).sheenColorTexture, a[57] = +!!require_pbr_material.pbrTextureSources(r).sheenRoughnessTexture, a[58] = r.specularAntiAliasing, a[59] = +!!r.alphaToCoverage, a[60] = r.transmission, a[61] = r.thickness, a[62] = 1 / r.attenuationDistance, a[63] = r.ior, a[64] = r.attenuationColor[0], a[65] = r.attenuationColor[1], a[66] = r.attenuationColor[2], require_optical_maps.fillOpticalMapSettings(a, 68, require_pbr_material.pbrTextureSources(r).transmissionTexture, r.transmissionSampler), require_optical_maps.fillOpticalMapSettings(a, 72, require_pbr_material.pbrTextureSources(r).thicknessTexture, r.thicknessSampler), a[35] = r.alphaMode === `OPAQUE` ? 0 : r.alphaMode === `MASK` ? 1 : 2) : (a[20] = 0, a[32] = 0, a[33] = 1), a[34] = +!!t.receiveShadow, a[47] = +(t instanceof require_skinned_mesh.SkinnedMesh), a[51] = +(require_mesh.materialBaseTexture(r).kind === `native`);
+		let r = t.material, i = n.data;
+		i.set(t.worldMatrix.elements, 0), i[16] = r.color[0], i[17] = r.color[1], i[18] = r.color[2], i[19] = r.opacity, r instanceof require_pbr_material.PBRMaterial ? (i[20] = 1, i[21] = r.metallic, i[22] = r.roughness, i[23] = r.normalScale, i[24] = r.emissive[0], i[25] = r.emissive[1], i[26] = r.emissive[2], i[27] = r.occlusionStrength, i[28] = +!!require_pbr_material.pbrTextureSources(r).metallicRoughnessTexture, i[29] = +!!require_pbr_material.pbrTextureSources(r).normalTexture, i[30] = +!!require_pbr_material.pbrTextureSources(r).occlusionTexture, i[31] = require_pbr_material.pbrEmissiveSlot(r).mode, i[32] = r.alphaCutoff, i[33] = +!!r.doubleSided, i[36] = r.specularColor[0], i[37] = r.specularColor[1], i[38] = r.specularColor[2], i[39] = r.ior === 0 ? 1 : ((r.ior - 1) / (r.ior + 1)) ** 2, i[40] = r.specular, i[41] = +(r.ior === 0), i[42] = +!!require_pbr_material.pbrTextureSources(r).specularTexture, i[43] = +!!require_pbr_material.pbrTextureSources(r).specularColorTexture, i[44] = r.clearcoat, i[45] = r.clearcoatRoughness, i[46] = r.clearcoatNormalScale, i[48] = +!!require_pbr_material.pbrTextureSources(r).clearcoatTexture, i[49] = +!!require_pbr_material.pbrTextureSources(r).clearcoatRoughnessTexture, i[50] = +!!require_pbr_material.pbrTextureSources(r).clearcoatNormalTexture, i[52] = r.sheenColor[0], i[53] = r.sheenColor[1], i[54] = r.sheenColor[2], i[55] = r.sheenRoughness, i[56] = +!!require_pbr_material.pbrTextureSources(r).sheenColorTexture, i[57] = +!!require_pbr_material.pbrTextureSources(r).sheenRoughnessTexture, i[58] = r.specularAntiAliasing, i[59] = +!!r.alphaToCoverage, i[60] = r.transmission, i[61] = r.thickness, i[62] = 1 / r.attenuationDistance, i[63] = r.ior, i[64] = r.attenuationColor[0], i[65] = r.attenuationColor[1], i[66] = r.attenuationColor[2], require_optical_maps.fillOpticalMapSettings(i, 68, require_pbr_material.pbrTextureSources(r).transmissionTexture, r.transmissionSampler), require_optical_maps.fillOpticalMapSettings(i, 72, require_pbr_material.pbrTextureSources(r).thicknessTexture, r.thicknessSampler), i[35] = r.alphaMode === `OPAQUE` ? 0 : r.alphaMode === `MASK` ? 1 : 2) : (i[20] = 0, i[32] = 0, i[33] = 1), i[34] = +!!t.receiveShadow, i[47] = +(t instanceof require_skinned_mesh.SkinnedMesh), i[51] = +(require_mesh.materialBaseTexture(r).kind === `native`);
 		let o = 336;
-		r instanceof require_native_material3d.NativeMaterial3D && a.set(r.uniforms, o);
+		require_native_material3d.isNativeMaterial3D(r) && i.set(r.uniforms, o);
 		let s = this.visibility.entries.get(t);
-		a[o + require_rendering.nativeMaterial3DLimits.uniformFloats] = s?.fade ?? 1, a[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 1] = t.renderGeometry.tangentTexCoord, a[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 2] = t.renderGeometry.tangentConvention === `gltf` ? -1 : 1, require_material_uv.fillMaterialUV(r, t.renderGeometry, a, o + require_rendering.nativeMaterial3DLimits.uniformFloats + 4);
+		i[o + require_rendering.nativeMaterial3DLimits.uniformFloats] = s?.fade ?? 1, i[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 1] = t.renderGeometry.tangentTexCoord, i[o + require_rendering.nativeMaterial3DLimits.uniformFloats + 2] = t.renderGeometry.tangentConvention === `gltf` ? -1 : 1, require_material_uv.fillMaterialUV(r, t.renderGeometry, i, o + require_rendering.nativeMaterial3DLimits.uniformFloats + 4), r instanceof require_pbr_material.PBRMaterial ? require_pbr_material.fillPBRFinish(r, i, $ - 20) : i.fill(0, $ - 20, $);
 		let c = s?.instances;
 		c && (c !== n.visibilityPayload || c.version !== n.visibilityVersion) && (n.allocation.resize(n.uniform.size + n.sceneBuffer.size + n.instance.size + (n.instanceColors?.size ?? 0) + (n.palette?.size ?? 0) + (n.influences?.size ?? 0) + c.matrices.byteLength + (c.colors?.byteLength ?? 0)), (!n.visibleInstance || n.visibleInstance.size < c.matrices.byteLength) && (n.visibleInstance && this.retired.push(n.visibleInstance), n.visibleInstance = this.device.createBuffer({
 			size: c.matrices.byteLength,
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-		})), this.device.queue.writeBuffer(n.visibleInstance, 0, c.matrices.buffer, c.matrices.byteOffset, c.count * 16 * 4), this.stats.upload(c.count * 16 * 4), c.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, c.colors), this.device.queue.writeBuffer(n.visibleColors, 0, c.colors.buffer, c.colors.byteOffset, c.count * 3 * 4), this.stats.upload(c.count * 3 * 4)), n.visibilityVersion = c.version, n.visibilityPayload = c), require_render_data.fillProbeBlendData(e, a, 76, this.selectedProbes);
-		for (let e = 0; e < 5; e++) a[76 + e * 52 + 38] = this.probeMipCount - 1;
-		t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion), this.device.queue.writeBuffer(n.uniform, 0, a), this.stats.upload(a.byteLength);
+		})), this.device.queue.writeBuffer(n.visibleInstance, 0, c.matrices.buffer, c.matrices.byteOffset, c.count * 16 * 4), this.stats.upload(c.count * 16 * 4), c.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, c.colors), this.device.queue.writeBuffer(n.visibleColors, 0, c.colors.buffer, c.colors.byteOffset, c.count * 3 * 4), this.stats.upload(c.count * 3 * 4)), n.visibilityVersion = c.version, n.visibilityPayload = c), require_render_data.fillProbeBlendData(e, i, 76, this.selectedProbes);
+		for (let e = 0; e < 5; e++) i[76 + e * 52 + 38] = this.probeMipCount - 1;
+		t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion), this.device.queue.writeBuffer(n.uniform, 0, i), this.stats.upload(i.byteLength);
 	}
 	releaseUnused() {
 		if (this.residency.geometry.budgetBytes === 1 / 0) {

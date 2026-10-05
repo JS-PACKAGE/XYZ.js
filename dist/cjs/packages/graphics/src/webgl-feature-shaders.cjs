@@ -1,3 +1,4 @@
+const require_errors = require("./errors.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_shadow_shaders = require("./shadow-shaders.cjs");
 const require_depth_post_shaders = require("./depth-post-shaders.cjs");
@@ -7,7 +8,7 @@ const require_transmission_shaders = require("./transmission-shaders.cjs");
 const require_reflection_probe_shaders = require("./reflection-probe-shaders.cjs");
 const require_oit_shaders = require("./oit-shaders.cjs");
 //#region dist/packages/graphics/src/webgl-feature-shaders.js
-var h = `
+var g = `
 in vec2 vUV1;
 in vec4 vTangent;
 uniform vec4 materialCoordinates[${require_rendering.materialTextureSlots.length * 2}];
@@ -150,6 +151,11 @@ uniform vec4 probeData[52];
 uniform vec4 fog[2]; // color.rgb/mode(0 off,1 linear,2 exp2), near/far/density/0
 uniform vec4 tint;
 uniform vec4 surface; // metallic, roughness, normalScale, occlusionStrength
+uniform vec4 finish0; // anisotropy, rotation, iridescence, iridescence IOR
+uniform vec4 finish1; // film, subsurface, dispersion, height scale
+uniform vec4 finish2; // wetness, snow, dirt, damage
+uniform vec4 finish3; // detail, triplanar, layer blend, lightmap strength
+uniform vec4 finish4; // subsurface color, wrap width
 uniform vec4 emission; // emissive RGB, alphaCutoff
 uniform ivec4 maps; // metallicRoughness, normal, occlusion, emissive
 uniform bool pbr;
@@ -163,10 +169,16 @@ uniform int oitPass;
 uniform float meshFade;
 uniform int tangentTexCoord;
 uniform float derivativeTangentSign;
+/* XYZ_PHYSICAL_TYPE */
+struct XYZPhysical { vec3 base; float metallic; float roughness; float occlusion; vec3 emission; };
+/* XYZ_PHYSICAL_TYPE_END */
 /* XYZ_SURFACE_HOOKS */
 vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 /* XYZ_SURFACE_HOOKS_END */
-${h}
+/* XYZ_PHYSICAL_DEFAULT */
+XYZPhysical xyzPhysical(vec3 world, vec3 normal, vec2 uv, XYZPhysical surface) { return surface; }
+/* XYZ_PHYSICAL_DEFAULT_END */
+${g}
 mat3 materialNormalFrame(vec3 n, int slot) {
   vec3 rawTangent = vTangent.xyz - n*dot(n,vTangent.xyz);
   float tangentLength = length(rawTangent);
@@ -283,6 +295,7 @@ void shadeMesh() {
   if (pbr && !front) n = -n;
   vec3 nc = n;
   float normalVariance = 0.0, coatVariance = 0.0;
+  vec3 mappedNormal = vec3(0.0, 0.0, 1.0);
   if (pbr && maps.y != 0) {
     vec2 uv = materialUV(2);
     vec3 sampled;
@@ -291,6 +304,7 @@ void shadeMesh() {
       sampled = filtered.xyz; normalVariance = filtered.w;
       if (sheenMaps.z < 1.0) sampled = mix(texture(normalMap,uv).xyz*2.0-1.0,sampled,sheenMaps.z);
     } else sampled = texture(normalMap,uv).xyz*2.0-1.0;
+    mappedNormal = sampled;
     n = normalize(materialNormalFrame(n,2)*vec3(sampled.xy*surface.z,sampled.z));
   }
   if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5) {
@@ -340,6 +354,55 @@ void shadeMesh() {
       if (clearcoatMaps.y > .5) coatRoughness *= texture(clearcoatRoughnessMap,materialUV(8)).g;
     }
     coatRoughness = clamp(coatRoughness,.04,1.0);
+    if (finish0.x + finish0.z + finish1.w + finish2.x + finish2.y + finish2.z + finish2.w + finish3.x + finish3.y > 0.0) {
+      if (finish1.w > 0.0 && maps.y != 0) {
+        vec2 uv = materialUV(0);
+        vec2 dir = mappedNormal.xy * finish1.w;
+        vec2 best = uv;
+        float bestH = 1.0;
+        for (int step = 0; step < 4; step++) {
+          vec2 sampleUV = uv + dir * (float(step) / 3.0);
+          float h = texture(normalMap, sampleUV).z;
+          if (h < bestH) { bestH = h; best = sampleUV; }
+        }
+        vec3 parallaxBase = decodeSRGB(texture(image, best).rgb) * tint.rgb * vColor.rgb;
+        base = bestH < 1.0 ? parallaxBase : base;
+      }
+      if (finish3.y > 0.0) {
+        vec3 weight = abs(n);
+        float sum = max(weight.x + weight.y + weight.z, 0.000001);
+        vec3 px = decodeSRGB(texture(image, vPosition.zy).rgb);
+        vec3 py = decodeSRGB(texture(image, vPosition.xz).rgb);
+        vec3 pz = decodeSRGB(texture(image, vPosition.xy).rgb);
+        base = mix(base, (px * weight.x + py * weight.y + pz * weight.z) / sum, finish3.y);
+      }
+      if (finish3.x > 0.0) {
+        vec3 detail = decodeSRGB(texture(image, materialUV(0) * (1.0 + finish3.z * 7.0)).rgb);
+        base = mix(base, base * detail * 2.0, finish3.x);
+      }
+      if (finish2.x + finish2.y + finish2.z + finish2.w > 0.0) {
+        base = mix(base, base * base, finish2.x);
+        roughness = mix(roughness, 0.04, finish2.x * (1.0 - metallic));
+        float up = clamp(n.y, 0.0, 1.0);
+        base = mix(base, vec3(0.85, 0.88, 0.92), finish2.y * up);
+        roughness = mix(roughness, 0.75, finish2.y * up);
+        base = mix(base, base * vec3(0.42, 0.30, 0.16), finish2.z);
+        roughness = min(1.0, roughness + 0.35 * finish2.w);
+      }
+      if (finish0.x > 0.0) {
+        vec3 rotated = vTangent.xyz * cos(finish0.y) + cross(n, vTangent.xyz) * sin(finish0.y);
+        vec3 tangent = rotated / max(length(rotated), .000001);
+        float aligned = abs(dot(tangent, v));
+        roughness = mix(mix(roughness, 0.04, finish0.x), mix(roughness, 1.0, finish0.x), aligned);
+      }
+    }
+    vec3 emitted = emission.rgb * (maps.w == 1 ? decodeSRGB(texture(emissiveMap, materialUV(4)).rgb) : vec3(1.0));
+    XYZPhysical physical = xyzPhysical(vPosition, n, vUV, XYZPhysical(base, metallic, roughness, ao, emitted));
+    base = max(physical.base, vec3(0.0));
+    metallic = clamp(physical.metallic, 0.0, 1.0);
+    roughness = clamp(physical.roughness, .04, 1.0);
+    ao = clamp(physical.occlusion, 0.0, 1.0);
+    emitted = max(physical.emission, vec3(0.0));
     if (sheenMaps.z > 0.0) {
       vec3 nx = dFdx(n), ny = dFdy(n);
       float alphaAA = roughness*roughness;
@@ -354,6 +417,12 @@ void shadeMesh() {
     float nv=clamp(dot(n,v),.0001,1.0);
     vec2 ab=environmentBRDF(nv,roughness);
     vec3 f0=mix(dielectricF0,min(base,vec3(1.0)),metallic);
+    if (finish0.z > 0.0) {
+      float film = finish1.x * nv * 6.2831853;
+      vec3 hue = vec3(sin(film), sin(film + 2.0943951), sin(film + 4.1887902)) * 0.5 + 0.5;
+      float fresnel = pow(1.0 - nv, 5.0) * (finish0.w - 1.0);
+      f0 = mix(f0, hue, clamp(finish0.z * (0.15 + fresnel), 0.0, 1.0));
+    }
     vec3 dielectric90=specularParams.y>.5?dielectricF0:vec3(specularWeight);
     vec3 f90=mix(dielectric90,vec3(1.0),metallic);
     vec3 compensation=ggxCompensation(f0,ab);
@@ -420,11 +489,26 @@ void shadeMesh() {
         if (exit.w > .000001) uv = exit.xy/exit.w*.5+.5;
       }
       vec3 transmitted = roughTransmission(uv,roughness,transmission.w);
+      if (finish1.z > 0.0) {
+        float split = min(finish1.z, 1.0) * 0.02;
+        vec3 red = roughTransmission(uv + vec2(split, 0.0), roughness, transmission.w);
+        vec3 blue = roughTransmission(uv - vec2(split, 0.0), roughness, transmission.w);
+        transmitted = vec3(red.r, transmitted.g, blue.b);
+      }
       if (distance > 0.0 && transmission.z > 0.0) transmitted *= pow(attenuationColor.rgb,vec3(distance*transmission.z));
       result+=transmitted*base*transmissionWeight*(1.0-metallic)*remaining*sheenRetention;
     }
     result+=sheenTint*sheenLighting;
-    result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, materialUV(4)).rgb) : vec3(1.0));
+    if (finish1.y > 0.0) {
+      float wrap = finish4.w;
+      float wrapped = clamp((dot(n, l) + wrap) / (1.0 + wrap), 0.0, 1.0);
+      result += base * finish4.rgb * finish1.y * wrapped * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    }
+    if (maps.w == 2) {
+      vec3 baked = decodeSRGB(texture(emissiveMap, materialUV(4)).rgb);
+      result *= mix(vec3(1.0), baked, finish3.w);
+    }
+    result += emitted;
     if(coatWeight>0.0) result=result*(1.0-coatWeight*coatEnergy)+coating*coatWeight;
     if (!linearOutput) result = encodeSRGB(result);
   } else {
@@ -472,7 +556,7 @@ uniform float alphaCutoff;
 uniform float opacity;
 uniform float meshFade;
 uniform int alphaMode;
-${h}
+${g}
 void main() {
   if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;
@@ -544,8 +628,11 @@ void main() {
   if (sky.y < 0.5) c = encodeSRGB(c);
   color = vec4(c, 1.0);
 }`;
-function nativeMeshGLSL(e, t) {
-	let n = t === `vertex` ? `#version 300 es
+function definesHook(e, t) {
+	return RegExp(`(?:^|[;{}\\n])\\s*(?:fn\\s+${t}|(?:void|vec[234]|float|XYZVertex|XYZPhysical)\\s+${t})\\s*\\(`, `m`).test(e);
+}
+function nativeMeshGLSL(e, t, n = !1) {
+	let r = t === `vertex` ? `#version 300 es
 precision highp float;
 precision highp int;
 layout(location=0) in vec3 position;
@@ -635,16 +722,25 @@ void main() {
   vUV = uv;
   vUV1 = uv1;
   vColor = vec4(instanceColor, 1.0) * vertexColor;
-}` : t === `shadow` ? shadowFragment : meshFragment, r = t === `vertex` ? `VERTEX` : `SURFACE`, a = n.indexOf(`/* XYZ_${r}_HOOKS */`), o = `/* XYZ_${r}_HOOKS_END */`, s = n.indexOf(o) + o.length, c = t === `surface` ? `` : `uniform sampler2D xyzMap0;
+}` : t === `shadow` ? shadowFragment : meshFragment, a = t === `vertex` ? `VERTEX` : `SURFACE`, o = r.indexOf(`/* XYZ_${a}_HOOKS */`), s = `/* XYZ_${a}_HOOKS_END */`, l = r.indexOf(s) + s.length;
+	if (n && !definesHook(e, `xyzPhysical`)) throw new require_errors.GraphicsError(`NativePBRMaterial requires a xyzPhysical native hook.`);
+	let u = t === `surface` || n ? `` : `uniform sampler2D xyzMap0;
 uniform sampler2D xyzMap1;
 uniform sampler2D xyzMap2;
 uniform sampler2D xyzMap3;
-`, l = `${t === `vertex` ? `#define XYZ_VERTEX 1` : `#define XYZ_FRAGMENT 1`}${t === `shadow` ? `
+`, d = t === `surface` ? `` : `struct XYZPhysical { vec3 base; float metallic; float roughness; float occlusion; vec3 emission; };
+`, f = n ? t === `vertex` ? definesHook(e, `xyzDeform`) ? `` : `XYZVertex xyzDeform(vec3 position, vec3 normal, vec2 uv) { return XYZVertex(position,normal); }
+` : definesHook(e, `xyzSurface`) ? `` : `vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
+` : ``, p = `${t === `vertex` ? `#define XYZ_VERTEX 1` : `#define XYZ_FRAGMENT 1`}${t === `shadow` ? `
 #define XYZ_SHADOW 1` : ``}
 uniform vec4 xyzUniforms[${require_rendering.nativeMaterial3DLimits.uniformFloats / 4}];
-${c}struct XYZVertex { vec3 position; vec3 normal; };
-`;
-	return (n.slice(0, a) + l + e + n.slice(s)).replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`);
+${u}${d}struct XYZVertex { vec3 position; vec3 normal; };
+${f}`, m = r.slice(0, o) + p + e + r.slice(l);
+	if (n) {
+		let e = m.indexOf(`/* XYZ_PHYSICAL_DEFAULT */`), t = m.indexOf(`/* XYZ_PHYSICAL_DEFAULT_END */`);
+		return e >= 0 && t > e && (m = m.slice(0, e) + m.slice(t + 30)), m;
+	}
+	return m.replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`);
 }
 //#endregion
 exports.meshFragment = meshFragment;

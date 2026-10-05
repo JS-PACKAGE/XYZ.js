@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-**目前支援規範：**[v1.16 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.16.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+**目前支援規範：**[v1.16 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.17.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.16.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P118 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。P104–P118 納入 v1.16，不在歷史 GitHub v1.14 archive。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Windows CI 設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的證據擴充。
+本參考描述 **1.17.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P118 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。P104–P118 納入 v1.16，不在歷史 GitHub v1.14 archive。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Windows CI 設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的證據擴充。
 
 五個原 hosted workload與真失焦guard已於[CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252)通過；Windows原生圖形failures仍阻擋發佈。使用者批准只有 pinned native WindowsWebKit在secure origin實測AudioContext／AudioWorkletNode均不存在、符合上游ENABLE_WEB_AUDIO OFF時音訊記UNSUPPORTED。WebKit其他gates及WindowsChromium／Firefox原生音訊assertions仍必須通過，不能宣稱WindowsWebKit音訊認證。
 
@@ -382,11 +382,25 @@ TextureMaterial（含 NativeMaterial3D）base sampler 與 PBRMaterial per-slot T
 
 ### 程序式材質預設
 
-Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble'`，木材／磚牆／石材／金屬／布料／大理石）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
+Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow'`，木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
 
-唯讀 `textures` 包含四份 `Texture`：`baseColor`（sRGB RGB）、`normal`（linear tangent-space）、`metallicRoughness`（linear G roughness／B metallic）、`occlusion`（linear R）。唯讀 `kind` 表示種類，唯讀 `material` 為預設 `PBRMaterial`。預設 OPAQUE、每個 sampler 使用 repeat wrapping、roughness factor 為 1，metal 的 metallic factor 為 1、其他種類為 0，因此貼圖粗糙度不會再乘上一般材質的預設 0.5。
+唯讀 `textures` 包含四份 `Texture`：`baseColor`（sRGB RGB）、`normal`（linear tangent-space）、`metallicRoughness`（linear G roughness／B metallic）、`occlusion`（linear R）。唯讀 `kind` 表示種類，唯讀 `material` 為預設 `PBRMaterial`。預設 OPAQUE、每個 sampler 使用 repeat wrapping、roughness factor 為 1，metal 與 rust 的 metallic factor 為 1、其他種類為 0；rust 的 B 通道在殘留金屬與鏽蝕之間變化，因此貼圖粗糙度不會再乘上一般材質的預設 0.5。
 
 `createMaterial(options?: Partial<PBRMaterialOptions>): PBRMaterial` 回傳新的材質、借用同一組 maps，最後套用呼叫者覆寫，不重新產生 maps。`destroyed` 是 getter；同步且冪等的 `destroy()` 只釋放生成貼圖，不銷毀材質、mesh 或覆寫的外部 maps。先移除所有使用者；Mesh／Scene 不自動擁有預設，銷毀後呼叫 `createMaterial()` 會拒絕。CPU 生成位於 core，透過 assets 既有 `Texture.fromImage` 邊界建立貼圖；共用 geometry、PBR shaders、backend upload／render 路徑不變，沒有逐幀生成。仍只有 WebGPU／WebGL2 支援 3D，Canvas2D 不新增 3D。[實際 consumer 範例](USAGE-zh.md#可重用的程序式-pbr-預設) 見使用說明。
+
+### 材質 Finish、Material Asset 與 glTF Variants
+
+`PBRMaterialOptions.finish` 接受 `anisotropy`、`anisotropyRotation`（弧度）、`iridescence`、`iridescenceIor`（≥1、預設 1.3）、`iridescenceThickness`、`subsurface`、`subsurfaceColor`、`subsurfaceRadius`（預設 0.5）、`dispersion`（≥0）、`heightScale`、`wetness`、`snow`、`dirt`、`damage`、`detailStrength`、`triplanar`、`layerBlend` 與 `lightmapStrength`；其餘皆為 0..1。未知 key 與超出範圍的值會拒絕。`material.finish` 為凍結的 `PBRFinish`，全預設值共用同一個實例。`fillPBRFinish` 把 20 個 float（`PBR_FINISH_FLOATS`）寫在 WebGPU mesh uniform 的材質 UV 區塊之後；WebGL2 設定 `finish0..finish4` 五個 vec4 uniform。取樣貼圖的 slot 配置不變。
+
+每個效果都是有界的 shader 近似，並由自己的 uniform 守門，因此強度為 0 時走原本路徑。Anisotropy 依 `|dot(旋轉後 tangent, view)|` 在銳利與粗糙 roughness 間插值，需要幾何自帶 tangent（零 tangent 得到 aligned=0 的結果，不會產生 NaN）。Iridescence 依 Fresnel 把 F0 推向正弦相位色相。Subsurface 由方向光加上 `base * subsurfaceColor * wrapped N·L`。Dispersion 把折射背景取樣在螢幕 X 方向對紅／藍通道各偏移 ±(min(dispersion,1)·0.02)，且只在 transmission 生效處作用。`heightScale` 沿 tangent-space normal XY 取四步，用最低的 normal-map Z 作為 base color 取樣位置，需要 normal map。Wetness 壓暗 base 並降低 roughness，snow 把朝上的法線往白色混合，dirt 上色，damage 提高 roughness。`detailStrength` 以 UV·(1+7·layerBlend) 對 base map 再取樣一次相乘；`triplanar` 依世界座標混合三次 base map 取樣（1 個世界單位 = 1 個 UV tile）。依賴前一次取樣結果的取樣，會在分支之前完成，以符合 WGSL 的 uniform control flow 規則。
+
+`lightmap`／`lightmapSampler` 使用 emissive sampler。`pbrEmissiveSlot(material)` 回報 mode 0（無）、1（emissive）或 2（lightmap）；mode 2 時不取樣 emissive map，在加上 emission 前做 `color *= mix(1, bakedRGB, lightmapStrength)`。WebGPU 的 mesh cache 以材質實例為鍵，因此 `Mesh.material = other` 會正確重新綁定。
+
+`MaterialAsset.fromImages(maps, overrides?)`／`create(options)`：`maps` 的 `base` 必填，另有 `metallicRoughness`、`normal`、`occlusion`、`emissive`、`lightmap`，每項可為 `ImageBitmapSource`（由 asset 解碼並擁有）或 `Texture`（借用）。`destroy()` 冪等並彙整清理錯誤，`destroyed` 是 getter。`Mesh.material` 是有驗證的 accessor，指派非 `TextureMaterial` 會丟錯並保留目前材質。
+
+glTF：`KHR_materials_variants` 提供 `asset.variants`（`{name, mappings:[{mesh, material}]}`）與 `asset.selectVariant(name|undefined)`；後者先還原所有預設再套用所選 mappings。未知名稱、空的或超出範圍的 variant 清單，以及被映射材質缺少的貼圖座標，會在載入或呼叫時拒絕。`KHR_materials_anisotropy`（強度取絕對值並限制到 1，rotation 保留）、`KHR_materials_iridescence`（factor、IOR，最大厚度由 100..800 nm 映射到 0..1）與 `KHR_materials_dispersion`（需要 transmission）會填入 finish；其貼圖 slot 會拒絕，與 `KHR_materials_unlit` 併用也會拒絕。Variant 材質由 asset 擁有並在 `dispose()` 釋放，`dispose()` 後呼叫 `selectVariant` 會丟錯。`scripts/asset-recipe-lib.mjs` 仍會拒絕這些 extensions。
+
+已驗證：單元測試，以及 Chromium 在強制 WebGPU 與強制 WebGL2 下繪製十二顆 finish 球體且沒有 console、game 或 shader 錯誤（見 ACCEPTANCE）。未驗證：各效果相對任何參考的像素正確性、跨 backend 像素等價、其他瀏覽器或 GPU。
 
 ## 22. 2D 階層與 Atlas 圖形（P13）
 
@@ -1098,6 +1112,8 @@ RenderVisibilityCache 分開 color visibility／shadow casters；offscreen／occ
 Opt-in native depth occlusion 必須 completed zero-sample exact-state proof；camera／geometry／pose／skin／texture／fade／depth 改動立即 invalidates。Pending／stale／unsupported／exhausted 一律 visible。Queries bounded／async、不同步等待；frustum 不冒稱 occlusion。Custom depth-changing material 保守使 proof 失效；unbounded deformation 維持 visible。
 
 NativeMaterial3D 繼承 TextureMaterial，immutable WGSL／GLSL hooks（xyzDeform／xyzSurface）、64 finite Float32 mutable uniforms、最多四 borrowed textures；無 transpiler／arbitrary bindgroups。setUniforms 驗更新，public view 在 prepare／submit 前驗。Optional finite nonnegative deformationBounds 限 final mesh-local displacement；未提供則 disable bounds culling。Destroy descriptor 釋 renderer entries、不 destroy borrowed textures。Prepare／warmup async／fallible，caller 處理 reject／cancel；loss 僅保留 live ownership 並在同 backend rebuild。Canvas2D 明確拒，不 silent ignore。ABI／lifetime 契約不是 final native acceptance。
+
+`NativePBRMaterial` 繼承 `PBRMaterial`，共用 uniforms、lifetime 與 `deformationBounds` 契約，但 hook 是 `xyzPhysical` 而不是 `xyzSurface`。引擎仍取樣 PBR maps 並擁有 lighting；hook 只在 filtering 前替換已解碼的 base color、metallic、roughness、occlusion 與 emission，不得新增資源。`isNativeMaterial3D` 同時辨識兩種 native class。`prepareMaterial`、resource preparation 與 warmup 包含物理材質及其借用的 PBR maps；tracked shadow cache 會讀取物理 uniforms。Canvas2D 明確拒絕。
 
 LightSelectionOptions.exceedPolicy 為 select／error；每種 pool≤1024，native shading slots 仍 bounded。按 priority／contribution／draw bounds（camera-selected visible draws）選取，不是 clustered／unlimited lighting。Culled 與 relevant overflow 分開計；error 拒超額 relevant lights，select 明示省略低順位 contribution；shadow atlas capacity 獨立。
 

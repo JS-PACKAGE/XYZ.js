@@ -1,1 +1,1 @@
-{"version":3,"mappings":"AACA,OAAO,MAAM,iBAAmB,OAAO,OAAO,CAAE,gBAAiB,CAAC,CAAE","sources":["../../../src/data/lighting2d.ts"],"names":[],"file":"lighting2d.js"}
+{"version":3,"mappings":"AACA,OAAO,MAAM,iBAAmB,OAAO,OAAO,CAC5C,gBAAiB,EACjB,mBAAoB,CACrB,CAAA","sources":["../../../src/data/lighting2d.ts"],"names":[],"file":"lighting2d.js"}

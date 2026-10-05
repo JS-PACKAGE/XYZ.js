@@ -24,6 +24,8 @@
 
 整合既有 pbr3d gallery 的六種預設切換與貼圖預覽，不新增外部素材／依賴、不改共用 geometry／renderer／core-assets 邊界、不改 Scene／mesh ownership。初次實作未授權 commit／push／升版／release；使用者後續明確授權 v1.14 發佈，依頁首規則執行。實際品質與 browser 證據見 ACCEPTANCE，不由批准或文件推論驗收。
 
+後續追加 concrete／tiles／leather／sand／rust／snow，不改既有六種取樣、geometry／renderer 或 ownership。rust 使用 metallic factor 1 與變化的 metallic map；其餘新種類維持 dielectric。不升版、不提交、不推送。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
@@ -476,3 +478,18 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Validate numerical references plus real GPU／GL, authored normals／roughness
   boundaries, colored metal／dielectric／clearcoat／sheen, lifecycle and earlier
   native regressions; preserve historical records without path-tracer claims.
+
+### P123 — native PBR surface hooks／pass parity
+
+- Add `NativePBRMaterial` through the root API, retaining the ordinary PBR maps,
+  UV contracts and bounded native uniform/deformation lifetime. Share native
+  descriptor validation and disposal; do not add texture slots or GPU handles.
+- Native hooks modify the decoded physical surface before the engine BRDF, not
+  replace the final lit color. Base/coat normals, roughness, metal, emission,
+  occlusion, specular, sheen and transmission remain composable with PBR lighting.
+- The same vertex deformation and base opacity hooks feed color, HDR, sorted／
+  weighted transparency, MASK shadows and reflection capture; native coverage
+  pipelines must retain the custom shader rather than use a standard PBR shader.
+- Exercise both actual native backends, compilation rejection, mutable uniforms,
+  borrowed resource ownership, preparation/invalidation and owned API recovery.
+  Canvas2D remains explicitly unsupported for native 3D materials.

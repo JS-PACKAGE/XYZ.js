@@ -1,6 +1,7 @@
 import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
 import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
 import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { type Material2D, type PostProcessor2D } from '../../core/src/materials2d/material2d.js';
@@ -165,7 +166,7 @@ export declare class WebGL2Renderer implements Renderer {
     }): Promise<Texture>;
     prepareTextures(sources: readonly Texture2DSource[]): Promise<void>;
     unloadTexture(source: Texture2DSource): void;
-    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D | NativePBRMaterial): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     private prepareNative;
     private requireNative;

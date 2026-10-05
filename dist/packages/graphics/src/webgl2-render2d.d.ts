@@ -52,6 +52,7 @@ export declare class WebGLRender2D {
     private readonly lightingProgram;
     private readonly lightingData;
     private readonly uploadedLighting;
+    private readonly litMaterials;
     private readonly meshProgram;
     private readonly particleProgram;
     private readonly passProgram;
@@ -70,6 +71,7 @@ export declare class WebGLRender2D {
     private disposed;
     constructor(gl: WebGL2RenderingContext, hooks: GLRender2DHooks);
     private register;
+    private litProgram;
     private uniform;
     preflight(commands: RenderCommandBuffer2D, scene: Scene, width: number, height: number, resolution: number): void;
     private validateSource;

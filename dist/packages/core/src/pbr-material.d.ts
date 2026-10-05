@@ -68,6 +68,14 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
     occlusionTexture?: Texture;
     occlusionStrength?: number;
     emissiveTexture?: Texture;
+    /** Borrowed baked illumination. Occupies the emissive sampler; an emissive map is not sampled while this is set. */
+    lightmap?: Texture;
+    lightmapSampler?: TextureSamplerOptions;
+    /**
+     * Scalar finish evaluated by the existing mesh shaders. Zero strengths leave
+     * the current lighting unchanged. No extra sampled-texture binding is added.
+     */
+    finish?: PBRFinishOptions;
     textureSampler?: TextureSamplerOptions;
     metallicRoughnessSampler?: TextureSamplerOptions;
     normalSampler?: TextureSamplerOptions;
@@ -77,6 +85,58 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
     alphaMode?: MaterialAlphaMode;
     doubleSided?: boolean;
 }
+/** Factors packed after material UV coordinates. Defaults are exact lighting no-ops. */
+export interface PBRFinishOptions {
+    anisotropy?: number;
+    /** Radians. Applied only when anisotropy is positive. */
+    anisotropyRotation?: number;
+    iridescence?: number;
+    /** At least 1. glTF default is 1.3. Unused while iridescence is zero. */
+    iridescenceIor?: number;
+    /** 0..1 film thickness. glTF nanometers are normalized by the loader. */
+    iridescenceThickness?: number;
+    subsurface?: number;
+    subsurfaceColor?: [number, number, number];
+    /** Wrapped-diffuse width, 0..1. Not a multi-scatter profile. */
+    subsurfaceRadius?: number;
+    /** Non-negative. The shader caps the visible split. */
+    dispersion?: number;
+    /** 0..1. Four-step parallax uses the normal map Z as height. */
+    heightScale?: number;
+    wetness?: number;
+    snow?: number;
+    dirt?: number;
+    damage?: number;
+    /** Mixes a second sample of the base map. Zero skips the sample. */
+    detailStrength?: number;
+    /** World-axis blend of the base map. Zero skips the extra samples. */
+    triplanar?: number;
+    /** Extra UV scale of the detail sample. Requires detailStrength. */
+    layerBlend?: number;
+    /** Multiplies the lightmap sample. Requires lightmap. */
+    lightmapStrength?: number;
+}
+export interface PBRFinish {
+    readonly anisotropy: number;
+    readonly anisotropyRotation: number;
+    readonly iridescence: number;
+    readonly iridescenceIor: number;
+    readonly iridescenceThickness: number;
+    readonly subsurface: number;
+    readonly subsurfaceColor: readonly [number, number, number];
+    readonly subsurfaceRadius: number;
+    readonly dispersion: number;
+    readonly heightScale: number;
+    readonly wetness: number;
+    readonly snow: number;
+    readonly dirt: number;
+    readonly damage: number;
+    readonly detailStrength: number;
+    readonly triplanar: number;
+    readonly layerBlend: number;
+    readonly lightmapStrength: number;
+}
+export declare const PBR_FINISH_FLOATS = 20;
 /** Metallic-roughness material; all texture slots borrow, never own, their Texture. */
 export declare class PBRMaterial extends TextureMaterial {
     readonly textureCoordinates: Readonly<Partial<Record<MaterialTextureSlot, TextureCoordinates>>>;
@@ -138,5 +198,43 @@ export declare class PBRMaterial extends TextureMaterial {
     readonly normalSampler: Readonly<TextureSamplerOptions> | undefined;
     readonly occlusionSampler: Readonly<TextureSamplerOptions> | undefined;
     readonly emissiveSampler: Readonly<TextureSamplerOptions> | undefined;
+    readonly finish: PBRFinish;
+    /** Borrowed. When set, renderers bind this to the emissive sampler and do not sample emissiveTexture. */
+    readonly lightmap: Texture | undefined;
+    readonly lightmapSampler: Readonly<TextureSamplerOptions> | undefined;
     constructor(options: PBRMaterialOptions);
+}
+/** Emissive sampler occupancy: 0 empty, 1 emission, 2 lightmap. */
+export declare function pbrEmissiveSlot(material: PBRMaterial): {
+    readonly texture: MaterialTexture | undefined;
+    readonly sampler: Readonly<TextureSamplerOptions> | undefined;
+    readonly mode: 0 | 1 | 2;
+};
+/** Writes the 20 finish floats consumed by both mesh shaders. */
+export declare function fillPBRFinish(material: PBRMaterial, data: Float32Array, offset: number): void;
+export interface MaterialAssetMaps {
+    base: ImageBitmapSource | Texture;
+    metallicRoughness?: ImageBitmapSource | Texture;
+    normal?: ImageBitmapSource | Texture;
+    occlusion?: ImageBitmapSource | Texture;
+    emissive?: ImageBitmapSource | Texture;
+    lightmap?: ImageBitmapSource | Texture;
+}
+export type MaterialAssetOverrides = Omit<PBRMaterialOptions, 'texture' | 'metallicRoughnessTexture' | 'normalTexture' | 'occlusionTexture' | 'emissiveTexture' | 'lightmap'>;
+/**
+ * Owns decoded images and borrows caller-supplied Textures.
+ * The produced PBRMaterial never owns its slots; destroy the asset only after
+ * every consumer has released the material.
+ */
+export declare class MaterialAsset {
+    readonly material: PBRMaterial;
+    private released;
+    private readonly ownedTextures;
+    private constructor();
+    get destroyed(): boolean;
+    /** Borrows every texture in options. destroy() releases no borrowed slot. */
+    static create(options: PBRMaterialOptions): MaterialAsset;
+    static fromImages(maps: MaterialAssetMaps, overrides?: MaterialAssetOverrides): Promise<MaterialAsset>;
+    /** Destroys textures decoded by fromImages. Borrowed textures stay owned by their creator. */
+    destroy(): void;
 }

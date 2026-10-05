@@ -1,5 +1,8 @@
+const require_material2d = require("./materials2d/material2d.cjs");
+const require_lighting2d = require("../../../src/data/lighting2d.cjs");
 //#region dist/packages/core/src/lighting2d.js
-var MAX_LIGHTS_2D = require("../../../src/data/lighting2d.cjs").lighting2dLimits.lightsPerSprite;
+var MAX_LIGHTS_2D = require_lighting2d.lighting2dLimits.lightsPerSprite;
+var MAX_OCCLUDERS_2D = require_lighting2d.lighting2dLimits.occludersPerSprite;
 var Light2D = class {
 	position;
 	height;
@@ -19,21 +22,52 @@ var Light2D = class {
 		if (this.position.length !== 2 || this.color.length !== 3 || !this.position.every(Number.isFinite) || !this.color.every(Number.isFinite) || !Number.isFinite(this.height) || !Number.isFinite(this.radius) || !Number.isFinite(this.intensity) || this.height < 0 || this.radius <= 0 || this.intensity < 0 || this.color.some((e) => e < 0) || this.space !== `world` && this.space !== `screen`) throw RangeError(`Light2D requires finite coordinates, positive radius and nonnegative height/intensity/color.`);
 	}
 };
+var Occluder2D = class {
+	a;
+	b;
+	space;
+	enabled = !0;
+	constructor(e = {}) {
+		this.a = [...e.a ?? [0, 0]], this.b = [...e.b ?? [1, 0]], this.space = e.space ?? `world`, this.validate();
+	}
+	validate() {
+		if (this.a.length !== 2 || this.b.length !== 2 || !this.a.every(Number.isFinite) || !this.b.every(Number.isFinite) || this.space !== `world` && this.space !== `screen`) throw RangeError(`Occluder2D endpoints must be finite 2D points in world or screen space.`);
+	}
+};
+function occluderBlocksLight2D(e, t, n, r) {
+	let i = t[0] - e[0], a = t[1] - e[1], o = r[0] - n[0], s = r[1] - n[1], c = i * s - a * o;
+	if (Math.abs(c) < 1e-6) return !1;
+	let l = n[0] - e[0], u = n[1] - e[1], d = (l * s - u * o) / c, f = (l * a - u * i) / c;
+	return d > .001 && d < .999 && f >= 0 && f <= 1;
+}
 var Lighting2D = class {
 	lights;
+	occluders;
 	ambient;
+	emissive;
+	specular;
+	roughness;
 	constructor(e = {}) {
-		this.lights = [...e.lights ?? []], this.ambient = [...e.ambient ?? [
+		this.lights = [...e.lights ?? []], this.occluders = [...e.occluders ?? []], this.ambient = [...e.ambient ?? [
 			.1,
 			.1,
 			.1
-		]], this.validate();
+		]], this.emissive = [...e.emissive ?? [
+			0,
+			0,
+			0
+		]], this.specular = e.specular ?? 0, this.roughness = e.roughness ?? 1, this.validate();
 	}
 	validate() {
 		if (this.lights.length > MAX_LIGHTS_2D) throw RangeError(`Lighting2D supports at most ${MAX_LIGHTS_2D} lights per sprite.`);
-		if (this.ambient.length !== 3 || !this.ambient.every((e) => Number.isFinite(e) && e >= 0)) throw RangeError(`Lighting2D ambient must contain three finite nonnegative components.`);
+		if (this.occluders.length > MAX_OCCLUDERS_2D) throw RangeError(`Lighting2D supports at most ${MAX_OCCLUDERS_2D} occluders per sprite.`);
+		if (this.ambient.length !== 3 || !this.ambient.every((e) => Number.isFinite(e) && e >= 0) || this.emissive.length !== 3 || !this.emissive.every((e) => Number.isFinite(e) && e >= 0) || !Number.isFinite(this.specular) || this.specular < 0 || this.specular > 1 || !Number.isFinite(this.roughness) || this.roughness < 0 || this.roughness > 1) throw RangeError(`Lighting2D ambient/emissive must be finite and nonnegative; specular and roughness must be finite and within 0-1.`);
 		for (let e of this.lights) {
 			if (!(e instanceof Light2D)) throw TypeError(`Lighting2D lights must be Light2D instances.`);
+			e.validate();
+		}
+		for (let e of this.occluders) {
+			if (!(e instanceof Occluder2D)) throw TypeError(`Lighting2D occluders must be Occluder2D instances.`);
 			e.validate();
 		}
 	}
@@ -45,15 +79,18 @@ function validateSpriteLighting2D(e) {
 	}
 	if (!(e.lighting instanceof Lighting2D)) throw TypeError(`Sprite.lighting must be Lighting2D.`);
 	e.lighting.validate();
-	let t = e.normalTexture;
-	if (t && (t.destroyed || t.kind !== `image` && t.kind !== `canvas`)) throw RangeError(`Normal maps must be live CPU-backed Texture2DSource objects.`);
-	if (t && (t.width !== e.texture.width || t.height !== e.texture.height)) throw RangeError(`Normal map must match the albedo atlas dimensions and frame layout.`);
-	if (e.material) throw RangeError(`Lighting2D cannot be combined with a custom Material2D.`);
+	let n = e.normalTexture;
+	if (n && (n.destroyed || n.kind !== `image` && n.kind !== `canvas`)) throw RangeError(`Normal maps must be live CPU-backed Texture2DSource objects.`);
+	if (n && (n.width !== e.texture.width || n.height !== e.texture.height)) throw RangeError(`Normal map must match the albedo atlas dimensions and frame layout.`);
+	if (e.material && (require_material2d.validateEffect2D(e.material), !/\bfn\s+effect\s*\(/.test(e.material.wgsl) || !/\bvec4\s+effect\s*\(/.test(e.material.glsl))) throw RangeError(`A lit Material2D must define effect() in both WGSL and GLSL.`);
 }
 //#endregion
 exports.Light2D = Light2D;
 exports.Lighting2D = Lighting2D;
 exports.MAX_LIGHTS_2D = MAX_LIGHTS_2D;
+exports.MAX_OCCLUDERS_2D = MAX_OCCLUDERS_2D;
+exports.Occluder2D = Occluder2D;
+exports.occluderBlocksLight2D = occluderBlocksLight2D;
 exports.validateSpriteLighting2D = validateSpriteLighting2D;
 
 //# sourceMappingURL=lighting2d.cjs.map

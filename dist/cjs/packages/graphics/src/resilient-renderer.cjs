@@ -232,7 +232,7 @@ var ResilientRenderer = class {
 			let forget = () => {
 				this.materials.delete(n);
 			};
-			n instanceof require_native_material3d.NativeMaterial3D ? this.materials.set(n, n.onDestroy(forget)) : (n.addEventListener(`destroy`, forget, { once: !0 }), this.materials.set(n, () => n.removeEventListener(`destroy`, forget)));
+			require_native_material3d.isNativeMaterial3D(n) ? this.materials.set(n, n.onDestroy(forget)) : (n.addEventListener(`destroy`, forget, { once: !0 }), this.materials.set(n, () => n.removeEventListener(`destroy`, forget)));
 		}
 	}
 	async preparePostProcessor(e) {

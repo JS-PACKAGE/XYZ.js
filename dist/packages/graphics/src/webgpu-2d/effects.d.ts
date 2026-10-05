@@ -23,6 +23,7 @@ export declare class GPUSnapshot implements RenderSnapshot {
 }
 interface PreparedEffect {
     layer: GPURenderPipeline;
+    lit?: GPURenderPipeline;
     buffer: GPUBuffer;
     bindGroup: GPUBindGroup;
     values: Float32Array;

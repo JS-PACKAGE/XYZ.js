@@ -269,11 +269,11 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		}
 	}
 	async prepareMaterial(t) {
-		if (this.requireDevice(), t instanceof require_native_material3d.NativeMaterial3D) {
+		if (this.requireDevice(), require_native_material3d.isNativeMaterial3D(t)) {
 			await this.meshPipeline.prepareMaterial(t);
 			return;
 		}
-		if (!(t instanceof require_material2d.Material2D)) throw new require_errors.GraphicsError(`WebGPU prepareMaterial requires a Material2D or NativeMaterial3D.`);
+		if (!(t instanceof require_material2d.Material2D)) throw new require_errors.GraphicsError(`WebGPU prepareMaterial requires a Material2D or native 3D material.`);
 		await this.effectsPipeline.prepare(t);
 	}
 	async prepareGpuParticles(e) {

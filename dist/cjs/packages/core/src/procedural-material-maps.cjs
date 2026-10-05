@@ -13,11 +13,19 @@ function noise(e, t, n, r, i) {
 	let a = fract(e) * n, o = fract(t) * r, s = Math.floor(a), c = Math.floor(o), l = smooth(a - s), u = smooth(o - c), d = hash(s, c, i), f = hash((s + 1) % n, c, i), p = hash(s, (c + 1) % r, i), m = hash((s + 1) % n, (c + 1) % r, i);
 	return (d + (f - d) * l) * (1 - u) + (p + (m - p) * l) * u;
 }
+function wrappedFeature(e, t, n, r) {
+	let i = Math.floor(e * n), a = Math.floor(t * n), o = 4;
+	for (let s = -1; s <= 1; s++) for (let c = -1; c <= 1; c++) {
+		let l = i + c, u = a + s, d = (l % n + n) % n, f = (u % n + n) % n, p = (l + hash(d, f, r)) / n, m = (u + hash(d, f, r ^ 40503)) / n, h = e - p, g = t - m, _ = h * h + g * g;
+		_ < o && (o = _);
+	}
+	return Math.sqrt(o) * n;
+}
 function createSurfaceSampler(n, r) {
 	let i = require_materials.proceduralMaterialPresets[n], a = hash(0, 0, r) * t, o = n === `stone` || n === `metal` || n === `marble`, s = n === `brick` || n === `stone`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
-		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0;
+		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(n === `metal`);
 		switch (n) {
 			case `wood`: {
 				let n = noise(e, c, 4, 2, r ^ 71), i = .5 + .5 * Math.sin(t * (12 * e + .65 * n) + a), o = (.5 + .5 * Math.sin(t * (40 * e + n) + a)) ** 12;
@@ -49,8 +57,38 @@ function createSurfaceSampler(n, r) {
 				p = clamp(.9 + .1 * u - .85 * i), m = .3 * u - .2 * i + .05 * d, h += .1 * i + .04 * (d - .5), g = 1 - .06 * i;
 				break;
 			}
+			case `concrete`: {
+				let t = fract(e * 3), n = fract(c * 3), a = 1 - smooth(clamp((Math.min(t, 1 - t, n, 1 - n) - .02) / .035)), o = hash(Math.floor(fract(e) * 40), Math.floor(fract(c) * 40), r);
+				p = .28 + .5 * o * (1 - a) + .12 * d, m = (1 - a) * (.65 + .25 * o) + .05 * d, h += .14 * a + .06 * (o - .5), g = .62 + .38 * (1 - a);
+				break;
+			}
+			case `tiles`: {
+				let t = fract(e * 5), n = fract(c * 5), a = smooth(clamp((Math.min(t, 1 - t, n, 1 - n) - .018) / .028));
+				p = .42 + .4 * hash(Math.floor(e * 5) % 5, Math.floor(c * 5) % 5, r) + .08 * d, m = a * (.82 + .1 * d), _ = 1 - a, h += .42 * _ + .04 * (d - .5), g = .58 + .42 * a;
+				break;
+			}
+			case `leather`: {
+				let n = smooth(clamp(1 - wrappedFeature(e, c, 14, r ^ 81) * 1.55));
+				p = .24 + .52 * n + .12 * d, m = .12 + .72 * n + .06 * d, h += .16 * (1 - n) + .04 * (d - .5), g = .55 + .45 * n;
+				break;
+			}
+			case `sand`: {
+				let n = noise(e, c, 3, 3, r ^ 17), i = .5 + .5 * Math.sin(t * (c * 7 + .35 * n) + a), o = noise(e, c, 48, 48, r ^ 20973);
+				p = .3 + .48 * i + .18 * o, m = .72 * i + .22 * o, h += .06 * (o - .5), g = .82 + .18 * i;
+				break;
+			}
+			case `rust`: {
+				let t = noise(e, c, 6, 6, r ^ 211), n = noise(e, c, 18, 18, r ^ 419), i = smooth(clamp((t * .7 + n * .3 - .32) / .28));
+				p = i, m = .25 + .45 * (1 - i) * n - .2 * i * t, h += .22 * i + .05 * (n - .5), g = .7 + .3 * (1 - i), v = 1 - i;
+				break;
+			}
+			case `snow`: {
+				let t = noise(e, c, 3, 3, r ^ 17), n = hash(Math.floor(fract(e) * 48), Math.floor(fract(c) * 48), r) ** 8;
+				p = clamp(.22 + .68 * t + .1 * n), m = .7 * t + .2 * n, h += .22 * n - .06 * t, g = .88 + .12 * t;
+				break;
+			}
 		}
-		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _;
+		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};
 }
 function writeNormals(e, t, n) {
@@ -62,30 +100,33 @@ function writeNormals(e, t, n) {
 		}
 	}
 }
-function generateProceduralMaps(t, n, r) {
-	let i = {
+function generateProceduralMaps(t, n, r, i = {}) {
+	let a = {
 		baseColor: new Uint8ClampedArray(n * n * 4),
 		normal: new Uint8ClampedArray(n * n * 4),
 		metallicRoughness: new Uint8ClampedArray(n * n * 4),
 		occlusion: new Uint8ClampedArray(n * n * 4)
-	}, a = new Float32Array(n * n), o = createSurfaceSampler(t, r), s = require_materials.proceduralMaterialPresets[t], c = {
+	}, o = new Float32Array(n * n), s = createSurfaceSampler(t, r), c = require_materials.proceduralMaterialPresets[t], l = {
 		color: 0,
 		height: 0,
 		roughness: 0,
 		occlusion: 0,
-		mortar: 0
+		mortar: 0,
+		metallic: 0
 	};
-	for (let e = 0; e < n; e++) for (let r = 0; r < n; r++) {
-		o((r + .5) / n, (e + .5) / n, c);
-		let l = e * n + r, u = l * 4;
-		a[l] = c.height;
+	for (let e = 0; e < n; e++) for (let t = 0; t < n; t++) {
+		s((t + .5) / n, (e + .5) / n, l);
+		let r = i.contrast ?? 1, u = i.roughnessBias ?? 0;
+		l.color = clamp(.5 + (l.color - .5) * r);
+		let d = e * n + t, f = d * 4;
+		o[d] = l.height;
 		for (let e = 0; e < 3; e++) {
-			let t = s.dark[e] + (s.light[e] - s.dark[e]) * c.color;
-			i.baseColor[u + e] = Math.round(t * (1 - c.mortar) + (e === 2 ? 139 : 153) * c.mortar), i.occlusion[u + e] = byte(c.occlusion);
+			let t = c.dark[e] + (c.light[e] - c.dark[e]) * l.color;
+			a.baseColor[f + e] = Math.round(t * (1 - l.mortar) + (e === 2 ? 139 : 153) * l.mortar), a.occlusion[f + e] = byte(l.occlusion);
 		}
-		i.baseColor[u + 3] = i.occlusion[u + 3] = 255, i.metallicRoughness[u] = 255, i.metallicRoughness[u + 1] = byte(c.roughness), i.metallicRoughness[u + 2] = t === `metal` ? 255 : 0, i.metallicRoughness[u + 3] = 255;
+		a.baseColor[f + 3] = a.occlusion[f + 3] = 255, a.metallicRoughness[f] = 255, a.metallicRoughness[f + 1] = byte(l.roughness + u), a.metallicRoughness[f + 2] = byte(l.metallic), a.metallicRoughness[f + 3] = 255;
 	}
-	return writeNormals(a, n, i.normal), i;
+	return writeNormals(o, n, a.normal), a;
 }
 //#endregion
 exports.createSurfaceSampler = createSurfaceSampler;

@@ -3,6 +3,7 @@ const require_material2d = require("../../../core/src/materials2d/material2d.cjs
 const require_sprite_instance = require("../sprite-instance.cjs");
 const require_gpu_timing = require("../gpu-timing.cjs");
 const require_shaders = require("./shaders.cjs");
+const require_lighting2d = require("../lighting2d.cjs");
 const require_webgpu_render2d_shaders = require("../webgpu-render2d-shaders.cjs");
 //#region dist/packages/graphics/src/webgpu-2d/effects.js
 var premultipliedBlend = {
@@ -236,46 +237,47 @@ var WebGPU2DEffects = class {
 		if (n.has(e)) return Promise.resolve();
 		let a = this.pending.get(e);
 		if (a) return a;
-		let c = this.preparation.then(async () => {
+		let l = this.preparation.then(async () => {
 			require_material2d.validateEffect2D(e), this.device.pushErrorScope(`validation`);
-			let a, c, l = !0;
+			let a, l, u = !0;
 			try {
-				let u = e instanceof require_material2d.Material2D, d = await this.module(u ? require_webgpu_render2d_shaders.quadWGSL(e.wgsl) : require_shaders.postWGSL(e.wgsl), u ? `Sprite material` : `2D postprocessor`);
+				let d = e instanceof require_material2d.Material2D, f = await this.module(d ? require_webgpu_render2d_shaders.quadWGSL(e.wgsl) : require_shaders.postWGSL(e.wgsl), d ? `Sprite material` : `2D postprocessor`);
 				require_material2d.validateEffect2D(e);
-				let f = u ? createQuadPipeline(this.device, d, this.quadLayout) : this.fullscreenPipeline(d, `rgba8unorm`, this.fullscreenLayout, !1);
-				c = this.device.createBuffer({
+				let p = d ? createQuadPipeline(this.device, f, this.quadLayout) : this.fullscreenPipeline(f, `rgba8unorm`, this.fullscreenLayout, !1), m = d ? createQuadPipeline(this.device, await this.module(require_webgpu_render2d_shaders.quadWGSL(require_lighting2d.composeLitMaterial2D(e.wgsl, `wgsl`)), `lit Sprite material`), this.multiplyLayout) : void 0;
+				l = this.device.createBuffer({
 					size: 64,
 					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 				});
-				let p = this.device.createBindGroup({
+				let h = this.device.createBindGroup({
 					layout: this.uniformLayout,
 					entries: [{
 						binding: 0,
-						resource: { buffer: c }
+						resource: { buffer: l }
 					}]
-				}), m = c, dispose = () => {
-					!this.disposed && this.recording() ? this.retiredBuffers.push(m) : m.destroy(), n.delete(e), e.removeEventListener(`destroy`, dispose);
+				}), g = l, dispose = () => {
+					!this.disposed && this.recording() ? this.retiredBuffers.push(g) : g.destroy(), n.delete(e), e.removeEventListener(`destroy`, dispose);
 				};
 				a = {
-					layer: f,
-					buffer: c,
-					bindGroup: p,
+					layer: p,
+					lit: m,
+					buffer: l,
+					bindGroup: h,
 					values: (/* @__PURE__ */ new Float32Array(16)).fill(NaN),
 					dispose
-				}, l = !1;
-				let h = await this.device.popErrorScope();
-				if (h) throw new require_errors.GraphicsError(`WebGPU 2D effect pipeline validation failed: ${h.message}`);
+				}, u = !1;
+				let _ = await this.device.popErrorScope();
+				if (_) throw new require_errors.GraphicsError(`WebGPU 2D effect pipeline validation failed: ${_.message}`);
 				if (this.disposed || this.cancelled()) throw new require_errors.GraphicsError(`WebGPU 2D effect preparation was cancelled.`);
 				require_material2d.validateEffect2D(e), n.set(e, a), e.addEventListener(`destroy`, dispose, { once: !0 });
 			} catch (e) {
-				throw c?.destroy(), e;
+				throw l?.destroy(), e;
 			} finally {
-				l && await this.device.popErrorScope();
+				u && await this.device.popErrorScope();
 			}
 		});
-		this.preparation = c.catch(() => {});
-		let l = c.finally(() => this.pending.delete(e));
-		return this.pending.set(e, l), l;
+		this.preparation = l.catch(() => {});
+		let u = l.finally(() => this.pending.delete(e));
+		return this.pending.set(e, u), u;
 	}
 	prepared(e) {
 		require_material2d.validateEffect2D(e);

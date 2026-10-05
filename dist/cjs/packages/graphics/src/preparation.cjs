@@ -3,6 +3,8 @@ const require_geometry = require("../../core/src/geometry.cjs");
 const require_mesh = require("../../core/src/mesh.cjs");
 const require_geometry2d = require("../../core/src/rendering2d/geometry2d.cjs");
 const require_particle_layer2d = require("../../core/src/particles2d/particle-layer2d.cjs");
+const require_pbr_material = require("../../core/src/pbr-material.cjs");
+const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_gpu_particles3d = require("../../core/src/gpu-particles3d.cjs");
 const require_environment = require("../../core/src/environment.cjs");
@@ -24,29 +26,36 @@ function residencyLease(e) {
 		}
 	};
 }
-async function prepareNativeResource(l, u, d, f = {}) {
-	if (f.signal?.throwIfAborted(), u instanceof require_gpu_particles3d.GPUParticleEmitter3D) return completePreparation(d.gpuParticles(u), residencyLease([]), f.signal);
-	if (u instanceof require_material2d.PostProcessor2D) return completePreparation(d.post(u), residencyLease([]), f.signal);
-	if (u instanceof require_material2d.Material2D) return completePreparation(d.material(u), residencyLease([]), f.signal);
-	l.beginCapture();
-	let p;
+async function prepareNativeResource(m, h, g, _ = {}) {
+	if (_.signal?.throwIfAborted(), h instanceof require_gpu_particles3d.GPUParticleEmitter3D) return completePreparation(g.gpuParticles(h), residencyLease([]), _.signal);
+	if (h instanceof require_material2d.PostProcessor2D) return completePreparation(g.post(h), residencyLease([]), _.signal);
+	if (h instanceof require_material2d.Material2D) return completePreparation(g.material(h), residencyLease([]), _.signal);
+	m.beginCapture();
+	let v;
 	try {
-		if (u instanceof require_geometry.Geometry || u instanceof require_geometry2d.Geometry2D) d.geometry(u);
-		else if (u instanceof require_mesh.Mesh) d.mesh(u);
-		else if (u instanceof require_particle_layer2d.ParticleLayer2D) d.particles(u);
-		else if (u instanceof require_environment.EnvironmentMap) d.environment(u);
-		else if (u instanceof require_native_material3d.NativeMaterial3D) {
-			d.texture(u.texture);
-			for (let e of u.textures) d.texture(e);
-		} else d.texture(u);
-		p = residencyLease(l.endCapture());
+		if (h instanceof require_geometry.Geometry || h instanceof require_geometry2d.Geometry2D) g.geometry(h);
+		else if (h instanceof require_mesh.Mesh) g.mesh(h);
+		else if (h instanceof require_particle_layer2d.ParticleLayer2D) g.particles(h);
+		else if (h instanceof require_environment.EnvironmentMap) g.environment(h);
+		else if (h instanceof require_native_material3d.NativeMaterial3D) {
+			g.texture(h.texture);
+			for (let e of h.textures) g.texture(e);
+		} else if (h instanceof require_native_pbr_material.NativePBRMaterial) {
+			g.texture(require_mesh.materialBaseTexture(h));
+			let e = require_pbr_material.pbrTextureSources(h);
+			for (let t of require_pbr_material.pbrTextureKeys) {
+				let n = e[t];
+				n && g.texture(n);
+			}
+		} else g.texture(h);
+		v = residencyLease(m.endCapture());
 	} catch (e) {
-		throw residencyLease(l.endCapture()).release(), e;
+		throw residencyLease(m.endCapture()).release(), e;
 	}
 	try {
-		return await completePreparation(u instanceof require_native_material3d.NativeMaterial3D ? d.material(u) : d.complete(), p, f.signal);
+		return await completePreparation(require_native_material3d.isNativeMaterial3D(h) ? g.material(h) : g.complete(), v, _.signal);
 	} catch (e) {
-		throw p.release(), e;
+		throw v.release(), e;
 	}
 }
 async function completePreparation(e, t, n) {

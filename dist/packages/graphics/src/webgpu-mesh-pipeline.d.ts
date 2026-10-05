@@ -1,6 +1,7 @@
 import { RenderVisibilitySet } from '../../core/src/render-visibility.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
@@ -148,7 +149,7 @@ export declare class WebGPUMeshPipeline {
     invalidateTemporalHistory(): void;
     prepareGeometry(geometry: Geometry): ResidencyAllocation;
     unloadGeometry(geometry: Geometry): void;
-    prepareMaterial(material: NativeMaterial3D): Promise<void>;
+    prepareMaterial(material: NativeMaterial3D | NativePBRMaterial): Promise<void>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): void;
     afterSubmit(): void;
     prepareMesh(mesh: Mesh): void;

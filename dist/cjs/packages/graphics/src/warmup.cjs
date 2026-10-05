@@ -16,7 +16,7 @@ async function warmupScene(d, f, p = {}, m = !1) {
 	if (p.signal?.throwIfAborted(), f.destroyed) throw new require_errors.GraphicsError(`Cannot warm up a destroyed Scene.`);
 	let _ = /* @__PURE__ */ new Set();
 	for (let u of f.objects) if (!(m && (u instanceof require_game_object.GameObject || u instanceof require_object3d.Object3D) && !u.worldVisible)) {
-		if (u instanceof require_gpu_particles3d.GPUParticleEmitter3D && _.add(u), u instanceof require_mesh.Mesh) u.material instanceof require_native_material3d.NativeMaterial3D && _.add(u.material), _.add(u);
+		if (u instanceof require_gpu_particles3d.GPUParticleEmitter3D && _.add(u), u instanceof require_mesh.Mesh) require_native_material3d.isNativeMaterial3D(u.material) && _.add(u.material), _.add(u);
 		else if (u instanceof require_sprite.Sprite) _.add(u.texture), u.material && _.add(u.material);
 		else if (u instanceof require_mesh2d.Mesh2D) _.add(u.texture), _.add(u.geometry);
 		else if (u instanceof require_particle_layer2d.ParticleLayer2D) {

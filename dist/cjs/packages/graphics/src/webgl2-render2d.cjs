@@ -33,8 +33,9 @@ var WebGLRender2D = class {
 	emptyVAO;
 	quadProgram;
 	lightingProgram;
-	lightingData = /* @__PURE__ */ new Float32Array(80);
-	uploadedLighting = (/* @__PURE__ */ new Float32Array(80)).fill(NaN);
+	lightingData = /* @__PURE__ */ new Float32Array(108);
+	uploadedLighting = (/* @__PURE__ */ new Float32Array(108)).fill(NaN);
+	litMaterials = /* @__PURE__ */ new Map();
 	meshProgram;
 	particleProgram;
 	passProgram;
@@ -68,6 +69,14 @@ var WebGLRender2D = class {
 			uniforms: /* @__PURE__ */ new Map()
 		};
 		return this.programs.set(e, n), n;
+	}
+	litProgram(e) {
+		let t = this.litMaterials.get(e);
+		if (t) return t;
+		let n = this.register(this.hooks.createProgram(require_webgl2_render2d_shaders.quadVertex2D, require_webgl2_render2d_shaders.quadFragment2D(require_lighting2d$1.composeLitMaterial2D(e.glsl, `glsl`)), `2D lit material`)), dispose = () => {
+			this.disposed || this.litMaterials.get(e) !== n || (this.litMaterials.delete(e), this.programs.delete(n.program), this.gl.deleteProgram(n.program), e.removeEventListener(`destroy`, dispose));
+		};
+		return e.addEventListener(`destroy`, dispose), this.litMaterials.set(e, n), n;
 	}
 	uniform(e, t) {
 		return e.uniforms.has(t) || e.uniforms.set(t, this.gl.getUniformLocation(e.program, t)), e.uniforms.get(t);
@@ -207,7 +216,7 @@ var WebGLRender2D = class {
 		i.useProgram(c.program), this.distanceField(c, s.texture), i.uniform2f(this.uniform(c, `viewportSize`), r.bounds.width, r.bounds.height), i.uniform1i(this.uniform(c, `image`), 0), i.uniform1i(this.uniform(c, `renderSource`), +(s.texture.kind === `render`)), i.uniform1i(this.uniform(c, `tiling`), 0), i.activeTexture(i.TEXTURE0), i.bindTexture(i.TEXTURE_2D, this.hooks.source(s.texture)), i.bindSampler(0, this.sampler(s.sampler?.minFilter === `nearest`, s.sampler?.magFilter === `nearest`, s.sampler?.maxAnisotropy ?? 1)), this.bindInstances(this.spriteVAO, this.spriteBuffer, 0), this.spriteCapacity < this.spriteData.byteLength && (i.bufferData(i.ARRAY_BUFFER, this.spriteData.byteLength, i.DYNAMIC_DRAW), this.spriteCapacity = this.spriteData.byteLength), i.bufferSubData(i.ARRAY_BUFFER, 0, this.spriteData, 0, a * 28), this.hooks.stats.upload(a * 112), i.drawArraysInstanced(i.TRIANGLES, 0, 6, a), this.hooks.stats.draw2D(a);
 	}
 	drawSprite(e, t) {
-		let n = this.gl, r = require_sprite_instance.getSpriteQuad2D(e, this.quad), a = e.lighting ? this.lightingProgram : e.material ? this.register(this.hooks.material(e.material)) : this.quadProgram;
+		let n = this.gl, r = require_sprite_instance.getSpriteQuad2D(e, this.quad), a = e.lighting ? e.material ? this.litProgram(e.material) : this.lightingProgram : e.material ? this.register(this.hooks.material(e.material)) : this.quadProgram;
 		if (this.spriteMatrix(e, t), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), this.useQuad(a, t, e.texture, r, this.matrix, this.appearance), n.bindSampler(0, this.sampler(e.sampler?.minFilter === `nearest`, e.sampler?.magFilter === `nearest`, e.sampler?.maxAnisotropy ?? 1)), e.lighting) {
 			this.objectMatrix(e, t, this.mapping, !0).invert(), require_lighting2d$1.packLighting2D(e, this.mapping, r, this.lightingData);
 			let i = !1;

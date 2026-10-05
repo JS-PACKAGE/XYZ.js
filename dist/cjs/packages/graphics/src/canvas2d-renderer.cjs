@@ -46,7 +46,7 @@ var Canvas2DRenderer = class {
 			return i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
 		}
 		if (r instanceof require_geometry.Geometry || r instanceof require_geometry2d.Geometry2D || r instanceof require_mesh.Mesh || r instanceof require_gpu_particles3d.GPUParticleEmitter3D || r instanceof require_environment.EnvironmentMap) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native 3D or mesh preparation.`);
-		return r instanceof require_material2d.PostProcessor2D ? await this.preparePostProcessor(r) : r instanceof require_material2d.Material2D || r instanceof require_native_material3d.NativeMaterial3D ? await this.prepareMaterial(r) : await this.prepareTextures([r]), i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
+		return r instanceof require_material2d.PostProcessor2D ? await this.preparePostProcessor(r) : r instanceof require_material2d.Material2D || require_native_material3d.isNativeMaterial3D(r) ? await this.prepareMaterial(r) : await this.prepareTextures([r]), i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
 	}
 	async prepareGpuParticles() {
 		throw this.requireIdle(), new require_errors.UnsupportedGraphicsError(`Canvas2D does not support GPU 3D particles.`);

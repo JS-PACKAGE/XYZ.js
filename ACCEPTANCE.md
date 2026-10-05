@@ -1719,4 +1719,71 @@ API證據，不是Safari／mobile／physical-driver／reference-path-tracer資�
   API歷史契約、source／built tree-shaking與exact package inventory gates通過；
   built Vite保留既有OPM dynamic-import analysis warning，不冒稱無warning／音訊重驗。
   README中／英／日及PLAN／DESIGN／TECHNICAL／USAGE同步；歷史驗收未改寫。
-  不升版、不push、不release。
+
+## P123 — native PBR surface hooks（已驗收的 source 範圍）
+
+2026-10-06，package 維持 1.16.0；Node 26.7.0／pnpm 12.6.0，macOS arm64，
+managed Chromium 153.0.8010.12、owned headless WebGPU／WebGL2／Canvas2D。
+這是自動化 native API 證據，不是 Safari／mobile／physical-driver 資格。
+
+- `NativePBRMaterial` 保留既有 PBR maps、UV 與 64 finite uniforms／deformation
+  lifetime。`xyzPhysical` 在 BRDF 前改已解碼 base／metallic／roughness／occlusion／
+  emission；未覆寫的 `xyzDeform`／`xyzSurface` 仍進入 vertex、surface、shadow。
+  Coverage pipeline 使用同一 custom module，不退回標準 PBR shader。
+  Canvas2D `prepareMaterial` 明確拒絕。
+- 單元測試 2 檔／7 項通過：hook 缺漏拒絕、uniform／borrowed texture、shadow cache
+  tracked uniform、color／shadow／WGSL composition 保留 deform／opacity。
+- graphics-quality 實際頁面：Canvas2D passed，rejected=true。WebGL2 與 WebGPU 的
+  `native-physical-surface` 皆 redPixels=263、changed=263、borrowedSurvived=true，
+  omission 為 `NativePBRMaterial requires a xyzPhysical native hook.`。
+  同一頁後續既有 `UV slot normal` 比較失敗（WebGL2 mean 4.79／14873 bad pixels，
+  WebGPU mean 4.78／14868），故整頁不是通過；不把該失敗記成 P123 hook 已修。
+  不升版、不 push、不 release。
+
+## 程序式貼圖追加：concrete／tiles／leather／sand／rust／snow
+
+2026-10-06，package 維持 1.16.0；Node 26.7.0／pnpm 12.6.0，macOS arm64。
+既有六種取樣與歷史 gallery 證據不改寫。不升版、不提交、不 push、不 release。
+
+- `ProceduralMaterialKind` 追加 concrete／tiles／leather／sand／rust／snow。
+  仍一次產生 periodic baseColor／normal／metallicRoughness／occlusion；
+  rust 的 metallic factor 為 1 且 B 通道在殘留金屬與鏽蝕間變化，其餘新種類維持 dielectric。
+- `tests/procedural-material.test.ts` 20 項通過，含十二種彼此不同的 base color、
+  雙軸週期、rust metallic 混合，以及 concrete／rust 的 factor 與 destroy。
+- source Vite gallery `http://127.0.0.1:5173/examples/pbr3d/?renderer=webgpu`：
+  status 為 `webgpu · 12 procedural material presets + plain`，console errors 為空，
+  選單含新種類，wood 的 5×5 球與四張 map 預覽已截圖。後續切到 rust 時
+  canvas screenshot timeout，沒有把該張記成已目視的 3D 畫面。
+  六種新 albedo 另以 seed 7、128² CPU maps 目視：混凝土接縫、磁磚勾縫、皮革顆粒、
+  沙紋、鏽斑與雪堆可分辨。不是跨瀏覽器或實體裝置認證。
+
+## P124／P125／程序式美術控制
+
+2026-10-06，同一環境。`tsc --noEmit` 通過。`tests/lighting2d.test.ts` 8 項與
+`tests/procedural-material.test.ts` 21 項通過。沒有新的瀏覽器像素證據：
+emissive／specular／occluder 的 shader 已接到 WebGL2／WebGPU 繪製路徑，
+但本輪沒有重跑 lighting gallery，不把單測記成畫面驗收。
+P126–P128 與 P130–P136 尚未完成，不標為通過。
+
+## 材質 finish、MaterialAsset 與 glTF variants
+
+2026-10-06，同一環境（macOS arm64、Node 26.7.0、pnpm 12.6.0、managed headless Chromium）。
+package 維持 1.16.0；不升版、不提交、不 push、不 release。P126–P128 與 P129 的 finish 子集
+（anisotropy、iridescence、subsurface、dispersion、height、wetness／snow／dirt／damage、
+detail、triplanar、lightmap）與 glTF variants／anisotropy／iridescence／dispersion 已實作；
+P130–P136 的其餘項目（真實 anisotropic BRDF、thin-film 干涉、多層 subsurface、
+dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果，不標為通過。
+
+- 首次 browser smoke 抓到兩個真實錯誤並已修：WGSL `textureSample` 位於資料相依分支
+  （uniform control flow）；GLSL 以 `ivec4 maps.w` 與 float 比較。第二輪另抓到先前
+  `lighting2d` 的 GLSL 使用保留字 `sample`，使 **WebGL2 renderer 初始化即失敗**，已改名。
+- 修正後以 source Vite 頁面在強制 `webgpu` 與強制 `webgl2` 各繪製十二顆 finish 球體
+  （plain＋十一種 finish，含 lightmap 與 transmission+dispersion）：兩者 status 皆無錯誤、
+  console／game error 為空，截圖可分辨 iridescence 紫色、wet 暗亮、snow 白頂；兩個 backend
+  畫面肉眼接近。這是目視，不是像素比對，也沒有對任何參考實作量測各效果。
+- `tests/material-finish.test.ts` 27 項：預設為 exact no-op 且共用凍結實例、20 float 打包順序、
+  非法 finish 拒絕、lightmap 佔用 emissive sampler、MaterialAsset 的 owned／borrowed 清理與失敗回收、
+  `Mesh.material` 驗證、variants 的選取／還原／未知名稱／越界、glTF finish 映射與拒絕。
+- 全套 `vitest run` 146 檔／1225 項通過；`tsc --noEmit`、`eslint .` 無輸出。
+- 未驗證：Firefox／WebKit、其他 GPU 或 driver、finish 的效能成本、pbr3d Finish 選單的互動
+  （選單已接上但沒有逐項切換截圖）、`asset-recipe` 流程（仍拒絕這些 extensions）。

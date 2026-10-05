@@ -1,9 +1,9 @@
 const require_render_bounds = require("./render-bounds.cjs");
 const require_mesh = require("./mesh.cjs");
+const require_pbr_material = require("./pbr-material.cjs");
 const require_visibility = require("../../../src/data/visibility.cjs");
 const require_objects3d = require("./objects3d.cjs");
 const require_instanced_mesh = require("./instanced-mesh.cjs");
-const require_pbr_material = require("./pbr-material.cjs");
 const require_skinned_mesh = require("./skinned-mesh.cjs");
 //#region dist/packages/core/src/render-visibility.js
 var RenderVisibilitySet = class {

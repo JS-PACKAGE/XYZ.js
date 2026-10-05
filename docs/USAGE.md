@@ -2,9 +2,9 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-**Current normative entry:** [v1.16 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.16.0/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
+**Current normative entry:** [v1.16 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.17.0/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
 
-XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.16.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations and configured Windows CI testing are not physical-device or Windows-driver certification; browser qualification requires actual recorded evidence. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.17.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations and configured Windows CI testing are not physical-device or Windows-driver certification; browser qualification requires actual recorded evidence. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Historical Stage-Profile Orientation
 
@@ -49,7 +49,7 @@ Alternatively open the root [example index](../index.html) at `http://127.0.0.1:
 | [ui2d](../examples/ui2d/)                               | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons                                                                                    |
 | [input-lab](../examples/input-lab/)                     | Keyboard/pointer/gamepad state, rebindable ActionMap                                                                                        |
 | [audio-lab](../examples/audio-lab/)                     | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch                                                                                    |
-| [pbr3d](../examples/pbr3d/)                             | Six procedural PBR preset selections, metallic/roughness grid, shadows, environment, fog, exposure/bloom                                    |
+| [pbr3d](../examples/pbr3d/)                             | Twelve procedural PBR preset selections, metallic/roughness grid, shadows, environment, fog, exposure/bloom                                 |
 | [instancing3d](../examples/instancing3d/)               | InstancedMesh batches, culling probes, RenderStats                                                                                          |
 | [picking3d](../examples/picking3d/)                     | Nested Groups, OrbitControls, Raycaster, camera projection                                                                                  |
 | [gltf3d](../examples/gltf3d/)                           | Skinned glTF clip playback, morph targets                                                                                                   |
@@ -470,7 +470,7 @@ PBR borrows base/emissive sRGB and linear metallicRoughness (G/B), normal/occlus
 
 #### Reusable Procedural PBR Presets
 
-`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. `ProceduralMaterialKind` is `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation.
+`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. `ProceduralMaterialKind` is `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation. Metal and rust use metallic factor 1; other kinds stay dielectric.
 
 With an existing 3D `scene`, reuse one preset across meshes:
 
@@ -500,6 +500,24 @@ preset.destroy();
 Readonly `kind`, `material` and `textures` expose the preset: `textures.baseColor` is sRGB RGB, `normal` is linear tangent-space, `metallicRoughness` stores roughness in G and metallic in B, and `occlusion` stores linear occlusion in R. These four immutable `Texture` sources use the existing PBR/rendering path. Defaults are opaque, repeat sampling for all slots, roughness factor 1, and metallic factor 1 for metal or 0 for the other kinds.
 
 `createMaterial(options?: Partial<PBRMaterialOptions>)` creates a new `PBRMaterial` borrowing the same maps, with caller overrides applied last; it does not regenerate textures. Scene/mesh destruction does not own the preset. Its synchronous, idempotent `destroy()` releases only its generated textures, never caller override textures; `destroyed` reports its state and later `createMaterial()` calls reject. Do not reuse released maps. The [pbr3d gallery](../examples/pbr3d/) provides preset selection and texture-map previews; Canvas2D remains 2D-only.
+
+#### Material finishes, material assets and glTF variants
+
+Pass `finish` to any `PBRMaterial` (or `preset.createMaterial`) to add anisotropy, iridescence, subsurface wrap, dispersion, parallax height, wetness, snow, dirt, damage, a detail layer, triplanar sampling or a lightmap on the maps you already have. Zero strengths cost nothing; no extra texture slot is used.
+
+```js
+import { MaterialAsset } from 'xyz.js';
+
+const asset = await MaterialAsset.fromImages(
+  { base: baseBlob, normal: normalBlob, lightmap: bakedBlob },
+  { roughness: 0.4, finish: { wetness: 0.6, lightmapStrength: 1 } },
+);
+mesh.material = asset.material; // validated setter; the renderer rebinds
+// After every mesh using it is gone:
+asset.destroy(); // releases only the textures it decoded
+```
+
+A glTF with `KHR_materials_variants` lists `gltf.variants`; call `gltf.selectVariant('red')` to switch and `gltf.selectVariant(undefined)` to restore defaults. The [pbr3d gallery](../examples/pbr3d/) has a Finish selector. Effects are approximations; see the technical reference for what each one does and what is unverified.
 
 For image-based lighting and a skybox, build an `EnvironmentMap` from an equirect (2:1) image and assign it to the scene. It lights `PBRMaterial` only and replaces its flat `ambientLight`:
 

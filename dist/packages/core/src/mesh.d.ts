@@ -45,8 +45,10 @@ export interface MeshOptions {
 }
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
 export declare class Mesh extends Object3D {
+    #private;
     readonly geometry: Geometry;
-    readonly material: TextureMaterial;
+    get material(): TextureMaterial;
+    set material(material: TextureMaterial);
     castShadow: boolean;
     receiveShadow: boolean;
     readonly morph?: MorphTargets;

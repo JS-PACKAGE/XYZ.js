@@ -89,10 +89,109 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .23,
 		relief: .003
+	}),
+	concrete: Object.freeze({
+		dark: [
+			78,
+			80,
+			82
+		],
+		light: [
+			176,
+			176,
+			170
+		],
+		roughness: .78,
+		relief: .008
+	}),
+	tiles: Object.freeze({
+		dark: [
+			168,
+			92,
+			58
+		],
+		light: [
+			236,
+			214,
+			186
+		],
+		roughness: .16,
+		relief: .012
+	}),
+	leather: Object.freeze({
+		dark: [
+			62,
+			28,
+			16
+		],
+		light: [
+			154,
+			86,
+			48
+		],
+		roughness: .55,
+		relief: .004
+	}),
+	sand: Object.freeze({
+		dark: [
+			166,
+			132,
+			78
+		],
+		light: [
+			232,
+			208,
+			150
+		],
+		roughness: .92,
+		relief: .006
+	}),
+	rust: Object.freeze({
+		dark: [
+			42,
+			36,
+			32
+		],
+		light: [
+			176,
+			72,
+			28
+		],
+		roughness: .72,
+		relief: .015
+	}),
+	snow: Object.freeze({
+		dark: [
+			186,
+			198,
+			208
+		],
+		light: [
+			248,
+			250,
+			252
+		],
+		roughness: .28,
+		relief: .01
 	})
+});
+var proceduralTileMeters = Object.freeze({
+	wood: .2,
+	brick: .24,
+	stone: .5,
+	metal: .15,
+	fabric: .08,
+	marble: .6,
+	concrete: .8,
+	tiles: .3,
+	leather: .12,
+	sand: .4,
+	rust: .2,
+	snow: 1
 });
 //#endregion
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
 exports.proceduralMaterialPresets = proceduralMaterialPresets;
+exports.proceduralTileMeters = proceduralTileMeters;
 
 //# sourceMappingURL=materials.cjs.map
