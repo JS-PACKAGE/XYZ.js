@@ -1557,3 +1557,11 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
   沒有再造另一 visibility index。原 instance scale 10／deformation 2 fixture
   的保守 radius 51.641 包含 required 28.66，不以新增空 wrapper 宣稱完成。
   Physical／Windows／Safari／audible／driver 與既有證據限制保留。
+
+## v1.16 發佈準備（2026-10-05）
+
+- 使用者明確授權分功能提交、最後推送與發佈 `v1.16`；package metadata 升為 `1.16.0`。沿既有 tag-triggered CI／Release workflow 發佈 GitHub archive／SHA256SUMS，不做 npm publish、不移動歷史 tags、不降低 gates。
+- P104–P118 已各自建立十五個 `[Pxx]` 功能提交，共用 renderer／exports／文件與完整 distribution 另作整合提交 `89b1776`。前節 working-tree／未提交描述為授權前狀態；當時的測試數、日期、archive checksum 與 cold WebGPU navigation FAIL 保留，不當成新版本重跑結果。
+- 升版後的本機驗證、hosted CI 與正式附件驗證另依實際執行補記；本機 native automation 不解除 physical／Safari／Windows driver／audible 限制。
+- 1.16.0 升版後實際 frozen install／build／strict typecheck／142 files、1151 tests／lint／format:check 全部通過；root require／ESM consumer 實跑 311 exports、math、官方 OPM 非同步 voice validation／ESM worker URL 與跨格式拒絕契約。Exact package hygiene 的 actual／clean／dirty archive SHA256 相同：`12c49fef08aa0c86cef527c870716b908bc7bf3fff0741db18180d0a017fe864`，證據 `.vite/release-v1.16/local/run-fDFWPw/report.json`；這是本機產物，不冒稱 hosted 或正式附件。
+- 升版後 API gate 實跑通過 737 historical exports／2810 directional contracts、710 namespaces／五 consumers，以及 41 組正負契約；source／built-root tree-shaking gate 亦通過，沒有提高原 Canvas ceilings。Hosted release gate 尚待新 tag 執行。

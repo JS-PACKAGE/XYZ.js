@@ -2,9 +2,9 @@
 
 English · [Traditional Chinese](USAGE-zh.md) · [Technical reference](TECHNICAL.md)
 
-**Current normative entry:** [v1.14 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.14.0/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
+**Current normative entry:** [v1.16 contracts, public API and support boundaries](CURRENT.md). `pnpm docs:api` generates the searchable root API; `pnpm build:site` publishes it in the static distribution at `api/1.16.0/` (landing page `docs/`). This guide retains versioned recipes and historical upgrade/evidence notes; those notes do not redefine current support.
 
-XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.14.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations and configured Windows CI testing are not physical-device or Windows-driver certification; browser qualification requires actual recorded evidence. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
+XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Current metadata is **1.16.0 / Apache-2.0** (npm unpublished); historical evidence remains unchanged. APIs are inspired by three.js/PixiJS/Excalibur, not drop-in parity, with no new runtime dependency. Browser/emulation observations and configured Windows CI testing are not physical-device or Windows-driver certification; browser qualification requires actual recorded evidence. See [PLAN](../PLAN.md), [technical reference](TECHNICAL.md) and [ACCEPTANCE](../ACCEPTANCE.md).
 
 ## Historical Stage-Profile Orientation
 

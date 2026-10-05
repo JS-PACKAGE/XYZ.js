@@ -10,7 +10,7 @@
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
-目前 root metadata 是 `1.14.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
+目前 root metadata 是 `1.16.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
 
 - Game 為 `EventTarget`，以 `Game.create(options)` 非同步取得 renderer；requestAnimationFrame 依序同步 DPR→Clock→Camera2D viewport→Input→Scene timers→Scene animations→Scene.update→World Systems→Renderer，最後清除 input edges。`game.start(scene?)` 可非同步準備 Scene；需等待切換結果時使用 `await game.setScene(scene)`。SceneObject 提供 ownership，GameObject 加入 Transform2D；ECS 保持內核，使用者透過 scene.add 操作物件。
 - `game.state` 為 `idle | running | paused | destroyed`。支援 pause／resume／resize／destroy；同一 Canvas 在非同步初始化開始前即被保留，初始化失敗或 destroy 釋放 ownership。第一個 fatal frame／graphics failure 會被保留並送出 error；失敗後 resume 明確拒絕。Scene 準備失敗與 Audio 排程錯誤也可送出 error，但不把 graphics 鎖成 fatal。
@@ -256,13 +256,14 @@ v1.12.1 mixer保留已生效且target／tau未變的single-target native duck cu
 - **套件內容（P102）：** `scripts/package-inventory.json` 明列 approved files；archive 逐檔比對來源 bytes 與 executable flag。唯一語意比對例外是 `package.json`：pnpm 12 發佈時移除 `packageManager` 並重排 key，故與移除該欄位的來源做深度相等，archive 對 archive 仍逐位元組比對。
 - **實體資格（P103）：** 工具只做 read-only inventory、blocked evidence form 與 schema／artifact／review 驗證；hash 與 `isTrusted` 不證明實體。缺 owned hardware 或授權的 gate 保持 BLOCKED，不由 emulation 取代。
 
-## P104–P118 source expansion (unreleased)
+## P104–P118 source expansion (v1.16)
 
-The approved P104–P118 work extends the single root API without changing package
-version 1.14.0, runtime dependency policy, backend ownership, or prior release
-artifacts. Existing GitHub v1.14 archive does not include these source changes; npm
-remains unpublished. Runtime acceptance is recorded separately, and the presence of
-source or examples is not evidence of execution.
+The approved P104–P118 work extends the single root API in package 1.16.0 without
+changing runtime dependency policy, backend ownership, or prior release artifacts.
+The fifteen functional commits and separate shared integration are authorized for
+GitHub v1.16 publication through the existing CI gate; npm remains unpublished.
+Runtime acceptance and publication outcomes are recorded separately in ACCEPTANCE.
+Source or examples alone are not evidence of execution or platform certification.
 
 - Distribution and production assets: explicit CJS alongside ESM, reviewed exact
   archive inventory, browser-built atlas/bitmap/SDF/MSDF assets, and bounded
