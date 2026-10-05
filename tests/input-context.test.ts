@@ -3,6 +3,7 @@ import { InputManager } from '../packages/input/src/index.js';
 import type {
   ActionBinding,
   GamepadSnapshot,
+  GestureDetail,
 } from '../packages/input/src/index.js';
 
 class Canvas extends EventTarget {
@@ -106,6 +107,49 @@ afterEach(() => {
 });
 
 describe('cross-device input contexts', () => {
+  it('routes final release samples into gestures once and preserves pair identities', () => {
+    let time = 0;
+    const clock = vi.spyOn(performance, 'now').mockImplementation(() => time);
+    const seen: GestureDetail[] = [];
+    input.gestures.on('swipe', (detail) => seen.push(detail));
+    input.gestures.on('tap', (detail) => seen.push(detail));
+    input.gestures.on('pinch', (detail) => seen.push(detail));
+    try {
+      pointer('pointerdown', { clientX: 0, clientY: 0 });
+      time = 20;
+      pointer('pointerup', { clientX: 120, clientY: 0 });
+      expect(seen).toHaveLength(1);
+      expect(seen[0]).toMatchObject({
+        type: 'swipe',
+        center: { x: 120, y: 0 },
+        pointerIds: [1],
+      });
+      input.endFrame();
+      pointer('pointerdown', { pointerId: 19, clientX: 0, clientY: 0 });
+      pointer('pointerdown', { pointerId: 3, clientX: 100, clientY: 0 });
+      time = 40;
+      pointer('pointermove', {
+        pointerId: 3,
+        clientX: 150,
+        clientY: 0,
+        buttons: 1,
+      });
+      time = 60;
+      pointer('pointerup', { pointerId: 3, clientX: 200, clientY: 0 });
+      expect(seen.at(-1)).toMatchObject({
+        type: 'pinch',
+        phase: 'end',
+        scale: 2,
+        pointerIds: [19, 3],
+        center: { x: 100, y: 0 },
+      });
+      pointer('pointerup', { pointerId: 19, clientX: 0, clientY: 0 });
+      expect(seen.filter((detail) => detail.type === 'tap')).toEqual([]);
+    } finally {
+      clock.mockRestore();
+    }
+  });
+
   it('reserves physical sources across differently named actions without mutating raw devices', () => {
     input.actions.bind('shoot', { key: 'Space' }, { pointerButton: 2 });
     const gameplay = input.contexts.create('gameplay', {

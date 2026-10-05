@@ -261,4 +261,45 @@ describe('GestureRecognizer', () => {
     h.send('up', 1, 0, 0);
     expect(seen).toEqual(['tap']);
   });
+
+  it('consumes the final release position for swipe and pair end payloads', () => {
+    const swipe = harness();
+    swipe.send('down', 7, 0, 0);
+    swipe.advance(50);
+    swipe.send('up', 7, 100, 0);
+    expect(swipe.events.at(-1)).toMatchObject({
+      type: 'swipe',
+      direction: 'right',
+      center: { x: 100, y: 0 },
+      translation: { x: 100, y: 0 },
+      pointerIds: [7],
+    });
+    const pair = harness();
+    pair.send('down', 42, 0, 0);
+    pair.send('down', 11, 100, 0);
+    pair.advance(20);
+    pair.send('move', 11, 150, 0);
+    const start = pair.events[0]!;
+    pair.advance(20);
+    pair.send('up', 11, 200, 0);
+    expect(pair.events.at(-1)).toMatchObject({
+      type: 'pinch',
+      phase: 'end',
+      scale: 2,
+      center: { x: 100, y: 0 },
+      pointerIds: [42, 11],
+    });
+    expect(start.scale).toBe(1.5);
+    expect(start.center).toEqual({ x: 75, y: 0 });
+    pair.send('up', 42, 0, 0);
+    expect(pair.summary()).not.toContain('tap:end');
+  });
+
+  it('does not turn a far-away release with no preceding move into a tap', () => {
+    const h = harness();
+    h.send('down', 1, 0, 0);
+    h.advance(600);
+    h.send('up', 1, 60, 0);
+    expect(h.summary()).toEqual(['pan:start', 'pan:end']);
+  });
 });

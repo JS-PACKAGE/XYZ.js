@@ -124,7 +124,16 @@ export class GestureRecognizer extends EventTarget {
         this.move(sample, now);
         break;
       case 'up':
-        if (sample.button === 0) this.up(sample.id, now);
+        if (sample.button === 0) {
+          // Pointerup can carry movement not delivered by a preceding pointermove.
+          const contact = this.contacts.get(sample.id);
+          if (
+            contact &&
+            (contact.x !== sample.position.x || contact.y !== sample.position.y)
+          )
+            this.move(sample, now);
+          this.up(sample.id, now);
+        }
         break;
       case 'cancel':
         this.cancel(sample.id);
