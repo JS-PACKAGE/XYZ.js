@@ -1,1 +1,1 @@
-{"version":3,"mappings":"AAAA,OACE,WACA,iBACA,cACA,kBACA,gBACA,uBAEA,uBAIK,gBACP,OAAS,gBAA4C,YACrD,OACE,mBAMK,aACP,OACE,QACA,gBACA,kBACA,iBAKK,cACP,OACE,0BAOK","sources":["../../../../../packages/core/src/physics3d/index.ts"],"names":[],"file":"index.js"}
+{"version":3,"mappings":"AAAA,OACE,WACA,iBACA,cACA,kBACA,gBACA,uBAEA,uBAIK,gBACP,OAAS,gBAA4C,YACrD,OACE,mBAMK,aACP,OACE,QACA,gBACA,kBACA,iBAKK,cACP,OACE,0BAOK,iBACP,OACE,cAIK,eACP,OACE,cAIK,eACP,OACE,eAKK,gBACP,OAAS,uBAA0D","sources":["../../../../../packages/core/src/physics3d/index.ts"],"names":[],"file":"index.js"}

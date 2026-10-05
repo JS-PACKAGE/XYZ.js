@@ -39,3 +39,27 @@ export {
   type CharacterMovementOptions3D,
   type CharacterSupportDetachReason3D,
 } from './character.js';
+export {
+  Vehicle3D,
+  type VehicleOptions3D,
+  type VehicleWheelOptions3D,
+  type VehicleWheelState3D,
+} from './vehicle.js';
+export {
+  Ragdoll3D,
+  type RagdollOptions3D,
+  type RagdollBoneMapping3D,
+  type RagdollJointOptions3D,
+} from './ragdoll.js';
+export {
+  SoftBody3D,
+  type SoftBodyOptions3D,
+  type SoftBodyParticleOptions3D,
+  type SoftBodySpringOptions3D,
+  type SoftBodyParticle3D,
+} from './softbody.js';
+export { PhysicsDebugDraw3D, type PhysicsDebugDrawOptions3D } from './debug.js';
+export type {
+  PhysicsDebugSnapshot3D,
+  PhysicsDebugSegment3D,
+} from './debug-geometry.js';

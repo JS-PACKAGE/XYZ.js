@@ -1,0 +1,2 @@
+export const physicsProfiles=Object.freeze({vehicle:Object.freeze({maxWheels:16,spring:3e4,damping:4500,friction:1,maxForce:1e5,driveForce:4e3,brakeForce:8e3,lateralGrip:12}),ragdoll:Object.freeze({maxBones:128,referenceTolerance:.001}),softBody:Object.freeze({maxParticles:4096,maxSprings:32768,fixedDelta:1/240,maxSubSteps:64,stiffness:100,damping:2,drag:1,radius:.025,iterations:4,maxStretch:1.2}),debug:Object.freeze({circleSegments:24,maxSegments:1e5,width:.015,normalLength:.25,planeExtent:5})});
+//# sourceMappingURL=physics-profiles.js.map

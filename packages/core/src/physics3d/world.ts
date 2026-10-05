@@ -24,6 +24,11 @@ import {
 } from './ccd.js';
 import { rayIntersections3D } from './ray-intersections.js';
 import { physicsRayLimits } from '../../../../src/data/physics-ray.js';
+import {
+  PhysicsDebugSnapshotBuilder3D,
+  type PhysicsDebugSnapshot3D,
+} from './debug-geometry.js';
+import { physicsProfiles } from '../../../../src/data/physics-profiles.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -206,6 +211,37 @@ export class PhysicsWorld3D {
   }
   get joints(): readonly Joint3D[] {
     return this.constraints;
+  }
+  /** Explicit immutable wireframe snapshot; no collider/body references escape. */
+  debugSnapshot(): PhysicsDebugSnapshot3D {
+    this.refreshIndex();
+    const builder = new PhysicsDebugSnapshotBuilder3D();
+    for (const entry of this.ordered)
+      if (this.valid(entry)) builder.shape(entry.shape);
+    const end = new Vector3();
+    for (const contact of this.active) {
+      if (!this.valid(contact.a) || !this.valid(contact.b) || contact.ended)
+        continue;
+      const manifold = contact.manifold;
+      for (let i = 0; i < manifold.count; i++) {
+        const point = manifold.points[i],
+          normal = manifold.normals[i];
+        end.set(
+          point.x + normal.x * physicsProfiles.debug.normalLength,
+          point.y + normal.y * physicsProfiles.debug.normalLength,
+          point.z + normal.z * physicsProfiles.debug.normalLength,
+        );
+        builder.line(point, end, 'contact');
+      }
+    }
+    for (const joint of this.constraints) {
+      const [a, b] = joint.anchors();
+      builder.line(a, b, 'joint');
+      // Coincident anchor pairs still show their live pivot.
+      end.set(a.x + physicsProfiles.debug.normalLength, a.y, a.z);
+      builder.line(a, end, 'joint');
+    }
+    return builder.finish();
   }
   addJoint<T extends Joint3D>(joint: T): T {
     if (this.disposed) throw new Error('PhysicsWorld3D is destroyed.');

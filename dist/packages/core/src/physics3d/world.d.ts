@@ -3,6 +3,7 @@ import type { Object3D } from '../object3d.js';
 import { CapsuleCollider3D } from './collider.js';
 import type { Collider3D } from './collider.js';
 import { Joint3D } from './joints.js';
+import { type PhysicsDebugSnapshot3D } from './debug-geometry.js';
 export interface PhysicsStats3D {
     readonly candidatePairs: number;
     readonly narrowphaseTests: number;
@@ -111,6 +112,8 @@ export declare class PhysicsWorld3D {
     /** Mutation-aware geometry generation; query-only probes never change it. */
     get geometryRevision(): number;
     get joints(): readonly Joint3D[];
+    /** Explicit immutable wireframe snapshot; no collider/body references escape. */
+    debugSnapshot(): PhysicsDebugSnapshot3D;
     addJoint<T extends Joint3D>(joint: T): T;
     removeJoint(joint: Joint3D): boolean;
     private connected;

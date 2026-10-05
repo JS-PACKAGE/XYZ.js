@@ -3,3 +3,8 @@ export { RigidBody3D, type RigidBodyOptions3D } from './body.js';
 export { PhysicsWorld3D, type PhysicsWorldOptions3D, type PhysicsQueryOptions3D, type PhysicsHit3D, type PhysicsContact3D, type PhysicsStats3D, } from './world.js';
 export { Joint3D, DistanceJoint3D, BallSocketJoint3D, HingeJoint3D, type JointOptions3D, type DistanceJointOptions3D, type BallSocketJointOptions3D, type HingeJointOptions3D, } from './joints.js';
 export { CharacterController3D, type CharacterControllerOptions3D, type CharacterMoveResult3D, type CharacterStance3D, type CharacterStanceResult3D, type CharacterMovementOptions3D, type CharacterSupportDetachReason3D, } from './character.js';
+export { Vehicle3D, type VehicleOptions3D, type VehicleWheelOptions3D, type VehicleWheelState3D, } from './vehicle.js';
+export { Ragdoll3D, type RagdollOptions3D, type RagdollBoneMapping3D, type RagdollJointOptions3D, } from './ragdoll.js';
+export { SoftBody3D, type SoftBodyOptions3D, type SoftBodyParticleOptions3D, type SoftBodySpringOptions3D, type SoftBodyParticle3D, } from './softbody.js';
+export { PhysicsDebugDraw3D, type PhysicsDebugDrawOptions3D } from './debug.js';
+export type { PhysicsDebugSnapshot3D, PhysicsDebugSegment3D, } from './debug-geometry.js';
