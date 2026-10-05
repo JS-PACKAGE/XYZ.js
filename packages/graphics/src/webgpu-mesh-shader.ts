@@ -6,6 +6,7 @@ import {
   materialQuality,
 } from '../../../src/data/rendering.js';
 import { atlasWGSL } from './shadow-shaders.js';
+import { GraphicsError } from './errors.js';
 import { sheenWGSL, sheenEnvironmentWGSL } from './sheen-shaders.js';
 import { brdfWGSL } from './brdf-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
@@ -64,6 +65,7 @@ struct MeshUniforms {
   custom: array<vec4f, ${nativeMaterial3DLimits.uniformFloats / 4}>,
   fade: vec4f,
   coordinates: array<vec4f, ${materialTextureSlots.length * 2}>,
+  finish: array<vec4f, 5>,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -145,6 +147,9 @@ struct VertexOutput {
   @location(9) tangent: vec4f,
 };
 struct XYZVertex { position: vec3f, normal: vec3f };
+/* XYZ_PHYSICAL_TYPE */
+struct XYZPhysical { base: vec3f, metallic: f32, roughness: f32, occlusion: f32, emission: vec3f };
+/* XYZ_PHYSICAL_TYPE_END */
 /* XYZ_NATIVE_HOOKS */
 fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
   return XYZVertex(position, normal);
@@ -153,6 +158,11 @@ fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
   return texel;
 }
 /* XYZ_NATIVE_HOOKS_END */
+/* XYZ_PHYSICAL_DEFAULT */
+fn xyzPhysical(world: vec3f, normal: vec3f, uv: vec2f, surface: XYZPhysical) -> XYZPhysical {
+  return surface;
+}
+/* XYZ_PHYSICAL_DEFAULT_END */
 fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skin = jointPalette[input.joints.x] * input.weights.x
     + jointPalette[input.joints.y] * input.weights.y
@@ -326,9 +336,8 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     du = dpdx(materialUV(input,2u)); dv = -dpdy(materialUV(input,2u));
   }
   var ao = 1.0;
-  if (mesh.maps.z > 0.5) { ao = textureSample(occlusionMap, occlusionSampler, materialUV(input,3u)).r; }
-  var emission = vec3f(1.0);
-  if (mesh.maps.w > 0.5) { emission = textureSample(emissiveMap, emissiveSampler, materialUV(input,4u)).rgb; }
+  if (mesh.maps.z > 0.5) { ao = mix(1.0,textureSample(occlusionMap, occlusionSampler, materialUV(input,3u)).r,mesh.emissiveOcclusion.w); }
+  var emission = select(vec3f(1.0),decodeSRGB(textureSample(emissiveMap, emissiveSampler, materialUV(input,4u)).rgb),mesh.maps.w > 0.5 && mesh.maps.w < 1.5);
   let effectiveFront = front == (input.orientation > 0.0);
   let masked = mesh.settings.w > 0.5 && mesh.settings.w < 1.5;
   let coverage = mesh.sheenMaps.w > 0.5;
@@ -338,8 +347,8 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     coverageAlpha = clamp((sampledAlpha-mesh.settings.x)/max(fwidth(sampledAlpha),${materialQuality.minAlphaFootprint})+0.5,0.0,1.0);
     if (coverageAlpha <= 0.0) { discard; }
   }
-  let base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
-  let metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
+  var base = decodeSRGB(texel.rgb)*mesh.tint.rgb*input.color.rgb;
+  var metal = clamp(mesh.material.y*select(1.0,mr.b,mesh.maps.x > 0.5),0.0,1.0);
   var rough = clamp(mesh.material.z*select(1.0,mr.g,mesh.maps.x > 0.5),0.04,1.0);
   var specularWeight = mesh.specularParams.x;
   if (mesh.specularParams.z > 0.5) { specularWeight *= textureSample(specularMap,specularSampler,materialUV(input,5u)).a; }
@@ -406,6 +415,58 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       nc = safeNormal(coatFrame*vec3f(sampled.xy*mesh.clearcoat.z,sampled.z));
     }
   }
+  if (mesh.finish[0].x + mesh.finish[0].z + mesh.finish[1].w + mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w + mesh.finish[3].x + mesh.finish[3].y > 0.0) {
+    let view = safeNormal(scene.camera.xyz - input.world);
+    if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5) {
+      let uv = materialUV(input, 0u);
+      let dir = mappedNormal.xy * mesh.finish[1].w;
+      var best = uv;
+      var bestH = 1.0;
+      for (var step = 0; step < 4; step++) {
+        let sampleUV = uv + dir * (f32(step) / 3.0);
+        let h = textureSample(normalMap, normalSampler, sampleUV).z;
+        if (h < bestH) { bestH = h; best = sampleUV; }
+      }
+      // Sample outside the data-dependent branch: textureSample needs uniform control flow.
+      let parallaxBase = decodeSRGB(textureSample(baseMap, materialSampler, best).rgb) * mesh.tint.rgb * input.color.rgb;
+      base = select(base, parallaxBase, bestH < 1.0);
+    }
+    if (mesh.finish[3].y > 0.0) {
+      let weight = abs(n);
+      let sum = max(weight.x + weight.y + weight.z, 0.000001);
+      let px = decodeSRGB(textureSample(baseMap, materialSampler, input.world.zy).rgb);
+      let py = decodeSRGB(textureSample(baseMap, materialSampler, input.world.xz).rgb);
+      let pz = decodeSRGB(textureSample(baseMap, materialSampler, input.world.xy).rgb);
+      base = mix(base, (px * weight.x + py * weight.y + pz * weight.z) / sum, mesh.finish[3].y);
+    }
+    if (mesh.finish[3].x > 0.0) {
+      let detail = decodeSRGB(textureSample(baseMap, materialSampler, materialUV(input, 0u) * (1.0 + mesh.finish[3].z * 7.0)).rgb);
+      base = mix(base, base * detail * 2.0, mesh.finish[3].x);
+    }
+    if (mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w > 0.0) {
+      base = mix(base, base * base, mesh.finish[2].x);
+      rough = mix(rough, 0.04, mesh.finish[2].x * (1.0 - metal));
+      let up = clamp(n.y, 0.0, 1.0);
+      base = mix(base, vec3f(0.85, 0.88, 0.92), mesh.finish[2].y * up);
+      rough = mix(rough, 0.75, mesh.finish[2].y * up);
+      base = mix(base, base * vec3f(0.42, 0.30, 0.16), mesh.finish[2].z);
+      rough = min(1.0, rough + 0.35 * mesh.finish[2].w);
+    }
+    if (mesh.finish[0].x > 0.0) {
+      let spin = mesh.finish[0].y;
+      let tangent = safeNormal(input.tangent.xyz * cos(spin) + cross(n, input.tangent.xyz) * sin(spin));
+      let aligned = abs(dot(tangent, view));
+      rough = mix(mix(rough, 0.04, mesh.finish[0].x), mix(rough, 1.0, mesh.finish[0].x), aligned);
+    }
+  }
+  // Native physical hooks see the final shading normal and decoded material factors, before filtering and lighting.
+  let physical = xyzPhysical(input.world, n, input.uv, XYZPhysical(base, metal, rough, ao,
+    mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5 && mesh.maps.w < 1.5)));
+  base = max(physical.base, vec3f(0.0));
+  metal = clamp(physical.metallic, 0.0, 1.0);
+  rough = clamp(physical.roughness, 0.04, 1.0);
+  ao = clamp(physical.occlusion, 0.0, 1.0);
+  emission = max(physical.emission, vec3f(0.0));
   if (mesh.sheenMaps.z > 0.0) {
     let nx = dpdx(n); let ny = dpdy(n);
     let alpha = rough*rough;
@@ -437,7 +498,13 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   if (sheenMax > 0.0) { sheenEnergy = sheenAlbedo(clamp(dot(n,v),0.0,1.0),sheenRoughness); }
   let nv=clamp(dot(n,v),0.0001,1.0);
   let ab=environmentBRDF(nv,rough);
-  let f0=mix(dielectricF0,min(base,vec3f(1.0)),metal);
+  var f0=mix(dielectricF0,min(base,vec3f(1.0)),metal);
+  if (mesh.finish[0].z > 0.0) {
+    let film = mesh.finish[1].x * nv * 6.2831853;
+    let hue = vec3f(sin(film), sin(film + 2.0943951), sin(film + 4.1887902)) * 0.5 + 0.5;
+    let fresnel = pow(1.0 - nv, 5.0) * (mesh.finish[0].w - 1.0);
+    f0 = mix(f0, hue, clamp(mesh.finish[0].z * (0.15 + fresnel), 0.0, 1.0));
+  }
   let dielectric90=select(vec3f(specularWeight),dielectricF0,mesh.specularParams.y>0.5);
   let f90=mix(dielectric90,vec3f(1.0),metal);
   let compensation=ggxCompensation(f0,ab);
@@ -452,7 +519,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     coatCompensation=ggxCompensation(vec3f(0.04),coatAB).x;
     coatEnergy=clamp((0.04*coatAB.x+coatAB.y)*coatCompensation,0.0,1.0);
   }
-  let occlusion = select(1.0,mix(1.0,ao,mesh.emissiveOcclusion.w),mesh.maps.z > 0.5);
+  let occlusion = ao;
   let probeWeights = reflectionWeights(input.world);
   let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;
   var color=base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
@@ -501,11 +568,26 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       if (exit.w > 0.000001) { uv = exit.xy/exit.w*vec2f(0.5,-0.5)+vec2f(0.5); }
     }
     var transmitted = roughTransmission(uv,rough,mesh.transmission.w);
+    if (mesh.finish[1].z > 0.0) {
+      let split = min(mesh.finish[1].z, 1.0) * 0.02;
+      let red = roughTransmission(uv + vec2f(split, 0.0), rough, mesh.transmission.w);
+      let blue = roughTransmission(uv - vec2f(split, 0.0), rough, mesh.transmission.w);
+      transmitted = vec3f(red.r, transmitted.g, blue.b);
+    }
     if (distance > 0.0 && mesh.transmission.z > 0.0) { transmitted *= pow(mesh.attenuation.rgb,vec3f(distance*mesh.transmission.z)); }
     color+=transmitted*base*transmission*(1.0-metal)*remaining*sheenRetention;
   }
   color+=sheenTint*sheenLighting;
-  color += mesh.emissiveOcclusion.rgb*select(vec3f(1.0),decodeSRGB(emission),mesh.maps.w > 0.5);
+  if (mesh.finish[1].y > 0.0) {
+    let wrap = mesh.finish[4].w;
+    let wrapped = clamp((dot(n, direction) + wrap) / (1.0 + wrap), 0.0, 1.0);
+    color += base * mesh.finish[4].rgb * mesh.finish[1].y * wrapped * scene.lightColorAmbient.rgb * max(scene.lightDirection.w, 0.0) * visibility;
+  }
+  if (mesh.maps.w > 1.5) {
+    let baked = decodeSRGB(textureSample(emissiveMap, emissiveSampler, materialUV(input, 4u)).rgb);
+    color *= mix(vec3f(1.0), baked, mesh.finish[3].w);
+  }
+  color += emission;
   if(coatWeight>0.0) {color=color*(1.0-coatWeight*coatEnergy)+coating*coatWeight;}
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),select(opacity,coverageAlpha,coverage));
@@ -550,17 +632,55 @@ struct SkyOutput {
 }
 `;
 
+function definesHook(source: string, name: string): boolean {
+  return new RegExp(
+    `(?:^|[;{}\\n])\\s*(?:fn\\s+${name}|(?:void|vec[234]|float|XYZVertex|XYZPhysical)\\s+${name})\\s*\\(`,
+    'm',
+  ).test(source);
+}
+
 /** Compose native hook declarations, not a shader-language translator. */
-export function nativeMeshWGSL(source: string): string {
-  const start = webgpuMeshShader.indexOf('/* XYZ_NATIVE_HOOKS */');
-  const end =
-    webgpuMeshShader.indexOf('/* XYZ_NATIVE_HOOKS_END */') +
-    '/* XYZ_NATIVE_HOOKS_END */'.length;
-  return (
-    webgpuMeshShader.slice(0, start) +
+export function nativeMeshWGSL(source: string, physical = false): string {
+  const marker = (name: string) => ({
+    start: webgpuMeshShader.indexOf(`/* XYZ_${name} */`),
+    end:
+      webgpuMeshShader.indexOf(`/* XYZ_${name}_END */`) +
+      `/* XYZ_${name}_END */`.length,
+  });
+  const hooks = marker('NATIVE_HOOKS');
+  const fallback = marker('PHYSICAL_DEFAULT');
+  if (physical && !definesHook(source, 'xyzPhysical'))
+    throw new GraphicsError(
+      'NativePBRMaterial requires a xyzPhysical native hook.',
+    );
+  // Physical hooks are additive. Unreplaced deform/opacity defaults stay in every pass.
+  const kept = !physical
+    ? ''
+    : `${
+        definesHook(source, 'xyzDeform')
+          ? ''
+          : `fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
+  return XYZVertex(position, normal);
+}
+`
+      }${
+        definesHook(source, 'xyzSurface')
+          ? ''
+          : `fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
+  return texel;
+}
+`
+      }`;
+  // Physical materials own the PBR maps; basic native materials rename them to xyzMap0..3.
+  const composed =
+    webgpuMeshShader.slice(0, hooks.start) +
+    kept +
     source +
-    webgpuMeshShader.slice(end)
-  )
+    webgpuMeshShader.slice(hooks.end, fallback.start) +
+    (physical ? '' : webgpuMeshShader.slice(fallback.start, fallback.end)) +
+    webgpuMeshShader.slice(fallback.end);
+  if (physical) return composed;
+  return composed
     .replaceAll('metallicRoughnessMap', 'xyzMap0')
     .replaceAll('normalMap', 'xyzMap1')
     .replaceAll('occlusionMap', 'xyzMap2')

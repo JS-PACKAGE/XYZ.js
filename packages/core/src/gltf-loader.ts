@@ -15,6 +15,7 @@ import { generateMikkTangents, remapVertexData } from './geometry-tangents.js';
 import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
+import type { TextureMaterial } from './mesh.js';
 import { PBRMaterial } from './pbr-material.js';
 import type { TextureCoordinateOptions } from './pbr-material.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
@@ -36,11 +37,26 @@ export interface GLTFLights {
   spot: SpotLight[];
   directional: GLTFDirectionalLight[];
 }
+export interface GLTFMaterialVariant {
+  readonly name: string;
+  /** Meshes whose material is switched by this variant, with the mapped material. */
+  readonly mappings: readonly {
+    readonly mesh: Mesh;
+    readonly material: TextureMaterial;
+  }[];
+}
 export interface GLTFAsset {
   readonly scene: Group;
   readonly animations: AnimationClip[];
   /** Raw glTF photometric values; add them to a Scene and scale `intensity` as needed. */
   readonly lights: GLTFLights;
+  /** KHR_materials_variants names in document order; empty when the model declares none. */
+  readonly variants: readonly GLTFMaterialVariant[];
+  /**
+   * Assigns one variant's mapped materials; `undefined` restores the defaults.
+   * Unmapped meshes keep their default material. Materials stay owned by the asset.
+   */
+  selectVariant(name: string | undefined): void;
   dispose(): void;
 }
 export interface GLTFLoadOptions {
@@ -326,6 +342,10 @@ const supportedExtensions = new Set([
   'KHR_materials_sheen',
   'KHR_materials_transmission',
   'KHR_materials_volume',
+  'KHR_materials_variants',
+  'KHR_materials_anisotropy',
+  'KHR_materials_iridescence',
+  'KHR_materials_dispersion',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -1047,6 +1067,59 @@ export class GLTFLoader {
           extensions.KHR_materials_volume === undefined
             ? undefined
             : object(extensions.KHR_materials_volume, 'volume');
+        const anisotropy =
+          extensions.KHR_materials_anisotropy === undefined
+            ? undefined
+            : object(extensions.KHR_materials_anisotropy, 'anisotropy');
+        const iridescence =
+          extensions.KHR_materials_iridescence === undefined
+            ? undefined
+            : object(extensions.KHR_materials_iridescence, 'iridescence');
+        const dispersion =
+          extensions.KHR_materials_dispersion === undefined
+            ? undefined
+            : object(extensions.KHR_materials_dispersion, 'dispersion');
+        if (
+          anisotropy?.anisotropyTexture !== undefined ||
+          iridescence?.iridescenceTexture !== undefined ||
+          iridescence?.iridescenceThicknessTexture !== undefined
+        )
+          throw new AssetError(
+            'Anisotropy and iridescence textures are unsupported.',
+          );
+        if (dispersion && !transmission)
+          throw new AssetError('Dispersion requires a transmission extension.');
+        const finish = {
+          anisotropy: Math.min(
+            1,
+            Math.abs(number(anisotropy?.anisotropyStrength ?? 0, 'anisotropy')),
+          ),
+          anisotropyRotation: number(
+            anisotropy?.anisotropyRotation ?? 0,
+            'anisotropy rotation',
+          ),
+          iridescence: number(
+            iridescence?.iridescenceFactor ?? 0,
+            'iridescence factor',
+          ),
+          iridescenceIor: number(
+            iridescence?.iridescenceIor ?? 1.3,
+            'iridescence IOR',
+          ),
+          iridescenceThickness: Math.min(
+            1,
+            Math.max(
+              0,
+              (number(
+                iridescence?.iridescenceThicknessMaximum ?? 400,
+                'iridescence thickness',
+              ) -
+                100) /
+                700,
+            ),
+          ),
+          dispersion: number(dispersion?.dispersion ?? 0, 'dispersion'),
+        };
         if (volume && !transmission)
           throw new AssetError(
             'Volume materials require a transmission extension.',
@@ -1060,7 +1133,15 @@ export class GLTFLoader {
               );
         if (
           unlit &&
-          (ior || specular || clearcoat || sheen || transmission || volume)
+          (ior ||
+            specular ||
+            clearcoat ||
+            sheen ||
+            transmission ||
+            volume ||
+            anisotropy ||
+            iridescence ||
+            dispersion)
         )
           throw new AssetError(
             'PBR material extensions cannot be combined with unlit.',
@@ -1158,6 +1239,7 @@ export class GLTFLoader {
         }
         materials.push(
           new PBRMaterial({
+            finish,
             texture: base?.texture ?? (await getWhite()),
             textureSampler: base?.sampler,
             textureCoordinates,
@@ -1266,6 +1348,58 @@ export class GLTFLoader {
           doubleSided: false,
           alphaMode: 'OPAQUE',
         }));
+      const variantDefs = (() => {
+        const extension = document.extensions;
+        if (extension === undefined) return [];
+        const variants = object(extension, 'extensions').KHR_materials_variants;
+        if (variants === undefined) return [];
+        return list(object(variants, 'variants').variants, 'variants').map(
+          (def) => {
+            if (typeof def.name !== 'string')
+              throw new AssetError('Material variant requires a name.');
+            return def.name;
+          },
+        );
+      })();
+      const variantMappings: { mesh: Mesh; material: TextureMaterial }[][] =
+        variantDefs.map(() => []);
+      const variantDefaults = new Map<Mesh, TextureMaterial>();
+      const registerVariants = (
+        mesh: Mesh,
+        primitive: RecordData,
+        hasUV: readonly [boolean, boolean],
+      ): void => {
+        if (primitive.extensions === undefined) return;
+        const extension = object(
+          primitive.extensions,
+          'primitive extensions',
+        ).KHR_materials_variants;
+        if (extension === undefined) return;
+        for (const mapping of list(
+          object(extension, 'primitive variants').mappings,
+          'variant mappings',
+        )) {
+          const material = reference(
+            materials,
+            mapping.material,
+            'variant material',
+          );
+          for (const coordinates of Object.values(material.textureCoordinates))
+            if (!hasUV[coordinates.texCoord])
+              throw new AssetError(
+                `Variant material requires missing TEXCOORD_${coordinates.texCoord}.`,
+              );
+          if (!Array.isArray(mapping.variants) || !mapping.variants.length)
+            throw new AssetError('Variant mapping requires variants.');
+          for (const id of mapping.variants) {
+            const index = integer(id, 'variant index');
+            if (index >= variantDefs.length)
+              throw new AssetError('variant reference is out of bounds.');
+            variantMappings[index].push({ mesh, material });
+          }
+          variantDefaults.set(mesh, mesh.material);
+        }
+      };
       for (let i = 0; i < nodeDefs.length; i++) nodes.push(new Group());
       const parents = new Int32Array(nodes.length).fill(-1);
       for (let i = 0; i < nodes.length; i++) {
@@ -1657,6 +1791,7 @@ export class GLTFLoader {
           const morph = morphWeights
             ? readMorph(primitive, position.count, morphWeights, sourceVertices)
             : undefined;
+          let built: Mesh;
           if (skin) {
             const influencesPerVertex =
               attributes.JOINTS_1 === undefined ? 4 : 8;
@@ -1715,18 +1850,21 @@ export class GLTFLoader {
                 }
               }
             }
-            nodes[i].add(
-              new SkinnedMesh({
-                geometry,
-                material,
-                morph,
-                ...skin,
-                jointIndices,
-                weights,
-                influencesPerVertex,
-              }),
-            );
-          } else nodes[i].add(new Mesh({ geometry, material, morph }));
+            built = new SkinnedMesh({
+              geometry,
+              material,
+              morph,
+              ...skin,
+              jointIndices,
+              weights,
+              influencesPerVertex,
+            });
+          } else built = new Mesh({ geometry, material, morph });
+          nodes[i].add(built);
+          registerVariants(built, primitive, [
+            uv !== undefined,
+            uv1 !== undefined,
+          ]);
         }
       }
       const animations = animationDefs.map((def, animationIndex) => {
@@ -1828,11 +1966,29 @@ export class GLTFLoader {
       context.signal.throwIfAborted();
       const ownedScene = scene;
       const lights = this.readLights(document, nodeDefs, nodes);
+      const variants: readonly GLTFMaterialVariant[] = variantDefs.map(
+        (name, index) => ({ name, mappings: variantMappings[index] }),
+      );
       let disposed = false;
       return {
         scene: ownedScene,
         animations,
         lights,
+        variants,
+        selectVariant: (name) => {
+          if (disposed)
+            throw new AssetError('Cannot select a variant after dispose().');
+          const chosen =
+            name === undefined
+              ? undefined
+              : variants.find((variant) => variant.name === name);
+          if (name !== undefined && !chosen)
+            throw new AssetError(`Unknown material variant ${name}.`);
+          for (const [mesh, material] of variantDefaults)
+            mesh.material = material;
+          for (const mapping of chosen?.mappings ?? [])
+            mapping.mesh.material = mapping.material;
+        },
         dispose: () => {
           if (disposed) return;
           disposed = true;

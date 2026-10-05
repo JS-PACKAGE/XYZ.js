@@ -11,15 +11,27 @@ import { WebGPUParticles3D } from './webgpu-particles3d.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import {
   NativeMaterial3D,
+  isNativeMaterial3D,
   nativeMaterialSources,
 } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { nativeMeshWGSL } from './webgpu-mesh-shader.js';
 import { beginTimedRenderPass, beginTimedComputePass } from './gpu-timing.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
-import { Mesh, materialBaseTexture } from '../../core/src/mesh.js';
-import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
+import {
+  Mesh,
+  materialBaseTexture,
+  type TextureMaterial,
+} from '../../core/src/mesh.js';
+import {
+  PBRMaterial,
+  fillPBRFinish,
+  pbrEmissiveSlot,
+  pbrTextureSources,
+  PBR_FINISH_FLOATS,
+} from '../../core/src/pbr-material.js';
 import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
@@ -84,7 +96,8 @@ const meshUniformFloats =
   REFLECTION_FLOAT_COUNT +
   nativeMaterial3DLimits.uniformFloats +
   4 +
-  MATERIAL_UV_FLOAT_COUNT;
+  MATERIAL_UV_FLOAT_COUNT +
+  PBR_FINISH_FLOATS;
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -103,6 +116,7 @@ interface CachedMesh {
   uniform: GPUBuffer;
   bindGroup: GPUBindGroup;
   materialGroup: GPUBindGroup;
+  material: TextureMaterial | undefined;
   environment: EnvironmentMap | undefined;
   instance: GPUBuffer;
   instanceVersion: number;
@@ -147,11 +161,16 @@ export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private textureEpoch = 0;
   private readonly nativeMaterials = new Map<
-    NativeMaterial3D,
-    { pipelines: readonly GPURenderPipeline[]; unsubscribe: () => void }
+    NativeMaterial3D | NativePBRMaterial,
+    {
+      module: GPUShaderModule;
+      pipelines: readonly GPURenderPipeline[];
+      coverage: Map<number, GPURenderPipeline>;
+      unsubscribe: () => void;
+    }
   >();
   private readonly pendingMaterials = new Map<
-    NativeMaterial3D,
+    NativeMaterial3D | NativePBRMaterial,
     Promise<void>
   >();
   private destroyed = false;
@@ -1028,7 +1047,7 @@ export class WebGPUMeshPipeline {
         }
         if (
           mesh.worldVisible &&
-          mesh.material instanceof NativeMaterial3D &&
+          isNativeMaterial3D(mesh.material) &&
           !mesh.material.transparent
         )
           ++this.depthRevision;
@@ -1079,15 +1098,14 @@ export class WebGPUMeshPipeline {
       }
       for (const object of this.gathered) {
         if (
-          object.material instanceof NativeMaterial3D &&
+          isNativeMaterial3D(object.material) &&
           (object.material.destroyed ||
             !this.nativeMaterials.has(object.material))
         )
           throw new GraphicsError(
             'NativeMaterial3D must be explicitly prepared before rendering.',
           );
-        if (object.material instanceof NativeMaterial3D)
-          object.material.validate();
+        if (isNativeMaterial3D(object.material)) object.material.validate();
         const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
@@ -1566,7 +1584,9 @@ export class WebGPUMeshPipeline {
   unloadGeometry(geometry: Geometry): void {
     this.geometries.get(geometry)?.allocation.destroy();
   }
-  async prepareMaterial(material: NativeMaterial3D): Promise<void> {
+  async prepareMaterial(
+    material: NativeMaterial3D | NativePBRMaterial,
+  ): Promise<void> {
     material.validate();
     if (this.destroyed)
       throw new GraphicsError('Cannot prepare on a destroyed native renderer.');
@@ -1582,7 +1602,10 @@ export class WebGPUMeshPipeline {
       try {
         module = this.device.createShaderModule({
           label: material.label,
-          code: nativeMeshWGSL(material.wgsl),
+          code: nativeMeshWGSL(
+            material.wgsl,
+            material instanceof NativePBRMaterial,
+          ),
         });
       } finally {
         shaderValidation = this.device.popErrorScope();
@@ -1646,15 +1669,28 @@ export class WebGPUMeshPipeline {
       if (material.destroyed || this.destroyed)
         throw new GraphicsError('Native material preparation was invalidated.');
       material.validate();
-      this.cacheTexture(materialBaseTexture(material), true);
-      for (const texture of nativeMaterialSources(material))
-        this.cacheTexture(texture, false);
+      this.cacheTexture(
+        materialBaseTexture(material),
+        !(material instanceof PBRMaterial),
+      );
+      if (material instanceof NativePBRMaterial) {
+        for (const texture of Object.values(pbrTextureSources(material)))
+          if (texture) this.cacheTexture(texture, false);
+      } else {
+        for (const texture of nativeMaterialSources(material))
+          this.cacheTexture(texture, false);
+      }
       const unsubscribe = material.onDestroy(() => {
         this.nativeMaterials.delete(material);
         for (const [object, entry] of this.meshes)
           if (object.material === material) entry.allocation.destroy();
       });
-      this.nativeMaterials.set(material, { pipelines, unsubscribe });
+      this.nativeMaterials.set(material, {
+        module,
+        pipelines,
+        coverage: new Map(),
+        unsubscribe,
+      });
     })();
     this.pendingMaterials.set(material, work);
     try {
@@ -1814,10 +1850,9 @@ export class WebGPUMeshPipeline {
   ): number {
     const geometry = this.geometries.get(object.renderGeometry)!;
     const mesh = this.meshes.get(object)!;
-    const custom =
-      object.material instanceof NativeMaterial3D
-        ? this.nativeMaterials.get(object.material)
-        : undefined;
+    const custom = isNativeMaterial3D(object.material)
+      ? this.nativeMaterials.get(object.material)
+      : undefined;
     if (variant < 2 && (this.visibility.entries.get(object)?.fade ?? 1) < 1)
       variant += 4;
     let pipeline = custom
@@ -1842,29 +1877,43 @@ export class WebGPUMeshPipeline {
         throw new GraphicsError(
           'Alpha-to-coverage requires renderer antialiasing.',
         );
-      let coveragePipeline = this.coveragePipelines.get(variant);
-      if (!coveragePipeline) {
-        const recipe = this.pipelineRecipes[variant];
-        coveragePipeline = this.device.createRenderPipeline({
-          ...recipe,
-          fragment: {
-            ...recipe.fragment!,
-            // 3D always clears opaque alpha; coverage must not attenuate it a second time.
-            targets: Array.from(recipe.fragment!.targets, (target) => ({
-              ...target!,
-              blend: undefined,
-              writeMask:
-                GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE,
-            })),
-          },
-          multisample: {
-            count: this.sampleCount,
-            alphaToCoverageEnabled: true,
-          },
-        });
-        this.coveragePipelines.set(variant, coveragePipeline);
+      const recipe = this.pipelineRecipes[variant]!;
+      const targets = Array.from(recipe.fragment!.targets, (target) => ({
+        ...target!,
+        blend: undefined,
+        writeMask: GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE,
+      }));
+      if (custom && isNativeMaterial3D(object.material)) {
+        let coveragePipeline = custom.coverage.get(variant);
+        if (!coveragePipeline) {
+          coveragePipeline = this.device.createRenderPipeline({
+            ...recipe,
+            label: object.material.label,
+            vertex: { ...recipe.vertex, module: custom.module },
+            fragment: { ...recipe.fragment!, module: custom.module, targets },
+            multisample: {
+              count: this.sampleCount,
+              alphaToCoverageEnabled: true,
+            },
+          });
+          custom.coverage.set(variant, coveragePipeline);
+        }
+        pipeline = coveragePipeline;
+      } else {
+        let coveragePipeline = this.coveragePipelines.get(variant);
+        if (!coveragePipeline) {
+          coveragePipeline = this.device.createRenderPipeline({
+            ...recipe,
+            fragment: { ...recipe.fragment!, targets },
+            multisample: {
+              count: this.sampleCount,
+              alphaToCoverageEnabled: true,
+            },
+          });
+          this.coveragePipelines.set(variant, coveragePipeline);
+        }
+        pipeline = coveragePipeline;
       }
-      pipeline = coveragePipeline;
     }
     pass.setPipeline(pipeline);
     pass.setBindGroup(1, mesh.bindGroup);
@@ -2183,8 +2232,9 @@ export class WebGPUMeshPipeline {
       : native && native[2]
         ? this.cacheTexture(native[2], false).view
         : this.whiteView;
-    const emissive = sources?.emissiveTexture
-      ? this.cacheTexture(sources.emissiveTexture, false).view
+    const emissiveSlot = pbr ? pbrEmissiveSlot(material) : undefined;
+    const emissive = emissiveSlot?.texture
+      ? this.cacheTexture(emissiveSlot.texture, false).view
       : native && native[3]
         ? this.cacheTexture(native[3], false).view
         : this.whiteView;
@@ -2238,7 +2288,11 @@ export class WebGPUMeshPipeline {
         this.stats.upload(skin.jointPalette.byteLength);
         existing.paletteVersion = skin.paletteVersion;
       }
-      if (existing.textureEpoch === this.textureEpoch) return existing;
+      if (
+        existing.textureEpoch === this.textureEpoch &&
+        existing.material === material
+      )
+        return existing;
     }
     const allocation =
       existing?.allocation ??
@@ -2429,6 +2483,7 @@ export class WebGPUMeshPipeline {
         textureEpoch: this.textureEpoch,
         bindGroup,
         materialGroup,
+        material,
         environment: undefined,
         instance,
         instanceVersion: object instanceof InstancedMesh ? object.version : 0,
@@ -2446,6 +2501,7 @@ export class WebGPUMeshPipeline {
         seen: this.frame,
       };
       entry.textureEpoch = this.textureEpoch;
+      entry.material = material;
       entry.materialGroup = materialGroup;
       this.meshes.set(object, entry);
       return entry;
@@ -2679,7 +2735,7 @@ export class WebGPUMeshPipeline {
       data[28] = pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0;
       data[29] = pbrTextureSources(material).normalTexture ? 1 : 0;
       data[30] = pbrTextureSources(material).occlusionTexture ? 1 : 0;
-      data[31] = pbrTextureSources(material).emissiveTexture ? 1 : 0;
+      data[31] = pbrEmissiveSlot(material).mode;
       data[32] = material.alphaCutoff;
       data[33] = material.doubleSided ? 1 : 0;
       data[36] = material.specularColor[0];
@@ -2739,8 +2795,7 @@ export class WebGPUMeshPipeline {
     data[47] = object instanceof SkinnedMesh ? 1 : 0;
     data[51] = materialBaseTexture(material).kind === 'native' ? 1 : 0;
     const customOffset = 76 + REFLECTION_FLOAT_COUNT;
-    if (material instanceof NativeMaterial3D)
-      data.set(material.uniforms, customOffset);
+    if (isNativeMaterial3D(material)) data.set(material.uniforms, customOffset);
     const visibility = this.visibility.entries.get(object);
     data[customOffset + nativeMaterial3DLimits.uniformFloats] =
       visibility?.fade ?? 1;
@@ -2754,6 +2809,9 @@ export class WebGPUMeshPipeline {
       data,
       customOffset + nativeMaterial3DLimits.uniformFloats + 4,
     );
+    if (material instanceof PBRMaterial)
+      fillPBRFinish(material, data, meshUniformFloats - PBR_FINISH_FLOATS);
+    else data.fill(0, meshUniformFloats - PBR_FINISH_FLOATS, meshUniformFloats);
     const packed = visibility?.instances;
     if (
       packed &&

@@ -6,6 +6,7 @@ import {
   Texture,
   PBRMaterial,
   ProceduralMaterial,
+  type PBRFinishOptions,
   type ProceduralMaterialKind,
   PointLight,
   EnvironmentMap,
@@ -26,6 +27,19 @@ let white: Texture | undefined;
 let environment: EnvironmentMap | undefined;
 const presets = new Map<ProceduralMaterialKind, ProceduralMaterial>();
 const materialSelect = document.querySelector<HTMLSelectElement>('#material')!;
+const finishSelect = document.querySelector<HTMLSelectElement>('#finish')!;
+const finishes: Readonly<Record<string, PBRFinishOptions>> = {
+  none: {},
+  anisotropy: { anisotropy: 0.9, anisotropyRotation: 0.7 },
+  iridescence: { iridescence: 1, iridescenceThickness: 0.5 },
+  subsurface: { subsurface: 0.8, subsurfaceColor: [1, 0.35, 0.25] },
+  height: { heightScale: 0.1 },
+  wet: { wetness: 1 },
+  snow: { snow: 1 },
+  dirt: { dirt: 0.8, damage: 0.6 },
+  detail: { detailStrength: 1, layerBlend: 1 },
+  triplanar: { triplanar: 1 },
+};
 let cubemap: EnvironmentMap | undefined;
 let controls: OrbitControls | undefined;
 let effect: PostProcessor2D | undefined;
@@ -71,6 +85,12 @@ try {
     'metal',
     'fabric',
     'marble',
+    'concrete',
+    'tiles',
+    'leather',
+    'sand',
+    'rust',
+    'snow',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
@@ -122,10 +142,11 @@ try {
     readonly marker: Mesh;
     readonly samples: Mesh[] = [];
     readonly sampleGeometry = Geometry.sphere(0.55);
-    readonly sampleMaterials: Partial<
+    sampleMaterials: Partial<
       Record<'plain' | ProceduralMaterialKind, PBRMaterial[]>
     > = {};
     private selectedMaterial = '';
+    private selectedFinish = '';
     readonly localProbe = new ReflectionProbe({
       environment: cubemap!,
       position: [2, 3.3, 0],
@@ -150,29 +171,6 @@ try {
       this.fog.mode = 'exp2';
       this.fog.color = [0.5, 0.6, 0.75];
       this.pointLights.push(this.point);
-      for (const kind of ['plain', ...presets.keys()]) {
-        const preset = presets.get(kind as ProceduralMaterialKind);
-        const materials: PBRMaterial[] = [];
-        for (let y = 0; y < 5; y++)
-          for (let x = 0; x < 5; x++) {
-            const factors = {
-              metallic: x / 4,
-              roughness: 0.05 + (y / 4) * 0.95,
-            };
-            materials.push(
-              preset
-                ? preset.createMaterial(factors)
-                : new PBRMaterial({
-                    texture,
-                    color: [0.72, 0.46, 0.18],
-                    ...factors,
-                    alphaMode: 'OPAQUE',
-                  }),
-            );
-          }
-        this.sampleMaterials[kind as 'plain' | ProceduralMaterialKind] =
-          materials;
-      }
       this.add(
         new Mesh({
           geometry: Geometry.plane(18, 14),
@@ -198,14 +196,48 @@ try {
         }),
       );
     }
+    private rebuildSamples(finish: string): void {
+      this.sampleMaterials = {};
+      for (const kind of ['plain', ...presets.keys()]) {
+        const preset = presets.get(kind as ProceduralMaterialKind);
+        const materials: PBRMaterial[] = [];
+        for (let y = 0; y < 5; y++)
+          for (let x = 0; x < 5; x++) {
+            const factors = {
+              metallic: x / 4,
+              roughness: 0.05 + (y / 4) * 0.95,
+              finish: finishes[finish],
+            };
+            materials.push(
+              preset
+                ? preset.createMaterial(factors)
+                : new PBRMaterial({
+                    texture,
+                    color: [0.72, 0.46, 0.18],
+                    ...factors,
+                    alphaMode: 'OPAQUE',
+                  }),
+            );
+          }
+        this.sampleMaterials[kind as 'plain' | ProceduralMaterialKind] =
+          materials;
+      }
+    }
     apply(): void {
-      if (this.selectedMaterial !== materialSelect.value) {
+      if (
+        this.selectedMaterial !== materialSelect.value ||
+        this.selectedFinish !== finishSelect.value
+      ) {
+        if (this.selectedFinish !== finishSelect.value) {
+          this.selectedFinish = finishSelect.value;
+          this.rebuildSamples(this.selectedFinish);
+        }
         this.selectedMaterial = materialSelect.value;
         const materials =
           this.sampleMaterials[
             this.selectedMaterial as 'plain' | ProceduralMaterialKind
           ]!;
-        // Mesh materials are immutable; replace only consumers, keeping shared maps/geometry.
+        // Replace consumers when the material set changes; shared maps and geometry stay.
         for (const sample of this.samples) sample.destroy();
         this.samples.length = 0;
         for (let y = 0; y < 5; y++)
@@ -262,7 +294,7 @@ try {
       this.background = this.environment;
       this.effects3D.length = 0;
       if (input('vignette').checked) this.effects3D.push(vignette);
-      readout.textContent = `Material ${materialSelect.value} · shadows ${this.shadows.enabled ? 'on' : 'off'} · directional ${this.directionalLight.intensity ? 'on' : 'off'} · point ${this.point.intensity ? 'on' : 'off'} at X ${this.point.position.x.toFixed(1)} · exposure ${this.postProcessing.exposure.toFixed(2)} · bloom ${this.postProcessing.bloomStrength.toFixed(2)} · fog ${this.fog.density.toFixed(3)} · environment ${this.environmentIntensity.toFixed(2)} · local probe ${this.localProbe.enabled ? 'on' : 'off'} · vignette ${this.effects3D.length ? 'on' : 'off'}`;
+      readout.textContent = `Material ${materialSelect.value} · finish ${finishSelect.value} · shadows ${this.shadows.enabled ? 'on' : 'off'} · directional ${this.directionalLight.intensity ? 'on' : 'off'} · point ${this.point.intensity ? 'on' : 'off'} at X ${this.point.position.x.toFixed(1)} · exposure ${this.postProcessing.exposure.toFixed(2)} · bloom ${this.postProcessing.bloomStrength.toFixed(2)} · fog ${this.fog.density.toFixed(3)} · environment ${this.environmentIntensity.toFixed(2)} · local probe ${this.localProbe.enabled ? 'on' : 'off'} · vignette ${this.effects3D.length ? 'on' : 'off'}`;
     }
     override update(dt: number): void {
       if (input('animate').checked) this.angle += dt * 0.3;
@@ -293,7 +325,7 @@ try {
   scene.apply();
   await game.setScene(scene);
   game.start();
-  status.textContent = `${game.graphics.backend} · 6 procedural material presets + plain · 25 metallic/roughness samples · directional shadows + point light · generated environment + fog + HDR/bloom`;
+  status.textContent = `${game.graphics.backend} · ${presets.size} procedural material presets + plain · 25 metallic/roughness samples · directional shadows + point light · generated environment + fog + HDR/bloom`;
   window.addEventListener('pagehide', (event) => {
     if (!event.persisted) cleanup();
   });

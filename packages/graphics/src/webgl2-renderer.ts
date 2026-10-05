@@ -13,8 +13,10 @@ import type {
 } from './compute.js';
 import {
   NativeMaterial3D,
+  isNativeMaterial3D,
   nativeMaterialSources,
 } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { nativeMeshGLSL } from './webgl-feature-shaders.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
@@ -37,7 +39,11 @@ import {
 import type { Geometry } from '../../core/src/geometry.js';
 import { InstancedMesh } from '../../core/src/instanced-mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
-import { PBRMaterial, pbrTextureSources } from '../../core/src/pbr-material.js';
+import {
+  PBRMaterial,
+  pbrEmissiveSlot,
+  pbrTextureSources,
+} from '../../core/src/pbr-material.js';
 import type { TextureSamplerOptions } from '../../core/src/texture-sampler.js';
 import {
   activeBackground,
@@ -542,6 +548,7 @@ export class WebGL2Renderer implements Renderer {
               this.cacheTexture(sources.occlusionTexture);
             if (sources.emissiveTexture)
               this.cacheTexture(sources.emissiveTexture);
+            if (material.lightmap) this.cacheTexture(material.lightmap);
             if (sources.specularTexture)
               this.cacheTexture(sources.specularTexture);
             if (sources.specularColorTexture)
@@ -673,7 +680,7 @@ export class WebGL2Renderer implements Renderer {
   > = {};
   private readonly materials = new Map<Material2D, NativeProgram>();
   private readonly nativeMaterials = new Map<
-    NativeMaterial3D,
+    NativeMaterial3D | NativePBRMaterial,
     {
       program: WebGLProgram;
       shadow: WebGLProgram;
@@ -986,6 +993,11 @@ export class WebGL2Renderer implements Renderer {
         'attenuationColor',
         'transmissionMapSettings',
         'thicknessMapSettings',
+        'finish0',
+        'finish1',
+        'finish2',
+        'finish3',
+        'finish4',
         'opticalMaps',
         'opaqueScene',
         'shadowMap',
@@ -1153,19 +1165,20 @@ export class WebGL2Renderer implements Renderer {
   }
 
   async prepareMaterial(
-    material: Material2D | NativeMaterial3D,
+    material: Material2D | NativeMaterial3D | NativePBRMaterial,
   ): Promise<void> {
-    if (!(material instanceof NativeMaterial3D))
+    if (!isNativeMaterial3D(material))
       return this.prepareNative(material, false);
     const gl = this.requireGL();
     material.validate();
     if (this.nativeMaterials.has(material)) return;
     validateNativeMaterialGL(gl);
-    const vertex = nativeMeshGLSL(material.glsl, 'vertex');
+    const physical = material instanceof NativePBRMaterial;
+    const vertex = nativeMeshGLSL(material.glsl, 'vertex', physical);
     const program = this.createProgram(
       gl,
       vertex,
-      nativeMeshGLSL(material.glsl, 'surface'),
+      nativeMeshGLSL(material.glsl, 'surface', physical),
       material.label,
     );
     let shadow: WebGLProgram | undefined;
@@ -1173,7 +1186,7 @@ export class WebGL2Renderer implements Renderer {
       shadow = this.createProgram(
         gl,
         vertex,
-        nativeMeshGLSL(material.glsl, 'shadow'),
+        nativeMeshGLSL(material.glsl, 'shadow', physical),
         `${material.label} shadow`,
       );
       const uniforms: Record<string, WebGLUniformLocation | null> = {};
@@ -1205,6 +1218,11 @@ export class WebGL2Renderer implements Renderer {
       this.cacheTexture(materialBaseTexture(material));
       for (const texture of nativeMaterialSources(material))
         this.cacheTexture(texture);
+      if (material instanceof NativePBRMaterial) {
+        const sources = pbrTextureSources(material);
+        for (const texture of Object.values(sources))
+          if (texture) this.cacheTexture(texture);
+      }
       const shadowProgram = shadow;
       const unsubscribe = material.onDestroy(() => {
         gl.deleteProgram(program);
@@ -1907,7 +1925,7 @@ export class WebGL2Renderer implements Renderer {
         // Native hooks can derive coverage from any global uniform, not just their own payload.
         if (
           mesh.worldVisible &&
-          mesh.material instanceof NativeMaterial3D &&
+          isNativeMaterial3D(mesh.material) &&
           !mesh.material.transparent
         )
           ++this.depthRevision;
@@ -2151,23 +2169,25 @@ export class WebGL2Renderer implements Renderer {
           gl.enable(gl.BLEND);
           gl.colorMask(true, true, true, true);
         }
-        if (material instanceof NativeMaterial3D) {
+        if (isNativeMaterial3D(material)) {
           const entry = this.nativeMaterials.get(material);
           if (!entry || material.destroyed)
             throw new GraphicsError(
-              'Visible NativeMaterial3D must be explicitly prepared before rendering.',
+              'Visible native 3D material must be explicitly prepared before rendering.',
             );
           material.validate();
           uniforms = entry.uniforms;
           gl.useProgram(entry.program);
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
-          for (let i = 0; i < 4; i++) {
-            gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
-            this.bindMaterialTexture(
-              nativeMaterialSources(material)[i] ??
-                materialBaseTexture(material),
-              i + 1,
-            );
+          if (!(material instanceof NativePBRMaterial)) {
+            for (let i = 0; i < 4; i++) {
+              gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+              this.bindMaterialTexture(
+                nativeMaterialSources(material)[i] ??
+                  materialBaseTexture(material),
+                i + 1,
+              );
+            }
           }
         } else {
           uniforms = this.meshUniforms;
@@ -2405,12 +2425,48 @@ export class WebGL2Renderer implements Renderer {
             material.emissive[2],
             material.alphaCutoff,
           );
+          const emissive = pbrEmissiveSlot(material);
           gl.uniform4i(
             uniforms.maps,
             pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0,
             pbrTextureSources(material).normalTexture ? 1 : 0,
             pbrTextureSources(material).occlusionTexture ? 1 : 0,
-            pbrTextureSources(material).emissiveTexture ? 1 : 0,
+            emissive.mode,
+          );
+          gl.uniform4f(
+            uniforms.finish0,
+            material.finish.anisotropy,
+            material.finish.anisotropyRotation,
+            material.finish.iridescence,
+            material.finish.iridescenceIor,
+          );
+          gl.uniform4f(
+            uniforms.finish1,
+            material.finish.iridescenceThickness,
+            material.finish.subsurface,
+            material.finish.dispersion,
+            material.finish.heightScale,
+          );
+          gl.uniform4f(
+            uniforms.finish2,
+            material.finish.wetness,
+            material.finish.snow,
+            material.finish.dirt,
+            material.finish.damage,
+          );
+          gl.uniform4f(
+            uniforms.finish3,
+            material.finish.detailStrength,
+            material.finish.triplanar,
+            material.finish.layerBlend,
+            material.finish.lightmapStrength,
+          );
+          gl.uniform4f(
+            uniforms.finish4,
+            material.finish.subsurfaceColor[0],
+            material.finish.subsurfaceColor[1],
+            material.finish.subsurfaceColor[2],
+            material.finish.subsurfaceRadius,
           );
           this.bindMaterialTexture(
             pbrTextureSources(material).metallicRoughnessTexture ??
@@ -2431,10 +2487,9 @@ export class WebGL2Renderer implements Renderer {
             material.occlusionSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).emissiveTexture ??
-              materialBaseTexture(material),
+            emissive.texture ?? materialBaseTexture(material),
             4,
-            material.emissiveSampler,
+            emissive.sampler,
           );
         }
         const packed = this.visibility.entries.get(object)?.instances;
@@ -2928,23 +2983,25 @@ export class WebGL2Renderer implements Renderer {
       for (const object of this.visibility.shadows) {
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
-        if (material instanceof NativeMaterial3D) {
+        if (isNativeMaterial3D(material)) {
           const entry = this.nativeMaterials.get(material);
           if (!entry || material.destroyed)
             throw new GraphicsError(
-              'Shadow NativeMaterial3D must be explicitly prepared before rendering.',
+              'Shadow native 3D material must be explicitly prepared before rendering.',
             );
           material.validate();
           uniforms = entry.shadowUniforms;
           gl.useProgram(entry.shadow);
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
-          for (let i = 0; i < 4; i++) {
-            gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
-            this.bindMaterialTexture(
-              nativeMaterialSources(material)[i] ??
-                materialBaseTexture(material),
-              i + 1,
-            );
+          if (!(material instanceof NativePBRMaterial)) {
+            for (let i = 0; i < 4; i++) {
+              gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+              this.bindMaterialTexture(
+                nativeMaterialSources(material)[i] ??
+                  materialBaseTexture(material),
+                i + 1,
+              );
+            }
           }
         } else {
           uniforms = this.shadowUniforms;

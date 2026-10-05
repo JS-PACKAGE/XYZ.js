@@ -51,11 +51,14 @@
   <body>
     <h1>PBR3D</h1>
     <p>
-      Choose wood, brick, stone, metal, fabric or marble, generated without
-      downloads. Metalness factors increase left → right; roughness factors
-      increase bottom → top. Both multiply the authored surface map (non-metals
-      remain dielectric). Drag to orbit and scroll to zoom. Compare shadows,
-      lights, environment, fog and HDR/bloom.
+      Choose wood, brick, stone, metal, fabric, marble, concrete, tiles,
+      leather, sand, rust or snow, generated without downloads. Metal and rust
+      use the authored metallic map; the other presets stay dielectric. The grid
+      multiplies those factors: metalness increases left → right and roughness
+      increases bottom → top. Drag to orbit and scroll to zoom. Compare shadows,
+      lights, environment, fog and HDR/bloom. Finishes add anisotropy,
+      iridescence, subsurface wrap, parallax, wetness, snow, dirt, damage,
+      detail and triplanar response on the same maps.
     </p>
     <canvas id="game"></canvas>
     <div class="controls">
@@ -68,7 +71,28 @@
           <option value="metal">Brushed metal</option>
           <option value="fabric">Woven fabric</option>
           <option value="marble">Marble</option>
+          <option value="concrete">Concrete</option>
+          <option value="tiles">Ceramic tiles</option>
+          <option value="leather">Leather</option>
+          <option value="sand">Sand</option>
+          <option value="rust">Rust</option>
+          <option value="snow">Snow</option>
           <option value="plain">Plain reference</option>
+        </select>
+      </label>
+      <label>
+        Finish
+        <select id="finish">
+          <option value="none">None</option>
+          <option value="anisotropy">Brushed anisotropy</option>
+          <option value="iridescence">Iridescence</option>
+          <option value="subsurface">Subsurface wrap</option>
+          <option value="height">Parallax height</option>
+          <option value="wet">Wet</option>
+          <option value="snow">Snow cover</option>
+          <option value="dirt">Dirt and damage</option>
+          <option value="detail">Detail layer</option>
+          <option value="triplanar">Triplanar</option>
         </select>
       </label>
       <label

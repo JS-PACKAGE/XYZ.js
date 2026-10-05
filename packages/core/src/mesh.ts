@@ -100,7 +100,15 @@ export interface MeshOptions {
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
 export class Mesh extends Object3D {
   readonly geometry: Geometry;
-  readonly material: TextureMaterial;
+  get material(): TextureMaterial {
+    return this.#material;
+  }
+  set material(material: TextureMaterial) {
+    if (!(material instanceof TextureMaterial))
+      throw new TypeError('Mesh material must be a TextureMaterial.');
+    this.#material = material;
+  }
+  #material: TextureMaterial;
   castShadow: boolean;
   receiveShadow: boolean;
   readonly morph?: MorphTargets;
@@ -113,7 +121,7 @@ export class Mesh extends Object3D {
     )
       throw new TypeError('Mesh requires Geometry and TextureMaterial.');
     this.geometry = options.geometry;
-    this.material = options.material;
+    this.#material = options.material;
     if (options.morph !== undefined) {
       if (!(options.morph instanceof MorphTargets))
         throw new TypeError('Mesh morph requires MorphTargets.');

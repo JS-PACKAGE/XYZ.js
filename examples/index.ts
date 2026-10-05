@@ -187,7 +187,7 @@ const examples: readonly Example[] = [
     slug: 'pbr3d',
     title: 'PBR & shadows',
     summary:
-      'Six procedural PBR texture presets and a metalness/roughness grid with lights, shadows, fog and bloom.',
+      'Twelve procedural PBR texture presets, a material finish selector and a metalness/roughness grid with lights, shadows, fog and bloom.',
     tags: ['3D'],
     renderers: only3d,
   },

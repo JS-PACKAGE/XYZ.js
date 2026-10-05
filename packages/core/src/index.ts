@@ -135,8 +135,17 @@ export { OrbitControls } from './orbit-controls.js';
 export { FirstPersonControls } from './first-person-controls.js';
 export type { FirstPersonKeys } from './first-person-controls.js';
 export { Raycaster } from './raycaster.js';
-export { PBRMaterial } from './pbr-material.js';
-export { ProceduralMaterial } from './procedural-material.js';
+export { PBRMaterial, MaterialAsset } from './pbr-material.js';
+export type {
+  MaterialAssetMaps,
+  MaterialAssetOverrides,
+  PBRFinish,
+  PBRFinishOptions,
+} from './pbr-material.js';
+export {
+  ProceduralMaterial,
+  proceduralRepeats,
+} from './procedural-material.js';
 export type {
   ProceduralMaterialKind,
   ProceduralMaterialOptions,
@@ -153,6 +162,7 @@ export type {
   GLTFAsset,
   GLTFDirectionalLight,
   GLTFLights,
+  GLTFMaterialVariant,
 } from './gltf-loader.js';
 export {
   AnimationClip,
@@ -298,8 +308,14 @@ export type {
   ReflectionProbeOptions,
   ReflectionProbeCaptureOptions,
 } from './reflection-probe.js';
-export { NativeMaterial3D } from './native-material3d.js';
-export type { NativeMaterial3DOptions } from './native-material3d.js';
+export { NativeMaterial3D, isNativeMaterial3D } from './native-material3d.js';
+export type {
+  NativeMaterial3DOptions,
+  NativeMeshMaterial,
+} from './native-material3d.js';
+export { NativePBRMaterial } from './native-pbr-material.js';
+export type { NativePBRMaterialOptions } from './native-pbr-material.js';
+export type { NativeShader3DOptions } from './native-material-state.js';
 export { GPUParticleEmitter3D } from './gpu-particles3d.js';
 export type {
   GPUParticleEmitter3DOptions,
@@ -411,8 +427,19 @@ export type {
   HotSceneOptions,
   SceneHotAdapter,
 } from './hot-reload.js';
-export { Light2D, Lighting2D, MAX_LIGHTS_2D } from './lighting2d.js';
-export type { Light2DOptions, Lighting2DOptions } from './lighting2d.js';
+export {
+  Light2D,
+  Lighting2D,
+  MAX_LIGHTS_2D,
+  MAX_OCCLUDERS_2D,
+  Occluder2D,
+  occluderBlocksLight2D,
+} from './lighting2d.js';
+export type {
+  Light2DOptions,
+  Lighting2DOptions,
+  Occluder2DOptions,
+} from './lighting2d.js';
 export * from './cutscene.js';
 export * from './dialogue.js';
 export * from './quests.js';

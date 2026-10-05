@@ -1,4 +1,4 @@
-import { Texture } from '../../assets/src/index.js';
+import { AssetError, Texture } from '../../assets/src/index.js';
 import {
   CanvasTexture2D,
   type MaterialTexture,
@@ -115,6 +115,14 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   occlusionTexture?: Texture;
   occlusionStrength?: number;
   emissiveTexture?: Texture;
+  /** Borrowed baked illumination. Occupies the emissive sampler; an emissive map is not sampled while this is set. */
+  lightmap?: Texture;
+  lightmapSampler?: TextureSamplerOptions;
+  /**
+   * Scalar finish evaluated by the existing mesh shaders. Zero strengths leave
+   * the current lighting unchanged. No extra sampled-texture binding is added.
+   */
+  finish?: PBRFinishOptions;
   textureSampler?: TextureSamplerOptions;
   metallicRoughnessSampler?: TextureSamplerOptions;
   normalSampler?: TextureSamplerOptions;
@@ -123,6 +131,200 @@ export interface PBRMaterialOptions extends TextureMaterialOptions {
   alphaCutoff?: number;
   alphaMode?: MaterialAlphaMode;
   doubleSided?: boolean;
+}
+
+/** Factors packed after material UV coordinates. Defaults are exact lighting no-ops. */
+export interface PBRFinishOptions {
+  anisotropy?: number;
+  /** Radians. Applied only when anisotropy is positive. */
+  anisotropyRotation?: number;
+  iridescence?: number;
+  /** At least 1. glTF default is 1.3. Unused while iridescence is zero. */
+  iridescenceIor?: number;
+  /** 0..1 film thickness. glTF nanometers are normalized by the loader. */
+  iridescenceThickness?: number;
+  subsurface?: number;
+  subsurfaceColor?: [number, number, number];
+  /** Wrapped-diffuse width, 0..1. Not a multi-scatter profile. */
+  subsurfaceRadius?: number;
+  /** Non-negative. The shader caps the visible split. */
+  dispersion?: number;
+  /** 0..1. Four-step parallax uses the normal map Z as height. */
+  heightScale?: number;
+  wetness?: number;
+  snow?: number;
+  dirt?: number;
+  damage?: number;
+  /** Mixes a second sample of the base map. Zero skips the sample. */
+  detailStrength?: number;
+  /** World-axis blend of the base map. Zero skips the extra samples. */
+  triplanar?: number;
+  /** Extra UV scale of the detail sample. Requires detailStrength. */
+  layerBlend?: number;
+  /** Multiplies the lightmap sample. Requires lightmap. */
+  lightmapStrength?: number;
+}
+
+export interface PBRFinish {
+  readonly anisotropy: number;
+  readonly anisotropyRotation: number;
+  readonly iridescence: number;
+  readonly iridescenceIor: number;
+  readonly iridescenceThickness: number;
+  readonly subsurface: number;
+  readonly subsurfaceColor: readonly [number, number, number];
+  readonly subsurfaceRadius: number;
+  readonly dispersion: number;
+  readonly heightScale: number;
+  readonly wetness: number;
+  readonly snow: number;
+  readonly dirt: number;
+  readonly damage: number;
+  readonly detailStrength: number;
+  readonly triplanar: number;
+  readonly layerBlend: number;
+  readonly lightmapStrength: number;
+}
+
+export const PBR_FINISH_FLOATS = 20;
+
+const finishKeys = [
+  'anisotropy',
+  'anisotropyRotation',
+  'iridescence',
+  'iridescenceIor',
+  'iridescenceThickness',
+  'subsurface',
+  'subsurfaceColor',
+  'subsurfaceRadius',
+  'dispersion',
+  'heightScale',
+  'wetness',
+  'snow',
+  'dirt',
+  'damage',
+  'detailStrength',
+  'triplanar',
+  'layerBlend',
+  'lightmapStrength',
+] as const;
+
+const defaultFinish: PBRFinish = Object.freeze({
+  anisotropy: 0,
+  anisotropyRotation: 0,
+  iridescence: 0,
+  iridescenceIor: 1.3,
+  iridescenceThickness: 0,
+  subsurface: 0,
+  subsurfaceColor: Object.freeze([1, 1, 1] as [number, number, number]),
+  subsurfaceRadius: 0.5,
+  dispersion: 0,
+  heightScale: 0,
+  wetness: 0,
+  snow: 0,
+  dirt: 0,
+  damage: 0,
+  detailStrength: 0,
+  triplanar: 0,
+  layerBlend: 0,
+  lightmapStrength: 0,
+});
+
+function parseFinish(options: PBRFinishOptions | undefined): PBRFinish {
+  if (options === undefined) return defaultFinish;
+  if (!options || typeof options !== 'object' || Array.isArray(options))
+    throw new TypeError('Material finish must be an object.');
+  for (const key of Object.keys(options))
+    if (!(finishKeys as readonly string[]).includes(key))
+      throw new TypeError(`Unknown material finish ${key}.`);
+  const anisotropy = options.anisotropy ?? 0;
+  const anisotropyRotation = options.anisotropyRotation ?? 0;
+  const iridescence = options.iridescence ?? 0;
+  const iridescenceIor = options.iridescenceIor ?? 1.3;
+  const iridescenceThickness = options.iridescenceThickness ?? 0;
+  const subsurface = options.subsurface ?? 0;
+  const subsurfaceRadius = options.subsurfaceRadius ?? 0.5;
+  const dispersion = options.dispersion ?? 0;
+  const heightScale = options.heightScale ?? 0;
+  const wetness = options.wetness ?? 0;
+  const snow = options.snow ?? 0;
+  const dirt = options.dirt ?? 0;
+  const damage = options.damage ?? 0;
+  const detailStrength = options.detailStrength ?? 0;
+  const triplanar = options.triplanar ?? 0;
+  const layerBlend = options.layerBlend ?? 0;
+  const lightmapStrength = options.lightmapStrength ?? 0;
+  unit(anisotropy, 'Anisotropy');
+  finite(anisotropyRotation, 'Anisotropy rotation');
+  unit(iridescence, 'Iridescence');
+  finite(iridescenceIor, 'Iridescence IOR');
+  if (iridescenceIor < 1)
+    throw new RangeError('Iridescence IOR must be at least 1.');
+  unit(iridescenceThickness, 'Iridescence thickness');
+  unit(subsurface, 'Subsurface');
+  unit(subsurfaceRadius, 'Subsurface radius');
+  finite(dispersion, 'Dispersion');
+  if (dispersion < 0) throw new RangeError('Dispersion cannot be negative.');
+  unit(heightScale, 'Height scale');
+  unit(wetness, 'Wetness');
+  unit(snow, 'Snow');
+  unit(dirt, 'Dirt');
+  unit(damage, 'Damage');
+  unit(detailStrength, 'Detail strength');
+  unit(triplanar, 'Triplanar blend');
+  unit(layerBlend, 'Layer blend');
+  unit(lightmapStrength, 'Lightmap strength');
+  const subsurfaceColor = options.subsurfaceColor ?? [1, 1, 1];
+  if (!Array.isArray(subsurfaceColor) || subsurfaceColor.length !== 3)
+    throw new RangeError('Subsurface color must contain three components.');
+  for (const value of subsurfaceColor) unit(value, 'Subsurface color');
+  if (
+    anisotropy === 0 &&
+    anisotropyRotation === 0 &&
+    iridescence === 0 &&
+    iridescenceIor === 1.3 &&
+    iridescenceThickness === 0 &&
+    subsurface === 0 &&
+    subsurfaceRadius === 0.5 &&
+    dispersion === 0 &&
+    heightScale === 0 &&
+    wetness === 0 &&
+    snow === 0 &&
+    dirt === 0 &&
+    damage === 0 &&
+    detailStrength === 0 &&
+    triplanar === 0 &&
+    layerBlend === 0 &&
+    lightmapStrength === 0 &&
+    subsurfaceColor[0] === 1 &&
+    subsurfaceColor[1] === 1 &&
+    subsurfaceColor[2] === 1
+  )
+    return defaultFinish;
+  return Object.freeze({
+    anisotropy,
+    anisotropyRotation,
+    iridescence,
+    iridescenceIor,
+    iridescenceThickness,
+    subsurface,
+    subsurfaceColor: Object.freeze([
+      subsurfaceColor[0],
+      subsurfaceColor[1],
+      subsurfaceColor[2],
+    ] as [number, number, number]),
+    subsurfaceRadius,
+    dispersion,
+    heightScale,
+    wetness,
+    snow,
+    dirt,
+    damage,
+    detailStrength,
+    triplanar,
+    layerBlend,
+    lightmapStrength,
+  });
 }
 
 function finite(value: number, name: string): void {
@@ -265,6 +467,10 @@ export class PBRMaterial extends TextureMaterial {
   readonly normalSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly occlusionSampler: Readonly<TextureSamplerOptions> | undefined;
   readonly emissiveSampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly finish: PBRFinish;
+  /** Borrowed. When set, renderers bind this to the emissive sampler and do not sample emissiveTexture. */
+  readonly lightmap: Texture | undefined;
+  readonly lightmapSampler: Readonly<TextureSamplerOptions> | undefined;
 
   constructor(options: PBRMaterialOptions) {
     super(options);
@@ -449,5 +655,161 @@ export class PBRMaterial extends TextureMaterial {
     this.normalSampler = samplerOptions(options.normalSampler);
     this.occlusionSampler = samplerOptions(options.occlusionSampler);
     this.emissiveSampler = samplerOptions(options.emissiveSampler);
+    textureSlot(options.lightmap, 'Lightmap');
+    this.lightmap = options.lightmap;
+    this.lightmapSampler = samplerOptions(options.lightmapSampler);
+    this.finish = parseFinish(options.finish);
+  }
+}
+
+/** Emissive sampler occupancy: 0 empty, 1 emission, 2 lightmap. */
+export function pbrEmissiveSlot(material: PBRMaterial): {
+  readonly texture: MaterialTexture | undefined;
+  readonly sampler: Readonly<TextureSamplerOptions> | undefined;
+  readonly mode: 0 | 1 | 2;
+} {
+  if (material.lightmap)
+    return {
+      texture: material.lightmap,
+      sampler: material.lightmapSampler,
+      mode: 2,
+    };
+  const texture = pbrTextureSources(material).emissiveTexture;
+  return {
+    texture,
+    sampler: material.emissiveSampler,
+    mode: texture ? 1 : 0,
+  };
+}
+
+/** Writes the 20 finish floats consumed by both mesh shaders. */
+export function fillPBRFinish(
+  material: PBRMaterial,
+  data: Float32Array,
+  offset: number,
+): void {
+  const finish = material.finish;
+  data[offset] = finish.anisotropy;
+  data[offset + 1] = finish.anisotropyRotation;
+  data[offset + 2] = finish.iridescence;
+  data[offset + 3] = finish.iridescenceIor;
+  data[offset + 4] = finish.iridescenceThickness;
+  data[offset + 5] = finish.subsurface;
+  data[offset + 6] = finish.dispersion;
+  data[offset + 7] = finish.heightScale;
+  data[offset + 8] = finish.wetness;
+  data[offset + 9] = finish.snow;
+  data[offset + 10] = finish.dirt;
+  data[offset + 11] = finish.damage;
+  data[offset + 12] = finish.detailStrength;
+  data[offset + 13] = finish.triplanar;
+  data[offset + 14] = finish.layerBlend;
+  data[offset + 15] = finish.lightmapStrength;
+  data[offset + 16] = finish.subsurfaceColor[0];
+  data[offset + 17] = finish.subsurfaceColor[1];
+  data[offset + 18] = finish.subsurfaceColor[2];
+  data[offset + 19] = finish.subsurfaceRadius;
+}
+
+export interface MaterialAssetMaps {
+  base: ImageBitmapSource | Texture;
+  metallicRoughness?: ImageBitmapSource | Texture;
+  normal?: ImageBitmapSource | Texture;
+  occlusion?: ImageBitmapSource | Texture;
+  emissive?: ImageBitmapSource | Texture;
+  lightmap?: ImageBitmapSource | Texture;
+}
+
+export type MaterialAssetOverrides = Omit<
+  PBRMaterialOptions,
+  | 'texture'
+  | 'metallicRoughnessTexture'
+  | 'normalTexture'
+  | 'occlusionTexture'
+  | 'emissiveTexture'
+  | 'lightmap'
+>;
+
+/**
+ * Owns decoded images and borrows caller-supplied Textures.
+ * The produced PBRMaterial never owns its slots; destroy the asset only after
+ * every consumer has released the material.
+ */
+export class MaterialAsset {
+  readonly material: PBRMaterial;
+  private released = false;
+  private readonly ownedTextures: Texture[];
+
+  private constructor(material: PBRMaterial, ownedTextures: Texture[]) {
+    this.material = material;
+    this.ownedTextures = ownedTextures;
+  }
+
+  get destroyed(): boolean {
+    return this.released;
+  }
+
+  /** Borrows every texture in options. destroy() releases no borrowed slot. */
+  static create(options: PBRMaterialOptions): MaterialAsset {
+    return new MaterialAsset(new PBRMaterial(options), []);
+  }
+
+  static async fromImages(
+    maps: MaterialAssetMaps,
+    overrides: MaterialAssetOverrides = {},
+  ): Promise<MaterialAsset> {
+    if (!maps || typeof maps !== 'object' || Array.isArray(maps))
+      throw new TypeError('Material asset maps must be an object.');
+    const owned: Texture[] = [];
+    const claim = async (
+      source: ImageBitmapSource | Texture | undefined,
+      name: string,
+    ): Promise<Texture | undefined> => {
+      if (source === undefined) return undefined;
+      if (source instanceof Texture) return source;
+      try {
+        const texture = await Texture.fromImage(source);
+        owned.push(texture);
+        return texture;
+      } catch (cause) {
+        throw new AssetError(`Unable to decode material ${name}.`, { cause });
+      }
+    };
+    try {
+      const base = await claim(maps.base, 'base map');
+      if (!base) throw new AssetError('Material asset requires a base image.');
+      const material = new PBRMaterial({
+        ...overrides,
+        texture: base,
+        metallicRoughnessTexture: await claim(
+          maps.metallicRoughness,
+          'metallic-roughness map',
+        ),
+        normalTexture: await claim(maps.normal, 'normal map'),
+        occlusionTexture: await claim(maps.occlusion, 'occlusion map'),
+        emissiveTexture: await claim(maps.emissive, 'emissive map'),
+        lightmap: await claim(maps.lightmap, 'lightmap'),
+      });
+      return new MaterialAsset(material, owned);
+    } catch (error) {
+      for (const texture of owned) texture.destroy();
+      throw error;
+    }
+  }
+
+  /** Destroys textures decoded by fromImages. Borrowed textures stay owned by their creator. */
+  destroy(): void {
+    if (this.released) return;
+    this.released = true;
+    const errors: unknown[] = [];
+    for (const texture of this.ownedTextures) {
+      try {
+        texture.destroy();
+      } catch (error) {
+        errors.push(error);
+      }
+    }
+    if (errors.length)
+      throw new AggregateError(errors, 'Material asset cleanup failed.');
   }
 }
