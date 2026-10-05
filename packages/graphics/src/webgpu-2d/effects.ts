@@ -8,6 +8,7 @@ import type { RenderSnapshot, TransitionFrame } from '../render2d-contract.js';
 import { GraphicsError } from '../errors.js';
 import { QUAD_BYTES } from '../sprite-instance.js';
 import { quadWGSL } from '../webgpu-render2d-shaders.js';
+import { composeLitMaterial2D } from '../lighting2d.js';
 import { postWGSL, transitionWGSL } from './shaders.js';
 import type { FrameStats } from '../render-stats.js';
 
@@ -90,6 +91,7 @@ export class GPUSnapshot implements RenderSnapshot {
 
 interface PreparedEffect {
   layer: GPURenderPipeline;
+  lit?: GPURenderPipeline;
   buffer: GPUBuffer;
   bindGroup: GPUBindGroup;
   values: Float32Array;
@@ -346,6 +348,16 @@ export class WebGPU2DEffects {
               this.fullscreenLayout,
               false,
             );
+        const lit = material
+          ? createQuadPipeline(
+              this.device,
+              await this.module(
+                quadWGSL(composeLitMaterial2D(effect.wgsl, 'wgsl')),
+                'lit Sprite material',
+              ),
+              this.multiplyLayout,
+            )
+          : undefined;
         buffer = this.device.createBuffer({
           size: 64,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -364,6 +376,7 @@ export class WebGPU2DEffects {
         };
         entry = {
           layer,
+          lit,
           buffer,
           bindGroup,
           values: new Float32Array(16).fill(NaN),

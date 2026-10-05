@@ -949,8 +949,14 @@ export class WebGPURender2D {
       this.uploadUniforms(slot);
     }
     const pass = this.open(context.target, false);
+    if (sprite.lighting && sprite.material && !prepared?.lit)
+      throw new GraphicsError(
+        'A lit Material2D must be prepared before rendering.',
+      );
     pass.setPipeline(
-      sprite.lighting ? this.lighting : (prepared?.layer ?? this.normal),
+      sprite.lighting
+        ? (prepared?.lit ?? this.lighting)
+        : (prepared?.layer ?? this.normal),
     );
     this.bindDraw(pass, slot);
     pass.setBindGroup(

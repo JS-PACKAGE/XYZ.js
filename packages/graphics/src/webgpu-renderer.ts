@@ -1,5 +1,9 @@
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
-import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import {
+  NativeMaterial3D,
+  isNativeMaterial3D,
+} from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { beginTimedRenderPass } from './gpu-timing.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -550,16 +554,16 @@ export class WebGPURenderer implements Renderer {
   }
 
   async prepareMaterial(
-    material: Material2D | NativeMaterial3D,
+    material: Material2D | NativeMaterial3D | NativePBRMaterial,
   ): Promise<void> {
     this.requireDevice();
-    if (material instanceof NativeMaterial3D) {
+    if (isNativeMaterial3D(material)) {
       await this.meshPipeline!.prepareMaterial(material);
       return;
     }
     if (!(material instanceof Material2D))
       throw new GraphicsError(
-        'WebGPU prepareMaterial requires a Material2D or NativeMaterial3D.',
+        'WebGPU prepareMaterial requires a Material2D or native 3D material.',
       );
     await this.effectsPipeline!.prepare(material);
   }

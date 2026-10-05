@@ -42,7 +42,11 @@ import {
   getRelativeAppearance2D,
   type TextureQuad2D,
 } from './sprite-instance.js';
-import { lightingGLSL, packLighting2D } from './lighting2d.js';
+import {
+  composeLitMaterial2D,
+  lightingGLSL,
+  packLighting2D,
+} from './lighting2d.js';
 import { validateSpriteLighting2D } from '../../core/src/lighting2d.js';
 import { getTextureDistanceField } from '../../assets/src/fonts/distance-field.js';
 import {
@@ -140,8 +144,9 @@ export class WebGLRender2D {
   private readonly emptyVAO: WebGLVertexArrayObject;
   private readonly quadProgram: Program2D;
   private readonly lightingProgram: Program2D;
-  private readonly lightingData = new Float32Array(80);
-  private readonly uploadedLighting = new Float32Array(80).fill(NaN);
+  private readonly lightingData = new Float32Array(108);
+  private readonly uploadedLighting = new Float32Array(108).fill(NaN);
+  private readonly litMaterials = new Map<Material2D, Program2D>();
   private readonly meshProgram: Program2D;
   private readonly particleProgram: Program2D;
   private readonly passProgram: Program2D;
@@ -229,6 +234,27 @@ export class WebGLRender2D {
     };
     this.programs.set(program, entry);
     return entry;
+  }
+  private litProgram(material: Material2D): Program2D {
+    const existing = this.litMaterials.get(material);
+    if (existing) return existing;
+    const program = this.register(
+      this.hooks.createProgram(
+        quadVertex2D,
+        quadFragment2D(composeLitMaterial2D(material.glsl, 'glsl')),
+        '2D lit material',
+      ),
+    );
+    const dispose = (): void => {
+      if (this.disposed || this.litMaterials.get(material) !== program) return;
+      this.litMaterials.delete(material);
+      this.programs.delete(program.program);
+      this.gl.deleteProgram(program.program);
+      material.removeEventListener('destroy', dispose);
+    };
+    material.addEventListener('destroy', dispose);
+    this.litMaterials.set(material, program);
+    return program;
   }
   private uniform(
     program: Program2D,
@@ -702,7 +728,9 @@ export class WebGLRender2D {
     const gl = this.gl,
       quad = getSpriteQuad2D(sprite, this.quad);
     const program = sprite.lighting
-      ? this.lightingProgram
+      ? sprite.material
+        ? this.litProgram(sprite.material)
+        : this.lightingProgram
       : sprite.material
         ? this.register(this.hooks.material(sprite.material))
         : this.quadProgram;

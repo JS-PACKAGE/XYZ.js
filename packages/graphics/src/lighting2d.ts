@@ -3,7 +3,7 @@ import { validateSpriteLighting2D } from '../../core/src/lighting2d.js';
 import type { Matrix3 } from '../../math/src/index.js';
 import type { TextureQuad2D } from './sprite-instance.js';
 import { TilingSprite2D } from '../../core/src/graphics2d/tiling-sprite2d.js';
-
+import { GraphicsError } from './errors.js';
 /** Packs a draw-local snapshot; the renderer owns/reuses native draw buffers. */
 export function packLighting2D(
   sprite: Sprite,
@@ -16,6 +16,22 @@ export function packLighting2D(
   out.fill(0, 24, 80);
   out.set(profile.ambient, 24);
   out[27] = sprite.normalTexture ? 1 : 0;
+  out[70] = profile.roughness;
+  out[84] = profile.emissive[0];
+  out[85] = profile.emissive[1];
+  out[86] = profile.emissive[2];
+  out[87] = profile.specular;
+  let occluders = 0;
+  for (const occluder of profile.occluders) {
+    if (!occluder.enabled || occluder.space !== sprite.worldSpace) continue;
+    const slot = 92 + occluders * 4;
+    out[slot] = occluder.a[0];
+    out[slot + 1] = occluder.a[1];
+    out[slot + 2] = occluder.b[0];
+    out[slot + 3] = occluder.b[1];
+    occluders++;
+  }
+  out[88] = occluders;
   const e = sprite.updateWorldMatrix().elements;
   let a = e[0],
     b = e[1],
@@ -63,10 +79,31 @@ export function packLighting2D(
   out[76] = quad.uy;
   out[77] = quad.vy;
 }
-export const lightingWGSL = /* wgsl */ `
+const identityWGSL = `fn xyzSurface2D(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f { return color; }`;
+const identityGLSL = `vec4 xyzSurface2D(vec4 color, vec2 uv, vec2 screen) { return color; }`;
+const lightingBodyWGSL = /* wgsl */ `
 @group(3) @binding(0) var normalMap: texture_2d<f32>;
 @group(3) @binding(1) var normalSampler: sampler;
+fn xyzBlocked2D(light: vec2f, sample: vec2f, seg: vec4f) -> bool {
+  let r = sample - light;
+  let s = seg.zw - seg.xy;
+  let denom = r.x * s.y - r.y * s.x;
+  if (abs(denom) < 0.000001) { return false; }
+  let q = seg.xy - light;
+  let t = (q.x * s.y - q.y * s.x) / denom;
+  let u = (q.x * r.y - q.y * r.x) / denom;
+  return t > 0.001 && t < 0.999 && u >= 0.0 && u <= 1.0;
+}
+fn xyzOccluded2D(light: vec2f, sample: vec2f) -> bool {
+  let count = draw.values[22].x;
+  if (count > 0.5 && xyzBlocked2D(light, sample, draw.values[23])) { return true; }
+  if (count > 1.5 && xyzBlocked2D(light, sample, draw.values[24])) { return true; }
+  if (count > 2.5 && xyzBlocked2D(light, sample, draw.values[25])) { return true; }
+  if (count > 3.5 && xyzBlocked2D(light, sample, draw.values[26])) { return true; }
+  return false;
+}
 fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
+  let surface = xyzSurface2D(color, uv, screen);
   var n = vec3f(0.0,0.0,1.0);
   if (draw.values[6].w != 0.0) {
     let basis = draw.values[18];
@@ -87,26 +124,52 @@ fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f {
   let mapping = draw.values[16];
   let world = mapping.xy*screen.x+mapping.zw*screen.y+draw.values[17].xy;
   var irradiance = draw.values[6].rgb;
+  var specular = vec3f(0.0);
+  let rough = clamp(draw.values[17].z, 0.0, 1.0);
+  let exponent = exp2(mix(7.0, 0.0, rough));
   for(var i=0u;i<4u;i++) {
     let p = draw.values[8u+i*2u]; let c = draw.values[9u+i*2u];
     if(c.w > 0.0) {
       let delta = vec3f(p.xy-world,p.z); let distance = length(delta);
       let attenuation = max(0.0,1.0-distance/p.w);
       let direction = delta / max(distance,0.000001);
-      irradiance += c.rgb*c.w*attenuation*attenuation*max(dot(n,direction),0.0);
+      if (xyzOccluded2D(p.xy, world)) { continue; }
+      let falloff = attenuation*attenuation;
+      irradiance += c.rgb*c.w*falloff*max(dot(n,direction),0.0);
+      let halfv = normalize(direction+vec3f(0.0,0.0,1.0));
     }
   }
-  return vec4f(color.rgb*irradiance,color.a);
+  let glow = draw.values[21].rgb;
+  return vec4f(surface.rgb*irradiance + specular*draw.values[21].w*surface.a + glow*surface.a, surface.a);
 }`;
-export const lightingGLSL = /* glsl */ `
+const lightingBodyGLSL = /* glsl */ `
 uniform sampler2D normalMap;
-uniform vec4 lighting[20];
+uniform vec4 lighting[27];
+bool xyzBlocked2D(vec2 light, vec2 surfacePoint, vec4 seg) {
+  vec2 r = surfacePoint - light;
+  vec2 s = seg.zw - seg.xy;
+  float denom = r.x * s.y - r.y * s.x;
+  if (abs(denom) < 0.000001) return false;
+  vec2 q = seg.xy - light;
+  float t = (q.x * s.y - q.y * s.x) / denom;
+  float u = (q.x * r.y - q.y * r.x) / denom;
+  return t > 0.001 && t < 0.999 && u >= 0.0 && u <= 1.0;
+}
+bool xyzOccluded2D(vec2 light, vec2 surfacePoint) {
+  float count = lighting[22].x;
+  if (count > 0.5 && xyzBlocked2D(light, surfacePoint, lighting[23])) return true;
+  if (count > 1.5 && xyzBlocked2D(light, surfacePoint, lighting[24])) return true;
+  if (count > 2.5 && xyzBlocked2D(light, surfacePoint, lighting[25])) return true;
+  if (count > 3.5 && xyzBlocked2D(light, surfacePoint, lighting[26])) return true;
+  return false;
+}
 vec4 effect(vec4 color, vec2 uv, vec2 screen) {
   vec3 n=vec3(0,0,1);
   if(tiling) {
     vec2 p=mod((tileTransform*vec3(localRect.xy+uv*localRect.zw,1)).xy,tileShape.xy);
     uv=(p-tileTrim.xy)/tileTrim.zw;
   }
+  vec4 surface = xyzSurface2D(color, uv, screen);
   if(lighting[6].w!=0.0) {
     vec4 b=lighting[18]; vec2 end=b.xy+b.zw+lighting[19].xy;
     vec2 inset=min(vec2(0.5)/vec2(textureSize(normalMap,0)),abs(end-b.xy)*0.5);
@@ -116,13 +179,42 @@ vec4 effect(vec4 color, vec2 uv, vec2 screen) {
   }
   vec4 m=lighting[16]; vec2 world=m.xy*screen.x+m.zw*screen.y+lighting[17].xy;
   vec3 irradiance=lighting[6].rgb;
+  vec3 specular=vec3(0.0);
+  float rough=clamp(lighting[17].z,0.0,1.0);
+  float exponent=exp2(mix(7.0,0.0,rough));
   for(int i=0;i<4;i++) {
     vec4 p=lighting[8+i*2], c=lighting[9+i*2];
     if(c.w>0.0) {
       vec3 delta=vec3(p.xy-world,p.z); float distance=length(delta);
       float attenuation=max(0.0,1.0-distance/p.w);
-      irradiance+=c.rgb*c.w*attenuation*attenuation*max(dot(n,delta/max(distance,0.000001)),0.0);
+      vec3 direction=delta/max(distance,0.000001);
+      if (xyzOccluded2D(p.xy, world)) continue;
+      float falloff=attenuation*attenuation;
+      irradiance+=c.rgb*c.w*falloff*max(dot(n,direction),0.0);
+      vec3 halfv=normalize(direction+vec3(0.0,0.0,1.0));
     }
   }
-  return vec4(color.rgb*irradiance,color.a);
+  return vec4(surface.rgb*irradiance + specular*lighting[21].w*surface.a + lighting[21].rgb*surface.a, surface.a);
 }`;
+export const lightingWGSL = `${identityWGSL}\n${lightingBodyWGSL}`;
+export const lightingGLSL = `${identityGLSL}\n${lightingBodyGLSL}`;
+
+/** Custom effect runs on the sampled texel; lighting still owns diffuse, specular and emissive. */
+export function composeLitMaterial2D(
+  source: string,
+  language: 'wgsl' | 'glsl',
+): string {
+  const definition =
+    language === 'wgsl' ? /\bfn\s+effect\s*\(/ : /\bvec4\s+effect\s*\(/;
+  if (!definition.test(source))
+    throw new GraphicsError(
+      'A lit Material2D must define effect() before lighting.',
+    );
+  const renamed = source
+    .replace(
+      definition,
+      language === 'wgsl' ? 'fn xyzSurface2D(' : 'vec4 xyzSurface2D(',
+    )
+    .replace(/\beffect\s*\(/g, 'xyzSurface2D(');
+  return `${renamed}\n${language === 'wgsl' ? lightingBodyWGSL : lightingBodyGLSL}`;
+}

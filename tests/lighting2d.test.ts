@@ -5,10 +5,16 @@ import {
   Light2D,
   Lighting2D,
   MAX_LIGHTS_2D,
+  MAX_OCCLUDERS_2D,
+  Occluder2D,
+  occluderBlocksLight2D,
   validateSpriteLighting2D,
 } from '../packages/core/src/lighting2d.js';
 import { Matrix3 } from '../packages/math/src/index.js';
-import { packLighting2D } from '../packages/graphics/src/lighting2d.js';
+import {
+  composeLitMaterial2D,
+  packLighting2D,
+} from '../packages/graphics/src/lighting2d.js';
 import {
   createTextureQuad2D,
   getSpriteQuad2D,
@@ -134,5 +140,71 @@ describe('native Lighting2D draw snapshots', () => {
     const light = new Light2D();
     light.radius = 0;
     expect(() => light.validate()).toThrow(/radius/);
+  });
+  it('packs emissive, specular and roughness without changing earlier light slots', () => {
+    const sprite = new Sprite({
+      texture: texture(),
+      lighting: new Lighting2D({
+        ambient: [0.2, 0.3, 0.4],
+        emissive: [0.5, 0.25, 0.125],
+        specular: 0.4,
+        roughness: 0.2,
+      }),
+    });
+    const data = pack(sprite);
+    expect(data[24]).toBeCloseTo(0.2);
+    expect(data[25]).toBeCloseTo(0.3);
+    expect(data[26]).toBeCloseTo(0.4);
+    expect(data[70]).toBeCloseTo(0.2);
+    expect(data[84]).toBeCloseTo(0.5);
+    expect(data[85]).toBeCloseTo(0.25);
+    expect(data[86]).toBeCloseTo(0.125);
+    expect(data[87]).toBeCloseTo(0.4);
+    expect(() => {
+      sprite.lighting!.roughness = 2;
+      sprite.lighting!.validate();
+    }).toThrow(/0-1/);
+  });
+  it('packs only matching-space occluders and matches the shader intersection predicate', () => {
+    const wall = new Occluder2D({ a: [0, 1], b: [2, 1] });
+    const hud = new Occluder2D({ a: [0, 0], b: [1, 1], space: 'screen' });
+    const sprite = new Sprite({
+      texture: texture(),
+      lighting: new Lighting2D({ occluders: [wall, hud] }),
+    });
+    const data = pack(sprite);
+    expect(data[88]).toBe(1);
+    expect(Array.from(data.slice(92, 96))).toEqual([0, 1, 2, 1]);
+    expect(occluderBlocksLight2D([1, -1], [1, 3], wall.a, wall.b)).toBe(true);
+    expect(occluderBlocksLight2D([1, -1], [1, 0.5], wall.a, wall.b)).toBe(
+      false,
+    );
+    expect(
+      () =>
+        new Lighting2D({
+          occluders: Array.from(
+            { length: MAX_OCCLUDERS_2D + 1 },
+            () => new Occluder2D(),
+          ),
+        }),
+    ).toThrow(/occluders/);
+    wall.enabled = false;
+    expect(pack(sprite)[88]).toBe(0);
+  });
+});
+
+describe('lit custom materials', () => {
+  it('renames effect() so lighting owns the final response', () => {
+    const wgsl = composeLitMaterial2D(
+      'fn effect(color: vec4f, uv: vec2f, screen: vec2f) -> vec4f { return effect(color, uv, screen); }',
+      'wgsl',
+    );
+    expect(wgsl).toContain('fn xyzSurface2D(');
+    expect(wgsl.match(/fn effect\s*\(/g)).toHaveLength(1);
+    expect(wgsl).toContain('xyzSurface2D(color, uv, screen)');
+    expect(wgsl).toContain('draw.values[21]');
+    expect(() => composeLitMaterial2D('fn other() {}', 'wgsl')).toThrow(
+      /effect\(\)/,
+    );
   });
 });
