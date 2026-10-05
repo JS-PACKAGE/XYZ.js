@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Bounded GPU compute — XYZ.js</title>
+    <style>
+      body {
+        background: #101421;
+        color: #eee;
+        font: 16px system-ui;
+        margin: 2rem;
+      }
+      canvas {
+        max-width: 100%;
+        border: 1px solid #667;
+      }
+      pre {
+        white-space: pre-wrap;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Bounded GPU compute</h1>
+    <p>
+      Native WGSL storage buffers, ordered output dependencies and typed
+      readback. WebGPU only; other backends report unsupported.
+    </p>
+    <canvas id="game"></canvas>
+    <pre id="status">Preparing GPU programs…</pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>
