@@ -4,7 +4,7 @@ title: Current contracts · v1.16
 
 # XYZ.js v1.16 — current contracts
 
-**Normative for package 1.16.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles including P104–P118, not an acceptance report or upstream compatibility promise. GitHub v1.16 publication follows the existing CI gate; the historical v1.14 archive does not contain P104–P118. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/JS-PACKAGE/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
+**Normative for package 1.16.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles including P104–P118, not an acceptance report or upstream compatibility promise. [GitHub v1.16](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.16) is published after the existing CI gate, with its downloaded archive/checksum verified; the historical v1.14 archive does not contain P104–P118. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/JS-PACKAGE/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
 
 ## Public API and distribution
 
@@ -17,7 +17,7 @@ For standalone consumers, build and pack, then use `node scripts/create-game.mjs
 CommonJS and ESM use separate constructor graphs. Choose one format for every
 engine object in an application; cross-format Texture/Scene/Mesh instances are
 not interchangeable. Canonical type declarations do not imply shared runtime
-identity. CDN metadata selects ESM, and publication is still a separate action.
+identity. CDN metadata selects ESM; the GitHub release does not publish npm.
 
 ## Capability matrix
 

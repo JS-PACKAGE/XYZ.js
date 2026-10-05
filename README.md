@@ -4,7 +4,7 @@ Browser-native TypeScript game engine. Package metadata is **1.16.0**, licensed 
 
 **Current / 目前 / 現在:** [v1.16 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.16.0/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
 
-**v1.16 / package 1.16.0** integrates the separately committed P104–P118 features below. GitHub publication uses the existing CI-gated archive/checksum workflow; npm remains unpublished. 本輪按功能提交，保留既有驗證門檻與實體裝置限制。機能別コミットを統合し、既存の検証基準と実機の制限を維持します。
+**[v1.16 / package 1.16.0](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.16)** integrates the separately committed P104–P118 features below. The CI-gated GitHub archive and SHA256SUMS are published and the downloaded archive verified; npm remains unpublished. 已按功能提交並發佈 GitHub 套件，保留既有驗證門檻與實體裝置限制。機能別コミットと GitHub 公開を完了し、既存の検証基準と実機の制限を維持します。
 
 GitHub **v1.14 / package 1.14.0** adds six reusable procedural PBR material presets and an interactive texture-map gallery, without external assets or runtime dependencies. 新增木紋、磚牆、石材、金屬、布料、大理石與可重用貼圖；木材・レンガ・石材・金属・布・大理石のプリセットを追加します。Publication uses the existing CI-gated archive/checksum workflow; support evidence remains scoped to recorded checks.
 
