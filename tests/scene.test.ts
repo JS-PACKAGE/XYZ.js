@@ -2,6 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Game } from '../packages/core/src/game.js';
 import { GameObject } from '../packages/core/src/game-object.js';
 import { Scene } from '../packages/core/src/scene.js';
+import {
+  HotSceneOwner,
+  bindSceneHotReload,
+} from '../packages/core/src/hot-reload.js';
 import { SceneObject } from '../packages/core/src/scene-object.js';
 import { Group } from '../packages/core/src/group.js';
 import { Object3D } from '../packages/core/src/object3d.js';
@@ -1301,4 +1305,151 @@ describe('Scene ownership and Game integration', () => {
       await pending.catch(() => {});
     }
   });
+});
+
+describe('transactional development scene replacement', () => {
+  it('keeps one Game and old live resources on candidate failure, then releases replaced resources once', async () => {
+    const rendererCreations = vi.mocked(createRenderer).mock.calls.length;
+    const game = await createGame();
+    const owner = new HotSceneOwner(game);
+    const releaseOld = vi.fn(),
+      releaseNext = vi.fn();
+    const old = await owner.replace(async ({ resources }) => {
+      await resources.acquire({
+        kind: 'custom',
+        ownership: 'owned',
+        load: () => ({}),
+        dispose: releaseOld,
+      });
+      return new Scene();
+    });
+    class Broken extends Scene {
+      protected override initialize(): void {
+        throw new Error('candidate failed');
+      }
+    }
+    const failedRelease = vi.fn();
+    await expect(
+      owner.replace(async ({ resources }) => {
+        await resources.acquire({
+          kind: 'custom',
+          ownership: 'owned',
+          load: () => ({}),
+          dispose: failedRelease,
+        });
+        return new Broken();
+      }),
+    ).rejects.toThrow('candidate failed');
+    expect(game.scene).toBe(old);
+    expect(old.destroyed).toBe(false);
+    expect(releaseOld).not.toHaveBeenCalled();
+    expect(failedRelease).toHaveBeenCalledTimes(1);
+    const next = await owner.replace(async ({ resources }) => {
+      await resources.acquire({
+        kind: 'custom',
+        ownership: 'owned',
+        load: () => ({}),
+        dispose: releaseNext,
+      });
+      return new Scene();
+    });
+    expect(game.scene).toBe(next);
+    expect(old.destroyed).toBe(true);
+    expect(releaseOld).toHaveBeenCalledTimes(1);
+    expect(
+      vi.mocked(createRenderer).mock.calls.length - rendererCreations,
+    ).toBe(1);
+    await owner.dispose();
+    await owner.dispose();
+    expect(next.destroyed).toBe(true);
+    expect(releaseNext).toHaveBeenCalledTimes(1);
+    expect(renderer.destroy).toHaveBeenCalledTimes(1);
+  });
+
+  it('reclaims late superseded candidates without destroying the latest live Scene', async () => {
+    const game = await createGame();
+    const owner = new HotSceneOwner(game);
+    await owner.replace(() => new Scene());
+    const late = new Scene(),
+      completion = deferred<Scene>();
+    const started = deferred<void>();
+    const released = vi.fn();
+    const first = owner.replace(async ({ resources }) => {
+      await resources.acquire({
+        kind: 'custom',
+        ownership: 'owned',
+        load: () => ({}),
+        dispose: released,
+      });
+      started.resolve();
+      return completion.promise;
+    });
+    const rejection = expect(first).rejects.toThrow();
+    await started.promise;
+    const live = await owner.replace(() => new Scene());
+    completion.resolve(late);
+    await rejection;
+    expect(late.destroyed).toBe(true);
+    expect(live.destroyed).toBe(false);
+    expect(game.scene).toBe(live);
+    expect(released).toHaveBeenCalledTimes(1);
+    await owner.dispose();
+  });
+
+  it('uses the adapter accept path and disposes the single canvas owner', async () => {
+    const game = await createGame();
+    const owner = new HotSceneOwner(game);
+    const old = await owner.replace(() => new Scene());
+    let update!: (module: { create: () => Scene } | undefined) => void;
+    let dispose!: () => void;
+    const errors = vi.fn();
+    bindSceneHotReload(
+      owner,
+      {
+        accept(path, callback) {
+          expect(path).toBe('./scene.js');
+          update = callback;
+        },
+        dispose(callback) {
+          dispose = callback;
+        },
+      },
+      './scene.js',
+      (module: { create: () => Scene }) => module.create,
+      errors,
+    );
+    update(undefined);
+    expect(errors).toHaveBeenCalledTimes(1);
+    expect(game.scene).toBe(old);
+    const next = new Scene();
+    update({ create: () => next });
+    await vi.waitFor(() => expect(game.scene).toBe(next));
+    expect(old.destroyed).toBe(true);
+    dispose();
+    await vi.waitFor(() => expect(game.state).toBe('destroyed'));
+    expect(renderer.destroy).toHaveBeenCalledTimes(1);
+  });
+});
+
+it('relinquishes the HMR canvas synchronously even while a candidate factory is blocked', async () => {
+  const game = await createGame();
+  const owner = new HotSceneOwner(game);
+  await owner.replace(() => new Scene());
+  const completion = deferred<Scene>(),
+    started = deferred<void>();
+  const pending = owner.replace(async () => {
+    started.resolve();
+    return completion.promise;
+  });
+  const rejected = expect(pending).rejects.toThrow();
+  await started.promise;
+  const disposal = owner.dispose();
+  expect(game.state).toBe('destroyed');
+  expect(renderer.destroy).toHaveBeenCalledTimes(1);
+  expect(owner.dispose()).toBe(disposal);
+  const late = new Scene();
+  completion.resolve(late);
+  await rejected;
+  await disposal;
+  expect(late.destroyed).toBe(true);
 });

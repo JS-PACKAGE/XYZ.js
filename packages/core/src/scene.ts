@@ -42,6 +42,7 @@ import {
   type WorldStreamingOptions,
 } from './world-streaming.js';
 import { SpatialLightSelector } from './light-selection.js';
+import type { RenderGraph } from '../../graphics/src/render-graph.js';
 
 export interface SceneOptions {
   readonly fixedDelta?: number;
@@ -292,6 +293,8 @@ export class Scene {
    * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
    */
   readonly effects3D: PostProcessor2D[] = [];
+  /** Prepared native DAG over the composed 3D + HUD frame, before scene transitions. */
+  renderGraph?: RenderGraph | undefined;
   private pointLightList: PointLight[] | undefined;
   private spotLightList: SpotLight[] | undefined;
   get pointLights(): PointLight[] {

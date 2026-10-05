@@ -26,6 +26,7 @@ import { CharacterLocomotion3D, type CharacterLocomotionOptions3D } from './loco
 import type { CharacterController3D } from './physics3d/character.js';
 import { WorldStreamingController, type WorldStreamingOptions } from './world-streaming.js';
 import { SpatialLightSelector } from './light-selection.js';
+import type { RenderGraph } from '../../graphics/src/render-graph.js';
 export interface SceneOptions {
     readonly fixedDelta?: number;
     readonly maxFixedSteps?: number;
@@ -113,6 +114,8 @@ export declare class Scene {
      * before the 2D layer. Same descriptors and shader ABI as `effects2D`.
      */
     readonly effects3D: PostProcessor2D[];
+    /** Prepared native DAG over the composed 3D + HUD frame, before scene transitions. */
+    renderGraph?: RenderGraph | undefined;
     private pointLightList;
     private spotLightList;
     get pointLights(): PointLight[];
