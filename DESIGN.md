@@ -349,3 +349,23 @@ Actual format/depth sample availability is public; unsupported requests fail.
 Shadow cutoffs remain binary. Offline recipe alpha histograms rescale only
 completed mip alpha, preserve RGB/base ownership, and disclose quantization and
 tied-value limits without introducing slot inference or missing-mip fabrication.
+
+## P122 bounded IBL integration
+
+Environment construction preserves sharp level zero and SH irradiance/pi while
+replacing every rough mip with deterministic GGX NDF integration. Raw source
+pyramids are temporary; only existing immutable half-float levels are retained.
+Source-footprint LOD and a 256-pixel filtered-work width bound CPU cost; output
+dimensions and public ownership do not change.
+
+GGX A/B data occupies one renderer-owned 16 KiB uniform buffer, no texture slot.
+GPU scene layouts and GL built-in/custom program bindings share it; teardown and
+API-loss recovery recreate owned resources. Height-correlated Smith visibility,
+stable GGX distribution and bounded multiscattering compensation replace the old
+denominator clipping/analytic fit. View-integrated reflectance budgets diffuse,
+transmission and the outer clearcoat layer.
+
+Charlie sheen retains its integrated albedo table, attenuates direct base light
+using both directions, and samples sharp global/probe atlases through its own
+bounded 32-ray kernel. This is normalized spatial quadrature, not converged
+multiple-bounce transport, MIS or a reference path tracer.

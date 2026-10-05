@@ -82,6 +82,7 @@ export declare class WebGPUMeshPipeline {
     private readonly shadowCache;
     private readonly shadowBuffer;
     private readonly sheenBuffer;
+    private readonly brdfBuffer;
     private readonly projectionBuffer;
     private readonly projectionGroup;
     private readonly projectionOffsets;

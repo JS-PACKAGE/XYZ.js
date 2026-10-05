@@ -45,6 +45,7 @@ import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
 import { validateNativeMaterialGPU } from './native-material-limits.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
+import { ggxDirectionalAlbedo } from '../../../src/data/brdf.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { MaterialTexture } from '../../assets/src/texture2d.js';
@@ -211,6 +212,7 @@ export class WebGPUMeshPipeline {
   private readonly shadowCache = new ShadowCache();
   private readonly shadowBuffer: GPUBuffer;
   private readonly sheenBuffer: GPUBuffer;
+  private readonly brdfBuffer: GPUBuffer;
   private readonly projectionBuffer: GPUBuffer;
   private readonly projectionGroup: GPUBindGroup;
   private readonly projectionOffsets = [0];
@@ -328,6 +330,12 @@ export class WebGPUMeshPipeline {
     });
     device.queue.writeBuffer(this.sheenBuffer, 0, sheenDirectionalAlbedo);
     this.stats.upload(sheenDirectionalAlbedo.byteLength);
+    this.brdfBuffer = device.createBuffer({
+      size: ggxDirectionalAlbedo.byteLength,
+      usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+    });
+    device.queue.writeBuffer(this.brdfBuffer, 0, ggxDirectionalAlbedo);
+    this.stats.upload(ggxDirectionalAlbedo.byteLength);
     this.projectionBuffer = device.createBuffer({
       size: this.atlas.projections.byteLength,
       usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -505,6 +513,11 @@ export class WebGPUMeshPipeline {
         },
         {
           binding: 6,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: { type: 'uniform' },
+        },
+        {
+          binding: 7,
           visibility: GPUShaderStage.FRAGMENT,
           buffer: { type: 'uniform' },
         },
@@ -1294,6 +1307,7 @@ export class WebGPUMeshPipeline {
         { binding: 4, resource: image },
         { binding: 5, resource: { buffer: this.shadowBuffer } },
         { binding: 6, resource: { buffer: this.sheenBuffer } },
+        { binding: 7, resource: { buffer: this.brdfBuffer } },
       ],
     });
   }
@@ -2903,6 +2917,7 @@ export class WebGPUMeshPipeline {
     this.sceneBuffer.destroy();
     this.shadowBuffer.destroy();
     this.sheenBuffer.destroy();
+    this.brdfBuffer.destroy();
     this.projectionBuffer.destroy();
     this.whiteTexture.destroy();
     this.emptyShadow.destroy();

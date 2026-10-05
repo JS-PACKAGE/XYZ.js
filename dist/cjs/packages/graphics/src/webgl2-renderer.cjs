@@ -21,6 +21,7 @@ const require_preparation = require("./preparation.cjs");
 const require_shaders = require("./webgl-2d/shaders.cjs");
 const require_webgl2_render_graph = require("./webgl2-render-graph.cjs");
 const require_sheen = require("../../../src/data/sheen.cjs");
+const require_brdf = require("../../../src/data/brdf.cjs");
 const require_oit_shaders = require("./oit-shaders.cjs");
 const require_webgl_feature_shaders = require("./webgl-feature-shaders.cjs");
 const require_webgl2_particles3d = require("./webgl2-particles3d.cjs");
@@ -242,6 +243,7 @@ var WebGL2Renderer = class {
 	shadowCache = new require_shadow_cache.ShadowCache();
 	shadowBuffer;
 	sheenBuffer;
+	brdfBuffer;
 	opticalTextures = /* @__PURE__ */ new Map();
 	opticalSettings = /* @__PURE__ */ new Float32Array(8);
 	emptyOptical;
@@ -361,7 +363,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				assertAlive: () => {
 					this.requireGL();
 				}
-			}), this.shadowBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferData(n.UNIFORM_BUFFER, this.atlas.data.byteLength, n.DYNAMIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `ShadowData`), 0), this.sheenBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.sheenBuffer), n.bufferData(n.UNIFORM_BUFFER, require_sheen.sheenDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `SheenLookup`), 1), this.opticalPackProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_optical_pack_shaders.opticalPackGLSL, `optical packing`), this.opticalPackFramebuffer = n.createFramebuffer() ?? void 0, this.emptyOptical = n.createTexture() ?? void 0, !this.opticalPackFramebuffer || !this.emptyOptical) throw new require_errors.WebGL2InitializationError(`WebGL2 optical resource allocation failed.`);
+			}), this.shadowBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferData(n.UNIFORM_BUFFER, this.atlas.data.byteLength, n.DYNAMIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `ShadowData`), 0), this.sheenBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.sheenBuffer), n.bufferData(n.UNIFORM_BUFFER, require_sheen.sheenDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `SheenLookup`), 1), this.brdfBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.brdfBuffer), n.bufferData(n.UNIFORM_BUFFER, require_brdf.ggxDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `GGXLookup`), 2), this.opticalPackProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_optical_pack_shaders.opticalPackGLSL, `optical packing`), this.opticalPackFramebuffer = n.createFramebuffer() ?? void 0, this.emptyOptical = n.createTexture() ?? void 0, !this.opticalPackFramebuffer || !this.emptyOptical) throw new require_errors.WebGL2InitializationError(`WebGL2 optical resource allocation failed.`);
 			n.activeTexture(n.TEXTURE0 + 14), n.bindTexture(n.TEXTURE_2D_ARRAY, this.emptyOptical), n.texStorage3D(n.TEXTURE_2D_ARRAY, 1, n.RGBA8, 1, 1, 2), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MAG_FILTER, n.NEAREST), n.useProgram(this.opticalPackProgram), n.uniform1i(n.getUniformLocation(this.opticalPackProgram, `image`), 0), this.opticalPackSide = n.getUniformLocation(this.opticalPackProgram, `side`);
 			for (let e of `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.opticalMaps.opaqueScene.shadowMap.oitPass.environment[0].environmentMap.probeData[0].fog[0].meshFade.tangentTexCoord.derivativeTangentSign`.split(`.`)) this.meshUniforms[e] = n.getUniformLocation(this.meshProgram, e);
 			this.meshUniforms[`materialCoordinates[0]`] = n.getUniformLocation(this.meshProgram, `materialCoordinates[0]`);
@@ -457,7 +459,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			];
 			require_native_material_limits.validateNativeMaterialGLResources(i, o, l), require_native_material_limits.validateNativeMaterialGLResources(i, s, l);
 			for (let e of l) t[e] = i.getUniformLocation(o, e), c[e] = i.getUniformLocation(s, e);
-			for (let [e, t] of [[`ShadowData`, 0], [`SheenLookup`, 1]]) {
+			for (let [e, t] of [
+				[`ShadowData`, 0],
+				[`SheenLookup`, 1],
+				[`GGXLookup`, 2]
+			]) {
 				let n = i.getUniformBlockIndex(o, e);
 				n !== i.INVALID_INDEX && i.uniformBlockBinding(o, n, t);
 			}
@@ -686,7 +692,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		let c = this.temporalActive ? this.temporalState.currentVP.elements : e.camera3D.matrix.elements;
 		require_render_data.fillFogData(e, this.fogData);
 		let l = e.camera3D.position;
-		i.bindBufferBase(i.UNIFORM_BUFFER, 0, this.shadowBuffer), i.bindBufferBase(i.UNIFORM_BUFFER, 1, this.sheenBuffer), i.activeTexture(i.TEXTURE5), i.bindSampler(5, null), i.bindTexture(i.TEXTURE_2D, this.shadowTarget?.texture ?? null), i.enable(i.DEPTH_TEST), i.depthFunc(i.LESS), i.depthMask(!0), i.disable(i.CULL_FACE), i.activeTexture(i.TEXTURE0 + 15), i.bindSampler(15, null), i.bindTexture(i.TEXTURE_2D, this.refractionTarget?.texture ?? null), i.activeTexture(i.TEXTURE0 + 14), i.bindSampler(14, null), i.bindTexture(i.TEXTURE_2D_ARRAY, this.emptyOptical);
+		i.bindBufferBase(i.UNIFORM_BUFFER, 0, this.shadowBuffer), i.bindBufferBase(i.UNIFORM_BUFFER, 1, this.sheenBuffer), i.bindBufferBase(i.UNIFORM_BUFFER, 2, this.brdfBuffer), i.activeTexture(i.TEXTURE5), i.bindSampler(5, null), i.bindTexture(i.TEXTURE_2D, this.shadowTarget?.texture ?? null), i.enable(i.DEPTH_TEST), i.depthFunc(i.LESS), i.depthMask(!0), i.disable(i.CULL_FACE), i.activeTexture(i.TEXTURE0 + 15), i.bindSampler(15, null), i.bindTexture(i.TEXTURE_2D, this.refractionTarget?.texture ?? null), i.activeTexture(i.TEXTURE0 + 14), i.bindSampler(14, null), i.bindTexture(i.TEXTURE_2D_ARRAY, this.emptyOptical);
 		let u = this.visibility.color, f = 2 + (this.weighted ? 2 : 0);
 		for (let r = 0; r < f; r++) {
 			let o = r >= 2 ? r - 2 + 1 : 0;
@@ -1120,7 +1126,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			for (let t of this.visibleMeshInstances.values()) e.deleteBuffer(t.buffer), t.colors && e.deleteBuffer(t.colors);
 			for (let t of this.meshSkins.values()) e.deleteBuffer(t.indices), e.deleteBuffer(t.weights), e.deleteTexture(t.palette);
 			for (let t of this.samplers.values()) e.deleteSampler(t);
-			this.shadowTarget && this.deleteTarget(this.shadowTarget), this.shadowBuffer && e.deleteBuffer(this.shadowBuffer), this.sheenBuffer && e.deleteBuffer(this.sheenBuffer), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.emptyOptical && e.deleteTexture(this.emptyOptical), this.opticalPackProgram && e.deleteProgram(this.opticalPackProgram), this.opticalPackFramebuffer && e.deleteFramebuffer(this.opticalPackFramebuffer);
+			this.shadowTarget && this.deleteTarget(this.shadowTarget), this.shadowBuffer && e.deleteBuffer(this.shadowBuffer), this.sheenBuffer && e.deleteBuffer(this.sheenBuffer), this.brdfBuffer && e.deleteBuffer(this.brdfBuffer), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.emptyOptical && e.deleteTexture(this.emptyOptical), this.opticalPackProgram && e.deleteProgram(this.opticalPackProgram), this.opticalPackFramebuffer && e.deleteFramebuffer(this.opticalPackFramebuffer);
 			for (let t of this.opticalTextures.values()) e.deleteTexture(t.resource);
 			this.postTarget && this.deleteTarget(this.postTarget), this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaProgram && e.deleteProgram(this.fxaaProgram), this.shadowProgram && e.deleteProgram(this.shadowProgram), this.postProgram && e.deleteProgram(this.postProgram), this.triangleVAO && e.deleteVertexArray(this.triangleVAO), this.triangleProgram && e.deleteProgram(this.triangleProgram), this.meshProgram && e.deleteProgram(this.meshProgram), this.skyProgram && e.deleteProgram(this.skyProgram), this.skyVAO && e.deleteVertexArray(this.skyVAO);
 			for (let t of this.environments.values()) e.deleteTexture(t.resource);

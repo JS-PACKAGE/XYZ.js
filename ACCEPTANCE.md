@@ -1678,3 +1678,45 @@ P88–P96 完成後，使用者要求「推送 並發佈v1.12」。本次 metada
   device／Safari／mobile資格**。另在owned interactive WebGPU HDR surface實際切換
   coverage並檢視512×512canvas，page errors0；已關閉與釋放owned resources。
   Package維持1.16.0，不push、不release；既有歷史驗收日期／測試數保留。
+
+## P122 — GGX IBL／BRDF integration／layer energy（已驗收的 source 範圍）
+
+2026-10-06，package維持1.16.0；Node26.7.0／pnpm12.6.0，macOS arm64，
+managed Chromium153.0.8010.12、owned headless WebGPU／WebGL2。這是自動化native
+API證據，不是Safari／mobile／physical-driver／reference-path-tracer資格。
+
+- 先實跑兩backend HDR probe capture，保留 `.vite/ibl-quality-runtime/before.json`。
+  舊rough白金屬中心linear RGB：roughness .04／.35／.65／1分別約
+  .977539／.807129／.642090／.449951；rough clearcoat及grazing cases也失能量。
+  非RGBA8截圖／tone mapping推論。改後相同unit furnace各中心RGB均為1。
+- 所有nonzero rough mip改GGX NDF prefilter：128 deterministic samples、source PDF
+  footprint LOD、暫存linear pyramid；filtered work限256x128，SH仍獨立64x32 proxy。
+  Level0／output dimensions／public ownership不改。數值GGX DFG A/B endpoint LUT
+  64x32、每格65,536 samples、恰16 KiB uniform buffer，不增加texture slot。
+- Direct BRDF改height-correlated Smith／穩定GGX denominator，移除錯誤peak clipping；
+  有界multiscattering與積分reflectance分配diffuse／transmission／clearcoat能量。
+  Charlie直接衰減同看light／view；間接用32-ray sharp atlas kernel，非GGX冒充。
+  所有空間／integration／成本近似見TECHNICAL；不承諾unbiased convergence。
+- 數值regression3tests：獨立512x512 hemisphere quadrature，在roughness
+  .35／.7／1 × NdotV .03／.25／.7／1檢查A/B絕對誤差<.012；
+  mirror Fresnel與fully-rough `1-ln(2)`解析結果、全table有限正能量；
+  directional RGB radiance的各mip GGX moments誤差<.035。
+  實際table A+B範圍約.306860444–1.000000787；shader正規化數值超1部分。
+- Source／built root的每backend各96個HDR中心sample：白／彩色HDR環境、
+  四種roughness、正視／grazing、metal／dielectric／coat／sheen及彩色metal／sheen；
+  合計384個samples，均finite且通過能量／色彩條件，browser errors=[]。
+  Source／built各自驗證owned GPUDevice.destroy與GL API context loss／restore；
+  重建後unit furnace仍[1,1,1]，新GGX buffer正常綁定；不是driver reset證據。
+  各entry／backend另外畫真HDR ACES sphere，保留PNG與實際render stats。
+- Native filtering regression找到GL custom material的固定ABI尚未接受GGXLookup，
+  已同步白名單、binding2與buffer limits；仍拒絕application額外resources。
+  P119 tangent smoke、P120 filtering各material／capability branches與P121
+  motion／MSAA／HDR／OIT／shadow／overlay／probe／unsupported branches皆通過。
+- 真browser.open gallery：WebGPU切metal、six-face environment／local probe，
+  GL切fabric，停light animation、保固定exposure；實際canvas1920x1080、
+  screenshot縮圖1024x576已目視檢查，browser errors=[]，owned tab已關閉。
+- Frozen install、build、typecheck、lint、format:check與完整144files／1184tests通過。
+  API歷史契約、source／built tree-shaking與exact package inventory gates通過；
+  built Vite保留既有OPM dynamic-import analysis warning，不冒稱無warning／音訊重驗。
+  README中／英／日及PLAN／DESIGN／TECHNICAL／USAGE同步；歷史驗收未改寫。
+  不升版、不push、不release。

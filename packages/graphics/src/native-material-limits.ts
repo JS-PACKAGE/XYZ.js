@@ -1,5 +1,11 @@
 import { GraphicsError } from './errors.js';
 import { SHADOW_FLOAT_COUNT } from '../../../src/data/rendering.js';
+import { ggxDirectionalAlbedo } from '../../../src/data/brdf.js';
+
+const uniformBytes = Math.max(
+  SHADOW_FLOAT_COUNT * 4,
+  ggxDirectionalAlbedo.byteLength,
+);
 
 /** Native hooks use the engine's fixed bind/attribute ABI; they cannot add private resources. */
 export function validateNativeMaterialGPU(limits: GPUSupportedLimits): void {
@@ -10,8 +16,8 @@ export function validateNativeMaterialGPU(limits: GPUSupportedLimits): void {
     ['maxSampledTexturesPerShaderStage', 16],
     ['maxSamplersPerShaderStage', 13],
     ['maxStorageBuffersPerShaderStage', 1],
-    ['maxUniformBuffersPerShaderStage', 4],
-    ['maxUniformBufferBindingSize', SHADOW_FLOAT_COUNT * 4],
+    ['maxUniformBuffersPerShaderStage', 5],
+    ['maxUniformBufferBindingSize', uniformBytes],
   ];
   for (const [name, minimum] of required)
     if (Number(limits[name]) < minimum)
@@ -26,7 +32,9 @@ export function validateNativeMaterialGL(gl: WebGL2RenderingContext): void {
     [gl.MAX_VERTEX_TEXTURE_IMAGE_UNITS, 6, 'vertex texture units'],
     [gl.MAX_TEXTURE_IMAGE_UNITS, 16, 'fragment texture units'],
     [gl.MAX_COMBINED_TEXTURE_IMAGE_UNITS, 17, 'combined texture units'],
-    [gl.MAX_UNIFORM_BLOCK_SIZE, SHADOW_FLOAT_COUNT * 4, 'uniform block bytes'],
+    [gl.MAX_UNIFORM_BLOCK_SIZE, uniformBytes, 'uniform block bytes'],
+    [gl.MAX_FRAGMENT_UNIFORM_BLOCKS, 3, 'fragment uniform blocks'],
+    [gl.MAX_UNIFORM_BUFFER_BINDINGS, 3, 'uniform buffer bindings'],
   ];
   for (const [parameter, minimum, label] of required) {
     const available = gl.getParameter(parameter) as number;
@@ -61,7 +69,7 @@ export function validateNativeMaterialGLResources(
   ) as number;
   for (let i = 0; i < blocks; i++) {
     const name = gl.getActiveUniformBlockName(program, i);
-    if (name !== 'ShadowData' && name !== 'SheenLookup')
+    if (name !== 'ShadowData' && name !== 'SheenLookup' && name !== 'GGXLookup')
       throw new GraphicsError(
         `NativeMaterial3D uniform block ${name} is outside the fixed ABI.`,
       );

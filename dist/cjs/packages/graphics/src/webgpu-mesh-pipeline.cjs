@@ -11,6 +11,7 @@ const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 const require_render_visibility = require("../../core/src/render-visibility.cjs");
 const require_gpu_timing = require("./gpu-timing.cjs");
 const require_sheen = require("../../../src/data/sheen.cjs");
+const require_brdf = require("../../../src/data/brdf.cjs");
 const require_draw_order = require("../../core/src/draw-order.cjs");
 const require_render_data = require("../../core/src/render-data.cjs");
 const require_shadow_atlas = require("../../core/src/shadow-atlas.cjs");
@@ -30,8 +31,8 @@ const require_webgpu_post_pipeline = require("./webgpu-post-pipeline.cjs");
 const require_webgpu_oit = require("./webgpu-oit.cjs");
 const require_webgpu_temporal_pipeline = require("./webgpu-temporal-pipeline.cjs");
 //#region dist/packages/graphics/src/webgpu-mesh-pipeline.js
-var ee = [];
 var te = [];
+var ne = [];
 var $ = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_rendering.MATERIAL_UV_FLOAT_COUNT;
 var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	device;
@@ -104,6 +105,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	shadowCache = new require_shadow_cache.ShadowCache();
 	shadowBuffer;
 	sheenBuffer;
+	brdfBuffer;
 	projectionBuffer;
 	projectionGroup;
 	projectionOffsets = [0];
@@ -182,7 +184,10 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}), this.sheenBuffer = e.createBuffer({
 			size: require_sheen.sheenDirectionalAlbedo.byteLength,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-		}), e.queue.writeBuffer(this.sheenBuffer, 0, require_sheen.sheenDirectionalAlbedo), this.stats.upload(require_sheen.sheenDirectionalAlbedo.byteLength), this.projectionBuffer = e.createBuffer({
+		}), e.queue.writeBuffer(this.sheenBuffer, 0, require_sheen.sheenDirectionalAlbedo), this.stats.upload(require_sheen.sheenDirectionalAlbedo.byteLength), this.brdfBuffer = e.createBuffer({
+			size: require_brdf.ggxDirectionalAlbedo.byteLength,
+			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+		}), e.queue.writeBuffer(this.brdfBuffer, 0, require_brdf.ggxDirectionalAlbedo), this.stats.upload(require_brdf.ggxDirectionalAlbedo.byteLength), this.projectionBuffer = e.createBuffer({
 			size: this.atlas.projections.byteLength,
 			usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
 		}), this.projectionGroup = e.createBindGroup({
@@ -304,6 +309,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			},
 			{
 				binding: 6,
+				visibility: GPUShaderStage.FRAGMENT,
+				buffer: { type: `uniform` }
+			},
+			{
+				binding: 7,
 				visibility: GPUShaderStage.FRAGMENT,
 				buffer: { type: `uniform` }
 			}
@@ -703,18 +713,18 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				depthWriteEnabled: !1,
 				depthCompare: `always`
 			}
-		})), U = await require_webgpu_post_pipeline.WebGPUPostPipeline.initialize(e, t, n, i, a), G;
+		})), z = await require_webgpu_post_pipeline.WebGPUPostPipeline.initialize(e, t, n, i, a), W;
 		try {
-			return G = await require_webgpu_particles3d.WebGPUParticles3D.initialize(e, t, i, a), new WebGPUMeshPipeline(e, f, m, h, w, E, A, M, L, R, g, _, v, b, U, t, i, o, [
+			return W = await require_webgpu_particles3d.WebGPUParticles3D.initialize(e, t, i, a), new WebGPUMeshPipeline(e, f, m, h, w, E, A, M, L, R, g, _, v, b, z, t, i, o, [
 				C,
 				T,
 				k,
 				j,
 				N,
 				P
-			], G, F, I);
+			], W, F, I);
 		} catch (e) {
-			throw G?.destroy(), U.destroy(), e;
+			throw W?.destroy(), z.destroy(), e;
 		}
 	}
 	resize(e, t) {
@@ -739,7 +749,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			require_render_data.validateRenderSettings(e), e.lightSelection.update(e), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection), this.atlas.update(e, c), this.ensureShadow(e), this.ensureEnvironment(e), this.frustum.setFromMatrix(e.camera3D.updateMatrix(c));
 			let m = +!!e.postProcessing.enabled | (e.transparency === `weighted` ? 2 : 0);
 			(this.proofWidth !== a || this.proofHeight !== o || this.proofMode !== m) && (this.proofWidth = a, this.proofHeight = o, this.proofMode = m, ++this.depthRevision);
-			for (let t of e.renderMeshes ?? te) {
+			for (let t of e.renderMeshes ?? ne) {
 				!this.occlusion && t.occlusionCulled && (this.occlusion = new require_webgpu_occlusion.WebGPUOcclusionBackend(this.device));
 				let e = require_mesh.materialBaseTexture(t.material);
 				this.depthTextureVersions.get(e) !== e.version && (this.depthTextureVersions.set(e, e.version), ++this.depthRevision), t.worldVisible && t.material instanceof require_native_material3d.NativeMaterial3D && !t.material.transparent && ++this.depthRevision;
@@ -782,7 +792,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 						let t = this.drawMesh(r, e, +!!b);
 						this.stats.draw(e.geometry.indices.length, t);
 					}
-					n === E - 1 && this.particles.draw(r, e.gpuParticleEmitters ?? ee, e.camera3D, c, b);
+					n === E - 1 && this.particles.draw(r, e.gpuParticleEmitters ?? te, e.camera3D, c, b);
 				} finally {
 					r.end();
 				}
@@ -846,6 +856,10 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				{
 					binding: 6,
 					resource: { buffer: this.sheenBuffer }
+				},
+				{
+					binding: 7,
+					resource: { buffer: this.brdfBuffer }
 				}
 			]
 		});
@@ -1573,7 +1587,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	destroy() {
 		this.destroyed = !0, this.probeAllocation?.destroy(), this.temporal.destroy();
 		for (let e of this.nativeMaterials.values()) e.unsubscribe();
-		this.nativeMaterials.clear(), this.coveragePipelines.clear(), this.visibilityCache.clear(), this.visibility.entries.clear(), this.gathered.clear(), this.occlusion?.destroy(), this.particles.destroy(), this.oit.release(), this.post.destroy(), this.depthTexture && this.stats.target(-this.depthWidth * this.depthHeight * 4 * this.sampleCount), this.msaaTexture && this.stats.target(-this.msaaWidth * this.msaaHeight * (this.msaaFormat === `rgba16float` ? 8 : 4) * this.sampleCount), this.shadowTexture && this.stats.target(-this.shadowSize * this.shadowSize * 4), this.refractionTexture && this.stats.target(-this.refractionWidth * this.refractionHeight * 8), this.depthTexture?.destroy(), this.msaaTexture?.destroy(), this.msaaTexture = void 0, this.msaaView = void 0, this.depthTexture = void 0, this.depthView = void 0, this.shadowTexture?.destroy(), this.shadowTexture = void 0, this.shadowView = void 0, this.sceneBuffer.destroy(), this.shadowBuffer.destroy(), this.sheenBuffer.destroy(), this.projectionBuffer.destroy(), this.whiteTexture.destroy(), this.emptyShadow.destroy(), this.refractionTexture?.destroy(), this.refractionTexture = void 0, this.refractionView = void 0, this.emptyOptical.destroy();
+		this.nativeMaterials.clear(), this.coveragePipelines.clear(), this.visibilityCache.clear(), this.visibility.entries.clear(), this.gathered.clear(), this.occlusion?.destroy(), this.particles.destroy(), this.oit.release(), this.post.destroy(), this.depthTexture && this.stats.target(-this.depthWidth * this.depthHeight * 4 * this.sampleCount), this.msaaTexture && this.stats.target(-this.msaaWidth * this.msaaHeight * (this.msaaFormat === `rgba16float` ? 8 : 4) * this.sampleCount), this.shadowTexture && this.stats.target(-this.shadowSize * this.shadowSize * 4), this.refractionTexture && this.stats.target(-this.refractionWidth * this.refractionHeight * 8), this.depthTexture?.destroy(), this.msaaTexture?.destroy(), this.msaaTexture = void 0, this.msaaView = void 0, this.depthTexture = void 0, this.depthView = void 0, this.shadowTexture?.destroy(), this.shadowTexture = void 0, this.shadowView = void 0, this.sceneBuffer.destroy(), this.shadowBuffer.destroy(), this.sheenBuffer.destroy(), this.brdfBuffer.destroy(), this.projectionBuffer.destroy(), this.whiteTexture.destroy(), this.emptyShadow.destroy(), this.refractionTexture?.destroy(), this.refractionTexture = void 0, this.refractionView = void 0, this.emptyOptical.destroy();
 		for (let e of this.opticalTextures.values()) e.resource.destroy();
 		this.opticalTextures.clear(), this.identityBuffer.destroy(), this.whiteBuffer.destroy(), this.influenceBuffer?.destroy();
 		for (let e of this.retired.splice(0)) e.destroy();

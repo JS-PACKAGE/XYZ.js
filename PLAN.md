@@ -460,3 +460,19 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
   offscreen/HDR resolve and ordinary overlay. Public availability reports actual
   usable sample counts; antialias disabled／unsupported requests fail explicitly.
   Shadow maps retain the same binary cutoff. Default rendering is unchanged.
+
+### P122 — GGX IBL／BRDF integration／layer energy
+
+- Every nonzero environment roughness mip uses a GGX split-sum prefilter, with
+  deterministic sampling/source-footprint LOD and documented resolution bounds;
+  sharp background level zero stays unchanged.
+- Numerically integrated, reproducible GGX DFG lookup replaces the analytic fit;
+  shared Smith visibility, bounded multiscattering compensation and diffuse／
+  clearcoat energy accounting cover actual native white-furnace HDR radiance.
+  Existing texture-slot limits remain; lookup buffers have explicit ownership.
+- Reuse Charlie sheen directional-albedo data; direct layer attenuation accounts
+  for light and view, and indirect sampling uses a bounded Charlie kernel rather
+  than calling a GGX lobe sheen. Document spatial/integration approximations.
+- Validate numerical references plus real GPU／GL, authored normals／roughness
+  boundaries, colored metal／dielectric／clearcoat／sheen, lifecycle and earlier
+  native regressions; preserve historical records without path-tracer claims.

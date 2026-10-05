@@ -51,6 +51,7 @@ import {
 import type { EnvironmentMap } from '../../core/src/environment.js';
 import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
+import { ggxDirectionalAlbedo } from '../../../src/data/brdf.js';
 import { Matrix4 } from '../../math/src/index.js';
 import { OrthographicCamera } from '../../core/src/orthographic-camera.js';
 import {
@@ -633,6 +634,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly shadowCache = new ShadowCache();
   private shadowBuffer: WebGLBuffer | undefined;
   private sheenBuffer: WebGLBuffer | undefined;
+  private brdfBuffer: WebGLBuffer | undefined;
   private readonly opticalTextures = new Map<
     PBRMaterial,
     {
@@ -914,6 +916,14 @@ export class WebGL2Renderer implements Renderer {
         gl.getUniformBlockIndex(this.meshProgram, 'SheenLookup'),
         1,
       );
+      this.brdfBuffer = this.createBuffer(gl);
+      gl.bindBuffer(gl.UNIFORM_BUFFER, this.brdfBuffer);
+      gl.bufferData(gl.UNIFORM_BUFFER, ggxDirectionalAlbedo, gl.STATIC_DRAW);
+      gl.uniformBlockBinding(
+        this.meshProgram,
+        gl.getUniformBlockIndex(this.meshProgram, 'GGXLookup'),
+        2,
+      );
       this.opticalPackProgram = this.createProgram(
         gl,
         postVertex,
@@ -1186,6 +1196,7 @@ export class WebGL2Renderer implements Renderer {
       for (const [name, binding] of [
         ['ShadowData', 0],
         ['SheenLookup', 1],
+        ['GGXLookup', 2],
       ] as const) {
         const index = gl.getUniformBlockIndex(program, name);
         if (index !== gl.INVALID_INDEX)
@@ -2079,6 +2090,7 @@ export class WebGL2Renderer implements Renderer {
     const camera = scene.camera3D.position;
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
+    gl.bindBufferBase(gl.UNIFORM_BUFFER, 2, this.brdfBuffer!);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindSampler(5, null);
     gl.bindTexture(gl.TEXTURE_2D, this.shadowTarget?.texture ?? null);
@@ -4108,6 +4120,7 @@ export class WebGL2Renderer implements Renderer {
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
       if (this.sheenBuffer) gl.deleteBuffer(this.sheenBuffer);
+      if (this.brdfBuffer) gl.deleteBuffer(this.brdfBuffer);
       if (this.refractionTarget) this.deleteTarget(this.refractionTarget);
       if (this.emptyOptical) gl.deleteTexture(this.emptyOptical);
       if (this.opticalPackProgram) gl.deleteProgram(this.opticalPackProgram);

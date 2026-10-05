@@ -362,8 +362,8 @@ Historical v1.1 baseline (package 1.1.0), not the previously published v1.0 tag.
 - `scene.shadows` defaults disabled; mapSize=1024, extent=10, near=0.1, far=50, bias=0.002 and target retain the original fixed directional camera. Mesh.castShadow/receiveShadow default true. P37 adds point/spot shadows and 2–4 directional cascades using a bounded depth atlas and 3×3 PCF; see section 35, including light flags and device-dimension limits.
 - scene.postProcessing defaults disabled. When enabled, 3D renders into an HDR floating-point attachment before fullscreen exposure (default 1), toneMapping ('aces' default or 'none') and actual 9-tap threshold bloom (strength=0, threshold=1, radius=2 output pixels). The 2D overlay runs afterward and is unaffected. Resize/disable/destroy release size-dependent targets. WebGL2 requires EXT_color_buffer_float and explicitly rejects requested HDR processing when unavailable.
 - `InstancedMesh({...meshOptions,count})` has fixed positive count and identity-initialized matrices. Use setMatrixAt(index,Matrix4) for finite invertible affine matrices; it increments version so upload caches notice changes. getMatrixAt(index,out) reuses out. Do not directly mutate matrices without notification. Indexed hardware instancing shares geometry/material, composing mesh.worldMatrix × instance matrix with inverse-transpose normals.
-- Environment (`EnvironmentMap`, WebGPU/WebGL2 only): `scene.environment` lights PBRMaterial with image-based light and `scene.background` draws a skybox; both take the same or different maps, `environmentIntensity`/`backgroundIntensity` (nonnegative, default 1) scale them, and a destroyed map is treated as absent. Maps are immutable 2:1 equirect radiance images (height 4..1024, width 2×height, linear light): `fromPixels(w,h,float RGB|RGBA)`, `fromImageData(8-bit sRGB)`, `fromRGBE(hdrBytes)` (Radiance .hdr, flat or RLE, -Y +X orientation only, bounds-checked) and procedural `gradient({zenith,horizon,ground,sun?})`. Direction convention: u=0.5 looks toward −Z, v=0 is +Y. Construction filters once on the CPU (about 160 ms for 2048×1024 in Chromium): an order-2 SH irradiance (÷π, cosine-convolved) for diffuse light and up to 7 half-float mips whose levels ≥2 are cosine-power lobes for roughness = level/(mips−1); level 1 is a box average. Shaders use `textureLod` at `roughness × (mips−1)` and Karis' analytic split-sum BRDF (no LUT). With an environment the flat `ambientLight` term is dropped for PBR; punctual/directional lights still add; TextureMaterial is unchanged. The skybox is a fullscreen triangle drawn first without depth, unprojecting two points per pixel so perspective and orthographic cameras work; it samples level 0 (no minification filter) and is tone mapped with the 3D pass. GPU copies are renderer caches keyed by map, released when unused or destroyed. Not implemented: environment rotation, box-projected/parallax reflections, sun shadowing from the map, and background blur. Verified by unit tests (SH/mips/RGBE) and in Chromium on WebGL2 and WebGPU (sky orientation, IBL spheres, HDR path, orthographic camera, runtime swaps; no console errors); other browsers and real-GPU visual parity are unverified.
-- The preceding no-box-projection exclusion is the historical environment baseline: P38 now provides bounded baked `ReflectionProbe` box projection and cubemap inputs converted to equirect data (section 36), not native cube textures or automatic probe capture.
+- Environment (`EnvironmentMap`, WebGPU/WebGL2 only): `scene.environment` lights PBRMaterial with image-based light and `scene.background` draws a skybox; both take the same or different maps, `environmentIntensity`/`backgroundIntensity` (nonnegative, default 1) scale them, and a destroyed map is treated as absent. Maps are immutable 2:1 equirect radiance images (height 4..1024, width 2×height, linear light): `fromPixels(w,h,float RGB|RGBA)`, `fromImageData(8-bit sRGB)`, `fromRGBE(hdrBytes)` (Radiance .hdr, flat or RLE, -Y +X orientation only, bounds-checked) and procedural `gradient({zenith,horizon,ground,sun?})`. Direction convention: u=0.5 looks toward −Z, v=0 is +Y. CPU construction produces order-2 SH irradiance/pi and up to seven half-float levels; level zero stays sharp and every rough level uses bounded GGX prefiltering. Shaders sample `roughness × (mips−1)` and numerical split-sum integration; current bounds/energy accounting are in P122 below, not the historical cosine-power/analytic-fit timing. With an environment the flat `ambientLight` term is dropped for PBR; punctual/directional lights still add; TextureMaterial is unchanged. The skybox is a fullscreen triangle drawn first without depth, unprojecting two points per pixel so perspective and orthographic cameras work; it samples level zero and is tone mapped with the 3D pass. GPU copies are renderer caches keyed by map, released when unused or destroyed. Environment rotation, map-derived sun shadowing and background blur remain excluded. Probe projection/capture have separate later contracts. Actual browser evidence/limits are recorded in ACCEPTANCE, not universal real-GPU parity.
+- The original environment baseline excluded probe projection; P38 added bounded baked `ReflectionProbe` box projection/cubemap-to-equirect inputs (section 36). Later explicit capture APIs have separate ownership contracts; these are not native cube textures or automatic dynamic probes.
 - Frustum culling (WebGPU/WebGL2) tests the mesh bounding sphere transformed by world matrix and largest axis scale. Ordinary Geometry bounds are cached per `version`; call `markUpdated` after edits. Skinned meshes use conservative animated influence bounds, including morph changes (section 42). InstancedMesh and ordinary morphed meshes remain uncullable. Outside meshes keep caches warm; shadow casters outside the camera view can still render. `frustumCulled=false` disables culling.
 - Fog (`scene.fog`, `FogSettings`, WebGPU/WebGL2): disabled by default; `enabled`, `mode` `'linear'` (`near`<`far`, coverage `(d−near)/(far−near)` clamped) or `'exp2'` (`density`, coverage `1−exp(−(density·d)²)`), `color` as display sRGB 0..1. `d` is the world distance from the camera position to the fragment, so orthographic cameras fog by radial distance too. Both `TextureMaterial` and `PBRMaterial` fade toward the fog color; the fade acts on premultiplied color, so translucent surfaces stay translucent. The color is decoded to linear only when post-processing renders the 3D pass in linear HDR. The skybox, 2D overlay and Canvas2D are not fogged. Settings are mutable and validated every frame. Uniform block: `FOG_FLOAT_COUNT` in `src/data/rendering.ts`. Verified by unit tests and by toggling it in the advanced3d example on Chromium WebGL2 and WebGPU (no console errors, visibly lighter distant geometry); exact pixel parity between backends and other browsers are unverified.
 - Antialiasing (`GameOptions.antialias`, default `true`): WebGPU renders the 3D pass into 4× multisampled color and depth textures (color `rgba8`/canvas format, or `rgba16float` when post-processing is on) and resolves into the canvas or the HDR target; the shadow pass and the 2D overlay are not multisampled. WebGL2 passes the flag to `getContext` as `antialias`; the browser then decides whether the default framebuffer is multisampled, and the WebGL2 post-processing framebuffer and Canvas2D never are. `false` skips the multisample textures. Toggling requires creating a new Game. In Chromium WebGPU the unique-color count of the advanced3d frame rose from 6194 (off) to 7449 (on), consistent with edge blending; no per-pixel comparison, other browsers or GPU cost were measured.
@@ -766,8 +766,8 @@ GLTFLoader accepts required `KHR_materials_ior` and `KHR_materials_specular`,
 including both texture slots and samplers. They cannot coexist with
 `KHR_materials_unlit`. Each map independently selects UV0/UV1 and its affine
 `KHR_texture_transform`; transforms need not agree.
-The existing approximate environment prefilter / analytic split-sum BRDF remains;
-this is not a reference-path-tracer accuracy claim. See the
+The bounded environment prefilter / numerical split-sum BRDF is specified in
+[P122](#p122-bounded-ggx-and-charlie-ibl), not a reference-path-tracer accuracy claim. See the
 [IOR specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
 and [specular specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular).
 
@@ -781,8 +781,8 @@ without it the layer uses geometric normals, never the base normal map.
 own matching `*Sampler` options and borrow their textures.
 
 The fixed-IOR 1.5 microfacet layer reflects directional, point, spot and environment
-lighting above the base material, including metallic surfaces. View-normal Fresnel
-attenuates the underlying lighting **and emission**. Intensity 0 skips the layer.
+lighting above the base material, including metallic surfaces. Integrated compensated
+reflectance attenuates the underlying lighting **and emission**. Intensity 0 skips the layer.
 The numerical roughness floor is 0.04, as in the base BRDF; this is an infinitely
 thin coat, not refraction or inter-layer scattering. Identity maps matching
 `geometry.tangentTexCoord` use Geometry tangents; other bases, transformed coordinates
@@ -790,9 +790,9 @@ and native deformation retain independent derivative frames.
 
 GLTFLoader accepts required `KHR_materials_clearcoat`, its factors, all three maps,
 normal scale and samplers, with independent per-map UV0/UV1 transforms.
-Combining it with unlit rejects. Layering follows the non-normative simple Fresnel
-model in the [clearcoat specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat);
-the environment contribution retains the existing analytic split-sum approximation.
+Combining it with unlit rejects. The
+[clearcoat specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)
+describes the layer; current bounded numerical integration/energy accounting is in P122.
 
 ### Sheen (P39c)
 
@@ -805,18 +805,18 @@ GLTFLoader accepts required `KHR_materials_sheen`, its factors and both maps,
 rejecting unlit combinations and incompatible per-slot transforms.
 
 Both backends use Charlie distribution and visibility for direct sheen. The
-view-only albedo-scaling approximation attenuates base direct/indirect lighting,
-not emission; clearcoat is applied above sheen and emission. A baked 32×32
+base albedo scaling uses both light/view for direct light and view for indirect
+lighting, not emission; clearcoat is applied above sheen and emission. A baked 32×32
 directional-albedo table is integrated with 128 elevation × 256 azimuth samples
 per entry, bounded to 0–1, bilinearly interpolated and uploaded once as a 4 KiB
 uniform buffer, not an extra texture slot. Regenerate it with
 `node scripts/generate-sheen-lut.mjs`, then format `src/data/sheen.ts`.
-No quadrature or table uploads run per frame.
+No CPU table quadrature or table uploads run per frame.
 
-Sheen IBL uses the directional albedo and the existing roughness-filtered
-environment; that filter is not a dedicated Charlie convolution. This and the
-finite lookup resolution are approximations, not a strict energy-conservation or
-reference-renderer guarantee. Equations and layering are described in the
+Sheen IBL uses the directional albedo and bounded Charlie integration of sharp
+environment/probe atlases, not GGX roughness mips. Sample-count and finite lookup
+resolution limits are in P122; this is not reference-renderer convergence.
+Equations and layering are described in the
 [sheen specification](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen).
 
 ### Transmission and Volume (P39d)
@@ -1519,3 +1519,45 @@ Use the same cutoff in the material. No texture-slot inference or runtime mip
 generation is introduced. `pnpm smoke:material-aa` exercises actual native
 motion, flat normals, HDR/MSAA, weighted transparency, overlays, probe capture,
 disabled antialiasing, absent float-color support and Canvas capability limits.
+
+## P122. Bounded GGX and Charlie IBL
+
+Quality improves automatically; existing PBR/environment APIs and 16 texture
+slots remain. Sharp level zero/background and order-2 SH irradiance/pi are
+unchanged. Each rough mip uses 128 deterministic GGX NDF samples at N=V with
+NdotL normalization, a temporary linear source pyramid and trilinear source
+footprint LOD derived from the GGX PDF/equirectangular solid angle. Filtered work
+is at most 256x128, then resampled to the existing level dimensions. SH still
+uses its separate 64x32 proxy. These are bounded split-sum approximations:
+bright subtexel sources, low-resolution mips, sample orientation and poles are
+not path-traced convergence guarantees.
+
+`scripts/generate-brdf-lut.mjs` reproducibly integrates Schlick A/B using 65,536
+NDF samples per endpoint-grid point, height-correlated Smith GGX and perceptual
+roughness squared as alpha. The 64x32 RG Float32 table occupies exactly 16 KiB
+in an owned uniform buffer; bilinear shader lookup consumes no sampler. NdotV
+zero is regularized to 1e-4 and numerical A+B excess is normalized. Direct
+lighting uses the same Smith visibility and an unclipped, stable GGX
+distribution; very sharp highlights therefore differ from the old denominator
+clamp. Independent hemisphere quadrature checks A/B within 0.012 absolute
+over the documented rough/grazing regression grid; directional radiance
+moments are checked within 0.035.
+
+Bounded compensation is `1 + F0 * (1/(A+B) - 1)`. F0 is capped at one for
+metal reflectance; HDR emission remains separate. Integrated compensated
+reflectance budgets base diffuse/transmission and clearcoat attenuation,
+including IOR=1/specular-weight contracts. This model preserves unit white
+furnaces for physically valid inputs but is not exact spectral/multiple-bounce
+layer transport. HDR authored tints above one are not conservation claims.
+See the [Filament derivation](https://google.github.io/filament/Filament.html).
+
+Charlie direct base attenuation uses max(view/light directional albedo).
+Indirect sheen importance-samples the sharp atlas with 32 Charlie half-vectors,
+normalizes its quadrature and applies the existing integrated albedo. It does
+not reuse a GGX reflection lookup. The center sample guarantees positive
+normalization for front-facing normals; back-facing sheen returns zero.
+At most 160 atlas sample calls per participating fragment include four probes.
+This opt-in sheen cost/approximation is not anisotropic filtering, MIS or
+unbiased temporal convergence. `pnpm smoke:ibl-quality` covers real native HDR
+white/colored furnaces, layer boundaries and owned API-loss recovery;
+`pnpm smoke:ibl-quality --built` uses the built public root.

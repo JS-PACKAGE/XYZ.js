@@ -8,7 +8,8 @@ var materialQuality = Object.freeze({
 	samples: 4,
 	normalVarianceScale: 2,
 	maxNormalVariance: .18,
-	minAlphaFootprint: 1e-4
+	minAlphaFootprint: 1e-4,
+	sheenSamples: 32
 });
 var materialTextureSlots = Object.freeze([
 	`texture`,
@@ -36,7 +37,9 @@ var environmentLimits = Object.freeze({
 	maxWidth: 2048,
 	minHeight: 4,
 	maxMips: 7,
-	proxyWidth: 64
+	proxyWidth: 64,
+	prefilterSamples: 128,
+	prefilterWidth: 256
 });
 var graphicsRecoveryLimits = Object.freeze({ restoreTimeoutMs: 1e4 });
 Object.freeze({

@@ -362,8 +362,8 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 - `scene.shadows` 預設 disabled；mapSize=1024、extent=10、near=0.1、far=50、bias=0.002／target 保留原固定 directional camera。Mesh.castShadow／receiveShadow 預設 true。P37 已加入 point／spot shadows 與 2–4 directional cascades，共用 bounded depth atlas／3×3 PCF；光源 flags／device dimensions 見第 35 節。
 - scene.postProcessing 預設 disabled。啟用時 3D 先進 HDR floating-point attachment，再 fullscreen exposure（1）、toneMapping（預設 'aces' 或 'none'）、實際 9-tap threshold bloom（strength=0、threshold=1、radius=2 output pixels）。2D overlay 在後且不受影響；resize／disable／destroy 釋放尺寸相關 targets。WebGL2 需 EXT_color_buffer_float，缺少時明確拒絕啟用 HDR processing。
 - InstancedMesh({...meshOptions,count}) count 固定且正，matrices 初始 identity。以 setMatrixAt(index,Matrix4) 設有限、可逆 affine matrix，增加 version 通知 upload cache；getMatrixAt(index,out) 重用 out，不要直接改 matrices 而不通知。Indexed hardware instancing 共用 geometry／material，world 為 mesh.worldMatrix × instance matrix，normal 使用 inverse-transpose。
-- Environment（`EnvironmentMap`，僅 WebGPU／WebGL2）：`scene.environment` 以 image-based light 照亮 PBRMaterial，`scene.background` 繪製 skybox；兩者可用同一或不同 map，`environmentIntensity`／`backgroundIntensity`（非負，預設 1）縮放，destroyed map 視為不存在。Map 為不可變 2:1 equirect 輻射度影像（height 4..1024、width=2×height、linear light）：`fromPixels(w,h,float RGB|RGBA)`、`fromImageData(8-bit sRGB)`、`fromRGBE(hdrBytes)`（Radiance .hdr，flat 或 RLE，僅 -Y +X 方向，含邊界檢查）與程序化 `gradient({zenith,horizon,ground,sun?})`。方向約定：u=0.5 朝 −Z，v=0 為 +Y。建構時在 CPU 一次過濾（Chromium 中 2048×1024 約 160 ms）：order-2 SH irradiance（÷π、cosine 卷積）供 diffuse，最多 7 層 half-float mip，level≥2 為 cosine-power lobe（roughness=level/(mips−1)），level 1 為 box average。Shader 以 `roughness × (mips−1)` 做 `textureLod`，並用 Karis 解析 split-sum BRDF（無 LUT）。有 environment 時，PBR 略過平面 `ambientLight`，點光／方向光仍疊加；TextureMaterial 不變。Skybox 是先繪製、不使用 depth 的 fullscreen triangle，每像素反投影兩點，故 perspective 與 orthographic 相機皆可；取樣 level 0（無縮小濾波）並與 3D pass 一起 tone map。GPU 副本是以 map 為 key 的 renderer cache，不再使用或 destroy 後釋放。未實作：environment 旋轉、box-projected／視差反射、由 map 產生太陽陰影、背景模糊。已用 unit tests（SH／mips／RGBE）與 Chromium 的 WebGL2、WebGPU 驗證（天空方向、IBL 球體、HDR 路徑、orthographic、runtime 切換，無 console errors）；其他瀏覽器與真實 GPU 視覺一致性未驗證。
-- 上段「無 box-projected」是歷史 environment 基線：P38 現有 bounded baked `ReflectionProbe` box projection與cubemap輸入→equirect（第36節）；不是native cube textures／automatic probe capture。
+- Environment（`EnvironmentMap`，僅 WebGPU／WebGL2）：`scene.environment` 以 image-based light 照亮 PBRMaterial，`scene.background` 繪製 skybox；兩者可用同一或不同 map，`environmentIntensity`／`backgroundIntensity`（非負，預設1）縮放，destroyed map視為不存在。Map為不可變2:1 equirect linear radiance（height4..1024、width=2×height）：`fromPixels(w,h,float RGB|RGBA)`、`fromImageData(8-bit sRGB)`、`fromRGBE(hdrBytes)`（Radiance .hdr、flat／RLE、僅-Y +X方向、含邊界檢查）及 `gradient({zenith,horizon,ground,sun?})`。方向u=.5朝−Z，v=0朝+Y。CPU建構一次產生order2 SH irradiance/pi及最多7層half-float mip；level0 sharp，所有rough levels為有界GGX prefilter。Shader採roughness×(mips−1)與數值split-sum積分，目前成本／能量邊界見P122，不沿用歷史cosine-power／解析fit的計時。有environment時PBR不加flat ambientLight，punctual／directional仍加入，TextureMaterial不變。Skybox先畫無depth fullscreen triangle，每pixel反投影兩點，支援perspective／orthographic；取level0，隨3D pass tone-map。GPU copies為renderer-owned cache，unused／destroyed時釋放。Environment rotation、由map產生sun shadow與background blur仍排除；probe projection／capture另有後續契約。Actual browser證據與限制見ACCEPTANCE，不宣稱通用實機pixel parity。
+- 原environment基線排除probe projection；P38加入bounded baked `ReflectionProbe` box projection／cubemap-to-equirect（第36節）。後續明示capture APIs另有ownership契約，不是native cube textures／automatic dynamic probes。
 - Frustum culling（WebGPU／WebGL2）測試 world-transformed bounding sphere；一般 Geometry 按 version cache，改 vertices 後需 markUpdated。SkinnedMesh 使用含 morph 的 conservative animated bounds（第 42 節）；InstancedMesh／一般 morph mesh 仍不剔除。視錐外 mesh 保持 cache、shadow caster 仍可繪製；frustumCulled=false 關閉剔除。
 - Fog（`scene.fog`、`FogSettings`，WebGPU／WebGL2）：預設停用；`enabled`、`mode` 為 `'linear'`（`near`<`far`，覆蓋率 `(d−near)/(far−near)` 並 clamp）或 `'exp2'`（`density`，覆蓋率 `1−exp(−(density·d)²)`），`color` 為顯示用 sRGB 0..1。`d` 是相機位置到片元的世界距離，因此 orthographic 相機也是以徑向距離計算。`TextureMaterial` 與 `PBRMaterial` 皆向 fog color 漸變；漸變作用於 premultiplied 顏色，半透明表面仍保持半透明。只有 post-processing 以 linear HDR 繪製 3D pass 時才把顏色轉為 linear。Skybox、2D overlay 與 Canvas2D 不受 fog 影響。設定可變，每幀驗證。Uniform 區塊見 `src/data/rendering.ts` 的 `FOG_FLOAT_COUNT`。已用 unit tests，以及在 Chromium WebGL2／WebGPU 的 advanced3d 範例切換驗證（無 console errors、遠處幾何明顯變淡）；兩個 backend 的逐像素一致性與其他瀏覽器未驗證。
 - 抗鋸齒（`GameOptions.antialias`，預設 `true`）：WebGPU 以 4× multisample 的 color 與 depth texture 繪製 3D pass（color 為 canvas 格式，post-processing 開啟時為 `rgba16float`），結束時 resolve 到 canvas 或 HDR target；shadow pass 與 2D overlay 不做 multisample。WebGL2 把此旗標傳給 `getContext` 的 `antialias`，預設 framebuffer 是否 multisample 由瀏覽器決定；WebGL2 的 post-processing framebuffer 與 Canvas2D 永不 multisample。`false` 則不建立 multisample texture。切換需重建 Game。在 Chromium WebGPU 上，advanced3d 畫面的獨特顏色數由 6194（關）升到 7449（開），與邊緣混色一致；未做逐像素比較，也未量測其他瀏覽器或 GPU 成本。
@@ -728,9 +728,9 @@ Diffuse 能量以 RGB dielectric reflectance 的最大值扣除，不產生互�
 
 GLTFLoader 接受 required `KHR_materials_ior`／`KHR_materials_specular`，
 包含兩個貼圖 slots 與 samplers；不可與 `KHR_materials_unlit` 共存。
-各 material map 可獨立選 UV0／UV1及 affine `KHR_texture_transform`，不要求 shared
-transform。Environment prefilter／解析 split-sum BRDF 仍是
-既有近似，沒有宣稱 reference path tracer 精度。規格見
+各 material map 可獨立選 UV0／UV1及 affine `KHR_texture_transform`，不要求 shared transform。
+有界 environment prefilter／數值 split-sum BRDF 見
+[P122](#p122-有界-ggxcharlie-ibl)，不宣稱 reference path tracer 精度。規格見
 [IOR](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_ior)
 與 [specular](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_specular)。
 
@@ -743,7 +743,7 @@ linear R 乘強度，`clearcoatRoughnessTexture` 以 linear G 乘粗糙度。
 三個 slots 各有對應的 `*Sampler`，所有貼圖都借用。
 
 固定 IOR 1.5 的 microfacet layer 在 base 上反射 directional／point／spot／environment
-lighting，包含 metallic 表面；view-normal Fresnel 同時衰減底層 lighting **與 emission**。
+lighting，包含 metallic 表面；補償後積分反射率同時衰減底層 lighting **與 emission**。
 強度 0 跳過 layer；roughness 的數值下限與 base BRDF 相同為 0.04。
 這是無限薄 coating，不做 refraction 或層間 scattering。與 `geometry.tangentTexCoord`
 一致的 identity map 使用 Geometry tangent；其他 basis、coordinates／native
@@ -751,8 +751,8 @@ deformation 保留各 map 的獨立 derivative frame。
 
 GLTFLoader 接受 required `KHR_materials_clearcoat`、factors、三個 maps、normal scale
 與 samplers，各 map 獨立 UV0／UV1 transform；與 unlit 共存會拒絕。
-Layering 採用 [clearcoat 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)
-中的 non-normative simple Fresnel model；環境光仍採既有解析 split-sum 近似。
+Layer描述見 [clearcoat 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_clearcoat)；
+目前有界數值積分／能量分配見P122。
 
 ### Sheen（P39c）
 
@@ -763,17 +763,17 @@ RGB 乘顏色，`sheenRoughnessTexture` 以 linear alpha 乘粗糙度。
 GLTFLoader 接受 required `KHR_materials_sheen`、factors 與兩個 maps，
 拒絕 unlit 共存與不相容的 slot transforms。
 
-兩 backend 的直接光 sheen 採 Charlie distribution／visibility；view-only
-albedo-scaling 近似衰減底層直接／間接 lighting，但不衰減 emission；
+兩 backend 的直接光 sheen 採 Charlie distribution／visibility；base albedo scaling
+直接光用light／view，間接光用view，衰減底層lighting但不衰減emission；
 clearcoat 再疊在 sheen 與 emission 上。預先產生的 32×32 directional-albedo table
 每格以 128 elevation × 256 azimuth 樣本積分，限制於 0–1、雙線性內插；
 每 renderer 只上傳一次 4 KiB uniform buffer，不多佔 texture slot。
 可用 `node scripts/generate-sheen-lut.mjs` 重產，再 format `src/data/sheen.ts`。
-每幀不做數值積分或 table 上傳。
+每幀不做CPU table積分或table上傳。
 
-Sheen IBL 使用 directional albedo 與既有 roughness-filtered environment，
-該 filter 並非專用 Charlie convolution。這些近似與有限 lookup 解析度不保證嚴格
-energy conservation 或 reference-renderer 精度。方程與 layering 見
+Sheen IBL 使用 directional albedo與sharp environment／probe atlas的有界Charlie積分，
+不使用GGX roughness mips。取樣數／lookup解析度限制見P122，不是reference-renderer
+convergence。方程與 layering 見
 [sheen 規格](https://github.com/KhronosGroup/glTF/tree/main/extensions/2.0/Khronos/KHR_materials_sheen)。
 
 ### Transmission 與 Volume（P39d）
@@ -1419,3 +1419,34 @@ Tied alpha、zero alpha、小尺寸與byte quantization可能無法精確保留�
 lossy codec／trilinear sampling也不保證相同比例。Material應使用相同cutoff；
 沒有slot inference／runtime mip生成。`pnpm smoke:material-aa` 實跑native motion、
 flat normal、HDR／MSAA／weighted／overlay／probe／停用AA／無float／Canvas邊界。
+
+## P122. 有界 GGX／Charlie IBL
+
+品質自動改善，既有 API 與16 texture slots不變。Sharp level0／background 與
+order2 SH irradiance/pi 不改；所有rough mip採128個deterministic GGX NDF samples，
+N=V、NdotL正規化。暫存linear source pyramid，依GGX PDF／equirect solid angle
+決定trilinear footprint LOD；filtered work限256x128，再resample至既有level尺寸。
+SH仍使用獨立64x32 proxy。Subtexel bright source、低解析度mip、取樣方位／極點
+保留空間近似，不是path-traced convergence。
+
+`scripts/generate-brdf-lut.mjs` 每endpoint grid point採65,536個NDF samples，
+以height-correlated Smith GGX積分Schlick A/B，alpha=perceptual roughness squared。
+64x32 RG Float32恰為16 KiB owned uniform buffer；shader bilinear lookup不占sampler。
+NdotV零正規化至1e-4，數值A+B超1則正規化。Direct light同用Smith visibility與
+穩定、未clamp峰值的GGX distribution，sharp highlight與舊denominator clamp不同。
+獨立hemisphere quadrature在rough／grazing regression grid驗證A/B絕對誤差<0.012；
+directional radiance moments誤差<0.035。
+
+有界補償為 `1 + F0 * (1/(A+B) - 1)`；metal reflectance F0限1，HDR emission另計。
+補償後積分反射率分配base diffuse／transmission與clearcoat外層衰減，保留IOR1／
+specular-weight契約。物理有效輸入可維持unit white furnace，但不是精確光譜／
+多次反射layer transport；HDR tint超1不作能量守恆宣稱。
+參考 [Filament推導](https://google.github.io/filament/Filament.html)。
+
+Charlie direct base衰減用view／light directional albedo最大值；indirect用32個
+Charlie half-vectors取樣sharp atlas，正規化後乘既有integrated albedo，不用GGX lobe
+冒充sheen。中心sample使front-facing normalization必為正；back-facing sheen為零。
+含4 probes最多160次atlas sample calls／participating fragment。這是opt-in sheen
+的有界成本／空間近似，不是anisotropic filtering、MIS或unbiased temporal convergence。
+`pnpm smoke:ibl-quality` 實跑native HDR白／彩色furnace、layer邊界與owned API loss；
+`pnpm smoke:ibl-quality --built` 走built public root，並非實體driver reset資格。

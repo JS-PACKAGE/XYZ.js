@@ -26,9 +26,9 @@ export interface EnvironmentGradientOptions {
 export declare function equirectDirection(u: number, v: number, out: [number, number, number]): [number, number, number];
 /**
  * Immutable equirectangular (2:1) radiance environment for image-based lighting and
- * backgrounds. Construction does all CPU filtering once: an order-2 SH irradiance for
- * diffuse light and a roughness-blurred mip chain for specular reflections. GPU uploads
- * are renderer-owned caches; `destroy()` only releases the CPU data and stops rendering.
+ * backgrounds. Construction does all CPU filtering once: order-2 SH irradiance for
+ * diffuse light and bounded GGX split-sum prefiltering for specular reflections.
+ * GPU uploads are renderer-owned caches; `destroy()` releases CPU data and stops rendering.
  */
 export declare class EnvironmentMap {
     /** Half-float RGBA levels; level 0 is sharp, later levels are progressively blurrier. */
@@ -74,7 +74,6 @@ export declare class EnvironmentMap {
     static gradient(options: EnvironmentGradientOptions): EnvironmentMap;
     /** Stops rendering with this map; renderers release their GPU copies on the next frame. */
     destroy(): void;
-    private static sourceDirections;
     private static projectSH;
     private static convolve;
 }

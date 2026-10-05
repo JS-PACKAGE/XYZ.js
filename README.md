@@ -38,6 +38,9 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 - **P121 source 更新（未發佈）**：PBR 可選 normal-footprint／specular AA、
   MASK alpha-to-coverage；GPU／GL 使用實際 MSAA／HDR resolve 與可查詢 sample 數。
   資產 profile 可指定 alpha-coverage mip cutoff；影子維持 binary cutoff。
+- **P122 source 更新（未發佈）**：GGX environment prefilter、數值 BRDF lookup、
+  有界多重散射與 clearcoat 能量分配；Charlie sheen 使用獨立的間接取樣 kernel。
+  沿用現有貼圖 slot，非 path-tracer／實機相容性認證。
 
 ### 目前可用
 
@@ -157,6 +160,9 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 - **P121 source update (unreleased)**: opt-in PBR normal-footprint/specular AA,
   MASK alpha-to-coverage with real native MSAA/HDR resolve and sample capabilities,
   plus explicit asset alpha-coverage mip cutoffs. Shadows retain binary masking.
+- **P122 source update (unreleased)**: GGX environment prefiltering, numerical BRDF
+  lookup, bounded multiscattering/layer energy and a Charlie indirect sheen kernel.
+  Existing texture-slot limits remain; no path-tracer or physical qualification claim.
 
 ### Available now
 
@@ -268,6 +274,9 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 - **P121 source 更新（未公開）**：PBR の normal-footprint／specular AA、
   MASK alpha-to-coverage を実際の MSAA／HDR resolve と sample capability で実装。
   Asset profile は alpha-coverage mip cutoff を指定可能。影は binary cutoff のままです。
+- **P122 source 更新（未公開）**：GGX environment prefilter、数値 BRDF lookup、
+  有界な多重散乱／clearcoat のエネルギー配分と Charlie sheen の間接サンプリング。
+  Texture slot 上限は維持。Path tracer／実機互換性の認証ではありません。
 
 ### 現在利用可能
 

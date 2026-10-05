@@ -126,9 +126,9 @@ const BAND_FACTOR = [1, 2 / 3, 2 / 3, 2 / 3, 0.25, 0.25, 0.25, 0.25, 0.25];
 
 /**
  * Immutable equirectangular (2:1) radiance environment for image-based lighting and
- * backgrounds. Construction does all CPU filtering once: an order-2 SH irradiance for
- * diffuse light and a roughness-blurred mip chain for specular reflections. GPU uploads
- * are renderer-owned caches; `destroy()` only releases the CPU data and stops rendering.
+ * backgrounds. Construction does all CPU filtering once: order-2 SH irradiance for
+ * diffuse light and bounded GGX split-sum prefiltering for specular reflections.
+ * GPU uploads are renderer-owned caches; `destroy()` releases CPU data and stops rendering.
  */
 export class EnvironmentMap {
   /** Half-float RGBA levels; level 0 is sharp, later levels are progressively blurrier. */
@@ -144,7 +144,8 @@ export class EnvironmentMap {
     this.width = width;
     this.height = height;
     const sizes: Array<{ width: number; height: number }> = [];
-    const chain: Float32Array[] = [];
+    const sourceChain: Float32Array[] = [linear];
+    const chain: Float32Array[] = [linear];
     let mipCount = 1;
     while (mipCount < environmentLimits.maxMips && height >> mipCount >= 1)
       mipCount++;
@@ -153,13 +154,17 @@ export class EnvironmentMap {
         width: Math.max(1, width >> level),
         height: Math.max(1, height >> level),
       });
-    chain.push(linear);
-    if (mipCount > 1)
-      chain.push(
-        resample(linear, width, height, sizes[1].width, sizes[1].height),
+    for (let level = 1; level < mipCount; level++)
+      sourceChain.push(
+        resample(
+          sourceChain[level - 1]!,
+          sizes[level - 1].width,
+          sizes[level - 1].height,
+          sizes[level].width,
+          sizes[level].height,
+        ),
       );
-    // Blur from a small proxy: filtered lobes are smooth, so 64x32 loses nothing visible.
-    // Halving repeatedly averages bright small features instead of aliasing them away.
+    // Diffuse SH uses an area-averaged proxy; specular rays sample the original pyramid.
     let proxy = linear;
     let proxyWidth = width;
     let proxyHeight = height;
@@ -179,30 +184,18 @@ export class EnvironmentMap {
       proxyHeight >>= 1;
     }
     this.sh = EnvironmentMap.projectSH(proxy, proxyWidth, proxyHeight);
-    const directions = EnvironmentMap.sourceDirections(proxyWidth, proxyHeight);
-    const solidAngles = new Float32Array(proxyWidth * proxyHeight);
-    for (let j = 0; j < proxyHeight; j++) {
-      const weight =
-        (TWO_PI / proxyWidth) *
-        (Math.PI / proxyHeight) *
-        Math.sin(((j + 0.5) / proxyHeight) * Math.PI);
-      for (let i = 0; i < proxyWidth; i++)
-        solidAngles[j * proxyWidth + i] = weight;
-    }
-    for (let level = 2; level < mipCount; level++) {
+    for (let level = 1; level < mipCount; level++) {
       const roughness = level / (mipCount - 1);
-      const alpha = roughness * roughness;
-      const shininess = Math.min(4096, Math.max(1, 2 / (alpha * alpha) - 2));
-      const bw = Math.min(sizes[level].width, environmentLimits.proxyWidth);
+      const bw = Math.min(sizes[level].width, environmentLimits.prefilterWidth);
       const bh = Math.max(1, bw >> 1);
       const blurred = EnvironmentMap.convolve(
-        proxy,
-        directions,
-        solidAngles,
-        proxyWidth * proxyHeight,
+        sourceChain,
+        sizes,
+        width,
+        height,
         bw,
         bh,
-        shininess,
+        roughness,
       );
       chain.push(
         bw === sizes[level].width && bh === sizes[level].height
@@ -573,17 +566,6 @@ export class EnvironmentMap {
     this.gone = true;
   }
 
-  private static sourceDirections(width: number, height: number): Float32Array {
-    const out = new Float32Array(width * height * 3);
-    const d: [number, number, number] = [0, 0, 0];
-    for (let j = 0; j < height; j++)
-      for (let i = 0; i < width; i++) {
-        equirectDirection((i + 0.5) / width, (j + 0.5) / height, d);
-        out.set(d, (j * width + i) * 3);
-      }
-    return out;
-  }
-
   private static projectSH(
     proxy: Float32Array,
     width: number,
@@ -614,41 +596,144 @@ export class EnvironmentMap {
   }
 
   private static convolve(
-    proxy: Float32Array,
-    directions: Float32Array,
-    solidAngles: Float32Array,
-    count: number,
+    source: readonly Float32Array[],
+    sizes: ReadonlyArray<{ width: number; height: number }>,
+    sourceWidth: number,
+    sourceHeight: number,
     width: number,
     height: number,
-    shininess: number,
+    roughness: number,
   ): Float32Array {
+    const count = environmentLimits.prefilterSamples;
+    const rays = new Float64Array(count * 4);
+    const solidAngles = new Float64Array(count);
+    const alpha2 = roughness ** 4;
+    for (let i = 0; i < count; i++) {
+      let bits = i,
+        inverse = 0,
+        place = 0.5;
+      while (bits) {
+        inverse += (bits & 1) * place;
+        bits >>>= 1;
+        place *= 0.5;
+      }
+      const phi = ((i + 0.5) / count) * TWO_PI;
+      const nh = Math.sqrt((1 - inverse) / (1 + (alpha2 - 1) * inverse));
+      const sh = Math.sqrt(Math.max(0, 1 - nh * nh));
+      const nl = 2 * nh * nh - 1,
+        offset = i * 4;
+      rays[offset] = 2 * nh * sh * Math.cos(phi);
+      rays[offset + 1] = 2 * nh * sh * Math.sin(phi);
+      rays[offset + 2] = nl;
+      rays[offset + 3] = Math.max(0, nl);
+      const denominator = 1 - nh * nh + alpha2 * nh * nh;
+      const pdf = alpha2 / (4 * Math.PI * denominator * denominator);
+      solidAngles[i] = 1 / (count * pdf);
+    }
     const out = new Float32Array(width * height * 3);
-    const d: [number, number, number] = [0, 0, 0];
-    for (let j = 0; j < height; j++)
-      for (let i = 0; i < width; i++) {
-        equirectDirection((i + 0.5) / width, (j + 0.5) / height, d);
-        let r = 0;
-        let g = 0;
-        let b = 0;
-        let total = 0;
-        for (let s = 0; s < count; s++) {
-          const cosine =
-            d[0] * directions[s * 3] +
-            d[1] * directions[s * 3 + 1] +
-            d[2] * directions[s * 3 + 2];
-          if (cosine <= 0) continue;
-          const weight = Math.pow(cosine, shininess) * solidAngles[s];
-          r += proxy[s * 3] * weight;
-          g += proxy[s * 3 + 1] * weight;
-          b += proxy[s * 3 + 2] * weight;
+    const n: [number, number, number] = [0, 0, 0];
+    const texelAngle = (TWO_PI * Math.PI) / (sourceWidth * sourceHeight);
+    const polarSine = Math.sin(Math.PI / (2 * sourceHeight));
+    for (let y = 0; y < height; y++)
+      for (let x = 0; x < width; x++) {
+        equirectDirection((x + 0.5) / width, (y + 0.5) / height, n);
+        // Use an axis away from the normal, avoiding an unstable pole tangent.
+        let tx = 0,
+          ty: number,
+          tz = 0;
+        if (Math.abs(n[2]) < 0.999) {
+          tx = -n[1];
+          ty = n[0];
+        } else {
+          ty = -n[2];
+          tz = n[1];
+        }
+        const length = Math.hypot(tx, ty, tz);
+        tx /= length;
+        ty /= length;
+        tz /= length;
+        const bx = n[1] * tz - n[2] * ty,
+          by = n[2] * tx - n[0] * tz,
+          bz = n[0] * ty - n[1] * tx;
+        let r = 0,
+          g = 0,
+          b = 0,
+          total = 0;
+        for (let i = 0; i < count; i++) {
+          const offset = i * 4,
+            weight = rays[offset + 3]!;
+          if (weight <= 0) continue;
+          const lx =
+            tx * rays[offset]! +
+            bx * rays[offset + 1]! +
+            n[0] * rays[offset + 2]!;
+          const ly = Math.min(
+            1,
+            Math.max(
+              -1,
+              ty * rays[offset]! +
+                by * rays[offset + 1]! +
+                n[1] * rays[offset + 2]!,
+            ),
+          );
+          const lz =
+            tz * rays[offset]! +
+            bz * rays[offset + 1]! +
+            n[2] * rays[offset + 2]!;
+          const u = Math.atan2(lx, -lz) / TWO_PI + 0.5,
+            v = Math.acos(ly) / Math.PI;
+          const pixelAngle =
+            texelAngle *
+            Math.max(polarSine, Math.sqrt(Math.max(0, 1 - ly * ly)));
+          const lod = Math.max(
+            0,
+            Math.min(
+              source.length - 1,
+              0.5 * Math.log2(solidAngles[i]! / pixelAngle),
+            ),
+          );
+          const low = Math.floor(lod),
+            fraction = lod - low;
+          for (let step = 0; step < 2; step++) {
+            const blend = step === 0 ? 1 - fraction : fraction;
+            if (blend === 0) continue;
+            const level = low + step,
+              { width: sw, height: sh } = sizes[level]!,
+              pixels = source[level]!;
+            const sx = u * sw - 0.5,
+              sy = v * sh - 0.5,
+              x0 = Math.floor(sx),
+              y0 = Math.floor(sy);
+            const fx = sx - x0,
+              fy = sy - y0,
+              xa = (x0 + sw) % sw,
+              xb = (xa + 1) % sw;
+            const ya = Math.max(0, Math.min(sh - 1, y0)),
+              yb = Math.max(0, Math.min(sh - 1, y0 + 1));
+            const a = (ya * sw + xa) * 3,
+              c = (yb * sw + xa) * 3,
+              d = (yb * sw + xb) * 3,
+              e = (ya * sw + xb) * 3;
+            const w = weight * blend;
+            r +=
+              ((pixels[a]! * (1 - fx) + pixels[e]! * fx) * (1 - fy) +
+                (pixels[c]! * (1 - fx) + pixels[d]! * fx) * fy) *
+              w;
+            g +=
+              ((pixels[a + 1]! * (1 - fx) + pixels[e + 1]! * fx) * (1 - fy) +
+                (pixels[c + 1]! * (1 - fx) + pixels[d + 1]! * fx) * fy) *
+              w;
+            b +=
+              ((pixels[a + 2]! * (1 - fx) + pixels[e + 2]! * fx) * (1 - fy) +
+                (pixels[c + 2]! * (1 - fx) + pixels[d + 2]! * fx) * fy) *
+              w;
+          }
           total += weight;
         }
-        const o = (j * width + i) * 3;
-        if (total > 0) {
-          out[o] = r / total;
-          out[o + 1] = g / total;
-          out[o + 2] = b / total;
-        }
+        const offset = (y * width + x) * 3;
+        out[offset] = r / total;
+        out[offset + 1] = g / total;
+        out[offset + 2] = b / total;
       }
     return out;
   }

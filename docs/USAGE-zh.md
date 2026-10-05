@@ -1474,3 +1474,14 @@ normal／roughness過濾；預設關閉。仍需正確normal mips，不取代TAA
 image index明示，MASK material用相同cutoff。RGB／base filtering不變；
 tied alpha／小mip／lossy compression可能無法精確保留coverage，不可套用normal／opaque。
 詳見 [有界品質契約](TECHNICAL-zh.md#p121-specular-filteringmask-coverage)。
+
+## IBL材質品質（P122，未發佈 source）
+
+既有 `scene.environment = EnvironmentMap.gradient(...)` 自動採GGX roughness mips與
+數值BRDF integration，無新material flag／texture slot。反射色建議保持物理0–1範圍，
+HDR發光使用 `emissive`；clearcoat保留独立roughness／normal，`sheenColor` 會啟用
+有額外取樣成本的有界Charlie indirect kernel。既有intensity／exposure控制仍須明示。
+
+執行 `pnpm smoke:ibl-quality`，或加 `--built` 驗證built root。
+先看 [品質邊界](TECHNICAL-zh.md#p122-有界-ggxcharlie-ibl)，white-furnace守恆不是
+reference renderer精度／實體driver資格。

@@ -1,50 +1,62 @@
 const require_errors = require("./errors.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
+const require_brdf = require("../../../src/data/brdf.cjs");
 //#region dist/packages/graphics/src/native-material-limits.js
-function validateNativeMaterialGPU(n) {
-	let r = [
+var r = Math.max(require_rendering.SHADOW_FLOAT_COUNT * 4, require_brdf.ggxDirectionalAlbedo.byteLength);
+function validateNativeMaterialGPU(t) {
+	let n = [
 		[`maxVertexAttributes`, 14],
 		[`maxVertexBuffers`, 6],
 		[`maxBindGroups`, 4],
 		[`maxSampledTexturesPerShaderStage`, 16],
 		[`maxSamplersPerShaderStage`, 13],
 		[`maxStorageBuffersPerShaderStage`, 1],
-		[`maxUniformBuffersPerShaderStage`, 4],
-		[`maxUniformBufferBindingSize`, require_rendering.SHADOW_FLOAT_COUNT * 4]
+		[`maxUniformBuffersPerShaderStage`, 5],
+		[`maxUniformBufferBindingSize`, r]
 	];
-	for (let [t, i] of r) if (Number(n[t]) < i) throw new require_errors.GraphicsError(`NativeMaterial3D requires WebGPU ${t} >= ${i}; device reports ${n[t]}.`);
+	for (let [r, i] of n) if (Number(t[r]) < i) throw new require_errors.GraphicsError(`NativeMaterial3D requires WebGPU ${r} >= ${i}; device reports ${t[r]}.`);
 }
-function validateNativeMaterialGL(n) {
-	let r = [
+function validateNativeMaterialGL(t) {
+	let n = [
 		[
-			n.MAX_VERTEX_ATTRIBS,
+			t.MAX_VERTEX_ATTRIBS,
 			14,
 			`vertex attributes`
 		],
 		[
-			n.MAX_VERTEX_TEXTURE_IMAGE_UNITS,
+			t.MAX_VERTEX_TEXTURE_IMAGE_UNITS,
 			6,
 			`vertex texture units`
 		],
 		[
-			n.MAX_TEXTURE_IMAGE_UNITS,
+			t.MAX_TEXTURE_IMAGE_UNITS,
 			16,
 			`fragment texture units`
 		],
 		[
-			n.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
+			t.MAX_COMBINED_TEXTURE_IMAGE_UNITS,
 			17,
 			`combined texture units`
 		],
 		[
-			n.MAX_UNIFORM_BLOCK_SIZE,
-			require_rendering.SHADOW_FLOAT_COUNT * 4,
+			t.MAX_UNIFORM_BLOCK_SIZE,
+			r,
 			`uniform block bytes`
+		],
+		[
+			t.MAX_FRAGMENT_UNIFORM_BLOCKS,
+			3,
+			`fragment uniform blocks`
+		],
+		[
+			t.MAX_UNIFORM_BUFFER_BINDINGS,
+			3,
+			`uniform buffer bindings`
 		]
 	];
-	for (let [t, i, a] of r) {
-		let r = n.getParameter(t);
-		if (r < i) throw new require_errors.GraphicsError(`NativeMaterial3D requires WebGL2 ${a} >= ${i}; device reports ${r}.`);
+	for (let [r, i, a] of n) {
+		let n = t.getParameter(r);
+		if (n < i) throw new require_errors.GraphicsError(`NativeMaterial3D requires WebGL2 ${a} >= ${i}; device reports ${n}.`);
 	}
 }
 function validateNativeMaterialGLResources(t, n, r) {
@@ -56,7 +68,7 @@ function validateNativeMaterialGLResources(t, n, r) {
 	let a = t.getProgramParameter(n, t.ACTIVE_UNIFORM_BLOCKS);
 	for (let r = 0; r < a; r++) {
 		let i = t.getActiveUniformBlockName(n, r);
-		if (i !== `ShadowData` && i !== `SheenLookup`) throw new require_errors.GraphicsError(`NativeMaterial3D uniform block ${i} is outside the fixed ABI.`);
+		if (i !== `ShadowData` && i !== `SheenLookup` && i !== `GGXLookup`) throw new require_errors.GraphicsError(`NativeMaterial3D uniform block ${i} is outside the fixed ABI.`);
 	}
 }
 //#endregion

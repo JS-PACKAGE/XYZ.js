@@ -1,6 +1,23 @@
 import { SHEEN_LUT_SIZE } from '../../../src/data/sheen.js';
+import { materialQuality } from '../../../src/data/rendering.js';
 
 const vectors = (SHEEN_LUT_SIZE * SHEEN_LUT_SIZE) / 4;
+
+const samples = Array.from(
+  { length: materialQuality.sheenSamples },
+  (_, index) => {
+    let value = index;
+    let inverse = 0;
+    let bit = 0.5;
+    while (value) {
+      inverse += (value & 1) * bit;
+      value >>>= 1;
+      bit *= 0.5;
+    }
+    const phi = ((index + 0.5) / materialQuality.sheenSamples) * Math.PI * 2;
+    return [Math.cos(phi), Math.sin(phi), inverse];
+  },
+);
 
 export const sheenWGSL = /* wgsl */ `
 @group(0) @binding(6) var<uniform> sheenLookup: array<vec4f, ${vectors}>;
@@ -33,6 +50,10 @@ fn sheenLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32) -> f32 {
   let distribution = (2.0+inverse)*pow(max(1.0-nh*nh,0.0),inverse*0.5)/6.28318530718;
   return distribution/(4.0*nv*(1.0+sheenLambda(nv,alpha)+sheenLambda(nl,alpha)))*select(0.0,1.0,nl > 0.0);
 }
+fn sheenLightRetention(nl: f32, rough: f32, tint: f32, viewEnergy: f32) -> f32 {
+  if(tint<=0.0) {return 1.0;}
+  return 1.0-tint*max(viewEnergy,sheenAlbedo(clamp(nl,0.0,1.0),rough));
+}
 `;
 
 export const sheenGLSL = /* glsl */ `
@@ -64,5 +85,72 @@ float sheenLobe(vec3 n, vec3 v, vec3 l, float rough) {
   float nh = clamp(dot(n,h),0.0,1.0), alpha = rough*rough, inverse = 1.0/alpha;
   float distribution = (2.0+inverse)*pow(max(1.0-nh*nh,0.0),inverse*.5)/(2.0*PI);
   return nl > 0.0 ? distribution/(4.0*nv*(1.0+sheenLambda(nv,alpha)+sheenLambda(nl,alpha))) : 0.0;
+}
+float sheenLightRetention(float nl,float rough,float tint,float viewEnergy) {
+  if(tint<=0.0) return 1.0;
+  return 1.0-tint*max(viewEnergy,sheenAlbedo(clamp(nl,0.0,1.0),rough));
+}
+`;
+
+// Charlie NDF importance sampling of the sharp atlas, not a GGX-blurred lookup.
+// Normalize the bounded quadrature, then apply the integrated Charlie albedo.
+export const sheenEnvironmentWGSL = /* wgsl */ `
+const charlieSamples=array<vec3f,${materialQuality.sheenSamples}>(
+  ${samples.map((sample) => `vec3f(${sample.map((value) => value.toFixed(15)).join(',')})`).join(',\n  ')}
+);
+fn sheenEnvironment(position: vec3f,n: vec3f,v: vec3f,rough: f32,weights: vec4f) -> vec3f {
+  let nv=min(dot(n,v),1.0);
+  if(nv<=0.0) {return vec3f(0.0);}
+  let axis=select(vec3f(1.0,0.0,0.0),vec3f(0.0,0.0,1.0),abs(n.z)<0.999);
+  let t=normalize(cross(axis,n));
+  let b=cross(n,t);
+  let alpha=rough*rough;
+  let viewLambda=sheenLambda(nv,alpha);
+  var radiance=vec3f(0.0);
+  var total=0.0;
+  for(var i=0u;i<${materialQuality.sheenSamples}u;i++) {
+    let sample=charlieSamples[i];
+    let sine=pow(sample.z,alpha/(1.0+2.0*alpha));
+    let cosine=sqrt(max(1.0-sine*sine,0.0));
+    let h=t*(sine*sample.x)+b*(sine*sample.y)+n*cosine;
+    let vh=min(dot(v,h),1.0);
+    let l=2.0*vh*h-v;
+    let nl=min(dot(n,l),1.0);
+    if(vh>0.0 && nl>0.0) {
+      let weight=vh/(cosine*nv*(1.0+viewLambda+sheenLambda(nl,alpha)));
+      radiance+=reflectionRadiance(position,l,0.0,weights)*weight;
+      total+=weight;
+    }
+  }
+  return radiance/total;
+}
+`;
+
+export const sheenEnvironmentGLSL = /* glsl */ `
+const vec3 charlieSamples[${materialQuality.sheenSamples}]=vec3[${materialQuality.sheenSamples}](
+  ${samples.map((sample) => `vec3(${sample.map((value) => value.toFixed(15)).join(',')})`).join(',\n  ')}
+);
+vec3 sheenEnvironment(vec3 position,vec3 n,vec3 v,float rough,vec4 weights) {
+  float nv=min(dot(n,v),1.0);
+  if(nv<=0.0) return vec3(0.0);
+  vec3 axis=abs(n.z)<.999?vec3(0.0,0.0,1.0):vec3(1.0,0.0,0.0);
+  vec3 t=normalize(cross(axis,n)),b=cross(n,t);
+  float alpha=rough*rough,viewLambda=sheenLambda(nv,alpha),total=0.0;
+  vec3 radiance=vec3(0.0);
+  for(int i=0;i<${materialQuality.sheenSamples};i++) {
+    vec3 point=charlieSamples[i];
+    float sine=pow(point.z,alpha/(1.0+2.0*alpha));
+    float cosine=sqrt(max(1.0-sine*sine,0.0));
+    vec3 h=t*(sine*point.x)+b*(sine*point.y)+n*cosine;
+    float vh=min(dot(v,h),1.0);
+    vec3 l=2.0*vh*h-v;
+    float nl=min(dot(n,l),1.0);
+    if(vh>0.0 && nl>0.0) {
+      float weight=vh/(cosine*nv*(1.0+viewLambda+sheenLambda(nl,alpha)));
+      radiance+=reflectionRadiance(position,l,0.0,weights)*weight;
+      total+=weight;
+    }
+  }
+  return radiance/total;
 }
 `;

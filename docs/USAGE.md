@@ -1497,3 +1497,16 @@ The image index is explicit; use the same cutoff in the MASK material. RGB and
 base filtering stay unchanged. Tied alpha/small mips and lossy compression can
 prevent exact coverage. Do not apply this recipe to normal or opaque maps.
 See [the bounded quality contracts](TECHNICAL.md#p121-specular-filtering-and-masked-coverage).
+
+## IBL material quality (P122, unreleased source)
+
+Existing `scene.environment = EnvironmentMap.gradient(...)` automatically uses
+GGX roughness mips and numerical BRDF integration. No new material flag or
+texture slot is required. Keep reflection colors in the physical 0–1 range;
+use `emissive` for HDR light emission. Clearcoat owns its independent roughness
+and normal; `sheenColor` enables a bounded Charlie indirect kernel with additional
+sampling cost. Existing scene intensity/exposure controls remain explicit.
+
+Run `pnpm smoke:ibl-quality` (or append `--built`) for native HDR/lifecycle evidence.
+Read [the quality bounds](TECHNICAL.md#p122-bounded-ggx-and-charlie-ibl) before
+interpreting white-furnace preservation as reference-renderer accuracy.

@@ -1,4 +1,4 @@
-import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i,materialTextureSlots as a,materialQuality as o}from"../../../src/data/rendering.js";import{atlasGLSL as s}from"./shadow-shaders.js";import{depthPostGLSL as c}from"./depth-post-shaders.js";import{sheenGLSL as l}from"./sheen-shaders.js";import{transmissionGLSL as u}from"./transmission-shaders.js";import{reflectionProbeGLSL as d}from"./reflection-probe-shaders.js";import{oitWeightGLSL as f}from"./oit-shaders.js";const p=`
+import{LIGHTING_FLOAT_COUNT as e,MAX_POINT_LIGHTS as t,MAX_SPOT_LIGHTS as n,SPOT_LIGHT_OFFSET as r,nativeMaterial3DLimits as i,materialTextureSlots as a,materialQuality as o}from"../../../src/data/rendering.js";import{atlasGLSL as s}from"./shadow-shaders.js";import{depthPostGLSL as c}from"./depth-post-shaders.js";import{sheenGLSL as l,sheenEnvironmentGLSL as u}from"./sheen-shaders.js";import{brdfGLSL as d}from"./brdf-shaders.js";import{transmissionGLSL as f}from"./transmission-shaders.js";import{reflectionProbeGLSL as p}from"./reflection-probe-shaders.js";import{oitWeightGLSL as m}from"./oit-shaders.js";const h=`
 in vec2 vUV1;
 in vec4 vTangent;
 uniform vec4 materialCoordinates[${a.length*2}];
@@ -155,7 +155,7 @@ uniform float derivativeTangentSign;
 /* XYZ_SURFACE_HOOKS */
 vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 /* XYZ_SURFACE_HOOKS_END */
-${p}
+${h}
 mat3 materialNormalFrame(vec3 n, int slot) {
   vec3 rawTangent = vTangent.xyz - n*dot(n,vTangent.xyz);
   float tangentLength = length(rawTangent);
@@ -182,10 +182,12 @@ float vec4Component(vec4 value, int index) {
 }
 ${s}
 const float PI = 3.141592653589793;
-${u}
+${f}
 ${l}
 ${d}
-${f}
+${p}
+${u}
+${m}
 vec3 decodeSRGB(vec3 c) {
   return mix(c / 12.92, pow((max(c, vec3(0.0)) + .055) / 1.055, vec3(2.4)), step(vec3(.04045), c));
 }
@@ -197,41 +199,21 @@ vec2 equirectUV(vec3 d) {
   d = normalize(d);
   return vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
 }
-// Karis' analytic split-sum approximation; avoids a BRDF lookup texture.
-vec2 environmentBRDF(float nv, float rough) {
-  vec4 c0 = vec4(-1.0, -0.0275, -0.572, 0.022);
-  vec4 c1 = vec4(1.0, 0.0425, 1.04, -0.04);
-  vec4 r = rough * c0 + c1;
-  float a004 = min(r.x * r.x, exp2(-9.28 * nv)) * r.x + r.y;
-  return vec2(-1.04, 1.04) * a004 + r.zw;
+vec3 brdf(vec3 base,float metallic,float roughness,vec3 n,vec3 v,vec3 l,vec3 f0,vec3 f90,vec3 compensation,float remaining,float transmission) {
+  float nl=clamp(dot(n,l),0.0,1.0),nv=clamp(dot(n,v),.0001,1.0);
+  vec3 h=(v+l)/max(length(v+l),.000001);
+  float nh=clamp(dot(n,h),0.0,1.0),vh=clamp(dot(v,h),0.0,1.0);
+  float alpha2=roughness*roughness*roughness*roughness;
+  vec3 fresnel=f0+(f90-f0)*pow(1.0-vh,5.0);
+  vec3 specular=ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
+  return (remaining*(1.0-metallic)*(1.0-transmission)*base/PI+specular)*nl;
 }
-vec3 brdf(vec3 base, float metallic, float roughness, vec3 n, vec3 v, vec3 l, vec3 dielectricF0, float weight, float transmission) {
-  float nl = max(dot(n, l), 0.0);
-  float nv = max(dot(n, v), .0001);
-  vec3 h = (v + l) / max(length(v + l), .000001);
-  float nh = max(dot(n, h), 0.0);
-  float vh = max(dot(v, h), 0.0);
-  float alpha = roughness * roughness;
-  float a2 = alpha * alpha;
-  float denominator = nh * nh * (a2 - 1.0) + 1.0;
-  float d = a2 / max(PI * denominator * denominator, .000001);
-  float k = (roughness + 1.0) * (roughness + 1.0) / 8.0;
-  float g = nv / (nv * (1.0 - k) + k) * nl / (nl * (1.0 - k) + k);
-  float grazing = pow(1.0-vh,5.0);
-  vec3 dielectric = dielectricF0 + (vec3(weight)-dielectricF0)*(specularParams.y > .5 ? 0.0 : grazing);
-  vec3 f = mix(dielectric,base+(1.0-base)*grazing,metallic);
-  float remaining = 1.0-max(max(dielectric.r,dielectric.g),dielectric.b);
-  return (remaining*(1.0-metallic)*(1.0-transmission)*base/PI + d*g*f/max(4.0*nv*nl,.0001))*nl;
-}
-float clearcoatLobe(vec3 n, vec3 v, vec3 l, float rough) {
-  float nl = max(dot(n,l),0.0), nv = max(dot(n,v),.000001);
-  vec3 h = (v+l)/max(length(v+l),.000001);
-  float nh = max(dot(n,h),0.0), a2 = rough*rough*rough*rough;
-  float denominator = nh*nh*(a2-1.0)+1.0;
-  float d = a2/max(PI*denominator*denominator,.000001);
-  float k = (rough+1.0)*(rough+1.0)/8.0;
-  float g = nv/(nv*(1.0-k)+k)*nl/(nl*(1.0-k)+k);
-  return d*g*nl/max(4.0*nv*nl,.000001);
+float clearcoatLobe(vec3 n,vec3 v,vec3 l,float rough,float compensation) {
+  float nl=clamp(dot(n,l),0.0,1.0),nv=clamp(dot(n,v),.0001,1.0);
+  vec3 h=(v+l)/max(length(v+l),.000001);
+  float nh=clamp(dot(n,h),0.0,1.0),alpha2=rough*rough*rough*rough;
+  float fresnel=.04+.96*pow(1.0-clamp(dot(v,h),0.0,1.0),5.0);
+  return ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation*nl;
 }
 float attenuation(float distanceSquared, float range) {
   float factor = 1.0;
@@ -358,32 +340,41 @@ void shadeMesh() {
         coatRoughness = sqrt(sqrt(min(1.0,coatAlphaAA*coatAlphaAA+min(${o.normalVarianceScale.toFixed(1)}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${o.maxNormalVariance})*sheenMaps.z)));
       }
     }
-    float coatFresnel = coatWeight > 0.0 ? .04+.96*pow(1.0-clamp(abs(dot(nc,v)),0.0,1.0),5.0) : 0.0;
-    vec3 coating = vec3(0.0);
+    float nv=clamp(dot(n,v),.0001,1.0);
+    vec2 ab=environmentBRDF(nv,roughness);
+    vec3 f0=mix(dielectricF0,min(base,vec3(1.0)),metallic);
+    vec3 dielectric90=specularParams.y>.5?dielectricF0:vec3(specularWeight);
+    vec3 f90=mix(dielectric90,vec3(1.0),metallic);
+    vec3 compensation=ggxCompensation(f0,ab);
+    vec3 reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3(0.0),vec3(1.0));
+    float remaining=1.0-max(max(reflected.r,reflected.g),reflected.b);
+    float sheenRetention=1.0-sheenMax*sheenEnergy;
+    float coatEnergy=0.0,coatCompensation=1.0;
+    vec3 coating=vec3(0.0);
+    if(coatWeight>0.0) {
+      vec2 coatAB=environmentBRDF(clamp(dot(nc,v),.0001,1.0),coatRoughness);
+      coatCompensation=ggxCompensation(vec3(.04),coatAB).x;
+      coatEnergy=clamp((.04*coatAB.x+coatAB.y)*coatCompensation,0.0,1.0);
+    }
     vec4 probeWeights = reflectionWeights(vPosition);
     bool useEnvironment = environment[9].y > .5 || dot(probeWeights,vec4(1.0)) > 0.0;
-    result = max(lighting[1].w, 0.0) * base * (1.0 - metallic) * (1.0-transmissionWeight) * ao * (useEnvironment ? 0.0 : 1.0);
-    if (useEnvironment) {
-      float nv = max(dot(n, v), .0001);
-      vec2 ab = environmentBRDF(nv, roughness);
-      vec3 dielectric = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
-      vec3 reflected = mix(dielectric,base*ab.x+vec3(ab.y),metallic);
-      vec3 radiance = reflectionRadiance(vPosition,reflect(-v,n),roughness,probeWeights);
-      vec3 diffuseLight = reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*max(1.0-max(max(dielectric.r,dielectric.g),dielectric.b),0.0);
-      result += (diffuseLight+radiance*reflected)*ao;
+    result=max(lighting[1].w,0.0)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*sheenRetention*ao*(useEnvironment?0.0:1.0);
+    if(useEnvironment) {
+      vec3 radiance=reflectionRadiance(vPosition,reflect(-v,n),roughness,probeWeights);
+      vec3 diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining;
+      result+=(diffuseLight+radiance*reflected)*ao*sheenRetention;
       if (sheenMax > 0.0) {
-        vec3 sheenRadiance = reflectionRadiance(vPosition,reflect(-v,n),sheenRoughness,probeWeights);
+        vec3 sheenRadiance=sheenEnvironment(vPosition,n,v,sheenRoughness,probeWeights);
         sheenLighting += sheenRadiance*sheenEnergy*ao;
       }
       if (coatWeight > 0.0) {
-        vec2 coatAB = environmentBRDF(max(dot(nc,v),.0001),coatRoughness);
         vec3 coatRadiance = reflectionRadiance(vPosition,reflect(-v,nc),coatRoughness,probeWeights);
-        coating += coatRadiance*(.04*coatAB.x+coatAB.y)*ao;
+        coating+=coatRadiance*coatEnergy*ao;
       }
     }
-    result += brdf(base, metallic, roughness, n, v, l, dielectricF0, specularWeight, transmissionWeight) * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
+    result+=brdf(base,metallic,roughness,n,v,l,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
-    if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,l,coatRoughness)*coatFresnel*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
+    if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     for (int i = 0; i < ${t}; i++) {
       if (i >= int(lighting[2].x)) break;
       vec4 p = lighting[3 + i * 2], c = lighting[4 + i * 2];
@@ -391,9 +382,9 @@ void shadeMesh() {
       float d2 = dot(delta, delta);
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*pointShadow(i,p.xyz);
       vec3 pl = delta/max(sqrt(d2),.000001);
-      result += brdf(base,metallic,roughness,n,v,pl,dielectricF0,specularWeight,transmissionWeight)*incident;
+      result+=brdf(base,metallic,roughness,n,v,pl,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,pl),sheenRoughness,sheenMax,sheenEnergy)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
-      if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,pl,coatRoughness)*coatFresnel*incident;
+      if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,pl,coatRoughness,coatCompensation)*incident;
     }
     for (int i = 0; i < ${n}; i++) {
       if (i >= int(lighting[2].y)) break;
@@ -403,9 +394,9 @@ void shadeMesh() {
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[${r/4+3} + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
-      result += brdf(base,metallic,roughness,n,v,sl,dielectricF0,specularWeight,transmissionWeight)*incident;
+      result+=brdf(base,metallic,roughness,n,v,sl,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,sl),sheenRoughness,sheenMax,sheenEnergy)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
-      if (coatWeight > 0.0) coating += clearcoatLobe(nc,v,sl,coatRoughness)*coatFresnel*incident;
+      if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,sl,coatRoughness,coatCompensation)*incident;
     }
     if (transmissionWeight > 0.0 && metallic < 1.0) {
       vec3 ray = refract(-v,n,1.0/max(transmission.w,1.0));
@@ -419,13 +410,11 @@ void shadeMesh() {
       }
       vec3 transmitted = roughTransmission(uv,roughness,transmission.w);
       if (distance > 0.0 && transmission.z > 0.0) transmitted *= pow(attenuationColor.rgb,vec3(distance*transmission.z));
-      vec2 ab = environmentBRDF(max(dot(n,v),.0001),roughness);
-      vec3 fresnel = specularParams.y > .5 ? dielectricF0 : dielectricF0*ab.x+vec3(specularWeight*ab.y);
-      result += transmitted*base*transmissionWeight*(1.0-metallic)*max(1.0-max(max(fresnel.r,fresnel.g),fresnel.b),0.0);
+      result+=transmitted*base*transmissionWeight*(1.0-metallic)*remaining*sheenRetention;
     }
-    if (sheenMax > 0.0) result = result*(1.0-sheenMax*sheenEnergy)+sheenTint*sheenLighting;
+    result+=sheenTint*sheenLighting;
     result += emission.rgb * (maps.w != 0 ? decodeSRGB(texture(emissiveMap, materialUV(4)).rgb) : vec3(1.0));
-    if (coatWeight > 0.0) result = result*(1.0-coatWeight*coatFresnel)+coating*coatWeight;
+    if(coatWeight>0.0) result=result*(1.0-coatWeight*coatEnergy)+coating*coatWeight;
     if (!linearOutput) result = encodeSRGB(result);
   } else {
     float directional = max(dot(vNormal, direction), 0.0) / max(length(vNormal) * length(direction), .000001);
@@ -471,7 +460,7 @@ uniform float alphaCutoff;
 uniform float opacity;
 uniform float meshFade;
 uniform int alphaMode;
-${p}
+${h}
 void main() {
   if (meshFade < 1.0 && mod(floor(gl_FragCoord.x) + floor(gl_FragCoord.y) * 3.0,16.0) / 16.0 >= meshFade) discard;
   if (!doubleSided && gl_FrontFacing != (vOrientation > 0.0)) discard;

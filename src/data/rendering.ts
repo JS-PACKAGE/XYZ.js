@@ -14,6 +14,7 @@ export const materialQuality = Object.freeze({
   normalVarianceScale: 2,
   maxNormalVariance: 0.18,
   minAlphaFootprint: 1e-4,
+  sheenSamples: 32,
 });
 
 /** Stable per-map UV uniform order: two vec4 values per affine coordinate mapping. */
@@ -62,8 +63,11 @@ export const environmentLimits = Object.freeze({
   maxWidth: 2048,
   minHeight: 4,
   maxMips: 7,
-  /** Diffuse SH and blurred specular levels are filtered from at most this width. */
+  /** Area-averaged diffuse SH proxy, independent of specular filtering. */
   proxyWidth: 64,
+  /** Deterministic GGX ray budget and maximum filtered output width. */
+  prefilterSamples: 128,
+  prefilterWidth: 256,
 });
 
 /** A lost WebGL2 context not restored within this window becomes a fatal GraphicsError. */
