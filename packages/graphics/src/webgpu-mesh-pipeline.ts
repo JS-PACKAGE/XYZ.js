@@ -80,7 +80,10 @@ import {
   meshShaderVariantKey,
   type MeshShaderFeatures,
 } from './mesh-shader-variants.js';
-import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
+import {
+  WebGPUPostPipeline,
+  registerPostLUTResidency,
+} from './webgpu-post-pipeline.js';
 import type { FrameStats } from './render-stats.js';
 import {
   fillOpticalMapSettings,
@@ -871,6 +874,7 @@ export class WebGPUMeshPipeline {
       sampleCount,
       stats,
     );
+    registerPostLUTResidency(post, residency.textures);
     let particles: WebGPUParticles3D | undefined;
     try {
       particles = await WebGPUParticles3D.initialize(
@@ -1046,6 +1050,9 @@ export class WebGPUMeshPipeline {
           this.backgroundView !== this.dummyEnvironmentView
         ) {
           this.probeAllocation?.destroy();
+          this.probeAllocation = undefined;
+          this.probeMaps.length = 0;
+          this.selectedProbes.length = 0;
           this.environmentView = this.dummyEnvironmentArrayView;
           this.backgroundView = this.dummyEnvironmentView;
           this.shadowSceneBindGroup = this.createSceneGroup(

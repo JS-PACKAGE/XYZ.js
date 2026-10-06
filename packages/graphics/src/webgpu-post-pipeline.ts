@@ -16,7 +16,19 @@ import {
   type Camera3D,
 } from '../../core/src/orthographic-camera.js';
 import type { Matrix4 } from '../../math/src/index.js';
+import type { ResidencyAllocation, ResidencyPool } from './residency.js';
 import type { FrameStats } from './render-stats.js';
+
+const lutPools = new WeakMap<object, ResidencyPool>();
+const lutAllocations = new WeakMap<object, ResidencyAllocation>();
+
+/** Registers internal LUT accounting without changing the published class ABI. */
+export function registerPostLUTResidency(
+  pipeline: WebGPUPostPipeline,
+  pool: ResidencyPool,
+): void {
+  lutPools.set(pipeline, pool);
+}
 
 const postShader = (sampleCount: number): string => /* wgsl */ `
 struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f, fog: vec4f, fogColor: vec4f, shaft: vec4f, shaftColor: vec4f, flare: vec4f, halo: vec4f, previousVP: mat4x4f, blur: vec4f };
@@ -345,10 +357,19 @@ export class WebGPUPostPipeline {
     this.view = undefined;
     this.bindGroup = undefined;
     this.depthView = undefined;
+    lutAllocations.get(this)?.destroy();
+    this.lutTexture?.destroy();
+    this.lutTexture = undefined;
+    this.lut = undefined;
   }
 
   private ensureLUT(lut?: ColorLUT3D): GPUTexture {
-    if (this.lutTexture && this.lut === lut) return this.lutTexture;
+    const previous = lutAllocations.get(this);
+    if (this.lutTexture && this.lut === lut && !previous?.destroyed) {
+      previous?.touch();
+      return this.lutTexture;
+    }
+    previous?.destroy();
     this.lutTexture?.destroy();
     this.lut = lut;
     const size = lut?.size ?? 1;
@@ -357,6 +378,27 @@ export class WebGPUPostPipeline {
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
+    const texture = this.lutTexture;
+    const pool = lutPools.get(this);
+    if (pool) {
+      try {
+        lutAllocations.set(
+          this,
+          pool.allocate(size * size * size * 4, () => {
+            texture.destroy();
+            this.lutTexture = undefined;
+            this.lut = undefined;
+            this.bindGroup = undefined;
+            lutAllocations.delete(this);
+          }),
+        );
+      } catch (error) {
+        texture.destroy();
+        this.lutTexture = undefined;
+        this.lut = undefined;
+        throw error;
+      }
+    }
     this.device.queue.writeTexture(
       { texture: this.lutTexture },
       lut?.strip ?? new Uint8Array([255, 255, 255, 255]),
@@ -367,7 +409,6 @@ export class WebGPUPostPipeline {
   }
 
   destroy(): void {
-    this.lutTexture?.destroy();
     this.releaseTarget();
     this.buffer?.destroy();
     this.buffer = undefined;

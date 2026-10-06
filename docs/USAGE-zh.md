@@ -1650,3 +1650,14 @@ rendering 改動時才使用 `pnpm check:material-reference --regenerate`；
 檢查 measured JSON／PNG 與 golden JSON diff。`pnpm dev` 後開啟
 `/tests/browser/material-reference.html?renderer=webgl2` 或 `renderer=webgpu`
 觀察固定 grids；`perturb=1` 真正改動 material，預期 baseline comparison 失敗。
+
+## 執行材質 lifecycle
+
+Build 後執行 `pnpm regression:browser --browser chromium --renderer
+webgl2,webgpu --require-webgpu`；也可在 `pnpm dev` 開啟
+`/tests/browser/material-lifecycle.html?renderer=webgl2` 或 `webgpu`。
+檢查每 cycle baseline／peak／after counters、真 loss／recovery events、
+pixels 與 unexpected errors。先 destroy consumers，再釋放借用的 texture／
+volume／capture／atlas；最後 consumer 離開後 unload renderer geometry。
+空 renderer bytes 歸零不是 physical VRAM qualification，實測範圍與 BLOCKED
+項目見 ACCEPTANCE。

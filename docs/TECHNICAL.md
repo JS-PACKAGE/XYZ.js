@@ -1891,3 +1891,23 @@ channel in at most 0.2% of pixels per channel, with p99 zero. Other peer and gol
 retain mean≤0.001/p99≤1. The measured sparse discrepancy is post-normal-frame
 floating-point/derivative quantization, not source-image disagreement; delta-two,
 excess-pixel and vertical-flip controls must reject this bounded allowance.
+
+## P136 resource-lifecycle accounting
+
+The material-lifecycle gate exercises MaterialAsset image ownership, finishes,
+planar capture/native material, baked volume, terrain, water, decoded animation
+and opt-in post effects through real consumers on a persistent native renderer.
+Each cycle destroys consumers before owned sources and requires texture and
+geometry entries/bytes plus render-target bytes to return to warmed empty values.
+Geometry is CPU data without `destroy()`: its owner calls `unloadGeometry` after
+consumer teardown; this is not an assertion that Scene owns borrowed geometry.
+The sum reports tracked native cache/buffer/attachment byte estimates, excluding
+pipeline caches and driver memory. WebGL recovery must use actual
+`WEBGL_lose_context`, retain the live frame through replay and compare steady
+recovered pixels. Available local regression evidence is not physical qualification.
+
+LUT texture storage participates in native texture residency (RGBA8: `4×size³`
+bytes) and retires with inactive post targets; the lifecycle gate verifies the
+16³ LUT→1-pixel neutral binding delta of 16,380 bytes. Empty native scenes also
+retire packed probe atlases and clear borrowed environment references instead
+of retaining an internally pinned dead-scene atlas.

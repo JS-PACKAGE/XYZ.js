@@ -2100,3 +2100,43 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
   `.vite/material-reference-regression/`。Physical qualification **BLOCKED**：
   這是本機 deterministic renderer oracle，非 path tracer／physical ground truth，
   任意 glTF corpus／跨 driver/browser 或跨裝置色彩 qualification。
+
+## P136 lifecycle／memory／available qualification（2026-10-06）
+
+- 真 managed Chromium **153.0.8010.12／darwin arm64**，兩 forced native
+  backend 各 **8** combined create／prepare／render／advance／destroy cycles，
+  全程同一 public renderer，最後 renderer.destroy 不作 leak oracle。
+  每 cycle 真正消費 PNG-decoded MaterialAsset、procedural finishes＋transmission、
+  planar capture/native material、bound baked volume、terrain splat、water、
+  ImageDecoder GIF＋owned atlas，以及 LUT／fog／DoF／FXAA。
+- 每 cycle exact warmed baseline 都恢復：
+  WebGL2 texture／geometry bytes與entries均 **0**，render targets baseline／after
+  **393216 bytes**；WebGPU 五項均 **0**。Peak texture bytes／entries 兩邊
+  **60160／18**；geometry **39936／5（GL）**、**93360／14（GPU）**；
+  render targets **2752512／3145728**。Tracked native-byte sum peaks
+  **2852608／3299248**，after **393216／0**。這是 cache／buffer／attachment
+  estimates，不是 driver VRAM／pipeline caches／RSS。
+- 每 cycle LUT16³→neutral1 pixel 的真 native texture delta **16380 bytes**，
+  回復 LUT 後 bytes 相同；water／animation advance changed pixels 每次
+  **6648（GL）／6651（GPU）**。GL 第4 cycle resources live 時真
+  `WEBGL_lose_context.loseContext()`＋restore，loss／recovery **1／1**、
+  frame lease survived，same steady recovered image RGB mean／max／bad pixels
+  **0／0／0**，採 mean≤0.001／max≤1，沒有採寬鬆 .6 gate。
+  Unexpected console／render／uncaught errors **0**；GPU unexpected loss **0**。
+- Initial real regression GL 八次都失敗：empty 後內部 pin 的 packed probe atlas
+  留 **6800 bytes／1 entry**。沿 GPU counterpart policy 在 empty scene retire
+  GL atlas，兩邊清除 borrowed map references 後修復。另 source inspection 發現
+  LUT native texture／CPU LUT references 未隨 inactive post target teardown，
+  且 bytes 未計數；以 WeakMap side tables 納入 residency並 retire，沒有改
+  published class shape／barrels，新增真 LUT byte-delta assertion防止再漏計。
+- Final gates PASS：format:check、typecheck、lint、Vitest **167 files／1350 tests**、
+  build、API compatibility **737 exports／2810 contracts**、package hygiene；
+  true Chromium forced WebGL2＋WebGPU full browser regression PASS，
+  原 **28** strict parity scenes、P135 independent golden／negative controls PASS。
+  Native lifecycle PNG（兩 backend 第4 cycle）已讀，durable assertions／PNG
+  在 `.vite/material-lifecycle-qualified/`；失敗證據另存
+  `.vite/material-lifecycle-regression/`，沒有 commit dist／PNG binaries。
+- Physical qualification **BLOCKED**：無 calibrated physical-material reference、
+  physical XR runtime/headset、其他 browser／driver／devices 或 total VRAM 資格。
+  P136 WebGPU destructive public loss injection unavailable，這項只驗證真 repeated
+  lifecycle；不把 fake／private-hook recovery 標為這個 fixture 的 PASS。

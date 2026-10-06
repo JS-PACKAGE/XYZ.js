@@ -477,3 +477,13 @@ alone cannot detect a shared regression, while summaries alone cannot certify
 per-pixel alignment. A rendered material perturbation validates golden rejection.
 Golden regeneration is explicit and measured; no binary image baseline or
 physical-material qualification is inferred from deterministic local results.
+
+## P136 ownership and qualification
+
+Lifecycle assertions run combined real resource consumers on one persistent
+renderer, rather than resetting the renderer to hide stale allocations.
+CPU geometry ownership uses explicit native unload; owned texture/volume/capture
+destruction and empty-frame retirement are separate from consumer destruction.
+Actual WebGL loss/replay is tested while resources are live. Counter scope is
+tracked native resource estimates, not process RSS or driver VRAM; unavailable
+physical-device qualification remains BLOCKED.

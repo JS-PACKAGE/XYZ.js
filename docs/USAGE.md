@@ -1710,3 +1710,14 @@ a reviewed rendering change, then inspect the measured JSON and PNGs and review
 the golden JSON diff. Visit `/tests/browser/material-reference.html?renderer=webgl2`
 or `renderer=webgpu` under `pnpm dev` to inspect the fixed grids.
 `perturb=1` changes a real material and is expected to fail baseline comparison.
+
+## Exercising material lifecycle
+
+After building, run `pnpm regression:browser --browser chromium --renderer
+webgl2,webgpu --require-webgpu` for the durable native lifecycle gate, or inspect
+`/tests/browser/material-lifecycle.html?renderer=webgl2` (or `webgpu`) under
+`pnpm dev`. Review per-cycle baseline/peak/after counters, actual loss/recovery
+events, pixels and unexpected-error counts. Destroy consumers before textures,
+volumes, captures and atlases they borrow; unload renderer geometry after its
+last consumer is gone. An empty-renderer byte return is not physical VRAM
+qualification; see ACCEPTANCE for measured local scope and blockers.

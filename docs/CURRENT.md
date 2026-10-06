@@ -454,3 +454,18 @@ backends and spatial numeric summaries against the committed JSON golden;
 exercise an actual perturbed-material negative control. Browser regression
 includes the same gate. These summaries are local rendering regression oracles,
 not calibrated physical-material references or arbitrary-driver qualification.
+
+## P136 lifecycle qualification boundary
+
+The native material-lifecycle fixture requires eight real combined resource
+create/render/destroy cycles, exact return to warmed texture/geometry/attachment
+byte baselines, and actual WebGL context-loss recovery with resources live.
+Its tracked native-byte sum is not driver VRAM or pipeline-cache accounting.
+Physical-device/headset and cross-browser qualification remain **BLOCKED**;
+executed local evidence is recorded separately in ACCEPTANCE.
+
+Local managed Chromium153 native qualification passed eight cycles per backend,
+all exact warmed baseline returns and zero unexpected errors; actual GL
+loss/recovery was one/one with zero recovered-pixel error. The initial GL packed
+probe retention and untracked LUT teardown defects were fixed; counters and
+limitations are recorded in the P136 ACCEPTANCE section.

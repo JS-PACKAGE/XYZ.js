@@ -1702,3 +1702,20 @@ path tracer／物理光譜參考／任意資產 corpus／跨裝置色彩校準�
 每 channel 最多0.2% pixels 差異，p99 必須0；其他 peer／golden 仍為 mean≤0.001／p99≤1。
 實測為 normal-frame 後浮點／derivative quantization，而非原始圖片差異；
 delta2／超量 pixels／垂直翻轉 controls 必須拒絕，沒有縮減場景 maps。
+
+## P136 lifecycle 計數範圍
+
+Material-lifecycle gate 以 persistent native renderer 真正消費 MaterialAsset、
+finish、planar capture／native material、baked volume、terrain、water、
+decoded animation 與 opt-in post effects。每 cycle 先 destroy consumers，再釋放
+owned sources，texture／geometry entries／bytes 及 render-target bytes 必須
+回到 warmed empty baseline。Geometry 是無 `destroy()` 的 CPU data，owner 在
+consumer teardown 後呼叫 `unloadGeometry`，不宣稱 Scene owns borrowed geometry。
+合計只代表 tracked native cache／buffer／attachment estimates，不含 pipeline
+cache／driver VRAM。WebGL 必須實際 lose／restore context、retain live frame
+並比較 recovered steady pixels；本機 regression 不等於 physical qualification。
+
+LUT texture storage 納入 texture residency（RGBA8：`4×size³` bytes），
+inactive post targets 同時釋放 LUT；gate 實測16³ LUT→1 pixel neutral
+binding 的16380 bytes 差異。Empty native scene 同時釋放 packed probe atlas
+並清除借用的 environment references，避免內部 pin 留下 dead-scene atlas。

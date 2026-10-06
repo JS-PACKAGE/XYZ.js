@@ -129,6 +129,115 @@ async function saveReport(backend, report) {
   return { ...report, scenarios };
 }
 
+async function runMaterialLifecycle(context, backend, result) {
+  // A fresh document/context surface isolates the oracle from earlier fixture caches.
+  const page = await context.newPage();
+  const failures = [];
+  page.on('pageerror', (error) => failures.push(error.stack ?? error.message));
+  page.on('console', (message) => {
+    if (
+      message.type() === 'error' &&
+      !message.location().url.endsWith('/favicon.ico')
+    )
+      failures.push(message.text());
+    if (
+      message.type() === 'warning' &&
+      !/^WebGL: CONTEXT_LOST_WEBGL: loseContext: context lost$/.test(
+        message.text(),
+      )
+    )
+      failures.push(`Console warning: ${message.text()}`);
+  });
+  try {
+    await page.goto(
+      `http://127.0.0.1:${port}/tests/browser/material-lifecycle.html?renderer=${backend}`,
+      { waitUntil: 'domcontentloaded' },
+    );
+    await page.waitForFunction(
+      () =>
+        ['passed', 'failed'].includes(
+          document.querySelector('#report')?.getAttribute('data-state'),
+        ),
+      undefined,
+      { timeout: 180000 },
+    );
+    const state = await page.locator('#report').getAttribute('data-state');
+    const report = JSON.parse(await page.locator('#report').textContent());
+    result.phases.push(await saveReport(backend, report));
+    const keys = [
+      'textureBytes',
+      'textureEntries',
+      'geometryBytes',
+      'geometryEntries',
+      'renderTargetBytes',
+      'trackedNativeBytes',
+    ];
+    const kinds = [
+      'MaterialAsset',
+      'finishes',
+      'planar reflection',
+      'baked volume',
+      'terrain',
+      'water',
+      'animated image',
+      'post effects',
+    ];
+    if (
+      state !== 'passed' ||
+      !report.pass ||
+      report.error ||
+      report.backend !== backend ||
+      report.errors?.length !== 0 ||
+      failures.length ||
+      report.cycles?.length !== 8 ||
+      !report.counters?.baseline ||
+      report.cycles.some(
+        (cycle) =>
+          !cycle.baselineRestored ||
+          cycle.pixelChanges <= 0 ||
+          cycle.visiblePixels <= 0 ||
+          cycle.drawCalls <= 0 ||
+          cycle.lutResidentBytesDelta !== 16380 ||
+          kinds.some((kind) => !cycle.resourceKinds.includes(kind)) ||
+          keys.some(
+            (key) => cycle.after[key] !== report.counters.baseline[key],
+          ) ||
+          cycle.peak.textureBytes <= report.counters.baseline.textureBytes ||
+          cycle.peak.textureEntries <=
+            report.counters.baseline.textureEntries ||
+          cycle.peak.geometryBytes <= report.counters.baseline.geometryBytes ||
+          cycle.peak.geometryEntries <=
+            report.counters.baseline.geometryEntries ||
+          cycle.peak.renderTargetBytes <=
+            report.counters.baseline.renderTargetBytes,
+      ) ||
+      (backend === 'webgl2' &&
+        (report.losses !== 1 ||
+          report.recoveries !== 1 ||
+          !report.cycles.some(
+            (cycle) =>
+              cycle.recovery?.leaseSurvived &&
+              cycle.recovery.meanRGBError <= 0.001 &&
+              cycle.recovery.maximumChannelError <= 1 &&
+              cycle.recovery.badPixels === 0,
+          ))) ||
+      (backend === 'webgpu' && (report.losses !== 0 || report.recoveries !== 0))
+    )
+      throw new Error(
+        `Material lifecycle gate failed: ${report.error ?? JSON.stringify(report)}${failures.length ? `\n${failures.join('\n')}` : ''}`,
+      );
+  } catch (error) {
+    await page
+      .screenshot({
+        path: join(directory, `${backend}-material-lifecycle-failure.png`),
+      })
+      .catch(() => undefined);
+    throw error;
+  } finally {
+    await page.close();
+  }
+}
+
 async function runAuthoring(page, backend, result, awaitState) {
   await page.goto(
     `http://127.0.0.1:${port}/tests/browser/authoring.html?renderer=${backend}`,
@@ -476,6 +585,8 @@ try {
         { waitUntil: 'domcontentloaded' },
       );
       await awaitState('passed');
+      if (backend !== 'canvas2d')
+        await runMaterialLifecycle(context, backend, result);
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

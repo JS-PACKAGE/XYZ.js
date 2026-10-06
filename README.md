@@ -64,6 +64,9 @@ P135 材質參考：固定 native grids 與 numeric golden，以
 `pnpm check:material-reference` 驗證／`--regenerate` 明示重建；
 真 material perturbation 必須拒絕，非物理材質認證。
 
+P136 lifecycle：真資源反覆 create／render／destroy 與 WebGL loss／restore，
+每 cycle 必須回到 warmed native counters；physical qualification **BLOCKED**。
+
 Asset 製作流程新增 opt-in `loadAssetBundleRange`：manifest byte offsets、SHA-256 與有界完整讀取 fallback。
 GIF／APNG 的 `AnimatedImageTexture` 僅使用平台 `ImageDecoder`，包含 timing／loop 與 owned atlas；
 缺少 decoder 明確拒絕，不新增依賴。詳見 [CURRENT](docs/CURRENT.md)，實測紀錄見 ACCEPTANCE。
@@ -205,6 +208,10 @@ P135 material references: fixed native grids plus numeric goldens;
 `pnpm check:material-reference` verifies, `--regenerate` explicitly rebuilds.
 A real material perturbation must reject; this is not physical qualification.
 
+P136 lifecycle: repeated real resource creation/rendering/destruction and WebGL
+loss/restore must return each cycle to warmed native counters. Physical
+qualification remains **BLOCKED**.
+
 Asset production adds opt-in `loadAssetBundleRange` with manifest byte offsets,
 SHA-256 checks and bounded full-read fallback. GIF/APNG `AnimatedImageTexture`
 uses platform `ImageDecoder` only, with timing/loops and owned atlas snapshots;
@@ -339,6 +346,9 @@ Mapped optical finish：`opticalMaps` は glTF anisotropy RG/B、iridescence R�
 P135 材質参照：固定 native grids と numeric golden を
 `pnpm check:material-reference` で検証し、`--regenerate` で明示更新します。
 実 material perturbation は拒否必須、物理材質認証ではありません。
+
+P136 lifecycle：実 resource の create／render／destroy と WebGL loss／restore、
+各 cycle の warmed native counters 復帰を検査。物理認証は **BLOCKED**。
 
 Asset 制作に opt-in `loadAssetBundleRange`（manifest offset／SHA-256／上限付き full fallback）を追加。
 GIF／APNG の `AnimatedImageTexture` は platform `ImageDecoder` のみを使い、

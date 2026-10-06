@@ -367,6 +367,8 @@ class WebGLSnapshot implements RenderSnapshot {
   }
 }
 
+const gradingAllocations = new WeakMap<object, ResidencyAllocation>();
+
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export class WebGL2Renderer implements Renderer {
   readonly backend = 'webgl2' as const;
@@ -1821,6 +1823,7 @@ export class WebGL2Renderer implements Renderer {
           this.releaseOIT();
           this.deleteTarget(this.postTarget);
           this.postTarget = undefined;
+          gradingAllocations.get(this)?.destroy();
         }
         if (!scene.postProcessing.enabled && this.fxaaTarget) {
           this.deleteTarget(this.fxaaTarget);
@@ -1833,6 +1836,11 @@ export class WebGL2Renderer implements Renderer {
           this.refractionTarget = undefined;
         }
       } else {
+        gradingAllocations.get(this)?.destroy();
+        this.probeAllocation?.destroy();
+        this.probeAllocation = undefined;
+        this.probeMaps.length = 0;
+        this.selectedProbes.length = 0;
         this.releaseCoverageTarget();
         this.temporal?.releaseTarget();
         this.temporalState.invalidate();
@@ -3976,13 +3984,30 @@ export class WebGL2Renderer implements Renderer {
     const lut = effects?.colorGrading?.lut;
     gl.activeTexture(gl.TEXTURE2);
     gl.bindSampler(2, null);
-    if (!this.gradingTexture)
-      this.gradingTexture = gl.createTexture() ?? undefined;
-    if (!this.gradingTexture)
-      throw new GraphicsError('Could not allocate LUT texture.');
+    if (!this.gradingTexture) {
+      const texture = gl.createTexture();
+      if (!texture) throw new GraphicsError('Could not allocate LUT texture.');
+      this.gradingTexture = texture;
+      try {
+        gradingAllocations.set(
+          this,
+          this.residency.textures.allocate(4, () => {
+            gl.deleteTexture(texture);
+            this.gradingTexture = undefined;
+            this.gradingLUT = null;
+            gradingAllocations.delete(this);
+          }),
+        );
+      } catch (error) {
+        gl.deleteTexture(texture);
+        this.gradingTexture = undefined;
+        throw error;
+      }
+    }
     gl.bindTexture(gl.TEXTURE_2D, this.gradingTexture);
     if (this.gradingLUT !== lut) {
       const size = lut?.size ?? 1;
+      gradingAllocations.get(this)!.resize(size * size * size * 4);
       gl.texImage2D(
         gl.TEXTURE_2D,
         0,
@@ -3998,6 +4023,7 @@ export class WebGL2Renderer implements Renderer {
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       this.gradingLUT = lut;
     }
+    gradingAllocations.get(this)!.touch();
     gl.uniform1i(this.postUniforms.lutImage, 2);
     gl.uniform2f(
       this.postUniforms.grading,
@@ -4804,9 +4830,6 @@ export class WebGL2Renderer implements Renderer {
       if (this.fxaaProgram) gl.deleteProgram(this.fxaaProgram);
       if (this.shadowProgram) gl.deleteProgram(this.shadowProgram);
       if (this.postProgram) gl.deleteProgram(this.postProgram);
-      if (this.gradingTexture) gl.deleteTexture(this.gradingTexture);
-      this.gradingTexture = undefined;
-      this.gradingLUT = null;
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);
       if (this.triangleProgram) gl.deleteProgram(this.triangleProgram);
       for (const entry of this.meshPrograms.values())
