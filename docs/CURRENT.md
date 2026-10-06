@@ -281,3 +281,45 @@ p50/p95 was 2.10/3.10 ms (123 samples, GL) and 2.40/2.70 ms (124 samples, GPU),
 after 120 warmup frames. These headless single-run values, collected alongside
 host quality work, are not isolated calibration, GPU timing or presentation FPS.
 Quality/type/API/package gates and the Chromium canvas2d/webgl2/webgpu regression passed after the fixture oracles were corrected (strict thresholds unchanged). See ACCEPTANCE for exact evidence.
+
+## Native post color grading
+
+`PostProcessingSettings.colorGrading` accepts `ColorGradingSettings` with a
+`ColorLUT3D` (integer size 16–64). `parseCube` accepts normalized RGB `.cube`
+text; non-0–1 domains, 1D directives, malformed/truncated values reject.
+`preset` creates identity, warm, cool or cinematic lattices. Both native paths
+upload an RGBA8 horizontal blue-slice strip and manually trilinearly sample it
+after display encoding; strength is 0–1. Tone operators are none, ACES, AgX-ish
+(`agx`, a bounded logarithmic smoothstep approximation, not reference AgX),
+Reinhard and peak-preserving neutral. Canvas2D explicitly rejects enabled 3D
+postprocessing. WebGL2's existing HDR path requires `EXT_color_buffer_float`;
+forced-backend failure throws rather than degrading the effects.
+CPU assertions are provided; browser/gate acceptance is pending integration.
+
+## Planar scene reflections
+
+`PlanarReflection({normal, constant, size, updateInterval, clipBias, exclude})`
+captures a world-space plane `normal·world + constant = 0`. Call optional
+`await renderer.capturePlanarReflection(scene, reflection)` **between frames**
+on WebGPU or WebGL2; Canvas2D has no capture hook. Captures render the mirrored
+3D scene into a native single-view target with an oblique near plane that
+clips geometry on the opposite side (not just hidden reflector meshes).
+The source camera may be perspective or orthographic. Scene camera, excluded
+visibility, postprocessing, graph and probe state are restored before readback
+awaits. Nested captures reject. Resolution is square, integer 2–512 (default
+128); update interval is at least 1/120 second (default 0.1), paced by Scene
+presentation time, with one pending capture. Calls inside that interval skip.
+
+After the first capture, `reflection.texture` is an owned, versioned
+`CanvasTexture2D`: native RGBA8 readback is published as top-left sRGB pixels.
+This bounded readback/upload profile is not a zero-copy or HDR reflection.
+`reflection.createMaterial({texture: borrowedFallback, ...})` returns an actual
+projective `NativeMaterial3D` hook in WGSL and GLSL; prepare it with
+`renderer.prepareMaterial` before drawing. Add its reflector mesh to `exclude`
+when constructing the capture; native hook uniforms follow successful captures.
+The texture can also be borrowed by existing PBR `sources` map slots, though
+ordinary UV mapping is not projective reflection/IBL. Remove all consumers
+before `reflection.destroy()`; materials and excluded objects are borrowed.
+Tunables live in `src/data/rendering.ts`. CPU assertions are added; no new
+browser/backend acceptance or test pass is claimed before integration checks.
+

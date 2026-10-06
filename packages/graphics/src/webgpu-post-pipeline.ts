@@ -3,6 +3,8 @@ import type { PostProcessingSettings } from '../../core/src/render-settings.js';
 import { GraphicsError, WebGPUInitializationError } from './errors.js';
 import { fxaaWGSL } from './fxaa-shaders.js';
 import { depthPostWGSL } from './depth-post-shaders.js';
+import { gradingWGSL } from './color-grading-shaders.js';
+import type { ColorLUT3D } from '../../core/src/render-settings.js';
 import {
   OrthographicCamera,
   type Camera3D,
@@ -11,10 +13,11 @@ import type { Matrix4 } from '../../math/src/index.js';
 import type { FrameStats } from './render-stats.js';
 
 const postShader = (sampleCount: number): string => /* wgsl */ `
-struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f };
+struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f };
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> settings: Settings;
 ${depthPostWGSL(sampleCount)}
+${gradingWGSL}
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
   let positions = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
   return vec4f(positions[index],0.0,1.0);
@@ -36,10 +39,9 @@ ${depthPostWGSL(sampleCount)}
     }
   }
   color = max((color+bloom*(settings.values.z/9.0))*settings.values.x,vec3f(0.0));
-  if (settings.values.y > 0.5) {
-    color = clamp((color*(2.51*color+0.03))/(color*(2.43*color+0.59)+0.14),vec3f(0.0),vec3f(1.0));
-  }
+  color = tone(color);
   color = select(1.055*pow(color,vec3f(1.0/2.4))-0.055,color*12.92,color <= vec3f(0.0031308));
+  color = grade(color);
   return vec4f(color*sample.a,sample.a);
 }
 `;
@@ -56,7 +58,9 @@ export class WebGPUPostPipeline {
   private readonly fxaaSampler: GPUSampler;
   private width = 0;
   private height = 0;
-  private readonly data = new Float32Array(36);
+  private lutTexture: GPUTexture | undefined;
+  private lut: ColorLUT3D | undefined;
+  private readonly data = new Float32Array(40);
   private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
     view?: GPUTextureView;
   } = {
@@ -156,6 +160,7 @@ export class WebGPUPostPipeline {
           { binding: 0, resource: view },
           { binding: 1, resource: { buffer: this.buffer } },
           { binding: 2, resource: depth },
+          { binding: 3, resource: this.ensureLUT().createView() },
         ],
       });
       this.texture = texture;
@@ -229,18 +234,17 @@ export class WebGPUPostPipeline {
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
-    const group = source
-      ? this.device.createBindGroup({
+    const group = this.device.createBindGroup({
           layout: this.pipeline.getBindGroupLayout(0),
           entries: [
-            { binding: 0, resource: source.createView() },
+            { binding: 0, resource: (source ?? this.texture!).createView() },
             { binding: 1, resource: { buffer: this.buffer! } },
             { binding: 2, resource: depth! },
+            { binding: 3, resource: this.ensureLUT(settings.colorGrading?.lut).createView() },
           ],
-        })
-      : this.bindGroup!;
+        });
     this.data[0] = enabled ? settings.exposure : 1;
-    this.data[1] = enabled && settings.toneMapping === 'aces' ? 1 : 0;
+    this.data[1] = enabled ? ['none', 'aces', 'agx', 'reinhard', 'neutral'].indexOf(settings.toneMapping) : 0;
     this.data[2] = enabled ? settings.bloomStrength : 0;
     this.data[3] = settings.bloomThreshold;
     this.data[4] = this.width;
@@ -260,6 +264,8 @@ export class WebGPUPostPipeline {
     this.data[33] = settings.dofFocusDistance;
     this.data[34] = settings.dofFocusRange;
     this.data[35] = settings.dofBlurRadius;
+    this.data[36] = settings.colorGrading?.lut.size ?? 1;
+    this.data[37] = enabled ? settings.colorGrading?.strength ?? 0 : 0;
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
     this.stats.upload(this.data.byteLength);
     if (fxaa) this.ensureFxaa();
@@ -297,7 +303,22 @@ export class WebGPUPostPipeline {
     this.bindGroup = undefined;
   }
 
+  private ensureLUT(lut?: ColorLUT3D): GPUTexture {
+    if (this.lutTexture && this.lut === lut) return this.lutTexture;
+    this.lutTexture?.destroy();
+    this.lut = lut;
+    const size = lut?.size ?? 1;
+    this.lutTexture = this.device.createTexture({
+      size: [size * size, size],
+      format: 'rgba8unorm',
+      usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
+    });
+    this.device.queue.writeTexture({ texture: this.lutTexture }, lut?.strip ?? new Uint8Array([255,255,255,255]), { bytesPerRow: size * size * 4 }, [size * size, size]);
+    return this.lutTexture;
+  }
+
   destroy(): void {
+    this.lutTexture?.destroy();
     this.releaseTarget();
     this.buffer?.destroy();
     this.buffer = undefined;

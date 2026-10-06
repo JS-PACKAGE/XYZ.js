@@ -405,6 +405,8 @@ export class Canvas2DRenderer implements Renderer {
       throw new GraphicsError(
         'Canvas2D render requires an active frame and may be called only once per frame.',
       );
+    if (scene?.postProcessing.enabled)
+      throw new GraphicsError('Canvas2D does not support 3D postprocessing.');
     const canvas = this.canvas!;
     const logicalWidth = width ?? (canvas.clientWidth || canvas.width);
     const logicalHeight = height ?? (canvas.clientHeight || canvas.height);
