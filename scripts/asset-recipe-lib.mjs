@@ -192,6 +192,10 @@ const supported = new Set([
   'KHR_materials_sheen',
   'KHR_materials_transmission',
   'KHR_materials_volume',
+  'KHR_materials_variants',
+  'KHR_materials_anisotropy',
+  'KHR_materials_iridescence',
+  'KHR_materials_dispersion',
   'KHR_texture_transform',
   'KHR_lights_punctual',
   'KHR_mesh_quantization',
@@ -303,8 +307,31 @@ export function preflight(document, codecs = {}) {
             throw new Error('Draco has no uncompressed fallback.');
         delete primitive.extensions.KHR_draco_mesh_compression;
       }
-      if (primitive.material !== undefined) {
-        const material = item(materials, primitive.material, 'material');
+      const primitiveMaterials = [];
+      if (primitive.material !== undefined)
+        primitiveMaterials.push(
+          item(materials, primitive.material, 'material'),
+        );
+      const mappings = primitive.extensions?.KHR_materials_variants?.mappings;
+      if (mappings !== undefined) {
+        if (!Array.isArray(mappings) || !mappings.length)
+          throw new Error('Invalid material variant mappings.');
+        const variants = document.extensions?.KHR_materials_variants?.variants;
+        if (!Array.isArray(variants) || !variants.length)
+          throw new Error(
+            'Material variant mappings require declared variants.',
+          );
+        for (const mapping of mappings) {
+          if (!Array.isArray(mapping.variants) || !mapping.variants.length)
+            throw new Error('Material variant mapping requires variants.');
+          for (const index of mapping.variants)
+            item(variants, index, 'material variant');
+          primitiveMaterials.push(
+            item(materials, mapping.material, 'variant material'),
+          );
+        }
+      }
+      for (const material of primitiveMaterials) {
         for (const slot of textureSlots(material)) {
           const texCoord =
             slot.extensions?.KHR_texture_transform?.texCoord ??
@@ -350,6 +377,18 @@ export function preflight(document, codecs = {}) {
         throw new Error(`Unsupported material extension ${name}.`);
     const extensions = material.extensions ?? {};
     if (
+      extensions.KHR_materials_anisotropy?.anisotropyTexture !== undefined ||
+      extensions.KHR_materials_iridescence?.iridescenceTexture !== undefined ||
+      extensions.KHR_materials_iridescence?.iridescenceThicknessTexture !==
+        undefined
+    )
+      throw new Error('Anisotropy and iridescence textures are unsupported.');
+    if (
+      extensions.KHR_materials_dispersion &&
+      !extensions.KHR_materials_transmission
+    )
+      throw new Error('Dispersion requires a transmission extension.');
+    if (
       extensions.KHR_materials_volume &&
       !extensions.KHR_materials_transmission
     )
@@ -363,6 +402,9 @@ export function preflight(document, codecs = {}) {
         'KHR_materials_sheen',
         'KHR_materials_transmission',
         'KHR_materials_volume',
+        'KHR_materials_anisotropy',
+        'KHR_materials_iridescence',
+        'KHR_materials_dispersion',
       ].some((name) => extensions[name])
     )
       throw new Error('Unlit cannot use PBR extensions.');

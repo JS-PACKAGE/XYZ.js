@@ -10,6 +10,7 @@ import {
   mipChain,
   encodeKTX2,
   packBuffers,
+  recipeSupportsExtension,
 } from '../scripts/asset-recipe-lib.mjs';
 import { decodeKTX2Native } from '../packages/core/src/ktx2.ts';
 
@@ -77,6 +78,59 @@ describe('headless asset recipe compatibility', () => {
     delete model.extensionsRequired;
     model.textures[0] = { extensions: { KHR_texture_basisu: { source: 1 } } };
     expect(() => preflight(model)).toThrow('no Basis codec');
+  });
+  it('accepts scalar finish extensions and checks mapped variant material UVs', () => {
+    const model = document();
+    model.extensionsRequired = [
+      'KHR_materials_variants',
+      'KHR_materials_anisotropy',
+      'KHR_materials_iridescence',
+      'KHR_materials_dispersion',
+    ];
+    expect(model.extensionsRequired.every(recipeSupportsExtension)).toBe(true);
+    model.extensions = {
+      KHR_materials_variants: { variants: [{ name: 'finish' }] },
+    };
+    model.materials.push({
+      extensions: {
+        KHR_materials_anisotropy: { anisotropyStrength: 0.5 },
+        KHR_materials_iridescence: { iridescenceFactor: 0.4 },
+        KHR_materials_transmission: { transmissionFactor: 0.6 },
+        KHR_materials_dispersion: { dispersion: 0.2 },
+      },
+      emissiveTexture: { index: 0, texCoord: 1 },
+    });
+    model.meshes[0].primitives[0].extensions = {
+      KHR_materials_variants: {
+        mappings: [{ material: 1, variants: [0] }],
+      },
+    };
+    expect(() => preflight(model)).toThrow('TEXCOORD_1');
+    model.meshes[0].primitives[0].attributes.TEXCOORD_1 = 1;
+    expect(() => preflight(model)).not.toThrow();
+    model.meshes[0].primitives[0].extensions.KHR_materials_variants.mappings[0].material = 2;
+    expect(() => preflight(model)).toThrow('variant material');
+  });
+  it.each([
+    ['KHR_materials_anisotropy', 'anisotropyTexture'],
+    ['KHR_materials_iridescence', 'iridescenceTexture'],
+    ['KHR_materials_iridescence', 'iridescenceThicknessTexture'],
+  ])(
+    'rejects %s %s rather than losing unsupported runtime maps',
+    (name, slot) => {
+      const model = document();
+      model.materials[0].extensions = { [name]: { [slot]: { index: 0 } } };
+      expect(() => preflight(model)).toThrow(
+        'Anisotropy and iridescence textures are unsupported.',
+      );
+    },
+  );
+  it('requires transmission for dispersion just like the runtime loader', () => {
+    const model = document();
+    model.materials[0].extensions = {
+      KHR_materials_dispersion: { dispersion: 0.2 },
+    };
+    expect(() => preflight(model)).toThrow('Dispersion requires');
   });
   it('rejects unlit materials using physically based extensions', () => {
     const model = document();
