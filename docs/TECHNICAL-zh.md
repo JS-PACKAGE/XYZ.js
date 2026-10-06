@@ -245,6 +245,7 @@ viewport 幾何可在 resize 時計算，靜態 pipeline 亦不因 resize 重建
 - Mesh 不銷毀共享 Geometry／TextureMaterial／Texture。Material 提供 texture、RGB tint 與 opacity；相機由 fov／near／far、position／Quaternion rotation 計算 view-projection。
 - WebGPU 使用共用 mesh pipeline、每 mesh 重用 uniform buffer、geometry／texture cache。normal 使用 model 3×3 inverse-transpose，支持非均勻 scale。光照為 ambient 加 directional diffuse。
 - 3D pass 使用 depth24plus／less，再以 load color 的獨立 pass 疊加 Sprite。預設 sorted 透明保留 depth write 與 premultiplied blending；opt-in weighted 透明只測 opaque depth、不寫透明 depth，詳見下方透明章節。
+  WebGPU 與 WebGL2 的 sorted 模式即使對 double-sided、alpha 為一的 BLEND 材質也保留 depth write，避免較遠背面覆蓋較近正面。
 - resize 保留 shader／geometry／texture，替換尺寸相關 depth／HDR attachments；destroy 釋放 GPU caches。
 
 ## 14. Compatibility（P06）
@@ -392,13 +393,21 @@ Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' 
 
 `PBRMaterialOptions.finish` 接受 `anisotropy`、`anisotropyRotation`（弧度）、`iridescence`、`iridescenceIor`（≥1、預設 1.3）、`iridescenceThickness`、`subsurface`、`subsurfaceColor`、`subsurfaceRadius`（預設 0.5）、`dispersion`（≥0）、`heightScale`、`wetness`、`snow`、`dirt`、`damage`、`detailStrength`、`triplanar`、`layerBlend` 與 `lightmapStrength`；其餘皆為 0..1。未知 key 與超出範圍的值會拒絕。`material.finish` 為凍結的 `PBRFinish`，全預設值共用同一個實例。`fillPBRFinish` 把 20 個 float（`PBR_FINISH_FLOATS`）寫在 WebGPU mesh uniform 的材質 UV 區塊之後；WebGL2 設定 `finish0..finish4` 五個 vec4 uniform。取樣貼圖的 slot 配置不變。
 
-每個效果都是有界的 shader 近似，並由自己的 uniform 守門，因此強度為 0 時走原本路徑。Anisotropy 依 `|dot(旋轉後 tangent, view)|` 在銳利與粗糙 roughness 間插值，需要幾何自帶 tangent（零 tangent 得到 aligned=0 的結果，不會產生 NaN）。Iridescence 依 Fresnel 把 F0 推向正弦相位色相。Subsurface 由方向光加上 `base * subsurfaceColor * wrapped N·L`。Dispersion 把折射背景取樣在螢幕 X 方向對紅／藍通道各偏移 ±(min(dispersion,1)·0.02)，且只在 transmission 生效處作用。`heightScale` 沿 tangent-space normal XY 取四步，用最低的 normal-map Z 作為 base color 取樣位置，需要 normal map。Wetness 壓暗 base 並降低 roughness，snow 把朝上的法線往白色混合，dirt 上色，damage 提高 roughness。`detailStrength` 以 UV·(1+7·layerBlend) 對 base map 再取樣一次相乘；`triplanar` 依世界座標混合三次 base map 取樣（1 個世界單位 = 1 個 UV tile）。依賴前一次取樣結果的取樣，會在分支之前完成，以符合 WGSL 的 uniform control flow 規則。
+Finish 強度為零時保留原 isotropic 路徑與 20-float layout。Anisotropy 用 tangent／handedness-aware 旋轉軸，對所有 analytic lights 計算 anisotropic GGX distribution 與 height-correlated visibility；IBL 用 bent reflection normal，仍不是 anisotropic environment convolution。Iridescence 以 Snell／Fresnel 介面及多次反射 Airy thin film，在 650／510／475 nm 近似 RGB，涵蓋 analytic 與 environment specular。公開 thickness 仍為 0..1，native packing 轉為 100..800 nm；三波長 RGB 與金屬 effective real IOR 都是近似，非完整 spectral／complex-IOR rendering。Reflectance 限制於 1。
+
+Subsurface 不再額外增加能量，而以三個 normalized angular profile taps、每通道 scatter color／radius 替換 diffuse budget，支援方向／point／spot 光。此近似不需要 thickness 或螢幕資訊，但不是 spatial diffusion／多 pass SSS。Dispersion 以 Abbe-like IOR spread（強度上限 10）、獨立紅／藍折射 ray exit、local thickness 及 projection 計算偏移，保留 rough-transmission filtering 與每通道 path attenuation；零厚度不產生分色。仍是 screen-space 背景近似，不是 ray tracing 或任意多層幾何。
+
+P132 的 angular radii 為 `r/4`、`r`、`min(2*r,1)`，權重為 0.25／0.5／0.25，其中每通道 `r = subsurfaceColor * subsurfaceRadius`。每個 tap 為 `max(N·L + radius, 0)/(1 + radius)^2`；在 `N·L ∈ [-1,1]` 的積分為 0.5，與 Lambert diffuse 相同，scatter color 不會增加此能量預算。Radius 為零時精確還原 scatter-tinted Lambert diffuse。P133 的紅／綠／藍 IOR 分別為 `max(1, ior-spread)`、`ior`、`ior+spread`，其中 `spread = (ior-1)*min(dispersion,10)/40`。每通道使用自身的折射出口投影與 Beer–Lambert path；IOR 為 1 或 dispersion 為零時不產生分色。既有 finish 分支在停用時跳過額外計算。
+
+Height 保留既有四步 normal-map relief；wetness／snow／dirt／damage、detail 與 triplanar 保留原行為。沒有新增 texture slots 或 uniforms。
 
 `lightmap`／`lightmapSampler` 使用 emissive sampler。`pbrEmissiveSlot(material)` 回報 mode 0（無）、1（emissive）或 2（lightmap）；mode 2 時不取樣 emissive map，在加上 emission 前做 `color *= mix(1, bakedRGB, lightmapStrength)`。WebGPU 的 mesh cache 以材質實例為鍵，因此 `setMeshMaterial` 會正確重新綁定。
 
 `MaterialAsset.fromImages(maps, overrides?)`／`create(options)`：`maps` 的 `base` 必填，另有 `metallicRoughness`、`normal`、`occlusion`、`emissive`、`lightmap`，每項可為 `ImageBitmapSource`（由 asset 解碼並擁有）或 `Texture`（借用）。`destroy()` 冪等並彙整清理錯誤，`destroyed` 是 getter。`setMeshMaterial(mesh, material)` 替換 Mesh 借用的材質（`Mesh.material` 仍是已發佈的 readonly 宣告）；非 `TextureMaterial` 會丟錯並保留目前材質。
 
-glTF：`KHR_materials_variants` 提供 `gltfVariants(asset)`（`.variants` 為 `{name, mappings:[{mesh, material}]}`，另有 `.selectVariant(name|undefined)`；為維持 1.x 相容，`GLTFAsset` 本身不變）；後者先還原所有預設再套用所選 mappings。未知名稱、空的或超出範圍的 variant 清單，以及被映射材質缺少的貼圖座標，會在載入或呼叫時拒絕。`KHR_materials_anisotropy`（強度取絕對值並限制到 1，rotation 保留）、`KHR_materials_iridescence`（factor、IOR，最大厚度由 100..800 nm 映射到 0..1）與 `KHR_materials_dispersion`（需要 transmission）會填入 finish；其貼圖 slot 會拒絕，與 `KHR_materials_unlit` 併用也會拒絕。Variant 材質由 asset 擁有並在 `dispose()` 釋放，`dispose()` 後呼叫 `selectVariant` 會丟錯。`scripts/asset-recipe-lib.mjs` 仍會拒絕這些 extensions。
+glTF：`KHR_materials_variants` 提供 `gltfVariants(asset)`（`.variants` 為 `{name, mappings:[{mesh, material}]}`，另有 `.selectVariant(name|undefined)`；為維持 1.x 相容，`GLTFAsset` 本身不變）；後者先還原所有預設再套用所選 mappings。未知名稱、空的或超出範圍的 variant 清單，以及被映射材質缺少的貼圖座標，會在載入或呼叫時拒絕。`KHR_materials_anisotropy`（強度取絕對值並限制到 1，rotation 保留）、`KHR_materials_iridescence`（factor、IOR，最大厚度由 100..800 nm 映射到 0..1）與 `KHR_materials_dispersion`（需要 transmission）會填入 finish；其貼圖 slot 會拒絕，與 `KHR_materials_unlit` 併用也會拒絕。Variant 材質由 asset 擁有並在 `dispose()` 釋放，`dispose()` 後呼叫 `selectVariant` 會丟錯。
+
+資產製作接受並在每個產出 model choice 保留上述 required extensions 與 variant mappings。Preflight 檢查 mapped materials 的 texture index 與 UV0／UV1 streams；僅被 variant 使用的一般 maps 仍有 KTX2／PNG choices 及 manifest checksum dependencies。Anisotropy／iridescence maps 仍由 recipe preflight 與 runtime loader 明確拒絕，不會丟棄或轉成 scalar factors。每個產出都經 packaged loader 驗證後才發布。
 
 已驗證：單元測試，以及 Chromium 在強制 WebGPU 與強制 WebGL2 下繪製十二顆 finish 球體且沒有 console、game 或 shader 錯誤（見 ACCEPTANCE）。未驗證：各效果相對任何參考的像素正確性、跨 backend 像素等價、其他瀏覽器或 GPU。
 

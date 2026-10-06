@@ -2,6 +2,7 @@ const require_texture = require("../../assets/src/texture.cjs");
 const require_texture2d = require("../../assets/src/texture2d.cjs");
 const require_texture_sampler = require("./texture-sampler.cjs");
 const require_mesh = require("./mesh.cjs");
+const require_materials = require("../../../src/data/materials.cjs");
 //#region dist/packages/core/src/pbr-material.js
 var pbrTextureKeys = [
 	`specularTexture`,
@@ -18,12 +19,12 @@ var pbrTextureKeys = [
 	`occlusionTexture`,
 	`emissiveTexture`
 ];
-var a = /* @__PURE__ */ new WeakMap();
-var o = Object.freeze({});
+var o = /* @__PURE__ */ new WeakMap();
+var s = Object.freeze({});
 function pbrTextureSources(e) {
-	return a.get(e) ?? o;
+	return o.get(e) ?? s;
 }
-var s = [
+var c = [
 	`anisotropy`,
 	`anisotropyRotation`,
 	`iridescence`,
@@ -43,7 +44,7 @@ var s = [
 	`layerBlend`,
 	`lightmapStrength`
 ];
-var c = Object.freeze({
+var l = Object.freeze({
 	anisotropy: 0,
 	anisotropyRotation: 0,
 	iridescence: 0,
@@ -68,12 +69,12 @@ var c = Object.freeze({
 	lightmapStrength: 0
 });
 function parseFinish(e) {
-	if (e === void 0) return c;
+	if (e === void 0) return l;
 	if (!e || typeof e != `object` || Array.isArray(e)) throw TypeError(`Material finish must be an object.`);
-	for (let t of Object.keys(e)) if (!s.includes(t)) throw TypeError(`Unknown material finish ${t}.`);
-	let t = e.anisotropy ?? 0, n = e.anisotropyRotation ?? 0, r = e.iridescence ?? 0, i = e.iridescenceIor ?? 1.3, a = e.iridescenceThickness ?? 0, o = e.subsurface ?? 0, l = e.subsurfaceRadius ?? .5, u = e.dispersion ?? 0, d = e.heightScale ?? 0, f = e.wetness ?? 0, p = e.snow ?? 0, m = e.dirt ?? 0, h = e.damage ?? 0, g = e.detailStrength ?? 0, _ = e.triplanar ?? 0, v = e.layerBlend ?? 0, y = e.lightmapStrength ?? 0;
+	for (let t of Object.keys(e)) if (!c.includes(t)) throw TypeError(`Unknown material finish ${t}.`);
+	let t = e.anisotropy ?? 0, n = e.anisotropyRotation ?? 0, r = e.iridescence ?? 0, i = e.iridescenceIor ?? 1.3, a = e.iridescenceThickness ?? 0, o = e.subsurface ?? 0, s = e.subsurfaceRadius ?? .5, u = e.dispersion ?? 0, d = e.heightScale ?? 0, f = e.wetness ?? 0, p = e.snow ?? 0, m = e.dirt ?? 0, h = e.damage ?? 0, g = e.detailStrength ?? 0, _ = e.triplanar ?? 0, v = e.layerBlend ?? 0, y = e.lightmapStrength ?? 0;
 	if (unit(t, `Anisotropy`), finite(n, `Anisotropy rotation`), unit(r, `Iridescence`), finite(i, `Iridescence IOR`), i < 1) throw RangeError(`Iridescence IOR must be at least 1.`);
-	if (unit(a, `Iridescence thickness`), unit(o, `Subsurface`), unit(l, `Subsurface radius`), finite(u, `Dispersion`), u < 0) throw RangeError(`Dispersion cannot be negative.`);
+	if (unit(a, `Iridescence thickness`), unit(o, `Subsurface`), unit(s, `Subsurface radius`), finite(u, `Dispersion`), u < 0) throw RangeError(`Dispersion cannot be negative.`);
 	unit(d, `Height scale`), unit(f, `Wetness`), unit(p, `Snow`), unit(m, `Dirt`), unit(h, `Damage`), unit(g, `Detail strength`), unit(_, `Triplanar blend`), unit(v, `Layer blend`), unit(y, `Lightmap strength`);
 	let b = e.subsurfaceColor ?? [
 		1,
@@ -82,7 +83,7 @@ function parseFinish(e) {
 	];
 	if (!Array.isArray(b) || b.length !== 3) throw RangeError(`Subsurface color must contain three components.`);
 	for (let e of b) unit(e, `Subsurface color`);
-	return t === 0 && n === 0 && r === 0 && i === 1.3 && a === 0 && o === 0 && l === .5 && u === 0 && d === 0 && f === 0 && p === 0 && m === 0 && h === 0 && g === 0 && _ === 0 && v === 0 && y === 0 && b[0] === 1 && b[1] === 1 && b[2] === 1 ? c : Object.freeze({
+	return t === 0 && n === 0 && r === 0 && i === 1.3 && a === 0 && o === 0 && s === .5 && u === 0 && d === 0 && f === 0 && p === 0 && m === 0 && h === 0 && g === 0 && _ === 0 && v === 0 && y === 0 && b[0] === 1 && b[1] === 1 && b[2] === 1 ? l : Object.freeze({
 		anisotropy: t,
 		anisotropyRotation: n,
 		iridescence: r,
@@ -94,7 +95,7 @@ function parseFinish(e) {
 			b[1],
 			b[2]
 		]),
-		subsurfaceRadius: l,
+		subsurfaceRadius: s,
 		dispersion: u,
 		heightScale: d,
 		wetness: f,
@@ -221,7 +222,7 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 	lightmapSampler;
 	constructor(e) {
 		super(e), this.textureCoordinates = textureCoordinates(e.textureCoordinates);
-		let r = e.metallic ?? 0, o = e.roughness ?? .5, s = e.specularAntiAliasing ?? 0;
+		let r = e.metallic ?? 0, a = e.roughness ?? .5, s = e.specularAntiAliasing ?? 0;
 		unit(s, `Specular anti-aliasing strength`);
 		let c = e.emissive ?? [
 			0,
@@ -257,7 +258,7 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 		for (let e of b) unit(e, `Attenuation color component`);
 		textureSlot(e.transmissionTexture, `Transmission texture`), textureSlot(e.thicknessTexture, `Thickness texture`);
 		let x = e.normalScale ?? 1, S = e.occlusionStrength ?? 1, C = e.alphaCutoff ?? 0, w = e.alphaMode ?? (C > 0 ? `MASK` : `BLEND`), T = e.doubleSided ?? !0;
-		if (unit(r, `Metallic factor`), unit(o, `Roughness factor`), unit(S, `Occlusion strength`), !Array.isArray(c) || c.length !== 3) throw RangeError(`Emissive color must contain three components.`);
+		if (unit(r, `Metallic factor`), unit(a, `Roughness factor`), unit(S, `Occlusion strength`), !Array.isArray(c) || c.length !== 3) throw RangeError(`Emissive color must contain three components.`);
 		for (let e = 0; e < 3; e++) if (finite(c[e], `Emissive color component`), c[e] < 0) throw RangeError(`Emissive color components cannot be negative.`);
 		if (finite(x, `Normal scale`), finite(C, `Alpha cutoff`), C < 0) throw RangeError(`Alpha cutoff cannot be negative.`);
 		if (w !== `OPAQUE` && w !== `MASK` && w !== `BLEND`) throw RangeError(`Material alpha mode must be OPAQUE, MASK, or BLEND.`);
@@ -265,7 +266,7 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 		let E = e.alphaToCoverage ?? !1;
 		if (typeof E != `boolean`) throw TypeError(`Alpha-to-coverage must be boolean.`);
 		if (E && (w !== `MASK` || C <= 0 || C >= 1 || _ > 0)) throw RangeError(`Alpha-to-coverage requires MASK, 0 < cutoff < 1, and no transmission.`);
-		textureSlot(e.metallicRoughnessTexture, `Metallic-roughness texture`), textureSlot(e.normalTexture, `Normal texture`), textureSlot(e.occlusionTexture, `Occlusion texture`), textureSlot(e.emissiveTexture, `Emissive texture`), this.metallic = r, this.roughness = o, this.emissive = [
+		textureSlot(e.metallicRoughnessTexture, `Metallic-roughness texture`), textureSlot(e.normalTexture, `Normal texture`), textureSlot(e.occlusionTexture, `Occlusion texture`), textureSlot(e.emissiveTexture, `Emissive texture`), this.metallic = r, this.roughness = a, this.emissive = [
 			c[0],
 			c[1],
 			c[2]
@@ -280,7 +281,7 @@ var PBRMaterial = class extends require_mesh.TextureMaterial {
 			let a = i ?? e[r];
 			a !== void 0 && (D[r] = a);
 		}
-		a.set(this, Object.freeze(D)), this.alphaCutoff = C, this.alphaMode = w, this.doubleSided = T, this.specularAntiAliasing = s, this.alphaToCoverage = E, this.metallicRoughnessSampler = require_texture_sampler.samplerOptions(e.metallicRoughnessSampler), this.normalSampler = require_texture_sampler.samplerOptions(e.normalSampler), this.occlusionSampler = require_texture_sampler.samplerOptions(e.occlusionSampler), this.emissiveSampler = require_texture_sampler.samplerOptions(e.emissiveSampler), textureSlot(e.lightmap, `Lightmap`), this.lightmap = e.lightmap, this.lightmapSampler = require_texture_sampler.samplerOptions(e.lightmapSampler), this.finish = parseFinish(e.finish);
+		o.set(this, Object.freeze(D)), this.alphaCutoff = C, this.alphaMode = w, this.doubleSided = T, this.specularAntiAliasing = s, this.alphaToCoverage = E, this.metallicRoughnessSampler = require_texture_sampler.samplerOptions(e.metallicRoughnessSampler), this.normalSampler = require_texture_sampler.samplerOptions(e.normalSampler), this.occlusionSampler = require_texture_sampler.samplerOptions(e.occlusionSampler), this.emissiveSampler = require_texture_sampler.samplerOptions(e.emissiveSampler), textureSlot(e.lightmap, `Lightmap`), this.lightmap = e.lightmap, this.lightmapSampler = require_texture_sampler.samplerOptions(e.lightmapSampler), this.finish = parseFinish(e.finish);
 	}
 };
 function pbrEmissiveSlot(e) {
@@ -298,7 +299,7 @@ function pbrEmissiveSlot(e) {
 }
 function fillPBRFinish(e, t, n) {
 	let r = e.finish;
-	t[n] = r.anisotropy, t[n + 1] = r.anisotropyRotation, t[n + 2] = r.iridescence, t[n + 3] = r.iridescenceIor, t[n + 4] = r.iridescenceThickness, t[n + 5] = r.subsurface, t[n + 6] = r.dispersion, t[n + 7] = r.heightScale, t[n + 8] = r.wetness, t[n + 9] = r.snow, t[n + 10] = r.dirt, t[n + 11] = r.damage, t[n + 12] = r.detailStrength, t[n + 13] = r.triplanar, t[n + 14] = r.layerBlend, t[n + 15] = r.lightmapStrength, t[n + 16] = r.subsurfaceColor[0], t[n + 17] = r.subsurfaceColor[1], t[n + 18] = r.subsurfaceColor[2], t[n + 19] = r.subsurfaceRadius;
+	t[n] = r.anisotropy, t[n + 1] = r.anisotropyRotation, t[n + 2] = r.iridescence, t[n + 3] = r.iridescenceIor, t[n + 4] = r.iridescence > 0 ? require_materials.iridescenceFilmRange.minNm + r.iridescenceThickness * (require_materials.iridescenceFilmRange.maxNm - require_materials.iridescenceFilmRange.minNm) : 0, t[n + 5] = r.subsurface, t[n + 6] = r.dispersion, t[n + 7] = r.heightScale, t[n + 8] = r.wetness, t[n + 9] = r.snow, t[n + 10] = r.dirt, t[n + 11] = r.damage, t[n + 12] = r.detailStrength, t[n + 13] = r.triplanar, t[n + 14] = r.layerBlend, t[n + 15] = r.lightmapStrength, t[n + 16] = r.subsurfaceColor[0], t[n + 17] = r.subsurfaceColor[1], t[n + 18] = r.subsurfaceColor[2], t[n + 19] = r.subsurfaceRadius;
 }
 var MaterialAsset = class MaterialAsset {
 	material;

@@ -155,7 +155,7 @@ uniform vec4 finish0; // anisotropy, rotation, iridescence, iridescence IOR
 uniform vec4 finish1; // film, subsurface, dispersion, height scale
 uniform vec4 finish2; // wetness, snow, dirt, damage
 uniform vec4 finish3; // detail, triplanar, layer blend, lightmap strength
-uniform vec4 finish4; // subsurface color, wrap width
+uniform vec4 finish4; // subsurface color, diffusion radius
 uniform vec4 emission; // emissive RGB, alphaCutoff
 uniform ivec4 maps; // metallicRoughness, normal, occlusion, emissive
 uniform bool pbr;
@@ -223,13 +223,19 @@ vec2 equirectUV(vec3 d) {
   d = normalize(d);
   return vec2(atan(d.x, -d.z) * 0.15915494309 + 0.5, acos(clamp(d.y, -1.0, 1.0)) * 0.31830988618);
 }
-vec3 brdf(vec3 base,float metallic,float roughness,vec3 n,vec3 v,vec3 l,vec3 f0,vec3 f90,vec3 compensation,float remaining,float transmission) {
+vec3 brdf(vec3 base,float metallic,float roughness,vec3 n,vec3 v,vec3 l,vec3 f0,vec3 f90,vec3 compensation,float remaining,float transmission,vec3 tangent,vec3 bitangent) {
   float nl=clamp(dot(n,l),0.0,1.0),nv=clamp(dot(n,v),.0001,1.0);
   vec3 h=(v+l)/max(length(v+l),.000001);
   float nh=clamp(dot(n,h),0.0,1.0),vh=clamp(dot(v,h),0.0,1.0);
   float alpha2=roughness*roughness*roughness*roughness;
   vec3 fresnel=f0+(f90-f0)*pow(1.0-vh,5.0);
+  if (finish0.z > 0.0) fresnel=mix(fresnel,thinFilm(vh,finish0.w,finish1.x,f0),finish0.z);
   vec3 specular=ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
+  if (finish0.x > 0.0) specular=anisotropicGGX(n,tangent,bitangent,v,l,h,roughness,finish0.x)*fresnel*compensation;
+  if (finish1.y > 0.0) {
+    vec3 diffuse=mix(vec3(nl),diffusionProfile(dot(n,l),finish4.rgb,finish4.w),finish1.y);
+    return remaining*(1.0-metallic)*(1.0-transmission)*base/PI*diffuse+specular*nl;
+  }
   return (remaining*(1.0-metallic)*(1.0-transmission)*base/PI+specular)*nl;
 }
 float clearcoatLobe(vec3 n,vec3 v,vec3 l,float rough,float compensation) {
@@ -390,12 +396,6 @@ void shadeMesh() {
         base = mix(base, base * vec3(0.42, 0.30, 0.16), finish2.z);
         roughness = min(1.0, roughness + 0.35 * finish2.w);
       }
-      if (finish0.x > 0.0) {
-        vec3 rotated = vTangent.xyz * cos(finish0.y) + cross(n, vTangent.xyz) * sin(finish0.y);
-        vec3 tangent = rotated / max(length(rotated), .000001);
-        float aligned = abs(dot(tangent, v));
-        roughness = mix(mix(roughness, 0.04, finish0.x), mix(roughness, 1.0, finish0.x), aligned);
-      }
     }
     vec3 emitted = emission.rgb * (maps.w == 1 ? decodeSRGB(texture(emissiveMap, materialUV(4)).rgb) : vec3(1.0));
     XYZPhysical physical = xyzPhysical(vPosition, n, vUV, XYZPhysical(base, metallic, roughness, ao, emitted));
@@ -415,19 +415,23 @@ void shadeMesh() {
         coatRoughness = sqrt(sqrt(min(1.0,coatAlphaAA*coatAlphaAA+min(${require_rendering.materialQuality.normalVarianceScale.toFixed(1)}*(dot(cx,cx)+dot(cy,cy)+coatVariance),${require_rendering.materialQuality.maxNormalVariance})*sheenMaps.z)));
       }
     }
+    vec3 tangent=vec3(0.0),bitangent=vec3(0.0),reflectionNormal=n;
+    if (finish0.x > 0.0) {
+      vec3 t=normalize(vTangent.xyz-n*dot(n,vTangent.xyz));
+      vec3 b=cross(n,t)*vTangent.w;
+      tangent=t*cos(finish0.y)+b*sin(finish0.y);
+      bitangent=cross(n,tangent)*vTangent.w;
+      vec3 bent=normalize(cross(bitangent,cross(v,bitangent)));
+      reflectionNormal=normalize(mix(n,bent,finish0.x*(1.0-roughness)));
+    }
     float nv=clamp(dot(n,v),.0001,1.0);
     vec2 ab=environmentBRDF(nv,roughness);
     vec3 f0=mix(dielectricF0,min(base,vec3(1.0)),metallic);
-    if (finish0.z > 0.0) {
-      float film = finish1.x * nv * 6.2831853;
-      vec3 hue = vec3(sin(film), sin(film + 2.0943951), sin(film + 4.1887902)) * 0.5 + 0.5;
-      float fresnel = pow(1.0 - nv, 5.0) * (finish0.w - 1.0);
-      f0 = mix(f0, hue, clamp(finish0.z * (0.15 + fresnel), 0.0, 1.0));
-    }
     vec3 dielectric90=specularParams.y>.5?dielectricF0:vec3(specularWeight);
     vec3 f90=mix(dielectric90,vec3(1.0),metallic);
     vec3 compensation=ggxCompensation(f0,ab);
     vec3 reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3(0.0),vec3(1.0));
+    if (finish0.z > 0.0) reflected=clamp(mix(reflected,thinFilm(nv,finish0.w,finish1.x,f0)*(ab.x+ab.y)*compensation,finish0.z),vec3(0.0),vec3(1.0));
     float remaining=1.0-max(max(reflected.r,reflected.g),reflected.b);
     float sheenRetention=1.0-sheenMax*sheenEnergy;
     float coatEnergy=0.0,coatCompensation=1.0;
@@ -441,7 +445,7 @@ void shadeMesh() {
     bool useEnvironment = environment[9].y > .5 || dot(probeWeights,vec4(1.0)) > 0.0;
     result=max(lighting[1].w,0.0)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*sheenRetention*ao*(useEnvironment?0.0:1.0);
     if(useEnvironment) {
-      vec3 radiance=reflectionRadiance(vPosition,reflect(-v,n),roughness,probeWeights);
+      vec3 radiance=reflectionRadiance(vPosition,reflect(-v,reflectionNormal),roughness,probeWeights);
       vec3 diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining;
       result+=(diffuseLight+radiance*reflected)*ao*sheenRetention;
       if (sheenMax > 0.0) {
@@ -453,7 +457,7 @@ void shadeMesh() {
         coating+=coatRadiance*coatEnergy*ao;
       }
     }
-    result+=brdf(base,metallic,roughness,n,v,l,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
+    result+=brdf(base,metallic,roughness,n,v,l,f0,f90,compensation,remaining,transmissionWeight,tangent,bitangent)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,l,sheenRoughness)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*lighting[1].rgb*max(lighting[0].w,0.0)*visibility;
     for (int i = 0; i < 32; i++) {
@@ -463,7 +467,7 @@ void shadeMesh() {
       float d2 = dot(delta, delta);
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*pointShadow(i,p.xyz);
       vec3 pl = delta/max(sqrt(d2),.000001);
-      result+=brdf(base,metallic,roughness,n,v,pl,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,pl),sheenRoughness,sheenMax,sheenEnergy)*incident;
+      result+=brdf(base,metallic,roughness,n,v,pl,f0,f90,compensation,remaining,transmissionWeight,tangent,bitangent)*sheenLightRetention(dot(n,pl),sheenRoughness,sheenMax,sheenEnergy)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,pl,sheenRoughness)*incident;
       if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,pl,coatRoughness,coatCompensation)*incident;
     }
@@ -475,7 +479,7 @@ void shadeMesh() {
       vec3 sl = delta / max(sqrt(d2), .000001);
       float cone = smoothstep(d.w, lighting[70 + i * 4].x, dot(-sl, d.xyz));
       vec3 incident = c.rgb*c.w*attenuation(d2,p.w)*cone*spotShadow(i);
-      result+=brdf(base,metallic,roughness,n,v,sl,f0,f90,compensation,remaining,transmissionWeight)*sheenLightRetention(dot(n,sl),sheenRoughness,sheenMax,sheenEnergy)*incident;
+      result+=brdf(base,metallic,roughness,n,v,sl,f0,f90,compensation,remaining,transmissionWeight,tangent,bitangent)*sheenLightRetention(dot(n,sl),sheenRoughness,sheenMax,sheenEnergy)*incident;
       if (sheenMax > 0.0) sheenLighting += sheenLobe(n,v,sl,sheenRoughness)*incident;
       if(coatWeight>0.0) coating+=clearcoatLobe(nc,v,sl,coatRoughness,coatCompensation)*incident;
     }
@@ -490,21 +494,26 @@ void shadeMesh() {
         if (exit.w > .000001) uv = exit.xy/exit.w*.5+.5;
       }
       vec3 transmitted = roughTransmission(uv,roughness,transmission.w);
-      if (finish1.z > 0.0) {
-        float split = min(finish1.z, 1.0) * 0.02;
-        vec3 red = roughTransmission(uv + vec2(split, 0.0), roughness, transmission.w);
-        vec3 blue = roughTransmission(uv - vec2(split, 0.0), roughness, transmission.w);
-        transmitted = vec3(red.r, transmitted.g, blue.b);
+      vec3 attenuationPath=vec3(distance);
+      if (finish1.z > 0.0 && thickness > 0.0) {
+        float spread=(transmission.w-1.0)*min(finish1.z,10.0)/40.0;
+        for (int channel=0;channel<3;channel+=2) {
+          float ior=max(1.0,transmission.w+(float(channel)-1.0)*spread);
+          vec3 spectralRay=refract(-v,n,1.0/ior);
+          spectralRay/=max(length(spectralRay),.000001);
+          float local=length(vec3(dot(vLocal0,spectralRay),dot(vLocal1,spectralRay),dot(vLocal2,spectralRay)));
+          float path=local>0.0?thickness/max(local,.000001):0.0;
+          vec4 exit=viewProjection*vec4(vPosition+spectralRay*path,1.0);
+          vec2 spectralUV=uv;
+          if (exit.w>.000001) spectralUV=exit.xy/exit.w*.5+.5;
+          transmitted[channel]=roughTransmission(spectralUV,roughness,ior)[channel];
+          attenuationPath[channel]=path;
+        }
       }
-      if (distance > 0.0 && transmission.z > 0.0) transmitted *= pow(attenuationColor.rgb,vec3(distance*transmission.z));
+      if (distance > 0.0 && transmission.z > 0.0) transmitted *= pow(attenuationColor.rgb,attenuationPath*transmission.z);
       result+=transmitted*base*transmissionWeight*(1.0-metallic)*remaining*sheenRetention;
     }
     result+=sheenTint*sheenLighting;
-    if (finish1.y > 0.0) {
-      float wrap = finish4.w;
-      float wrapped = clamp((dot(n, l) + wrap) / (1.0 + wrap), 0.0, 1.0);
-      result += base * finish4.rgb * finish1.y * wrapped * lighting[1].rgb * max(lighting[0].w, 0.0) * visibility;
-    }
     if (maps.w == 2) {
       vec3 baked = decodeSRGB(texture(emissiveMap, materialUV(4)).rgb);
       result *= mix(vec3(1.0), baked, finish3.w);

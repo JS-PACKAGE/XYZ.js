@@ -236,16 +236,22 @@ fn attenuation(distance: f32, range: f32) -> f32 {
   if (range > 0.0) { falloff = pow(max(1.0 - pow(distance / range, 4.0), 0.0), 2.0); }
   return falloff / max(distance * distance, 0.01);
 }
-fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, f0: vec3f, f90: vec3f, compensation: vec3f, remaining: f32, transmission: f32) -> vec3f {
+fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, f0: vec3f, f90: vec3f, compensation: vec3f, remaining: f32, transmission: f32, tangent: vec3f, bitangent: vec3f) -> vec3f {
   let h = safeNormal(v+l);
   let nl = clamp(dot(n,l),0.0,1.0);
   let nv = clamp(dot(n,v),0.0001,1.0);
   let nh = clamp(dot(n,h),0.0,1.0);
   let vh = clamp(dot(v,h),0.0,1.0);
   let alpha2 = rough*rough*rough*rough;
-  let fresnel = f0+(f90-f0)*pow(1.0-vh,5.0);
-  let specular = ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
+  var fresnel = f0+(f90-f0)*pow(1.0-vh,5.0);
+  if (mesh.finish[0].z > 0.0) { fresnel=mix(fresnel,thinFilm(vh,mesh.finish[0].w,mesh.finish[1].x,f0),mesh.finish[0].z); }
+  var specular = ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
+  if (mesh.finish[0].x > 0.0) { specular=anisotropicGGX(n,tangent,bitangent,v,l,h,rough,mesh.finish[0].x)*fresnel*compensation; }
   let diffuse = remaining*(1.0-metal)*(1.0-transmission)*base/3.14159265359;
+  if (mesh.finish[1].y > 0.0) {
+    let profile=mix(vec3f(nl),diffusionProfile(dot(n,l),mesh.finish[4].rgb,mesh.finish[4].w),mesh.finish[1].y);
+    return diffuse*profile+specular*nl;
+  }
   return (diffuse+specular)*nl;
 }
 fn clearcoatLobe(n: vec3f, v: vec3f, l: vec3f, rough: f32, compensation: f32) -> f32 {
@@ -453,12 +459,6 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       base = mix(base, base * vec3f(0.42, 0.30, 0.16), mesh.finish[2].z);
       rough = min(1.0, rough + 0.35 * mesh.finish[2].w);
     }
-    if (mesh.finish[0].x > 0.0) {
-      let spin = mesh.finish[0].y;
-      let tangent = safeNormal(input.tangent.xyz * cos(spin) + cross(n, input.tangent.xyz) * sin(spin));
-      let aligned = abs(dot(tangent, view));
-      rough = mix(mix(rough, 0.04, mesh.finish[0].x), mix(rough, 1.0, mesh.finish[0].x), aligned);
-    }
   }
   // Native physical hooks see the final shading normal and decoded material factors, before filtering and lighting.
   let physical = xyzPhysical(input.world, n, input.uv, XYZPhysical(base, metal, rough, ao,
@@ -498,18 +498,22 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   var sheenLighting = vec3f(0.0);
   if (sheenMax > 0.0) { sheenEnergy = sheenAlbedo(clamp(dot(n,v),0.0,1.0),sheenRoughness); }
   let nv=clamp(dot(n,v),0.0001,1.0);
+  var tangent=vec3f(0.0); var bitangent=vec3f(0.0); var reflectionNormal=n;
+  if (mesh.finish[0].x > 0.0) {
+    let t=safeNormal(input.tangent.xyz-n*dot(n,input.tangent.xyz));
+    let b=cross(n,t)*input.tangent.w;
+    tangent=t*cos(mesh.finish[0].y)+b*sin(mesh.finish[0].y);
+    bitangent=cross(n,tangent)*input.tangent.w;
+    let bent=safeNormal(cross(bitangent,cross(v,bitangent)));
+    reflectionNormal=safeNormal(mix(n,bent,mesh.finish[0].x*(1.0-rough)));
+  }
   let ab=environmentBRDF(nv,rough);
   var f0=mix(dielectricF0,min(base,vec3f(1.0)),metal);
-  if (mesh.finish[0].z > 0.0) {
-    let film = mesh.finish[1].x * nv * 6.2831853;
-    let hue = vec3f(sin(film), sin(film + 2.0943951), sin(film + 4.1887902)) * 0.5 + 0.5;
-    let fresnel = pow(1.0 - nv, 5.0) * (mesh.finish[0].w - 1.0);
-    f0 = mix(f0, hue, clamp(mesh.finish[0].z * (0.15 + fresnel), 0.0, 1.0));
-  }
   let dielectric90=select(vec3f(specularWeight),dielectricF0,mesh.specularParams.y>0.5);
   let f90=mix(dielectric90,vec3f(1.0),metal);
   let compensation=ggxCompensation(f0,ab);
-  let reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3f(0.0),vec3f(1.0));
+  var reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3f(0.0),vec3f(1.0));
+  if (mesh.finish[0].z > 0.0) { reflected=clamp(mix(reflected,thinFilm(nv,mesh.finish[0].w,mesh.finish[1].x,f0)*(ab.x+ab.y)*compensation,mesh.finish[0].z),vec3f(0.0),vec3f(1.0)); }
   let remaining=1.0-max(max(reflected.r,reflected.g),reflected.b);
   let sheenRetention=1.0-sheenMax*sheenEnergy;
   var coatEnergy=0.0;
@@ -525,7 +529,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;
   var color=base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
   if (useEnvironment) {
-    let radiance=reflectionRadiance(input.world,reflect(-v,n),rough,probeWeights);
+    let radiance=reflectionRadiance(input.world,reflect(-v,reflectionNormal),rough,probeWeights);
     let diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metal)*(1.0-transmission)*remaining;
     color+=(diffuseLight+radiance*reflected)*occlusion*sheenRetention;
     if (sheenMax > 0.0) {
@@ -537,7 +541,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       coating+=coatRadiance*coatEnergy*occlusion;
     }
   }
-  color+=brdf(n,v,direction,base,metal,rough,f0,f90,compensation,remaining,transmission)*sheenLightRetention(dot(n,direction),sheenRoughness,sheenMax,sheenEnergy)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  color+=brdf(n,v,direction,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,direction),sheenRoughness,sheenMax,sheenEnergy)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
   if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,direction,sheenRoughness)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,direction,coatRoughness,coatCompensation)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;}
   for (var i = 0u; i < u32(scene.counts.x); i++) {
@@ -545,7 +549,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let delta = lightData.positionRange.xyz-input.world;
     let l=safeNormal(delta);
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz,input.normal);
-    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
+    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
     if(sheenMax>0.0) {sheenLighting+=sheenLobe(n,v,l,sheenRoughness)*incident;}
     if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*incident;}
   }
@@ -555,7 +559,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world,input.normal);
-    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
+    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,l,sheenRoughness)*incident; }
     if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*incident;}
   }
@@ -569,21 +573,25 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       if (exit.w > 0.000001) { uv = exit.xy/exit.w*vec2f(0.5,-0.5)+vec2f(0.5); }
     }
     var transmitted = roughTransmission(uv,rough,mesh.transmission.w);
-    if (mesh.finish[1].z > 0.0) {
-      let split = min(mesh.finish[1].z, 1.0) * 0.02;
-      let red = roughTransmission(uv + vec2f(split, 0.0), rough, mesh.transmission.w);
-      let blue = roughTransmission(uv - vec2f(split, 0.0), rough, mesh.transmission.w);
-      transmitted = vec3f(red.r, transmitted.g, blue.b);
+    var attenuationPath=vec3f(distance);
+    if (mesh.finish[1].z > 0.0 && thickness > 0.0) {
+      let spread=(mesh.transmission.w-1.0)*min(mesh.finish[1].z,10.0)/40.0;
+      for (var channel=0u;channel<3u;channel+=2u) {
+        let ior=max(1.0,mesh.transmission.w+(f32(channel)-1.0)*spread);
+        let spectralRay=safeNormal(refract(-v,n,1.0/ior));
+        let local=length(vec3f(dot(input.local0,spectralRay),dot(input.local1,spectralRay),dot(input.local2,spectralRay)));
+        let path=select(0.0,thickness/max(local,0.000001),local>0.0);
+        let exit=scene.viewProjection*vec4f(input.world+spectralRay*path,1.0);
+        var spectralUV=uv;
+        if (exit.w>0.000001) { spectralUV=exit.xy/exit.w*vec2f(0.5,-0.5)+vec2f(0.5); }
+        transmitted[channel]=roughTransmission(spectralUV,rough,ior)[channel];
+        attenuationPath[channel]=path;
+      }
     }
-    if (distance > 0.0 && mesh.transmission.z > 0.0) { transmitted *= pow(mesh.attenuation.rgb,vec3f(distance*mesh.transmission.z)); }
+    if (distance > 0.0 && mesh.transmission.z > 0.0) { transmitted *= pow(mesh.attenuation.rgb,attenuationPath*mesh.transmission.z); }
     color+=transmitted*base*transmission*(1.0-metal)*remaining*sheenRetention;
   }
   color+=sheenTint*sheenLighting;
-  if (mesh.finish[1].y > 0.0) {
-    let wrap = mesh.finish[4].w;
-    let wrapped = clamp((dot(n, direction) + wrap) / (1.0 + wrap), 0.0, 1.0);
-    color += base * mesh.finish[4].rgb * mesh.finish[1].y * wrapped * scene.lightColorAmbient.rgb * max(scene.lightDirection.w, 0.0) * visibility;
-  }
   if (mesh.maps.w > 1.5) {
     let baked = decodeSRGB(textureSample(emissiveMap, emissiveSampler, materialUV(input, 4u)).rgb);
     color *= mix(vec3f(1.0), baked, mesh.finish[3].w);

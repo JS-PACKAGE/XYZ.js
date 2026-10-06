@@ -189,7 +189,12 @@ var proceduralTileMeters = Object.freeze({
 	rust: .2,
 	snow: 1
 });
+var iridescenceFilmRange = Object.freeze({
+	minNm: 100,
+	maxNm: 800
+});
 //#endregion
+exports.iridescenceFilmRange = iridescenceFilmRange;
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
 exports.proceduralMaterialPresets = proceduralMaterialPresets;
 exports.proceduralTileMeters = proceduralTileMeters;

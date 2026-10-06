@@ -94,3 +94,8 @@ export declare const proceduralTileMeters: Readonly<{
     rust: 0.2;
     snow: 1;
 }>;
+/** Preserve the published normalized finish thickness; native packing uses nanometers. */
+export declare const iridescenceFilmRange: Readonly<{
+    minNm: 100;
+    maxNm: 800;
+}>;

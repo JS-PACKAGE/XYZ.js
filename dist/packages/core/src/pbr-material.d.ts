@@ -93,13 +93,13 @@ export interface PBRFinishOptions {
     iridescence?: number;
     /** At least 1. glTF default is 1.3. Unused while iridescence is zero. */
     iridescenceIor?: number;
-    /** 0..1 film thickness. glTF nanometers are normalized by the loader. */
+    /** 0..1 maps to 100..800 nanometers; native finish packing carries nanometers. */
     iridescenceThickness?: number;
     subsurface?: number;
     subsurfaceColor?: [number, number, number];
-    /** Wrapped-diffuse width, 0..1. Not a multi-scatter profile. */
+    /** Radius of the bounded three-tap angular diffusion profile, 0..1. */
     subsurfaceRadius?: number;
-    /** Non-negative. The shader caps the visible split. */
+    /** Non-negative Abbe-like IOR spread; the shader caps strength at 10. */
     dispersion?: number;
     /** 0..1. Four-step parallax uses the normal map Z as height. */
     heightScale?: number;

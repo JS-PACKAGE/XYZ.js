@@ -1257,6 +1257,8 @@ class FixedScene extends Scene {
 
 執行 `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`。`pnpm pack` 並解壓後，執行 `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2`，再驗 webgpu。依[Asset Recipe](ASSET-RECIPE.md) 的 pinned toolchain／manifest／codec 限制；部署完整 dist tree，包含官方 vendor worklet，不能只複製 root JS。
 
+Recipe 在各 bundle choices 保留 `KHR_materials_variants` 與 scalar `KHR_materials_anisotropy`、`KHR_materials_iridescence`、`KHR_materials_dispersion`（需 transmission）。以 `gltfVariants(asset).selectVariant(name)` 選擇已載入的 variant。僅被 variant 使用的一般貼圖也納入 KTX2／PNG choices 與 manifest；anisotropy／iridescence 貼圖因 runtime 未支援其 slots，仍明確拒絕。Trusted profile 需明示 texture semantics。
+
 ## 31. 原生文字編輯（P51）
 
 ```ts

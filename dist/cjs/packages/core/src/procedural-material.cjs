@@ -1,6 +1,6 @@
 const require_texture = require("../../assets/src/texture.cjs");
-const require_pbr_material = require("./pbr-material.cjs");
 const require_materials = require("../../../src/data/materials.cjs");
+const require_pbr_material = require("./pbr-material.cjs");
 const require_procedural_material_maps = require("./procedural-material-maps.cjs");
 //#region dist/packages/core/src/procedural-material.js
 function proceduralRepeats(e, t) {

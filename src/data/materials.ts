@@ -96,3 +96,6 @@ export const proceduralTileMeters = Object.freeze({
   rust: 0.2,
   snow: 1,
 });
+
+/** Preserve the published normalized finish thickness; native packing uses nanometers. */
+export const iridescenceFilmRange = Object.freeze({ minNm: 100, maxNm: 800 });

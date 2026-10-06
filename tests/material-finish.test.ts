@@ -16,6 +16,9 @@ import {
   fillPBRFinish,
   pbrEmissiveSlot,
 } from '../packages/core/src/pbr-material.js';
+import { brdfGLSL, brdfWGSL } from '../packages/graphics/src/brdf-shaders.js';
+import { meshFragment } from '../packages/graphics/src/webgl-feature-shaders.js';
+import { webgpuMeshShader } from '../packages/graphics/src/webgpu-mesh-shader.js';
 
 function bitmap() {
   return { width: 1, height: 1, close: vi.fn() } as unknown as ImageBitmap;
@@ -191,7 +194,7 @@ describe('PBR finish', () => {
     const packed = new Float32Array(PBR_FINISH_FLOATS + 2);
     fillPBRFinish(material, packed, 1);
     expect(Array.from(packed.subarray(1, 21), (v) => +v.toFixed(2))).toEqual([
-      0.1, 0.2, 0.3, 1.4, 0.5, 0.6, 2, 0.05, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75,
+      0.1, 0.2, 0.3, 1.4, 450, 0.6, 2, 0.05, 0.15, 0.35, 0.45, 0.55, 0.65, 0.75,
       0.85, 0.95, 0.7, 0.8, 0.9, 0.25,
     ]);
     expect(packed[0]).toBe(0);
@@ -455,5 +458,80 @@ describe('glTF finish extensions', () => {
     await expect(
       new GLTFLoader().parse(JSON.stringify(variantModel([{ extensions }]))),
     ).rejects.toBeInstanceOf(error);
+  });
+});
+
+describe('native finish BRDF contracts', () => {
+  it('uses anisotropic distribution and correlated visibility without altering isotropic roughness', () => {
+    for (const shader of [brdfGLSL, brdfWGSL]) {
+      expect(shader).toContain('rough*rough/aspect');
+      expect(shader).toContain('nl*length(vv)+nv*length(ll)');
+    }
+    expect(meshFragment).toContain(
+      'if (finish0.x > 0.0) specular=anisotropicGGX',
+    );
+    expect(webgpuMeshShader).toContain(
+      'if (mesh.finish[0].x > 0.0) { specular=anisotropicGGX',
+    );
+    for (const shader of [meshFragment, webgpuMeshShader]) {
+      expect(shader).toContain('reflectionNormal');
+      expect(shader).not.toContain('float aligned');
+      expect(shader).not.toContain('let aligned');
+    }
+  });
+  it.each([
+    [0, 100],
+    [0.5, 450],
+    [1, 800],
+  ])('packs normalized film %s as %s nm', (thickness, nm) => {
+    const material = new PBRMaterial({
+      texture: new Texture(bitmap()),
+      finish: { iridescence: 1, iridescenceThickness: thickness },
+    });
+    const packed = new Float32Array(PBR_FINISH_FLOATS);
+    fillPBRFinish(material, packed, 0);
+    expect(packed[4]).toBe(nm);
+    expect(material.finish.iridescenceThickness).toBe(thickness);
+  });
+  it('packs scatter channels, zero radius and uncapped dispersion at a nonzero offset', () => {
+    const color: [number, number, number] = [1, 0.25, 0];
+    const material = new PBRMaterial({
+      texture: new Texture(bitmap()),
+      finish: {
+        subsurface: 1,
+        subsurfaceColor: color,
+        subsurfaceRadius: 0,
+        dispersion: 20,
+      },
+    });
+    color[0] = 0;
+    const packed = new Float32Array(PBR_FINISH_FLOATS + 4).fill(-1);
+    fillPBRFinish(material, packed, 2);
+    expect([...packed.slice(18, 22)]).toEqual([1, 0.25, 0, 0]);
+    expect(packed[7]).toBe(1);
+    expect(packed[8]).toBe(20);
+    expect([...packed.slice(0, 2), ...packed.slice(22)]).toEqual([
+      -1, -1, -1, -1,
+    ]);
+    expect(Object.isFrozen(material.finish.subsurfaceColor)).toBe(true);
+  });
+  it('keeps zero radius exact and normalizes all three diffusion taps', () => {
+    for (const shader of [brdfGLSL, brdfWGSL]) {
+      expect(shader).toContain('r=color*radius');
+      expect(shader).toContain('(vec3');
+      for (const tap of ['a', 'b', 'c']) {
+        expect(shader).toContain(`+${tap})*(`);
+      }
+    }
+  });
+  it('shares bounded film, diffusion and thickness-dependent dispersion in both backends', () => {
+    for (const shader of [meshFragment, webgpuMeshShader]) {
+      expect(shader).toContain('thinFilm(vh');
+      expect(shader).toContain('thinFilm(nv');
+      expect(shader).toContain('diffusionProfile(dot(n,l)');
+      expect(shader).toContain('spectralRay');
+      expect(shader).toContain('attenuationPath');
+      expect(shader).not.toMatch(/(?:float|let) split\s*=\s*min\(/);
+    }
   });
 });

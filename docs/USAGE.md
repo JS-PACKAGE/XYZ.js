@@ -1271,6 +1271,8 @@ Save `JSON.stringify(content.capture())`; reconstruct with `await rebuildContent
 
 Run `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`; after `pnpm pack` and extraction, run `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2` (repeat with webgpu). Follow the pinned-toolchain/manifest/codec requirements in [Asset Recipe](ASSET-RECIPE.md). Deploy the entire dist tree, including official vendor worklet assets.
 
+Recipes preserve `KHR_materials_variants` and scalar `KHR_materials_anisotropy`, `KHR_materials_iridescence` and `KHR_materials_dispersion` (with transmission) across bundle choices. Select the loaded variant with `gltfVariants(asset).selectVariant(name)`. Ordinary variant-only texture maps are included in the KTX2/PNG choices and manifest; anisotropy/iridescence texture maps reject explicitly because the runtime does not support those slots. Keep explicit texture semantics in the trusted profile.
+
 ## 31. Native Text Editing (P51)
 
 ```ts

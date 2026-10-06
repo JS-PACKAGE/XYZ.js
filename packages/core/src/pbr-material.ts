@@ -6,6 +6,7 @@ import {
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import { samplerOptions } from './texture-sampler.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
+import { iridescenceFilmRange } from '../../../src/data/materials.js';
 
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 
@@ -141,13 +142,13 @@ export interface PBRFinishOptions {
   iridescence?: number;
   /** At least 1. glTF default is 1.3. Unused while iridescence is zero. */
   iridescenceIor?: number;
-  /** 0..1 film thickness. glTF nanometers are normalized by the loader. */
+  /** 0..1 maps to 100..800 nanometers; native finish packing carries nanometers. */
   iridescenceThickness?: number;
   subsurface?: number;
   subsurfaceColor?: [number, number, number];
-  /** Wrapped-diffuse width, 0..1. Not a multi-scatter profile. */
+  /** Radius of the bounded three-tap angular diffusion profile, 0..1. */
   subsurfaceRadius?: number;
-  /** Non-negative. The shader caps the visible split. */
+  /** Non-negative Abbe-like IOR spread; the shader caps strength at 10. */
   dispersion?: number;
   /** 0..1. Four-step parallax uses the normal map Z as height. */
   heightScale?: number;
@@ -693,7 +694,12 @@ export function fillPBRFinish(
   data[offset + 1] = finish.anisotropyRotation;
   data[offset + 2] = finish.iridescence;
   data[offset + 3] = finish.iridescenceIor;
-  data[offset + 4] = finish.iridescenceThickness;
+  data[offset + 4] =
+    finish.iridescence > 0
+      ? iridescenceFilmRange.minNm +
+        finish.iridescenceThickness *
+          (iridescenceFilmRange.maxNm - iridescenceFilmRange.minNm)
+      : 0;
   data[offset + 5] = finish.subsurface;
   data[offset + 6] = finish.dispersion;
   data[offset + 7] = finish.heightScale;

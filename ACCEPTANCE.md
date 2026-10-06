@@ -1819,3 +1819,16 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
 - Windows 11 ARM hosted（軟體 D3D11 WARP）的 chromium／webkit WebGL2 smoke 自 P122 起失敗：二分顯示 `8d06406` 以前通過、`cd769ca` 起失敗。同一 runner 量測 mesh fragment shader 編譯約 13.6s（P121）→ 約 19s（目前）；webkit 約 15s 後 context 被判定遺失，chromium 可連結成功。成因為推論（shader 變大＋軟體 GPU 編譯時間），未找到單一元兇，拆除 shadow 呼叫或縮短迴圈均未回到 P121 水準。
 - CI 因此將 Windows 上的 Chromium WebGL2 example smoke 與 platform-browser 兩步標為 `continue-on-error`，與既有「Windows hosted 不是認證」政策一致；這是放寬 hosted gate，不是修好。縮減 shader 編譯成本仍待辦。Ubuntu／macOS 閘門不變。
 - Ubuntu Chromium WebGPU 的 native loss 恢復期限由 10s 放寬為 45s（軟體 WebGPU 序列重建 pipeline），頁面等待上限 180s。
+
+## Sorted BLEND depth-write backend 回歸修正（2026-10-06）
+
+- WebGL2 對全部 BLEND mesh 關閉 depth write，與 TECHNICAL 的 sorted 契約及 WebGPU 不符；
+  預設 double-sided PBR 球體的較遠背面因而覆蓋正面，鏡面環境上下看似翻轉。
+  修正 sorted 材質 depth write，保留 weighted OIT、LOD fade 與 native transparent 的不寫深度分支。
+- 正式 browser runner 的 `sorted-double-sided-mirror-depth-parity` 在 Chromium 強制
+  WebGL2／WebGPU 均通過：alpha-one BLEND 與 OPAQUE mean RGB error 皆為 0；
+  上方 RGB 為 0.48／0／240.72（zenith），下方為 242.04／0／0.72（ground）。
+- `npx pnpm@12.6.0 build`、全套 Vitest 147 檔／1238 項、typecheck、lint 通過。
+  `regression:browser --browser chromium --renderer webgl2,webgpu --require-webgpu` 兩 backend PASS；
+  保留既有 OPM dynamic-import warning 與 public WebGPU context-loss injection SKIP。
+  未驗證其他瀏覽器、hosted CI 或其他 GPU。
