@@ -1,6 +1,7 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
-import { type NativeMeshMaterial } from '../../core/src/native-material3d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -79,7 +80,10 @@ export declare class ResilientRenderer implements Renderer {
     prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
-    prepareMaterial(material: Material2D | NativeMeshMaterial): Promise<void>;
+    private prepareOn;
+    prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+    private trackMaterial;
     preparePostProcessor(processor: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;
     renderToTexture(target: RenderTexture2D, content: Scene | IsolatedGroup2D, options?: RenderToTextureOptions2D): Promise<void>;

@@ -1,6 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
-import { type NativeMeshMaterial } from '../../core/src/native-material3d.js';
+import type { NativeMeshMaterial, NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { GraphicsCapabilities, Renderer } from './index.js';
 import { type FrameEffects, type RenderSnapshot } from './render2d-contract.js';
@@ -55,6 +55,7 @@ export declare class Canvas2DRenderer implements Renderer {
     constructor(onError: (error: Error) => void, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
     beginFrame(): void;
+    prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;
     prepareMaterial(_material: Material2D | NativeMeshMaterial): Promise<void>;
     preparePostProcessor(_effect: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;

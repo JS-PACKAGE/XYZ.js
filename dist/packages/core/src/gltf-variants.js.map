@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAsBA,MAAMA,EAAW,IAAI,QAGrB,OAAM,SAAU,qBACd,EACA,EAA2B,CAE3BA,EAAS,IAAIC,EAAOC,CAAO,CAC7B,CAGA,OAAM,SAAU,aAAa,EAAa,CACxC,IAAMA,EAAUF,EAAS,IAAIC,CAAK,EAClC,GAAI,CAACC,EACH,MAAU,UAAU,gDAAgD,EACtE,OAAOA,CACT","sources":["../../../../packages/core/src/gltf-variants.ts"],"names":["registry","asset","support"],"file":"gltf-variants.js"}

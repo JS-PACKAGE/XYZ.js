@@ -1,5 +1,6 @@
 const require_errors = require("./errors.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
+const require_native_pbr_material = require("../../core/src/native-pbr-material.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
 const require_preparation = require("./preparation.cjs");
 //#region dist/packages/graphics/src/resilient-renderer.js
@@ -52,12 +53,12 @@ var ResilientRenderer = class {
 	unloadGeometry(e) {
 		this.geometry.delete(e), this.recovering ? this.replacement?.unloadGeometry(e) : this.current.unloadGeometry(e);
 	}
-	async prepareResource(e, n) {
+	async prepareResource(e, t) {
 		let r = {
 			source: e,
-			lease: await this.requireReady().prepareResource(e, n)
+			lease: await this.requireReady().prepareResource(e, t)
 		};
-		if (n?.signal?.aborted && (r.lease.release(), n.signal.throwIfAborted()), this.destroyed) throw r.lease.release(), new require_errors.GraphicsError(`Renderer was destroyed during preparation.`);
+		if (t?.signal?.aborted && (r.lease.release(), t.signal.throwIfAborted()), this.destroyed) throw r.lease.release(), new require_errors.GraphicsError(`Renderer was destroyed during preparation.`);
 		return this.prepared.add(r), {
 			get released() {
 				return r.lease.released;
@@ -96,16 +97,16 @@ var ResilientRenderer = class {
 		}
 	};
 	async recover(e) {
-		let r = this.canvas;
+		let t = this.canvas;
 		try {
 			try {
 				this.current.destroy();
 			} catch {}
-			if (this.backend === `webgl2` && await this.contextRestored(r), this.destroyed) return;
+			if (this.backend === `webgl2` && await this.contextRestored(t), this.destroyed) return;
 			let e = this.create(this.handleError);
 			try {
-				e.configureResidency(this.residencyOptions), await e.initialize(r), this.replacement = e;
-				for (let t of this.materials.keys()) t.destroyed || await e.prepareMaterial(t);
+				e.configureResidency(this.residencyOptions), await e.initialize(t), this.replacement = e;
+				for (let t of this.materials.keys()) t.destroyed || await this.prepareOn(e, t);
 				for (let t of this.gpuParticles.keys()) if (!t.destroyed) {
 					if (!e.prepareGpuParticles) throw new require_errors.UnsupportedGraphicsError(`The replacement renderer does not support GPU particle preparation.`);
 					await e.prepareGpuParticles(t);
@@ -137,24 +138,24 @@ var ResilientRenderer = class {
 				throw t;
 			}
 			this.current = e, this.recovering = !1, this.recoveries++, this.hooks.onRecovered?.();
-		} catch (n) {
+		} catch (t) {
 			if (this.destroyed) return;
-			this.recovering = !1, this.report(new require_errors.GraphicsError(`Graphics recovery failed after ${e.message}`, { cause: n }));
+			this.recovering = !1, this.report(new require_errors.GraphicsError(`Graphics recovery failed after ${e.message}`, { cause: t }));
 		} finally {
 			this.replacement = void 0;
 		}
 	}
 	contextRestored(e) {
-		return new Promise((n, r) => {
+		return new Promise((t, r) => {
 			let i = this.abort.signal;
-			if (i.aborted) return n();
+			if (i.aborted) return t();
 			let finish = () => {
-				clearTimeout(o), e.removeEventListener(`webglcontextrestored`, restored), i.removeEventListener(`abort`, aborted);
+				clearTimeout(a), e.removeEventListener(`webglcontextrestored`, restored), i.removeEventListener(`abort`, aborted);
 			}, restored = () => {
-				finish(), n();
+				finish(), t();
 			}, aborted = () => {
-				finish(), n();
-			}, o = setTimeout(() => {
+				finish(), t();
+			}, a = setTimeout(() => {
 				finish(), r(new require_errors.GraphicsError(`The WebGL2 context was not restored within ${require_rendering.graphicsRecoveryLimits.restoreTimeoutMs} ms.`));
 			}, require_rendering.graphicsRecoveryLimits.restoreTimeoutMs);
 			e.addEventListener(`webglcontextrestored`, restored, { once: !0 }), i.addEventListener(`abort`, aborted, { once: !0 });
@@ -183,56 +184,68 @@ var ResilientRenderer = class {
 		return this.requireReady().captureScene(e, t, n);
 	}
 	async prepareCompute(e, t) {
-		let r = this.requireReady();
-		if (!r.prepareCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
-		return r.prepareCompute(e, t);
+		let n = this.requireReady();
+		if (!n.prepareCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
+		return n.prepareCompute(e, t);
 	}
-	uploadCompute(e, t, r) {
+	uploadCompute(e, t, n) {
 		let i = this.requireReady();
 		if (!i.uploadCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
-		i.uploadCompute(e, t, r);
+		i.uploadCompute(e, t, n);
 	}
 	async dispatchCompute(e, t) {
-		let r = this.requireReady();
-		if (!r.dispatchCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
-		return r.dispatchCompute(e, t);
+		let n = this.requireReady();
+		if (!n.dispatchCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
+		return n.dispatchCompute(e, t);
 	}
 	async readCompute(e, t) {
-		let r = this.requireReady();
-		if (!r.readCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
-		return r.readCompute(e, t);
+		let n = this.requireReady();
+		if (!n.readCompute) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support compute.`);
+		return n.readCompute(e, t);
 	}
-	async prepareRenderGraph(e, r) {
+	async prepareRenderGraph(e, t) {
 		let i = this.requireReady();
 		if (!i.prepareRenderGraph) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support render graphs.`);
-		if (await i.prepareRenderGraph(e, r), this.destroyed || e.destroyed || this.current !== i || this.recovering) throw new require_errors.GraphicsError(`Render graph ownership ended during preparation.`);
+		if (await i.prepareRenderGraph(e, t), this.destroyed || e.destroyed || this.current !== i || this.recovering) throw new require_errors.GraphicsError(`Render graph ownership ended during preparation.`);
 		this.graphs.has(e) || (this.graphs.add(e), e.addEventListener(`destroy`, () => this.graphs.delete(e), { once: !0 }));
 	}
-	async captureReflectionProbe(e, t, r) {
+	async captureReflectionProbe(e, t, n) {
 		let i = this.requireReady();
 		if (!i.captureReflectionProbe) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support reflection capture.`);
-		return i.captureReflectionProbe(e, t, r);
+		return i.captureReflectionProbe(e, t, n);
 	}
 	async prepareGpuParticles(e) {
-		let r = this.requireReady();
-		if (!r.prepareGpuParticles) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support GPU particle preparation.`);
+		let t = this.requireReady();
+		if (!t.prepareGpuParticles) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support GPU particle preparation.`);
 		let i = this.gpuParticles.get(e), a = i ?? e.ownNative(() => {
 			this.gpuParticles.delete(e);
 		});
 		i || this.gpuParticles.set(e, a);
 		try {
-			if (await r.prepareGpuParticles(e), this.destroyed || e.destroyed || this.gpuParticles.get(e) !== a) throw new require_errors.GraphicsError(`GPU particle ownership ended during preparation.`);
+			if (await t.prepareGpuParticles(e), this.destroyed || e.destroyed || this.gpuParticles.get(e) !== a) throw new require_errors.GraphicsError(`GPU particle ownership ended during preparation.`);
 		} catch (t) {
 			throw !i && this.gpuParticles.get(e) === a && (this.gpuParticles.delete(e), a()), t;
 		}
 	}
-	async prepareMaterial(n) {
-		if (await this.requireReady().prepareMaterial(n), this.destroyed || n.destroyed) throw new require_errors.GraphicsError(`Renderer or material was destroyed during preparation.`);
-		if (!this.materials.has(n)) {
+	async prepareOn(e, n) {
+		if (n instanceof require_native_pbr_material.NativePBRMaterial) {
+			if (!e.prepareNativePBRMaterial) throw new require_errors.UnsupportedGraphicsError(`The selected renderer does not support native physical materials.`);
+			await e.prepareNativePBRMaterial(n);
+		} else await e.prepareMaterial(n);
+	}
+	prepareNativePBRMaterial(e) {
+		return this.trackMaterial(e);
+	}
+	prepareMaterial(e) {
+		return this.trackMaterial(e);
+	}
+	async trackMaterial(t) {
+		if (await this.prepareOn(this.requireReady(), t), this.destroyed || t.destroyed) throw new require_errors.GraphicsError(`Renderer or material was destroyed during preparation.`);
+		if (!this.materials.has(t)) {
 			let forget = () => {
-				this.materials.delete(n);
+				this.materials.delete(t);
 			};
-			require_native_material3d.isNativeMaterial3D(n) ? this.materials.set(n, n.onDestroy(forget)) : (n.addEventListener(`destroy`, forget, { once: !0 }), this.materials.set(n, () => n.removeEventListener(`destroy`, forget)));
+			require_native_material3d.isNativeMaterial3D(t) ? this.materials.set(t, t.onDestroy(forget)) : (t.addEventListener(`destroy`, forget, { once: !0 }), this.materials.set(t, () => t.removeEventListener(`destroy`, forget)));
 		}
 	}
 	async preparePostProcessor(e) {

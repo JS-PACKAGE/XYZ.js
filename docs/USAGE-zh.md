@@ -504,18 +504,18 @@ preset.destroy();
 對任何 `PBRMaterial`（或 `preset.createMaterial`）傳入 `finish`，即可在既有貼圖上加入 anisotropy、iridescence、subsurface wrap、dispersion、視差高度、潮濕、積雪、髒汙、損傷、detail 層、triplanar 取樣或 lightmap。強度為 0 沒有額外成本，也不佔用額外貼圖 slot。
 
 ```js
-import { MaterialAsset } from 'xyz.js';
+import { MaterialAsset, setMeshMaterial } from 'xyz.js';
 
 const asset = await MaterialAsset.fromImages(
   { base: baseBlob, normal: normalBlob, lightmap: bakedBlob },
   { roughness: 0.4, finish: { wetness: 0.6, lightmapStrength: 1 } },
 );
-mesh.material = asset.material; // 有驗證的 setter，renderer 會重新綁定
+setMeshMaterial(mesh, asset.material); // 有驗證，renderer 會重新綁定
 // 所有使用它的 mesh 都移除後：
 asset.destroy(); // 只釋放它自己解碼的貼圖
 ```
 
-含 `KHR_materials_variants` 的 glTF 會列出 `gltf.variants`；呼叫 `gltf.selectVariant('red')` 切換，`gltf.selectVariant(undefined)` 還原預設。[pbr3d gallery](../examples/pbr3d/) 有 Finish 選單。各效果都是近似，其做法與未驗證範圍見技術參考。
+含 `KHR_materials_variants` 的 glTF 以 `gltfVariants(gltf)` 讀取：`.variants` 列出名稱，`.selectVariant('red')` 切換，`.selectVariant(undefined)` 還原預設。[pbr3d gallery](../examples/pbr3d/) 有 Finish 選單。各效果都是近似，其做法與未驗證範圍見技術參考。
 
 若要 image-based lighting 與 skybox，用 2:1 equirect 影像建立 `EnvironmentMap` 並指定給 scene。它只照亮 `PBRMaterial`，並取代其平面 `ambientLight`：
 

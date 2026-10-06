@@ -86,6 +86,7 @@ export declare class WebGPURenderer implements Renderer {
     private readonly render2DHooks;
     constructor(onError: (error: Error) => void, antialias?: boolean, gpuTiming?: GpuTimingOptions);
     initialize(canvas: HTMLCanvasElement): Promise<void>;
+    prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;
     prepareMaterial(material: Material2D | NativeMaterial3D | NativePBRMaterial): Promise<void>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;

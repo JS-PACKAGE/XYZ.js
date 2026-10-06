@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAAA,OAAS,UAAM,yBAAuB,YAWtC,OAAM,SAAU,gBAAgB,EAAY,EAAyB,CACnE,GAAI,EAAEA,aAAgBC,GACpB,MAAU,UAAU,kCAAkC,EACxD,GAAI,EAAEC,aAAoBC,GACxB,MAAU,UAAU,0CAA0C,EAChE,IAAMC,EAAyBJ,EAC/B,EAAK,SAAWE,CAClB","sources":["../../../../packages/core/src/mesh-material.ts"],"names":["mesh","Mesh","material","TextureMaterial","slot"],"file":"mesh-material.js"}

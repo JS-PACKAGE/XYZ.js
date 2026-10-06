@@ -1787,3 +1787,29 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
 - 全套 `vitest run` 146 檔／1225 項通過；`tsc --noEmit`、`eslint .` 無輸出。
 - 未驗證：Firefox／WebKit、其他 GPU 或 driver、finish 的效能成本、pbr3d Finish 選單的互動
   （選單已接上但沒有逐項切換截圖）、`asset-recipe` 流程（仍拒絕這些 extensions）。
+
+## Authored／derivative normal-frame 回歸修正（2026-10-06）
+
+- 根因是兩 backend 導數 frame 用 `1e-6` 作 squared-length 下限：
+  tangent／bitangent 是 position 與 UV 的每像素導數乘積，正常解析度下遠小於該值，
+  因而 normal-map XY 被衰減；authored unit frame 正確。改用 `1e-30` 保護數值退化，
+  base／clearcoat 共用相同修正，保留 glTF Y convention，不改 geometry 或測試容差。
+- 重新 build 後，`node scripts/regression-browser.mjs --browser chromium --renderer webgl2`
+  與 `--renderer webgpu` 皆 PASS；WebGPU UV normal mean RGB error 為
+  `0.002571883608815427`，clearcoat normal 為 `0.00009415891873278237`。
+- `scripts/tangent-runtime.mjs` 將 glTF 旋轉 UV／authored frame 比較提高至 512×512，
+  WebGL2／WebGPU `transformedError` 皆為 0；morph／UV1 morph delta 皆為 67，
+  reflected／skinned sample 皆為 35。
+- build、typecheck、修改檔 eslint／prettier、完整 vitest 146 檔／1225 項通過。
+  Browser runner 保留既有 Vite OPM dynamic-import warning；
+  WebGPU public context-loss injection 仍 SKIP，未認證其他 browser 或實體 GPU。
+
+## v1.17 發佈前閘門修正
+
+2026-10-06，同一環境。首次推送 v1.17 後 CI 失敗，本機重現並修正（不降低門檻）：
+
+- `check-api-compatibility`：P123／材質 finish 曾改動已發佈宣告而使 Object3D 依賴環失去共用，現已還原已發佈簽名並以新增項目承載新能力：`Renderer.prepareNativePBRMaterial?`（原 `prepareMaterial` 簽名不變）、`gltfVariants(asset)`（`GLTFAsset` 不變）、`setMeshMaterial`（`Mesh.material` 仍為 readonly 宣告，函式在新模組 `mesh-material`）、`NativeMeshMaterial` 移至新模組。PASS：737 exports／2810 directional contracts／41 negative cases。
+- 套件：新模組補入 `package.json` files 與 `scripts/package-inventory.json`，`check:package-hygiene` 通過。
+- `tests/browser/authoring.ts` 的 geometry 殘留預期漏算 P119 起的 tangent／UV1 bytes，已更正。
+- `UV slot normal` 失敗自 P119 起存在：derivative normal frame 的退化下限過大而衰減 XY，已修（見上節 tangent-runtime 紀錄）；`regression:browser` chromium webgl2 與 webgpu 均 PASS。
+- 未驗證：hosted CI（Windows ARM、Firefox、WebKit、starter 的 macOS job）重跑結果；本機另執行 2D starter smoke 通過，3D starter 與 site smoke 未在本機重跑。

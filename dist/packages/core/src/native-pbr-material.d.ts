@@ -1,12 +1,14 @@
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
 import { type NativeShader3DOptions } from './native-material-state.js';
+import type { NativeMaterial3D } from './native-material3d.js';
+export type NativeMeshMaterial = NativeMaterial3D | NativePBRMaterial;
 export interface NativePBRMaterialOptions extends PBRMaterialOptions, NativeShader3DOptions {
 }
 /** Native physical-surface hooks; the engine still owns BRDF, passes and bindings. */
 export declare class NativePBRMaterial extends PBRMaterial {
     private readonly state;
     readonly label: string;
-    readonly uniforms: Float32Array;
+    readonly uniforms: Float32Array<ArrayBuffer>;
     readonly deformationBounds: number | undefined;
     readonly shadowCache: 'dynamic' | 'tracked';
     constructor(options: NativePBRMaterialOptions);

@@ -268,6 +268,9 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 			this.initializing = !1;
 		}
 	}
+	prepareNativePBRMaterial(e) {
+		return this.prepareMaterial(e);
+	}
 	async prepareMaterial(t) {
 		if (this.requireDevice(), require_native_material3d.isNativeMaterial3D(t)) {
 			await this.meshPipeline.prepareMaterial(t);

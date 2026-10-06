@@ -166,6 +166,7 @@ export declare class WebGL2Renderer implements Renderer {
     }): Promise<Texture>;
     prepareTextures(sources: readonly Texture2DSource[]): Promise<void>;
     unloadTexture(source: Texture2DSource): void;
+    prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;
     prepareMaterial(material: Material2D | NativeMaterial3D | NativePBRMaterial): Promise<void>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     private prepareNative;

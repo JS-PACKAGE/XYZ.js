@@ -121,6 +121,9 @@ var Canvas2DRenderer = class {
 		if (this.requireContext(), this.frameActive) throw new require_errors.GraphicsError(`Canvas2D beginFrame called before the preceding frame ended.`);
 		this.frameActive = !0, this.frameRendered = !1, this.frameStats.begin();
 	}
+	prepareNativePBRMaterial(e) {
+		return this.prepareMaterial(e);
+	}
 	async prepareMaterial(e) {
 		throw this.requireContext(), new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native 2D or 3D materials.`);
 	}

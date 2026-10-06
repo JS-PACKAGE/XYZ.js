@@ -35,20 +35,13 @@ function materialBaseTexture(e) {
 }
 var Mesh = class extends require_object3d.Object3D {
 	geometry;
-	get material() {
-		return this.#e;
-	}
-	set material(e) {
-		if (!(e instanceof TextureMaterial)) throw TypeError(`Mesh material must be a TextureMaterial.`);
-		this.#e = e;
-	}
-	#e;
+	material;
 	castShadow;
 	receiveShadow;
 	morph;
 	constructor(e) {
 		if (super(), !(e.geometry instanceof require_geometry.Geometry) || !(e.material instanceof TextureMaterial)) throw TypeError(`Mesh requires Geometry and TextureMaterial.`);
-		if (this.geometry = e.geometry, this.#e = e.material, e.morph !== void 0) {
+		if (this.geometry = e.geometry, this.material = e.material, e.morph !== void 0) {
 			if (!(e.morph instanceof require_morph.MorphTargets)) throw TypeError(`Mesh morph requires MorphTargets.`);
 			e.morph.bind(e.geometry), this.morph = e.morph;
 		}

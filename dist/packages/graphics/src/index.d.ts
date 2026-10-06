@@ -1,7 +1,8 @@
 import type { Scene } from '../../core/src/scene.js';
 import type { GpuTimingOptions, RenderStats } from './render-stats.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/index.js';
-import type { NativeMeshMaterial } from '../../core/src/native-material3d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -81,7 +82,9 @@ export interface Renderer {
     beginFrame(): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
-    prepareMaterial(material: Material2D | NativeMeshMaterial): Promise<void>;
+    prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void>;
+    /** Optional for 1.x custom renderers; native physical-surface hooks need renderer support. */
+    prepareNativePBRMaterial?(material: NativePBRMaterial): Promise<void>;
     /** Optional for 1.x custom renderers; callers must reject unsupported preparation. */
     prepareGpuParticles?(emitter: GPUParticleEmitter3D): Promise<void>;
     /** Optional native extensions retain compatibility with existing 1.x custom renderers. */

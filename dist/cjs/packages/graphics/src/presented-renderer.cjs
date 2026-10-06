@@ -48,6 +48,10 @@ var PresentedRenderer = class {
 	async prepareMaterial(e) {
 		return this.requireContext(), this.renderer.prepareMaterial(e);
 	}
+	async prepareNativePBRMaterial(e) {
+		if (this.requireContext(), !this.renderer.prepareNativePBRMaterial) throw new require_errors.UnsupportedGraphicsError(`The selected renderer does not support native physical materials.`);
+		return this.renderer.prepareNativePBRMaterial(e);
+	}
 	async prepareGpuParticles(e) {
 		if (this.requireContext(), !this.renderer.prepareGpuParticles) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support GPU particle preparation.`);
 		return this.renderer.prepareGpuParticles(e);

@@ -315,6 +315,10 @@ the new stream. Canvas2D remains 2D-only.
 
 The source normal-map Y convention is retained through derivative fallback,
 including glTF authored frames and UV transforms, rather than inferred from winding.
+Derivative tangent/bitangent products scale with pixel footprint; their normalization
+guards only numerical degeneracy (`1e-30` squared length), not `1e-6`, which would
+attenuate normal-map XY at ordinary render resolutions. This applies to both base
+and clearcoat frames on WebGL2 and WebGPU.
 
 ## P120 texture sampler contract
 

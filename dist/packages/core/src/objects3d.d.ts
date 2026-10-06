@@ -163,6 +163,8 @@ export declare class Text3D extends Billboard {
     private content;
     private ownedTexture;
     private displayedLayout;
+    /** Replacing this material borrows it; only generated raster textures are owned. */
+    material: TextureMaterial;
     private revision;
     private requestedText;
     private requestedStyle;

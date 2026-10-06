@@ -373,7 +373,8 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       tangent = perpendicularY*du.x + perpendicularX*dv.x;
       bitangent = (perpendicularY*du.y + perpendicularX*dv.y)*mesh.fade.z;
     }
-    let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),0.000001));
+    // Derivative products shrink with pixel footprint; only guard actual degeneracy.
+    let scale = inverseSqrt(max(max(dot(tangent,tangent),dot(bitangent,bitangent)),1e-30));
     let frame = mat3x3f(tangent*scale,bitangent*scale,n);
     if (mesh.maps.y > 0.5) {
       n = safeNormal(frame*vec3f(mappedNormal.xy*mesh.material.w,mappedNormal.z));
@@ -393,7 +394,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
         coatTangent = perpendicularY*coatDu.x + perpendicularX*coatDv.x;
         coatBitangent = (perpendicularY*coatDu.y + perpendicularX*coatDv.y)*mesh.fade.z;
       }
-      let coatScale = inverseSqrt(max(max(dot(coatTangent,coatTangent),dot(coatBitangent,coatBitangent)),0.000001));
+      let coatScale = inverseSqrt(max(max(dot(coatTangent,coatTangent),dot(coatBitangent,coatBitangent)),1e-30));
       let coatFrame = mat3x3f(coatTangent*coatScale,coatBitangent*coatScale,nc);
       var sampled: vec3f;
       if (mesh.sheenMaps.z > 0.0) {

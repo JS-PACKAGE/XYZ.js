@@ -3,8 +3,6 @@ import { Vector3 } from '../../math/src/index.js';
 import { AnimationClip } from './animation.js';
 import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
-import { Mesh } from './mesh.js';
-import type { TextureMaterial } from './mesh.js';
 import type { KTX2Transcoder, KTX2NativeTranscoder } from './ktx2.js';
 export interface GLTFDirectionalLight {
     /** Unit vector the light travels along (the node's −Z axis in world space). */
@@ -18,26 +16,11 @@ export interface GLTFLights {
     spot: SpotLight[];
     directional: GLTFDirectionalLight[];
 }
-export interface GLTFMaterialVariant {
-    readonly name: string;
-    /** Meshes whose material is switched by this variant, with the mapped material. */
-    readonly mappings: readonly {
-        readonly mesh: Mesh;
-        readonly material: TextureMaterial;
-    }[];
-}
 export interface GLTFAsset {
     readonly scene: Group;
     readonly animations: AnimationClip[];
     /** Raw glTF photometric values; add them to a Scene and scale `intensity` as needed. */
     readonly lights: GLTFLights;
-    /** KHR_materials_variants names in document order; empty when the model declares none. */
-    readonly variants: readonly GLTFMaterialVariant[];
-    /**
-     * Assigns one variant's mapped materials; `undefined` restores the defaults.
-     * Unmapped meshes keep their default material. Materials stay owned by the asset.
-     */
-    selectVariant(name: string | undefined): void;
     dispose(): void;
 }
 export interface GLTFLoadOptions {

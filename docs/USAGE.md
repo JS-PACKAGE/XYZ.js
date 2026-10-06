@@ -506,18 +506,18 @@ Readonly `kind`, `material` and `textures` expose the preset: `textures.baseColo
 Pass `finish` to any `PBRMaterial` (or `preset.createMaterial`) to add anisotropy, iridescence, subsurface wrap, dispersion, parallax height, wetness, snow, dirt, damage, a detail layer, triplanar sampling or a lightmap on the maps you already have. Zero strengths cost nothing; no extra texture slot is used.
 
 ```js
-import { MaterialAsset } from 'xyz.js';
+import { MaterialAsset, setMeshMaterial } from 'xyz.js';
 
 const asset = await MaterialAsset.fromImages(
   { base: baseBlob, normal: normalBlob, lightmap: bakedBlob },
   { roughness: 0.4, finish: { wetness: 0.6, lightmapStrength: 1 } },
 );
-mesh.material = asset.material; // validated setter; the renderer rebinds
+setMeshMaterial(mesh, asset.material); // validated; the renderer rebinds
 // After every mesh using it is gone:
 asset.destroy(); // releases only the textures it decoded
 ```
 
-A glTF with `KHR_materials_variants` lists `gltf.variants`; call `gltf.selectVariant('red')` to switch and `gltf.selectVariant(undefined)` to restore defaults. The [pbr3d gallery](../examples/pbr3d/) has a Finish selector. Effects are approximations; see the technical reference for what each one does and what is unverified.
+A glTF with `KHR_materials_variants` is read with `gltfVariants(gltf)`: `.variants` lists them, `.selectVariant('red')` switches and `.selectVariant(undefined)` restores defaults. The [pbr3d gallery](../examples/pbr3d/) has a Finish selector. Effects are approximations; see the technical reference for what each one does and what is unverified.
 
 For image-based lighting and a skybox, build an `EnvironmentMap` from an equirect (2:1) image and assign it to the scene. It lights `PBRMaterial` only and replaces its flat `ambientLight`:
 
