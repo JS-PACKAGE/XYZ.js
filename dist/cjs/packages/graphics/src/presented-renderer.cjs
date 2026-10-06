@@ -76,6 +76,10 @@ var PresentedRenderer = class {
 		if (this.requireContext(), !this.renderer.prepareRenderGraph) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support render graphs.`);
 		return this.renderer.prepareRenderGraph(e, n);
 	}
+	async capturePlanarReflection(e, n) {
+		if (this.requireContext(), !this.renderer.capturePlanarReflection) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support planar reflection capture.`);
+		return this.renderer.capturePlanarReflection(e, n);
+	}
 	async captureReflectionProbe(e, n, r) {
 		if (this.requireContext(), !this.renderer.captureReflectionProbe) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support reflection capture.`);
 		return this.renderer.captureReflectionProbe(e, n, r);

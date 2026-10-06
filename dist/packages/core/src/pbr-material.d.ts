@@ -2,6 +2,7 @@ import { Texture } from '../../assets/src/index.js';
 import { type MaterialTexture } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
+import { type OpticalMaterialMapsOptions, type MaterialMappedTextureSlot } from './optical-material-maps.js';
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 export type MaterialTextureSlot = 'texture' | 'metallicRoughness' | 'normal' | 'occlusion' | 'emissive' | 'specular' | 'specularColor' | 'clearcoat' | 'clearcoatRoughness' | 'clearcoatNormal' | 'sheenColor' | 'sheenRoughness' | 'transmission' | 'thickness';
 export interface TextureCoordinateOptions {
@@ -23,8 +24,9 @@ export type PBRTextureSources = Partial<Record<PBRTextureKey, MaterialTexture>>;
 export declare function pbrTextureSources(material: PBRMaterial): Readonly<PBRTextureSources>;
 export interface PBRMaterialOptions extends TextureMaterialOptions {
     sources?: PBRTextureSources;
+    opticalMaps?: OpticalMaterialMapsOptions;
     /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
-    textureCoordinates?: Partial<Record<MaterialTextureSlot, TextureCoordinateOptions>>;
+    textureCoordinates?: Partial<Record<MaterialMappedTextureSlot, TextureCoordinateOptions>>;
     metallic?: number;
     roughness?: number;
     /** Bounded normal-footprint/derivative filtering strength [0,1], default zero. */

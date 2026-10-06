@@ -1,0 +1,145 @@
+const require_math3d = require("../../math/src/math3d.cjs");
+const require_geometry = require("./geometry.cjs");
+const require_mesh = require("./mesh.cjs");
+const require_group = require("./group.cjs");
+const require_objects3d = require("./objects3d.cjs");
+const require_instanced_mesh = require("./instanced-mesh.cjs");
+const require_vegetation = require("../../../src/data/vegetation.cjs");
+//#region dist/packages/core/src/vegetation.js
+var VegetationBatch = class extends require_objects3d.LOD {
+	fadeStart;
+	fadeEnd;
+	meshes;
+	fade = 1;
+	constructor(e, t, n, r) {
+		if (super(), this.fadeStart = n, this.fadeEnd = r, e.length === 0 || e.length !== t.length || !Number.isFinite(n) || n < 0 || !(r > n) || t.some((e, n) => !Number.isFinite(e) || e < 0 || n > 0 && e <= t[n - 1])) throw RangeError(`Vegetation batch requires meshes, increasing distances and a valid fade interval.`);
+		this.meshes = e;
+		for (let n = 0; n < e.length; n++) this.addLevel(e[n], t[n]);
+	}
+	updateForRender(e, t, n) {
+		super.updateForRender(e, t, n), this.updateFade(e);
+	}
+	updateForCamera(e, t, n) {
+		super.updateForCamera(e, t, n), this.updateFade(e);
+	}
+	renderWeight(e) {
+		return super.renderWeight(e) * this.fade;
+	}
+	updateFade(e) {
+		let t = this.updateWorldMatrix().elements, n = Math.hypot(t[12] - e.position.x, t[13] - e.position.y, t[14] - e.position.z);
+		this.fade = this.fadeEnd === 1 / 0 ? 1 : Math.max(0, Math.min(1, (this.fadeEnd - n) / (this.fadeEnd - this.fadeStart)));
+		for (let e of this.meshes) e.visible = super.renderWeight(e) > 0 && this.fade > 0;
+	}
+};
+function scatterVegetation(s) {
+	let { bounds: c } = s, l = s.seed ?? require_vegetation.vegetationDefaults.seed, u = s.density ?? 1, d = s.maxSlope ?? Math.PI / 2, f = s.minHeight ?? -1 / 0, p = s.maxHeight ?? 1 / 0, m = s.scale ?? [1, 1], h = s.tileSize ?? require_vegetation.vegetationDefaults.tileSize, g = s.batchSize ?? require_vegetation.vegetationDefaults.batchSize, _ = s.fadeStart ?? require_vegetation.vegetationDefaults.fadeStart, v = s.fadeEnd ?? require_vegetation.vegetationDefaults.fadeEnd;
+	if (!(s.geometry instanceof require_geometry.Geometry) || !(s.material instanceof require_mesh.TextureMaterial)) throw TypeError(`Vegetation requires Geometry and TextureMaterial.`);
+	if (!Number.isSafeInteger(s.count) || s.count < 0 || s.count > require_vegetation.vegetationLimits.candidates || !Number.isInteger(l) || l < 0 || l > 4294967295) throw RangeError(`Vegetation count must be in [0,1000000] and seed must be uint32.`);
+	if (![
+		c.minX,
+		c.maxX,
+		c.minZ,
+		c.maxZ,
+		u,
+		d,
+		h,
+		m[0],
+		m[1],
+		_
+	].every(Number.isFinite) || c.minX >= c.maxX || c.minZ >= c.maxZ || u < 0 || u > 1 || d < 0 || d > Math.PI / 2 || h <= 0 || m.length !== 2 || m[0] <= 0 || m[1] < m[0] || !Number.isSafeInteger(g) || g < 1 || g > 1e6 || Number.isNaN(f) || Number.isNaN(p) || f > p || _ < 0 || !(v > _)) throw RangeError(`Invalid vegetation scatter bounds, filters, scale, batching or fade.`);
+	let y = s.densityMap;
+	if (y) {
+		if (!Number.isSafeInteger(y.width) || !Number.isSafeInteger(y.height) || y.width < 1 || y.height < 1 || y.data.length !== y.width * y.height) throw RangeError(`Density map dimensions must match its data.`);
+		for (let e = 0; e < y.data.length; e++) if (!Number.isFinite(y.data[e]) || y.data[e] < 0 || y.data[e] > 1) throw RangeError(`Density map samples must be in [0,1].`);
+	}
+	let b = [{
+		distance: 0,
+		geometry: s.geometry,
+		material: s.material
+	}, ...s.lod ?? []];
+	for (let e = 1; e < b.length; e++) {
+		let t = b[e];
+		if (!Number.isFinite(t.distance) || t.distance <= b[e - 1].distance || !(t.geometry instanceof require_geometry.Geometry) || t.material !== void 0 && !(t.material instanceof require_mesh.TextureMaterial)) throw RangeError(`Vegetation LOD levels require increasing positive distances and render resources.`);
+	}
+	let x = l, random = () => {
+		x = x + 1831565813 >>> 0;
+		let e = Math.imul(x ^ x >>> 15, x | 1);
+		return e ^= e + Math.imul(e ^ e >>> 7, e | 61), ((e ^ e >>> 14) >>> 0) / 4294967296;
+	}, S = /* @__PURE__ */ new Map(), C = 0;
+	for (let e = 0; e < s.count; e++) {
+		let e = random(), t = random(), n = random(), r = random() * Math.PI * 2, i = m[0] + random() * (m[1] - m[0]), a = u;
+		if (y) {
+			let n = e * (y.width - 1), r = t * (y.height - 1), i = Math.floor(n), o = Math.floor(r), s = Math.min(i + 1, y.width - 1), c = Math.min(o + 1, y.height - 1), l = y.data[o * y.width + i], u = y.data[o * y.width + s], d = y.data[c * y.width + i], f = y.data[c * y.width + s];
+			a *= (l + (u - l) * (n - i)) * (1 - (r - o)) + (d + (f - d) * (n - i)) * (r - o);
+		}
+		if (n >= a) continue;
+		let o = c.minX + e * (c.maxX - c.minX), l = c.minZ + t * (c.maxZ - c.minZ), g = s.sampleSurface?.(o, l) ?? {
+			height: 0,
+			normal: [
+				0,
+				1,
+				0
+			]
+		}, _ = g.normal, v = Math.hypot(..._);
+		if (!Number.isFinite(g.height) || _.length !== 3 || !_.every(Number.isFinite) || !Number.isFinite(v) || v === 0) throw RangeError(`Surface samples require finite height and a nonzero finite normal.`);
+		if (g.height < f || g.height > p || _[1] / v < Math.cos(d)) continue;
+		let b = Math.floor((o - c.minX) / h), x = Math.floor((l - c.minZ) / h), w = `${b},${x}`, T = S.get(w);
+		T || (T = {
+			x: c.minX + (b + .5) * h,
+			z: c.minZ + (x + .5) * h,
+			placements: []
+		}, S.set(w, T)), T.placements.push(o - T.x, g.height, l - T.z, r, i), C++;
+	}
+	let w = new require_group.Group(), T = [], E = [], D = new require_math3d.Matrix4();
+	for (let e of S.values()) {
+		let t = e.placements.length / 5;
+		for (let n = 0; n < t; n += g) {
+			let r = Math.min(g, t - n), a = [];
+			for (let t of b) {
+				let o = new require_instanced_mesh.InstancedMesh({
+					geometry: t.geometry,
+					material: t.material ?? s.material,
+					count: r,
+					castShadow: s.castShadow,
+					receiveShadow: s.receiveShadow
+				});
+				for (let t = 0; t < r; t++) {
+					let r = (n + t) * 5, i = e.placements, a = i[r + 3], s = i[r + 4], c = Math.cos(a) * s, l = Math.sin(a) * s, u = D.elements;
+					u[0] = c, u[1] = 0, u[2] = -l, u[3] = 0, u[4] = 0, u[5] = s, u[6] = 0, u[7] = 0, u[8] = l, u[9] = 0, u[10] = c, u[11] = 0, u[12] = i[r], u[13] = i[r + 1], u[14] = i[r + 2], u[15] = 1, o.setMatrixAt(t, D);
+				}
+				a.push(o), E.push(o);
+			}
+			let o = new VegetationBatch(a, b.map((e) => e.distance), _, v);
+			o.transform.position.set(e.x, 0, e.z), T.push(o), w.add(o);
+		}
+	}
+	return {
+		root: w,
+		batches: T,
+		meshes: E,
+		acceptedCount: C
+	};
+}
+function createGrassGeometry(e = .1, n = 1, i = 4) {
+	if (!Number.isFinite(e) || e <= 0 || !Number.isFinite(n) || n <= 0 || !Number.isSafeInteger(i) || i < 1 || i > require_vegetation.vegetationLimits.grassSegments) throw RangeError(`Grass requires positive width/height and 1–1024 segments.`);
+	let a = [], o = [], s = [], c = [];
+	for (let t = 0; t <= i; t++) {
+		let r = t / i, l = e * (1 - r * .95) / 2;
+		if (a.push(-l, r * n, 0, l, r * n, 0), o.push(0, 0, 1, 0, 0, 1), s.push(0, r, 1, r), t < i) {
+			let e = t * 2;
+			c.push(e, e + 1, e + 2, e + 1, e + 3, e + 2);
+		}
+	}
+	return new require_geometry.Geometry({
+		positions: a,
+		normals: o,
+		uvs: s,
+		indices: c
+	});
+}
+//#endregion
+exports.VegetationBatch = VegetationBatch;
+exports.createGrassGeometry = createGrassGeometry;
+exports.scatterVegetation = scatterVegetation;
+
+//# sourceMappingURL=vegetation.cjs.map

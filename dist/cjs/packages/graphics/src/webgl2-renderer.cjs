@@ -15,6 +15,9 @@ const require_frustum = require("../../core/src/frustum.cjs");
 const require_instanced_mesh = require("../../core/src/instanced-mesh.cjs");
 const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 const require_render_visibility = require("../../core/src/render-visibility.cjs");
+const require_post_effects = require("../../core/src/post-effects.cjs");
+const require_baked_lighting = require("../../core/src/baked-lighting.cjs");
+const require_contact_shadows = require("../../core/src/contact-shadows.cjs");
 const require_render2d_contract = require("./render2d-contract.cjs");
 const require_render_stats = require("./render-stats.cjs");
 const require_gpu_timing = require("./gpu-timing.cjs");
@@ -22,9 +25,13 @@ const require_residency = require("./residency.cjs");
 const require_preparation = require("./preparation.cjs");
 const require_shaders = require("./webgl-2d/shaders.cjs");
 const require_webgl2_render_graph = require("./webgl2-render-graph.cjs");
+const require_optical_maps = require("./optical-maps.cjs");
+const require_volumetric_post = require("./volumetric-post.cjs");
+const require_motion_blur_post = require("./motion-blur-post.cjs");
 const require_sheen = require("../../../src/data/sheen.cjs");
 const require_brdf = require("../../../src/data/brdf.cjs");
 const require_oit_shaders = require("./oit-shaders.cjs");
+const require_mesh_shader_variants = require("./mesh-shader-variants.cjs");
 const require_webgl_feature_shaders = require("./webgl-feature-shaders.cjs");
 const require_webgl2_particles3d = require("./webgl2-particles3d.cjs");
 const require_webgl_occlusion = require("./webgl-occlusion.cjs");
@@ -33,7 +40,6 @@ const require_render_data = require("../../core/src/render-data.cjs");
 const require_shadow_atlas = require("../../core/src/shadow-atlas.cjs");
 const require_fxaa_shaders = require("./fxaa-shaders.cjs");
 const require_optical_pack_shaders = require("./optical-pack-shaders.cjs");
-const require_optical_maps = require("./optical-maps.cjs");
 const require_native_texture_upload = require("./native-texture-upload.cjs");
 const require_webgl2_render2d_shaders = require("./webgl2-render2d-shaders.cjs");
 const require_webgl2_render2d = require("./webgl2-render2d.cjs");
@@ -44,7 +50,9 @@ const require_reflection_capture = require("./reflection-capture.cjs");
 const require_probe_texture_array = require("./probe-texture-array.cjs");
 const require_temporal_post = require("./temporal-post.cjs");
 const require_webgl_temporal_pipeline = require("./webgl-temporal-pipeline.cjs");
+const require_planar_reflection_capture = require("./planar-reflection-capture.cjs");
 //#region dist/packages/graphics/src/webgl2-renderer.js
+var Q = `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.anisotropyMapSettings.iridescenceMapSettings.iridescenceThicknessMapSettings.iridescenceThicknessRange.finish0.finish1.finish2.finish3.finish4.opticalMaps.opaqueScene.shadowMap.contactDimensions.contactParams.contactStrength.contactInvViewProjection.oitPass.environment[0].environmentMap.probeData[0].bakedSH[0].bakedParams.fog[0].meshFade.tangentTexCoord.derivativeTangentSign.materialCoordinates[0]`.split(`.`);
 var WebGLSnapshot = class {
 	width;
 	height;
@@ -61,6 +69,7 @@ var WebGLSnapshot = class {
 		this.release = void 0, e?.();
 	}
 };
+var $ = /* @__PURE__ */ new WeakMap();
 var WebGL2Renderer = class {
 	onError;
 	antialias;
@@ -84,7 +93,10 @@ var WebGL2Renderer = class {
 		throw new require_errors.UnsupportedGraphicsError(`WebGL2 does not support compute.`);
 	}
 	triangleProgram;
-	meshProgram;
+	meshPrograms = /* @__PURE__ */ new Map();
+	pendingPrograms = /* @__PURE__ */ new Set();
+	nativePreparations = /* @__PURE__ */ new Map();
+	parallelCompile = null;
 	triangleVAO;
 	commands = new require_render2d_contract.RenderCommandBuffer2D();
 	textures = /* @__PURE__ */ new Map();
@@ -138,6 +150,33 @@ var WebGL2Renderer = class {
 			}), this.requireGL(), require_reflection_capture.capturedEnvironment(i, m, n.signal);
 		} finally {
 			this.deleteTarget(p), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.postTarget = a, this.refractionTarget = o, this.linear3D = l, this.hasTransmission = u, this.weighted = d, this.coverageActive = f, this.capturingProbe = !1, this.occlusion?.clear(), r.bindFramebuffer(r.FRAMEBUFFER, s), r.viewport(c[0], c[1], c[2], c[3]);
+		}
+	}
+	async capturePlanarReflection(e, t) {
+		let n = this.requireGL();
+		if (this.capturingProbe) throw new require_errors.GraphicsError(`A reflection capture is already active.`);
+		if (this.activeFrame && this.frameRendered) throw new require_errors.GraphicsError(`Capture must precede rendering or follow endFrame.`);
+		if (!t.beginCapture(e.presentationTime)) return;
+		let r = t.size, i = n.getParameter(n.FRAMEBUFFER_BINDING), a = n.getParameter(n.VIEWPORT), o = this.postTarget, s = this.refractionTarget, c = this.linear3D, l = this.hasTransmission, u = this.weighted, d = this.coverageActive, f, p = !1;
+		this.capturingProbe = !0;
+		try {
+			if (this.postTarget = void 0, this.refractionTarget = void 0, require_planar_reflection_capture.encodePlanarReflection(e, t, () => {
+				if (this.collectMeshes(e, 1, r), p = this.hasTransmission || this.weighted, p && !this.floatColorBuffer) throw new require_errors.GraphicsError(`Planar transmission/weighted capture requires EXT_color_buffer_float.`);
+				f = this.createTarget(r, r, !1, p ? `hdr` : `rgba8`, `texture`), this.postTarget = f, this.linear3D = p, e.lightSelection.update(e), this.atlas.update(e, 1), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferSubData(n.UNIFORM_BUFFER, 0, this.atlas.data), e.shadows.enabled && this.drawShadows(e), this.hasTransmission && this.prepareRefractionTarget(r, r), this.weighted && this.prepareOIT(r, r), n.bindFramebuffer(n.FRAMEBUFFER, f.framebuffer), n.disable(n.SCISSOR_TEST), n.viewport(0, 0, r, r), n.clearColor(0, 0, 0, 1), n.depthMask(!0), n.clearDepth(1), this.coverageActive || n.clear(n.COLOR_BUFFER_BIT | n.DEPTH_BUFFER_BIT), n.enable(n.BLEND), n.blendFunc(n.ONE, n.ONE_MINUS_SRC_ALPHA), this.drawMeshes(e, 1);
+			}), !f) throw new require_errors.GraphicsError(`Planar reflection did not encode a scene target.`);
+			n.bindFramebuffer(n.FRAMEBUFFER, f.framebuffer);
+			let i = p ? n.getParameter(n.IMPLEMENTATION_COLOR_READ_TYPE) : n.UNSIGNED_BYTE;
+			if ((p ? n.getParameter(n.IMPLEMENTATION_COLOR_READ_FORMAT) : n.RGBA) !== n.RGBA || p && i !== n.FLOAT && i !== n.HALF_FLOAT) throw new require_errors.GraphicsError(`Native planar reflection readback is unsupported by this context.`);
+			let a = p ? i === n.FLOAT ? new Float32Array(r * r * 4) : new Uint16Array(r * r * 4) : new Uint8Array(r * r * 4);
+			n.readPixels(0, 0, r, r, n.RGBA, i, a), this.requireGL();
+			let o = new Uint8ClampedArray(a.length);
+			for (let e = 0; e < r; e++) for (let t = 0; t < r * 4; t++) {
+				let s = a[(r - e - 1) * r * 4 + t];
+				p && (s = i === n.FLOAT ? s : require_reflection_capture.halfFloat(s), s = Math.max(0, s), t % 4 != 3 && (s = s <= .0031308 ? s * 12.92 : 1.055 * s ** (1 / 2.4) - .055), s *= 255), o[e * r * 4 + t] = s;
+			}
+			t.adoptPixels(o);
+		} finally {
+			f && this.deleteTarget(f), this.refractionTarget && this.refractionTarget !== s && this.deleteTarget(this.refractionTarget), this.postTarget = o, this.refractionTarget = s, this.linear3D = c, this.hasTransmission = l, this.weighted = u, this.coverageActive = d, this.capturingProbe = !1, this.occlusion?.clear(), n.bindFramebuffer(n.FRAMEBUFFER, i), n.viewport(a[0], a[1], a[2], a[3]), t.endCapture();
 		}
 	}
 	configureResidency(e) {
@@ -230,12 +269,18 @@ var WebGL2Renderer = class {
 	temporalActive = !1;
 	fogData = /* @__PURE__ */ new Float32Array(8);
 	invViewProjection = new require_math3d.Matrix4();
-	meshUniforms = {};
 	shadowUniforms = {};
 	postUniforms = {};
+	gradingTexture;
+	gradingLUT = null;
+	volumetricData = /* @__PURE__ */ new Float32Array(16);
+	motionData = /* @__PURE__ */ new Float32Array(20);
 	lightingData = /* @__PURE__ */ new Float32Array(812);
 	tintData = /* @__PURE__ */ new Float32Array(4);
-	materialUVData = new Float32Array(require_rendering.MATERIAL_UV_FLOAT_COUNT);
+	materialUVData = new Float32Array(require_optical_maps.mappedMaterialUVFloatCount);
+	bakedData = /* @__PURE__ */ new Float32Array(40);
+	bakedSH = this.bakedData.subarray(0, 36);
+	bakedParams = this.bakedData.subarray(36);
 	meshInstances = /* @__PURE__ */ new Map();
 	visibleMeshInstances = /* @__PURE__ */ new Map();
 	meshSkins = /* @__PURE__ */ new Map();
@@ -247,7 +292,7 @@ var WebGL2Renderer = class {
 	sheenBuffer;
 	brdfBuffer;
 	opticalTextures = /* @__PURE__ */ new Map();
-	opticalSettings = /* @__PURE__ */ new Float32Array(8);
+	opticalSettings = /* @__PURE__ */ new Float32Array(24);
 	emptyOptical;
 	opticalPackProgram;
 	opticalPackFramebuffer;
@@ -260,6 +305,10 @@ var WebGL2Renderer = class {
 	oitRevealage;
 	oitProgram;
 	shadowTarget;
+	contactTarget;
+	contactWidth = 0;
+	contactHeight = 0;
+	contactOffset = 0;
 	postTarget;
 	coverageTarget;
 	coverageActive = !1;
@@ -309,7 +358,7 @@ var WebGL2Renderer = class {
 				preserveDrawingBuffer: !1
 			});
 			if (!n) throw new require_errors.WebGL2InitializationError(`WebGL2 canvas context is unavailable: canvas.getContext("webgl2") returned null.`);
-			if (this.gl = n, this.gpuTimingEnabled) {
+			if (this.gl = n, this.parallelCompile = n.getExtension(`KHR_parallel_shader_compile`), this.gpuTimingEnabled) {
 				let e = n.getExtension(`EXT_disjoint_timer_query_webgl2`);
 				e ? this.gpuTimer = new require_gpu_timing.WebGlTimer(this.stats.gpuTiming, n, e) : this.stats.gpuTiming.unavailable(`unsupported`, `EXT_disjoint_timer_query_webgl2 is unavailable.`);
 			}
@@ -343,7 +392,7 @@ void main() {
 precision highp float;
 in vec3 vColor;
 out vec4 color;
-void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = this.createProgram(n, require_webgl_feature_shaders.meshVertex, require_webgl_feature_shaders.meshFragment, `mesh`), this.shadowProgram = this.createProgram(n, require_webgl_feature_shaders.meshVertex, require_webgl_feature_shaders.shadowFragment, `shadow`), this.postProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_webgl_feature_shaders.postFragment, `postprocessing`), this.fxaaProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_fxaa_shaders.fxaaGLSL, `FXAA`), n.useProgram(this.fxaaProgram), n.uniform1i(n.getUniformLocation(this.fxaaProgram, `image`), 0), this.compositeProgram = this.createProgram(n, require_shaders.layerVertex, require_shaders.compositeFragment, `2D layer and transition composition`), this.triangleVAO = this.createVAO(n), this.skyProgram = this.createProgram(n, require_webgl_feature_shaders.skyVertex, require_webgl_feature_shaders.skyFragment, `skybox`), this.skyVAO = this.createVAO(n), this.graphs = new require_webgl2_render_graph.WebGL2RenderGraph(n), this.render2D = new require_webgl2_render2d.WebGLRender2D(n, {
+void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = this.createProgram(n, require_webgl_feature_shaders.meshVertex, require_webgl_feature_shaders.shadowFragment, `shadow`), this.postProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_webgl_feature_shaders.postFragment, `postprocessing`), this.fxaaProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_fxaa_shaders.fxaaGLSL, `FXAA`), n.useProgram(this.fxaaProgram), n.uniform1i(n.getUniformLocation(this.fxaaProgram, `image`), 0), this.compositeProgram = this.createProgram(n, require_shaders.layerVertex, require_shaders.compositeFragment, `2D layer and transition composition`), this.triangleVAO = this.createVAO(n), this.skyProgram = this.createProgram(n, require_webgl_feature_shaders.skyVertex, require_webgl_feature_shaders.skyFragment, `skybox`), this.skyVAO = this.createVAO(n), this.graphs = new require_webgl2_render_graph.WebGL2RenderGraph(n), this.render2D = new require_webgl2_render2d.WebGLRender2D(n, {
 				owner: this,
 				stats: this.stats,
 				residency: this.residency,
@@ -365,10 +414,8 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				assertAlive: () => {
 					this.requireGL();
 				}
-			}), this.shadowBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferData(n.UNIFORM_BUFFER, this.atlas.data.byteLength, n.DYNAMIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `ShadowData`), 0), this.sheenBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.sheenBuffer), n.bufferData(n.UNIFORM_BUFFER, require_sheen.sheenDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `SheenLookup`), 1), this.brdfBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.brdfBuffer), n.bufferData(n.UNIFORM_BUFFER, require_brdf.ggxDirectionalAlbedo, n.STATIC_DRAW), n.uniformBlockBinding(this.meshProgram, n.getUniformBlockIndex(this.meshProgram, `GGXLookup`), 2), this.opticalPackProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_optical_pack_shaders.opticalPackGLSL, `optical packing`), this.opticalPackFramebuffer = n.createFramebuffer() ?? void 0, this.emptyOptical = n.createTexture() ?? void 0, !this.opticalPackFramebuffer || !this.emptyOptical) throw new require_errors.WebGL2InitializationError(`WebGL2 optical resource allocation failed.`);
-			n.activeTexture(n.TEXTURE0 + 14), n.bindTexture(n.TEXTURE_2D_ARRAY, this.emptyOptical), n.texStorage3D(n.TEXTURE_2D_ARRAY, 1, n.RGBA8, 1, 1, 2), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MAG_FILTER, n.NEAREST), n.useProgram(this.opticalPackProgram), n.uniform1i(n.getUniformLocation(this.opticalPackProgram, `image`), 0), this.opticalPackSide = n.getUniformLocation(this.opticalPackProgram, `side`);
-			for (let e of `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.finish0.finish1.finish2.finish3.finish4.opticalMaps.opaqueScene.shadowMap.oitPass.environment[0].environmentMap.probeData[0].fog[0].meshFade.tangentTexCoord.derivativeTangentSign`.split(`.`)) this.meshUniforms[e] = n.getUniformLocation(this.meshProgram, e);
-			this.meshUniforms[`materialCoordinates[0]`] = n.getUniformLocation(this.meshProgram, `materialCoordinates[0]`);
+			}), this.shadowBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.shadowBuffer), n.bufferData(n.UNIFORM_BUFFER, this.atlas.data.byteLength, n.DYNAMIC_DRAW), this.sheenBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.sheenBuffer), n.bufferData(n.UNIFORM_BUFFER, require_sheen.sheenDirectionalAlbedo, n.STATIC_DRAW), this.brdfBuffer = this.createBuffer(n), n.bindBuffer(n.UNIFORM_BUFFER, this.brdfBuffer), n.bufferData(n.UNIFORM_BUFFER, require_brdf.ggxDirectionalAlbedo, n.STATIC_DRAW), this.opticalPackProgram = this.createProgram(n, require_webgl_feature_shaders.postVertex, require_optical_pack_shaders.opticalPackGLSL, `optical packing`), this.opticalPackFramebuffer = n.createFramebuffer() ?? void 0, this.emptyOptical = n.createTexture() ?? void 0, !this.opticalPackFramebuffer || !this.emptyOptical) throw new require_errors.WebGL2InitializationError(`WebGL2 optical resource allocation failed.`);
+			n.activeTexture(n.TEXTURE0 + 14), n.bindTexture(n.TEXTURE_2D_ARRAY, this.emptyOptical), n.texStorage3D(n.TEXTURE_2D_ARRAY, 1, n.RGBA8, 1, 1, 5), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D_ARRAY, n.TEXTURE_MAG_FILTER, n.NEAREST), n.useProgram(this.opticalPackProgram), n.uniform1i(n.getUniformLocation(this.opticalPackProgram, `image`), 0), this.opticalPackSide = n.getUniformLocation(this.opticalPackProgram, `side`);
 			for (let e of [
 				`viewProjection`,
 				`model`,
@@ -391,12 +438,22 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			for (let e of [
 				`image`,
 				`settings`,
-				`aces`,
 				`depthImage`,
 				`inverseVP`,
 				`clip`,
 				`ssao`,
-				`dof`
+				`dof`,
+				`toneOperator`,
+				`grading`,
+				`lutImage`,
+				`volumeFog`,
+				`volumeColor`,
+				`shaft`,
+				`shaftColor`,
+				`flare`,
+				`halo`,
+				`previousVP`,
+				`blur`
 			]) this.postUniforms[e] = n.getUniformLocation(this.postProgram, e);
 			for (let e of [
 				`image`,
@@ -407,7 +464,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				`transitionColor`,
 				`slideDirection`
 			]) this.compositeUniforms[e] = n.getUniformLocation(this.compositeProgram, e);
-			n.useProgram(this.meshProgram), n.uniform1i(this.meshUniforms.image, 0), n.uniform1i(this.meshUniforms.metallicRoughnessMap, 1), n.uniform1i(this.meshUniforms.normalMap, 2), n.uniform1i(this.meshUniforms.occlusionMap, 3), n.uniform1i(this.meshUniforms.emissiveMap, 4), n.uniform1i(this.meshUniforms.shadowMap, 5), n.uniform1i(this.meshUniforms.environmentMap, 6), n.useProgram(this.skyProgram), n.uniform1i(this.skyUniforms.backgroundMap, 0), n.useProgram(this.shadowProgram), n.uniform1i(this.shadowUniforms.image, 0), n.useProgram(this.postProgram), n.uniform1i(this.postUniforms.image, 0), n.useProgram(this.compositeProgram), n.uniform1i(this.compositeUniforms.image, 0), n.uniform1i(this.compositeUniforms.previousImage, 1), n.useProgram(null);
+			n.useProgram(this.skyProgram), n.uniform1i(this.skyUniforms.backgroundMap, 0), n.useProgram(this.shadowProgram), n.uniform1i(this.shadowUniforms.image, 0), n.useProgram(this.postProgram), n.uniform1i(this.postUniforms.image, 0), n.useProgram(this.compositeProgram), n.uniform1i(this.compositeUniforms.image, 0), n.uniform1i(this.compositeUniforms.previousImage, 1), n.useProgram(null);
 		} catch (e) {
 			throw this.destroy(), e instanceof require_errors.GraphicsError ? e : new require_errors.WebGL2InitializationError(`WebGL2 initialization failed${e instanceof Error ? `: ${e.message}` : `.`}`, { cause: e });
 		}
@@ -440,21 +497,34 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		if (e.kind === `render`) throw this.render2D.source(e), new require_errors.GraphicsError(`Renderer-owned render targets must be destroyed rather than unloaded.`);
 		let t = this.textures.get(e);
 		t && t.allocation.destroy();
-		for (let [t, n] of this.opticalTextures) (require_pbr_material.pbrTextureSources(t).transmissionTexture === e || require_pbr_material.pbrTextureSources(t).thicknessTexture === e) && n.allocation.destroy();
+		for (let t of this.opticalTextures.values()) t.sources.includes(e) && t.allocation.destroy();
 	}
 	prepareNativePBRMaterial(e) {
 		return this.prepareMaterial(e);
 	}
 	async prepareMaterial(e) {
 		if (!require_native_material3d.isNativeMaterial3D(e)) return this.prepareNative(e, !1);
-		let o = this.requireGL();
-		if (e.validate(), this.nativeMaterials.has(e)) return;
-		require_native_material_limits.validateNativeMaterialGL(o);
-		let s = e instanceof require_native_pbr_material.NativePBRMaterial, c = require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `vertex`, s), l = this.createProgram(o, c, require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `surface`, s), e.label), u;
+		let t = this.nativePreparations.get(e);
+		if (t) return t;
+		let r = this.prepareNativeMesh(e);
+		this.nativePreparations.set(e, r);
 		try {
-			u = this.createProgram(o, c, require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `shadow`, s), `${e.label} shadow`);
-			let n = {}, d = {}, f = [
-				...Object.keys(this.meshUniforms),
+			await r;
+		} finally {
+			this.nativePreparations.delete(e);
+		}
+	}
+	async prepareNativeMesh(e) {
+		let n = this.requireGL();
+		if (e.validate(), this.nativeMaterials.has(e)) return;
+		require_native_material_limits.validateNativeMaterialGL(n);
+		let o = e instanceof require_native_pbr_material.NativePBRMaterial, s = require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `vertex`, o), c = this.createProgram(n, s, require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `surface`, o), e.label, !!this.parallelCompile);
+		this.pendingPrograms.add(c);
+		let l;
+		try {
+			l = this.createProgram(n, s, require_webgl_feature_shaders.nativeMeshGLSL(e.glsl, `shadow`, o), `${e.label} shadow`, !!this.parallelCompile), this.pendingPrograms.add(l), await this.waitForProgram(n, c, e.label), await this.waitForProgram(n, l, `${e.label} shadow`), this.requireGL(), e.validate();
+			let u = {}, d = {}, f = [
+				...Q,
 				...Object.keys(this.shadowUniforms),
 				`xyzUniforms[0]`,
 				`xyzMap0`,
@@ -462,33 +532,35 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				`xyzMap2`,
 				`xyzMap3`
 			];
-			require_native_material_limits.validateNativeMaterialGLResources(o, l, f), require_native_material_limits.validateNativeMaterialGLResources(o, u, f);
-			for (let e of f) n[e] = o.getUniformLocation(l, e), d[e] = o.getUniformLocation(u, e);
+			require_native_material_limits.validateNativeMaterialGLResources(n, c, f), require_native_material_limits.validateNativeMaterialGLResources(n, l, f);
+			for (let e of f) u[e] = n.getUniformLocation(c, e), d[e] = n.getUniformLocation(l, e);
 			for (let [e, t] of [
 				[`ShadowData`, 0],
 				[`SheenLookup`, 1],
 				[`GGXLookup`, 2]
 			]) {
-				let n = o.getUniformBlockIndex(l, e);
-				n !== o.INVALID_INDEX && o.uniformBlockBinding(l, n, t);
+				let r = n.getUniformBlockIndex(c, e);
+				r !== n.INVALID_INDEX && n.uniformBlockBinding(c, r, t);
 			}
 			if (this.cacheTexture(require_mesh.materialBaseTexture(e)), e instanceof require_native_material3d.NativeMaterial3D) for (let t of require_native_material3d.nativeMaterialSources(e)) this.cacheTexture(t);
 			if (e instanceof require_native_pbr_material.NativePBRMaterial) {
 				let t = require_pbr_material.pbrTextureSources(e);
 				for (let e of Object.values(t)) e && this.cacheTexture(e);
 			}
-			let p = u, h = e.onDestroy(() => {
-				o.deleteProgram(l), o.deleteProgram(p), this.nativeMaterials.delete(e);
+			let p = l, m = e.onDestroy(() => {
+				n.deleteProgram(c), n.deleteProgram(p), this.nativeMaterials.delete(e);
 			});
 			this.nativeMaterials.set(e, {
-				program: l,
-				shadow: u,
-				uniforms: n,
+				program: c,
+				shadow: l,
+				uniforms: u,
 				shadowUniforms: d,
-				unsubscribe: h
+				unsubscribe: m
 			});
 		} catch (e) {
-			throw o.deleteProgram(l), u && o.deleteProgram(u), e;
+			throw n.deleteProgram(c), l && n.deleteProgram(l), e;
+		} finally {
+			this.pendingPrograms.delete(c), l && this.pendingPrograms.delete(l);
 		}
 	}
 	async preparePostProcessor(e) {
@@ -499,24 +571,27 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		require_material2d.validateEffect2D(e);
 		let r = t ? this.processors : this.materials, i = r.get(e);
 		if (i) return i.preparation;
-		let a = this.createProgram(n, t ? require_shaders.layerVertex : require_webgl2_render2d_shaders.quadVertex2D, t ? require_shaders.processorFragment(e.glsl) : require_webgl2_render2d_shaders.quadFragment2D(e.glsl), t ? `native 2D postprocessor` : `native Sprite material`), o = n.getParameter(n.CURRENT_PROGRAM);
-		n.useProgram(a), n.uniform1i(n.getUniformLocation(a, `image`), 0), n.useProgram(o);
+		let a = this.createProgram(n, t ? require_shaders.layerVertex : require_webgl2_render2d_shaders.quadVertex2D, t ? require_shaders.processorFragment(e.glsl) : require_webgl2_render2d_shaders.quadFragment2D(e.glsl), t ? `native 2D postprocessor` : `native Sprite material`, !!this.parallelCompile);
+		this.pendingPrograms.add(a);
 		let onDestroy = () => {
-			r.get(e) === c && (r.delete(e), n.deleteProgram(a), e.removeEventListener(`destroy`, onDestroy));
-		}, s = Promise.resolve().then(() => {
-			if (this.requireGL(), require_material2d.validateEffect2D(e), r.get(e) !== c) throw new require_errors.GraphicsError(`WebGL2 native effect preparation was cancelled.`);
-			c.ready = !0;
+			r.get(e) === s && (r.delete(e), this.pendingPrograms.delete(a), n.deleteProgram(a), e.removeEventListener(`destroy`, onDestroy));
+		}, o = Promise.resolve().then(async () => {
+			if (await this.waitForProgram(n, a, t ? `native 2D postprocessor` : `native Sprite material`), this.requireGL(), require_material2d.validateEffect2D(e), r.get(e) !== s) throw new require_errors.GraphicsError(`WebGL2 native effect preparation was cancelled.`);
+			let i = n.getParameter(n.CURRENT_PROGRAM);
+			n.useProgram(a), n.uniform1i(n.getUniformLocation(a, `image`), 0), n.useProgram(i), s.viewport = n.getUniformLocation(a, `viewportSize`), s.uniforms = n.getUniformLocation(a, `uniforms[0]`), s.ready = !0;
 		}).catch((e) => {
 			throw onDestroy(), e;
-		}), c = {
+		}).finally(() => {
+			this.pendingPrograms.delete(a);
+		}), s = {
 			program: a,
-			viewport: n.getUniformLocation(a, `viewportSize`),
-			uniforms: n.getUniformLocation(a, `uniforms[0]`),
+			viewport: null,
+			uniforms: null,
 			ready: !1,
-			preparation: s,
+			preparation: o,
 			onDestroy
 		};
-		return r.set(e, c), e.addEventListener(`destroy`, onDestroy), s;
+		return r.set(e, s), e.addEventListener(`destroy`, onDestroy), o;
 	}
 	requireNative(e, t) {
 		require_material2d.validateEffect2D(e);
@@ -541,6 +616,27 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 	beginFrame() {
 		if (this.requireGL(), this.activeFrame) throw new require_errors.GraphicsError(`WebGL2 beginFrame called before the preceding frame ended.`);
 		this.activeFrame = !0, this.residency.beginFrame(), this.frameRendered = !1, this.stats.begin(), this.gpuTimer?.begin(this.stats.frame);
+	}
+	async initializeXR() {
+		let e = this.requireGL(), t = e;
+		if (!t.makeXRCompatible) throw new require_errors.GraphicsError(`This WebGL2 context does not support makeXRCompatible.`);
+		return await t.makeXRCompatible(), {
+			backend: `webgl2`,
+			context: e
+		};
+	}
+	renderXRView(e, t) {
+		if (t.backend !== `webgl2`) throw new require_errors.GraphicsError(`WebGL2 requires an XRWebGLLayer framebuffer.`);
+		let n = this.requireGL(), r = this.canvas;
+		this.frameTarget && (this.frameTarget.width !== r.width || this.frameTarget.height !== r.height) && (this.deleteTarget(this.frameTarget), this.frameTarget = void 0);
+		let i = this.frameTarget ??= this.createTarget(r.width, r.height, !1, `rgba8`);
+		try {
+			this.beginFrame(), this.renderFrame(e, t.viewport.width, t.viewport.height, i), this.endFrame(), n.bindFramebuffer(n.READ_FRAMEBUFFER, i.framebuffer), n.bindFramebuffer(n.DRAW_FRAMEBUFFER, t.framebuffer);
+			let r = t.viewport;
+			n.blitFramebuffer(0, 0, i.width, i.height, r.x, r.y, r.x + r.width, r.y + r.height, n.COLOR_BUFFER_BIT, n.LINEAR);
+		} finally {
+			n.bindFramebuffer(n.FRAMEBUFFER, null), this.activeFrame = !1, this.frameRendered = !1;
+		}
 	}
 	render(e, t, n, r) {
 		if (this.requireGL(), !this.activeFrame || this.frameRendered) throw new require_errors.GraphicsError(`WebGL2 render requires an active frame and may be called only once per frame.`);
@@ -584,11 +680,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			} else this.effectTarget && this.deleteTarget(this.effectTarget), this.effectTarget = void 0;
 			d ? this.sceneTarget ??= this.createTarget(o.width, o.height, !1, `rgba8`, !0) : this.sceneTarget &&= (this.deleteTarget(this.sceneTarget), void 0);
 			let f = d ? this.sceneTarget.framebuffer : r?.framebuffer ?? null;
-			if (this.hasTransmission = this.linear3D = this.weighted = this.coverageActive = !1, e ? (require_render2d_contract.collectRenderCommands2D(e, s, c, this.commands), this.render2D.preflight(this.commands, e, s, c, Math.max(o.width / s, o.height / c))) : this.commands.clear(), e?.has3DContent) {
+			if (!e?.has3DContent && this.contactTarget && (this.deleteTarget(this.contactTarget), this.contactTarget = void 0), this.hasTransmission = this.linear3D = this.weighted = this.coverageActive = !1, e ? (require_render2d_contract.collectRenderCommands2D(e, s, c, this.commands), this.render2D.preflight(this.commands, e, s, c, Math.max(o.width / s, o.height / c))) : this.commands.clear(), e?.has3DContent) {
 				require_render_data.validateRenderSettings(e), this.capturingProbe || this.probeCaptures.schedule(e, (t) => this.captureReflectionProbe(e, t), (e) => this.onError(e instanceof require_errors.GraphicsError ? e : new require_errors.GraphicsError(`Automatic reflection capture failed.`, { cause: e }))), this.collectMeshes(e, s / c, c);
 				let t = e.postProcessing.enabled || this.hasTransmission || this.weighted;
-				this.linear3D = t || this.coverageActive, e.lightSelection.update(e), this.atlas.update(e, s / c), a.bindBuffer(a.UNIFORM_BUFFER, this.shadowBuffer), a.bufferSubData(a.UNIFORM_BUFFER, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), e.shadows.enabled ? this.drawShadows(e) : this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.linear3D ? this.preparePostTarget(o.width, o.height, t || this.coverageCapabilities.hdrSamples > 1 ? `hdr` : `rgba8`) : this.postTarget &&= (this.releaseOIT(), this.deleteTarget(this.postTarget), void 0), !e.postProcessing.enabled && this.fxaaTarget && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), this.hasTransmission ? this.prepareRefractionTarget(o.width, o.height) : this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
-			} else this.releaseCoverageTarget(), this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
+				this.linear3D = t || this.coverageActive, e.lightSelection.update(e), this.atlas.update(e, s / c), a.bindBuffer(a.UNIFORM_BUFFER, this.shadowBuffer), a.bufferSubData(a.UNIFORM_BUFFER, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), e.shadows.enabled ? this.drawShadows(e) : this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.linear3D ? this.preparePostTarget(o.width, o.height, t || this.coverageCapabilities.hdrSamples > 1 ? `hdr` : `rgba8`) : this.postTarget && (this.releaseOIT(), this.deleteTarget(this.postTarget), this.postTarget = void 0, $.get(this)?.destroy()), !e.postProcessing.enabled && this.fxaaTarget && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), this.hasTransmission ? this.prepareRefractionTarget(o.width, o.height) : this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
+			} else $.get(this)?.destroy(), this.probeAllocation?.destroy(), this.probeAllocation = void 0, this.probeMaps.length = 0, this.selectedProbes.length = 0, this.releaseCoverageTarget(), this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
 			this.weighted ? this.prepareOIT(o.width, o.height) : this.releaseOIT(), a.bindFramebuffer(a.FRAMEBUFFER, this.linear3D ? this.postTarget.framebuffer : f), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o.width, o.height), a.clearColor(this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.r) : require_defaults.defaults.clearColor.r, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.g) : require_defaults.defaults.clearColor.g, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.b) : require_defaults.defaults.clearColor.b, require_defaults.defaults.clearColor.a), a.depthMask(!0), a.clearDepth(1), this.coverageActive || a.clear(a.COLOR_BUFFER_BIT | a.DEPTH_BUFFER_BIT), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), e ? (e.has3DContent && this.drawMeshes(e, s / c), a.disable(a.DEPTH_TEST), this.linear3D && this.drawPost(e, f), d && this.drawEffects2D(n, s, c, r?.framebuffer ?? null, this.sceneTarget, this.effectTarget, !0), a.activeTexture(a.TEXTURE0), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), a.disable(a.CULL_FACE), a.bindFramebuffer(a.FRAMEBUFFER, this.layerTarget.framebuffer), a.viewport(0, 0, o.width, o.height), a.clearColor(0, 0, 0, 0), a.clear(a.COLOR_BUFFER_BIT), this.render2D.draw(this.commands, e, this.layerTarget, s, c), t?.length ? this.drawEffects2D(t, s, c, r?.framebuffer ?? null) : this.drawComposite(this.layerTarget.texture, r?.framebuffer ?? null)) : (a.disable(a.DEPTH_TEST), a.disable(a.BLEND), a.viewport(this.viewportX, this.viewportY, this.viewportSide, this.viewportSide), a.useProgram(this.triangleProgram), a.bindVertexArray(this.triangleVAO), a.drawArrays(a.TRIANGLES, 0, 3)), l && this.graphs.encode(l, u?.framebuffer ?? null), i && this.drawComposite(u.texture, null, i), this.frameRendered = !0;
 		} finally {
 			this.frameRendered || this.temporalState.invalidate(), this.releaseUnused(), a.bindFramebuffer(a.FRAMEBUFFER, null), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null), a.bindVertexArray(null), a.bindTexture(a.TEXTURE_2D, null), a.useProgram(null), a.depthMask(!0), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.viewport(0, 0, o.width, o.height);
@@ -648,41 +744,46 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		this.coverageActive || this.releaseCoverageTarget(), e.transparency === `sorted` && this.drawSorter.sort(c, e.camera3D.position, this.isColorBlended);
 	}
 	cacheOpticalMaps(e) {
-		let t = require_pbr_material.pbrTextureSources(e).transmissionTexture, n = require_pbr_material.pbrTextureSources(e).thicknessTexture;
-		if (!t && !n) return;
-		if (t?.destroyed || n?.destroyed) throw new require_errors.GraphicsError(`WebGL2 optical map has been destroyed.`);
-		let r = this.opticalTextures.get(e), i = [t?.version ?? -1, n?.version ?? -1];
-		if (r?.sourceVersions[0] === i[0] && r.sourceVersions[1] === i[1]) {
-			r.allocation.touch(), r.seen = this.frame;
+		let t = require_optical_maps.opticalMapSources(e);
+		if (!t.some(Boolean)) {
+			this.opticalTextures.get(e)?.allocation.destroy();
 			return;
 		}
-		let a = this.gl, o = Math.ceil(Math.sqrt(Math.max(t ? t.width * t.height : 1, n ? n.width * n.height : 1)));
-		r && r.side !== o && (r.allocation.destroy(), r = void 0);
-		let s = r?.allocation ?? this.residency.textures.allocate(o * o * 8, () => {
+		if (t.some((e) => e?.destroyed)) throw new require_errors.GraphicsError(`WebGL2 optical map has been destroyed.`);
+		let n = this.opticalTextures.get(e), r = t.map((e) => e?.version ?? -1);
+		if (n && t.every((e, t) => n.sources[t] === e && n.sourceVersions[t] === r[t])) {
+			n.allocation.touch(), n.seen = this.frame;
+			return;
+		}
+		let i = this.gl, a = Math.ceil(Math.sqrt(Math.max(...t.map((e) => e ? e.width * e.height : 1))));
+		n && n.side !== a && (n.allocation.destroy(), n = void 0);
+		let o = n?.allocation ?? this.residency.textures.allocate(a * a * 20, () => {
 			let t = this.opticalTextures.get(e);
-			t && a.deleteTexture(t.resource), this.opticalTextures.delete(e);
-		}), c = r?.resource ?? a.createTexture();
-		if (!c) throw s.destroy(), new require_errors.GraphicsError(`WebGL2 optical array allocation failed.`);
+			t && i.deleteTexture(t.resource), this.opticalTextures.delete(e);
+		}), s = n?.resource ?? i.createTexture();
+		if (!s) throw o.destroy(), new require_errors.GraphicsError(`WebGL2 optical array allocation failed.`);
+		let c = i.isEnabled(i.DITHER);
 		try {
-			a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, c), r || a.texStorage3D(a.TEXTURE_2D_ARRAY, 1, a.RGBA8, o, o, 2), a.texParameteri(a.TEXTURE_2D_ARRAY, a.TEXTURE_MIN_FILTER, a.NEAREST), a.texParameteri(a.TEXTURE_2D_ARRAY, a.TEXTURE_MAG_FILTER, a.NEAREST), a.useProgram(this.opticalPackProgram), a.uniform1i(this.opticalPackSide, o), a.bindFramebuffer(a.FRAMEBUFFER, this.opticalPackFramebuffer), a.viewport(0, 0, o, o), a.disable(a.BLEND), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.disable(a.SCISSOR_TEST), a.bindVertexArray(this.triangleVAO), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null);
-			for (let e = 0; e < 2; e++) {
-				let r = e === 0 ? t : n;
-				if (!r) continue;
-				let i = this.cacheTexture(r);
-				if (i.seen = this.frame, a.bindTexture(a.TEXTURE_2D, i.resource), a.framebufferTextureLayer(a.FRAMEBUFFER, a.COLOR_ATTACHMENT0, c, 0, e), a.checkFramebufferStatus(a.FRAMEBUFFER) !== a.FRAMEBUFFER_COMPLETE) throw new require_errors.GraphicsError(`WebGL2 optical packing framebuffer is incomplete.`);
-				a.drawArrays(a.TRIANGLES, 0, 3);
+			i.activeTexture(i.TEXTURE0 + 14), i.bindSampler(14, null), i.bindTexture(i.TEXTURE_2D_ARRAY, s), n || i.texStorage3D(i.TEXTURE_2D_ARRAY, 1, i.RGBA8, a, a, 5), i.texParameteri(i.TEXTURE_2D_ARRAY, i.TEXTURE_MIN_FILTER, i.NEAREST), i.texParameteri(i.TEXTURE_2D_ARRAY, i.TEXTURE_MAG_FILTER, i.NEAREST), i.useProgram(this.opticalPackProgram), i.uniform1i(this.opticalPackSide, a), i.bindFramebuffer(i.FRAMEBUFFER, this.opticalPackFramebuffer), i.viewport(0, 0, a, a), i.disable(i.BLEND), i.disable(i.DEPTH_TEST), i.disable(i.CULL_FACE), i.disable(i.SCISSOR_TEST), i.disable(i.DITHER), i.bindVertexArray(this.triangleVAO), i.activeTexture(i.TEXTURE0), i.bindSampler(0, null);
+			for (let e = 0; e < 5; e++) {
+				let n = t[e];
+				if (!n) continue;
+				let r = this.cacheTexture(n);
+				if (r.seen = this.frame, i.bindTexture(i.TEXTURE_2D, r.resource), i.framebufferTextureLayer(i.FRAMEBUFFER, i.COLOR_ATTACHMENT0, s, 0, e), i.checkFramebufferStatus(i.FRAMEBUFFER) !== i.FRAMEBUFFER_COMPLETE) throw new require_errors.GraphicsError(`WebGL2 optical packing framebuffer is incomplete.`);
+				i.drawArrays(i.TRIANGLES, 0, 3);
 			}
 			this.opticalTextures.set(e, {
-				resource: c,
-				allocation: s,
+				resource: s,
+				allocation: o,
 				seen: this.frame,
-				side: o,
-				sourceVersions: i
-			}), s.touch();
+				side: a,
+				sourceVersions: r,
+				sources: t
+			}), o.touch();
 		} catch (e) {
-			throw a.deleteTexture(c), s.destroy(), e;
+			throw i.deleteTexture(s), o.destroy(), e;
 		} finally {
-			a.framebufferTextureLayer(a.FRAMEBUFFER, a.COLOR_ATTACHMENT0, null, 0, 0);
+			c && i.enable(i.DITHER), i.framebufferTextureLayer(i.FRAMEBUFFER, i.COLOR_ATTACHMENT0, null, 0, 0);
 		}
 	}
 	drawMeshes(e, t) {
@@ -691,43 +792,61 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			let e = this.postTarget;
 			this.prepareCoverageTarget(e.width, e.height, e.format), a.bindFramebuffer(a.FRAMEBUFFER, this.coverageTarget.framebuffer), a.colorMask(!0, !0, !0, !0), a.clear(a.COLOR_BUFFER_BIT | a.DEPTH_BUFFER_BIT);
 		}
-		if (this.temporalActive = !this.capturingProbe && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr), this.temporalActive) {
+		if (this.temporalActive = !this.capturingProbe && e.postProcessing.enabled && (e.postProcessing.taa || e.postProcessing.ssr || require_post_effects.getPostEffects(e.postProcessing)?.motionBlur?.enabled === !0), this.temporalActive) {
 			if (!this.floatColorBuffer || !this.postTarget?.depthTexture) throw new require_errors.GraphicsError(`TAA/SSR require native HDR color and sampleable opaque depth.`);
 			this.temporal ??= new require_webgl_temporal_pipeline.WebGLTemporalPipeline(a, this.stats), this.temporalState.begin(e, e.camera3D, this.postTarget.width, this.postTarget.height, e.postProcessing, t);
 		} else this.temporal?.releaseTarget(), this.temporalState.invalidate();
-		let s, c = require_render_data.activeBackground(e);
-		c && this.drawSky(e, t, c);
-		let l = this.temporalActive ? this.temporalState.currentVP.elements : e.camera3D.matrix.elements;
+		let o = require_contact_shadows.ContactShadows.get(e);
+		if (o && o.strength > 0) {
+			o.validate();
+			let t = a.getParameter(a.FRAMEBUFFER_BINDING), n = a.getParameter(a.VIEWPORT);
+			this.contactWidth = n[2], this.contactHeight = n[3], this.contactOffset = this.shadowTarget?.height ?? 0;
+			let r = Math.max(this.contactWidth, this.shadowTarget?.width ?? 0), i = this.contactHeight + this.contactOffset;
+			if (r > this.maxWidth || i > this.maxHeight) throw new require_errors.GraphicsError(`Contact camera depth atlas exceeds WebGL2 framebuffer limits.`);
+			try {
+				(!this.contactTarget || this.contactTarget.width !== r || this.contactTarget.height !== i) && (this.contactTarget && this.deleteTarget(this.contactTarget), this.contactTarget = this.createTarget(r, i, !0)), a.activeTexture(a.TEXTURE5), a.bindSampler(5, null), a.bindTexture(a.TEXTURE_2D, null), this.drawShadows(e, this.contactTarget), this.shadowTarget && (a.bindFramebuffer(a.READ_FRAMEBUFFER, this.shadowTarget.framebuffer), a.bindFramebuffer(a.DRAW_FRAMEBUFFER, this.contactTarget.framebuffer), a.blitFramebuffer(0, 0, this.shadowTarget.width, this.shadowTarget.height, 0, 0, this.shadowTarget.width, this.shadowTarget.height, a.DEPTH_BUFFER_BIT, a.NEAREST));
+			} finally {
+				a.bindFramebuffer(a.FRAMEBUFFER, t), a.viewport(n[0], n[1], n[2], n[3]), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA);
+			}
+		} else this.contactTarget &&= (this.deleteTarget(this.contactTarget), void 0);
+		let s, l = require_render_data.activeBackground(e);
+		l && this.drawSky(e, t, l);
+		let u = this.temporalActive ? this.temporalState.currentVP.elements : e.camera3D.matrix.elements;
 		require_render_data.fillFogData(e, this.fogData);
 		let d = e.camera3D.position;
-		a.bindBufferBase(a.UNIFORM_BUFFER, 0, this.shadowBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 1, this.sheenBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 2, this.brdfBuffer), a.activeTexture(a.TEXTURE5), a.bindSampler(5, null), a.bindTexture(a.TEXTURE_2D, this.shadowTarget?.texture ?? null), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.disable(a.CULL_FACE), a.activeTexture(a.TEXTURE0 + 15), a.bindSampler(15, null), a.bindTexture(a.TEXTURE_2D, this.refractionTarget?.texture ?? null), a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.emptyOptical);
-		let f = this.visibility.color, p = 2 + (this.weighted ? 2 : 0);
-		for (let t = 0; t < p; t++) {
-			let c = t >= 2 ? t - 2 + 1 : 0;
-			c && (a.bindFramebuffer(a.FRAMEBUFFER, (c === 1 ? this.oitAccumulation : this.oitRevealage).framebuffer), a.clearColor(c === 1 ? 0 : 1, c === 1 ? 0 : 1, c === 1 ? 0 : 1, c === 1 ? 0 : 1), a.clear(a.COLOR_BUFFER_BIT), a.depthMask(!1), a.blendFunc(c === 1 ? a.ONE : a.ZERO, c === 1 ? a.ONE : a.ONE_MINUS_SRC_ALPHA));
-			for (let u of f) {
-				let f = this.isColorBlended(u);
-				if (this.weighted && f !== c > 0 || !c && (f || u.material instanceof require_pbr_material.PBRMaterial && u.material.transmission > 0) !== (t === 1)) continue;
-				let p = u.material, h = p instanceof require_pbr_material.PBRMaterial;
-				if (h && p.alphaToCoverage ? (a.enable(a.SAMPLE_ALPHA_TO_COVERAGE), a.disable(a.BLEND), a.colorMask(!0, !0, !0, !1)) : (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0)), require_native_material3d.isNativeMaterial3D(p)) {
+		a.bindBufferBase(a.UNIFORM_BUFFER, 0, this.shadowBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 1, this.sheenBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 2, this.brdfBuffer), a.activeTexture(a.TEXTURE5), a.bindSampler(5, null), a.bindTexture(a.TEXTURE_2D, this.contactTarget?.texture ?? this.shadowTarget?.texture ?? null), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.disable(a.CULL_FACE), a.activeTexture(a.TEXTURE0 + 15), a.bindSampler(15, null), a.bindTexture(a.TEXTURE_2D, this.refractionTarget?.texture ?? null), a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.emptyOptical);
+		let p = this.visibility.color, m = 2 + (this.weighted ? 2 : 0);
+		for (let t = 0; t < m; t++) {
+			let o = t >= 2 ? t - 2 + 1 : 0;
+			o && (a.bindFramebuffer(a.FRAMEBUFFER, (o === 1 ? this.oitAccumulation : this.oitRevealage).framebuffer), a.clearColor(o === 1 ? 0 : 1, o === 1 ? 0 : 1, o === 1 ? 0 : 1, o === 1 ? 0 : 1), a.clear(a.COLOR_BUFFER_BIT), a.depthMask(!1), a.blendFunc(o === 1 ? a.ONE : a.ZERO, o === 1 ? a.ONE : a.ONE_MINUS_SRC_ALPHA));
+			for (let l of p) {
+				let f = this.isColorBlended(l);
+				if (this.weighted && f !== o > 0 || !o && (f || l.material instanceof require_pbr_material.PBRMaterial && l.material.transmission > 0) !== (t === 1)) continue;
+				let p = l.material, m = p instanceof require_pbr_material.PBRMaterial;
+				if (m && p.alphaToCoverage ? (a.enable(a.SAMPLE_ALPHA_TO_COVERAGE), a.disable(a.BLEND), a.colorMask(!0, !0, !0, !1)) : (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0)), require_native_material3d.isNativeMaterial3D(p)) {
 					let e = this.nativeMaterials.get(p);
 					if (!e || p.destroyed) throw new require_errors.GraphicsError(`Visible native 3D material must be explicitly prepared before rendering.`);
 					if (p.validate(), s = e.uniforms, a.useProgram(e.program), a.uniform4fv(s[`xyzUniforms[0]`], p.uniforms), !(p instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) a.uniform1i(s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(p)[e] ?? require_mesh.materialBaseTexture(p), e + 1);
-				} else s = this.meshUniforms, a.useProgram(this.meshProgram);
-				if (require_material_uv.fillMaterialUV(p, u.renderGeometry, this.materialUVData), a.uniform4fv(s[`materialCoordinates[0]`], this.materialUVData), a.uniformMatrix4fv(s.viewProjection, !1, l), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(u)), a.uniform4fv(s[`lighting[0]`], this.lightingData), a.uniform4fv(s[`fog[0]`], this.fogData), a.uniform3f(s.cameraPosition, d.x, d.y, d.z), a.uniform1i(s.linearOutput, +!!this.linear3D), a.uniform1i(s.image, 0), a.uniform1i(s.shadowMap, 5), a.uniform1i(s.environmentMap, 6), a.uniform1i(s.opaqueScene, 15), a.uniform1i(s.opticalMaps, 14), a.uniform1i(s.oitPass, c), a.uniform1f(s.meshFade, this.visibility.entries.get(u)?.fade ?? 1), a.uniform1i(s.tangentTexCoord, u.renderGeometry.tangentTexCoord), a.uniform1f(s.derivativeTangentSign, u.renderGeometry.tangentConvention === `gltf` ? -1 : 1), c || a.depthMask((this.visibility.entries.get(u)?.fade ?? 1) === 1 && !(require_native_material3d.isNativeMaterial3D(p) && p.transparent)), h) {
+				} else {
+					let t = this.meshProgramFor(p, l, e);
+					s = t.uniforms, a.useProgram(t.program);
+				}
+				require_baked_lighting.fillMeshIrradiance(l, this.bakedData, 0), a.uniform4fv(s[`bakedSH[0]`], this.bakedSH), a.uniform4fv(s.bakedParams, this.bakedParams), require_material_uv.fillMaterialUV(p, l.renderGeometry, this.materialUVData), a.uniform4fv(s[`materialCoordinates[0]`], this.materialUVData), a.uniformMatrix4fv(s.viewProjection, !1, u), require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(l)), a.uniform4fv(s[`lighting[0]`], this.lightingData), a.uniform4fv(s[`fog[0]`], this.fogData), a.uniform3f(s.cameraPosition, d.x, d.y, d.z), a.uniform1i(s.linearOutput, +!!this.linear3D), a.uniform1i(s.image, 0), a.uniform1i(s.shadowMap, 5), a.uniform1i(s.environmentMap, 6), a.uniform1i(s.opaqueScene, 15), a.uniform1i(s.opticalMaps, 14);
+				let h = require_contact_shadows.ContactShadows.get(e);
+				if (a.uniform4f(s.contactDimensions, this.contactWidth, this.contactHeight, this.contactOffset, 0), a.uniform4f(s.contactParams, h?.distance ?? 0, h?.thickness ?? 0, h?.bias ?? 0, h?.steps ?? 0), a.uniform1f(s.contactStrength, h?.strength ?? 0), a.uniformMatrix4fv(s.contactInvViewProjection, !1, this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert().elements), a.uniform1i(s.oitPass, o), a.uniform1f(s.meshFade, this.visibility.entries.get(l)?.fade ?? 1), a.uniform1i(s.tangentTexCoord, l.renderGeometry.tangentTexCoord), a.uniform1f(s.derivativeTangentSign, l.renderGeometry.tangentConvention === `gltf` ? -1 : 1), o || a.depthMask((this.visibility.entries.get(l)?.fade ?? 1) === 1 && !(require_native_material3d.isNativeMaterial3D(p) && p.transparent)), m) {
 					require_render_data.fillProbeBlendData(e, this.environmentData, 0, this.selectedProbes);
 					for (let e = 0; e < 5; e++) this.environmentData[e * 52 + 38] = this.probeMipCount - 1;
 					a.uniform4fv(s[`environment[0]`], this.environmentLightingData), a.uniform4fv(s[`probeData[0]`], this.probeData), a.activeTexture(a.TEXTURE6), a.bindSampler(6, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.probeTexture);
 				}
-				a.uniform1i(s.pbr, +!!h), a.uniform1i(s.doubleSided, h && !p.doubleSided ? 0 : 1), a.uniform1i(s.alphaMode, h ? p.alphaMode === `OPAQUE` ? 0 : p.alphaMode === `MASK` ? 1 : 2 : 2);
+				a.uniform1i(s.pbr, +!!m), a.uniform1i(s.doubleSided, m && !p.doubleSided ? 0 : 1), a.uniform1i(s.alphaMode, m ? p.alphaMode === `OPAQUE` ? 0 : p.alphaMode === `MASK` ? 1 : 2 : 2);
 				let _ = this.tintData;
-				if (_[0] = p.color[0], _[1] = p.color[1], _[2] = p.color[2], _[3] = p.opacity, a.uniform4fv(s.tint, _), a.uniform1i(s.receiveShadow, +!!u.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(p), 0, p.textureSampler), h) {
-					a.uniform4f(s.transmission, p.transmission, p.thickness, 1 / p.attenuationDistance, p.ior), a.uniform3f(s.attenuationColor, p.attenuationColor[0], p.attenuationColor[1], p.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, require_pbr_material.pbrTextureSources(p).transmissionTexture, p.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, require_pbr_material.pbrTextureSources(p).thicknessTexture, p.thicknessSampler, this.maxTextureAnisotropy), a.uniform4f(s.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), a.uniform4f(s.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.opticalTextures.get(p)?.resource ?? this.emptyOptical), a.uniform4f(s.specularColor, p.specularColor[0], p.specularColor[1], p.specularColor[2], p.ior === 0 ? 1 : ((p.ior - 1) / (p.ior + 1)) ** 2), a.uniform4f(s.specularParams, p.specular, +(p.ior === 0), +!!require_pbr_material.pbrTextureSources(p).specularTexture, +!!require_pbr_material.pbrTextureSources(p).specularColorTexture), a.uniform1i(s.specularMap, 7), a.uniform1i(s.specularColorMap, 8), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).specularTexture ?? require_mesh.materialBaseTexture(p), 7, p.specularSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).specularColorTexture ?? require_mesh.materialBaseTexture(p), 8, p.specularColorSampler), a.uniform4f(s.clearcoat, p.clearcoat, p.clearcoatRoughness, p.clearcoatNormalScale, 0), a.uniform4f(s.clearcoatMaps, +!!require_pbr_material.pbrTextureSources(p).clearcoatTexture, +!!require_pbr_material.pbrTextureSources(p).clearcoatRoughnessTexture, +!!require_pbr_material.pbrTextureSources(p).clearcoatNormalTexture, 0), a.uniform1i(s.clearcoatMap, 9), a.uniform1i(s.clearcoatRoughnessMap, 10), a.uniform1i(s.clearcoatNormalMap, 11), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatTexture ?? require_mesh.materialBaseTexture(p), 9, p.clearcoatSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(p), 10, p.clearcoatRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatNormalTexture ?? require_mesh.materialBaseTexture(p), 11, p.clearcoatNormalSampler), a.uniform4f(s.sheen, p.sheenColor[0], p.sheenColor[1], p.sheenColor[2], p.sheenRoughness), a.uniform4f(s.sheenMaps, +!!require_pbr_material.pbrTextureSources(p).sheenColorTexture, +!!require_pbr_material.pbrTextureSources(p).sheenRoughnessTexture, p.specularAntiAliasing, +!!p.alphaToCoverage), a.uniform1i(s.sheenColorMap, 12), a.uniform1i(s.sheenRoughnessMap, 13), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).sheenColorTexture ?? require_mesh.materialBaseTexture(p), 12, p.sheenColorSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).sheenRoughnessTexture ?? require_mesh.materialBaseTexture(p), 13, p.sheenRoughnessSampler), a.uniform4f(s.surface, p.metallic, p.roughness, p.normalScale, p.occlusionStrength), a.uniform4f(s.emission, p.emissive[0], p.emissive[1], p.emissive[2], p.alphaCutoff);
+				if (_[0] = p.color[0], _[1] = p.color[1], _[2] = p.color[2], _[3] = p.opacity, a.uniform4fv(s.tint, _), a.uniform1i(s.receiveShadow, +!!l.receiveShadow), this.bindMaterialTexture(require_mesh.materialBaseTexture(p), 0, p.textureSampler), m) {
+					a.uniform1i(s.metallicRoughnessMap, 1), a.uniform1i(s.normalMap, 2), a.uniform1i(s.occlusionMap, 3), a.uniform1i(s.emissiveMap, 4), a.uniform4f(s.transmission, p.transmission, p.thickness, 1 / p.attenuationDistance, p.ior), a.uniform3f(s.attenuationColor, p.attenuationColor[0], p.attenuationColor[1], p.attenuationColor[2]), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 0, require_pbr_material.pbrTextureSources(p).transmissionTexture, p.transmissionSampler, this.maxTextureAnisotropy), require_optical_maps.fillOpticalMapSettings(this.opticalSettings, 4, require_pbr_material.pbrTextureSources(p).thicknessTexture, p.thicknessSampler, this.maxTextureAnisotropy), a.uniform4f(s.transmissionMapSettings, this.opticalSettings[0], this.opticalSettings[1], this.opticalSettings[2], this.opticalSettings[3]), a.uniform4f(s.thicknessMapSettings, this.opticalSettings[4], this.opticalSettings[5], this.opticalSettings[6], this.opticalSettings[7]), require_optical_maps.fillMappedOpticalSettings(p, this.opticalSettings, 8, this.maxTextureAnisotropy), a.uniform4fv(s.anisotropyMapSettings, this.opticalSettings.subarray(8, 12)), a.uniform4fv(s.iridescenceMapSettings, this.opticalSettings.subarray(12, 16)), a.uniform4fv(s.iridescenceThicknessMapSettings, this.opticalSettings.subarray(16, 20)), a.uniform4fv(s.iridescenceThicknessRange, this.opticalSettings.subarray(20, 24)), a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.opticalTextures.get(p)?.resource ?? this.emptyOptical), a.uniform4f(s.specularColor, p.specularColor[0], p.specularColor[1], p.specularColor[2], p.ior === 0 ? 1 : ((p.ior - 1) / (p.ior + 1)) ** 2), a.uniform4f(s.specularParams, p.specular, +(p.ior === 0), +!!require_pbr_material.pbrTextureSources(p).specularTexture, +!!require_pbr_material.pbrTextureSources(p).specularColorTexture), a.uniform1i(s.specularMap, 7), a.uniform1i(s.specularColorMap, 8), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).specularTexture ?? require_mesh.materialBaseTexture(p), 7, p.specularSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).specularColorTexture ?? require_mesh.materialBaseTexture(p), 8, p.specularColorSampler), a.uniform4f(s.clearcoat, p.clearcoat, p.clearcoatRoughness, p.clearcoatNormalScale, 0), a.uniform4f(s.clearcoatMaps, +!!require_pbr_material.pbrTextureSources(p).clearcoatTexture, +!!require_pbr_material.pbrTextureSources(p).clearcoatRoughnessTexture, +!!require_pbr_material.pbrTextureSources(p).clearcoatNormalTexture, 0), a.uniform1i(s.clearcoatMap, 9), a.uniform1i(s.clearcoatRoughnessMap, 10), a.uniform1i(s.clearcoatNormalMap, 11), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatTexture ?? require_mesh.materialBaseTexture(p), 9, p.clearcoatSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatRoughnessTexture ?? require_mesh.materialBaseTexture(p), 10, p.clearcoatRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).clearcoatNormalTexture ?? require_mesh.materialBaseTexture(p), 11, p.clearcoatNormalSampler), a.uniform4f(s.sheen, p.sheenColor[0], p.sheenColor[1], p.sheenColor[2], p.sheenRoughness), a.uniform4f(s.sheenMaps, +!!require_pbr_material.pbrTextureSources(p).sheenColorTexture, +!!require_pbr_material.pbrTextureSources(p).sheenRoughnessTexture, p.specularAntiAliasing, +!!p.alphaToCoverage), a.uniform1i(s.sheenColorMap, 12), a.uniform1i(s.sheenRoughnessMap, 13), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).sheenColorTexture ?? require_mesh.materialBaseTexture(p), 12, p.sheenColorSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).sheenRoughnessTexture ?? require_mesh.materialBaseTexture(p), 13, p.sheenRoughnessSampler), a.uniform4f(s.surface, p.metallic, p.roughness, p.normalScale, p.occlusionStrength), a.uniform4f(s.emission, p.emissive[0], p.emissive[1], p.emissive[2], p.alphaCutoff);
 					let e = require_pbr_material.pbrEmissiveSlot(p);
 					a.uniform4i(s.maps, +!!require_pbr_material.pbrTextureSources(p).metallicRoughnessTexture, +!!require_pbr_material.pbrTextureSources(p).normalTexture, +!!require_pbr_material.pbrTextureSources(p).occlusionTexture, e.mode), a.uniform4f(s.finish0, p.finish.anisotropy, p.finish.anisotropyRotation, p.finish.iridescence, p.finish.iridescenceIor), a.uniform4f(s.finish1, p.finish.iridescence > 0 ? require_materials.iridescenceFilmRange.minNm + p.finish.iridescenceThickness * (require_materials.iridescenceFilmRange.maxNm - require_materials.iridescenceFilmRange.minNm) : 0, p.finish.subsurface, p.finish.dispersion, p.finish.heightScale), a.uniform4f(s.finish2, p.finish.wetness, p.finish.snow, p.finish.dirt, p.finish.damage), a.uniform4f(s.finish3, p.finish.detailStrength, p.finish.triplanar, p.finish.layerBlend, p.finish.lightmapStrength), a.uniform4f(s.finish4, p.finish.subsurfaceColor[0], p.finish.subsurfaceColor[1], p.finish.subsurfaceColor[2], p.finish.subsurfaceRadius), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).metallicRoughnessTexture ?? require_mesh.materialBaseTexture(p), 1, p.metallicRoughnessSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).normalTexture ?? require_mesh.materialBaseTexture(p), 2, p.normalSampler), this.bindMaterialTexture(require_pbr_material.pbrTextureSources(p).occlusionTexture ?? require_mesh.materialBaseTexture(p), 3, p.occlusionSampler), this.bindMaterialTexture(e.texture ?? require_mesh.materialBaseTexture(p), 4, e.sampler);
 				}
-				let b = this.visibility.entries.get(u)?.instances;
-				this.drawMesh(u, s, b), this.stats.draw(u.geometry.indices.length, b?.count ?? (u instanceof require_instanced_mesh.InstancedMesh ? u.count : 1));
+				let y = this.visibility.entries.get(l)?.instances;
+				this.drawMesh(l, s, y), this.stats.draw(l.geometry.indices.length, y?.count ?? (l instanceof require_instanced_mesh.InstancedMesh ? l.count : 1));
 			}
 			if (a.disable(a.SAMPLE_ALPHA_TO_COVERAGE), a.enable(a.BLEND), a.colorMask(!0, !0, !0, !0), t === 0 && this.occlusion?.draw(this.visibility.occlusionCandidates, this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix), t === 0 && this.coverageActive && (this.resolveCoverageTarget(), a.bindFramebuffer(a.FRAMEBUFFER, this.postTarget.framebuffer)), t === 0 && this.temporalActive && e.postProcessing.ssr) {
 				let t = this.temporal.applyOpaqueSSR(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, e.postProcessing);
@@ -738,7 +857,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 				a.bindFramebuffer(a.READ_FRAMEBUFFER, this.postTarget.framebuffer), a.bindFramebuffer(a.DRAW_FRAMEBUFFER, this.refractionTarget.framebuffer), a.blitFramebuffer(0, 0, e, t, 0, 0, e, t, a.COLOR_BUFFER_BIT, a.NEAREST), a.bindFramebuffer(a.FRAMEBUFFER, this.postTarget.framebuffer);
 			}
 		}
-		e.gpuParticleEmitters?.size && (this.weighted && a.bindFramebuffer(a.FRAMEBUFFER, this.postTarget.framebuffer), (this.particles3D ??= new require_webgl2_particles3d.WebGL2Particles3D(a, this.stats)).draw(e.gpuParticleEmitters, e.camera3D, t, this.linear3D)), this.weighted && this.resolveOIT(), a.depthMask(!0), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), f.length = 0;
+		e.gpuParticleEmitters?.size && (this.weighted && a.bindFramebuffer(a.FRAMEBUFFER, this.postTarget.framebuffer), (this.particles3D ??= new require_webgl2_particles3d.WebGL2Particles3D(a, this.stats)).draw(e.gpuParticleEmitters, e.camera3D, t, this.linear3D)), this.weighted && this.resolveOIT(), a.depthMask(!0), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), p.length = 0;
 	}
 	bindMaterialTexture(e, t, n) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`WebGL2 cannot render a destroyed material texture.`);
@@ -818,31 +937,32 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		}
 		return l.payload !== t && (l.version = l.colorVersion = -1, l.payload = t), l.allocation.resize(i.byteLength + (a?.byteLength ?? 0)), n.bindBuffer(n.ARRAY_BUFFER, l.buffer), l.matrixBytes !== i.byteLength && (n.bufferData(n.ARRAY_BUFFER, i.byteLength, n.DYNAMIC_DRAW), l.matrixBytes = i.byteLength, l.version = -1), l.version !== o && c > 0 && (n.bufferSubData(n.ARRAY_BUFFER, 0, i, 0, c * 16), this.stats.upload(c * 64)), l.version = o, a ? (l.colors || (l.colors = this.createBuffer(n)), n.bindBuffer(n.ARRAY_BUFFER, l.colors), l.colorBytes !== a.byteLength && (n.bufferData(n.ARRAY_BUFFER, a.byteLength, n.DYNAMIC_DRAW), l.colorBytes = a.byteLength, l.colorVersion = -1), l.colorVersion !== s && c > 0 && (n.bufferSubData(n.ARRAY_BUFFER, 0, a, 0, c * 3), this.stats.upload(c * 12)), l.colorVersion = s) : l.colors && (n.deleteBuffer(l.colors), l.colors = void 0, l.colorVersion = -1, l.colorBytes = 0), l.seen = this.frame, l;
 	}
-	drawShadows(e) {
-		let t = this.gl, a = this.atlas.size;
-		if (a > this.maxWidth || a > this.maxHeight) throw new require_errors.GraphicsError(`WebGL2 shadow map size ${a} exceeds this device's framebuffer limit.`);
-		if ((!this.shadowTarget || this.shadowTarget.width !== a) && (this.shadowTarget && this.deleteTarget(this.shadowTarget), this.shadowTarget = void 0, this.shadowTarget = this.createTarget(a, a, !0), this.shadowCache.invalidate()), !this.shadowCache.needsRender(e, this.atlas, this.visibility.shadows, this.visibility.entries, this.canvas.width, this.canvas.height)) {
+	drawShadows(e, t) {
+		let a = this.gl, o = this.atlas.size;
+		if (!t && (o > this.maxWidth || o > this.maxHeight)) throw new require_errors.GraphicsError(`WebGL2 shadow map size ${o} exceeds this device's framebuffer limit.`);
+		if (!t && (!this.shadowTarget || this.shadowTarget.width !== o) && (this.shadowTarget && this.deleteTarget(this.shadowTarget), this.shadowTarget = void 0, this.shadowTarget = this.createTarget(o, o, !0), this.shadowCache.invalidate()), !t && !this.shadowCache.needsRender(e, this.atlas, this.visibility.shadows, this.visibility.entries, this.canvas.width, this.canvas.height)) {
 			this.shadowCache.commit(), this.stats.shadowCacheHits++;
 			return;
 		}
-		this.stats.shadowPasses++;
-		let o = this.shadowUniforms;
-		t.bindFramebuffer(t.FRAMEBUFFER, this.shadowTarget.framebuffer), t.disable(t.SCISSOR_TEST), t.viewport(0, 0, a, a), t.disable(t.BLEND), t.enable(t.DEPTH_TEST), t.depthFunc(t.LESS), t.depthMask(!0), t.clearDepth(1), t.clear(t.DEPTH_BUFFER_BIT), t.useProgram(this.shadowProgram), t.enable(t.SCISSOR_TEST);
-		let s = e.shadows.mapSize;
-		for (let e = 0; e < this.atlas.count; e++) {
-			let a = e % this.atlas.grid * s, c = Math.floor(e / this.atlas.grid) * s;
-			t.viewport(a, c, s, s), t.scissor(a, c, s, s), t.uniformMatrix4fv(o.viewProjection, !1, this.atlas.matrices[e].elements), t.disable(t.CULL_FACE);
-			for (let a of this.visibility.shadows) {
-				let s = a.material, c = s instanceof require_pbr_material.PBRMaterial;
-				if (require_native_material3d.isNativeMaterial3D(s)) {
-					let e = this.nativeMaterials.get(s);
-					if (!e || s.destroyed) throw new require_errors.GraphicsError(`Shadow native 3D material must be explicitly prepared before rendering.`);
-					if (s.validate(), o = e.shadowUniforms, t.useProgram(e.shadow), t.uniform4fv(o[`xyzUniforms[0]`], s.uniforms), !(s instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) t.uniform1i(o[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(s)[e] ?? require_mesh.materialBaseTexture(s), e + 1);
-				} else o = this.shadowUniforms, t.useProgram(this.shadowProgram);
-				require_material_uv.fillMaterialUV(s, a.renderGeometry, this.materialUVData), t.uniform4fv(o[`materialCoordinates[0]`], this.materialUVData), t.uniformMatrix4fv(o.viewProjection, !1, this.atlas.matrices[e].elements), t.uniform1i(o.image, 0), t.uniform1f(o.alphaCutoff, c ? s.alphaCutoff : 0), t.uniform1f(o.opacity, s.opacity), t.uniform1f(o.meshFade, this.visibility.entries.get(a)?.fade ?? 1), t.uniform1i(o.doubleSided, c && !s.doubleSided ? 0 : 1), t.uniform1i(o.alphaMode, c ? s.alphaMode === `OPAQUE` ? 0 : s.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(s), 0, s.textureSampler), this.drawMesh(a, o), this.stats.shadowDrawCalls++;
+		t || this.stats.shadowPasses++;
+		let s = this.shadowUniforms;
+		a.bindFramebuffer(a.FRAMEBUFFER, (t ?? this.shadowTarget).framebuffer), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o, o), a.disable(a.BLEND), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.clearDepth(1), a.clear(a.DEPTH_BUFFER_BIT), a.useProgram(this.shadowProgram), a.enable(a.SCISSOR_TEST);
+		let c = e.shadows.mapSize;
+		for (let o = 0; o < (t ? 1 : this.atlas.count); o++) {
+			let l = t ? 0 : o % this.atlas.grid * c, u = t ? this.contactOffset : Math.floor(o / this.atlas.grid) * c, d = t ? this.contactWidth : c, f = t ? this.contactHeight : c;
+			a.viewport(l, u, d, f), a.scissor(l, u, d, f), a.uniformMatrix4fv(s.viewProjection, !1, (t ? this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix : this.atlas.matrices[o]).elements), a.disable(a.CULL_FACE);
+			for (let c of t ? this.visibility.color : this.visibility.shadows) {
+				if (t && (this.isColorBlended(c) || c.material instanceof require_pbr_material.PBRMaterial && c.material.transmission > 0)) continue;
+				let l = c.material, u = l instanceof require_pbr_material.PBRMaterial;
+				if (require_native_material3d.isNativeMaterial3D(l)) {
+					let e = this.nativeMaterials.get(l);
+					if (!e || l.destroyed) throw new require_errors.GraphicsError(`Shadow native 3D material must be explicitly prepared before rendering.`);
+					if (l.validate(), s = e.shadowUniforms, a.useProgram(e.shadow), a.uniform4fv(s[`xyzUniforms[0]`], l.uniforms), !(l instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) a.uniform1i(s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(l)[e] ?? require_mesh.materialBaseTexture(l), e + 1);
+				} else s = this.shadowUniforms, a.useProgram(this.shadowProgram);
+				require_material_uv.fillMaterialUV(l, c.renderGeometry, this.materialUVData), a.uniform4fv(s[`materialCoordinates[0]`], this.materialUVData), a.uniformMatrix4fv(s.viewProjection, !1, (t ? this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix : this.atlas.matrices[o]).elements), a.uniform1i(s.image, 0), a.uniform1f(s.alphaCutoff, u ? l.alphaCutoff : 0), a.uniform1f(s.opacity, l.opacity), a.uniform1f(s.meshFade, this.visibility.entries.get(c)?.fade ?? 1), a.uniform1i(s.doubleSided, u && !l.doubleSided ? 0 : 1), a.uniform1i(s.alphaMode, u ? l.alphaMode === `OPAQUE` ? 0 : l.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(l), 0, l.textureSampler), this.drawMesh(c, s), t ? this.stats.draw(c.renderGeometry.indices.length, c instanceof require_instanced_mesh.InstancedMesh ? c.count : 1) : this.stats.shadowDrawCalls++;
 			}
 		}
-		t.disable(t.SCISSOR_TEST), this.shadowCache.commit();
+		a.disable(a.SCISSOR_TEST), t || this.shadowCache.commit();
 	}
 	prepareCoverageTarget(e, t, n) {
 		let r = this.gl, i = n === `hdr` ? this.coverageCapabilities.hdrSamples : this.coverageCapabilities.rgba8Samples;
@@ -934,10 +1054,37 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		n !== void 0 && (this.stats.target(-n), this.targetBytes.delete(e)), t.deleteFramebuffer(e.framebuffer), t.deleteTexture(e.texture), e.depth && t.deleteRenderbuffer(e.depth), e.depthTexture && t.deleteTexture(e.depthTexture);
 	}
 	drawPost(e, t) {
-		let n = this.gl, r = e.postProcessing, i = r.enabled, a = i && r.fxaa, o = this.temporalActive && r.taa ? this.temporal.applyTAA(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, r).texture : this.postTarget.texture;
-		a ? (!this.fxaaTarget || this.fxaaTarget.width !== this.postTarget.width || this.fxaaTarget.height !== this.postTarget.height) && (this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0, this.fxaaTarget = this.createTarget(this.postTarget.width, this.postTarget.height, !1, `rgba8`, !1)) : this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), n.bindFramebuffer(n.FRAMEBUFFER, a ? this.fxaaTarget.framebuffer : t), n.disable(n.BLEND), n.disable(n.DEPTH_TEST), n.disable(n.CULL_FACE), n.useProgram(this.postProgram), n.bindVertexArray(this.triangleVAO), n.activeTexture(n.TEXTURE0), n.bindSampler(0, null), n.bindTexture(n.TEXTURE_2D, o), n.uniform4f(this.postUniforms.settings, i ? r.exposure : 1, i ? r.bloomStrength : 0, r.bloomThreshold, r.bloomRadius), n.uniform1i(this.postUniforms.aces, i && r.toneMapping === `aces` ? 1 : 0), n.activeTexture(n.TEXTURE1), n.bindSampler(1, null), n.bindTexture(n.TEXTURE_2D, this.postTarget.depthTexture), n.uniform1i(this.postUniforms.depthImage, 1), this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert(), n.uniformMatrix4fv(this.postUniforms.inverseVP, !1, this.invViewProjection.elements);
-		let s = e.camera3D, c = s.matrix.elements;
-		n.uniform4f(this.postUniforms.clip, s.near, s.far, +(s instanceof require_orthographic_camera.OrthographicCamera), Math.hypot(c[1], c[5], c[9])), n.uniform4f(this.postUniforms.ssao, i && r.ssao ? 1 : 0, r.ssaoRadius, r.ssaoStrength, r.ssaoBias), n.uniform4f(this.postUniforms.dof, i && r.depthOfField ? 1 : 0, r.dofFocusDistance, r.dofFocusRange, r.dofBlurRadius), n.activeTexture(n.TEXTURE0), n.drawArrays(n.TRIANGLES, 0, 3), a && (n.bindFramebuffer(n.FRAMEBUFFER, t), n.useProgram(this.fxaaProgram), n.bindTexture(n.TEXTURE_2D, this.fxaaTarget.texture), n.drawArrays(n.TRIANGLES, 0, 3)), this.temporalActive && this.temporalState.commit();
+		let n = this.gl, r = e.postProcessing, i = r.enabled, a = require_post_effects.getPostEffects(r);
+		a?.validate();
+		let o = a?.toneMapper ?? r.toneMapping, s = i && r.fxaa, c = this.temporalActive && r.taa ? this.temporal.applyTAA(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, r).texture : this.postTarget.texture;
+		s ? (!this.fxaaTarget || this.fxaaTarget.width !== this.postTarget.width || this.fxaaTarget.height !== this.postTarget.height) && (this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0, this.fxaaTarget = this.createTarget(this.postTarget.width, this.postTarget.height, !1, `rgba8`, !1)) : this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), n.bindFramebuffer(n.FRAMEBUFFER, s ? this.fxaaTarget.framebuffer : t), n.disable(n.BLEND), n.disable(n.DEPTH_TEST), n.disable(n.CULL_FACE), n.useProgram(this.postProgram), n.bindVertexArray(this.triangleVAO), n.activeTexture(n.TEXTURE0), n.bindSampler(0, null), n.bindTexture(n.TEXTURE_2D, c), n.uniform4f(this.postUniforms.settings, i ? r.exposure : 1, i ? r.bloomStrength : 0, r.bloomThreshold, r.bloomRadius), n.uniform1i(this.postUniforms.toneOperator, i ? o === `aces` ? 1 : o === `agx` ? 2 : o === `reinhard` ? 3 : o === `neutral` ? 4 : 0 : 0);
+		let l = a?.colorGrading?.lut;
+		if (n.activeTexture(n.TEXTURE2), n.bindSampler(2, null), !this.gradingTexture) {
+			let e = n.createTexture();
+			if (!e) throw new require_errors.GraphicsError(`Could not allocate LUT texture.`);
+			this.gradingTexture = e;
+			try {
+				$.set(this, this.residency.textures.allocate(4, () => {
+					n.deleteTexture(e), this.gradingTexture = void 0, this.gradingLUT = null, $.delete(this);
+				}));
+			} catch (t) {
+				throw n.deleteTexture(e), this.gradingTexture = void 0, t;
+			}
+		}
+		if (n.bindTexture(n.TEXTURE_2D, this.gradingTexture), this.gradingLUT !== l) {
+			let e = l?.size ?? 1;
+			$.get(this).resize(e * e * e * 4), n.texImage2D(n.TEXTURE_2D, 0, n.RGBA8, e * e, e, 0, n.RGBA, n.UNSIGNED_BYTE, l?.strip ?? new Uint8Array([
+				255,
+				255,
+				255,
+				255
+			])), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MAG_FILTER, n.NEAREST), this.gradingLUT = l;
+		}
+		$.get(this).touch(), n.uniform1i(this.postUniforms.lutImage, 2), n.uniform2f(this.postUniforms.grading, l?.size ?? 1, i ? a?.colorGrading?.strength ?? 0 : 0), n.activeTexture(n.TEXTURE1), n.bindSampler(1, null), n.bindTexture(n.TEXTURE_2D, this.postTarget.depthTexture), n.uniform1i(this.postUniforms.depthImage, 1), this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert(), n.uniformMatrix4fv(this.postUniforms.inverseVP, !1, this.invViewProjection.elements);
+		let u = e.camera3D, d = u.matrix.elements;
+		n.uniform4f(this.postUniforms.clip, u.near, u.far, +(u instanceof require_orthographic_camera.OrthographicCamera), Math.hypot(d[1], d[5], d[9])), n.uniform4f(this.postUniforms.ssao, i && r.ssao ? 1 : 0, r.ssaoRadius, r.ssaoStrength, r.ssaoBias), n.uniform4f(this.postUniforms.dof, i && r.depthOfField ? 1 : 0, r.dofFocusDistance, r.dofFocusRange, r.dofBlurRadius), require_volumetric_post.writeVolumetricUniforms(this.volumetricData, 0, e);
+		let f = a?.lensFlare;
+		n.uniform4f(this.postUniforms.flare, i && f?.enabled ? f.strength : 0, f?.threshold ?? 1, f?.ghosts ?? 1, f?.spacing ?? 1), n.uniform4f(this.postUniforms.halo, f?.haloRadius ?? .3, f?.haloWidth ?? .15, 0, 0), n.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4), n.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4), n.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4), n.uniform4fv(this.postUniforms.shaftColor, this.volumetricData, 12, 4), require_motion_blur_post.writeMotionBlurUniforms(this.motionData, 0, r, this.temporalActive ? this.temporalState : void 0), n.uniformMatrix4fv(this.postUniforms.previousVP, !1, this.motionData, 0, 16), n.uniform4fv(this.postUniforms.blur, this.motionData, 16, 4), n.activeTexture(n.TEXTURE0), n.drawArrays(n.TRIANGLES, 0, 3), s && (n.bindFramebuffer(n.FRAMEBUFFER, t), n.useProgram(this.fxaaProgram), n.bindTexture(n.TEXTURE_2D, this.fxaaTarget.texture), n.drawArrays(n.TRIANGLES, 0, 3)), this.temporalActive && this.temporalState.commit();
 	}
 	decodeColor(e) {
 		return e <= .04045 ? e / 12.92 : ((e + .055) / 1.055) ** 2.4;
@@ -1088,7 +1235,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			for (let e of this.meshSkins.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 		}
 		for (let [e, t] of this.environments) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
-		for (let [e, t] of this.opticalTextures) (require_pbr_material.pbrTextureSources(e).transmissionTexture?.destroyed || require_pbr_material.pbrTextureSources(e).thicknessTexture?.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		for (let e of this.opticalTextures.values()) (e.sources.some((e) => e?.destroyed) || this.residency.textures.budgetBytes === 1 / 0 && e.seen !== this.frame && !e.allocation.references) && e.allocation.destroy();
 	}
 	createBuffer(e) {
 		let t = e.createBuffer();
@@ -1100,22 +1247,60 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 		if (!t) throw new require_errors.WebGL2InitializationError(`WebGL2 could not allocate a vertex array.`);
 		return t;
 	}
-	createProgram(e, t, n, r) {
-		let i = [], a = null;
+	meshProgramFor(e, t, n) {
+		let r = this.requireGL(), i = require_mesh_shader_variants.meshShaderFeatures(e, t, n), a = require_mesh_shader_variants.meshShaderVariantKey(i), c = this.meshPrograms.get(a);
+		if (c) return this.meshPrograms.delete(a), this.meshPrograms.set(a, c), c;
+		let l = this.createProgram(r, require_webgl_feature_shaders.buildMeshVertex(), require_webgl_feature_shaders.buildMeshFragment(i), `mesh ${a}`);
 		try {
-			for (let [a, o] of [[e.VERTEX_SHADER, t], [e.FRAGMENT_SHADER, n]]) {
-				let t = e.createShader(a);
-				if (!t) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} shader allocation failed.`);
-				if (i.push(t), e.shaderSource(t, o), e.compileShader(t), !e.getShaderParameter(t, e.COMPILE_STATUS)) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} ${a === e.VERTEX_SHADER ? `vertex` : `fragment`} shader compilation failed: ${e.getShaderInfoLog(t) || `unknown error`}`);
+			let e = {};
+			for (let t of Q) e[t] = r.getUniformLocation(l, t);
+			for (let [e, t] of [
+				[`ShadowData`, 0],
+				[`SheenLookup`, 1],
+				[`GGXLookup`, 2]
+			]) {
+				let n = r.getUniformBlockIndex(l, e);
+				n !== r.INVALID_INDEX && r.uniformBlockBinding(l, n, t);
 			}
-			if (a = e.createProgram(), !a) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} program allocation failed.`);
-			for (let t of i) e.attachShader(a, t);
-			if (e.linkProgram(a), !e.getProgramParameter(a, e.LINK_STATUS)) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} program linking failed: ${e.getProgramInfoLog(a) || `unknown error`}`);
-			return a;
+			r.useProgram(l), r.uniform1i(e.image, 0), r.uniform1i(e.metallicRoughnessMap, 1), r.uniform1i(e.normalMap, 2), r.uniform1i(e.occlusionMap, 3), r.uniform1i(e.emissiveMap, 4), r.uniform1i(e.shadowMap, 5), r.uniform1i(e.environmentMap, 6);
+			let t = {
+				program: l,
+				uniforms: e
+			};
+			if (this.meshPrograms.set(a, t), this.meshPrograms.size > require_rendering.meshShaderVariantLimits.maxEntries) {
+				let e = this.meshPrograms.entries().next().value;
+				e && (this.meshPrograms.delete(e[0]), r.deleteProgram(e[1].program));
+			}
+			return t;
+		} catch (e) {
+			throw r.deleteProgram(l), e;
+		}
+	}
+	async waitForProgram(e, t, n) {
+		let r = this.parallelCompile;
+		for (;;) {
+			if (this.requireGL(), !this.pendingPrograms.has(t)) throw new require_errors.GraphicsError(`WebGL2 native program preparation was cancelled.`);
+			if (!r || e.getProgramParameter(t, r.COMPLETION_STATUS_KHR)) break;
+			await new Promise((e) => setTimeout(e, 0));
+		}
+		if (!e.getProgramParameter(t, e.LINK_STATUS)) throw new require_errors.WebGL2InitializationError(`WebGL2 ${n} program linking failed: ${e.getProgramInfoLog(t) || `unknown error`}`);
+	}
+	createProgram(e, t, n, r, i = !1) {
+		let a = [], o = null;
+		try {
+			for (let [o, s] of [[e.VERTEX_SHADER, t], [e.FRAGMENT_SHADER, n]]) {
+				let t = e.createShader(o);
+				if (!t) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} shader allocation failed.`);
+				if (a.push(t), e.shaderSource(t, s), e.compileShader(t), !i && !e.getShaderParameter(t, e.COMPILE_STATUS)) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} ${o === e.VERTEX_SHADER ? `vertex` : `fragment`} shader compilation failed: ${e.getShaderInfoLog(t) || `unknown error`}`);
+			}
+			if (o = e.createProgram(), !o) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} program allocation failed.`);
+			for (let t of a) e.attachShader(o, t);
+			if (e.linkProgram(o), !i && !e.getProgramParameter(o, e.LINK_STATUS)) throw new require_errors.WebGL2InitializationError(`WebGL2 ${r} program linking failed: ${e.getProgramInfoLog(o) || `unknown error`}`);
+			return o;
 		} catch (t) {
-			throw a && e.deleteProgram(a), t;
+			throw o && e.deleteProgram(o), t;
 		} finally {
-			for (let t of i) e.deleteShader(t);
+			for (let t of a) e.deleteShader(t);
 		}
 	}
 	destroy() {
@@ -1136,16 +1321,19 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.meshProgram = thi
 			for (let t of this.visibleMeshInstances.values()) e.deleteBuffer(t.buffer), t.colors && e.deleteBuffer(t.colors);
 			for (let t of this.meshSkins.values()) e.deleteBuffer(t.indices), e.deleteBuffer(t.weights), e.deleteTexture(t.palette);
 			for (let t of this.samplers.values()) e.deleteSampler(t);
-			this.shadowTarget && this.deleteTarget(this.shadowTarget), this.shadowBuffer && e.deleteBuffer(this.shadowBuffer), this.sheenBuffer && e.deleteBuffer(this.sheenBuffer), this.brdfBuffer && e.deleteBuffer(this.brdfBuffer), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.emptyOptical && e.deleteTexture(this.emptyOptical), this.opticalPackProgram && e.deleteProgram(this.opticalPackProgram), this.opticalPackFramebuffer && e.deleteFramebuffer(this.opticalPackFramebuffer);
+			this.shadowTarget && this.deleteTarget(this.shadowTarget), this.contactTarget && this.deleteTarget(this.contactTarget), this.shadowBuffer && e.deleteBuffer(this.shadowBuffer), this.sheenBuffer && e.deleteBuffer(this.sheenBuffer), this.brdfBuffer && e.deleteBuffer(this.brdfBuffer), this.refractionTarget && this.deleteTarget(this.refractionTarget), this.emptyOptical && e.deleteTexture(this.emptyOptical), this.opticalPackProgram && e.deleteProgram(this.opticalPackProgram), this.opticalPackFramebuffer && e.deleteFramebuffer(this.opticalPackFramebuffer);
 			for (let t of this.opticalTextures.values()) e.deleteTexture(t.resource);
-			this.postTarget && this.deleteTarget(this.postTarget), this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaProgram && e.deleteProgram(this.fxaaProgram), this.shadowProgram && e.deleteProgram(this.shadowProgram), this.postProgram && e.deleteProgram(this.postProgram), this.triangleVAO && e.deleteVertexArray(this.triangleVAO), this.triangleProgram && e.deleteProgram(this.triangleProgram), this.meshProgram && e.deleteProgram(this.meshProgram), this.skyProgram && e.deleteProgram(this.skyProgram), this.skyVAO && e.deleteVertexArray(this.skyVAO);
+			this.postTarget && this.deleteTarget(this.postTarget), this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaProgram && e.deleteProgram(this.fxaaProgram), this.shadowProgram && e.deleteProgram(this.shadowProgram), this.postProgram && e.deleteProgram(this.postProgram), this.triangleVAO && e.deleteVertexArray(this.triangleVAO), this.triangleProgram && e.deleteProgram(this.triangleProgram);
+			for (let t of this.meshPrograms.values()) e.deleteProgram(t.program);
+			for (let t of this.pendingPrograms) e.deleteProgram(t);
+			this.skyProgram && e.deleteProgram(this.skyProgram), this.skyVAO && e.deleteVertexArray(this.skyVAO);
 			for (let t of this.environments.values()) e.deleteTexture(t.resource);
 		}
-		this.textures.clear(), this.geometries.clear(), this.meshInstances.clear(), this.visibleMeshInstances.clear(), this.meshSkins.clear(), this.environments.clear(), this.samplers.clear(), this.opticalTextures.clear(), this.snapshots.clear(), this.materials.clear(), this.processors.clear(), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0, this.shadowTarget = void 0, this.postTarget = void 0, this.refractionTarget = void 0, this.fxaaTarget = void 0, this.render2D = void 0, this.commands.destroy(), this.gl = void 0, this.canvas = void 0, this.activeFrame = !1;
+		this.meshPrograms.clear(), this.pendingPrograms.clear(), this.nativePreparations.clear(), this.parallelCompile = null, this.textures.clear(), this.geometries.clear(), this.meshInstances.clear(), this.visibleMeshInstances.clear(), this.meshSkins.clear(), this.environments.clear(), this.samplers.clear(), this.opticalTextures.clear(), this.snapshots.clear(), this.materials.clear(), this.processors.clear(), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0, this.shadowTarget = void 0, this.contactTarget = void 0, this.postTarget = void 0, this.refractionTarget = void 0, this.fxaaTarget = void 0, this.render2D = void 0, this.commands.destroy(), this.gl = void 0, this.canvas = void 0, this.activeFrame = !1;
 	}
 	requireGL() {
 		if (this.lostError) throw this.lostError;
-		if (this.destroyed || !this.gl || !this.meshProgram) throw new require_errors.GraphicsError(`WebGL2 renderer is not initialized or has already been destroyed.`);
+		if (this.destroyed || !this.gl) throw new require_errors.GraphicsError(`WebGL2 renderer is not initialized or has already been destroyed.`);
 		return this.gl;
 	}
 };

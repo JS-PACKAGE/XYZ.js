@@ -1,3 +1,4 @@
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
@@ -18,6 +19,7 @@ import type { ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
 import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
 export declare class WebGPURenderer implements Renderer {
@@ -38,6 +40,7 @@ export declare class WebGPURenderer implements Renderer {
     dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
     readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void>;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     configureResidency(options: ResidencyBudgetOptions): void;
     retainFrameResources(): PreparedResourceLease;
@@ -67,6 +70,7 @@ export declare class WebGPURenderer implements Renderer {
     private render2D;
     private effectsPipeline;
     private captureOutput;
+    private xrOutput;
     private meshPipeline;
     private readonly commands;
     private readonly textures;
@@ -106,6 +110,8 @@ export declare class WebGPURenderer implements Renderer {
     unloadTexture(source: Texture2DSource): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     beginFrame(): void;
+    initializeXR(): Promise<XRRendererBinding>;
+    renderXRView(scene: Scene, destination: XRRenderTarget): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     endFrame(publishFrame?: boolean): void;
     resize(width: number, height: number): void;

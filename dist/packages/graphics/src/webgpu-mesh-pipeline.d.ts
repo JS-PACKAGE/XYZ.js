@@ -10,15 +10,13 @@ import type { Texture2DSource } from '../../assets/src/index.js';
 import type { FrameStats } from './render-stats.js';
 import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
     private readonly opticalPackLayout;
     private readonly transmissionPack;
     private readonly thicknessPack;
-    private readonly pipeline;
-    private readonly hdrPipeline;
-    private readonly oitPipeline;
     private readonly shadowPipeline;
     private readonly skyPipeline;
     private readonly skyHdrPipeline;
@@ -31,8 +29,6 @@ export declare class WebGPUMeshPipeline {
     private readonly residency;
     private readonly pipelineRecipes;
     private readonly particles;
-    private readonly fadedPipeline;
-    private readonly fadedHdrPipeline;
     private readonly geometries;
     private textureEpoch;
     private readonly nativeMaterials;
@@ -53,7 +49,9 @@ export declare class WebGPUMeshPipeline {
     private readonly textures;
     private readonly premultipliedTextures;
     private readonly samplers;
-    private readonly coveragePipelines;
+    private readonly meshPipelines;
+    private readonly pendingMeshPipelines;
+    private renderScene?;
     private readonly draws;
     /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
     private readonly visibleDraws;
@@ -118,6 +116,15 @@ export declare class WebGPUMeshPipeline {
     private depthView;
     private depthWidth;
     private depthHeight;
+    private contactTexture;
+    private contactView;
+    private contactWidth;
+    private contactHeight;
+    private contactProjection;
+    private contactProjectionGroup;
+    private contactDepthBuffer;
+    private contactDepthCopy;
+    private contactDepthCopyGroup;
     private msaaTexture;
     private msaaView;
     private msaaFormat;
@@ -146,6 +153,7 @@ export declare class WebGPUMeshPipeline {
     private ensureEnvironment;
     prepareEnvironment(map: EnvironmentMap): void;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
+    capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void>;
     invalidateTemporalHistory(): void;
     prepareGeometry(geometry: Geometry): ResidencyAllocation;
     unloadGeometry(geometry: Geometry): void;
@@ -153,9 +161,14 @@ export declare class WebGPUMeshPipeline {
     prepareGpuParticles(emitter: GPUParticleEmitter3D): void;
     afterSubmit(): void;
     prepareMesh(mesh: Mesh): void;
+    /** Warms one ordinary mesh pass without blocking subsequent synchronous draws. */
+    prepareMeshAsync(mesh: Mesh, scene?: Scene, variant?: number): Promise<void>;
+    private meshPipelineEntry;
     unloadTexture(texture: Texture2DSource): void;
     private uploadEnvironment;
     private reflectionGroup;
+    private releaseContactDepth;
+    private captureContactDepth;
     private renderShadows;
     private drawMesh;
     /** White RGBA storage also serves the RGB instance layout (every component is one). */

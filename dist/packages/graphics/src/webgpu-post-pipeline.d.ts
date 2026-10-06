@@ -1,7 +1,12 @@
 import type { PostProcessingSettings } from '../../core/src/render-settings.js';
+import type { Scene } from '../../core/src/scene.js';
+import type { TemporalPostState } from './temporal-post.js';
 import { type Camera3D } from '../../core/src/orthographic-camera.js';
 import type { Matrix4 } from '../../math/src/index.js';
+import type { ResidencyPool } from './residency.js';
 import type { FrameStats } from './render-stats.js';
+/** Registers internal LUT accounting without changing the published class ABI. */
+export declare function registerPostLUTResidency(pipeline: WebGPUPostPipeline, pool: ResidencyPool): void;
 /** A linear rgba16float scene target, resolved before the 2D overlay. */
 export declare class WebGPUPostPipeline {
     private readonly device;
@@ -12,6 +17,7 @@ export declare class WebGPUPostPipeline {
     private texture;
     private view;
     private bindGroup;
+    private depthView;
     private buffer;
     private fxaaTexture;
     private fxaaView;
@@ -19,6 +25,8 @@ export declare class WebGPUPostPipeline {
     private readonly fxaaSampler;
     private width;
     private height;
+    private lutTexture;
+    private lut;
     private readonly data;
     private readonly attachment;
     private readonly descriptor;
@@ -29,8 +37,9 @@ export declare class WebGPUPostPipeline {
     get colorTexture(): GPUTexture;
     private ensureFxaa;
     private releaseFxaa;
-    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4, source?: GPUTexture, depth?: GPUTextureView): void;
+    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4, source?: GPUTexture, depth?: GPUTextureView, scene?: Scene, temporalState?: TemporalPostState): void;
     resize(width: number, height: number): void;
     releaseTarget(): void;
+    private ensureLUT;
     destroy(): void;
 }

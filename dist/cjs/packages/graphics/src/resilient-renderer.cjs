@@ -214,6 +214,11 @@ var ResilientRenderer = class {
 		if (!i.captureReflectionProbe) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support reflection capture.`);
 		return i.captureReflectionProbe(e, t, n);
 	}
+	async capturePlanarReflection(e, t) {
+		let n = this.requireReady();
+		if (!n.capturePlanarReflection) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support planar reflection capture.`);
+		return n.capturePlanarReflection(e, t);
+	}
 	async prepareGpuParticles(e) {
 		let t = this.requireReady();
 		if (!t.prepareGpuParticles) throw new require_errors.UnsupportedGraphicsError(`This renderer does not support GPU particle preparation.`);

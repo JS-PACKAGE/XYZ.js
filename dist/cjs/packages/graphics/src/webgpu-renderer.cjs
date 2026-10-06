@@ -2,6 +2,7 @@ const require_defaults = require("../../../src/data/defaults.cjs");
 const require_errors = require("./errors.cjs");
 const require_native_texture = require("../../assets/src/native-texture.cjs");
 const require_material2d = require("../../core/src/materials2d/material2d.cjs");
+const require_mesh = require("../../core/src/mesh.cjs");
 const require_geometry2d = require("../../core/src/rendering2d/geometry2d.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_native_material3d = require("../../core/src/native-material3d.cjs");
@@ -46,6 +47,15 @@ var WebGPURenderer = class {
 	async prepareRenderGraph(e, t) {
 		return this.requireDevice(), this.graphs.prepare(e, t);
 	}
+	async capturePlanarReflection(e, t) {
+		if (this.requireDevice(), this.probeCaptureActive || this.encoder) throw new require_errors.GraphicsError(`Planar capture requires an idle renderer and capture slot.`);
+		this.probeCaptureActive = !0;
+		try {
+			await this.meshPipeline.capturePlanarReflection(e, t), this.requireDevice();
+		} finally {
+			this.probeCaptureActive = !1;
+		}
+	}
 	async captureReflectionProbe(e, t, n = {}) {
 		if (this.requireDevice(), this.probeCaptureActive || this.encoder && this.frameRendered) throw new require_errors.GraphicsError(`Capture requires an idle capture slot and must precede rendering or follow endFrame.`);
 		this.probeCaptureActive = !0;
@@ -78,12 +88,12 @@ var WebGPURenderer = class {
 		e instanceof require_geometry2d.Geometry2D ? this.render2D.unloadGeometry(e) : this.meshPipeline.unloadGeometry(e);
 		for (let e of this.preparedGeometry) e.destroyed && this.preparedGeometry.delete(e);
 	}
-	async prepareResource(e, t) {
-		let n = this.requireDevice();
+	async prepareResource(t, n) {
+		let r = this.requireDevice();
 		if (this.encoder) throw new require_errors.GraphicsError(`Cannot prepare resources during an active frame.`);
-		return require_preparation.prepareNativeResource(this.residency, e, {
+		return require_preparation.prepareNativeResource(this.residency, t, {
 			texture: (e) => {
-				e.kind === `render` ? this.render2D.source(e) : this.cacheTexture(n, e);
+				e.kind === `render` ? this.render2D.source(e) : this.cacheTexture(r, e);
 			},
 			geometry: (e) => {
 				e instanceof require_geometry2d.Geometry2D ? this.render2D.prepareGeometry(e) : this.meshPipeline.prepareGeometry(e);
@@ -92,8 +102,8 @@ var WebGPURenderer = class {
 			particles: (e) => {
 				this.render2D.prepareParticles(e);
 				for (let t = 0; t < e.activeCount; t++) {
-					let r = e.getSlot(e.activeSlotAt(t)).texture;
-					r.kind === `render` ? this.render2D.source(r) : this.cacheTexture(n, r);
+					let n = e.getSlot(e.activeSlotAt(t)).texture;
+					n.kind === `render` ? this.render2D.source(n) : this.cacheTexture(r, n);
 				}
 			},
 			environment: (e) => this.meshPipeline.prepareEnvironment(e),
@@ -101,9 +111,9 @@ var WebGPURenderer = class {
 			gpuParticles: (e) => this.prepareGpuParticles(e),
 			post: (e) => this.preparePostProcessor(e),
 			complete: async () => {
-				await n.queue.onSubmittedWorkDone(), this.requireDevice();
+				t instanceof require_mesh.Mesh && !require_native_material3d.isNativeMaterial3D(t.material) && await this.meshPipeline.prepareMeshAsync(t), await r.queue.onSubmittedWorkDone(), this.requireDevice();
 			}
-		}, t);
+		}, n);
 	}
 	get stats() {
 		return this.frameStats;
@@ -130,6 +140,7 @@ var WebGPURenderer = class {
 	render2D;
 	effectsPipeline;
 	captureOutput;
+	xrOutput;
 	meshPipeline;
 	commands = new require_render2d_contract.RenderCommandBuffer2D();
 	textures = /* @__PURE__ */ new Map();
@@ -199,7 +210,7 @@ var WebGPURenderer = class {
 			this.context = a, this.canvas = e, this.resize(Math.max(e.width, 1), Math.max(e.height, 1));
 			let o = navigator.gpu.getPreferredCanvasFormat();
 			this.compute = new require_webgpu_compute.WebGPUCompute(i), this.graphs = new require_webgpu_render_graph.WebGPURenderGraph(i, o), i.pushErrorScope(`validation`);
-			let l = [], g, _, y = null;
+			let l = [], g, _, v = null;
 			try {
 				a.configure({
 					device: i,
@@ -254,11 +265,11 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 					this.effectsPipeline = t, await t.initialize(), this.render2D = await require_webgpu_render2d.WebGPURender2D.create(i, t, this.render2DHooks), _ = await require_webgpu_mesh_pipeline.WebGPUMeshPipeline.initialize(i, o, () => this.destroyed, this.antialias ? require_rendering.materialQuality.samples : 1, this.frameStats, this.residency);
 				}
 			} finally {
-				y = await i.popErrorScope();
+				v = await i.popErrorScope();
 			}
 			if (this.destroyed) throw new require_errors.GraphicsError(`WebGPU renderer was destroyed during initialization.`);
 			if (l.length) throw new require_errors.WebGPUInitializationError(`WebGPU shader compilation failed: ${l.join(`; `)}`);
-			if (y) throw new require_errors.WebGPUInitializationError(`WebGPU canvas/shader/pipeline validation failed: ${y.message}`, { cause: y });
+			if (v) throw new require_errors.WebGPUInitializationError(`WebGPU canvas/shader/pipeline validation failed: ${v.message}`, { cause: v });
 			if (this.lostError) throw this.lostError;
 			this.pipeline = g, this.meshPipeline = _;
 		} catch (e) {
@@ -333,6 +344,35 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		if (this.encoder) throw new require_errors.GraphicsError(`WebGPU beginFrame called before the preceding frame ended.`);
 		this.encoder = e.createCommandEncoder(), this.residency.beginFrame(), this.frameStats.begin(), this.gpuTimer?.begin(this.encoder, this.frameStats.frame), this.frameRendered = !1;
 	}
+	async initializeXR() {
+		return {
+			backend: `webgpu`,
+			device: this.requireDevice(),
+			format: navigator.gpu.getPreferredCanvasFormat()
+		};
+	}
+	renderXRView(e, t) {
+		if (t.backend !== `webgpu`) throw new require_errors.GraphicsError(`WebGPU requires an XRGPUBinding subimage.`);
+		this.requireDevice();
+		let n = this.canvas, r = n.width, i = n.height, a = t.viewport;
+		this.xrOutput && (this.xrOutput.width !== a.width || this.xrOutput.height !== a.height) && (this.effectsPipeline.destroyTexture(this.xrOutput.texture), this.xrOutput = void 0), this.xrOutput ??= this.effectsPipeline.target(a.width, a.height), this.captureOutput = this.xrOutput, n.width = a.width, n.height = a.height;
+		try {
+			this.beginFrame(), this.render(e, a.width, a.height), this.encoder.copyTextureToTexture({ texture: this.xrOutput.texture }, {
+				texture: t.texture,
+				origin: {
+					x: a.x,
+					y: a.y,
+					z: t.imageIndex
+				}
+			}, {
+				width: a.width,
+				height: a.height,
+				depthOrArrayLayers: 1
+			}), this.endFrame();
+		} finally {
+			this.captureOutput = void 0, n.width = r, n.height = i;
+		}
+	}
 	render(e, n, r, i) {
 		this.requireDevice();
 		let a = this.encoder, o = this.context, s = this.pipeline;
@@ -344,8 +384,8 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		m?.snapshot && p.snapshot(m.snapshot);
 		let h = e?.effects2D, g = !!h?.length, _ = e?.effects3D, v = !!_?.length;
 		(g || v || m) && p.settings(u, f, m), e ? (require_render2d_contract.collectRenderCommands2D(e, u, f, this.commands), this.textureFrame++, this.render2D.preflight(this.commands, e, u, f, Math.max(c.width / u, c.height / f))) : (this.commands.clear(), this.textureFrame++);
-		let b = !!e && (this.commands.items.length > 0 || g);
-		!b && !v && p.releaseLayers(), v || p.releaseScene(), m || p.releaseFrame();
+		let y = !!e && (this.commands.items.length > 0 || g);
+		!y && !v && p.releaseLayers(), v || p.releaseScene(), m || p.releaseFrame();
 		let x = m ? p.frame(c.width, c.height) : void 0, S = this.captureOutput ? void 0 : o.getCurrentTexture().createView(), C = this.captureOutput?.view ?? x?.view ?? S, w = e?.renderGraph, T = w ? this.graphs.sceneTarget(w, c.width, c.height) : C;
 		this.colorAttachment.view = T;
 		try {
@@ -354,7 +394,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 				let r = p.layers(c.width, c.height), i = p.scene3D(c.width, c.height);
 				n = this.meshPipeline.render(e, a, i.view, c.width, c.height, u / f, require_defaults.defaults.clearColor, f), n || (this.colorAttachment.view = i.view, this.colorAttachment.loadOp = `clear`, require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor).end(), this.frameStats.pass2D(), this.colorAttachment.view = T), p.composite(a, p.process(a, r, _, i), T, !0), n = !0;
 			} else n = this.meshPipeline.render(e, a, T, c.width, c.height, u / f, require_defaults.defaults.clearColor, f);
-			if (b) {
+			if (y) {
 				n || (this.colorAttachment.loadOp = `clear`, require_gpu_timing.beginTimedRenderPass(a, this.renderPassDescriptor).end(), this.frameStats.pass2D());
 				let r = p.layers(c.width, c.height);
 				this.render2D.draw(this.commands, e, a, r[0], u, f), p.composite(a, g ? p.process(a, r, h) : r[0], T);
@@ -434,7 +474,7 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		for (let [e, t] of this.textures) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && !t.allocation.references && t.seen !== this.textureFrame) && t.allocation.destroy();
 	}
 	releaseResources() {
-		this.compute?.destroy(), this.compute = void 0, this.graphs?.destroy(), this.graphs = void 0, this.gpuTimer?.destroy(!!this.lostError), this.gpuTimer = void 0, this.encoder = void 0, this.colorAttachment.view = void 0, this.submissions.length = 0, this.residency.clear(), this.preparedGeometry.clear(), this.effectsPipeline?.destroy(), this.effectsPipeline = void 0, this.render2D?.destroy(), this.render2D = void 0, this.captureOutput = void 0, this.meshPipeline?.destroy(), this.meshPipeline = void 0, this.commands.destroy();
+		this.compute?.destroy(), this.compute = void 0, this.graphs?.destroy(), this.graphs = void 0, this.gpuTimer?.destroy(!!this.lostError), this.gpuTimer = void 0, this.encoder = void 0, this.colorAttachment.view = void 0, this.submissions.length = 0, this.residency.clear(), this.preparedGeometry.clear(), this.effectsPipeline?.destroy(), this.effectsPipeline = void 0, this.render2D?.destroy(), this.render2D = void 0, this.captureOutput = void 0, this.xrOutput = void 0, this.meshPipeline?.destroy(), this.meshPipeline = void 0, this.commands.destroy();
 		for (let e of this.textures.values()) e.resource.destroy();
 		this.textures.clear(), this.pipeline = void 0;
 	}

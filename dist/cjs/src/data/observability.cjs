@@ -1,4 +1,9 @@
 //#region dist/src/data/observability.js
+var profilerDefaults = Object.freeze({
+	windowFrames: 240,
+	maximumWindowFrames: 65536,
+	hitchMilliseconds: 50
+});
 var gpuTimingDefaults = Object.freeze({
 	maxInFlight: 4,
 	maxInFlightLimit: 32,
@@ -119,5 +124,6 @@ Object.freeze({
 //#endregion
 exports.gpuTimingDefaults = gpuTimingDefaults;
 exports.productionWorkload = productionWorkload;
+exports.profilerDefaults = profilerDefaults;
 
 //# sourceMappingURL=observability.cjs.map

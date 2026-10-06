@@ -1,3 +1,4 @@
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
 import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOptions, ComputeReadOptions, ComputePreparationOptions } from './compute.js';
 import { NativeMaterial3D } from '../../core/src/native-material3d.js';
@@ -20,6 +21,7 @@ import { NativeResidency } from './residency.js';
 import type { ResidencyBudgetOptions } from './residency.js';
 import type { PreparationResource, PreparedResourceLease, ResourcePreparationOptions } from './preparation.js';
 import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export declare class WebGL2Renderer implements Renderer {
     private readonly onError;
@@ -34,7 +36,10 @@ export declare class WebGL2Renderer implements Renderer {
     dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
     readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     private triangleProgram;
-    private meshProgram;
+    private readonly meshPrograms;
+    private readonly pendingPrograms;
+    private readonly nativePreparations;
+    private parallelCompile;
     private triangleVAO;
     private readonly commands;
     private readonly textures;
@@ -66,6 +71,7 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly probeCaptures;
     private capturingProbe;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
+    capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void>;
     configureResidency(options: ResidencyBudgetOptions): void;
     retainFrameResources(): PreparedResourceLease;
     prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
@@ -101,12 +107,18 @@ export declare class WebGL2Renderer implements Renderer {
     private temporalActive;
     private readonly fogData;
     private readonly invViewProjection;
-    private readonly meshUniforms;
     private readonly shadowUniforms;
     private readonly postUniforms;
+    private gradingTexture;
+    private gradingLUT;
+    private readonly volumetricData;
+    private readonly motionData;
     private readonly lightingData;
     private readonly tintData;
     private readonly materialUVData;
+    private readonly bakedData;
+    private readonly bakedSH;
+    private readonly bakedParams;
     private readonly meshInstances;
     private readonly visibleMeshInstances;
     private readonly meshSkins;
@@ -131,6 +143,10 @@ export declare class WebGL2Renderer implements Renderer {
     private oitRevealage;
     private oitProgram;
     private shadowTarget;
+    private contactTarget;
+    private contactWidth;
+    private contactHeight;
+    private contactOffset;
     private postTarget;
     private coverageTarget;
     private coverageActive;
@@ -168,11 +184,14 @@ export declare class WebGL2Renderer implements Renderer {
     unloadTexture(source: Texture2DSource): void;
     prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;
     prepareMaterial(material: Material2D | NativeMaterial3D | NativePBRMaterial): Promise<void>;
+    private prepareNativeMesh;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     private prepareNative;
     private requireNative;
     private validateTransition;
     beginFrame(): void;
+    initializeXR(): Promise<XRRendererBinding>;
+    renderXRView(scene: Scene, destination: XRRenderTarget): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
     private renderFrame;
@@ -214,6 +233,8 @@ export declare class WebGL2Renderer implements Renderer {
     private releaseUnused;
     private createBuffer;
     private createVAO;
+    private meshProgramFor;
+    private waitForProgram;
     private createProgram;
     destroy(): void;
     private requireGL;

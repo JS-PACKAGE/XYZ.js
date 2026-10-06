@@ -1,0 +1,1 @@
+{"version":3,"file":"ribbon.cjs","names":[],"sources":["../../../src/data/ribbon.js"],"sourcesContent":["export const ribbonLimits={defaultPoints:128,maximumPoints:65536,defaultLifetime:1,maximumCurveKeys:64,minimumDistance:.01};\n//# sourceMappingURL=ribbon.js.map\n"],"mappings":";AAAA,IAAa,eAAa;CAAC,eAAc;CAAI,eAAc;CAAM,iBAAgB;CAAE,kBAAiB;CAAG,iBAAgB;AAAG"}

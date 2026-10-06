@@ -2,6 +2,7 @@ import type { Scene } from '../../core/src/scene.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/material2d.js';
 import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Renderer, GraphicsBackend, GraphicsCapabilities, RenderToTextureOptions2D, ExtractPixelsOptions2D, GenerateTextureOptions2D } from './index.js';
@@ -44,6 +45,7 @@ export declare class PresentedRenderer implements Renderer {
     dispatchCompute(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
     readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void>;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     preparePostProcessor(effect: PostProcessor2D): Promise<void>;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;

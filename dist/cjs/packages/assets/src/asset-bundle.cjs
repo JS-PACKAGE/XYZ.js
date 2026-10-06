@@ -3,6 +3,7 @@ const require_native_texture = require("./native-texture.cjs");
 const require_read_response = require("./read-response.cjs");
 const require_asset_recipe = require("../../../src/data/asset-recipe.cjs");
 const require_models = require("../../../src/data/models.cjs");
+const require_range_bundle = require("./range-bundle.cjs");
 //#region dist/packages/assets/src/asset-bundle.js
 function record(t) {
 	if (!t || typeof t != `object` || Array.isArray(t)) throw new require_texture.AssetError(`Invalid asset bundle object.`);
@@ -77,44 +78,46 @@ async function fetchBytes(t, r, i) {
 	return (await require_read_response.readResponse(a, r, i)).arrayBuffer();
 }
 async function loadAssetBundle(t, n) {
-	let a = new URL(t, typeof document > `u` ? void 0 : document.baseURI).href;
-	if (!/^https?:/.test(a)) throw new require_texture.AssetError(`Asset bundle requires HTTP(S).`);
-	let o = n.options?.signal ?? new AbortController().signal, s = await fetchBytes(a, require_asset_recipe.assetRecipe.profileBytes * 64, o);
-	if (n.manifestSHA256 !== void 0 && (!/^[a-f0-9]{64}$/.test(n.manifestSHA256) || await sha256(s) !== n.manifestSHA256)) throw new require_texture.AssetError(`Asset bundle manifest hash mismatch.`);
-	let c = parseAssetBundle(JSON.parse(new TextDecoder(`utf-8`, { fatal: !0 }).decode(s))), l = selectAssetBundleVariant(c, n.renderer, { draco: !!n.options?.dracoDecoder }), u = new Map(c.files.map((e) => [e.path, e])), verified = async (t) => {
-		let n = u.get(safePath(t));
+	let c = require_range_bundle.rangeBundleConfigurations.has(n), l = new URL(t, typeof document > `u` ? void 0 : document.baseURI).href;
+	if (!/^https?:/.test(l)) throw new require_texture.AssetError(`Asset bundle requires HTTP(S).`);
+	let u = n.options?.signal ?? new AbortController().signal, d = await fetchBytes(l, require_asset_recipe.assetRecipe.profileBytes * 64, u);
+	if (n.manifestSHA256 !== void 0 && (!/^[a-f0-9]{64}$/.test(n.manifestSHA256) || await sha256(d) !== n.manifestSHA256)) throw new require_texture.AssetError(`Asset bundle manifest hash mismatch.`);
+	let f = JSON.parse(new TextDecoder(`utf-8`, { fatal: !0 }).decode(d)), p = parseAssetBundle(f), m = c ? require_range_bundle.parseAssetBundleArchive(record(f).archive, p) : void 0, h = selectAssetBundleVariant(p, n.renderer, { draco: !!n.options?.dracoDecoder }), g = m ? new require_range_bundle.AssetBundleRangeReader(new URL(m.path, l).href, m, u) : void 0, _ = new Map(p.files.map((e) => [e.path, e])), verified = async (t) => {
+		let n = _.get(safePath(t));
 		if (!n) throw new require_texture.AssetError(`Model references an untracked bundle resource.`);
-		let r = await fetchBytes(new URL(t, a).href, n.bytes, o);
+		let r = g ? await g.read(t) : await fetchBytes(new URL(t, l).href, n.bytes, u);
 		if (r.byteLength !== n.bytes || await sha256(r) !== n.sha256) throw new require_texture.AssetError(`Asset bundle hash mismatch: ${t}`);
 		return r;
-	}, d = record(JSON.parse(new TextDecoder(`utf-8`, { fatal: !0 }).decode(await verified(l.path)))), f = [], p = /* @__PURE__ */ new Map();
+	}, v = [], y = /* @__PURE__ */ new Map();
 	try {
-		for (let t of [`buffers`, `images`]) {
-			let n = d[t];
-			if (n !== void 0) {
-				if (!Array.isArray(n) || n.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid bundle model resource table.`);
-				for (let e of n) {
-					let n = record(e);
-					if (t === `images` && n.uri === void 0 && n.bufferView !== void 0) continue;
-					let r = safePath(n.uri), i = p.get(r);
+		let t = record(JSON.parse(new TextDecoder(`utf-8`, { fatal: !0 }).decode(await verified(h.path))));
+		for (let n of [`buffers`, `images`]) {
+			let r = t[n];
+			if (r !== void 0) {
+				if (!Array.isArray(r) || r.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid bundle model resource table.`);
+				for (let e of r) {
+					let t = record(e);
+					if (n === `images` && t.uri === void 0 && t.bufferView !== void 0) continue;
+					let r = safePath(t.uri), i = y.get(r);
 					if (!i) {
 						let e = await verified(r);
-						i = URL.createObjectURL(new Blob([e])), f.push(i), p.set(r, i);
+						i = URL.createObjectURL(new Blob([e])), v.push(i), y.set(r, i);
 					}
-					n.uri = i;
+					t.uri = i;
 				}
 			}
 		}
-		let t = await n.loader.parse(JSON.stringify(d), new URL(l.path, a).href, {
+		let r = await n.loader.parse(JSON.stringify(t), new URL(h.path, l).href, {
 			...n.options,
-			nativeTextures: l.nativeTextures
+			nativeTextures: h.nativeTextures
 		});
-		return o?.aborted && (t.dispose(), o.throwIfAborted()), Object.defineProperty(t, "bundleVariant", {
-			value: l,
+		return u?.aborted && (r.dispose(), u.throwIfAborted()), Object.defineProperty(r, "bundleVariant", {
+			value: h,
 			enumerable: !0
-		}), t;
+		}), r;
 	} finally {
-		for (let e of f) URL.revokeObjectURL(e);
+		for (let e of v) URL.revokeObjectURL(e);
+		g?.destroy();
 	}
 }
 //#endregion

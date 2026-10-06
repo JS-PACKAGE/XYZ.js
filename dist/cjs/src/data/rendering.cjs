@@ -1,4 +1,23 @@
 //#region dist/src/data/rendering.js
+var bakedLightingLimits = Object.freeze({
+	size: 128,
+	maxSize: 1024,
+	padding: 2,
+	maxPadding: 16,
+	samples: 32,
+	maxSamples: 512,
+	maxTriangles: 65536,
+	maxRays: 8e6,
+	maxLights: 256,
+	bias: .001,
+	aoDistance: 2,
+	resolution: [
+		4,
+		4,
+		4
+	],
+	maxProbes: 4096
+});
 var nativeMaterial3DLimits = Object.freeze({
 	uniformFloats: 64,
 	textures: 4,
@@ -27,7 +46,7 @@ var materialTextureSlots = Object.freeze([
 	`transmission`,
 	`thickness`
 ]);
-var MATERIAL_UV_FLOAT_COUNT = materialTextureSlots.length * 8;
+materialTextureSlots.length * 8;
 var oitSettings = Object.freeze({
 	scale: 100,
 	minWeight: .01,
@@ -103,21 +122,62 @@ var reflectionCaptureLimits = Object.freeze({
 	maximumBytes: 67108864,
 	interval: 1
 });
+var meshShaderVariantLimits = Object.freeze({
+	maxEntries: 64,
+	plainFragmentMaxBytes: 4e4
+});
+var planarReflectionLimits = Object.freeze({
+	size: 128,
+	maximumSize: 512,
+	interval: .1,
+	minimumInterval: 1 / 120,
+	clipBias: .001
+});
+var volumetricPostDefaults = Object.freeze({
+	density: .025,
+	heightFalloff: .15,
+	maxDistance: 200,
+	shaftStrength: .25,
+	fogSamples: 16,
+	shaftSamples: 32,
+	maximumSamples: 64
+});
+var lensFlareDefaults = Object.freeze({
+	strength: .15,
+	threshold: 1,
+	ghosts: 4,
+	maximumGhosts: 8,
+	spacing: .5,
+	haloRadius: .3,
+	haloWidth: .15
+});
+var motionBlurDefaults = Object.freeze({
+	strength: 1,
+	samples: 12,
+	maximumSamples: 32,
+	maxRadius: 32,
+	maximumRadius: 64
+});
 //#endregion
-exports.MATERIAL_UV_FLOAT_COUNT = MATERIAL_UV_FLOAT_COUNT;
 exports.SHADOW_FLOAT_COUNT = SHADOW_FLOAT_COUNT;
 exports.advancedPostDefaults = advancedPostDefaults;
+exports.bakedLightingLimits = bakedLightingLimits;
 exports.decalNormalOffset = decalNormalOffset;
 exports.depthPostDefaults = depthPostDefaults;
 exports.environmentLimits = environmentLimits;
 exports.fxaaDefaults = fxaaDefaults;
 exports.graphicsRecoveryLimits = graphicsRecoveryLimits;
+exports.lensFlareDefaults = lensFlareDefaults;
 exports.materialQuality = materialQuality;
 exports.materialTextureSlots = materialTextureSlots;
+exports.meshShaderVariantLimits = meshShaderVariantLimits;
+exports.motionBlurDefaults = motionBlurDefaults;
 exports.nativeMaterial3DLimits = nativeMaterial3DLimits;
 exports.oitSettings = oitSettings;
+exports.planarReflectionLimits = planarReflectionLimits;
 exports.reflectionCaptureLimits = reflectionCaptureLimits;
 exports.shadowLimits = shadowLimits;
 exports.transmissionBlurFraction = transmissionBlurFraction;
+exports.volumetricPostDefaults = volumetricPostDefaults;
 
 //# sourceMappingURL=rendering.cjs.map

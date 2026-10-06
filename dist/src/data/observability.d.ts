@@ -1,3 +1,8 @@
+export declare const profilerDefaults: Readonly<{
+    windowFrames: 240;
+    maximumWindowFrames: 65536;
+    hitchMilliseconds: 50;
+}>;
 /** Opt-in query pools stay bounded even when the GPU/readback falls behind. */
 export declare const gpuTimingDefaults: Readonly<{
     maxInFlight: 4;

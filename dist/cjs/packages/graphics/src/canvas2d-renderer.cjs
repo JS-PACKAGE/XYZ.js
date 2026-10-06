@@ -10,6 +10,7 @@ const require_native_material3d = require("../../core/src/native-material3d.cjs"
 const require_gpu_particles3d = require("../../core/src/gpu-particles3d.cjs");
 const require_canvas_sprite_source = require("./canvas-sprite-source.cjs");
 const require_environment = require("../../core/src/environment.cjs");
+const require_contact_shadows = require("../../core/src/contact-shadows.cjs");
 const require_render2d_contract = require("./render2d-contract.cjs");
 const require_canvas_render2d = require("./canvas-render2d.cjs");
 const require_render_stats = require("./render-stats.cjs");
@@ -18,9 +19,9 @@ const require_canvas_render2d_targets = require("./canvas-render2d-targets.cjs")
 const require_residency = require("./residency.cjs");
 const require_preparation = require("./preparation.cjs");
 //#region dist/packages/graphics/src/canvas2d-renderer.js
-var w = 8192;
-var T = require_defaults.defaults.clearColor;
-var E = `rgba(${Math.round(T.r * 255)}, ${Math.round(T.g * 255)}, ${Math.round(T.b * 255)}, ${T.a})`;
+var T = 8192;
+var E = require_defaults.defaults.clearColor;
+var D = `rgba(${Math.round(E.r * 255)}, ${Math.round(E.g * 255)}, ${Math.round(E.b * 255)}, ${E.a})`;
 var Canvas2DRenderer = class {
 	onError;
 	backend = `canvas2d`;
@@ -39,14 +40,14 @@ var Canvas2DRenderer = class {
 	unloadGeometry(e) {
 		throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native geometry residency.`);
 	}
-	async prepareResource(r, i = {}) {
-		if (i.signal?.throwIfAborted(), r instanceof require_particle_layer2d.ParticleLayer2D) {
-			if (this.requireIdle(), r.destroyed) throw new require_errors.GraphicsError(`Cannot prepare a destroyed ParticleLayer2D.`);
-			for (let e = 0; e < r.activeCount; e++) this.spriteSource.prepare(r.getSlot(r.activeSlotAt(e)).texture);
+	async prepareResource(t, i = {}) {
+		if (i.signal?.throwIfAborted(), t instanceof require_particle_layer2d.ParticleLayer2D) {
+			if (this.requireIdle(), t.destroyed) throw new require_errors.GraphicsError(`Cannot prepare a destroyed ParticleLayer2D.`);
+			for (let e = 0; e < t.activeCount; e++) this.spriteSource.prepare(t.getSlot(t.activeSlotAt(e)).texture);
 			return i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
 		}
-		if (r instanceof require_geometry.Geometry || r instanceof require_geometry2d.Geometry2D || r instanceof require_mesh.Mesh || r instanceof require_gpu_particles3d.GPUParticleEmitter3D || r instanceof require_environment.EnvironmentMap) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native 3D or mesh preparation.`);
-		return r instanceof require_material2d.PostProcessor2D ? await this.preparePostProcessor(r) : r instanceof require_material2d.Material2D || require_native_material3d.isNativeMaterial3D(r) ? await this.prepareMaterial(r) : await this.prepareTextures([r]), i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
+		if (t instanceof require_geometry.Geometry || t instanceof require_geometry2d.Geometry2D || t instanceof require_mesh.Mesh || t instanceof require_gpu_particles3d.GPUParticleEmitter3D || t instanceof require_environment.EnvironmentMap) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native 3D or mesh preparation.`);
+		return t instanceof require_material2d.PostProcessor2D ? await this.preparePostProcessor(t) : t instanceof require_material2d.Material2D || require_native_material3d.isNativeMaterial3D(t) ? await this.prepareMaterial(t) : await this.prepareTextures([t]), i.signal?.throwIfAborted(), require_preparation.residencyLease([]);
 	}
 	async prepareGpuParticles() {
 		throw this.requireIdle(), new require_errors.UnsupportedGraphicsError(`Canvas2D does not support GPU 3D particles.`);
@@ -84,7 +85,7 @@ var Canvas2DRenderer = class {
 			rgba8Samples: 1,
 			hdrSamples: 1
 		}),
-		maxTextureSize: w,
+		maxTextureSize: T,
 		supportedTextureFormats: Object.freeze([])
 	});
 	canvas;
@@ -158,9 +159,9 @@ var Canvas2DRenderer = class {
 		let r;
 		try {
 			this.prepareScene(e, t, n), r = document.createElement(`canvas`), this.render2D.resizeCanvas(r, this.canvas.width, this.canvas.height);
-			let a = r.getContext(`2d`);
-			if (!a) throw new require_errors.Canvas2DInitializationError(`Canvas2D capture context is unavailable.`);
-			this.drawFrame(a, r.width, r.height, e, t, n);
+			let i = r.getContext(`2d`);
+			if (!i) throw new require_errors.Canvas2DInitializationError(`Canvas2D capture context is unavailable.`);
+			this.drawFrame(i, r.width, r.height, e, t, n);
 			let o = new CanvasRenderSnapshot(this, r, this.snapshots, this.render2D);
 			return this.snapshots.add(o), o;
 		} catch (e) {
@@ -169,14 +170,16 @@ var Canvas2DRenderer = class {
 			this.commands.clear(), this.frameActive = !1;
 		}
 	}
-	render(e, t, n, r) {
-		let i = this.requireContext();
+	render(e, n, r, i) {
+		let a = this.requireContext();
 		if (!this.frameActive || this.frameRendered) throw new require_errors.GraphicsError(`Canvas2D render requires an active frame and may be called only once per frame.`);
-		let a = this.canvas, s = t ?? (a.clientWidth || a.width), c = n ?? (a.clientHeight || a.height), l = r?.transition;
-		if (l && this.validateTransition(l), this.prepareScene(e, s, c), l) {
+		if (e && require_contact_shadows.ContactShadows.get(e)) throw new require_errors.GraphicsError(`Canvas2D does not support screen-space contact shadows.`);
+		if (e?.postProcessing.enabled) throw new require_errors.GraphicsError(`Canvas2D does not support 3D postprocessing.`);
+		let o = this.canvas, c = n ?? (o.clientWidth || o.width), l = r ?? (o.clientHeight || o.height), u = i?.transition;
+		if (u && this.validateTransition(u), this.prepareScene(e, c, l), u) {
 			let t = this.requireTransitionContext();
-			this.drawFrame(t, a.width, a.height, e, s, c), this.composeTransition(i, l);
-		} else this.releaseTransitionTarget(), this.drawFrame(i, a.width, a.height, e, s, c);
+			this.drawFrame(t, o.width, o.height, e, c, l), this.composeTransition(a, u);
+		} else this.releaseTransitionTarget(), this.drawFrame(a, o.width, o.height, e, c, l);
 		this.frameRendered = !0;
 	}
 	prepareScene(t, n, r) {
@@ -186,9 +189,9 @@ var Canvas2DRenderer = class {
 		if (t.renderGraph) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support render graphs.`);
 		if (t.effects2D.length || t.effects3D.length) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native 2D post processors.`);
 		for (let n of t.objects) if (n instanceof require_mesh.Mesh && n.worldVisible) throw new require_errors.GraphicsBackendUnavailableError(`Canvas2D does not support visible 3D meshes.`);
-		let o = t.gpuParticleEmitters;
-		if (o) {
-			for (let e of o) if (e.worldVisible && e.activeCount > 0) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support visible GPU 3D particles.`);
+		let a = t.gpuParticleEmitters;
+		if (a) {
+			for (let e of a) if (e.worldVisible && e.activeCount > 0) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support visible GPU 3D particles.`);
 		}
 		require_render2d_contract.collectRenderCommands2D(t, n, r, i), this.render2D.preflight(i);
 	}
@@ -197,7 +200,7 @@ var Canvas2DRenderer = class {
 		this.frameStats.pass2D();
 		let s = t / i, c = n / a;
 		try {
-			if (e.setTransform(1, 0, 0, 1, 0, 0), e.globalAlpha = 1, e.globalCompositeOperation = `source-over`, e.fillStyle = E, e.fillRect(0, 0, t, n), this.frameStats.draw2D(), r) {
+			if (e.setTransform(1, 0, 0, 1, 0, 0), e.globalAlpha = 1, e.globalCompositeOperation = `source-over`, e.fillStyle = D, e.fillRect(0, 0, t, n), this.frameStats.draw2D(), r) {
 				let i = this.layerCanvas ??= document.createElement(`canvas`);
 				this.render2D.resizeCanvas(i, t, n);
 				let a = i.getContext(`2d`);
@@ -259,7 +262,7 @@ var Canvas2DRenderer = class {
 	resize(e, t) {
 		if (this.requireContext(), !Number.isFinite(e) || !Number.isFinite(t) || e <= 0 || t <= 0) throw RangeError(`Canvas2D canvas pixel width and height must be positive finite numbers.`);
 		let n = Math.max(1, Math.round(e)), r = Math.max(1, Math.round(t));
-		if (!Number.isSafeInteger(n) || !Number.isSafeInteger(r) || n > w || r > w) throw new require_errors.GraphicsError(`Canvas2D canvas backing size ${n}×${r} exceeds the maximum of ${w} pixels per side.`);
+		if (!Number.isSafeInteger(n) || !Number.isSafeInteger(r) || n > T || r > T) throw new require_errors.GraphicsError(`Canvas2D canvas backing size ${n}×${r} exceeds the maximum of ${T} pixels per side.`);
 		let i = this.canvas;
 		(i.width !== n || i.height !== r) && this.releaseTransitionTarget(), i.width !== n && (i.width = n), i.height !== r && (i.height = r);
 	}

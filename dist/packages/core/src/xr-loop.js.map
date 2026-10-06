@@ -1,0 +1,1 @@
+{"version":3,"mappings":"AAQA,OAAO,MAAM,QAAU,IAAI,QAC3B,OAAM,SAAU,iBACd,EACA,EAA8B,CAE9B,IAAMA,EAAK,QAAQ,IAAIC,CAAI,EAC3B,GAAID,EAAI,CACN,EAAG,KAAOE,EACV,MACF,CACA,OAAO,sBAAsBA,CAAQ,CACvC","sources":["../../../../packages/core/src/xr-loop.ts"],"names":["xr","game","callback"],"file":"xr-loop.js"}

@@ -1,17 +1,19 @@
 const require_errors = require("./errors.cjs");
-const require_rendering = require("../../../src/data/rendering.cjs");
+const require_optical_material_maps = require("../../core/src/optical-material-maps.cjs");
 const require_pbr_material = require("../../core/src/pbr-material.cjs");
+const require_optical_maps = require("./optical-maps.cjs");
 //#region dist/packages/graphics/src/material-uv.js
-function fillMaterialUV(r, i, a, o = 0) {
-	for (let s = 0; s < require_rendering.materialTextureSlots.length; s++) {
-		let c = r instanceof require_pbr_material.PBRMaterial ? r.textureCoordinates[require_rendering.materialTextureSlots[s]] : void 0;
-		if (c?.texCoord === 1 && !i.uvs1) throw new require_errors.GraphicsError(`Material ${require_rendering.materialTextureSlots[s]} requires absent TEXCOORD_1.`);
-		let l = o + s * 8;
-		if (c) {
-			for (let e = 0; e < 6; e++) a[l + e] = c.transform[e];
-			a[l + 6] = c.texCoord;
-		} else a[l] = a[l + 3] = 1, a[l + 1] = a[l + 2] = a[l + 4] = a[l + 5] = a[l + 6] = 0;
-		a[l + 7] = 0;
+function fillMaterialUV(i, a, o, s = 0) {
+	let c = i instanceof require_pbr_material.PBRMaterial ? require_optical_material_maps.materialTextureCoordinates(i) : void 0;
+	for (let t = 0; t < require_optical_maps.mappedMaterialTextureSlots.length; t++) {
+		let n = c?.[require_optical_maps.mappedMaterialTextureSlots[t]];
+		if (n?.texCoord === 1 && !a.uvs1) throw new require_errors.GraphicsError(`Material ${require_optical_maps.mappedMaterialTextureSlots[t]} requires absent TEXCOORD_1.`);
+		let i = s + t * 8;
+		if (n) {
+			for (let e = 0; e < 6; e++) o[i + e] = n.transform[e];
+			o[i + 6] = n.texCoord;
+		} else o[i] = o[i + 3] = 1, o[i + 1] = o[i + 2] = o[i + 4] = o[i + 5] = o[i + 6] = 0;
+		o[i + 7] = 0;
 	}
 }
 //#endregion

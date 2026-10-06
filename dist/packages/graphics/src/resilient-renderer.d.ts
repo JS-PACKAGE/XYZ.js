@@ -17,6 +17,7 @@ import type { ComputeArray, ComputeBuffer, ComputeProgram, ComputeDispatchOption
 import type { RenderGraph, RenderGraphPreparationOptions } from './render-graph.js';
 import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 export interface ResilientRendererHooks {
     /** Called once when the GPU context/device is lost and recovery begins. */
     onLost?(error: Error): void;
@@ -79,6 +80,7 @@ export declare class ResilientRenderer implements Renderer {
     readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     prepareRenderGraph(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
     captureReflectionProbe(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
+    capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void>;
     prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void>;
     private prepareOn;
     prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void>;

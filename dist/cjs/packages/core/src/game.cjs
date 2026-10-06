@@ -1,5 +1,6 @@
 const require_defaults = require("../../../src/data/defaults.cjs");
 const require_clock = require("./clock.cjs");
+const require_xr_loop = require("./xr-loop.cjs");
 const require_resource_scope = require("../../assets/src/resource-scope.cjs");
 const require_index = require("../../assets/src/index.cjs");
 const require_index$1 = require("../../input/src/index.cjs");
@@ -20,7 +21,7 @@ var SceneCancelledError = class extends require_errors.RuntimeError {
 		super(`Scene initialization was cancelled.`);
 	}
 };
-var g = /* @__PURE__ */ new WeakSet();
+var v = /* @__PURE__ */ new WeakSet();
 var Game = class Game extends EventTarget {
 	canvas;
 	graphics;
@@ -132,8 +133,8 @@ var Game = class Game extends EventTarget {
 				signal: n.signal
 			});
 			if (n.signal.aborted || this.state === `destroyed`) throw o.release(), n.signal.throwIfAborted(), new require_errors.RuntimeError(`Game was destroyed during warmup.`);
-			let c = r, l = i, releasePrevious = () => {
-				this.warmupProtections.delete(u), l?.release(), c?.release();
+			let s = r, c = i, releasePrevious = () => {
+				this.warmupProtections.delete(u), c?.release(), s?.release();
 			}, u = {
 				progress: o.progress,
 				get released() {
@@ -143,21 +144,21 @@ var Game = class Game extends EventTarget {
 					this.warmupLeases.delete(u), releasePrevious(), o.release();
 				}
 			};
-			return this.warmupLeases.add(u), (c || l) && this.warmupProtections.set(u, releasePrevious), r = void 0, i = void 0, u;
+			return this.warmupLeases.add(u), (s || c) && this.warmupProtections.set(u, releasePrevious), r = void 0, i = void 0, u;
 		} finally {
 			i?.release(), r?.release(), this.warmupControllers.delete(n), t.signal?.removeEventListener(`abort`, abort);
 		}
 	}
-	constructor(n, i, a, o) {
-		super(), this.canvas = n, this.graphics = i, this.clock = a, this.assets = new require_index.AssetLoader(void 0, { decodedTextureBytes: o.resourceBudgets?.decodedTextureBytes }), this.logicalWidth = o.width ?? require_defaults.defaults.width, this.logicalHeight = o.height ?? require_defaults.defaults.height, this.fixedPixelRatio = o.pixelRatio, this.autoResize = o.autoResize !== !1, this.input = new require_index$1.InputManager(n, () => this), this.saves = new require_storage.SaveManager(o.saveStorage, o.saveSchema), this.i18n = new require_i18n.I18n(o.i18n), this.frameWorkCounter.budgetMs = o.frameWorkBudgetMs ?? null, this.audioPause = {
+	constructor(t, n, i, o) {
+		super(), this.canvas = t, this.graphics = n, this.clock = i, this.assets = new require_index.AssetLoader(void 0, { decodedTextureBytes: o.resourceBudgets?.decodedTextureBytes }), this.logicalWidth = o.width ?? require_defaults.defaults.width, this.logicalHeight = o.height ?? require_defaults.defaults.height, this.fixedPixelRatio = o.pixelRatio, this.autoResize = o.autoResize !== !1, this.input = new require_index$1.InputManager(t, () => this), this.saves = new require_storage.SaveManager(o.saveStorage, o.saveSchema), this.i18n = new require_i18n.I18n(o.i18n), this.frameWorkCounter.budgetMs = o.frameWorkBudgetMs ?? null, this.audioPause = {
 			onPause: o.audioPause?.onPause ?? !1,
 			onHidden: o.audioPause?.onHidden ?? !1
-		}, this.accessibilityManager = new require_index$4.AccessibilityManager(n, () => (this.accessibilitySize.width = this.logicalWidth, this.accessibilitySize.height = this.logicalHeight, this.accessibilitySize)), this.previousContain = {
-			value: n.style.getPropertyValue(`contain`),
-			priority: n.style.getPropertyPriority(`contain`)
+		}, this.accessibilityManager = new require_index$4.AccessibilityManager(t, () => (this.accessibilitySize.width = this.logicalWidth, this.accessibilitySize.height = this.logicalHeight, this.accessibilitySize)), this.previousContain = {
+			value: t.style.getPropertyValue(`contain`),
+			priority: t.style.getPropertyPriority(`contain`)
 		}, this.previousIntrinsicSize = {
-			value: n.style.getPropertyValue(`contain-intrinsic-size`),
-			priority: n.style.getPropertyPriority(`contain-intrinsic-size`)
+			value: t.style.getPropertyValue(`contain-intrinsic-size`),
+			priority: t.style.getPropertyPriority(`contain-intrinsic-size`)
 		};
 		try {
 			this.installLayout(), this.resize(this.logicalWidth, this.logicalHeight), this.autoResize && (this.observer = new ResizeObserver((e) => {
@@ -167,7 +168,7 @@ var Game = class Game extends EventTarget {
 				} catch (e) {
 					this.fail(e instanceof Error ? e : new require_errors.RuntimeError(`Canvas resize failed.`, { cause: e }));
 				}
-			}), this.observer.observe(n)), document.addEventListener(`visibilitychange`, this.onVisibilityChange);
+			}), this.observer.observe(t)), document.addEventListener(`visibilitychange`, this.onVisibilityChange);
 		} catch (e) {
 			try {
 				this.cleanup();
@@ -189,13 +190,13 @@ var Game = class Game extends EventTarget {
 		if (!Number.isFinite(r) || r <= 0 || !Number.isFinite(i) || i <= 0) throw new require_errors.RuntimeError(`Canvas width and height must be finite positive CSS pixel values.`);
 		if (t.pixelRatio !== void 0 && (!Number.isFinite(t.pixelRatio) || t.pixelRatio <= 0)) throw new require_errors.RuntimeError(`Canvas pixelRatio must be a finite positive number.`);
 		if (t.frameWorkBudgetMs !== void 0 && (!Number.isFinite(t.frameWorkBudgetMs) || t.frameWorkBudgetMs <= 0)) throw new require_errors.RuntimeError(`frameWorkBudgetMs must be a finite positive CPU target.`);
-		let c = new require_clock.Clock(t.maxDeltaTime);
-		if (g.has(n)) throw new require_errors.RuntimeError(`Canvas is already owned by a Game. Destroy the existing Game before creating another on this canvas.`);
-		g.add(n);
-		let l, u, d;
+		let a = new require_clock.Clock(t.maxDeltaTime);
+		if (v.has(n)) throw new require_errors.RuntimeError(`Canvas is already owned by a Game. Destroy the existing Game before creating another on this canvas.`);
+		v.add(n);
+		let o, u, d;
 		try {
 			if (u = await require_index$2.createRenderer(n, t.renderer ?? `auto`, (e) => {
-				l ? l.fail(e) : d = e;
+				o ? o.fail(e) : d = e;
 			}, {
 				antialias: t.antialias,
 				recover: t.recoverGraphics,
@@ -205,18 +206,18 @@ var Game = class Game extends EventTarget {
 					geometryBytes: t.resourceBudgets?.nativeGeometryBytes
 				},
 				onLost: (e) => {
-					l?.cancelTransition(), l?.dispatchEvent(new CustomEvent(`graphicslost`, { detail: e }));
+					o?.cancelTransition(), o?.dispatchEvent(new CustomEvent(`graphicslost`, { detail: e }));
 				},
-				onRecovered: () => l?.dispatchEvent(new CustomEvent(`graphicsrecovered`))
+				onRecovered: () => o?.dispatchEvent(new CustomEvent(`graphicsrecovered`))
 			}), d) throw d;
-			return l = new Game(n, u, c, t), l;
+			return o = new Game(n, u, a, t), o;
 		} catch (e) {
 			try {
 				u?.destroy();
 			} catch (t) {
 				throw AggregateError([e, t], `Game initialization and renderer cleanup failed.`, { cause: t });
 			} finally {
-				g.delete(n);
+				v.delete(n);
 			}
 			throw e;
 		}
@@ -288,7 +289,7 @@ var Game = class Game extends EventTarget {
 		if (this.fatalError) throw new require_errors.RuntimeError(`Cannot start a Game after a fatal runtime error. Destroy it and create a new Game.`, { cause: this.fatalError });
 		e && this.setScene(e).catch((e) => {
 			!(e instanceof SceneCancelledError) && this.currentState !== `destroyed` && this.dispatchEvent(new CustomEvent(`error`, { detail: e }));
-		}), this.currentState !== `running` && (this.currentState = `running`, this.currentScene?.setWorldStreamingPaused(document.hidden), this.audioPause.onPause && this.audio.resume(`game`), this.clock.suspend(), this.input.reset(), document.hidden || (this.requestId = requestAnimationFrame(this.onFrame)));
+		}), this.currentState !== `running` && (this.currentState = `running`, this.currentScene?.setWorldStreamingPaused(document.hidden), this.audioPause.onPause && this.audio.resume(`game`), this.clock.suspend(), this.graphics.profiler?.suspend(), this.input.reset(), (!document.hidden || require_xr_loop.xrLoops.has(this)) && (this.requestId = require_xr_loop.requestGameFrame(this, this.onFrame)));
 	}
 	async setScene(e, t = {}) {
 		if (this.currentState === `destroyed`) throw new require_errors.RuntimeError(`Cannot set a Scene on a destroyed Game.`);
@@ -314,11 +315,11 @@ var Game = class Game extends EventTarget {
 		}
 		let i = e.claim(this), a = this.pendingScene;
 		this.pendingScene = e;
-		let o = ++this.sceneVersion, c, abortCandidate = () => {
+		let o = ++this.sceneVersion, s, abortCandidate = () => {
 			if (this.pendingScene === e && this.currentScene !== e) try {
 				e.cancel();
 			} catch (e) {
-				c = e;
+				s = e;
 			}
 		};
 		t.signal?.addEventListener(`abort`, abortCandidate, { once: !0 }), t.signal?.aborted && abortCandidate();
@@ -340,7 +341,7 @@ var Game = class Game extends EventTarget {
 			}
 			throw n;
 		}
-		let u = Promise.resolve().then(async () => {
+		let c = Promise.resolve().then(async () => {
 			let n, a;
 			try {
 				if (t.signal?.throwIfAborted(), i.aborted) throw new SceneCancelledError();
@@ -356,26 +357,26 @@ var Game = class Game extends EventTarget {
 						i.removeEventListener(`abort`, abortScene), t.warmup.signal?.removeEventListener(`abort`, abortWarmup);
 					}
 				}
-				if (t.warmup?.signal?.throwIfAborted(), c !== void 0) throw c;
+				if (t.warmup?.signal?.throwIfAborted(), s !== void 0) throw s;
 				if (t.signal?.throwIfAborted(), i.aborted || o !== this.sceneVersion || this.currentState === `destroyed` || this.fatalError) throw new SceneCancelledError();
-				let s = this.currentScene, l = !!(s && r && !this.preferencePolicy?.values.reducedMotion && r.duration > 0 && this.currentState !== `idle`);
+				let c = this.currentScene, l = !!(c && r && !this.preferencePolicy?.values.reducedMotion && r.duration > 0 && this.currentState !== `idle`);
 				if (l) {
-					if (n = await this.graphics.captureScene(s, this.logicalWidth, this.logicalHeight), t.signal?.throwIfAborted(), i.aborted || o !== this.sceneVersion || this.state === `destroyed` || this.fatalError) throw new SceneCancelledError();
+					if (n = await this.graphics.captureScene(c, this.logicalWidth, this.logicalHeight), t.signal?.throwIfAborted(), i.aborted || o !== this.sceneVersion || this.state === `destroyed` || this.fatalError) throw new SceneCancelledError();
 					r.attachSnapshot(n), n = void 0;
 				}
 				t.signal?.removeEventListener(`abort`, abortCandidate), this.pendingScene = void 0, this.pendingCompletion = void 0, this.switchingScene = !0;
 				try {
 					for (let e of this.warmupControllers) e.abort(new SceneCancelledError());
 					let t = this.currentWarmup;
-					this.currentWarmup = a, a && this.warmupProtections.get(a)?.(), a = void 0, t?.release(), this.currentScene = e, e.setWorldStreamingPaused(this.currentState !== `running` || document.hidden), this.accessibilityManager.reset(), s?.destroy();
+					this.currentWarmup = a, a && this.warmupProtections.get(a)?.(), a = void 0, t?.release(), this.currentScene = e, e.setWorldStreamingPaused(this.currentState !== `running` || document.hidden), this.accessibilityManager.reset(), c?.destroy();
 				} finally {
 					this.switchingScene = !1;
 				}
 				if (i.aborted || e.destroyed || this.currentScene !== e || this.state === `destroyed` || this.fatalError) throw new SceneCancelledError();
-				l && !this.preferencePolicy?.values.reducedMotion && await this.beginTransition(r, s, e).finished;
+				l && !this.preferencePolicy?.values.reducedMotion && await this.beginTransition(r, c, e).finished;
 			} catch (t) {
 				this.pendingScene === e && (this.pendingScene = void 0, this.pendingCompletion = void 0);
-				let n = c === void 0 ? i.aborted && this.currentScene !== e ? new SceneCancelledError() : t : AggregateError([t, c], `Scene cancellation and cleanup failed.`, { cause: c });
+				let n = s === void 0 ? i.aborted && this.currentScene !== e ? new SceneCancelledError() : t : AggregateError([t, s], `Scene cancellation and cleanup failed.`, { cause: s });
 				if (this.currentScene !== e) try {
 					e.cancel();
 				} catch (e) {
@@ -386,7 +387,7 @@ var Game = class Game extends EventTarget {
 				t.signal?.removeEventListener(`abort`, abortCandidate), a?.release(), n?.destroy(), this.activeTransition?.controller !== r && r?.destroy();
 			}
 		});
-		return this.pendingScene === e && this.sceneVersion === o && (this.pendingCompletion = u), u;
+		return this.pendingScene === e && this.sceneVersion === o && (this.pendingCompletion = c), c;
 	}
 	onSceneDisposed(e) {
 		if (this.setLoading(e, void 0), this.currentScene === e) {
@@ -396,7 +397,7 @@ var Game = class Game extends EventTarget {
 		this.activeTransition?.detail.to === e && this.cancelTransition(), this.pendingScene === e && (this.pendingScene = void 0, this.sceneVersion++);
 	}
 	pause() {
-		this.currentState !== `destroyed` && this.currentState !== `paused` && (this.currentState = `paused`, this.currentScene?.setWorldStreamingPaused(!0), this.audioPause.onPause && this.audio.pause(`game`), this.requestId !== void 0 && cancelAnimationFrame(this.requestId), this.requestId = void 0, this.clock.suspend(), this.currentScene?.resetPointerRouting(), this.accessibilityManager.reset(), this.input.reset());
+		this.currentState !== `destroyed` && this.currentState !== `paused` && (this.currentState = `paused`, this.currentScene?.setWorldStreamingPaused(!0), this.audioPause.onPause && this.audio.pause(`game`), this.requestId !== void 0 && cancelAnimationFrame(this.requestId), this.requestId = void 0, this.clock.suspend(), this.graphics.profiler?.suspend(), this.currentScene?.resetPointerRouting(), this.accessibilityManager.reset(), this.input.reset());
 	}
 	resume() {
 		this.start();
@@ -404,87 +405,87 @@ var Game = class Game extends EventTarget {
 	resize(e, t) {
 		if (this.currentState === `destroyed`) throw new require_errors.RuntimeError(`Cannot resize a destroyed Game.`);
 		this.validateSize(e, t);
-		let n = this.appliedIntrinsicSize, r = this.canvas.width, i = this.canvas.height, a = this.logicalWidth, o = this.logicalHeight, c = this.appliedPixelRatio, l = !1;
+		let n = this.appliedIntrinsicSize, r = this.canvas.width, i = this.canvas.height, a = this.logicalWidth, o = this.logicalHeight, s = this.appliedPixelRatio, c = !1;
 		try {
-			if (this.setIntrinsicSize(e, t), this.resizeBacking(e, t), l = !0, this.autoResize) {
+			if (this.setIntrinsicSize(e, t), this.resizeBacking(e, t), c = !0, this.autoResize) {
 				let n = this.contentSize();
 				n && (n.width !== e || n.height !== t) && this.resizeBacking(n.width, n.height);
 			}
 		} catch (e) {
-			if (n !== void 0 && (this.canvas.style.setProperty(`contain-intrinsic-size`, n, this.previousIntrinsicSize.priority), this.appliedIntrinsicSize = n), l) try {
+			if (n !== void 0 && (this.canvas.style.setProperty(`contain-intrinsic-size`, n, this.previousIntrinsicSize.priority), this.appliedIntrinsicSize = n), c) try {
 				this.graphics.resize(r, i);
 			} catch (t) {
 				throw AggregateError([e, t], `Canvas resize and backing restoration failed.`, { cause: t });
 			} finally {
-				this.logicalWidth = a, this.logicalHeight = o, this.appliedPixelRatio = c;
+				this.logicalWidth = a, this.logicalHeight = o, this.appliedPixelRatio = s;
 			}
 			throw e;
 		}
 	}
 	destroy() {
 		if (this.currentState === `destroyed`) return;
-		this.pause(), this.currentState = `destroyed`, this.sceneVersion++, this.contentLifetime?.abort(new require_errors.RuntimeError(`Game content owner was destroyed.`));
+		this.pause(), this.currentState = `destroyed`, require_xr_loop.xrLoops.get(this)?.destroy(), this.sceneVersion++, this.contentLifetime?.abort(new require_errors.RuntimeError(`Game content owner was destroyed.`));
 		for (let e of this.warmupControllers) e.abort(new require_errors.RuntimeError(`Game was destroyed during warmup.`));
 		for (let e of this.warmupLeases) e.release();
 		this.currentWarmup = void 0;
 		let e = this.pendingScene, t = this.currentScene;
 		this.pendingScene = void 0, this.currentScene = void 0;
-		let n = [];
+		let r = [];
 		try {
 			this.cancelTransition();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			e?.cancel();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			t?.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			this.cleanup();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			this.graphics.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		} finally {
-			g.delete(this.canvas);
+			v.delete(this.canvas);
 		}
-		let r = !0;
+		let i = !0;
 		try {
 			this.resourcePool?.destroy();
 		} catch (e) {
-			r = !1, n.push(e);
+			i = !1, r.push(e);
 		}
-		if (r) try {
+		if (i) try {
 			this.assets.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			this.audio.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			this.saves.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
 		try {
 			this.preferencePolicy?.removeEventListener(`change`, this.onMotionPreferenceChange), this.preferencePolicy?.destroy();
 		} catch (e) {
-			n.push(e);
+			r.push(e);
 		}
-		if (n.length === 1) throw n[0];
-		if (n.length) throw AggregateError(n, `Game cleanup failed.`);
+		if (r.length === 1) throw r[0];
+		if (r.length) throw AggregateError(r, `Game cleanup failed.`);
 	}
 	installLayout() {
 		let e = getComputedStyle(this.canvas).contain, t = e === `strict` || e === `content` ? `strict` : [`size`, ...e.split(/\s+/).filter((e) => e && e !== `none` && e !== `inline-size` && e !== `size`)].join(` `);
@@ -538,40 +539,43 @@ var Game = class Game extends EventTarget {
 		}
 	}
 	onVisibilityChange = () => {
-		this.audioPause.onHidden && (document.hidden ? this.audio.pause(`hidden`) : this.audio.resume(`hidden`)), this.currentScene?.setWorldStreamingPaused(document.hidden || this.currentState !== `running`), this.clock.suspend(), this.currentScene?.resetPointerRouting(), this.accessibilityManager.reset(), this.input.reset(), this.requestId !== void 0 && cancelAnimationFrame(this.requestId), this.requestId = void 0, !document.hidden && this.currentState === `running` && (this.requestId = requestAnimationFrame(this.onFrame));
+		this.audioPause.onHidden && (document.hidden ? this.audio.pause(`hidden`) : this.audio.resume(`hidden`)), this.currentScene?.setWorldStreamingPaused(document.hidden || this.currentState !== `running`), this.clock.suspend(), this.graphics.profiler?.suspend(), this.currentScene?.resetPointerRouting(), this.accessibilityManager.reset(), this.input.reset(), this.requestId !== void 0 && cancelAnimationFrame(this.requestId), this.requestId = void 0, !document.hidden && this.currentState === `running` && (this.requestId = require_xr_loop.requestGameFrame(this, this.onFrame));
 	};
-	onFrame = (t) => {
-		if (this.requestId = void 0, this.currentState !== `running` || document.hidden) return;
-		let n = this.frameWorkCounter.enabled ? this.frameWorkCounter : void 0;
-		n?.begin(this.clock.frame + 1);
-		let r = n ? performance.now() : 0;
+	onFrame = (r) => {
+		if (this.requestId = void 0, this.currentState !== `running` || document.hidden && !require_xr_loop.xrLoops.has(this)) return;
+		let i = this.graphics.profiler;
+		i?.beginFrame(r);
+		let a = this.frameWorkCounter.enabled ? this.frameWorkCounter : void 0;
+		a?.begin(this.clock.frame + 1);
+		let o = a ? performance.now() : 0;
 		try {
-			(this.fixedPixelRatio ?? Math.min(window.devicePixelRatio || 1, require_defaults.defaults.maxPixelRatio)) !== this.appliedPixelRatio && this.resizeBacking(this.logicalWidth, this.logicalHeight), this.clock.tick(t);
-			let i = this.currentScene;
-			if (this.updatingScene = i, i?.beginObjectFrame(), i?.camera2D.resize(this.logicalWidth, this.logicalHeight), this.input.update(), i && this.canUpdateScene() && !this.activeTransition?.controller.blockInput && i.routePointers(this.input.pointer, this.canUpdateScene), i && this.canUpdateScene() && (i.advanceTimers(this.clock.deltaTime), this.canUpdateScene() && i.advanceTweens(this.clock.deltaTime)), this.currentState !== `running` || (i && this.canUpdateScene() && i.beginObjectUpdates(this.clock.deltaTime, this.canUpdateScene), i && i === this.currentScene && !i.destroyed && i.advanceAnimations(this.clock.deltaTime), i && this.canUpdateScene() && i.advanceFrameAnimations(this.clock.deltaTime, this.canUpdateScene), i && this.canUpdateScene() && i.advanceActions(this.clock.deltaTime, this.canUpdateScene), i && this.canUpdateScene() && i.update(this.clock.deltaTime), i && this.canUpdateScene() && i.advanceObjects(this.clock.deltaTime, this.canUpdateScene), this.currentState !== `running`)) return;
-			if (i && i === this.currentScene && !i.destroyed && i.world.update(this.clock.deltaTime), n && (n.simulationMs = performance.now() - r, r = performance.now()), i && this.canUpdateScene() && i.advanceWorldStreaming(this.canUpdateScene), i && this.canUpdateScene() && i.advanceNavigation(this.clock.deltaTime), n) {
-				n.navigationMs = performance.now() - r;
-				let e = i?.initializedNavigation?.stats;
-				n.navigationWork = e?.work ?? 0, n.navigationExpansions = e?.expansions ?? 0, n.navigationBakeWork = e?.bakeWork ?? 0, r = performance.now();
+			(this.fixedPixelRatio ?? Math.min(window.devicePixelRatio || 1, require_defaults.defaults.maxPixelRatio)) !== this.appliedPixelRatio && this.resizeBacking(this.logicalWidth, this.logicalHeight), this.clock.tick(r);
+			let t = this.currentScene;
+			if (this.updatingScene = t, t?.beginObjectFrame(), t?.camera2D.resize(this.logicalWidth, this.logicalHeight), this.input.update(), t && this.canUpdateScene() && !this.activeTransition?.controller.blockInput && t.routePointers(this.input.pointer, this.canUpdateScene), t && this.canUpdateScene() && (t.advanceTimers(this.clock.deltaTime), this.canUpdateScene() && t.advanceTweens(this.clock.deltaTime)), this.currentState !== `running` || (t && this.canUpdateScene() && t.beginObjectUpdates(this.clock.deltaTime, this.canUpdateScene), t && t === this.currentScene && !t.destroyed && t.advanceAnimations(this.clock.deltaTime), t && this.canUpdateScene() && t.advanceFrameAnimations(this.clock.deltaTime, this.canUpdateScene), t && this.canUpdateScene() && t.advanceActions(this.clock.deltaTime, this.canUpdateScene), t && this.canUpdateScene() && t.update(this.clock.deltaTime), t && this.canUpdateScene() && t.advanceObjects(this.clock.deltaTime, this.canUpdateScene), this.currentState !== `running`)) return;
+			if (t && t === this.currentScene && !t.destroyed && t.world.update(this.clock.deltaTime), a && (a.simulationMs = performance.now() - o, o = performance.now()), t && this.canUpdateScene() && t.advanceWorldStreaming(this.canUpdateScene), t && this.canUpdateScene() && t.advanceNavigation(this.clock.deltaTime), a) {
+				a.navigationMs = performance.now() - o;
+				let e = t?.initializedNavigation?.stats;
+				a.navigationWork = e?.work ?? 0, a.navigationExpansions = e?.expansions ?? 0, a.navigationBakeWork = e?.bakeWork ?? 0, o = performance.now();
 			}
-			if (i && this.canUpdateScene() && i.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene), this.currentState === `running` && this.audio.updateBindings(), n && (n.afterUpdateMs = performance.now() - r), this.currentState !== `running`) return;
-			let a = this.activeTransition;
-			this.frameEffects.transition = a?.controller.advance(this.clock.deltaTime);
-			let o = this.currentScene;
-			n && (r = performance.now()), o?.beginPresentation();
+			if (t && this.canUpdateScene() && t.advanceAfterUpdate(this.clock.deltaTime, this.canUpdateScene), this.currentState === `running` && this.audio.updateBindings(), a && (a.afterUpdateMs = performance.now() - o), this.currentState !== `running`) return;
+			let i = this.activeTransition;
+			this.frameEffects.transition = i?.controller.advance(this.clock.deltaTime);
+			let s = this.currentScene;
+			a && (o = performance.now()), s?.beginPresentation();
 			try {
-				this.graphics.beginFrame(), this.graphics.render(o, this.logicalWidth, this.logicalHeight, this.frameEffects), this.graphics.endFrame();
+				let e = require_xr_loop.xrLoops.get(this);
+				e ? e.render(s) : (this.graphics.beginFrame(), this.graphics.render(s, this.logicalWidth, this.logicalHeight, this.frameEffects), this.graphics.endFrame());
 			} finally {
-				o?.endPresentation();
+				s?.endPresentation();
 			}
-			n && (n.renderSubmitMs = performance.now() - r), this.accessibilityManager.update(this.currentScene), a?.controller.complete && this.completeTransition(a);
+			a && (a.renderSubmitMs = performance.now() - o), this.accessibilityManager.update(this.currentScene), i?.controller.complete && this.completeTransition(i);
 		} catch (e) {
 			this.fail(e instanceof Error ? e : new require_errors.RuntimeError(`Frame rendering failed.`, { cause: e }));
 			return;
 		} finally {
-			this.updatingScene = void 0, this.input.endFrame(), n?.finish();
+			this.updatingScene = void 0, this.input.endFrame(), a?.finish(), i?.endFrame();
 		}
-		this.currentState === `running` && (this.requestId = requestAnimationFrame(this.onFrame));
+		this.currentState === `running` && (this.requestId = require_xr_loop.requestGameFrame(this, this.onFrame));
 	};
 	fail(e) {
 		if (this.currentState === `destroyed` || this.fatalError) return;

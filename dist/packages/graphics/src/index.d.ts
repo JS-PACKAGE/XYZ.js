@@ -1,8 +1,11 @@
 import type { Scene } from '../../core/src/scene.js';
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import type { GpuTimingOptions, RenderStats } from './render-stats.js';
+import type { Profiler } from './profiler.js';
 import type { Material2D, PostProcessor2D } from '../../core/src/materials2d/index.js';
 import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -73,12 +76,17 @@ export interface Renderer {
     /** Counters for the last rendered frame; the object is reused, so copy values to keep them. */
     readonly stats: RenderStats;
     readonly residency: GraphicsResidency;
+    /** Opt-in frame collection; attach a Profiler after creating the renderer. */
+    profiler?: Profiler;
     configureResidency(options: ResidencyBudgetOptions): void;
     prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
     unloadGeometry(source: Geometry | Geometry2D): void;
     prepareResource(source: PreparationResource, options?: ResourcePreparationOptions): Promise<PreparedResourceLease>;
     retainFrameResources(): PreparedResourceLease;
     initialize(canvas: HTMLCanvasElement): Promise<void>;
+    /** Optional immersive presentation extension; Canvas2D does not implement it. */
+    initializeXR?(): Promise<XRRendererBinding>;
+    renderXRView?(scene: Scene, target: XRRenderTarget): void;
     beginFrame(): void;
     render(scene?: Scene, width?: number, height?: number, effects?: FrameEffects): void;
     captureScene(scene: Scene, width: number, height: number): Promise<RenderSnapshot>;
@@ -93,6 +101,8 @@ export interface Renderer {
     dispatchCompute?(program: ComputeProgram, options: ComputeDispatchOptions): Promise<void>;
     readCompute?(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     prepareRenderGraph?(graph: RenderGraph, options?: RenderGraphPreparationOptions): Promise<void>;
+    /** Native mirrored single-view scene capture; unavailable on Canvas2D. */
+    capturePlanarReflection?(scene: Scene, reflection: PlanarReflection): Promise<void>;
     captureReflectionProbe?(scene: Scene, probe: ReflectionProbe, options?: ReflectionProbeCaptureOptions): Promise<EnvironmentMap>;
     preparePostProcessor(processor: PostProcessor2D): Promise<void>;
     createRenderTexture(options: RenderTextureOptions2D): RenderTexture2D;

@@ -12,6 +12,7 @@ var TemporalPostState = class {
 	cameraPosition = /* @__PURE__ */ new Float32Array(3);
 	jitter = /* @__PURE__ */ new Float32Array(2);
 	historyValid = !1;
+	reprojectionValid = !1;
 	width = 0;
 	height = 0;
 	scene;
@@ -41,10 +42,10 @@ var TemporalPostState = class {
 			let e = this.camera.rotation;
 			this.previousRotation[0] = e.x, this.previousRotation[1] = e.y, this.previousRotation[2] = e.z, this.previousRotation[3] = e.w;
 		}
-		this.historyValid = this.enabled, this.sample = (this.sample + 1) % 1024;
+		this.historyValid = this.enabled, this.reprojectionValid = !0, this.sample = (this.sample + 1) % 1024;
 	}
 	invalidate() {
-		this.historyValid = !1, this.sample = 0;
+		this.historyValid = !1, this.reprojectionValid = !1, this.sample = 0;
 	}
 };
 function writeTemporalUniforms(e, t, n) {

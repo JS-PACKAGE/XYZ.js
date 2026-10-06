@@ -1,11 +1,14 @@
 const require_errors = require("./errors.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
+const require_optical_maps = require("./optical-maps.cjs");
 const require_shadow_shaders = require("./shadow-shaders.cjs");
 const require_sheen_shaders = require("./sheen-shaders.cjs");
 const require_brdf_shaders = require("./brdf-shaders.cjs");
 const require_transmission_shaders = require("./transmission-shaders.cjs");
 const require_reflection_probe_shaders = require("./reflection-probe-shaders.cjs");
 const require_oit_shaders = require("./oit-shaders.cjs");
+const require_contact_shadow_shaders = require("./contact-shadow-shaders.cjs");
+const require_mesh_shader_variants = require("./mesh-shader-variants.cjs");
 //#region dist/packages/graphics/src/webgpu-mesh-shader.js
 var webgpuMeshShader = `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -25,6 +28,8 @@ struct SceneUniforms {
   envParams: vec4f,
   fogColor: vec4f,
   fogParams: vec4f,
+  contactParams: vec4f,
+  contactStrength: vec4f,
 };
 struct ProbeUniforms {
   sh: array<vec4f, 9>,
@@ -58,8 +63,14 @@ struct MeshUniforms {
   probes: array<ProbeUniforms, 4>,
   custom: array<vec4f, ${require_rendering.nativeMaterial3DLimits.uniformFloats / 4}>,
   fade: vec4f,
-  coordinates: array<vec4f, ${require_rendering.materialTextureSlots.length * 2}>,
+  coordinates: array<vec4f, ${require_optical_maps.mappedMaterialTextureSlots.length * 2}>,
   finish: array<vec4f, 5>,
+  bakedSH: array<vec4f, 9>,
+  bakedParams: vec4f,
+  anisotropyMapSettings: vec4f,
+  iridescenceMapSettings: vec4f,
+  iridescenceThicknessMapSettings: vec4f,
+  iridescenceThicknessRange: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -94,10 +105,12 @@ struct MeshUniforms {
 @group(2) @binding(23) var sheenRoughnessSampler: sampler;
 @group(2) @binding(24) var opticalMaps: texture_2d_array<f32>;
 ${require_shadow_shaders.atlasWGSL}
+${require_contact_shadow_shaders.contactShadowWGSL}
 ${require_sheen_shaders.sheenWGSL}
 ${require_brdf_shaders.brdfWGSL}
 ${require_transmission_shaders.transmissionWGSL}
 ${require_reflection_probe_shaders.reflectionProbeWGSL}
+${require_reflection_probe_shaders.bakedIrradianceWGSL}
 ${require_sheen_shaders.sheenEnvironmentWGSL}
 // Four-point footprint moments prevent a sampled normal gradient from aliasing to zero.
 fn filteredMaterialNormal(source: texture_2d<f32>, samp: sampler, uv: vec2f, scale: f32) -> vec4f {
@@ -148,6 +161,9 @@ struct XYZPhysical { base: vec3f, metallic: f32, roughness: f32, occlusion: f32,
 fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
   return XYZVertex(position, normal);
 }
+fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
+  return xyzDeform(position, normal, uv);
+}
 fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
   return texel;
 }
@@ -169,7 +185,8 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinCofactor = mat3x3f(cross(skin[1].xyz, skin[2].xyz),
     cross(skin[2].xyz, skin[0].xyz), cross(skin[0].xyz, skin[1].xyz));
   let skinSign = select(1.0, -1.0, dot(skin[0].xyz, skinCofactor[0]) < 0.0);
-  let deformed = xyzDeform(input.position, input.normal, input.uv);
+  let instance = mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
+  let deformed = xyzDeformInstance(input.position, input.normal, input.uv, instance);
   let skinDirection = skinSign * skinCofactor * deformed.normal;
   let skinLength = length(skinDirection);
   let skinNormal = select(deformed.normal,
@@ -178,7 +195,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinTangentLength = length(skinTangentDirection);
   let skinTangent = select(input.tangent.xyz,
     skinTangentDirection / select(1.0, skinTangentLength, skinTangentLength > 0.0), mesh.clearcoat.w > 0.5);
-  let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
+  let model = mesh.model * instance;
   let a = model[0].xyz;
   let b = model[1].xyz;
   let c = model[2].xyz;
@@ -230,7 +247,7 @@ fn attenuation(distance: f32, range: f32) -> f32 {
   if (range > 0.0) { falloff = pow(max(1.0 - pow(distance / range, 4.0), 0.0), 2.0); }
   return falloff / max(distance * distance, 0.01);
 }
-fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, f0: vec3f, f90: vec3f, compensation: vec3f, remaining: f32, transmission: f32, tangent: vec3f, bitangent: vec3f) -> vec3f {
+fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, f0: vec3f, f90: vec3f, compensation: vec3f, remaining: f32, transmission: f32, tangent: vec3f, bitangent: vec3f, optics: vec3f) -> vec3f {
   let h = safeNormal(v+l);
   let nl = clamp(dot(n,l),0.0,1.0);
   let nv = clamp(dot(n,v),0.0001,1.0);
@@ -238,9 +255,9 @@ fn brdf(n: vec3f, v: vec3f, l: vec3f, base: vec3f, metal: f32, rough: f32, f0: v
   let vh = clamp(dot(v,h),0.0,1.0);
   let alpha2 = rough*rough*rough*rough;
   var fresnel = f0+(f90-f0)*pow(1.0-vh,5.0);
-  if (mesh.finish[0].z > 0.0) { fresnel=mix(fresnel,thinFilm(vh,mesh.finish[0].w,mesh.finish[1].x,f0),mesh.finish[0].z); }
+  if (optics.y > 0.0) { fresnel=mix(fresnel,thinFilm(vh,mesh.finish[0].w,optics.z,f0),optics.y); }
   var specular = ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
-  if (mesh.finish[0].x > 0.0) { specular=anisotropicGGX(n,tangent,bitangent,v,l,h,rough,mesh.finish[0].x)*fresnel*compensation; }
+  if (optics.x > 0.0) { specular=anisotropicGGX(n,tangent,bitangent,v,l,h,rough,optics.x)*fresnel*compensation; }
   let diffuse = remaining*(1.0-metal)*(1.0-transmission)*base/3.14159265359;
   if (mesh.finish[1].y > 0.0) {
     let profile=mix(vec3f(nl),diffusionProfile(dot(n,l),mesh.finish[4].rgb,mesh.finish[4].w),mesh.finish[1].y);
@@ -286,7 +303,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
 }
 fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, materialUV(input,0u)));
-  let visibility = directionalShadow(input.world,input.normal);
+  let visibility = directionalShadow(input.world,input.normal)*contactVisibility(input.world,input.normal);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
   let direction = safeNormal(scene.lightDirection.xyz);
@@ -492,14 +509,62 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   var sheenLighting = vec3f(0.0);
   if (sheenMax > 0.0) { sheenEnergy = sheenAlbedo(clamp(dot(n,v),0.0,1.0),sheenRoughness); }
   let nv=clamp(dot(n,v),0.0001,1.0);
+  var optics = vec3f(mesh.finish[0].x,mesh.finish[0].z,mesh.finish[1].x);
+  var anisotropyDirection = vec2f(1.0,0.0);
+  var mappedTangent = vec3f(0.0);
+  var mappedBitangent = vec3f(0.0);
+  if (mesh.anisotropyMapSettings.x > 0.0) {
+    let mapped = opticalSample(materialUV(input,14u),mesh.anisotropyMapSettings,2);
+    let direction = mapped.rg*2.0-1.0;
+    let magnitude = length(direction);
+    if (magnitude > 0.000001) { anisotropyDirection = direction/magnitude; }
+    optics.x *= mapped.b;
+    let uv = materialUV(input,14u);
+    let dx = dpdx(input.world); let dy = -dpdy(input.world);
+    let du = dpdx(uv); let dv = -dpdy(uv);
+    mappedTangent = cross(dy,n)*du.x+cross(n,dx)*dv.x;
+    mappedBitangent = (cross(dy,n)*du.y+cross(n,dx)*dv.y)*mesh.fade.z;
+    let rawTangent = input.tangent.xyz-n*dot(n,input.tangent.xyz);
+    let tangentLength = length(rawTangent);
+    let mapping = mesh.coordinates[28];
+    let determinant = mapping.x*mapping.w-mapping.y*mapping.z;
+    let authored = abs(input.tangent.w) > 0.5 && tangentLength > 0.000001
+      && abs(mesh.coordinates[29].z-mesh.fade.y) < 0.5
+      && abs(determinant) > 0.000001;
+    if (authored) {
+      let t = rawTangent/tangentLength;
+      let b = cross(n,t)*input.tangent.w;
+      mappedTangent = (t*mapping.w-b*mapping.y)/determinant;
+      mappedBitangent = (b*mapping.x-t*mapping.z)/determinant;
+    } else {
+      let scale = inverseSqrt(max(max(dot(mappedTangent,mappedTangent),dot(mappedBitangent,mappedBitangent)),1e-30));
+      mappedTangent *= scale;
+      mappedBitangent *= scale;
+    }
+  }
+  if (mesh.iridescenceMapSettings.x > 0.0) {
+    optics.y *= opticalSample(materialUV(input,15u),mesh.iridescenceMapSettings,3).r;
+  }
+  if (mesh.iridescenceThicknessMapSettings.x > 0.0) {
+    optics.z = mix(mesh.iridescenceThicknessRange.x,mesh.iridescenceThicknessRange.y,
+      opticalSample(materialUV(input,16u),mesh.iridescenceThicknessMapSettings,4).g);
+  }
   var tangent=vec3f(0.0); var bitangent=vec3f(0.0); var reflectionNormal=n;
-  if (mesh.finish[0].x > 0.0) {
-    let t=safeNormal(input.tangent.xyz-n*dot(n,input.tangent.xyz));
-    let b=cross(n,t)*input.tangent.w;
-    tangent=t*cos(mesh.finish[0].y)+b*sin(mesh.finish[0].y);
-    bitangent=cross(n,tangent)*input.tangent.w;
+  if (optics.x > 0.0) {
+    var t=safeNormal(input.tangent.xyz-n*dot(n,input.tangent.xyz));
+    var b=cross(n,t)*input.tangent.w;
+    var handedness = input.tangent.w;
+    if (mesh.anisotropyMapSettings.x > 0.0) {
+      t = normalize(mappedTangent);
+      handedness = select(-1.0,1.0,dot(cross(n,t),mappedBitangent) >= 0.0);
+      b = cross(n,t)*handedness;
+    }
+    let rotated = vec2f(anisotropyDirection.x*cos(mesh.finish[0].y)-anisotropyDirection.y*sin(mesh.finish[0].y),
+      anisotropyDirection.x*sin(mesh.finish[0].y)+anisotropyDirection.y*cos(mesh.finish[0].y));
+    tangent=normalize(t*rotated.x+b*rotated.y);
+    bitangent=cross(n,tangent)*handedness;
     let bent=safeNormal(cross(bitangent,cross(v,bitangent)));
-    reflectionNormal=safeNormal(mix(n,bent,mesh.finish[0].x*(1.0-rough)));
+    reflectionNormal=safeNormal(mix(n,bent,optics.x*(1.0-rough)));
   }
   let ab=environmentBRDF(nv,rough);
   var f0=mix(dielectricF0,min(base,vec3f(1.0)),metal);
@@ -507,7 +572,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let f90=mix(dielectric90,vec3f(1.0),metal);
   let compensation=ggxCompensation(f0,ab);
   var reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3f(0.0),vec3f(1.0));
-  if (mesh.finish[0].z > 0.0) { reflected=clamp(mix(reflected,thinFilm(nv,mesh.finish[0].w,mesh.finish[1].x,f0)*(ab.x+ab.y)*compensation,mesh.finish[0].z),vec3f(0.0),vec3f(1.0)); }
+  if (optics.y > 0.0) { reflected=clamp(mix(reflected,thinFilm(nv,mesh.finish[0].w,optics.z,f0)*(ab.x+ab.y)*compensation,optics.y),vec3f(0.0),vec3f(1.0)); }
   let remaining=1.0-max(max(reflected.r,reflected.g),reflected.b);
   let sheenRetention=1.0-sheenMax*sheenEnergy;
   var coatEnergy=0.0;
@@ -522,9 +587,12 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let probeWeights = reflectionWeights(input.world);
   let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;
   var color=base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
+  if (mesh.bakedParams.x > 0.5) {
+    color=bakedIrradiance(n)*base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*occlusion;
+  }
   if (useEnvironment) {
     let radiance=reflectionRadiance(input.world,reflect(-v,reflectionNormal),rough,probeWeights);
-    let diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metal)*(1.0-transmission)*remaining;
+    let diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metal)*(1.0-transmission)*remaining*select(1.0,0.0,mesh.bakedParams.x > 0.5);
     color+=(diffuseLight+radiance*reflected)*occlusion*sheenRetention;
     if (sheenMax > 0.0) {
       let sheenRadiance=sheenEnvironment(input.world,n,v,sheenRoughness,probeWeights);
@@ -535,7 +603,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
       coating+=coatRadiance*coatEnergy*occlusion;
     }
   }
-  color+=brdf(n,v,direction,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,direction),sheenRoughness,sheenMax,sheenEnergy)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
+  color+=brdf(n,v,direction,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent,optics)*sheenLightRetention(dot(n,direction),sheenRoughness,sheenMax,sheenEnergy)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;
   if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,direction,sheenRoughness)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility; }
   if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,direction,coatRoughness,coatCompensation)*scene.lightColorAmbient.rgb*max(scene.lightDirection.w,0.0)*visibility;}
   for (var i = 0u; i < u32(scene.counts.x); i++) {
@@ -543,7 +611,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let delta = lightData.positionRange.xyz-input.world;
     let l=safeNormal(delta);
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*pointShadow(i,input.world,lightData.positionRange.xyz,input.normal);
-    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
+    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent,optics)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
     if(sheenMax>0.0) {sheenLighting+=sheenLobe(n,v,l,sheenRoughness)*incident;}
     if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*incident;}
   }
@@ -553,7 +621,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
     let l = safeNormal(delta);
     let cone = smoothstep(lightData.directionOuter.w,lightData.inner.x,dot(-l,lightData.directionOuter.xyz));
     let incident = lightData.colorIntensity.rgb*lightData.colorIntensity.w*attenuation(length(delta),lightData.positionRange.w)*cone*spotShadow(i,input.world,input.normal);
-    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
+    color+=brdf(n,v,l,base,metal,rough,f0,f90,compensation,remaining,transmission,tangent,bitangent,optics)*sheenLightRetention(dot(n,l),sheenRoughness,sheenMax,sheenEnergy)*incident;
     if (sheenMax > 0.0) { sheenLighting += sheenLobe(n,v,l,sheenRoughness)*incident; }
     if(coatWeight>0.0) {coating+=clearcoatLobe(nc,v,l,coatRoughness,coatCompensation)*incident;}
   }
@@ -588,13 +656,17 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   color+=sheenTint*sheenLighting;
   if (mesh.maps.w > 1.5) {
     let baked = decodeSRGB(textureSample(emissiveMap, emissiveSampler, materialUV(input, 4u)).rgb);
-    color *= mix(vec3f(1.0), baked, mesh.finish[3].w);
+    color *= mix(vec3f(1.0), baked, mesh.finish[3].w*select(1.0,0.0,mesh.bakedParams.y > 0.5));
+    if (mesh.bakedParams.y > 0.5) {
+      color += baked*mesh.finish[3].w*base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*occlusion;
+    }
   }
   color += emission;
   if(coatWeight>0.0) {color=color*(1.0-coatWeight*coatEnergy)+coating*coatWeight;}
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),select(opacity,coverageAlpha,coverage));
 }
+
 ${require_oit_shaders.oitWeightWGSL}
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   let color = shadeMesh(input,front);
@@ -634,6 +706,42 @@ struct SkyOutput {
   return vec4f(color, 1.0);
 }
 `;
+function buildWebGPUMeshShader(e) {
+	if (!e || e.native) return webgpuMeshShader;
+	let t = webgpuMeshShader;
+	e.contactShadows || (t = t.replace(require_contact_shadow_shaders.contactShadowWGSL, ``).replace(`*contactVisibility(input.world,input.normal)`, ``).replace(`  contactParams: vec4f,
+  contactStrength: vec4f,
+`, ``));
+	let remove = (e, n) => {
+		if (!e) for (let e of n) t = require_mesh_shader_variants.omitShaderBlock(t, e);
+	};
+	if (e.pbr) remove(!1, [`if (mesh.material.x < 0.5)`]);
+	else {
+		let e = t.indexOf(`fn shadeMesh(`), n = t.indexOf(`  var mr = vec4f(1.0);`, e), r = t.slice(e, n).replace(`  if (mesh.material.x < 0.5) {
+`, ``);
+		t = require_mesh_shader_variants.omitShaderBlock(t, `fn shadeMesh(`);
+		let i = t.indexOf(`@fragment fn fragmentMain(`);
+		t = t.slice(0, i) + r + t.slice(i), t = t.replace(require_sheen_shaders.sheenWGSL, ``).replace(require_brdf_shaders.brdfWGSL, ``).replace(require_transmission_shaders.transmissionWGSL, ``).replace(require_reflection_probe_shaders.reflectionProbeWGSL, ``).replace(require_reflection_probe_shaders.bakedIrradianceWGSL, ``).replace(require_sheen_shaders.sheenEnvironmentWGSL, ``), remove(!1, [
+			`fn brdf(`,
+			`fn clearcoatLobe(`,
+			`fn filteredMaterialNormal(`,
+			`fn xyzPhysical(`
+		]);
+	}
+	return e.bakedIrradiance || (remove(!1, [`if (mesh.bakedParams.x > 0.5)`]), t = t.replace(require_reflection_probe_shaders.bakedIrradianceWGSL, ``).replace(`*select(1.0,0.0,mesh.bakedParams.x > 0.5)`, ``)), remove(e.anisotropy, [`if (optics.x > 0.0)`, `fn anisotropicGGX(`]), remove(e.iridescence, [`if (optics.y > 0.0)`, `fn thinFilm(`]), remove(e.anisotropyMap, [`if (mesh.anisotropyMapSettings.x > 0.0)`]), remove(e.iridescenceMap, [`if (mesh.iridescenceMapSettings.x > 0.0)`]), remove(e.iridescenceThicknessMap, [`if (mesh.iridescenceThicknessMapSettings.x > 0.0)`]), remove(e.subsurface, [`if (mesh.finish[1].y > 0.0)`, `fn diffusionProfile(`]), remove(e.height, [`if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)`]), remove(e.triplanar, [`if (mesh.finish[3].y > 0.0)`]), remove(e.detail, [`if (mesh.finish[3].x > 0.0)`]), remove(e.weathering, [`if (mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w > 0.0)`]), remove(e.dispersion, [`if (mesh.finish[1].z > 0.0 && thickness > 0.0)`]), e.bakedLightmap || (remove(!1, [`if (mesh.bakedParams.y > 0.5)`]), t = t.replace(`*select(1.0,0.0,mesh.bakedParams.y > 0.5)`, ``)), remove(e.lightmap, [`if (mesh.maps.w > 1.5)`]), e.transmission || (remove(!1, [`if (mesh.transmission.x > 0.0)`, `if (transmission > 0.0 && metal < 1.0)`]), e.anisotropyMap || e.iridescenceMap || e.iridescenceThicknessMap ? remove(!1, [`fn opaqueColor(`, `fn roughTransmission(`]) : t = t.replace(require_transmission_shaders.transmissionWGSL, ``)), e.sheen || (remove(!1, [
+		`if (any(mesh.sheen.rgb > vec3f(0.0)))`,
+		`if (sheenMax > 0.0)`,
+		`if(sheenMax>0.0)`
+	]), t = t.replace(require_sheen_shaders.sheenEnvironmentWGSL, ``).replace(require_sheen_shaders.sheenWGSL, `fn sheenLightRetention(nl:f32, rough:f32, strength:f32, energy:f32)->f32 { return 1.0; }`)), e.clearcoat || remove(!1, [
+		`if (coatWeight > 0.0)`,
+		`if(coatWeight>0.0)`,
+		`if (mesh.clearcoat.x > 0.0)`,
+		`if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)`,
+		`fn clearcoatLobe(`
+	]), e.environment || (remove(!1, [`if (useEnvironment)`]), t = t.replace(require_reflection_probe_shaders.reflectionProbeWGSL, ``).replace(`let probeWeights = reflectionWeights(input.world);`, `let probeWeights = vec4f(0.0);`).replace(`let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;`, `let useEnvironment = false;`).replace(require_sheen_shaders.sheenEnvironmentWGSL, ``)), e.shadows || (remove(!1, [`@vertex fn shadowVertex(`]), t = t.replace(require_shadow_shaders.atlasWGSL, `fn directionalShadow(world:vec3f, normal:vec3f)->f32 { return 1.0; }
+fn pointShadow(i:u32, world:vec3f, p:vec3f, normal:vec3f)->f32 { return 1.0; }
+fn spotShadow(i:u32, world:vec3f, normal:vec3f)->f32 { return 1.0; }`)), t;
+}
 function definesHook(e, t) {
 	return RegExp(`(?:^|[;{}\\n])\\s*(?:fn\\s+${t}|(?:void|vec[234]|float|XYZVertex|XYZPhysical)\\s+${t})\\s*\\(`, `m`).test(e);
 }
@@ -649,10 +757,14 @@ function nativeMeshWGSL(e, t = !1) {
 `}${definesHook(e, `xyzSurface`) ? `` : `fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
   return texel;
 }
-`}` : ``, a = webgpuMeshShader.slice(0, n.start) + i + e + webgpuMeshShader.slice(n.end, r.start) + (t ? `` : webgpuMeshShader.slice(r.start, r.end)) + webgpuMeshShader.slice(r.end);
-	return t ? a : a.replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`).replaceAll(`metallicRoughnessSampler`, `xyzSampler0`).replaceAll(`normalSampler`, `xyzSampler1`).replaceAll(`occlusionSampler`, `xyzSampler2`).replaceAll(`emissiveSampler`, `xyzSampler3`);
+`}` : ``, a = definesHook(e, `xyzDeformInstance`) ? `` : `fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
+  return xyzDeform(position, normal, uv);
+}
+`, s = webgpuMeshShader.slice(0, n.start) + i + a + e + webgpuMeshShader.slice(n.end, r.start) + (t ? `` : webgpuMeshShader.slice(r.start, r.end)) + webgpuMeshShader.slice(r.end);
+	return t ? s : s.replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`).replaceAll(`metallicRoughnessSampler`, `xyzSampler0`).replaceAll(`normalSampler`, `xyzSampler1`).replaceAll(`occlusionSampler`, `xyzSampler2`).replaceAll(`emissiveSampler`, `xyzSampler3`);
 }
 //#endregion
+exports.buildWebGPUMeshShader = buildWebGPUMeshShader;
 exports.nativeMeshWGSL = nativeMeshWGSL;
 exports.webgpuMeshShader = webgpuMeshShader;
 

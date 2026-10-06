@@ -1,5 +1,21 @@
 export declare const MAX_POINT_LIGHTS = 32;
 export declare const MAX_SPOT_LIGHTS = 32;
+/** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
+export declare const bakedLightingLimits: Readonly<{
+    size: 128;
+    maxSize: 1024;
+    padding: 2;
+    maxPadding: 16;
+    samples: 32;
+    maxSamples: 512;
+    maxTriangles: 65536;
+    maxRays: 8000000;
+    maxLights: 256;
+    bias: 0.001;
+    aoDistance: 2;
+    resolution: readonly [4, 4, 4];
+    maxProbes: 4096;
+}>;
 /** Fixed native shader ABI and bounded authored source size. */
 export declare const nativeMaterial3DLimits: Readonly<{
     uniformFloats: 64;
@@ -115,4 +131,42 @@ export declare const reflectionCaptureLimits: Readonly<{
     maximumSize: 512;
     maximumBytes: number;
     interval: 1;
+}>;
+/** Bound driver program residency and protect the inexpensive default PBR source. */
+export declare const meshShaderVariantLimits: Readonly<{
+    maxEntries: 64;
+    plainFragmentMaxBytes: 40000;
+}>;
+/** Bound single-view scene readback and automatic caller-driven update pacing. */
+export declare const planarReflectionLimits: Readonly<{
+    size: 128;
+    maximumSize: 512;
+    interval: 0.1;
+    minimumInterval: number;
+    clipBias: 0.001;
+}>;
+export declare const volumetricPostDefaults: Readonly<{
+    density: 0.025;
+    heightFalloff: 0.15;
+    maxDistance: 200;
+    shaftStrength: 0.25;
+    fogSamples: 16;
+    shaftSamples: 32;
+    maximumSamples: 64;
+}>;
+export declare const lensFlareDefaults: Readonly<{
+    strength: 0.15;
+    threshold: 1;
+    ghosts: 4;
+    maximumGhosts: 8;
+    spacing: 0.5;
+    haloRadius: 0.3;
+    haloWidth: 0.15;
+}>;
+export declare const motionBlurDefaults: Readonly<{
+    strength: 1;
+    samples: 12;
+    maximumSamples: 32;
+    maxRadius: 32;
+    maximumRadius: 64;
 }>;

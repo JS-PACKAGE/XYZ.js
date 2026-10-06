@@ -9,6 +9,7 @@ export declare class TemporalPostState {
     readonly cameraPosition: Float32Array<ArrayBuffer>;
     readonly jitter: Float32Array<ArrayBuffer>;
     historyValid: boolean;
+    reprojectionValid: boolean;
     width: number;
     height: number;
     private scene;
