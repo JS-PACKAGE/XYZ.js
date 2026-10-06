@@ -25,12 +25,14 @@ uniform vec4 flare;
 uniform vec4 halo;
 vec3 flareBright(vec2 uv) {
  if(any(lessThan(uv,vec2(0.0))) || any(greaterThan(uv,vec2(1.0)))) return vec3(0.0);
- ivec2 size=textureSize(image,0); vec4 texel=texelFetch(image,clamp(ivec2(uv*vec2(size)),ivec2(0),size-1),0);
+ ivec2 size=textureSize(image,0); ivec2 p=clamp(ivec2(uv*vec2(size)),ivec2(0),size-1);
+ p.y=size.y-1-p.y;
+ vec4 texel=texelFetch(image,p,0);
  return max(texel.rgb/max(texel.a,.000001)-vec3(flare.y),vec3(0.0));
 }
 vec3 lensFlare(vec3 color,ivec2 pixel) {
  if(flare.x<=0.0) return color;
- vec2 uv=(vec2(pixel)+.5)/vec2(textureSize(image,0)); vec2 vector=vec2(.5)-uv;
+ vec2 size=vec2(textureSize(image,0)); vec2 uv=vec2(float(pixel.x)+.5,size.y-float(pixel.y)-.5)/size; vec2 vector=vec2(.5)-uv;
  vec3 ghosts=vec3(0.0);
  for(int i=0;i<8;i++) {
   if(i>=int(flare.z)) break;
