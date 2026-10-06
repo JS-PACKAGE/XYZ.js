@@ -39,6 +39,15 @@ const report = {
   }[],
   error: undefined as string | undefined,
 };
+// Hosted software-GPU hangs never reach the final report; expose where the page is.
+const scenarioPush = report.scenarios.push.bind(report.scenarios);
+report.scenarios.push = (...items) => {
+  output.dataset.progress = items.map((item) => item.name).join(',');
+  return scenarioPush(...items);
+};
+function step(name: string): void {
+  output.dataset.step = name;
+}
 let renderer!: Renderer;
 let lost = 0,
   recovered = 0;
@@ -243,6 +252,7 @@ async function run(): Promise<void> {
     });
   }
 
+  step('physical:omitted');
   const physicalScene = scene();
   const omitted = new NativePBRMaterial({
     texture: white,
@@ -261,6 +271,7 @@ async function run(): Promise<void> {
     omission instanceof GraphicsError,
     'A physical material without xyzPhysical must reject before draw.',
   );
+  step('physical:prepare');
   const physical = new NativePBRMaterial({
     texture: white,
     deformationBounds: 0,
@@ -277,6 +288,7 @@ async function run(): Promise<void> {
       castShadow: false,
     }),
   );
+  step('physical:draw');
   const colored = await draw(physicalScene);
   let redPixels = 0;
   for (let i = 0; i < colored.bytes.length; i += 4)
