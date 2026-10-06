@@ -189,8 +189,40 @@ async function run(): Promise<void> {
       );
       const behind = await draw();
       scene.directionalLight.direction.set(0, 0, -1);
-      record('directional-depth-shafts', behind, await draw(), 100);
+      const unobstructed = await draw();
+      record('directional-depth-shafts', behind, unobstructed, 100);
       mesh.position.x = 0;
+      const occluded = await draw();
+      fog.shaftStrength = 0;
+      const occludedWithoutShafts = await draw();
+      const center = (64 * 128 + 64) * 4;
+      let exposedChange = 0;
+      let occludedChange = 0;
+      for (let channel = 0; channel < 3; channel++) {
+        exposedChange = Math.max(
+          exposedChange,
+          Math.abs(
+            unobstructed.bytes[center + channel]! -
+              behind.bytes[center + channel]!,
+          ),
+        );
+        occludedChange = Math.max(
+          occludedChange,
+          Math.abs(
+            occluded.bytes[center + channel]! -
+              occludedWithoutShafts.bytes[center + channel]!,
+          ),
+        );
+      }
+      if (exposedChange < 5 || occludedChange > 2)
+        throw new Error(
+          'Opaque scene depth failed to suppress directional shafts.',
+        );
+      report.scenarios.push({
+        name: `depth-occluded-shafts-${antialias ? 'msaa' : 'single'}`,
+        changedPixels: changed(occluded, occludedWithoutShafts),
+        png: occluded.png,
+      });
       scene.directionalLight.intensity = 0;
       setPostEffects(
         scene.postProcessing,
