@@ -13,6 +13,11 @@ import {
   probeBackends,
 } from './browser-launch.mjs';
 import { attachOwnedGpuCapture } from './windows-chromium-capture.mjs';
+import {
+  comparePixels,
+  comparatorSelfTest,
+  parityThresholds,
+} from './pixel-parity.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -102,6 +107,7 @@ const server = await createServer({
 });
 let browser;
 const results = [];
+let pixelParity;
 let startupError;
 async function saveReport(backend, report) {
   const scenarios = [];
@@ -470,6 +476,63 @@ try {
     }
     results.push(result);
   }
+  if (
+    browserName === 'chromium' &&
+    selected.some((backend) => backend !== 'canvas2d')
+  ) {
+    const captures = {};
+    for (const backend of ['webgl2', 'webgpu']) {
+      const context = await browser.newContext({ deviceScaleFactor: 1 });
+      try {
+        const page = await context.newPage();
+        await page.goto(
+          `http://127.0.0.1:${port}/tests/browser/pixel-parity.html?renderer=${backend}`,
+        );
+        await page.waitForFunction(
+          () =>
+            ['passed', 'failed'].includes(
+              document.querySelector('#report')?.getAttribute('data-state'),
+            ),
+          undefined,
+          { timeout: 180000 },
+        );
+        const report = JSON.parse(await page.locator('#report').textContent());
+        if (report.error)
+          throw new Error(`${backend} pixel parity: ${report.error}`);
+        captures[backend] = report.scenarios;
+      } finally {
+        await context.close();
+      }
+    }
+    pixelParity = {
+      thresholds: parityThresholds,
+      scenarios: [],
+      selfTest: null,
+    };
+    for (const a of captures.webgl2) {
+      const b = captures.webgpu.find((scene) => scene.name === a.name);
+      if (!b || a.width !== b.width || a.height !== b.height)
+        throw new Error(`Parity fixture mismatch: ${a.name}`);
+      const measured = comparePixels(a.pixels, b.pixels, a.width, a.height);
+      pixelParity.scenarios.push({
+        name: a.name,
+        ...measured,
+        webgl2Noise: comparePixels(a.pixels, a.repeat, a.width, a.height),
+        webgpuNoise: comparePixels(b.pixels, b.repeat, b.width, b.height),
+      });
+      if (!pixelParity.selfTest)
+        pixelParity.selfTest = comparatorSelfTest(a.pixels, a.width, a.height);
+    }
+    await writeFile(
+      join(directory, 'pixel-parity.json'),
+      JSON.stringify(pixelParity, null, 2),
+    );
+    const failures = pixelParity.scenarios.filter((scene) => !scene.pass);
+    if (failures.length)
+      throw new Error(
+        `Cross-backend parity failures: ${JSON.stringify(failures)}`,
+      );
+  }
 } catch (error) {
   startupError = error.stack ?? error.message ?? String(error);
   if (error.cause)
@@ -487,6 +550,7 @@ try {
             : {}),
           ...(startupError ? { error: startupError } : {}),
           results,
+          pixelParity,
         },
         null,
         2,

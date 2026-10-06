@@ -17,7 +17,9 @@ export function errorDetail(error: unknown): string {
     !(error instanceof Error) &&
     !(typeof DOMException !== 'undefined' && error instanceof DOMException)
   )
-    return String(error);
+    return typeof error === 'object' && error !== null && 'message' in error
+      ? String(error.message)
+      : String(error);
   const message = `${error.name}: ${error.message}`;
   const stack =
     'stack' in error && typeof error.stack === 'string' ? error.stack : '';
