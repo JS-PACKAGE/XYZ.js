@@ -5,6 +5,7 @@ import type {
 } from '../../core/src/materials2d/material2d.js';
 import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type {
@@ -184,6 +185,12 @@ export class PresentedRenderer implements Renderer {
         'This renderer does not support render graphs.',
       );
     return this.renderer.prepareRenderGraph(graph, options);
+  }
+  async capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void> {
+    this.requireContext();
+    if (!this.renderer.capturePlanarReflection)
+      throw new UnsupportedGraphicsError('This renderer does not support planar reflection capture.');
+    return this.renderer.capturePlanarReflection(scene, reflection);
   }
   async captureReflectionProbe(
     scene: Scene,
