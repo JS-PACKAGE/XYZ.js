@@ -5,6 +5,8 @@ import { fxaaWGSL } from './fxaa-shaders.js';
 import { depthPostWGSL } from './depth-post-shaders.js';
 import { gradingWGSL } from './color-grading-shaders.js';
 import type { ColorLUT3D } from '../../core/src/render-settings.js';
+import type { Scene } from '../../core/src/scene.js';
+import { volumetricWGSL, writeVolumetricUniforms } from './volumetric-post.js';
 import {
   OrthographicCamera,
   type Camera3D,
@@ -13,11 +15,12 @@ import type { Matrix4 } from '../../math/src/index.js';
 import type { FrameStats } from './render-stats.js';
 
 const postShader = (sampleCount: number): string => /* wgsl */ `
-struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f };
+struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f, fog: vec4f, fogColor: vec4f, shaft: vec4f, shaftColor: vec4f };
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> settings: Settings;
 ${depthPostWGSL(sampleCount)}
 ${gradingWGSL}
+${volumetricWGSL}
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
   let positions = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
   return vec4f(positions[index],0.0,1.0);
@@ -28,6 +31,7 @@ ${gradingWGSL}
   let radius = i32(min(floor(settings.viewport.z+0.5),f32(max(size.x,size.y))));
   let sample = focusedSample(pixel);
   var color = sample.rgb/max(sample.a,0.000001)*ambientOcclusion(pixel);
+  color = volumetric(color,pixel);
   var bloom = vec3f(0.0);
   if (settings.values.z > 0.0) {
     for (var y = -1; y <= 1; y++) {
@@ -61,7 +65,7 @@ export class WebGPUPostPipeline {
   private height = 0;
   private lutTexture: GPUTexture | undefined;
   private lut: ColorLUT3D | undefined;
-  private readonly data = new Float32Array(40);
+  private readonly data = new Float32Array(56);
   private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
     view?: GPUTextureView;
   } = {
@@ -233,6 +237,7 @@ export class WebGPUPostPipeline {
     inverseVP: Matrix4,
     source?: GPUTexture,
     depth?: GPUTextureView,
+    scene?: Scene,
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
@@ -274,6 +279,7 @@ export class WebGPUPostPipeline {
     this.data[35] = settings.dofBlurRadius;
     this.data[36] = settings.colorGrading?.lut.size ?? 1;
     this.data[37] = enabled ? settings.colorGrading?.strength ?? 0 : 0;
+    writeVolumetricUniforms(this.data, 40, scene);
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
     this.stats.upload(this.data.byteLength);
     if (fxaa) this.ensureFxaa();

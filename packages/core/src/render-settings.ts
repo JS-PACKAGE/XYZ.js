@@ -4,6 +4,7 @@ import {
   fxaaDefaults,
   depthPostDefaults,
   advancedPostDefaults,
+  volumetricPostDefaults,
 } from '../../../src/data/rendering.js';
 
 export interface ShadowSettingsOptions {
@@ -35,6 +36,7 @@ export interface PostProcessingSettingsOptions {
   exposure?: number;
   toneMapping?: ToneMapping;
   colorGrading?: ColorGradingSettings;
+  volumetricFog?: VolumetricFogSettings;
   bloomStrength?: number;
   bloomThreshold?: number;
   /** Neighbor sampling radius in output pixels. */
@@ -175,6 +177,7 @@ export class PostProcessingSettings {
   exposure: number;
   toneMapping: ToneMapping;
   colorGrading?: ColorGradingSettings;
+  volumetricFog?: VolumetricFogSettings;
   bloomStrength: number;
   bloomThreshold: number;
   bloomRadius: number;
@@ -203,6 +206,7 @@ export class PostProcessingSettings {
     this.exposure = options.exposure ?? 1;
     this.toneMapping = options.toneMapping ?? 'aces';
     this.colorGrading = options.colorGrading;
+    this.volumetricFog = options.volumetricFog;
     this.bloomStrength = options.bloomStrength ?? 0;
     this.bloomThreshold = options.bloomThreshold ?? 1;
     this.bloomRadius = options.bloomRadius ?? 2;
@@ -266,6 +270,7 @@ export class PostProcessingSettings {
     if (!['none', 'aces', 'agx', 'reinhard', 'neutral'].includes(this.toneMapping))
       throw new RangeError('Unknown tone mapping operator.');
     this.colorGrading?.validate();
+    this.volumetricFog?.validate();
     nonnegative(this.exposure, 'Exposure');
     nonnegative(this.bloomStrength, 'Bloom strength');
     nonnegative(this.bloomThreshold, 'Bloom threshold');
@@ -420,5 +425,56 @@ export class ColorGradingSettings {
     if (!(this.lut instanceof ColorLUT3D)) throw new TypeError('Color grading requires a ColorLUT3D.');
     finite(this.strength, 'Color grading strength');
     if (this.strength < 0 || this.strength > 1) throw new RangeError('Color grading strength must be in 0..1.');
+  }
+}
+
+export interface VolumetricFogOptions {
+  enabled?: boolean;
+  density?: number;
+  baseHeight?: number;
+  heightFalloff?: number;
+  maxDistance?: number;
+  color?: [number, number, number];
+  shaftStrength?: number;
+  fogSamples?: number;
+  shaftSamples?: number;
+}
+
+/** Depth-reconstructed exponential height fog and directional screen-space shafts. */
+export class VolumetricFogSettings {
+  enabled: boolean;
+  density: number;
+  baseHeight: number;
+  heightFalloff: number;
+  maxDistance: number;
+  color: [number, number, number];
+  shaftStrength: number;
+  fogSamples: number;
+  shaftSamples: number;
+  constructor(options: VolumetricFogOptions = {}) {
+    this.enabled = options.enabled ?? true;
+    this.density = options.density ?? volumetricPostDefaults.density;
+    this.baseHeight = options.baseHeight ?? 0;
+    this.heightFalloff = options.heightFalloff ?? volumetricPostDefaults.heightFalloff;
+    this.maxDistance = options.maxDistance ?? volumetricPostDefaults.maxDistance;
+    const c = options.color ?? [0.65, 0.75, 0.9];
+    this.color = [c[0], c[1], c[2]];
+    this.shaftStrength = options.shaftStrength ?? volumetricPostDefaults.shaftStrength;
+    this.fogSamples = options.fogSamples ?? volumetricPostDefaults.fogSamples;
+    this.shaftSamples = options.shaftSamples ?? volumetricPostDefaults.shaftSamples;
+    this.validate();
+  }
+  validate(): void {
+    if (typeof this.enabled !== 'boolean') throw new TypeError('Volumetric fog enabled must be boolean.');
+    finite(this.baseHeight, 'Fog base height');
+    for (const [name, value] of [['density', this.density], ['height falloff', this.heightFalloff], ['maximum distance', this.maxDistance], ['shaft strength', this.shaftStrength]] as const)
+      nonnegative(value, `Volumetric ${name}`);
+    if (this.maxDistance === 0 || this.shaftStrength > 4)
+      throw new RangeError('Volumetric maximum distance must be positive and shaft strength <= 4.');
+    if (this.color.length !== 3 || this.color.some(c => !Number.isFinite(c) || c < 0 || c > 1))
+      throw new RangeError('Volumetric color must contain three 0..1 components.');
+    for (const count of [this.fogSamples, this.shaftSamples])
+      if (!Number.isInteger(count) || count < 1 || count > volumetricPostDefaults.maximumSamples)
+        throw new RangeError('Volumetric sample counts must be integers in 1..64.');
   }
 }

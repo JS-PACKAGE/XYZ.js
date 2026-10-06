@@ -133,6 +133,16 @@ export const transmissionBlurFraction = 0.04;
 export const decalNormalOffset = 0.001;
 
 /** Bounded temporal/ray-march work and dynamic capture memory. */
+export const volumetricPostDefaults = Object.freeze({
+  density: 0.025,
+  heightFalloff: 0.15,
+  maxDistance: 200,
+  shaftStrength: 0.25,
+  fogSamples: 16,
+  shaftSamples: 32,
+  maximumSamples: 64,
+});
+
 export const advancedPostDefaults = Object.freeze({
   taaHistoryWeight: 0.9,
   taaDepthThreshold: 0.01,

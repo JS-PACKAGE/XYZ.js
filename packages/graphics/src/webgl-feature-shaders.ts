@@ -11,6 +11,7 @@ import { atlasGLSL } from './shadow-shaders.js';
 import { GraphicsError } from './errors.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
 import { gradingGLSL } from './color-grading-shaders.js';
+import { volumetricGLSL } from './volumetric-post.js';
 import { sheenGLSL, sheenEnvironmentGLSL } from './sheen-shaders.js';
 import { brdfGLSL } from './brdf-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
@@ -734,12 +735,14 @@ uniform vec4 settings; // exposure, strength, threshold, radius
 out vec4 color;
 ${depthPostGLSL}
 ${gradingGLSL}
+${volumetricGLSL}
 vec3 sampleAt(ivec2 p) {
   return texelFetch(image, clamp(p, ivec2(0), textureSize(image, 0) - 1), 0).rgb;
 }
 void main() {
   ivec2 p = ivec2(gl_FragCoord.xy);
   vec3 result = focusedSample(p).rgb*ambientOcclusion(p);
+  result = volumetric(result,p);
   if (settings.y > 0.0) {
     vec3 bloom = vec3(0.0);
     ivec2 size = textureSize(image, 0);

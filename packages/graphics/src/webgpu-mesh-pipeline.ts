@@ -1293,6 +1293,7 @@ export class WebGPUMeshPipeline {
           this.invViewProjection,
           source,
           this.depthView!,
+          scene,
         );
         if (this.temporalActive) this.temporalState.commit();
       }

@@ -164,6 +164,7 @@ import {
 } from './reflection-capture.js';
 import { packProbeTextures } from './probe-texture-array.js';
 import { TemporalPostState } from './temporal-post.js';
+import { writeVolumetricUniforms } from './volumetric-post.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
@@ -712,6 +713,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly samplers = new Map<string, WebGLSampler>();
   private gradingTexture: WebGLTexture | undefined;
   private gradingLUT: object | undefined | null = null;
+  private readonly volumetricData = new Float32Array(16);
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private readonly shadowCache = new ShadowCache();
@@ -1041,6 +1043,10 @@ export class WebGL2Renderer implements Renderer {
         'toneOperator',
         'grading',
         'lutImage',
+        'volumeFog',
+        'volumeColor',
+        'shaft',
+        'shaftColor',
       ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -3601,6 +3607,11 @@ export class WebGL2Renderer implements Renderer {
       settings.dofFocusRange,
       settings.dofBlurRadius,
     );
+    writeVolumetricUniforms(this.volumetricData, 0, scene);
+    gl.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4);
+    gl.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4);
+    gl.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4);
+    gl.uniform4fv(this.postUniforms.shaftColor, this.volumetricData, 12, 4);
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (fxaa) {

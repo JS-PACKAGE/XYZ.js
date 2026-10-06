@@ -323,3 +323,16 @@ before `reflection.destroy()`; materials and excluded objects are borrowed.
 Tunables live in `src/data/rendering.ts`. CPU assertions are added; no new
 browser/backend acceptance or test pass is claimed before integration checks.
 
+
+## Native volumetric post fog
+
+`PostProcessingSettings.volumetricFog` accepts `VolumetricFogSettings`.
+Depth reconstruction integrates an exponential height volume (density,
+baseHeight, heightFalloff, maxDistance, linear color) along each camera ray,
+then gathers sky-depth visibility toward the projected Scene directional light
+for screen-space radial shafts. Fog/shaft samples are integer 1–64; defaults
+are 16/32. Back-facing lights disable shafts. This bounded screen-space profile
+cannot see offscreen occluders or replace shadow-map volume scattering.
+Both native backends share the kernel; enabled postprocessing rejects Canvas2D.
+WebGL2 requires float HDR color attachments. CPU tests/typecheck pass locally;
+native browser acceptance remains pending integration.
