@@ -90,11 +90,17 @@ const coverage = {
   availableCases: [],
   plannedCases: [],
 };
-let browser, server, launch, capabilities, startupError, toolchain;
+let browser,
+  browserServer,
+  server,
+  launch,
+  capabilities,
+  startupError,
+  toolchain;
 let interrupted = false;
 const onSignal = () => {
   interrupted = true;
-  void browser?.close();
+  void browserServer?.kill();
 };
 process.once('SIGINT', onSignal);
 process.once('SIGTERM', onSignal);
@@ -443,8 +449,8 @@ async function inspectExample(path, profile, expectedRejection) {
     return;
   }
   const session = await ownedPage();
-  // A renderer whose main thread is saturated never answers page calls, so Playwright timeouts cannot fire;
-  // closing the context rejects every pending call and turns a silent CI hang into a recorded FAIL.
+  // Keep the deadline active through context shutdown. A stuck renderer may also
+  // ignore close(), so terminate only the managed process created by this run.
   let watchdogFired = false;
   const watchdog = setTimeout(() => {
     watchdogFired = true;
@@ -452,7 +458,8 @@ async function inspectExample(path, profile, expectedRejection) {
       kind: 'watchdog',
       message: `Example case exceeded ${timeout * 4}ms without answering page calls.`,
     });
-    void session.context.close().catch(() => undefined);
+    row.result = 'FAIL';
+    void browserServer.kill().catch(() => undefined);
   }, timeout * 4);
   row.errors = session.errors;
   row.warnings = session.warnings;
@@ -693,8 +700,14 @@ async function inspectExample(path, profile, expectedRejection) {
       row.errors.push({ kind: 'evidence', message: String(captureError) }),
     );
   } finally {
-    clearTimeout(watchdog);
-    if (!watchdogFired) await session.context.close();
+    try {
+      if (!watchdogFired) await session.context.close();
+    } catch (error) {
+      row.result = 'FAIL';
+      row.errors.push({ kind: 'cleanup', message: String(error) });
+    } finally {
+      clearTimeout(watchdog);
+    }
     results.push(row);
     await writeFile(
       join(output, `${name}.json`),
@@ -747,9 +760,16 @@ try {
     throw new Error(
       'smoke-site requires the repository-managed Chromium cache; custom executable overrides are not accepted.',
     );
+  // Use the pinned full Chromium's compositor, not headless shell: hosted
+  // macOS shell can stop RAF while timers continue on this native GPU scene.
+  launch.channel = 'chromium';
   launch.args = [...new Set([...(launch.args ?? []), '--mute-audio'])];
-  // Exactly one new managed process. No connect(), CDP attachment, persistent profile, or user browser.
-  browser = await chromium.launch(launch);
+  // Own exactly one fresh managed process and connect only to its private
+  // Playwright endpoint; never attach via CDP or use a user's browser/profile.
+  browserServer = await chromium.launchServer({ ...launch, host: '127.0.0.1' });
+  browser = await chromium.connect(browserServer.wsEndpoint());
+  toolchain.channel = launch.channel;
+  toolchain.executable = browserServer.process().spawnfile;
   const probe = await ownedPage();
   try {
     await probe.page.goto(`${server.origin}/`);
@@ -919,9 +939,13 @@ try {
   } finally {
     process.removeListener('SIGINT', onSignal);
     process.removeListener('SIGTERM', onSignal);
+    const shutdownDeadline = setTimeout(() => {
+      void browserServer?.kill().catch(() => undefined);
+    }, 5000);
     try {
-      await browser?.close();
+      await browserServer?.close();
     } finally {
+      clearTimeout(shutdownDeadline);
       await server?.close();
     }
   }
