@@ -1,4 +1,4 @@
-import { CanvasTexture2D } from '../../assets/src/texture2d.js';
+import { CanvasTexture2D } from '../../assets/src/index.js';
 import { Matrix4 } from '../../math/src/index.js';
 import { planarReflectionLimits } from '../../../src/data/rendering.js';
 import { PerspectiveCamera } from './perspective-camera.js';
