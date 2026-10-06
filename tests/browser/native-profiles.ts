@@ -1,5 +1,6 @@
 import {
   createRenderer,
+  EnvironmentMap,
   Geometry,
   Matrix4,
   Mesh,
@@ -14,6 +15,8 @@ import {
   Sprite,
   Texture,
   TextureMaterial,
+  setMeshMaterial,
+  Vector3,
 } from '../../src/index.js';
 import type {
   FrameEffects,
@@ -849,6 +852,64 @@ function destroy(): void {
     for (const texture of textures) texture.destroy();
   }
 }
+async function sortedMirrorScenario(white: Texture): Promise<void> {
+  begin('sorted-double-sided-mirror-depth-parity');
+  const scene = new Scene();
+  scenes.push(scene);
+  scene.ambientLight = 0;
+  scene.directionalLight.intensity = 0;
+  scene.camera3D.position.set(0, 0, 7);
+  scene.camera3D.lookAt(new Vector3());
+  const map = EnvironmentMap.gradient({
+    width: 64,
+    zenith: [0, 0, 1],
+    horizon: [0, 0, 0],
+    ground: [1, 0, 0],
+  });
+  scene.environment = map;
+  try {
+    const options = { texture: white, metallic: 1, roughness: 0.05 };
+    const material = new PBRMaterial(options);
+    check(
+      material.alphaMode === 'BLEND' && material.doubleSided,
+      'Fixture exercises default double-sided BLEND construction',
+    );
+    const mesh = scene.add(
+      new Mesh({ geometry: Geometry.sphere(2, 40, 32), material }),
+    );
+    const blended = await draw(scene);
+    setMeshMaterial(mesh, new PBRMaterial({ ...options, alphaMode: 'OPAQUE' }));
+    const opaque = await draw(scene);
+    const delta = difference(blended, opaque);
+    scenario.metrics.meanRGBError = delta.mean;
+    check(
+      delta.mean < 0.1,
+      `Alpha-one BLEND matches OPAQUE: ${JSON.stringify(delta)}`,
+    );
+    const sample = (y: number) => {
+      const rgb = [0, 0, 0];
+      for (let dy = -2; dy <= 2; dy++)
+        for (let dx = -2; dx <= 2; dx++) {
+          const offset = ((y + dy) * blended.width + 128 + dx) * 4;
+          for (let c = 0; c < 3; c++) rgb[c] += blended.bytes[offset + c] / 25;
+        }
+      return rgb;
+    };
+    const top = sample(96);
+    const bottom = sample(160);
+    scenario.metrics.topRGB = top.join(',');
+    scenario.metrics.bottomRGB = bottom.join(',');
+    check(top[2] > top[0] + 30, `Mirror top reflects zenith: ${top}`);
+    check(
+      bottom[0] > bottom[2] + 30,
+      `Mirror bottom reflects ground: ${bottom}`,
+    );
+  } finally {
+    scene.environment = undefined;
+    map.destroy();
+  }
+}
+
 async function canvasScenario(): Promise<void> {
   begin('ordinary-image-canvas-path');
   const target = document.createElement('canvas');
@@ -947,6 +1008,7 @@ async function execute(): Promise<NativeReport> {
     renderer.resize(256, 256);
     const white = await ordinaryTexture('#ffffff');
     await renderer.prepareTextures([white]);
+    await sortedMirrorScenario(white);
     await skinScenarios(white);
     renderer.unloadTexture(white);
     const native = await nativeScenarios();

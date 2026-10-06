@@ -18,6 +18,7 @@ import {
 } from '../../core/src/native-material3d.js';
 import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { nativeMeshGLSL } from './webgl-feature-shaders.js';
+import { iridescenceFilmRange } from '../../../src/data/materials.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
 import {
@@ -2227,7 +2228,11 @@ export class WebGL2Renderer implements Renderer {
           uniforms.derivativeTangentSign,
           object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1,
         );
-        if (!oitPass) gl.depthMask(!blended);
+        if (!oitPass)
+          gl.depthMask(
+            (this.visibility.entries.get(object)?.fade ?? 1) === 1 &&
+              !(isNativeMaterial3D(material) && material.transparent),
+          );
         if (pbr) {
           fillProbeBlendData(
             scene,
@@ -2446,7 +2451,11 @@ export class WebGL2Renderer implements Renderer {
           );
           gl.uniform4f(
             uniforms.finish1,
-            material.finish.iridescenceThickness,
+            material.finish.iridescence > 0
+              ? iridescenceFilmRange.minNm +
+                  material.finish.iridescenceThickness *
+                    (iridescenceFilmRange.maxNm - iridescenceFilmRange.minNm)
+              : 0,
             material.finish.subsurface,
             material.finish.dispersion,
             material.finish.heightScale,
