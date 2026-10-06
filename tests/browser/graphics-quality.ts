@@ -48,6 +48,13 @@ report.scenarios.push = (...items) => {
 function step(name: string): void {
   output.dataset.step = name;
 }
+// Heartbeat distinguishes a blocked page thread from a pending GPU promise.
+const startedAt = performance.now();
+setInterval(() => {
+  output.dataset.heartbeat = String(Math.round(performance.now() - startedAt));
+  output.dataset.events = JSON.stringify(eventLog.slice(-4));
+}, 1000);
+const eventLog: string[] = [];
 let renderer!: Renderer;
 let lost = 0,
   recovered = 0;
@@ -134,7 +141,11 @@ async function run(): Promise<void> {
     `Forced ${preference}, observed actual ${renderer.backend}.`,
   );
   renderer.resize(320, 320);
-  const proofs = frameProofs(renderer, canvas);
+  const proofs = frameProofs(renderer, canvas, () => {
+    eventLog.push(
+      `${Math.round(performance.now() - startedAt)}ms ${proofs.graphicsEvents.at(-1)?.slice(0, 160)}`,
+    );
+  });
   const white = await Texture.fromImage(whiteCanvas);
   owned.push(white);
   let drawCount = 0;

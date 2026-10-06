@@ -367,6 +367,8 @@ try {
                 progress: report?.getAttribute('data-progress'),
                 step: report?.getAttribute('data-step'),
                 phase: report?.getAttribute('data-phase'),
+                heartbeat: report?.getAttribute('data-heartbeat'),
+                events: report?.getAttribute('data-events'),
               };
             })
             .catch(() => undefined);
