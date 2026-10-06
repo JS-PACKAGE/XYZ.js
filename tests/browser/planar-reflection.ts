@@ -22,6 +22,7 @@ const report = {
   assertions: [] as string[],
   error: undefined as string | undefined,
   capturePixels: undefined as { red: number; green: number; blue: number } | undefined,
+  surfacePixels: undefined as { red: number; green: number; blue: number } | undefined,
 };
 function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -156,8 +157,18 @@ async function run(): Promise<typeof report> {
     renderer.render(surface, 128, 128);
     renderer.endFrame();
     const proof = await pending;
+    report.surfacePixels = colors(proof.bytes);
+    const rendered = document.createElement('canvas');
+    rendered.width = proof.width;
+    rendered.height = proof.height;
+    rendered.setAttribute('aria-label', 'Native PBR reflection readback');
+    const renderedContext = rendered.getContext('2d')!;
+    const renderedImage = renderedContext.createImageData(proof.width, proof.height);
+    renderedImage.data.set(proof.bytes);
+    renderedContext.putImageData(renderedImage, 0, 0);
+    preview.after(rendered);
     check(
-      colors(proof.bytes).red > 10,
+      report.surfacePixels.red > 10,
       'Real projective native PBR hook displays captured red reflection radiance on the plane.',
     );
     check(
