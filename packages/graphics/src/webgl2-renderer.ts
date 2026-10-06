@@ -78,7 +78,11 @@ import {
 } from './webgl-feature-shaders.js';
 import { fxaaGLSL } from './fxaa-shaders.js';
 import { opticalPackGLSL } from './optical-pack-shaders.js';
-import { fillOpticalMapSettings } from './optical-maps.js';
+import {
+  fillOpticalMapSettings,
+  fillMappedOpticalSettings,
+  opticalMapSources,
+} from './optical-maps.js';
 import { Texture } from '../../assets/src/index.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { MaterialTexture } from '../../assets/src/texture2d.js';
@@ -101,10 +105,10 @@ import {
   REFLECTION_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
-  MATERIAL_UV_FLOAT_COUNT,
   materialQuality,
   meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
+import { mappedMaterialUVFloatCount as MATERIAL_UV_FLOAT_COUNT } from './optical-maps.js';
 import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
 import {
@@ -234,6 +238,10 @@ const meshUniformNames = [
   'attenuationColor',
   'transmissionMapSettings',
   'thicknessMapSettings',
+  'anisotropyMapSettings',
+  'iridescenceMapSettings',
+  'iridescenceThicknessMapSettings',
+  'iridescenceThicknessRange',
   'finish0',
   'finish1',
   'finish2',
@@ -870,10 +878,11 @@ export class WebGL2Renderer implements Renderer {
       seen: number;
       allocation: ResidencyAllocation;
       side: number;
-      sourceVersions: readonly [number, number];
+      sourceVersions: readonly number[];
+      sources: readonly (MaterialTexture | undefined)[];
     }
   >();
-  private readonly opticalSettings = new Float32Array(8);
+  private readonly opticalSettings = new Float32Array(24);
   private emptyOptical: WebGLTexture | undefined;
   private opticalPackProgram: WebGLProgram | undefined;
   private opticalPackFramebuffer: WebGLFramebuffer | undefined;
@@ -1150,7 +1159,7 @@ export class WebGL2Renderer implements Renderer {
         );
       gl.activeTexture(gl.TEXTURE0 + 14);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical);
-      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 2);
+      gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, 1, 1, 5);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram);
@@ -1302,12 +1311,8 @@ export class WebGL2Renderer implements Renderer {
     if (entry) {
       entry.allocation.destroy();
     }
-    for (const [material, packed] of this.opticalTextures)
-      if (
-        pbrTextureSources(material).transmissionTexture === source ||
-        pbrTextureSources(material).thicknessTexture === source
-      )
-        packed.allocation.destroy();
+    for (const packed of this.opticalTextures.values())
+      if (packed.sources.includes(source)) packed.allocation.destroy();
   }
 
   prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
@@ -2221,16 +2226,22 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): void {
-    const a = pbrTextureSources(material).transmissionTexture,
-      b = pbrTextureSources(material).thicknessTexture;
-    if (!a && !b) return;
-    if (a?.destroyed || b?.destroyed)
+    const sources = opticalMapSources(material);
+    if (!sources.some(Boolean)) {
+      this.opticalTextures.get(material)?.allocation.destroy();
+      return;
+    }
+    if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGL2 optical map has been destroyed.');
     let existing = this.opticalTextures.get(material);
-    const sourceVersions = [a?.version ?? -1, b?.version ?? -1] as const;
+    const sourceVersions = sources.map((source) => source?.version ?? -1);
     if (
-      existing?.sourceVersions[0] === sourceVersions[0] &&
-      existing.sourceVersions[1] === sourceVersions[1]
+      existing &&
+      sources.every(
+        (source, i) =>
+          existing!.sources[i] === source &&
+          existing!.sourceVersions[i] === sourceVersions[i],
+      )
     ) {
       existing.allocation.touch();
       existing.seen = this.frame;
@@ -2239,7 +2250,11 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl!;
     const side = Math.ceil(
       Math.sqrt(
-        Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
+        Math.max(
+          ...sources.map((source) =>
+            source ? source.width * source.height : 1,
+          ),
+        ),
       ),
     );
     if (existing && existing.side !== side) {
@@ -2248,7 +2263,7 @@ export class WebGL2Renderer implements Renderer {
     }
     const allocation =
       existing?.allocation ??
-      this.residency.textures.allocate(side * side * 8, () => {
+      this.residency.textures.allocate(side * side * 20, () => {
         const cached = this.opticalTextures.get(material);
         if (cached) gl.deleteTexture(cached.resource);
         this.opticalTextures.delete(material);
@@ -2258,12 +2273,13 @@ export class WebGL2Renderer implements Renderer {
       allocation.destroy();
       throw new GraphicsError('WebGL2 optical array allocation failed.');
     }
+    const dither = gl.isEnabled(gl.DITHER);
     try {
       gl.activeTexture(gl.TEXTURE0 + 14);
       gl.bindSampler(14, null);
       gl.bindTexture(gl.TEXTURE_2D_ARRAY, resource);
       if (!existing)
-        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 2);
+        gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA8, side, side, 5);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram!);
@@ -2274,11 +2290,13 @@ export class WebGL2Renderer implements Renderer {
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
       gl.disable(gl.SCISSOR_TEST);
+      // Optical channels are data: framebuffer dithering must not alter their bytes.
+      gl.disable(gl.DITHER);
       gl.bindVertexArray(this.triangleVAO!);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindSampler(0, null);
-      for (let layer = 0; layer < 2; layer++) {
-        const source = layer === 0 ? a : b;
+      for (let layer = 0; layer < 5; layer++) {
+        const source = sources[layer];
         if (!source) continue;
         const entry = this.cacheTexture(source);
         entry.seen = this.frame;
@@ -2304,6 +2322,7 @@ export class WebGL2Renderer implements Renderer {
         seen: this.frame,
         side,
         sourceVersions,
+        sources,
       });
       allocation.touch();
     } catch (error) {
@@ -2311,6 +2330,7 @@ export class WebGL2Renderer implements Renderer {
       allocation.destroy();
       throw error;
     } finally {
+      if (dither) gl.enable(gl.DITHER);
       gl.framebufferTextureLayer(
         gl.FRAMEBUFFER,
         gl.COLOR_ATTACHMENT0,
@@ -2680,6 +2700,28 @@ export class WebGL2Renderer implements Renderer {
             this.opticalSettings[5]!,
             this.opticalSettings[6]!,
             this.opticalSettings[7]!,
+          );
+          fillMappedOpticalSettings(
+            material,
+            this.opticalSettings,
+            8,
+            this.maxTextureAnisotropy,
+          );
+          gl.uniform4fv(
+            uniforms.anisotropyMapSettings,
+            this.opticalSettings.subarray(8, 12),
+          );
+          gl.uniform4fv(
+            uniforms.iridescenceMapSettings,
+            this.opticalSettings.subarray(12, 16),
+          );
+          gl.uniform4fv(
+            uniforms.iridescenceThicknessMapSettings,
+            this.opticalSettings.subarray(16, 20),
+          );
+          gl.uniform4fv(
+            uniforms.iridescenceThicknessRange,
+            this.opticalSettings.subarray(20, 24),
           );
           gl.activeTexture(gl.TEXTURE0 + 14);
           gl.bindSampler(14, null);
@@ -4515,10 +4557,9 @@ export class WebGL2Renderer implements Renderer {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
-    for (const [material, entry] of this.opticalTextures)
+    for (const entry of this.opticalTextures.values())
       if (
-        pbrTextureSources(material).transmissionTexture?.destroyed ||
-        pbrTextureSources(material).thicknessTexture?.destroyed ||
+        entry.sources.some((source) => source?.destroyed) ||
         (this.residency.textures.budgetBytes === Infinity &&
           entry.seen !== this.frame &&
           !entry.allocation.references)

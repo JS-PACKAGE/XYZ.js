@@ -377,13 +377,6 @@ export function preflight(document, codecs = {}) {
         throw new Error(`Unsupported material extension ${name}.`);
     const extensions = material.extensions ?? {};
     if (
-      extensions.KHR_materials_anisotropy?.anisotropyTexture !== undefined ||
-      extensions.KHR_materials_iridescence?.iridescenceTexture !== undefined ||
-      extensions.KHR_materials_iridescence?.iridescenceThicknessTexture !==
-        undefined
-    )
-      throw new Error('Anisotropy and iridescence textures are unsupported.');
-    if (
       extensions.KHR_materials_dispersion &&
       !extensions.KHR_materials_transmission
     )

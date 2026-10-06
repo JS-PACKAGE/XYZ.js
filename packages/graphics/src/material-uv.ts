@@ -1,5 +1,6 @@
-import { materialTextureSlots } from '../../../src/data/rendering.js';
+import { mappedMaterialTextureSlots as materialTextureSlots } from './optical-maps.js';
 import { PBRMaterial } from '../../core/src/pbr-material.js';
+import { materialTextureCoordinates } from '../../core/src/optical-material-maps.js';
 import type { TextureMaterial } from '../../core/src/mesh.js';
 import type { Geometry } from '../../core/src/geometry.js';
 import { GraphicsError } from './errors.js';
@@ -11,11 +12,12 @@ export function fillMaterialUV(
   out: Float32Array,
   offset = 0,
 ): void {
+  const coordinates =
+    material instanceof PBRMaterial
+      ? materialTextureCoordinates(material)
+      : undefined;
   for (let i = 0; i < materialTextureSlots.length; i++) {
-    const mapping =
-      material instanceof PBRMaterial
-        ? material.textureCoordinates[materialTextureSlots[i]!]
-        : undefined;
+    const mapping = coordinates?.[materialTextureSlots[i]!];
     if (mapping?.texCoord === 1 && !geometry.uvs1)
       throw new GraphicsError(
         `Material ${materialTextureSlots[i]} requires absent TEXCOORD_1.`,

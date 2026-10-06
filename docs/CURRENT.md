@@ -71,7 +71,11 @@ Remove all consumers before calling synchronous, idempotent `destroy()`, which r
 
 `MaterialAsset.fromImages(maps, overrides?)` decodes ImageBitmap sources into textures it owns, borrows any `Texture` you pass, and builds a `PBRMaterial`; `MaterialAsset.create(options)` borrows everything. `destroy()` is idempotent and releases only decoded textures. A failed decode releases the ones already decoded. `setMeshMaterial(mesh, material)` swaps a mesh's material (validated) without rebuilding it.
 
-The glTF loader accepts `KHR_materials_variants` (`gltfVariants(asset).variants`, `gltfVariants(asset).selectVariant(name | undefined)`; unknown names and out-of-range references reject), plus `KHR_materials_anisotropy`, `KHR_materials_iridescence` and `KHR_materials_dispersion` mapped onto the finish. Their texture slots, and dispersion without transmission, reject rather than being ignored. Variant materials stay owned by the asset and are released by `dispose()`. Recipe tooling (`scripts/asset-recipe-lib.mjs`) does not yet accept these extensions.
+The glTF loader and recipe preflight accept `KHR_materials_variants`, anisotropy, iridescence and dispersion (dispersion still requires transmission). `PBRMaterialOptions.opticalMaps` borrows independent anisotropy (RG direction/B strength), iridescence (R factor) and iridescence-thickness (G) maps. These occupy layers 2–4 of the existing optical array, not extra sampler slots; UV0/UV1 transforms and independent wrapping/filtering are retained. Thickness maps interpolate authored minimum/maximum nanometers. `opticalMaterialMaps(material)` exposes the frozen side-table settings without changing published material class shapes. glTF export preserves these maps and ranges. Variant resources remain owned by the loaded asset.
+
+`materialTextureCoordinates(material)` exposes the combined legacy/optical UV
+coordinates; the published `MaterialTextureSlot` union and
+`material.textureCoordinates` TypeScript declaration remain unchanged for 1.x.
 
 `NativePBRMaterial` is a separate physical-surface hook, not a procedural preset. It extends `PBRMaterial` and requires caller-authored `xyzPhysical` WGSL and GLSL. The engine still owns BRDF, passes and PBR bindings; the hook receives decoded base color, metallic, roughness, occlusion and emission and must not add resources. `isNativeMaterial3D` recognizes both native classes. Prepare physical materials with the optional `renderer.prepareNativePBRMaterial(material)` (the 1.x `prepareMaterial` signature is unchanged); warmup and tracked shadow invalidation include them. Canvas2D rejects them. Borrowed PBR maps stay caller-owned.
 
@@ -295,7 +299,8 @@ after display encoding; strength is 0–1. Tone operators are none, ACES, AgX-is
 Reinhard and peak-preserving neutral. Canvas2D explicitly rejects enabled 3D
 postprocessing. WebGL2's existing HDR path requires `EXT_color_buffer_float`;
 forced-backend failure throws rather than degrading the effects.
-CPU assertions are provided; browser/gate acceptance is pending integration.
+CPU assertions, forced WebGL2/WebGPU single/MSAA renders and strict native parity pass;
+see ACCEPTANCE for the tested Chromium scope and integration gates.
 
 ## Planar scene reflections
 
@@ -318,12 +323,85 @@ This bounded readback/upload profile is not a zero-copy or HDR reflection.
 projective `NativeMaterial3D` hook in WGSL and GLSL; prepare it with
 `renderer.prepareMaterial` before drawing. Add its reflector mesh to `exclude`
 when constructing the capture; native hook uniforms follow successful captures.
-The texture can also be borrowed by existing PBR `sources` map slots, though
-ordinary UV mapping is not projective reflection/IBL. Remove all consumers
+`reflection.createPBRMaterial(options, strength = 1)` returns a real
+`NativePBRMaterial` physical hook adding projective, sRGB-decoded reflection
+radiance to PBR emission on both backends; strength is 0–1. Prepare it with
+`renderer.prepareNativePBRMaterial`. The emissive sampler is reserved: existing
+emissive maps or lightmaps reject instead of being silently dropped. This is an
+additive radiance finish, not roughness-prefiltered planar IBL or Fresnel water
+simulation. The ordinary native surface hook remains available for other
+surfaces. Remove all consumers
 before `reflection.destroy()`; materials and excluded objects are borrowed.
-Tunables live in `src/data/rendering.ts`. CPU assertions are added; no new
-browser/backend acceptance or test pass is claimed before integration checks.
+Tunables live in `src/data/rendering.ts`. CPU assertions are added. Targeted
+source fixtures on managed Chromium/macOS passed nine assertions per forced
+native backend: capture red pixels GL 268/GPU 290, clipped green and excluded
+blue both zero; native PBR reflection readback red pixels GL 284/GPU 292.
+Screenshots of captured/native readback previews were inspected. The separate
+antialias-disabled PBR planar parity scene passed unchanged strict thresholds:
+all RGB cross-backend and within-backend repeat mean/p99 errors were exactly 0.
+Ordinary capture uses RGBA8 shader display encoding on both backends; GL reserves
+HDR capture for material paths requiring it, avoiding unnecessary half-float
+quantization. This is not cross-browser, packaged-consumer, broad regression
+or physical-device qualification.
 
+## CPU baked lighting
+
+`await bakeLightmap(scene, {meshes, size, padding, atlas, samples, aoDistance,
+bias, maxTriangles, maxRays})` snapshots static, undeformed triangle meshes in
+world space and builds a bounded median-split triangle BVH. Direct directional,
+inverse-square/range point and smooth-cone spot illumination uses visibility
+rays; deterministic cosine hemisphere samples occlude ambient light. No GPU
+readback or indirect multi-bounce solver is implied. The default atlas generates
+disjoint per-triangle UV1 charts without mutating source geometry; use returned
+`geometries.get(mesh)` on replacement static meshes. `atlas:'uv1'` instead requires
+nondegenerate, nonoverlapping authored UV1 with edge padding. Synchronous dilation
+rings fill chart edges for bilinear filtering. Keep mipmapping disabled for this
+single-level atlas. The returned `pixels` preserve linear RGB while owned
+`texture` is an sRGB RGBA8 Texture (radiance above 1 clamps); merge
+`materialOptions` into a PBRMaterial with your borrowed base texture. It selects
+the emissive-slot UV1 path and lightmap strength 1. Remove consumers before
+`destroy()`; scene and input resources remain borrowed.
+Generated bake textures carry an internal identity marker: their irradiance adds
+diffuse PBR light even when realtime ambient and direct lights are disabled.
+Ordinary authored finish lightmaps retain their existing multiplicative contract.
+Disable sources already included in the bake during realtime rendering to avoid
+double-counting their contribution; the bake does not mutate scene lights.
+
+`bakeIrradianceVolume(sceneOrEnvironmentMap, {min,max,resolution,order,samples,...})`
+creates a world-space `BakedIrradianceVolume`: RGB SH L1 (4 coefficients) or L2
+(9), convolved to irradiance/pi. Scene baking includes occluded environment,
+direct sun/point/spot projection and one diffuse surface-color bounce; textures
+and emissive surfaces are not integrated into that bounce. Environment-only
+baking uses bilinear sky radiance. `sampleSH(x,y,z,out)` trilinearly interpolates
+to the renderer's 36-float vec4 SH ABI, with false/zero outside bounds or after
+destruction. `bindIrradianceVolume(mesh,volume)` opts dynamic PBR meshes into
+per-draw sampling at their world origin: normals evaluate the interpolated SH
+in native shading, replacing diffuse ambient/IBL, not specular reflections.
+This is per-mesh, not per-fragment spatial interpolation; unbind with undefined.
+
+Tunables live in `src/data/rendering.ts`: 1024² texels, 65,536 triangles,
+256 lights, 512 samples, 8,000,000 rays, and 4096 probes are hard maxima.
+Invalid inputs or exhausted ray quotas reject instead of silently truncating.
+CPU assertions are supplied; tests and native/browser integration remain
+unverified until the main integration agent runs the checks.
+
+## Immersive WebXR
+
+Use `const xr = new XRSessionManager(game)` from the root entry. Query
+`await xr.isSessionSupported('immersive-vr')`, then request an immersive-vr/ar
+session from a user gesture with `xr.requestSession(mode, { requiredFeatures,
+optionalFeatures })`. Local-floor is required. Canvas2D rejects; WebGL2 requires
+makeXRCompatible/XRWebGLLayer; WebGPU requires native XRGPUBinding/layers support.
+The session owns frame timing while active, renders each eye with its native view
+and projection, and updates Scene.camera3D with the tracked head transform.
+Controller grip/target-ray poses are exposed through `xr.controllers`; bind existing
+Input actions to `{ virtual: controller.prefix + '.button.0' }` or `.axis.N`
+(including binding direction for signed axes). Source removal/hidden/end releases
+controls. `await xr.end()` restores normal Game RAF; `xr.destroy()` releases ownership.
+Application code must destroy an unused manager. Graphics loss ends its session.
+Eye rendering uses native offscreen targets and a framebuffer blit/texture copy,
+not direct multiview rendering. No physical headset/runtime was used; actual
+immersive rendering and hardware qualification remain BLOCKED (see ACCEPTANCE).
 
 ## Native volumetric post fog
 
@@ -336,8 +414,8 @@ for screen-space radial shafts. Fog/shaft samples are integer 1–64; defaults
 are 16/32. Back-facing lights disable shafts. This bounded screen-space profile
 cannot see offscreen occluders or replace shadow-map volume scattering.
 Both native backends share the kernel; enabled postprocessing rejects Canvas2D.
-WebGL2 requires float HDR color attachments. CPU tests/typecheck pass locally;
-native browser acceptance remains pending integration.
+WebGL2 requires float HDR color attachments. Forced native single/MSAA assertions
+verify visible fog/shafts and opaque-depth suppression; strict backend parity passes.
 
 ## Native lens flare
 
@@ -348,4 +426,20 @@ threshold is nonnegative, spacing is (0,2], and halo radius/width are normalized
 (0,1]. This cheap screen-space lens model excludes hidden/offscreen sources;
 it is not an optical simulation. Both native paths use the same bounded kernel;
 Canvas2D rejects enabled 3D postprocessing and GL requires float HDR attachments.
-CPU assertions passed; native pixel acceptance remains pending integration.
+Forced native single/MSAA bright-pass assertions and strict backend parity pass.
+
+## Camera motion blur
+
+`PostEffectsSettings.motionBlur` accepts `MotionBlurSettings`: strength 0–2,
+integer samples 1–32 (default 12), maximum radius 0–64 backing pixels (default
+32). Both native backends reuse TAA's camera/depth reprojection matrices and
+history invalidation, without requiring TAA accumulation or jitter. There is
+no per-object velocity attachment: stationary-camera moving objects are not
+blurred. Camera/scene changes, cuts, projection changes and viewport changes
+invalidate history; static camera velocity is zero. Depth-discontinuous taps
+are rejected using the existing relative TAA depth threshold. Motion gathering
+precedes fog, flare and tone mapping; it replaces the center's DoF gather on
+moving pixels rather than multiplying DoF and motion sample counts.
+Canvas2D rejects enabled 3D postprocessing; GL requires float HDR attachments.
+CPU/type checks and forced-native single/MSAA pixel assertions passed locally;
+integration-wide gates are recorded separately in ACCEPTANCE.

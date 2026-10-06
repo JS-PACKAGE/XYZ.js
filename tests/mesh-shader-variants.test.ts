@@ -23,6 +23,13 @@ import {
   webgpuMeshShader,
 } from '../packages/graphics/src/webgpu-mesh-shader.js';
 import { meshShaderVariantLimits } from '../src/data/rendering.js';
+import {
+  fillMappedOpticalSettings,
+  opticalMapSources,
+  mappedMaterialTextureSlots,
+  mappedMaterialUVFloatCount,
+} from '../packages/graphics/src/optical-maps.js';
+import { opticalPackWGSL } from '../packages/graphics/src/optical-pack-shaders.js';
 
 const texture = new Texture({ width: 1, height: 1, close() {} } as ImageBitmap);
 
@@ -213,8 +220,11 @@ describe('mesh shader source variants', () => {
     ]);
     const wgslFunctions = shaderFunctionDefinitions(webgpuMeshShader, 'wgsl');
     const variants = featureCombinationMatrix();
-    // Twenty switches: endpoints, singles and pairs, in every PBR/native mode.
-    expect(variants).toHaveLength(2 * 2 * 2 * (1 + 20 + (20 * 19) / 2));
+    const switches =
+      Object.keys(meshShaderFeatures(new PBRMaterial({ texture }))).length - 2;
+    expect(variants).toHaveLength(
+      2 * 2 * 2 * (1 + switches + (switches * (switches - 1)) / 2),
+    );
     for (const features of variants) {
       const key = meshShaderVariantKey(features);
       for (const [stage, source, language, functions] of [
@@ -253,6 +263,121 @@ describe('mesh shader source variants', () => {
     Object.assign(ordinary, { skeleton: {} });
     expect(meshShaderFeatures(material, ordinary).skinned).toBe(false);
     expect(meshShaderFeatures(material).skinned).toBe(false);
+  });
+
+  it('packs independent optical map settings and all five atlas layers', () => {
+    const second = new Texture({
+      width: 2,
+      height: 3,
+      close() {},
+    } as ImageBitmap);
+    const third = new Texture({
+      width: 4,
+      height: 5,
+      close() {},
+    } as ImageBitmap);
+    const material = new PBRMaterial({
+      texture,
+      transmissionTexture: texture,
+      thicknessTexture: second,
+      opticalMaps: {
+        anisotropyTexture: third,
+        anisotropySampler: { addressModeU: 'repeat', minFilter: 'nearest' },
+        iridescenceTexture: second,
+        iridescenceSampler: {
+          addressModeV: 'mirror-repeat',
+          magFilter: 'nearest',
+        },
+        iridescenceThicknessTexture: texture,
+        iridescenceThicknessMinimum: 50,
+        iridescenceThicknessMaximum: 950,
+      },
+    });
+    const packed = new Float32Array(20).fill(-1);
+    fillMappedOpticalSettings(material, packed, 4);
+    expect(Array.from(packed.subarray(0, 4))).toEqual([-1, -1, -1, -1]);
+    expect(Array.from(packed.subarray(4, 8))).toEqual([4, 5, 1, 2]);
+    expect(Array.from(packed.subarray(8, 12))).toEqual([2, 3, 6, 1]);
+    expect(Array.from(packed.subarray(12, 20))).toEqual([
+      1, 1, 0, 3, 50, 950, 0, 0,
+    ]);
+    expect(opticalMapSources(material)).toEqual([
+      texture,
+      second,
+      third,
+      second,
+      texture,
+    ]);
+    for (let layer = 0; layer < 5; layer++)
+      expect(opticalPackWGSL).toContain(`pack(id,${layer});`);
+  });
+
+  it('keeps mapped optical sampling lazy and shares strengths across lighting paths', () => {
+    const material = new PBRMaterial({
+      texture,
+      finish: { anisotropy: 0.7, iridescence: 0.8 },
+      opticalMaps: {
+        anisotropyTexture: texture,
+        iridescenceTexture: texture,
+        iridescenceThicknessTexture: texture,
+        iridescenceThicknessMinimum: 50,
+        iridescenceThicknessMaximum: 950,
+      },
+    });
+    const features = meshShaderFeatures(material);
+    expect(features.anisotropyMap).toBe(true);
+    expect(features.iridescenceMap).toBe(true);
+    expect(features.iridescenceThicknessMap).toBe(true);
+    const mappedGLSL = buildMeshFragment(features);
+    const mappedWGSL = buildWebGPUMeshShader(features);
+    // Authored tangents remain usable under affine map transforms; UV set
+    // mismatches and singular transforms must retain the derivative fallback.
+    expect(mappedGLSL).toContain('(t*mapping.w-b*mapping.y)/determinant');
+    expect(mappedWGSL).toContain('(t*mapping.w-b*mapping.y)/determinant');
+    expect(mappedGLSL).toContain(
+      'materialCoordinates[29].z-float(tangentTexCoord)',
+    );
+    expect(mappedWGSL).toContain('mesh.coordinates[29].z-mesh.fade.y');
+    expect(mappedGLSL).toContain('abs(determinant) > .000001');
+    expect(mappedWGSL).toContain('abs(determinant) > 0.000001');
+    expect(mappedGLSL).toContain('materialNormalFrame(n,14)');
+    expect(mappedWGSL).toContain(
+      'mappedTangent = cross(dy,n)*du.x+cross(n,dx)*dv.x',
+    );
+    expect(mappedMaterialTextureSlots.slice(14)).toEqual([
+      'anisotropy',
+      'iridescence',
+      'iridescenceThickness',
+    ]);
+    expect(mappedMaterialUVFloatCount).toBe(17 * 8);
+    expect(buildMeshFragment(features)).toContain('materialCoordinates[34]');
+    expect(buildWebGPUMeshShader(features)).toContain(
+      'coordinates: array<vec4f, 34>',
+    );
+    const plain = meshShaderFeatures(new PBRMaterial({ texture }));
+    expect(buildWebGPUMeshShader(plain)).toContain(
+      'coordinates: array<vec4f, 34>',
+    );
+    expect(meshShaderVariantKey(features)).not.toBe(
+      meshShaderVariantKey({ ...features, anisotropyMap: false }),
+    );
+    for (const source of [
+      buildMeshFragment(features),
+      buildWebGPUMeshShader(features),
+    ]) {
+      expect(source).toContain('opticalSample(');
+      expect(source).toContain('iridescenceThicknessRange');
+      expect(source).toContain('anisotropyDirection');
+      expect(source).not.toContain('roughTransmission(');
+    }
+    for (const source of [
+      buildMeshFragment(plain),
+      buildWebGPUMeshShader(plain),
+    ]) {
+      expect(source).not.toContain('opticalSample(');
+      expect(source).not.toContain('anisotropicGGX(');
+      expect(source).not.toContain('thinFilm(');
+    }
   });
 
   it('removes nested authored blocks without consuming following statements', () => {

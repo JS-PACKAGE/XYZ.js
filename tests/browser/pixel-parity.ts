@@ -28,6 +28,7 @@ import {
   VolumetricFogSettings,
   LensFlareSettings,
   MotionBlurSettings,
+  setMeshMaterial,
 } from '../../src/index.js';
 import { frameProofs } from './frame-proof.js';
 
@@ -44,6 +45,8 @@ const report = {
     repeat: number[];
     width: number;
     height: number;
+    mapChangeMean?: number;
+    png?: string;
   }[],
   error: undefined as string | undefined,
 };
@@ -279,6 +282,91 @@ async function run(): Promise<void> {
         });
       } finally {
         scene.destroy();
+      }
+    }
+    // Each packed channel must produce a visible material change, not just compile.
+    for (const name of [
+      'anisotropy-map',
+      'iridescence-map',
+      'iridescence-thickness-map',
+    ]) {
+      const mapCanvas = document.createElement('canvas');
+      mapCanvas.width = mapCanvas.height = 8;
+      const context = mapCanvas.getContext('2d')!;
+      context.fillStyle =
+        name === 'anisotropy-map' ? 'rgb(255,128,255)' : '#fff';
+      context.fillRect(0, 0, 8, 8);
+      context.fillStyle =
+        name === 'anisotropy-map' ? 'rgb(128,255,64)' : '#000';
+      context.fillRect(0, 0, 4, 8);
+      const map = await Texture.fromImage(mapCanvas);
+      const scene = new Scene();
+      try {
+        const camera = new OrthographicCamera();
+        camera.height = 3;
+        camera.position.set(2, 1, 5);
+        camera.lookAt(new Vector3());
+        scene.camera3D = camera;
+        scene.ambientLight = 0.1;
+        scene.directionalLight.direction.set(0.6, 0.8, 1).normalize();
+        scene.directionalLight.intensity = 1.2;
+        scene.environment = environment;
+        const options = {
+          texture: white,
+          color: [0.8, 0.6, 0.35] as [number, number, number],
+          roughness: 0.25,
+          metallic: 0.65,
+          finish:
+            name === 'anisotropy-map'
+              ? { anisotropy: 0.9, anisotropyRotation: 0.4 }
+              : { iridescence: 1, iridescenceThickness: 0.43 },
+        };
+        const mesh = scene.add(
+          new Mesh({ geometry, material: new PBRMaterial(options) }),
+        );
+        await draw(scene);
+        const control = await draw(scene);
+        setMeshMaterial(
+          mesh,
+          new PBRMaterial({
+            ...options,
+            opticalMaps: {
+              anisotropyTexture: name === 'anisotropy-map' ? map : undefined,
+              iridescenceTexture: name === 'iridescence-map' ? map : undefined,
+              iridescenceThicknessTexture:
+                name === 'iridescence-thickness-map' ? map : undefined,
+              iridescenceThicknessMinimum: 100,
+              iridescenceThicknessMaximum: 700,
+            },
+            textureCoordinates: {
+              anisotropy: { rotation: 0.2, scale: [2, 1] },
+              iridescence: { rotation: 0.2, scale: [2, 1] },
+              iridescenceThickness: { rotation: 0.2, scale: [2, 1] },
+            },
+          }),
+        );
+        await draw(scene);
+        const first = await draw(scene);
+        const repeat = await draw(scene);
+        let difference = 0;
+        for (let i = 0; i < first.bytes.length; i += 4)
+          for (let c = 0; c < 3; c++)
+            difference += Math.abs(first.bytes[i + c]! - control.bytes[i + c]!);
+        const mean = difference / (first.width * first.height * 3);
+        if (mean < 0.1)
+          throw new Error(`${name} did not visibly change pixels: ${mean}`);
+        report.scenarios.push({
+          name,
+          pixels: Array.from(first.bytes),
+          repeat: Array.from(repeat.bytes),
+          width: first.width,
+          height: first.height,
+          mapChangeMean: mean,
+          png: first.png,
+        });
+      } finally {
+        scene.destroy();
+        map.destroy();
       }
     }
     for (const name of [

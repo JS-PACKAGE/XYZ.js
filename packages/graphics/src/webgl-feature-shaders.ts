@@ -4,9 +4,9 @@ import {
   MAX_SPOT_LIGHTS,
   SPOT_LIGHT_OFFSET,
   nativeMaterial3DLimits,
-  materialTextureSlots,
   materialQuality,
 } from '../../../src/data/rendering.js';
+import { mappedMaterialTextureSlots as materialTextureSlots } from './optical-maps.js';
 import { atlasGLSL } from './shadow-shaders.js';
 import { GraphicsError } from './errors.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
@@ -162,6 +162,11 @@ uniform vec4 transmission; // strength, local thickness, inverse attenuation dis
 uniform vec3 attenuationColor;
 uniform vec4 transmissionMapSettings;
 uniform vec4 thicknessMapSettings;
+uniform vec4 anisotropyMapSettings;
+uniform vec4 iridescenceMapSettings;
+uniform vec4 iridescenceThicknessMapSettings;
+uniform vec4 iridescenceThicknessRange;
+vec3 opticalFinish;
 uniform highp sampler2DArray opticalMaps;
 uniform sampler2D opaqueScene;
 uniform mat4 viewProjection;
@@ -254,9 +259,9 @@ vec3 brdf(vec3 base,float metallic,float roughness,vec3 n,vec3 v,vec3 l,vec3 f0,
   float nh=clamp(dot(n,h),0.0,1.0),vh=clamp(dot(v,h),0.0,1.0);
   float alpha2=roughness*roughness*roughness*roughness;
   vec3 fresnel=f0+(f90-f0)*pow(1.0-vh,5.0);
-  if (finish0.z > 0.0) fresnel=mix(fresnel,thinFilm(vh,finish0.w,finish1.x,f0),finish0.z);
+  if (opticalFinish.y > 0.0) fresnel=mix(fresnel,thinFilm(vh,finish0.w,opticalFinish.z,f0),opticalFinish.y);
   vec3 specular=ggxDistribution(nh,alpha2)*ggxVisibility(nv,nl,alpha2)*fresnel*compensation;
-  if (finish0.x > 0.0) specular=anisotropicGGX(n,tangent,bitangent,v,l,h,roughness,finish0.x)*fresnel*compensation;
+  if (opticalFinish.x > 0.0) specular=anisotropicGGX(n,tangent,bitangent,v,l,h,roughness,opticalFinish.x)*fresnel*compensation;
   if (finish1.y > 0.0) {
     vec3 diffuse=mix(vec3(nl),diffusionProfile(dot(n,l),finish4.rgb,finish4.w),finish1.y);
     return remaining*(1.0-metallic)*(1.0-transmission)*base/PI*diffuse+specular*nl;
@@ -441,13 +446,53 @@ void shadeMesh() {
       }
     }
     vec3 tangent=vec3(0.0),bitangent=vec3(0.0),reflectionNormal=n;
-    if (finish0.x > 0.0) {
+    opticalFinish = vec3(finish0.x,finish0.z,finish1.x);
+    vec2 anisotropyDirection = vec2(1.0,0.0);
+    mat3 mappedAnisotropyFrame = mat3(0.0);
+    if (anisotropyMapSettings.x > 0.0) {
+      vec3 mapped = opticalSample(materialUV(14),anisotropyMapSettings,2).rgb;
+      vec2 direction = mapped.rg*2.0-1.0;
+      float magnitude = length(direction);
+      if (magnitude > .000001) anisotropyDirection = direction/magnitude;
+      opticalFinish.x *= mapped.b;
+      mappedAnisotropyFrame = materialNormalFrame(n,14);
+      vec3 rawTangent = vTangent.xyz-n*dot(n,vTangent.xyz);
+      float tangentLength = length(rawTangent);
+      vec4 mapping = materialCoordinates[28];
+      float determinant = mapping.x*mapping.w-mapping.y*mapping.z;
+      if (tangentLength > .000001 && abs(vTangent.w) > .5
+          && abs(materialCoordinates[29].z-float(tangentTexCoord)) < .5
+          && abs(determinant) > .000001) {
+        // Transform an authored UV frame analytically; screen derivatives at
+        // silhouettes can include helper invocations from another primitive.
+        vec3 t = rawTangent/tangentLength;
+        vec3 b = cross(n,t)*vTangent.w;
+        mappedAnisotropyFrame = mat3((t*mapping.w-b*mapping.y)/determinant,
+          (b*mapping.x-t*mapping.z)/determinant,n);
+      }
+    }
+    if (iridescenceMapSettings.x > 0.0) {
+      opticalFinish.y *= opticalSample(materialUV(15),iridescenceMapSettings,3).r;
+    }
+    if (iridescenceThicknessMapSettings.x > 0.0) {
+      opticalFinish.z = mix(iridescenceThicknessRange.x,iridescenceThicknessRange.y,
+        opticalSample(materialUV(16),iridescenceThicknessMapSettings,4).g);
+    }
+    if (opticalFinish.x > 0.0) {
       vec3 t=normalize(vTangent.xyz-n*dot(n,vTangent.xyz));
       vec3 b=cross(n,t)*vTangent.w;
-      tangent=t*cos(finish0.y)+b*sin(finish0.y);
-      bitangent=cross(n,tangent)*vTangent.w;
+      float handedness = vTangent.w;
+      if (anisotropyMapSettings.x > 0.0) {
+        t = normalize(mappedAnisotropyFrame[0]);
+        handedness = dot(cross(n,t),mappedAnisotropyFrame[1]) < 0.0 ? -1.0 : 1.0;
+        b = cross(n,t)*handedness;
+      }
+      vec2 rotated = vec2(anisotropyDirection.x*cos(finish0.y)-anisotropyDirection.y*sin(finish0.y),
+        anisotropyDirection.x*sin(finish0.y)+anisotropyDirection.y*cos(finish0.y));
+      tangent=normalize(t*rotated.x+b*rotated.y);
+      bitangent=cross(n,tangent)*handedness;
       vec3 bent=normalize(cross(bitangent,cross(v,bitangent)));
-      reflectionNormal=normalize(mix(n,bent,finish0.x*(1.0-roughness)));
+      reflectionNormal=normalize(mix(n,bent,opticalFinish.x*(1.0-roughness)));
     }
     float nv=clamp(dot(n,v),.0001,1.0);
     vec2 ab=environmentBRDF(nv,roughness);
@@ -456,7 +501,7 @@ void shadeMesh() {
     vec3 f90=mix(dielectric90,vec3(1.0),metallic);
     vec3 compensation=ggxCompensation(f0,ab);
     vec3 reflected=clamp((f0*ab.x+f90*ab.y)*compensation,vec3(0.0),vec3(1.0));
-    if (finish0.z > 0.0) reflected=clamp(mix(reflected,thinFilm(nv,finish0.w,finish1.x,f0)*(ab.x+ab.y)*compensation,finish0.z),vec3(0.0),vec3(1.0));
+    if (opticalFinish.y > 0.0) reflected=clamp(mix(reflected,thinFilm(nv,finish0.w,opticalFinish.z,f0)*(ab.x+ab.y)*compensation,opticalFinish.y),vec3(0.0),vec3(1.0));
     float remaining=1.0-max(max(reflected.r,reflected.g),reflected.b);
     float sheenRetention=1.0-sheenMax*sheenEnergy;
     float coatEnergy=0.0,coatCompensation=1.0;
@@ -657,10 +702,18 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
       .replace('*(bakedParams.x > .5 ? 0.0 : 1.0)', '');
   }
   remove(features.anisotropy, [
-    'if (finish0.x > 0.0)',
+    'if (opticalFinish.x > 0.0)',
     'float anisotropicGGX(',
   ]);
-  remove(features.iridescence, ['if (finish0.z > 0.0)', 'vec3 thinFilm(']);
+  remove(features.iridescence, [
+    'if (opticalFinish.y > 0.0)',
+    'vec3 thinFilm(',
+  ]);
+  remove(features.anisotropyMap, ['if (anisotropyMapSettings.x > 0.0)']);
+  remove(features.iridescenceMap, ['if (iridescenceMapSettings.x > 0.0)']);
+  remove(features.iridescenceThicknessMap, [
+    'if (iridescenceThicknessMapSettings.x > 0.0)',
+  ]);
   remove(features.subsurface, [
     'if (finish1.y > 0.0)',
     'vec3 diffusionProfile(',
@@ -682,7 +735,13 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
       'if (transmission.x > 0.0)',
       'if (transmissionWeight > 0.0 && metallic < 1.0)',
     ]);
-    source = source.replace(transmissionGLSL, '');
+    if (
+      features.anisotropyMap ||
+      features.iridescenceMap ||
+      features.iridescenceThicknessMap
+    )
+      remove(false, ['vec3 opaqueColor(', 'vec3 roughTransmission(']);
+    else source = source.replace(transmissionGLSL, '');
   }
   if (!features.sheen) {
     remove(false, [

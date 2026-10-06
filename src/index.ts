@@ -73,6 +73,16 @@ export type {
   GLTFExportResult,
   GLTFExportJSON,
 } from '../packages/core/src/gltf-exporter.js';
+export {
+  opticalMaterialMaps,
+  materialTextureCoordinates,
+} from '../packages/core/src/optical-material-maps.js';
+export type {
+  OpticalMaterialMaps,
+  OpticalMaterialMapsOptions,
+  MaterialOpticalTextureSlot,
+  MaterialMappedTextureSlot,
+} from '../packages/core/src/optical-material-maps.js';
 export { Terrain3D } from '../packages/core/src/terrain3d.js';
 export type {
   Terrain3DOptions,

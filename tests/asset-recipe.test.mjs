@@ -116,13 +116,19 @@ describe('headless asset recipe compatibility', () => {
     ['KHR_materials_iridescence', 'iridescenceTexture'],
     ['KHR_materials_iridescence', 'iridescenceThicknessTexture'],
   ])(
-    'rejects %s %s rather than losing unsupported runtime maps',
+    'accepts %s %s and validates its independent transformed UV selection',
     (name, slot) => {
       const model = document();
-      model.materials[0].extensions = { [name]: { [slot]: { index: 0 } } };
-      expect(() => preflight(model)).toThrow(
-        'Anisotropy and iridescence textures are unsupported.',
-      );
+      const info = {
+        index: 0,
+        extensions: {
+          KHR_texture_transform: { texCoord: 1, offset: [0.2, 0.3] },
+        },
+      };
+      model.materials[0].extensions = { [name]: { [slot]: info } };
+      expect(() => preflight(model)).toThrow('TEXCOORD_1');
+      model.meshes[0].primitives[0].attributes.TEXCOORD_1 = 1;
+      expect(() => preflight(model)).not.toThrow();
     },
   );
   it('requires transmission for dispersion just like the runtime loader', () => {

@@ -1272,7 +1272,7 @@ Save `JSON.stringify(content.capture())`; reconstruct with `await rebuildContent
 
 Run `pnpm assets:build --input examples/asset-recipe/source.gltf --out /tmp/xyz-assets`; after `pnpm pack` and extraction, run `pnpm check:asset-deployment --package /absolute/extracted/package --bundle /tmp/xyz-assets --renderer webgl2` (repeat with webgpu). Follow the pinned-toolchain/manifest/codec requirements in [Asset Recipe](ASSET-RECIPE.md). Deploy the entire dist tree, including official vendor worklet assets.
 
-Recipes preserve `KHR_materials_variants` and scalar `KHR_materials_anisotropy`, `KHR_materials_iridescence` and `KHR_materials_dispersion` (with transmission) across bundle choices. Select the loaded variant with `gltfVariants(asset).selectVariant(name)`. Ordinary variant-only texture maps are included in the KTX2/PNG choices and manifest; anisotropy/iridescence texture maps reject explicitly because the runtime does not support those slots. Keep explicit texture semantics in the trusted profile.
+Recipes preserve `KHR_materials_variants`, anisotropy/iridescence maps and dispersion (with transmission) across bundle choices. Select variants with `gltfVariants(asset).selectVariant(name)`. Optical maps remain linear data; declare explicit texture semantics in the trusted profile. For authored materials, pass `opticalMaps: { anisotropyTexture, iridescenceTexture, iridescenceThicknessTexture, iridescenceThicknessMinimum: 100, iridescenceThicknessMaximum: 400 }` alongside `finish`; maps are borrowed and share the existing optical sampler array. Per-map UV transforms use `textureCoordinates.anisotropy`, `.iridescence`, `.iridescenceThickness`.
 
 ## 31. Native Text Editing (P51)
 

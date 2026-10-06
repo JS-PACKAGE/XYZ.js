@@ -10,6 +10,7 @@ import {
   type NativeShader3DOptions,
 } from './native-material-state.js';
 import type { NativeMaterial3D } from './native-material3d.js';
+import { opticalMaterialMaps } from './optical-material-maps.js';
 
 export type NativeMeshMaterial = NativeMaterial3D | NativePBRMaterial;
 
@@ -59,6 +60,15 @@ export class NativePBRMaterial extends PBRMaterial {
         throw new Error(
           'NativePBRMaterial references a destroyed borrowed texture.',
         );
+    const optical = opticalMaterialMaps(this);
+    if (
+      optical.anisotropyTexture?.destroyed ||
+      optical.iridescenceTexture?.destroyed ||
+      optical.iridescenceThicknessTexture?.destroyed
+    )
+      throw new Error(
+        'NativePBRMaterial references a destroyed borrowed texture.',
+      );
   }
 
   onDestroy(listener: () => void): () => void {

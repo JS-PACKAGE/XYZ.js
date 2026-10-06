@@ -457,9 +457,13 @@ P132 uses weights 0.25/0.5/0.25 at angular radii `r/4`, `r`, `min(2*r,1)`, where
 
 `MaterialAsset.fromImages(maps, overrides?)`/`create(options)`: `maps` takes `base` (required) and `metallicRoughness`, `normal`, `occlusion`, `emissive`, `lightmap`, each an `ImageBitmapSource` (decoded and owned) or a `Texture` (borrowed). `destroy()` is idempotent and aggregates cleanup errors; `destroyed` is a getter. `setMeshMaterial(mesh, material)` replaces a Mesh's borrowed material (`Mesh.material` stays a published readonly declaration); a non-`TextureMaterial` throws and leaves the current material in place.
 
-glTF: `KHR_materials_variants` is exposed through `gltfVariants(asset)` (`.variants` as `{name, mappings:[{mesh, material}]}` and `.selectVariant(name|undefined)`; `GLTFAsset` itself is unchanged for 1.x compatibility), which restores every default first and then applies the chosen mappings; unknown names, empty/out-of-range variant lists and unresolved texture coordinates for a mapped material reject at load or call time. `KHR_materials_anisotropy` (strength is absolute-clamped to 1; rotation kept), `KHR_materials_iridescence` (factor, IOR, maximum thickness mapped from 100..800 nm to 0..1) and `KHR_materials_dispersion` (requires transmission) fill the finish; their texture slots reject, and combining them with `KHR_materials_unlit` rejects. Variant materials are owned by the asset and released by `dispose()`; `selectVariant` after `dispose()` throws.
+glTF: `gltfVariants(asset)` exposes variant mappings and `.selectVariant(name|undefined)` without changing `GLTFAsset`. It restores defaults before applying mappings; unknown names, invalid references and missing UV streams reject. Anisotropy and iridescence factors fill the finish and their maps follow the packed optical contract below. Dispersion requires transmission; combining physical extensions with unlit rejects. Variant materials remain asset-owned, and selection after disposal rejects.
 
-Asset production accepts and preserves these required extensions and variant mappings in every generated model choice. Preflight checks mapped materials' texture indices and UV0/UV1 streams; ordinary maps used only by a variant retain KTX2/PNG choices and checksummed manifest dependencies. Anisotropy and iridescence maps remain explicitly unsupported by both recipe preflight and the runtime loader; they are not discarded or converted to scalar factors. The packaged loader validates every output before publication.
+Asset production preserves these extensions and their maps in every generated model choice. Preflight validates indices and referenced UV0/UV1 streams, including variant-only maps. `PBRMaterialOptions.opticalMaps` borrows `anisotropyTexture` (RG signed direction/B strength), `iridescenceTexture` (R factor) and `iridescenceThicknessTexture` (G interpolated between `iridescenceThicknessMinimum`/`Maximum` in nm, defaults 100/400). Each accepts a corresponding sampler and `textureCoordinates` entry. Frozen side-table settings preserve published class shapes. Five packed optical layers share the existing sampler slot and retain independent addressing/filtering. Loader, exporter and recipes support these maps; the preceding historical scalar-only texture rejection is superseded.
+
+Inspect combined UV slots with `materialTextureCoordinates(material)`. The old
+`MaterialTextureSlot` union and published class member declaration remain
+unchanged; new optional constructor keys and side-table exports are additive.
 
 Verified: unit tests and a Chromium forced WebGPU and forced WebGL2 render of twelve finish spheres without console, game or shader errors (see ACCEPTANCE). Not verified: per-effect pixel accuracy against any reference, cross-backend pixel equivalence, other browsers or GPUs.
 
@@ -1834,3 +1838,37 @@ See [world-nature](../examples/world-nature/) for terrain/splat, water, a moving
 object trail and seeded wind grass. `?renderer=webgl2|webgpu` forces a backend;
 `&stress=1` requests 1,048,576 source height samples and 10,000 grass instances.
 These workload sizes are not FPS guarantees.
+
+## Screen-space directional contact shadows
+
+`ContactShadows.set(scene, new ContactShadowSettings(options))` opts a scene into
+short-range directional-light contact shadows on WebGPU/WebGL2. `get(scene)`
+returns the mutable settings; `set(scene, undefined)` disables the feature.
+Defaults: `distance: 0.2`, `thickness: 0.03`, `bias: 0.005` (world units),
+`steps: 16` (integer 1–64), `strength: 1` (0–1). Settings are validated before
+rendering. Canvas2D explicitly rejects attached contact-shadow settings.
+
+Each enabled frame captures actual camera-visible opaque/masked geometry into
+a dedicated native depth-only prepass, including skinning, morphs, instances,
+native vertex deformation and authored alpha tests. It does not use the light's
+shadow atlas as a scene-depth proxy, require shadow-map settings, or need HDR
+postprocessing. A bounded world-space ray toward the directional light projects
+into this depth snapshot, reconstructs a depth hit, and tests world-space
+thickness. Only direct directional illumination is attenuated; ambient,
+environment, point/spot lights and emission remain unchanged.
+
+The prepass is single-sample even when the main renderer uses MSAA: contact
+coverage uses deterministic binary alpha tests rather than resolving unsupported
+multisampled depth. It follows the temporal jittered camera when TAA is enabled.
+Neither backend raises the baseline fragment sampled-texture limit. WebGL2 stores
+camera depth in a separate region of a combined depth texture; the light's depth
+atlas is copied into its unchanged texel-addressed region, and both use the existing
+`shadowMap` sampler. This resource sharing does not substitute light-space depth
+for camera depth. WebGPU copies the prepass depth into a read-only storage-buffer
+snapshot at scene group binding 8. Camera snapshots use full viewport resolution;
+device texture/framebuffer/storage size limits are checked before contact resource
+allocation and oversized requests raise GraphicsError. Off-screen and
+transparent/transmissive occluders are intentionally absent from screen-space
+depth. Rays leaving the viewport terminate unshadowed. Resources are recreated
+on size changes and released on disable/destroy; disabled material variants
+contain no contact raymarch/sampler source and allocate no contact targets.

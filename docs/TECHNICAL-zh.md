@@ -405,9 +405,13 @@ Height 保留既有四步 normal-map relief；wetness／snow／dirt／damage、d
 
 `MaterialAsset.fromImages(maps, overrides?)`／`create(options)`：`maps` 的 `base` 必填，另有 `metallicRoughness`、`normal`、`occlusion`、`emissive`、`lightmap`，每項可為 `ImageBitmapSource`（由 asset 解碼並擁有）或 `Texture`（借用）。`destroy()` 冪等並彙整清理錯誤，`destroyed` 是 getter。`setMeshMaterial(mesh, material)` 替換 Mesh 借用的材質（`Mesh.material` 仍是已發佈的 readonly 宣告）；非 `TextureMaterial` 會丟錯並保留目前材質。
 
-glTF：`KHR_materials_variants` 提供 `gltfVariants(asset)`（`.variants` 為 `{name, mappings:[{mesh, material}]}`，另有 `.selectVariant(name|undefined)`；為維持 1.x 相容，`GLTFAsset` 本身不變）；後者先還原所有預設再套用所選 mappings。未知名稱、空的或超出範圍的 variant 清單，以及被映射材質缺少的貼圖座標，會在載入或呼叫時拒絕。`KHR_materials_anisotropy`（強度取絕對值並限制到 1，rotation 保留）、`KHR_materials_iridescence`（factor、IOR，最大厚度由 100..800 nm 映射到 0..1）與 `KHR_materials_dispersion`（需要 transmission）會填入 finish；其貼圖 slot 會拒絕，與 `KHR_materials_unlit` 併用也會拒絕。Variant 材質由 asset 擁有並在 `dispose()` 釋放，`dispose()` 後呼叫 `selectVariant` 會丟錯。
+glTF：`gltfVariants(asset)` 提供 mappings 與 `.selectVariant(name|undefined)`，不改 `GLTFAsset` shape；選擇先還原 defaults，未知名稱、非法 references 與缺少 UV stream 拒絕。Anisotropy／iridescence factors 填入 finish，maps 使用下述 packed optical 契約。Dispersion 需 transmission，physical extensions 不可與 unlit 併用。Variant materials 由 asset 擁有，dispose 後選擇拒絕。
 
-資產製作接受並在每個產出 model choice 保留上述 required extensions 與 variant mappings。Preflight 檢查 mapped materials 的 texture index 與 UV0／UV1 streams；僅被 variant 使用的一般 maps 仍有 KTX2／PNG choices 及 manifest checksum dependencies。Anisotropy／iridescence maps 仍由 recipe preflight 與 runtime loader 明確拒絕，不會丟棄或轉成 scalar factors。每個產出都經 packaged loader 驗證後才發布。
+資產製作保留這些 extensions 與貼圖，preflight 驗證 texture index、UV0／UV1 與 variant-only maps。`PBRMaterialOptions.opticalMaps` 借用 `anisotropyTexture`（RG 有號方向／B 強度）、`iridescenceTexture`（R factor）、`iridescenceThicknessTexture`（G 在 `iridescenceThicknessMinimum`／`Maximum` nm 範圍內插，預設100／400），各有對應 sampler 與 `textureCoordinates`。Frozen side table 不改公開 class shape；五個 optical layers 共用既有 sampler slot，各自保留 addressing／filtering。Loader／exporter／recipe 皆支援；上段歷史 scalar-only 貼圖拒絕已被取代。
+
+以 `materialTextureCoordinates(material)` 讀取完整 UV slots；既有
+`MaterialTextureSlot` union 與公開 class member 宣告不變，新 optional options
+與 side-table exports 保持 additive。
 
 已驗證：單元測試，以及 Chromium 在強制 WebGPU 與強制 WebGL2 下繪製十二顆 finish 球體且沒有 console、game 或 shader 錯誤（見 ACCEPTANCE）。未驗證：各效果相對任何參考的像素正確性、跨 backend 像素等價、其他瀏覽器或 GPU。
 
@@ -1657,3 +1661,28 @@ Scene owns ribbon／trail object，material／maps 與 target 均借用、不因
 [world-nature](../examples/world-nature/) 展示 terrain／splat、水面、moving-object trail、
 seeded wind grass；`?renderer=webgl2|webgpu` 強制 backend，`&stress=1` 請求
 1,048,576 source height samples／10,000 grass instances。Workload 大小非 FPS 保證。
+
+## 螢幕空間方向光接觸陰影
+
+`ContactShadows.set(scene,new ContactShadowSettings(options))` 啟用；
+`get(scene)` 取得可變設定；`set(scene,undefined)` 關閉。預設世界單位
+distance 0.2、thickness 0.03、bias 0.005，steps 16（整數 1–64），
+strength 1（0–1）；每幀驗證。Canvas2D 明確拒絕此設定。
+
+WebGPU／WebGL2 每幀用獨立相機深度 prepass 捕捉可見 opaque／masked
+mesh（保留 skinning／morph／instances／native deformation／alpha tests），
+不以陰影 atlas 代理場景深度、不要求 HDR／postprocessing 或開啟 shadow maps。
+沿方向光 bounded raymarch，投影到深度貼圖並反投影作世界距離 thickness
+判斷，只乘上方向光 direct lighting，其他光照／emission 不變。
+
+主 render 使用 MSAA 時 prepass 仍為單樣本，alpha coverage 採 binary tests，
+不嘗試不支援的多樣本深度 resolve；TAA 時使用相同 jitter camera。
+不提高 baseline fragment sampled texture 限制：WebGL2 的 combined depth texture
+將實際相機深度放在獨立區域，陰影 atlas 複製到原 texel 座標區域，共用既有
+shadowMap sampler；只共用資源，不以 light-space 深度替代相機深度。
+WebGPU 用 compute 把實際相機 prepass 深度複製成 scene binding 8 的唯讀
+storage buffer snapshot。兩者維持 viewport 解析度，配置 contact 資源前檢查
+device framebuffer／texture／storage 限制，超過時明確 GraphicsError。
+畫面外／transparent／transmissive
+occluder 不在深度快照內，越出 viewport 的 ray 終止。Resize 重建、
+停用／destroy 釋放；預設未啟用時沒有接觸陰影 shader source／targets。

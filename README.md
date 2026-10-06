@@ -58,6 +58,8 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 
 材質 finish：`PBRMaterial` 的 `finish` 可在既有貼圖上加入 anisotropy／iridescence／subsurface／dispersion／視差高度／潮濕／積雪／髒汙／損傷／detail／triplanar／lightmap，強度為 0 時維持原光照且不佔用額外貼圖 slot；皆為有界 shader 近似，不是物理模擬。`MaterialAsset` 管理解碼貼圖的 ownership，`setMeshMaterial` 可替換材質，glTF 支援 `KHR_materials_variants`（`selectVariant`）與 anisotropy／iridescence／dispersion。僅在 Chromium 以強制 WebGPU 與 WebGL2 目視驗證，見 [技術參考](docs/TECHNICAL-zh.md) 與 ACCEPTANCE。
 
+Mapped optical finish：`opticalMaps` 支援 glTF anisotropy RG/B、iridescence R／thickness G，沿用 optical array，維持16-slot；loader／exporter／recipe 保留貼圖與 UV transforms。實際資格以 ACCEPTANCE 為準。
+
 Asset 製作流程新增 opt-in `loadAssetBundleRange`：manifest byte offsets、SHA-256 與有界完整讀取 fallback。
 GIF／APNG 的 `AnimatedImageTexture` 僅使用平台 `ImageDecoder`，包含 timing／loop 與 owned atlas；
 缺少 decoder 明確拒絕，不新增依賴。詳見 [CURRENT](docs/CURRENT.md)，實測紀錄見 ACCEPTANCE。
@@ -193,6 +195,8 @@ Reusable procedural PBR: `await ProceduralMaterial.create(kind, { size: 256, see
 
 Material finishes: `PBRMaterial` takes `finish` for anisotropy, iridescence, subsurface wrap, dispersion, parallax height, wetness, snow, dirt, damage, detail, triplanar and lightmap response on maps you already have. Zero strengths keep the original lighting and use no extra texture slot; each effect is a bounded shader approximation, not a physical simulation. `MaterialAsset` owns decoded textures, `setMeshMaterial` replaces a mesh material, and the glTF loader supports `KHR_materials_variants` (`selectVariant`) plus anisotropy, iridescence and dispersion. Verified visually in Chromium on forced WebGPU and WebGL2 only; see the [technical reference](docs/TECHNICAL.md) and ACCEPTANCE.
 
+Mapped optical finishes: `opticalMaps` supports glTF anisotropy RG/B, iridescence R/thickness G in the existing optical array (16-slot budget unchanged). Loader/exporter/recipes retain maps and UV transforms; exercised qualification is recorded in ACCEPTANCE.
+
 Asset production adds opt-in `loadAssetBundleRange` with manifest byte offsets,
 SHA-256 checks and bounded full-read fallback. GIF/APNG `AnimatedImageTexture`
 uses platform `ImageDecoder` only, with timing/loops and owned atlas snapshots;
@@ -321,6 +325,8 @@ Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度
 再利用可能な手続き型 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` は wood／brick／stone／metal／fabric／marble／concrete／tiles／leather／sand／rust／snow（木材／レンガ／石材／金属／布／大理石／コンクリート／タイル／革／砂／錆／雪）に対応し、シームレスで決定的な baseColor／normal／metallicRoughness／occlusion maps を一度だけ生成します。外部素材・依存の追加なし。size は整数 32–1024、seed は符号なし 32-bit 整数で、既定値は 256／1。`preset.material` を借用するか `preset.createMaterial(overrides)` で maps を共有し、全利用者を取り除いてから同期 `preset.destroy()` を呼びます。Scene／mesh は preset を所有しません。metal と rust の metallic factor は 1、他は dielectric です。`NativePBRMaterial` は別経路で、`xyzPhysical` がエンジン BRDF の前に復号済み表面を変更し、照明は置き換えません。[利用例](docs/USAGE.md#reusable-procedural-pbr-presets) と [pbr3d](examples/pbr3d/) のプリセット選択・テクスチャプレビューを参照してください。実際の runtime／browser 検証は ACCEPTANCE に記録します。
 
 マテリアル finish：`PBRMaterial` の `finish` で、既存のマップに anisotropy／iridescence／subsurface／dispersion／視差高さ／濡れ／雪／汚れ／損傷／detail／triplanar／lightmap を追加できます。強度 0 では従来の照明のままで、追加の texture slot は使いません。各効果は上限付きの shader 近似で、物理シミュレーションではありません。`MaterialAsset` は復号済みテクスチャを所有し、`setMeshMaterial` で mesh の材質を差し替え可能、glTF は `KHR_materials_variants`（`selectVariant`）と anisotropy／iridescence／dispersion に対応します。検証は Chromium の強制 WebGPU／WebGL2 での目視のみです。[技術参照](docs/TECHNICAL.md) と ACCEPTANCE を参照してください。
+
+Mapped optical finish：`opticalMaps` は glTF anisotropy RG/B、iridescence R／thickness G を既存 optical array に格納します（16-slot 不変）。Loader／exporter／recipe は map と UV transform を保持します。実測認証は ACCEPTANCE を参照。
 
 Asset 制作に opt-in `loadAssetBundleRange`（manifest offset／SHA-256／上限付き full fallback）を追加。
 GIF／APNG の `AnimatedImageTexture` は platform `ImageDecoder` のみを使い、

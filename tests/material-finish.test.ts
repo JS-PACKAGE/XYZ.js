@@ -16,6 +16,10 @@ import {
   fillPBRFinish,
   pbrEmissiveSlot,
 } from '../packages/core/src/pbr-material.js';
+import {
+  opticalMaterialMaps,
+  materialTextureCoordinates,
+} from '../packages/core/src/optical-material-maps.js';
 import { brdfGLSL, brdfWGSL } from '../packages/graphics/src/brdf-shaders.js';
 import { meshFragment } from '../packages/graphics/src/webgl-feature-shaders.js';
 import { webgpuMeshShader } from '../packages/graphics/src/webgpu-mesh-shader.js';
@@ -135,6 +139,40 @@ function firstMesh(asset: GLTFAsset): Mesh {
 describe('PBR finish', () => {
   const texture = new Texture(bitmap());
 
+  it('keeps optical maps borrowed and immutable without changing the class shape', () => {
+    const plain = new PBRMaterial({ texture });
+    const sampler = { magFilter: 'nearest' as const };
+    const mapped = new PBRMaterial({
+      texture,
+      opticalMaps: { anisotropyTexture: texture, anisotropySampler: sampler },
+      textureCoordinates: { anisotropy: { texCoord: 1, offset: [0.25, 0.5] } },
+    });
+    expect(Object.keys(mapped)).toEqual(Object.keys(plain));
+    expect(opticalMaterialMaps(plain)).toMatchObject({
+      iridescenceThicknessMinimum: 100,
+      iridescenceThicknessMaximum: 400,
+    });
+    const maps = opticalMaterialMaps(mapped);
+    expect(maps.anisotropyTexture).toBe(texture);
+    expect(maps.anisotropySampler).toEqual(sampler);
+    expect(maps.anisotropySampler).not.toBe(sampler);
+    expect(Object.isFrozen(maps)).toBe(true);
+    expect(materialTextureCoordinates(mapped).anisotropy?.texCoord).toBe(1);
+    MaterialAsset.create({ texture, opticalMaps: maps }).destroy();
+    expect(texture.destroyed).toBe(false);
+  });
+
+  it.each([
+    { iridescenceThicknessMinimum: -1 },
+    { iridescenceThicknessMaximum: Infinity },
+    { iridescenceThicknessMinimum: 500, iridescenceThicknessMaximum: 400 },
+    { anisotropyTexture: {} },
+    { unexpected: true },
+  ])('rejects invalid optical maps %j', (opticalMaps) => {
+    expect(
+      () => new PBRMaterial({ texture, opticalMaps: opticalMaps as never }),
+    ).toThrow();
+  });
   it('is an exact no-op by default and shares one frozen default', () => {
     const a = new PBRMaterial({ texture });
     const b = new PBRMaterial({ texture, finish: {} });
@@ -245,12 +283,17 @@ describe('MaterialAsset', () => {
         normal: new Blob(['b']),
         occlusion: borrowed,
       },
-      { roughness: 0.2, finish: { wetness: 0.5 } },
+      {
+        roughness: 0.2,
+        finish: { wetness: 0.5 },
+        opticalMaps: { iridescenceTexture: borrowed },
+      },
     );
     const material = asset.material;
     expect(material.roughness).toBe(0.2);
     expect(material.finish.wetness).toBe(0.5);
     expect(material.occlusionTexture).toBe(borrowed);
+    expect(opticalMaterialMaps(material).iridescenceTexture).toBe(borrowed);
     const owned = [material.texture, material.normalTexture!];
     asset.destroy();
     asset.destroy();
@@ -430,14 +473,14 @@ describe('glTF finish extensions', () => {
       error: AssetError,
     },
     {
-      label: 'an anisotropy texture',
+      label: 'an anisotropy texture with a missing texture reference',
       extensions: {
         KHR_materials_anisotropy: { anisotropyTexture: { index: 0 } },
       },
       error: AssetError,
     },
     {
-      label: 'an iridescence texture',
+      label: 'an iridescence texture with a missing texture reference',
       extensions: {
         KHR_materials_iridescence: { iridescenceTexture: { index: 0 } },
       },
@@ -468,10 +511,10 @@ describe('native finish BRDF contracts', () => {
       expect(shader).toContain('nl*length(vv)+nv*length(ll)');
     }
     expect(meshFragment).toContain(
-      'if (finish0.x > 0.0) specular=anisotropicGGX',
+      'if (opticalFinish.x > 0.0) specular=anisotropicGGX',
     );
     expect(webgpuMeshShader).toContain(
-      'if (mesh.finish[0].x > 0.0) { specular=anisotropicGGX',
+      'if (optics.x > 0.0) { specular=anisotropicGGX',
     );
     for (const shader of [meshFragment, webgpuMeshShader]) {
       expect(shader).toContain('reflectionNormal');

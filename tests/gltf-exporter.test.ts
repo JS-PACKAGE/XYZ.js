@@ -15,6 +15,10 @@ import { MorphTargets, MorphWeights } from '../packages/core/src/morph.js';
 import { Object3D } from '../packages/core/src/object3d.js';
 import { OrthographicCamera } from '../packages/core/src/orthographic-camera.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
+import {
+  opticalMaterialMaps,
+  materialTextureCoordinates,
+} from '../packages/core/src/optical-material-maps.js';
 import { PerspectiveCamera } from '../packages/core/src/perspective-camera.js';
 import { SkinnedMesh } from '../packages/core/src/skinned-mesh.js';
 
@@ -58,6 +62,82 @@ function triangle() {
 }
 
 describe('glTF exporter', () => {
+  it('round-trips optical maps with independent samplers, transforms and nm bounds', async () => {
+    const texture = images();
+    const material = new PBRMaterial({
+      texture,
+      finish: { anisotropy: 0.7, anisotropyRotation: 0.25, iridescence: 0.8 },
+      opticalMaps: {
+        anisotropyTexture: texture,
+        anisotropySampler: {
+          magFilter: 'nearest',
+          addressModeU: 'mirror-repeat',
+        },
+        iridescenceTexture: texture,
+        iridescenceSampler: {
+          minFilter: 'nearest',
+          addressModeV: 'clamp-to-edge',
+        },
+        iridescenceThicknessTexture: texture,
+        iridescenceThicknessSampler: { addressModeU: 'clamp-to-edge' },
+        iridescenceThicknessMinimum: 75,
+        iridescenceThicknessMaximum: 925,
+      },
+      textureCoordinates: {
+        anisotropy: {
+          texCoord: 1,
+          offset: [0.2, 0.3],
+          rotation: 0.4,
+          scale: [2, 3],
+        },
+        iridescence: { offset: [0.7, 0.8], scale: [0.5, 0.6] },
+        iridescenceThickness: { texCoord: 1, rotation: -0.3 },
+      },
+    });
+    const mesh = new Mesh({ geometry: triangle(), material });
+    const asset = await new GLTFLoader().parse(await exportGLB(mesh, external));
+    try {
+      const restored = meshes(asset.scene)[0].material as PBRMaterial;
+      const maps = opticalMaterialMaps(restored);
+      expect(maps.iridescenceThicknessMinimum).toBe(75);
+      expect(maps.iridescenceThicknessMaximum).toBe(925);
+      for (const slot of [
+        'anisotropy',
+        'iridescence',
+        'iridescenceThickness',
+      ] as const) {
+        expect(maps[`${slot}Texture`]).toBeDefined();
+        expect(maps[`${slot}Sampler`]).toMatchObject(
+          opticalMaterialMaps(material)[`${slot}Sampler`]!,
+        );
+        expect(materialTextureCoordinates(restored)[slot]?.texCoord).toBe(
+          materialTextureCoordinates(material)[slot]?.texCoord,
+        );
+        materialTextureCoordinates(restored)[slot]?.transform.forEach(
+          (value, index) => {
+            expect(value).toBeCloseTo(
+              materialTextureCoordinates(material)[slot]!.transform[index],
+            );
+          },
+        );
+      }
+      const again = await exportGLTF(
+        new Mesh({ geometry: triangle(), material: restored }),
+        external,
+      );
+      const extensions = again.json.materials[0].extensions as Record<
+        string,
+        Record<string, unknown>
+      >;
+      expect(extensions.KHR_materials_iridescence).toMatchObject({
+        iridescenceThicknessMinimum: 75,
+        iridescenceThicknessMaximum: 925,
+      });
+    } finally {
+      asset.dispose();
+    }
+  });
+
   it('writes aligned bounded accessors, geometry streams and hierarchical TRS without mutation', async () => {
     const texture = images(),
       root = new Group();

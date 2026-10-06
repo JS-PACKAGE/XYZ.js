@@ -531,6 +531,13 @@ try {
         if (report.error)
           throw new Error(`${backend} pixel parity: ${report.error}`);
         captures[backend] = report.scenarios;
+        for (const scene of report.scenarios) {
+          if (scene.png)
+            await writeFile(
+              join(directory, `${backend}-${scene.name}.png`),
+              Buffer.from(scene.png.split(',')[1], 'base64'),
+            );
+        }
       } finally {
         await context.close();
       }
@@ -548,6 +555,14 @@ try {
       pixelParity.scenarios.push({
         name: a.name,
         ...measured,
+        ...(a.mapChangeMean === undefined
+          ? {}
+          : {
+              mapChangeMean: {
+                webgl2: a.mapChangeMean,
+                webgpu: b.mapChangeMean,
+              },
+            }),
         webgl2Noise: comparePixels(a.pixels, a.repeat, a.width, a.height),
         webgpuNoise: comparePixels(b.pixels, b.repeat, b.width, b.height),
       });

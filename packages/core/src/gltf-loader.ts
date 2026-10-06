@@ -1071,14 +1071,6 @@ export class GLTFLoader {
           extensions.KHR_materials_dispersion === undefined
             ? undefined
             : object(extensions.KHR_materials_dispersion, 'dispersion');
-        if (
-          anisotropy?.anisotropyTexture !== undefined ||
-          iridescence?.iridescenceTexture !== undefined ||
-          iridescence?.iridescenceThicknessTexture !== undefined
-        )
-          throw new AssetError(
-            'Anisotropy and iridescence textures are unsupported.',
-          );
         if (dispersion && !transmission)
           throw new AssetError('Dispersion requires a transmission extension.');
         const finish = {
@@ -1155,6 +1147,13 @@ export class GLTFLoader {
           transmission?.transmissionTexture,
         );
         const thicknessMap = await readTexture(volume?.thicknessTexture);
+        const anisotropyMap = await readTexture(anisotropy?.anisotropyTexture);
+        const iridescenceMap = await readTexture(
+          iridescence?.iridescenceTexture,
+        );
+        const iridescenceThicknessMap = await readTexture(
+          iridescence?.iridescenceThicknessTexture,
+        );
         let strength = 1;
         if (extensions.KHR_materials_emissive_strength !== undefined) {
           const ext = object(
@@ -1197,6 +1196,13 @@ export class GLTFLoader {
             ? { transmission: transmissionMap.coordinates }
             : {}),
           ...(thicknessMap ? { thickness: thicknessMap.coordinates } : {}),
+          ...(anisotropyMap ? { anisotropy: anisotropyMap.coordinates } : {}),
+          ...(iridescenceMap
+            ? { iridescence: iridescenceMap.coordinates }
+            : {}),
+          ...(iridescenceThicknessMap
+            ? { iridescenceThickness: iridescenceThicknessMap.coordinates }
+            : {}),
         };
         const emissiveFactor = (
           def.emissiveFactor === undefined
@@ -1232,6 +1238,22 @@ export class GLTFLoader {
         materials.push(
           new PBRMaterial({
             finish,
+            opticalMaps: {
+              anisotropyTexture: anisotropyMap?.texture,
+              anisotropySampler: anisotropyMap?.sampler,
+              iridescenceTexture: iridescenceMap?.texture,
+              iridescenceSampler: iridescenceMap?.sampler,
+              iridescenceThicknessTexture: iridescenceThicknessMap?.texture,
+              iridescenceThicknessSampler: iridescenceThicknessMap?.sampler,
+              iridescenceThicknessMinimum: number(
+                iridescence?.iridescenceThicknessMinimum ?? 100,
+                'iridescence thickness minimum',
+              ),
+              iridescenceThicknessMaximum: number(
+                iridescence?.iridescenceThicknessMaximum ?? 400,
+                'iridescence thickness maximum',
+              ),
+            },
             texture: base?.texture ?? (await getWhite()),
             textureSampler: base?.sampler,
             textureCoordinates,

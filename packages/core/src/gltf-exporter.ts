@@ -4,6 +4,12 @@ import type { GLTFMaterialVariant } from './gltf-variants.js';
 import { Group } from './group.js';
 import { Mesh, TextureMaterial } from './mesh.js';
 import { MorphWeights, type MorphTargets } from './morph.js';
+import {
+  hasOpticalMaterialMaps,
+  opticalMaterialMaps,
+  materialTextureCoordinates,
+  type MaterialMappedTextureSlot,
+} from './optical-material-maps.js';
 
 /** Private bind data of MorphTargets; the published class declaration must stay unchanged (1.x API gate). */
 interface MorphBindData {
@@ -33,7 +39,6 @@ import { PerspectiveCamera } from './perspective-camera.js';
 import {
   PBRMaterial,
   pbrTextureSources,
-  type MaterialTextureSlot,
   type PBRTextureKey,
 } from './pbr-material.js';
 import { Scene } from './scene.js';
@@ -236,7 +241,7 @@ export async function exportGLTF(
     texture: Texture,
     sampler: Readonly<TextureSamplerOptions> | undefined,
     material: PBRMaterial | undefined,
-    slot: MaterialTextureSlot,
+    slot: MaterialMappedTextureSlot,
     hasUV1: boolean,
   ): Promise<Entry> {
     if (texture.destroyed) reject('destroyed texture.');
@@ -287,7 +292,7 @@ export async function exportGLTF(
     });
     const index = json.textures.length;
     json.textures.push({ source, sampler: samplerIndex });
-    const coordinates = material?.textureCoordinates[slot];
+    const coordinates = material && materialTextureCoordinates(material)[slot];
     const info: Entry = { index, texCoord: coordinates?.texCoord ?? 0 };
     if (coordinates?.texCoord === 1 && !hasUV1)
       reject('material selects missing UV1.');
@@ -357,6 +362,14 @@ export async function exportGLTF(
           'lightmaps, renderer coverage/filtering and live maps are unsupported.',
         );
       const f = pbr.finish;
+      const optical = opticalMaterialMaps(pbr);
+      for (const texture of [
+        optical.anisotropyTexture,
+        optical.iridescenceTexture,
+        optical.iridescenceThicknessTexture,
+      ])
+        if (texture && !(texture instanceof Texture))
+          reject('live optical maps are unsupported.');
       for (const key of [
         'subsurface',
         'heightScale',
@@ -405,23 +418,61 @@ export async function exportGLTF(
       });
       if (Number.isFinite(pbr.attenuationDistance))
         volume.attenuationDistance = pbr.attenuationDistance;
-      if (f.anisotropy || f.anisotropyRotation)
-        add('KHR_materials_anisotropy', {
-          anisotropyStrength: f.anisotropy,
-          anisotropyRotation: f.anisotropyRotation,
-        });
-      if (f.iridescence || f.iridescenceIor !== 1.3 || f.iridescenceThickness)
-        add('KHR_materials_iridescence', {
-          iridescenceFactor: f.iridescence,
-          iridescenceIor: f.iridescenceIor,
-          iridescenceThicknessMinimum: 100,
-          iridescenceThicknessMaximum: 100 + 700 * f.iridescenceThickness,
-        });
+      const anisotropy =
+        f.anisotropy || f.anisotropyRotation || optical.anisotropyTexture
+          ? add('KHR_materials_anisotropy', {
+              anisotropyStrength: f.anisotropy,
+              anisotropyRotation: f.anisotropyRotation,
+            })
+          : undefined;
+      const iridescence =
+        f.iridescence ||
+        f.iridescenceIor !== 1.3 ||
+        f.iridescenceThickness ||
+        optical.iridescenceTexture ||
+        optical.iridescenceThicknessTexture ||
+        optical.iridescenceThicknessMinimum !== 100 ||
+        optical.iridescenceThicknessMaximum !== 400
+          ? add('KHR_materials_iridescence', {
+              iridescenceFactor: f.iridescence,
+              iridescenceIor: f.iridescenceIor,
+              iridescenceThicknessMinimum: optical.iridescenceThicknessMinimum,
+              iridescenceThicknessMaximum: hasOpticalMaterialMaps(pbr)
+                ? optical.iridescenceThicknessMaximum
+                : 100 + 700 * f.iridescenceThickness,
+            })
+          : undefined;
+      for (const [texture, sampler, slot, target, name] of [
+        [
+          optical.anisotropyTexture,
+          optical.anisotropySampler,
+          'anisotropy',
+          anisotropy,
+          'anisotropyTexture',
+        ],
+        [
+          optical.iridescenceTexture,
+          optical.iridescenceSampler,
+          'iridescence',
+          iridescence,
+          'iridescenceTexture',
+        ],
+        [
+          optical.iridescenceThicknessTexture,
+          optical.iridescenceThicknessSampler,
+          'iridescenceThickness',
+          iridescence,
+          'iridescenceThicknessTexture',
+        ],
+      ] as const) {
+        if (texture instanceof Texture && target)
+          target[name] = await textureInfo(texture, sampler, pbr, slot, hasUV1);
+      }
       if (f.dispersion)
         add('KHR_materials_dispersion', { dispersion: f.dispersion });
       const maps: [
         PBRTextureKey,
-        MaterialTextureSlot,
+        MaterialMappedTextureSlot,
         Entry,
         string,
         Readonly<TextureSamplerOptions> | undefined,

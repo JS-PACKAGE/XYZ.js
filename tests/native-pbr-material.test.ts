@@ -20,6 +20,28 @@ const hooks = {
 };
 
 describe('native physical material hooks', () => {
+  it.each([
+    'anisotropyTexture',
+    'iridescenceTexture',
+    'iridescenceThicknessTexture',
+  ] as const)(
+    'validates borrowed optical %s without taking ownership',
+    (key) => {
+      const base = texture();
+      const map = texture();
+      const material = new NativePBRMaterial({
+        texture: base,
+        ...hooks,
+        opticalMaps: { [key]: map },
+      });
+      material.validate();
+      map.destroy();
+      expect(() => material.validate()).toThrow(/destroyed borrowed texture/);
+      material.destroy();
+      expect(base.destroyed).toBe(false);
+    },
+  );
+
   it('shares uniform validation and does not own borrowed maps', () => {
     const image = texture();
     const material = new NativePBRMaterial({

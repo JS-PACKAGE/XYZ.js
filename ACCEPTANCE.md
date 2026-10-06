@@ -1967,3 +1967,106 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
 ### World features 最終重跑
 
 同一環境重跑完整閘門：format:check／typecheck／lint 通過，vitest 157 檔／1298 項，build，API 相容性（737 exports／2810 contracts），package hygiene，`regression:browser --browser chromium` 的 canvas2d／webgl2／webgpu 皆 PASS（`.vite/world-nature-regression-final/results.json`）。上節記錄的先前失敗為 fixture 假設錯誤，修正時未放寬門檻。仍未驗證：mixed-LOD crack oracle、其他瀏覽器與實體 driver、GPU 位移後的 CPU collision／picking；效能為單次本機量測，不是隔離校準。
+
+## WebXR additive session profile（2026-10-06）
+
+- `XRSessionManager` is adjacent to Game without changing its published shape. It
+  owns local-floor immersive-vr/ar sessions, required/optional features, session
+  RAF, head/eye cameras, XR controller virtual controls, visibility/end/loss cleanup.
+  WebGL2 uses makeXRCompatible/XRWebGLLayer and per-eye framebuffer blits.
+  WebGPU requires XRGPUBinding and copies native eye render targets into subimages;
+  Canvas2D rejects explicitly.
+- CPU fake-session tests: `vitest run tests/xr.test.ts` **4 PASS**, covering eye
+  matrices/viewport splitting, head pose, controller poses/buttons/axes, removal,
+  hidden visibility, cleanup and failed reference-space acquisition.
+- Real managed Chromium **153.0.8010.12**, secure routed HTTPS page:
+  navigator.xr exists; immersive-vr and immersive-ar support both **false**;
+  XRGPUBinding is **undefined**. Retried with
+  `--enable-features=WebXR,OpenXR --webxr-force-runtime=orientation`: same results.
+  **BLOCKED**: immersive rendering, pixel parity, physical tracking/controllers and
+  runtime/device qualification. **No physical headset/runtime was used.**
+- A durable API-surface probe is integrated in the browser regression fixture.
+  Full build/API/package/browser gates remain the integration owner's responsibility;
+  the initial typecheck saw concurrent lighting implementation dependencies.
+
+## Baked lighting／planar reflections／contact shadows（2026-10-06）
+
+- P134: bounded CPU BVH sun／point／spot visibility and hemisphere AO, UV1
+  triangle charts／padding／dilation, generated irradiance lightmaps, scene／environment
+  SH L1/L2 grids and allocation-free trilinear dynamic PBR sampling are integrated.
+  Generated maps add irradiance; legacy authored lightmap modulation is unchanged.
+  Baked direct sources must not also contribute runtime direct light.
+- Planar reflections perform real native mirrored captures with oblique clipping,
+  consumer exclusion, bounded resolution／update interval and recursion rejection.
+  Native PBR projective hooks sample the captured radiance. Ordinary GL capture
+  uses the same RGBA8 shader color encoding as GPU, avoiding half-float round trips.
+- Directional contact shadows use a real opaque camera-depth prepass and bounded
+  depth raymarching, including single-sample／MSAA rendering and exact disable
+  restoration. GL reuses its shadow sampler; GPU uses a bounded storage snapshot,
+  preserving baseline native texture limits.
+- Full final source gates PASS: format:check／typecheck／lint, **166 files／1331
+  Vitest tests**, build, historical API compatibility, package hygiene and plain-PBR
+  shader budget (**16292 bytes**). Shipped managed Chromium forced **WebGL2 and
+  WebGPU** regressions both PASS; all 25 parity scenarios pass unchanged thresholds.
+  The five new lighting scenarios have RGB cross-backend mean／p99 **0／0** and
+  zero repeat noise. Native assertions verify irradiance movement, baked sun
+  occlusion, clipping／exclusion／projective reflected radiance and contact darkening.
+  Screenshots were read; evidence: `.vite/lighting-regression-final/`.
+- Qualified only for these managed Chromium fixtures on macOS arm64. No
+  multi-bounce GI／temporal accumulation, offscreen／transparent contact occluders,
+  arbitrary asset corpus, other browsers／physical drivers or calibrated performance
+  certification is claimed. Physical WebXR remains BLOCKED as recorded above.
+
+## Native post effects（2026-10-06）
+
+- New additive `PostEffectsSettings` side-table attachment preserves published 1.x
+  settings and renderer shapes. LUT `.cube` parsing/presets (16–64), display-space
+  trilinear grading, AgX-ish/Reinhard/neutral, bounded exponential height fog and
+  depth-occluded directional shafts, HDR bright-pass ghosts/halo, and camera-only
+  reprojection blur are implemented on both native backends. Canvas2D explicitly
+  rejects enabled 3D postprocessing; forced native failures do not silently fall back.
+- CPU checks validate data/order/ranges and temporal invalidation. This worker ran
+  format:check, typecheck, lint and the full **166 files／1331 tests** successfully.
+  Integration owner additionally reports build, API compatibility, package hygiene
+  and both shipped Chromium regressions PASS at `.vite/lighting-regression-final/`.
+- Actual forced WebGL2/WebGPU single/MSAA fixtures pass all **18 scenarios each**:
+  identity LUT tolerance, visible grading/tonemappers/fog/shafts/ghosts/blur,
+  static/cut blur behavior and opaque-depth shaft suppression. Canvas2D rejection
+  also passes. `.vite/postfx-evidence/` contains reports and inspected native PNGs.
+- All eight post parity scenarios pass the unchanged strict comparator: LUT RGB
+  mean at most **0.00006103515625**, p99 **0**; other post RGB mean/p99 **0／0**,
+  with zero repeat noise. Flare uses canonical top-left gather coordinates to
+  avoid backend-dependent mirrored pixel ties; thresholds were not relaxed.
+- Scope is the recorded managed Chromium/macOS arm64 fixtures. AgX-ish is not
+  reference AgX; fog/shafts cannot see offscreen occluders, flare is screen-space,
+  and blur has no per-object velocity. No other-browser, physical-driver,
+  performance, arbitrary-asset or headset certification is claimed.
+
+## Mapped anisotropy／iridescence（2026-10-06）
+
+- glTF loader／exporter／recipe preflight 支援 anisotropy RG direction／B
+  strength、iridescence R factor、film thickness G（authored nm min/max），
+  包含 independent samplers、UV0／UV1 與 KHR_texture_transform round trip。
+  五層 optical array 共用既有 slot，維持16-slot native baseline；WeakMap
+  options／combined UV getter 不改已發佈 class shape／MaterialTextureSlot。
+- Full gates PASS：format／typecheck／lint，Vitest **166 files／1343 tests**，
+  build，API **737 exports／2810 contracts**，package hygiene；plain PBR
+  shader **16633 bytes**（budget40000）。
+- Actual managed Chromium **153.0.8010.12** forced WebGL2／WebGPU 全 regression
+  與28個 cross-backend parity scenes PASS。三個 mapped controls 的平均 RGB byte
+  變化：anisotropy **3.2275187174**（兩 backend）、iridescence
+  **1.5202433268**（兩 backend）、thickness **2.4105428060／2.4105631510**。
+  三項 cross-backend RGB mean 分別 **0／0／0.0001220703125**、
+  **0.00006103515625／0／0**、**0／0／0**，所有 p99／repeat noise **0**；
+  未放寬原 mean≤0.001／p99≤1 門檻。
+- Initial API／WGSL length failures 已修復；首輪 mapped anisotropy parity
+  RGB mean **0.045715／0.039978／0.066528** 失敗。實際 diagnostic 證明 packed
+  data parity0，transformed UV 強制 derivative frame 的 silhouette helper
+  fragments 使 tangent RGB mean **0.124613**／max178。改為 valid authored
+  tangent 的 affine inverse frame，UV mismatch／degeneracy 才 derivative
+  fallback，保留既有 normal-map 路徑；最終結果如上。DITHER copy-state 修復
+  本身沒有解決這項差異，沒有用格式／量化猜測代替像素證據。
+- Evidence：`.vite/optical-regression-qualified/` 與
+  `.vite/optical-source-diagnostics/`；native screenshots 已讀。
+  僅限定本機 Chromium／macOS arm64，非其他 driver／browser、任意資產 corpus
+  或物理光學資格認證。

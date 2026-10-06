@@ -336,6 +336,12 @@ retain their slot budget via bounded principal-axis integration rather than
 sampling across flattened native rows. No general mip generation, texture slot
 increase, backend cutover or physical qualification is implied.
 
+Mapped anisotropy and iridescence extend that array to five independently
+addressed layers: transmission, thickness, anisotropy, iridescence and film
+thickness. Core stores borrowed sources/samplers and nanometer bounds in a
+WeakMap rather than changing published PBRMaterial shapes. Per-map lazy variant
+bits omit unused sampling; loader/exporter/recipe share channel and UV contracts.
+
 ## P121 material quality and target ownership
 
 Core owns immutable, bounded PBR specular filtering and MASK-only coverage

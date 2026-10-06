@@ -51,10 +51,10 @@ import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
   nativeMaterial3DLimits,
-  MATERIAL_UV_FLOAT_COUNT,
   REFLECTION_FLOAT_COUNT,
   meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
+import { mappedMaterialUVFloatCount as MATERIAL_UV_FLOAT_COUNT } from './optical-maps.js';
 import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
 import { validateNativeMaterialGPU } from './native-material-limits.js';
@@ -82,7 +82,11 @@ import {
 } from './mesh-shader-variants.js';
 import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
 import type { FrameStats } from './render-stats.js';
-import { fillOpticalMapSettings } from './optical-maps.js';
+import {
+  fillOpticalMapSettings,
+  fillMappedOpticalSettings,
+  opticalMapSources,
+} from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
 import { WebGPUOIT } from './webgpu-oit.js';
 import type {
@@ -105,6 +109,10 @@ import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import { encodePlanarReflection } from './planar-reflection-capture.js';
 const emptyGpuEmitters: readonly GPUParticleEmitter3D[] = [];
 const emptyMeshes: readonly Mesh[] = [];
+const mappedOpticalPacks = new WeakMap<
+  GPUDevice,
+  readonly GPUComputePipeline[]
+>();
 const meshUniformFloats =
   76 +
   REFLECTION_FLOAT_COUNT +
@@ -112,7 +120,8 @@ const meshUniformFloats =
   4 +
   MATERIAL_UV_FLOAT_COUNT +
   PBR_FINISH_FLOATS +
-  40;
+  40 +
+  16;
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -160,7 +169,8 @@ interface CachedTexture {
   view: GPUTextureView;
   seen: number;
   version?: number;
-  sourceVersions?: readonly [number, number];
+  sourceVersions?: readonly number[];
+  sources?: readonly (MaterialTexture | undefined)[];
 }
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
@@ -415,7 +425,7 @@ export class WebGPUMeshPipeline {
     this.stats.upload(4);
     this.whiteView = this.whiteTexture.createView();
     this.emptyOptical = device.createTexture({
-      size: [1, 1, 2],
+      size: [1, 1, 5],
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
@@ -519,14 +529,19 @@ export class WebGPUMeshPipeline {
     const packLayout = device.createPipelineLayout({
       bindGroupLayouts: [opticalPackLayout],
     });
-    const transmissionPack = device.createComputePipeline({
-      layout: packLayout,
-      compute: { module: packModule, entryPoint: 'transmission' },
-    });
-    const thicknessPack = device.createComputePipeline({
-      layout: packLayout,
-      compute: { module: packModule, entryPoint: 'thickness' },
-    });
+    const opticalPacks = [
+      'transmission',
+      'thickness',
+      'anisotropy',
+      'iridescence',
+      'iridescenceThickness',
+    ].map((entryPoint) =>
+      device.createComputePipeline({
+        layout: packLayout,
+        compute: { module: packModule, entryPoint },
+      }),
+    );
+    mappedOpticalPacks.set(device, opticalPacks.slice(2));
     const sceneLayout = device.createBindGroupLayout({
       entries: [
         {
@@ -867,8 +882,8 @@ export class WebGPUMeshPipeline {
       return new WebGPUMeshPipeline(
         device,
         opticalPackLayout,
-        transmissionPack,
-        thicknessPack,
+        opticalPacks[0]!,
+        opticalPacks[1]!,
         shadowPipeline,
         skyPipeline,
         skyHdrPipeline,
@@ -1922,12 +1937,8 @@ export class WebGPUMeshPipeline {
     if (texture.kind !== 'image' && texture.kind !== 'native') return;
     this.textures.get(texture)?.allocation.destroy();
     this.premultipliedTextures.get(texture)?.allocation.destroy();
-    for (const [material, entry] of this.opticalTextures)
-      if (
-        pbrTextureSources(material).transmissionTexture === texture ||
-        pbrTextureSources(material).thicknessTexture === texture
-      )
-        entry.allocation.destroy();
+    for (const entry of this.opticalTextures.values())
+      if (entry.sources?.includes(texture)) entry.allocation.destroy();
   }
   private uploadEnvironment(map: EnvironmentMap): GPUTextureView {
     let entry = this.environments.get(map);
@@ -2899,16 +2910,22 @@ export class WebGPUMeshPipeline {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): GPUTextureView {
-    const a = pbrTextureSources(material).transmissionTexture,
-      b = pbrTextureSources(material).thicknessTexture;
-    if (!a && !b) return this.emptyOpticalView;
-    if (a?.destroyed || b?.destroyed)
+    const sources = opticalMapSources(material);
+    if (!sources.some(Boolean)) {
+      this.opticalTextures.get(material)?.allocation.destroy();
+      return this.emptyOpticalView;
+    }
+    if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGPU optical map has been destroyed.');
     let existing = this.opticalTextures.get(material);
-    const sourceVersions = [a?.version ?? -1, b?.version ?? -1] as const;
+    const sourceVersions = sources.map((source) => source?.version ?? -1);
     if (
-      existing?.sourceVersions?.[0] === sourceVersions[0] &&
-      existing.sourceVersions[1] === sourceVersions[1]
+      existing &&
+      sources.every(
+        (source, i) =>
+          existing!.sources?.[i] === source &&
+          existing!.sourceVersions?.[i] === sourceVersions[i],
+      )
     ) {
       existing.allocation.touch();
       existing.seen = this.frame;
@@ -2916,7 +2933,11 @@ export class WebGPUMeshPipeline {
     }
     const side = Math.ceil(
       Math.sqrt(
-        Math.max(a ? a.width * a.height : 1, b ? b.width * b.height : 1),
+        Math.max(
+          ...sources.map((source) =>
+            source ? source.width * source.height : 1,
+          ),
+        ),
       ),
     );
     if (existing && existing.resource.width !== side) {
@@ -2925,7 +2946,7 @@ export class WebGPUMeshPipeline {
     }
     const allocation =
       existing?.allocation ??
-      this.residency.textures.allocate(side * side * 8, () => {
+      this.residency.textures.allocate(side * side * 20, () => {
         this.opticalTextures.get(material)?.resource.destroy();
         this.opticalTextures.delete(material);
         this.textureEpoch++;
@@ -2933,7 +2954,7 @@ export class WebGPUMeshPipeline {
     let resource: GPUTexture | undefined = existing?.resource;
     try {
       resource ??= this.device.createTexture({
-        size: [side, side, 2],
+        size: [side, side, 5],
         format: 'rgba8unorm',
         usage:
           GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.STORAGE_BINDING,
@@ -2941,8 +2962,8 @@ export class WebGPUMeshPipeline {
       const view =
         existing?.view ?? resource.createView({ dimension: '2d-array' });
       const encoder = this.device.createCommandEncoder();
-      for (let layer = 0; layer < 2; layer++) {
-        const source = layer === 0 ? a : b;
+      for (let layer = 0; layer < 5; layer++) {
+        const source = sources[layer];
         if (!source) continue;
         const group = this.device.createBindGroup({
           layout: this.opticalPackLayout,
@@ -2953,7 +2974,11 @@ export class WebGPUMeshPipeline {
         });
         const pass = beginTimedComputePass(encoder, {});
         pass.setPipeline(
-          layer === 0 ? this.transmissionPack : this.thicknessPack,
+          layer === 0
+            ? this.transmissionPack
+            : layer === 1
+              ? this.thicknessPack
+              : mappedOpticalPacks.get(this.device)![layer - 2]!,
         );
         pass.setBindGroup(0, group);
         pass.dispatchWorkgroups(Math.ceil(side / 8), Math.ceil(side / 8));
@@ -2966,6 +2991,7 @@ export class WebGPUMeshPipeline {
         view,
         seen: this.frame,
         sourceVersions,
+        sources,
       });
       if (!existing) this.textureEpoch++;
       allocation.touch();
@@ -3163,14 +3189,21 @@ export class WebGPUMeshPipeline {
       customOffset + nativeMaterial3DLimits.uniformFloats + 4,
     );
     if (material instanceof PBRMaterial)
-      fillPBRFinish(material, data, meshUniformFloats - 40 - PBR_FINISH_FLOATS);
+      fillPBRFinish(
+        material,
+        data,
+        meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
+      );
     else
       data.fill(
         0,
-        meshUniformFloats - 40 - PBR_FINISH_FLOATS,
-        meshUniformFloats - 40,
+        meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
+        meshUniformFloats - 16 - 40,
       );
-    fillMeshIrradiance(object, data, meshUniformFloats - 40);
+    fillMeshIrradiance(object, data, meshUniformFloats - 16 - 40);
+    if (material instanceof PBRMaterial)
+      fillMappedOpticalSettings(material, data, meshUniformFloats - 16);
+    else data.fill(0, meshUniformFloats - 16);
     const packed = visibility?.instances;
     if (
       packed &&
@@ -3269,10 +3302,9 @@ export class WebGPUMeshPipeline {
         entry.allocation.destroy();
     this.releaseUnusedTextures(this.textures);
     this.releaseUnusedTextures(this.premultipliedTextures);
-    for (const [material, entry] of this.opticalTextures)
+    for (const entry of this.opticalTextures.values())
       if (
-        pbrTextureSources(material).transmissionTexture?.destroyed ||
-        pbrTextureSources(material).thicknessTexture?.destroyed ||
+        entry.sources?.some((source) => source?.destroyed) ||
         (this.residency.textures.budgetBytes === Infinity &&
           entry.seen !== this.frame &&
           !entry.allocation.references)

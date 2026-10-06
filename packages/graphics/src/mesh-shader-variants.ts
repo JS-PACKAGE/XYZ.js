@@ -10,6 +10,7 @@ import {
 } from '../../core/src/baked-lighting.js';
 import { ContactShadows } from '../../core/src/contact-shadows.js';
 
+import { opticalMaterialMaps } from '../../core/src/optical-material-maps.js';
 /** Internal compile-time switches; uniforms and published material shapes stay unchanged. */
 export interface MeshShaderFeatures {
   pbr: boolean;
@@ -19,6 +20,9 @@ export interface MeshShaderFeatures {
   dispersion: boolean;
   anisotropy: boolean;
   iridescence: boolean;
+  anisotropyMap: boolean;
+  iridescenceMap: boolean;
+  iridescenceThicknessMap: boolean;
   subsurface: boolean;
   height: boolean;
   weathering: boolean;
@@ -43,6 +47,7 @@ export function meshShaderFeatures(
 ): MeshShaderFeatures {
   const pbr = material instanceof PBRMaterial ? material : undefined;
   const finish = pbr?.finish;
+  const optical = pbr && opticalMaterialMaps(pbr);
   return {
     pbr: !!pbr,
     clearcoat: (pbr?.clearcoat ?? 0) > 0,
@@ -51,6 +56,12 @@ export function meshShaderFeatures(
     dispersion: (finish?.dispersion ?? 0) > 0,
     anisotropy: (finish?.anisotropy ?? 0) > 0,
     iridescence: (finish?.iridescence ?? 0) > 0,
+    anisotropyMap:
+      (finish?.anisotropy ?? 0) > 0 && !!optical?.anisotropyTexture,
+    iridescenceMap:
+      (finish?.iridescence ?? 0) > 0 && !!optical?.iridescenceTexture,
+    iridescenceThicknessMap:
+      (finish?.iridescence ?? 0) > 0 && !!optical?.iridescenceThicknessTexture,
     subsurface: (finish?.subsurface ?? 0) > 0,
     height: (finish?.heightScale ?? 0) > 0,
     weathering:
@@ -96,6 +107,9 @@ const featureOrder: readonly (keyof MeshShaderFeatures)[] = [
   'contactShadows',
   'environment',
   'native',
+  'anisotropyMap',
+  'iridescenceMap',
+  'iridescenceThicknessMap',
 ];
 
 export function meshShaderVariantKey(features: MeshShaderFeatures): string {

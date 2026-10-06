@@ -7,6 +7,11 @@ import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import { samplerOptions } from './texture-sampler.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
 import { iridescenceFilmRange } from '../../../src/data/materials.js';
+import {
+  registerOpticalMaterialMaps,
+  type OpticalMaterialMapsOptions,
+  type MaterialMappedTextureSlot,
+} from './optical-material-maps.js';
 
 export type MaterialAlphaMode = 'OPAQUE' | 'MASK' | 'BLEND';
 
@@ -69,9 +74,10 @@ export function pbrTextureSources(
 
 export interface PBRMaterialOptions extends TextureMaterialOptions {
   sources?: PBRTextureSources;
+  opticalMaps?: OpticalMaterialMapsOptions;
   /** Independent per-map UV selection and affine transform; absent slots use UV0 identity. */
   textureCoordinates?: Partial<
-    Record<MaterialTextureSlot, TextureCoordinateOptions>
+    Record<MaterialMappedTextureSlot, TextureCoordinateOptions>
   >;
   metallic?: number;
   roughness?: number;
@@ -346,9 +352,10 @@ function textureSlot(value: Texture | undefined, name: string): void {
 
 function textureCoordinates(
   options: PBRMaterialOptions['textureCoordinates'],
-): Readonly<Partial<Record<MaterialTextureSlot, TextureCoordinates>>> {
-  const result: Partial<Record<MaterialTextureSlot, TextureCoordinates>> = {};
-  const slots: readonly MaterialTextureSlot[] = [
+): Readonly<Partial<Record<MaterialMappedTextureSlot, TextureCoordinates>>> {
+  const result: Partial<Record<MaterialMappedTextureSlot, TextureCoordinates>> =
+    {};
+  const slots: readonly MaterialMappedTextureSlot[] = [
     'texture',
     'metallicRoughness',
     'normal',
@@ -363,14 +370,17 @@ function textureCoordinates(
     'sheenRoughness',
     'transmission',
     'thickness',
+    'anisotropy',
+    'iridescence',
+    'iridescenceThickness',
   ];
   if (options !== undefined) {
     if (!options || typeof options !== 'object' || Array.isArray(options))
       throw new TypeError('Texture coordinates must be a per-map object.');
     for (const key of Object.keys(options)) {
-      if (!slots.includes(key as MaterialTextureSlot))
+      if (!slots.includes(key as MaterialMappedTextureSlot))
         throw new RangeError('Unknown material texture coordinate slot.');
-      const value = options[key as MaterialTextureSlot];
+      const value = options[key as MaterialMappedTextureSlot];
       if (!value || typeof value !== 'object' || Array.isArray(value))
         throw new TypeError('Texture coordinate options must be an object.');
       const texCoord = value.texCoord ?? 0;
@@ -394,7 +404,7 @@ function textureCoordinates(
         offset[1],
       ];
       for (const component of transform) finite(component, 'Texture transform');
-      result[key as MaterialTextureSlot] = Object.freeze({
+      result[key as MaterialMappedTextureSlot] = Object.freeze({
         texCoord,
         transform: Object.freeze(transform),
       });
@@ -476,6 +486,7 @@ export class PBRMaterial extends TextureMaterial {
   constructor(options: PBRMaterialOptions) {
     super(options);
     this.textureCoordinates = textureCoordinates(options.textureCoordinates);
+    registerOpticalMaterialMaps(this, options.opticalMaps);
     const metallic = options.metallic ?? 0;
     const roughness = options.roughness ?? 0.5;
     const specularAntiAliasing = options.specularAntiAliasing ?? 0;
