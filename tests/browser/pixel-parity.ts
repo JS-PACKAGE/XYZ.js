@@ -14,6 +14,12 @@ import {
   SpotLight,
   Texture,
   Vector3,
+  bakeLightmap,
+  BakedIrradianceVolume,
+  bindIrradianceVolume,
+  PlanarReflection,
+  ContactShadows,
+  ContactShadowSettings,
   type RendererPreference,
 } from '../../src/index.js';
 import { frameProofs } from './frame-proof.js';
@@ -219,6 +225,135 @@ async function run(): Promise<void> {
         });
       } finally {
         scene.destroy();
+      }
+    }
+    for (const name of [
+      'baked-lightmap-uv1',
+      'irradiance-volume-left',
+      'irradiance-volume-right',
+      'planar-reflection-capture',
+      'directional-contact-shadows',
+    ]) {
+      const scene = new Scene();
+      const owned: { destroy(): void }[] = [];
+      try {
+        const camera = new OrthographicCamera();
+        camera.height = 2.5;
+        camera.position.set(0, 0, 3);
+        camera.lookAt(new Vector3());
+        scene.camera3D = camera;
+        scene.ambientLight = 0;
+        scene.directionalLight.intensity = 0;
+        const surface = new Geometry({
+          positions: [-1,-1,0, 1,-1,0, 1,1,0, -1,1,0],
+          normals: [0,0,1, 0,0,1, 0,0,1, 0,0,1],
+          uvs: [0,0, 1,0, 1,1, 0,1],
+          indices: [0,1,2, 0,2,3],
+        });
+        const material = new PBRMaterial({
+          texture: white, metallic: 0, roughness: 1,
+        });
+        if (name === 'baked-lightmap-uv1') {
+          scene.directionalLight.direction.set(0.6, 0, 1);
+          scene.directionalLight.intensity = 0.8;
+          const receiver = new Mesh({ geometry: surface, material });
+          const blocker = new Mesh({
+            geometry: Geometry.sphere(0.3, 16, 12),
+            material, position: [0, 0, 0.5],
+          });
+          const baked = await bakeLightmap(scene, {
+            meshes: [receiver, blocker], size: 64, padding: 2, samples: 8,
+          });
+          owned.push(baked, receiver, blocker);
+          scene.directionalLight.intensity = 0;
+          scene.add(new Mesh({
+            geometry: baked.geometries.get(receiver)!,
+            material: new PBRMaterial({
+              texture: white, metallic: 0, roughness: 1,
+              ...baked.materialOptions,
+            }),
+          }));
+        } else if (name.startsWith('irradiance-volume-')) {
+          const coefficients = new Float32Array(8 * 27);
+          for (let z = 0; z < 2; z++)
+            for (let y = 0; y < 2; y++)
+              for (let x = 0; x < 2; x++) {
+                const base = ((z * 2 + y) * 2 + x) * 27;
+                coefficients[base] = x ? 0.1 : 2.5;
+                coefficients[base + 1] = 0.3;
+                coefficients[base + 2] = x ? 2.5 : 0.1;
+              }
+          const volume = new BakedIrradianceVolume({
+            min: [-1,-1,-1], max: [1,1,1], resolution: [2,2,2],
+          }, coefficients);
+          owned.push(volume);
+          const mesh = scene.add(new Mesh({
+            geometry: Geometry.sphere(0.65, 24, 16), material,
+          }));
+          bindIrradianceVolume(mesh, volume);
+          // Reuse the binding after moving, as a dynamic consumer does at runtime.
+          mesh.position.x = -0.5;
+          if (name === 'irradiance-volume-right') mesh.position.x = 0.5;
+          camera.position.x = mesh.position.x;
+          camera.lookAt(new Vector3(mesh.position.x, 0, 0));
+          scene.environment = environment;
+        } else if (name === 'planar-reflection-capture') {
+          if (!renderer.capturePlanarReflection || !renderer.prepareNativePBRMaterial)
+            throw new Error('Native planar reflection hooks missing.');
+          scene.ambientLight = 1;
+          camera.height = 5;
+          camera.position.set(0, 3, 6);
+          camera.lookAt(new Vector3());
+          scene.add(new Mesh({
+            geometry: Geometry.cube(0.9),
+            material: new PBRMaterial({
+              texture: white, color: [0.8,0.1,0.05], roughness: 1,
+            }),
+            position: [0,1.2,0],
+          }));
+          scene.add(new Mesh({
+            geometry: Geometry.cube(0.9),
+            material: new PBRMaterial({
+              texture: white, color: [0.05,0.8,0.1], roughness: 1,
+            }),
+            position: [0,-1.2,0],
+          }));
+          const reflection = new PlanarReflection({ size: 128 });
+          owned.push(reflection);
+          await renderer.capturePlanarReflection(scene, reflection);
+          const reflected = reflection.createPBRMaterial({
+            texture: white, color: [0,0,0], metallic: 0, roughness: 1,
+          });
+          owned.push(reflected);
+          await renderer.prepareNativePBRMaterial(reflected);
+          const floor = scene.add(new Mesh({
+            geometry: Geometry.cube(6), material: reflected,
+          }));
+          floor.scale.set(1, 0.005, 1);
+        } else {
+          scene.ambientLight = 0.05;
+          scene.directionalLight.direction.set(1, 0, 1);
+          scene.directionalLight.intensity = 1;
+          scene.shadows.enabled = false;
+          scene.add(new Mesh({ geometry: surface, material }));
+          scene.add(new Mesh({
+            geometry: Geometry.sphere(0.18, 16, 12),
+            material, position: [0,0,0.24],
+          }));
+          ContactShadows.set(scene, new ContactShadowSettings({
+            distance: 0.8, thickness: 0.04, bias: 0.008, steps: 64,
+          }));
+        }
+        await draw(scene);
+        const first = await draw(scene);
+        const repeat = await draw(scene);
+        report.scenarios.push({
+          name, pixels: Array.from(first.bytes), repeat: Array.from(repeat.bytes),
+          width: first.width, height: first.height,
+        });
+      } finally {
+        scene.destroy();
+        for (const value of owned) value.destroy();
       }
     }
   } finally {
