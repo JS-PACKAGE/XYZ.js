@@ -6,8 +6,8 @@ permissions:
   contents: read
 jobs:
   diagnose:
-    runs-on: macos-latest
-    timeout-minutes: 12
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
@@ -16,15 +16,12 @@ jobs:
         with:
           node-version: '26'
       - run: npx --yes pnpm@12.6.0 install --frozen-lockfile
-      - run: npx --yes pnpm@12.6.0 run build:site
+      - run: npx --yes pnpm@12.6.0 run build
       - run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
-      - run: node scripts/diagnose-site.mjs
-        env:
-          XYZ_DIAGNOSTIC_CHANNEL: chromium
-          XYZ_DIAGNOSTIC_HEADED: '1'
+      - run: node scripts/diagnose-lifecycle.mjs
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
-          name: owned-site-diagnostics
-          path: .vite/site-diagnostic/
+          name: owned-lifecycle-diagnostics
+          path: .vite/lifecycle-diagnostic/
           include-hidden-files: true
