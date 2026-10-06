@@ -10,6 +10,7 @@ import {
 import { atlasGLSL } from './shadow-shaders.js';
 import { GraphicsError } from './errors.js';
 import { depthPostGLSL } from './depth-post-shaders.js';
+import { gradingGLSL } from './color-grading-shaders.js';
 import { sheenGLSL, sheenEnvironmentGLSL } from './sheen-shaders.js';
 import { brdfGLSL } from './brdf-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
@@ -746,9 +747,10 @@ void main() {
     for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++)
       bloom += max(sampleAt(p + ivec2(x, y) * radius) - settings.z, vec3(0.0));
     result += bloom * (settings.y / 9.0);
+${gradingGLSL}
   }
   result *= settings.x;
-  if (aces) result = clamp((result * (2.51 * result + .03)) / (result * (2.43 * result + .59) + .14), 0.0, 1.0);
+  result = tone(result);
   result = max(result, vec3(0.0));
   result = mix(result * 12.92, 1.055 * pow(result, vec3(1.0 / 2.4)) - .055, step(vec3(.0031308), result));
   color = vec4(result, 1.0);
@@ -764,6 +766,7 @@ void main() {
 }`;
 
 export const skyFragment = `#version 300 es
+  result = grade(result);
 precision highp float;
 in vec2 vNdc;
 uniform mat4 invViewProjection;
