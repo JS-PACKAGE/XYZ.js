@@ -711,7 +711,7 @@ export class WebGL2Renderer implements Renderer {
   private readonly meshSkins = new Map<SkinnedMesh, CachedSkin>();
   private readonly samplers = new Map<string, WebGLSampler>();
   private gradingTexture: WebGLTexture | undefined;
-  private gradingLUT: object | undefined;
+  private gradingLUT: object | undefined | null = null;
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private readonly shadowCache = new ShadowCache();
@@ -1033,12 +1033,14 @@ export class WebGL2Renderer implements Renderer {
       for (const name of [
         'image',
         'settings',
-        'aces',
         'depthImage',
         'inverseVP',
         'clip',
         'ssao',
         'dof',
+        'toneOperator',
+        'grading',
+        'lutImage',
       ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -1053,9 +1055,6 @@ export class WebGL2Renderer implements Renderer {
         this.compositeUniforms[name] = gl.getUniformLocation(
           this.compositeProgram,
           name,
-        'toneOperator',
-        'grading',
-        'lutImage',
         );
       gl.useProgram(this.skyProgram);
       gl.uniform1i(this.skyUniforms.backgroundMap, 0);
@@ -3547,10 +3546,22 @@ export class WebGL2Renderer implements Renderer {
       settings.bloomThreshold,
       settings.bloomRadius,
     );
-    gl.uniform1i(
-      this.postUniforms.aces,
-      enabled && settings.toneMapping === 'aces' ? 1 : 0,
-    );
+    gl.uniform1i(this.postUniforms.toneOperator, enabled ? settings.toneMapping === 'aces' ? 1 : settings.toneMapping === 'agx' ? 2 : settings.toneMapping === 'reinhard' ? 3 : settings.toneMapping === 'neutral' ? 4 : 0 : 0);
+    const lut = settings.colorGrading?.lut;
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindSampler(2, null);
+    if (!this.gradingTexture) this.gradingTexture = gl.createTexture() ?? undefined;
+    if (!this.gradingTexture) throw new GraphicsError('Could not allocate LUT texture.');
+    gl.bindTexture(gl.TEXTURE_2D, this.gradingTexture);
+    if (this.gradingLUT !== lut) {
+      const size = lut?.size ?? 1;
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size * size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut?.strip ?? new Uint8Array([255,255,255,255]));
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      this.gradingLUT = lut;
+    }
+    gl.uniform1i(this.postUniforms.lutImage, 2);
+    gl.uniform2f(this.postUniforms.grading, lut?.size ?? 1, enabled ? settings.colorGrading?.strength ?? 0 : 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);
@@ -3610,22 +3621,6 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         'Render textures are managed by the native 2D target owner.',
       );
-    gl.uniform1i(this.postUniforms.toneOperator, enabled ? ['none', 'aces', 'agx', 'reinhard', 'neutral'].indexOf(settings.toneMapping) : 0);
-    const lut = settings.colorGrading?.lut;
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindSampler(2, null);
-    if (!this.gradingTexture) this.gradingTexture = gl.createTexture() ?? undefined;
-    if (!this.gradingTexture) throw new GraphicsError('Could not allocate LUT texture.');
-    gl.bindTexture(gl.TEXTURE_2D, this.gradingTexture);
-    if (this.gradingLUT !== lut || !lut) {
-      const size = lut?.size ?? 1;
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size * size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut?.strip ?? new Uint8Array([255,255,255,255]));
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
-      this.gradingLUT = lut;
-    }
-    gl.uniform1i(this.postUniforms.lutImage, 2);
-    gl.uniform2f(this.postUniforms.grading, lut?.size ?? 1, enabled ? settings.colorGrading?.strength ?? 0 : 0);
     if (texture.destroyed)
       throw new GraphicsError('Cannot upload a destroyed texture.');
     const existing = this.textures.get(texture);
@@ -4333,6 +4328,9 @@ export class WebGL2Renderer implements Renderer {
       if (this.fxaaProgram) gl.deleteProgram(this.fxaaProgram);
       if (this.shadowProgram) gl.deleteProgram(this.shadowProgram);
       if (this.postProgram) gl.deleteProgram(this.postProgram);
+      if (this.gradingTexture) gl.deleteTexture(this.gradingTexture);
+      this.gradingTexture = undefined;
+      this.gradingLUT = null;
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);
       if (this.triangleProgram) gl.deleteProgram(this.triangleProgram);
       for (const entry of this.meshPrograms.values())
@@ -4382,4 +4380,3 @@ export class WebGL2Renderer implements Renderer {
     return this.gl;
   }
 }
-      if (this.gradingTexture) gl.deleteTexture(this.gradingTexture);

@@ -51,6 +51,7 @@ export class WebGPUPostPipeline {
   private texture: GPUTexture | undefined;
   private view: GPUTextureView | undefined;
   private bindGroup: GPUBindGroup | undefined;
+  private depthView: GPUTextureView | undefined;
   private buffer: GPUBuffer | undefined;
   private fxaaTexture: GPUTexture | undefined;
   private fxaaView: GPUTextureView | undefined;
@@ -154,6 +155,7 @@ export class WebGPUPostPipeline {
     this.stats.target(width * height * 8);
     try {
       const view = texture.createView();
+      this.depthView = depth;
       this.bindGroup = this.device.createBindGroup({
         layout: this.pipeline.getBindGroupLayout(0),
         entries: [
@@ -234,17 +236,23 @@ export class WebGPUPostPipeline {
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
-    const group = this.device.createBindGroup({
-          layout: this.pipeline.getBindGroupLayout(0),
-          entries: [
-            { binding: 0, resource: (source ?? this.texture!).createView() },
-            { binding: 1, resource: { buffer: this.buffer! } },
-            { binding: 2, resource: depth! },
-            { binding: 3, resource: this.ensureLUT(settings.colorGrading?.lut).createView() },
-          ],
-        });
+    const lut = settings.colorGrading?.lut;
+    if (this.lut !== lut) this.bindGroup = undefined;
+    let group = this.bindGroup!;
+    if (source || !group) {
+      group = this.device.createBindGroup({
+        layout: this.pipeline.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: (source ?? this.texture!).createView() },
+          { binding: 1, resource: { buffer: this.buffer! } },
+          { binding: 2, resource: depth ?? this.depthView! },
+          { binding: 3, resource: this.ensureLUT(lut).createView() },
+        ],
+      });
+      if (!source) this.bindGroup = group;
+    }
     this.data[0] = enabled ? settings.exposure : 1;
-    this.data[1] = enabled ? ['none', 'aces', 'agx', 'reinhard', 'neutral'].indexOf(settings.toneMapping) : 0;
+    this.data[1] = enabled ? settings.toneMapping === 'aces' ? 1 : settings.toneMapping === 'agx' ? 2 : settings.toneMapping === 'reinhard' ? 3 : settings.toneMapping === 'neutral' ? 4 : 0 : 0;
     this.data[2] = enabled ? settings.bloomStrength : 0;
     this.data[3] = settings.bloomThreshold;
     this.data[4] = this.width;
@@ -301,6 +309,7 @@ export class WebGPUPostPipeline {
     this.texture = undefined;
     this.view = undefined;
     this.bindGroup = undefined;
+    this.depthView = undefined;
   }
 
   private ensureLUT(lut?: ColorLUT3D): GPUTexture {

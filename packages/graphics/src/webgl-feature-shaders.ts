@@ -731,9 +731,9 @@ export const postFragment = `#version 300 es
 precision highp float;
 uniform sampler2D image;
 uniform vec4 settings; // exposure, strength, threshold, radius
-uniform bool aces;
 out vec4 color;
 ${depthPostGLSL}
+${gradingGLSL}
 vec3 sampleAt(ivec2 p) {
   return texelFetch(image, clamp(p, ivec2(0), textureSize(image, 0) - 1), 0).rgb;
 }
@@ -747,12 +747,12 @@ void main() {
     for (int y = -1; y <= 1; y++) for (int x = -1; x <= 1; x++)
       bloom += max(sampleAt(p + ivec2(x, y) * radius) - settings.z, vec3(0.0));
     result += bloom * (settings.y / 9.0);
-${gradingGLSL}
   }
   result *= settings.x;
   result = tone(result);
   result = max(result, vec3(0.0));
   result = mix(result * 12.92, 1.055 * pow(result, vec3(1.0 / 2.4)) - .055, step(vec3(.0031308), result));
+  result = grade(result);
   color = vec4(result, 1.0);
 }`;
 
@@ -766,7 +766,6 @@ void main() {
 }`;
 
 export const skyFragment = `#version 300 es
-  result = grade(result);
 precision highp float;
 in vec2 vNdc;
 uniform mat4 invViewProjection;
