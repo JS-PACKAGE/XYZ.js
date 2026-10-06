@@ -138,14 +138,20 @@ async function run(): Promise<void> {
   const white = await Texture.fromImage(whiteCanvas);
   owned.push(white);
   const draw = async (s: Scene): Promise<FrameProof> => {
+    const previous = output.dataset.step?.split('>')[0];
+    step(`${previous}>raf`);
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
     if (runtimeError) throw runtimeError;
+    step(`${previous}>render`);
     renderer.beginFrame();
     renderer.render(s, canvas.width, canvas.height);
+    step(`${previous}>proof`);
     const proof = proofs.next();
+    step(`${previous}>end`);
     renderer.endFrame();
+    step(`${previous}>done events=${JSON.stringify(proofs.graphicsEvents)}`);
     return proof;
   };
   if (!renderer.capabilities.threeD) {
