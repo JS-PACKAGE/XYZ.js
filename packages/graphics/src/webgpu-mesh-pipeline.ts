@@ -1,3 +1,4 @@
+import { getPostEffects } from '../../core/src/post-effects.js';
 import type {
   VisibleInstances,
   RenderVisibilityOptions,
@@ -1133,7 +1134,9 @@ export class WebGPUMeshPipeline {
       this.temporalActive =
         !captureTarget &&
         scene.postProcessing.enabled &&
-        (scene.postProcessing.taa || scene.postProcessing.ssr);
+        (scene.postProcessing.taa ||
+          scene.postProcessing.ssr ||
+          getPostEffects(scene.postProcessing)?.motionBlur?.enabled === true);
       if (this.temporalActive)
         this.temporalState.begin(
           scene,
@@ -1294,6 +1297,7 @@ export class WebGPUMeshPipeline {
           source,
           this.depthView!,
           scene,
+          this.temporalActive ? this.temporalState : undefined,
         );
         if (this.temporalActive) this.temporalState.commit();
       }

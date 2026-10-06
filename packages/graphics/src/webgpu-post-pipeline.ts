@@ -9,6 +9,8 @@ import { getPostEffects } from '../../core/src/post-effects.js';
 import type { Scene } from '../../core/src/scene.js';
 import { volumetricWGSL, writeVolumetricUniforms } from './volumetric-post.js';
 import { lensFlareWGSL } from './lens-flare-post.js';
+import { motionBlurWGSL, writeMotionBlurUniforms } from './motion-blur-post.js';
+import type { TemporalPostState } from './temporal-post.js';
 import {
   OrthographicCamera,
   type Camera3D,
@@ -17,13 +19,14 @@ import type { Matrix4 } from '../../math/src/index.js';
 import type { FrameStats } from './render-stats.js';
 
 const postShader = (sampleCount: number): string => /* wgsl */ `
-struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f, fog: vec4f, fogColor: vec4f, shaft: vec4f, shaftColor: vec4f, flare: vec4f, halo: vec4f };
+struct Settings { values: vec4f, viewport: vec4f, inverseVP: mat4x4f, clip: vec4f, ssao: vec4f, dof: vec4f, grading: vec4f, fog: vec4f, fogColor: vec4f, shaft: vec4f, shaftColor: vec4f, flare: vec4f, halo: vec4f, previousVP: mat4x4f, blur: vec4f };
 @group(0) @binding(0) var source: texture_2d<f32>;
 @group(0) @binding(1) var<uniform> settings: Settings;
 ${depthPostWGSL(sampleCount)}
 ${gradingWGSL}
 ${volumetricWGSL}
 ${lensFlareWGSL}
+${motionBlurWGSL}
 @vertex fn vertexMain(@builtin(vertex_index) index: u32) -> @builtin(position) vec4f {
   let positions = array<vec2f,3>(vec2f(-1.0,-1.0),vec2f(3.0,-1.0),vec2f(-1.0,3.0));
   return vec4f(positions[index],0.0,1.0);
@@ -32,7 +35,7 @@ ${lensFlareWGSL}
   let size = vec2i(textureDimensions(source));
   let pixel = clamp(vec2i(position.xy),vec2i(0),size-vec2i(1));
   let radius = i32(min(floor(settings.viewport.z+0.5),f32(max(size.x,size.y))));
-  let sample = focusedSample(pixel);
+  let sample = motionSample(pixel);
   var color = sample.rgb/max(sample.a,0.000001)*ambientOcclusion(pixel);
   color = volumetric(color,pixel);
   color = lensFlare(color,pixel);
@@ -69,7 +72,7 @@ export class WebGPUPostPipeline {
   private height = 0;
   private lutTexture: GPUTexture | undefined;
   private lut: ColorLUT3D | undefined;
-  private readonly data = new Float32Array(64);
+  private readonly data = new Float32Array(84);
   private readonly attachment: Omit<GPURenderPassColorAttachment, 'view'> & {
     view?: GPUTextureView;
   } = {
@@ -242,6 +245,7 @@ export class WebGPUPostPipeline {
     source?: GPUTexture,
     depth?: GPUTextureView,
     scene?: Scene,
+    temporalState?: TemporalPostState,
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
@@ -264,7 +268,17 @@ export class WebGPUPostPipeline {
       if (!source) this.bindGroup = group;
     }
     this.data[0] = enabled ? settings.exposure : 1;
-    this.data[1] = enabled ? tone === 'aces' ? 1 : tone === 'agx' ? 2 : tone === 'reinhard' ? 3 : tone === 'neutral' ? 4 : 0 : 0;
+    this.data[1] = enabled
+      ? tone === 'aces'
+        ? 1
+        : tone === 'agx'
+          ? 2
+          : tone === 'reinhard'
+            ? 3
+            : tone === 'neutral'
+              ? 4
+              : 0
+      : 0;
     this.data[2] = enabled ? settings.bloomStrength : 0;
     this.data[3] = settings.bloomThreshold;
     this.data[4] = this.width;
@@ -285,7 +299,7 @@ export class WebGPUPostPipeline {
     this.data[34] = settings.dofFocusRange;
     this.data[35] = settings.dofBlurRadius;
     this.data[36] = effects?.colorGrading?.lut.size ?? 1;
-    this.data[37] = enabled ? effects?.colorGrading?.strength ?? 0 : 0;
+    this.data[37] = enabled ? (effects?.colorGrading?.strength ?? 0) : 0;
     writeVolumetricUniforms(this.data, 40, scene);
     const flare = effects?.lensFlare;
     this.data[56] = enabled && flare?.enabled ? flare.strength : 0;
@@ -294,6 +308,7 @@ export class WebGPUPostPipeline {
     this.data[59] = flare?.spacing ?? 1;
     this.data[60] = flare?.haloRadius ?? 0.3;
     this.data[61] = flare?.haloWidth ?? 0.15;
+    writeMotionBlurUniforms(this.data, 64, settings, temporalState);
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
     this.stats.upload(this.data.byteLength);
     if (fxaa) this.ensureFxaa();
@@ -342,7 +357,12 @@ export class WebGPUPostPipeline {
       format: 'rgba8unorm',
       usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST,
     });
-    this.device.queue.writeTexture({ texture: this.lutTexture }, lut?.strip ?? new Uint8Array([255,255,255,255]), { bytesPerRow: size * size * 4 }, [size * size, size]);
+    this.device.queue.writeTexture(
+      { texture: this.lutTexture },
+      lut?.strip ?? new Uint8Array([255, 255, 255, 255]),
+      { bytesPerRow: size * size * 4 },
+      [size * size, size],
+    );
     return this.lutTexture;
   }
 

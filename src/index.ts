@@ -12,6 +12,8 @@ export { PostEffectsSettings, setPostEffects, getPostEffects } from '../packages
 export type { PostEffectsOptions } from '../packages/core/src/post-effects.js';
 export { LensFlareSettings } from '../packages/core/src/lens-flare.js';
 export type { LensFlareOptions } from '../packages/core/src/lens-flare.js';
+export { MotionBlurSettings } from '../packages/core/src/motion-blur.js';
+export type { MotionBlurOptions } from '../packages/core/src/motion-blur.js';
 export { Profiler } from '../packages/graphics/src/profiler.js';
 export type {
   ProfilerOptions,

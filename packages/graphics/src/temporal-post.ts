@@ -21,6 +21,7 @@ export class TemporalPostState {
   readonly cameraPosition = new Float32Array(3);
   readonly jitter = new Float32Array(2);
   historyValid = false;
+  reprojectionValid = false;
   width = 0;
   height = 0;
   private scene: object | undefined;
@@ -122,11 +123,13 @@ export class TemporalPostState {
       this.previousRotation[3] = q.w;
     }
     this.historyValid = this.enabled;
+    this.reprojectionValid = true;
     this.sample = (this.sample + 1) % 1024;
   }
 
   invalidate(): void {
     this.historyValid = false;
+    this.reprojectionValid = false;
     this.sample = 0;
   }
 }

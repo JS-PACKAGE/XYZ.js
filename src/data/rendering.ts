@@ -176,3 +176,11 @@ export const lensFlareDefaults = Object.freeze({
   haloRadius: 0.3,
   haloWidth: 0.15,
 });
+
+export const motionBlurDefaults = Object.freeze({
+  strength: 1,
+  samples: 12,
+  maximumSamples: 32,
+  maxRadius: 32,
+  maximumRadius: 64,
+});

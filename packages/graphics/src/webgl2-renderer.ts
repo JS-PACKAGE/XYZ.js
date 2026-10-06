@@ -166,6 +166,7 @@ import { packProbeTextures } from './probe-texture-array.js';
 import { TemporalPostState } from './temporal-post.js';
 import { writeVolumetricUniforms } from './volumetric-post.js';
 import { getPostEffects } from '../../core/src/post-effects.js';
+import { writeMotionBlurUniforms } from './motion-blur-post.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
@@ -715,6 +716,7 @@ export class WebGL2Renderer implements Renderer {
   private gradingTexture: WebGLTexture | undefined;
   private gradingLUT: object | undefined | null = null;
   private readonly volumetricData = new Float32Array(16);
+  private readonly motionData = new Float32Array(20);
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private readonly shadowCache = new ShadowCache();
@@ -1050,6 +1052,8 @@ export class WebGL2Renderer implements Renderer {
         'shaftColor',
         'flare',
         'halo',
+        'previousVP',
+        'blur',
       ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -2119,7 +2123,9 @@ export class WebGL2Renderer implements Renderer {
     this.temporalActive =
       !this.capturingProbe &&
       scene.postProcessing.enabled &&
-      (scene.postProcessing.taa || scene.postProcessing.ssr);
+      (scene.postProcessing.taa ||
+        scene.postProcessing.ssr ||
+        getPostEffects(scene.postProcessing)?.motionBlur?.enabled === true);
     if (this.temporalActive) {
       if (!this.floatColorBuffer || !this.postTarget?.depthTexture)
         throw new GraphicsError(
@@ -3621,6 +3627,20 @@ export class WebGL2Renderer implements Renderer {
     gl.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4);
     gl.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4);
     gl.uniform4fv(this.postUniforms.shaftColor, this.volumetricData, 12, 4);
+    writeMotionBlurUniforms(
+      this.motionData,
+      0,
+      settings,
+      this.temporalActive ? this.temporalState : undefined,
+    );
+    gl.uniformMatrix4fv(
+      this.postUniforms.previousVP,
+      false,
+      this.motionData,
+      0,
+      16,
+    );
+    gl.uniform4fv(this.postUniforms.blur, this.motionData, 16, 4);
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (fxaa) {
