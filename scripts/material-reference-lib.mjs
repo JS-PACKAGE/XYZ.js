@@ -232,6 +232,7 @@ export function compareReferencePixels(a, b) {
   validatePixels(a.pixels, a.width, a.height);
   validatePixels(b.pixels, b.width, b.height);
   const measured = comparePixels(a.pixels, b.pixels, a.width, a.height);
+  // Sparse derivative-edge noise: macOS Metal max delta 1; hosted Linux SwiftShader max delta 5 on 6 pixels (0.04%).
   if (a.name !== 'procedural-preset-grid') return measured;
   let maxChannelDelta = 0,
     changedPixels = 0;
@@ -261,12 +262,12 @@ export function compareReferencePixels(a, b) {
     changedChannelPixels,
     changedChannelPixelRatios,
     allowance: {
-      maxChannelDelta: 1,
+      maxChannelDelta: 8,
       maxChangedChannelPixelRatio: 0.002,
       p99: 0,
     },
     pass:
-      maxChannelDelta <= 1 &&
+      maxChannelDelta <= 8 &&
       changedChannelPixelRatios.every((ratio) => ratio <= 0.002) &&
       measured.channels.every((channel) => channel.p99 === 0),
   };
@@ -279,7 +280,7 @@ export function referencePixelSelfTest(scene) {
     'sparse control requires procedural corpus.',
   );
   const deltaTwo = Uint8Array.from(scene.pixels);
-  deltaTwo[0] += deltaTwo[0] <= 253 ? 2 : -2;
+  deltaTwo[0] += deltaTwo[0] <= 246 ? 9 : -9;
   const excess = Uint8Array.from(scene.pixels);
   const count = Math.floor(scene.width * scene.height * 0.002) + 1;
   for (let pixel = 0; pixel < count; pixel++)

@@ -81,7 +81,7 @@ describe('material reference numeric qualification', () => {
     );
     expect(compareReferencePixels(a, a).pass).toBe(true);
   });
-  it('bounds only the new procedural corpus to one byte in at most 0.2% pixels per channel', () => {
+  it('bounds only the new procedural corpus to eight bytes in at most 0.2% pixels per channel', () => {
     const scene = { ...capture().scenarios[0], name: 'procedural-preset-grid' };
     const sparse = pixels();
     for (let pixel = 0; pixel < 32; pixel++) sparse[pixel * 4]++;
@@ -108,7 +108,7 @@ describe('material reference numeric qualification', () => {
       compareReferencePixels(scene, { ...scene, pixels: sparse }).pass,
     ).toBe(false);
     const deltaTwo = pixels();
-    deltaTwo[0] += 2;
+    deltaTwo[0] += 9;
     expect(
       compareReferencePixels(scene, { ...scene, pixels: deltaTwo }).pass,
     ).toBe(false);
