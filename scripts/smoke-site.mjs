@@ -11,6 +11,7 @@ import { resolve, join, relative } from 'node:path';
 import { fileURLToPath, URL } from 'node:url';
 import { createRequire } from 'node:module';
 import process from 'node:process';
+import { setTimeout, clearTimeout } from 'node:timers';
 import console from 'node:console';
 import { chromium } from 'playwright-core';
 import {
@@ -442,6 +443,17 @@ async function inspectExample(path, profile, expectedRejection) {
     return;
   }
   const session = await ownedPage();
+  // A renderer whose main thread is saturated never answers page calls, so Playwright timeouts cannot fire;
+  // closing the context rejects every pending call and turns a silent CI hang into a recorded FAIL.
+  let watchdogFired = false;
+  const watchdog = setTimeout(() => {
+    watchdogFired = true;
+    session.errors.push({
+      kind: 'watchdog',
+      message: `Example case exceeded ${timeout * 4}ms without answering page calls.`,
+    });
+    void session.context.close().catch(() => undefined);
+  }, timeout * 4);
   row.errors = session.errors;
   row.warnings = session.warnings;
   row.requests = session.requests;
@@ -681,7 +693,8 @@ async function inspectExample(path, profile, expectedRejection) {
       row.errors.push({ kind: 'evidence', message: String(captureError) }),
     );
   } finally {
-    await session.context.close();
+    clearTimeout(watchdog);
+    if (!watchdogFired) await session.context.close();
     results.push(row);
     await writeFile(
       join(output, `${name}.json`),

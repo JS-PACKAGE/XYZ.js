@@ -2154,3 +2154,5 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - `tests/asset-recipe-finish.test.mjs` 需要 production recipe 工具固定的 Node 版本，其他 Node 版本自動略過（不是通過）；僅在固定版本執行。
 
 - P135 golden 比對：goldens 於 macOS／Metal 產生，hosted Linux SwiftShader 實測 golden mean 差 ≤0.056、finish 場景單一 tile 的 p99 差 29。非 darwin 平台改用明列的較寬 golden 限制（mean ≤0.1、tile means p99 ≤3、tile p99s mean ≤1.5（實測最大 1.016）、tile p99s p99 ≤35）；darwin 維持 0.001 嚴格限制。跨 backend peer／repeat／negative 檢查不變，negative control 在寬限制下仍被拒絕（roughness 格 mean 差 2.43）。這是平台別 golden 的放寬，不是該平台的像素等價證明。
+
+- Hosted macOS site smoke 在 `examples/world-nature/?renderer=auto` 兩次無輸出掛住約 55 分鐘直到被取消（先前一次同內容 commit 則通過），本機有 GPU 時 5 個案例全過；根因未查明（推測為 hosted 軟體 GPU 上主執行緒被占滿，Playwright 呼叫不回應所以 timeout 不觸發）。已為 `scripts/smoke-site.mjs` 的每個 example case 加入 watchdog（4×timeout 後關閉 context，記錄 `watchdog` 錯誤並判 FAIL），讓掛住變成可見的失敗；這不是修好該案例的效能問題。
