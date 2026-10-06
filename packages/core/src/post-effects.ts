@@ -1,11 +1,13 @@
 import { PostProcessingSettings } from './render-settings.js';
 import { ColorGradingSettings, type ToneMapper } from './color-grading.js';
 import { VolumetricFogSettings } from './volumetric-fog.js';
+import { LensFlareSettings } from './lens-flare.js';
 
 export interface PostEffectsOptions {
   toneMapper?: ToneMapper;
   colorGrading?: ColorGradingSettings;
   volumetricFog?: VolumetricFogSettings;
+  lensFlare?: LensFlareSettings;
 }
 
 /** Additive effects without changing published 1.x PostProcessingSettings shapes. */
@@ -13,10 +15,12 @@ export class PostEffectsSettings {
   toneMapper: ToneMapper | undefined;
   colorGrading: ColorGradingSettings | undefined;
   volumetricFog: VolumetricFogSettings | undefined;
+  lensFlare: LensFlareSettings | undefined;
   constructor(options: PostEffectsOptions = {}) {
     this.toneMapper = options.toneMapper;
     this.colorGrading = options.colorGrading;
     this.volumetricFog = options.volumetricFog;
+    this.lensFlare = options.lensFlare;
     this.validate();
   }
   validate(): void {
@@ -28,6 +32,9 @@ export class PostEffectsSettings {
       throw new TypeError('Expected VolumetricFogSettings.');
     this.colorGrading?.validate();
     this.volumetricFog?.validate();
+    if (this.lensFlare !== undefined && !(this.lensFlare instanceof LensFlareSettings))
+      throw new TypeError('Expected LensFlareSettings.');
+    this.lensFlare?.validate();
   }
 }
 

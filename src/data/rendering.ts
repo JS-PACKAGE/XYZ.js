@@ -166,3 +166,13 @@ export const meshShaderVariantLimits = Object.freeze({
   maxEntries: 64,
   plainFragmentMaxBytes: 40000,
 });
+
+export const lensFlareDefaults = Object.freeze({
+  strength: 0.15,
+  threshold: 1,
+  ghosts: 4,
+  maximumGhosts: 8,
+  spacing: 0.5,
+  haloRadius: 0.3,
+  haloWidth: 0.15,
+});

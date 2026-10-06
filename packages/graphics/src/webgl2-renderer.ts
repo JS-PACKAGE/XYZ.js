@@ -1048,6 +1048,8 @@ export class WebGL2Renderer implements Renderer {
         'volumeColor',
         'shaft',
         'shaftColor',
+        'flare',
+        'halo',
       ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -3612,6 +3614,9 @@ export class WebGL2Renderer implements Renderer {
       settings.dofBlurRadius,
     );
     writeVolumetricUniforms(this.volumetricData, 0, scene);
+    const flare = effects?.lensFlare;
+    gl.uniform4f(this.postUniforms.flare, enabled && flare?.enabled ? flare.strength : 0, flare?.threshold ?? 1, flare?.ghosts ?? 1, flare?.spacing ?? 1);
+    gl.uniform4f(this.postUniforms.halo, flare?.haloRadius ?? 0.3, flare?.haloWidth ?? 0.15, 0, 0);
     gl.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4);
     gl.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4);
     gl.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4);

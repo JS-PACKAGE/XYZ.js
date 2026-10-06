@@ -338,3 +338,14 @@ cannot see offscreen occluders or replace shadow-map volume scattering.
 Both native backends share the kernel; enabled postprocessing rejects Canvas2D.
 WebGL2 requires float HDR color attachments. CPU tests/typecheck pass locally;
 native browser acceptance remains pending integration.
+
+## Native lens flare
+
+Attach `new PostEffectsSettings({ lensFlare: new LensFlareSettings(options) })`
+with `setPostEffects`. Bright-pass HDR sources generate one to eight bounded
+ghost gathers and one halo gather before tone mapping. Strength is 0–4,
+threshold is nonnegative, spacing is (0,2], and halo radius/width are normalized
+(0,1]. This cheap screen-space lens model excludes hidden/offscreen sources;
+it is not an optical simulation. Both native paths use the same bounded kernel;
+Canvas2D rejects enabled 3D postprocessing and GL requires float HDR attachments.
+CPU assertions passed; native pixel acceptance remains pending integration.
