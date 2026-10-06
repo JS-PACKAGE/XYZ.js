@@ -421,7 +421,17 @@ try {
   );
 
   let lastReadout = 0;
+  let slowFrames = 0;
   const tick = (timestamp: number): void => {
+    // Software rasterizers cannot sustain this scene and would starve the page's main thread; stop animating instead.
+    if (previousTimestamp !== undefined && timestamp - previousTimestamp > 400)
+      slowFrames++;
+    else slowFrames = 0;
+    if (slowFrames >= 4 && runtime.state === 'running') {
+      runtime.pause();
+      status.textContent +=
+        ' Animation paused: frames took over 400 ms, so this renderer is probably software-rasterized.';
+    }
     if (runtime.state === 'running' && !document.hidden) {
       if (previousTimestamp !== undefined && renderedFrames > warmupFrames)
         intervals.add(timestamp - previousTimestamp);
