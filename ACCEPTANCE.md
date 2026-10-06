@@ -2140,3 +2140,7 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
   physical XR runtime/headset、其他 browser／driver／devices 或 total VRAM 資格。
   P136 WebGPU destructive public loss injection unavailable，這項只驗證真 repeated
   lifecycle；不把 fake／private-hook recovery 標為這個 fixture 的 PASS。
+
+## v1.18 發佈
+
+package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、動畫圖片、Profiler 與像素比對 gate、Terrain／Water／Ribbon／植被、後製（LUT、體積霧、光暈、動態模糊）、烘焙光照／平面反射／contact shadows、WebXR、mapped optical 材質、P135／P136。閘門結果見上節最終重跑；Windows hosted 步驟仍為 continue-on-error，WebXR 實機與 WebGPU 真實裝置遺失維持 BLOCKED／未驗證。hosted CI 與 Release 的結果以 GitHub 紀錄為準，推送後才驗證。

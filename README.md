@@ -1,6 +1,6 @@
 # XYZ.js
 
-Browser-native TypeScript game engine. Package metadata is **1.17.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
+Browser-native TypeScript game engine. Package metadata is **1.18.0**, licensed under **Apache-2.0** (see [LICENSE](LICENSE)); npm is unpublished. Historical evidence and physical-device limitations remain in [ACCEPTANCE](ACCEPTANCE.md); historical release assets up to v1.5 retain their original `UNLICENSED` metadata.
 
 **Current / 目前 / 現在:** [v1.16 normative capability, API and support contracts](docs/CURRENT.md). Generate the searchable versioned public API with `pnpm docs:api`; `pnpm build:site` includes it at `api/1.16.0/`, with the landing page at `docs/`. The following release/stage narratives are historical; their dates, counts and version strings do not redefine current support.
 
@@ -509,7 +509,7 @@ Static site／完整靜態網站／静的サイト：`npx pnpm@12.6.0 build:site
 
 Smoke owns a separate muted browser and native zero-gain output sinks; signal evidence is not audible-output, Safari, physical-device or assistive-technology certification. Smoke 僅用自有靜音 browser／zero-gain sinks，不冒稱可聽輸出、Safari、實機或輔具認證。独立 muted browser／zero-gain sinks の信号は可聴出力・Safari・実機・支援技術の認証ではありません。
 
-Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.17.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
+Standalone consumer／獨立 consumer／独立 consumer：`node scripts/create-game.mjs /absolute/new-game --template 2d --package /absolute/xyz.js-1.18.0.tgz --name my-game` (or `3d` / built package directory), then `npx pnpm@12.6.0 --dir /absolute/new-game install` and `dev`/`build`. Destination must be empty; deploy the entire starter `dist/`. 使用空目的目錄與本機套件，部署全部 starter `dist/`。空 destination と local package を使い、starter `dist/` 全体を配置します。
 
 `lightweight2d`, `resource-lifecycle`, `text-i18n`, `audio-effects`, `motion2d`, `tiled-import` and `accessibility-game` offer portable 2D paths. Native 3D examples require WebGPU/WebGL2 and report Canvas2D unsupported. Trusted audio unlock is still required; physical audio and OS IME remain outside automated certification.
 

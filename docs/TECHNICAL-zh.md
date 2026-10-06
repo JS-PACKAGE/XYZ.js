@@ -2,9 +2,9 @@
 
 [English](TECHNICAL.md) · 繁體中文
 
-**目前支援規範：**[v1.16 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.17.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
+**目前支援規範：**[v1.16 契約](CURRENT.md)與 `pnpm docs:api` 生成的 root-export API。`pnpm build:site` 納入可搜尋版本目錄 `api/1.18.0/`。本頁保留詳細子系統 recipes、歷史階段／升級描述，與目前契約及歷史驗收分開。
 
-本參考描述 **1.17.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P118 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。P104–P118 納入 v1.16，不在歷史 GitHub v1.14 archive。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Windows CI 設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的證據擴充。
+本參考描述 **1.18.0／Apache-2.0**；npm 未發佈。[PLAN](../PLAN.md)／[DESIGN](../DESIGN.md) 定義已批准至 P118 與程序材質預設的契約，[ACCEPTANCE](../ACCEPTANCE.md) 記實跑與未驗限制。P104–P118 納入 v1.16，不在歷史 GitHub v1.14 archive。歷史日期、counts 與 release metadata 保留為當時證據。API 參考 three.js／PixiJS／Excalibur，非 drop-in parity，未新增 runtime dependency。Windows CI 設定不認證實體 Windows 硬體或驅動；browser qualification 只依實際記錄的證據擴充。
 
 五個原 hosted workload與真失焦guard已於[CI37105917252](https://github.com/YueyuHoshizora/XYZ.js/actions/runs/37105917252)通過；Windows原生圖形failures仍阻擋發佈。使用者批准只有 pinned native WindowsWebKit在secure origin實測AudioContext／AudioWorkletNode均不存在、符合上游ENABLE_WEB_AUDIO OFF時音訊記UNSUPPORTED。WebKit其他gates及WindowsChromium／Firefox原生音訊assertions仍必須通過，不能宣稱WindowsWebKit音訊認證。
 
