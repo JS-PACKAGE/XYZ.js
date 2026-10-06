@@ -760,15 +760,19 @@ try {
     throw new Error(
       'smoke-site requires the repository-managed Chromium cache; custom executable overrides are not accepted.',
     );
-  // Use the pinned full Chromium's compositor, not headless shell: hosted
-  // macOS shell can stop RAF while timers continue on this native GPU scene.
-  launch.channel = 'chromium';
+  // macOS shell can stop RAF; new headless also exits with blank pages after
+  // ~32s. Use the pinned headed compositor there, with the same native gates.
+  if (process.platform === 'darwin') {
+    launch.channel = 'chromium';
+    launch.headless = false;
+  }
   launch.args = [...new Set([...(launch.args ?? []), '--mute-audio'])];
   // Own exactly one fresh managed process and connect only to its private
   // Playwright endpoint; never attach via CDP or use a user's browser/profile.
   browserServer = await chromium.launchServer({ ...launch, host: '127.0.0.1' });
   browser = await chromium.connect(browserServer.wsEndpoint());
-  toolchain.channel = launch.channel;
+  toolchain.channel = launch.channel ?? 'chromium-headless-shell';
+  toolchain.headless = launch.headless;
   toolchain.executable = browserServer.process().spawnfile;
   const probe = await ownedPage();
   try {

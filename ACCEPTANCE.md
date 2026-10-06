@@ -2166,3 +2166,7 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - 最終本機 smoke（撤除自動 pause、new headless／owned process 清理整合後）：`build:site` 後 world-nature 五個 deployment cases、兩個 catalogue、links 與 native screenshots PASS（`.vite/site-new-headless-smoke/run-767Hb0/results.json`）。同版本真 Chromium `SIGSTOP` 故障注入於 4000ms deadline 觸發，6523ms 完成 FAIL／exit 1、coverage 1/5、owned child SIGKILL；不把預期失敗記成正常通過。診斷 branch 僅保留調查紀錄，未合併診斷 workflow／frame logging 到 main。
 
 - 視覺限制：本機最終 auto screenshot 的文字與地形／水面／草／trail 正常可見；hosted 診斷 new-headless auto screenshot 的 native canvas 可見，但頁面 DOM 文字有破碎 rasterization。自動 smoke 的 PASS 僅涵蓋既有 DOM／pixel／cleanup 契約，不能延伸成 hosted 全頁文字視覺品質認證。
+
+- 擴大驗證後撤回「new headless 可承擔完整 shard」假設：本機 shard 1/4 在 15–16/63 cases 時 browser 關閉；logger 無 `Browser.close` 請求、owned child exit 0。隔離比較只有空白頁（無 XYZ.js／GPU／Audio）：`launch` 和 `launchServer` 的 new headless 皆約 32 秒斷線，保持空白頁也無效；headed managed Chromium 40 秒後仍連線。這確認退出不依賴引擎場景，但未定位 Chromium／macOS 的退出內部原因；正在以同 pin headed 模式驗證完整 shard 與 hosted world-nature，未以重試或重啟 browser 隱藏失敗。
+
+- 同 pin headed 完整本機 shard 1/4（含 showcase、audio unlock／cleanup、world-nature 所有 backend profiles）：63/63 cases 與兩個 catalogue PASS，耗時 113.99 秒，單一 owned browser 到完成後才 exit 0（`.vite/site-headed-shard/shard-1-of-4-joeaIX/results.json`）。正式 smoke 僅 macOS 改用 managed headed Chromium；Linux／Windows 保留原 managed headless shell／flags。每個 case、pixel／DOM／coverage gate 均不變，mode／實際 executable 記入 toolchain。
