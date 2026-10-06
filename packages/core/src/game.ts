@@ -625,6 +625,7 @@ export class Game extends EventTarget {
     this.currentScene?.setWorldStreamingPaused(document.hidden);
     if (this.audioPause.onPause) this.audio.resume('game');
     this.clock.suspend();
+    this.graphics.profiler?.suspend();
     this.input.reset();
     if (!document.hidden) this.requestId = requestAnimationFrame(this.onFrame);
   }
@@ -865,6 +866,7 @@ export class Game extends EventTarget {
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     this.clock.suspend();
+    this.graphics.profiler?.suspend();
     this.currentScene?.resetPointerRouting();
     this.accessibilityManager.reset();
     this.input.reset();
@@ -1167,6 +1169,7 @@ export class Game extends EventTarget {
       document.hidden || this.currentState !== 'running',
     );
     this.clock.suspend();
+    this.graphics.profiler?.suspend();
     this.currentScene?.resetPointerRouting();
     this.accessibilityManager.reset();
     this.input.reset();
@@ -1180,6 +1183,8 @@ export class Game extends EventTarget {
   private readonly onFrame = (timestamp: number): void => {
     this.requestId = undefined;
     if (this.currentState !== 'running' || document.hidden) return;
+    const profiler = this.graphics.profiler;
+    profiler?.beginFrame(timestamp);
     const frameWork = this.frameWorkCounter.enabled
       ? this.frameWorkCounter
       : undefined;
@@ -1279,6 +1284,7 @@ export class Game extends EventTarget {
       this.updatingScene = undefined;
       this.input.endFrame();
       frameWork?.finish();
+      profiler?.endFrame();
     }
     if (this.currentState === 'running')
       this.requestId = requestAnimationFrame(this.onFrame);

@@ -5,6 +5,7 @@ import {
   UnsupportedGraphicsError,
 } from './errors.js';
 import type { GpuTimingOptions, RenderStats } from './render-stats.js';
+import type { Profiler } from './profiler.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -150,6 +151,8 @@ export interface Renderer {
   /** Counters for the last rendered frame; the object is reused, so copy values to keep them. */
   readonly stats: RenderStats;
   readonly residency: GraphicsResidency;
+  /** Opt-in frame collection; attach a Profiler after creating the renderer. */
+  profiler?: Profiler;
   configureResidency(options: ResidencyBudgetOptions): void;
   prepareGeometry(source: Geometry | Geometry2D): Promise<void>;
   unloadGeometry(source: Geometry | Geometry2D): void;
