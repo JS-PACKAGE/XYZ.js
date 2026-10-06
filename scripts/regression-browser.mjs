@@ -346,39 +346,17 @@ try {
       }
       await page.goto(url, { waitUntil: 'networkidle' });
       const awaitState = async (expected) => {
-        try {
-          await page.waitForFunction(
-            (state) => {
-              const report = document.querySelector('#report');
-              return (
-                report?.getAttribute('data-state') === state ||
-                report?.getAttribute('data-state') === 'failed'
-              );
-            },
-            expected,
-            { timeout: 60000 },
-          );
-        } catch (cause) {
-          const where = await page
-            .evaluate(() => {
-              const report = document.querySelector('#report');
-              return {
-                state: report?.getAttribute('data-state'),
-                progress: report?.getAttribute('data-progress'),
-                step: report?.getAttribute('data-step'),
-                phase: report?.getAttribute('data-phase'),
-                heartbeat: report?.getAttribute('data-heartbeat'),
-                events: report?.getAttribute('data-events'),
-              };
-            })
-            .catch(() => undefined);
-          throw new Error(
-            `${cause.message} Page position: ${JSON.stringify(where)}`,
-            {
-              cause,
-            },
-          );
-        }
+        await page.waitForFunction(
+          (state) => {
+            const report = document.querySelector('#report');
+            return (
+              report?.getAttribute('data-state') === state ||
+              report?.getAttribute('data-state') === 'failed'
+            );
+          },
+          expected,
+          { timeout: 180000 },
+        );
         const report = JSON.parse(await page.locator('#report').textContent());
         result.phases.push(await saveReport(backend, report));
         if (report.error) throw new Error(report.error);

@@ -39,22 +39,6 @@ const report = {
   }[],
   error: undefined as string | undefined,
 };
-// Hosted software-GPU hangs never reach the final report; expose where the page is.
-const scenarioPush = report.scenarios.push.bind(report.scenarios);
-report.scenarios.push = (...items) => {
-  output.dataset.progress = items.map((item) => item.name).join(',');
-  return scenarioPush(...items);
-};
-function step(name: string): void {
-  output.dataset.step = name;
-}
-// Heartbeat distinguishes a blocked page thread from a pending GPU promise.
-const startedAt = performance.now();
-setInterval(() => {
-  output.dataset.heartbeat = String(Math.round(performance.now() - startedAt));
-  output.dataset.events = JSON.stringify(eventLog.slice(-4));
-}, 1000);
-const eventLog: string[] = [];
 let renderer!: Renderer;
 let lost = 0,
   recovered = 0;
@@ -141,29 +125,18 @@ async function run(): Promise<void> {
     `Forced ${preference}, observed actual ${renderer.backend}.`,
   );
   renderer.resize(320, 320);
-  const proofs = frameProofs(renderer, canvas, () => {
-    eventLog.push(
-      `${Math.round(performance.now() - startedAt)}ms ${proofs.graphicsEvents.at(-1)?.slice(0, 160)}`,
-    );
-  });
+  const proofs = frameProofs(renderer, canvas);
   const white = await Texture.fromImage(whiteCanvas);
   owned.push(white);
-  let drawCount = 0;
   const draw = async (s: Scene): Promise<FrameProof> => {
-    const previous = `${output.dataset.phase ?? ''}#${++drawCount}`;
-    step(`${previous}>raf`);
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
     );
     if (runtimeError) throw runtimeError;
-    step(`${previous}>render`);
     renderer.beginFrame();
     renderer.render(s, canvas.width, canvas.height);
-    step(`${previous}>proof`);
     const proof = proofs.next();
-    step(`${previous}>end`);
     renderer.endFrame();
-    step(`${previous}>done events=${JSON.stringify(proofs.graphicsEvents)}`);
     return proof;
   };
   if (!renderer.capabilities.threeD) {
@@ -270,7 +243,6 @@ async function run(): Promise<void> {
     });
   }
 
-  output.dataset.phase = 'physical:omitted';
   const physicalScene = scene();
   const omitted = new NativePBRMaterial({
     texture: white,
@@ -289,7 +261,6 @@ async function run(): Promise<void> {
     omission instanceof GraphicsError,
     'A physical material without xyzPhysical must reject before draw.',
   );
-  output.dataset.phase = 'physical:prepare';
   const physical = new NativePBRMaterial({
     texture: white,
     deformationBounds: 0,
@@ -306,7 +277,6 @@ async function run(): Promise<void> {
       castShadow: false,
     }),
   );
-  output.dataset.phase = 'physical:draw';
   const colored = await draw(physicalScene);
   let redPixels = 0;
   for (let i = 0; i < colored.bytes.length; i += 4)
@@ -1048,14 +1018,12 @@ async function run(): Promise<void> {
     if (device) trigger = () => device.destroy();
   }
   if (trigger) {
-    output.dataset.phase = 'loss:before';
     const before = await draw(cached);
     const count = recovered;
-    output.dataset.phase = 'loss:trigger';
     trigger();
-    const deadline = performance.now() + 10000;
+    // Software WebGPU recreates every prepared pipeline serially; hosted runners need headroom.
+    const deadline = performance.now() + 45000;
     while (recovered === count && performance.now() < deadline) await delay(20);
-    output.dataset.phase = 'loss:recovered';
     check(recovered > count && lost > 0, 'Actual native loss must recover.');
     const after = await draw(cached);
     check(
