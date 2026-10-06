@@ -1,7 +1,12 @@
 import { AssetError } from './texture.js';
 import { readResponse } from './read-response.js';
 import { assetRecipe } from '../../../src/data/asset-recipe.js';
-import type { AssetBundleDescriptor } from './asset-bundle.js';
+import {
+  loadAssetBundle,
+  type AssetBundleDescriptor,
+  type AssetBundleLoadOptions,
+  type AssetBundleVariant,
+} from './asset-bundle.js';
 
 export interface AssetBundleArchiveMember {
   readonly path: string;
@@ -167,4 +172,28 @@ export class AssetBundleRangeReader {
     this.controller.abort();
     this.full = undefined;
   }
+}
+
+/** Marks configurations loaded through loadAssetBundleRange; keeps the published loadAssetBundle declaration unchanged. */
+export const rangeBundleConfigurations = new WeakSet<object>();
+
+/** Load verified individual files from a manifest's plain byte-offset archive. */
+export function loadAssetBundleRange<
+  A extends { dispose(): void },
+  O extends {
+    signal?: AbortSignal;
+    dracoDecoder?: unknown;
+    nativeTextures?: boolean;
+  },
+>(
+  uri: string,
+  configuration: Omit<AssetBundleLoadOptions<O>, 'loader'> & {
+    readonly loader: {
+      parse(input: string, baseURL?: string, options?: O): Promise<A>;
+    };
+  },
+): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
+  const marked = { ...configuration };
+  rangeBundleConfigurations.add(marked);
+  return loadAssetBundle(uri, marked);
 }

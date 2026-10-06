@@ -63,7 +63,6 @@ export type {
 } from './resource-scope.js';
 export {
   loadAssetBundle,
-  loadAssetBundleRange,
   parseAssetBundle,
   selectAssetBundleVariant,
 } from './asset-bundle.js';
@@ -74,14 +73,6 @@ export type {
   AssetBundleCapabilities,
   AssetBundleLoadOptions,
 } from './asset-bundle.js';
-export {
-  AssetBundleRangeReader,
-  parseAssetBundleArchive,
-} from './range-bundle.js';
-export type {
-  AssetBundleArchive,
-  AssetBundleArchiveMember,
-} from './range-bundle.js';
 export {
   TiledError,
   parseTiledMap,

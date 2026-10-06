@@ -1,15 +1,27 @@
-import { createServer } from 'node:http';
-import type { AddressInfo } from 'node:net';
-import { createHash } from 'node:crypto';
+// Node-only fixture modules are loaded dynamically; engine typechecking has browser-only types.
+const httpModule: string = 'node:http';
+const cryptoModule: string = 'node:crypto';
+const { createServer } = await import(httpModule);
+const { createHash } = await import(cryptoModule);
+interface AddressInfo {
+  port: number;
+}
+interface TestRequest {
+  url?: string;
+  headers: { range?: string };
+}
+interface TestResponse {
+  end(data?: string | Uint8Array): void;
+  writeHead(status: number, headers?: Record<string, string>): void;
+  write(data: Uint8Array): void;
+}
 import { describe, expect, it } from 'vitest';
 import {
   AssetBundleRangeReader,
+  loadAssetBundleRange,
   parseAssetBundleArchive,
 } from '../packages/assets/src/range-bundle.js';
-import {
-  loadAssetBundleRange,
-  parseAssetBundle,
-} from '../packages/assets/src/asset-bundle.js';
+import { parseAssetBundle } from '../packages/assets/src/asset-bundle.js';
 import { assetRecipe } from '../src/data/asset-recipe.js';
 
 const model = new TextEncoder().encode(
@@ -57,26 +69,28 @@ describe('range bundle archives', () => {
     'loads verified members when servers %s Range',
     async (mode) => {
       const requests: string[] = [];
-      const server = createServer((request, response) => {
-        if (request.url === '/manifest.json') {
-          response.end(JSON.stringify(manifest));
-          return;
-        }
-        const range = request.headers.range;
-        requests.push(range ?? 'full');
-        if (mode === 'unavailable' && range) {
-          response.writeHead(405);
-          response.end();
-          return;
-        }
-        if (mode === 'honor' && range) {
-          const [, start, end] = /^bytes=(\d+)-(\d+)$/.exec(range)!;
-          response.writeHead(206, {
-            'Content-Range': `bytes ${start}-${end}/${archiveBytes.length}`,
-          });
-          response.end(archiveBytes.slice(Number(start), Number(end) + 1));
-        } else response.end(archiveBytes);
-      });
+      const server = createServer(
+        (request: TestRequest, response: TestResponse) => {
+          if (request.url === '/manifest.json') {
+            response.end(JSON.stringify(manifest));
+            return;
+          }
+          const range = request.headers.range;
+          requests.push(range ?? 'full');
+          if (mode === 'unavailable' && range) {
+            response.writeHead(405);
+            response.end();
+            return;
+          }
+          if (mode === 'honor' && range) {
+            const [, start, end] = /^bytes=(\d+)-(\d+)$/.exec(range)!;
+            response.writeHead(206, {
+              'Content-Range': `bytes ${start}-${end}/${archiveBytes.length}`,
+            });
+            response.end(archiveBytes.slice(Number(start), Number(end) + 1));
+          } else response.end(archiveBytes);
+        },
+      );
       await new Promise<void>((resolve) =>
         server.listen(0, '127.0.0.1', resolve),
       );
@@ -119,7 +133,7 @@ describe('range bundle archives', () => {
         );
       } finally {
         await new Promise<void>((resolve, reject) =>
-          server.close((error) => (error ? reject(error) : resolve())),
+          server.close((error?: Error) => (error ? reject(error) : resolve())),
         );
       }
     },
@@ -165,13 +179,15 @@ describe('range bundle archives', () => {
   });
   it('rejects lying 206 headers and oversized full fallbacks', async () => {
     for (const mode of ['range', 'oversize']) {
-      const server = createServer((_request, response) => {
-        if (mode === 'range')
-          response.writeHead(206, { 'Content-Range': 'bytes 0-3/4' });
-        response.end(
-          mode === 'range' ? data : new Uint8Array(archiveBytes.length + 1),
-        );
-      });
+      const server = createServer(
+        (_request: TestRequest, response: TestResponse) => {
+          if (mode === 'range')
+            response.writeHead(206, { 'Content-Range': 'bytes 0-3/4' });
+          response.end(
+            mode === 'range' ? data : new Uint8Array(archiveBytes.length + 1),
+          );
+        },
+      );
       await new Promise<void>((resolve) =>
         server.listen(0, '127.0.0.1', resolve),
       );
@@ -194,11 +210,13 @@ describe('range bundle archives', () => {
     const received = new Promise<void>((resolve) => {
       started = resolve;
     });
-    const server = createServer((_request, response) => {
-      response.writeHead(200);
-      response.write(new Uint8Array([0]));
-      started();
-    });
+    const server = createServer(
+      (_request: TestRequest, response: TestResponse) => {
+        response.writeHead(200);
+        response.write(new Uint8Array([0]));
+        started();
+      },
+    );
     await new Promise<void>((resolve) =>
       server.listen(0, '127.0.0.1', resolve),
     );

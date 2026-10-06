@@ -7,6 +7,7 @@ import { modelLimits } from '../../../src/data/models.js';
 import {
   AssetBundleRangeReader,
   parseAssetBundleArchive,
+  rangeBundleConfigurations,
 } from './range-bundle.js';
 export interface AssetBundleFile {
   readonly path: string;
@@ -211,7 +212,7 @@ async function fetchBytes(
   return (await readResponse(response, max, signal)).arrayBuffer();
 }
 /** Verified byte snapshots feed the existing loader; its returned asset retains normal ownership. */
-async function loadBundle<
+export async function loadAssetBundle<
   A extends { dispose(): void },
   O extends {
     signal?: AbortSignal;
@@ -225,8 +226,8 @@ async function loadBundle<
       parse(input: string, baseURL?: string, options?: O): Promise<A>;
     };
   },
-  rangeRequests: boolean,
 ): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
+  const rangeRequests = rangeBundleConfigurations.has(configuration);
   const manifestURL = new URL(
     uri,
     typeof document === 'undefined' ? undefined : document.baseURI,
@@ -327,42 +328,4 @@ async function loadBundle<
     for (const url of objects) URL.revokeObjectURL(url);
     rangeReader?.destroy();
   }
-}
-
-/** Load verified individual files from a manifest's plain byte-offset archive. */
-export function loadAssetBundleRange<
-  A extends { dispose(): void },
-  O extends {
-    signal?: AbortSignal;
-    dracoDecoder?: unknown;
-    nativeTextures?: boolean;
-  },
->(
-  uri: string,
-  configuration: Omit<AssetBundleLoadOptions<O>, 'loader'> & {
-    readonly loader: {
-      parse(input: string, baseURL?: string, options?: O): Promise<A>;
-    };
-  },
-): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
-  return loadBundle(uri, configuration, true);
-}
-
-/** Existing directory bundles retain their original request behavior. */
-export function loadAssetBundle<
-  A extends { dispose(): void },
-  O extends {
-    signal?: AbortSignal;
-    dracoDecoder?: unknown;
-    nativeTextures?: boolean;
-  },
->(
-  uri: string,
-  configuration: Omit<AssetBundleLoadOptions<O>, 'loader'> & {
-    readonly loader: {
-      parse(input: string, baseURL?: string, options?: O): Promise<A>;
-    };
-  },
-): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
-  return loadBundle(uri, configuration, false);
 }
