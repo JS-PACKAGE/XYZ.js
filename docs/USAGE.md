@@ -74,6 +74,7 @@ Alternatively open the root [example index](../index.html) at `http://127.0.0.1:
 | [world-visibility](../examples/world-visibility/)       | Visibility, LOD/HLOD and native occlusion queries                                                                                           |
 | [native-material3d](../examples/native-material3d/)     | Native material hooks and bounded lighting                                                                                                  |
 | [world-streaming](../examples/world-streaming/)         | Cell publication/retirement, shared resources and navigation seams                                                                          |
+| [world-nature](../examples/world-nature/)               | Terrain/splat, analytic water, moving-object trail and seeded wind grass; native 3D only                                                    |
 | [cpu-workers](../examples/cpu-workers/)                 | Native geometry jobs, transfer/copy costs, cancellation                                                                                     |
 | [tiled-import](../examples/tiled-import/)               | Orthogonal JSON, external atlas, GID flips and real colliders                                                                               |
 | [gpu-particles3d](../examples/gpu-particles3d/)         | Native GPU particle simulation/rendering                                                                                                    |
@@ -1487,6 +1488,13 @@ NativeMaterial3D uses `textureSources` for its four indexed hook maps; the base
 map uses the same `textureSource` option. WebCodecs consumes configured elementary
 chunks, not media containers. Canvas2D supports video Sprites, not 3D materials.
 
+Mesh feature variants compile lazily; no application opt-in is needed. Prepare
+resources before publication when avoiding cold draw compilation matters. Cache
+eviction or backend recovery may compile again. Native vertex code can optionally
+define `xyzDeformInstance(position, normal, uv, instance)` (`XYZVertex` result,
+WGSL `mat4x4f`/GLSL `mat4` local instance matrix); color/shadows use the same hook.
+Without it, the existing `xyzDeform` hook remains unchanged.
+
 ## Opt-in material anti-aliasing (P121, unreleased source)
 
 For a loaded leaf/cutout texture, construct the material with
@@ -1546,3 +1554,149 @@ Servers honoring Range return exact `206 Content-Range` bounds. An ignored Range
 (at most 128 MiB); malformed partial responses, excess bytes or bad hashes reject.
 Abort cancels the reader, and temporary archive bytes/object URLs are released
 when loading finishes. Returned model ownership remains unchanged.
+
+## Animated GIF/APNG
+
+Import `AnimatedImageTexture` and `SpriteSheet` from `xyz.js`. Fetch/read your own
+bounded bytes, then `await AnimatedImageTexture.decode(bytes, 'image/gif')` (APNG uses
+`'image/png'`). ImageDecoder must be available; unsupported browsers reject without
+a fallback. Use the result as a borrowed Sprite texture and call
+`texture.updateAnimation(deltaSeconds)` from your simulation update. Pause/reset/play
+are explicit; reset preserves pause and finite file loops freeze at their last frame.
+
+For sheet-based animation, call `const atlas = texture.createAtlas()` and
+`const sheet = new SpriteSheet(atlas.texture, atlas.frames)`; pair each region with
+the corresponding `atlas.durations[index]` seconds in your animation frames.
+The atlas survives `texture.destroy()`. Remove consumers before destroying each
+owned texture/atlas; SpriteSheet does not destroy its borrowed texture.
+
+## Frame profiling
+
+```ts
+const game = await Game.create({
+  canvas,
+  renderer: 'webgpu',
+  gpuTiming: { enabled: true },
+});
+const profiler = new Profiler(game.graphics, {
+  enabled: true,
+  windowFrames: 240,
+});
+console.log(profiler.format());
+const snapshot = profiler.report(); // JSON-compatible; no GPU handles
+profiler.enabled = false;
+profiler.destroy();
+```
+
+Read snapshots after frames have run. GPU results are asynchronous and may be
+unsupported; null is not zero. CPU frame/submit, raw RAF cadence and GPU latency
+remain separate. Presentation/GPU FPS and JS allocations are not measured.
+Use `npx pnpm@12.6.0 run regression:browser --browser chromium --renderer webgl2`
+or `--renderer webgpu` for the deterministic two-native-backend pixel gate.
+
+## Moving-object trails
+
+Create `new Trail3D({ target, material, lifetime: 1, maxPoints: 128 })`, add it as
+an unparented identity-transform mesh, and call `trail.sample(elapsedSeconds,
+cameraViewDirection)` after moving the target. Use `transparent: true` on the
+borrowed material for age-based alpha; optional `curve` keys specify normalized
+`age`, full `width`, and linear RGBA `color`, spanning ages zero to one.
+`Ribbon3D` instead accepts manual mesh-local points through `addPoint()` followed
+by `update()`. Time must be monotonic; `clear()` resets it. Both forced native
+backends use existing dynamic Geometry uploads; Canvas2D does not render 3D trails.
+
+## Exporting a glTF snapshot
+
+```ts
+import { exportGLTF, exportGLB } from 'xyz.js';
+
+const { json, buffers } = await exportGLTF(scene, {
+  bufferURI: 'scene.bin',
+  animations: clips,
+});
+const jsonBlob = new Blob([JSON.stringify(json)], { type: 'model/gltf+json' });
+const binaryBlob = new Blob(buffers, { type: 'application/octet-stream' });
+const glbBlob = new Blob([await exportGLB(scene, { animations: clips })], {
+  type: 'model/gltf-binary',
+});
+```
+
+Save the first two blobs together under matching filenames, or save the GLB blob.
+The engine does not download/write them or own application-created object URLs.
+Embedded textures require browser PNG encoding. For external images use
+`{textures:'external',textureURI:texture=>imageURLs.get(texture)!}`; every borrowed
+Texture needs a URL. Input may instead be a parentless mesh/group or root array.
+Supply source clips explicitly: animation mixer state is not baked. Unsupported
+live/native/custom features reject; see [contract](TECHNICAL.md#gltf-export).
+
+## Building a nature scene
+
+Open [world-nature](../examples/world-nature/) with `?renderer=webgl2` or
+`?renderer=webgpu`; Canvas2D explicitly does not support this 3D scene.
+`&stress=1` requests 1,048,576 source height samples and 10,000 grass instances;
+these are workload sizes, not measured FPS guarantees.
+
+With an existing scene and live borrowed `texture`, import the following from
+`xyz.js`. These snippets supply their own CPU height data:
+
+```ts
+import {
+  Terrain3D,
+  TextureMaterial,
+  Water3D,
+  VegetationMaterial,
+  createGrassGeometry,
+  scatterVegetation,
+  Vector3,
+} from 'xyz.js';
+
+const terrain = scene.add(
+  new Terrain3D({
+    heightmap: { width: 3, height: 3, heights: [0, 0, 0, 0, 1, 0, 0, 0, 0] },
+    material: new TextureMaterial({ texture }),
+    width: 20,
+    depth: 20,
+  }),
+);
+const water = scene.add(
+  new Water3D({ texture, width: 20, depth: 20, foam: true }),
+);
+const wind = new VegetationMaterial({ texture, doubleSided: true });
+const normal = new Vector3();
+const foliage = scatterVegetation({
+  geometry: createGrassGeometry(),
+  material: wind,
+  bounds: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
+  count: 1000,
+  seed: 1,
+  sampleSurface: (x, z) => {
+    terrain.normalAt(x, z, normal);
+    return {
+      height: terrain.heightAt(x, z)!,
+      normal: [normal.x, normal.y, normal.z],
+    };
+  },
+});
+scene.add(foliage.root);
+// In Scene.update(deltaTime):
+// water.update(deltaTime);             // delta seconds
+// wind.update(game.clock.elapsedTime); // absolute simulation seconds
+```
+
+Height/surface sampling is local: this example assumes the terrain and scatter
+root share identity transforms. Surface normals filter slope but do not tilt
+blades. Edit `terrain.heights` then call `terrain.markUpdated()`; physics and
+navigation are not automatically generated. For textured layers use
+`await TerrainSplatMaterial.create({layers,weights,size})` and pass its `material`
+to Terrain3D. Layers are baked once; rebake by creating another preset.
+
+Scene teardown destroys owned objects, and Water3D destroys its own material.
+Foliage/terrain borrow their materials and maps: remove/destroy all consumers
+before destroying `wind` or the splat preset; release the borrowed texture
+separately. Wind/water shader displacement does not change CPU picking or
+collision geometry. Water foam is crest-based, not shoreline depth foam.
+For trails reuse `Trail3D` with monotonic simulation time and an unparented
+identity-transform root; see the moving-object trails section above.
+API limits and streaming ownership are in the
+[technical reference](TECHNICAL.md#world-nature-terrain-water-and-vegetation).
+Runtime and performance evidence are recorded separately in ACCEPTANCE/CURRENT.

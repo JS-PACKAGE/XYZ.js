@@ -493,3 +493,25 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - Exercise both actual native backends, compilation rejection, mutable uniforms,
   borrowed resource ownership, preparation/invalidation and owned API recovery.
   Canvas2D remains explicitly unsupported for native 3D materials.
+
+### 自然世界追加 source 契約與待驗界線
+
+- Terrain3D：bounded image／array heightfield、native chunk LOD／HLOD／skirts、
+  full-resolution local height／normal query、visible world raycast、explicit height
+  markUpdated 與既有 WorldStreamingController cell catalog。無自動 physics／navigation。
+- TerrainSplatMaterial／bakeTerrainSplat：一至四個 opaque layers 靜態 CPU bake、
+  linear-light color／emission、normal 與 packed occlusion／roughness／metallic，
+  preset owns 四張生成 maps／native material，借用輸入，非 live paint。
+- Water3D：最多八個 geometry／normal waves、native PBR／shadow／bounds、
+  explicit simulation delta／absolute time、reusable analytic surface query、crest foam；
+  borrowed textures／owned material。無 depth shoreline／planar reflection／fluid solver，
+  CPU vertices 不變形。
+- 植被：seeded candidate scatter、density／surface／height／slope filters、
+  tiled InstancedMesh／LOD／coverage fades、instance-aware wind 與 absolute simulation time；
+  root owns child objects，geometry／material／maps 由 caller 管理。CPU query 不跟 GPU sway。
+- Trail3D 使用現有 dynamic Geometry；world-nature 整合 terrain／splat、水面、moving trail、
+  wind grass，renderer query 支援 webgl2／webgpu、Canvas2D 明確 unsupported。
+  stress=1 請求 1,048,576 source height samples／10,000 grass instances，不是效能承諾。
+- API／ownership／limitations 同步 TECHNICAL／USAGE 雙語與 README zh／en／ja；
+  所有 runtime、browser、loss／cleanup、stress CPU／RAF／GPU 證據仍由整合主代理實際
+  驗證後記 ACCEPTANCE／CURRENT。本文不新增通過宣告、版本或發佈授權。

@@ -41,6 +41,10 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 - **P122 source 更新（未發佈）**：GGX environment prefilter、數值 BRDF lookup、
   有界多重散射與 clearcoat 能量分配；Charlie sheen 使用獨立的間接取樣 kernel。
   沿用現有貼圖 slot，非 path-tracer／實機相容性認證。
+- **自然世界 source 更新（未發佈）**：Terrain3D heightfield／LOD skirts、
+  靜態 TerrainSplatMaterial、Water3D 解析波浪、Trail3D 與 seeded 植被／native wind。
+  走既有 GPU／GL；Canvas2D 不支援 3D。材質／maps 借用與 owned preset 契約見
+  [技術參考](docs/TECHNICAL-zh.md#自然世界地形水面與植被)，實測另見 ACCEPTANCE／CURRENT。
 
 ### 目前可用
 
@@ -53,6 +57,10 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 可重用程序式 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` 支援 wood／brick／stone／metal／fabric／marble／concrete／tiles／leather／sand／rust／snow（木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪），一次產生無縫、確定性的 baseColor／normal／metallicRoughness／occlusion 貼圖，無外部素材或新增依賴。size 為整數 32–1024，seed 為無號 32-bit 整數；省略時預設 256／1。借用 `preset.material` 或以 `preset.createMaterial(overrides)` 重用 maps；先移除全部使用者再同步 `preset.destroy()`，Scene／mesh 不自動擁有預設。`NativePBRMaterial` 是另一條路徑：`xyzPhysical` 在引擎 BRDF 前改已解碼表面，不取代光照。[使用範例](docs/USAGE-zh.md#可重用的程序式-pbr-預設)及 [pbr3d](examples/pbr3d/) 提供預設切換與貼圖預覽。實際 runtime／browser 驗證見 ACCEPTANCE。
 
 材質 finish：`PBRMaterial` 的 `finish` 可在既有貼圖上加入 anisotropy／iridescence／subsurface／dispersion／視差高度／潮濕／積雪／髒汙／損傷／detail／triplanar／lightmap，強度為 0 時維持原光照且不佔用額外貼圖 slot；皆為有界 shader 近似，不是物理模擬。`MaterialAsset` 管理解碼貼圖的 ownership，`setMeshMaterial` 可替換材質，glTF 支援 `KHR_materials_variants`（`selectVariant`）與 anisotropy／iridescence／dispersion。僅在 Chromium 以強制 WebGPU 與 WebGL2 目視驗證，見 [技術參考](docs/TECHNICAL-zh.md) 與 ACCEPTANCE。
+
+Asset 製作流程新增 opt-in `loadAssetBundleRange`：manifest byte offsets、SHA-256 與有界完整讀取 fallback。
+GIF／APNG 的 `AnimatedImageTexture` 僅使用平台 `ImageDecoder`，包含 timing／loop 與 owned atlas；
+缺少 decoder 明確拒絕，不新增依賴。詳見 [CURRENT](docs/CURRENT.md)，實測紀錄見 ACCEPTANCE。
 
 P104–P118 納入 v1.16：CommonJS 發佈格式、atlas／SDF／MSDF 產製、有界 asset watch／transactional Scene reload、narrative、crowd steering、RNG／pool、native 2D lighting、video texture、WebGPU compute／render graph、temporal effects／reflection probe、physics profiles 與 Text3D 更新。package metadata 為 1.16.0，既有 GitHub v1.14 archive 不含這些新增功能，npm 仍未發佈；source 或文件不等於實際發佈或 runtime/browser 認證。MSDF 使用自行提供的 polygon contours，不解析任意字型輪廓；WebCodecs 接受 encoded chunks、不做容器 demux。Canvas2D 明確拒絕 native 2D lighting、compute 與 3D。邊界與待驗證項見 [CURRENT](docs/CURRENT.md)／[ACCEPTANCE](ACCEPTANCE.md)。
 
@@ -74,6 +82,8 @@ P21–P29 已批准有限 PixiJS-inspired profiles 已整合為 source 並在單
 Package **1.10.0** 納入以下 P58–P70 分功能提交：lazy Scene subsystems／Canvas startup 不載入 GPU chunks；固定版官方 Basis／Draco semantic asset pipeline 與 capability 選擇／fallback；ResourcePool／ResourceScope 共享 leases、取消 rollback 與 fresh save candidate publication；Scene 共用 navigation work quota、changed-only spatial geometry refresh；3D moving support／crouch、distance／ball-socket／hinge joints、dynamic-pair／angular CCD；collision-derived navigation bake／NPC scheduling；bidi／grapheme／fallback-font native text；native audio effects／ducking／automation／world bindings。參見[新使用契約](docs/USAGE-zh.md#38-production-契約v110)與[技術參考](docs/TECHNICAL-zh.md)。GitHub 發佈須通過既有 CI gates，不做 npm publish。
 
 P71–P87 v1.11 production surfaces（metadata 1.11.0；正式實作與限定 native gates 已記錄，實機另列 blocked）：手勢音訊／可觀測錯誤、獨立 2D／3D starter、revision／備份／明示復原／autosave、具名實機 gates、kinematic／角色／relative rotational 2D CCD、獨立 fixed mixer locomotion、有限多層 navigation、visibility／LOD／HLOD／native occlusion、NativeMaterial3D、cell streaming、native CPU workers、Tiled JSON、有界多燈／shadow atlas、GPU particles、真 pass timing／代表負載、雙語無障礙遊戲。[使用契約](docs/USAGE-zh.md#39-p71p87-production-擴充)說明 ownership／預算／部署；native／平台證據只依 ACCEPTANCE。
+
+Mesh/PBR 採有界 lazy feature variants，未啟用的物理 lobe 不進入一般 shader 編譯；Windows hosted WARP 改善仍未驗證。
 
 P88–P96 維持1.x相容：optional renderer capability／公開 API gate、CI site／silent audio／production benchmark／真封裝 starter gates、glTF UV0／UV1與各材質 map transform／八 skin influences、Tiled infinite chunks／groups／parallax／animation／templates、獨立品質與模擬裝置負載 profiles、polygon navmesh／partitioned sampled world、shadow blend／slope bias／static cache、持久化 remap／portable settings與save、strict CSP／opt-in offline 部署。操作與限制見[相容擴充契約](docs/USAGE-zh.md#40-1x-相容擴充-profilesp88p96)；新 hosted run、實機及逐 backend 證據不從功能表推論。
 
@@ -165,6 +175,11 @@ v1.4／v1.5 歷史新增（additive、無新 runtime dependency）：空間 samp
 - **P122 source update (unreleased)**: GGX environment prefiltering, numerical BRDF
   lookup, bounded multiscattering/layer energy and a Charlie indirect sheen kernel.
   Existing texture-slot limits remain; no path-tracer or physical qualification claim.
+- **World-nature source update (unreleased)**: Terrain3D heightfields/LOD skirts,
+  static TerrainSplatMaterial, analytic Water3D waves, Trail3D and seeded native wind
+  foliage. Existing GPU/GL paths only; Canvas2D is 3D-unsupported. Borrowed maps and
+  owned presets follow the [API contract](docs/TECHNICAL.md#world-nature-terrain-water-and-vegetation);
+  runtime/performance evidence remains separate in ACCEPTANCE/CURRENT.
 
 ### Available now
 
@@ -177,6 +192,12 @@ Advanced 3D includes Object3D/Group hierarchies, perspective/orthographic camera
 Reusable procedural PBR: `await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` supports wood/brick/stone/metal/fabric/marble/concrete/tiles/leather/sand/rust/snow and generates seamless, deterministic baseColor/normal/metallicRoughness/occlusion maps once, without external assets or new dependencies. Size is an integer 32–1024 and seed is an unsigned 32-bit integer; defaults are 256/1. Borrow `preset.material` or reuse maps with `preset.createMaterial(overrides)`; remove every consumer before synchronous `preset.destroy()`. Scene/mesh do not own the preset. Metal and rust use metallic factor 1; other kinds stay dielectric. `NativePBRMaterial` is separate: a `xyzPhysical` hook edits the decoded surface before the engine BRDF and does not replace lighting. See the [consumer example](docs/USAGE.md#reusable-procedural-pbr-presets) and [pbr3d](examples/pbr3d/) preset selection and texture-map previews. Actual runtime/browser evidence is recorded in ACCEPTANCE.
 
 Material finishes: `PBRMaterial` takes `finish` for anisotropy, iridescence, subsurface wrap, dispersion, parallax height, wetness, snow, dirt, damage, detail, triplanar and lightmap response on maps you already have. Zero strengths keep the original lighting and use no extra texture slot; each effect is a bounded shader approximation, not a physical simulation. `MaterialAsset` owns decoded textures, `setMeshMaterial` replaces a mesh material, and the glTF loader supports `KHR_materials_variants` (`selectVariant`) plus anisotropy, iridescence and dispersion. Verified visually in Chromium on forced WebGPU and WebGL2 only; see the [technical reference](docs/TECHNICAL.md) and ACCEPTANCE.
+
+Asset production adds opt-in `loadAssetBundleRange` with manifest byte offsets,
+SHA-256 checks and bounded full-read fallback. GIF/APNG `AnimatedImageTexture`
+uses platform `ImageDecoder` only, with timing/loops and owned atlas snapshots;
+missing decoders reject without a dependency. See [CURRENT](docs/CURRENT.md) and
+ACCEPTANCE for contracts and exercised evidence.
 
 P104–P118 are integrated in v1.16: CommonJS distribution, atlas/SDF/MSDF production, bounded asset watching and transactional Scene reload, narrative systems, crowd steering, RNG/pools, native 2D lighting, video textures, WebGPU compute/render graphs, temporal effects/reflection probes, physics profiles and Text3D updates. Metadata is 1.16.0; the existing GitHub v1.14 archive does not contain these additions, and npm remains unpublished. Source/docs are not a release or runtime/browser qualification. MSDF consumes authored polygon contours rather than parsing arbitrary font outlines; WebCodecs accepts encoded chunks, not container demux. Canvas2D explicitly rejects native 2D lighting, compute and 3D. See [CURRENT](docs/CURRENT.md) and [ACCEPTANCE](ACCEPTANCE.md) for boundaries and pending evidence.
 
@@ -199,6 +220,8 @@ Fixed gameplay, time-weighted forces and opt-in physics presentation use `Scene.
 Package **1.10.0** includes the separately committed P58–P70 additions: lazy Scene subsystems and GPU-free Canvas startup chunks; pinned official Basis/Draco semantic asset production and capability selection/fallback; ResourcePool/ResourceScope shared leases, cancellation rollback and fresh save-candidate publication; aggregate Scene navigation work quotas and changed-only spatial geometry refresh; 3D moving supports/crouch, distance/ball-socket/hinge joints and dynamic-pair/angular CCD; collision-derived navigation baking/NPC scheduling; bidi/grapheme/fallback-font native text; native audio effects/ducking/automation/world bindings. See [new usage contracts](docs/USAGE.md#38-production-contracts-v110) and [technical reference](docs/TECHNICAL.md). GitHub publication requires the existing CI gates; npm remains unpublished.
 
 P71–P87 v1.11 surfaces (metadata 1.11.0; with scoped native gates recorded and hardware blockers kept explicit): gesture-preserving audio/observable errors, standalone 2D/3D starters, revision/backup/explicit recovery/autosave, named hardware gates, kinematic/character/relative rotational 2D CCD, independent fixed-mixer locomotion, finite multisurface navigation, visibility/LOD/HLOD/native occlusion, NativeMaterial3D, cell streaming, native CPU workers, Tiled JSON, bounded many-light/shadow atlases, GPU particles, real-pass timing/workloads and bilingual accessibility. [Usage contracts](docs/USAGE.md#39-p71p87-production-expansion) specify ownership/budgets/deployment; only ACCEPTANCE establishes native/platform proof.
+
+Mesh/PBR uses bounded lazy feature variants; disabled physical lobes are omitted from ordinary shader compilation. Windows hosted WARP improvement remains unverified.
 
 P88–P96 retain 1.x compatibility: optional renderer capabilities/public API gate, CI site/silent-audio/production-benchmark/packed-starter gates, glTF UV0/UV1 with independent map transforms/eight skin influences, Tiled infinite chunks/groups/parallax/animation/templates, separate quality and simulated-device workload profiles, polygon navmesh/partitioned sampled worlds, shadow blending/slope bias/static caching, persistent remapping/portable settings and saves, and strict-CSP/opt-in offline deployment. See [compatible expansion contracts](docs/USAGE.md#40-compatible-expansion-profiles-p88p96); features alone do not establish new hosted runs, hardware or backend certification.
 
@@ -281,6 +304,11 @@ Historical observations used managed Chromium 150. Current browser evidence and 
 - **P122 source 更新（未公開）**：GGX environment prefilter、数値 BRDF lookup、
   有界な多重散乱／clearcoat のエネルギー配分と Charlie sheen の間接サンプリング。
   Texture slot 上限は維持。Path tracer／実機互換性の認証ではありません。
+- **自然世界 source 更新（未公開）**：Terrain3D heightfield／LOD skirts、
+  静的 TerrainSplatMaterial、Water3D 波、Trail3D と seeded native wind 植生。
+  既存 GPU／GL 経路を使用し、Canvas2D は 3D 非対応です。借用 maps／owned preset の
+  [契約](docs/TECHNICAL.md#world-nature-terrain-water-and-vegetation) と実測証拠
+  （ACCEPTANCE／CURRENT）は別です。
 
 ### 現在利用可能
 
@@ -293,6 +321,11 @@ Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度
 再利用可能な手続き型 PBR：`await ProceduralMaterial.create(kind, { size: 256, seed: 1 })` は wood／brick／stone／metal／fabric／marble／concrete／tiles／leather／sand／rust／snow（木材／レンガ／石材／金属／布／大理石／コンクリート／タイル／革／砂／錆／雪）に対応し、シームレスで決定的な baseColor／normal／metallicRoughness／occlusion maps を一度だけ生成します。外部素材・依存の追加なし。size は整数 32–1024、seed は符号なし 32-bit 整数で、既定値は 256／1。`preset.material` を借用するか `preset.createMaterial(overrides)` で maps を共有し、全利用者を取り除いてから同期 `preset.destroy()` を呼びます。Scene／mesh は preset を所有しません。metal と rust の metallic factor は 1、他は dielectric です。`NativePBRMaterial` は別経路で、`xyzPhysical` がエンジン BRDF の前に復号済み表面を変更し、照明は置き換えません。[利用例](docs/USAGE.md#reusable-procedural-pbr-presets) と [pbr3d](examples/pbr3d/) のプリセット選択・テクスチャプレビューを参照してください。実際の runtime／browser 検証は ACCEPTANCE に記録します。
 
 マテリアル finish：`PBRMaterial` の `finish` で、既存のマップに anisotropy／iridescence／subsurface／dispersion／視差高さ／濡れ／雪／汚れ／損傷／detail／triplanar／lightmap を追加できます。強度 0 では従来の照明のままで、追加の texture slot は使いません。各効果は上限付きの shader 近似で、物理シミュレーションではありません。`MaterialAsset` は復号済みテクスチャを所有し、`setMeshMaterial` で mesh の材質を差し替え可能、glTF は `KHR_materials_variants`（`selectVariant`）と anisotropy／iridescence／dispersion に対応します。検証は Chromium の強制 WebGPU／WebGL2 での目視のみです。[技術参照](docs/TECHNICAL.md) と ACCEPTANCE を参照してください。
+
+Asset 制作に opt-in `loadAssetBundleRange`（manifest offset／SHA-256／上限付き full fallback）を追加。
+GIF／APNG の `AnimatedImageTexture` は platform `ImageDecoder` のみを使い、
+timing／loop／owned atlas に対応します。decoder 不在は明示的に拒否し、依存追加なし。
+契約は [CURRENT](docs/CURRENT.md)、実測範囲は ACCEPTANCE を参照してください。
 
 P104–P118 は v1.16 に統合されています。package metadata は 1.16.0 で、既存の GitHub v1.14 archive には含まれず、npm は未公開です。機能の説明やソース変更は公開・runtime/browser qualification を意味しません。MSDF は authored polygon contours を使い、任意 font outline の解析やWebCodecs container demuxには対応しません。Canvas2D は native 2D lighting／compute／3D を明示的に拒否します。境界と未確認 evidence は [CURRENT](docs/CURRENT.md)／[ACCEPTANCE](ACCEPTANCE.md) を参照してください。
 
@@ -315,6 +348,8 @@ Fixed gameplay／時間加重 force／opt-in physics presentation は `Scene.fix
 Package **1.10.0** は P58–P70 ごとに commit した追加機能を含みます：lazy Scene subsystems／Canvas 起動で GPU chunks を読まない構成、固定版公式 Basis／Draco semantic asset pipeline と capability 選択／fallback、ResourcePool／ResourceScope の共有 leases／取消 rollback／fresh save candidate publication、Scene 共通 navigation work quota／変更時のみ spatial geometry refresh、3D moving support／crouch／distance・ball-socket・hinge joints／dynamic-pair・angular CCD、collision-derived navigation bake／NPC scheduling、bidi／grapheme／fallback-font native text、native audio effects／ducking／automation／world bindings。[新 usage contracts](docs/USAGE.md#38-production-contracts-v110) と[技術参照](docs/TECHNICAL.md)を参照してください。GitHub 公開は既存 CI gates の通過が必要で、npm は未公開です。
 
 P71–P87 v1.11 機能（metadata 1.11.0。限定 native gates を記録し実機 blockers は明示）：gesture 音声／可視エラー、独立 2D／3D starter、revision／backup／明示復元／autosave、実機別 gates、kinematic／character／相対回転 2D CCD、独立 fixed mixer locomotion、有限多層 navigation、visibility／LOD／HLOD／native occlusion、NativeMaterial3D、cell streaming、native CPU workers、Tiled JSON、上限付き多灯／shadow atlas、GPU particles、実 pass timing／負荷、英語・繁中 accessibility。[使用契約](docs/USAGE.md#39-p71p87-production-expansion)に ownership・予算・deployment を記載し、native／platform 検証は ACCEPTANCE のみを根拠とします。
+
+Mesh/PBR は上限付き lazy feature variants を使用し、無効な物理 lobe を通常 shader のコンパイルから除外します。Windows hosted WARP の改善は未検証です。
 
 P88–P96 は1.x互換を維持します：optional renderer capability／公開 API gate、CI site／silent audio／production benchmark／pack済み starter gates、glTF UV0／UV1・map別 transform・8 skin influences、Tiled infinite chunks／groups／parallax／animation／templates、品質と模擬 device の独立負荷 profiles、polygon navmesh／partitioned sampled world、shadow blend／slope bias／static cache、永続 remap／portable settings・save、strict CSP／opt-in offline deployment。[相互運用契約](docs/USAGE.md#40-compatible-expansion-profiles-p88p96)を参照。機能一覧だけで新 hosted run・実機・backend 認証を示しません。
 
@@ -433,6 +468,7 @@ Run `npx pnpm@12.6.0 dev` and open `http://127.0.0.1:5173/`. Root and `/examples
 | [world-visibility](examples/world-visibility/)       | Visibility/LOD/HLOD/native queries／可見集合原生查詢／visibility・native query                                                                                                                                         |
 | [native-material3d](examples/native-material3d/)     | Native material/bounded lighting／原生材質多燈／native material・上限照明                                                                                                                                              |
 | [world-streaming](examples/world-streaming/)         | Cell/resource/physics/navigation lifetime／分區生命週期／cell lifecycle                                                                                                                                                |
+| [world-nature](examples/world-nature/)               | Terrain/splat, water, trail, seeded wind grass／地形水面軌跡植被／地形・水・軌跡・植生; native WebGL2/WebGPU, `stress=1`                                                                                               |
 | [cpu-workers](examples/cpu-workers/)                 | Native geometry jobs/copy-transfer costs／原生工作複製成本／native jobs・copy cost                                                                                                                                     |
 | [tiled-import](examples/tiled-import/)               | Orthogonal JSON/atlas flips/colliders／正交地圖碰撞／orthogonal map・衝突                                                                                                                                              |
 | [gpu-particles3d](examples/gpu-particles3d/)         | Native GPU particles／原生 GPU 粒子／native GPU particles                                                                                                                                                              |

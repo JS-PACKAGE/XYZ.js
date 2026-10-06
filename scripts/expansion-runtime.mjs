@@ -30,6 +30,10 @@ try {
           const { frameProofs } = await import('/tests/browser/frame-proof.ts');
           const { runVideoTextureSmoke } =
             await import('/tests/browser/video-texture.ts');
+          const { runAnimatedImageSmoke } =
+            await import('/tests/browser/animated-image.ts');
+          const { runGLTFExporterSmoke } =
+            await import('/tests/browser/gltf-exporter.ts');
           const { runComputeScenario } =
             await import('/examples/gpu-compute/scenario.ts');
           const { createChannelGraph } =
@@ -174,6 +178,12 @@ try {
                 'GL compute',
               );
             output.video = await runVideoTextureSmoke(renderer, canvas);
+            output.animatedImage = await runAnimatedImageSmoke(
+              renderer,
+              canvas,
+            );
+            await runGLTFExporterSmoke();
+            output.gltfExporter = true;
             check(
               !proofs.graphicsEvents.length,
               `Native graphics errors: ${proofs.graphicsEvents.join(';')}`,

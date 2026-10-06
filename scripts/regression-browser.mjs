@@ -444,6 +444,11 @@ try {
             `Required native shadow recovery proof missing: ${loss?.metrics.unsupported ?? 'scenario absent'}`,
           );
       }
+      await page.goto(
+        `http://127.0.0.1:${port}/tests/browser/world-nature.html?renderer=${backend}`,
+        { waitUntil: 'domcontentloaded' },
+      );
+      await awaitState('passed');
       if (errors.length)
         throw new Error('Browser reported uncaught page/console errors.');
       result.result = 'PASS';

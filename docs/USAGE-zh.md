@@ -74,6 +74,7 @@ npx pnpm@12.6.0 dev
 | [world-visibility](../examples/world-visibility/)       | 可見集合、LOD／HLOD、native occlusion queries                                                                               |
 | [native-material3d](../examples/native-material3d/)     | Native material hooks 與有界多燈                                                                                            |
 | [world-streaming](../examples/world-streaming/)         | Cell 發佈／退役、共用資源與 navigation seam                                                                                 |
+| [world-nature](../examples/world-nature/)               | Terrain／splat、解析水面、moving-object trail 與 seeded wind grass；僅 native 3D                                            |
 | [cpu-workers](../examples/cpu-workers/)                 | Native geometry jobs、transfer／copy 成本與取消                                                                             |
 | [tiled-import](../examples/tiled-import/)               | 正交 JSON、外部 atlas、GID 翻轉與真實 collider                                                                              |
 | [gpu-particles3d](../examples/gpu-particles3d/)         | Native GPU 粒子模擬／渲染                                                                                                   |
@@ -1468,6 +1469,12 @@ NativeMaterial3D 的四個 indexed hook maps 用 `textureSources`，base map 用
 `textureSource`。WebCodecs 接受已設定 codec 的 elementary chunks，不解析媒體容器；
 Canvas2D 支援 video Sprite，不支援 3D material。
 
+Mesh feature variants 自動 lazy 編譯，無需 opt-in；避免 cold draw 編譯可在
+publication 前 prepare resources，cache eviction／recovery 後仍可能重編。
+Native vertex 可選 `xyzDeformInstance(position, normal, uv, instance)`，
+回傳 `XYZVertex`；WGSL `mat4x4f`／GLSL `mat4` 是 local instance matrix。
+Color／shadow 共用此 hook，缺省維持既有 `xyzDeform`。
+
 ## Opt-in 材質 anti-aliasing（P121，未發佈 source）
 
 已載入leaf／cutout texture的material設定
@@ -1518,3 +1525,119 @@ Range 成功必須回傳精確 `206 Content-Range`；忽略 Range 的 `200` 只�
 `405`／`416`／`501` 則重試不帶 Range。完整讀取上限是宣告 archive size（最多 128 MiB）；
 錯誤 partial headers、超量或 hash 不符會拒絕。abort／load 結束釋放 reader 與暫存 URL，
 回傳 model 的 ownership 不變。
+
+## GIF／APNG 動態影像
+
+從 `xyz.js` import `AnimatedImageTexture`／`SpriteSheet`。自行讀取有界 bytes 後呼叫
+`await AnimatedImageTexture.decode(bytes, 'image/gif')`；APNG 使用 `'image/png'`。
+必須有 ImageDecoder，不支援時明確拒絕，沒有 fallback。將結果借給 Sprite，
+在 simulation update 呼叫 `texture.updateAnimation(deltaSeconds)`；pause／reset／play
+由 caller 控制，reset 保留 pause，有限 file loops 停在末 frame。
+
+需要 SpriteSheet 時使用 `const atlas = texture.createAtlas()` 與
+`new SpriteSheet(atlas.texture, atlas.frames)`；animation frame 對應的秒數為
+`atlas.durations[index]`。atlas 不隨動態 texture 銷毀。移除 consumers 後分別 destroy
+動態 texture／atlas；SpriteSheet 不銷毀借用 texture。
+
+## Frame profiling
+
+`const profiler = new Profiler(game.graphics, { enabled: true, windowFrames: 240 })`
+附掛實際 Game frames；`report()` 回傳可 JSON 序列化 snapshot，`format()` 回傳文字。
+GPU timing 須於 `Game.create` 設定 `gpuTiming: { enabled: true }`，不支援／尚無結果為 null。
+`profiler.enabled = false` 停止 collection，`destroy()` 解除附掛。
+CPU frame、CPU submit、原始 RAF cadence 與 GPU latency 分開，不從 clamp delta
+推算 FPS；JS allocation、GPU／presentation FPS 不宣称量測。
+Chromium `regression:browser --renderer webgl2` 或 `--renderer webgpu` 會額外執行兩個
+強制 native backend 的 deterministic pixel parity gate。
+
+## 匯出 glTF 快照
+
+由 root import `exportGLTF`／`exportGLB`。`await exportGLTF(scene,
+{bufferURI:'scene.bin',animations:clips})` 回傳 `{json,buffers}`，自行 serialize
+JSON 並將 binary 寫成相符的 filename；`await exportGLB(scene,{animations:clips})`
+可直接建立 `new Blob([bytes],{type:'model/gltf-binary'})`。engine 不下載／寫檔，
+caller 管理 blob URLs 與 source textures 的 lifetime。
+預設 embedded PNG 需要 browser canvas；外部圖像使用
+`{textures:'external',textureURI:texture=>imageURLs.get(texture)!}`，每張圖皆須 URL。
+也接受無 parent mesh／group／root array。只匯出明確傳入的 source clips，不 bake
+mixer 狀態；unsupported features 拒絕，詳見 [契約](TECHNICAL.md#gltf-export)。
+
+## 建立自然場景
+
+開啟 [world-nature](../examples/world-nature/)，使用 `?renderer=webgl2` 或
+`?renderer=webgpu`；Canvas2D 明確不支援此 3D 場景。`&stress=1` 請求
+1,048,576 source height samples 與 10,000 grass instances，非實測 FPS 保證。
+
+由 `xyz.js` import `Terrain3D`／`Water3D`／`VegetationMaterial`／
+`createGrassGeometry`／`scatterVegetation`。在既有 scene 與 live borrowed texture 下：
+
+```ts
+const terrain = scene.add(
+  new Terrain3D({
+    heightmap: { width: 3, height: 3, heights: [0, 0, 0, 0, 1, 0, 0, 0, 0] },
+    material: new TextureMaterial({ texture }),
+    width: 20,
+    depth: 20,
+  }),
+);
+const water = scene.add(
+  new Water3D({ texture, width: 20, depth: 20, foam: true }),
+);
+const wind = new VegetationMaterial({ texture, doubleSided: true });
+const normal = new Vector3();
+const foliage = scatterVegetation({
+  geometry: createGrassGeometry(),
+  material: wind,
+  bounds: { minX: -10, maxX: 10, minZ: -10, maxZ: 10 },
+  count: 1000,
+  seed: 1,
+  sampleSurface: (x, z) => {
+    terrain.normalAt(x, z, normal);
+    return {
+      height: terrain.heightAt(x, z)!,
+      normal: [normal.x, normal.y, normal.z],
+    };
+  },
+});
+scene.add(foliage.root);
+// Scene.update(deltaTime) 中：
+// water.update(deltaTime);          // delta seconds
+// wind.update(game.clock.elapsedTime); // absolute 模擬時間
+```
+
+上例另需 import `TextureMaterial`／`Vector3`。Height／surface sampling 是 local，
+上例假設 terrain 與 scatter root 同為 identity transform；normal 只篩 slope，不使
+blade 傾斜。編輯 terrain.heights 後呼叫 terrain.markUpdated()，不自動生成 physics／
+navigation。多 layer 使用 `await TerrainSplatMaterial.create({layers,weights,size})`，
+把 preset.material 交給 Terrain3D；靜態 bake 要更新時建立新 preset。
+
+Scene teardown 清 owned objects，Water3D 一併 destroy 自有 material。Terrain／foliage
+借用材質／maps，所有 consumers 移除或 destroy 後才 destroy wind／splat preset，
+borrowed texture 另行釋放。GPU 水面／wind 不改 CPU picking／collision geometry；
+foam 是 crest height 效果，不是 shoreline depth foam。Moving-object trail 可直接使用：
+
+```ts
+import { Trail3D } from 'xyz.js';
+
+// target 為既有 Object3D；trailMaterial 是借用的 transparent material。
+const trail = scene.add(
+  new Trail3D({
+    target,
+    material: trailMaterial,
+    lifetime: 1,
+    maxPoints: 128,
+    minimumDistance: 0.05,
+    mode: 'flat',
+  }),
+);
+// 在更新 target 後、Scene.update 內：
+// trail.sample(game.clock.elapsedTime);
+// 重置時間／重新開始取樣前：trail.clear();
+```
+
+Trail 保持無 parent、identity transform，因 sample 記錄的是 target world position。
+時間為非遞減模擬秒數，固定容量滿時覆寫最舊點，停留仍會淘汰到期資料。
+camera-facing 模式另外提供 mesh-local 非零 camera view direction。
+Scene teardown 清 trail object，不清借用 target／material／maps。
+完整 API 上限與 streaming ownership 見
+[技術參考](TECHNICAL-zh.md#自然世界地形水面與植被)；實測證據由 ACCEPTANCE／CURRENT 另記。

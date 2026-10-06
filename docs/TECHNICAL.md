@@ -355,6 +355,58 @@ Historical v1.1 baseline (package 1.1.0), not the previously published v1.0 tag.
 - `AnimationClip(name,tracks)` derives duration from final keys; `scene.animations.clipAction(clip)` caches an action. `play()` resumes without resetting time; `stop()` resets time without restoring pose. Repeat/once/pingpong, reverse time, weights/fades/crossfades and ordered layer blending are documented in section 32 (P34), which supersedes the P10 no-blending baseline. `stopAll()` stops actions and `destroy()` releases them.
 - Game advances scene.animations after timers and before user Scene.update with clamped simulation delta; pause/hidden time is excluded. Do not manually update the same mixer. `SkinnedMesh.updateRenderDeformation()` updates its joint palette and animated bounds; `updateSkin()` updates the exact CPU mirror for queries, not ordinary rendering. Index topology remains immutable (section 42).
 
+### glTF export
+
+`await exportGLTF(sceneOrRoots, options?)` returns `{json, buffers}`: a glTF 2.0
+document and zero/one aligned `ArrayBuffer`. Write the buffer to `bufferURI`
+(default `scene.bin`) alongside the serialized JSON. `await exportGLB(...)`
+returns a GLB 2.0 `ArrayBuffer` with JSON/BIN framing; neither API writes files,
+fetches URLs, mutates poses nor takes ownership of source resources.
+
+Input is a `Scene`, parentless `Object3D`/`Group`/`Mesh`/`SkinnedMesh`, or an array
+of parentless roots. Descendants retain local TRS. Indexed triangles retain
+positions, normals, UV0/UV1, tangent handedness, RGBA colors, four/eight skin
+influences, joints/inverse binds and POSITION/NORMAL/TANGENT morph deltas.
+Morph serialization uses captured undeformed bases even after CPU deformation.
+PBR factors, alpha mode, all ordinary map slots and independent UV transforms
+are emitted with loader-supported IOR/specular/clearcoat/sheen/transmission/
+volume/emissive-strength/anisotropy/iridescence/dispersion extensions.
+Legacy `TextureMaterial` becomes metallic-zero PBR, not an unlit material.
+Loader approximations already baked into materials (including unlit) cannot
+recover the original authoring extension.
+
+Textures default to embedded PNG, encoded from the borrowed bitmap using an
+OffscreenCanvas or DOM canvas; a real browser canvas is required. With
+`textures:'external'`, `textureURI(texture)` must return each nonempty image URL;
+the callback supplies identity because Texture does not retain acquisition URLs.
+External mode needs no browser canvas and does not copy or fetch image bytes.
+GLB can still reference external images in this mode. Native/compressed textures
+cannot be PNG-encoded. The caller owns output buffers and URL/file lifetime.
+
+`animations:[AnimationClip,...]` exports clean TRS/weights tracks with STEP,
+LINEAR and CUBICSPLINE. Shared MorphWeights tracks produce one channel per mesh.
+Missing targets, empty clips or duplicate target/path channels explicitly reject.
+Mixer actions, blending, masks, additive layers, IK and root-motion processing
+are not baked: callers must supply the source clips, not runtime mixer state.
+`variants:gltfVariants(asset).variants` exports explicit material mappings; the
+current mesh materials are the defaults, so restore a loaded asset's default
+variant before exporting if that is the desired default.
+
+Scene exports its camera; other input accepts `camera`. Perspective and centered
+orthographic definitions use `cameraAspect` (default 1), without changing camera
+matrices. The loader currently does not expose cameras; inspect exported JSON.
+Custom/native/instanced/procedural node/material classes, hidden nodes, physics
+attachments, non-3D Scene objects, explicit point/spot lights or environment,
+live texture overrides, baked lightmaps, engine-only finishes, coverage/specular
+AA, anisotropy/custom LOD sampler settings and unrepresentable transforms reject
+instead of silently dropping features. Scene gameplay, ambient/directional
+renderer lighting, shadows, postprocessing, culling and resource ownership are
+not glTF scene data and are not serialized. Loader resource budgets still apply
+when re-importing; export is not compression or arbitrary extension preservation.
+CPU structure/loader round-trip coverage is in `tests/gltf-exporter.test.ts`;
+real PNG encoding/decode coverage is the durable browser page
+`tests/browser/gltf-exporter.html`. These source tests are not an execution claim.
+
 ### PBR, Lighting, Shadows, HDR, and Instancing
 
 - `PBRMaterial` extends TextureMaterial and borrows all slots. Base texture and emissiveTexture RGB are sRGB decoded; factors and lighting are linear. metallicRoughnessTexture is linear (G roughness/B metallic), normalTexture is linear tangent-space (normalScale), and occlusionTexture is linear R (occlusionStrength, indirect illumination only). Identity normal maps matching `geometry.tangentTexCoord` use Geometry tangents; other UV bases, transformed or native-deformed surfaces use that map's derivatives. Metallic/roughness default to 0/0.5; emissive defaults to zero.
@@ -1604,3 +1656,181 @@ bounded full-archive snapshot reused for subsequent members during this load;
 existing asset-recipe 128 MiB cap and decoded-response byte counting; compressed
 HTTP transfer size is not the limit. A load's finally block tears down its reader,
 including failed model parsing, integrity failure and cancellation.
+
+## WebCodecs animated GIF/APNG sources
+
+`AnimatedImageTexture.decode(bytes, 'image/gif' | 'image/png', { plays?, signal? })`
+requires WebCodecs `ImageDecoder`. Absent API or unsupported type rejects explicitly;
+there is no image-element/software fallback or runtime dependency. Input bytes are
+copied. ImageDecoder supplies complete composited frames, including blend/disposal;
+every returned VideoFrame and the decoder close on success, failure or cancellation.
+Eager snapshots are bounded by the existing 8 MiB encoded, 4 Mi total frame-pixel,
+8192 dimension and frame-count budgets. Atlas padding also counts toward its budget.
+
+`durations` and `duration` are seconds. `plays` includes the first play, defaults to
+file repetitionCount + 1, and accepts positive safe integers or Infinity.
+Call `updateAnimation(deltaSeconds)` from simulation updates; no RAF, fetch or automatic
+Scene registration occurs. `pause()` freezes; `reset()` restores frame zero while
+preserving pause; `play()` resumes unless ended. Finite playback freezes the last frame.
+Only visible frame changes increment the stable canvas source's version. Animated
+zero/missing durations reject; a static single frame with null duration uses one second.
+
+`createAtlas()` returns an independent owned texture, frozen `frames` and `durations`.
+Pass its texture/frames to `SpriteSheet`; both SpriteSheet and Sprites borrow it.
+Remove consumers before destroying each source. Destroying the animated source does
+not destroy an atlas, and atlas destruction is idempotent. Browser qualification is
+recorded separately in ACCEPTANCE, not implied by the availability of ImageDecoder.
+
+## Opt-in Profiler
+
+The root `Profiler` attaches to the optional `Renderer.profiler` extension.
+Game brackets its actual RAF callback and resets cadence on suspend/visibility
+changes. A preallocated ring holds CPU frame, CPU submit, raw RAF interval and
+deduplicated asynchronous GPU milliseconds; quantiles allocate only on report.
+Default window is 240 frames (maximum 65536), lifetime hitch threshold 50 ms.
+`enabled = false` stops collection without clock reads; `destroy()` detaches.
+Reports preserve GPU support/status/scope and never call reciprocal GPU latency
+GPU FPS. RAF Hz is callback cadence, not verified presentation. JS allocations,
+presentation FPS and GPU FPS are null. Tracked GPU bytes sum native texture and
+geometry residency plus render-target estimates, excluding driver overhead.
+
+The Chromium regression's `tests/browser/pixel-parity.html` forces both native
+backends for lights, normal/base textures, shadows, gradient IBL, four finishes,
+BLEND, instances and skinning. The comparator uses top-left byte-domain RGB,
+per-channel mean and nearest-rank p99, no alignment/resampling. Same-backend repeat
+captures expose noise; vertically flipped and wrong-colour renders must fail.
+Thresholds and measured qualifications are recorded in ACCEPTANCE.
+
+## Dynamic ribbons
+
+`Ribbon3D` is a mesh with fixed-capacity triangle-strip storage (2–65536 points).
+`addPoint(x,y,z,time)` accepts mesh-local points and monotonic seconds; `update(time,
+viewDirection?)` expires points and rebuilds the existing vertices and RGBA colors,
+then calls `Geometry.markUpdated()` for the existing native buffer upload path.
+Age curves interpolate width and linear RGBA; use a transparent borrowed material
+to render alpha fades. Flat strips use local Y-up; camera-facing strips require a
+mesh-local nonzero camera view direction. Both geometry and material stay borrowed
+by the Scene. `Trail3D.sample()` records its target's world position only after the
+minimum distance; keep the trail unparented with identity transform. `clear()` resets
+timestamps and sampling history. Canvas2D remains 3D-unsupported.
+
+### Lazy mesh shader variants
+
+Ordinary mesh GLSL programs and WGSL pipelines compile on demand from physical,
+geometry, shadow and environment feature bits; each renderer bounds its variant
+cache to 64 entries (`meshShaderVariantLimits`). Eviction releases GL programs or
+GPU pipeline references; destroy/loss discards the cache. Native shaders keep their
+complete physical surface and are re-prepared after recovery. Asynchronous native
+GL preparation polls `KHR_parallel_shader_compile`; GPU resource warmup uses
+`createRenderPipelineAsync` when available. Cold synchronous draws retain synchronous
+compilation and never substitute a missing/fallback draw. The dispatchable
+`node scripts/check-mesh-shader-budget.mjs` requires a build and checks the default
+PBR fragment against the 40,000-byte source budget, not a platform timing guarantee.
+
+Native vertex hooks may optionally define `xyzDeformInstance(position, normal, uv,
+instance)` returning `XYZVertex` (WGSL `mat4x4f`, GLSL `mat4` for `instance`).
+Color and shadow vertices pass the actual local instance matrix, or identity for
+ordinary meshes; absent this hook, existing `xyzDeform` semantics are unchanged.
+
+## World nature: terrain, water and vegetation
+
+These additive root APIs use the existing Scene → native WebGPU/WebGL2 mesh,
+PBR, LOD/HLOD and shadow paths. Canvas2D does not render them. Source contracts
+below are not runtime, browser-parity or performance certification; empirical
+evidence belongs to [ACCEPTANCE](../ACCEPTANCE.md) and [CURRENT](CURRENT.md).
+
+### Terrain and static splat maps
+
+`new Terrain3D({heightmap, material, ...})` builds a centered local XZ heightfield.
+`heightmap` accepts `{width,height,heights}` or RGBA `TerrainImageData`/a live
+decoded-image `Texture`; image `heightChannel` (0–3, default 0) is normalized by
+255 before `heightScale` (default 1) and `heightOffset` (default 0). Input heights
+are copied into editable `heights: Float32Array`. Native/compressed textures
+cannot be sampled; Texture readback requires a browser 2D canvas.
+
+The grid has at least two samples per axis and at most 1,048,576 samples; RGBA
+sources allow at most 4,194,304 pixels. Defaults: width/depth 100, chunkSize 32,
+skirtDepth 2, lodDistances `[0,80,160]`. Chunk size is 1–256 source cells,
+at most 4,096 chunks and nine LOD levels; distances start at zero and increase.
+Each level doubles the grid stride, retaining endpoints and adding skirts.
+`hysteresis`, `crossFadeDuration`, optional `hlodScreenSize`, and shadow flags
+reuse existing LOD/HLOD behavior. Skirts hide cracks; they are not geomorphing
+or continuous tessellation.
+
+`heightAt(x,z)` returns full-resolution triangle height, or `undefined` outside
+the rectangle. `normalAt(x,z,out?)` returns a smooth finite-difference normal.
+Both are **terrain-local**, unlike `raycast(origin,direction,far?)`, which picks
+the currently visible world-space LOD/HLOD triangles, including skirts.
+After height edits call `markUpdated()` to rebuild every level's heights,
+normals/tangents and notify GPU caches. This does not create physics colliders
+or navigation surfaces. `chunks` exposes the owned LOD/HLOD nodes.
+
+`createStreamingCells(prefix?)` supplies fresh detached roots for the existing
+`WorldStreamingController`, borrowing terrain geometry/material. The source
+must be live, unparented and translation-only. Catalog bounds/translation are
+snapshots: recreate the catalog after relevant source edits. Keep the source
+and material alive until streaming consumers retire. Terrain owns its child
+objects but borrows the supplied material and maps.
+
+`bakeTerrainSplat({layers,weights,size?})` synchronously produces CPU baseColor,
+normal, metallicRoughness and emissive RGBA maps; it allocates no GPU resources.
+One to four opaque layers use RGBA weight channels, normalized per output pixel;
+zero total selects layer zero. Layers accept normal, metallicRoughness,
+occlusion/emissive sources, color/metallic/roughness/normalScale/emissiveFactor
+and repeating UV `scale`. Color/emission blend in linear light, normals are
+renormalized, and the packed physical map uses R occlusion/G roughness/B metallic.
+Size is 2–2048 (default 256). Alpha-bearing base layers reject.
+`await TerrainSplatMaterial.create(options)` wraps the four baked textures in
+its native PBR `material`. The preset owns that material and generated textures,
+never input sources; remove all consumers before its idempotent `destroy()`.
+This is a **static CPU bake**, not live per-fragment layer sampling/painting.
+
+### Analytic water
+
+`new Water3D({texture,width?,depth?,segments?,waves?,normalWaves?,foam?,
+materialOptions?,...meshOptions})` owns a NativePBRMaterial and borrows all
+textures. It uses a local XZ grid (segments 1–512, default 64), at most eight
+combined geometry and normal-only waves. A wave supplies nonzero XZ `direction`,
+nonnegative `amplitude`, positive `wavelength`, optional angular `speed` and
+`phase`; directions are normalized. `materialOptions` reuse ordinary PBR maps,
+transmission and volume attenuation. Foam is an optional crest-height effect,
+with threshold/fade/strength, **not depth-aware shoreline foam**.
+
+Explicitly call `update(deltaSeconds)` with nonnegative simulation delta, or
+`setTime(elapsedSeconds)`; `time` reports elapsed seconds. The material shares
+native deformation between color and shadow passes, with conservative bounds.
+`sampleSurface(x,z,out)` fills reusable local height/normal/foam values from the
+analytic waves. CPU mesh vertices remain flat: ordinary Raycaster, physics and
+navigation do not see the animated surface. PBR environment Fresnel and existing
+opaque-scene transmission are reused; no planar reflection, water simulation,
+underwater rendering or public scene-depth shoreline sampling is added.
+`water.destroy()` also destroys its owned material, not borrowed maps.
+
+### Seeded foliage
+
+`createGrassGeometry(width=0.1,height=1,segments=4)` creates an upright tapered
+blade (1–1024 segments). `scatterVegetation(options)` accepts caller geometry
+and material, XZ bounds, candidate `count` (0–1,000,000), uint32 `seed` (default 1),
+`density`, optional bilinear `densityMap`, surface sampler, height/slope filters,
+scale interval, tileSize/batchSize, alternate `lod` and fadeStart/fadeEnd.
+Count is **candidates**, not guaranteed output; `acceptedCount` reports survivors.
+Surface normals filter slope but do not tilt blades: placement uses height,
+seeded yaw and uniform scale. Sampler coordinates and returned heights are in
+the scatter root's local space; transform conversions remain caller-owned.
+
+The result exposes `root`, tiled `batches: VegetationBatch[]` and all alternate
+LOD `meshes: InstancedMesh[]`. Add `root` to the Scene. Native LOD coverage fades
+apply to color/shadows; distance fade is from each batch origin, not each blade.
+Defaults are tileSize 16, batchSize 1024 and fade 80–100 world units.
+The root owns child objects, not geometry/material/maps.
+`VegetationMaterial` extends NativePBRMaterial with windAmplitude/frequency/
+direction, bladeHeight/rootHeight and phaseScale. `update(timeSeconds)` takes
+**absolute simulation time**, unlike Water3D's delta update. Roots remain fixed
+and instance translation varies phase; GPU sway does not deform CPU geometry
+for picking/collisions. The caller destroys the wind material after all users,
+then separately releases borrowed textures.
+
+See [world-nature](../examples/world-nature/) for terrain/splat, water, a moving
+object trail and seeded wind grass. `?renderer=webgl2|webgpu` forces a backend;
+`&stress=1` requests 1,048,576 source height samples and 10,000 grass instances.
+These workload sizes are not FPS guarantees.

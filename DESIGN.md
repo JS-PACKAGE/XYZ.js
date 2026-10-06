@@ -383,3 +383,82 @@ bundle verification. Range loading is opt-in through a separate public function,
 not a change to directory manifests or ResourcePool ownership. A plain archive
 table supplies reviewed member offsets; unsupported HTTP Range falls back to one
 bounded load-local snapshot, never an unbounded fetch or silent integrity bypass.
+
+## Animated image asset boundary
+
+GIF/APNG uses WebCodecs ImageDecoder only: unsupported platforms explicitly reject.
+The browser codec owns compositing/disposal; assets copy complete frames into bounded
+owned snapshots and immediately close codec frames/decoder. A simulation-time clock
+drives one stable CanvasTexture2D source without another render loop or Scene registry.
+Optional independent atlas snapshots feed the existing borrowed SpriteSheet contract,
+not a second sheet/animation architecture. Byte/frame-pixel/dimension limits bound eager
+decoding; no container parser, software codec, hidden fallback or dependency is added.
+
+## Profiler and cross-native pixel gate
+
+Profiling is an opt-in renderer-adjacent attachment, not another Game loop or
+DOM owner. Disabled collection adds no timing reads or per-frame allocations.
+Bounded raw RAF/CPU/GPU windows preserve distinct meanings; unsupported JS
+allocation and presentation/throughput measurements stay null. Resource totals
+are residency estimates, not physical driver VRAM claims.
+
+Deterministic native parity compares actual forced backend captures without
+image alignment. Per-channel mean/p99 and same-backend repeat noise are recorded;
+deliberate axis inversion and wrong colour must fail. Disagreements are failures,
+not permission to inflate thresholds or imply physical rendering equivalence.
+
+## Bounded world ribbons
+
+Ribbon3D/Trail3D reuse Mesh and Geometry versioned native uploads rather than a
+parallel renderer or buffer-lifetime system. Capacity is immutable; a circular
+point store bounds history, inactive geometry degenerates, and vertex colors
+carry width-independent alpha. Trail samples world positions and therefore uses
+an identity root transform. CPU tests establish sampling/geometry behavior;
+native rendered acceptance must be recorded separately.
+
+## glTF export snapshot boundary
+
+The additive async root API exports engine scene roots into glTF JSON/binary or
+GLB without a second scene model, resource ownership transfer or pose mutation.
+Geometry, skin, captured-base morph data, ordinary PBR maps/extensions, explicit
+variants/source clips and cameras use their existing engine contracts. Internal
+MorphTargets exposes borrowed read-only bind data specifically to avoid reversing
+lossy normalized CPU deformation. Default PNG encoding uses real browser canvases;
+external URI mapping is explicit because Texture does not retain acquisition URLs.
+Unrepresentable native/live/custom state rejects, rather than silently baking or
+dropping it. Runtime animation layers, gameplay and renderer settings remain
+outside glTF; loader budgets and loader approximation boundaries remain unchanged.
+
+## Mesh feature variant compilation
+
+Keep authored full GLSL/WGSL shader templates as the native/reference path; ordinary
+draws compose out disabled physical branches and feature helpers, with stable
+material/geometry/scene bit keys and bounded renderer-owned LRU caches. No Shader
+IR or runtime dependency is introduced. Async preparation may exploit native
+parallel compilation; cold synchronous draws keep the existing completion contract.
+The optional instance-aware deformation hook shares color/shadow dispatch and
+falls back to legacy deformation when absent.
+
+## 自然世界 source 邊界
+
+Terrain3D 是既有 Group／Mesh／LOD／HLOD 的 bounded local XZ heightfield，
+非第二套 terrain renderer；每級 stride／skirts 共用 PBR、shadow、visibility。
+heightAt／normalAt 使用 full-resolution local source，raycast 使用 visible world
+triangles，不能把兩者當成同一 LOD query。Height edits 明確 markUpdated，physics／
+navigation 仍由應用建立。Streaming catalog 沿用 WorldStreamingController、fresh owned
+cell roots 與 borrowed geometry／material，限 unparented translation-only source。
+
+TerrainSplatMaterial 在 CPU 靜態 bake linear-light color／normal／packed physical maps，
+四個 texture slots 維持既有 budget；不做 live layer painting。Preset owns 生成 maps
+與 native material，Terrain／Scene 不接管它。Water3D owns native PBR material、借用 maps，
+解析 wave shader 共用 color／shadow 及 conservative bounds；sampleSurface 為 local analytic
+query，CPU triangles 保持平面。Crest foam 不宣稱 depth-aware shoreline／planar reflection。
+
+Seeded scatter 建立 tiled native InstancedMesh／VegetationBatch，candidate filters、
+distance LOD／coverage fade 沿用正式路徑，不建立 per-blade objects 或外部依賴。
+Wind material 使用 instance-aware native hook 的 translation phase；application 明確
+提供 absolute simulation time，water update 則用 delta。GPU sway 不改 CPU queries。
+Foliage root owns children、借用 geometry／material／maps；shared resources 最後由 caller
+釋放。Trail3D 沿用 dynamic Geometry upload，要求 unparented identity world-coordinate root。
+Canvas2D 保持 2D-only；world-nature／stress workload 不是 browser／FPS 驗收，
+詳細 API 見 TECHNICAL 雙語版，實測只在 ACCEPTANCE／CURRENT 記錄。

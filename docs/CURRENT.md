@@ -35,6 +35,11 @@ These are implementation profiles, **not three-backend equivalence or physical q
 
 WebGPU and AudioWorklet require a secure origin (localhost is allowed). Device availability is not implied by `navigator.gpu`; the current public compute profile is the bounded WebGPU-only ComputeProgram/ComputeBuffer API. Native shader/particle descriptors must be prepared before rendering; callers own their destruction after removing consumers. Auto presentation uses a copy to the original canvas and is not a performance-equivalent forced backend.
 
+Mesh programs/pipelines are lazy, feature-keyed and bounded to 64 cached entries.
+Zero-strength physical lobes are omitted from ordinary shader source. Cold synchronous
+draws still compile synchronously; explicit preparation uses available parallel/async
+driver compilation. Native hooks retain conservative full shading and recovery preparation.
+
 ## Shared subsystem profiles
 
 | Surface                         | Current support and important bounds                                                                                                                                                                                                                                                                                                                    |
@@ -197,3 +202,82 @@ After building, create the output parent and run `node scripts/mixed-soak.mjs --
 The formal Scene cycles combine streamed collision cells, scheduler routes, character goals and GPU/GL dynamic 3D; explicit pause/audio pause, owned IndexedDB SceneSnapshot restoration into a fresh candidate, actual crossfade and same-backend API-loss recovery; then continued gameplay/native PCM and actor render-target pixel proof. Canvas remains actual 2D, with 3D/recovery explicitly unavailable, never emulated. Audio sinks are zero-gain before contexts and Chromium is muted; gesture unlock is still required.
 
 Reports `xyz-mixed-soak-driver-v3` / `xyz-mixed-soak-v3` retain bounded cycle history, leases/scopes/targets/audio/errors/cleanup and separate CDP heap/GC/process trends. Source Git/tree, emitted tree, authored harness and manifest hashes bind the run; optional `--consumer /absolute/extracted/package --packageArchive /absolute/matching.tgz` records the actual consumer/archive. A short smoke, heap trend, tracked-resource cleanup or API-loss recovery is not one-hour success, global no-leak/VRAM proof, physical driver reset or cross-browser certification. Actual duration/version/result evidence belongs in ACCEPTANCE, not inferred from these commands.
+
+## Byte-offset archive loading
+
+`loadAssetBundleRange` opts into a manifest's plain uncompressed archive table:
+`archive: { path, bytes, members: [{ path, offset, bytes }] }`. Members match all
+tracked descriptor files and retain their SHA-256 checks. Exact 206 ranges are
+required; ignored 200 responses become one load-local full snapshot, bounded by
+the declared archive size and existing 128 MiB limit. 405/416/501 retry without
+Range; malformed responses and integrity failures throw. Forward ResourcePool's
+signal to retain cooperative cancellation. Directory bundles and returned model
+ownership remain unchanged; no ZIP decoder or persistent archive cache is added.
+
+## Animated image source
+
+`AnimatedImageTexture` decodes GIF/APNG only through WebCodecs ImageDecoder, explicitly
+rejecting absent API/unsupported format. Complete compositing/disposal belongs to the
+browser codec; owned bounded snapshots close all VideoFrames and the decoder.
+Call `updateAnimation(dt)` with simulation seconds; file repetitions or explicit
+`plays` control looping, pause freezes and finite playback holds the final frame.
+`createAtlas()` supplies an independently owned texture/frames/durations for SpriteSheet;
+consumers borrow both sources. See TECHNICAL for budgets, reset and cleanup contracts.
+Browser support/qualification is limited to actual evidence recorded in ACCEPTANCE.
+
+## Opt-in frame profiler and native pixel parity
+
+`new Profiler(game.graphics, { enabled: true })` attaches bounded frame collection
+without adding a Game/DOM lifecycle owner. `report()` returns a JSON-compatible
+snapshot; `format()` returns text. CPU whole-frame and renderer submit time, raw
+RAF cadence and asynchronous GPU timestamp samples have separate p50/p95/max
+windows. GPU timing must be requested in `Game.create` first. Presentation/GPU
+FPS and JS allocation counts remain explicitly unavailable, not inferred from
+simulation delta or timestamp durations. Resident texture/geometry/target bytes
+are tracked estimates, not total driver VRAM. Disabled collection reads no clock
+and allocates no per-frame samples; destroy detaches it.
+
+The Chromium regression includes forced WebGL2/WebGPU deterministic RGB parity
+scenes, same-backend repeat noise, and deliberate vertical-flip/wrong-colour
+comparator rejection. Actual measured differences and qualification remain in
+ACCEPTANCE and `pixel-parity.json`, not implied by the existence of the gate.
+
+## glTF exporter snapshot
+
+`exportGLTF(sceneOrRoots, options?)` asynchronously returns `{json,buffers}`;
+`exportGLB(...)` returns GLB 2.0 bytes. Local TRS, triangle streams including
+UV0/UV1/tangents/colors, four/eight-influence skins, captured-base morphs, ordinary
+PBR extension factors/maps/transforms, explicit material variants, clean supplied
+AnimationClips and perspective/orthographic cameras are serialized. Default
+embedded PNG encoding requires a browser canvas; external textures require the
+caller-provided `textureURI` callback. Unsupported native/live/engine-only data
+rejects. Runtime mixers/gameplay/render settings are not baked. See
+[technical contract](TECHNICAL.md#gltf-export) for boundaries and ownership;
+source CPU/browser tests do not themselves claim executed qualification.
+
+## Native world-nature source
+
+`Terrain3D` builds an XZ heightfield into native LOD chunks with skirts; local
+`heightAt()` interpolates the full-resolution triangles, not whichever coarse LOD
+is currently visible. `TerrainSplatMaterial` owns its static baked maps while
+terrain meshes borrow the material. `Water3D` and `VegetationMaterial` animate
+native vertex/physical hooks with explicit simulation time; their CPU geometry,
+collision and picking do not follow shader displacement. Water foam is crest-based.
+`scatterVegetation` returns seeded instanced batches borrowing geometry/material.
+`Trail3D` samples a target's world position into bounded reusable geometry; keep
+its root unparented and identity-transformed, and advance monotonic seconds.
+
+The `/examples/world-nature/` page supports forced WebGL2/WebGPU and explicitly
+rejects Canvas2D; `?stress=1` selects the local million-vertex/10,000-grass workload.
+Native browser assertions and measured evidence are recorded separately below and
+in ACCEPTANCE; none of these additions certify other browsers, physical drivers,
+presentation throughput or GPU-displaced collision.
+
+Local 2026-10-06 managed Chromium 153/macOS arm64 example runs rendered on forced
+WebGL2/WebGPU with empty error/warning consoles; standard/stress screenshots were
+read. With a full-resolution million-source-vertex terrain and 10,000 grass
+instances, both backends submitted 286 calls/2,212,928 triangles: CPU-submit
+p50/p95 was 2.10/3.10 ms (123 samples, GL) and 2.40/2.70 ms (124 samples, GPU),
+after 120 warmup frames. These headless single-run values, collected alongside
+host quality work, are not isolated calibration, GPU timing or presentation FPS.
+Quality/type/API/package gates and the Chromium canvas2d/webgl2/webgpu regression passed after the fixture oracles were corrected (strict thresholds unchanged). See ACCEPTANCE for exact evidence.

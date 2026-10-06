@@ -311,6 +311,14 @@ const examples: readonly Example[] = [
     renderers: only3d,
   },
   {
+    slug: 'world-nature',
+    title: 'Terrain, water & vegetation',
+    summary:
+      'Splat-mapped heightfield LOD, water waves and foam, a moving mesh trail and instanced wind grass; optional 1M-vertex stress scene.',
+    tags: ['3D', 'Benchmark'],
+    renderers: only3d,
+  },
+  {
     slug: 'native-material3d',
     title: 'Native shaders & local lights',
     summary:

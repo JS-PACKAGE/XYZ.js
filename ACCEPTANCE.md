@@ -1817,7 +1817,7 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
 ## v1.17 Windows hosted 觀察
 
 - Windows 11 ARM hosted（軟體 D3D11 WARP）的 chromium／webkit WebGL2 smoke 自 P122 起失敗：二分顯示 `8d06406` 以前通過、`cd769ca` 起失敗。同一 runner 量測 mesh fragment shader 編譯約 13.6s（P121）→ 約 19s（目前）；webkit 約 15s 後 context 被判定遺失，chromium 可連結成功。成因為推論（shader 變大＋軟體 GPU 編譯時間），未找到單一元兇，拆除 shadow 呼叫或縮短迴圈均未回到 P121 水準。
-- CI 因此將 Windows 上的 Chromium WebGL2 example smoke 與 platform-browser 兩步標為 `continue-on-error`，與既有「Windows hosted 不是認證」政策一致；這是放寬 hosted gate，不是修好。縮減 shader 編譯成本仍待辦。Ubuntu／macOS 閘門不變。
+- CI 因此將 Windows 上的 Chromium WebGL2 example smoke 與 platform-browser 兩步標為 `continue-on-error`，與既有「Windows hosted 不是認證」政策一致；這是放寬 hosted gate，不是修好。現在加入 lazy mesh feature variants，零強度材質不編譯未啟用的物理 lobe；本機 macOS ANGLE-Metal 量測不代表 Windows WARP，hosted 是否改善仍不可在本機驗證，因此保留 `continue-on-error`。Ubuntu／macOS 閘門不變。
 - Ubuntu Chromium WebGPU 的 native loss 恢復期限由 10s 放寬為 45s（軟體 WebGPU 序列重建 pipeline），頁面等待上限 180s。
 
 ## Sorted BLEND depth-write backend 回歸修正（2026-10-06）
@@ -1840,3 +1840,130 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
   載入、非法／重疊 offset、錯誤 Content-Range、完整回應超限與 streamed body abort／teardown。
 - 尚未在此功能步驟執行完整 build／API compatibility／package hygiene／browser regression；
   完整整合 gate 由主代理另列。不認證遠端 CDN／CORS／大型實體網路效能。
+
+## GIF／APNG ImageDecoder source（2026-10-06，待整合驗證）
+
+- 新增有界 eager decoded source、simulation timing／finite loops、獨立 SpriteSheet atlas
+  與 codec/frame/source ownership；缺少 ImageDecoder 明確 unsupported，無 fallback。
+- CPU timing／ownership tests 與 generated real GIF／APNG Chromium browser smoke 已新增；
+  browser smoke 檢查 restore-previous disposal、duration／repetition、Sprite pixels 與 atlas。
+- 此實作步驟尚未執行 tests／build／typecheck／lint／browser runtime；
+  由主代理整合後記錄實際結果。本節不是通過聲明或跨瀏覽器認證。
+
+## Dynamic Ribbon3D / Trail3D（2026-10-06，CPU 驗證）
+
+- `vitest run tests/ribbon3d.test.ts`：1 檔／4 測試通過，涵蓋 age width/color、
+  bounded overwrite/expiry、camera-facing orientation、ancestor world-transform
+  sampling。首輪 version assertion 錯誤已改為實際 `markUpdated()` 的版本 1。
+- 固定容量 vertex/index/color buffers 透過既有 `Geometry.markUpdated()` 更新，
+  不新增平行 GPU upload path。新公開 API／package inventory 已加入。
+- 本步尚未驗證 rendered pixels、forced WebGL2/WebGPU、完整 gates 或效能；
+  world-nature 共用範例及整合驗收仍需另列，不宣稱已完成。
+
+## Asset export / animated image targeted evidence（2026-10-06）
+
+- `vitest run tests/gltf-exporter.test.ts`：6 項通過；geometry／hierarchy／eight-influence
+  skin／morph／PBR maps/extensions／variants／animation GLB→loader round-trip。
+  首輪 material live-source 判斷錯把普通 Texture registry 拒絕，已限定拒絕非 Texture sources。
+- `vitest run tests/animated-image.test.ts`：6 項通過（timing／finite loops／MAX_VALUE
+  modular addition／ownership／unsupported／abort）。直接 import 首次觸發 texture2d barrel cycle；
+  已改同模組 leaf import，非 test-only workaround。
+- Chromium **153.0.8010.12**／macOS arm64 真實 forced **WebGL2** 與 **WebGPU**：
+  兩 backend 各 decode generated GIF／APNG（3 frames、2 plays），restore-previous pixels、
+  frame timing、pause／final freeze／atlas ownership PASS；各格式 Sprite readback changedPixels **1344**。
+  同次兩 backend 執行 glTF embedded PNG encoding／GLB→loader decode，RGBA `[240,32,64,255]` PASS。
+- 新 source／test／durable smoke scripts targeted ESLint 通過。throwaway runner 已刪除；
+  durable assertions 整合到 `scripts/expansion-runtime.mjs`。
+- 首次完整 expansion runner 在既有 WebGPU video mesh 被 `shadowProjection` WGSL 錯誤中止；
+  shader owner 已另修，不把該失敗寫成整個 expansion PASS。上述證據是 isolated asset runner；
+  全套 build／format:check／API/package gates／regression:browser 由主代理另列，未認證其他瀏覽器／硬體。
+
+## Profiler / cross-native pixel parity（2026-10-06）
+
+- CPU `vitest run tests/profiler.test.ts tests/pixel-parity.test.mjs`：2 files／6
+  tests passed。Profiler raw RAF 500 ms 不受 simulation clamp 影響，rolling
+  quantiles、GPU sample dedup、suspend、disabled clock reads、ownership 已驗證。
+- Public runtime build passed；targeted owned-file eslint passed。初次整合
+  typecheck／API compatibility 未通過（其他 concurrent public graph 修改）；不宣稱
+  完整 lint／format／suite／package hygiene／正式兩次 regression 已通過。
+- Real forced WebGL2＋WebGPU Chromium **153.0.8010.12**，128²、無 AA，12 scenes：
+  plain directional＋point＋spot、normal map、textured、shadow ground、gradient IBL、
+  anisotropy、iridescence、subsurface、dispersion、BLEND、instances、skin。
+  所有 repeat captures 各 RGB channel mean／p99 **0／0**；cross-backend 唯一
+  非零值是 IBL green mean **0.00006103515625 (=1/16384)**，p99 0；
+  其餘 scenes／channels **0／0**。沒有超出 noise 的 scene disagreement。
+- Derived gate thresholds：每 RGB channel mean ≤ **0.001 byte**、p99 ≤ **1 byte**，
+  容許稀疏單 byte quantization，不做 alignment／resampling。垂直翻轉負面實測
+  RGB mean **14.321777／12.978027／10.558594**，p99 **135／110／85**，拒絕；
+  red wrong-colour mean **205.355713**、p99 **243**，拒絕。
+- Gate 暴露 concurrent WebGPU variant pruning 的 missing `shadowProjection` WGSL
+  compile failure；ShaderVariants owner 修正並重建後上述 12 scenes 全完成。
+  fixture diagnostic 保留 GPUValidationError.message，避免只顯示 object。
+- 本機 measured report：`.vite/pixel-parity-measured.json`；durable page/comparator
+  與正式 regression wiring 已加入。未驗證別的 driver／browser；timestamps 不等於
+  presentation FPS、GPU throughput 或 JS allocation，report 的這些欄位明確 null。
+
+## Lazy mesh shader variants（2026-10-06）
+
+- Final integrated gates passed: lint、typecheck、`vitest run`（157 files／1298 tests）、
+  build、API compatibility（737 exports／2810 contracts）、package hygiene、source
+  budget、forced Chromium WebGL2／WebGPU regression。首次 format:check 指出 oracle
+  script 與 concurrent glTF test formatting；完整 formatting gate 由主代理另列。
+- CPU matrix checks 1232 unique feature combinations／3696 GLSL vertex、fragment、
+  WGSL sources，確認 engine function references 有 definition；新增 real
+  `SkinnedMesh` recognition regression，修正錯誤 skeleton-field detection。
+- Chromium **153.0.8010.12**／darwin arm64，forced **WebGL2** 與 **WebGPU**：
+  optimized-versus-full ordinary renderer oracle 各 **27 scenes** 通過，包括 normal
+  maps、IBL／probes、各 lobe／finish、BLEND、instances、4／8 influences mirrored
+  non-uniform skin、morph／skin+morph、real shadow ground、native surface／deform／instance。
+  Full shader 注入只存在 reference test server，不替換 material 或 renderer bindings。
+- 每 backend **26 scenes byte-exact**；ordinary instancing 唯一差異為
+  **1 channel byte／1 pixel of 16384 (=0.0061035%)，maximum delta 1/255**。
+  不宣稱所有 source specialization byte-exact：不同 shader source 可使 driver
+  floating-point reassociation 改變最後 quantization。該 scene 明列容許 max channel
+  delta ≤1、changed pixels ≤0.01%；其他 scenes 仍 exact。Negative controls
+  拒絕 delta >1、超量 changed pixels 與 non-instancing 的單 byte 差異；
+  full-versus-full control 在兩 backend 全 scenes exact。
+- Local fresh-context GLSL compile＋link sample：plain PBR fragment **16195 bytes／
+  6.3 ms**，full feature fragment **39853 bytes／19.6 ms**。此為本機 macOS
+  Chromium／ANGLE sample，非 cache-independent cold benchmark、Windows／Intel
+  ANGLE 證明或跨 driver guarantee；Windows CI continue-on-error 未更改。
+- WebGPU actual canvas/device-loss injection 仍無 public browser API，正式 regression
+  對該項明列 SKIP；native authored shaders 保留 conservative full source。
+
+## Native world-nature integration（2026-10-06）
+
+- macOS arm64，managed Chromium **153.0.8010.12**，經
+  `scripts/browser-launch.mjs` 啟動，Vite localhost。Forced WebGL2／WebGPU
+  world-nature standard 與 stress 頁面實跑；四張 screenshot 已讀，terrain、water、
+  moving trail、grass 皆可見，正常 console warning/error 與 pageerror 為零。
+  首次 example 缺少 native material preparation 而 fatal；已改為 Scene 初始化時
+  await 三個 native 材質，修正後正常渲染。Canvas2D example 明確回報 unsupported，
+  不建立替代 software renderer。
+- Local-only stress：**1,000,000 source surface vertices**、full-resolution
+  LOD `[0]`（chunk border duplication／skirts 額外幾何）、**10,000 grass instances**；
+  全場景每幀 **286 draw calls／2,212,928 triangles**。CPU submit 包含
+  beginFrame／render／endFrame，排除前 120 warmup frames：
+
+  | Backend | measured frames | CPU submit p50 | CPU submit p95 |
+  | ------- | --------------- | -------------- | -------------- |
+  | WebGL2  | 123             | 2.10 ms        | 3.10 ms        |
+  | WebGPU  | 124             | 2.40 ms        | 2.70 ms        |
+
+  `.vite/world-nature-perf.json` 保留 samples。這是單次 headless 本機量測，
+  非 GPU execution／presentation FPS／跨硬體效能認證；量測期間 quality build
+  另在同 host 執行，不宣稱 isolated calibration。
+
+- format:check、typecheck、lint、Vitest **157 files／1298 tests**、build、
+  API compatibility **737 exports／2810 contracts**、package hygiene 通過。
+  初次全 Chromium regression 仍 FAIL：新增 fixture 的 Canvas2D terrain rejection
+  與 native terrain underside oracle 失敗；修正與最後結果另列，不能以正常範例
+  screenshot 代替 durable assertions PASS。
+- Evidence：`.vite/world-nature-webgl2.png`、`world-nature-webgpu.png`、
+  `world-nature-webgl2-stress.png`、`world-nature-webgpu-stress.png` 與
+  `.vite/world-nature-regression/results.json`。未驗證 mixed-LOD crack oracle、
+  其他 browsers／physical drivers、GPU-displaced CPU collision/picking。
+
+### World features 最終重跑
+
+同一環境重跑完整閘門：format:check／typecheck／lint 通過，vitest 157 檔／1298 項，build，API 相容性（737 exports／2810 contracts），package hygiene，`regression:browser --browser chromium` 的 canvas2d／webgl2／webgpu 皆 PASS（`.vite/world-nature-regression-final/results.json`）。上節記錄的先前失敗為 fixture 假設錯誤，修正時未放寬門檻。仍未驗證：mixed-LOD crack oracle、其他瀏覽器與實體 driver、GPU 位移後的 CPU collision／picking；效能為單次本機量測，不是隔離校準。

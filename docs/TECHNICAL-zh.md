@@ -1124,6 +1124,15 @@ NativeMaterial3D 繼承 TextureMaterial，immutable WGSL／GLSL hooks（xyzDefor
 
 `NativePBRMaterial` 繼承 `PBRMaterial`，共用 uniforms、lifetime 與 `deformationBounds` 契約，但 hook 是 `xyzPhysical` 而不是 `xyzSurface`。引擎仍取樣 PBR maps 並擁有 lighting；hook 只在 filtering 前替換已解碼的 base color、metallic、roughness、occlusion 與 emission，不得新增資源。`isNativeMaterial3D` 同時辨識兩種 native class。`prepareMaterial`、resource preparation 與 warmup 包含物理材質及其借用的 PBR maps；tracked shadow cache 會讀取物理 uniforms。Canvas2D 明確拒絕。
 
+Native vertex 可選 `xyzDeformInstance(position, normal, uv, instance)`，回傳
+`XYZVertex`；instance 在 WGSL 為 `mat4x4f`、GLSL 為 `mat4`。Color／shadow
+同傳 local instance matrix（非 instanced 為 identity）；缺省仍執行 `xyzDeform`。
+一般 mesh 以物理 lobe／deformation／shadow／IBL bits lazy 編譯，variant cache
+上限64；destroy／loss 清除。Cold sync draw 仍同步編譯，不跳過 draw；async
+prepare 使用可用的 parallel／async driver API。Native hooks 保留完整 shading。
+Build 後 `node scripts/check-mesh-shader-budget.mjs` 驗 plain PBR fragment
+低於 `src/data/rendering.ts` 的40,000 bytes，不代表 Windows WARP timing 保證。
+
 LightSelectionOptions.exceedPolicy 為 select／error；每種 pool≤1024，native shading slots 仍 bounded。按 priority／contribution／draw bounds（camera-selected visible draws）選取，不是 clustered／unlimited lighting。Culled 與 relevant overflow 分開計；error 拒超額 relevant lights，select 明示省略低順位 contribution；shadow atlas capacity 獨立。
 
 ### Streaming、trusted workers 與 authored maps（P81–P83）
@@ -1488,3 +1497,163 @@ table 驗證未壓縮 member offset／bytes、不重疊與 files 完整對應；
 405／416／501 重試不帶 Range。其他失敗拋錯。完整 snapshot 以原 asset-recipe
 128 MiB／宣告 size 限制 decoded HTTP bytes，不以壓縮傳輸大小替代。
 load finally 在 parse／hash／abort 失敗時也釋放 reader 與暫存 URL。
+
+## WebCodecs GIF／APNG 動態影像
+
+`AnimatedImageTexture.decode(bytes, 'image/gif' | 'image/png', { plays?, signal? })`
+只使用 WebCodecs `ImageDecoder`；API 不存在或格式不支援時明確拒絕，無軟體／image
+element fallback 或 runtime dependency。複製輸入 bytes，ImageDecoder 負責完整 frame
+的 blend／disposal；成功、失敗、取消均關閉 decoder 與每個 VideoFrame。
+預解碼 snapshots 沿用 8 MiB encoded、4 Mi 總 frame pixels、8192 dimension 與 frame
+數限制；atlas padding 亦計入 texture budget。
+
+`durations`／`duration` 以秒計；`plays` 是含首次的總播放次數，缺省 repetitionCount + 1，
+可指定正 safe integer 或 Infinity。自行在 simulation update 呼叫
+`updateAnimation(deltaSeconds)`；不自動註冊 Scene、RAF 或 fetch。pause 凍結，reset 回到
+frame zero 且保留 pause 狀態，play 恢復但不重啟 ended；有限播放停在末 frame。
+只有可見 frame 改變才增加穩定 canvas source version。動態 frame 的缺失／零 duration
+拒絕；單張靜態 frame 的 null duration 使用一秒。
+
+`createAtlas()` 回傳獨立 owned texture、frozen frames／durations，可傳入 SpriteSheet。
+SpriteSheet／Sprite 均借用 source；先移除 consumers，再分別 destroy 動態 source 與 atlas。
+銷毀動態 source 不影響 atlas，destroy 為冪等。實測範圍另列 ACCEPTANCE。
+
+## Opt-in Profiler
+
+root `Profiler` 附掛於 optional `Renderer.profiler`，Game 以實際 RAF timestamp
+量測完整 CPU frame，另保留 renderer CPU submit 與非同步 GPU timestamp。
+預配置 ring 預設 240 frames，上限 65536；report 時才配置 quantile 資料。
+預設 hitch threshold 50 ms，hitch 是累計值。停用不讀 clock、不配置每幀 samples；
+pause／hidden 清除 cadence，`destroy()` 解除附掛。GPU timing 必須在 Game.create 啟用。
+RAF Hz 是 callback cadence，不是確定呈現；JS allocation、GPU／presentation FPS
+明確為 null。GPU bytes 是 texture／geometry residency 加 target 估計，不是完整 VRAM。
+
+Chromium regression 以強制 GPU／GL scene 比較 top-left RGB byte-domain，
+每 channel mean 與 nearest-rank p99，不做影像對齊；同 backend repeat 記錄 noise，
+垂直翻轉／錯色負面測試必須失敗。threshold 與量測證據另列 ACCEPTANCE。
+
+## glTF 匯出快照
+
+`await exportGLTF(sceneOrRoots, options?)` 回傳 `{json,buffers}`；將 JSON 與
+binary buffer 寫到 `bufferURI`（預設 `scene.bin`）。`exportGLB(...)` 回傳
+GLB 2.0 ArrayBuffer；兩者不寫檔、不 fetch、不接管資源，也不改動 pose。
+輸入接受 Scene、無 parent 的 Object3D／Group／Mesh／SkinnedMesh 或 roots array。
+保留 hierarchy／local TRS、positions／normals／UV0／UV1／tangents／colors／indices、
+四或八個 skin influences、inverse binds、morph POSITION／NORMAL／TANGENT。
+morph 以 captured undeformed base 匯出，避免已套用權重後重複變形。
+
+PBR 所有普通 maps／UV transforms 及 loader 支援的 scalar KHR materials
+extensions 會輸出；`variants:gltfVariants(asset).variants` 提供映射，當前材質作為
+default，因此要保存原 default 時先 restore variant。`animations` 明確接受
+AnimationClip 的 STEP／LINEAR／CUBICSPLINE TRS／weights tracks；missing targets、
+duplicate target/path、empty clips 拒絕，不會 bake mixer／IK／additive 狀態。
+Scene 匯出 camera，其餘輸入可傳 `camera`；`cameraAspect` 預設 1。
+loader 目前不回傳 camera，camera 驗證須檢查輸出 JSON。
+
+預設由 browser canvas encode embedded PNG；`textures:'external'` 必須提供
+`textureURI(texture)`，不讀取 URL，也不需要 canvas。Texture 不保留原取得 URL。
+native/compressed texture 不可 encode PNG。hidden／physics／non-3D／custom
+nodes、native materials、live maps、lightmap、engine-only finish、coverage／AA、
+anisotropy／custom LOD sampler、explicit point／spot lights／environment 拒絕；
+ambient／directional renderer lighting、shadow／postprocess／gameplay 不屬 glTF
+scene serialization。既有 loader budgets 仍適用。輸出與 source 資源均由 caller 管理。
+完整契約見 [English](TECHNICAL.md#gltf-export)；CPU round-trip tests 與
+`tests/browser/gltf-exporter.html` 的實際 PNG encode/decode 測試待主 agent 執行驗證。
+
+## 自然世界：地形、水面與植被
+
+以下 additive root API 沿用 Scene→WebGPU／WebGL2 原生 mesh、PBR、LOD／HLOD
+與陰影路徑；Canvas2D 不畫 3D。此處說明 source 契約，不宣稱 runtime、
+跨 browser parity 或效能驗收；實測另見 [ACCEPTANCE](../ACCEPTANCE.md) 與
+[CURRENT](CURRENT.md)。
+
+### 地形與靜態 splat
+
+`new Terrain3D({heightmap,material,...})` 建立以原點為中心的 local XZ heightfield。
+heightmap 接受 `{width,height,heights}`、RGBA `TerrainImageData` 或 live decoded-image
+Texture。影像 heightChannel 為 0–3（預設 0），先除以 255，再套用 heightScale
+（預設 1）／heightOffset（預設 0）。輸入複製成可編輯的 `heights:Float32Array`；
+native／compressed textures 拒絕，Texture CPU readback 需要 browser 2D canvas。
+每軸至少兩個 sample、總計最多 1,048,576；RGBA source 最多 4,194,304 pixels。
+width／depth 預設 100，chunkSize 32、skirtDepth 2、lodDistances `[0,80,160]`。
+chunkSize 1–256 source cells，最多 4,096 chunks／九個 LOD，distance 由零遞增。
+各級加倍 stride、保留邊界並加 skirts；hysteresis／crossFadeDuration／可選
+hlodScreenSize／shadow flags 沿用現有機制。Skirts 遮裂縫，非 geomorph／tessellation。
+
+`heightAt(x,z)` 是 full-resolution triangle height，範圍外回 undefined；
+`normalAt(x,z,out?)` 是 smooth finite-difference normal，兩者皆為 **terrain-local**。
+`raycast(origin,direction,far?)` 則拾取目前可見 LOD／HLOD 的 world-space triangles，
+含 skirts。編輯 heights 後呼叫 `markUpdated()` 更新所有級別高度、normal／tangent
+及 GPU cache；不自動建立 physics collider／navigation surface。`chunks` 為 owned nodes。
+`createStreamingCells(prefix?)` 提供既有 WorldStreamingController 使用的 fresh detached
+roots，借用 source geometry／material；source 必須 live、無 parent、僅平移。
+catalog bounds／translation 是快照，相關 source 編輯後需重建 catalog；consumer 退役前
+保持 source 與材質存活。Terrain owns children，但借用 supplied material／maps。
+
+`bakeTerrainSplat({layers,weights,size?})` 同步產生四張 CPU RGBA maps，不建立 GPU
+resources。一至四個 opaque layers 對應 weight RGBA，各像素正規化、全零選 layer 0。
+layer 可設 normal／metallicRoughness／occlusion／emissive sources、color／metallic／
+roughness／normalScale／emissiveFactor 與 repeat UV scale。Color／emission 在 linear
+light 混合、normal 重新正規化；physical map 為 R occlusion／G roughness／B metallic。
+size 2–2048（預設 256），帶 alpha 的 base layer 拒絕。
+`await TerrainSplatMaterial.create(options)` 包裝四張生成 Texture 與 native PBR
+`material`；preset owns material／generated textures，不接管輸入。先移除 consumers
+再冪等 destroy。這是 **靜態 CPU bake**，非逐片元即時 layer sampling／painting。
+
+### 解析水面
+
+`Water3D` 接受 borrowed texture、width／depth、segments（1–512，預設 64）、
+waves／normalWaves（合計最多八個）、foam、materialOptions 與一般 mesh options。
+Wave direction 是正規化 local XZ，amplitude 非負、wavelength 正、speed 為 angular
+radians/second，phase 為 radians。geometry waves 改頂點，normalWaves 僅加 ripples。
+materialOptions 沿用 PBR maps／transmission／volume attenuation。
+foam threshold／fade／strength 是 wave crest height 效果，**非 depth shoreline foam**。
+
+自行於 Scene update 呼叫 `update(deltaSeconds)`（非負模擬 delta）或
+`setTime(elapsedSeconds)`；`time` 回報 elapsed。Native color／shadow 共用變形與
+保守 bounds。`sampleSurface(x,z,out)` 填入 reusable local height／normal／foam。
+CPU vertices 仍是平面，因此一般 Raycaster／physics／navigation 看不到動畫水面。
+反射／折射沿用 PBR environment Fresnel 與 opaque-scene transmission；不新增 planar
+reflection／流體模擬／underwater／公開 scene-depth shoreline sampling。
+Water owns native material，destroy 一併清理它，不釋放借用 maps。
+
+### Seeded 植被
+
+`createGrassGeometry(width=0.1,height=1,segments=4)` 建立直立 tapered blade，
+segments 1–1024。`scatterVegetation(options)` 接受 geometry／material、XZ bounds、
+candidate count（0–1,000,000）、uint32 seed（預設 1）、density／bilinear densityMap、
+sampleSurface、height／slope filters、scale interval、tileSize／batchSize、
+alternate lod、fadeStart／fadeEnd。Count 是候選，不保證輸出量；acceptedCount 是 survivors。
+surface normal 只篩 slope，不使 blade 傾斜；placement 使用 height、seeded yaw／uniform
+scale。Sampler coordinates／height 為 scatter root local，caller 負責 transform conversion。
+result 的 root owns tiled VegetationBatch／InstancedMesh children，借用 geometry／material／
+maps；加入 Scene 的是 root。LOD coverage fade 共用 color／shadow，distance fade 依 batch
+origin 而非單 blade。預設 tileSize 16、batchSize 1024、fade 80–100 world units。
+
+`VegetationMaterial` extends NativePBRMaterial，可設 windAmplitude／frequency／direction、
+bladeHeight／rootHeight／phaseScale；`update(timeSeconds)` 接受 **absolute 模擬時間**，
+與 Water3D delta update 不同。Roots 固定、instance translation 改 phase；GPU sway
+不改 CPU picking／collision geometry。移除所有 users 後由 caller destroy material，
+再另行釋放借用 textures。
+
+### Ribbon3D／Trail3D 動態軌跡
+
+`new Ribbon3D({material,maxPoints?,lifetime?,mode?,curve?})` 預配置固定容量
+triangle strip，maxPoints 2–65,536，lifetime 為正有限秒。`addPoint(x,y,z,time)`
+接受 mesh-local finite coordinates 與非遞減秒數，滿容量覆寫最舊點；
+`pointCount` 回報目前點數。`update(time,viewDirection?)` 到期移除點，
+重用 vertex／index／linear RGBA color buffers，呼叫 Geometry.markUpdated 走既有
+native GPU upload。Curve 以 normalized age 0–1 線性插值 width／color，需 2–64 keys
+涵蓋首尾；alpha fade 需借用 transparent material。Flat 模式用 local Y-up，
+camera-facing 需 caller 提供 mesh-local 非零 camera view direction。
+
+`new Trail3D({...ribbonOptions,target,minimumDistance?})` 的 `sample(time,viewDirection?)`
+讀 target world position，位移達 minimumDistance 才新增點，每次皆 update 到期資料。
+因此 Trail 必須無 parent 且 identity transform，不能把 world positions 再轉換一次。
+`clear()` 重設 points、monotonic timestamp 與 target sampling history。
+Scene owns ribbon／trail object，material／maps 與 target 均借用、不因軌跡 destroy
+而銷毀；材質／貼圖由 caller 在最後 consumer 移除後釋放。Canvas2D 不畫 3D 軌跡。
+
+[world-nature](../examples/world-nature/) 展示 terrain／splat、水面、moving-object trail、
+seeded wind grass；`?renderer=webgl2|webgpu` 強制 backend，`&stress=1` 請求
+1,048,576 source height samples／10,000 grass instances。Workload 大小非 FPS 保證。
