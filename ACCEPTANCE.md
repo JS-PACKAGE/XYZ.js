@@ -2157,4 +2157,12 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 
 - Hosted macOS site smoke 在 `examples/world-nature/?renderer=auto` 兩次無輸出掛住約 55 分鐘直到被取消（先前一次同內容 commit 則通過），本機有 GPU 時 5 個案例全過；根因未查明（推測為 hosted 軟體 GPU 上主執行緒被占滿，Playwright 呼叫不回應所以 timeout 不觸發）。已為 `scripts/smoke-site.mjs` 的每個 example case 加入 watchdog（4×timeout 後關閉 context，記錄 `watchdog` 錯誤並判 FAIL），讓掛住變成可見的失敗；這不是修好該案例的效能問題。
 
-- 追查 hosted macOS site smoke 掛住：以拋棄式 workflow 重現，pw:api 記錄顯示 `world-nature` 的 element／page screenshot 皆失敗（等不到元素穩定，即 rAF 被餓死），之後 `browserContext.close` 永不回傳。判斷為 hosted 軟體光柵化下該場景幀時間過長（推論，未量到幀時）。example 現在偵測連續 4 幀間隔 >400ms 即 `pause()` 並在狀態列說明；這是範例層保護，不代表軟體光柵下效能可接受。
+- 追查 hosted macOS site smoke 掛住：拋棄式 workflow 的 pw:api 記錄顯示 `world-nature` 的 element／page screenshot 皆 timeout，之後 `browserContext.close` 不回傳。當時推測低幀率並加入連續 4 幀間隔 >400ms 的自動 pause；後續 CI 仍掛住，該推測未成立，已撤除自動 pause，不改場景負載或動畫行為。
+
+- 清理根因確認：原 watchdog 在 `finally` 的 `context.close()` 前被清除，且 callback 仍依賴可能卡住的同一 close protocol。現由 `launchServer` 建立唯一的新 managed Chromium，只連到該次建立的 loopback Playwright endpoint（非 CDP／使用者 browser）；watchdog 保持到 context 清理完成，超時只 `kill()` 該 owned process，保留 FAIL 與未完成 coverage。正常五個 world-nature deployment cases PASS。另拋棄式 smoke 以 `SIGSTOP` 暫停這次建立的真 Chromium：4000ms case deadline 觸發，owned browser 收到 SIGKILL，5697ms 完成 FAIL report／exit 1；不把這項故障注入稱為 hosted GPU 根因修復。正常 browser shutdown 另有 5000ms kill deadline。
+
+- Hosted 瀏覽器模式對照：診斷 run `37450453898` 的 managed headless shell 在 document 可見時 RAF 停在 46 幀，但每兩秒 JS timer 持續執行，各 process CPU 約 0–0.6%；因此先前「主執行緒被占滿」推測不成立。native samples 顯示 browser／renderer 等待訊息、GPU main 等待 sleep，stripped symbols 不足以定位 Chromium 內部缺陷。run `37450671662` 僅改用同一 Playwright pin 的 `channel: chromium`（full Chromium new headless），同負載 default／auto／WebGPU／WebGL2／Canvas2D rejection 共 5 cases、兩個 catalogue、native screenshots 與 cleanup 全部 PASS。正式 site smoke 採該 managed channel 並記錄實際 child executable；不使用使用者 Chrome、不改 GPU flags、不跳案例、不宣稱 headless shell 的內部缺陷已修好。
+
+- 最終本機 smoke（撤除自動 pause、new headless／owned process 清理整合後）：`build:site` 後 world-nature 五個 deployment cases、兩個 catalogue、links 與 native screenshots PASS（`.vite/site-new-headless-smoke/run-767Hb0/results.json`）。同版本真 Chromium `SIGSTOP` 故障注入於 4000ms deadline 觸發，6523ms 完成 FAIL／exit 1、coverage 1/5、owned child SIGKILL；不把預期失敗記成正常通過。診斷 branch 僅保留調查紀錄，未合併診斷 workflow／frame logging 到 main。
+
+- 視覺限制：本機最終 auto screenshot 的文字與地形／水面／草／trail 正常可見；hosted 診斷 new-headless auto screenshot 的 native canvas 可見，但頁面 DOM 文字有破碎 rasterization。自動 smoke 的 PASS 僅涵蓋既有 DOM／pixel／cleanup 契約，不能延伸成 hosted 全頁文字視覺品質認證。
