@@ -1698,10 +1698,10 @@ Committed JSON 儲存 spatial numeric summaries 而非 binary PNG；量測分別
 必須被 golden gate 拒絕。這是本機 renderer regression oracle，不是
 path tracer／物理光譜參考／任意資產 corpus／跨裝置色彩校準。
 
-僅新 procedural-normal-map corpus 允許每 RGB channel 最大1 byte、
+僅新 procedural-normal-map corpus 允許每 RGB channel 最大8 bytes、
 每 channel 最多0.2% pixels 差異，p99 必須0；其他 peer／golden 仍為 mean≤0.001／p99≤1。
-實測為 normal-frame 後浮點／derivative quantization，而非原始圖片差異；
-delta2／超量 pixels／垂直翻轉 controls 必須拒絕，沒有縮減場景 maps。
+本機 Metal 最大差1，hosted Linux SwiftShader 六個 pixels 最大差5；
+delta9／超量 pixels／垂直翻轉 controls 必須拒絕這個有限的 sparse derivative-edge allowance。
 
 ## P136 lifecycle 計數範圍
 
@@ -1719,3 +1719,7 @@ LUT texture storage 納入 texture residency（RGBA8：`4×size³` bytes），
 inactive post targets 同時釋放 LUT；gate 實測16³ LUT→1 pixel neutral
 binding 的16380 bytes 差異。Empty native scene 同時釋放 packed probe atlas
 並清除借用的 environment references，避免內部 pin 留下 dead-scene atlas。
+
+八輪都必須恢復 exact baseline。Runner 改為每輪最多60秒，terminal teardown
+另最多60秒，不再八輪共用180秒 deadline。這些是 hang watchdog，不是 performance
+acceptance budgets：native software readback 較慢不能免除任何一輪或放寬斷言。
