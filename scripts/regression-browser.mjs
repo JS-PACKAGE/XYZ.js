@@ -429,6 +429,13 @@ try {
         .click();
       await page.locator('#finish').click();
       await awaitState('passed');
+      if (backend !== 'canvas2d') {
+        await page.goto(
+          `http://127.0.0.1:${port}/tests/browser/contact-shadows.html?renderer=${backend}`,
+          { waitUntil: 'domcontentloaded' },
+        );
+        await awaitState('passed');
+      }
       await page.goto(
         `http://127.0.0.1:${port}/tests/browser/graphics-quality.html?renderer=${backend}`,
         { waitUntil: 'domcontentloaded' },
@@ -449,6 +456,20 @@ try {
         { waitUntil: 'domcontentloaded' },
       );
       await awaitState('passed');
+      if (backend !== 'canvas2d') {
+        await page.goto(
+          `http://127.0.0.1:${port}/tests/browser/planar-reflection.html?renderer=${backend}`,
+          { waitUntil: 'domcontentloaded' },
+        );
+        await awaitState('passed');
+      }
+      if (backend !== 'canvas2d') {
+        await page.goto(
+          `http://127.0.0.1:${port}/tests/browser/baked-lighting.html?renderer=${backend}`,
+          { waitUntil: 'domcontentloaded' },
+        );
+        await awaitState('passed');
+      }
       await page.goto(
         `http://127.0.0.1:${port}/tests/browser/post-effects.html?renderer=${backend}`,
         { waitUntil: 'domcontentloaded' },

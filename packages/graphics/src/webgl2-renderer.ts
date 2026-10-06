@@ -1,3 +1,4 @@
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import { WebGL2RenderGraph } from './webgl2-render-graph.js';
 import type {
   RenderGraph,
@@ -168,6 +169,9 @@ import { writeVolumetricUniforms } from './volumetric-post.js';
 import { getPostEffects } from '../../core/src/post-effects.js';
 import { writeMotionBlurUniforms } from './motion-blur-post.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
+import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
+import { encodePlanarReflection } from './planar-reflection-capture.js';
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
   resource: WebGLTexture;
@@ -188,6 +192,8 @@ precision highp float;
 in vec3 vColor;
 out vec4 color;
 void main() { color = vec4(vColor, 1.0); }`;
+
+import { ContactShadows } from '../../core/src/contact-shadows.js';
 
 const meshUniformNames = [
   'viewProjection',
@@ -236,10 +242,16 @@ const meshUniformNames = [
   'opticalMaps',
   'opaqueScene',
   'shadowMap',
+  'contactDimensions',
+  'contactParams',
+  'contactStrength',
+  'contactInvViewProjection',
   'oitPass',
   'environment[0]',
   'environmentMap',
   'probeData[0]',
+  'bakedSH[0]',
+  'bakedParams',
   'fog[0]',
   'meshFade',
   'tangentTexCoord',
@@ -535,6 +547,131 @@ export class WebGL2Renderer implements Renderer {
       gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!);
     }
   }
+  async capturePlanarReflection(
+    scene: Scene,
+    reflection: PlanarReflection,
+  ): Promise<void> {
+    const gl = this.requireGL();
+    if (this.capturingProbe)
+      throw new GraphicsError('A reflection capture is already active.');
+    if (this.activeFrame && this.frameRendered)
+      throw new GraphicsError(
+        'Capture must precede rendering or follow endFrame.',
+      );
+    if (!reflection.beginCapture(scene.presentationTime)) return;
+    const size = reflection.size;
+    const framebuffer = gl.getParameter(
+      gl.FRAMEBUFFER_BINDING,
+    ) as WebGLFramebuffer | null;
+    const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+    const originalTarget = this.postTarget,
+      originalRefraction = this.refractionTarget;
+    const originalLinear = this.linear3D,
+      originalTransmission = this.hasTransmission;
+    const originalWeighted = this.weighted,
+      originalCoverage = this.coverageActive;
+    let target: RenderTarget | undefined;
+    let hdr = false;
+    this.capturingProbe = true;
+    try {
+      this.postTarget = undefined;
+      this.refractionTarget = undefined;
+      encodePlanarReflection(scene, reflection, () => {
+        this.collectMeshes(scene, 1, size);
+        // Match ordinary native presentation without a needless half-float round trip.
+        hdr = this.hasTransmission || this.weighted;
+        if (hdr && !this.floatColorBuffer)
+          throw new GraphicsError(
+            'Planar transmission/weighted capture requires EXT_color_buffer_float.',
+          );
+        target = this.createTarget(
+          size,
+          size,
+          false,
+          hdr ? 'hdr' : 'rgba8',
+          'texture',
+        );
+        this.postTarget = target;
+        this.linear3D = hdr;
+        scene.lightSelection.update(scene);
+        this.atlas.update(scene, 1);
+        gl.bindBuffer(gl.UNIFORM_BUFFER, this.shadowBuffer!);
+        gl.bufferSubData(gl.UNIFORM_BUFFER, 0, this.atlas.data);
+        if (scene.shadows.enabled) this.drawShadows(scene);
+        if (this.hasTransmission) this.prepareRefractionTarget(size, size);
+        if (this.weighted) this.prepareOIT(size, size);
+        gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+        gl.disable(gl.SCISSOR_TEST);
+        gl.viewport(0, 0, size, size);
+        gl.clearColor(0, 0, 0, 1);
+        gl.depthMask(true);
+        gl.clearDepth(1);
+        if (!this.coverageActive)
+          gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+        this.drawMeshes(scene, 1);
+      });
+      if (!target)
+        throw new GraphicsError(
+          'Planar reflection did not encode a scene target.',
+        );
+      gl.bindFramebuffer(gl.FRAMEBUFFER, target.framebuffer);
+      const type = hdr
+        ? (gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_TYPE) as number)
+        : gl.UNSIGNED_BYTE;
+      const format = hdr
+        ? (gl.getParameter(gl.IMPLEMENTATION_COLOR_READ_FORMAT) as number)
+        : gl.RGBA;
+      if (
+        format !== gl.RGBA ||
+        (hdr && type !== gl.FLOAT && type !== gl.HALF_FLOAT)
+      )
+        throw new GraphicsError(
+          'Native planar reflection readback is unsupported by this context.',
+        );
+      const raw = !hdr
+        ? new Uint8Array(size * size * 4)
+        : type === gl.FLOAT
+          ? new Float32Array(size * size * 4)
+          : new Uint16Array(size * size * 4);
+      gl.readPixels(0, 0, size, size, gl.RGBA, type, raw);
+      this.requireGL();
+      const pixels = new Uint8ClampedArray(raw.length);
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size * 4; x++) {
+          let value = raw[(size - y - 1) * size * 4 + x]!;
+          if (hdr) {
+            value = type === gl.FLOAT ? value : halfFloat(value);
+            value = Math.max(0, value);
+            if (x % 4 !== 3)
+              value =
+                value <= 0.0031308
+                  ? value * 12.92
+                  : 1.055 * value ** (1 / 2.4) - 0.055;
+            value *= 255;
+          }
+          pixels[y * size * 4 + x] = value;
+        }
+      }
+      reflection.adoptPixels(pixels);
+    } finally {
+      if (target) this.deleteTarget(target);
+      if (this.refractionTarget && this.refractionTarget !== originalRefraction)
+        this.deleteTarget(this.refractionTarget);
+      this.postTarget = originalTarget;
+      this.refractionTarget = originalRefraction;
+      this.linear3D = originalLinear;
+      this.hasTransmission = originalTransmission;
+      this.weighted = originalWeighted;
+      this.coverageActive = originalCoverage;
+      this.capturingProbe = false;
+      this.occlusion?.clear();
+      gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+      gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!);
+      reflection.endCapture();
+    }
+  }
   configureResidency(options: ResidencyBudgetOptions): void {
     if (this.activeFrame)
       throw new GraphicsError(
@@ -703,9 +840,16 @@ export class WebGL2Renderer implements Renderer {
     {};
   private readonly postUniforms: Record<string, WebGLUniformLocation | null> =
     {};
+  private gradingTexture: WebGLTexture | undefined;
+  private gradingLUT: object | undefined | null = null;
+  private readonly volumetricData = new Float32Array(16);
+  private readonly motionData = new Float32Array(20);
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   private readonly tintData = new Float32Array(4);
   private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
+  private readonly bakedData = new Float32Array(40);
+  private readonly bakedSH = this.bakedData.subarray(0, 36);
+  private readonly bakedParams = this.bakedData.subarray(36);
   private readonly meshInstances = new Map<InstancedMesh, CachedInstances>();
   private readonly visibleMeshInstances = new Map<
     InstancedMesh,
@@ -713,10 +857,6 @@ export class WebGL2Renderer implements Renderer {
   >();
   private readonly meshSkins = new Map<SkinnedMesh, CachedSkin>();
   private readonly samplers = new Map<string, WebGLSampler>();
-  private gradingTexture: WebGLTexture | undefined;
-  private gradingLUT: object | undefined | null = null;
-  private readonly volumetricData = new Float32Array(16);
-  private readonly motionData = new Float32Array(20);
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private readonly shadowCache = new ShadowCache();
@@ -746,6 +886,10 @@ export class WebGL2Renderer implements Renderer {
   private oitRevealage: RenderTarget | undefined;
   private oitProgram: WebGLProgram | undefined;
   private shadowTarget: RenderTarget | undefined;
+  private contactTarget: RenderTarget | undefined;
+  private contactWidth = 0;
+  private contactHeight = 0;
+  private contactOffset = 0;
   private postTarget: RenderTarget | undefined;
   private coverageTarget: MultisampleTarget | undefined;
   private coverageActive = false;
@@ -1398,6 +1542,69 @@ export class WebGL2Renderer implements Renderer {
     this.gpuTimer?.begin(this.stats.frame);
   }
 
+  async initializeXR(): Promise<XRRendererBinding> {
+    const context = this.requireGL();
+    const xrContext = context as WebGL2RenderingContext & {
+      makeXRCompatible?: () => Promise<void>;
+    };
+    if (!xrContext.makeXRCompatible)
+      throw new GraphicsError(
+        'This WebGL2 context does not support makeXRCompatible.',
+      );
+    await xrContext.makeXRCompatible();
+    return { backend: 'webgl2', context };
+  }
+
+  renderXRView(scene: Scene, destination: XRRenderTarget): void {
+    if (destination.backend !== 'webgl2')
+      throw new GraphicsError('WebGL2 requires an XRWebGLLayer framebuffer.');
+    const gl = this.requireGL();
+    const canvas = this.canvas!;
+    if (
+      this.frameTarget &&
+      (this.frameTarget.width !== canvas.width ||
+        this.frameTarget.height !== canvas.height)
+    ) {
+      this.deleteTarget(this.frameTarget);
+      this.frameTarget = undefined;
+    }
+    const target = (this.frameTarget ??= this.createTarget(
+      canvas.width,
+      canvas.height,
+      false,
+      'rgba8',
+    ));
+    try {
+      this.beginFrame();
+      this.renderFrame(
+        scene,
+        destination.viewport.width,
+        destination.viewport.height,
+        target,
+      );
+      this.endFrame();
+      gl.bindFramebuffer(gl.READ_FRAMEBUFFER, target.framebuffer);
+      gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, destination.framebuffer);
+      const v = destination.viewport;
+      gl.blitFramebuffer(
+        0,
+        0,
+        target.width,
+        target.height,
+        v.x,
+        v.y,
+        v.x + v.width,
+        v.y + v.height,
+        gl.COLOR_BUFFER_BIT,
+        gl.LINEAR,
+      );
+    } finally {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, null);
+      this.activeFrame = false;
+      this.frameRendered = false;
+    }
+  }
+
   render(
     scene?: Scene,
     width?: number,
@@ -1544,6 +1751,10 @@ export class WebGL2Renderer implements Renderer {
       const sceneFramebuffer = process3D
         ? this.sceneTarget!.framebuffer
         : (destination?.framebuffer ?? null);
+      if (!scene?.has3DContent && this.contactTarget) {
+        this.deleteTarget(this.contactTarget);
+        this.contactTarget = undefined;
+      }
       this.hasTransmission =
         this.linear3D =
         this.weighted =
@@ -2144,6 +2355,75 @@ export class WebGL2Renderer implements Renderer {
       this.temporal?.releaseTarget();
       this.temporalState.invalidate();
     }
+    const contactSettings = ContactShadows.get(scene);
+    if (contactSettings && contactSettings.strength > 0) {
+      contactSettings.validate();
+      const framebuffer = gl.getParameter(
+        gl.FRAMEBUFFER_BINDING,
+      ) as WebGLFramebuffer | null;
+      const viewport = gl.getParameter(gl.VIEWPORT) as Int32Array;
+      this.contactWidth = viewport[2]!;
+      this.contactHeight = viewport[3]!;
+      this.contactOffset = this.shadowTarget?.height ?? 0;
+      const targetWidth = Math.max(
+        this.contactWidth,
+        this.shadowTarget?.width ?? 0,
+      );
+      const targetHeight = this.contactHeight + this.contactOffset;
+      if (targetWidth > this.maxWidth || targetHeight > this.maxHeight)
+        throw new GraphicsError(
+          'Contact camera depth atlas exceeds WebGL2 framebuffer limits.',
+        );
+      try {
+        if (
+          !this.contactTarget ||
+          this.contactTarget.width !== targetWidth ||
+          this.contactTarget.height !== targetHeight
+        ) {
+          if (this.contactTarget) this.deleteTarget(this.contactTarget);
+          this.contactTarget = this.createTarget(
+            targetWidth,
+            targetHeight,
+            true,
+          );
+        }
+        // Unbind last frame's sampled depth before attaching it for writes.
+        gl.activeTexture(gl.TEXTURE5);
+        gl.bindSampler(5, null);
+        gl.bindTexture(gl.TEXTURE_2D, null);
+        this.drawShadows(scene, this.contactTarget);
+        if (this.shadowTarget) {
+          gl.bindFramebuffer(
+            gl.READ_FRAMEBUFFER,
+            this.shadowTarget.framebuffer,
+          );
+          gl.bindFramebuffer(
+            gl.DRAW_FRAMEBUFFER,
+            this.contactTarget.framebuffer,
+          );
+          gl.blitFramebuffer(
+            0,
+            0,
+            this.shadowTarget.width,
+            this.shadowTarget.height,
+            0,
+            0,
+            this.shadowTarget.width,
+            this.shadowTarget.height,
+            gl.DEPTH_BUFFER_BIT,
+            gl.NEAREST,
+          );
+        }
+      } finally {
+        gl.bindFramebuffer(gl.FRAMEBUFFER, framebuffer);
+        gl.viewport(viewport[0]!, viewport[1]!, viewport[2]!, viewport[3]!);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+      }
+    } else if (this.contactTarget) {
+      this.deleteTarget(this.contactTarget);
+      this.contactTarget = undefined;
+    }
     let uniforms: Record<string, WebGLUniformLocation | null>;
     const background = activeBackground(scene);
     if (background) this.drawSky(scene, aspect, background);
@@ -2157,7 +2437,10 @@ export class WebGL2Renderer implements Renderer {
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 2, this.brdfBuffer!);
     gl.activeTexture(gl.TEXTURE5);
     gl.bindSampler(5, null);
-    gl.bindTexture(gl.TEXTURE_2D, this.shadowTarget?.texture ?? null);
+    gl.bindTexture(
+      gl.TEXTURE_2D,
+      this.contactTarget?.texture ?? this.shadowTarget?.texture ?? null,
+    );
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
     gl.depthMask(true);
@@ -2240,6 +2523,9 @@ export class WebGL2Renderer implements Renderer {
           uniforms = entry.uniforms;
           gl.useProgram(entry.program);
         }
+        fillMeshIrradiance(object, this.bakedData, 0);
+        gl.uniform4fv(uniforms['bakedSH[0]'], this.bakedSH);
+        gl.uniform4fv(uniforms.bakedParams, this.bakedParams);
         fillMaterialUV(material, object.renderGeometry, this.materialUVData);
         gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
         gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
@@ -2257,6 +2543,33 @@ export class WebGL2Renderer implements Renderer {
         gl.uniform1i(uniforms.environmentMap, 6);
         gl.uniform1i(uniforms.opaqueScene, 15);
         gl.uniform1i(uniforms.opticalMaps, 14);
+        const contact = ContactShadows.get(scene);
+        gl.uniform4f(
+          uniforms.contactDimensions,
+          this.contactWidth,
+          this.contactHeight,
+          this.contactOffset,
+          0,
+        );
+        gl.uniform4f(
+          uniforms.contactParams,
+          contact?.distance ?? 0,
+          contact?.thickness ?? 0,
+          contact?.bias ?? 0,
+          contact?.steps ?? 0,
+        );
+        gl.uniform1f(uniforms.contactStrength, contact?.strength ?? 0);
+        gl.uniformMatrix4fv(
+          uniforms.contactInvViewProjection,
+          false,
+          this.invViewProjection
+            .copy(
+              this.temporalActive
+                ? this.temporalState.currentVP
+                : scene.camera3D.matrix,
+            )
+            .invert().elements,
+        );
         gl.uniform1i(uniforms.oitPass, oitPass);
         gl.uniform1f(
           uniforms.meshFade,
@@ -2322,6 +2635,11 @@ export class WebGL2Renderer implements Renderer {
           material.textureSampler,
         );
         if (pbr) {
+          // Native PBR hooks share these maps with the ordinary material path.
+          gl.uniform1i(uniforms.metallicRoughnessMap, 1);
+          gl.uniform1i(uniforms.normalMap, 2);
+          gl.uniform1i(uniforms.occlusionMap, 3);
+          gl.uniform1i(uniforms.emissiveMap, 4);
           gl.uniform4f(
             uniforms.transmission,
             material.transmission,
@@ -2983,20 +3301,24 @@ export class WebGL2Renderer implements Renderer {
     return entry;
   }
 
-  private drawShadows(scene: Scene): void {
+  private drawShadows(scene: Scene, contactTarget?: RenderTarget): void {
     const gl = this.gl!;
     const size = this.atlas.size;
-    if (size > this.maxWidth || size > this.maxHeight)
+    if (!contactTarget && (size > this.maxWidth || size > this.maxHeight))
       throw new GraphicsError(
         `WebGL2 shadow map size ${size} exceeds this device's framebuffer limit.`,
       );
-    if (!this.shadowTarget || this.shadowTarget.width !== size) {
+    if (
+      !contactTarget &&
+      (!this.shadowTarget || this.shadowTarget.width !== size)
+    ) {
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
       this.shadowTarget = undefined;
       this.shadowTarget = this.createTarget(size, size, true);
       this.shadowCache.invalidate();
     }
     if (
+      !contactTarget &&
       !this.shadowCache.needsRender(
         scene,
         this.atlas,
@@ -3010,9 +3332,12 @@ export class WebGL2Renderer implements Renderer {
       this.stats.shadowCacheHits++;
       return;
     }
-    this.stats.shadowPasses++;
+    if (!contactTarget) this.stats.shadowPasses++;
     let uniforms = this.shadowUniforms;
-    gl.bindFramebuffer(gl.FRAMEBUFFER, this.shadowTarget.framebuffer);
+    gl.bindFramebuffer(
+      gl.FRAMEBUFFER,
+      (contactTarget ?? this.shadowTarget!).framebuffer,
+    );
     gl.disable(gl.SCISSOR_TEST);
     gl.viewport(0, 0, size, size);
     gl.disable(gl.BLEND);
@@ -3024,18 +3349,36 @@ export class WebGL2Renderer implements Renderer {
     gl.useProgram(this.shadowProgram!);
     gl.enable(gl.SCISSOR_TEST);
     const tileSize = scene.shadows.mapSize;
-    for (let tile = 0; tile < this.atlas.count; tile++) {
-      const x = (tile % this.atlas.grid) * tileSize;
-      const y = Math.floor(tile / this.atlas.grid) * tileSize;
-      gl.viewport(x, y, tileSize, tileSize);
-      gl.scissor(x, y, tileSize, tileSize);
+    for (let tile = 0; tile < (contactTarget ? 1 : this.atlas.count); tile++) {
+      const x = contactTarget ? 0 : (tile % this.atlas.grid) * tileSize;
+      const y = contactTarget
+        ? this.contactOffset
+        : Math.floor(tile / this.atlas.grid) * tileSize;
+      const tileWidth = contactTarget ? this.contactWidth : tileSize;
+      const tileHeight = contactTarget ? this.contactHeight : tileSize;
+      gl.viewport(x, y, tileWidth, tileHeight);
+      gl.scissor(x, y, tileWidth, tileHeight);
       gl.uniformMatrix4fv(
         uniforms.viewProjection,
         false,
-        this.atlas.matrices[tile]!.elements,
+        (contactTarget
+          ? this.temporalActive
+            ? this.temporalState.currentVP
+            : scene.camera3D.matrix
+          : this.atlas.matrices[tile]!
+        ).elements,
       );
       gl.disable(gl.CULL_FACE);
-      for (const object of this.visibility.shadows) {
+      for (const object of contactTarget
+        ? this.visibility.color
+        : this.visibility.shadows) {
+        if (
+          contactTarget &&
+          (this.isColorBlended(object) ||
+            (object.material instanceof PBRMaterial &&
+              object.material.transmission > 0))
+        )
+          continue;
         const material = object.material;
         const pbr = material instanceof PBRMaterial;
         if (isNativeMaterial3D(material)) {
@@ -3067,7 +3410,12 @@ export class WebGL2Renderer implements Renderer {
         gl.uniformMatrix4fv(
           uniforms.viewProjection,
           false,
-          this.atlas.matrices[tile]!.elements,
+          (contactTarget
+            ? this.temporalActive
+              ? this.temporalState.currentVP
+              : scene.camera3D.matrix
+            : this.atlas.matrices[tile]!
+          ).elements,
         );
         gl.uniform1i(uniforms.image, 0);
         gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
@@ -3096,11 +3444,16 @@ export class WebGL2Renderer implements Renderer {
           material.textureSampler,
         );
         this.drawMesh(object, uniforms);
-        this.stats.shadowDrawCalls++;
+        if (contactTarget)
+          this.stats.draw(
+            object.renderGeometry.indices.length,
+            object instanceof InstancedMesh ? object.count : 1,
+          );
+        else this.stats.shadowDrawCalls++;
       }
     }
     gl.disable(gl.SCISSOR_TEST);
-    this.shadowCache.commit();
+    if (!contactTarget) this.shadowCache.commit();
   }
 
   private prepareCoverageTarget(
@@ -3564,22 +3917,51 @@ export class WebGL2Renderer implements Renderer {
       settings.bloomThreshold,
       settings.bloomRadius,
     );
-    gl.uniform1i(this.postUniforms.toneOperator, enabled ? tone === 'aces' ? 1 : tone === 'agx' ? 2 : tone === 'reinhard' ? 3 : tone === 'neutral' ? 4 : 0 : 0);
+    gl.uniform1i(
+      this.postUniforms.toneOperator,
+      enabled
+        ? tone === 'aces'
+          ? 1
+          : tone === 'agx'
+            ? 2
+            : tone === 'reinhard'
+              ? 3
+              : tone === 'neutral'
+                ? 4
+                : 0
+        : 0,
+    );
     const lut = effects?.colorGrading?.lut;
     gl.activeTexture(gl.TEXTURE2);
     gl.bindSampler(2, null);
-    if (!this.gradingTexture) this.gradingTexture = gl.createTexture() ?? undefined;
-    if (!this.gradingTexture) throw new GraphicsError('Could not allocate LUT texture.');
+    if (!this.gradingTexture)
+      this.gradingTexture = gl.createTexture() ?? undefined;
+    if (!this.gradingTexture)
+      throw new GraphicsError('Could not allocate LUT texture.');
     gl.bindTexture(gl.TEXTURE_2D, this.gradingTexture);
     if (this.gradingLUT !== lut) {
       const size = lut?.size ?? 1;
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA8, size * size, size, 0, gl.RGBA, gl.UNSIGNED_BYTE, lut?.strip ?? new Uint8Array([255,255,255,255]));
+      gl.texImage2D(
+        gl.TEXTURE_2D,
+        0,
+        gl.RGBA8,
+        size * size,
+        size,
+        0,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        lut?.strip ?? new Uint8Array([255, 255, 255, 255]),
+      );
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       this.gradingLUT = lut;
     }
     gl.uniform1i(this.postUniforms.lutImage, 2);
-    gl.uniform2f(this.postUniforms.grading, lut?.size ?? 1, enabled ? effects?.colorGrading?.strength ?? 0 : 0);
+    gl.uniform2f(
+      this.postUniforms.grading,
+      lut?.size ?? 1,
+      enabled ? (effects?.colorGrading?.strength ?? 0) : 0,
+    );
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);
@@ -3621,8 +4003,20 @@ export class WebGL2Renderer implements Renderer {
     );
     writeVolumetricUniforms(this.volumetricData, 0, scene);
     const flare = effects?.lensFlare;
-    gl.uniform4f(this.postUniforms.flare, enabled && flare?.enabled ? flare.strength : 0, flare?.threshold ?? 1, flare?.ghosts ?? 1, flare?.spacing ?? 1);
-    gl.uniform4f(this.postUniforms.halo, flare?.haloRadius ?? 0.3, flare?.haloWidth ?? 0.15, 0, 0);
+    gl.uniform4f(
+      this.postUniforms.flare,
+      enabled && flare?.enabled ? flare.strength : 0,
+      flare?.threshold ?? 1,
+      flare?.ghosts ?? 1,
+      flare?.spacing ?? 1,
+    );
+    gl.uniform4f(
+      this.postUniforms.halo,
+      flare?.haloRadius ?? 0.3,
+      flare?.haloWidth ?? 0.15,
+      0,
+      0,
+    );
     gl.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4);
     gl.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4);
     gl.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4);
@@ -4353,6 +4747,7 @@ export class WebGL2Renderer implements Renderer {
       }
       for (const sampler of this.samplers.values()) gl.deleteSampler(sampler);
       if (this.shadowTarget) this.deleteTarget(this.shadowTarget);
+      if (this.contactTarget) this.deleteTarget(this.contactTarget);
       if (this.shadowBuffer) gl.deleteBuffer(this.shadowBuffer);
       if (this.sheenBuffer) gl.deleteBuffer(this.sheenBuffer);
       if (this.brdfBuffer) gl.deleteBuffer(this.brdfBuffer);
@@ -4401,6 +4796,7 @@ export class WebGL2Renderer implements Renderer {
     this.effectTarget = undefined;
     this.sceneTarget = undefined;
     this.shadowTarget = undefined;
+    this.contactTarget = undefined;
     this.postTarget = undefined;
     this.refractionTarget = undefined;
     this.fxaaTarget = undefined;

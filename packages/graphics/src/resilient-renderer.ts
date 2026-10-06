@@ -60,6 +60,7 @@ import type {
   ReflectionProbeCaptureOptions,
 } from '../../core/src/reflection-probe.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 
 export interface ResilientRendererHooks {
   /** Called once when the GPU context/device is lost and recovery begins. */
@@ -470,6 +471,17 @@ export class ResilientRenderer implements Renderer {
         'This renderer does not support reflection capture.',
       );
     return renderer.captureReflectionProbe(scene, probe, options);
+  }
+  async capturePlanarReflection(
+    scene: Scene,
+    reflection: PlanarReflection,
+  ): Promise<void> {
+    const renderer = this.requireReady();
+    if (!renderer.capturePlanarReflection)
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support planar reflection capture.',
+      );
+    return renderer.capturePlanarReflection(scene, reflection);
   }
   async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
     const renderer = this.requireReady();

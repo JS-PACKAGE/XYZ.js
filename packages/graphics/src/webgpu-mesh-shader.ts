@@ -10,8 +10,12 @@ import { GraphicsError } from './errors.js';
 import { sheenWGSL, sheenEnvironmentWGSL } from './sheen-shaders.js';
 import { brdfWGSL } from './brdf-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
-import { reflectionProbeWGSL } from './reflection-probe-shaders.js';
+import {
+  reflectionProbeWGSL,
+  bakedIrradianceWGSL,
+} from './reflection-probe-shaders.js';
 import { oitWeightWGSL } from './oit-shaders.js';
+import { contactShadowWGSL } from './contact-shadow-shaders.js';
 import {
   omitShaderBlock,
   type MeshShaderFeatures,
@@ -35,6 +39,8 @@ struct SceneUniforms {
   envParams: vec4f,
   fogColor: vec4f,
   fogParams: vec4f,
+  contactParams: vec4f,
+  contactStrength: vec4f,
 };
 struct ProbeUniforms {
   sh: array<vec4f, 9>,
@@ -70,6 +76,8 @@ struct MeshUniforms {
   fade: vec4f,
   coordinates: array<vec4f, ${materialTextureSlots.length * 2}>,
   finish: array<vec4f, 5>,
+  bakedSH: array<vec4f, 9>,
+  bakedParams: vec4f,
 };
 @group(0) @binding(0) var<uniform> scene: SceneUniforms;
 @group(0) @binding(1) var shadowMap: texture_depth_2d;
@@ -104,10 +112,12 @@ struct MeshUniforms {
 @group(2) @binding(23) var sheenRoughnessSampler: sampler;
 @group(2) @binding(24) var opticalMaps: texture_2d_array<f32>;
 ${atlasWGSL}
+${contactShadowWGSL}
 ${sheenWGSL}
 ${brdfWGSL}
 ${transmissionWGSL}
 ${reflectionProbeWGSL}
+${bakedIrradianceWGSL}
 ${sheenEnvironmentWGSL}
 // Four-point footprint moments prevent a sampled normal gradient from aliasing to zero.
 fn filteredMaterialNormal(source: texture_2d<f32>, samp: sampler, uv: vec2f, scale: f32) -> vec4f {
@@ -300,7 +310,7 @@ fn applyFog(rgb: vec3f, opacity: f32, world: vec3f) -> vec3f {
 }
 fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let texel = xyzSurface(input.world, input.normal, input.uv, textureSample(baseMap, materialSampler, materialUV(input,0u)));
-  let visibility = directionalShadow(input.world,input.normal);
+  let visibility = directionalShadow(input.world,input.normal)*contactVisibility(input.world,input.normal);
   let sampledAlpha = texel.a * mesh.tint.a * input.color.a;
   let opacity = select(1.0,sampledAlpha,mesh.material.x < 0.5 || mesh.settings.w > 1.5);
   let direction = safeNormal(scene.lightDirection.xyz);
@@ -536,9 +546,12 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   let probeWeights = reflectionWeights(input.world);
   let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;
   var color=base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*select(max(scene.lightColorAmbient.w,0.0),0.0,useEnvironment)*occlusion;
+  if (mesh.bakedParams.x > 0.5) {
+    color=bakedIrradiance(n)*base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*occlusion;
+  }
   if (useEnvironment) {
     let radiance=reflectionRadiance(input.world,reflect(-v,reflectionNormal),rough,probeWeights);
-    let diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metal)*(1.0-transmission)*remaining;
+    let diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metal)*(1.0-transmission)*remaining*select(1.0,0.0,mesh.bakedParams.x > 0.5);
     color+=(diffuseLight+radiance*reflected)*occlusion*sheenRetention;
     if (sheenMax > 0.0) {
       let sheenRadiance=sheenEnvironment(input.world,n,v,sheenRoughness,probeWeights);
@@ -602,7 +615,10 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   color+=sheenTint*sheenLighting;
   if (mesh.maps.w > 1.5) {
     let baked = decodeSRGB(textureSample(emissiveMap, emissiveSampler, materialUV(input, 4u)).rgb);
-    color *= mix(vec3f(1.0), baked, mesh.finish[3].w);
+    color *= mix(vec3f(1.0), baked, mesh.finish[3].w*select(1.0,0.0,mesh.bakedParams.y > 0.5));
+    if (mesh.bakedParams.y > 0.5) {
+      color += baked*mesh.finish[3].w*base*(1.0-metal)*(1.0-transmission)*remaining*sheenRetention*occlusion;
+    }
   }
   color += emission;
   if(coatWeight>0.0) {color=color*(1.0-coatWeight*coatEnergy)+coating*coatWeight;}
@@ -653,6 +669,11 @@ struct SkyOutput {
 export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
   if (!features || features.native) return webgpuMeshShader;
   let source = webgpuMeshShader;
+  if (!features.contactShadows)
+    source = source
+      .replace(contactShadowWGSL, '')
+      .replace('*contactVisibility(input.world,input.normal)', '')
+      .replace('  contactParams: vec4f,\n  contactStrength: vec4f,\n', '');
   const remove = (enabled: boolean, markers: readonly string[]) => {
     if (!enabled)
       for (const marker of markers) source = omitShaderBlock(source, marker);
@@ -673,6 +694,7 @@ export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
       .replace(brdfWGSL, '')
       .replace(transmissionWGSL, '')
       .replace(reflectionProbeWGSL, '')
+      .replace(bakedIrradianceWGSL, '')
       .replace(sheenEnvironmentWGSL, '');
     remove(false, [
       'fn brdf(',
@@ -684,6 +706,12 @@ export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
     remove(false, ['if (mesh.material.x < 0.5)']);
   }
   // Preserve vertex arithmetic while specializing the fragment lighting path.
+  if (!features.bakedIrradiance) {
+    remove(false, ['if (mesh.bakedParams.x > 0.5)']);
+    source = source
+      .replace(bakedIrradianceWGSL, '')
+      .replace('*select(1.0,0.0,mesh.bakedParams.x > 0.5)', '');
+  }
   remove(features.anisotropy, [
     'if (mesh.finish[0].x > 0.0)',
     'fn anisotropicGGX(',
@@ -702,6 +730,10 @@ export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
   remove(features.dispersion, [
     'if (mesh.finish[1].z > 0.0 && thickness > 0.0)',
   ]);
+  if (!features.bakedLightmap) {
+    remove(false, ['if (mesh.bakedParams.y > 0.5)']);
+    source = source.replace('*select(1.0,0.0,mesh.bakedParams.y > 0.5)', '');
+  }
   remove(features.lightmap, ['if (mesh.maps.w > 1.5)']);
   if (!features.transmission) {
     remove(false, [

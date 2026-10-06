@@ -4,11 +4,35 @@ export * from '../packages/math/src/index.js';
 export * from '../packages/assets/src/index.js';
 export * from '../packages/input/src/index.js';
 export * from '../packages/audio/src/index.js';
-export { ColorLUT3D, ColorGradingSettings } from '../packages/core/src/color-grading.js';
+export { XRSessionManager } from '../packages/core/src/xr.js';
+export type {
+  XRSessionMode,
+  XRSessionOptions,
+  XRSessionData,
+  XRSystemData,
+  XRFrameData,
+  XRViewData,
+  XRPoseTransform,
+  XRViewport,
+  XRController,
+  XRInputSourceData,
+} from '../packages/core/src/xr.js';
+export type {
+  XRRendererBinding,
+  XRRenderTarget,
+} from '../packages/graphics/src/xr-contract.js';
+export {
+  ColorLUT3D,
+  ColorGradingSettings,
+} from '../packages/core/src/color-grading.js';
 export type { ToneMapper } from '../packages/core/src/color-grading.js';
 export { VolumetricFogSettings } from '../packages/core/src/volumetric-fog.js';
 export type { VolumetricFogOptions } from '../packages/core/src/volumetric-fog.js';
-export { PostEffectsSettings, setPostEffects, getPostEffects } from '../packages/core/src/post-effects.js';
+export {
+  PostEffectsSettings,
+  setPostEffects,
+  getPostEffects,
+} from '../packages/core/src/post-effects.js';
 export type { PostEffectsOptions } from '../packages/core/src/post-effects.js';
 export { LensFlareSettings } from '../packages/core/src/lens-flare.js';
 export type { LensFlareOptions } from '../packages/core/src/lens-flare.js';
@@ -87,3 +111,24 @@ export type {
   VegetationDensityMap,
   VegetationLODLevel,
 } from '../packages/core/src/vegetation.js';
+export { PlanarReflection } from '../packages/core/src/planar-reflection.js';
+export type { PlanarReflectionOptions } from '../packages/core/src/planar-reflection.js';
+export {
+  bakeLightmap,
+  bakeIrradianceVolume,
+  BakedIrradianceVolume,
+  bindIrradianceVolume,
+  meshIrradianceVolume,
+} from '../packages/core/src/baked-lighting.js';
+export type {
+  BakeVector,
+  LightingBakeOptions,
+  LightmapBakeOptions,
+  BakedLightmap,
+  IrradianceVolumeBakeOptions,
+} from '../packages/core/src/baked-lighting.js';
+export {
+  ContactShadows,
+  ContactShadowSettings,
+} from '../packages/core/src/contact-shadows.js';
+export type { ContactShadowOptions } from '../packages/core/src/contact-shadows.js';

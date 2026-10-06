@@ -21,8 +21,10 @@ const report = {
   renderer: preference as string,
   assertions: [] as string[],
   error: undefined as string | undefined,
-  capturePixels: undefined as { red: number; green: number; blue: number } | undefined,
-  surfacePixels: undefined as { red: number; green: number; blue: number } | undefined,
+  capturePixels: undefined as
+    { red: number; green: number; blue: number } | undefined,
+  surfacePixels: undefined as
+    { red: number; green: number; blue: number } | undefined,
 };
 function check(condition: boolean, message: string): void {
   if (!condition) throw new Error(message);
@@ -163,7 +165,10 @@ async function run(): Promise<typeof report> {
     rendered.height = proof.height;
     rendered.setAttribute('aria-label', 'Native PBR reflection readback');
     const renderedContext = rendered.getContext('2d')!;
-    const renderedImage = renderedContext.createImageData(proof.width, proof.height);
+    const renderedImage = renderedContext.createImageData(
+      proof.width,
+      proof.height,
+    );
     renderedImage.data.set(proof.bytes);
     renderedContext.putImageData(renderedImage, 0, 0);
     preview.after(rendered);

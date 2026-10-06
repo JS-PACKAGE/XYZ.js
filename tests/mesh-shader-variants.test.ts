@@ -213,8 +213,8 @@ describe('mesh shader source variants', () => {
     ]);
     const wgslFunctions = shaderFunctionDefinitions(webgpuMeshShader, 'wgsl');
     const variants = featureCombinationMatrix();
-    // Seventeen switches: endpoints, singles and pairs, in every PBR/native mode.
-    expect(variants).toHaveLength(2 * 2 * 2 * (1 + 17 + (17 * 16) / 2));
+    // Twenty switches: endpoints, singles and pairs, in every PBR/native mode.
+    expect(variants).toHaveLength(2 * 2 * 2 * (1 + 20 + (20 * 19) / 2));
     for (const features of variants) {
       const key = meshShaderVariantKey(features);
       for (const [stage, source, language, functions] of [

@@ -33,15 +33,31 @@ export class ContactShadowSettings {
   validate(): void {
     for (const name of ['distance', 'thickness', 'bias', 'strength'] as const) {
       const value = this[name];
-      if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value)) || value < 0)
-        throw new RangeError(`Contact shadow ${name} must be nonnegative and fit Float32.`);
+      if (
+        !Number.isFinite(value) ||
+        !Number.isFinite(Math.fround(value)) ||
+        value < 0
+      )
+        throw new RangeError(
+          `Contact shadow ${name} must be nonnegative and fit Float32.`,
+        );
     }
     if (this.distance === 0 || this.thickness === 0)
-      throw new RangeError('Contact shadow distance and thickness must be positive.');
+      throw new RangeError(
+        'Contact shadow distance and thickness must be positive.',
+      );
     if (this.strength > 1)
-      throw new RangeError('Contact shadow strength must be between zero and one.');
-    if (!Number.isInteger(this.steps) || this.steps < 1 || this.steps > defaults.maxSteps)
-      throw new RangeError(`Contact shadow steps must be an integer from 1 to ${defaults.maxSteps}.`);
+      throw new RangeError(
+        'Contact shadow strength must be between zero and one.',
+      );
+    if (
+      !Number.isInteger(this.steps) ||
+      this.steps < 1 ||
+      this.steps > defaults.maxSteps
+    )
+      throw new RangeError(
+        `Contact shadow steps must be an integer from 1 to ${defaults.maxSteps}.`,
+      );
   }
 }
 

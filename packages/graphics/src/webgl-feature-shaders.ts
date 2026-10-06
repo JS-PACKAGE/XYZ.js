@@ -17,8 +17,12 @@ import { motionBlurGLSL } from './motion-blur-post.js';
 import { sheenGLSL, sheenEnvironmentGLSL } from './sheen-shaders.js';
 import { brdfGLSL } from './brdf-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
-import { reflectionProbeGLSL } from './reflection-probe-shaders.js';
+import {
+  reflectionProbeGLSL,
+  bakedIrradianceGLSL,
+} from './reflection-probe-shaders.js';
 import { oitWeightGLSL } from './oit-shaders.js';
+import { contactShadowGLSL } from './contact-shadow-shaders.js';
 import {
   omitShaderBlock,
   type MeshShaderFeatures,
@@ -174,6 +178,7 @@ uniform vec4 finish1; // film, subsurface, dispersion, height scale
 uniform vec4 finish2; // wetness, snow, dirt, damage
 uniform vec4 finish3; // detail, triplanar, layer blend, lightmap strength
 uniform vec4 finish4; // subsurface color, diffusion radius
+uniform vec4 bakedParams; // probe enabled, generated irradiance lightmap, unused, unused
 uniform vec4 emission; // emissive RGB, alphaCutoff
 uniform ivec4 maps; // metallicRoughness, normal, occlusion, emissive
 uniform bool pbr;
@@ -197,6 +202,7 @@ vec4 xyzSurface(vec3 world, vec3 normal, vec2 uv, vec4 texel) { return texel; }
 XYZPhysical xyzPhysical(vec3 world, vec3 normal, vec2 uv, XYZPhysical surface) { return surface; }
 /* XYZ_PHYSICAL_DEFAULT_END */
 ${materialUVGLSL}
+${contactShadowGLSL}
 mat3 materialNormalFrame(vec3 n, int slot) {
   vec3 rawTangent = vTangent.xyz - n*dot(n,vTangent.xyz);
   float tangentLength = length(rawTangent);
@@ -228,6 +234,7 @@ ${transmissionGLSL}
 ${sheenGLSL}
 ${brdfGLSL}
 ${reflectionProbeGLSL}
+${bakedIrradianceGLSL}
 ${sheenEnvironmentGLSL}
 ${oitWeightGLSL}
 vec3 decodeSRGB(vec3 c) {
@@ -342,7 +349,7 @@ void shadeMesh() {
     } else sampled = texture(clearcoatNormalMap,uv).xyz*2.0-1.0;
     nc = normalize(materialNormalFrame(nc,9)*vec3(sampled.xy*clearcoat.z,sampled.z));
   }
-  float visibility = directionalShadow();
+  float visibility = directionalShadow()*contactVisibility(vPosition,vNormal);
   vec3 direction = lighting[0].xyz;
   vec3 l = direction / max(length(direction), .000001);
   vec3 result;
@@ -462,9 +469,12 @@ void shadeMesh() {
     vec4 probeWeights = reflectionWeights(vPosition);
     bool useEnvironment = environment[9].y > .5 || dot(probeWeights,vec4(1.0)) > 0.0;
     result=max(lighting[1].w,0.0)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*sheenRetention*ao*(useEnvironment?0.0:1.0);
+    if (bakedParams.x > .5) {
+      result=bakedIrradiance(n)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*sheenRetention*ao;
+    }
     if(useEnvironment) {
       vec3 radiance=reflectionRadiance(vPosition,reflect(-v,reflectionNormal),roughness,probeWeights);
-      vec3 diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining;
+      vec3 diffuseLight=reflectionIrradiance(n,probeWeights)*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*(bakedParams.x > .5 ? 0.0 : 1.0);
       result+=(diffuseLight+radiance*reflected)*ao*sheenRetention;
       if (sheenMax > 0.0) {
         vec3 sheenRadiance=sheenEnvironment(vPosition,n,v,sheenRoughness,probeWeights);
@@ -534,7 +544,10 @@ void shadeMesh() {
     result+=sheenTint*sheenLighting;
     if (maps.w == 2) {
       vec3 baked = decodeSRGB(texture(emissiveMap, materialUV(4)).rgb);
-      result *= mix(vec3(1.0), baked, finish3.w);
+      result *= mix(vec3(1.0), baked, finish3.w*(bakedParams.y > .5 ? 0.0 : 1.0));
+      if (bakedParams.y > .5) {
+        result += baked*finish3.w*base*(1.0-metallic)*(1.0-transmissionWeight)*remaining*sheenRetention*ao;
+      }
     }
     result += emitted;
     if(coatWeight>0.0) result=result*(1.0-coatWeight*coatEnergy)+coating*coatWeight;
@@ -578,6 +591,10 @@ export function buildMeshVertex(): string {
 export function buildMeshFragment(features?: MeshShaderFeatures): string {
   if (!features || features.native) return meshFragment;
   let source = meshFragment;
+  if (!features.contactShadows)
+    source = source
+      .replace(contactShadowGLSL, '')
+      .replace('*contactVisibility(vPosition,vNormal)', '');
   const remove = (enabled: boolean, markers: readonly string[]) => {
     if (!enabled)
       for (const marker of markers) source = omitShaderBlock(source, marker);
@@ -611,6 +628,7 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
       .replace(sheenGLSL, '')
       .replace(brdfGLSL, '')
       .replace(reflectionProbeGLSL, '')
+      .replace(bakedIrradianceGLSL, '')
       .replace(sheenEnvironmentGLSL, '')
       .replace(
         'struct XYZPhysical { vec3 base; float metallic; float roughness; float occlusion; vec3 emission; };',
@@ -632,6 +650,12 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
       );
     return source;
   }
+  if (!features.bakedIrradiance) {
+    remove(false, ['if (bakedParams.x > .5)']);
+    source = source
+      .replace(bakedIrradianceGLSL, '')
+      .replace('*(bakedParams.x > .5 ? 0.0 : 1.0)', '');
+  }
   remove(features.anisotropy, [
     'if (finish0.x > 0.0)',
     'float anisotropicGGX(',
@@ -648,6 +672,10 @@ export function buildMeshFragment(features?: MeshShaderFeatures): string {
     'if (finish2.x + finish2.y + finish2.z + finish2.w > 0.0)',
   ]);
   remove(features.dispersion, ['if (finish1.z > 0.0 && thickness > 0.0)']);
+  if (!features.bakedLightmap) {
+    remove(false, ['if (bakedParams.y > .5)']);
+    source = source.replace('*(bakedParams.y > .5 ? 0.0 : 1.0)', '');
+  }
   remove(features.lightmap, ['if (maps.w == 2)']);
   if (!features.transmission) {
     remove(false, [

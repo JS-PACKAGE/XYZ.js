@@ -1,4 +1,5 @@
 import type { Scene } from '../../core/src/scene.js';
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import { logger } from '../../core/src/logger.js';
 import {
   GraphicsBackendUnavailableError,
@@ -12,6 +13,7 @@ import type {
 } from '../../core/src/materials2d/index.js';
 import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -162,6 +164,9 @@ export interface Renderer {
   ): Promise<PreparedResourceLease>;
   retainFrameResources(): PreparedResourceLease;
   initialize(canvas: HTMLCanvasElement): Promise<void>;
+  /** Optional immersive presentation extension; Canvas2D does not implement it. */
+  initializeXR?(): Promise<XRRendererBinding>;
+  renderXRView?(scene: Scene, target: XRRenderTarget): void;
   beginFrame(): void;
   render(
     scene?: Scene,
@@ -200,6 +205,11 @@ export interface Renderer {
   prepareRenderGraph?(
     graph: RenderGraph,
     options?: RenderGraphPreparationOptions,
+  ): Promise<void>;
+  /** Native mirrored single-view scene capture; unavailable on Canvas2D. */
+  capturePlanarReflection?(
+    scene: Scene,
+    reflection: PlanarReflection,
   ): Promise<void>;
   captureReflectionProbe?(
     scene: Scene,

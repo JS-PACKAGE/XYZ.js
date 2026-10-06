@@ -1,6 +1,23 @@
 export const MAX_POINT_LIGHTS = 32;
 export const MAX_SPOT_LIGHTS = 32;
 
+/** CPU static-lighting work/storage quotas; caller requests can only lower hard caps. */
+export const bakedLightingLimits = Object.freeze({
+  size: 128,
+  maxSize: 1024,
+  padding: 2,
+  maxPadding: 16,
+  samples: 32,
+  maxSamples: 512,
+  maxTriangles: 65536,
+  maxRays: 8000000,
+  maxLights: 256,
+  bias: 0.001,
+  aoDistance: 2,
+  resolution: [4, 4, 4] as const,
+  maxProbes: 4096,
+});
+
 /** Fixed native shader ABI and bounded authored source size. */
 export const nativeMaterial3DLimits = Object.freeze({
   uniformFloats: 64,
@@ -133,16 +150,6 @@ export const transmissionBlurFraction = 0.04;
 export const decalNormalOffset = 0.001;
 
 /** Bounded temporal/ray-march work and dynamic capture memory. */
-export const volumetricPostDefaults = Object.freeze({
-  density: 0.025,
-  heightFalloff: 0.15,
-  maxDistance: 200,
-  shaftStrength: 0.25,
-  fogSamples: 16,
-  shaftSamples: 32,
-  maximumSamples: 64,
-});
-
 export const advancedPostDefaults = Object.freeze({
   taaHistoryWeight: 0.9,
   taaDepthThreshold: 0.01,
@@ -165,6 +172,25 @@ export const reflectionCaptureLimits = Object.freeze({
 export const meshShaderVariantLimits = Object.freeze({
   maxEntries: 64,
   plainFragmentMaxBytes: 40000,
+});
+
+/** Bound single-view scene readback and automatic caller-driven update pacing. */
+export const planarReflectionLimits = Object.freeze({
+  size: 128,
+  maximumSize: 512,
+  interval: 0.1,
+  minimumInterval: 1 / 120,
+  clipBias: 0.001,
+});
+
+export const volumetricPostDefaults = Object.freeze({
+  density: 0.025,
+  heightFalloff: 0.15,
+  maxDistance: 200,
+  shaftStrength: 0.25,
+  fogSamples: 16,
+  shaftSamples: 32,
+  maximumSamples: 64,
 });
 
 export const lensFlareDefaults = Object.freeze({

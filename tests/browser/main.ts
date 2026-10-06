@@ -19,6 +19,7 @@ import {
   type SpriteOptions,
 } from '../../src/index.js';
 import { errorDetail, frameProofs, type FrameProofs } from './frame-proof.js';
+import { probeXR } from './xr.js';
 
 const params = new URLSearchParams(location.search);
 const renderer = params.get('renderer') as RendererPreference;
@@ -159,6 +160,14 @@ try {
   });
   report.graphicsEvents = capturedFrames.graphicsEvents;
   const runtime = game;
+  const xrSurface = await probeXR(runtime);
+  report.scenarios.push({
+    name: 'webxr-api-surface',
+    assertions: [
+      `navigator.xr=${xrSurface.navigatorXR}; immersive-vr=${xrSurface.immersiveVRSupported}; XRGPUBinding=${xrSurface.xrGpuBinding}`,
+    ],
+    skip: xrSurface.immersiveRuntime,
+  });
   runtime.addEventListener('error', (event) =>
     fail((event as CustomEvent<Error>).detail),
   );

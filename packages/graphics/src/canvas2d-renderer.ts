@@ -1,5 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { Mesh } from '../../core/src/mesh.js';
+import { ContactShadows } from '../../core/src/contact-shadows.js';
 import type {
   Material2D,
   PostProcessor2D,
@@ -404,6 +405,10 @@ export class Canvas2DRenderer implements Renderer {
     if (!this.frameActive || this.frameRendered)
       throw new GraphicsError(
         'Canvas2D render requires an active frame and may be called only once per frame.',
+      );
+    if (scene && ContactShadows.get(scene))
+      throw new GraphicsError(
+        'Canvas2D does not support screen-space contact shadows.',
       );
     if (scene?.postProcessing.enabled)
       throw new GraphicsError('Canvas2D does not support 3D postprocessing.');

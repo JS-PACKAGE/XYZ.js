@@ -1,3 +1,4 @@
+import type { XRRendererBinding, XRRenderTarget } from './xr-contract.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import {
   NativeMaterial3D,
@@ -73,6 +74,7 @@ import type {
   ReflectionProbeCaptureOptions,
 } from '../../core/src/reflection-probe.js';
 import type { EnvironmentMap } from '../../core/src/environment.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import { ProbeCaptureScheduler } from './reflection-capture.js';
 import { WebGPUCompute } from './webgpu-compute.js';
 import { WebGPURenderGraph } from './webgpu-render-graph.js';
@@ -175,6 +177,23 @@ export class WebGPURenderer implements Renderer {
   ): Promise<void> {
     this.requireDevice();
     return this.graphs!.prepare(graph, options);
+  }
+  async capturePlanarReflection(
+    scene: Scene,
+    reflection: PlanarReflection,
+  ): Promise<void> {
+    this.requireDevice();
+    if (this.probeCaptureActive || this.encoder)
+      throw new GraphicsError(
+        'Planar capture requires an idle renderer and capture slot.',
+      );
+    this.probeCaptureActive = true;
+    try {
+      await this.meshPipeline!.capturePlanarReflection(scene, reflection);
+      this.requireDevice();
+    } finally {
+      this.probeCaptureActive = false;
+    }
   }
   async captureReflectionProbe(
     scene: Scene,
@@ -310,6 +329,7 @@ export class WebGPURenderer implements Renderer {
   private render2D: WebGPURender2D | undefined;
   private effectsPipeline: WebGPU2DEffects | undefined;
   private captureOutput: GPUColorTarget | undefined;
+  private xrOutput: GPUColorTarget | undefined;
   private meshPipeline: WebGPUMeshPipeline | undefined;
   private readonly commands = new RenderCommandBuffer2D();
   private readonly textures = new Map<
@@ -699,6 +719,53 @@ export class WebGPURenderer implements Renderer {
     this.frameRendered = false;
   }
 
+  async initializeXR(): Promise<XRRendererBinding> {
+    return {
+      backend: 'webgpu',
+      device: this.requireDevice(),
+      format: navigator.gpu.getPreferredCanvasFormat(),
+    };
+  }
+
+  renderXRView(scene: Scene, destination: XRRenderTarget): void {
+    if (destination.backend !== 'webgpu')
+      throw new GraphicsError('WebGPU requires an XRGPUBinding subimage.');
+    this.requireDevice();
+    const canvas = this.canvas!;
+    const width = canvas.width,
+      height = canvas.height;
+    const v = destination.viewport;
+    if (
+      this.xrOutput &&
+      (this.xrOutput.width !== v.width || this.xrOutput.height !== v.height)
+    ) {
+      this.effectsPipeline!.destroyTexture(this.xrOutput.texture);
+      this.xrOutput = undefined;
+    }
+    this.xrOutput ??= this.effectsPipeline!.target(v.width, v.height);
+    this.captureOutput = this.xrOutput;
+    // Existing native passes size their depth/intermediate targets from the canvas.
+    canvas.width = v.width;
+    canvas.height = v.height;
+    try {
+      this.beginFrame();
+      this.render(scene, v.width, v.height);
+      this.encoder!.copyTextureToTexture(
+        { texture: this.xrOutput.texture },
+        {
+          texture: destination.texture,
+          origin: { x: v.x, y: v.y, z: destination.imageIndex },
+        },
+        { width: v.width, height: v.height, depthOrArrayLayers: 1 },
+      );
+      this.endFrame();
+    } finally {
+      this.captureOutput = undefined;
+      canvas.width = width;
+      canvas.height = height;
+    }
+  }
+
   render(
     scene?: Scene,
     width?: number,
@@ -1059,6 +1126,7 @@ export class WebGPURenderer implements Renderer {
     this.render2D?.destroy();
     this.render2D = undefined;
     this.captureOutput = undefined;
+    this.xrOutput = undefined;
     this.meshPipeline?.destroy();
     this.meshPipeline = undefined;
     this.commands.destroy();

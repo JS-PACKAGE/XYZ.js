@@ -1,4 +1,5 @@
 import { defaults } from '../../../src/data/defaults.js';
+import { requestGameFrame, xrLoops } from './xr-loop.js';
 import {
   AssetLoader,
   ResourcePool,
@@ -627,7 +628,8 @@ export class Game extends EventTarget {
     this.clock.suspend();
     this.graphics.profiler?.suspend();
     this.input.reset();
-    if (!document.hidden) this.requestId = requestAnimationFrame(this.onFrame);
+    if (!document.hidden || xrLoops.has(this))
+      this.requestId = requestGameFrame(this, this.onFrame);
   }
 
   /** Prepare/capture before publication; only the published Scene participates in simulation. */
@@ -931,6 +933,7 @@ export class Game extends EventTarget {
     if (this.currentState === 'destroyed') return;
     this.pause();
     this.currentState = 'destroyed';
+    xrLoops.get(this)?.destroy();
     this.sceneVersion++;
     this.contentLifetime?.abort(
       new RuntimeError('Game content owner was destroyed.'),
@@ -1176,13 +1179,17 @@ export class Game extends EventTarget {
     if (this.requestId !== undefined) cancelAnimationFrame(this.requestId);
     this.requestId = undefined;
     if (!document.hidden && this.currentState === 'running') {
-      this.requestId = requestAnimationFrame(this.onFrame);
+      this.requestId = requestGameFrame(this, this.onFrame);
     }
   };
 
   private readonly onFrame = (timestamp: number): void => {
     this.requestId = undefined;
-    if (this.currentState !== 'running' || document.hidden) return;
+    if (
+      this.currentState !== 'running' ||
+      (document.hidden && !xrLoops.has(this))
+    )
+      return;
     const profiler = this.graphics.profiler;
     profiler?.beginFrame(timestamp);
     const frameWork = this.frameWorkCounter.enabled
@@ -1258,14 +1265,18 @@ export class Game extends EventTarget {
       if (frameWork) workStartedAt = performance.now();
       presentedScene?.beginPresentation();
       try {
-        this.graphics.beginFrame();
-        this.graphics.render(
-          presentedScene,
-          this.logicalWidth,
-          this.logicalHeight,
-          this.frameEffects,
-        );
-        this.graphics.endFrame();
+        const xr = xrLoops.get(this);
+        if (xr) xr.render(presentedScene);
+        else {
+          this.graphics.beginFrame();
+          this.graphics.render(
+            presentedScene,
+            this.logicalWidth,
+            this.logicalHeight,
+            this.frameEffects,
+          );
+          this.graphics.endFrame();
+        }
       } finally {
         presentedScene?.endPresentation();
       }
@@ -1287,7 +1298,7 @@ export class Game extends EventTarget {
       profiler?.endFrame();
     }
     if (this.currentState === 'running')
-      this.requestId = requestAnimationFrame(this.onFrame);
+      this.requestId = requestGameFrame(this, this.onFrame);
   };
 
   private fail(error: Error): void {

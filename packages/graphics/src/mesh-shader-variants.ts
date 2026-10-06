@@ -4,6 +4,11 @@ import type { Mesh } from '../../core/src/mesh.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { TextureMaterial } from '../../core/src/mesh.js';
 import { SkinnedMesh } from '../../core/src/skinned-mesh.js';
+import {
+  meshIrradianceVolume,
+  isBakedLightmap,
+} from '../../core/src/baked-lighting.js';
+import { ContactShadows } from '../../core/src/contact-shadows.js';
 
 /** Internal compile-time switches; uniforms and published material shapes stay unchanged. */
 export interface MeshShaderFeatures {
@@ -20,10 +25,13 @@ export interface MeshShaderFeatures {
   detail: boolean;
   triplanar: boolean;
   lightmap: boolean;
+  bakedIrradiance: boolean;
+  bakedLightmap: boolean;
   skinned: boolean;
   instanced: boolean;
   morph: boolean;
   shadows: boolean;
+  contactShadows: boolean;
   environment: boolean;
   native: boolean;
 }
@@ -51,10 +59,13 @@ export function meshShaderFeatures(
     detail: (finish?.detailStrength ?? 0) > 0,
     triplanar: (finish?.triplanar ?? 0) > 0,
     lightmap: !!pbr?.lightmap,
+    bakedIrradiance: !!pbr && !!mesh && !!meshIrradianceVolume(mesh),
+    bakedLightmap: !!pbr?.lightmap && isBakedLightmap(pbr.lightmap),
     skinned: mesh instanceof SkinnedMesh,
     instanced: !!mesh && 'count' in mesh,
     morph: !!mesh?.morph,
     shadows: scene ? scene.shadows.enabled : true,
+    contactShadows: !!scene && (ContactShadows.get(scene)?.strength ?? 0) > 0,
     environment: scene
       ? !!scene.environment || scene.reflectionProbes.length > 0
       : true,
@@ -76,10 +87,13 @@ const featureOrder: readonly (keyof MeshShaderFeatures)[] = [
   'detail',
   'triplanar',
   'lightmap',
+  'bakedIrradiance',
+  'bakedLightmap',
   'skinned',
   'instanced',
   'morph',
   'shadows',
+  'contactShadows',
   'environment',
   'native',
 ];

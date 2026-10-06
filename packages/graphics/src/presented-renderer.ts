@@ -186,10 +186,15 @@ export class PresentedRenderer implements Renderer {
       );
     return this.renderer.prepareRenderGraph(graph, options);
   }
-  async capturePlanarReflection(scene: Scene, reflection: PlanarReflection): Promise<void> {
+  async capturePlanarReflection(
+    scene: Scene,
+    reflection: PlanarReflection,
+  ): Promise<void> {
     this.requireContext();
     if (!this.renderer.capturePlanarReflection)
-      throw new UnsupportedGraphicsError('This renderer does not support planar reflection capture.');
+      throw new UnsupportedGraphicsError(
+        'This renderer does not support planar reflection capture.',
+      );
     return this.renderer.capturePlanarReflection(scene, reflection);
   }
   async captureReflectionProbe(

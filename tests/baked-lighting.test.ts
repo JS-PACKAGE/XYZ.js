@@ -97,7 +97,8 @@ describe('bounded baked lighting', () => {
     const bakedMesh = new Mesh({
       geometry: lit.geometries.get(receiver)!,
       material: new PBRMaterial({
-        texture: receiver.material.texture, ...lit.materialOptions,
+        texture: receiver.material.texture,
+        ...lit.materialOptions,
       }),
     });
     const bridge = new Float32Array(40);

@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
-import { meshShaderFeatures, meshShaderVariantKey } from '../packages/graphics/src/mesh-shader-variants.js';
+import {
+  meshShaderFeatures,
+  meshShaderVariantKey,
+} from '../packages/graphics/src/mesh-shader-variants.js';
 import { buildMeshFragment } from '../packages/graphics/src/webgl-feature-shaders.js';
 import { buildWebGPUMeshShader } from '../packages/graphics/src/webgpu-mesh-shader.js';
 
@@ -33,10 +36,46 @@ describe('baked irradiance mesh variants', () => {
   });
 
   it('retains specular reflection but suppresses duplicate environment diffuse', () => {
-    const features = { ...meshShaderFeatures(new PBRMaterial({ texture })), bakedIrradiance: true };
+    const features = {
+      ...meshShaderFeatures(new PBRMaterial({ texture })),
+      bakedIrradiance: true,
+    };
     expect(buildMeshFragment(features)).toContain('radiance*reflected');
-    expect(buildMeshFragment(features)).toContain('*(bakedParams.x > .5 ? 0.0 : 1.0)');
+    expect(buildMeshFragment(features)).toContain(
+      '*(bakedParams.x > .5 ? 0.0 : 1.0)',
+    );
     expect(buildWebGPUMeshShader(features)).toContain('radiance*reflected');
-    expect(buildWebGPUMeshShader(features)).toContain('*select(1.0,0.0,mesh.bakedParams.x > 0.5)');
+    expect(buildWebGPUMeshShader(features)).toContain(
+      '*select(1.0,0.0,mesh.bakedParams.x > 0.5)',
+    );
+  });
+
+  it('adds generated irradiance without changing authored lightmap modulation', () => {
+    const legacy = {
+      ...meshShaderFeatures(new PBRMaterial({ texture, lightmap: texture })),
+      bakedLightmap: false,
+    };
+    const generated = { ...legacy, bakedLightmap: true };
+    expect(meshShaderVariantKey(legacy)).not.toBe(
+      meshShaderVariantKey(generated),
+    );
+    expect(buildMeshFragment(legacy)).toContain(
+      'result *= mix(vec3(1.0), baked, finish3.w);',
+    );
+    expect(buildWebGPUMeshShader(legacy)).toContain(
+      'color *= mix(vec3f(1.0), baked, mesh.finish[3].w);',
+    );
+    expect(buildMeshFragment(legacy)).not.toContain(
+      'result += baked*finish3.w*base',
+    );
+    expect(buildWebGPUMeshShader(legacy)).not.toContain(
+      'color += baked*mesh.finish[3].w*base',
+    );
+    expect(buildMeshFragment(generated)).toContain(
+      'result += baked*finish3.w*base',
+    );
+    expect(buildWebGPUMeshShader(generated)).toContain(
+      'color += baked*mesh.finish[3].w*base',
+    );
   });
 });

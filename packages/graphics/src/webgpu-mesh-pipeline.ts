@@ -99,6 +99,10 @@ import { packProbeTextures } from './probe-texture-array.js';
 import { TemporalPostState } from './temporal-post.js';
 import { WebGPUTemporalPipeline } from './webgpu-temporal-pipeline.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
+import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
+import { ContactShadows } from '../../core/src/contact-shadows.js';
+import type { PlanarReflection } from '../../core/src/planar-reflection.js';
+import { encodePlanarReflection } from './planar-reflection-capture.js';
 const emptyGpuEmitters: readonly GPUParticleEmitter3D[] = [];
 const emptyMeshes: readonly Mesh[] = [];
 const meshUniformFloats =
@@ -107,7 +111,8 @@ const meshUniformFloats =
   nativeMaterial3DLimits.uniformFloats +
   4 +
   MATERIAL_UV_FLOAT_COUNT +
-  PBR_FINISH_FLOATS;
+  PBR_FINISH_FLOATS +
+  40;
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -143,6 +148,7 @@ interface CachedMesh {
   sceneShadow?: GPUTextureView;
   sceneRefraction?: GPUTextureView;
   sceneEnvironment?: GPUTextureView;
+  sceneContact?: GPUBuffer;
   visibleInstance?: GPUBuffer;
   visibleColors?: GPUBuffer;
   visibilityVersion?: number;
@@ -227,7 +233,7 @@ export class WebGPUMeshPipeline {
   private readonly frustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
   readonly stats: FrameStats;
-  private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 28);
+  private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 36);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
@@ -285,6 +291,15 @@ export class WebGPUMeshPipeline {
   private depthView: GPUTextureView | undefined;
   private depthWidth = 0;
   private depthHeight = 0;
+  private contactTexture: GPUTexture | undefined;
+  private contactView: GPUTextureView | undefined;
+  private contactWidth = 0;
+  private contactHeight = 0;
+  private contactProjection: GPUBuffer | undefined;
+  private contactProjectionGroup: GPUBindGroup | undefined;
+  private contactDepthBuffer: GPUBuffer | undefined;
+  private contactDepthCopy: GPUComputePipeline | undefined;
+  private contactDepthCopyGroup: GPUBindGroup | undefined;
   private msaaTexture: GPUTexture | undefined;
   private msaaView: GPUTextureView | undefined;
   private msaaFormat: GPUTextureFormat | undefined;
@@ -553,6 +568,11 @@ export class WebGPUMeshPipeline {
           binding: 7,
           visibility: GPUShaderStage.FRAGMENT,
           buffer: { type: 'uniform' },
+        },
+        {
+          binding: 8,
+          visibility: GPUShaderStage.FRAGMENT,
+          buffer: { type: 'read-only-storage' },
         },
       ],
     });
@@ -970,6 +990,7 @@ export class WebGPUMeshPipeline {
     this.visibleDraws.length = 0;
     try {
       if (!scene?.has3DContent) {
+        this.releaseContactDepth();
         this.visibilityCache.clear();
         this.visibility.color.length = this.visibility.shadows.length = 0;
         this.visibility.entries.clear();
@@ -1163,6 +1184,7 @@ export class WebGPUMeshPipeline {
       )
         return false;
       this.ensureDepth(width, height);
+      this.captureContactDepth(encoder, scene, width, height);
       const target = linear
         ? this.post.target(width, height, this.depthView!)
         : view;
@@ -1322,6 +1344,7 @@ export class WebGPUMeshPipeline {
     image = this.refractionView ?? this.dummyEnvironmentView,
     environment = this.environmentView,
     sceneBuffer = this.sceneBuffer,
+    contact = this.identityBuffer,
   ): GPUBindGroup {
     return this.device.createBindGroup({
       layout: this.sceneLayout,
@@ -1334,6 +1357,7 @@ export class WebGPUMeshPipeline {
         { binding: 5, resource: { buffer: this.shadowBuffer } },
         { binding: 6, resource: { buffer: this.sheenBuffer } },
         { binding: 7, resource: { buffer: this.brdfBuffer } },
+        { binding: 8, resource: { buffer: contact } },
       ],
     });
   }
@@ -1398,6 +1422,15 @@ export class WebGPUMeshPipeline {
     data[tail + 19] = activeBackground(scene) ? scene.backgroundIntensity : 0;
     fillFogData(scene, this.fogData);
     data.set(this.fogData, tail + 20);
+    const contact = ContactShadows.get(scene);
+    contact?.validate();
+    data[tail + 28] = contact?.distance ?? 0;
+    data[tail + 29] = contact?.thickness ?? 0;
+    data[tail + 30] = contact?.bias ?? 0;
+    data[tail + 31] = contact?.steps ?? 0;
+    data[tail + 32] = contact?.strength ?? 0;
+    data[tail + 33] = this.proofWidth;
+    data[tail + 34] = this.proofHeight;
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
     this.stats.upload(data.byteLength);
     for (const object of this.visibleDraws) {
@@ -1581,6 +1614,77 @@ export class WebGPUMeshPipeline {
       for (const buffer of buffers) buffer.destroy();
       texture.destroy();
       this.stats.target(-size * size * 8 - rowBytes * size * 6);
+    }
+  }
+  async capturePlanarReflection(
+    scene: Scene,
+    reflection: PlanarReflection,
+  ): Promise<void> {
+    if (this.destroyed)
+      throw new GraphicsError('Cannot capture on a destroyed renderer.');
+    if (!reflection.beginCapture(scene.presentationTime)) return;
+    const size = reflection.size;
+    const rowBytes = Math.ceil((size * 4) / 256) * 256;
+    let texture: GPUTexture | undefined;
+    let buffer: GPUBuffer | undefined;
+    let allocated = false;
+    try {
+      texture = this.device.createTexture({
+        size: [size, size],
+        format: this.format,
+        usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
+      });
+      buffer = this.device.createBuffer({
+        size: rowBytes * size,
+        usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ,
+      });
+      this.stats.target(size * size * 4 + rowBytes * size);
+      allocated = true;
+      const encoder = this.device.createCommandEncoder();
+      const target = texture;
+      encodePlanarReflection(scene, reflection, () => {
+        this.render(
+          scene,
+          encoder,
+          target.createView(),
+          size,
+          size,
+          1,
+          { r: 0, g: 0, b: 0, a: 1 },
+          size,
+        );
+      });
+      encoder.copyTextureToBuffer(
+        { texture },
+        { buffer, bytesPerRow: rowBytes },
+        [size, size],
+      );
+      this.device.queue.submit([encoder.finish()]);
+      await buffer.mapAsync(GPUMapMode.READ);
+      if (this.destroyed || scene.destroyed || reflection.destroyed)
+        throw new GraphicsError(
+          'Planar capture was invalidated by renderer loss or disposal.',
+        );
+      const raw = new Uint8Array(buffer.getMappedRange());
+      const pixels = new Uint8ClampedArray(size * size * 4);
+      const bgra = this.format.startsWith('bgra');
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          const source = y * rowBytes + x * 4,
+            destination = (y * size + x) * 4;
+          pixels[destination] = raw[source + (bgra ? 2 : 0)]!;
+          pixels[destination + 1] = raw[source + 1]!;
+          pixels[destination + 2] = raw[source + (bgra ? 0 : 2)]!;
+          pixels[destination + 3] = raw[source + 3]!;
+        }
+      }
+      buffer.unmap();
+      reflection.adoptPixels(pixels);
+    } finally {
+      buffer?.destroy();
+      texture?.destroy();
+      if (allocated) this.stats.target(-size * size * 4 - rowBytes * size);
+      reflection.endCapture();
     }
   }
   invalidateTemporalHistory(): void {
@@ -1881,23 +1985,182 @@ export class WebGPUMeshPipeline {
     const view = this.environmentView;
     const shadow = this.shadowView ?? this.emptyShadowView;
     const refraction = this.refractionView ?? this.dummyEnvironmentView;
+    const contact = this.contactDepthBuffer ?? this.identityBuffer;
     if (
       !entry.sceneGroup ||
       entry.sceneEnvironment !== view ||
       entry.sceneShadow !== shadow ||
-      entry.sceneRefraction !== refraction
+      entry.sceneRefraction !== refraction ||
+      entry.sceneContact !== contact
     ) {
       entry.sceneGroup = this.createSceneGroup(
         shadow,
         refraction,
         view,
         entry.sceneBuffer,
+        contact,
       );
       entry.sceneEnvironment = view;
       entry.sceneShadow = shadow;
       entry.sceneRefraction = refraction;
+      entry.sceneContact = contact;
     }
     return entry.sceneGroup;
+  }
+
+  private releaseContactDepth(): void {
+    if (this.contactTexture) {
+      this.contactTexture.destroy();
+      this.stats.target(-this.contactWidth * this.contactHeight * 8);
+      this.contactTexture = undefined;
+      this.contactView = undefined;
+    }
+    this.contactProjection?.destroy();
+    this.contactProjection = undefined;
+    this.contactProjectionGroup = undefined;
+    this.contactDepthBuffer?.destroy();
+    this.contactDepthBuffer = undefined;
+    this.contactDepthCopyGroup = undefined;
+  }
+
+  private captureContactDepth(
+    encoder: GPUCommandEncoder,
+    scene: Scene,
+    width: number,
+    height: number,
+  ): void {
+    const settings = ContactShadows.get(scene);
+    if (!settings || settings.strength === 0) {
+      this.releaseContactDepth();
+      return;
+    }
+    settings.validate();
+    const snapshotBytes = width * height * 4;
+    if (
+      width > this.device.limits.maxTextureDimension2D ||
+      height > this.device.limits.maxTextureDimension2D ||
+      snapshotBytes > this.device.limits.maxStorageBufferBindingSize ||
+      snapshotBytes > this.device.limits.maxBufferSize
+    )
+      throw new GraphicsError(
+        'Contact depth snapshot exceeds this WebGPU device texture/storage limits.',
+      );
+    if (
+      !this.contactTexture ||
+      this.contactWidth !== width ||
+      this.contactHeight !== height
+    ) {
+      this.releaseContactDepth();
+      this.contactTexture = this.device.createTexture({
+        label: 'Contact shadows camera depth (single sample)',
+        size: [width, height],
+        format: 'depth32float',
+        usage:
+          GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+      });
+      this.contactView = this.contactTexture.createView();
+      this.contactWidth = width;
+      this.contactHeight = height;
+      this.stats.target(width * height * 8);
+      this.contactDepthBuffer = this.device.createBuffer({
+        label: 'Contact camera depth snapshot',
+        size: width * height * 4,
+        usage: GPUBufferUsage.STORAGE,
+      });
+      this.contactDepthCopy ??= this.device.createComputePipeline({
+        layout: 'auto',
+        compute: {
+          module: this.device.createShaderModule({
+            code: `
+            @group(0) @binding(0) var source: texture_depth_2d;
+            @group(0) @binding(1) var<storage,read_write> snapshot: array<f32>;
+            @compute @workgroup_size(8,8)
+            fn main(@builtin(global_invocation_id) id: vec3u) {
+              let size = textureDimensions(source);
+              if (id.x >= size.x || id.y >= size.y) { return; }
+              snapshot[id.y*size.x+id.x] = textureLoad(source,vec2i(id.xy),0);
+            }
+          `,
+          }),
+          entryPoint: 'main',
+        },
+      });
+      this.contactDepthCopyGroup = this.device.createBindGroup({
+        layout: this.contactDepthCopy.getBindGroupLayout(0),
+        entries: [
+          { binding: 0, resource: this.contactView },
+          { binding: 1, resource: { buffer: this.contactDepthBuffer } },
+        ],
+      });
+      this.contactProjection = this.device.createBuffer({
+        size: 256,
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+      });
+      this.contactProjectionGroup = this.device.createBindGroup({
+        layout: this.shadowPipeline.getBindGroupLayout(3),
+        entries: [
+          {
+            binding: 0,
+            resource: { buffer: this.contactProjection, size: 64 },
+          },
+        ],
+      });
+    }
+    this.device.queue.writeBuffer(
+      this.contactProjection!,
+      0,
+      this.sceneData.subarray(0, 16),
+    );
+    const pass = beginTimedRenderPass(encoder, {
+      label: 'Contact shadows camera depth prepass',
+      colorAttachments: [],
+      depthStencilAttachment: {
+        view: this.contactView!,
+        depthClearValue: 1,
+        depthLoadOp: 'clear',
+        depthStoreOp: 'store',
+      },
+    });
+    try {
+      pass.setBindGroup(
+        0,
+        this.createSceneGroup(
+          this.emptyShadowView,
+          this.dummyEnvironmentView,
+          this.environmentView,
+          this.sceneBuffer,
+          this.identityBuffer,
+        ),
+      );
+      this.projectionOffsets[0] = 0;
+      pass.setBindGroup(
+        3,
+        this.contactProjectionGroup!,
+        this.projectionOffsets,
+      );
+      for (const object of this.visibleDraws) {
+        if (
+          this.blendedDraw(object) ||
+          (object.material instanceof PBRMaterial &&
+            object.material.transmission > 0)
+        )
+          continue;
+        const instances = this.drawMesh(pass, object, 3);
+        this.stats.draw(object.renderGeometry.indices.length, instances);
+      }
+    } finally {
+      pass.end();
+    }
+    const copy = beginTimedComputePass(encoder, {
+      label: 'Contact depth snapshot',
+    });
+    try {
+      copy.setPipeline(this.contactDepthCopy!);
+      copy.setBindGroup(0, this.contactDepthCopyGroup!);
+      copy.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
+    } finally {
+      copy.end();
+    }
   }
 
   private renderShadows(
@@ -2900,8 +3163,14 @@ export class WebGPUMeshPipeline {
       customOffset + nativeMaterial3DLimits.uniformFloats + 4,
     );
     if (material instanceof PBRMaterial)
-      fillPBRFinish(material, data, meshUniformFloats - PBR_FINISH_FLOATS);
-    else data.fill(0, meshUniformFloats - PBR_FINISH_FLOATS, meshUniformFloats);
+      fillPBRFinish(material, data, meshUniformFloats - 40 - PBR_FINISH_FLOATS);
+    else
+      data.fill(
+        0,
+        meshUniformFloats - 40 - PBR_FINISH_FLOATS,
+        meshUniformFloats - 40,
+      );
+    fillMeshIrradiance(object, data, meshUniformFloats - 40);
     const packed = visibility?.instances;
     if (
       packed &&
@@ -3056,6 +3325,7 @@ export class WebGPUMeshPipeline {
       this.stats.target(-this.shadowSize * this.shadowSize * 4);
     if (this.refractionTexture)
       this.stats.target(-this.refractionWidth * this.refractionHeight * 8);
+    this.releaseContactDepth();
     this.depthTexture?.destroy();
     this.msaaTexture?.destroy();
     this.msaaTexture = undefined;
