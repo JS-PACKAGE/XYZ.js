@@ -13,7 +13,17 @@ const child = spawn(process.execPath, ['scripts/smoke-site.mjs', '--example', 'w
 const timers = [45, 90].map((seconds) => setTimeout(() => {
   const listing = spawnSync('ps', ['-axo', 'pid,ppid,pgid,%cpu,state,command'], { encoding: 'utf8' }).stdout;
   writeFileSync(`.vite/site-diagnostic/processes-${seconds}.txt`, listing);
-  const processes = listing.split('\n').filter((line) => Number(line.trim().split(/\s+/)[2]) === child.pid);
+  const lines = listing.split('\n');
+  const owned = new Set([child.pid]);
+  let count;
+  do {
+    count = owned.size;
+    for (const line of lines) {
+      const [pid, parent] = line.trim().split(/\s+/).map(Number);
+      if (owned.has(parent)) owned.add(pid);
+    }
+  } while (count !== owned.size);
+  const processes = lines.filter((line) => owned.has(Number(line.trim().split(/\s+/)[0])));
   console.log(`OWNED PROCESS SNAPSHOT ${seconds}s\n${processes.join('\n')}`);
   for (const line of processes) {
     if (!line.includes('chrome-headless-shell')) continue;

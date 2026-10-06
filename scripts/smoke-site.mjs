@@ -147,6 +147,15 @@ async function ownedPage() {
     serviceWorkers: 'block',
   });
   await context.addInitScript(installSilentSurface);
+  await context.addInitScript(() => {
+    let frames = 0;
+    const tick = () => { frames++; requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+    setInterval(() => console.log('FRAME_DIAGNOSTIC', JSON.stringify({
+      frames, hidden: document.hidden, visibility: document.visibilityState,
+      status: document.querySelector('#status')?.textContent,
+    })), 2000);
+  });
   const page = await context.newPage();
   page.setDefaultTimeout(timeout);
   page.setDefaultNavigationTimeout(timeout);
@@ -176,6 +185,7 @@ async function ownedPage() {
     }),
   );
   page.on('console', (message) => {
+    if (message.text().startsWith('FRAME_DIAGNOSTIC')) console.log(message.text());
     const detail = {
       kind: `console-${message.type()}`,
       message: message.text(),
