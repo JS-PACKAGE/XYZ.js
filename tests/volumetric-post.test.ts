@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { Scene, VolumetricFogSettings, PostEffectsSettings, setPostEffects, Vector3 } from '../src/index.js';
+import {
+  Scene,
+  VolumetricFogSettings,
+  PostEffectsSettings,
+  setPostEffects,
+  Vector3,
+} from '../src/index.js';
 import { writeVolumetricUniforms } from '../packages/graphics/src/volumetric-post.js';
 
 describe('native volumetric fog', () => {
@@ -14,7 +20,10 @@ describe('native volumetric fog', () => {
   it('projects directional shafts and disables back-facing light', () => {
     const scene = new Scene();
     scene.postProcessing.enabled = true;
-    setPostEffects(scene.postProcessing, new PostEffectsSettings({ volumetricFog: new VolumetricFogSettings() }));
+    setPostEffects(
+      scene.postProcessing,
+      new PostEffectsSettings({ volumetricFog: new VolumetricFogSettings() }),
+    );
     scene.camera3D.updateMatrix(1);
     scene.directionalLight.direction = new Vector3(0, 0, -1);
     const data = new Float32Array(16);

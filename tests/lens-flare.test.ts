@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { LensFlareSettings, PostEffectsSettings, PostProcessingSettings, setPostEffects, getPostEffects } from '../src/index.js';
+import {
+  LensFlareSettings,
+  PostEffectsSettings,
+  PostProcessingSettings,
+  setPostEffects,
+  getPostEffects,
+} from '../src/index.js';
 
 describe('bounded lens flare settings', () => {
   it('rejects unbounded and nonfinite kernels', () => {
-    for (const ghosts of [0, 1.5, 9, Infinity]) expect(() => new LensFlareSettings({ ghosts })).toThrow();
+    for (const ghosts of [0, 1.5, 9, Infinity])
+      expect(() => new LensFlareSettings({ ghosts })).toThrow();
     expect(() => new LensFlareSettings({ haloWidth: 0 })).toThrow();
     expect(() => new LensFlareSettings({ threshold: NaN })).toThrow();
   });

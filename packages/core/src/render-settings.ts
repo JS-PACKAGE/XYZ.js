@@ -347,5 +347,3 @@ export class FogSettings {
       throw new RangeError('Fog far must exceed near.');
   }
 }
-
-

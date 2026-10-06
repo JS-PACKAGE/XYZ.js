@@ -21,6 +21,13 @@ import {
   ContactShadows,
   ContactShadowSettings,
   type RendererPreference,
+  ColorLUT3D,
+  ColorGradingSettings,
+  PostEffectsSettings,
+  setPostEffects,
+  VolumetricFogSettings,
+  LensFlareSettings,
+  MotionBlurSettings,
 } from '../../src/index.js';
 import { frameProofs } from './frame-proof.js';
 
@@ -110,6 +117,14 @@ async function run(): Promise<void> {
       'transparent-blend',
       'instancing',
       'skinned',
+      'post-lut',
+      'post-agx',
+      'post-reinhard',
+      'post-neutral',
+      'post-volume',
+      'post-shafts',
+      'post-flare',
+      'post-motion',
     ]) {
       const scene = new Scene();
       try {
@@ -155,6 +170,7 @@ async function run(): Promise<void> {
           opacity: name === 'transparent-blend' ? 0.45 : 1,
           roughness: 0.35,
           metallic: 0.2,
+          emissive: name === 'post-flare' ? [4, 3, 1] : [0, 0, 0],
           alphaMode: name === 'transparent-blend' ? 'BLEND' : 'OPAQUE',
           normalTexture: name === 'normal-mapped' ? normal : undefined,
           finish,
@@ -213,8 +229,46 @@ async function run(): Promise<void> {
             extent: 5,
             far: 20,
           });
+        if (name.startsWith('post-')) {
+          scene.postProcessing.enabled = true;
+          const effects = new PostEffectsSettings();
+          if (name === 'post-lut')
+            effects.colorGrading = new ColorGradingSettings(
+              ColorLUT3D.preset(16, 'cool'),
+            );
+          if (name === 'post-agx') effects.toneMapper = 'agx';
+          if (name === 'post-reinhard') effects.toneMapper = 'reinhard';
+          if (name === 'post-neutral') effects.toneMapper = 'neutral';
+          if (name === 'post-volume')
+            effects.volumetricFog = new VolumetricFogSettings({
+              density: 0.08,
+              shaftStrength: 0,
+            });
+          if (name === 'post-shafts') {
+            effects.volumetricFog = new VolumetricFogSettings({
+              density: 0,
+              shaftStrength: 0.5,
+            });
+            scene.directionalLight.direction.set(-2.5, -1.8, -5).normalize();
+          }
+          if (name === 'post-flare')
+            effects.lensFlare = new LensFlareSettings({
+              threshold: 0.5,
+              strength: 0.5,
+            });
+          if (name === 'post-motion')
+            effects.motionBlur = new MotionBlurSettings({ samples: 12 });
+          setPostEffects(scene.postProcessing, effects);
+        }
+        const initialX = camera.position.x;
         await draw(scene);
+        if (name === 'post-motion') camera.position.x = initialX + 0.2;
         const first = await draw(scene);
+        if (name === 'post-motion') {
+          camera.position.x = initialX;
+          await draw(scene);
+          camera.position.x = initialX + 0.2;
+        }
         const repeat = await draw(scene);
         report.scenarios.push({
           name,

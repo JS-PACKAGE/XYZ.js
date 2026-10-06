@@ -2,9 +2,15 @@ import type { Scene } from '../../core/src/scene.js';
 import { getPostEffects } from '../../core/src/post-effects.js';
 
 /** Four vec4s shared by the native post shaders; UV has top-left origin. */
-export function writeVolumetricUniforms(data: Float32Array, offset: number, scene?: Scene): void {
+export function writeVolumetricUniforms(
+  data: Float32Array,
+  offset: number,
+  scene?: Scene,
+): void {
   data.fill(0, offset, offset + 16);
-  const fog = scene ? getPostEffects(scene.postProcessing)?.volumetricFog : undefined;
+  const fog = scene
+    ? getPostEffects(scene.postProcessing)?.volumetricFog
+    : undefined;
   if (!scene || !scene.postProcessing.enabled || !fog?.enabled) return;
   data[offset] = fog.density;
   data[offset + 1] = fog.baseHeight;
@@ -17,15 +23,17 @@ export function writeVolumetricUniforms(data: Float32Array, offset: number, scen
   const direction = light.direction;
   const length = Math.hypot(direction.x, direction.y, direction.z);
   if (length === 0) return;
-  const distance = camera.far * 0.5 / length;
+  const distance = (camera.far * 0.5) / length;
   const x = camera.position.x + direction.x * distance;
   const y = camera.position.y + direction.y * distance;
   const z = camera.position.z + direction.z * distance;
   const e = camera.matrix.elements;
   const w = e[3]! * x + e[7]! * y + e[11]! * z + e[15]!;
   if (w <= 0.000001) return;
-  data[offset + 8] = ((e[0]! * x + e[4]! * y + e[8]! * z + e[12]!) / w + 1) * 0.5;
-  data[offset + 9] = (1 - (e[1]! * x + e[5]! * y + e[9]! * z + e[13]!) / w) * 0.5;
+  data[offset + 8] =
+    ((e[0]! * x + e[4]! * y + e[8]! * z + e[12]!) / w + 1) * 0.5;
+  data[offset + 9] =
+    (1 - (e[1]! * x + e[5]! * y + e[9]! * z + e[13]!) / w) * 0.5;
   data[offset + 10] = fog.shaftStrength * light.intensity;
   data[offset + 11] = fog.shaftSamples;
   data.set(light.color, offset + 12);
