@@ -4,6 +4,10 @@ import type { NativeTextureFormat } from './native-texture.js';
 import { readResponse } from './read-response.js';
 import { assetRecipe } from '../../../src/data/asset-recipe.js';
 import { modelLimits } from '../../../src/data/models.js';
+import {
+  AssetBundleRangeReader,
+  parseAssetBundleArchive,
+} from './range-bundle.js';
 export interface AssetBundleFile {
   readonly path: string;
   readonly bytes: number;
@@ -207,7 +211,7 @@ async function fetchBytes(
   return (await readResponse(response, max, signal)).arrayBuffer();
 }
 /** Verified byte snapshots feed the existing loader; its returned asset retains normal ownership. */
-export async function loadAssetBundle<
+async function loadBundle<
   A extends { dispose(): void },
   O extends {
     signal?: AbortSignal;
@@ -221,6 +225,7 @@ export async function loadAssetBundle<
       parse(input: string, baseURL?: string, options?: O): Promise<A>;
     };
   },
+  rangeRequests: boolean,
 ): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
   const manifestURL = new URL(
     uri,
@@ -240,36 +245,45 @@ export async function loadAssetBundle<
       (await sha256(manifest)) !== configuration.manifestSHA256)
   )
     throw new AssetError('Asset bundle manifest hash mismatch.');
-  const descriptor = parseAssetBundle(
-    JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(manifest)),
+  const manifestValue: unknown = JSON.parse(
+    new TextDecoder('utf-8', { fatal: true }).decode(manifest),
   );
+  const descriptor = parseAssetBundle(manifestValue);
+  const archive = rangeRequests
+    ? parseAssetBundleArchive(record(manifestValue).archive, descriptor)
+    : undefined;
   const variant = selectAssetBundleVariant(descriptor, configuration.renderer, {
     draco: !!configuration.options?.dracoDecoder,
   });
+  const rangeReader = archive
+    ? new AssetBundleRangeReader(
+        new URL(archive.path, manifestURL).href,
+        archive,
+        signal,
+      )
+    : undefined;
   const entries = new Map(descriptor.files.map((f) => [f.path, f]));
   const verified = async (path: string) => {
     const f = entries.get(safePath(path));
     if (!f)
       throw new AssetError('Model references an untracked bundle resource.');
-    const bytes = await fetchBytes(
-      new URL(path, manifestURL).href,
-      f.bytes,
-      signal,
-    );
+    const bytes = rangeReader
+      ? await rangeReader.read(path)
+      : await fetchBytes(new URL(path, manifestURL).href, f.bytes, signal);
     if (bytes.byteLength !== f.bytes || (await sha256(bytes)) !== f.sha256)
       throw new AssetError(`Asset bundle hash mismatch: ${path}`);
     return bytes;
   };
-  const model = record(
-    JSON.parse(
-      new TextDecoder('utf-8', { fatal: true }).decode(
-        await verified(variant.path),
-      ),
-    ),
-  );
   const objects: string[] = [],
     cache = new Map<string, string>();
   try {
+    const model = record(
+      JSON.parse(
+        new TextDecoder('utf-8', { fatal: true }).decode(
+          await verified(variant.path),
+        ),
+      ),
+    );
     for (const key of ['buffers', 'images']) {
       const values = model[key];
       if (values === undefined) continue;
@@ -311,5 +325,44 @@ export async function loadAssetBundle<
     return asset as A & { readonly bundleVariant: AssetBundleVariant };
   } finally {
     for (const url of objects) URL.revokeObjectURL(url);
+    rangeReader?.destroy();
   }
+}
+
+/** Load verified individual files from a manifest's plain byte-offset archive. */
+export function loadAssetBundleRange<
+  A extends { dispose(): void },
+  O extends {
+    signal?: AbortSignal;
+    dracoDecoder?: unknown;
+    nativeTextures?: boolean;
+  },
+>(
+  uri: string,
+  configuration: Omit<AssetBundleLoadOptions<O>, 'loader'> & {
+    readonly loader: {
+      parse(input: string, baseURL?: string, options?: O): Promise<A>;
+    };
+  },
+): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
+  return loadBundle(uri, configuration, true);
+}
+
+/** Existing directory bundles retain their original request behavior. */
+export function loadAssetBundle<
+  A extends { dispose(): void },
+  O extends {
+    signal?: AbortSignal;
+    dracoDecoder?: unknown;
+    nativeTextures?: boolean;
+  },
+>(
+  uri: string,
+  configuration: Omit<AssetBundleLoadOptions<O>, 'loader'> & {
+    readonly loader: {
+      parse(input: string, baseURL?: string, options?: O): Promise<A>;
+    };
+  },
+): Promise<A & { readonly bundleVariant: AssetBundleVariant }> {
+  return loadBundle(uri, configuration, false);
 }

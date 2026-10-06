@@ -1586,3 +1586,21 @@ This opt-in sheen cost/approximation is not anisotropic filtering, MIS or
 unbiased temporal convergence. `pnpm smoke:ibl-quality` covers real native HDR
 white/colored furnaces, layer boundaries and owned API-loss recovery;
 `pnpm smoke:ibl-quality --built` uses the built public root.
+
+## Range-request asset bundles
+
+`loadAssetBundleRange` is additive to directory loading. A manifest's optional
+archive table describes exact uncompressed member offsets, with nonoverlap,
+tracked-file/size and total-byte validation. Existing file hashes cover every
+selected model/buffer/image; the existing manifest pin also authenticates offsets.
+No ZIP decompressor, ResourcePool replacement or persistent cache is introduced.
+Call it inside an existing ResourcePool load callback and forward its signal.
+`AssetBundleRangeReader` is caller-owned when used directly; validate manifests
+with `parseAssetBundleArchive` and call `destroy()` to cancel pending reads.
+
+Exact 206 response bounds/lengths are mandatory. A 200 response becomes one
+bounded full-archive snapshot reused for subsequent members during this load;
+405/416/501 retry a full read. Other failures throw. The archive budget uses the
+existing asset-recipe 128 MiB cap and decoded-response byte counting; compressed
+HTTP transfer size is not the limit. A load's finally block tears down its reader,
+including failed model parsing, integrity failure and cancellation.

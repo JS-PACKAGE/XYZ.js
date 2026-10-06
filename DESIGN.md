@@ -375,3 +375,11 @@ Charlie sheen retains its integrated albedo table, attenuates direct base light
 using both directions, and samples sharp global/probe atlases through its own
 bounded 32-ray kernel. This is normalized spatial quadrature, not converged
 multiple-bounce transport, MIS or a reference path tracer.
+
+## Additive asset archive streaming
+
+Byte-offset archives share the existing bounded response reader and SHA-256
+bundle verification. Range loading is opt-in through a separate public function,
+not a change to directory manifests or ResourcePool ownership. A plain archive
+table supplies reviewed member offsets; unsupported HTTP Range falls back to one
+bounded load-local snapshot, never an unbounded fetch or silent integrity bypass.

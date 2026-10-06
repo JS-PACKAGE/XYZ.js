@@ -1832,3 +1832,11 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
   `regression:browser --browser chromium --renderer webgl2,webgpu --require-webgpu` 兩 backend PASS；
   保留既有 OPM dynamic-import warning 與 public WebGPU context-loss injection SKIP。
   未驗證其他瀏覽器、hosted CI 或其他 GPU。
+
+## Range-request bundle streaming（2026-10-06）
+
+- `vitest run tests/range-bundle.test.ts`：1 檔／6 測試通過。真 local HTTP server
+  覆蓋精確 206、忽略 Range 的 200、405 full fallback、hash-verified model/resource
+  載入、非法／重疊 offset、錯誤 Content-Range、完整回應超限與 streamed body abort／teardown。
+- 尚未在此功能步驟執行完整 build／API compatibility／package hygiene／browser regression；
+  完整整合 gate 由主代理另列。不認證遠端 CDN／CORS／大型實體網路效能。

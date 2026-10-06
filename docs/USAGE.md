@@ -1530,3 +1530,19 @@ sampling cost. Existing scene intensity/exposure controls remain explicit.
 Run `pnpm smoke:ibl-quality` (or append `--built`) for native HDR/lifecycle evidence.
 Read [the quality bounds](TECHNICAL.md#p122-bounded-ggx-and-charlie-ibl) before
 interpreting white-furnace preservation as reference-renderer accuracy.
+
+## Byte-offset bundle archives
+
+Use `loadAssetBundleRange('/manifest.json', configuration)` with the same renderer,
+loader, signal and trusted manifest pin as `loadAssetBundle`. The manifest adds
+`archive: { path: 'archive.bin', bytes, members: [{ path, offset, bytes }] }`;
+each member matches a descriptor file and its SHA-256. Offsets address plain,
+uncompressed concatenated bytes, not compressed ZIP entries. Directory bundles
+continue to use the existing `loadAssetBundle` API.
+
+Servers honoring Range return exact `206 Content-Range` bounds. An ignored Range
+(`200`) is read once and retained for that load; unsupported Range (`405`, `416`,
+`501`) retries without Range. Full reads are capped at the declared archive size
+(at most 128 MiB); malformed partial responses, excess bytes or bad hashes reject.
+Abort cancels the reader, and temporary archive bytes/object URLs are released
+when loading finishes. Returned model ownership remains unchanged.

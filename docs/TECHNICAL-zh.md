@@ -1475,3 +1475,16 @@ Charlie half-vectors取樣sharp atlas，正規化後乘既有integrated albedo�
 的有界成本／空間近似，不是anisotropic filtering、MIS或unbiased temporal convergence。
 `pnpm smoke:ibl-quality` 實跑native HDR白／彩色furnace、layer邊界與owned API loss；
 `pnpm smoke:ibl-quality --built` 走built public root，並非實體driver reset資格。
+
+## Range-request asset bundle
+
+新增 `loadAssetBundleRange`，不改目錄式 bundle 的 API 或 ResourcePool。manifest archive
+table 驗證未壓縮 member offset／bytes、不重疊與 files 完整對應；各 files SHA-256 與
+既有 manifest pin 保持完整性檢查。可在 ResourcePool load callback 轉交 signal，
+不新增長期 cache 或 ZIP 解壓器。直接使用 `AssetBundleRangeReader` 時先以
+`parseAssetBundleArchive` 驗證，caller 必須呼叫 `destroy()` 取消未完成讀取。
+
+206 必須符合精確 Content-Range／length；200 在本次 load 保留一次完整 snapshot，
+405／416／501 重試不帶 Range。其他失敗拋錯。完整 snapshot 以原 asset-recipe
+128 MiB／宣告 size 限制 decoded HTTP bytes，不以壓縮傳輸大小替代。
+load finally 在 parse／hash／abort 失敗時也釋放 reader 與暫存 URL。

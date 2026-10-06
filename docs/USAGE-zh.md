@@ -1505,3 +1505,16 @@ HDR發光使用 `emissive`；clearcoat保留独立roughness／normal，`sheenCol
 執行 `pnpm smoke:ibl-quality`，或加 `--built` 驗證built root。
 先看 [品質邊界](TECHNICAL-zh.md#p122-有界-ggxcharlie-ibl)，white-furnace守恆不是
 reference renderer精度／實體driver資格。
+
+## Byte-offset bundle archive
+
+`loadAssetBundleRange('/manifest.json', configuration)` 沿用既有 renderer／loader、
+signal 與 manifest SHA-256 pin。manifest 增加
+`archive: { path: 'archive.bin', bytes, members: [{ path, offset, bytes }] }`，
+每個 member 對應原 files 的 bytes／SHA-256。offset 指向未壓縮串接資料，不是 ZIP 壓縮 entry。
+一般目錄 bundle 仍使用 `loadAssetBundle`。
+
+Range 成功必須回傳精確 `206 Content-Range`；忽略 Range 的 `200` 只保留一次有界完整讀取，
+`405`／`416`／`501` 則重試不帶 Range。完整讀取上限是宣告 archive size（最多 128 MiB）；
+錯誤 partial headers、超量或 hash 不符會拒絕。abort／load 結束釋放 reader 與暫存 URL，
+回傳 model 的 ownership 不變。
