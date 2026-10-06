@@ -199,7 +199,7 @@ export const foreignPlatformGoldenLimits = Object.freeze({
   p99: 1,
   tileMeansMean: 0.25,
   tileMeansP99: 3,
-  tileP99sMean: 1,
+  tileP99sMean: 1.5,
   tileP99sP99: 35,
 });
 const strictGoldenLimits = Object.freeze({

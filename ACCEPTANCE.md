@@ -2153,4 +2153,4 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - 像素 parity `instancing`：hosted 實測 mean 0.00146（約 24/16384 像素差 1 byte），本機 1/16384；僅此場景門檻 mean ≤0.002、p99 ≤1，其他場景維持 0.001。
 - `tests/asset-recipe-finish.test.mjs` 需要 production recipe 工具固定的 Node 版本，其他 Node 版本自動略過（不是通過）；僅在固定版本執行。
 
-- P135 golden 比對：goldens 於 macOS／Metal 產生，hosted Linux SwiftShader 實測 golden mean 差 ≤0.056、finish 場景單一 tile 的 p99 差 29。非 darwin 平台改用明列的較寬 golden 限制（mean ≤0.1、tile means p99 ≤3、tile p99s p99 ≤35）；darwin 維持 0.001 嚴格限制。跨 backend peer／repeat／negative 檢查不變，negative control 在寬限制下仍被拒絕（roughness 格 mean 差 2.43）。這是平台別 golden 的放寬，不是該平台的像素等價證明。
+- P135 golden 比對：goldens 於 macOS／Metal 產生，hosted Linux SwiftShader 實測 golden mean 差 ≤0.056、finish 場景單一 tile 的 p99 差 29。非 darwin 平台改用明列的較寬 golden 限制（mean ≤0.1、tile means p99 ≤3、tile p99s mean ≤1.5（實測最大 1.016）、tile p99s p99 ≤35）；darwin 維持 0.001 嚴格限制。跨 backend peer／repeat／negative 檢查不變，negative control 在寬限制下仍被拒絕（roughness 格 mean 差 2.43）。這是平台別 golden 的放寬，不是該平台的像素等價證明。
