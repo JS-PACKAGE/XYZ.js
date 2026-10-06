@@ -205,7 +205,8 @@ mat3 materialNormalFrame(vec3 n, int slot) {
   vec3 dp2perp = cross(dp2,n), dp1perp = cross(n,dp1);
   vec3 t = dp2perp*duv1.x+dp1perp*duv2.x;
   vec3 b = (dp2perp*duv1.y+dp1perp*duv2.y)*derivativeTangentSign;
-  float scale = inversesqrt(max(max(dot(t,t),dot(b,b)),.000001));
+  // Derivative products shrink with pixel footprint; only guard actual degeneracy.
+  float scale = inversesqrt(max(max(dot(t,t),dot(b,b)),1e-30));
   return mat3(t*scale,b*scale,n);
 }
 // ANGLE keys dynamic-index helpers by interface block, but emits identical HLSL

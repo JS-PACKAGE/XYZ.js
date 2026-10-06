@@ -219,6 +219,10 @@ try {
           );
         scene.remove(uv1Mesh);
         uv1Mesh.destroy();
+        // At 512px the derivative products are much smaller than 1e-6.
+        // The fallback must remain a unit frame, not flatten the normal map.
+        renderer.resize(512, 512);
+        const transformedCenter = (256 * 512 + 256) * 4;
         const rotatedReference = scene.add(
           new E.Mesh({
             geometry: new E.Geometry({
@@ -252,11 +256,12 @@ try {
         );
         const transformedFrame = await capture();
         const transformedError = Math.abs(
-          rotatedExpected.bytes[center] - transformedFrame.bytes[center],
+          rotatedExpected.bytes[transformedCenter] -
+            transformedFrame.bytes[transformedCenter],
         );
         if (transformedError > 2)
           throw new Error(
-            `Transformed glTF frame changed handedness: ${rotatedExpected.bytes[center]} vs ${transformedFrame.bytes[center]}.`,
+            `Transformed glTF frame changed handedness: ${rotatedExpected.bytes[transformedCenter]} vs ${transformedFrame.bytes[transformedCenter]}.`,
           );
         await game.setScene(scene);
         game.start();

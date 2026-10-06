@@ -568,8 +568,10 @@ async function nativeResidency(): Promise<void> {
       geometryBytes ===
         first.vertices.byteLength +
           first.indices.byteLength +
+          first.tangents.byteLength +
+          (first.uvs1?.byteLength ?? 0) +
           (first.colors?.byteLength ?? 0),
-      'explicit native geometry preparation accounts exact vertex, index and optional color buffer bytes',
+      'explicit native geometry preparation accounts exact vertex, index, tangent and optional UV1/color buffer bytes',
     );
     game.graphics.configureResidency({ textureBytes: 128, geometryBytes });
     let retainedRejected = false;

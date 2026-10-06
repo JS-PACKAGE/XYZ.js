@@ -1,21 +1,13 @@
 import type { Texture2DSource } from '../../assets/src/index.js';
 import { Geometry } from '../../core/src/geometry.js';
 import { Geometry2D } from '../../core/src/rendering2d/geometry2d.js';
-import { Mesh, materialBaseTexture } from '../../core/src/mesh.js';
+import { Mesh } from '../../core/src/mesh.js';
 import { EnvironmentMap } from '../../core/src/environment.js';
 import {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import {
-  NativeMaterial3D,
-  isNativeMaterial3D,
-} from '../../core/src/native-material3d.js';
-import {
-  pbrTextureKeys,
-  pbrTextureSources,
-} from '../../core/src/pbr-material.js';
-import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
@@ -30,7 +22,6 @@ export type PreparationResource =
   | EnvironmentMap
   | Material2D
   | NativeMaterial3D
-  | NativePBRMaterial
   | PostProcessor2D;
 export interface ResourcePreparationOptions {
   readonly signal?: AbortSignal;
@@ -42,9 +33,7 @@ interface NativePreparationOperations {
   particles(source: ParticleLayer2D): void;
   gpuParticles(source: GPUParticleEmitter3D): Promise<void>;
   environment(source: EnvironmentMap): void;
-  material(
-    source: Material2D | NativeMaterial3D | NativePBRMaterial,
-  ): Promise<void>;
+  material(source: Material2D | NativeMaterial3D): Promise<void>;
   post(source: PostProcessor2D): Promise<void>;
   complete(): Promise<void>;
 }
@@ -116,13 +105,6 @@ export async function prepareNativeResource(
     else if (resource instanceof NativeMaterial3D) {
       operations.texture(resource.texture);
       for (const texture of resource.textures) operations.texture(texture);
-    } else if (resource instanceof NativePBRMaterial) {
-      operations.texture(materialBaseTexture(resource));
-      const sources = pbrTextureSources(resource);
-      for (const key of pbrTextureKeys) {
-        const texture = sources[key];
-        if (texture) operations.texture(texture);
-      }
     } else operations.texture(resource);
     lease = residencyLease(residency.endCapture());
   } catch (error) {
@@ -131,7 +113,7 @@ export async function prepareNativeResource(
   }
   try {
     return await completePreparation(
-      isNativeMaterial3D(resource)
+      resource instanceof NativeMaterial3D
         ? operations.material(resource)
         : operations.complete(),
       lease,

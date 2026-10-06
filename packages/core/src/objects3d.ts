@@ -789,6 +789,8 @@ function text3DStyle(
  * each label owns its raster texture, while externally assigned materials stay borrowed.
  */
 export class Text3D extends Billboard {
+  /** Replacing this material borrows it; only generated raster textures are owned. */
+  declare material: TextureMaterial;
   private revision = 0;
   private requestedText: string;
   private requestedStyle: Text3DStyle;
