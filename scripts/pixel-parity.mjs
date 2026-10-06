@@ -3,6 +3,12 @@
  */
 export const parityThresholds = Object.freeze({ mean: 0.001, p99: 1 });
 
+/** Instancing differs by sparse one-byte steps (local macOS 1/16384, hosted SwiftShader 24/16384 px); mean <= 0.002 with p99 <= 1 still rejects any flip, colour error or 2-byte step. */
+export const instancingParityThresholds = Object.freeze({
+  mean: 0.002,
+  p99: 1,
+});
+
 /** Byte-domain RGB, top-left origin; never resamples or aligns images. */
 export function comparePixels(a, b, width, height, limits = parityThresholds) {
   if (

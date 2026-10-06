@@ -17,6 +17,7 @@ import {
   comparePixels,
   comparatorSelfTest,
   parityThresholds,
+  instancingParityThresholds,
 } from './pixel-parity.mjs';
 import { qualifyMaterialReferences } from './material-reference.mjs';
 
@@ -663,7 +664,13 @@ try {
       const b = captures.webgpu.find((scene) => scene.name === a.name);
       if (!b || a.width !== b.width || a.height !== b.height)
         throw new Error(`Parity fixture mismatch: ${a.name}`);
-      const measured = comparePixels(a.pixels, b.pixels, a.width, a.height);
+      const measured = comparePixels(
+        a.pixels,
+        b.pixels,
+        a.width,
+        a.height,
+        a.name === 'instancing' ? instancingParityThresholds : parityThresholds,
+      );
       pixelParity.scenarios.push({
         name: a.name,
         ...measured,
