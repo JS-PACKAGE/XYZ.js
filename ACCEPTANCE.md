@@ -2143,7 +2143,7 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
 
 ## v1.18 發佈
 
-package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、動畫圖片、Profiler 與像素比對 gate、Terrain／Water／Ribbon／植被、後製（LUT、體積霧、光暈、動態模糊）、烘焙光照／平面反射／contact shadows、WebXR、mapped optical 材質、P135／P136。閘門結果見上節最終重跑；Windows hosted 步驟仍為 continue-on-error，WebXR 實機與 WebGPU 真實裝置遺失維持 BLOCKED／未驗證。hosted CI 與 Release 的結果以 GitHub 紀錄為準，推送後才驗證。
+package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、動畫圖片、Profiler 與像素比對 gate、Terrain／Water／Ribbon／植被、後製（LUT、體積霧、光暈、動態模糊）、烘焙光照／平面反射／contact shadows、WebXR、mapped optical 材質、P135／P136。2026-10-06 已發佈 [v1.18 GitHub Release](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.18)，套件版本 1.18.0；最終 hosted／archive 實測與失敗歷史見下節。Windows hosted native regression 仍為 non-blocking，WebXR 實機與 WebGPU 真實裝置遺失維持 BLOCKED／未驗證。
 
 ### v1.18 hosted CI 後的門檻調整（誠實紀錄）
 
@@ -2176,3 +2176,11 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - main CI run [`37452393091`](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37452393091) 的正式 headed site 四個 shard 全過：63／59／57／55 cases，下載 JSON 後核對合計 234、unique 234，與 advertised available case IDs 完全相同，無漏／重複案例。該次整體 CI 尚未通過：唯一失敗為 Ubuntu Chromium／Node 26 的 WebGPU material lifecycle，180 秒 timeout screenshot 已有五個 cycle 條目（不等於全部已完成）；同 run Node 22／24、其他 browser／platform gates 通過。保留這次失敗，另以 isolated hosted 診斷觀察真 RAF／mapAsync 進度；不跳過 lifecycle 或先發佈。
 
 - Isolated Ubuntu／Node 26 診斷 run [`37454302579`](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37454302579) 量測八輪完整 PASS：135,331 ms 首次觀測 terminal passed、73 RAF requested／resolved、80 GPUBuffer.mapAsync requested／resolved、0 rejected，始終 visible；每輪 baselineRestored true，全部 tracked counters 回零。這次觀測顯示 native software readback 持續較慢，不是 hidden-page RAF stall；原失敗 host 未量測 mapAsync，不能宣稱已證明其特定 driver 原因。正式 runner 改為每輪 exact-baseline progress 最多60秒、terminal teardown 另60秒，不再八輪共用180秒；這是 bounded hang watchdog，不改 production performance gate 或八輪像素／resource assertions。本機完整 WebGPU regression PASS（18.74秒、`.vite/lifecycle-per-cycle/`），lint／changed-file format PASS；physical XR／公開 WebGPU loss injection 仍 BLOCKED。
+
+- main commit `39887bc` 的完整 CI [`37454934821`](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37454934821) 結果 success，包含 Ubuntu Chromium／Node 26 full native regression、四個 site shard、quality／API／package／production／starter／audio gates。仍沿用原 Windows hosted native non-blocking 範圍，不能把 job success 當 Windows native 全認證。
+
+- Annotated tag `v1.18` 固定於 `39887bcd679eb2f7a64b6410d6b1b508cd0192a5`。Release [`37456245025`](https://github.com/JS-PACKAGE/XYZ.js/actions/runs/37456245025) attempt 1：只有 site shard 1/4 失敗，63 cases 皆執行、62 PASS；world-nature/auto 出現 native console warning「A valid external Instance reference no longer exists.」，stats 停在 Frame 7，失敗 screenshot 畫布白底／broken-image，canvas screenshot stable wait 30秒 timeout。其餘 backend profiles 與其餘 jobs 通過，release job 因 gate failure skipped。這是觀測到的 intermittent native failure，不宣稱已證明特定 Chromium／driver 根因；保留原 artifact，僅由操作員在新 runner 重驗完整 failed shard，不加入 script retries、不放寬 pixel／coverage gate、不移動 tag。
+
+- Release run `37456245025` attempt 2 結果 success：新 runner 的完整 site shard 1/4 63/63 cases、catalogues／pixel／backend／cleanup gates PASS。核對該次 artifact ID `11409867361`（非同名 attempt 1 artifact）；world-nature/auto 無 errors，實際 canvas 為正常 terrain／water／grass／trail，nonuniform true、10,638 distinct RGB。這次通過不抹除 attempt 1 的 intermittent failure，也不擴大跨 host 認證範圍。
+
+- 發佈於 **2026-10-06T11:47:02Z**，non-draft／non-prerelease。Release workflow 完成 tag CI、build、exact archive package hygiene、SHA256SUMS 與 publication；附件 `xyz.js-1.18.0.tgz`／`SHA256SUMS`。下載實際附件後 `shasum -a 256 -c SHA256SUMS` 回報 `xyz.js-1.18.0.tgz: OK`，再次 exact-archive hygiene PASS（`.vite/package-hygiene/run-NqUZ0p/report.json`）。Archive SHA256：`bbdc4232979dd4ad956d5f56601b8b025912da38aa6dd25e3761f974f44ef2ea`。未執行 npm publish；後補驗收文件只推 main，不移動既有 release tag。
