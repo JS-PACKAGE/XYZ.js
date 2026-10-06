@@ -366,6 +366,7 @@ try {
                 state: report?.getAttribute('data-state'),
                 progress: report?.getAttribute('data-progress'),
                 step: report?.getAttribute('data-step'),
+                phase: report?.getAttribute('data-phase'),
               };
             })
             .catch(() => undefined);

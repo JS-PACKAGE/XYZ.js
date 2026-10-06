@@ -137,8 +137,9 @@ async function run(): Promise<void> {
   const proofs = frameProofs(renderer, canvas);
   const white = await Texture.fromImage(whiteCanvas);
   owned.push(white);
+  let drawCount = 0;
   const draw = async (s: Scene): Promise<FrameProof> => {
-    const previous = output.dataset.step?.split('>')[0];
+    const previous = `${output.dataset.phase ?? ''}#${++drawCount}`;
     step(`${previous}>raf`);
     await new Promise<void>((resolve) =>
       requestAnimationFrame(() => resolve()),
@@ -258,7 +259,7 @@ async function run(): Promise<void> {
     });
   }
 
-  step('physical:omitted');
+  output.dataset.phase = 'physical:omitted';
   const physicalScene = scene();
   const omitted = new NativePBRMaterial({
     texture: white,
@@ -277,7 +278,7 @@ async function run(): Promise<void> {
     omission instanceof GraphicsError,
     'A physical material without xyzPhysical must reject before draw.',
   );
-  step('physical:prepare');
+  output.dataset.phase = 'physical:prepare';
   const physical = new NativePBRMaterial({
     texture: white,
     deformationBounds: 0,
@@ -294,7 +295,7 @@ async function run(): Promise<void> {
       castShadow: false,
     }),
   );
-  step('physical:draw');
+  output.dataset.phase = 'physical:draw';
   const colored = await draw(physicalScene);
   let redPixels = 0;
   for (let i = 0; i < colored.bytes.length; i += 4)
@@ -1036,11 +1037,14 @@ async function run(): Promise<void> {
     if (device) trigger = () => device.destroy();
   }
   if (trigger) {
+    output.dataset.phase = 'loss:before';
     const before = await draw(cached);
     const count = recovered;
+    output.dataset.phase = 'loss:trigger';
     trigger();
     const deadline = performance.now() + 10000;
     while (recovered === count && performance.now() < deadline) await delay(20);
+    output.dataset.phase = 'loss:recovered';
     check(recovered > count && lost > 0, 'Actual native loss must recover.');
     const after = await draw(cached);
     check(
