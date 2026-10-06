@@ -154,13 +154,29 @@ async function runMaterialLifecycle(context, backend, result) {
       `http://127.0.0.1:${port}/tests/browser/material-lifecycle.html?renderer=${backend}`,
       { waitUntil: 'domcontentloaded' },
     );
+    // Native software readback can be slow; bound each real cleanup cycle,
+    // rather than charging all eight cycles against one wall-clock deadline.
+    for (let cycle = 0; cycle < 8; cycle++) {
+      await page.waitForFunction(
+        (index) => {
+          const element = document.querySelector('#report');
+          if (!element) return false;
+          if (['passed', 'failed'].includes(element.getAttribute('data-state')))
+            return true;
+          const report = JSON.parse(element.textContent);
+          return report.cycles?.[index]?.baselineRestored === true;
+        },
+        cycle,
+        { timeout: 60000 },
+      );
+    }
     await page.waitForFunction(
       () =>
         ['passed', 'failed'].includes(
           document.querySelector('#report')?.getAttribute('data-state'),
         ),
       undefined,
-      { timeout: 180000 },
+      { timeout: 60000 },
     );
     const state = await page.locator('#report').getAttribute('data-state');
     const report = JSON.parse(await page.locator('#report').textContent());
