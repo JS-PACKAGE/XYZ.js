@@ -21,6 +21,7 @@ jobs:
       - run: node scripts/diagnose-site.mjs
         env:
           XYZ_DIAGNOSTIC_CHANNEL: chromium
+          XYZ_DIAGNOSTIC_HEADED: '1'
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:

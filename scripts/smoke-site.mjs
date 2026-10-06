@@ -759,6 +759,7 @@ try {
     );
   launch.args = [...new Set([...(launch.args ?? []), '--mute-audio'])];
   if (process.env.XYZ_DIAGNOSTIC_CHANNEL) launch.channel = process.env.XYZ_DIAGNOSTIC_CHANNEL;
+  if (process.env.XYZ_DIAGNOSTIC_HEADED === '1') launch.headless = false;
   // Exactly one new managed process. No connect(), CDP attachment, persistent profile, or user browser.
   browser = await chromium.launch(launch);
   const probe = await ownedPage();
