@@ -104,3 +104,24 @@ vec3 reflectionIrradiance(vec3 n, vec4 weights) {
   return result;
 }
 `;
+
+/** Coefficients are already cosine-convolved irradiance / pi, sampled per mesh. */
+export const bakedIrradianceWGSL = /* wgsl */ `
+fn bakedIrradiance(n: vec3f) -> vec3f {
+  let basis = array<f32,9>(0.282095,0.488603*n.y,0.488603*n.z,0.488603*n.x,1.092548*n.x*n.y,1.092548*n.y*n.z,0.315392*(3.0*n.z*n.z-1.0),1.092548*n.x*n.z,0.546274*(n.x*n.x-n.y*n.y));
+  var result = vec3f(0.0);
+  for (var j = 0u; j < 9u; j++) { result += mesh.bakedSH[j].rgb*basis[j]; }
+  return max(result,vec3f(0.0));
+}
+`;
+
+export const bakedIrradianceGLSL = /* glsl */ `
+uniform vec4 bakedSH[9];
+uniform vec4 bakedParams;
+vec3 bakedIrradiance(vec3 n) {
+  float basis[9]=float[9](0.282095,0.488603*n.y,0.488603*n.z,0.488603*n.x,1.092548*n.x*n.y,1.092548*n.y*n.z,0.315392*(3.0*n.z*n.z-1.0),1.092548*n.x*n.z,0.546274*(n.x*n.x-n.y*n.y));
+  vec3 result=vec3(0.0);
+  for (int j=0;j<9;j++) result+=bakedSH[j].rgb*basis[j];
+  return max(result,vec3(0.0));
+}
+`;
