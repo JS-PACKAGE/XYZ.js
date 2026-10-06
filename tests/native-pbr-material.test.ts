@@ -80,7 +80,7 @@ describe('native physical material hooks', () => {
       `fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex { return XYZVertex(position+vec3f(1.0,0.0,0.0), normal); }\n${hooks.wgsl}`,
       true,
     );
-    expect(moved.match(/fn xyzDeform/g)).toHaveLength(1);
+    expect(moved.match(/fn xyzDeform\s*\(/g)).toHaveLength(1);
     expect(moved).toContain('position+vec3f(1.0,0.0,0.0)');
     expect(() =>
       nativeMeshGLSL('vec4 xyzSurface(){return vec4(1.0);}', 'surface', true),
@@ -91,5 +91,26 @@ describe('native physical material hooks', () => {
     expect(
       nativeMeshWGSL('fn xyzSurface()->vec4f { return vec4f(1.0); }'),
     ).toContain('xyzMap0');
+  });
+
+  it('dispatches authored instance deformation and preserves legacy fallback', () => {
+    const glsl = nativeMeshGLSL(
+      `XYZVertex xyzDeformInstance(vec3 p,vec3 n,vec2 uv,mat4 instance) { return XYZVertex(p+instance[3].xyz,n); }\n${hooks.glsl}`,
+      'vertex',
+      true,
+    );
+    expect(glsl).toContain('instanced ? instanceMatrix : mat4(1.0)');
+    expect(glsl.match(/XYZVertex xyzDeformInstance\s*\(/g)).toHaveLength(1);
+    const wgsl = nativeMeshWGSL(
+      `fn xyzDeformInstance(p:vec3f,n:vec3f,uv:vec2f,instance:mat4x4f)->XYZVertex { return XYZVertex(p+instance[3].xyz,n); }\n${hooks.wgsl}`,
+      true,
+    );
+    expect(wgsl.match(/fn xyzDeformInstance\s*\(/g)).toHaveLength(1);
+    expect(wgsl).toContain(
+      'xyzDeformInstance(input.position, input.normal, input.uv, instance)',
+    );
+    expect(nativeMeshWGSL(hooks.wgsl, true)).toContain(
+      'return xyzDeform(position, normal, uv);',
+    );
   });
 });

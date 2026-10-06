@@ -33,6 +33,7 @@ import {
 } from './errors.js';
 import type { AlphaToCoverageCapabilities, Renderer } from './index.js';
 import { WebGPUMeshPipeline } from './webgpu-mesh-pipeline.js';
+import { Mesh } from '../../core/src/mesh.js';
 import {
   FrameStats,
   type RenderStats,
@@ -276,6 +277,8 @@ export class WebGPURenderer implements Renderer {
         gpuParticles: (emitter) => this.prepareGpuParticles(emitter),
         post: (post) => this.preparePostProcessor(post),
         complete: async () => {
+          if (source instanceof Mesh && !isNativeMaterial3D(source.material))
+            await this.meshPipeline!.prepareMeshAsync(source);
           await device.queue.onSubmittedWorkDone();
           this.requireDevice();
         },

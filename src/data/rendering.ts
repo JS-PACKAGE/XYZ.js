@@ -150,3 +150,9 @@ export const reflectionCaptureLimits = Object.freeze({
   maximumBytes: 64 * 1024 * 1024,
   interval: 1,
 });
+
+/** Bound driver program residency and protect the inexpensive default PBR source. */
+export const meshShaderVariantLimits = Object.freeze({
+  maxEntries: 64,
+  plainFragmentMaxBytes: 40000,
+});

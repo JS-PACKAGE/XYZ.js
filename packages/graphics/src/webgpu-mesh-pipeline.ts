@@ -52,6 +52,7 @@ import {
   nativeMaterial3DLimits,
   MATERIAL_UV_FLOAT_COUNT,
   REFLECTION_FLOAT_COUNT,
+  meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
 import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
@@ -69,7 +70,15 @@ import {
 } from './native-texture-upload.js';
 import { Matrix4 } from '../../math/src/index.js';
 import { WebGPUInitializationError, GraphicsError } from './errors.js';
-import { webgpuMeshShader } from './webgpu-mesh-shader.js';
+import {
+  webgpuMeshShader,
+  buildWebGPUMeshShader,
+} from './webgpu-mesh-shader.js';
+import {
+  meshShaderFeatures,
+  meshShaderVariantKey,
+  type MeshShaderFeatures,
+} from './mesh-shader-variants.js';
 import { WebGPUPostPipeline } from './webgpu-post-pipeline.js';
 import type { FrameStats } from './render-stats.js';
 import { fillOpticalMapSettings } from './optical-maps.js';
@@ -201,7 +210,16 @@ export class WebGPUMeshPipeline {
     CachedTexture
   >();
   private readonly samplers = new Map<string, GPUSampler>();
-  private readonly coveragePipelines = new Map<number, GPURenderPipeline>();
+  private readonly meshPipelines = new Map<
+    string,
+    {
+      recipe: GPURenderPipelineDescriptor;
+      pipeline?: GPURenderPipeline;
+      pending?: Promise<void>;
+    }
+  >();
+  private readonly pendingMeshPipelines = new Set<Promise<void>>();
+  private renderScene?: Scene;
   private readonly draws: Mesh[] = [];
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
@@ -314,9 +332,6 @@ export class WebGPUMeshPipeline {
     private readonly opticalPackLayout: GPUBindGroupLayout,
     private readonly transmissionPack: GPUComputePipeline,
     private readonly thicknessPack: GPUComputePipeline,
-    private readonly pipeline: GPURenderPipeline,
-    private readonly hdrPipeline: GPURenderPipeline,
-    private readonly oitPipeline: GPURenderPipeline,
     private readonly shadowPipeline: GPURenderPipeline,
     private readonly skyPipeline: GPURenderPipeline,
     private readonly skyHdrPipeline: GPURenderPipeline,
@@ -330,8 +345,6 @@ export class WebGPUMeshPipeline {
     private readonly residency: NativeResidency,
     private readonly pipelineRecipes: readonly GPURenderPipelineDescriptor[],
     private readonly particles: WebGPUParticles3D,
-    private readonly fadedPipeline: GPURenderPipeline,
-    private readonly fadedHdrPipeline: GPURenderPipeline,
   ) {
     this.stats = post.stats;
     this.oit = new WebGPUOIT(device, sampleCount, this.stats);
@@ -719,7 +732,6 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     };
-    const pipeline = device.createRenderPipeline(pipelineRecipe);
     const hdrRecipe: GPURenderPipelineDescriptor = {
       layout,
       vertex: { module, entryPoint: 'vertexMain', buffers },
@@ -736,7 +748,6 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     };
-    const hdrPipeline = device.createRenderPipeline(hdrRecipe);
     const additive: GPUBlendComponent = { srcFactor: 'one', dstFactor: 'one' };
     const reveal: GPUBlendComponent = {
       srcFactor: 'zero',
@@ -764,7 +775,6 @@ export class WebGPUMeshPipeline {
         depthCompare: 'less',
       },
     };
-    const oitPipeline = device.createRenderPipeline(oitRecipe);
     const shadowRecipe: GPURenderPipelineDescriptor = {
       layout: device.createPipelineLayout({
         bindGroupLayouts: [
@@ -795,8 +805,6 @@ export class WebGPUMeshPipeline {
       ...hdrRecipe,
       depthStencil: { ...hdrRecipe.depthStencil!, depthWriteEnabled: false },
     };
-    const fadedPipeline = device.createRenderPipeline(fadedRecipe);
-    const fadedHdrPipeline = device.createRenderPipeline(fadedHdrRecipe);
     const skyPipelines = [format, 'rgba16float' as GPUTextureFormat].map(
       (targetFormat) =>
         device.createRenderPipeline({
@@ -840,9 +848,6 @@ export class WebGPUMeshPipeline {
         opticalPackLayout,
         transmissionPack,
         thicknessPack,
-        pipeline,
-        hdrPipeline,
-        oitPipeline,
         shadowPipeline,
         skyPipeline,
         skyHdrPipeline,
@@ -863,8 +868,6 @@ export class WebGPUMeshPipeline {
           fadedHdrRecipe,
         ],
         particles,
-        fadedPipeline,
-        fadedHdrPipeline,
       );
     } catch (error) {
       particles?.destroy();
@@ -958,6 +961,7 @@ export class WebGPUMeshPipeline {
     viewportHeight = height,
     captureTarget?: GPUTexture,
   ): boolean {
+    this.renderScene = scene;
     this.frame++;
     for (const buffer of this.retired) buffer.destroy();
     this.retired.length = 0;
@@ -1189,7 +1193,6 @@ export class WebGPUMeshPipeline {
             pass.draw(3);
           }
           pass.setBindGroup(0, this.sceneBindGroup);
-          pass.setPipeline(linear ? this.hdrPipeline : this.pipeline);
           for (const object of this.visibleDraws) {
             if (weighted && this.blendedDraw(object)) continue;
             if (hasTransmission || ssr) {
@@ -1256,7 +1259,6 @@ export class WebGPUMeshPipeline {
       if (weighted) {
         const pass = this.oit.begin(encoder, width, height, this.depthView!);
         try {
-          pass.setPipeline(this.oitPipeline);
           for (const object of this.visibleDraws) {
             if (!this.blendedDraw(object)) continue;
             pass.setBindGroup(
@@ -1303,6 +1305,7 @@ export class WebGPUMeshPipeline {
       this.colorAttachment.resolveTarget = undefined;
       this.depthAttachment.view = undefined;
       this.shadowAttachment.view = undefined;
+      this.renderScene = undefined;
       this.draws.length = 0;
       this.visibleDraws.length = 0;
       this.releaseUnused();
@@ -1710,6 +1713,102 @@ export class WebGPUMeshPipeline {
     this.cacheGeometry(mesh.renderGeometry);
     this.cacheMesh(mesh);
   }
+  /** Warms one ordinary mesh pass without blocking subsequent synchronous draws. */
+  async prepareMeshAsync(
+    mesh: Mesh,
+    scene?: Scene,
+    variant = 0,
+  ): Promise<void> {
+    if (this.destroyed)
+      throw new GraphicsError('Cannot prepare on a destroyed native renderer.');
+    if (isNativeMaterial3D(mesh.material)) {
+      await this.prepareMaterial(mesh.material);
+      this.prepareMesh(mesh);
+      return;
+    }
+    this.prepareMesh(mesh);
+    if (variant === 3) return;
+    const coverage =
+      mesh.material instanceof PBRMaterial && mesh.material.alphaToCoverage;
+    while (
+      this.pendingMeshPipelines.size >= meshShaderVariantLimits.maxEntries
+    ) {
+      await Promise.race(this.pendingMeshPipelines);
+      if (this.destroyed)
+        throw new GraphicsError('Mesh pipeline preparation was invalidated.');
+    }
+    const entry = this.meshPipelineEntry(
+      meshShaderFeatures(mesh.material, mesh, scene),
+      variant,
+      coverage,
+    );
+    if (entry.pipeline) return;
+    if (!entry.pending) {
+      entry.pending = this.device
+        .createRenderPipelineAsync(entry.recipe)
+        .then((pipeline) => {
+          if (!this.destroyed && !entry.pipeline) entry.pipeline = pipeline;
+        })
+        .finally(() => {
+          this.pendingMeshPipelines.delete(entry.pending!);
+          entry.pending = undefined;
+        });
+      this.pendingMeshPipelines.add(entry.pending);
+    }
+    await entry.pending;
+    if (this.destroyed)
+      throw new GraphicsError('Mesh pipeline preparation was invalidated.');
+  }
+
+  private meshPipelineEntry(
+    features: MeshShaderFeatures,
+    variant: number,
+    coverage: boolean,
+  ) {
+    if (coverage && this.sampleCount < 2)
+      throw new GraphicsError(
+        'Alpha-to-coverage requires renderer antialiasing.',
+      );
+    const key = `${meshShaderVariantKey(features)}:${variant}:${coverage ? 1 : 0}`;
+    let entry = this.meshPipelines.get(key);
+    if (entry) {
+      this.meshPipelines.delete(key);
+      this.meshPipelines.set(key, entry);
+      return entry;
+    }
+    const base = this.pipelineRecipes[variant];
+    if (!base?.fragment)
+      throw new GraphicsError('Unsupported mesh pipeline pass.');
+    const module = this.device.createShaderModule({
+      code: buildWebGPUMeshShader(features),
+    });
+    const recipe: GPURenderPipelineDescriptor = {
+      ...base,
+      vertex: { ...base.vertex, module },
+      fragment: {
+        ...base.fragment,
+        module,
+        targets: coverage
+          ? Array.from(base.fragment.targets, (target) => ({
+              ...target!,
+              blend: undefined,
+              writeMask:
+                GPUColorWrite.RED | GPUColorWrite.GREEN | GPUColorWrite.BLUE,
+            }))
+          : base.fragment.targets,
+      },
+      multisample: coverage
+        ? { count: this.sampleCount, alphaToCoverageEnabled: true }
+        : base.multisample,
+    };
+    if (this.meshPipelines.size >= meshShaderVariantLimits.maxEntries) {
+      const oldest = this.meshPipelines.keys().next().value;
+      if (oldest !== undefined) this.meshPipelines.delete(oldest);
+    }
+    entry = { recipe };
+    this.meshPipelines.set(key, entry);
+    return entry;
+  }
   unloadTexture(texture: Texture2DSource): void {
     if (texture.kind !== 'image' && texture.kind !== 'native') return;
     this.textures.get(texture)?.allocation.destroy();
@@ -1855,24 +1954,24 @@ export class WebGPUMeshPipeline {
       : undefined;
     if (variant < 2 && (this.visibility.entries.get(object)?.fade ?? 1) < 1)
       variant += 4;
-    let pipeline = custom
-      ? custom.pipelines[variant]
-      : variant === 5
-        ? this.fadedHdrPipeline
-        : variant === 4
-          ? this.fadedPipeline
-          : variant === 3
-            ? this.shadowPipeline
-            : variant === 2
-              ? this.oitPipeline
-              : variant === 1
-                ? this.hdrPipeline
-                : this.pipeline;
-    if (
+    const coverage =
       variant !== 3 &&
       object.material instanceof PBRMaterial &&
-      object.material.alphaToCoverage
-    ) {
+      object.material.alphaToCoverage;
+    let pipeline: GPURenderPipeline;
+    if (custom) pipeline = custom.pipelines[variant]!;
+    else if (variant === 3) pipeline = this.shadowPipeline;
+    else {
+      const entry = this.meshPipelineEntry(
+        meshShaderFeatures(object.material, object, this.renderScene),
+        variant,
+        coverage,
+      );
+      // Preparation may still be in flight; drawing always remains synchronous.
+      entry.pipeline ??= this.device.createRenderPipeline(entry.recipe);
+      pipeline = entry.pipeline;
+    }
+    if (custom && coverage) {
       if (this.sampleCount < 2)
         throw new GraphicsError(
           'Alpha-to-coverage requires renderer antialiasing.',
@@ -1897,20 +1996,6 @@ export class WebGPUMeshPipeline {
             },
           });
           custom.coverage.set(variant, coveragePipeline);
-        }
-        pipeline = coveragePipeline;
-      } else {
-        let coveragePipeline = this.coveragePipelines.get(variant);
-        if (!coveragePipeline) {
-          coveragePipeline = this.device.createRenderPipeline({
-            ...recipe,
-            fragment: { ...recipe.fragment!, targets },
-            multisample: {
-              count: this.sampleCount,
-              alphaToCoverageEnabled: true,
-            },
-          });
-          this.coveragePipelines.set(variant, coveragePipeline);
         }
         pipeline = coveragePipeline;
       }
@@ -2940,7 +3025,10 @@ export class WebGPUMeshPipeline {
     this.temporal.destroy();
     for (const entry of this.nativeMaterials.values()) entry.unsubscribe();
     this.nativeMaterials.clear();
-    this.coveragePipelines.clear();
+    this.meshPipelines.clear();
+    this.pendingMeshPipelines.clear();
+    this.pendingMaterials.clear();
+    this.renderScene = undefined;
     this.visibilityCache.clear();
     this.visibility.entries.clear();
     this.gathered.clear();

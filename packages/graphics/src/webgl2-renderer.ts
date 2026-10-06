@@ -18,6 +18,10 @@ import {
 } from '../../core/src/native-material3d.js';
 import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { nativeMeshGLSL } from './webgl-feature-shaders.js';
+import {
+  meshShaderFeatures,
+  meshShaderVariantKey,
+} from './mesh-shader-variants.js';
 import { iridescenceFilmRange } from '../../../src/data/materials.js';
 import type { Scene } from '../../core/src/scene.js';
 import { Frustum } from '../../core/src/frustum.js';
@@ -63,7 +67,8 @@ import { Matrix4 } from '../../math/src/index.js';
 import { OrthographicCamera } from '../../core/src/orthographic-camera.js';
 import {
   meshVertex,
-  meshFragment,
+  buildMeshFragment,
+  buildMeshVertex,
   shadowFragment,
   postVertex,
   postFragment,
@@ -97,6 +102,7 @@ import {
   LIGHTING_FLOAT_COUNT,
   MATERIAL_UV_FLOAT_COUNT,
   materialQuality,
+  meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
 import { fillMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
@@ -179,6 +185,69 @@ precision highp float;
 in vec3 vColor;
 out vec4 color;
 void main() { color = vec4(vColor, 1.0); }`;
+
+const meshUniformNames = [
+  'viewProjection',
+  'model',
+  'instanced',
+  'skinned',
+  'jointPalette',
+  'lighting[0]',
+  'tint',
+  'surface',
+  'emission',
+  'maps',
+  'pbr',
+  'alphaMode',
+  'doubleSided',
+  'linearOutput',
+  'cameraPosition',
+  'receiveShadow',
+  'image',
+  'metallicRoughnessMap',
+  'normalMap',
+  'occlusionMap',
+  'emissiveMap',
+  'specularMap',
+  'specularColorMap',
+  'specularColor',
+  'specularParams',
+  'clearcoat',
+  'clearcoatMaps',
+  'clearcoatMap',
+  'clearcoatRoughnessMap',
+  'clearcoatNormalMap',
+  'sheen',
+  'sheenMaps',
+  'sheenColorMap',
+  'sheenRoughnessMap',
+  'transmission',
+  'attenuationColor',
+  'transmissionMapSettings',
+  'thicknessMapSettings',
+  'finish0',
+  'finish1',
+  'finish2',
+  'finish3',
+  'finish4',
+  'opticalMaps',
+  'opaqueScene',
+  'shadowMap',
+  'oitPass',
+  'environment[0]',
+  'environmentMap',
+  'probeData[0]',
+  'fog[0]',
+  'meshFade',
+  'tangentTexCoord',
+  'derivativeTangentSign',
+  'materialCoordinates[0]',
+] as const;
+
+interface MeshProgram {
+  program: WebGLProgram;
+  uniforms: Record<string, WebGLUniformLocation | null>;
+}
 
 interface CachedTexture {
   allocation: ResidencyAllocation;
@@ -318,7 +387,13 @@ export class WebGL2Renderer implements Renderer {
     throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
   }
   private triangleProgram: WebGLProgram | undefined;
-  private meshProgram: WebGLProgram | undefined;
+  private readonly meshPrograms = new Map<string, MeshProgram>();
+  private readonly pendingPrograms = new Set<WebGLProgram>();
+  private readonly nativePreparations = new Map<
+    NativeMaterial3D | NativePBRMaterial,
+    Promise<void>
+  >();
+  private parallelCompile: { COMPLETION_STATUS_KHR: number } | null = null;
   private triangleVAO: WebGLVertexArrayObject | undefined;
   private readonly commands = new RenderCommandBuffer2D();
   private readonly textures = new Map<Texture2DSource, CachedTexture>();
@@ -621,8 +696,6 @@ export class WebGL2Renderer implements Renderer {
   private temporalActive = false;
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
-  private readonly meshUniforms: Record<string, WebGLUniformLocation | null> =
-    {};
   private readonly shadowUniforms: Record<string, WebGLUniformLocation | null> =
     {};
   private readonly postUniforms: Record<string, WebGLUniformLocation | null> =
@@ -746,6 +819,7 @@ export class WebGL2Renderer implements Renderer {
           'WebGL2 canvas context is unavailable: canvas.getContext("webgl2") returned null.',
         );
       this.gl = gl;
+      this.parallelCompile = gl.getExtension('KHR_parallel_shader_compile');
       if (this.gpuTimingEnabled) {
         const extension = gl.getExtension('EXT_disjoint_timer_query_webgl2');
         if (extension)
@@ -838,12 +912,6 @@ export class WebGL2Renderer implements Renderer {
         triangleFragment,
         'triangle',
       );
-      this.meshProgram = this.createProgram(
-        gl,
-        meshVertex,
-        meshFragment,
-        'mesh',
-      );
       this.shadowProgram = this.createProgram(
         gl,
         meshVertex,
@@ -911,27 +979,12 @@ export class WebGL2Renderer implements Renderer {
         this.atlas.data.byteLength,
         gl.DYNAMIC_DRAW,
       );
-      gl.uniformBlockBinding(
-        this.meshProgram,
-        gl.getUniformBlockIndex(this.meshProgram, 'ShadowData'),
-        0,
-      );
       this.sheenBuffer = this.createBuffer(gl);
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.sheenBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, sheenDirectionalAlbedo, gl.STATIC_DRAW);
-      gl.uniformBlockBinding(
-        this.meshProgram,
-        gl.getUniformBlockIndex(this.meshProgram, 'SheenLookup'),
-        1,
-      );
       this.brdfBuffer = this.createBuffer(gl);
       gl.bindBuffer(gl.UNIFORM_BUFFER, this.brdfBuffer);
       gl.bufferData(gl.UNIFORM_BUFFER, ggxDirectionalAlbedo, gl.STATIC_DRAW);
-      gl.uniformBlockBinding(
-        this.meshProgram,
-        gl.getUniformBlockIndex(this.meshProgram, 'GGXLookup'),
-        2,
-      );
       this.opticalPackProgram = this.createProgram(
         gl,
         postVertex,
@@ -954,67 +1007,6 @@ export class WebGL2Renderer implements Renderer {
       this.opticalPackSide = gl.getUniformLocation(
         this.opticalPackProgram,
         'side',
-      );
-      for (const name of [
-        'viewProjection',
-        'model',
-        'instanced',
-        'skinned',
-        'jointPalette',
-        'lighting[0]',
-        'tint',
-        'surface',
-        'emission',
-        'maps',
-        'pbr',
-        'alphaMode',
-        'doubleSided',
-        'linearOutput',
-        'cameraPosition',
-        'receiveShadow',
-        'image',
-        'metallicRoughnessMap',
-        'normalMap',
-        'occlusionMap',
-        'emissiveMap',
-        'specularMap',
-        'specularColorMap',
-        'specularColor',
-        'specularParams',
-        'clearcoat',
-        'clearcoatMaps',
-        'clearcoatMap',
-        'clearcoatRoughnessMap',
-        'clearcoatNormalMap',
-        'sheen',
-        'sheenMaps',
-        'sheenColorMap',
-        'sheenRoughnessMap',
-        'transmission',
-        'attenuationColor',
-        'transmissionMapSettings',
-        'thicknessMapSettings',
-        'finish0',
-        'finish1',
-        'finish2',
-        'finish3',
-        'finish4',
-        'opticalMaps',
-        'opaqueScene',
-        'shadowMap',
-        'oitPass',
-        'environment[0]',
-        'environmentMap',
-        'probeData[0]',
-        'fog[0]',
-        'meshFade',
-        'tangentTexCoord',
-        'derivativeTangentSign',
-      ])
-        this.meshUniforms[name] = gl.getUniformLocation(this.meshProgram, name);
-      this.meshUniforms['materialCoordinates[0]'] = gl.getUniformLocation(
-        this.meshProgram,
-        'materialCoordinates[0]',
       );
       for (const name of [
         'viewProjection',
@@ -1060,14 +1052,6 @@ export class WebGL2Renderer implements Renderer {
           this.compositeProgram,
           name,
         );
-      gl.useProgram(this.meshProgram);
-      gl.uniform1i(this.meshUniforms.image, 0);
-      gl.uniform1i(this.meshUniforms.metallicRoughnessMap, 1);
-      gl.uniform1i(this.meshUniforms.normalMap, 2);
-      gl.uniform1i(this.meshUniforms.occlusionMap, 3);
-      gl.uniform1i(this.meshUniforms.emissiveMap, 4);
-      gl.uniform1i(this.meshUniforms.shadowMap, 5);
-      gl.uniform1i(this.meshUniforms.environmentMap, 6);
       gl.useProgram(this.skyProgram);
       gl.uniform1i(this.skyUniforms.backgroundMap, 0);
       gl.useProgram(this.shadowProgram);
@@ -1173,6 +1157,20 @@ export class WebGL2Renderer implements Renderer {
   ): Promise<void> {
     if (!isNativeMaterial3D(material))
       return this.prepareNative(material, false);
+    const existing = this.nativePreparations.get(material);
+    if (existing) return existing;
+    const preparation = this.prepareNativeMesh(material);
+    this.nativePreparations.set(material, preparation);
+    try {
+      await preparation;
+    } finally {
+      this.nativePreparations.delete(material);
+    }
+  }
+
+  private async prepareNativeMesh(
+    material: NativeMaterial3D | NativePBRMaterial,
+  ): Promise<void> {
     const gl = this.requireGL();
     material.validate();
     if (this.nativeMaterials.has(material)) return;
@@ -1184,7 +1182,9 @@ export class WebGL2Renderer implements Renderer {
       vertex,
       nativeMeshGLSL(material.glsl, 'surface', physical),
       material.label,
+      !!this.parallelCompile,
     );
+    this.pendingPrograms.add(program);
     let shadow: WebGLProgram | undefined;
     try {
       shadow = this.createProgram(
@@ -1192,11 +1192,17 @@ export class WebGL2Renderer implements Renderer {
         vertex,
         nativeMeshGLSL(material.glsl, 'shadow', physical),
         `${material.label} shadow`,
+        !!this.parallelCompile,
       );
+      this.pendingPrograms.add(shadow);
+      await this.waitForProgram(gl, program, material.label);
+      await this.waitForProgram(gl, shadow, `${material.label} shadow`);
+      this.requireGL();
+      material.validate();
       const uniforms: Record<string, WebGLUniformLocation | null> = {};
       const shadowUniforms: Record<string, WebGLUniformLocation | null> = {};
       const names = [
-        ...Object.keys(this.meshUniforms),
+        ...meshUniformNames,
         ...Object.keys(this.shadowUniforms),
         'xyzUniforms[0]',
         'xyzMap0',
@@ -1245,6 +1251,9 @@ export class WebGL2Renderer implements Renderer {
       gl.deleteProgram(program);
       if (shadow) gl.deleteProgram(shadow);
       throw error;
+    } finally {
+      this.pendingPrograms.delete(program);
+      if (shadow) this.pendingPrograms.delete(shadow);
     }
   }
 
@@ -1266,37 +1275,50 @@ export class WebGL2Renderer implements Renderer {
       post ? layerVertex : quadVertex2D,
       post ? processorFragment(effect.glsl) : quadFragment2D(effect.glsl),
       post ? 'native 2D postprocessor' : 'native Sprite material',
+      !!this.parallelCompile,
     );
-    const previousProgram = gl.getParameter(
-      gl.CURRENT_PROGRAM,
-    ) as WebGLProgram | null;
-    gl.useProgram(program);
-    gl.uniform1i(gl.getUniformLocation(program, 'image'), 0);
-    gl.useProgram(previousProgram);
+    this.pendingPrograms.add(program);
     const onDestroy = (): void => {
       if (cache.get(effect) !== entry) return;
       cache.delete(effect);
+      this.pendingPrograms.delete(program);
       gl.deleteProgram(program);
       effect.removeEventListener('destroy', onDestroy);
     };
     const preparation = Promise.resolve()
-      .then(() => {
+      .then(async () => {
+        await this.waitForProgram(
+          gl,
+          program,
+          post ? 'native 2D postprocessor' : 'native Sprite material',
+        );
         this.requireGL();
         validateEffect2D(effect);
         if (cache.get(effect) !== entry)
           throw new GraphicsError(
             'WebGL2 native effect preparation was cancelled.',
           );
+        const previousProgram = gl.getParameter(
+          gl.CURRENT_PROGRAM,
+        ) as WebGLProgram | null;
+        gl.useProgram(program);
+        gl.uniform1i(gl.getUniformLocation(program, 'image'), 0);
+        gl.useProgram(previousProgram);
+        entry.viewport = gl.getUniformLocation(program, 'viewportSize');
+        entry.uniforms = gl.getUniformLocation(program, 'uniforms[0]');
         entry.ready = true;
       })
       .catch((error: unknown) => {
         onDestroy();
         throw error;
+      })
+      .finally(() => {
+        this.pendingPrograms.delete(program);
       });
     const entry: NativeProgram = {
       program,
-      viewport: gl.getUniformLocation(program, 'viewportSize'),
-      uniforms: gl.getUniformLocation(program, 'uniforms[0]'),
+      viewport: null,
+      uniforms: null,
       ready: false,
       preparation,
       onDestroy,
@@ -2195,8 +2217,9 @@ export class WebGL2Renderer implements Renderer {
             }
           }
         } else {
-          uniforms = this.meshUniforms;
-          gl.useProgram(this.meshProgram!);
+          const entry = this.meshProgramFor(material, object, scene);
+          uniforms = entry.uniforms;
+          gl.useProgram(entry.program);
         }
         fillMaterialUV(material, object.renderGeometry, this.materialUVData);
         gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
@@ -4071,11 +4094,94 @@ export class WebGL2Renderer implements Renderer {
     return vao;
   }
 
+  private meshProgramFor(
+    material: Mesh['material'],
+    mesh: Mesh,
+    scene: Scene,
+  ): MeshProgram {
+    const gl = this.requireGL();
+    const features = meshShaderFeatures(material, mesh, scene);
+    const key = meshShaderVariantKey(features);
+    const cached = this.meshPrograms.get(key);
+    if (cached) {
+      this.meshPrograms.delete(key);
+      this.meshPrograms.set(key, cached);
+      return cached;
+    }
+    const program = this.createProgram(
+      gl,
+      buildMeshVertex(),
+      buildMeshFragment(features),
+      `mesh ${key}`,
+    );
+    try {
+      const uniforms: Record<string, WebGLUniformLocation | null> = {};
+      for (const name of meshUniformNames)
+        uniforms[name] = gl.getUniformLocation(program, name);
+      for (const [name, binding] of [
+        ['ShadowData', 0],
+        ['SheenLookup', 1],
+        ['GGXLookup', 2],
+      ] as const) {
+        const index = gl.getUniformBlockIndex(program, name);
+        if (index !== gl.INVALID_INDEX)
+          gl.uniformBlockBinding(program, index, binding);
+      }
+      gl.useProgram(program);
+      gl.uniform1i(uniforms.image, 0);
+      gl.uniform1i(uniforms.metallicRoughnessMap, 1);
+      gl.uniform1i(uniforms.normalMap, 2);
+      gl.uniform1i(uniforms.occlusionMap, 3);
+      gl.uniform1i(uniforms.emissiveMap, 4);
+      gl.uniform1i(uniforms.shadowMap, 5);
+      gl.uniform1i(uniforms.environmentMap, 6);
+      const entry = { program, uniforms };
+      this.meshPrograms.set(key, entry);
+      if (this.meshPrograms.size > meshShaderVariantLimits.maxEntries) {
+        const oldest = this.meshPrograms.entries().next().value;
+        if (oldest) {
+          this.meshPrograms.delete(oldest[0]);
+          gl.deleteProgram(oldest[1].program);
+        }
+      }
+      return entry;
+    } catch (error) {
+      gl.deleteProgram(program);
+      throw error;
+    }
+  }
+
+  private async waitForProgram(
+    gl: WebGL2RenderingContext,
+    program: WebGLProgram,
+    label: string,
+  ): Promise<void> {
+    const extension = this.parallelCompile;
+    for (;;) {
+      this.requireGL();
+      if (!this.pendingPrograms.has(program))
+        throw new GraphicsError(
+          'WebGL2 native program preparation was cancelled.',
+        );
+      if (
+        !extension ||
+        gl.getProgramParameter(program, extension.COMPLETION_STATUS_KHR)
+      )
+        break;
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    }
+    if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+      throw new WebGL2InitializationError(
+        `WebGL2 ${label} program linking failed: ${gl.getProgramInfoLog(program) || 'unknown error'}`,
+      );
+  }
+
   private createProgram(
     gl: WebGL2RenderingContext,
     vertexSource: string,
     fragmentSource: string,
     label: string,
+    deferValidation = false,
   ): WebGLProgram {
     const shaders: WebGLShader[] = [];
     let program: WebGLProgram | null = null;
@@ -4092,7 +4198,10 @@ export class WebGL2Renderer implements Renderer {
         shaders.push(shader);
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
-        if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+        if (
+          !deferValidation &&
+          !gl.getShaderParameter(shader, gl.COMPILE_STATUS)
+        )
           throw new WebGL2InitializationError(
             `WebGL2 ${label} ${kind === gl.VERTEX_SHADER ? 'vertex' : 'fragment'} shader compilation failed: ${gl.getShaderInfoLog(shader) || 'unknown error'}`,
           );
@@ -4104,7 +4213,7 @@ export class WebGL2Renderer implements Renderer {
         );
       for (const shader of shaders) gl.attachShader(program, shader);
       gl.linkProgram(program);
-      if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+      if (!deferValidation && !gl.getProgramParameter(program, gl.LINK_STATUS))
         throw new WebGL2InitializationError(
           `WebGL2 ${label} program linking failed: ${gl.getProgramInfoLog(program) || 'unknown error'}`,
         );
@@ -4205,12 +4314,18 @@ export class WebGL2Renderer implements Renderer {
       if (this.postProgram) gl.deleteProgram(this.postProgram);
       if (this.triangleVAO) gl.deleteVertexArray(this.triangleVAO);
       if (this.triangleProgram) gl.deleteProgram(this.triangleProgram);
-      if (this.meshProgram) gl.deleteProgram(this.meshProgram);
+      for (const entry of this.meshPrograms.values())
+        gl.deleteProgram(entry.program);
+      for (const program of this.pendingPrograms) gl.deleteProgram(program);
       if (this.skyProgram) gl.deleteProgram(this.skyProgram);
       if (this.skyVAO) gl.deleteVertexArray(this.skyVAO);
       for (const entry of this.environments.values())
         gl.deleteTexture(entry.resource);
     }
+    this.meshPrograms.clear();
+    this.pendingPrograms.clear();
+    this.nativePreparations.clear();
+    this.parallelCompile = null;
     this.textures.clear();
     this.geometries.clear();
     this.meshInstances.clear();
@@ -4239,7 +4354,7 @@ export class WebGL2Renderer implements Renderer {
 
   private requireGL(): WebGL2RenderingContext {
     if (this.lostError) throw this.lostError;
-    if (this.destroyed || !this.gl || !this.meshProgram)
+    if (this.destroyed || !this.gl)
       throw new GraphicsError(
         'WebGL2 renderer is not initialized or has already been destroyed.',
       );

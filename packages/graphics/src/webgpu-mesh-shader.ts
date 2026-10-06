@@ -12,6 +12,10 @@ import { brdfWGSL } from './brdf-shaders.js';
 import { transmissionWGSL } from './transmission-shaders.js';
 import { reflectionProbeWGSL } from './reflection-probe-shaders.js';
 import { oitWeightWGSL } from './oit-shaders.js';
+import {
+  omitShaderBlock,
+  type MeshShaderFeatures,
+} from './mesh-shader-variants.js';
 
 export const webgpuMeshShader = /* wgsl */ `
 struct PointLight { positionRange: vec4f, colorIntensity: vec4f };
@@ -154,6 +158,9 @@ struct XYZPhysical { base: vec3f, metallic: f32, roughness: f32, occlusion: f32,
 fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
   return XYZVertex(position, normal);
 }
+fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
+  return xyzDeform(position, normal, uv);
+}
 fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
   return texel;
 }
@@ -175,7 +182,8 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinCofactor = mat3x3f(cross(skin[1].xyz, skin[2].xyz),
     cross(skin[2].xyz, skin[0].xyz), cross(skin[0].xyz, skin[1].xyz));
   let skinSign = select(1.0, -1.0, dot(skin[0].xyz, skinCofactor[0]) < 0.0);
-  let deformed = xyzDeform(input.position, input.normal, input.uv);
+  let instance = mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
+  let deformed = xyzDeformInstance(input.position, input.normal, input.uv, instance);
   let skinDirection = skinSign * skinCofactor * deformed.normal;
   let skinLength = length(skinDirection);
   let skinNormal = select(deformed.normal,
@@ -184,7 +192,7 @@ fn transformVertex(input: VertexInput, projection: mat4x4f) -> VertexOutput {
   let skinTangentLength = length(skinTangentDirection);
   let skinTangent = select(input.tangent.xyz,
     skinTangentDirection / select(1.0, skinTangentLength, skinTangentLength > 0.0), mesh.clearcoat.w > 0.5);
-  let model = mesh.model * mat4x4f(input.instance0, input.instance1, input.instance2, input.instance3);
+  let model = mesh.model * instance;
   let a = model[0].xyz;
   let b = model[1].xyz;
   let c = model[2].xyz;
@@ -601,6 +609,7 @@ fn shadeMesh(input: VertexOutput, front: bool) -> vec4f {
   if (scene.counts.z < 0.5) { color = encodeSRGB(color); }
   return vec4f(applyFog(color*opacity,opacity,input.world),select(opacity,coverageAlpha,coverage));
 }
+
 ${oitWeightWGSL}
 @fragment fn fragmentMain(input: VertexOutput, @builtin(front_facing) front: bool) -> @location(0) vec4f {
   let color = shadeMesh(input,front);
@@ -640,6 +649,111 @@ struct SkyOutput {
   return vec4f(color, 1.0);
 }
 `;
+/** Source composition keeps disabled physical lobes out of driver compilation. */
+export function buildWebGPUMeshShader(features?: MeshShaderFeatures): string {
+  if (!features || features.native) return webgpuMeshShader;
+  let source = webgpuMeshShader;
+  const remove = (enabled: boolean, markers: readonly string[]) => {
+    if (!enabled)
+      for (const marker of markers) source = omitShaderBlock(source, marker);
+  };
+  if (!features.pbr) {
+    const shadeStart = source.indexOf('fn shadeMesh(');
+    const physicalStart = source.indexOf('  var mr = vec4f(1.0);', shadeStart);
+    const unlitShade = source
+      .slice(shadeStart, physicalStart)
+      .replace('  if (mesh.material.x < 0.5) {\n', '');
+    source = omitShaderBlock(source, 'fn shadeMesh(');
+    // Preserve the exact legacy shading branch, including its premultiplied edges.
+    const fragmentStart = source.indexOf('@fragment fn fragmentMain(');
+    source =
+      source.slice(0, fragmentStart) + unlitShade + source.slice(fragmentStart);
+    source = source
+      .replace(sheenWGSL, '')
+      .replace(brdfWGSL, '')
+      .replace(transmissionWGSL, '')
+      .replace(reflectionProbeWGSL, '')
+      .replace(sheenEnvironmentWGSL, '');
+    remove(false, [
+      'fn brdf(',
+      'fn clearcoatLobe(',
+      'fn filteredMaterialNormal(',
+      'fn xyzPhysical(',
+    ]);
+  } else {
+    remove(false, ['if (mesh.material.x < 0.5)']);
+  }
+  // Preserve vertex arithmetic while specializing the fragment lighting path.
+  remove(features.anisotropy, [
+    'if (mesh.finish[0].x > 0.0)',
+    'fn anisotropicGGX(',
+  ]);
+  remove(features.iridescence, ['if (mesh.finish[0].z > 0.0)', 'fn thinFilm(']);
+  remove(features.subsurface, [
+    'if (mesh.finish[1].y > 0.0)',
+    'fn diffusionProfile(',
+  ]);
+  remove(features.height, ['if (mesh.finish[1].w > 0.0 && mesh.maps.y > 0.5)']);
+  remove(features.triplanar, ['if (mesh.finish[3].y > 0.0)']);
+  remove(features.detail, ['if (mesh.finish[3].x > 0.0)']);
+  remove(features.weathering, [
+    'if (mesh.finish[2].x + mesh.finish[2].y + mesh.finish[2].z + mesh.finish[2].w > 0.0)',
+  ]);
+  remove(features.dispersion, [
+    'if (mesh.finish[1].z > 0.0 && thickness > 0.0)',
+  ]);
+  remove(features.lightmap, ['if (mesh.maps.w > 1.5)']);
+  if (!features.transmission) {
+    remove(false, [
+      'if (mesh.transmission.x > 0.0)',
+      'if (transmission > 0.0 && metal < 1.0)',
+    ]);
+    source = source.replace(transmissionWGSL, '');
+  }
+  if (!features.sheen) {
+    remove(false, [
+      'if (any(mesh.sheen.rgb > vec3f(0.0)))',
+      'if (sheenMax > 0.0)',
+      'if(sheenMax>0.0)',
+    ]);
+    source = source
+      .replace(sheenEnvironmentWGSL, '')
+      .replace(
+        sheenWGSL,
+        'fn sheenLightRetention(nl:f32, rough:f32, strength:f32, energy:f32)->f32 { return 1.0; }',
+      );
+  }
+  if (!features.clearcoat)
+    remove(false, [
+      'if (coatWeight > 0.0)',
+      'if(coatWeight>0.0)',
+      'if (mesh.clearcoat.x > 0.0)',
+      'if (mesh.clearcoat.x > 0.0 && mesh.clearcoatMaps.z > 0.5)',
+      'fn clearcoatLobe(',
+    ]);
+  if (!features.environment) {
+    remove(false, ['if (useEnvironment)']);
+    source = source
+      .replace(reflectionProbeWGSL, '')
+      .replace(
+        'let probeWeights = reflectionWeights(input.world);',
+        'let probeWeights = vec4f(0.0);',
+      )
+      .replace(
+        'let useEnvironment = mesh.envParams.y > 0.5 || dot(probeWeights,vec4f(1.0)) > 0.0;',
+        'let useEnvironment = false;',
+      )
+      .replace(sheenEnvironmentWGSL, '');
+  }
+  if (!features.shadows) {
+    remove(false, ['@vertex fn shadowVertex(']);
+    source = source.replace(
+      atlasWGSL,
+      'fn directionalShadow(world:vec3f, normal:vec3f)->f32 { return 1.0; }\nfn pointShadow(i:u32, world:vec3f, p:vec3f, normal:vec3f)->f32 { return 1.0; }\nfn spotShadow(i:u32, world:vec3f, normal:vec3f)->f32 { return 1.0; }',
+    );
+  }
+  return source;
+}
 
 function definesHook(source: string, name: string): boolean {
   return new RegExp(
@@ -680,10 +794,17 @@ export function nativeMeshWGSL(source: string, physical = false): string {
 }
 `
       }`;
+  const instanceHook = definesHook(source, 'xyzDeformInstance')
+    ? ''
+    : `fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
+  return xyzDeform(position, normal, uv);
+}
+`;
   // Physical materials own the PBR maps; basic native materials rename them to xyzMap0..3.
   const composed =
     webgpuMeshShader.slice(0, hooks.start) +
     kept +
+    instanceHook +
     source +
     webgpuMeshShader.slice(hooks.end, fallback.start) +
     (physical ? '' : webgpuMeshShader.slice(fallback.start, fallback.end)) +

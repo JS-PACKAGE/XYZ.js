@@ -15,6 +15,10 @@ import { brdfGLSL } from './brdf-shaders.js';
 import { transmissionGLSL } from './transmission-shaders.js';
 import { reflectionProbeGLSL } from './reflection-probe-shaders.js';
 import { oitWeightGLSL } from './oit-shaders.js';
+import {
+  omitShaderBlock,
+  type MeshShaderFeatures,
+} from './mesh-shader-variants.js';
 
 const materialUVGLSL = `
 in vec2 vUV1;
@@ -561,6 +565,135 @@ void main() {
   if (oitPass == 1) color *= transparencyWeight(color.a,gl_FragCoord.z);
 }`;
 
+/** Preserve vertex arithmetic while specializing the larger fragment shader. */
+export function buildMeshVertex(): string {
+  return meshVertex;
+}
+
+/** Compose only enabled lobes; the authored full source remains the reference path. */
+export function buildMeshFragment(features?: MeshShaderFeatures): string {
+  if (!features || features.native) return meshFragment;
+  let source = meshFragment;
+  const remove = (enabled: boolean, markers: readonly string[]) => {
+    if (!enabled)
+      for (const marker of markers) source = omitShaderBlock(source, marker);
+  };
+  if (!features.pbr) {
+    const physicalStart = source.indexOf('  if (pbr) {\n    base = decodeSRGB');
+    const plainStart = source.indexOf(
+      '  } else {\n    float directional',
+      physicalStart,
+    );
+    if (physicalStart < 0 || plainStart < 0)
+      throw new Error('Missing plain mesh shader branch.');
+    source =
+      source.slice(0, physicalStart) +
+      '  {' +
+      source.slice(plainStart + '  } else {'.length);
+    remove(false, [
+      'if (pbr)',
+      'if (pbr && maps.y != 0)',
+      'if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5)',
+      'mat3 materialNormalFrame(',
+      'vec3 qualityUnitNormal(',
+      'vec4 filteredMaterialNormal(',
+      'vec3 brdf(',
+      'float clearcoatLobe(',
+      'vec3 encodeSRGB(',
+      'XYZPhysical xyzPhysical(',
+    ]);
+    source = source
+      .replace(transmissionGLSL, '')
+      .replace(sheenGLSL, '')
+      .replace(brdfGLSL, '')
+      .replace(reflectionProbeGLSL, '')
+      .replace(sheenEnvironmentGLSL, '')
+      .replace(
+        'struct XYZPhysical { vec3 base; float metallic; float roughness; float occlusion; vec3 emission; };',
+        '',
+      )
+      .replace(
+        'bool coverage = pbr && sheenMaps.w > .5;',
+        'bool coverage = false;',
+      )
+      .replace(
+        '  if (pbr && (!doubleSided || transmission.y > 0.0) && !front) discard;',
+        '',
+      )
+      .replace('  if (pbr && !front) n = -n;', '');
+    if (!features.shadows)
+      source = source.replace(
+        atlasGLSL,
+        'float directionalShadow() { return 1.0; }\nfloat pointShadow(int i,vec3 p) { return 1.0; }\nfloat spotShadow(int i) { return 1.0; }',
+      );
+    return source;
+  }
+  remove(features.anisotropy, [
+    'if (finish0.x > 0.0)',
+    'float anisotropicGGX(',
+  ]);
+  remove(features.iridescence, ['if (finish0.z > 0.0)', 'vec3 thinFilm(']);
+  remove(features.subsurface, [
+    'if (finish1.y > 0.0)',
+    'vec3 diffusionProfile(',
+  ]);
+  remove(features.height, ['if (finish1.w > 0.0 && maps.y != 0)']);
+  remove(features.triplanar, ['if (finish3.y > 0.0)']);
+  remove(features.detail, ['if (finish3.x > 0.0)']);
+  remove(features.weathering, [
+    'if (finish2.x + finish2.y + finish2.z + finish2.w > 0.0)',
+  ]);
+  remove(features.dispersion, ['if (finish1.z > 0.0 && thickness > 0.0)']);
+  remove(features.lightmap, ['if (maps.w == 2)']);
+  if (!features.transmission) {
+    remove(false, [
+      'if (transmission.x > 0.0)',
+      'if (transmissionWeight > 0.0 && metallic < 1.0)',
+    ]);
+    source = source.replace(transmissionGLSL, '');
+  }
+  if (!features.sheen) {
+    remove(false, [
+      'if (any(greaterThan(sheen.rgb,vec3(0.0))))',
+      'if (sheenMax > 0.0)',
+    ]);
+    source = source
+      .replace(sheenEnvironmentGLSL, '')
+      .replace(
+        sheenGLSL,
+        'float sheenAlbedo(float nv,float rough) { return 0.0; }\nfloat sheenLightRetention(float nl,float rough,float strength,float energy) { return 1.0; }',
+      );
+  }
+  if (!features.clearcoat)
+    remove(false, [
+      'if (pbr && clearcoat.x > 0.0 && clearcoatMaps.z > .5)',
+      'if (coatWeight > 0.0)',
+      'if(coatWeight>0.0)',
+      'if (clearcoat.x > 0.0)',
+      'float clearcoatLobe(',
+    ]);
+  if (!features.environment) {
+    remove(false, ['if(useEnvironment)']);
+    source = source
+      .replace(reflectionProbeGLSL, '')
+      .replace(
+        'vec4 probeWeights = reflectionWeights(vPosition);',
+        'vec4 probeWeights = vec4(0.0);',
+      )
+      .replace(
+        'bool useEnvironment = environment[9].y > .5 || dot(probeWeights,vec4(1.0)) > 0.0;',
+        'bool useEnvironment = false;',
+      );
+    source = source.replace(sheenEnvironmentGLSL, '');
+  }
+  if (!features.shadows)
+    source = source.replace(
+      atlasGLSL,
+      'float directionalShadow() { return 1.0; }\nfloat pointShadow(int i,vec3 p) { return 1.0; }\nfloat spotShadow(int i) { return 1.0; }',
+    );
+  return source;
+}
+
 export const shadowFragment = `#version 300 es
 precision highp float;
 in vec3 vPosition;
@@ -697,7 +830,8 @@ uniform sampler2D xyzMap3;
   const kept = !physical
     ? ''
     : stage === 'vertex'
-      ? definesHook(source, 'xyzDeform')
+      ? definesHook(source, 'xyzDeform') ||
+        definesHook(source, 'xyzDeformInstance')
         ? ''
         : 'XYZVertex xyzDeform(vec3 position, vec3 normal, vec2 uv) { return XYZVertex(position,normal); }\n'
       : definesHook(source, 'xyzSurface')
@@ -709,6 +843,11 @@ ${maps}${physicalType}struct XYZVertex { vec3 position; vec3 normal; };
 ${kept}`;
   let composed =
     shader.slice(0, start) + declarations + source + shader.slice(end);
+  if (stage === 'vertex' && definesHook(source, 'xyzDeformInstance'))
+    composed = composed.replace(
+      'XYZVertex deformed = xyzDeform(position,normal,uv);',
+      'XYZVertex deformed = xyzDeformInstance(position,normal,uv,instanced ? instanceMatrix : mat4(1.0));',
+    );
   if (physical) {
     const fallback = '/* XYZ_PHYSICAL_DEFAULT */';
     const fallbackEnd = '/* XYZ_PHYSICAL_DEFAULT_END */';
