@@ -60,6 +60,10 @@ The complete five-workload foreground policy **and genuine focus-loss guard pass
 
 Mapped optical finish：`opticalMaps` 支援 glTF anisotropy RG/B、iridescence R／thickness G，沿用 optical array，維持16-slot；loader／exporter／recipe 保留貼圖與 UV transforms。實際資格以 ACCEPTANCE 為準。
 
+P135 材質參考：固定 native grids 與 numeric golden，以
+`pnpm check:material-reference` 驗證／`--regenerate` 明示重建；
+真 material perturbation 必須拒絕，非物理材質認證。
+
 Asset 製作流程新增 opt-in `loadAssetBundleRange`：manifest byte offsets、SHA-256 與有界完整讀取 fallback。
 GIF／APNG 的 `AnimatedImageTexture` 僅使用平台 `ImageDecoder`，包含 timing／loop 與 owned atlas；
 缺少 decoder 明確拒絕，不新增依賴。詳見 [CURRENT](docs/CURRENT.md)，實測紀錄見 ACCEPTANCE。
@@ -197,6 +201,10 @@ Material finishes: `PBRMaterial` takes `finish` for anisotropy, iridescence, sub
 
 Mapped optical finishes: `opticalMaps` supports glTF anisotropy RG/B, iridescence R/thickness G in the existing optical array (16-slot budget unchanged). Loader/exporter/recipes retain maps and UV transforms; exercised qualification is recorded in ACCEPTANCE.
 
+P135 material references: fixed native grids plus numeric goldens;
+`pnpm check:material-reference` verifies, `--regenerate` explicitly rebuilds.
+A real material perturbation must reject; this is not physical qualification.
+
 Asset production adds opt-in `loadAssetBundleRange` with manifest byte offsets,
 SHA-256 checks and bounded full-read fallback. GIF/APNG `AnimatedImageTexture`
 uses platform `ImageDecoder` only, with timing/loops and owned atlas snapshots;
@@ -327,6 +335,10 @@ Game／Scene／ECS、2D／3D 数学、Texture／Sprite、Camera／Input、深度
 マテリアル finish：`PBRMaterial` の `finish` で、既存のマップに anisotropy／iridescence／subsurface／dispersion／視差高さ／濡れ／雪／汚れ／損傷／detail／triplanar／lightmap を追加できます。強度 0 では従来の照明のままで、追加の texture slot は使いません。各効果は上限付きの shader 近似で、物理シミュレーションではありません。`MaterialAsset` は復号済みテクスチャを所有し、`setMeshMaterial` で mesh の材質を差し替え可能、glTF は `KHR_materials_variants`（`selectVariant`）と anisotropy／iridescence／dispersion に対応します。検証は Chromium の強制 WebGPU／WebGL2 での目視のみです。[技術参照](docs/TECHNICAL.md) と ACCEPTANCE を参照してください。
 
 Mapped optical finish：`opticalMaps` は glTF anisotropy RG/B、iridescence R／thickness G を既存 optical array に格納します（16-slot 不変）。Loader／exporter／recipe は map と UV transform を保持します。実測認証は ACCEPTANCE を参照。
+
+P135 材質参照：固定 native grids と numeric golden を
+`pnpm check:material-reference` で検証し、`--regenerate` で明示更新します。
+実 material perturbation は拒否必須、物理材質認証ではありません。
 
 Asset 制作に opt-in `loadAssetBundleRange`（manifest offset／SHA-256／上限付き full fallback）を追加。
 GIF／APNG の `AnimatedImageTexture` は platform `ImageDecoder` のみを使い、

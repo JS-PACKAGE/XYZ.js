@@ -18,6 +18,7 @@ import {
   comparatorSelfTest,
   parityThresholds,
 } from './pixel-parity.mjs';
+import { qualifyMaterialReferences } from './material-reference.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const args = process.argv.slice(2);
@@ -579,6 +580,15 @@ try {
         `Cross-backend parity failures: ${JSON.stringify(failures)}`,
       );
   }
+  if (
+    browserName === 'chromium' &&
+    selected.some((backend) => backend !== 'canvas2d')
+  )
+    await qualifyMaterialReferences(
+      browser,
+      `http://127.0.0.1:${port}`,
+      directory,
+    );
 } catch (error) {
   startupError = error.stack ?? error.message ?? String(error);
   if (error.cause)

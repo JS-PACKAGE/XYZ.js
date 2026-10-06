@@ -468,3 +468,12 @@ Foliage root owns children、借用 geometry／material／maps；shared resource
 釋放。Trail3D 沿用 dynamic Geometry upload，要求 unparented identity world-coordinate root。
 Canvas2D 保持 2D-only；world-nature／stress workload 不是 browser／FPS 驗收，
 詳細 API 見 TECHNICAL 雙語版，實測只在 ACCEPTANCE／CURRENT 記錄。
+
+## P135 deterministic rendering oracle
+
+Reference scenes retain real engine/resource paths instead of emulating a BRDF.
+Pixel parity and numeric golden summaries are separate checks: backend agreement
+alone cannot detect a shared regression, while summaries alone cannot certify
+per-pixel alignment. A rendered material perturbation validates golden rejection.
+Golden regeneration is explicit and measured; no binary image baseline or
+physical-material qualification is inferred from deterministic local results.

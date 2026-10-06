@@ -1700,3 +1700,13 @@ identity-transform root; see the moving-object trails section above.
 API limits and streaming ownership are in the
 [technical reference](TECHNICAL.md#world-nature-terrain-water-and-vegetation).
 Runtime and performance evidence are recorded separately in ACCEPTANCE/CURRENT.
+
+## Reproducing material references
+
+After `pnpm build`, run `pnpm check:material-reference` to verify the committed
+numeric baseline in real managed Chromium on both forced native backends.
+Use `pnpm check:material-reference --regenerate` only when intentionally adopting
+a reviewed rendering change, then inspect the measured JSON and PNGs and review
+the golden JSON diff. Visit `/tests/browser/material-reference.html?renderer=webgl2`
+or `renderer=webgpu` under `pnpm dev` to inspect the fixed grids.
+`perturb=1` changes a real material and is expected to fail baseline comparison.

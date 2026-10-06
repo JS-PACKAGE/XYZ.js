@@ -443,3 +443,14 @@ moving pixels rather than multiplying DoF and motion sample counts.
 Canvas2D rejects enabled 3D postprocessing; GL requires float HDR attachments.
 CPU/type checks and forced-native single/MSAA pixel assertions passed locally;
 integration-wide gates are recorded separately in ACCEPTANCE.
+
+## P135 deterministic material references
+
+`/tests/browser/material-reference.html?renderer=webgl2|webgpu` renders fixed
+roughness/metallic, finish, imported glTF sample-like and seeded procedural grids.
+`pnpm check:material-reference` compares submitted native RGB pixels across
+backends and spatial numeric summaries against the committed JSON golden;
+`--regenerate` explicitly replaces that golden after native capture. Both modes
+exercise an actual perturbed-material negative control. Browser regression
+includes the same gate. These summaries are local rendering regression oracles,
+not calibrated physical-material references or arbitrary-driver qualification.

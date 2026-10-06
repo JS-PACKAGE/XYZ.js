@@ -999,6 +999,7 @@
     "format": "prettier --write .",
     "smoke:examples": "node scripts/smoke-examples.mjs",
     "regression:browser": "node scripts/regression-browser.mjs",
+    "check:material-reference": "node scripts/material-reference.mjs",
     "platform:browser": "node scripts/platform-browser.mjs",
     "platform:manual": "node scripts/platform-manual.mjs",
     "platform:safari": "node scripts/safari-platform.mjs",

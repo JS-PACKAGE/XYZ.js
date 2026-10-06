@@ -1872,3 +1872,22 @@ transparent/transmissive occluders are intentionally absent from screen-space
 depth. Rays leaving the viewport terminate unshadowed. Resources are recreated
 on size changes and released on disable/destroy; disabled material variants
 contain no contact raymarch/sampler source and allocate no contact targets.
+
+## P135 numeric material reference gate
+
+The material-reference fixture uses fixed cameras, lights, environment, geometry,
+procedural seeds and no antialiasing or animation. Four grids cover
+roughness/metallic factors, finishes, imported glTF sample-like materials and
+procedural presets. Shipped-entry WebGL2/WebGPU captures use the existing
+top-left RGB mean/p99 comparator without alignment or resampling. Committed
+JSON contains spatial numeric summaries rather than binary PNGs; regenerated
+and verified measurements retain per-backend golden deltas and cross-backend
+deltas. A separately rendered material perturbation must fail the golden gate.
+This is a reproducible local renderer oracle, not a path tracer, physical
+spectral reference, asset corpus or cross-device color calibration.
+
+The new procedural-normal-map corpus alone permits at most one byte per RGB
+channel in at most 0.2% of pixels per channel, with p99 zero. Other peer and golden checks
+retain mean≤0.001/p99≤1. The measured sparse discrepancy is post-normal-frame
+floating-point/derivative quantization, not source-image disagreement; delta-two,
+excess-pixel and vertical-flip controls must reject this bounded allowance.

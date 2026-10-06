@@ -1641,3 +1641,12 @@ camera-facing 模式另外提供 mesh-local 非零 camera view direction。
 Scene teardown 清 trail object，不清借用 target／material／maps。
 完整 API 上限與 streaming ownership 見
 [技術參考](TECHNICAL-zh.md#自然世界地形水面與植被)；實測證據由 ACCEPTANCE／CURRENT 另記。
+
+## 重現材質參考
+
+`pnpm build` 後執行 `pnpm check:material-reference`，以真 managed Chromium
+強制兩 native backends 驗證 committed numeric baseline。只有明確採納並審查
+rendering 改動時才使用 `pnpm check:material-reference --regenerate`；
+檢查 measured JSON／PNG 與 golden JSON diff。`pnpm dev` 後開啟
+`/tests/browser/material-reference.html?renderer=webgl2` 或 `renderer=webgpu`
+觀察固定 grids；`perturb=1` 真正改動 material，預期 baseline comparison 失敗。

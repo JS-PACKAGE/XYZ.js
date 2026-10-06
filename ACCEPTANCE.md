@@ -2070,3 +2070,33 @@ dispersion 色散折射、烘焙流程、素材資格）**不是**本輪結果�
   `.vite/optical-source-diagnostics/`；native screenshots 已讀。
   僅限定本機 Chromium／macOS arm64，非其他 driver／browser、任意資產 corpus
   或物理光學資格認證。
+
+## P135 deterministic material reference grids（2026-10-06）
+
+- 四個固定128×128 corpus：roughness／metallic、12 finish、
+  本機 exporter→loader GLB sample-like、seeded procedural presets（保留 normal maps）。
+  提交真實 WebGL2／WebGPU 測量的 numeric JSON，8×8 spatial tiles mean／p99；
+  沒有 placeholder／零值 oracle，沒有 PNG binaries。`check:material-reference`
+  預設 verify，只有明示 `--regenerate` 才更新；native Chromium regression 已接線。
+- 生成後另一次獨立 verify PASS：兩 backend golden／repeat errors 全0；
+  actual material color／roughness perturb 在兩 backend 均 REJECT，
+  roughness-grid RGB global mean errors **2.427978515625／1.01190185546875／
+  0.47979736328125**、p99 errors **1／35／9**。
+- Cross-backend roughness／finish RGB mean 全0；GLB **0／0／0.00006103515625**。
+  Procedural RGB mean **0.0008544921875／0.0015869140625／0.00128173828125**，
+  每 channel 不同 pixel **14／26／21 of16384**（最大 **0.15869140625%**）；
+  union **49／16384=0.299072265625%**，max delta1，所有 corpus p99=0。
+  僅這個新增 procedural corpus 依明示決策採 **每 channel≤0.2% differing
+  pixels、max delta≤1、p99=0**；既有28 parity scenes 與 golden 門檻不變。
+  真實 corpus delta2／33 same-channel pixels／vertical flip controls 全 REJECT。
+- Diagnostic：source base／roughness／sampled-normal 輸出一致；world-normal
+  frame 後 sparse FP／derivative quantization 不同，沒有以刪 maps／縮 scene 解決。
+  首輪 strict .001 及誤把 per-channel 上限當 union 上限皆如實失敗，後採上述
+  明示且 bounded 的新 corpus 規則；不是任意 blanket epsilon。
+- Typecheck／lint／7 reference CPU tests PASS；真實 managed Chromium
+  **153.0.8010.12** forced WebGL2＋WebGPU full browser regression PASS，
+  原28 strict parity scenes PASS。8張 native corpus PNG 已讀；evidence
+  `.vite/material-reference-generated/`、`.vite/material-reference-verified/`、
+  `.vite/material-reference-regression/`。Physical qualification **BLOCKED**：
+  這是本機 deterministic renderer oracle，非 path tracer／physical ground truth，
+  任意 glTF corpus／跨 driver/browser 或跨裝置色彩 qualification。

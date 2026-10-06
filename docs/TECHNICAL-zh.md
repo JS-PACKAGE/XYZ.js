@@ -1686,3 +1686,19 @@ device framebuffer／texture／storage 限制，超過時明確 GraphicsError。
 畫面外／transparent／transmissive
 occluder 不在深度快照內，越出 viewport 的 ray 終止。Resize 重建、
 停用／destroy 釋放；預設未啟用時沒有接觸陰影 shader source／targets。
+
+## P135 數值材質參考閘門
+
+Material-reference fixture 固定 camera／lights／environment／geometry／seed，
+沒有 AA 或 animation；四組 grids 包含 roughness／metallic、finishes、
+實際匯入的 glTF sample-like 材質與 procedural presets。Shipped entry
+WebGL2／WebGPU 使用既有 top-left RGB mean／p99 比較，不對齊／重取樣。
+Committed JSON 儲存 spatial numeric summaries 而非 binary PNG；量測分別
+記錄各 backend 對 golden 與互相比較的差異。另實際渲染被改動的 material，
+必須被 golden gate 拒絕。這是本機 renderer regression oracle，不是
+path tracer／物理光譜參考／任意資產 corpus／跨裝置色彩校準。
+
+僅新 procedural-normal-map corpus 允許每 RGB channel 最大1 byte、
+每 channel 最多0.2% pixels 差異，p99 必須0；其他 peer／golden 仍為 mean≤0.001／p99≤1。
+實測為 normal-frame 後浮點／derivative quantization，而非原始圖片差異；
+delta2／超量 pixels／垂直翻轉 controls 必須拒絕，沒有縮減場景 maps。
