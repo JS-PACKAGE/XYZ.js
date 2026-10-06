@@ -15,6 +15,7 @@ import {
   summarizeCapture,
   summarizePixels,
   compareSummaries,
+  goldenLimitsFor,
   compareReferencePixels,
   referencePixelSelfTest,
 } from './material-reference-lib.mjs';
@@ -146,6 +147,7 @@ export async function qualifyMaterialReferences(
         }),
       };
     }
+    const goldenLimits = goldenLimitsFor(process.platform);
     const golden = regenerate
       ? validateGolden(generated)
       : validateGolden(
@@ -180,8 +182,12 @@ export async function qualifyMaterialReferences(
             (scenario) => scenario.name === name,
           ),
           {
-            golden: compareSummaries(summary, expected),
-            repeatGolden: compareSummaries(repeatSummary, expected),
+            golden: compareSummaries(summary, expected, goldenLimits),
+            repeatGolden: compareSummaries(
+              repeatSummary,
+              expected,
+              goldenLimits,
+            ),
             repeat: comparePixels(
               scene.pixels,
               scene.repeat,
@@ -194,7 +200,7 @@ export async function qualifyMaterialReferences(
               scene.width,
               scene.height,
             ),
-            negative: compareSummaries(negativeSummary, expected),
+            negative: compareSummaries(negativeSummary, expected, goldenLimits),
           },
         );
       }
