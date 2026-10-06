@@ -758,6 +758,7 @@ try {
       'smoke-site requires the repository-managed Chromium cache; custom executable overrides are not accepted.',
     );
   launch.args = [...new Set([...(launch.args ?? []), '--mute-audio'])];
+  if (process.env.XYZ_DIAGNOSTIC_CHANNEL) launch.channel = process.env.XYZ_DIAGNOSTIC_CHANNEL;
   // Exactly one new managed process. No connect(), CDP attachment, persistent profile, or user browser.
   browser = await chromium.launch(launch);
   const probe = await ownedPage();

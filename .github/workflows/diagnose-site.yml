@@ -19,6 +19,8 @@ jobs:
       - run: npx --yes pnpm@12.6.0 run build:site
       - run: npx --yes pnpm@12.6.0 exec playwright-core install --with-deps chromium
       - run: node scripts/diagnose-site.mjs
+        env:
+          XYZ_DIAGNOSTIC_CHANNEL: chromium
       - if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
         with:
