@@ -1,9 +1,10 @@
 import type { Scene } from '../../core/src/scene.js';
+import { getPostEffects } from '../../core/src/post-effects.js';
 
 /** Four vec4s shared by the native post shaders; UV has top-left origin. */
 export function writeVolumetricUniforms(data: Float32Array, offset: number, scene?: Scene): void {
   data.fill(0, offset, offset + 16);
-  const fog = scene?.postProcessing.volumetricFog;
+  const fog = scene ? getPostEffects(scene.postProcessing)?.volumetricFog : undefined;
   if (!scene || !scene.postProcessing.enabled || !fog?.enabled) return;
   data[offset] = fog.density;
   data[offset + 1] = fog.baseHeight;

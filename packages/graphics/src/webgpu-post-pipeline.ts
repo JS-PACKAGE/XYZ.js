@@ -4,7 +4,8 @@ import { GraphicsError, WebGPUInitializationError } from './errors.js';
 import { fxaaWGSL } from './fxaa-shaders.js';
 import { depthPostWGSL } from './depth-post-shaders.js';
 import { gradingWGSL } from './color-grading-shaders.js';
-import type { ColorLUT3D } from '../../core/src/render-settings.js';
+import type { ColorLUT3D } from '../../core/src/color-grading.js';
+import { getPostEffects } from '../../core/src/post-effects.js';
 import type { Scene } from '../../core/src/scene.js';
 import { volumetricWGSL, writeVolumetricUniforms } from './volumetric-post.js';
 import {
@@ -241,7 +242,10 @@ export class WebGPUPostPipeline {
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
-    const lut = settings.colorGrading?.lut;
+    const effects = getPostEffects(settings);
+    effects?.validate();
+    const tone = effects?.toneMapper ?? settings.toneMapping;
+    const lut = effects?.colorGrading?.lut;
     if (this.lut !== lut) this.bindGroup = undefined;
     let group = this.bindGroup!;
     if (source || !group) {
@@ -257,7 +261,7 @@ export class WebGPUPostPipeline {
       if (!source) this.bindGroup = group;
     }
     this.data[0] = enabled ? settings.exposure : 1;
-    this.data[1] = enabled ? settings.toneMapping === 'aces' ? 1 : settings.toneMapping === 'agx' ? 2 : settings.toneMapping === 'reinhard' ? 3 : settings.toneMapping === 'neutral' ? 4 : 0 : 0;
+    this.data[1] = enabled ? tone === 'aces' ? 1 : tone === 'agx' ? 2 : tone === 'reinhard' ? 3 : tone === 'neutral' ? 4 : 0 : 0;
     this.data[2] = enabled ? settings.bloomStrength : 0;
     this.data[3] = settings.bloomThreshold;
     this.data[4] = this.width;
@@ -277,8 +281,8 @@ export class WebGPUPostPipeline {
     this.data[33] = settings.dofFocusDistance;
     this.data[34] = settings.dofFocusRange;
     this.data[35] = settings.dofBlurRadius;
-    this.data[36] = settings.colorGrading?.lut.size ?? 1;
-    this.data[37] = enabled ? settings.colorGrading?.strength ?? 0 : 0;
+    this.data[36] = effects?.colorGrading?.lut.size ?? 1;
+    this.data[37] = enabled ? effects?.colorGrading?.strength ?? 0 : 0;
     writeVolumetricUniforms(this.data, 40, scene);
     this.device.queue.writeBuffer(this.buffer!, 0, this.data);
     this.stats.upload(this.data.byteLength);

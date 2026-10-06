@@ -284,7 +284,8 @@ Quality/type/API/package gates and the Chromium canvas2d/webgl2/webgpu regressio
 
 ## Native post color grading
 
-`PostProcessingSettings.colorGrading` accepts `ColorGradingSettings` with a
+`setPostEffects(scene.postProcessing, new PostEffectsSettings({ colorGrading }))`
+attaches `ColorGradingSettings` with a
 `ColorLUT3D` (integer size 16–64). `parseCube` accepts normalized RGB `.cube`
 text; non-0–1 domains, 1D directives, malformed/truncated values reject.
 `preset` creates identity, warm, cool or cinematic lattices. Both native paths
@@ -326,7 +327,8 @@ browser/backend acceptance or test pass is claimed before integration checks.
 
 ## Native volumetric post fog
 
-`PostProcessingSettings.volumetricFog` accepts `VolumetricFogSettings`.
+`setPostEffects(scene.postProcessing, new PostEffectsSettings({ volumetricFog }))`
+attaches `VolumetricFogSettings`, preserving published 1.x setting shapes.
 Depth reconstruction integrates an exponential height volume (density,
 baseHeight, heightFalloff, maxDistance, linear color) along each camera ray,
 then gathers sky-depth visibility toward the projected Scene directional light

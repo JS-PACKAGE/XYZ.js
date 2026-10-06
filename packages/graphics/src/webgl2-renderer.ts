@@ -165,6 +165,7 @@ import {
 import { packProbeTextures } from './probe-texture-array.js';
 import { TemporalPostState } from './temporal-post.js';
 import { writeVolumetricUniforms } from './volumetric-post.js';
+import { getPostEffects } from '../../core/src/post-effects.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
 interface CachedEnvironment {
   allocation: ResidencyAllocation;
@@ -3503,6 +3504,9 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl!;
     const settings = scene.postProcessing;
     const enabled = settings.enabled;
+    const effects = getPostEffects(settings);
+    effects?.validate();
+    const tone = effects?.toneMapper ?? settings.toneMapping;
     const fxaa = enabled && settings.fxaa;
     const source =
       this.temporalActive && settings.taa
@@ -3552,8 +3556,8 @@ export class WebGL2Renderer implements Renderer {
       settings.bloomThreshold,
       settings.bloomRadius,
     );
-    gl.uniform1i(this.postUniforms.toneOperator, enabled ? settings.toneMapping === 'aces' ? 1 : settings.toneMapping === 'agx' ? 2 : settings.toneMapping === 'reinhard' ? 3 : settings.toneMapping === 'neutral' ? 4 : 0 : 0);
-    const lut = settings.colorGrading?.lut;
+    gl.uniform1i(this.postUniforms.toneOperator, enabled ? tone === 'aces' ? 1 : tone === 'agx' ? 2 : tone === 'reinhard' ? 3 : tone === 'neutral' ? 4 : 0 : 0);
+    const lut = effects?.colorGrading?.lut;
     gl.activeTexture(gl.TEXTURE2);
     gl.bindSampler(2, null);
     if (!this.gradingTexture) this.gradingTexture = gl.createTexture() ?? undefined;
@@ -3567,7 +3571,7 @@ export class WebGL2Renderer implements Renderer {
       this.gradingLUT = lut;
     }
     gl.uniform1i(this.postUniforms.lutImage, 2);
-    gl.uniform2f(this.postUniforms.grading, lut?.size ?? 1, enabled ? settings.colorGrading?.strength ?? 0 : 0);
+    gl.uniform2f(this.postUniforms.grading, lut?.size ?? 1, enabled ? effects?.colorGrading?.strength ?? 0 : 0);
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);

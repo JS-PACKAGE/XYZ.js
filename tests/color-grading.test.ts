@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { ColorLUT3D, ColorGradingSettings, PostProcessingSettings } from '../src/index.js';
+import { ColorLUT3D, ColorGradingSettings, PostEffectsSettings } from '../src/index.js';
 
 describe('3D color grading', () => {
   it('lays red-fast .cube data into horizontal blue slices', () => {
@@ -17,7 +17,7 @@ describe('3D color grading', () => {
   });
   it('validates mutable grading and tonemapping settings', () => {
     const grading = new ColorGradingSettings(ColorLUT3D.preset());
-    const post = new PostProcessingSettings({ colorGrading: grading, toneMapping: 'agx' });
+    const post = new PostEffectsSettings({ colorGrading: grading, toneMapper: 'agx' });
     grading.strength = NaN;
     expect(() => post.validate()).toThrow();
   });

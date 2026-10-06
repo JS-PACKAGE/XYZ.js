@@ -4,9 +4,12 @@ export * from '../packages/math/src/index.js';
 export * from '../packages/assets/src/index.js';
 export * from '../packages/input/src/index.js';
 export * from '../packages/audio/src/index.js';
-export { ColorLUT3D, ColorGradingSettings } from '../packages/core/src/render-settings.js';
-export { VolumetricFogSettings } from '../packages/core/src/render-settings.js';
-export type { VolumetricFogOptions } from '../packages/core/src/render-settings.js';
+export { ColorLUT3D, ColorGradingSettings } from '../packages/core/src/color-grading.js';
+export type { ToneMapper } from '../packages/core/src/color-grading.js';
+export { VolumetricFogSettings } from '../packages/core/src/volumetric-fog.js';
+export type { VolumetricFogOptions } from '../packages/core/src/volumetric-fog.js';
+export { PostEffectsSettings, setPostEffects, getPostEffects } from '../packages/core/src/post-effects.js';
+export type { PostEffectsOptions } from '../packages/core/src/post-effects.js';
 export { Profiler } from '../packages/graphics/src/profiler.js';
 export type {
   ProfilerOptions,
