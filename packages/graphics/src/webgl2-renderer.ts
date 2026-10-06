@@ -1164,6 +1164,9 @@ export class WebGL2Renderer implements Renderer {
         packed.allocation.destroy();
   }
 
+  prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
+    return this.prepareMaterial(material);
+  }
   async prepareMaterial(
     material: Material2D | NativeMaterial3D | NativePBRMaterial,
   ): Promise<void> {
@@ -1216,8 +1219,9 @@ export class WebGL2Renderer implements Renderer {
           gl.uniformBlockBinding(program, index, binding);
       }
       this.cacheTexture(materialBaseTexture(material));
-      for (const texture of nativeMaterialSources(material))
-        this.cacheTexture(texture);
+      if (material instanceof NativeMaterial3D)
+        for (const texture of nativeMaterialSources(material))
+          this.cacheTexture(texture);
       if (material instanceof NativePBRMaterial) {
         const sources = pbrTextureSources(material);
         for (const texture of Object.values(sources))

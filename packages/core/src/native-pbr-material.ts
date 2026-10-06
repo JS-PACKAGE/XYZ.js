@@ -9,6 +9,9 @@ import {
   NativeMaterialState,
   type NativeShader3DOptions,
 } from './native-material-state.js';
+import type { NativeMaterial3D } from './native-material3d.js';
+
+export type NativeMeshMaterial = NativeMaterial3D | NativePBRMaterial;
 
 export interface NativePBRMaterialOptions
   extends PBRMaterialOptions, NativeShader3DOptions {}
@@ -17,7 +20,7 @@ export interface NativePBRMaterialOptions
 export class NativePBRMaterial extends PBRMaterial {
   private readonly state: NativeMaterialState;
   readonly label: string;
-  readonly uniforms: Float32Array;
+  readonly uniforms: Float32Array<ArrayBuffer>;
   override readonly deformationBounds: number | undefined;
   readonly shadowCache: 'dynamic' | 'tracked';
 

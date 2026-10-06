@@ -3,10 +3,12 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
+import { isNativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
 import {
-  isNativeMaterial3D,
+  NativePBRMaterial,
   type NativeMeshMaterial,
-} from '../../core/src/native-material3d.js';
+} from '../../core/src/native-pbr-material.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Texture, Texture2DSource } from '../../assets/src/index.js';
@@ -245,7 +247,7 @@ export class ResilientRenderer implements Renderer {
         await next.initialize(canvas);
         this.replacement = next;
         for (const material of this.materials.keys())
-          if (!material.destroyed) await next.prepareMaterial(material);
+          if (!material.destroyed) await this.prepareOn(next, material);
         for (const emitter of this.gpuParticles.keys()) {
           if (emitter.destroyed) continue;
           if (!next.prepareGpuParticles)
@@ -501,10 +503,31 @@ export class ResilientRenderer implements Renderer {
     }
   }
 
-  async prepareMaterial(
+  private async prepareOn(
+    renderer: Renderer,
     material: Material2D | NativeMeshMaterial,
   ): Promise<void> {
-    await this.requireReady().prepareMaterial(material);
+    if (material instanceof NativePBRMaterial) {
+      if (!renderer.prepareNativePBRMaterial)
+        throw new UnsupportedGraphicsError(
+          'The selected renderer does not support native physical materials.',
+        );
+      await renderer.prepareNativePBRMaterial(material);
+    } else await renderer.prepareMaterial(material);
+  }
+
+  prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
+    return this.trackMaterial(material);
+  }
+
+  prepareMaterial(material: Material2D | NativeMaterial3D): Promise<void> {
+    return this.trackMaterial(material);
+  }
+
+  private async trackMaterial(
+    material: Material2D | NativeMeshMaterial,
+  ): Promise<void> {
+    await this.prepareOn(this.requireReady(), material);
     if (this.destroyed || material.destroyed)
       throw new GraphicsError(
         'Renderer or material was destroyed during preparation.',

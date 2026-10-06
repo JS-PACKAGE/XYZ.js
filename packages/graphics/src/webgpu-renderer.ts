@@ -553,6 +553,9 @@ export class WebGPURenderer implements Renderer {
     }
   }
 
+  prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
+    return this.prepareMaterial(material);
+  }
   async prepareMaterial(
     material: Material2D | NativeMaterial3D | NativePBRMaterial,
   ): Promise<void> {

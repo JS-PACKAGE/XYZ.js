@@ -5,27 +5,32 @@ import {
 } from '../../assets/src/texture2d.js';
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import { nativeMaterial3DLimits } from '../../../src/data/rendering.js';
-import {
-  NativeMaterialState,
-  type NativeShader3DOptions,
-} from './native-material-state.js';
+import { NativeMaterialState } from './native-material-state.js';
 import { NativePBRMaterial } from './native-pbr-material.js';
 
 const nativeSourceRegistry = new WeakMap<object, readonly MaterialTexture[]>();
 const emptyNativeSources: readonly MaterialTexture[] = Object.freeze([]);
 /** Effective maps (canvas/video overrides applied) that renderers bind. */
 export function nativeMaterialSources(
-  material: NativeMaterial3D | NativePBRMaterial,
+  material: NativeMaterial3D,
 ): readonly MaterialTexture[] {
   return nativeSourceRegistry.get(material) ?? emptyNativeSources;
 }
 
-export interface NativeMaterial3DOptions
-  extends TextureMaterialOptions, NativeShader3DOptions {
+export interface NativeMaterial3DOptions extends TextureMaterialOptions {
+  /** Native declarations defining xyzDeform and xyzSurface. No entry points or transpilation. */
+  readonly wgsl: string;
+  readonly glsl: string;
+  readonly uniforms?: ArrayLike<number>;
   /** Four borrowed maps, available as xyzMap0..3 and xyzSampler0..3 (WGSL). */
   readonly textures?: readonly Texture[];
   /** Additive per-index canvas/video overrides for `textures` (or extra maps when absent). */
   readonly textureSources?: readonly MaterialTexture[];
+  readonly label?: string;
+  /** Maximum final mesh-local vertex displacement; absent means unbounded and disables bounds culling. */
+  readonly deformationBounds?: number;
+  /** Tracked hooks promise deterministic output from vertex inputs, uniforms and borrowed maps only. */
+  shadowCache?: 'dynamic' | 'tracked';
 }
 
 /** Per-mesh native shader hooks; resources remain caller-owned, including on loss. */
@@ -34,7 +39,7 @@ export class NativeMaterial3D extends TextureMaterial {
   readonly label: string;
   private readonly borrowedMaps: readonly Texture[];
   override readonly deformationBounds: number | undefined;
-  readonly uniforms: Float32Array;
+  readonly uniforms: Float32Array<ArrayBuffer>;
   readonly shadowCache: 'dynamic' | 'tracked';
 
   constructor(options: NativeMaterial3DOptions) {
@@ -122,5 +127,3 @@ export function isNativeMaterial3D(
     material instanceof NativePBRMaterial
   );
 }
-
-export type NativeMeshMaterial = NativeMaterial3D | NativePBRMaterial;

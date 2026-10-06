@@ -1,8 +1,14 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { AssetError, Texture } from '../packages/assets/src/index.js';
-import { GLTFLoader } from '../packages/core/src/gltf-loader.js';
+import {
+  GLTFLoader,
+  type GLTFAsset,
+} from '../packages/core/src/gltf-loader.js';
+import type { Object3D } from '../packages/core/src/object3d.js';
+import { gltfVariants } from '../packages/core/src/gltf-variants.js';
 import { Geometry } from '../packages/core/src/geometry.js';
 import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
+import { setMeshMaterial } from '../packages/core/src/mesh-material.js';
 import {
   MaterialAsset,
   PBRMaterial,
@@ -113,13 +119,13 @@ async function loadVariants() {
   );
 }
 
-function firstMesh(asset: { scene: { children: unknown[] } }): Mesh {
+function firstMesh(asset: GLTFAsset): Mesh {
   const found: Mesh[] = [];
-  const visit = (node: { children?: unknown[] }): void => {
+  const visit = (node: Object3D): void => {
     if (node instanceof Mesh) found.push(node);
-    for (const child of node.children ?? []) visit(child as never);
+    for (const child of node.children) visit(child);
   };
-  visit(asset.scene as never);
+  visit(asset.scene);
   return found[0];
 }
 
@@ -299,11 +305,9 @@ describe('Mesh material replacement', () => {
     const first = new TextureMaterial({ texture });
     const second = new PBRMaterial({ texture });
     const mesh = new Mesh({ geometry, material: first });
-    mesh.material = second;
+    setMeshMaterial(mesh, second);
     expect(mesh.material).toBe(second);
-    expect(() => {
-      mesh.material = {} as never;
-    }).toThrow(TypeError);
+    expect(() => setMeshMaterial(mesh, {} as never)).toThrow(TypeError);
     expect(mesh.material).toBe(second);
   });
 });
@@ -313,14 +317,17 @@ describe('glTF material variants', () => {
     const asset = await loadVariants();
     const mesh = firstMesh(asset);
     const base = mesh.material as PBRMaterial;
-    expect(asset.variants.map((v) => v.name)).toEqual(['red', 'blue']);
+    expect(gltfVariants(asset).variants.map((v) => v.name)).toEqual([
+      'red',
+      'blue',
+    ]);
     expect(base.color).toEqual([0, 1, 0]);
 
-    asset.selectVariant('red');
+    gltfVariants(asset).selectVariant('red');
     expect((mesh.material as PBRMaterial).color).toEqual([1, 0, 0]);
-    asset.selectVariant('blue');
+    gltfVariants(asset).selectVariant('blue');
     expect((mesh.material as PBRMaterial).color).toEqual([0, 0, 1]);
-    asset.selectVariant(undefined);
+    gltfVariants(asset).selectVariant(undefined);
     expect(mesh.material).toBe(base);
     asset.dispose();
   });
@@ -328,12 +335,14 @@ describe('glTF material variants', () => {
   it('rejects unknown names without changing the current material', async () => {
     const asset = await loadVariants();
     const mesh = firstMesh(asset);
-    asset.selectVariant('red');
+    gltfVariants(asset).selectVariant('red');
     const red = mesh.material;
-    expect(() => asset.selectVariant('green')).toThrow(AssetError);
+    expect(() => gltfVariants(asset).selectVariant('green')).toThrow(
+      AssetError,
+    );
     expect(mesh.material).toBe(red);
     asset.dispose();
-    expect(() => asset.selectVariant('red')).toThrow(AssetError);
+    expect(() => gltfVariants(asset).selectVariant('red')).toThrow(AssetError);
   });
 
   it('exposes no variants for a plain model', async () => {
@@ -341,9 +350,9 @@ describe('glTF material variants', () => {
     const asset = await new GLTFLoader().parse(
       JSON.stringify(variantModel([{}])),
     );
-    expect(asset.variants).toEqual([]);
-    expect(() => asset.selectVariant('red')).toThrow(AssetError);
-    asset.selectVariant(undefined);
+    expect(gltfVariants(asset).variants).toEqual([]);
+    expect(() => gltfVariants(asset).selectVariant('red')).toThrow(AssetError);
+    gltfVariants(asset).selectVariant(undefined);
     asset.dispose();
   });
 

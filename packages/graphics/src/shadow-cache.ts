@@ -6,6 +6,7 @@ import {
 } from '../../core/src/mesh.js';
 import { PBRMaterial } from '../../core/src/pbr-material.js';
 import {
+  NativeMaterial3D,
   isNativeMaterial3D,
   nativeMaterialSources,
 } from '../../core/src/native-material3d.js';
@@ -146,7 +147,10 @@ export class ShadowCache {
           values[tail + 1 + i] = material.uniforms[i]!;
         }
         for (let i = 0; i < nativeMaterial3DLimits.textures; i++) {
-          const version = nativeMaterialSources(material)[i]?.version ?? -1;
+          const version =
+            (material instanceof NativeMaterial3D
+              ? nativeMaterialSources(material)[i]?.version
+              : undefined) ?? -1;
           const at = tail + 1 + nativeMaterial3DLimits.uniformFloats + i;
           if (!Object.is(values[at], version)) changed = true;
           values[at] = version;

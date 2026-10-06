@@ -3,7 +3,8 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import type { NativeMeshMaterial } from '../../core/src/native-material3d.js';
+import type { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import type { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import type { FrameEffects, RenderSnapshot } from './render2d-contract.js';
 import type {
@@ -107,10 +108,18 @@ export class PresentedRenderer implements Renderer {
     this.renderer.beginFrame();
   }
   async prepareMaterial(
-    material: Material2D | NativeMeshMaterial,
+    material: Material2D | NativeMaterial3D,
   ): Promise<void> {
     this.requireContext();
     return this.renderer.prepareMaterial(material);
+  }
+  async prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
+    this.requireContext();
+    if (!this.renderer.prepareNativePBRMaterial)
+      throw new UnsupportedGraphicsError(
+        'The selected renderer does not support native physical materials.',
+      );
+    return this.renderer.prepareNativePBRMaterial(material);
   }
   async prepareGpuParticles(emitter: GPUParticleEmitter3D): Promise<void> {
     this.requireContext();

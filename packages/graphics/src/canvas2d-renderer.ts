@@ -4,10 +4,11 @@ import type {
   Material2D,
   PostProcessor2D,
 } from '../../core/src/materials2d/material2d.js';
-import {
-  isNativeMaterial3D,
-  type NativeMeshMaterial,
-} from '../../core/src/native-material3d.js';
+import { isNativeMaterial3D } from '../../core/src/native-material3d.js';
+import type {
+  NativeMeshMaterial,
+  NativePBRMaterial,
+} from '../../core/src/native-pbr-material.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { defaults } from '../../../src/data/defaults.js';
 import {
@@ -282,6 +283,9 @@ export class Canvas2DRenderer implements Renderer {
     this.frameStats.begin();
   }
 
+  prepareNativePBRMaterial(material: NativePBRMaterial): Promise<void> {
+    return this.prepareMaterial(material);
+  }
   async prepareMaterial(
     _material: Material2D | NativeMeshMaterial,
   ): Promise<void> {

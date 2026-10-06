@@ -104,6 +104,7 @@ export type {
   CubemapFaces,
 } from './environment.js';
 export { Mesh, TextureMaterial } from './mesh.js';
+export { setMeshMaterial } from './mesh-material.js';
 export type { MeshOptions, TextureMaterialOptions } from './mesh.js';
 export { MorphTargets, MorphWeights } from './morph.js';
 export type { MorphTargetData } from './morph.js';
@@ -162,8 +163,12 @@ export type {
   GLTFAsset,
   GLTFDirectionalLight,
   GLTFLights,
-  GLTFMaterialVariant,
 } from './gltf-loader.js';
+export { gltfVariants } from './gltf-variants.js';
+export type {
+  GLTFMaterialVariant,
+  GLTFVariantSupport,
+} from './gltf-variants.js';
 export {
   AnimationClip,
   AnimationMixer,
@@ -309,12 +314,12 @@ export type {
   ReflectionProbeCaptureOptions,
 } from './reflection-probe.js';
 export { NativeMaterial3D, isNativeMaterial3D } from './native-material3d.js';
-export type {
-  NativeMaterial3DOptions,
-  NativeMeshMaterial,
-} from './native-material3d.js';
+export type { NativeMaterial3DOptions } from './native-material3d.js';
 export { NativePBRMaterial } from './native-pbr-material.js';
-export type { NativePBRMaterialOptions } from './native-pbr-material.js';
+export type {
+  NativePBRMaterialOptions,
+  NativeMeshMaterial,
+} from './native-pbr-material.js';
 export type { NativeShader3DOptions } from './native-material-state.js';
 export { GPUParticleEmitter3D } from './gpu-particles3d.js';
 export type {

@@ -159,7 +159,7 @@ async function run(): Promise<void> {
     );
     let materialRejected = false;
     try {
-      await renderer.prepareMaterial(
+      await renderer.prepareNativePBRMaterial!(
         new NativePBRMaterial({
           texture: white,
           deformationBounds: 0,
@@ -253,7 +253,7 @@ async function run(): Promise<void> {
   owned.push(omitted);
   let omission: unknown;
   try {
-    await renderer.prepareMaterial(omitted);
+    await renderer.prepareNativePBRMaterial!(omitted);
   } catch (error) {
     omission = error;
   }
@@ -269,7 +269,7 @@ async function run(): Promise<void> {
     glsl: '#if defined(XYZ_FRAGMENT) && !defined(XYZ_SHADOW)\nXYZPhysical xyzPhysical(vec3 world,vec3 normal,vec2 uv,XYZPhysical surface) { XYZPhysical outv=surface; outv.base=vec3(xyzUniforms[0].x,0.02,0.02); return outv; }\n#endif',
   });
   owned.push(physical);
-  await renderer.prepareMaterial(physical);
+  await renderer.prepareNativePBRMaterial!(physical);
   physicalScene.add(
     new Mesh({
       geometry: Geometry.cube(),

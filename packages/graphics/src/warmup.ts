@@ -6,7 +6,8 @@ import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { DisplacementFilter2D } from '../../core/src/rendering2d/filters2d.js';
 import { ParticleLayer2D } from '../../core/src/particles2d/particle-layer2d.js';
-import { isNativeMaterial3D } from '../../core/src/native-material3d.js';
+import { NativeMaterial3D } from '../../core/src/native-material3d.js';
+import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { Object3D } from '../../core/src/object3d.js';
 import type { Renderer } from './index.js';
@@ -14,7 +15,7 @@ import type {
   PreparationResource,
   PreparedResourceLease,
 } from './preparation.js';
-import { GraphicsError } from './errors.js';
+import { GraphicsError, UnsupportedGraphicsError } from './errors.js';
 
 export interface WarmupProgress {
   readonly completed: number;
@@ -58,7 +59,7 @@ export async function warmupScene(
   options.signal?.throwIfAborted();
   if (scene.destroyed)
     throw new GraphicsError('Cannot warm up a destroyed Scene.');
-  const resources = new Set<PreparationResource>();
+  const resources = new Set<PreparationResource | NativePBRMaterial>();
   for (const object of scene.objects) {
     if (
       visibleOnly &&
@@ -68,7 +69,11 @@ export async function warmupScene(
       continue;
     if (object instanceof GPUParticleEmitter3D) resources.add(object);
     if (object instanceof Mesh) {
-      if (isNativeMaterial3D(object.material)) resources.add(object.material);
+      if (
+        object.material instanceof NativeMaterial3D ||
+        object.material instanceof NativePBRMaterial
+      )
+        resources.add(object.material);
       resources.add(object);
     } else if (object instanceof Sprite) {
       resources.add(object.texture);
@@ -145,9 +150,18 @@ export async function warmupScene(
       ) {
         options.signal?.throwIfAborted();
         const resource = iterator.next().value!;
-        const lease = await renderer.prepareResource(resource, {
-          signal: options.signal,
-        });
+        let lease: PreparedResourceLease;
+        if (resource instanceof NativePBRMaterial) {
+          if (!renderer.prepareNativePBRMaterial)
+            throw new UnsupportedGraphicsError(
+              'The selected renderer does not support native physical materials.',
+            );
+          await renderer.prepareNativePBRMaterial(resource);
+          lease = { released: false, release() {} };
+        } else
+          lease = await renderer.prepareResource(resource, {
+            signal: options.signal,
+          });
         if (options.signal?.aborted) {
           lease.release();
           options.signal.throwIfAborted();

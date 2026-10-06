@@ -15,6 +15,12 @@ import { generateMikkTangents, remapVertexData } from './geometry-tangents.js';
 import { PointLight, SpotLight } from './lights.js';
 import { Group } from './group.js';
 import { Mesh } from './mesh.js';
+import {
+  registerGLTFVariants,
+  type GLTFMaterialVariant,
+  type GLTFVariantSupport,
+} from './gltf-variants.js';
+import { setMeshMaterial } from './mesh-material.js';
 import type { TextureMaterial } from './mesh.js';
 import { PBRMaterial } from './pbr-material.js';
 import type { TextureCoordinateOptions } from './pbr-material.js';
@@ -37,28 +43,14 @@ export interface GLTFLights {
   spot: SpotLight[];
   directional: GLTFDirectionalLight[];
 }
-export interface GLTFMaterialVariant {
-  readonly name: string;
-  /** Meshes whose material is switched by this variant, with the mapped material. */
-  readonly mappings: readonly {
-    readonly mesh: Mesh;
-    readonly material: TextureMaterial;
-  }[];
-}
 export interface GLTFAsset {
   readonly scene: Group;
   readonly animations: AnimationClip[];
   /** Raw glTF photometric values; add them to a Scene and scale `intensity` as needed. */
   readonly lights: GLTFLights;
-  /** KHR_materials_variants names in document order; empty when the model declares none. */
-  readonly variants: readonly GLTFMaterialVariant[];
-  /**
-   * Assigns one variant's mapped materials; `undefined` restores the defaults.
-   * Unmapped meshes keep their default material. Materials stay owned by the asset.
-   */
-  selectVariant(name: string | undefined): void;
   dispose(): void;
 }
+// KHR_materials_variants state lives in gltf-variants.ts (see gltfVariants()).
 export interface GLTFLoadOptions {
   signal?: AbortSignal;
   /** Extra origins from which model-referenced buffers/images may be fetched; the model's own origin is always allowed. */
@@ -1970,10 +1962,7 @@ export class GLTFLoader {
         (name, index) => ({ name, mappings: variantMappings[index] }),
       );
       let disposed = false;
-      return {
-        scene: ownedScene,
-        animations,
-        lights,
+      const support: GLTFVariantSupport = {
         variants,
         selectVariant: (name) => {
           if (disposed)
@@ -1985,10 +1974,15 @@ export class GLTFLoader {
           if (name !== undefined && !chosen)
             throw new AssetError(`Unknown material variant ${name}.`);
           for (const [mesh, material] of variantDefaults)
-            mesh.material = material;
+            setMeshMaterial(mesh, material);
           for (const mapping of chosen?.mappings ?? [])
-            mapping.mesh.material = mapping.material;
+            setMeshMaterial(mapping.mesh, mapping.material);
         },
+      };
+      const loaded: GLTFAsset = {
+        scene: ownedScene,
+        animations,
+        lights,
         dispose: () => {
           if (disposed) return;
           disposed = true;
@@ -2011,6 +2005,8 @@ export class GLTFLoader {
             throw new AggregateError(errors, 'glTF asset cleanup failed.');
         },
       };
+      registerGLTFVariants(loaded, support);
+      return loaded;
     } catch (cause) {
       for (const node of [scene, ...nodes]) {
         try {
