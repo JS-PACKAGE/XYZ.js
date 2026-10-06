@@ -62,21 +62,27 @@ export class VolumetricFogSettings {
       throw new RangeError(
         'Volumetric maximum distance must be positive and shaft strength <= 4.',
       );
-    if (
-      this.color.length !== 3 ||
-      this.color.some((c) => !Number.isFinite(c) || c < 0 || c > 1)
-    )
+    if (this.color.length !== 3)
       throw new RangeError(
         'Volumetric color must contain three 0..1 components.',
       );
-    for (const count of [this.fogSamples, this.shaftSamples])
-      if (
-        !Number.isInteger(count) ||
-        count < 1 ||
-        count > volumetricPostDefaults.maximumSamples
-      )
+    for (let i = 0; i < 3; i++) {
+      const component = this.color[i]!;
+      if (!Number.isFinite(component) || component < 0 || component > 1)
         throw new RangeError(
-          'Volumetric sample counts must be integers in 1..64.',
+          'Volumetric color must contain three 0..1 components.',
         );
+    }
+    if (
+      !Number.isInteger(this.fogSamples) ||
+      this.fogSamples < 1 ||
+      this.fogSamples > volumetricPostDefaults.maximumSamples ||
+      !Number.isInteger(this.shaftSamples) ||
+      this.shaftSamples < 1 ||
+      this.shaftSamples > volumetricPostDefaults.maximumSamples
+    )
+      throw new RangeError(
+        'Volumetric sample counts must be integers in 1..64.',
+      );
   }
 }
