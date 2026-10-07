@@ -80,6 +80,7 @@ export class WebGPUPostPipeline {
   private fxaaView: GPUTextureView | undefined;
   private fxaaGroup: GPUBindGroup | undefined;
   private readonly fxaaSampler: GPUSampler;
+  private readonly emptyVelocity: GPUTexture;
   private width = 0;
   private height = 0;
   private lutTexture: GPUTexture | undefined;
@@ -102,6 +103,11 @@ export class WebGPUPostPipeline {
     private readonly format: GPUTextureFormat,
     readonly stats: FrameStats,
   ) {
+    this.emptyVelocity = device.createTexture({
+      size: [1, 1],
+      format: 'rgba16float',
+      usage: GPUTextureUsage.TEXTURE_BINDING,
+    });
     this.fxaaSampler = device.createSampler({
       minFilter: 'linear',
       magFilter: 'linear',
@@ -186,6 +192,7 @@ export class WebGPUPostPipeline {
           { binding: 1, resource: { buffer: this.buffer } },
           { binding: 2, resource: depth },
           { binding: 3, resource: this.ensureLUT().createView() },
+          { binding: 4, resource: this.emptyVelocity.createView() },
         ],
       });
       this.texture = texture;
@@ -258,6 +265,7 @@ export class WebGPUPostPipeline {
     depth?: GPUTextureView,
     scene?: Scene,
     temporalState?: TemporalPostState,
+    velocity?: GPUTextureView,
   ): void {
     const enabled = settings.enabled;
     const fxaa = enabled && settings.fxaa;
@@ -267,7 +275,7 @@ export class WebGPUPostPipeline {
     const lut = effects?.colorGrading?.lut;
     if (this.lut !== lut) this.bindGroup = undefined;
     let group = this.bindGroup!;
-    if (source || !group) {
+    if (source || velocity || !group) {
       group = this.device.createBindGroup({
         layout: this.pipeline.getBindGroupLayout(0),
         entries: [
@@ -275,9 +283,10 @@ export class WebGPUPostPipeline {
           { binding: 1, resource: { buffer: this.buffer! } },
           { binding: 2, resource: depth ?? this.depthView! },
           { binding: 3, resource: this.ensureLUT(lut).createView() },
+          { binding: 4, resource: velocity ?? this.emptyVelocity.createView() },
         ],
       });
-      if (!source) this.bindGroup = group;
+      if (!source && !velocity) this.bindGroup = group;
     }
     this.data[0] = enabled ? settings.exposure : 1;
     this.data[1] = enabled
@@ -410,6 +419,7 @@ export class WebGPUPostPipeline {
 
   destroy(): void {
     this.releaseTarget();
+    this.emptyVelocity.destroy();
     this.buffer?.destroy();
     this.buffer = undefined;
   }

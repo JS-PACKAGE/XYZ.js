@@ -67,6 +67,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 	fxaaView;
 	fxaaGroup;
 	fxaaSampler;
+	emptyVelocity;
 	width = 0;
 	height = 0;
 	lutTexture;
@@ -78,7 +79,11 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 	};
 	descriptor = { colorAttachments: [this.attachment] };
 	constructor(e, t, n, r, i) {
-		this.device = e, this.pipeline = t, this.fxaaPipeline = n, this.format = r, this.stats = i, this.fxaaSampler = e.createSampler({
+		this.device = e, this.pipeline = t, this.fxaaPipeline = n, this.format = r, this.stats = i, this.emptyVelocity = e.createTexture({
+			size: [1, 1],
+			format: `rgba16float`,
+			usage: GPUTextureUsage.TEXTURE_BINDING
+		}), this.fxaaSampler = e.createSampler({
 			minFilter: `linear`,
 			magFilter: `linear`
 		});
@@ -147,6 +152,10 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 					{
 						binding: 3,
 						resource: this.ensureLUT().createView()
+					},
+					{
+						binding: 4,
+						resource: this.emptyVelocity.createView()
 					}
 				]
 			}), this.texture = r, this.view = i, this.width = e, this.height = t, i;
@@ -187,13 +196,13 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 	releaseFxaa() {
 		this.fxaaTexture?.destroy(), this.fxaaTexture && this.stats.target(-this.width * this.height * 4), this.fxaaTexture = void 0, this.fxaaView = void 0, this.fxaaGroup = void 0;
 	}
-	render(t, n, r, i, a, s, l, u, p) {
-		let m = r.enabled, h = m && r.fxaa, g = require_post_effects.getPostEffects(r);
-		g?.validate();
-		let _ = g?.toneMapper ?? r.toneMapping, v = g?.colorGrading?.lut;
-		this.lut !== v && (this.bindGroup = void 0);
-		let y = this.bindGroup;
-		(s || !y) && (y = this.device.createBindGroup({
+	render(t, n, r, i, a, s, l, u, p, m) {
+		let h = r.enabled, g = h && r.fxaa, _ = require_post_effects.getPostEffects(r);
+		_?.validate();
+		let v = _?.toneMapper ?? r.toneMapping, y = _?.colorGrading?.lut;
+		this.lut !== y && (this.bindGroup = void 0);
+		let b = this.bindGroup;
+		(s || m || !b) && (b = this.device.createBindGroup({
 			layout: this.pipeline.getBindGroupLayout(0),
 			entries: [
 				{
@@ -210,17 +219,21 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 				},
 				{
 					binding: 3,
-					resource: this.ensureLUT(v).createView()
+					resource: this.ensureLUT(y).createView()
+				},
+				{
+					binding: 4,
+					resource: m ?? this.emptyVelocity.createView()
 				}
 			]
-		}), s || (this.bindGroup = y)), this.data[0] = m ? r.exposure : 1, this.data[1] = m ? _ === `aces` ? 1 : _ === `agx` ? 2 : _ === `reinhard` ? 3 : _ === `neutral` ? 4 : 0 : 0, this.data[2] = m ? r.bloomStrength : 0, this.data[3] = r.bloomThreshold, this.data[4] = this.width, this.data[5] = this.height, this.data[6] = r.bloomRadius, this.data.set(a.elements, 8), this.data[24] = i.near, this.data[25] = i.far, this.data[26] = +(i instanceof require_orthographic_camera.OrthographicCamera);
-		let b = i.matrix.elements;
-		this.data[27] = Math.hypot(b[1], b[5], b[9]), this.data[28] = m && r.ssao ? 1 : 0, this.data[29] = r.ssaoRadius, this.data[30] = r.ssaoStrength, this.data[31] = r.ssaoBias, this.data[32] = m && r.depthOfField ? 1 : 0, this.data[33] = r.dofFocusDistance, this.data[34] = r.dofFocusRange, this.data[35] = r.dofBlurRadius, this.data[36] = g?.colorGrading?.lut.size ?? 1, this.data[37] = m ? g?.colorGrading?.strength ?? 0 : 0, require_volumetric_post.writeVolumetricUniforms(this.data, 40, u);
-		let x = g?.lensFlare;
-		this.data[56] = m && x?.enabled ? x.strength : 0, this.data[57] = x?.threshold ?? 1, this.data[58] = x?.ghosts ?? 1, this.data[59] = x?.spacing ?? 1, this.data[60] = x?.haloRadius ?? .3, this.data[61] = x?.haloWidth ?? .15, require_motion_blur_post.writeMotionBlurUniforms(this.data, 64, r, p), this.device.queue.writeBuffer(this.buffer, 0, this.data), this.stats.upload(this.data.byteLength), h ? this.ensureFxaa() : this.releaseFxaa(), this.attachment.view = h ? this.fxaaView : n;
+		}), !s && !m && (this.bindGroup = b)), this.data[0] = h ? r.exposure : 1, this.data[1] = h ? v === `aces` ? 1 : v === `agx` ? 2 : v === `reinhard` ? 3 : v === `neutral` ? 4 : 0 : 0, this.data[2] = h ? r.bloomStrength : 0, this.data[3] = r.bloomThreshold, this.data[4] = this.width, this.data[5] = this.height, this.data[6] = r.bloomRadius, this.data.set(a.elements, 8), this.data[24] = i.near, this.data[25] = i.far, this.data[26] = +(i instanceof require_orthographic_camera.OrthographicCamera);
+		let x = i.matrix.elements;
+		this.data[27] = Math.hypot(x[1], x[5], x[9]), this.data[28] = h && r.ssao ? 1 : 0, this.data[29] = r.ssaoRadius, this.data[30] = r.ssaoStrength, this.data[31] = r.ssaoBias, this.data[32] = h && r.depthOfField ? 1 : 0, this.data[33] = r.dofFocusDistance, this.data[34] = r.dofFocusRange, this.data[35] = r.dofBlurRadius, this.data[36] = _?.colorGrading?.lut.size ?? 1, this.data[37] = h ? _?.colorGrading?.strength ?? 0 : 0, require_volumetric_post.writeVolumetricUniforms(this.data, 40, u);
+		let S = _?.lensFlare;
+		this.data[56] = h && S?.enabled ? S.strength : 0, this.data[57] = S?.threshold ?? 1, this.data[58] = S?.ghosts ?? 1, this.data[59] = S?.spacing ?? 1, this.data[60] = S?.haloRadius ?? .3, this.data[61] = S?.haloWidth ?? .15, require_motion_blur_post.writeMotionBlurUniforms(this.data, 64, r, p), this.device.queue.writeBuffer(this.buffer, 0, this.data), this.stats.upload(this.data.byteLength), g ? this.ensureFxaa() : this.releaseFxaa(), this.attachment.view = g ? this.fxaaView : n;
 		try {
 			let r = require_gpu_timing.beginTimedRenderPass(t, this.descriptor);
-			if (r.setPipeline(this.pipeline), r.setBindGroup(0, y), r.draw(3), r.end(), h) {
+			if (r.setPipeline(this.pipeline), r.setBindGroup(0, b), r.draw(3), r.end(), g) {
 				this.attachment.view = n;
 				let r = require_gpu_timing.beginTimedRenderPass(t, this.descriptor);
 				r.setPipeline(this.fxaaPipeline), r.setBindGroup(0, this.fxaaGroup), r.draw(3), r.end();
@@ -261,7 +274,7 @@ var WebGPUPostPipeline = class WebGPUPostPipeline {
 		]), { bytesPerRow: n * n * 4 }, [n * n, n]), this.lutTexture;
 	}
 	destroy() {
-		this.releaseTarget(), this.buffer?.destroy(), this.buffer = void 0;
+		this.releaseTarget(), this.emptyVelocity.destroy(), this.buffer?.destroy(), this.buffer = void 0;
 	}
 };
 //#endregion

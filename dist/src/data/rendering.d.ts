@@ -164,6 +164,8 @@ export declare const lensFlareDefaults: Readonly<{
     haloWidth: 0.15;
 }>;
 export declare const motionBlurDefaults: Readonly<{
+    perObject: false;
+    velocityDepthTolerance: 0.00001;
     strength: 1;
     samples: 12;
     maximumSamples: 32;

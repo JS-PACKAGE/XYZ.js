@@ -3,13 +3,15 @@ export interface MotionBlurOptions {
     strength?: number;
     samples?: number;
     maxRadius?: number;
+    perObject?: boolean;
 }
-/** Camera-only depth reprojection; does not invent per-object motion vectors. */
+/** Depth reprojection, with optional rigid per-object motion on native backends. */
 export declare class MotionBlurSettings {
     enabled: boolean;
     strength: number;
     samples: number;
     maxRadius: number;
+    perObject: boolean;
     constructor(options?: MotionBlurOptions);
     validate(): void;
 }

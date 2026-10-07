@@ -6,24 +6,29 @@ export interface MotionBlurOptions {
   strength?: number;
   samples?: number;
   maxRadius?: number;
+  perObject?: boolean;
 }
 
-/** Camera-only depth reprojection; does not invent per-object motion vectors. */
+/** Depth reprojection, with optional rigid per-object motion on native backends. */
 export class MotionBlurSettings {
   enabled: boolean;
   strength: number;
   samples: number;
   maxRadius: number;
+  perObject: boolean;
   constructor(options: MotionBlurOptions = {}) {
     this.enabled = options.enabled ?? true;
     this.strength = options.strength ?? motionBlurDefaults.strength;
     this.samples = options.samples ?? motionBlurDefaults.samples;
     this.maxRadius = options.maxRadius ?? motionBlurDefaults.maxRadius;
+    this.perObject = options.perObject ?? motionBlurDefaults.perObject;
     this.validate();
   }
   validate(): void {
     if (typeof this.enabled !== 'boolean')
       throw new TypeError('Motion blur enabled must be boolean.');
+    if (typeof this.perObject !== 'boolean')
+      throw new TypeError('Motion blur perObject must be boolean.');
     validatePostNumber(this.strength, 'Motion blur strength');
     validatePostNumber(this.maxRadius, 'Motion blur radius');
     if (

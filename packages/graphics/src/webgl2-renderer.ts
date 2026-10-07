@@ -173,6 +173,7 @@ import { writeVolumetricUniforms } from './volumetric-post.js';
 import { getPostEffects } from '../../core/src/post-effects.js';
 import { writeMotionBlurUniforms } from './motion-blur-post.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
+import { WebGLObjectMotion } from './webgl-object-motion.js';
 import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
 import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import { encodePlanarReflection } from './planar-reflection-capture.js';
@@ -844,6 +845,9 @@ export class WebGL2Renderer implements Renderer {
   private readonly temporalState = new TemporalPostState();
   private temporal: WebGLTemporalPipeline | undefined;
   private temporalActive = false;
+  private objectMotion?: WebGLObjectMotion;
+  private readonly motionGeometry = (mesh: Mesh): CachedGeometry =>
+    this.geometries.get(mesh.renderGeometry)!;
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly shadowUniforms: Record<string, WebGLUniformLocation | null> =
@@ -1209,6 +1213,8 @@ export class WebGL2Renderer implements Renderer {
         'halo',
         'previousVP',
         'blur',
+        'objectVelocity',
+        'objectMotionEnabled',
       ])
         this.postUniforms[name] = gl.getUniformLocation(this.postProgram, name);
       for (const name of [
@@ -1844,6 +1850,7 @@ export class WebGL2Renderer implements Renderer {
         this.releaseCoverageTarget();
         this.temporal?.releaseTarget();
         this.temporalState.invalidate();
+        this.objectMotion?.releaseTarget();
         this.visibilityCache.clear();
         this.visibility.color.length = 0;
         this.visibility.shadows.length = 0;
@@ -1955,7 +1962,10 @@ export class WebGL2Renderer implements Renderer {
         this.drawComposite(graphDestination!.texture, null, transition);
       this.frameRendered = true;
     } finally {
-      if (!this.frameRendered) this.temporalState.invalidate();
+      if (!this.frameRendered) {
+        this.temporalState.invalidate();
+        this.objectMotion?.releaseTarget();
+      }
       this.releaseUnused();
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
@@ -2009,6 +2019,7 @@ export class WebGL2Renderer implements Renderer {
       throw new GraphicsError(
         `WebGL2 canvas backing size ${pixelWidth}×${pixelHeight} exceeds this device's maximum dimensions of ${this.maxWidth}×${this.maxHeight} pixels. Reduce the canvas size or pixel ratio.`,
       );
+    this.objectMotion?.resize(pixelWidth, pixelHeight);
     if (
       this.postTarget &&
       (this.postTarget.width !== pixelWidth ||
@@ -2383,6 +2394,12 @@ export class WebGL2Renderer implements Renderer {
       this.temporal?.releaseTarget();
       this.temporalState.invalidate();
     }
+    if (
+      !scene.postProcessing.enabled ||
+      !getPostEffects(scene.postProcessing)?.motionBlur?.enabled ||
+      !getPostEffects(scene.postProcessing)?.motionBlur?.perObject
+    )
+      this.objectMotion?.releaseTarget();
     const contactSettings = ContactShadows.get(scene);
     if (contactSettings && contactSettings.strength > 0) {
       contactSettings.validate();
@@ -3919,6 +3936,20 @@ export class WebGL2Renderer implements Renderer {
     effects?.validate();
     const tone = effects?.toneMapper ?? settings.toneMapping;
     const fxaa = enabled && settings.fxaa;
+    let velocity: WebGLTexture | undefined;
+    if (
+      enabled &&
+      effects?.motionBlur?.enabled &&
+      effects.motionBlur.perObject
+    ) {
+      this.objectMotion ??= new WebGLObjectMotion(gl, this.stats);
+      velocity = this.objectMotion.render(
+        this.visibility.color,
+        this.temporalState,
+        this.postTarget!.depthTexture!,
+        this.motionGeometry,
+      );
+    } else this.objectMotion?.releaseTarget();
     const source =
       this.temporalActive && settings.taa
         ? this.temporal!.applyTAA(
@@ -4103,6 +4134,11 @@ export class WebGL2Renderer implements Renderer {
       16,
     );
     gl.uniform4fv(this.postUniforms.blur, this.motionData, 16, 4);
+    gl.activeTexture(gl.TEXTURE3);
+    gl.bindSampler(3, null);
+    gl.bindTexture(gl.TEXTURE_2D, velocity ?? source);
+    gl.uniform1i(this.postUniforms.objectVelocity, 3);
+    gl.uniform1i(this.postUniforms.objectMotionEnabled, velocity ? 1 : 0);
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (fxaa) {
@@ -4763,6 +4799,7 @@ export class WebGL2Renderer implements Renderer {
     this.visibility.occlusionCandidates.length = 0;
     if (gl) {
       this.temporal?.destroy();
+      this.objectMotion?.destroy();
       this.probeAllocation?.destroy();
       for (const entry of this.nativeMaterials.values()) {
         entry.unsubscribe();

@@ -105,6 +105,8 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly temporalState;
     private temporal;
     private temporalActive;
+    private objectMotion?;
+    private readonly motionGeometry;
     private readonly fogData;
     private readonly invViewProjection;
     private readonly shadowUniforms;

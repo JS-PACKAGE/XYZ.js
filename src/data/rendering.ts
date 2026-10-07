@@ -204,6 +204,8 @@ export const lensFlareDefaults = Object.freeze({
 });
 
 export const motionBlurDefaults = Object.freeze({
+  perObject: false,
+  velocityDepthTolerance: 0.00001,
   strength: 1,
   samples: 12,
   maximumSamples: 32,

@@ -73,6 +73,8 @@ export declare class WebGPUMeshPipeline {
     private readonly temporalState;
     private readonly temporal;
     private temporalActive;
+    private objectMotion?;
+    private readonly motionGeometry;
     private readonly environmentSampler;
     private environmentView;
     private backgroundView;

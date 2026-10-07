@@ -152,6 +152,8 @@ var lensFlareDefaults = Object.freeze({
 	haloWidth: .15
 });
 var motionBlurDefaults = Object.freeze({
+	perObject: !1,
+	velocityDepthTolerance: 1e-5,
 	strength: 1,
 	samples: 12,
 	maximumSamples: 32,

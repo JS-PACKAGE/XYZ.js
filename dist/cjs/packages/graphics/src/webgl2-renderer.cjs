@@ -50,6 +50,7 @@ const require_reflection_capture = require("./reflection-capture.cjs");
 const require_probe_texture_array = require("./probe-texture-array.cjs");
 const require_temporal_post = require("./temporal-post.cjs");
 const require_webgl_temporal_pipeline = require("./webgl-temporal-pipeline.cjs");
+const require_webgl_object_motion = require("./webgl-object-motion.cjs");
 const require_planar_reflection_capture = require("./planar-reflection-capture.cjs");
 //#region dist/packages/graphics/src/webgl2-renderer.js
 var Q = `viewProjection.model.instanced.skinned.jointPalette.lighting[0].tint.surface.emission.maps.pbr.alphaMode.doubleSided.linearOutput.cameraPosition.receiveShadow.image.metallicRoughnessMap.normalMap.occlusionMap.emissiveMap.specularMap.specularColorMap.specularColor.specularParams.clearcoat.clearcoatMaps.clearcoatMap.clearcoatRoughnessMap.clearcoatNormalMap.sheen.sheenMaps.sheenColorMap.sheenRoughnessMap.transmission.attenuationColor.transmissionMapSettings.thicknessMapSettings.anisotropyMapSettings.iridescenceMapSettings.iridescenceThicknessMapSettings.iridescenceThicknessRange.finish0.finish1.finish2.finish3.finish4.opticalMaps.opaqueScene.shadowMap.contactDimensions.contactParams.contactStrength.contactInvViewProjection.oitPass.environment[0].environmentMap.probeData[0].bakedSH[0].bakedParams.fog[0].meshFade.tangentTexCoord.derivativeTangentSign.materialCoordinates[0]`.split(`.`);
@@ -267,6 +268,8 @@ var WebGL2Renderer = class {
 	temporalState = new require_temporal_post.TemporalPostState();
 	temporal;
 	temporalActive = !1;
+	objectMotion;
+	motionGeometry = (e) => this.geometries.get(e.renderGeometry);
 	fogData = /* @__PURE__ */ new Float32Array(8);
 	invViewProjection = new require_math3d.Matrix4();
 	shadowUniforms = {};
@@ -453,7 +456,9 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 				`flare`,
 				`halo`,
 				`previousVP`,
-				`blur`
+				`blur`,
+				`objectVelocity`,
+				`objectMotionEnabled`
 			]) this.postUniforms[e] = n.getUniformLocation(this.postProgram, e);
 			for (let e of [
 				`image`,
@@ -684,10 +689,10 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 				require_render_data.validateRenderSettings(e), this.capturingProbe || this.probeCaptures.schedule(e, (t) => this.captureReflectionProbe(e, t), (e) => this.onError(e instanceof require_errors.GraphicsError ? e : new require_errors.GraphicsError(`Automatic reflection capture failed.`, { cause: e }))), this.collectMeshes(e, s / c, c);
 				let t = e.postProcessing.enabled || this.hasTransmission || this.weighted;
 				this.linear3D = t || this.coverageActive, e.lightSelection.update(e), this.atlas.update(e, s / c), a.bindBuffer(a.UNIFORM_BUFFER, this.shadowBuffer), a.bufferSubData(a.UNIFORM_BUFFER, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), e.shadows.enabled ? this.drawShadows(e) : this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.linear3D ? this.preparePostTarget(o.width, o.height, t || this.coverageCapabilities.hdrSamples > 1 ? `hdr` : `rgba8`) : this.postTarget && (this.releaseOIT(), this.deleteTarget(this.postTarget), this.postTarget = void 0, $.get(this)?.destroy()), !e.postProcessing.enabled && this.fxaaTarget && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), this.hasTransmission ? this.prepareRefractionTarget(o.width, o.height) : this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
-			} else $.get(this)?.destroy(), this.probeAllocation?.destroy(), this.probeAllocation = void 0, this.probeMaps.length = 0, this.selectedProbes.length = 0, this.releaseCoverageTarget(), this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
+			} else $.get(this)?.destroy(), this.probeAllocation?.destroy(), this.probeAllocation = void 0, this.probeMaps.length = 0, this.selectedProbes.length = 0, this.releaseCoverageTarget(), this.temporal?.releaseTarget(), this.temporalState.invalidate(), this.objectMotion?.releaseTarget(), this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, this.occlusion?.clear(), this.shadowTarget &&= (this.deleteTarget(this.shadowTarget), void 0), this.releaseOIT(), this.postTarget &&= (this.deleteTarget(this.postTarget), void 0), this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), this.refractionTarget &&= (this.deleteTarget(this.refractionTarget), void 0);
 			this.weighted ? this.prepareOIT(o.width, o.height) : this.releaseOIT(), a.bindFramebuffer(a.FRAMEBUFFER, this.linear3D ? this.postTarget.framebuffer : f), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o.width, o.height), a.clearColor(this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.r) : require_defaults.defaults.clearColor.r, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.g) : require_defaults.defaults.clearColor.g, this.linear3D ? this.decodeColor(require_defaults.defaults.clearColor.b) : require_defaults.defaults.clearColor.b, require_defaults.defaults.clearColor.a), a.depthMask(!0), a.clearDepth(1), this.coverageActive || a.clear(a.COLOR_BUFFER_BIT | a.DEPTH_BUFFER_BIT), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), e ? (e.has3DContent && this.drawMeshes(e, s / c), a.disable(a.DEPTH_TEST), this.linear3D && this.drawPost(e, f), d && this.drawEffects2D(n, s, c, r?.framebuffer ?? null, this.sceneTarget, this.effectTarget, !0), a.activeTexture(a.TEXTURE0), a.enable(a.BLEND), a.blendFunc(a.ONE, a.ONE_MINUS_SRC_ALPHA), a.disable(a.CULL_FACE), a.bindFramebuffer(a.FRAMEBUFFER, this.layerTarget.framebuffer), a.viewport(0, 0, o.width, o.height), a.clearColor(0, 0, 0, 0), a.clear(a.COLOR_BUFFER_BIT), this.render2D.draw(this.commands, e, this.layerTarget, s, c), t?.length ? this.drawEffects2D(t, s, c, r?.framebuffer ?? null) : this.drawComposite(this.layerTarget.texture, r?.framebuffer ?? null)) : (a.disable(a.DEPTH_TEST), a.disable(a.BLEND), a.viewport(this.viewportX, this.viewportY, this.viewportSide, this.viewportSide), a.useProgram(this.triangleProgram), a.bindVertexArray(this.triangleVAO), a.drawArrays(a.TRIANGLES, 0, 3)), l && this.graphs.encode(l, u?.framebuffer ?? null), i && this.drawComposite(u.texture, null, i), this.frameRendered = !0;
 		} finally {
-			this.frameRendered || this.temporalState.invalidate(), this.releaseUnused(), a.bindFramebuffer(a.FRAMEBUFFER, null), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null), a.bindVertexArray(null), a.bindTexture(a.TEXTURE_2D, null), a.useProgram(null), a.depthMask(!0), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.viewport(0, 0, o.width, o.height);
+			this.frameRendered || (this.temporalState.invalidate(), this.objectMotion?.releaseTarget()), this.releaseUnused(), a.bindFramebuffer(a.FRAMEBUFFER, null), a.activeTexture(a.TEXTURE0), a.bindSampler(0, null), a.bindVertexArray(null), a.bindTexture(a.TEXTURE_2D, null), a.useProgram(null), a.depthMask(!0), a.disable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.viewport(0, 0, o.width, o.height);
 		}
 	}
 	endFrame(e = !0) {
@@ -702,7 +707,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 		if (!Number.isFinite(e) || !Number.isFinite(t) || e < 0 || t < 0) throw RangeError(`WebGL2 canvas pixel width and height must be finite, nonnegative numbers.`);
 		let r = Math.max(1, Math.round(e)), i = Math.max(1, Math.round(t));
 		if (!Number.isSafeInteger(r) || !Number.isSafeInteger(i) || r > this.maxWidth || i > this.maxHeight) throw new require_errors.GraphicsError(`WebGL2 canvas backing size ${r}×${i} exceeds this device's maximum dimensions of ${this.maxWidth}×${this.maxHeight} pixels. Reduce the canvas size or pixel ratio.`);
-		this.postTarget && (this.postTarget.width !== r || this.postTarget.height !== i) && (this.releaseOIT(), this.releaseCoverageTarget(), this.deleteTarget(this.postTarget), this.postTarget = void 0), this.refractionTarget && (this.refractionTarget.width !== r || this.refractionTarget.height !== i) && (this.deleteTarget(this.refractionTarget), this.refractionTarget = void 0), this.fxaaTarget && (this.fxaaTarget.width !== r || this.fxaaTarget.height !== i) && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), (n.width !== r || n.height !== i) && (this.frameTarget && this.deleteTarget(this.frameTarget), this.layerTarget && this.deleteTarget(this.layerTarget), this.effectTarget && this.deleteTarget(this.effectTarget), this.sceneTarget && this.deleteTarget(this.sceneTarget), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0), n.width !== r && (n.width = r), n.height !== i && (n.height = i), this.temporal?.resize(r, i);
+		this.objectMotion?.resize(r, i), this.postTarget && (this.postTarget.width !== r || this.postTarget.height !== i) && (this.releaseOIT(), this.releaseCoverageTarget(), this.deleteTarget(this.postTarget), this.postTarget = void 0), this.refractionTarget && (this.refractionTarget.width !== r || this.refractionTarget.height !== i) && (this.deleteTarget(this.refractionTarget), this.refractionTarget = void 0), this.fxaaTarget && (this.fxaaTarget.width !== r || this.fxaaTarget.height !== i) && (this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0), (n.width !== r || n.height !== i) && (this.frameTarget && this.deleteTarget(this.frameTarget), this.layerTarget && this.deleteTarget(this.layerTarget), this.effectTarget && this.deleteTarget(this.effectTarget), this.sceneTarget && this.deleteTarget(this.sceneTarget), this.frameTarget = void 0, this.layerTarget = void 0, this.effectTarget = void 0, this.sceneTarget = void 0), n.width !== r && (n.width = r), n.height !== i && (n.height = i), this.temporal?.resize(r, i);
 		let a = Math.min(r, i);
 		this.viewportX = (r - a) / 2, this.viewportY = (i - a) / 2, this.viewportSide = a;
 	}
@@ -796,6 +801,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 			if (!this.floatColorBuffer || !this.postTarget?.depthTexture) throw new require_errors.GraphicsError(`TAA/SSR require native HDR color and sampleable opaque depth.`);
 			this.temporal ??= new require_webgl_temporal_pipeline.WebGLTemporalPipeline(a, this.stats), this.temporalState.begin(e, e.camera3D, this.postTarget.width, this.postTarget.height, e.postProcessing, t);
 		} else this.temporal?.releaseTarget(), this.temporalState.invalidate();
+		(!e.postProcessing.enabled || !require_post_effects.getPostEffects(e.postProcessing)?.motionBlur?.enabled || !require_post_effects.getPostEffects(e.postProcessing)?.motionBlur?.perObject) && this.objectMotion?.releaseTarget();
 		let o = require_contact_shadows.ContactShadows.get(e);
 		if (o && o.strength > 0) {
 			o.validate();
@@ -1056,9 +1062,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 	drawPost(e, t) {
 		let n = this.gl, r = e.postProcessing, i = r.enabled, a = require_post_effects.getPostEffects(r);
 		a?.validate();
-		let o = a?.toneMapper ?? r.toneMapping, s = i && r.fxaa, c = this.temporalActive && r.taa ? this.temporal.applyTAA(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, r).texture : this.postTarget.texture;
-		s ? (!this.fxaaTarget || this.fxaaTarget.width !== this.postTarget.width || this.fxaaTarget.height !== this.postTarget.height) && (this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0, this.fxaaTarget = this.createTarget(this.postTarget.width, this.postTarget.height, !1, `rgba8`, !1)) : this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), n.bindFramebuffer(n.FRAMEBUFFER, s ? this.fxaaTarget.framebuffer : t), n.disable(n.BLEND), n.disable(n.DEPTH_TEST), n.disable(n.CULL_FACE), n.useProgram(this.postProgram), n.bindVertexArray(this.triangleVAO), n.activeTexture(n.TEXTURE0), n.bindSampler(0, null), n.bindTexture(n.TEXTURE_2D, c), n.uniform4f(this.postUniforms.settings, i ? r.exposure : 1, i ? r.bloomStrength : 0, r.bloomThreshold, r.bloomRadius), n.uniform1i(this.postUniforms.toneOperator, i ? o === `aces` ? 1 : o === `agx` ? 2 : o === `reinhard` ? 3 : o === `neutral` ? 4 : 0 : 0);
-		let l = a?.colorGrading?.lut;
+		let o = a?.toneMapper ?? r.toneMapping, s = i && r.fxaa, c;
+		i && a?.motionBlur?.enabled && a.motionBlur.perObject ? (this.objectMotion ??= new require_webgl_object_motion.WebGLObjectMotion(n, this.stats), c = this.objectMotion.render(this.visibility.color, this.temporalState, this.postTarget.depthTexture, this.motionGeometry)) : this.objectMotion?.releaseTarget();
+		let l = this.temporalActive && r.taa ? this.temporal.applyTAA(this.postTarget.texture, this.postTarget.depthTexture, this.temporalState, r).texture : this.postTarget.texture;
+		s ? (!this.fxaaTarget || this.fxaaTarget.width !== this.postTarget.width || this.fxaaTarget.height !== this.postTarget.height) && (this.fxaaTarget && this.deleteTarget(this.fxaaTarget), this.fxaaTarget = void 0, this.fxaaTarget = this.createTarget(this.postTarget.width, this.postTarget.height, !1, `rgba8`, !1)) : this.fxaaTarget &&= (this.deleteTarget(this.fxaaTarget), void 0), n.bindFramebuffer(n.FRAMEBUFFER, s ? this.fxaaTarget.framebuffer : t), n.disable(n.BLEND), n.disable(n.DEPTH_TEST), n.disable(n.CULL_FACE), n.useProgram(this.postProgram), n.bindVertexArray(this.triangleVAO), n.activeTexture(n.TEXTURE0), n.bindSampler(0, null), n.bindTexture(n.TEXTURE_2D, l), n.uniform4f(this.postUniforms.settings, i ? r.exposure : 1, i ? r.bloomStrength : 0, r.bloomThreshold, r.bloomRadius), n.uniform1i(this.postUniforms.toneOperator, i ? o === `aces` ? 1 : o === `agx` ? 2 : o === `reinhard` ? 3 : o === `neutral` ? 4 : 0 : 0);
+		let u = a?.colorGrading?.lut;
 		if (n.activeTexture(n.TEXTURE2), n.bindSampler(2, null), !this.gradingTexture) {
 			let e = n.createTexture();
 			if (!e) throw new require_errors.GraphicsError(`Could not allocate LUT texture.`);
@@ -1071,20 +1079,20 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 				throw n.deleteTexture(e), this.gradingTexture = void 0, t;
 			}
 		}
-		if (n.bindTexture(n.TEXTURE_2D, this.gradingTexture), this.gradingLUT !== l) {
-			let e = l?.size ?? 1;
-			$.get(this).resize(e * e * e * 4), n.texImage2D(n.TEXTURE_2D, 0, n.RGBA8, e * e, e, 0, n.RGBA, n.UNSIGNED_BYTE, l?.strip ?? new Uint8Array([
+		if (n.bindTexture(n.TEXTURE_2D, this.gradingTexture), this.gradingLUT !== u) {
+			let e = u?.size ?? 1;
+			$.get(this).resize(e * e * e * 4), n.texImage2D(n.TEXTURE_2D, 0, n.RGBA8, e * e, e, 0, n.RGBA, n.UNSIGNED_BYTE, u?.strip ?? new Uint8Array([
 				255,
 				255,
 				255,
 				255
-			])), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MAG_FILTER, n.NEAREST), this.gradingLUT = l;
+			])), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MIN_FILTER, n.NEAREST), n.texParameteri(n.TEXTURE_2D, n.TEXTURE_MAG_FILTER, n.NEAREST), this.gradingLUT = u;
 		}
-		$.get(this).touch(), n.uniform1i(this.postUniforms.lutImage, 2), n.uniform2f(this.postUniforms.grading, l?.size ?? 1, i ? a?.colorGrading?.strength ?? 0 : 0), n.activeTexture(n.TEXTURE1), n.bindSampler(1, null), n.bindTexture(n.TEXTURE_2D, this.postTarget.depthTexture), n.uniform1i(this.postUniforms.depthImage, 1), this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert(), n.uniformMatrix4fv(this.postUniforms.inverseVP, !1, this.invViewProjection.elements);
-		let u = e.camera3D, d = u.matrix.elements;
-		n.uniform4f(this.postUniforms.clip, u.near, u.far, +(u instanceof require_orthographic_camera.OrthographicCamera), Math.hypot(d[1], d[5], d[9])), n.uniform4f(this.postUniforms.ssao, i && r.ssao ? 1 : 0, r.ssaoRadius, r.ssaoStrength, r.ssaoBias), n.uniform4f(this.postUniforms.dof, i && r.depthOfField ? 1 : 0, r.dofFocusDistance, r.dofFocusRange, r.dofBlurRadius), require_volumetric_post.writeVolumetricUniforms(this.volumetricData, 0, e);
-		let f = a?.lensFlare;
-		n.uniform4f(this.postUniforms.flare, i && f?.enabled ? f.strength : 0, f?.threshold ?? 1, f?.ghosts ?? 1, f?.spacing ?? 1), n.uniform4f(this.postUniforms.halo, f?.haloRadius ?? .3, f?.haloWidth ?? .15, 0, 0), n.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4), n.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4), n.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4), n.uniform4fv(this.postUniforms.shaftColor, this.volumetricData, 12, 4), require_motion_blur_post.writeMotionBlurUniforms(this.motionData, 0, r, this.temporalActive ? this.temporalState : void 0), n.uniformMatrix4fv(this.postUniforms.previousVP, !1, this.motionData, 0, 16), n.uniform4fv(this.postUniforms.blur, this.motionData, 16, 4), n.activeTexture(n.TEXTURE0), n.drawArrays(n.TRIANGLES, 0, 3), s && (n.bindFramebuffer(n.FRAMEBUFFER, t), n.useProgram(this.fxaaProgram), n.bindTexture(n.TEXTURE_2D, this.fxaaTarget.texture), n.drawArrays(n.TRIANGLES, 0, 3)), this.temporalActive && this.temporalState.commit();
+		$.get(this).touch(), n.uniform1i(this.postUniforms.lutImage, 2), n.uniform2f(this.postUniforms.grading, u?.size ?? 1, i ? a?.colorGrading?.strength ?? 0 : 0), n.activeTexture(n.TEXTURE1), n.bindSampler(1, null), n.bindTexture(n.TEXTURE_2D, this.postTarget.depthTexture), n.uniform1i(this.postUniforms.depthImage, 1), this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert(), n.uniformMatrix4fv(this.postUniforms.inverseVP, !1, this.invViewProjection.elements);
+		let d = e.camera3D, f = d.matrix.elements;
+		n.uniform4f(this.postUniforms.clip, d.near, d.far, +(d instanceof require_orthographic_camera.OrthographicCamera), Math.hypot(f[1], f[5], f[9])), n.uniform4f(this.postUniforms.ssao, i && r.ssao ? 1 : 0, r.ssaoRadius, r.ssaoStrength, r.ssaoBias), n.uniform4f(this.postUniforms.dof, i && r.depthOfField ? 1 : 0, r.dofFocusDistance, r.dofFocusRange, r.dofBlurRadius), require_volumetric_post.writeVolumetricUniforms(this.volumetricData, 0, e);
+		let p = a?.lensFlare;
+		n.uniform4f(this.postUniforms.flare, i && p?.enabled ? p.strength : 0, p?.threshold ?? 1, p?.ghosts ?? 1, p?.spacing ?? 1), n.uniform4f(this.postUniforms.halo, p?.haloRadius ?? .3, p?.haloWidth ?? .15, 0, 0), n.uniform4fv(this.postUniforms.volumeFog, this.volumetricData, 0, 4), n.uniform4fv(this.postUniforms.volumeColor, this.volumetricData, 4, 4), n.uniform4fv(this.postUniforms.shaft, this.volumetricData, 8, 4), n.uniform4fv(this.postUniforms.shaftColor, this.volumetricData, 12, 4), require_motion_blur_post.writeMotionBlurUniforms(this.motionData, 0, r, this.temporalActive ? this.temporalState : void 0), n.uniformMatrix4fv(this.postUniforms.previousVP, !1, this.motionData, 0, 16), n.uniform4fv(this.postUniforms.blur, this.motionData, 16, 4), n.activeTexture(n.TEXTURE3), n.bindSampler(3, null), n.bindTexture(n.TEXTURE_2D, c ?? l), n.uniform1i(this.postUniforms.objectVelocity, 3), n.uniform1i(this.postUniforms.objectMotionEnabled, +!!c), n.activeTexture(n.TEXTURE0), n.drawArrays(n.TRIANGLES, 0, 3), s && (n.bindFramebuffer(n.FRAMEBUFFER, t), n.useProgram(this.fxaaProgram), n.bindTexture(n.TEXTURE_2D, this.fxaaTarget.texture), n.drawArrays(n.TRIANGLES, 0, 3)), this.temporalActive && this.temporalState.commit();
 	}
 	decodeColor(e) {
 		return e <= .04045 ? e / 12.92 : ((e + .055) / 1.055) ** 2.4;
@@ -1308,7 +1316,7 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 		this.destroyed = !0, this.graphs?.destroy(), this.graphs = void 0, this.canvas?.removeEventListener(`webglcontextlost`, this.onContextLost);
 		let e = this.gl;
 		if (this.gpuTimer?.destroy(!!this.lostError), this.gpuTimer = void 0, this.occlusion?.destroy(), this.occlusion = void 0, this.particles3D?.destroy(), this.particles3D = void 0, this.visibilityCache.clear(), this.visibility.color.length = 0, this.visibility.shadows.length = 0, this.visibility.entries.clear(), this.visibility.occlusionCandidates.length = 0, e) {
-			this.temporal?.destroy(), this.probeAllocation?.destroy();
+			this.temporal?.destroy(), this.objectMotion?.destroy(), this.probeAllocation?.destroy();
 			for (let t of this.nativeMaterials.values()) t.unsubscribe(), e.deleteProgram(t.program), e.deleteProgram(t.shadow);
 			this.nativeMaterials.clear(), this.residency.clear(), this.preparedGeometry.clear(), this.releaseOIT(), this.releaseCoverageTarget(), this.oitProgram && e.deleteProgram(this.oitProgram), this.oitProgram = void 0, this.render2D?.destroy();
 			for (let e of this.snapshots.keys()) e.destroy();

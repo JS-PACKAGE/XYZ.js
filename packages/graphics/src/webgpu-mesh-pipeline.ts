@@ -105,6 +105,7 @@ import {
 import { packProbeTextures } from './probe-texture-array.js';
 import { TemporalPostState } from './temporal-post.js';
 import { WebGPUTemporalPipeline } from './webgpu-temporal-pipeline.js';
+import { WebGPUObjectMotion } from './webgpu-object-motion.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
 import { ContactShadows } from '../../core/src/contact-shadows.js';
@@ -261,6 +262,9 @@ export class WebGPUMeshPipeline {
   private readonly temporalState = new TemporalPostState();
   private readonly temporal: WebGPUTemporalPipeline;
   private temporalActive = false;
+  private objectMotion?: WebGPUObjectMotion;
+  private readonly motionGeometry = (mesh: Mesh): CachedGeometry =>
+    this.geometries.get(mesh.renderGeometry)!;
   private readonly environmentSampler: GPUSampler;
   private environmentView: GPUTextureView;
   private backgroundView: GPUTextureView;
@@ -919,6 +923,7 @@ export class WebGPUMeshPipeline {
   resize(width: number, height: number): void {
     this.oit.resize(width, height);
     this.temporal.resize(width, height);
+    this.objectMotion?.resize(width, height);
     if (
       this.depthTexture &&
       (this.depthWidth !== width || this.depthHeight !== height)
@@ -1063,6 +1068,7 @@ export class WebGPUMeshPipeline {
         }
         this.temporal.releaseTarget();
         this.temporalState.invalidate();
+        this.objectMotion?.releaseTarget();
         return false;
       }
       validateRenderSettings(scene);
@@ -1193,6 +1199,13 @@ export class WebGPUMeshPipeline {
         this.temporal.releaseTarget();
         this.temporalState.invalidate();
       }
+      if (
+        !captureTarget &&
+        (!scene.postProcessing.enabled ||
+          !getPostEffects(scene.postProcessing)?.motionBlur?.enabled ||
+          !getPostEffects(scene.postProcessing)?.motionBlur?.perObject)
+      )
+        this.objectMotion?.releaseTarget();
       this.prepareScene(scene, aspect, linear);
       if (!linear) this.post.releaseTarget();
       if (hasTransmission) this.ensureRefraction(width, height);
@@ -1322,6 +1335,22 @@ export class WebGPUMeshPipeline {
       }
       if (captureTarget) this.post.copyColor(encoder, captureTarget);
       else if (linear) {
+        const blur = getPostEffects(scene.postProcessing)?.motionBlur;
+        let velocity: GPUTextureView | undefined;
+        if (blur?.enabled && blur.perObject) {
+          this.objectMotion ??= new WebGPUObjectMotion(
+            this.device,
+            this.sampleCount,
+            this.stats,
+          );
+          velocity = this.objectMotion.render(
+            encoder,
+            this.visibleDraws,
+            this.temporalState,
+            this.depthView!,
+            this.motionGeometry,
+          );
+        } else this.objectMotion?.releaseTarget();
         const source =
           this.temporalActive && scene.postProcessing.taa
             ? this.temporal.applyTAA(
@@ -1342,12 +1371,14 @@ export class WebGPUMeshPipeline {
           this.depthView!,
           scene,
           this.temporalActive ? this.temporalState : undefined,
+          velocity,
         );
         if (this.temporalActive) this.temporalState.commit();
       }
       return true;
     } catch (error) {
       this.temporalState.invalidate();
+      this.objectMotion?.releaseTarget();
       throw error;
     } finally {
       this.colorAttachment.view = undefined;
@@ -3336,6 +3367,7 @@ export class WebGPUMeshPipeline {
     this.destroyed = true;
     this.probeAllocation?.destroy();
     this.temporal.destroy();
+    this.objectMotion?.destroy();
     for (const entry of this.nativeMaterials.values()) entry.unsubscribe();
     this.nativeMaterials.clear();
     this.meshPipelines.clear();

@@ -23,6 +23,7 @@ export declare class WebGPUPostPipeline {
     private fxaaView;
     private fxaaGroup;
     private readonly fxaaSampler;
+    private readonly emptyVelocity;
     private width;
     private height;
     private lutTexture;
@@ -37,7 +38,7 @@ export declare class WebGPUPostPipeline {
     get colorTexture(): GPUTexture;
     private ensureFxaa;
     private releaseFxaa;
-    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4, source?: GPUTexture, depth?: GPUTextureView, scene?: Scene, temporalState?: TemporalPostState): void;
+    render(encoder: GPUCommandEncoder, view: GPUTextureView, settings: PostProcessingSettings, camera: Camera3D, inverseVP: Matrix4, source?: GPUTexture, depth?: GPUTextureView, scene?: Scene, temporalState?: TemporalPostState, velocity?: GPUTextureView): void;
     resize(width: number, height: number): void;
     releaseTarget(): void;
     private ensureLUT;

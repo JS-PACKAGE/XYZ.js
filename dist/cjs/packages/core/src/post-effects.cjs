@@ -1,8 +1,8 @@
 const require_render_settings = require("./render-settings.cjs");
 const require_color_grading = require("./color-grading.cjs");
+const require_motion_blur = require("./motion-blur.cjs");
 const require_volumetric_fog = require("./volumetric-fog.cjs");
 const require_lens_flare = require("./lens-flare.cjs");
-const require_motion_blur = require("./motion-blur.cjs");
 //#region dist/packages/core/src/post-effects.js
 var PostEffectsSettings = class {
 	toneMapper;

@@ -13,6 +13,8 @@ export type {
 } from './game.js';
 export { Scene } from './scene.js';
 export type { SceneOptions } from './scene.js';
+export { MotionBlurSettings } from './motion-blur.js';
+export type { MotionBlurOptions } from './motion-blur.js';
 export { SceneObject } from './scene-object.js';
 export { GameObject } from './game-object.js';
 export { RuntimeError } from './errors.js';

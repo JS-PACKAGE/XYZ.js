@@ -1,4 +1,5 @@
 import{getPostEffects as e}from"../../core/src/post-effects.js";export function writeMotionBlurUniforms(t,n,r,i){t.fill(0,n,n+20);let a=e(r)?.motionBlur;i&&t.set(i.previousVP.elements,n),t[n+16]=r.enabled&&a?.enabled&&i?.reprojectionValid?a.strength:0,t[n+17]=a?.samples??1,t[n+18]=a?.maxRadius??0,t[n+19]=r.taaDepthThreshold}export const motionBlurWGSL=`
+@group(0) @binding(4) var objectVelocity: texture_2d<f32>;
 fn motionSample(pixel:vec2i)->vec4f {
  let base=focusedSample(pixel);
  if(settings.blur.x<=0.0 || settings.blur.y<2.0) { return base; }
@@ -8,6 +9,10 @@ fn motionSample(pixel:vec2i)->vec4f {
  if(old.w<=0.000001) { return base; }
  let previousUV=(old.xy/old.w)*vec2f(0.5,-0.5)+vec2f(0.5);
  var velocity=(uv-previousUV)*vec2f(size)*settings.blur.x;
+ if(all(vec2i(textureDimensions(objectVelocity))==size)) {
+  let object=textureLoad(objectVelocity,pixel,0);
+  if(object.z>0.5) { velocity=object.xy*vec2f(size)*settings.blur.x; }
+ }
  let speed=length(velocity); velocity*=min(1.0,settings.blur.z/max(speed,0.000001));
  if(length(velocity)<0.5) { return base; }
  let currentDepth=viewDepth(depth); var result=vec4f(0.0); var count=0.0;
@@ -25,6 +30,8 @@ fn motionSample(pixel:vec2i)->vec4f {
 `;export const motionBlurGLSL=`
 uniform mat4 previousVP;
 uniform vec4 blur;
+uniform sampler2D objectVelocity;
+uniform bool objectMotionEnabled;
 vec4 motionSample(ivec2 pixel) {
  vec4 base=focusedSample(pixel);
  if(blur.x<=0.0 || blur.y<2.0) return base;
@@ -34,6 +41,10 @@ vec4 motionSample(ivec2 pixel) {
  if(old.w<=.000001) return base;
  vec2 previousUV=(old.xy/old.w)*.5+.5;
  vec2 velocity=(uv-previousUV)*vec2(size)*blur.x;
+ if(objectMotionEnabled && all(equal(textureSize(objectVelocity,0),size))) {
+  vec4 object=texelFetch(objectVelocity,pixel,0);
+  if(object.z>.5) velocity=object.xy*vec2(size)*blur.x;
+ }
  float speed=length(velocity); velocity*=min(1.0,blur.z/max(speed,.000001));
  if(length(velocity)<.5) return base;
  float currentDepth=viewDepth(depth); vec4 result=vec4(0.0); float count=0.0;
