@@ -100,6 +100,20 @@ var Colliders = Object.freeze({
 		return new Collider2D(`polygon`, 0, e, t);
 	}
 });
+function convexHull(e, t) {
+	if (e.length < 3 || e.length > require_world2d.world2dLimits.hullPoints) throw RangeError(`Convex hulls require 3-256 input points.`);
+	let i = e.map(([e, t]) => [boundedCoordinate(e, `point.x`), boundedCoordinate(t, `point.y`)]).sort((e, t) => e[0] - t[0] || e[1] - t[1]), a = i.filter((e, t) => t === 0 || e[0] !== i[t - 1][0] || e[1] !== i[t - 1][1]), turn = (e, t, n) => (t[0] - e[0]) * (n[1] - e[1]) - (t[1] - e[1]) * (n[0] - e[0]), o = [], s = [];
+	for (let e of a) {
+		for (; o.length >= 2 && turn(o[o.length - 2], o[o.length - 1], e) <= r;) o.pop();
+		o.push(e);
+	}
+	for (let e = a.length - 1; e >= 0; e--) {
+		let t = a[e];
+		for (; s.length >= 2 && turn(s[s.length - 2], s[s.length - 1], t) <= r;) s.pop();
+		s.push(t);
+	}
+	return o.pop(), s.pop(), new Collider2D(`polygon`, 0, o.concat(s), t);
+}
 var ShapeGeometry = class {
 	collider;
 	points;
@@ -111,6 +125,7 @@ var ShapeGeometry = class {
 	maxX = 0;
 	maxY = 0;
 	inertiaPerMass = 0;
+	area = 0;
 	revision = 0;
 	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
 	constructor(e) {
@@ -130,7 +145,7 @@ var ShapeGeometry = class {
 		if (this.x = t[0] * o.x + t[3] * o.y + t[6], this.y = t[1] * o.x + t[4] * o.y + t[7], this.collider.kind === `circle`) {
 			let e = Math.hypot(t[0], t[1]), n = Math.hypot(t[3], t[4]);
 			if (Math.abs(e - n) > r * Math.max(e, n) || Math.abs(t[0] * t[3] + t[1] * t[4]) > r * e * n) throw RangeError(`Circle colliders require uniform absolute world scale without shear.`);
-			this.radius = this.collider.radius * e, this.minX = this.x - this.radius, this.maxX = this.x + this.radius, this.minY = this.y - this.radius, this.maxY = this.y + this.radius, this.inertiaPerMass = this.radius * this.radius / 2 + (this.x - t[6]) ** 2 + (this.y - t[7]) ** 2, positive(this.inertiaPerMass, `world geometry inertia`);
+			this.radius = this.collider.radius * e, this.area = Math.PI * this.radius * this.radius, this.minX = this.x - this.radius, this.maxX = this.x + this.radius, this.minY = this.y - this.radius, this.maxY = this.y + this.radius, this.inertiaPerMass = this.radius * this.radius / 2 + (this.x - t[6]) ** 2 + (this.y - t[7]) ** 2, positive(this.inertiaPerMass, `world geometry inertia`);
 			for (let e = 0; e < i.length; e++) this.matrixSnapshot[e] = t[i[e]];
 			this.revision++;
 			return;
@@ -146,7 +161,7 @@ var ShapeGeometry = class {
 			let n = (e + 1) % c, r = this.points[e * 2] - t[6], i = this.points[e * 2 + 1] - t[7], a = this.points[n * 2] - t[6], o = this.points[n * 2 + 1] - t[7], s = r * o - i * a;
 			l += s, u += s * (r * r + r * a + a * a + i * i + i * o + o * o);
 		}
-		this.inertiaPerMass = u / (6 * l), positive(this.inertiaPerMass, `world geometry inertia`);
+		this.inertiaPerMass = u / (6 * l), this.area = l / 2, positive(this.inertiaPerMass, `world geometry inertia`);
 		for (let e = 0; e < i.length; e++) this.matrixSnapshot[e] = t[i[e]];
 		this.revision++;
 	}
@@ -164,6 +179,7 @@ var ShapeGeometry = class {
 exports.Collider2D = Collider2D;
 exports.Colliders = Colliders;
 exports.ShapeGeometry = ShapeGeometry;
+exports.convexHull = convexHull;
 exports.finite = finite;
 exports.nonnegativeFinite = nonnegativeFinite;
 exports.positive = positive;

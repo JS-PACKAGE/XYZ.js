@@ -1,6 +1,8 @@
 //#region dist/src/data/world2d.js
 var world2dLimits = Object.freeze({
 	polygonVertices: 32,
+	hullPoints: 256,
+	compoundPieces: 256,
 	geometryExtent: 1e6,
 	mapCells: 65536,
 	particles: 16384,

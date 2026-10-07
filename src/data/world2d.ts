@@ -1,5 +1,7 @@
 export const world2dLimits = Object.freeze({
   polygonVertices: 32,
+  hullPoints: 256,
+  compoundPieces: 256,
   geometryExtent: 1_000_000,
   mapCells: 65_536,
   particles: 16_384,

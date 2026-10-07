@@ -46,6 +46,8 @@ export declare class GameObject extends SceneObject {
     advanceActions(dt: number, canContinue?: () => boolean): void;
     get body(): RigidBody2D | undefined;
     set body(value: RigidBody2D | undefined);
+    /** Convex pieces sharing this object's body; ordinary objects use `collider` alone. */
+    get colliderPieces(): readonly Collider2D[] | undefined;
     get collider(): Collider2D | undefined;
     set collider(value: Collider2D | undefined);
     private assertPhysicsSpace;

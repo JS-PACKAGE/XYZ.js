@@ -30,6 +30,9 @@ export class RigidBody2D {
   forceEpoch = 0;
   private owningObject: GameObject | undefined;
   private geometry: ShapeGeometry | undefined;
+  private compoundGeometry: ShapeGeometry[] | undefined;
+  private compoundTransform: Float64Array | undefined;
+  private compoundInertiaPerMass = 0;
   private bodyMass = 1;
   private bounce = 0;
   private surfaceFriction = 0.5;
@@ -185,6 +188,41 @@ export class RigidBody2D {
     if (this.type !== 'dynamic' || this.lockRotation) return 0;
     const owner = this.owner;
     if (!owner?.collider) return 0;
+    if (owner.colliderPieces) {
+      const pieces = owner.colliderPieces;
+      if (
+        !this.compoundGeometry ||
+        this.compoundGeometry[0]?.collider !== pieces[0]
+      ) {
+        this.compoundGeometry = pieces.map((piece) => new ShapeGeometry(piece));
+        this.compoundTransform = new Float64Array(4).fill(NaN);
+      }
+      const e = owner.updateWorldMatrix().elements;
+      const snapshot = this.compoundTransform!;
+      if (
+        snapshot[0] !== e[0] ||
+        snapshot[1] !== e[1] ||
+        snapshot[2] !== e[3] ||
+        snapshot[3] !== e[4]
+      ) {
+        let area = 0,
+          moment = 0;
+        for (const geometry of this.compoundGeometry) {
+          geometry.refresh(owner);
+          area += geometry.area;
+          moment += geometry.area * geometry.inertiaPerMass;
+        }
+        this.compoundInertiaPerMass = positive(
+          moment / area,
+          'compound inertia',
+        );
+        snapshot[0] = e[0];
+        snapshot[1] = e[1];
+        snapshot[2] = e[3];
+        snapshot[3] = e[4];
+      }
+      return 1 / (this.mass * this.compoundInertiaPerMass);
+    }
     if (this.geometry?.collider !== owner.collider)
       this.geometry = new ShapeGeometry(owner.collider);
     this.geometry.refresh(owner);
@@ -210,6 +248,8 @@ export class RigidBody2D {
     if (this.owner === owner) {
       this.owningObject = undefined;
       this.geometry = undefined;
+      this.compoundGeometry = undefined;
+      this.compoundTransform = undefined;
     }
   }
   applyForce(force: Vector2, worldPoint?: Vector2): void {

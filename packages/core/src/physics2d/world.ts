@@ -109,6 +109,7 @@ class Proxy {
   ccdUnproven = false;
   readonly joints: Joint2D[] = [];
   readonly motion: ShapeMotion2D;
+  group!: readonly Proxy[];
   private observedGeometry = -1;
   private observedCategory = -1;
   private observedMask = -1;
@@ -138,6 +139,8 @@ class Proxy {
       throw new Error('Screen-space colliders are unsupported.');
     if (this.body && this.body.type !== 'static' && this.owner.parent)
       throw new Error('Moving bodies require root world-space GameObjects.');
+    if (this.owner.colliderPieces && this.body?.ccd)
+      throw new RangeError('Compound CCD is unsupported.');
     const revision = this.geometry.revision;
     this.geometry.refresh(this.owner);
     if (
@@ -151,8 +154,9 @@ class Proxy {
       for (const joint of this.joints) joint.partner(this)?.body?.wake();
     }
     this.inverseMass = this.body?.inverseMass ?? 0;
-    this.inverseInertia =
-      this.body && this.inverseMass && !this.body.lockRotation
+    this.inverseInertia = this.owner.colliderPieces
+      ? (this.body?.inverseInertia ?? 0)
+      : this.body && this.inverseMass && !this.body.lockRotation
         ? 1 / (this.body.mass * this.geometry.inertiaPerMass)
         : 0;
   }
@@ -190,13 +194,14 @@ function snapshotPoints(manifold: Manifold): readonly Vector2[] {
 export class PhysicsWorld2D {
   readonly gravity = new Vector2(0, physicsDefaults.gravityY);
   private readonly owners = new Map<GameObject, Proxy>();
+  private readonly proxies = new Set<Proxy>();
   private readonly sorted: Proxy[] = [];
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
 
   /** Number of registered colliders, static ones included. */
   get colliderCount(): number {
-    return this.owners.size;
+    return this.proxies.size;
   }
   private readonly sleepGroup: Proxy[] = [];
   private readonly continuous = new ContinuousCollision2D();
@@ -232,7 +237,7 @@ export class PhysicsWorld2D {
   private registrationVersion = 0;
   /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
   get geometryRevision(): number {
-    for (const proxy of this.owners.values()) {
+    for (const proxy of this.proxies) {
       if (!this.alive(proxy)) continue;
       proxy.refresh();
       if (proxy.geometryChanged()) this.geometryVersion++;
@@ -317,7 +322,12 @@ export class PhysicsWorld2D {
   /** Membership and replacement token for borrowed character supports. */
   has(owner: GameObject, collider = owner.collider): boolean {
     const proxy = this.owners.get(owner);
-    return !!proxy && proxy.collider === collider && this.alive(proxy);
+    return (
+      !!proxy &&
+      proxy.group.some(
+        (piece) => piece.collider === collider && this.alive(piece),
+      )
+    );
   }
   /** Removed/replaced/re-registered supports invalidate borrowed local anchors. */
   membershipRevision(owner: GameObject): number {
@@ -339,10 +349,25 @@ export class PhysicsWorld2D {
       previous.refresh();
       return;
     }
-    if (!previous && this.owners.size >= world2dLimits.physicsBodies)
-      throw new RangeError('Physics body budget exceeded.');
-    const proxy = new Proxy(owner, owner.collider, owner.body);
-    proxy.refresh();
+    const colliders = owner.colliderPieces ?? [owner.collider];
+    if (colliders[0] !== owner.collider)
+      throw new RangeError(
+        'The primary collider must be the first compound piece.',
+      );
+    const previousCount = previous?.group.length ?? 0;
+    if (
+      this.proxies.size - previousCount + colliders.length >
+      world2dLimits.physicsBodies
+    )
+      throw new RangeError('Physics collider budget exceeded.');
+    const group = colliders.map(
+      (collider) => new Proxy(owner, collider, owner.body),
+    );
+    for (const piece of group) {
+      piece.group = group;
+      piece.refresh();
+    }
+    const proxy = group[0];
     owner.body?.attach(owner);
     this.unregister(owner);
     if (
@@ -353,7 +378,10 @@ export class PhysicsWorld2D {
     )
       return;
     this.owners.set(owner, proxy);
-    proxy.registration = ++this.registrationVersion;
+    for (const piece of group) {
+      this.proxies.add(piece);
+      piece.registration = ++this.registrationVersion;
+    }
     this.geometryVersion++;
   }
   unregister(owner: GameObject): void {
@@ -364,15 +392,19 @@ export class PhysicsWorld2D {
     if (proxy.body) this.forces.delete(proxy.body);
     for (const joint of [...proxy.joints]) this.removeJoint(joint);
     // Delete membership before callback dispatch: recursive unregister is harmless.
-    for (const contact of proxy.contacts.values()) this.end(contact);
-    proxy.contacts.clear();
+    for (const piece of proxy.group) {
+      this.proxies.delete(piece);
+      for (const contact of piece.contacts.values()) this.end(contact);
+      piece.contacts.clear();
+    }
   }
   private alive(proxy: Proxy): boolean {
     return (
       !this.destroyed &&
       !proxy.owner.destroyed &&
-      this.owners.get(proxy.owner) === proxy &&
-      proxy.owner.collider === proxy.collider &&
+      this.proxies.has(proxy) &&
+      this.owners.get(proxy.owner)?.group === proxy.group &&
+      proxy.owner.collider === proxy.group[0].collider &&
       proxy.owner.body === proxy.body
     );
   }
@@ -511,6 +543,7 @@ export class PhysicsWorld2D {
       const body = proxy.body;
       if (
         !this.alive(proxy) ||
+        this.owners.get(proxy.owner) !== proxy ||
         !body ||
         body.type === 'static' ||
         body.isSleeping ||
@@ -521,6 +554,7 @@ export class PhysicsWorld2D {
       proxy.owner.position.y += body.velocity.y * dt;
       if (!body.lockRotation) proxy.owner.rotation += body.angularVelocity * dt;
       proxy.refresh();
+      for (const piece of proxy.group) if (piece !== proxy) piece.refresh();
     }
   }
   private activate(contact: Contact, token: number): boolean {
@@ -589,6 +623,7 @@ export class PhysicsWorld2D {
           const b = this.sorted[j];
           if (
             a === b ||
+            a.owner === b.owner ||
             (b.body?.ccd && j <= i) ||
             !this.alive(b) ||
             (!a.inverseMass && !b.inverseMass) ||
@@ -717,7 +752,10 @@ export class PhysicsWorld2D {
         finite(body.angularVelocity, 'angularVelocity');
         proxy.owner.capturePhysicsPose();
       }
-      this.sorted.push(proxy);
+      for (const piece of proxy.group) {
+        piece.refresh();
+        this.sorted.push(piece);
+      }
     }
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
@@ -729,6 +767,7 @@ export class PhysicsWorld2D {
         const b = this.sorted[j];
         if (b.geometry.minX > a.geometry.maxX) break;
         if (
+          a.owner === b.owner ||
           !this.alive(b) ||
           !(a.collider.category & b.collider.mask) ||
           !(b.collider.category & a.collider.mask)
@@ -736,7 +775,7 @@ export class PhysicsWorld2D {
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
         if (!sensor && !a.inverseMass && !b.inverseMass) continue;
-        if (a.joints.length && this.jointsBlockContact(a, b)) continue;
+        if (a.group[0].joints.length && this.jointsBlockContact(a, b)) continue;
         let contact = a.contacts.get(b);
         if (!contact) {
           // The scratch manifold avoids allocating a contact for AABB-only candidates.
@@ -796,10 +835,12 @@ export class PhysicsWorld2D {
       if (contact.active) this.emit(contact, 'postcollision');
       if (!this.continuation()) return;
     }
-    for (const proxy of this.sorted)
+    for (const proxy of this.owners.values())
       if (this.alive(proxy)) proxy.owner.sealPhysicsPose();
-    for (const proxy of this.sorted)
-      proxy.sleepReady = proxy.body?.updateSleep(dt) ?? false;
+    for (const proxy of this.owners.values()) {
+      const ready = proxy.body?.updateSleep(dt) ?? false;
+      for (const piece of proxy.group) piece.sleepReady = ready;
+    }
     for (const start of this.sorted) {
       if (!start.inverseMass || start.sleepVisited === token) continue;
       this.sleepGroup.length = 0;
@@ -809,6 +850,11 @@ export class PhysicsWorld2D {
       for (let i = 0; i < this.sleepGroup.length; i++) {
         const proxy = this.sleepGroup[i];
         ready &&= proxy.sleepReady;
+        for (const piece of proxy.group) {
+          if (piece.sleepVisited === token) continue;
+          piece.sleepVisited = token;
+          this.sleepGroup.push(piece);
+        }
         for (const contact of proxy.contacts.values()) {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
@@ -855,6 +901,11 @@ export class PhysicsWorld2D {
       start.sleepVisited = -token;
       for (let i = 0; i < this.sleepGroup.length; i++) {
         const proxy = this.sleepGroup[i];
+        for (const piece of proxy.group) {
+          if (piece.sleepVisited === -token) continue;
+          piece.sleepVisited = -token;
+          this.sleepGroup.push(piece);
+        }
         for (const contact of proxy.contacts.values()) {
           if (contact.sensor || contact.cancelled) continue;
           const other = contact.a === proxy ? contact.b : contact.a;
@@ -1066,7 +1117,7 @@ export class PhysicsWorld2D {
     }
     geometry.refresh(owner);
     const results: ContactQuery[] = [];
-    for (const proxy of this.owners.values()) {
+    for (const proxy of this.proxies) {
       if (
         proxy.owner === owner ||
         !this.alive(proxy) ||
@@ -1129,7 +1180,7 @@ export class PhysicsWorld2D {
     out.exhausted = false;
     out.normal.set(0, 0);
     out.point.set(0, 0);
-    for (const proxy of this.owners.values()) {
+    for (const proxy of this.proxies) {
       if (
         proxy.owner === owner ||
         proxy.owner === options.ignore ||
@@ -1197,7 +1248,7 @@ export class PhysicsWorld2D {
       dx = direction.x / length,
       dy = direction.y / length;
     const results: PhysicsRayHit[] = [];
-    for (const proxy of this.owners.values()) {
+    for (const proxy of this.proxies) {
       if (!this.alive(proxy) || !(proxy.collider.category & mask)) continue;
       proxy.refresh();
       const distance = rayDistance(
@@ -1280,14 +1331,15 @@ export class PhysicsWorld2D {
     this.activeJoints.length = 0;
   }
   private jointsBlockContact(a: Proxy, b: Proxy): boolean {
-    for (const joint of a.joints)
-      if (!joint.collideConnected && joint.partner(a) === b) return true;
+    for (const joint of a.group[0].joints)
+      if (!joint.collideConnected && joint.partner(a.group[0]) === b.group[0])
+        return true;
     return false;
   }
   /** Copies the current colliders, active contacts and joints for visualization. */
   debugSnapshot(): PhysicsDebugSnapshot {
     const shapes: PhysicsDebugShape[] = [];
-    for (const proxy of this.owners.values()) {
+    for (const proxy of this.proxies) {
       const g = proxy.geometry;
       shapes.push({
         kind: proxy.collider.kind,

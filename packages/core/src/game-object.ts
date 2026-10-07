@@ -118,6 +118,10 @@ export class GameObject extends SceneObject {
       this.physicsPresentation = undefined;
     }
   }
+  /** Convex pieces sharing this object's body; ordinary objects use `collider` alone. */
+  get colliderPieces(): readonly Collider2D[] | undefined {
+    return undefined;
+  }
   get collider(): Collider2D | undefined {
     return this.collisionShape;
   }
@@ -381,8 +385,12 @@ export class GameObject extends SceneObject {
     return out;
   }
   containsPoint(point: Vector2): boolean {
-    if (this.hitTestMode === 'collider')
-      return this.collider?.containsPoint(point, this) ?? false;
+    if (this.hitTestMode === 'collider') {
+      if (!this.collider) return false;
+      return this.colliderPieces
+        ? this.colliderPieces.some((piece) => piece.containsPoint(point, this))
+        : this.collider.containsPoint(point, this);
+    }
     try {
       this.inverseMatrix.copy(this.updateWorldMatrix()).invert();
     } catch (error) {

@@ -1,4 +1,4 @@
-export { Collider2D, Colliders } from './collider.js';
+export { Collider2D, Colliders, convexHull } from './collider.js';
 export type { ColliderKind, ColliderOptions } from './collider.js';
 export { RigidBody2D } from './body.js';
 export type { RigidBodyOptions } from './body.js';
@@ -29,12 +29,15 @@ export type {
   RevoluteJointOptions,
 } from './joints.js';
 export {
+  Compound2D,
+  DynamicConcave2D,
   StaticChain2D,
   StaticConcave2D,
   decomposeConvex,
   maxConcaveVertices,
 } from './shapes.js';
 export type { StaticChainOptions, StaticShapeOptions } from './shapes.js';
+export type { CompoundOptions2D } from './shapes.js';
 export { PhysicsDebugDraw2D } from './debug-draw.js';
 export type {
   PhysicsDebugDrawConfig,

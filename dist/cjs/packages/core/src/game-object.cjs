@@ -84,6 +84,7 @@ var GameObject = class extends require_scene_object.SceneObject {
 		}
 		this.rigidBody !== t && (t?.detach(this), this.physicsPresentation = void 0);
 	}
+	get colliderPieces() {}
 	get collider() {
 		return this.collisionShape;
 	}
@@ -258,7 +259,7 @@ var GameObject = class extends require_scene_object.SceneObject {
 		return e.x = r, e.y = i, e.width = a - r, e.height = o - i, e;
 	}
 	containsPoint(e) {
-		if (this.hitTestMode === `collider`) return this.collider?.containsPoint(e, this) ?? !1;
+		if (this.hitTestMode === `collider`) return this.collider ? this.colliderPieces ? this.colliderPieces.some((t) => t.containsPoint(e, this)) : this.collider.containsPoint(e, this) : !1;
 		try {
 			this.inverseMatrix.copy(this.updateWorldMatrix()).invert();
 		} catch (e) {

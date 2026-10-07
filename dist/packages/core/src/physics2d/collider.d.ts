@@ -31,6 +31,12 @@ export declare const Colliders: Readonly<{
     box(width: number, height: number, options?: ColliderOptions): Collider2D;
     polygon(vertices: readonly [number, number][], options?: ColliderOptions): Collider2D;
 }>;
+/**
+ * Polygon `Collider2D` from the convex hull of 3-256 input points (Andrew's
+ * monotone chain). Exposed top-level so the 1.x `Colliders` surface stays
+ * structurally additive; duplicate points collapse before the sweep.
+ */
+export declare function convexHull(points: readonly (readonly [number, number])[], options?: ColliderOptions): Collider2D;
 /** Reused world geometry and AABB. Polygon winding stays counterclockwise after reflection. */
 export declare class ShapeGeometry {
     readonly collider: Collider2D;
@@ -43,6 +49,7 @@ export declare class ShapeGeometry {
     maxX: number;
     maxY: number;
     inertiaPerMass: number;
+    area: number;
     /** @internal Changes only after a successful world-geometry refresh. */
     revision: number;
     private readonly matrixSnapshot;

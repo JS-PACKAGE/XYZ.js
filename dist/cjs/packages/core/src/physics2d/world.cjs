@@ -23,6 +23,7 @@ var Proxy = class {
 	ccdUnproven = !1;
 	joints = [];
 	motion;
+	group;
 	observedGeometry = -1;
 	observedCategory = -1;
 	observedMask = -1;
@@ -37,6 +38,7 @@ var Proxy = class {
 	refresh() {
 		if (this.owner.worldSpace !== `world`) throw Error(`Screen-space colliders are unsupported.`);
 		if (this.body && this.body.type !== `static` && this.owner.parent) throw Error(`Moving bodies require root world-space GameObjects.`);
+		if (this.owner.colliderPieces && this.body?.ccd) throw RangeError(`Compound CCD is unsupported.`);
 		let e = this.geometry.revision;
 		if (this.geometry.refresh(this.owner), (!this.body || this.body.type !== `dynamic`) && e !== this.geometry.revision) {
 			for (let e of this.contacts.values()) {
@@ -45,7 +47,7 @@ var Proxy = class {
 			}
 			for (let e of this.joints) e.partner(this)?.body?.wake();
 		}
-		this.inverseMass = this.body?.inverseMass ?? 0, this.inverseInertia = this.body && this.inverseMass && !this.body.lockRotation ? 1 / (this.body.mass * this.geometry.inertiaPerMass) : 0;
+		this.inverseMass = this.body?.inverseMass ?? 0, this.inverseInertia = this.owner.colliderPieces ? this.body?.inverseInertia ?? 0 : this.body && this.inverseMass && !this.body.lockRotation ? 1 / (this.body.mass * this.geometry.inertiaPerMass) : 0;
 	}
 };
 var Contact = class {
@@ -76,11 +78,12 @@ function snapshotPoints(e) {
 var PhysicsWorld2D = class {
 	gravity = new require_index.Vector2(0, require_world2d.physicsDefaults.gravityY);
 	owners = /* @__PURE__ */ new Map();
+	proxies = /* @__PURE__ */ new Set();
 	sorted = [];
 	activeContacts = /* @__PURE__ */ new Set();
 	solveContacts = [];
 	get colliderCount() {
-		return this.owners.size;
+		return this.proxies.size;
 	}
 	sleepGroup = [];
 	continuous = new require_ccd.ContinuousCollision2D();
@@ -114,7 +117,7 @@ var PhysicsWorld2D = class {
 	geometryVersion = 0;
 	registrationVersion = 0;
 	get geometryRevision() {
-		for (let e of this.owners.values()) this.alive(e) && (e.refresh(), e.geometryChanged() && this.geometryVersion++);
+		for (let e of this.proxies) this.alive(e) && (e.refresh(), e.geometryChanged() && this.geometryVersion++);
 		return this.geometryVersion;
 	}
 	constructor(e = {}) {
@@ -161,7 +164,7 @@ var PhysicsWorld2D = class {
 	}
 	has(e, t = e.collider) {
 		let n = this.owners.get(e);
-		return !!n && n.collider === t && this.alive(n);
+		return !!n && n.group.some((e) => e.collider === t && this.alive(e));
 	}
 	membershipRevision(e) {
 		return this.owners.get(e)?.registration ?? -1;
@@ -178,21 +181,33 @@ var PhysicsWorld2D = class {
 			t.refresh();
 			return;
 		}
-		if (!t && this.owners.size >= require_world2d.world2dLimits.physicsBodies) throw RangeError(`Physics body budget exceeded.`);
-		let n = new Proxy(e, e.collider, e.body);
-		n.refresh(), e.body?.attach(e), this.unregister(e), !(e.destroyed || e.collider !== n.collider || e.body !== n.body || this.destroyed) && (this.owners.set(e, n), n.registration = ++this.registrationVersion, this.geometryVersion++);
+		let n = e.colliderPieces ?? [e.collider];
+		if (n[0] !== e.collider) throw RangeError(`The primary collider must be the first compound piece.`);
+		let r = t?.group.length ?? 0;
+		if (this.proxies.size - r + n.length > require_world2d.world2dLimits.physicsBodies) throw RangeError(`Physics collider budget exceeded.`);
+		let i = n.map((t) => new Proxy(e, t, e.body));
+		for (let e of i) e.group = i, e.refresh();
+		let o = i[0];
+		if (e.body?.attach(e), this.unregister(e), !(e.destroyed || e.collider !== o.collider || e.body !== o.body || this.destroyed)) {
+			this.owners.set(e, o);
+			for (let e of i) this.proxies.add(e), e.registration = ++this.registrationVersion;
+			this.geometryVersion++;
+		}
 	}
 	unregister(e) {
 		let t = this.owners.get(e);
 		if (t) {
 			this.owners.delete(e), this.geometryVersion++, t.body && this.forces.delete(t.body);
 			for (let e of [...t.joints]) this.removeJoint(e);
-			for (let e of t.contacts.values()) this.end(e);
-			t.contacts.clear();
+			for (let e of t.group) {
+				this.proxies.delete(e);
+				for (let t of e.contacts.values()) this.end(t);
+				e.contacts.clear();
+			}
 		}
 	}
 	alive(e) {
-		return !this.destroyed && !e.owner.destroyed && this.owners.get(e.owner) === e && e.owner.collider === e.collider && e.owner.body === e.body;
+		return !this.destroyed && !e.owner.destroyed && this.proxies.has(e) && this.owners.get(e.owner)?.group === e.group && e.owner.collider === e.group[0].collider && e.owner.body === e.body;
 	}
 	emit(t, i) {
 		for (let a = 0; a < 2; a++) {
@@ -262,7 +277,10 @@ var PhysicsWorld2D = class {
 	advanceBodies(e) {
 		for (let t of this.sorted) {
 			let n = t.body;
-			this.alive(t) && n && n.type !== `static` && !n.isSleeping && !t.ccdStopped && (t.owner.position.x += n.velocity.x * e, t.owner.position.y += n.velocity.y * e, n.lockRotation || (t.owner.rotation += n.angularVelocity * e), t.refresh());
+			if (this.alive(t) && this.owners.get(t.owner) === t && n && n.type !== `static` && !n.isSleeping && !t.ccdStopped) {
+				t.owner.position.x += n.velocity.x * e, t.owner.position.y += n.velocity.y * e, n.lockRotation || (t.owner.rotation += n.angularVelocity * e), t.refresh();
+				for (let e of t.group) e !== t && e.refresh();
+			}
 		}
 	}
 	activate(e, t) {
@@ -280,7 +298,7 @@ var PhysicsWorld2D = class {
 				let c = this.sorted[s];
 				if (this.alive(c) && c.body?.ccd) for (let l = 0; l < this.sorted.length; l++) {
 					let u = this.sorted[l];
-					if (c === u || u.body?.ccd && l <= s || !this.alive(u) || !c.inverseMass && !u.inverseMass || c.collider.sensor || u.collider.sensor || !(c.collider.category & u.collider.mask) || !(u.collider.category & c.collider.mask) || this.jointsBlockContact(c, u)) continue;
+					if (c === u || c.owner === u.owner || u.body?.ccd && l <= s || !this.alive(u) || !c.inverseMass && !u.inverseMass || c.collider.sensor || u.collider.sensor || !(c.collider.category & u.collider.mask) || !(u.collider.category & c.collider.mask) || this.jointsBlockContact(c, u)) continue;
 					let d = c.contacts.get(u);
 					if (d?.seen === t && d.cancelled) continue;
 					let f = this.continuous.timeOfImpact(c.motion, u.motion, r, n.impacts >= this.ccdImpacts ? 0 : Math.max(0, this.ccdIterations - n.iterations));
@@ -333,7 +351,7 @@ var PhysicsWorld2D = class {
 				let r = this.forceState(n);
 				r.consume(n, e), n.isSleeping || (require_collider.finite(n.velocity.x, `velocity.x`), require_collider.finite(n.velocity.y, `velocity.y`), t.owner.capturePhysicsPose(), n.velocity.x += (this.gravity.x * n.gravityScale + r.value[0] * t.inverseMass) * e, n.velocity.y += (this.gravity.y * n.gravityScale + r.value[1] * t.inverseMass) * e, n.velocity.scale(1 / (1 + n.linearDamping * e)), n.setSolverAngularVelocity(n.lockRotation ? 0 : (n.angularVelocity + r.value[5] * t.inverseInertia * e) / (1 + n.angularDamping * e)));
 			} else n?.type === `kinematic` && (require_collider.finite(n.velocity.x, `velocity.x`), require_collider.finite(n.velocity.y, `velocity.y`), require_collider.finite(n.angularVelocity, `angularVelocity`), t.owner.capturePhysicsPose());
-			this.sorted.push(t);
+			for (let e of t.group) e.refresh(), this.sorted.push(e);
 		}
 		if (this.integrateContinuous(e, t), this.continuation()) {
 			this.sorted.sort(compareBounds);
@@ -342,9 +360,9 @@ var PhysicsWorld2D = class {
 				if (this.alive(n)) for (let r = e + 1; r < this.sorted.length; r++) {
 					let e = this.sorted[r];
 					if (e.geometry.minX > n.geometry.maxX) break;
-					if (!this.alive(e) || !(n.collider.category & e.collider.mask) || !(e.collider.category & n.collider.mask)) continue;
+					if (n.owner === e.owner || !this.alive(e) || !(n.collider.category & e.collider.mask) || !(e.collider.category & n.collider.mask)) continue;
 					let i = n.collider.sensor || e.collider.sensor;
-					if (!i && !n.inverseMass && !e.inverseMass || n.joints.length && this.jointsBlockContact(n, e)) continue;
+					if (!i && !n.inverseMass && !e.inverseMass || n.group[0].joints.length && this.jointsBlockContact(n, e)) continue;
 					let a = n.contacts.get(e);
 					if (!a) {
 						if (!require_narrowphase.collide(n.geometry, e.geometry, this.queryManifold)) continue;
@@ -365,8 +383,11 @@ var PhysicsWorld2D = class {
 			}
 			this.breakJoints();
 			for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
-			for (let e of this.sorted) this.alive(e) && e.owner.sealPhysicsPose();
-			for (let t of this.sorted) t.sleepReady = t.body?.updateSleep(e) ?? !1;
+			for (let e of this.owners.values()) this.alive(e) && e.owner.sealPhysicsPose();
+			for (let t of this.owners.values()) {
+				let n = t.body?.updateSleep(e) ?? !1;
+				for (let e of t.group) e.sleepReady = n;
+			}
 			for (let e of this.sorted) {
 				if (!e.inverseMass || e.sleepVisited === t) continue;
 				this.sleepGroup.length = 0, this.sleepGroup.push(e), e.sleepVisited = t;
@@ -374,6 +395,7 @@ var PhysicsWorld2D = class {
 				for (let e = 0; e < this.sleepGroup.length; e++) {
 					let r = this.sleepGroup[e];
 					n &&= r.sleepReady;
+					for (let e of r.group) e.sleepVisited !== t && (e.sleepVisited = t, this.sleepGroup.push(e));
 					for (let e of r.contacts.values()) {
 						if (e.sensor || e.cancelled) continue;
 						let i = e.a === r ? e.b : e.a;
@@ -393,6 +415,7 @@ var PhysicsWorld2D = class {
 			this.sleepGroup.length = 0, this.sleepGroup.push(t), t.sleepVisited = -e;
 			for (let t = 0; t < this.sleepGroup.length; t++) {
 				let n = this.sleepGroup[t];
+				for (let t of n.group) t.sleepVisited !== -e && (t.sleepVisited = -e, this.sleepGroup.push(t));
 				for (let t of n.contacts.values()) {
 					if (t.sensor || t.cancelled) continue;
 					let r = t.a === n ? t.b : t.a;
@@ -444,7 +467,7 @@ var PhysicsWorld2D = class {
 		let r = this.queryGeometries.get(t);
 		r || (r = new require_collider.ShapeGeometry(t), this.queryGeometries.set(t, r)), r.refresh(n);
 		let i = [];
-		for (let a of this.owners.values()) {
+		for (let a of this.proxies) {
 			if (a.owner === n || !this.alive(a) || !(t.category & a.collider.mask) || !(a.collider.category & t.mask) || (a.refresh(), !require_narrowphase.collide(r, a.geometry, this.queryManifold))) continue;
 			let o = this.queryManifold;
 			i.push({
@@ -472,7 +495,7 @@ var PhysicsWorld2D = class {
 		require_collider.finite(r.x, `displacement.x`), require_collider.finite(r.y, `displacement.y`);
 		let s = require_collider.unsigned(i.mask ?? 4294967295, `mask`), u = this.queryMotions.get(t);
 		u || (u = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, u)), u.geometry.refresh(n), u.setExplicit(n.position.x, n.position.y, r.x, r.y), a.hit = !1, a.owner = void 0, a.collider = void 0, a.fraction = a.safeFraction = 1, a.exhausted = !1, a.normal.set(0, 0), a.point.set(0, 0);
-		for (let e of this.owners.values()) {
+		for (let e of this.proxies) {
 			if (e.owner === n || e.owner === i.ignore || e.owner === i.ignoreOther || !this.alive(e) || !i.includeSensors && e.collider.sensor || !(t.category & e.collider.mask) || !(e.collider.category & t.mask & s)) continue;
 			e.refresh(), e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
 			let r = this.continuous.timeOfImpact(u, e.motion, 1, this.ccdIterations);
@@ -487,7 +510,7 @@ var PhysicsWorld2D = class {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		if (require_collider.finite(t.x, `origin.x`), require_collider.finite(t.y, `origin.y`), require_collider.finite(n.x, `direction.x`), require_collider.finite(n.y, `direction.y`), require_collider.finite(r, `maxDistance`), require_collider.unsigned(i, `mask`), r < 0) throw RangeError(`maxDistance must be nonnegative.`);
 		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [];
-		for (let n of this.owners.values()) {
+		for (let n of this.proxies) {
 			if (!this.alive(n) || !(n.collider.category & i)) continue;
 			n.refresh();
 			let a = require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
@@ -530,12 +553,12 @@ var PhysicsWorld2D = class {
 		this.activeJoints.length = 0;
 	}
 	jointsBlockContact(e, t) {
-		for (let n of e.joints) if (!n.collideConnected && n.partner(e) === t) return !0;
+		for (let n of e.group[0].joints) if (!n.collideConnected && n.partner(e.group[0]) === t.group[0]) return !0;
 		return !1;
 	}
 	debugSnapshot() {
 		let e = [];
-		for (let t of this.owners.values()) {
+		for (let t of this.proxies) {
 			let n = t.geometry;
 			e.push({
 				kind: t.collider.kind,

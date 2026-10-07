@@ -83,6 +83,7 @@ export interface PhysicsDebugSnapshot {
 export declare class PhysicsWorld2D {
     readonly gravity: Vector2;
     private readonly owners;
+    private readonly proxies;
     private readonly sorted;
     private readonly activeContacts;
     private readonly solveContacts;

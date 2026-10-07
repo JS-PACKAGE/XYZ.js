@@ -1,7 +1,8 @@
 import { GameObject } from '../game-object.js';
 import { world2dLimits } from '../../../../src/data/world2d.js';
 import { Collider2D, Colliders, finite, positive } from './collider.js';
-import { RigidBody2D } from './body.js';
+import { RigidBody2D, type RigidBodyOptions } from './body.js';
+import { Vector2 } from '../../../math/src/index.js';
 
 type Point = readonly [number, number];
 
@@ -214,7 +215,7 @@ function staticPiece(
 
 /**
  * A static, possibly concave polygon: a parent whose children are the convex pieces from
- * {@link decomposeConvex}. Move or scale the parent; dynamic concave bodies are not supported.
+ * {@link decomposeConvex}. Move or scale the parent.
  */
 export class StaticConcave2D extends GameObject {
   readonly pieces: readonly GameObject[];
@@ -222,6 +223,97 @@ export class StaticConcave2D extends GameObject {
     super();
     this.pieces = decomposeConvex(vertices).map((piece) =>
       this.add(staticPiece(Colliders.polygon(piece), options)),
+    );
+  }
+}
+
+export interface CompoundOptions2D extends Omit<RigidBodyOptions, 'type'> {
+  category?: number;
+  mask?: number;
+  sensor?: boolean;
+}
+
+/**
+ * One dynamic body with immutable convex polygon pieces. Geometry is copied and recentered
+ * at its area-weighted center of mass; position initially preserves the input geometry's pose.
+ * Overlapping pieces count their area twice. CCD is unsupported for compound geometry.
+ */
+export class Compound2D extends GameObject {
+  readonly pieces: readonly Collider2D[];
+  /** Center of mass in the input geometry's coordinates, before recentering. */
+  readonly centerOfMass: Readonly<Vector2>;
+  readonly area: number;
+
+  constructor(pieces: readonly Collider2D[], options: CompoundOptions2D = {}) {
+    super();
+    if (pieces.length < 1 || pieces.length > world2dLimits.compoundPieces)
+      throw new RangeError('Compound bodies require 1–256 convex pieces.');
+    if (options.ccd) throw new RangeError('Compound CCD is unsupported.');
+    let area = 0,
+      weightedX = 0,
+      weightedY = 0;
+    for (const piece of pieces) {
+      if (!(piece instanceof Collider2D) || piece.kind !== 'polygon')
+        throw new RangeError(
+          'Compound pieces must be convex polygon colliders.',
+        );
+      let twiceArea = 0,
+        cx = 0,
+        cy = 0;
+      for (let i = 0; i < piece.vertices.length; i++) {
+        const a = piece.vertices[i],
+          b = piece.vertices[(i + 1) % piece.vertices.length];
+        const determinant = a[0] * b[1] - a[1] * b[0];
+        twiceArea += determinant;
+        cx += (a[0] + b[0]) * determinant;
+        cy += (a[1] + b[1]) * determinant;
+      }
+      const pieceArea = twiceArea / 2;
+      area += pieceArea;
+      weightedX += pieceArea * (cx / (3 * twiceArea) + piece.offset.x);
+      weightedY += pieceArea * (cy / (3 * twiceArea) + piece.offset.y);
+    }
+    this.area = positive(area, 'compound area');
+    const x = weightedX / area,
+      y = weightedY / area;
+    this.centerOfMass = Object.freeze(new Vector2(x, y));
+    this.pieces = Object.freeze(
+      pieces.map((source) => {
+        const collider = new Collider2D('polygon', 0, source.vertices, {
+          offset: [source.offset.x - x, source.offset.y - y],
+        });
+        collider.category = options.category ?? source.category;
+        collider.mask = options.mask ?? source.mask;
+        collider.sensor = options.sensor ?? source.sensor;
+        return collider;
+      }),
+    );
+    this.position.set(x, y);
+    this.collider = this.pieces[0];
+    this.body = new RigidBody2D({ ...options, type: 'dynamic' });
+  }
+
+  override get colliderPieces(): readonly Collider2D[] {
+    return this.pieces;
+  }
+  override get collider(): Collider2D | undefined {
+    return super.collider;
+  }
+  override set collider(value: Collider2D | undefined) {
+    if (value && value !== this.pieces[0])
+      throw new RangeError(
+        'Compound collider must be its first piece, or undefined.',
+      );
+    super.collider = value;
+  }
+}
+
+/** A simple concave polygon decomposed into pieces sharing one dynamic body. */
+export class DynamicConcave2D extends Compound2D {
+  constructor(vertices: readonly Point[], options: CompoundOptions2D = {}) {
+    super(
+      decomposeConvex(vertices).map((piece) => Colliders.polygon(piece)),
+      options,
     );
   }
 }

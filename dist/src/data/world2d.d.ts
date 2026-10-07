@@ -1,5 +1,7 @@
 export declare const world2dLimits: Readonly<{
     polygonVertices: 32;
+    hullPoints: 256;
+    compoundPieces: 256;
     geometryExtent: 1000000;
     mapCells: 65536;
     particles: 16384;

@@ -21,6 +21,9 @@ export declare class RigidBody2D {
     forceEpoch: number;
     private owningObject;
     private geometry;
+    private compoundGeometry;
+    private compoundTransform;
+    private compoundInertiaPerMass;
     private bodyMass;
     private bounce;
     private surfaceFriction;

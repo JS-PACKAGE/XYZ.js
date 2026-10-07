@@ -13,6 +13,9 @@ var RigidBody2D = class {
 	forceEpoch = 0;
 	owningObject;
 	geometry;
+	compoundGeometry;
+	compoundTransform;
+	compoundInertiaPerMass = 0;
 	bodyMass = 1;
 	bounce = 0;
 	surfaceFriction = .5;
@@ -120,7 +123,19 @@ var RigidBody2D = class {
 	get inverseInertia() {
 		if (this.type !== `dynamic` || this.lockRotation) return 0;
 		let e = this.owner;
-		return e?.collider ? (this.geometry?.collider !== e.collider && (this.geometry = new require_collider.ShapeGeometry(e.collider)), this.geometry.refresh(e), 1 / (this.mass * this.geometry.inertiaPerMass)) : 0;
+		if (!e?.collider) return 0;
+		if (e.colliderPieces) {
+			let t = e.colliderPieces;
+			(!this.compoundGeometry || this.compoundGeometry[0]?.collider !== t[0]) && (this.compoundGeometry = t.map((e) => new require_collider.ShapeGeometry(e)), this.compoundTransform = (/* @__PURE__ */ new Float64Array(4)).fill(NaN));
+			let i = e.updateWorldMatrix().elements, a = this.compoundTransform;
+			if (a[0] !== i[0] || a[1] !== i[1] || a[2] !== i[3] || a[3] !== i[4]) {
+				let t = 0, r = 0;
+				for (let n of this.compoundGeometry) n.refresh(e), t += n.area, r += n.area * n.inertiaPerMass;
+				this.compoundInertiaPerMass = require_collider.positive(r / t, `compound inertia`), a[0] = i[0], a[1] = i[1], a[2] = i[3], a[3] = i[4];
+			}
+			return 1 / (this.mass * this.compoundInertiaPerMass);
+		}
+		return this.geometry?.collider !== e.collider && (this.geometry = new require_collider.ShapeGeometry(e.collider)), this.geometry.refresh(e), 1 / (this.mass * this.geometry.inertiaPerMass);
 	}
 	attach(e) {
 		if (this.owner && this.owner !== e) throw Error(`RigidBody2D already belongs to another GameObject.`);
@@ -130,7 +145,7 @@ var RigidBody2D = class {
 		this.owningObject = e;
 	}
 	detach(e) {
-		this.owner === e && (this.owningObject = void 0, this.geometry = void 0);
+		this.owner === e && (this.owningObject = void 0, this.geometry = void 0, this.compoundGeometry = void 0, this.compoundTransform = void 0);
 	}
 	applyForce(e, n) {
 		if (require_collider.finite(e.x, `force.x`), require_collider.finite(e.y, `force.y`), n && (require_collider.finite(n.x, `worldPoint.x`), require_collider.finite(n.y, `worldPoint.y`)), this.type === `dynamic`) {

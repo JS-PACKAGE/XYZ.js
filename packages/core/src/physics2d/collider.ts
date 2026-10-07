@@ -155,6 +155,58 @@ export const Colliders = Object.freeze({
   },
 });
 
+/**
+ * Polygon `Collider2D` from the convex hull of 3-256 input points (Andrew's
+ * monotone chain). Exposed top-level so the 1.x `Colliders` surface stays
+ * structurally additive; duplicate points collapse before the sweep.
+ */
+export function convexHull(
+  points: readonly (readonly [number, number])[],
+  options?: ColliderOptions,
+): Collider2D {
+  if (points.length < 3 || points.length > world2dLimits.hullPoints)
+    throw new RangeError('Convex hulls require 3-256 input points.');
+  const sorted = points
+    .map(
+      ([x, y]) =>
+        [boundedCoordinate(x, 'point.x'), boundedCoordinate(y, 'point.y')] as [
+          number,
+          number,
+        ],
+    )
+    .sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const unique = sorted.filter(
+    (p, i) => i === 0 || p[0] !== sorted[i - 1][0] || p[1] !== sorted[i - 1][1],
+  );
+  const turn = (
+    a: readonly number[],
+    b: readonly number[],
+    c: readonly number[],
+  ): number => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  const lower: [number, number][] = [],
+    upper: [number, number][] = [];
+  for (const p of unique) {
+    while (
+      lower.length >= 2 &&
+      turn(lower[lower.length - 2], lower[lower.length - 1], p) <= EPSILON
+    )
+      lower.pop();
+    lower.push(p);
+  }
+  for (let i = unique.length - 1; i >= 0; i--) {
+    const p = unique[i];
+    while (
+      upper.length >= 2 &&
+      turn(upper[upper.length - 2], upper[upper.length - 1], p) <= EPSILON
+    )
+      upper.pop();
+    upper.push(p);
+  }
+  lower.pop();
+  upper.pop();
+  return new Collider2D('polygon', 0, lower.concat(upper), options);
+}
+
 /** Reused world geometry and AABB. Polygon winding stays counterclockwise after reflection. */
 export class ShapeGeometry {
   readonly points: Float64Array;
@@ -166,6 +218,7 @@ export class ShapeGeometry {
   maxX = 0;
   maxY = 0;
   inertiaPerMass = 0;
+  area = 0;
   /** @internal Changes only after a successful world-geometry refresh. */
   revision = 0;
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
@@ -199,6 +252,7 @@ export class ShapeGeometry {
           'Circle colliders require uniform absolute world scale without shear.',
         );
       this.radius = this.collider.radius * sx;
+      this.area = Math.PI * this.radius * this.radius;
       this.minX = this.x - this.radius;
       this.maxX = this.x + this.radius;
       this.minY = this.y - this.radius;
@@ -244,6 +298,7 @@ export class ShapeGeometry {
         cross * (ax * ax + ax * bx + bx * bx + ay * ay + ay * by + by * by);
     }
     this.inertiaPerMass = moment / (6 * crossSum);
+    this.area = crossSum / 2;
     positive(this.inertiaPerMass, 'world geometry inertia');
     for (let i = 0; i < TRANSFORM_INDICES.length; i++)
       this.matrixSnapshot[i] = e[TRANSFORM_INDICES[i]];
