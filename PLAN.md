@@ -516,3 +516,21 @@ backend 的契約及 Canvas2D 明確拒絕邊界。未驗證的硬體、瀏覽�
 - API／ownership／limitations 同步 TECHNICAL／USAGE 雙語與 README zh／en／ja；
   所有 runtime、browser、loss／cleanup、stress CPU／RAF／GPU 證據仍由整合主代理實際
   驗證後記 ACCEPTANCE／CURRENT。本文不新增通過宣告、版本或發佈授權。
+
+## 使用者直接指定功能擴充（2026-10-07）：凸包／複合 2D 碰撞、逐物件運動模糊、MP4 素材擷取
+
+使用者以「全部實作」直接指定四項缺口實作，契約與邊界見 DESIGN 對應章節：
+
+- 2D convex hull 與 dynamic compound：`convexHull(points, options?)`（3–256 點推導
+  polygon Collider2D）、`Compound2D`（1–256 convex pieces 共用單一 dynamic body、推導
+  mass／inertia／area／centerOfMass）、`DynamicConcave2D`（`decomposeConvex` 分片共用
+  一個 body）與 `GameObject.colliderPieces`。`Colliders` 既有型別字面值不擴充（維持
+  1.x structurally additive），hull 以 top-level 匯出提供；compound CCD 拒絕。
+- 逐物件運動模糊：`MotionBlurSettings.perObject`（預設 false）以 renderer-owned rigid
+  per-instance velocity pass（WGSL＋GLSL）做 gather；skinned／deformation 與 missing
+  history 落回既有 camera reprojection。既有 quality／sample limits 不變。
+- MP4 素材擷取：`demuxMP4(bytes, options?)` 與 `VideoTextureDecoder.fromMP4` 提供有界
+  單一 video track MP4 快照（avc1／vp09／av01；fragmented／encrypted／edit-list 拒絕），
+  不做計時播放；既有 VideoTexture／decoder 擁有權契約不變。
+- 實作不代表驗收；實際驗證證據記 ACCEPTANCE／CURRENT。本文不新增通過宣告、版本或
+  發佈授權，commit／push 需另經使用者授權。

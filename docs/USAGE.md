@@ -12,7 +12,7 @@ XYZ.js is a browser game engine with the P42 playable reference Beacon Run. Curr
 | ------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Portable 2D               | Sprite/HUD/atlas/raster/isolation/masks/basic blends on all three backends. Native Material2D/Filter2D/Mesh2D require GPU/GL; Canvas explicitly rejects unsupported requests.                                                                                                                                                                                  |
 | 3D                        | WebGPU/WebGL2 only; PBR/instancing/shadows/post/weighted transparency use documented bounded profiles. WebGL2 HDR/weighted needs float color attachments.                                                                                                                                                                                                      |
-| Physics2D                 | Kinematic bodies, convex character sweep/slide/support and bounded relative dynamic/rotational CCD; sleep/joints/static concave decomposition remain available. Sensors are discrete; dynamic concave/compound/deforming sweeps are unsupported.                                                                                                               |
+| Physics2D                 | Kinematic bodies, convex character sweep/slide/support and bounded relative dynamic/rotational CCD; sleep/joints/static concave decomposition and dynamic convex-hull/compound colliders remain available. Sensors are discrete; deforming sweeps are unsupported.                                                                                             |
 | Models / textures         | glTF `COLOR_0` supported, `COLOR_1` rejected; built-in meshopt, external Draco/Basis codecs. Ordinary KTX2 decodes base-level RGBA8; opt-in native KTX2 preserves all mips. `NativeTexture2D` supports RGBA8 and capability-gated BC/ETC2/ASTC; Canvas rejects native sources.                                                                                 |
 | Recovery                  | Default GPU/GL `recoverGraphics:true` rebuilds the same backend; recreate old RenderTextures/snapshots. Recovery failure is fatal; no real-driver or cross-browser certification follows.                                                                                                                                                                      |
 | P40–P42 scoped acceptance | P41 UI/contexts/budgets/warmup/typed content passed three-backend built-root regression. P42 native GPU skin/animated bounds/mips, 3D physics/dynamics/queries/capsule movement, authored navigation, masks/additive/blend trees/two-bone IK and complete Beacon Run passed scoped acceptance. No physical-device, cross-browser or performance certification. |
@@ -766,7 +766,7 @@ GameObject itself has no visual; add an atlas Sprite instead when displaying a b
 
 RigidBody2D exposes velocity, angularVelocity, mass, restitution, friction, linearDamping, angularDamping, gravityScale and lockRotation; applyForce/applyImpulse accept an optional world lever point, clearForces clears accumulators. No body means a static collider. Category/mask are reciprocal unsigned 32-bit filters; sensor=true detects without response. collisionstart/precollision/postcollision/collisionend carry self/other, stable normal/points, penetration, sensor and cancelResponse(); cancellation only suppresses that precollision step's response. Trigger2D clones a sensor shape, defaults to one accepted enter, accepts repeat=Infinity explicitly, and emits triggerenter/triggerexit {self,other}; it does not auto-destroy.
 
-Scene.physics.overlap(collider,owner) returns shape-accurate contacts; raycast(origin,direction,maxDistance,mask?) returns distance-sorted surface hits. The fixed-step solver is capped; droppedTime reports discarded catch-up. P31 adds `body.ccd` for dynamic translation against static non-sensors (no rotation/dynamic-pair sweep), sleep and `DistanceJoint`/`RevoluteJoint`/`PrismaticJoint`/`WeldJoint`/`MouseJoint` through addJoint/removeJoint. `Colliders.polygon` remains strictly convex; use `StaticConcave2D`/`StaticChain2D` for static convex-piece composites. No dynamic concave/compound, kinematic/zero-width-edge or current 3D physics. P42 separately approves 3D colliders/queries/character/dynamic bodies and navigation/pathfinding; these old exclusions do not remove that scope. Full limits are in [TECHNICAL](TECHNICAL.md).
+Scene.physics.overlap(collider,owner) returns shape-accurate contacts; raycast(origin,direction,maxDistance,mask?) returns distance-sorted surface hits. The fixed-step solver is capped; droppedTime reports discarded catch-up. P31 adds `body.ccd` for dynamic translation against static non-sensors (no rotation/dynamic-pair sweep), sleep and `DistanceJoint`/`RevoluteJoint`/`PrismaticJoint`/`WeldJoint`/`MouseJoint` through addJoint/removeJoint. `Colliders.polygon` remains strictly convex; use `StaticConcave2D`/`StaticChain2D` for static convex-piece composites. Dynamic concave shapes use `convexHull(points, options?)` (3–256 points → polygon collider), `Compound2D(pieces, options?)` (1–256 convex pieces sharing one dynamic body, derived mass/inertia) or `DynamicConcave2D(vertices, options?)` (`decomposeConvex` pieces on one body); hit-testing and contacts walk `colliderPieces`. Zero-width edges and deforming sweeps remain unsupported. P42 separately approves 3D colliders/queries/character/dynamic bodies and navigation/pathfinding; these old exclusions do not remove that scope. Full limits are in [TECHNICAL](TECHNICAL.md).
 
 Those P31 exclusions are historical: P76 adds kinematic bodies, convex character motion and bounded relative rotational/dynamic CCD (section 39); P42 and later supply current 3D physics.
 
@@ -1454,7 +1454,8 @@ described in [ASSET-RECIPE](ASSET-RECIPE.md). The repository equivalent is
 `node scripts/produce-assets.mjs PROFILE.json NEW_DIRECTORY`; both produce bounded
 atlas and bitmap/SDF/MSDF assets through the same implementation.
 SDF and MSDF are distinct: MSDF profiles require authored polygon contours; arbitrary font
-outline parsing and WebCodecs container demux are not provided.
+outline parsing is not provided. Video containers are limited to the bounded MP4
+snapshot path (`demuxMP4` / `VideoTextureDecoder.fromMP4`).
 
 ### CommonJS and live 3D maps
 
@@ -1486,7 +1487,9 @@ Remove material consumers before destroying `frames`; the fallback remains borro
 `PBRMaterialOptions.sources` uses exported `PBRTextureKey`/`PBRTextureSources`.
 NativeMaterial3D uses `textureSources` for its four indexed hook maps; the base
 map uses the same `textureSource` option. WebCodecs consumes configured elementary
-chunks, not media containers. Canvas2D supports video Sprites, not 3D materials.
+chunks, or bounded MP4 snapshots through `demuxMP4`/`VideoTextureDecoder.fromMP4`
+(single video track, avc1/vp09/av01; fragmented/encrypted containers reject).
+Canvas2D supports video Sprites, not 3D materials.
 
 Mesh feature variants compile lazily; no application opt-in is needed. Prepare
 resources before publication when avoiding cold draw compilation matters. Cache

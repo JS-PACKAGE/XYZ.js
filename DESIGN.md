@@ -1,5 +1,34 @@
 # XYZ.js 設計與階段邊界
 
+## 本輪追加：凸包／複合 2D 碰撞、逐物件運動模糊、MP4 素材擷取
+
+使用者直接指定的 additive scope，維持 Game→Scene→Renderer 與 core／graphics／assets 邊界：
+
+- physics2d 在既有 convex narrowphase 上新增 `convexHull(points, options?)`（Andrew
+  monotone chain；輸入 3–256 點、`world2dLimits.hullPoints` 256，輸出走 polygon 3–32
+  頂點驗證，座標 ±1,000,000 bounds）與 `Compound2D(pieces, options?)`／
+  `DynamicConcave2D(vertices, options?)`：1–256 個 convex polygon pieces（
+  `compoundPieces`）共用單一 dynamic body，pieces 依計算的 centerOfMass 重新置中，
+  mass／inertia 由既有 body 管線推導；第一片維持 root `collider`，`colliderPieces`
+  供 hit-testing／contacts／queries。`options.ccd` 拒絕。`Colliders` 的公開型別不加
+  成員，hull 以 top-level `convexHull` 提供，維持 1.x structurally additive 契約。
+- 逐物件運動模糊是 motion blur 的 additive `perObject` 選項（預設 false、boolean
+  驗證）：graphics 以 renderer-owned rigid per-instance pose history 與 rgba16float
+  velocity pass（WebGPU raster／WebGL2 framebuffer，depth matching＋validity channel）
+  產生逐像素 velocity，gather 有效 object velocity；skinned／deformation、missing
+  history 與 invalid pixels 落回既有 camera depth reprojection。resize／disable／destroy
+  清 velocity target 與 pose history，prepared pipelines 保留；quality／sample limits
+  不變，Canvas2D 維持拒絕 3D postprocessing。
+- MP4 素材擷取在 assets 新增 `mp4-demux.ts`：`demuxMP4(bytes, options?)` 解析單一
+  video track MP4（avc1／vp09／av01、單一 sample description、自足 sample tables），
+  回 `VideoDecoderConfig` 加有序 `EncodedVideoChunk`；`VideoTextureDecoder.fromMP4`
+  是有界快照解碼（非計時播放），沿用既有 WebCodecs／VideoTexture 擁有權與
+  close／destroy 契約。fragmented／encrypted／edit-list／多 track 拒絕；解析預算
+  `videoTextureLimits`（128 MiB／100,000 samples／32 tracks／depth 16／單一 sample
+  8 MiB）只可收緊。
+- 邊界：無新 runtime 依賴、不做計時影片播放、不做 deforming velocity、不改既有公開
+  型別。實作與文件不代表 runtime／browser 驗收，證據另記 ACCEPTANCE。
+
 ## 本輪批准追加：程序式 PBR 預設
 
 此 additive scope 保持既有 Game→Scene→Renderer 與 core／assets 邊界：core 在 `await ProceduralMaterial.create(kind, options?)` 一次產生 CPU maps，以 assets 的 `Texture.fromImage` 建立 immutable sources，不新增 backend／shader／geometry 路徑或逐幀生成。無外部素材或新依賴。六種 `ProceduralMaterialKind` 為 wood／brick／stone／metal／fabric／marble；`ProceduralMaterialOptions` 的 size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1），相同輸入生成 deterministic、seamlessly periodic maps。

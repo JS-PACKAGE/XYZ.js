@@ -2184,3 +2184,12 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - Release run `37456245025` attempt 2 結果 success：新 runner 的完整 site shard 1/4 63/63 cases、catalogues／pixel／backend／cleanup gates PASS。核對該次 artifact ID `11409867361`（非同名 attempt 1 artifact）；world-nature/auto 無 errors，實際 canvas 為正常 terrain／water／grass／trail，nonuniform true、10,638 distinct RGB。這次通過不抹除 attempt 1 的 intermittent failure，也不擴大跨 host 認證範圍。
 
 - 發佈於 **2026-10-06T11:47:02Z**，non-draft／non-prerelease。Release workflow 完成 tag CI、build、exact archive package hygiene、SHA256SUMS 與 publication；附件 `xyz.js-1.18.0.tgz`／`SHA256SUMS`。下載實際附件後 `shasum -a 256 -c SHA256SUMS` 回報 `xyz.js-1.18.0.tgz: OK`，再次 exact-archive hygiene PASS（`.vite/package-hygiene/run-NqUZ0p/report.json`）。Archive SHA256：`bbdc4232979dd4ad956d5f56601b8b025912da38aa6dd25e3761f974f44ef2ea`。未執行 npm publish；後補驗收文件只推 main，不移動既有 release tag。
+
+## 2026-10-07 使用者指定功能擴充（未建立階段 commit）
+
+使用者以「全部實作」指定凸包／複合 2D 碰撞、逐物件運動模糊、MP4 素材擷取；範圍與邊界見 DESIGN 對應章節。以下為整合主代理實際執行的驗證（2026-10-07，macOS arm64；Node v26.7.0、pnpm 12.6.0）：
+
+- 新增測試 `tests/physics2d-hull-compound.test.ts`、`tests/motion-blur-object.test.ts`、`tests/mp4-demux.test.ts`；完整 vitest 為 **170 檔／1407 tests 全數通過**（含既有全套件）。
+- `npx pnpm build`、`npx pnpm typecheck`、`npx pnpm lint`、`npx pnpm format:check` 通過；`node scripts/check-api-compatibility.mjs` PASS：v1.12.1 structural API（737 exports、2810 directional contracts、710 historical export namespaces、5 versioned consumers）。`convexHull` 以 top-level 新匯出提供；不擴充 `Colliders` 型別字面值（該擴充使舊 `typeof Colliders` 結構實作不相容，並觸發 checker interning 連鎖失敗）。
+- `npx pnpm regression:browser`（managed Chromium）三 backend 全 PASS：canvas2d、webgl2、webgpu。SKIP 僅既有項目：webxr-api-surface（無實體 headset/runtime）、actual-graphics-context-loss-recovery（Canvas2D 無 GPU context、WebGPU 無公開注入點）。Assertions 與 canvas PNG proofs：`.vite/browser-regression/chromium`。
+- 本輪變更未經使用者授權 commit／push；未做 npm publish。文件同步 README zh／en／ja、PLAN、DESIGN、TECHNICAL 雙語、USAGE 雙語、CURRENT；文件敘述不構成新階段通過宣告，實測證據以本節為準。
