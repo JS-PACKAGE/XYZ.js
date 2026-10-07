@@ -1,18 +1,18 @@
 ---
-title: Current contracts · v1.18
+title: Current contracts · v1.19
 ---
 
-# XYZ.js v1.18 — current contracts
+# XYZ.js v1.19 — current contracts
 
-**Normative for package 1.18.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles including P104–P118, not an acceptance report or upstream compatibility promise. [GitHub v1.16](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.16) is published after the existing CI gate, with its downloaded archive/checksum verified; the historical v1.14 archive does not contain P104–P118. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/JS-PACKAGE/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
+**Normative for package 1.19.0, Apache-2.0, browser runtime, zero runtime dependencies.** npm remains unpublished. This page describes current supported profiles including P104–P118, not an acceptance report or upstream compatibility promise. [GitHub v1.16](https://github.com/JS-PACKAGE/XYZ.js/releases/tag/v1.16) is published after the existing CI gate, with its downloaded archive/checksum verified; the historical v1.14 archive does not contain P104–P118. Historical dates, test counts, release versions and originally excluded features remain in [ACCEPTANCE](https://github.com/JS-PACKAGE/XYZ.js/blob/main/ACCEPTANCE.md). English / 繁體中文 / 日本語：目前契約／現在の契約。Older exclusions do not override the current profiles below.
 
 ## Public API and distribution
 
-The supported public entry is `xyz.js` (or the complete built tree's `engine/src/index.js` on the static site). It exports core, graphics, math, assets, input and audio; ECS is an internal model, not a separate root export. Use the generated **API v1.18.0** portal for exact classes, types, methods and overloads. Its search includes API names, comments and this document; inherited members can be shown with the visibility filters.
+The supported public entry is `xyz.js` (or the complete built tree's `engine/src/index.js` on the static site). It exports core, graphics, math, assets, input and audio; ECS is an internal model, not a separate root export. Use the generated **API v1.19.0** portal for exact classes, types, methods and overloads. Its search includes API names, comments and this document; inherited members can be shown with the visibility filters.
 
-`pnpm docs:api` generates `.vite/site/api/1.18.0/` and its documentation landing pages. `pnpm build:site` builds the examples and the same searchable API into the complete `.vite/site/` distribution. Serve over HTTP/HTTPS and open `docs/` or `api/1.18.0/`; generated HTML is not tracked or included in the engine tarball. Relative API links and search assets stay within the version directory, so deployment under a path prefix does not require URL rewriting. Source documentation is not a claim that the hosted site has been deployed.
+`pnpm docs:api` generates `.vite/site/api/1.19.0/` and its documentation landing pages. `pnpm build:site` builds the examples and the same searchable API into the complete `.vite/site/` distribution. Serve over HTTP/HTTPS and open `docs/` or `api/1.19.0/`; generated HTML is not tracked or included in the engine tarball. Relative API links and search assets stay within the version directory, so deployment under a path prefix does not require URL rewriting. Source documentation is not a claim that the hosted site has been deployed.
 
-For standalone consumers, build and pack, then use `node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.18.0.tgz --name my-game` (or `3d`). Deploy the complete starter `dist/`. No-bundler engine deployment likewise requires the complete engine `dist/`, including the unchanged official `dist/vendor/opm/` distribution and licenses.
+For standalone consumers, build and pack, then use `node scripts/create-game.mjs /absolute/my-game --template 2d --package /absolute/xyz.js-1.19.0.tgz --name my-game` (or `3d`). Deploy the complete starter `dist/`. No-bundler engine deployment likewise requires the complete engine `dist/`, including the unchanged official `dist/vendor/opm/` distribution and licenses.
 
 CommonJS and ESM use separate constructor graphs. Choose one format for every
 engine object in an application; cross-format Texture/Scene/Mesh instances are
@@ -81,7 +81,7 @@ coordinates; the published `MaterialTextureSlot` union and
 
 ## P104–P118 additive profiles in the current source
 
-These approved profiles are integrated in package 1.18.0. Publication does not
+These approved profiles are integrated in package 1.19.0. Publication does not
 certify runtime/browser behavior beyond the recorded scope; actual evidence and
 remaining gaps belong in [ACCEPTANCE](../ACCEPTANCE.md). Public names and exact
 signatures are in the generated root API.
@@ -198,7 +198,7 @@ This is TypeScript **source** compatibility, not runtime/behavioral, binary or a
 
 After building, run `node scripts/check-package-hygiene.mjs` (optional `--output DIRECTORY`) to compare clean/disposable polluted packs using the same built bytes and pinned pnpm 12.6.0. The reviewed inventory permits exact module outputs, CLI import closures, this source document and 164 vendor entries: all 162 unchanged official OPM.js v1.11.1 dist files, the official LICENSE and the provenance manifest, not generated site/API output. It rejects unknown/missing paths, links, unsafe entry types and invalid archive checksums/end markers, comparing every approved file's bytes/SHA and executable flags.
 
-`--archive /absolute/xyz.js-1.18.0.tgz` checks an actual supplied archive without repacking. The JSON report retains tar hashes, approved file facts and deliberately added cache/development pollution. Extracted-bin help/root math and byte-exact starter creation are consumer smoke, not installed browser gameplay; use the separate starter/browser gate for that. User source/vendor/caches are never removed to make a package pass, and this gate does not build or publish.
+`--archive /absolute/xyz.js-1.19.0.tgz` checks an actual supplied archive without repacking. The JSON report retains tar hashes, approved file facts and deliberately added cache/development pollution. Extracted-bin help/root math and byte-exact starter creation are consumer smoke, not installed browser gameplay; use the separate starter/browser gate for that. User source/vendor/caches are never removed to make a package pass, and this gate does not build or publish.
 
 ## Integrated current-version soak
 

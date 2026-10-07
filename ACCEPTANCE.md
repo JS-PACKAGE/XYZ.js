@@ -1,6 +1,6 @@
 # XYZ.js 驗收紀錄
 
-**目前 metadata：1.14.0／Apache-2.0，npm 未發佈。** 使用者授權提交程序貼圖材質並發佈 GitHub `v1.14`；實際 CI／發佈結果見末節。既有版本、失敗 gates 與限制保留為歷史，不由新版本號推論額外認證。
+**目前 metadata：1.19.0／Apache-2.0，npm 未發佈。** 使用者授權升版 1.19.0 並發佈 GitHub `v1.19`；實際 CI／發佈結果見末節。既有版本、失敗 gates 與限制保留為歷史，不由新版本號推論額外認證。
 
 **P01–P08 當時狀態：1.0.0 均已驗收並獨立提交。** P08 為 16 檔／73 測試與六個範例 Chromium smoke；2026-09-30 後續優化為 16 檔／75 測試，build、typecheck、lint、format:check 通過，詳見末節。當時套件未 npm publish，授權為 UNLICENSED；階段提交不包含 push，後續變更不自動提交。
 
@@ -2193,3 +2193,7 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 - `npx pnpm build`、`npx pnpm typecheck`、`npx pnpm lint`、`npx pnpm format:check` 通過；`node scripts/check-api-compatibility.mjs` PASS：v1.12.1 structural API（737 exports、2810 directional contracts、710 historical export namespaces、5 versioned consumers）。`convexHull` 以 top-level 新匯出提供；不擴充 `Colliders` 型別字面值（該擴充使舊 `typeof Colliders` 結構實作不相容，並觸發 checker interning 連鎖失敗）。
 - `npx pnpm regression:browser`（managed Chromium）三 backend 全 PASS：canvas2d、webgl2、webgpu。SKIP 僅既有項目：webxr-api-surface（無實體 headset/runtime）、actual-graphics-context-loss-recovery（Canvas2D 無 GPU context、WebGPU 無公開注入點）。Assertions 與 canvas PNG proofs：`.vite/browser-regression/chromium`。
 - 本輪變更未經使用者授權 commit／push；未做 npm publish。文件同步 README zh／en／ja、PLAN、DESIGN、TECHNICAL 雙語、USAGE 雙語、CURRENT；文件敘述不構成新階段通過宣告，實測證據以本節為準。
+
+## v1.19 發佈
+
+package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包／dynamic compound 2D 碰撞、逐物件運動模糊、MP4 素材擷取），已依使用者授權分功能建立 `[Physics2D]`／`[PostFx]`／`[Assets]`／`[docs]` commits 並推送 main。上節「未建立階段 commit」與「未經使用者授權 commit／push」敘述保留為當時狀態。閘門結果見上節（170 檔／1407 tests、build／typecheck／lint／format:check、API 相容 PASS、三 backend browser regression 全 PASS）；WebXR 實機與既有未驗項目維持 BLOCKED／未驗證。hosted CI 與 Release 的結果以 GitHub 紀錄為準，推送後才驗證。
