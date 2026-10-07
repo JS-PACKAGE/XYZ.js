@@ -42,6 +42,8 @@ export type {
   VideoTextureOptions,
   VideoTextureLoadOptions,
 } from './video-texture.js';
+export { demuxMP4 } from './mp4-demux.js';
+export type { MP4DemuxOptions, MP4DemuxResult } from './mp4-demux.js';
 export type { DistanceFieldProfile } from './fonts/distance-field.js';
 export { AssetManifest, ManifestLease } from './manifest/asset-manifest.js';
 export type {

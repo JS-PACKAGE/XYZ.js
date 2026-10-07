@@ -4,4 +4,8 @@ export declare const videoTextureLimits: Readonly<{
     decoderQueue: 16;
     decoderChunkBytes: number;
     decoderQueuedBytes: number;
+    mp4Bytes: number;
+    mp4Samples: 100000;
+    mp4Tracks: 32;
+    mp4Depth: 16;
 }>;

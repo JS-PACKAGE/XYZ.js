@@ -2,6 +2,7 @@ const require_assets = require("../../../src/data/assets.cjs");
 const require_texture = require("./texture.cjs");
 const require_texture2d = require("./texture2d.cjs");
 const require_video = require("../../../src/data/video.cjs");
+const require_mp4_demux = require("./mp4-demux.cjs");
 //#region dist/packages/assets/src/video-texture.js
 function failure(t) {
 	return t instanceof Error ? t : new require_texture.AssetError(String(t));
@@ -193,6 +194,15 @@ var VideoTextureDecoder = class VideoTextureDecoder {
 		this.decoder.addEventListener(`dequeue`, () => {
 			this.decoder.decodeQueueSize === 0 && (this.queuedBytes = 0);
 		});
+	}
+	static async fromMP4(e, t, r = {}) {
+		let { config: a, chunks: o } = require_mp4_demux.demuxMP4(t, r), s = await e.createDecoder(a), c = 0;
+		try {
+			for (let e of o) (s.decodeQueueSize >= require_video.videoTextureLimits.decoderQueue || c + e.byteLength > require_video.videoTextureLimits.decoderQueuedBytes) && (await s.flush(), c = 0), s.decode(e), c += e.byteLength;
+			return await s.flush(), s;
+		} catch (e) {
+			throw s.destroy(), e;
+		}
 	}
 	static async create(t, i) {
 		if (typeof VideoDecoder > `u`) throw new require_texture.AssetError(`WebCodecs VideoDecoder is unavailable (secure context required).`);

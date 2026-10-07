@@ -2,6 +2,8 @@ import { AssetError } from './texture.js';
 import { CanvasTexture2D } from './texture2d.js';
 import { videoTextureLimits } from '../../../src/data/video.js';
 import { assetLimits } from '../../../src/data/assets.js';
+import { demuxMP4 } from './mp4-demux.js';
+import type { MP4DemuxOptions } from './mp4-demux.js';
 
 export interface VideoTextureOptions {
   /** Borrowed elements are not paused, unloaded, or removed on destroy. */
@@ -289,7 +291,7 @@ export class VideoTexture extends CanvasTexture2D {
   }
 }
 
-/** Explicit elementary encoded chunks only. Callers demux containers and provide timestamps. */
+/** Bounded WebCodecs adapter; the texture owns registered adapters and output frames. */
 export class VideoTextureDecoder {
   private decoder: VideoDecoder;
   private pending: VideoFrame | undefined;
@@ -339,6 +341,34 @@ export class VideoTextureDecoder {
     this.decoder.addEventListener('dequeue', () => {
       if (this.decoder.decodeQueueSize === 0) this.queuedBytes = 0;
     });
+  }
+  /** Decode a bounded MP4 snapshot, not timed playback; caller owns the texture/input. */
+  static async fromMP4(
+    texture: VideoTexture,
+    bytes: Uint8Array,
+    options: MP4DemuxOptions = {},
+  ): Promise<VideoTextureDecoder> {
+    const { config, chunks } = demuxMP4(bytes, options);
+    const decoder = await texture.createDecoder(config);
+    let queuedBytes = 0;
+    try {
+      for (const chunk of chunks) {
+        if (
+          decoder.decodeQueueSize >= videoTextureLimits.decoderQueue ||
+          queuedBytes + chunk.byteLength > videoTextureLimits.decoderQueuedBytes
+        ) {
+          await decoder.flush();
+          queuedBytes = 0;
+        }
+        decoder.decode(chunk);
+        queuedBytes += chunk.byteLength;
+      }
+      await decoder.flush();
+      return decoder;
+    } catch (error) {
+      decoder.destroy();
+      throw error;
+    }
   }
   static async create(
     texture: VideoTexture,

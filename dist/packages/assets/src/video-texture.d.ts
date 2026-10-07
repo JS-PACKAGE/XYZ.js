@@ -1,4 +1,5 @@
 import { CanvasTexture2D } from './texture2d.js';
+import type { MP4DemuxOptions } from './mp4-demux.js';
 export interface VideoTextureOptions {
     /** Borrowed elements are not paused, unloaded, or removed on destroy. */
     ownVideo?: boolean;
@@ -45,7 +46,7 @@ export declare class VideoTexture extends CanvasTexture2D {
     observe(error: unknown): void;
     destroy(): void;
 }
-/** Explicit elementary encoded chunks only. Callers demux containers and provide timestamps. */
+/** Bounded WebCodecs adapter; the texture owns registered adapters and output frames. */
 export declare class VideoTextureDecoder {
     private readonly texture;
     private decoder;
@@ -55,6 +56,8 @@ export declare class VideoTextureDecoder {
     private scheduled;
     private errorValue;
     private constructor();
+    /** Decode a bounded MP4 snapshot, not timed playback; caller owns the texture/input. */
+    static fromMP4(texture: VideoTexture, bytes: Uint8Array, options?: MP4DemuxOptions): Promise<VideoTextureDecoder>;
     static create(texture: VideoTexture, config: VideoDecoderConfig): Promise<VideoTextureDecoder>;
     get lastError(): Error | undefined;
     get destroyed(): boolean;
