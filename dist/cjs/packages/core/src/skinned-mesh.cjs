@@ -44,6 +44,7 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 	initialized = !1;
 	deformationVersion = 0;
 	mirrorVersion = -1;
+	deformationPass = 0;
 	get cullable() {
 		return !0;
 	}
@@ -86,17 +87,19 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 		this.updateSkin();
 	}
 	updateRenderDeformation() {
+		let e = this.scene?.presentationPass ?? 0;
+		if (e !== 0 && this.deformationPass === e) return;
 		this.inverse.copy(this.updateWorldMatrix()).invert();
-		let e = !this.initialized, t = this.morph?.apply(this.bindVertices) ?? !1;
-		t && (this.skinGeometry.markUpdated(), this.refreshInfluenceBounds());
-		for (let t = 0; t < this.joints.length; t++) {
-			let n = this.matrices[t].copy(this.inverse).multiply(this.joints[t].updateWorldMatrix()).multiply(this.inverseBindMatrices[t]);
+		let t = !this.initialized, n = this.morph?.apply(this.bindVertices) ?? !1;
+		n && (this.skinGeometry.markUpdated(), this.refreshInfluenceBounds());
+		for (let e = 0; e < this.joints.length; e++) {
+			let n = this.matrices[e].copy(this.inverse).multiply(this.joints[e].updateWorldMatrix()).multiply(this.inverseBindMatrices[e]);
 			for (let r = 0; r < 16; r++) {
-				let i = t * 16 + r;
-				n.elements[r] !== this.jointPalette[i] && (e = !0), this.jointPalette[i] = n.elements[r];
+				let i = e * 16 + r;
+				n.elements[r] !== this.jointPalette[i] && (t = !0), this.jointPalette[i] = n.elements[r];
 			}
 		}
-		(e || t) && (e && this.paletteVersion++, this.initialized = !0, this.deformationVersion++, this.refreshAnimatedBounds());
+		this.deformationPass = e, (t || n) && (t && this.paletteVersion++, this.initialized = !0, this.deformationVersion++, this.refreshAnimatedBounds());
 	}
 	updateSkin() {
 		if (this.updateRenderDeformation(), this.mirrorVersion === this.deformationVersion) return;

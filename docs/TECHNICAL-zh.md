@@ -354,7 +354,7 @@ Build 使用既有 Vite 開發依賴匯出的 minifier，逐檔最小化 dist �
 - KeyframeTrack(target,path,times,values,interpolation='LINEAR') 支援 `Object3D` 的 translation／rotation／scale，或 `MorphWeights` 的 `'weights'`（values 為 keys × targetCount 個 scalar，cubic triplet 對每個 weight 套用），以及 STEP／LINEAR／CUBICSPLINE。Times 為嚴格遞增非負秒數；cubic values 是 incoming tangent／value／outgoing tangent triplets。Linear Quaternion 取最短路徑，cubic 結果 normalize。
 - Morph 在 CPU 執行：`MorphTargets({positions,normals?,tangents?,weights})` 以 weights 更新 cached bind vertices、normalized normals 與正交化 tangents；SkinnedMesh 先 morph render bind pose 再 GPU skinning，exact CPU query geometry lazy 更新（第42節）。同一 glTF node primitives 共用 morph weights。
 - `AnimationClip(name,tracks)` 由最後 keys 算 duration；`scene.animations.clipAction(clip)` cache action。`play()` 繼續而不重設時間、`stop()` 歸零而不還原 pose。Repeat／once／pingpong、reverse、weights／fades／crossfades／ordered layer blending 見第 32 節（P34），已取代 P10 無 blending 基線。`stopAll()` 停止、`destroy()` 釋放。
-- Game 在 timers 後、Scene.update 前以 clamp simulation delta 更新 animations，pause／hidden 不累積。勿手動更新同 mixer。SkinnedMesh.updateRenderDeformation() 更新 palette／bounds；updateSkin() 為 exact queries 更新 CPU mirror，不是一般 rendering 路徑。Index topology 不變。
+- Game 在 timers 後、Scene.update 前以 clamp simulation delta 更新 animations，pause／hidden 不累積。勿手動更新同 mixer。SkinnedMesh.updateRenderDeformation() 更新 palette／bounds；updateSkin() 為 exact queries 更新 CPU mirror，不是一般 rendering 路徑。同一次 Scene presentation 內 palette／bounds 只計算一次，供 culling、light selection、排序與繪製重用；presentation 之外的 joint／morph 變更在下次呼叫即反映。Index topology 不變。
 
 ### PBR、光源、陰影、HDR 與 Instancing
 

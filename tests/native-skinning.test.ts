@@ -8,6 +8,7 @@ import { MorphTargets, MorphWeights } from '../packages/core/src/morph.js';
 import { OrthographicCamera } from '../packages/core/src/orthographic-camera.js';
 import { Raycaster } from '../packages/core/src/raycaster.js';
 import { SkinnedMesh } from '../packages/core/src/skinned-mesh.js';
+import { Scene } from '../packages/core/src/scene.js';
 import { Matrix4 } from '../packages/math/src/index.js';
 
 function material(): TextureMaterial {
@@ -196,6 +197,31 @@ describe('native skin streams and exact CPU queries', () => {
     expect(ray.intersectObjects([mesh])).toEqual([]);
     ray.origin.x = 8;
     expect(ray.intersectObjects([mesh])[0].point.x).toBeCloseTo(8);
+    mesh.material.texture.destroy();
+  });
+
+  it('evaluates the skin palette once per presentation and again after joints move', () => {
+    const scene = new Scene();
+    const joints = [scene.add(new Group()), scene.add(new Group())];
+    const mesh = scene.add(skin(joints));
+    mesh.updateRenderDeformation();
+    const version = mesh.paletteVersion;
+    joints[1].position.x = 4;
+    scene.beginPresentation();
+    const moved = mesh.boundingSphere.x;
+    expect(mesh.paletteVersion).toBe(version + 1);
+    mesh.updateRenderDeformation();
+    expect(mesh.paletteVersion).toBe(version + 1);
+    scene.endPresentation();
+    joints[1].position.x = 8;
+    scene.beginPresentation();
+    expect(mesh.boundingSphere.x).toBeGreaterThan(moved);
+    expect(mesh.paletteVersion).toBe(version + 2);
+    scene.endPresentation();
+    joints[1].position.x = 12;
+    mesh.updateRenderDeformation();
+    expect(mesh.paletteVersion).toBe(version + 3);
+    expect(mesh.jointPalette[16 + 12]).toBe(12);
     mesh.material.texture.destroy();
   });
 });

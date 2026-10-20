@@ -30,6 +30,8 @@ export declare class SkinnedMesh extends Mesh {
     private initialized;
     private deformationVersion;
     private mirrorVersion;
+    /** Scene presentation pass whose palette and bounds are current; see updateRenderDeformation. */
+    private deformationPass;
     protected get cullable(): boolean;
     get renderGeometry(): Geometry;
     get boundingSphere(): Readonly<{

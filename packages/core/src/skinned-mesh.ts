@@ -58,6 +58,8 @@ export class SkinnedMesh extends Mesh {
   private initialized = false;
   private deformationVersion = 0;
   private mirrorVersion = -1;
+  /** Scene presentation pass whose palette and bounds are current; see updateRenderDeformation. */
+  private deformationPass = 0;
 
   protected override get cullable(): boolean {
     return true;
@@ -151,6 +153,10 @@ export class SkinnedMesh extends Mesh {
 
   /** Updates only the palette and conservative bounds; joint motion never deforms all vertices. */
   override updateRenderDeformation(): void {
+    const pass = this.scene?.presentationPass ?? 0;
+    // Presentation moves no joints and changes no morph weights, so culling, light
+    // selection, sorting and drawing share one palette evaluation per pass.
+    if (pass !== 0 && this.deformationPass === pass) return;
     this.inverse.copy(this.updateWorldMatrix()).invert();
     let changed = !this.initialized;
     const morphed = this.morph?.apply(this.bindVertices) ?? false;
@@ -169,6 +175,7 @@ export class SkinnedMesh extends Mesh {
         this.jointPalette[k] = matrix.elements[j];
       }
     }
+    this.deformationPass = pass;
     if (!changed && !morphed) return;
     if (changed) this.paletteVersion++;
     this.initialized = true;
