@@ -62,10 +62,13 @@ var s = [
 	`iridescenceMap`,
 	`iridescenceThicknessMap`
 ];
-function meshShaderVariantKey(e) {
+function meshShaderVariantBits(e, t, n) {
+	return featureBits(meshShaderFeatures(e, t, n));
+}
+function featureBits(e) {
 	let t = 0;
 	for (let n = 0; n < s.length; n++) e[s[n]] && (t |= 1 << n);
-	return t.toString(36);
+	return t;
 }
 function omitShaderBlock(e, t) {
 	let n = e.indexOf(t);
@@ -85,7 +88,7 @@ function omitShaderBlock(e, t) {
 }
 //#endregion
 exports.meshShaderFeatures = meshShaderFeatures;
-exports.meshShaderVariantKey = meshShaderVariantKey;
+exports.meshShaderVariantBits = meshShaderVariantBits;
 exports.omitShaderBlock = omitShaderBlock;
 
 //# sourceMappingURL=mesh-shader-variants.cjs.map

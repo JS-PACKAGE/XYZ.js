@@ -22,12 +22,15 @@ var DrawSorter = class {
 			s.mesh = o, s.distance = o.distanceSquaredTo(t.x, t.y, t.z), r.push(s);
 		}
 		if (r.length !== 0) {
-			r.sort((e, t) => t.distance - e.distance);
+			r.sort(compareFarthestFirst);
 			for (let t of r) e[i++] = t.mesh, t.mesh = void 0;
 			r.length = 0;
 		}
 	}
 };
+function compareFarthestFirst(e, t) {
+	return t.distance > e.distance ? 1 : t.distance < e.distance ? -1 : 0;
+}
 //#endregion
 exports.DrawSorter = DrawSorter;
 exports.isBlended = isBlended;

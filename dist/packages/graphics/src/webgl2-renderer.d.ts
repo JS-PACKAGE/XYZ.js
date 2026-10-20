@@ -37,6 +37,8 @@ export declare class WebGL2Renderer implements Renderer {
     readCompute(buffer: ComputeBuffer, options?: ComputeReadOptions): Promise<ComputeArray>;
     private triangleProgram;
     private readonly meshPrograms;
+    /** Last key moved to the LRU tail; repeated draws skip re-inserting it. */
+    private recentMeshProgram;
     private readonly pendingPrograms;
     private readonly nativePreparations;
     private parallelCompile;

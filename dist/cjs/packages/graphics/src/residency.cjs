@@ -32,9 +32,9 @@ var ResidencyPool = class {
 		this.frame = !0;
 	}
 	endFrame() {
-		this.frame = !1, this.lastFrame.clear();
-		for (let e of this.framePins) this.lastFrame.add(e);
-		this.framePins.clear();
+		this.frame = !1;
+		let e = this.lastFrame;
+		this.lastFrame = this.framePins, this.framePins = e, e.clear();
 	}
 	abortFrame() {
 		this.frame = !1, this.framePins.clear();

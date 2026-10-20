@@ -82,8 +82,7 @@ import {
 } from './webgpu-mesh-shader.js';
 import {
   meshShaderFeatures,
-  meshShaderVariantKey,
-  type MeshShaderFeatures,
+  meshShaderVariantBits,
 } from './mesh-shader-variants.js';
 import {
   WebGPUPostPipeline,
@@ -93,6 +92,7 @@ import type { FrameStats } from './render-stats.js';
 import {
   fillOpticalMapSettings,
   fillMappedOpticalSettings,
+  hasOpticalMapSources,
   opticalMapSources,
 } from './optical-maps.js';
 import { opticalPackWGSL } from './optical-pack-shaders.js';
@@ -301,7 +301,13 @@ export class WebGPUMeshPipeline {
   private proofWidth = 0;
   private proofHeight = 0;
   private proofMode = -1;
-  private readonly gathered = new Set<Mesh>();
+  /**
+   * Meshes any pass draws this frame, in first-seen order. Stamps dedupe them:
+   * refilling a cleared Set rehashed its table every frame.
+   */
+  private readonly gathered: Mesh[] = [];
+  private readonly gatheredEpochs = new WeakMap<Mesh, number>();
+  private gatherEpoch = 0;
   private occlusion: WebGPUOcclusionBackend | undefined;
   private readonly blendedDraw = (mesh: Mesh): boolean => {
     if (mesh.material instanceof PBRMaterial && mesh.material.alphaToCoverage)
@@ -318,13 +324,15 @@ export class WebGPUMeshPipeline {
   >();
   private readonly samplers = new Map<string, GPUSampler>();
   private readonly meshPipelines = new Map<
-    string,
+    number,
     {
       recipe: GPURenderPipelineDescriptor;
       pipeline?: GPURenderPipeline;
       pending?: Promise<void>;
     }
   >();
+  /** Last key moved to the LRU tail; repeated draws skip re-inserting it. */
+  private recentMeshPipeline = -1;
   private readonly pendingMeshPipelines = new Set<Promise<void>>();
   private renderScene?: Scene;
   private readonly draws: Mesh[] = [];
@@ -1110,7 +1118,7 @@ export class WebGPUMeshPipeline {
         this.visibility.color.length = this.visibility.shadows.length = 0;
         this.visibility.entries.clear();
         this.visibility.occlusionCandidates.length = 0;
-        this.gathered.clear();
+        this.gathered.length = 0;
         this.occlusion?.clear();
         this.post.releaseTarget();
         this.oit.release();
@@ -1215,10 +1223,14 @@ export class WebGPUMeshPipeline {
       let hasTransmission = false,
         weighted = false,
         coverage = false;
-      this.gathered.clear();
+      this.gathered.length = 0;
+      const epoch = ++this.gatherEpoch;
       for (const object of this.visibility.color) {
         this.visibleDraws.push(object);
-        this.gathered.add(object);
+        if (this.gatheredEpochs.get(object) !== epoch) {
+          this.gatheredEpochs.set(object, epoch);
+          this.gathered.push(object);
+        }
         if (
           object.material instanceof PBRMaterial &&
           object.material.alphaToCoverage
@@ -1239,7 +1251,10 @@ export class WebGPUMeshPipeline {
       }
       for (const object of this.visibility.shadows) {
         this.draws.push(object);
-        this.gathered.add(object);
+        if (this.gatheredEpochs.get(object) !== epoch) {
+          this.gatheredEpochs.set(object, epoch);
+          this.gathered.push(object);
+        }
       }
       this.refreshProbeBlend(scene);
       for (const object of this.gathered) {
@@ -2012,7 +2027,9 @@ export class WebGPUMeshPipeline {
         throw new GraphicsError('Mesh pipeline preparation was invalidated.');
     }
     const entry = this.meshPipelineEntry(
-      meshShaderFeatures(mesh.material, mesh, scene),
+      mesh.material,
+      mesh,
+      scene,
       variant,
       coverage,
     );
@@ -2035,7 +2052,9 @@ export class WebGPUMeshPipeline {
   }
 
   private meshPipelineEntry(
-    features: MeshShaderFeatures,
+    material: TextureMaterial,
+    mesh: Mesh,
+    scene: Scene | undefined,
     variant: number,
     coverage: boolean,
   ) {
@@ -2043,18 +2062,24 @@ export class WebGPUMeshPipeline {
       throw new GraphicsError(
         'Alpha-to-coverage requires renderer antialiasing.',
       );
-    const key = `${meshShaderVariantKey(features)}:${variant}:${coverage ? 1 : 0}`;
+    // Numeric keys keep per-draw lookups allocation-free; there are 6 pass recipes.
+    const key =
+      (meshShaderVariantBits(material, mesh, scene) * 8 + variant) * 2 +
+      (coverage ? 1 : 0);
     let entry = this.meshPipelines.get(key);
     if (entry) {
-      this.meshPipelines.delete(key);
-      this.meshPipelines.set(key, entry);
+      if (key !== this.recentMeshPipeline) {
+        this.meshPipelines.delete(key);
+        this.meshPipelines.set(key, entry);
+        this.recentMeshPipeline = key;
+      }
       return entry;
     }
     const base = this.pipelineRecipes[variant];
     if (!base?.fragment)
       throw new GraphicsError('Unsupported mesh pipeline pass.');
     const module = this.device.createShaderModule({
-      code: buildWebGPUMeshShader(features),
+      code: buildWebGPUMeshShader(meshShaderFeatures(material, mesh, scene)),
     });
     const recipe: GPURenderPipelineDescriptor = {
       ...base,
@@ -2081,6 +2106,7 @@ export class WebGPUMeshPipeline {
     }
     entry = { recipe };
     this.meshPipelines.set(key, entry);
+    this.recentMeshPipeline = key;
     return entry;
   }
   unloadTexture(texture: Texture2DSource): void {
@@ -2392,7 +2418,9 @@ export class WebGPUMeshPipeline {
     else if (variant === 3) pipeline = this.shadowPipeline;
     else {
       const entry = this.meshPipelineEntry(
-        meshShaderFeatures(object.material, object, this.renderScene),
+        object.material,
+        object,
+        this.renderScene,
         variant,
         coverage,
       );
@@ -3067,11 +3095,11 @@ export class WebGPUMeshPipeline {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): GPUTextureView {
-    const sources = opticalMapSources(material);
-    if (!sources.some(Boolean)) {
+    if (!hasOpticalMapSources(material)) {
       this.opticalTextures.get(material)?.allocation.destroy();
       return this.emptyOpticalView;
     }
+    const sources = opticalMapSources(material);
     if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGPU optical map has been destroyed.');
     let existing = this.opticalTextures.get(material);
@@ -3528,7 +3556,7 @@ export class WebGPUMeshPipeline {
     this.renderScene = undefined;
     this.visibilityCache.clear();
     this.visibility.entries.clear();
-    this.gathered.clear();
+    this.gathered.length = 0;
     this.occlusion?.destroy();
     this.particles.destroy();
     this.oit.release();

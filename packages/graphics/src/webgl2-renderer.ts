@@ -22,7 +22,7 @@ import { nativeMeshGLSL } from './webgl-feature-shaders.js';
 import { WebGLUniformCache } from './webgl-uniform-cache.js';
 import {
   meshShaderFeatures,
-  meshShaderVariantKey,
+  meshShaderVariantBits,
 } from './mesh-shader-variants.js';
 import { iridescenceFilmRange } from '../../../src/data/materials.js';
 import type { Scene } from '../../core/src/scene.js';
@@ -82,6 +82,7 @@ import { opticalPackGLSL } from './optical-pack-shaders.js';
 import {
   fillOpticalMapSettings,
   fillMappedOpticalSettings,
+  hasOpticalMapSources,
   opticalMapSources,
 } from './optical-maps.js';
 import { Texture } from '../../assets/src/index.js';
@@ -417,7 +418,9 @@ export class WebGL2Renderer implements Renderer {
     throw new UnsupportedGraphicsError('WebGL2 does not support compute.');
   }
   private triangleProgram: WebGLProgram | undefined;
-  private readonly meshPrograms = new Map<string, MeshProgram>();
+  private readonly meshPrograms = new Map<number, MeshProgram>();
+  /** Last key moved to the LRU tail; repeated draws skip re-inserting it. */
+  private recentMeshProgram = -1;
   private readonly pendingPrograms = new Set<WebGLProgram>();
   private readonly nativePreparations = new Map<
     NativeMaterial3D | NativePBRMaterial,
@@ -2264,11 +2267,11 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private cacheOpticalMaps(material: PBRMaterial): void {
-    const sources = opticalMapSources(material);
-    if (!sources.some(Boolean)) {
+    if (!hasOpticalMapSources(material)) {
       this.opticalTextures.get(material)?.allocation.destroy();
       return;
     }
+    const sources = opticalMapSources(material);
     if (sources.some((source) => source?.destroyed))
       throw new GraphicsError('WebGL2 optical map has been destroyed.');
     let existing = this.opticalTextures.get(material);
@@ -4813,19 +4816,21 @@ export class WebGL2Renderer implements Renderer {
     scene: Scene,
   ): MeshProgram {
     const gl = this.requireGL();
-    const features = meshShaderFeatures(material, mesh, scene);
-    const key = meshShaderVariantKey(features);
+    const key = meshShaderVariantBits(material, mesh, scene);
     const cached = this.meshPrograms.get(key);
     if (cached) {
-      this.meshPrograms.delete(key);
-      this.meshPrograms.set(key, cached);
+      if (key !== this.recentMeshProgram) {
+        this.meshPrograms.delete(key);
+        this.meshPrograms.set(key, cached);
+        this.recentMeshProgram = key;
+      }
       return cached;
     }
     const program = this.createProgram(
       gl,
       buildMeshVertex(),
-      buildMeshFragment(features),
-      `mesh ${key}`,
+      buildMeshFragment(meshShaderFeatures(material, mesh, scene)),
+      `mesh ${key.toString(36)}`,
     );
     try {
       const uniforms: Record<string, WebGLUniformLocation | null> = {};
@@ -4850,6 +4855,7 @@ export class WebGL2Renderer implements Renderer {
       this.uniformValues.uniform1i(gl, uniforms.environmentMap, 6);
       const entry = { program, uniforms };
       this.meshPrograms.set(key, entry);
+      this.recentMeshProgram = key;
       if (this.meshPrograms.size > meshShaderVariantLimits.maxEntries) {
         const oldest = this.meshPrograms.entries().next().value;
         if (oldest) {

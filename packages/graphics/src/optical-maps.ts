@@ -60,6 +60,19 @@ export function opticalMapSources(
   ];
 }
 
+/** `opticalMapSources(material).some(Boolean)` without the per-draw array; same slots. */
+export function hasOpticalMapSources(material: PBRMaterial): boolean {
+  const legacy = pbrTextureSources(material);
+  const maps = opticalMaterialMaps(material);
+  return !!(
+    legacy.transmissionTexture ||
+    legacy.thicknessTexture ||
+    maps.anisotropyTexture ||
+    maps.iridescenceTexture ||
+    maps.iridescenceThicknessTexture
+  );
+}
+
 export function fillMappedOpticalSettings(
   material: PBRMaterial,
   data: Float32Array,

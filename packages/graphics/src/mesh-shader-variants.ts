@@ -112,12 +112,25 @@ const featureOrder: readonly (keyof MeshShaderFeatures)[] = [
   'iridescenceThicknessMap',
 ];
 
+/** Numeric variant key: renderers look programs up per draw without building a string. */
+export function meshShaderVariantBits(
+  material: TextureMaterial,
+  mesh?: Mesh,
+  scene?: Scene,
+): number {
+  return featureBits(meshShaderFeatures(material, mesh, scene));
+}
+
 export function meshShaderVariantKey(features: MeshShaderFeatures): string {
+  return featureBits(features).toString(36);
+}
+
+function featureBits(features: MeshShaderFeatures): number {
   let bits = 0;
   for (let i = 0; i < featureOrder.length; i++) {
     if (features[featureOrder[i]!]) bits |= 1 << i;
   }
-  return bits.toString(36);
+  return bits;
 }
 
 /** Extract an authored, balanced shader block. This only composes engine-owned templates. */

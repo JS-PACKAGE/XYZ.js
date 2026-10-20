@@ -8,4 +8,6 @@ export declare const mappedMaterialUVFloatCount: number;
  * shader texel addressing preserves independent filtering and wrap modes. */
 export declare function fillOpticalMapSettings(data: Float32Array, offset: number, texture: MaterialTexture | undefined, sampler: TextureSamplerOptions | undefined, maxAnisotropy?: number): void;
 export declare function opticalMapSources(material: PBRMaterial): readonly (MaterialTexture | undefined)[];
+/** `opticalMapSources(material).some(Boolean)` without the per-draw array; same slots. */
+export declare function hasOpticalMapSources(material: PBRMaterial): boolean;
 export declare function fillMappedOpticalSettings(material: PBRMaterial, data: Float32Array, offset: number, maxAnisotropy?: number): void;

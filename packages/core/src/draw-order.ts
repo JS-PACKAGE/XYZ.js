@@ -47,12 +47,18 @@ export class DrawSorter {
       active.push(entry);
     }
     if (active.length === 0) return;
-    // Array#sort is stable, so equal distances keep scene insertion order.
-    active.sort((a, b) => b.distance - a.distance);
+    // Array#sort is stable, so equal distances keep scene insertion order. The
+    // comparator returns small integers: a returned double difference is boxed
+    // on every comparison. NaN still compares equal, as the difference did.
+    active.sort(compareFarthestFirst);
     for (const entry of active) {
       draws[kept++] = entry.mesh!;
       entry.mesh = undefined;
     }
     active.length = 0;
   }
+}
+
+function compareFarthestFirst(a: SortEntry, b: SortEntry): number {
+  return b.distance > a.distance ? 1 : b.distance < a.distance ? -1 : 0;
 }

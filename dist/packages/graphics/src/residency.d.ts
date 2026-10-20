@@ -23,8 +23,8 @@ export declare class ResidencyPool implements ResidencyStats {
     private readonly allocations;
     private clock;
     private frame;
-    private readonly framePins;
-    private readonly lastFrame;
+    private framePins;
+    private lastFrame;
     private capture;
     get entries(): number;
     configure(bytes?: number): void;

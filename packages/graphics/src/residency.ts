@@ -34,8 +34,8 @@ export class ResidencyPool implements ResidencyStats {
   private readonly allocations = new Set<ResidencyAllocation>();
   private clock = 0;
   private frame = false;
-  private readonly framePins = new Set<ResidencyAllocation>();
-  private readonly lastFrame = new Set<ResidencyAllocation>();
+  private framePins = new Set<ResidencyAllocation>();
+  private lastFrame = new Set<ResidencyAllocation>();
   private capture: Set<ResidencyAllocation> | undefined;
   get entries(): number {
     return this.allocations.size;
@@ -65,9 +65,11 @@ export class ResidencyPool implements ResidencyStats {
   }
   endFrame(): void {
     this.frame = false;
-    this.lastFrame.clear();
-    for (const allocation of this.framePins) this.lastFrame.add(allocation);
-    this.framePins.clear();
+    // Swapping hands over the pins without re-adding every resource each frame.
+    const previous = this.lastFrame;
+    this.lastFrame = this.framePins;
+    this.framePins = previous;
+    previous.clear();
   }
   abortFrame(): void {
     this.frame = false;

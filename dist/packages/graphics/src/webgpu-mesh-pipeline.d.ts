@@ -64,7 +64,13 @@ export declare class WebGPUMeshPipeline {
     private proofWidth;
     private proofHeight;
     private proofMode;
+    /**
+     * Meshes any pass draws this frame, in first-seen order. Stamps dedupe them:
+     * refilling a cleared Set rehashed its table every frame.
+     */
     private readonly gathered;
+    private readonly gatheredEpochs;
+    private gatherEpoch;
     private occlusion;
     private readonly blendedDraw;
     private readonly meshes;
@@ -72,6 +78,8 @@ export declare class WebGPUMeshPipeline {
     private readonly premultipliedTextures;
     private readonly samplers;
     private readonly meshPipelines;
+    /** Last key moved to the LRU tail; repeated draws skip re-inserting it. */
+    private recentMeshPipeline;
     private readonly pendingMeshPipelines;
     private renderScene?;
     private readonly draws;

@@ -96,6 +96,7 @@ var WebGL2Renderer = class {
 	}
 	triangleProgram;
 	meshPrograms = /* @__PURE__ */ new Map();
+	recentMeshProgram = -1;
 	pendingPrograms = /* @__PURE__ */ new Set();
 	nativePreparations = /* @__PURE__ */ new Map();
 	parallelCompile = null;
@@ -755,11 +756,11 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 		this.coverageActive || this.releaseCoverageTarget(), e.transparency === `sorted` && this.drawSorter.sort(c, e.camera3D.position, this.isColorBlended);
 	}
 	cacheOpticalMaps(e) {
-		let t = require_optical_maps.opticalMapSources(e);
-		if (!t.some(Boolean)) {
+		if (!require_optical_maps.hasOpticalMapSources(e)) {
 			this.opticalTextures.get(e)?.allocation.destroy();
 			return;
 		}
+		let t = require_optical_maps.opticalMapSources(e);
 		if (t.some((e) => e?.destroyed)) throw new require_errors.GraphicsError(`WebGL2 optical map has been destroyed.`);
 		let n = this.opticalTextures.get(e), r = t.map((e) => e?.version ?? -1);
 		if (n && t.every((e, t) => n.sources[t] === e && n.sourceVersions[t] === r[t])) {
@@ -1283,32 +1284,32 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 		return t;
 	}
 	meshProgramFor(e, t, n) {
-		let r = this.requireGL(), i = require_mesh_shader_variants.meshShaderFeatures(e, t, n), a = require_mesh_shader_variants.meshShaderVariantKey(i), o = this.meshPrograms.get(a);
-		if (o) return this.meshPrograms.delete(a), this.meshPrograms.set(a, o), o;
-		let l = this.createProgram(r, require_webgl_feature_shaders.buildMeshVertex(), require_webgl_feature_shaders.buildMeshFragment(i), `mesh ${a}`);
+		let r = this.requireGL(), i = require_mesh_shader_variants.meshShaderVariantBits(e, t, n), a = this.meshPrograms.get(i);
+		if (a) return i !== this.recentMeshProgram && (this.meshPrograms.delete(i), this.meshPrograms.set(i, a), this.recentMeshProgram = i), a;
+		let o = this.createProgram(r, require_webgl_feature_shaders.buildMeshVertex(), require_webgl_feature_shaders.buildMeshFragment(require_mesh_shader_variants.meshShaderFeatures(e, t, n)), `mesh ${i.toString(36)}`);
 		try {
 			let e = {};
-			for (let t of Q) e[t] = r.getUniformLocation(l, t);
+			for (let t of Q) e[t] = r.getUniformLocation(o, t);
 			for (let [e, t] of [
 				[`ShadowData`, 0],
 				[`SheenLookup`, 1],
 				[`GGXLookup`, 2]
 			]) {
-				let n = r.getUniformBlockIndex(l, e);
-				n !== r.INVALID_INDEX && r.uniformBlockBinding(l, n, t);
+				let n = r.getUniformBlockIndex(o, e);
+				n !== r.INVALID_INDEX && r.uniformBlockBinding(o, n, t);
 			}
-			r.useProgram(l), this.uniformValues.uniform1i(r, e.image, 0), this.uniformValues.uniform1i(r, e.metallicRoughnessMap, 1), this.uniformValues.uniform1i(r, e.normalMap, 2), this.uniformValues.uniform1i(r, e.occlusionMap, 3), this.uniformValues.uniform1i(r, e.emissiveMap, 4), this.uniformValues.uniform1i(r, e.shadowMap, 5), this.uniformValues.uniform1i(r, e.environmentMap, 6);
+			r.useProgram(o), this.uniformValues.uniform1i(r, e.image, 0), this.uniformValues.uniform1i(r, e.metallicRoughnessMap, 1), this.uniformValues.uniform1i(r, e.normalMap, 2), this.uniformValues.uniform1i(r, e.occlusionMap, 3), this.uniformValues.uniform1i(r, e.emissiveMap, 4), this.uniformValues.uniform1i(r, e.shadowMap, 5), this.uniformValues.uniform1i(r, e.environmentMap, 6);
 			let t = {
-				program: l,
+				program: o,
 				uniforms: e
 			};
-			if (this.meshPrograms.set(a, t), this.meshPrograms.size > require_rendering.meshShaderVariantLimits.maxEntries) {
+			if (this.meshPrograms.set(i, t), this.recentMeshProgram = i, this.meshPrograms.size > require_rendering.meshShaderVariantLimits.maxEntries) {
 				let e = this.meshPrograms.entries().next().value;
 				e && (this.meshPrograms.delete(e[0]), r.deleteProgram(e[1].program));
 			}
 			return t;
 		} catch (e) {
-			throw r.deleteProgram(l), e;
+			throw r.deleteProgram(o), e;
 		}
 	}
 	async waitForProgram(e, t, n) {

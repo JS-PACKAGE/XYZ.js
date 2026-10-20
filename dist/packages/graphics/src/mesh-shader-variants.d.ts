@@ -30,6 +30,8 @@ export interface MeshShaderFeatures {
     native: boolean;
 }
 export declare function meshShaderFeatures(material: TextureMaterial, mesh?: Mesh, scene?: Scene): MeshShaderFeatures;
+/** Numeric variant key: renderers look programs up per draw without building a string. */
+export declare function meshShaderVariantBits(material: TextureMaterial, mesh?: Mesh, scene?: Scene): number;
 export declare function meshShaderVariantKey(features: MeshShaderFeatures): string;
 /** Extract an authored, balanced shader block. This only composes engine-owned templates. */
 export declare function omitShaderBlock(source: string, marker: string): string;
