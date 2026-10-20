@@ -2786,21 +2786,38 @@ export class WebGL2Renderer implements Renderer {
             8,
             this.maxTextureAnisotropy,
           );
-          gl.uniform4fv(
+          const optical = this.opticalSettings;
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.anisotropyMapSettings,
-            this.opticalSettings.subarray(8, 12),
+            optical[8]!,
+            optical[9]!,
+            optical[10]!,
+            optical[11]!,
           );
-          gl.uniform4fv(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.iridescenceMapSettings,
-            this.opticalSettings.subarray(12, 16),
+            optical[12]!,
+            optical[13]!,
+            optical[14]!,
+            optical[15]!,
           );
-          gl.uniform4fv(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.iridescenceThicknessMapSettings,
-            this.opticalSettings.subarray(16, 20),
+            optical[16]!,
+            optical[17]!,
+            optical[18]!,
+            optical[19]!,
           );
-          gl.uniform4fv(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.iridescenceThicknessRange,
-            this.opticalSettings.subarray(20, 24),
+            optical[20]!,
+            optical[21]!,
+            optical[22]!,
+            optical[23]!,
           );
           this.bindUnit(
             14,
