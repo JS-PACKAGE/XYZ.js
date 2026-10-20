@@ -735,7 +735,8 @@ export class PhysicsWorld2D {
   }
   private simulate(dt: number): void {
     this.sorted.length = 0;
-    this.liveness++;
+    // No bump here: every membership or identity change since the last step went through
+    // register/unregister or a dispatched callback, each of which already bumped the epoch.
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
     for (const proxy of this.owners.values()) {

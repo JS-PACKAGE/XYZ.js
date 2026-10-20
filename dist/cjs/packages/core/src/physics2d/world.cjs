@@ -352,7 +352,7 @@ var PhysicsWorld2D = class {
 		}
 	}
 	simulate(e) {
-		this.sorted.length = 0, this.liveness++, this.solveContacts.length = 0;
+		this.sorted.length = 0, this.solveContacts.length = 0;
 		let t = ++this.stepToken;
 		for (let t of this.owners.values()) {
 			if (!this.alive(t)) {
