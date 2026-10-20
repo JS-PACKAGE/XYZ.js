@@ -9,6 +9,7 @@ import { AnimationMixer } from './animation.js';
 import type { EnvironmentMap } from './environment.js';
 import type { PointLight, SpotLight } from './lights.js';
 import type { ReflectionProbe } from './reflection-probe.js';
+import type { TileMap } from './maps2d/tile-map.js';
 import { FogSettings, PostProcessingSettings, ShadowSettings } from './render-settings.js';
 import type { Game } from './game.js';
 import { SceneObject } from './scene-object.js';
@@ -161,6 +162,7 @@ export declare class Scene {
     private readonly registrations;
     private readonly registeredObjects;
     private registeredMeshes;
+    private registeredTileMaps;
     private meshRevision;
     private registeredGPUParticles;
     private cameraDependents;
@@ -181,6 +183,13 @@ export declare class Scene {
     get objects(): ReadonlySet<SceneObject>;
     /** @internal A lazy mesh-only membership view for native render collection. */
     get renderMeshes(): ReadonlySet<Mesh> | undefined;
+    /**
+     * @internal Registered TileMaps in registration order, so 2D render collection culls
+     * them without scanning every Scene object. TileMap maintains it from attach/detach.
+     */
+    get renderTileMaps(): ReadonlySet<TileMap> | undefined;
+    /** @internal Called only by TileMap.attach/detach. */
+    trackTileMap(map: TileMap, registered: boolean): void;
     /** @internal Membership changes only; mutable poses are checked independently. */
     get renderMeshRevision(): number;
     /** @internal Native emitters are lazy and do not enter the 2D update registry. */

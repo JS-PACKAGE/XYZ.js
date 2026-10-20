@@ -4,6 +4,7 @@ import { Group2D } from '../gameplay/group2d.js';
 import { SpriteSheet } from '../graphics2d/sprite-sheet.js';
 import { Collider2D } from '../physics2d/index.js';
 import type { Sprite } from '../sprite.js';
+import type { Scene } from '../scene.js';
 export interface TileMapOptions {
     columns: number;
     rows: number;
@@ -77,6 +78,10 @@ export declare class TileMap extends Group2D {
     /** Map-local viewport bounds; every slot's visibility derives from these alone. */
     private measureCulling;
     private cullSlot;
+    /** @internal Called only by Scene during registration. */
+    attach(scene: Scene): void;
+    /** @internal Called only by Scene during removal. */
+    detach(scene: Scene): void;
     update(deltaTime: number): void;
     destroy(): void;
 }

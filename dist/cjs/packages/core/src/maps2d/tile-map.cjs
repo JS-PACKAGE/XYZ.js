@@ -198,6 +198,12 @@ var TileMap = class extends require_group2d.Group2D {
 		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight;
 		t.renderEnabled = n.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
 	}
+	attach(e) {
+		super.attach(e), e.trackTileMap(this, !0);
+	}
+	detach(e) {
+		super.detach(e), e.trackTileMap(this, !1);
+	}
 	update(e) {
 		this.scene && this.updateCulling(this.scene.camera2D);
 	}

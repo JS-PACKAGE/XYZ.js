@@ -2,7 +2,6 @@ import type { Scene } from '../../core/src/scene.js';
 import { Sprite } from '../../core/src/sprite.js';
 import type { GraphicsBackend } from './index.js';
 import type { ColorRGBA } from '../../core/src/gameplay/contracts.js';
-import { TileMap, IsometricMap } from '../../core/src/maps2d/index.js';
 import { GameObject } from '../../core/src/game-object.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
@@ -255,12 +254,9 @@ export function collectRenderCommands2D(
   options?: RenderCollectionOptions2D,
 ): void {
   out.clear();
-  if (!options?.skipCulling) {
-    for (const object of scene.objects) {
-      if (object instanceof TileMap || object instanceof IsometricMap)
-        object.updateCulling(scene.camera2D, width, height);
-    }
-  }
+  if (!options?.skipCulling && scene.renderTileMaps)
+    for (const map of scene.renderTileMaps)
+      map.updateCulling(scene.camera2D, width, height);
   const root = options?.root;
   try {
     partitionBoundaries2D(

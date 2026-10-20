@@ -13,6 +13,10 @@ import {
 import { Scene } from '../packages/core/src/scene.js';
 import { Sprite } from '../packages/core/src/sprite.js';
 import { world2dLimits } from '../src/data/world2d.js';
+import {
+  collectRenderCommands2D,
+  RenderCommandBuffer2D,
+} from '../packages/graphics/src/render2d-contract.js';
 
 function sheet(): SpriteSheet {
   return new SpriteSheet(
@@ -194,6 +198,32 @@ describe('bounded atlas maps', () => {
     sprite(2, 2).visible = true;
     map.updateCulling(scene.camera2D);
     expect(sprite(2, 2).renderEnabled).toBe(true);
+  });
+
+  it('render collection culls exactly the maps currently registered in the Scene', () => {
+    const scene = new Scene();
+    scene.camera2D.resize(16, 8);
+    scene.camera2D.position.set(8, 4);
+    const map = scene.add(new TileMap(options()));
+    map.setTile(0, 0, { frame: 0 });
+    map.setTile(2, 2, { frame: 0 });
+    const near = graphics(map).find((child) => child.position.x === 0)!;
+    const far = graphics(map).find((child) => child.position.x === 64)!;
+    const commands = new RenderCommandBuffer2D();
+    // Only the render pass re-culls after this camera move.
+    scene.camera2D.position.set(72, 36);
+    collectRenderCommands2D(scene, 16, 8, commands);
+    expect([near.renderEnabled, far.renderEnabled]).toEqual([false, true]);
+    expect(commands.items.map((command) => command.object)).toEqual([far]);
+    // A removed map keeps its last culling; re-adding registers it again.
+    scene.remove(map);
+    scene.camera2D.position.set(8, 4);
+    collectRenderCommands2D(scene, 16, 8, commands);
+    expect([near.renderEnabled, far.renderEnabled]).toEqual([false, true]);
+    scene.add(map);
+    scene.camera2D.position.set(9, 4);
+    collectRenderCommands2D(scene, 16, 8, commands);
+    expect([near.renderEnabled, far.renderEnabled]).toEqual([true, false]);
   });
 
   it('rejects excess grids and invalid elevations before changing cells', () => {

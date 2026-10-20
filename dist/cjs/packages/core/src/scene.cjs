@@ -208,6 +208,7 @@ var Scene = class {
 	registrations = /* @__PURE__ */ new Map();
 	registeredObjects = /* @__PURE__ */ new Set();
 	registeredMeshes;
+	registeredTileMaps;
 	meshRevision = 0;
 	registeredGPUParticles;
 	cameraDependents;
@@ -232,6 +233,12 @@ var Scene = class {
 	}
 	get renderMeshes() {
 		return this.registeredMeshes;
+	}
+	get renderTileMaps() {
+		return this.registeredTileMaps;
+	}
+	trackTileMap(e, t) {
+		t ? (this.registeredTileMaps ??= /* @__PURE__ */ new Set()).add(e) : this.registeredTileMaps?.delete(e);
 	}
 	get renderMeshRevision() {
 		return this.meshRevision;

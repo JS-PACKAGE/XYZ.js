@@ -6,6 +6,7 @@ import { Group2D } from '../gameplay/group2d.js';
 import { SpriteSheet } from '../graphics2d/sprite-sheet.js';
 import { Collider2D, Colliders } from '../physics2d/index.js';
 import type { Sprite } from '../sprite.js';
+import type { Scene } from '../scene.js';
 
 export interface TileMapOptions {
   columns: number;
@@ -517,6 +518,18 @@ export class TileMap extends Group2D {
           x + this.tileWidth >= c.minX &&
           y <= c.maxY &&
           y + this.tileHeight >= c.minY));
+  }
+
+  /** @internal Called only by Scene during registration. */
+  override attach(scene: Scene): void {
+    super.attach(scene);
+    scene.trackTileMap(this, true);
+  }
+
+  /** @internal Called only by Scene during removal. */
+  override detach(scene: Scene): void {
+    super.detach(scene);
+    scene.trackTileMap(this, false);
   }
 
   override update(deltaTime: number): void {
