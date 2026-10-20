@@ -20,6 +20,8 @@ var Proxy = class {
 	sleepVisited = 0;
 	sleepReady = !1;
 	registration = 0;
+	sweepStamp = 0;
+	sweepKept = 0;
 	livenessStamp = -1;
 	live = !1;
 	ccdStopped = !1;
@@ -70,7 +72,7 @@ function boundedInteger(e, t, n) {
 	if (!Number.isInteger(e) || e < 1 || e > t) throw RangeError(`${n} must be an integer in [1, ${t}].`);
 	return e;
 }
-var compareBounds = (e, t) => e.geometry.minX - t.geometry.minX;
+var compareBounds = (e, t) => e.geometry.minX - t.geometry.minX || e.registration - t.registration;
 var continueSimulation = () => !0;
 var _ = require_game_object.GameObject.prototype.dispatchEvent;
 var v = require_scene_object.SceneObject.prototype.dispatchEvent;
@@ -84,6 +86,7 @@ var PhysicsWorld2D = class {
 	owners = /* @__PURE__ */ new Map();
 	proxies = /* @__PURE__ */ new Set();
 	sorted = [];
+	sweepOrder = [];
 	sweepNextActive = /* @__PURE__ */ new Int32Array();
 	activeContacts = /* @__PURE__ */ new Set();
 	solveContacts = [];
@@ -354,51 +357,56 @@ var PhysicsWorld2D = class {
 	simulate(e) {
 		this.sorted.length = 0, this.solveContacts.length = 0;
 		let t = ++this.stepToken;
-		for (let t of this.owners.values()) {
-			if (!this.alive(t)) {
-				this.unregister(t.owner);
+		for (let n of this.owners.values()) {
+			if (!this.alive(n)) {
+				this.unregister(n.owner);
 				continue;
 			}
-			t.refresh(), t.ccdStopped = !1;
-			let n = t.body;
-			if (n?.type === `dynamic`) {
-				let r = this.forceState(n);
-				r.consume(n, e), n.isSleeping || (require_collider.finite(n.velocity.x, `velocity.x`), require_collider.finite(n.velocity.y, `velocity.y`), t.owner.capturePhysicsPose(), n.velocity.x += (this.gravity.x * n.gravityScale + r.value[0] * t.inverseMass) * e, n.velocity.y += (this.gravity.y * n.gravityScale + r.value[1] * t.inverseMass) * e, n.velocity.scale(1 / (1 + n.linearDamping * e)), n.setSolverAngularVelocity(n.lockRotation ? 0 : (n.angularVelocity + r.value[5] * t.inverseInertia * e) / (1 + n.angularDamping * e)));
-			} else n?.type === `kinematic` && (require_collider.finite(n.velocity.x, `velocity.x`), require_collider.finite(n.velocity.y, `velocity.y`), require_collider.finite(n.angularVelocity, `angularVelocity`), t.owner.capturePhysicsPose());
-			for (let e of t.group) e.refresh(), this.sorted.push(e);
+			n.refresh(), n.ccdStopped = !1;
+			let r = n.body;
+			if (r?.type === `dynamic`) {
+				let t = this.forceState(r);
+				t.consume(r, e), r.isSleeping || (require_collider.finite(r.velocity.x, `velocity.x`), require_collider.finite(r.velocity.y, `velocity.y`), n.owner.capturePhysicsPose(), r.velocity.x += (this.gravity.x * r.gravityScale + t.value[0] * n.inverseMass) * e, r.velocity.y += (this.gravity.y * r.gravityScale + t.value[1] * n.inverseMass) * e, r.velocity.scale(1 / (1 + r.linearDamping * e)), r.setSolverAngularVelocity(r.lockRotation ? 0 : (r.angularVelocity + t.value[5] * n.inverseInertia * e) / (1 + r.angularDamping * e)));
+			} else r?.type === `kinematic` && (require_collider.finite(r.velocity.x, `velocity.x`), require_collider.finite(r.velocity.y, `velocity.y`), require_collider.finite(r.angularVelocity, `angularVelocity`), n.owner.capturePhysicsPose());
+			for (let e of n.group) e.refresh(), e.sweepStamp = t, this.sorted.push(e);
 		}
 		if (this.integrateContinuous(e, t), !this.continuation()) return;
-		this.sorted.sort(compareBounds);
-		let n = this.sorted.length;
-		this.sweepNextActive.length <= n && (this.sweepNextActive = new Int32Array(n * 2 + 1));
-		let r = this.sweepNextActive;
-		r[n] = n;
-		let i = !0;
-		for (let e = n - 1; e >= 0; e--) {
+		let n = this.sweepOrder, r = 0;
+		for (let e of n) e.sweepStamp === t && (e.sweepKept = t, n[r++] = e);
+		n.length = r;
+		for (let e of this.sorted) e.sweepKept !== t && n.push(e);
+		n.sort(compareBounds);
+		for (let e = 0; e < n.length; e++) this.sorted[e] = n[e];
+		let i = this.sorted.length;
+		this.sweepNextActive.length <= i && (this.sweepNextActive = new Int32Array(i * 2 + 1));
+		let a = this.sweepNextActive;
+		a[i] = i;
+		let s = !0;
+		for (let e = i - 1; e >= 0; e--) {
 			let t = this.sorted[e];
-			r[e] = t.inverseMass || t.collider.sensor ? e : r[e + 1], e > 0 && !(this.sorted[e - 1].geometry.minX <= t.geometry.minX) && (i = !1);
+			a[e] = t.inverseMass || t.collider.sensor ? e : a[e + 1], e > 0 && !(this.sorted[e - 1].geometry.minX <= t.geometry.minX) && (s = !1);
 		}
 		for (let e of this.activeContacts) {
 			let n = e.a.geometry, r = e.b.geometry;
 			(n.maxY < r.minY || r.maxY < n.minY) && (e.a.separating = e.b.separating = t);
 		}
-		let a = this.liveness;
+		let c = this.liveness;
 		for (let e = 0; e < this.sorted.length; e++) {
-			let o = this.sorted[e];
-			if (!this.alive(o)) continue;
-			let s = !o.inverseMass && !o.collider.sensor;
-			for (let c = e + 1; c < this.sorted.length && !(s && i && this.liveness === a && (c = r[c], c === n)); c++) {
-				let e = this.sorted[c];
-				if (e.geometry.minX > o.geometry.maxX) break;
-				if (s && !e.inverseMass && !e.collider.sensor || o.owner === e.owner || !this.alive(e) || !(o.collider.category & e.collider.mask) || !(e.collider.category & o.collider.mask)) continue;
-				let n = o.collider.sensor || e.collider.sensor;
-				if (o.group[0].joints.length && this.jointsBlockContact(o, e) || (o.geometry.maxY < e.geometry.minY || e.geometry.maxY < o.geometry.minY) && this.liveness === a && (o.separating !== t || e.separating !== t)) continue;
-				let r = o.contacts.get(e);
-				if (!r) {
-					if (!require_narrowphase.collide(o.geometry, e.geometry, this.queryManifold)) continue;
-					r = new Contact(o, e);
+			let n = this.sorted[e];
+			if (!this.alive(n)) continue;
+			let r = !n.inverseMass && !n.collider.sensor;
+			for (let o = e + 1; o < this.sorted.length && !(r && s && this.liveness === c && (o = a[o], o === i)); o++) {
+				let e = this.sorted[o];
+				if (e.geometry.minX > n.geometry.maxX) break;
+				if (r && !e.inverseMass && !e.collider.sensor || n.owner === e.owner || !this.alive(e) || !(n.collider.category & e.collider.mask) || !(e.collider.category & n.collider.mask)) continue;
+				let i = n.collider.sensor || e.collider.sensor;
+				if (n.group[0].joints.length && this.jointsBlockContact(n, e) || (n.geometry.maxY < e.geometry.minY || e.geometry.maxY < n.geometry.minY) && this.liveness === c && (n.separating !== t || e.separating !== t)) continue;
+				let a = n.contacts.get(e);
+				if (!a) {
+					if (!require_narrowphase.collide(n.geometry, e.geometry, this.queryManifold)) continue;
+					a = new Contact(n, e);
 				}
-				if (r.seen !== t && require_narrowphase.collide(o.geometry, e.geometry, r.manifold) && (r.sensor = n, r.seen = t, !r.active || n ? (o.body?.isSleeping && o.body.wake(), e.body?.isSleeping && e.body.wake()) : o.body?.type === `dynamic` && e.body?.type === `dynamic` && (!o.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && o.body.isSleeping && o.body.wake()), !this.activate(r, t) && !this.continuation())) return;
+				if (a.seen !== t && require_narrowphase.collide(n.geometry, e.geometry, a.manifold) && (a.sensor = i, a.seen = t, !a.active || i ? (n.body?.isSleeping && n.body.wake(), e.body?.isSleeping && e.body.wake()) : n.body?.type === `dynamic` && e.body?.type === `dynamic` && (!n.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && n.body.isSleeping && n.body.wake()), !this.activate(a, t) && !this.continuation())) return;
 			}
 		}
 		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
@@ -637,7 +645,7 @@ var PhysicsWorld2D = class {
 	}
 	clear() {
 		for (let e of this.owners.keys()) this.unregister(e);
-		this.sorted.length = 0, this.accumulator = 0;
+		this.sorted.length = 0, this.sweepOrder.length = 0, this.accumulator = 0;
 	}
 	destroy() {
 		this.destroyed || (this.clear(), this.disposed = !0);

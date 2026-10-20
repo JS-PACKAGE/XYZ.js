@@ -85,6 +85,8 @@ export declare class PhysicsWorld2D {
     private readonly owners;
     private readonly proxies;
     private readonly sorted;
+    /** Last step's sweep order; re-sorting it is near linear while bodies barely move. */
+    private readonly sweepOrder;
     /** Per sorted slot, the first slot at or after it with mass or a sensor; reused across steps. */
     private sweepNextActive;
     private readonly activeContacts;

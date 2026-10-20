@@ -106,6 +106,9 @@ class Proxy {
   sleepVisited = 0;
   sleepReady = false;
   registration = 0;
+  /** Step tokens: collected this step, and already kept from the last sweep order. */
+  sweepStamp = 0;
+  sweepKept = 0;
   /** World liveness epoch for which `live` holds; see PhysicsWorld2D.alive. */
   livenessStamp = -1;
   live = false;
@@ -183,8 +186,10 @@ function boundedInteger(value: number, maximum: number, name: string): number {
     throw new RangeError(`${name} must be an integer in [1, ${maximum}].`);
   return value;
 }
+// Registration rises along owner order, so the tie-break gives exactly the stable sort of
+// owner order by minX (a NaN difference also falls through, as it compared equal before).
 const compareBounds = (a: Proxy, b: Proxy): number =>
-  a.geometry.minX - b.geometry.minX;
+  a.geometry.minX - b.geometry.minX || a.registration - b.registration;
 const continueSimulation = (): boolean => true;
 // Collision dispatch must remain observable through subclass and prototype overrides.
 const dispatchGameObjectEvent = RuntimeGameObject.prototype.dispatchEvent;
@@ -202,6 +207,8 @@ export class PhysicsWorld2D {
   private readonly owners = new Map<GameObject, Proxy>();
   private readonly proxies = new Set<Proxy>();
   private readonly sorted: Proxy[] = [];
+  /** Last step's sweep order; re-sorting it is near linear while bodies barely move. */
+  private readonly sweepOrder: Proxy[] = [];
   /** Per sorted slot, the first slot at or after it with mass or a sensor; reused across steps. */
   private sweepNextActive = new Int32Array(0);
   private readonly activeContacts = new Set<Contact>();
@@ -779,12 +786,24 @@ export class PhysicsWorld2D {
       }
       for (const piece of proxy.group) {
         piece.refresh();
+        piece.sweepStamp = token;
         this.sorted.push(piece);
       }
     }
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
-    this.sorted.sort(compareBounds);
+    const order = this.sweepOrder;
+    let kept = 0;
+    for (const proxy of order)
+      if (proxy.sweepStamp === token) {
+        proxy.sweepKept = token;
+        order[kept++] = proxy;
+      }
+    order.length = kept;
+    for (const proxy of this.sorted)
+      if (proxy.sweepKept !== token) order.push(proxy);
+    order.sort(compareBounds);
+    for (let i = 0; i < order.length; i++) this.sorted[i] = order[i]!;
     // Lets a passive entry jump straight to its next possible partner.
     const count = this.sorted.length;
     if (this.sweepNextActive.length <= count)
@@ -1432,6 +1451,7 @@ export class PhysicsWorld2D {
   clear(): void {
     for (const owner of this.owners.keys()) this.unregister(owner);
     this.sorted.length = 0;
+    this.sweepOrder.length = 0;
     this.accumulator = 0;
   }
   destroy(): void {
