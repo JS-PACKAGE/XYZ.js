@@ -97,11 +97,15 @@ var WebGLRender2D = class {
 		let n = e.createVertexArray();
 		if (!n) throw new require_errors.GraphicsError(`WebGL2 could not allocate the 2D vertex array.`);
 		this.emptyVAO = n;
-		let [r, i, a, o, c, l, u] = render2DProgramSources();
-		this.quadProgram = this.register(t.createProgram(...r)), this.lightingProgram = this.register(t.createProgram(...i)), this.meshProgram = this.register(t.createProgram(...a)), this.particleProgram = this.register(t.createProgram(...o)), this.spriteProgram = this.register(t.createProgram(...c));
-		let d = e.createVertexArray(), f = e.createBuffer();
-		if (!d || !f) throw d && e.deleteVertexArray(d), f && e.deleteBuffer(f), new require_errors.GraphicsError(`WebGL2 sprite batch allocation failed.`);
-		this.spriteVAO = d, this.spriteBuffer = f, this.bindInstances(d, f, 0), this.passProgram = this.register(t.createProgram(...l)), this.blendProgram = this.register(t.createProgram(...u));
+		let r = null, i = null;
+		try {
+			let [n, a, o, c, l, u, d] = render2DProgramSources();
+			if (this.quadProgram = this.register(t.createProgram(...n)), this.lightingProgram = this.register(t.createProgram(...a)), this.meshProgram = this.register(t.createProgram(...o)), this.particleProgram = this.register(t.createProgram(...c)), this.spriteProgram = this.register(t.createProgram(...l)), r = e.createVertexArray(), i = e.createBuffer(), !r || !i) throw new require_errors.GraphicsError(`WebGL2 sprite batch allocation failed.`);
+			this.spriteVAO = r, this.spriteBuffer = i, this.bindInstances(r, i, 0), this.passProgram = this.register(t.createProgram(...u)), this.blendProgram = this.register(t.createProgram(...d));
+		} catch (t) {
+			for (let t of this.programs.keys()) e.deleteProgram(t);
+			throw r && e.deleteVertexArray(r), i && e.deleteBuffer(i), e.deleteVertexArray(n), t;
+		}
 	}
 	register(e) {
 		let t = this.programs.get(e);

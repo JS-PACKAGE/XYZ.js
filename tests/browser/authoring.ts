@@ -16,6 +16,7 @@ import {
   parseContentScene,
   Texture,
   AccessibilityManager,
+  logger,
 } from '../../src/index.js';
 import type {
   InputContext,
@@ -1065,6 +1066,47 @@ try {
         firstScene.destroy();
         firstTexture.destroy();
         firstCanvas.remove();
+        if (renderer === 'webgl2') {
+          // A link failure after several 2D programs exist must not leave any program alive.
+          const gl = WebGL2RenderingContext.prototype,
+            link = gl.getProgramParameter,
+            create = gl.createProgram,
+            remove = gl.deleteProgram;
+          let links = 0,
+            live = 0;
+          gl.getProgramParameter = function (program, name) {
+            return name === this.LINK_STATUS && ++links === 13
+              ? false
+              : link.call(this, program, name);
+          };
+          gl.createProgram = function () {
+            live++;
+            return create.call(this);
+          };
+          gl.deleteProgram = function (program) {
+            if (program) live--;
+            remove.call(this, program);
+          };
+          const failing = document.createElement('canvas'),
+            level = logger.level;
+          let rejected = false;
+          // The forced failure is expected; keep its diagnostic out of the console check.
+          logger.level = 'silent';
+          try {
+            await Game.create({ canvas: failing, renderer: 'webgl2' });
+          } catch {
+            rejected = true;
+          } finally {
+            logger.level = level;
+            gl.getProgramParameter = link;
+            gl.createProgram = create;
+            gl.deleteProgram = remove;
+          }
+          check(
+            rejected && links === 13 && live === 0,
+            'failed WebGL2 initialization releases every program it created',
+          );
+        }
         await nativeResidency();
         publish('complete');
       })().catch(fail);

@@ -192,25 +192,33 @@ export class WebGLRender2D {
     if (!vao)
       throw new GraphicsError('WebGL2 could not allocate the 2D vertex array.');
     this.emptyVAO = vao;
-    const [quad, lighting, mesh, particle, sprite, pass, blend] =
-      render2DProgramSources();
-    this.quadProgram = this.register(hooks.createProgram(...quad));
-    this.lightingProgram = this.register(hooks.createProgram(...lighting));
-    this.meshProgram = this.register(hooks.createProgram(...mesh));
-    this.particleProgram = this.register(hooks.createProgram(...particle));
-    this.spriteProgram = this.register(hooks.createProgram(...sprite));
-    const spriteVAO = gl.createVertexArray(),
+    let spriteVAO: WebGLVertexArrayObject | null = null,
+      spriteBuffer: WebGLBuffer | null = null;
+    try {
+      const [quad, lighting, mesh, particle, sprite, pass, blend] =
+        render2DProgramSources();
+      this.quadProgram = this.register(hooks.createProgram(...quad));
+      this.lightingProgram = this.register(hooks.createProgram(...lighting));
+      this.meshProgram = this.register(hooks.createProgram(...mesh));
+      this.particleProgram = this.register(hooks.createProgram(...particle));
+      this.spriteProgram = this.register(hooks.createProgram(...sprite));
+      spriteVAO = gl.createVertexArray();
       spriteBuffer = gl.createBuffer();
-    if (!spriteVAO || !spriteBuffer) {
+      if (!spriteVAO || !spriteBuffer)
+        throw new GraphicsError('WebGL2 sprite batch allocation failed.');
+      this.spriteVAO = spriteVAO;
+      this.spriteBuffer = spriteBuffer;
+      this.bindInstances(spriteVAO, spriteBuffer, 0);
+      this.passProgram = this.register(hooks.createProgram(...pass));
+      this.blendProgram = this.register(hooks.createProgram(...blend));
+    } catch (error) {
+      // A failed construction is never handed to the renderer to destroy.
+      for (const program of this.programs.keys()) gl.deleteProgram(program);
       if (spriteVAO) gl.deleteVertexArray(spriteVAO);
       if (spriteBuffer) gl.deleteBuffer(spriteBuffer);
-      throw new GraphicsError('WebGL2 sprite batch allocation failed.');
+      gl.deleteVertexArray(vao);
+      throw error;
     }
-    this.spriteVAO = spriteVAO;
-    this.spriteBuffer = spriteBuffer;
-    this.bindInstances(spriteVAO, spriteBuffer, 0);
-    this.passProgram = this.register(hooks.createProgram(...pass));
-    this.blendProgram = this.register(hooks.createProgram(...blend));
   }
 
   private register(program: WebGLProgram): Program2D {
