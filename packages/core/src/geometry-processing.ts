@@ -79,10 +79,10 @@ export function decodeHeightfieldGeometryRequest(
     typeof request.transferResult !== 'boolean'
   )
     throw new TypeError('Heightfield result transfer must be boolean.');
-  for (const height of request.heights) {
-    if (!Number.isFinite(height))
+  const heights = request.heights;
+  for (let i = 0; i < heights.length; i++)
+    if (!Number.isFinite(heights[i]))
       throw new RangeError('Height samples must be finite.');
-  }
   return request;
 }
 

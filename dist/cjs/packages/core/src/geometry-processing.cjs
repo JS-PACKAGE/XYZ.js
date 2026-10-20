@@ -11,7 +11,8 @@ function decodeHeightfieldGeometryRequest(t) {
 	if (!Number.isSafeInteger(n.iterations) || n.iterations < 0 || n.iterations > require_worker_jobs.workerJobLimits.geometryIterations) throw RangeError(`Heightfield iterations exceed the smoothing budget.`);
 	if (!Number.isFinite(n.smoothing) || n.smoothing < 0 || n.smoothing > 1 || !Number.isFinite(n.width) || n.width <= 0 || !Number.isFinite(n.depth) || n.depth <= 0 || !Number.isFinite(Math.fround(n.width)) || !Number.isFinite(Math.fround(n.depth)) || Math.fround(n.width) === 0 || Math.fround(n.depth) === 0) throw RangeError(`Heightfield extents and smoothing must be finite and in range.`);
 	if (n.transferResult !== void 0 && typeof n.transferResult != `boolean`) throw TypeError(`Heightfield result transfer must be boolean.`);
-	for (let e of n.heights) if (!Number.isFinite(e)) throw RangeError(`Height samples must be finite.`);
+	let i = n.heights;
+	for (let e = 0; e < i.length; e++) if (!Number.isFinite(i[e])) throw RangeError(`Height samples must be finite.`);
 	return n;
 }
 function processHeightfieldGeometry(e) {
