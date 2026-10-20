@@ -201,6 +201,9 @@ export class PhysicsWorld2D {
   private readonly owners = new Map<GameObject, Proxy>();
   private readonly proxies = new Set<Proxy>();
   private readonly sorted: Proxy[] = [];
+  /** Per-step copies of `sorted` minX and "has mass or is a sensor", reused across steps. */
+  private sweepMinX = new Float64Array(0);
+  private sweepActive = new Uint8Array(0);
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
 
@@ -779,6 +782,19 @@ export class PhysicsWorld2D {
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
     this.sorted.sort(compareBounds);
+    // Packed copies let a passive entry skip passive neighbours without touching each proxy.
+    const count = this.sorted.length;
+    if (this.sweepMinX.length < count) {
+      this.sweepMinX = new Float64Array(count * 2);
+      this.sweepActive = new Uint8Array(count * 2);
+    }
+    const minXs = this.sweepMinX,
+      actives = this.sweepActive;
+    for (let i = 0; i < count; i++) {
+      const proxy = this.sorted[i]!;
+      minXs[i] = proxy.geometry.minX;
+      actives[i] = proxy.inverseMass || proxy.collider.sensor ? 1 : 0;
+    }
     // Pieces with an existing contact whose bounds no longer overlap in Y. Only those pairs can
     // need the lookup below (collide() resets a separating contact's manifold); other Y-separated
     // candidates would fail collide()'s bounds test without side effects.
@@ -797,6 +813,12 @@ export class PhysicsWorld2D {
       // testing this cheapest one first changes nothing but the cost of static neighbours.
       const passive = !a.inverseMass && !a.collider.sensor;
       for (let j = i + 1; j < this.sorted.length; j++) {
+        // The copies are exact until a user callback (which bumps liveness) could edit them.
+        if (passive && this.liveness === liveness) {
+          const maxX = a.geometry.maxX;
+          while (j < count && minXs[j]! <= maxX && !actives[j]) j++;
+          if (j === count) break;
+        }
         const b = this.sorted[j];
         if (b.geometry.minX > a.geometry.maxX) break;
         if (passive && !b.inverseMass && !b.collider.sensor) continue;
