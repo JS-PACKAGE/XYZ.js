@@ -132,6 +132,22 @@ const meshUniformFloats =
   PBR_FINISH_FLOATS +
   40 +
   16;
+/** Mesh uniform sections after the native-material words; see updateMesh. */
+const uvOffset =
+    76 + REFLECTION_FLOAT_COUNT + nativeMaterial3DLimits.uniformFloats + 4,
+  finishOffset = meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
+  irradianceOffset = meshUniformFloats - 16 - 40,
+  opticalOffset = meshUniformFloats - 16;
+/** Lets the shared PBR block fill UV transforms; each mesh still checks its own UV1. */
+const anyUV1: Pick<Geometry, 'uvs1'> = { uvs1: new Float32Array(0) };
+/** One render's material-derived uniform words for every mesh using a PBRMaterial. */
+interface PBRBlock {
+  readonly data: Float32Array;
+  readonly bits: Uint32Array;
+  revision: number;
+  frame: number;
+  needsUV1: boolean;
+}
 
 interface CachedGeometry {
   allocation: ResidencyAllocation;
@@ -173,6 +189,9 @@ interface CachedMesh {
   sceneSent: Uint32Array;
   /** Probe blend revision held by `uniform`; -1 until first upload. */
   probeRevision: number;
+  /** PBR block `data` copied into `data` (and uploaded) last; undefined otherwise. */
+  blockMaterial: PBRMaterial | undefined;
+  blockRevision: number;
   sceneGroup?: GPUBindGroup;
   sceneShadow?: GPUTextureView;
   sceneRefraction?: GPUTextureView;
@@ -402,6 +421,12 @@ export class WebGPUMeshPipeline {
   private readonly probeBlend = new Float32Array(REFLECTION_FLOAT_COUNT);
   private readonly probeBlendNext = new Float32Array(REFLECTION_FLOAT_COUNT);
   private probeBlendRevision = 0;
+  private readonly pbrBlocks = new WeakMap<PBRMaterial, PBRBlock>();
+  private readonly pbrBlockScratch = new Float32Array(meshUniformFloats);
+  private readonly pbrBlockScratchBits = new Uint32Array(
+    this.pbrBlockScratch.buffer,
+  );
+  private readonly uvCheck = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
   private readonly temporalState = new TemporalPostState();
   private readonly temporal: WebGPUTemporalPipeline;
   private temporalActive = false;
@@ -3101,6 +3126,8 @@ export class WebGPUMeshPipeline {
         sceneSpots: 0,
         sceneSent: new Uint32Array(this.sceneData.length),
         probeRevision: -1,
+        blockMaterial: undefined,
+        blockRevision: -1,
         sceneBuffer: this.device.createBuffer({
           size: this.sceneData.byteLength,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -3337,87 +3364,163 @@ export class WebGPUMeshPipeline {
     }
   }
 
-  private updateMesh(scene: Scene, object: Mesh, mesh: CachedMesh): void {
-    const material = object.material;
-    const data = mesh.data;
-    data.set(object.worldMatrix.elements, 0);
+  /** The material-derived words of `updateMesh`, refreshed once per render. */
+  private pbrBlock(material: PBRMaterial): PBRBlock {
+    let block = this.pbrBlocks.get(material);
+    if (block?.frame === this.frame) return block;
+    const data = this.pbrBlockScratch;
+    data.fill(0);
     data[16] = material.color[0];
     data[17] = material.color[1];
     data[18] = material.color[2];
     data[19] = material.opacity;
+    const sources = pbrTextureSources(material);
+    data[20] = 1;
+    data[21] = material.metallic;
+    data[22] = material.roughness;
+    data[23] = material.normalScale;
+    data[24] = material.emissive[0];
+    data[25] = material.emissive[1];
+    data[26] = material.emissive[2];
+    data[27] = material.occlusionStrength;
+    data[28] = sources.metallicRoughnessTexture ? 1 : 0;
+    data[29] = sources.normalTexture ? 1 : 0;
+    data[30] = sources.occlusionTexture ? 1 : 0;
+    data[31] = pbrEmissiveSlot(material).mode;
+    data[32] = material.alphaCutoff;
+    data[33] = material.doubleSided ? 1 : 0;
+    data[35] =
+      material.alphaMode === 'OPAQUE'
+        ? 0
+        : material.alphaMode === 'MASK'
+          ? 1
+          : 2;
+    data[36] = material.specularColor[0];
+    data[37] = material.specularColor[1];
+    data[38] = material.specularColor[2];
+    data[39] =
+      material.ior === 0 ? 1 : ((material.ior - 1) / (material.ior + 1)) ** 2;
+    data[40] = material.specular;
+    data[41] = material.ior === 0 ? 1 : 0;
+    data[42] = sources.specularTexture ? 1 : 0;
+    data[43] = sources.specularColorTexture ? 1 : 0;
+    data[44] = material.clearcoat;
+    data[45] = material.clearcoatRoughness;
+    data[46] = material.clearcoatNormalScale;
+    data[48] = sources.clearcoatTexture ? 1 : 0;
+    data[49] = sources.clearcoatRoughnessTexture ? 1 : 0;
+    data[50] = sources.clearcoatNormalTexture ? 1 : 0;
+    data[51] = materialBaseTexture(material).kind === 'native' ? 1 : 0;
+    data[52] = material.sheenColor[0];
+    data[53] = material.sheenColor[1];
+    data[54] = material.sheenColor[2];
+    data[55] = material.sheenRoughness;
+    data[56] = sources.sheenColorTexture ? 1 : 0;
+    data[57] = sources.sheenRoughnessTexture ? 1 : 0;
+    data[58] = material.specularAntiAliasing;
+    data[59] = material.alphaToCoverage ? 1 : 0;
+    data[60] = material.transmission;
+    data[61] = material.thickness;
+    data[62] = 1 / material.attenuationDistance;
+    data[63] = material.ior;
+    data[64] = material.attenuationColor[0];
+    data[65] = material.attenuationColor[1];
+    data[66] = material.attenuationColor[2];
+    fillOpticalMapSettings(
+      data,
+      68,
+      sources.transmissionTexture,
+      material.transmissionSampler,
+    );
+    fillOpticalMapSettings(
+      data,
+      72,
+      sources.thicknessTexture,
+      material.thicknessSampler,
+    );
+    fillMaterialUV(material, anyUV1, data, uvOffset);
+    fillPBRFinish(material, data, finishOffset);
+    fillMappedOpticalSettings(material, data, opticalOffset);
+    let needsUV1 = false;
+    for (
+      let at = uvOffset + 6;
+      at < uvOffset + MATERIAL_UV_FLOAT_COUNT;
+      at += 8
+    )
+      if (data[at] === 1) needsUV1 = true;
+    if (!block) {
+      const copy = data.slice();
+      block = {
+        data: copy,
+        bits: new Uint32Array(copy.buffer),
+        revision: 0,
+        frame: this.frame,
+        needsUV1,
+      };
+      this.pbrBlocks.set(material, block);
+      return block;
+    }
+    const bits = this.pbrBlockScratchBits;
+    for (let i = 0; i < bits.length; i++)
+      if (bits[i] !== block.bits[i]) {
+        block.data.set(data);
+        block.revision++;
+        break;
+      }
+    block.frame = this.frame;
+    block.needsUV1 = needsUV1;
+    return block;
+  }
+
+  private updateMesh(scene: Scene, object: Mesh, mesh: CachedMesh): void {
+    const material = object.material;
+    const data = mesh.data;
+    data.set(object.worldMatrix.elements, 0);
+    const customOffset = 76 + REFLECTION_FLOAT_COUNT;
+    // PBR fields are filled once per render into a block shared by every mesh of the
+    // material. A mesh copies them, and diffs them for upload, only when the block changed
+    // since it last did; otherwise its GPU copy already holds them.
+    let materialSent = false;
     if (material instanceof PBRMaterial) {
-      data[20] = 1;
-      data[21] = material.metallic;
-      data[22] = material.roughness;
-      data[23] = material.normalScale;
-      data[24] = material.emissive[0];
-      data[25] = material.emissive[1];
-      data[26] = material.emissive[2];
-      data[27] = material.occlusionStrength;
-      data[28] = pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0;
-      data[29] = pbrTextureSources(material).normalTexture ? 1 : 0;
-      data[30] = pbrTextureSources(material).occlusionTexture ? 1 : 0;
-      data[31] = pbrEmissiveSlot(material).mode;
-      data[32] = material.alphaCutoff;
-      data[33] = material.doubleSided ? 1 : 0;
-      data[36] = material.specularColor[0];
-      data[37] = material.specularColor[1];
-      data[38] = material.specularColor[2];
-      data[39] =
-        material.ior === 0 ? 1 : ((material.ior - 1) / (material.ior + 1)) ** 2;
-      data[40] = material.specular;
-      data[41] = material.ior === 0 ? 1 : 0;
-      data[42] = pbrTextureSources(material).specularTexture ? 1 : 0;
-      data[43] = pbrTextureSources(material).specularColorTexture ? 1 : 0;
-      data[44] = material.clearcoat;
-      data[45] = material.clearcoatRoughness;
-      data[46] = material.clearcoatNormalScale;
-      data[48] = pbrTextureSources(material).clearcoatTexture ? 1 : 0;
-      data[49] = pbrTextureSources(material).clearcoatRoughnessTexture ? 1 : 0;
-      data[50] = pbrTextureSources(material).clearcoatNormalTexture ? 1 : 0;
-      data[52] = material.sheenColor[0];
-      data[53] = material.sheenColor[1];
-      data[54] = material.sheenColor[2];
-      data[55] = material.sheenRoughness;
-      data[56] = pbrTextureSources(material).sheenColorTexture ? 1 : 0;
-      data[57] = pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0;
-      data[58] = material.specularAntiAliasing;
-      data[59] = material.alphaToCoverage ? 1 : 0;
-      data[60] = material.transmission;
-      data[61] = material.thickness;
-      data[62] = 1 / material.attenuationDistance;
-      data[63] = material.ior;
-      data[64] = material.attenuationColor[0];
-      data[65] = material.attenuationColor[1];
-      data[66] = material.attenuationColor[2];
-      fillOpticalMapSettings(
-        data,
-        68,
-        pbrTextureSources(material).transmissionTexture,
-        material.transmissionSampler,
-      );
-      fillOpticalMapSettings(
-        data,
-        72,
-        pbrTextureSources(material).thicknessTexture,
-        material.thicknessSampler,
-      );
-      data[35] =
-        material.alphaMode === 'OPAQUE'
-          ? 0
-          : material.alphaMode === 'MASK'
-            ? 1
-            : 2;
+      const block = this.pbrBlock(material);
+      if (block.needsUV1 && !object.renderGeometry.uvs1)
+        // Throws the missing-TEXCOORD_1 error for this mesh's geometry.
+        fillMaterialUV(material, object.renderGeometry, this.uvCheck);
+      if (
+        mesh.blockMaterial === material &&
+        mesh.blockRevision === block.revision
+      )
+        materialSent = true;
+      else {
+        const source = block.data;
+        data.set(source.subarray(16, 76), 16);
+        data.set(
+          source.subarray(uvOffset, uvOffset + MATERIAL_UV_FLOAT_COUNT),
+          uvOffset,
+        );
+        data.set(source.subarray(finishOffset, irradianceOffset), finishOffset);
+        data.set(source.subarray(opticalOffset), opticalOffset);
+        mesh.blockMaterial = material;
+        mesh.blockRevision = block.revision;
+      }
     } else {
+      mesh.blockMaterial = undefined;
+      data[16] = material.color[0];
+      data[17] = material.color[1];
+      data[18] = material.color[2];
+      data[19] = material.opacity;
       data[20] = 0;
       data[32] = 0;
       data[33] = 1;
+      data[51] = materialBaseTexture(material).kind === 'native' ? 1 : 0;
+      if (isNativeMaterial3D(material))
+        data.set(material.uniforms, customOffset);
+      fillMaterialUV(material, object.renderGeometry, data, uvOffset);
+      data.fill(0, finishOffset, irradianceOffset);
+      data.fill(0, opticalOffset);
     }
     data[34] = object.receiveShadow ? 1 : 0;
     data[47] = object instanceof SkinnedMesh ? 1 : 0;
-    data[51] = materialBaseTexture(material).kind === 'native' ? 1 : 0;
-    const customOffset = 76 + REFLECTION_FLOAT_COUNT;
-    if (isNativeMaterial3D(material)) data.set(material.uniforms, customOffset);
     const visibility = this.visibility.entries.get(object);
     data[customOffset + nativeMaterial3DLimits.uniformFloats] =
       visibility?.fade ?? 1;
@@ -3425,28 +3528,7 @@ export class WebGPUMeshPipeline {
       object.renderGeometry.tangentTexCoord;
     data[customOffset + nativeMaterial3DLimits.uniformFloats + 2] =
       object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1;
-    fillMaterialUV(
-      material,
-      object.renderGeometry,
-      data,
-      customOffset + nativeMaterial3DLimits.uniformFloats + 4,
-    );
-    if (material instanceof PBRMaterial)
-      fillPBRFinish(
-        material,
-        data,
-        meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
-      );
-    else
-      data.fill(
-        0,
-        meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
-        meshUniformFloats - 16 - 40,
-      );
-    fillMeshIrradiance(object, data, meshUniformFloats - 16 - 40);
-    if (material instanceof PBRMaterial)
-      fillMappedOpticalSettings(material, data, meshUniformFloats - 16);
-    else data.fill(0, meshUniformFloats - 16);
+    fillMeshIrradiance(object, data, irradianceOffset);
     const packed = visibility?.instances;
     if (
       packed &&
@@ -3526,25 +3608,24 @@ export class WebGPUMeshPipeline {
       after = reflection + REFLECTION_FLOAT_COUNT,
       queue = this.device.queue;
     let bytes: number;
-    if (mesh.probeRevision === this.probeBlendRevision)
-      bytes =
+    if (mesh.probeRevision === this.probeBlendRevision) {
+      const span = (start: number, end: number): number =>
         uploadChangedSpan(
           queue,
           mesh.uniform,
           mesh.bits,
           mesh.sent,
-          0,
-          reflection,
-        ) +
-        uploadChangedSpan(
-          queue,
-          mesh.uniform,
-          mesh.bits,
-          mesh.sent,
-          after,
-          data.length,
+          start,
+          end,
         );
-    else {
+      const perObject = customOffset + nativeMaterial3DLimits.uniformFloats;
+      bytes = materialSent
+        ? // Only the matrix, shadow/skin flags, fade/tangent words and irradiance can differ.
+          span(0, 48) +
+          span(perObject, perObject + 3) +
+          span(irradianceOffset, irradianceOffset + 40)
+        : span(0, reflection) + span(after, data.length);
+    } else {
       data.set(this.probeBlend, reflection);
       bytes = uploadChangedSpan(
         queue,

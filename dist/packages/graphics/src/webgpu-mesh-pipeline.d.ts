@@ -107,6 +107,10 @@ export declare class WebGPUMeshPipeline {
     private readonly probeBlend;
     private readonly probeBlendNext;
     private probeBlendRevision;
+    private readonly pbrBlocks;
+    private readonly pbrBlockScratch;
+    private readonly pbrBlockScratchBits;
+    private readonly uvCheck;
     private readonly temporalState;
     private readonly temporal;
     private temporalActive;
@@ -227,6 +231,8 @@ export declare class WebGPUMeshPipeline {
     private cacheSampler;
     private cacheOpticalMaps;
     private cacheTexture;
+    /** The material-derived words of `updateMesh`, refreshed once per render. */
+    private pbrBlock;
     private updateMesh;
     private releaseUnused;
     private releaseUnusedTextures;

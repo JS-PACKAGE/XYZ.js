@@ -8,7 +8,7 @@ import { GraphicsError } from './errors.js';
 /** Shared GPU/std140 affine ABI: [a,b,c,d], then [tx,ty,UV selector,0]. */
 export function fillMaterialUV(
   material: TextureMaterial,
-  geometry: Geometry,
+  geometry: Pick<Geometry, 'uvs1'>,
   out: Float32Array,
   offset = 0,
 ): void {
