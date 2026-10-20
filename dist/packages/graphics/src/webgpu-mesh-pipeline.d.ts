@@ -92,6 +92,9 @@ export declare class WebGPUMeshPipeline {
     readonly stats: FrameStats;
     private readonly sceneData;
     private readonly sceneBits;
+    /** Scene blocks reused across renders; see prepareScene. */
+    private readonly sceneSlots;
+    private readonly sceneSlotIndex;
     private readonly fogData;
     private readonly invViewProjection;
     private readonly environments;

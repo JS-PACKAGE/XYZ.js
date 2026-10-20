@@ -67,6 +67,8 @@ import { validateNativeMaterialGPU } from './native-material-limits.js';
 import { sheenDirectionalAlbedo } from '../../../src/data/sheen.js';
 import { ggxDirectionalAlbedo } from '../../../src/data/brdf.js';
 import type { Geometry } from '../../core/src/geometry.js';
+import type { PointLight, SpotLight } from '../../core/src/lights.js';
+import type { SelectedLights } from '../../core/src/light-selection.js';
 import type { Texture2DSource } from '../../assets/src/index.js';
 import type { MaterialTexture } from '../../assets/src/texture2d.js';
 import { NativeTexture2D } from '../../assets/src/native-texture.js';
@@ -181,26 +183,64 @@ interface CachedMesh {
   bits: Uint32Array;
   sent: Uint32Array;
   seen: number;
-  sceneBuffer: GPUBuffer;
-  /** Light counts of the last scene upload; slots beyond them hold zeros. */
-  scenePoints: number;
-  sceneSpots: number;
-  /** Bits `sceneBuffer` holds (zero like a new buffer). */
-  sceneSent: Uint32Array;
+  /** Shared scene block for this render's light selection; see prepareScene. */
+  sceneSlot: SceneSlot | undefined;
   /** Probe blend revision held by `uniform`; -1 until first upload. */
   probeRevision: number;
   /** PBR block `data` copied into `data` (and uploaded) last; undefined otherwise. */
   blockMaterial: PBRMaterial | undefined;
   blockRevision: number;
-  sceneGroup?: GPUBindGroup;
-  sceneShadow?: GPUTextureView;
-  sceneRefraction?: GPUTextureView;
-  sceneEnvironment?: GPUTextureView;
-  sceneContact?: GPUBuffer;
   visibleInstance?: GPUBuffer;
   visibleColors?: GPUBuffer;
   visibilityVersion?: number;
   visibilityPayload?: VisibleInstances;
+}
+/**
+ * One scene uniform block (camera, lights, fog) shared by every draw whose light selection
+ * matches. Blocks differ only by their selected lights, so meshes no longer each upload a
+ * private copy whenever the camera moves.
+ */
+interface SceneSlot {
+  readonly buffer: GPUBuffer;
+  /** Light counts of the last upload; entries beyond them hold zeros. */
+  scenePoints: number;
+  sceneSpots: number;
+  /** Bits `buffer` holds (zero like a new buffer). */
+  readonly sceneSent: Uint32Array;
+  /** The selection this render assigned, by light identity and order. */
+  readonly points: PointLight[];
+  readonly spots: SpotLight[];
+  group?: GPUBindGroup;
+  groupShadow?: GPUTextureView;
+  groupRefraction?: GPUTextureView;
+  groupEnvironment?: GPUTextureView;
+  groupContact?: GPUBuffer;
+}
+function sameSelection(slot: SceneSlot, selected: SelectedLights): boolean {
+  const points = selected.pointLights,
+    spots = selected.spotLights;
+  if (
+    points.length !== slot.points.length ||
+    spots.length !== slot.spots.length
+  )
+    return false;
+  for (let i = 0; i < points.length; i++)
+    if (points[i] !== slot.points[i]) return false;
+  for (let i = 0; i < spots.length; i++)
+    if (spots[i] !== slot.spots[i]) return false;
+  return true;
+}
+function copySelection(slot: SceneSlot, selected: SelectedLights): void {
+  slot.points.length = slot.spots.length = 0;
+  slot.points.push(...selected.pointLights);
+  slot.spots.push(...selected.spotLights);
+}
+/** Groups equal selections; exact equality is still checked with `sameSelection`. */
+function selectionKey(selected: SelectedLights): number {
+  let key = selected.pointLights.length * 64 + selected.spotLights.length;
+  for (const light of selected.pointLights) key = (key * 31 + light.id) | 0;
+  for (const light of selected.spotLights) key = (key * 31 + light.id) | 0;
+  return key;
 }
 interface CachedTexture {
   allocation: ResidencyAllocation;
@@ -406,6 +446,9 @@ export class WebGPUMeshPipeline {
   readonly stats: FrameStats;
   private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 36);
   private readonly sceneBits = new Uint32Array(this.sceneData.buffer);
+  /** Scene blocks reused across renders; see prepareScene. */
+  private readonly sceneSlots: SceneSlot[] = [];
+  private readonly sceneSlotIndex = new Map<number, SceneSlot[]>();
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
@@ -1668,25 +1711,62 @@ export class WebGPUMeshPipeline {
     data[tail + 34] = this.proofHeight;
     this.device.queue.writeBuffer(this.sceneBuffer, 0, data);
     this.stats.upload(data.byteLength);
+    // The block differs between draws only by the selected lights (fillLightingData zeroes
+    // everything past the counts), so draws with the same selection share one slot and its
+    // upload. Slots are reassigned in draw order each render, keeping their diffs small.
+    const slots = this.sceneSlots;
+    let used = 0,
+      previous: SceneSlot | undefined;
+    this.sceneSlotIndex.clear();
     for (const object of this.visibleDraws) {
       const mesh = this.meshes.get(object)!;
-      fillLightingData(
-        scene,
-        this.lightingData,
-        scene.lightSelection.selectMesh(object),
-      );
-      data.set(this.lightingData, 20);
-      data[30] = linear ? 1 : 0;
-      this.stats.upload(
-        uploadSceneBlock(
-          this.device.queue,
-          mesh.sceneBuffer,
-          data,
-          this.sceneBits,
-          mesh,
-        ),
-      );
+      const selected = scene.lightSelection.selectMesh(object);
+      let slot =
+        previous && sameSelection(previous, selected) ? previous : undefined;
+      if (!slot) {
+        const key = selectionKey(selected);
+        const candidates = this.sceneSlotIndex.get(key);
+        if (candidates)
+          for (const candidate of candidates)
+            if (sameSelection(candidate, selected)) {
+              slot = candidate;
+              break;
+            }
+        if (!slot) {
+          slot = slots[used] ??= {
+            buffer: this.device.createBuffer({
+              size: data.byteLength,
+              usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+            }),
+            scenePoints: 0,
+            sceneSpots: 0,
+            sceneSent: new Uint32Array(data.length),
+            points: [],
+            spots: [],
+          };
+          used++;
+          copySelection(slot, selected);
+          if (candidates) candidates.push(slot);
+          else this.sceneSlotIndex.set(key, [slot]);
+          fillLightingData(scene, this.lightingData, selected);
+          data.set(this.lightingData, 20);
+          data[30] = linear ? 1 : 0;
+          this.stats.upload(
+            uploadSceneBlock(
+              this.device.queue,
+              slot.buffer,
+              data,
+              this.sceneBits,
+              slot,
+            ),
+          );
+        }
+      }
+      mesh.sceneSlot = previous = slot;
     }
+    // A render needing far fewer selections than an earlier peak frees the surplus.
+    if (slots.length > used * 2 + 16)
+      while (slots.length > used) slots.pop()!.buffer.destroy();
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
     this.stats.upload(this.atlas.data.byteLength);
     if (this.atlas.count)
@@ -2244,30 +2324,31 @@ export class WebGPUMeshPipeline {
   }
 
   private reflectionGroup(entry: CachedMesh): GPUBindGroup {
+    const slot = entry.sceneSlot!;
     const view = this.environmentView;
     const shadow = this.shadowView ?? this.emptyShadowView;
     const refraction = this.refractionView ?? this.dummyEnvironmentView;
     const contact = this.contactDepthBuffer ?? this.identityBuffer;
     if (
-      !entry.sceneGroup ||
-      entry.sceneEnvironment !== view ||
-      entry.sceneShadow !== shadow ||
-      entry.sceneRefraction !== refraction ||
-      entry.sceneContact !== contact
+      !slot.group ||
+      slot.groupEnvironment !== view ||
+      slot.groupShadow !== shadow ||
+      slot.groupRefraction !== refraction ||
+      slot.groupContact !== contact
     ) {
-      entry.sceneGroup = this.createSceneGroup(
+      slot.group = this.createSceneGroup(
         shadow,
         refraction,
         view,
-        entry.sceneBuffer,
+        slot.buffer,
         contact,
       );
-      entry.sceneEnvironment = view;
-      entry.sceneShadow = shadow;
-      entry.sceneRefraction = refraction;
-      entry.sceneContact = contact;
+      slot.groupEnvironment = view;
+      slot.groupShadow = shadow;
+      slot.groupRefraction = refraction;
+      slot.groupContact = contact;
     }
-    return entry.sceneGroup;
+    return slot.group;
   }
 
   private releaseContactDepth(): void {
@@ -2896,7 +2977,6 @@ export class WebGPUMeshPipeline {
     if (existing) {
       existing.allocation.resize(
         existing.uniform.size +
-          existing.sceneBuffer.size +
           (existing.visibleInstance?.size ?? 0) +
           (existing.visibleColors?.size ?? 0) +
           skinBytes +
@@ -2923,7 +3003,6 @@ export class WebGPUMeshPipeline {
       existing?.allocation ??
       this.residency.geometry.allocate(
         meshUniformFloats * 4 +
-          this.sceneData.byteLength +
           skinBytes +
           (object instanceof InstancedMesh
             ? object.matrices.byteLength + (object.colors?.byteLength ?? 0)
@@ -2932,7 +3011,6 @@ export class WebGPUMeshPipeline {
           const cached = this.meshes.get(object);
           if (!cached) return;
           cached.uniform.destroy();
-          cached.sceneBuffer.destroy();
           cached.visibleInstance?.destroy();
           cached.visibleColors?.destroy();
           cached.instanceColors?.destroy();
@@ -3122,16 +3200,10 @@ export class WebGPUMeshPipeline {
         data: uniformData,
         bits: new Uint32Array(uniformData.buffer),
         sent: new Uint32Array(meshUniformFloats),
-        scenePoints: 0,
-        sceneSpots: 0,
-        sceneSent: new Uint32Array(this.sceneData.length),
+        sceneSlot: undefined,
         probeRevision: -1,
         blockMaterial: undefined,
         blockRevision: -1,
-        sceneBuffer: this.device.createBuffer({
-          size: this.sceneData.byteLength,
-          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
-        }),
         seen: this.frame,
       };
       entry.textureEpoch = this.textureEpoch;
@@ -3547,7 +3619,6 @@ export class WebGPUMeshPipeline {
     ) {
       mesh.allocation.resize(
         mesh.uniform.size +
-          mesh.sceneBuffer.size +
           mesh.instance.size +
           (mesh.instanceColors?.size ?? 0) +
           (mesh.palette?.size ?? 0) +
@@ -3736,6 +3807,9 @@ export class WebGPUMeshPipeline {
     this.shadowTexture = undefined;
     this.shadowView = undefined;
     this.sceneBuffer.destroy();
+    for (const slot of this.sceneSlots) slot.buffer.destroy();
+    this.sceneSlots.length = 0;
+    this.sceneSlotIndex.clear();
     this.shadowBuffer.destroy();
     this.sheenBuffer.destroy();
     this.brdfBuffer.destroy();
