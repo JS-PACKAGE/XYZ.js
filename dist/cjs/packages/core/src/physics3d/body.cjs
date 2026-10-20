@@ -78,8 +78,8 @@ var RigidBody3D = class {
 		return this.type === `dynamic` ? 1 / this.mass : 0;
 	}
 	get isSleeping() {
-		let e = this.owner, t = this.sleepPose;
-		return this.sleeping && e && (this.velocity.length() !== 0 || this.angularVelocity.length() !== 0 || e.position.x !== t[0] || e.position.y !== t[1] || e.position.z !== t[2] || e.rotation.x !== t[3] || e.rotation.y !== t[4] || e.rotation.z !== t[5] || e.rotation.w !== t[6] || e.scale.x !== t[7] || e.scale.y !== t[8] || e.scale.z !== t[9]) && this.wake(), this.sleeping;
+		let e = this.owner, t = this.sleepPose, n = this.velocity, r = this.angularVelocity;
+		return this.sleeping && e && (n.x !== 0 || n.y !== 0 || n.z !== 0 || r.x !== 0 || r.y !== 0 || r.z !== 0 || e.position.x !== t[0] || e.position.y !== t[1] || e.position.z !== t[2] || e.rotation.x !== t[3] || e.rotation.y !== t[4] || e.rotation.z !== t[5] || e.rotation.w !== t[6] || e.scale.x !== t[7] || e.scale.y !== t[8] || e.scale.z !== t[9]) && this.wake(), this.sleeping;
 	}
 	wake() {
 		this.sleeping = !1, this.idleTime = 0;

@@ -120,12 +120,20 @@ export class RigidBody3D {
   }
   get isSleeping(): boolean {
     const o = this.owner,
-      s = this.sleepPose;
+      s = this.sleepPose,
+      v = this.velocity,
+      w = this.angularVelocity;
+    // A component test is exactly `length() !== 0` (hypot is zero only for all-zero input,
+    // and NaN/Infinity compare unequal to zero) without the per-call hypot.
     if (
       this.sleeping &&
       o &&
-      (this.velocity.length() !== 0 ||
-        this.angularVelocity.length() !== 0 ||
+      (v.x !== 0 ||
+        v.y !== 0 ||
+        v.z !== 0 ||
+        w.x !== 0 ||
+        w.y !== 0 ||
+        w.z !== 0 ||
         o.position.x !== s[0] ||
         o.position.y !== s[1] ||
         o.position.z !== s[2] ||
