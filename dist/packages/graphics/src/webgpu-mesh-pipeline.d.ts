@@ -23,6 +23,13 @@ export declare function uploadSceneBlock(queue: GPUQueue, buffer: GPUBuffer, dat
     scenePoints: number;
     sceneSpots: number;
 }): number;
+/**
+ * @internal Uploads the smallest span of `[start, end)` whose bits differ from
+ * `sent`, the mirror of what `buffer` holds, then updates the mirror. Bit
+ * comparison keeps -0/NaN payloads exact. Static material blocks then cost no
+ * bytes; writeBuffer cost scales with bytes. Returns the uploaded byte count.
+ */
+export declare function uploadChangedSpan(queue: GPUQueue, buffer: GPUBuffer, bits: Uint32Array, sent: Uint32Array, start: number, end: number): number;
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;

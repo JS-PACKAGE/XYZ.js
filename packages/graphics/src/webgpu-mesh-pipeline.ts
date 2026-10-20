@@ -160,6 +160,9 @@ interface CachedMesh {
   influences: GPUBuffer | undefined;
   paletteVersion: number;
   data: Float32Array;
+  /** Bit view of `data`, and the bits `uniform` holds (zero like a new buffer). */
+  bits: Uint32Array;
+  sent: Uint32Array;
   seen: number;
   sceneBuffer: GPUBuffer;
   /** Light counts of the last scene upload; slots beyond them hold zeros. */
@@ -232,6 +235,30 @@ export function uploadSceneBlock(
   const tail = 20 + LIGHTING_FLOAT_COUNT;
   queue.writeBuffer(buffer, tail * 4, data, tail, data.length - tail);
   return (floats + data.length - tail) * 4;
+}
+
+/**
+ * @internal Uploads the smallest span of `[start, end)` whose bits differ from
+ * `sent`, the mirror of what `buffer` holds, then updates the mirror. Bit
+ * comparison keeps -0/NaN payloads exact. Static material blocks then cost no
+ * bytes; writeBuffer cost scales with bytes. Returns the uploaded byte count.
+ */
+export function uploadChangedSpan(
+  queue: GPUQueue,
+  buffer: GPUBuffer,
+  bits: Uint32Array,
+  sent: Uint32Array,
+  start: number,
+  end: number,
+): number {
+  let first = start;
+  while (first < end && bits[first] === sent[first]) first++;
+  if (first === end) return 0;
+  let last = end - 1;
+  while (bits[last] === sent[last]) last--;
+  for (let i = first; i <= last; i++) sent[i] = bits[i]!;
+  queue.writeBuffer(buffer, first * 4, bits, first, last + 1 - first);
+  return (last + 1 - first) * 4;
 }
 
 /** Persistent 3D resources, native joint palettes and hardware instances. */
@@ -2946,6 +2973,7 @@ export class WebGPUMeshPipeline {
           { binding: 24, resource: optical },
         ],
       });
+      const uniformData = existing?.data ?? new Float32Array(meshUniformFloats);
       const entry: CachedMesh = existing ?? {
         uniform,
         allocation,
@@ -2962,7 +2990,9 @@ export class WebGPUMeshPipeline {
         palette,
         influences,
         paletteVersion: skin?.paletteVersion ?? 0,
-        data: new Float32Array(meshUniformFloats),
+        data: uniformData,
+        bits: new Uint32Array(uniformData.buffer),
+        sent: new Uint32Array(meshUniformFloats),
         scenePoints: 0,
         sceneSpots: 0,
         probeRevision: -1,
@@ -3385,25 +3415,43 @@ export class WebGPUMeshPipeline {
       this.stats.upload(object.colors.byteLength);
       mesh.instanceColorVersion = object.colorVersion;
     }
-    // The probe blend block is identical for every draw: resend only when it changed.
+    // The probe blend block is identical for every draw: diff it only when it changed.
+    // Elsewhere only changed spans (usually the world matrix) are resent.
     const reflection = 76,
-      after = reflection + REFLECTION_FLOAT_COUNT;
-    if (mesh.probeRevision === this.probeBlendRevision) {
-      this.device.queue.writeBuffer(mesh.uniform, 0, data, 0, reflection);
-      this.device.queue.writeBuffer(
-        mesh.uniform,
-        after * 4,
-        data,
-        after,
-        data.length - after,
-      );
-      this.stats.upload((data.length - REFLECTION_FLOAT_COUNT) * 4);
-    } else {
+      after = reflection + REFLECTION_FLOAT_COUNT,
+      queue = this.device.queue;
+    let bytes: number;
+    if (mesh.probeRevision === this.probeBlendRevision)
+      bytes =
+        uploadChangedSpan(
+          queue,
+          mesh.uniform,
+          mesh.bits,
+          mesh.sent,
+          0,
+          reflection,
+        ) +
+        uploadChangedSpan(
+          queue,
+          mesh.uniform,
+          mesh.bits,
+          mesh.sent,
+          after,
+          data.length,
+        );
+    else {
       data.set(this.probeBlend, reflection);
-      this.device.queue.writeBuffer(mesh.uniform, 0, data);
-      this.stats.upload(data.byteLength);
+      bytes = uploadChangedSpan(
+        queue,
+        mesh.uniform,
+        mesh.bits,
+        mesh.sent,
+        0,
+        data.length,
+      );
       mesh.probeRevision = this.probeBlendRevision;
     }
+    if (bytes) this.stats.upload(bytes);
   }
 
   private releaseUnused(): void {

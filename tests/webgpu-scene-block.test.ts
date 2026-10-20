@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { LIGHTING_FLOAT_COUNT } from '../src/data/rendering.js';
-import { uploadSceneBlock } from '../packages/graphics/src/webgpu-mesh-pipeline.js';
+import {
+  uploadChangedSpan,
+  uploadSceneBlock,
+} from '../packages/graphics/src/webgpu-mesh-pipeline.js';
 import { fillLightingData } from '../packages/core/src/render-data.js';
 import { PointLight, SpotLight } from '../packages/core/src/lights.js';
 import { Scene } from '../packages/core/src/scene.js';
@@ -50,5 +53,49 @@ describe('uploadSceneBlock', () => {
       expect(gpu).toEqual(data);
       expect(bytes).toBeLessThan(data.byteLength);
     }
+  });
+});
+
+describe('uploadChangedSpan', () => {
+  it('keeps the GPU bits equal to the staged block and skips unchanged ranges', () => {
+    const gpu = new Uint32Array(40);
+    const queue = {
+      writeBuffer(
+        _buffer: GPUBuffer,
+        offset: number,
+        source: Uint32Array,
+        start: number,
+        size: number,
+      ) {
+        gpu.set(source.subarray(start, start + size), offset / 4);
+      },
+    } as unknown as GPUQueue;
+    const data = new Float32Array(40);
+    const bits = new Uint32Array(data.buffer);
+    const sent = new Uint32Array(40);
+    const upload = (start = 0, end = 40) =>
+      uploadChangedSpan(queue, {} as GPUBuffer, bits, sent, start, end);
+    expect(upload()).toBe(0);
+    data[3] = 1;
+    data[17] = -2;
+    expect(upload()).toBe(15 * 4);
+    expect(gpu).toEqual(bits);
+    expect(upload()).toBe(0);
+    // Sign and NaN payload changes are not equal under float comparison rules.
+    data[5] = -0;
+    expect(upload()).toBe(4);
+    bits[9] = 0x7fc00001;
+    expect(upload()).toBe(4);
+    bits[9] = 0x7fc00002;
+    expect(upload()).toBe(4);
+    expect(gpu).toEqual(bits);
+    // A restricted range leaves differences outside it pending.
+    data[0] = 7;
+    data[39] = 8;
+    expect(upload(1, 39)).toBe(0);
+    expect(upload(30, 40)).toBe(4);
+    expect(gpu[0]).toBe(0);
+    expect(upload()).toBe(4);
+    expect(gpu).toEqual(bits);
   });
 });

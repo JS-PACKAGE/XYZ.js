@@ -59,6 +59,15 @@ function uploadSceneBlock(e, t, n, r) {
 	let u = 832;
 	return e.writeBuffer(t, u * 4, n, u, n.length - u), (l + n.length - u) * 4;
 }
+function uploadChangedSpan(e, t, n, r, i, a) {
+	let o = i;
+	for (; o < a && n[o] === r[o];) o++;
+	if (o === a) return 0;
+	let s = a - 1;
+	for (; n[s] === r[s];) s--;
+	for (let e = o; e <= s; e++) r[e] = n[e];
+	return e.writeBuffer(t, o * 4, n, o, s + 1 - o), (s + 1 - o) * 4;
+}
 var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	device;
 	opticalPackLayout;
@@ -1672,7 +1681,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 						resource: E
 					}
 				]
-			}), a = D ?? {
+			}), a = D?.data ?? new Float32Array($), s = D ?? {
 				uniform: j,
 				allocation: A,
 				textureEpoch: this.textureEpoch,
@@ -1687,7 +1696,9 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				palette: P,
 				influences: F,
 				paletteVersion: O?.paletteVersion ?? 0,
-				data: new Float32Array($),
+				data: a,
+				bits: new Uint32Array(a.buffer),
+				sent: new Uint32Array($),
 				scenePoints: 0,
 				sceneSpots: 0,
 				probeRevision: -1,
@@ -1697,7 +1708,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				}),
 				seen: this.frame
 			};
-			return a.textureEpoch = this.textureEpoch, a.material = t, a.materialGroup = i, this.meshes.set(e, a), a;
+			return s.textureEpoch = this.textureEpoch, s.material = t, s.materialGroup = i, this.meshes.set(e, s), s;
 		} catch (e) {
 			throw D || (j?.destroy(), N?.destroy(), P?.destroy(), F?.destroy(), M !== this.identityBuffer && M.destroy(), A.destroy()), e;
 		}
@@ -1817,8 +1828,8 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			size: c.matrices.byteLength,
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
 		})), this.device.queue.writeBuffer(n.visibleInstance, 0, c.matrices.buffer, c.matrices.byteOffset, c.count * 16 * 4), this.stats.upload(c.count * 16 * 4), c.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, c.colors), this.device.queue.writeBuffer(n.visibleColors, 0, c.colors.buffer, c.colors.byteOffset, c.count * 3 * 4), this.stats.upload(c.count * 3 * 4)), n.visibilityVersion = c.version, n.visibilityPayload = c), t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion);
-		let l = 336;
-		n.probeRevision === this.probeBlendRevision ? (this.device.queue.writeBuffer(n.uniform, 0, i, 0, 76), this.device.queue.writeBuffer(n.uniform, l * 4, i, l, i.length - l), this.stats.upload((i.length - 260) * 4)) : (i.set(this.probeBlend, 76), this.device.queue.writeBuffer(n.uniform, 0, i), this.stats.upload(i.byteLength), n.probeRevision = this.probeBlendRevision);
+		let l = 336, u = this.device.queue, d;
+		n.probeRevision === this.probeBlendRevision ? d = uploadChangedSpan(u, n.uniform, n.bits, n.sent, 0, 76) + uploadChangedSpan(u, n.uniform, n.bits, n.sent, l, i.length) : (i.set(this.probeBlend, 76), d = uploadChangedSpan(u, n.uniform, n.bits, n.sent, 0, i.length), n.probeRevision = this.probeBlendRevision), d && this.stats.upload(d);
 	}
 	releaseUnused() {
 		if (this.residency.geometry.budgetBytes === 1 / 0) {
@@ -1852,6 +1863,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 };
 //#endregion
 exports.WebGPUMeshPipeline = WebGPUMeshPipeline;
+exports.uploadChangedSpan = uploadChangedSpan;
 exports.uploadSceneBlock = uploadSceneBlock;
 
 //# sourceMappingURL=webgpu-mesh-pipeline.cjs.map
