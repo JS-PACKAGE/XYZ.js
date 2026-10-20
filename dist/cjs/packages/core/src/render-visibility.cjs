@@ -66,9 +66,7 @@ var RenderVisibilityCache = class {
 		if (!Number.isFinite(d) || d <= 0 || !Number.isFinite(f)) throw RangeError(`Visibility requires positive viewport height and finite presentation time.`);
 		l.color.length = l.shadows.length = l.occlusionCandidates.length = 0, l.meshChecks = l.poseChecks = l.boxTests = l.sphereTests = l.instanceTests = 0, l.frustumCulled = l.occlusionCulled = 0, l.boundsRefits = 0;
 		let p = !1, m = !1;
-		this.scene !== e && (this.clear(), this.scene = e, p = !0), this.revision !== e.renderMeshRevision && (this.sync(e.renderMeshes), this.revision = e.renderMeshRevision, p = !0, m = !0);
-		for (let e of l.entries.keys()) this.records.has(e) || l.entries.delete(e);
-		++this.gatherFrame;
+		this.scene !== e && (this.clear(), this.scene = e, p = !0), this.revision !== e.renderMeshRevision && (this.sync(e.renderMeshes), this.revision = e.renderMeshRevision, p = !0, m = !0), ++this.gatherFrame;
 		for (let e of this.records.keys()) for (let t = e.parent; t; t = t.parent) t instanceof require_objects3d.LOD && this.lods.set(t, this.gatherFrame);
 		for (let e of this.lods.keys()) this.lods.get(e) === this.gatherFrame ? e.updateForRender(a, d, f) : this.lods.delete(e);
 		for (let e of this.records.values()) {
@@ -84,6 +82,7 @@ var RenderVisibilityCache = class {
 			for (let e = 0; e < h.length; e++) Object.is(u[16 + e], h[e]) || (p = !0, (e < 4 || e === 7) && (m = !0)), u[16 + e] = h[e];
 			l.entries.set(s, a), e.drawable && s.castShadow && l.shadows.push(s);
 		}
+		if (l.entries.size !== this.records.size) for (let e of l.entries.keys()) this.records.has(e) || l.entries.delete(e);
 		let h = a.matrix.elements;
 		for (let e = 0; e < this.cameraStamp.length; e++) {
 			let t = e < 16 ? h[e] : e === 16 ? d : u.depthRevision ?? 0;

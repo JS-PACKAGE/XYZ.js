@@ -194,8 +194,6 @@ export class RenderVisibilityCache {
       changed = true;
       boundsChanged = true;
     }
-    for (const mesh of out.entries.keys())
-      if (!this.records.has(mesh)) out.entries.delete(mesh);
     ++this.gatherFrame;
     for (const mesh of this.records.keys()) {
       for (
@@ -271,6 +269,11 @@ export class RenderVisibilityCache {
       // Shadows intentionally never inherit camera-frustum or occlusion rejection.
       if (record.drawable && mesh.castShadow) out.shadows.push(mesh);
     }
+    // Every record's mesh is now a key, so equal sizes mean no stale entries remain;
+    // only then can the per-entry membership scan be skipped.
+    if (out.entries.size !== this.records.size)
+      for (const mesh of out.entries.keys())
+        if (!this.records.has(mesh)) out.entries.delete(mesh);
     const cameraMatrix = camera.matrix.elements;
     for (let i = 0; i < this.cameraStamp.length; i++) {
       const value =
