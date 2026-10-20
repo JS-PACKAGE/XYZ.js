@@ -13,6 +13,8 @@ import { PhysicsPresentation3D } from './physics-presentation.js';
 export class Object3D extends SceneObject {
   readonly transform = new Transform3D();
   readonly worldMatrix = new Matrix4();
+  /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
+  private matrixPass = 0;
   visible = true;
   private ancestor: Object3D | undefined;
   private readonly descendants = new Set<Object3D>();
@@ -195,8 +197,12 @@ export class Object3D extends SceneObject {
   }
   /** Recompose mutable local transforms, including every ancestor, without allocations. */
   updateWorldMatrix(): Matrix4 {
-    const parentMatrix = this.parent?.updateWorldMatrix();
     const scene = this.scene;
+    const pass = scene?.presentationPass ?? 0;
+    // Within one presentation nothing moves objects (cameras are not Object3Ds),
+    // so culling, sorting and drawing reuse one composition per object.
+    if (pass !== 0 && this.matrixPass === pass) return this.worldMatrix;
+    const parentMatrix = this.parent?.updateWorldMatrix();
     let localMatrix: Matrix4;
     if (
       scene?.presentingPhysics &&
@@ -215,6 +221,13 @@ export class Object3D extends SceneObject {
     } else localMatrix = this.transform.updateMatrix();
     if (parentMatrix) this.worldMatrix.copy(parentMatrix).multiply(localMatrix);
     else this.worldMatrix.copy(localMatrix);
+    // Overrides may adjust the returned matrix after super; reusing it would
+    // apply their adjustment twice, so only the base composition is reused.
+    if (
+      pass !== 0 &&
+      this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix
+    )
+      this.matrixPass = pass;
     return this.worldMatrix;
   }
 

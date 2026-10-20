@@ -128,4 +128,36 @@ describe('frame-force impulse and unified fixed gameplay', () => {
     scene.endPresentation();
     scene.destroy();
   });
+
+  it('reuses 3D world matrices only within one presentation and never doubles override adjustments', () => {
+    class Shaken extends Object3D {
+      override updateWorldMatrix() {
+        const matrix = super.updateWorldMatrix();
+        matrix.elements[12] += 5;
+        return matrix;
+      }
+    }
+    const scene = new Scene();
+    const root = scene.add(new Object3D());
+    const shaken = new Shaken();
+    root.add(shaken);
+    const leaf = new Object3D();
+    shaken.add(leaf);
+    root.position.x = 10;
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[12]).toBe(15);
+    expect(shaken.updateWorldMatrix().elements[12]).toBe(15);
+    expect(leaf.updateWorldMatrix().elements[12]).toBe(15);
+    scene.endPresentation();
+    root.position.x = 20;
+    expect(leaf.updateWorldMatrix().elements[12]).toBe(25);
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[12]).toBe(25);
+    scene.endPresentation();
+    root.position.x = 30;
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[12]).toBe(35);
+    scene.endPresentation();
+    scene.destroy();
+  });
 });

@@ -4,9 +4,10 @@ const require_physics_presentation = require("./physics-presentation.cjs");
 const require_collider = require("./physics3d/collider.cjs");
 const require_body = require("./physics3d/body.cjs");
 //#region dist/packages/core/src/object3d.js
-var Object3D = class extends require_scene_object.SceneObject {
+var Object3D = class Object3D extends require_scene_object.SceneObject {
 	transform = new require_math3d.Transform3D();
 	worldMatrix = new require_math3d.Matrix4();
+	matrixPass = 0;
 	visible = !0;
 	ancestor;
 	descendants = /* @__PURE__ */ new Set();
@@ -118,12 +119,14 @@ var Object3D = class extends require_scene_object.SceneObject {
 		this.physicsPresentation?.seal(this.transform);
 	}
 	updateWorldMatrix() {
-		let e = this.parent?.updateWorldMatrix(), t = this.scene, n;
-		if (t?.presentingPhysics && this.body && this.body.type !== `static` && !this.body.isSleeping && this.physicsPresentation) {
-			let e = Math.min(1, t.physics3D.interpolationAlpha + t.fixedInterpolationAlpha * t.fixedDelta / t.physics3D.fixedDelta);
-			n = this.physicsPresentation.matrix(this.transform, e);
-		} else n = this.transform.updateMatrix();
-		return e ? this.worldMatrix.copy(e).multiply(n) : this.worldMatrix.copy(n), this.worldMatrix;
+		let e = this.scene, t = e?.presentationPass ?? 0;
+		if (t !== 0 && this.matrixPass === t) return this.worldMatrix;
+		let n = this.parent?.updateWorldMatrix(), r;
+		if (e?.presentingPhysics && this.body && this.body.type !== `static` && !this.body.isSleeping && this.physicsPresentation) {
+			let t = Math.min(1, e.physics3D.interpolationAlpha + e.fixedInterpolationAlpha * e.fixedDelta / e.physics3D.fixedDelta);
+			r = this.physicsPresentation.matrix(this.transform, t);
+		} else r = this.transform.updateMatrix();
+		return n ? this.worldMatrix.copy(n).multiply(r) : this.worldMatrix.copy(r), t !== 0 && this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix && (this.matrixPass = t), this.worldMatrix;
 	}
 	destroy() {
 		if (this.destroyed) return;

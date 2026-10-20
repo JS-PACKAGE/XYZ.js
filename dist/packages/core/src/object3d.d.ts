@@ -6,6 +6,8 @@ import { Collider3D } from './physics3d/collider.js';
 export declare class Object3D extends SceneObject {
     readonly transform: Transform3D;
     readonly worldMatrix: Matrix4;
+    /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
+    private matrixPass;
     visible: boolean;
     private ancestor;
     private readonly descendants;
