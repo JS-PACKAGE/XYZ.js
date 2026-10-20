@@ -128,6 +128,22 @@ export interface GLRender2DHooks {
   assertAlive(): void;
 }
 
+/**
+ * @internal Vertex source, fragment source and label of each program the constructor
+ * creates, in creation order; the renderer starts compiling them before construction.
+ */
+export function render2DProgramSources() {
+  return [
+    [quadVertex2D, quadFragment2D(), '2D quad'],
+    [quadVertex2D, quadFragment2D(lightingGLSL), '2D normal-map lighting'],
+    [meshVertex2D, meshFragment2D, 'indexed 2D mesh'],
+    [particleVertex2D, quadFragment2D(), 'versioned particle layer'],
+    [spriteInstanceVertex2D, quadFragment2D(), '2D sprite batch'],
+    [passVertex2D, passFragment2D, 'local filter and mask'],
+    [quadVertex2D, blendFragment2D, 'premultiplied multiply'],
+  ] as const;
+}
+
 /** Native local command execution, independent from 3D and immutable frame capture. */
 export class WebGLRender2D {
   private readonly quad = createTextureQuad2D();
@@ -176,33 +192,13 @@ export class WebGLRender2D {
     if (!vao)
       throw new GraphicsError('WebGL2 could not allocate the 2D vertex array.');
     this.emptyVAO = vao;
-    this.quadProgram = this.register(
-      hooks.createProgram(quadVertex2D, quadFragment2D(), '2D quad'),
-    );
-    this.lightingProgram = this.register(
-      hooks.createProgram(
-        quadVertex2D,
-        quadFragment2D(lightingGLSL),
-        '2D normal-map lighting',
-      ),
-    );
-    this.meshProgram = this.register(
-      hooks.createProgram(meshVertex2D, meshFragment2D, 'indexed 2D mesh'),
-    );
-    this.particleProgram = this.register(
-      hooks.createProgram(
-        particleVertex2D,
-        quadFragment2D(),
-        'versioned particle layer',
-      ),
-    );
-    this.spriteProgram = this.register(
-      hooks.createProgram(
-        spriteInstanceVertex2D,
-        quadFragment2D(),
-        '2D sprite batch',
-      ),
-    );
+    const [quad, lighting, mesh, particle, sprite, pass, blend] =
+      render2DProgramSources();
+    this.quadProgram = this.register(hooks.createProgram(...quad));
+    this.lightingProgram = this.register(hooks.createProgram(...lighting));
+    this.meshProgram = this.register(hooks.createProgram(...mesh));
+    this.particleProgram = this.register(hooks.createProgram(...particle));
+    this.spriteProgram = this.register(hooks.createProgram(...sprite));
     const spriteVAO = gl.createVertexArray(),
       spriteBuffer = gl.createBuffer();
     if (!spriteVAO || !spriteBuffer) {
@@ -213,20 +209,8 @@ export class WebGLRender2D {
     this.spriteVAO = spriteVAO;
     this.spriteBuffer = spriteBuffer;
     this.bindInstances(spriteVAO, spriteBuffer, 0);
-    this.passProgram = this.register(
-      hooks.createProgram(
-        passVertex2D,
-        passFragment2D,
-        'local filter and mask',
-      ),
-    );
-    this.blendProgram = this.register(
-      hooks.createProgram(
-        quadVertex2D,
-        blendFragment2D,
-        'premultiplied multiply',
-      ),
-    );
+    this.passProgram = this.register(hooks.createProgram(...pass));
+    this.blendProgram = this.register(hooks.createProgram(...blend));
   }
 
   private register(program: WebGLProgram): Program2D {

@@ -42,6 +42,8 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly pendingPrograms;
     private readonly nativePreparations;
     private parallelCompile;
+    /** Startup programs issued together and finished, by label, at their first use. */
+    private readonly startedPrograms;
     private triangleVAO;
     private readonly commands;
     private readonly textures;
@@ -262,6 +264,12 @@ export declare class WebGL2Renderer implements Renderer {
     private createVAO;
     private meshProgramFor;
     private waitForProgram;
+    /**
+     * Issues compilation and linking without any status query. A query blocks until its
+     * program is built, so issuing several first lets drivers with parallel compilation
+     * (KHR_parallel_shader_compile) build them concurrently.
+     */
+    private startProgram;
     private createProgram;
     destroy(): void;
     private requireGL;

@@ -14,6 +14,45 @@ const require_render2d_contract = require("./render2d-contract.cjs");
 const require_lighting2d$1 = require("./lighting2d.cjs");
 const require_webgl2_render2d_shaders = require("./webgl2-render2d-shaders.cjs");
 //#region dist/packages/graphics/src/webgl2-render2d.js
+function render2DProgramSources() {
+	return [
+		[
+			require_webgl2_render2d_shaders.quadVertex2D,
+			require_webgl2_render2d_shaders.quadFragment2D(),
+			`2D quad`
+		],
+		[
+			require_webgl2_render2d_shaders.quadVertex2D,
+			require_webgl2_render2d_shaders.quadFragment2D(require_lighting2d$1.lightingGLSL),
+			`2D normal-map lighting`
+		],
+		[
+			require_webgl2_render2d_shaders.meshVertex2D,
+			require_webgl2_render2d_shaders.meshFragment2D,
+			`indexed 2D mesh`
+		],
+		[
+			require_webgl2_render2d_shaders.particleVertex2D,
+			require_webgl2_render2d_shaders.quadFragment2D(),
+			`versioned particle layer`
+		],
+		[
+			require_webgl2_render2d_shaders.spriteInstanceVertex2D,
+			require_webgl2_render2d_shaders.quadFragment2D(),
+			`2D sprite batch`
+		],
+		[
+			require_webgl2_render2d_shaders.passVertex2D,
+			require_webgl2_render2d_shaders.passFragment2D,
+			`local filter and mask`
+		],
+		[
+			require_webgl2_render2d_shaders.quadVertex2D,
+			require_webgl2_render2d_shaders.blendFragment2D,
+			`premultiplied multiply`
+		]
+	];
+}
 var WebGLRender2D = class {
 	gl;
 	hooks;
@@ -57,10 +96,12 @@ var WebGLRender2D = class {
 		this.gl = e, this.hooks = t;
 		let n = e.createVertexArray();
 		if (!n) throw new require_errors.GraphicsError(`WebGL2 could not allocate the 2D vertex array.`);
-		this.emptyVAO = n, this.quadProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.quadVertex2D, require_webgl2_render2d_shaders.quadFragment2D(), `2D quad`)), this.lightingProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.quadVertex2D, require_webgl2_render2d_shaders.quadFragment2D(require_lighting2d$1.lightingGLSL), `2D normal-map lighting`)), this.meshProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.meshVertex2D, require_webgl2_render2d_shaders.meshFragment2D, `indexed 2D mesh`)), this.particleProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.particleVertex2D, require_webgl2_render2d_shaders.quadFragment2D(), `versioned particle layer`)), this.spriteProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.spriteInstanceVertex2D, require_webgl2_render2d_shaders.quadFragment2D(), `2D sprite batch`));
-		let r = e.createVertexArray(), i = e.createBuffer();
-		if (!r || !i) throw r && e.deleteVertexArray(r), i && e.deleteBuffer(i), new require_errors.GraphicsError(`WebGL2 sprite batch allocation failed.`);
-		this.spriteVAO = r, this.spriteBuffer = i, this.bindInstances(r, i, 0), this.passProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.passVertex2D, require_webgl2_render2d_shaders.passFragment2D, `local filter and mask`)), this.blendProgram = this.register(t.createProgram(require_webgl2_render2d_shaders.quadVertex2D, require_webgl2_render2d_shaders.blendFragment2D, `premultiplied multiply`));
+		this.emptyVAO = n;
+		let [r, i, a, o, c, l, u] = render2DProgramSources();
+		this.quadProgram = this.register(t.createProgram(...r)), this.lightingProgram = this.register(t.createProgram(...i)), this.meshProgram = this.register(t.createProgram(...a)), this.particleProgram = this.register(t.createProgram(...o)), this.spriteProgram = this.register(t.createProgram(...c));
+		let d = e.createVertexArray(), f = e.createBuffer();
+		if (!d || !f) throw d && e.deleteVertexArray(d), f && e.deleteBuffer(f), new require_errors.GraphicsError(`WebGL2 sprite batch allocation failed.`);
+		this.spriteVAO = d, this.spriteBuffer = f, this.bindInstances(d, f, 0), this.passProgram = this.register(t.createProgram(...l)), this.blendProgram = this.register(t.createProgram(...u));
 	}
 	register(e) {
 		let t = this.programs.get(e);
@@ -563,5 +604,6 @@ var WebGLRender2D = class {
 };
 //#endregion
 exports.WebGLRender2D = WebGLRender2D;
+exports.render2DProgramSources = render2DProgramSources;
 
 //# sourceMappingURL=webgl2-render2d.cjs.map

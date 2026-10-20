@@ -98,7 +98,7 @@ import {
 } from './native-texture-upload.js';
 import type { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
-import { WebGLRender2D } from './webgl2-render2d.js';
+import { WebGLRender2D, render2DProgramSources } from './webgl2-render2d.js';
 import { quadVertex2D, quadFragment2D } from './webgl2-render2d-shaders.js';
 import {
   type RenderTexture2D,
@@ -387,6 +387,21 @@ function sameLights(
   return true;
 }
 
+/** A program whose compile and link were issued without waiting; see startProgram. */
+interface StartedProgram {
+  readonly vertexSource: string;
+  readonly fragmentSource: string;
+  readonly program: WebGLProgram;
+  readonly shaders: readonly WebGLShader[];
+}
+function discardStartedProgram(
+  gl: WebGL2RenderingContext,
+  started: StartedProgram,
+): void {
+  gl.deleteProgram(started.program);
+  for (const shader of started.shaders) gl.deleteShader(shader);
+}
+
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export class WebGL2Renderer implements Renderer {
   readonly backend = 'webgl2' as const;
@@ -439,6 +454,8 @@ export class WebGL2Renderer implements Renderer {
     Promise<void>
   >();
   private parallelCompile: { COMPLETION_STATUS_KHR: number } | null = null;
+  /** Startup programs issued together and finished, by label, at their first use. */
+  private readonly startedPrograms = new Map<string, StartedProgram>();
   private triangleVAO: WebGLVertexArrayObject | undefined;
   private readonly commands = new RenderCommandBuffer2D();
   private readonly textures = new Map<Texture2DSource, CachedTexture>();
@@ -1113,6 +1130,22 @@ export class WebGL2Renderer implements Renderer {
       this.coverageCapabilities = Object.freeze({ rgba8Samples, hdrSamples });
       this.supportedTextureFormats = webglTextureFormats(gl);
       this.resize(Math.max(canvas.width, 1), Math.max(canvas.height, 1));
+      // Issue every startup program before the first status query so that drivers
+      // with parallel compilation build them concurrently; each is finished in place.
+      for (const [vertex, fragment, label] of [
+        [triangleVertex, triangleFragment, 'triangle'],
+        [meshVertex, shadowFragment, 'shadow'],
+        [postVertex, postFragment, 'postprocessing'],
+        [postVertex, fxaaGLSL, 'FXAA'],
+        [layerVertex, compositeFragment, '2D layer and transition composition'],
+        [skyVertex, skyFragment, 'skybox'],
+        ...render2DProgramSources(),
+        [postVertex, opticalPackGLSL, 'optical packing'],
+      ] as const)
+        this.startedPrograms.set(
+          label,
+          this.startProgram(gl, vertex, fragment, label),
+        );
       this.triangleProgram = this.createProgram(
         gl,
         triangleVertex,
@@ -4948,13 +4981,17 @@ export class WebGL2Renderer implements Renderer {
       );
   }
 
-  private createProgram(
+  /**
+   * Issues compilation and linking without any status query. A query blocks until its
+   * program is built, so issuing several first lets drivers with parallel compilation
+   * (KHR_parallel_shader_compile) build them concurrently.
+   */
+  private startProgram(
     gl: WebGL2RenderingContext,
     vertexSource: string,
     fragmentSource: string,
     label: string,
-    deferValidation = false,
-  ): WebGLProgram {
+  ): StartedProgram {
     const shaders: WebGLShader[] = [];
     let program: WebGLProgram | null = null;
     try {
@@ -4970,13 +5007,6 @@ export class WebGL2Renderer implements Renderer {
         shaders.push(shader);
         gl.shaderSource(shader, source);
         gl.compileShader(shader);
-        if (
-          !deferValidation &&
-          !gl.getShaderParameter(shader, gl.COMPILE_STATUS)
-        )
-          throw new WebGL2InitializationError(
-            `WebGL2 ${label} ${kind === gl.VERTEX_SHADER ? 'vertex' : 'fragment'} shader compilation failed: ${gl.getShaderInfoLog(shader) || 'unknown error'}`,
-          );
       }
       program = gl.createProgram();
       if (!program)
@@ -4985,13 +5015,49 @@ export class WebGL2Renderer implements Renderer {
         );
       for (const shader of shaders) gl.attachShader(program, shader);
       gl.linkProgram(program);
-      if (!deferValidation && !gl.getProgramParameter(program, gl.LINK_STATUS))
-        throw new WebGL2InitializationError(
-          `WebGL2 ${label} program linking failed: ${gl.getProgramInfoLog(program) || 'unknown error'}`,
-        );
-      return program;
+      return { vertexSource, fragmentSource, program, shaders };
     } catch (error) {
       if (program) gl.deleteProgram(program);
+      for (const shader of shaders) gl.deleteShader(shader);
+      throw error;
+    }
+  }
+
+  private createProgram(
+    gl: WebGL2RenderingContext,
+    vertexSource: string,
+    fragmentSource: string,
+    label: string,
+    deferValidation = false,
+  ): WebGLProgram {
+    let started = this.startedPrograms.get(label);
+    if (started) {
+      this.startedPrograms.delete(label);
+      if (
+        started.vertexSource !== vertexSource ||
+        started.fragmentSource !== fragmentSource
+      ) {
+        discardStartedProgram(gl, started);
+        started = undefined;
+      }
+    }
+    const { program, shaders } =
+      started ?? this.startProgram(gl, vertexSource, fragmentSource, label);
+    try {
+      if (!deferValidation) {
+        for (const [index, shader] of shaders.entries())
+          if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS))
+            throw new WebGL2InitializationError(
+              `WebGL2 ${label} ${index === 0 ? 'vertex' : 'fragment'} shader compilation failed: ${gl.getShaderInfoLog(shader) || 'unknown error'}`,
+            );
+        if (!gl.getProgramParameter(program, gl.LINK_STATUS))
+          throw new WebGL2InitializationError(
+            `WebGL2 ${label} program linking failed: ${gl.getProgramInfoLog(program) || 'unknown error'}`,
+          );
+      }
+      return program;
+    } catch (error) {
+      gl.deleteProgram(program);
       throw error;
     } finally {
       for (const shader of shaders) gl.deleteShader(shader);
@@ -5017,6 +5083,9 @@ export class WebGL2Renderer implements Renderer {
     this.visibility.entries.clear();
     this.visibility.occlusionCandidates.length = 0;
     if (gl) {
+      for (const started of this.startedPrograms.values())
+        discardStartedProgram(gl, started);
+      this.startedPrograms.clear();
       this.temporal?.destroy();
       this.objectMotion?.destroy();
       this.probeAllocation?.destroy();
