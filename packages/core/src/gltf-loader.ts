@@ -286,6 +286,25 @@ const components: Record<number, number> = {
   5125: 4,
   5126: 4,
 };
+/** Native views per component type for aligned little-endian reads; see readAccessor. */
+const componentArrays: Partial<
+  Record<
+    number,
+    | Int8ArrayConstructor
+    | Uint8ArrayConstructor
+    | Int16ArrayConstructor
+    | Uint16ArrayConstructor
+    | Uint32ArrayConstructor
+    | Float32ArrayConstructor
+  >
+> = {
+  5120: Int8Array,
+  5121: Uint8Array,
+  5122: Int16Array,
+  5123: Uint16Array,
+  5125: Uint32Array,
+  5126: Float32Array,
+};
 const sizes: Record<string, number> = {
   SCALAR: 1,
   VEC2: 2,
@@ -652,11 +671,12 @@ export class GLTFLoader {
             offset + (count - 1) * stride + packed > view.length
           )
             throw new AssetError('Accessor exceeds or misaligns bufferView.');
-          if (component === 5126 && !matrixSize && littleEndian && count > 0) {
-            // Float vectors are aligned (checked above), so a native view reads the same
-            // little-endian values as DataView without a call per component.
-            const step = stride / 4,
-              source = new Float32Array(
+          const Native = normalized ? undefined : componentArrays[component];
+          if (Native && !matrixSize && littleEndian) {
+            // Aligned (checked above), so a native view reads the same little-endian values
+            // as DataView without a call per component; normalized values still go through scalar.
+            const step = stride / width,
+              source = new Native(
                 view.buffer,
                 view.offset + offset,
                 (count - 1) * step + size,
@@ -724,11 +744,13 @@ export class GLTFLoader {
               );
           }
         }
-        for (let i = 0; i < data.length; i++)
-          if (!Number.isFinite(data[i]))
-            throw new AssetError(
-              'Accessor values must be finite Float32 numbers.',
-            );
+        // Integer components (normalized or not) always land as finite Float32 values.
+        if (component === 5126)
+          for (let i = 0; i < data.length; i++)
+            if (!Number.isFinite(data[i]))
+              throw new AssetError(
+                'Accessor values must be finite Float32 numbers.',
+              );
         const result = { data, count, size, component, normalized, type };
         accessors.set(id, result);
         return result;

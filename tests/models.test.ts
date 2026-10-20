@@ -163,6 +163,27 @@ describe('glTF decoding and owned assets', () => {
       asset.dispose();
     }
   });
+  it('rejects non-finite float accessor values read from a bufferView', async () => {
+    installImages();
+    const bytes = new Uint8Array(36),
+      view = new DataView(bytes.buffer);
+    for (let k = 0; k < 9; k++) view.setFloat32(k * 4, k, true);
+    view.setFloat32(16, Number.NaN, true);
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify({
+          asset: { version: '2.0' },
+          buffers: [{ byteLength: bytes.length, uri: embedded(bytes) }],
+          bufferViews: [{ buffer: 0, byteLength: 36 }],
+          accessors: [
+            { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3' },
+          ],
+          meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+          nodes: [{ mesh: 0 }],
+        }),
+      ),
+    ).rejects.toThrow('Accessor values must be finite Float32 numbers.');
+  });
   it('initializes omitted bufferViews with zeros and preserves separately owned primitive geometry', async () => {
     installImages();
     const asset = await new GLTFLoader().parse(
