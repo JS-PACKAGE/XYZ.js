@@ -119,6 +119,50 @@ describe('glTF decoding and owned assets', () => {
     expect(asset.scene.destroyed).toBe(true);
     expect(image.close).toHaveBeenCalledOnce();
   });
+  it('reads float accessors from their byte offset in packed and interleaved views', async () => {
+    installImages();
+    // Two triangles share each view; the accessors select the second one.
+    const bytes = new Uint8Array(72 + 96),
+      view = new DataView(bytes.buffer);
+    const second = [5, 6, 7, 8, 9, 10, 11, 12, 13];
+    for (let k = 0; k < 9; k++) {
+      view.setFloat32(k * 4, -1, true);
+      view.setFloat32(36 + k * 4, second[k]!, true);
+    }
+    for (let v = 0; v < 3; v++)
+      for (let j = 0; j < 3; j++) {
+        view.setFloat32(72 + v * 32 + j * 4, -1, true);
+        view.setFloat32(72 + v * 32 + 16 + j * 4, second[v * 3 + j]!, true);
+      }
+    const parse = (accessor: object) =>
+      new GLTFLoader().parse(
+        JSON.stringify({
+          asset: { version: '2.0' },
+          buffers: [{ byteLength: bytes.length, uri: embedded(bytes) }],
+          bufferViews: [
+            { buffer: 0, byteOffset: 0, byteLength: 72 },
+            { buffer: 0, byteOffset: 72, byteLength: 96, byteStride: 32 },
+          ],
+          accessors: [
+            { componentType: 5126, count: 3, type: 'VEC3', ...accessor },
+          ],
+          meshes: [{ primitives: [{ attributes: { POSITION: 0 } }] }],
+          nodes: [{ mesh: 0 }],
+        }),
+      );
+    for (const accessor of [
+      { bufferView: 0, byteOffset: 36 },
+      { bufferView: 1, byteOffset: 16 },
+    ]) {
+      const asset = await parse(accessor);
+      const mesh = [...[...asset.scene.children][0].children][0] as Mesh;
+      const positions = [0, 1, 2].flatMap((v) => [
+        ...mesh.geometry.vertices.subarray(v * 8, v * 8 + 3),
+      ]);
+      expect(positions).toEqual(second);
+      asset.dispose();
+    }
+  });
   it('initializes omitted bufferViews with zeros and preserves separately owned primitive geometry', async () => {
     installImages();
     const asset = await new GLTFLoader().parse(

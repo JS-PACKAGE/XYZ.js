@@ -295,6 +295,8 @@ const sizes: Record<string, number> = {
   MAT3: 9,
   MAT4: 16,
 };
+/** glTF data is little-endian; native typed-array views match it only on such hosts. */
+const littleEndian = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 function scalar(
   view: DataView,
   offset: number,
@@ -650,15 +652,31 @@ export class GLTFLoader {
             offset + (count - 1) * stride + packed > view.length
           )
             throw new AssetError('Accessor exceeds or misaligns bufferView.');
-          const raw = new DataView(view.buffer, view.offset, view.length);
-          for (let i = 0; i < count; i++)
-            for (let j = 0; j < size; j++)
-              data[i * size + j] = scalar(
-                raw,
-                offset + i * stride + componentOffset(j),
-                component,
-                normalized,
+          if (component === 5126 && !matrixSize && littleEndian && count > 0) {
+            // Float vectors are aligned (checked above), so a native view reads the same
+            // little-endian values as DataView without a call per component.
+            const step = stride / 4,
+              source = new Float32Array(
+                view.buffer,
+                view.offset + offset,
+                (count - 1) * step + size,
               );
+            if (step === size) data.set(source);
+            else
+              for (let i = 0; i < count; i++)
+                for (let j = 0; j < size; j++)
+                  data[i * size + j] = source[i * step + j]!;
+          } else {
+            const raw = new DataView(view.buffer, view.offset, view.length);
+            for (let i = 0; i < count; i++)
+              for (let j = 0; j < size; j++)
+                data[i * size + j] = scalar(
+                  raw,
+                  offset + i * stride + componentOffset(j),
+                  component,
+                  normalized,
+                );
+          }
         } else if (offset !== 0)
           throw new AssetError(
             'Accessor without bufferView cannot have a byte offset.',
@@ -706,8 +724,8 @@ export class GLTFLoader {
               );
           }
         }
-        for (const value of data)
-          if (!Number.isFinite(value))
+        for (let i = 0; i < data.length; i++)
+          if (!Number.isFinite(data[i]))
             throw new AssetError(
               'Accessor values must be finite Float32 numbers.',
             );
@@ -1637,8 +1655,9 @@ export class GLTFLoader {
           const indices =
             index?.data ??
             Float32Array.from({ length: indexCount }, (_, j) => j);
-          for (const value of indices)
-            if (value >= position.count)
+          // Indexed: `for…of` over a typed array is an order of magnitude slower in V8.
+          for (let i = 0; i < indices.length; i++)
+            if (indices[i]! >= position.count)
               throw new AssetError('Triangle index is outside positions.');
           const normal =
             attributes.NORMAL === undefined

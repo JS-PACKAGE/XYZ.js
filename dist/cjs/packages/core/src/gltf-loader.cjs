@@ -136,6 +136,7 @@ var D = {
 	MAT3: 9,
 	MAT4: 16
 };
+var O = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
 function scalar(t, n, r, i) {
 	let a;
 	switch (r) {
@@ -148,7 +149,7 @@ function scalar(t, n, r, i) {
 		default: throw new require_texture.AssetError(`Unsupported accessor component.`);
 	}
 }
-var O = /* @__PURE__ */ new Set([
+var k = /* @__PURE__ */ new Set([
 	`KHR_materials_emissive_strength`,
 	`KHR_materials_unlit`,
 	`KHR_materials_ior`,
@@ -183,9 +184,9 @@ var GLTFLoader = class {
 	async parse(t, n, i = {}) {
 		let f = new DecodeContext(i.signal ?? new AbortController().signal, n, i.allowedOrigins);
 		f.signal.throwIfAborted();
-		let p, k = [];
+		let p, A = [];
 		try {
-			let n, A;
+			let n, j;
 			if (typeof t == `string`) {
 				if (t.length > require_models.modelLimits.inputBytes) throw new require_texture.AssetError(`Model input exceeds byte budget.`);
 				let r = 0;
@@ -210,8 +211,8 @@ var GLTFLoader = class {
 							if (a) throw new require_texture.AssetError(`Duplicate GLB JSON chunk.`);
 							a = new Uint8Array(t, i, n);
 						} else if (s === 5130562) {
-							if (A || o !== 2) throw new require_texture.AssetError(`Invalid GLB binary chunk.`);
-							f.reserve(n), A = t.slice(i, i + n);
+							if (j || o !== 2) throw new require_texture.AssetError(`Invalid GLB binary chunk.`);
+							f.reserve(n), j = t.slice(i, i + n);
 						}
 						i += n;
 					}
@@ -219,15 +220,15 @@ var GLTFLoader = class {
 					n = new TextDecoder(`utf-8`, { fatal: !0 }).decode(a);
 				} else n = new TextDecoder(`utf-8`, { fatal: !0 }).decode(t);
 			}
-			let j = object(JSON.parse(n), `glTF`), M = object(j.asset, `glTF asset`);
-			if (M.version !== `2.0` || M.minVersion !== void 0 && M.minVersion !== `2.0`) throw new require_texture.AssetError(`Only glTF 2.0 is supported.`);
-			if (j.extensionsRequired !== void 0) {
-				if (!Array.isArray(j.extensionsRequired)) throw new require_texture.AssetError(`extensionsRequired must be an array.`);
-				for (let t of j.extensionsRequired) if (typeof t != `string` || !(O.has(t) || t === `KHR_draco_mesh_compression` && i.dracoDecoder || t === `KHR_texture_basisu` && (i.ktx2Transcoder || i.nativeTextures))) throw new require_texture.AssetError(`Required glTF extensions are unsupported.`);
+			let M = object(JSON.parse(n), `glTF`), N = object(M.asset, `glTF asset`);
+			if (N.version !== `2.0` || N.minVersion !== void 0 && N.minVersion !== `2.0`) throw new require_texture.AssetError(`Only glTF 2.0 is supported.`);
+			if (M.extensionsRequired !== void 0) {
+				if (!Array.isArray(M.extensionsRequired)) throw new require_texture.AssetError(`extensionsRequired must be an array.`);
+				for (let t of M.extensionsRequired) if (typeof t != `string` || !(k.has(t) || t === `KHR_draco_mesh_compression` && i.dracoDecoder || t === `KHR_texture_basisu` && (i.ktx2Transcoder || i.nativeTextures))) throw new require_texture.AssetError(`Required glTF extensions are unsupported.`);
 			}
-			let N = list(j.buffers, `buffers`), P = list(j.bufferViews, `bufferViews`), F = list(j.accessors, `accessors`), I = list(j.nodes, `nodes`), L = list(j.meshes, `meshes`), R = list(j.skins, `skins`), z = list(j.images, `images`), B = list(j.textures, `textures`), ee = list(j.materials, `materials`), te = list(j.animations, `animations`), V = list(j.scenes, `scenes`), H = [];
-			for (let t = 0; t < N.length; t++) {
-				let n = N[t], r = integer(n.byteLength, `buffer byteLength`, require_models.modelLimits.decodedBytes), i = n.extensions === void 0 ? void 0 : object(n.extensions, `buffer extensions`).EXT_meshopt_compression;
+			let P = list(M.buffers, `buffers`), F = list(M.bufferViews, `bufferViews`), I = list(M.accessors, `accessors`), L = list(M.nodes, `nodes`), R = list(M.meshes, `meshes`), z = list(M.skins, `skins`), B = list(M.images, `images`), ee = list(M.textures, `textures`), te = list(M.materials, `materials`), ne = list(M.animations, `animations`), V = list(M.scenes, `scenes`), H = [];
+			for (let t = 0; t < P.length; t++) {
+				let n = P[t], r = integer(n.byteLength, `buffer byteLength`, require_models.modelLimits.decodedBytes), i = n.extensions === void 0 ? void 0 : object(n.extensions, `buffer extensions`).EXT_meshopt_compression;
 				if (i !== void 0) {
 					let t = object(i, `meshopt buffer`).fallback;
 					if (t !== void 0 && typeof t != `boolean`) throw new require_texture.AssetError(`Meshopt fallback must be boolean.`);
@@ -236,16 +237,16 @@ var GLTFLoader = class {
 						continue;
 					}
 				}
-				let o = n.uri === void 0 ? t === 0 ? A : void 0 : await f.resource(n.uri);
+				let o = n.uri === void 0 ? t === 0 ? j : void 0 : await f.resource(n.uri);
 				if (!o || o.byteLength < r || n.uri === void 0 && o.byteLength - r > 3) throw new require_texture.AssetError(`Buffer length does not match glTF.`);
 				H.push(o);
 			}
-			let U = P.map((t) => {
+			let U = F.map((t) => {
 				let n = integer(t.byteOffset ?? 0, `bufferView offset`), r = integer(t.byteLength, `bufferView length`, require_models.modelLimits.decodedBytes), i = t.byteStride === void 0 ? void 0 : integer(t.byteStride, `byteStride`, 252);
 				if (i !== void 0 && (i < 4 || i % 4)) throw new require_texture.AssetError(`Invalid bufferView stride.`);
 				let o = t.extensions === void 0 ? void 0 : object(t.extensions, `bufferView extensions`).EXT_meshopt_compression;
 				if (o !== void 0) {
-					let t = object(o, `meshopt bufferView`), n = integer(t.buffer, `meshopt buffer`), s = reference(H, n, `meshopt buffer`), c = integer(N[n].byteLength, `meshopt buffer length`), l = integer(t.byteOffset ?? 0, `meshopt byteOffset`), u = integer(t.byteLength, `meshopt byteLength`), d = integer(t.byteStride, `meshopt byteStride`, 256), p = integer(t.count, `meshopt count`, require_models.modelLimits.accessorElements);
+					let t = object(o, `meshopt bufferView`), n = integer(t.buffer, `meshopt buffer`), s = reference(H, n, `meshopt buffer`), c = integer(P[n].byteLength, `meshopt buffer length`), l = integer(t.byteOffset ?? 0, `meshopt byteOffset`), u = integer(t.byteLength, `meshopt byteLength`), d = integer(t.byteStride, `meshopt byteStride`, 256), p = integer(t.count, `meshopt count`, require_models.modelLimits.accessorElements);
 					if (!s || !p || !d || d * p !== r || i !== void 0 && i !== d || l + u > c) throw new require_texture.AssetError(`Invalid meshopt bufferView.`);
 					f.reserve(r);
 					let m = new Uint8Array(r);
@@ -258,7 +259,7 @@ var GLTFLoader = class {
 				}
 				let s = reference(H, t.buffer, `bufferView buffer`);
 				if (!s) throw new require_texture.AssetError(`bufferView references an unloaded fallback buffer.`);
-				let c = integer(reference(N, t.buffer, `buffer`).byteLength, `buffer length`);
+				let c = integer(reference(P, t.buffer, `buffer`).byteLength, `buffer length`);
 				if (n + r > c) throw new require_texture.AssetError(`bufferView is out of bounds.`);
 				return {
 					buffer: s,
@@ -269,7 +270,7 @@ var GLTFLoader = class {
 			}), W = /* @__PURE__ */ new Map(), readAccessor = (t) => {
 				let n = integer(t, `accessor index`), r = W.get(n);
 				if (r) return r;
-				let i = reference(F, n, `accessor`), o = integer(i.componentType, `componentType`), s = Object.hasOwn(E, o) ? E[o] : void 0, c = typeof i.type == `string` ? i.type : ``, l = Object.hasOwn(D, c) ? D[c] : void 0, u = integer(i.count, `accessor count`, require_models.modelLimits.accessorElements);
+				let i = reference(I, n, `accessor`), o = integer(i.componentType, `componentType`), s = Object.hasOwn(E, o) ? E[o] : void 0, c = typeof i.type == `string` ? i.type : ``, l = Object.hasOwn(D, c) ? D[c] : void 0, u = integer(i.count, `accessor count`, require_models.modelLimits.accessorElements);
 				if (!s || !l || u === 0 || u * l > require_models.modelLimits.accessorElements) throw new require_texture.AssetError(`Invalid accessor type or size.`);
 				if (i.normalized !== void 0 && typeof i.normalized != `boolean`) throw new require_texture.AssetError(`Accessor normalized must be boolean.`);
 				let d = i.normalized === !0;
@@ -280,8 +281,14 @@ var GLTFLoader = class {
 				if (i.bufferView !== void 0) {
 					let t = reference(U, i.bufferView, `accessor bufferView`), n = t.stride ?? h;
 					if (_ % s || (t.offset + _) % s || n % s || n < h || _ + (u - 1) * n + h > t.length) throw new require_texture.AssetError(`Accessor exceeds or misaligns bufferView.`);
-					let r = new DataView(t.buffer, t.offset, t.length);
-					for (let e = 0; e < u; e++) for (let t = 0; t < l; t++) g[e * l + t] = scalar(r, _ + e * n + componentOffset(t), o, d);
+					if (o === 5126 && !p && O && u > 0) {
+						let e = n / 4, r = new Float32Array(t.buffer, t.offset + _, (u - 1) * e + l);
+						if (e === l) g.set(r);
+						else for (let t = 0; t < u; t++) for (let n = 0; n < l; n++) g[t * l + n] = r[t * e + n];
+					} else {
+						let e = new DataView(t.buffer, t.offset, t.length);
+						for (let t = 0; t < u; t++) for (let r = 0; r < l; r++) g[t * l + r] = scalar(e, _ + t * n + componentOffset(r), o, d);
+					}
 				} else if (_ !== 0) throw new require_texture.AssetError(`Accessor without bufferView cannot have a byte offset.`);
 				if (i.sparse !== void 0) {
 					let t = object(i.sparse, `sparse accessor`), n = integer(t.count, `sparse count`, u);
@@ -302,7 +309,7 @@ var GLTFLoader = class {
 						for (let e = 0; e < l; e++) g[n * l + e] = scalar(y, _ + t * h + componentOffset(e), o, d);
 					}
 				}
-				for (let t of g) if (!Number.isFinite(t)) throw new require_texture.AssetError(`Accessor values must be finite Float32 numbers.`);
+				for (let t = 0; t < g.length; t++) if (!Number.isFinite(g[t])) throw new require_texture.AssetError(`Accessor values must be finite Float32 numbers.`);
 				let v = {
 					data: g,
 					count: u,
@@ -313,19 +320,19 @@ var GLTFLoader = class {
 				};
 				return W.set(n, v), v;
 			};
-			for (let t of L) for (let n of list(t.primitives, `primitives`)) {
+			for (let t of R) for (let n of list(t.primitives, `primitives`)) {
 				let t = n.extensions === void 0 ? void 0 : object(n.extensions, `primitive extensions`).KHR_draco_mesh_compression;
 				if (t === void 0) continue;
 				let r = object(t, `draco primitive`), o = object(n.attributes, `primitive attributes`), s = object(r.attributes, `draco attributes`);
 				if (!i.dracoDecoder) {
-					if (reference(F, o.POSITION, `POSITION accessor`).bufferView === void 0) throw new require_texture.AssetError(`Draco-compressed primitive requires GLTFLoadOptions.dracoDecoder.`);
+					if (reference(I, o.POSITION, `POSITION accessor`).bufferView === void 0) throw new require_texture.AssetError(`Draco-compressed primitive requires GLTFLoadOptions.dracoDecoder.`);
 					continue;
 				}
 				let c = reference(U, r.bufferView, `draco bufferView`), l = {}, u = {};
 				for (let [t, n] of Object.entries(s)) {
 					if (o[t] === void 0) throw new require_texture.AssetError(`Draco attribute is missing from primitive attributes.`);
 					l[t] = integer(n, `draco attribute id`);
-					let r = reference(F, o[t], `Draco accessor`), i = integer(r.componentType, `componentType`), a = r.normalized === !0;
+					let r = reference(I, o[t], `Draco accessor`), i = integer(r.componentType, `componentType`), a = r.normalized === !0;
 					if (!Object.hasOwn(E, i) || r.normalized !== void 0 && typeof r.normalized != `boolean` || a && (i === 5125 || i === 5126)) throw new require_texture.AssetError(`Invalid Draco accessor component or normalization.`);
 					u[t] = Object.freeze({
 						componentType: i,
@@ -341,7 +348,7 @@ var GLTFLoader = class {
 				});
 				f.signal.throwIfAborted();
 				let store = (t, n, r) => {
-					let i = reference(F, t, `${r} accessor`), o = integer(i.componentType, `componentType`), s = typeof i.type == `string` ? i.type : ``, c = Object.hasOwn(D, s) ? D[s] : 0, l = integer(i.count, `accessor count`, require_models.modelLimits.accessorElements);
+					let i = reference(I, t, `${r} accessor`), o = integer(i.componentType, `componentType`), s = typeof i.type == `string` ? i.type : ``, c = Object.hasOwn(D, s) ? D[s] : 0, l = integer(i.count, `accessor count`, require_models.modelLimits.accessorElements);
 					if (!Object.hasOwn(E, o) || !c || s.startsWith(`MAT`) || !l || l * c > require_models.modelLimits.accessorElements) throw new require_texture.AssetError(`Invalid Draco ${r} accessor.`);
 					if (!n || n.length !== l * c) throw new require_texture.AssetError(`Draco decoder returned the wrong ${r} length.`);
 					f.reserve(l * c * 4);
@@ -363,11 +370,11 @@ var GLTFLoader = class {
 				for (let e of Object.keys(l)) store(o[e], d.attributes[e], e);
 				n.indices !== void 0 && store(n.indices, d.indices, `indices`);
 			}
-			for (let e = 0; e < F.length; e++) readAccessor(e);
+			for (let e = 0; e < I.length; e++) readAccessor(e);
 			let G = /* @__PURE__ */ new Map(), readImage = async (t) => {
 				let n = integer(t, `image index`), r = G.get(n);
 				if (r) return r;
-				let a = reference(z, n, `image`), s, c, l = a.mimeType;
+				let a = reference(B, n, `image`), s, c, l = a.mimeType;
 				if (a.uri !== void 0) {
 					let e = await f.resource(a.uri, require_assets.assetLimits.textureBytes);
 					f.reserve(e.byteLength), c = new Uint8Array(e);
@@ -387,7 +394,7 @@ var GLTFLoader = class {
 				} else s = new Blob([c], { type: typeof l == `string` ? l : `` });
 				let u = await f.texture(s);
 				return G.set(n, u), u;
-			}, ne = list(j.samplers, `samplers`), K = {
+			}, re = list(M.samplers, `samplers`), ie = {
 				33071: `clamp-to-edge`,
 				10497: `repeat`,
 				33648: `mirror-repeat`
@@ -406,7 +413,7 @@ var GLTFLoader = class {
 					}
 				}
 				r.texCoord = integer(a ?? 0, `texture texCoord`, 1);
-				let o = reference(B, n.index, `texture`), s = o.extensions === void 0 ? void 0 : object(o.extensions, `texture extensions`).KHR_texture_basisu, c = s === void 0 ? void 0 : object(s, `KHR_texture_basisu`).source, l = o.sampler === void 0 ? {} : reference(ne, o.sampler, `sampler`), u = {
+				let o = reference(ee, n.index, `texture`), s = o.extensions === void 0 ? void 0 : object(o.extensions, `texture extensions`).KHR_texture_basisu, c = s === void 0 ? void 0 : object(s, `KHR_texture_basisu`).source, l = o.sampler === void 0 ? {} : reference(re, o.sampler, `sampler`), u = {
 					9984: 9728,
 					9985: 9729,
 					9986: 9728,
@@ -414,7 +421,7 @@ var GLTFLoader = class {
 				}[l.minFilter] ?? l.minFilter ?? 9729, d = l.magFilter ?? 9729;
 				if (u !== 9728 && u !== 9729) throw new require_texture.AssetError(`Invalid glTF minification filter.`);
 				if (d !== 9728 && d !== 9729) throw new require_texture.AssetError(`Invalid glTF magnification filter.`);
-				let f = integer(l.wrapS ?? 10497, `sampler wrapS`), p = integer(l.wrapT ?? 10497, `sampler wrapT`), m = K[f], h = K[p];
+				let f = integer(l.wrapS ?? 10497, `sampler wrapS`), p = integer(l.wrapT ?? 10497, `sampler wrapT`), m = ie[f], h = ie[p];
 				if (!m || !h) throw new require_texture.AssetError(`Invalid glTF sampler wrapping mode.`);
 				return {
 					texture: await readImage(c !== void 0 && (i.ktx2Transcoder || i.nativeTextures) ? c : o.source ?? c),
@@ -430,13 +437,13 @@ var GLTFLoader = class {
 					},
 					coordinates: r
 				};
-			}, re, getWhite = async () => re ??= await f.texture(new ImageData(new Uint8ClampedArray([
+			}, ae, getWhite = async () => ae ??= await f.texture(new ImageData(new Uint8ClampedArray([
 				255,
 				255,
 				255,
 				255
-			]), 1, 1)), q = [];
-			for (let t of ee) {
+			]), 1, 1)), K = [];
+			for (let t of te) {
 				let n = t.pbrMetallicRoughness === void 0 ? {} : object(t.pbrMetallicRoughness, `PBR material`), r = n.baseColorFactor === void 0 ? [
 					1,
 					1,
@@ -484,7 +491,7 @@ var GLTFLoader = class {
 					0
 				] : vector(t.emissiveFactor, 3, `emissive`)).map((e) => e * N);
 				if (c) {
-					q.push(new require_pbr_material.PBRMaterial({
+					K.push(new require_pbr_material.PBRMaterial({
 						texture: P?.texture ?? await getWhite(),
 						textureSampler: P?.sampler,
 						textureCoordinates: P ? {
@@ -508,7 +515,7 @@ var GLTFLoader = class {
 					}));
 					continue;
 				}
-				q.push(new require_pbr_material.PBRMaterial({
+				K.push(new require_pbr_material.PBRMaterial({
 					finish: y,
 					opticalMaps: {
 						anisotropyTexture: A?.texture,
@@ -585,42 +592,42 @@ var GLTFLoader = class {
 					doubleSided: t.doubleSided === !0
 				}));
 			}
-			let ie, defaultMaterial = async () => ie ??= new require_pbr_material.PBRMaterial({
+			let oe, defaultMaterial = async () => oe ??= new require_pbr_material.PBRMaterial({
 				texture: await getWhite(),
 				metallic: 1,
 				roughness: 1,
 				doubleSided: !1,
 				alphaMode: `OPAQUE`
-			}), J = (() => {
-				let t = j.extensions;
+			}), q = (() => {
+				let t = M.extensions;
 				if (t === void 0) return [];
 				let n = object(t, `extensions`).KHR_materials_variants;
 				return n === void 0 ? [] : list(object(n, `variants`).variants, `variants`).map((t) => {
 					if (typeof t.name != `string`) throw new require_texture.AssetError(`Material variant requires a name.`);
 					return t.name;
 				});
-			})(), ae = J.map(() => []), oe = /* @__PURE__ */ new Map(), registerVariants = (t, n, r) => {
+			})(), J = q.map(() => []), se = /* @__PURE__ */ new Map(), registerVariants = (t, n, r) => {
 				if (n.extensions === void 0) return;
 				let i = object(n.extensions, `primitive extensions`).KHR_materials_variants;
 				if (i !== void 0) for (let n of list(object(i, `primitive variants`).mappings, `variant mappings`)) {
-					let i = reference(q, n.material, `variant material`);
+					let i = reference(K, n.material, `variant material`);
 					for (let t of Object.values(i.textureCoordinates)) if (!r[t.texCoord]) throw new require_texture.AssetError(`Variant material requires missing TEXCOORD_${t.texCoord}.`);
 					if (!Array.isArray(n.variants) || !n.variants.length) throw new require_texture.AssetError(`Variant mapping requires variants.`);
 					for (let r of n.variants) {
 						let n = integer(r, `variant index`);
-						if (n >= J.length) throw new require_texture.AssetError(`variant reference is out of bounds.`);
-						ae[n].push({
+						if (n >= q.length) throw new require_texture.AssetError(`variant reference is out of bounds.`);
+						J[n].push({
 							mesh: t,
 							material: i
 						});
 					}
-					oe.set(t, t.material);
+					se.set(t, t.material);
 				}
 			};
-			for (let e = 0; e < I.length; e++) k.push(new require_group.Group());
-			let Y = new Int32Array(k.length).fill(-1);
-			for (let t = 0; t < k.length; t++) {
-				let n = I[t], r = k[t];
+			for (let e = 0; e < L.length; e++) A.push(new require_group.Group());
+			let Y = new Int32Array(A.length).fill(-1);
+			for (let t = 0; t < A.length; t++) {
+				let n = L[t], r = A[t];
 				if (n.matrix !== void 0) {
 					if (n.translation !== void 0 || n.rotation !== void 0 || n.scale !== void 0) throw new require_texture.AssetError(`Node cannot specify both matrix and TRS.`);
 					this.applyMatrix(r, vector(n.matrix, 16, `node matrix`));
@@ -643,24 +650,24 @@ var GLTFLoader = class {
 					if (!Array.isArray(n.children) || n.children.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid node children.`);
 					for (let r of n.children) {
 						let n = integer(r, `child index`);
-						if (reference(k, n, `child`), Y[n] !== -1 || n === t) throw new require_texture.AssetError(`Node has multiple parents or a cycle.`);
+						if (reference(A, n, `child`), Y[n] !== -1 || n === t) throw new require_texture.AssetError(`Node has multiple parents or a cycle.`);
 						Y[n] = t;
 					}
 				}
 			}
-			for (let t = 0; t < k.length; t++) {
+			for (let t = 0; t < A.length; t++) {
 				let n = t, r = 0;
 				for (; Y[n] !== -1;) if (n = Y[n], ++r > require_models.modelLimits.hierarchyDepth || n === t) throw new require_texture.AssetError(`Node hierarchy has a cycle or exceeds depth budget.`);
 			}
-			for (let e = 0; e < k.length; e++) Y[e] !== -1 && k[Y[e]].add(k[e]);
-			let se = R.map((t) => {
+			for (let e = 0; e < A.length; e++) Y[e] !== -1 && A[Y[e]].add(A[e]);
+			let ce = z.map((t) => {
 				if (!Array.isArray(t.joints) || !t.joints.length || t.joints.length > require_models.modelLimits.joints) throw new require_texture.AssetError(`Skin exceeds joint budget.`);
 				let n = /* @__PURE__ */ new Set(), i = t.joints.map((t) => {
 					let r = integer(t, `joint`);
 					if (n.has(r)) throw new require_texture.AssetError(`Duplicate skin joint.`);
-					return n.add(r), reference(k, r, `joint`);
+					return n.add(r), reference(A, r, `joint`);
 				});
-				t.skeleton !== void 0 && reference(k, t.skeleton, `skeleton`);
+				t.skeleton !== void 0 && reference(A, t.skeleton, `skeleton`);
 				let o;
 				if (t.inverseBindMatrices !== void 0) {
 					let n = readAccessor(t.inverseBindMatrices);
@@ -692,16 +699,16 @@ var GLTFLoader = class {
 					tangents: l,
 					weights: r
 				});
-			}, X = /* @__PURE__ */ new Map(), Z = 0, ce = 0;
-			for (let t = 0; t < k.length; t++) {
-				let n = I[t];
+			}, X = /* @__PURE__ */ new Map(), Z = 0, le = 0;
+			for (let t = 0; t < A.length; t++) {
+				let n = L[t];
 				if (n.mesh === void 0) {
 					if (n.skin !== void 0) throw new require_texture.AssetError(`Skinned node requires mesh.`);
 					continue;
 				}
-				let r = reference(L, n.mesh, `mesh`), i = list(r.primitives, `primitives`);
+				let r = reference(R, n.mesh, `mesh`), i = list(r.primitives, `primitives`);
 				if (!i.length) throw new require_texture.AssetError(`Mesh requires primitives.`);
-				let o = n.skin === void 0 ? void 0 : reference(se, n.skin, `skin`), s = new Set(i.map((e) => list(e.targets, `morph targets`).length));
+				let o = n.skin === void 0 ? void 0 : reference(ce, n.skin, `skin`), s = new Set(i.map((e) => list(e.targets, `morph targets`).length));
 				if (s.size !== 1) throw new require_texture.AssetError(`All primitives of a mesh must have the same number of morph targets.`);
 				let c = [...s][0];
 				if (c > require_models.modelLimits.morphTargets) throw new require_texture.AssetError(`Mesh exceeds the morph target budget.`);
@@ -724,10 +731,10 @@ var GLTFLoader = class {
 						5125
 					].includes(s.component))) throw new require_texture.AssetError(`Invalid triangle indices.`);
 					let c = s?.count ?? i.count;
-					if (ce += c, ce > require_models.modelLimits.indices || !c || c % 3) throw new require_texture.AssetError(`Invalid or excessive triangle indices.`);
+					if (le += c, le > require_models.modelLimits.indices || !c || c % 3) throw new require_texture.AssetError(`Invalid or excessive triangle indices.`);
 					s || f.reserve(c * 4);
 					let p = s?.data ?? Float32Array.from({ length: c }, (e, t) => t);
-					for (let t of p) if (t >= i.count) throw new require_texture.AssetError(`Triangle index is outside positions.`);
+					for (let t = 0; t < p.length; t++) if (p[t] >= i.count) throw new require_texture.AssetError(`Triangle index is outside positions.`);
 					let g = r.NORMAL === void 0 ? void 0 : readAccessor(r.NORMAL);
 					if (g && (g.type !== `VEC3` || g.component !== 5126 || g.count !== i.count)) throw new require_texture.AssetError(`Invalid vertex normals.`);
 					for (let t of Object.keys(r)) {
@@ -747,7 +754,7 @@ var GLTFLoader = class {
 					if (y && (y.type !== `VEC3` && y.type !== `VEC4` || y.count !== i.count || !(y.component === 5126 || [5121, 5123].includes(y.component) && y.normalized))) throw new require_texture.AssetError(`COLOR_0 requires float or normalized VEC3/VEC4 data.`);
 					let b = r.TANGENT === void 0 ? void 0 : readAccessor(r.TANGENT);
 					if (f.reserve(i.count * 8 * 4 + p.length * 4 + i.count * 4 * 4 + (b ? 0 : i.count * 6 * 8) + (g ? 0 : i.count * 3 * 4) + (_ ? 0 : i.count * 2 * 4) + (y ? i.count * 4 * 4 : 0) + (v ? i.count * 2 * 4 : 0)), b && (b.type !== `VEC4` || b.count !== i.count || !(b.component === 5126 || [5120, 5122].includes(b.component) && b.normalized))) throw new require_texture.AssetError(`TANGENT requires float or normalized VEC4 data.`);
-					let S = n.material === void 0 ? void 0 : integer(n.material, `material`), C = S === void 0 ? await defaultMaterial() : reference(q, S, `material`);
+					let S = n.material === void 0 ? void 0 : integer(n.material, `material`), C = S === void 0 ? await defaultMaterial() : reference(K, S, `material`);
 					for (let t of Object.values(C.textureCoordinates)) if ((t.texCoord === 0 ? _ : v) === void 0) throw new require_texture.AssetError(`Material requires missing TEXCOORD_${t.texCoord}.`);
 					let w = _?.data ?? new Float32Array(i.count * 2), T = C.normalTexture ? `normal` : `clearcoatNormal`, E = C.textureCoordinates[T]?.texCoord ?? 0, D = new require_geometry.Geometry({
 						positions: i.data,
@@ -769,7 +776,7 @@ var GLTFLoader = class {
 						});
 						if (D = n.geometry, O = n.sourceVertices, Z += O.length - i.count, Z > require_models.modelLimits.vertices) throw new require_texture.AssetError(`Tangent seam splitting exceeds model vertex budget.`);
 					}
-					let A = m ? readMorph(n, i.count, m, O) : void 0, j;
+					let k = m ? readMorph(n, i.count, m, O) : void 0, j;
 					if (o) {
 						let t = r.JOINTS_1 === void 0 ? 4 : 8, n = t / 4, a = [], s = [];
 						for (let t = 0; t < n; t++) {
@@ -790,7 +797,7 @@ var GLTFLoader = class {
 						j = new require_skinned_mesh.SkinnedMesh({
 							geometry: D,
 							material: C,
-							morph: A,
+							morph: k,
 							...o,
 							jointIndices: l,
 							weights: u,
@@ -799,18 +806,18 @@ var GLTFLoader = class {
 					} else j = new require_mesh.Mesh({
 						geometry: D,
 						material: C,
-						morph: A
+						morph: k
 					});
-					k[t].add(j), registerVariants(j, n, [_ !== void 0, v !== void 0]);
+					A[t].add(j), registerVariants(j, n, [_ !== void 0, v !== void 0]);
 				}
 			}
-			let le = te.map((t, n) => {
+			let ue = ne.map((t, n) => {
 				let r = list(t.samplers, `animation samplers`), i = list(t.channels, `animation channels`);
 				if (!i.length) throw new require_texture.AssetError(`Animation requires channels.`);
 				let a = /* @__PURE__ */ new Set(), o = i.map((t) => {
 					let n = object(t.target, `animation target`), i = reference(r, t.sampler, `animation sampler`), o = integer(n.node, `animation node`), s = n.path;
 					if (s !== `translation` && s !== `rotation` && s !== `scale` && s !== `weights`) throw new require_texture.AssetError(`Only transform and morph weights animations are supported.`);
-					if (s !== `weights` && reference(I, o, `animation node`).matrix !== void 0) throw new require_texture.AssetError(`Matrix nodes cannot be animated.`);
+					if (s !== `weights` && reference(L, o, `animation node`).matrix !== void 0) throw new require_texture.AssetError(`Matrix nodes cannot be animated.`);
 					let l = `${o}:${s}`;
 					if (a.has(l)) throw new require_texture.AssetError(`Duplicate animation target property.`);
 					a.add(l);
@@ -820,41 +827,41 @@ var GLTFLoader = class {
 					f.reserve(u.data.byteLength + d.data.byteLength);
 					let m = X.get(o);
 					if (s === `weights` && !m) throw new require_texture.AssetError(`Weights animation requires morph targets.`);
-					return new require_animation.KeyframeTrack(s === `weights` ? m : reference(k, o, `animation node`), s, u.data, d.data, p);
+					return new require_animation.KeyframeTrack(s === `weights` ? m : reference(A, o, `animation node`), s, u.data, d.data, p);
 				});
 				return new require_animation.AnimationClip(typeof t.name == `string` ? t.name : `animation-${n}`, o);
 			});
 			p = new require_group.Group();
-			let ue = V.length ? reference(V, j.scene ?? 0, `scene`) : void 0, Q = ue?.nodes ?? (ue ? [] : k.map((e, t) => t).filter((e) => Y[e] === -1));
+			let de = V.length ? reference(V, M.scene ?? 0, `scene`) : void 0, Q = de?.nodes ?? (de ? [] : A.map((e, t) => t).filter((e) => Y[e] === -1));
 			if (!Array.isArray(Q) || Q.length > require_models.modelLimits.entries) throw new require_texture.AssetError(`Invalid scene roots.`);
-			let de = /* @__PURE__ */ new Set();
+			let fe = /* @__PURE__ */ new Set();
 			for (let t of Q) {
 				let n = integer(t, `scene root`);
-				if (Y[n] !== -1 || de.has(n)) throw new require_texture.AssetError(`Scene roots must be unique parentless nodes.`);
-				de.add(n), p.add(reference(k, n, `scene root`));
+				if (Y[n] !== -1 || fe.has(n)) throw new require_texture.AssetError(`Scene roots must be unique parentless nodes.`);
+				fe.add(n), p.add(reference(A, n, `scene root`));
 			}
 			f.signal.throwIfAborted();
-			let fe = p, pe = this.readLights(j, I, k), me = J.map((e, t) => ({
+			let pe = p, me = this.readLights(M, L, A), he = q.map((e, t) => ({
 				name: e,
-				mappings: ae[t]
-			})), $ = !1, he = {
-				variants: me,
+				mappings: J[t]
+			})), $ = !1, ge = {
+				variants: he,
 				selectVariant: (t) => {
 					if ($) throw new require_texture.AssetError(`Cannot select a variant after dispose().`);
-					let n = t === void 0 ? void 0 : me.find((e) => e.name === t);
+					let n = t === void 0 ? void 0 : he.find((e) => e.name === t);
 					if (t !== void 0 && !n) throw new require_texture.AssetError(`Unknown material variant ${t}.`);
-					for (let [e, t] of oe) require_mesh_material.setMeshMaterial(e, t);
+					for (let [e, t] of se) require_mesh_material.setMeshMaterial(e, t);
 					for (let e of n?.mappings ?? []) require_mesh_material.setMeshMaterial(e.mesh, e.material);
 				}
-			}, ge = {
-				scene: fe,
-				animations: le,
-				lights: pe,
+			}, _e = {
+				scene: pe,
+				animations: ue,
+				lights: me,
 				dispose: () => {
 					if ($) return;
 					$ = !0;
 					let e = [];
-					for (let t of [fe, ...k]) try {
+					for (let t of [pe, ...A]) try {
 						t.destroy();
 					} catch (t) {
 						e.push(t);
@@ -867,9 +874,9 @@ var GLTFLoader = class {
 					if (e.length) throw AggregateError(e, `glTF asset cleanup failed.`);
 				}
 			};
-			return require_gltf_variants.registerGLTFVariants(ge, he), ge;
+			return require_gltf_variants.registerGLTFVariants(_e, ge), _e;
 		} catch (t) {
-			for (let e of [p, ...k]) try {
+			for (let e of [p, ...A]) try {
 				e?.destroy();
 			} catch {}
 			for (let e of f.textures) e.destroy();
