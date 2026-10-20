@@ -370,8 +370,8 @@ var WebGPURender2D = class WebGPURender2D {
 		let f = this.scratch, p = n.target, m = n.bounds;
 		f.fill(0), f[0] = m.width, f[1] = m.height, f[2] = p.width / m.width, f[3] = p.height / m.height;
 		let h = r?.elements, g = i?.elements;
-		f[4] = h?.[0] ?? 1, f[5] = h?.[1] ?? 0, f[6] = h?.[3] ?? 0, f[7] = h?.[4] ?? 1, f[8] = h?.[6] ?? 0, f[9] = h?.[7] ?? 0, f[12] = g?.[0] ?? 1, f[13] = g?.[1] ?? 0, f[14] = g?.[3] ?? 0, f[15] = g?.[4] ?? 1, f[16] = g?.[6] ?? 0, f[17] = g?.[7] ?? 0, f[31] = +!!c;
-		for (let e = 0; e < 4; e++) f[20 + e] = a?.[e] ?? 1;
+		f[4] = f[7] = f[12] = f[15] = 1, h && (f[4] = h[0], f[5] = h[1], f[6] = h[3], f[7] = h[4], f[8] = h[6], f[9] = h[7]), g && (f[12] = g[0], f[13] = g[1], f[14] = g[3], f[15] = g[4], f[16] = g[6], f[17] = g[7]), f[31] = +!!c;
+		for (let e = 0; e < 4; e++) f[20 + e] = a ? a[e] : 1;
 		o && (f[24] = o.u0, f[25] = o.v0, f[26] = o.ux, f[27] = o.vx, f[28] = o.uy, f[29] = o.vy, f[30] = +!!s);
 		let _ = l instanceof require_texture.Texture ? require_distance_field.getTextureDistanceField(l) : void 0;
 		f[80] = _ ? _.type === `sdf` ? 1 : 2 : 0, f[81] = _?.range ?? 0, f[82] = d, u || this.uploadUniforms(e);
@@ -395,7 +395,7 @@ var WebGPURender2D = class WebGPURender2D {
 	}
 	writeQuad(e, t, n, r, i, a, o, s) {
 		let c = this.instanceData, l = e * 36, u = n?.elements;
-		c[l] = u?.[0] ?? 1, c[l + 1] = u?.[1] ?? 0, c[l + 2] = u?.[3] ?? 0, c[l + 3] = u?.[4] ?? 1, c[l + 4] = u?.[6] ?? 0, c[l + 5] = u?.[7] ?? 0, c[l + 6] = t.x, c[l + 7] = t.y, c[l + 8] = t.width, c[l + 9] = t.height, c[l + 10] = t.naturalWidth, c[l + 11] = t.naturalHeight, c[l + 12] = t.u0, c[l + 13] = t.v0, c[l + 14] = t.ux, c[l + 15] = t.vx, c[l + 16] = t.uy, c[l + 17] = t.vy, c[l + 18] = t.trimWidth, c[l + 19] = t.trimHeight, c[l + 20] = r?.[0] ?? 1, c[l + 21] = r?.[1] ?? 1, c[l + 22] = r?.[2] ?? 1, c[l + 23] = r?.[3] ?? 1, c[l + 24] = c[l + 25] = c[l + 26] = c[l + 27] = 0, c[l + 28] = 0, c[l + 29] = 0, c[l + 30] = +!!o, c[l + 31] = 0, c[l + 32] = t.trimX, c[l + 33] = t.trimY, c[l + 34] = i, c[l + 35] = a, s && (c[l + 24] = s.tilePosition.x - t.x, c[l + 25] = s.tilePosition.y - t.y, c[l + 26] = s.tileScale.x, c[l + 27] = s.tileScale.y, c[l + 28] = s.tileRotation, c[l + 29] = 1);
+		u ? (c[l] = u[0], c[l + 1] = u[1], c[l + 2] = u[3], c[l + 3] = u[4], c[l + 4] = u[6], c[l + 5] = u[7]) : (c[l] = c[l + 3] = 1, c[l + 1] = c[l + 2] = c[l + 4] = c[l + 5] = 0), c[l + 6] = t.x, c[l + 7] = t.y, c[l + 8] = t.width, c[l + 9] = t.height, c[l + 10] = t.naturalWidth, c[l + 11] = t.naturalHeight, c[l + 12] = t.u0, c[l + 13] = t.v0, c[l + 14] = t.ux, c[l + 15] = t.vx, c[l + 16] = t.uy, c[l + 17] = t.vy, c[l + 18] = t.trimWidth, c[l + 19] = t.trimHeight, r ? (c[l + 20] = r[0], c[l + 21] = r[1], c[l + 22] = r[2], c[l + 23] = r[3]) : c[l + 20] = c[l + 21] = c[l + 22] = c[l + 23] = 1, c[l + 24] = c[l + 25] = c[l + 26] = c[l + 27] = 0, c[l + 28] = 0, c[l + 29] = 0, c[l + 30] = +!!o, c[l + 31] = 0, c[l + 32] = t.trimX, c[l + 33] = t.trimY, c[l + 34] = i, c[l + 35] = a, s && (c[l + 24] = s.tilePosition.x - t.x, c[l + 25] = s.tilePosition.y - t.y, c[l + 26] = s.tileScale.x, c[l + 27] = s.tileScale.y, c[l + 28] = s.tileRotation, c[l + 29] = 1);
 	}
 	uploadQuads(e, t) {
 		this.device.queue.writeBuffer(this.instanceBuffer, e * require_sprite_instance.QUAD_BYTES, this.instanceData, e * 36, t * 36), this.hooks.stats.upload(t * require_sprite_instance.QUAD_BYTES);

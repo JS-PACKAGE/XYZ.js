@@ -677,20 +677,26 @@ export class WebGPURender2D {
     s[3] = target.height / bounds.height;
     const l = local?.elements,
       w = world?.elements;
-    s[4] = l?.[0] ?? 1;
-    s[5] = l?.[1] ?? 0;
-    s[6] = l?.[3] ?? 0;
-    s[7] = l?.[4] ?? 1;
-    s[8] = l?.[6] ?? 0;
-    s[9] = l?.[7] ?? 0;
-    s[12] = w?.[0] ?? 1;
-    s[13] = w?.[1] ?? 0;
-    s[14] = w?.[3] ?? 0;
-    s[15] = w?.[4] ?? 1;
-    s[16] = w?.[6] ?? 0;
-    s[17] = w?.[7] ?? 0;
+    // `s` is zeroed above; identity diagonals stand in for absent matrices.
+    s[4] = s[7] = s[12] = s[15] = 1;
+    if (l) {
+      s[4] = l[0];
+      s[5] = l[1];
+      s[6] = l[3];
+      s[7] = l[4];
+      s[8] = l[6];
+      s[9] = l[7];
+    }
+    if (w) {
+      s[12] = w[0];
+      s[13] = w[1];
+      s[14] = w[3];
+      s[15] = w[4];
+      s[16] = w[6];
+      s[17] = w[7];
+    }
     s[31] = native ? 1 : 0;
-    for (let i = 0; i < 4; i++) s[20 + i] = appearance?.[i] ?? 1;
+    for (let i = 0; i < 4; i++) s[20 + i] = appearance ? appearance[i] : 1;
     if (uv) {
       s[24] = uv.u0;
       s[25] = uv.v0;
@@ -756,12 +762,18 @@ export class WebGPURender2D {
     const d = this.instanceData,
       o = index * QUAD_FLOATS,
       m = matrix?.elements;
-    d[o] = m?.[0] ?? 1;
-    d[o + 1] = m?.[1] ?? 0;
-    d[o + 2] = m?.[3] ?? 0;
-    d[o + 3] = m?.[4] ?? 1;
-    d[o + 4] = m?.[6] ?? 0;
-    d[o + 5] = m?.[7] ?? 0;
+    // Plain branches: `m?.[i] ?? 1` boxes every float read into a heap number in V8.
+    if (m) {
+      d[o] = m[0];
+      d[o + 1] = m[1];
+      d[o + 2] = m[3];
+      d[o + 3] = m[4];
+      d[o + 4] = m[6];
+      d[o + 5] = m[7];
+    } else {
+      d[o] = d[o + 3] = 1;
+      d[o + 1] = d[o + 2] = d[o + 4] = d[o + 5] = 0;
+    }
     d[o + 6] = quad.x;
     d[o + 7] = quad.y;
     d[o + 8] = quad.width;
@@ -776,10 +788,12 @@ export class WebGPURender2D {
     d[o + 17] = quad.vy;
     d[o + 18] = quad.trimWidth;
     d[o + 19] = quad.trimHeight;
-    d[o + 20] = tint?.[0] ?? 1;
-    d[o + 21] = tint?.[1] ?? 1;
-    d[o + 22] = tint?.[2] ?? 1;
-    d[o + 23] = tint?.[3] ?? 1;
+    if (tint) {
+      d[o + 20] = tint[0];
+      d[o + 21] = tint[1];
+      d[o + 22] = tint[2];
+      d[o + 23] = tint[3];
+    } else d[o + 20] = d[o + 21] = d[o + 22] = d[o + 23] = 1;
     d[o + 24] = d[o + 25] = d[o + 26] = d[o + 27] = 0;
     d[o + 28] = 0;
     d[o + 29] = 0;
