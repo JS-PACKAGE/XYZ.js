@@ -11,6 +11,7 @@ var KeyframeTrack = class {
 	values;
 	size;
 	scratch;
+	cursor = 0;
 	deltaRotation = new require_math3d.Quaternion();
 	referenceRotation = new require_math3d.Quaternion();
 	identityRotation = new require_math3d.Quaternion();
@@ -44,12 +45,17 @@ var KeyframeTrack = class {
 	}
 	sampleValues(e, t) {
 		if (!Number.isFinite(e) || t.length !== this.size) throw RangeError(`Invalid animation sample time or output size.`);
-		let n = this.times, r = this.values, i = this.size, a = 0, o = n.length - 1;
-		for (; a < o;) {
-			let t = Math.ceil((a + o) / 2);
-			n[t] <= e ? a = t : o = t - 1;
+		let n = this.times, r = this.values, i = this.size, a = n.length - 1, o = this.cursor;
+		if (o < a && n[o + 1] <= e && o++, o > a || o > 0 && n[o] > e || o < a && n[o + 1] <= e) {
+			o = 0;
+			let t = a;
+			for (; o < t;) {
+				let r = Math.ceil((o + t) / 2);
+				n[r] <= e ? o = r : t = r - 1;
+			}
 		}
-		let s = a, c = e <= n[0] || s === n.length - 1 || this.interpolation === `STEP` ? s : s + 1, l = n[c] - n[s], u = l > 0 ? Math.max(0, Math.min(1, (e - n[s]) / l)) : 0, d = this.interpolation === `CUBICSPLINE`, f = s * i * (d ? 3 : 1) + (d ? i : 0), p = c * i * (d ? 3 : 1) + (d ? i : 0), m = 1 - u, h = u, g = 1;
+		this.cursor = o;
+		let s = o, c = e <= n[0] || s === n.length - 1 || this.interpolation === `STEP` ? s : s + 1, l = n[c] - n[s], u = l > 0 ? Math.max(0, Math.min(1, (e - n[s]) / l)) : 0, d = this.interpolation === `CUBICSPLINE`, f = s * i * (d ? 3 : 1) + (d ? i : 0), p = c * i * (d ? 3 : 1) + (d ? i : 0), m = 1 - u, h = u, g = 1;
 		if (this.path === `rotation` && !d) {
 			let e = 0;
 			for (let t = 0; t < 4; t++) e += r[f + t] * r[p + t];

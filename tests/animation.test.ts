@@ -7,6 +7,23 @@ import {
 import { Group } from '../packages/core/src/group.js';
 
 describe('transform animation', () => {
+  it('samples the same values regardless of the order times are visited', () => {
+    const times = [0, 0.5, 1, 2, 3.5, 4];
+    const values = times.flatMap((time, i) => [time * 3, i * i, -time]);
+    const track = () =>
+      new KeyframeTrack(new Group(), 'translation', times, values);
+    const reused = track();
+    const visits = [
+      -1, 0, 0.25, 0.5, 0.75, 2.5, 4, 9, 3.6, 0.1, 1, 1, 0.99, 3.5, -2, 2,
+    ];
+    for (const time of visits) {
+      const expected = new Float64Array(3),
+        actual = new Float64Array(3);
+      track().sampleValues(time, expected);
+      reused.sampleValues(time, actual);
+      expect([time, ...actual]).toEqual([time, ...expected]);
+    }
+  });
   it('holds STEP values until each key and clamps nonlooping actions to the final pose', () => {
     const target = new Group();
     const track = new KeyframeTrack(

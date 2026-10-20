@@ -26,6 +26,8 @@ export class KeyframeTrack {
   readonly values: Float32Array;
   readonly size: number;
   private readonly scratch: Float64Array;
+  /** Key segment found by the last sample; only a search hint. */
+  private cursor = 0;
   private readonly deltaRotation = new Quaternion();
   private readonly referenceRotation = new Quaternion();
   private readonly identityRotation = new Quaternion();
@@ -107,13 +109,25 @@ export class KeyframeTrack {
     const times = this.times,
       values = this.values,
       size = this.size;
-    let low = 0,
-      high = times.length - 1;
-    while (low < high) {
-      const mid = Math.ceil((low + high) / 2);
-      if (times[mid] <= time) low = mid;
-      else high = mid - 1;
+    const last = times.length - 1;
+    // Playback samples nearly monotonic times: try the previous segment and its successor
+    // before searching. The answer (largest key at or before `time`, else 0) is unique.
+    let low = this.cursor;
+    if (low < last && times[low + 1] <= time) low++;
+    if (
+      low > last ||
+      (low > 0 && times[low] > time) ||
+      (low < last && times[low + 1] <= time)
+    ) {
+      low = 0;
+      let high = last;
+      while (low < high) {
+        const mid = Math.ceil((low + high) / 2);
+        if (times[mid] <= time) low = mid;
+        else high = mid - 1;
+      }
     }
+    this.cursor = low;
     const first = low;
     const second =
       time <= times[0] ||

@@ -13,6 +13,8 @@ export declare class KeyframeTrack {
     readonly values: Float32Array;
     readonly size: number;
     private readonly scratch;
+    /** Key segment found by the last sample; only a search hint. */
+    private cursor;
     private readonly deltaRotation;
     private readonly referenceRotation;
     private readonly identityRotation;
