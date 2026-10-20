@@ -116,6 +116,8 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly volumetricData;
     private readonly motionData;
     private readonly lightingData;
+    /** Every scalar uniform write in this renderer goes through this cache. */
+    private readonly uniformValues;
     private readonly tintData;
     private readonly materialUVData;
     private readonly bakedData;

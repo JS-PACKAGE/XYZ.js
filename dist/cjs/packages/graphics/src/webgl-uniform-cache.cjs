@@ -1,0 +1,32 @@
+//#region dist/packages/graphics/src/webgl-uniform-cache.js
+var WebGLUniformCache = class {
+	values = /* @__PURE__ */ new WeakMap();
+	changed(e, t, n, r, i) {
+		let a = this.values.get(e);
+		if (!a) this.values.set(e, a = /* @__PURE__ */ new Float64Array(4));
+		else if (same(a[0], t) && same(a[1], n) && same(a[2], r) && same(a[3], i)) return !1;
+		return a[0] = t, a[1] = n, a[2] = r, a[3] = i, !0;
+	}
+	uniform1i(e, t, n) {
+		t && this.changed(t, n, 0, 0, 0) && e.uniform1i(t, n);
+	}
+	uniform1f(e, t, n) {
+		t && this.changed(t, n, 0, 0, 0) && e.uniform1f(t, n);
+	}
+	uniform2f(e, t, n, r) {
+		t && this.changed(t, n, r, 0, 0) && e.uniform2f(t, n, r);
+	}
+	uniform3f(e, t, n, r, i) {
+		t && this.changed(t, n, r, i, 0) && e.uniform3f(t, n, r, i);
+	}
+	uniform4f(e, t, n, r, i, a) {
+		t && this.changed(t, n, r, i, a) && e.uniform4f(t, n, r, i, a);
+	}
+};
+function same(e, t) {
+	return e === t && (e !== 0 || 1 / e == 1 / t);
+}
+//#endregion
+exports.WebGLUniformCache = WebGLUniformCache;
+
+//# sourceMappingURL=webgl-uniform-cache.cjs.map

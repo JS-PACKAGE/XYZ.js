@@ -19,6 +19,7 @@ import {
 } from '../../core/src/native-material3d.js';
 import { NativePBRMaterial } from '../../core/src/native-pbr-material.js';
 import { nativeMeshGLSL } from './webgl-feature-shaders.js';
+import { WebGLUniformCache } from './webgl-uniform-cache.js';
 import {
   meshShaderFeatures,
   meshShaderVariantKey,
@@ -859,6 +860,8 @@ export class WebGL2Renderer implements Renderer {
   private readonly volumetricData = new Float32Array(16);
   private readonly motionData = new Float32Array(20);
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
+  /** Every scalar uniform write in this renderer goes through this cache. */
+  private readonly uniformValues = new WebGLUniformCache();
   private readonly tintData = new Float32Array(4);
   private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
   private readonly bakedData = new Float32Array(40);
@@ -1231,14 +1234,14 @@ export class WebGL2Renderer implements Renderer {
           name,
         );
       gl.useProgram(this.skyProgram);
-      gl.uniform1i(this.skyUniforms.backgroundMap, 0);
+      this.uniformValues.uniform1i(gl, this.skyUniforms.backgroundMap, 0);
       gl.useProgram(this.shadowProgram);
-      gl.uniform1i(this.shadowUniforms.image, 0);
+      this.uniformValues.uniform1i(gl, this.shadowUniforms.image, 0);
       gl.useProgram(this.postProgram);
-      gl.uniform1i(this.postUniforms.image, 0);
+      this.uniformValues.uniform1i(gl, this.postUniforms.image, 0);
       gl.useProgram(this.compositeProgram);
-      gl.uniform1i(this.compositeUniforms.image, 0);
-      gl.uniform1i(this.compositeUniforms.previousImage, 1);
+      this.uniformValues.uniform1i(gl, this.compositeUniforms.image, 0);
+      this.uniformValues.uniform1i(gl, this.compositeUniforms.previousImage, 1);
       gl.useProgram(null);
     } catch (error) {
       this.destroy();
@@ -2089,7 +2092,7 @@ export class WebGL2Renderer implements Renderer {
       gl.clearColor(0, 0, 0, 0);
       gl.clear(gl.COLOR_BUFFER_BIT);
       gl.useProgram(native.program);
-      gl.uniform2f(native.viewport, width, height);
+      this.uniformValues.uniform2f(gl, native.viewport, width, height);
       gl.uniform4fv(native.uniforms, effect.uniforms);
       gl.bindTexture(gl.TEXTURE_2D, input.texture);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
@@ -2136,8 +2139,9 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, previous ?? image);
-    gl.uniform1i(uniforms.hasPrevious, previous ? 1 : 0);
-    gl.uniform1i(
+    this.uniformValues.uniform1i(gl, uniforms.hasPrevious, previous ? 1 : 0);
+    this.uniformValues.uniform1i(
+      gl,
       uniforms.transitionKind,
       !transition
         ? 0
@@ -2147,10 +2151,15 @@ export class WebGL2Renderer implements Renderer {
             ? 2
             : 3,
     );
-    gl.uniform1f(uniforms.progress, transition?.progress ?? 0);
+    this.uniformValues.uniform1f(
+      gl,
+      uniforms.progress,
+      transition?.progress ?? 0,
+    );
     if (transition) {
       const color = transition.color;
-      gl.uniform4f(
+      this.uniformValues.uniform4f(
+        gl,
         uniforms.transitionColor,
         color[0] * color[3],
         color[1] * color[3],
@@ -2158,7 +2167,8 @@ export class WebGL2Renderer implements Renderer {
         color[3],
       );
       const direction = transition.direction;
-      gl.uniform2f(
+      this.uniformValues.uniform2f(
+        gl,
         uniforms.slideDirection,
         direction === 'left' ? -1 : direction === 'right' ? 1 : 0,
         direction === 'up' ? -1 : direction === 'down' ? 1 : 0,
@@ -2302,7 +2312,7 @@ export class WebGL2Renderer implements Renderer {
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D_ARRAY, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.useProgram(this.opticalPackProgram!);
-      gl.uniform1i(this.opticalPackSide, side);
+      this.uniformValues.uniform1i(gl, this.opticalPackSide, side);
       gl.bindFramebuffer(gl.FRAMEBUFFER, this.opticalPackFramebuffer!);
       gl.viewport(0, 0, side, side);
       gl.disable(gl.BLEND);
@@ -2477,6 +2487,15 @@ export class WebGL2Renderer implements Renderer {
       : scene.camera3D.matrix.elements;
     fillFogData(scene, this.fogData);
     const camera = scene.camera3D.position;
+    // Per-frame constants: computed once rather than for every draw below.
+    const contactInverse = this.invViewProjection
+      .copy(
+        this.temporalActive
+          ? this.temporalState.currentVP
+          : scene.camera3D.matrix,
+      )
+      .invert().elements;
+    let probeBlendReady = false;
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 2, this.brdfBuffer!);
@@ -2555,7 +2574,7 @@ export class WebGL2Renderer implements Renderer {
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
           if (!(material instanceof NativePBRMaterial)) {
             for (let i = 0; i < 4; i++) {
-              gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+              this.uniformValues.uniform1i(gl, uniforms[`xyzMap${i}`], i + 1);
               this.bindMaterialTexture(
                 nativeMaterialSources(material)[i] ??
                   materialBaseTexture(material),
@@ -2581,50 +2600,63 @@ export class WebGL2Renderer implements Renderer {
         );
         gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
         gl.uniform4fv(uniforms['fog[0]'], this.fogData);
-        gl.uniform3f(uniforms.cameraPosition, camera.x, camera.y, camera.z);
-        gl.uniform1i(uniforms.linearOutput, this.linear3D ? 1 : 0);
-        gl.uniform1i(uniforms.image, 0);
-        gl.uniform1i(uniforms.shadowMap, 5);
-        gl.uniform1i(uniforms.environmentMap, 6);
-        gl.uniform1i(uniforms.opaqueScene, 15);
-        gl.uniform1i(uniforms.opticalMaps, 14);
-        const contact = ContactShadows.get(scene);
-        gl.uniform4f(
+        this.uniformValues.uniform3f(
+          gl,
+          uniforms.cameraPosition,
+          camera.x,
+          camera.y,
+          camera.z,
+        );
+        this.uniformValues.uniform1i(
+          gl,
+          uniforms.linearOutput,
+          this.linear3D ? 1 : 0,
+        );
+        this.uniformValues.uniform1i(gl, uniforms.image, 0);
+        this.uniformValues.uniform1i(gl, uniforms.shadowMap, 5);
+        this.uniformValues.uniform1i(gl, uniforms.environmentMap, 6);
+        this.uniformValues.uniform1i(gl, uniforms.opaqueScene, 15);
+        this.uniformValues.uniform1i(gl, uniforms.opticalMaps, 14);
+        const contact = contactSettings;
+        this.uniformValues.uniform4f(
+          gl,
           uniforms.contactDimensions,
           this.contactWidth,
           this.contactHeight,
           this.contactOffset,
           0,
         );
-        gl.uniform4f(
+        this.uniformValues.uniform4f(
+          gl,
           uniforms.contactParams,
           contact?.distance ?? 0,
           contact?.thickness ?? 0,
           contact?.bias ?? 0,
           contact?.steps ?? 0,
         );
-        gl.uniform1f(uniforms.contactStrength, contact?.strength ?? 0);
+        this.uniformValues.uniform1f(
+          gl,
+          uniforms.contactStrength,
+          contact?.strength ?? 0,
+        );
         gl.uniformMatrix4fv(
           uniforms.contactInvViewProjection,
           false,
-          this.invViewProjection
-            .copy(
-              this.temporalActive
-                ? this.temporalState.currentVP
-                : scene.camera3D.matrix,
-            )
-            .invert().elements,
+          contactInverse,
         );
-        gl.uniform1i(uniforms.oitPass, oitPass);
-        gl.uniform1f(
+        this.uniformValues.uniform1i(gl, uniforms.oitPass, oitPass);
+        this.uniformValues.uniform1f(
+          gl,
           uniforms.meshFade,
           this.visibility.entries.get(object)?.fade ?? 1,
         );
-        gl.uniform1i(
+        this.uniformValues.uniform1i(
+          gl,
           uniforms.tangentTexCoord,
           object.renderGeometry.tangentTexCoord,
         );
-        gl.uniform1f(
+        this.uniformValues.uniform1f(
+          gl,
           uniforms.derivativeTangentSign,
           object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1,
         );
@@ -2634,14 +2666,17 @@ export class WebGL2Renderer implements Renderer {
               !(isNativeMaterial3D(material) && material.transparent),
           );
         if (pbr) {
-          fillProbeBlendData(
-            scene,
-            this.environmentData,
-            0,
-            this.selectedProbes,
-          );
-          for (let i = 0; i < 5; i++)
-            this.environmentData[i * 52 + 38] = this.probeMipCount - 1;
+          if (!probeBlendReady) {
+            fillProbeBlendData(
+              scene,
+              this.environmentData,
+              0,
+              this.selectedProbes,
+            );
+            for (let i = 0; i < 5; i++)
+              this.environmentData[i * 52 + 38] = this.probeMipCount - 1;
+            probeBlendReady = true;
+          }
           // The baseline and local records share the packed array's roughness LOD range.
           gl.uniform4fv(
             uniforms['environment[0]'],
@@ -2652,12 +2687,14 @@ export class WebGL2Renderer implements Renderer {
           gl.bindSampler(6, null);
           gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.probeTexture!);
         }
-        gl.uniform1i(uniforms.pbr, pbr ? 1 : 0);
-        gl.uniform1i(
+        this.uniformValues.uniform1i(gl, uniforms.pbr, pbr ? 1 : 0);
+        this.uniformValues.uniform1i(
+          gl,
           uniforms.doubleSided,
           pbr && !material.doubleSided ? 0 : 1,
         );
-        gl.uniform1i(
+        this.uniformValues.uniform1i(
+          gl,
           uniforms.alphaMode,
           pbr
             ? material.alphaMode === 'OPAQUE'
@@ -2673,7 +2710,11 @@ export class WebGL2Renderer implements Renderer {
         tint[2] = material.color[2];
         tint[3] = material.opacity;
         gl.uniform4fv(uniforms.tint, tint);
-        gl.uniform1i(uniforms.receiveShadow, object.receiveShadow ? 1 : 0);
+        this.uniformValues.uniform1i(
+          gl,
+          uniforms.receiveShadow,
+          object.receiveShadow ? 1 : 0,
+        );
         this.bindMaterialTexture(
           materialBaseTexture(material),
           0,
@@ -2681,18 +2722,20 @@ export class WebGL2Renderer implements Renderer {
         );
         if (pbr) {
           // Native PBR hooks share these maps with the ordinary material path.
-          gl.uniform1i(uniforms.metallicRoughnessMap, 1);
-          gl.uniform1i(uniforms.normalMap, 2);
-          gl.uniform1i(uniforms.occlusionMap, 3);
-          gl.uniform1i(uniforms.emissiveMap, 4);
-          gl.uniform4f(
+          this.uniformValues.uniform1i(gl, uniforms.metallicRoughnessMap, 1);
+          this.uniformValues.uniform1i(gl, uniforms.normalMap, 2);
+          this.uniformValues.uniform1i(gl, uniforms.occlusionMap, 3);
+          this.uniformValues.uniform1i(gl, uniforms.emissiveMap, 4);
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.transmission,
             material.transmission,
             material.thickness,
             1 / material.attenuationDistance,
             material.ior,
           );
-          gl.uniform3f(
+          this.uniformValues.uniform3f(
+            gl,
             uniforms.attenuationColor,
             material.attenuationColor[0],
             material.attenuationColor[1],
@@ -2712,14 +2755,16 @@ export class WebGL2Renderer implements Renderer {
             material.thicknessSampler,
             this.maxTextureAnisotropy,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.transmissionMapSettings,
             this.opticalSettings[0]!,
             this.opticalSettings[1]!,
             this.opticalSettings[2]!,
             this.opticalSettings[3]!,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.thicknessMapSettings,
             this.opticalSettings[4]!,
             this.opticalSettings[5]!,
@@ -2754,7 +2799,8 @@ export class WebGL2Renderer implements Renderer {
             gl.TEXTURE_2D_ARRAY,
             this.opticalTextures.get(material)?.resource ?? this.emptyOptical!,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.specularColor,
             material.specularColor[0],
             material.specularColor[1],
@@ -2763,15 +2809,16 @@ export class WebGL2Renderer implements Renderer {
               ? 1
               : ((material.ior - 1) / (material.ior + 1)) ** 2,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.specularParams,
             material.specular,
             material.ior === 0 ? 1 : 0,
             pbrTextureSources(material).specularTexture ? 1 : 0,
             pbrTextureSources(material).specularColorTexture ? 1 : 0,
           );
-          gl.uniform1i(uniforms.specularMap, 7);
-          gl.uniform1i(uniforms.specularColorMap, 8);
+          this.uniformValues.uniform1i(gl, uniforms.specularMap, 7);
+          this.uniformValues.uniform1i(gl, uniforms.specularColorMap, 8);
           this.bindMaterialTexture(
             pbrTextureSources(material).specularTexture ??
               materialBaseTexture(material),
@@ -2784,23 +2831,25 @@ export class WebGL2Renderer implements Renderer {
             8,
             material.specularColorSampler,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.clearcoat,
             material.clearcoat,
             material.clearcoatRoughness,
             material.clearcoatNormalScale,
             0,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.clearcoatMaps,
             pbrTextureSources(material).clearcoatTexture ? 1 : 0,
             pbrTextureSources(material).clearcoatRoughnessTexture ? 1 : 0,
             pbrTextureSources(material).clearcoatNormalTexture ? 1 : 0,
             0,
           );
-          gl.uniform1i(uniforms.clearcoatMap, 9);
-          gl.uniform1i(uniforms.clearcoatRoughnessMap, 10);
-          gl.uniform1i(uniforms.clearcoatNormalMap, 11);
+          this.uniformValues.uniform1i(gl, uniforms.clearcoatMap, 9);
+          this.uniformValues.uniform1i(gl, uniforms.clearcoatRoughnessMap, 10);
+          this.uniformValues.uniform1i(gl, uniforms.clearcoatNormalMap, 11);
           this.bindMaterialTexture(
             pbrTextureSources(material).clearcoatTexture ??
               materialBaseTexture(material),
@@ -2819,22 +2868,24 @@ export class WebGL2Renderer implements Renderer {
             11,
             material.clearcoatNormalSampler,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.sheen,
             material.sheenColor[0],
             material.sheenColor[1],
             material.sheenColor[2],
             material.sheenRoughness,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.sheenMaps,
             pbrTextureSources(material).sheenColorTexture ? 1 : 0,
             pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0,
             material.specularAntiAliasing,
             material.alphaToCoverage ? 1 : 0,
           );
-          gl.uniform1i(uniforms.sheenColorMap, 12);
-          gl.uniform1i(uniforms.sheenRoughnessMap, 13);
+          this.uniformValues.uniform1i(gl, uniforms.sheenColorMap, 12);
+          this.uniformValues.uniform1i(gl, uniforms.sheenRoughnessMap, 13);
           this.bindMaterialTexture(
             pbrTextureSources(material).sheenColorTexture ??
               materialBaseTexture(material),
@@ -2847,14 +2898,16 @@ export class WebGL2Renderer implements Renderer {
             13,
             material.sheenRoughnessSampler,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.surface,
             material.metallic,
             material.roughness,
             material.normalScale,
             material.occlusionStrength,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.emission,
             material.emissive[0],
             material.emissive[1],
@@ -2869,14 +2922,16 @@ export class WebGL2Renderer implements Renderer {
             pbrTextureSources(material).occlusionTexture ? 1 : 0,
             emissive.mode,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.finish0,
             material.finish.anisotropy,
             material.finish.anisotropyRotation,
             material.finish.iridescence,
             material.finish.iridescenceIor,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.finish1,
             material.finish.iridescence > 0
               ? iridescenceFilmRange.minNm +
@@ -2887,21 +2942,24 @@ export class WebGL2Renderer implements Renderer {
             material.finish.dispersion,
             material.finish.heightScale,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.finish2,
             material.finish.wetness,
             material.finish.snow,
             material.finish.dirt,
             material.finish.damage,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.finish3,
             material.finish.detailStrength,
             material.finish.triplanar,
             material.finish.layerBlend,
             material.finish.lightmapStrength,
           );
-          gl.uniform4f(
+          this.uniformValues.uniform4f(
+            gl,
             uniforms.finish4,
             material.finish.subsurfaceColor[0],
             material.finish.subsurfaceColor[1],
@@ -3101,12 +3159,12 @@ export class WebGL2Renderer implements Renderer {
     gl.vertexAttrib4f(8, 1, 1, 1, 1);
     gl.vertexAttrib2f(11, 0, 0);
     const skin = mesh instanceof SkinnedMesh ? this.cacheSkin(mesh) : undefined;
-    gl.uniform1i(uniforms.skinned, skin ? 1 : 0);
+    this.uniformValues.uniform1i(gl, uniforms.skinned, skin ? 1 : 0);
     if (skin) {
       gl.activeTexture(gl.TEXTURE0 + 16);
       gl.bindTexture(gl.TEXTURE_2D, skin.palette);
       gl.bindSampler(16, null);
-      gl.uniform1i(uniforms.jointPalette, 16);
+      this.uniformValues.uniform1i(gl, uniforms.jointPalette, 16);
       gl.bindBuffer(gl.ARRAY_BUFFER, skin.indices);
       gl.enableVertexAttribArray(9);
       gl.vertexAttribIPointer(
@@ -3153,7 +3211,7 @@ export class WebGL2Renderer implements Renderer {
       gl.vertexAttribI4ui(9, 0, 0, 0, 0);
       gl.vertexAttrib4f(10, 1, 0, 0, 0);
       // Samplers require a complete float-compatible texture even in an untaken branch.
-      gl.uniform1i(uniforms.jointPalette, 0);
+      this.uniformValues.uniform1i(gl, uniforms.jointPalette, 0);
     }
     if (mesh instanceof InstancedMesh) {
       const entry = this.cacheInstances(mesh, packed);
@@ -3173,7 +3231,7 @@ export class WebGL2Renderer implements Renderer {
         gl.disableVertexAttribArray(7);
         gl.vertexAttribDivisor(7, 0);
       }
-      gl.uniform1i(uniforms.instanced, 1);
+      this.uniformValues.uniform1i(gl, uniforms.instanced, 1);
       gl.drawElementsInstanced(
         gl.TRIANGLES,
         mesh.geometry.indices.length,
@@ -3189,7 +3247,7 @@ export class WebGL2Renderer implements Renderer {
       }
       gl.disableVertexAttribArray(7);
       gl.vertexAttribDivisor(7, 0);
-      gl.uniform1i(uniforms.instanced, 0);
+      this.uniformValues.uniform1i(gl, uniforms.instanced, 0);
       gl.drawElements(
         gl.TRIANGLES,
         mesh.geometry.indices.length,
@@ -3460,7 +3518,7 @@ export class WebGL2Renderer implements Renderer {
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
           if (!(material instanceof NativePBRMaterial)) {
             for (let i = 0; i < 4; i++) {
-              gl.uniform1i(uniforms[`xyzMap${i}`], i + 1);
+              this.uniformValues.uniform1i(gl, uniforms[`xyzMap${i}`], i + 1);
               this.bindMaterialTexture(
                 nativeMaterialSources(material)[i] ??
                   materialBaseTexture(material),
@@ -3484,18 +3542,25 @@ export class WebGL2Renderer implements Renderer {
             : this.atlas.matrices[tile]!
           ).elements,
         );
-        gl.uniform1i(uniforms.image, 0);
-        gl.uniform1f(uniforms.alphaCutoff, pbr ? material.alphaCutoff : 0);
-        gl.uniform1f(uniforms.opacity, material.opacity);
-        gl.uniform1f(
+        this.uniformValues.uniform1i(gl, uniforms.image, 0);
+        this.uniformValues.uniform1f(
+          gl,
+          uniforms.alphaCutoff,
+          pbr ? material.alphaCutoff : 0,
+        );
+        this.uniformValues.uniform1f(gl, uniforms.opacity, material.opacity);
+        this.uniformValues.uniform1f(
+          gl,
           uniforms.meshFade,
           this.visibility.entries.get(object)?.fade ?? 1,
         );
-        gl.uniform1i(
+        this.uniformValues.uniform1i(
+          gl,
           uniforms.doubleSided,
           pbr && !material.doubleSided ? 0 : 1,
         );
-        gl.uniform1i(
+        this.uniformValues.uniform1i(
+          gl,
           uniforms.alphaMode,
           pbr
             ? material.alphaMode === 'OPAQUE'
@@ -3991,14 +4056,16 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE0);
     gl.bindSampler(0, null);
     gl.bindTexture(gl.TEXTURE_2D, source);
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.settings,
       enabled ? settings.exposure : 1,
       enabled ? settings.bloomStrength : 0,
       settings.bloomThreshold,
       settings.bloomRadius,
     );
-    gl.uniform1i(
+    this.uniformValues.uniform1i(
+      gl,
       this.postUniforms.toneOperator,
       enabled
         ? tone === 'aces'
@@ -4055,8 +4122,9 @@ export class WebGL2Renderer implements Renderer {
       this.gradingLUT = lut;
     }
     gradingAllocations.get(this)!.touch();
-    gl.uniform1i(this.postUniforms.lutImage, 2);
-    gl.uniform2f(
+    this.uniformValues.uniform1i(gl, this.postUniforms.lutImage, 2);
+    this.uniformValues.uniform2f(
+      gl,
       this.postUniforms.grading,
       lut?.size ?? 1,
       enabled ? (effects?.colorGrading?.strength ?? 0) : 0,
@@ -4064,7 +4132,7 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE1);
     gl.bindSampler(1, null);
     gl.bindTexture(gl.TEXTURE_2D, this.postTarget!.depthTexture!);
-    gl.uniform1i(this.postUniforms.depthImage, 1);
+    this.uniformValues.uniform1i(gl, this.postUniforms.depthImage, 1);
     this.invViewProjection
       .copy(
         this.temporalActive
@@ -4079,21 +4147,24 @@ export class WebGL2Renderer implements Renderer {
     );
     const camera = scene.camera3D;
     const e = camera.matrix.elements;
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.clip,
       camera.near,
       camera.far,
       camera instanceof OrthographicCamera ? 1 : 0,
       Math.hypot(e[1]!, e[5]!, e[9]!),
     );
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.ssao,
       enabled && settings.ssao ? 1 : 0,
       settings.ssaoRadius,
       settings.ssaoStrength,
       settings.ssaoBias,
     );
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.dof,
       enabled && settings.depthOfField ? 1 : 0,
       settings.dofFocusDistance,
@@ -4102,14 +4173,16 @@ export class WebGL2Renderer implements Renderer {
     );
     writeVolumetricUniforms(this.volumetricData, 0, scene);
     const flare = effects?.lensFlare;
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.flare,
       enabled && flare?.enabled ? flare.strength : 0,
       flare?.threshold ?? 1,
       flare?.ghosts ?? 1,
       flare?.spacing ?? 1,
     );
-    gl.uniform4f(
+    this.uniformValues.uniform4f(
+      gl,
       this.postUniforms.halo,
       flare?.haloRadius ?? 0.3,
       flare?.haloWidth ?? 0.15,
@@ -4137,8 +4210,12 @@ export class WebGL2Renderer implements Renderer {
     gl.activeTexture(gl.TEXTURE3);
     gl.bindSampler(3, null);
     gl.bindTexture(gl.TEXTURE_2D, velocity ?? source);
-    gl.uniform1i(this.postUniforms.objectVelocity, 3);
-    gl.uniform1i(this.postUniforms.objectMotionEnabled, velocity ? 1 : 0);
+    this.uniformValues.uniform1i(gl, this.postUniforms.objectVelocity, 3);
+    this.uniformValues.uniform1i(
+      gl,
+      this.postUniforms.objectMotionEnabled,
+      velocity ? 1 : 0,
+    );
     gl.activeTexture(gl.TEXTURE0);
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     if (fxaa) {
@@ -4420,7 +4497,8 @@ export class WebGL2Renderer implements Renderer {
       false,
       this.invViewProjection.elements,
     );
-    gl.uniform2f(
+    this.uniformValues.uniform2f(
+      gl,
       this.skyUniforms.sky,
       scene.backgroundIntensity,
       this.linear3D ? 1 : 0,
@@ -4681,13 +4759,13 @@ export class WebGL2Renderer implements Renderer {
           gl.uniformBlockBinding(program, index, binding);
       }
       gl.useProgram(program);
-      gl.uniform1i(uniforms.image, 0);
-      gl.uniform1i(uniforms.metallicRoughnessMap, 1);
-      gl.uniform1i(uniforms.normalMap, 2);
-      gl.uniform1i(uniforms.occlusionMap, 3);
-      gl.uniform1i(uniforms.emissiveMap, 4);
-      gl.uniform1i(uniforms.shadowMap, 5);
-      gl.uniform1i(uniforms.environmentMap, 6);
+      this.uniformValues.uniform1i(gl, uniforms.image, 0);
+      this.uniformValues.uniform1i(gl, uniforms.metallicRoughnessMap, 1);
+      this.uniformValues.uniform1i(gl, uniforms.normalMap, 2);
+      this.uniformValues.uniform1i(gl, uniforms.occlusionMap, 3);
+      this.uniformValues.uniform1i(gl, uniforms.emissiveMap, 4);
+      this.uniformValues.uniform1i(gl, uniforms.shadowMap, 5);
+      this.uniformValues.uniform1i(gl, uniforms.environmentMap, 6);
       const entry = { program, uniforms };
       this.meshPrograms.set(key, entry);
       if (this.meshPrograms.size > meshShaderVariantLimits.maxEntries) {
