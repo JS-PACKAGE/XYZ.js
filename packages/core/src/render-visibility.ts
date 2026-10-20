@@ -102,6 +102,13 @@ interface Record3D {
   colorVisible: boolean;
   seen: number;
 }
+// One comparator per axis keeps each sort's property load monomorphic.
+const byX = (a: Record3D, b: Record3D): number =>
+  a.entry.sphere.x - b.entry.sphere.x || 0;
+const byY = (a: Record3D, b: Record3D): number =>
+  a.entry.sphere.y - b.entry.sphere.y || 0;
+const byZ = (a: Record3D, b: Record3D): number =>
+  a.entry.sphere.z - b.entry.sphere.z || 0;
 interface Node3D {
   minX: number;
   minY: number;
@@ -127,6 +134,9 @@ export class RenderVisibilityCache {
   private readonly lods = new Map<LOD, number>();
   private gatherFrame = 0;
   private root: Node3D | undefined;
+  /** Tree nodes reused by every rebuild; the tree is the only holder of them. */
+  private readonly nodes: Node3D[] = [];
+  private nodeCount = 0;
   private readonly cameraStamp = new Float64Array(18).fill(NaN);
   private readonly localSphere: BoundingSphere3D = {
     x: 0,
@@ -291,16 +301,16 @@ export class RenderVisibilityCache {
         minZ = Math.min(minZ, s.z);
         maxZ = Math.max(maxZ, s.z);
       }
-      const axis =
-        maxX - minX >= maxY - minY && maxX - minX >= maxZ - minZ
-          ? 'x'
-          : maxY - minY >= maxZ - minZ
-            ? 'y'
-            : 'z';
       this.leaves.sort(
-        (a, b) => a.entry.sphere[axis] - b.entry.sphere[axis] || 0,
+        maxX - minX >= maxY - minY && maxX - minX >= maxZ - minZ
+          ? byX
+          : maxY - minY >= maxZ - minZ
+            ? byY
+            : byZ,
       );
+      this.nodeCount = 0;
       this.root = this.build(0, this.leaves.length);
+      this.nodes.length = this.nodeCount;
     }
     if (this.root) {
       if (boundsChanged) this.refit(this.root, out);
@@ -320,6 +330,7 @@ export class RenderVisibilityCache {
     this.leaves.length = 0;
     this.lods.clear();
     this.root = undefined;
+    this.nodes.length = 0;
     this.scene = undefined;
     this.revision = -1;
     this.cameraStamp.fill(NaN);
@@ -329,8 +340,20 @@ export class RenderVisibilityCache {
 
   private sync(meshes: ReadonlySet<Mesh> | undefined): void {
     ++this.frame;
-    if (meshes)
+    if (meshes) {
+      // Scenes mostly append: records already in Scene order stay in place, and only meshes
+      // from the first divergence on are re-inserted (the resulting order is the Scene's).
+      const existing = this.records.keys();
+      let inOrder = true;
       for (const mesh of meshes) {
+        if (inOrder) {
+          const next = existing.next();
+          if (!next.done && next.value === mesh) {
+            this.records.get(mesh)!.seen = this.frame;
+            continue;
+          }
+          inOrder = false;
+        }
         let record = this.records.get(mesh);
         if (!record) {
           record = {
@@ -364,6 +387,7 @@ export class RenderVisibilityCache {
         this.records.set(mesh, record);
         record.seen = this.frame;
       }
+    }
     for (const [mesh, record] of this.records)
       if (record.seen !== this.frame) this.records.delete(mesh);
     this.leaves.length = 0;
@@ -372,7 +396,7 @@ export class RenderVisibilityCache {
   }
 
   private build(start: number, end: number): Node3D {
-    const node: Node3D = {
+    const node = (this.nodes[this.nodeCount++] ??= {
       minX: 0,
       minY: 0,
       minZ: 0,
@@ -382,7 +406,8 @@ export class RenderVisibilityCache {
       left: undefined,
       right: undefined,
       record: undefined,
-    };
+    });
+    node.left = node.right = node.record = undefined;
     if (end - start === 1) node.record = this.leaves[start]!;
     else {
       const middle = start + Math.floor((end - start) / 2);

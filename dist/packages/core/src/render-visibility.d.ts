@@ -75,6 +75,9 @@ export declare class RenderVisibilityCache {
     private readonly lods;
     private gatherFrame;
     private root;
+    /** Tree nodes reused by every rebuild; the tree is the only holder of them. */
+    private readonly nodes;
+    private nodeCount;
     private readonly cameraStamp;
     private readonly localSphere;
     private readonly worldSphere;

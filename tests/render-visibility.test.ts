@@ -65,6 +65,22 @@ describe('indexed render visibility', () => {
     expect(out.shadows).toEqual([]);
   });
 
+  it('finds every visible mesh after membership grows, shrinks and reorders', () => {
+    const scene = new Scene();
+    const cache = new RenderVisibilityCache(),
+      out = new RenderVisibilitySet();
+    const a = scene.add(cube(-1)),
+      b = scene.add(cube(0));
+    expect(gather(scene, cache, out).color).toEqual([a, b]);
+    const c = scene.add(cube(1)),
+      d = scene.add(cube(2));
+    expect(gather(scene, cache, out).color).toEqual([a, b, c, d]);
+    scene.remove(b);
+    expect(gather(scene, cache, out).color).toEqual([a, c, d]);
+    scene.add(b);
+    expect(gather(scene, cache, out).color).toEqual([a, c, d, b]);
+  });
+
   it('keeps shadow casters whose bounds reach a shadow view, opted-out meshes and unknown bounds', () => {
     const scene = new Scene();
     const inside = scene.add(cube()),

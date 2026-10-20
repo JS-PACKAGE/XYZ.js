@@ -26,6 +26,9 @@ var RenderVisibilitySet = class {
 	occlusionCulled = 0;
 	epoch = 0;
 };
+var byX = (e, t) => e.entry.sphere.x - t.entry.sphere.x || 0;
+var byY = (e, t) => e.entry.sphere.y - t.entry.sphere.y || 0;
+var byZ = (e, t) => e.entry.sphere.z - t.entry.sphere.z || 0;
 var RenderVisibilityCache = class {
 	scene;
 	revision = -1;
@@ -35,6 +38,8 @@ var RenderVisibilityCache = class {
 	lods = /* @__PURE__ */ new Map();
 	gatherFrame = 0;
 	root;
+	nodes = [];
+	nodeCount = 0;
 	cameraStamp = (/* @__PURE__ */ new Float64Array(18)).fill(NaN);
 	localSphere = {
 		x: 0,
@@ -90,49 +95,59 @@ var RenderVisibilityCache = class {
 				let c = o.entry.sphere;
 				require_render_bounds.sphereIsFinite(c) && (e = Math.min(e, c.x), r = Math.max(r, c.x), t = Math.min(t, c.y), i = Math.max(i, c.y), n = Math.min(n, c.z), a = Math.max(a, c.z));
 			}
-			let o = r - e >= i - t && r - e >= a - n ? `x` : i - t >= a - n ? `y` : `z`;
-			this.leaves.sort((e, t) => e.entry.sphere[o] - t.entry.sphere[o] || 0), this.root = this.build(0, this.leaves.length);
+			this.leaves.sort(r - e >= i - t && r - e >= a - n ? byX : i - t >= a - n ? byY : byZ), this.nodeCount = 0, this.root = this.build(0, this.leaves.length), this.nodes.length = this.nodeCount;
 		}
 		this.root && (m && this.refit(this.root, l), this.gather(this.root, a, c, l, u, d));
 		for (let e of this.records.values()) e.colorVisible && l.color.push(e.entry.mesh), e.drawable && ++l.frustumCulled;
 		return l.frustumCulled -= l.color.length + l.occlusionCulled, l;
 	}
 	clear() {
-		this.records.clear(), this.leaves.length = 0, this.lods.clear(), this.root = void 0, this.scene = void 0, this.revision = -1, this.cameraStamp.fill(NaN), ++this.epoch;
+		this.records.clear(), this.leaves.length = 0, this.lods.clear(), this.root = void 0, this.nodes.length = 0, this.scene = void 0, this.revision = -1, this.cameraStamp.fill(NaN), ++this.epoch;
 	}
 	sync(e) {
-		if (++this.frame, e) for (let t of e) {
-			let e = this.records.get(t);
-			e ||= {
-				entry: {
-					mesh: t,
-					sphere: {
-						x: 0,
-						y: 0,
-						z: 0,
-						radius: 0
+		if (++this.frame, e) {
+			let t = this.records.keys(), n = !0;
+			for (let r of e) {
+				if (n) {
+					let e = t.next();
+					if (!e.done && e.value === r) {
+						this.records.get(r).seen = this.frame;
+						continue;
+					}
+					n = !1;
+				}
+				let e = this.records.get(r);
+				e ||= {
+					entry: {
+						mesh: r,
+						sphere: {
+							x: 0,
+							y: 0,
+							z: 0,
+							radius: 0
+						},
+						fade: 1,
+						instances: void 0
 					},
-					fade: 1,
-					instances: void 0
-				},
-				stamp: (/* @__PURE__ */ new Float64Array(31)).fill(NaN),
-				candidate: {
-					mesh: t,
-					epoch: 0,
-					minX: 0,
-					minY: 0,
-					minZ: 0,
-					maxX: 0,
-					maxY: 0,
-					maxZ: 0
-				},
-				instanceVersion: -1,
-				colorVersion: -1,
-				instanceEpoch: -1,
-				drawable: !1,
-				colorVisible: !1,
-				seen: this.frame
-			}, this.records.delete(t), this.records.set(t, e), e.seen = this.frame;
+					stamp: (/* @__PURE__ */ new Float64Array(31)).fill(NaN),
+					candidate: {
+						mesh: r,
+						epoch: 0,
+						minX: 0,
+						minY: 0,
+						minZ: 0,
+						maxX: 0,
+						maxY: 0,
+						maxZ: 0
+					},
+					instanceVersion: -1,
+					colorVersion: -1,
+					instanceEpoch: -1,
+					drawable: !1,
+					colorVisible: !1,
+					seen: this.frame
+				}, this.records.delete(r), this.records.set(r, e), e.seen = this.frame;
+			}
 		}
 		for (let [e, t] of this.records) t.seen !== this.frame && this.records.delete(e);
 		this.leaves.length = 0;
@@ -140,7 +155,7 @@ var RenderVisibilityCache = class {
 		this.root = void 0;
 	}
 	build(e, t) {
-		let n = {
+		let n = this.nodes[this.nodeCount++] ??= {
 			minX: 0,
 			minY: 0,
 			minZ: 0,
@@ -151,7 +166,7 @@ var RenderVisibilityCache = class {
 			right: void 0,
 			record: void 0
 		};
-		if (t - e === 1) n.record = this.leaves[e];
+		if (n.left = n.right = n.record = void 0, t - e === 1) n.record = this.leaves[e];
 		else {
 			let r = e + Math.floor((t - e) / 2);
 			n.left = this.build(e, r), n.right = this.build(r, t);
