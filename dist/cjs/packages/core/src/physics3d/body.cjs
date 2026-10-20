@@ -150,13 +150,23 @@ var RigidBody3D = class {
 		} else this.inverseDiagonal.set(0, 0, 0);
 	}
 	inverseInertia(e, t) {
-		if (this.type !== `dynamic` || this.lockRotation || !this.shape) return t.set(0, 0, 0);
-		if (this.shape.collider.kind === `compound`) {
-			let n = this.inverseTensor, r = e.x, i = e.y, a = e.z;
-			return t.set(n[0] * r + n[3] * i + n[4] * a, n[3] * r + n[1] * i + n[5] * a, n[4] * r + n[5] * i + n[2] * a);
+		return this.inverseInertiaInto(e.x, e.y, e.z, t, !1), t;
+	}
+	addInverseInertia(e, t, n) {
+		this.inverseInertiaInto(e, t, n, this.angularVelocity, !0);
+	}
+	inverseInertiaInto(e, t, n, r, i) {
+		let a = 0, o = 0, s = 0;
+		if (this.type === `dynamic` && !this.lockRotation && this.shape) {
+			if (this.shape.collider.kind === `compound`) {
+				let r = this.inverseTensor;
+				a = r[0] * e + r[3] * t + r[4] * n, o = r[3] * e + r[1] * t + r[5] * n, s = r[4] * e + r[5] * t + r[2] * n;
+			} else {
+				let r = this.shape.axes, i = this.inverseDiagonal, c = r[0], l = r[1], u = r[2], d = (c.x * e + c.y * t + c.z * n) * i.x, f = (l.x * e + l.y * t + l.z * n) * i.y, p = (u.x * e + u.y * t + u.z * n) * i.z;
+				a = c.x * d + l.x * f + u.x * p, o = c.y * d + l.y * f + u.y * p, s = c.z * d + l.z * f + u.z * p;
+			}
 		}
-		let n = this.shape.axes, r = this.inverseDiagonal, i = n[0].dot(e) * r.x, a = n[1].dot(e) * r.y, o = n[2].dot(e) * r.z;
-		return t.set(n[0].x * i + n[1].x * a + n[2].x * o, n[0].y * i + n[1].y * a + n[2].y * o, n[0].z * i + n[1].z * a + n[2].z * o);
+		i ? (r.x += a, r.y += o, r.z += s) : (r.x = a, r.y = o, r.z = s);
 	}
 	applyForce(e, t) {
 		if (require_collider.vector3D(e, `force`), t && require_collider.vector3D(t, `worldPoint`), this.type === `dynamic`) {

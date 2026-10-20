@@ -1062,13 +1062,11 @@ export class PhysicsWorld3D {
       x = point.x - p.x,
       y = point.y - p.y,
       z = point.z - p.z;
-    this.torque.set(
+    body.addInverseInertia(
       (y * impulse.z - z * impulse.y) * sign,
       (z * impulse.x - x * impulse.z) * sign,
       (x * impulse.y - y * impulse.x) * sign,
     );
-    body.inverseInertia(this.torque, this.torque);
-    body.angularVelocity.add(this.torque);
   }
   /** Effective masses depend only on poses/inertia, which velocity iterations never change. */
   private prepareMasses(c: Contact3D): void {

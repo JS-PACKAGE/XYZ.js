@@ -74,6 +74,9 @@ export declare class RigidBody3D {
     private primitiveInertia;
     /** @internal World-space inverse inertia tensor product. */
     inverseInertia(vector: Readonly<Vector3>, out: Vector3): Vector3;
+    /** @internal Solver form of `angularVelocity.add(inverseInertia(torque))` without a temporary. */
+    addInverseInertia(x: number, y: number, z: number): void;
+    private inverseInertiaInto;
     applyForce(force: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void;
     applyImpulse(impulse: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void;
     clearForces(): void;

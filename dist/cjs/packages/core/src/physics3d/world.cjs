@@ -486,7 +486,7 @@ var PhysicsWorld3D = class {
 		if (!e?.owner || e.type !== `dynamic` || e.isSleeping) return;
 		e.velocity.x += n.x * e.inverseMass * r, e.velocity.y += n.y * e.inverseMass * r, e.velocity.z += n.z * e.inverseMass * r;
 		let i = e.owner.position, a = t.x - i.x, o = t.y - i.y, s = t.z - i.z;
-		this.torque.set((o * n.z - s * n.y) * r, (s * n.x - a * n.z) * r, (a * n.y - o * n.x) * r), e.inverseInertia(this.torque, this.torque), e.angularVelocity.add(this.torque);
+		e.addInverseInertia((o * n.z - s * n.y) * r, (s * n.x - a * n.z) * r, (a * n.y - o * n.x) * r);
 	}
 	prepareMasses(e) {
 		let t = e.a.body, n = e.b.body, r = e.manifold;

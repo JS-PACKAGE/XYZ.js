@@ -294,29 +294,52 @@ export class RigidBody3D {
   }
   /** @internal World-space inverse inertia tensor product. */
   inverseInertia(vector: Readonly<Vector3>, out: Vector3): Vector3 {
-    if (this.type !== 'dynamic' || this.lockRotation || !this.shape)
-      return out.set(0, 0, 0);
-    if (this.shape.collider.kind === 'compound') {
-      const d = this.inverseTensor,
-        x = vector.x,
-        y = vector.y,
-        z = vector.z;
-      return out.set(
-        d[0] * x + d[3] * y + d[4] * z,
-        d[3] * x + d[1] * y + d[5] * z,
-        d[4] * x + d[5] * y + d[2] * z,
-      );
+    this.inverseInertiaInto(vector.x, vector.y, vector.z, out, false);
+    return out;
+  }
+  /** @internal Solver form of `angularVelocity.add(inverseInertia(torque))` without a temporary. */
+  addInverseInertia(x: number, y: number, z: number): void {
+    this.inverseInertiaInto(x, y, z, this.angularVelocity, true);
+  }
+  private inverseInertiaInto(
+    x: number,
+    y: number,
+    z: number,
+    out: Vector3,
+    accumulate: boolean,
+  ): void {
+    let rx = 0,
+      ry = 0,
+      rz = 0;
+    if (this.type === 'dynamic' && !this.lockRotation && this.shape) {
+      if (this.shape.collider.kind === 'compound') {
+        const d = this.inverseTensor;
+        rx = d[0] * x + d[3] * y + d[4] * z;
+        ry = d[3] * x + d[1] * y + d[5] * z;
+        rz = d[4] * x + d[5] * y + d[2] * z;
+      } else {
+        const axes = this.shape.axes,
+          d = this.inverseDiagonal,
+          a0 = axes[0],
+          a1 = axes[1],
+          a2 = axes[2];
+        const px = (a0.x * x + a0.y * y + a0.z * z) * d.x,
+          py = (a1.x * x + a1.y * y + a1.z * z) * d.y,
+          pz = (a2.x * x + a2.y * y + a2.z * z) * d.z;
+        rx = a0.x * px + a1.x * py + a2.x * pz;
+        ry = a0.y * px + a1.y * py + a2.y * pz;
+        rz = a0.z * px + a1.z * py + a2.z * pz;
+      }
     }
-    const axes = this.shape.axes,
-      d = this.inverseDiagonal;
-    const x = axes[0].dot(vector) * d.x,
-      y = axes[1].dot(vector) * d.y,
-      z = axes[2].dot(vector) * d.z;
-    return out.set(
-      axes[0].x * x + axes[1].x * y + axes[2].x * z,
-      axes[0].y * x + axes[1].y * y + axes[2].y * z,
-      axes[0].z * x + axes[1].z * y + axes[2].z * z,
-    );
+    if (accumulate) {
+      out.x += rx;
+      out.y += ry;
+      out.z += rz;
+    } else {
+      out.x = rx;
+      out.y = ry;
+      out.z = rz;
+    }
   }
   applyForce(force: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void {
     vector3D(force, 'force');
