@@ -44,6 +44,10 @@ var PhysicsWorld3D = class {
 	unregisteredEntries = 0;
 	index = new require_spatial.SpatialIndex3D();
 	pairCandidates = [];
+	pairLows = [];
+	pairHighs = [];
+	pairSequence = [];
+	comparePairs = (e, t) => this.pairLows[e].order - this.pairLows[t].order || this.pairHighs[e].order - this.pairHighs[t].order;
 	queryCandidates = [];
 	queryBounds = new require_spatial.Bounds3D();
 	sweepTriangles = [];
@@ -404,65 +408,68 @@ var PhysicsWorld3D = class {
 		for (let t of this.constraints) t.prepare(e), this.counters.jointRows += t.solverRowCount, this.jointSnapshot.push(t);
 		this.counters.jointIterations = 0;
 		for (let e = 0; e < this.solverIterations; e++) this.solveJoints();
-		if (this.integrateContinuous(e, t), t() && !this.disposed) {
-			this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
-			for (let e of this.ordered) {
-				this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
-				for (let t of this.pairCandidates) {
-					if (t.order <= e.order) continue;
-					this.counters.candidatePairs++;
-					let n = e.shape.collider, r = t.shape.collider;
-					if (!(n.category & r.mask) || !(r.category & n.mask) || this.connected(e, t) || !e.body && !t.body && !n.sensor && !r.sensor || (this.counters.narrowphaseTests++, this.narrow.collide(e.shape, t.shape, this.queryManifold), this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin)) continue;
-					let i = this.prepareContact(e, t, this.queryManifold);
-					this.active.push(i);
-				}
-			}
-			for (let [e, t] of this.contacts) {
-				for (let [n, r] of t) r.seen !== this.stepId && (t.delete(n), n.partnerRows.delete(e), this.end(r));
-				t.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
-			}
-			for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
-			++this.massEpoch;
-			for (let e = 0; e < this.solverIterations; e++) {
-				this.solveJoints();
-				for (let e of this.active) {
-					if (e.ended || !this.valid(e.a) || !this.valid(e.b) || e.a.shape.collider.sensor || e.b.shape.collider.sensor) continue;
-					let t = e.a.body, n = e.b.body;
-					if (t?.type === `dynamic` && t.isSleeping && n && n.type !== `static` && !n.isSleeping && this.movingAtContact(n, e.manifold) && t.wake(), n?.type === `dynamic` && n.isSleeping && t && t.type !== `static` && !t.isSleeping && this.movingAtContact(t, e.manifold) && n.wake(), t && t.type === `dynamic` && !t.isSleeping || n && n.type === `dynamic` && !n.isSleeping) for (let t = 0; t < e.manifold.count; t++) this.solve(e, t);
-				}
-			}
-			for (let e of this.jointSnapshot) if (e.belongsTo(this) && (e.reactionForce > e.breakForce || e.reactionTorque > e.breakTorque) && (this.removeJoint(e), e.onBreak?.(e), !t() || this.disposed)) return;
+		if (this.integrateContinuous(e, t), !t() || this.disposed) return;
+		this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
+		let n = this.pairLows, r = this.pairHighs, i = this.pairSequence;
+		n.length = r.length = i.length = 0;
+		for (let e of this.ordered) if (e.body || e.shape.collider.sensor) {
+			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
+			for (let t of this.pairCandidates) t !== e && (t.order < e.order && (t.body || t.shape.collider.sensor) || (i.push(n.length), n.push(t.order < e.order ? t : e), r.push(t.order < e.order ? e : t)));
+		}
+		i.sort(this.comparePairs);
+		for (let e of i) {
+			let t = n[e], i = r[e];
+			this.counters.candidatePairs++;
+			let a = t.shape.collider, o = i.shape.collider;
+			if (!(a.category & o.mask) || !(o.category & a.mask) || this.connected(t, i) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, i.shape, this.queryManifold), this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin)) continue;
+			let s = this.prepareContact(t, i, this.queryManifold);
+			this.active.push(s);
+		}
+		for (let [e, t] of this.contacts) {
+			for (let [n, r] of t) r.seen !== this.stepId && (t.delete(n), n.partnerRows.delete(e), this.end(r));
+			t.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
+		}
+		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
+		++this.massEpoch;
+		for (let e = 0; e < this.solverIterations; e++) {
+			this.solveJoints();
 			for (let e of this.active) {
 				if (e.ended || !this.valid(e.a) || !this.valid(e.b) || e.a.shape.collider.sensor || e.b.shape.collider.sensor) continue;
-				let t = e.a.body, n = e.b.body, r = t?.inverseMass ?? 0, i = n?.inverseMass ?? 0, a = r + i;
-				if (a === 0) continue;
-				if (e.a.shape.collider.kind === `compound` || e.b.shape.collider.kind === `compound` || e.a.shape.collider.kind === `mesh` || e.b.shape.collider.kind === `mesh`) {
-					let o = e.manifold;
-					for (let s = 0; s < o.count; s++) {
-						let c = Math.max(0, o.depths[s] - require_physics3d.physics3DDefaults.contactSlop) * require_physics3d.physics3DDefaults.correction / (a * o.count), l = o.normals[s];
-						if (r && t && !t.isSleeping) {
-							let t = e.a.object.position;
-							t.x += l.x * c * r, t.y += l.y * c * r, t.z += l.z * c * r;
-						}
-						if (i && n && !n.isSleeping) {
-							let t = e.b.object.position;
-							t.x -= l.x * c * i, t.y -= l.y * c * i, t.z -= l.z * c * i;
-						}
-					}
-					continue;
-				}
-				let o = Math.max(0, -e.manifold.distance - require_physics3d.physics3DDefaults.contactSlop) * require_physics3d.physics3DDefaults.correction / a, s = e.manifold.normal;
-				if (r && t && !t.isSleeping) {
-					let t = e.a.object.position;
-					t.x += s.x * o * r, t.y += s.y * o * r, t.z += s.z * o * r;
-				}
-				if (i && n && !n.isSleeping) {
-					let t = e.b.object.position;
-					t.x -= s.x * o * i, t.y -= s.y * o * i, t.z -= s.z * o * i;
-				}
+				let t = e.a.body, n = e.b.body;
+				if (t?.type === `dynamic` && t.isSleeping && n && n.type !== `static` && !n.isSleeping && this.movingAtContact(n, e.manifold) && t.wake(), n?.type === `dynamic` && n.isSleeping && t && t.type !== `static` && !t.isSleeping && this.movingAtContact(t, e.manifold) && n.wake(), t && t.type === `dynamic` && !t.isSleeping || n && n.type === `dynamic` && !n.isSleeping) for (let t = 0; t < e.manifold.count; t++) this.solve(e, t);
 			}
-			for (let t of this.ordered) this.valid(t) && (t.object.sealPhysicsPose(), t.body?.updateSleep(e));
 		}
+		for (let e of this.jointSnapshot) if (e.belongsTo(this) && (e.reactionForce > e.breakForce || e.reactionTorque > e.breakTorque) && (this.removeJoint(e), e.onBreak?.(e), !t() || this.disposed)) return;
+		for (let e of this.active) {
+			if (e.ended || !this.valid(e.a) || !this.valid(e.b) || e.a.shape.collider.sensor || e.b.shape.collider.sensor) continue;
+			let t = e.a.body, n = e.b.body, r = t?.inverseMass ?? 0, i = n?.inverseMass ?? 0, a = r + i;
+			if (a === 0) continue;
+			if (e.a.shape.collider.kind === `compound` || e.b.shape.collider.kind === `compound` || e.a.shape.collider.kind === `mesh` || e.b.shape.collider.kind === `mesh`) {
+				let o = e.manifold;
+				for (let s = 0; s < o.count; s++) {
+					let c = Math.max(0, o.depths[s] - require_physics3d.physics3DDefaults.contactSlop) * require_physics3d.physics3DDefaults.correction / (a * o.count), l = o.normals[s];
+					if (r && t && !t.isSleeping) {
+						let t = e.a.object.position;
+						t.x += l.x * c * r, t.y += l.y * c * r, t.z += l.z * c * r;
+					}
+					if (i && n && !n.isSleeping) {
+						let t = e.b.object.position;
+						t.x -= l.x * c * i, t.y -= l.y * c * i, t.z -= l.z * c * i;
+					}
+				}
+				continue;
+			}
+			let o = Math.max(0, -e.manifold.distance - require_physics3d.physics3DDefaults.contactSlop) * require_physics3d.physics3DDefaults.correction / a, s = e.manifold.normal;
+			if (r && t && !t.isSleeping) {
+				let t = e.a.object.position;
+				t.x += s.x * o * r, t.y += s.y * o * r, t.z += s.z * o * r;
+			}
+			if (i && n && !n.isSleeping) {
+				let t = e.b.object.position;
+				t.x -= s.x * o * i, t.y -= s.y * o * i, t.z -= s.z * o * i;
+			}
+		}
+		for (let t of this.ordered) this.valid(t) && (t.object.sealPhysicsPose(), t.body?.updateSleep(e));
 	}
 	velocityAt(e, t, n) {
 		if (!e || !e.owner) {
@@ -693,7 +700,7 @@ var PhysicsWorld3D = class {
 		if (!(this.disposed || this.destroying)) {
 			this.destroying = !0;
 			for (let e of this.contacts.values()) for (let t of e.values()) this.end(t);
-			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = 0, this.index.clear(), this.pairCandidates.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
+			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = 0, this.index.clear(), this.pairCandidates.length = 0, this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
 			for (let e of this.constraints) e.detach();
 			this.constraints.length = 0, this.jointLinks.clear(), ++this.counters.indexGeneration, this.jointSnapshot.length = 0, this.sweptEntries.length = 0, this.ccdCandidates.length = 0, this.sweptIndex.clear(), this.placementShape = void 0, this.capsuleQueryShape = void 0, this.sweepQueryShape = void 0, this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0, this.counters.queryCandidates = 0, this.accumulator = 0;
 		}

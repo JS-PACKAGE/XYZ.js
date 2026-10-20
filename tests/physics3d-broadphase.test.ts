@@ -62,3 +62,38 @@ it('matches isolated shape queries while rejecting spatially distant pairs', () 
   scene.destroy();
   expect(scene.physics3D.size).toBe(0);
 });
+
+it('pairs earlier static and sensor colliders with later bodies without counting static-static overlaps', () => {
+  const scene = new Scene();
+  const place = (o: Object3D, x: number) => {
+    o.position.set(x, 0, 0);
+    return scene.add(o);
+  };
+  const floor = new Object3D();
+  floor.collider = new BoxCollider3D(new Vector3(1, 1, 1));
+  place(floor, 0);
+  // Overlapping static neighbours of the floor, never a contact pair.
+  for (const x of [0.5, 1, 1.5]) {
+    const o = new Object3D();
+    o.collider = new BoxCollider3D(new Vector3(1, 1, 1));
+    place(o, x);
+  }
+  const zone = new Object3D();
+  zone.collider = new SphereCollider3D(1, { sensor: true });
+  place(zone, 6);
+  const ball = new Object3D();
+  ball.collider = new SphereCollider3D(0.5);
+  ball.body = new RigidBody3D({ gravityScale: 0 });
+  place(ball, -1.2);
+  const probe = new Object3D();
+  probe.collider = new SphereCollider3D(0.5);
+  probe.body = new RigidBody3D({ gravityScale: 0 });
+  place(probe, 6.5);
+  const started: string[] = [];
+  floor.addEventListener('collisionstart', () => started.push('floor'));
+  zone.addEventListener('collisionstart', () => started.push('zone'));
+  scene.physics3D.update(scene.physics3D.fixedDelta);
+  expect(started.sort()).toEqual(['floor', 'zone']);
+  expect(scene.physics3D.stats.candidatePairs).toBe(2);
+  scene.destroy();
+});

@@ -978,7 +978,7 @@ Fixture 讀真正 submitted frame：presentation 前複製 GPUTexture、aligned 
 
 Solver pairs、overlap／ray／sweep／controller 共用 deterministic registration-order balanced conservative AABB hierarchy。Topology 改變重建；public mutable pose 每 fixed tick／public query 仍需 O(N) pose checks，但 geometry refresh／refit 僅處理變更，unchanged queries 不 refresh／refit。Candidate traversal 不代表整個 query sublinear；infinite planes 仍是必要 candidates。
 
-World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query；destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。
+World.stats 重用 readonly PhysicsStats3D：candidatePairs／narrowphaseTests 是最後 fixed tick，queryCandidates 是最後 query。只有 body 與 sensor 查詢 broadphase，candidatePairs 因此只計至少一方是 body 或 sensor 的 bounds 重疊配對；兩個無 body、非 sensor collider 的重疊永不成為 contact，不列舉也不計數。Destroy 清 counters／membership。Reciprocal filters／sensors／stable lifecycle／即時 mutation／remove reconciliation 不變；counts 不是 GPU time／FPS 提升證明。
 
 ## 46. 有預算的導航搜尋（P46）
 

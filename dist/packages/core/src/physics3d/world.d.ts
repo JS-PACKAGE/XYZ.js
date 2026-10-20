@@ -67,6 +67,11 @@ export declare class PhysicsWorld3D {
     private unregisteredEntries;
     private readonly index;
     private readonly pairCandidates;
+    /** Broadphase pairs as (lower order, higher order) plus their visiting sequence. */
+    private readonly pairLows;
+    private readonly pairHighs;
+    private readonly pairSequence;
+    private readonly comparePairs;
     private readonly queryCandidates;
     private readonly queryBounds;
     private readonly sweepTriangles;

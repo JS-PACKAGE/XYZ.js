@@ -1082,7 +1082,7 @@ The shared Linux Chromium launcher selects SwiftShader for ANGLE and Dawn, and e
 
 World solver pairs and overlap/ray/sweep/controller queries share a deterministic registration-order balanced conservative AABB hierarchy. Topology changes rebuild; directly mutable poses still require O(N) pose checks at each fixed tick and public query. Geometry refresh and hierarchy refits are changed-only; unchanged queries perform neither. Candidate traversal avoids full-pair/exact-shape enumeration, but total public queries are not wholly sublinear. Infinite planes remain unavoidable candidates.
 
-`world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.
+`world.stats` is a reused readonly `PhysicsStats3D` view: candidatePairs/narrowphaseTests from the last tick and queryCandidates from the last query. Only bodies and sensors query the broadphase, so candidatePairs counts overlapping-bounds pairs with at least one body or sensor; overlaps between two bodiless non-sensor colliders, which never form contacts, are not enumerated or counted. Destroy clears counters and membership. Preserve reciprocal filters, sensors, stable lifecycle and immediate mutation/removal reconciliation; counters are not measured GPU time or FPS improvement.
 
 ## 46. Budgeted Navigation Search (P46)
 

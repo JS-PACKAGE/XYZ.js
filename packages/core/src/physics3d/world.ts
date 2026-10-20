@@ -140,6 +140,13 @@ export class PhysicsWorld3D {
   private unregisteredEntries = 0;
   private readonly index = new SpatialIndex3D<Entry3D>();
   private readonly pairCandidates: Entry3D[] = [];
+  /** Broadphase pairs as (lower order, higher order) plus their visiting sequence. */
+  private readonly pairLows: Entry3D[] = [];
+  private readonly pairHighs: Entry3D[] = [];
+  private readonly pairSequence: number[] = [];
+  private readonly comparePairs = (i: number, j: number): number =>
+    this.pairLows[i]!.order - this.pairLows[j]!.order ||
+    this.pairHighs[i]!.order - this.pairHighs[j]!.order;
   private readonly queryCandidates: Entry3D[] = [];
   private readonly queryBounds = new Bounds3D();
   private readonly sweepTriangles: Triangle3D[] = [];
@@ -841,27 +848,43 @@ export class PhysicsWorld3D {
     this.refreshIndex();
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
+    // Bodiless non-sensor entries never pair with each other, so only bodies and sensors
+    // query the index (bounds overlap is symmetric); a pair of two bodies/sensors is taken from
+    // its lower-order side. Pairs are then visited in (lower, higher) order as a full sweep would.
+    const lows = this.pairLows,
+      highs = this.pairHighs,
+      sequence = this.pairSequence;
+    lows.length = highs.length = sequence.length = 0;
     for (const a of this.ordered) {
+      if (!a.body && !a.shape.collider.sensor) continue;
       this.index.query(
         a.bounds,
         this.pairCandidates,
         physics3DDefaults.contactMargin,
       );
       for (const b of this.pairCandidates) {
-        if (b.order <= a.order) continue;
-        this.counters.candidatePairs++;
-        const ca = a.shape.collider,
-          cb = b.shape.collider;
-        if (!(ca.category & cb.mask) || !(cb.category & ca.mask)) continue;
-        if (this.connected(a, b)) continue;
-        if (!a.body && !b.body && !ca.sensor && !cb.sensor) continue;
-        this.counters.narrowphaseTests++;
-        this.narrow.collide(a.shape, b.shape, this.queryManifold);
-        if (this.queryManifold.distance > physics3DDefaults.contactMargin)
-          continue;
-        const contact = this.prepareContact(a, b, this.queryManifold);
-        this.active.push(contact);
+        if (b === a) continue;
+        if (b.order < a.order && (b.body || b.shape.collider.sensor)) continue;
+        sequence.push(lows.length);
+        lows.push(b.order < a.order ? b : a);
+        highs.push(b.order < a.order ? a : b);
       }
+    }
+    sequence.sort(this.comparePairs);
+    for (const pair of sequence) {
+      const a = lows[pair]!,
+        b = highs[pair]!;
+      this.counters.candidatePairs++;
+      const ca = a.shape.collider,
+        cb = b.shape.collider;
+      if (!(ca.category & cb.mask) || !(cb.category & ca.mask)) continue;
+      if (this.connected(a, b)) continue;
+      this.counters.narrowphaseTests++;
+      this.narrow.collide(a.shape, b.shape, this.queryManifold);
+      if (this.queryManifold.distance > physics3DDefaults.contactMargin)
+        continue;
+      const contact = this.prepareContact(a, b, this.queryManifold);
+      this.active.push(contact);
     }
     for (const [a, row] of this.contacts) {
       for (const [b, c] of row)
@@ -1631,6 +1654,7 @@ export class PhysicsWorld3D {
     this.active.length = 0;
     this.index.clear();
     this.pairCandidates.length = 0;
+    this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0;
     this.queryCandidates.length = 0;
     this.sweepTriangles.length = 0;
     for (const joint of this.constraints) joint.detach();
