@@ -425,10 +425,17 @@ export class NavigationSurfaceBakeJob3D {
   step(budget: number): NavigationSearchStatus {
     validateBudget(budget);
     if (this.state !== 'pending') return this.state;
+    // Sampling moves no collider and the only user code a step runs is the
+    // `geometryRevision` read, so one pose refresh serves the leading and trailing
+    // staleness checks and every query in between.
+    this.world.withPoseSnapshot(() => this.advance(budget));
+    return this.state;
+  }
+  private advance(budget: number): void {
     if (this.stale()) {
       this.state = 'invalidated';
       this.release();
-      return this.state;
+      return;
     }
     const cells = this.mapping.columns * this.mapping.rows;
     try {
@@ -444,7 +451,7 @@ export class NavigationSurfaceBakeJob3D {
           if (this.stale()) {
             this.state = 'invalidated';
             this.release();
-            return this.state;
+            return;
           }
           const geometry = { nodes: this.nodes, connections: this.connections };
           if (this.options.target) {
@@ -465,7 +472,6 @@ export class NavigationSurfaceBakeJob3D {
       this.state = 'invalidated';
       this.release();
     }
-    return this.state;
   }
   cancel(): void {
     if (this.state !== 'pending') return;

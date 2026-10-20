@@ -122,6 +122,7 @@ export declare class NavigationSurfaceBakeJob3D {
     get expansions(): number;
     get result(): NavigationGraph3D | undefined;
     step(budget: number): NavigationSearchStatus;
+    private advance;
     cancel(): void;
     private stale;
     private sampleCell;

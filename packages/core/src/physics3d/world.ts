@@ -156,6 +156,8 @@ export class PhysicsWorld3D {
   private readonly sweepTriangles: Triangle3D[] = [];
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
+  /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
+  private poseSnapshot = false;
   private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
   private readonly sweptStore: SweptEntry3D[] = [];
   private readonly ccdCandidates: SweptEntry3D[] = [];
@@ -246,6 +248,20 @@ export class PhysicsWorld3D {
   get geometryRevision(): number {
     this.refreshIndex();
     return this.counters.indexGeneration;
+  }
+  /**
+   * @internal Runs synchronous queries that move no collider (no user code runs inside
+   * `run`) against one pose refresh instead of rechecking every pose per query.
+   */
+  withPoseSnapshot<T>(run: () => T): T {
+    if (this.poseSnapshot) return run();
+    this.refreshIndex();
+    this.poseSnapshot = true;
+    try {
+      return run();
+    } finally {
+      this.poseSnapshot = false;
+    }
   }
   get joints(): readonly Joint3D[] {
     return this.constraints;
@@ -1197,6 +1213,7 @@ export class PhysicsWorld3D {
     this.applyImpulse(b, p, ix, iy, iz, -1);
   }
   private refreshIndex(): void {
+    if (this.poseSnapshot && !this.indexDirty) return;
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
     let changed = this.indexDirty;
     for (const e of this.ordered) {

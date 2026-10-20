@@ -159,8 +159,13 @@ var NavigationSurfaceBakeJob3D = class {
 		return this.value;
 	}
 	step(e) {
-		if (validateBudget(e), this.state !== `pending`) return this.state;
-		if (this.stale()) return this.state = `invalidated`, this.release(), this.state;
+		return validateBudget(e), this.state === `pending` && this.world.withPoseSnapshot(() => this.advance(e)), this.state;
+	}
+	advance(e) {
+		if (this.stale()) {
+			this.state = `invalidated`, this.release();
+			return;
+		}
 		let t = this.mapping.columns * this.mapping.rows;
 		try {
 			for (let r = 0; r < e && this.state === `pending`; r++) {
@@ -170,7 +175,10 @@ var NavigationSurfaceBakeJob3D = class {
 					if (this.connections.length === require_navigation.navigationLimits.graphConnections) throw RangeError(`Surface connection limit exceeded.`);
 					this.connections.push(this.options.links[this.linkCursor++]);
 				} else {
-					if (this.stale()) return this.state = `invalidated`, this.release(), this.state;
+					if (this.stale()) {
+						this.state = `invalidated`, this.release();
+						return;
+					}
 					let e = {
 						nodes: this.nodes,
 						connections: this.connections
@@ -182,7 +190,7 @@ var NavigationSurfaceBakeJob3D = class {
 		} catch (e) {
 			throw this.state = `cancelled`, this.release(), e;
 		}
-		return this.state === `pending` && this.stale() && (this.state = `invalidated`, this.release()), this.state;
+		this.state === `pending` && this.stale() && (this.state = `invalidated`, this.release());
 	}
 	cancel() {
 		this.state === `pending` && (this.state = `cancelled`, this.release());
