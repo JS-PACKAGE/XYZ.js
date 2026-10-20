@@ -132,9 +132,9 @@ const meshUniformFloats =
   PBR_FINISH_FLOATS +
   40 +
   16;
-/** Mesh uniform sections after the native-material words; see updateMesh. */
-const uvOffset =
-    76 + REFLECTION_FLOAT_COUNT + nativeMaterial3DLimits.uniformFloats + 4,
+/** Mesh uniform sections from the native-material words onward; see updateMesh. */
+const nativeOffset = 76 + REFLECTION_FLOAT_COUNT,
+  uvOffset = nativeOffset + nativeMaterial3DLimits.uniformFloats + 4,
   finishOffset = meshUniformFloats - 16 - 40 - PBR_FINISH_FLOATS,
   irradianceOffset = meshUniformFloats - 16 - 40,
   opticalOffset = meshUniformFloats - 16;
@@ -3438,6 +3438,8 @@ export class WebGPUMeshPipeline {
       sources.thicknessTexture,
       material.thicknessSampler,
     );
+    // Native PBR materials carry their own uniform words, which belong to the block too.
+    if (isNativeMaterial3D(material)) data.set(material.uniforms, nativeOffset);
     fillMaterialUV(material, anyUV1, data, uvOffset);
     fillPBRFinish(material, data, finishOffset);
     fillMappedOpticalSettings(material, data, opticalOffset);
@@ -3500,6 +3502,14 @@ export class WebGPUMeshPipeline {
         );
         data.set(source.subarray(finishOffset, irradianceOffset), finishOffset);
         data.set(source.subarray(opticalOffset), opticalOffset);
+        if (isNativeMaterial3D(material))
+          data.set(
+            source.subarray(
+              nativeOffset,
+              nativeOffset + nativeMaterial3DLimits.uniformFloats,
+            ),
+            nativeOffset,
+          );
         mesh.blockMaterial = material;
         mesh.blockRevision = block.revision;
       }
