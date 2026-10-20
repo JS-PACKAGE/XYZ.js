@@ -226,7 +226,7 @@ var PhysicsWorld2D = class {
 		for (let a = 0; a < 2; a++) {
 			if (i !== `collisionend` && !this.continuation()) return;
 			let o = a ? t.b : t.a, s = a ? t.a : t.b;
-			if (!this.alive(o) || i !== `collisionend` && (!t.active || !this.alive(s)) || o.owner.dispatchEvent === _ && require_scene_object.SceneObject.prototype.dispatchEvent === v && !require_event_observers.hasObjectEventObservers(o.owner, i)) continue;
+			if (o.owner.dispatchEvent === _ && require_scene_object.SceneObject.prototype.dispatchEvent === v && !require_event_observers.hasObjectEventObservers(o.owner, i) || !this.alive(o) || i !== `collisionend` && (!t.active || !this.alive(s))) continue;
 			let c = a ? -1 : 1, l = t.manifold, u = this.stepToken, d = {
 				self: o.owner,
 				other: s.owner,

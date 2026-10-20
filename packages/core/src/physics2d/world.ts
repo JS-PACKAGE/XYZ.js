@@ -439,14 +439,16 @@ export class PhysicsWorld2D {
       if (name !== 'collisionend' && !this.continuation()) return;
       const self = receiver ? contact.b : contact.a,
         other = receiver ? contact.a : contact.b;
-      if (!this.alive(self)) continue;
-      if (name !== 'collisionend' && (!contact.active || !this.alive(other)))
-        continue;
+      // Every check here only skips this receiver and none has side effects, so the cheap
+      // unobserved test runs first.
       if (
         self.owner.dispatchEvent === dispatchGameObjectEvent &&
         SceneObject.prototype.dispatchEvent === dispatchSceneObjectEvent &&
         !hasObjectEventObservers(self.owner, name)
       )
+        continue;
+      if (!this.alive(self)) continue;
+      if (name !== 'collisionend' && (!contact.active || !this.alive(other)))
         continue;
       const sign = receiver ? -1 : 1,
         m = contact.manifold;
