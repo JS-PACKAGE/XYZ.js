@@ -145,6 +145,14 @@ var O = {
 	MAT4: 16
 };
 var k = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+function indicesWithin(e, t) {
+	for (let n = 0; n < e.length; n++) if (e[n] >= t) return !1;
+	return !0;
+}
+function allFinite(e) {
+	for (let t = 0; t < e.length; t++) if (!Number.isFinite(e[t])) return !1;
+	return !0;
+}
 function scalar(t, n, r, i) {
 	let a;
 	switch (r) {
@@ -318,9 +326,7 @@ var GLTFLoader = class {
 						for (let e = 0; e < l; e++) g[n * l + e] = scalar(y, _ + t * h + componentOffset(e), o, d);
 					}
 				}
-				if (o === 5126) {
-					for (let t = 0; t < g.length; t++) if (!Number.isFinite(g[t])) throw new require_texture.AssetError(`Accessor values must be finite Float32 numbers.`);
-				}
+				if (o === 5126 && !allFinite(g)) throw new require_texture.AssetError(`Accessor values must be finite Float32 numbers.`);
 				let v = {
 					data: g,
 					count: u,
@@ -745,7 +751,7 @@ var GLTFLoader = class {
 					if (de += c, de > require_models.modelLimits.indices || !c || c % 3) throw new require_texture.AssetError(`Invalid or excessive triangle indices.`);
 					s || f.reserve(c * 4);
 					let p = s?.data ?? Float32Array.from({ length: c }, (e, t) => t);
-					for (let t = 0; t < p.length; t++) if (p[t] >= i.count) throw new require_texture.AssetError(`Triangle index is outside positions.`);
+					if (!indicesWithin(p, i.count)) throw new require_texture.AssetError(`Triangle index is outside positions.`);
 					let g = r.NORMAL === void 0 ? void 0 : readAccessor(r.NORMAL);
 					if (g && (g.type !== `VEC3` || g.component !== 5126 || g.count !== i.count)) throw new require_texture.AssetError(`Invalid vertex normals.`);
 					for (let t of Object.keys(r)) {

@@ -184,6 +184,33 @@ describe('glTF decoding and owned assets', () => {
       ),
     ).rejects.toThrow('Accessor values must be finite Float32 numbers.');
   });
+  it('rejects triangle indices equal to the position count', async () => {
+    installImages();
+    const bytes = new Uint8Array(44),
+      view = new DataView(bytes.buffer);
+    for (let k = 0; k < 9; k++) view.setFloat32(k * 4, k, true);
+    [0, 1, 3].forEach((value, k) => view.setUint16(36 + k * 2, value, true));
+    await expect(
+      new GLTFLoader().parse(
+        JSON.stringify({
+          asset: { version: '2.0' },
+          buffers: [{ byteLength: bytes.length, uri: embedded(bytes) }],
+          bufferViews: [
+            { buffer: 0, byteLength: 36 },
+            { buffer: 0, byteOffset: 36, byteLength: 6 },
+          ],
+          accessors: [
+            { bufferView: 0, componentType: 5126, count: 3, type: 'VEC3' },
+            { bufferView: 1, componentType: 5123, count: 3, type: 'SCALAR' },
+          ],
+          meshes: [
+            { primitives: [{ attributes: { POSITION: 0 }, indices: 1 }] },
+          ],
+          nodes: [{ mesh: 0 }],
+        }),
+      ),
+    ).rejects.toThrow('Triangle index is outside positions.');
+  });
   it('initializes omitted bufferViews with zeros and preserves separately owned primitive geometry', async () => {
     installImages();
     const asset = await new GLTFLoader().parse(

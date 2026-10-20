@@ -316,6 +316,20 @@ const sizes: Record<string, number> = {
 };
 /** glTF data is little-endian; native typed-array views match it only on such hosts. */
 const littleEndian = new Uint8Array(new Uint16Array([1]).buffer)[0] === 1;
+/*
+ * Bulk scans are kept out of the large parse closures, which V8 leaves unoptimized; indexed
+ * loops because `for…of` over a typed array is an order of magnitude slower.
+ */
+function indicesWithin(indices: Float32Array, count: number): boolean {
+  for (let i = 0; i < indices.length; i++)
+    if (indices[i]! >= count) return false;
+  return true;
+}
+function allFinite(values: Float32Array): boolean {
+  for (let i = 0; i < values.length; i++)
+    if (!Number.isFinite(values[i])) return false;
+  return true;
+}
 function scalar(
   view: DataView,
   offset: number,
@@ -745,12 +759,10 @@ export class GLTFLoader {
           }
         }
         // Integer components (normalized or not) always land as finite Float32 values.
-        if (component === 5126)
-          for (let i = 0; i < data.length; i++)
-            if (!Number.isFinite(data[i]))
-              throw new AssetError(
-                'Accessor values must be finite Float32 numbers.',
-              );
+        if (component === 5126 && !allFinite(data))
+          throw new AssetError(
+            'Accessor values must be finite Float32 numbers.',
+          );
         const result = { data, count, size, component, normalized, type };
         accessors.set(id, result);
         return result;
@@ -1677,10 +1689,8 @@ export class GLTFLoader {
           const indices =
             index?.data ??
             Float32Array.from({ length: indexCount }, (_, j) => j);
-          // Indexed: `for…of` over a typed array is an order of magnitude slower in V8.
-          for (let i = 0; i < indices.length; i++)
-            if (indices[i]! >= position.count)
-              throw new AssetError('Triangle index is outside positions.');
+          if (!indicesWithin(indices, position.count))
+            throw new AssetError('Triangle index is outside positions.');
           const normal =
             attributes.NORMAL === undefined
               ? undefined
