@@ -40,9 +40,24 @@ interface SemanticEntry {
   coverage: boolean;
   clipCoverage: boolean;
   spaceDown: boolean;
+  /** Inline host styles last written; the host element is private to the manager. */
+  readonly hostStyle: Record<HostStyle, string>;
 }
+type HostStyle = 'display' | 'left' | 'top' | 'width' | 'height';
 const SVG_NAMESPACE = 'http://www.w3.org/2000/svg';
 let nextMaskId = 0;
+function setAttribute(element: Element, name: string, value: string): void {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+function setHostStyle(
+  entry: SemanticEntry,
+  name: HostStyle,
+  value: string,
+): void {
+  if (entry.hostStyle[name] === value) return;
+  entry.host.style[name] = value;
+  entry.hostStyle[name] = value;
+}
 
 /** Invisible semantics only; exact native geometric masks never replace canvas visuals. */
 export class AccessibilityManager {
@@ -299,6 +314,7 @@ export class AccessibilityManager {
       coverage: false,
       clipCoverage: false,
       spaceDown: false,
+      hostStyle: { display: '', left: '', top: '', width: '', height: '' },
     };
     const options = { signal: entry.controller.signal };
     node.addEventListener(
@@ -657,19 +673,31 @@ export class AccessibilityManager {
         this.entries.set(object, entry);
       }
       const node = entry.node;
-      node.setAttribute('role', semantic.role);
-      node.setAttribute('aria-label', semantic.label);
-      node.lang =
-        semantic.language ?? this.canvas.ownerDocument.documentElement.lang;
+      // Mirrors run every frame; writing only differing values keeps unchanged nodes
+      // from re-entering attribute/style mutation and accessibility-tree work.
+      setAttribute(node, 'role', semantic.role);
+      setAttribute(node, 'aria-label', semantic.label);
+      setAttribute(
+        node,
+        'lang',
+        semantic.language ?? this.canvas.ownerDocument.documentElement.lang,
+      );
       if (semantic.description)
-        node.setAttribute('aria-description', semantic.description);
+        setAttribute(node, 'aria-description', semantic.description);
       else node.removeAttribute('aria-description');
-      if (semantic.modal) node.setAttribute('aria-modal', 'true');
+      if (semantic.modal) setAttribute(node, 'aria-modal', 'true');
       else node.removeAttribute('aria-modal');
-      node.setAttribute('aria-disabled', String(semantic.disabled ?? false));
-      node.tabIndex = semantic.disabled ? -1 : (semantic.tabIndex ?? 0);
-      if (node.tagName === 'INPUT')
-        (node as HTMLInputElement).disabled = semantic.disabled ?? false;
+      setAttribute(node, 'aria-disabled', String(semantic.disabled ?? false));
+      setAttribute(
+        node,
+        'tabindex',
+        String(semantic.disabled ? -1 : (semantic.tabIndex ?? 0)),
+      );
+      if (node.tagName === 'INPUT') {
+        const disabled = semantic.disabled ?? false;
+        if ((node as HTMLInputElement).disabled !== disabled)
+          (node as HTMLInputElement).disabled = disabled;
+      }
       object.getWorldBounds(this.bounds);
       let minX = this.bounds.x,
         minY = this.bounds.y,
@@ -714,17 +742,25 @@ export class AccessibilityManager {
         visible = entry.clipCoverage;
       }
       entry.coverage = visible;
-      entry.host.style.display = visible ? 'block' : 'none';
-      node.setAttribute('aria-hidden', String(!visible));
+      setHostStyle(entry, 'display', visible ? 'block' : 'none');
+      setAttribute(node, 'aria-hidden', String(!visible));
       if (!visible || semantic.disabled) {
         entry.spaceDown = false;
         if (node === node.ownerDocument.activeElement) node.blur();
       }
       if (!visible) continue;
-      entry.host.style.left = `${rect.left + leftInset + (minX * cssWidth) / size.width}px`;
-      entry.host.style.top = `${rect.top + topInset + (minY * cssHeight) / size.height}px`;
-      entry.host.style.width = `${entry.width}px`;
-      entry.host.style.height = `${entry.height}px`;
+      setHostStyle(
+        entry,
+        'left',
+        `${rect.left + leftInset + (minX * cssWidth) / size.width}px`,
+      );
+      setHostStyle(
+        entry,
+        'top',
+        `${rect.top + topInset + (minY * cssHeight) / size.height}px`,
+      );
+      setHostStyle(entry, 'width', `${entry.width}px`);
+      setHostStyle(entry, 'height', `${entry.height}px`);
     }
     for (const modal of this.modalScopes.values()) {
       const element = this.element(modal);

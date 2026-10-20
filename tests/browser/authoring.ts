@@ -984,6 +984,35 @@ try {
             game.graphics.stats.drawCalls2D > 0,
           'responsive retained layout follows a real rendered backing resize',
         );
+        const semantic = button.accessibility!;
+        const mirror = (label: string): HTMLElement | null =>
+          document.querySelector(
+            `[data-xyz-accessibility][aria-label="${label}"]`,
+          );
+        const before = mirror('UI action');
+        const tabIndex = before?.getAttribute('tabindex');
+        button.accessibility = {
+          ...semantic,
+          label: 'UI renamed',
+          disabled: true,
+        };
+        await frames();
+        const renamed = mirror('UI renamed');
+        check(
+          renamed === before &&
+            renamed?.getAttribute('aria-disabled') === 'true' &&
+            renamed.getAttribute('tabindex') === '-1',
+          'runtime semantic changes reach the existing native mirror',
+        );
+        button.accessibility = semantic;
+        await frames();
+        check(
+          mirror('UI action') === before &&
+            before?.getAttribute('aria-disabled') ===
+              String(semantic.disabled ?? false) &&
+            before.getAttribute('tabindex') === tabIndex,
+          'restored semantics rewrite the native mirror',
+        );
         const held = game.graphics.stats;
         controls.abort();
         game.destroy();

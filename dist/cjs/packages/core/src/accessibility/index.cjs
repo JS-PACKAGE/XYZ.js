@@ -5,6 +5,12 @@ const require_accessibility = require("../../../../src/data/accessibility.cjs");
 //#region dist/packages/core/src/accessibility/index.js
 var i = `http://www.w3.org/2000/svg`;
 var a = 0;
+function setAttribute(e, t, n) {
+	e.getAttribute(t) !== n && e.setAttribute(t, n);
+}
+function setHostStyle(e, t, n) {
+	e.hostStyle[t] !== n && (e.host.style[t] = n, e.hostStyle[t] = n);
+}
 var AccessibilityManager = class {
 	canvas;
 	getSize;
@@ -144,7 +150,14 @@ var AccessibilityManager = class {
 			height: 0,
 			coverage: !1,
 			clipCoverage: !1,
-			spaceDown: !1
+			spaceDown: !1,
+			hostStyle: {
+				display: ``,
+				left: ``,
+				top: ``,
+				width: ``,
+				height: ``
+			}
 		}, o = { signal: i.controller.signal };
 		return r.addEventListener(`focus`, (t) => this.emit(e, i, `focus`, t), o), r.addEventListener(`blur`, (t) => {
 			i.spaceDown = !1, this.emit(e, i, `blur`, t);
@@ -251,11 +264,15 @@ var AccessibilityManager = class {
 			let a = this.entries.get(r);
 			a && a.node.tagName === `INPUT` != !!i.nativeInput && (this.remove(r, a), a = void 0), a || (a = this.create(r), this.entries.set(r, a));
 			let f = a.node;
-			f.setAttribute(`role`, i.role), f.setAttribute(`aria-label`, i.label), f.lang = i.language ?? this.canvas.ownerDocument.documentElement.lang, i.description ? f.setAttribute(`aria-description`, i.description) : f.removeAttribute(`aria-description`), i.modal ? f.setAttribute(`aria-modal`, `true`) : f.removeAttribute(`aria-modal`), f.setAttribute(`aria-disabled`, String(i.disabled ?? !1)), f.tabIndex = i.disabled ? -1 : i.tabIndex ?? 0, f.tagName === `INPUT` && (f.disabled = i.disabled ?? !1), r.getWorldBounds(this.bounds);
+			if (setAttribute(f, `role`, i.role), setAttribute(f, `aria-label`, i.label), setAttribute(f, `lang`, i.language ?? this.canvas.ownerDocument.documentElement.lang), i.description ? setAttribute(f, `aria-description`, i.description) : f.removeAttribute(`aria-description`), i.modal ? setAttribute(f, `aria-modal`, `true`) : f.removeAttribute(`aria-modal`), setAttribute(f, `aria-disabled`, String(i.disabled ?? !1)), setAttribute(f, `tabindex`, String(i.disabled ? -1 : i.tabIndex ?? 0)), f.tagName === `INPUT`) {
+				let e = i.disabled ?? !1;
+				f.disabled !== e && (f.disabled = e);
+			}
+			r.getWorldBounds(this.bounds);
 			let p = this.bounds.x, m = this.bounds.y, h = p + this.bounds.width, g = m + this.bounds.height;
 			r.worldSpace === `world` && (e.camera2D.worldToScreen(this.point.set(p, m), this.point), p = this.point.x, m = this.point.y, e.camera2D.worldToScreen(this.point.set(h, g), this.point), h = this.point.x, g = this.point.y), p = Math.max(0, p), m = Math.max(0, m), h = Math.min(u.width, h), g = Math.min(u.height, g);
 			let _ = this.inScope(r) && r.worldVisible && r.worldOpacity > 0 && r.worldTint[3] > 0 && h > p && g > m && u.width > 0 && u.height > 0 && c > 0 && l > 0 && d;
-			_ &&= (a.clipCoverage = this.clip(a, r, e, p, m, (h - p) * c / u.width, (g - m) * l / u.height, c / u.width, l / u.height), a.clipCoverage), a.coverage = _, a.host.style.display = _ ? `block` : `none`, f.setAttribute(`aria-hidden`, String(!_)), (!_ || i.disabled) && (a.spaceDown = !1, f === f.ownerDocument.activeElement && f.blur()), _ && (a.host.style.left = `${n.left + o + p * c / u.width}px`, a.host.style.top = `${n.top + s + m * l / u.height}px`, a.host.style.width = `${a.width}px`, a.host.style.height = `${a.height}px`);
+			_ &&= (a.clipCoverage = this.clip(a, r, e, p, m, (h - p) * c / u.width, (g - m) * l / u.height, c / u.width, l / u.height), a.clipCoverage), a.coverage = _, setHostStyle(a, `display`, _ ? `block` : `none`), setAttribute(f, `aria-hidden`, String(!_)), (!_ || i.disabled) && (a.spaceDown = !1, f === f.ownerDocument.activeElement && f.blur()), _ && (setHostStyle(a, `left`, `${n.left + o + p * c / u.width}px`), setHostStyle(a, `top`, `${n.top + s + m * l / u.height}px`), setHostStyle(a, `width`, `${a.width}px`), setHostStyle(a, `height`, `${a.height}px`));
 		}
 		for (let e of this.modalScopes.values()) {
 			let t = this.element(e);
