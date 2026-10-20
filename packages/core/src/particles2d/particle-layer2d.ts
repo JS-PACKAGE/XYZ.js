@@ -297,9 +297,13 @@ export class ParticleLayer2D extends GameObject {
   readonly dynamicAttributes: number;
   renderEnabled = true;
   private readonly slots: Slot[] = [];
+  /** Insertion-ordered slots in `[0, end)`; removed entries are -1 until the next compaction. */
   private readonly active: Int32Array;
+  /** Each occupied slot's index in `active`. */
+  private readonly positions: Int32Array;
   private readonly free: Int32Array;
   private count = 0;
+  private end = 0;
   private freeCount: number;
   private readonly occupied: Uint8Array;
   private readonly defaultSource: ParticleSource2D | undefined;
@@ -329,6 +333,7 @@ export class ParticleLayer2D extends GameObject {
     this.dynamicAttributes = mask;
     this.occupied = new Uint8Array(this.capacity);
     this.active = new Int32Array(this.capacity);
+    this.positions = new Int32Array(this.capacity);
     this.free = new Int32Array(this.capacity);
     this.freeCount = this.capacity;
     if (options.texture || options.view || options.source)
@@ -352,6 +357,7 @@ export class ParticleLayer2D extends GameObject {
   activeSlotAt(index: number): number {
     if (!Number.isSafeInteger(index) || index < 0 || index >= this.count)
       throw new RangeError('Invalid active particle index.');
+    if (this.end !== this.count) this.compact();
     return this.active[index];
   }
   hasSlot(index: number): boolean {
@@ -389,29 +395,45 @@ export class ParticleLayer2D extends GameObject {
     slot.anchor(anchor);
     slot.activate();
     this.occupied[index] = 1;
-    this.active[this.count++] = index;
+    // Live slots number fewer than capacity here, so compaction always frees room.
+    if (this.end === this.capacity) this.compact();
+    this.positions[index] = this.end;
+    this.active[this.end++] = index;
+    this.count++;
     this.topologyVersion++;
     return index;
   }
   removeSlot(index: number): void {
     this.requireSlot(index);
-    const position = this.active.indexOf(index, 0);
-    this.active.copyWithin(position, position + 1, this.count);
-    this.active[--this.count] = 0;
+    // Removing many particles per frame stays linear: holes are squeezed out once, in order.
+    this.active[this.positions[index]] = -1;
+    this.count--;
     this.occupied[index] = 0;
     this.slots[index].release();
     this.free[this.freeCount++] = index;
     this.topologyVersion++;
   }
   clear(): void {
+    this.compact();
     this.occupied.fill(0);
     for (let i = 0; i < this.count; i++) this.slots[this.active[i]].release();
     this.active.fill(0);
-    this.count = 0;
+    this.count = this.end = 0;
     this.freeCount = this.destroyed ? 0 : this.capacity;
     for (let i = 0; i < this.freeCount; i++)
       this.free[i] = this.capacity - i - 1;
     this.topologyVersion++;
+  }
+  private compact(): void {
+    if (this.end === this.count) return;
+    let write = 0;
+    for (let read = 0; read < this.end; read++) {
+      const index = this.active[read];
+      if (index < 0) continue;
+      this.active[write] = index;
+      this.positions[index] = write++;
+    }
+    this.end = write;
   }
   setTransform(index: number, value: ParticleTransform2D): void {
     const slot = this.requireSlot(index);
@@ -475,6 +497,7 @@ export class ParticleLayer2D extends GameObject {
       maxX = -Infinity,
       maxY = -Infinity;
     let inverseReady = false;
+    this.compact();
     for (let i = 0; i < this.count; i++) {
       const index = this.active[i];
       const slot = this.slots[index];

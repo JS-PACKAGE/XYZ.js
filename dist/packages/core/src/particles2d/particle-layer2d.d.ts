@@ -65,9 +65,13 @@ export declare class ParticleLayer2D extends GameObject {
     readonly dynamicAttributes: number;
     renderEnabled: boolean;
     private readonly slots;
+    /** Insertion-ordered slots in `[0, end)`; removed entries are -1 until the next compaction. */
     private readonly active;
+    /** Each occupied slot's index in `active`. */
+    private readonly positions;
     private readonly free;
     private count;
+    private end;
     private freeCount;
     private readonly occupied;
     private readonly defaultSource;
@@ -83,6 +87,7 @@ export declare class ParticleLayer2D extends GameObject {
     addParticle(options?: ParticleOptions2D): number;
     removeSlot(index: number): void;
     clear(): void;
+    private compact;
     setTransform(index: number, value: ParticleTransform2D): void;
     setTint(index: number, value: ColorRGBA): void;
     setAnchor(index: number, value: readonly [number, number]): void;

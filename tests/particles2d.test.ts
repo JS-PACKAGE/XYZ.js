@@ -3,6 +3,7 @@ import { Texture } from '../packages/assets/src/index.js';
 import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import {
   ParticleEmitter,
+  ParticleLayer2D,
   type ParticleEmitterOptions,
   type ParticleNozzle,
 } from '../packages/core/src/particles2d/index.js';
@@ -288,5 +289,39 @@ describe('pooled CPU particles', () => {
     expect(() => emitter.emit(-1)).toThrow(RangeError);
     expect(() => emitter.updateSimulation(NaN)).toThrow(RangeError);
     expect(emitter.activeCount).toBe(0);
+  });
+});
+
+describe('particle layer draw order', () => {
+  it('keeps insertion order across removals, slot reuse and a full layer', () => {
+    const layer = new ParticleLayer2D({
+      capacity: 4,
+      texture: new Texture({
+        width: 1,
+        height: 1,
+        close: vi.fn(),
+      } as unknown as ImageBitmap),
+    });
+    const order = () =>
+      Array.from({ length: layer.activeCount }, (_, i) =>
+        layer.activeSlotAt(i),
+      );
+    const [a, b, c, d] = [0, 0, 0, 0].map(() => layer.addParticle());
+    layer.removeSlot(b!);
+    layer.removeSlot(c!);
+    const e = layer.addParticle({
+      transform: { a: 1, b: 0, c: 0, d: 1, tx: 10, ty: 0, space: 'local' },
+    });
+    expect(order()).toEqual([a, d, e]);
+    layer.removeSlot(a!);
+    const f = layer.addParticle(),
+      g = layer.addParticle();
+    expect(layer.addParticle()).toBe(-1);
+    expect(order()).toEqual([d, e, f, g]);
+    expect(layer.getLocalBounds().width).toBe(11);
+    layer.removeSlot(e!);
+    // Bounds read the live slots directly, before anything asks for the order.
+    expect(layer.getLocalBounds().width).toBe(1);
+    expect(order()).toEqual([d, f, g]);
   });
 });

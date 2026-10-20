@@ -170,8 +170,10 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 	renderEnabled = !0;
 	slots = [];
 	active;
+	positions;
 	free;
 	count = 0;
+	end = 0;
 	freeCount;
 	occupied;
 	defaultSource;
@@ -181,7 +183,7 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		if (super(), !Number.isSafeInteger(e.capacity) || e.capacity < 1 || e.capacity > require_rendering2d.rendering2dLimits.particleCapacity) throw RangeError(`capacity must be an integer between 1 and ${require_rendering2d.rendering2dLimits.particleCapacity}.`);
 		let t = e.dynamicAttributes ?? ParticleAttribute2D.Transform | ParticleAttribute2D.Tint;
 		if (!Number.isSafeInteger(t) || t < 0 || t > ParticleAttribute2D.All) throw RangeError(`Unknown particle dynamic attribute mask.`);
-		this.capacity = e.capacity, this.dynamicAttributes = t, this.occupied = new Uint8Array(this.capacity), this.active = new Int32Array(this.capacity), this.free = new Int32Array(this.capacity), this.freeCount = this.capacity, (e.texture || e.view || e.source) && (this.defaultSource = checkedSource(e));
+		this.capacity = e.capacity, this.dynamicAttributes = t, this.occupied = new Uint8Array(this.capacity), this.active = new Int32Array(this.capacity), this.positions = new Int32Array(this.capacity), this.free = new Int32Array(this.capacity), this.freeCount = this.capacity, (e.texture || e.view || e.source) && (this.defaultSource = checkedSource(e));
 		for (let e = 0; e < this.capacity; e++) {
 			let t = new Slot();
 			Object.freeze(t), this.slots.push(t), this.free[e] = this.capacity - e - 1;
@@ -198,7 +200,7 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 	}
 	activeSlotAt(e) {
 		if (!Number.isSafeInteger(e) || e < 0 || e >= this.count) throw RangeError(`Invalid active particle index.`);
-		return this.active[e];
+		return this.end !== this.count && this.compact(), this.active[e];
 	}
 	hasSlot(e) {
 		return Number.isSafeInteger(e) && e >= 0 && e < this.capacity && this.occupied[e] === 1;
@@ -214,19 +216,26 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		let r = t.transform ?? a, i = t.tint ?? o, c = t.anchor ?? n.view?.defaultAnchor ?? s;
 		if (validateTransform(r), validateTint(i), validateAnchor(c), this.freeCount === 0) return -1;
 		let l = this.free[--this.freeCount], u = this.slots[l];
-		return u.setSource(n.texture, n.view, n.source), u.transform(r), u.tint(i), u.anchor(c), u.activate(), this.occupied[l] = 1, this.active[this.count++] = l, this.topologyVersion++, l;
+		return u.setSource(n.texture, n.view, n.source), u.transform(r), u.tint(i), u.anchor(c), u.activate(), this.occupied[l] = 1, this.end === this.capacity && this.compact(), this.positions[l] = this.end, this.active[this.end++] = l, this.count++, this.topologyVersion++, l;
 	}
 	removeSlot(e) {
-		this.requireSlot(e);
-		let t = this.active.indexOf(e, 0);
-		this.active.copyWithin(t, t + 1, this.count), this.active[--this.count] = 0, this.occupied[e] = 0, this.slots[e].release(), this.free[this.freeCount++] = e, this.topologyVersion++;
+		this.requireSlot(e), this.active[this.positions[e]] = -1, this.count--, this.occupied[e] = 0, this.slots[e].release(), this.free[this.freeCount++] = e, this.topologyVersion++;
 	}
 	clear() {
-		this.occupied.fill(0);
+		this.compact(), this.occupied.fill(0);
 		for (let e = 0; e < this.count; e++) this.slots[this.active[e]].release();
-		this.active.fill(0), this.count = 0, this.freeCount = this.destroyed ? 0 : this.capacity;
+		this.active.fill(0), this.count = this.end = 0, this.freeCount = this.destroyed ? 0 : this.capacity;
 		for (let e = 0; e < this.freeCount; e++) this.free[e] = this.capacity - e - 1;
 		this.topologyVersion++;
+	}
+	compact() {
+		if (this.end === this.count) return;
+		let e = 0;
+		for (let t = 0; t < this.end; t++) {
+			let n = this.active[t];
+			n < 0 || (this.active[e] = n, this.positions[n] = e++);
+		}
+		this.end = e;
 	}
 	setTransform(e, t) {
 		let n = this.requireSlot(e);
@@ -271,6 +280,7 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 	boundsMatrix = new require_index.Matrix3();
 	collectBounds(e, t) {
 		let n = 1 / 0, r = 1 / 0, i = -1 / 0, a = -1 / 0, o = !1;
+		this.compact();
 		for (let e = 0; e < this.count; e++) {
 			let s = this.active[e], c = this.slots[s];
 			validateParticleSource(c);
