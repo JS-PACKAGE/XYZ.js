@@ -13,6 +13,7 @@ var FrameAnimation = class extends EventTarget {
 	direction = 1;
 	currentFrame = 0;
 	active = !1;
+	observedTypes;
 	constructor(n, r, i = {}) {
 		if (super(), this.sprite = n, !r.length || r.length > require_rendering2d.rendering2dLimits.atlasFrames) throw RangeError(`FrameAnimation frame count exceeds its budget.`);
 		if (this.frames = Object.freeze(r.map((e) => {
@@ -90,8 +91,11 @@ var FrameAnimation = class extends EventTarget {
 		let t = this.frames[e];
 		t.view ? this.sprite.setAnimationView(t.view) : this.sprite.setAnimationSource(t.source), this.currentFrame !== e && (this.currentFrame = e, this.emit(`animationframe`, { frame: e }));
 	}
+	addEventListener(e, t, n) {
+		super.addEventListener(e, t, n), t && (this.observedTypes ??= /* @__PURE__ */ new Set()).add(e);
+	}
 	emit(e, t) {
-		this.dispatchEvent(new CustomEvent(e, { detail: t })), this.sprite.dispatchEvent(new CustomEvent(e, { detail: t }));
+		this.observedTypes?.has(e) && this.dispatchEvent(new CustomEvent(e, { detail: t })), this.sprite.dispatchObjectEvent(e, t);
 	}
 };
 //#endregion

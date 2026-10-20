@@ -27,6 +27,8 @@ export declare class FrameAnimation extends EventTarget {
     private direction;
     private currentFrame;
     private active;
+    /** Event types that ever had a listener; unobserved frame changes allocate no Events. */
+    private observedTypes;
     constructor(sprite: Sprite, frames: readonly AnimationFrame2D[], options?: FrameAnimationOptions);
     get frame(): number;
     get playing(): boolean;
@@ -39,5 +41,6 @@ export declare class FrameAnimation extends EventTarget {
     /** @internal Scene advances only animations still attached to an owned Sprite. */
     update(deltaTime: number): void;
     private applyFrame;
+    addEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
     private emit;
 }

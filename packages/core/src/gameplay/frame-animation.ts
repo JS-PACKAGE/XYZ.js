@@ -23,6 +23,8 @@ export class FrameAnimation extends EventTarget {
   private direction = 1;
   private currentFrame = 0;
   private active = false;
+  /** Event types that ever had a listener; unobserved frame changes allocate no Events. */
+  private observedTypes: Set<string> | undefined;
 
   constructor(
     readonly sprite: Sprite,
@@ -164,8 +166,17 @@ export class FrameAnimation extends EventTarget {
     this.currentFrame = index;
     this.emit('animationframe', { frame: index });
   }
+  override addEventListener(
+    type: string,
+    callback: EventListenerOrEventListenerObject | null,
+    options?: boolean | AddEventListenerOptions,
+  ): void {
+    super.addEventListener(type, callback, options);
+    if (callback) (this.observedTypes ??= new Set()).add(type);
+  }
   private emit(type: string, detail: { frame: number; count?: number }): void {
-    this.dispatchEvent(new CustomEvent(type, { detail }));
-    this.sprite.dispatchEvent(new CustomEvent(type, { detail }));
+    if (this.observedTypes?.has(type))
+      this.dispatchEvent(new CustomEvent(type, { detail }));
+    this.sprite.dispatchObjectEvent(type, detail);
   }
 }

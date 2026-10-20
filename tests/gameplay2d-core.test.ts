@@ -396,11 +396,20 @@ describe('atlas geometry and simulation frame animation', () => {
     expect(freeze.frame).toBe(2);
     expect(freeze.playing).toBe(false);
     expect(sprite.visible).toBe(true);
+    const spriteEvents: string[] = [];
+    for (const type of ['animationframe', 'animationend'])
+      sprite.addEventListener(type, (event) =>
+        spriteEvents.push(
+          `${type}:${(event as CustomEvent<{ frame: number }>).detail.frame}`,
+        ),
+      );
     const hide = new FrameAnimation(sprite, frames, {
       strategy: 'hide',
     }).play();
     advance(scene, 1);
     expect(sprite.visible).toBe(false);
+    // The animated Sprite observes the same frame and end events as the animation.
+    expect(spriteEvents).toEqual(['animationframe:2', 'animationend:2']);
     hide.reset();
     expect(sprite.visible).toBe(true);
     hide.play();
