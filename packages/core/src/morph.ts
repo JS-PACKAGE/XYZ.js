@@ -240,8 +240,8 @@ function copyDelta(
 ): Float32Array | undefined {
   if (!delta) return undefined;
   const copy = Float32Array.from(delta);
-  for (const value of copy)
-    if (!Number.isFinite(value))
+  for (let i = 0; i < copy.length; i++)
+    if (!Number.isFinite(copy[i]))
       throw new RangeError('Morph deltas must be finite.');
   return copy;
 }

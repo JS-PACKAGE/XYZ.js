@@ -115,7 +115,7 @@ var MorphTargets = class {
 function copyDelta(e) {
 	if (!e) return;
 	let t = Float32Array.from(e);
-	for (let e of t) if (!Number.isFinite(e)) throw RangeError(`Morph deltas must be finite.`);
+	for (let e = 0; e < t.length; e++) if (!Number.isFinite(t[e])) throw RangeError(`Morph deltas must be finite.`);
 	return t;
 }
 //#endregion

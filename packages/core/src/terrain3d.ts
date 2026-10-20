@@ -235,8 +235,8 @@ export class Terrain3D extends Group {
 
   markUpdated(): void {
     if (this.destroyed) throw new Error('Terrain is destroyed.');
-    for (const h of this.heights)
-      if (!Number.isFinite(h))
+    for (let i = 0; i < this.heights.length; i++)
+      if (!Number.isFinite(this.heights[i]))
         throw new RangeError('Terrain heights must be finite.');
     for (const record of this.records)
       for (const mesh of record.meshes) {

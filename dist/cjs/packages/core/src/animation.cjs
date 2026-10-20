@@ -29,7 +29,7 @@ var KeyframeTrack = class {
 		if (this.size = e instanceof require_morph.MorphWeights ? e.count : t === `rotation` ? 4 : 3, this.scratch = new Float64Array(this.size), !n.length || r.length !== n.length * this.size * (i === `CUBICSPLINE` ? 3 : 1)) throw RangeError(`Animation keyframe counts do not match.`);
 		this.times = Float32Array.from(n), this.values = Float32Array.from(r);
 		for (let e = 0; e < this.times.length; e++) if (!Number.isFinite(this.times[e]) || this.times[e] < 0 || e > 0 && this.times[e] <= this.times[e - 1]) throw RangeError(`Animation times must be finite, nonnegative, and strictly increasing.`);
-		for (let e of this.values) if (!Number.isFinite(e)) throw RangeError(`Animation values must be finite.`);
+		for (let e = 0; e < this.values.length; e++) if (!Number.isFinite(this.values[e])) throw RangeError(`Animation values must be finite.`);
 		if (t === `rotation`) {
 			let e = this.size * (i === `CUBICSPLINE` ? 3 : 1), t = i === `CUBICSPLINE` ? 4 : 0;
 			for (let n = t; n < this.values.length; n += e) {

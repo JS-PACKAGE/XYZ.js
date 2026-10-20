@@ -27,7 +27,7 @@ var NativeMaterialState = class {
 	}
 	validate() {
 		if (this.disposed) throw Error(`${this.kind} is destroyed.`);
-		for (let e of this.uniforms) if (!Number.isFinite(e)) throw RangeError(`${this.kind} uniforms must be finite.`);
+		for (let e = 0; e < this.uniforms.length; e++) if (!Number.isFinite(this.uniforms[e])) throw RangeError(`${this.kind} uniforms must be finite.`);
 	}
 	onDestroy(e) {
 		return this.disposed ? (e(), () => {}) : (this.listeners.add(e), () => {

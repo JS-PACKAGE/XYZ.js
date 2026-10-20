@@ -70,8 +70,8 @@ export class KeyframeTrack {
           'Animation times must be finite, nonnegative, and strictly increasing.',
         );
     }
-    for (const value of this.values)
-      if (!Number.isFinite(value))
+    for (let i = 0; i < this.values.length; i++)
+      if (!Number.isFinite(this.values[i]))
         throw new RangeError('Animation values must be finite.');
     if (path === 'rotation') {
       const stride = this.size * (interpolation === 'CUBICSPLINE' ? 3 : 1);

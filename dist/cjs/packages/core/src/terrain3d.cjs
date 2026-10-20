@@ -93,7 +93,7 @@ var Terrain3D = class extends require_group.Group {
 	}
 	markUpdated() {
 		if (this.destroyed) throw Error(`Terrain is destroyed.`);
-		for (let e of this.heights) if (!Number.isFinite(e)) throw RangeError(`Terrain heights must be finite.`);
+		for (let e = 0; e < this.heights.length; e++) if (!Number.isFinite(this.heights[e])) throw RangeError(`Terrain heights must be finite.`);
 		for (let e of this.records) for (let t of e.meshes) {
 			let e = t.geometry.vertices;
 			for (let n = 0; n < e.length; n += 8) {

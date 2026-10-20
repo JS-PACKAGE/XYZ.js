@@ -74,8 +74,8 @@ export class ComputeBuffer extends EventTarget {
       throw new TypeError('Compute upload must match the buffer scalar type.');
     this.range(offset, data.length);
     if (this.type === 'f32')
-      for (const value of data)
-        if (!Number.isFinite(value))
+      for (let i = 0; i < data.length; i++)
+        if (!Number.isFinite(data[i]))
           throw new RangeError('Compute float inputs must be finite.');
   }
   range(offset: number, count: number): void {

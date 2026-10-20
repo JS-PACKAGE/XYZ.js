@@ -85,8 +85,9 @@ export class NativeMaterialState {
 
   validate(): void {
     if (this.disposed) throw new Error(`${this.kind} is destroyed.`);
-    for (const value of this.uniforms)
-      if (!Number.isFinite(value))
+    // Runs per draw; indexed because typed-array `for…of` is far slower in V8.
+    for (let i = 0; i < this.uniforms.length; i++)
+      if (!Number.isFinite(this.uniforms[i]))
         throw new RangeError(`${this.kind} uniforms must be finite.`);
   }
 

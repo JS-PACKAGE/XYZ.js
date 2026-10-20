@@ -27,7 +27,7 @@ var ComputeBuffer = class extends EventTarget {
 	validateUpload(e, t = 0) {
 		if (this.validate(), !(this.type === `f32` ? e instanceof Float32Array : this.type === `u32` ? e instanceof Uint32Array : e instanceof Int32Array)) throw TypeError(`Compute upload must match the buffer scalar type.`);
 		if (this.range(t, e.length), this.type === `f32`) {
-			for (let t of e) if (!Number.isFinite(t)) throw RangeError(`Compute float inputs must be finite.`);
+			for (let t = 0; t < e.length; t++) if (!Number.isFinite(e[t])) throw RangeError(`Compute float inputs must be finite.`);
 		}
 	}
 	range(e, t) {
