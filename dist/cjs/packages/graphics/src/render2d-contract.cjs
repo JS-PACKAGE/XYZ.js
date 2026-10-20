@@ -1,5 +1,4 @@
 const require_rendering2d = require("../../../src/data/rendering2d.cjs");
-const require_contracts = require("../../core/src/gameplay/contracts.cjs");
 const require_game_object = require("../../core/src/game-object.cjs");
 const require_sprite = require("../../core/src/sprite.cjs");
 const require_mesh2d = require("../../core/src/rendering2d/mesh2d.cjs");
@@ -23,13 +22,15 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 		this.items.length = 0, this.traversal.length = 0, this.collectedCount = 0;
 	}
 	append(e, t) {
-		let n = this.items.length, r = this.pool[n];
-		r ? (r.kind = e, r.object = t) : (r = {
+		let n = this.items.length, r = t.worldSpace === `screen`, i = t.worldZIndex, a = this.pool[n];
+		a ? (a.kind = e, a.object = t, a.screen = r, a.z = i) : (a = {
 			kind: e,
-			object: t
-		}, this.pool.push(r));
-		let i = r;
-		return this.items.push(i), r;
+			object: t,
+			screen: r,
+			z: i
+		}, this.pool.push(a));
+		let o = a;
+		return this.items.push(o), a;
 	}
 	appendSprite(e) {
 		this.append(`sprite`, e);
@@ -74,7 +75,8 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	}
 };
 function compareCommands2D(e, t) {
-	return require_contracts.compareObjects2D(e.object, t.object);
+	let n = e, r = t;
+	return n.screen === r.screen ? n.z - r.z : n.screen ? 1 : -1;
 }
 function collectRenderCommands2D(e, r, i, a, o) {
 	if (a.clear(), !o?.skipCulling) for (let a of e.objects) (a instanceof require_tile_map.TileMap || a instanceof require_isometric_map.IsometricMap) && a.updateCulling(e.camera2D, r, i);
@@ -88,7 +90,7 @@ function collectRenderCommands2D(e, r, i, a, o) {
 	}
 }
 function partitionBoundaries2D(e, t, n) {
-	let r, o;
+	let a, o;
 	for (let s of e) {
 		if (!(s instanceof require_game_object.GameObject) || s === t) continue;
 		let e = !0, c;
@@ -102,35 +104,35 @@ function partitionBoundaries2D(e, t, n) {
 				break;
 			}
 		}
-		e && ((!o || c !== r) && (r = c, o = n.membersOf(c)), o.push(s));
+		e && ((!o || c !== a) && (a = c, o = n.membersOf(c)), o.push(s));
 	}
 }
-var l = {
+var c = {
 	x: 0,
 	y: 0,
 	width: 0,
 	height: 0
 };
-var u = [];
-function collectBoundary2D(t, n, r, i, d, f, p, m) {
+var l = [];
+function collectBoundary2D(t, n, r, u, d, f, p, m) {
 	if (p > require_rendering2d.rendering2dLimits.layerDepth) throw RangeError(`Isolated layer nesting exceeds the render budget.`);
 	let h = t.camera2D;
-	for (let g of m.boundaryMembers.get(d) ?? u) {
-		let u = g instanceof require_isolated_group.IsolatedGroup2D && g.isolationEnabled;
-		if (u || g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D || g instanceof require_particle_layer2d.ParticleLayer2D) {
+	for (let g of m.boundaryMembers.get(d) ?? l) {
+		let l = g instanceof require_isolated_group.IsolatedGroup2D && g.isolationEnabled;
+		if (l || g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D || g instanceof require_particle_layer2d.ParticleLayer2D) {
 			if (g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D) {
 				if (!g.renderEnabled || g.texture.destroyed) continue;
 				g.view?.validate();
 			}
-			if (!f && !(u && g.cacheAsTexture)) {
-				let e = g.getWorldBounds(l), t = g.worldSpace === `world`, i = t ? h.zoom : 1, a = e.x * i + (t ? -h.position.x * i + h.renderOffset.x : 0), o = e.y * i + (t ? -h.position.y * i + h.renderOffset.y : 0), s = a + e.width * i, c = o + e.height * i;
-				if (s < 0 || c < 0 || a > n || o > r || !Number.isFinite(a + o + s + c)) continue;
+			if (!f && !(l && g.cacheAsTexture)) {
+				let e = g.getWorldBounds(c), t = g.worldSpace === `world`, i = t ? h.zoom : 1, a = e.x * i + (t ? -h.position.x * i + h.renderOffset.x : 0), o = e.y * i + (t ? -h.position.y * i + h.renderOffset.y : 0), s = a + e.width * i, l = o + e.height * i;
+				if (s < 0 || l < 0 || a > n || o > r || !Number.isFinite(a + o + s + l)) continue;
 			}
 			if (++m.collectedCount > require_rendering2d.rendering2dLimits.commands) throw RangeError(`Visible render commands exceed the render budget.`);
-			u ? collectBoundary2D(t, n, r, i.appendLayer(g), g, !0, p + 1, m) : g instanceof require_sprite.Sprite ? i.appendSprite(g) : g instanceof require_mesh2d.Mesh2D ? i.appendMesh(g) : g instanceof require_particle_layer2d.ParticleLayer2D && i.appendParticles(g);
+			l ? collectBoundary2D(t, n, r, u.appendLayer(g), g, !0, p + 1, m) : g instanceof require_sprite.Sprite ? u.appendSprite(g) : g instanceof require_mesh2d.Mesh2D ? u.appendMesh(g) : g instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(g);
 		}
 	}
-	i.sort();
+	u.sort();
 }
 //#endregion
 exports.RenderCommandBuffer2D = RenderCommandBuffer2D;

@@ -3,7 +3,6 @@ import { Sprite } from '../../core/src/sprite.js';
 import type { GraphicsBackend } from './index.js';
 import type { ColorRGBA } from '../../core/src/gameplay/contracts.js';
 import { TileMap, IsometricMap } from '../../core/src/maps2d/index.js';
-import { compareObjects2D } from '../../core/src/gameplay/contracts.js';
 import { GameObject } from '../../core/src/game-object.js';
 import { IsolatedGroup2D } from '../../core/src/rendering2d/isolated-group.js';
 import { Mesh2D } from '../../core/src/rendering2d/mesh2d.js';
@@ -51,6 +50,9 @@ interface PooledCommand2D {
   kind: RenderCommand2D['kind'];
   object?: GameObject;
   commands?: RenderCommandBuffer2D;
+  /** compareObjects2D keys, captured once at append instead of per comparison. */
+  screen: boolean;
+  z: number;
 }
 
 /** Commands and nested buffers are reused after the peak visible count. */
@@ -69,7 +71,7 @@ export class RenderCommandBuffer2D {
 
   clear(): void {
     for (const command of this.items) {
-      const pooled = command as PooledCommand2D;
+      const pooled = command as unknown as PooledCommand2D;
       pooled.object = undefined;
       pooled.commands?.clear();
     }
@@ -82,15 +84,19 @@ export class RenderCommandBuffer2D {
     object: GameObject,
   ): PooledCommand2D {
     const index = this.items.length;
+    const screen = object.worldSpace === 'screen',
+      z = object.worldZIndex;
     let command = this.pool[index];
     if (!command) {
-      command = { kind, object };
+      command = { kind, object, screen, z };
       this.pool.push(command);
     } else {
       command.kind = kind;
       command.object = object;
+      command.screen = screen;
+      command.z = z;
     }
-    const liveCommand = command as RenderCommand2D;
+    const liveCommand = command as unknown as RenderCommand2D;
     this.items.push(liveCommand);
     return command;
   }
@@ -107,6 +113,7 @@ export class RenderCommandBuffer2D {
     const command = this.append('layer', object);
     return (command.commands ??= new RenderCommandBuffer2D());
   }
+  /** Orders by the keys captured at append; callers sort right after collection. */
   sort(): void {
     this.items.sort(compareCommands2D);
   }
@@ -152,8 +159,11 @@ export class RenderCommandBuffer2D {
   }
 }
 
+// Mirrors compareObjects2D: world before screen, then summed z; stable for ties.
 function compareCommands2D(a: RenderCommand2D, b: RenderCommand2D): number {
-  return compareObjects2D(a.object, b.object);
+  const x = a as unknown as PooledCommand2D,
+    y = b as unknown as PooledCommand2D;
+  return x.screen === y.screen ? x.z - y.z : x.screen ? 1 : -1;
 }
 export interface RenderCollectionOptions2D {
   root?: IsolatedGroup2D;

@@ -57,6 +57,7 @@ export declare class RenderCommandBuffer2D {
     appendMesh(object: Mesh2D): void;
     appendParticles(object: ParticleLayer2D): void;
     appendLayer(object: IsolatedGroup2D): RenderCommandBuffer2D;
+    /** Orders by the keys captured at append; callers sort right after collection. */
     sort(): void;
     /** @internal Detached target collection borrows descendants without Scene.add side effects. */
     collectDetachedObjects(root: IsolatedGroup2D): readonly GameObject[];
