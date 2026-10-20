@@ -691,7 +691,9 @@ export class Scene {
 
   /** @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick. */
   beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void {
-    for (const [object, id] of this.objectUpdates) {
+    // keys()+get avoids allocating an [object, id] entry per object every frame.
+    for (const object of this.objectUpdates.keys()) {
+      const id = this.objectUpdates.get(object)!;
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
       object.initializeEvents();
@@ -703,7 +705,8 @@ export class Scene {
 
   /** @internal Invoked independently of subclass Scene.update. */
   advanceFrameAnimations(deltaTime: number, canContinue: () => boolean): void {
-    for (const [object, id] of this.objectUpdates) {
+    for (const object of this.objectUpdates.keys()) {
+      const id = this.objectUpdates.get(object)!;
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
       if (object instanceof Sprite) object.animation?.update(deltaTime);
@@ -712,7 +715,8 @@ export class Scene {
 
   /** @internal Only queues explicitly accessed by consumers are advanced. */
   advanceActions(deltaTime: number, canContinue: () => boolean): void {
-    for (const [object, id] of this.objectUpdates) {
+    for (const object of this.objectUpdates.keys()) {
+      const id = this.objectUpdates.get(object)!;
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
       object.advanceActions(deltaTime, canContinue);
@@ -721,7 +725,8 @@ export class Scene {
 
   /** @internal Object updates are never dependent on a subclass calling super. */
   advanceObjects(deltaTime: number, canContinue: () => boolean): void {
-    for (const [object, id] of this.objectUpdates) {
+    for (const object of this.objectUpdates.keys()) {
+      const id = this.objectUpdates.get(object)!;
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
       object.update(deltaTime);
@@ -797,7 +802,8 @@ export class Scene {
       }
     }
     if (!canContinue() || this.disposed) return;
-    for (const [object, id] of this.objectUpdates) {
+    for (const object of this.objectUpdates.keys()) {
+      const id = this.objectUpdates.get(object)!;
       if (id > this.frameObjectUpdate) break;
       if (!canContinue() || this.disposed) return;
       if (object instanceof ParticleEmitter) object.updateSimulation(deltaTime);

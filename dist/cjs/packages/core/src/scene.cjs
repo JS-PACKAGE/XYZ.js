@@ -343,28 +343,30 @@ var Scene = class {
 		this.frameObjectUpdate = this.nextObjectUpdate;
 	}
 	beginObjectUpdates(e, t) {
-		for (let [n, r] of this.objectUpdates) {
+		for (let n of this.objectUpdates.keys()) {
+			let r = this.objectUpdates.get(n);
 			if (r > this.frameObjectUpdate) break;
 			if (!t() || this.disposed || (n.initializeEvents(), !t() || this.disposed)) return;
 			this.objectUpdates.get(n) !== r || n.destroyed || n.emitUpdate(`preupdate`, e);
 		}
 	}
 	advanceFrameAnimations(e, t) {
-		for (let [n, r] of this.objectUpdates) {
-			if (r > this.frameObjectUpdate) break;
+		for (let n of this.objectUpdates.keys()) {
+			if (this.objectUpdates.get(n) > this.frameObjectUpdate) break;
 			if (!t() || this.disposed) return;
 			n instanceof require_sprite.Sprite && n.animation?.update(e);
 		}
 	}
 	advanceActions(e, t) {
-		for (let [n, r] of this.objectUpdates) {
-			if (r > this.frameObjectUpdate) break;
+		for (let n of this.objectUpdates.keys()) {
+			if (this.objectUpdates.get(n) > this.frameObjectUpdate) break;
 			if (!t() || this.disposed) return;
 			n.advanceActions(e, t);
 		}
 	}
 	advanceObjects(e, t) {
-		for (let [n, r] of this.objectUpdates) {
+		for (let n of this.objectUpdates.keys()) {
+			let r = this.objectUpdates.get(n);
 			if (r > this.frameObjectUpdate) break;
 			if (!t() || this.disposed || (n.update(e), !t() || this.disposed)) return;
 			this.objectUpdates.get(n) === r && !n.destroyed && n.emitUpdate(`postupdate`, e);
@@ -394,8 +396,8 @@ var Scene = class {
 			}
 		}
 		if (t() && !this.disposed) {
-			for (let [n, r] of this.objectUpdates) {
-				if (r > this.frameObjectUpdate) break;
+			for (let n of this.objectUpdates.keys()) {
+				if (this.objectUpdates.get(n) > this.frameObjectUpdate) break;
 				if (!t() || this.disposed) return;
 				n instanceof require_index$1.ParticleEmitter && n.updateSimulation(e);
 			}
