@@ -48,6 +48,9 @@ export declare class RenderCommandBuffer2D {
     private readonly traversal;
     /** @internal Aggregate collection budget, including nested boundaries. */
     collectedCount: number;
+    /** @internal Members of each isolation boundary, filled once per collection. */
+    readonly boundaryMembers: Map<IsolatedGroup2D | undefined, GameObject[]>;
+    private readonly memberLists;
     clear(): void;
     private append;
     appendSprite(object: Sprite): void;
@@ -59,6 +62,10 @@ export declare class RenderCommandBuffer2D {
     collectDetachedObjects(root: IsolatedGroup2D): readonly GameObject[];
     /** @internal Only command records retain live frame references. */
     releaseTraversal(): void;
+    /** @internal */
+    membersOf(boundary: IsolatedGroup2D | undefined): GameObject[];
+    /** @internal */
+    releaseBoundaryMembers(): void;
     destroy(): void;
 }
 export interface RenderCollectionOptions2D {

@@ -13,6 +13,8 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	pool = [];
 	traversal = [];
 	collectedCount = 0;
+	boundaryMembers = /* @__PURE__ */ new Map();
+	memberLists = [];
 	clear() {
 		for (let e of this.items) {
 			let t = e;
@@ -57,6 +59,14 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	releaseTraversal() {
 		this.traversal.length = 0;
 	}
+	membersOf(e) {
+		let t = this.boundaryMembers.get(e);
+		return t || (t = this.memberLists.pop() ?? [], this.boundaryMembers.set(e, t)), t;
+	}
+	releaseBoundaryMembers() {
+		for (let e of this.boundaryMembers.values()) e.length = 0, this.memberLists.push(e);
+		this.boundaryMembers.clear();
+	}
 	destroy() {
 		this.clear();
 		for (let e of this.pool) e.commands?.destroy();
@@ -68,10 +78,31 @@ function compareCommands2D(e, t) {
 }
 function collectRenderCommands2D(e, r, i, a, o) {
 	if (a.clear(), !o?.skipCulling) for (let a of e.objects) (a instanceof require_tile_map.TileMap || a instanceof require_isometric_map.IsometricMap) && a.updateCulling(e.camera2D, r, i);
+	let s = o?.root;
 	try {
-		collectBoundary2D(e, r, i, a, o?.root, o?.skipCulling ?? !1, 0, a);
+		partitionBoundaries2D(s && s.scene !== e ? a.collectDetachedObjects(s) : e.objects, s, a), collectBoundary2D(e, r, i, a, s, o?.skipCulling ?? !1, 0, a);
 	} catch (e) {
 		throw a.clear(), e;
+	} finally {
+		a.releaseTraversal(), a.releaseBoundaryMembers();
+	}
+}
+function partitionBoundaries2D(e, t, n) {
+	let r, o;
+	for (let s of e) {
+		if (!(s instanceof require_game_object.GameObject) || s === t) continue;
+		let e = !0, c;
+		for (let n = s; n; n = n.parent) {
+			if (n !== s && n instanceof require_isolated_group.IsolatedGroup2D && (n === t || n.isolationEnabled)) {
+				c = n;
+				break;
+			}
+			if (!n.visible || n.opacity <= 0 || n.tint[3] <= 0) {
+				e = !1;
+				break;
+			}
+		}
+		e && ((!o || c !== r) && (r = c, o = n.membersOf(c)), o.push(s));
 	}
 }
 var l = {
@@ -80,38 +111,26 @@ var l = {
 	width: 0,
 	height: 0
 };
-function collectBoundary2D(t, n, r, u, d, f, p, m) {
+var u = [];
+function collectBoundary2D(t, n, r, i, d, f, p, m) {
 	if (p > require_rendering2d.rendering2dLimits.layerDepth) throw RangeError(`Isolated layer nesting exceeds the render budget.`);
-	let h = t.camera2D, g = d && d.scene !== t ? u.collectDetachedObjects(d) : t.objects;
-	for (let _ of g) {
-		if (!(_ instanceof require_game_object.GameObject) || _ === d) continue;
-		let g = !0;
-		for (let e = _; e && e !== d; e = e.parent) if (!e.visible || e.opacity <= 0 || e.tint[3] <= 0) {
-			g = !1;
-			break;
-		}
-		if (!g) continue;
-		let v;
-		for (let e = _.parent; e; e = e.parent) if (e instanceof require_isolated_group.IsolatedGroup2D && (e === d || e.isolationEnabled)) {
-			v = e;
-			break;
-		}
-		if (v !== d) continue;
-		let y = _ instanceof require_isolated_group.IsolatedGroup2D && _.isolationEnabled;
-		if (y || _ instanceof require_sprite.Sprite || _ instanceof require_mesh2d.Mesh2D || _ instanceof require_particle_layer2d.ParticleLayer2D) {
-			if (_ instanceof require_sprite.Sprite || _ instanceof require_mesh2d.Mesh2D) {
-				if (!_.renderEnabled || _.texture.destroyed) continue;
-				_.view?.validate();
+	let h = t.camera2D;
+	for (let g of m.boundaryMembers.get(d) ?? u) {
+		let u = g instanceof require_isolated_group.IsolatedGroup2D && g.isolationEnabled;
+		if (u || g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D || g instanceof require_particle_layer2d.ParticleLayer2D) {
+			if (g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D) {
+				if (!g.renderEnabled || g.texture.destroyed) continue;
+				g.view?.validate();
 			}
-			if (!f && !(y && _.cacheAsTexture)) {
-				let e = _.getWorldBounds(l), t = _.worldSpace === `world`, i = t ? h.zoom : 1, a = e.x * i + (t ? -h.position.x * i + h.renderOffset.x : 0), o = e.y * i + (t ? -h.position.y * i + h.renderOffset.y : 0), s = a + e.width * i, c = o + e.height * i;
+			if (!f && !(u && g.cacheAsTexture)) {
+				let e = g.getWorldBounds(l), t = g.worldSpace === `world`, i = t ? h.zoom : 1, a = e.x * i + (t ? -h.position.x * i + h.renderOffset.x : 0), o = e.y * i + (t ? -h.position.y * i + h.renderOffset.y : 0), s = a + e.width * i, c = o + e.height * i;
 				if (s < 0 || c < 0 || a > n || o > r || !Number.isFinite(a + o + s + c)) continue;
 			}
 			if (++m.collectedCount > require_rendering2d.rendering2dLimits.commands) throw RangeError(`Visible render commands exceed the render budget.`);
-			y ? collectBoundary2D(t, n, r, u.appendLayer(_), _, !0, p + 1, m) : _ instanceof require_sprite.Sprite ? u.appendSprite(_) : _ instanceof require_mesh2d.Mesh2D ? u.appendMesh(_) : _ instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(_);
+			u ? collectBoundary2D(t, n, r, i.appendLayer(g), g, !0, p + 1, m) : g instanceof require_sprite.Sprite ? i.appendSprite(g) : g instanceof require_mesh2d.Mesh2D ? i.appendMesh(g) : g instanceof require_particle_layer2d.ParticleLayer2D && i.appendParticles(g);
 		}
 	}
-	u.sort(), u.releaseTraversal();
+	i.sort();
 }
 //#endregion
 exports.RenderCommandBuffer2D = RenderCommandBuffer2D;

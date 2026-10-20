@@ -7,6 +7,7 @@ import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import { ScreenElement } from '../packages/core/src/gameplay/screen-element.js';
 import { FrameAnimation } from '../packages/core/src/gameplay/frame-animation.js';
 import { Vector2 } from '../packages/math/src/index.js';
+import { IsolatedGroup2D } from '../packages/core/src/rendering2d/isolated-group.js';
 import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
@@ -157,6 +158,54 @@ describe('2D composed scene ownership', () => {
     expect(commands.items.map((command) => command.object)).toEqual([screen]);
     const point = scene.camera2D.worldToScreen(new Vector2(102, 104));
     expect(scene.camera2D.screenToWorld(point)).toEqual(new Vector2(102, 104));
+    scene.destroy();
+    image.destroy();
+  });
+
+  it('collects each isolation boundary once with its own members, order and visibility', () => {
+    const scene = new Scene();
+    const image = texture(4, 4);
+    const sprite = (parent: Scene | GameObject, z = 0): Sprite => {
+      const child = new Sprite({ texture: image, position: [8, 8], zIndex: z });
+      return parent instanceof Scene ? parent.add(child) : parent.add(child);
+    };
+    const before = sprite(scene);
+    const outer = scene.add(new IsolatedGroup2D());
+    outer.isolate = true;
+    const outerFirst = sprite(outer, 1);
+    const plain = outer.add(new Group2D());
+    const throughPlain = sprite(plain);
+    const inner = outer.add(new IsolatedGroup2D());
+    inner.isolate = true;
+    const innerSprite = sprite(inner);
+    const outerLast = sprite(outer);
+    const hidden = scene.add(new Group2D());
+    hidden.visible = false;
+    const hiddenLayer = hidden.add(new IsolatedGroup2D());
+    hiddenLayer.isolate = true;
+    sprite(hiddenLayer);
+    const after = sprite(scene);
+    const shape = (buffer: RenderCommandBuffer2D): unknown[] =>
+      buffer.items.map((command) =>
+        command.kind === 'layer'
+          ? [command.object, shape(command.commands)]
+          : command.object,
+      );
+    const commands = new RenderCommandBuffer2D();
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(shape(commands)).toEqual([
+      before,
+      [outer, [throughPlain, [inner, [innerSprite]], outerLast, outerFirst]],
+      after,
+    ]);
+    plain.visible = false;
+    collectRenderCommands2D(scene, 32, 32, commands, { root: outer });
+    expect(shape(commands)).toEqual([
+      [inner, [innerSprite]],
+      outerLast,
+      outerFirst,
+    ]);
+    expect(commands.boundaryMembers.size).toBe(0);
     scene.destroy();
     image.destroy();
   });

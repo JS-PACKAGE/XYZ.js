@@ -60,6 +60,12 @@ export class RenderCommandBuffer2D {
   private readonly traversal: GameObject[] = [];
   /** @internal Aggregate collection budget, including nested boundaries. */
   collectedCount = 0;
+  /** @internal Members of each isolation boundary, filled once per collection. */
+  readonly boundaryMembers = new Map<
+    IsolatedGroup2D | undefined,
+    GameObject[]
+  >();
+  private readonly memberLists: GameObject[][] = [];
 
   clear(): void {
     for (const command of this.items) {
@@ -122,6 +128,23 @@ export class RenderCommandBuffer2D {
   releaseTraversal(): void {
     this.traversal.length = 0;
   }
+  /** @internal */
+  membersOf(boundary: IsolatedGroup2D | undefined): GameObject[] {
+    let members = this.boundaryMembers.get(boundary);
+    if (!members) {
+      members = this.memberLists.pop() ?? [];
+      this.boundaryMembers.set(boundary, members);
+    }
+    return members;
+  }
+  /** @internal */
+  releaseBoundaryMembers(): void {
+    for (const members of this.boundaryMembers.values()) {
+      members.length = 0;
+      this.memberLists.push(members);
+    }
+    this.boundaryMembers.clear();
+  }
   destroy(): void {
     this.clear();
     for (const command of this.pool) command.commands?.destroy();
@@ -152,13 +175,21 @@ export function collectRenderCommands2D(
         object.updateCulling(scene.camera2D, width, height);
     }
   }
+  const root = options?.root;
   try {
+    partitionBoundaries2D(
+      root && root.scene !== scene
+        ? out.collectDetachedObjects(root)
+        : scene.objects,
+      root,
+      out,
+    );
     collectBoundary2D(
       scene,
       width,
       height,
       out,
-      options?.root,
+      root,
       options?.skipCulling ?? false,
       0,
       out,
@@ -166,10 +197,56 @@ export function collectRenderCommands2D(
   } catch (error) {
     out.clear();
     throw error;
+  } finally {
+    out.releaseTraversal();
+    out.releaseBoundaryMembers();
+  }
+}
+
+/**
+ * Assigns every visible object to its nearest isolation boundary in Scene
+ * registration order, so nested layers never rescan the whole Scene.
+ */
+function partitionBoundaries2D(
+  objects: Iterable<object>,
+  root: IsolatedGroup2D | undefined,
+  out: RenderCommandBuffer2D,
+): void {
+  let lastBoundary: IsolatedGroup2D | undefined,
+    lastMembers: GameObject[] | undefined;
+  for (const object of objects) {
+    if (!(object instanceof GameObject) || object === root) continue;
+    let visible = true,
+      boundary: IsolatedGroup2D | undefined;
+    for (
+      let current: GameObject | undefined = object;
+      current;
+      current = current.parent
+    ) {
+      if (
+        current !== object &&
+        current instanceof IsolatedGroup2D &&
+        (current === root || current.isolationEnabled)
+      ) {
+        boundary = current;
+        break;
+      }
+      if (!current.visible || current.opacity <= 0 || current.tint[3] <= 0) {
+        visible = false;
+        break;
+      }
+    }
+    if (!visible) continue;
+    if (!lastMembers || boundary !== lastBoundary) {
+      lastBoundary = boundary;
+      lastMembers = out.membersOf(boundary);
+    }
+    lastMembers.push(object);
   }
 }
 
 const cullingBounds = { x: 0, y: 0, width: 0, height: 0 };
+const noMembers: readonly GameObject[] = [];
 function collectBoundary2D(
   scene: Scene,
   width: number,
@@ -183,35 +260,7 @@ function collectBoundary2D(
   if (depth > rendering2dLimits.layerDepth)
     throw new RangeError('Isolated layer nesting exceeds the render budget.');
   const camera = scene.camera2D;
-  const objects =
-    root && root.scene !== scene
-      ? out.collectDetachedObjects(root)
-      : scene.objects;
-  for (const object of objects) {
-    if (!(object instanceof GameObject) || object === root) continue;
-    let visible = true;
-    for (
-      let current: GameObject | undefined = object;
-      current && current !== root;
-      current = current.parent
-    ) {
-      if (!current.visible || current.opacity <= 0 || current.tint[3] <= 0) {
-        visible = false;
-        break;
-      }
-    }
-    if (!visible) continue;
-    let boundary: IsolatedGroup2D | undefined;
-    for (let parent = object.parent; parent; parent = parent.parent) {
-      if (
-        parent instanceof IsolatedGroup2D &&
-        (parent === root || parent.isolationEnabled)
-      ) {
-        boundary = parent;
-        break;
-      }
-    }
-    if (boundary !== root) continue;
+  for (const object of budget.boundaryMembers.get(root) ?? noMembers) {
     const layer = object instanceof IsolatedGroup2D && object.isolationEnabled;
     if (
       !layer &&
@@ -266,5 +315,4 @@ function collectBoundary2D(
   }
   // Stable sort retains Scene registration order for equal summed z in each space.
   out.sort();
-  out.releaseTraversal();
 }
