@@ -54,7 +54,6 @@ interface PooledCommand2D {
   screen: boolean;
   z: number;
 }
-
 /** Commands and nested buffers are reused after the peak visible count. */
 export class RenderCommandBuffer2D {
   readonly items: RenderCommand2D[] = [];
@@ -68,6 +67,12 @@ export class RenderCommandBuffer2D {
     GameObject[]
   >();
   private readonly memberLists: GameObject[][] = [];
+  /** Scratch for the stable bucketed sort; see sort(). */
+  private sortSlots = new Int32Array(0);
+  private readonly sortOutput: RenderCommand2D[] = [];
+  private readonly sortKeys: PooledCommand2D[] = [];
+  private readonly sortRanks = new Int32Array(rendering2dLimits.sortBuckets);
+  private readonly sortStarts = new Int32Array(rendering2dLimits.sortBuckets);
 
   clear(): void {
     for (const command of this.items) {
@@ -113,9 +118,76 @@ export class RenderCommandBuffer2D {
     const command = this.append('layer', object);
     return (command.commands ??= new RenderCommandBuffer2D());
   }
-  /** Orders by the keys captured at append; callers sort right after collection. */
+  /**
+   * Orders by the keys captured at append; callers sort right after collection.
+   * Scenes usually use a few layer depths, so a stable counting sort over the
+   * distinct keys replaces the comparison sort. With finite z the comparator is a
+   * total preorder, so any stable sort yields the identical order; other inputs
+   * keep Array#sort.
+   */
   sort(): void {
-    this.items.sort(compareCommands2D);
+    const items = this.items,
+      count = items.length,
+      keys = this.sortKeys;
+    if (this.sortSlots.length < count)
+      this.sortSlots = new Int32Array(
+        Math.max(count, this.sortSlots.length * 2),
+      );
+    const slots = this.sortSlots;
+    keys.length = 0;
+    let ordered = true,
+      slot = -1,
+      previous: PooledCommand2D | undefined;
+    for (let i = 0; i < count; i++) {
+      const command = items[i] as unknown as PooledCommand2D;
+      if (!Number.isFinite(command.z)) {
+        items.sort(compareCommands2D);
+        return;
+      }
+      if (ordered && previous && comparePooled2D(previous, command) > 0)
+        ordered = false;
+      previous = command;
+      if (slot < 0 || comparePooled2D(keys[slot]!, command) !== 0) {
+        slot = 0;
+        while (
+          slot < keys.length &&
+          comparePooled2D(keys[slot]!, command) !== 0
+        )
+          slot++;
+        if (slot === keys.length) {
+          if (slot === rendering2dLimits.sortBuckets) {
+            items.sort(compareCommands2D);
+            return;
+          }
+          keys.push(command);
+        }
+      }
+      slots[i] = slot;
+    }
+    if (ordered) return;
+    // Rank the few distinct keys, then place each command after earlier equal keys.
+    const ranks = this.sortRanks,
+      starts = this.sortStarts,
+      distinct = keys.length;
+    for (let k = 0; k < distinct; k++) {
+      let rank = 0;
+      for (let other = 0; other < distinct; other++)
+        if (comparePooled2D(keys[other]!, keys[k]!) < 0) rank++;
+      ranks[k] = rank;
+      starts[rank] = 0;
+    }
+    for (let i = 0; i < count; i++) starts[ranks[slots[i]!]!]!++;
+    for (let rank = 0, start = 0; rank < distinct; rank++) {
+      const size = starts[rank]!;
+      starts[rank] = start;
+      start += size;
+    }
+    const output = this.sortOutput;
+    // Grown by push so the scratch stays packed; it only references pooled commands.
+    while (output.length < count) output.push(items[0]!);
+    for (let i = 0; i < count; i++)
+      output[starts[ranks[slots[i]!]!]!++] = items[i]!;
+    for (let i = 0; i < count; i++) items[i] = output[i]!;
   }
   /** @internal Detached target collection borrows descendants without Scene.add side effects. */
   collectDetachedObjects(root: IsolatedGroup2D): readonly GameObject[] {
@@ -160,10 +232,14 @@ export class RenderCommandBuffer2D {
 }
 
 // Mirrors compareObjects2D: world before screen, then summed z; stable for ties.
-function compareCommands2D(a: RenderCommand2D, b: RenderCommand2D): number {
-  const x = a as unknown as PooledCommand2D,
-    y = b as unknown as PooledCommand2D;
+function comparePooled2D(x: PooledCommand2D, y: PooledCommand2D): number {
   return x.screen === y.screen ? x.z - y.z : x.screen ? 1 : -1;
+}
+function compareCommands2D(a: RenderCommand2D, b: RenderCommand2D): number {
+  return comparePooled2D(
+    a as unknown as PooledCommand2D,
+    b as unknown as PooledCommand2D,
+  );
 }
 export interface RenderCollectionOptions2D {
   root?: IsolatedGroup2D;

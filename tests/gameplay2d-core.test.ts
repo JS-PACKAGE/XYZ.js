@@ -162,6 +162,38 @@ describe('2D composed scene ownership', () => {
     image.destroy();
   });
 
+  it('orders world before screen by summed z with registration-order ties for few and many layers', () => {
+    const image = texture(4, 4);
+    let seed = 7;
+    const random = () => (seed = (seed * 1103515245 + 12345) % 2147483648);
+    // 5 layers use bucketed ordering; 40 exceed the bucket budget; equal z is already ordered.
+    for (const layers of [5, 40, 1]) {
+      const scene = new Scene();
+      const expected: { sprite: Sprite; screen: boolean; z: number }[] = [];
+      for (let i = 0; i < 300; i++) {
+        const z = (random() % layers) - 2;
+        const sprite = scene.add(
+          new Sprite({ texture: image, position: [2, 2], zIndex: z }),
+        );
+        const screen = layers > 1 && random() % 4 === 0;
+        if (screen) sprite.space = 'screen';
+        expected.push({ sprite, screen, z });
+      }
+      expected.sort((a, b) =>
+        a.screen === b.screen ? a.z - b.z : a.screen ? 1 : -1,
+      );
+      const commands = new RenderCommandBuffer2D();
+      for (let pass = 0; pass < 2; pass++) {
+        collectRenderCommands2D(scene, 32, 32, commands);
+        expect(commands.items.map((command) => command.object)).toEqual(
+          expected.map((entry) => entry.sprite),
+        );
+      }
+      scene.destroy();
+    }
+    image.destroy();
+  });
+
   it('collects each isolation boundary once with its own members, order and visibility', () => {
     const scene = new Scene();
     const image = texture(4, 4);

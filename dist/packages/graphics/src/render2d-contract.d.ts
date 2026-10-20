@@ -51,13 +51,25 @@ export declare class RenderCommandBuffer2D {
     /** @internal Members of each isolation boundary, filled once per collection. */
     readonly boundaryMembers: Map<IsolatedGroup2D | undefined, GameObject[]>;
     private readonly memberLists;
+    /** Scratch for the stable bucketed sort; see sort(). */
+    private sortSlots;
+    private readonly sortOutput;
+    private readonly sortKeys;
+    private readonly sortRanks;
+    private readonly sortStarts;
     clear(): void;
     private append;
     appendSprite(object: Sprite): void;
     appendMesh(object: Mesh2D): void;
     appendParticles(object: ParticleLayer2D): void;
     appendLayer(object: IsolatedGroup2D): RenderCommandBuffer2D;
-    /** Orders by the keys captured at append; callers sort right after collection. */
+    /**
+     * Orders by the keys captured at append; callers sort right after collection.
+     * Scenes usually use a few layer depths, so a stable counting sort over the
+     * distinct keys replaces the comparison sort. With finite z the comparator is a
+     * total preorder, so any stable sort yields the identical order; other inputs
+     * keep Array#sort.
+     */
     sort(): void;
     /** @internal Detached target collection borrows descendants without Scene.add side effects. */
     collectDetachedObjects(root: IsolatedGroup2D): readonly GameObject[];

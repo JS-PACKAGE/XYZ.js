@@ -5,6 +5,7 @@ var rendering2dLimits = Object.freeze({
 	targetPixels: require_assets.assetLimits.texturePixels,
 	layerDepth: 32,
 	commands: 65536,
+	sortBuckets: 16,
 	pathCommands: 16384,
 	coordinate: 1e6,
 	meshVertices: 1e6,

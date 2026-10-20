@@ -14,6 +14,11 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	collectedCount = 0;
 	boundaryMembers = /* @__PURE__ */ new Map();
 	memberLists = [];
+	sortSlots = /* @__PURE__ */ new Int32Array();
+	sortOutput = [];
+	sortKeys = [];
+	sortRanks = new Int32Array(require_rendering2d.rendering2dLimits.sortBuckets);
+	sortStarts = new Int32Array(require_rendering2d.rendering2dLimits.sortBuckets);
 	clear() {
 		for (let e of this.items) {
 			let t = e;
@@ -46,7 +51,45 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 		return t.commands ??= new RenderCommandBuffer2D();
 	}
 	sort() {
-		this.items.sort(compareCommands2D);
+		let e = this.items, t = e.length, n = this.sortKeys;
+		this.sortSlots.length < t && (this.sortSlots = new Int32Array(Math.max(t, this.sortSlots.length * 2)));
+		let r = this.sortSlots;
+		n.length = 0;
+		let i = !0, a = -1, o;
+		for (let c = 0; c < t; c++) {
+			let t = e[c];
+			if (!Number.isFinite(t.z)) {
+				e.sort(compareCommands2D);
+				return;
+			}
+			if (i && o && comparePooled2D(o, t) > 0 && (i = !1), o = t, a < 0 || comparePooled2D(n[a], t) !== 0) {
+				for (a = 0; a < n.length && comparePooled2D(n[a], t) !== 0;) a++;
+				if (a === n.length) {
+					if (a === require_rendering2d.rendering2dLimits.sortBuckets) {
+						e.sort(compareCommands2D);
+						return;
+					}
+					n.push(t);
+				}
+			}
+			r[c] = a;
+		}
+		if (i) return;
+		let c = this.sortRanks, l = this.sortStarts, u = n.length;
+		for (let e = 0; e < u; e++) {
+			let t = 0;
+			for (let r = 0; r < u; r++) comparePooled2D(n[r], n[e]) < 0 && t++;
+			c[e] = t, l[t] = 0;
+		}
+		for (let e = 0; e < t; e++) l[c[r[e]]]++;
+		for (let e = 0, t = 0; e < u; e++) {
+			let n = l[e];
+			l[e] = t, t += n;
+		}
+		let d = this.sortOutput;
+		for (; d.length < t;) d.push(e[0]);
+		for (let n = 0; n < t; n++) d[l[c[r[n]]]++] = e[n];
+		for (let n = 0; n < t; n++) e[n] = d[n];
 	}
 	collectDetachedObjects(e) {
 		this.traversal.length = 0;
@@ -74,9 +117,11 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 		this.pool.length = 0;
 	}
 };
+function comparePooled2D(e, t) {
+	return e.screen === t.screen ? e.z - t.z : e.screen ? 1 : -1;
+}
 function compareCommands2D(e, t) {
-	let n = e, r = t;
-	return n.screen === r.screen ? n.z - r.z : n.screen ? 1 : -1;
+	return comparePooled2D(e, t);
 }
 function collectRenderCommands2D(e, r, i, a, o) {
 	if (a.clear(), !o?.skipCulling) for (let a of e.objects) (a instanceof require_tile_map.TileMap || a instanceof require_isometric_map.IsometricMap) && a.updateCulling(e.camera2D, r, i);

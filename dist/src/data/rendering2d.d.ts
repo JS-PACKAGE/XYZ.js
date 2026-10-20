@@ -4,6 +4,8 @@ export declare const rendering2dLimits: Readonly<{
     targetPixels: number;
     layerDepth: 32;
     commands: 65536;
+    /** Distinct (space, summed z) keys ordered by counting sort before a comparison sort. */
+    sortBuckets: 16;
     pathCommands: 16384;
     coordinate: 1000000;
     meshVertices: 1000000;
