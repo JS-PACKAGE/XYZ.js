@@ -235,29 +235,32 @@ export class NavigationGrid2D {
           diagonal,
         ),
       expand: (current, search) => {
-        const column = current % this.columns;
-        const row = Math.floor(current / this.columns);
+        const { columns, rows, walkable, clearance, costs } = this,
+          distances = search.distance;
+        const open = (node: number) =>
+          walkable[node] === 1 && clearance[node]! >= radius;
+        const column = current % columns;
+        const row = Math.floor(current / columns);
         for (let dy = -1; dy <= 1; dy++) {
           for (let dx = -1; dx <= 1; dx++) {
             if ((dx === 0 && dy === 0) || (!diagonal && dx !== 0 && dy !== 0))
               continue;
             const x = column + dx;
             const y = row + dy;
-            if (x < 0 || y < 0 || x >= this.columns || y >= this.rows) continue;
-            const next = y * this.columns + x;
-            if (!traversable(next)) continue;
+            if (x < 0 || y < 0 || x >= columns || y >= rows) continue;
+            const next = y * columns + x;
+            if (!open(next)) continue;
             const isDiagonal = dx !== 0 && dy !== 0;
             if (
               isDiagonal &&
               !cornerCutting &&
-              (!traversable(row * this.columns + x) ||
-                !traversable(y * this.columns + column))
+              (!open(row * columns + x) || !open(y * columns + column))
             )
               continue;
             const distance =
-              search.distance[current]! +
-              this.costs[next]! * (isDiagonal ? Math.SQRT2 : 1);
-            if (distance >= search.distance[next]!) continue;
+              distances[current]! +
+              costs[next]! * (isDiagonal ? Math.SQRT2 : 1);
+            if (distance >= distances[next]!) continue;
             search.offer(
               next,
               distance,

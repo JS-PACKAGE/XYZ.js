@@ -80,6 +80,15 @@ describe('bounded weighted navigation', () => {
       grid.findPath(start, goal, { diagonal: true, cornerCutting: true }).cost,
     ).toBeCloseTo(Math.SQRT2);
     expect(grid.findPath(start, goal).status).toBe('unreachable');
+    // Either blocked orthogonal neighbour alone forbids the diagonal shortcut.
+    for (const blocked of [
+      { column: 1, row: 0 },
+      { column: 0, row: 1 },
+    ]) {
+      const single = new NavigationGrid2D({ columns: 2, rows: 2 });
+      single.setCell(blocked.column, blocked.row, { walkable: false });
+      expect(single.findPath(start, goal, { diagonal: true }).cost).toBe(2);
+    }
     expect(grid.findPath(start, start).cost).toBe(0);
     grid.setCell(0, 0, { walkable: false });
     expect(grid.findPath(start, start).status).toBe('unreachable');
