@@ -236,6 +236,16 @@ export class SpatialLightSelector implements SelectedLights {
       const dx = center.x - light.position.x,
         dy = center.y - light.position.y,
         dz = center.z - light.position.z;
+      const range = light.range;
+      if (range > 0) {
+        // Clearly beyond range + radius: the exact test below would cull it too. The relative
+        // margin dwarfs hypot/subtraction rounding; overflow or NaN falls through to it.
+        const reach = range + radius;
+        if (dx * dx + dy * dy + dz * dz > reach * reach * (1 + 1e-9)) {
+          stats.culled++;
+          continue;
+        }
+      }
       const distance = Math.hypot(dx, dy, dz);
       const nearest = Math.max(0, distance - radius);
       const color = Math.max(light.color[0], light.color[1], light.color[2]);

@@ -145,6 +145,26 @@ describe('bounded spatial light selection', () => {
     expect(selector.spotLights).toEqual([]);
   });
 
+  it('keeps a finite-range light until the sphere surface reaches its range', () => {
+    const scene = new Scene();
+    const light = new PointLight({ position: [0, 0, 0], range: 5 });
+    scene.pointLights.push(light);
+    const selector = new SpatialLightSelector();
+    selector.update(scene);
+    // Nearest surface distance is |center| - radius; the light reaches strictly less than range.
+    selector.select(new Vector3(5.999999, 0, 0), 1);
+    expect(selector.pointLights).toEqual([light]);
+    selector.select(new Vector3(0, 0, -6), 1);
+    expect(selector.pointLights).toEqual([]);
+    selector.select(new Vector3(3, 4, 0.0000001), 0.0000001 + 1e-12);
+    expect(selector.pointLights).toEqual([light]);
+    selector.select(new Vector3(0, 400, 0), 395.5);
+    expect(selector.pointLights).toEqual([light]);
+    expect(selector.stats.points.culled).toBe(0);
+    selector.select(new Vector3(0, 400, 0), 394.5);
+    expect(selector.stats.points.culled).toBe(1);
+  });
+
   it('rejects malformed mutable pools and invalid budgets before selection, and clears removed lights', () => {
     const scene = new Scene();
     const light = new PointLight();

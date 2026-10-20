@@ -95,29 +95,37 @@ var SpatialLightSelector = class {
 		t.length = 0, s.selected = s.culled = s.overflow = 0;
 		let c = 0;
 		for (let l of e) {
-			let e = a.x - l.position.x, u = a.y - l.position.y, d = a.z - l.position.z, f = Math.hypot(e, u, d), p = Math.max(0, f - o), m = Math.max(l.color[0], l.color[1], l.color[2]);
-			if (!l.intensity || !m || l.range > 0 && p >= l.range) {
+			let e = a.x - l.position.x, u = a.y - l.position.y, d = a.z - l.position.z, f = l.range;
+			if (f > 0) {
+				let t = f + o;
+				if (e * e + u * u + d * d > t * t * (1 + 1e-9)) {
+					s.culled++;
+					continue;
+				}
+			}
+			let p = Math.hypot(e, u, d), m = Math.max(0, p - o), h = Math.max(l.color[0], l.color[1], l.color[2]);
+			if (!l.intensity || !h || l.range > 0 && m >= l.range) {
 				s.culled++;
 				continue;
 			}
-			let h = 1;
-			if (l instanceof require_lights$1.SpotLight && f > o) {
-				let t = l.direction.length(), n = (e * l.direction.x + u * l.direction.y + d * l.direction.z) / (f * t), r = Math.max(0, Math.acos(Math.max(-1, Math.min(1, n))) - Math.asin(Math.min(1, o / f)));
+			let g = 1;
+			if (l instanceof require_lights$1.SpotLight && p > o) {
+				let t = l.direction.length(), n = (e * l.direction.x + u * l.direction.y + d * l.direction.z) / (p * t), r = Math.max(0, Math.acos(Math.max(-1, Math.min(1, n))) - Math.asin(Math.min(1, o / p)));
 				if (r >= l.outerAngle) {
 					s.culled++;
 					continue;
 				}
 				let i = Math.max(0, Math.min(1, (Math.cos(r) - Math.cos(l.outerAngle)) / (Math.cos(l.innerAngle) - Math.cos(l.outerAngle))));
-				h = i * i * (3 - 2 * i);
+				g = i * i * (3 - 2 * i);
 			}
-			let g = l.range > 0 ? Math.max(0, 1 - (p / l.range) ** 4) ** 2 : 1, _ = m * l.intensity * h * g / Math.max(p * p, .01);
+			let _ = l.range > 0 ? Math.max(0, 1 - (m / l.range) ** 4) ** 2 : 1, v = h * l.intensity * g * _ / Math.max(m * m, .01);
 			c++;
-			let v = 0;
-			for (; v < t.length && (t[v].priority > l.priority || t[v].priority === l.priority && (n[v] > _ || n[v] === _ && t[v].id < l.id));) v++;
-			if (v >= i) continue;
-			let y = Math.min(t.length, i - 1);
-			for (let e = y; e > v; e--) t[e] = t[e - 1], n[e] = n[e - 1];
-			t[v] = l, n[v] = _;
+			let y = 0;
+			for (; y < t.length && (t[y].priority > l.priority || t[y].priority === l.priority && (n[y] > v || n[y] === v && t[y].id < l.id));) y++;
+			if (y >= i) continue;
+			let b = Math.min(t.length, i - 1);
+			for (let e = b; e > y; e--) t[e] = t[e - 1], n[e] = n[e - 1];
+			t[y] = l, n[y] = v;
 		}
 		s.selected = t.length, s.overflow = c - t.length;
 	}
