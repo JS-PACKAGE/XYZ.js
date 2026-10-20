@@ -729,3 +729,18 @@ describe('static sensor coverage', () => {
     expect(world.debugSnapshot().contacts).toHaveLength(3);
   });
 });
+
+describe('static contact velocity', () => {
+  it('ignores velocity stored on a static body when solving friction', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 20] });
+    const ground = object(Colliders.box(20, 1), 0, 1, { type: 'static' });
+    ground.body!.velocity.x = 50;
+    const crate = object(Colliders.box(1, 1), 0, 0, { friction: 1 });
+    world.register(ground);
+    world.register(crate);
+    advance(world, 0.5);
+    // Settling jitter stays tiny; dragging along at the stored 50 units/s would not.
+    expect(Math.abs(crate.body!.velocity.x)).toBeLessThan(0.01);
+    expect(Math.abs(crate.position.x)).toBeLessThan(0.01);
+  });
+});

@@ -463,18 +463,18 @@ var PhysicsWorld2D = class {
 		}
 	}
 	solveVelocity(e) {
-		let { a: t, b: n, manifold: r } = e, i = Math.sqrt((t.body?.friction ?? .5) * (n.body?.friction ?? .5));
+		let { a: t, b: n, manifold: r } = e, i = Math.sqrt((t.body?.friction ?? .5) * (n.body?.friction ?? .5)), a = t.body, o = n.body, s = a && a.type !== `static` ? a.velocity : void 0, c = o && o.type !== `static` ? o.velocity : void 0, l = s !== void 0 && !a.lockRotation, u = c !== void 0 && !o.lockRotation;
 		for (let e = 0; e < r.count; e++) {
-			let a = r.points[e], o = a.x - t.owner.position.x, s = a.y - t.owner.position.y, c = a.x - n.owner.position.x, l = a.y - n.owner.position.y, u = o * r.ny - s * r.nx, d = c * r.ny - l * r.nx, f = t.inverseMass + n.inverseMass + u * u * t.inverseInertia + d * d * n.inverseInertia;
-			if (f <= 0) continue;
-			let p = t.body?.velocity, m = n.body?.velocity, h = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, g = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, _ = (n.body?.type === `static` ? 0 : m?.x ?? 0) - g * l - ((t.body?.type === `static` ? 0 : p?.x ?? 0) - h * s), v = (n.body?.type === `static` ? 0 : m?.y ?? 0) + g * c - ((t.body?.type === `static` ? 0 : p?.y ?? 0) + h * o), y = r.normalImpulses[e];
-			r.normalImpulses[e] = Math.max(0, y + (r.bounceVelocities[e] - _ * r.nx - v * r.ny) / f);
-			let b = r.normalImpulses[e] - y;
-			this.impulse(t, n, b * r.nx, b * r.ny, o, s, c, l), h = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, g = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, _ = (n.body?.type === `static` ? 0 : m?.x ?? 0) - g * l - ((t.body?.type === `static` ? 0 : p?.x ?? 0) - h * s), v = (n.body?.type === `static` ? 0 : m?.y ?? 0) + g * c - ((t.body?.type === `static` ? 0 : p?.y ?? 0) + h * o);
-			let x = -r.ny, S = r.nx, C = o * S - s * x, w = c * S - l * x, T = t.inverseMass + n.inverseMass + C * C * t.inverseInertia + w * w * n.inverseInertia, E = i * r.normalImpulses[e], D = r.tangentImpulses[e];
-			r.tangentImpulses[e] = Math.max(-E, Math.min(E, D - (_ * x + v * S) / T));
-			let O = r.tangentImpulses[e] - D;
-			this.impulse(t, n, O * x, O * S, o, s, c, l);
+			let d = r.points[e], f = d.x - t.owner.position.x, p = d.y - t.owner.position.y, m = d.x - n.owner.position.x, h = d.y - n.owner.position.y, g = f * r.ny - p * r.nx, _ = m * r.ny - h * r.nx, v = t.inverseMass + n.inverseMass + g * g * t.inverseInertia + _ * _ * n.inverseInertia;
+			if (v <= 0) continue;
+			let y = l ? a.angularVelocity : 0, b = u ? o.angularVelocity : 0, x = (c ? c.x : 0) - b * h - ((s ? s.x : 0) - y * p), S = (c ? c.y : 0) + b * m - ((s ? s.y : 0) + y * f), C = r.normalImpulses[e];
+			r.normalImpulses[e] = Math.max(0, C + (r.bounceVelocities[e] - x * r.nx - S * r.ny) / v);
+			let w = r.normalImpulses[e] - C;
+			this.impulse(t, n, w * r.nx, w * r.ny, f, p, m, h), y = l ? a.angularVelocity : 0, b = u ? o.angularVelocity : 0, x = (c ? c.x : 0) - b * h - ((s ? s.x : 0) - y * p), S = (c ? c.y : 0) + b * m - ((s ? s.y : 0) + y * f);
+			let T = -r.ny, E = r.nx, D = f * E - p * T, O = m * E - h * T, k = t.inverseMass + n.inverseMass + D * D * t.inverseInertia + O * O * n.inverseInertia, A = i * r.normalImpulses[e], j = r.tangentImpulses[e];
+			r.tangentImpulses[e] = Math.max(-A, Math.min(A, j - (x * T + S * E) / k));
+			let M = r.tangentImpulses[e] - j;
+			this.impulse(t, n, M * T, M * E, f, p, m, h);
 		}
 	}
 	impulse(e, t, n, r, i, a, o, s) {

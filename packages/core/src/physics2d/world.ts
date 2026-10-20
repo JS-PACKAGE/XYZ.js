@@ -1035,6 +1035,14 @@ export class PhysicsWorld2D {
     const friction = Math.sqrt(
       (a.body?.friction ?? 0.5) * (b.body?.friction ?? 0.5),
     );
+    // Static bodies and bodiless colliders contribute no velocity; which bodies move or spin
+    // cannot change while this contact is solved, so it is decided once, not per term.
+    const aBody = a.body,
+      bBody = b.body;
+    const av = aBody && aBody.type !== 'static' ? aBody.velocity : undefined,
+      bv = bBody && bBody.type !== 'static' ? bBody.velocity : undefined;
+    const aSpins = av !== undefined && !aBody!.lockRotation,
+      bSpins = bv !== undefined && !bBody!.lockRotation;
     for (let i = 0; i < m.count; i++) {
       const p = m.points[i],
         ax = p.x - a.owner.position.x,
@@ -1049,24 +1057,10 @@ export class PhysicsWorld2D {
         an * an * a.inverseInertia +
         bn * bn * b.inverseInertia;
       if (denominator <= 0) continue;
-      const av = a.body?.velocity,
-        bv = b.body?.velocity;
-      let aw =
-        a.body && a.body.type !== 'static' && !a.body.lockRotation
-          ? a.body.angularVelocity
-          : 0;
-      let bw =
-        b.body && b.body.type !== 'static' && !b.body.lockRotation
-          ? b.body.angularVelocity
-          : 0;
-      let vx =
-        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
-        bw * by -
-        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
-      let vy =
-        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
-        bw * bx -
-        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
+      let aw = aSpins ? aBody!.angularVelocity : 0;
+      let bw = bSpins ? bBody!.angularVelocity : 0;
+      let vx = (bv ? bv.x : 0) - bw * by - ((av ? av.x : 0) - aw * ay);
+      let vy = (bv ? bv.y : 0) + bw * bx - ((av ? av.y : 0) + aw * ax);
       const previous = m.normalImpulses[i];
       m.normalImpulses[i] = Math.max(
         0,
@@ -1075,22 +1069,10 @@ export class PhysicsWorld2D {
       );
       const impulse = m.normalImpulses[i] - previous;
       this.impulse(a, b, impulse * m.nx, impulse * m.ny, ax, ay, bx, by);
-      aw =
-        a.body && a.body.type !== 'static' && !a.body.lockRotation
-          ? a.body.angularVelocity
-          : 0;
-      bw =
-        b.body && b.body.type !== 'static' && !b.body.lockRotation
-          ? b.body.angularVelocity
-          : 0;
-      vx =
-        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
-        bw * by -
-        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
-      vy =
-        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
-        bw * bx -
-        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
+      aw = aSpins ? aBody!.angularVelocity : 0;
+      bw = bSpins ? bBody!.angularVelocity : 0;
+      vx = (bv ? bv.x : 0) - bw * by - ((av ? av.x : 0) - aw * ay);
+      vy = (bv ? bv.y : 0) + bw * bx - ((av ? av.y : 0) + aw * ax);
       const tx = -m.ny,
         ty = m.nx,
         at = ax * ty - ay * tx,
