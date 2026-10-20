@@ -50,9 +50,14 @@ import { ShadowAtlas } from '../../core/src/shadow-atlas.js';
 import {
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  LIGHTING_POINT_ID_OFFSET,
   nativeMaterial3DLimits,
+  POINT_LIGHT_OFFSET,
+  POINT_LIGHT_STRIDE,
   REFLECTION_FLOAT_COUNT,
   meshShaderVariantLimits,
+  SPOT_LIGHT_OFFSET,
+  SPOT_LIGHT_STRIDE,
 } from '../../../src/data/rendering.js';
 import { mappedMaterialUVFloatCount as MATERIAL_UV_FLOAT_COUNT } from './optical-maps.js';
 import { fillMaterialUV } from './material-uv.js';
@@ -157,6 +162,9 @@ interface CachedMesh {
   data: Float32Array;
   seen: number;
   sceneBuffer: GPUBuffer;
+  /** Light counts of the last scene upload; slots beyond them hold zeros. */
+  scenePoints: number;
+  sceneSpots: number;
   sceneGroup?: GPUBindGroup;
   sceneShadow?: GPUTextureView;
   sceneRefraction?: GPUTextureView;
@@ -184,6 +192,44 @@ interface CachedEnvironment {
   group?: GPUBindGroup;
   shadow?: GPUTextureView;
   refraction?: GPUTextureView;
+}
+
+/**
+ * @internal Uploads a draw scene block — camera `[0, 20)`, lighting
+ * `[20, 20 + LIGHTING_FLOAT_COUNT)`, then the tail — without its zero light
+ * padding. The buffer starts zeroed and every slot past `uploaded`'s previous
+ * counts was already written as zero, so the GPU copy still equals `data`.
+ * Upload cost scales with bytes and unused slots were ~90% of each block.
+ * Updates `uploaded` and returns the uploaded byte count.
+ */
+export function uploadSceneBlock(
+  queue: GPUQueue,
+  buffer: GPUBuffer,
+  data: Float32Array,
+  uploaded: { scenePoints: number; sceneSpots: number },
+): number {
+  const pointCount = data[20 + 8]!,
+    spotCount = data[20 + 9]!,
+    points = Math.max(pointCount, uploaded.scenePoints),
+    spots = Math.max(spotCount, uploaded.sceneSpots);
+  uploaded.scenePoints = pointCount;
+  uploaded.sceneSpots = spotCount;
+  const head = 20 + POINT_LIGHT_OFFSET + points * POINT_LIGHT_STRIDE;
+  queue.writeBuffer(buffer, 0, data, 0, head);
+  let floats = head;
+  if (spots) {
+    const at = 20 + SPOT_LIGHT_OFFSET;
+    queue.writeBuffer(buffer, at * 4, data, at, spots * SPOT_LIGHT_STRIDE);
+    floats += spots * SPOT_LIGHT_STRIDE;
+  }
+  if (points) {
+    const at = 20 + LIGHTING_POINT_ID_OFFSET;
+    queue.writeBuffer(buffer, at * 4, data, at, points);
+    floats += points;
+  }
+  const tail = 20 + LIGHTING_FLOAT_COUNT;
+  queue.writeBuffer(buffer, tail * 4, data, tail, data.length - tail);
+  return (floats + data.length - tail) * 4;
 }
 
 /** Persistent 3D resources, native joint palettes and hardware instances. */
@@ -1495,8 +1541,9 @@ export class WebGPUMeshPipeline {
       );
       data.set(this.lightingData, 20);
       data[30] = linear ? 1 : 0;
-      this.device.queue.writeBuffer(mesh.sceneBuffer, 0, data);
-      this.stats.upload(data.byteLength);
+      this.stats.upload(
+        uploadSceneBlock(this.device.queue, mesh.sceneBuffer, data, mesh),
+      );
     }
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
     this.stats.upload(this.atlas.data.byteLength);
@@ -2896,6 +2943,8 @@ export class WebGPUMeshPipeline {
         influences,
         paletteVersion: skin?.paletteVersion ?? 0,
         data: new Float32Array(meshUniformFloats),
+        scenePoints: 0,
+        sceneSpots: 0,
         sceneBuffer: this.device.createBuffer({
           size: this.sceneData.byteLength,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,

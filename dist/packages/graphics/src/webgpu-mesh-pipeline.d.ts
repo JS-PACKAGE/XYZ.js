@@ -11,6 +11,18 @@ import type { FrameStats } from './render-stats.js';
 import type { ReflectionProbe, ReflectionProbeCaptureOptions } from '../../core/src/reflection-probe.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
 import type { PlanarReflection } from '../../core/src/planar-reflection.js';
+/**
+ * @internal Uploads a draw scene block — camera `[0, 20)`, lighting
+ * `[20, 20 + LIGHTING_FLOAT_COUNT)`, then the tail — without its zero light
+ * padding. The buffer starts zeroed and every slot past `uploaded`'s previous
+ * counts was already written as zero, so the GPU copy still equals `data`.
+ * Upload cost scales with bytes and unused slots were ~90% of each block.
+ * Updates `uploaded` and returns the uploaded byte count.
+ */
+export declare function uploadSceneBlock(queue: GPUQueue, buffer: GPUBuffer, data: Float32Array, uploaded: {
+    scenePoints: number;
+    sceneSpots: number;
+}): number;
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export declare class WebGPUMeshPipeline {
     private readonly device;
