@@ -82,6 +82,10 @@ export declare class WebGPUMeshPipeline {
     private probeTexture;
     private probeAllocation;
     private probeMipCount;
+    /** Probe blend data shared by every draw of a render, and its content revision. */
+    private readonly probeBlend;
+    private readonly probeBlendNext;
+    private probeBlendRevision;
     private readonly temporalState;
     private readonly temporal;
     private temporalActive;
@@ -163,6 +167,8 @@ export declare class WebGPUMeshPipeline {
     private createSceneGroup;
     private ensureShadow;
     private prepareScene;
+    /** Recomputes the shared probe blend block and bumps its revision only when its content changed. */
+    private refreshProbeBlend;
     /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
     private ensureEnvironment;
     prepareEnvironment(map: EnvironmentMap): void;

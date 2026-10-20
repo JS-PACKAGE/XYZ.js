@@ -116,6 +116,9 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	probeTexture;
 	probeAllocation;
 	probeMipCount = 1;
+	probeBlend = /* @__PURE__ */ new Float32Array(260);
+	probeBlendNext = /* @__PURE__ */ new Float32Array(260);
+	probeBlendRevision = 0;
 	temporalState = new require_temporal_post.TemporalPostState();
 	temporal;
 	temporalActive = !1;
@@ -808,6 +811,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				t.transparency === `weighted` && this.blendedDraw(e) && (v = !0), e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0 && (_ = !0);
 			}
 			for (let e of this.visibility.shadows) this.draws.push(e), this.gathered.add(e);
+			this.refreshProbeBlend(t);
 			for (let e of this.gathered) {
 				if (require_native_material3d.isNativeMaterial3D(e.material) && (e.material.destroyed || !this.nativeMaterials.has(e.material))) throw new require_errors.GraphicsError(`NativeMaterial3D must be explicitly prepared before rendering.`);
 				require_native_material3d.isNativeMaterial3D(e.material) && e.material.validate();
@@ -944,6 +948,15 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(t)), r.set(this.lightingData, 20), r[30] = +!!n, this.stats.upload(uploadSceneBlock(this.device.queue, i.sceneBuffer, r, i));
 		}
 		this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), this.atlas.count && this.device.queue.writeBuffer(this.projectionBuffer, 0, this.atlas.projections, 0, this.atlas.count * 64), this.atlas.count && this.stats.upload(this.atlas.count * 64 * 4);
+	}
+	refreshProbeBlend(e) {
+		let t = this.probeBlendNext;
+		require_render_data.fillProbeBlendData(e, t, 0, this.selectedProbes);
+		for (let e = 0; e < 5; e++) t[e * 52 + 38] = this.probeMipCount - 1;
+		for (let e = 0; e < t.length; e++) if (!Object.is(t[e], this.probeBlend[e])) {
+			this.probeBlend.set(t), this.probeBlendRevision++;
+			return;
+		}
 	}
 	ensureEnvironment(e) {
 		let t = require_render_data.activeEnvironment(e);
@@ -1677,6 +1690,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				data: new Float32Array($),
 				scenePoints: 0,
 				sceneSpots: 0,
+				probeRevision: -1,
 				sceneBuffer: this.device.createBuffer({
 					size: this.sceneData.byteLength,
 					usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
@@ -1802,9 +1816,9 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		c && (c !== n.visibilityPayload || c.version !== n.visibilityVersion) && (n.allocation.resize(n.uniform.size + n.sceneBuffer.size + n.instance.size + (n.instanceColors?.size ?? 0) + (n.palette?.size ?? 0) + (n.influences?.size ?? 0) + c.matrices.byteLength + (c.colors?.byteLength ?? 0)), (!n.visibleInstance || n.visibleInstance.size < c.matrices.byteLength) && (n.visibleInstance && this.retired.push(n.visibleInstance), n.visibleInstance = this.device.createBuffer({
 			size: c.matrices.byteLength,
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-		})), this.device.queue.writeBuffer(n.visibleInstance, 0, c.matrices.buffer, c.matrices.byteOffset, c.count * 16 * 4), this.stats.upload(c.count * 16 * 4), c.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, c.colors), this.device.queue.writeBuffer(n.visibleColors, 0, c.colors.buffer, c.colors.byteOffset, c.count * 3 * 4), this.stats.upload(c.count * 3 * 4)), n.visibilityVersion = c.version, n.visibilityPayload = c), require_render_data.fillProbeBlendData(e, i, 76, this.selectedProbes);
-		for (let e = 0; e < 5; e++) i[76 + e * 52 + 38] = this.probeMipCount - 1;
-		t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion), this.device.queue.writeBuffer(n.uniform, 0, i), this.stats.upload(i.byteLength);
+		})), this.device.queue.writeBuffer(n.visibleInstance, 0, c.matrices.buffer, c.matrices.byteOffset, c.count * 16 * 4), this.stats.upload(c.count * 16 * 4), c.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, c.colors), this.device.queue.writeBuffer(n.visibleColors, 0, c.colors.buffer, c.colors.byteOffset, c.count * 3 * 4), this.stats.upload(c.count * 3 * 4)), n.visibilityVersion = c.version, n.visibilityPayload = c), t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion);
+		let l = 336;
+		n.probeRevision === this.probeBlendRevision ? (this.device.queue.writeBuffer(n.uniform, 0, i, 0, 76), this.device.queue.writeBuffer(n.uniform, l * 4, i, l, i.length - l), this.stats.upload((i.length - 260) * 4)) : (i.set(this.probeBlend, 76), this.device.queue.writeBuffer(n.uniform, 0, i), this.stats.upload(i.byteLength), n.probeRevision = this.probeBlendRevision);
 	}
 	releaseUnused() {
 		if (this.residency.geometry.budgetBytes === 1 / 0) {

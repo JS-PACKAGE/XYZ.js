@@ -165,6 +165,8 @@ interface CachedMesh {
   /** Light counts of the last scene upload; slots beyond them hold zeros. */
   scenePoints: number;
   sceneSpots: number;
+  /** Probe blend revision held by `uniform`; -1 until first upload. */
+  probeRevision: number;
   sceneGroup?: GPUBindGroup;
   sceneShadow?: GPUTextureView;
   sceneRefraction?: GPUTextureView;
@@ -305,6 +307,10 @@ export class WebGPUMeshPipeline {
   private probeTexture: GPUTexture | undefined;
   private probeAllocation: ResidencyAllocation | undefined;
   private probeMipCount = 1;
+  /** Probe blend data shared by every draw of a render, and its content revision. */
+  private readonly probeBlend = new Float32Array(REFLECTION_FLOAT_COUNT);
+  private readonly probeBlendNext = new Float32Array(REFLECTION_FLOAT_COUNT);
+  private probeBlendRevision = 0;
   private readonly temporalState = new TemporalPostState();
   private readonly temporal: WebGPUTemporalPipeline;
   private temporalActive = false;
@@ -1196,6 +1202,7 @@ export class WebGPUMeshPipeline {
         this.draws.push(object);
         this.gathered.add(object);
       }
+      this.refreshProbeBlend(scene);
       for (const object of this.gathered) {
         if (
           isNativeMaterial3D(object.material) &&
@@ -1556,6 +1563,19 @@ export class WebGPUMeshPipeline {
         this.atlas.count * 64,
       );
     if (this.atlas.count) this.stats.upload(this.atlas.count * 64 * 4);
+  }
+
+  /** Recomputes the shared probe blend block and bumps its revision only when its content changed. */
+  private refreshProbeBlend(scene: Scene): void {
+    const next = this.probeBlendNext;
+    fillProbeBlendData(scene, next, 0, this.selectedProbes);
+    for (let i = 0; i < 5; i++) next[i * 52 + 38] = this.probeMipCount - 1;
+    for (let i = 0; i < next.length; i++)
+      if (!Object.is(next[i], this.probeBlend[i])) {
+        this.probeBlend.set(next);
+        this.probeBlendRevision++;
+        return;
+      }
   }
 
   /** Uploads (or reuses) GPU copies of the active maps and rebinds the scene groups on change. */
@@ -2945,6 +2965,7 @@ export class WebGPUMeshPipeline {
         data: new Float32Array(meshUniformFloats),
         scenePoints: 0,
         sceneSpots: 0,
+        probeRevision: -1,
         sceneBuffer: this.device.createBuffer({
           size: this.sceneData.byteLength,
           usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
@@ -3342,8 +3363,6 @@ export class WebGPUMeshPipeline {
       mesh.visibilityVersion = packed.version;
       mesh.visibilityPayload = packed;
     }
-    fillProbeBlendData(scene, data, 76, this.selectedProbes);
-    for (let i = 0; i < 5; i++) data[76 + i * 52 + 38] = this.probeMipCount - 1;
     if (
       object instanceof InstancedMesh &&
       mesh.instanceVersion !== object.version
@@ -3366,8 +3385,25 @@ export class WebGPUMeshPipeline {
       this.stats.upload(object.colors.byteLength);
       mesh.instanceColorVersion = object.colorVersion;
     }
-    this.device.queue.writeBuffer(mesh.uniform, 0, data);
-    this.stats.upload(data.byteLength);
+    // The probe blend block is identical for every draw: resend only when it changed.
+    const reflection = 76,
+      after = reflection + REFLECTION_FLOAT_COUNT;
+    if (mesh.probeRevision === this.probeBlendRevision) {
+      this.device.queue.writeBuffer(mesh.uniform, 0, data, 0, reflection);
+      this.device.queue.writeBuffer(
+        mesh.uniform,
+        after * 4,
+        data,
+        after,
+        data.length - after,
+      );
+      this.stats.upload((data.length - REFLECTION_FLOAT_COUNT) * 4);
+    } else {
+      data.set(this.probeBlend, reflection);
+      this.device.queue.writeBuffer(mesh.uniform, 0, data);
+      this.stats.upload(data.byteLength);
+      mesh.probeRevision = this.probeBlendRevision;
+    }
   }
 
   private releaseUnused(): void {
