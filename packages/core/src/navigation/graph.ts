@@ -475,18 +475,24 @@ export class NavigationGraph3D {
       to,
       estimate: (node) => this.heuristic(node, target),
       expand: (current, search) => {
+        // Nothing mutates the graph during one expansion, so the snapshots are read once.
+        const nodes = this.currentNodes,
+          connections = this.currentConnections,
+          distances = search.distance,
+          checkExcluded = excluded.size !== 0;
         for (const edge of this.edges[current]!) {
-          const connection = this.currentConnections[edge.connection]!;
+          const connection = connections[edge.connection]!,
+            node = nodes[edge.to]!;
           if (
             !connection.enabled ||
-            !this.nodes[edge.to]!.walkable ||
-            this.nodes[edge.to]!.clearance! < radius ||
+            !node.walkable ||
+            node.clearance! < radius ||
             connection.clearance! < radius ||
-            excluded.has(edge.connection)
+            (checkExcluded && excluded.has(edge.connection))
           )
             continue;
-          const distance = search.distance[current]! + edge.cost;
-          if (distance >= search.distance[edge.to]!) continue;
+          const distance = distances[current]! + edge.cost;
+          if (distance >= distances[edge.to]!) continue;
           search.offer(
             edge.to,
             distance,

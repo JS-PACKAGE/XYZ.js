@@ -183,11 +183,12 @@ var NavigationGraph3D = class NavigationGraph3D {
 			to: a,
 			estimate: (e) => this.heuristic(e, u),
 			expand: (e, t) => {
-				for (let n of this.edges[e]) {
-					let r = this.currentConnections[n.connection];
-					if (!r.enabled || !this.nodes[n.to].walkable || this.nodes[n.to].clearance < o || r.clearance < o || c.has(n.connection)) continue;
-					let i = t.distance[e] + n.cost;
-					i >= t.distance[n.to] || t.offer(n.to, i, i + this.heuristic(n.to, u), e);
+				let n = this.currentNodes, r = this.currentConnections, i = t.distance, a = c.size !== 0;
+				for (let s of this.edges[e]) {
+					let l = r[s.connection], d = n[s.to];
+					if (!l.enabled || !d.walkable || d.clearance < o || l.clearance < o || a && c.has(s.connection)) continue;
+					let f = i[e] + s.cost;
+					f >= i[s.to] || t.offer(s.to, f, f + this.heuristic(s.to, u), e);
 				}
 			},
 			result: (e, t) => {
