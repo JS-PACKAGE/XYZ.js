@@ -89,6 +89,8 @@ export declare class PhysicsWorld2D {
     private sweepNextActive;
     private readonly activeContacts;
     private readonly solveContacts;
+    /** Contacts the velocity iterations solve when no joint can wake a body mid-solve. */
+    private readonly velocityContacts;
     /** Number of registered colliders, static ones included. */
     get colliderCount(): number;
     private readonly sleepGroup;
@@ -166,6 +168,8 @@ export declare class PhysicsWorld2D {
     private simulate;
     private wakeContactGroups;
     private prepareBounce;
+    /** Active, uncancelled, non-sensor, live pair with no sleeping body. */
+    private solvable;
     private solveVelocity;
     private impulse;
     private solvePosition;

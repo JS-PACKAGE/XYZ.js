@@ -205,6 +205,8 @@ export class PhysicsWorld2D {
   private sweepNextActive = new Int32Array(0);
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
+  /** Contacts the velocity iterations solve when no joint can wake a body mid-solve. */
+  private readonly velocityContacts: Contact[] = [];
 
   /** Number of registered colliders, static ones included. */
   get colliderCount(): number {
@@ -865,33 +867,29 @@ export class PhysicsWorld2D {
     }
     this.wakeContactGroups(token);
     this.prepareJoints(dt);
-    for (let iteration = 0; iteration < this.velocityIterations; iteration++) {
-      for (const joint of this.activeJoints) joint.solveVelocity(dt);
-      for (const contact of this.solveContacts) {
-        if (
-          contact.active &&
-          !contact.cancelled &&
-          !contact.sensor &&
-          this.alive(contact.a) &&
-          this.alive(contact.b) &&
-          !(contact.a.body?.isSleeping || contact.b.body?.isSleeping)
-        )
-          this.solveVelocity(contact);
+    if (this.activeJoints.length === 0) {
+      // Without joints, impulses only reach bodies of contacts that passed this filter
+      // (both awake), so no iteration can wake a body, end a contact or change liveness.
+      const solvable = this.velocityContacts;
+      for (const contact of this.solveContacts)
+        if (this.solvable(contact)) solvable.push(contact);
+      for (let iteration = 0; iteration < this.velocityIterations; iteration++)
+        for (const contact of solvable) this.solveVelocity(contact);
+      solvable.length = 0;
+    } else
+      for (
+        let iteration = 0;
+        iteration < this.velocityIterations;
+        iteration++
+      ) {
+        for (const joint of this.activeJoints) joint.solveVelocity(dt);
+        for (const contact of this.solveContacts)
+          if (this.solvable(contact)) this.solveVelocity(contact);
       }
-    }
     for (let iteration = 0; iteration < this.positionIterations; iteration++) {
       for (const joint of this.activeJoints) joint.solvePosition();
-      for (const contact of this.solveContacts) {
-        if (
-          contact.active &&
-          !contact.cancelled &&
-          !contact.sensor &&
-          this.alive(contact.a) &&
-          this.alive(contact.b) &&
-          !(contact.a.body?.isSleeping || contact.b.body?.isSleeping)
-        )
-          this.solvePosition(contact);
-      }
+      for (const contact of this.solveContacts)
+        if (this.solvable(contact)) this.solvePosition(contact);
     }
     this.breakJoints();
     for (const contact of this.solveContacts) {
@@ -1029,6 +1027,17 @@ export class PhysicsWorld2D {
       const speed = vx * m.nx + vy * m.ny;
       m.bounceVelocities[i] = speed < -threshold ? -restitution * speed : 0;
     }
+  }
+  /** Active, uncancelled, non-sensor, live pair with no sleeping body. */
+  private solvable(contact: Contact): boolean {
+    return (
+      contact.active &&
+      !contact.cancelled &&
+      !contact.sensor &&
+      this.alive(contact.a) &&
+      this.alive(contact.b) &&
+      !(contact.a.body?.isSleeping || contact.b.body?.isSleeping)
+    );
   }
   private solveVelocity(contact: Contact): void {
     const { a, b, manifold: m } = contact;

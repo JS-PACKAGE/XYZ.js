@@ -86,6 +86,7 @@ var PhysicsWorld2D = class {
 	sweepNextActive = /* @__PURE__ */ new Int32Array();
 	activeContacts = /* @__PURE__ */ new Set();
 	solveContacts = [];
+	velocityContacts = [];
 	get colliderCount() {
 		return this.proxies.size;
 	}
@@ -400,14 +401,18 @@ var PhysicsWorld2D = class {
 			}
 		}
 		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
-		this.wakeContactGroups(t), this.prepareJoints(e);
-		for (let t = 0; t < this.velocityIterations; t++) {
+		if (this.wakeContactGroups(t), this.prepareJoints(e), this.activeJoints.length === 0) {
+			let e = this.velocityContacts;
+			for (let t of this.solveContacts) this.solvable(t) && e.push(t);
+			for (let t = 0; t < this.velocityIterations; t++) for (let t of e) this.solveVelocity(t);
+			e.length = 0;
+		} else for (let t = 0; t < this.velocityIterations; t++) {
 			for (let t of this.activeJoints) t.solveVelocity(e);
-			for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solveVelocity(e);
+			for (let e of this.solveContacts) this.solvable(e) && this.solveVelocity(e);
 		}
 		for (let e = 0; e < this.positionIterations; e++) {
 			for (let e of this.activeJoints) e.solvePosition();
-			for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solvePosition(e);
+			for (let e of this.solveContacts) this.solvable(e) && this.solvePosition(e);
 		}
 		this.breakJoints();
 		for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
@@ -461,6 +466,9 @@ var PhysicsWorld2D = class {
 			let i = r.points[e], s = t.body?.velocity, c = n.body?.velocity, l = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, u = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, d = i.x - t.owner.position.x, f = i.y - t.owner.position.y, p = i.x - n.owner.position.x, m = i.y - n.owner.position.y, h = (n.body?.type === `static` ? 0 : c?.x ?? 0) - u * m - ((t.body?.type === `static` ? 0 : s?.x ?? 0) - l * f), g = (n.body?.type === `static` ? 0 : c?.y ?? 0) + u * p - ((t.body?.type === `static` ? 0 : s?.y ?? 0) + l * d), _ = h * r.nx + g * r.ny;
 			r.bounceVelocities[e] = _ < -o ? -a * _ : 0;
 		}
+	}
+	solvable(e) {
+		return e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping);
 	}
 	solveVelocity(e) {
 		let { a: t, b: n, manifold: r } = e, i = Math.sqrt((t.body?.friction ?? .5) * (n.body?.friction ?? .5)), a = t.body, o = n.body, s = a && a.type !== `static` ? a.velocity : void 0, c = o && o.type !== `static` ? o.velocity : void 0, l = s !== void 0 && !a.lockRotation, u = c !== void 0 && !o.lockRotation;
