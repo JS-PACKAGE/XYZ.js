@@ -39,6 +39,15 @@ interface TileSlot {
   colliderOwner?: GameObject;
   insertion: number;
 }
+/** Map-local viewport (padding applied) that decides every tile sprite's visibility. */
+interface CullingState {
+  visible: boolean;
+  singular: boolean;
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+}
 
 function gridFloor(value: number): number {
   const nearest = Math.round(value);
@@ -68,6 +77,16 @@ export class TileMap extends Group2D {
   private readonly local = new Vector2();
   private readonly corner = new Vector2();
   private readonly cullMatrix = new Matrix3();
+  /** State applied by the last full pass; NaN bounds until one runs. */
+  private readonly culling: CullingState = {
+    visible: false,
+    singular: false,
+    minX: NaN,
+    minY: NaN,
+    maxX: NaN,
+    maxY: NaN,
+  };
+  private readonly cullingProbe: CullingState = { ...this.culling };
   private nextInsertion = 0;
 
   constructor(options: TileMapOptions) {
@@ -240,7 +259,38 @@ export class TileMap extends Group2D {
     if (this.sparseSlots) this.sparseSlots.set(index, slot);
     else this.slots[index] = slot;
     if (!existing) this.configuredSlots.push(slot);
-    if (this.scene) this.updateCulling(this.scene.camera2D);
+    this.cullTile(column, row);
+  }
+
+  /**
+   * Re-culls one edited cell. With an unchanged viewport only that cell can
+   * change; re-culling every configured cell per edit made bulk population
+   * quadratic. A changed viewport still re-culls every cell.
+   */
+  protected cullTile(column: number, row: number): void {
+    if (!this.scene) return;
+    const camera = this.scene.camera2D,
+      probe = this.cullingProbe,
+      last = this.culling;
+    this.measureCulling(
+      camera,
+      camera.viewportWidth,
+      camera.viewportHeight,
+      probe,
+    );
+    const index = this.index(column, row);
+    const slot = this.sparseSlots?.get(index) ?? this.slots[index];
+    if (
+      slot &&
+      probe.visible === last.visible &&
+      probe.singular === last.singular &&
+      probe.minX === last.minX &&
+      probe.minY === last.minY &&
+      probe.maxX === last.maxX &&
+      probe.maxY === last.maxY
+    )
+      this.cullSlot(slot);
+    else this.updateCulling(camera);
   }
 
   clearTile(column: number, row: number): void {
@@ -384,6 +434,17 @@ export class TileMap extends Group2D {
     width = camera.viewportWidth,
     height = camera.viewportHeight,
   ): void {
+    this.measureCulling(camera, width, height, this.culling);
+    for (const slot of this.configuredSlots) this.cullSlot(slot);
+  }
+
+  /** Map-local viewport bounds; every slot's visibility derives from these alone. */
+  private measureCulling(
+    camera: Camera2D,
+    width: number,
+    height: number,
+    out: CullingState,
+  ): void {
     this.cullMatrix.copy(this.updateWorldMatrix());
     let minX = Infinity,
       minY = Infinity,
@@ -406,7 +467,6 @@ export class TileMap extends Group2D {
       maxX = Math.max(maxX, this.corner.x);
       maxY = Math.max(maxY, this.corner.y);
     }
-    const visible = this.worldVisible && width > 0 && height > 0;
     // Float32 hierarchy matrices may put a mathematically shared edge just outside the inverse viewport.
     const padding =
       1e-5 *
@@ -417,21 +477,29 @@ export class TileMap extends Group2D {
         Math.abs(maxX),
         Math.abs(maxY),
       );
-    for (const slot of this.configuredSlots) {
-      if (!slot.sprite) continue;
-      const sprite = slot.sprite;
-      const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
-      const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
-      sprite.renderEnabled =
-        visible &&
-        sprite.visible &&
-        slot.tile.frame !== undefined &&
-        (singular ||
-          (x <= maxX + padding &&
-            x + this.tileWidth >= minX - padding &&
-            y <= maxY + padding &&
-            y + this.tileHeight >= minY - padding));
-    }
+    out.visible = this.worldVisible && width > 0 && height > 0;
+    out.singular = singular;
+    out.minX = minX - padding;
+    out.minY = minY - padding;
+    out.maxX = maxX + padding;
+    out.maxY = maxY + padding;
+  }
+
+  private cullSlot(slot: TileSlot): void {
+    const sprite = slot.sprite;
+    if (!sprite) return;
+    const c = this.culling;
+    const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
+    const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
+    sprite.renderEnabled =
+      c.visible &&
+      sprite.visible &&
+      slot.tile.frame !== undefined &&
+      (c.singular ||
+        (x <= c.maxX &&
+          x + this.tileWidth >= c.minX &&
+          y <= c.maxY &&
+          y + this.tileHeight >= c.minY));
   }
 
   override update(deltaTime: number): void {

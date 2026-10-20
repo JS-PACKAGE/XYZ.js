@@ -156,6 +156,30 @@ describe('bounded atlas maps', () => {
     expect(owner.parent).toBe(map);
   });
 
+  it('culls each edited cell against the live viewport and re-culls all cells after camera moves', () => {
+    const scene = new Scene();
+    const map = scene.add(new TileMap(options()));
+    scene.camera2D.resize(16, 8);
+    // Viewports sit strictly inside one tile whether position is a corner or the center.
+    scene.camera2D.position.set(8, 4);
+    map.setTile(0, 0, { frame: 0 });
+    map.setTile(2, 2, { frame: 0 });
+    map.setTile(3, 3, { frame: 0 });
+    const sprite = (column: number, row: number): Sprite =>
+      graphics(map).find(
+        (child) =>
+          child.position.x === column * 32 && child.position.y === row * 16,
+      )!;
+    expect(sprite(0, 0).renderEnabled).toBe(true);
+    expect(sprite(2, 2).renderEnabled).toBe(false);
+    // No culling pass runs between the move and the edit of a third cell.
+    scene.camera2D.position.set(72, 36);
+    map.setTile(3, 3, { frame: 1 });
+    expect(sprite(0, 0).renderEnabled).toBe(false);
+    expect(sprite(2, 2).renderEnabled).toBe(true);
+    expect(sprite(3, 3).renderEnabled).toBe(false);
+  });
+
   it('rejects excess grids and invalid elevations before changing cells', () => {
     expect(
       () => new TileMap({ ...options(), columns: world2dLimits.mapCells + 1 }),

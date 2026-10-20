@@ -23,7 +23,7 @@ var TiledTileMap = class extends require_tile_map.TileMap {
 		d && new require_frame_animation.FrameAnimation(a, d.map((e) => ({
 			source: this.sheet.getFrame(e.tileid),
 			duration: e.duration / 1e3
-		}))).play(), this.scene && this.updateCulling(this.scene.camera2D);
+		}))).play(), this.cullTile(e, t);
 	}
 };
 var TiledLayerGroup = class extends require_group2d.Group2D {

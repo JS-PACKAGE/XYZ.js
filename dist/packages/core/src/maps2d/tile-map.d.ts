@@ -39,6 +39,9 @@ export declare class TileMap extends Group2D {
     private readonly local;
     private readonly corner;
     private readonly cullMatrix;
+    /** State applied by the last full pass; NaN bounds until one runs. */
+    private readonly culling;
+    private readonly cullingProbe;
     private nextInsertion;
     constructor(options: TileMapOptions);
     private index;
@@ -46,6 +49,12 @@ export declare class TileMap extends Group2D {
     protected tileSprite(column: number, row: number): Sprite | undefined;
     /** Validates the entire edit before publishing a new immutable cell snapshot. */
     setTile(column: number, row: number, partial: Partial<Tile>): void;
+    /**
+     * Re-culls one edited cell. With an unchanged viewport only that cell can
+     * change; re-culling every configured cell per edit made bulk population
+     * quadratic. A changed viewport still re-culls every cell.
+     */
+    protected cullTile(column: number, row: number): void;
     clearTile(column: number, row: number): void;
     protected defaultCollider(): Collider2D;
     private origin;
@@ -59,6 +68,9 @@ export declare class TileMap extends Group2D {
     pickTile(point: Vector2, out?: Vector2): Vector2 | undefined;
     /** Render-time hook: conservative viewport inverse keeps affine/elevated graphics intact. */
     updateCulling(camera: Camera2D, width?: number, height?: number): void;
+    /** Map-local viewport bounds; every slot's visibility derives from these alone. */
+    private measureCulling;
+    private cullSlot;
     update(deltaTime: number): void;
     destroy(): void;
 }

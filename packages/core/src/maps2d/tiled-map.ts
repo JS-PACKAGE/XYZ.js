@@ -57,7 +57,7 @@ export class TiledTileMap extends TileMap {
           duration: frame.duration / 1000,
         })),
       ).play();
-    if (this.scene) this.updateCulling(this.scene.camera2D);
+    this.cullTile(column, row);
   }
 }
 

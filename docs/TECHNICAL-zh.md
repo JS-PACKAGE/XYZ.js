@@ -474,6 +474,7 @@ glTF：`gltfVariants(asset)` 提供 mappings 與 `.selectVariant(name|undefined)
 - ImmutableTile {frame:number|undefined,solid,elevation,collider?,metadata?}，setTile(column,row,Partial<Tile>) preflightgraphics／shape／registration，getTile驗grid、clearTile reset。Solid預設top-leftbox／isodiamond或customconvex；可無visibleframe，screensolid拒絕。
 - tileToLocal／tileToWorld(column,row,out?)含cellelevation，orthotopleft／isotopvertex。worldToTile(point,out?) hierarchyinverse到zero-plane、可回grid外integer；無known-elevation overload。pickTile(point,out?) elevatedtopmostgraphicrectangle／diagonal-elevation-insertionorder，非alpha／exactdiamond；singularpickundefined、inverse拒絕。
 - Camera transformedconservativecull含elevation／overhang／renderOffset，只改renderEnabled、不移solids；hidden／clearedpool保留重用且不擴bounds。Edits／transform／Scene removal／destroy更新colliders，destroyownedchildren不destroyborrowedatlas。無hex／staggered／multilayer／editorimporter／navigation。
+- Scene 內的 `setTile`（含 `TiledTileMap`）在 map-local viewport bounds 與上次完整 culling 相同時只重算被編輯的 cell；camera、viewport、map transform 或 visibility 改變時仍重算全部已設定 cell。大量填入因此為線性，不再每次編輯重算整張 map。
 - Navigation為原map profile排除項；P42現已批准navigation／pathfinding，editor importers／hex／staggered仍不在新批准範圍。
 
 ### Particles

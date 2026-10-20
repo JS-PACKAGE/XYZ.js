@@ -30,6 +30,15 @@ var TileMap = class extends require_group2d.Group2D {
 	local = new require_index.Vector2();
 	corner = new require_index.Vector2();
 	cullMatrix = new require_index.Matrix3();
+	culling = {
+		visible: !1,
+		singular: !1,
+		minX: NaN,
+		minY: NaN,
+		maxX: NaN,
+		maxY: NaN
+	};
+	cullingProbe = { ...this.culling };
 	nextInsertion = 0;
 	constructor(e) {
 		super();
@@ -87,7 +96,14 @@ var TileMap = class extends require_group2d.Group2D {
 		} catch (e) {
 			throw m.sprite !== h && (m.sprite?.destroy(), m.sprite = h), m.colliderOwner === g ? g && (g.position.set(v, y), g.collider = _) : (m.colliderOwner?.destroy(), m.colliderOwner = g), e;
 		}
-		m.tile = f, this.sparseSlots ? this.sparseSlots.set(a, m) : this.slots[a] = m, s || this.configuredSlots.push(m), this.scene && this.updateCulling(this.scene.camera2D);
+		m.tile = f, this.sparseSlots ? this.sparseSlots.set(a, m) : this.slots[a] = m, s || this.configuredSlots.push(m), this.cullTile(e, t);
+	}
+	cullTile(e, t) {
+		if (!this.scene) return;
+		let n = this.scene.camera2D, r = this.cullingProbe, i = this.culling;
+		this.measureCulling(n, n.viewportWidth, n.viewportHeight, r);
+		let a = this.index(e, t), o = this.sparseSlots?.get(a) ?? this.slots[a];
+		o && r.visible === i.visible && r.singular === i.singular && r.minX === i.minX && r.minY === i.minY && r.maxX === i.maxX && r.maxY === i.maxY ? this.cullSlot(o) : this.updateCulling(n);
 	}
 	clearTile(e, t) {
 		this.setTile(e, t, {
@@ -144,25 +160,31 @@ var TileMap = class extends require_group2d.Group2D {
 		return r < 0 ? void 0 : n.set(r % this.columns + this.originColumn, Math.floor(r / this.columns) + this.originRow);
 	}
 	updateCulling(e, t = e.viewportWidth, n = e.viewportHeight) {
+		this.measureCulling(e, t, n, this.culling);
+		for (let e of this.configuredSlots) this.cullSlot(e);
+	}
+	measureCulling(e, t, n, r) {
 		this.cullMatrix.copy(this.updateWorldMatrix());
-		let r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0, s = !1;
-		for (let c = 0; c < 4; c++) {
-			this.corner.set(c & 1 ? t : 0, c & 2 ? n : 0), this.worldSpace === `world` && e.screenToWorld(this.corner, this.corner);
+		let i = 1 / 0, a = 1 / 0, o = -1 / 0, s = -1 / 0, c = !1;
+		for (let r = 0; r < 4; r++) {
+			this.corner.set(r & 1 ? t : 0, r & 2 ? n : 0), this.worldSpace === `world` && e.screenToWorld(this.corner, this.corner);
 			try {
 				this.inversePoint(this.corner, this.cullMatrix, this.corner);
 			} catch (e) {
 				if (!(e instanceof RangeError)) throw e;
-				s = !0;
+				c = !0;
 				break;
 			}
-			r = Math.min(r, this.corner.x), i = Math.min(i, this.corner.y), a = Math.max(a, this.corner.x), o = Math.max(o, this.corner.y);
+			i = Math.min(i, this.corner.x), a = Math.min(a, this.corner.y), o = Math.max(o, this.corner.x), s = Math.max(s, this.corner.y);
 		}
-		let c = this.worldVisible && t > 0 && n > 0, l = 1e-5 * Math.max(1, Math.abs(r), Math.abs(i), Math.abs(a), Math.abs(o));
-		for (let e of this.configuredSlots) {
-			if (!e.sprite) continue;
-			let t = e.sprite, n = t.position.x - t.anchor.x * this.tileWidth, u = t.position.y - t.anchor.y * this.tileHeight;
-			t.renderEnabled = c && t.visible && e.tile.frame !== void 0 && (s || n <= a + l && n + this.tileWidth >= r - l && u <= o + l && u + this.tileHeight >= i - l);
-		}
+		let l = 1e-5 * Math.max(1, Math.abs(i), Math.abs(a), Math.abs(o), Math.abs(s));
+		r.visible = this.worldVisible && t > 0 && n > 0, r.singular = c, r.minX = i - l, r.minY = a - l, r.maxX = o + l, r.maxY = s + l;
+	}
+	cullSlot(e) {
+		let t = e.sprite;
+		if (!t) return;
+		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight;
+		t.renderEnabled = n.visible && t.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
 	}
 	update(e) {
 		this.scene && this.updateCulling(this.scene.camera2D);
