@@ -457,6 +457,28 @@ describe('bounded rigid body physics', () => {
     expect(world.debugSnapshot().contacts).toEqual([]);
   });
 
+  it('drops a receiver whose collider changes inside an earlier callback', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const a = new GameObject(),
+      b = new GameObject();
+    a.collider = Colliders.circle(1);
+    a.collider.sensor = true;
+    b.collider = Colliders.circle(1);
+    // Detached objects do not re-register, so only the world's own checks see it.
+    a.addEventListener('collisionstart', () => {
+      b.collider = Colliders.circle(1);
+    });
+    const start = vi.fn(),
+      pre = vi.fn();
+    b.addEventListener('collisionstart', start);
+    b.addEventListener('precollision', pre);
+    world.register(a);
+    world.register(b);
+    world.update(world.fixedDelta);
+    expect(start).not.toHaveBeenCalled();
+    expect(pre).not.toHaveBeenCalled();
+  });
+
   it('matches fixed-step partitions, clears forces once, and caps catchup', () => {
     const aWorld = new PhysicsWorld2D({ gravity: [0, 0] }),
       bWorld = new PhysicsWorld2D({ gravity: [0, 0] });

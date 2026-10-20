@@ -113,6 +113,8 @@ export declare class PhysicsWorld2D {
     private accumulator;
     private stepToken;
     private stepping;
+    /** Bumped by membership changes and user callbacks; caches alive() while stepping. */
+    private liveness;
     private disposed;
     private timeStep;
     private stepLimit;

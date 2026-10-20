@@ -19,6 +19,8 @@ var Proxy = class {
 	sleepVisited = 0;
 	sleepReady = !1;
 	registration = 0;
+	livenessStamp = -1;
+	live = !1;
 	ccdStopped = !1;
 	ccdUnproven = !1;
 	joints = [];
@@ -108,6 +110,7 @@ var PhysicsWorld2D = class {
 	accumulator = 0;
 	stepToken = 0;
 	stepping = !1;
+	liveness = 0;
 	disposed = !1;
 	timeStep = require_world2d.physicsDefaults.fixedDelta;
 	stepLimit = require_world2d.physicsDefaults.maxSubSteps;
@@ -191,13 +194,13 @@ var PhysicsWorld2D = class {
 		if (e.body?.attach(e), this.unregister(e), !(e.destroyed || e.collider !== o.collider || e.body !== o.body || this.destroyed)) {
 			this.owners.set(e, o);
 			for (let e of i) this.proxies.add(e), e.registration = ++this.registrationVersion;
-			this.geometryVersion++;
+			this.liveness++, this.geometryVersion++;
 		}
 	}
 	unregister(e) {
 		let t = this.owners.get(e);
 		if (t) {
-			this.owners.delete(e), this.geometryVersion++, t.body && this.forces.delete(t.body);
+			this.owners.delete(e), this.liveness++, this.geometryVersion++, t.body && this.forces.delete(t.body);
 			for (let e of [...t.joints]) this.removeJoint(e);
 			for (let e of t.group) {
 				this.proxies.delete(e);
@@ -207,7 +210,10 @@ var PhysicsWorld2D = class {
 		}
 	}
 	alive(e) {
-		return !this.destroyed && !e.owner.destroyed && this.proxies.has(e) && this.owners.get(e.owner)?.group === e.group && e.owner.collider === e.group[0].collider && e.owner.body === e.body;
+		if (this.destroyed || e.owner.destroyed) return !1;
+		if (this.stepping && e.livenessStamp === this.liveness) return e.live;
+		let t = this.proxies.has(e) && this.owners.get(e.owner)?.group === e.group && e.owner.collider === e.group[0].collider && e.owner.body === e.body;
+		return e.livenessStamp = this.liveness, e.live = t, t;
 	}
 	emit(t, i) {
 		for (let a = 0; a < 2; a++) {
@@ -225,7 +231,11 @@ var PhysicsWorld2D = class {
 					i === `precollision` && this.stepping && this.stepToken === u && (t.cancelled = !0);
 				}
 			};
-			o.owner.dispatchEvent(new CustomEvent(i, { detail: d }));
+			try {
+				o.owner.dispatchEvent(new CustomEvent(i, { detail: d }));
+			} finally {
+				this.liveness++;
+			}
 		}
 	}
 	end(e) {
@@ -338,7 +348,7 @@ var PhysicsWorld2D = class {
 		}
 	}
 	simulate(e) {
-		this.sorted.length = 0, this.solveContacts.length = 0;
+		this.sorted.length = 0, this.liveness++, this.solveContacts.length = 0;
 		let t = ++this.stepToken;
 		for (let t of this.owners.values()) {
 			if (!this.alive(t)) {
@@ -549,7 +559,11 @@ var PhysicsWorld2D = class {
 		}
 	}
 	breakJoints() {
-		for (let e of [...this.activeJoints]) e.attached && e.reactionForce > e.breakForce && this.removeJoint(e) && e.onBreak?.(e);
+		for (let e of [...this.activeJoints]) if (e.attached && e.reactionForce > e.breakForce && this.removeJoint(e)) try {
+			e.onBreak?.(e);
+		} finally {
+			this.liveness++;
+		}
 		this.activeJoints.length = 0;
 	}
 	jointsBlockContact(e, t) {

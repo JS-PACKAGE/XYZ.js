@@ -2197,3 +2197,10 @@ package 升為 1.18.0。範圍：shader 變體、glTF 匯出、Range bundle、�
 ## v1.19 發佈
 
 package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包／dynamic compound 2D 碰撞、逐物件運動模糊、MP4 素材擷取），已依使用者授權分功能建立 `[Physics2D]`／`[PostFx]`／`[Assets]`／`[docs]` commits 並推送 main。上節「未建立階段 commit」與「未經使用者授權 commit／push」敘述保留為當時狀態。閘門結果見上節（170 檔／1407 tests、build／typecheck／lint／format:check、API 相容 PASS、三 backend browser regression 全 PASS）；WebXR 實機與既有未驗項目維持 BLOCKED／未驗證。hosted CI 與 Release 的結果以 GitHub 紀錄為準，推送後才驗證。
+
+## 2026-10-20 持續優化（依功能 commit）
+
+使用者指定「持續優化並依功能提交」。每項以獨立 commit 提交，未 push。量測為 macOS arm64、Node v26.7.0；Node headless 數字只代表 CPU 時間，不是 RAF／GPU fps。
+
+- `[Canvas2D]` cacheAsTexture 且帶非白 RGB 的 isolated layer 保留 tinted copy，未變時不再每幀 `getImageData`／`putImageData`。`tests/canvas-render2d-tint.test.ts`（修改前 2 項失敗）；browser regression canvas2d 新增 cached tint pixel／pass 斷言（scratch tint 4 passes → cached 2 passes），canvas2d／webgl2／webgpu 三 backend PASS。
+- `[Physics2D]` step 期間以 liveness epoch 快取 proxy 存活判定（register／unregister、step 開始、事件 dispatch 與 joint `onBreak` 後失效），移除 broadphase 內每 pair 的 Set／Map 查詢。1,500 顆 circle 堆疊、300 steps（dist build）：約 16.0 → 12.0 ms/step；位置 hash 與修改前逐位相同。新增 callback 內改 collider 的回歸測試。

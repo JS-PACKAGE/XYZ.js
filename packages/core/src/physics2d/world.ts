@@ -105,6 +105,9 @@ class Proxy {
   sleepVisited = 0;
   sleepReady = false;
   registration = 0;
+  /** World liveness epoch for which `live` holds; see PhysicsWorld2D.alive. */
+  livenessStamp = -1;
+  live = false;
   ccdStopped = false;
   ccdUnproven = false;
   readonly joints: Joint2D[] = [];
@@ -227,6 +230,8 @@ export class PhysicsWorld2D {
   private accumulator = 0;
   private stepToken = 0;
   private stepping = false;
+  /** Bumped by membership changes and user callbacks; caches alive() while stepping. */
+  private liveness = 0;
   private disposed = false;
   private timeStep: number = physicsDefaults.fixedDelta;
   private stepLimit: number = physicsDefaults.maxSubSteps;
@@ -382,12 +387,14 @@ export class PhysicsWorld2D {
       this.proxies.add(piece);
       piece.registration = ++this.registrationVersion;
     }
+    this.liveness++;
     this.geometryVersion++;
   }
   unregister(owner: GameObject): void {
     const proxy = this.owners.get(owner);
     if (!proxy) return;
     this.owners.delete(owner);
+    this.liveness++;
     this.geometryVersion++;
     if (proxy.body) this.forces.delete(proxy.body);
     for (const joint of [...proxy.joints]) this.removeJoint(joint);
@@ -399,14 +406,19 @@ export class PhysicsWorld2D {
     }
   }
   private alive(proxy: Proxy): boolean {
-    return (
-      !this.destroyed &&
-      !proxy.owner.destroyed &&
+    if (this.destroyed || proxy.owner.destroyed) return false;
+    // Membership and identity only change through register/unregister or user
+    // callbacks, which bump the epoch; the hash lookups dominated dense steps.
+    if (this.stepping && proxy.livenessStamp === this.liveness)
+      return proxy.live;
+    const live =
       this.proxies.has(proxy) &&
       this.owners.get(proxy.owner)?.group === proxy.group &&
       proxy.owner.collider === proxy.group[0].collider &&
-      proxy.owner.body === proxy.body
-    );
+      proxy.owner.body === proxy.body;
+    proxy.livenessStamp = this.liveness;
+    proxy.live = live;
+    return live;
   }
   private emit(contact: Contact, name: string): void {
     for (let receiver = 0; receiver < 2; receiver++) {
@@ -441,9 +453,13 @@ export class PhysicsWorld2D {
             contact.cancelled = true;
         },
       };
-      self.owner.dispatchEvent(
-        new CustomEvent<CollisionDetail>(name, { detail }),
-      );
+      try {
+        self.owner.dispatchEvent(
+          new CustomEvent<CollisionDetail>(name, { detail }),
+        );
+      } finally {
+        this.liveness++;
+      }
     }
   }
   private end(contact: Contact): void {
@@ -712,6 +728,7 @@ export class PhysicsWorld2D {
   }
   private simulate(dt: number): void {
     this.sorted.length = 0;
+    this.liveness++;
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
     for (const proxy of this.owners.values()) {
@@ -1325,8 +1342,13 @@ export class PhysicsWorld2D {
         joint.attached &&
         joint.reactionForce > joint.breakForce &&
         this.removeJoint(joint)
-      )
-        joint.onBreak?.(joint);
+      ) {
+        try {
+          joint.onBreak?.(joint);
+        } finally {
+          this.liveness++;
+        }
+      }
     }
     this.activeJoints.length = 0;
   }
