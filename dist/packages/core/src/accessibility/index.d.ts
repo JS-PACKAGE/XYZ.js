@@ -49,6 +49,9 @@ export declare class AccessibilityManager {
     private createClip;
     private clip;
     private remove;
+    /** Canvas content box in client pixels, refreshed by measureCanvas for one update. */
+    private readonly layout;
+    private measureCanvas;
     update(scene?: Scene): void;
     reset(): void;
     destroy(): void;

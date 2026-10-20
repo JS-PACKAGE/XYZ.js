@@ -580,16 +580,15 @@ export class AccessibilityManager {
     for (const clip of entry.clips) clip.definition.remove();
     this.entries.delete(object);
   }
-  update(scene?: Scene): void {
-    if (this.disposed) return;
-    if (scene !== this.scene) {
-      this.reset();
-      this.scene = scene;
-    }
-    if (!scene || scene.destroyed || !this.canvas.isConnected) {
-      this.reset();
-      return;
-    }
+  /** Canvas content box in client pixels, refreshed by measureCanvas for one update. */
+  private readonly layout = {
+    left: 0,
+    top: 0,
+    cssWidth: 0,
+    cssHeight: 0,
+    canvasShown: false,
+  };
+  private measureCanvas(): true {
     const rect = this.canvas.getBoundingClientRect(),
       style = getComputedStyle(this.canvas);
     const transformX =
@@ -604,23 +603,43 @@ export class AccessibilityManager {
       ((parseFloat(style.borderTopWidth) || 0) +
         (parseFloat(style.paddingTop) || 0)) *
       transformY;
-    const cssWidth =
+    const layout = this.layout;
+    layout.left = rect.left + leftInset;
+    layout.top = rect.top + topInset;
+    layout.cssWidth =
       rect.width -
       leftInset -
       ((parseFloat(style.borderRightWidth) || 0) +
         (parseFloat(style.paddingRight) || 0)) *
         transformX;
-    const cssHeight =
+    layout.cssHeight =
       rect.height -
       topInset -
       ((parseFloat(style.borderBottomWidth) || 0) +
         (parseFloat(style.paddingBottom) || 0)) *
         transformY;
-    const size = this.getSize();
-    // Read once: the loop below writes proxy attributes and styles, so a live computed-style
-    // read per object would force a style recalculation for every object.
-    const canvasShown =
+    // Read once: the update loop writes proxy attributes and styles, so a live
+    // computed-style read per object would force a style recalculation for every object.
+    layout.canvasShown =
       style.display !== 'none' && style.visibility !== 'hidden';
+    return true;
+  }
+  update(scene?: Scene): void {
+    if (this.disposed) return;
+    if (scene !== this.scene) {
+      this.reset();
+      this.scene = scene;
+    }
+    if (!scene || scene.destroyed || !this.canvas.isConnected) {
+      this.reset();
+      return;
+    }
+    // Layout reads force a synchronous reflow every frame, so scenes without semantic
+    // objects skip them. Until the first semantic object this frame performs no DOM
+    // writes, so a deferred read observes the same layout an eager one would.
+    let measured = this.entries.size > 0 && this.measureCanvas();
+    const size = this.getSize(),
+      layout = this.layout;
     for (const [object, entry] of this.entries) {
       if (
         object.scene !== scene ||
@@ -660,6 +679,8 @@ export class AccessibilityManager {
         throw new TypeError(
           'Accessibility requires role, label, boolean disabled, and an integer tabIndex from -1 to 32767.',
         );
+      if (!measured) measured = this.measureCanvas();
+      const { cssWidth, cssHeight } = layout;
       let entry = this.entries.get(object);
       if (
         entry &&
@@ -726,7 +747,7 @@ export class AccessibilityManager {
         size.height > 0 &&
         cssWidth > 0 &&
         cssHeight > 0 &&
-        canvasShown;
+        layout.canvasShown;
       if (visible) {
         entry.clipCoverage = this.clip(
           entry,
@@ -752,12 +773,12 @@ export class AccessibilityManager {
       setHostStyle(
         entry,
         'left',
-        `${rect.left + leftInset + (minX * cssWidth) / size.width}px`,
+        `${layout.left + (minX * cssWidth) / size.width}px`,
       );
       setHostStyle(
         entry,
         'top',
-        `${rect.top + topInset + (minY * cssHeight) / size.height}px`,
+        `${layout.top + (minY * cssHeight) / size.height}px`,
       );
       setHostStyle(entry, 'width', `${entry.width}px`);
       setHostStyle(entry, 'height', `${entry.height}px`);

@@ -14,11 +14,12 @@ import {
   defineFactory,
   buildContentScene,
   parseContentScene,
+  Texture,
+  AccessibilityManager,
 } from '../../src/index.js';
 import type {
   InputContext,
   RendererPreference,
-  Texture,
   TextureLease,
 } from '../../src/index.js';
 
@@ -1026,6 +1027,44 @@ try {
             held.renderTargetBytes === 0,
           'teardown clears native semantic nodes, scoped contexts/focus and renderer targets',
         );
+        // A scene with no prior semantic mirrors places a new one on its first update.
+        const firstCanvas = document.createElement('canvas');
+        firstCanvas.style.cssText =
+          'position:fixed;left:30px;top:40px;width:200px;height:100px';
+        document.body.append(firstCanvas);
+        const firstManager = new AccessibilityManager(firstCanvas, () => ({
+          width: 200,
+          height: 100,
+        }));
+        const firstScene = new Scene();
+        const firstTexture = new Texture({
+          kind: 'native',
+          width: 50,
+          height: 20,
+        });
+        const labelled = firstScene.add(
+          new Sprite({
+            texture: firstTexture,
+            anchor: [0, 0],
+            space: 'screen',
+          }),
+        );
+        labelled.position.set(20, 10);
+        labelled.accessibility = { role: 'button', label: 'First mirror' };
+        firstManager.update(firstScene);
+        const firstHost = document.querySelector<HTMLElement>(
+          '[data-xyz-accessibility][aria-label="First mirror"]',
+        )?.parentElement;
+        check(
+          firstHost?.style.display === 'block' &&
+            firstHost.style.left === '50px' &&
+            firstHost.style.top === '50px',
+          'a first semantic object is mirrored at its canvas position on its first update',
+        );
+        firstManager.destroy();
+        firstScene.destroy();
+        firstTexture.destroy();
+        firstCanvas.remove();
         await nativeResidency();
         publish('complete');
       })().catch(fail);

@@ -249,30 +249,42 @@ var AccessibilityManager = class {
 		for (let e of t.clips) e.definition.remove();
 		this.entries.delete(e);
 	}
+	layout = {
+		left: 0,
+		top: 0,
+		cssWidth: 0,
+		cssHeight: 0,
+		canvasShown: !1
+	};
+	measureCanvas() {
+		let e = this.canvas.getBoundingClientRect(), t = getComputedStyle(this.canvas), n = this.canvas.offsetWidth > 0 ? e.width / this.canvas.offsetWidth : 1, r = this.canvas.offsetHeight > 0 ? e.height / this.canvas.offsetHeight : 1, i = ((parseFloat(t.borderLeftWidth) || 0) + (parseFloat(t.paddingLeft) || 0)) * n, a = ((parseFloat(t.borderTopWidth) || 0) + (parseFloat(t.paddingTop) || 0)) * r, o = this.layout;
+		return o.left = e.left + i, o.top = e.top + a, o.cssWidth = e.width - i - ((parseFloat(t.borderRightWidth) || 0) + (parseFloat(t.paddingRight) || 0)) * n, o.cssHeight = e.height - a - ((parseFloat(t.borderBottomWidth) || 0) + (parseFloat(t.paddingBottom) || 0)) * r, o.canvasShown = t.display !== `none` && t.visibility !== `hidden`, !0;
+	}
 	update(e) {
 		if (this.disposed) return;
 		if (e !== this.scene && (this.reset(), this.scene = e), !e || e.destroyed || !this.canvas.isConnected) {
 			this.reset();
 			return;
 		}
-		let n = this.canvas.getBoundingClientRect(), r = getComputedStyle(this.canvas), i = this.canvas.offsetWidth > 0 ? n.width / this.canvas.offsetWidth : 1, a = this.canvas.offsetHeight > 0 ? n.height / this.canvas.offsetHeight : 1, o = ((parseFloat(r.borderLeftWidth) || 0) + (parseFloat(r.paddingLeft) || 0)) * i, s = ((parseFloat(r.borderTopWidth) || 0) + (parseFloat(r.paddingTop) || 0)) * a, c = n.width - o - ((parseFloat(r.borderRightWidth) || 0) + (parseFloat(r.paddingRight) || 0)) * i, l = n.height - s - ((parseFloat(r.borderBottomWidth) || 0) + (parseFloat(r.paddingBottom) || 0)) * a, u = this.getSize(), d = r.display !== `none` && r.visibility !== `hidden`;
+		let n = this.entries.size > 0 && this.measureCanvas(), r = this.getSize(), i = this.layout;
 		for (let [t, n] of this.entries) (t.scene !== e || !e.has(t) || t.destroyed || !t.accessibility || t.registrationGeneration !== n.generation) && this.remove(t, n);
-		for (let r of e.objects) {
-			if (!(r instanceof require_game_object.GameObject) || !r.accessibility || r.destroyed) continue;
-			let i = r.accessibility;
-			if (typeof i.role != `string` || !i.role.trim() || typeof i.label != `string` || i.language !== void 0 && typeof i.language != `string` || i.description !== void 0 && typeof i.description != `string` || i.modal !== void 0 && typeof i.modal != `boolean` || i.nativeInput !== void 0 && typeof i.nativeInput != `boolean` || i.disabled !== void 0 && typeof i.disabled != `boolean` || i.tabIndex !== void 0 && (!Number.isInteger(i.tabIndex) || i.tabIndex < -1 || i.tabIndex > 32767)) throw TypeError(`Accessibility requires role, label, boolean disabled, and an integer tabIndex from -1 to 32767.`);
-			let a = this.entries.get(r);
-			a && a.node.tagName === `INPUT` != !!i.nativeInput && (this.remove(r, a), a = void 0), a || (a = this.create(r), this.entries.set(r, a));
-			let f = a.node;
-			if (setAttribute(f, `role`, i.role), setAttribute(f, `aria-label`, i.label), setAttribute(f, `lang`, i.language ?? this.canvas.ownerDocument.documentElement.lang), i.description ? setAttribute(f, `aria-description`, i.description) : f.removeAttribute(`aria-description`), i.modal ? setAttribute(f, `aria-modal`, `true`) : f.removeAttribute(`aria-modal`), setAttribute(f, `aria-disabled`, String(i.disabled ?? !1)), setAttribute(f, `tabindex`, String(i.disabled ? -1 : i.tabIndex ?? 0)), f.tagName === `INPUT`) {
-				let e = i.disabled ?? !1;
-				f.disabled !== e && (f.disabled = e);
+		for (let a of e.objects) {
+			if (!(a instanceof require_game_object.GameObject) || !a.accessibility || a.destroyed) continue;
+			let o = a.accessibility;
+			if (typeof o.role != `string` || !o.role.trim() || typeof o.label != `string` || o.language !== void 0 && typeof o.language != `string` || o.description !== void 0 && typeof o.description != `string` || o.modal !== void 0 && typeof o.modal != `boolean` || o.nativeInput !== void 0 && typeof o.nativeInput != `boolean` || o.disabled !== void 0 && typeof o.disabled != `boolean` || o.tabIndex !== void 0 && (!Number.isInteger(o.tabIndex) || o.tabIndex < -1 || o.tabIndex > 32767)) throw TypeError(`Accessibility requires role, label, boolean disabled, and an integer tabIndex from -1 to 32767.`);
+			n ||= this.measureCanvas();
+			let { cssWidth: s, cssHeight: c } = i, l = this.entries.get(a);
+			l && l.node.tagName === `INPUT` != !!o.nativeInput && (this.remove(a, l), l = void 0), l || (l = this.create(a), this.entries.set(a, l));
+			let u = l.node;
+			if (setAttribute(u, `role`, o.role), setAttribute(u, `aria-label`, o.label), setAttribute(u, `lang`, o.language ?? this.canvas.ownerDocument.documentElement.lang), o.description ? setAttribute(u, `aria-description`, o.description) : u.removeAttribute(`aria-description`), o.modal ? setAttribute(u, `aria-modal`, `true`) : u.removeAttribute(`aria-modal`), setAttribute(u, `aria-disabled`, String(o.disabled ?? !1)), setAttribute(u, `tabindex`, String(o.disabled ? -1 : o.tabIndex ?? 0)), u.tagName === `INPUT`) {
+				let e = o.disabled ?? !1;
+				u.disabled !== e && (u.disabled = e);
 			}
-			r.getWorldBounds(this.bounds);
-			let p = this.bounds.x, m = this.bounds.y, h = p + this.bounds.width, g = m + this.bounds.height;
-			r.worldSpace === `world` && (e.camera2D.worldToScreen(this.point.set(p, m), this.point), p = this.point.x, m = this.point.y, e.camera2D.worldToScreen(this.point.set(h, g), this.point), h = this.point.x, g = this.point.y), p = Math.max(0, p), m = Math.max(0, m), h = Math.min(u.width, h), g = Math.min(u.height, g);
-			let _ = this.inScope(r) && r.worldVisible && r.worldOpacity > 0 && r.worldTint[3] > 0 && h > p && g > m && u.width > 0 && u.height > 0 && c > 0 && l > 0 && d;
-			_ &&= (a.clipCoverage = this.clip(a, r, e, p, m, (h - p) * c / u.width, (g - m) * l / u.height, c / u.width, l / u.height), a.clipCoverage), a.coverage = _, setHostStyle(a, `display`, _ ? `block` : `none`), setAttribute(f, `aria-hidden`, String(!_)), (!_ || i.disabled) && (a.spaceDown = !1, f === f.ownerDocument.activeElement && f.blur()), _ && (setHostStyle(a, `left`, `${n.left + o + p * c / u.width}px`), setHostStyle(a, `top`, `${n.top + s + m * l / u.height}px`), setHostStyle(a, `width`, `${a.width}px`), setHostStyle(a, `height`, `${a.height}px`));
+			a.getWorldBounds(this.bounds);
+			let d = this.bounds.x, f = this.bounds.y, p = d + this.bounds.width, m = f + this.bounds.height;
+			a.worldSpace === `world` && (e.camera2D.worldToScreen(this.point.set(d, f), this.point), d = this.point.x, f = this.point.y, e.camera2D.worldToScreen(this.point.set(p, m), this.point), p = this.point.x, m = this.point.y), d = Math.max(0, d), f = Math.max(0, f), p = Math.min(r.width, p), m = Math.min(r.height, m);
+			let h = this.inScope(a) && a.worldVisible && a.worldOpacity > 0 && a.worldTint[3] > 0 && p > d && m > f && r.width > 0 && r.height > 0 && s > 0 && c > 0 && i.canvasShown;
+			h &&= (l.clipCoverage = this.clip(l, a, e, d, f, (p - d) * s / r.width, (m - f) * c / r.height, s / r.width, c / r.height), l.clipCoverage), l.coverage = h, setHostStyle(l, `display`, h ? `block` : `none`), setAttribute(u, `aria-hidden`, String(!h)), (!h || o.disabled) && (l.spaceDown = !1, u === u.ownerDocument.activeElement && u.blur()), h && (setHostStyle(l, `left`, `${i.left + d * s / r.width}px`), setHostStyle(l, `top`, `${i.top + f * c / r.height}px`), setHostStyle(l, `width`, `${l.width}px`), setHostStyle(l, `height`, `${l.height}px`));
 		}
 		for (let e of this.modalScopes.values()) {
 			let t = this.element(e);
