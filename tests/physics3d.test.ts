@@ -192,20 +192,23 @@ describe('bounded 3D primitive dynamics', () => {
     expect(target.body!.angularVelocity.z).toBeLessThan(-0.5);
     expect(target.body!.velocity.x).toBeGreaterThan(1);
     world.destroy();
-    const scene = new Scene();
-    scene.add(object(new PlaneCollider3D()));
-    const box = scene.add(
-      object(
-        new BoxCollider3D(new Vector3(0.4, 0.4, 0.4)),
-        new Vector3(0, 0.4, 0),
-        { friction: 1, lockRotation: true },
-      ),
-    );
-    box.body!.velocity.x = 3;
-    advance(scene.physics3D, 1);
-    expect(Math.abs(box.body!.velocity.x)).toBeLessThan(0.1);
-    expect(box.position.x).toBeLessThan(1);
-    scene.destroy();
+    // Friction acts along any slip direction, not just the first tangent axis.
+    for (const axis of ['x', 'z'] as const) {
+      const scene = new Scene();
+      scene.add(object(new PlaneCollider3D()));
+      const box = scene.add(
+        object(
+          new BoxCollider3D(new Vector3(0.4, 0.4, 0.4)),
+          new Vector3(0, 0.4, 0),
+          { friction: 1, lockRotation: true },
+        ),
+      );
+      box.body!.velocity[axis] = 3;
+      advance(scene.physics3D, 1);
+      expect(Math.abs(box.body!.velocity[axis])).toBeLessThan(0.1);
+      expect(box.position[axis]).toBeLessThan(1);
+      scene.destroy();
+    }
   });
 
   it('integrates force and eccentric impulse using mass and oriented inertia', () => {
