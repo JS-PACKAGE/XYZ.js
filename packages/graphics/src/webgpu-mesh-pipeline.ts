@@ -272,6 +272,47 @@ export function uploadChangedSpan(
   return (last + 1 - first) * 4;
 }
 
+/**
+ * What one render pass already has bound, so consecutive mesh draws skip redundant encoder
+ * calls (each crosses into the browser's native encoder). Pipelines, bind groups and vertex
+ * buffers persist across draws within a pass; `begin` forgets everything for a new pass.
+ * Only slots written through this tracker may be tracked: callers must not set them directly.
+ */
+class PassBindings {
+  pass!: GPURenderPassEncoder;
+  private pipeline: GPURenderPipeline | undefined;
+  private readonly groups: (GPUBindGroup | undefined)[] = [];
+  private readonly buffers: (GPUBuffer | undefined)[] = [];
+  private index: GPUBuffer | undefined;
+  begin(pass: GPURenderPassEncoder): this {
+    this.pass = pass;
+    this.pipeline = this.index = undefined;
+    this.groups.fill(undefined);
+    this.buffers.fill(undefined);
+    return this;
+  }
+  setPipeline(pipeline: GPURenderPipeline): void {
+    if (this.pipeline === pipeline) return;
+    this.pipeline = pipeline;
+    this.pass.setPipeline(pipeline);
+  }
+  setBindGroup(slot: number, group: GPUBindGroup): void {
+    if (this.groups[slot] === group) return;
+    this.groups[slot] = group;
+    this.pass.setBindGroup(slot, group);
+  }
+  setVertexBuffer(slot: number, buffer: GPUBuffer): void {
+    if (this.buffers[slot] === buffer) return;
+    this.buffers[slot] = buffer;
+    this.pass.setVertexBuffer(slot, buffer);
+  }
+  setIndexBuffer(buffer: GPUBuffer): void {
+    if (this.index === buffer) return;
+    this.index = buffer;
+    this.pass.setIndexBuffer(buffer, 'uint32');
+  }
+}
+
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
@@ -336,6 +377,7 @@ export class WebGPUMeshPipeline {
   private readonly pendingMeshPipelines = new Set<Promise<void>>();
   private renderScene?: Scene;
   private readonly draws: Mesh[] = [];
+  private readonly passBindings = new PassBindings();
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
@@ -1360,6 +1402,7 @@ export class WebGPUMeshPipeline {
             pass.draw(3);
           }
           pass.setBindGroup(0, this.sceneBindGroup);
+          const bindings = this.passBindings.begin(pass);
           for (const object of this.visibleDraws) {
             if (weighted && this.blendedDraw(object)) continue;
             if (hasTransmission || ssr) {
@@ -1373,7 +1416,11 @@ export class WebGPUMeshPipeline {
               0,
               this.reflectionGroup(this.meshes.get(object)!),
             );
-            const instanceCount = this.drawMesh(pass, object, linear ? 1 : 0);
+            const instanceCount = this.drawMesh(
+              bindings,
+              object,
+              linear ? 1 : 0,
+            );
             this.stats.draw(object.geometry.indices.length, instanceCount);
           }
           if (phase === phases - 1)
@@ -1426,13 +1473,14 @@ export class WebGPUMeshPipeline {
       if (weighted) {
         const pass = this.oit.begin(encoder, width, height, this.depthView!);
         try {
+          const bindings = this.passBindings.begin(pass);
           for (const object of this.visibleDraws) {
             if (!this.blendedDraw(object)) continue;
             pass.setBindGroup(
               0,
               this.reflectionGroup(this.meshes.get(object)!),
             );
-            const instanceCount = this.drawMesh(pass, object, 2);
+            const instanceCount = this.drawMesh(bindings, object, 2);
             this.stats.draw(object.geometry.indices.length, instanceCount);
           }
         } finally {
@@ -2325,6 +2373,7 @@ export class WebGPUMeshPipeline {
         this.contactProjectionGroup!,
         this.projectionOffsets,
       );
+      const bindings = this.passBindings.begin(pass);
       for (const object of this.visibleDraws) {
         if (
           this.blendedDraw(object) ||
@@ -2332,7 +2381,7 @@ export class WebGPUMeshPipeline {
             object.material.transmission > 0)
         )
           continue;
-        const instances = this.drawMesh(pass, object, 3);
+        const instances = this.drawMesh(bindings, object, 3);
         this.stats.draw(object.renderGeometry.indices.length, instances);
       }
     } finally {
@@ -2374,7 +2423,8 @@ export class WebGPUMeshPipeline {
     this.shadowAttachment.view = this.shadowView;
     const pass = beginTimedRenderPass(encoder, this.shadowDescriptor);
     try {
-      pass.setPipeline(this.shadowPipeline);
+      const bindings = this.passBindings.begin(pass);
+      bindings.setPipeline(this.shadowPipeline);
       pass.setBindGroup(0, this.shadowSceneBindGroup);
       const tileSize = this.atlas.size / this.atlas.grid;
       for (let tile = 0; tile < this.atlas.count; tile++) {
@@ -2386,7 +2436,7 @@ export class WebGPUMeshPipeline {
         pass.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
         for (const object of this.draws)
           if (object.castShadow) {
-            this.drawMesh(pass, object, 3);
+            this.drawMesh(bindings, object, 3);
             this.stats.shadowDrawCalls++;
           }
       }
@@ -2397,11 +2447,7 @@ export class WebGPUMeshPipeline {
     }
   }
 
-  private drawMesh(
-    pass: GPURenderPassEncoder,
-    object: Mesh,
-    variant = 0,
-  ): number {
+  private drawMesh(bindings: PassBindings, object: Mesh, variant = 0): number {
     const geometry = this.geometries.get(object.renderGeometry)!;
     const mesh = this.meshes.get(object)!;
     const custom = isNativeMaterial3D(object.material)
@@ -2457,18 +2503,18 @@ export class WebGPUMeshPipeline {
         pipeline = coveragePipeline;
       }
     }
-    pass.setPipeline(pipeline);
-    pass.setBindGroup(1, mesh.bindGroup);
-    pass.setBindGroup(2, mesh.materialGroup);
+    bindings.setPipeline(pipeline);
+    bindings.setBindGroup(1, mesh.bindGroup);
+    bindings.setBindGroup(2, mesh.materialGroup);
     const packed =
       variant === 3
         ? undefined
         : this.visibility.entries.get(object)?.instances;
     const instances =
       packed?.count ?? (object instanceof InstancedMesh ? object.count : 1);
-    pass.setVertexBuffer(0, geometry.vertex);
-    pass.setVertexBuffer(1, packed ? mesh.visibleInstance! : mesh.instance);
-    pass.setVertexBuffer(
+    bindings.setVertexBuffer(0, geometry.vertex);
+    bindings.setVertexBuffer(1, packed ? mesh.visibleInstance! : mesh.instance);
+    bindings.setVertexBuffer(
       2,
       packed
         ? packed.colors
@@ -2478,19 +2524,19 @@ export class WebGPUMeshPipeline {
           ? mesh.instanceColors!
           : this.white(instances),
     );
-    pass.setVertexBuffer(
+    bindings.setVertexBuffer(
       3,
       geometry.colors ?? this.white(object.geometry.vertices.length / 8),
     );
-    pass.setVertexBuffer(
+    bindings.setVertexBuffer(
       4,
       mesh.influences ??
         this.defaultInfluences(object.renderGeometry.vertices.length / 8),
     );
-    pass.setVertexBuffer(5, geometry.uvs1 ?? geometry.vertex);
-    pass.setVertexBuffer(6, geometry.tangents);
-    pass.setIndexBuffer(geometry.index, 'uint32');
-    pass.drawIndexed(object.geometry.indices.length, instances);
+    bindings.setVertexBuffer(5, geometry.uvs1 ?? geometry.vertex);
+    bindings.setVertexBuffer(6, geometry.tangents);
+    bindings.setIndexBuffer(geometry.index);
+    bindings.pass.drawIndexed(object.geometry.indices.length, instances);
     return instances;
   }
 

@@ -65,6 +65,28 @@ function uploadChangedSpan(e, t, n, r, i, a) {
 	for (let e = o; e <= s; e++) r[e] = n[e];
 	return e.writeBuffer(t, o * 4, n, o, s + 1 - o), (s + 1 - o) * 4;
 }
+var PassBindings = class {
+	pass;
+	pipeline;
+	groups = [];
+	buffers = [];
+	index;
+	begin(e) {
+		return this.pass = e, this.pipeline = this.index = void 0, this.groups.fill(void 0), this.buffers.fill(void 0), this;
+	}
+	setPipeline(e) {
+		this.pipeline !== e && (this.pipeline = e, this.pass.setPipeline(e));
+	}
+	setBindGroup(e, t) {
+		this.groups[e] !== t && (this.groups[e] = t, this.pass.setBindGroup(e, t));
+	}
+	setVertexBuffer(e, t) {
+		this.buffers[e] !== t && (this.buffers[e] = t, this.pass.setVertexBuffer(e, t));
+	}
+	setIndexBuffer(e) {
+		this.index !== e && (this.index = e, this.pass.setIndexBuffer(e, `uint32`));
+	}
+};
 var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	device;
 	opticalPackLayout;
@@ -109,6 +131,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	pendingMeshPipelines = /* @__PURE__ */ new Set();
 	renderScene;
 	draws = [];
+	passBindings = new PassBindings();
 	visibleDraws = [];
 	frustum = new require_frustum.Frustum();
 	drawSorter = new require_draw_order.DrawSorter();
@@ -843,11 +866,12 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				let r = require_gpu_timing.beginTimedRenderPass(n, this.renderPassDescriptor);
 				try {
 					r.setViewport(0, 0, a, s, 0, 1), S && e === 0 && (r.setBindGroup(0, this.skyBindGroup), r.setPipeline(x ? this.skyHdrPipeline : this.skyPipeline), r.draw(3)), r.setBindGroup(0, this.sceneBindGroup);
+					let n = this.passBindings.begin(r);
 					for (let t of this.visibleDraws) {
 						if (v && this.blendedDraw(t) || (_ || T) && (this.blendedDraw(t) || t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0) !== (e === 1)) continue;
 						r.setBindGroup(0, this.reflectionGroup(this.meshes.get(t)));
-						let n = this.drawMesh(r, t, +!!x);
-						this.stats.draw(t.geometry.indices.length, n);
+						let i = this.drawMesh(n, t, +!!x);
+						this.stats.draw(t.geometry.indices.length, i);
 					}
 					e === E - 1 && this.particles.draw(r, t.gpuParticleEmitters ?? Te, t.camera3D, c, x);
 				} finally {
@@ -858,11 +882,12 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			if (this.occlusion?.encode(n, this.depthView, this.temporalActive ? this.temporalState.currentVP : t.camera3D.updateMatrix(c), this.visibility.occlusionCandidates, a, s, this.sampleCount), v) {
 				let e = this.oit.begin(n, a, s, this.depthView);
 				try {
-					for (let t of this.visibleDraws) {
-						if (!this.blendedDraw(t)) continue;
-						e.setBindGroup(0, this.reflectionGroup(this.meshes.get(t)));
-						let n = this.drawMesh(e, t, 2);
-						this.stats.draw(t.geometry.indices.length, n);
+					let t = this.passBindings.begin(e);
+					for (let n of this.visibleDraws) {
+						if (!this.blendedDraw(n)) continue;
+						e.setBindGroup(0, this.reflectionGroup(this.meshes.get(n)));
+						let r = this.drawMesh(t, n, 2);
+						this.stats.draw(n.geometry.indices.length, r);
 					}
 				} finally {
 					e.end();
@@ -1351,10 +1376,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		});
 		try {
 			o.setBindGroup(0, this.createSceneGroup(this.emptyShadowView, this.dummyEnvironmentView, this.environmentView, this.sceneBuffer, this.identityBuffer)), this.projectionOffsets[0] = 0, o.setBindGroup(3, this.contactProjectionGroup, this.projectionOffsets);
-			for (let e of this.visibleDraws) {
-				if (this.blendedDraw(e) || e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0) continue;
-				let t = this.drawMesh(o, e, 3);
-				this.stats.draw(e.renderGeometry.indices.length, t);
+			let e = this.passBindings.begin(o);
+			for (let t of this.visibleDraws) {
+				if (this.blendedDraw(t) || t.material instanceof require_pbr_material.PBRMaterial && t.material.transmission > 0) continue;
+				let n = this.drawMesh(e, t, 3);
+				this.stats.draw(t.renderGeometry.indices.length, n);
 			}
 		} finally {
 			o.end();
@@ -1374,12 +1400,13 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		this.stats.shadowPasses++, this.shadowAttachment.view = this.shadowView;
 		let i = require_gpu_timing.beginTimedRenderPass(e, this.shadowDescriptor);
 		try {
-			i.setPipeline(this.shadowPipeline), i.setBindGroup(0, this.shadowSceneBindGroup);
-			let e = this.atlas.size / this.atlas.grid;
-			for (let t = 0; t < this.atlas.count; t++) {
-				let n = t % this.atlas.grid * e, r = Math.floor(t / this.atlas.grid) * e;
-				i.setViewport(n, r, e, e, 0, 1), i.setScissorRect(n, r, e, e), this.projectionOffsets[0] = t * 256, i.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
-				for (let e of this.draws) e.castShadow && (this.drawMesh(i, e, 3), this.stats.shadowDrawCalls++);
+			let e = this.passBindings.begin(i);
+			e.setPipeline(this.shadowPipeline), i.setBindGroup(0, this.shadowSceneBindGroup);
+			let t = this.atlas.size / this.atlas.grid;
+			for (let n = 0; n < this.atlas.count; n++) {
+				let r = n % this.atlas.grid * t, a = Math.floor(n / this.atlas.grid) * t;
+				i.setViewport(r, a, t, t, 0, 1), i.setScissorRect(r, a, t, t), this.projectionOffsets[0] = n * 256, i.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
+				for (let t of this.draws) t.castShadow && (this.drawMesh(e, t, 3), this.stats.shadowDrawCalls++);
 			}
 			this.shadowCache.commit();
 		} finally {
@@ -1426,7 +1453,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		}
 		e.setPipeline(c), e.setBindGroup(1, i.bindGroup), e.setBindGroup(2, i.materialGroup);
 		let l = n === 3 ? void 0 : this.visibility.entries.get(t)?.instances, u = l?.count ?? (t instanceof require_instanced_mesh.InstancedMesh ? t.count : 1);
-		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, l ? i.visibleInstance : i.instance), e.setVertexBuffer(2, l ? l.colors ? i.visibleColors : this.white(u) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? i.instanceColors : this.white(u)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, i.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setVertexBuffer(6, r.tangents), e.setIndexBuffer(r.index, `uint32`), e.drawIndexed(t.geometry.indices.length, u), u;
+		return e.setVertexBuffer(0, r.vertex), e.setVertexBuffer(1, l ? i.visibleInstance : i.instance), e.setVertexBuffer(2, l ? l.colors ? i.visibleColors : this.white(u) : t instanceof require_instanced_mesh.InstancedMesh && t.colors ? i.instanceColors : this.white(u)), e.setVertexBuffer(3, r.colors ?? this.white(t.geometry.vertices.length / 8)), e.setVertexBuffer(4, i.influences ?? this.defaultInfluences(t.renderGeometry.vertices.length / 8)), e.setVertexBuffer(5, r.uvs1 ?? r.vertex), e.setVertexBuffer(6, r.tangents), e.setIndexBuffer(r.index), e.pass.drawIndexed(t.geometry.indices.length, u), u;
 	}
 	white(e) {
 		if (e <= this.whiteCapacity) return this.whiteBuffer;

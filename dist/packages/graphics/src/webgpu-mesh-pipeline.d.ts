@@ -83,6 +83,7 @@ export declare class WebGPUMeshPipeline {
     private readonly pendingMeshPipelines;
     private renderScene?;
     private readonly draws;
+    private readonly passBindings;
     /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
     private readonly visibleDraws;
     private readonly frustum;
