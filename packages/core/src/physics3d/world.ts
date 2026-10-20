@@ -49,6 +49,13 @@ export interface PhysicsStats3D {
 const alwaysContinue = (): boolean => true;
 /** Solve-phase identities across all worlds; a body may move between worlds. */
 let solvePhases = 0;
+/** Solver-loop memo of `RigidBody3D.isSleeping`: not yet asked, asleep, awake. */
+const SLEEP_UNKNOWN = 0,
+  SLEEP_ASLEEP = 1,
+  SLEEP_AWAKE = 2;
+function sleepState(body: RigidBody3D, known: number): number {
+  return known || (body.isSleeping ? SLEEP_ASLEEP : SLEEP_AWAKE);
+}
 /** Contact rows in `contacts` Map insertion order (serials are unique integers). */
 const compareContactRows = (
   a: { contactRow: number },
@@ -946,27 +953,37 @@ export class PhysicsWorld3D {
         if (!c.responds) continue;
         const a = c.a.body,
           b = c.b.body;
+        // Nothing below moves a body, so each body's isSleeping answer can only change
+        // through the wake() calls here: the first (pose-verifying) answer is reused.
+        let aState = SLEEP_UNKNOWN,
+          bState = SLEEP_UNKNOWN;
         if (
           a?.type === 'dynamic' &&
-          a.isSleeping &&
+          (aState = sleepState(a, aState)) === SLEEP_ASLEEP &&
           b &&
           b.type !== 'static' &&
-          !b.isSleeping &&
+          (bState = sleepState(b, bState)) === SLEEP_AWAKE &&
           this.movingAtContact(b, c.manifold)
-        )
+        ) {
           a.wake();
+          aState = SLEEP_AWAKE;
+        }
         if (
           b?.type === 'dynamic' &&
-          b.isSleeping &&
+          (bState = sleepState(b, bState)) === SLEEP_ASLEEP &&
           a &&
           a.type !== 'static' &&
-          !a.isSleeping &&
+          (aState = sleepState(a, aState)) === SLEEP_AWAKE &&
           this.movingAtContact(a, c.manifold)
-        )
+        ) {
           b.wake();
+          bState = SLEEP_AWAKE;
+        }
         if (
-          (!a || a.type !== 'dynamic' || a.isSleeping) &&
-          (!b || b.type !== 'dynamic' || b.isSleeping)
+          (!a ||
+            a.type !== 'dynamic' ||
+            sleepState(a, aState) === SLEEP_ASLEEP) &&
+          (!b || b.type !== 'dynamic' || sleepState(b, bState) === SLEEP_ASLEEP)
         )
           continue;
         for (let k = 0; k < c.manifold.count; k++) this.solve(c, k);

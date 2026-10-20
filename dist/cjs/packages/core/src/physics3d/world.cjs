@@ -13,6 +13,9 @@ const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
 var C = 0;
+function sleepState(e, t) {
+	return t || (e.isSleeping ? 1 : 2);
+}
 var compareContactRows = (e, t) => e.contactRow - t.contactRow;
 var Contact3D = class {
 	a;
@@ -450,8 +453,8 @@ var PhysicsWorld3D = class {
 			this.solveJoints();
 			for (let e of this.active) {
 				if (!e.responds) continue;
-				let t = e.a.body, n = e.b.body;
-				if (t?.type === `dynamic` && t.isSleeping && n && n.type !== `static` && !n.isSleeping && this.movingAtContact(n, e.manifold) && t.wake(), n?.type === `dynamic` && n.isSleeping && t && t.type !== `static` && !t.isSleeping && this.movingAtContact(t, e.manifold) && n.wake(), t && t.type === `dynamic` && !t.isSleeping || n && n.type === `dynamic` && !n.isSleeping) for (let t = 0; t < e.manifold.count; t++) this.solve(e, t);
+				let t = e.a.body, n = e.b.body, r = 0, i = 0;
+				if (t?.type === `dynamic` && (r = sleepState(t, r)) === 1 && n && n.type !== `static` && (i = sleepState(n, i)) === 2 && this.movingAtContact(n, e.manifold) && (t.wake(), r = 2), n?.type === `dynamic` && (i = sleepState(n, i)) === 1 && t && t.type !== `static` && (r = sleepState(t, r)) === 2 && this.movingAtContact(t, e.manifold) && (n.wake(), i = 2), t && t.type === `dynamic` && sleepState(t, r) !== 1 || n && n.type === `dynamic` && sleepState(n, i) !== 1) for (let t = 0; t < e.manifold.count; t++) this.solve(e, t);
 			}
 		}
 		for (let e of this.jointSnapshot) if (e.belongsTo(this) && (e.reactionForce > e.breakForce || e.reactionTorque > e.breakTorque) && (this.removeJoint(e), e.onBreak?.(e), !t() || this.disposed)) return;
