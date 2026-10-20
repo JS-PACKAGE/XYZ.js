@@ -714,3 +714,18 @@ describe('mutable static poses', () => {
     scene.destroy();
   });
 });
+
+describe('static sensor coverage', () => {
+  it('pairs static colliders with static sensors that sort after them', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const wall = object(Colliders.box(2, 2), 0, 0, { type: 'static' });
+    const later = object(Colliders.box(2, 2), 1, 0, { type: 'static' });
+    later.collider!.sensor = true;
+    const earlier = object(Colliders.box(2, 2), -1, 0, { type: 'static' });
+    earlier.collider!.sensor = true;
+    for (const owner of [wall, later, earlier]) world.register(owner);
+    // No listeners: unobserved contacts dispatch nothing, so no callback interrupts the sweep.
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(3);
+  });
+});

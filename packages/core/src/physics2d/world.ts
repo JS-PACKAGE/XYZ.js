@@ -201,9 +201,8 @@ export class PhysicsWorld2D {
   private readonly owners = new Map<GameObject, Proxy>();
   private readonly proxies = new Set<Proxy>();
   private readonly sorted: Proxy[] = [];
-  /** Per-step copies of `sorted` minX and "has mass or is a sensor", reused across steps. */
-  private sweepMinX = new Float64Array(0);
-  private sweepActive = new Uint8Array(0);
+  /** Per sorted slot, the first slot at or after it with mass or a sensor; reused across steps. */
+  private sweepNextActive = new Int32Array(0);
   private readonly activeContacts = new Set<Contact>();
   private readonly solveContacts: Contact[] = [];
 
@@ -782,18 +781,19 @@ export class PhysicsWorld2D {
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
     this.sorted.sort(compareBounds);
-    // Packed copies let a passive entry skip passive neighbours without touching each proxy.
+    // Lets a passive entry jump straight to its next possible partner.
     const count = this.sorted.length;
-    if (this.sweepMinX.length < count) {
-      this.sweepMinX = new Float64Array(count * 2);
-      this.sweepActive = new Uint8Array(count * 2);
-    }
-    const minXs = this.sweepMinX,
-      actives = this.sweepActive;
-    for (let i = 0; i < count; i++) {
+    if (this.sweepNextActive.length <= count)
+      this.sweepNextActive = new Int32Array(count * 2 + 1);
+    const nextActive = this.sweepNextActive;
+    nextActive[count] = count;
+    let ordered = true;
+    for (let i = count - 1; i >= 0; i--) {
       const proxy = this.sorted[i]!;
-      minXs[i] = proxy.geometry.minX;
-      actives[i] = proxy.inverseMass || proxy.collider.sensor ? 1 : 0;
+      nextActive[i] =
+        proxy.inverseMass || proxy.collider.sensor ? i : nextActive[i + 1]!;
+      if (i > 0 && !(this.sorted[i - 1]!.geometry.minX <= proxy.geometry.minX))
+        ordered = false;
     }
     // Pieces with an existing contact whose bounds no longer overlap in Y. Only those pairs can
     // need the lookup below (collide() resets a separating contact's manifold); other Y-separated
@@ -813,10 +813,11 @@ export class PhysicsWorld2D {
       // testing this cheapest one first changes nothing but the cost of static neighbours.
       const passive = !a.inverseMass && !a.collider.sensor;
       for (let j = i + 1; j < this.sorted.length; j++) {
-        // The copies are exact until a user callback (which bumps liveness) could edit them.
-        if (passive && this.liveness === liveness) {
-          const maxX = a.geometry.maxX;
-          while (j < count && minXs[j]! <= maxX && !actives[j]) j++;
+        // Passive neighbours are rejected below anyway. With ascending minX, a skipped slot
+        // beyond a's maxX means the next active one is too, so the break still applies.
+        // Exact until a user callback (which bumps liveness) could edit bodies or bounds.
+        if (passive && ordered && this.liveness === liveness) {
+          j = nextActive[j]!;
           if (j === count) break;
         }
         const b = this.sorted[j];

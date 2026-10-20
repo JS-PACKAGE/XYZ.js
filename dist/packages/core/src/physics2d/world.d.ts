@@ -85,9 +85,8 @@ export declare class PhysicsWorld2D {
     private readonly owners;
     private readonly proxies;
     private readonly sorted;
-    /** Per-step copies of `sorted` minX and "has mass or is a sensor", reused across steps. */
-    private sweepMinX;
-    private sweepActive;
+    /** Per sorted slot, the first slot at or after it with mass or a sensor; reused across steps. */
+    private sweepNextActive;
     private readonly activeContacts;
     private readonly solveContacts;
     /** Number of registered colliders, static ones included. */

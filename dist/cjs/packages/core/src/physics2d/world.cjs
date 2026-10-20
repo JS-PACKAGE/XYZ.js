@@ -83,8 +83,7 @@ var PhysicsWorld2D = class {
 	owners = /* @__PURE__ */ new Map();
 	proxies = /* @__PURE__ */ new Set();
 	sorted = [];
-	sweepMinX = /* @__PURE__ */ new Float64Array();
-	sweepActive = /* @__PURE__ */ new Uint8Array();
+	sweepNextActive = /* @__PURE__ */ new Int32Array();
 	activeContacts = /* @__PURE__ */ new Set();
 	solveContacts = [];
 	get colliderCount() {
@@ -369,11 +368,13 @@ var PhysicsWorld2D = class {
 		if (this.integrateContinuous(e, t), !this.continuation()) return;
 		this.sorted.sort(compareBounds);
 		let n = this.sorted.length;
-		this.sweepMinX.length < n && (this.sweepMinX = new Float64Array(n * 2), this.sweepActive = new Uint8Array(n * 2));
-		let r = this.sweepMinX, i = this.sweepActive;
-		for (let e = 0; e < n; e++) {
+		this.sweepNextActive.length <= n && (this.sweepNextActive = new Int32Array(n * 2 + 1));
+		let r = this.sweepNextActive;
+		r[n] = n;
+		let i = !0;
+		for (let e = n - 1; e >= 0; e--) {
 			let t = this.sorted[e];
-			r[e] = t.geometry.minX, i[e] = t.inverseMass || t.collider.sensor ? 1 : 0;
+			r[e] = t.inverseMass || t.collider.sensor ? e : r[e + 1], e > 0 && !(this.sorted[e - 1].geometry.minX <= t.geometry.minX) && (i = !1);
 		}
 		for (let e of this.activeContacts) {
 			let n = e.a.geometry, r = e.b.geometry;
@@ -384,23 +385,18 @@ var PhysicsWorld2D = class {
 			let o = this.sorted[e];
 			if (!this.alive(o)) continue;
 			let s = !o.inverseMass && !o.collider.sensor;
-			for (let c = e + 1; c < this.sorted.length; c++) {
-				if (s && this.liveness === a) {
-					let e = o.geometry.maxX;
-					for (; c < n && r[c] <= e && !i[c];) c++;
-					if (c === n) break;
-				}
+			for (let c = e + 1; c < this.sorted.length && !(s && i && this.liveness === a && (c = r[c], c === n)); c++) {
 				let e = this.sorted[c];
 				if (e.geometry.minX > o.geometry.maxX) break;
 				if (s && !e.inverseMass && !e.collider.sensor || o.owner === e.owner || !this.alive(e) || !(o.collider.category & e.collider.mask) || !(e.collider.category & o.collider.mask)) continue;
-				let l = o.collider.sensor || e.collider.sensor;
+				let n = o.collider.sensor || e.collider.sensor;
 				if (o.group[0].joints.length && this.jointsBlockContact(o, e) || (o.geometry.maxY < e.geometry.minY || e.geometry.maxY < o.geometry.minY) && this.liveness === a && (o.separating !== t || e.separating !== t)) continue;
-				let d = o.contacts.get(e);
-				if (!d) {
+				let r = o.contacts.get(e);
+				if (!r) {
 					if (!require_narrowphase.collide(o.geometry, e.geometry, this.queryManifold)) continue;
-					d = new Contact(o, e);
+					r = new Contact(o, e);
 				}
-				if (d.seen !== t && require_narrowphase.collide(o.geometry, e.geometry, d.manifold) && (d.sensor = l, d.seen = t, !d.active || l ? (o.body?.isSleeping && o.body.wake(), e.body?.isSleeping && e.body.wake()) : o.body?.type === `dynamic` && e.body?.type === `dynamic` && (!o.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && o.body.isSleeping && o.body.wake()), !this.activate(d, t) && !this.continuation())) return;
+				if (r.seen !== t && require_narrowphase.collide(o.geometry, e.geometry, r.manifold) && (r.sensor = n, r.seen = t, !r.active || n ? (o.body?.isSleeping && o.body.wake(), e.body?.isSleeping && e.body.wake()) : o.body?.type === `dynamic` && e.body?.type === `dynamic` && (!o.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && o.body.isSleeping && o.body.wake()), !this.activate(r, t) && !this.continuation())) return;
 			}
 		}
 		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
