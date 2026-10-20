@@ -178,6 +178,22 @@ describe('bounded atlas maps', () => {
     expect(sprite(0, 0).renderEnabled).toBe(false);
     expect(sprite(2, 2).renderEnabled).toBe(true);
     expect(sprite(3, 3).renderEnabled).toBe(false);
+    // Edits made outside a Scene are culled on return even when the viewport is unchanged.
+    scene.remove(map);
+    map.setTile(0, 0, { frame: 1 });
+    map.setTile(1, 1, { frame: 0 });
+    scene.add(map);
+    map.updateCulling(scene.camera2D);
+    expect(sprite(1, 1).renderEnabled).toBe(false);
+    expect(sprite(2, 2).renderEnabled).toBe(true);
+    // Visibility is applied by rendering itself, so a sprite hidden during a full pass
+    // shows again although the unchanged viewport skips the next pass.
+    sprite(2, 2).visible = false;
+    scene.camera2D.position.set(73, 37);
+    map.updateCulling(scene.camera2D);
+    sprite(2, 2).visible = true;
+    map.updateCulling(scene.camera2D);
+    expect(sprite(2, 2).renderEnabled).toBe(true);
   });
 
   it('rejects excess grids and invalid elevations before changing cells', () => {

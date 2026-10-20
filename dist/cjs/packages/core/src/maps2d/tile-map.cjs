@@ -99,11 +99,16 @@ var TileMap = class extends require_group2d.Group2D {
 		m.tile = f, this.sparseSlots ? this.sparseSlots.set(a, m) : this.slots[a] = m, s || this.configuredSlots.push(m), this.cullTile(e, t);
 	}
 	cullTile(e, t) {
-		if (!this.scene) return;
-		let n = this.scene.camera2D, r = this.cullingProbe, i = this.culling;
-		this.measureCulling(n, n.viewportWidth, n.viewportHeight, r);
-		let a = this.index(e, t), o = this.sparseSlots?.get(a) ?? this.slots[a];
-		o && r.visible === i.visible && r.singular === i.singular && r.minX === i.minX && r.minY === i.minY && r.maxX === i.maxX && r.maxY === i.maxY ? this.cullSlot(o) : this.updateCulling(n);
+		if (!this.scene) {
+			this.culling.minX = NaN;
+			return;
+		}
+		let n = this.scene.camera2D;
+		if (this.measureCulling(n, n.viewportWidth, n.viewportHeight, this.cullingProbe), this.cullingChanged()) this.cullAll();
+		else {
+			let n = this.index(e, t), r = this.sparseSlots?.get(n) ?? this.slots[n];
+			r && this.cullSlot(r);
+		}
 	}
 	clearTile(e, t) {
 		this.setTile(e, t, {
@@ -160,7 +165,14 @@ var TileMap = class extends require_group2d.Group2D {
 		return r < 0 ? void 0 : n.set(r % this.columns + this.originColumn, Math.floor(r / this.columns) + this.originRow);
 	}
 	updateCulling(e, t = e.viewportWidth, n = e.viewportHeight) {
-		this.measureCulling(e, t, n, this.culling);
+		this.measureCulling(e, t, n, this.cullingProbe), this.cullingChanged() && this.cullAll();
+	}
+	cullingChanged() {
+		let e = this.cullingProbe, t = this.culling;
+		return e.visible !== t.visible || e.singular !== t.singular || e.minX !== t.minX || e.minY !== t.minY || e.maxX !== t.maxX || e.maxY !== t.maxY;
+	}
+	cullAll() {
+		Object.assign(this.culling, this.cullingProbe);
 		for (let e of this.configuredSlots) this.cullSlot(e);
 	}
 	measureCulling(e, t, n, r) {
@@ -184,7 +196,7 @@ var TileMap = class extends require_group2d.Group2D {
 		let t = e.sprite;
 		if (!t) return;
 		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight;
-		t.renderEnabled = n.visible && t.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
+		t.renderEnabled = n.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
 	}
 	update(e) {
 		this.scene && this.updateCulling(this.scene.camera2D);

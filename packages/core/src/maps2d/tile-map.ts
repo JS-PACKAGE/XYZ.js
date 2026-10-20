@@ -268,29 +268,23 @@ export class TileMap extends Group2D {
    * quadratic. A changed viewport still re-culls every cell.
    */
   protected cullTile(column: number, row: number): void {
-    if (!this.scene) return;
-    const camera = this.scene.camera2D,
-      probe = this.cullingProbe,
-      last = this.culling;
+    if (!this.scene) {
+      // Unculled edits must not be skipped by the next unchanged-viewport pass.
+      this.culling.minX = NaN;
+      return;
+    }
+    const camera = this.scene.camera2D;
     this.measureCulling(
       camera,
       camera.viewportWidth,
       camera.viewportHeight,
-      probe,
+      this.cullingProbe,
     );
-    const index = this.index(column, row);
-    const slot = this.sparseSlots?.get(index) ?? this.slots[index];
-    if (
-      slot &&
-      probe.visible === last.visible &&
-      probe.singular === last.singular &&
-      probe.minX === last.minX &&
-      probe.minY === last.minY &&
-      probe.maxX === last.maxX &&
-      probe.maxY === last.maxY
-    )
-      this.cullSlot(slot);
-    else this.updateCulling(camera);
+    if (!this.cullingChanged()) {
+      const index = this.index(column, row);
+      const slot = this.sparseSlots?.get(index) ?? this.slots[index];
+      if (slot) this.cullSlot(slot);
+    } else this.cullAll();
   }
 
   clearTile(column: number, row: number): void {
@@ -428,13 +422,35 @@ export class TileMap extends Group2D {
         );
   }
 
-  /** Render-time hook: conservative viewport inverse keeps affine/elevated graphics intact. */
+  /**
+   * Render-time hook: conservative viewport inverse keeps affine/elevated graphics
+   * intact. Edits re-cull their own cells, so an unchanged viewport skips the pass.
+   */
   updateCulling(
     camera: Camera2D,
     width = camera.viewportWidth,
     height = camera.viewportHeight,
   ): void {
-    this.measureCulling(camera, width, height, this.culling);
+    this.measureCulling(camera, width, height, this.cullingProbe);
+    if (this.cullingChanged()) this.cullAll();
+  }
+
+  private cullingChanged(): boolean {
+    const probe = this.cullingProbe,
+      last = this.culling;
+    return (
+      probe.visible !== last.visible ||
+      probe.singular !== last.singular ||
+      probe.minX !== last.minX ||
+      probe.minY !== last.minY ||
+      probe.maxX !== last.maxX ||
+      probe.maxY !== last.maxY
+    );
+  }
+
+  /** Applies the measured probe to every configured cell. */
+  private cullAll(): void {
+    Object.assign(this.culling, this.cullingProbe);
     for (const slot of this.configuredSlots) this.cullSlot(slot);
   }
 
@@ -491,9 +507,10 @@ export class TileMap extends Group2D {
     const c = this.culling;
     const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
     const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
+    // Sprite.visible is honored by rendering/picking themselves; leaving it out keeps
+    // skipped unchanged-viewport passes exact when a tile sprite is shown again.
     sprite.renderEnabled =
       c.visible &&
-      sprite.visible &&
       slot.tile.frame !== undefined &&
       (c.singular ||
         (x <= c.maxX &&

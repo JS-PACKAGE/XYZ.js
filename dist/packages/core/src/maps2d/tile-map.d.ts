@@ -66,8 +66,14 @@ export declare class TileMap extends Group2D {
     worldToTile(point: Vector2, out?: Vector2): Vector2;
     /** Picks the topmost rendered graphic rectangle, including elevated tiles; x/y are column/row. */
     pickTile(point: Vector2, out?: Vector2): Vector2 | undefined;
-    /** Render-time hook: conservative viewport inverse keeps affine/elevated graphics intact. */
+    /**
+     * Render-time hook: conservative viewport inverse keeps affine/elevated graphics
+     * intact. Edits re-cull their own cells, so an unchanged viewport skips the pass.
+     */
     updateCulling(camera: Camera2D, width?: number, height?: number): void;
+    private cullingChanged;
+    /** Applies the measured probe to every configured cell. */
+    private cullAll;
     /** Map-local viewport bounds; every slot's visibility derives from these alone. */
     private measureCulling;
     private cullSlot;
