@@ -95,6 +95,27 @@ describe('2D composed scene ownership', () => {
     expect(leaf.containsPoint(world)).toBe(false);
   });
 
+  it('hit-tests correctly when a bounds override hit-tests another object', () => {
+    const far = new Sprite({
+      texture: new Texture({ width: 4, height: 4, close() {} }),
+    });
+    far.position.set(500, 500);
+    class Probe extends GameObject {
+      override getLocalBounds(out = { x: 0, y: 0, width: 0, height: 0 }) {
+        far.containsPoint(new Vector2(500, 500));
+        out.x = -5;
+        out.y = -5;
+        out.width = out.height = 10;
+        return out;
+      }
+    }
+    const probe = new Probe();
+    probe.position.set(10, 10);
+    expect(probe.containsPoint(new Vector2(12, 12))).toBe(true);
+    expect(probe.containsPoint(new Vector2(30, 30))).toBe(false);
+    expect(probe.toLocal(new Vector2(12, 7))).toEqual(new Vector2(2, -3));
+  });
+
   it('keeps a pixel pivot at its position with skew and reflects output coordinates and bounds', () => {
     const root = new Group2D();
     root.position.set(30, 20);

@@ -17,6 +17,11 @@ import {
 } from './gameplay/interaction-events.js';
 import { PhysicsPresentation2D } from './physics-presentation.js';
 
+// Shared, not per-instance: a Matrix3 costs ~300 heap bytes and these are only used synchronously
+// (no user code runs between writing and reading them).
+const inverseScratch = new Matrix3();
+const pointScratch = new Vector2();
+
 /** Public 2D facade; entities and component registration belong to Scene. */
 export class GameObject extends SceneObject {
   readonly transform = new Transform2D();
@@ -32,8 +37,6 @@ export class GameObject extends SceneObject {
   private readonly composedColor: [number, number, number, number] = [
     1, 1, 1, 1,
   ];
-  private readonly inverseMatrix = new Matrix3();
-  private readonly localPoint = new Vector2();
   private readonly bounds: Rect2D = { x: 0, y: 0, width: 0, height: 0 };
   visible = true;
   pointerEnabled = false;
@@ -369,7 +372,7 @@ export class GameObject extends SceneObject {
     return this.updateWorldMatrix().transformPoint(point, out);
   }
   toLocal(point: Vector2, out: Vector2 = new Vector2()): Vector2 {
-    return this.inverseMatrix
+    return inverseScratch
       .copy(this.updateWorldMatrix())
       .invert()
       .transformPoint(point, out);
@@ -405,20 +408,23 @@ export class GameObject extends SceneObject {
         : this.collider.containsPoint(point, this);
     }
     try {
-      this.inverseMatrix.copy(this.updateWorldMatrix()).invert();
+      inverseScratch.copy(this.updateWorldMatrix()).invert();
     } catch (error) {
       if (error instanceof RangeError) return false;
       throw error;
     }
-    this.inverseMatrix.transformPoint(point, this.localPoint);
+    inverseScratch.transformPoint(point, pointScratch);
+    // Copy out before getLocalBounds: subclass overrides may hit-test other objects.
+    const x = pointScratch.x,
+      y = pointScratch.y;
     const bounds = this.getLocalBounds(this.bounds);
     return (
       bounds.width > 0 &&
       bounds.height > 0 &&
-      this.localPoint.x >= bounds.x &&
-      this.localPoint.x <= bounds.x + bounds.width &&
-      this.localPoint.y >= bounds.y &&
-      this.localPoint.y <= bounds.y + bounds.height
+      x >= bounds.x &&
+      x <= bounds.x + bounds.width &&
+      y >= bounds.y &&
+      y <= bounds.y + bounds.height
     );
   }
   update(deltaTime: number): void {

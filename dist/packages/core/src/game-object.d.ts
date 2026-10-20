@@ -20,8 +20,6 @@ export declare class GameObject extends SceneObject {
     private coordinateSpace;
     private readonly color;
     private readonly composedColor;
-    private readonly inverseMatrix;
-    private readonly localPoint;
     private readonly bounds;
     visible: boolean;
     pointerEnabled: boolean;

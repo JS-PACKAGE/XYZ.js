@@ -7,6 +7,8 @@ const require_body = require("./physics2d/body.cjs");
 const require_interaction_events = require("./gameplay/interaction-events.cjs");
 const require_physics_presentation = require("./physics-presentation.cjs");
 //#region dist/packages/core/src/game-object.js
+var d = new require_index.Matrix3();
+var f = new require_index.Vector2();
 var GameObject = class GameObject extends require_scene_object.SceneObject {
 	transform = new require_index.Transform2D();
 	worldMatrix = new require_index.Matrix3();
@@ -28,8 +30,6 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		1,
 		1
 	];
-	inverseMatrix = new require_index.Matrix3();
-	localPoint = new require_index.Vector2();
 	bounds = {
 		x: 0,
 		y: 0,
@@ -246,7 +246,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		return this.updateWorldMatrix().transformPoint(e, t);
 	}
 	toLocal(e, t = new require_index.Vector2()) {
-		return this.inverseMatrix.copy(this.updateWorldMatrix()).invert().transformPoint(e, t);
+		return d.copy(this.updateWorldMatrix()).invert().transformPoint(e, t);
 	}
 	getWorldBounds(e = {
 		x: 0,
@@ -264,14 +264,14 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	containsPoint(e) {
 		if (this.hitTestMode === `collider`) return this.collider ? this.colliderPieces ? this.colliderPieces.some((t) => t.containsPoint(e, this)) : this.collider.containsPoint(e, this) : !1;
 		try {
-			this.inverseMatrix.copy(this.updateWorldMatrix()).invert();
+			d.copy(this.updateWorldMatrix()).invert();
 		} catch (e) {
 			if (e instanceof RangeError) return !1;
 			throw e;
 		}
-		this.inverseMatrix.transformPoint(e, this.localPoint);
-		let t = this.getLocalBounds(this.bounds);
-		return t.width > 0 && t.height > 0 && this.localPoint.x >= t.x && this.localPoint.x <= t.x + t.width && this.localPoint.y >= t.y && this.localPoint.y <= t.y + t.height;
+		d.transformPoint(e, f);
+		let t = f.x, n = f.y, r = this.getLocalBounds(this.bounds);
+		return r.width > 0 && r.height > 0 && t >= r.x && t <= r.x + r.width && n >= r.y && n <= r.y + r.height;
 	}
 	update(e) {}
 	destroy() {
