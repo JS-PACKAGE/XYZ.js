@@ -6,6 +6,7 @@ import {
   BitmapFontLoader,
   Texture,
   TextureView2D,
+  type AssetManifestOptions,
 } from '../packages/assets/src/index.js';
 import { AtlasLoader } from '../packages/core/src/graphics2d/atlas-loader.js';
 import { ColorMatrixFilter2D } from '../packages/core/src/rendering2d/filters2d.js';
@@ -224,6 +225,51 @@ describe('bounded parsers and transactional loaders', () => {
     expect(bitmaps.every((bitmap) => bitmap.closed === 1)).toBe(true);
     expect(() => manifest.get('image', 'texture')).toThrow(AssetError);
     loader.destroy();
+  });
+
+  it('rejects malformed manifest shapes before reading them', () => {
+    const make = (options: unknown) => () =>
+      new AssetManifest(options as AssetManifestOptions);
+    const text = { aliases: 'a', type: 'text', url: '/a' };
+    for (const options of [
+      null,
+      { entries: null },
+      { entries: 0 },
+      { entries: [null] },
+      { entries: [{ type: 'text', url: '/a' }] },
+      { entries: [{ ...text, aliases: ['a', 1] }] },
+      { entries: [{ aliases: 'f', type: 'font', url: '/f', options: null }] },
+      { entries: [text], bundles: 42 },
+      { entries: [text], bundles: { x: null } },
+      { entries: [text], bundles: { x: 'a' } },
+    ])
+      expect(make(options)).toThrow(TypeError);
+    expect(make({ entries: [{ ...text, url: 1 }] })).toThrow(RangeError);
+    // Truthy non-boolean ownership used to load owned textures that release skipped.
+    expect(
+      make({
+        entries: [{ aliases: 'i', type: 'texture', url: '/i', owned: 'false' }],
+      }),
+    ).toThrow(TypeError);
+    expect(
+      make({
+        entries: [
+          {
+            aliases: 'c',
+            type: 'custom',
+            owned: 1,
+            load: async () => 1,
+            dispose() {},
+          },
+        ],
+      }),
+    ).toThrow(TypeError);
+    expect(
+      make({
+        entries: [text, { aliases: ['b'], type: 'texture', url: '/b' }],
+        bundles: { all: ['a', 'b'] },
+      }),
+    ).not.toThrow();
   });
 });
 

@@ -30,11 +30,19 @@ var AssetManifest = class {
 	active;
 	requests = /* @__PURE__ */ new WeakMap();
 	constructor(t) {
-		if (t.entries.length > require_rendering2d.rendering2dLimits.manifestEntries || Object.keys(t.bundles ?? {}).length > require_rendering2d.rendering2dLimits.manifestBundles) throw RangeError(`Manifest exceeds its entry/bundle budget.`);
-		let n = 0;
-		for (let r of t.entries) {
-			let t = typeof r.aliases == `string` ? [r.aliases] : [...r.aliases];
-			if (n += t.length, !t.length || n > require_rendering2d.rendering2dLimits.manifestEntries || t.some((e) => !e.trim() || this.aliases.has(e)) || new Set(t).size !== t.length) throw RangeError(`Manifest aliases must be unique, nonempty and bounded.`);
+		if (typeof t != `object` || !t || !Array.isArray(t.entries)) throw TypeError(`Manifest options require an entries array.`);
+		let n = t.bundles ?? {};
+		if (typeof n != `object` || !n || Array.isArray(n)) throw TypeError(`Manifest bundles must be a record of alias arrays.`);
+		if (t.entries.length > require_rendering2d.rendering2dLimits.manifestEntries || Object.keys(n).length > require_rendering2d.rendering2dLimits.manifestBundles) throw RangeError(`Manifest exceeds its entry/bundle budget.`);
+		let r = 0;
+		for (let n of t.entries) {
+			if (typeof n != `object` || !n) throw TypeError(`Manifest entries must be objects.`);
+			let t = n.aliases;
+			if (typeof t != `string` && !(typeof t == `object` && t && Symbol.iterator in t)) throw TypeError(`Manifest aliases must be a string or strings.`);
+			let i = typeof t == `string` ? [t] : [...t];
+			if (i.some((e) => typeof e != `string`)) throw TypeError(`Manifest aliases must be a string or strings.`);
+			let a = i;
+			if (r += a.length, !a.length || r > require_rendering2d.rendering2dLimits.manifestEntries || a.some((e) => !e.trim() || this.aliases.has(e)) || new Set(a).size !== a.length) throw RangeError(`Manifest aliases must be unique, nonempty and bounded.`);
 			if (![
 				`texture`,
 				`binary`,
@@ -45,24 +53,27 @@ var AssetManifest = class {
 				`model`,
 				`audio`,
 				`custom`
-			].includes(r.type)) throw RangeError(`Unsupported manifest asset type.`);
-			if (r.type === `custom` || r.type === `model` || r.type === `audio` ? typeof r.load != `function` || r.owned && typeof r.dispose != `function` : !(`url` in r) || !r.url.trim()) throw RangeError(`Invalid manifest acquisition.`);
-			let i = Object.freeze({
-				...r,
-				aliases: Object.freeze(t),
-				...r.type === `font` ? { options: Object.freeze({
-					...r.options,
-					descriptors: Object.freeze({ ...r.options.descriptors })
+			].includes(n.type)) throw RangeError(`Unsupported manifest asset type.`);
+			if (n.type === `custom` || n.type === `model` || n.type === `audio` ? typeof n.load != `function` || n.owned && typeof n.dispose != `function` : !(`url` in n) || typeof n.url != `string` || !n.url.trim()) throw RangeError(`Invalid manifest acquisition.`);
+			if (`owned` in n && n.owned !== void 0 && typeof n.owned != `boolean`) throw TypeError(`Manifest owned flags must be boolean.`);
+			if (n.type === `font` && (typeof n.options != `object` || n.options === null)) throw TypeError(`Manifest font entries require options.`);
+			let o = Object.freeze({
+				...n,
+				aliases: Object.freeze(a),
+				...n.type === `font` ? { options: Object.freeze({
+					...n.options,
+					descriptors: Object.freeze({ ...n.options.descriptors })
 				}) } : {}
 			});
-			for (let e of t) this.aliases.set(e, i);
+			for (let e of a) this.aliases.set(e, o);
 		}
-		let r = Object.create(null);
-		for (let [n, i] of Object.entries(t.bundles ?? {})) {
-			if (!n.trim() || this.aliases.has(n) || i.length > require_rendering2d.rendering2dLimits.manifestEntries || i.some((e) => !this.aliases.has(e))) throw RangeError(`Bundles require nonempty names and declared aliases.`);
-			r[n] = Object.freeze([...i]);
+		let i = Object.create(null);
+		for (let [t, r] of Object.entries(n)) {
+			if (!Array.isArray(r)) throw TypeError(`Manifest bundles must be a record of alias arrays.`);
+			if (!t.trim() || this.aliases.has(t) || r.length > require_rendering2d.rendering2dLimits.manifestEntries || r.some((e) => !this.aliases.has(e))) throw RangeError(`Bundles require nonempty names and declared aliases.`);
+			i[t] = Object.freeze([...r]);
 		}
-		this.bundles = Object.freeze(r);
+		this.bundles = Object.freeze(i);
 	}
 	compile(e, r) {
 		if (this.active && [`idle`, `loading`].includes(this.active.state)) throw new require_texture.AssetError(`A manifest batch is already unsettled.`);

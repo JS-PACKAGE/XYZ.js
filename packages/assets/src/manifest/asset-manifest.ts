@@ -122,18 +122,46 @@ export class AssetManifest {
   >();
 
   constructor(options: AssetManifestOptions) {
+    // Manifests may be built from loaded JSON: reject wrong shapes before reading them.
+    if (
+      typeof options !== 'object' ||
+      options === null ||
+      !Array.isArray(options.entries)
+    )
+      throw new TypeError('Manifest options require an entries array.');
+    const bundleInput: unknown = options.bundles ?? {};
+    if (
+      typeof bundleInput !== 'object' ||
+      bundleInput === null ||
+      Array.isArray(bundleInput)
+    )
+      throw new TypeError('Manifest bundles must be a record of alias arrays.');
     if (
       options.entries.length > rendering2dLimits.manifestEntries ||
-      Object.keys(options.bundles ?? {}).length >
-        rendering2dLimits.manifestBundles
+      Object.keys(bundleInput).length > rendering2dLimits.manifestBundles
     )
       throw new RangeError('Manifest exceeds its entry/bundle budget.');
     let aliasCount = 0;
     for (const input of options.entries) {
-      const names =
-        typeof input.aliases === 'string'
-          ? [input.aliases]
-          : [...input.aliases];
+      if (typeof input !== 'object' || input === null)
+        throw new TypeError('Manifest entries must be objects.');
+      const aliases: unknown = input.aliases;
+      if (
+        typeof aliases !== 'string' &&
+        !(
+          typeof aliases === 'object' &&
+          aliases !== null &&
+          Symbol.iterator in aliases
+        )
+      )
+        throw new TypeError('Manifest aliases must be a string or strings.');
+      const candidates =
+        typeof aliases === 'string'
+          ? [aliases]
+          : [...(aliases as Iterable<unknown>)];
+      if (candidates.some((name) => typeof name !== 'string'))
+        throw new TypeError('Manifest aliases must be a string or strings.');
+      const names = candidates as string[];
       aliasCount += names.length;
       if (
         !names.length ||
@@ -164,9 +192,24 @@ export class AssetManifest {
         input.type === 'audio'
           ? typeof input.load !== 'function' ||
             (input.owned && typeof input.dispose !== 'function')
-          : !('url' in input) || !input.url.trim()
+          : !('url' in input) ||
+            typeof input.url !== 'string' ||
+            !input.url.trim()
       )
         throw new RangeError('Invalid manifest acquisition.');
+      // Loading tests truthiness while release tests `=== true`; a non-boolean
+      // flag would load an owned value that is never released.
+      if (
+        'owned' in input &&
+        input.owned !== undefined &&
+        typeof input.owned !== 'boolean'
+      )
+        throw new TypeError('Manifest owned flags must be boolean.');
+      if (
+        input.type === 'font' &&
+        (typeof input.options !== 'object' || input.options === null)
+      )
+        throw new TypeError('Manifest font entries require options.');
       const entry = Object.freeze({
         ...input,
         aliases: Object.freeze(names),
@@ -184,17 +227,21 @@ export class AssetManifest {
     const bundles: Record<string, readonly string[]> = Object.create(
       null,
     ) as Record<string, readonly string[]>;
-    for (const [name, members] of Object.entries(options.bundles ?? {})) {
+    for (const [name, members] of Object.entries(bundleInput)) {
+      if (!Array.isArray(members))
+        throw new TypeError(
+          'Manifest bundles must be a record of alias arrays.',
+        );
       if (
         !name.trim() ||
         this.aliases.has(name) ||
         members.length > rendering2dLimits.manifestEntries ||
-        members.some((alias) => !this.aliases.has(alias))
+        members.some((alias) => !this.aliases.has(alias as string))
       )
         throw new RangeError(
           'Bundles require nonempty names and declared aliases.',
         );
-      bundles[name] = Object.freeze([...members]);
+      bundles[name] = Object.freeze([...(members as string[])]);
     }
     this.bundles = Object.freeze(bundles);
   }

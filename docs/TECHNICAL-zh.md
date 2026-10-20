@@ -1062,6 +1062,8 @@ Lease／scope.attach(detach) 登記 synchronous consumer teardown，先 detach �
 
 `AssetManifest.acquire(pool,selections,{signal?,scope?})` 回 scoped ManifestLease，aliases／groups 共用 acquisition 而不重複 ownership。Content build／rebuild options 接受 resourcePool／resources，新建或 fork candidate scope，經 factory context 傳入，僅由 owned Scene／subtree adopt；failure／cancel rollback。RebuildContentScene 先建 fresh unpublished candidate，再 Game.setScene prepare／原子 publish；**不**把 legacy in-place Serializer.restore 宣稱為 atomic transaction。失敗保留 old active Scene，borrowed services 仍 caller-owned。
 
+`new AssetManifest(options)` 先驗 shape 再讀取，由載入的 JSON 建立時以 `TypeError`（options／entry 非物件、`entries` 非陣列、alias 非字串、`owned` 非 boolean、font 缺 `options`、`bundles` 非 record 或成員非陣列）或既有 `RangeError`（預算／alias／acquisition）拒絕，不再出現一般屬性存取錯誤。Truthy 但非 boolean 的 `owned` 會被拒絕，因為先前載入與釋放對它的判斷不一致。
+
 ### 預算、timing 與 startup
 
 Scene subsystems lazy initialize；讀 diagnostics 不初始化 navigation。Scene.navigation 以 round-robin／owner-fair admission 管 searches／bakes，所有 NPC 共用單一 hard cooperative work-unit cap；pending jobs 不各配置 A* workspace，既有 owner workspace limit 仍在。Pause／lifecycle 按契約 freeze／retire。CPU milliseconds threshold 僅 cooperative／observational，不是 preemptive deadline，單 unit／decoder 可超時。Per-asset／decoded-cache／native-residency／attachment estimates 分開，非 process／driver memory 全域保證。
