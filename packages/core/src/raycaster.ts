@@ -104,9 +104,9 @@ export class Raycaster {
         }
       } else this.intersectMesh(object, world, out);
     }
-    if (recursive)
-      for (const child of object.children)
-        this.intersectObject(child, true, out);
+    const children = recursive ? object.existingChildren : undefined;
+    if (children)
+      for (const child of children) this.intersectObject(child, true, out);
   }
 
   private intersectMesh(

@@ -10,7 +10,7 @@ var Object3D = class Object3D extends require_scene_object.SceneObject {
 	matrixPass = 0;
 	visible = !0;
 	ancestor;
-	descendants = /* @__PURE__ */ new Set();
+	descendants;
 	rigidBody;
 	collisionShape;
 	physicsPresentation;
@@ -70,6 +70,9 @@ var Object3D = class Object3D extends require_scene_object.SceneObject {
 		return this.ancestor;
 	}
 	get children() {
+		return this.descendants ??= /* @__PURE__ */ new Set();
+	}
+	get existingChildren() {
 		return this.descendants;
 	}
 	get worldVisible() {
@@ -90,25 +93,26 @@ var Object3D = class Object3D extends require_scene_object.SceneObject {
 			let t = [e];
 			for (let e = 0; e < t.length; e++) {
 				t[e].validatePhysics();
-				for (let n of t[e].children) t.push(n);
+				let n = t[e].descendants;
+				if (n) for (let e of n) t.push(e);
 			}
 		} finally {
 			e.ancestor = t;
 		}
-		return this.scene && e.scene !== this.scene ? (this.scene.addChild(e, this), e) : (e.detachParent(), e.ancestor = this, this.descendants.add(e), e);
+		return this.scene && e.scene !== this.scene ? (this.scene.addChild(e, this), e) : (e.detachParent(), e.ancestor = this, (this.descendants ??= /* @__PURE__ */ new Set()).add(e), e);
 	}
 	remove(e) {
 		return e.parent === this && (this.scene ? this.scene.remove(e) : e.detachParent(), !0);
 	}
 	detachParent() {
-		this.ancestor?.descendants.delete(this), this.ancestor = void 0;
+		this.ancestor?.descendants?.delete(this), this.ancestor = void 0;
 	}
 	setParentForRegistration(e) {
-		let t = this.ancestor, n = t ? [...t.descendants] : void 0;
-		return this.detachParent(), this.ancestor = e, e?.descendants.add(this), () => {
+		let t = this.ancestor, n = t ? [...t.descendants ?? []] : void 0;
+		return this.detachParent(), this.ancestor = e, e && (e.descendants ??= /* @__PURE__ */ new Set()).add(this), () => {
 			if (this.detachParent(), this.ancestor = t, t && n) {
-				t.descendants.clear();
-				for (let e of n) t.descendants.add(e);
+				t.descendants?.clear();
+				for (let e of n) (t.descendants ??= /* @__PURE__ */ new Set()).add(e);
 			}
 		};
 	}
@@ -133,7 +137,7 @@ var Object3D = class Object3D extends require_scene_object.SceneObject {
 	}
 	destroy() {
 		if (this.destroyed) return;
-		let e = [...this.descendants], t = [];
+		let e = this.descendants ? [...this.descendants] : [], t = [];
 		this.rigidBody?.detach(this), this.rigidBody = void 0, this.collisionShape = void 0, this.detachParent();
 		try {
 			super.destroy();

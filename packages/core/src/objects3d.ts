@@ -434,7 +434,8 @@ export class HLOD extends LOD {
     let found = false;
     for (let i = 0; i < pending.length; i++) {
       const child = pending[i]!;
-      for (const descendant of child.children) pending.push(descendant);
+      const children = child.existingChildren;
+      if (children) for (const descendant of children) pending.push(descendant);
       if (!(child instanceof Mesh) || child.destroyed) continue;
       const s = child.getWorldBoundingSphere(this.childSphere);
       if (!Number.isFinite(s.x + s.y + s.z + s.radius)) return Infinity;

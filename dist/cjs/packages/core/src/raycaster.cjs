@@ -33,15 +33,15 @@ var Raycaster = class {
 		}
 	}
 	intersectObject(e, t, i) {
-		if (!this.visited.has(e) && (this.visited.add(e), !e.destroyed && e.worldVisible)) {
-			if (e instanceof require_mesh.Mesh) {
-				e.updateDeformation();
-				let t = e.updateWorldMatrix();
-				if (e instanceof require_instanced_mesh.InstancedMesh) for (let n = 0; n < e.count; n++) e.getMatrixAt(n, this.instance), this.world.copy(t).multiply(this.instance), this.intersectMesh(e, this.world, i, n);
-				else this.intersectMesh(e, t, i);
-			}
-			if (t) for (let t of e.children) this.intersectObject(t, !0, i);
+		if (this.visited.has(e) || (this.visited.add(e), e.destroyed || !e.worldVisible)) return;
+		if (e instanceof require_mesh.Mesh) {
+			e.updateDeformation();
+			let t = e.updateWorldMatrix();
+			if (e instanceof require_instanced_mesh.InstancedMesh) for (let n = 0; n < e.count; n++) e.getMatrixAt(n, this.instance), this.world.copy(t).multiply(this.instance), this.intersectMesh(e, this.world, i, n);
+			else this.intersectMesh(e, t, i);
 		}
+		let a = t ? e.existingChildren : void 0;
+		if (a) for (let e of a) this.intersectObject(e, !0, i);
 	}
 	intersectMesh(e, n, r, i) {
 		let a = n.elements, o = a[0] * (a[5] * a[10] - a[6] * a[9]) - a[4] * (a[1] * a[10] - a[2] * a[9]) + a[8] * (a[1] * a[6] - a[2] * a[5]);

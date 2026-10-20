@@ -185,12 +185,12 @@ var HLOD = class extends LOD {
 		n.length = 0, n.push(this.detail);
 		let r = 1 / 0, i = 1 / 0, o = 1 / 0, s = -1 / 0, c = -1 / 0, l = -1 / 0, u = !1;
 		for (let e = 0; e < n.length; e++) {
-			let t = n[e];
-			for (let e of t.children) n.push(e);
+			let t = n[e], d = t.existingChildren;
+			if (d) for (let e of d) n.push(e);
 			if (!(t instanceof require_mesh.Mesh) || t.destroyed) continue;
-			let d = t.getWorldBoundingSphere(this.childSphere);
-			if (!Number.isFinite(d.x + d.y + d.z + d.radius)) return 1 / 0;
-			u = !0, r = Math.min(r, d.x - d.radius), s = Math.max(s, d.x + d.radius), i = Math.min(i, d.y - d.radius), c = Math.max(c, d.y + d.radius), o = Math.min(o, d.z - d.radius), l = Math.max(l, d.z + d.radius);
+			let f = t.getWorldBoundingSphere(this.childSphere);
+			if (!Number.isFinite(f.x + f.y + f.z + f.radius)) return 1 / 0;
+			u = !0, r = Math.min(r, f.x - f.radius), s = Math.max(s, f.x + f.radius), i = Math.min(i, f.y - f.radius), c = Math.max(c, f.y + f.radius), o = Math.min(o, f.z - f.radius), l = Math.max(l, f.z + f.radius);
 		}
 		if (!u) return super.projectedDiameter(e, t);
 		let d = this.aggregateSphere;

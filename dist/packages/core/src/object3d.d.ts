@@ -10,7 +10,8 @@ export declare class Object3D extends SceneObject {
     private matrixPass;
     visible: boolean;
     private ancestor;
-    private readonly descendants;
+    /** Created on first child or first `children` read; most meshes are leaves. */
+    private descendants;
     private rigidBody;
     private collisionShape;
     private physicsPresentation;
@@ -25,6 +26,8 @@ export declare class Object3D extends SceneObject {
     get scale(): Vector3;
     get parent(): Object3D | undefined;
     get children(): ReadonlySet<Object3D>;
+    /** @internal Child traversal that does not materialize a leaf's empty set. */
+    get existingChildren(): ReadonlySet<Object3D> | undefined;
     get worldVisible(): boolean;
     add<T extends Object3D>(child: T): T;
     remove(child: Object3D): boolean;

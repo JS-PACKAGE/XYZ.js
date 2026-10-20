@@ -261,4 +261,17 @@ describe('Object3D scene hierarchy', () => {
     expect(() => root.add(branch)).toThrow('destroyed');
     scene.destroy();
   });
+  it('keeps a leaf children set live and stable once it has been read', () => {
+    const scene = new Scene();
+    const leaf = scene.add(new Group());
+    const children = leaf.children;
+    expect(children.size).toBe(0);
+    const child = leaf.add(new Group());
+    expect(leaf.children).toBe(children);
+    expect([...children]).toEqual([child]);
+    expect(scene.objects).toContain(child);
+    leaf.remove(child);
+    expect(children.size).toBe(0);
+    scene.destroy();
+  });
 });

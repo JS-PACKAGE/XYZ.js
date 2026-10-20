@@ -17,7 +17,8 @@ export class Object3D extends SceneObject {
   private matrixPass = 0;
   visible = true;
   private ancestor: Object3D | undefined;
-  private readonly descendants = new Set<Object3D>();
+  /** Created on first child or first `children` read; most meshes are leaves. */
+  private descendants: Set<Object3D> | undefined;
   private rigidBody: RigidBody3D | undefined;
   private collisionShape: Collider3D | undefined;
   private physicsPresentation: PhysicsPresentation3D | undefined;
@@ -107,6 +108,10 @@ export class Object3D extends SceneObject {
   }
 
   get children(): ReadonlySet<Object3D> {
+    return (this.descendants ??= new Set());
+  }
+  /** @internal Child traversal that does not materialize a leaf's empty set. */
+  get existingChildren(): ReadonlySet<Object3D> | undefined {
     return this.descendants;
   }
 
@@ -139,7 +144,9 @@ export class Object3D extends SceneObject {
       const pending = [child as Object3D];
       for (let i = 0; i < pending.length; i++) {
         pending[i].validatePhysics();
-        for (const descendant of pending[i].children) pending.push(descendant);
+        const children = pending[i].descendants;
+        if (children)
+          for (const descendant of children) pending.push(descendant);
       }
     } finally {
       child.ancestor = previousParent;
@@ -150,7 +157,7 @@ export class Object3D extends SceneObject {
     }
     child.detachParent();
     child.ancestor = this;
-    this.descendants.add(child);
+    (this.descendants ??= new Set()).add(child);
     return child;
   }
 
@@ -163,23 +170,24 @@ export class Object3D extends SceneObject {
 
   /** @internal Unlinks the hierarchy without changing scene registrations. */
   detachParent(): void {
-    this.ancestor?.descendants.delete(this);
+    this.ancestor?.descendants?.delete(this);
     this.ancestor = undefined;
   }
 
   /** @internal Publishes a proposed hierarchy and returns an exact registration rollback. */
   setParentForRegistration(nextParent: Object3D | undefined): () => void {
     const parent = this.ancestor;
-    const siblings = parent ? [...parent.descendants] : undefined;
+    const siblings = parent ? [...(parent.descendants ?? [])] : undefined;
     this.detachParent();
     this.ancestor = nextParent;
-    nextParent?.descendants.add(this);
+    if (nextParent) (nextParent.descendants ??= new Set()).add(this);
     return () => {
       this.detachParent();
       this.ancestor = parent;
       if (parent && siblings) {
-        parent.descendants.clear();
-        for (const sibling of siblings) parent.descendants.add(sibling);
+        parent.descendants?.clear();
+        for (const sibling of siblings)
+          (parent.descendants ??= new Set()).add(sibling);
       }
     };
   }
@@ -244,7 +252,7 @@ export class Object3D extends SceneObject {
 
   override destroy(): void {
     if (this.destroyed) return;
-    const children = [...this.descendants];
+    const children = this.descendants ? [...this.descendants] : [];
     const errors: unknown[] = [];
     this.rigidBody?.detach(this);
     this.rigidBody = undefined;

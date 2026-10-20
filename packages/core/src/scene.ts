@@ -540,11 +540,9 @@ export class Scene {
       if (publish && member.scene)
         throw new Error('Streaming subtree members must all be detached.');
       const children =
-        member instanceof GameObject
+        member instanceof GameObject || member instanceof Object3D
           ? member.existingChildren
-          : member instanceof Object3D
-            ? member.children
-            : undefined;
+          : undefined;
       if (children) for (const child of children) subtree.push(child);
     }
     const added: SceneObject[] = [];
@@ -621,11 +619,9 @@ export class Scene {
     for (let i = 0; i < subtree.length; i++) {
       const member = subtree[i];
       const children =
-        member instanceof GameObject
+        member instanceof GameObject || member instanceof Object3D
           ? member.existingChildren
-          : member instanceof Object3D
-            ? member.children
-            : undefined;
+          : undefined;
       if (children) for (const child of children) subtree.push(child);
     }
     if (object instanceof Object3D || object instanceof GameObject)
