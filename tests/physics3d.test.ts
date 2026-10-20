@@ -671,4 +671,43 @@ describe('3D shape queries and ownership', () => {
     scene.destroy();
     a.destroy();
   });
+
+  it('ends only removed pairs and keeps queries in order across interleaved removals', () => {
+    const scene = new Scene();
+    const floor = scene.add(
+      object(
+        new BoxCollider3D(new Vector3(20, 0.5, 2)),
+        new Vector3(0, -0.5, 0),
+      ),
+    );
+    const spheres = Array.from({ length: 6 }, (_, i) =>
+      scene.add(
+        object(new SphereCollider3D(0.5), new Vector3(i * 2, 0.49, 0), {
+          gravityScale: 0,
+        }),
+      ),
+    );
+    const ended: Object3D[] = [];
+    floor.addEventListener('collisionend', (event) =>
+      ended.push((event as CustomEvent<PhysicsContact3D>).detail.other),
+    );
+    const world = scene.physics3D;
+    world.update(world.fixedDelta);
+    for (const i of [3, 1, 5]) scene.remove(spheres[i]!);
+    expect(ended).toEqual([spheres[3], spheres[1], spheres[5]]);
+    const late = scene.add(
+      object(new SphereCollider3D(0.5), new Vector3(2, 0.49, 0), {
+        gravityScale: 0,
+      }),
+    );
+    world.update(world.fixedDelta);
+    expect(ended).toHaveLength(3);
+    expect(world.size).toBe(5);
+    const hits = [0, 2, 6, 8, 10].map(
+      (x) =>
+        world.raycast(new Vector3(x, 3, 0), new Vector3(0, -1, 0), 2.6)?.object,
+    );
+    expect(hits).toEqual([spheres[0], late, undefined, spheres[4], undefined]);
+    scene.destroy();
+  });
 });

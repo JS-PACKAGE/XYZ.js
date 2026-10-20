@@ -12,6 +12,7 @@ const require_physics_profiles = require("../../../../src/data/physics-profiles.
 const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
+var compareContactRows = (e, t) => e.contactRow - t.contactRow;
 var Contact3D = class {
 	a;
 	b;
@@ -39,7 +40,8 @@ var PhysicsWorld3D = class {
 	solverIterations;
 	enabled = !0;
 	entries = /* @__PURE__ */ new Map();
-	ordered = [];
+	orderedStore = [];
+	unregisteredEntries = 0;
 	index = new require_spatial.SpatialIndex3D();
 	pairCandidates = [];
 	queryCandidates = [];
@@ -48,7 +50,7 @@ var PhysicsWorld3D = class {
 	leafBounds = new require_spatial.Bounds3D();
 	indexDirty = !0;
 	sweptIndex = new require_spatial.SpatialIndex3D();
-	sweptEntries = [];
+	sweptStore = [];
 	ccdCandidates = [];
 	sweptIndexDirty = !0;
 	ccd = new require_ccd.ContinuousCollision3D();
@@ -79,6 +81,7 @@ var PhysicsWorld3D = class {
 	};
 	stats = this.counters;
 	contacts = /* @__PURE__ */ new Map();
+	contactRowSerial = 0;
 	active = [];
 	narrow = new require_geometry.Narrowphase3D();
 	queryNarrow = new require_geometry.Narrowphase3D();
@@ -190,7 +193,10 @@ var PhysicsWorld3D = class {
 			order: this.nextOrder++,
 			indexedRevision: -1,
 			ccdShape: void 0,
-			ccdStopped: !1
+			ccdStopped: !1,
+			registered: !0,
+			contactRow: -1,
+			partnerRows: void 0
 		} : void 0;
 		s && (s.shape.refresh(e) && ++this.counters.refreshedLeaves, s.body?.refreshInertia(s.shape)), t && this.unregister(e), s && !e.destroyed && e.collider === r && e.body === s.body && e.scene === i && e.registrationGeneration === a && !this.entries.has(e) && (this.entries.set(e, s), this.ordered.push(s), this.sweptEntries.push({
 			entry: s,
@@ -205,15 +211,35 @@ var PhysicsWorld3D = class {
 			let n = this.constraints[t];
 			(n.bodyA === e || n.bodyB === e) && this.removeJoint(n);
 		}
-		this.entries.delete(e), t.body && this.forces.delete(t.body);
-		let n = this.ordered.indexOf(t);
-		n !== -1 && this.ordered.splice(n, 1), this.indexDirty = !0;
-		let r = this.sweptEntries.findIndex((e) => e.entry === t);
-		r !== -1 && this.sweptEntries.splice(r, 1), this.sweptIndexDirty = !0;
-		for (let [e, n] of this.contacts) {
-			for (let [r, i] of n) (e === t || r === t) && (n.delete(r), this.end(i));
-			n.size === 0 && this.contacts.delete(e);
+		this.entries.delete(e), t.registered = !1, ++this.unregisteredEntries, t.body && this.forces.delete(t.body), this.indexDirty = !0, this.sweptIndexDirty = !0;
+		let n = [];
+		if (t.contactRow >= 0 && n.push(t), t.partnerRows) for (let e of t.partnerRows) n.push(e);
+		n.sort(compareContactRows);
+		for (let e of n) {
+			let n = this.contacts.get(e);
+			if (n) {
+				if (e === t) for (let [t, r] of n) n.delete(t), t.partnerRows?.delete(e), this.end(r);
+				else {
+					let r = n.get(t);
+					r && (n.delete(t), t.partnerRows.delete(e), this.end(r));
+				}
+				n.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
+			}
 		}
+	}
+	get ordered() {
+		return this.unregisteredEntries && this.compactEntries(), this.orderedStore;
+	}
+	get sweptEntries() {
+		return this.unregisteredEntries && this.compactEntries(), this.sweptStore;
+	}
+	compactEntries() {
+		this.unregisteredEntries = 0;
+		let e = 0;
+		for (let t of this.orderedStore) t.registered && (this.orderedStore[e++] = t);
+		this.orderedStore.length = e, e = 0;
+		for (let t of this.sweptStore) t.entry.registered && (this.sweptStore[e++] = t);
+		this.sweptStore.length = e;
 	}
 	valid(e) {
 		return !this.disposed && !e.object.destroyed && this.entries.get(e.object) === e;
@@ -281,7 +307,7 @@ var PhysicsWorld3D = class {
 	}
 	prepareContact(e, t, n) {
 		let r = this.contacts.get(e), i = r?.get(t);
-		i || (i = new Contact3D(e, t), r || this.contacts.set(e, r = /* @__PURE__ */ new Map()), r.set(t, i));
+		i || (i = new Contact3D(e, t), r || (this.contacts.set(e, r = /* @__PURE__ */ new Map()), e.contactRow = ++this.contactRowSerial), r.set(t, i), (t.partnerRows ??= /* @__PURE__ */ new Set()).add(e));
 		let a = i.manifold;
 		a.normal.copy(n.normal), a.distance = n.distance, a.count = n.count;
 		for (let r = 0; r < a.count; r++) {
@@ -392,8 +418,8 @@ var PhysicsWorld3D = class {
 				}
 			}
 			for (let [e, t] of this.contacts) {
-				for (let [e, n] of t) n.seen !== this.stepId && (t.delete(e), this.end(n));
-				t.size === 0 && this.contacts.delete(e);
+				for (let [n, r] of t) r.seen !== this.stepId && (t.delete(n), n.partnerRows.delete(e), this.end(r));
+				t.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
 			}
 			for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
 			++this.massEpoch;

@@ -61,7 +61,10 @@ export declare class PhysicsWorld3D {
     /** Disabling freezes fixed-step time and contacts without accumulating catch-up work. */
     enabled: boolean;
     private readonly entries;
-    private readonly ordered;
+    /** Registration order; read through `ordered`, which drops unregistered entries. */
+    private readonly orderedStore;
+    /** Unregistered entries still present in the ordered/swept stores. */
+    private unregisteredEntries;
     private readonly index;
     private readonly pairCandidates;
     private readonly queryCandidates;
@@ -70,7 +73,7 @@ export declare class PhysicsWorld3D {
     private readonly leafBounds;
     private indexDirty;
     private readonly sweptIndex;
-    private readonly sweptEntries;
+    private readonly sweptStore;
     private readonly ccdCandidates;
     private sweptIndexDirty;
     private readonly ccd;
@@ -85,7 +88,9 @@ export declare class PhysicsWorld3D {
     private nextOrder;
     private readonly counters;
     readonly stats: PhysicsStats3D;
+    /** Rows are keyed by the first entry; `contactRow`/`partnerRows` index them in reverse. */
     private readonly contacts;
+    private contactRowSerial;
     private readonly active;
     private readonly narrow;
     private readonly queryNarrow;
@@ -124,6 +129,9 @@ export declare class PhysicsWorld3D {
     /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */
     register(object: Object3D): void;
     unregister(object: Object3D): void;
+    private get ordered();
+    private get sweptEntries();
+    private compactEntries;
     private valid;
     private start;
     private end;

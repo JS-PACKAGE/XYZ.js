@@ -47,6 +47,11 @@ export interface PhysicsStats3D {
   readonly jointIterations: number;
 }
 const alwaysContinue = (): boolean => true;
+/** Contact rows in `contacts` Map insertion order (serials are unique integers). */
+const compareContactRows = (
+  a: { contactRow: number },
+  b: { contactRow: number },
+) => a.contactRow - b.contactRow;
 export interface PhysicsWorldOptions3D {
   gravity?: Readonly<Vector3>;
   fixedDelta?: number;
@@ -87,6 +92,12 @@ interface Entry3D {
   indexedRevision: number;
   ccdShape: Shape3D | undefined;
   ccdStopped: boolean;
+  /** False once unregistered; ordered/swept arrays drop such entries lazily. */
+  registered: boolean;
+  /** Insertion serial of this entry's `contacts` row, or -1 without one. */
+  contactRow: number;
+  /** Owners of other rows that hold a contact keyed by this entry. */
+  partnerRows: Set<Entry3D> | undefined;
 }
 interface SweptEntry3D {
   readonly entry: Entry3D;
@@ -123,7 +134,10 @@ export class PhysicsWorld3D {
   /** Disabling freezes fixed-step time and contacts without accumulating catch-up work. */
   enabled = true;
   private readonly entries = new Map<Object3D, Entry3D>();
-  private readonly ordered: Entry3D[] = [];
+  /** Registration order; read through `ordered`, which drops unregistered entries. */
+  private readonly orderedStore: Entry3D[] = [];
+  /** Unregistered entries still present in the ordered/swept stores. */
+  private unregisteredEntries = 0;
   private readonly index = new SpatialIndex3D<Entry3D>();
   private readonly pairCandidates: Entry3D[] = [];
   private readonly queryCandidates: Entry3D[] = [];
@@ -132,7 +146,7 @@ export class PhysicsWorld3D {
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
   private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
-  private readonly sweptEntries: SweptEntry3D[] = [];
+  private readonly sweptStore: SweptEntry3D[] = [];
   private readonly ccdCandidates: SweptEntry3D[] = [];
   private sweptIndexDirty = true;
   private readonly ccd = new ContinuousCollision3D();
@@ -162,7 +176,9 @@ export class PhysicsWorld3D {
     jointIterations: 0,
   };
   readonly stats: PhysicsStats3D = this.counters;
+  /** Rows are keyed by the first entry; `contactRow`/`partnerRows` index them in reverse. */
   private readonly contacts = new Map<Entry3D, Map<Entry3D, Contact3D>>();
+  private contactRowSerial = 0;
   private readonly active: Contact3D[] = [];
   private readonly narrow = new Narrowphase3D();
   private readonly queryNarrow = new Narrowphase3D();
@@ -353,6 +369,9 @@ export class PhysicsWorld3D {
           indexedRevision: -1,
           ccdShape: undefined,
           ccdStopped: false,
+          registered: true,
+          contactRow: -1,
+          partnerRows: undefined,
         }
       : undefined;
     if (next) {
@@ -389,21 +408,60 @@ export class PhysicsWorld3D {
         this.removeJoint(joint);
     }
     this.entries.delete(object);
+    entry.registered = false;
+    // Splicing both arrays per removal made bulk teardown quadratic; compact lazily.
+    ++this.unregisteredEntries;
     if (entry.body) this.forces.delete(entry.body);
-    const index = this.ordered.indexOf(entry);
-    if (index !== -1) this.ordered.splice(index, 1);
     this.indexDirty = true;
-    const swept = this.sweptEntries.findIndex((item) => item.entry === entry);
-    if (swept !== -1) this.sweptEntries.splice(swept, 1);
     this.sweptIndexDirty = true;
-    for (const [a, row] of this.contacts) {
-      for (const [b, c] of row)
-        if (a === entry || b === entry) {
+    // Only rows holding the entry are visited, in the contacts Map's order, so
+    // collisionend order is unchanged while bulk removal no longer scans all rows.
+    // A local list: collisionend listeners may re-enter unregister.
+    const rows: Entry3D[] = [];
+    if (entry.contactRow >= 0) rows.push(entry);
+    if (entry.partnerRows) for (const a of entry.partnerRows) rows.push(a);
+    rows.sort(compareContactRows);
+    for (const a of rows) {
+      const row = this.contacts.get(a);
+      if (!row) continue;
+      if (a === entry)
+        for (const [b, c] of row) {
           row.delete(b);
+          b.partnerRows?.delete(a);
           this.end(c);
         }
-      if (row.size === 0) this.contacts.delete(a);
+      else {
+        const c = row.get(entry);
+        if (c) {
+          row.delete(entry);
+          entry.partnerRows!.delete(a);
+          this.end(c);
+        }
+      }
+      if (row.size === 0) {
+        this.contacts.delete(a);
+        a.contactRow = -1;
+      }
     }
+  }
+  private get ordered(): Entry3D[] {
+    if (this.unregisteredEntries) this.compactEntries();
+    return this.orderedStore;
+  }
+  private get sweptEntries(): SweptEntry3D[] {
+    if (this.unregisteredEntries) this.compactEntries();
+    return this.sweptStore;
+  }
+  private compactEntries(): void {
+    this.unregisteredEntries = 0;
+    let kept = 0;
+    for (const entry of this.orderedStore)
+      if (entry.registered) this.orderedStore[kept++] = entry;
+    this.orderedStore.length = kept;
+    kept = 0;
+    for (const item of this.sweptStore)
+      if (item.entry.registered) this.sweptStore[kept++] = item;
+    this.sweptStore.length = kept;
   }
   private valid(entry: Entry3D): boolean {
     return (
@@ -534,8 +592,12 @@ export class PhysicsWorld3D {
       contact = row?.get(b);
     if (!contact) {
       contact = new Contact3D(a, b);
-      if (!row) this.contacts.set(a, (row = new Map()));
+      if (!row) {
+        this.contacts.set(a, (row = new Map()));
+        a.contactRow = ++this.contactRowSerial;
+      }
       row.set(b, contact);
+      (b.partnerRows ??= new Set()).add(a);
     }
     const m = contact.manifold;
     m.normal.copy(q.normal);
@@ -805,9 +867,13 @@ export class PhysicsWorld3D {
       for (const [b, c] of row)
         if (c.seen !== this.stepId) {
           row.delete(b);
+          b.partnerRows!.delete(a);
           this.end(c);
         }
-      if (row.size === 0) this.contacts.delete(a);
+      if (row.size === 0) {
+        this.contacts.delete(a);
+        a.contactRow = -1;
+      }
     }
     for (const c of this.active) {
       if (!this.valid(c.a) || !this.valid(c.b)) continue;
