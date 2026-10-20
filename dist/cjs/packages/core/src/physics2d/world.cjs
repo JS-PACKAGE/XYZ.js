@@ -309,8 +309,12 @@ var PhysicsWorld2D = class {
 		n.iterations = n.impacts = n.budgetExhaustions = n.stoppedTime = 0;
 		let r = e;
 		for (; r > 1e-12 && this.continuation();) {
-			let e = 1 / 0, i = 1 / 0, a, o;
-			for (let e of this.sorted) e.ccdUnproven = !1, e.ccdStopped ? e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0) : e.motion.set(e.owner, e.body);
+			let e = 1 / 0, i = 1 / 0, a, o, s = !1;
+			for (let e of this.sorted) if (e.body?.ccd) {
+				s = !0;
+				break;
+			}
+			if (s) for (let e of this.sorted) e.ccdUnproven = !1, e.ccdStopped ? e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0) : e.motion.set(e.owner, e.body);
 			for (let s = 0; s < this.sorted.length; s++) {
 				let c = this.sorted[s];
 				if (this.alive(c) && c.body?.ccd) for (let l = 0; l < this.sorted.length; l++) {
@@ -338,18 +342,18 @@ var PhysicsWorld2D = class {
 				return;
 			}
 			this.advanceBodies(e), r -= e;
-			let s = a.contacts.get(o) ?? new Contact(a, o), c = s.manifold, l = this.impactManifold, u = s.a === a ? 1 : -1;
-			c.nx = l.nx * u, c.ny = l.ny * u, c.penetration = l.penetration, c.count = l.count;
-			for (let e = 0; e < l.count; e++) c.points[e].copy(l.points[e]);
-			if (s.seen !== t) {
-				if (!this.activate(s, t)) {
+			let c = a.contacts.get(o) ?? new Contact(a, o), l = c.manifold, u = this.impactManifold, d = c.a === a ? 1 : -1;
+			l.nx = u.nx * d, l.ny = u.ny * d, l.penetration = u.penetration, l.count = u.count;
+			for (let e = 0; e < u.count; e++) l.points[e].copy(u.points[e]);
+			if (c.seen !== t) {
+				if (!this.activate(c, t)) {
 					if (!this.continuation()) return;
 					continue;
 				}
-			} else this.prepareBounce(s);
-			if (!s.cancelled && s.active) {
+			} else this.prepareBounce(c);
+			if (!c.cancelled && c.active) {
 				a.body?.wake(), o.body?.wake();
-				for (let e = 0; e < this.velocityIterations; e++) this.solveVelocity(s);
+				for (let e = 0; e < this.velocityIterations; e++) this.solveVelocity(c);
 			}
 			n.impacts++, n.impacts >= this.ccdImpacts && (n.budgetExhaustions++, n.stoppedTime = Math.max(n.stoppedTime, r), a.ccdStopped = o.ccdStopped = !0);
 		}

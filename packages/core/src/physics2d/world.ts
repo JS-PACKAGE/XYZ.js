@@ -635,17 +635,25 @@ export class PhysicsWorld2D {
         safe = Infinity,
         impactA: Proxy | undefined,
         impactB: Proxy | undefined;
-      for (const proxy of this.sorted) {
-        proxy.ccdUnproven = false;
-        if (proxy.ccdStopped)
-          proxy.motion.setExplicit(
-            proxy.owner.position.x,
-            proxy.owner.position.y,
-            0,
-            0,
-          );
-        else proxy.motion.set(proxy.owner, proxy.body);
-      }
+      // Motions feed only the CCD pairs below; without a CCD body there are none to read them.
+      let continuous = false;
+      for (const proxy of this.sorted)
+        if (proxy.body?.ccd) {
+          continuous = true;
+          break;
+        }
+      if (continuous)
+        for (const proxy of this.sorted) {
+          proxy.ccdUnproven = false;
+          if (proxy.ccdStopped)
+            proxy.motion.setExplicit(
+              proxy.owner.position.x,
+              proxy.owner.position.y,
+              0,
+              0,
+            );
+          else proxy.motion.set(proxy.owner, proxy.body);
+        }
       for (let i = 0; i < this.sorted.length; i++) {
         const a = this.sorted[i];
         if (!this.alive(a) || !a.body?.ccd) continue;
