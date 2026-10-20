@@ -293,6 +293,9 @@ interface CachedGeometry {
   tangents: WebGLBuffer | undefined;
   seen: number;
   version: number;
+  /** VAO state known to have skin (9/10/12/13) or instance (3–7) arrays disabled. */
+  skinDisabled?: boolean;
+  instancingDisabled?: boolean;
 }
 
 interface CachedInstances {
@@ -862,6 +865,12 @@ export class WebGL2Renderer implements Renderer {
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   /** Every scalar uniform write in this renderer goes through this cache. */
   private readonly uniformValues = new WebGLUniformCache();
+  /** Texture/sampler per unit as bound by the current mesh pass (undefined = unknown). */
+  private readonly unitTextures: (WebGLTexture | null | undefined)[] = [];
+  private readonly unitSamplers: (WebGLSampler | null | undefined)[] = [];
+  private activeUnit = -1;
+  /** Generic mesh attribute defaults written during the current mesh pass. */
+  private meshAttributeDefaults = false;
   private readonly tintData = new Float32Array(4);
   private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
   private readonly bakedData = new Float32Array(40);
@@ -2520,6 +2529,8 @@ export class WebGL2Renderer implements Renderer {
     const basePhases = 2;
     const phases = basePhases + (this.weighted ? 2 : 0);
     for (let phase = 0; phase < phases; phase++) {
+      // Phase transitions resolve/blit through code that binds textures directly.
+      this.resetPassState();
       const oitPass = phase >= basePhases ? phase - basePhases + 1 : 0;
       if (oitPass) {
         gl.bindFramebuffer(
@@ -2683,9 +2694,7 @@ export class WebGL2Renderer implements Renderer {
             this.environmentLightingData,
           );
           gl.uniform4fv(uniforms['probeData[0]'], this.probeData);
-          gl.activeTexture(gl.TEXTURE6);
-          gl.bindSampler(6, null);
-          gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.probeTexture!);
+          this.bindUnit(6, gl.TEXTURE_2D_ARRAY, this.probeTexture!, null);
         }
         this.uniformValues.uniform1i(gl, uniforms.pbr, pbr ? 1 : 0);
         this.uniformValues.uniform1i(
@@ -2793,11 +2802,11 @@ export class WebGL2Renderer implements Renderer {
             uniforms.iridescenceThicknessRange,
             this.opticalSettings.subarray(20, 24),
           );
-          gl.activeTexture(gl.TEXTURE0 + 14);
-          gl.bindSampler(14, null);
-          gl.bindTexture(
+          this.bindUnit(
+            14,
             gl.TEXTURE_2D_ARRAY,
             this.opticalTextures.get(material)?.resource ?? this.emptyOptical!,
+            null,
           );
           this.uniformValues.uniform4f(
             gl,
@@ -3070,11 +3079,50 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 cannot render a destroyed material texture.',
       );
     const gl = this.gl!;
-    gl.bindSampler(unit, sampler ? this.cacheSampler(sampler) : null);
-    gl.activeTexture(gl.TEXTURE0 + unit);
+    // Uploads bind to the active unit: keep them on the destination unit, as
+    // units bound once per pass (shadow, refraction, probe arrays) must stay intact.
+    if (this.activeUnit !== unit) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      this.activeUnit = unit;
+    }
     const cached = this.cacheTexture(texture);
     cached.seen = this.frame;
-    gl.bindTexture(gl.TEXTURE_2D, cached.resource);
+    this.bindUnit(
+      unit,
+      gl.TEXTURE_2D,
+      cached.resource,
+      sampler ? this.cacheSampler(sampler) : null,
+    );
+  }
+
+  /** Forgets cached pass state; mesh passes call this wherever other code may have bound textures. */
+  private resetPassState(): void {
+    this.unitTextures.length = 0;
+    this.unitSamplers.length = 0;
+    this.activeUnit = -1;
+    this.meshAttributeDefaults = false;
+  }
+
+  /** Binds `texture`/`sampler` on `unit` unless the current mesh pass already did. */
+  private bindUnit(
+    unit: number,
+    target: GLenum,
+    texture: WebGLTexture | null,
+    sampler: WebGLSampler | null,
+  ): void {
+    const gl = this.gl!;
+    if (this.unitSamplers[unit] !== sampler) {
+      gl.bindSampler(unit, sampler);
+      this.unitSamplers[unit] = sampler;
+    }
+    const slot = unit * 2 + (target === gl.TEXTURE_2D ? 0 : 1);
+    if (this.unitTextures[slot] === texture) return;
+    if (this.activeUnit !== unit) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      this.activeUnit = unit;
+    }
+    gl.bindTexture(target, texture);
+    this.unitTextures[slot] = texture;
   }
 
   private cacheSampler(options: TextureSamplerOptions): WebGLSampler | null {
@@ -3154,16 +3202,23 @@ export class WebGL2Renderer implements Renderer {
     geometry.seen = this.frame;
     gl.uniformMatrix4fv(uniforms.model, false, mesh.worldMatrix.elements);
     gl.bindVertexArray(geometry.vao);
-    // Generic attribute values are context state, so the white default is set on every draw.
-    gl.vertexAttrib3f(7, 1, 1, 1);
-    gl.vertexAttrib4f(8, 1, 1, 1, 1);
-    gl.vertexAttrib2f(11, 0, 0);
+    if (!this.meshAttributeDefaults) {
+      // Generic attribute values are context state shared by every VAO and are
+      // only written here, so one write per mesh pass keeps the white/zero defaults.
+      gl.vertexAttrib3f(7, 1, 1, 1);
+      gl.vertexAttrib4f(8, 1, 1, 1, 1);
+      gl.vertexAttrib2f(11, 0, 0);
+      gl.vertexAttribI4ui(9, 0, 0, 0, 0);
+      gl.vertexAttrib4f(10, 1, 0, 0, 0);
+      gl.vertexAttribI4ui(12, 0, 0, 0, 0);
+      gl.vertexAttrib4f(13, 0, 0, 0, 0);
+      this.meshAttributeDefaults = true;
+    }
     const skin = mesh instanceof SkinnedMesh ? this.cacheSkin(mesh) : undefined;
     this.uniformValues.uniform1i(gl, uniforms.skinned, skin ? 1 : 0);
     if (skin) {
-      gl.activeTexture(gl.TEXTURE0 + 16);
-      gl.bindTexture(gl.TEXTURE_2D, skin.palette);
-      gl.bindSampler(16, null);
+      geometry.skinDisabled = false;
+      this.bindUnit(16, gl.TEXTURE_2D, skin.palette, null);
       this.uniformValues.uniform1i(gl, uniforms.jointPalette, 16);
       gl.bindBuffer(gl.ARRAY_BUFFER, skin.indices);
       gl.enableVertexAttribArray(9);
@@ -3198,22 +3253,20 @@ export class WebGL2Renderer implements Renderer {
       } else {
         gl.disableVertexAttribArray(12);
         gl.disableVertexAttribArray(13);
-        gl.vertexAttribI4ui(12, 0, 0, 0, 0);
-        gl.vertexAttrib4f(13, 0, 0, 0, 0);
       }
     } else {
-      gl.disableVertexAttribArray(9);
-      gl.disableVertexAttribArray(10);
-      gl.disableVertexAttribArray(12);
-      gl.disableVertexAttribArray(13);
-      gl.vertexAttribI4ui(12, 0, 0, 0, 0);
-      gl.vertexAttrib4f(13, 0, 0, 0, 0);
-      gl.vertexAttribI4ui(9, 0, 0, 0, 0);
-      gl.vertexAttrib4f(10, 1, 0, 0, 0);
+      if (!geometry.skinDisabled) {
+        gl.disableVertexAttribArray(9);
+        gl.disableVertexAttribArray(10);
+        gl.disableVertexAttribArray(12);
+        gl.disableVertexAttribArray(13);
+        geometry.skinDisabled = true;
+      }
       // Samplers require a complete float-compatible texture even in an untaken branch.
       this.uniformValues.uniform1i(gl, uniforms.jointPalette, 0);
     }
     if (mesh instanceof InstancedMesh) {
+      geometry.instancingDisabled = false;
       const entry = this.cacheInstances(mesh, packed);
       gl.bindBuffer(gl.ARRAY_BUFFER, entry.buffer);
       for (let column = 0; column < 4; column++) {
@@ -3241,12 +3294,15 @@ export class WebGL2Renderer implements Renderer {
       );
     } else {
       // Geometry VAOs can be shared by ordinary and instanced meshes.
-      for (let column = 0; column < 4; column++) {
-        gl.disableVertexAttribArray(3 + column);
-        gl.vertexAttribDivisor(3 + column, 0);
+      if (!geometry.instancingDisabled) {
+        for (let column = 0; column < 4; column++) {
+          gl.disableVertexAttribArray(3 + column);
+          gl.vertexAttribDivisor(3 + column, 0);
+        }
+        gl.disableVertexAttribArray(7);
+        gl.vertexAttribDivisor(7, 0);
+        geometry.instancingDisabled = true;
       }
-      gl.disableVertexAttribArray(7);
-      gl.vertexAttribDivisor(7, 0);
       this.uniformValues.uniform1i(gl, uniforms.instanced, 0);
       gl.drawElements(
         gl.TRIANGLES,
@@ -3291,6 +3347,8 @@ export class WebGL2Renderer implements Renderer {
         gl.bufferData(gl.ARRAY_BUFFER, mesh.weights, gl.STATIC_DRAW);
         gl.activeTexture(gl.TEXTURE0 + 16);
         gl.bindTexture(gl.TEXTURE_2D, palette);
+        this.activeUnit = 16;
+        this.unitTextures[32] = palette;
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
         gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
@@ -3326,6 +3384,8 @@ export class WebGL2Renderer implements Renderer {
     } else if (entry.version !== mesh.paletteVersion) {
       gl.activeTexture(gl.TEXTURE0 + 16);
       gl.bindTexture(gl.TEXTURE_2D, entry.palette);
+      this.activeUnit = 16;
+      this.unitTextures[32] = entry.palette;
       gl.texSubImage2D(
         gl.TEXTURE_2D,
         0,
@@ -3428,6 +3488,7 @@ export class WebGL2Renderer implements Renderer {
 
   private drawShadows(scene: Scene, contactTarget?: RenderTarget): void {
     const gl = this.gl!;
+    this.resetPassState();
     const size = this.atlas.size;
     if (!contactTarget && (size > this.maxWidth || size > this.maxHeight))
       throw new GraphicsError(
@@ -4277,6 +4338,10 @@ export class WebGL2Renderer implements Renderer {
     }
     try {
       gl.bindTexture(gl.TEXTURE_2D, resource);
+      // The upload rebinds whichever unit is active.
+      if (this.activeUnit >= 0)
+        this.unitTextures[this.activeUnit * 2] = resource;
+      else this.resetPassState();
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
       gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
       gl.texParameteri(

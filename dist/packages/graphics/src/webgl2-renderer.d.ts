@@ -118,6 +118,12 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly lightingData;
     /** Every scalar uniform write in this renderer goes through this cache. */
     private readonly uniformValues;
+    /** Texture/sampler per unit as bound by the current mesh pass (undefined = unknown). */
+    private readonly unitTextures;
+    private readonly unitSamplers;
+    private activeUnit;
+    /** Generic mesh attribute defaults written during the current mesh pass. */
+    private meshAttributeDefaults;
     private readonly tintData;
     private readonly materialUVData;
     private readonly bakedData;
@@ -207,6 +213,10 @@ export declare class WebGL2Renderer implements Renderer {
     private cacheOpticalMaps;
     private drawMeshes;
     private bindMaterialTexture;
+    /** Forgets cached pass state; mesh passes call this wherever other code may have bound textures. */
+    private resetPassState;
+    /** Binds `texture`/`sampler` on `unit` unless the current mesh pass already did. */
+    private bindUnit;
     private cacheSampler;
     private drawMesh;
     private cacheSkin;
