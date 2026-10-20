@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_world_streaming = require("../../../src/data/world-streaming.cjs");
 const require_factories = require("./factories.cjs");
 const require_world_streaming_navigation = require("./world-streaming-navigation.cjs");
@@ -134,7 +135,7 @@ var WorldStreamingController = class extends EventTarget {
 				for (let t of this.records.values()) {
 					t.activeWanted = t.residentWanted = !1;
 					let { min: n, max: r } = t.cell.bounds;
-					t.distance = Math.hypot(Math.max(n.x - e.x, 0, e.x - r.x), Math.max(n.y - e.y, 0, e.y - r.y), Math.max(n.z - e.z, 0, e.z - r.z)), (t.distance <= this.prefetchDistance || t.state === `active` && t.distance <= this.retireDistance) && this.ranked.push(t);
+					t.distance = require_hypot.hypot3(Math.max(n.x - e.x, 0, e.x - r.x), Math.max(n.y - e.y, 0, e.y - r.y), Math.max(n.z - e.z, 0, e.z - r.z)), (t.distance <= this.prefetchDistance || t.state === `active` && t.distance <= this.retireDistance) && this.ranked.push(t);
 				}
 				this.ranked.sort((e, t) => (t.cell.priority ?? 0) - (e.cell.priority ?? 0) || e.distance - t.distance || e.order - t.order);
 				let t = 0, n = 0;
@@ -154,9 +155,9 @@ var WorldStreamingController = class extends EventTarget {
 					if (!this.enabled || this.paused) break;
 					e.activeWanted && e.state === `ready` && this.publish(e);
 				}
-				let r = 0, { pending: i, resident: a } = this.stats;
+				let r = 0, { pending: a, resident: o } = this.stats;
 				for (let e of this.ranked) {
-					if (!this.enabled || this.paused || r >= this.admissionsPerFrame || i + r >= this.maxPending || a + r >= this.maxResident) break;
+					if (!this.enabled || this.paused || r >= this.admissionsPerFrame || a + r >= this.maxPending || o + r >= this.maxResident) break;
 					e.residentWanted && e.state === `unloaded` && !e.task && (this.admit(e), r++);
 				}
 			} finally {

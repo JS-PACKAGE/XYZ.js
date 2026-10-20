@@ -1,6 +1,7 @@
 import { Matrix4 } from '../../math/src/index.js';
 import type { Camera3D } from '../../core/src/orthographic-camera.js';
 import type { PostProcessingSettings } from '../../core/src/render-settings.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 function halton(index: number, base: number): number {
   let result = 0,
@@ -56,7 +57,7 @@ export class TemporalPostState {
     const p = camera.position,
       q = camera.rotation;
     const scale = 'fov' in camera ? camera.fov : camera.height / camera.zoom;
-    const distance = Math.hypot(
+    const distance = hypot3(
       p.x - this.previousPosition[0]!,
       p.y - this.previousPosition[1]!,
       p.z - this.previousPosition[2]!,

@@ -1,4 +1,5 @@
 import type { Matrix4 } from '../../math/src/index.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 /**
  * Six clip planes extracted from a column-major view-projection matrix whose
@@ -20,7 +21,7 @@ export class Frustum {
       c: number,
       d: number,
     ): void => {
-      const length = Math.hypot(a, b, c);
+      const length = hypot3(a, b, c);
       const scale = length > 0 ? 1 / length : 0;
       p[index * 4] = a * scale;
       p[index * 4 + 1] = b * scale;

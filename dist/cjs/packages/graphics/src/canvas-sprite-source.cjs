@@ -1,6 +1,7 @@
 const require_errors = require("./errors.cjs");
 const require_texture = require("../../assets/src/texture.cjs");
 const require_distance_field = require("../../assets/src/fonts/distance-field.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/graphics/src/canvas-sprite-source.js
 var CanvasSpriteSource = class {
 	renderImage;
@@ -28,22 +29,22 @@ var CanvasSpriteSource = class {
 		}
 		return t.canvas;
 	}
-	image(i, a, o, s) {
-		let c = i instanceof require_texture.Texture && require_distance_field.getTextureDistanceField(i), l = 1;
-		c && (l = require_distance_field.getDistanceFieldRasterScale(i, s ? Math.max(Math.hypot(s.a, s.b), Math.hypot(s.c, s.d)) / a.resolution : 1));
-		let u = c ? require_distance_field.getDistanceFieldCanvas(i, l) : this.prepare(i), d = Math.ceil(i.width * l), f = Math.ceil(i.height * l);
-		if (i.kind !== `render` && o[0] === 1 && o[1] === 1 && o[2] === 1 && a.u0 === 0 && a.v0 === 0 && a.ux === 1 && a.vx === 0 && a.uy === 0 && a.vy === 1 && a.trimWidth * a.resolution === i.width && a.trimHeight * a.resolution === i.height) return u;
-		let p = this.scratch ??= document.createElement(`canvas`), m = Math.max(1, Math.round(a.trimWidth * a.resolution * l)), h = Math.max(1, Math.round(a.trimHeight * a.resolution * l));
-		p.width !== m && (p.width = m), p.height !== h && (p.height = h);
-		let g = p.getContext(`2d`);
-		g.setTransform(1, 0, 0, 1, 0, 0), g.clearRect(0, 0, m, h), g.imageSmoothingEnabled = !1;
-		let _ = a.ux * d / p.width, v = a.vx * f / p.width, y = a.uy * d / p.height, b = a.vy * f / p.height, x = _ * b - v * y, S = a.u0 * d, C = a.v0 * f;
-		if (g.setTransform(b / x, -v / x, -y / x, _ / x, (y * C - b * S) / x, (v * S - _ * C) / x), g.drawImage(u, 0, 0), g.setTransform(1, 0, 0, 1, 0, 0), o[0] !== 1 || o[1] !== 1 || o[2] !== 1) {
-			let e = g.getImageData(0, 0, p.width, p.height);
-			for (let t = 0; t < e.data.length; t += 4) e.data[t] *= o[0], e.data[t + 1] *= o[1], e.data[t + 2] *= o[2];
-			g.putImageData(e, 0, 0);
+	image(i, o, s, c) {
+		let l = i instanceof require_texture.Texture && require_distance_field.getTextureDistanceField(i), u = 1;
+		l && (u = require_distance_field.getDistanceFieldRasterScale(i, c ? Math.max(require_hypot.hypot2(c.a, c.b), require_hypot.hypot2(c.c, c.d)) / o.resolution : 1));
+		let d = l ? require_distance_field.getDistanceFieldCanvas(i, u) : this.prepare(i), f = Math.ceil(i.width * u), p = Math.ceil(i.height * u);
+		if (i.kind !== `render` && s[0] === 1 && s[1] === 1 && s[2] === 1 && o.u0 === 0 && o.v0 === 0 && o.ux === 1 && o.vx === 0 && o.uy === 0 && o.vy === 1 && o.trimWidth * o.resolution === i.width && o.trimHeight * o.resolution === i.height) return d;
+		let m = this.scratch ??= document.createElement(`canvas`), h = Math.max(1, Math.round(o.trimWidth * o.resolution * u)), g = Math.max(1, Math.round(o.trimHeight * o.resolution * u));
+		m.width !== h && (m.width = h), m.height !== g && (m.height = g);
+		let _ = m.getContext(`2d`);
+		_.setTransform(1, 0, 0, 1, 0, 0), _.clearRect(0, 0, h, g), _.imageSmoothingEnabled = !1;
+		let v = o.ux * f / m.width, y = o.vx * p / m.width, b = o.uy * f / m.height, x = o.vy * p / m.height, S = v * x - y * b, C = o.u0 * f, w = o.v0 * p;
+		if (_.setTransform(x / S, -y / S, -b / S, v / S, (b * w - x * C) / S, (y * C - v * w) / S), _.drawImage(d, 0, 0), _.setTransform(1, 0, 0, 1, 0, 0), s[0] !== 1 || s[1] !== 1 || s[2] !== 1) {
+			let e = _.getImageData(0, 0, m.width, m.height);
+			for (let t = 0; t < e.data.length; t += 4) e.data[t] *= s[0], e.data[t + 1] *= s[1], e.data[t + 2] *= s[2];
+			_.putImageData(e, 0, 0);
 		}
-		return p;
+		return m;
 	}
 	unload(e) {
 		let t = this.sources.get(e);

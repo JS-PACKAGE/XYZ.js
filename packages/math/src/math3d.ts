@@ -1,3 +1,4 @@
+import { hypot3, hypot4 } from './hypot.js';
 export class Vector3 {
   // See Vector2: numeric initializers avoid boxing every stored coordinate.
   x = 0;
@@ -46,7 +47,7 @@ export class Vector3 {
   }
 
   length(): number {
-    return Math.hypot(this.x, this.y, this.z);
+    return hypot3(this.x, this.y, this.z);
   }
 
   dot(other: Vector3): number {
@@ -96,7 +97,7 @@ export class Quaternion {
   }
 
   normalize(): this {
-    const magnitude = Math.hypot(this.x, this.y, this.z, this.w);
+    const magnitude = hypot4(this.x, this.y, this.z, this.w);
     if (magnitude !== 0) {
       const reciprocal = 1 / magnitude;
       this.x *= reciprocal;

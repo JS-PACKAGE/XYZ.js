@@ -4,6 +4,7 @@ import { Geometry } from './geometry.js';
 import { InstancedMesh } from './instanced-mesh.js';
 import { Mesh, TextureMaterial, type MeshOptions } from './mesh.js';
 import { SkinnedMesh } from './skinned-mesh.js';
+import { hypot3, hypot4 } from '../../math/src/hypot.js';
 
 export interface DecalOptions {
   target: Mesh;
@@ -72,7 +73,7 @@ function project(options: DecalOptions): Geometry {
       );
     rotation.setFromEuler(...options.rotation);
   }
-  const length = Math.hypot(rotation.x, rotation.y, rotation.z, rotation.w);
+  const length = hypot4(rotation.x, rotation.y, rotation.z, rotation.w);
   if (!Number.isFinite(length) || length === 0)
     throw new RangeError(
       'Decal rotation must be a finite, nonzero quaternion.',
@@ -173,7 +174,7 @@ function project(options: DecalOptions): Geometry {
               inverse[6] * worldNormal.y +
               inverse[10] * worldNormal.z),
       );
-      const magnitude = Math.hypot(nx, ny, nz);
+      const magnitude = hypot3(nx, ny, nz);
       normals.push(
         magnitude ? nx / magnitude : 0,
         magnitude ? ny / magnitude : 0,
@@ -190,9 +191,7 @@ function project(options: DecalOptions): Geometry {
       const vx = input[b] - input[0],
         vy = input[b + 1] - input[1],
         vz = input[b + 2] - input[2];
-      if (
-        Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) > 0
-      )
+      if (hypot3(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx) > 0)
         indices.push(base, base + vertex, base + vertex + 1);
     }
   }

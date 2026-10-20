@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_animation_pose = require("./animation-pose.cjs");
 const require_animation = require("./animation.cjs");
@@ -6,7 +7,7 @@ function bindPose(t) {
 	if (t.translation.length !== 3 || t.rotation.length !== 4 || t.scale.length !== 3 || !t.translation.every(Number.isFinite) || !t.rotation.every(Number.isFinite) || !t.scale.every(Number.isFinite)) throw RangeError(`Retarget bind pose requires finite local TRS values.`);
 	let n = t.scale;
 	if (n[0] <= 0 || n[0] !== n[1] || n[0] !== n[2]) throw RangeError(`Retarget bind scales must be positive and uniform; shear/reflection are unsupported.`);
-	let r = t.rotation, i = Math.hypot(r[0], r[1], r[2], r[3]);
+	let r = t.rotation, i = require_hypot.hypot4(r[0], r[1], r[2], r[3]);
 	if (!Number.isFinite(i) || i === 0) throw RangeError(`Retarget bind quaternion must have a finite nonzero length.`);
 	return {
 		translation: Float64Array.from(t.translation),
@@ -39,27 +40,27 @@ var AnimationRetargeter = class {
 	targetRoot;
 	constructor(t, n) {
 		this.sourceRoot = n.sourceRoot, this.targetRoot = n.targetRoot;
-		let i = n.rootTranslationScale ?? 1;
-		if (!Number.isFinite(i) || i < 0) throw RangeError(`Root translation scale must be nonnegative and finite.`);
-		let a = /* @__PURE__ */ new Set();
+		let a = n.rootTranslationScale ?? 1;
+		if (!Number.isFinite(a) || a < 0) throw RangeError(`Root translation scale must be nonnegative and finite.`);
+		let o = /* @__PURE__ */ new Set();
 		for (let r of t) {
-			if (r.source.destroyed || r.target.destroyed || this.mappings.has(r.source) || a.has(r.target)) throw RangeError(`Retarget nodes must be live and mapped one-to-one.`);
-			let t = bindPose(r.sourceBind), o = bindPose(r.targetBind), s = t.translation, c = o.translation, l = Math.hypot(s[0], s[1], s[2]), u = Math.hypot(c[0], c[1], c[2]), d = r.translationScale;
-			if (d === void 0) {
-				if (r.source === n.sourceRoot) d = i;
-				else if (l > 0) d = u / l;
-				else if (u === 0) d = 1;
+			if (r.source.destroyed || r.target.destroyed || this.mappings.has(r.source) || o.has(r.target)) throw RangeError(`Retarget nodes must be live and mapped one-to-one.`);
+			let t = bindPose(r.sourceBind), s = bindPose(r.targetBind), c = t.translation, l = s.translation, u = require_hypot.hypot3(c[0], c[1], c[2]), d = require_hypot.hypot3(l[0], l[1], l[2]), f = r.translationScale;
+			if (f === void 0) {
+				if (r.source === n.sourceRoot) f = a;
+				else if (u > 0) f = d / u;
+				else if (d === 0) f = 1;
 				else throw RangeError(`Zero source bone offset requires an explicit translation scale.`);
 			}
-			if (!Number.isFinite(d) || d < 0) throw RangeError(`Translation scale must be nonnegative and finite.`);
-			a.add(r.target), this.mappings.set(r.source, {
+			if (!Number.isFinite(f) || f < 0) throw RangeError(`Translation scale must be nonnegative and finite.`);
+			o.add(r.target), this.mappings.set(r.source, {
 				source: r.source,
 				target: r.target,
 				sourceParent: r.source.parent,
 				targetParent: r.target.parent,
 				sourceBind: t,
-				targetBind: o,
-				translationScale: d,
+				targetBind: s,
+				translationScale: f,
 				sourceWorld: new require_math3d.Quaternion(),
 				targetWorld: new require_math3d.Quaternion(),
 				left: new require_math3d.Quaternion(),
@@ -67,15 +68,15 @@ var AnimationRetargeter = class {
 				vectorMatrix: /* @__PURE__ */ new Float64Array(9)
 			});
 		}
-		let o = this.mappings.get(n.sourceRoot);
-		if (!o || o.target !== n.targetRoot) throw RangeError(`Explicit source and target roots must be mapped together.`);
+		let s = this.mappings.get(n.sourceRoot);
+		if (!s || s.target !== n.targetRoot) throw RangeError(`Explicit source and target roots must be mapped together.`);
 		this.validateHierarchy();
-		let s = /* @__PURE__ */ new Set(), prepare = (e) => {
-			if (s.has(e)) return;
+		let c = /* @__PURE__ */ new Set(), prepare = (e) => {
+			if (c.has(e)) return;
 			let t = e.source === this.sourceRoot ? void 0 : this.mappings.get(e.sourceParent);
 			t ? (prepare(t), require_animation_pose.multiplyRotation(t.sourceWorld, e.sourceBind.rotation, e.sourceWorld), require_animation_pose.multiplyRotation(t.targetWorld, e.targetBind.rotation, e.targetWorld), e.left.set(-t.targetWorld.x, -t.targetWorld.y, -t.targetWorld.z, t.targetWorld.w), require_animation_pose.multiplyRotation(e.left, t.sourceWorld, e.left)) : (e.sourceWorld.copy(e.sourceBind.rotation), e.targetWorld.copy(e.targetBind.rotation)), e.right.set(-e.sourceWorld.x, -e.sourceWorld.y, -e.sourceWorld.z, e.sourceWorld.w), require_animation_pose.multiplyRotation(e.right, e.targetWorld, e.right);
 			let n = e.left, i = e.vectorMatrix;
-			i[0] = 1 - 2 * (n.y * n.y + n.z * n.z), i[1] = 2 * (n.x * n.y - n.z * n.w), i[2] = 2 * (n.x * n.z + n.y * n.w), i[3] = 2 * (n.x * n.y + n.z * n.w), i[4] = 1 - 2 * (n.x * n.x + n.z * n.z), i[5] = 2 * (n.y * n.z - n.x * n.w), i[6] = 2 * (n.x * n.z - n.y * n.w), i[7] = 2 * (n.y * n.z + n.x * n.w), i[8] = 1 - 2 * (n.x * n.x + n.y * n.y), s.add(e);
+			i[0] = 1 - 2 * (n.y * n.y + n.z * n.z), i[1] = 2 * (n.x * n.y - n.z * n.w), i[2] = 2 * (n.x * n.z + n.y * n.w), i[3] = 2 * (n.x * n.y + n.z * n.w), i[4] = 1 - 2 * (n.x * n.x + n.z * n.z), i[5] = 2 * (n.y * n.z - n.x * n.w), i[6] = 2 * (n.x * n.z - n.y * n.w), i[7] = 2 * (n.y * n.z + n.x * n.w), i[8] = 1 - 2 * (n.x * n.x + n.y * n.y), c.add(e);
 		};
 		for (let e of this.mappings.values()) prepare(e);
 	}

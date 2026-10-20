@@ -1,4 +1,5 @@
 import { Matrix4, Quaternion, Vector3 } from '../../../math/src/index.js';
+import { hypot3, hypot4 } from '../../../math/src/hypot.js';
 
 /** Controller-owned rigid support snapshot; no Object3D pose is temporarily replaced. */
 export class CharacterSupportPose3D {
@@ -11,9 +12,9 @@ export class CharacterSupportPose3D {
     this.matrix.copy(matrix);
     const e = matrix.elements;
     this.position.set(e[12], e[13], e[14]);
-    const sx = Math.hypot(e[0], e[1], e[2]),
-      sy = Math.hypot(e[4], e[5], e[6]),
-      sz = Math.hypot(e[8], e[9], e[10]);
+    const sx = hypot3(e[0], e[1], e[2]),
+      sy = hypot3(e[4], e[5], e[6]),
+      sz = hypot3(e[8], e[9], e[10]);
     this.scale.set(sx, sy, sz);
     const m00 = e[0] / sx,
       m01 = e[4] / sy,
@@ -77,7 +78,7 @@ export class CharacterSupportPose3D {
       y = a.y * wa + b.y * wb,
       z = a.z * wa + b.z * wb,
       w = a.w * wa + b.w * wb;
-    const inverse = 1 / Math.hypot(x, y, z, w);
+    const inverse = 1 / hypot4(x, y, z, w);
     x *= inverse;
     y *= inverse;
     z *= inverse;

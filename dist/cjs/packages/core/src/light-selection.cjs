@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_render_bounds = require("./render-bounds.cjs");
 const require_lights = require("../../../src/data/lights.cjs");
@@ -152,44 +153,44 @@ var SpatialLightSelector = class {
 		if (this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0), this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
 		return this;
 	}
-	selectType(e, t, n, i, a, o, s, c) {
-		t.length = 0, s.selected = s.culled = s.overflow = 0;
-		let l = 0, u = c !== void 0 && this.scene.presentationPass === this.gridPass && c.gather(a.x, a.y, a.z, o) ? c.candidates : void 0, d = u ? u.length : e.length;
-		u && (s.culled = e.length - d);
-		for (let c = 0; c < d; c++) {
-			let d = e[u ? u[c] : c], f = a.x - d.position.x, p = a.y - d.position.y, m = a.z - d.position.z, h = d.range;
-			if (h > 0) {
-				let e = h + o;
-				if (f * f + p * p + m * m > e * e * (1 + 1e-9)) {
-					s.culled++;
+	selectType(e, t, n, i, o, s, c, l) {
+		t.length = 0, c.selected = c.culled = c.overflow = 0;
+		let u = 0, d = l !== void 0 && this.scene.presentationPass === this.gridPass && l.gather(o.x, o.y, o.z, s) ? l.candidates : void 0, f = d ? d.length : e.length;
+		d && (c.culled = e.length - f);
+		for (let l = 0; l < f; l++) {
+			let f = e[d ? d[l] : l], p = o.x - f.position.x, m = o.y - f.position.y, h = o.z - f.position.z, g = f.range;
+			if (g > 0) {
+				let e = g + s;
+				if (p * p + m * m + h * h > e * e * (1 + 1e-9)) {
+					c.culled++;
 					continue;
 				}
 			}
-			let g = Math.hypot(f, p, m), _ = Math.max(0, g - o), v = Math.max(d.color[0], d.color[1], d.color[2]);
-			if (!d.intensity || !v || d.range > 0 && _ >= d.range) {
-				s.culled++;
+			let _ = require_hypot.hypot3(p, m, h), v = Math.max(0, _ - s), y = Math.max(f.color[0], f.color[1], f.color[2]);
+			if (!f.intensity || !y || f.range > 0 && v >= f.range) {
+				c.culled++;
 				continue;
 			}
-			let y = 1;
-			if (d instanceof require_lights$1.SpotLight && g > o) {
-				let e = d.direction.length(), t = (f * d.direction.x + p * d.direction.y + m * d.direction.z) / (g * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, o / g)));
-				if (n >= d.outerAngle) {
-					s.culled++;
+			let b = 1;
+			if (f instanceof require_lights$1.SpotLight && _ > s) {
+				let e = f.direction.length(), t = (p * f.direction.x + m * f.direction.y + h * f.direction.z) / (_ * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, s / _)));
+				if (n >= f.outerAngle) {
+					c.culled++;
 					continue;
 				}
-				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(d.outerAngle)) / (Math.cos(d.innerAngle) - Math.cos(d.outerAngle))));
-				y = r * r * (3 - 2 * r);
+				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(f.outerAngle)) / (Math.cos(f.innerAngle) - Math.cos(f.outerAngle))));
+				b = r * r * (3 - 2 * r);
 			}
-			let b = d.range > 0 ? Math.max(0, 1 - (_ / d.range) ** 4) ** 2 : 1, x = v * d.intensity * y * b / Math.max(_ * _, .01);
-			l++;
-			let S = 0;
-			for (; S < t.length && (t[S].priority > d.priority || t[S].priority === d.priority && (n[S] > x || n[S] === x && t[S].id < d.id));) S++;
-			if (S >= i) continue;
-			let C = Math.min(t.length, i - 1);
-			for (let e = C; e > S; e--) t[e] = t[e - 1], n[e] = n[e - 1];
-			t[S] = d, n[S] = x;
+			let x = f.range > 0 ? Math.max(0, 1 - (v / f.range) ** 4) ** 2 : 1, S = y * f.intensity * b * x / Math.max(v * v, .01);
+			u++;
+			let C = 0;
+			for (; C < t.length && (t[C].priority > f.priority || t[C].priority === f.priority && (n[C] > S || n[C] === S && t[C].id < f.id));) C++;
+			if (C >= i) continue;
+			let w = Math.min(t.length, i - 1);
+			for (let e = w; e > C; e--) t[e] = t[e - 1], n[e] = n[e - 1];
+			t[C] = f, n[C] = S;
 		}
-		s.selected = t.length, s.overflow = l - t.length;
+		c.selected = t.length, c.overflow = u - t.length;
 	}
 };
 //#endregion

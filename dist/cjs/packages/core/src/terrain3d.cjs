@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_mesh = require("./mesh.cjs");
@@ -99,7 +100,7 @@ var Terrain3D = class extends require_group.Group {
 			for (let n = 0; n < e.length; n += 8) {
 				let r = (e[n + 6] - .5) * this.width, i = (e[n + 7] - .5) * this.depth, a = this.skirtVertices.get(t.geometry).has(n / 8);
 				e[n + 1] = this.heightAt(r, i) - (a ? this.skirtDepth : 0), this.normalAt(r, i, this.normal), e[n + 3] = this.normal.x, e[n + 4] = this.normal.y, e[n + 5] = this.normal.z;
-				let o = n / 2, s = Math.hypot(this.normal.y, this.normal.x);
+				let o = n / 2, s = require_hypot.hypot2(this.normal.y, this.normal.x);
 				t.geometry.tangents[o] = this.normal.y / s, t.geometry.tangents[o + 1] = -this.normal.x / s, t.geometry.tangents[o + 2] = 0, t.geometry.tangents[o + 3] = -1;
 			}
 			t.geometry.markUpdated();

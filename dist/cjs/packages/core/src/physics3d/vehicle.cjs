@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_collider = require("./collider.cjs");
 const require_physics_profiles = require("../../../../src/data/physics-profiles.cjs");
@@ -67,19 +68,19 @@ var Vehicle3D = class {
 		let n = this.chassis.updateWorldMatrix(), i = n.elements;
 		this.down.set(-i[4], -i[5], -i[6]).normalize();
 		for (let r = 0; r < this.descriptors.length; r++) {
-			let a = this.descriptors[r], o = this.wheels[r];
+			let a = this.descriptors[r], s = this.wheels[r];
 			n.transformPoint(a.position, this.origin);
-			let s = a.restLength + a.travel, c = this.world.raycast(this.origin, this.down, s + a.radius, { ignore: this.chassis });
-			if (o.grounded = !!c, o.suspensionForce = 0, o.suspensionLength = c ? Math.max(0, c.distance - a.radius) : s, o.center.copy(this.down).scale(o.suspensionLength).add(this.origin), !c) continue;
-			o.contact.copy(c.point), this.speed(this.chassis, c.point, this.velocity), this.speed(c.object, c.point, this.groundVelocity), this.velocity.subtract(this.groundVelocity);
-			let l = Math.min(this.maxForce, Math.max(0, a.spring * (a.restLength - o.suspensionLength) + a.damping * this.velocity.dot(this.down)));
-			o.suspensionForce = l;
-			let u = a.steer ? this.steering : 0, d = Math.sin(u), f = Math.cos(u);
-			this.forward.set(i[0] * d + i[8] * f, i[1] * d + i[9] * f, i[2] * d + i[10] * f);
-			let p = this.forward.dot(c.normal);
-			this.forward.x -= c.normal.x * p, this.forward.y -= c.normal.y * p, this.forward.z -= c.normal.z * p, this.forward.normalize(), this.lateral.copy(c.normal).cross(this.forward).normalize();
-			let m = this.velocity.dot(this.forward), h = this.velocity.dot(this.lateral), g = Math.min(this.brakeForce * this.brake * e / this.wheels.length, Math.abs(m) * t.mass / this.wheels.length), _ = (a.drive ? this.driveForce * this.throttle * e / this.drivenCount : 0) - Math.sign(m) * g, v = -h * t.mass / this.wheels.length * Math.min(1, this.lateralGrip * e), y = l * a.friction * e, b = Math.hypot(_, v);
-			b > y && b > 0 && (_ *= y / b, v *= y / b), this.impulse.set(-this.down.x * l * e + this.forward.x * _ + this.lateral.x * v, -this.down.y * l * e + this.forward.y * _ + this.lateral.y * v, -this.down.z * l * e + this.forward.z * _ + this.lateral.z * v), t.applyImpulse(this.impulse, c.point), c.object.body?.type === `dynamic` && (this.impulse.scale(-1), c.object.body.applyImpulse(this.impulse, c.point)), o.rotation += m * e / a.radius;
+			let c = a.restLength + a.travel, l = this.world.raycast(this.origin, this.down, c + a.radius, { ignore: this.chassis });
+			if (s.grounded = !!l, s.suspensionForce = 0, s.suspensionLength = l ? Math.max(0, l.distance - a.radius) : c, s.center.copy(this.down).scale(s.suspensionLength).add(this.origin), !l) continue;
+			s.contact.copy(l.point), this.speed(this.chassis, l.point, this.velocity), this.speed(l.object, l.point, this.groundVelocity), this.velocity.subtract(this.groundVelocity);
+			let u = Math.min(this.maxForce, Math.max(0, a.spring * (a.restLength - s.suspensionLength) + a.damping * this.velocity.dot(this.down)));
+			s.suspensionForce = u;
+			let d = a.steer ? this.steering : 0, f = Math.sin(d), p = Math.cos(d);
+			this.forward.set(i[0] * f + i[8] * p, i[1] * f + i[9] * p, i[2] * f + i[10] * p);
+			let m = this.forward.dot(l.normal);
+			this.forward.x -= l.normal.x * m, this.forward.y -= l.normal.y * m, this.forward.z -= l.normal.z * m, this.forward.normalize(), this.lateral.copy(l.normal).cross(this.forward).normalize();
+			let h = this.velocity.dot(this.forward), g = this.velocity.dot(this.lateral), _ = Math.min(this.brakeForce * this.brake * e / this.wheels.length, Math.abs(h) * t.mass / this.wheels.length), v = (a.drive ? this.driveForce * this.throttle * e / this.drivenCount : 0) - Math.sign(h) * _, y = -g * t.mass / this.wheels.length * Math.min(1, this.lateralGrip * e), b = u * a.friction * e, x = require_hypot.hypot2(v, y);
+			x > b && x > 0 && (v *= b / x, y *= b / x), this.impulse.set(-this.down.x * u * e + this.forward.x * v + this.lateral.x * y, -this.down.y * u * e + this.forward.y * v + this.lateral.y * y, -this.down.z * u * e + this.forward.z * v + this.lateral.z * y), t.applyImpulse(this.impulse, l.point), l.object.body?.type === `dynamic` && (this.impulse.scale(-1), l.object.body.applyImpulse(this.impulse, l.point)), s.rotation += h * e / a.radius;
 		}
 	}
 	destroy() {

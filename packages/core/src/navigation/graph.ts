@@ -5,6 +5,7 @@ import {
   NavigationScheduler,
   type NavigationScheduledSearch,
 } from './scheduler.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationNode3D {
   readonly id: string;
@@ -197,7 +198,7 @@ export class NavigationGraph3D {
       }
       const a = nodes[from]!.position;
       const b = nodes[to]!.position;
-      const length = Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+      const length = hypot3(a.x - b.x, a.y - b.y, a.z - b.z);
       if (length > 0) scale = Math.min(scale, connection.cost / length);
       connections.push(
         Object.freeze({
@@ -406,7 +407,7 @@ export class NavigationGraph3D {
         Math.abs(node.position.y - position.y) > options.maxVerticalDistance
       )
         continue;
-      const candidate = Math.hypot(
+      const candidate = hypot3(
         node.position.x - position.x,
         node.position.y - position.y,
         node.position.z - position.z,
@@ -529,7 +530,7 @@ export class NavigationGraph3D {
     const position = this.nodes[node]!.position;
     return (
       this.heuristicScale *
-      Math.hypot(
+      hypot3(
         position.x - target.x,
         position.y - target.y,
         position.z - target.z,

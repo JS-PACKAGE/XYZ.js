@@ -1,4 +1,5 @@
 import type { Geometry } from './geometry.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 /**
  * Morph target weights. One instance is shared by every primitive of a glTF mesh node,
@@ -192,7 +193,7 @@ export class MorphTargets {
     if (normalsMoved)
       for (let v = 0; v < vertexCount; v++) {
         const o = v * 8 + 3;
-        const length = Math.hypot(out[o], out[o + 1], out[o + 2]);
+        const length = hypot3(out[o], out[o + 1], out[o + 2]);
         // A fully cancelled normal falls back to the base direction instead of NaN.
         if (length > 1e-8) {
           out[o] /= length;
@@ -203,7 +204,7 @@ export class MorphTargets {
     if ((tangentsMoved || normalsMoved) && tangents)
       for (let v = 0; v < vertexCount; v++) {
         const o = v * 4;
-        const normalLength = Math.hypot(
+        const normalLength = hypot3(
           out[v * 8 + 3],
           out[v * 8 + 4],
           out[v * 8 + 5],
@@ -216,7 +217,7 @@ export class MorphTargets {
         const tx = tangents[o] - nx * projection;
         const ty = tangents[o + 1] - ny * projection;
         const tz = tangents[o + 2] - nz * projection;
-        const length = Math.hypot(tx, ty, tz);
+        const length = hypot3(tx, ty, tz);
         if (length > 1e-8) {
           tangents[o] = tx / length;
           tangents[o + 1] = ty / length;
@@ -225,7 +226,7 @@ export class MorphTargets {
           const fx = Math.abs(nx) < 0.9 ? 0 : nz;
           const fy = Math.abs(nx) < 0.9 ? -nz : 0;
           const fz = Math.abs(nx) < 0.9 ? ny : -nx;
-          const fallbackLength = Math.hypot(fx, fy, fz);
+          const fallbackLength = hypot3(fx, fy, fz);
           tangents[o] = fx / fallbackLength;
           tangents[o + 1] = fy / fallbackLength;
           tangents[o + 2] = fz / fallbackLength;

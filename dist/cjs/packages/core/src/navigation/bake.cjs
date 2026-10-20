@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_collider = require("../physics2d/collider.cjs");
@@ -18,7 +19,7 @@ var NavigationLatticeMapping = class {
 	sine;
 	constructor(e, t = 0, r = 0) {
 		if (this.originX = t, this.originZ = r, !Number.isSafeInteger(e.columns) || !Number.isSafeInteger(e.rows) || e.columns < 1 || e.rows < 1 || !Number.isFinite(e.cellSize) || e.cellSize <= 0 || !Number.isFinite(e.rotation ?? 0) || !Number.isFinite(t) || !Number.isFinite(r)) throw RangeError(`Navigation bake requires finite positive lattice dimensions and transform.`);
-		if (this.columns = e.columns, this.rows = e.rows, this.cellSize = e.cellSize, this.cosine = Math.cos(e.rotation ?? 0), this.sine = Math.sin(e.rotation ?? 0), Math.hypot(e.columns * e.cellSize, e.rows * e.cellSize) + Math.hypot(t, r) > require_navigation.navigationLimits.coordinateExtent) throw RangeError(`Navigation lattice exceeds coordinate bounds.`);
+		if (this.columns = e.columns, this.rows = e.rows, this.cellSize = e.cellSize, this.cosine = Math.cos(e.rotation ?? 0), this.sine = Math.sin(e.rotation ?? 0), require_hypot.hypot2(e.columns * e.cellSize, e.rows * e.cellSize) + require_hypot.hypot2(t, r) > require_navigation.navigationLimits.coordinateExtent) throw RangeError(`Navigation lattice exceeds coordinate bounds.`);
 	}
 	cellToWorld(t, n, r = new require_index.Vector2()) {
 		if (!Number.isInteger(t) || !Number.isInteger(n) || t < 0 || n < 0 || t >= this.columns || n >= this.rows) throw RangeError(`Navigation cell is outside the lattice.`);
@@ -236,28 +237,28 @@ var NavigationSurfaceBakeJob3D = class {
 			this.nextEdge();
 			return;
 		}
-		let u = Math.max(s.position.y, c.position.y) + require_navigation.navigationLimits.bakeSkin, d;
+		let d = Math.max(s.position.y, c.position.y) + require_navigation.navigationLimits.bakeSkin, f;
 		if (this.edgePhase < this.supportSamples) {
 			let t = (this.edgePhase + 1) / (this.supportSamples + 1), r = this.feet[e] + (this.feet[o] - this.feet[e]) * t, i = this.stepHeight + require_navigation.navigationLimits.bakeSkin;
 			this.ray.set(s.position.x + (c.position.x - s.position.x) * t, r + i, s.position.z + (c.position.z - s.position.z) * t);
 			let a = this.world.raycast(this.ray, this.down, i * 2, this.query);
-			d = !!a && a.normal.y >= Math.cos(this.slope) && Math.abs(a.point.y - r) <= i;
+			f = !!a && a.normal.y >= Math.cos(this.slope) && Math.abs(a.point.y - r) <= i;
 		} else {
 			let e = this.edgePhase - this.supportSamples;
 			if (e < 2) {
 				let t = e === 0 ? s : c;
-				this.probe.position.copy(t.position), this.motion.set(0, u - t.position.y, 0);
-			} else this.probe.position.set(s.position.x, u, s.position.z), this.motion.set(c.position.x - s.position.x, 0, c.position.z - s.position.z);
+				this.probe.position.copy(t.position), this.motion.set(0, d - t.position.y, 0);
+			} else this.probe.position.set(s.position.x, d, s.position.z), this.motion.set(c.position.x - s.position.x, 0, c.position.z - s.position.z);
 			let t = this.world.sweepCapsule(this.probe, this.motion, this.query);
-			d = !t || t.distance >= this.motion.length() - require_navigation.navigationLimits.bakeSkin;
+			f = !t || t.distance >= this.motion.length() - require_navigation.navigationLimits.bakeSkin;
 		}
-		if (!d) this.nextEdge();
+		if (!f) this.nextEdge();
 		else if (++this.edgePhase === this.supportSamples + 3) {
 			if (this.connections.length === require_navigation.navigationLimits.graphConnections) throw RangeError(`Surface connection limit exceeded.`);
 			this.connections.push({
 				from: s.id,
 				to: c.id,
-				cost: Math.hypot(c.position.x - s.position.x, c.position.y - s.position.y, c.position.z - s.position.z),
+				cost: require_hypot.hypot3(c.position.x - s.position.x, c.position.y - s.position.y, c.position.z - s.position.z),
 				clearance: this.options.agentRadius
 			}), this.nextEdge();
 		}

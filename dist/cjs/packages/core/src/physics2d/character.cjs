@@ -1,9 +1,10 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_world2d = require("../../../../src/data/world2d.cjs");
 const require_collider = require("./collider.cjs");
 const require_body = require("./body.cjs");
 //#region dist/packages/core/src/physics2d/character.js
-var c = Object.freeze({});
+var l = Object.freeze({});
 var CharacterController2D = class {
 	object;
 	world;
@@ -111,7 +112,7 @@ var CharacterController2D = class {
 		this.supportOwner = void 0, this.supportShape = void 0, this.supportMembership = -1, this.localAnchor.set(0, 0), this.worldAnchor.set(0, 0), this.groundedState = !1, this.pendingDetach = e;
 	}
 	readSupport(e, n) {
-		let r = e.updateWorldMatrix().elements, i = Math.hypot(r[0], r[1]), a = (r[0] * r[4] - r[1] * r[3]) / i, o = require_world2d.physicsDefaults.characterSupportTransformTolerance;
+		let r = e.updateWorldMatrix().elements, i = require_hypot.hypot2(r[0], r[1]), a = (r[0] * r[4] - r[1] * r[3]) / i, o = require_world2d.physicsDefaults.characterSupportTransformTolerance;
 		return !Number.isFinite(i) || !Number.isFinite(a) || i <= 1e-8 || Math.abs(a) <= 1e-8 || Math.abs(r[0] * r[3] + r[1] * r[4]) > o * i * Math.abs(a) ? !1 : (n.x = r[6], n.y = r[7], n.angle = Math.atan2(r[1], r[0]), n.sx = i, n.sy = a, !0);
 	}
 	sweep(e) {
@@ -124,7 +125,7 @@ var CharacterController2D = class {
 		this.remaining.copy(e);
 		let n = !1;
 		for (let r = 0; r < this.maxIterations; r++) {
-			let r = Math.hypot(this.remaining.x, this.remaining.y);
+			let r = require_hypot.hypot2(this.remaining.x, this.remaining.y);
 			if (r < 1e-9) return n;
 			let i = this.sweep(this.remaining), a = i.hit ? Math.max(0, i.safeFraction - this.skin / r) : i.safeFraction;
 			if (this.object.position.x += this.remaining.x * a, this.object.position.y += this.remaining.y * a, i.exhausted) return this.result.exhausted = !0, !0;
@@ -179,25 +180,25 @@ var CharacterController2D = class {
 			this.detachSupport(`support-teleport`);
 			return;
 		}
-		let o = Math.atan2(Math.sin(i.angle - r.angle), Math.cos(i.angle - r.angle)), s = this.localAnchor.x * r.sx, c = this.localAnchor.y * r.sy, l = Math.cos(i.angle), u = Math.sin(i.angle), d = i.x + l * s - u * c, f = i.y + u * s + l * c;
-		if (this.supportRequested.set(d - this.object.position.x, f - this.object.position.y), this.result.supportRotationDelta = o, Math.hypot(this.supportRequested.x, this.supportRequested.y) > this.maxSupportDisplacement) {
+		let o = Math.atan2(Math.sin(i.angle - r.angle), Math.cos(i.angle - r.angle)), s = this.localAnchor.x * r.sx, l = this.localAnchor.y * r.sy, u = Math.cos(i.angle), d = Math.sin(i.angle), f = i.x + u * s - d * l, p = i.y + d * s + u * l;
+		if (this.supportRequested.set(f - this.object.position.x, p - this.object.position.y), this.result.supportRotationDelta = o, require_hypot.hypot2(this.supportRequested.x, this.supportRequested.y) > this.maxSupportDisplacement) {
 			this.detachSupport(`support-teleport`);
 			return;
 		}
-		let p = Math.hypot(s, c), m = Math.min(require_world2d.physicsDefaults.characterCarryAngleStep, Math.sqrt(4 * this.skin / Math.max(p, this.skin))), h = Math.max(1, Math.ceil(Math.abs(o) / m));
+		let m = require_hypot.hypot2(s, l), h = Math.min(require_world2d.physicsDefaults.characterCarryAngleStep, Math.sqrt(4 * this.skin / Math.max(m, this.skin))), g = Math.max(1, Math.ceil(Math.abs(o) / h));
 		this.query.ignoreOther = n;
-		for (let e = 1; e <= h; e++) {
-			let t = e / h, n = r.angle + o * t, a = Math.cos(n), l = Math.sin(n), u = r.x + (i.x - r.x) * t + a * s - l * c, d = r.y + (i.y - r.y) * t + l * s + a * c;
-			this.motion.set(u - this.object.position.x, d - this.object.position.y);
-			let f = this.sweep(this.motion), p = Math.hypot(this.motion.x, this.motion.y), m = f.hit ? Math.max(0, f.safeFraction - this.skin / Math.max(p, this.skin)) : f.safeFraction;
-			if (this.object.position.x += this.motion.x * m, this.object.position.y += this.motion.y * m, f.hit || f.exhausted) {
-				this.result.carryBlocked = !0, this.result.exhausted ||= f.exhausted, this.detachSupport(`blocked`);
+		for (let e = 1; e <= g; e++) {
+			let t = e / g, n = r.angle + o * t, a = Math.cos(n), u = Math.sin(n), d = r.x + (i.x - r.x) * t + a * s - u * l, f = r.y + (i.y - r.y) * t + u * s + a * l;
+			this.motion.set(d - this.object.position.x, f - this.object.position.y);
+			let p = this.sweep(this.motion), m = require_hypot.hypot2(this.motion.x, this.motion.y), h = p.hit ? Math.max(0, p.safeFraction - this.skin / Math.max(m, this.skin)) : p.safeFraction;
+			if (this.object.position.x += this.motion.x * h, this.object.position.y += this.motion.y * h, p.hit || p.exhausted) {
+				this.result.carryBlocked = !0, this.result.exhausted ||= p.exhausted, this.detachSupport(`blocked`);
 				break;
 			}
 		}
 		this.query.ignoreOther = void 0, r.x = i.x, r.y = i.y, r.angle = i.angle, r.sx = i.sx, r.sy = i.sy;
 	}
-	move(e, t = c) {
+	move(e, t = l) {
 		if (this.destroyed) throw Error(`Cannot move a destroyed CharacterController2D.`);
 		if (this.assertPose(), !this.world.has(this.object, this.collider) || this.object.body?.type !== `kinematic`) throw Error(`Character is no longer registered with its kinematic body.`);
 		if (require_collider.finite(e.x, `displacement.x`), require_collider.finite(e.y, `displacement.y`), t.epoch !== void 0 && (!Number.isSafeInteger(t.epoch) || t.epoch < 0)) throw RangeError(`epoch must be a nonnegative safe integer.`);

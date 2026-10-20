@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 //#region dist/packages/core/src/navigation/steering.js
 function speedValue(e) {
 	if (!Number.isFinite(e) || e < 0) throw RangeError(`Steering speed must be finite and nonnegative.`);
@@ -11,11 +12,11 @@ function steeringSeek(e, t, n, r) {
 function steeringFlee(e, t, n, r) {
 	return steeringSeek(e, t, n, r), r.scale(-1);
 }
-function steeringArrive(e, t, n, r, i) {
-	if (!Number.isFinite(r) || r <= 0) throw RangeError(`Slowing radius must be positive.`);
-	steeringSeek(e, t, n, i);
-	let a = Math.hypot(t.x - e.x, t.y - e.y, t.z - e.z);
-	return i.scale(Math.min(1, a / r));
+function steeringArrive(t, n, r, i, a) {
+	if (!Number.isFinite(i) || i <= 0) throw RangeError(`Slowing radius must be positive.`);
+	steeringSeek(t, n, r, a);
+	let o = require_hypot.hypot3(n.x - t.x, n.y - t.y, n.z - t.z);
+	return a.scale(Math.min(1, o / i));
 }
 var SteeringWander3D = class {
 	turnRate;

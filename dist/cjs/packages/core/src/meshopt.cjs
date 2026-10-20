@@ -1,6 +1,7 @@
 const require_texture = require("../../assets/src/texture.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/core/src/meshopt.js
-var t = [
+var n = [
 	`NONE`,
 	`OCTAHEDRAL`,
 	`QUATERNION`,
@@ -11,12 +12,12 @@ function check(t) {
 	if (!t) throw new require_texture.AssetError(`Invalid EXT_meshopt_compression bitstream or layout.`);
 }
 var unzigzag = (e) => e >>> 1 ^ -(e & 1);
-function decodeMeshopt(e, n, r, i, a, o = `NONE`) {
-	if (check(Number.isInteger(n) && n > 0), check(Number.isInteger(r) && e.length === n * r), check(typeof o == `string` && t.includes(o)), a === `ATTRIBUTES`) {
-		check(r >= 4 && r <= 256 && r % 4 == 0), decodeVertices(e, n, r, i), applyFilter(e, n, r, o);
+function decodeMeshopt(e, t, r, i, a, o = `NONE`) {
+	if (check(Number.isInteger(t) && t > 0), check(Number.isInteger(r) && e.length === t * r), check(typeof o == `string` && n.includes(o)), a === `ATTRIBUTES`) {
+		check(r >= 4 && r <= 256 && r % 4 == 0), decodeVertices(e, t, r, i), applyFilter(e, t, r, o);
 		return;
 	}
-	check(o === `NONE` && (r === 2 || r === 4)), a === `TRIANGLES` ? decodeTriangles(e, n, r, i) : a === `INDICES` ? decodeSequence(e, n, r, i) : check(!1);
+	check(o === `NONE` && (r === 2 || r === 4)), a === `TRIANGLES` ? decodeTriangles(e, t, r, i) : a === `INDICES` ? decodeSequence(e, t, r, i) : check(!1);
 }
 var Cursor = class {
 	bytes;
@@ -41,7 +42,7 @@ var Cursor = class {
 		return check(!1), 0;
 	}
 };
-var n = [
+var r = [
 	[
 		0,
 		2,
@@ -61,24 +62,24 @@ var n = [
 		8
 	]
 ];
-function decodeVertices(e, t, r, i) {
+function decodeVertices(e, t, n, i) {
 	check(i.length > 0 && (i[0] === 160 || i[0] === 161));
-	let a = i[0] & 15, o = a === 0 ? r : r + r / 4, s = Math.max(o, a === 0 ? 32 : 24);
+	let a = i[0] & 15, o = a === 0 ? n : n + n / 4, s = Math.max(o, a === 0 ? 32 : 24);
 	check(i.length >= 1 + s);
-	let c = i.length - o, l = new Cursor(i, 1, i.length - s), u = i.slice(c, c + r), d = a === 0 ? void 0 : i.subarray(c + r), f = Math.min(8192 / r & -16, 256);
+	let c = i.length - o, l = new Cursor(i, 1, i.length - s), u = i.slice(c, c + n), d = a === 0 ? void 0 : i.subarray(c + n), f = Math.min(8192 / n & -16, 256);
 	check(f > 0);
-	let p = new Uint8Array(f * r);
+	let p = new Uint8Array(f * n);
 	for (let o = 0; o < t; o += f) {
-		let s = Math.min(f, t - o), c = s + 15 >>> 4, m = c + 3 >>> 2, h = a === 0 ? 0 : l.take(r / 4);
+		let s = Math.min(f, t - o), c = s + 15 >>> 4, m = c + 3 >>> 2, h = a === 0 ? 0 : l.take(n / 4);
 		p.fill(0);
-		for (let e = 0; e < r; e++) {
-			let t = e * s, r = a === 0 ? 0 : i[h + (e >>> 2)] >>> ((e & 3) << 1) & 3;
-			if (r === 2) continue;
-			if (r === 3) {
+		for (let e = 0; e < n; e++) {
+			let t = e * s, n = a === 0 ? 0 : i[h + (e >>> 2)] >>> ((e & 3) << 1) & 3;
+			if (n === 2) continue;
+			if (n === 3) {
 				p.set(i.subarray(l.take(s), l.offset), t);
 				continue;
 			}
-			let o = l.take(m), u = n[a === 0 ? 0 : r + 1];
+			let o = l.take(m), u = r[a === 0 ? 0 : n + 1];
 			for (let e = 0; e < c; e++) {
 				let n = u[i[o + (e >>> 2)] >>> ((e & 3) << 1) & 3], r = t + (e << 4);
 				if (n === 0) continue;
@@ -95,22 +96,22 @@ function decodeVertices(e, t, r, i) {
 			}
 		}
 		for (let t = 0; t < s; t++) {
-			let n = (o + t) * r;
-			for (let i = 0; i < r; i += 4) {
-				let r = d ? d[i >>> 2] : 0, a = r & 3;
-				if (check(a !== 3), a === 0) for (let r = i; r < i + 4; r++) {
-					let i = u[r] + unzigzag(p[r * s + t]) & 255;
-					e[n + r] = u[r] = i;
+			let r = (o + t) * n;
+			for (let i = 0; i < n; i += 4) {
+				let n = d ? d[i >>> 2] : 0, a = n & 3;
+				if (check(a !== 3), a === 0) for (let n = i; n < i + 4; n++) {
+					let i = u[n] + unzigzag(p[n * s + t]) & 255;
+					e[r + n] = u[n] = i;
 				}
-				else if (a === 1) for (let r = i; r < i + 4; r += 2) {
-					let i = unzigzag(p[r * s + t] | p[(r + 1) * s + t] << 8), a = (u[r] | u[r + 1] << 8) + i & 65535;
-					e[n + r] = u[r] = a & 255, e[n + r + 1] = u[r + 1] = a >>> 8;
+				else if (a === 1) for (let n = i; n < i + 4; n += 2) {
+					let i = unzigzag(p[n * s + t] | p[(n + 1) * s + t] << 8), a = (u[n] | u[n + 1] << 8) + i & 65535;
+					e[r + n] = u[n] = a & 255, e[r + n + 1] = u[n + 1] = a >>> 8;
 				}
 				else {
 					let a = 0, o = 0;
 					for (let e = 0; e < 4; e++) a |= p[(i + e) * s + t] << e * 8, o |= u[i + e] << e * 8;
-					let c = r >>> 4, l = o ^ (a >>> c | a << 32 - c);
-					for (let t = 0; t < 4; t++) e[n + i + t] = u[i + t] = l >>> t * 8 & 255;
+					let c = n >>> 4, l = o ^ (a >>> c | a << 32 - c);
+					for (let t = 0; t < 4; t++) e[r + i + t] = u[i + t] = l >>> t * 8 & 255;
 				}
 			}
 		}
@@ -154,41 +155,41 @@ function decodeTriangles(e, t, n, r) {
 	}
 	check(o.offset === o.end);
 }
-function applyFilter(e, t, n, r) {
-	if (r === `NONE`) return;
-	let i = new DataView(e.buffer, e.byteOffset, e.byteLength);
-	if (r === `EXPONENTIAL`) {
+function applyFilter(e, n, r, i) {
+	if (i === `NONE`) return;
+	let a = new DataView(e.buffer, e.byteOffset, e.byteLength);
+	if (i === `EXPONENTIAL`) {
 		for (let t = 0; t < e.length; t += 4) {
-			let e = i.getInt32(t, !0);
-			i.setFloat32(t, (e << 8 >> 8) * 2 ** (e >> 24), !0);
+			let e = a.getInt32(t, !0);
+			a.setFloat32(t, (e << 8 >> 8) * 2 ** (e >> 24), !0);
 		}
 		return;
 	}
-	check(r === `QUATERNION` ? n === 8 : n === 4 || n === 8);
-	let a = n === 8, o = a ? 32767 : 127, s = a ? 2 : 1, get = (e) => a ? i.getInt16(e, !0) : i.getInt8(e), getUnsigned = (e) => a ? i.getUint16(e, !0) : i.getUint8(e), put = (e, t) => {
-		a ? i.setInt16(e, Math.round(t), !0) : i.setInt8(e, Math.round(t));
+	check(i === `QUATERNION` ? r === 8 : r === 4 || r === 8);
+	let o = r === 8, s = o ? 32767 : 127, c = o ? 2 : 1, get = (e) => o ? a.getInt16(e, !0) : a.getInt8(e), getUnsigned = (e) => o ? a.getUint16(e, !0) : a.getUint8(e), put = (e, t) => {
+		o ? a.setInt16(e, Math.round(t), !0) : a.setInt8(e, Math.round(t));
 	}, putUnsigned = (e, t) => {
-		a ? i.setUint16(e, Math.round(t), !0) : i.setUint8(e, Math.round(t));
+		o ? a.setUint16(e, Math.round(t), !0) : a.setUint8(e, Math.round(t));
 	};
-	for (let e = 0; e < t; e++) {
-		let t = e * n;
-		if (r === `OCTAHEDRAL`) {
-			let e = get(t + 2 * s);
+	for (let e = 0; e < n; e++) {
+		let n = e * r;
+		if (i === `OCTAHEDRAL`) {
+			let e = get(n + 2 * c);
 			check(e !== 0);
-			let n = get(t) / e, r = get(t + s) / e, i = 1 - Math.abs(n) - Math.abs(r), a = Math.max(-i, 0);
-			n -= n >= 0 ? a : -a, r -= r >= 0 ? a : -a;
-			let c = o / Math.hypot(n, r, i);
-			put(t, n * c), put(t + s, r * c), put(t + 2 * s, i * c);
-		} else if (r === `QUATERNION`) {
-			let e = i.getInt16(t + 6, !0), n = e & 3, r = Math.SQRT1_2 / (e | 3), a = i.getInt16(t, !0) * r, o = i.getInt16(t + 2, !0) * r, s = i.getInt16(t + 4, !0) * r, c = Math.sqrt(Math.max(0, 1 - a * a - o * o - s * s));
-			i.setInt16(t + (n + 1 & 3) * 2, Math.round(a * 32767), !0), i.setInt16(t + (n + 2 & 3) * 2, Math.round(o * 32767), !0), i.setInt16(t + (n + 3 & 3) * 2, Math.round(s * 32767), !0), i.setInt16(t + n * 2, Math.round(c * 32767), !0);
+			let r = get(n) / e, i = get(n + c) / e, a = 1 - Math.abs(r) - Math.abs(i), o = Math.max(-a, 0);
+			r -= r >= 0 ? o : -o, i -= i >= 0 ? o : -o;
+			let l = s / require_hypot.hypot3(r, i, a);
+			put(n, r * l), put(n + c, i * l), put(n + 2 * c, a * l);
+		} else if (i === `QUATERNION`) {
+			let e = a.getInt16(n + 6, !0), t = e & 3, r = Math.SQRT1_2 / (e | 3), i = a.getInt16(n, !0) * r, o = a.getInt16(n + 2, !0) * r, s = a.getInt16(n + 4, !0) * r, c = Math.sqrt(Math.max(0, 1 - i * i - o * o - s * s));
+			a.setInt16(n + (t + 1 & 3) * 2, Math.round(i * 32767), !0), a.setInt16(n + (t + 2 & 3) * 2, Math.round(o * 32767), !0), a.setInt16(n + (t + 3 & 3) * 2, Math.round(s * 32767), !0), a.setInt16(n + t * 2, Math.round(c * 32767), !0);
 		} else {
-			let e = (1 << n * 2) - 1, r = getUnsigned(t), i = get(t + s), a = get(t + 2 * s), o = getUnsigned(t + 3 * s);
+			let e = (1 << r * 2) - 1, t = getUnsigned(n), i = get(n + c), a = get(n + 2 * c), o = getUnsigned(n + 3 * c);
 			check(o > 0);
-			let c = (1 << 32 - Math.clz32(o)) - 1, l = o & c >>> 1;
+			let s = (1 << 32 - Math.clz32(o)) - 1, l = o & s >>> 1;
 			l = l << 1 | l & 1;
-			let u = e / c;
-			putUnsigned(t, (r + i - a) * u), putUnsigned(t + s, (r + a) * u), putUnsigned(t + 2 * s, (r - i - a) * u), putUnsigned(t + 3 * s, l * u);
+			let u = e / s;
+			putUnsigned(n, (t + i - a) * u), putUnsigned(n + c, (t + a) * u), putUnsigned(n + 2 * c, (t - i - a) * u), putUnsigned(n + 3 * c, l * u);
 		}
 	}
 }

@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_navigation = require("../../../../src/data/navigation.cjs");
 const require_jobs = require("./jobs.cjs");
@@ -12,58 +13,58 @@ var NavigationGraph3D = class NavigationGraph3D {
 	currentRevision = 0;
 	disposed = !1;
 	paths = /* @__PURE__ */ new WeakSet();
-	constructor(r) {
-		if (r.nodes.length === 0 || r.nodes.length > require_navigation.navigationLimits.graphNodes || r.connections.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Navigation graph exceeds the node or connection budget.`);
-		let i = [];
-		for (let n of r.nodes) {
+	constructor(i) {
+		if (i.nodes.length === 0 || i.nodes.length > require_navigation.navigationLimits.graphNodes || i.connections.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Navigation graph exceeds the node or connection budget.`);
+		let a = [];
+		for (let n of i.nodes) {
 			if (n.walkable !== void 0 && typeof n.walkable != `boolean`) throw RangeError(`Navigation node walkability must be boolean.`);
 			let r = n.clearance ?? 1 / 0;
 			if (!(r === 1 / 0 || Number.isFinite(r) && r >= 0 && r <= require_navigation.navigationLimits.coordinateExtent)) throw RangeError(`Invalid navigation node clearance.`);
 			if (n.surfaceY !== void 0 && (!Number.isFinite(n.surfaceY) || Math.abs(n.surfaceY) > require_navigation.navigationLimits.coordinateExtent)) throw RangeError(`Invalid sampled support height.`);
 			if (typeof n.id != `string` || n.id.length === 0 || n.id.length > require_navigation.navigationLimits.nodeIdLength || this.indices.has(n.id)) throw RangeError(`Navigation node IDs must be unique bounded nonempty strings.`);
-			let { x: a, y: o, z: s } = n.position;
+			let { x: i, y: o, z: s } = n.position;
 			if (![
-				a,
+				i,
 				o,
 				s
 			].every((e) => Number.isFinite(e) && Math.abs(e) <= require_navigation.navigationLimits.coordinateExtent)) throw RangeError(`Navigation node positions exceed finite coordinate bounds.`);
-			this.indices.set(n.id, i.length), i.push(Object.freeze({
+			this.indices.set(n.id, a.length), a.push(Object.freeze({
 				id: n.id,
-				position: Object.freeze(new require_math3d.Vector3(a, o, s)),
+				position: Object.freeze(new require_math3d.Vector3(i, o, s)),
 				walkable: n.walkable ?? !0,
 				clearance: r,
 				surfaceY: n.surfaceY
 			}));
 		}
-		this.currentNodes = Object.freeze(i), this.edges = Array.from({ length: i.length }, () => []), this.searches = new require_jobs.NavigationSearchPool(i.length);
-		let a = [], o = 1 / 0, s = /* @__PURE__ */ new Set();
-		for (let e of r.connections) {
-			let n = this.indices.get(e.from), r = this.indices.get(e.to), c = e.directed ?? !1, l = e.enabled ?? !0, u = e.clearance ?? 1 / 0, d = e.kind ?? `walk`, f = e.linkId;
-			if (n === void 0 || r === void 0 || n === r || d !== `walk` && d !== `special` || d === `special` && (typeof f != `string` || f.length === 0 || f.length > require_navigation.navigationLimits.nodeIdLength) || d === `walk` && f !== void 0 || typeof c != `boolean` || typeof l != `boolean` || !(u === 1 / 0 || Number.isFinite(u) && u >= 0 && u <= require_navigation.navigationLimits.coordinateExtent) || !Number.isFinite(e.cost) || e.cost < 0 || e.cost > require_navigation.navigationLimits.cost) throw RangeError(`Navigation connection requires distinct known nodes and nonnegative finite cost.`);
-			let p = n * i.length + r, m = r * i.length + n;
-			if (s.has(p) || !c && s.has(m)) throw RangeError(`Navigation graph cannot contain duplicate directed edges.`);
-			s.add(p), this.edges[n].push({
-				to: r,
+		this.currentNodes = Object.freeze(a), this.edges = Array.from({ length: a.length }, () => []), this.searches = new require_jobs.NavigationSearchPool(a.length);
+		let o = [], s = 1 / 0, c = /* @__PURE__ */ new Set();
+		for (let e of i.connections) {
+			let n = this.indices.get(e.from), i = this.indices.get(e.to), l = e.directed ?? !1, u = e.enabled ?? !0, d = e.clearance ?? 1 / 0, f = e.kind ?? `walk`, p = e.linkId;
+			if (n === void 0 || i === void 0 || n === i || f !== `walk` && f !== `special` || f === `special` && (typeof p != `string` || p.length === 0 || p.length > require_navigation.navigationLimits.nodeIdLength) || f === `walk` && p !== void 0 || typeof l != `boolean` || typeof u != `boolean` || !(d === 1 / 0 || Number.isFinite(d) && d >= 0 && d <= require_navigation.navigationLimits.coordinateExtent) || !Number.isFinite(e.cost) || e.cost < 0 || e.cost > require_navigation.navigationLimits.cost) throw RangeError(`Navigation connection requires distinct known nodes and nonnegative finite cost.`);
+			let m = n * a.length + i, h = i * a.length + n;
+			if (c.has(m) || !l && c.has(h)) throw RangeError(`Navigation graph cannot contain duplicate directed edges.`);
+			c.add(m), this.edges[n].push({
+				to: i,
 				cost: e.cost,
-				connection: a.length
-			}), c || (s.add(m), this.edges[r].push({
+				connection: o.length
+			}), l || (c.add(h), this.edges[i].push({
 				to: n,
 				cost: e.cost,
-				connection: a.length
+				connection: o.length
 			}));
-			let h = i[n].position, g = i[r].position, _ = Math.hypot(h.x - g.x, h.y - g.y, h.z - g.z);
-			_ > 0 && (o = Math.min(o, e.cost / _)), a.push(Object.freeze({
+			let g = a[n].position, _ = a[i].position, v = require_hypot.hypot3(g.x - _.x, g.y - _.y, g.z - _.z);
+			v > 0 && (s = Math.min(s, e.cost / v)), o.push(Object.freeze({
 				from: e.from,
 				to: e.to,
 				cost: e.cost,
-				directed: c,
-				enabled: l,
-				clearance: u,
-				kind: d,
-				linkId: f
+				directed: l,
+				enabled: u,
+				clearance: d,
+				kind: f,
+				linkId: p
 			}));
 		}
-		this.currentConnections = Object.freeze(a), this.heuristicScale = o === 1 / 0 ? 0 : o * (1 - 1e-12);
+		this.currentConnections = Object.freeze(o), this.heuristicScale = s === 1 / 0 ? 0 : s * (1 - 1e-12);
 		for (let e of this.edges) e.sort((e, t) => e.to - t.to);
 	}
 	get connections() {
@@ -143,24 +144,24 @@ var NavigationGraph3D = class NavigationGraph3D {
 	}
 	project(e, n) {
 		if (this.disposed) throw Error(`Navigation graph is destroyed.`);
-		let r = n.agentRadius ?? 0;
+		let i = n.agentRadius ?? 0;
 		if (![
 			e.x,
 			e.y,
 			e.z,
 			n.maxDistance,
 			n.maxVerticalDistance,
-			r
-		].every((e) => Number.isFinite(e) && Math.abs(e) <= require_navigation.navigationLimits.coordinateExtent) || n.maxDistance < 0 || n.maxVerticalDistance < 0 || r < 0) throw RangeError(`Projection requires explicit finite distance bounds and agent radius.`);
-		let i, a = n.maxDistance;
+			i
+		].every((e) => Number.isFinite(e) && Math.abs(e) <= require_navigation.navigationLimits.coordinateExtent) || n.maxDistance < 0 || n.maxVerticalDistance < 0 || i < 0) throw RangeError(`Projection requires explicit finite distance bounds and agent radius.`);
+		let a, o = n.maxDistance;
 		for (let t of this.nodes) {
-			if (!t.walkable || t.clearance < r || Math.abs(t.position.y - e.y) > n.maxVerticalDistance) continue;
-			let o = Math.hypot(t.position.x - e.x, t.position.y - e.y, t.position.z - e.z);
-			(o < a || o === a && !i) && (i = t, a = o);
+			if (!t.walkable || t.clearance < i || Math.abs(t.position.y - e.y) > n.maxVerticalDistance) continue;
+			let s = require_hypot.hypot3(t.position.x - e.x, t.position.y - e.y, t.position.z - e.z);
+			(s < o || s === o && !a) && (a = t, o = s);
 		}
-		return i && Object.freeze({
-			node: i,
-			distance: a,
+		return a && Object.freeze({
+			node: a,
+			distance: o,
 			revision: this.revision
 		});
 	}
@@ -212,7 +213,7 @@ var NavigationGraph3D = class NavigationGraph3D {
 	}
 	heuristic(e, t) {
 		let n = this.nodes[e].position;
-		return this.heuristicScale * Math.hypot(n.x - t.x, n.y - t.y, n.z - t.z);
+		return this.heuristicScale * require_hypot.hypot3(n.x - t.x, n.y - t.y, n.z - t.z);
 	}
 };
 //#endregion

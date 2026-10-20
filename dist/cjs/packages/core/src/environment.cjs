@@ -1,19 +1,20 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 //#region dist/packages/core/src/environment.js
-var t = Math.PI * 2;
-var n = 65504;
-var r = /* @__PURE__ */ new Float32Array(1);
-var i = new Uint32Array(r.buffer);
+var n = Math.PI * 2;
+var r = 65504;
+var i = /* @__PURE__ */ new Float32Array(1);
+var a = new Uint32Array(i.buffer);
 function toHalf(e) {
-	let t = e < 0 ? 32768 : 0, a = Math.abs(e);
-	if (a >= n) return t | 31743;
-	if (a < 6103515625e-14) return t | Math.round(a / 5.960464477539063e-8);
-	r[0] = a;
-	let o = i[0], s = (o >>> 23) - 127 + 15, c = (o & 8388607) + 4096, l = (s << 10) + (c >>> 13);
+	let t = e < 0 ? 32768 : 0, n = Math.abs(e);
+	if (n >= r) return t | 31743;
+	if (n < 6103515625e-14) return t | Math.round(n / 5.960464477539063e-8);
+	i[0] = n;
+	let o = a[0], s = (o >>> 23) - 127 + 15, c = (o & 8388607) + 4096, l = (s << 10) + (c >>> 13);
 	return t | Math.min(l, 31743);
 }
-function equirectDirection(e, n, r) {
-	let i = (e - .5) * t, a = n * Math.PI, o = Math.sin(a);
+function equirectDirection(e, t, r) {
+	let i = (e - .5) * n, a = t * Math.PI, o = Math.sin(a);
 	return r[0] = o * Math.sin(i), r[1] = Math.cos(a), r[2] = -o * Math.cos(i), r;
 }
 function resample(e, t, n, r, i) {
@@ -38,7 +39,7 @@ function encodeHalf(e, t, n) {
 function shBasis(e, t, n, r) {
 	r[0] = .282095, r[1] = .488603 * t, r[2] = .488603 * n, r[3] = .488603 * e, r[4] = 1.092548 * e * t, r[5] = 1.092548 * t * n, r[6] = .315392 * (3 * n * n - 1), r[7] = 1.092548 * e * n, r[8] = .546274 * (e * e - t * t);
 }
-var a = [
+var o = [
 	1,
 	2 / 3,
 	2 / 3,
@@ -80,10 +81,10 @@ var EnvironmentMap = class EnvironmentMap {
 	get mipCount() {
 		return this.levelSizes.length;
 	}
-	static fromCubemap(t, r, i = 3) {
+	static fromCubemap(t, n, i = 3) {
 		if (!Number.isInteger(t) || t * 2 < require_rendering.environmentLimits.minHeight || t * 4 > require_rendering.environmentLimits.maxWidth) throw RangeError(`Cubemap face size exceeds the environment limits.`);
-		if (i !== 3 && i !== 4 || r.length !== 6) throw RangeError(`Cubemap requires six RGB or RGBA faces.`);
-		for (let e of r) {
+		if (i !== 3 && i !== 4 || n.length !== 6) throw RangeError(`Cubemap requires six RGB or RGBA faces.`);
+		for (let e of n) {
 			if (e.length !== t * t * i) throw RangeError(`Cubemap faces must have the same square dimensions.`);
 			for (let n = 0; n < t * t; n++) for (let t = 0; t < 3; t++) {
 				let r = e[n * i + t];
@@ -99,10 +100,10 @@ var EnvironmentMap = class EnvironmentMap {
 			equirectDirection((l + .5) / a, (e + .5) / o, c);
 			let [u, d, f] = c, p = Math.abs(u), m = Math.abs(d), h = Math.abs(f), g, _, v;
 			p >= m && p >= h ? (g = u >= 0 ? 0 : 1, _ = (u >= 0 ? -f : f) / p, v = -d / p) : m >= h ? (g = d >= 0 ? 2 : 3, _ = u / m, v = (d >= 0 ? f : -f) / m) : (g = f >= 0 ? 4 : 5, _ = (f >= 0 ? u : -u) / h, v = -d / h);
-			let y = (_ + 1) * .5 * t - .5, b = (v + 1) * .5 * t - .5, x = Math.floor(y), S = Math.floor(b), C = y - x, w = b - S, T = Math.max(0, Math.min(t - 1, x)), E = Math.max(0, Math.min(t - 1, x + 1)), D = Math.max(0, Math.min(t - 1, S)), O = Math.max(0, Math.min(t - 1, S + 1)), k = r[g];
-			for (let r = 0; r < 3; r++) {
-				let o = Math.min(k[(D * t + T) * i + r], n) * (1 - C) + Math.min(k[(D * t + E) * i + r], n) * C, c = Math.min(k[(O * t + T) * i + r], n) * (1 - C) + Math.min(k[(O * t + E) * i + r], n) * C;
-				s[(e * a + l) * 3 + r] = o * (1 - w) + c * w;
+			let y = (_ + 1) * .5 * t - .5, b = (v + 1) * .5 * t - .5, x = Math.floor(y), S = Math.floor(b), C = y - x, w = b - S, T = Math.max(0, Math.min(t - 1, x)), E = Math.max(0, Math.min(t - 1, x + 1)), D = Math.max(0, Math.min(t - 1, S)), O = Math.max(0, Math.min(t - 1, S + 1)), k = n[g];
+			for (let n = 0; n < 3; n++) {
+				let o = Math.min(k[(D * t + T) * i + n], r) * (1 - C) + Math.min(k[(D * t + E) * i + n], r) * C, c = Math.min(k[(O * t + T) * i + n], r) * (1 - C) + Math.min(k[(O * t + E) * i + n], r) * C;
+				s[(e * a + l) * 3 + n] = o * (1 - w) + c * w;
 			}
 		}
 		return new EnvironmentMap(a, o, s);
@@ -122,17 +123,17 @@ var EnvironmentMap = class EnvironmentMap {
 		});
 		return EnvironmentMap.fromCubemap(n, r);
 	}
-	static fromPixels(t, r, i, a = 3) {
-		if (!Number.isInteger(t) || !Number.isInteger(r) || t !== r * 2 || r < require_rendering.environmentLimits.minHeight || t > require_rendering.environmentLimits.maxWidth) throw RangeError(`Environment must be a 2:1 equirect between ${require_rendering.environmentLimits.minHeight * 2}x${require_rendering.environmentLimits.minHeight} and ${require_rendering.environmentLimits.maxWidth}x${require_rendering.environmentLimits.maxWidth / 2}.`);
+	static fromPixels(t, n, i, a = 3) {
+		if (!Number.isInteger(t) || !Number.isInteger(n) || t !== n * 2 || n < require_rendering.environmentLimits.minHeight || t > require_rendering.environmentLimits.maxWidth) throw RangeError(`Environment must be a 2:1 equirect between ${require_rendering.environmentLimits.minHeight * 2}x${require_rendering.environmentLimits.minHeight} and ${require_rendering.environmentLimits.maxWidth}x${require_rendering.environmentLimits.maxWidth / 2}.`);
 		if (a !== 3 && a !== 4) throw RangeError(`Environment channels must be 3 or 4.`);
-		if (i.length !== t * r * a) throw RangeError(`Environment pixel count does not match its size.`);
-		let o = new Float32Array(t * r * 3);
-		for (let e = 0; e < t * r; e++) for (let t = 0; t < 3; t++) {
-			let r = i[e * a + t];
-			if (!Number.isFinite(r) || r < 0) throw RangeError(`Environment radiance must be finite and nonnegative.`);
-			o[e * 3 + t] = Math.min(r, n);
+		if (i.length !== t * n * a) throw RangeError(`Environment pixel count does not match its size.`);
+		let o = new Float32Array(t * n * 3);
+		for (let e = 0; e < t * n; e++) for (let t = 0; t < 3; t++) {
+			let n = i[e * a + t];
+			if (!Number.isFinite(n) || n < 0) throw RangeError(`Environment radiance must be finite and nonnegative.`);
+			o[e * 3 + t] = Math.min(n, r);
 		}
-		return new EnvironmentMap(t, r, o);
+		return new EnvironmentMap(t, n, o);
 	}
 	static fromImageData(e) {
 		let t = new Float32Array(e.width * e.height * 3);
@@ -195,103 +196,103 @@ var EnvironmentMap = class EnvironmentMap {
 		return EnvironmentMap.fromPixels(o, a, c, 3);
 	}
 	static gradient(e) {
-		let t = e.width ?? 128;
-		if (!Number.isInteger(t) || t % 2 != 0) throw RangeError(`Gradient width must be an even integer.`);
-		let n = t / 2;
+		let n = e.width ?? 128;
+		if (!Number.isInteger(n) || n % 2 != 0) throw RangeError(`Gradient width must be an even integer.`);
+		let r = n / 2;
 		for (let t of [
 			e.zenith,
 			e.horizon,
 			e.ground
 		]) if (!Array.isArray(t) || t.length !== 3 || !t.every((e) => Number.isFinite(e) && e >= 0)) throw RangeError(`Gradient colors need three nonnegative numbers.`);
-		let r, i = e.sun, a = i?.radius ?? .05;
-		if (i) {
-			let e = i.direction, t = Math.hypot(e[0], e[1], e[2]);
-			if (!Number.isFinite(t) || t === 0) throw RangeError(`Sun direction must be a nonzero vector.`);
-			if (!i.color.every((e) => Number.isFinite(e) && e >= 0) || !Number.isFinite(a) || a <= 0) throw RangeError(`Sun needs nonnegative color and positive radius.`);
-			r = [
-				e[0] / t,
-				e[1] / t,
-				e[2] / t
+		let i, a = e.sun, o = a?.radius ?? .05;
+		if (a) {
+			let e = a.direction, n = require_hypot.hypot3(e[0], e[1], e[2]);
+			if (!Number.isFinite(n) || n === 0) throw RangeError(`Sun direction must be a nonzero vector.`);
+			if (!a.color.every((e) => Number.isFinite(e) && e >= 0) || !Number.isFinite(o) || o <= 0) throw RangeError(`Sun needs nonnegative color and positive radius.`);
+			i = [
+				e[0] / n,
+				e[1] / n,
+				e[2] / n
 			];
 		}
-		let o = new Float32Array(t * n * 3), s = [
+		let s = new Float32Array(n * r * 3), c = [
 			0,
 			0,
 			0
 		];
-		for (let c = 0; c < n; c++) for (let l = 0; l < t; l++) {
-			equirectDirection((l + .5) / t, (c + .5) / n, s);
-			let u = s[1], d = u >= 0, f = d ? u ** .5 : (-u) ** .5, p = e.horizon, m = d ? e.zenith : e.ground;
+		for (let t = 0; t < r; t++) for (let l = 0; l < n; l++) {
+			equirectDirection((l + .5) / n, (t + .5) / r, c);
+			let u = c[1], d = u >= 0, f = d ? u ** .5 : (-u) ** .5, p = e.horizon, m = d ? e.zenith : e.ground;
 			for (let e = 0; e < 3; e++) {
-				let n = p[e] + (m[e] - p[e]) * f;
-				if (r && i) {
-					let t = Math.min(1, s[0] * r[0] + s[1] * r[1] + s[2] * r[2]), o = Math.acos(t);
-					n += i.color[e] * Math.max(0, Math.min(1, (a * 1.5 - o) / (a * .5)));
+				let r = p[e] + (m[e] - p[e]) * f;
+				if (i && a) {
+					let t = Math.min(1, c[0] * i[0] + c[1] * i[1] + c[2] * i[2]), n = Math.acos(t);
+					r += a.color[e] * Math.max(0, Math.min(1, (o * 1.5 - n) / (o * .5)));
 				}
-				o[(c * t + l) * 3 + e] = n;
+				s[(t * n + l) * 3 + e] = r;
 			}
 		}
-		return EnvironmentMap.fromPixels(t, n, o, 3);
+		return EnvironmentMap.fromPixels(n, r, s, 3);
 	}
 	destroy() {
 		this.gone = !0;
 	}
-	static projectSH(e, n, r) {
-		let i = /* @__PURE__ */ new Float64Array(27), o = /* @__PURE__ */ new Float64Array(9), s = [
+	static projectSH(e, t, r) {
+		let i = /* @__PURE__ */ new Float64Array(27), a = /* @__PURE__ */ new Float64Array(9), s = [
 			0,
 			0,
 			0
 		];
-		for (let a = 0; a < r; a++) {
-			let c = t / n * (Math.PI / r) * Math.sin((a + .5) / r * Math.PI);
-			for (let t = 0; t < n; t++) {
-				equirectDirection((t + .5) / n, (a + .5) / r, s), shBasis(s[0], s[1], s[2], o);
-				let l = (a * n + t) * 3;
-				for (let t = 0; t < 9; t++) for (let n = 0; n < 3; n++) i[t * 3 + n] += e[l + n] * o[t] * c;
+		for (let o = 0; o < r; o++) {
+			let c = n / t * (Math.PI / r) * Math.sin((o + .5) / r * Math.PI);
+			for (let n = 0; n < t; n++) {
+				equirectDirection((n + .5) / t, (o + .5) / r, s), shBasis(s[0], s[1], s[2], a);
+				let l = (o * t + n) * 3;
+				for (let t = 0; t < 9; t++) for (let n = 0; n < 3; n++) i[t * 3 + n] += e[l + n] * a[t] * c;
 			}
 		}
 		let c = /* @__PURE__ */ new Float32Array(36);
-		for (let e = 0; e < 9; e++) for (let t = 0; t < 3; t++) c[e * 4 + t] = i[e * 3 + t] * a[e];
+		for (let e = 0; e < 9; e++) for (let t = 0; t < 3; t++) c[e * 4 + t] = i[e * 3 + t] * o[e];
 		return c;
 	}
-	static convolve(n, r, i, a, o, s, c) {
-		let l = require_rendering.environmentLimits.prefilterSamples, u = new Float64Array(l * 4), d = new Float64Array(l), f = c ** 4;
-		for (let e = 0; e < l; e++) {
-			let n = e, r = 0, i = .5;
-			for (; n;) r += (n & 1) * i, n >>>= 1, i *= .5;
-			let a = (e + .5) / l * t, o = Math.sqrt((1 - r) / (1 + (f - 1) * r)), s = Math.sqrt(Math.max(0, 1 - o * o)), c = 2 * o * o - 1, p = e * 4;
-			u[p] = 2 * o * s * Math.cos(a), u[p + 1] = 2 * o * s * Math.sin(a), u[p + 2] = c, u[p + 3] = Math.max(0, c);
-			let m = 1 - o * o + f * o * o, h = f / (4 * Math.PI * m * m);
-			d[e] = 1 / (l * h);
+	static convolve(r, i, a, o, s, c, l) {
+		let u = require_rendering.environmentLimits.prefilterSamples, d = new Float64Array(u * 4), f = new Float64Array(u), p = l ** 4;
+		for (let e = 0; e < u; e++) {
+			let t = e, r = 0, i = .5;
+			for (; t;) r += (t & 1) * i, t >>>= 1, i *= .5;
+			let a = (e + .5) / u * n, o = Math.sqrt((1 - r) / (1 + (p - 1) * r)), s = Math.sqrt(Math.max(0, 1 - o * o)), c = 2 * o * o - 1, l = e * 4;
+			d[l] = 2 * o * s * Math.cos(a), d[l + 1] = 2 * o * s * Math.sin(a), d[l + 2] = c, d[l + 3] = Math.max(0, c);
+			let m = 1 - o * o + p * o * o, h = p / (4 * Math.PI * m * m);
+			f[e] = 1 / (u * h);
 		}
-		let p = new Float32Array(o * s * 3), m = [
+		let m = new Float32Array(s * c * 3), h = [
 			0,
 			0,
 			0
-		], h = t * Math.PI / (i * a), g = Math.sin(Math.PI / (2 * a));
-		for (let e = 0; e < s; e++) for (let i = 0; i < o; i++) {
-			equirectDirection((i + .5) / o, (e + .5) / s, m);
-			let a = 0, c, f = 0;
-			Math.abs(m[2]) < .999 ? (a = -m[1], c = m[0]) : (c = -m[2], f = m[1]);
-			let _ = Math.hypot(a, c, f);
-			a /= _, c /= _, f /= _;
-			let v = m[1] * f - m[2] * c, y = m[2] * a - m[0] * f, b = m[0] * c - m[1] * a, x = 0, S = 0, C = 0, w = 0;
-			for (let e = 0; e < l; e++) {
-				let i = e * 4, o = u[i + 3];
-				if (o <= 0) continue;
-				let s = a * u[i] + v * u[i + 1] + m[0] * u[i + 2], l = Math.min(1, Math.max(-1, c * u[i] + y * u[i + 1] + m[1] * u[i + 2])), p = f * u[i] + b * u[i + 1] + m[2] * u[i + 2], _ = Math.atan2(s, -p) / t + .5, T = Math.acos(l) / Math.PI, E = h * Math.max(g, Math.sqrt(Math.max(0, 1 - l * l))), D = Math.max(0, Math.min(n.length - 1, .5 * Math.log2(d[e] / E))), O = Math.floor(D), k = D - O;
+		], g = n * Math.PI / (a * o), _ = Math.sin(Math.PI / (2 * o));
+		for (let e = 0; e < c; e++) for (let a = 0; a < s; a++) {
+			equirectDirection((a + .5) / s, (e + .5) / c, h);
+			let o = 0, l, p = 0;
+			Math.abs(h[2]) < .999 ? (o = -h[1], l = h[0]) : (l = -h[2], p = h[1]);
+			let v = require_hypot.hypot3(o, l, p);
+			o /= v, l /= v, p /= v;
+			let y = h[1] * p - h[2] * l, b = h[2] * o - h[0] * p, x = h[0] * l - h[1] * o, S = 0, C = 0, w = 0, T = 0;
+			for (let e = 0; e < u; e++) {
+				let t = e * 4, a = d[t + 3];
+				if (a <= 0) continue;
+				let s = o * d[t] + y * d[t + 1] + h[0] * d[t + 2], c = Math.min(1, Math.max(-1, l * d[t] + b * d[t + 1] + h[1] * d[t + 2])), u = p * d[t] + x * d[t + 1] + h[2] * d[t + 2], m = Math.atan2(s, -u) / n + .5, v = Math.acos(c) / Math.PI, E = g * Math.max(_, Math.sqrt(Math.max(0, 1 - c * c))), D = Math.max(0, Math.min(r.length - 1, .5 * Math.log2(f[e] / E))), O = Math.floor(D), k = D - O;
 				for (let e = 0; e < 2; e++) {
 					let t = e === 0 ? 1 - k : k;
 					if (t === 0) continue;
-					let i = O + e, { width: a, height: s } = r[i], c = n[i], l = _ * a - .5, u = T * s - .5, d = Math.floor(l), f = Math.floor(u), p = l - d, m = u - f, h = (d + a) % a, g = (h + 1) % a, v = Math.max(0, Math.min(s - 1, f)), y = Math.max(0, Math.min(s - 1, f + 1)), b = (v * a + h) * 3, w = (y * a + h) * 3, E = (y * a + g) * 3, D = (v * a + g) * 3, A = o * t;
-					x += ((c[b] * (1 - p) + c[D] * p) * (1 - m) + (c[w] * (1 - p) + c[E] * p) * m) * A, S += ((c[b + 1] * (1 - p) + c[D + 1] * p) * (1 - m) + (c[w + 1] * (1 - p) + c[E + 1] * p) * m) * A, C += ((c[b + 2] * (1 - p) + c[D + 2] * p) * (1 - m) + (c[w + 2] * (1 - p) + c[E + 2] * p) * m) * A;
+					let n = O + e, { width: o, height: s } = i[n], c = r[n], l = m * o - .5, u = v * s - .5, d = Math.floor(l), f = Math.floor(u), p = l - d, h = u - f, g = (d + o) % o, _ = (g + 1) % o, y = Math.max(0, Math.min(s - 1, f)), b = Math.max(0, Math.min(s - 1, f + 1)), x = (y * o + g) * 3, T = (b * o + g) * 3, E = (b * o + _) * 3, D = (y * o + _) * 3, A = a * t;
+					S += ((c[x] * (1 - p) + c[D] * p) * (1 - h) + (c[T] * (1 - p) + c[E] * p) * h) * A, C += ((c[x + 1] * (1 - p) + c[D + 1] * p) * (1 - h) + (c[T + 1] * (1 - p) + c[E + 1] * p) * h) * A, w += ((c[x + 2] * (1 - p) + c[D + 2] * p) * (1 - h) + (c[T + 2] * (1 - p) + c[E + 2] * p) * h) * A;
 				}
-				w += o;
+				T += a;
 			}
-			let T = (e * o + i) * 3;
-			p[T] = x / w, p[T + 1] = S / w, p[T + 2] = C / w;
+			let E = (e * s + a) * 3;
+			m[E] = S / T, m[E + 1] = C / T, m[E + 2] = w / T;
 		}
-		return p;
+		return m;
 	}
 };
 //#endregion

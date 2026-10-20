@@ -7,6 +7,7 @@ import {
   type NavigationNode3D,
   type NavigationConnection3D,
 } from './navigation/graph.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface WorldStreamingPortal3D {
   /** Exactly two live cells may share a seam. Unmatched portals do not create edges. */
@@ -116,7 +117,7 @@ export class WorldStreamingNavigation3D {
     for (const [seam, pair] of portals) {
       if (pair.length !== 2) continue;
       const [a, b] = pair as [Portal, Portal];
-      const distance = Math.hypot(
+      const distance = hypot3(
         a.endpoint.position.x - b.endpoint.position.x,
         a.endpoint.position.y - b.endpoint.position.y,
         a.endpoint.position.z - b.endpoint.position.z,

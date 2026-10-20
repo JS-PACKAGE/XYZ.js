@@ -4,6 +4,7 @@ import {
   physicsDefaults,
   world2dLimits,
 } from '../../../../src/data/world2d.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 const EPSILON = physicsDefaults.geometryEpsilon;
 const TRANSFORM_INDICES = [0, 1, 3, 4, 6, 7] as const;
@@ -277,8 +278,8 @@ export class ShapeGeometry {
     this.x = e[0] * offset.x + e[3] * offset.y + e[6];
     this.y = e[1] * offset.x + e[4] * offset.y + e[7];
     if (this.collider.kind === 'circle') {
-      const sx = Math.hypot(e[0], e[1]),
-        sy = Math.hypot(e[3], e[4]);
+      const sx = hypot2(e[0], e[1]),
+        sy = hypot2(e[3], e[4]);
       if (
         Math.abs(sx - sy) > EPSILON * Math.max(sx, sy) ||
         Math.abs(e[0] * e[3] + e[1] * e[4]) > EPSILON * sx * sy

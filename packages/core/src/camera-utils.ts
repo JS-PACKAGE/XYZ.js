@@ -1,4 +1,5 @@
 import type { Quaternion, Vector3 } from '../../math/src/index.js';
+import { hypot2, hypot3 } from '../../math/src/hypot.js';
 
 /** Builds a right-handed camera orientation with world +Y up and local -Z forward. */
 export function lookAtRotation(
@@ -9,14 +10,14 @@ export function lookAtRotation(
   let zx = position.x - target.x;
   let zy = position.y - target.y;
   let zz = position.z - target.z;
-  const length = Math.hypot(zx, zy, zz);
+  const length = hypot3(zx, zy, zz);
   if (!Number.isFinite(length))
     throw new RangeError('Camera lookAt requires finite positions.');
   if (length === 0) return;
   zx /= length;
   zy /= length;
   zz /= length;
-  const horizontal = Math.hypot(zx, zz);
+  const horizontal = hypot2(zx, zz);
   // At a pole the up vector cannot determine roll; retain a deterministic right axis.
   const xx = horizontal === 0 ? 1 : zz / horizontal;
   const xz = horizontal === 0 ? 0 : -zx / horizontal;

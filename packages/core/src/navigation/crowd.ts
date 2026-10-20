@@ -5,6 +5,7 @@ import type { CharacterController3D } from '../physics3d/character.js';
 import type { CharacterController2D } from '../physics2d/character.js';
 import type { PathFollower3D } from './follower.js';
 import { CapsuleCollider3D } from '../physics3d/collider.js';
+import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export interface CrowdOptions {
   maxAgents?: number;
@@ -390,8 +391,7 @@ export class CrowdSolver {
         for (const other of bucket) {
           if (
             other === agent ||
-            Math.hypot(other.x - agent.x, other.z - agent.z) >
-              this.neighborDistance
+            hypot2(other.x - agent.x, other.z - agent.z) > this.neighborDistance
           )
             continue;
           this.neighbors.push(other);
@@ -461,7 +461,7 @@ export class CrowdSolver {
     const speed = Math.sqrt(
       Math.max(0, agent.maxSpeed ** 2 - agent.preferred.y ** 2),
     );
-    const preferredSpeed = Math.hypot(px, pz);
+    const preferredSpeed = hypot2(px, pz);
     if (preferredSpeed > speed) {
       px *= speed / preferredSpeed;
       pz *= speed / preferredSpeed;
@@ -499,8 +499,8 @@ export class CrowdSolver {
     agent.state =
       scratch.best === Infinity
         ? 'blocked'
-        : Math.hypot(scratch.x, agent.preferred.y, scratch.z) < 1e-6
-          ? Math.hypot(px, pz) > 1e-6
+        : hypot3(scratch.x, agent.preferred.y, scratch.z) < 1e-6
+          ? hypot2(px, pz) > 1e-6
             ? 'blocked'
             : 'idle'
           : 'moving';

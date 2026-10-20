@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_morph = require("./morph.cjs");
 const require_animation_pose = require("./animation-pose.cjs");
@@ -34,7 +35,7 @@ var KeyframeTrack = class {
 		if (t === `rotation`) {
 			let e = this.size * (i === `CUBICSPLINE` ? 3 : 1), t = i === `CUBICSPLINE` ? 4 : 0;
 			for (let n = t; n < this.values.length; n += e) {
-				let e = Math.hypot(this.values[n], this.values[n + 1], this.values[n + 2], this.values[n + 3]);
+				let e = require_hypot.hypot4(this.values[n], this.values[n + 1], this.values[n + 2], this.values[n + 3]);
 				if (e === 0) throw RangeError(`Animation quaternion cannot be zero.`);
 				for (let t = 0; t < 4; t++) this.values[n + t] /= e;
 			}
@@ -45,31 +46,31 @@ var KeyframeTrack = class {
 	}
 	sampleValues(e, t) {
 		if (!Number.isFinite(e) || t.length !== this.size) throw RangeError(`Invalid animation sample time or output size.`);
-		let n = this.times, r = this.values, i = this.size, a = n.length - 1, o = this.cursor;
-		if (o < a && n[o + 1] <= e && o++, o > a || o > 0 && n[o] > e || o < a && n[o + 1] <= e) {
-			o = 0;
+		let n = this.times, r = this.values, i = this.size, a = n.length - 1, s = this.cursor;
+		if (s < a && n[s + 1] <= e && s++, s > a || s > 0 && n[s] > e || s < a && n[s + 1] <= e) {
+			s = 0;
 			let t = a;
-			for (; o < t;) {
-				let r = Math.ceil((o + t) / 2);
-				n[r] <= e ? o = r : t = r - 1;
+			for (; s < t;) {
+				let r = Math.ceil((s + t) / 2);
+				n[r] <= e ? s = r : t = r - 1;
 			}
 		}
-		this.cursor = o;
-		let s = o, c = e <= n[0] || s === n.length - 1 || this.interpolation === `STEP` ? s : s + 1, l = n[c] - n[s], u = l > 0 ? Math.max(0, Math.min(1, (e - n[s]) / l)) : 0, d = this.interpolation === `CUBICSPLINE`, f = s * i * (d ? 3 : 1) + (d ? i : 0), p = c * i * (d ? 3 : 1) + (d ? i : 0), m = 1 - u, h = u, g = 1;
-		if (this.path === `rotation` && !d) {
+		this.cursor = s;
+		let c = s, l = e <= n[0] || c === n.length - 1 || this.interpolation === `STEP` ? c : c + 1, u = n[l] - n[c], d = u > 0 ? Math.max(0, Math.min(1, (e - n[c]) / u)) : 0, f = this.interpolation === `CUBICSPLINE`, p = c * i * (f ? 3 : 1) + (f ? i : 0), m = l * i * (f ? 3 : 1) + (f ? i : 0), h = 1 - d, g = d, _ = 1;
+		if (this.path === `rotation` && !f) {
 			let e = 0;
-			for (let t = 0; t < 4; t++) e += r[f + t] * r[p + t];
-			if (e < 0 && (g = -1, e = -e), e < .9995) {
+			for (let t = 0; t < 4; t++) e += r[p + t] * r[m + t];
+			if (e < 0 && (_ = -1, e = -e), e < .9995) {
 				let t = Math.acos(Math.min(1, e)), n = Math.sin(t);
-				m = Math.sin((1 - u) * t) / n, h = Math.sin(u * t) / n;
+				h = Math.sin((1 - d) * t) / n, g = Math.sin(d * t) / n;
 			}
 		}
-		for (let e = 0; e < i; e++) if (d && s !== c) {
-			let n = u * u, a = n * u;
-			t[e] = (2 * a - 3 * n + 1) * r[f + e] + (a - 2 * n + u) * l * r[f + i + e] + (-2 * a + 3 * n) * r[p + e] + (a - n) * l * r[p - i + e];
-		} else t[e] = m * r[f + e] + h * g * r[p + e];
+		for (let e = 0; e < i; e++) if (f && c !== l) {
+			let n = d * d, a = n * d;
+			t[e] = (2 * a - 3 * n + 1) * r[p + e] + (a - 2 * n + d) * u * r[p + i + e] + (-2 * a + 3 * n) * r[m + e] + (a - n) * u * r[m - i + e];
+		} else t[e] = h * r[p + e] + g * _ * r[m + e];
 		if (this.path === `rotation`) {
-			let e = Math.hypot(t[0], t[1], t[2], t[3]);
+			let e = require_hypot.hypot4(t[0], t[1], t[2], t[3]);
 			if (!e) throw RangeError(`Sampled animation quaternion is zero.`);
 			for (let n = 0; n < 4; n++) t[n] /= e;
 		}

@@ -12,6 +12,7 @@ import {
   type AnimationMask,
 } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
+import { hypot4 } from '../../math/src/hypot.js';
 
 export interface AnimationRootMotionDelta {
   /** Body-local displacement; rotate by the consumer's current orientation before world movement. */
@@ -108,7 +109,7 @@ export class AnimationRootMotion {
       throw new RangeError('Root motion requires unit root scale.');
     const p = root.position,
       q = root.rotation;
-    const length = Math.hypot(q.x, q.y, q.z, q.w);
+    const length = hypot4(q.x, q.y, q.z, q.w);
     if (
       !Number.isFinite(p.x) ||
       !Number.isFinite(p.y) ||

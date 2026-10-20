@@ -1,24 +1,25 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/core/src/camera-utils.js
-function lookAtRotation(e, t, n) {
-	let r = e.x - t.x, i = e.y - t.y, a = e.z - t.z, o = Math.hypot(r, i, a);
-	if (!Number.isFinite(o)) throw RangeError(`Camera lookAt requires finite positions.`);
-	if (o === 0) return;
-	r /= o, i /= o, a /= o;
-	let s = Math.hypot(r, a), c = s === 0 ? 1 : a / s, l = s === 0 ? 0 : -r / s, u = i * l, d = a * c - r * l, f = -i * c, p = c + d + a;
-	if (p > 0) {
-		let e = 2 * Math.sqrt(p + 1);
-		n.set((f - i) / e, (r - l) / e, -u / e, e / 4);
-	} else if (c > d && c > a) {
-		let e = 2 * Math.sqrt(1 + c - d - a);
-		n.set(e / 4, u / e, (r + l) / e, (f - i) / e);
-	} else if (d > a) {
-		let e = 2 * Math.sqrt(1 + d - c - a);
-		n.set(u / e, e / 4, (i + f) / e, (r - l) / e);
+function lookAtRotation(n, r, i) {
+	let a = n.x - r.x, o = n.y - r.y, s = n.z - r.z, c = require_hypot.hypot3(a, o, s);
+	if (!Number.isFinite(c)) throw RangeError(`Camera lookAt requires finite positions.`);
+	if (c === 0) return;
+	a /= c, o /= c, s /= c;
+	let l = require_hypot.hypot2(a, s), u = l === 0 ? 1 : s / l, d = l === 0 ? 0 : -a / l, f = o * d, p = s * u - a * d, m = -o * u, h = u + p + s;
+	if (h > 0) {
+		let e = 2 * Math.sqrt(h + 1);
+		i.set((m - o) / e, (a - d) / e, -f / e, e / 4);
+	} else if (u > p && u > s) {
+		let e = 2 * Math.sqrt(1 + u - p - s);
+		i.set(e / 4, f / e, (a + d) / e, (m - o) / e);
+	} else if (p > s) {
+		let e = 2 * Math.sqrt(1 + p - u - s);
+		i.set(f / e, e / 4, (o + m) / e, (a - d) / e);
 	} else {
-		let e = 2 * Math.sqrt(1 + a - c - d);
-		n.set((r + l) / e, (i + f) / e, e / 4, -u / e);
+		let e = 2 * Math.sqrt(1 + s - u - p);
+		i.set((a + d) / e, (o + m) / e, e / 4, -f / e);
 	}
-	n.normalize();
+	i.normalize();
 }
 //#endregion
 exports.lookAtRotation = lookAtRotation;

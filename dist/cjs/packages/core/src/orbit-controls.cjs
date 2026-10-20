@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_orthographic_camera = require("./orthographic-camera.cjs");
 //#region dist/packages/core/src/orbit-controls.js
@@ -41,19 +42,19 @@ var OrbitControls = class {
 		e.removeEventListener(`pointerdown`, this.onPointerDown), e.removeEventListener(`pointermove`, this.onPointerMove), e.removeEventListener(`pointerup`, this.onPointerEnd), e.removeEventListener(`pointercancel`, this.onPointerEnd), e.removeEventListener(`lostpointercapture`, this.onPointerEnd), e.removeEventListener(`wheel`, this.onWheel), e.removeEventListener(`contextmenu`, this.onContextMenu), e.style.touchAction === `none` && (e.style.touchAction = this.previousTouchAction);
 	}
 	orbit(e, t) {
-		let n = this.camera.position, r = n.x - this.target.x, i = n.y - this.target.y, a = n.z - this.target.z, o = Math.max(1e-6, Math.max(this.minDistance, Math.min(this.maxDistance, Math.hypot(r, i, a)))), s = Math.hypot(r, i, a), c = Math.max(1e-6, Math.min(Math.PI - 1e-6, Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, (s === 0 ? Math.PI / 2 : Math.acos(Math.max(-1, Math.min(1, i / s)))) + t)))), l = Math.max(this.minAzimuthAngle, Math.min(this.maxAzimuthAngle, Math.atan2(r, a) + e)), u = o * Math.sin(c);
-		n.set(this.target.x + u * Math.sin(l), this.target.y + o * Math.cos(c), this.target.z + u * Math.cos(l)), this.camera.lookAt(this.target);
+		let n = this.camera.position, i = n.x - this.target.x, a = n.y - this.target.y, o = n.z - this.target.z, s = Math.max(1e-6, Math.max(this.minDistance, Math.min(this.maxDistance, require_hypot.hypot3(i, a, o)))), c = require_hypot.hypot3(i, a, o), l = Math.max(1e-6, Math.min(Math.PI - 1e-6, Math.max(this.minPolarAngle, Math.min(this.maxPolarAngle, (c === 0 ? Math.PI / 2 : Math.acos(Math.max(-1, Math.min(1, a / c)))) + t)))), u = Math.max(this.minAzimuthAngle, Math.min(this.maxAzimuthAngle, Math.atan2(i, o) + e)), d = s * Math.sin(l);
+		n.set(this.target.x + d * Math.sin(u), this.target.y + s * Math.cos(l), this.target.z + d * Math.cos(u)), this.camera.lookAt(this.target);
 	}
 	pan(e, t) {
-		let r = this.camera, i = Math.max(1, this.canvas.clientHeight), a = Math.hypot(r.position.x - this.target.x, r.position.y - this.target.y, r.position.z - this.target.z), o = (r instanceof require_orthographic_camera.OrthographicCamera ? r.height / r.zoom : 2 * a * Math.tan(r.fov / 2)) * this.panSpeed / i, s = this.basis.compose(r.position, r.rotation, this.unitScale).elements, c = (-e * s[0] + t * s[4]) * o, l = (-e * s[1] + t * s[5]) * o, u = (-e * s[2] + t * s[6]) * o;
-		this.target.x += c, this.target.y += l, this.target.z += u, r.position.x += c, r.position.y += l, r.position.z += u, this.update();
+		let i = this.camera, a = Math.max(1, this.canvas.clientHeight), o = require_hypot.hypot3(i.position.x - this.target.x, i.position.y - this.target.y, i.position.z - this.target.z), s = (i instanceof require_orthographic_camera.OrthographicCamera ? i.height / i.zoom : 2 * o * Math.tan(i.fov / 2)) * this.panSpeed / a, c = this.basis.compose(i.position, i.rotation, this.unitScale).elements, l = (-e * c[0] + t * c[4]) * s, u = (-e * c[1] + t * c[5]) * s, d = (-e * c[2] + t * c[6]) * s;
+		this.target.x += l, this.target.y += u, this.target.z += d, i.position.x += l, i.position.y += u, i.position.z += d, this.update();
 	}
 	dolly(e) {
-		let t = Math.exp(Math.max(-20, Math.min(20, e * this.zoomSpeed * .001))), r = this.camera;
-		if (r instanceof require_orthographic_camera.OrthographicCamera) r.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, r.zoom / t));
+		let t = Math.exp(Math.max(-20, Math.min(20, e * this.zoomSpeed * .001))), i = this.camera;
+		if (i instanceof require_orthographic_camera.OrthographicCamera) i.zoom = Math.max(this.minZoom, Math.min(this.maxZoom, i.zoom / t));
 		else {
-			let e = r.position.x - this.target.x, n = r.position.y - this.target.y, i = r.position.z - this.target.z, a = Math.hypot(e, n, i), o = Math.max(1e-6, Math.max(this.minDistance, Math.min(this.maxDistance, a * t)));
-			a !== 0 && r.position.set(this.target.x + e * o / a, this.target.y + n * o / a, this.target.z + i * o / a);
+			let e = i.position.x - this.target.x, n = i.position.y - this.target.y, a = i.position.z - this.target.z, o = require_hypot.hypot3(e, n, a), s = Math.max(1e-6, Math.max(this.minDistance, Math.min(this.maxDistance, o * t)));
+			o !== 0 && i.position.set(this.target.x + e * s / o, this.target.y + n * s / o, this.target.z + a * s / o);
 		}
 		this.update();
 	}

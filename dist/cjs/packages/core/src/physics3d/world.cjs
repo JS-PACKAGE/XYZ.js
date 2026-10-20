@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_spatial = require("./spatial.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
@@ -12,7 +13,7 @@ const require_physics_profiles = require("../../../../src/data/physics-profiles.
 const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
-var C = 0;
+var w = 0;
 function sleepState(e, t) {
 	return t || (e.isSleeping ? 1 : 2);
 }
@@ -397,7 +398,7 @@ var PhysicsWorld3D = class {
 				continue;
 			}
 			if (!a.shape.collider.sensor && !o.shape.collider.sensor) {
-				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++C;
+				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++w;
 				for (let e = 0; e < this.solverIterations; e++) {
 					for (let e = 0; e < l.manifold.count; e++) this.solve(l, e);
 					this.solveJoints();
@@ -448,7 +449,7 @@ var PhysicsWorld3D = class {
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
 		for (let e of this.active) e.responds = !e.ended && this.valid(e.a) && this.valid(e.b) && !e.a.shape.collider.sensor && !e.b.shape.collider.sensor;
-		++this.massEpoch, this.solvePhase = ++C;
+		++this.massEpoch, this.solvePhase = ++w;
 		for (let e = 0; e < this.solverIterations; e++) {
 			this.solveJoints();
 			for (let e of this.active) {
@@ -680,7 +681,7 @@ var PhysicsWorld3D = class {
 		return o.refresh(t), o.validateMoving(`kinematic`), this.sweepShape(o, r, i, a, !1, t);
 	}
 	sweepShape(e, n, r, i, o, s) {
-		let c = n.x, l = n.y, u = n.z, f = Math.hypot(c, l, u);
+		let c = n.x, l = n.y, u = n.z, f = require_hypot.hypot3(c, l, u);
 		if (f < 1e-12) return;
 		let p = 1 + 1e-10, m;
 		this.queryBounds.swept(e.bounds, n, require_physics3d.physics3DDefaults.sweepTolerance), this.candidates(this.queryBounds);

@@ -1,14 +1,15 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_post_effects = require("../../core/src/post-effects.cjs");
 //#region dist/packages/graphics/src/volumetric-post.js
-function writeVolumetricUniforms(t, n, r) {
-	t.fill(0, n, n + 16);
-	let i = r ? require_post_effects.getPostEffects(r.postProcessing)?.volumetricFog : void 0;
-	if (!r || !r.postProcessing.enabled || !i?.enabled) return;
-	t[n] = i.density, t[n + 1] = i.baseHeight, t[n + 2] = i.heightFalloff, t[n + 3] = i.maxDistance, t.set(i.color, n + 4), t[n + 7] = i.fogSamples;
-	let a = r.camera3D, o = r.directionalLight, s = o.direction, c = Math.hypot(s.x, s.y, s.z);
-	if (c === 0) return;
-	let l = a.far * .5 / c, u = a.position.x + s.x * l, d = a.position.y + s.y * l, f = a.position.z + s.z * l, p = a.matrix.elements, m = p[3] * u + p[7] * d + p[11] * f + p[15];
-	m <= 1e-6 || (t[n + 8] = ((p[0] * u + p[4] * d + p[8] * f + p[12]) / m + 1) * .5, t[n + 9] = (1 - (p[1] * u + p[5] * d + p[9] * f + p[13]) / m) * .5, t[n + 10] = i.shaftStrength * o.intensity, t[n + 11] = i.shaftSamples, t.set(o.color, n + 12));
+function writeVolumetricUniforms(n, r, i) {
+	n.fill(0, r, r + 16);
+	let a = i ? require_post_effects.getPostEffects(i.postProcessing)?.volumetricFog : void 0;
+	if (!i || !i.postProcessing.enabled || !a?.enabled) return;
+	n[r] = a.density, n[r + 1] = a.baseHeight, n[r + 2] = a.heightFalloff, n[r + 3] = a.maxDistance, n.set(a.color, r + 4), n[r + 7] = a.fogSamples;
+	let o = i.camera3D, s = i.directionalLight, c = s.direction, l = require_hypot.hypot3(c.x, c.y, c.z);
+	if (l === 0) return;
+	let u = o.far * .5 / l, d = o.position.x + c.x * u, f = o.position.y + c.y * u, p = o.position.z + c.z * u, m = o.matrix.elements, h = m[3] * d + m[7] * f + m[11] * p + m[15];
+	h <= 1e-6 || (n[r + 8] = ((m[0] * d + m[4] * f + m[8] * p + m[12]) / h + 1) * .5, n[r + 9] = (1 - (m[1] * d + m[5] * f + m[9] * p + m[13]) / h) * .5, n[r + 10] = a.shaftStrength * s.intensity, n[r + 11] = a.shaftSamples, n.set(s.color, r + 12));
 }
 var volumetricWGSL = `
 fn volumetric(color:vec3f, pixel:vec2i)->vec3f {

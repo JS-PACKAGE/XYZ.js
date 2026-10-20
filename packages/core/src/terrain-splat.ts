@@ -7,6 +7,7 @@ import {
   type TerrainImageData,
   type TerrainImageSource,
 } from './terrain-data.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface TerrainSplatLayer {
   /** Opaque color source; alpha-bearing layers are rejected, not silently discarded. */
@@ -168,7 +169,7 @@ export function bakeTerrainSplat(
             layer.normalScale;
           tz = terrainChannel(layer.normal, lu, lv, 2, true) * 2 - 1;
         }
-        const length = Math.hypot(tx, ty, tz) || 1;
+        const length = hypot3(tx, ty, tz) || 1;
         nx += (tx / length) * weight;
         ny += (ty / length) * weight;
         nz += (tz / length) * weight;
@@ -197,7 +198,7 @@ export function bakeTerrainSplat(
             weight;
         }
       }
-      const length = Math.hypot(nx, ny, nz);
+      const length = hypot3(nx, ny, nz);
       if (length === 0) {
         nx = 0;
         ny = 0;

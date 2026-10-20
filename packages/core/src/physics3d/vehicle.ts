@@ -3,6 +3,7 @@ import type { Object3D } from '../object3d.js';
 import type { PhysicsWorld3D } from './world.js';
 import { finite3D, nonnegative3D, positive3D, vector3D } from './collider.js';
 import { physicsProfiles } from '../../../../src/data/physics-profiles.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 export interface VehicleWheelOptions3D {
   /** Local chassis attachment. Suspension points down local Y; forward is local +Z. */
@@ -207,7 +208,7 @@ export class Vehicle3D {
         ((-sideways * body.mass) / this.wheels.length) *
         Math.min(1, this.lateralGrip * dt);
       const limit = force * w.friction * dt,
-        magnitude = Math.hypot(fx, fy);
+        magnitude = hypot2(fx, fy);
       if (magnitude > limit && magnitude > 0) {
         fx *= limit / magnitude;
         fy *= limit / magnitude;

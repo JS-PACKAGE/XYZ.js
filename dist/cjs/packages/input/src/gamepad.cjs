@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/input/src/gamepad.js
 var gamepadButtonIndex = {
 	a: 0,
@@ -24,8 +25,8 @@ var gamepadAxisIndex = {
 	rightX: 2,
 	rightY: 3
 };
-var e = Object.keys(gamepadButtonIndex);
-var t = Object.keys(gamepadAxisIndex);
+var t = Object.keys(gamepadButtonIndex);
+var n = Object.keys(gamepadAxisIndex);
 var GamepadState = class {
 	profileSource;
 	padIndex = -1;
@@ -33,8 +34,8 @@ var GamepadState = class {
 	preferred;
 	deadzoneValue = .15;
 	thresholdValue = .5;
-	values = Array(e.length).fill(0);
-	previous = Array(e.length).fill(0);
+	values = Array(t.length).fill(0);
+	previous = Array(t.length).fill(0);
 	rawAxes = [
 		0,
 		0,
@@ -148,22 +149,22 @@ var GamepadState = class {
 		return this.values[t] < this.thresholdValue && this.previous[t] >= this.thresholdValue;
 	}
 	firstPressed() {
-		return e.find((e) => this.wasPressed(e));
+		return t.find((e) => this.wasPressed(e));
 	}
-	axis(e) {
-		let t = axisSlot(e), n = t < 2 ? 0 : 2, r = Math.hypot(this.rawAxes[n], this.rawAxes[n + 1]);
-		return r <= this.deadzoneValue ? 0 : this.rawAxes[t] * Math.min(1, (r - this.deadzoneValue) / (1 - this.deadzoneValue)) / r;
+	axis(t) {
+		let n = axisSlot(t), r = n < 2 ? 0 : 2, i = require_hypot.hypot2(this.rawAxes[r], this.rawAxes[r + 1]);
+		return i <= this.deadzoneValue ? 0 : this.rawAxes[n] * Math.min(1, (i - this.deadzoneValue) / (1 - this.deadzoneValue)) / i;
 	}
-	stick(e) {
-		let t = e === `left` ? 0 : 2, n = this.rawAxes[t], r = this.rawAxes[t + 1], i = Math.hypot(n, r);
-		if (i <= this.deadzoneValue) return {
+	stick(t) {
+		let n = t === `left` ? 0 : 2, r = this.rawAxes[n], i = this.rawAxes[n + 1], a = require_hypot.hypot2(r, i);
+		if (a <= this.deadzoneValue) return {
 			x: 0,
 			y: 0
 		};
-		let a = Math.min(1, (i - this.deadzoneValue) / (1 - this.deadzoneValue)) / i;
+		let o = Math.min(1, (a - this.deadzoneValue) / (1 - this.deadzoneValue)) / a;
 		return {
-			x: n * a,
-			y: r * a
+			x: r * o,
+			y: i * o
 		};
 	}
 	source(e) {
@@ -172,13 +173,13 @@ var GamepadState = class {
 			if (`axis` in e) return this.axisSources[axisSlot(e.axis)];
 		}
 	}
-	axisWasPressed(e, t) {
-		let n = axisSlot(e), r = n < 2 ? 0 : 2, i = Math.hypot(this.previousAxes[r], this.previousAxes[r + 1]), a = i <= this.deadzoneValue ? 0 : this.previousAxes[n] * Math.min(1, (i - this.deadzoneValue) / (1 - this.deadzoneValue)) / i;
-		return this.axis(e) * t >= this.thresholdValue && a * t < this.thresholdValue;
+	axisWasPressed(t, n) {
+		let r = axisSlot(t), i = r < 2 ? 0 : 2, a = require_hypot.hypot2(this.previousAxes[i], this.previousAxes[i + 1]), o = a <= this.deadzoneValue ? 0 : this.previousAxes[r] * Math.min(1, (a - this.deadzoneValue) / (1 - this.deadzoneValue)) / a;
+		return this.axis(t) * n >= this.thresholdValue && o * n < this.thresholdValue;
 	}
-	update(n) {
+	update(e) {
 		this.pollVersion++;
-		let r = this.select(n), i = this.previous;
+		let r = this.select(e), i = this.previous;
 		this.previous = this.values, this.values = i;
 		let a = this.previousAxes;
 		this.previousAxes = this.rawAxes, this.rawAxes = a;
@@ -187,8 +188,8 @@ var GamepadState = class {
 			this.activePad = void 0, this.activeProfile = void 0, this.values.fill(0), this.rawAxes.fill(0), this.padIndex = -1, this.padId = ``;
 			return;
 		}
-		for (let t = 0; t < e.length; t++) {
-			let n = e[t], i;
+		for (let e = 0; e < t.length; e++) {
+			let n = t[e], i;
 			if (!o) i = r.buttons[gamepadButtonIndex[n]]?.value;
 			else {
 				let e = o.buttons?.[n];
@@ -198,13 +199,13 @@ var GamepadState = class {
 					i = Number.isFinite(e) ? (e + 1) / 2 : 0;
 				}
 			}
-			if (this.values[t] = Number.isFinite(i) ? Math.min(1, Math.max(0, i)) : 0, s) {
-				let e = o ? o.buttons?.[n] : gamepadButtonIndex[n], i = n === `lt` || n === `rt` ? o?.triggerAxes?.[n] : void 0;
-				this.buttonSources[t] = e === void 0 ? i === void 0 ? `` : `gamepad:${r.index}:axis:${i}` : `gamepad:${r.index}:button:${e}`;
+			if (this.values[e] = Number.isFinite(i) ? Math.min(1, Math.max(0, i)) : 0, s) {
+				let t = o ? o.buttons?.[n] : gamepadButtonIndex[n], i = n === `lt` || n === `rt` ? o?.triggerAxes?.[n] : void 0;
+				this.buttonSources[e] = t === void 0 ? i === void 0 ? `` : `gamepad:${r.index}:axis:${i}` : `gamepad:${r.index}:button:${t}`;
 			}
 		}
-		for (let e = 0; e < t.length; e++) {
-			let n = t[e], i = o ? o.axes?.[n] : gamepadAxisIndex[n], a = typeof i == `number` ? i : i?.index, c = a === void 0 ? void 0 : r.axes[a];
+		for (let e = 0; e < n.length; e++) {
+			let t = n[e], i = o ? o.axes?.[t] : gamepadAxisIndex[t], a = typeof i == `number` ? i : i?.index, c = a === void 0 ? void 0 : r.axes[a];
 			typeof i == `object` && i.invert && (c = -c), this.rawAxes[e] = Number.isFinite(c) ? Math.min(1, Math.max(-1, c)) : 0, s && (this.axisSources[e] = a === void 0 ? `` : `gamepad:${r.index}:axis:${a}`);
 		}
 		if (this.activePad = r, this.activeProfile = o, s) {
@@ -235,17 +236,17 @@ var GamepadState = class {
 function matches(e, t) {
 	return typeof e == `string` ? t.toLowerCase().includes(e.toLowerCase()) : new RegExp(e.source, e.flags.replace(/[gy]/g, ``)).test(t);
 }
-function buttonSlot(t) {
-	let n = e.indexOf(t);
-	if (n < 0) throw RangeError(`Unknown gamepad button: ${t}`);
+function buttonSlot(e) {
+	let n = t.indexOf(e);
+	if (n < 0) throw RangeError(`Unknown gamepad button: ${e}`);
 	return n;
 }
 function axisSlot(e) {
-	let n = t.indexOf(e);
-	if (n < 0) throw RangeError(`Unknown gamepad axis: ${e}`);
-	return n;
+	let t = n.indexOf(e);
+	if (t < 0) throw RangeError(`Unknown gamepad axis: ${e}`);
+	return t;
 }
-var n = {
+var r = {
 	tap: !0,
 	doubletap: !0,
 	longpress: !0,
@@ -282,7 +283,7 @@ function checkBinding(e) {
 		};
 	}
 	if (`gesture` in e) {
-		if (!Object.hasOwn(n, e.gesture)) throw RangeError(`Unknown gesture binding.`);
+		if (!Object.hasOwn(r, e.gesture)) throw RangeError(`Unknown gesture binding.`);
 		return { gesture: e.gesture };
 	}
 	if (`virtual` in e) return checkAction(e.virtual), e.direction !== void 0 && checkDirection(e.direction), e.direction === void 0 ? { virtual: e.virtual } : {

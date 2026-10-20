@@ -1,3 +1,4 @@
+const require_hypot = require("./hypot.cjs");
 const require_math3d = require("./math3d.cjs");
 //#region dist/packages/math/src/index.js
 var Vector2 = class Vector2 {
@@ -25,7 +26,7 @@ var Vector2 = class Vector2 {
 		return this.x *= e, this.y *= e, this;
 	}
 	length() {
-		return Math.hypot(this.x, this.y);
+		return require_hypot.hypot2(this.x, this.y);
 	}
 	normalize() {
 		let e = this.length();

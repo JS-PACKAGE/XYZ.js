@@ -29,6 +29,7 @@ import {
   type PhysicsDebugSnapshot3D,
 } from './debug-geometry.js';
 import { physicsProfiles } from '../../../../src/data/physics-profiles.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 export interface PhysicsStats3D {
   readonly candidatePairs: number;
   readonly narrowphaseTests: number;
@@ -1583,7 +1584,7 @@ export class PhysicsWorld3D {
     const dx = displacement.x,
       dy = displacement.y,
       dz = displacement.z,
-      len = Math.hypot(dx, dy, dz);
+      len = hypot3(dx, dy, dz);
     if (len < 1e-12) return undefined;
     let nearest = 1 + 1e-10,
       result: PhysicsHit3D | undefined;

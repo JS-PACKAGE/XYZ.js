@@ -24,6 +24,7 @@ import {
   type Text2DLayout,
   type RasterizedText,
 } from './text2d.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 type Camera3D = PerspectiveCamera | OrthographicCamera;
 
@@ -243,7 +244,7 @@ export class LOD extends Group implements CameraDependent3D {
     const p = worldPosition(this, tmp);
     const metric = this.screenMode
       ? this.projectedDiameter(camera, height)
-      : Math.hypot(
+      : hypot3(
           p.x - camera.position.x,
           p.y - camera.position.y,
           p.z - camera.position.z,
@@ -450,7 +451,7 @@ export class HLOD extends LOD {
     s.x = (minX + maxX) / 2;
     s.y = (minY + maxY) / 2;
     s.z = (minZ + maxZ) / 2;
-    s.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+    s.radius = hypot3(maxX - minX, maxY - minY, maxZ - minZ) / 2;
     return projectedSphereDiameter(s, camera, viewportHeight);
   }
 }
@@ -725,7 +726,7 @@ export class Line3D extends Mesh implements CameraDependent3D {
       let vx = cx - (c[a]! + c[b]!) / 2;
       let vy = cy - (c[a + 1]! + c[b + 1]!) / 2;
       let vz = cz - (c[a + 2]! + c[b + 2]!) / 2;
-      const vl = Math.hypot(vx, vy, vz) || 1;
+      const vl = hypot3(vx, vy, vz) || 1;
       vx /= vl;
       vy /= vl;
       vz /= vl;

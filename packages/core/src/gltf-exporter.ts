@@ -44,6 +44,7 @@ import {
 import { Scene } from './scene.js';
 import { SkinnedMesh } from './skinned-mesh.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 type Entry = Record<string, unknown>;
 export interface GLTFExportJSON {
@@ -299,7 +300,7 @@ export async function exportGLTF(
     if (coordinates) {
       const [a, b, c, d, tx, ty] = coordinates.transform;
       if (a !== 1 || b !== 0 || c !== 0 || d !== 1 || tx !== 0 || ty !== 0) {
-        const sx = Math.hypot(a, b),
+        const sx = hypot2(a, b),
           rotation = sx ? Math.atan2(b, a) : Math.atan2(-c, d);
         const sy = -Math.sin(rotation) * c + Math.cos(rotation) * d;
         if (

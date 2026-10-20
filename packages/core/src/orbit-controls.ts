@@ -1,5 +1,6 @@
 import { Matrix4, Vector3 } from '../../math/src/index.js';
 import { OrthographicCamera, type Camera3D } from './orthographic-camera.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 /** Canvas-local orbit input: left drag rotates, right/modified-left pans, middle/wheel dollies. */
 export class OrbitControls {
@@ -78,12 +79,9 @@ export class OrbitControls {
     const z = position.z - this.target.z;
     const distance = Math.max(
       1e-6,
-      Math.max(
-        this.minDistance,
-        Math.min(this.maxDistance, Math.hypot(x, y, z)),
-      ),
+      Math.max(this.minDistance, Math.min(this.maxDistance, hypot3(x, y, z))),
     );
-    const originalDistance = Math.hypot(x, y, z);
+    const originalDistance = hypot3(x, y, z);
     const polar = Math.max(
       1e-6,
       Math.min(
@@ -116,7 +114,7 @@ export class OrbitControls {
   private pan(dx: number, dy: number): void {
     const camera = this.camera;
     const height = Math.max(1, this.canvas.clientHeight);
-    const distance = Math.hypot(
+    const distance = hypot3(
       camera.position.x - this.target.x,
       camera.position.y - this.target.y,
       camera.position.z - this.target.z,
@@ -157,7 +155,7 @@ export class OrbitControls {
       const x = camera.position.x - this.target.x;
       const y = camera.position.y - this.target.y;
       const z = camera.position.z - this.target.z;
-      const distance = Math.hypot(x, y, z);
+      const distance = hypot3(x, y, z);
       const next = Math.max(
         1e-6,
         Math.max(

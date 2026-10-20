@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_render_bounds = require("./render-bounds.cjs");
 const require_mesh = require("./mesh.cjs");
@@ -33,14 +34,14 @@ var InstancedMesh = class extends require_mesh.Mesh {
 	};
 	get boundingSphere() {
 		if (this.boundsVersion === this.version && this.geometryBoundsVersion === this.geometry.version) return this.aggregate;
-		let e = super.boundingSphere, t = this.material.deformationBounds, r = this.instanceDeformationSphere;
-		r.x = e.x, r.y = e.y, r.z = e.z, r.radius = t === void 0 ? 1 / 0 : e.radius + t;
-		let i = 1 / 0, a = 1 / 0, o = 1 / 0, s = -1 / 0, c = -1 / 0, l = -1 / 0;
+		let e = super.boundingSphere, t = this.material.deformationBounds, i = this.instanceDeformationSphere;
+		i.x = e.x, i.y = e.y, i.z = e.z, i.radius = t === void 0 ? 1 / 0 : e.radius + t;
+		let a = 1 / 0, o = 1 / 0, s = 1 / 0, c = -1 / 0, l = -1 / 0, u = -1 / 0;
 		for (let e = 0; e < this.count; e++) {
-			let t = require_render_bounds.transformSphereElements(r, this.matrices, e * 16, this.instanceSphere);
-			i = Math.min(i, t.x - t.radius), a = Math.min(a, t.y - t.radius), o = Math.min(o, t.z - t.radius), s = Math.max(s, t.x + t.radius), c = Math.max(c, t.y + t.radius), l = Math.max(l, t.z + t.radius);
+			let t = require_render_bounds.transformSphereElements(i, this.matrices, e * 16, this.instanceSphere);
+			a = Math.min(a, t.x - t.radius), o = Math.min(o, t.y - t.radius), s = Math.min(s, t.z - t.radius), c = Math.max(c, t.x + t.radius), l = Math.max(l, t.y + t.radius), u = Math.max(u, t.z + t.radius);
 		}
-		return this.aggregate.x = (i + s) / 2, this.aggregate.y = (a + c) / 2, this.aggregate.z = (o + l) / 2, this.aggregate.radius = Math.hypot(s - i, c - a, l - o) / 2, this.boundsVersion = this.version, this.geometryBoundsVersion = this.geometry.version, this.aggregate;
+		return this.aggregate.x = (a + c) / 2, this.aggregate.y = (o + l) / 2, this.aggregate.z = (s + u) / 2, this.aggregate.radius = require_hypot.hypot3(c - a, l - o, u - s) / 2, this.boundsVersion = this.version, this.geometryBoundsVersion = this.geometry.version, this.aggregate;
 	}
 	constructor(e) {
 		if (super(e), !Number.isSafeInteger(e.count) || e.count < 1 || e.count > 268435455) throw RangeError(`Instance count must be a positive supported integer.`);

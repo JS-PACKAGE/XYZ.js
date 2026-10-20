@@ -1,3 +1,4 @@
+const require_hypot = require("./hypot.cjs");
 //#region dist/packages/math/src/math3d.js
 var Vector3 = class Vector3 {
 	x = 0;
@@ -25,7 +26,7 @@ var Vector3 = class Vector3 {
 		return this.x *= e, this.y *= e, this.z *= e, this;
 	}
 	length() {
-		return Math.hypot(this.x, this.y, this.z);
+		return require_hypot.hypot3(this.x, this.y, this.z);
 	}
 	dot(e) {
 		return this.x * e.x + this.y * e.y + this.z * e.z;
@@ -57,7 +58,7 @@ var Quaternion = class Quaternion {
 		return new Quaternion(this.x, this.y, this.z, this.w);
 	}
 	normalize() {
-		let e = Math.hypot(this.x, this.y, this.z, this.w);
+		let e = require_hypot.hypot4(this.x, this.y, this.z, this.w);
 		if (e !== 0) {
 			let t = 1 / e;
 			this.x *= t, this.y *= t, this.z *= t, this.w *= t;

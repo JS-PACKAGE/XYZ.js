@@ -1,20 +1,21 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_native_pbr_material = require("./native-pbr-material.cjs");
 const require_vegetation = require("../../../src/data/vegetation.cjs");
 //#region dist/packages/core/src/vegetation-material.js
 var VegetationMaterial = class extends require_native_pbr_material.NativePBRMaterial {
 	constructor(t) {
-		let n = t.windAmplitude ?? require_vegetation.vegetationDefaults.windAmplitude, r = t.windFrequency ?? require_vegetation.vegetationDefaults.windFrequency, i = t.bladeHeight ?? require_vegetation.vegetationDefaults.bladeHeight, a = t.rootHeight ?? 0, o = t.phaseScale ?? require_vegetation.vegetationDefaults.phaseScale, s = t.windDirection ?? [1, 0];
+		let r = t.windAmplitude ?? require_vegetation.vegetationDefaults.windAmplitude, i = t.windFrequency ?? require_vegetation.vegetationDefaults.windFrequency, a = t.bladeHeight ?? require_vegetation.vegetationDefaults.bladeHeight, o = t.rootHeight ?? 0, s = t.phaseScale ?? require_vegetation.vegetationDefaults.phaseScale, c = t.windDirection ?? [1, 0];
 		for (let e of [
-			n,
 			r,
 			i,
 			a,
 			o,
-			...s
+			s,
+			...c
 		]) if (!Number.isFinite(e) || !Number.isFinite(Math.fround(e))) throw RangeError(`Vegetation wind values must fit finite Float32.`);
-		if (n < 0 || r < 0 || i <= 0 || Math.fround(i) === 0 || s.length !== 2) throw RangeError(`Vegetation requires nonnegative wind and positive blade height.`);
-		let c = Math.hypot(...s);
-		if (c === 0) throw RangeError(`Wind direction must be nonzero.`);
+		if (r < 0 || i < 0 || a <= 0 || Math.fround(a) === 0 || c.length !== 2) throw RangeError(`Vegetation requires nonnegative wind and positive blade height.`);
+		let l = Math.hypot(...c);
+		if (l === 0) throw RangeError(`Wind direction must be nonzero.`);
 		super({
 			...t,
 			wgsl: `
@@ -54,19 +55,19 @@ XYZVertex xyzDeformInstance(vec3 position,vec3 normal,vec2 uv,mat4 instance) {
 XYZPhysical xyzPhysical(vec3 world,vec3 normal,vec2 uv,XYZPhysical surface) { return surface; }
 `,
 			label: `VegetationMaterial`,
-			deformationBounds: Math.fround(n) * Math.hypot(Math.fround(s[0] / c), Math.fround(s[1] / c)),
+			deformationBounds: Math.fround(r) * require_hypot.hypot2(Math.fround(c[0] / l), Math.fround(c[1] / l)),
 			shadowCache: `tracked`,
 			uniforms: [
 				0,
-				n,
 				r,
-				0,
 				i,
-				o,
-				a,
 				0,
-				s[0] / c,
-				s[1] / c,
+				a,
+				s,
+				o,
+				0,
+				c[0] / l,
+				c[1] / l,
 				0,
 				0
 			]

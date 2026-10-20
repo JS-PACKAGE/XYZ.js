@@ -1,3 +1,4 @@
+import { hypot3 } from '../../math/src/hypot.js';
 export interface GeometryData {
   positions: ArrayLike<number>;
   normals: ArrayLike<number>;
@@ -192,7 +193,7 @@ export class Geometry {
           throw new RangeError(
             'Geometry tangents must be finite Float32 values with handedness ±1.',
           );
-        const length = Math.hypot(tx, ty, tz);
+        const length = hypot3(tx, ty, tz);
         if (length <= 1e-20)
           throw new RangeError('Geometry tangents must be nonzero.');
         tangents[i * 4] = tx / length;
@@ -232,17 +233,17 @@ export class Geometry {
         const bx = (fx * du1 - ex * du2) / determinant,
           by = (fy * du1 - ey * du2) / determinant,
           bz = (fz * du1 - ez * du2) / determinant;
-        const tl = Math.hypot(tx, ty, tz),
-          bl = Math.hypot(bx, by, bz);
+        const tl = hypot3(tx, ty, tz),
+          bl = hypot3(bx, by, bz);
         if (tl <= 1e-20 || bl <= 1e-20) continue;
         // Corner p sees edges q-p and r-p. Negating a difference or swapping product order
         // is exact, so the three edges (and their lengths) serve all corners bit-for-bit.
         const gx = vertices[c] - vertices[b],
           gy = vertices[c + 1] - vertices[b + 1],
           gz = vertices[c + 2] - vertices[b + 2];
-        const ab = Math.hypot(ex, ey, ez),
-          ac = Math.hypot(fx, fy, fz),
-          bc = Math.hypot(gx, gy, gz);
+        const ab = hypot3(ex, ey, ez),
+          ac = hypot3(fx, fy, fz),
+          bc = hypot3(gx, gy, gz);
         for (let corner = 0; corner < 3; corner++) {
           const lengths =
             corner === 0 ? ab * ac : corner === 1 ? bc * ab : ac * bc;
@@ -264,7 +265,7 @@ export class Geometry {
         }
       }
       for (let i = 0; i < count; i++) {
-        const nl = Math.hypot(
+        const nl = hypot3(
           vertices[i * 8 + 3],
           vertices[i * 8 + 4],
           vertices[i * 8 + 5],
@@ -279,7 +280,7 @@ export class Geometry {
         tx -= nx * projection;
         ty -= ny * projection;
         tz -= nz * projection;
-        let length = Math.hypot(tx, ty, tz);
+        let length = hypot3(tx, ty, tz);
         if (length <= 1e-20) {
           if (Math.abs(nx) < 0.9) {
             tx = 0;
@@ -290,7 +291,7 @@ export class Geometry {
             ty = 0;
             tz = -nx;
           }
-          length = Math.hypot(tx, ty, tz);
+          length = hypot3(tx, ty, tz);
         }
         tangents[i * 4] = tx / length;
         tangents[i * 4 + 1] = ty / length;
@@ -340,7 +341,7 @@ export class Geometry {
     s.x = (minX + maxX) / 2;
     s.y = (minY + maxY) / 2;
     s.z = (minZ + maxZ) / 2;
-    s.radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+    s.radius = hypot3(maxX - minX, maxY - minY, maxZ - minZ) / 2;
     this.boundsVersion = this.version;
     return s;
   }

@@ -1,5 +1,6 @@
 import { proceduralMaterialPresets } from '../../../src/data/materials.js';
 import type { ProceduralMaterialKind } from './procedural-material.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 const TAU = Math.PI * 2;
 const clamp = (v: number): number => Math.max(0, Math.min(1, v));
@@ -286,7 +287,7 @@ export function writeNormals(
         2;
       // Image rows and renderer UV.v both increase downward (uploads do not flip Y).
       const dy = ((height[down + x] - height[up + x]) * size) / 2;
-      const inv = 1 / Math.hypot(dx, dy, 1);
+      const inv = 1 / hypot3(dx, dy, 1);
       normal[p] = byte(0.5 - dx * inv * 0.5);
       normal[p + 1] = byte(0.5 - dy * inv * 0.5);
       normal[p + 2] = byte(0.5 + inv * 0.5);

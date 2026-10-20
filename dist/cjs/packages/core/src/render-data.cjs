@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_render_settings = require("./render-settings.cjs");
 const require_lights = require("./lights.cjs");
@@ -102,11 +103,11 @@ function computeShadowMatrix(t, n) {
 	if (a === 0) throw RangeError(`Directional shadow light direction cannot be zero.`);
 	let o = i.x / a, s = i.y / a, c = i.z / a, l, u, d;
 	Math.abs(s) > .999 ? (l = -s, u = o, d = 0) : (l = c, u = 0, d = -o);
-	let f = Math.hypot(l, u, d);
+	let f = require_hypot.hypot3(l, u, d);
 	l /= f, u /= f, d /= f;
-	let p = s * d - c * u, m = c * l - o * d, h = o * u - s * l, g = r.target, v = r.far / 2, y = g.x + o * v, b = g.y + s * v, x = g.z + c * v, S = 2 / r.extent, C = 1 / (r.near - r.far), w = n.elements;
-	w[0] = S * l, w[1] = S * p, w[2] = C * o, w[3] = 0, w[4] = S * u, w[5] = S * m, w[6] = C * s, w[7] = 0, w[8] = S * d, w[9] = S * h, w[10] = C * c, w[11] = 0, w[12] = -S * (l * y + u * b + d * x), w[13] = -S * (p * y + m * b + h * x), w[14] = C * (r.near - (o * y + s * b + c * x)), w[15] = 1;
-	for (let e = 0; e < 16; e++) if (!Number.isFinite(w[e])) throw RangeError(`Shadow projection must fit in Float32.`);
+	let p = s * d - c * u, m = c * l - o * d, h = o * u - s * l, g = r.target, v = r.far / 2, b = g.x + o * v, x = g.y + s * v, S = g.z + c * v, C = 2 / r.extent, w = 1 / (r.near - r.far), T = n.elements;
+	T[0] = C * l, T[1] = C * p, T[2] = w * o, T[3] = 0, T[4] = C * u, T[5] = C * m, T[6] = w * s, T[7] = 0, T[8] = C * d, T[9] = C * h, T[10] = w * c, T[11] = 0, T[12] = -C * (l * b + u * x + d * S), T[13] = -C * (p * b + m * x + h * S), T[14] = w * (r.near - (o * b + s * x + c * S)), T[15] = 1;
+	for (let e = 0; e < 16; e++) if (!Number.isFinite(T[e])) throw RangeError(`Shadow projection must fit in Float32.`);
 	return n;
 }
 //#endregion

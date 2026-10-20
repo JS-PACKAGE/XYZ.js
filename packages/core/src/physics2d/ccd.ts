@@ -3,6 +3,7 @@ import { ShapeGeometry } from './collider.js';
 import { collide, Manifold } from './narrowphase.js';
 import type { GameObject } from '../game-object.js';
 import type { RigidBody2D } from './body.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 /** @internal A rigid sweep sampled without editing the public mutable owner pose. */
 export class ShapeMotion2D {
@@ -36,8 +37,8 @@ export class ShapeMotion2D {
     // Circles rotate only their offset center; their radius is rotation invariant.
     this.radius =
       g.collider.kind === 'circle'
-        ? Math.hypot(g.x - x, g.y - y)
-        : Math.hypot(
+        ? hypot2(g.x - x, g.y - y)
+        : hypot2(
             Math.max(Math.abs(g.minX - x), Math.abs(g.maxX - x)),
             Math.max(Math.abs(g.minY - y), Math.abs(g.maxY - y)),
           );
@@ -88,7 +89,7 @@ export class ShapeSeparation2D {
     nx: number,
     ny: number,
   ): void {
-    const length = Math.hypot(nx, ny);
+    const length = hypot2(nx, ny);
     if (length < 1e-12) return;
     nx /= length;
     ny /= length;
@@ -255,7 +256,7 @@ export class ContinuousCollision2D {
     const vx = a.vx - b.vx,
       vy = a.vy - b.vy,
       rotational = Math.abs(a.spin) * a.radius + Math.abs(b.spin) * b.radius;
-    if (Math.hypot(vx, vy) + rotational < 1e-12) return Infinity;
+    if (hypot2(vx, vy) + rotational < 1e-12) return Infinity;
     let time = 0;
     while (this.iterations < budget) {
       this.iterations++;

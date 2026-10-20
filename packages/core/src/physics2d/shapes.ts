@@ -3,6 +3,7 @@ import { world2dLimits } from '../../../../src/data/world2d.js';
 import { Collider2D, Colliders, finite, positive } from './collider.js';
 import { RigidBody2D, type RigidBodyOptions } from './body.js';
 import { Vector2 } from '../../../math/src/index.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 type Point = readonly [number, number];
 
@@ -67,7 +68,7 @@ function normalized(vertices: readonly Point[]): Point[] {
         point = points[i],
         next = points[(i + 1) % points.length];
       const repeated =
-        Math.hypot(point[0] - previous[0], point[1] - previous[1]) < EPSILON;
+        hypot2(point[0] - previous[0], point[1] - previous[1]) < EPSILON;
       if (repeated || Math.abs(cross(previous, point, next)) < EPSILON) {
         points = points.filter((_, index) => index !== i);
         changed = true;
@@ -346,7 +347,7 @@ export class StaticChain2D extends GameObject {
     for (let i = 0; i < count; i++) {
       const a = points[i],
         b = points[(i + 1) % points.length];
-      const length = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const length = hypot2(b[0] - a[0], b[1] - a[1]);
       if (!(length > EPSILON))
         throw new RangeError('Chain points must be distinct.');
       const dx = ((b[0] - a[0]) / length) * half,

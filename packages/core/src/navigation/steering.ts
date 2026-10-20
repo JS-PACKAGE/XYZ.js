@@ -1,4 +1,5 @@
 import { Vector3 } from '../../../math/src/math3d.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 function speedValue(speed: number): void {
   if (!Number.isFinite(speed) || speed < 0)
@@ -38,7 +39,7 @@ export function steeringArrive(
   if (!Number.isFinite(slowingRadius) || slowingRadius <= 0)
     throw new RangeError('Slowing radius must be positive.');
   steeringSeek(position, target, speed, out);
-  const distance = Math.hypot(
+  const distance = hypot3(
     target.x - position.x,
     target.y - position.y,
     target.z - position.z,

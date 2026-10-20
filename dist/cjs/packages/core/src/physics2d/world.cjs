@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_event_observers = require("../event-observers.cjs");
 const require_scene_object = require("../scene-object.cjs");
@@ -71,8 +72,8 @@ function boundedInteger(e, t, n) {
 }
 var compareBounds = (e, t) => e.geometry.minX - t.geometry.minX;
 var continueSimulation = () => !0;
-var g = require_game_object.GameObject.prototype.dispatchEvent;
-var _ = require_scene_object.SceneObject.prototype.dispatchEvent;
+var _ = require_game_object.GameObject.prototype.dispatchEvent;
+var v = require_scene_object.SceneObject.prototype.dispatchEvent;
 function snapshotPoints(e) {
 	let t = Array(e.count);
 	for (let n = 0; n < e.count; n++) t[n] = e.points[n].clone();
@@ -222,7 +223,7 @@ var PhysicsWorld2D = class {
 		for (let a = 0; a < 2; a++) {
 			if (i !== `collisionend` && !this.continuation()) return;
 			let o = a ? t.b : t.a, s = a ? t.a : t.b;
-			if (!this.alive(o) || i !== `collisionend` && (!t.active || !this.alive(s)) || o.owner.dispatchEvent === g && require_scene_object.SceneObject.prototype.dispatchEvent === _ && !require_event_observers.hasObjectEventObservers(o.owner, i)) continue;
+			if (!this.alive(o) || i !== `collisionend` && (!t.active || !this.alive(s)) || o.owner.dispatchEvent === _ && require_scene_object.SceneObject.prototype.dispatchEvent === v && !require_event_observers.hasObjectEventObservers(o.owner, i)) continue;
 			let c = a ? -1 : 1, l = t.manifold, u = this.stepToken, d = {
 				self: o.owner,
 				other: s.owner,
@@ -461,7 +462,7 @@ var PhysicsWorld2D = class {
 		}
 	}
 	prepareBounce(e) {
-		let { a: t, b: n, manifold: r } = e, a = Math.max(t.body?.restitution ?? 0, n.body?.restitution ?? 0), o = Math.max(require_world2d.physicsDefaults.restitutionThreshold, Math.hypot(this.gravity.x, this.gravity.y) * this.fixedDelta * require_world2d.physicsDefaults.restitutionGravitySteps);
+		let { a: t, b: n, manifold: r } = e, a = Math.max(t.body?.restitution ?? 0, n.body?.restitution ?? 0), o = Math.max(require_world2d.physicsDefaults.restitutionThreshold, require_hypot.hypot2(this.gravity.x, this.gravity.y) * this.fixedDelta * require_world2d.physicsDefaults.restitutionGravitySteps);
 		for (let e = 0; e < r.count; e++) {
 			let i = r.points[e], s = t.body?.velocity, c = n.body?.velocity, l = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, u = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, d = i.x - t.owner.position.x, f = i.y - t.owner.position.y, p = i.x - n.owner.position.x, m = i.y - n.owner.position.y, h = (n.body?.type === `static` ? 0 : c?.x ?? 0) - u * m - ((t.body?.type === `static` ? 0 : s?.x ?? 0) - l * f), g = (n.body?.type === `static` ? 0 : c?.y ?? 0) + u * p - ((t.body?.type === `static` ? 0 : s?.y ?? 0) + l * d), _ = h * r.nx + g * r.ny;
 			r.bounceVelocities[e] = _ < -o ? -a * _ : 0;

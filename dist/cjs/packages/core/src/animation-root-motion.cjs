@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_animation_pose = require("./animation-pose.cjs");
 //#region dist/packages/core/src/animation-root-motion.js
@@ -36,8 +37,8 @@ var AnimationRootMotion = class {
 		if (this.root = e, e.destroyed || !!t.target == !!t.sink) throw RangeError(`Root motion requires a live root and exactly one target or sink.`);
 		if (t.target === e || t.target?.destroyed) throw RangeError(`Root motion output must be a live object distinct from the skeleton root.`);
 		if (e.scale.x !== 1 || e.scale.y !== 1 || e.scale.z !== 1) throw RangeError(`Root motion requires unit root scale.`);
-		let n = e.position, r = e.rotation, i = Math.hypot(r.x, r.y, r.z, r.w);
-		if (!Number.isFinite(n.x) || !Number.isFinite(n.y) || !Number.isFinite(n.z) || !Number.isFinite(i) || i === 0) throw RangeError(`Root motion requires a finite rigid root transform.`);
+		let n = e.position, r = e.rotation, a = require_hypot.hypot4(r.x, r.y, r.z, r.w);
+		if (!Number.isFinite(n.x) || !Number.isFinite(n.y) || !Number.isFinite(n.z) || !Number.isFinite(a) || a === 0) throw RangeError(`Root motion requires a finite rigid root transform.`);
 		this.target = t.target, this.sink = t.sink;
 	}
 	attach(e, t) {

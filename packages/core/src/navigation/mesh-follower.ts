@@ -7,6 +7,7 @@ import {
   type NavigationMeshPath3D,
   type NavigationMeshLink3D,
 } from './mesh.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationMeshLinkTraversal3D {
   readonly link: NavigationMeshLink3D;
@@ -117,7 +118,7 @@ export class NavigationMeshFollower3D extends PathFollower3D {
       target = this.waypoints[index]!;
     if (
       result === 'complete' &&
-      Math.hypot(
+      hypot3(
         position.x - target.x,
         position.y - target.y,
         position.z - target.z,

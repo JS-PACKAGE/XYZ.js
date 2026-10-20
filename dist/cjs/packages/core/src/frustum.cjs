@@ -1,10 +1,11 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/core/src/frustum.js
 var Frustum = class {
 	planes = /* @__PURE__ */ new Float64Array(24);
-	setFromMatrix(e) {
-		let t = e.elements, n = this.planes, row = (e, n) => t[n * 4 + e], set = (e, t, r, i, a) => {
-			let o = Math.hypot(t, r, i), s = o > 0 ? 1 / o : 0;
-			n[e * 4] = t * s, n[e * 4 + 1] = r * s, n[e * 4 + 2] = i * s, n[e * 4 + 3] = a * s;
+	setFromMatrix(t) {
+		let n = t.elements, r = this.planes, row = (e, t) => n[t * 4 + e], set = (t, n, i, a, o) => {
+			let s = require_hypot.hypot3(n, i, a), c = s > 0 ? 1 / s : 0;
+			r[t * 4] = n * c, r[t * 4 + 1] = i * c, r[t * 4 + 2] = a * c, r[t * 4 + 3] = o * c;
 		}, plane = (e, t, n) => set(e, row(3, 0) + t * row(n, 0), row(3, 1) + t * row(n, 1), row(3, 2) + t * row(n, 2), row(3, 3) + t * row(n, 3));
 		return plane(0, 1, 0), plane(1, -1, 0), plane(2, 1, 1), plane(3, -1, 1), set(4, row(2, 0), row(2, 1), row(2, 2), row(2, 3)), plane(5, -1, 2), this;
 	}

@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 //#region dist/packages/graphics/src/temporal-post.js
 function halton(e, t) {
@@ -26,14 +27,14 @@ var TemporalPostState = class {
 	far = 0;
 	projectionScale = 0;
 	aspect = 0;
-	begin(e, t, n, r, i, a = n / r) {
-		if (!Number.isInteger(n) || !Number.isInteger(r) || n < 1 || r < 1) throw RangeError(`Temporal viewport must be positive integer dimensions.`);
-		let o = t.position, s = t.rotation, c = `fov` in t ? t.fov : t.height / t.zoom, l = Math.hypot(o.x - this.previousPosition[0], o.y - this.previousPosition[1], o.z - this.previousPosition[2]), u = Math.abs(s.x * this.previousRotation[0] + s.y * this.previousRotation[1] + s.z * this.previousRotation[2] + s.w * this.previousRotation[3]);
-		(e !== this.scene || t !== this.camera || n !== this.width || r !== this.height || a !== this.aspect || i.taa !== this.enabled || l > i.taaCameraCutDistance || u < .5 || t.near !== this.near || t.far !== this.far || c !== this.projectionScale) && this.invalidate(), this.scene = e, this.camera = t, this.width = n, this.height = r, this.enabled = i.taa, this.near = t.near, this.far = t.far, this.projectionScale = c, this.aspect = a, this.cameraPosition[0] = o.x, this.cameraPosition[1] = o.y, this.cameraPosition[2] = o.z, this.projection.copy(t.updateMatrix(a)), this.currentVP.copy(this.projection), this.jitter[0] = i.taa ? (halton(this.sample + 1, 2) - .5) * 2 / n : 0, this.jitter[1] = i.taa ? (halton(this.sample + 1, 3) - .5) * 2 / r : 0;
-		let d = this.currentVP.elements;
+	begin(e, n, r, i, a, o = r / i) {
+		if (!Number.isInteger(r) || !Number.isInteger(i) || r < 1 || i < 1) throw RangeError(`Temporal viewport must be positive integer dimensions.`);
+		let s = n.position, c = n.rotation, l = `fov` in n ? n.fov : n.height / n.zoom, u = require_hypot.hypot3(s.x - this.previousPosition[0], s.y - this.previousPosition[1], s.z - this.previousPosition[2]), d = Math.abs(c.x * this.previousRotation[0] + c.y * this.previousRotation[1] + c.z * this.previousRotation[2] + c.w * this.previousRotation[3]);
+		(e !== this.scene || n !== this.camera || r !== this.width || i !== this.height || o !== this.aspect || a.taa !== this.enabled || u > a.taaCameraCutDistance || d < .5 || n.near !== this.near || n.far !== this.far || l !== this.projectionScale) && this.invalidate(), this.scene = e, this.camera = n, this.width = r, this.height = i, this.enabled = a.taa, this.near = n.near, this.far = n.far, this.projectionScale = l, this.aspect = o, this.cameraPosition[0] = s.x, this.cameraPosition[1] = s.y, this.cameraPosition[2] = s.z, this.projection.copy(n.updateMatrix(o)), this.currentVP.copy(this.projection), this.jitter[0] = a.taa ? (halton(this.sample + 1, 2) - .5) * 2 / r : 0, this.jitter[1] = a.taa ? (halton(this.sample + 1, 3) - .5) * 2 / i : 0;
+		let f = this.currentVP.elements;
 		for (let e = 0; e < 4; e++) {
 			let t = e * 4;
-			d[t] = d[t] + this.jitter[0] * d[t + 3], d[t + 1] = d[t + 1] + this.jitter[1] * d[t + 3];
+			f[t] = f[t] + this.jitter[0] * f[t + 3], f[t + 1] = f[t + 1] + this.jitter[1] * f[t + 3];
 		}
 		return this.inverseVP.copy(this.currentVP).invert(), this.currentVP;
 	}

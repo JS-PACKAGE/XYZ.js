@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_mesh = require("./mesh.cjs");
@@ -17,62 +18,62 @@ var Decal = class extends require_mesh.Mesh {
 		}), e.target.add(this);
 	}
 };
-function project(l) {
-	let { target: u, material: d, position: f, size: p } = l;
-	if (!(u instanceof require_mesh.Mesh) || u.destroyed) throw TypeError(`Decal requires a live receiver Mesh.`);
-	if (u instanceof require_instanced_mesh.InstancedMesh || u instanceof require_skinned_mesh.SkinnedMesh || u.morph) throw TypeError(`Decal requires a non-instanced, non-deforming receiver.`);
-	if (!(d instanceof require_mesh.TextureMaterial)) throw TypeError(`Decal requires TextureMaterial.`);
-	if (f.length !== 3 || f.some((e) => !Number.isFinite(e))) throw RangeError(`Decal position must contain three finite coordinates.`);
-	if (p.length !== 3 || p.some((e) => !Number.isFinite(e) || e <= 0)) throw RangeError(`Decal size must contain three positive finite dimensions.`);
-	let m = l.normalOffset ?? .001;
-	if (!Number.isFinite(m) || m < 0) throw RangeError(`Decal normalOffset must be finite and nonnegative.`);
-	let h = new require_math3d.Quaternion();
-	if (l.rotation instanceof require_math3d.Quaternion) h.copy(l.rotation);
-	else if (l.rotation) {
-		if (l.rotation.length !== 3 || l.rotation.some((e) => !Number.isFinite(e))) throw RangeError(`Decal Euler rotation must contain three finite angles.`);
-		h.setFromEuler(...l.rotation);
+function project(d) {
+	let { target: f, material: p, position: m, size: h } = d;
+	if (!(f instanceof require_mesh.Mesh) || f.destroyed) throw TypeError(`Decal requires a live receiver Mesh.`);
+	if (f instanceof require_instanced_mesh.InstancedMesh || f instanceof require_skinned_mesh.SkinnedMesh || f.morph) throw TypeError(`Decal requires a non-instanced, non-deforming receiver.`);
+	if (!(p instanceof require_mesh.TextureMaterial)) throw TypeError(`Decal requires TextureMaterial.`);
+	if (m.length !== 3 || m.some((e) => !Number.isFinite(e))) throw RangeError(`Decal position must contain three finite coordinates.`);
+	if (h.length !== 3 || h.some((e) => !Number.isFinite(e) || e <= 0)) throw RangeError(`Decal size must contain three positive finite dimensions.`);
+	let g = d.normalOffset ?? .001;
+	if (!Number.isFinite(g) || g < 0) throw RangeError(`Decal normalOffset must be finite and nonnegative.`);
+	let _ = new require_math3d.Quaternion();
+	if (d.rotation instanceof require_math3d.Quaternion) _.copy(d.rotation);
+	else if (d.rotation) {
+		if (d.rotation.length !== 3 || d.rotation.some((e) => !Number.isFinite(e))) throw RangeError(`Decal Euler rotation must contain three finite angles.`);
+		_.setFromEuler(...d.rotation);
 	}
-	let g = Math.hypot(h.x, h.y, h.z, h.w);
-	if (!Number.isFinite(g) || g === 0) throw RangeError(`Decal rotation must be a finite, nonzero quaternion.`);
-	h.normalize();
-	let _ = new require_math3d.Matrix4().compose(new require_math3d.Vector3(...f), h, new require_math3d.Vector3(1, 1, 1)), v = u.updateWorldMatrix();
-	if (v.elements.some((e) => !Number.isFinite(e))) throw RangeError(`Decal receiver transform must be finite.`);
-	let y = new require_math3d.Matrix4().copy(v).invert(), b = new require_math3d.Matrix4().copy(_).invert().multiply(v).elements, x = y.elements, S = [], C = [], w = [], T = [], E = /* @__PURE__ */ new Float64Array(54), D = /* @__PURE__ */ new Float64Array(54), O = new require_math3d.Vector3(), k = new require_math3d.Vector3(), A = u.geometry.vertices, j = u.geometry.indices;
-	for (let e = 0; e < j.length; e += 3) {
+	let v = require_hypot.hypot4(_.x, _.y, _.z, _.w);
+	if (!Number.isFinite(v) || v === 0) throw RangeError(`Decal rotation must be a finite, nonzero quaternion.`);
+	_.normalize();
+	let y = new require_math3d.Matrix4().compose(new require_math3d.Vector3(...m), _, new require_math3d.Vector3(1, 1, 1)), b = f.updateWorldMatrix();
+	if (b.elements.some((e) => !Number.isFinite(e))) throw RangeError(`Decal receiver transform must be finite.`);
+	let x = new require_math3d.Matrix4().copy(b).invert(), S = new require_math3d.Matrix4().copy(y).invert().multiply(b).elements, C = x.elements, w = [], T = [], E = [], D = [], O = /* @__PURE__ */ new Float64Array(54), k = /* @__PURE__ */ new Float64Array(54), A = new require_math3d.Vector3(), j = new require_math3d.Vector3(), M = f.geometry.vertices, N = f.geometry.indices;
+	for (let e = 0; e < N.length; e += 3) {
 		for (let t = 0; t < 3; t++) {
-			let n = j[e + t] * 8, r = t * 6, i = A[n], a = A[n + 1], o = A[n + 2];
-			E[r] = b[0] * i + b[4] * a + b[8] * o + b[12], E[r + 1] = b[1] * i + b[5] * a + b[9] * o + b[13], E[r + 2] = b[2] * i + b[6] * a + b[10] * o + b[14];
-			for (let e = 0; e < 3; e++) E[r + 3 + e] = A[n + 3 + e];
+			let n = N[e + t] * 8, r = t * 6, i = M[n], a = M[n + 1], o = M[n + 2];
+			O[r] = S[0] * i + S[4] * a + S[8] * o + S[12], O[r + 1] = S[1] * i + S[5] * a + S[9] * o + S[13], O[r + 2] = S[2] * i + S[6] * a + S[10] * o + S[14];
+			for (let e = 0; e < 3; e++) O[r + 3 + e] = M[n + 3 + e];
 		}
-		let t = E[6] - E[0], n = E[7] - E[1], r = E[12] - E[0], i = E[13] - E[1];
-		if (l.cullBackfaces !== !1 && t * i - n * r <= 0) continue;
+		let t = O[6] - O[0], n = O[7] - O[1], r = O[12] - O[0], i = O[13] - O[1];
+		if (d.cullBackfaces !== !1 && t * i - n * r <= 0) continue;
 		let a = 3;
 		for (let e = 0; e < 3 && a >= 3; e++) for (let t = -1; t <= 1; t += 2) {
-			a = clip(E, D, a, e, t, p[e] / 2);
-			let n = E;
-			if (E = D, D = n, a < 3) break;
+			a = clip(O, k, a, e, t, h[e] / 2);
+			let n = O;
+			if (O = k, k = n, a < 3) break;
 		}
 		if (a < 3) continue;
-		let o = S.length / 3;
+		let o = w.length / 3;
 		for (let e = 0; e < a; e++) {
 			let t = e * 6;
-			O.set(E[t], E[t + 1], E[t + 2]), _.transformPoint(O, O), y.transformPoint(O, O);
-			let n = E[t + 3], r = E[t + 4], i = E[t + 5];
-			k.set(x[0] * n + x[1] * r + x[2] * i, x[4] * n + x[5] * r + x[6] * i, x[8] * n + x[9] * r + x[10] * i).normalize(), S.push(O.x + m * (x[0] * k.x + x[4] * k.y + x[8] * k.z), O.y + m * (x[1] * k.x + x[5] * k.y + x[9] * k.z), O.z + m * (x[2] * k.x + x[6] * k.y + x[10] * k.z));
-			let a = Math.hypot(n, r, i);
-			C.push(a ? n / a : 0, a ? r / a : 0, a ? i / a : 0), w.push(E[t] / p[0] + .5, .5 - E[t + 1] / p[1]);
+			A.set(O[t], O[t + 1], O[t + 2]), y.transformPoint(A, A), x.transformPoint(A, A);
+			let n = O[t + 3], r = O[t + 4], i = O[t + 5];
+			j.set(C[0] * n + C[1] * r + C[2] * i, C[4] * n + C[5] * r + C[6] * i, C[8] * n + C[9] * r + C[10] * i).normalize(), w.push(A.x + g * (C[0] * j.x + C[4] * j.y + C[8] * j.z), A.y + g * (C[1] * j.x + C[5] * j.y + C[9] * j.z), A.z + g * (C[2] * j.x + C[6] * j.y + C[10] * j.z));
+			let a = require_hypot.hypot3(n, r, i);
+			T.push(a ? n / a : 0, a ? r / a : 0, a ? i / a : 0), E.push(O[t] / h[0] + .5, .5 - O[t + 1] / h[1]);
 		}
 		for (let e = 1; e < a - 1; e++) {
-			let t = 6 * e, n = 6 * (e + 1), r = E[t] - E[0], i = E[t + 1] - E[1], a = E[t + 2] - E[2], s = E[n] - E[0], c = E[n + 1] - E[1], l = E[n + 2] - E[2];
-			Math.hypot(i * l - a * c, a * s - r * l, r * c - i * s) > 0 && T.push(o, o + e, o + e + 1);
+			let t = 6 * e, n = 6 * (e + 1), r = O[t] - O[0], i = O[t + 1] - O[1], a = O[t + 2] - O[2], s = O[n] - O[0], c = O[n + 1] - O[1], u = O[n + 2] - O[2];
+			require_hypot.hypot3(i * u - a * c, a * s - r * u, r * c - i * s) > 0 && D.push(o, o + e, o + e + 1);
 		}
 	}
-	if (!T.length) throw RangeError(`Decal projector does not intersect a receiver surface.`);
+	if (!D.length) throw RangeError(`Decal projector does not intersect a receiver surface.`);
 	return new require_geometry.Geometry({
-		positions: S,
-		normals: C,
-		uvs: w,
-		indices: T
+		positions: w,
+		normals: T,
+		uvs: E,
+		indices: D
 	});
 }
 function clip(e, t, n, r, i, a) {

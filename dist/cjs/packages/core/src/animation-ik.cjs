@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_animation_pose = require("./animation-pose.cjs");
 //#region dist/packages/core/src/animation-ik.js
@@ -77,7 +78,7 @@ var TwoBoneIKConstraint = class {
 		}
 		for (let e = this.tip; e; e = e.parent) {
 			let t = e.scale, n = e.rotation;
-			if (!Number.isFinite(t.x) || t.x <= 0 || Math.abs(t.x - t.y) > 1e-6 * t.x || Math.abs(t.x - t.z) > 1e-6 * t.x || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(Math.hypot(n.x, n.y, n.z, n.w)) || Math.hypot(n.x, n.y, n.z, n.w) < 1e-12) {
+			if (!Number.isFinite(t.x) || t.x <= 0 || Math.abs(t.x - t.y) > 1e-6 * t.x || Math.abs(t.x - t.z) > 1e-6 * t.x || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(require_hypot.hypot4(n.x, n.y, n.z, n.w)) || require_hypot.hypot4(n.x, n.y, n.z, n.w) < 1e-12) {
 				this.status = `singular`;
 				return;
 			}
@@ -91,18 +92,18 @@ var TwoBoneIKConstraint = class {
 		this.direction.copy(this.goal).subtract(this.origin);
 		let n = this.direction.length();
 		n < 1e-8 && (this.direction.copy(this.end).subtract(this.origin), this.direction.length() < 1e-8 && this.direction.set(1, 0, 0)), this.direction.normalize();
-		let r = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.maxBend))), i = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.minBend))), a = Math.max(1e-8, Math.max(r, Math.min(i, n)));
-		this.status = Math.abs(a - n) > 1e-6 ? `clamped` : `solved`, this.bend.copy(this.pole ? this.polePoint : this.joint).subtract(this.origin);
-		let o = this.bend.dot(this.direction);
-		if (this.bend.set(this.bend.x - this.direction.x * o, this.bend.y - this.direction.y * o, this.bend.z - this.direction.z * o), this.bend.length() < 1e-8) {
+		let r = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.maxBend))), a = Math.sqrt(Math.max(0, e * e + t * t + 2 * e * t * Math.cos(this.minBend))), o = Math.max(1e-8, Math.max(r, Math.min(a, n)));
+		this.status = Math.abs(o - n) > 1e-6 ? `clamped` : `solved`, this.bend.copy(this.pole ? this.polePoint : this.joint).subtract(this.origin);
+		let s = this.bend.dot(this.direction);
+		if (this.bend.set(this.bend.x - this.direction.x * s, this.bend.y - this.direction.y * s, this.bend.z - this.direction.z * s), this.bend.length() < 1e-8) {
 			let e = Math.abs(this.direction.x), t = Math.abs(this.direction.y), n = Math.abs(this.direction.z);
 			this.bend.set(+(e <= t && e <= n), +(t < e && t <= n), +(n < e && n < t));
 			let r = this.bend.dot(this.direction);
 			this.bend.set(this.bend.x - this.direction.x * r, this.bend.y - this.direction.y * r, this.bend.z - this.direction.z * r);
 		}
 		this.bend.normalize();
-		let s = (e * e - t * t + a * a) / (2 * a), c = Math.sqrt(Math.max(0, e * e - s * s));
-		this.desiredJoint.set(this.origin.x + this.direction.x * s + this.bend.x * c, this.origin.y + this.direction.y * s + this.bend.y * c, this.origin.z + this.direction.z * s + this.bend.z * c), this.desiredEnd.set(this.origin.x + this.direction.x * a, this.origin.y + this.direction.y * a, this.origin.z + this.direction.z * a), this.from.copy(this.joint).subtract(this.origin), this.to.copy(this.desiredJoint).subtract(this.origin), this.rotateBone(this.root), this.worldPoint(this.middle, this.joint), this.worldPoint(this.tip, this.end), this.from.copy(this.end).subtract(this.joint), this.to.copy(this.desiredEnd).subtract(this.joint), this.rotateBone(this.middle);
+		let c = (e * e - t * t + o * o) / (2 * o), l = Math.sqrt(Math.max(0, e * e - c * c));
+		this.desiredJoint.set(this.origin.x + this.direction.x * c + this.bend.x * l, this.origin.y + this.direction.y * c + this.bend.y * l, this.origin.z + this.direction.z * c + this.bend.z * l), this.desiredEnd.set(this.origin.x + this.direction.x * o, this.origin.y + this.direction.y * o, this.origin.z + this.direction.z * o), this.from.copy(this.joint).subtract(this.origin), this.to.copy(this.desiredJoint).subtract(this.origin), this.rotateBone(this.root), this.worldPoint(this.middle, this.joint), this.worldPoint(this.tip, this.end), this.from.copy(this.end).subtract(this.joint), this.to.copy(this.desiredEnd).subtract(this.joint), this.rotateBone(this.middle);
 	}
 	rotateBone(e) {
 		this.from.normalize(), this.to.normalize();

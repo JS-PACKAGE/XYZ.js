@@ -2,6 +2,7 @@ import { Vector3, Quaternion, Matrix4 } from '../../../math/src/index.js';
 import type { Object3D } from '../object3d.js';
 import { Bounds3D, SpatialIndex3D } from './spatial.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { hypot3, hypot4 } from '../../../math/src/hypot.js';
 
 export function finite3D(value: number, name: string): number {
   if (!Number.isFinite(value)) throw new RangeError(`${name} must be finite.`);
@@ -143,7 +144,7 @@ export class TriangleMeshCollider3D extends Collider3D {
         vz = p[c + 2] - p[a + 2];
       if (
         finite3D(
-          Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
+          hypot3(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
           'triangle area',
         ) <= physics3DDefaults.geometryTolerance
       )
@@ -221,7 +222,7 @@ export class CompoundCollider3D extends Collider3D {
         positive3D(s.y, 'child scale.y');
         positive3D(s.z, 'child scale.z');
         if (
-          Math.abs(Math.hypot(q.x, q.y, q.z, q.w) - 1) >
+          Math.abs(hypot4(q.x, q.y, q.z, q.w) - 1) >
           physics3DDefaults.transformTolerance
         )
           throw new RangeError('Child rotation must be a unit quaternion.');
@@ -470,7 +471,7 @@ export class Shape3D {
           vy = t.c.y - t.a.y,
           vz = t.c.z - t.a.z;
         positive3D(
-          Math.hypot(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
+          hypot3(uy * vz - uz * vy, uz * vx - ux * vz, ux * vy - uy * vx),
           'transformed triangle area',
         );
         t.normal
@@ -514,7 +515,7 @@ export class Shape3D {
       this.needsVolume &&
       (this.collider.kind === 'sphere' || this.collider.kind === 'capsule')
     ) {
-      const h = Math.hypot(
+      const h = hypot3(
         this.end.x - this.start.x,
         this.end.y - this.start.y,
         this.end.z - this.start.z,
@@ -546,7 +547,7 @@ export class Shape3D {
         this.bounds.max.z - this.bounds.min.z,
       );
       if (
-        Math.hypot(
+        hypot3(
           this.massCenter.x - this.center.x,
           this.massCenter.y - this.center.y,
           this.massCenter.z - this.center.z,

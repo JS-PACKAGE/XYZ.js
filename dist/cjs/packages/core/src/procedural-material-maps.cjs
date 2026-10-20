@@ -1,6 +1,7 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_materials = require("../../../src/data/materials.cjs");
 //#region dist/packages/core/src/procedural-material-maps.js
-var t = Math.PI * 2;
+var n = Math.PI * 2;
 var clamp = (e) => Math.max(0, Math.min(1, e));
 var fract = (e) => e - Math.floor(e);
 var smooth = (e) => e * e * (3 - 2 * e);
@@ -21,14 +22,14 @@ function wrappedFeature(e, t, n, r) {
 	}
 	return Math.sqrt(o) * n;
 }
-function createSurfaceSampler(n, r) {
-	let i = require_materials.proceduralMaterialPresets[n], a = hash(0, 0, r) * t, o = n === `stone` || n === `metal` || n === `marble`, s = n === `brick` || n === `stone`;
+function createSurfaceSampler(t, r) {
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
-		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(n === `metal`);
-		switch (n) {
+		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
+		switch (t) {
 			case `wood`: {
-				let n = noise(e, c, 4, 2, r ^ 71), i = .5 + .5 * Math.sin(t * (12 * e + .65 * n) + a), o = (.5 + .5 * Math.sin(t * (40 * e + n) + a)) ** 12;
+				let t = noise(e, c, 4, 2, r ^ 71), i = .5 + .5 * Math.sin(n * (12 * e + .65 * t) + a), o = (.5 + .5 * Math.sin(n * (40 * e + t) + a)) ** 12;
 				p = clamp(.22 + .6 * i + .16 * d - .2 * o), m = .65 * i + .15 * d - .18 * o, h += .15 * o + .08 * (d - .5), g = 1 - .15 * o;
 				break;
 			}
@@ -43,17 +44,17 @@ function createSurfaceSampler(n, r) {
 				break;
 			}
 			case `metal`: {
-				let n = noise(e, c, 4, 64, r ^ 313), i = (.5 + .5 * Math.sin(t * c * 48 + a)) ** 16;
-				p = .4 + .38 * n + .12 * u - .1 * i, m = .7 * n - .15 * i, h += .18 * n + .08 * i, g = 1 - .04 * i;
+				let t = noise(e, c, 4, 64, r ^ 313), i = (.5 + .5 * Math.sin(n * c * 48 + a)) ** 16;
+				p = .4 + .38 * t + .12 * u - .1 * i, m = .7 * t - .15 * i, h += .18 * t + .08 * i, g = 1 - .04 * i;
 				break;
 			}
 			case `fabric`: {
-				let n = e * 12, r = c * 12, i = Math.sin(Math.PI * fract(n)) ** 2, o = Math.sin(Math.PI * fract(r)) ** 2, s = (Math.floor(n) + Math.floor(r)) % 2 == 0, l = s ? i * (.6 + .4 * o) : o * (.6 + .4 * i), u = .5 + .5 * Math.sin(t * (s ? e : c) * 48 + a);
+				let t = e * 12, r = c * 12, i = Math.sin(Math.PI * fract(t)) ** 2, o = Math.sin(Math.PI * fract(r)) ** 2, s = (Math.floor(t) + Math.floor(r)) % 2 == 0, l = s ? i * (.6 + .4 * o) : o * (.6 + .4 * i), u = .5 + .5 * Math.sin(n * (s ? e : c) * 48 + a);
 				p = .22 + .48 * l + .14 * d + .08 * u, m = .8 * l + .06 * u + .08 * d, h += .04 * (d - .5), g = .68 + .32 * l;
 				break;
 			}
 			case `marble`: {
-				let n = noise(e, c, 4, 4, r ^ 997), i = Math.exp(-Math.abs(Math.sin(t * (3 * e + 2 * c + .8 * n) + a)) * 16);
+				let t = noise(e, c, 4, 4, r ^ 997), i = Math.exp(-Math.abs(Math.sin(n * (3 * e + 2 * c + .8 * t) + a)) * 16);
 				p = clamp(.9 + .1 * u - .85 * i), m = .3 * u - .2 * i + .05 * d, h += .1 * i + .04 * (d - .5), g = 1 - .06 * i;
 				break;
 			}
@@ -73,7 +74,7 @@ function createSurfaceSampler(n, r) {
 				break;
 			}
 			case `sand`: {
-				let n = noise(e, c, 3, 3, r ^ 17), i = .5 + .5 * Math.sin(t * (c * 7 + .35 * n) + a), o = noise(e, c, 48, 48, r ^ 20973);
+				let t = noise(e, c, 3, 3, r ^ 17), i = .5 + .5 * Math.sin(n * (c * 7 + .35 * t) + a), o = noise(e, c, 48, 48, r ^ 20973);
 				p = .3 + .48 * i + .18 * o, m = .72 * i + .22 * o, h += .06 * (o - .5), g = .82 + .18 * i;
 				break;
 			}
@@ -91,12 +92,12 @@ function createSurfaceSampler(n, r) {
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};
 }
-function writeNormals(e, t, n) {
-	for (let r = 0; r < t; r++) {
-		let i = (r + t - 1) % t * t, a = (r + 1) % t * t;
-		for (let o = 0; o < t; o++) {
-			let s = (r * t + o) * 4, c = (e[r * t + (o + 1) % t] - e[r * t + (o + t - 1) % t]) * t / 2, l = (e[a + o] - e[i + o]) * t / 2, u = 1 / Math.hypot(c, l, 1);
-			n[s] = byte(.5 - c * u * .5), n[s + 1] = byte(.5 - l * u * .5), n[s + 2] = byte(.5 + u * .5), n[s + 3] = 255;
+function writeNormals(e, n, r) {
+	for (let i = 0; i < n; i++) {
+		let a = (i + n - 1) % n * n, o = (i + 1) % n * n;
+		for (let s = 0; s < n; s++) {
+			let c = (i * n + s) * 4, l = (e[i * n + (s + 1) % n] - e[i * n + (s + n - 1) % n]) * n / 2, u = (e[o + s] - e[a + s]) * n / 2, d = 1 / require_hypot.hypot3(l, u, 1);
+			r[c] = byte(.5 - l * d * .5), r[c + 1] = byte(.5 - u * d * .5), r[c + 2] = byte(.5 + d * .5), r[c + 3] = 255;
 		}
 	}
 }

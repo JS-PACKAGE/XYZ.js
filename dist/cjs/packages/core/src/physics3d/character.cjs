@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
 const require_collider = require("./collider.cjs");
@@ -5,7 +6,7 @@ const require_body = require("./body.cjs");
 const require_character3d = require("../../../../src/data/character3d.cjs");
 const require_character_support = require("./character-support.cjs");
 //#region dist/packages/core/src/physics3d/character.js
-var u = Object.freeze({});
+var f = Object.freeze({});
 var CharacterController3D = class {
 	object;
 	world;
@@ -130,7 +131,7 @@ var CharacterController3D = class {
 	assertPose() {
 		let e = this.object;
 		if (e.destroyed || e.parent || !(e.collider instanceof require_collider.CapsuleCollider3D)) throw Error(`Character requires a live root CapsuleCollider3D owner.`);
-		if (e.scale.x !== 1 || e.scale.y !== 1 || e.scale.z !== 1 || Math.abs(e.rotation.x) > require_character3d.character3DDefaults.poseTolerance || Math.abs(e.rotation.z) > require_character3d.character3DDefaults.poseTolerance || Math.abs(Math.hypot(e.rotation.x, e.rotation.y, e.rotation.z, e.rotation.w) - 1) > require_character3d.character3DDefaults.poseTolerance) throw Error(`Character must be upright with unit scale (yaw is supported).`);
+		if (e.scale.x !== 1 || e.scale.y !== 1 || e.scale.z !== 1 || Math.abs(e.rotation.x) > require_character3d.character3DDefaults.poseTolerance || Math.abs(e.rotation.z) > require_character3d.character3DDefaults.poseTolerance || Math.abs(require_hypot.hypot4(e.rotation.x, e.rotation.y, e.rotation.z, e.rotation.w) - 1) > require_character3d.character3DDefaults.poseTolerance) throw Error(`Character must be upright with unit scale (yaw is supported).`);
 		require_collider.vector3D(e.position, `position`);
 	}
 	remember(e) {
@@ -148,7 +149,7 @@ var CharacterController3D = class {
 	}
 	detectTeleport() {
 		let e = this.object.position, t = this.expectedPosition;
-		Math.hypot(e.x - t.x, e.y - t.y, e.z - t.z) > require_character3d.character3DDefaults.poseTolerance && (this.clearSupport(`teleport`), this.groundedState = !1);
+		require_hypot.hypot3(e.x - t.x, e.y - t.y, e.z - t.z) > require_character3d.character3DDefaults.poseTolerance && (this.clearSupport(`teleport`), this.groundedState = !1);
 	}
 	assertLive() {
 		if (this.disposed) throw Error(`CharacterController3D is destroyed.`);
@@ -246,24 +247,24 @@ var CharacterController3D = class {
 		}
 		if (!o) return;
 		r.capture(i);
-		let s = Math.hypot(r.position.x - n.position.x, r.position.y - n.position.y, r.position.z - n.position.z), l = n.angleTo(r), u = Math.hypot(this.localAnchor.x * n.scale.x, this.localAnchor.y * n.scale.y, this.localAnchor.z * n.scale.z), d = s + l * u;
-		if (d > this.maxSupportDisplacement || Math.abs(n.scale.x - r.scale.x) > require_character3d.character3DDefaults.poseTolerance || Math.abs(n.scale.y - r.scale.y) > require_character3d.character3DDefaults.poseTolerance || Math.abs(n.scale.z - r.scale.z) > require_character3d.character3DDefaults.poseTolerance) {
+		let s = require_hypot.hypot3(r.position.x - n.position.x, r.position.y - n.position.y, r.position.z - n.position.z), l = n.angleTo(r), d = require_hypot.hypot3(this.localAnchor.x * n.scale.x, this.localAnchor.y * n.scale.y, this.localAnchor.z * n.scale.z), f = s + l * d;
+		if (f > this.maxSupportDisplacement || Math.abs(n.scale.x - r.scale.x) > require_character3d.character3DDefaults.poseTolerance || Math.abs(n.scale.y - r.scale.y) > require_character3d.character3DDefaults.poseTolerance || Math.abs(n.scale.z - r.scale.z) > require_character3d.character3DDefaults.poseTolerance) {
 			this.clearSupport(`support-teleport`), this.groundedState = !1;
 			return;
 		}
-		let f = Math.max(1, Math.ceil(d / require_character3d.character3DDefaults.supportSweepStep), Math.ceil(l / require_character3d.character3DDefaults.supportRotationStep));
-		if (f > require_character3d.character3DDefaults.maxSupportSegments) {
+		let p = Math.max(1, Math.ceil(f / require_character3d.character3DDefaults.supportSweepStep), Math.ceil(l / require_character3d.character3DDefaults.supportRotationStep));
+		if (p > require_character3d.character3DDefaults.maxSupportSegments) {
 			this.clearSupport(`support-teleport`), this.groundedState = !1;
 			return;
 		}
-		let p = 2 * u * Math.sin(l / (4 * f)) ** 2;
+		let m = 2 * d * Math.sin(l / (4 * p)) ** 2;
 		n.matrix.transformPoint(this.localAnchor, this.previousCarryPoint), r.matrix.transformPoint(this.localAnchor, this.carryPoint), this.supportRequested.copy(this.carryPoint).subtract(this.previousCarryPoint), this.carryQuery.ignoreAlso = t, this.phaseStart.copy(this.object.position);
-		for (let e = 1; e <= f; e++) n.interpolatePoint(r, this.localAnchor, e / f, this.carryPoint), this.carrySegment.copy(this.carryPoint).subtract(this.previousCarryPoint), this.sweepMotion(this.carrySegment, !1, !0, this.carryQuery, p) && (this.result.carryBlocked = !0), this.previousCarryPoint.copy(this.carryPoint);
+		for (let e = 1; e <= p; e++) n.interpolatePoint(r, this.localAnchor, e / p, this.carryPoint), this.carrySegment.copy(this.carryPoint).subtract(this.previousCarryPoint), this.sweepMotion(this.carrySegment, !1, !0, this.carryQuery, m) && (this.result.carryBlocked = !0), this.previousCarryPoint.copy(this.carryPoint);
 		this.carryApplied.copy(this.object.position).subtract(this.phaseStart);
-		let m = Math.atan2(r.matrix.elements[8], r.matrix.elements[10]) - Math.atan2(n.matrix.elements[8], n.matrix.elements[10]);
-		m = Math.atan2(Math.sin(m), Math.cos(m));
-		let h = 2 * Math.atan2(this.object.rotation.y, this.object.rotation.w) + m;
-		this.object.rotation.setFromEuler(0, h, 0), this.result.supportYawDelta = m, n.capture(r.matrix), this.result.carryBlocked && (this.clearSupport(`blocked`), this.groundedState = !1);
+		let h = Math.atan2(r.matrix.elements[8], r.matrix.elements[10]) - Math.atan2(n.matrix.elements[8], n.matrix.elements[10]);
+		h = Math.atan2(Math.sin(h), Math.cos(h));
+		let g = 2 * Math.atan2(this.object.rotation.y, this.object.rotation.w) + h;
+		this.object.rotation.setFromEuler(0, g, 0), this.result.supportYawDelta = h, n.capture(r.matrix), this.result.carryBlocked && (this.clearSupport(`blocked`), this.groundedState = !1);
 	}
 	updateSupport(e) {
 		let t = this.supportCandidate;
@@ -278,7 +279,7 @@ var CharacterController3D = class {
 	stopUnresolvedCarry() {
 		return this.unresolvedCarry = !0, this.result.unresolvedPenetration = !0, this.result.carryBlocked = !0, this.result.blocked = !0, this.result.grounded = !1, this.groundedState = !1, this.clearSupport(`blocked`), this.result.supportDetached = `blocked`, this.recoveryApplied.set(0, 0, 0), this.locomotionApplied.set(0, 0, 0), this.applied.copy(this.object.position).subtract(this.start), this.expectedPosition.copy(this.object.position), this.carryQuery.ignoreAlso = void 0, this.result;
 	}
-	move(e, t = u) {
+	move(e, t = f) {
 		if (this.assertLive(), require_collider.vector3D(e, `displacement`), t.epoch !== void 0 && (!Number.isSafeInteger(t.epoch) || t.epoch < 0)) throw RangeError(`Character movement epoch must be a nonnegative safe integer.`);
 		if (this.unresolvedCarry) {
 			if (!this.world.canPlaceCapsule(this.object, this.object.collider, this.object.position, this.query)) throw Error(`Character carried placement is unresolved; restore a collision-free pose before moving.`);

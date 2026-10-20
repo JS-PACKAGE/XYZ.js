@@ -20,6 +20,7 @@ import {
   type NavigationConnection3D,
 } from './graph.js';
 import type { NavigationSearchStatus } from './jobs.js';
+import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationLatticeOptions {
   readonly columns: number;
@@ -96,10 +97,10 @@ export class NavigationLatticeMapping {
     this.cosine = Math.cos(options.rotation ?? 0);
     this.sine = Math.sin(options.rotation ?? 0);
     const extent =
-      Math.hypot(
+      hypot2(
         options.columns * options.cellSize,
         options.rows * options.cellSize,
-      ) + Math.hypot(originX, originZ);
+      ) + hypot2(originX, originZ);
     if (extent > navigationLimits.coordinateExtent)
       throw new RangeError('Navigation lattice exceeds coordinate bounds.');
   }
@@ -641,7 +642,7 @@ export class NavigationSurfaceBakeJob3D {
       this.connections.push({
         from: a.id,
         to: b.id,
-        cost: Math.hypot(
+        cost: hypot3(
           b.position.x - a.position.x,
           b.position.y - a.position.y,
           b.position.z - a.position.z,

@@ -19,6 +19,7 @@ import { collide, Manifold, rayDistance } from './narrowphase.js';
 import { ContinuousCollision2D, ShapeMotion2D } from './ccd.js';
 import type { Joint2D } from './joints.js';
 import { PhysicsForceAccumulator } from '../physics-force.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 export interface CollisionDetail {
   readonly self: GameObject;
@@ -996,7 +997,7 @@ export class PhysicsWorld2D {
     // would keep it awake forever, so the threshold never drops below a couple of gravity steps.
     const threshold = Math.max(
       physicsDefaults.restitutionThreshold,
-      Math.hypot(this.gravity.x, this.gravity.y) *
+      hypot2(this.gravity.x, this.gravity.y) *
         this.fixedDelta *
         physicsDefaults.restitutionGravitySteps,
     );

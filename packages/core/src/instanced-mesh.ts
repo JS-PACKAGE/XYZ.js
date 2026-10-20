@@ -4,6 +4,7 @@ import {
   transformSphereElements,
   type BoundingSphere3D,
 } from './render-bounds.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface InstancedMeshOptions extends MeshOptions {
   count: number;
@@ -86,8 +87,7 @@ export class InstancedMesh extends Mesh {
     this.aggregate.x = (minX + maxX) / 2;
     this.aggregate.y = (minY + maxY) / 2;
     this.aggregate.z = (minZ + maxZ) / 2;
-    this.aggregate.radius =
-      Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) / 2;
+    this.aggregate.radius = hypot3(maxX - minX, maxY - minY, maxZ - minZ) / 2;
     this.boundsVersion = this.version;
     this.geometryBoundsVersion = this.geometry.version;
     return this.aggregate;

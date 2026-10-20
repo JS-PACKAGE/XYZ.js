@@ -12,6 +12,7 @@ import {
   vector3D,
 } from './collider.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 export interface RigidBodyOptions3D {
   type?: 'static' | 'dynamic' | 'kinematic';
   mass?: number;
@@ -290,7 +291,7 @@ export class RigidBody3D {
       );
     } else if (c instanceof CapsuleCollider3D) {
       const r = shape.radius,
-        h = Math.hypot(
+        h = hypot3(
           shape.end.x - shape.start.x,
           shape.end.y - shape.start.y,
           shape.end.z - shape.start.z,

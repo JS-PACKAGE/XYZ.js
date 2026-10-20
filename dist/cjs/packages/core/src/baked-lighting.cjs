@@ -1,4 +1,5 @@
 const require_texture = require("../../assets/src/texture.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_mesh = require("./mesh.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
@@ -8,9 +9,9 @@ const require_scene = require("./scene.cjs");
 const require_environment = require("./environment.cjs");
 const require_bake_bvh = require("./bake-bvh.cjs");
 //#region dist/packages/core/src/baked-lighting.js
-var l = /* @__PURE__ */ new WeakSet();
+var u = /* @__PURE__ */ new WeakSet();
 function isBakedLightmap(e) {
-	return e !== void 0 && l.has(e);
+	return e !== void 0 && u.has(e);
 }
 function integer(e, t, n, r) {
 	if (!Number.isInteger(e) || e < t || e > n) throw RangeError(`${r} outside bounded bake profile.`);
@@ -24,7 +25,7 @@ function basis(e, t, n, r) {
 	r[0] = .282095, r[1] = .488603 * t, r[2] = .488603 * n, r[3] = .488603 * e, r[4] = 1.092548 * e * t, r[5] = 1.092548 * t * n, r[6] = .315392 * (3 * n * n - 1), r[7] = 1.092548 * e * n, r[8] = .546274 * (e * e - t * t);
 }
 function normalize(e) {
-	let t = Math.hypot(e[0], e[1], e[2]);
+	let t = require_hypot.hypot3(e[0], e[1], e[2]);
 	if (t < 1e-12) throw RangeError(`Bake normal cannot be zero.`);
 	for (let n = 0; n < 3; n++) e[n] /= t;
 }
@@ -110,8 +111,8 @@ var Context = class {
 async function bakeLightmap(r, i = {}) {
 	let a = integer(i.size ?? require_rendering.bakedLightingLimits.size, 4, require_rendering.bakedLightingLimits.maxSize, `Size`), o = integer(i.padding ?? require_rendering.bakedLightingLimits.padding, 1, require_rendering.bakedLightingLimits.maxPadding, `Padding`), s = i.atlas ?? `generate`;
 	if (s !== `generate` && s !== `uv1`) throw RangeError(`Unknown bake atlas mode.`);
-	let c = new Context(r, i), u = c.bvh.triangles, d = Math.ceil(Math.sqrt(u.length)), f = Math.floor(a / Math.max(1, d));
-	if (s === `generate` && u.length && f < o * 2 + 3) throw RangeError(`Atlas too small for triangle charts and padding.`);
+	let c = new Context(r, i), l = c.bvh.triangles, d = Math.ceil(Math.sqrt(l.length)), f = Math.floor(a / Math.max(1, d));
+	if (s === `generate` && l.length && f < o * 2 + 3) throw RangeError(`Atlas too small for triangle charts and padding.`);
 	let p = new Float32Array(a * a * 3), m = new Int32Array(a * a).fill(-1), h = /* @__PURE__ */ new Map(), g = /* @__PURE__ */ new Map(), _ = [
 		0,
 		0,
@@ -125,8 +126,8 @@ async function bakeLightmap(r, i = {}) {
 		0,
 		0
 	], b = 0;
-	for (let e = 0; e < u.length; e++) {
-		let n = u[e], r = n.mesh.geometry, i;
+	for (let e = 0; e < l.length; e++) {
+		let n = l[e], r = n.mesh.geometry, i;
 		if (s === `uv1`) {
 			if (!r.uvs1) throw RangeError(`Authored bake requires UV1.`);
 			if (i = n.indices.flatMap((e) => [r.uvs1[e * 2] * a, r.uvs1[e * 2 + 1] * a]), i.some((e) => !Number.isFinite(e) || e < o || e > a - o)) throw RangeError(`UV1 charts require atlas-edge padding.`);
@@ -159,18 +160,18 @@ async function bakeLightmap(r, i = {}) {
 				for (let e = 0; e < 4; e++) l.tangents.push(r.tangents[t * 4 + e]);
 			}
 		}
-		let l = (i[3] - i[5]) * (i[0] - i[4]) + (i[4] - i[2]) * (i[1] - i[5]);
-		if (Math.abs(l) < 1e-8) throw RangeError(`Degenerate UV1 triangle.`);
+		let u = (i[3] - i[5]) * (i[0] - i[4]) + (i[4] - i[2]) * (i[1] - i[5]);
+		if (Math.abs(u) < 1e-8) throw RangeError(`Degenerate UV1 triangle.`);
 		for (let r = Math.max(0, Math.floor(Math.min(i[1], i[3], i[5]))); r < Math.min(a, Math.ceil(Math.max(i[1], i[3], i[5]))); r++) for (let o = Math.max(0, Math.floor(Math.min(i[0], i[2], i[4]))); o < Math.min(a, Math.ceil(Math.max(i[0], i[2], i[4]))); o++) {
 			if (++b > require_rendering.bakedLightingLimits.maxRays) throw RangeError(`Bake raster sample budget exceeded.`);
-			let s = ((i[3] - i[5]) * (o + .5 - i[4]) + (i[4] - i[2]) * (r + .5 - i[5])) / l, u = ((i[5] - i[1]) * (o + .5 - i[4]) + (i[0] - i[4]) * (r + .5 - i[5])) / l, d = 1 - s - u;
-			if (s < -1e-7 || u < -1e-7 || d < -1e-7) continue;
+			let s = ((i[3] - i[5]) * (o + .5 - i[4]) + (i[4] - i[2]) * (r + .5 - i[5])) / u, l = ((i[5] - i[1]) * (o + .5 - i[4]) + (i[0] - i[4]) * (r + .5 - i[5])) / u, d = 1 - s - l;
+			if (s < -1e-7 || l < -1e-7 || d < -1e-7) continue;
 			let f = r * a + o;
 			if (m[f] >= 0) {
-				if (Math.min(s, u, d) > 1e-7) throw RangeError(`Overlapping UV1 charts.`);
+				if (Math.min(s, l, d) > 1e-7) throw RangeError(`Overlapping UV1 charts.`);
 				continue;
 			}
-			for (let e = 0; e < 3; e++) _[e] = n.p[e] * s + n.p[e + 3] * u + n.p[e + 6] * d, v[e] = n.n[e] * s + n.n[e + 3] * u + n.n[e + 6] * d;
+			for (let e = 0; e < 3; e++) _[e] = n.p[e] * s + n.p[e + 3] * l + n.p[e + 6] * d, v[e] = n.n[e] * s + n.n[e + 3] * l + n.n[e + 6] * d;
 			normalize(v), c.surface(_, v, y, n), p.set(y, f * 3), m[f] = e;
 		}
 	}
@@ -205,7 +206,7 @@ async function bakeLightmap(r, i = {}) {
 		S[e * 4 + 3] = 255;
 	}
 	let C = await require_texture.Texture.fromImage(new ImageData(S, a, a));
-	return l.add(C), {
+	return u.add(C), {
 		texture: C,
 		pixels: p,
 		geometries: h,
@@ -223,7 +224,7 @@ async function bakeLightmap(r, i = {}) {
 		destroy: () => C.destroy()
 	};
 }
-var u = [
+var d = [
 	1,
 	2 / 3,
 	2 / 3,
@@ -287,7 +288,7 @@ function bakeIrradianceVolume(e, t) {
 	if (!(e instanceof require_scene.Scene) && !(e instanceof require_environment.EnvironmentMap)) throw TypeError(`Probe bake requires Scene or EnvironmentMap.`);
 	let s = e instanceof require_environment.EnvironmentMap ? e : e.environment;
 	if (s?.destroyed) throw RangeError(`Destroyed bake environment.`);
-	let c = new Context(r, t), [l, d, f] = n.resolution, p = n.order === 1 ? 4 : 9, m = [
+	let c = new Context(r, t), [l, u, f] = n.resolution, p = n.order === 1 ? 4 : 9, m = [
 		0,
 		0,
 		0
@@ -312,9 +313,9 @@ function bakeIrradianceVolume(e, t) {
 		0,
 		0
 	], b = /* @__PURE__ */ new Float64Array(9);
-	for (let e = 0; e < f; e++) for (let t = 0; t < d; t++) for (let i = 0; i < l; i++) {
-		m[0] = n.min[0] + i / (l - 1) * (n.max[0] - n.min[0]), m[1] = n.min[1] + t / (d - 1) * (n.max[1] - n.min[1]), m[2] = n.min[2] + e / (f - 1) * (n.max[2] - n.min[2]);
-		let a = ((e * d + t) * l + i) * p * 3;
+	for (let e = 0; e < f; e++) for (let t = 0; t < u; t++) for (let i = 0; i < l; i++) {
+		m[0] = n.min[0] + i / (l - 1) * (n.max[0] - n.min[0]), m[1] = n.min[1] + t / (u - 1) * (n.max[1] - n.min[1]), m[2] = n.min[2] + e / (f - 1) * (n.max[2] - n.min[2]);
+		let a = ((e * u + t) * l + i) * p * 3;
 		for (let e = 0; e < c.samples; e++) {
 			h[1] = 1 - 2 * (e + .5) / c.samples;
 			let t = Math.sqrt(1 - h[1] * h[1]);
@@ -330,13 +331,13 @@ function bakeIrradianceVolume(e, t) {
 				for (let e = 0; e < 3; e++) g[e] *= r?.environmentIntensity ?? 1;
 			} else g.fill(r?.ambientLight ?? 0);
 			basis(h[0], h[1], h[2], b);
-			for (let e = 0; e < p; e++) for (let t = 0; t < 3; t++) n.coefficients[a + e * 3 + t] += g[t] * b[e] * 4 * Math.PI / c.samples * u[e];
+			for (let e = 0; e < p; e++) for (let t = 0; t < 3; t++) n.coefficients[a + e * 3 + t] += g[t] * b[e] * 4 * Math.PI / c.samples * d[e];
 		}
 		if (r) {
 			let e = r.directionalLight, project = (e, t, r, i) => {
 				if (r && !c.bvh.hit(m, e, i)) {
 					basis(e[0], e[1], e[2], b);
-					for (let e = 0; e < p; e++) for (let i = 0; i < 3; i++) n.coefficients[a + e * 3 + i] += t[i] * r * Math.PI * u[e] * b[e];
+					for (let e = 0; e < p; e++) for (let i = 0; i < 3; i++) n.coefficients[a + e * 3 + i] += t[i] * r * Math.PI * d[e] * b[e];
 				}
 			};
 			h[0] = e.direction.x, h[1] = e.direction.y, h[2] = e.direction.z, normalize(h), project(h, e.color, e.intensity, 1 / 0);
@@ -357,18 +358,18 @@ function bakeIrradianceVolume(e, t) {
 	if (n.coefficients.some((e) => !Number.isFinite(e))) throw RangeError(`Baked irradiance exceeds Float32 storage.`);
 	return n;
 }
-var d = /* @__PURE__ */ new WeakMap();
+var f = /* @__PURE__ */ new WeakMap();
 function bindIrradianceVolume(e, t) {
 	if (!(e instanceof require_mesh.Mesh) || t !== void 0 && !(t instanceof BakedIrradianceVolume)) throw TypeError(`Invalid irradiance binding.`);
-	t ? d.set(e, t) : d.delete(e);
+	t ? f.set(e, t) : f.delete(e);
 }
 function meshIrradianceVolume(e) {
-	return d.get(e);
+	return f.get(e);
 }
 function fillMeshIrradiance(e, t, n = 0) {
 	if (!Number.isInteger(n) || n < 0 || t.length < n + 40) throw RangeError(`Irradiance output needs 40 floats.`);
 	t.fill(0, n, n + 40), t[n + 37] = e.material instanceof require_pbr_material.PBRMaterial && isBakedLightmap(e.material.lightmap) ? 1 : 0;
-	let r = d.get(e);
+	let r = f.get(e);
 	if (!r) return;
 	let i = e.updateWorldMatrix().elements;
 	t[n + 36] = +!!r.sampleSH(i[12], i[13], i[14], t, n);

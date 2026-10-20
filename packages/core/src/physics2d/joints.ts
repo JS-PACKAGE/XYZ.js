@@ -2,6 +2,7 @@ import { GameObject } from '../game-object.js';
 import { physicsDefaults } from '../../../../src/data/world2d.js';
 import { finite, nonnegativeFinite } from './collider.js';
 import type { RigidBody2D } from './body.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 /** The solver-facing view of a registered body; the world's internal proxies satisfy it. */
 export interface JointBodyView {
@@ -145,7 +146,7 @@ export abstract class Joint2D {
   }
   /** Total anchor reaction of the last solved step, as a force. */
   get reactionForce(): number {
-    return Math.hypot(this.reactionX, this.reactionY) * this.stepRate;
+    return hypot2(this.reactionX, this.reactionY) * this.stepRate;
   }
   private stepRate = 0;
 
@@ -319,7 +320,7 @@ export abstract class Joint2D {
       rBy = sb * this.localBx + cb * this.localBy;
     const cx = pb.x + rBx - (pa.x + rAx),
       cy = pb.y + rBy - (pa.y + rAy);
-    const error = Math.hypot(cx, cy);
+    const error = hypot2(cx, cy);
     const limit = physicsDefaults.jointMaxCorrection;
     const scale = error > limit ? limit / error : 1;
     const m = this.mA + this.mB;
@@ -380,7 +381,7 @@ export class DistanceJoint extends Joint2D {
     super(options);
     this.length =
       options.length ??
-      Math.hypot(
+      hypot2(
         (options.anchorB ?? options.anchor)[0] - options.anchor[0],
         (options.anchorB ?? options.anchor)[1] - options.anchor[1],
       );
@@ -397,7 +398,7 @@ export class DistanceJoint extends Joint2D {
   protected prepareStep(dt: number, a: Pose, b: Pose): void {
     const dx = b.x + this.rBx - (a.x + this.rAx),
       dy = b.y + this.rBy - (a.y + this.rAy);
-    const distance = Math.hypot(dx, dy);
+    const distance = hypot2(dx, dy);
     this.nx = distance > 1e-9 ? dx / distance : 1;
     this.ny = distance > 1e-9 ? dy / distance : 0;
     const crossA = this.rAx * this.ny - this.rAy * this.nx,
@@ -441,7 +442,7 @@ export class DistanceJoint extends Joint2D {
       rBy = sb * this.localBx + cb * this.localBy;
     const dx = pb.x + rBx - (pa.x + rAx),
       dy = pb.y + rBy - (pa.y + rAy);
-    const distance = Math.hypot(dx, dy);
+    const distance = hypot2(dx, dy);
     if (distance < 1e-9) return 0;
     const nx = dx / distance,
       ny = dy / distance;
@@ -654,7 +655,7 @@ export class PrismaticJoint extends Joint2D {
 
   constructor(options: PrismaticJointOptions) {
     super(options);
-    const length = Math.hypot(options.axis[0], options.axis[1]);
+    const length = hypot2(options.axis[0], options.axis[1]);
     if (!(length > 0) || !Number.isFinite(length))
       throw new RangeError('axis must be a finite nonzero vector.');
     this.worldAxis = [options.axis[0] / length, options.axis[1] / length];
@@ -993,7 +994,7 @@ export class MouseJoint extends Joint2D {
     this.impulseX += px;
     this.impulseY += py;
     const limit = this.maxForce * dt;
-    const magnitude = Math.hypot(this.impulseX, this.impulseY);
+    const magnitude = hypot2(this.impulseX, this.impulseY);
     if (magnitude > limit) {
       this.impulseX *= limit / magnitude;
       this.impulseY *= limit / magnitude;

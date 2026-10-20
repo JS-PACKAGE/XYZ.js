@@ -3,6 +3,7 @@ import type { AnimationConstraint, AnimationMixer } from './animation.js';
 import type { AnimationPoseChannel } from './animation-pose.js';
 import { blendRotation, multiplyRotation } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
+import { hypot4 } from '../../math/src/hypot.js';
 
 export interface TwoBoneIKOptions {
   root: Object3D;
@@ -169,8 +170,8 @@ export class TwoBoneIKConstraint implements AnimationConstraint {
         Math.abs(s.x - s.z) > 1e-6 * s.x ||
         !Number.isFinite(s.y) ||
         !Number.isFinite(s.z) ||
-        !Number.isFinite(Math.hypot(q.x, q.y, q.z, q.w)) ||
-        Math.hypot(q.x, q.y, q.z, q.w) < 1e-12
+        !Number.isFinite(hypot4(q.x, q.y, q.z, q.w)) ||
+        hypot4(q.x, q.y, q.z, q.w) < 1e-12
       ) {
         this.status = 'singular';
         return;

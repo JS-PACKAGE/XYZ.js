@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_collider = require("./collider.cjs");
 const require_joints = require("./joints.cjs");
@@ -7,23 +8,23 @@ function multiply(e, t, n) {
 	return n.set(e.w * t.x + e.x * t.w + e.y * t.z - e.z * t.y, e.w * t.y - e.x * t.z + e.y * t.w + e.z * t.x, e.w * t.z + e.x * t.y - e.y * t.x + e.z * t.w, e.w * t.w - e.x * t.x - e.y * t.y - e.z * t.z);
 }
 function rotation(e, t) {
-	let n = e.elements, r = Math.hypot(n[0], n[1], n[2]), i = Math.hypot(n[4], n[5], n[6]), a = Math.hypot(n[8], n[9], n[10]);
+	let n = e.elements, r = require_hypot.hypot3(n[0], n[1], n[2]), i = require_hypot.hypot3(n[4], n[5], n[6]), a = require_hypot.hypot3(n[8], n[9], n[10]);
 	if (!(r > 0 && i > 0 && a > 0)) throw RangeError(`Ragdoll reference pose is singular.`);
-	let o = n[0] / r, c = n[4] / i, l = n[8] / a, u = n[1] / r, d = n[5] / i, f = n[9] / a, p = n[2] / r, m = n[6] / i, h = n[10] / a;
-	if (Math.abs(o * c + u * d + p * m) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || Math.abs(o * l + u * f + p * h) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || Math.abs(c * l + d * f + m * h) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || o * (d * h - f * m) - c * (u * h - f * p) + l * (u * m - d * p) < 0) throw RangeError(`Ragdoll reference pose must not contain shear/reflection.`);
-	let g = o + d + h;
-	if (g > 0) {
-		let e = Math.sqrt(g + 1) * 2;
-		t.set((m - f) / e, (l - p) / e, (u - c) / e, e / 4);
-	} else if (o > d && o > h) {
-		let e = Math.sqrt(1 + o - d - h) * 2;
-		t.set(e / 4, (c + u) / e, (l + p) / e, (m - f) / e);
-	} else if (d > h) {
-		let e = Math.sqrt(1 + d - o - h) * 2;
-		t.set((c + u) / e, e / 4, (f + m) / e, (l - p) / e);
+	let o = n[0] / r, l = n[4] / i, u = n[8] / a, d = n[1] / r, f = n[5] / i, p = n[9] / a, m = n[2] / r, h = n[6] / i, g = n[10] / a;
+	if (Math.abs(o * l + d * f + m * h) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || Math.abs(o * u + d * p + m * g) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || Math.abs(l * u + f * p + h * g) > require_physics_profiles.physicsProfiles.ragdoll.referenceTolerance || o * (f * g - p * h) - l * (d * g - p * m) + u * (d * h - f * m) < 0) throw RangeError(`Ragdoll reference pose must not contain shear/reflection.`);
+	let _ = o + f + g;
+	if (_ > 0) {
+		let e = Math.sqrt(_ + 1) * 2;
+		t.set((h - p) / e, (u - m) / e, (d - l) / e, e / 4);
+	} else if (o > f && o > g) {
+		let e = Math.sqrt(1 + o - f - g) * 2;
+		t.set(e / 4, (l + d) / e, (u + m) / e, (h - p) / e);
+	} else if (f > g) {
+		let e = Math.sqrt(1 + f - o - g) * 2;
+		t.set((l + d) / e, e / 4, (p + h) / e, (u - m) / e);
 	} else {
-		let e = Math.sqrt(1 + h - o - d) * 2;
-		t.set((l + p) / e, (f + m) / e, e / 4, (u - c) / e);
+		let e = Math.sqrt(1 + g - o - f) * 2;
+		t.set((u + m) / e, (p + h) / e, e / 4, (d - l) / e);
 	}
 	return t.normalize();
 }

@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_navigation = require("../../../../src/data/navigation.cjs");
 const require_scheduler = require("./scheduler.cjs");
@@ -74,33 +75,33 @@ var PathFollower3D = class {
 			this.stop();
 			return;
 		}
-		let r = e * this.currentSpeed;
+		let a = e * this.currentSpeed;
 		for (; this.nextWaypoint < this.waypoints.length;) {
 			if (!this.beforeWaypoint(this.nextWaypoint, e)) return;
-			let i = this.waypoints[this.nextWaypoint], a = n.object.position;
-			this.displacement.set(i.x - a.x, i.y - a.y, i.z - a.z);
-			let o = this.sampledSurface || n.grounded && this.displacement.y <= 0, s = o ? n.skin + require_navigation.navigationLimits.bakeSkin : 0;
-			if (o && this.displacement.y <= 0 && Math.abs(this.displacement.y) <= s && (this.displacement.y = 0), this.displacement.length() <= this.arrivalTolerance) {
+			let o = this.waypoints[this.nextWaypoint], s = n.object.position;
+			this.displacement.set(o.x - s.x, o.y - s.y, o.z - s.z);
+			let c = this.sampledSurface || n.grounded && this.displacement.y <= 0, l = c ? n.skin + require_navigation.navigationLimits.bakeSkin : 0;
+			if (c && this.displacement.y <= 0 && Math.abs(this.displacement.y) <= l && (this.displacement.y = 0), this.displacement.length() <= this.arrivalTolerance) {
 				this.nextWaypoint++;
 				continue;
 			}
-			if (r <= 0) return;
-			this.sampledSurface && this.displacement.y > 0 && this.displacement.y <= n.stepHeight + n.skin && (this.displacement.x = this.displacement.z = 0, this.displacement.y += n.skin), this.sampledSurface && this.displacement.y < 0 && Math.hypot(this.displacement.x, this.displacement.z) > this.arrivalTolerance && (this.displacement.y = 0);
-			let c = this.displacement.length(), l = Math.min(c, r);
-			if (this.displacement.scale(l / c), this.samplingVelocity) {
+			if (a <= 0) return;
+			this.sampledSurface && this.displacement.y > 0 && this.displacement.y <= n.stepHeight + n.skin && (this.displacement.x = this.displacement.z = 0, this.displacement.y += n.skin), this.sampledSurface && this.displacement.y < 0 && require_hypot.hypot2(this.displacement.x, this.displacement.z) > this.arrivalTolerance && (this.displacement.y = 0);
+			let u = this.displacement.length(), d = Math.min(u, a);
+			if (this.displacement.scale(d / u), this.samplingVelocity) {
 				e > 0 && this.preferredVelocity.copy(this.displacement).scale(1 / e);
 				return;
 			}
-			let u = n.move(this.displacement);
-			if (r = Math.max(0, r - l), Math.hypot(i.x - a.x, o && Math.abs(i.y - a.y) <= s ? 0 : i.y - a.y, i.z - a.z) <= this.arrivalTolerance) {
+			let f = n.move(this.displacement);
+			if (a = Math.max(0, a - d), require_hypot.hypot3(o.x - s.x, c && Math.abs(o.y - s.y) <= l ? 0 : o.y - s.y, o.z - s.z) <= this.arrivalTolerance) {
 				this.nextWaypoint++;
 				continue;
 			}
-			if (u.blocked) {
+			if (f.blocked) {
 				this.currentState = `blocked`;
 				return;
 			}
-			if (u.displacement.x === 0 && u.displacement.y === 0 && u.displacement.z === 0) return;
+			if (f.displacement.x === 0 && f.displacement.y === 0 && f.displacement.z === 0) return;
 		}
 		this.currentState = `finished`;
 	}
@@ -209,21 +210,21 @@ var NavigationFollower3D = class extends PathFollower3D {
 	beforeWaypoint(e, t) {
 		let n = this.path, r = this.route;
 		if (!n || !r || e === 0) return !0;
-		let i = n.nodes[e - 1], a = n.nodes[e], o = r.graph.getConnectionIndex(i.id, a.id);
-		if (o === void 0) return this.currentState = `blocked`, !1;
-		let s = r.graph.connections[o];
-		if (s.kind !== `special`) return !0;
+		let a = n.nodes[e - 1], o = n.nodes[e], s = r.graph.getConnectionIndex(a.id, o.id);
+		if (s === void 0) return this.currentState = `blocked`, !1;
+		let c = r.graph.connections[s];
+		if (c.kind !== `special`) return !0;
 		if (this.samplingVelocity) return !1;
-		let c = this.traverseLink?.({
-			connection: s,
-			from: i,
-			to: a,
+		let l = this.traverseLink?.({
+			connection: c,
+			from: a,
+			to: o,
 			controller: this.character,
 			deltaSeconds: t
 		}) ?? `blocked`;
-		if (this.route !== r || !this.character || this.character.destroyed || this.currentState !== `following` || r.graph.destroyed || r.graph.revision !== n.revision || c === `pending`) return !1;
-		let l = this.character.object.position;
-		return c === `complete` && Math.hypot(l.x - a.position.x, l.y - a.position.y, l.z - a.position.z) <= this.arrivalTolerance ? (this.nextWaypoint++, this.nextWaypoint === this.waypoints.length && (this.currentState = `finished`), !1) : (this.currentState = `blocked`, !1);
+		if (this.route !== r || !this.character || this.character.destroyed || this.currentState !== `following` || r.graph.destroyed || r.graph.revision !== n.revision || l === `pending`) return !1;
+		let u = this.character.object.position;
+		return l === `complete` && require_hypot.hypot3(u.x - o.position.x, u.y - o.position.y, u.z - o.position.z) <= this.arrivalTolerance ? (this.nextWaypoint++, this.nextWaypoint === this.waypoints.length && (this.currentState = `finished`), !1) : (this.currentState = `blocked`, !1);
 	}
 	destroy() {
 		this.clearNavigation(), this.scheduler.removeFollower(this), this.ownsScheduler && this.scheduler.destroy(), super.destroy();

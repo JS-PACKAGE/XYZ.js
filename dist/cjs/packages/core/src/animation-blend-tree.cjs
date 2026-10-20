@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 //#region dist/packages/core/src/animation-blend-tree.js
 var AnimationBlendTree = class {
 	mixer;
@@ -111,37 +112,37 @@ var AnimationBlendTree = class {
 	}
 	calculateWeights() {
 		this.weights.fill(0);
-		let e = this.parameter.x, t = this.parameter.y;
+		let t = this.parameter.x, n = this.parameter.y;
 		if (this.dimension === `1d`) {
-			if (e <= this.x[0]) {
+			if (t <= this.x[0]) {
 				this.weights[0] = 1;
 				return;
 			}
-			let t = this.x.length - 1;
-			if (e >= this.x[t]) {
-				this.weights[t] = 1;
+			let e = this.x.length - 1;
+			if (t >= this.x[e]) {
+				this.weights[e] = 1;
 				return;
 			}
-			for (let n = 1; n <= t; n++) {
-				if (e > this.x[n]) continue;
-				let t = (e - this.x[n - 1]) / (this.x[n] - this.x[n - 1]);
-				this.weights[n - 1] = 1 - t, this.weights[n] = t;
+			for (let n = 1; n <= e; n++) {
+				if (t > this.x[n]) continue;
+				let e = (t - this.x[n - 1]) / (this.x[n] - this.x[n - 1]);
+				this.weights[n - 1] = 1 - e, this.weights[n] = e;
 				return;
 			}
 		}
-		let n = 1 / 0, r = 0, i = 0, a = 0;
-		for (let o = 0; o < this.triangles.length; o++) {
-			let s = this.triangles[o], c = s[0], l = s[1], u = s[2], d = this.x[l] - this.x[c], f = this.y[l] - this.y[c], p = this.x[u] - this.x[c], m = this.y[u] - this.y[c], h = e - this.x[c], g = t - this.y[c], _ = d * m - f * p, v = (h * m - g * p) / _, y = (d * g - f * h) / _, b = 1 - v - y;
-			if (b >= 0 && v >= 0 && y >= 0) {
-				this.weights[c] = b, this.weights[l] = v, this.weights[u] = y;
+		let r = 1 / 0, i = 0, a = 0, o = 0;
+		for (let s = 0; s < this.triangles.length; s++) {
+			let c = this.triangles[s], l = c[0], u = c[1], d = c[2], f = this.x[u] - this.x[l], p = this.y[u] - this.y[l], m = this.x[d] - this.x[l], h = this.y[d] - this.y[l], g = t - this.x[l], _ = n - this.y[l], v = f * h - p * m, y = (g * h - _ * m) / v, b = (f * _ - p * g) / v, x = 1 - y - b;
+			if (x >= 0 && y >= 0 && b >= 0) {
+				this.weights[l] = x, this.weights[u] = y, this.weights[d] = b;
 				return;
 			}
-			for (let o = 0; o < 3; o++) {
-				let s = o === 0 ? c : o === 1 ? l : u, d = o === 0 ? l : o === 1 ? u : c, f = this.x[d] - this.x[s], p = this.y[d] - this.y[s], m = Math.max(0, Math.min(1, ((e - this.x[s]) * f + (t - this.y[s]) * p) / (f * f + p * p))), h = Math.hypot(this.x[s] + f * m - e, this.y[s] + p * m - t);
-				h < n && (n = h, r = s, i = d, a = m);
+			for (let s = 0; s < 3; s++) {
+				let c = s === 0 ? l : s === 1 ? u : d, f = s === 0 ? u : s === 1 ? d : l, p = this.x[f] - this.x[c], m = this.y[f] - this.y[c], h = Math.max(0, Math.min(1, ((t - this.x[c]) * p + (n - this.y[c]) * m) / (p * p + m * m))), g = require_hypot.hypot2(this.x[c] + p * h - t, this.y[c] + m * h - n);
+				g < r && (r = g, i = c, a = f, o = h);
 			}
 		}
-		this.weights[r] = 1 - a, this.weights[i] = a;
+		this.weights[i] = 1 - o, this.weights[a] = o;
 	}
 	destroy() {
 		this.destroyed ||= (this.stop(), this.unregister(), !0);

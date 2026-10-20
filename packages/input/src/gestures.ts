@@ -1,5 +1,6 @@
 import { gestureDefaults } from '../../../src/data/input.js';
 import type { PointerSample } from './index.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 export type GestureType =
   'tap' | 'doubletap' | 'longpress' | 'swipe' | 'pan' | 'pinch' | 'rotate';
@@ -205,7 +206,7 @@ export class GestureRecognizer extends EventTarget {
     this.pair = {
       a,
       b,
-      startDistance: Math.max(Math.hypot(b.x - a.x, b.y - a.y), 1e-6),
+      startDistance: Math.max(hypot2(b.x - a.x, b.y - a.y), 1e-6),
       startAngle: angle,
       startCenterX: (a.x + b.x) / 2,
       startCenterY: (a.y + b.y) / 2,
@@ -232,7 +233,7 @@ export class GestureRecognizer extends EventTarget {
       this.movePair(this.pair);
       return;
     }
-    const travel = Math.hypot(x - contact.startX, y - contact.startY);
+    const travel = hypot2(x - contact.startX, y - contact.startY);
     if (!contact.moved && travel > this.thresholds.tapSlop)
       contact.moved = true;
     if (
@@ -247,7 +248,7 @@ export class GestureRecognizer extends EventTarget {
 
   private movePair(pair: Pair): void {
     const { a, b } = pair;
-    const distance = Math.hypot(b.x - a.x, b.y - a.y);
+    const distance = hypot2(b.x - a.x, b.y - a.y);
     const scale = distance / pair.startDistance;
     // Unwrap the angle step so crossing ±π does not jump by 2π.
     const angle = Math.atan2(b.y - a.y, b.x - a.x);
@@ -291,11 +292,11 @@ export class GestureRecognizer extends EventTarget {
     const dy = contact.y - contact.startY;
     if (contact.panning) this.emitPan('end', contact);
     if (contact.longPressed) return;
-    const speed = Math.hypot(contact.vx, contact.vy);
+    const speed = hypot2(contact.vx, contact.vy);
     if (
       contact.moved &&
       duration <= this.thresholds.swipeMaxMs &&
-      Math.hypot(dx, dy) >= this.thresholds.swipeMinDistance &&
+      hypot2(dx, dy) >= this.thresholds.swipeMinDistance &&
       speed >= this.thresholds.swipeMinVelocity
     ) {
       const direction =
@@ -326,7 +327,7 @@ export class GestureRecognizer extends EventTarget {
     if (
       previous &&
       now - previous.time <= this.thresholds.doubleTapMs &&
-      Math.hypot(contact.x - previous.x, contact.y - previous.y) <=
+      hypot2(contact.x - previous.x, contact.y - previous.y) <=
         this.thresholds.doubleTapSlop
     ) {
       this.lastTap = undefined;
@@ -374,7 +375,7 @@ export class GestureRecognizer extends EventTarget {
       y,
       { x: x - pair.startCenterX, y: y - pair.startCenterY },
       undefined,
-      Math.hypot(b.x - a.x, b.y - a.y) / pair.startDistance,
+      hypot2(b.x - a.x, b.y - a.y) / pair.startDistance,
       pair.rotation,
     );
   }

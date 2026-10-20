@@ -5,6 +5,7 @@ import { Shape3D, Triangle3D, TriangleMeshCollider3D } from './collider.js';
 import { Manifold3D, Narrowphase3D } from './geometry.js';
 import { Bounds3D } from './spatial.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 export interface CcdEntry3D {
   readonly object: Object3D;
@@ -20,7 +21,7 @@ export function integrateRotation3D(
   dt: number,
   out: Quaternion,
 ): void {
-  const speed = Math.hypot(angular.x, angular.y, angular.z),
+  const speed = hypot3(angular.x, angular.y, angular.z),
     half = (speed * dt) / 2,
     s = speed > 1e-12 ? Math.sin(half) / speed : dt / 2,
     x = angular.x * s,
@@ -44,7 +45,7 @@ export function integrateRotation3D(
 export function motionRadius3D(entry: CcdEntry3D): number {
   const b = entry.shape.bounds,
     p = entry.object.position;
-  return Math.hypot(
+  return hypot3(
     Math.max(Math.abs(b.min.x - p.x), Math.abs(b.max.x - p.x)),
     Math.max(Math.abs(b.min.y - p.y), Math.abs(b.max.y - p.y)),
     Math.max(Math.abs(b.min.z - p.z), Math.abs(b.max.z - p.z)),
@@ -89,7 +90,7 @@ export function rotationalSweepSpeed3D(entry: CcdEntry3D): number {
         z = p.z - origin.z;
       speed = Math.max(
         speed,
-        Math.hypot(w.y * z - w.z * y, w.z * x - w.x * z, w.x * y - w.y * x),
+        hypot3(w.y * z - w.z * y, w.z * x - w.x * z, w.x * y - w.y * x),
       );
     }
   }
@@ -279,7 +280,7 @@ export class ContinuousCollision3D {
       vy = (movingA ? ba.velocity.y : 0) - (movingB ? bb.velocity.y : 0),
       vz = (movingA ? ba.velocity.z : 0) - (movingB ? bb.velocity.z : 0),
       rotational = rotationalSweepSpeed3D(a) + rotationalSweepSpeed3D(b);
-    if (Math.hypot(vx, vy, vz) + rotational < 1e-12) return Infinity;
+    if (hypot3(vx, vy, vz) + rotational < 1e-12) return Infinity;
     let t = 0;
     for (; this.iterations < physics3DDefaults.ccdIterations;) {
       ++this.iterations;

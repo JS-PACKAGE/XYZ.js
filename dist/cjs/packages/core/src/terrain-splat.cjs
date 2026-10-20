@@ -1,4 +1,5 @@
 const require_texture = require("../../assets/src/texture.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_native_pbr_material = require("./native-pbr-material.cjs");
 const require_terrain = require("../../../src/data/terrain.cjs");
 const require_terrain_data = require("./terrain-data.cjs");
@@ -19,7 +20,7 @@ function byte(e) {
 function bakeTerrainSplat(t) {
 	let n = t.size ?? require_terrain.terrainLimits.splatSize;
 	if (!Number.isInteger(n) || n < 2 || n > require_terrain.terrainLimits.maxSplatSize || !t.layers.length || t.layers.length > require_terrain.terrainLimits.maxSplatLayers) throw RangeError(`Terrain splat requires 1..4 layers and a bounded integer size.`);
-	let a = require_terrain_data.terrainImageData(t.weights), o = t.layers.map((e) => {
+	let o = require_terrain_data.terrainImageData(t.weights), s = t.layers.map((e) => {
 		let t = e.color ?? [
 			1,
 			1,
@@ -48,43 +49,43 @@ function bakeTerrainSplat(t) {
 			metallic: unit(e.metallic ?? 0, `Terrain metallic`),
 			roughness: unit(e.roughness ?? 1, `Terrain roughness`)
 		};
-	}), s = new Uint8ClampedArray(n * n * 4), c = new Uint8ClampedArray(s.length), l = new Uint8ClampedArray(s.length), u = new Uint8ClampedArray(s.length), d = new Float64Array(o.length);
+	}), c = new Uint8ClampedArray(n * n * 4), l = new Uint8ClampedArray(c.length), u = new Uint8ClampedArray(c.length), d = new Uint8ClampedArray(c.length), f = new Float64Array(s.length);
 	for (let e = 0; e < n; e++) for (let t = 0; t < n; t++) {
-		let i = t / (n - 1), f = e / (n - 1), p = (e * n + t) * 4, m = 0;
-		for (let e = 0; e < o.length; e++) d[e] = require_terrain_data.terrainChannel(a, i, f, e), m += d[e];
-		m === 0 && (d[0] = 1, m = 1);
-		let h = 0, g = 0, _ = 0, v = 0, y = 0, b = 0, x = 0, S = 0, C = 0, w = 0, T = 0, E = 0;
-		for (let e = 0; e < o.length; e++) {
-			let t = o[e], n = d[e] / m, a = i * t.scale[0], s = f * t.scale[1];
-			h += linear(require_terrain_data.terrainChannel(t.base, a, s, 0, !0)) * t.color[0] * n, g += linear(require_terrain_data.terrainChannel(t.base, a, s, 1, !0)) * t.color[1] * n, _ += linear(require_terrain_data.terrainChannel(t.base, a, s, 2, !0)) * t.color[2] * n;
-			let c = 0, l = 0, u = 1;
-			t.normal && (c = (require_terrain_data.terrainChannel(t.normal, a, s, 0, !0) * 2 - 1) * t.normalScale, l = (require_terrain_data.terrainChannel(t.normal, a, s, 1, !0) * 2 - 1) * t.normalScale, u = require_terrain_data.terrainChannel(t.normal, a, s, 2, !0) * 2 - 1);
-			let p = Math.hypot(c, l, u) || 1;
-			v += c / p * n, y += l / p * n, b += u / p * n, x += t.roughness * (t.mr ? require_terrain_data.terrainChannel(t.mr, a, s, 1, !0) : 1) * n, S += t.metallic * (t.mr ? require_terrain_data.terrainChannel(t.mr, a, s, 2, !0) : 1) * n, C += (t.ao ? require_terrain_data.terrainChannel(t.ao, a, s, 0, !0) : 1) * n, t.emission && (w += linear(require_terrain_data.terrainChannel(t.emission, a, s, 0, !0)) * t.emissionFactor[0] * n, T += linear(require_terrain_data.terrainChannel(t.emission, a, s, 1, !0)) * t.emissionFactor[1] * n, E += linear(require_terrain_data.terrainChannel(t.emission, a, s, 2, !0)) * t.emissionFactor[2] * n);
+		let i = t / (n - 1), p = e / (n - 1), m = (e * n + t) * 4, h = 0;
+		for (let e = 0; e < s.length; e++) f[e] = require_terrain_data.terrainChannel(o, i, p, e), h += f[e];
+		h === 0 && (f[0] = 1, h = 1);
+		let g = 0, _ = 0, v = 0, y = 0, b = 0, x = 0, S = 0, C = 0, w = 0, T = 0, E = 0, D = 0;
+		for (let e = 0; e < s.length; e++) {
+			let t = s[e], n = f[e] / h, o = i * t.scale[0], c = p * t.scale[1];
+			g += linear(require_terrain_data.terrainChannel(t.base, o, c, 0, !0)) * t.color[0] * n, _ += linear(require_terrain_data.terrainChannel(t.base, o, c, 1, !0)) * t.color[1] * n, v += linear(require_terrain_data.terrainChannel(t.base, o, c, 2, !0)) * t.color[2] * n;
+			let l = 0, u = 0, d = 1;
+			t.normal && (l = (require_terrain_data.terrainChannel(t.normal, o, c, 0, !0) * 2 - 1) * t.normalScale, u = (require_terrain_data.terrainChannel(t.normal, o, c, 1, !0) * 2 - 1) * t.normalScale, d = require_terrain_data.terrainChannel(t.normal, o, c, 2, !0) * 2 - 1);
+			let m = require_hypot.hypot3(l, u, d) || 1;
+			y += l / m * n, b += u / m * n, x += d / m * n, S += t.roughness * (t.mr ? require_terrain_data.terrainChannel(t.mr, o, c, 1, !0) : 1) * n, C += t.metallic * (t.mr ? require_terrain_data.terrainChannel(t.mr, o, c, 2, !0) : 1) * n, w += (t.ao ? require_terrain_data.terrainChannel(t.ao, o, c, 0, !0) : 1) * n, t.emission && (T += linear(require_terrain_data.terrainChannel(t.emission, o, c, 0, !0)) * t.emissionFactor[0] * n, E += linear(require_terrain_data.terrainChannel(t.emission, o, c, 1, !0)) * t.emissionFactor[1] * n, D += linear(require_terrain_data.terrainChannel(t.emission, o, c, 2, !0)) * t.emissionFactor[2] * n);
 		}
-		let D = Math.hypot(v, y, b);
-		D === 0 && (v = 0, y = 0, b = 1), s[p] = byte(srgb(h)), s[p + 1] = byte(srgb(g)), s[p + 2] = byte(srgb(_)), s[p + 3] = 255, c[p] = byte(v / (D || 1) * .5 + .5), c[p + 1] = byte(y / (D || 1) * .5 + .5), c[p + 2] = byte(b / (D || 1) * .5 + .5), c[p + 3] = 255, l[p] = byte(C), l[p + 1] = byte(x), l[p + 2] = byte(S), l[p + 3] = 255, u[p] = byte(srgb(w)), u[p + 1] = byte(srgb(T)), u[p + 2] = byte(srgb(E)), u[p + 3] = 255;
+		let O = require_hypot.hypot3(y, b, x);
+		O === 0 && (y = 0, b = 0, x = 1), c[m] = byte(srgb(g)), c[m + 1] = byte(srgb(_)), c[m + 2] = byte(srgb(v)), c[m + 3] = 255, l[m] = byte(y / (O || 1) * .5 + .5), l[m + 1] = byte(b / (O || 1) * .5 + .5), l[m + 2] = byte(x / (O || 1) * .5 + .5), l[m + 3] = 255, u[m] = byte(w), u[m + 1] = byte(S), u[m + 2] = byte(C), u[m + 3] = 255, d[m] = byte(srgb(T)), d[m + 1] = byte(srgb(E)), d[m + 2] = byte(srgb(D)), d[m + 3] = 255;
 	}
 	return {
 		baseColor: {
 			width: n,
 			height: n,
-			data: s
+			data: c
 		},
 		normal: {
 			width: n,
 			height: n,
-			data: c
+			data: l
 		},
 		metallicRoughness: {
 			width: n,
 			height: n,
-			data: l
+			data: u
 		},
 		emissive: {
 			width: n,
 			height: n,
-			data: u
+			data: d
 		}
 	};
 }

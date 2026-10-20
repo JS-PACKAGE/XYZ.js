@@ -17,6 +17,7 @@ import {
   type PhysicsQueryOptions2D,
   type PhysicsSweepResult2D,
 } from './world.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 export interface CharacterControllerOptions2D {
   skin?: number;
@@ -262,7 +263,7 @@ export class CharacterController2D {
   }
   private readSupport(owner: GameObject, out: SupportPose2D): boolean {
     const e = owner.updateWorldMatrix().elements,
-      sx = Math.hypot(e[0], e[1]),
+      sx = hypot2(e[0], e[1]),
       sy = (e[0] * e[4] - e[1] * e[3]) / sx,
       tolerance = physicsDefaults.characterSupportTransformTolerance;
     if (
@@ -303,7 +304,7 @@ export class CharacterController2D {
     this.remaining.copy(displacement);
     let blocked = false;
     for (let i = 0; i < this.maxIterations; i++) {
-      const distance = Math.hypot(this.remaining.x, this.remaining.y);
+      const distance = hypot2(this.remaining.x, this.remaining.y);
       if (distance < 1e-9) return blocked;
       const hit = this.sweep(this.remaining),
         fraction = hit.hit
@@ -471,14 +472,14 @@ export class CharacterController2D {
     );
     this.result.supportRotationDelta = angle;
     if (
-      Math.hypot(this.supportRequested.x, this.supportRequested.y) >
+      hypot2(this.supportRequested.x, this.supportRequested.y) >
       this.maxSupportDisplacement
     ) {
       this.detachSupport('support-teleport');
       return;
     }
     // Each chord's arc error is smaller than skin, so swept skin clearance also protects the arc.
-    const radius = Math.hypot(ax, ay),
+    const radius = hypot2(ax, ay),
       angleStep = Math.min(
         physicsDefaults.characterCarryAngleStep,
         Math.sqrt((4 * this.skin) / Math.max(radius, this.skin)),
@@ -494,7 +495,7 @@ export class CharacterController2D {
         y = old.y + (next.y - old.y) * t + sa * ax + ca * ay;
       this.motion.set(x - this.object.position.x, y - this.object.position.y);
       const hit = this.sweep(this.motion),
-        length = Math.hypot(this.motion.x, this.motion.y),
+        length = hypot2(this.motion.x, this.motion.y),
         fraction = hit.hit
           ? Math.max(
               0,

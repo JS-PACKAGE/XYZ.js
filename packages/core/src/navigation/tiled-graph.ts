@@ -16,6 +16,7 @@ import {
   NavigationScheduler,
   type NavigationScheduledSearch,
 } from './scheduler.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationGraphTile3D {
   readonly id: string;
@@ -300,7 +301,7 @@ export class NavigationTiledGraph3D {
             Math.abs(node.position.y - position.y) > options.maxVerticalDistance
           )
             continue;
-          const d = Math.hypot(
+          const d = hypot3(
             node.position.x - position.x,
             node.position.y - position.y,
             node.position.z - position.z,

@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_mesh = require("./mesh.cjs");
@@ -26,7 +27,7 @@ var VegetationBatch = class extends require_objects3d.LOD {
 		return super.renderWeight(e) * this.fade;
 	}
 	updateFade(e) {
-		let t = this.updateWorldMatrix().elements, n = Math.hypot(t[12] - e.position.x, t[13] - e.position.y, t[14] - e.position.z);
+		let t = this.updateWorldMatrix().elements, n = require_hypot.hypot3(t[12] - e.position.x, t[13] - e.position.y, t[14] - e.position.z);
 		this.fade = this.fadeEnd === 1 / 0 ? 1 : Math.max(0, Math.min(1, (this.fadeEnd - n) / (this.fadeEnd - this.fadeStart)));
 		for (let e of this.meshes) e.visible = super.renderWeight(e) > 0 && this.fade > 0;
 	}

@@ -3,6 +3,7 @@ import type { Object3D } from '../object3d.js';
 import type { RigidBody3D } from './body.js';
 import { finite3D, nonnegative3D, vector3D } from './collider.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export interface JointOptions3D {
   bodyA: Object3D;
@@ -396,7 +397,7 @@ export class DistanceJoint3D extends Joint3D {
     const b = options.anchorB ?? options.anchor;
     this.length = nonnegative3D(
       options.length ??
-        Math.hypot(
+        hypot3(
           b.x - options.anchor.x,
           b.y - options.anchor.y,
           b.z - options.anchor.z,
@@ -519,7 +520,7 @@ abstract class AxisJoint3D extends Joint3D {
       w = (m10 - m01) / s;
       z = s / 4;
     }
-    let twist = Math.hypot(z, w) > 1e-10 ? 2 * Math.atan2(z, w) : 0;
+    let twist = hypot2(z, w) > 1e-10 ? 2 * Math.atan2(z, w) : 0;
     if (twist > Math.PI) twist -= 2 * Math.PI;
     if (twist < -Math.PI) twist += 2 * Math.PI;
     this.twist = twist;

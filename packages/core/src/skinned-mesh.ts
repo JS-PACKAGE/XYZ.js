@@ -3,6 +3,7 @@ import { Geometry } from './geometry.js';
 import { Mesh } from './mesh.js';
 import type { MeshOptions } from './mesh.js';
 import { Object3D } from './object3d.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface SkinnedMeshOptions extends MeshOptions {
   joints: readonly Object3D[];
@@ -225,7 +226,7 @@ export class SkinnedMesh extends Mesh {
       const normalX = sign * (c00 * nx + c01 * ny + c02 * nz);
       const normalY = sign * (c10 * nx + c11 * ny + c12 * nz);
       const normalZ = sign * (c20 * nx + c21 * ny + c22 * nz);
-      const normalLength = Math.hypot(normalX, normalY, normalZ);
+      const normalLength = hypot3(normalX, normalY, normalZ);
       out[offset + 3] = normalLength ? normalX / normalLength : 0;
       out[offset + 4] = normalLength ? normalY / normalLength : 0;
       out[offset + 5] = normalLength ? normalZ / normalLength : 0;
@@ -241,7 +242,7 @@ export class SkinnedMesh extends Mesh {
       tx -= projection * out[offset + 3];
       ty -= projection * out[offset + 4];
       tz -= projection * out[offset + 5];
-      const tangentLength = Math.hypot(tx, ty, tz);
+      const tangentLength = hypot3(tx, ty, tz);
       tangents[t] = tangentLength ? tx / tangentLength : 0;
       tangents[t + 1] = tangentLength ? ty / tangentLength : 0;
       tangents[t + 2] = tangentLength ? tz / tangentLength : 0;
@@ -310,7 +311,7 @@ export class SkinnedMesh extends Mesh {
     this.sphere.x = (minX + maxX) * 0.5;
     this.sphere.y = (minY + maxY) * 0.5;
     this.sphere.z = (minZ + maxZ) * 0.5;
-    const radius = Math.hypot(maxX - minX, maxY - minY, maxZ - minZ) * 0.5;
+    const radius = hypot3(maxX - minX, maxY - minY, maxZ - minZ) * 0.5;
     this.sphere.radius =
       radius +
       Math.max(

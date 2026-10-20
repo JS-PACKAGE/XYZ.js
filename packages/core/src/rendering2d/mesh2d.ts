@@ -8,6 +8,7 @@ import { Vector2 } from '../../../math/src/index.js';
 import { GameObject } from '../game-object.js';
 import type { ColorRGBA, Rect2D } from '../gameplay/contracts.js';
 import { Geometry2D } from './geometry2d.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 
 export interface Mesh2DOptions {
   geometry: Geometry2D;
@@ -212,7 +213,7 @@ export class Rope2D extends Mesh2D {
     for (let i = 1; i < points.length; i++) {
       const a = points[i - 1]!,
         b = points[i]!,
-        distance = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        distance = hypot2(b[0] - a[0], b[1] - a[1]);
       if (distance === 0)
         throw new RangeError('Rope2D consecutive points must differ.');
       lengths.push(lengths[i - 1]! + distance);
@@ -226,7 +227,7 @@ export class Rope2D extends Mesh2D {
         next = points[Math.min(points.length - 1, i + 1)]!;
       let dx = next[0] - previous[0],
         dy = next[1] - previous[1];
-      const length = Math.hypot(dx, dy);
+      const length = hypot2(dx, dy);
       if (length === 0)
         throw new RangeError('Rope2D reversing joins are degenerate.');
       dx = ((dx / length) * width) / 2;

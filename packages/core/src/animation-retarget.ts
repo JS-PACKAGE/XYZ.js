@@ -2,6 +2,7 @@ import { Quaternion } from '../../math/src/index.js';
 import { AnimationClip, KeyframeTrack } from './animation.js';
 import { multiplyRotation } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
+import { hypot3, hypot4 } from '../../math/src/hypot.js';
 
 export interface AnimationBindTransform {
   translation: readonly number[];
@@ -60,7 +61,7 @@ function bindPose(value: AnimationBindTransform): BindPose {
       'Retarget bind scales must be positive and uniform; shear/reflection are unsupported.',
     );
   const q = value.rotation;
-  const length = Math.hypot(q[0], q[1], q[2], q[3]);
+  const length = hypot4(q[0], q[1], q[2], q[3]);
   if (!Number.isFinite(length) || length === 0)
     throw new RangeError(
       'Retarget bind quaternion must have a finite nonzero length.',
@@ -169,8 +170,8 @@ export class AnimationRetargeter {
         targetBind = bindPose(entry.targetBind);
       const s = sourceBind.translation,
         t = targetBind.translation;
-      const sourceLength = Math.hypot(s[0], s[1], s[2]),
-        targetLength = Math.hypot(t[0], t[1], t[2]);
+      const sourceLength = hypot3(s[0], s[1], s[2]),
+        targetLength = hypot3(t[0], t[1], t[2]);
       let ratio = entry.translationScale;
       if (ratio === undefined) {
         if (entry.source === options.sourceRoot) ratio = rootScale;

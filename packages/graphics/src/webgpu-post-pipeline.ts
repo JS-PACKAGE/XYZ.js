@@ -18,6 +18,7 @@ import {
 import type { Matrix4 } from '../../math/src/index.js';
 import type { ResidencyAllocation, ResidencyPool } from './residency.js';
 import type { FrameStats } from './render-stats.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 const lutPools = new WeakMap<object, ResidencyPool>();
 const lutAllocations = new WeakMap<object, ResidencyAllocation>();
@@ -310,7 +311,7 @@ export class WebGPUPostPipeline {
     this.data[25] = camera.far;
     this.data[26] = camera instanceof OrthographicCamera ? 1 : 0;
     const e = camera.matrix.elements;
-    this.data[27] = Math.hypot(e[1]!, e[5]!, e[9]!);
+    this.data[27] = hypot3(e[1]!, e[5]!, e[9]!);
     this.data[28] = enabled && settings.ssao ? 1 : 0;
     this.data[29] = settings.ssaoRadius;
     this.data[30] = settings.ssaoStrength;

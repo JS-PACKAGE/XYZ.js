@@ -1,5 +1,6 @@
 const require_texture = require("../../../assets/src/texture.cjs");
 const require_rendering2d = require("../../../../src/data/rendering2d.cjs");
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_game_object = require("../game-object.cjs");
 const require_geometry2d = require("./geometry2d.cjs");
@@ -81,29 +82,29 @@ var Rope2D = class Rope2D extends Mesh2D {
 		if (t.positions.length !== this.geometry.positions.length) throw RangeError(`Rope2D point count cannot change.`);
 		this.geometry.positions.set(t.positions), this.geometry.uvs.set(t.uvs), this.geometry.markUpdated();
 	}
-	static makeGeometry(t, n, r, a) {
+	static makeGeometry(t, n, r, o) {
 		if (t.length < 2 || t.length * 2 > require_rendering2d.rendering2dLimits.meshVertices || (t.length - 1) * 6 > require_rendering2d.rendering2dLimits.meshIndices || t.some((t) => t.length !== 2 || !t.every((t) => Number.isFinite(t) && Math.abs(t) <= require_rendering2d.rendering2dLimits.coordinate))) throw RangeError(`Rope2D requires bounded finite points.`);
-		let o = [0];
+		let s = [0];
 		for (let e = 1; e < t.length; e++) {
-			let n = t[e - 1], r = t[e], i = Math.hypot(r[0] - n[0], r[1] - n[1]);
+			let n = t[e - 1], r = t[e], i = require_hypot.hypot2(r[0] - n[0], r[1] - n[1]);
 			if (i === 0) throw RangeError(`Rope2D consecutive points must differ.`);
-			o.push(o[e - 1] + i);
+			s.push(s[e - 1] + i);
 		}
-		let s = [], c = [], l = [];
+		let c = [], l = [], u = [];
 		for (let e = 0; e < t.length; e++) {
-			let i = t[e], u = t[Math.max(0, e - 1)], d = t[Math.min(t.length - 1, e + 1)], f = d[0] - u[0], p = d[1] - u[1], m = Math.hypot(f, p);
-			if (m === 0) throw RangeError(`Rope2D reversing joins are degenerate.`);
-			f = f / m * n / 2, p = p / m * n / 2, s.push(i[0] - p, i[1] + f, i[0] + p, i[1] - f);
-			let h = o[e] / (r === `repeat` ? a : o[o.length - 1]);
-			if (c.push(h, 0, h, 1), e + 1 < t.length) {
+			let i = t[e], d = t[Math.max(0, e - 1)], f = t[Math.min(t.length - 1, e + 1)], p = f[0] - d[0], m = f[1] - d[1], h = require_hypot.hypot2(p, m);
+			if (h === 0) throw RangeError(`Rope2D reversing joins are degenerate.`);
+			p = p / h * n / 2, m = m / h * n / 2, c.push(i[0] - m, i[1] + p, i[0] + m, i[1] - p);
+			let g = s[e] / (r === `repeat` ? o : s[s.length - 1]);
+			if (l.push(g, 0, g, 1), e + 1 < t.length) {
 				let t = e * 2;
-				l.push(t, t + 1, t + 2, t + 1, t + 3, t + 2);
+				u.push(t, t + 1, t + 2, t + 1, t + 3, t + 2);
 			}
 		}
 		return new require_geometry2d.Geometry2D({
-			positions: s,
-			uvs: c,
-			indices: l
+			positions: c,
+			uvs: l,
+			indices: u
 		});
 	}
 };

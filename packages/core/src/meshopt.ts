@@ -1,4 +1,5 @@
 import { AssetError } from '../../assets/src/index.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 /** Compressed-buffer layout of EXT_meshopt_compression `mode`. */
 export type MeshoptMode = 'ATTRIBUTES' | 'TRIANGLES' | 'INDICES';
@@ -366,7 +367,7 @@ function applyFilter(
       const fold = Math.max(-z, 0);
       x -= x >= 0 ? fold : -fold;
       y -= y >= 0 ? fold : -fold;
-      const scale = max / Math.hypot(x, y, z);
+      const scale = max / hypot3(x, y, z);
       put(o, x * scale);
       put(o + width, y * scale);
       put(o + 2 * width, z * scale);

@@ -4,6 +4,7 @@ import { Object3D } from './object3d.js';
 import type { SceneObject } from './scene-object.js';
 import { Text2D } from './text2d.js';
 import { assertJsonValue, StorageError, type JsonValue } from './storage.js';
+import { hypot4 } from '../../math/src/hypot.js';
 
 export interface Serializable {
   serialize(): JsonValue;
@@ -201,7 +202,7 @@ export function object3DState(
           'invalid',
           'Object3D snapshot does not match the adapter.',
         );
-      const rotationLength = Math.hypot(
+      const rotationLength = hypot4(
         transform[3],
         transform[4],
         transform[5],

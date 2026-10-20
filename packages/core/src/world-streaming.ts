@@ -19,6 +19,7 @@ import {
   WorldStreamingNavigation3D,
   type WorldStreamingNavigationFragment3D,
 } from './world-streaming-navigation.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface WorldStreamingPoint {
   readonly x: number;
@@ -335,7 +336,7 @@ export class WorldStreamingController extends EventTarget {
       for (const record of this.records.values()) {
         record.activeWanted = record.residentWanted = false;
         const { min, max } = record.cell.bounds;
-        record.distance = Math.hypot(
+        record.distance = hypot3(
           Math.max(min.x - focus.x, 0, focus.x - max.x),
           Math.max(min.y - focus.y, 0, focus.y - max.y),
           Math.max(min.z - focus.z, 0, focus.z - max.z),

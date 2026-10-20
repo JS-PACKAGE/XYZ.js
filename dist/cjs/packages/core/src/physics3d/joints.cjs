@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
 const require_collider = require("./collider.cjs");
@@ -175,7 +176,7 @@ var DistanceJoint3D = class extends Joint3D {
 	constructor(e) {
 		super(e);
 		let t = e.anchorB ?? e.anchor;
-		this.length = require_collider.nonnegative3D(e.length ?? Math.hypot(t.x - e.anchor.x, t.y - e.anchor.y, t.z - e.anchor.z), `length`), this.frequencyHz = require_collider.nonnegative3D(e.frequencyHz ?? 0, `frequencyHz`), this.dampingRatio = require_collider.nonnegative3D(e.dampingRatio ?? 0, `dampingRatio`);
+		this.length = require_collider.nonnegative3D(e.length ?? require_hypot.hypot3(t.x - e.anchor.x, t.y - e.anchor.y, t.z - e.anchor.z), `length`), this.frequencyHz = require_collider.nonnegative3D(e.frequencyHz ?? 0, `frequencyHz`), this.dampingRatio = require_collider.nonnegative3D(e.dampingRatio ?? 0, `dampingRatio`);
 	}
 	prepareRows(e) {
 		require_collider.nonnegative3D(this.length, `length`), require_collider.nonnegative3D(this.frequencyHz, `frequencyHz`), require_collider.nonnegative3D(this.dampingRatio, `dampingRatio`);
@@ -213,22 +214,22 @@ var AxisJoint3D = class extends Joint3D {
 		this.frameA.world(this.localAxisA, this.axisA), this.frameB.world(this.localAxisB, this.axisB), this.frameA.world(this.localTangentA, this.tangentA), this.frameB.world(this.localTangentB, this.tangentB), this.bitangentA.copy(this.axisA).cross(this.tangentA), this.bitangentB.copy(this.axisB).cross(this.tangentB), this.swingAxis.copy(this.axisA).cross(this.axisB);
 		let e = this.swingAxis.length(), t = Math.max(-1, Math.min(1, this.axisA.dot(this.axisB)));
 		this.twistJacobian.copy(this.axisA).add(this.axisB), 1 + t > 1e-6 ? this.twistJacobian.scale(1 / (1 + t)) : this.twistJacobian.copy(this.axisA), this.swing = Math.atan2(e, t), e > 1e-10 ? this.swingAxis.scale(1 / e) : this.swingAxis.copy(this.tangentA);
-		let n = this.tangentA.dot(this.tangentB), r = this.bitangentA.dot(this.bitangentB), i = this.axisA.dot(this.axisB), a = this.tangentA.dot(this.bitangentB), o = this.bitangentA.dot(this.tangentB), s = this.tangentA.dot(this.axisB), c = this.axisA.dot(this.tangentB), l = this.bitangentA.dot(this.axisB), u = this.axisA.dot(this.bitangentB), d, f, p = n + r + i;
-		if (p > 0) {
-			let e = 2 * Math.sqrt(p + 1);
-			f = e / 4, d = (o - a) / e;
+		let n = this.tangentA.dot(this.tangentB), r = this.bitangentA.dot(this.bitangentB), i = this.axisA.dot(this.axisB), o = this.tangentA.dot(this.bitangentB), s = this.bitangentA.dot(this.tangentB), c = this.tangentA.dot(this.axisB), l = this.axisA.dot(this.tangentB), u = this.bitangentA.dot(this.axisB), d = this.axisA.dot(this.bitangentB), f, p, m = n + r + i;
+		if (m > 0) {
+			let e = 2 * Math.sqrt(m + 1);
+			p = e / 4, f = (s - o) / e;
 		} else if (n > r && n > i) {
 			let e = 2 * Math.sqrt(Math.max(0, 1 + n - r - i));
-			f = (u - l) / e, d = (s + c) / e;
+			p = (d - u) / e, f = (c + l) / e;
 		} else if (r > i) {
 			let e = 2 * Math.sqrt(Math.max(0, 1 + r - n - i));
-			f = (s - c) / e, d = (l + u) / e;
+			p = (c - l) / e, f = (u + d) / e;
 		} else {
 			let e = 2 * Math.sqrt(Math.max(0, 1 + i - n - r));
-			f = (o - a) / e, d = e / 4;
+			p = (s - o) / e, f = e / 4;
 		}
-		let m = Math.hypot(d, f) > 1e-10 ? 2 * Math.atan2(d, f) : 0;
-		m > Math.PI && (m -= 2 * Math.PI), m < -Math.PI && (m += 2 * Math.PI), this.twist = m;
+		let h = require_hypot.hypot2(f, p) > 1e-10 ? 2 * Math.atan2(f, p) : 0;
+		h > Math.PI && (h -= 2 * Math.PI), h < -Math.PI && (h += 2 * Math.PI), this.twist = h;
 	}
 };
 var BallSocketJoint3D = class extends AxisJoint3D {

@@ -10,6 +10,7 @@ import { Group } from './group.js';
 import type { Object3D } from './object3d.js';
 import { LOD } from './objects3d.js';
 import type { Camera3D } from './orthographic-camera.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface VegetationSurfaceSample {
   height: number;
@@ -109,7 +110,7 @@ export class VegetationBatch extends LOD {
 
   private updateFade(camera: Camera3D): void {
     const e = this.updateWorldMatrix().elements;
-    const distance = Math.hypot(
+    const distance = hypot3(
       e[12]! - camera.position.x,
       e[13]! - camera.position.y,
       e[14]! - camera.position.z,

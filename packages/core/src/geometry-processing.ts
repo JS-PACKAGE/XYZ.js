@@ -6,6 +6,7 @@ import {
   type WorkerJobDefinition,
 } from '../../assets/src/worker-jobs.js';
 import { Geometry } from './geometry.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface HeightfieldGeometryRequest {
   readonly columns: number;
@@ -136,7 +137,7 @@ export function processHeightfieldGeometry(
       const dz =
         (current[up * columns + column] - current[down * columns + column]) /
         ((down - up) * stepZ);
-      const length = Math.hypot(dx, 1, dz);
+      const length = hypot3(dx, 1, dz);
       positions[index * 3] = column * stepX - width / 2;
       positions[index * 3 + 1] = current[index];
       positions[index * 3 + 2] = depth / 2 - row * stepZ;

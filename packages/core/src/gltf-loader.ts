@@ -30,6 +30,7 @@ import { SkinnedMesh } from './skinned-mesh.js';
 import { decodeMeshopt } from './meshopt.js';
 import { decodeKTX2, decodeKTX2Native, isKTX2 } from './ktx2.js';
 import type { KTX2Transcoder, KTX2NativeTranscoder } from './ktx2.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface GLTFDirectionalLight {
   /** Unit vector the light travels along (the node's −Z axis in world space). */
@@ -2194,8 +2195,7 @@ export class GLTFLoader {
       }
     }
     for (let i = 0; i < normals.length; i += 3) {
-      const length =
-        Math.hypot(normals[i], normals[i + 1], normals[i + 2]) || 1;
+      const length = hypot3(normals[i], normals[i + 1], normals[i + 2]) || 1;
       normals[i] /= length;
       normals[i + 1] /= length;
       normals[i + 2] /= length;
@@ -2206,9 +2206,9 @@ export class GLTFLoader {
   private applyMatrix(node: Group, e: number[]): void {
     if (e[3] !== 0 || e[7] !== 0 || e[11] !== 0 || e[15] !== 1)
       throw new AssetError('Node matrix must be affine TRS.');
-    let sx = Math.hypot(e[0], e[1], e[2]);
-    const sy = Math.hypot(e[4], e[5], e[6]),
-      sz = Math.hypot(e[8], e[9], e[10]);
+    let sx = hypot3(e[0], e[1], e[2]);
+    const sy = hypot3(e[4], e[5], e[6]),
+      sz = hypot3(e[8], e[9], e[10]);
     const determinant =
       e[0] * (e[5] * e[10] - e[6] * e[9]) -
       e[4] * (e[1] * e[10] - e[2] * e[9]) +

@@ -10,6 +10,7 @@ import type {
   WorldStreamingCell,
   WorldStreamingLoadContext,
 } from './world-streaming.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 export interface TerrainHeightArray {
   readonly width: number;
@@ -252,7 +253,7 @@ export class Terrain3D extends Group {
           vertices[i + 4] = this.normal.y;
           vertices[i + 5] = this.normal.z;
           const tangent = i / 2;
-          const length = Math.hypot(this.normal.y, this.normal.x);
+          const length = hypot2(this.normal.y, this.normal.x);
           mesh.geometry.tangents[tangent] = this.normal.y / length;
           mesh.geometry.tangents[tangent + 1] = -this.normal.x / length;
           mesh.geometry.tangents[tangent + 2] = 0;

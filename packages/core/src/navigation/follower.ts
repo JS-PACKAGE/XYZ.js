@@ -11,6 +11,7 @@ import {
   NavigationScheduler,
   type NavigationScheduledSearch,
 } from './scheduler.js';
+import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export type PathFollowerState3D =
   | 'stopped'
@@ -220,8 +221,7 @@ export class PathFollower3D {
       if (
         this.sampledSurface &&
         this.displacement.y < 0 &&
-        Math.hypot(this.displacement.x, this.displacement.z) >
-          this.arrivalTolerance
+        hypot2(this.displacement.x, this.displacement.z) > this.arrivalTolerance
       )
         this.displacement.y = 0;
       const movementDistance = this.displacement.length();
@@ -236,7 +236,7 @@ export class PathFollower3D {
       }
       const movement = character.move(this.displacement);
       budget = Math.max(0, budget - step);
-      const remaining = Math.hypot(
+      const remaining = hypot3(
         target.x - position.x,
         supportSurface && Math.abs(target.y - position.y) <= verticalTolerance
           ? 0
@@ -556,7 +556,7 @@ export class NavigationFollower3D extends PathFollower3D {
     const position = this.character!.object.position;
     if (
       result === 'complete' &&
-      Math.hypot(
+      hypot3(
         position.x - to.position.x,
         position.y - to.position.y,
         position.z - to.position.z,

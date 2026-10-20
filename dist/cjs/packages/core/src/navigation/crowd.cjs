@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_index = require("../../../math/src/index.cjs");
 const require_collider = require("../physics3d/collider.cjs");
@@ -149,42 +150,42 @@ var CrowdSolver = class {
 	}
 	solve(e, t) {
 		this.neighbors.length = 0;
-		let r = Math.floor(e.x / this.neighborDistance), i = Math.floor(e.z / this.neighborDistance);
-		for (let t = r - 1; t <= r + 1; t++) for (let n = i - 1; n <= i + 1; n++) {
+		let r = Math.floor(e.x / this.neighborDistance), o = Math.floor(e.z / this.neighborDistance);
+		for (let t = r - 1; t <= r + 1; t++) for (let n = o - 1; n <= o + 1; n++) {
 			let r = this.grid.get(`${t},${n}`);
 			if (r) {
-				for (let t of r) if (!(t === e || Math.hypot(t.x - e.x, t.z - e.z) > this.neighborDistance) && (this.neighbors.push(t), this.neighbors.length > this.maxNeighbors)) {
+				for (let t of r) if (!(t === e || require_hypot.hypot2(t.x - e.x, t.z - e.z) > this.neighborDistance) && (this.neighbors.push(t), this.neighbors.length > this.maxNeighbors)) {
 					e.next.set(0, 0, 0), e.state = `budget-exceeded`;
 					return;
 				}
 			}
 		}
 		this.neighbors.sort((e, t) => e.id - t.id);
-		let a = 0;
+		let s = 0;
 		for (let r of this.neighbors) {
-			let i = `velocity` in r, o = r.x - e.x, s = r.z - e.z, c = e.velocity.x - (i ? r.velocity.x : 0), l = e.velocity.z - (i ? r.velocity.z : 0), u = e.radius + r.radius + .002, d = o * o + s * s, f = u * u, p, m, h, g, _ = 1 / (d > f ? this.timeHorizon : t), v = c - o * _, y = l - s * _, b = v * v + y * y, x = v * o + y * s;
+			let i = `velocity` in r, a = r.x - e.x, o = r.z - e.z, c = e.velocity.x - (i ? r.velocity.x : 0), l = e.velocity.z - (i ? r.velocity.z : 0), u = e.radius + r.radius + .002, d = a * a + o * o, f = u * u, p, m, h, g, _ = 1 / (d > f ? this.timeHorizon : t), v = c - a * _, y = l - o * _, b = v * v + y * y, x = v * a + y * o;
 			if (d <= f || x < 0 && x * x > f * b) {
 				let t = Math.sqrt(b), i = t > require_crowd.crowdLimits.epsilon ? v / t : e.id < r.id ? -1 : 1, a = t > require_crowd.crowdLimits.epsilon ? y / t : 0;
 				p = a, m = -i, h = (u * _ - t) * i, g = (u * _ - t) * a;
 			} else {
 				let e = Math.sqrt(Math.max(0, d - f));
-				o * y - s * v > 0 ? (p = (o * e - s * u) / d, m = (o * u + s * e) / d) : (p = -(o * e + s * u) / d, m = -(-o * u + s * e) / d);
+				a * y - o * v > 0 ? (p = (a * e - o * u) / d, m = (a * u + o * e) / d) : (p = -(a * e + o * u) / d, m = -(-a * u + o * e) / d);
 				let t = c * p + l * m;
 				h = t * p - c, g = t * m - l;
 			}
-			let S = this.lines[a++];
+			let S = this.lines[s++];
 			S.nx = -m, S.nz = p;
 			let C = i ? .5 : 1;
 			S.b = S.nx * (e.velocity.x + C * h) + S.nz * (e.velocity.z + C * g);
 		}
-		let o = a > 0 ? .05 : 0, s = e.preferred.x - e.preferred.z * o, c = e.preferred.z + e.preferred.x * o, l = Math.sqrt(Math.max(0, e.maxSpeed ** 2 - e.preferred.y ** 2)), u = Math.hypot(s, c);
-		u > l && (s *= l / u, c *= l / u);
-		let d = this.candidateScratch;
-		d.best = 1 / 0, d.x = d.z = 0, d.count = a, d.px = s, d.pz = c, d.speed = l, this.candidate(s, c), this.candidate(0, 0);
-		for (let e = 0; e < a; e++) {
-			let t = this.lines[e], r = t.b - t.nx * s - t.nz * c;
-			this.candidate(s + r * t.nx, c + r * t.nz);
-			let i = l * l - t.b * t.b;
+		let c = s > 0 ? .05 : 0, l = e.preferred.x - e.preferred.z * c, u = e.preferred.z + e.preferred.x * c, d = Math.sqrt(Math.max(0, e.maxSpeed ** 2 - e.preferred.y ** 2)), f = require_hypot.hypot2(l, u);
+		f > d && (l *= d / f, u *= d / f);
+		let p = this.candidateScratch;
+		p.best = 1 / 0, p.x = p.z = 0, p.count = s, p.px = l, p.pz = u, p.speed = d, this.candidate(l, u), this.candidate(0, 0);
+		for (let e = 0; e < s; e++) {
+			let t = this.lines[e], r = t.b - t.nx * l - t.nz * u;
+			this.candidate(l + r * t.nx, u + r * t.nz);
+			let i = d * d - t.b * t.b;
 			if (i >= 0) {
 				let e = Math.sqrt(i);
 				this.candidate(t.nx * t.b - t.nz * e, t.nz * t.b + t.nx * e), this.candidate(t.nx * t.b + t.nz * e, t.nz * t.b - t.nx * e);
@@ -194,7 +195,7 @@ var CrowdSolver = class {
 				Math.abs(i) > require_crowd.crowdLimits.epsilon && this.candidate((t.b * e.nz - t.nz * e.b) / i, (t.nx * e.b - t.b * e.nx) / i);
 			}
 		}
-		e.next.set(d.x, 0, d.z), e.state = d.best === 1 / 0 ? `blocked` : Math.hypot(d.x, e.preferred.y, d.z) < 1e-6 ? Math.hypot(s, c) > 1e-6 ? `blocked` : `idle` : `moving`;
+		e.next.set(p.x, 0, p.z), e.state = p.best === 1 / 0 ? `blocked` : require_hypot.hypot3(p.x, e.preferred.y, p.z) < 1e-6 ? require_hypot.hypot2(l, u) > 1e-6 ? `blocked` : `idle` : `moving`;
 	}
 	candidate(e, t) {
 		let r = this.candidateScratch;

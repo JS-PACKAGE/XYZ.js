@@ -7,6 +7,7 @@ import { EnvironmentMap } from './environment.js';
 import { SpotLight } from './lights.js';
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
 import { BakeBVH, type BakeTriangle } from './bake-bvh.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 const generatedLightmaps = new WeakSet<Texture>();
 /** Internal distinction: CPU irradiance bakes add diffuse light; authored finish maps modulate it. */
@@ -69,7 +70,7 @@ function basis(x: number, y: number, z: number, out: Float64Array): void {
   out[8] = 0.546274 * (x * x - y * y);
 }
 function normalize(n: number[]): void {
-  const length = Math.hypot(n[0], n[1], n[2]);
+  const length = hypot3(n[0], n[1], n[2]);
   if (length < 1e-12) throw new RangeError('Bake normal cannot be zero.');
   for (let c = 0; c < 3; c++) n[c] /= length;
 }

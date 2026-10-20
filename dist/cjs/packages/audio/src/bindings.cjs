@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_errors = require("./errors.cjs");
 //#region dist/packages/audio/src/bindings.js
 var AudioTransformBinding = class {
@@ -48,13 +49,13 @@ var AudioTransformBinding = class {
 		}
 		let e = this.object.updateWorldMatrix().elements;
 		if (this.position.x = e[12], this.position.y = e[13], this.position.z = e[14], this.listener) {
-			let t = this.target;
-			t.setPosition(this.position.x, this.position.y, this.position.z), this.forward.x = -e[8], this.forward.y = -e[9], this.forward.z = -e[10], this.up.x = e[4], this.up.y = e[5], this.up.z = e[6];
-			let n = Math.hypot(this.forward.x, this.forward.y, this.forward.z), r = Math.hypot(this.up.x, this.up.y, this.up.z);
-			if (n > 0 && r > 0) {
-				this.forward.x /= n, this.forward.y /= n, this.forward.z /= n, this.up.x /= r, this.up.y /= r, this.up.z /= r;
+			let n = this.target;
+			n.setPosition(this.position.x, this.position.y, this.position.z), this.forward.x = -e[8], this.forward.y = -e[9], this.forward.z = -e[10], this.up.x = e[4], this.up.y = e[5], this.up.z = e[6];
+			let r = require_hypot.hypot3(this.forward.x, this.forward.y, this.forward.z), i = require_hypot.hypot3(this.up.x, this.up.y, this.up.z);
+			if (r > 0 && i > 0) {
+				this.forward.x /= r, this.forward.y /= r, this.forward.z /= r, this.up.x /= i, this.up.y /= i, this.up.z /= i;
 				let e = this.forward.x * this.up.x + this.forward.y * this.up.y + this.forward.z * this.up.z;
-				Math.abs(e) < 1 - 1e-6 && t.setOrientation(this.forward, this.up);
+				Math.abs(e) < 1 - 1e-6 && n.setOrientation(this.forward, this.up);
 			}
 		} else this.target.position3D = this.position;
 	}

@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_world2d = require("../../../../src/data/world2d.cjs");
 const require_collider = require("./collider.cjs");
 const require_narrowphase = require("./narrowphase.cjs");
@@ -18,10 +19,10 @@ var ShapeMotion2D = class {
 		let n = t && t.type !== `static` && !t.isSleeping;
 		this.setExplicit(e.position.x, e.position.y, n ? t.velocity.x : 0, n ? t.velocity.y : 0, n && !t.lockRotation ? t.angularVelocity : 0);
 	}
-	setExplicit(e, t, n, r, i = 0) {
-		this.x = e, this.y = t, this.vx = n, this.vy = r, this.spin = i;
-		let a = this.geometry;
-		this.radius = a.collider.kind === `circle` ? Math.hypot(a.x - e, a.y - t) : Math.hypot(Math.max(Math.abs(a.minX - e), Math.abs(a.maxX - e)), Math.max(Math.abs(a.minY - t), Math.abs(a.maxY - t)));
+	setExplicit(e, t, n, r, a = 0) {
+		this.x = e, this.y = t, this.vx = n, this.vy = r, this.spin = a;
+		let o = this.geometry;
+		this.radius = o.collider.kind === `circle` ? require_hypot.hypot2(o.x - e, o.y - t) : require_hypot.hypot2(Math.max(Math.abs(o.minX - e), Math.abs(o.maxX - e)), Math.max(Math.abs(o.minY - t), Math.abs(o.maxY - t)));
 	}
 	at(e) {
 		if (e === 0) return this.geometry;
@@ -41,28 +42,28 @@ var ShapeSeparation2D = class {
 	distance = -1 / 0;
 	manifold = new require_narrowphase.Manifold();
 	axis(e, t, n, r) {
-		let i = Math.hypot(n, r);
-		if (i < 1e-12) return;
-		n /= i, r /= i;
-		let a = 1 / 0, o = -1 / 0, s = 1 / 0, c = -1 / 0;
+		let a = require_hypot.hypot2(n, r);
+		if (a < 1e-12) return;
+		n /= a, r /= a;
+		let o = 1 / 0, s = -1 / 0, c = 1 / 0, l = -1 / 0;
 		if (e.collider.kind === `circle`) {
 			let t = e.x * n + e.y * r;
-			a = t - e.radius, o = t + e.radius;
+			o = t - e.radius, s = t + e.radius;
 		} else for (let t = 0; t < e.points.length; t += 2) {
 			let i = e.points[t] * n + e.points[t + 1] * r;
-			a = Math.min(a, i), o = Math.max(o, i);
+			o = Math.min(o, i), s = Math.max(s, i);
 		}
 		if (t.collider.kind === `circle`) {
 			let e = t.x * n + t.y * r;
-			s = e - t.radius, c = e + t.radius;
+			c = e - t.radius, l = e + t.radius;
 		} else for (let e = 0; e < t.points.length; e += 2) {
 			let i = t.points[e] * n + t.points[e + 1] * r;
-			s = Math.min(s, i), c = Math.max(c, i);
+			c = Math.min(c, i), l = Math.max(l, i);
 		}
-		let l = s - o, u = a - c, d = Math.max(l, u);
-		if (d > this.distance) {
-			this.distance = d;
-			let e = l >= u ? 1 : -1;
+		let u = c - s, d = o - l, f = Math.max(u, d);
+		if (f > this.distance) {
+			this.distance = f;
+			let e = u >= d ? 1 : -1;
 			this.manifold.nx = n * e, this.manifold.ny = r * e;
 		}
 	}
@@ -123,24 +124,24 @@ var ContinuousCollision2D = class {
 		let i = t.geometry, a = n.geometry, o = Math.min(2 * t.radius, Math.abs(t.spin) * t.radius * r), s = Math.min(2 * n.radius, Math.abs(n.spin) * n.radius * r), c = require_world2d.physicsDefaults.sweepTolerance;
 		return i.minX + Math.min(0, t.vx * r) - o <= a.maxX + Math.max(0, n.vx * r) + s + c && i.maxX + Math.max(0, t.vx * r) + o + c >= a.minX + Math.min(0, n.vx * r) - s && i.minY + Math.min(0, t.vy * r) - o <= a.maxY + Math.max(0, n.vy * r) + s + c && i.maxY + Math.max(0, t.vy * r) + o + c >= a.minY + Math.min(0, n.vy * r) - s;
 	}
-	timeOfImpact(t, n, r, i, a = require_world2d.physicsDefaults.sweepTolerance) {
+	timeOfImpact(t, n, r, a, o = require_world2d.physicsDefaults.sweepTolerance) {
 		if (this.iterations = 0, this.exhausted = !1, this.safeTime = 1 / 0, !this.overlaps(t, n, r)) return 1 / 0;
-		let o = t.vx - n.vx, s = t.vy - n.vy, c = Math.abs(t.spin) * t.radius + Math.abs(n.spin) * n.radius;
-		if (Math.hypot(o, s) + c < 1e-12) return 1 / 0;
-		let l = 0;
-		for (; this.iterations < i;) {
+		let s = t.vx - n.vx, c = t.vy - n.vy, l = Math.abs(t.spin) * t.radius + Math.abs(n.spin) * n.radius;
+		if (require_hypot.hypot2(s, c) + l < 1e-12) return 1 / 0;
+		let u = 0;
+		for (; this.iterations < a;) {
 			this.iterations++;
-			let e = this.separation.measure(t.at(l), n.at(l)), i = this.manifold, u = o * i.nx + s * i.ny + c;
-			if (e <= a) {
-				let e = i.points[0], r = (n.vx - n.spin * (e.y - n.y - n.vy * l) - t.vx + t.spin * (e.y - t.y - t.vy * l)) * i.nx + (n.vy + n.spin * (e.x - n.x - n.vx * l) - t.vy - t.spin * (e.x - t.x - t.vx * l)) * i.ny;
-				return l > 0 || r < -1e-8 ? l : c <= 1e-12 || u <= 1e-12 ? 1 / 0 : (this.exhausted = !0, this.safeTime = l, 1 / 0);
+			let e = this.separation.measure(t.at(u), n.at(u)), i = this.manifold, a = s * i.nx + c * i.ny + l;
+			if (e <= o) {
+				let e = i.points[0], r = (n.vx - n.spin * (e.y - n.y - n.vy * u) - t.vx + t.spin * (e.y - t.y - t.vy * u)) * i.nx + (n.vy + n.spin * (e.x - n.x - n.vx * u) - t.vy - t.spin * (e.x - t.x - t.vx * u)) * i.ny;
+				return u > 0 || r < -1e-8 ? u : l <= 1e-12 || a <= 1e-12 ? 1 / 0 : (this.exhausted = !0, this.safeTime = u, 1 / 0);
 			}
-			if (u <= 1e-12) return 1 / 0;
-			let d = (e - a * .5) / u;
-			if (l + d > r) return 1 / 0;
-			l += d;
+			if (a <= 1e-12) return 1 / 0;
+			let d = (e - o * .5) / a;
+			if (u + d > r) return 1 / 0;
+			u += d;
 		}
-		return this.exhausted = !0, this.safeTime = l, 1 / 0;
+		return this.exhausted = !0, this.safeTime = u, 1 / 0;
 	}
 };
 //#endregion

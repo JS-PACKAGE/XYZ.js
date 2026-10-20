@@ -1,3 +1,4 @@
+import { hypot2 } from './hypot.js';
 export class Vector2 {
   // Numeric initializers keep the fields' engine representation numeric: a bare
   // `x;` class field starts as undefined, after which every number stored is boxed.
@@ -41,7 +42,7 @@ export class Vector2 {
   }
 
   length(): number {
-    return Math.hypot(this.x, this.y);
+    return hypot2(this.x, this.y);
   }
 
   normalize(): this {

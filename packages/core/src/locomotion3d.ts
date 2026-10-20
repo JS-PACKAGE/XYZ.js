@@ -15,6 +15,7 @@ import type {
   CharacterMoveResult3D,
   CharacterMovementOptions3D,
 } from './physics3d/character.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 export type LocomotionPhase3D = 'idle' | 'walk' | 'run' | 'jump' | 'fall';
 export interface LocomotionAnimation3D extends AnimationStateDefinition {
@@ -235,7 +236,7 @@ export class CharacterLocomotion3D {
     return this.moveResult;
   }
   get requestedSpeed(): number {
-    return Math.hypot(this.commanded.x, this.commanded.z);
+    return hypot2(this.commanded.x, this.commanded.z);
   }
 
   setInput(input: LocomotionInput3D): void {
@@ -246,7 +247,7 @@ export class CharacterLocomotion3D {
       (input.yaw !== undefined && !Number.isFinite(input.yaw))
     )
       throw new RangeError('Locomotion input must be finite.');
-    const length = Math.hypot(input.x, input.z);
+    const length = hypot2(input.x, input.z);
     this.x = length > 1 ? input.x / length : input.x;
     this.z = length > 1 ? input.z / length : input.z;
     this.running = input.run ?? false;
@@ -346,7 +347,7 @@ export class CharacterLocomotion3D {
         tz = this.z * speed;
       const dx = tx - this.commanded.x,
         dz = tz - this.commanded.z;
-      const distance = Math.hypot(dx, dz);
+      const distance = hypot2(dx, dz);
       const step =
         (tx === 0 && tz === 0 ? this.deceleration : this.acceleration) * delta;
       const factor = distance > 0 ? Math.min(1, step / distance) : 0;

@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_render_bounds = require("./render-bounds.cjs");
@@ -12,7 +13,7 @@ const require_text2d = require("./text2d.cjs");
 function isCameraDependent(e) {
 	return typeof e == `object` && !!e && typeof e.updateForCamera == `function`;
 }
-var p = new require_math3d.Vector3();
+var m = new require_math3d.Vector3();
 function meshOptions(e, t, n) {
 	return {
 		geometry: t,
@@ -107,7 +108,7 @@ var LOD = class extends require_group.Group {
 	select(e, t, n) {
 		if (this.validateSettings(), !this.entries.length) return;
 		this.advanceFade(n);
-		let r = worldPosition(this, p), i = this.screenMode ? this.projectedDiameter(e, t) : Math.hypot(r.x - e.position.x, r.y - e.position.y, r.z - e.position.z), a = 0;
+		let r = worldPosition(this, m), i = this.screenMode ? this.projectedDiameter(e, t) : require_hypot.hypot3(r.x - e.position.x, r.y - e.position.y, r.z - e.position.z), a = 0;
 		if (this.screenMode) {
 			a = this.entries.length - 1;
 			for (let e = 0; e < this.entries.length; e++) if (i >= this.entries[e].screenSize) {
@@ -193,23 +194,23 @@ var HLOD = class extends LOD {
 		}
 		if (!u) return super.projectedDiameter(e, t);
 		let d = this.aggregateSphere;
-		return d.x = (r + s) / 2, d.y = (i + c) / 2, d.z = (o + l) / 2, d.radius = Math.hypot(s - r, c - i, l - o) / 2, projectedSphereDiameter(d, e, t);
+		return d.x = (r + s) / 2, d.y = (i + c) / 2, d.z = (o + l) / 2, d.radius = require_hypot.hypot3(s - r, c - i, l - o) / 2, projectedSphereDiameter(d, e, t);
 	}
 };
-var m = new require_math3d.Vector3();
+var h = new require_math3d.Vector3();
 function faceCamera(e, t, r) {
-	let i = worldPosition(e, p), a = m;
+	let i = worldPosition(e, m), a = h;
 	if (t instanceof require_orthographic_camera.OrthographicCamera) {
 		let e = t.rotation, n = -2 * (e.x * e.z + e.w * e.y), o = -2 * (e.y * e.z - e.w * e.x), s = -(1 - 2 * (e.x * e.x + e.y * e.y));
 		a.set(i.x + n, r === `cylindrical` ? i.y : i.y + o, i.z + s);
 	} else a.set(2 * i.x - t.position.x, r === `cylindrical` ? i.y : 2 * i.y - t.position.y, 2 * i.z - t.position.z);
 	require_camera_utils.lookAtRotation(i, a, e.rotation);
 }
-var h;
+var g;
 var Billboard = class extends require_mesh.Mesh {
 	mode;
 	constructor(e) {
-		super(meshOptions(e, h ??= require_geometry.Geometry.quad(1, 1), e.material));
+		super(meshOptions(e, g ??= require_geometry.Geometry.quad(1, 1), e.material));
 		let t = e.width ?? 1, n = e.height ?? 1;
 		if (!Number.isFinite(t) || !Number.isFinite(n) || t <= 0 || n <= 0) throw RangeError(`Billboard size must be positive and finite.`);
 		if (this.scale.set(this.scale.x * t, this.scale.y * n, this.scale.z), this.mode = e.mode ?? `spherical`, this.mode !== `spherical` && this.mode !== `cylindrical`) throw RangeError(`Unknown billboard mode.`);
@@ -324,11 +325,11 @@ var Line3D = class extends require_mesh.Mesh {
 	rebuild(e, t, n) {
 		let r = this.coordinates, i = this.pointCount, a = this.geometry.vertices, o = this.width / 2, s = this.side;
 		for (let c = 0; c < this.segments; c++) {
-			let l = c * 3, u = (c + 1) % i * 3, d = r[u] - r[l], f = r[u + 1] - r[l + 1], p = r[u + 2] - r[l + 2], m = e - (r[l] + r[u]) / 2, h = t - (r[l + 1] + r[u + 1]) / 2, g = n - (r[l + 2] + r[u + 2]) / 2, _ = Math.hypot(m, h, g) || 1;
-			m /= _, h /= _, g /= _, s.set(f * g - p * h, p * m - d * g, d * h - f * m);
-			let v = s.length();
-			v > 1e-9 ? s.scale(o / v) : s.set(0, 0, 0);
-			let y = [
+			let l = c * 3, u = (c + 1) % i * 3, d = r[u] - r[l], f = r[u + 1] - r[l + 1], m = r[u + 2] - r[l + 2], h = e - (r[l] + r[u]) / 2, g = t - (r[l + 1] + r[u + 1]) / 2, _ = n - (r[l + 2] + r[u + 2]) / 2, v = require_hypot.hypot3(h, g, _) || 1;
+			h /= v, g /= v, _ /= v, s.set(f * _ - m * g, m * h - d * _, d * g - f * h);
+			let y = s.length();
+			y > 1e-9 ? s.scale(o / y) : s.set(0, 0, 0);
+			let b = [
 				[
 					r[l] - s.x,
 					r[l + 1] - s.y,
@@ -352,7 +353,7 @@ var Line3D = class extends require_mesh.Mesh {
 			];
 			for (let e = 0; e < 4; e++) {
 				let t = (c * 4 + e) * 8;
-				a[t] = y[e][0], a[t + 1] = y[e][1], a[t + 2] = y[e][2], a[t + 3] = m, a[t + 4] = h, a[t + 5] = g;
+				a[t] = b[e][0], a[t + 1] = b[e][1], a[t + 2] = b[e][2], a[t + 3] = h, a[t + 4] = g, a[t + 5] = _;
 			}
 		}
 		this.geometry.markUpdated();

@@ -10,6 +10,7 @@ import {
 } from './joints.js';
 import { finite3D, vector3D } from './collider.js';
 import { physicsProfiles } from '../../../../src/data/physics-profiles.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 export interface RagdollBoneMapping3D {
   id: string;
   bone: Object3D;
@@ -39,9 +40,9 @@ function multiply(a: Quaternion, b: Quaternion, out: Quaternion): Quaternion {
 }
 function rotation(matrix: Matrix4, out: Quaternion): Quaternion {
   const e = matrix.elements;
-  const sx = Math.hypot(e[0], e[1], e[2]),
-    sy = Math.hypot(e[4], e[5], e[6]),
-    sz = Math.hypot(e[8], e[9], e[10]);
+  const sx = hypot3(e[0], e[1], e[2]),
+    sy = hypot3(e[4], e[5], e[6]),
+    sz = hypot3(e[8], e[9], e[10]);
   if (!(sx > 0 && sy > 0 && sz > 0))
     throw new RangeError('Ragdoll reference pose is singular.');
   const a = e[0] / sx,

@@ -1,5 +1,6 @@
 import type { Scene } from '../../core/src/scene.js';
 import { getPostEffects } from '../../core/src/post-effects.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 /** Four vec4s shared by the native post shaders; UV has top-left origin. */
 export function writeVolumetricUniforms(
@@ -21,7 +22,7 @@ export function writeVolumetricUniforms(
   const camera = scene.camera3D;
   const light = scene.directionalLight;
   const direction = light.direction;
-  const length = Math.hypot(direction.x, direction.y, direction.z);
+  const length = hypot3(direction.x, direction.y, direction.z);
   if (length === 0) return;
   const distance = (camera.far * 0.5) / length;
   const x = camera.position.x + direction.x * distance;

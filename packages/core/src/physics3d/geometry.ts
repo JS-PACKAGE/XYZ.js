@@ -1,6 +1,7 @@
 import { Vector3 } from '../../../math/src/index.js';
 import { Shape3D, Triangle3D, TriangleMeshCollider3D } from './collider.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 /** @internal Signed separation and B-to-A normal. Reused for solver and conservative advancement. */
 export class Manifold3D {
@@ -227,7 +228,7 @@ export class Narrowphase3D {
         this.triangleEdge.set(q.x - p.x, q.y - p.y, q.z - p.z);
         n = cross(this.triangleEdge, a.axes[(i - 4) % 3], this.axis);
       }
-      const len = Math.hypot(n.x, n.y, n.z);
+      const len = hypot3(n.x, n.y, n.z);
       if (len < 1e-10) continue;
       const center = a.center.dot(n),
         r = this.radius(a, n);
@@ -502,7 +503,7 @@ export class Narrowphase3D {
     const dx = this.p.x - this.q.x,
       dy = this.p.y - this.q.y,
       dz = this.p.z - this.q.z,
-      dist = Math.hypot(dx, dy, dz);
+      dist = hypot3(dx, dy, dz);
     if (dist > 1e-10) out.normal.set(dx / dist, dy / dist, dz / dist);
     else {
       out.normal.set(

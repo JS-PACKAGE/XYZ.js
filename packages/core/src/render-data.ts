@@ -21,6 +21,7 @@ import {
 import type { Scene } from './scene.js';
 import { ReflectionProbe } from './reflection-probe.js';
 import type { SelectedLights } from './light-selection.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 function finite(value: number, name: string): void {
   if (!Number.isFinite(value) || !Number.isFinite(Math.fround(value)))
@@ -380,7 +381,7 @@ export function computeShadowMatrix(scene: Scene, out: Matrix4): Matrix4 {
     xy = 0;
     xz = -zx;
   }
-  const rightLength = Math.hypot(xx, xy, xz);
+  const rightLength = hypot3(xx, xy, xz);
   xx /= rightLength;
   xy /= rightLength;
   xz /= rightLength;

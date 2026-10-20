@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_spatial = require("./spatial.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
@@ -68,8 +69,8 @@ var TriangleMeshCollider3D = class extends Collider3D {
 		for (let e of r) finite3D(e, `mesh position`);
 		for (let e of i) if (!Number.isInteger(e) || e < 0 || e >= r.length / 3) throw RangeError(`Mesh index out of range.`);
 		for (let e = 0; e < i.length; e += 3) {
-			let t = i[e] * 3, n = i[e + 1] * 3, o = i[e + 2] * 3, s = r[n] - r[t], c = r[n + 1] - r[t + 1], l = r[n + 2] - r[t + 2], u = r[o] - r[t], d = r[o + 1] - r[t + 1], f = r[o + 2] - r[t + 2];
-			if (finite3D(Math.hypot(c * f - l * d, l * u - s * f, s * d - c * u), `triangle area`) <= require_physics3d.physics3DDefaults.geometryTolerance) throw RangeError(`Degenerate mesh triangle.`);
+			let t = i[e] * 3, n = i[e + 1] * 3, s = i[e + 2] * 3, c = r[n] - r[t], l = r[n + 1] - r[t + 1], u = r[n + 2] - r[t + 2], d = r[s] - r[t], f = r[s + 1] - r[t + 1], p = r[s + 2] - r[t + 2];
+			if (finite3D(require_hypot.hypot3(l * p - u * f, u * d - c * p, c * f - l * d), `triangle area`) <= require_physics3d.physics3DDefaults.geometryTolerance) throw RangeError(`Degenerate mesh triangle.`);
 		}
 		if (this.sidedness = n.sidedness ?? `double`, this.sidedness !== `front` && this.sidedness !== `double`) throw RangeError(`Invalid mesh sidedness.`);
 		this.positions = Object.freeze(r), this.indices = Object.freeze(i);
@@ -95,14 +96,14 @@ var CompoundCollider3D = class extends Collider3D {
 		this.children = Object.freeze(n.map((n) => {
 			if (!(n.collider instanceof SphereCollider3D || n.collider instanceof BoxCollider3D || n.collider instanceof CapsuleCollider3D || n.collider instanceof TriangleMeshCollider3D)) throw TypeError(`Compound children require finite primitives or static triangle meshes (no nested compounds).`);
 			let r = n.position ?? new require_math3d.Vector3(), i = n.rotation ?? new require_math3d.Quaternion(), o = n.scale ?? new require_math3d.Vector3(1, 1, 1);
-			if (vector3D(r, `child position`), vector3D(o, `child scale`), finite3D(i.x, `child rotation.x`), finite3D(i.y, `child rotation.y`), finite3D(i.z, `child rotation.z`), finite3D(i.w, `child rotation.w`), positive3D(o.x, `child scale.x`), positive3D(o.y, `child scale.y`), positive3D(o.z, `child scale.z`), Math.abs(Math.hypot(i.x, i.y, i.z, i.w) - 1) > require_physics3d.physics3DDefaults.transformTolerance) throw RangeError(`Child rotation must be a unit quaternion.`);
-			let s = new require_math3d.Vector3(r.x, r.y, r.z), c = new require_math3d.Quaternion(i.x, i.y, i.z, i.w), l = new require_math3d.Vector3(o.x, o.y, o.z);
+			if (vector3D(r, `child position`), vector3D(o, `child scale`), finite3D(i.x, `child rotation.x`), finite3D(i.y, `child rotation.y`), finite3D(i.z, `child rotation.z`), finite3D(i.w, `child rotation.w`), positive3D(o.x, `child scale.x`), positive3D(o.y, `child scale.y`), positive3D(o.z, `child scale.z`), Math.abs(require_hypot.hypot4(i.x, i.y, i.z, i.w) - 1) > require_physics3d.physics3DDefaults.transformTolerance) throw RangeError(`Child rotation must be a unit quaternion.`);
+			let c = new require_math3d.Vector3(r.x, r.y, r.z), l = new require_math3d.Quaternion(i.x, i.y, i.z, i.w), u = new require_math3d.Vector3(o.x, o.y, o.z);
 			if ((n.collider.kind === `sphere` || n.collider.kind === `capsule`) && (Math.abs(o.x - o.y) > require_physics3d.physics3DDefaults.transformTolerance * Math.max(o.x, o.y) || Math.abs(o.x - o.z) > require_physics3d.physics3DDefaults.transformTolerance * Math.max(o.x, o.z))) throw RangeError(`Sphere/capsule children require uniform scale.`);
 			return Object.freeze({
 				collider: n.collider,
-				position: Object.freeze(s),
-				rotation: Object.freeze(c),
-				scale: Object.freeze(l)
+				position: Object.freeze(c),
+				rotation: Object.freeze(l),
+				scale: Object.freeze(u)
 			});
 		})), this.staticOnly = this.children.some((e) => e.collider.kind === `mesh`);
 	}
@@ -155,35 +156,35 @@ var Shape3D = class Shape3D {
 		for (let e = 0; e < 16; e++) this.poseMatrix[e] !== t[e] && (n = !0, e < 12 && (r = !0));
 		if (!n) return !1;
 		this.poseMatrix[0] = NaN;
-		let i = this.axes[0].set(t[0], t[1], t[2]), a = this.axes[1].set(t[4], t[5], t[6]), o = this.axes[2].set(t[8], t[9], t[10]), s = positive3D(i.length(), `world scale.x`), c = positive3D(a.length(), `world scale.y`), l = positive3D(o.length(), `world scale.z`);
-		if (this.worldScale.set(s, c, l), i.scale(1 / s), a.scale(1 / c), o.scale(1 / l), Math.abs(i.dot(a)) > 1e-5 || Math.abs(i.dot(o)) > 1e-5 || Math.abs(a.dot(o)) > 1e-5 || i.x * (a.y * o.z - a.z * o.y) - i.y * (a.x * o.z - a.z * o.x) + i.z * (a.x * o.y - a.y * o.x) < .9999) throw RangeError(`3D physics requires positive orthogonal world transforms (no shear/reflection).`);
-		let u = this.collider.offset;
-		if (this.center.set(t[12] + t[0] * u.x + t[4] * u.y + t[8] * u.z, t[13] + t[1] * u.x + t[5] * u.y + t[9] * u.z, t[14] + t[2] * u.x + t[6] * u.y + t[10] * u.z), !Number.isFinite(this.center.x) || !Number.isFinite(this.center.y) || !Number.isFinite(this.center.z)) throw RangeError(`Transformed collider center must be finite.`);
+		let i = this.axes[0].set(t[0], t[1], t[2]), a = this.axes[1].set(t[4], t[5], t[6]), s = this.axes[2].set(t[8], t[9], t[10]), c = positive3D(i.length(), `world scale.x`), l = positive3D(a.length(), `world scale.y`), u = positive3D(s.length(), `world scale.z`);
+		if (this.worldScale.set(c, l, u), i.scale(1 / c), a.scale(1 / l), s.scale(1 / u), Math.abs(i.dot(a)) > 1e-5 || Math.abs(i.dot(s)) > 1e-5 || Math.abs(a.dot(s)) > 1e-5 || i.x * (a.y * s.z - a.z * s.y) - i.y * (a.x * s.z - a.z * s.x) + i.z * (a.x * s.y - a.y * s.x) < .9999) throw RangeError(`3D physics requires positive orthogonal world transforms (no shear/reflection).`);
+		let d = this.collider.offset;
+		if (this.center.set(t[12] + t[0] * d.x + t[4] * d.y + t[8] * d.z, t[13] + t[1] * d.x + t[5] * d.y + t[9] * d.z, t[14] + t[2] * d.x + t[6] * d.y + t[10] * d.z), !Number.isFinite(this.center.x) || !Number.isFinite(this.center.y) || !Number.isFinite(this.center.z)) throw RangeError(`Transformed collider center must be finite.`);
 		if (this.collider instanceof SphereCollider3D || this.collider instanceof CapsuleCollider3D) {
-			if (Math.abs(s - c) > 1e-5 * Math.max(s, c) || Math.abs(s - l) > 1e-5 * Math.max(s, l)) throw RangeError(`Sphere/capsule require uniform world scale.`);
-			this.radius = this.collider.radius * s;
-			let e = this.collider instanceof CapsuleCollider3D ? this.collider.height * c / 2 : 0;
+			if (Math.abs(c - l) > 1e-5 * Math.max(c, l) || Math.abs(c - u) > 1e-5 * Math.max(c, u)) throw RangeError(`Sphere/capsule require uniform world scale.`);
+			this.radius = this.collider.radius * c;
+			let e = this.collider instanceof CapsuleCollider3D ? this.collider.height * l / 2 : 0;
 			this.start.set(this.center.x - a.x * e, this.center.y - a.y * e, this.center.z - a.z * e), this.end.set(this.center.x + a.x * e, this.center.y + a.y * e, this.center.z + a.z * e);
 		} else if (this.collider instanceof BoxCollider3D) {
 			let e = this.collider.halfExtents;
-			this.half.set(e.x * s, e.y * c, e.z * l);
+			this.half.set(e.x * c, e.y * l, e.z * u);
 			for (let e = 0; e < 8; e++) {
 				let t = (e & 1 ? 1 : -1) * this.half.x, n = (e & 2 ? 1 : -1) * this.half.y, r = (e & 4 ? 1 : -1) * this.half.z;
-				this.vertices[e].set(this.center.x + i.x * t + a.x * n + o.x * r, this.center.y + i.y * t + a.y * n + o.y * r, this.center.z + i.z * t + a.z * n + o.z * r);
+				this.vertices[e].set(this.center.x + i.x * t + a.x * n + s.x * r, this.center.y + i.y * t + a.y * n + s.y * r, this.center.z + i.z * t + a.z * n + s.z * r);
 			}
 		} else if (this.collider instanceof PlaneCollider3D) {
 			let e = this.collider.normal;
-			this.normal.set(i.x * e.x / s + a.x * e.y / c + o.x * e.z / l, i.y * e.x / s + a.y * e.y / c + o.y * e.z / l, i.z * e.x / s + a.z * e.y / c + o.z * e.z / l).normalize();
+			this.normal.set(i.x * e.x / c + a.x * e.y / l + s.x * e.z / u, i.y * e.x / c + a.y * e.y / l + s.y * e.z / u, i.z * e.x / c + a.z * e.y / l + s.z * e.z / u).normalize();
 		}
 		if (this.collider instanceof TriangleMeshCollider3D) {
 			let e = this.triangleIndex, n = this.collider, i = n.positions, a = n.indices;
 			for (let e of this.triangles) {
 				for (let n = 0; n < 3; n++) {
-					let r = n === 0 ? e.a : n === 1 ? e.b : e.c, o = a[e.order * 3 + n] * 3, s = i[o] + u.x, c = i[o + 1] + u.y, l = i[o + 2] + u.z;
+					let r = n === 0 ? e.a : n === 1 ? e.b : e.c, o = a[e.order * 3 + n] * 3, s = i[o] + d.x, c = i[o + 1] + d.y, l = i[o + 2] + d.z;
 					if (r.set(t[12] + t[0] * s + t[4] * c + t[8] * l, t[13] + t[1] * s + t[5] * c + t[9] * l, t[14] + t[2] * s + t[6] * c + t[10] * l), !Number.isFinite(r.x) || !Number.isFinite(r.y) || !Number.isFinite(r.z)) throw RangeError(`Transformed mesh vertices must be finite.`);
 				}
-				let n = e.b.x - e.a.x, r = e.b.y - e.a.y, o = e.b.z - e.a.z, s = e.c.x - e.a.x, c = e.c.y - e.a.y, l = e.c.z - e.a.z;
-				positive3D(Math.hypot(r * l - o * c, o * s - n * l, n * c - r * s), `transformed triangle area`), e.normal.set(r * l - o * c, o * s - n * l, n * c - r * s).normalize(), e.bounds.reset(), e.bounds.add(e.a), e.bounds.add(e.b), e.bounds.add(e.c);
+				let n = e.b.x - e.a.x, r = e.b.y - e.a.y, s = e.b.z - e.a.z, c = e.c.x - e.a.x, l = e.c.y - e.a.y, u = e.c.z - e.a.z;
+				positive3D(require_hypot.hypot3(r * u - s * l, s * c - n * u, n * l - r * c), `transformed triangle area`), e.normal.set(r * u - s * l, s * c - n * u, n * l - r * c).normalize(), e.bounds.reset(), e.bounds.add(e.a), e.bounds.add(e.b), e.bounds.add(e.c);
 			}
 			return this.meshIndexed ? e.refit() : e.rebuild(this.triangles), this.meshIndexed = !0, this.updateBounds(), this.poseMatrix.set(t), ++this.revision, r && ++this.inertiaRevision, !0;
 		}
@@ -198,7 +199,7 @@ var Shape3D = class Shape3D {
 			this.volume > 0 && this.massCenter.scale(1 / this.volume);
 		} else if (this.needsVolume && this.collider.kind === `box`) this.volume = 8 * this.half.x * this.half.y * this.half.z;
 		else if (this.needsVolume && (this.collider.kind === `sphere` || this.collider.kind === `capsule`)) {
-			let e = Math.hypot(this.end.x - this.start.x, this.end.y - this.start.y, this.end.z - this.start.z);
+			let e = require_hypot.hypot3(this.end.x - this.start.x, this.end.y - this.start.y, this.end.z - this.start.z);
 			this.volume = Math.PI * this.radius * this.radius * (e + 4 * this.radius / 3);
 		}
 		return this.updateBounds(), this.poseMatrix.set(t), ++this.revision, r && ++this.inertiaRevision, !0;
@@ -209,7 +210,7 @@ var Shape3D = class Shape3D {
 			if (t.kind === `plane` || t.kind === `mesh` || t instanceof CompoundCollider3D && t.staticOnly) throw Error(`Triangle mesh/plane geometry is static only.`);
 			if (e === `dynamic` && t instanceof CompoundCollider3D) {
 				let e = Math.max(1, this.bounds.max.x - this.bounds.min.x, this.bounds.max.y - this.bounds.min.y, this.bounds.max.z - this.bounds.min.z);
-				if (Math.hypot(this.massCenter.x - this.center.x, this.massCenter.y - this.center.y, this.massCenter.z - this.center.z) > require_physics3d.physics3DDefaults.transformTolerance * e) throw RangeError(`Dynamic compound children must be centered on their uniform-density center of mass.`);
+				if (require_hypot.hypot3(this.massCenter.x - this.center.x, this.massCenter.y - this.center.y, this.massCenter.z - this.center.z) > require_physics3d.physics3DDefaults.transformTolerance * e) throw RangeError(`Dynamic compound children must be centered on their uniform-density center of mass.`);
 			}
 		}
 	}

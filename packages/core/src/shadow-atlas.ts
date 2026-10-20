@@ -9,6 +9,7 @@ import { PerspectiveCamera } from './perspective-camera.js';
 import type { Scene } from './scene.js';
 import type { PointLight, SpotLight } from './lights.js';
 import { validateLightPool } from './light-selection.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 const faces: readonly (readonly [number, number, number])[] = [
   [1, 0, 0],
@@ -254,7 +255,7 @@ export class ShadowAtlas {
       for (const corner of this.corners)
         radius = Math.max(
           radius,
-          Math.hypot(
+          hypot3(
             corner.x - this.center.x,
             corner.y - this.center.y,
             corner.z - this.center.z,

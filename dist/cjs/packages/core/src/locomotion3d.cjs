@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_animation_root_motion = require("./animation-root-motion.cjs");
 const require_animation = require("./animation.cjs");
@@ -92,12 +93,12 @@ var CharacterLocomotion3D = class {
 		return this.moveResult;
 	}
 	get requestedSpeed() {
-		return Math.hypot(this.commanded.x, this.commanded.z);
+		return require_hypot.hypot2(this.commanded.x, this.commanded.z);
 	}
 	setInput(e) {
 		if (this.disposed) return;
 		if (!Number.isFinite(e.x) || !Number.isFinite(e.z) || e.yaw !== void 0 && !Number.isFinite(e.yaw)) throw RangeError(`Locomotion input must be finite.`);
-		let t = Math.hypot(e.x, e.z);
+		let t = require_hypot.hypot2(e.x, e.z);
 		this.x = t > 1 ? e.x / t : e.x, this.z = t > 1 ? e.z / t : e.z, this.running = e.run ?? !1, this.yaw = e.yaw, e.jump && !this.jumpHeld && !this.pausedState && !this.stopped && (this.jumpPending = !0), this.jumpHeld = e.jump ?? !1;
 	}
 	requestAnimation(e, t = 1, n = this.fadeDuration) {
@@ -133,27 +134,27 @@ var CharacterLocomotion3D = class {
 		this.lastEpoch = n, this.updating = !0;
 		let r = this.generation;
 		try {
-			let a = this.running ? this.runSpeed : this.walkSpeed, o = this.x * a, s = this.z * a, c = o - this.commanded.x, l = s - this.commanded.z, u = Math.hypot(c, l), d = (o === 0 && s === 0 ? this.deceleration : this.acceleration) * e, f = u > 0 ? Math.min(1, d / u) : 0;
-			this.commanded.x += c * f, this.commanded.z += l * f;
-			let p = this.requestedSpeed > require_locomotion3d.locomotion3DDefaults.movingThreshold, m = this.controller.object.rotation, h = yawOf(m), g = this.yaw ?? (p ? Math.atan2(this.commanded.x, this.commanded.z) : h), _ = Math.atan2(Math.sin(g - h), Math.cos(g - h));
-			h += Math.max(-this.turnSpeed * e, Math.min(this.turnSpeed * e, _));
-			let v = !1;
-			if (this.jumpPending && this.controller.grounded && (this.verticalSpeed = this.jumpSpeed, v = !0), this.jumpPending = !1, this.controller.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed = Math.max(-this.terminalSpeed, this.verticalSpeed - this.gravity * e), this.phaseState = v || this.verticalSpeed > 0 ? `jump` : this.controller.grounded ? p ? this.running ? `run` : `walk` : `idle` : `fall`, !this.manualAnimation) {
+			let a = this.running ? this.runSpeed : this.walkSpeed, s = this.x * a, c = this.z * a, l = s - this.commanded.x, u = c - this.commanded.z, d = require_hypot.hypot2(l, u), f = (s === 0 && c === 0 ? this.deceleration : this.acceleration) * e, p = d > 0 ? Math.min(1, f / d) : 0;
+			this.commanded.x += l * p, this.commanded.z += u * p;
+			let m = this.requestedSpeed > require_locomotion3d.locomotion3DDefaults.movingThreshold, h = this.controller.object.rotation, g = yawOf(h), _ = this.yaw ?? (m ? Math.atan2(this.commanded.x, this.commanded.z) : g), v = Math.atan2(Math.sin(_ - g), Math.cos(_ - g));
+			g += Math.max(-this.turnSpeed * e, Math.min(this.turnSpeed * e, v));
+			let y = !1;
+			if (this.jumpPending && this.controller.grounded && (this.verticalSpeed = this.jumpSpeed, y = !0), this.jumpPending = !1, this.controller.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed = Math.max(-this.terminalSpeed, this.verticalSpeed - this.gravity * e), this.phaseState = y || this.verticalSpeed > 0 ? `jump` : this.controller.grounded ? m ? this.running ? `run` : `walk` : `idle` : `fall`, !this.manualAnimation) {
 				let e = this.options.states[this.phaseState];
 				this.animation.current !== e && this.animation.setState(e, this.fadeDuration);
 				let t = this.options.animations[e];
-				this.animation.action.timeScale = p && t.motionSpeed !== void 0 ? this.requestedSpeed / t.motionSpeed : t.speed ?? 1;
+				this.animation.action.timeScale = m && t.motionSpeed !== void 0 ? this.requestedSpeed / t.motionSpeed : t.speed ?? 1;
 			}
 			if (this.rootDelta.set(0, 0, 0), this.rootYaw = 0, this.mixer.update(e), r !== this.generation || this.disposed || this.mixer.paused || this.controller.destroyed || this.controller.object.destroyed || this.options.root.destroyed) return this.moveResult;
-			m.setFromEuler(0, h, 0), this.options.movement === `root-motion` && this.controller.grounded && !v ? (this.rootDelta.y = 0, !p && !this.manualAnimation && (this.rootDelta.set(0, 0, 0), this.rootYaw = 0), require_animation_root_motion.rotateAnimationVector(m, this.rootDelta, this.worldDelta), this.displacement.set(this.worldDelta.x, this.verticalSpeed * e, this.worldDelta.z)) : (this.rootYaw = 0, this.displacement.set(this.commanded.x * e, this.verticalSpeed * e, this.commanded.z * e)), this.movementOptions.epoch = n, this.movementOptions.detachSupport = v;
-			let y = this.controller.move(this.displacement, this.movementOptions);
-			if (this.moveResult = y, this.velocity.set(y.locomotionDisplacement.x / e, y.locomotionDisplacement.y / e, y.locomotionDisplacement.z / e), y.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed > 0) {
-				for (let e of y.contacts) if (e.normal.y < -.5) {
+			h.setFromEuler(0, g, 0), this.options.movement === `root-motion` && this.controller.grounded && !y ? (this.rootDelta.y = 0, !m && !this.manualAnimation && (this.rootDelta.set(0, 0, 0), this.rootYaw = 0), require_animation_root_motion.rotateAnimationVector(h, this.rootDelta, this.worldDelta), this.displacement.set(this.worldDelta.x, this.verticalSpeed * e, this.worldDelta.z)) : (this.rootYaw = 0, this.displacement.set(this.commanded.x * e, this.verticalSpeed * e, this.commanded.z * e)), this.movementOptions.epoch = n, this.movementOptions.detachSupport = y;
+			let b = this.controller.move(this.displacement, this.movementOptions);
+			if (this.moveResult = b, this.velocity.set(b.locomotionDisplacement.x / e, b.locomotionDisplacement.y / e, b.locomotionDisplacement.z / e), b.grounded && this.verticalSpeed < 0 && (this.verticalSpeed = 0), this.verticalSpeed > 0) {
+				for (let e of b.contacts) if (e.normal.y < -.5) {
 					this.verticalSpeed = 0;
 					break;
 				}
 			}
-			return this.options.movement === `root-motion` && m.setFromEuler(0, yawOf(m) + this.rootYaw, 0), y;
+			return this.options.movement === `root-motion` && h.setFromEuler(0, yawOf(h) + this.rootYaw, 0), b;
 		} finally {
 			this.rootDelta.set(0, 0, 0), this.rootYaw = 0, this.updating = !1;
 		}

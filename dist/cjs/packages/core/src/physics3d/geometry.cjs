@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
 //#region dist/packages/core/src/physics3d/geometry.js
@@ -117,39 +118,39 @@ var Narrowphase3D = class {
 		}
 		n.add(this.bestQ, -n.distance);
 	}
-	boxTriangle(e, t, n) {
-		let r = -1 / 0;
-		for (let i = 0; i < 13; i++) {
-			let a;
-			if (i === 0) a = t.normal;
-			else if (i < 4) a = e.axes[i - 1];
+	boxTriangle(e, t, r) {
+		let i = -1 / 0;
+		for (let a = 0; a < 13; a++) {
+			let o;
+			if (a === 0) o = t.normal;
+			else if (a < 4) o = e.axes[a - 1];
 			else {
-				let n = Math.floor((i - 4) / 3), r = n === 0 ? t.a : n === 1 ? t.b : t.c, o = n === 0 ? t.b : n === 1 ? t.c : t.a;
-				this.triangleEdge.set(o.x - r.x, o.y - r.y, o.z - r.z), a = cross(this.triangleEdge, e.axes[(i - 4) % 3], this.axis);
+				let n = Math.floor((a - 4) / 3), r = n === 0 ? t.a : n === 1 ? t.b : t.c, i = n === 0 ? t.b : n === 1 ? t.c : t.a;
+				this.triangleEdge.set(i.x - r.x, i.y - r.y, i.z - r.z), o = cross(this.triangleEdge, e.axes[(a - 4) % 3], this.axis);
 			}
-			let o = Math.hypot(a.x, a.y, a.z);
-			if (o < 1e-10) continue;
-			let s = e.center.dot(a), c = this.radius(e, a), l = t.a.dot(a), u = t.b.dot(a), d = t.c.dot(a), f = Math.min(l, u, d), p = Math.max(l, u, d), m = (s - c - p) / o, h = (f - s - c) / o, g = Math.max(m, h);
-			g > r && (r = g, n.normal.set(a.x / o, a.y / o, a.z / o).scale(m >= h ? 1 : -1));
+			let s = require_hypot.hypot3(o.x, o.y, o.z);
+			if (s < 1e-10) continue;
+			let c = e.center.dot(o), l = this.radius(e, o), u = t.a.dot(o), d = t.b.dot(o), f = t.c.dot(o), p = Math.min(u, d, f), m = Math.max(u, d, f), h = (c - l - m) / s, g = (p - c - l) / s, _ = Math.max(h, g);
+			_ > i && (i = _, r.normal.set(o.x / s, o.y / s, o.z / s).scale(h >= g ? 1 : -1));
 		}
-		n.distance = r;
-		let i = this.polygonA, a = this.polygonB, o = 3;
-		i[0].copy(t.a), i[1].copy(t.b), i[2].copy(t.c);
+		r.distance = i;
+		let a = this.polygonA, o = this.polygonB, s = 3;
+		a[0].copy(t.a), a[1].copy(t.b), a[2].copy(t.c);
 		for (let t = 0; t < 3; t++) for (let n = -1; n <= 1; n += 2) {
-			let r = e.axes[t], s = t === 0 ? e.half.x : t === 1 ? e.half.y : e.half.z, c = 0;
-			for (let t = 0; t < o; t++) {
-				let l = i[t], u = i[(t + 1) % o], d = n * ((l.x - e.center.x) * r.x + (l.y - e.center.y) * r.y + (l.z - e.center.z) * r.z) - s, f = n * ((u.x - e.center.x) * r.x + (u.y - e.center.y) * r.y + (u.z - e.center.z) * r.z) - s;
-				if (d <= 1e-10 && a[c++].copy(l), d < 0 != f < 0) {
+			let r = e.axes[t], i = t === 0 ? e.half.x : t === 1 ? e.half.y : e.half.z, c = 0;
+			for (let t = 0; t < s; t++) {
+				let l = a[t], u = a[(t + 1) % s], d = n * ((l.x - e.center.x) * r.x + (l.y - e.center.y) * r.y + (l.z - e.center.z) * r.z) - i, f = n * ((u.x - e.center.x) * r.x + (u.y - e.center.y) * r.y + (u.z - e.center.z) * r.z) - i;
+				if (d <= 1e-10 && o[c++].copy(l), d < 0 != f < 0) {
 					let e = d / (d - f);
-					a[c++].set(l.x + (u.x - l.x) * e, l.y + (u.y - l.y) * e, l.z + (u.z - l.z) * e);
+					o[c++].set(l.x + (u.x - l.x) * e, l.y + (u.y - l.y) * e, l.z + (u.z - l.z) * e);
 				}
 			}
-			o = c;
-			let l = i;
-			i = a, a = l;
+			s = c;
+			let l = a;
+			a = o, o = l;
 		}
-		for (let e = 0; e < o; e++) n.add(i[e], -r);
-		n.count === 0 && (this.pointTriangle(e.center, t, this.q), n.add(this.q, -r));
+		for (let e = 0; e < s; e++) r.add(a[e], -i);
+		r.count === 0 && (this.pointTriangle(e.center, t, this.q), r.add(this.q, -i));
 	}
 	mesh(e, n, r) {
 		n.triangleIndex.query(e.bounds, this.triangleCandidates, require_physics3d.physics3DDefaults.contactMargin);
@@ -223,10 +224,10 @@ var Narrowphase3D = class {
 		}
 		n.add(d, -n.distance);
 	}
-	roundRound(e, t, n) {
+	roundRound(e, t, r) {
 		this.segment(e.start, e.end, t.start, t.end, this.p, this.q);
-		let r = this.p.x - this.q.x, i = this.p.y - this.q.y, a = this.p.z - this.q.z, o = Math.hypot(r, i, a);
-		o > 1e-10 ? n.normal.set(r / o, i / o, a / o) : (n.normal.set(e.center.x - t.center.x, e.center.y - t.center.y, e.center.z - t.center.z), n.normal.length() < 1e-10 && n.normal.set(1, 0, 0), n.normal.normalize()), n.distance = o - e.radius - t.radius, this.q.x += n.normal.x * t.radius, this.q.y += n.normal.y * t.radius, this.q.z += n.normal.z * t.radius, n.add(this.q, -n.distance);
+		let i = this.p.x - this.q.x, a = this.p.y - this.q.y, o = this.p.z - this.q.z, s = require_hypot.hypot3(i, a, o);
+		s > 1e-10 ? r.normal.set(i / s, a / s, o / s) : (r.normal.set(e.center.x - t.center.x, e.center.y - t.center.y, e.center.z - t.center.z), r.normal.length() < 1e-10 && r.normal.set(1, 0, 0), r.normal.normalize()), r.distance = s - e.radius - t.radius, this.q.x += r.normal.x * t.radius, this.q.y += r.normal.y * t.radius, this.q.z += r.normal.z * t.radius, r.add(this.q, -r.distance);
 	}
 	plane(e, t, n) {
 		let r = t.normal, i = (e.center.x - t.center.x) * r.x + (e.center.y - t.center.y) * r.y + (e.center.z - t.center.z) * r.z >= 0 ? 1 : -1;

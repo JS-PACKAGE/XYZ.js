@@ -2,6 +2,7 @@ import { ribbonLimits } from '../../../src/data/ribbon.js';
 import { Geometry } from './geometry.js';
 import { Mesh, type TextureMaterial } from './mesh.js';
 import { Object3D } from './object3d.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface RibbonCurveKey {
   /** Normalized age, from zero (new) to one (expired). */
@@ -198,7 +199,7 @@ export class Ribbon3D extends Mesh {
         sx = ty * nz - tz * ny;
         sy = tz * nx - tx * nz;
         sz = tx * ny - ty * nx;
-        const length = Math.hypot(sx, sy, sz);
+        const length = hypot3(sx, sy, sz);
         if (length > 1e-12) {
           sx /= length;
           sy /= length;
@@ -208,7 +209,7 @@ export class Ribbon3D extends Mesh {
           sy = 0;
           sz = 0;
         }
-        const normalLength = Math.hypot(nx, ny, nz);
+        const normalLength = hypot3(nx, ny, nz);
         nx /= normalLength;
         ny /= normalLength;
         nz /= normalLength;
@@ -269,7 +270,7 @@ export class Trail3D extends Ribbon3D {
       y = matrix[13],
       z = matrix[14];
     if (
-      Math.hypot(x - this.lastX, y - this.lastY, z - this.lastZ) >=
+      hypot3(x - this.lastX, y - this.lastY, z - this.lastZ) >=
       this.minimumDistance
     ) {
       this.addPoint(x, y, z, time);

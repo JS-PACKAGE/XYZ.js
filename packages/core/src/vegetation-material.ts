@@ -1,6 +1,7 @@
 import { vegetationDefaults } from '../../../src/data/vegetation.js';
 import { NativePBRMaterial } from './native-pbr-material.js';
 import type { PBRMaterialOptions } from './pbr-material.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 export interface VegetationMaterialOptions extends PBRMaterialOptions {
   /** Maximum mesh-local displacement, fixed for the material lifetime. */
@@ -88,7 +89,7 @@ export class VegetationMaterial extends NativePBRMaterial {
       label: 'VegetationMaterial',
       deformationBounds:
         Math.fround(amplitude) *
-        Math.hypot(
+        hypot2(
           Math.fround(direction[0] / length),
           Math.fround(direction[1] / length),
         ),

@@ -4,6 +4,7 @@ import { PointLight, SpotLight } from './lights.js';
 import type { Scene } from './scene.js';
 import type { Mesh } from './mesh.js';
 import { sphereIsFinite, type BoundingSphere3D } from './render-bounds.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface LightSelectionOptions {
   pointLights?: number;
@@ -402,7 +403,7 @@ export class SpatialLightSelector implements SelectedLights {
           continue;
         }
       }
-      const distance = Math.hypot(dx, dy, dz);
+      const distance = hypot3(dx, dy, dz);
       const nearest = Math.max(0, distance - radius);
       const color = Math.max(light.color[0], light.color[1], light.color[2]);
       if (

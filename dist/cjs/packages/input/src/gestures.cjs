@@ -1,6 +1,7 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_input = require("../../../src/data/input.cjs");
 //#region dist/packages/input/src/gestures.js
-var t = Object.freeze({
+var n = Object.freeze({
 	x: 0,
 	y: 0
 });
@@ -44,7 +45,7 @@ var GestureRecognizer = class extends EventTarget {
 	update() {
 		if (this.disposed || this.pair) return;
 		let e = this.clock();
-		for (let n of this.contacts.values()) n.moved || n.longPressed || n.multi || e - n.startTime < this.thresholds.longPressMs || (n.longPressed = !0, this.emit(`longpress`, `end`, [n], n.x, n.y, t));
+		for (let t of this.contacts.values()) t.moved || t.longPressed || t.multi || e - t.startTime < this.thresholds.longPressMs || (t.longPressed = !0, this.emit(`longpress`, `end`, [t], t.x, t.y, n));
 	}
 	reset() {
 		for (let e of [...this.contacts.values()]) this.cancel(e.id);
@@ -53,17 +54,17 @@ var GestureRecognizer = class extends EventTarget {
 	destroy() {
 		this.disposed ||= (this.reset(), !0);
 	}
-	down(e, t) {
+	down(e, n) {
 		if (this.contacts.has(e.id) || this.contacts.size >= 2) return;
-		let { x: n, y: r } = e.position, i = {
+		let { x: r, y: i } = e.position, a = {
 			id: e.id,
 			type: e.type,
-			startX: n,
-			startY: r,
-			startTime: t,
-			x: n,
-			y: r,
-			lastTime: t,
+			startX: r,
+			startY: i,
+			startTime: n,
+			x: r,
+			y: i,
+			lastTime: n,
 			vx: 0,
 			vy: 0,
 			moved: !1,
@@ -71,66 +72,66 @@ var GestureRecognizer = class extends EventTarget {
 			longPressed: !1,
 			multi: !1
 		};
-		if (this.contacts.set(i.id, i), this.contacts.size < 2) return;
-		let [a, o] = [...this.contacts.values()];
-		a.panning && this.emitPan(`cancel`, a), a.multi = o.multi = !0, a.panning = !1, this.lastTap = void 0;
-		let s = Math.atan2(o.y - a.y, o.x - a.x);
+		if (this.contacts.set(a.id, a), this.contacts.size < 2) return;
+		let [o, s] = [...this.contacts.values()];
+		o.panning && this.emitPan(`cancel`, o), o.multi = s.multi = !0, o.panning = !1, this.lastTap = void 0;
+		let c = Math.atan2(s.y - o.y, s.x - o.x);
 		this.pair = {
-			a,
-			b: o,
-			startDistance: Math.max(Math.hypot(o.x - a.x, o.y - a.y), 1e-6),
-			startAngle: s,
-			startCenterX: (a.x + o.x) / 2,
-			startCenterY: (a.y + o.y) / 2,
-			lastAngle: s,
+			a: o,
+			b: s,
+			startDistance: Math.max(require_hypot.hypot2(s.x - o.x, s.y - o.y), 1e-6),
+			startAngle: c,
+			startCenterX: (o.x + s.x) / 2,
+			startCenterY: (o.y + s.y) / 2,
+			lastAngle: c,
 			rotation: 0,
 			pinching: !1,
 			rotating: !1
 		};
 	}
-	move(e, t) {
-		let n = this.contacts.get(e.id);
-		if (!n) return;
-		let { x: r, y: i } = e.position, a = Math.max(t - n.lastTime, 1) / 1e3;
-		if (n.vx = .5 * n.vx + .5 * (r - n.x) / a, n.vy = .5 * n.vy + .5 * (i - n.y) / a, n.x = r, n.y = i, n.lastTime = t, n.multi && !this.pair) return;
+	move(e, n) {
+		let r = this.contacts.get(e.id);
+		if (!r) return;
+		let { x: i, y: a } = e.position, o = Math.max(n - r.lastTime, 1) / 1e3;
+		if (r.vx = .5 * r.vx + .5 * (i - r.x) / o, r.vy = .5 * r.vy + .5 * (a - r.y) / o, r.x = i, r.y = a, r.lastTime = n, r.multi && !this.pair) return;
 		if (this.pair) {
 			this.movePair(this.pair);
 			return;
 		}
-		let o = Math.hypot(r - n.startX, i - n.startY);
-		!n.moved && o > this.thresholds.tapSlop && (n.moved = !0), !n.panning && n.moved && o >= this.thresholds.panThreshold ? (n.panning = !0, this.emitPan(`start`, n)) : n.panning && this.emitPan(`change`, n);
+		let s = require_hypot.hypot2(i - r.startX, a - r.startY);
+		!r.moved && s > this.thresholds.tapSlop && (r.moved = !0), !r.panning && r.moved && s >= this.thresholds.panThreshold ? (r.panning = !0, this.emitPan(`start`, r)) : r.panning && this.emitPan(`change`, r);
 	}
 	movePair(e) {
-		let { a: t, b: n } = e, r = Math.hypot(n.x - t.x, n.y - t.y) / e.startDistance, i = Math.atan2(n.y - t.y, n.x - t.x), a = i - e.lastAngle;
-		a > Math.PI ? a -= 2 * Math.PI : a < -Math.PI && (a += 2 * Math.PI), e.rotation += a, e.lastAngle = i, !e.pinching && Math.abs(r - 1) >= this.thresholds.pinchThreshold ? (e.pinching = !0, this.emitPair(`pinch`, `start`, e)) : e.pinching && this.emitPair(`pinch`, `change`, e), !e.rotating && Math.abs(e.rotation) >= this.thresholds.rotateThreshold ? (e.rotating = !0, this.emitPair(`rotate`, `start`, e)) : e.rotating && this.emitPair(`rotate`, `change`, e);
+		let { a: n, b: r } = e, i = require_hypot.hypot2(r.x - n.x, r.y - n.y) / e.startDistance, a = Math.atan2(r.y - n.y, r.x - n.x), o = a - e.lastAngle;
+		o > Math.PI ? o -= 2 * Math.PI : o < -Math.PI && (o += 2 * Math.PI), e.rotation += o, e.lastAngle = a, !e.pinching && Math.abs(i - 1) >= this.thresholds.pinchThreshold ? (e.pinching = !0, this.emitPair(`pinch`, `start`, e)) : e.pinching && this.emitPair(`pinch`, `change`, e), !e.rotating && Math.abs(e.rotation) >= this.thresholds.rotateThreshold ? (e.rotating = !0, this.emitPair(`rotate`, `start`, e)) : e.rotating && this.emitPair(`rotate`, `change`, e);
 	}
-	up(e, n) {
-		let r = this.contacts.get(e);
-		if (!r) return;
-		let i = this.pair;
-		if (i && (i.a === r || i.b === r)) {
-			i.pinching && this.emitPair(`pinch`, `end`, i), i.rotating && this.emitPair(`rotate`, `end`, i), this.pair = void 0, this.contacts.delete(e);
+	up(e, r) {
+		let i = this.contacts.get(e);
+		if (!i) return;
+		let a = this.pair;
+		if (a && (a.a === i || a.b === i)) {
+			a.pinching && this.emitPair(`pinch`, `end`, a), a.rotating && this.emitPair(`rotate`, `end`, a), this.pair = void 0, this.contacts.delete(e);
 			return;
 		}
-		if (this.contacts.delete(e), r.multi) return;
-		let a = n - r.startTime, o = r.x - r.startX, s = r.y - r.startY;
-		if (r.panning && this.emitPan(`end`, r), r.longPressed) return;
-		let c = Math.hypot(r.vx, r.vy);
-		if (r.moved && a <= this.thresholds.swipeMaxMs && Math.hypot(o, s) >= this.thresholds.swipeMinDistance && c >= this.thresholds.swipeMinVelocity) {
-			let e = Math.abs(o) >= Math.abs(s) ? o < 0 ? `left` : `right` : s < 0 ? `up` : `down`;
-			this.emit(`swipe`, `end`, [r], r.x, r.y, {
-				x: o,
-				y: s
+		if (this.contacts.delete(e), i.multi) return;
+		let o = r - i.startTime, s = i.x - i.startX, c = i.y - i.startY;
+		if (i.panning && this.emitPan(`end`, i), i.longPressed) return;
+		let l = require_hypot.hypot2(i.vx, i.vy);
+		if (i.moved && o <= this.thresholds.swipeMaxMs && require_hypot.hypot2(s, c) >= this.thresholds.swipeMinDistance && l >= this.thresholds.swipeMinVelocity) {
+			let e = Math.abs(s) >= Math.abs(c) ? s < 0 ? `left` : `right` : c < 0 ? `up` : `down`;
+			this.emit(`swipe`, `end`, [i], i.x, i.y, {
+				x: s,
+				y: c
 			}, e);
 			return;
 		}
-		if (r.moved || a > this.thresholds.tapMaxMs) return;
-		this.emit(`tap`, `end`, [r], r.x, r.y, t);
-		let l = this.lastTap;
-		l && n - l.time <= this.thresholds.doubleTapMs && Math.hypot(r.x - l.x, r.y - l.y) <= this.thresholds.doubleTapSlop ? (this.lastTap = void 0, this.emit(`doubletap`, `end`, [r], r.x, r.y, t)) : this.lastTap = {
-			x: r.x,
-			y: r.y,
-			time: n
+		if (i.moved || o > this.thresholds.tapMaxMs) return;
+		this.emit(`tap`, `end`, [i], i.x, i.y, n);
+		let u = this.lastTap;
+		u && r - u.time <= this.thresholds.doubleTapMs && require_hypot.hypot2(i.x - u.x, i.y - u.y) <= this.thresholds.doubleTapSlop ? (this.lastTap = void 0, this.emit(`doubletap`, `end`, [i], i.x, i.y, n)) : this.lastTap = {
+			x: i.x,
+			y: i.y,
+			time: r
 		};
 	}
 	cancel(e) {
@@ -149,12 +150,12 @@ var GestureRecognizer = class extends EventTarget {
 			y: t.y - t.startY
 		});
 	}
-	emitPair(e, t, n) {
-		let { a: r, b: i } = n, a = (r.x + i.x) / 2, o = (r.y + i.y) / 2;
-		this.emit(e, t, [r, i], a, o, {
-			x: a - n.startCenterX,
-			y: o - n.startCenterY
-		}, void 0, Math.hypot(i.x - r.x, i.y - r.y) / n.startDistance, n.rotation);
+	emitPair(e, n, r) {
+		let { a: i, b: a } = r, o = (i.x + a.x) / 2, s = (i.y + a.y) / 2;
+		this.emit(e, n, [i, a], o, s, {
+			x: o - r.startCenterX,
+			y: s - r.startCenterY
+		}, void 0, require_hypot.hypot2(a.x - i.x, a.y - i.y) / r.startDistance, r.rotation);
 	}
 	emit(e, t, n, r, i, a, o, s = 1, c = 0) {
 		let l = n[0], u = {

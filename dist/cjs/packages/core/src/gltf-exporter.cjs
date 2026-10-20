@@ -1,4 +1,5 @@
 const require_texture = require("../../assets/src/texture.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_morph = require("./morph.cjs");
 const require_object3d = require("./object3d.cjs");
 const require_mesh = require("./mesh.cjs");
@@ -62,11 +63,11 @@ async function png(t) {
 	let r = n.getContext(`2d`);
 	return r || reject(`PNG encoding requires a 2D canvas context.`), r.drawImage(t.image, 0, 0), (await new Promise((t, r) => n.toBlob((n) => n ? t(n) : r(new require_texture.AssetError(`PNG encoding failed.`)), `image/png`))).arrayBuffer();
 }
-async function exportGLTF(e, _ = {}) {
-	_.textures !== void 0 && _.textures !== `embedded` && _.textures !== `external` && reject(`unknown texture mode.`);
-	let v = _.bufferURI ?? `scene.bin`;
-	(typeof v != `string` || !v.length) && reject(`bufferURI must be nonempty.`);
-	let y = {
+async function exportGLTF(e, v = {}) {
+	v.textures !== void 0 && v.textures !== `embedded` && v.textures !== `external` && reject(`unknown texture mode.`);
+	let y = v.bufferURI ?? `scene.bin`;
+	(typeof y != `string` || !y.length) && reject(`bufferURI must be nonempty.`);
+	let b = {
 		asset: {
 			version: `2.0`,
 			generator: `XYZ.js`
@@ -85,21 +86,21 @@ async function exportGLTF(e, _ = {}) {
 		accessors: [],
 		bufferViews: [],
 		buffers: []
-	}, b = [], x = 0, S = /* @__PURE__ */ new Set();
+	}, x = [], S = 0, C = /* @__PURE__ */ new Set();
 	function extension(e) {
-		S.add(e);
+		C.add(e);
 	}
 	function view(e) {
-		x = Math.ceil(x / 4) * 4;
-		let t = y.bufferViews.length;
-		return y.bufferViews.push({
+		S = Math.ceil(S / 4) * 4;
+		let t = b.bufferViews.length;
+		return b.bufferViews.push({
 			buffer: 0,
-			byteOffset: x,
+			byteOffset: S,
 			byteLength: e.byteLength
-		}), b.push({
-			offset: x,
+		}), x.push({
+			offset: S,
 			bytes: e
-		}), x += e.byteLength, t;
+		}), S += e.byteLength, t;
 	}
 	function accessor(e, t, n, r = 5126, i = !1) {
 		finite(e, `accessor`), (!e.length || e.length % t) && reject(`invalid accessor length.`);
@@ -123,32 +124,32 @@ async function exportGLTF(e, _ = {}) {
 			}
 			o.min = e, o.max = n;
 		}
-		return y.accessors.push(o), y.accessors.length - 1;
+		return b.accessors.push(o), b.accessors.length - 1;
 	}
-	let C = /* @__PURE__ */ new Map();
+	let w = /* @__PURE__ */ new Map();
 	async function textureInfo(e, t, n, r, i) {
 		e.destroyed && reject(`destroyed texture.`);
-		let a = C.get(e);
+		let a = w.get(e);
 		if (a === void 0) {
-			if (a = y.images.length, _.textures === `external`) {
-				let t = _.textureURI?.(e);
-				(typeof t != `string` || !t.length) && reject(`external textures require a nonempty textureURI.`), y.images.push({ uri: t });
-			} else y.images.push({
+			if (a = b.images.length, v.textures === `external`) {
+				let t = v.textureURI?.(e);
+				(typeof t != `string` || !t.length) && reject(`external textures require a nonempty textureURI.`), b.images.push({ uri: t });
+			} else b.images.push({
 				bufferView: view(new Uint8Array(await png(e))),
 				mimeType: `image/png`
 			});
-			C.set(e, a);
+			w.set(e, a);
 		}
 		((t?.maxAnisotropy ?? 1) !== 1 || (t?.lodMinClamp ?? 0) !== 0 || ![0, 32].includes(t?.lodMaxClamp ?? 32)) && reject(`anisotropy or custom LOD clamps have no glTF sampler representation.`);
-		let wrap = (e) => e === `repeat` ? 10497 : e === `mirror-repeat` ? 33648 : 33071, o = t?.minFilter === `nearest`, s = t?.lodMaxClamp === 0 ? o ? 9728 : 9729 : t?.mipmapFilter === `nearest` ? o ? 9984 : 9985 : o ? 9986 : 9987, c = y.samplers.length;
-		y.samplers.push({
+		let wrap = (e) => e === `repeat` ? 10497 : e === `mirror-repeat` ? 33648 : 33071, o = t?.minFilter === `nearest`, s = t?.lodMaxClamp === 0 ? o ? 9728 : 9729 : t?.mipmapFilter === `nearest` ? o ? 9984 : 9985 : o ? 9986 : 9987, c = b.samplers.length;
+		b.samplers.push({
 			minFilter: s,
 			magFilter: t?.magFilter === `nearest` ? 9728 : 9729,
 			wrapS: wrap(t?.addressModeU),
 			wrapT: wrap(t?.addressModeV)
 		});
-		let u = y.textures.length;
-		y.textures.push({
+		let u = b.textures.length;
+		b.textures.push({
 			source: a,
 			sampler: c
 		});
@@ -159,7 +160,7 @@ async function exportGLTF(e, _ = {}) {
 		if (d?.texCoord === 1 && !i && reject(`material selects missing UV1.`), d) {
 			let [e, t, n, r, i, a] = d.transform;
 			if (e !== 1 || t !== 0 || n !== 0 || r !== 1 || i !== 0 || a !== 0) {
-				let o = Math.hypot(e, t), s = o ? Math.atan2(t, e) : Math.atan2(-n, r), c = -Math.sin(s) * n + Math.cos(s) * r;
+				let o = require_hypot.hypot2(e, t), s = o ? Math.atan2(t, e) : Math.atan2(-n, r), c = -Math.sin(s) * n + Math.cos(s) * r;
 				(Math.abs(n + Math.sin(s) * c) > 1e-5 || Math.abs(r - Math.cos(s) * c) > 1e-5) && reject(`texture transform contains shear.`), extension(`KHR_texture_transform`), f.extensions = { KHR_texture_transform: {
 					offset: [i, a],
 					rotation: s,
@@ -358,29 +359,29 @@ async function exportGLTF(e, _ = {}) {
 			}
 			l.extensions = u;
 		}
-		return y.materials.push(l), y.materials.length - 1;
+		return b.materials.push(l), b.materials.length - 1;
 	}
-	let w;
+	let T;
 	if (e instanceof require_scene.Scene) {
 		e.destroyed && reject(`destroyed Scene.`);
 		let t = [...e.objects];
-		t.some((e) => !(e instanceof require_object3d.Object3D)) && reject(`Scene contains non-3D objects.`), w = t.filter((e) => !e.parent), (e.pointLights.length || e.spotLights.length || e.environment) && reject(`scene lights/environment are unsupported.`);
-	} else w = e instanceof require_object3d.Object3D ? [e] : e;
-	Array.isArray(w) || reject(`input must be Scene, Object3D or an array.`);
-	let T = /* @__PURE__ */ new Map(), E = [];
+		t.some((e) => !(e instanceof require_object3d.Object3D)) && reject(`Scene contains non-3D objects.`), T = t.filter((e) => !e.parent), (e.pointLights.length || e.spotLights.length || e.environment) && reject(`scene lights/environment are unsupported.`);
+	} else T = e instanceof require_object3d.Object3D ? [e] : e;
+	Array.isArray(T) || reject(`input must be Scene, Object3D or an array.`);
+	let E = /* @__PURE__ */ new Map(), D = [];
 	function visit(e, t) {
-		(!(e instanceof require_object3d.Object3D) || e.destroyed) && reject(`invalid/destroyed node.`), (t > 256 || T.has(e)) && reject(`duplicate nodes, overlapping roots or excessive hierarchy depth.`), e.constructor !== require_object3d.Object3D && e.constructor !== require_group.Group && e.constructor !== require_mesh.Mesh && e.constructor !== require_skinned_mesh.SkinnedMesh && reject(`custom/instanced/procedural node types are unsupported.`), (!e.visible || e.body || e.collider) && reject(`hidden nodes and physics attachments are unsupported.`), T.set(e, E.length), E.push(e), y.nodes.push(pose(e, [
+		(!(e instanceof require_object3d.Object3D) || e.destroyed) && reject(`invalid/destroyed node.`), (t > 256 || E.has(e)) && reject(`duplicate nodes, overlapping roots or excessive hierarchy depth.`), e.constructor !== require_object3d.Object3D && e.constructor !== require_group.Group && e.constructor !== require_mesh.Mesh && e.constructor !== require_skinned_mesh.SkinnedMesh && reject(`custom/instanced/procedural node types are unsupported.`), (!e.visible || e.body || e.collider) && reject(`hidden nodes and physics attachments are unsupported.`), E.set(e, D.length), D.push(e), b.nodes.push(pose(e, [
 			e.scale.x,
 			e.scale.y,
 			e.scale.z
 		]));
 		for (let n of e.children) visit(n, t + 1);
 	}
-	for (let e of w) e.parent && reject(`export roots must be parentless; export their ancestor to preserve local transforms.`), visit(e, 0), y.scenes[0].nodes.push(T.get(e));
-	let D = /* @__PURE__ */ new Map(), O = /* @__PURE__ */ new Map();
-	for (let e of E) {
-		let t = y.nodes[T.get(e)];
-		if (e.children.size && (t.children = [...e.children].map((e) => T.get(e))), !(e instanceof require_mesh.Mesh)) continue;
+	for (let e of T) e.parent && reject(`export roots must be parentless; export their ancestor to preserve local transforms.`), visit(e, 0), b.scenes[0].nodes.push(E.get(e));
+	let O = /* @__PURE__ */ new Map(), k = /* @__PURE__ */ new Map();
+	for (let e of D) {
+		let t = b.nodes[E.get(e)];
+		if (e.children.size && (t.children = [...e.children].map((e) => E.get(e))), !(e instanceof require_mesh.Mesh)) continue;
 		let n = e.renderGeometry, r = e.morph && morphExportSnapshot(e.morph), a = r?.vertices ?? n.vertices, o = a.length / 8, stream = (e, t) => {
 			let n = new Float32Array(o * t);
 			for (let r = 0; r < o; r++) for (let i = 0; i < t; i++) n[r * t + i] = a[r * 8 + e + i];
@@ -399,8 +400,8 @@ async function exportGLTF(e, _ = {}) {
 			material: await materialIndex(e.material, !!n.uvs1),
 			mode: 4
 		};
-		if (D.set(e, c), e instanceof require_skinned_mesh.SkinnedMesh) {
-			(e.joints.length > 65536 || e.joints.some((e) => !T.has(e))) && reject(`skin joints must be included in the exported hierarchy and fit unsigned short.`);
+		if (O.set(e, c), e instanceof require_skinned_mesh.SkinnedMesh) {
+			(e.joints.length > 65536 || e.joints.some((e) => !E.has(e))) && reject(`skin joints must be included in the exported hierarchy and fit unsigned short.`);
 			let n = e.influencesPerVertex;
 			for (let t = 0; t < n / 4; t++) {
 				let r = new Uint16Array(o * 4), i = new Float32Array(o * 4);
@@ -411,8 +412,8 @@ async function exportGLTF(e, _ = {}) {
 				s[`JOINTS_${t}`] = accessor(r, 4, `VEC4`, 5123), s[`WEIGHTS_${t}`] = accessor(i, 4, `VEC4`);
 			}
 			let r = new Float32Array(e.joints.length * 16);
-			e.inverseBindMatrices.forEach((e, t) => r.set(e.elements, t * 16)), t.skin = y.skins.length, y.skins.push({
-				joints: e.joints.map((e) => T.get(e)),
+			e.inverseBindMatrices.forEach((e, t) => r.set(e.elements, t * 16)), t.skin = b.skins.length, b.skins.push({
+				joints: e.joints.map((e) => E.get(e)),
 				inverseBindMatrices: accessor(r, 16, `MAT4`)
 			});
 		}
@@ -422,21 +423,21 @@ async function exportGLTF(e, _ = {}) {
 				let t = {};
 				return e.positions && (t.POSITION = accessor(e.positions, 3, `VEC3`, 5126, !0)), e.normals && (t.NORMAL = accessor(e.normals, 3, `VEC3`)), e.tangents && (t.TANGENT = accessor(e.tangents, 3, `VEC3`)), Object.keys(t).length || (t.POSITION = accessor(new Float32Array(o * 3), 3, `VEC3`, 5126, !0)), t;
 			}), l.weights = Array.from(e.morph.weights.values);
-			let t = O.get(e.morph.weights) ?? [];
-			t.push(T.get(e)), O.set(e.morph.weights, t);
+			let t = k.get(e.morph.weights) ?? [];
+			t.push(E.get(e)), k.set(e.morph.weights, t);
 		}
-		t.mesh = y.meshes.length, y.meshes.push(l);
+		t.mesh = b.meshes.length, b.meshes.push(l);
 	}
-	let k = _.variants ?? [];
-	if (k.length) {
+	let A = v.variants ?? [];
+	if (A.length) {
 		extension(`KHR_materials_variants`);
 		let e = /* @__PURE__ */ new Set();
-		y.extensions = { KHR_materials_variants: { variants: k.map((t) => ((!t.name || e.has(t.name)) && reject(`variant names must be unique and nonempty.`), e.add(t.name), { name: t.name })) } };
+		b.extensions = { KHR_materials_variants: { variants: A.map((t) => ((!t.name || e.has(t.name)) && reject(`variant names must be unique and nonempty.`), e.add(t.name), { name: t.name })) } };
 		let t = /* @__PURE__ */ new Map();
-		for (let e = 0; e < k.length; e++) {
+		for (let e = 0; e < A.length; e++) {
 			let n = /* @__PURE__ */ new Set();
-			for (let r of k[e].mappings) {
-				(!D.has(r.mesh) || n.has(r.mesh)) && reject(`variant mapping references a missing or duplicate mesh.`), n.add(r.mesh);
+			for (let r of A[e].mappings) {
+				(!O.has(r.mesh) || n.has(r.mesh)) && reject(`variant mapping references a missing or duplicate mesh.`), n.add(r.mesh);
 				let i = t.get(r.mesh) ?? [];
 				i.push({
 					material: await materialIndex(r.material, !!r.mesh.renderGeometry.uvs1),
@@ -444,13 +445,13 @@ async function exportGLTF(e, _ = {}) {
 				}), t.set(r.mesh, i);
 			}
 		}
-		for (let [e, n] of t) D.get(e).extensions = { KHR_materials_variants: { mappings: n } };
+		for (let [e, n] of t) O.get(e).extensions = { KHR_materials_variants: { mappings: n } };
 	}
-	for (let e of _.animations ?? []) {
+	for (let e of v.animations ?? []) {
 		e instanceof require_animation.AnimationClip || reject(`animations require AnimationClip.`);
 		let t = [], r = [], i = /* @__PURE__ */ new Set();
 		for (let n of e.tracks) {
-			let e = n.target instanceof require_morph.MorphWeights ? O.get(n.target) : T.has(n.target) ? [T.get(n.target)] : void 0;
+			let e = n.target instanceof require_morph.MorphWeights ? k.get(n.target) : E.has(n.target) ? [E.get(n.target)] : void 0;
 			e?.length || reject(`animation target is outside the exported hierarchy.`);
 			let a = accessor(n.times, 1, `SCALAR`, 5126, !0), s = accessor(n.values, n.path === `weights` ? 1 : n.size, n.path === `rotation` ? `VEC4` : n.path === `weights` ? `SCALAR` : `VEC3`);
 			for (let o of e) {
@@ -468,47 +469,47 @@ async function exportGLTF(e, _ = {}) {
 				});
 			}
 		}
-		t.length || reject(`empty animation clips are unsupported.`), y.animations.push({
+		t.length || reject(`empty animation clips are unsupported.`), b.animations.push({
 			name: e.name,
 			channels: t,
 			samplers: r
 		});
 	}
-	let A = _.camera ?? (e instanceof require_scene.Scene ? e.camera3D : void 0);
-	if (A) {
-		let e = _.cameraAspect ?? 1;
-		(!Number.isFinite(e) || e <= 0 || !Number.isFinite(A.near) || !Number.isFinite(A.far) || A.far <= A.near) && reject(`invalid camera range/aspect.`);
+	let j = v.camera ?? (e instanceof require_scene.Scene ? e.camera3D : void 0);
+	if (j) {
+		let e = v.cameraAspect ?? 1;
+		(!Number.isFinite(e) || e <= 0 || !Number.isFinite(j.near) || !Number.isFinite(j.far) || j.far <= j.near) && reject(`invalid camera range/aspect.`);
 		let t;
-		A instanceof require_perspective_camera.PerspectiveCamera ? ((A.near <= 0 || !Number.isFinite(A.fov) || A.fov <= 0 || A.fov >= Math.PI) && reject(`invalid perspective camera.`), t = {
+		j instanceof require_perspective_camera.PerspectiveCamera ? ((j.near <= 0 || !Number.isFinite(j.fov) || j.fov <= 0 || j.fov >= Math.PI) && reject(`invalid perspective camera.`), t = {
 			type: `perspective`,
 			perspective: {
-				yfov: A.fov,
+				yfov: j.fov,
 				aspectRatio: e,
-				znear: A.near,
-				zfar: A.far
+				znear: j.near,
+				zfar: j.far
 			}
-		}) : A instanceof require_orthographic_camera.OrthographicCamera ? ((A.near < 0 || !Number.isFinite(A.height) || A.height <= 0 || !Number.isFinite(A.zoom) || A.zoom <= 0) && reject(`invalid orthographic camera.`), t = {
+		}) : j instanceof require_orthographic_camera.OrthographicCamera ? ((j.near < 0 || !Number.isFinite(j.height) || j.height <= 0 || !Number.isFinite(j.zoom) || j.zoom <= 0) && reject(`invalid orthographic camera.`), t = {
 			type: `orthographic`,
 			orthographic: {
-				xmag: A.height * e / (2 * A.zoom),
-				ymag: A.height / (2 * A.zoom),
-				znear: A.near,
-				zfar: A.far
+				xmag: j.height * e / (2 * j.zoom),
+				ymag: j.height / (2 * j.zoom),
+				znear: j.near,
+				zfar: j.far
 			}
-		}) : reject(`unsupported camera.`), y.scenes[0].nodes.push(y.nodes.length), y.nodes.push({
-			...pose(A),
-			camera: y.cameras.length
-		}), y.cameras.push(t);
+		}) : reject(`unsupported camera.`), b.scenes[0].nodes.push(b.nodes.length), b.nodes.push({
+			...pose(j),
+			camera: b.cameras.length
+		}), b.cameras.push(t);
 	}
-	x = Math.ceil(x / 4) * 4;
-	let j = new ArrayBuffer(x), M = new Uint8Array(j);
-	for (let e of b) M.set(e.bytes, e.offset);
-	return x && y.buffers.push({
-		byteLength: x,
-		uri: v
-	}), S.size && (y.extensionsUsed = [...S], y.extensionsRequired = [...S]), {
-		json: y,
-		buffers: x ? [j] : []
+	S = Math.ceil(S / 4) * 4;
+	let M = new ArrayBuffer(S), N = new Uint8Array(M);
+	for (let e of x) N.set(e.bytes, e.offset);
+	return S && b.buffers.push({
+		byteLength: S,
+		uri: y
+	}), C.size && (b.extensionsUsed = [...C], b.extensionsRequired = [...C]), {
+		json: b,
+		buffers: S ? [M] : []
 	};
 }
 async function exportGLB(e, t = {}) {

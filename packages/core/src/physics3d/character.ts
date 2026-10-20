@@ -13,6 +13,7 @@ import { PhysicsWorld3D } from './world.js';
 import { physics3DDefaults } from '../../../../src/data/physics3d.js';
 import { character3DDefaults } from '../../../../src/data/character3d.js';
 import { CharacterSupportPose3D } from './character-support.js';
+import { hypot3, hypot4 } from '../../../math/src/hypot.js';
 export interface CharacterControllerOptions3D {
   skin?: number;
   stepHeight?: number;
@@ -287,7 +288,7 @@ export class CharacterController3D {
       Math.abs(o.rotation.x) > character3DDefaults.poseTolerance ||
       Math.abs(o.rotation.z) > character3DDefaults.poseTolerance ||
       Math.abs(
-        Math.hypot(o.rotation.x, o.rotation.y, o.rotation.z, o.rotation.w) - 1,
+        hypot4(o.rotation.x, o.rotation.y, o.rotation.z, o.rotation.w) - 1,
       ) > character3DDefaults.poseTolerance
     )
       throw new Error(
@@ -327,7 +328,7 @@ export class CharacterController3D {
     const p = this.object.position,
       expected = this.expectedPosition;
     if (
-      Math.hypot(p.x - expected.x, p.y - expected.y, p.z - expected.z) >
+      hypot3(p.x - expected.x, p.y - expected.y, p.z - expected.z) >
       character3DDefaults.poseTolerance
     ) {
       this.clearSupport('teleport');
@@ -575,13 +576,13 @@ export class CharacterController3D {
       }
     if (!changed) return;
     next.capture(matrix);
-    const translation = Math.hypot(
+    const translation = hypot3(
         next.position.x - previous.position.x,
         next.position.y - previous.position.y,
         next.position.z - previous.position.z,
       ),
       angle = previous.angleTo(next),
-      radius = Math.hypot(
+      radius = hypot3(
         this.localAnchor.x * previous.scale.x,
         this.localAnchor.y * previous.scale.y,
         this.localAnchor.z * previous.scale.z,

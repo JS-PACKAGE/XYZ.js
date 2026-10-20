@@ -6,6 +6,7 @@ import type {
   AnimationMixer,
 } from './animation.js';
 import type { AnimationMask } from './animation-pose.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 export interface AnimationBlendPoint1D {
   clip: AnimationClip;
@@ -295,7 +296,7 @@ export class AnimationBlendTree implements AnimationController {
               (ex * ex + ey * ey),
           ),
         );
-        const distance = Math.hypot(
+        const distance = hypot2(
           this.x[from] + ex * t - px,
           this.y[from] + ey * t - py,
         );

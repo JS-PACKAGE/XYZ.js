@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_rendering = require("../../../src/data/rendering.cjs");
 const require_perspective_camera = require("./perspective-camera.cjs");
@@ -5,7 +6,7 @@ const require_orthographic_camera = require("./orthographic-camera.cjs");
 const require_light_selection = require("./light-selection.cjs");
 const require_render_data = require("./render-data.cjs");
 //#region dist/packages/core/src/shadow-atlas.js
-var c = [
+var l = [
 	[
 		1,
 		0,
@@ -85,15 +86,15 @@ var ShadowAtlas = class {
 		for (let e = 0; e < this.points.length; e++) {
 			let t = this.points[e];
 			this.data[16 + e] = this.count, this.data[32 + e] = t.id;
-			for (let e of c) this.target.set(t.position.x + e[0], t.position.y + e[1], t.position.z + e[2]), this.projectLight(t, Math.PI / 2);
+			for (let e of l) this.target.set(t.position.x + e[0], t.position.y + e[1], t.position.z + e[2]), this.projectLight(t, Math.PI / 2);
 		}
 		for (let e = 0; e < this.spots.length; e++) {
 			let t = this.spots[e];
 			this.data[24 + e] = this.count, this.data[40 + e] = t.id, this.target.copy(t.position).add(t.direction), this.projectLight(t, t.outerAngle * 2);
 		}
 		this.grid = Math.ceil(Math.sqrt(this.count)), this.size = this.grid * n.mapSize, this.data[0] = this.count, this.data[1] = this.grid, this.data[2] = n.mapSize, this.data[3] = n.bias;
-		let l = 48 + require_rendering.shadowLimits.maps * 16;
-		this.data[l] = n.cascadeBlend, this.data[l + 1] = Math.max(a.near, n.near), this.data[l + 2] = n.slopeBias;
+		let c = 48 + require_rendering.shadowLimits.maps * 16;
+		this.data[c] = n.cascadeBlend, this.data[c + 1] = Math.max(a.near, n.near), this.data[c + 2] = n.slopeBias;
 		for (let e = 0; e < this.count; e++) this.data.set(this.matrices[e].elements, 48 + e * 16), this.projections.set(this.matrices[e].elements, e * 64);
 	}
 	pointBase(e) {
@@ -134,22 +135,22 @@ var ShadowAtlas = class {
 		}
 		let o = i;
 		for (let t = 0; t < r.cascades; t++) {
-			let s = (t + 1) / r.cascades, c = i + (a - i) * s, l = c + (i * (a / i) ** s - c) * r.cascadeLambda;
-			this.data[4 + t] = l, this.center.set(0, 0, 0);
+			let s = (t + 1) / r.cascades, l = i + (a - i) * s, u = l + (i * (a / i) ** s - l) * r.cascadeLambda;
+			this.data[4 + t] = u, this.center.set(0, 0, 0);
 			for (let e = 0; e < 8; e++) {
-				let a = this.nearCorners[e % 4], s = this.farCorners[e % 4], c = ((e < 4 ? o - (o - (t > 1 ? this.data[2 + t] : i)) * r.cascadeBlend : l) - n.near) / (n.far - n.near), u = this.corners[e];
-				u.set(a.x + (s.x - a.x) * c, a.y + (s.y - a.y) * c, a.z + (s.z - a.z) * c), this.center.add(u);
+				let a = this.nearCorners[e % 4], s = this.farCorners[e % 4], c = ((e < 4 ? o - (o - (t > 1 ? this.data[2 + t] : i)) * r.cascadeBlend : u) - n.near) / (n.far - n.near), l = this.corners[e];
+				l.set(a.x + (s.x - a.x) * c, a.y + (s.y - a.y) * c, a.z + (s.z - a.z) * c), this.center.add(l);
 			}
 			this.center.scale(1 / 8);
-			let u = 0;
-			for (let e of this.corners) u = Math.max(u, Math.hypot(e.x - this.center.x, e.y - this.center.y, e.z - this.center.z));
-			u = Math.ceil(u * 16) / 16;
-			let d = this.orthographic, f = e.directionalLight.direction, p = f.length();
-			if (p === 0) throw RangeError(`Directional shadow light direction cannot be zero.`);
-			let m = Math.max(r.far, u * 4);
-			d.position.set(this.center.x + f.x / p * m / 2, this.center.y + f.y / p * m / 2, this.center.z + f.z / p * m / 2), d.lookAt(this.center), d.near = r.near, d.far = m, d.height = u * 2;
-			let h = this.matrices[this.count++].copy(d.updateMatrix(1));
-			h.elements[12] = Math.round(h.elements[12] * r.mapSize / 2) * 2 / r.mapSize, h.elements[13] = Math.round(h.elements[13] * r.mapSize / 2) * 2 / r.mapSize, o = l;
+			let d = 0;
+			for (let e of this.corners) d = Math.max(d, require_hypot.hypot3(e.x - this.center.x, e.y - this.center.y, e.z - this.center.z));
+			d = Math.ceil(d * 16) / 16;
+			let f = this.orthographic, p = e.directionalLight.direction, m = p.length();
+			if (m === 0) throw RangeError(`Directional shadow light direction cannot be zero.`);
+			let h = Math.max(r.far, d * 4);
+			f.position.set(this.center.x + p.x / m * h / 2, this.center.y + p.y / m * h / 2, this.center.z + p.z / m * h / 2), f.lookAt(this.center), f.near = r.near, f.far = h, f.height = d * 2;
+			let g = this.matrices[this.count++].copy(f.updateMatrix(1));
+			g.elements[12] = Math.round(g.elements[12] * r.mapSize / 2) * 2 / r.mapSize, g.elements[13] = Math.round(g.elements[13] * r.mapSize / 2) * 2 / r.mapSize, o = u;
 		}
 	}
 };

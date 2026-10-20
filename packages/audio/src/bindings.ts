@@ -2,6 +2,7 @@ import type { Object3D } from '../../core/src/object3d.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { AudioListenerState, AudioVec3 } from './samples/spatial.js';
 import { AudioError } from './errors.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface SpatialAudioPlayback {
   readonly state: string;
@@ -73,8 +74,8 @@ export class AudioTransformBinding {
       this.up.z = e[6]!;
       // Scale does not affect AudioListener orientation. A singular transform leaves the last
       // valid orientation intact rather than aborting the game frame.
-      const fl = Math.hypot(this.forward.x, this.forward.y, this.forward.z),
-        ul = Math.hypot(this.up.x, this.up.y, this.up.z);
+      const fl = hypot3(this.forward.x, this.forward.y, this.forward.z),
+        ul = hypot3(this.up.x, this.up.y, this.up.z);
       if (fl > 0 && ul > 0) {
         this.forward.x /= fl;
         this.forward.y /= fl;

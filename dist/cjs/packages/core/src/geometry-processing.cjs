@@ -1,5 +1,6 @@
 const require_worker_jobs = require("../../../src/data/worker-jobs.cjs");
 const require_worker_jobs$1 = require("../../assets/src/worker-jobs.cjs");
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_geometry = require("./geometry.cjs");
 //#region dist/packages/core/src/geometry-processing.js
 var __xyzOriginalModuleURL = require("node:url").pathToFileURL(require("node:path").resolve(__dirname, "../../../../packages/core/src/geometry-processing.js")).href;
@@ -16,35 +17,35 @@ function decodeHeightfieldGeometryRequest(t) {
 	return n;
 }
 function processHeightfieldGeometry(e) {
-	let t = decodeHeightfieldGeometryRequest(e), { columns: n, rows: r, width: i, depth: a, iterations: o, smoothing: s } = t, c = n * r, l = t.heights;
-	if (o > 0 && s > 0) {
-		let e = new Float32Array(l), t = o > 1 ? new Float32Array(l) : e;
-		for (let i = 0; i < o; i++) {
+	let t = decodeHeightfieldGeometryRequest(e), { columns: n, rows: r, width: a, depth: o, iterations: s, smoothing: c } = t, l = n * r, u = t.heights;
+	if (s > 0 && c > 0) {
+		let e = new Float32Array(u), t = s > 1 ? new Float32Array(u) : e;
+		for (let i = 0; i < s; i++) {
 			for (let t = 1; t < r - 1; t++) {
 				let r = t * n;
 				for (let t = 1; t < n - 1; t++) {
 					let i = r + t;
-					e[i] = l[i] * (1 - s) + s * (l[i - 1] + l[i + 1] + l[i - n] + l[i + n]) * .25;
+					e[i] = u[i] * (1 - c) + c * (u[i - 1] + u[i + 1] + u[i - n] + u[i + n]) * .25;
 				}
 			}
-			l = e, e = t, t = l;
+			u = e, e = t, t = u;
 		}
 	}
-	let u = new Float32Array(c * 3), d = new Float32Array(c * 3), f = new Float32Array(c * 2), p = new Uint32Array((n - 1) * (r - 1) * 6), m = i / (n - 1), h = a / (r - 1);
+	let d = new Float32Array(l * 3), f = new Float32Array(l * 3), p = new Float32Array(l * 2), m = new Uint32Array((n - 1) * (r - 1) * 6), h = a / (n - 1), g = o / (r - 1);
 	for (let e = 0; e < r; e++) for (let t = 0; t < n; t++) {
-		let o = e * n + t, s = Math.max(0, t - 1), c = Math.min(n - 1, t + 1), g = Math.max(0, e - 1), _ = Math.min(r - 1, e + 1), v = (l[e * n + c] - l[e * n + s]) / ((c - s) * m), y = (l[g * n + t] - l[_ * n + t]) / ((_ - g) * h), b = Math.hypot(v, 1, y);
-		if (u[o * 3] = t * m - i / 2, u[o * 3 + 1] = l[o], u[o * 3 + 2] = a / 2 - e * h, d[o * 3] = -v / b, d[o * 3 + 1] = 1 / b, d[o * 3 + 2] = -y / b, f[o * 2] = t / (n - 1), f[o * 2 + 1] = e / (r - 1), t < n - 1 && e < r - 1) {
+		let s = e * n + t, c = Math.max(0, t - 1), l = Math.min(n - 1, t + 1), _ = Math.max(0, e - 1), v = Math.min(r - 1, e + 1), y = (u[e * n + l] - u[e * n + c]) / ((l - c) * h), b = (u[_ * n + t] - u[v * n + t]) / ((v - _) * g), x = require_hypot.hypot3(y, 1, b);
+		if (d[s * 3] = t * h - a / 2, d[s * 3 + 1] = u[s], d[s * 3 + 2] = o / 2 - e * g, f[s * 3] = -y / x, f[s * 3 + 1] = 1 / x, f[s * 3 + 2] = -b / x, p[s * 2] = t / (n - 1), p[s * 2 + 1] = e / (r - 1), t < n - 1 && e < r - 1) {
 			let r = (e * (n - 1) + t) * 6;
-			p[r] = o, p[r + 1] = o + 1, p[r + 2] = o + n + 1, p[r + 3] = o, p[r + 4] = o + n + 1, p[r + 5] = o + n;
+			m[r] = s, m[r + 1] = s + 1, m[r + 2] = s + n + 1, m[r + 3] = s, m[r + 4] = s + n + 1, m[r + 5] = s + n;
 		}
 	}
 	return {
 		columns: n,
 		rows: r,
-		positions: u,
-		normals: d,
-		uvs: f,
-		indices: p
+		positions: d,
+		normals: f,
+		uvs: p,
+		indices: m
 	};
 }
 function decodeHeightfieldGeometryResult(t) {

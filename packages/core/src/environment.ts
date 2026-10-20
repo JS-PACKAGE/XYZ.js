@@ -1,4 +1,5 @@
 import { environmentLimits } from '../../../src/data/rendering.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export type EnvironmentColor = readonly [number, number, number];
 
@@ -517,7 +518,7 @@ export class EnvironmentMap {
     const radius = sun?.radius ?? 0.05;
     if (sun) {
       const d = sun.direction;
-      const length = Math.hypot(d[0], d[1], d[2]);
+      const length = hypot3(d[0], d[1], d[2]);
       if (!Number.isFinite(length) || length === 0)
         throw new RangeError('Sun direction must be a nonzero vector.');
       if (
@@ -648,7 +649,7 @@ export class EnvironmentMap {
           ty = -n[2];
           tz = n[1];
         }
-        const length = Math.hypot(tx, ty, tz);
+        const length = hypot3(tx, ty, tz);
         tx /= length;
         ty /= length;
         tz /= length;

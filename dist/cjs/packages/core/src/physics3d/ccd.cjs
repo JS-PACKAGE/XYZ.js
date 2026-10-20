@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_spatial = require("./spatial.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
@@ -5,12 +6,12 @@ const require_collider = require("./collider.cjs");
 const require_geometry = require("./geometry.cjs");
 //#region dist/packages/core/src/physics3d/ccd.js
 function integrateRotation3D(e, t, n, r) {
-	let i = Math.hypot(t.x, t.y, t.z), a = i * n / 2, o = i > 1e-12 ? Math.sin(a) / i : n / 2, s = t.x * o, c = t.y * o, l = t.z * o, u = Math.cos(a), d = e.x, f = e.y, p = e.z, m = e.w;
-	r.set(u * d + s * m + c * p - l * f, u * f - s * p + c * m + l * d, u * p + s * f - c * d + l * m, u * m - s * d - c * f - l * p).normalize();
+	let i = require_hypot.hypot3(t.x, t.y, t.z), a = i * n / 2, o = i > 1e-12 ? Math.sin(a) / i : n / 2, s = t.x * o, l = t.y * o, u = t.z * o, d = Math.cos(a), f = e.x, p = e.y, m = e.z, h = e.w;
+	r.set(d * f + s * h + l * m - u * p, d * p - s * m + l * h + u * f, d * m + s * p - l * f + u * h, d * h - s * f - l * p - u * m).normalize();
 }
 function motionRadius3D(e) {
 	let t = e.shape.bounds, n = e.object.position;
-	return Math.hypot(Math.max(Math.abs(t.min.x - n.x), Math.abs(t.max.x - n.x)), Math.max(Math.abs(t.min.y - n.y), Math.abs(t.max.y - n.y)), Math.max(Math.abs(t.min.z - n.z), Math.abs(t.max.z - n.z)));
+	return require_hypot.hypot3(Math.max(Math.abs(t.min.x - n.x), Math.abs(t.max.x - n.x)), Math.max(Math.abs(t.min.y - n.y), Math.abs(t.max.y - n.y)), Math.max(Math.abs(t.min.z - n.z), Math.abs(t.max.z - n.z)));
 }
 function rotationalSweepSpeed3D(e) {
 	let t = e.body;
@@ -19,8 +20,8 @@ function rotationalSweepSpeed3D(e) {
 	for (let e = 0; e < o; e++) {
 		let t = r.collider.kind === `compound` ? r.children[e] : r, o = t.collider.kind === `box` ? 8 : t.collider.kind === `capsule` ? 2 : 1;
 		for (let e = 0; e < o; e++) {
-			let r = t.collider.kind === `box` ? t.vertices[e] : t.collider.kind === `capsule` ? e === 0 ? t.start : t.end : t.center, o = r.x - i.x, s = r.y - i.y, c = r.z - i.z;
-			a = Math.max(a, Math.hypot(n.y * c - n.z * s, n.z * o - n.x * c, n.x * s - n.y * o));
+			let r = t.collider.kind === `box` ? t.vertices[e] : t.collider.kind === `capsule` ? e === 0 ? t.start : t.end : t.center, o = r.x - i.x, s = r.y - i.y, l = r.z - i.z;
+			a = Math.max(a, require_hypot.hypot3(n.y * l - n.z * s, n.z * o - n.x * l, n.x * s - n.y * o));
 		}
 	}
 	return a;
@@ -95,21 +96,21 @@ var ContinuousCollision3D = class {
 	}
 	timeOfImpact(e, t, n, r) {
 		if (this.iterations = 0, this.exhausted = !1, this.safeTime = 1 / 0, rigidSweptBounds3D(e, n, this.boundsA, this.displacement), rigidSweptBounds3D(t, n, this.boundsB, this.displacement), !this.boundsA.overlaps(this.boundsB)) return 1 / 0;
-		let i = e.body, a = t.body, o = !!i && i.type !== `static` && !i.isSleeping && !e.ccdStopped, c = !!a && a.type !== `static` && !a.isSleeping && !t.ccdStopped, l = (o ? i.velocity.x : 0) - (c ? a.velocity.x : 0), u = (o ? i.velocity.y : 0) - (c ? a.velocity.y : 0), d = (o ? i.velocity.z : 0) - (c ? a.velocity.z : 0), f = rotationalSweepSpeed3D(e) + rotationalSweepSpeed3D(t);
-		if (Math.hypot(l, u, d) + f < 1e-12) return 1 / 0;
-		let p = 0;
+		let i = e.body, a = t.body, o = !!i && i.type !== `static` && !i.isSleeping && !e.ccdStopped, l = !!a && a.type !== `static` && !a.isSleeping && !t.ccdStopped, u = (o ? i.velocity.x : 0) - (l ? a.velocity.x : 0), d = (o ? i.velocity.y : 0) - (l ? a.velocity.y : 0), f = (o ? i.velocity.z : 0) - (l ? a.velocity.z : 0), p = rotationalSweepSpeed3D(e) + rotationalSweepSpeed3D(t);
+		if (require_hypot.hypot3(u, d, f) + p < 1e-12) return 1 / 0;
+		let m = 0;
 		for (; this.iterations < require_physics3d.physics3DDefaults.ccdIterations;) {
 			++this.iterations;
-			let i = this.sample(e, p, this.matrixA), a = this.sample(t, p, this.matrixB), o = this.manifold;
+			let i = this.sample(e, m, this.matrixA), a = this.sample(t, m, this.matrixB), o = this.manifold;
 			if (o.distance = 1 / 0, o.count = 0, this.distance(i, a, e.shape, t.shape, o), !Number.isFinite(o.distance)) return 1 / 0;
-			let c = -(l * o.normal.x + u * o.normal.y + d * o.normal.z) + f;
-			if (o.distance <= require_physics3d.physics3DDefaults.sweepTolerance) return p > 0 || this.contactClosing(e, t, p) > 1e-8 || o.distance < -require_physics3d.physics3DDefaults.contactSlop ? p : f === 0 || c <= 1e-12 ? 1 / 0 : (this.safeTime = p, this.exhausted = !0, 1 / 0);
+			let c = -(u * o.normal.x + d * o.normal.y + f * o.normal.z) + p;
+			if (o.distance <= require_physics3d.physics3DDefaults.sweepTolerance) return m > 0 || this.contactClosing(e, t, m) > 1e-8 || o.distance < -require_physics3d.physics3DDefaults.contactSlop ? m : p === 0 || c <= 1e-12 ? 1 / 0 : (this.safeTime = m, this.exhausted = !0, 1 / 0);
 			if (c <= 1e-12) return 1 / 0;
-			let m = (o.distance - require_physics3d.physics3DDefaults.sweepTolerance * .5) / c;
-			if (p + m > r || p + m > n) return 1 / 0;
-			p += m;
+			let l = (o.distance - require_physics3d.physics3DDefaults.sweepTolerance * .5) / c;
+			if (m + l > r || m + l > n) return 1 / 0;
+			m += l;
 		}
-		return this.exhausted = !0, this.safeTime = p, 1 / 0;
+		return this.exhausted = !0, this.safeTime = m, 1 / 0;
 	}
 };
 //#endregion

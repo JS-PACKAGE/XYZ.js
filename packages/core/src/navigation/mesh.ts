@@ -6,6 +6,7 @@ import {
   NavigationScheduler,
   type NavigationScheduledSearch,
 } from './scheduler.js';
+import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationPolygon3D {
   readonly id: string;
@@ -387,7 +388,7 @@ export class NavigationMesh3D {
         Math.abs(projected.y - position.y) > options.maxVerticalDistance
       )
         continue;
-      const distance = Math.hypot(
+      const distance = hypot3(
         projected.x - position.x,
         projected.y - position.y,
         projected.z - position.z,
@@ -515,7 +516,7 @@ export class NavigationMesh3D {
                 point &&
                 Math.abs(point.y - source.y) <= options.maxVerticalDistance
               ) {
-                const distance = Math.hypot(
+                const distance = hypot3(
                   point.x - source.x,
                   point.y - source.y,
                   point.z - source.z,
@@ -566,7 +567,7 @@ export class NavigationMesh3D {
             if (!portal) continue;
             const distance =
               search.distance.get(current)! +
-              Math.hypot(
+              hypot3(
                 target.center.x - polygon.center.x,
                 target.center.y - polygon.center.y,
                 target.center.z - polygon.center.z,
@@ -872,7 +873,7 @@ export class NavigationMesh3D {
       if (!boundary) continue;
       const nx = polygon.center.x - vertex.x,
         nz = polygon.center.z - vertex.z;
-      const length = Math.hypot(nx, nz);
+      const length = hypot2(nx, nz);
       vertices = clipPolygon(
         vertices,
         vertex,
@@ -895,7 +896,7 @@ export class NavigationMesh3D {
         inside(to.vertices, edge.b)
         ? [edge.a, edge.b]
         : undefined;
-    const length = Math.hypot(edge.b.x - edge.a.x, edge.b.z - edge.a.z);
+    const length = hypot2(edge.b.x - edge.a.x, edge.b.z - edge.a.z);
     if (length <= 2 * radius + epsilon) return undefined;
     const f = clipSegment(from.vertices, edge.a, edge.b),
       t = clipSegment(to.vertices, edge.a, edge.b);
@@ -959,7 +960,7 @@ function clipPolygon(
   radius: number,
 ): readonly Readonly<Vector3>[] {
   const out: Vector3[] = [],
-    offset = radius * Math.hypot(b.x - a.x, b.z - a.z);
+    offset = radius * hypot2(b.x - a.x, b.z - a.z);
   for (let i = 0; i < vertices.length; i++) {
     const p = vertices[i]!,
       q = vertices[(i + 1) % vertices.length]!;
@@ -1034,7 +1035,7 @@ function nearest(
       ),
     );
     const candidate = new Vector3(a.x + dx * t, a.y + dy * t, a.z + dz * t);
-    const d = Math.hypot(
+    const d = hypot3(
       candidate.x - point.x,
       candidate.y - point.y,
       candidate.z - point.z,

@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_geometry = require("./geometry.cjs");
 const require_object3d = require("./object3d.cjs");
@@ -104,23 +105,23 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 	updateSkin() {
 		if (this.updateRenderDeformation(), this.mirrorVersion === this.deformationVersion) return;
 		let e = this.geometry.vertices, t = this.bindVertices, n = this.geometry.tangents, r = this.skinGeometry.tangents;
-		for (let i = 0; i < e.length / 8; i++) {
-			let a = this.blend.elements;
-			a.fill(0);
+		for (let a = 0; a < e.length / 8; a++) {
+			let o = this.blend.elements;
+			o.fill(0);
 			for (let e = 0; e < this.influencesPerVertex; e++) {
-				let t = i * this.influencesPerVertex + e, n = this.weights[t];
+				let t = a * this.influencesPerVertex + e, n = this.weights[t];
 				if (n === 0) continue;
 				let r = this.matrices[this.jointIndices[t]].elements;
-				for (let e = 0; e < 16; e++) a[e] += n * r[e];
+				for (let e = 0; e < 16; e++) o[e] += n * r[e];
 			}
-			let o = i * 8, s = t[o], c = t[o + 1], l = t[o + 2];
-			e[o] = a[0] * s + a[4] * c + a[8] * l + a[12], e[o + 1] = a[1] * s + a[5] * c + a[9] * l + a[13], e[o + 2] = a[2] * s + a[6] * c + a[10] * l + a[14];
-			let u = a[5] * a[10] - a[9] * a[6], d = a[9] * a[2] - a[1] * a[10], f = a[1] * a[6] - a[5] * a[2], p = a[8] * a[6] - a[4] * a[10], m = a[0] * a[10] - a[8] * a[2], h = a[4] * a[2] - a[0] * a[6], g = a[4] * a[9] - a[8] * a[5], _ = a[8] * a[1] - a[0] * a[9], v = a[0] * a[5] - a[4] * a[1], y = a[0] * u + a[4] * d + a[8] * f < 0 ? -1 : 1, b = t[o + 3], x = t[o + 4], S = t[o + 5], C = y * (u * b + d * x + f * S), w = y * (p * b + m * x + h * S), T = y * (g * b + _ * x + v * S), E = Math.hypot(C, w, T);
-			e[o + 3] = E ? C / E : 0, e[o + 4] = E ? w / E : 0, e[o + 5] = E ? T / E : 0;
-			let D = i * 4, O = r[D], k = r[D + 1], A = r[D + 2], j = a[0] * O + a[4] * k + a[8] * A, M = a[1] * O + a[5] * k + a[9] * A, N = a[2] * O + a[6] * k + a[10] * A, P = j * e[o + 3] + M * e[o + 4] + N * e[o + 5];
-			j -= P * e[o + 3], M -= P * e[o + 4], N -= P * e[o + 5];
-			let F = Math.hypot(j, M, N);
-			n[D] = F ? j / F : 0, n[D + 1] = F ? M / F : 0, n[D + 2] = F ? N / F : 0, n[D + 3] = r[D + 3] * y;
+			let s = a * 8, c = t[s], l = t[s + 1], u = t[s + 2];
+			e[s] = o[0] * c + o[4] * l + o[8] * u + o[12], e[s + 1] = o[1] * c + o[5] * l + o[9] * u + o[13], e[s + 2] = o[2] * c + o[6] * l + o[10] * u + o[14];
+			let d = o[5] * o[10] - o[9] * o[6], f = o[9] * o[2] - o[1] * o[10], p = o[1] * o[6] - o[5] * o[2], m = o[8] * o[6] - o[4] * o[10], h = o[0] * o[10] - o[8] * o[2], g = o[4] * o[2] - o[0] * o[6], _ = o[4] * o[9] - o[8] * o[5], v = o[8] * o[1] - o[0] * o[9], y = o[0] * o[5] - o[4] * o[1], b = o[0] * d + o[4] * f + o[8] * p < 0 ? -1 : 1, x = t[s + 3], S = t[s + 4], C = t[s + 5], w = b * (d * x + f * S + p * C), T = b * (m * x + h * S + g * C), E = b * (_ * x + v * S + y * C), D = require_hypot.hypot3(w, T, E);
+			e[s + 3] = D ? w / D : 0, e[s + 4] = D ? T / D : 0, e[s + 5] = D ? E / D : 0;
+			let O = a * 4, k = r[O], A = r[O + 1], j = r[O + 2], M = o[0] * k + o[4] * A + o[8] * j, N = o[1] * k + o[5] * A + o[9] * j, P = o[2] * k + o[6] * A + o[10] * j, F = M * e[s + 3] + N * e[s + 4] + P * e[s + 5];
+			M -= F * e[s + 3], N -= F * e[s + 4], P -= F * e[s + 5];
+			let I = require_hypot.hypot3(M, N, P);
+			n[O] = I ? M / I : 0, n[O + 1] = I ? N / I : 0, n[O + 2] = I ? P / I : 0, n[O + 3] = r[O + 3] * b;
 		}
 		this.mirrorVersion = this.deformationVersion, this.geometry.markUpdated();
 	}
@@ -141,19 +142,19 @@ var SkinnedMesh = class extends require_mesh.Mesh {
 		}
 	}
 	refreshAnimatedBounds() {
-		let e = 1 / 0, t = 1 / 0, n = 1 / 0, r = -1 / 0, i = -1 / 0, a = -1 / 0;
-		for (let o = 0; o < this.joints.length; o++) {
-			let s = o * 6, c = this.influenceBounds;
+		let e = 1 / 0, t = 1 / 0, n = 1 / 0, r = -1 / 0, a = -1 / 0, o = -1 / 0;
+		for (let i = 0; i < this.joints.length; i++) {
+			let s = i * 6, c = this.influenceBounds;
 			if (c[s] === 1 / 0) continue;
-			let l = this.matrices[o].elements;
-			for (let o = 0; o < 8; o++) {
-				let u = c[s + (o & 1 ? 3 : 0)], d = c[s + (o & 2 ? 4 : 1)], f = c[s + (o & 4 ? 5 : 2)], p = l[0] * u + l[4] * d + l[8] * f + l[12], m = l[1] * u + l[5] * d + l[9] * f + l[13], h = l[2] * u + l[6] * d + l[10] * f + l[14];
-				e = Math.min(e, p), t = Math.min(t, m), n = Math.min(n, h), r = Math.max(r, p), i = Math.max(i, m), a = Math.max(a, h);
+			let l = this.matrices[i].elements;
+			for (let i = 0; i < 8; i++) {
+				let u = c[s + (i & 1 ? 3 : 0)], d = c[s + (i & 2 ? 4 : 1)], f = c[s + (i & 4 ? 5 : 2)], p = l[0] * u + l[4] * d + l[8] * f + l[12], m = l[1] * u + l[5] * d + l[9] * f + l[13], h = l[2] * u + l[6] * d + l[10] * f + l[14];
+				e = Math.min(e, p), t = Math.min(t, m), n = Math.min(n, h), r = Math.max(r, p), a = Math.max(a, m), o = Math.max(o, h);
 			}
 		}
-		this.sphere.x = (e + r) * .5, this.sphere.y = (t + i) * .5, this.sphere.z = (n + a) * .5;
-		let o = Math.hypot(r - e, i - t, a - n) * .5;
-		this.sphere.radius = o + Math.max(1, o, Math.abs(this.sphere.x), Math.abs(this.sphere.y), Math.abs(this.sphere.z)) * 1e-6;
+		this.sphere.x = (e + r) * .5, this.sphere.y = (t + a) * .5, this.sphere.z = (n + o) * .5;
+		let s = require_hypot.hypot3(r - e, a - t, o - n) * .5;
+		this.sphere.radius = s + Math.max(1, s, Math.abs(this.sphere.x), Math.abs(this.sphere.y), Math.abs(this.sphere.z)) * 1e-6;
 	}
 };
 //#endregion

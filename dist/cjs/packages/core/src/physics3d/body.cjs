@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_physics3d = require("../../../../src/data/physics3d.cjs");
 const require_collider = require("./collider.cjs");
@@ -148,7 +149,7 @@ var RigidBody3D = class {
 			let t = e.half;
 			this.inverseDiagonal.set(3 / (r * (t.y * t.y + t.z * t.z)), 3 / (r * (t.x * t.x + t.z * t.z)), 3 / (r * (t.x * t.x + t.y * t.y)));
 		} else if (i instanceof require_collider.CapsuleCollider3D) {
-			let t = e.radius, n = Math.hypot(e.end.x - e.start.x, e.end.y - e.start.y, e.end.z - e.start.z), i = r * n / (n + 4 * t / 3), a = r - i, o = i * t * t / 2 + a * 2 * t * t / 5, s = i * (3 * t * t + n * n) / 12 + a * (2 * t * t / 5 + n * n / 4 + 3 * n * t / 8);
+			let t = e.radius, n = require_hypot.hypot3(e.end.x - e.start.x, e.end.y - e.start.y, e.end.z - e.start.z), i = r * n / (n + 4 * t / 3), a = r - i, o = i * t * t / 2 + a * 2 * t * t / 5, s = i * (3 * t * t + n * n) / 12 + a * (2 * t * t / 5 + n * n / 4 + 3 * n * t / 8);
 			this.inverseDiagonal.set(1 / s, 1 / o, 1 / s);
 		} else this.inverseDiagonal.set(0, 0, 0);
 	}

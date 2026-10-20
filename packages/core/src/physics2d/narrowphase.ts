@@ -1,6 +1,7 @@
 import { Vector2 } from '../../../math/src/index.js';
 import { ShapeGeometry } from './collider.js';
 import { physicsDefaults } from '../../../../src/data/world2d.js';
+import { hypot2 } from '../../../math/src/hypot.js';
 const EPSILON = physicsDefaults.geometryEpsilon;
 
 /** Mutable manifold is owned by one contact and never exposed directly in events. */
@@ -23,7 +24,7 @@ function axis(
   y: number,
   out: Manifold,
 ): boolean {
-  const length = Math.hypot(x, y);
+  const length = hypot2(x, y);
   if (length <= EPSILON) return true;
   x /= length;
   y /= length;
@@ -108,7 +109,7 @@ function bestEdge(polygon: ShapeGeometry, nx: number, ny: number): number {
     const j = (i + 2) % p.length;
     const dx = p[j] - p[i],
       dy = p[j + 1] - p[i + 1],
-      length = Math.hypot(dx, dy);
+      length = hypot2(dx, dy);
     const dot = (dy * nx - dx * ny) / length;
     if (dot > best) {
       best = dot;
@@ -157,8 +158,8 @@ function polygonContacts(
     ady = ap[aj + 1] - ap[ae + 1];
   const bdx = bp[bj] - bp[be],
     bdy = bp[bj + 1] - bp[be + 1];
-  const aAlignment = (ady * out.nx - adx * out.ny) / Math.hypot(adx, ady);
-  const bAlignment = (-bdy * out.nx + bdx * out.ny) / Math.hypot(bdx, bdy);
+  const aAlignment = (ady * out.nx - adx * out.ny) / hypot2(adx, ady);
+  const bAlignment = (-bdy * out.nx + bdx * out.ny) / hypot2(bdx, bdy);
   const reference = aAlignment >= bAlignment ? a : b;
   const incident = reference === a ? b : a;
   const edge = reference === a ? ae : be;
@@ -169,7 +170,7 @@ function polygonContacts(
     j = (edge + 2) % p.length;
   const dx = p[j] - p[edge],
     dy = p[j + 1] - p[edge + 1],
-    length = Math.hypot(dx, dy);
+    length = hypot2(dx, dy);
   const tx = dx / length,
     ty = dy / length;
   const ie = bestEdge(incident, -nx, -ny),
@@ -188,7 +189,7 @@ function polygonContacts(
   for (let i = 0; i < 4; i += 2) {
     const separation = nx * c[i] + ny * c[i + 1] - plane;
     if (separation <= EPSILON) {
-      if (out.count && Math.hypot(c[i] - c[0], c[i + 1] - c[1]) <= EPSILON)
+      if (out.count && hypot2(c[i] - c[0], c[i + 1] - c[1]) <= EPSILON)
         continue;
       out.points[out.count++].set(
         c[i] - (nx * separation) / 2,
@@ -212,7 +213,7 @@ export function collide(
   if (ac && bc) {
     const dx = b.x - a.x,
       dy = b.y - a.y,
-      distance = Math.hypot(dx, dy);
+      distance = hypot2(dx, dy);
     const radius = a.radius + b.radius;
     if (distance > radius) return false;
     out.nx = distance > EPSILON ? dx / distance : 1;
@@ -283,7 +284,7 @@ export function rayDistance(
     const j = (i + 2) % p.length;
     const ex = p[j] - p[i],
       ey = p[j + 1] - p[i + 1],
-      length = Math.hypot(ex, ey);
+      length = hypot2(ex, ey);
     const ax = ey / length,
       ay = -ex / length;
     const numerator = ax * (p[i] - x) + ay * (p[i + 1] - y),

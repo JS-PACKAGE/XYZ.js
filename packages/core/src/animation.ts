@@ -16,6 +16,7 @@ import type {
 } from './animation-pose.js';
 import type { Object3D } from './object3d.js';
 import { MorphWeights } from './morph.js';
+import { hypot4 } from '../../math/src/hypot.js';
 
 export type AnimationPath = 'translation' | 'rotation' | 'scale' | 'weights';
 export type Interpolation = 'STEP' | 'LINEAR' | 'CUBICSPLINE';
@@ -79,7 +80,7 @@ export class KeyframeTrack {
       const stride = this.size * (interpolation === 'CUBICSPLINE' ? 3 : 1);
       const offset = interpolation === 'CUBICSPLINE' ? 4 : 0;
       for (let i = offset; i < this.values.length; i += stride) {
-        const length = Math.hypot(
+        const length = hypot4(
           this.values[i],
           this.values[i + 1],
           this.values[i + 2],
@@ -169,7 +170,7 @@ export class KeyframeTrack {
       } else out[j] = wa * values[a + j] + wb * sign * values[b + j];
     }
     if (this.path === 'rotation') {
-      const length = Math.hypot(out[0], out[1], out[2], out[3]);
+      const length = hypot4(out[0], out[1], out[2], out[3]);
       if (!length)
         throw new RangeError('Sampled animation quaternion is zero.');
       for (let j = 0; j < 4; j++) out[j] /= length;

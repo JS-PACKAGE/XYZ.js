@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_navigation = require("../../../src/data/navigation.cjs");
 const require_world_streaming = require("../../../src/data/world-streaming.cjs");
 const require_graph = require("./navigation/graph.cjs");
@@ -20,58 +21,58 @@ var WorldStreamingNavigation3D = class {
 	isPathCurrent(e) {
 		return this.current?.isPathCurrent(e) ?? !1;
 	}
-	prepare(r) {
+	prepare(i) {
 		if (this.disposed) throw Error(`Streaming navigation is destroyed.`);
-		let i = [], a = [], o = /* @__PURE__ */ new Map();
-		for (let [e, s] of r) {
-			let r = new require_graph.NavigationGraph3D(s);
+		let a = [], o = [], s = /* @__PURE__ */ new Map();
+		for (let [e, r] of i) {
+			let i = new require_graph.NavigationGraph3D(r);
 			try {
 				let n = /* @__PURE__ */ new Map();
-				for (let t of r.nodes) {
+				for (let t of i.nodes) {
 					let r = {
 						...t,
 						id: this.nodeId(e, t.id)
 					};
-					i.push(r), n.set(t.id, r);
+					a.push(r), n.set(t.id, r);
 				}
-				for (let t of r.connections) a.push({
+				for (let t of i.connections) o.push({
 					...t,
 					from: this.nodeId(e, t.from),
 					to: this.nodeId(e, t.to)
 				});
-				if ((s.portals?.length ?? 0) > r.nodes.length) throw RangeError(`Streaming portals exceed the fragment node budget.`);
+				if ((r.portals?.length ?? 0) > i.nodes.length) throw RangeError(`Streaming portals exceed the fragment node budget.`);
 				let c = /* @__PURE__ */ new Set();
-				for (let r of s.portals ?? []) {
-					let i = n.get(r.node);
-					if (!i || typeof r.seam != `string` || !r.seam || r.seam.length > require_navigation.navigationLimits.nodeIdLength || c.has(r.seam) || !Number.isFinite(r.clearance) || r.clearance < 0 || r.clearance > require_navigation.navigationLimits.coordinateExtent) throw RangeError(`Invalid or duplicate streaming seam portal.`);
-					c.add(r.seam);
-					let a = o.get(r.seam) ?? [];
+				for (let i of r.portals ?? []) {
+					let r = n.get(i.node);
+					if (!r || typeof i.seam != `string` || !i.seam || i.seam.length > require_navigation.navigationLimits.nodeIdLength || c.has(i.seam) || !Number.isFinite(i.clearance) || i.clearance < 0 || i.clearance > require_navigation.navigationLimits.coordinateExtent) throw RangeError(`Invalid or duplicate streaming seam portal.`);
+					c.add(i.seam);
+					let a = s.get(i.seam) ?? [];
 					if (a.push({
-						...r,
+						...i,
 						cell: e,
-						endpoint: i
-					}), a.length > 2) throw RangeError(`Streaming seam ${r.seam} has more than two owners.`);
-					o.set(r.seam, a);
+						endpoint: r
+					}), a.length > 2) throw RangeError(`Streaming seam ${i.seam} has more than two owners.`);
+					s.set(i.seam, a);
 				}
 			} finally {
-				r.destroy();
+				i.destroy();
 			}
 		}
-		if (i.length > require_navigation.navigationLimits.graphNodes || a.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Streamed navigation exceeds the aggregate graph budget.`);
-		for (let [t, n] of o) {
+		if (a.length > require_navigation.navigationLimits.graphNodes || o.length > require_navigation.navigationLimits.graphConnections) throw RangeError(`Streamed navigation exceeds the aggregate graph budget.`);
+		for (let [t, n] of s) {
 			if (n.length !== 2) continue;
-			let [r, i] = n, o = Math.hypot(r.endpoint.position.x - i.endpoint.position.x, r.endpoint.position.y - i.endpoint.position.y, r.endpoint.position.z - i.endpoint.position.z);
-			if (o > require_world_streaming.worldStreamingLimits.seamTolerance) throw RangeError(`Streaming seam ${t} endpoints do not coincide.`);
-			a.push({
-				from: r.endpoint.id,
-				to: i.endpoint.id,
-				cost: o,
-				clearance: Math.min(r.clearance, i.clearance)
+			let [i, a] = n, s = require_hypot.hypot3(i.endpoint.position.x - a.endpoint.position.x, i.endpoint.position.y - a.endpoint.position.y, i.endpoint.position.z - a.endpoint.position.z);
+			if (s > require_world_streaming.worldStreamingLimits.seamTolerance) throw RangeError(`Streaming seam ${t} endpoints do not coincide.`);
+			o.push({
+				from: i.endpoint.id,
+				to: a.endpoint.id,
+				cost: s,
+				clearance: Math.min(i.clearance, a.clearance)
 			});
 		}
-		return i.length ? new require_graph.NavigationGraph3D({
-			nodes: i,
-			connections: a
+		return a.length ? new require_graph.NavigationGraph3D({
+			nodes: a,
+			connections: o
 		}) : void 0;
 	}
 	commit(e) {

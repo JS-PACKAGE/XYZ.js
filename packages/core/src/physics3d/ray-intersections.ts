@@ -1,6 +1,7 @@
 import type { Vector3 } from '../../../math/src/index.js';
 import { Shape3D, type Triangle3D } from './collider.js';
 import { physicsRayLimits } from '../../../../src/data/physics-ray.js';
+import { hypot3 } from '../../../math/src/hypot.js';
 
 type Emit = (distance: number, nx: number, ny: number, nz: number) => void;
 /** Analytic boundary intersections, not conservative-advancement contacts. Direction is unit length. */
@@ -126,7 +127,7 @@ export function rayIntersections3D(
     const bx = b.x - a.x,
       by = b.y - a.y,
       bz = b.z - a.z;
-    const length = Math.hypot(bx, by, bz);
+    const length = hypot3(bx, by, bz);
     const ux = length > epsilon ? bx / length : 0,
       uy = length > epsilon ? by / length : 1,
       uz = length > epsilon ? bz / length : 0;

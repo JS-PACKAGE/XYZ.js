@@ -9,6 +9,7 @@ import { Mesh, type MeshOptions } from './mesh.js';
 import { NativePBRMaterial } from './native-pbr-material.js';
 import type { PBRMaterialOptions } from './pbr-material.js';
 import { waterGLSL, waterWGSL } from './water3d-shaders.js';
+import { hypot2, hypot3 } from '../../math/src/hypot.js';
 
 export interface WaterWave3D {
   /** Mesh-local X/Z direction; normalized at construction. */
@@ -145,7 +146,7 @@ export class Water3D extends Mesh {
         throw new RangeError('Water wave phase must be finite.');
       const dx = wave.direction[0],
         dz = wave.direction[1];
-      const length = Math.hypot(dx, dz);
+      const length = hypot2(dx, dz);
       if (!Number.isFinite(length) || length === 0)
         throw new RangeError(
           'Water wave direction must be finite and nonzero.',
@@ -290,7 +291,7 @@ export class Water3D extends Mesh {
       sx += u[offset] * slope;
       sz += u[offset + 1] * slope;
     }
-    const length = Math.hypot(sx, 1, sz);
+    const length = hypot3(sx, 1, sz);
     out.height = height;
     out.normalX = -sx / length;
     out.normalY = 1 / length;

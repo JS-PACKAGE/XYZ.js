@@ -1,4 +1,5 @@
 import type { GestureType } from './gestures.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 /** W3C "standard" gamepad layout (https://w3c.github.io/gamepad/#remapping). */
 export const gamepadButtonIndex = {
@@ -323,7 +324,7 @@ export class GamepadState {
   axis(name: GamepadAxisName): number {
     const slot = axisSlot(name);
     const base = slot < 2 ? 0 : 2;
-    const magnitude = Math.hypot(this.rawAxes[base], this.rawAxes[base + 1]);
+    const magnitude = hypot2(this.rawAxes[base], this.rawAxes[base + 1]);
     if (magnitude <= this.deadzoneValue) return 0;
     return (
       (this.rawAxes[slot] *
@@ -339,7 +340,7 @@ export class GamepadState {
     const base = which === 'left' ? 0 : 2;
     const x = this.rawAxes[base];
     const y = this.rawAxes[base + 1];
-    const magnitude = Math.hypot(x, y);
+    const magnitude = hypot2(x, y);
     if (magnitude <= this.deadzoneValue) return { x: 0, y: 0 };
     const scaled =
       Math.min(1, (magnitude - this.deadzoneValue) / (1 - this.deadzoneValue)) /
@@ -360,7 +361,7 @@ export class GamepadState {
   axisWasPressed(name: GamepadAxisName, direction: 1 | -1): boolean {
     const slot = axisSlot(name);
     const base = slot < 2 ? 0 : 2;
-    const magnitude = Math.hypot(
+    const magnitude = hypot2(
       this.previousAxes[base],
       this.previousAxes[base + 1],
     );

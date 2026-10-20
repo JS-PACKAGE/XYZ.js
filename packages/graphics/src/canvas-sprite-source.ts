@@ -6,6 +6,7 @@ import {
 } from '../../assets/src/fonts/distance-field.js';
 import type { TextureQuad2D } from './sprite-instance.js';
 import { GraphicsError } from './errors.js';
+import { hypot2 } from '../../math/src/hypot.js';
 
 /** Canvas `setTransform(a, b, c, d, e, f)` operands that place one 2D object on its target. */
 export interface CanvasPlacement2D {
@@ -71,8 +72,8 @@ export class CanvasSpriteSource {
         source as Texture,
         transform
           ? Math.max(
-              Math.hypot(transform.a, transform.b),
-              Math.hypot(transform.c, transform.d),
+              hypot2(transform.a, transform.b),
+              hypot2(transform.c, transform.d),
             ) / quad.resolution
           : 1,
       );

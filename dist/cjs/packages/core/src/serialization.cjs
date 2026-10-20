@@ -1,3 +1,4 @@
+const require_hypot = require("../../math/src/hypot.cjs");
 const require_game_object = require("./game-object.cjs");
 const require_storage = require("./storage.cjs");
 const require_object3d = require("./object3d.cjs");
@@ -110,22 +111,22 @@ function object3DState(e, t) {
 		},
 		async restore(n) {
 			if (require_storage.assertJsonValue(n), !n || typeof n != `object` || Array.isArray(n)) throw new require_storage.StorageError(`invalid`, `Invalid Object3D snapshot.`);
-			let a = n.transform, o = n.body, s = e.body, finiteArray = (e, t) => Array.isArray(e) && e.length === t && e.every((e) => typeof e == `number` && Number.isFinite(e));
-			if (!finiteArray(a, 10)) throw new require_storage.StorageError(`invalid`, `Object3D snapshot does not match the adapter.`);
-			let c = Math.hypot(a[3], a[4], a[5], a[6]);
-			if (!Number.isFinite(c) || c === 0 || typeof n.visible != `boolean` || Object.hasOwn(n, `custom`) !== (t !== void 0) || s !== void 0 && o === void 0 || o !== void 0 && (!s || !o || typeof o != `object` || Array.isArray(o) || o.type !== s.type || o.lockRotation !== s.lockRotation || o.allowSleep !== s.allowSleep || o.continuous !== s.continuous || typeof o.mass != `number` || o.mass <= 0 || typeof o.restitution != `number` || o.restitution < 0 || o.restitution > 1 || typeof o.friction != `number` || o.friction < 0 || typeof o.linearDamping != `number` || o.linearDamping < 0 || typeof o.angularDamping != `number` || o.angularDamping < 0 || typeof o.gravityScale != `number` || !finiteArray(o.velocity, 3) || !finiteArray(o.angularVelocity, 3) || !finiteArray(o.force, 3) || !finiteArray(o.torque, 3) || typeof o.sleeping != `boolean` || o.sleeping && (s.type !== `dynamic` || !s.allowSleep || o.velocity.some((e) => e !== 0) || o.angularVelocity.some((e) => e !== 0) || o.force.some((e) => e !== 0) || o.torque.some((e) => e !== 0)))) throw new require_storage.StorageError(`invalid`, `Object3D snapshot does not match the adapter.`);
-			if (t && Object.hasOwn(n, `custom`) && await t.restore(n.custom), e.position.set(a[0], a[1], a[2]), e.rotation.set(a[3], a[4], a[5], a[6]), e.scale.set(a[7], a[8], a[9]), e.visible = n.visible, e.validatePhysics(), s && o && typeof o == `object` && !Array.isArray(o)) {
-				s.mass = o.mass, s.restitution = o.restitution, s.friction = o.friction, s.linearDamping = o.linearDamping, s.angularDamping = o.angularDamping, s.gravityScale = o.gravityScale, s.clearForces();
+			let o = n.transform, s = n.body, c = e.body, finiteArray = (e, t) => Array.isArray(e) && e.length === t && e.every((e) => typeof e == `number` && Number.isFinite(e));
+			if (!finiteArray(o, 10)) throw new require_storage.StorageError(`invalid`, `Object3D snapshot does not match the adapter.`);
+			let l = require_hypot.hypot4(o[3], o[4], o[5], o[6]);
+			if (!Number.isFinite(l) || l === 0 || typeof n.visible != `boolean` || Object.hasOwn(n, `custom`) !== (t !== void 0) || c !== void 0 && s === void 0 || s !== void 0 && (!c || !s || typeof s != `object` || Array.isArray(s) || s.type !== c.type || s.lockRotation !== c.lockRotation || s.allowSleep !== c.allowSleep || s.continuous !== c.continuous || typeof s.mass != `number` || s.mass <= 0 || typeof s.restitution != `number` || s.restitution < 0 || s.restitution > 1 || typeof s.friction != `number` || s.friction < 0 || typeof s.linearDamping != `number` || s.linearDamping < 0 || typeof s.angularDamping != `number` || s.angularDamping < 0 || typeof s.gravityScale != `number` || !finiteArray(s.velocity, 3) || !finiteArray(s.angularVelocity, 3) || !finiteArray(s.force, 3) || !finiteArray(s.torque, 3) || typeof s.sleeping != `boolean` || s.sleeping && (c.type !== `dynamic` || !c.allowSleep || s.velocity.some((e) => e !== 0) || s.angularVelocity.some((e) => e !== 0) || s.force.some((e) => e !== 0) || s.torque.some((e) => e !== 0)))) throw new require_storage.StorageError(`invalid`, `Object3D snapshot does not match the adapter.`);
+			if (t && Object.hasOwn(n, `custom`) && await t.restore(n.custom), e.position.set(o[0], o[1], o[2]), e.rotation.set(o[3], o[4], o[5], o[6]), e.scale.set(o[7], o[8], o[9]), e.visible = n.visible, e.validatePhysics(), c && s && typeof s == `object` && !Array.isArray(s)) {
+				c.mass = s.mass, c.restitution = s.restitution, c.friction = s.friction, c.linearDamping = s.linearDamping, c.angularDamping = s.angularDamping, c.gravityScale = s.gravityScale, c.clearForces();
 				for (let e of [
 					`velocity`,
 					`angularVelocity`,
 					`force`,
 					`torque`
 				]) {
-					let t = o[e];
-					s[e].set(t[0], t[1], t[2]);
+					let t = s[e];
+					c[e].set(t[0], t[1], t[2]);
 				}
-				s.wake(), o.sleeping && s.sleep();
+				c.wake(), s.sleeping && c.sleep();
 			}
 		}
 	};

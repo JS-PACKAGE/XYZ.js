@@ -203,6 +203,7 @@ out vec4 color;
 void main() { color = vec4(vColor, 1.0); }`;
 
 import { ContactShadows } from '../../core/src/contact-shadows.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 const meshUniformNames = [
   'viewProjection',
@@ -4320,7 +4321,7 @@ export class WebGL2Renderer implements Renderer {
       camera.near,
       camera.far,
       camera instanceof OrthographicCamera ? 1 : 0,
-      Math.hypot(e[1]!, e[5]!, e[9]!),
+      hypot3(e[1]!, e[5]!, e[9]!),
     );
     this.uniformValues.uniform4f(
       gl,

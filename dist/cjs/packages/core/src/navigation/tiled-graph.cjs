@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_navigation = require("../../../../src/data/navigation.cjs");
 const require_graph = require("./graph.cjs");
 const require_partition_search = require("./partition-search.cjs");
@@ -158,25 +159,25 @@ var NavigationTiledGraph3D = class NavigationTiledGraph3D {
 			n.maxVerticalDistance,
 			r
 		].every((t) => Number.isFinite(t) && Math.abs(t) <= require_navigation.navigationLimits.coordinateExtent) || r < 0 || n.maxDistance < 0 || n.maxVerticalDistance < 0) throw RangeError(`Invalid tiled projection bounds.`);
-		let i = Math.ceil(2 * n.maxDistance / this.tileSize) + 2;
-		if (i * i > require_navigation.navigationLimits.projectionTiles) throw RangeError(`Projection spans too many tiles.`);
-		let a = Math.floor((t.x - n.maxDistance) / this.tileSize), o = Math.floor((t.x + n.maxDistance) / this.tileSize), s = Math.floor((t.z - n.maxDistance) / this.tileSize), c = Math.floor((t.z + n.maxDistance) / this.tileSize);
+		let a = Math.ceil(2 * n.maxDistance / this.tileSize) + 2;
+		if (a * a > require_navigation.navigationLimits.projectionTiles) throw RangeError(`Projection spans too many tiles.`);
+		let o = Math.floor((t.x - n.maxDistance) / this.tileSize), s = Math.floor((t.x + n.maxDistance) / this.tileSize), c = Math.floor((t.z - n.maxDistance) / this.tileSize), l = Math.floor((t.z + n.maxDistance) / this.tileSize);
 		if (![
-			a,
 			o,
 			s,
-			c
+			c,
+			l
 		].every(Number.isSafeInteger)) throw RangeError(`Tiled projection coordinates must be safe integers.`);
-		let l, u = n.maxDistance;
-		for (let e = a; e <= o; e++) for (let i = s; i <= c; i++) for (let a of this.spatial.get(`${e}:${i}`) ?? []) {
-			let e = this.nodes[a];
+		let u, d = n.maxDistance;
+		for (let e = o; e <= s; e++) for (let a = c; a <= l; a++) for (let o of this.spatial.get(`${e}:${a}`) ?? []) {
+			let e = this.nodes[o];
 			if (!e.walkable || e.clearance < r || Math.abs(e.position.y - t.y) > n.maxVerticalDistance) continue;
-			let i = Math.hypot(e.position.x - t.x, e.position.y - t.y, e.position.z - t.z);
-			(i < u || i === u && (!l || this.ids.get(l.id) > a)) && (l = e, u = i);
+			let a = require_hypot.hypot3(e.position.x - t.x, e.position.y - t.y, e.position.z - t.z);
+			(a < d || a === d && (!u || this.ids.get(u.id) > o)) && (u = e, d = a);
 		}
-		return l && Object.freeze({
-			node: l,
-			distance: u,
+		return u && Object.freeze({
+			node: u,
+			distance: d,
 			revision: this.epoch
 		});
 	}

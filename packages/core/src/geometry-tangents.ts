@@ -1,6 +1,7 @@
 import { Geometry } from './geometry.js';
 import { modelLimits } from '../../../src/data/models.js';
 import { mikkTangents } from './mikktspace-wasm.js';
+import { hypot3 } from '../../math/src/hypot.js';
 
 export interface MikkTangentsOptions {
   /** glTF uses the normal-map handedness conversion recommended by mikktspace. */
@@ -67,11 +68,7 @@ export function generateMikkTangents(
     positions[i * 3] = vertices[s];
     positions[i * 3 + 1] = vertices[s + 1];
     positions[i * 3 + 2] = vertices[s + 2];
-    const length = Math.hypot(
-      vertices[s + 3],
-      vertices[s + 4],
-      vertices[s + 5],
-    );
+    const length = hypot3(vertices[s + 3], vertices[s + 4], vertices[s + 5]);
     normals[i * 3] = length > 0 ? vertices[s + 3] / length : 0;
     normals[i * 3 + 1] = length > 0 ? vertices[s + 4] / length : 0;
     normals[i * 3 + 2] = length > 0 ? vertices[s + 5] / length : 1;

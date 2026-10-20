@@ -1,3 +1,4 @@
+const require_hypot = require("../../../math/src/hypot.cjs");
 const require_math3d = require("../../../math/src/math3d.cjs");
 const require_navigation = require("../../../../src/data/navigation.cjs");
 const require_follower = require("./follower.cjs");
@@ -35,19 +36,19 @@ var NavigationMeshFollower3D = class extends require_follower.PathFollower3D {
 		super.update(e);
 	}
 	beforeWaypoint(e, t) {
-		let n = this.route, r = this.mesh, i = n?.waypoints[e]?.link;
-		if (!i || e === 0) return !0;
+		let n = this.route, i = this.mesh, a = n?.waypoints[e]?.link;
+		if (!a || e === 0) return !0;
 		if (this.samplingVelocity) return !1;
-		let a = this.traverseLink?.({
-			link: i,
+		let o = this.traverseLink?.({
+			link: a,
 			from: this.waypoints[e - 1],
 			to: this.waypoints[e],
 			controller: this.character,
 			deltaSeconds: t
 		}) ?? `blocked`;
-		if (this.route !== n || !this.character || this.character.destroyed || this.character.object.destroyed || this.currentState !== `following` || !r.isPathCurrent(n) || a === `pending`) return !1;
-		let o = this.character.object.position, s = this.waypoints[e];
-		return a === `complete` && Math.hypot(o.x - s.x, o.y - s.y, o.z - s.z) <= this.arrivalTolerance ? (this.nextWaypoint++, this.nextWaypoint === this.waypoints.length && (this.currentState = `finished`)) : this.currentState = `blocked`, !1;
+		if (this.route !== n || !this.character || this.character.destroyed || this.character.object.destroyed || this.currentState !== `following` || !i.isPathCurrent(n) || o === `pending`) return !1;
+		let s = this.character.object.position, c = this.waypoints[e];
+		return o === `complete` && require_hypot.hypot3(s.x - c.x, s.y - c.y, s.z - c.z) <= this.arrivalTolerance ? (this.nextWaypoint++, this.nextWaypoint === this.waypoints.length && (this.currentState = `finished`)) : this.currentState = `blocked`, !1;
 	}
 	destroy() {
 		this.mesh = void 0, this.route = void 0, super.destroy();
