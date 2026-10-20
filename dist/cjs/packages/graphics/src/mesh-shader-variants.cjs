@@ -5,37 +5,37 @@ const require_skinned_mesh = require("../../core/src/skinned-mesh.cjs");
 const require_baked_lighting = require("../../core/src/baked-lighting.cjs");
 const require_contact_shadows = require("../../core/src/contact-shadows.cjs");
 //#region dist/packages/graphics/src/mesh-shader-variants.js
-function meshShaderFeatures(s, c, l) {
-	let u = s instanceof require_pbr_material.PBRMaterial ? s : void 0, d = u?.finish, f = u && require_optical_material_maps.opticalMaterialMaps(u);
+function meshShaderFeatures(e, t, n) {
+	let r = meshShaderVariantBits(e, t, n);
 	return {
-		pbr: !!u,
-		clearcoat: (u?.clearcoat ?? 0) > 0,
-		sheen: !!u?.sheenColor.some((e) => e > 0),
-		transmission: (u?.transmission ?? 0) > 0,
-		dispersion: (d?.dispersion ?? 0) > 0,
-		anisotropy: (d?.anisotropy ?? 0) > 0,
-		iridescence: (d?.iridescence ?? 0) > 0,
-		anisotropyMap: (d?.anisotropy ?? 0) > 0 && !!f?.anisotropyTexture,
-		iridescenceMap: (d?.iridescence ?? 0) > 0 && !!f?.iridescenceTexture,
-		iridescenceThicknessMap: (d?.iridescence ?? 0) > 0 && !!f?.iridescenceThicknessTexture,
-		subsurface: (d?.subsurface ?? 0) > 0,
-		height: (d?.heightScale ?? 0) > 0,
-		weathering: !!d && d.wetness + d.snow + d.dirt + d.damage > 0,
-		detail: (d?.detailStrength ?? 0) > 0,
-		triplanar: (d?.triplanar ?? 0) > 0,
-		lightmap: !!u?.lightmap,
-		bakedIrradiance: !!u && !!c && !!require_baked_lighting.meshIrradianceVolume(c),
-		bakedLightmap: !!u?.lightmap && require_baked_lighting.isBakedLightmap(u.lightmap),
-		skinned: c instanceof require_skinned_mesh.SkinnedMesh,
-		instanced: !!c && `count` in c,
-		morph: !!c?.morph,
-		shadows: !l || l.shadows.enabled,
-		contactShadows: !!l && (require_contact_shadows.ContactShadows.get(l)?.strength ?? 0) > 0,
-		environment: !l || !!l.environment || l.reflectionProbes.length > 0,
-		native: require_native_material3d.isNativeMaterial3D(s)
+		pbr: (r & c.pbr) !== 0,
+		clearcoat: (r & c.clearcoat) !== 0,
+		sheen: (r & c.sheen) !== 0,
+		transmission: (r & c.transmission) !== 0,
+		dispersion: (r & c.dispersion) !== 0,
+		anisotropy: (r & c.anisotropy) !== 0,
+		iridescence: (r & c.iridescence) !== 0,
+		anisotropyMap: (r & c.anisotropyMap) !== 0,
+		iridescenceMap: (r & c.iridescenceMap) !== 0,
+		iridescenceThicknessMap: (r & c.iridescenceThicknessMap) !== 0,
+		subsurface: (r & c.subsurface) !== 0,
+		height: (r & c.height) !== 0,
+		weathering: (r & c.weathering) !== 0,
+		detail: (r & c.detail) !== 0,
+		triplanar: (r & c.triplanar) !== 0,
+		lightmap: (r & c.lightmap) !== 0,
+		bakedIrradiance: (r & c.bakedIrradiance) !== 0,
+		bakedLightmap: (r & c.bakedLightmap) !== 0,
+		skinned: (r & c.skinned) !== 0,
+		instanced: (r & c.instanced) !== 0,
+		morph: (r & c.morph) !== 0,
+		shadows: (r & c.shadows) !== 0,
+		contactShadows: (r & c.contactShadows) !== 0,
+		environment: (r & c.environment) !== 0,
+		native: (r & c.native) !== 0
 	};
 }
-var s = [
+var c = Object.fromEntries([
 	`pbr`,
 	`clearcoat`,
 	`sheen`,
@@ -61,14 +61,25 @@ var s = [
 	`anisotropyMap`,
 	`iridescenceMap`,
 	`iridescenceThicknessMap`
-];
-function meshShaderVariantBits(e, t, n) {
-	return featureBits(meshShaderFeatures(e, t, n));
-}
-function featureBits(e) {
-	let t = 0;
-	for (let n = 0; n < s.length; n++) e[s[n]] && (t |= 1 << n);
-	return t;
+].map((e, t) => [e, 1 << t]));
+function meshShaderVariantBits(s, l, u) {
+	let d = 0, f = s instanceof require_pbr_material.PBRMaterial ? s : void 0;
+	if (f) {
+		d |= c.pbr, f.clearcoat > 0 && (d |= c.clearcoat);
+		let e = f.sheenColor;
+		for (let t = 0; t < e.length; t++) if (e[t] > 0) {
+			d |= c.sheen;
+			break;
+		}
+		f.transmission > 0 && (d |= c.transmission);
+		let t = f.finish;
+		if (t) {
+			let e = require_optical_material_maps.opticalMaterialMaps(f);
+			t.dispersion > 0 && (d |= c.dispersion), t.anisotropy > 0 && (d |= c.anisotropy, e.anisotropyTexture && (d |= c.anisotropyMap)), t.iridescence > 0 && (d |= c.iridescence, e.iridescenceTexture && (d |= c.iridescenceMap), e.iridescenceThicknessTexture && (d |= c.iridescenceThicknessMap)), t.subsurface > 0 && (d |= c.subsurface), t.heightScale > 0 && (d |= c.height), t.wetness + t.snow + t.dirt + t.damage > 0 && (d |= c.weathering), t.detailStrength > 0 && (d |= c.detail), t.triplanar > 0 && (d |= c.triplanar);
+		}
+		f.lightmap && (d |= c.lightmap, require_baked_lighting.isBakedLightmap(f.lightmap) && (d |= c.bakedLightmap)), l && require_baked_lighting.meshIrradianceVolume(l) && (d |= c.bakedIrradiance);
+	}
+	return l instanceof require_skinned_mesh.SkinnedMesh && (d |= c.skinned), l && `count` in l && (d |= c.instanced), l?.morph && (d |= c.morph), (!u || u.shadows.enabled) && (d |= c.shadows), u && (require_contact_shadows.ContactShadows.get(u)?.strength ?? 0) > 0 && (d |= c.contactShadows), (!u || u.environment || u.reflectionProbes.length > 0) && (d |= c.environment), require_native_material3d.isNativeMaterial3D(s) && (d |= c.native), d;
 }
 function omitShaderBlock(e, t) {
 	let n = e.indexOf(t);

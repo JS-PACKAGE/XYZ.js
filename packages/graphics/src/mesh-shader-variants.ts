@@ -45,42 +45,33 @@ export function meshShaderFeatures(
   mesh?: Mesh,
   scene?: Scene,
 ): MeshShaderFeatures {
-  const pbr = material instanceof PBRMaterial ? material : undefined;
-  const finish = pbr?.finish;
-  const optical = pbr && opticalMaterialMaps(pbr);
+  const bits = meshShaderVariantBits(material, mesh, scene);
   return {
-    pbr: !!pbr,
-    clearcoat: (pbr?.clearcoat ?? 0) > 0,
-    sheen: !!pbr?.sheenColor.some((value) => value > 0),
-    transmission: (pbr?.transmission ?? 0) > 0,
-    dispersion: (finish?.dispersion ?? 0) > 0,
-    anisotropy: (finish?.anisotropy ?? 0) > 0,
-    iridescence: (finish?.iridescence ?? 0) > 0,
-    anisotropyMap:
-      (finish?.anisotropy ?? 0) > 0 && !!optical?.anisotropyTexture,
-    iridescenceMap:
-      (finish?.iridescence ?? 0) > 0 && !!optical?.iridescenceTexture,
-    iridescenceThicknessMap:
-      (finish?.iridescence ?? 0) > 0 && !!optical?.iridescenceThicknessTexture,
-    subsurface: (finish?.subsurface ?? 0) > 0,
-    height: (finish?.heightScale ?? 0) > 0,
-    weathering:
-      !!finish &&
-      finish.wetness + finish.snow + finish.dirt + finish.damage > 0,
-    detail: (finish?.detailStrength ?? 0) > 0,
-    triplanar: (finish?.triplanar ?? 0) > 0,
-    lightmap: !!pbr?.lightmap,
-    bakedIrradiance: !!pbr && !!mesh && !!meshIrradianceVolume(mesh),
-    bakedLightmap: !!pbr?.lightmap && isBakedLightmap(pbr.lightmap),
-    skinned: mesh instanceof SkinnedMesh,
-    instanced: !!mesh && 'count' in mesh,
-    morph: !!mesh?.morph,
-    shadows: scene ? scene.shadows.enabled : true,
-    contactShadows: !!scene && (ContactShadows.get(scene)?.strength ?? 0) > 0,
-    environment: scene
-      ? !!scene.environment || scene.reflectionProbes.length > 0
-      : true,
-    native: isNativeMaterial3D(material),
+    pbr: (bits & BIT.pbr) !== 0,
+    clearcoat: (bits & BIT.clearcoat) !== 0,
+    sheen: (bits & BIT.sheen) !== 0,
+    transmission: (bits & BIT.transmission) !== 0,
+    dispersion: (bits & BIT.dispersion) !== 0,
+    anisotropy: (bits & BIT.anisotropy) !== 0,
+    iridescence: (bits & BIT.iridescence) !== 0,
+    anisotropyMap: (bits & BIT.anisotropyMap) !== 0,
+    iridescenceMap: (bits & BIT.iridescenceMap) !== 0,
+    iridescenceThicknessMap: (bits & BIT.iridescenceThicknessMap) !== 0,
+    subsurface: (bits & BIT.subsurface) !== 0,
+    height: (bits & BIT.height) !== 0,
+    weathering: (bits & BIT.weathering) !== 0,
+    detail: (bits & BIT.detail) !== 0,
+    triplanar: (bits & BIT.triplanar) !== 0,
+    lightmap: (bits & BIT.lightmap) !== 0,
+    bakedIrradiance: (bits & BIT.bakedIrradiance) !== 0,
+    bakedLightmap: (bits & BIT.bakedLightmap) !== 0,
+    skinned: (bits & BIT.skinned) !== 0,
+    instanced: (bits & BIT.instanced) !== 0,
+    morph: (bits & BIT.morph) !== 0,
+    shadows: (bits & BIT.shadows) !== 0,
+    contactShadows: (bits & BIT.contactShadows) !== 0,
+    environment: (bits & BIT.environment) !== 0,
+    native: (bits & BIT.native) !== 0,
   };
 }
 
@@ -111,14 +102,68 @@ const featureOrder: readonly (keyof MeshShaderFeatures)[] = [
   'iridescenceMap',
   'iridescenceThicknessMap',
 ];
+const BIT = Object.fromEntries(
+  featureOrder.map((name, index) => [name, 1 << index]),
+) as Readonly<Record<keyof MeshShaderFeatures, number>>;
 
-/** Numeric variant key: renderers look programs up per draw without building a string. */
+/**
+ * Numeric variant key: renderers look programs up per draw, so this builds neither a string
+ * nor a features object. `meshShaderFeatures` decodes these bits, keeping one definition.
+ */
 export function meshShaderVariantBits(
   material: TextureMaterial,
   mesh?: Mesh,
   scene?: Scene,
 ): number {
-  return featureBits(meshShaderFeatures(material, mesh, scene));
+  let bits = 0;
+  const pbr = material instanceof PBRMaterial ? material : undefined;
+  if (pbr) {
+    bits |= BIT.pbr;
+    if (pbr.clearcoat > 0) bits |= BIT.clearcoat;
+    const sheen = pbr.sheenColor;
+    for (let i = 0; i < sheen.length; i++)
+      if (sheen[i]! > 0) {
+        bits |= BIT.sheen;
+        break;
+      }
+    if (pbr.transmission > 0) bits |= BIT.transmission;
+    const finish = pbr.finish;
+    if (finish) {
+      const optical = opticalMaterialMaps(pbr);
+      if (finish.dispersion > 0) bits |= BIT.dispersion;
+      if (finish.anisotropy > 0) {
+        bits |= BIT.anisotropy;
+        if (optical.anisotropyTexture) bits |= BIT.anisotropyMap;
+      }
+      if (finish.iridescence > 0) {
+        bits |= BIT.iridescence;
+        if (optical.iridescenceTexture) bits |= BIT.iridescenceMap;
+        if (optical.iridescenceThicknessTexture)
+          bits |= BIT.iridescenceThicknessMap;
+      }
+      if (finish.subsurface > 0) bits |= BIT.subsurface;
+      if (finish.heightScale > 0) bits |= BIT.height;
+      if (finish.wetness + finish.snow + finish.dirt + finish.damage > 0)
+        bits |= BIT.weathering;
+      if (finish.detailStrength > 0) bits |= BIT.detail;
+      if (finish.triplanar > 0) bits |= BIT.triplanar;
+    }
+    if (pbr.lightmap) {
+      bits |= BIT.lightmap;
+      if (isBakedLightmap(pbr.lightmap)) bits |= BIT.bakedLightmap;
+    }
+    if (mesh && meshIrradianceVolume(mesh)) bits |= BIT.bakedIrradiance;
+  }
+  if (mesh instanceof SkinnedMesh) bits |= BIT.skinned;
+  if (mesh && 'count' in mesh) bits |= BIT.instanced;
+  if (mesh?.morph) bits |= BIT.morph;
+  if (scene ? scene.shadows.enabled : true) bits |= BIT.shadows;
+  if (scene && (ContactShadows.get(scene)?.strength ?? 0) > 0)
+    bits |= BIT.contactShadows;
+  if (scene ? !!scene.environment || scene.reflectionProbes.length > 0 : true)
+    bits |= BIT.environment;
+  if (isNativeMaterial3D(material)) bits |= BIT.native;
+  return bits;
 }
 
 export function meshShaderVariantKey(features: MeshShaderFeatures): string {
