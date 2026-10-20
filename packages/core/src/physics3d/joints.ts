@@ -328,9 +328,10 @@ export abstract class Joint3D {
     for (let i = 0; i < this.rowCount; i++) {
       const row = this.rows[i],
         n = row.axis;
-      let speed = this.axialSpeed(row.angularB);
+      let speed: number;
       // Point rows have different angular Jacobians on the two anchors.
-      if (!row.angular) {
+      if (row.angular) speed = this.axialSpeed(row.angularB);
+      else {
         const va = a?.velocity,
           vb = b?.velocity,
           wa = a?.angularVelocity,

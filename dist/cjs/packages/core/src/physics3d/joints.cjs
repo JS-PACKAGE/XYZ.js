@@ -152,8 +152,9 @@ var Joint3D = class {
 		if (!this.enabled || !this.attached) return;
 		let e = this.solverA, t = this.solverB;
 		if (e && e.type === `dynamic` && !e.isSleeping || t && t.type === `dynamic` && !t.isSleeping) for (let n = 0; n < this.rowCount; n++) {
-			let r = this.rows[n], i = r.axis, a = this.axialSpeed(r.angularB);
-			if (!r.angular) {
+			let r = this.rows[n], i = r.axis, a;
+			if (r.angular) a = this.axialSpeed(r.angularB);
+			else {
 				let n = e?.velocity, o = t?.velocity, s = e?.angularVelocity, c = t?.angularVelocity;
 				a = ((o?.x ?? 0) - (n?.x ?? 0)) * i.x + ((o?.y ?? 0) - (n?.y ?? 0)) * i.y + ((o?.z ?? 0) - (n?.z ?? 0)) * i.z + (c ? c.dot(r.angularB) : 0) - (s ? s.dot(r.angularA) : 0);
 			}
