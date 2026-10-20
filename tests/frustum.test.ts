@@ -69,6 +69,22 @@ describe('Mesh culling', () => {
     expect(cube([12, 0, 0], 40).isInFrustum(frustum)).toBe(true);
   });
 
+  it('keeps its own bounds when an overridden cullable tests another mesh', () => {
+    const frustum = cameraFrustum();
+    const visible = cube([0, 0, 0]);
+    class Probing extends Mesh {
+      protected override get cullable(): boolean {
+        return visible.isInFrustum(frustum);
+      }
+    }
+    const far = new Probing({
+      geometry: Geometry.cube(1),
+      material: material(),
+      position: [50, 0, 0],
+    });
+    expect(far.isInFrustum(frustum)).toBe(false);
+  });
+
   it('honors the opt-out and culls an offscreen instance aggregate', () => {
     const frustum = cameraFrustum();
     const far = cube([50, 0, 0]);

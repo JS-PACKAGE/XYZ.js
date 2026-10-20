@@ -33,6 +33,18 @@ var TextureMaterial = class {
 function materialBaseTexture(e) {
 	return e.textureSource ?? e.texture;
 }
+var c = {
+	x: 0,
+	y: 0,
+	z: 0,
+	radius: 0
+};
+var l = {
+	x: 0,
+	y: 0,
+	z: 0,
+	radius: 0
+};
 var Mesh = class extends require_object3d.Object3D {
 	geometry;
 	material;
@@ -49,18 +61,6 @@ var Mesh = class extends require_object3d.Object3D {
 	}
 	frustumCulled = !0;
 	occlusionCulled = !1;
-	worldSphere = {
-		x: 0,
-		y: 0,
-		z: 0,
-		radius: 0
-	};
-	deformationSphere = {
-		x: 0,
-		y: 0,
-		z: 0,
-		radius: 0
-	};
 	get renderGeometry() {
 		return this.geometry;
 	}
@@ -78,15 +78,15 @@ var Mesh = class extends require_object3d.Object3D {
 		return a * a + o * o + s * s;
 	}
 	isInFrustum(e) {
-		let t = this.getWorldBoundingSphere(this.worldSphere);
-		return !this.frustumCulled || !this.cullable || !require_render_bounds.sphereIsFinite(t) || e.intersectsSphere(t.x, t.y, t.z, t.radius);
+		let t = this.getWorldBoundingSphere(c), n = t.x, r = t.y, i = t.z, a = t.radius;
+		return !this.frustumCulled || !this.cullable || !Number.isFinite(n) || !Number.isFinite(r) || !Number.isFinite(i) || !Number.isFinite(a) || !(a >= 0) || e.intersectsSphere(n, r, i, a);
 	}
 	getWorldBoundingSphere(e, t = !0) {
 		t && (this.updateRenderDeformation(), this.updateWorldMatrix());
 		let n = this.boundingSphere, r = this.material.deformationBounds;
 		if (r === void 0) return e.x = e.y = e.z = 0, e.radius = 1 / 0, e;
 		if (r === 0) return require_render_bounds.transformSphere(n, this.worldMatrix, e);
-		let i = this.deformationSphere;
+		let i = l;
 		return i.x = n.x, i.y = n.y, i.z = n.z, i.radius = n.radius + r, require_render_bounds.transformSphere(i, this.worldMatrix, e);
 	}
 	updateDeformation() {

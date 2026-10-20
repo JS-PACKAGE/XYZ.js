@@ -55,8 +55,6 @@ export declare class Mesh extends Object3D {
     frustumCulled: boolean;
     /** Opt-in native depth queries. Unsupported, pending, or stale proofs remain visible. */
     occlusionCulled: boolean;
-    private readonly worldSphere;
-    private readonly deformationSphere;
     /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
     get renderGeometry(): Geometry;
     get boundingSphere(): Readonly<{

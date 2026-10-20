@@ -10,11 +10,7 @@ import { MorphTargets } from './morph.js';
 import { Object3D } from './object3d.js';
 import { samplerOptions } from './texture-sampler.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
-import {
-  transformSphere,
-  sphereIsFinite,
-  type BoundingSphere3D,
-} from './render-bounds.js';
+import { transformSphere, type BoundingSphere3D } from './render-bounds.js';
 
 export interface TextureMaterialOptions {
   texture: Texture;
@@ -97,6 +93,11 @@ export interface MeshOptions {
   morph?: MorphTargets;
 }
 
+// Transient scratches shared by every Mesh: each is filled after any refresh that could run
+// user code and read back before returning, so per-instance copies are never needed.
+const frustumSphere: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
+const deformationSphere: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
+
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
 export class Mesh extends Object3D {
   readonly geometry: Geometry;
@@ -139,18 +140,6 @@ export class Mesh extends Object3D {
   frustumCulled = true;
   /** Opt-in native depth queries. Unsupported, pending, or stale proofs remain visible. */
   occlusionCulled = false;
-  private readonly worldSphere: BoundingSphere3D = {
-    x: 0,
-    y: 0,
-    z: 0,
-    radius: 0,
-  };
-  private readonly deformationSphere: BoundingSphere3D = {
-    x: 0,
-    y: 0,
-    z: 0,
-    radius: 0,
-  };
 
   /** Native rendering may use bind-pose streams while exact CPU queries use `geometry`. */
   get renderGeometry(): Geometry {
@@ -190,15 +179,22 @@ export class Mesh extends Object3D {
    * so callers may use it before drawing. Non-finite bounds are treated as visible.
    */
   isInFrustum(frustum: Frustum): boolean {
-    const sphere = this.getWorldBoundingSphere(this.worldSphere);
+    const sphere = this.getWorldBoundingSphere(frustumSphere);
+    // Copied out before the overridable getters below could reuse the shared scratch.
+    const x = sphere.x,
+      y = sphere.y,
+      z = sphere.z,
+      radius = sphere.radius;
     if (!this.frustumCulled || !this.cullable) return true;
-    if (!sphereIsFinite(sphere)) return true;
-    return frustum.intersectsSphere(
-      sphere.x,
-      sphere.y,
-      sphere.z,
-      sphere.radius,
-    );
+    if (
+      !Number.isFinite(x) ||
+      !Number.isFinite(y) ||
+      !Number.isFinite(z) ||
+      !Number.isFinite(radius) ||
+      !(radius >= 0)
+    )
+      return true;
+    return frustum.intersectsSphere(x, y, z, radius);
   }
 
   /** Caller-owned output; mutable poses and pending deformation are refreshed by default. */
@@ -219,7 +215,7 @@ export class Mesh extends Object3D {
     }
     if (displacement === 0)
       return transformSphere(sphere, this.worldMatrix, out);
-    const expanded = this.deformationSphere;
+    const expanded = deformationSphere;
     expanded.x = sphere.x;
     expanded.y = sphere.y;
     expanded.z = sphere.z;
