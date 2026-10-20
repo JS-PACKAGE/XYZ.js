@@ -1,8 +1,8 @@
 //#region dist/packages/math/src/math3d.js
 var Vector3 = class Vector3 {
-	x;
-	y;
-	z;
+	x = 0;
+	y = 0;
+	z = 0;
 	constructor(e = 0, t = 0, n = 0) {
 		this.x = e, this.y = t, this.z = n;
 	}
@@ -40,10 +40,10 @@ var Vector3 = class Vector3 {
 	}
 };
 var Quaternion = class Quaternion {
-	x;
-	y;
-	z;
-	w;
+	x = 0;
+	y = 0;
+	z = 0;
+	w = 1;
 	constructor(e = 0, t = 0, n = 0, r = 1) {
 		this.x = e, this.y = t, this.z = n, this.w = r;
 	}

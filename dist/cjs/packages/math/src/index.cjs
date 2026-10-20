@@ -1,8 +1,8 @@
 const require_math3d = require("./math3d.cjs");
 //#region dist/packages/math/src/index.js
 var Vector2 = class Vector2 {
-	x;
-	y;
+	x = 0;
+	y = 0;
 	constructor(e = 0, t = 0) {
 		this.x = e, this.y = t;
 	}

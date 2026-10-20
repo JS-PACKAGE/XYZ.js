@@ -1,8 +1,12 @@
 export class Vector2 {
-  constructor(
-    public x = 0,
-    public y = 0,
-  ) {}
+  // Numeric initializers keep the fields' engine representation numeric: a bare
+  // `x;` class field starts as undefined, after which every number stored is boxed.
+  x = 0;
+  y = 0;
+  constructor(x = 0, y = 0) {
+    this.x = x;
+    this.y = y;
+  }
 
   set(x: number, y: number): this {
     this.x = x;

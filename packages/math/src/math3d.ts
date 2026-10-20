@@ -1,9 +1,13 @@
 export class Vector3 {
-  constructor(
-    public x = 0,
-    public y = 0,
-    public z = 0,
-  ) {}
+  // See Vector2: numeric initializers avoid boxing every stored coordinate.
+  x = 0;
+  y = 0;
+  z = 0;
+  constructor(x = 0, y = 0, z = 0) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+  }
 
   set(x: number, y: number, z: number): this {
     this.x = x;
@@ -64,12 +68,16 @@ export class Vector3 {
 }
 
 export class Quaternion {
-  constructor(
-    public x = 0,
-    public y = 0,
-    public z = 0,
-    public w = 1,
-  ) {}
+  x = 0;
+  y = 0;
+  z = 0;
+  w = 1;
+  constructor(x = 0, y = 0, z = 0, w = 1) {
+    this.x = x;
+    this.y = y;
+    this.z = z;
+    this.w = w;
+  }
 
   set(x: number, y: number, z: number, w: number): this {
     this.x = x;
