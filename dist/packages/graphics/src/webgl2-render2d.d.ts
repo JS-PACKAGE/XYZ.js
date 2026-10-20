@@ -43,6 +43,8 @@ export declare class WebGLRender2D {
     private readonly inverse;
     private readonly programs;
     private readonly layers;
+    /** Counts `draw` calls; layers record the last one that used them. */
+    private frame;
     private readonly targets;
     private readonly meshes;
     private readonly particles;

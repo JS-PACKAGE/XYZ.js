@@ -26,6 +26,7 @@ var WebGLRender2D = class {
 	inverse = new require_index.Matrix3();
 	programs = /* @__PURE__ */ new Map();
 	layers = /* @__PURE__ */ new Map();
+	frame = 0;
 	targets = /* @__PURE__ */ new Map();
 	meshes = /* @__PURE__ */ new Map();
 	particles = /* @__PURE__ */ new Map();
@@ -126,7 +127,7 @@ var WebGLRender2D = class {
 		}, this.gl.getParameter(this.gl.MAX_TEXTURE_SIZE));
 	}
 	draw(e, t, n, r, i) {
-		this.drawCommands(e, {
+		this.frame++, this.drawCommands(e, {
 			scene: t,
 			target: n,
 			bounds: {
@@ -136,7 +137,7 @@ var WebGLRender2D = class {
 				height: i
 			}
 		});
-		for (let [e, t] of this.layers) if (e.destroyed || !e.cacheAsTexture) {
+		for (let [e, t] of this.layers) if (e.destroyed || t.seen !== this.frame) {
 			for (let e of t.targets) this.hooks.deleteTarget(e);
 			this.layers.delete(e);
 		}
@@ -309,7 +310,7 @@ var WebGLRender2D = class {
 	}
 	layer(e, t, n) {
 		let r = this.layers.get(e);
-		if (r && e.cacheAsTexture && r.version === e.cacheVersion) return r;
+		if (r && e.cacheAsTexture && r.version === e.cacheVersion) return r.seen = this.frame, r;
 		let i = e.getLocalBounds();
 		if (i.width <= 0 || i.height <= 0) return;
 		this.validateBounds(i, this.resolution);
@@ -327,10 +328,11 @@ var WebGLRender2D = class {
 				targets: t,
 				bounds: i,
 				version: -1,
-				result: t[0]
+				result: t[0],
+				seen: this.frame
 			}, this.layers.set(e, r);
 		}
-		r.bounds = i;
+		r.bounds = i, r.seen = this.frame;
 		let s = {
 			scene: n,
 			target: r.targets[0],

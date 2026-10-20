@@ -92,6 +92,8 @@ interface Layer2D {
   bounds: Rect2D;
   version: number;
   result: GLTarget2D;
+  /** Last `draw` that composited this layer; unused layers release their targets. */
+  seen: number;
 }
 interface MeshBuffers2D {
   allocation: ResidencyAllocation;
@@ -137,6 +139,8 @@ export class WebGLRender2D {
   private readonly inverse = new Matrix3();
   private readonly programs = new Map<WebGLProgram, Program2D>();
   private readonly layers = new Map<IsolatedGroup2D, Layer2D>();
+  /** Counts `draw` calls; layers record the last one that used them. */
+  private frame = 0;
   private readonly targets = new Map<RenderTexture2D, GLTarget2D>();
   private readonly meshes = new Map<Geometry2D, MeshBuffers2D>();
   private readonly particles = new Map<ParticleLayer2D, ParticleBuffers2D>();
@@ -371,13 +375,15 @@ export class WebGLRender2D {
     width: number,
     height: number,
   ): void {
+    this.frame++;
     this.drawCommands(commands, {
       scene,
       target,
       bounds: { x: 0, y: 0, width, height },
     });
+    // Like WebGPU, live uncached layers keep their targets instead of reallocating each frame.
     for (const [group, entry] of this.layers)
-      if (group.destroyed || !group.cacheAsTexture) {
+      if (group.destroyed || entry.seen !== this.frame) {
         for (const target of entry.targets) this.hooks.deleteTarget(target);
         this.layers.delete(group);
       }
@@ -1091,8 +1097,10 @@ export class WebGLRender2D {
     scene: Scene,
   ): Layer2D | undefined {
     let entry = this.layers.get(group);
-    if (entry && group.cacheAsTexture && entry.version === group.cacheVersion)
+    if (entry && group.cacheAsTexture && entry.version === group.cacheVersion) {
+      entry.seen = this.frame;
       return entry;
+    }
     const bounds = group.getLocalBounds();
     if (bounds.width <= 0 || bounds.height <= 0) return undefined;
     this.validateBounds(bounds, this.resolution);
@@ -1113,10 +1121,17 @@ export class WebGLRender2D {
       }
       if (entry)
         for (const target of entry.targets) this.hooks.deleteTarget(target);
-      entry = { targets, bounds, version: -1, result: targets[0] };
+      entry = {
+        targets,
+        bounds,
+        version: -1,
+        result: targets[0],
+        seen: this.frame,
+      };
       this.layers.set(group, entry);
     }
     entry.bounds = bounds;
+    entry.seen = this.frame;
     const context: Context2D = {
       scene,
       target: entry.targets[0],
