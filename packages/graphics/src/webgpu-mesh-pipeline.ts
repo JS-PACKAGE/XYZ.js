@@ -168,6 +168,8 @@ interface CachedMesh {
   /** Light counts of the last scene upload; slots beyond them hold zeros. */
   scenePoints: number;
   sceneSpots: number;
+  /** Bits `sceneBuffer` holds (zero like a new buffer). */
+  sceneSent: Uint32Array;
   /** Probe blend revision held by `uniform`; -1 until first upload. */
   probeRevision: number;
   sceneGroup?: GPUBindGroup;
@@ -204,37 +206,46 @@ interface CachedEnvironment {
  * `[20, 20 + LIGHTING_FLOAT_COUNT)`, then the tail — without its zero light
  * padding. The buffer starts zeroed and every slot past `uploaded`'s previous
  * counts was already written as zero, so the GPU copy still equals `data`.
- * Upload cost scales with bytes and unused slots were ~90% of each block.
+ * Upload cost scales with bytes and unused slots were ~90% of each block;
+ * within the live ranges only spans differing from `uploaded.sceneSent` (the
+ * GPU mirror) are sent, so unchanged camera/lights cost nothing.
  * Updates `uploaded` and returns the uploaded byte count.
  */
 export function uploadSceneBlock(
   queue: GPUQueue,
   buffer: GPUBuffer,
   data: Float32Array,
-  uploaded: { scenePoints: number; sceneSpots: number },
+  bits: Uint32Array,
+  uploaded: { scenePoints: number; sceneSpots: number; sceneSent: Uint32Array },
 ): number {
   const pointCount = data[20 + 8]!,
     spotCount = data[20 + 9]!,
     points = Math.max(pointCount, uploaded.scenePoints),
-    spots = Math.max(spotCount, uploaded.sceneSpots);
+    spots = Math.max(spotCount, uploaded.sceneSpots),
+    sent = uploaded.sceneSent;
   uploaded.scenePoints = pointCount;
   uploaded.sceneSpots = spotCount;
   const head = 20 + POINT_LIGHT_OFFSET + points * POINT_LIGHT_STRIDE;
-  queue.writeBuffer(buffer, 0, data, 0, head);
-  let floats = head;
+  let bytes = uploadChangedSpan(queue, buffer, bits, sent, 0, head);
   if (spots) {
     const at = 20 + SPOT_LIGHT_OFFSET;
-    queue.writeBuffer(buffer, at * 4, data, at, spots * SPOT_LIGHT_STRIDE);
-    floats += spots * SPOT_LIGHT_STRIDE;
+    bytes += uploadChangedSpan(
+      queue,
+      buffer,
+      bits,
+      sent,
+      at,
+      at + spots * SPOT_LIGHT_STRIDE,
+    );
   }
   if (points) {
     const at = 20 + LIGHTING_POINT_ID_OFFSET;
-    queue.writeBuffer(buffer, at * 4, data, at, points);
-    floats += points;
+    bytes += uploadChangedSpan(queue, buffer, bits, sent, at, at + points);
   }
   const tail = 20 + LIGHTING_FLOAT_COUNT;
-  queue.writeBuffer(buffer, tail * 4, data, tail, data.length - tail);
-  return (floats + data.length - tail) * 4;
+  return (
+    bytes + uploadChangedSpan(queue, buffer, bits, sent, tail, data.length)
+  );
 }
 
 /**
@@ -323,6 +334,7 @@ export class WebGPUMeshPipeline {
   private readonly drawSorter = new DrawSorter();
   readonly stats: FrameStats;
   private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 36);
+  private readonly sceneBits = new Uint32Array(this.sceneData.buffer);
   private readonly fogData = new Float32Array(FOG_FLOAT_COUNT);
   private readonly invViewProjection = new Matrix4();
   private readonly environments = new Map<EnvironmentMap, CachedEnvironment>();
@@ -1576,7 +1588,13 @@ export class WebGPUMeshPipeline {
       data.set(this.lightingData, 20);
       data[30] = linear ? 1 : 0;
       this.stats.upload(
-        uploadSceneBlock(this.device.queue, mesh.sceneBuffer, data, mesh),
+        uploadSceneBlock(
+          this.device.queue,
+          mesh.sceneBuffer,
+          data,
+          this.sceneBits,
+          mesh,
+        ),
       );
     }
     this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data);
@@ -2995,6 +3013,7 @@ export class WebGPUMeshPipeline {
         sent: new Uint32Array(meshUniformFloats),
         scenePoints: 0,
         sceneSpots: 0,
+        sceneSent: new Uint32Array(this.sceneData.length),
         probeRevision: -1,
         sceneBuffer: this.device.createBuffer({
           size: this.sceneData.byteLength,

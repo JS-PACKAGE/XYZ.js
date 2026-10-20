@@ -16,12 +16,15 @@ import type { PlanarReflection } from '../../core/src/planar-reflection.js';
  * `[20, 20 + LIGHTING_FLOAT_COUNT)`, then the tail — without its zero light
  * padding. The buffer starts zeroed and every slot past `uploaded`'s previous
  * counts was already written as zero, so the GPU copy still equals `data`.
- * Upload cost scales with bytes and unused slots were ~90% of each block.
+ * Upload cost scales with bytes and unused slots were ~90% of each block;
+ * within the live ranges only spans differing from `uploaded.sceneSent` (the
+ * GPU mirror) are sent, so unchanged camera/lights cost nothing.
  * Updates `uploaded` and returns the uploaded byte count.
  */
-export declare function uploadSceneBlock(queue: GPUQueue, buffer: GPUBuffer, data: Float32Array, uploaded: {
+export declare function uploadSceneBlock(queue: GPUQueue, buffer: GPUBuffer, data: Float32Array, bits: Uint32Array, uploaded: {
     scenePoints: number;
     sceneSpots: number;
+    sceneSent: Uint32Array;
 }): number;
 /**
  * @internal Uploads the smallest span of `[start, end)` whose bits differ from
@@ -78,6 +81,7 @@ export declare class WebGPUMeshPipeline {
     private readonly drawSorter;
     readonly stats: FrameStats;
     private readonly sceneData;
+    private readonly sceneBits;
     private readonly fogData;
     private readonly invViewProjection;
     private readonly environments;

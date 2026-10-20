@@ -11,12 +11,12 @@ import { Scene } from '../packages/core/src/scene.js';
 describe('uploadSceneBlock', () => {
   it('keeps the GPU copy equal to the full block as light counts change', () => {
     // A zero-initialised GPU buffer that applies writes like GPUQueue.writeBuffer.
-    const gpu = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 36);
+    const gpu = new Uint32Array(20 + LIGHTING_FLOAT_COUNT + 36);
     const queue = {
       writeBuffer(
         _buffer: GPUBuffer,
         offset: number,
-        source: Float32Array,
+        source: Uint32Array,
         start: number,
         size: number,
       ) {
@@ -24,7 +24,12 @@ describe('uploadSceneBlock', () => {
       },
     } as unknown as GPUQueue;
     const data = new Float32Array(gpu.length);
-    const uploaded = { scenePoints: 0, sceneSpots: 0 };
+    const bits = new Uint32Array(data.buffer);
+    const uploaded = {
+      scenePoints: 0,
+      sceneSpots: 0,
+      sceneSent: new Uint32Array(gpu.length),
+    };
     const scene = new Scene();
     const points = Array.from({ length: 5 }, (_, i) => {
       const light = new PointLight();
@@ -49,9 +54,19 @@ describe('uploadSceneBlock', () => {
       });
       for (let i = 0; i < 20; i++) data[i] = p * 100 + i;
       data.fill(s + 0.5, 20 + LIGHTING_FLOAT_COUNT);
-      const bytes = uploadSceneBlock(queue, {} as GPUBuffer, data, uploaded);
-      expect(gpu).toEqual(data);
+      const bytes = uploadSceneBlock(
+        queue,
+        {} as GPUBuffer,
+        data,
+        bits,
+        uploaded,
+      );
+      expect(gpu).toEqual(bits);
       expect(bytes).toBeLessThan(data.byteLength);
+      // An unchanged block costs nothing on the next frame.
+      expect(
+        uploadSceneBlock(queue, {} as GPUBuffer, data, bits, uploaded),
+      ).toBe(0);
     }
   });
 });

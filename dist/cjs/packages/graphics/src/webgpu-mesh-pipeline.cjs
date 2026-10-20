@@ -38,26 +38,23 @@ const require_webgpu_oit = require("./webgpu-oit.cjs");
 const require_webgpu_temporal_pipeline = require("./webgpu-temporal-pipeline.cjs");
 const require_webgpu_object_motion = require("./webgpu-object-motion.cjs");
 //#region dist/packages/graphics/src/webgpu-mesh-pipeline.js
-var we = [];
 var Te = [];
+var Z = [];
 var Q = /* @__PURE__ */ new WeakMap();
 var $ = 336 + require_rendering.nativeMaterial3DLimits.uniformFloats + 4 + require_optical_maps.mappedMaterialUVFloatCount + 20 + 40 + 16;
-function uploadSceneBlock(e, t, n, r) {
-	let i = n[28], a = n[29], o = Math.max(i, r.scenePoints), s = Math.max(a, r.sceneSpots);
-	r.scenePoints = i, r.sceneSpots = a;
-	let c = 32 + o * 8;
-	e.writeBuffer(t, 0, n, 0, c);
-	let l = c;
+function uploadSceneBlock(e, t, n, r, i) {
+	let a = n[28], o = n[29], s = Math.max(a, i.scenePoints), c = Math.max(o, i.sceneSpots), l = i.sceneSent;
+	i.scenePoints = a, i.sceneSpots = o;
+	let u = uploadChangedSpan(e, t, r, l, 0, 32 + s * 8);
+	if (c) {
+		let n = 288;
+		u += uploadChangedSpan(e, t, r, l, n, n + c * 16);
+	}
 	if (s) {
-		let r = 288;
-		e.writeBuffer(t, r * 4, n, r, s * 16), l += s * 16;
+		let n = 800;
+		u += uploadChangedSpan(e, t, r, l, n, n + s);
 	}
-	if (o) {
-		let r = 800;
-		e.writeBuffer(t, r * 4, n, r, o), l += o;
-	}
-	let u = 832;
-	return e.writeBuffer(t, u * 4, n, u, n.length - u), (l + n.length - u) * 4;
+	return u + uploadChangedSpan(e, t, r, l, 832, n.length);
 }
 function uploadChangedSpan(e, t, n, r, i, a) {
 	let o = i;
@@ -114,6 +111,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 	drawSorter = new require_draw_order.DrawSorter();
 	stats;
 	sceneData = /* @__PURE__ */ new Float32Array(868);
+	sceneBits = new Uint32Array(this.sceneData.buffer);
 	fogData = /* @__PURE__ */ new Float32Array(8);
 	invViewProjection = new require_math3d.Matrix4();
 	environments = /* @__PURE__ */ new Map();
@@ -803,7 +801,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			require_render_data.validateRenderSettings(t), t.lightSelection.update(t), require_render_data.fillLightingData(t, this.lightingData, t.lightSelection), this.atlas.update(t, c), this.ensureShadow(t), this.ensureEnvironment(t), this.frustum.setFromMatrix(t.camera3D.updateMatrix(c));
 			let p = +!!t.postProcessing.enabled | (t.transparency === `weighted` ? 2 : 0);
 			(this.proofWidth !== a || this.proofHeight !== s || this.proofMode !== p) && (this.proofWidth = a, this.proofHeight = s, this.proofMode = p, ++this.depthRevision);
-			for (let e of t.renderMeshes ?? Te) {
+			for (let e of t.renderMeshes ?? Z) {
 				!this.occlusion && e.occlusionCulled && (this.occlusion = new require_webgpu_occlusion.WebGPUOcclusionBackend(this.device));
 				let t = require_mesh.materialBaseTexture(e.material);
 				this.depthTextureVersions.get(t) !== t.version && (this.depthTextureVersions.set(t, t.version), ++this.depthRevision), e.worldVisible && require_native_material3d.isNativeMaterial3D(e.material) && !e.material.transparent && ++this.depthRevision;
@@ -847,7 +845,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 						let n = this.drawMesh(r, t, +!!b);
 						this.stats.draw(t.geometry.indices.length, n);
 					}
-					e === T - 1 && this.particles.draw(r, t.gpuParticleEmitters ?? we, t.camera3D, c, b);
+					e === T - 1 && this.particles.draw(r, t.gpuParticleEmitters ?? Te, t.camera3D, c, b);
 				} finally {
 					r.end();
 				}
@@ -954,7 +952,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		o?.validate(), r[860] = o?.distance ?? 0, r[861] = o?.thickness ?? 0, r[862] = o?.bias ?? 0, r[863] = o?.steps ?? 0, r[864] = o?.strength ?? 0, r[865] = this.proofWidth, r[866] = this.proofHeight, this.device.queue.writeBuffer(this.sceneBuffer, 0, r), this.stats.upload(r.byteLength);
 		for (let t of this.visibleDraws) {
 			let i = this.meshes.get(t);
-			require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(t)), r.set(this.lightingData, 20), r[30] = +!!n, this.stats.upload(uploadSceneBlock(this.device.queue, i.sceneBuffer, r, i));
+			require_render_data.fillLightingData(e, this.lightingData, e.lightSelection.selectMesh(t)), r.set(this.lightingData, 20), r[30] = +!!n, this.stats.upload(uploadSceneBlock(this.device.queue, i.sceneBuffer, r, this.sceneBits, i));
 		}
 		this.device.queue.writeBuffer(this.shadowBuffer, 0, this.atlas.data), this.stats.upload(this.atlas.data.byteLength), this.atlas.count && this.device.queue.writeBuffer(this.projectionBuffer, 0, this.atlas.projections, 0, this.atlas.count * 64), this.atlas.count && this.stats.upload(this.atlas.count * 64 * 4);
 	}
@@ -1701,6 +1699,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				sent: new Uint32Array($),
 				scenePoints: 0,
 				sceneSpots: 0,
+				sceneSent: new Uint32Array(this.sceneData.length),
 				probeRevision: -1,
 				sceneBuffer: this.device.createBuffer({
 					size: this.sceneData.byteLength,
