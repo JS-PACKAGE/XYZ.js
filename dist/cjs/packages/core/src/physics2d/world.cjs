@@ -23,6 +23,7 @@ var Proxy = class {
 	live = !1;
 	ccdStopped = !1;
 	ccdUnproven = !1;
+	separating = -1;
 	joints = [];
 	motion;
 	group;
@@ -363,61 +364,65 @@ var PhysicsWorld2D = class {
 			} else n?.type === `kinematic` && (require_collider.finite(n.velocity.x, `velocity.x`), require_collider.finite(n.velocity.y, `velocity.y`), require_collider.finite(n.angularVelocity, `angularVelocity`), t.owner.capturePhysicsPose());
 			for (let e of t.group) e.refresh(), this.sorted.push(e);
 		}
-		if (this.integrateContinuous(e, t), this.continuation()) {
-			this.sorted.sort(compareBounds);
-			for (let e = 0; e < this.sorted.length; e++) {
-				let n = this.sorted[e];
-				if (this.alive(n)) for (let r = e + 1; r < this.sorted.length; r++) {
-					let e = this.sorted[r];
-					if (e.geometry.minX > n.geometry.maxX) break;
-					if (n.owner === e.owner || !this.alive(e) || !(n.collider.category & e.collider.mask) || !(e.collider.category & n.collider.mask)) continue;
-					let i = n.collider.sensor || e.collider.sensor;
-					if (!i && !n.inverseMass && !e.inverseMass || n.group[0].joints.length && this.jointsBlockContact(n, e)) continue;
-					let a = n.contacts.get(e);
-					if (!a) {
-						if (!require_narrowphase.collide(n.geometry, e.geometry, this.queryManifold)) continue;
-						a = new Contact(n, e);
-					}
-					if (a.seen !== t && require_narrowphase.collide(n.geometry, e.geometry, a.manifold) && (a.sensor = i, a.seen = t, !a.active || i ? (n.body?.isSleeping && n.body.wake(), e.body?.isSleeping && e.body.wake()) : n.body?.type === `dynamic` && e.body?.type === `dynamic` && (!n.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && n.body.isSleeping && n.body.wake()), !this.activate(a, t) && !this.continuation())) return;
+		if (this.integrateContinuous(e, t), !this.continuation()) return;
+		this.sorted.sort(compareBounds);
+		for (let e of this.activeContacts) {
+			let n = e.a.geometry, r = e.b.geometry;
+			(n.maxY < r.minY || r.maxY < n.minY) && (e.a.separating = e.b.separating = t);
+		}
+		let n = this.liveness;
+		for (let e = 0; e < this.sorted.length; e++) {
+			let r = this.sorted[e];
+			if (this.alive(r)) for (let i = e + 1; i < this.sorted.length; i++) {
+				let e = this.sorted[i];
+				if (e.geometry.minX > r.geometry.maxX) break;
+				if (r.owner === e.owner || !this.alive(e) || !(r.collider.category & e.collider.mask) || !(e.collider.category & r.collider.mask)) continue;
+				let a = r.collider.sensor || e.collider.sensor;
+				if (!a && !r.inverseMass && !e.inverseMass || r.group[0].joints.length && this.jointsBlockContact(r, e) || (r.geometry.maxY < e.geometry.minY || e.geometry.maxY < r.geometry.minY) && this.liveness === n && (r.separating !== t || e.separating !== t)) continue;
+				let o = r.contacts.get(e);
+				if (!o) {
+					if (!require_narrowphase.collide(r.geometry, e.geometry, this.queryManifold)) continue;
+					o = new Contact(r, e);
+				}
+				if (o.seen !== t && require_narrowphase.collide(r.geometry, e.geometry, o.manifold) && (o.sensor = a, o.seen = t, !o.active || a ? (r.body?.isSleeping && r.body.wake(), e.body?.isSleeping && e.body.wake()) : r.body?.type === `dynamic` && e.body?.type === `dynamic` && (!r.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && r.body.isSleeping && r.body.wake()), !this.activate(o, t) && !this.continuation())) return;
+			}
+		}
+		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
+		this.wakeContactGroups(t), this.prepareJoints(e);
+		for (let t = 0; t < this.velocityIterations; t++) {
+			for (let t of this.activeJoints) t.solveVelocity(e);
+			for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solveVelocity(e);
+		}
+		for (let e = 0; e < this.positionIterations; e++) {
+			for (let e of this.activeJoints) e.solvePosition();
+			for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solvePosition(e);
+		}
+		this.breakJoints();
+		for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
+		for (let e of this.owners.values()) this.alive(e) && e.owner.sealPhysicsPose();
+		for (let t of this.owners.values()) {
+			let n = t.body?.updateSleep(e) ?? !1;
+			for (let e of t.group) e.sleepReady = n;
+		}
+		for (let e of this.sorted) {
+			if (!e.inverseMass || e.sleepVisited === t) continue;
+			this.sleepGroup.length = 0, this.sleepGroup.push(e), e.sleepVisited = t;
+			let n = !0;
+			for (let e = 0; e < this.sleepGroup.length; e++) {
+				let r = this.sleepGroup[e];
+				n &&= r.sleepReady;
+				for (let e of r.group) e.sleepVisited !== t && (e.sleepVisited = t, this.sleepGroup.push(e));
+				for (let e of r.contacts.values()) {
+					if (e.sensor || e.cancelled) continue;
+					let i = e.a === r ? e.b : e.a;
+					i.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), i.inverseMass && i.sleepVisited !== t && (i.sleepVisited = t, this.sleepGroup.push(i));
+				}
+				for (let e of r.joints) {
+					let i = e.partner(r), a = i && this.owners.get(i.owner);
+					i?.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), a?.inverseMass && a.sleepVisited !== t && (a.sleepVisited = t, this.sleepGroup.push(a));
 				}
 			}
-			for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
-			this.wakeContactGroups(t), this.prepareJoints(e);
-			for (let t = 0; t < this.velocityIterations; t++) {
-				for (let t of this.activeJoints) t.solveVelocity(e);
-				for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solveVelocity(e);
-			}
-			for (let e = 0; e < this.positionIterations; e++) {
-				for (let e of this.activeJoints) e.solvePosition();
-				for (let e of this.solveContacts) e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping) && this.solvePosition(e);
-			}
-			this.breakJoints();
-			for (let e of this.solveContacts) if (e.active && this.emit(e, `postcollision`), !this.continuation()) return;
-			for (let e of this.owners.values()) this.alive(e) && e.owner.sealPhysicsPose();
-			for (let t of this.owners.values()) {
-				let n = t.body?.updateSleep(e) ?? !1;
-				for (let e of t.group) e.sleepReady = n;
-			}
-			for (let e of this.sorted) {
-				if (!e.inverseMass || e.sleepVisited === t) continue;
-				this.sleepGroup.length = 0, this.sleepGroup.push(e), e.sleepVisited = t;
-				let n = !0;
-				for (let e = 0; e < this.sleepGroup.length; e++) {
-					let r = this.sleepGroup[e];
-					n &&= r.sleepReady;
-					for (let e of r.group) e.sleepVisited !== t && (e.sleepVisited = t, this.sleepGroup.push(e));
-					for (let e of r.contacts.values()) {
-						if (e.sensor || e.cancelled) continue;
-						let i = e.a === r ? e.b : e.a;
-						i.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), i.inverseMass && i.sleepVisited !== t && (i.sleepVisited = t, this.sleepGroup.push(i));
-					}
-					for (let e of r.joints) {
-						let i = e.partner(r), a = i && this.owners.get(i.owner);
-						i?.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), a?.inverseMass && a.sleepVisited !== t && (a.sleepVisited = t, this.sleepGroup.push(a));
-					}
-				}
-				if (n) for (let e of this.sleepGroup) e.body?.sleep();
-			}
+			if (n) for (let e of this.sleepGroup) e.body?.sleep();
 		}
 	}
 	wakeContactGroups(e) {

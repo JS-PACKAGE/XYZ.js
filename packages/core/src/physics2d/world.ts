@@ -110,6 +110,8 @@ class Proxy {
   live = false;
   ccdStopped = false;
   ccdUnproven = false;
+  /** Step token in which an existing contact of this piece became Y-separated. */
+  separating = -1;
   readonly joints: Joint2D[] = [];
   readonly motion: ShapeMotion2D;
   group!: readonly Proxy[];
@@ -777,6 +779,17 @@ export class PhysicsWorld2D {
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
     this.sorted.sort(compareBounds);
+    // Pieces with an existing contact whose bounds no longer overlap in Y. Only those pairs can
+    // need the lookup below (collide() resets a separating contact's manifold); other Y-separated
+    // candidates would fail collide()'s bounds test without side effects.
+    for (const contact of this.activeContacts) {
+      const ga = contact.a.geometry,
+        gb = contact.b.geometry;
+      if (ga.maxY < gb.minY || gb.maxY < ga.minY)
+        contact.a.separating = contact.b.separating = token;
+    }
+    // User callbacks may move geometry; they bump liveness, which disables the shortcut.
+    const liveness = this.liveness;
     for (let i = 0; i < this.sorted.length; i++) {
       const a = this.sorted[i];
       if (!this.alive(a)) continue;
@@ -793,6 +806,13 @@ export class PhysicsWorld2D {
         const sensor = a.collider.sensor || b.collider.sensor;
         if (!sensor && !a.inverseMass && !b.inverseMass) continue;
         if (a.group[0].joints.length && this.jointsBlockContact(a, b)) continue;
+        if (
+          (a.geometry.maxY < b.geometry.minY ||
+            b.geometry.maxY < a.geometry.minY) &&
+          this.liveness === liveness &&
+          (a.separating !== token || b.separating !== token)
+        )
+          continue;
         let contact = a.contacts.get(b);
         if (!contact) {
           // The scratch manifold avoids allocating a contact for AABB-only candidates.
