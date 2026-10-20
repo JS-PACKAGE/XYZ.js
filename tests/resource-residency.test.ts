@@ -235,6 +235,36 @@ describe('native cache admission', () => {
     pool.clear();
   });
 
+  it('never retains last-frame allocations that were retired after the frame ended', () => {
+    const pool = new ResidencyPool();
+    pool.configure(16);
+    const kept = pool.allocate(8, () => {}),
+      evicted = pool.allocate(8, () => {});
+    pool.beginFrame();
+    evicted.touch();
+    kept.touch();
+    pool.endFrame();
+    evicted.destroy();
+    const lease = pool.retainFrameResources();
+    expect(lease).toEqual([kept]);
+    expect(kept.references).toBe(1);
+    pool.clear();
+  });
+
+  it('keeps residency stats JSON-serializable while frames pin allocations', () => {
+    const native = new NativeResidency();
+    const allocation = native.textures.allocate(8, () => {});
+    native.beginFrame();
+    allocation.touch();
+    const during = JSON.parse(JSON.stringify(native)) as {
+      textures: { liveBytes: number; peakBytes: number };
+    };
+    native.endFrame();
+    expect(during.textures).toMatchObject({ liveBytes: 8, peakBytes: 8 });
+    expect(() => JSON.stringify(native)).not.toThrow();
+    native.clear();
+  });
+
   it('cancels captured upload ownership before completion and cannot retire a later allocation', async () => {
     const native = new NativeResidency(),
       work = deferred<void>();

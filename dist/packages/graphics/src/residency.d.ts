@@ -16,6 +16,7 @@ export interface GraphicsResidency {
 export declare function validateResidencyBudget(value: number | undefined): number;
 /** Tracks native cache allocations, not attachments, pipelines or driver memory. */
 export declare class ResidencyPool implements ResidencyStats {
+    #private;
     budgetBytes: number;
     liveBytes: number;
     peakBytes: number;
@@ -23,8 +24,6 @@ export declare class ResidencyPool implements ResidencyStats {
     private readonly allocations;
     private clock;
     private frame;
-    private framePins;
-    private lastFrame;
     private capture;
     get entries(): number;
     configure(bytes?: number): void;
@@ -37,6 +36,7 @@ export declare class ResidencyPool implements ResidencyStats {
     endCapture(): ResidencyAllocation[];
     allocate(bytes: number, retire: () => void): ResidencyAllocation;
     touch(allocation: ResidencyAllocation): void;
+    private pinned;
     resize(allocation: ResidencyAllocation, bytes: number): void;
     forget(allocation: ResidencyAllocation): void;
     clear(): void;
@@ -49,6 +49,8 @@ export declare class ResidencyAllocation {
     references: number;
     lastUsed: number;
     destroyed: boolean;
+    /** @internal Pool epoch of this allocation's latest in-frame touch. */
+    pinEpoch: number;
     constructor(pool: ResidencyPool, bytes: number, retire: () => void);
     touch(): void;
     retain(): void;

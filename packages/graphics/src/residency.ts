@@ -34,8 +34,18 @@ export class ResidencyPool implements ResidencyStats {
   private readonly allocations = new Set<ResidencyAllocation>();
   private clock = 0;
   private frame = false;
-  private framePins = new Set<ResidencyAllocation>();
-  private lastFrame = new Set<ResidencyAllocation>();
+  /**
+   * This frame's pins in first-touch order. An allocation is pinned iff its `pinEpoch` is
+   * the current `#epoch`, so a touch is one field compare and frames reuse these arrays
+   * instead of regrowing a Set. Entries at or past the counts are stale. `#` fields keep
+   * the allocation lists (which point back here) out of JSON views of these stats.
+   */
+  #framePins: ResidencyAllocation[] = [];
+  #frameCount = 0;
+  /** The previous completed frame's pins; destroyed entries count as removed. */
+  #lastFrame: ResidencyAllocation[] = [];
+  #lastCount = 0;
+  #epoch = 1;
   private capture: Set<ResidencyAllocation> | undefined;
   get entries(): number {
     return this.allocations.size;
@@ -51,7 +61,7 @@ export class ResidencyPool implements ResidencyStats {
     for (const allocation of this.allocations)
       if (
         allocation.references ||
-        this.framePins.has(allocation) ||
+        this.pinned(allocation) ||
         this.capture?.has(allocation)
       )
         protectedBytes += allocation.bytes;
@@ -65,18 +75,26 @@ export class ResidencyPool implements ResidencyStats {
   }
   endFrame(): void {
     this.frame = false;
-    // Swapping hands over the pins without re-adding every resource each frame.
-    const previous = this.lastFrame;
-    this.lastFrame = this.framePins;
-    this.framePins = previous;
-    previous.clear();
+    // Hand the pins over without re-adding every resource; trimming drops stale references.
+    const previous = this.#lastFrame;
+    this.#framePins.length = this.#frameCount;
+    this.#lastFrame = this.#framePins;
+    this.#lastCount = this.#frameCount;
+    this.#framePins = previous;
+    this.#frameCount = 0;
+    this.#epoch++;
   }
   abortFrame(): void {
     this.frame = false;
-    this.framePins.clear();
+    this.#frameCount = 0;
+    this.#epoch++;
   }
   retainFrameResources(): ResidencyAllocation[] {
-    const result = [...this.lastFrame];
+    const result: ResidencyAllocation[] = [];
+    for (let i = 0; i < this.#lastCount; i++) {
+      const allocation = this.#lastFrame[i]!;
+      if (!allocation.destroyed) result.push(allocation);
+    }
     for (const allocation of result) allocation.retain();
     return result;
   }
@@ -106,8 +124,17 @@ export class ResidencyPool implements ResidencyStats {
     if (allocation.destroyed)
       throw new GraphicsError('Native resource was retired.');
     allocation.lastUsed = ++this.clock;
-    if (this.frame) this.framePins.add(allocation);
+    if (this.frame && allocation.pinEpoch !== this.#epoch) {
+      allocation.pinEpoch = this.#epoch;
+      if (this.#frameCount < this.#framePins.length)
+        this.#framePins[this.#frameCount] = allocation;
+      else this.#framePins.push(allocation);
+      this.#frameCount++;
+    }
     this.capture?.add(allocation);
+  }
+  private pinned(allocation: ResidencyAllocation): boolean {
+    return allocation.pinEpoch === this.#epoch;
   }
   resize(allocation: ResidencyAllocation, bytes: number): void {
     if (!Number.isSafeInteger(bytes) || bytes < 0)
@@ -126,14 +153,14 @@ export class ResidencyPool implements ResidencyStats {
   forget(allocation: ResidencyAllocation): void {
     if (!this.allocations.delete(allocation)) return;
     this.liveBytes -= allocation.bytes;
-    this.framePins.delete(allocation);
-    this.lastFrame.delete(allocation);
+    // Pin lists skip destroyed entries; the stamp alone unpins it.
+    allocation.pinEpoch = 0;
     this.capture?.delete(allocation);
   }
   clear(): void {
     for (const allocation of this.allocations) allocation.destroy();
     this.endFrame();
-    this.lastFrame.clear();
+    this.#lastFrame.length = this.#lastCount = 0;
     this.capture = undefined;
   }
   private makeRoom(
@@ -148,7 +175,7 @@ export class ResidencyPool implements ResidencyStats {
       if (
         allocation !== except &&
         !allocation.references &&
-        !this.framePins.has(allocation) &&
+        !this.pinned(allocation) &&
         !this.capture?.has(allocation)
       )
         available += allocation.bytes;
@@ -162,7 +189,7 @@ export class ResidencyPool implements ResidencyStats {
         if (
           allocation !== except &&
           !allocation.references &&
-          !this.framePins.has(allocation) &&
+          !this.pinned(allocation) &&
           !this.capture?.has(allocation) &&
           (!oldest || allocation.lastUsed < oldest.lastUsed)
         )
@@ -177,6 +204,8 @@ export class ResidencyAllocation {
   references = 0;
   lastUsed = 0;
   destroyed = false;
+  /** @internal Pool epoch of this allocation's latest in-frame touch. */
+  pinEpoch = 0;
   constructor(
     private readonly pool: ResidencyPool,
     public bytes: number,

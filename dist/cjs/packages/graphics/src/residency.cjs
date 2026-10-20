@@ -13,8 +13,11 @@ var ResidencyPool = class {
 	allocations = /* @__PURE__ */ new Set();
 	clock = 0;
 	frame = !1;
-	framePins = /* @__PURE__ */ new Set();
-	lastFrame = /* @__PURE__ */ new Set();
+	#e = [];
+	#t = 0;
+	#n = [];
+	#r = 0;
+	#i = 1;
 	capture;
 	get entries() {
 		return this.allocations.size;
@@ -25,7 +28,7 @@ var ResidencyPool = class {
 	}
 	assertBudget(t) {
 		let n = validateResidencyBudget(t), r = 0;
-		for (let e of this.allocations) (e.references || this.framePins.has(e) || this.capture?.has(e)) && (r += e.bytes);
+		for (let e of this.allocations) (e.references || this.pinned(e) || this.capture?.has(e)) && (r += e.bytes);
 		if (r > n) throw new require_errors.GraphicsError(`Native resource budget is exhausted by active or retained resources.`);
 	}
 	beginFrame() {
@@ -33,14 +36,18 @@ var ResidencyPool = class {
 	}
 	endFrame() {
 		this.frame = !1;
-		let e = this.lastFrame;
-		this.lastFrame = this.framePins, this.framePins = e, e.clear();
+		let e = this.#n;
+		this.#e.length = this.#t, this.#n = this.#e, this.#r = this.#t, this.#e = e, this.#t = 0, this.#i++;
 	}
 	abortFrame() {
-		this.frame = !1, this.framePins.clear();
+		this.frame = !1, this.#t = 0, this.#i++;
 	}
 	retainFrameResources() {
-		let e = [...this.lastFrame];
+		let e = [];
+		for (let t = 0; t < this.#r; t++) {
+			let n = this.#n[t];
+			n.destroyed || e.push(n);
+		}
 		for (let t of e) t.retain();
 		return e;
 	}
@@ -62,28 +69,31 @@ var ResidencyPool = class {
 	}
 	touch(t) {
 		if (t.destroyed) throw new require_errors.GraphicsError(`Native resource was retired.`);
-		t.lastUsed = ++this.clock, this.frame && this.framePins.add(t), this.capture?.add(t);
+		t.lastUsed = ++this.clock, this.frame && t.pinEpoch !== this.#i && (t.pinEpoch = this.#i, this.#t < this.#e.length ? this.#e[this.#t] = t : this.#e.push(t), this.#t++), this.capture?.add(t);
+	}
+	pinned(e) {
+		return e.pinEpoch === this.#i;
 	}
 	resize(t, n) {
 		if (!Number.isSafeInteger(n) || n < 0) throw new require_errors.GraphicsError(`Invalid native resource byte estimate.`);
 		this.touch(t), n !== t.bytes && (this.makeRoom(Math.max(0, n - t.bytes), this.budgetBytes, t), this.liveBytes += n - t.bytes, t.bytes = n, this.peakBytes = Math.max(this.peakBytes, this.liveBytes));
 	}
 	forget(e) {
-		this.allocations.delete(e) && (this.liveBytes -= e.bytes, this.framePins.delete(e), this.lastFrame.delete(e), this.capture?.delete(e));
+		this.allocations.delete(e) && (this.liveBytes -= e.bytes, e.pinEpoch = 0, this.capture?.delete(e));
 	}
 	clear() {
 		for (let e of this.allocations) e.destroy();
-		this.endFrame(), this.lastFrame.clear(), this.capture = void 0;
+		this.endFrame(), this.#n.length = this.#r = 0, this.capture = void 0;
 	}
 	makeRoom(t, n, r) {
 		let i = this.liveBytes + t - n;
 		if (i <= 0) return;
 		let a = 0;
-		for (let e of this.allocations) e !== r && !e.references && !this.framePins.has(e) && !this.capture?.has(e) && (a += e.bytes);
+		for (let e of this.allocations) e !== r && !e.references && !this.pinned(e) && !this.capture?.has(e) && (a += e.bytes);
 		if (a < i) throw new require_errors.GraphicsError(`Native resource budget is exhausted by active or retained resources.`);
 		for (; this.liveBytes + t > n;) {
 			let e;
-			for (let t of this.allocations) t !== r && !t.references && !this.framePins.has(t) && !this.capture?.has(t) && (!e || t.lastUsed < e.lastUsed) && (e = t);
+			for (let t of this.allocations) t !== r && !t.references && !this.pinned(t) && !this.capture?.has(t) && (!e || t.lastUsed < e.lastUsed) && (e = t);
 			e.destroy(), this.evictions++;
 		}
 	}
@@ -95,6 +105,7 @@ var ResidencyAllocation = class {
 	references = 0;
 	lastUsed = 0;
 	destroyed = !1;
+	pinEpoch = 0;
 	constructor(e, t, n) {
 		this.pool = e, this.bytes = t, this.retire = n;
 	}
