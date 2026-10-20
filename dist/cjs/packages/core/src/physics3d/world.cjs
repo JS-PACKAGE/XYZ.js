@@ -27,6 +27,7 @@ var Contact3D = class {
 	seen = 0;
 	started = !1;
 	ended = !1;
+	responds = !1;
 	detailA;
 	detailB;
 	constructor(e, t) {
@@ -430,11 +431,12 @@ var PhysicsWorld3D = class {
 			t.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
+		for (let e of this.active) e.responds = !e.ended && this.valid(e.a) && this.valid(e.b) && !e.a.shape.collider.sensor && !e.b.shape.collider.sensor;
 		++this.massEpoch;
 		for (let e = 0; e < this.solverIterations; e++) {
 			this.solveJoints();
 			for (let e of this.active) {
-				if (e.ended || !this.valid(e.a) || !this.valid(e.b) || e.a.shape.collider.sensor || e.b.shape.collider.sensor) continue;
+				if (!e.responds) continue;
 				let t = e.a.body, n = e.b.body;
 				if (t?.type === `dynamic` && t.isSleeping && n && n.type !== `static` && !n.isSleeping && this.movingAtContact(n, e.manifold) && t.wake(), n?.type === `dynamic` && n.isSleeping && t && t.type !== `static` && !t.isSleeping && this.movingAtContact(t, e.manifold) && n.wake(), t && t.type === `dynamic` && !t.isSleeping || n && n.type === `dynamic` && !n.isSleeping) for (let t = 0; t < e.manifold.count; t++) this.solve(e, t);
 			}

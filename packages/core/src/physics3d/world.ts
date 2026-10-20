@@ -118,6 +118,8 @@ class Contact3D {
   seen = 0;
   started = false;
   ended = false;
+  /** Whether this step's velocity iterations solve it; fixed while no callback can run. */
+  responds = false;
   detailA: PhysicsContact3D | undefined;
   detailB: PhysicsContact3D | undefined;
   constructor(
@@ -904,18 +906,20 @@ export class PhysicsWorld3D {
       if (!canContinue() || this.disposed) return;
     }
     // Poses and inertia stay fixed across velocity iterations, so masses are reused.
+    // Membership, endings and sensors only change in callbacks, none of which run while
+    // iterating; sleep can (bodies wake below), so it is still checked per pass.
+    for (const c of this.active)
+      c.responds =
+        !c.ended &&
+        this.valid(c.a) &&
+        this.valid(c.b) &&
+        !c.a.shape.collider.sensor &&
+        !c.b.shape.collider.sensor;
     ++this.massEpoch;
     for (let iteration = 0; iteration < this.solverIterations; iteration++) {
       this.solveJoints();
       for (const c of this.active) {
-        if (
-          c.ended ||
-          !this.valid(c.a) ||
-          !this.valid(c.b) ||
-          c.a.shape.collider.sensor ||
-          c.b.shape.collider.sensor
-        )
-          continue;
+        if (!c.responds) continue;
         const a = c.a.body,
           b = c.b.body;
         if (
