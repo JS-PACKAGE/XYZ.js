@@ -106,6 +106,8 @@ export declare class Shape3D {
     private readonly childWorld;
     radius: number;
     private readonly poseMatrix;
+    /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
+    private readonly poseInputs;
     /** @internal Changes only after shape geometry/bounds are refreshed. */
     revision: number;
     /** @internal Translation does not invalidate angular inertia. */

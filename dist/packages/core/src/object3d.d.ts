@@ -36,6 +36,11 @@ export declare class Object3D extends SceneObject {
     capturePhysicsPose(): void;
     /** @internal */
     sealPhysicsPose(): void;
+    /**
+     * @internal True when `updateWorldMatrix()` would return exactly `transform.updateMatrix()`:
+     * a root using the base composition outside interpolated physics presentation.
+     */
+    get composesFromTransform(): boolean;
     /** Recompose mutable local transforms, including every ancestor, without allocations. */
     updateWorldMatrix(): Matrix4;
     destroy(): void;

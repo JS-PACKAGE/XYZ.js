@@ -277,6 +277,8 @@ export class Shape3D {
   private readonly childWorld: Matrix4 | undefined;
   radius = 0;
   private readonly poseMatrix = new Float64Array(16).fill(NaN);
+  /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
+  private readonly poseInputs = new Float64Array(10).fill(NaN);
   /** @internal Changes only after shape geometry/bounds are refreshed. */
   revision = 0;
   /** @internal Translation does not invalidate angular inertia. */
@@ -305,9 +307,46 @@ export class Shape3D {
       }
   }
   refresh(object: Object3D): boolean {
-    return this.refreshMatrix(object.updateWorldMatrix());
+    const t = object.transform,
+      p = t.position,
+      q = t.rotation,
+      s = t.scale,
+      k = this.poseInputs;
+    const direct = object.composesFromTransform;
+    // A root's world matrix is composed from these values alone; when none changed,
+    // refreshMatrix would find its cached pose and report no change.
+    if (
+      direct &&
+      k[0] === p.x &&
+      k[1] === p.y &&
+      k[2] === p.z &&
+      k[3] === q.x &&
+      k[4] === q.y &&
+      k[5] === q.z &&
+      k[6] === q.w &&
+      k[7] === s.x &&
+      k[8] === s.y &&
+      k[9] === s.z
+    )
+      return false;
+    const changed = this.refreshMatrix(object.updateWorldMatrix());
+    if (direct) {
+      k[0] = p.x;
+      k[1] = p.y;
+      k[2] = p.z;
+      k[3] = q.x;
+      k[4] = q.y;
+      k[5] = q.z;
+      k[6] = q.w;
+      k[7] = s.x;
+      k[8] = s.y;
+      k[9] = s.z;
+    }
+    return changed;
   }
   refreshMatrix(matrix: Matrix4): boolean {
+    // Direct callers bypass `refresh`, so its input snapshot no longer describes the pose.
+    this.poseInputs[0] = NaN;
     const e = matrix.elements;
     let changed = false,
       linearChanged = false;

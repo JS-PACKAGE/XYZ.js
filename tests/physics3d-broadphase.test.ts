@@ -97,3 +97,31 @@ it('pairs earlier static and sensor colliders with later bodies without counting
   expect(scene.physics3D.stats.candidatePairs).toBe(2);
   scene.destroy();
 });
+
+it('refreshes static poses after any transform input or ancestor change', () => {
+  const scene = new Scene();
+  const bar = scene.add(new Object3D());
+  bar.collider = new BoxCollider3D(new Vector3(2, 0.1, 0.1));
+  const hit = () =>
+    scene.physics3D.raycast(new Vector3(1.5, 3, 0), new Vector3(0, -1, 0), 6)
+      ?.object;
+  expect(hit()).toBe(bar);
+  bar.rotation.setFromEuler(0, Math.PI / 2, 0);
+  expect(hit()).toBeUndefined();
+  bar.rotation.setFromEuler(0, 0, 0);
+  expect(hit()).toBe(bar);
+  bar.scale.set(0.5, 1, 1);
+  expect(hit()).toBeUndefined();
+  bar.scale.set(1, 1, 1);
+  bar.position.z = 1;
+  expect(hit()).toBeUndefined();
+  bar.position.z = 0;
+  expect(hit()).toBe(bar);
+  const holder = scene.add(new Object3D());
+  holder.add(bar);
+  holder.position.x = 10;
+  expect(hit()).toBeUndefined();
+  holder.position.x = 0;
+  expect(hit()).toBe(bar);
+  scene.destroy();
+});

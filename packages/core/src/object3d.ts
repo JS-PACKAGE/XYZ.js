@@ -195,6 +195,17 @@ export class Object3D extends SceneObject {
   sealPhysicsPose(): void {
     this.physicsPresentation?.seal(this.transform);
   }
+  /**
+   * @internal True when `updateWorldMatrix()` would return exactly `transform.updateMatrix()`:
+   * a root using the base composition outside interpolated physics presentation.
+   */
+  get composesFromTransform(): boolean {
+    return (
+      !this.parent &&
+      this.updateWorldMatrix === Object3D.prototype.updateWorldMatrix &&
+      !this.scene?.presentingPhysics
+    );
+  }
   /** Recompose mutable local transforms, including every ancestor, without allocations. */
   updateWorldMatrix(): Matrix4 {
     const scene = this.scene;
