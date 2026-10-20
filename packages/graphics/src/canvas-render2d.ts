@@ -25,10 +25,20 @@ const modes: Record<string, GlobalCompositeOperation> = {
   screen: 'screen',
   erase: 'destination-out',
 };
+interface TintedPixels {
+  canvas: HTMLCanvasElement;
+  /** Set whenever the source layer is redrawn. */
+  stale: boolean;
+  r: number;
+  g: number;
+  b: number;
+}
 interface LayerPixels {
   canvas: HTMLCanvasElement;
   bounds: Rect2D;
   version: number;
+  /** Tinted copy reused by cacheAsTexture layers while pixels and RGB are unchanged. */
+  tinted?: TintedPixels;
 }
 export class CanvasRender2D {
   private readonly caches = new Map<IsolatedGroup2D, LayerPixels>();
@@ -167,7 +177,13 @@ export class CanvasRender2D {
             this.releaseCanvas(canvas);
             throw error;
           }
-          pixels = { canvas, bounds: local, version: group.cacheVersion };
+          if (pixels?.tinted) pixels.tinted.stale = true;
+          pixels = {
+            canvas,
+            bounds: local,
+            version: group.cacheVersion,
+            tinted: pixels?.tinted,
+          };
           this.caches.set(group, pixels);
         }
         this.transform(
@@ -185,25 +201,38 @@ export class CanvasRender2D {
         // Group RGB belongs to the composite, never baked into cached descendants.
         const canvas = pixels.canvas;
         let image: CanvasImageSource = canvas;
-        let tinted: HTMLCanvasElement | undefined;
-        if (
-          this.appearance[0] !== 1 ||
-          this.appearance[1] !== 1 ||
-          this.appearance[2] !== 1
-        ) {
-          tinted = this.tinted;
-          this.resizeCanvas(tinted, canvas.width, canvas.height);
-          this.stats.pass2D();
-          const tc = tinted.getContext('2d')!;
-          tc.globalCompositeOperation = 'copy';
-          tc.drawImage(canvas, 0, 0);
-          this.stats.draw2D();
-          tc.globalCompositeOperation = 'source-over';
-          const data = tc.getImageData(0, 0, canvas.width, canvas.height);
-          for (let i = 0; i < data.data.length; i += 4)
-            for (let c = 0; c < 3; c++) data.data[i + c] *= this.appearance[c];
-          tc.putImageData(data, 0, 0);
-          image = tinted;
+        const r = this.appearance[0],
+          g = this.appearance[1],
+          b = this.appearance[2];
+        const tintedLayer = r !== 1 || g !== 1 || b !== 1;
+        if (tintedLayer && group.cacheAsTexture) {
+          // A full-layer CPU readback per frame dominates static tinted caches.
+          let entry = pixels.tinted;
+          if (!entry)
+            entry = pixels.tinted = {
+              canvas: document.createElement('canvas'),
+              stale: true,
+              r,
+              g,
+              b,
+            };
+          if (entry.stale || entry.r !== r || entry.g !== g || entry.b !== b) {
+            this.tint(canvas, entry.canvas);
+            entry.stale = false;
+            entry.r = r;
+            entry.g = g;
+            entry.b = b;
+          }
+          image = entry.canvas;
+        } else {
+          if (pixels.tinted) {
+            this.releaseCanvas(pixels.tinted.canvas);
+            pixels.tinted = undefined;
+          }
+          if (tintedLayer) {
+            this.tint(canvas, this.tinted);
+            image = this.tinted;
+          }
         }
         context.globalAlpha = this.appearance[3];
         context.globalCompositeOperation = modes[group.blendMode];
@@ -348,8 +377,23 @@ export class CanvasRender2D {
     for (const [group, pixels] of this.caches)
       if (group.destroyed || !group.isolationEnabled) {
         this.releaseCanvas(pixels.canvas);
+        if (pixels.tinted) this.releaseCanvas(pixels.tinted.canvas);
         this.caches.delete(group);
       }
+  }
+  /** Multiplies unpremultiplied RGB by the current appearance into `target`. */
+  private tint(source: HTMLCanvasElement, target: HTMLCanvasElement): void {
+    this.resizeCanvas(target, source.width, source.height);
+    this.stats.pass2D();
+    const context = target.getContext('2d')!;
+    context.globalCompositeOperation = 'copy';
+    context.drawImage(source, 0, 0);
+    this.stats.draw2D();
+    context.globalCompositeOperation = 'source-over';
+    const data = context.getImageData(0, 0, source.width, source.height);
+    for (let i = 0; i < data.data.length; i += 4)
+      for (let c = 0; c < 3; c++) data.data[i + c] *= this.appearance[c];
+    context.putImageData(data, 0, 0);
   }
   private transform(
     context: CanvasRenderingContext2D,

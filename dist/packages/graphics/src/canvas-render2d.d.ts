@@ -26,6 +26,8 @@ export declare class CanvasRender2D {
     preflight(commands: RenderCommandBuffer2D, depth?: number): void;
     private validateBounds;
     draw(context: CanvasRenderingContext2D, commands: RenderCommandBuffer2D, scene: Scene, scaleX: number, scaleY: number, root?: IsolatedGroup2D, bounds?: Rect2D): void;
+    /** Multiplies unpremultiplied RGB by the current appearance into `target`. */
+    private tint;
     private transform;
     private mask;
     destroy(): void;

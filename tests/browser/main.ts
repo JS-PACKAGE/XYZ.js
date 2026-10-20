@@ -512,6 +512,16 @@ try {
         scenario.stats!.renderPasses2D > plainPasses,
         'group tint scratch contributes additional Canvas target work',
       );
+      const scratchTintPasses = scenario.stats!.renderPasses2D;
+      scratchGroup.cacheAsTexture = true;
+      await frames();
+      image = await proof();
+      pixel(image, 40, 110, [0, 255, 0], 'cached group keeps its tinted copy');
+      check(
+        scenario.stats!.renderPasses2D === scratchTintPasses - 2,
+        `unchanged cached tint skips layer and tint passes: ${scratchTintPasses} -> ${scenario.stats!.renderPasses2D}`,
+      );
+      scratchGroup.cacheAsTexture = false;
       scratchGroup.tint = [1, 1, 1, 1];
       scratchScene.add(
         new TilingSprite2D({

@@ -97,22 +97,25 @@ var CanvasRender2D = class {
 					} catch (e) {
 						throw this.releaseCanvas(r), e;
 					}
-					i = {
+					i?.tinted && (i.tinted.stale = !0), i = {
 						canvas: r,
 						bounds: n,
-						version: e.cacheVersion
+						version: e.cacheVersion,
+						tinted: i?.tinted
 					}, this.caches.set(e, i);
 				}
 				this.transform(n, r, r.updateWorldMatrix(), s, l, d, m, p, !1), require_sprite_instance.getRelativeAppearance2D(r, f, this.appearance);
-				let a = i.canvas, c = a, h;
-				if (this.appearance[0] !== 1 || this.appearance[1] !== 1 || this.appearance[2] !== 1) {
-					h = this.tinted, this.resizeCanvas(h, a.width, a.height), this.stats.pass2D();
-					let e = h.getContext(`2d`);
-					e.globalCompositeOperation = `copy`, e.drawImage(a, 0, 0), this.stats.draw2D(), e.globalCompositeOperation = `source-over`;
-					let t = e.getImageData(0, 0, a.width, a.height);
-					for (let e = 0; e < t.data.length; e += 4) for (let n = 0; n < 3; n++) t.data[e + n] *= this.appearance[n];
-					e.putImageData(t, 0, 0), c = h;
-				}
+				let a = i.canvas, c = a, h = this.appearance[0], g = this.appearance[1], _ = this.appearance[2], v = h !== 1 || g !== 1 || _ !== 1;
+				if (v && e.cacheAsTexture) {
+					let e = i.tinted;
+					e ||= i.tinted = {
+						canvas: document.createElement(`canvas`),
+						stale: !0,
+						r: h,
+						g,
+						b: _
+					}, (e.stale || e.r !== h || e.g !== g || e.b !== _) && (this.tint(a, e.canvas), e.stale = !1, e.r = h, e.g = g, e.b = _), c = e.canvas;
+				} else i.tinted && (this.releaseCanvas(i.tinted.canvas), i.tinted = void 0), v && (this.tint(a, this.tinted), c = this.tinted);
 				n.globalAlpha = this.appearance[3], n.globalCompositeOperation = u[e.blendMode], n.drawImage(c, i.bounds.x, i.bounds.y, i.bounds.width || 1, i.bounds.height || 1), this.stats.draw2D(), n.globalCompositeOperation = `source-over`;
 			} else if (t.kind === `sprite`) {
 				let r = t.object, a = require_sprite_instance.getSpriteQuad2D(r, this.quad);
@@ -139,7 +142,15 @@ var CanvasRender2D = class {
 			}
 		}
 		n.globalAlpha = 1, n.globalCompositeOperation = `source-over`;
-		for (let [e, t] of this.caches) (e.destroyed || !e.isolationEnabled) && (this.releaseCanvas(t.canvas), this.caches.delete(e));
+		for (let [e, t] of this.caches) (e.destroyed || !e.isolationEnabled) && (this.releaseCanvas(t.canvas), t.tinted && this.releaseCanvas(t.tinted.canvas), this.caches.delete(e));
+	}
+	tint(e, t) {
+		this.resizeCanvas(t, e.width, e.height), this.stats.pass2D();
+		let n = t.getContext(`2d`);
+		n.globalCompositeOperation = `copy`, n.drawImage(e, 0, 0), this.stats.draw2D(), n.globalCompositeOperation = `source-over`;
+		let r = n.getImageData(0, 0, e.width, e.height);
+		for (let e = 0; e < r.data.length; e += 4) for (let t = 0; t < 3; t++) r.data[e + t] *= this.appearance[t];
+		n.putImageData(r, 0, 0);
 	}
 	transform(e, t, n, r, i, a, o, s, c) {
 		let l = o ? this.product.copy(o).multiply(n).elements : n.elements, u = !o && t.worldSpace === `world`, d = r.camera2D, f = u ? d.zoom : 1, p = ((l[6] - (u ? d.position.x : 0)) * f + (u ? d.renderOffset.x : 0) - s.x) * i, m = ((l[7] - (u ? d.position.y : 0)) * f + (u ? d.renderOffset.y : 0) - s.y) * a;
