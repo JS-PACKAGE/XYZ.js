@@ -11,6 +11,8 @@ import { type InteractionPhase2D } from './gameplay/interaction-events.js';
 export declare class GameObject extends SceneObject {
     readonly transform: Transform2D;
     readonly worldMatrix: Matrix3;
+    /** @internal Owning Scene's registration stamp, ordering per-frame updates; 0 when detached. */
+    sceneUpdateId: number;
     /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
     private matrixPass;
     private ancestor;

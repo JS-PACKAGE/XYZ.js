@@ -26,6 +26,8 @@ const pointScratch = new Vector2();
 export class GameObject extends SceneObject {
   readonly transform = new Transform2D();
   readonly worldMatrix = new Matrix3();
+  /** @internal Owning Scene's registration stamp, ordering per-frame updates; 0 when detached. */
+  sceneUpdateId = 0;
   /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
   private matrixPass = 0;
   private ancestor: GameObject | undefined;

@@ -237,6 +237,38 @@ describe('targeted 2D pointer lifecycle', () => {
     expect(down).toHaveBeenCalledOnce();
   });
 
+  it('stops a frame for objects that move to another scene during their own callbacks', () => {
+    const other = new Scene();
+    const early = object(),
+      late = object();
+    const events: string[] = [];
+    for (const target of [early, late])
+      for (const type of ['initialize', 'preupdate', 'postupdate'])
+        target.addEventListener(type, () =>
+          events.push(`${target === early ? 'early' : 'late'}:${type}`),
+        );
+    scene.add(early);
+    scene.add(late);
+    early.addEventListener('initialize', () => {
+      scene.remove(early);
+      other.add(early);
+    });
+    late.update = () => {
+      scene.remove(late);
+      other.add(late);
+    };
+    // `other` registers both after this frame began; neither may continue in `scene`.
+    scene.beginObjectFrame();
+    scene.beginObjectUpdates(0.1, continueFrame);
+    scene.advanceObjects(0.1, continueFrame);
+    expect(events).toEqual([
+      'early:initialize',
+      'late:initialize',
+      'late:preupdate',
+    ]);
+    other.destroy();
+  });
+
   it('defers remove/readd during preupdate and initializes once while destroy fires after disposal', () => {
     const target = object();
     const update = vi.fn();

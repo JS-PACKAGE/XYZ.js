@@ -12,6 +12,7 @@ var f = new require_index.Vector2();
 var GameObject = class GameObject extends require_scene_object.SceneObject {
 	transform = new require_index.Transform2D();
 	worldMatrix = new require_index.Matrix3();
+	sceneUpdateId = 0;
 	matrixPass = 0;
 	ancestor;
 	descendants = /* @__PURE__ */ new Set();

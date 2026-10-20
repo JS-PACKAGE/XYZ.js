@@ -164,8 +164,8 @@ export declare class Scene {
     private meshRevision;
     private registeredGPUParticles;
     private cameraDependents;
+    /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
     private readonly objectUpdates;
-    private nextObjectUpdate;
     private frameObjectUpdate;
     private pointerRouter;
     /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
