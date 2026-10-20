@@ -5,6 +5,9 @@ export declare class NavigationSearch {
     private readonly score;
     private readonly heap;
     private readonly slot;
+    /** Nodes offered since the last reset; reset clears only these instead of every cell. */
+    private readonly touched;
+    private touchedCount;
     private size;
     constructor(capacity: number);
     reset(): void;

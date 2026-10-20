@@ -5,15 +5,22 @@ var NavigationSearch = class {
 	score;
 	heap;
 	slot;
+	touched;
+	touchedCount = 0;
 	size = 0;
 	constructor(e) {
-		this.distance = new Float64Array(e), this.parent = new Int32Array(e), this.score = new Float64Array(e), this.heap = new Int32Array(e), this.slot = new Int32Array(e);
+		this.distance = new Float64Array(e).fill(1 / 0), this.parent = new Int32Array(e).fill(-1), this.score = new Float64Array(e), this.heap = new Int32Array(e), this.slot = new Int32Array(e).fill(-1), this.touched = new Int32Array(e);
 	}
 	reset() {
-		this.distance.fill(1 / 0), this.parent.fill(-1), this.slot.fill(-1), this.size = 0;
+		let { distance: e, parent: t, slot: n, touched: r } = this;
+		for (let i = 0; i < this.touchedCount; i++) {
+			let a = r[i];
+			e[a] = 1 / 0, t[a] = -1, n[a] = -1;
+		}
+		this.touchedCount = 0, this.size = 0;
 	}
 	offer(e, t, n, r) {
-		this.distance[e] = t, this.parent[e] = r, this.score[e] = n;
+		this.distance[e] === 1 / 0 && (this.touched[this.touchedCount++] = e), this.distance[e] = t, this.parent[e] = r, this.score[e] = n;
 		let i = this.slot[e];
 		for (i < 0 && (i = this.size++, this.heap[i] = e, this.slot[e] = i); i > 0;) {
 			let t = i - 1 >>> 1, n = this.heap[t];

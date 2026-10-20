@@ -5,24 +5,36 @@ export class NavigationSearch {
   private readonly score: Float64Array;
   private readonly heap: Int32Array;
   private readonly slot: Int32Array;
+  /** Nodes offered since the last reset; reset clears only these instead of every cell. */
+  private readonly touched: Int32Array;
+  private touchedCount = 0;
   private size = 0;
 
   constructor(capacity: number) {
-    this.distance = new Float64Array(capacity);
-    this.parent = new Int32Array(capacity);
+    this.distance = new Float64Array(capacity).fill(Infinity);
+    this.parent = new Int32Array(capacity).fill(-1);
     this.score = new Float64Array(capacity);
     this.heap = new Int32Array(capacity);
-    this.slot = new Int32Array(capacity);
+    this.slot = new Int32Array(capacity).fill(-1);
+    this.touched = new Int32Array(capacity);
   }
 
   reset(): void {
-    this.distance.fill(Infinity);
-    this.parent.fill(-1);
-    this.slot.fill(-1);
+    const { distance, parent, slot, touched } = this;
+    for (let i = 0; i < this.touchedCount; i++) {
+      const node = touched[i]!;
+      distance[node] = Infinity;
+      parent[node] = -1;
+      slot[node] = -1;
+    }
+    this.touchedCount = 0;
     this.size = 0;
   }
 
   offer(node: number, distance: number, score: number, parent: number): void {
+    // Offered distances are finite, so Infinity marks a node's first offer this search.
+    if (this.distance[node] === Infinity)
+      this.touched[this.touchedCount++] = node;
     this.distance[node] = distance;
     this.parent[node] = parent;
     this.score[node] = score;
