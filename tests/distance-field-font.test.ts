@@ -12,6 +12,7 @@ import {
   SpriteFont,
   SpriteText,
 } from '../packages/core/src/graphics2d/sprite-font.js';
+import type { Sprite } from '../packages/core/src/sprite.js';
 
 const descriptor = {
   info: { size: 16 },
@@ -95,6 +96,12 @@ describe('distance-field font import and metrics ownership', () => {
       );
     expect(x('AV')).toEqual([-3, 5]);
     expect(x('VA')).toEqual([-3, 9]);
+    // Reused glyph sprites follow their glyph onto another page.
+    const label = new SpriteText(spriteFont, 'A');
+    label.setText('V');
+    expect(([...label.children][0] as Sprite).texture).toBe(pages[1]);
+    label.setText('A');
+    expect(([...label.children][0] as Sprite).texture).toBe(pages[0]);
     pages[1]!.destroy();
     expect(() => new SpriteText(spriteFont, 'A')).toThrow(/destroyed/);
   });

@@ -385,8 +385,11 @@ export class SpriteText extends Group2D {
         layout = layouts[index]!,
         glyph = this.font.getGlyph(layout.index);
       // Clear the old page's region before changing pages; the new page may be smaller.
-      sprite.source = undefined;
-      sprite.texture = glyph.texture;
+      // On the same page the setter keeps an identical region without reallocating it.
+      if (sprite.texture !== glyph.texture) {
+        sprite.source = undefined;
+        sprite.texture = glyph.texture;
+      }
       sprite.source = glyph.source;
       sprite.position.set(layout.x, layout.y);
       sprite.scale.set(glyph.width / glyph.source.width, 1);

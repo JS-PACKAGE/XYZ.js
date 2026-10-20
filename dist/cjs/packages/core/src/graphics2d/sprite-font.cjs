@@ -197,7 +197,7 @@ var SpriteText = class extends require_group2d.Group2D {
 		for (let e of s) this.add(e), this.glyphs.push(e);
 		for (let e = 0; e < o.length; e++) {
 			let t = this.glyphs[e], n = o[e], r = this.font.getGlyph(n.index);
-			t.source = void 0, t.texture = r.texture, t.source = r.source, t.position.set(n.x, n.y), t.scale.set(r.width / r.source.width, 1);
+			t.texture !== r.texture && (t.source = void 0, t.texture = r.texture), t.source = r.source, t.position.set(n.x, n.y), t.scale.set(r.width / r.source.width, 1);
 		}
 		for (; this.glyphs.length > o.length;) {
 			let e = this.glyphs.pop();
