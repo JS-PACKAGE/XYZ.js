@@ -1,5 +1,8 @@
 import type { Scene } from './scene.js';
-import { observeObjectEventTypes } from './event-observers.js';
+import {
+  observeEventType,
+  observeObjectEventTypes,
+} from './event-observers.js';
 
 /** Base facade for scene-owned objects, independent of 2D or 3D transforms. */
 export abstract class SceneObject extends EventTarget {
@@ -22,6 +25,7 @@ export abstract class SceneObject extends EventTarget {
       if (!this.observedEventTypes)
         observeObjectEventTypes(this, (this.observedEventTypes = new Set()));
       this.observedEventTypes.add(type);
+      observeEventType(type);
     }
   }
 

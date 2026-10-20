@@ -8,8 +8,8 @@ var SceneObject = class extends EventTarget {
 	get registrationGeneration() {
 		return this.ownershipGeneration;
 	}
-	addEventListener(t, n, r) {
-		super.addEventListener(t, n, r), n && !(typeof r == `object` && r.signal?.aborted) && (this.observedEventTypes || require_event_observers.observeObjectEventTypes(this, this.observedEventTypes = /* @__PURE__ */ new Set()), this.observedEventTypes.add(t));
+	addEventListener(n, r, i) {
+		super.addEventListener(n, r, i), r && !(typeof i == `object` && i.signal?.aborted) && (this.observedEventTypes || require_event_observers.observeObjectEventTypes(this, this.observedEventTypes = /* @__PURE__ */ new Set()), this.observedEventTypes.add(n), require_event_observers.observeEventType(n));
 	}
 	dispatchObjectEvent(e, t) {
 		this.observedEventTypes?.has(e) && this.dispatchEvent(new CustomEvent(e, { detail: t }));
