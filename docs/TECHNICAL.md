@@ -898,7 +898,9 @@ lighting, not emission; clearcoat is applied above sheen and emission. A baked 3
 directional-albedo table is integrated with 128 elevation × 256 azimuth samples
 per entry, bounded to 0–1, bilinearly interpolated and uploaded once as a 4 KiB
 uniform buffer, not an extra texture slot. Regenerate it with
-`node scripts/generate-sheen-lut.mjs`, then format `src/data/sheen.ts`.
+`node scripts/generate-sheen-lut.mjs`, then format `src/data/sheen.ts`. Both
+generated tables (sheen and the GGX table below) ship as base64 little-endian
+float32 bytes that `src/data/float32-lut.ts` decodes exactly at module load.
 No CPU table quadrature or table uploads run per frame.
 
 Sheen IBL uses the directional albedo and bounded Charlie integration of sharp

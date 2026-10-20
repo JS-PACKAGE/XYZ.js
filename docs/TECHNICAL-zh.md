@@ -804,6 +804,8 @@ clearcoat 再疊在 sheen 與 emission 上。預先產生的 32×32 directional-
 每格以 128 elevation × 256 azimuth 樣本積分，限制於 0–1、雙線性內插；
 每 renderer 只上傳一次 4 KiB uniform buffer，不多佔 texture slot。
 可用 `node scripts/generate-sheen-lut.mjs` 重產，再 format `src/data/sheen.ts`。
+兩個產生的表（sheen 與下方 GGX 表）都以 base64 little-endian float32 bytes 發佈，
+模組載入時由 `src/data/float32-lut.ts` 逐 bit 精確解碼。
 每幀不做CPU table積分或table上傳。
 
 Sheen IBL 使用 directional albedo與sharp environment／probe atlas的有界Charlie積分，
