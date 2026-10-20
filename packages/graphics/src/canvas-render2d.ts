@@ -260,17 +260,11 @@ export class CanvasRender2D {
           bounds,
           sprite.roundPixels,
         );
-        const matrix = context.getTransform();
-        const desiredScale =
-          Math.max(
-            Math.hypot(matrix.a, matrix.b),
-            Math.hypot(matrix.c, matrix.d),
-          ) / quad.resolution;
         const image = this.sources.image(
           sprite.texture,
           quad,
           this.appearance,
-          desiredScale,
+          context,
         );
         context.globalAlpha = this.appearance[3];
         context.imageSmoothingEnabled =
@@ -350,15 +344,11 @@ export class CanvasRender2D {
             bounds,
             false,
           );
-          const matrix = context.getTransform();
           const image = this.sources.image(
             slot.texture,
             quad,
             this.appearance,
-            Math.max(
-              Math.hypot(matrix.a, matrix.b),
-              Math.hypot(matrix.c, matrix.d),
-            ) / quad.resolution,
+            context,
           );
           context.globalAlpha = this.appearance[3];
           context.drawImage(

@@ -120,24 +120,24 @@ var CanvasRender2D = class {
 			} else if (t.kind === `sprite`) {
 				let r = t.object, a = require_sprite_instance.getSpriteQuad2D(r, this.quad);
 				require_sprite_instance.getRelativeAppearance2D(r, f, this.appearance), this.transform(n, r, r.updateWorldMatrix(), s, l, d, m, p, r.roundPixels);
-				let c = n.getTransform(), u = Math.max(Math.hypot(c.a, c.b), Math.hypot(c.c, c.d)) / a.resolution, h = this.sources.image(r.texture, a, this.appearance, u);
+				let c = this.sources.image(r.texture, a, this.appearance, n);
 				if (n.globalAlpha = this.appearance[3], n.imageSmoothingEnabled = (r.sampler?.magFilter ?? r.sampler?.minFilter ?? `linear`) !== `nearest`, r instanceof require_tiling_sprite2d.TilingSprite2D) {
 					n.save(), n.beginPath(), n.rect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.clip();
-					let e = this.tile, t = h.width / a.trimWidth, i = Math.max(1, Math.round(a.naturalWidth * t)), o = Math.max(1, Math.round(a.naturalHeight * t));
+					let e = this.tile, t = c.width / a.trimWidth, i = Math.max(1, Math.round(a.naturalWidth * t)), o = Math.max(1, Math.round(a.naturalHeight * t));
 					this.resizeCanvas(e, i, o), this.stats.pass2D();
 					let s = e.getContext(`2d`);
-					s.clearRect(0, 0, i, o), s.drawImage(h, a.trimX * t, a.trimY * t), this.stats.draw2D();
-					let c = n.createPattern(e, `repeat`), l = Math.cos(r.tileRotation), u = Math.sin(r.tileRotation), d = this.tileMatrix ??= new DOMMatrix();
-					d.a = l * r.tileScale.x / t, d.b = u * r.tileScale.x / t, d.c = -u * r.tileScale.y / t, d.d = l * r.tileScale.y / t, d.e = r.tilePosition.x, d.f = r.tilePosition.y, c.setTransform(d), n.fillStyle = c, n.fillRect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.restore();
-				} else n.drawImage(h, a.x, a.y, a.width, a.height);
+					s.clearRect(0, 0, i, o), s.drawImage(c, a.trimX * t, a.trimY * t), this.stats.draw2D();
+					let l = n.createPattern(e, `repeat`), u = Math.cos(r.tileRotation), d = Math.sin(r.tileRotation), f = this.tileMatrix ??= new DOMMatrix();
+					f.a = u * r.tileScale.x / t, f.b = d * r.tileScale.x / t, f.c = -d * r.tileScale.y / t, f.d = u * r.tileScale.y / t, f.e = r.tilePosition.x, f.f = r.tilePosition.y, l.setTransform(f), n.fillStyle = l, n.fillRect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.restore();
+				} else n.drawImage(c, a.x, a.y, a.width, a.height);
 				this.stats.draw2D();
 			} else if (t.kind === `particles`) {
 				let e = t.object;
 				for (let t = 0; t < e.activeCount; t++) {
 					let r = e.activeSlotAt(t), i = e.getSlot(r), c = require_sprite_instance.getTextureQuad2D(i.texture, i.view, i.source, this.quad);
 					require_sprite_instance.getRelativeAppearance2D(e, f, this.appearance), this.appearance[0] *= i.tintR, this.appearance[1] *= i.tintG, this.appearance[2] *= i.tintB, this.appearance[3] *= i.tintA, this.transform(n, e, e.getSlotWorldMatrix(r, this.matrix), s, l, d, m, p, !1);
-					let u = n.getTransform(), h = this.sources.image(i.texture, c, this.appearance, Math.max(Math.hypot(u.a, u.b), Math.hypot(u.c, u.d)) / c.resolution);
-					n.globalAlpha = this.appearance[3], n.drawImage(h, c.x - i.anchorX * c.naturalWidth, c.y - i.anchorY * c.naturalHeight, c.width, c.height), this.stats.draw2D();
+					let u = this.sources.image(i.texture, c, this.appearance, n);
+					n.globalAlpha = this.appearance[3], n.drawImage(u, c.x - i.anchorX * c.naturalWidth, c.y - i.anchorY * c.naturalHeight, c.width, c.height), this.stats.draw2D();
 				}
 			}
 		}

@@ -8,7 +8,11 @@ export declare class CanvasSpriteSource {
     constructor(renderImage: (source: Texture2DSource) => CanvasImageSource);
     endFrame(): void;
     prepare(source: Texture2DSource): CanvasImageSource;
-    image(source: Texture2DSource, quad: TextureQuad2D, tint: ArrayLike<number>, desiredScale?: number): HTMLCanvasElement;
+    /**
+     * `transform` supplies the destination scale; only distance-field textures read
+     * it, because `getTransform()` allocates a DOMMatrix per sprite.
+     */
+    image(source: Texture2DSource, quad: TextureQuad2D, tint: ArrayLike<number>, transform?: CanvasRenderingContext2D): HTMLCanvasElement;
     unload(source: Texture2DSource): void;
     destroy(): void;
 }

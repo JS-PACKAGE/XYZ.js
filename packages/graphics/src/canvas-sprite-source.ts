@@ -47,16 +47,30 @@ export class CanvasSpriteSource {
     }
     return entry.canvas;
   }
+  /**
+   * `transform` supplies the destination scale; only distance-field textures read
+   * it, because `getTransform()` allocates a DOMMatrix per sprite.
+   */
   image(
     source: Texture2DSource,
     quad: TextureQuad2D,
     tint: ArrayLike<number>,
-    desiredScale = 1,
+    transform?: CanvasRenderingContext2D,
   ): HTMLCanvasElement {
     const field = source instanceof Texture && getTextureDistanceField(source);
-    const scale = field
-      ? getDistanceFieldRasterScale(source as Texture, desiredScale)
-      : 1;
+    let scale = 1;
+    if (field) {
+      const matrix = transform?.getTransform();
+      scale = getDistanceFieldRasterScale(
+        source as Texture,
+        matrix
+          ? Math.max(
+              Math.hypot(matrix.a, matrix.b),
+              Math.hypot(matrix.c, matrix.d),
+            ) / quad.resolution
+          : 1,
+      );
+    }
     const image = field
       ? getDistanceFieldCanvas(source as Texture, scale)
       : this.prepare(source);
