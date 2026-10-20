@@ -213,7 +213,7 @@ var PhysicsWorld2D = class {
 	}
 	alive(e) {
 		if (this.destroyed || e.owner.destroyed) return !1;
-		if (this.stepping && e.livenessStamp === this.liveness) return e.live;
+		if (e.livenessStamp === this.liveness) return e.live;
 		let t = this.proxies.has(e) && this.owners.get(e.owner)?.group === e.group && e.owner.collider === e.group[0].collider && e.owner.body === e.body;
 		return e.livenessStamp = this.liveness, e.live = t, t;
 	}

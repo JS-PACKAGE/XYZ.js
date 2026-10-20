@@ -411,10 +411,10 @@ export class PhysicsWorld2D {
   }
   private alive(proxy: Proxy): boolean {
     if (this.destroyed || proxy.owner.destroyed) return false;
-    // Membership and identity only change through register/unregister or user
-    // callbacks, which bump the epoch; the hash lookups dominated dense steps.
-    if (this.stepping && proxy.livenessStamp === this.liveness)
-      return proxy.live;
+    // Membership and identity change only through register/unregister (the facade
+    // collider/body setters and Scene membership) or user callbacks, which all bump the
+    // epoch; between steps no other path can, so queries reuse the cache too.
+    if (proxy.livenessStamp === this.liveness) return proxy.live;
     const live =
       this.proxies.has(proxy) &&
       this.owners.get(proxy.owner)?.group === proxy.group &&
