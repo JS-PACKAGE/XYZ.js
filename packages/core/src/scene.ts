@@ -247,6 +247,8 @@ export class Scene {
   private fixedAccumulator = 0;
   private advancingFixed = false;
   private presenting = false;
+  private presentationId = 0;
+  private presentationCount = 0;
   constructor(options: SceneOptions = {}) {
     this.fixedDelta = options.fixedDelta ?? simulationDefaults.fixedDelta;
     this.maxFixedSteps =
@@ -282,10 +284,19 @@ export class Scene {
   /** @internal Rendering is bracketed even when a renderer throws. */
   beginPresentation(): void {
     this.presenting = true;
+    this.presentationId = ++this.presentationCount;
   }
   /** @internal */
   endPresentation(): void {
     this.presenting = false;
+    this.presentationId = 0;
+  }
+  /**
+   * @internal Nonzero, and unique, only while presenting. Rendering runs no
+   * simulation or input, so 2D world matrices are composed once per pass.
+   */
+  get presentationPass(): number {
+    return this.presentationId;
   }
   readonly effects2D: PostProcessor2D[] = [];
   /**

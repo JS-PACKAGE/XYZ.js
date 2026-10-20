@@ -21,6 +21,8 @@ import { PhysicsPresentation2D } from './physics-presentation.js';
 export class GameObject extends SceneObject {
   readonly transform = new Transform2D();
   readonly worldMatrix = new Matrix3();
+  /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
+  private matrixPass = 0;
   private ancestor: GameObject | undefined;
   private readonly descendants = new Set<GameObject>();
   private alpha = 1;
@@ -326,8 +328,12 @@ export class GameObject extends SceneObject {
     this.physicsPresentation?.seal(this.transform);
   }
   updateWorldMatrix(): Matrix3 {
-    const parentMatrix = this.parent?.updateWorldMatrix();
     const scene = this.scene;
+    const pass = scene?.presentationPass ?? 0;
+    // Within one presentation nothing moves objects, so a matrix (and every
+    // ancestor's) is composed once instead of once per descendant and per use.
+    if (pass !== 0 && this.matrixPass === pass) return this.worldMatrix;
+    const parentMatrix = this.parent?.updateWorldMatrix();
     let localMatrix: Matrix3;
     if (
       scene?.presentingPhysics &&
@@ -346,6 +352,13 @@ export class GameObject extends SceneObject {
     } else localMatrix = this.transform.updateMatrix();
     if (parentMatrix) this.worldMatrix.copy(parentMatrix).multiply(localMatrix);
     else this.worldMatrix.copy(localMatrix);
+    // Overrides may adjust the returned matrix after super; reusing it would
+    // apply their adjustment twice, so only the base composition is reused.
+    if (
+      pass !== 0 &&
+      this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix
+    )
+      this.matrixPass = pass;
     return this.worldMatrix;
   }
   getLocalBounds(out: Rect2D = { x: 0, y: 0, width: 0, height: 0 }): Rect2D {

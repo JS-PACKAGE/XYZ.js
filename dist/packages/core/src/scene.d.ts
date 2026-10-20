@@ -100,6 +100,8 @@ export declare class Scene {
     private fixedAccumulator;
     private advancingFixed;
     private presenting;
+    private presentationId;
+    private presentationCount;
     constructor(options?: SceneOptions);
     get fixedInterpolationAlpha(): number;
     /** @internal Presentation-only flag, never enabled during physics or input queries. */
@@ -108,6 +110,11 @@ export declare class Scene {
     beginPresentation(): void;
     /** @internal */
     endPresentation(): void;
+    /**
+     * @internal Nonzero, and unique, only while presenting. Rendering runs no
+     * simulation or input, so 2D world matrices are composed once per pass.
+     */
+    get presentationPass(): number;
     readonly effects2D: PostProcessor2D[];
     /**
      * Full-frame native effects over the finished 3D image (WebGPU and WebGL2), applied in order

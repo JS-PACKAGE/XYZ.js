@@ -135,6 +135,8 @@ var Scene = class {
 	fixedAccumulator = 0;
 	advancingFixed = !1;
 	presenting = !1;
+	presentationId = 0;
+	presentationCount = 0;
 	constructor(e = {}) {
 		if (this.fixedDelta = e.fixedDelta ?? require_simulation.simulationDefaults.fixedDelta, this.maxFixedSteps = e.maxFixedSteps ?? require_simulation.simulationDefaults.maxFixedSteps, !Number.isFinite(this.fixedDelta) || this.fixedDelta <= 0 || !Number.isInteger(this.maxFixedSteps) || this.maxFixedSteps < 1) throw RangeError(`Scene fixed timing requires a positive delta and step limit.`);
 		if (this.interpolatePhysics = e.interpolatePhysics ?? !1, this.navigationWorkBudget = e.navigationWorkBudget ?? require_navigation.navigationLimits.sceneWork, !Number.isInteger(this.navigationWorkBudget) || this.navigationWorkBudget < 1 || this.navigationWorkBudget > require_navigation.navigationLimits.scheduledWork) throw RangeError(`navigationWorkBudget must be an integer in [1, ${require_navigation.navigationLimits.scheduledWork}].`);
@@ -146,10 +148,13 @@ var Scene = class {
 		return this.presenting && this.interpolatePhysics;
 	}
 	beginPresentation() {
-		this.presenting = !0;
+		this.presenting = !0, this.presentationId = ++this.presentationCount;
 	}
 	endPresentation() {
-		this.presenting = !1;
+		this.presenting = !1, this.presentationId = 0;
+	}
+	get presentationPass() {
+		return this.presentationId;
 	}
 	effects2D = [];
 	effects3D = [];

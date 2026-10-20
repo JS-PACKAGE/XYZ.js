@@ -30,6 +30,37 @@ function advance(scene: Scene, dt: number): void {
 }
 
 describe('2D composed scene ownership', () => {
+  it('reuses world matrices only within one presentation and never doubles override adjustments', () => {
+    class Shaken extends Group2D {
+      override updateWorldMatrix() {
+        const matrix = super.updateWorldMatrix();
+        matrix.elements[6] += 5;
+        return matrix;
+      }
+    }
+    const scene = new Scene();
+    const group = scene.add(new Group2D());
+    const shaken = group.add(new Shaken());
+    const leaf = shaken.add(new GameObject());
+    group.position.set(10, 0);
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[6]).toBe(15);
+    expect(shaken.updateWorldMatrix().elements[6]).toBe(15);
+    expect(leaf.updateWorldMatrix().elements[6]).toBe(15);
+    scene.endPresentation();
+    // Moves between and after presentations are always observed.
+    group.position.set(20, 0);
+    expect(leaf.updateWorldMatrix().elements[6]).toBe(25);
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[6]).toBe(25);
+    scene.endPresentation();
+    group.position.set(30, 0);
+    scene.beginPresentation();
+    expect(leaf.updateWorldMatrix().elements[6]).toBe(35);
+    scene.endPresentation();
+    scene.destroy();
+  });
+
   it('composes transforms and visual inheritance through nested groups without losing local transforms', () => {
     const root = new Group2D();
     root.position.set(30, 20);

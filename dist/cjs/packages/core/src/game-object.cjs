@@ -7,9 +7,10 @@ const require_body = require("./physics2d/body.cjs");
 const require_interaction_events = require("./gameplay/interaction-events.cjs");
 const require_physics_presentation = require("./physics-presentation.cjs");
 //#region dist/packages/core/src/game-object.js
-var GameObject = class extends require_scene_object.SceneObject {
+var GameObject = class GameObject extends require_scene_object.SceneObject {
 	transform = new require_index.Transform2D();
 	worldMatrix = new require_index.Matrix3();
+	matrixPass = 0;
 	ancestor;
 	descendants = /* @__PURE__ */ new Set();
 	alpha = 1;
@@ -224,12 +225,14 @@ var GameObject = class extends require_scene_object.SceneObject {
 		this.physicsPresentation?.seal(this.transform);
 	}
 	updateWorldMatrix() {
-		let e = this.parent?.updateWorldMatrix(), t = this.scene, n;
-		if (t?.presentingPhysics && this.body && this.body.type !== `static` && !this.body.isSleeping && this.physicsPresentation) {
-			let e = Math.min(1, t.physics.interpolationAlpha + t.fixedInterpolationAlpha * t.fixedDelta / t.physics.fixedDelta);
-			n = this.physicsPresentation.matrix(this.transform, e);
-		} else n = this.transform.updateMatrix();
-		return e ? this.worldMatrix.copy(e).multiply(n) : this.worldMatrix.copy(n), this.worldMatrix;
+		let e = this.scene, t = e?.presentationPass ?? 0;
+		if (t !== 0 && this.matrixPass === t) return this.worldMatrix;
+		let n = this.parent?.updateWorldMatrix(), r;
+		if (e?.presentingPhysics && this.body && this.body.type !== `static` && !this.body.isSleeping && this.physicsPresentation) {
+			let t = Math.min(1, e.physics.interpolationAlpha + e.fixedInterpolationAlpha * e.fixedDelta / e.physics.fixedDelta);
+			r = this.physicsPresentation.matrix(this.transform, t);
+		} else r = this.transform.updateMatrix();
+		return n ? this.worldMatrix.copy(n).multiply(r) : this.worldMatrix.copy(r), t !== 0 && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && (this.matrixPass = t), this.worldMatrix;
 	}
 	getLocalBounds(e = {
 		x: 0,
