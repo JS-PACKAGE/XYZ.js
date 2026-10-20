@@ -793,9 +793,13 @@ export class PhysicsWorld2D {
     for (let i = 0; i < this.sorted.length; i++) {
       const a = this.sorted[i];
       if (!this.alive(a)) continue;
+      // Two massless non-sensors never pair. Every rejection below only skips the pair, so
+      // testing this cheapest one first changes nothing but the cost of static neighbours.
+      const passive = !a.inverseMass && !a.collider.sensor;
       for (let j = i + 1; j < this.sorted.length; j++) {
         const b = this.sorted[j];
         if (b.geometry.minX > a.geometry.maxX) break;
+        if (passive && !b.inverseMass && !b.collider.sensor) continue;
         if (
           a.owner === b.owner ||
           !this.alive(b) ||
@@ -804,7 +808,6 @@ export class PhysicsWorld2D {
         )
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
-        if (!sensor && !a.inverseMass && !b.inverseMass) continue;
         if (a.group[0].joints.length && this.jointsBlockContact(a, b)) continue;
         if (
           (a.geometry.maxY < b.geometry.minY ||

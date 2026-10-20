@@ -373,18 +373,20 @@ var PhysicsWorld2D = class {
 		let n = this.liveness;
 		for (let e = 0; e < this.sorted.length; e++) {
 			let r = this.sorted[e];
-			if (this.alive(r)) for (let i = e + 1; i < this.sorted.length; i++) {
-				let e = this.sorted[i];
+			if (!this.alive(r)) continue;
+			let i = !r.inverseMass && !r.collider.sensor;
+			for (let a = e + 1; a < this.sorted.length; a++) {
+				let e = this.sorted[a];
 				if (e.geometry.minX > r.geometry.maxX) break;
-				if (r.owner === e.owner || !this.alive(e) || !(r.collider.category & e.collider.mask) || !(e.collider.category & r.collider.mask)) continue;
-				let a = r.collider.sensor || e.collider.sensor;
-				if (!a && !r.inverseMass && !e.inverseMass || r.group[0].joints.length && this.jointsBlockContact(r, e) || (r.geometry.maxY < e.geometry.minY || e.geometry.maxY < r.geometry.minY) && this.liveness === n && (r.separating !== t || e.separating !== t)) continue;
-				let o = r.contacts.get(e);
-				if (!o) {
+				if (i && !e.inverseMass && !e.collider.sensor || r.owner === e.owner || !this.alive(e) || !(r.collider.category & e.collider.mask) || !(e.collider.category & r.collider.mask)) continue;
+				let o = r.collider.sensor || e.collider.sensor;
+				if (r.group[0].joints.length && this.jointsBlockContact(r, e) || (r.geometry.maxY < e.geometry.minY || e.geometry.maxY < r.geometry.minY) && this.liveness === n && (r.separating !== t || e.separating !== t)) continue;
+				let s = r.contacts.get(e);
+				if (!s) {
 					if (!require_narrowphase.collide(r.geometry, e.geometry, this.queryManifold)) continue;
-					o = new Contact(r, e);
+					s = new Contact(r, e);
 				}
-				if (o.seen !== t && require_narrowphase.collide(r.geometry, e.geometry, o.manifold) && (o.sensor = a, o.seen = t, !o.active || a ? (r.body?.isSleeping && r.body.wake(), e.body?.isSleeping && e.body.wake()) : r.body?.type === `dynamic` && e.body?.type === `dynamic` && (!r.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && r.body.isSleeping && r.body.wake()), !this.activate(o, t) && !this.continuation())) return;
+				if (s.seen !== t && require_narrowphase.collide(r.geometry, e.geometry, s.manifold) && (s.sensor = o, s.seen = t, !s.active || o ? (r.body?.isSleeping && r.body.wake(), e.body?.isSleeping && e.body.wake()) : r.body?.type === `dynamic` && e.body?.type === `dynamic` && (!r.body.isSleeping && e.body.isSleeping && e.body.wake(), !e.body.isSleeping && r.body.isSleeping && r.body.wake()), !this.activate(s, t) && !this.continuation())) return;
 			}
 		}
 		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
