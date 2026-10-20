@@ -35,7 +35,10 @@ export declare class SpriteFont {
     readonly caseInsensitive: boolean;
     private readonly indices;
     private readonly metrics;
+    /** Keyed by `first * CODE_POINTS + second` glyph code points; see getKerning. */
     private readonly kernings;
+    /** Distinct glyph textures, so availability checks scale with pages, not glyphs. */
+    private readonly pages;
     private readonly fallbackIndex;
     private readonly asset;
     constructor(source: SpriteSheet, options: SpriteFontOptions);

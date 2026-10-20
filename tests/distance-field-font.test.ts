@@ -71,6 +71,33 @@ describe('distance-field font import and metrics ownership', () => {
     expect(texture.destroyed).toBe(true);
     expect(() => spriteFont.assertAvailable()).toThrow(/destroyed/);
   });
+  it('applies kerning only in its authored order and rejects text once any page is destroyed', () => {
+    const parsed = BitmapFontLoader.parse(
+      JSON.stringify({
+        ...descriptor,
+        common: { ...descriptor.common, pages: 2 },
+        pages: ['page-0.png', 'page-1.png'],
+        chars: [
+          descriptor.chars[0],
+          { ...descriptor.chars[0], id: 86, page: 1 },
+        ],
+        kernings: [{ first: 65, second: 86, amount: -4 }],
+      }),
+      'json',
+    );
+    const pages = [0, 1].map(
+      () => new Texture({ kind: 'native', width: 32, height: 32 }),
+    );
+    const spriteFont = new SpriteFont(new BitmapFontAsset(pages, parsed));
+    const x = (text: string) =>
+      [...new SpriteText(spriteFont, text).children].map(
+        (glyph) => glyph.position.x,
+      );
+    expect(x('AV')).toEqual([-3, 5]);
+    expect(x('VA')).toEqual([-3, 9]);
+    pages[1]!.destroy();
+    expect(() => new SpriteText(spriteFont, 'A')).toThrow(/destroyed/);
+  });
   it('rejects invalid field profiles, clipped glyph borders and foreign channels', () => {
     for (const field of [
       null,

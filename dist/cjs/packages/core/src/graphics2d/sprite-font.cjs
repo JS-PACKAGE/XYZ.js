@@ -4,6 +4,7 @@ const require_group2d = require("../gameplay/group2d.cjs");
 const require_graphics2d = require("../../../../src/data/graphics2d.cjs");
 const require_sprite_sheet = require("./sprite-sheet.cjs");
 //#region dist/packages/core/src/graphics2d/sprite-font.js
+var a = 1114112;
 var SpriteFont = class {
 	sheet;
 	glyphWidth;
@@ -13,6 +14,7 @@ var SpriteFont = class {
 	indices = /* @__PURE__ */ new Map();
 	metrics;
 	kernings = /* @__PURE__ */ new Map();
+	pages;
 	fallbackIndex;
 	asset;
 	constructor(n, r = {}) {
@@ -55,13 +57,13 @@ var SpriteFont = class {
 				yoffset: e.yoffset,
 				advance: e.xadvance
 			}))));
-			for (let e of n.kernings) this.kernings.set(`${e.first}:${e.second}`, e.amount);
+			for (let e of n.kernings) this.kernings.set(e.first * a + e.second, e.amount);
 		}
 		if (r.fallback !== void 0) {
 			if (Array.from(r.fallback).length !== 1) throw RangeError(`Fallback must be one mapped Unicode code point.`);
 			if (this.fallbackIndex = this.indices.get(this.key(r.fallback)), this.fallbackIndex === void 0) throw RangeError(`Fallback glyph is not mapped.`);
 		}
-		this.assertAvailable();
+		this.pages = [...new Set(this.metrics.map((e) => e.texture))], this.assertAvailable();
 	}
 	key(e) {
 		return this.caseInsensitive ? e.toLowerCase() : e;
@@ -83,10 +85,10 @@ var SpriteFont = class {
 		return t;
 	}
 	getKerning(e, t) {
-		return e === void 0 ? 0 : this.kernings.get(`${this.metrics[e].id}:${this.metrics[t].id}`) ?? 0;
+		return e === void 0 ? 0 : this.kernings.get(this.metrics[e].id * a + this.metrics[t].id) ?? 0;
 	}
 	assertAvailable() {
-		if (this.asset?.destroyed || this.metrics.some((e) => e.texture.destroyed)) throw new require_texture.AssetError(`Cannot use destroyed bitmap font pages.`);
+		if (this.asset?.destroyed || this.pages.some((e) => e.destroyed)) throw new require_texture.AssetError(`Cannot use destroyed bitmap font pages.`);
 	}
 };
 var SpriteText = class extends require_group2d.Group2D {

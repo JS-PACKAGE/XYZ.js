@@ -9,6 +9,9 @@ import type { Rect2D } from '../gameplay/contracts.js';
 import { Sprite } from '../sprite.js';
 import { SpriteSheet } from './sprite-sheet.js';
 
+/** Size of the Unicode code space; glyph ids are scalar values below it. */
+const CODE_POINTS = 0x110000;
+
 export interface SpriteFontOptions {
   alphabet: string;
   glyphWidth?: number;
@@ -49,7 +52,10 @@ export class SpriteFont {
   readonly caseInsensitive: boolean;
   private readonly indices = new Map<string, number>();
   private readonly metrics: readonly FontGlyph[];
-  private readonly kernings = new Map<string, number>();
+  /** Keyed by `first * CODE_POINTS + second` glyph code points; see getKerning. */
+  private readonly kernings = new Map<number, number>();
+  /** Distinct glyph textures, so availability checks scale with pages, not glyphs. */
+  private readonly pages: readonly FontGlyph['texture'][];
   private readonly fallbackIndex: number | undefined;
   private readonly asset: BitmapFontAsset | undefined;
 
@@ -132,7 +138,7 @@ export class SpriteFont {
         }),
       );
       for (const pair of source.kernings)
-        this.kernings.set(`${pair.first}:${pair.second}`, pair.amount);
+        this.kernings.set(pair.first * CODE_POINTS + pair.second, pair.amount);
     }
     if (options.fallback !== undefined) {
       if (Array.from(options.fallback).length !== 1)
@@ -141,6 +147,7 @@ export class SpriteFont {
       if (this.fallbackIndex === undefined)
         throw new RangeError('Fallback glyph is not mapped.');
     }
+    this.pages = [...new Set(this.metrics.map((glyph) => glyph.texture))];
     this.assertAvailable();
   }
 
@@ -173,17 +180,15 @@ export class SpriteFont {
     return glyph;
   }
   getKerning(first: number | undefined, second: number): number {
+    // Glyph ids are Unicode scalar values, so the numeric key is unique per pair.
     return first === undefined
       ? 0
       : (this.kernings.get(
-          `${this.metrics[first]!.id}:${this.metrics[second]!.id}`,
+          this.metrics[first]!.id * CODE_POINTS + this.metrics[second]!.id,
         ) ?? 0);
   }
   assertAvailable(): void {
-    if (
-      this.asset?.destroyed ||
-      this.metrics.some((glyph) => glyph.texture.destroyed)
-    )
+    if (this.asset?.destroyed || this.pages.some((page) => page.destroyed))
       throw new AssetError('Cannot use destroyed bitmap font pages.');
   }
 }
