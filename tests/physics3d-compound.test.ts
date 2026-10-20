@@ -69,6 +69,30 @@ it('combines volume-weighted intrinsic and parallel-axis inertia at the declared
   expect((o.collider as CompoundCollider3D).children.length).toBe(2);
   scene.destroy();
 });
+it('applies the full compound inverse tensor, including products of inertia', () => {
+  // Unit-mass spheres at ±(0.5, -0.5, 0): I = [[0.55, 0.5, 0], [0.5, 0.55, 0], [0, 0, 1.05]].
+  const scene = new Scene(),
+    o = new Object3D();
+  o.collider = new CompoundCollider3D(
+    [1, -1].map((s) => ({
+      collider: new SphereCollider3D(0.25),
+      position: new Vector3(0.5 * s, -0.5 * s, 0),
+    })),
+  );
+  o.body = new RigidBody3D({ mass: 2, gravityScale: 0 });
+  scene.add(o);
+  const det = 0.55 * 0.55 - 0.5 * 0.5;
+  o.body.applyImpulse(new Vector3(0, 0, 1), new Vector3(0, 1, 0));
+  expect(o.body.angularVelocity.x).toBeCloseTo(0.55 / det, 6);
+  expect(o.body.angularVelocity.y).toBeCloseTo(-0.5 / det, 6);
+  expect(o.body.angularVelocity.z).toBeCloseTo(0, 9);
+  o.body.angularVelocity.set(0, 0, 0);
+  o.body.applyImpulse(new Vector3(1, 0, 0), new Vector3(0, 1, 0));
+  expect(o.body.angularVelocity.x).toBeCloseTo(0, 9);
+  expect(o.body.angularVelocity.y).toBeCloseTo(0, 9);
+  expect(o.body.angularVelocity.z).toBeCloseTo(-1 / 1.05, 6);
+  scene.destroy();
+});
 it('snapshots explicit child rotation and rejects nonpositive child scales', () => {
   const q = new Quaternion(0, 0, Math.sin(Math.PI / 8), Math.cos(Math.PI / 8));
   const c = new CompoundCollider3D([

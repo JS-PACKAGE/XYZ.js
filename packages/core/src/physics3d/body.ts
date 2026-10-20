@@ -50,6 +50,11 @@ export class RigidBody3D {
   private readonly sleepPose = new Float64Array(10);
   private readonly inverseDiagonal = new Vector3();
   private readonly inverseTensor = new Float64Array(6);
+  /** Flat copy of what `inverseInertiaInto` reads; see `addInverseInertia`. */
+  private readonly inertiaInputs = new Float64Array(12);
+  private inertiaPhase = -1;
+  /** 0: no rotation response, 1: compound tensor, 2: primitive axes and diagonal. */
+  private inertiaMode = 0;
   private readonly transformed = new Vector3();
   private inertiaRevision = -1;
   private inertiaMass = NaN;
@@ -305,9 +310,13 @@ export class RigidBody3D {
     this.inverseInertiaInto(vector.x, vector.y, vector.z, out, false);
     return out;
   }
-  /** @internal Solver form of `angularVelocity.add(inverseInertia(torque))` without a temporary. */
-  addInverseInertia(x: number, y: number, z: number): void {
-    this.inverseInertiaInto(x, y, z, this.angularVelocity, true);
+  /**
+   * @internal Solver form of `angularVelocity.add(inverseInertia(torque))` without a temporary.
+   * Contact iterations pass their solve `phase`, within which pose, mass and shape are
+   * fixed, so the inputs are copied once per phase instead of read on every impulse.
+   */
+  addInverseInertia(x: number, y: number, z: number, phase = -1): void {
+    this.inverseInertiaInto(x, y, z, this.angularVelocity, true, phase);
   }
   private inverseInertiaInto(
     x: number,
@@ -315,29 +324,45 @@ export class RigidBody3D {
     z: number,
     out: Vector3,
     accumulate: boolean,
+    phase = -1,
   ): void {
+    const k = this.inertiaInputs;
+    if (phase < 0 || this.inertiaPhase !== phase) {
+      this.inertiaPhase = phase;
+      if (this.type !== 'dynamic' || this.lockRotation || !this.shape)
+        this.inertiaMode = 0;
+      else if (this.shape.collider.kind === 'compound') {
+        this.inertiaMode = 1;
+        k.set(this.inverseTensor);
+      } else {
+        this.inertiaMode = 2;
+        const axes = this.shape.axes,
+          d = this.inverseDiagonal;
+        for (let i = 0; i < 3; i++) {
+          k[i * 3] = axes[i].x;
+          k[i * 3 + 1] = axes[i].y;
+          k[i * 3 + 2] = axes[i].z;
+        }
+        k[9] = d.x;
+        k[10] = d.y;
+        k[11] = d.z;
+      }
+    }
     let rx = 0,
       ry = 0,
       rz = 0;
-    if (this.type === 'dynamic' && !this.lockRotation && this.shape) {
-      if (this.shape.collider.kind === 'compound') {
-        const d = this.inverseTensor;
-        rx = d[0] * x + d[3] * y + d[4] * z;
-        ry = d[3] * x + d[1] * y + d[5] * z;
-        rz = d[4] * x + d[5] * y + d[2] * z;
-      } else {
-        const axes = this.shape.axes,
-          d = this.inverseDiagonal,
-          a0 = axes[0],
-          a1 = axes[1],
-          a2 = axes[2];
-        const px = (a0.x * x + a0.y * y + a0.z * z) * d.x,
-          py = (a1.x * x + a1.y * y + a1.z * z) * d.y,
-          pz = (a2.x * x + a2.y * y + a2.z * z) * d.z;
-        rx = a0.x * px + a1.x * py + a2.x * pz;
-        ry = a0.y * px + a1.y * py + a2.y * pz;
-        rz = a0.z * px + a1.z * py + a2.z * pz;
-      }
+    if (this.inertiaMode === 1) {
+      rx = k[0] * x + k[3] * y + k[4] * z;
+      ry = k[3] * x + k[1] * y + k[5] * z;
+      rz = k[4] * x + k[5] * y + k[2] * z;
+    } else if (this.inertiaMode === 2) {
+      // Rows 0-2 are the shape axes, 9-11 the inverse principal diagonal.
+      const px = (k[0] * x + k[1] * y + k[2] * z) * k[9],
+        py = (k[3] * x + k[4] * y + k[5] * z) * k[10],
+        pz = (k[6] * x + k[7] * y + k[8] * z) * k[11];
+      rx = k[0] * px + k[3] * py + k[6] * pz;
+      ry = k[1] * px + k[4] * py + k[7] * pz;
+      rz = k[2] * px + k[5] * py + k[8] * pz;
     }
     if (accumulate) {
       out.x += rx;

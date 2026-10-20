@@ -47,6 +47,8 @@ export interface PhysicsStats3D {
   readonly jointIterations: number;
 }
 const alwaysContinue = (): boolean => true;
+/** Solve-phase identities across all worlds; a body may move between worlds. */
+let solvePhases = 0;
 /** Contact rows in `contacts` Map insertion order (serials are unique integers). */
 const compareContactRows = (
   a: { contactRow: number },
@@ -208,6 +210,8 @@ export class PhysicsWorld3D {
   private stepId = 0;
   /** Bumped whenever contact effective masses must be recomputed. */
   private massEpoch = 0;
+  /** Current velocity-iteration phase; keys bodies' solver inertia copies. */
+  private solvePhase = 0;
   private disposed = false;
   private destroying = false;
   private stepping = false;
@@ -777,6 +781,7 @@ export class PhysicsWorld3D {
         hitA.body?.wake();
         hitB.body?.wake();
         ++this.massEpoch;
+        this.solvePhase = ++solvePhases;
         for (
           let iteration = 0;
           iteration < this.solverIterations;
@@ -918,6 +923,7 @@ export class PhysicsWorld3D {
         !c.a.shape.collider.sensor &&
         !c.b.shape.collider.sensor;
     ++this.massEpoch;
+    this.solvePhase = ++solvePhases;
     for (let iteration = 0; iteration < this.solverIterations; iteration++) {
       this.solveJoints();
       for (const c of this.active) {
@@ -1138,6 +1144,7 @@ export class PhysicsWorld3D {
       (y * iz - z * iy) * sign,
       (z * ix - x * iz) * sign,
       (x * iy - y * ix) * sign,
+      this.solvePhase,
     );
   }
   private solve(c: Contact3D, k: number): void {

@@ -12,6 +12,7 @@ const require_physics_profiles = require("../../../../src/data/physics-profiles.
 const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
+var C = 0;
 var compareContactRows = (e, t) => e.contactRow - t.contactRow;
 var Contact3D = class {
 	a;
@@ -105,6 +106,7 @@ var PhysicsWorld3D = class {
 	accumulator = 0;
 	stepId = 0;
 	massEpoch = 0;
+	solvePhase = 0;
 	disposed = !1;
 	destroying = !1;
 	stepping = !1;
@@ -382,7 +384,7 @@ var PhysicsWorld3D = class {
 				continue;
 			}
 			if (!a.shape.collider.sensor && !o.shape.collider.sensor) {
-				a.body?.wake(), o.body?.wake(), ++this.massEpoch;
+				a.body?.wake(), o.body?.wake(), ++this.massEpoch, this.solvePhase = ++C;
 				for (let e = 0; e < this.solverIterations; e++) {
 					for (let e = 0; e < l.manifold.count; e++) this.solve(l, e);
 					this.solveJoints();
@@ -433,7 +435,7 @@ var PhysicsWorld3D = class {
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
 		for (let e of this.active) e.responds = !e.ended && this.valid(e.a) && this.valid(e.b) && !e.a.shape.collider.sensor && !e.b.shape.collider.sensor;
-		++this.massEpoch;
+		++this.massEpoch, this.solvePhase = ++C;
 		for (let e = 0; e < this.solverIterations; e++) {
 			this.solveJoints();
 			for (let e of this.active) {
@@ -512,7 +514,7 @@ var PhysicsWorld3D = class {
 		if (!e?.owner || e.type !== `dynamic` || e.isSleeping) return;
 		e.velocity.x += n * e.inverseMass * a, e.velocity.y += r * e.inverseMass * a, e.velocity.z += i * e.inverseMass * a;
 		let o = e.owner.position, s = t.x - o.x, c = t.y - o.y, l = t.z - o.z;
-		e.addInverseInertia((c * i - l * r) * a, (l * n - s * i) * a, (s * r - c * n) * a);
+		e.addInverseInertia((c * i - l * r) * a, (l * n - s * i) * a, (s * r - c * n) * a, this.solvePhase);
 	}
 	solve(e, t) {
 		e.massEpoch !== this.massEpoch && this.prepareMasses(e);

@@ -116,6 +116,8 @@ export declare class PhysicsWorld3D {
     private stepId;
     /** Bumped whenever contact effective masses must be recomputed. */
     private massEpoch;
+    /** Current velocity-iteration phase; keys bodies' solver inertia copies. */
+    private solvePhase;
     private disposed;
     private destroying;
     private stepping;
