@@ -29,6 +29,10 @@ export class KeyframeTrack {
   private readonly scratch: Float64Array;
   /** Key segment found by the last sample; only a search hint. */
   private cursor = 0;
+  /** Last slerp angle and its sine; both are pure functions of `slerpDot`. */
+  private slerpDot = NaN;
+  private slerpAngle = 0;
+  private slerpSine = 0;
   private readonly deltaRotation = new Quaternion();
   private readonly referenceRotation = new Quaternion();
   private readonly identityRotation = new Quaternion();
@@ -152,8 +156,13 @@ export class KeyframeTrack {
         dot = -dot;
       }
       if (dot < 0.9995) {
-        const angle = Math.acos(Math.min(1, dot));
-        const sine = Math.sin(angle);
+        if (dot !== this.slerpDot) {
+          this.slerpDot = dot;
+          this.slerpAngle = Math.acos(Math.min(1, dot));
+          this.slerpSine = Math.sin(this.slerpAngle);
+        }
+        const angle = this.slerpAngle,
+          sine = this.slerpSine;
         wa = Math.sin((1 - t) * angle) / sine;
         wb = Math.sin(t * angle) / sine;
       }

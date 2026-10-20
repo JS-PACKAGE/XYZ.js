@@ -15,6 +15,10 @@ export declare class KeyframeTrack {
     private readonly scratch;
     /** Key segment found by the last sample; only a search hint. */
     private cursor;
+    /** Last slerp angle and its sine; both are pure functions of `slerpDot`. */
+    private slerpDot;
+    private slerpAngle;
+    private slerpSine;
     private readonly deltaRotation;
     private readonly referenceRotation;
     private readonly identityRotation;

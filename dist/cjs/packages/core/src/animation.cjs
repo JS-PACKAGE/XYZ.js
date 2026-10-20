@@ -13,6 +13,9 @@ var KeyframeTrack = class {
 	size;
 	scratch;
 	cursor = 0;
+	slerpDot = NaN;
+	slerpAngle = 0;
+	slerpSine = 0;
 	deltaRotation = new require_math3d.Quaternion();
 	referenceRotation = new require_math3d.Quaternion();
 	identityRotation = new require_math3d.Quaternion();
@@ -61,7 +64,8 @@ var KeyframeTrack = class {
 			let e = 0;
 			for (let t = 0; t < 4; t++) e += r[p + t] * r[m + t];
 			if (e < 0 && (_ = -1, e = -e), e < .9995) {
-				let t = Math.acos(Math.min(1, e)), n = Math.sin(t);
+				e !== this.slerpDot && (this.slerpDot = e, this.slerpAngle = Math.acos(Math.min(1, e)), this.slerpSine = Math.sin(this.slerpAngle));
+				let t = this.slerpAngle, n = this.slerpSine;
 				h = Math.sin((1 - d) * t) / n, g = Math.sin(d * t) / n;
 			}
 		}

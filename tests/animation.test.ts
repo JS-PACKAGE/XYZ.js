@@ -9,19 +9,33 @@ import { Group } from '../packages/core/src/group.js';
 describe('transform animation', () => {
   it('samples the same values regardless of the order times are visited', () => {
     const times = [0, 0.5, 1, 2, 3.5, 4];
-    const values = times.flatMap((time, i) => [time * 3, i * i, -time]);
-    const track = () =>
-      new KeyframeTrack(new Group(), 'translation', times, values);
-    const reused = track();
+    // Unequal key-to-key angles give each rotation segment its own slerp angle.
+    const angles = [0, 0.7, 1.9, 2.2, 3.4, 4];
+    const tracks = [
+      {
+        path: 'translation' as const,
+        size: 3,
+        values: times.flatMap((time, i) => [time * 3, i * i, -time]),
+      },
+      {
+        path: 'rotation' as const,
+        size: 4,
+        values: angles.flatMap((a) => [0, 0, Math.sin(a / 2), Math.cos(a / 2)]),
+      },
+    ];
     const visits = [
       -1, 0, 0.25, 0.5, 0.75, 2.5, 4, 9, 3.6, 0.1, 1, 1, 0.99, 3.5, -2, 2,
     ];
-    for (const time of visits) {
-      const expected = new Float64Array(3),
-        actual = new Float64Array(3);
-      track().sampleValues(time, expected);
-      reused.sampleValues(time, actual);
-      expect([time, ...actual]).toEqual([time, ...expected]);
+    for (const { path, size, values } of tracks) {
+      const track = () => new KeyframeTrack(new Group(), path, times, values);
+      const reused = track();
+      for (const time of visits) {
+        const expected = new Float64Array(size),
+          actual = new Float64Array(size);
+        track().sampleValues(time, expected);
+        reused.sampleValues(time, actual);
+        expect([path, time, ...actual]).toEqual([path, time, ...expected]);
+      }
     }
   });
   it('holds STEP values until each key and clamps nonlooping actions to the final pose', () => {
