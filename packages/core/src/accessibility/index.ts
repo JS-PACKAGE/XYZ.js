@@ -601,6 +601,10 @@ export class AccessibilityManager {
         (parseFloat(style.paddingBottom) || 0)) *
         transformY;
     const size = this.getSize();
+    // Read once: the loop below writes proxy attributes and styles, so a live computed-style
+    // read per object would force a style recalculation for every object.
+    const canvasShown =
+      style.display !== 'none' && style.visibility !== 'hidden';
     for (const [object, entry] of this.entries) {
       if (
         object.scene !== scene ||
@@ -694,8 +698,7 @@ export class AccessibilityManager {
         size.height > 0 &&
         cssWidth > 0 &&
         cssHeight > 0 &&
-        style.display !== 'none' &&
-        style.visibility !== 'hidden';
+        canvasShown;
       if (visible) {
         entry.clipCoverage = this.clip(
           entry,
