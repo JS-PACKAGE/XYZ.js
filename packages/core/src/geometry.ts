@@ -235,23 +235,26 @@ export class Geometry {
         const tl = Math.hypot(tx, ty, tz),
           bl = Math.hypot(bx, by, bz);
         if (tl <= 1e-20 || bl <= 1e-20) continue;
+        // Corner p sees edges q-p and r-p. Negating a difference or swapping product order
+        // is exact, so the three edges (and their lengths) serve all corners bit-for-bit.
+        const gx = vertices[c] - vertices[b],
+          gy = vertices[c + 1] - vertices[b + 1],
+          gz = vertices[c + 2] - vertices[b + 2];
+        const ab = Math.hypot(ex, ey, ez),
+          ac = Math.hypot(fx, fy, fz),
+          bc = Math.hypot(gx, gy, gz);
         for (let corner = 0; corner < 3; corner++) {
-          const vertex = copiedIndices[triangle + corner],
-            p = vertex * 8,
-            q = copiedIndices[triangle + ((corner + 1) % 3)] * 8,
-            r = copiedIndices[triangle + ((corner + 2) % 3)] * 8;
-          const qx = vertices[q] - vertices[p],
-            qy = vertices[q + 1] - vertices[p + 1],
-            qz = vertices[q + 2] - vertices[p + 2],
-            rx = vertices[r] - vertices[p],
-            ry = vertices[r + 1] - vertices[p + 1],
-            rz = vertices[r + 2] - vertices[p + 2];
-          const lengths = Math.hypot(qx, qy, qz) * Math.hypot(rx, ry, rz);
+          const lengths =
+            corner === 0 ? ab * ac : corner === 1 ? bc * ab : ac * bc;
           if (lengths <= 1e-20) continue;
-          const angle = Math.acos(
-            Math.max(-1, Math.min(1, (qx * rx + qy * ry + qz * rz) / lengths)),
-          );
-          const o = vertex * 3;
+          const dot =
+            corner === 0
+              ? ex * fx + ey * fy + ez * fz
+              : corner === 1
+                ? -(gx * ex + gy * ey + gz * ez)
+                : fx * gx + fy * gy + fz * gz;
+          const angle = Math.acos(Math.max(-1, Math.min(1, dot / lengths)));
+          const o = copiedIndices[triangle + corner] * 3;
           accumulated[o] += (tx / tl) * angle;
           accumulated[o + 1] += (ty / tl) * angle;
           accumulated[o + 2] += (tz / tl) * angle;

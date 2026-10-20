@@ -27,6 +27,37 @@ function mirroredQuad(): Geometry {
 }
 
 describe('tangent-space consistency', () => {
+  it('weights each triangle tangent by the corner angle at the shared vertex', () => {
+    // V (vertex 0) is the middle corner of a 60° triangle whose UVs run along +x, and
+    // the first corner of a 45° triangle whose UVs run along +y.
+    const c = Math.SQRT1_2;
+    const geometry = new Geometry({
+      positions: [
+        0,
+        0,
+        0,
+        1,
+        0,
+        0,
+        0.5,
+        Math.sqrt(0.75),
+        0,
+        0,
+        -1,
+        0,
+        -c,
+        -c,
+        0,
+      ],
+      normals: Array.from({ length: 5 }, () => [0, 0, 1]).flat(),
+      uvs: [0, 0, 1, 0, 0.5, Math.sqrt(0.75), -1, 0, -c, c],
+      indices: [1, 0, 2, 0, 3, 4],
+    });
+    const length = Math.hypot(Math.PI / 3, Math.PI / 4);
+    expect(geometry.tangents[0]).toBeCloseTo(Math.PI / 3 / length, 5);
+    expect(geometry.tangents[1]).toBeCloseTo(Math.PI / 4 / length, 5);
+    expect(geometry.tangents[2]).toBeCloseTo(0, 5);
+  });
   it('generates glTF handedness and preserves mirrored UV orientation', () => {
     const geometry = mirroredQuad();
     expect(geometry.vertices).toHaveLength(32);

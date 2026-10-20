@@ -89,11 +89,13 @@ var Geometry = class Geometry {
 				let i = s[r] * 8, a = s[r + 1] * 8, c = s[r + 2] * 8, l = o[a] - o[i], u = o[a + 1] - o[i + 1], d = o[a + 2] - o[i + 2], f = o[c] - o[i], p = o[c + 1] - o[i + 1], m = o[c + 2] - o[i + 2], h = n ? n[i / 4] : o[i + 6], g = n ? n[i / 4 + 1] : o[i + 7], _ = n ? n[a / 4] : o[a + 6], v = n ? n[a / 4 + 1] : o[a + 7], y = n ? n[c / 4] : o[c + 6], b = n ? n[c / 4 + 1] : o[c + 7], x = _ - h, S = v - g, C = y - h, w = b - g, T = x * w - S * C;
 				if (Math.abs(T) <= 1e-20) continue;
 				let E = (l * w - f * S) / T, D = (u * w - p * S) / T, O = (d * w - m * S) / T, k = (f * x - l * C) / T, A = (p * x - u * C) / T, j = (m * x - d * C) / T, M = Math.hypot(E, D, O), N = Math.hypot(k, A, j);
-				if (!(M <= 1e-20 || N <= 1e-20)) for (let n = 0; n < 3; n++) {
-					let i = s[r + n], a = i * 8, c = s[r + (n + 1) % 3] * 8, l = s[r + (n + 2) % 3] * 8, u = o[c] - o[a], d = o[c + 1] - o[a + 1], f = o[c + 2] - o[a + 2], p = o[l] - o[a], m = o[l + 1] - o[a + 1], h = o[l + 2] - o[a + 2], g = Math.hypot(u, d, f) * Math.hypot(p, m, h);
-					if (g <= 1e-20) continue;
-					let _ = Math.acos(Math.max(-1, Math.min(1, (u * p + d * m + f * h) / g))), v = i * 3;
-					e[v] += E / M * _, e[v + 1] += D / M * _, e[v + 2] += O / M * _, t[v] += k / N * _, t[v + 1] += A / N * _, t[v + 2] += j / N * _;
+				if (M <= 1e-20 || N <= 1e-20) continue;
+				let P = o[c] - o[a], F = o[c + 1] - o[a + 1], I = o[c + 2] - o[a + 2], L = Math.hypot(l, u, d), R = Math.hypot(f, p, m), z = Math.hypot(P, F, I);
+				for (let n = 0; n < 3; n++) {
+					let i = n === 0 ? L * R : n === 1 ? z * L : R * z;
+					if (i <= 1e-20) continue;
+					let a = n === 0 ? l * f + u * p + d * m : n === 1 ? -(P * l + F * u + I * d) : f * P + p * F + m * I, o = Math.acos(Math.max(-1, Math.min(1, a / i))), c = s[r + n] * 3;
+					e[c] += E / M * o, e[c + 1] += D / M * o, e[c + 2] += O / M * o, t[c] += k / N * o, t[c + 1] += A / N * o, t[c + 2] += j / N * o;
 				}
 			}
 			for (let n = 0; n < a; n++) {
