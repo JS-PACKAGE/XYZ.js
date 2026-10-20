@@ -330,6 +330,17 @@ export class GameObject extends SceneObject {
   sealPhysicsPose(): void {
     this.physicsPresentation?.seal(this.transform);
   }
+  /**
+   * @internal True when `updateWorldMatrix()` would return exactly `transform.updateMatrix()`:
+   * a root using the base composition outside interpolated physics presentation.
+   */
+  get composesFromTransform(): boolean {
+    return (
+      !this.parent &&
+      this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix &&
+      !this.scene?.presentingPhysics
+    );
+  }
   updateWorldMatrix(): Matrix3 {
     const scene = this.scene;
     const pass = scene?.presentationPass ?? 0;

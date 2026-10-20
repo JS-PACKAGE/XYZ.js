@@ -128,10 +128,15 @@ var ShapeGeometry = class {
 	area = 0;
 	revision = 0;
 	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
+	poseInputs = (/* @__PURE__ */ new Float64Array(9)).fill(NaN);
 	constructor(e) {
 		this.collider = e, this.points = new Float64Array(e.vertices.length * 2);
 	}
 	refresh(e) {
+		let t = e.transform, n = this.poseInputs, r = e.composesFromTransform;
+		r && n[0] === t.position.x && n[1] === t.position.y && n[2] === t.rotation && n[3] === t.scale.x && n[4] === t.scale.y && n[5] === t.pivot.x && n[6] === t.pivot.y && n[7] === t.skew.x && n[8] === t.skew.y || (n[0] = NaN, this.refreshPose(e), r && (n[0] = t.position.x, n[1] = t.position.y, n[2] = t.rotation, n[3] = t.scale.x, n[4] = t.scale.y, n[5] = t.pivot.x, n[6] = t.pivot.y, n[7] = t.skew.x, n[8] = t.skew.y));
+	}
+	refreshPose(e) {
 		let t = e.updateWorldMatrix().elements, n = !1;
 		for (let e = 0; e < i.length; e++) if (this.matrixSnapshot[e] !== t[i[e]]) {
 			n = !0;

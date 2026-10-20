@@ -680,3 +680,37 @@ describe('bounded rigid body physics', () => {
     }).toThrow(/Screen/);
   });
 });
+
+describe('mutable static poses', () => {
+  it('reflect every transform input and ancestor change in the next query', () => {
+    const scene = new Scene();
+    const bar = scene.add(new GameObject());
+    bar.collider = Colliders.box(4, 0.2);
+    const hit = () =>
+      scene.physics.raycast(new Vector2(1.5, -5), new Vector2(0, 1), 10).length;
+    expect(hit()).toBe(1);
+    bar.rotation = Math.PI / 2;
+    expect(hit()).toBe(0);
+    bar.rotation = 0;
+    expect(hit()).toBe(1);
+    bar.scale.set(0.5, 1);
+    expect(hit()).toBe(0);
+    bar.scale.set(1, 1);
+    expect(hit()).toBe(1);
+    bar.skew.set(0, Math.PI / 3);
+    expect(hit()).toBe(0);
+    bar.skew.set(0, 0);
+    expect(hit()).toBe(1);
+    bar.pivot.set(3, 0);
+    expect(hit()).toBe(0);
+    bar.pivot.set(0, 0);
+    expect(hit()).toBe(1);
+    const holder = scene.add(new Group2D());
+    holder.add(bar);
+    holder.position.x = 10;
+    expect(hit()).toBe(0);
+    holder.position.x = 0;
+    expect(hit()).toBe(1);
+    scene.destroy();
+  });
+});

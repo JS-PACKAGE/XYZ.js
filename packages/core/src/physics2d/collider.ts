@@ -222,10 +222,45 @@ export class ShapeGeometry {
   /** @internal Changes only after a successful world-geometry refresh. */
   revision = 0;
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
+  /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
+  private readonly poseInputs = new Float64Array(9).fill(NaN);
   constructor(readonly collider: Collider2D) {
     this.points = new Float64Array(collider.vertices.length * 2);
   }
   refresh(owner: GameObject): void {
+    const t = owner.transform,
+      k = this.poseInputs;
+    const direct = owner.composesFromTransform;
+    // A root's world matrix is composed from these values alone; when none changed,
+    // the matrix snapshot below would match and nothing would be refreshed.
+    if (
+      direct &&
+      k[0] === t.position.x &&
+      k[1] === t.position.y &&
+      k[2] === t.rotation &&
+      k[3] === t.scale.x &&
+      k[4] === t.scale.y &&
+      k[5] === t.pivot.x &&
+      k[6] === t.pivot.y &&
+      k[7] === t.skew.x &&
+      k[8] === t.skew.y
+    )
+      return;
+    k[0] = NaN;
+    this.refreshPose(owner);
+    if (direct) {
+      k[0] = t.position.x;
+      k[1] = t.position.y;
+      k[2] = t.rotation;
+      k[3] = t.scale.x;
+      k[4] = t.scale.y;
+      k[5] = t.pivot.x;
+      k[6] = t.pivot.y;
+      k[7] = t.skew.x;
+      k[8] = t.skew.y;
+    }
+  }
+  private refreshPose(owner: GameObject): void {
     const e = owner.updateWorldMatrix().elements;
     let changed = false;
     for (let i = 0; i < TRANSFORM_INDICES.length; i++)

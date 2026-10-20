@@ -87,6 +87,11 @@ export declare class GameObject extends SceneObject {
     capturePhysicsPose(): void;
     /** @internal */
     sealPhysicsPose(): void;
+    /**
+     * @internal True when `updateWorldMatrix()` would return exactly `transform.updateMatrix()`:
+     * a root using the base composition outside interpolated physics presentation.
+     */
+    get composesFromTransform(): boolean;
     updateWorldMatrix(): Matrix3;
     getLocalBounds(out?: Rect2D): Rect2D;
     toWorld(point: Vector2, out?: Vector2): Vector2;

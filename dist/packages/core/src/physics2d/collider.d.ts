@@ -53,7 +53,10 @@ export declare class ShapeGeometry {
     /** @internal Changes only after a successful world-geometry refresh. */
     revision: number;
     private readonly matrixSnapshot;
+    /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
+    private readonly poseInputs;
     constructor(collider: Collider2D);
     refresh(owner: GameObject): void;
+    private refreshPose;
     contains(x: number, y: number): boolean;
 }

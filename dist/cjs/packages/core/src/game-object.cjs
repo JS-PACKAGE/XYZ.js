@@ -224,6 +224,9 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	sealPhysicsPose() {
 		this.physicsPresentation?.seal(this.transform);
 	}
+	get composesFromTransform() {
+		return !this.parent && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && !this.scene?.presentingPhysics;
+	}
 	updateWorldMatrix() {
 		let e = this.scene, t = e?.presentationPass ?? 0;
 		if (t !== 0 && this.matrixPass === t) return this.worldMatrix;
