@@ -51,8 +51,12 @@ export class Geometry2D {
     return this.revision;
   }
 
+  // Renderers validate and bound every visible mesh each frame; indexed loops, because
+  // `for…of` over typed arrays is an order of magnitude slower in V8.
   validate(): void {
-    for (const value of this.positions)
+    const { positions, uvs, uvQ, indices } = this;
+    for (let i = 0; i < positions.length; i++) {
+      const value = positions[i]!;
       if (
         !Number.isFinite(value) ||
         Math.abs(value) > rendering2dLimits.coordinate
@@ -60,16 +64,19 @@ export class Geometry2D {
         throw new RangeError(
           'Geometry2D positions must be bounded and finite.',
         );
-    for (const value of this.uvs)
-      if (!Number.isFinite(value))
+    }
+    for (let i = 0; i < uvs.length; i++)
+      if (!Number.isFinite(uvs[i]))
         throw new RangeError('Geometry2D UVs must be finite.');
-    for (const value of this.uvQ)
+    for (let i = 0; i < uvQ.length; i++) {
+      const value = uvQ[i]!;
       if (!Number.isFinite(value) || value <= 0)
         throw new RangeError(
           'Geometry2D homogeneous weights must be positive and finite.',
         );
-    for (const index of this.indices)
-      if (index >= this.uvQ.length)
+    }
+    for (let i = 0; i < indices.length; i++)
+      if (indices[i]! >= uvQ.length)
         throw new RangeError('Geometry2D index is outside its vertices.');
   }
 
@@ -84,9 +91,11 @@ export class Geometry2D {
       right = -Infinity,
       bottom = -Infinity;
     // Only referenced vertices contribute to the visible geometry.
-    for (const index of this.indices) {
-      const x = this.positions[index * 2]!,
-        y = this.positions[index * 2 + 1]!;
+    const { positions, indices } = this;
+    for (let i = 0; i < indices.length; i++) {
+      const index = indices[i]!;
+      const x = positions[index * 2]!,
+        y = positions[index * 2 + 1]!;
       left = Math.min(left, x);
       top = Math.min(top, y);
       right = Math.max(right, x);

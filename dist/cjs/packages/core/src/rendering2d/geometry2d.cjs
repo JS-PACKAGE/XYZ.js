@@ -19,10 +19,17 @@ var Geometry2D = class {
 		return this.revision;
 	}
 	validate() {
-		for (let t of this.positions) if (!Number.isFinite(t) || Math.abs(t) > require_rendering2d.rendering2dLimits.coordinate) throw RangeError(`Geometry2D positions must be bounded and finite.`);
-		for (let e of this.uvs) if (!Number.isFinite(e)) throw RangeError(`Geometry2D UVs must be finite.`);
-		for (let e of this.uvQ) if (!Number.isFinite(e) || e <= 0) throw RangeError(`Geometry2D homogeneous weights must be positive and finite.`);
-		for (let e of this.indices) if (e >= this.uvQ.length) throw RangeError(`Geometry2D index is outside its vertices.`);
+		let { positions: t, uvs: n, uvQ: r, indices: i } = this;
+		for (let n = 0; n < t.length; n++) {
+			let r = t[n];
+			if (!Number.isFinite(r) || Math.abs(r) > require_rendering2d.rendering2dLimits.coordinate) throw RangeError(`Geometry2D positions must be bounded and finite.`);
+		}
+		for (let e = 0; e < n.length; e++) if (!Number.isFinite(n[e])) throw RangeError(`Geometry2D UVs must be finite.`);
+		for (let e = 0; e < r.length; e++) {
+			let t = r[e];
+			if (!Number.isFinite(t) || t <= 0) throw RangeError(`Geometry2D homogeneous weights must be positive and finite.`);
+		}
+		for (let e = 0; e < i.length; e++) if (i[e] >= r.length) throw RangeError(`Geometry2D index is outside its vertices.`);
 	}
 	markUpdated() {
 		this.validate(), this.revision++;
@@ -33,10 +40,10 @@ var Geometry2D = class {
 		width: 0,
 		height: 0
 	}) {
-		let t = 1 / 0, n = 1 / 0, r = -1 / 0, i = -1 / 0;
-		for (let e of this.indices) {
-			let a = this.positions[e * 2], o = this.positions[e * 2 + 1];
-			t = Math.min(t, a), n = Math.min(n, o), r = Math.max(r, a), i = Math.max(i, o);
+		let t = 1 / 0, n = 1 / 0, r = -1 / 0, i = -1 / 0, { positions: a, indices: o } = this;
+		for (let e = 0; e < o.length; e++) {
+			let s = o[e], c = a[s * 2], l = a[s * 2 + 1];
+			t = Math.min(t, c), n = Math.min(n, l), r = Math.max(r, c), i = Math.max(i, l);
 		}
 		return e.x = t, e.y = n, e.width = r - t, e.height = i - n, e;
 	}

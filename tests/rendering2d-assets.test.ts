@@ -289,6 +289,33 @@ describe('native geometry validation', () => {
     ).toThrow(RangeError);
   });
 
+  it('rejects caller edits that markUpdated would publish and bounds only referenced vertices', () => {
+    const make = () =>
+      new Geometry2D({
+        positions: [5, 7, 1, 0, 0, 1, 50, 50],
+        uvs: [0, 0, 1, 0, 0, 1, 1, 1],
+        indices: [0, 1, 2],
+      });
+    const geometry = make();
+    expect(geometry.getBounds()).toEqual({ x: 0, y: 0, width: 5, height: 7 });
+    const edits: ((g: Geometry2D) => void)[] = [
+      (g) => (g.indices[2] = 4),
+      (g) => (g.uvQ[3] = 0),
+      (g) => (g.uvs[7] = NaN),
+      (g) => (g.positions[6] = Infinity),
+    ];
+    for (const edit of edits) {
+      const edited = make();
+      edit(edited);
+      expect(() => edited.markUpdated()).toThrow(RangeError);
+      expect(edited.version).toBe(0);
+    }
+    geometry.indices[2] = 3;
+    geometry.markUpdated();
+    expect(geometry.version).toBe(1);
+    expect(geometry.getBounds()).toEqual({ x: 1, y: 0, width: 49, height: 50 });
+  });
+
   it('keeps the previous projective quad when a replacement is invalid', () => {
     stubImages();
     const texture = new Texture({
