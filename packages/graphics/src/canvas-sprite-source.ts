@@ -7,6 +7,16 @@ import {
 import type { TextureQuad2D } from './sprite-instance.js';
 import { GraphicsError } from './errors.js';
 
+/** Canvas `setTransform(a, b, c, d, e, f)` operands that place one 2D object on its target. */
+export interface CanvasPlacement2D {
+  a: number;
+  b: number;
+  c: number;
+  d: number;
+  e: number;
+  f: number;
+}
+
 /** Renderer-owned source snapshots; views borrow a single versioned upload. */
 export class CanvasSpriteSource {
   private readonly sources = new Map<
@@ -47,26 +57,22 @@ export class CanvasSpriteSource {
     }
     return entry.canvas;
   }
-  /**
-   * `transform` supplies the destination scale; only distance-field textures read
-   * it, because `getTransform()` allocates a DOMMatrix per sprite.
-   */
+  /** `transform` supplies the destination scale; only distance-field textures read it. */
   image(
     source: Texture2DSource,
     quad: TextureQuad2D,
     tint: ArrayLike<number>,
-    transform?: CanvasRenderingContext2D,
+    transform?: Readonly<CanvasPlacement2D>,
   ): HTMLCanvasElement {
     const field = source instanceof Texture && getTextureDistanceField(source);
     let scale = 1;
     if (field) {
-      const matrix = transform?.getTransform();
       scale = getDistanceFieldRasterScale(
         source as Texture,
-        matrix
+        transform
           ? Math.max(
-              Math.hypot(matrix.a, matrix.b),
-              Math.hypot(matrix.c, matrix.d),
+              Math.hypot(transform.a, transform.b),
+              Math.hypot(transform.c, transform.d),
             ) / quad.resolution
           : 1,
       );

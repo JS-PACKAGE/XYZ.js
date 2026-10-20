@@ -30,10 +30,7 @@ var CanvasSpriteSource = class {
 	}
 	image(i, a, o, s) {
 		let c = i instanceof require_texture.Texture && require_distance_field.getTextureDistanceField(i), l = 1;
-		if (c) {
-			let e = s?.getTransform();
-			l = require_distance_field.getDistanceFieldRasterScale(i, e ? Math.max(Math.hypot(e.a, e.b), Math.hypot(e.c, e.d)) / a.resolution : 1);
-		}
+		c && (l = require_distance_field.getDistanceFieldRasterScale(i, s ? Math.max(Math.hypot(s.a, s.b), Math.hypot(s.c, s.d)) / a.resolution : 1));
 		let u = c ? require_distance_field.getDistanceFieldCanvas(i, l) : this.prepare(i), d = Math.ceil(i.width * l), f = Math.ceil(i.height * l);
 		if (i.kind !== `render` && o[0] === 1 && o[1] === 1 && o[2] === 1 && a.u0 === 0 && a.v0 === 0 && a.ux === 1 && a.vx === 0 && a.uy === 0 && a.vy === 1 && a.trimWidth * a.resolution === i.width && a.trimHeight * a.resolution === i.height) return u;
 		let p = this.scratch ??= document.createElement(`canvas`), m = Math.max(1, Math.round(a.trimWidth * a.resolution * l)), h = Math.max(1, Math.round(a.trimHeight * a.resolution * l));

@@ -14,6 +14,7 @@ export declare class CanvasRender2D {
     private readonly matrix;
     private readonly inverses;
     private readonly product;
+    private readonly placement;
     private readonly tile;
     private readonly tinted;
     private readonly maskCanvas;
@@ -28,7 +29,14 @@ export declare class CanvasRender2D {
     draw(context: CanvasRenderingContext2D, commands: RenderCommandBuffer2D, scene: Scene, scaleX: number, scaleY: number, root?: IsolatedGroup2D, bounds?: Rect2D): void;
     /** Multiplies unpremultiplied RGB by the current appearance into `target`. */
     private tint;
-    private transform;
+    /** Computes the target transform of one object into the reused `placement`. */
+    private place;
+    /**
+     * Draws a local rectangle at `placement`. Positive axis-aligned placements fold into the
+     * destination rectangle under an identity transform: a per-object `setTransform` costs about
+     * as much as the `drawImage` itself. Returns the new identity state.
+     */
+    private drawPlaced;
     private mask;
     destroy(): void;
 }

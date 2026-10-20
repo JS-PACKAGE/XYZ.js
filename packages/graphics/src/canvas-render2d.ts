@@ -11,7 +11,10 @@ import {
   getTextureQuad2D,
   getRelativeAppearance2D,
 } from './sprite-instance.js';
-import { CanvasSpriteSource } from './canvas-sprite-source.js';
+import {
+  CanvasSpriteSource,
+  type CanvasPlacement2D,
+} from './canvas-sprite-source.js';
 import { UnsupportedGraphicsError } from './errors.js';
 import type { Rect2D } from '../../core/src/gameplay/contracts.js';
 
@@ -48,6 +51,14 @@ export class CanvasRender2D {
   private readonly matrix = new Matrix3();
   private readonly inverses = new WeakMap<IsolatedGroup2D, Matrix3>();
   private readonly product = new Matrix3();
+  private readonly placement: CanvasPlacement2D = {
+    a: 1,
+    b: 0,
+    c: 0,
+    d: 1,
+    e: 0,
+    f: 0,
+  };
   private readonly tile = document.createElement('canvas');
   private readonly tinted = document.createElement('canvas');
   private readonly maskCanvas = document.createElement('canvas');
@@ -149,6 +160,8 @@ export class CanvasRender2D {
       }
       inverse.copy(root.updateWorldMatrix()).invert();
     }
+    // Whether this context's transform is currently identity (set by an axis-aligned draw).
+    let identity = false;
     for (const command of commands.items) {
       const object = command.object;
       if (command.kind === 'layer') {
@@ -186,8 +199,7 @@ export class CanvasRender2D {
           };
           this.caches.set(group, pixels);
         }
-        this.transform(
-          context,
+        const p = this.place(
           object,
           object.updateWorldMatrix(),
           scene,
@@ -197,6 +209,8 @@ export class CanvasRender2D {
           bounds,
           false,
         );
+        context.setTransform(p.a, p.b, p.c, p.d, p.e, p.f);
+        identity = false;
         getRelativeAppearance2D(object, root, this.appearance);
         // Group RGB belongs to the composite, never baked into cached descendants.
         const canvas = pixels.canvas;
@@ -249,8 +263,7 @@ export class CanvasRender2D {
         const sprite = command.object;
         const quad = getSpriteQuad2D(sprite, this.quad);
         getRelativeAppearance2D(sprite, root, this.appearance);
-        this.transform(
-          context,
+        const p = this.place(
           sprite,
           sprite.updateWorldMatrix(),
           scene,
@@ -264,7 +277,7 @@ export class CanvasRender2D {
           sprite.texture,
           quad,
           this.appearance,
-          context,
+          p,
         );
         context.globalAlpha = this.appearance[3];
         context.imageSmoothingEnabled =
@@ -272,6 +285,8 @@ export class CanvasRender2D {
             sprite.sampler?.minFilter ??
             'linear') !== 'nearest';
         if (sprite instanceof TilingSprite2D) {
+          context.setTransform(p.a, p.b, p.c, p.d, p.e, p.f);
+          identity = false;
           context.save();
           context.beginPath();
           context.rect(
@@ -315,7 +330,15 @@ export class CanvasRender2D {
           );
           context.restore();
         } else
-          context.drawImage(image, quad.x, quad.y, quad.width, quad.height);
+          identity = this.drawPlaced(
+            context,
+            identity,
+            image,
+            quad.x,
+            quad.y,
+            quad.width,
+            quad.height,
+          );
         this.stats.draw2D();
       } else if (command.kind === 'particles') {
         const layer = command.object;
@@ -333,8 +356,7 @@ export class CanvasRender2D {
           this.appearance[1] *= slot.tintG;
           this.appearance[2] *= slot.tintB;
           this.appearance[3] *= slot.tintA;
-          this.transform(
-            context,
+          const p = this.place(
             layer,
             layer.getSlotWorldMatrix(index, this.matrix),
             scene,
@@ -348,10 +370,12 @@ export class CanvasRender2D {
             slot.texture,
             quad,
             this.appearance,
-            context,
+            p,
           );
           context.globalAlpha = this.appearance[3];
-          context.drawImage(
+          identity = this.drawPlaced(
+            context,
+            identity,
             image,
             quad.x - slot.anchorX * quad.naturalWidth,
             quad.y - slot.anchorY * quad.naturalHeight,
@@ -385,8 +409,8 @@ export class CanvasRender2D {
       for (let c = 0; c < 3; c++) data.data[i + c] *= this.appearance[c];
     context.putImageData(data, 0, 0);
   }
-  private transform(
-    context: CanvasRenderingContext2D,
+  /** Computes the target transform of one object into the reused `placement`. */
+  private place(
     object: GameObject,
     matrix: Matrix3,
     scene: Scene,
@@ -395,7 +419,7 @@ export class CanvasRender2D {
     inverse: Matrix3 | undefined,
     bounds: Rect2D,
     round: boolean,
-  ): void {
+  ): CanvasPlacement2D {
     const m = inverse
       ? this.product.copy(inverse).multiply(matrix).elements
       : matrix.elements;
@@ -416,14 +440,44 @@ export class CanvasRender2D {
       x = Math.round(x);
       y = Math.round(y);
     }
-    context.setTransform(
-      m[0] * z * sx,
-      m[1] * z * sy,
-      m[3] * z * sx,
-      m[4] * z * sy,
-      x,
-      y,
-    );
+    const p = this.placement;
+    p.a = m[0] * z * sx;
+    p.b = m[1] * z * sy;
+    p.c = m[3] * z * sx;
+    p.d = m[4] * z * sy;
+    p.e = x;
+    p.f = y;
+    return p;
+  }
+  /**
+   * Draws a local rectangle at `placement`. Positive axis-aligned placements fold into the
+   * destination rectangle under an identity transform: a per-object `setTransform` costs about
+   * as much as the `drawImage` itself. Returns the new identity state.
+   */
+  private drawPlaced(
+    context: CanvasRenderingContext2D,
+    identity: boolean,
+    image: CanvasImageSource,
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+  ): boolean {
+    const p = this.placement;
+    if (p.b === 0 && p.c === 0 && p.a > 0 && p.d > 0) {
+      if (!identity) context.setTransform(1, 0, 0, 1, 0, 0);
+      context.drawImage(
+        image,
+        p.e + p.a * x,
+        p.f + p.d * y,
+        p.a * width,
+        p.d * height,
+      );
+      return true;
+    }
+    context.setTransform(p.a, p.b, p.c, p.d, p.e, p.f);
+    context.drawImage(image, x, y, width, height);
+    return false;
   }
   private mask(
     context: CanvasRenderingContext2D,
