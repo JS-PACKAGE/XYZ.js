@@ -1,6 +1,18 @@
 //#region dist/packages/graphics/src/webgl-uniform-cache.js
 var WebGLUniformCache = class {
 	values = /* @__PURE__ */ new WeakMap();
+	vectors = /* @__PURE__ */ new WeakMap();
+	uniform4fv(e, t, n) {
+		if (!t) return;
+		let r = this.vectors.get(t);
+		if (r?.length === n.length) {
+			let e = 0;
+			for (; e < n.length && same(r[e], n[e]);) e++;
+			if (e === n.length) return;
+			r.set(n);
+		} else this.vectors.set(t, n.slice());
+		e.uniform4fv(t, n);
+	}
 	changed(e, t, n, r, i) {
 		let a = this.values.get(e);
 		if (!a) this.values.set(e, a = /* @__PURE__ */ new Float64Array(4));

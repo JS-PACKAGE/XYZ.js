@@ -8,6 +8,24 @@
  */
 export class WebGLUniformCache {
   private readonly values = new WeakMap<WebGLUniformLocation, Float64Array>();
+  private readonly vectors = new WeakMap<WebGLUniformLocation, Float32Array>();
+
+  /** Vector/array form; the sent data is copied, so callers may keep reusing `data`. */
+  uniform4fv(
+    gl: WebGL2RenderingContext,
+    location: WebGLUniformLocation | null,
+    data: Float32Array,
+  ): void {
+    if (!location) return;
+    const sent = this.vectors.get(location);
+    if (sent?.length === data.length) {
+      let i = 0;
+      while (i < data.length && same(sent[i]!, data[i]!)) i++;
+      if (i === data.length) return;
+      sent.set(data);
+    } else this.vectors.set(location, data.slice());
+    gl.uniform4fv(location, data);
+  }
 
   private changed(
     location: WebGLUniformLocation,

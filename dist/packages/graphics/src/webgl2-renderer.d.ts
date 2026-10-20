@@ -128,6 +128,9 @@ export declare class WebGL2Renderer implements Renderer {
     private meshAttributeDefaults;
     private readonly tintData;
     private readonly materialUVData;
+    /** Shadow tile whose view-projection each shadow program last received. */
+    private readonly shadowViewStamps;
+    private shadowViewStamp;
     private readonly bakedData;
     private readonly bakedSH;
     private readonly bakedParams;

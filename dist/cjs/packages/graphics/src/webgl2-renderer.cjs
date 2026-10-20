@@ -288,6 +288,8 @@ var WebGL2Renderer = class {
 	meshAttributeDefaults = !1;
 	tintData = /* @__PURE__ */ new Float32Array(4);
 	materialUVData = new Float32Array(require_optical_maps.mappedMaterialUVFloatCount);
+	shadowViewStamps = /* @__PURE__ */ new WeakMap();
+	shadowViewStamp = 0;
 	bakedData = /* @__PURE__ */ new Float32Array(40);
 	bakedSH = this.bakedData.subarray(0, 36);
 	bakedParams = this.bakedData.subarray(36);
@@ -979,21 +981,25 @@ void main() { color = vec4(vColor, 1.0); }`, `triangle`), this.shadowProgram = t
 			return;
 		}
 		t || this.stats.shadowPasses++;
-		let s = this.shadowUniforms;
-		a.bindFramebuffer(a.FRAMEBUFFER, (t ?? this.shadowTarget).framebuffer), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o, o), a.disable(a.BLEND), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.clearDepth(1), a.clear(a.DEPTH_BUFFER_BIT), a.useProgram(this.shadowProgram), a.enable(a.SCISSOR_TEST);
-		let c = e.shadows.mapSize;
+		let s;
+		a.bindFramebuffer(a.FRAMEBUFFER, (t ?? this.shadowTarget).framebuffer), a.disable(a.SCISSOR_TEST), a.viewport(0, 0, o, o), a.disable(a.BLEND), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.clearDepth(1), a.clear(a.DEPTH_BUFFER_BIT), a.useProgram(this.shadowProgram);
+		let c = this.shadowProgram;
+		a.enable(a.SCISSOR_TEST);
+		let l = e.shadows.mapSize;
 		for (let o = 0; o < (t ? 1 : this.atlas.count); o++) {
-			let l = t ? 0 : o % this.atlas.grid * c, u = t ? this.contactOffset : Math.floor(o / this.atlas.grid) * c, d = t ? this.contactWidth : c, f = t ? this.contactHeight : c;
-			a.viewport(l, u, d, f), a.scissor(l, u, d, f), a.uniformMatrix4fv(s.viewProjection, !1, (t ? this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix : this.atlas.matrices[o]).elements), a.disable(a.CULL_FACE);
-			for (let c of t ? this.visibility.color : this.visibility.shadows) {
-				if (t && (this.isColorBlended(c) || c.material instanceof require_pbr_material.PBRMaterial && c.material.transmission > 0)) continue;
-				let l = c.material, u = l instanceof require_pbr_material.PBRMaterial;
-				if (require_native_material3d.isNativeMaterial3D(l)) {
-					let e = this.nativeMaterials.get(l);
-					if (!e || l.destroyed) throw new require_errors.GraphicsError(`Shadow native 3D material must be explicitly prepared before rendering.`);
-					if (l.validate(), s = e.shadowUniforms, a.useProgram(e.shadow), a.uniform4fv(s[`xyzUniforms[0]`], l.uniforms), !(l instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) this.uniformValues.uniform1i(a, s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(l)[e] ?? require_mesh.materialBaseTexture(l), e + 1);
-				} else s = this.shadowUniforms, a.useProgram(this.shadowProgram);
-				require_material_uv.fillMaterialUV(l, c.renderGeometry, this.materialUVData), a.uniform4fv(s[`materialCoordinates[0]`], this.materialUVData), a.uniformMatrix4fv(s.viewProjection, !1, (t ? this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix : this.atlas.matrices[o]).elements), this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1f(a, s.alphaCutoff, u ? l.alphaCutoff : 0), this.uniformValues.uniform1f(a, s.opacity, l.opacity), this.uniformValues.uniform1f(a, s.meshFade, this.visibility.entries.get(c)?.fade ?? 1), this.uniformValues.uniform1i(a, s.doubleSided, u && !l.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, u ? l.alphaMode === `OPAQUE` ? 0 : l.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(l), 0, l.textureSampler), this.drawMesh(c, s), t ? this.stats.draw(c.renderGeometry.indices.length, c instanceof require_instanced_mesh.InstancedMesh ? c.count : 1) : this.stats.shadowDrawCalls++;
+			let u = t ? 0 : o % this.atlas.grid * l, d = t ? this.contactOffset : Math.floor(o / this.atlas.grid) * l, f = t ? this.contactWidth : l, p = t ? this.contactHeight : l;
+			a.viewport(u, d, f, p), a.scissor(u, d, f, p);
+			let m = (t ? this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix : this.atlas.matrices[o]).elements, h = ++this.shadowViewStamp;
+			a.disable(a.CULL_FACE);
+			for (let e of t ? this.visibility.color : this.visibility.shadows) {
+				if (t && (this.isColorBlended(e) || e.material instanceof require_pbr_material.PBRMaterial && e.material.transmission > 0)) continue;
+				let o = e.material, l = o instanceof require_pbr_material.PBRMaterial;
+				if (require_native_material3d.isNativeMaterial3D(o)) {
+					let e = this.nativeMaterials.get(o);
+					if (!e || o.destroyed) throw new require_errors.GraphicsError(`Shadow native 3D material must be explicitly prepared before rendering.`);
+					if (o.validate(), s = e.shadowUniforms, c !== e.shadow && a.useProgram(c = e.shadow), a.uniform4fv(s[`xyzUniforms[0]`], o.uniforms), !(o instanceof require_native_pbr_material.NativePBRMaterial)) for (let e = 0; e < 4; e++) this.uniformValues.uniform1i(a, s[`xyzMap${e}`], e + 1), this.bindMaterialTexture(require_native_material3d.nativeMaterialSources(o)[e] ?? require_mesh.materialBaseTexture(o), e + 1);
+				} else s = this.shadowUniforms, c !== this.shadowProgram && a.useProgram(c = this.shadowProgram);
+				require_material_uv.fillMaterialUV(o, e.renderGeometry, this.materialUVData), this.uniformValues.uniform4fv(a, s[`materialCoordinates[0]`], this.materialUVData), this.shadowViewStamps.get(c) !== h && (a.uniformMatrix4fv(s.viewProjection, !1, m), this.shadowViewStamps.set(c, h)), this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1f(a, s.alphaCutoff, l ? o.alphaCutoff : 0), this.uniformValues.uniform1f(a, s.opacity, o.opacity), this.uniformValues.uniform1f(a, s.meshFade, this.visibility.entries.get(e)?.fade ?? 1), this.uniformValues.uniform1i(a, s.doubleSided, l && !o.doubleSided ? 0 : 1), this.uniformValues.uniform1i(a, s.alphaMode, l ? o.alphaMode === `OPAQUE` ? 0 : o.alphaMode === `MASK` ? 1 : 2 : 2), this.bindMaterialTexture(require_mesh.materialBaseTexture(o), 0, o.textureSampler), this.drawMesh(e, s), t ? this.stats.draw(e.renderGeometry.indices.length, e instanceof require_instanced_mesh.InstancedMesh ? e.count : 1) : this.stats.shadowDrawCalls++;
 			}
 		}
 		a.disable(a.SCISSOR_TEST), t || this.shadowCache.commit();

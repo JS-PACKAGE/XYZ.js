@@ -876,6 +876,9 @@ export class WebGL2Renderer implements Renderer {
   private meshAttributeDefaults = false;
   private readonly tintData = new Float32Array(4);
   private readonly materialUVData = new Float32Array(MATERIAL_UV_FLOAT_COUNT);
+  /** Shadow tile whose view-projection each shadow program last received. */
+  private readonly shadowViewStamps = new WeakMap<WebGLProgram, number>();
+  private shadowViewStamp = 0;
   private readonly bakedData = new Float32Array(40);
   private readonly bakedSH = this.bakedData.subarray(0, 36);
   private readonly bakedParams = this.bakedData.subarray(36);
@@ -3539,7 +3542,7 @@ export class WebGL2Renderer implements Renderer {
       return;
     }
     if (!contactTarget) this.stats.shadowPasses++;
-    let uniforms = this.shadowUniforms;
+    let uniforms: Record<string, WebGLUniformLocation | null>;
     gl.bindFramebuffer(
       gl.FRAMEBUFFER,
       (contactTarget ?? this.shadowTarget!).framebuffer,
@@ -3553,6 +3556,7 @@ export class WebGL2Renderer implements Renderer {
     gl.clearDepth(1);
     gl.clear(gl.DEPTH_BUFFER_BIT);
     gl.useProgram(this.shadowProgram!);
+    let program = this.shadowProgram!;
     gl.enable(gl.SCISSOR_TEST);
     const tileSize = scene.shadows.mapSize;
     for (let tile = 0; tile < (contactTarget ? 1 : this.atlas.count); tile++) {
@@ -3564,16 +3568,15 @@ export class WebGL2Renderer implements Renderer {
       const tileHeight = contactTarget ? this.contactHeight : tileSize;
       gl.viewport(x, y, tileWidth, tileHeight);
       gl.scissor(x, y, tileWidth, tileHeight);
-      gl.uniformMatrix4fv(
-        uniforms.viewProjection,
-        false,
-        (contactTarget
+      const viewProjection = (
+        contactTarget
           ? this.temporalActive
             ? this.temporalState.currentVP
             : scene.camera3D.matrix
           : this.atlas.matrices[tile]!
-        ).elements,
-      );
+      ).elements;
+      // Uniforms persist per program: upload this tile's matrix once to each program it uses.
+      const viewStamp = ++this.shadowViewStamp;
       gl.disable(gl.CULL_FACE);
       for (const object of contactTarget
         ? this.visibility.color
@@ -3595,7 +3598,7 @@ export class WebGL2Renderer implements Renderer {
             );
           material.validate();
           uniforms = entry.shadowUniforms;
-          gl.useProgram(entry.shadow);
+          if (program !== entry.shadow) gl.useProgram((program = entry.shadow));
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
           if (!(material instanceof NativePBRMaterial)) {
             for (let i = 0; i < 4; i++) {
@@ -3609,20 +3612,19 @@ export class WebGL2Renderer implements Renderer {
           }
         } else {
           uniforms = this.shadowUniforms;
-          gl.useProgram(this.shadowProgram!);
+          if (program !== this.shadowProgram)
+            gl.useProgram((program = this.shadowProgram!));
         }
         fillMaterialUV(material, object.renderGeometry, this.materialUVData);
-        gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
-        gl.uniformMatrix4fv(
-          uniforms.viewProjection,
-          false,
-          (contactTarget
-            ? this.temporalActive
-              ? this.temporalState.currentVP
-              : scene.camera3D.matrix
-            : this.atlas.matrices[tile]!
-          ).elements,
+        this.uniformValues.uniform4fv(
+          gl,
+          uniforms['materialCoordinates[0]'],
+          this.materialUVData,
         );
+        if (this.shadowViewStamps.get(program) !== viewStamp) {
+          gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
+          this.shadowViewStamps.set(program, viewStamp);
+        }
         this.uniformValues.uniform1i(gl, uniforms.image, 0);
         this.uniformValues.uniform1f(
           gl,
