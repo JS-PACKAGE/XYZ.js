@@ -94,7 +94,8 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 		for (let t of e.children) this.traversal.push(t);
 		for (let e = 0; e < this.traversal.length; e++) {
 			if (this.traversal.length > require_rendering2d.rendering2dLimits.commands) throw RangeError(`Detached target subtree exceeds the traversal budget.`);
-			for (let t of this.traversal[e].children) this.traversal.push(t);
+			let t = this.traversal[e].existingChildren;
+			if (t) for (let e of t) this.traversal.push(e);
 		}
 		return this.traversal;
 	}

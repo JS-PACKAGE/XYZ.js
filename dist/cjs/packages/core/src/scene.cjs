@@ -288,7 +288,8 @@ var Scene = class {
 			if (t.destroyed) throw Error(`Cannot add a destroyed scene object.`);
 			if (t.scene && t.scene !== this) throw Error(`Scene object already belongs to a scene.`);
 			if (r && t.scene) throw Error(`Streaming subtree members must all be detached.`);
-			if (t instanceof require_object3d.Object3D || t instanceof require_game_object.GameObject) for (let e of t.children) i.push(e);
+			let n = t instanceof require_game_object.GameObject ? t.existingChildren : t instanceof require_object3d.Object3D ? t.children : void 0;
+			if (n) for (let e of n) i.push(e);
 		}
 		let a = [], o = e instanceof require_object3d.Object3D && (n || t && e.parent) ? e.setParentForRegistration(n) : void 0;
 		try {
@@ -318,8 +319,8 @@ var Scene = class {
 		if (!this.registrations.has(e)) return !1;
 		let n = [e];
 		for (let e = 0; e < n.length; e++) {
-			let t = n[e];
-			if (t instanceof require_object3d.Object3D || t instanceof require_game_object.GameObject) for (let e of t.children) n.push(e);
+			let t = n[e], r = t instanceof require_game_object.GameObject ? t.existingChildren : t instanceof require_object3d.Object3D ? t.children : void 0;
+			if (r) for (let e of r) n.push(e);
 		}
 		(e instanceof require_object3d.Object3D || e instanceof require_game_object.GameObject) && e.detachParent();
 		for (let e of n) this.unregister(e);

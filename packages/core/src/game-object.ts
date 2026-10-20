@@ -31,7 +31,8 @@ export class GameObject extends SceneObject {
   /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
   private matrixPass = 0;
   private ancestor: GameObject | undefined;
-  private readonly descendants = new Set<GameObject>();
+  /** Created on first child or first `children` read; tiles and glyphs are mostly leaves. */
+  private descendants: Set<GameObject> | undefined;
   private alpha = 1;
   private order = 0;
   private coordinateSpace: 'world' | 'screen' = 'world';
@@ -153,7 +154,8 @@ export class GameObject extends SceneObject {
   private assertPhysicsSpace(): void {
     if (this.body || this.collider)
       throw new Error('Screen-space physics is unsupported.');
-    for (const child of this.descendants) child.assertPhysicsSpace();
+    if (this.descendants)
+      for (const child of this.descendants) child.assertPhysicsSpace();
   }
   private assertParentingPhysics(child: GameObject): void {
     if (child.body && child.body.type !== 'static')
@@ -250,6 +252,10 @@ export class GameObject extends SceneObject {
     return this.ancestor;
   }
   get children(): ReadonlySet<GameObject> {
+    return (this.descendants ??= new Set());
+  }
+  /** @internal Child traversal that does not materialize a leaf's empty set. */
+  get existingChildren(): ReadonlySet<GameObject> | undefined {
     return this.descendants;
   }
   get worldSpace(): 'world' | 'screen' {
@@ -307,7 +313,7 @@ export class GameObject extends SceneObject {
     }
     child.detachParent();
     child.ancestor = this;
-    this.descendants.add(child);
+    (this.descendants ??= new Set()).add(child);
     return child;
   }
   remove(child: GameObject): boolean {
@@ -318,7 +324,7 @@ export class GameObject extends SceneObject {
   }
   /** @internal Scene detaches roots without mutating subtree ownership. */
   detachParent(): void {
-    this.ancestor?.descendants.delete(this);
+    this.ancestor?.descendants?.delete(this);
     this.ancestor = undefined;
   }
   /** @internal Stores only the previous fixed simulation pose. */
@@ -446,7 +452,7 @@ export class GameObject extends SceneObject {
 
   override destroy(): void {
     if (this.destroyed) return;
-    const children = [...this.descendants];
+    const children = this.descendants ? [...this.descendants] : [];
     const errors: unknown[] = [];
     try {
       this.actionQueue?.destroy();
@@ -468,7 +474,7 @@ export class GameObject extends SceneObject {
         errors.push(error);
       }
     }
-    this.descendants.clear();
+    this.descendants?.clear();
     if (errors.length)
       throw new AggregateError(errors, 'GameObject cleanup failed.');
   }

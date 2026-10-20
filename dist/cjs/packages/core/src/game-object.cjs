@@ -15,7 +15,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	sceneUpdateId = 0;
 	matrixPass = 0;
 	ancestor;
-	descendants = /* @__PURE__ */ new Set();
+	descendants;
 	alpha = 1;
 	order = 0;
 	coordinateSpace = `world`;
@@ -105,7 +105,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	}
 	assertPhysicsSpace() {
 		if (this.body || this.collider) throw Error(`Screen-space physics is unsupported.`);
-		for (let e of this.descendants) e.assertPhysicsSpace();
+		if (this.descendants) for (let e of this.descendants) e.assertPhysicsSpace();
 	}
 	assertParentingPhysics(e) {
 		if (e.body && e.body.type !== `static`) throw Error(`Moving bodies require root GameObjects.`);
@@ -175,6 +175,9 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		return this.ancestor;
 	}
 	get children() {
+		return this.descendants ??= /* @__PURE__ */ new Set();
+	}
+	get existingChildren() {
 		return this.descendants;
 	}
 	get worldSpace() {
@@ -211,13 +214,13 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 			if (t.add(e), this.destroyed || e.destroyed || this.scene !== t || e.scene !== t || e.parent) return e;
 			this.assertParentingPhysics(e);
 		}
-		return e.detachParent(), e.ancestor = this, this.descendants.add(e), e;
+		return e.detachParent(), e.ancestor = this, (this.descendants ??= /* @__PURE__ */ new Set()).add(e), e;
 	}
 	remove(e) {
 		return e.parent === this && (this.scene ? this.scene.remove(e) : e.detachParent(), !0);
 	}
 	detachParent() {
-		this.ancestor?.descendants.delete(this), this.ancestor = void 0;
+		this.ancestor?.descendants?.delete(this), this.ancestor = void 0;
 	}
 	capturePhysicsPose() {
 		this.scene?.interpolatePhysics && (this.physicsPresentation ??= new require_physics_presentation.PhysicsPresentation2D()).capture(this.transform);
@@ -280,7 +283,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	update(e) {}
 	destroy() {
 		if (this.destroyed) return;
-		let e = [...this.descendants], t = [];
+		let e = this.descendants ? [...this.descendants] : [], t = [];
 		try {
 			this.actionQueue?.destroy(), this.interactionListeners?.destroy();
 		} catch (e) {
@@ -298,7 +301,7 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		} catch (e) {
 			t.push(e);
 		}
-		if (this.descendants.clear(), t.length) throw AggregateError(t, `GameObject cleanup failed.`);
+		if (this.descendants?.clear(), t.length) throw AggregateError(t, `GameObject cleanup failed.`);
 	}
 };
 //#endregion

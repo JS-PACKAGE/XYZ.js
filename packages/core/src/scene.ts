@@ -539,9 +539,13 @@ export class Scene {
         throw new Error('Scene object already belongs to a scene.');
       if (publish && member.scene)
         throw new Error('Streaming subtree members must all be detached.');
-      if (member instanceof Object3D || member instanceof GameObject) {
-        for (const child of member.children) subtree.push(child);
-      }
+      const children =
+        member instanceof GameObject
+          ? member.existingChildren
+          : member instanceof Object3D
+            ? member.children
+            : undefined;
+      if (children) for (const child of children) subtree.push(child);
     }
     const added: SceneObject[] = [];
     const restoreParent =
@@ -616,9 +620,13 @@ export class Scene {
     const subtree: SceneObject[] = [object];
     for (let i = 0; i < subtree.length; i++) {
       const member = subtree[i];
-      if (member instanceof Object3D || member instanceof GameObject) {
-        for (const child of member.children) subtree.push(child);
-      }
+      const children =
+        member instanceof GameObject
+          ? member.existingChildren
+          : member instanceof Object3D
+            ? member.children
+            : undefined;
+      if (children) for (const child of children) subtree.push(child);
     }
     if (object instanceof Object3D || object instanceof GameObject)
       object.detachParent();

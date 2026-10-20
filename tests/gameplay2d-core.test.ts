@@ -187,6 +187,21 @@ describe('2D composed scene ownership', () => {
     image.destroy();
     other.destroy();
   });
+  it('keeps a leaf children set live and stable once it has been read', () => {
+    const scene = new Scene();
+    const image = texture();
+    const leaf = scene.add(new Sprite({ texture: image }));
+    const children = leaf.children;
+    expect(children.size).toBe(0);
+    const child = leaf.add(new Sprite({ texture: image }));
+    expect(leaf.children).toBe(children);
+    expect([...children]).toEqual([child]);
+    expect(scene.has(child)).toBe(true);
+    leaf.remove(child);
+    expect(children.size).toBe(0);
+    scene.destroy();
+    image.destroy();
+  });
 
   it('culls against final camera displacement and sorts HUD after world independent of z', () => {
     const scene = new Scene();

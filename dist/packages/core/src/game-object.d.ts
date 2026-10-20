@@ -16,7 +16,8 @@ export declare class GameObject extends SceneObject {
     /** Scene presentation pass that `worldMatrix` was composed for; see updateWorldMatrix. */
     private matrixPass;
     private ancestor;
-    private readonly descendants;
+    /** Created on first child or first `children` read; tiles and glyphs are mostly leaves. */
+    private descendants;
     private alpha;
     private order;
     private coordinateSpace;
@@ -76,6 +77,8 @@ export declare class GameObject extends SceneObject {
     set space(value: 'world' | 'screen');
     get parent(): GameObject | undefined;
     get children(): ReadonlySet<GameObject>;
+    /** @internal Child traversal that does not materialize a leaf's empty set. */
+    get existingChildren(): ReadonlySet<GameObject> | undefined;
     get worldSpace(): 'world' | 'screen';
     get worldVisible(): boolean;
     get worldOpacity(): number;

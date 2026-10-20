@@ -197,8 +197,8 @@ export class RenderCommandBuffer2D {
         throw new RangeError(
           'Detached target subtree exceeds the traversal budget.',
         );
-      for (const child of this.traversal[i].children)
-        this.traversal.push(child);
+      const children = this.traversal[i].existingChildren;
+      if (children) for (const child of children) this.traversal.push(child);
     }
     return this.traversal;
   }
