@@ -20,33 +20,32 @@ var NavigationSearch = class {
 		this.touchedCount = 0, this.size = 0;
 	}
 	offer(e, t, n, r) {
-		this.distance[e] === 1 / 0 && (this.touched[this.touchedCount++] = e), this.distance[e] = t, this.parent[e] = r, this.score[e] = n;
-		let i = this.slot[e];
-		for (i < 0 && (i = this.size++, this.heap[i] = e, this.slot[e] = i); i > 0;) {
-			let t = i - 1 >>> 1, n = this.heap[t];
-			if (!this.before(e, n)) break;
-			this.heap[i] = n, this.slot[n] = i, i = t;
+		this.distance[e] === 1 / 0 && (this.touched[this.touchedCount++] = e), this.distance[e] = t, this.parent[e] = r;
+		let i = this.heap, a = this.score, o = this.slot, s = o[e];
+		for (s < 0 && (s = this.size++); s > 0;) {
+			let t = s - 1 >>> 1, r = i[t], c = a[t];
+			if (!(n < c || n === c && e < r)) break;
+			i[s] = r, a[s] = c, o[r] = s, s = t;
 		}
-		this.heap[i] = e, this.slot[e] = i;
+		i[s] = e, a[s] = n, o[e] = s;
 	}
 	take() {
 		if (this.size === 0) return -1;
-		let e = this.heap[0];
-		this.slot[e] = -1;
-		let t = this.heap[--this.size];
-		if (this.size === 0) return e;
-		let n = 0;
-		for (; n * 2 + 1 < this.size;) {
-			let e = n * 2 + 1;
-			e + 1 < this.size && this.before(this.heap[e + 1], this.heap[e]) && e++;
-			let r = this.heap[e];
-			if (!this.before(r, t)) break;
-			this.heap[n] = r, this.slot[r] = n, n = e;
+		let e = this.heap, t = this.score, n = this.slot, r = e[0];
+		n[r] = -1;
+		let i = --this.size;
+		if (i === 0) return r;
+		let a = e[i], o = t[i], s = 0;
+		for (; s * 2 + 1 < i;) {
+			let r = s * 2 + 1, c = e[r], l = t[r];
+			if (r + 1 < i) {
+				let n = e[r + 1], i = t[r + 1];
+				(i < l || i === l && n < c) && (r++, c = n, l = i);
+			}
+			if (!(l < o || l === o && c < a)) break;
+			e[s] = c, t[s] = l, n[c] = s, s = r;
 		}
-		return this.heap[n] = t, this.slot[t] = n, e;
-	}
-	before(e, t) {
-		return this.score[e] < this.score[t] || this.score[e] === this.score[t] && e < t;
+		return e[s] = a, t[s] = o, n[a] = s, r;
 	}
 };
 //#endregion

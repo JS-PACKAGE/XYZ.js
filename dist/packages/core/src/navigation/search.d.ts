@@ -2,6 +2,7 @@
 export declare class NavigationSearch {
     readonly distance: Float64Array;
     readonly parent: Int32Array;
+    /** Score of `heap[i]` at index `i`: sifting compares adjacent slots without indirection. */
     private readonly score;
     private readonly heap;
     private readonly slot;
@@ -13,5 +14,4 @@ export declare class NavigationSearch {
     reset(): void;
     offer(node: number, distance: number, score: number, parent: number): void;
     take(): number;
-    private before;
 }

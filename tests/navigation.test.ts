@@ -3,6 +3,7 @@ import { Vector3 } from '../packages/math/src/math3d.js';
 import { NavigationGrid2D } from '../packages/core/src/navigation/grid.js';
 import { NavigationGraph3D } from '../packages/core/src/navigation/graph.js';
 import { navigationLimits } from '../src/data/navigation.js';
+import { NavigationSearch } from '../packages/core/src/navigation/search.js';
 
 describe('bounded weighted navigation', () => {
   it('routes around a real wall, invalidates old snapshots, and publishes edits atomically', () => {
@@ -168,5 +169,27 @@ describe('bounded weighted navigation', () => {
           connections: [],
         }),
     ).toThrow(RangeError);
+  });
+});
+
+describe('search frontier', () => {
+  it('takes lower scores first and breaks equal scores by node index, whatever the offer order', () => {
+    const search = new NavigationSearch(16);
+    for (const node of [9, 3, 12, 7, 1, 14, 5])
+      search.offer(node, 1, node === 14 ? 0.5 : 2, -1);
+    // Re-offering a queued node with a lower score moves it ahead of its equals.
+    search.offer(12, 1, 1, -1);
+    const order: number[] = [];
+    for (let node = search.take(); node >= 0; node = search.take())
+      order.push(node);
+    expect(order).toEqual([14, 12, 1, 3, 5, 7, 9]);
+    search.reset();
+    for (const node of [6, 2, 4]) search.offer(node, 1, 3, -1);
+    expect([
+      search.take(),
+      search.take(),
+      search.take(),
+      search.take(),
+    ]).toEqual([2, 4, 6, -1]);
   });
 });
