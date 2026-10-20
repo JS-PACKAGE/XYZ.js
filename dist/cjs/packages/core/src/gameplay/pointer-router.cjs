@@ -170,9 +170,10 @@ var PointerRouter = class extends EventTarget {
 		let a = this.epoch, continuing = () => this.epoch === a && e.resetVersion === this.resetVersion && r() && !this.disposed && !this.scene.destroyed;
 		this.routing = !0;
 		try {
-			this.targets.length = 0;
-			for (let e of this.scene.objects) e instanceof require_game_object.GameObject && (e.pointerEnabled || e.draggable) && this.targets.push(e);
-			this.targets.sort(require_contracts.compareObjects2D);
+			if (this.targets.length = 0, e.samples.length) {
+				for (let e of this.scene.objects) e instanceof require_game_object.GameObject && (e.pointerEnabled || e.draggable) && this.targets.push(e);
+				this.targets.sort(require_contracts.compareObjects2D);
+			}
 			for (let n of e.samples) {
 				if (!continuing()) return;
 				if (n.kind === `wheel`) {

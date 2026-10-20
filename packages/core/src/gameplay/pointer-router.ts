@@ -362,13 +362,16 @@ export class PointerRouter extends EventTarget {
     this.routing = true;
     try {
       this.targets.length = 0;
-      for (const object of this.scene.objects)
-        if (
-          object instanceof GameObject &&
-          (object.pointerEnabled || object.draggable)
-        )
-          this.targets.push(object);
-      this.targets.sort(compareObjects2D);
+      // Only sample picking reads the targets; idle frames skip the scan and sort.
+      if (pointer.samples.length) {
+        for (const object of this.scene.objects)
+          if (
+            object instanceof GameObject &&
+            (object.pointerEnabled || object.draggable)
+          )
+            this.targets.push(object);
+        this.targets.sort(compareObjects2D);
+      }
       for (const sample of pointer.samples) {
         if (!continuing()) return;
         if (sample.kind === 'wheel') {
