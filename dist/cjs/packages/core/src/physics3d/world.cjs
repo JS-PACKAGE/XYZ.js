@@ -20,6 +20,9 @@ var Contact3D = class {
 	tangentImpulses = /* @__PURE__ */ new Float64Array(8);
 	targets = /* @__PURE__ */ new Float64Array(8);
 	tangent = Array.from({ length: 8 }, () => new require_math3d.Vector3());
+	normalMass = /* @__PURE__ */ new Float64Array(8);
+	tangentMass = /* @__PURE__ */ new Float64Array(8);
+	massEpoch = -1;
 	seen = 0;
 	started = !1;
 	ended = !1;
@@ -92,6 +95,7 @@ var PhysicsWorld3D = class {
 	forces = /* @__PURE__ */ new WeakMap();
 	accumulator = 0;
 	stepId = 0;
+	massEpoch = 0;
 	disposed = !1;
 	destroying = !1;
 	stepping = !1;
@@ -346,7 +350,7 @@ var PhysicsWorld3D = class {
 				continue;
 			}
 			if (!a.shape.collider.sensor && !o.shape.collider.sensor) {
-				a.body?.wake(), o.body?.wake();
+				a.body?.wake(), o.body?.wake(), ++this.massEpoch;
 				for (let e = 0; e < this.solverIterations; e++) {
 					for (let e = 0; e < l.manifold.count; e++) this.solve(l, e);
 					this.solveJoints();
@@ -392,6 +396,7 @@ var PhysicsWorld3D = class {
 				t.size === 0 && this.contacts.delete(e);
 			}
 			for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
+			++this.massEpoch;
 			for (let e = 0; e < this.solverIterations; e++) {
 				this.solveJoints();
 				for (let e of this.active) {
@@ -457,17 +462,26 @@ var PhysicsWorld3D = class {
 		let i = e.owner.position, a = t.x - i.x, o = t.y - i.y, s = t.z - i.z;
 		this.torque.set((o * n.z - s * n.y) * r, (s * n.x - a * n.z) * r, (a * n.y - o * n.x) * r), e.inverseInertia(this.torque, this.torque), e.angularVelocity.add(this.torque);
 	}
+	prepareMasses(e) {
+		let t = e.a.body, n = e.b.body, r = e.manifold;
+		for (let i = 0; i < r.count; i++) {
+			let a = r.points[i], o = r.normals[i], s = e.tangent[i];
+			e.normalMass[i] = this.effective(t, a, o, this.crossA, this.inertiaA) + this.effective(n, a, o, this.crossB, this.inertiaB), e.tangentMass[i] = s.length() < 1e-10 ? NaN : this.effective(t, a, s, this.crossA, this.inertiaA) + this.effective(n, a, s, this.crossB, this.inertiaB);
+		}
+		e.massEpoch = this.massEpoch;
+	}
 	solve(e, t) {
+		e.massEpoch !== this.massEpoch && this.prepareMasses(e);
 		let n = e.a.body, r = e.b.body, i = e.manifold, a = i.points[t], o = i.normals[t];
 		this.velocityAt(n, a, this.relative), this.velocityAt(r, a, this.impulse), this.relative.subtract(this.impulse);
-		let s = this.effective(n, a, o, this.crossA, this.inertiaA) + this.effective(r, a, o, this.crossB, this.inertiaB);
+		let s = e.normalMass[t];
 		if (s < 1e-12) return;
 		let c = e.normalImpulses[t], l = Math.max(0, c + (e.targets[t] - this.relative.dot(o)) / s);
 		e.normalImpulses[t] = l, this.impulse.set(o.x * (l - c), o.y * (l - c), o.z * (l - c)), this.solverImpulse(n, a, this.impulse, 1), this.solverImpulse(r, a, this.impulse, -1);
-		let u = e.tangent[t];
-		if (u.length() < 1e-10) return;
+		let u = e.tangent[t], d = e.tangentMass[t];
+		if (Number.isNaN(d)) return;
 		this.velocityAt(n, a, this.relative), this.velocityAt(r, a, this.impulse), this.relative.subtract(this.impulse);
-		let d = this.effective(n, a, u, this.crossA, this.inertiaA) + this.effective(r, a, u, this.crossB, this.inertiaB), f = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * l, p = e.tangentImpulses[t], m = Math.max(-f, Math.min(f, p - this.relative.dot(u) / d));
+		let f = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * l, p = e.tangentImpulses[t], m = Math.max(-f, Math.min(f, p - this.relative.dot(u) / d));
 		e.tangentImpulses[t] = m, this.impulse.set(u.x * (m - p), u.y * (m - p), u.z * (m - p)), this.solverImpulse(n, a, this.impulse, 1), this.solverImpulse(r, a, this.impulse, -1);
 	}
 	refreshIndex() {

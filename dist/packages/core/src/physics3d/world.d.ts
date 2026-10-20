@@ -102,6 +102,8 @@ export declare class PhysicsWorld3D {
     private readonly forces;
     private accumulator;
     private stepId;
+    /** Bumped whenever contact effective masses must be recomputed. */
+    private massEpoch;
     private disposed;
     private destroying;
     private stepping;
@@ -143,6 +145,8 @@ export declare class PhysicsWorld3D {
     private movingAtContact;
     private effective;
     private solverImpulse;
+    /** Effective masses depend only on poses/inertia, which velocity iterations never change. */
+    private prepareMasses;
     private solve;
     private refreshIndex;
     private candidates;

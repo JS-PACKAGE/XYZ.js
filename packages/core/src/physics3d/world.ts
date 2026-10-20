@@ -99,6 +99,11 @@ class Contact3D {
   readonly tangentImpulses = new Float64Array(8);
   readonly targets = new Float64Array(8);
   readonly tangent = Array.from({ length: 8 }, () => new Vector3());
+  /** Effective masses per point, valid while `massEpoch` matches the world's. */
+  readonly normalMass = new Float64Array(8);
+  /** NaN marks a degenerate tangent with no friction row. */
+  readonly tangentMass = new Float64Array(8);
+  massEpoch = -1;
   seen = 0;
   started = false;
   ended = false;
@@ -174,6 +179,8 @@ export class PhysicsWorld3D {
   private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
   private accumulator = 0;
   private stepId = 0;
+  /** Bumped whenever contact effective masses must be recomputed. */
+  private massEpoch = 0;
   private disposed = false;
   private destroying = false;
   private stepping = false;
@@ -696,6 +703,7 @@ export class PhysicsWorld3D {
       if (!hitA.shape.collider.sensor && !hitB.shape.collider.sensor) {
         hitA.body?.wake();
         hitB.body?.wake();
+        ++this.massEpoch;
         for (
           let iteration = 0;
           iteration < this.solverIterations;
@@ -806,6 +814,8 @@ export class PhysicsWorld3D {
       if (!c.started) this.start(c);
       if (!canContinue() || this.disposed) return;
     }
+    // Poses and inertia stay fixed across velocity iterations, so masses are reused.
+    ++this.massEpoch;
     for (let iteration = 0; iteration < this.solverIterations; iteration++) {
       this.solveJoints();
       for (const c of this.active) {
@@ -994,7 +1004,28 @@ export class PhysicsWorld3D {
     body.inverseInertia(this.torque, this.torque);
     body.angularVelocity.add(this.torque);
   }
+  /** Effective masses depend only on poses/inertia, which velocity iterations never change. */
+  private prepareMasses(c: Contact3D): void {
+    const a = c.a.body,
+      b = c.b.body,
+      m = c.manifold;
+    for (let k = 0; k < m.count; k++) {
+      const p = m.points[k],
+        n = m.normals[k],
+        t = c.tangent[k];
+      c.normalMass[k] =
+        this.effective(a, p, n, this.crossA, this.inertiaA) +
+        this.effective(b, p, n, this.crossB, this.inertiaB);
+      c.tangentMass[k] =
+        t.length() < 1e-10
+          ? NaN
+          : this.effective(a, p, t, this.crossA, this.inertiaA) +
+            this.effective(b, p, t, this.crossB, this.inertiaB);
+    }
+    c.massEpoch = this.massEpoch;
+  }
   private solve(c: Contact3D, k: number): void {
+    if (c.massEpoch !== this.massEpoch) this.prepareMasses(c);
     const a = c.a.body,
       b = c.b.body,
       m = c.manifold,
@@ -1003,9 +1034,7 @@ export class PhysicsWorld3D {
     this.velocityAt(a, p, this.relative);
     this.velocityAt(b, p, this.impulse);
     this.relative.subtract(this.impulse);
-    const den =
-      this.effective(a, p, n, this.crossA, this.inertiaA) +
-      this.effective(b, p, n, this.crossB, this.inertiaB);
+    const den = c.normalMass[k]!;
     if (den < 1e-12) return;
     const previous = c.normalImpulses[k],
       next = Math.max(
@@ -1020,15 +1049,13 @@ export class PhysicsWorld3D {
     );
     this.solverImpulse(a, p, this.impulse, 1);
     this.solverImpulse(b, p, this.impulse, -1);
-    const t = c.tangent[k];
-    if (t.length() < 1e-10) return;
+    const t = c.tangent[k],
+      td = c.tangentMass[k]!;
+    if (Number.isNaN(td)) return;
     this.velocityAt(a, p, this.relative);
     this.velocityAt(b, p, this.impulse);
     this.relative.subtract(this.impulse);
-    const td =
-        this.effective(a, p, t, this.crossA, this.inertiaA) +
-        this.effective(b, p, t, this.crossB, this.inertiaB),
-      mu = Math.sqrt((a?.friction ?? 0.5) * (b?.friction ?? 0.5)),
+    const mu = Math.sqrt((a?.friction ?? 0.5) * (b?.friction ?? 0.5)),
       limit = mu * next;
     const old = c.tangentImpulses[k],
       value = Math.max(
