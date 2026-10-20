@@ -53,6 +53,7 @@ export declare class WebGL2Renderer implements Renderer {
     private destroyed;
     private lostError;
     private readonly frustum;
+    private readonly shadowFrustum;
     private readonly visibilityCache;
     private readonly visibility;
     private readonly visibilityOptions;

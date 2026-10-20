@@ -632,8 +632,10 @@ Instancing 範例現在同時展示逐 instance 亮度與頂點漸層。Canvas2D
 
 `scene.shadows.enabled` 在兩個 GPU backend 啟用 depth atlas。`mapSize` 是**每格**
 解析度，啟用的陰影格排列為方形網格，整張 atlas 仍受裝置 texture／framebuffer 上限限制。
-最多八個 point、八個 spot 加四個 directional cascades，共 60 格。每個 point 光源
-需要把所有 caster 畫六次，請節制使用投影光源。
+最多八個 point、八個 spot 加四個 directional cascades，共 60 格。每格只畫 world
+bounding sphere 觸及該格光源視錐的 caster（`frustumCulled = false` 或 bounds 非有限的
+mesh 一律繪製），`shadowDrawCalls` 計的是逐格實際 draw；point 光源仍可能把 caster
+畫進最多六個面，請節制使用投影光源。
 
 Point 與 spot 接受 `castShadow`（預設 false）、`shadowNear`（預設 0.1）、
 `shadowFar`（預設 50）；正值 `range` 取代陰影遠平面。近平面必須大於零且小於遠平面，

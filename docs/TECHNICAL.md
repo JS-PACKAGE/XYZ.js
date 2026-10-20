@@ -693,8 +693,11 @@ remains 2D-only; these additions do not add a 3D software renderer.
 `scene.shadows.enabled` enables the depth atlas on either GPU backend. `mapSize` is
 the resolution **per tile**, not the whole atlas; active tiles occupy a square grid.
 The device's maximum texture/framebuffer dimensions still apply. Eight point lights,
-eight spot lights and four directional cascades need at most 60 tiles. Each point
-light draws every caster six times; use shadow-casting lights sparingly.
+eight spot lights and four directional cascades need at most 60 tiles. Each tile draws
+only casters whose world bounding sphere reaches that tile's light frustum (meshes with
+`frustumCulled = false` or non-finite bounds always draw), so `shadowDrawCalls` counts
+per-tile draws; a point light still renders its casters into up to six faces, so use
+shadow-casting lights sparingly.
 
 Point and spot lights accept `castShadow` (default false), `shadowNear` (default 0.1)
 and `shadowFar` (default 50). A positive `range` replaces the shadow far plane.

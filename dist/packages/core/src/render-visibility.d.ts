@@ -40,6 +40,12 @@ export interface RenderVisibilityOptions {
     /** Invalidate proofs when native vertex deformation, depth state, or target size changes. */
     depthRevision?: number;
 }
+/**
+ * False only when a caster's gathered world bounds lie wholly outside one shadow view (atlas
+ * tile) frustum, where its draw could not rasterize a fragment. Like camera culling, meshes
+ * with `frustumCulled = false` or non-finite bounds are always drawn.
+ */
+export declare function castsIntoShadowView(frustum: Frustum, mesh: Mesh, entry: RenderVisibilityEntry | undefined): boolean;
 export declare class RenderVisibilitySet {
     readonly color: Mesh[];
     readonly shadows: Mesh[];

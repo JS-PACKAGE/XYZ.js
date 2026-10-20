@@ -30,6 +30,7 @@ import { Frustum } from '../../core/src/frustum.js';
 import {
   RenderVisibilityCache,
   RenderVisibilitySet,
+  castsIntoShadowView,
   type RenderVisibilityOptions,
   type VisibleInstances,
 } from '../../core/src/render-visibility.js';
@@ -438,6 +439,7 @@ export class WebGL2Renderer implements Renderer {
   private destroyed = false;
   private lostError: WebGL2ContextLostError | undefined;
   private readonly frustum = new Frustum();
+  private readonly shadowFrustum = new Frustum();
   private readonly visibilityCache = new RenderVisibilityCache();
   private readonly visibility = new RenderVisibilitySet();
   private readonly visibilityOptions: RenderVisibilityOptions = {};
@@ -3578,6 +3580,10 @@ export class WebGL2Renderer implements Renderer {
       // Uniforms persist per program: upload this tile's matrix once to each program it uses.
       const viewStamp = ++this.shadowViewStamp;
       gl.disable(gl.CULL_FACE);
+      // Contact depth draws the camera-visible list, which is already culled to its view.
+      const frustum = contactTarget
+        ? undefined
+        : this.shadowFrustum.setFromMatrix(this.atlas.matrices[tile]!);
       for (const object of contactTarget
         ? this.visibility.color
         : this.visibility.shadows) {
@@ -3586,6 +3592,15 @@ export class WebGL2Renderer implements Renderer {
           (this.isColorBlended(object) ||
             (object.material instanceof PBRMaterial &&
               object.material.transmission > 0))
+        )
+          continue;
+        if (
+          frustum &&
+          !castsIntoShadowView(
+            frustum,
+            object,
+            this.visibility.entries.get(object),
+          )
         )
           continue;
         const material = object.material;

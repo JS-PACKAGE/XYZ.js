@@ -6,6 +6,11 @@ const require_objects3d = require("./objects3d.cjs");
 const require_instanced_mesh = require("./instanced-mesh.cjs");
 const require_skinned_mesh = require("./skinned-mesh.cjs");
 //#region dist/packages/core/src/render-visibility.js
+function castsIntoShadowView(e, t, n) {
+	if (!n || !t.frustumCulled) return !0;
+	let r = n.sphere;
+	return !require_render_bounds.sphereIsFinite(r) || e.intersectsSphere(r.x, r.y, r.z, r.radius);
+}
 var RenderVisibilitySet = class {
 	color = [];
 	shadows = [];
@@ -221,5 +226,6 @@ var RenderVisibilityCache = class {
 //#endregion
 exports.RenderVisibilityCache = RenderVisibilityCache;
 exports.RenderVisibilitySet = RenderVisibilitySet;
+exports.castsIntoShadowView = castsIntoShadowView;
 
 //# sourceMappingURL=render-visibility.cjs.map

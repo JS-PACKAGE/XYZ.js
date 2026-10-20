@@ -12,6 +12,7 @@ import { OrthographicCamera } from '../packages/core/src/orthographic-camera.js'
 import {
   RenderVisibilityCache,
   RenderVisibilitySet,
+  castsIntoShadowView,
 } from '../packages/core/src/render-visibility.js';
 import { Scene } from '../packages/core/src/scene.js';
 
@@ -62,6 +63,45 @@ describe('indexed render visibility', () => {
     scene.remove(group);
     expect(gather(scene, cache, out).entries.has(mesh)).toBe(false);
     expect(out.shadows).toEqual([]);
+  });
+
+  it('keeps shadow casters whose bounds reach a shadow view, opted-out meshes and unknown bounds', () => {
+    const scene = new Scene();
+    const inside = scene.add(cube()),
+      outside = scene.add(cube(100)),
+      optedOut = scene.add(cube(100)),
+      unknown = scene.add(cube(100)),
+      spanning = scene.add(
+        new InstancedMesh({
+          geometry: Geometry.cube(1),
+          material: material(),
+          count: 2,
+          position: [100, 0, 0],
+        }),
+      );
+    optedOut.frustumCulled = false;
+    Object.defineProperty(unknown.material, 'deformationBounds', {
+      value: undefined,
+    });
+    // The second instance moves back to the origin, inside the view.
+    spanning.setMatrixAt(
+      1,
+      new Matrix4().compose(
+        new Vector3(-100, 0, 0),
+        new Quaternion(),
+        new Vector3(1, 1, 1),
+      ),
+    );
+    const out = gather(scene);
+    const view = new Frustum().setFromMatrix(scene.camera3D.updateMatrix(1));
+    const casts = (mesh: Mesh) =>
+      castsIntoShadowView(view, mesh, out.entries.get(mesh));
+    expect(casts(inside)).toBe(true);
+    expect(casts(outside)).toBe(false);
+    expect(casts(optedOut)).toBe(true);
+    expect(casts(unknown)).toBe(true);
+    expect(casts(spanning)).toBe(true);
+    expect(castsIntoShadowView(view, outside, undefined)).toBe(true);
   });
 
   it('packs only visible instance transforms and their matching colors, preserving full shadow payload', () => {

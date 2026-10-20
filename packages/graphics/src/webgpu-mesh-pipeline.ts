@@ -6,6 +6,7 @@ import type {
 import {
   RenderVisibilityCache,
   RenderVisibilitySet,
+  castsIntoShadowView,
 } from '../../core/src/render-visibility.js';
 import { WebGPUOcclusionBackend } from './webgpu-occlusion.js';
 import { WebGPUParticles3D } from './webgpu-particles3d.js';
@@ -381,6 +382,7 @@ export class WebGPUMeshPipeline {
   /** Subset of `draws` inside the camera frustum; shadow casters outside still cast. */
   private readonly visibleDraws: Mesh[] = [];
   private readonly frustum = new Frustum();
+  private readonly shadowFrustum = new Frustum();
   private readonly drawSorter = new DrawSorter();
   readonly stats: FrameStats;
   private readonly sceneData = new Float32Array(20 + LIGHTING_FLOAT_COUNT + 36);
@@ -2434,8 +2436,18 @@ export class WebGPUMeshPipeline {
         pass.setScissorRect(x, y, tileSize, tileSize);
         this.projectionOffsets[0] = tile * 256;
         pass.setBindGroup(3, this.projectionGroup, this.projectionOffsets);
+        const frustum = this.shadowFrustum.setFromMatrix(
+          this.atlas.matrices[tile]!,
+        );
         for (const object of this.draws)
-          if (object.castShadow) {
+          if (
+            object.castShadow &&
+            castsIntoShadowView(
+              frustum,
+              object,
+              this.visibility.entries.get(object),
+            )
+          ) {
             this.drawMesh(bindings, object, 3);
             this.stats.shadowDrawCalls++;
           }
