@@ -98,6 +98,7 @@ var PhysicsWorld3D = class {
 	inertiaA = new require_math3d.Vector3();
 	inertiaB = new require_math3d.Vector3();
 	relative = new require_math3d.Vector3();
+	contactVelocities = /* @__PURE__ */ new Float64Array(6);
 	ccdDisplacement = new require_math3d.Vector3();
 	torque = new require_math3d.Vector3();
 	forces = /* @__PURE__ */ new WeakMap();
@@ -491,12 +492,6 @@ var PhysicsWorld3D = class {
 		let a = e.owner.position, o = t.x - a.x, s = t.y - a.y, c = t.z - a.z;
 		return r.set(s * n.z - c * n.y, c * n.x - o * n.z, o * n.y - s * n.x), e.inverseInertia(r, i), e.inverseMass + r.dot(i);
 	}
-	solverImpulse(e, t, n, r) {
-		if (!e?.owner || e.type !== `dynamic` || e.isSleeping) return;
-		e.velocity.x += n.x * e.inverseMass * r, e.velocity.y += n.y * e.inverseMass * r, e.velocity.z += n.z * e.inverseMass * r;
-		let i = e.owner.position, a = t.x - i.x, o = t.y - i.y, s = t.z - i.z;
-		e.addInverseInertia((o * n.z - s * n.y) * r, (s * n.x - a * n.z) * r, (a * n.y - o * n.x) * r);
-	}
 	prepareMasses(e) {
 		let t = e.a.body, n = e.b.body, r = e.manifold;
 		for (let i = 0; i < r.count; i++) {
@@ -505,19 +500,35 @@ var PhysicsWorld3D = class {
 		}
 		e.massEpoch = this.massEpoch;
 	}
+	velocityInto(e, t, n, r) {
+		if (!e || !e.owner) {
+			n[r] = n[r + 1] = n[r + 2] = 0;
+			return;
+		}
+		let i = e.owner.position, a = e.angularVelocity, o = t.x - i.x, s = t.y - i.y, c = t.z - i.z;
+		n[r] = e.velocity.x + a.y * c - a.z * s, n[r + 1] = e.velocity.y + a.z * o - a.x * c, n[r + 2] = e.velocity.z + a.x * s - a.y * o;
+	}
+	applyImpulse(e, t, n, r, i, a) {
+		if (!e?.owner || e.type !== `dynamic` || e.isSleeping) return;
+		e.velocity.x += n * e.inverseMass * a, e.velocity.y += r * e.inverseMass * a, e.velocity.z += i * e.inverseMass * a;
+		let o = e.owner.position, s = t.x - o.x, c = t.y - o.y, l = t.z - o.z;
+		e.addInverseInertia((c * i - l * r) * a, (l * n - s * i) * a, (s * r - c * n) * a);
+	}
 	solve(e, t) {
 		e.massEpoch !== this.massEpoch && this.prepareMasses(e);
-		let n = e.a.body, r = e.b.body, i = e.manifold, a = i.points[t], o = i.normals[t];
-		this.velocityAt(n, a, this.relative), this.velocityAt(r, a, this.impulse), this.relative.subtract(this.impulse);
-		let s = e.normalMass[t];
-		if (s < 1e-12) return;
-		let c = e.normalImpulses[t], l = Math.max(0, c + (e.targets[t] - this.relative.dot(o)) / s);
-		e.normalImpulses[t] = l, this.impulse.set(o.x * (l - c), o.y * (l - c), o.z * (l - c)), this.solverImpulse(n, a, this.impulse, 1), this.solverImpulse(r, a, this.impulse, -1);
-		let u = e.tangent[t], d = e.tangentMass[t];
-		if (Number.isNaN(d)) return;
-		this.velocityAt(n, a, this.relative), this.velocityAt(r, a, this.impulse), this.relative.subtract(this.impulse);
-		let f = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * l, p = e.tangentImpulses[t], m = Math.max(-f, Math.min(f, p - this.relative.dot(u) / d));
-		e.tangentImpulses[t] = m, this.impulse.set(u.x * (m - p), u.y * (m - p), u.z * (m - p)), this.solverImpulse(n, a, this.impulse, 1), this.solverImpulse(r, a, this.impulse, -1);
+		let n = e.a.body, r = e.b.body, i = e.manifold, a = i.points[t], o = i.normals[t], s = this.contactVelocities;
+		this.velocityInto(n, a, s, 0), this.velocityInto(r, a, s, 3);
+		let c = s[0] - s[3], l = s[1] - s[4], u = s[2] - s[5], d = e.normalMass[t];
+		if (d < 1e-12) return;
+		let f = e.normalImpulses[t], p = Math.max(0, f + (e.targets[t] - (c * o.x + l * o.y + u * o.z)) / d);
+		e.normalImpulses[t] = p;
+		let m = o.x * (p - f), h = o.y * (p - f), g = o.z * (p - f);
+		this.applyImpulse(n, a, m, h, g, 1), this.applyImpulse(r, a, m, h, g, -1);
+		let _ = e.tangent[t], v = e.tangentMass[t];
+		if (Number.isNaN(v)) return;
+		this.velocityInto(n, a, s, 0), this.velocityInto(r, a, s, 3), c = s[0] - s[3], l = s[1] - s[4], u = s[2] - s[5];
+		let y = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * p, b = e.tangentImpulses[t], x = Math.max(-y, Math.min(y, b - (c * _.x + l * _.y + u * _.z) / v));
+		e.tangentImpulses[t] = x, m = _.x * (x - b), h = _.y * (x - b), g = _.z * (x - b), this.applyImpulse(n, a, m, h, g, 1), this.applyImpulse(r, a, m, h, g, -1);
 	}
 	refreshIndex() {
 		let e = this.indexDirty;

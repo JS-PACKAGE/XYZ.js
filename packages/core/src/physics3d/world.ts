@@ -199,6 +199,8 @@ export class PhysicsWorld3D {
   private readonly inertiaA = new Vector3();
   private readonly inertiaB = new Vector3();
   private readonly relative = new Vector3();
+  /** Body A then body B point velocity for `solve`. */
+  private readonly contactVelocities = new Float64Array(6);
   private readonly ccdDisplacement = new Vector3();
   private readonly torque = new Vector3();
   private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
@@ -1075,26 +1077,6 @@ export class PhysicsWorld3D {
     body.inverseInertia(cross, inertia);
     return body.inverseMass + cross.dot(inertia);
   }
-  private solverImpulse(
-    body: RigidBody3D | undefined,
-    point: Readonly<Vector3>,
-    impulse: Readonly<Vector3>,
-    sign: number,
-  ): void {
-    if (!body?.owner || body.type !== 'dynamic' || body.isSleeping) return;
-    body.velocity.x += impulse.x * body.inverseMass * sign;
-    body.velocity.y += impulse.y * body.inverseMass * sign;
-    body.velocity.z += impulse.z * body.inverseMass * sign;
-    const p = body.owner.position,
-      x = point.x - p.x,
-      y = point.y - p.y,
-      z = point.z - p.z;
-    body.addInverseInertia(
-      (y * impulse.z - z * impulse.y) * sign,
-      (z * impulse.x - x * impulse.z) * sign,
-      (x * impulse.y - y * impulse.x) * sign,
-    );
-  }
   /** Effective masses depend only on poses/inertia, which velocity iterations never change. */
   private prepareMasses(c: Contact3D): void {
     const a = c.a.body,
@@ -1115,52 +1097,97 @@ export class PhysicsWorld3D {
     }
     c.massEpoch = this.massEpoch;
   }
+  /** Body velocity at `point` (zero without an owner), as `velocityAt` computes it, in scalars. */
+  private velocityInto(
+    body: RigidBody3D | undefined,
+    point: Readonly<Vector3>,
+    out: Float64Array,
+    at: number,
+  ): void {
+    if (!body || !body.owner) {
+      out[at] = out[at + 1] = out[at + 2] = 0;
+      return;
+    }
+    const p = body.owner.position,
+      w = body.angularVelocity,
+      x = point.x - p.x,
+      y = point.y - p.y,
+      z = point.z - p.z;
+    out[at] = body.velocity.x + w.y * z - w.z * y;
+    out[at + 1] = body.velocity.y + w.z * x - w.x * z;
+    out[at + 2] = body.velocity.z + w.x * y - w.y * x;
+  }
+  /** Applies `impulse` (scalars, signed by `sign`) at `point` to a dynamic awake body. */
+  private applyImpulse(
+    body: RigidBody3D | undefined,
+    point: Readonly<Vector3>,
+    ix: number,
+    iy: number,
+    iz: number,
+    sign: number,
+  ): void {
+    if (!body?.owner || body.type !== 'dynamic' || body.isSleeping) return;
+    body.velocity.x += ix * body.inverseMass * sign;
+    body.velocity.y += iy * body.inverseMass * sign;
+    body.velocity.z += iz * body.inverseMass * sign;
+    const p = body.owner.position,
+      x = point.x - p.x,
+      y = point.y - p.y,
+      z = point.z - p.z;
+    body.addInverseInertia(
+      (y * iz - z * iy) * sign,
+      (z * ix - x * iz) * sign,
+      (x * iy - y * ix) * sign,
+    );
+  }
   private solve(c: Contact3D, k: number): void {
     if (c.massEpoch !== this.massEpoch) this.prepareMasses(c);
     const a = c.a.body,
       b = c.b.body,
       m = c.manifold,
       p = m.points[k],
-      n = m.normals[k];
-    this.velocityAt(a, p, this.relative);
-    this.velocityAt(b, p, this.impulse);
-    this.relative.subtract(this.impulse);
+      n = m.normals[k],
+      v = this.contactVelocities;
+    // Scalars instead of the shared Vector3 scratch: the same operations in the same order.
+    this.velocityInto(a, p, v, 0);
+    this.velocityInto(b, p, v, 3);
+    let rx = v[0] - v[3],
+      ry = v[1] - v[4],
+      rz = v[2] - v[5];
     const den = c.normalMass[k]!;
     if (den < 1e-12) return;
     const previous = c.normalImpulses[k],
       next = Math.max(
         0,
-        previous + (c.targets[k] - this.relative.dot(n)) / den,
+        previous + (c.targets[k] - (rx * n.x + ry * n.y + rz * n.z)) / den,
       );
     c.normalImpulses[k] = next;
-    this.impulse.set(
-      n.x * (next - previous),
-      n.y * (next - previous),
-      n.z * (next - previous),
-    );
-    this.solverImpulse(a, p, this.impulse, 1);
-    this.solverImpulse(b, p, this.impulse, -1);
+    let ix = n.x * (next - previous),
+      iy = n.y * (next - previous),
+      iz = n.z * (next - previous);
+    this.applyImpulse(a, p, ix, iy, iz, 1);
+    this.applyImpulse(b, p, ix, iy, iz, -1);
     const t = c.tangent[k],
       td = c.tangentMass[k]!;
     if (Number.isNaN(td)) return;
-    this.velocityAt(a, p, this.relative);
-    this.velocityAt(b, p, this.impulse);
-    this.relative.subtract(this.impulse);
+    this.velocityInto(a, p, v, 0);
+    this.velocityInto(b, p, v, 3);
+    rx = v[0] - v[3];
+    ry = v[1] - v[4];
+    rz = v[2] - v[5];
     const mu = Math.sqrt((a?.friction ?? 0.5) * (b?.friction ?? 0.5)),
       limit = mu * next;
     const old = c.tangentImpulses[k],
       value = Math.max(
         -limit,
-        Math.min(limit, old - this.relative.dot(t) / td),
+        Math.min(limit, old - (rx * t.x + ry * t.y + rz * t.z) / td),
       );
     c.tangentImpulses[k] = value;
-    this.impulse.set(
-      t.x * (value - old),
-      t.y * (value - old),
-      t.z * (value - old),
-    );
-    this.solverImpulse(a, p, this.impulse, 1);
-    this.solverImpulse(b, p, this.impulse, -1);
+    ix = t.x * (value - old);
+    iy = t.y * (value - old);
+    iz = t.z * (value - old);
+    this.applyImpulse(a, p, ix, iy, iz, 1);
+    this.applyImpulse(b, p, ix, iy, iz, -1);
   }
   private refreshIndex(): void {
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.

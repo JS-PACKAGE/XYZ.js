@@ -107,6 +107,8 @@ export declare class PhysicsWorld3D {
     private readonly inertiaA;
     private readonly inertiaB;
     private readonly relative;
+    /** Body A then body B point velocity for `solve`. */
+    private readonly contactVelocities;
     private readonly ccdDisplacement;
     private readonly torque;
     private readonly forces;
@@ -157,9 +159,12 @@ export declare class PhysicsWorld3D {
     private velocityAt;
     private movingAtContact;
     private effective;
-    private solverImpulse;
     /** Effective masses depend only on poses/inertia, which velocity iterations never change. */
     private prepareMasses;
+    /** Body velocity at `point` (zero without an owner), as `velocityAt` computes it, in scalars. */
+    private velocityInto;
+    /** Applies `impulse` (scalars, signed by `sign`) at `point` to a dynamic awake body. */
+    private applyImpulse;
     private solve;
     private refreshIndex;
     private candidates;
