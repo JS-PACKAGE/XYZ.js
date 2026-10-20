@@ -592,8 +592,9 @@ export class PhysicsWorld2D {
     contact.sensor = a.collider.sensor || b.collider.sensor;
     contact.seen = token;
     contact.cancelled = false;
-    m.normalImpulses.fill(0);
-    m.tangentImpulses.fill(0);
+    // Two slots each; plain stores avoid a builtin call per contact per step.
+    m.normalImpulses[0] = m.normalImpulses[1] = 0;
+    m.tangentImpulses[0] = m.tangentImpulses[1] = 0;
     if (!contact.active) {
       contact.active = true;
       a.contacts.set(b, contact);

@@ -302,7 +302,7 @@ var PhysicsWorld2D = class {
 	}
 	activate(e, t) {
 		let { a: n, b: r, manifold: i } = e;
-		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses.fill(0), i.tangentImpulses.fill(0), e.active || (e.active = !0, n.contacts.set(r, e), r.contacts.set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || (this.emit(e, `precollision`), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
+		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses[0] = i.normalImpulses[1] = 0, i.tangentImpulses[0] = i.tangentImpulses[1] = 0, e.active || (e.active = !0, n.contacts.set(r, e), r.contacts.set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || (this.emit(e, `precollision`), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
 	}
 	integrateContinuous(e, t) {
 		let n = this.ccdStats;
