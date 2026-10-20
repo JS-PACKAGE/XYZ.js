@@ -6,6 +6,7 @@ import { InstancedMesh } from '../packages/core/src/instanced-mesh.js';
 import { Mesh, TextureMaterial } from '../packages/core/src/mesh.js';
 import { OrthographicCamera } from '../packages/core/src/orthographic-camera.js';
 import { PerspectiveCamera } from '../packages/core/src/perspective-camera.js';
+import type { BoundingSphere3D } from '../packages/core/src/render-bounds.js';
 
 function material(): TextureMaterial {
   return new TextureMaterial({
@@ -69,20 +70,29 @@ describe('Mesh culling', () => {
     expect(cube([12, 0, 0], 40).isInFrustum(frustum)).toBe(true);
   });
 
-  it('keeps its own bounds when an overridden cullable tests another mesh', () => {
+  it('keeps its own bounds when overrides test another mesh mid-query', () => {
     const frustum = cameraFrustum();
     const visible = cube([0, 0, 0]);
-    class Probing extends Mesh {
+    class ProbingCullable extends Mesh {
       protected override get cullable(): boolean {
         return visible.isInFrustum(frustum);
       }
     }
-    const far = new Probing({
-      geometry: Geometry.cube(1),
-      material: material(),
-      position: [50, 0, 0],
-    });
-    expect(far.isInFrustum(frustum)).toBe(false);
+    class ProbingBounds extends Mesh {
+      override getWorldBoundingSphere(out: BoundingSphere3D): BoundingSphere3D {
+        super.getWorldBoundingSphere(out);
+        visible.isInFrustum(frustum);
+        return out;
+      }
+    }
+    for (const Probing of [ProbingCullable, ProbingBounds]) {
+      const far = new Probing({
+        geometry: Geometry.cube(1),
+        material: material(),
+        position: [50, 0, 0],
+      });
+      expect(far.isInFrustum(frustum)).toBe(false);
+    }
   });
 
   it('honors the opt-out and culls an offscreen instance aggregate', () => {

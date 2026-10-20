@@ -93,9 +93,11 @@ export interface MeshOptions {
   morph?: MorphTargets;
 }
 
-// Transient scratches shared by every Mesh: each is filled after any refresh that could run
-// user code and read back before returning, so per-instance copies are never needed.
+// Transient scratches shared by every Mesh. The deformation sphere is filled after any
+// refresh that could run user code and read straight back. The frustum sphere is the `out`
+// of an overridable call, so a nested `isInFrustum` from inside it takes a fresh object.
 const frustumSphere: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
+let frustumSphereBusy = false;
 const deformationSphere: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
 
 /** 3D scene facade; Geometry and TextureMaterial remain owned by their creators. */
@@ -179,7 +181,17 @@ export class Mesh extends Object3D {
    * so callers may use it before drawing. Non-finite bounds are treated as visible.
    */
   isInFrustum(frustum: Frustum): boolean {
-    const sphere = this.getWorldBoundingSphere(frustumSphere);
+    const shared = !frustumSphereBusy;
+    let sphere: BoundingSphere3D;
+    if (shared) {
+      frustumSphereBusy = true;
+      try {
+        sphere = this.getWorldBoundingSphere(frustumSphere);
+      } finally {
+        frustumSphereBusy = false;
+      }
+    } else
+      sphere = this.getWorldBoundingSphere({ x: 0, y: 0, z: 0, radius: 0 });
     // Copied out before the overridable getters below could reuse the shared scratch.
     const x = sphere.x,
       y = sphere.y,
