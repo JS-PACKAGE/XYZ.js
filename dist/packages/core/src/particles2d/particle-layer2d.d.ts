@@ -90,6 +90,10 @@ export declare class ParticleLayer2D extends GameObject {
     private compact;
     setTransform(index: number, value: ParticleTransform2D): void;
     setTint(index: number, value: ColorRGBA): void;
+    /** @internal A slot the caller has just confirmed live with `hasSlot` on a live layer. */
+    liveSlot(index: number): ParticleSlot2D;
+    /** @internal `setTransform` then `setTint` without rechecking a confirmed live slot. */
+    setLiveAppearance(index: number, transform: ParticleTransform2D, tint: ColorRGBA): void;
     setAnchor(index: number, value: readonly [number, number]): void;
     setSource(index: number, value: ParticleSource2D): void;
     /** Renderer helper: writes final world affine without allocating a matrix. */

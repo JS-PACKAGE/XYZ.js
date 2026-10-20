@@ -264,14 +264,14 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 	}
 	hasTargetSlot(e) {
 		let t = this.targetSlots[e];
-		return !!this.target && !this.target.destroyed && this.target.hasSlot(t) && this.target.getSlot(t).generation === this.targetGenerations[e];
+		return !!this.target && !this.target.destroyed && this.target.hasSlot(t) && this.target.liveSlot(t).generation === this.targetGenerations[e];
 	}
 	releaseTargetSlot(e) {
 		this.hasTargetSlot(e) && this.target.removeSlot(this.targetSlots[e]), this.targetSlots[e] = -1;
 	}
 	targetAppearance(e, t) {
-		let n = this.target, r = this.targetSlots[e], i = n.getSlot(r);
-		this.writeTargetAppearance(e, t, this.state[e * 8 + 0], this.state[e * 8 + 1], i), n.setTransform(r, this.particleTransform), n.setTint(r, this.particleTint);
+		let n = this.target, r = this.targetSlots[e];
+		this.writeTargetAppearance(e, t, this.state[e * 8 + 0], this.state[e * 8 + 1], n.liveSlot(r)), n.setLiveAppearance(r, this.particleTransform, this.particleTint);
 	}
 	writeTargetAppearance(e, t, n, r, i) {
 		let a = i.view?.width ?? i.source?.width ?? (i.texture.kind === `render` ? i.texture.logicalWidth : i.texture.width), o = i.view?.height ?? i.source?.height ?? (i.texture.kind === `render` ? i.texture.logicalHeight : i.texture.height), s = (this.startSize[0] + (this.endSize[0] - this.startSize[0]) * t) / a, c = (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * t) / o, l = this.particleTransform, u = e * 4;

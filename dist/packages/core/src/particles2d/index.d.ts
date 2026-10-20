@@ -85,6 +85,7 @@ export declare class ParticleEmitter extends Group2D {
     private appearance;
     private hasTargetSlot;
     private releaseTargetSlot;
+    /** Only `advance` calls this, right after `hasTargetSlot` confirmed the slot live. */
     private targetAppearance;
     private writeTargetAppearance;
     private retire;

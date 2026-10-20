@@ -558,7 +558,7 @@ export class ParticleEmitter extends Group2D {
       !!this.target &&
       !this.target.destroyed &&
       this.target.hasSlot(targetSlot) &&
-      this.target.getSlot(targetSlot).generation ===
+      this.target.liveSlot(targetSlot).generation ===
         this.targetGenerations[slot]
     );
   }
@@ -567,19 +567,18 @@ export class ParticleEmitter extends Group2D {
       this.target!.removeSlot(this.targetSlots[slot]);
     this.targetSlots[slot] = -1;
   }
+  /** Only `advance` calls this, right after `hasTargetSlot` confirmed the slot live. */
   private targetAppearance(slot: number, progress: number): void {
     const target = this.target!;
     const index = this.targetSlots[slot];
-    const particle = target.getSlot(index);
     this.writeTargetAppearance(
       slot,
       progress,
       this.state[slot * STRIDE + X],
       this.state[slot * STRIDE + Y],
-      particle,
+      target.liveSlot(index),
     );
-    target.setTransform(index, this.particleTransform);
-    target.setTint(index, this.particleTint);
+    target.setLiveAppearance(index, this.particleTransform, this.particleTint);
   }
   private writeTargetAppearance(
     slot: number,

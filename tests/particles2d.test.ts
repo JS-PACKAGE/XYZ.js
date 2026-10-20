@@ -70,6 +70,36 @@ describe('pooled CPU particles', () => {
     expect(emitter.activeCount).toBe(0);
     expect(particle.renderEnabled).toBe(false);
   });
+  it('writes the same interpolated transform and tint into a target layer slot every update', () => {
+    const layer = new ParticleLayer2D({ capacity: 8 });
+    const emitter = new ParticleEmitter(
+      options({ target: layer, source: { x: 2, y: 1, width: 8, height: 4 } }),
+    );
+    emitter.emit(1);
+    const slot = () => layer.getSlot(layer.activeSlotAt(0));
+    emitter.updateSimulation(0.5);
+    const transformVersion = slot().transformVersion,
+      tintVersion = slot().tintVersion;
+    emitter.updateSimulation(0.5);
+    const particle = slot();
+    expect([particle.a, particle.b, particle.c, particle.d]).toEqual([
+      1.5, 0, 0, 2,
+    ]);
+    expect(particle.tx).toBeCloseTo(12);
+    expect(particle.ty).toBeCloseTo(-1);
+    expect([
+      particle.tintR,
+      particle.tintG,
+      particle.tintB,
+      particle.tintA,
+    ]).toEqual([0.5, 0.5, 0.5, 0.5]);
+    expect(particle.transformVersion).toBeGreaterThan(transformVersion);
+    expect(particle.tintVersion).toBeGreaterThan(tintVersion);
+    emitter.updateSimulation(1);
+    expect(layer.activeCount).toBe(0);
+    emitter.destroy();
+    layer.destroy();
+  });
 
   it('freezes the full world birth affine axes, position, velocity and acceleration under rotated nonuniform ancestors', () => {
     const ancestor = new Group2D();

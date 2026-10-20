@@ -445,6 +445,22 @@ export class ParticleLayer2D extends GameObject {
     validateTint(value);
     slot.tint(value);
   }
+  /** @internal A slot the caller has just confirmed live with `hasSlot` on a live layer. */
+  liveSlot(index: number): ParticleSlot2D {
+    return this.slots[index];
+  }
+  /** @internal `setTransform` then `setTint` without rechecking a confirmed live slot. */
+  setLiveAppearance(
+    index: number,
+    transform: ParticleTransform2D,
+    tint: ColorRGBA,
+  ): void {
+    const slot = this.slots[index];
+    validateTransform(transform);
+    slot.transform(transform);
+    validateTint(tint);
+    slot.tint(tint);
+  }
   setAnchor(index: number, value: readonly [number, number]): void {
     const slot = this.requireSlot(index);
     validateAnchor(value);

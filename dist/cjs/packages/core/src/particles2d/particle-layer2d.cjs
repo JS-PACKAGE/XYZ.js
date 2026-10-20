@@ -245,6 +245,13 @@ var ParticleLayer2D = class extends require_game_object.GameObject {
 		let n = this.requireSlot(e);
 		validateTint(t), n.tint(t);
 	}
+	liveSlot(e) {
+		return this.slots[e];
+	}
+	setLiveAppearance(e, t, n) {
+		let r = this.slots[e];
+		validateTransform(t), r.transform(t), validateTint(n), r.tint(n);
+	}
 	setAnchor(e, t) {
 		let n = this.requireSlot(e);
 		validateAnchor(t), n.anchor(t);
