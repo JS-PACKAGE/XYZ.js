@@ -26,6 +26,7 @@ import {
 } from './mesh-shader-variants.js';
 import { iridescenceFilmRange } from '../../../src/data/materials.js';
 import type { Scene } from '../../core/src/scene.js';
+import type { PointLight, SpotLight } from '../../core/src/lights.js';
 import { Frustum } from '../../core/src/frustum.js';
 import {
   RenderVisibilityCache,
@@ -375,6 +376,16 @@ class WebGLSnapshot implements RenderSnapshot {
 }
 
 const gradingAllocations = new WeakMap<object, ResidencyAllocation>();
+/** Same lights in the same order, by identity. */
+function sameLights(
+  sent: readonly PointLight[],
+  selected: readonly PointLight[],
+): boolean {
+  if (sent.length !== selected.length) return false;
+  for (let i = 0; i < sent.length; i++)
+    if (sent[i] !== selected[i]) return false;
+  return true;
+}
 
 /** A WebGL2 renderer with renderer-owned, frame-lifetime-cached GPU resources. */
 export class WebGL2Renderer implements Renderer {
@@ -870,6 +881,16 @@ export class WebGL2Renderer implements Renderer {
   private readonly lightingData = new Float32Array(LIGHTING_FLOAT_COUNT);
   /** Every scalar uniform write in this renderer goes through this cache. */
   private readonly uniformValues = new WebGLUniformCache();
+  /**
+   * Light selection each program's `lighting` array holds from this `drawMeshes` call. The
+   * array depends only on Scene lighting (fixed while drawing) and the selected lights, so
+   * draws repeating a program's selection skip refilling and re-uploading 3 KiB.
+   */
+  private readonly lightingSent = new WeakMap<
+    WebGLUniformLocation,
+    { pass: number; points: PointLight[]; spots: SpotLight[] }
+  >();
+  private lightingPass = 0;
   /** Texture/sampler per unit as bound by the current mesh pass (undefined = unknown). */
   private readonly unitTextures: (WebGLTexture | null | undefined)[] = [];
   private readonly unitSamplers: (WebGLSampler | null | undefined)[] = [];
@@ -2389,6 +2410,7 @@ export class WebGL2Renderer implements Renderer {
 
   private drawMeshes(scene: Scene, aspect: number): void {
     const gl = this.gl!;
+    ++this.lightingPass;
     this.ensureProbeEnvironment(scene);
     if (this.coverageActive) {
       const target = this.postTarget!;
@@ -2612,12 +2634,26 @@ export class WebGL2Renderer implements Renderer {
         fillMaterialUV(material, object.renderGeometry, this.materialUVData);
         gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
         gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
-        fillLightingData(
-          scene,
-          this.lightingData,
-          scene.lightSelection.selectMesh(object),
-        );
-        gl.uniform4fv(uniforms['lighting[0]'], this.lightingData);
+        const selected = scene.lightSelection.selectMesh(object);
+        const lighting = uniforms['lighting[0]'];
+        const sent = lighting ? this.lightingSent.get(lighting) : undefined;
+        if (
+          !sent ||
+          sent.pass !== this.lightingPass ||
+          !sameLights(sent.points, selected.pointLights) ||
+          !sameLights(sent.spots, selected.spotLights)
+        ) {
+          fillLightingData(scene, this.lightingData, selected);
+          gl.uniform4fv(lighting, this.lightingData);
+          if (lighting) {
+            const record = sent ?? { pass: 0, points: [], spots: [] };
+            record.pass = this.lightingPass;
+            record.points.length = record.spots.length = 0;
+            record.points.push(...selected.pointLights);
+            record.spots.push(...selected.spotLights);
+            this.lightingSent.set(lighting, record);
+          }
+        }
         gl.uniform4fv(uniforms['fog[0]'], this.fogData);
         this.uniformValues.uniform3f(
           gl,

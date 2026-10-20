@@ -121,6 +121,13 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly lightingData;
     /** Every scalar uniform write in this renderer goes through this cache. */
     private readonly uniformValues;
+    /**
+     * Light selection each program's `lighting` array holds from this `drawMeshes` call. The
+     * array depends only on Scene lighting (fixed while drawing) and the selected lights, so
+     * draws repeating a program's selection skip refilling and re-uploading 3 KiB.
+     */
+    private readonly lightingSent;
+    private lightingPass;
     /** Texture/sampler per unit as bound by the current mesh pass (undefined = unknown). */
     private readonly unitTextures;
     private readonly unitSamplers;
