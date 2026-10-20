@@ -43,6 +43,12 @@ export declare class SpatialLightSelector implements SelectedLights {
     private readonly spotScores;
     private readonly sphere;
     private readonly center;
+    private readonly pointGrid;
+    private readonly spotGrid;
+    /** Presentation pass the grids were built in; 0 when they must not be used. */
+    private gridPass;
+    private pointGridded;
+    private spotGridded;
     constructor(options?: LightSelectionOptions);
     update(scene: Scene): void;
     /** Release scene/borrowed light references without destroying caller-owned lights. */

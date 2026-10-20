@@ -165,6 +165,54 @@ describe('bounded spatial light selection', () => {
     expect(selector.stats.points.culled).toBe(1);
   });
 
+  it('selects the same lights and counts inside a presentation as a full scan outside it', () => {
+    let seed = 7;
+    const random = () => (seed = (seed * 1103515245 + 12345) >>> 0) / 2 ** 32;
+    const scene = new Scene();
+    for (let i = 0; i < 90; i++)
+      scene.pointLights.push(
+        new PointLight({
+          position: [random() * 80 - 40, random() * 20, random() * 80 - 40],
+          // Unlimited, tiny, typical and oversized ranges exercise every grid path.
+          range: i % 15 === 0 ? 0 : i % 11 === 0 ? 200 : 0.5 + random() * 6,
+          intensity: i % 23 === 0 ? 0 : 1 + random() * 5,
+          priority: i % 7 === 0 ? 1 : 0,
+        }),
+      );
+    for (let i = 0; i < 40; i++)
+      scene.spotLights.push(
+        new SpotLight({
+          position: [random() * 80 - 40, 10, random() * 80 - 40],
+          direction: [random() - 0.5, -1, random() - 0.5],
+          range: i % 9 === 0 ? 0 : 3 + random() * 8,
+          outerAngle: 0.4 + random() * 0.6,
+        }),
+      );
+    const scan = new SpatialLightSelector({ pointLights: 4, spotLights: 2 }),
+      grid = new SpatialLightSelector({ pointLights: 4, spotLights: 2 });
+    scan.update(scene);
+    scene.beginPresentation();
+    grid.update(scene);
+    const ids = (s: SpatialLightSelector) => [
+      s.pointLights.map((l) => l.id),
+      s.spotLights.map((l) => l.id),
+      { ...s.stats.points },
+      { ...s.stats.spots },
+    ];
+    for (let i = 0; i < 300; i++) {
+      const center = new Vector3(
+        random() * 100 - 50,
+        random() * 24 - 2,
+        random() * 100 - 50,
+      );
+      const radius = i % 50 === 0 ? 500 : random() * (i % 3 ? 2 : 12);
+      expect(ids(grid.select(center, radius))).toEqual(
+        ids(scan.select(center, radius)),
+      );
+    }
+    scene.endPresentation();
+  });
+
   it('rejects malformed mutable pools and invalid budgets before selection, and clears removed lights', () => {
     const scene = new Scene();
     const light = new PointLight();

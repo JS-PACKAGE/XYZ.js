@@ -1147,7 +1147,7 @@ prepare 使用可用的 parallel／async driver API。Native hooks 保留完整 
 Build 後 `node scripts/check-mesh-shader-budget.mjs` 驗 plain PBR fragment
 低於 `src/data/rendering.ts` 的40,000 bytes，不代表 Windows WARP timing 保證。
 
-LightSelectionOptions.exceedPolicy 為 select／error；每種 pool≤1024，native shading slots 仍 bounded。按 priority／contribution／draw bounds（camera-selected visible draws）選取，不是 clustered／unlimited lighting。Culled 與 relevant overflow 分開計；error 拒超額 relevant lights，select 明示省略低順位 contribution；shadow atlas capacity 獨立。
+LightSelectionOptions.exceedPolicy 為 select／error；每種 pool≤1024，native shading slots 仍 bounded。按 priority／contribution／draw bounds（camera-selected visible draws）選取，不是 clustered／unlimited lighting。Culled 與 relevant overflow 分開計；error 拒超額 relevant lights，select 明示省略低順位 contribution；shadow atlas capacity 獨立。`update()` 在 Scene presentation 內執行且某類光源達 32 個時，該次 presentation 的選取改由有限 range 光源 bounds 的 grid 收集候選（無限或過大 range 永遠是候選），並依 pool 順序評估，結果與 counts 等同完整掃描；presentation 外或 draw bounds 很大時仍逐一掃描。
 
 ### Streaming、trusted workers 與 authored maps（P81–P83）
 

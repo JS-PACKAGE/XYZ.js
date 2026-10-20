@@ -65,6 +65,136 @@ function capacity(value: number, maximum: number): number {
   return value;
 }
 
+/** Pools smaller than this are scanned linearly; the grid would not pay for itself. */
+const gridMinimumLights = 32;
+/** Queries touching more cells than this scan linearly instead. */
+const gridMaximumQueryCells = 64;
+
+/**
+ * Uniform hash grid over finite-range light bounds, rebuilt per presentation (when nothing moves
+ * lights). Queries return a conservative candidate superset in pool order, so exact selection
+ * over the candidates matches a full scan; unbounded/oversized lights are always candidates.
+ */
+class LightGrid {
+  private cell = 0;
+  private readonly always: number[] = [];
+  private readonly cells = new Map<number, number[]>();
+  private readonly spare: number[][] = [];
+  private readonly ranges: number[] = [];
+  private stamps = new Uint32Array(0);
+  private query = 0;
+  readonly candidates: number[] = [];
+
+  private static key(x: number, y: number, z: number): number {
+    // Collisions only merge buckets: extra candidates, never missed ones.
+    return (x * 73856093) ^ (y * 19349663) ^ (z * 83492791);
+  }
+
+  build(lights: readonly PointLight[]): void {
+    for (const bucket of this.cells.values()) {
+      bucket.length = 0;
+      this.spare.push(bucket);
+    }
+    this.cells.clear();
+    this.always.length = this.ranges.length = 0;
+    if (this.stamps.length < lights.length) {
+      this.stamps = new Uint32Array(lights.length);
+      this.query = 0;
+    }
+    for (const light of lights)
+      if (light.range > 0) this.ranges.push(light.range);
+    this.ranges.sort((a, b) => a - b);
+    // Twice the median range keeps typical lights within 2×2×2 cells.
+    this.cell = (this.ranges[this.ranges.length >> 1] ?? 0) * 2;
+    const cell = this.cell;
+    for (let index = 0; index < lights.length; index++) {
+      const light = lights[index]!,
+        p = light.position,
+        range = light.range;
+      if (!(cell > 0 && range > 0 && range <= cell * 2)) {
+        this.always.push(index);
+        continue;
+      }
+      const pad =
+        (range + Math.abs(p.x) + Math.abs(p.y) + Math.abs(p.z) + cell) * 1e-9;
+      const x0 = Math.floor((p.x - range - pad) / cell),
+        x1 = Math.floor((p.x + range + pad) / cell),
+        y0 = Math.floor((p.y - range - pad) / cell),
+        y1 = Math.floor((p.y + range + pad) / cell),
+        z0 = Math.floor((p.z - range - pad) / cell),
+        z1 = Math.floor((p.z + range + pad) / cell);
+      if (
+        !Number.isFinite(x0 + x1 + y0 + y1 + z0 + z1) ||
+        (x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1) > 64
+      ) {
+        this.always.push(index);
+        continue;
+      }
+      for (let x = x0; x <= x1; x++)
+        for (let y = y0; y <= y1; y++)
+          for (let z = z0; z <= z1; z++) {
+            const key = LightGrid.key(x, y, z);
+            let bucket = this.cells.get(key);
+            if (!bucket) this.cells.set(key, (bucket = this.spare.pop() ?? []));
+            bucket.push(index);
+          }
+    }
+  }
+
+  /** Fills `candidates` (ascending pool indices); false means scan the whole pool instead. */
+  gather(x: number, y: number, z: number, radius: number): boolean {
+    const cell = this.cell;
+    if (!(cell > 0)) return false;
+    const pad =
+      (radius + Math.abs(x) + Math.abs(y) + Math.abs(z) + cell) * 1e-9;
+    const x0 = Math.floor((x - radius - pad) / cell),
+      x1 = Math.floor((x + radius + pad) / cell),
+      y0 = Math.floor((y - radius - pad) / cell),
+      y1 = Math.floor((y + radius + pad) / cell),
+      z0 = Math.floor((z - radius - pad) / cell),
+      z1 = Math.floor((z + radius + pad) / cell);
+    if (
+      !Number.isFinite(x0 + x1 + y0 + y1 + z0 + z1) ||
+      (x1 - x0 + 1) * (y1 - y0 + 1) * (z1 - z0 + 1) > gridMaximumQueryCells
+    )
+      return false;
+    if (++this.query === 0xffffffff) {
+      this.stamps.fill(0);
+      this.query = 1;
+    }
+    const stamp = this.query,
+      stamps = this.stamps,
+      out = this.candidates;
+    out.length = 0;
+    for (const index of this.always) {
+      stamps[index] = stamp;
+      out.push(index);
+    }
+    for (let cx = x0; cx <= x1; cx++)
+      for (let cy = y0; cy <= y1; cy++)
+        for (let cz = z0; cz <= z1; cz++) {
+          const bucket = this.cells.get(LightGrid.key(cx, cy, cz));
+          if (bucket)
+            for (const index of bucket)
+              if (stamps[index] !== stamp) {
+                stamps[index] = stamp;
+                out.push(index);
+              }
+        }
+    // Pool order keeps capped insertion identical to the full scan.
+    for (let i = 1; i < out.length; i++) {
+      const value = out[i]!;
+      let j = i - 1;
+      while (j >= 0 && out[j]! > value) {
+        out[j + 1] = out[j]!;
+        j--;
+      }
+      out[j + 1] = value;
+    }
+    return true;
+  }
+}
+
 /** One scene-pool validation per update; bounded, allocation-free selection for each draw. */
 export class SpatialLightSelector implements SelectedLights {
   readonly pointLights: PointLight[] = [];
@@ -93,6 +223,12 @@ export class SpatialLightSelector implements SelectedLights {
   );
   private readonly sphere: BoundingSphere3D = { x: 0, y: 0, z: 0, radius: 0 };
   private readonly center = new Vector3();
+  private readonly pointGrid = new LightGrid();
+  private readonly spotGrid = new LightGrid();
+  /** Presentation pass the grids were built in; 0 when they must not be used. */
+  private gridPass = 0;
+  private pointGridded = false;
+  private spotGridded = false;
 
   constructor(options: LightSelectionOptions = {}) {
     this.pointCapacity = capacity(
@@ -121,6 +257,14 @@ export class SpatialLightSelector implements SelectedLights {
         this.identities.add(light.id);
       }
     this.scene = scene;
+    // Rendering moves no lights, so a grid built inside a presentation stays exact until it ends.
+    this.gridPass = scene.presentationPass;
+    this.pointGridded =
+      this.gridPass !== 0 && scene.pointLights.length >= gridMinimumLights;
+    this.spotGridded =
+      this.gridPass !== 0 && scene.spotLights.length >= gridMinimumLights;
+    if (this.pointGridded) this.pointGrid.build(scene.pointLights);
+    if (this.spotGridded) this.spotGrid.build(scene.spotLights);
     this.pointLights.length = this.spotLights.length = 0;
     this.stats.draws = this.frameStats.draws = 0;
     for (const stats of [this.stats, this.frameStats]) {
@@ -192,6 +336,7 @@ export class SpatialLightSelector implements SelectedLights {
       center,
       radius,
       this.stats.points,
+      this.pointGridded ? this.pointGrid : undefined,
     );
     this.selectType(
       this.scene.spotLights,
@@ -201,6 +346,7 @@ export class SpatialLightSelector implements SelectedLights {
       center,
       radius,
       this.stats.spots,
+      this.spotGridded ? this.spotGrid : undefined,
     );
     this.stats.draws = 1;
     this.frameStats.draws++;
@@ -228,11 +374,21 @@ export class SpatialLightSelector implements SelectedLights {
     center: Vector3,
     radius: number,
     stats: LightSelectionCount,
+    grid: LightGrid | undefined,
   ): void {
     out.length = 0;
     stats.selected = stats.culled = stats.overflow = 0;
     let relevant = 0;
-    for (const light of pool) {
+    const indexed =
+      grid !== undefined &&
+      this.scene!.presentationPass === this.gridPass &&
+      grid.gather(center.x, center.y, center.z, radius);
+    const candidates = indexed ? grid.candidates : undefined;
+    const count = candidates ? candidates.length : pool.length;
+    // Lights outside every gathered cell are beyond range + radius, as the exact test finds.
+    if (candidates) stats.culled = pool.length - count;
+    for (let n = 0; n < count; n++) {
+      const light = pool[candidates ? candidates[n]! : n]!;
       const dx = center.x - light.position.x,
         dy = center.y - light.position.y,
         dz = center.z - light.position.z;

@@ -19,6 +19,62 @@ function capacity(e, t) {
 	if (!Number.isInteger(e) || e < 0 || e > t) throw RangeError(`Light selection capacity must be an integer in [0, ${t}].`);
 	return e;
 }
+var LightGrid = class LightGrid {
+	cell = 0;
+	always = [];
+	cells = /* @__PURE__ */ new Map();
+	spare = [];
+	ranges = [];
+	stamps = /* @__PURE__ */ new Uint32Array();
+	query = 0;
+	candidates = [];
+	static key(e, t, n) {
+		return e * 73856093 ^ t * 19349663 ^ n * 83492791;
+	}
+	build(e) {
+		for (let e of this.cells.values()) e.length = 0, this.spare.push(e);
+		this.cells.clear(), this.always.length = this.ranges.length = 0, this.stamps.length < e.length && (this.stamps = new Uint32Array(e.length), this.query = 0);
+		for (let t of e) t.range > 0 && this.ranges.push(t.range);
+		this.ranges.sort((e, t) => e - t), this.cell = (this.ranges[this.ranges.length >> 1] ?? 0) * 2;
+		let t = this.cell;
+		for (let n = 0; n < e.length; n++) {
+			let r = e[n], i = r.position, a = r.range;
+			if (!(t > 0 && a > 0 && a <= t * 2)) {
+				this.always.push(n);
+				continue;
+			}
+			let o = (a + Math.abs(i.x) + Math.abs(i.y) + Math.abs(i.z) + t) * 1e-9, s = Math.floor((i.x - a - o) / t), c = Math.floor((i.x + a + o) / t), l = Math.floor((i.y - a - o) / t), u = Math.floor((i.y + a + o) / t), d = Math.floor((i.z - a - o) / t), f = Math.floor((i.z + a + o) / t);
+			if (!Number.isFinite(s + c + l + u + d + f) || (c - s + 1) * (u - l + 1) * (f - d + 1) > 64) {
+				this.always.push(n);
+				continue;
+			}
+			for (let e = s; e <= c; e++) for (let t = l; t <= u; t++) for (let r = d; r <= f; r++) {
+				let i = LightGrid.key(e, t, r), a = this.cells.get(i);
+				a || this.cells.set(i, a = this.spare.pop() ?? []), a.push(n);
+			}
+		}
+	}
+	gather(e, t, n, r) {
+		let i = this.cell;
+		if (!(i > 0)) return !1;
+		let a = (r + Math.abs(e) + Math.abs(t) + Math.abs(n) + i) * 1e-9, o = Math.floor((e - r - a) / i), s = Math.floor((e + r + a) / i), c = Math.floor((t - r - a) / i), l = Math.floor((t + r + a) / i), u = Math.floor((n - r - a) / i), d = Math.floor((n + r + a) / i);
+		if (!Number.isFinite(o + s + c + l + u + d) || (s - o + 1) * (l - c + 1) * (d - u + 1) > 64) return !1;
+		++this.query === 4294967295 && (this.stamps.fill(0), this.query = 1);
+		let f = this.query, p = this.stamps, m = this.candidates;
+		m.length = 0;
+		for (let e of this.always) p[e] = f, m.push(e);
+		for (let e = o; e <= s; e++) for (let t = c; t <= l; t++) for (let n = u; n <= d; n++) {
+			let r = this.cells.get(LightGrid.key(e, t, n));
+			if (r) for (let e of r) p[e] !== f && (p[e] = f, m.push(e));
+		}
+		for (let e = 1; e < m.length; e++) {
+			let t = m[e], n = e - 1;
+			for (; n >= 0 && m[n] > t;) m[n + 1] = m[n], n--;
+			m[n + 1] = t;
+		}
+		return !0;
+	}
+};
 var SpatialLightSelector = class {
 	pointLights = [];
 	spotLights = [];
@@ -66,6 +122,11 @@ var SpatialLightSelector = class {
 		radius: 0
 	};
 	center = new require_math3d.Vector3();
+	pointGrid = new LightGrid();
+	spotGrid = new LightGrid();
+	gridPass = 0;
+	pointGridded = !1;
+	spotGridded = !1;
 	constructor(e = {}) {
 		if (this.pointCapacity = capacity(e.pointLights ?? require_lights.lightSelectionLimits.pointLights, require_lights.lightSelectionLimits.pointLights), this.spotCapacity = capacity(e.spotLights ?? require_lights.lightSelectionLimits.spotLights, require_lights.lightSelectionLimits.spotLights), this.exceedPolicy = e.exceedPolicy ?? `select`, this.exceedPolicy !== `select` && this.exceedPolicy !== `error`) throw RangeError(`Light exceedPolicy must be select or error.`);
 	}
@@ -75,7 +136,7 @@ var SpatialLightSelector = class {
 			if (this.identities.has(e.id)) throw RangeError(`Scene light pools cannot contain duplicate light identities.`);
 			this.identities.add(e.id);
 		}
-		this.scene = e, this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
+		this.scene = e, this.gridPass = e.presentationPass, this.pointGridded = this.gridPass !== 0 && e.pointLights.length >= 32, this.spotGridded = this.gridPass !== 0 && e.spotLights.length >= 32, this.pointGridded && this.pointGrid.build(e.pointLights), this.spotGridded && this.spotGrid.build(e.spotLights), this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
 		for (let t of [this.stats, this.frameStats]) t.points.pool = e.pointLights.length, t.spots.pool = e.spotLights.length, t.points.selected = t.points.culled = t.points.overflow = 0, t.spots.selected = t.spots.culled = t.spots.overflow = 0;
 	}
 	clear() {
@@ -88,46 +149,47 @@ var SpatialLightSelector = class {
 		if (!this.scene) throw Error(`Update the light selector before selecting a draw.`);
 		if (!(t instanceof require_math3d.Vector3)) throw TypeError(`Light selection center must be a Vector3.`);
 		if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(n) || n < 0) throw RangeError(`Light selection requires a finite world sphere with nonnegative radius.`);
-		if (this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots), this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
+		if (this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0), this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
 		return this;
 	}
-	selectType(e, t, n, i, a, o, s) {
+	selectType(e, t, n, i, a, o, s, c) {
 		t.length = 0, s.selected = s.culled = s.overflow = 0;
-		let c = 0;
-		for (let l of e) {
-			let e = a.x - l.position.x, u = a.y - l.position.y, d = a.z - l.position.z, f = l.range;
-			if (f > 0) {
-				let t = f + o;
-				if (e * e + u * u + d * d > t * t * (1 + 1e-9)) {
+		let l = 0, u = c !== void 0 && this.scene.presentationPass === this.gridPass && c.gather(a.x, a.y, a.z, o) ? c.candidates : void 0, d = u ? u.length : e.length;
+		u && (s.culled = e.length - d);
+		for (let c = 0; c < d; c++) {
+			let d = e[u ? u[c] : c], f = a.x - d.position.x, p = a.y - d.position.y, m = a.z - d.position.z, h = d.range;
+			if (h > 0) {
+				let e = h + o;
+				if (f * f + p * p + m * m > e * e * (1 + 1e-9)) {
 					s.culled++;
 					continue;
 				}
 			}
-			let p = Math.hypot(e, u, d), m = Math.max(0, p - o), h = Math.max(l.color[0], l.color[1], l.color[2]);
-			if (!l.intensity || !h || l.range > 0 && m >= l.range) {
+			let g = Math.hypot(f, p, m), _ = Math.max(0, g - o), v = Math.max(d.color[0], d.color[1], d.color[2]);
+			if (!d.intensity || !v || d.range > 0 && _ >= d.range) {
 				s.culled++;
 				continue;
 			}
-			let g = 1;
-			if (l instanceof require_lights$1.SpotLight && p > o) {
-				let t = l.direction.length(), n = (e * l.direction.x + u * l.direction.y + d * l.direction.z) / (p * t), r = Math.max(0, Math.acos(Math.max(-1, Math.min(1, n))) - Math.asin(Math.min(1, o / p)));
-				if (r >= l.outerAngle) {
+			let y = 1;
+			if (d instanceof require_lights$1.SpotLight && g > o) {
+				let e = d.direction.length(), t = (f * d.direction.x + p * d.direction.y + m * d.direction.z) / (g * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, o / g)));
+				if (n >= d.outerAngle) {
 					s.culled++;
 					continue;
 				}
-				let i = Math.max(0, Math.min(1, (Math.cos(r) - Math.cos(l.outerAngle)) / (Math.cos(l.innerAngle) - Math.cos(l.outerAngle))));
-				g = i * i * (3 - 2 * i);
+				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(d.outerAngle)) / (Math.cos(d.innerAngle) - Math.cos(d.outerAngle))));
+				y = r * r * (3 - 2 * r);
 			}
-			let _ = l.range > 0 ? Math.max(0, 1 - (m / l.range) ** 4) ** 2 : 1, v = h * l.intensity * g * _ / Math.max(m * m, .01);
-			c++;
-			let y = 0;
-			for (; y < t.length && (t[y].priority > l.priority || t[y].priority === l.priority && (n[y] > v || n[y] === v && t[y].id < l.id));) y++;
-			if (y >= i) continue;
-			let b = Math.min(t.length, i - 1);
-			for (let e = b; e > y; e--) t[e] = t[e - 1], n[e] = n[e - 1];
-			t[y] = l, n[y] = v;
+			let b = d.range > 0 ? Math.max(0, 1 - (_ / d.range) ** 4) ** 2 : 1, x = v * d.intensity * y * b / Math.max(_ * _, .01);
+			l++;
+			let S = 0;
+			for (; S < t.length && (t[S].priority > d.priority || t[S].priority === d.priority && (n[S] > x || n[S] === x && t[S].id < d.id));) S++;
+			if (S >= i) continue;
+			let C = Math.min(t.length, i - 1);
+			for (let e = C; e > S; e--) t[e] = t[e - 1], n[e] = n[e - 1];
+			t[S] = d, n[S] = x;
 		}
-		s.selected = t.length, s.overflow = c - t.length;
+		s.selected = t.length, s.overflow = l - t.length;
 	}
 };
 //#endregion
