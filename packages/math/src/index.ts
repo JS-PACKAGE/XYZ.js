@@ -107,8 +107,9 @@ export class Matrix3 {
   ): this {
     const xAngle = rotation + (skew?.y ?? 0);
     const yAngle = rotation - (skew?.x ?? 0);
-    const cosine = Math.cos(xAngle);
-    const sine = Math.sin(xAngle);
+    // Unrotated transforms dominate 2D scenes; sin(±0) is ±0, so returning the angle keeps -0.
+    const cosine = xAngle === 0 ? 1 : Math.cos(xAngle);
+    const sine = xAngle === 0 ? xAngle : Math.sin(xAngle);
     const sameAngle = xAngle === yAngle;
     const e = this.elements;
     e[0] = cosine * scale.x;

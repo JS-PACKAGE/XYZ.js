@@ -49,7 +49,7 @@ var Matrix3 = class {
 		return t[0] = r * l + a * u, t[1] = i * l + o * u, t[3] = r * d + a * f, t[4] = i * d + o * f, t[6] = r * p + a * m + s, t[7] = i * p + o * m + c, this;
 	}
 	compose(e, t, n, r, i) {
-		let a = t + (i?.y ?? 0), o = t - (i?.x ?? 0), s = Math.cos(a), c = Math.sin(a), l = a === o, u = this.elements;
+		let a = t + (i?.y ?? 0), o = t - (i?.x ?? 0), s = a === 0 ? 1 : Math.cos(a), c = a === 0 ? a : Math.sin(a), l = a === o, u = this.elements;
 		return u[0] = s * n.x, u[1] = c * n.x, u[2] = 0, u[3] = -(l ? c : Math.sin(o)) * n.y, u[4] = (l ? s : Math.cos(o)) * n.y, u[5] = 0, u[6] = e.x - (r?.x ?? 0) * u[0] - (r?.y ?? 0) * u[3], u[7] = e.y - (r?.x ?? 0) * u[1] - (r?.y ?? 0) * u[4], u[8] = 1, this;
 	}
 	invert() {
