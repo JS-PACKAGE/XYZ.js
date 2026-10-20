@@ -2590,6 +2590,7 @@ export class WebGL2Renderer implements Renderer {
     gl.bindSampler(14, null);
     gl.bindTexture(gl.TEXTURE_2D_ARRAY, this.emptyOptical!);
     const draws = this.visibility.color;
+    this.startMeshPrograms(draws, scene);
     const basePhases = 2;
     const phases = basePhases + (this.weighted ? 2 : 0);
     for (let phase = 0; phase < phases; phase++) {
@@ -4895,6 +4896,42 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 could not allocate a vertex array.',
       );
     return vao;
+  }
+
+  /**
+   * Issues compile/link for every uncached variant of this frame's draws before the first
+   * status query in `meshProgramFor`, so a parallel-compiling driver builds them together.
+   * Failures are left for `meshProgramFor` to report at the same draw as before.
+   */
+  private startMeshPrograms(draws: readonly Mesh[], scene: Scene): void {
+    const gl = this.requireGL();
+    // Only an interrupted earlier frame leaves started variants behind.
+    for (const [label, started] of this.startedPrograms)
+      if (label.startsWith('mesh ')) {
+        this.startedPrograms.delete(label);
+        discardStartedProgram(gl, started);
+      }
+    for (const object of draws) {
+      const material = object.material;
+      if (isNativeMaterial3D(material)) continue;
+      try {
+        const key = meshShaderVariantBits(material, object, scene);
+        const label = `mesh ${key.toString(36)}`;
+        if (this.meshPrograms.has(key) || this.startedPrograms.has(label))
+          continue;
+        this.startedPrograms.set(
+          label,
+          this.startProgram(
+            gl,
+            buildMeshVertex(),
+            buildMeshFragment(meshShaderFeatures(material, object, scene)),
+            label,
+          ),
+        );
+      } catch {
+        // meshProgramFor repeats this work and throws at the original draw.
+      }
+    }
   }
 
   private meshProgramFor(

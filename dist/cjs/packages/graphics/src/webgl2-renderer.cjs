@@ -885,7 +885,9 @@ var WebGL2Renderer = class {
 		require_render_data.fillFogData(e, this.fogData);
 		let d = e.camera3D.position, f = this.invViewProjection.copy(this.temporalActive ? this.temporalState.currentVP : e.camera3D.matrix).invert().elements, p = !1;
 		a.bindBufferBase(a.UNIFORM_BUFFER, 0, this.shadowBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 1, this.sheenBuffer), a.bindBufferBase(a.UNIFORM_BUFFER, 2, this.brdfBuffer), a.activeTexture(a.TEXTURE5), a.bindSampler(5, null), a.bindTexture(a.TEXTURE_2D, this.contactTarget?.texture ?? this.shadowTarget?.texture ?? null), a.enable(a.DEPTH_TEST), a.depthFunc(a.LESS), a.depthMask(!0), a.disable(a.CULL_FACE), a.activeTexture(a.TEXTURE0 + 15), a.bindSampler(15, null), a.bindTexture(a.TEXTURE_2D, this.refractionTarget?.texture ?? null), a.activeTexture(a.TEXTURE0 + 14), a.bindSampler(14, null), a.bindTexture(a.TEXTURE_2D_ARRAY, this.emptyOptical);
-		let h = this.visibility.color, g = 2 + (this.weighted ? 2 : 0);
+		let h = this.visibility.color;
+		this.startMeshPrograms(h, e);
+		let g = 2 + (this.weighted ? 2 : 0);
 		for (let t = 0; t < g; t++) {
 			this.resetPassState();
 			let c = t >= 2 ? t - 2 + 1 : 0;
@@ -1354,6 +1356,18 @@ var WebGL2Renderer = class {
 		let t = e.createVertexArray();
 		if (!t) throw new require_errors.WebGL2InitializationError(`WebGL2 could not allocate a vertex array.`);
 		return t;
+	}
+	startMeshPrograms(e, t) {
+		let r = this.requireGL();
+		for (let [e, t] of this.startedPrograms) e.startsWith(`mesh `) && (this.startedPrograms.delete(e), discardStartedProgram(r, t));
+		for (let i of e) {
+			let e = i.material;
+			if (!require_native_material3d.isNativeMaterial3D(e)) try {
+				let n = require_mesh_shader_variants.meshShaderVariantBits(e, i, t), a = `mesh ${n.toString(36)}`;
+				if (this.meshPrograms.has(n) || this.startedPrograms.has(a)) continue;
+				this.startedPrograms.set(a, this.startProgram(r, require_webgl_feature_shaders.buildMeshVertex(), require_webgl_feature_shaders.buildMeshFragment(require_mesh_shader_variants.meshShaderFeatures(e, i, t)), a));
+			} catch {}
+		}
 	}
 	meshProgramFor(e, t, n) {
 		let r = this.requireGL(), i = require_mesh_shader_variants.meshShaderVariantBits(e, t, n), a = this.meshPrograms.get(i);

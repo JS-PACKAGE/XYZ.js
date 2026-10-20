@@ -262,6 +262,12 @@ export declare class WebGL2Renderer implements Renderer {
     private releaseUnused;
     private createBuffer;
     private createVAO;
+    /**
+     * Issues compile/link for every uncached variant of this frame's draws before the first
+     * status query in `meshProgramFor`, so a parallel-compiling driver builds them together.
+     * Failures are left for `meshProgramFor` to report at the same draw as before.
+     */
+    private startMeshPrograms;
     private meshProgramFor;
     private waitForProgram;
     /**
