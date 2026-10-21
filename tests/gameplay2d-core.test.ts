@@ -86,6 +86,11 @@ describe('2D composed scene ownership', () => {
     expect(leaf.position).toEqual(new Vector2(0, 2));
     expect(leaf.worldOpacity).toBe(0.25);
     expect(leaf.worldTint).toEqual([0.5, 0.5, 0.5, 1]);
+    // Untinted objects compose as opaque white, and `tint` is the live channel array.
+    expect(branch.worldTint).toEqual([0.5, 1, 0.5, 1]);
+    expect(new Group2D().worldTint).toEqual([1, 1, 1, 1]);
+    branch.tint[1] = 0.5;
+    expect(leaf.worldTint).toEqual([0.5, 0.25, 0.5, 1]);
     expect(leaf.worldZIndex).toBe(3);
     expect(leaf.containsPoint(world)).toBe(true);
     root.visible = false;

@@ -21,9 +21,9 @@ export declare class GameObject extends SceneObject {
     private alpha;
     private order;
     private coordinateSpace;
-    private readonly color;
-    private readonly composedColor;
-    private readonly bounds;
+    private color;
+    private composedColor;
+    private bounds;
     visible: boolean;
     pointerEnabled: boolean;
     draggable: boolean;

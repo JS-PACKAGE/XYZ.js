@@ -19,24 +19,9 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	alpha = 1;
 	order = 0;
 	coordinateSpace = `world`;
-	color = [
-		1,
-		1,
-		1,
-		1
-	];
-	composedColor = [
-		1,
-		1,
-		1,
-		1
-	];
-	bounds = {
-		x: 0,
-		y: 0,
-		width: 0,
-		height: 0
-	};
+	color;
+	composedColor;
+	bounds;
 	visible = !0;
 	pointerEnabled = !1;
 	draggable = !1;
@@ -164,11 +149,22 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		require_contracts.assertFinite(e, `zIndex`), this.order = e;
 	}
 	get tint() {
-		return this.color;
+		return this.color ??= [
+			1,
+			1,
+			1,
+			1
+		];
 	}
 	set tint(e) {
 		if (e.length !== 4 || e.some((e) => !Number.isFinite(e) || e < 0 || e > 1)) throw RangeError(`tint must contain four finite channels between 0 and 1.`);
-		for (let t = 0; t < 4; t++) this.color[t] = e[t];
+		let t = this.color ??= [
+			1,
+			1,
+			1,
+			1
+		];
+		for (let n = 0; n < 4; n++) t[n] = e[n];
 	}
 	get space() {
 		return this.coordinateSpace;
@@ -208,9 +204,18 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		return e;
 	}
 	get worldTint() {
-		for (let e = 0; e < 4; e++) this.composedColor[e] = this.color[e];
-		for (let e = this.parent; e; e = e.parent) for (let t = 0; t < 4; t++) this.composedColor[t] *= e.color[t];
-		return this.composedColor;
+		let e = this.composedColor ??= [
+			1,
+			1,
+			1,
+			1
+		], t = this.color;
+		for (let n = 0; n < 4; n++) e[n] = t ? t[n] : 1;
+		for (let t = this.parent; t; t = t.parent) {
+			let n = t.color;
+			if (n) for (let t = 0; t < 4; t++) e[t] *= n[t];
+		}
+		return e;
 	}
 	add(e) {
 		if (this.destroyed || e.destroyed) throw Error(`Cannot parent a destroyed GameObject.`);
@@ -270,7 +275,12 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		width: 0,
 		height: 0
 	}) {
-		let t = this.getLocalBounds(this.bounds), n = this.updateWorldMatrix().elements, r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0;
+		let t = this.getLocalBounds(this.bounds ??= {
+			x: 0,
+			y: 0,
+			width: 0,
+			height: 0
+		}), n = this.updateWorldMatrix().elements, r = 1 / 0, i = 1 / 0, a = -1 / 0, o = -1 / 0;
 		for (let e = 0; e < 4; e++) {
 			let s = t.x + (e & 1 ? t.width : 0), c = t.y + (e & 2 ? t.height : 0), l = n[0] * s + n[3] * c + n[6], u = n[1] * s + n[4] * c + n[7];
 			r = Math.min(r, l), i = Math.min(i, u), a = Math.max(a, l), o = Math.max(o, u);
@@ -286,7 +296,12 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 			throw e;
 		}
 		d.transformPoint(e, f);
-		let t = f.x, n = f.y, r = this.getLocalBounds(this.bounds);
+		let t = f.x, n = f.y, r = this.getLocalBounds(this.bounds ??= {
+			x: 0,
+			y: 0,
+			width: 0,
+			height: 0
+		});
 		return r.width > 0 && r.height > 0 && t >= r.x && t <= r.x + r.width && n >= r.y && n <= r.y + r.height;
 	}
 	update(e) {}

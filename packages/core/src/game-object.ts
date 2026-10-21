@@ -36,11 +36,11 @@ export class GameObject extends SceneObject {
   private alpha = 1;
   private order = 0;
   private coordinateSpace: 'world' | 'screen' = 'world';
-  private readonly color: [number, number, number, number] = [1, 1, 1, 1];
-  private readonly composedColor: [number, number, number, number] = [
-    1, 1, 1, 1,
-  ];
-  private readonly bounds: Rect2D = { x: 0, y: 0, width: 0, height: 0 };
+  // Created on first use: most objects of a large map are never tinted, and culled ones
+  // are never composed or bounded. An absent color is opaque white.
+  private color: [number, number, number, number] | undefined;
+  private composedColor: [number, number, number, number] | undefined;
+  private bounds: Rect2D | undefined;
   visible = true;
   pointerEnabled = false;
   draggable = false;
@@ -233,7 +233,7 @@ export class GameObject extends SceneObject {
     this.order = value;
   }
   get tint(): ColorRGBA {
-    return this.color;
+    return (this.color ??= [1, 1, 1, 1]);
   }
   set tint(value: ColorRGBA) {
     if (
@@ -245,7 +245,8 @@ export class GameObject extends SceneObject {
       throw new RangeError(
         'tint must contain four finite channels between 0 and 1.',
       );
-    for (let i = 0; i < 4; i++) this.color[i] = value[i];
+    const color = (this.color ??= [1, 1, 1, 1]);
+    for (let i = 0; i < 4; i++) color[i] = value[i];
   }
   get space(): 'world' | 'screen' {
     return this.coordinateSpace;
@@ -292,10 +293,15 @@ export class GameObject extends SceneObject {
     return order;
   }
   get worldTint(): ColorRGBA {
-    for (let i = 0; i < 4; i++) this.composedColor[i] = this.color[i];
-    for (let object = this.parent; object; object = object.parent)
-      for (let i = 0; i < 4; i++) this.composedColor[i] *= object.color[i];
-    return this.composedColor;
+    const composed = (this.composedColor ??= [1, 1, 1, 1]),
+      own = this.color;
+    for (let i = 0; i < 4; i++) composed[i] = own ? own[i] : 1;
+    // An absent color is white, and multiplying by 1 leaves every channel unchanged.
+    for (let object = this.parent; object; object = object.parent) {
+      const color = object.color;
+      if (color) for (let i = 0; i < 4; i++) composed[i] *= color[i];
+    }
+    return composed;
   }
 
   add<T extends GameObject>(child: T): T {
@@ -409,7 +415,9 @@ export class GameObject extends SceneObject {
       .transformPoint(point, out);
   }
   getWorldBounds(out: Rect2D = { x: 0, y: 0, width: 0, height: 0 }): Rect2D {
-    const bounds = this.getLocalBounds(this.bounds);
+    const bounds = this.getLocalBounds(
+      (this.bounds ??= { x: 0, y: 0, width: 0, height: 0 }),
+    );
     const matrix = this.updateWorldMatrix().elements;
     let minX = Infinity,
       minY = Infinity,
@@ -448,7 +456,9 @@ export class GameObject extends SceneObject {
     // Copy out before getLocalBounds: subclass overrides may hit-test other objects.
     const x = pointScratch.x,
       y = pointScratch.y;
-    const bounds = this.getLocalBounds(this.bounds);
+    const bounds = this.getLocalBounds(
+      (this.bounds ??= { x: 0, y: 0, width: 0, height: 0 }),
+    );
     return (
       bounds.width > 0 &&
       bounds.height > 0 &&
