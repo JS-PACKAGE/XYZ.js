@@ -1711,6 +1711,21 @@ function createSurfaceSampler(t, r) {
 				H = .34 + .28 * i + .18 * c + .1 * l + .05 * u, Z = .42 + .28 * i + .16 * c + .04 * l + .02 * u, Q += .05 * (u - .5) - .16 * i, $ = 1 - .3 * (1 - i) - .12 * (1 - c) * (1 - i);
 				break;
 			}
+			case `mooncrater`: {
+				let e = fract(o * 3) - .5, t = fract(A * 3) - .5, n = Math.sqrt(e * e + t * t), i = smooth(clamp((.3 - n) / .06)) * smooth(clamp((n - .2) / .06)), a = smooth(clamp((.2 - n) / .08)), s = fract(o * 6) - .5, c = fract(A * 6) - .5, l = Math.sqrt(s * s + c * c), u = smooth(clamp((.16 - l) / .04)) * smooth(clamp((l - .1) / .04)), d = smooth(clamp((.1 - l) / .05)), f = noise(o, A, 32, 32, r ^ 25032);
+				H = .5 + .24 * i + .12 * u - .16 * a - .1 * d + .08 * f, Z = .46 + .24 * i + .12 * u - .2 * a - .1 * d + .03 * f, Q += .05 * (f - .5) + .08 * a, $ = 1 - .3 * a - .16 * d - .12 * (1 - i - u + i * u);
+				break;
+			}
+			case `starfield`: {
+				let e = fract(o * 12) - .5, t = fract(A * 12) - .5, n = smooth(clamp((.08 - Math.sqrt(e * e + t * t)) / .035)), i = fract(o * 24) - .5, a = fract(A * 24) - .5, s = smooth(clamp((.05 - Math.sqrt(i * i + a * a)) / .025)), c = noise(o, A, 3, 3, r ^ 6130), l = noise(o, A, 40, 40, r ^ 19770);
+				H = .26 + .38 * n + .18 * s + .07 * c + .05 * l, Z = .42 + .3 * n + .16 * s + .06 * c + .02 * l, Q += .05 * (l - .5) - .18 * n, $ = 1 - .2 * (1 - n) * (1 - s);
+				break;
+			}
+			case `nebula`: {
+				let e = noise(o, A, 3, 3, r ^ 23085) - .5, t = .5 + .5 * Math.cos(n * (2 * o + 3 * A + 1.2 * e)), i = noise(o, A, 12, 12, r ^ 14052), a = noise(o, A, 32, 32, r ^ 12209);
+				H = .42 + .34 * t + .1 * i + .06 * a, Z = .44 + .28 * t + .05 * i + .02 * a, Q += .05 * (a - .5) - .1 * t, $ = 1 - .24 * (1 - t);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

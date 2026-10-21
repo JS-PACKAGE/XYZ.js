@@ -133,6 +133,9 @@ const kinds: ProceduralMaterialKind[] = [
   'snowdrift',
   'icicle',
   'dewdrops',
+  'mooncrater',
+  'starfield',
+  'nebula',
   'sandstone',
   'travertine',
   'pumice',
@@ -4869,6 +4872,9 @@ describe('periodic procedural material fields', () => {
     ['snowdrift', [2, 4, 32, 64]],
     ['icicle', [6, 24, 32, 64]],
     ['dewdrops', [12, 24, 32, 64]],
+    ['mooncrater', [6, 32, 48, 64]],
+    ['starfield', [12, 24, 32, 64]],
+    ['nebula', [3, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5103,6 +5109,9 @@ describe('periodic procedural material fields', () => {
     ['snowdrift', 2],
     ['icicle', 6],
     ['dewdrops', 12],
+    ['mooncrater', 6],
+    ['starfield', 12],
+    ['nebula', 3],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -9068,6 +9077,75 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(small.height + 0.05 * relief);
       expect(small.height).toBeGreaterThan(leaf.height + 0.05 * relief);
       expect(surface.occlusion).toBeGreaterThan(leaf.occlusion);
+    }
+  });
+
+  it('moon crater rims rise over the surface around sunken bowls', () => {
+    const relief = proceduralMaterialPresets.mooncrater.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const ground = { ...surface },
+      bowl = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('mooncrater', seed);
+      sample(0.25, 1 / 6, surface);
+      sample(0, 0, ground);
+      sample(1 / 6, 1 / 6, bowl);
+      expect(surface.height).toBeGreaterThan(ground.height + 0.1 * relief);
+      expect(ground.height).toBeGreaterThan(bowl.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(bowl.occlusion);
+    }
+  });
+
+  it('star field twinkles stars and dust over the nebula base', () => {
+    const relief = proceduralMaterialPresets.starfield.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const dust = { ...surface },
+      base = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('starfield', seed);
+      sample(1 / 24, 1 / 24, surface);
+      sample(1 / 48, 1 / 48, dust);
+      sample(0.031, 0.37, base);
+      expect(surface.height).toBeGreaterThan(dust.height + 0.05 * relief);
+      expect(dust.height).toBeGreaterThan(base.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('nebula flows bright swirl bands around dark dust lanes', () => {
+    const relief = proceduralMaterialPresets.nebula.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('nebula', seed);
+      let high = 0,
+        low = 1;
+      for (let i = 0; i < 24; i++) {
+        sample(i / 24, 0.37, surface);
+        high = Math.max(high, surface.height);
+        low = Math.min(low, surface.height);
+      }
+      expect(high - low).toBeGreaterThan(0.12 * relief);
     }
   });
 

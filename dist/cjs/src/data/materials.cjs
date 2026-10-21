@@ -1518,6 +1518,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .36,
 		relief: .003
 	}),
+	mooncrater: Object.freeze({
+		dark: [
+			92,
+			92,
+			102
+		],
+		light: [
+			212,
+			212,
+			218
+		],
+		roughness: .82,
+		relief: .005
+	}),
+	starfield: Object.freeze({
+		dark: [
+			12,
+			16,
+			42
+		],
+		light: [
+			222,
+			232,
+			255
+		],
+		roughness: .42,
+		relief: .002
+	}),
+	nebula: Object.freeze({
+		dark: [
+			42,
+			22,
+			62
+		],
+		light: [
+			188,
+			132,
+			222
+		],
+		roughness: .52,
+		relief: .003
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3279,6 +3321,9 @@ var proceduralTileMeters = Object.freeze({
 	snowdrift: .9,
 	icicle: .24,
 	dewdrops: .06,
+	mooncrater: .6,
+	starfield: .3,
+	nebula: .45,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

@@ -654,6 +654,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.36;
         relief: 0.003;
     }>;
+    mooncrater: Readonly<{
+        dark: readonly [92, 92, 102];
+        light: readonly [212, 212, 218];
+        roughness: 0.82;
+        relief: 0.005;
+    }>;
+    starfield: Readonly<{
+        dark: readonly [12, 16, 42];
+        light: readonly [222, 232, 255];
+        roughness: 0.42;
+        relief: 0.002;
+    }>;
+    nebula: Readonly<{
+        dark: readonly [42, 22, 62];
+        light: readonly [188, 132, 222];
+        roughness: 0.52;
+        relief: 0.003;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1504,6 +1522,9 @@ export declare const proceduralTileMeters: Readonly<{
     snowdrift: 0.9;
     icicle: 0.24;
     dewdrops: 0.06;
+    mooncrater: 0.6;
+    starfield: 0.3;
+    nebula: 0.45;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

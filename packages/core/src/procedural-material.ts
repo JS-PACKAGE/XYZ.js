@@ -115,6 +115,9 @@ export type ProceduralMaterialKind =
   | 'snowdrift'
   | 'icicle'
   | 'dewdrops'
+  | 'mooncrater'
+  | 'starfield'
+  | 'nebula'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -369,6 +372,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'snowdrift',
   'icicle',
   'dewdrops',
+  'mooncrater',
+  'starfield',
+  'nebula',
   'sandstone',
   'travertine',
   'pumice',

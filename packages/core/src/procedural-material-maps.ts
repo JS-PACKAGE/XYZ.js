@@ -6073,6 +6073,76 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - big) - 0.12 * (1 - small) * (1 - big);
         break;
       }
+      case 'mooncrater': {
+        // Crater rims rise over the surface around their sunken bowls.
+        const bu = fract(u * 3) - 0.5,
+          bv = fract(v * 3) - 0.5;
+        const big = Math.sqrt(bu * bu + bv * bv);
+        const bigRim =
+          smooth(clamp((0.3 - big) / 0.06)) * smooth(clamp((big - 0.2) / 0.06));
+        const bigBowl = smooth(clamp((0.2 - big) / 0.08));
+        const su = fract(u * 6) - 0.5,
+          sv = fract(v * 6) - 0.5;
+        const small = Math.sqrt(su * su + sv * sv);
+        const smallRim =
+          smooth(clamp((0.16 - small) / 0.04)) *
+          smooth(clamp((small - 0.1) / 0.04));
+        const smallBowl = smooth(clamp((0.1 - small) / 0.05));
+        const grain = noise(u, v, 32, 32, seed ^ 0x61c8);
+        color =
+          0.5 +
+          0.24 * bigRim +
+          0.12 * smallRim -
+          0.16 * bigBowl -
+          0.1 * smallBowl +
+          0.08 * grain;
+        height =
+          0.46 +
+          0.24 * bigRim +
+          0.12 * smallRim -
+          0.2 * bigBowl -
+          0.1 * smallBowl +
+          0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) + 0.08 * bigBowl;
+        occlusion =
+          1 -
+          0.3 * bigBowl -
+          0.16 * smallBowl -
+          0.12 * (1 - bigRim - smallRim + bigRim * smallRim);
+        break;
+      }
+      case 'starfield': {
+        // Bright stars and dust points twinkle over the nebula base.
+        const bu = fract(u * 12) - 0.5,
+          bv = fract(v * 12) - 0.5;
+        const star = smooth(
+          clamp((0.08 - Math.sqrt(bu * bu + bv * bv)) / 0.035),
+        );
+        const su = fract(u * 24) - 0.5,
+          sv = fract(v * 24) - 0.5;
+        const dust = smooth(
+          clamp((0.05 - Math.sqrt(su * su + sv * sv)) / 0.025),
+        );
+        const haze = noise(u, v, 3, 3, seed ^ 0x17f2);
+        const grain = noise(u, v, 40, 40, seed ^ 0x4d3a);
+        color = 0.26 + 0.38 * star + 0.18 * dust + 0.07 * haze + 0.05 * grain;
+        height = 0.42 + 0.3 * star + 0.16 * dust + 0.06 * haze + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.18 * star;
+        occlusion = 1 - 0.2 * (1 - star) * (1 - dust);
+        break;
+      }
+      case 'nebula': {
+        // Bright swirl bands flow around the dark dust lanes.
+        const warp = noise(u, v, 3, 3, seed ^ 0x5a2d) - 0.5;
+        const band = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 3 * v + 1.2 * warp));
+        const detail = noise(u, v, 12, 12, seed ^ 0x36e4);
+        const grain = noise(u, v, 32, 32, seed ^ 0x2fb1);
+        color = 0.42 + 0.34 * band + 0.1 * detail + 0.06 * grain;
+        height = 0.44 + 0.28 * band + 0.05 * detail + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * band;
+        occlusion = 1 - 0.24 * (1 - band);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
