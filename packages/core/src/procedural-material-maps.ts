@@ -5979,6 +5979,58 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.42 * (1 - face) - 0.1 * (1 - caustic);
         break;
       }
+      case 'envelope': {
+        // Crosshatch ridges frame the recessed flap seam.
+        const d1 = Math.abs(fract((u + v) * 10) - 0.5),
+          d2 = Math.abs(fract((u - v) * 10) - 0.5);
+        const hatchA = smooth(clamp((0.14 - d1) / 0.07));
+        const hatchB = smooth(clamp((0.14 - d2) / 0.07));
+        const cover = hatchA + hatchB - hatchA * hatchB;
+        const seam =
+          smooth(clamp((0.03 - Math.abs(u - 0.5)) / 0.02)) * (1 - cover);
+        const fiber = noise(u, v, 48, 48, seed ^ 0x2e4c);
+        color = 0.5 + 0.24 * cover + 0.06 * fiber;
+        height = 0.46 + 0.12 * cover - 0.14 * seam + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.06 * cover;
+        occlusion = 1 - 0.28 * (1 - cover) - 0.3 * seam;
+        break;
+      }
+      case 'chalkboard': {
+        // A frame band surrounds streaked slate between clean passes.
+        const edgeU = 0.5 - Math.abs(fract(u) - 0.5),
+          edgeV = 0.5 - Math.abs(fract(v) - 0.5);
+        const frame =
+          1 -
+          (1 - smooth(clamp((0.08 - edgeU) / 0.04))) *
+            (1 - smooth(clamp((0.08 - edgeV) / 0.04)));
+        const warp = noise(u, v, 6, 6, seed ^ 0x55ea) - 0.5;
+        const streak = 0.5 + 0.5 * Math.cos(TAU * 3 * (v + 0.02 * warp));
+        const grain = noise(u, v, 32, 32, seed ^ 0x1c08);
+        color = 0.34 + 0.3 * frame + 0.12 * streak + 0.06 * grain;
+        height = 0.44 + 0.24 * frame + 0.04 * streak + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.08 * frame;
+        occlusion = 1 - 0.3 * (1 - frame) - 0.08 * (1 - streak);
+        break;
+      }
+      case 'corkboard': {
+        // Cork granules rise over the board with deep pin holes.
+        const row = Math.floor(v * 8);
+        const offset = (row % 2) * 0.5;
+        const du = fract(u * 8 + offset) - 0.5,
+          dv = fract(v * 8) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const warp = noise(u, v, 8, 8, seed ^ 0x6b37) - 0.5;
+        const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
+        const pu = fract(u * 4) - 0.5,
+          pv = fract(v * 4) - 0.5;
+        const pit = smooth(clamp((0.07 - Math.sqrt(pu * pu + pv * pv)) / 0.03));
+        const grain = noise(u, v, 48, 48, seed ^ 0x3a52);
+        color = 0.42 + 0.26 * clump - 0.2 * pit + 0.08 * grain;
+        height = 0.44 + 0.2 * clump - 0.26 * pit + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.06 * clump;
+        occlusion = 1 - 0.3 * (1 - clump) - 0.45 * pit;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

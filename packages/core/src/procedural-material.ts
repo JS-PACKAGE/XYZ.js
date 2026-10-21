@@ -109,6 +109,9 @@ export type ProceduralMaterialKind =
   | 'runningtrack'
   | 'bouldermat'
   | 'pooltile'
+  | 'envelope'
+  | 'chalkboard'
+  | 'corkboard'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -357,6 +360,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'runningtrack',
   'bouldermat',
   'pooltile',
+  'envelope',
+  'chalkboard',
+  'corkboard',
   'sandstone',
   'travertine',
   'pumice',

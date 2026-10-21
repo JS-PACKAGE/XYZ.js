@@ -1434,6 +1434,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .3,
 		relief: .003
 	}),
+	envelope: Object.freeze({
+		dark: [
+			188,
+			172,
+			142
+		],
+		light: [
+			248,
+			238,
+			214
+		],
+		roughness: .82,
+		relief: .0028
+	}),
+	chalkboard: Object.freeze({
+		dark: [
+			32,
+			48,
+			44
+		],
+		light: [
+			122,
+			142,
+			132
+		],
+		roughness: .72,
+		relief: .0035
+	}),
+	corkboard: Object.freeze({
+		dark: [
+			142,
+			102,
+			58
+		],
+		light: [
+			222,
+			182,
+			122
+		],
+		roughness: .88,
+		relief: .0045
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3189,6 +3231,9 @@ var proceduralTileMeters = Object.freeze({
 	runningtrack: .9,
 	bouldermat: .6,
 	pooltile: .24,
+	envelope: .12,
+	chalkboard: .6,
+	corkboard: .18,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

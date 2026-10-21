@@ -1681,6 +1681,21 @@ function createSurfaceSampler(t, r) {
 				H = .4 + .3 * i + .14 * a + .06 * s, Z = .44 + .2 * i + .1 * a + .02 * s, Q += .05 * (s - .5) - .12 * i, $ = 1 - .42 * (1 - i) - .1 * (1 - a);
 				break;
 			}
+			case `envelope`: {
+				let e = Math.abs(fract((o + A) * 10) - .5), t = Math.abs(fract((o - A) * 10) - .5), n = smooth(clamp((.14 - e) / .07)), i = smooth(clamp((.14 - t) / .07)), a = n + i - n * i, s = smooth(clamp((.03 - Math.abs(o - .5)) / .02)) * (1 - a), c = noise(o, A, 48, 48, r ^ 11852);
+				H = .5 + .24 * a + .06 * c, Z = .46 + .12 * a - .14 * s + .02 * c, Q += .05 * (c - .5) - .06 * a, $ = 1 - .28 * (1 - a) - .3 * s;
+				break;
+			}
+			case `chalkboard`: {
+				let e = .5 - Math.abs(fract(o) - .5), t = .5 - Math.abs(fract(A) - .5), i = 1 - (1 - smooth(clamp((.08 - e) / .04))) * (1 - smooth(clamp((.08 - t) / .04))), a = noise(o, A, 6, 6, r ^ 21994) - .5, s = .5 + .5 * Math.cos(n * 3 * (A + .02 * a)), c = noise(o, A, 32, 32, r ^ 7176);
+				H = .34 + .3 * i + .12 * s + .06 * c, Z = .44 + .24 * i + .04 * s + .03 * c, Q += .05 * (c - .5) - .08 * i, $ = 1 - .3 * (1 - i) - .08 * (1 - s);
+				break;
+			}
+			case `corkboard`: {
+				let e = Math.floor(A * 8) % 2 * .5, t = fract(o * 8 + e) - .5, n = fract(A * 8) - .5, s = smooth(clamp((.34 - (Math.sqrt(t * t + n * n) + .08 * (noise(o, A, 8, 8, r ^ 27447) - .5))) / .12)), c = fract(o * 4) - .5, l = fract(A * 4) - .5, u = smooth(clamp((.07 - Math.sqrt(c * c + l * l)) / .03)), d = noise(o, A, 48, 48, r ^ 14930);
+				H = .42 + .26 * s - .2 * u + .08 * d, Z = .44 + .2 * s - .26 * u + .03 * d, Q += .05 * (d - .5) - .06 * s, $ = 1 - .3 * (1 - s) - .45 * u;
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

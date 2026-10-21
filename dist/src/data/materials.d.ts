@@ -618,6 +618,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.3;
         relief: 0.003;
     }>;
+    envelope: Readonly<{
+        dark: readonly [188, 172, 142];
+        light: readonly [248, 238, 214];
+        roughness: 0.82;
+        relief: 0.0028;
+    }>;
+    chalkboard: Readonly<{
+        dark: readonly [32, 48, 44];
+        light: readonly [122, 142, 132];
+        roughness: 0.72;
+        relief: 0.0035;
+    }>;
+    corkboard: Readonly<{
+        dark: readonly [142, 102, 58];
+        light: readonly [222, 182, 122];
+        roughness: 0.88;
+        relief: 0.0045;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1462,6 +1480,9 @@ export declare const proceduralTileMeters: Readonly<{
     runningtrack: 0.9;
     bouldermat: 0.6;
     pooltile: 0.24;
+    envelope: 0.12;
+    chalkboard: 0.6;
+    corkboard: 0.18;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

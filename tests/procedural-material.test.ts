@@ -127,6 +127,9 @@ const kinds: ProceduralMaterialKind[] = [
   'runningtrack',
   'bouldermat',
   'pooltile',
+  'envelope',
+  'chalkboard',
+  'corkboard',
   'sandstone',
   'travertine',
   'pumice',
@@ -4857,6 +4860,9 @@ describe('periodic procedural material fields', () => {
     ['runningtrack', [1, 32, 48, 64]],
     ['bouldermat', [4, 32, 48, 64]],
     ['pooltile', [8, 32, 48, 64]],
+    ['envelope', [10, 32, 48, 64]],
+    ['chalkboard', [3, 32, 48, 64]],
+    ['corkboard', [8, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5085,6 +5091,9 @@ describe('periodic procedural material fields', () => {
     ['runningtrack', 1],
     ['bouldermat', 4],
     ['pooltile', 8],
+    ['envelope', 10],
+    ['chalkboard', 3],
+    ['corkboard', 8],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8915,6 +8924,75 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(grout.height + 0.08 * relief);
       expect(crest.height).toBeGreaterThan(trough.height + 0.03 * relief);
       expect(surface.occlusion).toBeGreaterThan(grout.occlusion);
+    }
+  });
+
+  it('envelope crests crosshatch ridges over the recessed flap seam', () => {
+    const relief = proceduralMaterialPresets.envelope.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const paper = { ...surface },
+      seam = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('envelope', seed);
+      sample(0.05, 0, surface);
+      sample(0.1, 0.1, paper);
+      sample(0.5, 0.3, seam);
+      expect(surface.height).toBeGreaterThan(paper.height + 0.04 * relief);
+      expect(paper.height).toBeGreaterThan(seam.height + 0.05 * relief);
+      expect(paper.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('chalkboard frames streaked slate above clean passes', () => {
+    const relief = proceduralMaterialPresets.chalkboard.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const streak = { ...surface },
+      clean = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('chalkboard', seed);
+      sample(0.02, 0.5, surface);
+      sample(0.5, 1 / 3, streak);
+      sample(0.5, 1 / 6, clean);
+      expect(surface.height).toBeGreaterThan(streak.height + 0.08 * relief);
+      expect(streak.height).toBeGreaterThan(clean.height + 0.01 * relief);
+      expect(surface.occlusion).toBeGreaterThan(clean.occlusion);
+    }
+  });
+
+  it('cork board lifts granules over the board with deep pin holes', () => {
+    const relief = proceduralMaterialPresets.corkboard.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...surface },
+      pit = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('corkboard', seed);
+      sample(1 / 16, 1 / 16, surface);
+      sample(0, 0, base);
+      sample(1 / 8, 1 / 8, pit);
+      expect(surface.height).toBeGreaterThan(base.height + 0.08 * relief);
+      expect(base.height).toBeGreaterThan(pit.height + 0.1 * relief);
+      expect(pit.occlusion).toBeLessThan(base.occlusion);
     }
   });
 
