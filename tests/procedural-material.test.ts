@@ -1814,8 +1814,9 @@ describe('periodic procedural material fields', () => {
       }
     });
 
-    it('lily pigment spots are elongated, varied and not carved holes', () => {
-      for (const seed of [1, 123, 0xffffffff]) {
+    it.each([1, 123, 0xffffffff])(
+      'lily pigment spots are elongated, varied and not carved holes (seed %i)',
+      (seed) => {
         const at = field('lilypetal', seed);
         let acrossEnergy = 0,
           alongEnergy = 0,
@@ -1867,8 +1868,8 @@ describe('periodic procedural material fields', () => {
         expect(
           Math.max(...centerTones) - Math.min(...centerTones),
         ).toBeGreaterThan(0.05);
-      }
-    });
+      },
+    );
 
     it('fritillary alternates purple and cream in both directions without checker relief', () => {
       for (const seed of [1, 123, 0xffffffff]) {
@@ -5131,6 +5132,9 @@ describe('periodic procedural material fields', () => {
       };
       const b = { ...a };
       const epsilon = 1e-7 / cells;
+      const keys = Object.keys(a) as (keyof SurfaceSample)[];
+      let maximumJump = 0;
+      let maximumSlopeResidual = 0;
       for (const seed of [1, 123, 0xffffffff]) {
         const sample = createSurfaceSampler(kind, seed);
         for (let edge = 0; edge <= cells; edge++)
@@ -5142,16 +5146,19 @@ describe('periodic procedural material fields', () => {
                 dv = axis === 1 ? epsilon : 0;
               sample(u - du, v - dv, a);
               sample(u + du, v + dv, b);
-              for (const key of Object.keys(a) as (keyof SurfaceSample)[])
-                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+              for (const key of keys)
+                maximumJump = Math.max(maximumJump, Math.abs(a[key] - b[key]));
               const left = a.height,
                 right = b.height;
               sample(u, v, a);
-              expect(
+              maximumSlopeResidual = Math.max(
+                maximumSlopeResidual,
                 Math.abs(right - 2 * a.height + left) / epsilon,
-              ).toBeLessThan(0.001);
+              );
             }
       }
+      expect(maximumJump).toBeLessThan(0.001);
+      expect(maximumSlopeResidual).toBeLessThan(0.001);
     },
   );
 

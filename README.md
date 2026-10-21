@@ -4,7 +4,7 @@ Browser-native TypeScript game engine for 2D and 3D.
 
 [繁體中文](#繁體中文) · [English](#english) · [日本語](#日本語)
 
-**1.19.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
+**1.20.0 · [Apache-2.0](LICENSE) · npm 尚未發佈 / not published / 未公開**
 
 ## 繁體中文
 
@@ -37,10 +37,10 @@ npx pnpm@12.6.0 build
 npx pnpm@12.6.0 pack
 ```
 
-將產生的 `xyz.js-1.19.0.tgz` 複製到你的專案，再於該專案安裝：
+將產生的 `xyz.js-1.20.0.tgz` 複製到你的專案，再於該專案安裝：
 
 ```sh
-npx pnpm@12.6.0 add ./xyz.js-1.19.0.tgz
+npx pnpm@12.6.0 add ./xyz.js-1.20.0.tgz
 ```
 
 在可解析 `xyz.js` 的 TypeScript／bundler 專案中，先加入畫布：
@@ -110,7 +110,7 @@ npx pnpm@12.6.0 lint
 npx pnpm@12.6.0 format:check
 ```
 
-`npx pnpm@12.6.0 docs:api` 產生可搜尋的 API 文件；`npx pnpm@12.6.0 build:site` 建置範例與文件網站至 `.vite/site/`，文件入口為 `docs/`，API 位於 `api/1.19.0/`。部署時保留整個網站目錄，並以支援 directory index 的 HTTP／HTTPS 伺服器提供。
+`npx pnpm@12.6.0 docs:api` 產生可搜尋的 API 文件；`npx pnpm@12.6.0 build:site` 建置範例與文件網站至 `.vite/site/`，文件入口為 `docs/`，API 位於 `api/1.20.0/`。部署時保留整個網站目錄，並以支援 directory index 的 HTTP／HTTPS 伺服器提供。
 
 README 只提供入門與導覽；各版本的階段紀錄、測試數與效能量測留在驗收文件，不視為目前版本的通用保證。
 

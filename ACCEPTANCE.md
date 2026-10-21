@@ -4088,3 +4088,32 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   歷史內容保留；README 繼續維持簡短四分類。依使用者最新指示，
   此組獨立提交後停止新增；本組不 push。
 - `[Rendering]` `iridescenceFilmRange` 由 `src/data/materials.ts` 移到 `src/data/rendering.ts`（與其他原生材質 ABI 常數同處），PBRMaterial 與 WebGL2 改由此匯入。原本只為這一個常數就把整份程序材質 preset（`Object.freeze` 無法 tree-shake）拉進每個啟動 bundle。Game＋Scene＋Sprite 的 Canvas2D consumer：initial 707493／187217 → 675637／180569 bytes（minified／gzip），startup 792149／212719 → 760293／206068，離啟動 gzip 上限 214168 的餘裕由約 1.4 KB 增為約 8.1 KB。另一方的 `64ebc6de [Materials]` 已一併帶走本變更在 materials.ts 的刪除，該 commit 單獨無法通過型別檢查；本 commit 補上其餘部分。build、tree-shaking／API 檢查與完整測試（2258 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
+
+## v1.20.0 發佈準備
+
+- 使用者確認版本為 v1.20.0，授權推送及 GitHub Release；不做 npm
+  publish、不移動歷史 tags。隔離工作目錄整合本機已提交功能與
+  遠端 main 的 Vite 8.3.3 更新，保留共享目錄未提交修改。
+- package metadata、README 共用版本及中／英技術與操作文件同步；
+  PLAN／DESIGN 僅更新目前版本與授權，歷史驗收原文保留。
+  修改的文件連結與基準一致。
+- 補齊 sprite quad fixture 的 destroy 契約。fallback 測試於 collection
+  載入正式 backend，避免冷轉譯超出測試期限後污染下一測試。
+  shader 全組合改為逐 variant 註冊，feature-independent vertex 僅查一次。
+  lily 三 seed 各自註冊；通用材質連續性檢查彙總最大 residual，
+  保留全部 seed／取樣點／欄位與原容限，移除熱迴圈 assertion 配置。
+  未延長 timeout、刪除覆蓋或修改正式 runtime 來繞過驗證。
+- 修正前完整 suite 有 fallback／shader 失敗，後續分別遇到 lily
+  與 pinecone 逾時；上述根因修正後，最終 177 檔、4480 測試全通過。
+  fallback／shader／sprite 專項 2231 通過；lily 三項、
+  通用邊界連續性 140 項通過。計數增加來自既有矩陣拆分，
+  不代表新增同等數量的功能。
+- frozen install、build、typecheck、lint、完整 format check 通過；
+  後續改動檔案另經格式檢查。API 相容性 737 exports／2810 directional
+  contracts／710 historical namespaces／五組 consumers 通過，
+  41 組 positive／negative compatibility cases 通過。
+- 真實 1.20.0 tarball 的 package hygiene 與 extracted consumer smoke
+  通過；distribution 檢查含 362 exports、ESM／CJS 身分隔離與實際
+  vendor voice validation 通過。完整 vendor 與授權保留。
+- 此處記錄本機發佈準備；GitHub CI／Release workflow 仍須通過原有
+  gates 才可發佈，不能把本機結果當作遠端發佈或新增裝置認證。

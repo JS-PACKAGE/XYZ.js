@@ -60,18 +60,15 @@ function missingEngineDefinitions(
   engineFunctions: ReadonlySet<string>,
 ): string[] {
   const definitions = shaderFunctionDefinitions(source, language);
-  const references = new Set(
-    Array.from(
-      source
-        .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
-        .matchAll(/\b([A-Za-z_]\w*)\s*\(/g),
-      (match) => match[1]!,
-    ),
-  );
-  // Full-source definitions identify engine functions without an intrinsic allowlist.
-  return [...references]
-    .filter((name) => engineFunctions.has(name) && !definitions.has(name))
-    .sort();
+  const missing = new Set<string>();
+  for (const match of source
+    .replace(/\/\*[\s\S]*?\*\/|\/\/[^\n]*/g, '')
+    .matchAll(/\b([A-Za-z_]\w*)\s*\(/g)) {
+    const name = match[1]!;
+    // Full-source definitions identify engine functions without an intrinsic allowlist.
+    if (engineFunctions.has(name) && !definitions.has(name)) missing.add(name);
+  }
+  return [...missing].sort();
 }
 
 function featureCombinationMatrix(): MeshShaderFeatures[] {
@@ -216,31 +213,50 @@ describe('mesh shader source variants', () => {
     ).toEqual([]);
   });
 
-  it('defines every referenced engine function across feature pairs and single-bit changes', () => {
+  describe('engine definitions across feature pairs and single-bit changes', () => {
     const glslFunctions = new Set([
       ...shaderFunctionDefinitions(meshVertex, 'glsl'),
       ...shaderFunctionDefinitions(meshFragment, 'glsl'),
     ]);
     const wgslFunctions = shaderFunctionDefinitions(webgpuMeshShader, 'wgsl');
     const variants = featureCombinationMatrix();
-    const switches =
-      Object.keys(meshShaderFeatures(new PBRMaterial({ texture }))).length - 2;
-    expect(variants).toHaveLength(
-      2 * 2 * 2 * (1 + switches + (switches * (switches - 1)) / 2),
+
+    it('covers the full feature combination matrix', () => {
+      const switches =
+        Object.keys(meshShaderFeatures(new PBRMaterial({ texture }))).length -
+        2;
+      expect(variants).toHaveLength(
+        2 * 2 * 2 * (1 + switches + (switches * (switches - 1)) / 2),
+      );
+    });
+
+    // The vertex source is feature-independent, so check it only once.
+    it('defines every referenced engine function in the GLSL vertex source', () => {
+      expect(
+        missingEngineDefinitions(buildMeshVertex(), 'glsl', glslFunctions),
+        'GLSL vertex',
+      ).toEqual([]);
+    });
+
+    it.each(
+      variants.map((features) => ({
+        key: meshShaderVariantKey(features),
+        features,
+      })),
+    )(
+      'defines every referenced engine function for variant $key',
+      ({ key, features }) => {
+        for (const [stage, source, language, functions] of [
+          ['GLSL fragment', buildMeshFragment(features), 'glsl', glslFunctions],
+          ['WGSL', buildWebGPUMeshShader(features), 'wgsl', wgslFunctions],
+        ] as const) {
+          expect(
+            missingEngineDefinitions(source, language, functions),
+            `${stage} variant ${key}: ${JSON.stringify(features)}`,
+          ).toEqual([]);
+        }
+      },
     );
-    for (const features of variants) {
-      const key = meshShaderVariantKey(features);
-      for (const [stage, source, language, functions] of [
-        ['GLSL vertex', buildMeshVertex(), 'glsl', glslFunctions],
-        ['GLSL fragment', buildMeshFragment(features), 'glsl', glslFunctions],
-        ['WGSL', buildWebGPUMeshShader(features), 'wgsl', wgslFunctions],
-      ] as const) {
-        expect(
-          missingEngineDefinitions(source, language, functions),
-          `${stage} variant ${key}: ${JSON.stringify(features)}`,
-        ).toEqual([]);
-      }
-    }
   });
 
   it('composes engine physical hooks onto every physical variant without dropping engine code', () => {

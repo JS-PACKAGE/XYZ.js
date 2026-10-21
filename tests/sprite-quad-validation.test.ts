@@ -16,6 +16,9 @@ function nativeSource(): { -readonly [K in keyof Texture2DSource]: unknown } {
     height: 64,
     destroyed: false,
     version: 0,
+    destroy() {
+      this.destroyed = true;
+    },
   };
 }
 

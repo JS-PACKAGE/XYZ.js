@@ -3124,12 +3124,7 @@ var proceduralTileMeters = Object.freeze({
 	strawberry: .055,
 	lychee: .055
 });
-var iridescenceFilmRange = Object.freeze({
-	minNm: 100,
-	maxNm: 800
-});
 //#endregion
-exports.iridescenceFilmRange = iridescenceFilmRange;
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
 exports.proceduralMaterialPresets = proceduralMaterialPresets;
 exports.proceduralTileMeters = proceduralTileMeters;

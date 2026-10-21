@@ -6,6 +6,14 @@ import {
   UnsupportedGraphicsError,
 } from '../packages/graphics/src/index.js';
 
+// Load lazy backend modules during collection so cold transforms cannot time out
+// initialization and leave its fallback work running inside the next test.
+import '../packages/graphics/src/webgpu-renderer.js';
+import '../packages/graphics/src/webgl2-renderer.js';
+import '../packages/graphics/src/canvas2d-renderer.js';
+import '../packages/graphics/src/resilient-renderer.js';
+import '../packages/graphics/src/presented-renderer.js';
+
 class Canvas extends EventTarget {
   width = 64;
   height = 64;

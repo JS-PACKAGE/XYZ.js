@@ -1493,8 +1493,3 @@ export declare const proceduralTileMeters: Readonly<{
     strawberry: 0.055;
     lychee: 0.055;
 }>;
-/** Preserve the published normalized finish thickness; native packing uses nanometers. */
-export declare const iridescenceFilmRange: Readonly<{
-    minNm: 100;
-    maxNm: 800;
-}>;
