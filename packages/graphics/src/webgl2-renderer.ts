@@ -113,6 +113,11 @@ import {
   REFLECTION_FLOAT_COUNT,
   FOG_FLOAT_COUNT,
   LIGHTING_FLOAT_COUNT,
+  LIGHTING_POINT_ID_OFFSET,
+  POINT_LIGHT_OFFSET,
+  POINT_LIGHT_STRIDE,
+  SPOT_LIGHT_OFFSET,
+  SPOT_LIGHT_STRIDE,
   materialQuality,
   meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
@@ -212,6 +217,9 @@ void main() { color = vec4(vColor, 1.0); }`;
 import { ContactShadows } from '../../core/src/contact-shadows.js';
 import { hypot3 } from '../../math/src/hypot.js';
 
+const lightingSpots = `lighting[${SPOT_LIGHT_OFFSET / 4}]`;
+const lightingPointIds = `lighting[${LIGHTING_POINT_ID_OFFSET / 4}]`;
+
 const meshUniformNames = [
   'viewProjection',
   'model',
@@ -219,6 +227,8 @@ const meshUniformNames = [
   'skinned',
   'jointPalette',
   'lighting[0]',
+  lightingSpots,
+  lightingPointIds,
   'tint',
   'surface',
   'emission',
@@ -2731,7 +2741,30 @@ export class WebGL2Renderer implements Renderer {
           !sameLights(sent.spots, selected.spotLights)
         ) {
           fillLightingData(scene, this.lightingData, selected);
-          gl.uniform4fv(lighting, this.lightingData);
+          // Every shader read of the light block is bounded by its point/spot counts, so
+          // only the counted rows are sent; rows past them keep earlier, never-read values.
+          const pointCount = selected.pointLights.length,
+            spotCount = selected.spotLights.length;
+          gl.uniform4fv(
+            lighting,
+            this.lightingData,
+            0,
+            POINT_LIGHT_OFFSET + pointCount * POINT_LIGHT_STRIDE,
+          );
+          if (spotCount)
+            gl.uniform4fv(
+              uniforms[lightingSpots]!,
+              this.lightingData,
+              SPOT_LIGHT_OFFSET,
+              spotCount * SPOT_LIGHT_STRIDE,
+            );
+          if (pointCount)
+            gl.uniform4fv(
+              uniforms[lightingPointIds]!,
+              this.lightingData,
+              LIGHTING_POINT_ID_OFFSET,
+              Math.ceil(pointCount / 4) * 4,
+            );
           if (lighting) {
             const record = sent ?? { pass: 0, points: [], spots: [] };
             record.pass = this.lightingPass;
