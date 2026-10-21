@@ -258,6 +258,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.33;
         relief: 0.004;
     }>;
+    velvet: Readonly<{
+        dark: readonly [46, 10, 28];
+        light: readonly [166, 48, 88];
+        roughness: 0.62;
+        relief: 0.0012;
+    }>;
+    terrycloth: Readonly<{
+        dark: readonly [150, 146, 138];
+        light: readonly [250, 248, 242];
+        roughness: 0.95;
+        relief: 0.006;
+    }>;
+    boucle: Readonly<{
+        dark: readonly [122, 100, 76];
+        light: readonly [233, 216, 188];
+        roughness: 0.92;
+        relief: 0.005;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -717,6 +735,9 @@ export declare const proceduralTileMeters: Readonly<{
     perforatedmetal: 0.5;
     expandedmetal: 0.6;
     wiremesh: 0.09;
+    velvet: 0.12;
+    terrycloth: 0.09;
+    boucle: 0.16;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

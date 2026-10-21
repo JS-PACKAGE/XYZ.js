@@ -3024,3 +3024,29 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[Physics3D]` 減少每 step 的接觸管線配置，數值與事件順序不變：摩擦／反彈／質量改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；接觸 Map 以 keys＋get 走訪，不再為每個接觸配置解構用的 entry 陣列；BVH 查詢、自身配對與 broadphase 配對緩衝改以索引寫入後一次截斷，不再先清空（V8 清空即釋放 backing store，每 step 重新長大）；`active` 以計數保留儲存，step 開始時 debug snapshot 仍看不到上一步的接觸。Node 1000 剛體 bench 3.88 → 1.45 MiB／step，phys3d、cc3d、cc3dfuzz 1–3、ccbits、bake、crowd、joints、靜態多數查詢路徑 hash 皆不變，屬配置減少；新增 CCD 撞擊回呼中 debug snapshot 只含本 step 接觸的測試並經 mutation 驗證。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：絨面織物（velvet／terrycloth／boucle）
+
+- 新增細密平整直立絨面與柔和壓褶雲塊的色素／光澤變化、錯列隆起的
+  圓潤毛圈冠、紗節上隆起的環狀線圈與環心凹陷及紗節間開放凹槽。
+  本組快照由 111 增為 114 種；三者皆為 opaque dielectric，
+  metallic 通道與預設 factor 為 0，僅為表面 shading，
+  不新增布料 geometry、剪開線圈、displacement 或 SSS。
+- 原 111 種在 size 64/seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 通過；完整 Vitest 1888 個
+  測試中 1887 通過，唯一失敗為既有已知不穩定的 mesh-shader-variants
+  （單獨重跑 9/9 通過，且在本組變更前的基線亦曾在全套併行下失敗）。
+  絨面高度離散上界、毛圈冠與交錯半格位移、環圈 crest／環心／凹槽
+  高度序、support 邊界斜率連續性納入回歸。
+- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 111 種）逐一切換三者，
+  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  metallic 全為 0，roughness bytes 依序
+  141–173／229–249／231–254；每米 repeats 依序
+  8.333333／11.111111／6.25。
+  check:material-reference 通過，regression-browser chromium
+  webgl2 與 webgpu 通過。
+- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
+  只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
+  不納入本組。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

@@ -66,6 +66,9 @@ const kinds: ProceduralMaterialKind[] = [
   'perforatedmetal',
   'expandedmetal',
   'wiremesh',
+  'velvet',
+  'terrycloth',
+  'boucle',
   'sandstone',
   'travertine',
   'pumice',
@@ -795,6 +798,9 @@ describe('periodic procedural material fields', () => {
     ['perforatedmetal', [6, 12, 32]],
     ['expandedmetal', [5, 10, 32]],
     ['wiremesh', [12, 24, 32]],
+    ['velvet', [3, 5, 32, 96]],
+    ['terrycloth', [8, 10, 32]],
+    ['boucle', [6, 8, 32]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -949,6 +955,10 @@ describe('periodic procedural material fields', () => {
     ['perforatedmetal', 6],
     ['expandedmetal', 5],
     ['wiremesh', 12],
+    ['terrycloth', 8],
+    ['terrycloth', 10],
+    ['boucle', 6],
+    ['boucle', 8],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -2616,6 +2626,116 @@ describe('periodic procedural material fields', () => {
             expect(edge.height).toBeGreaterThan(gap.height);
             expect(gap.occlusion).toBeLessThan(crest.occlusion - 0.2);
           }
+    }
+  });
+
+  it('velvet keeps a flat fine pile while crush clouds shift pigment and sheen', () => {
+    const relief = proceduralMaterialPresets.velvet.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    let low = 1,
+      high = 0,
+      dark = 1,
+      light = 0,
+      matte = 1,
+      sheen = 0;
+    const sample = createSurfaceSampler('velvet', 123);
+    for (let i = 0; i < 480; i++) {
+      sample((i * 0.618) % 1, (i * 0.7549) % 1, surface);
+      low = Math.min(low, surface.height);
+      high = Math.max(high, surface.height);
+      dark = Math.min(dark, surface.color);
+      light = Math.max(light, surface.color);
+      matte = Math.min(matte, surface.roughness);
+      sheen = Math.max(sheen, surface.roughness);
+    }
+    expect(high - low).toBeLessThan(0.12 * relief);
+    expect(light - dark).toBeGreaterThan(0.15);
+    expect(sheen - matte).toBeGreaterThan(0.05);
+  });
+
+  it('terrycloth raises staggered loop crowns above the woven ground', () => {
+    const ground: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crown = { ...ground },
+      across = { ...ground },
+      shifted = { ...ground };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('terrycloth', seed);
+      for (const row of [0, 1, 5, 7])
+        for (const column of [0, 4, 9]) {
+          // Loop crowns stagger by half a cell on alternating rows.
+          const shift = (row % 2) * 0.5;
+          const cx = (column + 0.5 + shift) / 10,
+            cy = (row + 0.5) / 8;
+          sample(cx, cy, crown);
+          sample((column + 1 + shift) / 10, cy, across);
+          expect(crown.height).toBeGreaterThan(across.height);
+          expect(crown.occlusion).toBeGreaterThan(across.occlusion);
+          sample(
+            (column + 0.5 + ((row + 1) % 2) * 0.5) / 10,
+            (row + 1.5) / 8,
+            shifted,
+          );
+          sample((column + 0.5 + shift) / 10, (row + 1.5) / 8, ground);
+          expect(shifted.height).toBeGreaterThan(ground.height);
+        }
+    }
+  });
+
+  it('boucle curls raised loop rings over yarn courses above recessed channels', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      channel = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('boucle', seed);
+      for (const row of [0, 2, 5]) {
+        // A fine scan finds the annular crest on each yarn course.
+        let peak = 0,
+          peakX = 0;
+        for (let i = 0; i < 256; i++) {
+          const t = (i + 0.5) / 256;
+          sample(t, (row + 0.5) / 6, a);
+          if (a.height > peak) {
+            peak = a.height;
+            peakX = t * 8;
+          }
+        }
+        sample(0.5, (row + 1) / 6, channel);
+        expect(peak).toBeGreaterThan(channel.height);
+        // The ring crest encircles a lower center, still above the channel.
+        let inner = peak;
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            (peakX + 0.16 * Math.cos(angle)) / 8,
+            (row + 0.5 + 0.16 * Math.sin(angle)) / 6,
+            b,
+          );
+          if (b.height < inner) inner = b.height;
+        }
+        expect(inner).toBeLessThan(peak);
+        expect(inner).toBeGreaterThan(channel.height);
+      }
     }
   });
 

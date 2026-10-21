@@ -49,6 +49,9 @@ export type ProceduralMaterialKind =
   | 'perforatedmetal'
   | 'expandedmetal'
   | 'wiremesh'
+  | 'velvet'
+  | 'terrycloth'
+  | 'boucle'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -192,6 +195,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'perforatedmetal',
   'expandedmetal',
   'wiremesh',
+  'velvet',
+  'terrycloth',
+  'boucle',
   'sandstone',
   'travertine',
   'pumice',

@@ -2347,6 +2347,80 @@ export function createSurfaceSampler(
         occlusion = 0.36 + 0.56 * top + 0.18 * exposed;
         break;
       }
+      case 'velvet': {
+        // Dense upright pile stays flat while soft crush clouds shift the
+        // nap's pigment and sheen without introducing hard pile edges.
+        const crush = noise(u, v, 5, 5, seed ^ 0x7c31);
+        const drift = noise(u, v, 3, 9, seed ^ 0x2a17);
+        const nap = noise(u, v, 96, 96, seed ^ 0x5f2d);
+        color = 0.3 + 0.32 * crush + 0.12 * nap;
+        height = 0.42 + 0.06 * crush + 0.05 * nap;
+        roughness += 0.12 * (crush - 0.5) + 0.035 * (drift - 0.5);
+        occlusion = 0.92 + 0.06 * crush;
+        break;
+      }
+      case 'terrycloth': {
+        const columns = 10,
+          rows = 8;
+        const x = u * columns,
+          y = v * rows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Even row counts keep the staggered half-cell loop lattice periodic.
+        let loops = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const shift = (((cy % 2) + 2) % 2) * 0.5;
+            const dx = x - cx - 0.5 - shift,
+              dy = y - cy - 0.5;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // Rounded loop crowns rise over the ground and vanish with
+            // zero slope before a discarded cell can matter.
+            const cap = clamp(1 - (distance / 0.36) ** 2);
+            loops += (1 - loops) * cap * cap;
+          }
+        color = 0.42 + 0.3 * loops + 0.16 * detail;
+        height = 0.3 + 0.62 * loops + 0.05 * detail;
+        roughness += 0.05 * (detail - 0.5) - 0.03 * loops;
+        occlusion = 0.62 + 0.35 * loops;
+        break;
+      }
+      case 'boucle': {
+        const rows = 6,
+          cells = 8;
+        const x = u * cells,
+          y = v * rows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Yarn courses run along u; squared caps round each course crown
+        // and meet the channel with zero slope at the half-row support.
+        const across = fract(y) - 0.5;
+        const span = clamp(1 - (across / 0.36) ** 2);
+        const yarn = span * span;
+        let rings = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % rows) + rows) % rows;
+            const dx = x - cx - 0.5 - 0.3 * (hash(wx, wy, seed ^ 0x6a2d) - 0.5),
+              dy = y - cy - 0.5 - 0.18 * (hash(wx, wy, seed ^ 0x33f1) - 0.5);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // Annular loop crests curl over the yarn around recessed
+            // centers and vanish with zero slope at the ring support.
+            const band = clamp(1 - ((distance - 0.16) / 0.075) ** 2);
+            rings += (1 - rings) * band * band;
+          }
+        const channel = 1 - yarn;
+        color = 0.36 + 0.34 * yarn + 0.14 * rings + 0.12 * detail;
+        height = 0.16 + 0.5 * yarn + 0.26 * rings + 0.04 * detail;
+        roughness += 0.06 * channel + 0.03 * (detail - 0.5);
+        occlusion = 0.58 + 0.3 * yarn + 0.1 * rings;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

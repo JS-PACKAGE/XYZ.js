@@ -666,6 +666,30 @@ function createSurfaceSampler(t, r) {
 				H = .3 + .46 * s + .2 * c + .08 * S, J = .08 + .78 * s + .34 * c + .03 * S, X += .04 * (1 - s) + .03 * (S - .5), Z = .36 + .56 * s + .18 * c;
 				break;
 			}
+			case `velvet`: {
+				let t = noise(e, o, 5, 5, r ^ 31793), n = noise(e, o, 3, 9, r ^ 10775), i = noise(e, o, 96, 96, r ^ 24365);
+				H = .3 + .32 * t + .12 * i, J = .42 + .06 * t + .05 * i, X += .12 * (t - .5) + .035 * (n - .5), Z = .92 + .06 * t;
+				break;
+			}
+			case `terrycloth`: {
+				let t = e * 10, n = o * 8, r = Math.floor(t), i = Math.floor(n), a = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let s = r + o, c = i + e, l = (c % 2 + 2) % 2 * .5, u = t - s - .5 - l, d = n - c - .5, p = clamp(1 - (Math.sqrt(u * u + d * d) / .36) ** 2);
+					a += (1 - a) * p * p;
+				}
+				H = .42 + .3 * a + .16 * S, J = .3 + .62 * a + .05 * S, X += .05 * (S - .5) - .03 * a, Z = .62 + .35 * a;
+				break;
+			}
+			case `boucle`: {
+				let t = e * 8, n = o * 6, i = Math.floor(t), a = Math.floor(n), c = clamp(1 - ((fract(n) - .5) / .36) ** 2), l = c * c, u = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let s = i + o, c = a + e, l = (s % 8 + 8) % 8, d = (c % 6 + 6) % 6, f = t - s - .5 - .3 * (hash(l, d, r ^ 27181) - .5), p = n - c - .5 - .18 * (hash(l, d, r ^ 13297) - .5), h = clamp(1 - ((Math.sqrt(f * f + p * p) - .16) / .075) ** 2);
+					u += (1 - u) * h * h;
+				}
+				let d = 1 - l;
+				H = .36 + .34 * l + .14 * u + .12 * S, J = .16 + .5 * l + .26 * u + .04 * S, X += .06 * d + .03 * (S - .5), Z = .58 + .3 * l + .1 * u;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((V - .28) / .48)), d = (1 - V) ** 5;
 				H = .22 + .35 * s + .2 * l + .18 * u - .2 * c, J = .32 + .16 * s - .09 * c + .24 * u - .1 * d, X += .12 * (u - .5) + .05 * c, Z = .97 - .12 * c - .13 * d + .025 * u;
