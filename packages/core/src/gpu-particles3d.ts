@@ -79,6 +79,10 @@ export class GPUParticleEmitter3D extends Object3D {
   private running = true;
   private frozen = false;
   private revision = 0;
+  /** Revision of the last change that may touch any slot (rebase, saturated shift, clear). */
+  private fullRevision = 0;
+  /** Slot of the latest admitted command: admits fill consecutive ring slots. */
+  private lastAdmitted = 0;
   private dropped = 0;
   private readonly resourceOwners = new Set<() => void>();
 
@@ -215,7 +219,7 @@ export class GPUParticleEmitter3D extends Object3D {
     this.head = 0;
     this.count = 0;
     this.fraction = 0;
-    this.revision++;
+    this.fullRevision = ++this.revision;
     this.releaseNative();
   }
 
@@ -267,7 +271,7 @@ export class GPUParticleEmitter3D extends Object3D {
                 this.commandWords[base + 1] =
                   (this.commandWords[base + 1] + cycles * period) >>> 0;
               }
-              this.revision++;
+              this.fullRevision = ++this.revision;
               this.dropped += cycles * (period - this.capacity);
               index += cycles * period;
               continue;
@@ -298,7 +302,7 @@ export class GPUParticleEmitter3D extends Object3D {
         this.commands[slot * GPU_PARTICLE_COMMAND_FLOATS] =
           this.births[slot] - epoch;
       }
-      this.revision++;
+      this.fullRevision = ++this.revision;
     }
   }
 
@@ -309,6 +313,26 @@ export class GPUParticleEmitter3D extends Object3D {
   /** @internal */
   get commandVersion(): number {
     return this.revision;
+  }
+  /**
+   * @internal Command slots written since `version`, an earlier `commandVersion`, as at most
+   * two ring ranges `[first, count, first, count]` in `out`; returns how many, or -1 when
+   * every slot must be resent. Only admits advance the revision without a full rewrite, and
+   * fewer admits than the capacity fill distinct consecutive slots ending at the latest.
+   */
+  changedCommandRanges(version: number, out: Int32Array): number {
+    const changed = this.revision - version;
+    if (version < this.fullRevision || changed >= this.capacity) return -1;
+    if (changed === 0) return 0;
+    const first =
+      (this.lastAdmitted - changed + 1 + this.capacity) % this.capacity;
+    const leading = Math.min(changed, this.capacity - first);
+    out[0] = first;
+    out[1] = leading;
+    if (leading === changed) return 1;
+    out[2] = 0;
+    out[3] = changed - leading;
+    return 2;
   }
   /** @internal */
   get commandHead(): number {
@@ -350,6 +374,7 @@ export class GPUParticleEmitter3D extends Object3D {
     this.commandWords[base + 1] = sequence >>> 0;
     this.commands.set(this.worldMatrix.elements, base + 4);
     this.count++;
+    this.lastAdmitted = slot;
     this.revision++;
   }
   private releaseNative(): void {

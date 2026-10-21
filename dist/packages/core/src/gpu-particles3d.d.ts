@@ -50,6 +50,10 @@ export declare class GPUParticleEmitter3D extends Object3D {
     private running;
     private frozen;
     private revision;
+    /** Revision of the last change that may touch any slot (rebase, saturated shift, clear). */
+    private fullRevision;
+    /** Slot of the latest admitted command: admits fill consecutive ring slots. */
+    private lastAdmitted;
     private dropped;
     private readonly resourceOwners;
     constructor(options: GPUParticleEmitter3DOptions);
@@ -71,6 +75,13 @@ export declare class GPUParticleEmitter3D extends Object3D {
     get commandData(): Float32Array;
     /** @internal */
     get commandVersion(): number;
+    /**
+     * @internal Command slots written since `version`, an earlier `commandVersion`, as at most
+     * two ring ranges `[first, count, first, count]` in `out`; returns how many, or -1 when
+     * every slot must be resent. Only admits advance the revision without a full rewrite, and
+     * fewer admits than the capacity fill distinct consecutive slots ending at the latest.
+     */
+    changedCommandRanges(version: number, out: Int32Array): number;
     /** @internal */
     get commandHead(): number;
     /** @internal */

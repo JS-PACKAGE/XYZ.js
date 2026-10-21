@@ -6,6 +6,7 @@ export declare class WebGL2Particles3D {
     private readonly gl;
     private readonly stats;
     private readonly buffers;
+    private readonly ranges;
     private readonly uniforms;
     private readonly program;
     private frame;
@@ -21,6 +22,8 @@ export declare class WebGL2Particles3D {
     clear(): void;
     /** Loss/restoration uses a fresh module/program; retained commands rebuild lazily. */
     destroy(): void;
+    /** Sends the slots written since this entry's version into the bound ARRAY_BUFFER. */
+    private uploadCommands;
     private drawRange;
     private allocate;
     private release;

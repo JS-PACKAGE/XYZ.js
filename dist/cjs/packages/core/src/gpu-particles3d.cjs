@@ -35,6 +35,8 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 	running = !0;
 	frozen = !1;
 	revision = 0;
+	fullRevision = 0;
+	lastAdmitted = 0;
 	dropped = 0;
 	resourceOwners = /* @__PURE__ */ new Set();
 	constructor(e) {
@@ -102,7 +104,7 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 		return this.sequence = this.sequence + e >>> 0, this.dropped += e - t, t;
 	}
 	clear() {
-		this.head = 0, this.count = 0, this.fraction = 0, this.revision++, this.releaseNative();
+		this.head = 0, this.count = 0, this.fraction = 0, this.fullRevision = ++this.revision, this.releaseNative();
 	}
 	updateSimulation(e) {
 		if (this.destroyed) return;
@@ -131,7 +133,7 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 								let a = i * 20;
 								this.commands[a] = this.births[i] - this.epoch, this.commandWords[a + 1] = this.commandWords[a + 1] + e * o >>> 0;
 							}
-							this.revision++, this.dropped += e * (o - this.capacity), a += e * o;
+							this.fullRevision = ++this.revision, this.dropped += e * (o - this.capacity), a += e * o;
 							continue;
 						}
 					}
@@ -149,7 +151,7 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 				let n = (this.head + e) % this.capacity;
 				this.commands[n * 20] = this.births[n] - i;
 			}
-			this.revision++;
+			this.fullRevision = ++this.revision;
 		}
 	}
 	get commandData() {
@@ -157,6 +159,13 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 	}
 	get commandVersion() {
 		return this.revision;
+	}
+	changedCommandRanges(e, t) {
+		let n = this.revision - e;
+		if (e < this.fullRevision || n >= this.capacity) return -1;
+		if (n === 0) return 0;
+		let r = (this.lastAdmitted - n + 1 + this.capacity) % this.capacity, i = Math.min(n, this.capacity - r);
+		return t[0] = r, t[1] = i, i === n ? 1 : (t[2] = 0, t[3] = n - i, 2);
 	}
 	get commandHead() {
 		return this.head;
@@ -178,7 +187,7 @@ var GPUParticleEmitter3D = class extends require_object3d.Object3D {
 	}
 	admit(e, n) {
 		let r = (this.head + this.count) % this.capacity, i = r * 20;
-		this.births[r] = e, this.commands[i] = e - this.epoch, this.commandWords[i + 1] = n >>> 0, this.commands.set(this.worldMatrix.elements, i + 4), this.count++, this.revision++;
+		this.births[r] = e, this.commands[i] = e - this.epoch, this.commandWords[i + 1] = n >>> 0, this.commands.set(this.worldMatrix.elements, i + 4), this.count++, this.lastAdmitted = r, this.revision++;
 	}
 	releaseNative() {
 		for (let e of this.resourceOwners) e();

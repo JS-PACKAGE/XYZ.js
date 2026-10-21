@@ -25,6 +25,7 @@ interface ParticleBuffers {
 /** GLSL ES 3.00 analytic instanced vertices; no CPU simulation/uploaded positions. */
 export class WebGL2Particles3D {
   private readonly buffers = new Map<GPUParticleEmitter3D, ParticleBuffers>();
+  private readonly ranges = new Int32Array(4);
   private readonly uniforms = new ParticleUniforms3D();
   private readonly program: WebGLProgram;
   private frame = 0;
@@ -102,9 +103,7 @@ export class WebGL2Particles3D {
       entry.prepared = true;
       if (entry.version !== emitter.commandVersion) {
         gl.bindBuffer(gl.ARRAY_BUFFER, entry.commands);
-        gl.bufferSubData(gl.ARRAY_BUFFER, 0, emitter.commandData);
-        this.stats.upload(emitter.commandData.byteLength);
-        entry.version = emitter.commandVersion;
+        this.uploadCommands(entry, emitter);
       }
     } finally {
       gl.bindVertexArray(vao);
@@ -186,11 +185,8 @@ export class WebGL2Particles3D {
         entry.seen = this.frame;
         gl.bindVertexArray(entry.vao);
         gl.bindBuffer(gl.ARRAY_BUFFER, entry.commands);
-        if (entry.version !== emitter.commandVersion) {
-          gl.bufferSubData(gl.ARRAY_BUFFER, 0, emitter.commandData);
-          this.stats.upload(emitter.commandData.byteLength);
-          entry.version = emitter.commandVersion;
-        }
+        if (entry.version !== emitter.commandVersion)
+          this.uploadCommands(entry, emitter);
         const data = this.uniforms.fill(emitter, camera, aspect, linear);
         gl.bindBuffer(gl.UNIFORM_BUFFER, entry.uniform);
         gl.bufferSubData(gl.UNIFORM_BUFFER, 0, data);
@@ -260,6 +256,26 @@ export class WebGL2Particles3D {
     this.disposed = true;
     this.clear();
     this.gl.deleteProgram(this.program);
+  }
+  /** Sends the slots written since this entry's version into the bound ARRAY_BUFFER. */
+  private uploadCommands(
+    entry: ParticleBuffers,
+    emitter: GPUParticleEmitter3D,
+  ): void {
+    const gl = this.gl,
+      data = emitter.commandData;
+    const count = emitter.changedCommandRanges(entry.version, this.ranges);
+    if (count < 0) {
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, data);
+      this.stats.upload(data.byteLength);
+    } else
+      for (let i = 0; i < count; i++) {
+        const first = this.ranges[i * 2]! * GPU_PARTICLE_COMMAND_FLOATS,
+          floats = this.ranges[i * 2 + 1]! * GPU_PARTICLE_COMMAND_FLOATS;
+        gl.bufferSubData(gl.ARRAY_BUFFER, first * 4, data, first, floats);
+        this.stats.upload(floats * 4);
+      }
+    entry.version = emitter.commandVersion;
   }
   private drawRange(first: number, count: number): void {
     const gl = this.gl;

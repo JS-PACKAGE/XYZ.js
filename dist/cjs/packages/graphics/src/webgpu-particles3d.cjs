@@ -9,6 +9,7 @@ var WebGPUParticles3D = class WebGPUParticles3D {
 	hdrPipeline;
 	stats;
 	buffers = /* @__PURE__ */ new Map();
+	ranges = /* @__PURE__ */ new Int32Array(4);
 	uniforms = new require_gpu_particles3d_data.ParticleUniforms3D();
 	frame = 0;
 	disposed = !1;
@@ -118,7 +119,16 @@ var WebGPUParticles3D = class WebGPUParticles3D {
 	prepare(e) {
 		if (this.disposed || e.destroyed) throw new require_errors.GraphicsError(`Cannot prepare destroyed GPU particles.`);
 		let t = this.buffers.get(e) ?? this.allocate(e);
-		t.prepared = !0, t.version !== e.commandVersion && (this.device.queue.writeBuffer(t.commands, 0, e.commandData.buffer, e.commandData.byteOffset, e.commandData.byteLength), this.stats.upload(e.commandData.byteLength), t.version = e.commandVersion);
+		t.prepared = !0, t.version !== e.commandVersion && this.uploadCommands(t, e);
+	}
+	uploadCommands(t, n) {
+		let r = n.commandData, i = n.changedCommandRanges(t.version, this.ranges);
+		if (i < 0) this.device.queue.writeBuffer(t.commands, 0, r.buffer, r.byteOffset, r.byteLength), this.stats.upload(r.byteLength);
+		else for (let n = 0; n < i; n++) {
+			let i = 80, a = this.ranges[n * 2] * i, o = this.ranges[n * 2 + 1] * i;
+			this.device.queue.writeBuffer(t.commands, a, r.buffer, r.byteOffset + a, o), this.stats.upload(o);
+		}
+		t.version = n.commandVersion;
 	}
 	draw(e, t, r, i, a = !1) {
 		if (this.disposed) throw new require_errors.GraphicsError(`GPU particle backend is destroyed.`);
@@ -138,7 +148,7 @@ var WebGPUParticles3D = class WebGPUParticles3D {
 				t && (t.seen = this.frame);
 				continue;
 			}
-			t ??= this.allocate(n), t.seen = this.frame, o ||= (e.setPipeline(a ? this.hdrPipeline : this.pipeline), !0), t.version !== n.commandVersion && (this.device.queue.writeBuffer(t.commands, 0, n.commandData.buffer, n.commandData.byteOffset, n.commandData.byteLength), this.stats.upload(n.commandData.byteLength), t.version = n.commandVersion);
+			t ??= this.allocate(n), t.seen = this.frame, o ||= (e.setPipeline(a ? this.hdrPipeline : this.pipeline), !0), t.version !== n.commandVersion && this.uploadCommands(t, n);
 			let s = this.uniforms.fill(n, r, i, a);
 			this.device.queue.writeBuffer(t.uniform, 0, s.buffer), this.stats.upload(s.byteLength), e.setBindGroup(0, t.group), e.setVertexBuffer(0, t.commands);
 			let c = Math.min(n.activeCount, n.capacity - n.commandHead);

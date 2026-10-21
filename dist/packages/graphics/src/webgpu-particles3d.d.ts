@@ -9,6 +9,7 @@ export declare class WebGPUParticles3D {
     private readonly hdrPipeline;
     private readonly stats;
     private readonly buffers;
+    private readonly ranges;
     private readonly uniforms;
     private frame;
     private disposed;
@@ -16,6 +17,8 @@ export declare class WebGPUParticles3D {
     static initialize(device: GPUDevice, format: GPUTextureFormat, sampleCount: number, stats: FrameStats): Promise<WebGPUParticles3D>;
     get nativeBufferCount(): number;
     prepare(emitter: GPUParticleEmitter3D): void;
+    /** Writes the slots changed since this entry's version; see changedCommandRanges. */
+    private uploadCommands;
     /** Main color/depth pass only, never a shadow or weighted accumulation pass. */
     draw(pass: GPURenderPassEncoder, emitters: Iterable<GPUParticleEmitter3D>, camera: Camera3D, aspect: number, linear?: boolean): void;
     /** Retire scene-excluded resources even when no color pass is opened. */

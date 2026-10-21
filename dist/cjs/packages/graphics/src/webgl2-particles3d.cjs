@@ -6,6 +6,7 @@ var WebGL2Particles3D = class {
 	gl;
 	stats;
 	buffers = /* @__PURE__ */ new Map();
+	ranges = /* @__PURE__ */ new Int32Array(4);
 	uniforms = new require_gpu_particles3d_data.ParticleUniforms3D();
 	program;
 	frame = 0;
@@ -40,7 +41,7 @@ var WebGL2Particles3D = class {
 		let r = t.getParameter(t.VERTEX_ARRAY_BINDING), i = t.getParameter(t.ARRAY_BUFFER_BINDING), a = t.getParameter(t.UNIFORM_BUFFER_BINDING);
 		try {
 			let n = this.buffers.get(e) ?? this.allocate(e);
-			n.prepared = !0, n.version !== e.commandVersion && (t.bindBuffer(t.ARRAY_BUFFER, n.commands), t.bufferSubData(t.ARRAY_BUFFER, 0, e.commandData), this.stats.upload(e.commandData.byteLength), n.version = e.commandVersion);
+			n.prepared = !0, n.version !== e.commandVersion && (t.bindBuffer(t.ARRAY_BUFFER, n.commands), this.uploadCommands(n, e));
 		} finally {
 			t.bindVertexArray(r), t.bindBuffer(t.ARRAY_BUFFER, i), t.bindBuffer(t.UNIFORM_BUFFER, a);
 		}
@@ -86,7 +87,7 @@ var WebGL2Particles3D = class {
 					e && (e.seen = this.frame);
 					continue;
 				}
-				e ??= this.allocate(n), e.seen = this.frame, a.bindVertexArray(e.vao), a.bindBuffer(a.ARRAY_BUFFER, e.commands), e.version !== n.commandVersion && (a.bufferSubData(a.ARRAY_BUFFER, 0, n.commandData), this.stats.upload(n.commandData.byteLength), e.version = n.commandVersion);
+				e ??= this.allocate(n), e.seen = this.frame, a.bindVertexArray(e.vao), a.bindBuffer(a.ARRAY_BUFFER, e.commands), e.version !== n.commandVersion && this.uploadCommands(e, n);
 				let o = this.uniforms.fill(n, t, r, i);
 				a.bindBuffer(a.UNIFORM_BUFFER, e.uniform), a.bufferSubData(a.UNIFORM_BUFFER, 0, o), a.bindBufferBase(a.UNIFORM_BUFFER, 0, e.uniform), this.stats.upload(o.byteLength);
 				let s = Math.min(n.activeCount, n.capacity - n.commandHead);
@@ -112,6 +113,15 @@ var WebGL2Particles3D = class {
 	}
 	destroy() {
 		this.disposed || (this.disposed = !0, this.clear(), this.gl.deleteProgram(this.program));
+	}
+	uploadCommands(t, n) {
+		let r = this.gl, i = n.commandData, a = n.changedCommandRanges(t.version, this.ranges);
+		if (a < 0) r.bufferSubData(r.ARRAY_BUFFER, 0, i), this.stats.upload(i.byteLength);
+		else for (let t = 0; t < a; t++) {
+			let n = this.ranges[t * 2] * 20, a = this.ranges[t * 2 + 1] * 20;
+			r.bufferSubData(r.ARRAY_BUFFER, n * 4, i, n, a), this.stats.upload(a * 4);
+		}
+		t.version = n.commandVersion;
 	}
 	drawRange(t, n) {
 		let r = this.gl, i = 80, a = t * i;

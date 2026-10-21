@@ -147,4 +147,66 @@ describe('GPU particle emission command lifecycle', () => {
     expect(commands(emitter)[0].age).toBeCloseTo(0.5);
     expect(commands(emitter)[0].sequence).toBe(sequence);
   });
+
+  it('reports changed command slots so a partial copy matches the whole buffer', () => {
+    const ranges = new Int32Array(4);
+    let wrapped = 0;
+    /** Consumers resynchronizing at different intervals, as separate renderers do. */
+    const consumers = (emitter: GPUParticleEmitter3D) => {
+      const mirrors = [1, 3, 7].map((interval) => ({
+        interval,
+        version: -1,
+        data: new Float32Array(emitter.commandData.length),
+      }));
+      let step = 0;
+      return (delta: number): void => {
+        emitter.position.set(step * 0.25, Math.sin(step), 0);
+        emitter.updateSimulation(delta);
+        for (const mirror of mirrors) {
+          if (step % mirror.interval) continue;
+          const count = emitter.changedCommandRanges(mirror.version, ranges);
+          if (count < 0) mirror.data.set(emitter.commandData);
+          if (count === 2) wrapped++;
+          for (let i = 0; i < count; i++) {
+            const first = ranges[i * 2] * GPU_PARTICLE_COMMAND_FLOATS;
+            const end = first + ranges[i * 2 + 1] * GPU_PARTICLE_COMMAND_FLOATS;
+            mirror.data.set(emitter.commandData.subarray(first, end), first);
+          }
+          mirror.version = emitter.commandVersion;
+          expect(new Uint32Array(mirror.data.buffer)).toEqual(
+            new Uint32Array(emitter.commandData.buffer),
+          );
+        }
+        step++;
+      };
+    };
+    const churn = new GPUParticleEmitter3D({
+      capacity: 64,
+      rate: 13,
+      lifetime: 3,
+    });
+    let advance = consumers(churn);
+    for (let i = 0; i < 60; i++) advance(0.13);
+    churn.burst(3);
+    advance(0.13);
+    advance(0.13);
+    // Clearing restarts admission at slot 0 while the slowest consumer still lags behind.
+    churn.clear();
+    for (let i = 0; i < 40; i++) advance(0.13);
+    expect(wrapped).toBeGreaterThan(0);
+    // Long-lived commands cross the 1024 s shader-clock epoch, which rebases every live
+    // slot, in a step that admits only a few new ones.
+    const lasting = new GPUParticleEmitter3D({
+      capacity: 64,
+      rate: 2,
+      lifetime: 3000,
+    });
+    advance = consumers(lasting);
+    for (let i = 0; i < 10; i++) advance(0.5);
+    lasting.stop();
+    for (let i = 0; i < 21; i++) advance(48);
+    lasting.start();
+    for (let i = 0; i < 24; i++) advance(0.5);
+    expect(lasting.shaderTime).toBeLessThan(lasting.time);
+  });
 });

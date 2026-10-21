@@ -22,6 +22,7 @@ interface ParticleBuffers {
 /** Native analytic vertex simulation; renderer owns this module per GPUDevice. */
 export class WebGPUParticles3D {
   private readonly buffers = new Map<GPUParticleEmitter3D, ParticleBuffers>();
+  private readonly ranges = new Int32Array(4);
   private readonly uniforms = new ParticleUniforms3D();
   private frame = 0;
   private disposed = false;
@@ -128,17 +129,40 @@ export class WebGPUParticles3D {
       throw new GraphicsError('Cannot prepare destroyed GPU particles.');
     const entry = this.buffers.get(emitter) ?? this.allocate(emitter);
     entry.prepared = true;
-    if (entry.version !== emitter.commandVersion) {
+    if (entry.version !== emitter.commandVersion)
+      this.uploadCommands(entry, emitter);
+  }
+  /** Writes the slots changed since this entry's version; see changedCommandRanges. */
+  private uploadCommands(
+    entry: ParticleBuffers,
+    emitter: GPUParticleEmitter3D,
+  ): void {
+    const data = emitter.commandData;
+    const count = emitter.changedCommandRanges(entry.version, this.ranges);
+    if (count < 0) {
       this.device.queue.writeBuffer(
         entry.commands,
         0,
-        emitter.commandData.buffer,
-        emitter.commandData.byteOffset,
-        emitter.commandData.byteLength,
+        data.buffer,
+        data.byteOffset,
+        data.byteLength,
       );
-      this.stats.upload(emitter.commandData.byteLength);
-      entry.version = emitter.commandVersion;
-    }
+      this.stats.upload(data.byteLength);
+    } else
+      for (let i = 0; i < count; i++) {
+        const bytes = GPU_PARTICLE_COMMAND_FLOATS * 4,
+          offset = this.ranges[i * 2]! * bytes,
+          size = this.ranges[i * 2 + 1]! * bytes;
+        this.device.queue.writeBuffer(
+          entry.commands,
+          offset,
+          data.buffer,
+          data.byteOffset + offset,
+          size,
+        );
+        this.stats.upload(size);
+      }
+    entry.version = emitter.commandVersion;
   }
 
   /** Main color/depth pass only, never a shadow or weighted accumulation pass. */
@@ -174,17 +198,8 @@ export class WebGPUParticles3D {
         pass.setPipeline(linear ? this.hdrPipeline : this.pipeline);
         bound = true;
       }
-      if (entry.version !== emitter.commandVersion) {
-        this.device.queue.writeBuffer(
-          entry.commands,
-          0,
-          emitter.commandData.buffer,
-          emitter.commandData.byteOffset,
-          emitter.commandData.byteLength,
-        );
-        this.stats.upload(emitter.commandData.byteLength);
-        entry.version = emitter.commandVersion;
-      }
+      if (entry.version !== emitter.commandVersion)
+        this.uploadCommands(entry, emitter);
       const data = this.uniforms.fill(emitter, camera, aspect, linear);
       this.device.queue.writeBuffer(entry.uniform, 0, data.buffer);
       this.stats.upload(data.byteLength);
