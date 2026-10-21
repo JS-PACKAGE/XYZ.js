@@ -105,6 +105,9 @@ const kinds: ProceduralMaterialKind[] = [
   'fishscales',
   'tortoiseshell',
   'feathers',
+  'reedmat',
+  'rope',
+  'straw',
 ];
 
 class TestImageData {
@@ -346,6 +349,9 @@ describe('periodic procedural material fields', () => {
     ['fishscales', [10, 20, 32]],
     ['tortoiseshell', [6, 19, 23, 32]],
     ['feathers', [4, 8, 16, 32]],
+    ['reedmat', [4, 16, 32, 96]],
+    ['rope', [6, 18, 32, 54]],
+    ['straw', [8, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -895,6 +901,7 @@ describe('periodic procedural material fields', () => {
     ['breccia', 6],
     ['osb', 6],
     ['chipboard', 28],
+    ['straw', 8],
   ] as const)(
     '%s fades all owned fields smoothly as feature neighborhoods change',
     (kind, cells) => {
@@ -933,6 +940,123 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('reed mat binding threads lift above slender reed crowns and recessed gaps', () => {
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('reedmat', seed);
+      for (let reed = 0; reed < 16; reed++)
+        for (let row = 0; row < 4; row++) {
+          const u = (reed + 0.5) / 16,
+            v = row / 4;
+          sample(u, v, surface);
+          const binding = surface.height;
+          sample(u, v + 1 / 8, surface);
+          const crown = surface.height;
+          sample(reed / 16, v + 1 / 8, surface);
+          const gap = surface.height;
+          expect(binding).toBeGreaterThan(crown);
+          expect(crown).toBeGreaterThan(surface.height);
+          sample(reed / 16, v, surface);
+          expect(surface.height).toBeGreaterThan(gap);
+        }
+    }
+  });
+
+  it('rope relief follows diagonal helical grooves rather than crossing knit loops', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    const epsilon = 1e-5;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rope', seed);
+      let along = 0,
+        across = 0;
+      for (let band = 0; band < 6; band++)
+        for (let step = 0; step < 96; step++) {
+          const u = (band + 0.5) / 6,
+            v = (step + 0.37) / 96;
+          sample(u - epsilon / 3, v - epsilon, a);
+          sample(u + epsilon / 3, v + epsilon, b);
+          along += (a.height - b.height) ** 2;
+          sample(u, v - epsilon, a);
+          sample(u, v + epsilon, b);
+          across += (a.height - b.height) ** 2;
+        }
+      expect(across).toBeGreaterThan(along * 4);
+    }
+  });
+
+  it('thin straw stems stand above bedding gaps and fade all owned fields at their edges', () => {
+    const featureHash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      center = { ...a };
+    const epsilon = 1e-8 / 8;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('straw', seed),
+        salt = seed ^ (2 * 0x39a7);
+      let isolatedStem = false;
+      for (let y = 0; y < 8; y++)
+        for (let x = 0; x < 8; x++) {
+          const angle = Math.PI * 2 * featureHash(x, y, salt ^ 0x18d3),
+            nx = -Math.sin(angle),
+            ny = Math.cos(angle),
+            u = (x + 0.25 + 0.5 * featureHash(x, y, salt ^ 0x4f17)) / 8,
+            v = (y + 0.25 + 0.5 * featureHash(x, y, salt ^ 0x73c9)) / 8,
+            width = (0.035 + 0.03 * featureHash(x, y, salt ^ 0x519b)) / 8;
+          sample(u, v, center);
+          sample(u - 2 * width * nx, v - 2 * width * ny, a);
+          sample(u + 2 * width * nx, v + 2 * width * ny, b);
+          // Inspect exposed stems, not unrelated stems layered across a gap.
+          if (a.occlusion < 0.65 && b.occlusion < 0.65) {
+            isolatedStem = true;
+            expect(center.height).toBeGreaterThan(a.height);
+            expect(center.height).toBeGreaterThan(b.height);
+          }
+          for (const side of [-1, 1]) {
+            const px = u + side * width * nx,
+              py = v + side * width * ny;
+            sample(px - epsilon * nx, py - epsilon * ny, a);
+            sample(px + epsilon * nx, py + epsilon * ny, b);
+            sample(px, py, center);
+            for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+              expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+              expect(
+                Math.abs(a[key] - 2 * center[key] + b[key]) / epsilon,
+              ).toBeLessThan(0.01);
+            }
+          }
+        }
+      expect(isolatedStem).toBe(true);
+    }
+  });
 
   it('OSB relief follows long aligned strands while chipboard has finer unoriented chips', () => {
     const surface: SurfaceSample = {

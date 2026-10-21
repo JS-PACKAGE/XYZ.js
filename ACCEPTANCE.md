@@ -2784,3 +2784,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Navigation]` NavigationMesh3D 每條邊快取最後一次裁切的 portal，以兩側 region 物件身分與 radius 為鍵（region 只會被替換、不會被修改，故啟用狀態變更自然失效），平滑階段的 O(n²) 檢查不再重算 portal。同一 48×48 Node bench：40 次 findPath 約 105 → 50 ms、配置 186 → 56 MiB，hash 不變；新增彎折走廊在停用／啟用與換 radius 後與全新 mesh 結果一致的測試。
 - `[Navigation]` NavigationMesh3D 最近點計算改用模組暫存向量做平面投影（命中才 clone）、邊界最近點以純量追蹤只在最後配置一個 Vector3，`inside` 改為迴圈不再建立 `every` closure；數值運算順序不變。同一 48×48 Node bench：4000 次 project 17.7 → 14.3 ms、配置 53 → 25 MiB，hash 不變。
 - `[Navigation]` NavigationGrid2D 展開節點時改用搜尋建立時已有的 `traversable` 判斷，不再每次 expand 建立新的 closure。256² 網格 Node bench 配置約 164 → 44 MiB，CPU 時間持平（短路徑約 3 µs、長路徑約 1.4 ms／次，在雜訊內），hash 不變；屬配置減少，非速度提升。
+
+## 程序材質擴充：植物纖維（reedmat／rope／straw）
+
+- 新增平行細葦與橫向束線的草編蓆、三股螺旋紋的並排繩面、
+  隨機方向薄莖與節點的稻草覆層；tile 尺寸依序 0.24／0.18／0.4 m。
+  皆 opaque dielectric，只產生四份表面 maps，不建立繩索／草莖 geometry、
+  cutout 或 displacement。gallery／API 文件同步至 84 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1693 tests
+  通過。束線相對葦冠高度、螺旋紋方向與草莖支撐邊界連續性
+  納入回歸；前八十一種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認束線、螺旋繩股與散落草莖差異；
+  metallic 全為 0，roughness bytes 依序 187–218／219–241／219–236；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

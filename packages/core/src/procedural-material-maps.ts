@@ -175,6 +175,36 @@ export function createSurfaceSampler(
       veneerEyes[eye * 3 + 1] = hash(eye, 0, seed ^ 0x64b3);
       veneerEyes[eye * 3 + 2] = 0.75 + 0.25 * hash(eye, 0, seed ^ 0x48d9);
     }
+  const fiberBandCount = kind === 'reedmat' ? 16 : 6;
+  const fiberBands =
+    kind === 'reedmat' || kind === 'rope'
+      ? new Float64Array(fiberBandCount * 2)
+      : null;
+  if (fiberBands)
+    for (let band = 0; band < fiberBandCount; band++) {
+      fiberBands[band * 2] = hash(band, 0, seed ^ 0x16d9);
+      fiberBands[band * 2 + 1] = TAU * hash(band, 0, seed ^ 0x49b3);
+    }
+  // Thin straight stems in three ordered strata. Radius stays below one cell
+  // and centers stay in [0.25, 0.75], safely inside a wrapped 3x3 lookup.
+  const strawStems = kind === 'straw' ? new Float64Array(3 * 8 * 8 * 9) : null;
+  if (strawStems)
+    for (let layer = 0; layer < 3; layer++)
+      for (let y = 0; y < 8; y++)
+        for (let x = 0; x < 8; x++) {
+          const offset = ((layer * 8 + y) * 8 + x) * 9;
+          const salt = seed ^ (layer * 0x39a7);
+          const angle = TAU * hash(x, y, salt ^ 0x18d3);
+          strawStems[offset] = 0.25 + 0.5 * hash(x, y, salt ^ 0x4f17);
+          strawStems[offset + 1] = 0.25 + 0.5 * hash(x, y, salt ^ 0x73c9);
+          strawStems[offset + 2] = Math.cos(angle);
+          strawStems[offset + 3] = Math.sin(angle);
+          strawStems[offset + 4] = 0.62 + 0.33 * hash(x, y, salt ^ 0x62b1);
+          strawStems[offset + 5] = 0.035 + 0.03 * hash(x, y, salt ^ 0x519b);
+          strawStems[offset + 6] = hash(x, y, salt ^ 0x2e65);
+          strawStems[offset + 7] = TAU * hash(x, y, salt ^ 0x71c3);
+          strawStems[offset + 8] = hash(x, y, salt ^ 0x37e1);
+        }
   const strandCells = kind === 'osb' ? 6 : 28;
   // Two overlapping strata of angular flakes. The longest support has radius
   // below 1.2 cells; centers stay in [0.25, 0.75], so 3x3 lookup is sufficient.
@@ -1406,6 +1436,108 @@ export function createSurfaceSampler(
         height = 0.22 + 0.12 * formation + 0.22 * tooth + 0.3 * fibers;
         roughness += 0.08 * (tooth - 0.5) + 0.04 * fibers;
         occlusion = 0.98 - 0.07 * fibers - 0.035 * (1 - tooth);
+        break;
+      }
+      case 'reedmat': {
+        const x = u * 16,
+          band = Math.floor(x),
+          across = (fract(x) - 0.5) / 0.46;
+        const reed = smooth(clamp(1 - across * across));
+        const variation = fiberBands![band * 2],
+          fiberPhase = fiberBands![band * 2 + 1];
+        const fiber =
+          0.5 +
+          0.5 *
+            Math.sin(TAU * x * 7 + 0.2 * Math.sin(TAU * v * 3) + fiberPhase);
+        const thread = smooth(clamp(1 - (1 - Math.cos(TAU * v * 4)) / 0.055));
+        const threadFiber = 0.5 + 0.5 * Math.cos(TAU * u * 96 + phase);
+        color =
+          0.15 +
+          reed * (0.38 + 0.14 * variation + 0.09 * fiber) +
+          thread * (0.12 + 0.04 * threadFiber);
+        height =
+          0.1 +
+          reed * (0.46 + 0.055 * variation + 0.018 * fiber) +
+          thread * (0.24 + 0.015 * threadFiber);
+        roughness += 0.06 * (1 - reed) - 0.035 * reed * fiber + 0.025 * thread;
+        occlusion = 0.56 + 0.32 * reed + 0.07 * thread;
+        break;
+      }
+      case 'rope': {
+        const x = u * 6,
+          band = Math.floor(x),
+          local = fract(x) - 0.5;
+        const body = smooth(clamp(1 - (local / 0.48) ** 2));
+        const variation = fiberBands![band * 2],
+          twistPhase = fiberBands![band * 2 + 1];
+        const helix = TAU * (3 * local - 6 * v) + twistPhase;
+        const strand = 0.5 + 0.5 * Math.cos(helix),
+          fiber =
+            0.5 + 0.5 * Math.cos(helix * 9 + 0.15 * Math.sin(TAU * v * 2));
+        // Three diagonal constituent crowns per rope band, never crossing loops.
+        color =
+          0.13 + body * (0.3 + 0.14 * variation + 0.23 * strand + 0.06 * fiber);
+        height = 0.08 + body * (0.34 + 0.32 * strand + 0.018 * fiber);
+        roughness += 0.065 * (1 - body) + body * (0.025 - 0.045 * fiber);
+        occlusion = 0.43 + body * (0.35 + 0.17 * strand);
+        break;
+      }
+      case 'straw': {
+        const x = u * 8,
+          y = v * 8,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        color = 0.17 + 0.07 * detail;
+        height = 0.15 + 0.015 * detail;
+        occlusion = 0.55 + 0.035 * detail;
+        for (let layer = 0; layer < 3; layer++)
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const offset =
+                ((layer * 8 + (((cy % 8) + 8) % 8)) * 8 +
+                  (((cx % 8) + 8) % 8)) *
+                9;
+              const dx = x - cx - strawStems![offset],
+                dy = y - cy - strawStems![offset + 1];
+              const along =
+                  (dx * strawStems![offset + 2] +
+                    dy * strawStems![offset + 3]) /
+                  strawStems![offset + 4],
+                across =
+                  (dy * strawStems![offset + 2] -
+                    dx * strawStems![offset + 3]) /
+                  strawStems![offset + 5];
+              const stem =
+                smooth(clamp((1 - along * along) / 0.24)) *
+                smooth(clamp(1 - across * across));
+              if (stem === 0) continue;
+              const variation = strawStems![offset + 6];
+              const fiber =
+                0.5 + 0.5 * Math.cos(12 * across + strawStems![offset + 7]);
+              const node =
+                strawStems![offset + 8] > 0.6
+                  ? smooth(clamp(1 - ((along - 0.2) / 0.065) ** 2))
+                  : 0;
+              // All ownership, including nodes and fibers, fades with support.
+              color =
+                color * (1 - stem) +
+                stem * (0.48 + 0.26 * variation + 0.07 * fiber - 0.13 * node);
+              height =
+                height * (1 - stem) +
+                stem *
+                  (0.51 +
+                    0.06 * layer +
+                    0.04 * variation +
+                    0.018 * fiber +
+                    0.055 * node);
+              roughness =
+                roughness * (1 - stem) +
+                stem * (preset.roughness - 0.04 * fiber + 0.025 * node);
+              occlusion =
+                occlusion * (1 - stem) + stem * (0.91 + 0.045 * fiber);
+            }
         break;
       }
       case 'wicker': {

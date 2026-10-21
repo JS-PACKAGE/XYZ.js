@@ -87,7 +87,10 @@ export type ProceduralMaterialKind =
   | 'encaustictiles'
   | 'fishscales'
   | 'tortoiseshell'
-  | 'feathers';
+  | 'feathers'
+  | 'reedmat'
+  | 'rope'
+  | 'straw';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -201,6 +204,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'fishscales',
   'tortoiseshell',
   'feathers',
+  'reedmat',
+  'rope',
+  'straw',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
