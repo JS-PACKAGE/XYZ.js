@@ -59,3 +59,14 @@ export declare function bindIrradianceVolume(mesh: Mesh, volume: BakedIrradiance
 export declare function meshIrradianceVolume(mesh: Mesh): BakedIrradianceVolume | undefined;
 /** Internal renderer bridge: 36 SH floats + volume enabled, generated lightmap,0,0. */
 export declare function fillMeshIrradiance(mesh: Mesh, out: Float32Array, offset?: number): void;
+/** `fillMeshIrradiance` output split as SH and params, shared and never written. */
+export interface ConstantMeshIrradiance {
+    readonly sh: Float32Array;
+    readonly params: Float32Array;
+}
+/**
+ * Internal renderer bridge: without a bound volume, `fillMeshIrradiance` writes only zeros
+ * and the lightmap flag, so renderers may upload one of two shared arrays instead (and skip
+ * the upload when a program already holds it). `undefined` when a volume must be sampled.
+ */
+export declare function constantMeshIrradiance(mesh: Mesh): ConstantMeshIrradiance | undefined;

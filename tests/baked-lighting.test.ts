@@ -11,6 +11,7 @@ import {
   bakeIrradianceVolume,
   BakedIrradianceVolume,
   bindIrradianceVolume,
+  constantMeshIrradiance,
   fillMeshIrradiance,
   isBakedLightmap,
 } from '../packages/core/src/baked-lighting.js';
@@ -105,6 +106,12 @@ describe('bounded baked lighting', () => {
     fillMeshIrradiance(bakedMesh, bridge);
     expect(bridge[36]).toBe(0);
     expect(bridge[37]).toBe(1);
+    // Unbound meshes may use the shared constant split; it matches the packed bridge.
+    const lightmapped = constantMeshIrradiance(bakedMesh)!;
+    expect([...lightmapped.sh, ...lightmapped.params]).toEqual([...bridge]);
+    const plain = constantMeshIrradiance(receiver)!;
+    fillMeshIrradiance(receiver, bridge);
+    expect([...plain.sh, ...plain.params]).toEqual([...bridge]);
     expect(isBakedLightmap(receiver.material.texture)).toBe(false);
     lit.destroy();
     expect(lit.texture.destroyed).toBe(true);
@@ -232,6 +239,7 @@ describe('bounded baked lighting', () => {
       out = new Float32Array(40);
     bindIrradianceVolume(m, v);
     fillMeshIrradiance(m, out);
+    expect(constantMeshIrradiance(m)).toBeUndefined();
     expect(out[36]).toBe(1);
     expect(out[0]).toBe(0);
     m.transform.position.set(1, 1, 1);
@@ -240,6 +248,7 @@ describe('bounded baked lighting', () => {
     bindIrradianceVolume(m, undefined);
     fillMeshIrradiance(m, out);
     expect(out.every((n) => n === 0)).toBe(true);
+    expect(constantMeshIrradiance(m)?.params).toEqual(out.subarray(36));
   });
   it('rejects oversized grids and malformed SH memory', () => {
     expect(

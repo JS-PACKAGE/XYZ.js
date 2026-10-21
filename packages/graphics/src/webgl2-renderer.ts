@@ -182,7 +182,10 @@ import { getPostEffects } from '../../core/src/post-effects.js';
 import { writeMotionBlurUniforms } from './motion-blur-post.js';
 import { WebGLTemporalPipeline } from './webgl-temporal-pipeline.js';
 import { WebGLObjectMotion } from './webgl-object-motion.js';
-import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
+import {
+  constantMeshIrradiance,
+  fillMeshIrradiance,
+} from '../../core/src/baked-lighting.js';
 import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import { encodePlanarReflection } from './planar-reflection-capture.js';
 interface CachedEnvironment {
@@ -2678,9 +2681,31 @@ export class WebGL2Renderer implements Renderer {
           program = entry.program;
           gl.useProgram(program);
         }
-        fillMeshIrradiance(object, this.bakedData, 0);
-        gl.uniform4fv(uniforms['bakedSH[0]'], this.bakedSH);
-        gl.uniform4fv(uniforms.bakedParams, this.bakedParams);
+        const irradiance = constantMeshIrradiance(object);
+        if (irradiance) {
+          this.uniformValues.sharedUniform4fv(
+            gl,
+            uniforms['bakedSH[0]'],
+            irradiance.sh,
+          );
+          this.uniformValues.sharedUniform4fv(
+            gl,
+            uniforms.bakedParams,
+            irradiance.params,
+          );
+        } else {
+          fillMeshIrradiance(object, this.bakedData, 0);
+          this.uniformValues.uniform4fv(
+            gl,
+            uniforms['bakedSH[0]'],
+            this.bakedSH,
+          );
+          this.uniformValues.uniform4fv(
+            gl,
+            uniforms.bakedParams,
+            this.bakedParams,
+          );
+        }
         this.sendMaterialUV(
           uniforms['materialCoordinates[0]'],
           material,

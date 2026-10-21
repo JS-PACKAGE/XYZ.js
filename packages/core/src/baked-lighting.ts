@@ -707,13 +707,42 @@ export function fillMeshIrradiance(
   if (!Number.isInteger(offset) || offset < 0 || out.length < offset + 40)
     throw new RangeError('Irradiance output needs 40 floats.');
   out.fill(0, offset, offset + 40);
-  out[offset + 37] =
-    mesh.material instanceof PBRMaterial &&
-    isBakedLightmap(mesh.material.lightmap)
-      ? 1
-      : 0;
+  out[offset + 37] = lightmapFlag(mesh);
   const volume = bindings.get(mesh);
   if (!volume) return;
   const e = mesh.updateWorldMatrix().elements;
   out[offset + 36] = volume.sampleSH(e[12], e[13], e[14], out, offset) ? 1 : 0;
+}
+
+/** `fillMeshIrradiance` output split as SH and params, shared and never written. */
+export interface ConstantMeshIrradiance {
+  readonly sh: Float32Array;
+  readonly params: Float32Array;
+}
+
+function constantIrradiance(lightmap: number): ConstantMeshIrradiance {
+  const data = new Float32Array(40);
+  data[37] = lightmap;
+  return { sh: data.subarray(0, 36), params: data.subarray(36) };
+}
+const unlitIrradiance = constantIrradiance(0);
+const lightmappedIrradiance = constantIrradiance(1);
+
+/**
+ * Internal renderer bridge: without a bound volume, `fillMeshIrradiance` writes only zeros
+ * and the lightmap flag, so renderers may upload one of two shared arrays instead (and skip
+ * the upload when a program already holds it). `undefined` when a volume must be sampled.
+ */
+export function constantMeshIrradiance(
+  mesh: Mesh,
+): ConstantMeshIrradiance | undefined {
+  if (bindings.has(mesh)) return undefined;
+  return lightmapFlag(mesh) ? lightmappedIrradiance : unlitIrradiance;
+}
+
+function lightmapFlag(mesh: Mesh): number {
+  return mesh.material instanceof PBRMaterial &&
+    isBakedLightmap(mesh.material.lightmap)
+    ? 1
+    : 0;
 }

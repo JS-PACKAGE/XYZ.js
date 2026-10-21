@@ -368,17 +368,33 @@ function meshIrradianceVolume(e) {
 }
 function fillMeshIrradiance(e, t, n = 0) {
 	if (!Number.isInteger(n) || n < 0 || t.length < n + 40) throw RangeError(`Irradiance output needs 40 floats.`);
-	t.fill(0, n, n + 40), t[n + 37] = e.material instanceof require_pbr_material.PBRMaterial && isBakedLightmap(e.material.lightmap) ? 1 : 0;
+	t.fill(0, n, n + 40), t[n + 37] = lightmapFlag(e);
 	let r = f.get(e);
 	if (!r) return;
 	let i = e.updateWorldMatrix().elements;
 	t[n + 36] = +!!r.sampleSH(i[12], i[13], i[14], t, n);
+}
+function constantIrradiance(e) {
+	let t = /* @__PURE__ */ new Float32Array(40);
+	return t[37] = e, {
+		sh: t.subarray(0, 36),
+		params: t.subarray(36)
+	};
+}
+var p = constantIrradiance(0);
+var m = constantIrradiance(1);
+function constantMeshIrradiance(e) {
+	if (!f.has(e)) return lightmapFlag(e) ? m : p;
+}
+function lightmapFlag(e) {
+	return e.material instanceof require_pbr_material.PBRMaterial && isBakedLightmap(e.material.lightmap) ? 1 : 0;
 }
 //#endregion
 exports.BakedIrradianceVolume = BakedIrradianceVolume;
 exports.bakeIrradianceVolume = bakeIrradianceVolume;
 exports.bakeLightmap = bakeLightmap;
 exports.bindIrradianceVolume = bindIrradianceVolume;
+exports.constantMeshIrradiance = constantMeshIrradiance;
 exports.fillMeshIrradiance = fillMeshIrradiance;
 exports.isBakedLightmap = isBakedLightmap;
 exports.meshIrradianceVolume = meshIrradianceVolume;
