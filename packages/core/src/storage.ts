@@ -116,7 +116,13 @@ function prefix(namespace: string): string {
 function checkSize(value: string): void {
   if (typeof value !== 'string')
     throw new StorageError('invalid', 'Storage value must be a string.');
-  if (new TextEncoder().encode(value).byteLength > storageLimits.maxBytes)
+  // A UTF-16 unit encodes to 1–3 UTF-8 bytes (a surrogate pair to 4), so only lengths
+  // between those bounds need the exact, allocating count.
+  if (value.length * 3 <= storageLimits.maxBytes) return;
+  if (
+    value.length > storageLimits.maxBytes ||
+    new TextEncoder().encode(value).byteLength > storageLimits.maxBytes
+  )
     throw new StorageError(
       'size',
       `Save exceeds ${storageLimits.maxBytes} bytes.`,
@@ -547,7 +553,8 @@ function decode(raw: string): SaveRecord {
     record.revision < 0
   )
     throw new StorageError('invalid', 'Invalid save revision.');
-  assertJsonValue(record.data);
+  // An own `data` was already checked as part of `record`; only an inherited one is not.
+  if (!Object.hasOwn(record, 'data')) assertJsonValue(record.data);
   // All persisted fields were checked above; JsonValue's index signature cannot express this record.
   return record as unknown as SaveRecord;
 }
@@ -617,6 +624,10 @@ export class SaveManager {
   }
   private validate(data: unknown): asserts data is JsonValue {
     assertJsonValue(data);
+    this.validateSchema(data);
+  }
+  /** For data `decode` or a migration step already proved to be JSON. */
+  private validateSchema(data: JsonValue): void {
     if (this.schema.validate && !this.schema.validate(data))
       throw new StorageError('invalid', 'Save data failed schema validation.');
   }
@@ -702,7 +713,7 @@ export class SaveManager {
                 'Cannot overwrite a future save version.',
               );
             if (previous.version === this.schema.version)
-              this.validate(previous.data);
+              this.validateSchema(previous.data);
             backup = values[1]!;
           }
           const next: SaveRecord = {
@@ -751,7 +762,7 @@ export class SaveManager {
       assertJsonValue(record.data);
       record.version++;
     }
-    this.validate(record.data);
+    this.validateSchema(record.data);
     return record;
   }
   /** Revision observed by the last successful load/write, including removed slots. */

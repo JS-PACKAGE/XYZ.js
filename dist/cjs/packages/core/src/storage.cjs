@@ -43,7 +43,7 @@ function prefix(e) {
 }
 function checkSize(t) {
 	if (typeof t != `string`) throw new StorageError(`invalid`, `Storage value must be a string.`);
-	if (new TextEncoder().encode(t).byteLength > require_storage.storageLimits.maxBytes) throw new StorageError(`size`, `Save exceeds ${require_storage.storageLimits.maxBytes} bytes.`);
+	if (!(t.length * 3 <= require_storage.storageLimits.maxBytes) && (t.length > require_storage.storageLimits.maxBytes || new TextEncoder().encode(t).byteLength > require_storage.storageLimits.maxBytes)) throw new StorageError(`size`, `Save exceeds ${require_storage.storageLimits.maxBytes} bytes.`);
 }
 function failure(e) {
 	return e instanceof StorageError ? e : new StorageError(e instanceof Error && e.name === `QuotaExceededError` ? `quota` : `io`, `Save storage operation failed.`, { cause: e });
@@ -291,7 +291,7 @@ function decode(e) {
 	let n = parseStoredJson(t.payload);
 	if (assertJsonValue(n), !n || typeof n != `object` || Array.isArray(n) || typeof n.version != `number` || !Number.isSafeInteger(n.version) || n.version < 1 || !n.metadata || typeof n.metadata != `object` || Array.isArray(n.metadata) || typeof n.metadata.savedAt != `string` || !Number.isFinite(Date.parse(n.metadata.savedAt)) || typeof n.metadata.playTime != `number` || !Number.isFinite(n.metadata.playTime) || n.metadata.playTime < 0) throw new StorageError(`invalid`, `Invalid save version or metadata.`);
 	if (`revision` in n || (n.revision = 0), typeof n.revision != `number` || !Number.isSafeInteger(n.revision) || n.revision < 0) throw new StorageError(`invalid`, `Invalid save revision.`);
-	return assertJsonValue(n.data), n;
+	return Object.hasOwn(n, `data`) || assertJsonValue(n.data), n;
 }
 function encode(e) {
 	let t = JSON.stringify(e);
@@ -332,7 +332,10 @@ var SaveManager = class {
 		if (e?.throwIfAborted(), this.disposed) throw new DOMException(`Save owner is destroyed.`, `AbortError`);
 	}
 	validate(e) {
-		if (assertJsonValue(e), this.schema.validate && !this.schema.validate(e)) throw new StorageError(`invalid`, `Save data failed schema validation.`);
+		assertJsonValue(e), this.validateSchema(e);
+	}
+	validateSchema(e) {
+		if (this.schema.validate && !this.schema.validate(e)) throw new StorageError(`invalid`, `Save data failed schema validation.`);
 	}
 	async mutate(e, t, n) {
 		if (this.assertActive(n), this.storage.mutate) try {
@@ -366,7 +369,7 @@ var SaveManager = class {
 				if (t[1] !== null) {
 					let e = decode(t[1]);
 					if (e.version > this.schema.version) throw new StorageError(`invalid`, `Cannot overwrite a future save version.`);
-					e.version === this.schema.version && this.validate(e.data), o = t[1];
+					e.version === this.schema.version && this.validateSchema(e.data), o = t[1];
 				}
 				let s = {
 					version: this.schema.version,
@@ -398,7 +401,7 @@ var SaveManager = class {
 			let e = n ? AbortSignal.any([n, this.lifetime.signal]) : this.lifetime.signal;
 			r.data = await require_subscribe_load.subscribeLoad(Promise.resolve(this.schema.migrate(r.version, r.data)), e), this.assertActive(n), assertJsonValue(r.data), r.version++;
 		}
-		return this.validate(r.data), r;
+		return this.validateSchema(r.data), r;
 	}
 	observedRevision(e) {
 		return this.assertActive(), this.revisions.get(e);

@@ -352,6 +352,42 @@ it('reads the original envelope format, migrates sequentially, and leaves raw le
   expect((await migrated.save('slot', { score: 3 })).revision).toBe(1);
 });
 
+it('treats stored records with missing or non-JSON data as corrupt, and keeps schema-rejected data', async () => {
+  const envelope = (record: Record<string, unknown>, data = '') => {
+    const payload = JSON.stringify(record).replace(/}$/, data + '}');
+    let hash = 2166136261;
+    for (let index = 0; index < payload.length; index++)
+      hash = Math.imul(hash ^ payload.charCodeAt(index), 16777619);
+    return JSON.stringify({ payload, checksum: (hash >>> 0).toString(16) });
+  };
+  const header = {
+    version: 1,
+    revision: 1,
+    metadata: { savedAt: '2026-01-01T00:00:00.000Z', playTime: 0 },
+  };
+  const storage = new MemoryStorage();
+  const saves = new SaveManager(storage);
+  // JSON.parse turns 1e400 into Infinity, which a save can never hold.
+  for (const raw of [envelope(header), envelope(header, ',"data":[1e400]')]) {
+    await storage.set('slot', raw);
+    expect(await saves.load('slot')).toMatchObject({ status: 'corrupt', raw });
+  }
+  await storage.set('slot', envelope({ ...header, data: { score: -1 } }));
+  const strict = new SaveManager(storage, {
+    version: 1,
+    validate: (data) =>
+      typeof data === 'object' &&
+      data !== null &&
+      !Array.isArray(data) &&
+      typeof data.score === 'number' &&
+      data.score >= 0,
+  });
+  expect((await strict.load('slot')).status).toBe('corrupt');
+  await expect(strict.save('slot', { score: 1 })).rejects.toMatchObject({
+    code: 'invalid',
+  });
+});
+
 it('rejects recovery prepared against an older primary when another owner commits during migration', async () => {
   const entries = new Map<string, string>();
   const storage = new MemoryStorage('recovery-race', entries);

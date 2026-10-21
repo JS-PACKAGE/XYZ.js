@@ -2842,3 +2842,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   destroy 後四份 textures 均釋放。
 - 只提交本組 source、docs 與獨立快照的對應 dist，不納入同時進行的金屬
   或其他修改；不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
+- `[Storage]` SaveManager 不再重複驗證同一份 JSON：`decode` 已把整個 record（含自有 `data`）驗證過，只在 `data` 非自有屬性時再驗；覆寫前與 load／migrate 結尾改只跑 schema `validate`（migration 每步本來就驗證 JSON）。錯誤條件與順序不變。2000 筆 entity 存檔 Node bench：save 6.5 → 4.6 ms、load 4.8 → 2.9 ms、配置 14.4 → 8.5 MiB／次；新增缺少／非有限 `data` 視為 corrupt、schema 拒絕的舊資料不可覆寫的測試。因同工作區另一方的未提交檔暫時無法編譯，build 與完整測試（1730 通過）改在 HEAD 匯出副本加本變更上執行，產物與主工作區同一 HEAD 建置逐位相同。

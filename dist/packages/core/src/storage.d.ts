@@ -117,6 +117,8 @@ export declare class SaveManager {
     get coordination(): StorageCoordination;
     private assertActive;
     private validate;
+    /** For data `decode` or a migration step already proved to be JSON. */
+    private validateSchema;
     private mutate;
     private expected;
     save(slot: string, data: JsonValue, playTime?: number, options?: SaveWriteOptions): Promise<SaveRecord>;
