@@ -103,6 +103,30 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const animalSkin =
+    kind === 'elephanthide' ||
+    kind === 'ostrichleather' ||
+    kind === 'sharkskin';
+  const skinGrain = animalSkin ? cachedNoise(96, 96, seed ^ 0x61b3) : null;
+  const hideWarp =
+    kind === 'elephanthide' ? cachedNoise(4, 4, seed ^ 0x2d79) : null;
+  // Follicles have radius <= 0.25 and centers in [0.25, 0.75]: disjoint
+  // interiors, fully contained in each owner cell (including hash == 1).
+  const follicles =
+    kind === 'ostrichleather' ? new Float64Array(6 * 6 * 3) : null;
+  if (follicles)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 3;
+        follicles[offset] = 0.25 + 0.5 * hash(x, y, seed ^ 0x1b37);
+        follicles[offset + 1] = 0.25 + 0.5 * hash(x, y, seed ^ 0x4f91);
+        follicles[offset + 2] = 1 / (0.2 + 0.05 * hash(x, y, seed ^ 0x73a5));
+      }
+  const denticles = kind === 'sharkskin' ? new Float64Array(18 * 24) : null;
+  if (denticles)
+    for (let y = 0; y < 24; y++)
+      for (let x = 0; x < 18; x++)
+        denticles[y * 18 + x] = hash(x, y, seed ^ 0x3d67);
   const treeBark =
     kind === 'birchbark' || kind === 'palmtrunk' || kind === 'sycamorebark';
   const treeGrain = treeBark ? cachedNoise(64, 64, seed ^ 0x54b7) : null;
@@ -1097,7 +1121,8 @@ export function createSurfaceSampler(
       nutshell ||
       fruitSkin ||
       petal ||
-      treeBark
+      treeBark ||
+      animalSkin
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -2474,6 +2499,128 @@ export function createSurfaceSampler(
         mortar = 1 - face;
         roughness += 0.42 * mortar + 0.04 * (detail - 0.5);
         occlusion = 0.58 + 0.42 * face;
+        break;
+      }
+      case 'elephanthide': {
+        const warp = hideWarp!(u, v),
+          grain = skinGrain!(u, v),
+          a =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU *
+                  (5 * u + 0.65 * Math.sin(TAU * 2 * v + phase) + 1.1 * warp),
+              ),
+          b =
+            0.5 +
+            0.5 *
+              Math.cos(
+                TAU *
+                  (4 * v + 0.5 * Math.sin(TAU * 3 * u - phase) - 0.8 * warp),
+              ),
+          ca = a ** 22,
+          cb = b ** 24,
+          crease = 1 - (1 - ca) * (1 - cb),
+          shoulder = (a ** 7 - ca + b ** 8 - cb) * 0.5,
+          fold =
+            (0.5 +
+              0.5 * Math.cos(TAU * (21 * u + 13 * v + 1.8 * warp) + phase)) **
+            16;
+        // Negative broad wrinkles, modest rounded shoulders, and subordinate
+        // fine folds leave wide flat skin regions instead of raised pebble nets.
+        color = 0.65 - 0.4 * crease - 0.055 * fold + 0.035 * grain;
+        height =
+          0.63 -
+          0.39 * crease +
+          0.055 * shoulder -
+          0.035 * fold +
+          0.008 * grain;
+        roughness += 0.035 * crease + 0.025 * (grain - 0.5);
+        occlusion = 0.98 - 0.23 * crease - 0.025 * fold;
+        break;
+      }
+      case 'ostrichleather': {
+        const x = u * 6,
+          y = v * 6,
+          cx = Math.floor(x),
+          cy = Math.floor(y),
+          offset = (cy * 6 + cx) * 3,
+          dx = (x - cx - follicles![offset]) * follicles![offset + 2],
+          dy = (y - cy - follicles![offset + 1]) * follicles![offset + 2],
+          q = dx * dx + dy * dy,
+          support = smooth(clamp((1 - q) / 0.2)),
+          dimple = smooth(clamp(1 - q / 0.12)),
+          // Cartesian three-lobed modulation is regular at the center.
+          rosette = 1 + 0.18 * (dx * dx * dx - 3 * dx * dy * dy),
+          collar =
+            q < 1
+              ? support *
+                q *
+                Math.exp(-(((q - 0.43) / 0.22) ** 2)) *
+                2 *
+                rosette
+              : 0,
+          grain = skinGrain!(u, v);
+        color = 0.57 + 0.075 * grain + 0.12 * collar - 0.19 * dimple;
+        height = 0.43 + 0.018 * grain + 0.18 * collar - 0.13 * dimple;
+        roughness += 0.035 * (grain - 0.5) - 0.035 * collar + 0.04 * dimple;
+        occlusion = 0.985 - 0.17 * dimple - 0.035 * collar;
+        break;
+      }
+      case 'sharkskin': {
+        const x = u * 18,
+          y = v * 24,
+          row = Math.floor(y),
+          grain = skinGrain!(u, v);
+        color = 0.3 + 0.025 * grain;
+        height = 0.26 + 0.008 * grain;
+        occlusion = 0.79;
+        // |dy| < .78, width <= .43 * 1.45 < .624. Omitted rows/
+        // columns are >= 1.5 away: wrapped 3x3 support is complete.
+        // Ascending unwrapped rows preserve back-to-front order at the seam.
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy,
+            wy = ((cy % 24) + 24) % 24,
+            shift = (wy % 2) * 0.5,
+            column = Math.floor(x - shift);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              wx = ((cx % 18) + 18) % 18,
+              variation = denticles![wy * 18 + wx],
+              dy = y - cy - 0.5,
+              t = dy / 0.78;
+            if (t <= -1 || t >= 1) continue;
+            const width = (0.39 + 0.04 * variation) * (1 - 0.45 * t),
+              across = (x - cx - shift - 0.5) / width,
+              q = across * across + t * t,
+              cover = smooth(clamp((1 - q) / 0.22));
+            if (cover === 0) continue;
+            const dome = smooth(clamp(1 - q)),
+              keels =
+                Math.exp(-(((across + 0.48) / 0.075) ** 2)) +
+                Math.exp(-((across / 0.075) ** 2)) +
+                Math.exp(-(((across - 0.48) / 0.075) ** 2)),
+              rim = smooth(clamp((q - 0.56) / 0.2));
+            // Composite the complete opaque face, including its AO and rim;
+            // covered lower rims cannot bleed through an upper denticle.
+            color +=
+              cover *
+              (0.52 +
+                0.1 * variation +
+                0.045 * keels * dome -
+                0.055 * rim -
+                color);
+            height +=
+              cover *
+              (0.4 +
+                0.065 * dome +
+                0.055 * keels * dome -
+                0.025 * rim -
+                height);
+            occlusion += cover * (0.98 - 0.07 * rim - occlusion);
+          }
+        }
+        roughness += 0.025 * (grain - 0.5) + 0.035 * (1 - occlusion);
         break;
       }
       case 'leather': {

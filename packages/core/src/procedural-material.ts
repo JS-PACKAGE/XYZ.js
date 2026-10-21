@@ -186,7 +186,10 @@ export type ProceduralMaterialKind =
   | 'fritillarypetal'
   | 'birchbark'
   | 'palmtrunk'
-  | 'sycamorebark';
+  | 'sycamorebark'
+  | 'elephanthide'
+  | 'ostrichleather'
+  | 'sharkskin';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -399,6 +402,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'birchbark',
   'palmtrunk',
   'sycamorebark',
+  'elephanthide',
+  'ostrichleather',
+  'sharkskin',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -205,7 +205,209 @@ const kinds: ProceduralMaterialKind[] = [
   'birchbark',
   'palmtrunk',
   'sycamorebark',
+  'elephanthide',
+  'ostrichleather',
+  'sharkskin',
 ];
+
+describe('animal skin morphology', () => {
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (kind: ProceduralMaterialKind, seed: number) => {
+    const sample = createSurfaceSampler(kind, seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  const follicle = (x: number, y: number, seed: number) => ({
+    u: (x + 0.25 + 0.5 * hash(x, y, seed ^ 0x1b37)) / 6,
+    v: (y + 0.25 + 0.5 * hash(x, y, seed ^ 0x4f91)) / 6,
+    radius: (0.2 + 0.05 * hash(x, y, seed ^ 0x73a5)) / 6,
+  });
+
+  it.each([0, 1, 0xffffffff])(
+    'elephant wrinkles are dark recessed lines amid broad flatter skin, seed %i',
+    (seed) => {
+      const at = field('elephanthide', seed);
+      let dark = 0,
+        flat = 0,
+        darkHeight = 0,
+        flatHeight = 0,
+        darkAO = 0,
+        flatAO = 0;
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          const p = at((x + 0.31) / 96, (y + 0.43) / 96);
+          if (p.color < 0.35) {
+            dark++;
+            darkHeight += p.height;
+            darkAO += p.occlusion;
+          }
+          if (p.color > 0.62) {
+            flat++;
+            flatHeight += p.height;
+            flatAO += p.occlusion;
+          }
+        }
+      expect(dark).toBeGreaterThan(300);
+      expect(flat).toBeGreaterThan(3000);
+      expect(flatHeight / flat - darkHeight / dark).toBeGreaterThan(0.0018);
+      expect(flatAO / flat - darkAO / dark).toBeGreaterThan(0.15);
+    },
+  );
+
+  it.each([0, 1, 0xffffffff])(
+    'ostrich follicles have a recessed center and raised rosette collar above fine grain, seed %i',
+    (seed) => {
+      const at = field('ostrichleather', seed);
+      for (let y = 0; y < 6; y++)
+        for (let x = 0; x < 6; x++) {
+          const p = follicle(x, y, seed),
+            center = at(p.u, p.v);
+          for (let i = 0; i < 8; i++) {
+            const angle = (i * Math.PI) / 4,
+              collar = at(
+                p.u + 0.68 * p.radius * Math.cos(angle),
+                p.v + 0.68 * p.radius * Math.sin(angle),
+              ),
+              background = at(
+                p.u + 1.05 * p.radius * Math.cos(angle),
+                p.v + 1.05 * p.radius * Math.sin(angle),
+              );
+            expect(collar.height - background.height).toBeGreaterThan(0.0004);
+            expect(background.height - center.height).toBeGreaterThan(0.0004);
+            expect(collar.color - center.color).toBeGreaterThan(0.2);
+            expect(background.occlusion - center.occlusion).toBeGreaterThan(
+              0.15,
+            );
+          }
+        }
+    },
+  );
+
+  it.each([0, 1, 0xffffffff])(
+    'shark denticles carry three lengthwise keels and opaque overlap shading, seed %i',
+    (seed) => {
+      const at = field('sharkskin', seed);
+      for (const row of [0, 1, 23])
+        for (const column of [0, 7, 17]) {
+          const shift = (row % 2) * 0.5,
+            width = 0.39 + 0.04 * hash(column, row, seed ^ 0x3d67);
+          for (const dy of [-0.12, 0, 0.12]) {
+            const w = width * (1 - (0.45 * dy) / 0.78);
+            for (const keel of [-0.48, 0, 0.48]) {
+              const peak = at(
+                  (column + shift + 0.5 + keel * w) / 18,
+                  (row + 0.5 + dy) / 24,
+                ),
+                trough = at(
+                  (column +
+                    shift +
+                    0.5 +
+                    (keel + (keel > 0 ? -0.24 : 0.24)) * w) /
+                    18,
+                  (row + 0.5 + dy) / 24,
+                );
+              expect(peak.height - trough.height).toBeGreaterThan(0.000045);
+            }
+          }
+          const upstream = at((column + shift + 0.87) / 18, (row + 0.25) / 24),
+            downstream = at((column + shift + 0.87) / 18, (row + 0.75) / 24);
+          expect(upstream.height - downstream.height).toBeGreaterThan(0.0002);
+        }
+      // The upper row is fully opaque here while a lower trailing rim remains
+      // geometrically underneath. AO must equal the upper face, not a rim sum.
+      const t = -0.5 / 0.78,
+        width = (0.39 + 0.04 * hash(0, 1, seed ^ 0x3d67)) * (1 - 0.45 * t),
+        q = (-0.3 / width) ** 2 + t * t,
+        s = Math.max(0, Math.min(1, (q - 0.56) / 0.2));
+      expect(q).toBeLessThan(0.78);
+      expect(at(0.7 / 18, 1 / 24).occlusion).toBeCloseTo(
+        0.98 - 0.07 * s * s * (3 - 2 * s),
+        12,
+      );
+    },
+  );
+
+  it.each(['elephanthide', 'ostrichleather', 'sharkskin'] as const)(
+    '%s has C1 scalar fields at actual shoulders, support and lookup boundaries',
+    (kind) => {
+      for (const seed of [0, 1, 0xffffffff]) {
+        const at = field(kind, seed),
+          points: [number, number][] = [];
+        for (let i = 0; i <= 96; i++)
+          points.push([i / 96, 0.391], [0.617, i / 96]);
+        if (kind === 'ostrichleather')
+          for (const x of [0, 5])
+            for (const y of [0, 5]) {
+              const p = follicle(x, y, seed);
+              for (const r of [0, Math.sqrt(0.12), Math.sqrt(0.8), 1])
+                for (let i = 0; i < 16; i++)
+                  points.push([
+                    p.u + r * p.radius * Math.cos((i * Math.PI) / 8),
+                    p.v + r * p.radius * Math.sin((i * Math.PI) / 8),
+                  ]);
+            }
+        if (kind === 'sharkskin')
+          for (const row of [0, 1, 23])
+            for (const column of [0, 17]) {
+              const width = 0.39 + 0.04 * hash(column, row, seed ^ 0x3d67);
+              for (const q of [0.56, 0.76, 0.78, 1])
+                for (let i = 0; i < 16; i++) {
+                  const t = Math.sqrt(q) * Math.sin((i * Math.PI) / 8),
+                    dx =
+                      Math.sqrt(q) *
+                      Math.cos((i * Math.PI) / 8) *
+                      width *
+                      (1 - 0.45 * t);
+                  points.push([
+                    (column + (row % 2) * 0.5 + 0.5 + dx) / 18,
+                    (row + 0.5 + 0.78 * t) / 24,
+                  ]);
+                }
+            }
+        const epsilon = 1e-7;
+        for (const [u, v] of points)
+          for (const [du, dv] of [
+            [epsilon, 0],
+            [0, epsilon],
+          ]) {
+            const center = at(u, v),
+              left = at(u - du!, v - dv!),
+              right = at(u + du!, v + dv!),
+              halfLeft = at(u - du! / 2, v - dv! / 2),
+              halfRight = at(u + du! / 2, v + dv! / 2);
+            for (const key of Object.keys(center) as (keyof SurfaceSample)[]) {
+              expect(Number.isFinite(center[key])).toBe(true);
+              expect(center[key]).toBeGreaterThanOrEqual(0);
+              expect(center[key]).toBeLessThanOrEqual(1);
+              expect(
+                Math.abs(
+                  4 * (halfLeft[key] + halfRight[key]) -
+                    left[key] -
+                    right[key] -
+                    6 * center[key],
+                ) / epsilon,
+              ).toBeLessThan(0.001);
+            }
+          }
+      }
+    },
+  );
+});
 
 class TestImageData {
   readonly data: Uint8ClampedArray;

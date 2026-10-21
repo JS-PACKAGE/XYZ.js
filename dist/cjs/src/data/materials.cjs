@@ -2525,6 +2525,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .84,
 		relief: .004
+	}),
+	elephanthide: Object.freeze({
+		dark: [
+			50,
+			49,
+			46
+		],
+		light: [
+			160,
+			157,
+			147
+		],
+		roughness: .88,
+		relief: .007
+	}),
+	ostrichleather: Object.freeze({
+		dark: [
+			92,
+			51,
+			25
+		],
+		light: [
+			217,
+			168,
+			103
+		],
+		roughness: .69,
+		relief: .004
+	}),
+	sharkskin: Object.freeze({
+		dark: [
+			39,
+			54,
+			63
+		],
+		light: [
+			145,
+			163,
+			171
+		],
+		roughness: .78,
+		relief: .002
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2707,7 +2749,10 @@ var proceduralTileMeters = Object.freeze({
 	fritillarypetal: .035,
 	birchbark: .18,
 	palmtrunk: .28,
-	sycamorebark: .3
+	sycamorebark: .3,
+	elephanthide: .3,
+	ostrichleather: .1,
+	sharkskin: .035
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

@@ -1086,6 +1086,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.84;
         relief: 0.004;
     }>;
+    elephanthide: Readonly<{
+        dark: readonly [50, 49, 46];
+        light: readonly [160, 157, 147];
+        roughness: 0.88;
+        relief: 0.007;
+    }>;
+    ostrichleather: Readonly<{
+        dark: readonly [92, 51, 25];
+        light: readonly [217, 168, 103];
+        roughness: 0.69;
+        relief: 0.004;
+    }>;
+    sharkskin: Readonly<{
+        dark: readonly [39, 54, 63];
+        light: readonly [145, 163, 171];
+        roughness: 0.78;
+        relief: 0.002;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -1269,6 +1287,9 @@ export declare const proceduralTileMeters: Readonly<{
     birchbark: 0.18;
     palmtrunk: 0.28;
     sycamorebark: 0.3;
+    elephanthide: 0.3;
+    ostrichleather: 0.1;
+    sharkskin: 0.035;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

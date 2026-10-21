@@ -3767,3 +3767,42 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   僅追加樹皮類別，不列舉所有物種。本組無新增連結或 runtime 依賴，
   保留既有歷史段落，不擴大跨瀏覽器、Canvas2D 3D 或裝置認證，不 push。
 - `[Rendering2D]` `GameObject.worldSpace` 改以迴圈走到階層根再讀其 `space`，取代每層祖先一次的遞迴 getter 呼叫（結果相同，ParticleLayer2D 覆寫的 `space` 仍由根決定）。gameplay2d（WebGPU）剖析中 worldSpace 佔 CPU busy 7.6–8.9% → 2.5–2.6%；Node 3000 個 0–3 層巢狀物件每次全讀 74–78 → 32–48 µs。新增測試涵蓋 4 層深度、中間層 space 不影響、與移出後成為新根，`while`→`if` 與根回傳固定值的 mutant 皆失敗。build 與完整測試（2140 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，失敗的 pbr3d 三個 renderer 在未修改的 HEAD 一樣逾時（等待 canvas 15 秒），與本變更無關。
+
+## 程序材質擴充：象皮、鴕鳥皮革與鯊魚皮
+
+- 本組獨立快照新增 elephanthide／ostrichleather／sharkskin，180→183 種。
+  象皮為霧面灰色凹陷蜿蜒皺褶與細摺紋；鴕鳥皮革為暖棕色細底紋、
+  稀疏中央凹孔及隆起毛囊環；鯊魚皮為灰藍色細密漸尖三脊盾鱗。
+  都是 opaque dielectric，不新增 geometry、alpha、transmission、
+  SSS、anisotropic BRDF 或公開 API。
+- 毛囊支撐不超過單一 owner cell，盾鱗使用完整 bounded 3×3 lookup；
+  seed 資料預先快取，取樣不配置物件。上層盾鱗遮蔽下層 rim／AO，
+  不讓已覆蓋的凹邊陰影穿透。C1 測試涵蓋實際支撐、肩部、
+  lookup 與週期交界；既有共同測試沿用，不重複新增 seed／periodicity 測試。
+- 十五項針對性測試通過，含三種形態在 seed 0、1、0xffffffff
+  的凹凸關係、三脊／漸尖形狀、遮蔽及 C1 檢查。
+  In-memory 負向控制分別取消 noise 平滑、毛囊支撐平滑、盾鱗邊緣平滑，
+  都由同一 C1 測試拒絕；未保留 mutant 或 throwaway script。
+  六個 seed 的 193×193 scalar 掃描皆有限且在合法範圍，
+  移除最終 roughness clamp 後另掃描確認未依賴 clipping。
+- 隔離快照 build、完整 lint、自有檔案 format check 通過。
+  完整 suite 為 176 檔通過、1 檔失敗，2152 項通過、5 項失敗；
+  diamondplate／paper／wicker／bamboo／corrugatedmetal 的既有邊界測試
+  各超過原 5000 ms timeout，未提高 timeout 或重跑來取得全綠結果。
+  typecheck 仍因既有 `sprite-quad-validation.test.ts:13`
+  fixture 缺少 `destroy` 失敗，未改動無關 fixture。
+- 前 180 種 maps 在 size 64、seed 7 與基準 `4614225e` 逐 byte 不變；
+  全 183 種 source／ESM／CJS maps 在同一參數一致，
+  新三種另涵蓋 seed 0、1、8、0xffffffff、3589914215。
+  實際重建並提交本組材質模組的 ESM／CJS／型別與 sourcemap 產物。
+- 真實 Chrome WebGPU／WebGL2 的 183 種 gallery 各切換三個新材質，
+  六張畫面與公開 factory 256 px／seed 7 的 2×2 平鋪皆已檢視。
+  metallic B=0、四份 texture destroy 通過；roughness byte 分別為
+  221–236／163–190／196–204，每米 repeats 為 3.3333／10／28.5714。
+  不擴大跨瀏覽器、Canvas2D 3D 或裝置認證。
+- 五份完整目錄確認各 183 個唯一名稱；README 中／英／日同步簡短類別，
+  PLAN／DESIGN 舊段落與所有既有連結保持不變。無新增 runtime 依賴。
+  本組完整驗證留在隔離快照，提交只含本組變更；
+  共享目錄另有未提交的街道材質，整合時保留而不納入本筆 commit。
+  以上完整 suite 與雙 backend 證據僅屬本組 183 種快照，不冒稱其他
+  未提交功能也通過同一輪完整檢查；本組不 push。
