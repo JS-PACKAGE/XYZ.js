@@ -12,6 +12,7 @@ import {
   collectRenderCommands2D,
   RenderCommandBuffer2D,
 } from '../packages/graphics/src/render2d-contract.js';
+import { getRelativeAppearance2D } from '../packages/graphics/src/sprite-instance.js';
 
 function texture(width = 32, height = 16): Texture {
   return new Texture({
@@ -230,6 +231,28 @@ describe('2D composed scene ownership', () => {
       'screen',
       'screen',
     ]);
+  });
+  it('composes untinted ancestors as white and drops subtrees whose tint alpha is zero', () => {
+    const scene = new Scene();
+    const image = texture(4, 4);
+    const faded = scene.add(new Group2D());
+    faded.opacity = 0.5;
+    const shown = faded.add(new Sprite({ texture: image, position: [8, 8] }));
+    shown.opacity = 0.5;
+    const clear = scene.add(new Group2D());
+    clear.add(new Sprite({ texture: image, position: [8, 8] }));
+    clear.tint = [1, 1, 1, 0];
+    const commands = new RenderCommandBuffer2D();
+    collectRenderCommands2D(scene, 32, 32, commands);
+    expect(commands.items.map((command) => command.object)).toEqual([shown]);
+    const appearance = new Float32Array(4);
+    getRelativeAppearance2D(shown, undefined, appearance);
+    expect(Array.from(appearance)).toEqual([1, 1, 1, 0.25]);
+    faded.tint = [0.5, 1, 1, 0.5];
+    getRelativeAppearance2D(shown, undefined, appearance);
+    expect(Array.from(appearance)).toEqual([0.5, 1, 1, 0.125]);
+    scene.destroy();
+    image.destroy();
   });
   it('culls against final camera displacement and sorts HUD after world independent of z', () => {
     const scene = new Scene();

@@ -156,6 +156,9 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 			1
 		];
 	}
+	get existingTint() {
+		return this.color;
+	}
 	set tint(e) {
 		if (e.length !== 4 || e.some((e) => !Number.isFinite(e) || e < 0 || e > 1)) throw RangeError(`tint must contain four finite channels between 0 and 1.`);
 		let t = this.color ??= [

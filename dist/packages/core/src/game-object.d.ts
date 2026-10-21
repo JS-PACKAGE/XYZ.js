@@ -76,6 +76,8 @@ export declare class GameObject extends SceneObject {
     get zIndex(): number;
     set zIndex(value: number);
     get tint(): ColorRGBA;
+    /** @internal The tint channels, or undefined while opaque white; never creates them. */
+    get existingTint(): Readonly<ColorRGBA> | undefined;
     set tint(value: ColorRGBA);
     get space(): 'world' | 'screen';
     set space(value: 'world' | 'screen');

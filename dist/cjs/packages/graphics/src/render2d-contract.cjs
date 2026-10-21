@@ -162,7 +162,8 @@ function partitionBoundaries2D(i, a, o) {
 				u = e;
 				break;
 			}
-			if (!e.visible || e.opacity <= 0 || e.tint[3] <= 0) {
+			let t = e.existingTint;
+			if (!e.visible || e.opacity <= 0 || t !== void 0 && t[3] <= 0) {
 				i = !1;
 				break;
 			}

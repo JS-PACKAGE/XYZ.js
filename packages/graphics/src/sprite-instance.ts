@@ -172,11 +172,15 @@ export function getRelativeAppearance2D(
     current && current !== root;
     current = current.parent
   ) {
-    const tint = current.tint;
-    out[0] *= tint[0];
-    out[1] *= tint[1];
-    out[2] *= tint[2];
-    out[3] *= tint[3] * current.opacity;
+    // An untinted object is opaque white, and multiplying by 1 changes no channel.
+    const tint = current.existingTint;
+    if (tint === undefined) out[3] *= current.opacity;
+    else {
+      out[0] *= tint[0];
+      out[1] *= tint[1];
+      out[2] *= tint[2];
+      out[3] *= tint[3] * current.opacity;
+    }
   }
 }
 

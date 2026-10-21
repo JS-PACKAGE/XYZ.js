@@ -353,7 +353,13 @@ function partitionBoundaries2D(
         boundary = current;
         break;
       }
-      if (!current.visible || current.opacity <= 0 || current.tint[3] <= 0) {
+      // Read without `tint`, which would create the channels of every untinted object.
+      const tint = current.existingTint;
+      if (
+        !current.visible ||
+        current.opacity <= 0 ||
+        (tint !== undefined && tint[3] <= 0)
+      ) {
         visible = false;
         break;
       }

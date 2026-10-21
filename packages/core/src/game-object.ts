@@ -235,6 +235,10 @@ export class GameObject extends SceneObject {
   get tint(): ColorRGBA {
     return (this.color ??= [1, 1, 1, 1]);
   }
+  /** @internal The tint channels, or undefined while opaque white; never creates them. */
+  get existingTint(): Readonly<ColorRGBA> | undefined {
+    return this.color;
+  }
   set tint(value: ColorRGBA) {
     if (
       value.length !== 4 ||

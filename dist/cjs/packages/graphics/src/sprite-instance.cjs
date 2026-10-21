@@ -55,8 +55,8 @@ function getSpriteQuad2D(n, r) {
 function getRelativeAppearance2D(e, t, n) {
 	n[0] = n[1] = n[2] = n[3] = 1;
 	for (let r = e; r && r !== t; r = r.parent) {
-		let e = r.tint;
-		n[0] *= e[0], n[1] *= e[1], n[2] *= e[2], n[3] *= e[3] * r.opacity;
+		let e = r.existingTint;
+		e === void 0 ? n[3] *= r.opacity : (n[0] *= e[0], n[1] *= e[1], n[2] *= e[2], n[3] *= e[3] * r.opacity);
 	}
 }
 var QUAD_BYTES = 36 * Float32Array.BYTES_PER_ELEMENT;
