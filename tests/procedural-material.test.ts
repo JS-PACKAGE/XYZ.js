@@ -63,6 +63,9 @@ const kinds: ProceduralMaterialKind[] = [
   'sandstone',
   'travertine',
   'pumice',
+  'parquet',
+  'mosaic',
+  'hexagontiles',
 ];
 
 class TestImageData {
@@ -259,6 +262,9 @@ describe('periodic procedural material fields', () => {
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
+    ['parquet', [4, 8, 12, 32]],
+    ['mosaic', [16, 32]],
+    ['hexagontiles', [5, 6, 10, 12, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -303,11 +309,96 @@ describe('periodic procedural material fields', () => {
                     ? 1
                     : 0,
                 );
-                expect(a.mortar).toBe(0);
+                if (kind !== 'mosaic' && kind !== 'hexagontiles')
+                  expect(a.mortar).toBe(0);
               }
       }
     },
   );
+
+  it('hexagonal cells meet continuously along all six shared edges, including wrapped diagonals', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    const root3 = Math.sqrt(3);
+    const epsilon = 1e-7;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('hexagontiles', seed);
+      for (const row of [0, 1, 5, 6])
+        for (const column of [0, 2, 5]) {
+          const cx = column + (row % 2) * 0.5,
+            cy = (row * root3) / 2;
+          sample(cx / 5, cy / (3 * root3), a);
+          expect(a.mortar).toBe(0);
+          expect(a.height).toBeGreaterThan(0);
+          for (let side = 0; side < 6; side++) {
+            const nx = Math.cos((side * Math.PI) / 3),
+              ny = Math.sin((side * Math.PI) / 3);
+            for (const along of [-0.2, 0, 0.2]) {
+              const x = cx + 0.5 * nx - along * ny,
+                y = cy + 0.5 * ny + along * nx;
+              sample(
+                (x - epsilon * nx) / 5,
+                (y - epsilon * ny) / (3 * root3),
+                a,
+              );
+              sample(
+                (x + epsilon * nx) / 5,
+                (y + epsilon * ny) / (3 * root3),
+                b,
+              );
+              for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+                expect(a[key]).toBeCloseTo(b[key], 9);
+              expect(a.mortar).toBe(1);
+              expect(a.height).toBe(0);
+              // Both sides have a flat bottom, so height derivatives cannot
+              // pick up a tile-owned normal discontinuity at a shared edge.
+              sample((x - 0.001 * nx) / 5, (y - 0.001 * ny) / (3 * root3), a);
+              sample((x + 0.001 * nx) / 5, (y + 0.001 * ny) / (3 * root3), b);
+              expect(a.height).toBe(0);
+              expect(b.height).toBe(0);
+              sample((x - 0.08 * nx) / 5, (y - 0.08 * ny) / (3 * root3), a);
+              expect(a.mortar).toBe(0);
+              expect(a.height).toBeGreaterThan(0);
+            }
+          }
+        }
+    }
+  });
+
+  it('parquet alternates three-slat baskets with common recessed dark joints', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const sample = createSurfaceSampler('parquet', 123);
+    for (let slat = 0; slat < 3; slat++) {
+      for (const [u, v] of [
+        [0.125, slat / 12],
+        [(1 + slat / 3) / 4, 0.125],
+      ]) {
+        sample(u, v, a);
+        expect(a.height).toBe(0);
+      }
+      for (const [u, v] of [
+        [0.125, (slat + 0.5) / 12],
+        [(1 + (slat + 0.5) / 3) / 4, 0.125],
+      ]) {
+        sample(u, v, a);
+        expect(a.height).toBeGreaterThan(0);
+      }
+    }
+  });
 
   it('every preset produces a different base color', () => {
     const signatures = kinds.map((kind) =>

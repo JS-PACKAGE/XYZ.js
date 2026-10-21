@@ -45,7 +45,10 @@ export type ProceduralMaterialKind =
   | 'corrugatedmetal'
   | 'sandstone'
   | 'travertine'
-  | 'pumice';
+  | 'pumice'
+  | 'parquet'
+  | 'mosaic'
+  | 'hexagontiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -117,6 +120,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sandstone',
   'travertine',
   'pumice',
+  'parquet',
+  'mosaic',
+  'hexagontiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

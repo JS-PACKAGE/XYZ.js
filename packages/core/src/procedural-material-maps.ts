@@ -1025,6 +1025,111 @@ export function createSurfaceSampler(
         occlusion = 0.98 - 0.52 * vesicles + 0.01 * detail;
         break;
       }
+      case 'parquet': {
+        const x = u * 4,
+          y = v * 4;
+        const bx = Math.floor(x),
+          by = Math.floor(y);
+        const horizontal = (bx + by) % 2 === 0;
+        const along = horizontal ? fract(x) : fract(y),
+          across = horizontal ? fract(y) : fract(x);
+        const slat = Math.floor(across * 3);
+        const edge = Math.min(
+          along,
+          1 - along,
+          fract(across * 3) / 3,
+          (1 - fract(across * 3)) / 3,
+        );
+        const face = smooth(clamp((edge - 0.006) / 0.016));
+        const variation = hash(bx * 3 + slat, by, seed);
+        const warp = noise(u, v, 8, 8, seed ^ 0x3719);
+        const grain =
+          0.5 +
+          0.5 *
+            Math.sin(
+              TAU * (across * 38 + 0.28 * Math.sin(TAU * along) + 0.18 * warp) +
+                variation * TAU,
+            );
+        // All slat-owned grain and finish vanish into a common dark joint.
+        color =
+          0.06 +
+          face * (0.25 + 0.32 * variation + 0.22 * grain + 0.06 * detail);
+        height = face * (0.76 + 0.045 * grain + 0.025 * detail);
+        roughness =
+          0.78 +
+          face * (preset.roughness - 0.78 + 0.09 * grain + 0.04 * variation);
+        occlusion = 0.52 + 0.46 * face;
+        break;
+      }
+      case 'mosaic': {
+        const cells = 16;
+        const x = u * cells,
+          y = v * cells;
+        const fx = fract(x),
+          fy = fract(y);
+        const edge = Math.min(fx, 1 - fx, fy, 1 - fy);
+        const face = smooth(clamp((edge - 0.018) / 0.042));
+        const variation = hash(Math.floor(x), Math.floor(y), seed);
+        color = 0.2 + face * (0.08 + 0.56 * variation + 0.1 * detail);
+        height = face * (0.78 + 0.08 * variation + 0.025 * detail);
+        roughness =
+          0.76 +
+          face * (preset.roughness - 0.76 + 0.11 * variation + 0.04 * detail);
+        occlusion = 0.6 + 0.39 * face;
+        mortar = 1 - face;
+        break;
+      }
+      case 'hexagontiles': {
+        const root3 = Math.sqrt(3);
+        const columns = 5,
+          rows = 6;
+        const x = u * columns,
+          y = (v * rows * root3) / 2;
+        const row = Math.floor(y / (root3 / 2));
+        let best = Infinity,
+          dx = 0,
+          dy = 0,
+          ownerX = 0,
+          ownerY = 0;
+        // Even row count makes this staggered triangular lattice wrap in a
+        // rectangle. Its Voronoi faces are six genuine straight hexagon edges.
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy;
+          const offset = (((cy % 2) + 2) % 2) * 0.5;
+          const column = Math.round(x - offset);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox;
+            const px = x - cx - offset,
+              py = y - (cy * root3) / 2;
+            const distance = px * px + py * py;
+            if (distance < best) {
+              best = distance;
+              dx = px;
+              dy = py;
+              ownerX = ((cx % columns) + columns) % columns;
+              ownerY = ((cy % rows) + rows) % rows;
+            }
+          }
+        }
+        const edge =
+          0.5 -
+          Math.max(
+            Math.abs(dx),
+            Math.abs(dx * 0.5 + (dy * root3) / 2),
+            Math.abs(dx * 0.5 - (dy * root3) / 2),
+          );
+        const face = smooth(clamp((edge - 0.012) / 0.034));
+        const variation = hash(ownerX, ownerY, seed);
+        // A flat grout bottom removes ownership jumps on diagonal edges too.
+        color = 0.2 + face * (0.28 + 0.35 * variation + 0.07 * detail);
+        height = face * (0.8 + 0.045 * variation + 0.02 * detail);
+        roughness =
+          0.74 +
+          face * (preset.roughness - 0.74 + 0.1 * variation + 0.04 * detail);
+        occlusion = 0.6 + 0.39 * face;
+        mortar = 1 - face;
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;

@@ -118,6 +118,9 @@ try {
     'sandstone',
     'travertine',
     'pumice',
+    'parquet',
+    'mosaic',
+    'hexagontiles',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

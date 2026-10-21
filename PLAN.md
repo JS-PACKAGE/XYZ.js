@@ -46,6 +46,8 @@
 
 多孔與沉積石材增量追加 sandstone／travertine／pumice（砂岩／洞石／浮石），目前共三十九種；前述 counts 保留為歷史。分別為暖色波狀沉積層理與砂粒（非深色板岩或鬆散沙）、奶油色石灰岩的不規則細長淺孔與細微水平礦物帶、淺灰火山岩上密集隨機分布的小圓氣孔（非礫石或石材換色）。三者皆為 opaque dielectric、metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps；凹孔僅由 normal map 表現，不新增透明或 geometry 孔洞。前三十六種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
+地板飾面增量追加 parquet／mosaic／hexagontiles（拼花木地板／馬賽克／六角磚），目前共四十二種；前述 counts 保留為歷史。分別為多根窄木條組成木塊、交替縱向木紋與深色凹縫的籃編式拼排（非木材換色）、帶 seed 決定之逐磚色調差異與窄凹填縫的細小方形釉面磚粒（區別於較大的 tiles）、無接邊斷裂地週期重複的六邊形陶瓷單元與窄凹填縫。三者皆為 opaque dielectric、metallic 通道與預設 factor 為 0，僅沿用 deterministic periodic 四份 maps；凹凸由 normal map 表現，接縫不分割 geometry。前三十九種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

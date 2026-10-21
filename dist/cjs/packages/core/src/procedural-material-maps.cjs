@@ -274,6 +274,29 @@ function createSurfaceSampler(t, r) {
 				p = .65 + .12 * noise(e, c, 5, 5, r ^ 40007) + .08 * f - .57 * o + .05 * s, m = .72 - .58 * o + .08 * s + .03 * f, h += .07 * o + .07 * (f - .5), g = .98 - .52 * o + .01 * d;
 				break;
 			}
+			case `parquet`: {
+				let t = e * 4, a = c * 4, o = Math.floor(t), s = Math.floor(a), l = (o + s) % 2 == 0, u = fract(l ? t : a), f = fract(l ? a : t), _ = Math.floor(f * 3), y = smooth(clamp((Math.min(u, 1 - u, fract(f * 3) / 3, (1 - fract(f * 3)) / 3) - .006) / .016)), b = hash(o * 3 + _, s, r), x = noise(e, c, 8, 8, r ^ 14105), S = .5 + .5 * Math.sin(n * (f * 38 + .28 * Math.sin(n * u) + .18 * x) + b * n);
+				p = .06 + y * (.25 + .32 * b + .22 * S + .06 * d), m = y * (.76 + .045 * S + .025 * d), h = .78 + y * (i.roughness - .78 + .09 * S + .04 * b), g = .52 + .46 * y;
+				break;
+			}
+			case `mosaic`: {
+				let t = e * 16, n = c * 16, a = fract(t), o = fract(n), l = smooth(clamp((Math.min(a, 1 - a, o, 1 - o) - .018) / .042)), u = hash(Math.floor(t), Math.floor(n), r);
+				p = .2 + l * (.08 + .56 * u + .1 * d), m = l * (.78 + .08 * u + .025 * d), h = .76 + l * (i.roughness - .76 + .11 * u + .04 * d), g = .6 + .39 * l, _ = 1 - l;
+				break;
+			}
+			case `hexagontiles`: {
+				let t = Math.sqrt(3), n = e * 5, a = c * 6 * t / 2, o = Math.floor(a / (t / 2)), s = 1 / 0, l = 0, u = 0, f = 0, v = 0;
+				for (let e = -1; e <= 1; e++) {
+					let r = o + e, i = (r % 2 + 2) % 2 * .5, c = Math.round(n - i);
+					for (let e = -1; e <= 1; e++) {
+						let o = c + e, d = n - o - i, p = a - r * t / 2, m = d * d + p * p;
+						m < s && (s = m, l = d, u = p, f = (o % 5 + 5) % 5, v = (r % 6 + 6) % 6);
+					}
+				}
+				let b = smooth(clamp((.5 - Math.max(Math.abs(l), Math.abs(l * .5 + u * t / 2), Math.abs(l * .5 - u * t / 2)) - .012) / .034)), x = hash(f, v, r);
+				p = .2 + b * (.28 + .35 * x + .07 * d), m = b * (.8 + .045 * x + .02 * d), h = .74 + b * (i.roughness - .74 + .1 * x + .04 * d), g = .6 + .39 * b, _ = 1 - b;
+				break;
+			}
 		}
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};

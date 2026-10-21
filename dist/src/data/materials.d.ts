@@ -240,6 +240,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.88;
         relief: 0.012;
     }>;
+    parquet: Readonly<{
+        dark: readonly [48, 22, 9];
+        light: readonly [207, 149, 78];
+        roughness: 0.42;
+        relief: 0.004;
+    }>;
+    mosaic: Readonly<{
+        dark: readonly [15, 68, 77];
+        light: readonly [151, 218, 203];
+        roughness: 0.18;
+        relief: 0.003;
+    }>;
+    hexagontiles: Readonly<{
+        dark: readonly [123, 135, 145];
+        light: readonly [244, 240, 225];
+        roughness: 0.24;
+        relief: 0.004;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -282,6 +300,9 @@ export declare const proceduralTileMeters: Readonly<{
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;
+    parquet: 0.8;
+    mosaic: 0.24;
+    hexagontiles: 0.6;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

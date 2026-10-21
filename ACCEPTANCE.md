@@ -2508,3 +2508,22 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步出現的 CanvasSpriteSource 修改及其 dist 不納入本組。
 - `[Canvas2D]` painted frame snapshot 的 LRU 改用 Map 插入順序（命中時移到尾端），淘汰直接取第一筆，不再每次未命中掃描全部 256 筆找最舊；淘汰順序同為最久未畫者。c2f 每幀變色 1200 sprites CPU 2.98 → 2.85 ms、400 sprites 2.33 → 2.13 ms；命中路徑 Map 移動約 19 ns／次（Node 微基準）。
+
+## 程序材質擴充：地坪（parquet／mosaic／hexagontiles）
+
+- 新增交替木條方向的籃編拼花木地板、細方釉面馬賽克與六角陶瓷磚，
+  tile 尺寸依序 0.8／0.24／0.6 m。三者為 opaque dielectric；
+  拼縫只影響 maps，六角磚使用可矩形重複的交錯格點，不分割 geometry。
+  gallery／API 文件同步至 42 種，README 既有建材分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1533 tests
+  通過；去除新測試中的固定色值／粗糙度斷言後，材質專項 83 tests
+  與格式檢查再次通過。保留六邊斜接縫與跨 UV 邊界連續性、凹縫／面層
+  轉換及交替木條接縫回歸。前三十九種預設在 size 64／seed 7 的四份
+  maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認拼花、細方磚與六角磚差異；metallic 全為 0，
+  roughness bytes 依序 107–199／46–168／61–189；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。
