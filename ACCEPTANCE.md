@@ -2843,3 +2843,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 只提交本組 source、docs 與獨立快照的對應 dist，不納入同時進行的金屬
   或其他修改；不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
 - `[Storage]` SaveManager 不再重複驗證同一份 JSON：`decode` 已把整個 record（含自有 `data`）驗證過，只在 `data` 非自有屬性時再驗；覆寫前與 load／migrate 結尾改只跑 schema `validate`（migration 每步本來就驗證 JSON）。錯誤條件與順序不變。2000 筆 entity 存檔 Node bench：save 6.5 → 4.6 ms、load 4.8 → 2.9 ms、配置 14.4 → 8.5 MiB／次；新增缺少／非有限 `data` 視為 corrupt、schema 拒絕的舊資料不可覆寫的測試。因同工作區另一方的未提交檔暫時無法編譯，build 與完整測試（1730 通過）改在 HEAD 匯出副本加本變更上執行，產物與主工作區同一 HEAD 建置逐位相同。
+- `[Storage]` 補記：上一筆 `[Storage]` commit 也一併帶入 `checkSize` 的 UTF-8 長度界線——UTF-16 單位編碼為 1–3 bytes，長度 ×3 不超過上限即直接通過、長度超過上限即直接拒絕，只有中間範圍才實際 `TextEncoder` 編碼；判定結果不變。545 KiB 字串 `MemoryStorage.set` Node bench 約 11 → <1 µs。本筆新增上限兩側（三位元組字元、ASCII、孤立 surrogate）的邊界測試，並經 mutation 驗證。

@@ -135,6 +135,23 @@ it('isolates namespaces including clear and enforces byte limits', async () => {
     b.set('large', '😀'.repeat(storageLimits.maxBytes / 4 + 1)),
   ).rejects.toMatchObject({ code: 'size' });
 });
+it('limits UTF-8 bytes rather than characters at both sides of the budget', async () => {
+  const storage = new MemoryStorage('bytes'),
+    max = storageLimits.maxBytes;
+  const threeByte = Math.floor(max / 3);
+  await storage.set('fits', '中'.repeat(threeByte) + 'a'.repeat(max % 3));
+  await expect(
+    storage.set('over', '中'.repeat(threeByte + 1)),
+  ).rejects.toMatchObject({ code: 'size' });
+  await storage.set('ascii', 'a'.repeat(max));
+  await expect(storage.set('ascii', 'a'.repeat(max + 1))).rejects.toMatchObject(
+    { code: 'size' },
+  );
+  // A lone surrogate is replaced by a three-byte U+FFFD when encoded.
+  await expect(
+    storage.set('lone', '\ud800'.repeat(threeByte + 1)),
+  ).rejects.toMatchObject({ code: 'size' });
+});
 it('turns localStorage quota failures into typed errors and detects unavailable IndexedDB', async () => {
   const storage = {
     setItem: () => {
