@@ -539,6 +539,17 @@ export class CharacterController2D {
       (!Number.isSafeInteger(options.epoch) || options.epoch < 0)
     )
       throw new RangeError('epoch must be a nonnegative safe integer.');
+    // Resolving a move moves only this character: every other collider pose is checked
+    // once instead of before each of its queries.
+    return this.world.withPoseSnapshot(
+      () => this.resolveMove(displacement, options),
+      this.object,
+    );
+  }
+  private resolveMove(
+    displacement: Readonly<Vector2>,
+    options: CharacterMovementOptions2D,
+  ): CharacterMoveResult2D {
     this.start.copy(this.object.position);
     this.requested.copy(displacement);
     this.recovery.set(0, 0);

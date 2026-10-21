@@ -94,5 +94,6 @@ export declare class CharacterController2D {
     private recover;
     private carry;
     move(displacement: Readonly<Vector2>, options?: CharacterMovementOptions2D): CharacterMoveResult2D;
+    private resolveMove;
     destroy(): void;
 }

@@ -131,13 +131,21 @@ export declare class PhysicsWorld2D {
     private registrationVersion;
     /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
     private poseSnapshot;
+    /** Nonzero inside a moving pose snapshot; see `withPoseSnapshot`. */
+    private moverEpoch;
+    private moverEpochs;
     /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
     get geometryRevision(): number;
     /**
-     * @internal Runs synchronous `overlap` queries that move no collider (no user code runs
-     * inside `run`) against one pose refresh instead of rechecking every pose per query.
+     * @internal Runs synchronous queries (no user code runs inside `run`) without rechecking
+     * every pose per query. Without `mover` nothing moves: poses are refreshed once up front.
+     * With one, only `mover` and its descendants move: each other queried proxy is refreshed
+     * on first use only, so validation errors surface exactly where they did before.
      */
-    withPoseSnapshot<T>(run: () => T): T;
+    withPoseSnapshot<T>(run: () => T, mover?: GameObject): T;
+    private markMoving;
+    /** -1: every pose is current; 0: refresh each queried proxy; else the mover epoch. */
+    private get queryRefreshEpoch();
     constructor(options?: PhysicsWorldOptions);
     get destroyed(): boolean;
     get fixedDelta(): number;

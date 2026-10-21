@@ -119,6 +119,10 @@ class Proxy {
   readonly joints: Joint2D[] = [];
   readonly motion: ShapeMotion2D;
   group!: readonly Proxy[];
+  /** Mover snapshot in which a query last refreshed this proxy; see `refreshInSnapshot`. */
+  queryEpoch = 0;
+  /** Mover snapshot whose mover owns this proxy directly or through an ancestor. */
+  movingEpoch = 0;
   private observedGeometry = -1;
   private observedCategory = -1;
   private observedMask = -1;
@@ -169,6 +173,17 @@ class Proxy {
         ? 1 / (this.body.mass * this.geometry.inertiaPerMass)
         : 0;
   }
+}
+/**
+ * Query refresh inside a pose snapshot (`epoch` from `queryRefreshEpoch`, nonzero): frozen
+ * snapshots refresh nothing; a moving one refreshes each proxy on its first query and the
+ * mover's own proxies on every query.
+ */
+function refreshInSnapshot(proxy: Proxy, epoch: number): void {
+  if (epoch < 0 || (proxy.queryEpoch === epoch && proxy.movingEpoch !== epoch))
+    return;
+  proxy.refresh();
+  proxy.queryEpoch = epoch;
 }
 class Contact {
   readonly manifold = new Manifold();
@@ -256,6 +271,9 @@ export class PhysicsWorld2D {
   private registrationVersion = 0;
   /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
   private poseSnapshot = false;
+  /** Nonzero inside a moving pose snapshot; see `withPoseSnapshot`. */
+  private moverEpoch = 0;
+  private moverEpochs = 0;
   /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
   get geometryRevision(): number {
     if (this.poseSnapshot) return this.geometryVersion;
@@ -267,11 +285,25 @@ export class PhysicsWorld2D {
     return this.geometryVersion;
   }
   /**
-   * @internal Runs synchronous `overlap` queries that move no collider (no user code runs
-   * inside `run`) against one pose refresh instead of rechecking every pose per query.
+   * @internal Runs synchronous queries (no user code runs inside `run`) without rechecking
+   * every pose per query. Without `mover` nothing moves: poses are refreshed once up front.
+   * With one, only `mover` and its descendants move: each other queried proxy is refreshed
+   * on first use only, so validation errors surface exactly where they did before.
    */
-  withPoseSnapshot<T>(run: () => T): T {
-    if (this.poseSnapshot) return run();
+  withPoseSnapshot<T>(run: () => T, mover?: GameObject): T {
+    if (this.poseSnapshot || this.moverEpoch) {
+      if (mover || this.moverEpoch)
+        throw new Error('A moving pose snapshot cannot be nested.');
+      return run();
+    }
+    if (mover) {
+      this.markMoving(mover, (this.moverEpoch = ++this.moverEpochs));
+      try {
+        return run();
+      } finally {
+        this.moverEpoch = 0;
+      }
+    }
     void this.geometryRevision;
     this.poseSnapshot = true;
     try {
@@ -279,6 +311,15 @@ export class PhysicsWorld2D {
     } finally {
       this.poseSnapshot = false;
     }
+  }
+  private markMoving(object: GameObject, epoch: number): void {
+    const proxy = this.owners.get(object);
+    if (proxy) for (const piece of proxy.group) piece.movingEpoch = epoch;
+    for (const child of object.children) this.markMoving(child, epoch);
+  }
+  /** -1: every pose is current; 0: refresh each queried proxy; else the mover epoch. */
+  private get queryRefreshEpoch(): number {
+    return this.poseSnapshot ? -1 : this.moverEpoch;
   }
 
   constructor(options: PhysicsWorldOptions = {}) {
@@ -1228,6 +1269,7 @@ export class PhysicsWorld2D {
     }
     geometry.refresh(owner);
     const results: ContactQuery[] = [];
+    const epoch = this.queryRefreshEpoch;
     for (const proxy of this.proxies) {
       if (
         proxy.owner === owner ||
@@ -1236,7 +1278,8 @@ export class PhysicsWorld2D {
         !(proxy.collider.category & collider.mask)
       )
         continue;
-      if (!this.poseSnapshot) proxy.refresh();
+      if (epoch === 0) proxy.refresh();
+      else refreshInSnapshot(proxy, epoch);
       if (!collide(geometry, proxy.geometry, this.queryManifold)) continue;
       const m = this.queryManifold;
       results.push({
@@ -1291,6 +1334,7 @@ export class PhysicsWorld2D {
     out.exhausted = false;
     out.normal.set(0, 0);
     out.point.set(0, 0);
+    const epoch = this.queryRefreshEpoch;
     for (const proxy of this.proxies) {
       if (
         proxy.owner === owner ||
@@ -1302,7 +1346,8 @@ export class PhysicsWorld2D {
         !(proxy.collider.category & collider.mask & mask)
       )
         continue;
-      proxy.refresh();
+      if (epoch === 0) proxy.refresh();
+      else refreshInSnapshot(proxy, epoch);
       proxy.motion.setExplicit(
         proxy.owner.position.x,
         proxy.owner.position.y,
@@ -1359,9 +1404,11 @@ export class PhysicsWorld2D {
       dx = direction.x / length,
       dy = direction.y / length;
     const results: PhysicsRayHit[] = [];
+    const epoch = this.queryRefreshEpoch;
     for (const proxy of this.proxies) {
       if (!this.alive(proxy) || !(proxy.collider.category & mask)) continue;
-      proxy.refresh();
+      if (epoch === 0) proxy.refresh();
+      else refreshInSnapshot(proxy, epoch);
       const distance = rayDistance(
         proxy.geometry,
         origin.x,

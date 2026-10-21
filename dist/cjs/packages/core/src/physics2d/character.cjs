@@ -202,6 +202,9 @@ var CharacterController2D = class {
 		if (this.destroyed) throw Error(`Cannot move a destroyed CharacterController2D.`);
 		if (this.assertPose(), !this.world.has(this.object, this.collider) || this.object.body?.type !== `kinematic`) throw Error(`Character is no longer registered with its kinematic body.`);
 		if (require_collider.finite(e.x, `displacement.x`), require_collider.finite(e.y, `displacement.y`), t.epoch !== void 0 && (!Number.isSafeInteger(t.epoch) || t.epoch < 0)) throw RangeError(`epoch must be a nonnegative safe integer.`);
+		return this.world.withPoseSnapshot(() => this.resolveMove(e, t), this.object);
+	}
+	resolveMove(e, t) {
 		this.start.copy(this.object.position), this.requested.copy(e), this.recovery.set(0, 0), this.supportRequested.set(0, 0), this.carried.set(0, 0), this.locomotion.set(0, 0), this.result.blocked = this.result.carryBlocked = this.result.unresolvedPenetration = this.result.exhausted = !1, this.result.supportRotationDelta = 0;
 		let n = this.groundedState;
 		(this.expected.x !== this.object.position.x || this.expected.y !== this.object.position.y) && this.detachSupport(`teleport`), t.detachSupport && this.detachSupport(`jump`), this.phaseStart.copy(this.object.position), this.carry(t.epoch), this.carried.set(this.object.position.x - this.phaseStart.x, this.object.position.y - this.phaseStart.y), this.phaseStart.copy(this.object.position), this.recover(), this.recovery.set(this.object.position.x - this.phaseStart.x, this.object.position.y - this.phaseStart.y), this.phaseStart.copy(this.object.position), this.groundedState = !1, this.candidate = void 0, this.candidateCollider = void 0;

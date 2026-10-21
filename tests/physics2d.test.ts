@@ -713,6 +713,39 @@ describe('mutable static poses', () => {
     expect(hit()).toBe(1);
     scene.destroy();
   });
+
+  it('lets queries inside a moving pose snapshot follow the mover and its collider children', () => {
+    const scene = new Scene();
+    const world = scene.physics;
+    const mover = scene.add(new GameObject());
+    mover.collider = Colliders.circle(0.5);
+    const child = new GameObject();
+    child.collider = Colliders.circle(0.5);
+    child.position.set(0, 3);
+    mover.add(child);
+    // Moved before the snapshot without any query in between.
+    const other = scene.add(new GameObject());
+    other.collider = Colliders.circle(0.5);
+    world.raycast(new Vector2(-10, 0), new Vector2(1, 0), 1);
+    other.position.set(20, 6);
+    const hit = (x: number, y: number) =>
+      world.raycast(new Vector2(x - 5, y), new Vector2(1, 0), 10)[0]?.owner;
+    const seen = world.withPoseSnapshot(() => {
+      const before = [hit(0, 0), hit(0, 3), hit(20, 6)];
+      mover.position.x = 10;
+      return [...before, hit(10, 0), hit(10, 3), hit(0, 0), hit(0, 3)];
+    }, mover);
+    expect(seen).toEqual([
+      mover,
+      child,
+      other,
+      mover,
+      child,
+      undefined,
+      undefined,
+    ]);
+    scene.destroy();
+  });
 });
 
 describe('static sensor coverage', () => {

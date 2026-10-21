@@ -30,6 +30,8 @@ var Proxy = class {
 	joints = [];
 	motion;
 	group;
+	queryEpoch = 0;
+	movingEpoch = 0;
 	observedGeometry = -1;
 	observedCategory = -1;
 	observedMask = -1;
@@ -56,6 +58,9 @@ var Proxy = class {
 		this.inverseMass = this.body?.inverseMass ?? 0, this.inverseInertia = this.owner.colliderPieces ? this.body?.inverseInertia ?? 0 : this.body && this.inverseMass && !this.body.lockRotation ? 1 / (this.body.mass * this.geometry.inertiaPerMass) : 0;
 	}
 };
+function refreshInSnapshot(e, t) {
+	t < 0 || e.queryEpoch === t && e.movingEpoch !== t || (e.refresh(), e.queryEpoch = t);
+}
 var Contact = class {
 	a;
 	b;
@@ -127,19 +132,40 @@ var PhysicsWorld2D = class {
 	geometryVersion = 0;
 	registrationVersion = 0;
 	poseSnapshot = !1;
+	moverEpoch = 0;
+	moverEpochs = 0;
 	get geometryRevision() {
 		if (this.poseSnapshot) return this.geometryVersion;
 		for (let e of this.proxies) this.alive(e) && (e.refresh(), e.geometryChanged() && this.geometryVersion++);
 		return this.geometryVersion;
 	}
-	withPoseSnapshot(e) {
-		if (this.poseSnapshot) return e();
+	withPoseSnapshot(e, t) {
+		if (this.poseSnapshot || this.moverEpoch) {
+			if (t || this.moverEpoch) throw Error(`A moving pose snapshot cannot be nested.`);
+			return e();
+		}
+		if (t) {
+			this.markMoving(t, this.moverEpoch = ++this.moverEpochs);
+			try {
+				return e();
+			} finally {
+				this.moverEpoch = 0;
+			}
+		}
 		this.geometryRevision, this.poseSnapshot = !0;
 		try {
 			return e();
 		} finally {
 			this.poseSnapshot = !1;
 		}
+	}
+	markMoving(e, t) {
+		let n = this.owners.get(e);
+		if (n) for (let e of n.group) e.movingEpoch = t;
+		for (let n of e.children) this.markMoving(n, t);
+	}
+	get queryRefreshEpoch() {
+		return this.poseSnapshot ? -1 : this.moverEpoch;
 	}
 	constructor(e = {}) {
 		e.gravity && this.gravity.set(require_collider.finite(e.gravity[0], `gravity.x`), require_collider.finite(e.gravity[1], `gravity.y`)), this.fixedDelta = e.fixedDelta ?? this.fixedDelta, this.maxSubSteps = e.maxSubSteps ?? this.maxSubSteps, this.velocityIterations = e.velocityIterations ?? this.velocityIterations, this.positionIterations = e.positionIterations ?? this.positionIterations, this.ccdIterations = e.ccdIterations ?? this.ccdIterations, this.ccdImpacts = e.ccdImpacts ?? this.ccdImpacts;
@@ -527,17 +553,17 @@ var PhysicsWorld2D = class {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		let r = this.queryGeometries.get(t);
 		r || (r = new require_collider.ShapeGeometry(t), this.queryGeometries.set(t, r)), r.refresh(n);
-		let i = [];
-		for (let a of this.proxies) {
-			if (a.owner === n || !this.alive(a) || !(t.category & a.collider.mask) || !(a.collider.category & t.mask) || (this.poseSnapshot || a.refresh(), !require_narrowphase.collide(r, a.geometry, this.queryManifold))) continue;
-			let o = this.queryManifold;
+		let i = [], a = this.queryRefreshEpoch;
+		for (let o of this.proxies) {
+			if (o.owner === n || !this.alive(o) || !(t.category & o.collider.mask) || !(o.collider.category & t.mask) || (a === 0 ? o.refresh() : refreshInSnapshot(o, a), !require_narrowphase.collide(r, o.geometry, this.queryManifold))) continue;
+			let s = this.queryManifold;
 			i.push({
-				owner: a.owner,
-				collider: a.collider,
-				normal: new require_index.Vector2(o.nx, o.ny),
-				points: snapshotPoints(o),
-				penetration: o.penetration,
-				sensor: t.sensor || a.collider.sensor
+				owner: o.owner,
+				collider: o.collider,
+				normal: new require_index.Vector2(s.nx, s.ny),
+				points: snapshotPoints(s),
+				penetration: s.penetration,
+				sensor: t.sensor || o.collider.sensor
 			});
 		}
 		return i;
@@ -556,9 +582,10 @@ var PhysicsWorld2D = class {
 		require_collider.finite(r.x, `displacement.x`), require_collider.finite(r.y, `displacement.y`);
 		let s = require_collider.unsigned(i.mask ?? 4294967295, `mask`), u = this.queryMotions.get(t);
 		u || (u = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, u)), u.geometry.refresh(n), u.setExplicit(n.position.x, n.position.y, r.x, r.y), a.hit = !1, a.owner = void 0, a.collider = void 0, a.fraction = a.safeFraction = 1, a.exhausted = !1, a.normal.set(0, 0), a.point.set(0, 0);
+		let d = this.queryRefreshEpoch;
 		for (let e of this.proxies) {
 			if (e.owner === n || e.owner === i.ignore || e.owner === i.ignoreOther || !this.alive(e) || !i.includeSensors && e.collider.sensor || !(t.category & e.collider.mask) || !(e.collider.category & t.mask & s)) continue;
-			e.refresh(), e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
+			d === 0 ? e.refresh() : refreshInSnapshot(e, d), e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
 			let r = this.continuous.timeOfImpact(u, e.motion, 1, this.ccdIterations);
 			if (this.continuous.exhausted && (a.exhausted = !0, a.safeFraction = Math.min(a.safeFraction, this.continuous.safeTime)), r < a.fraction) {
 				let t = this.continuous.manifold;
@@ -570,10 +597,10 @@ var PhysicsWorld2D = class {
 	raycast(t, n, r, i = 4294967295) {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		if (require_collider.finite(t.x, `origin.x`), require_collider.finite(t.y, `origin.y`), require_collider.finite(n.x, `direction.x`), require_collider.finite(n.y, `direction.y`), require_collider.finite(r, `maxDistance`), require_collider.unsigned(i, `mask`), r < 0) throw RangeError(`maxDistance must be nonnegative.`);
-		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [];
+		let a = require_collider.positive(n.length(), `direction length`), c = n.x / a, u = n.y / a, d = [], p = this.queryRefreshEpoch;
 		for (let n of this.proxies) {
 			if (!this.alive(n) || !(n.collider.category & i)) continue;
-			n.refresh();
+			p === 0 ? n.refresh() : refreshInSnapshot(n, p);
 			let a = require_narrowphase.rayDistance(n.geometry, t.x, t.y, c, u, r, this.queryNormal);
 			a !== void 0 && d.push({
 				owner: n.owner,
