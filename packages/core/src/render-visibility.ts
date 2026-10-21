@@ -98,6 +98,10 @@ interface Record3D {
   instanceVersion: number;
   colorVersion: number;
   instanceEpoch: number;
+  /** World instance spheres (x, y, z, radius) for `sphereKey`, reused while it holds. */
+  instanceSpheres: Float64Array | undefined;
+  /** World matrix, base sphere and instance version the spheres were computed from. */
+  sphereKey: Float64Array;
   drawable: boolean;
   colorVisible: boolean;
   seen: number;
@@ -386,6 +390,8 @@ export class RenderVisibilityCache {
             instanceVersion: -1,
             colorVersion: -1,
             instanceEpoch: -1,
+            instanceSpheres: undefined,
+            sphereKey: new Float64Array(21).fill(NaN),
             drawable: false,
             colorVisible: false,
             seen: this.frame,
@@ -548,6 +554,53 @@ export class RenderVisibilityCache {
     record.colorVisible = true;
   }
 
+  private instanceSpheres(record: Record3D, mesh: InstancedMesh): Float64Array {
+    const base = this.baseSphere,
+      key = record.sphereKey,
+      matrix = mesh.worldMatrix.elements;
+    let same = record.instanceSpheres?.length === mesh.count * 4;
+    for (let i = 0; i < 16; i++) {
+      if (!Object.is(key[i], matrix[i])) same = false;
+      key[i] = matrix[i]!;
+    }
+    const version = mesh.version;
+    if (
+      !Object.is(key[16], base.x) ||
+      !Object.is(key[17], base.y) ||
+      !Object.is(key[18], base.z) ||
+      !Object.is(key[19], base.radius) ||
+      key[20] !== version
+    )
+      same = false;
+    key[16] = base.x;
+    key[17] = base.y;
+    key[18] = base.z;
+    key[19] = base.radius;
+    key[20] = version;
+    if (same) return record.instanceSpheres!;
+    const spheres =
+      record.instanceSpheres?.length === mesh.count * 4
+        ? record.instanceSpheres
+        : (record.instanceSpheres = new Float64Array(mesh.count * 4));
+    for (let index = 0; index < mesh.count; index++) {
+      transformSphereElements(
+        base,
+        mesh.matrices,
+        index * 16,
+        this.localSphere,
+      );
+      const s = transformSphere(
+        this.localSphere,
+        mesh.worldMatrix,
+        this.worldSphere,
+      );
+      spheres[index * 4] = s.x;
+      spheres[index * 4 + 1] = s.y;
+      spheres[index * 4 + 2] = s.z;
+      spheres[index * 4 + 3] = s.radius;
+    }
+    return spheres;
+  }
   private packInstances(
     record: Record3D,
     mesh: InstancedMesh,
@@ -577,25 +630,29 @@ export class RenderVisibilityCache {
       changed =
         record.instanceVersion !== mesh.version ||
         record.colorVersion !== mesh.colorVersion;
+    // Instance spheres depend only on the key below, not the camera; a moving camera
+    // re-tests the same spheres against each new frustum.
+    const spheres = mesh.frustumCulled
+      ? this.instanceSpheres(record, mesh)
+      : undefined;
     for (let index = 0; index < mesh.count; index++) {
       out.instanceTests++;
-      transformSphereElements(
-        base,
-        mesh.matrices,
-        index * 16,
-        this.localSphere,
-      );
-      const s = transformSphere(
-        this.localSphere,
-        mesh.worldMatrix,
-        this.worldSphere,
-      );
-      if (
-        mesh.frustumCulled &&
-        sphereIsFinite(s) &&
-        !frustum.intersectsSphere(s.x, s.y, s.z, s.radius)
-      )
-        continue;
+      if (spheres) {
+        const at = index * 4,
+          x = spheres[at]!,
+          y = spheres[at + 1]!,
+          z = spheres[at + 2]!,
+          radius = spheres[at + 3]!;
+        if (
+          Number.isFinite(x) &&
+          Number.isFinite(y) &&
+          Number.isFinite(z) &&
+          Number.isFinite(radius) &&
+          radius >= 0 &&
+          !frustum.intersectsSphere(x, y, z, radius)
+        )
+          continue;
+      }
       if (packed.indices[count] !== index) changed = true;
       packed.indices[count++] = index;
     }

@@ -90,5 +90,6 @@ export declare class RenderVisibilityCache {
     private build;
     private refit;
     private gather;
+    private instanceSpheres;
     private packInstances;
 }

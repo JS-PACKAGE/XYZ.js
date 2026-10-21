@@ -145,6 +145,8 @@ var RenderVisibilityCache = class {
 					instanceVersion: -1,
 					colorVersion: -1,
 					instanceEpoch: -1,
+					instanceSpheres: void 0,
+					sphereKey: (/* @__PURE__ */ new Float64Array(21)).fill(NaN),
 					drawable: !1,
 					colorVisible: !1,
 					seen: this.frame
@@ -211,6 +213,19 @@ var RenderVisibilityCache = class {
 			u.colorVisible = !0;
 		}
 	}
+	instanceSpheres(e, t) {
+		let n = this.baseSphere, r = e.sphereKey, i = t.worldMatrix.elements, a = e.instanceSpheres?.length === t.count * 4;
+		for (let e = 0; e < 16; e++) Object.is(r[e], i[e]) || (a = !1), r[e] = i[e];
+		let o = t.version;
+		if ((!Object.is(r[16], n.x) || !Object.is(r[17], n.y) || !Object.is(r[18], n.z) || !Object.is(r[19], n.radius) || r[20] !== o) && (a = !1), r[16] = n.x, r[17] = n.y, r[18] = n.z, r[19] = n.radius, r[20] = o, a) return e.instanceSpheres;
+		let s = e.instanceSpheres?.length === t.count * 4 ? e.instanceSpheres : e.instanceSpheres = new Float64Array(t.count * 4);
+		for (let e = 0; e < t.count; e++) {
+			require_render_bounds.transformSphereElements(n, t.matrices, e * 16, this.localSphere);
+			let r = require_render_bounds.transformSphere(this.localSphere, t.worldMatrix, this.worldSphere);
+			s[e * 4] = r.x, s[e * 4 + 1] = r.y, s[e * 4 + 2] = r.z, s[e * 4 + 3] = r.radius;
+		}
+		return s;
+	}
 	packInstances(e, t, n, r) {
 		let i = e.entry.instances;
 		if (i || (e.entry.instances = i = {
@@ -221,23 +236,25 @@ var RenderVisibilityCache = class {
 			version: 0
 		}), e.instanceEpoch === this.epoch) return i.count > 0;
 		e.instanceEpoch = this.epoch;
-		let a = t.geometry.boundingSphere, o = t.material.deformationBounds, u = this.baseSphere;
-		u.x = a.x, u.y = a.y, u.z = a.z, u.radius = o === void 0 ? 1 / 0 : a.radius + o;
-		let d = 0, f = e.instanceVersion !== t.version || e.colorVersion !== t.colorVersion;
+		let a = t.geometry.boundingSphere, o = t.material.deformationBounds, s = this.baseSphere;
+		s.x = a.x, s.y = a.y, s.z = a.z, s.radius = o === void 0 ? 1 / 0 : a.radius + o;
+		let c = 0, l = e.instanceVersion !== t.version || e.colorVersion !== t.colorVersion, u = t.frustumCulled ? this.instanceSpheres(e, t) : void 0;
 		for (let e = 0; e < t.count; e++) {
-			r.instanceTests++, require_render_bounds.transformSphereElements(u, t.matrices, e * 16, this.localSphere);
-			let a = require_render_bounds.transformSphere(this.localSphere, t.worldMatrix, this.worldSphere);
-			t.frustumCulled && require_render_bounds.sphereIsFinite(a) && !n.intersectsSphere(a.x, a.y, a.z, a.radius) || (i.indices[d] !== e && (f = !0), i.indices[d++] = e);
+			if (r.instanceTests++, u) {
+				let t = e * 4, r = u[t], i = u[t + 1], a = u[t + 2], o = u[t + 3];
+				if (Number.isFinite(r) && Number.isFinite(i) && Number.isFinite(a) && Number.isFinite(o) && o >= 0 && !n.intersectsSphere(r, i, a, o)) continue;
+			}
+			i.indices[c] !== e && (l = !0), i.indices[c++] = e;
 		}
-		if (i.count !== d && (f = !0), i.count = d, t.colors && !i.colors && (i.colors = new Float32Array(t.count * 3), f = !0), f) {
-			for (let e = 0; e < d; e++) {
+		if (i.count !== c && (l = !0), i.count = c, t.colors && !i.colors && (i.colors = new Float32Array(t.count * 3), l = !0), l) {
+			for (let e = 0; e < c; e++) {
 				let n = i.indices[e];
 				for (let r = 0; r < 16; r++) i.matrices[e * 16 + r] = t.matrices[n * 16 + r];
 				if (t.colors && i.colors) for (let r = 0; r < 3; r++) i.colors[e * 3 + r] = t.colors[n * 3 + r];
 			}
 			i.version++, e.instanceVersion = t.version, e.colorVersion = t.colorVersion;
 		}
-		return d > 0;
+		return c > 0;
 	}
 };
 //#endregion

@@ -161,6 +161,47 @@ describe('indexed render visibility', () => {
     expect(packed.version).toBeGreaterThan(version);
   });
 
+  it('re-culls retained instance bounds after the mesh, its geometry or the camera moves', () => {
+    const scene = new Scene();
+    const mesh = scene.add(
+      new InstancedMesh({
+        geometry: Geometry.cube(1),
+        material: material(),
+        count: 2,
+      }),
+    );
+    mesh.setMatrixAt(
+      1,
+      new Matrix4().compose(
+        new Vector3(30, 0, 0),
+        new Quaternion(),
+        new Vector3(1, 1, 1),
+      ),
+    );
+    const cache = new RenderVisibilityCache(),
+      out = new RenderVisibilitySet();
+    const visible = () => {
+      const packed = gather(scene, cache, out).entries.get(mesh)!.instances!;
+      return [...packed.indices.subarray(0, packed.count)];
+    };
+    expect(visible()).toEqual([0]);
+    mesh.position.set(-30, 0, 0);
+    expect(visible()).toEqual([1]);
+    // A larger geometry reaches back into view from the same instance origins.
+    const scaleGeometry = (factor: number) => {
+      const vertices = mesh.geometry.vertices;
+      for (let i = 0; i < vertices.length; i += 8)
+        for (let axis = 0; axis < 3; axis++) vertices[i + axis]! *= factor;
+      mesh.geometry.markUpdated();
+    };
+    scaleGeometry(70);
+    expect(visible()).toEqual([0, 1]);
+    scaleGeometry(1 / 70);
+    expect(visible()).toEqual([1]);
+    scene.camera3D.position.x -= 30;
+    expect(visible()).toEqual([0]);
+  });
+
   it('recomputes morph bounds for negative and greater-than-one weights', () => {
     const scene = new Scene(),
       geometry = Geometry.cube(1),

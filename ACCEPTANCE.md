@@ -2657,3 +2657,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Visibility]` InstancedMesh 每個 instance 的世界包圍球依（world matrix、幾何包圍球＋變形餘量、instance version）快取，相機移動只重做視錐測試；`frustumCulled=false` 時不再計算。10 個 InstancedMesh 共 10000 instances 環繞相機 Node bench 0.31 → 0.10 ms，可見 instance 結果 hash 不變；新增移動 mesh／幾何更新／相機移動的重新剔除測試。
