@@ -3766,3 +3766,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 五份完整文件目錄確認各 180 個唯一名稱；中／英／日 README
   僅追加樹皮類別，不列舉所有物種。本組無新增連結或 runtime 依賴，
   保留既有歷史段落，不擴大跨瀏覽器、Canvas2D 3D 或裝置認證，不 push。
+- `[Rendering2D]` `GameObject.worldSpace` 改以迴圈走到階層根再讀其 `space`，取代每層祖先一次的遞迴 getter 呼叫（結果相同，ParticleLayer2D 覆寫的 `space` 仍由根決定）。gameplay2d（WebGPU）剖析中 worldSpace 佔 CPU busy 7.6–8.9% → 2.5–2.6%；Node 3000 個 0–3 層巢狀物件每次全讀 74–78 → 32–48 µs。新增測試涵蓋 4 層深度、中間層 space 不影響、與移出後成為新根，`while`→`if` 與根回傳固定值的 mutant 皆失敗。build 與完整測試（2140 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，失敗的 pbr3d 三個 renderer 在未修改的 HEAD 一樣逾時（等待 canvas 15 秒），與本變更無關。

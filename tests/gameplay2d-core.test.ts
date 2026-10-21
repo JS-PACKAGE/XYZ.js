@@ -203,6 +203,29 @@ describe('2D composed scene ownership', () => {
     image.destroy();
   });
 
+  it('takes the rendering space from the hierarchy root at every depth', () => {
+    const root = new GameObject();
+    let leaf = root;
+    const chain: GameObject[] = [];
+    for (let depth = 0; depth < 4; depth++)
+      chain.push((leaf = leaf.add(new GameObject())));
+    leaf.space = 'world';
+    root.space = 'screen';
+    expect(chain.map((object) => object.worldSpace)).toEqual([
+      'screen',
+      'screen',
+      'screen',
+      'screen',
+    ]);
+    root.space = 'world';
+    chain[1]!.space = 'screen';
+    expect(leaf.worldSpace).toBe('world');
+    chain[0]!.remove(chain[1]!);
+    expect([chain[1]!.worldSpace, leaf.worldSpace]).toEqual([
+      'screen',
+      'screen',
+    ]);
+  });
   it('culls against final camera displacement and sorts HUD after world independent of z', () => {
     const scene = new Scene();
     const image = texture(4, 4);

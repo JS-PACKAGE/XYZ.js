@@ -181,7 +181,10 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 		return this.descendants;
 	}
 	get worldSpace() {
-		return this.parent?.worldSpace ?? this.space;
+		let e = this.parent;
+		if (!e) return this.space;
+		for (; e.parent;) e = e.parent;
+		return e.space;
 	}
 	get worldVisible() {
 		if (!this.visible || this.destroyed) return !1;

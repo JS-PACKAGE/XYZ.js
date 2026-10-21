@@ -259,7 +259,11 @@ export class GameObject extends SceneObject {
     return this.descendants;
   }
   get worldSpace(): 'world' | 'screen' {
-    return this.parent?.worldSpace ?? this.space;
+    // The root decides; a loop rather than a recursive getter call per ancestor.
+    let root = this.parent;
+    if (!root) return this.space;
+    while (root.parent) root = root.parent;
+    return root.space;
   }
   get worldVisible(): boolean {
     if (!this.visible || this.destroyed) return false;
