@@ -384,7 +384,7 @@ TextureMaterial（含 NativeMaterial3D）base sampler 與 PBRMaterial per-slot T
 
 ### 程序式材質預設
 
-Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork' | 'rubber' | 'carbonfiber' | 'diamondplate' | 'paper' | 'wicker' | 'bamboo' | 'hammeredmetal' | 'galvanized' | 'corrugatedmetal'`，木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪／瀝青／礫石／鵝卵石鋪面／樹皮／苔蘚／泥土／花崗岩／板岩／磨石子／丹寧布／粗麻布／地毯／石膏／陶土／軟木／橡膠／碳纖維／止滑花紋鋼板／紙張／藤編／竹材／錘紋金屬／鍍鋅板／波紋金屬板）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
+Root 匯出 `ProceduralMaterial`、共三十九種的 `ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork' | 'rubber' | 'carbonfiber' | 'diamondplate' | 'paper' | 'wicker' | 'bamboo' | 'hammeredmetal' | 'galvanized' | 'corrugatedmetal' | 'sandstone' | 'travertine' | 'pumice'`，木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪／瀝青／礫石／鵝卵石鋪面／樹皮／苔蘚／泥土／花崗岩／板岩／磨石子／丹寧布／粗麻布／地毯／石膏／陶土／軟木／橡膠／碳纖維／止滑花紋鋼板／紙張／藤編／竹材／錘紋金屬／鍍鋅板／波紋金屬板／砂岩／洞石／浮石）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
 
 唯讀 `textures` 包含四份 `Texture`：`baseColor`（sRGB RGB）、`normal`（linear tangent-space）、`metallicRoughness`（linear G roughness／B metallic）、`occlusion`（linear R）。唯讀 `kind` 表示種類，唯讀 `material` 為預設 `PBRMaterial`。預設 OPAQUE、每個 sampler 使用 repeat wrapping、roughness factor 為 1，metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal 的 metallic factor 為 1、其他種類為 0；rust 的 B 通道在殘留金屬與鏽蝕之間變化，因此貼圖粗糙度不會再乘上一般材質的預設 0.5。
 
@@ -402,7 +402,9 @@ Root 匯出 `ProceduralMaterial`、`ProceduralMaterialKind`（`'wood' | 'brick' 
 
 工藝素材加入紙張（paper，象牙白未塗佈紙的細密不規則紙漿纖維與輕微雲狀成紙紋）、藤編（wicker，棕褐寬圓角藤條交織、細縱向條紋與深色不透明凹隙）與竹材（bamboo，金黃縱向纖維與週期錯列的深色竹節帶）。紙張不是石膏換色，藤編區別於粗麻布。三者皆為 opaque dielectric、metallic 通道與預設 factor 為 0，沿用相同四份 periodic maps；凹凸僅由 normal map 表現，不新增 geometry、透明孔洞、分節物件或物理模擬。
 
-成形金屬加入錘紋金屬（hammeredmetal，暖銅色金屬、重疊的淺圓錘凹與平滑連續起伏，不是粗岩）、鍍鋅板（galvanized，冷銀色鋅花晶粒的色調與粗糙度對比、極淺起伏，不是礫石）與波紋金屬板（corrugatedmetal，銀色軋製板的平行平滑波槽與細微縱向磨痕），目前共三十六種。三者沿用相同四份 deterministic periodic maps，metallic B 全為 255（1）、預設 factor 為 1，區別於混合金屬度的 rust。凹凸僅由 normal map 表現，不位移 geometry 或改變輪廓。
+成形金屬加入錘紋金屬（hammeredmetal，暖銅色金屬、重疊的淺圓錘凹與平滑連續起伏，不是粗岩）、鍍鋅板（galvanized，冷銀色鋅花晶粒的色調與粗糙度對比、極淺起伏，不是礫石）與波紋金屬板（corrugatedmetal，銀色軋製板的平行平滑波槽與細微縱向磨痕）。三者沿用相同四份 deterministic periodic maps，metallic B 全為 255（1）、預設 factor 為 1，區別於混合金屬度的 rust。凹凸僅由 normal map 表現，不位移 geometry 或改變輪廓。
+
+砂岩（sandstone）呈現暖色波狀沉積層理與砂粒，區別於深色板岩和鬆散沙；洞石（travertine）為奶油色石灰岩、不規則細長淺孔與細微水平礦物帶；浮石（pumice）為淺灰火山岩、密集隨機分布的小圓氣孔，不是礫石或石材換色。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用相同四份 deterministic periodic maps；凹孔僅由 normal map 表現，不是透明或 geometry 孔洞。
 
 `createMaterial(options?: Partial<PBRMaterialOptions>): PBRMaterial` 回傳新的材質、借用同一組 maps，最後套用呼叫者覆寫，不重新產生 maps。`destroyed` 是 getter；同步且冪等的 `destroy()` 只釋放生成貼圖，不銷毀材質、mesh 或覆寫的外部 maps。先移除所有使用者；Mesh／Scene 不自動擁有預設，銷毀後呼叫 `createMaterial()` 會拒絕。CPU 生成位於 core，透過 assets 既有 `Texture.fromImage` 邊界建立貼圖；共用 geometry、PBR shaders、backend upload／render 路徑不變，沒有逐幀生成。仍只有 WebGPU／WebGL2 支援 3D，Canvas2D 不新增 3D。[實際 consumer 範例](USAGE-zh.md#可重用的程序式-pbr-預設) 見使用說明。
 

@@ -94,7 +94,10 @@ export function createSurfaceSampler(
     kind === 'plaster' ||
     kind === 'terracotta' ||
     kind === 'cork' ||
-    kind === 'rubber';
+    kind === 'rubber' ||
+    kind === 'sandstone' ||
+    kind === 'travertine' ||
+    kind === 'pumice';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -927,6 +930,99 @@ export function createSurfaceSampler(
         height = 0.1 + 0.8 * flute + 0.004 * rolled - 0.002 * wear;
         roughness += 0.13 * (rolled - 0.5) + 0.06 * wear;
         occlusion = 0.91 + 0.08 * flute;
+        break;
+      }
+      case 'sandstone': {
+        const warp = noise(u, v, 3, 5, seed ^ 0x693d);
+        const bedding = v + 0.055 * (warp - 0.5);
+        const strata = 0.5 + 0.5 * Math.sin(TAU * (8 * bedding) + phase);
+        const lamina = Math.pow(
+          0.5 + 0.5 * Math.sin(TAU * (19 * bedding) + phase),
+          6,
+        );
+        const sediment = noise(u, v, 8, 3, seed ^ 0x4d17);
+        const grit = smooth(clamp((fine - 0.28) / 0.48));
+        const mineral = Math.pow(1 - fine, 5);
+        // Unequal warped sediment bands carry small cemented grains, not dunes.
+        color =
+          0.22 + 0.35 * strata + 0.2 * sediment + 0.18 * grit - 0.2 * lamina;
+        height =
+          0.32 + 0.16 * strata - 0.09 * lamina + 0.24 * grit - 0.1 * mineral;
+        roughness += 0.12 * (grit - 0.5) + 0.05 * lamina;
+        occlusion = 0.97 - 0.12 * lamina - 0.13 * mineral + 0.025 * grit;
+        break;
+      }
+      case 'travertine': {
+        const nx = 12,
+          ny = 18;
+        const x = u * nx,
+          y = v * ny;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let cavities = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % nx) + nx) % nx,
+              wy = ((cy % ny) + ny) % ny;
+            const variation = hash(wx, wy, seed ^ 0x5e93);
+            const angle = (hash(wx, wy, seed ^ 0x23d1) - 0.5) * 0.36;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x7b19);
+            const rx = dx * cos + dy * sin,
+              ry = dy * cos - dx * sin;
+            const width = 0.42 + 0.36 * variation,
+              depth = 0.11 + 0.13 * hash(wx, wy, seed ^ 0x8f31);
+            const distance =
+              (rx * rx) / (width * width) +
+              (ry * ry) / (depth * depth) +
+              0.12 * Math.sin(9 * rx + variation * TAU) * Math.sin(13 * ry);
+            // Irregular elongated bowls have compact support inside this neighborhood.
+            const cap = smooth(clamp((1 - distance) / 0.65));
+            cavities += cap * (0.65 + 0.35 * variation);
+          }
+        const vugs = 1 - Math.exp(-1.8 * cavities);
+        const warp = noise(u, v, 3, 3, seed ^ 0x41d7);
+        const band = 0.5 + 0.5 * Math.sin(TAU * (6 * v + 0.18 * warp) + phase);
+        color = 0.65 + 0.12 * band + 0.09 * fine - 0.48 * vugs;
+        height = 0.62 + 0.05 * band + 0.04 * fine - 0.3 * vugs;
+        roughness += 0.15 * vugs + 0.08 * (fine - 0.5);
+        occlusion = 0.98 - 0.42 * vugs;
+        break;
+      }
+      case 'pumice': {
+        const cells = 26;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let vesicles = 0,
+          rims = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.15 - 0.7 * hash(wx, wy, seed),
+              dy = y - cy - 0.15 - 0.7 * hash(wx, wy, seed ^ 0x631f);
+            const radius = 0.24 + 0.2 * hash(wx, wy, seed ^ 0x38b9);
+            const distance = (dx * dx + dy * dy) / (radius * radius);
+            // Rounded gas pockets recess into a continuous matrix with softly raised lips.
+            const cap = clamp(1 - distance);
+            const bowl = cap * cap;
+            vesicles = Math.max(vesicles, bowl);
+            rims = Math.max(rims, 6 * distance * bowl);
+          }
+        const matrix = noise(u, v, 5, 5, seed ^ 0x9c47);
+        color =
+          0.65 + 0.12 * matrix + 0.08 * fine - 0.57 * vesicles + 0.05 * rims;
+        height = 0.72 - 0.58 * vesicles + 0.08 * rims + 0.03 * fine;
+        roughness += 0.07 * vesicles + 0.07 * (fine - 0.5);
+        occlusion = 0.98 - 0.52 * vesicles + 0.01 * detail;
         break;
       }
     }

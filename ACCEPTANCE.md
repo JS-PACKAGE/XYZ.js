@@ -2490,3 +2490,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補與同步 ECS 修改及其 dist 不納入本組。
+
+## 程序材質擴充：多孔石材（sandstone／travertine／pumice）
+
+- 新增暖色砂粒沉積層砂岩、奶油色細長孔洞石與淺灰圓氣孔浮石，
+  tile 尺寸依序 0.6／0.48／0.18 m。三者為 opaque dielectric，
+  凹孔只由四份 maps 表現，不是透明孔或幾何洞。gallery／API 文件同步
+  至 39 種；README 既有石材分類已涵蓋，維持簡潔。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1525 tests
+  通過。前三十六種預設在 size 64／seed 7 的四份 maps SHA256 全數不變；
+  新種類加入多 seed 場值邊界、接縫與既有 normal／deterministic 矩陣。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認層理、長孔與圓氣孔差異；metallic 全為 0，
+  roughness bytes 依序 201–245／174–228／216–250；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步出現的 CanvasSpriteSource 修改及其 dist 不納入本組。

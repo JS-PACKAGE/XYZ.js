@@ -42,7 +42,10 @@ export type ProceduralMaterialKind =
   | 'bamboo'
   | 'hammeredmetal'
   | 'galvanized'
-  | 'corrugatedmetal';
+  | 'corrugatedmetal'
+  | 'sandstone'
+  | 'travertine'
+  | 'pumice';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -111,6 +114,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hammeredmetal',
   'galvanized',
   'corrugatedmetal',
+  'sandstone',
+  'travertine',
+  'pumice',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

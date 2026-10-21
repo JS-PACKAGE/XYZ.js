@@ -222,6 +222,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.29;
         relief: 0.025;
     }>;
+    sandstone: Readonly<{
+        dark: readonly [133, 83, 43];
+        light: readonly [238, 205, 150];
+        roughness: 0.85;
+        relief: 0.006;
+    }>;
+    travertine: Readonly<{
+        dark: readonly [139, 116, 81];
+        light: readonly [247, 235, 205];
+        roughness: 0.72;
+        relief: 0.009;
+    }>;
+    pumice: Readonly<{
+        dark: readonly [101, 104, 101];
+        light: readonly [227, 229, 222];
+        roughness: 0.88;
+        relief: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -261,6 +279,9 @@ export declare const proceduralTileMeters: Readonly<{
     hammeredmetal: 0.24;
     galvanized: 0.36;
     corrugatedmetal: 1.2;
+    sandstone: 0.6;
+    travertine: 0.48;
+    pumice: 0.18;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

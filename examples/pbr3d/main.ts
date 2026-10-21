@@ -115,6 +115,9 @@ try {
     'hammeredmetal',
     'galvanized',
     'corrugatedmetal',
+    'sandstone',
+    'travertine',
+    'pumice',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

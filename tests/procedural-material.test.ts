@@ -60,6 +60,9 @@ const kinds: ProceduralMaterialKind[] = [
   'hammeredmetal',
   'galvanized',
   'corrugatedmetal',
+  'sandstone',
+  'travertine',
+  'pumice',
 ];
 
 class TestImageData {
@@ -253,6 +256,9 @@ describe('periodic procedural material fields', () => {
     ['hammeredmetal', [4, 12, 32]],
     ['galvanized', [10, 32]],
     ['corrugatedmetal', [4, 8, 32, 48, 64]],
+    ['sandstone', [3, 5, 8, 19, 32, 64]],
+    ['travertine', [3, 6, 12, 18, 32, 64]],
+    ['pumice', [5, 26, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {

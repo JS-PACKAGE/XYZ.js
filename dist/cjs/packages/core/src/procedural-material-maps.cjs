@@ -23,7 +23,7 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
 		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal`);
@@ -248,6 +248,30 @@ function createSurfaceSampler(t, r) {
 			case `corrugatedmetal`: {
 				let t = .5 + .5 * Math.cos(n * 8 * e + a), i = noise(e, c, 64, 4, r ^ 8043), o = (.5 + .5 * Math.sin(n * 48 * e + a)) ** 12;
 				p = .5 + .2 * t + .16 * i - .06 * o, m = .1 + .8 * t + .004 * i - .002 * o, h += .13 * (i - .5) + .06 * o, g = .91 + .08 * t;
+				break;
+			}
+			case `sandstone`: {
+				let t = noise(e, c, 3, 5, r ^ 26941), i = c + .055 * (t - .5), o = .5 + .5 * Math.sin(8 * i * n + a), s = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, c, 8, 3, r ^ 19735), u = smooth(clamp((f - .28) / .48)), d = (1 - f) ** 5;
+				p = .22 + .35 * o + .2 * l + .18 * u - .2 * s, m = .32 + .16 * o - .09 * s + .24 * u - .1 * d, h += .12 * (u - .5) + .05 * s, g = .97 - .12 * s - .13 * d + .025 * u;
+				break;
+			}
+			case `travertine`: {
+				let t = e * 12, i = c * 18, o = Math.floor(t), s = Math.floor(i), l = 0;
+				for (let e = -1; e <= 1; e++) for (let a = -1; a <= 1; a++) {
+					let c = o + a, u = s + e, d = (c % 12 + 12) % 12, f = (u % 18 + 18) % 18, p = hash(d, f, r ^ 24211), m = (hash(d, f, r ^ 9169) - .5) * .36, h = Math.cos(m), g = Math.sin(m), _ = t - c - .2 - .6 * hash(d, f, r), v = i - u - .2 - .6 * hash(d, f, r ^ 31513), y = _ * h + v * g, b = v * h - _ * g, x = .42 + .36 * p, S = .11 + .13 * hash(d, f, r ^ 36657), w = smooth(clamp((1 - (y * y / (x * x) + b * b / (S * S) + .12 * Math.sin(9 * y + p * n) * Math.sin(13 * b))) / .65));
+					l += w * (.65 + .35 * p);
+				}
+				let u = 1 - Math.exp(-1.8 * l), d = noise(e, c, 3, 3, r ^ 16855), _ = .5 + .5 * Math.sin(n * (6 * c + .18 * d) + a);
+				p = .65 + .12 * _ + .09 * f - .48 * u, m = .62 + .05 * _ + .04 * f - .3 * u, h += .15 * u + .08 * (f - .5), g = .98 - .42 * u;
+				break;
+			}
+			case `pumice`: {
+				let t = e * 26, n = c * 26, i = Math.floor(t), a = Math.floor(n), o = 0, s = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let l = i + c, u = a + e, d = (l % 26 + 26) % 26, f = (u % 26 + 26) % 26, p = t - l - .15 - .7 * hash(d, f, r), m = n - u - .15 - .7 * hash(d, f, r ^ 25375), h = .24 + .2 * hash(d, f, r ^ 14521), g = (p * p + m * m) / (h * h), _ = clamp(1 - g), v = _ * _;
+					o = Math.max(o, v), s = Math.max(s, 6 * g * v);
+				}
+				p = .65 + .12 * noise(e, c, 5, 5, r ^ 40007) + .08 * f - .57 * o + .05 * s, m = .72 - .58 * o + .08 * s + .03 * f, h += .07 * o + .07 * (f - .5), g = .98 - .52 * o + .01 * d;
 				break;
 			}
 		}

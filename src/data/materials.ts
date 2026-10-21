@@ -223,6 +223,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.29,
     relief: 0.025,
   }),
+  sandstone: Object.freeze({
+    dark: [133, 83, 43] as const,
+    light: [238, 205, 150] as const,
+    roughness: 0.85,
+    relief: 0.006,
+  }),
+  travertine: Object.freeze({
+    dark: [139, 116, 81] as const,
+    light: [247, 235, 205] as const,
+    roughness: 0.72,
+    relief: 0.009,
+  }),
+  pumice: Object.freeze({
+    dark: [101, 104, 101] as const,
+    light: [227, 229, 222] as const,
+    roughness: 0.88,
+    relief: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -263,6 +281,9 @@ export const proceduralTileMeters = Object.freeze({
   hammeredmetal: 0.24,
   galvanized: 0.36,
   corrugatedmetal: 1.2,
+  sandstone: 0.6,
+  travertine: 0.48,
+  pumice: 0.18,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
