@@ -3402,3 +3402,38 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不擴大跨瀏覽器或實體裝置認證。
 - `[WebGPU]` 每幀共享 PBR 材質區塊的變更偵測只比對 `updateMesh` 會複製的區段（16–76、native 字、UV、finish、optical），以小函式逐段比較，取代每個材質逐字比對整個 592 字區塊；區段外的字每次都清為 0，即使不同也只會重複複製相同區段，輸出不變。production 3d（WebGPU、high）剖析中 pbrBlock 佔 CPU busy 13.0–13.1% → 9.2–9.3%，屬 CPU 時間佔比。瀏覽器 smoke：WebGPU 上渲染後改 metallic／roughness／color／emissive 的畫面與一開始即用相同值的畫面逐像素相同（HEAD 與新版皆同），移除首段比較的 mutant 則出現差異。build 與完整測試（1999 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行；HEAD 匯出副本中 pbr3d 三種 renderer smoke 通過（主工作區 pbr3d 失敗來自另一方未提交的 pbr3d／材質變更，WebGL2 亦同）。
 - `[Lighting]` `fillLightingData` 收到 `SpatialLightSelector` 且其 update 於場景目前的 presentation 內完成驗證時（新增 internal `validatedIn(scene)`），不再為每個 draw 重跑每盞已選光源的 `validate()`；presentation 外或換了 pass 一律照舊驗證，選取池在 update 時仍完整驗證。新增測試涵蓋 presentation 結束後與下一個未 update 的 presentation 中變更無效光源仍會拋錯，移除 pass 條件的 mutant 會失敗。production 3d（WebGPU、high）剖析中 fill＋validate 佔 CPU busy 6.3–6.6% → 3.2–3.8%，屬 CPU 時間佔比。WebGL2 browser regression 通過；build 與完整測試（2011 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：貝殼表面（scallopshell／oystershell／nautilusshell）
+
+- 新增扇貝的扇形放射肋與橫向生長環、牡蠣的不規則重疊鈣化薄層
+  與層唇／下切陰影，以及鸚鵡螺的盤捲起伏與彎曲腔室條帶。
+  皆為 opaque dielectric 表面 shading／normal map，不新增殼體 geometry、
+  displacement、透明、transmission、SSS、虹彩或動物模擬。
+- 預先計算局部 transforms 與牡蠣色調，扇貝支撐範圍外跳過三角函數；
+  方向性紋理在中心平滑淡出，整數角諧波避免 atan2 branch-cut 接縫。
+  移除只驗證測試 helper 自身曲線公式的斷言，保留實際 sampler 的
+  肋／谷、層唇／凹處、盤捲／腔室差異及 C1／週期接縫驗證。
+- 初始隔離快照九項新增相關測試通過；整合已提交的
+  stainedglass／soapstone／butcherblock 後執行完整 suite：
+  175 files passed，既有 mesh-shader-variants 一檔因 5000 ms timeout 失敗。
+  該檔在未修改測試或 timeout 的情況下單獨執行，9 tests passed；
+  不把首次完整執行記成全綠。
+- 再納入已提交的 wallpaper／embroidery／macrame 後，最終隔離快照
+  共 153 種。build、typecheck、lint、format:check 與九項新增相關測試
+  通過；原 150 種在 size 64／seed 7 下四份 maps SHA256 全部不變，
+  本組 source／ESM／CJS maps 與初始已驗證輸出相同。
+  最後一次合併未另宣稱重新跑完整 suite。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，各自畫面 hash 不同且
+  無 page errors；2×2 預覽確認扇形、層狀與盤捲圖案。
+  metallic bytes 全為 0，roughness bytes 依序為 128–140／221–233／85–97；
+  每米 repeats 依序為 3.571429／3.125／4.166667。
+  四份貼圖 destroy 後確認已釋放；主目錄、初始與最終快照的
+  WebGPU pixels 相同。
+- 主目錄 build 與 typecheck 通過，但整批材質驗證命令達 300 秒 deadline，
+  未取得該次完整結果；其後主目錄單獨九項本組相關測試通過。
+  不覆蓋其他同步工作，也不納入其他進行中的材質。
+- 五份 CURRENT／中英文 TECHNICAL／USAGE 更新已由同步文件提交
+  `1b64a12f` 先行納入，保留該提交；本次補齊實作、gallery、
+  PLAN／DESIGN、驗證與對應 dist。沒有新增相對連結，
+  README 既有自然表面分類維持適用。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

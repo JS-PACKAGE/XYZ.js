@@ -175,6 +175,9 @@ const kinds: ProceduralMaterialKind[] = [
   'zebrafur',
   'leopardfur',
   'giraffefur',
+  'scallopshell',
+  'oystershell',
+  'nautilusshell',
 ];
 
 class TestImageData {
@@ -507,6 +510,236 @@ describe('periodic procedural material fields', () => {
     });
   });
 
+  describe('opaque shell growth surfaces', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    // Locate actual primitives, not a rectangular grid unrelated to the field.
+    const shell = (x: number, y: number, seed: number, oyster = false) => {
+      const angle = 0.45 * (hash(x, y, seed ^ 0x317b) - 0.5),
+        cosine = Math.cos(angle),
+        sine = Math.sin(angle),
+        cells = oyster ? 3 : 2,
+        cx = x + 0.5 + 0.12 * (hash(x, y, seed ^ 0x193d) - 0.5),
+        cy = y + 0.5 + 0.12 * (hash(x, y, seed ^ 0x69a1) - 0.5);
+      return {
+        phase: 2 * Math.PI * hash(x, y, seed ^ 0x4b27),
+        point: (a: number, b: number): [number, number] => {
+          const dx = a * (oyster ? 0.73 : 0.47),
+            dy = b * (oyster ? 0.58 : 0.47);
+          return [
+            (cx + dx * cosine - dy * sine) / cells,
+            (cy + dx * sine + dy * cosine) / cells,
+          ];
+        },
+      };
+    };
+    const oysterRadius = (q: number, phase: number, b = 0): number => {
+      let low = -1.2,
+        high = 0;
+      for (let i = 0; i < 60; i++) {
+        const a = (low + high) * 0.5,
+          value =
+            ((a + 0.16 * b * b) ** 2 + b * b) *
+            (1 + 0.13 * Math.sin(5 * a + phase) * Math.sin(4 * b - phase));
+        if (value > q) low = a;
+        else high = a;
+      }
+      return (low + high) * 0.5;
+    };
+    it('scallop ribs diverge from a hinge inside a forward fan with transverse growth', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('scallopshell', seed),
+          out = empty();
+        for (let y = 0; y < 2; y++)
+          for (let x = 0; x < 2; x++) {
+            const face = shell(x, y, seed),
+              at = (radius: number, angle: number) => {
+                const p = face.point(
+                  radius * Math.sin(angle),
+                  radius * Math.cos(angle) - 0.6,
+                );
+                sample(...p, out);
+                return { ...out };
+              };
+            for (const radius of [0.5, 0.8])
+              for (const ray of [-1, 0, 1]) {
+                const angle = (ray * Math.PI) / 9,
+                  rib = at(radius, angle),
+                  trough = at(radius, angle + Math.PI / 18);
+                expect(rib.height).toBeGreaterThan(trough.height);
+                expect(rib.occlusion).toBeGreaterThan(trough.occlusion);
+              }
+            expect(at(0.65, 0).height).toBeGreaterThan(
+              at(0.65, Math.PI).height,
+            );
+            // Along one rib, successive growth crests stand above neighboring
+            // troughs without changing which ray owns the point.
+            const crest = (8 * Math.PI - face.phase) / 44;
+            expect(at(crest, 0).height).toBeGreaterThan(
+              at(crest + Math.PI / 44, 0).height,
+            );
+          }
+      }
+    });
+    it('oyster laminae lift pale lips above dark occluded outer recesses on curved fronts', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('oystershell', seed),
+          lip = empty(),
+          recess = empty();
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            const face = shell(x, y, seed, true);
+            for (const front of [0.435, 0.28]) {
+              for (const b of [-0.2, 0, 0.2]) {
+                const lipA = oysterRadius(front - 0.045, face.phase, b),
+                  recessA = oysterRadius(front + 0.035, face.phase, b);
+                sample(...face.point(lipA, b), lip);
+                sample(...face.point(recessA, b), recess);
+                expect(lip.height).toBeGreaterThan(recess.height);
+                expect(lip.color).toBeGreaterThan(recess.color);
+                expect(lip.occlusion).toBeGreaterThan(recess.occlusion);
+              }
+            }
+          }
+      }
+    });
+    it('nautilus relief follows a winding coil rather than concentric rings and bends chamber stripes', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('nautilusshell', seed),
+          out = empty();
+        for (let y = 0; y < 2; y++)
+          for (let x = 0; x < 2; x++) {
+            const face = shell(x, y, seed),
+              at = (radius: number, angle: number) => {
+                sample(
+                  ...face.point(
+                    radius * Math.cos(angle),
+                    radius * Math.sin(angle),
+                  ),
+                  out,
+                );
+                return { ...out };
+              };
+            for (const radius of [0.4, 0.6, 0.8]) {
+              const angle = 6 * Math.PI * radius + face.phase,
+                ridge = at(radius, angle),
+                opposite = at(radius, angle + Math.PI);
+              expect(ridge.height).toBeGreaterThan(opposite.height);
+              expect(ridge.occlusion).toBeGreaterThan(opposite.occlusion);
+            }
+            for (const radius of [0.45, 0.7]) {
+              const stripe = (13 * radius - face.phase) / 18;
+              expect(at(radius, stripe).color).toBeLessThan(
+                at(radius, stripe + Math.PI / 18).color,
+              );
+              // The stripe moves angularly with radius; a fixed radial spoke
+              // does not keep the same pigment as a curved chamber boundary.
+              expect(at(radius, stripe).color).toBeLessThan(
+                at(radius + 0.12, stripe).color,
+              );
+            }
+          }
+      }
+    });
+    it.each(['scallopshell', 'oystershell', 'nautilusshell'] as const)(
+      '%s converges to common slopes at actual centers, supports, branch cuts and ownership seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.417],
+              [0.391, 1],
+            ],
+            oyster = kind === 'oystershell',
+            cells = oyster ? 3 : 2;
+          for (let y = 0; y < cells; y++)
+            for (let x = 0; x < cells; x++) {
+              const face = shell(x, y, seed, oyster);
+              points.push(
+                face.point(0, 0),
+                [x / cells, 0.413],
+                [0.381, y / cells],
+              );
+              if (oyster) {
+                for (const q of [0.78, 1, 0.41, 0.46, 0.255, 0.305])
+                  points.push(face.point(oysterRadius(q, face.phase), 0));
+                // Follow actual support through a neighboring shell overlap.
+                for (const b of [-0.4, 0.4])
+                  points.push(face.point(oysterRadius(1, face.phase, b), b));
+              } else if (kind === 'nautilusshell') {
+                for (const q of [0.01, 0.01 + 1 / 12, 0.75, 1])
+                  points.push(face.point(-Math.sqrt(q), 0));
+              } else {
+                points.push(face.point(0, -0.6));
+                for (const radius of [
+                  Math.sqrt(0.015),
+                  Math.sqrt(0.0775),
+                  1.15,
+                  1.35,
+                ])
+                  points.push(face.point(0, radius - 0.6));
+                for (const cosine of [0.55, 0.75])
+                  points.push(
+                    face.point(
+                      0.7 * Math.sqrt(1 - cosine * cosine),
+                      0.7 * cosine - 0.6,
+                    ),
+                  );
+                points.push(face.point(0, -0.8));
+              }
+            }
+          const center = empty(),
+            left = empty(),
+            right = empty(),
+            coarseLeft = empty(),
+            coarseRight = empty();
+          for (const [u, v] of points) {
+            sample(u, v, center);
+            sample(u + 1, v - 1, right);
+            for (const key of Object.keys(center) as (keyof SurfaceSample)[])
+              expect(right[key]).toBeCloseTo(center[key], 11);
+            for (const [du, dv] of [
+              [1, 0],
+              [0, 1],
+              [0.6, 0.8],
+            ]) {
+              const step = 2e-7;
+              sample(u - step * du, v - step * dv, left);
+              sample(u + step * du, v + step * dv, right);
+              sample(u - 4 * step * du, v - 4 * step * dv, coarseLeft);
+              sample(u + 4 * step * du, v + 4 * step * dv, coarseRight);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                const fine =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / step,
+                  coarse =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) /
+                    (4 * step);
+                expect(fine).toBeLessThanOrEqual(0.4 * coarse + 3e-8);
+              }
+            }
+          }
+        }
+      },
+    );
+  });
   describe('opaque marine relief', () => {
     const empty = (): SurfaceSample => ({
       color: 0,
