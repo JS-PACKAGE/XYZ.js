@@ -112,7 +112,14 @@ export class WebGL2Particles3D {
     }
   }
 
-  /** Draw into the renderer's current color/depth framebuffer, before post/2D. */
+  /**
+   * Draw into the renderer's current color/depth framebuffer, before post/2D. Bindings
+   * and enable caps are restored. Fixed-function values are not read back: unlike
+   * bindings, each such query is a synchronous GPU-process round trip. The engine only
+   * binds whole uniform buffers and only ever leaves LESS depth testing and FUNC_ADD
+   * blending in place, which this restores; the caller re-establishes depth writes and
+   * blend factors.
+   */
   draw(
     emitters: Iterable<GPUParticleEmitter3D>,
     camera: Camera3D,
@@ -135,22 +142,9 @@ export class WebGL2Particles3D {
         gl.UNIFORM_BUFFER_BINDING,
         0,
       ) as WebGLBuffer | null,
-      uniform0Offset: gl.getIndexedParameter(
-        gl.UNIFORM_BUFFER_START,
-        0,
-      ) as number,
-      uniform0Size: gl.getIndexedParameter(gl.UNIFORM_BUFFER_SIZE, 0) as number,
       blend: gl.isEnabled(gl.BLEND),
       depth: gl.isEnabled(gl.DEPTH_TEST),
       cull: gl.isEnabled(gl.CULL_FACE),
-      depthMask: gl.getParameter(gl.DEPTH_WRITEMASK) as boolean,
-      depthFunc: gl.getParameter(gl.DEPTH_FUNC) as number,
-      srcRGB: gl.getParameter(gl.BLEND_SRC_RGB) as number,
-      dstRGB: gl.getParameter(gl.BLEND_DST_RGB) as number,
-      srcAlpha: gl.getParameter(gl.BLEND_SRC_ALPHA) as number,
-      dstAlpha: gl.getParameter(gl.BLEND_DST_ALPHA) as number,
-      eqRGB: gl.getParameter(gl.BLEND_EQUATION_RGB) as number,
-      eqAlpha: gl.getParameter(gl.BLEND_EQUATION_ALPHA) as number,
     };
     try {
       gl.useProgram(this.program);
@@ -206,25 +200,10 @@ export class WebGL2Particles3D {
       gl.useProgram(previous.program);
       gl.bindVertexArray(previous.vao);
       gl.bindBuffer(gl.ARRAY_BUFFER, previous.array);
-      if (previous.uniform0 && previous.uniform0Size > 0)
-        gl.bindBufferRange(
-          gl.UNIFORM_BUFFER,
-          0,
-          previous.uniform0,
-          previous.uniform0Offset,
-          previous.uniform0Size,
-        );
-      else gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, previous.uniform0);
+      gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, previous.uniform0);
       gl.bindBuffer(gl.UNIFORM_BUFFER, previous.uniform);
-      gl.depthMask(previous.depthMask);
-      gl.depthFunc(previous.depthFunc);
-      gl.blendEquationSeparate(previous.eqRGB, previous.eqAlpha);
-      gl.blendFuncSeparate(
-        previous.srcRGB,
-        previous.dstRGB,
-        previous.srcAlpha,
-        previous.dstAlpha,
-      );
+      // Blending stays FUNC_ADD, the only equation the engine uses.
+      gl.depthFunc(gl.LESS);
       if (previous.blend) gl.enable(gl.BLEND);
       else gl.disable(gl.BLEND);
       if (previous.depth) gl.enable(gl.DEPTH_TEST);

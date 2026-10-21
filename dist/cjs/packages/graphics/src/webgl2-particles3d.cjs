@@ -57,19 +57,9 @@ var WebGL2Particles3D = class {
 			array: a.getParameter(a.ARRAY_BUFFER_BINDING),
 			uniform: a.getParameter(a.UNIFORM_BUFFER_BINDING),
 			uniform0: a.getIndexedParameter(a.UNIFORM_BUFFER_BINDING, 0),
-			uniform0Offset: a.getIndexedParameter(a.UNIFORM_BUFFER_START, 0),
-			uniform0Size: a.getIndexedParameter(a.UNIFORM_BUFFER_SIZE, 0),
 			blend: a.isEnabled(a.BLEND),
 			depth: a.isEnabled(a.DEPTH_TEST),
-			cull: a.isEnabled(a.CULL_FACE),
-			depthMask: a.getParameter(a.DEPTH_WRITEMASK),
-			depthFunc: a.getParameter(a.DEPTH_FUNC),
-			srcRGB: a.getParameter(a.BLEND_SRC_RGB),
-			dstRGB: a.getParameter(a.BLEND_DST_RGB),
-			srcAlpha: a.getParameter(a.BLEND_SRC_ALPHA),
-			dstAlpha: a.getParameter(a.BLEND_DST_ALPHA),
-			eqRGB: a.getParameter(a.BLEND_EQUATION_RGB),
-			eqAlpha: a.getParameter(a.BLEND_EQUATION_ALPHA)
+			cull: a.isEnabled(a.CULL_FACE)
 		};
 		try {
 			a.useProgram(this.program), a.enable(a.BLEND), a.enable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.depthMask(!1), a.depthFunc(a.LEQUAL), a.blendEquationSeparate(a.FUNC_ADD, a.FUNC_ADD), a.blendFuncSeparate(a.ONE, a.ONE_MINUS_SRC_ALPHA, a.ONE, a.ONE_MINUS_SRC_ALPHA);
@@ -97,7 +87,7 @@ var WebGL2Particles3D = class {
 			}
 			for (let [e, t] of this.buffers) t.seen !== this.frame && !t.prepared && this.release(e);
 		} finally {
-			a.useProgram(o.program), a.bindVertexArray(o.vao), a.bindBuffer(a.ARRAY_BUFFER, o.array), o.uniform0 && o.uniform0Size > 0 ? a.bindBufferRange(a.UNIFORM_BUFFER, 0, o.uniform0, o.uniform0Offset, o.uniform0Size) : a.bindBufferBase(a.UNIFORM_BUFFER, 0, o.uniform0), a.bindBuffer(a.UNIFORM_BUFFER, o.uniform), a.depthMask(o.depthMask), a.depthFunc(o.depthFunc), a.blendEquationSeparate(o.eqRGB, o.eqAlpha), a.blendFuncSeparate(o.srcRGB, o.dstRGB, o.srcAlpha, o.dstAlpha), o.blend ? a.enable(a.BLEND) : a.disable(a.BLEND), o.depth ? a.enable(a.DEPTH_TEST) : a.disable(a.DEPTH_TEST), o.cull ? a.enable(a.CULL_FACE) : a.disable(a.CULL_FACE);
+			a.useProgram(o.program), a.bindVertexArray(o.vao), a.bindBuffer(a.ARRAY_BUFFER, o.array), a.bindBufferBase(a.UNIFORM_BUFFER, 0, o.uniform0), a.bindBuffer(a.UNIFORM_BUFFER, o.uniform), a.depthFunc(a.LESS), o.blend ? a.enable(a.BLEND) : a.disable(a.BLEND), o.depth ? a.enable(a.DEPTH_TEST) : a.disable(a.DEPTH_TEST), o.cull ? a.enable(a.CULL_FACE) : a.disable(a.CULL_FACE);
 		}
 	}
 	synchronize(e) {

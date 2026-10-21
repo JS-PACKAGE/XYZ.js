@@ -3243,6 +3243,7 @@ export class WebGL2Renderer implements Renderer {
       );
     }
     if (this.weighted) this.resolveOIT();
+    // Also re-establishes what particle drawing leaves unrestored.
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     draws.length = 0;

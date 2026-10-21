@@ -14,7 +14,14 @@ export declare class WebGL2Particles3D {
     constructor(gl: WebGL2RenderingContext, stats: FrameStats);
     get nativeBufferCount(): number;
     prepare(emitter: GPUParticleEmitter3D): void;
-    /** Draw into the renderer's current color/depth framebuffer, before post/2D. */
+    /**
+     * Draw into the renderer's current color/depth framebuffer, before post/2D. Bindings
+     * and enable caps are restored. Fixed-function values are not read back: unlike
+     * bindings, each such query is a synchronous GPU-process round trip. The engine only
+     * binds whole uniform buffers and only ever leaves LESS depth testing and FUNC_ADD
+     * blending in place, which this restores; the caller re-establishes depth writes and
+     * blend factors.
+     */
     draw(emitters: Iterable<GPUParticleEmitter3D>, camera: Camera3D, aspect: number, linear?: boolean): void;
     /** Retire scene-excluded resources even when no color pass is opened. */
     synchronize(emitters: Iterable<GPUParticleEmitter3D>): void;
