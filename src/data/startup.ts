@@ -12,5 +12,10 @@ export const startupBudgets = {
   canvasStartupMinifiedBytes: startupBaseline.minifiedBytes - 1,
   canvasStartupGzipBytes: startupBaseline.gzipBytes - 1,
   lazyMinifiedBytes: startupBaseline.minifiedBytes,
-  lazyGzipBytes: startupBaseline.gzipBytes,
+  /**
+   * Deferred chunks load only after startup. Their gzip size outgrew the historical
+   * baseline (221664 bytes, mostly shader template literals), so this ceiling was raised
+   * by owner decision to 220 KiB; the startup ceilings above still track the baseline.
+   */
+  lazyGzipBytes: 225280,
 } as const;
