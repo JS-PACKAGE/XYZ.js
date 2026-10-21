@@ -5714,6 +5714,47 @@ export function createSurfaceSampler(
           1 - 0.24 * (1 - rings * outer) - 0.1 * (1 - lathe * fade * outer);
         break;
       }
+      case 'lensarray': {
+        // Microlens domes rise out of the fine supporting web.
+        const du = fract(u * 16) - 0.5,
+          dv = fract(v * 16) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const dome = smooth(clamp((0.42 - radius) / 0.12));
+        const fiber = noise(u, v, 48, 48, seed ^ 0x6f3c);
+        color = 0.42 + 0.4 * dome + 0.06 * fiber;
+        height = 0.42 + 0.36 * dome + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
+        occlusion = 1 - 0.42 * (1 - dome);
+        break;
+      }
+      case 'prismtape': {
+        // Diagonal prism ridges crest over their feet and the tape base.
+        const p = fract((u - v) * 8),
+          d = Math.abs(p - 0.5);
+        const ridge = smooth(clamp((0.34 - d) / 0.16));
+        const fiber = noise(u, v, 40, 40, seed ^ 0x1b7e);
+        color = 0.4 + 0.42 * ridge + 0.06 * fiber;
+        height = 0.4 + 0.4 * ridge + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.1 * ridge;
+        occlusion = 1 - 0.45 * (1 - ridge);
+        break;
+      }
+      case 'fresnel': {
+        // Concentric saw rings descend outward around the center boss.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const phase = fract(radius * 10);
+        const outer = smooth(clamp((0.46 - radius) / 0.05));
+        const step = smooth(clamp((0.75 - phase) / 0.25)) * outer;
+        const boss = smooth(clamp((0.1 - radius) / 0.05));
+        const fiber = noise(u, v, 40, 40, seed ^ 0x37a9);
+        color = 0.38 + 0.32 * step + 0.2 * boss + 0.05 * fiber;
+        height = 0.42 + 0.22 * step + 0.3 * boss + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.1 * step;
+        occlusion = 1 - 0.36 * (1 - step) - 0.12 * (1 - boss);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

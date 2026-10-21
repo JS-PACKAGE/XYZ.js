@@ -112,6 +112,9 @@ const kinds: ProceduralMaterialKind[] = [
   'pianokeys',
   'drumskin',
   'gongsurface',
+  'lensarray',
+  'prismtape',
+  'fresnel',
   'sandstone',
   'travertine',
   'pumice',
@@ -4827,6 +4830,9 @@ describe('periodic procedural material fields', () => {
     ['pianokeys', [7, 32, 48, 64]],
     ['drumskin', [16, 32, 48, 64]],
     ['gongsurface', [10, 24, 32, 64]],
+    ['lensarray', [16, 32, 48, 64]],
+    ['prismtape', [8, 32, 48, 64]],
+    ['fresnel', [10, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5040,6 +5046,9 @@ describe('periodic procedural material fields', () => {
     ['pianokeys', 7],
     ['drumskin', 16],
     ['gongsurface', 10],
+    ['lensarray', 16],
+    ['prismtape', 8],
+    ['fresnel', 10],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8526,6 +8535,72 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(crest.height + 0.1 * relief);
       expect(crest.height).toBeGreaterThan(trough.height + 0.08 * relief);
       expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('lens array lifts microlens domes out of the supporting web', () => {
+    const relief = proceduralMaterialPresets.lensarray.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const web = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('lensarray', seed);
+      sample(1 / 32, 1 / 32, surface);
+      sample(0, 0, web);
+      expect(surface.height).toBeGreaterThan(web.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(web.occlusion);
+    }
+  });
+
+  it('prism tape crests diagonal ridges over their feet and base', () => {
+    const relief = proceduralMaterialPresets.prismtape.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const foot = { ...surface },
+      valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('prismtape', seed);
+      sample(1 / 16, 0, surface);
+      sample(1 / 32, 0, foot);
+      sample(0, 0, valley);
+      expect(surface.height).toBeGreaterThan(foot.height + 0.05 * relief);
+      expect(foot.height).toBeGreaterThan(valley.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('fresnel descends saw rings outward from its center boss', () => {
+    const relief = proceduralMaterialPresets.fresnel.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crest = { ...surface },
+      foot = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('fresnel', seed);
+      sample(0.5, 0.5, surface);
+      sample(0.71, 0.5, crest);
+      sample(0.78, 0.5, foot);
+      expect(surface.height).toBeGreaterThan(crest.height + 0.1 * relief);
+      expect(crest.height).toBeGreaterThan(foot.height + 0.08 * relief);
+      expect(crest.occlusion).toBeGreaterThan(foot.occlusion);
     }
   });
 

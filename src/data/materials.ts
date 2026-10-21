@@ -529,6 +529,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.36,
     relief: 0.004,
   }),
+  lensarray: Object.freeze({
+    dark: [26, 34, 46] as const,
+    light: [168, 196, 226] as const,
+    roughness: 0.22,
+    relief: 0.0028,
+  }),
+  prismtape: Object.freeze({
+    dark: [122, 96, 42] as const,
+    light: [242, 214, 122] as const,
+    roughness: 0.3,
+    relief: 0.0035,
+  }),
+  fresnel: Object.freeze({
+    dark: [88, 116, 142] as const,
+    light: [212, 232, 246] as const,
+    roughness: 0.26,
+    relief: 0.004,
+  }),
   sandstone: Object.freeze({
     dark: [133, 83, 43] as const,
     light: [238, 205, 150] as const,
@@ -1359,6 +1377,9 @@ export const proceduralTileMeters = Object.freeze({
   pianokeys: 0.16,
   drumskin: 0.4,
   gongsurface: 0.3,
+  lensarray: 0.06,
+  prismtape: 0.12,
+  fresnel: 0.24,
   sandstone: 0.6,
   travertine: 0.48,
   pumice: 0.18,
@@ -1474,6 +1495,3 @@ export const proceduralTileMeters = Object.freeze({
   strawberry: 0.055,
   lychee: 0.055,
 });
-
-/** Preserve the published normalized finish thickness; native packing uses nanometers. */
-export const iridescenceFilmRange = Object.freeze({ minNm: 100, maxNm: 800 });

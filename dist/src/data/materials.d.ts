@@ -528,6 +528,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.36;
         relief: 0.004;
     }>;
+    lensarray: Readonly<{
+        dark: readonly [26, 34, 46];
+        light: readonly [168, 196, 226];
+        roughness: 0.22;
+        relief: 0.0028;
+    }>;
+    prismtape: Readonly<{
+        dark: readonly [122, 96, 42];
+        light: readonly [242, 214, 122];
+        roughness: 0.3;
+        relief: 0.0035;
+    }>;
+    fresnel: Readonly<{
+        dark: readonly [88, 116, 142];
+        light: readonly [212, 232, 246];
+        roughness: 0.26;
+        relief: 0.004;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1357,6 +1375,9 @@ export declare const proceduralTileMeters: Readonly<{
     pianokeys: 0.16;
     drumskin: 0.4;
     gongsurface: 0.3;
+    lensarray: 0.06;
+    prismtape: 0.12;
+    fresnel: 0.24;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

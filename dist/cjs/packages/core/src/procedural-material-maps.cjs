@@ -1606,6 +1606,21 @@ function createSurfaceSampler(t, r) {
 				H = .46 + .26 * c * f + .12 * l * d * f + .1 * u + .05 * p, Z = .42 + .22 * c * f + .06 * l * d * f + .2 * u + .02 * p, Q += .05 * (p - .5) - .08 * c * f, $ = 1 - .24 * (1 - c * f) - .1 * (1 - l * d * f);
 				break;
 			}
+			case `lensarray`: {
+				let e = fract(o * 16) - .5, t = fract(A * 16) - .5, i = smooth(clamp((.42 - Math.sqrt(e * e + t * t)) / .12)), a = noise(o, A, 48, 48, r ^ 28476);
+				H = .42 + .4 * i + .06 * a, Z = .42 + .36 * i + .02 * a, Q += .05 * (a - .5) - .12 * i, $ = 1 - .42 * (1 - i);
+				break;
+			}
+			case `prismtape`: {
+				let e = fract((o - A) * 8), n = smooth(clamp((.34 - Math.abs(e - .5)) / .16)), i = noise(o, A, 40, 40, r ^ 7038);
+				H = .4 + .42 * n + .06 * i, Z = .4 + .4 * n + .02 * i, Q += .05 * (i - .5) - .1 * n, $ = 1 - .45 * (1 - n);
+				break;
+			}
+			case `fresnel`: {
+				let e = o - .5, t = A - .5, n = Math.sqrt(e * e + t * t), i = fract(n * 10), a = smooth(clamp((.46 - n) / .05)), s = smooth(clamp((.75 - i) / .25)) * a, c = smooth(clamp((.1 - n) / .05)), l = noise(o, A, 40, 40, r ^ 14249);
+				H = .38 + .32 * s + .2 * c + .05 * l, Z = .42 + .22 * s + .3 * c + .02 * l, Q += .05 * (l - .5) - .1 * s, $ = 1 - .36 * (1 - s) - .12 * (1 - c);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

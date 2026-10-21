@@ -94,6 +94,9 @@ export type ProceduralMaterialKind =
   | 'pianokeys'
   | 'drumskin'
   | 'gongsurface'
+  | 'lensarray'
+  | 'prismtape'
+  | 'fresnel'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -327,6 +330,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pianokeys',
   'drumskin',
   'gongsurface',
+  'lensarray',
+  'prismtape',
+  'fresnel',
   'sandstone',
   'travertine',
   'pumice',

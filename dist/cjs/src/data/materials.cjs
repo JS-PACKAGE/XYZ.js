@@ -1224,6 +1224,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .36,
 		relief: .004
 	}),
+	lensarray: Object.freeze({
+		dark: [
+			26,
+			34,
+			46
+		],
+		light: [
+			168,
+			196,
+			226
+		],
+		roughness: .22,
+		relief: .0028
+	}),
+	prismtape: Object.freeze({
+		dark: [
+			122,
+			96,
+			42
+		],
+		light: [
+			242,
+			214,
+			122
+		],
+		roughness: .3,
+		relief: .0035
+	}),
+	fresnel: Object.freeze({
+		dark: [
+			88,
+			116,
+			142
+		],
+		light: [
+			212,
+			232,
+			246
+		],
+		roughness: .26,
+		relief: .004
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2964,6 +3006,9 @@ var proceduralTileMeters = Object.freeze({
 	pianokeys: .16,
 	drumskin: .4,
 	gongsurface: .3,
+	lensarray: .06,
+	prismtape: .12,
+	fresnel: .24,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
