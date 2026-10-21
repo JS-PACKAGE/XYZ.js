@@ -33,12 +33,12 @@ var Proxy = class {
 	queryEpoch = 0;
 	movingEpoch = 0;
 	observedGeometry = -1;
-	observedCategory = -1;
-	observedMask = -1;
+	observedCategory = NaN;
+	observedMask = NaN;
 	observedSensor = !1;
 	geometryChanged() {
-		let e = this.observedGeometry !== this.geometry.revision || this.observedCategory !== this.collider.category || this.observedMask !== this.collider.mask || this.observedSensor !== this.collider.sensor;
-		return this.observedGeometry = this.geometry.revision, this.observedCategory = this.collider.category, this.observedMask = this.collider.mask, this.observedSensor = this.collider.sensor, e;
+		let e = this.observedGeometry !== this.geometry.revision || this.observedCategory !== this.collider.filterBits[0] || this.observedMask !== this.collider.filterBits[1] || this.observedSensor !== this.collider.sensor;
+		return this.observedGeometry = this.geometry.revision, this.observedCategory = this.collider.filterBits[0], this.observedMask = this.collider.filterBits[1], this.observedSensor = this.collider.sensor, e;
 	}
 	constructor(e, t, n) {
 		this.owner = e, this.collider = t, this.body = n, this.geometry = new require_collider.ShapeGeometry(t), this.motion = new require_ccd.ShapeMotion2D(this.geometry);
@@ -55,7 +55,7 @@ var Proxy = class {
 			}
 			for (let e of this.joints) e.partner(this)?.body?.wake();
 		}
-		this.inverseMass = this.body?.inverseMass ?? 0, this.inverseInertia = this.owner.colliderPieces ? this.body?.inverseInertia ?? 0 : this.body && this.inverseMass && !this.body.lockRotation ? 1 / (this.body.mass * this.geometry.inertiaPerMass) : 0;
+		this.inverseMass = this.body ? this.body.inverseMass : 0, this.inverseInertia = this.owner.colliderPieces ? this.body ? this.body.inverseInertia : 0 : this.body && this.inverseMass && !this.body.lockRotation ? 1 / (this.body.mass * this.geometry.inertiaPerMass) : 0;
 	}
 };
 function refreshInSnapshot(e, t) {
@@ -358,7 +358,7 @@ var PhysicsWorld2D = class {
 				let c = this.sorted[s];
 				if (this.alive(c) && c.body?.ccd) for (let l = 0; l < this.sorted.length; l++) {
 					let u = this.sorted[l];
-					if (c === u || c.owner === u.owner || u.body?.ccd && l <= s || !this.alive(u) || !c.inverseMass && !u.inverseMass || c.collider.sensor || u.collider.sensor || !(c.collider.category & u.collider.mask) || !(u.collider.category & c.collider.mask) || this.jointsBlockContact(c, u)) continue;
+					if (c === u || c.owner === u.owner || u.body?.ccd && l <= s || !this.alive(u) || !c.inverseMass && !u.inverseMass || c.collider.sensor || u.collider.sensor || !(c.collider.filterBits[0] & u.collider.filterBits[1]) || !(u.collider.filterBits[0] & c.collider.filterBits[1]) || this.jointsBlockContact(c, u)) continue;
 					let d = c.contacts.get(u);
 					if (d?.seen === t && d.cancelled) continue;
 					let f = this.continuous.timeOfImpact(c.motion, u.motion, r, n.impacts >= this.ccdImpacts ? 0 : Math.max(0, this.ccdIterations - n.iterations));
@@ -441,7 +441,7 @@ var PhysicsWorld2D = class {
 			for (let o = e + 1; o < this.sorted.length && !(r && s && this.liveness === c && (o = a[o], o === i)); o++) {
 				let e = this.sorted[o];
 				if (e.geometry.minX > n.geometry.maxX) break;
-				if (r && !e.inverseMass && !e.collider.sensor || n.owner === e.owner || !this.alive(e) || !(n.collider.category & e.collider.mask) || !(e.collider.category & n.collider.mask)) continue;
+				if (r && !e.inverseMass && !e.collider.sensor || n.owner === e.owner || !this.alive(e) || !(n.collider.filterBits[0] & e.collider.filterBits[1]) || !(e.collider.filterBits[0] & n.collider.filterBits[1])) continue;
 				let i = n.collider.sensor || e.collider.sensor;
 				if (n.group[0].joints.length && this.jointsBlockContact(n, e) || (n.geometry.maxY < e.geometry.minY || e.geometry.maxY < n.geometry.minY) && this.liveness === c && (n.separating !== t || e.separating !== t)) continue;
 				let a = n.contacts.get(e);
@@ -454,10 +454,9 @@ var PhysicsWorld2D = class {
 		}
 		for (let e of this.activeContacts) if (e.seen !== t && this.end(e), !this.continuation()) return;
 		if (this.wakeContactGroups(t), this.prepareJoints(e), this.activeJoints.length === 0) {
-			let e = this.velocityContacts;
-			for (let t of this.solveContacts) this.solvable(t) && e.push(t);
-			for (let t = 0; t < this.velocityIterations; t++) for (let t of e) this.solveVelocity(t);
-			e.length = 0;
+			let e = this.velocityContacts, t = 0;
+			for (let n of this.solveContacts) this.solvable(n) && (e[t++] = n);
+			for (let n = 0; n < this.velocityIterations; n++) for (let n = 0; n < t; n++) this.solveVelocity(e[n]);
 		} else for (let t = 0; t < this.velocityIterations; t++) {
 			for (let t of this.activeJoints) t.solveVelocity(e);
 			for (let e of this.solveContacts) this.solvable(e) && this.solveVelocity(e);
@@ -473,49 +472,54 @@ var PhysicsWorld2D = class {
 			let n = t.body?.updateSleep(e) ?? !1;
 			for (let e of t.group) e.sleepReady = n;
 		}
+		let l = this.sleepGroup;
 		for (let e of this.sorted) {
 			if (!e.inverseMass || e.sleepVisited === t) continue;
-			this.sleepGroup.length = 0, this.sleepGroup.push(e), e.sleepVisited = t;
-			let n = !0;
-			for (let e = 0; e < this.sleepGroup.length; e++) {
-				let r = this.sleepGroup[e];
-				n &&= r.sleepReady;
-				for (let e of r.group) e.sleepVisited !== t && (e.sleepVisited = t, this.sleepGroup.push(e));
-				for (let e of r.contacts.values()) {
+			let n = 0;
+			l[n++] = e, e.sleepVisited = t;
+			let r = !0;
+			for (let e = 0; e < n; e++) {
+				let i = l[e];
+				r &&= i.sleepReady;
+				for (let e of i.group) e.sleepVisited !== t && (e.sleepVisited = t, l[n++] = e);
+				for (let e of i.contacts.values()) {
 					if (e.sensor || e.cancelled) continue;
-					let i = e.a === r ? e.b : e.a;
-					i.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), i.inverseMass && i.sleepVisited !== t && (i.sleepVisited = t, this.sleepGroup.push(i));
+					let a = e.a === i ? e.b : e.a;
+					a.body?.type === `kinematic` && (a.body.velocity.x !== 0 || a.body.velocity.y !== 0 || a.body.angularVelocity !== 0) && (r = !1), a.inverseMass && a.sleepVisited !== t && (a.sleepVisited = t, l[n++] = a);
 				}
-				for (let e of r.joints) {
-					let i = e.partner(r), a = i && this.owners.get(i.owner);
-					i?.body?.type === `kinematic` && (i.body.velocity.x !== 0 || i.body.velocity.y !== 0 || i.body.angularVelocity !== 0) && (n = !1), a?.inverseMass && a.sleepVisited !== t && (a.sleepVisited = t, this.sleepGroup.push(a));
+				for (let e of i.joints) {
+					let a = e.partner(i), o = a && this.owners.get(a.owner);
+					a?.body?.type === `kinematic` && (a.body.velocity.x !== 0 || a.body.velocity.y !== 0 || a.body.angularVelocity !== 0) && (r = !1), o?.inverseMass && o.sleepVisited !== t && (o.sleepVisited = t, l[n++] = o);
 				}
 			}
-			if (n) for (let e of this.sleepGroup) e.body?.sleep();
+			if (r) for (let e = 0; e < n; e++) l[e].body?.sleep();
 		}
 	}
 	wakeContactGroups(e) {
-		for (let t of this.sorted) if (t.inverseMass && !t.body?.isSleeping && t.sleepVisited !== -e) {
-			this.sleepGroup.length = 0, this.sleepGroup.push(t), t.sleepVisited = -e;
-			for (let t = 0; t < this.sleepGroup.length; t++) {
-				let n = this.sleepGroup[t];
-				for (let t of n.group) t.sleepVisited !== -e && (t.sleepVisited = -e, this.sleepGroup.push(t));
-				for (let t of n.contacts.values()) {
-					if (t.sensor || t.cancelled) continue;
-					let r = t.a === n ? t.b : t.a;
-					r.inverseMass && r.sleepVisited !== -e && (r.body?.isSleeping && r.body.wake(), r.sleepVisited = -e, this.sleepGroup.push(r));
+		let t = this.sleepGroup;
+		for (let n of this.sorted) {
+			if (!n.inverseMass || n.body?.isSleeping || n.sleepVisited === -e) continue;
+			let r = 0;
+			t[r++] = n, n.sleepVisited = -e;
+			for (let n = 0; n < r; n++) {
+				let i = t[n];
+				for (let n of i.group) n.sleepVisited !== -e && (n.sleepVisited = -e, t[r++] = n);
+				for (let n of i.contacts.values()) {
+					if (n.sensor || n.cancelled) continue;
+					let a = n.a === i ? n.b : n.a;
+					a.inverseMass && a.sleepVisited !== -e && (a.body?.isSleeping && a.body.wake(), a.sleepVisited = -e, t[r++] = a);
 				}
-				for (let t of n.joints) {
-					let r = t.partner(n), i = r && this.owners.get(r.owner);
-					i?.inverseMass && i.sleepVisited !== -e && (i.body?.isSleeping && i.body.wake(), i.sleepVisited = -e, this.sleepGroup.push(i));
+				for (let n of i.joints) {
+					let a = n.partner(i), o = a && this.owners.get(a.owner);
+					o?.inverseMass && o.sleepVisited !== -e && (o.body?.isSleeping && o.body.wake(), o.sleepVisited = -e, t[r++] = o);
 				}
 			}
 		}
 	}
 	prepareBounce(e) {
-		let { a: t, b: n, manifold: r } = e, a = Math.max(t.body?.restitution ?? 0, n.body?.restitution ?? 0), o = Math.max(require_world2d.physicsDefaults.restitutionThreshold, require_hypot.hypot2(this.gravity.x, this.gravity.y) * this.fixedDelta * require_world2d.physicsDefaults.restitutionGravitySteps);
+		let { a: t, b: n, manifold: r } = e, a = Math.max(t.body ? t.body.restitution : 0, n.body ? n.body.restitution : 0), o = Math.max(require_world2d.physicsDefaults.restitutionThreshold, require_hypot.hypot2(this.gravity.x, this.gravity.y) * this.fixedDelta * require_world2d.physicsDefaults.restitutionGravitySteps);
 		for (let e = 0; e < r.count; e++) {
-			let i = r.points[e], s = t.body?.velocity, c = n.body?.velocity, l = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, u = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, d = i.x - t.owner.position.x, f = i.y - t.owner.position.y, p = i.x - n.owner.position.x, m = i.y - n.owner.position.y, h = (n.body?.type === `static` ? 0 : c?.x ?? 0) - u * m - ((t.body?.type === `static` ? 0 : s?.x ?? 0) - l * f), g = (n.body?.type === `static` ? 0 : c?.y ?? 0) + u * p - ((t.body?.type === `static` ? 0 : s?.y ?? 0) + l * d), _ = h * r.nx + g * r.ny;
+			let i = r.points[e], s = t.body?.velocity, c = n.body?.velocity, l = t.body && t.body.type !== `static` && !t.body.lockRotation ? t.body.angularVelocity : 0, u = n.body && n.body.type !== `static` && !n.body.lockRotation ? n.body.angularVelocity : 0, d = i.x - t.owner.position.x, f = i.y - t.owner.position.y, p = i.x - n.owner.position.x, m = i.y - n.owner.position.y, h = (n.body?.type === `static` ? 0 : c ? c.x : 0) - u * m - ((t.body?.type === `static` ? 0 : s ? s.x : 0) - l * f), g = (n.body?.type === `static` ? 0 : c ? c.y : 0) + u * p - ((t.body?.type === `static` ? 0 : s ? s.y : 0) + l * d), _ = h * r.nx + g * r.ny;
 			r.bounceVelocities[e] = _ < -o ? -a * _ : 0;
 		}
 	}
@@ -523,7 +527,7 @@ var PhysicsWorld2D = class {
 		return e.active && !e.cancelled && !e.sensor && this.alive(e.a) && this.alive(e.b) && !(e.a.body?.isSleeping || e.b.body?.isSleeping);
 	}
 	solveVelocity(e) {
-		let { a: t, b: n, manifold: r } = e, i = Math.sqrt((t.body?.friction ?? .5) * (n.body?.friction ?? .5)), a = t.body, o = n.body, s = a && a.type !== `static` ? a.velocity : void 0, c = o && o.type !== `static` ? o.velocity : void 0, l = s !== void 0 && !a.lockRotation, u = c !== void 0 && !o.lockRotation;
+		let { a: t, b: n, manifold: r } = e, i = Math.sqrt((t.body ? t.body.friction : .5) * (n.body ? n.body.friction : .5)), a = t.body, o = n.body, s = a && a.type !== `static` ? a.velocity : void 0, c = o && o.type !== `static` ? o.velocity : void 0, l = s !== void 0 && !a.lockRotation, u = c !== void 0 && !o.lockRotation;
 		for (let e = 0; e < r.count; e++) {
 			let d = r.points[e], f = d.x - t.owner.position.x, p = d.y - t.owner.position.y, m = d.x - n.owner.position.x, h = d.y - n.owner.position.y, g = f * r.ny - p * r.nx, _ = m * r.ny - h * r.nx, v = t.inverseMass + n.inverseMass + g * g * t.inverseInertia + _ * _ * n.inverseInertia;
 			if (v <= 0) continue;
@@ -689,7 +693,7 @@ var PhysicsWorld2D = class {
 	}
 	clear() {
 		for (let e of this.owners.keys()) this.unregister(e);
-		this.sorted.length = 0, this.sweepOrder.length = 0, this.accumulator = 0;
+		this.sorted.length = 0, this.sweepOrder.length = 0, this.velocityContacts.length = this.sleepGroup.length = 0, this.accumulator = 0;
 	}
 	destroy() {
 		this.destroyed || (this.clear(), this.disposed = !0);

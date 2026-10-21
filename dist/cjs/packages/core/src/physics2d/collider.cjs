@@ -39,6 +39,7 @@ var Collider2D = class {
 	sensor = !1;
 	categoryBits = 1;
 	maskBits = 4294967295;
+	filterBits = Int32Array.of(1, -1);
 	queryGeometry;
 	constructor(t, r, a, o = {}) {
 		this.kind = t, this.radius = r;
@@ -69,13 +70,13 @@ var Collider2D = class {
 		return this.categoryBits;
 	}
 	set category(e) {
-		this.categoryBits = unsigned(e, `category`);
+		this.categoryBits = unsigned(e, `category`), this.filterBits[0] = this.categoryBits;
 	}
 	get mask() {
 		return this.maskBits;
 	}
 	set mask(e) {
-		this.maskBits = unsigned(e, `mask`);
+		this.maskBits = unsigned(e, `mask`), this.filterBits[1] = this.maskBits;
 	}
 	containsPoint(e, t) {
 		finite(e.x, `point.x`), finite(e.y, `point.y`);

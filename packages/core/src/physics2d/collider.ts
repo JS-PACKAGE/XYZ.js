@@ -47,6 +47,12 @@ export class Collider2D {
   sensor = false;
   private categoryBits = 1;
   private maskBits = 0xffffffff;
+  /**
+   * @internal `[category, mask]` as int32 for the pair filters, whose bit tests are unchanged
+   * by it: an element load stays inline, while a getter call V8 does not inline returns these
+   * (mostly above the small-integer range) as freshly boxed numbers.
+   */
+  readonly filterBits = Int32Array.of(1, -1);
   private queryGeometry: ShapeGeometry | undefined;
 
   /** Prefer Colliders factories; construction validates and snapshots geometry. */
@@ -110,12 +116,14 @@ export class Collider2D {
   }
   set category(value: number) {
     this.categoryBits = unsigned(value, 'category');
+    this.filterBits[0] = this.categoryBits;
   }
   get mask(): number {
     return this.maskBits;
   }
   set mask(value: number) {
     this.maskBits = unsigned(value, 'mask');
+    this.filterBits[1] = this.maskBits;
   }
 
   containsPoint(point: Vector2, owner: GameObject): boolean {

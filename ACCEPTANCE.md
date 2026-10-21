@@ -3050,3 +3050,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
   不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Physics2D]` 減少每 step 配置，數值與事件順序不變：質量／慣量／反彈／摩擦與速度改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；sweep 與 CCD 配對過濾改讀 `Collider2D.filterBits`（category／mask 的 int32 副本，由 setter 同步，位元測試結果相同），不再呼叫回傳 0xffffffff 等大數的 getter（未內聯時每次裝箱）；睡眠／喚醒島嶼 BFS 與可解接觸清單改以計數重用，不再每個島嶼清空陣列（V8 清空即釋放 backing store），`clear()` 一併釋放。physics2d browser benchmark（WebGL2）每幀配置約 1034 → 404 KB（`solveVelocity` 約 450 KB → 0）；Node 1500 剛體 bench 約 6.5–7.2 → 4.05 MiB／step，hash 不變，屬配置減少。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

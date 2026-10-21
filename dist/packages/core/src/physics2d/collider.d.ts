@@ -17,6 +17,12 @@ export declare class Collider2D {
     sensor: boolean;
     private categoryBits;
     private maskBits;
+    /**
+     * @internal `[category, mask]` as int32 for the pair filters, whose bit tests are unchanged
+     * by it: an element load stays inline, while a getter call V8 does not inline returns these
+     * (mostly above the small-integer range) as freshly boxed numbers.
+     */
+    readonly filterBits: Int32Array<ArrayBuffer>;
     private queryGeometry;
     /** Prefer Colliders factories; construction validates and snapshots geometry. */
     constructor(kind: ColliderKind, radius: number, vertices: readonly (readonly [number, number])[], options?: ColliderOptions);

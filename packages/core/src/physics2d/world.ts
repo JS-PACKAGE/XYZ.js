@@ -124,18 +124,19 @@ class Proxy {
   /** Mover snapshot whose mover owns this proxy directly or through an ancestor. */
   movingEpoch = 0;
   private observedGeometry = -1;
-  private observedCategory = -1;
-  private observedMask = -1;
+  /** int32 `filterBits`, which never equal NaN: the first check always reports a change. */
+  private observedCategory = NaN;
+  private observedMask = NaN;
   private observedSensor = false;
   geometryChanged(): boolean {
     const changed =
       this.observedGeometry !== this.geometry.revision ||
-      this.observedCategory !== this.collider.category ||
-      this.observedMask !== this.collider.mask ||
+      this.observedCategory !== this.collider.filterBits[0] ||
+      this.observedMask !== this.collider.filterBits[1] ||
       this.observedSensor !== this.collider.sensor;
     this.observedGeometry = this.geometry.revision;
-    this.observedCategory = this.collider.category;
-    this.observedMask = this.collider.mask;
+    this.observedCategory = this.collider.filterBits[0]!;
+    this.observedMask = this.collider.filterBits[1]!;
     this.observedSensor = this.collider.sensor;
     return changed;
   }
@@ -166,9 +167,11 @@ class Proxy {
       }
       for (const joint of this.joints) joint.partner(this)?.body?.wake();
     }
-    this.inverseMass = this.body?.inverseMass ?? 0;
+    this.inverseMass = this.body ? this.body.inverseMass : 0;
     this.inverseInertia = this.owner.colliderPieces
-      ? (this.body?.inverseInertia ?? 0)
+      ? this.body
+        ? this.body.inverseInertia
+        : 0
       : this.body && this.inverseMass && !this.body.lockRotation
         ? 1 / (this.body.mass * this.geometry.inertiaPerMass)
         : 0;
@@ -736,8 +739,8 @@ export class PhysicsWorld2D {
             (!a.inverseMass && !b.inverseMass) ||
             a.collider.sensor ||
             b.collider.sensor ||
-            !(a.collider.category & b.collider.mask) ||
-            !(b.collider.category & a.collider.mask) ||
+            !(a.collider.filterBits[0]! & b.collider.filterBits[1]!) ||
+            !(b.collider.filterBits[0]! & a.collider.filterBits[1]!) ||
             this.jointsBlockContact(a, b)
           )
             continue;
@@ -926,8 +929,8 @@ export class PhysicsWorld2D {
         if (
           a.owner === b.owner ||
           !this.alive(b) ||
-          !(a.collider.category & b.collider.mask) ||
-          !(b.collider.category & a.collider.mask)
+          !(a.collider.filterBits[0]! & b.collider.filterBits[1]!) ||
+          !(b.collider.filterBits[0]! & a.collider.filterBits[1]!)
         )
           continue;
         const sensor = a.collider.sensor || b.collider.sensor;
@@ -969,11 +972,11 @@ export class PhysicsWorld2D {
       // Without joints, impulses only reach bodies of contacts that passed this filter
       // (both awake), so no iteration can wake a body, end a contact or change liveness.
       const solvable = this.velocityContacts;
+      let count = 0;
       for (const contact of this.solveContacts)
-        if (this.solvable(contact)) solvable.push(contact);
+        if (this.solvable(contact)) solvable[count++] = contact;
       for (let iteration = 0; iteration < this.velocityIterations; iteration++)
-        for (const contact of solvable) this.solveVelocity(contact);
-      solvable.length = 0;
+        for (let i = 0; i < count; i++) this.solveVelocity(solvable[i]!);
     } else
       for (
         let iteration = 0;
@@ -1000,19 +1003,21 @@ export class PhysicsWorld2D {
       const ready = proxy.body?.updateSleep(dt) ?? false;
       for (const piece of proxy.group) piece.sleepReady = ready;
     }
+    // Islands reuse `sleepGroup` by count: emptying it per island dropped its storage.
+    const group = this.sleepGroup;
     for (const start of this.sorted) {
       if (!start.inverseMass || start.sleepVisited === token) continue;
-      this.sleepGroup.length = 0;
-      this.sleepGroup.push(start);
+      let size = 0;
+      group[size++] = start;
       start.sleepVisited = token;
       let ready = true;
-      for (let i = 0; i < this.sleepGroup.length; i++) {
-        const proxy = this.sleepGroup[i];
+      for (let i = 0; i < size; i++) {
+        const proxy = group[i]!;
         ready &&= proxy.sleepReady;
         for (const piece of proxy.group) {
           if (piece.sleepVisited === token) continue;
           piece.sleepVisited = token;
-          this.sleepGroup.push(piece);
+          group[size++] = piece;
         }
         for (const contact of proxy.contacts.values()) {
           if (contact.sensor || contact.cancelled) continue;
@@ -1026,7 +1031,7 @@ export class PhysicsWorld2D {
             ready = false;
           if (!other.inverseMass || other.sleepVisited === token) continue;
           other.sleepVisited = token;
-          this.sleepGroup.push(other);
+          group[size++] = other;
         }
         for (const joint of proxy.joints) {
           const view = joint.partner(proxy);
@@ -1040,14 +1045,15 @@ export class PhysicsWorld2D {
             ready = false;
           if (!other?.inverseMass || other.sleepVisited === token) continue;
           other.sleepVisited = token;
-          this.sleepGroup.push(other);
+          group[size++] = other;
         }
       }
-      if (ready) for (const proxy of this.sleepGroup) proxy.body?.sleep();
+      if (ready) for (let i = 0; i < size; i++) group[i]!.body?.sleep();
     }
   }
   private wakeContactGroups(token: number): void {
     // Propagate through a whole stack before solving any contact.
+    const group = this.sleepGroup;
     for (const start of this.sorted) {
       if (
         !start.inverseMass ||
@@ -1055,15 +1061,15 @@ export class PhysicsWorld2D {
         start.sleepVisited === -token
       )
         continue;
-      this.sleepGroup.length = 0;
-      this.sleepGroup.push(start);
+      let size = 0;
+      group[size++] = start;
       start.sleepVisited = -token;
-      for (let i = 0; i < this.sleepGroup.length; i++) {
-        const proxy = this.sleepGroup[i];
+      for (let i = 0; i < size; i++) {
+        const proxy = group[i]!;
         for (const piece of proxy.group) {
           if (piece.sleepVisited === -token) continue;
           piece.sleepVisited = -token;
-          this.sleepGroup.push(piece);
+          group[size++] = piece;
         }
         for (const contact of proxy.contacts.values()) {
           if (contact.sensor || contact.cancelled) continue;
@@ -1071,7 +1077,7 @@ export class PhysicsWorld2D {
           if (!other.inverseMass || other.sleepVisited === -token) continue;
           if (other.body?.isSleeping) other.body.wake();
           other.sleepVisited = -token;
-          this.sleepGroup.push(other);
+          group[size++] = other;
         }
         for (const joint of proxy.joints) {
           const view = joint.partner(proxy);
@@ -1079,7 +1085,7 @@ export class PhysicsWorld2D {
           if (!other?.inverseMass || other.sleepVisited === -token) continue;
           if (other.body?.isSleeping) other.body.wake();
           other.sleepVisited = -token;
-          this.sleepGroup.push(other);
+          group[size++] = other;
         }
       }
     }
@@ -1087,8 +1093,8 @@ export class PhysicsWorld2D {
   private prepareBounce(contact: Contact): void {
     const { a, b, manifold: m } = contact;
     const restitution = Math.max(
-      a.body?.restitution ?? 0,
-      b.body?.restitution ?? 0,
+      a.body ? a.body.restitution : 0,
+      b.body ? b.body.restitution : 0,
     );
     // A body resting under gravity approaches at about gravity * dt each step; bouncing on that
     // would keep it awake forever, so the threshold never drops below a couple of gravity steps.
@@ -1115,13 +1121,13 @@ export class PhysicsWorld2D {
       const bx = point.x - b.owner.position.x,
         by = point.y - b.owner.position.y;
       const vx =
-        (b.body?.type !== 'static' ? (bv?.x ?? 0) : 0) -
+        (b.body?.type !== 'static' ? (bv ? bv.x : 0) : 0) -
         bw * by -
-        ((a.body?.type !== 'static' ? (av?.x ?? 0) : 0) - aw * ay);
+        ((a.body?.type !== 'static' ? (av ? av.x : 0) : 0) - aw * ay);
       const vy =
-        (b.body?.type !== 'static' ? (bv?.y ?? 0) : 0) +
+        (b.body?.type !== 'static' ? (bv ? bv.y : 0) : 0) +
         bw * bx -
-        ((a.body?.type !== 'static' ? (av?.y ?? 0) : 0) + aw * ax);
+        ((a.body?.type !== 'static' ? (av ? av.y : 0) : 0) + aw * ax);
       const speed = vx * m.nx + vy * m.ny;
       m.bounceVelocities[i] = speed < -threshold ? -restitution * speed : 0;
     }
@@ -1139,8 +1145,10 @@ export class PhysicsWorld2D {
   }
   private solveVelocity(contact: Contact): void {
     const { a, b, manifold: m } = contact;
+    // `x ? x.f : d`, not `x?.f ?? d`: merging an optional double with `undefined` makes V8
+    // box it, which allocated per contact and iteration.
     const friction = Math.sqrt(
-      (a.body?.friction ?? 0.5) * (b.body?.friction ?? 0.5),
+      (a.body ? a.body.friction : 0.5) * (b.body ? b.body.friction : 0.5),
     );
     // Static bodies and bodiless colliders contribute no velocity; which bodies move or spin
     // cannot change while this contact is solved, so it is decided once, not per term.
@@ -1535,6 +1543,8 @@ export class PhysicsWorld2D {
     for (const owner of this.owners.keys()) this.unregister(owner);
     this.sorted.length = 0;
     this.sweepOrder.length = 0;
+    // Count-reused scratch keeps stale entries past its counts; drop them with the world.
+    this.velocityContacts.length = this.sleepGroup.length = 0;
     this.accumulator = 0;
   }
   destroy(): void {
