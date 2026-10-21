@@ -61,8 +61,15 @@ export declare class ShapeGeometry {
     private readonly matrixSnapshot;
     /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
     private readonly poseInputs;
+    /**
+     * A child's parent world matrix (indices 0, 1, 3, 4, 6, 7) then its transform inputs, as
+     * `poseInputs` is for a root. Each form invalidates the other when it refreshes.
+     */
+    private readonly childInputs;
     constructor(collider: Collider2D);
     refresh(owner: GameObject): void;
+    private childUnchanged;
+    private recordChild;
     private refreshPose;
     contains(x: number, y: number): boolean;
 }

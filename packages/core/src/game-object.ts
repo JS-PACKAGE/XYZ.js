@@ -371,6 +371,19 @@ export class GameObject extends SceneObject {
       !this.scene?.presentingPhysics
     );
   }
+  /**
+   * @internal The parent, when it and this child use the base composition outside
+   * interpolated presentation: this world matrix is then the parent's times this transform.
+   */
+  get baseComposedParent(): GameObject | undefined {
+    const parent = this.parent;
+    return parent &&
+      this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix &&
+      parent.updateWorldMatrix === GameObject.prototype.updateWorldMatrix &&
+      !this.scene?.presentingPhysics
+      ? parent
+      : undefined;
+  }
   updateWorldMatrix(): Matrix3 {
     const scene = this.scene;
     const pass = scene?.presentationPass ?? 0;

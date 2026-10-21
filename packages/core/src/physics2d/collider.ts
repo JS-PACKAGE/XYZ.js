@@ -1,4 +1,4 @@
-import { Vector2 } from '../../../math/src/index.js';
+import { Vector2, type Transform2D } from '../../../math/src/index.js';
 import type { GameObject } from '../game-object.js';
 import {
   physicsDefaults,
@@ -233,6 +233,11 @@ export class ShapeGeometry {
   private readonly matrixSnapshot = new Float64Array(6).fill(NaN);
   /** Transform inputs `refresh` last composed the pose from; NaN when unknown. */
   private readonly poseInputs = new Float64Array(9).fill(NaN);
+  /**
+   * A child's parent world matrix (indices 0, 1, 3, 4, 6, 7) then its transform inputs, as
+   * `poseInputs` is for a root. Each form invalidates the other when it refreshes.
+   */
+  private readonly childInputs = new Float64Array(15).fill(NaN);
   constructor(readonly collider: Collider2D) {
     this.points = new Float64Array(collider.vertices.length * 2);
   }
@@ -255,9 +260,15 @@ export class ShapeGeometry {
       k[8] === t.skew.y
     )
       return;
+    // A child's matrix is its parent's times its transform, so the parent's matrix stands in
+    // for every ancestor input.
+    const parent = direct ? undefined : owner.baseComposedParent;
+    if (parent && this.childUnchanged(parent, t)) return;
     k[0] = NaN;
+    this.childInputs[0] = NaN;
     this.refreshPose(owner);
-    if (direct) {
+    if (parent) this.recordChild(parent, t);
+    else if (direct) {
       k[0] = t.position.x;
       k[1] = t.position.y;
       k[2] = t.rotation;
@@ -268,6 +279,46 @@ export class ShapeGeometry {
       k[7] = t.skew.x;
       k[8] = t.skew.y;
     }
+  }
+  private childUnchanged(parent: GameObject, t: Transform2D): boolean {
+    const p = parent.updateWorldMatrix().elements,
+      c = this.childInputs;
+    return (
+      c[0] === p[0] &&
+      c[1] === p[1] &&
+      c[2] === p[3] &&
+      c[3] === p[4] &&
+      c[4] === p[6] &&
+      c[5] === p[7] &&
+      c[6] === t.position.x &&
+      c[7] === t.position.y &&
+      c[8] === t.rotation &&
+      c[9] === t.scale.x &&
+      c[10] === t.scale.y &&
+      c[11] === t.pivot.x &&
+      c[12] === t.pivot.y &&
+      c[13] === t.skew.x &&
+      c[14] === t.skew.y
+    );
+  }
+  private recordChild(parent: GameObject, t: Transform2D): void {
+    const p = parent.updateWorldMatrix().elements,
+      c = this.childInputs;
+    c[0] = p[0];
+    c[1] = p[1];
+    c[2] = p[3];
+    c[3] = p[4];
+    c[4] = p[6];
+    c[5] = p[7];
+    c[6] = t.position.x;
+    c[7] = t.position.y;
+    c[8] = t.rotation;
+    c[9] = t.scale.x;
+    c[10] = t.scale.y;
+    c[11] = t.pivot.x;
+    c[12] = t.pivot.y;
+    c[13] = t.skew.x;
+    c[14] = t.skew.y;
   }
   private refreshPose(owner: GameObject): void {
     const e = owner.updateWorldMatrix().elements;

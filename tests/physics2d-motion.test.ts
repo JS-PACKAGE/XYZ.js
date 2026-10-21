@@ -102,6 +102,30 @@ describe('2D rigid kinematic and conservative continuous motion', () => {
     }, mover);
     world.destroy();
   });
+  it('follows a child collider through its own transform, its parent and reparenting', () => {
+    const world = new PhysicsWorld2D();
+    const parent = new GameObject();
+    const child = parent.add(new GameObject());
+    child.position.set(10, 0);
+    child.collider = Colliders.box(2, 2);
+    world.register(child);
+    const probe = new GameObject();
+    probe.collider = Colliders.box(1, 1);
+    const touched = (x: number): boolean => {
+      probe.position.set(x, 0);
+      return world.overlap(probe.collider!, probe).length > 0;
+    };
+    expect([touched(10), touched(20)]).toEqual([true, false]);
+    child.position.x = 20;
+    expect([touched(10), touched(20)]).toEqual([false, true]);
+    parent.position.x = 5;
+    expect([touched(20), touched(25)]).toEqual([false, true]);
+    parent.remove(child);
+    expect([touched(20), touched(25)]).toEqual([true, false]);
+    parent.add(child);
+    expect([touched(20), touched(25)]).toEqual([false, true]);
+    world.destroy();
+  });
   it('integrates prescribed kinematic translation/rotation without gravity, force, or impulse response', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 900] });
     const platform = object(world, Colliders.box(10, 2), 0, 0, {

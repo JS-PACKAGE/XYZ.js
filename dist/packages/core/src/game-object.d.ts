@@ -103,6 +103,11 @@ export declare class GameObject extends SceneObject {
      * a root using the base composition outside interpolated physics presentation.
      */
     get composesFromTransform(): boolean;
+    /**
+     * @internal The parent, when it and this child use the base composition outside
+     * interpolated presentation: this world matrix is then the parent's times this transform.
+     */
+    get baseComposedParent(): GameObject | undefined;
     updateWorldMatrix(): Matrix3;
     getLocalBounds(out?: Rect2D): Rect2D;
     toWorld(point: Vector2, out?: Vector2): Vector2;

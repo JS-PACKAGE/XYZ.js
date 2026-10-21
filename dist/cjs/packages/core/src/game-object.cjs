@@ -248,6 +248,10 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	get composesFromTransform() {
 		return !this.parent && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && !this.scene?.presentingPhysics;
 	}
+	get baseComposedParent() {
+		let e = this.parent;
+		return e && this.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && e.updateWorldMatrix === GameObject.prototype.updateWorldMatrix && !this.scene?.presentingPhysics ? e : void 0;
+	}
 	updateWorldMatrix() {
 		let e = this.scene, t = e?.presentationPass ?? 0;
 		if (t !== 0 && this.matrixPass === t) return this.worldMatrix;

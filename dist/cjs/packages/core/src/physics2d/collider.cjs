@@ -131,12 +131,23 @@ var ShapeGeometry = class {
 	revision = 0;
 	matrixSnapshot = (/* @__PURE__ */ new Float64Array(6)).fill(NaN);
 	poseInputs = (/* @__PURE__ */ new Float64Array(9)).fill(NaN);
+	childInputs = (/* @__PURE__ */ new Float64Array(15)).fill(NaN);
 	constructor(e) {
 		this.collider = e, this.points = new Float64Array(e.vertices.length * 2);
 	}
 	refresh(e) {
 		let t = e.transform, n = this.poseInputs, r = e.composesFromTransform;
-		r && n[0] === t.position.x && n[1] === t.position.y && n[2] === t.rotation && n[3] === t.scale.x && n[4] === t.scale.y && n[5] === t.pivot.x && n[6] === t.pivot.y && n[7] === t.skew.x && n[8] === t.skew.y || (n[0] = NaN, this.refreshPose(e), r && (n[0] = t.position.x, n[1] = t.position.y, n[2] = t.rotation, n[3] = t.scale.x, n[4] = t.scale.y, n[5] = t.pivot.x, n[6] = t.pivot.y, n[7] = t.skew.x, n[8] = t.skew.y));
+		if (r && n[0] === t.position.x && n[1] === t.position.y && n[2] === t.rotation && n[3] === t.scale.x && n[4] === t.scale.y && n[5] === t.pivot.x && n[6] === t.pivot.y && n[7] === t.skew.x && n[8] === t.skew.y) return;
+		let i = r ? void 0 : e.baseComposedParent;
+		i && this.childUnchanged(i, t) || (n[0] = NaN, this.childInputs[0] = NaN, this.refreshPose(e), i ? this.recordChild(i, t) : r && (n[0] = t.position.x, n[1] = t.position.y, n[2] = t.rotation, n[3] = t.scale.x, n[4] = t.scale.y, n[5] = t.pivot.x, n[6] = t.pivot.y, n[7] = t.skew.x, n[8] = t.skew.y));
+	}
+	childUnchanged(e, t) {
+		let n = e.updateWorldMatrix().elements, r = this.childInputs;
+		return r[0] === n[0] && r[1] === n[1] && r[2] === n[3] && r[3] === n[4] && r[4] === n[6] && r[5] === n[7] && r[6] === t.position.x && r[7] === t.position.y && r[8] === t.rotation && r[9] === t.scale.x && r[10] === t.scale.y && r[11] === t.pivot.x && r[12] === t.pivot.y && r[13] === t.skew.x && r[14] === t.skew.y;
+	}
+	recordChild(e, t) {
+		let n = e.updateWorldMatrix().elements, r = this.childInputs;
+		r[0] = n[0], r[1] = n[1], r[2] = n[3], r[3] = n[4], r[4] = n[6], r[5] = n[7], r[6] = t.position.x, r[7] = t.position.y, r[8] = t.rotation, r[9] = t.scale.x, r[10] = t.scale.y, r[11] = t.pivot.x, r[12] = t.pivot.y, r[13] = t.skew.x, r[14] = t.skew.y;
 	}
 	refreshPose(e) {
 		let t = e.updateWorldMatrix().elements, n = !1;
