@@ -1201,6 +1201,106 @@ export function createSurfaceSampler(
         occlusion = 0.96 + 0.025 * fibers + 0.01 * detail;
         break;
       }
+      case 'roofshingles': {
+        const row = Math.floor(v * 6),
+          y = fract(v * 6);
+        const shifted = u * 4 + (row % 2) * 0.5,
+          x = fract(shifted);
+        const course = smooth(clamp(Math.min(y, 1 - y) / 0.12));
+        const tab = smooth(clamp(Math.min(x, 1 - x) / 0.055));
+        const notch = (1 - tab) * smooth(clamp((y - 0.32) / 0.16)) * course;
+        // Tab-owned pigment disappears before either staggered course changes
+        // owner; all seams retain the same continuous mineral-granule field.
+        const ownership = course * tab;
+        const variation = hash(Math.floor(shifted) % 4, row, seed ^ 0x63b7);
+        const grit = smooth(
+          clamp((noise(u, v, 64, 64, seed ^ 0x4d35) - 0.2) / 0.6),
+        );
+        const lap = 1 - course;
+        color =
+          0.24 +
+          0.32 * grit +
+          0.2 * ownership * variation -
+          0.15 * lap -
+          0.14 * notch;
+        height =
+          0.2 +
+          0.38 * course -
+          0.2 * notch +
+          0.13 * grit +
+          0.05 * ownership * variation;
+        roughness += 0.12 * (grit - 0.5) + 0.04 * lap + 0.03 * notch;
+        occlusion = 0.96 - 0.24 * lap - 0.2 * notch + 0.025 * grit;
+        break;
+      }
+      case 'rooftiles': {
+        const x = fract(u * 6 + 0.5),
+          y = fract(v * 5);
+        const crown = 0.5 + 0.5 * Math.cos(TAU * u * 6);
+        const course = smooth(clamp(Math.min(y, 1 - y) / 0.13));
+        const side = smooth(clamp(Math.min(x, 1 - x) / 0.12));
+        const ownership = course * side;
+        const variation = hash(
+          Math.floor(u * 6 + 0.5) % 6,
+          Math.floor(v * 5),
+          seed ^ 0x7a41,
+        );
+        const clay = noise(u, v, 24, 32, seed ^ 0x5c27);
+        const lap = 1 - course;
+        // Cosine crowns meet recessed channels with zero slope, rather than
+        // resetting a semicircle at its peak or exposing a flat tile face.
+        color =
+          0.26 +
+          0.24 * crown +
+          0.23 * ownership * variation +
+          0.14 * clay -
+          0.14 * lap;
+        height =
+          0.16 +
+          0.65 * crown -
+          0.1 * lap +
+          0.035 * ownership * variation +
+          0.012 * clay;
+        roughness += 0.13 * (clay - 0.5) + 0.05 * (1 - crown) + 0.045 * lap;
+        occlusion = 0.76 + 0.22 * crown - 0.14 * lap + 0.015 * clay;
+        break;
+      }
+      case 'stucco': {
+        const cells = 28,
+          x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let aggregate = 0,
+          pits = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const variation = hash(wx, wy, seed ^ 0x43b9);
+            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x17c3);
+            const radius = 0.3 + 0.25 * variation;
+            const cap = clamp(
+              1 - (dx * dx + dy * dy * (0.7 + variation)) / (radius * radius),
+            );
+            const weight = cap * cap;
+            // Compact caps and a smooth union keep both relief and slopes
+            // continuous as neighboring sprayed grains enter the support.
+            if (variation < 0.28) pits += (1 - pits) * weight;
+            else aggregate += (1 - aggregate) * weight;
+          }
+        const trowel = noise(u, v, 5, 7, seed ^ 0x537d);
+        color =
+          0.52 + 0.15 * trowel + 0.19 * aggregate - 0.24 * pits + 0.08 * detail;
+        height =
+          0.27 + 0.16 * trowel + 0.43 * aggregate - 0.22 * pits + 0.06 * detail;
+        roughness += 0.055 * aggregate + 0.065 * pits + 0.05 * (detail - 0.5);
+        occlusion = 0.96 - 0.25 * pits - 0.075 * aggregate + 0.02 * detail;
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;

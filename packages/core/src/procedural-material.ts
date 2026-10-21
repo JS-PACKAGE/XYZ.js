@@ -51,7 +51,10 @@ export type ProceduralMaterialKind =
   | 'hexagontiles'
   | 'knit'
   | 'corduroy'
-  | 'felt';
+  | 'felt'
+  | 'roofshingles'
+  | 'rooftiles'
+  | 'stucco';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -129,6 +132,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'knit',
   'corduroy',
   'felt',
+  'roofshingles',
+  'rooftiles',
+  'stucco',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -61,6 +61,8 @@
 
 柔軟紡織增量為 knit／corduroy／felt（針織／燈芯絨／毛氈），目前共四十五種；前述 counts 保留為歷史。針織呈現柔和色調的平針式重複 V 形針目、圓潤隆起紗線與凹陷線圈間隙；燈芯絨呈現暖棕色平行圓潤隆起絨條、細密絨毛斑點與深窄溝槽；毛氈呈現柔和灰綠色霧面不織表面、隨機方向細纖維與低起伏。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps；凹凸僅由 normal map 表現，不新增紗線／毛髮 geometry 或透明線圈。前四十二種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與依賴契約不變；依既有授權逐功能獨立 commit、不 push。
 
+外牆與屋面增量為 roofshingles／rooftiles／stucco（瀝青屋瓦／陶製屋瓦／粗灰泥），目前共四十八種；前述 counts 保留為歷史。瀝青屋瓦呈現暗色礦物顆粒瀝青瓦層、錯列矩形瓦片與搭接陰影帶；陶製屋瓦為赤陶筒瓦層、彎曲瓦冠、凹陷水槽與層間搭接帶；粗灰泥為暖米白噴塗／抹製灰泥、不規則隆起骨材與凹孔，起伏比 plaster 更粗。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps；屋瓦搭接與凹凸僅為 shading／normal map 效果，不新增 geometry、輪廓變化或物理模擬。前四十五種輸出與既有金屬設定、公開 options、repeat、ownership、renderer、依賴契約不變。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

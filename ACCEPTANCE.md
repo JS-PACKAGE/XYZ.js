@@ -2545,3 +2545,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：外牆與屋面（roofshingles／rooftiles／stucco）
+
+- 新增錯列顆粒瀝青屋瓦、圓弧瓦冠陶製屋瓦與粗骨材灰泥，
+  tile 尺寸依序 1.2／1.8／0.6 m。皆 opaque dielectric，
+  凹槽與搭接以既有 normal／occlusion 表現，不建立屋瓦 geometry。
+  gallery／API 文件同步至 48 種；README 既有建築分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1552 tests
+  通過。新增錯列瓦片切口、搭接陰影、瓦冠／溝槽高度及交界法線連續性
+  行為測試；前四十五種預設在 size 64／seed 7 的四份 maps SHA256
+  全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認錯列瀝青瓦、筒瓦與粗灰泥差異；metallic 全為 0，
+  roughness bytes 依序 207–247／167–222／223–251；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

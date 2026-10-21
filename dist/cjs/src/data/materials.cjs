@@ -635,6 +635,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .94,
 		relief: .002
+	}),
+	roofshingles: Object.freeze({
+		dark: [
+			24,
+			27,
+			29
+		],
+		light: [
+			105,
+			108,
+			104
+		],
+		roughness: .87,
+		relief: .018
+	}),
+	rooftiles: Object.freeze({
+		dark: [
+			102,
+			37,
+			22
+		],
+		light: [
+			211,
+			115,
+			66
+		],
+		roughness: .72,
+		relief: .055
+	}),
+	stucco: Object.freeze({
+		dark: [
+			174,
+			162,
+			139
+		],
+		light: [
+			244,
+			235,
+			214
+		],
+		roughness: .9,
+		relief: .018
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -682,7 +724,10 @@ var proceduralTileMeters = Object.freeze({
 	hexagontiles: .6,
 	knit: .064,
 	corduroy: .048,
-	felt: .1
+	felt: .1,
+	roofshingles: 1.2,
+	rooftiles: 1.8,
+	stucco: .6
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

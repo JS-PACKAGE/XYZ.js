@@ -50,6 +50,8 @@
 
 柔軟紡織增量追加 knit／corduroy／felt（針織／燈芯絨／毛氈），目前共四十五種；前述 counts 保留為歷史。分別為柔和色調的平針式重複 V 形針目、圓潤隆起紗線與凹陷線圈間隙；暖棕色平行圓潤隆起絨條、細密絨毛斑點與深窄溝槽；柔和灰綠色霧面不織表面、隨機方向細纖維與低起伏。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps；凹凸僅由 normal map 表現，不新增紗線／毛髮 geometry 或透明線圈。前四十二種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
+外牆與屋面增量追加 roofshingles／rooftiles／stucco（瀝青屋瓦／陶製屋瓦／粗灰泥），目前共四十八種；前述 counts 保留為歷史。分別呈現暗色礦物顆粒瀝青瓦層、錯列矩形瓦片與搭接陰影帶；赤陶筒瓦層、彎曲瓦冠、凹陷水槽與層間搭接帶；暖米白噴塗／抹製灰泥、不規則隆起骨材與凹孔，起伏比 plaster 更粗。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps；屋瓦搭接與凹凸僅為 shading／normal map 效果，不新增 geometry、輪廓變化或物理模擬。前四十五種輸出與既有金屬設定、公開 options、repeat、ownership、renderer、依賴契約不變。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

@@ -276,6 +276,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.94;
         relief: 0.002;
     }>;
+    roofshingles: Readonly<{
+        dark: readonly [24, 27, 29];
+        light: readonly [105, 108, 104];
+        roughness: 0.87;
+        relief: 0.018;
+    }>;
+    rooftiles: Readonly<{
+        dark: readonly [102, 37, 22];
+        light: readonly [211, 115, 66];
+        roughness: 0.72;
+        relief: 0.055;
+    }>;
+    stucco: Readonly<{
+        dark: readonly [174, 162, 139];
+        light: readonly [244, 235, 214];
+        roughness: 0.9;
+        relief: 0.018;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -324,6 +342,9 @@ export declare const proceduralTileMeters: Readonly<{
     knit: 0.064;
     corduroy: 0.048;
     felt: 0.1;
+    roofshingles: 1.2;
+    rooftiles: 1.8;
+    stucco: 0.6;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

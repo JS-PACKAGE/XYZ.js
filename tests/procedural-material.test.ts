@@ -69,6 +69,9 @@ const kinds: ProceduralMaterialKind[] = [
   'knit',
   'corduroy',
   'felt',
+  'roofshingles',
+  'rooftiles',
+  'stucco',
 ];
 
 class TestImageData {
@@ -271,6 +274,9 @@ describe('periodic procedural material fields', () => {
     ['knit', [8, 16, 32, 48]],
     ['corduroy', [12, 24, 32, 48, 96]],
     ['felt', [20, 32, 40]],
+    ['roofshingles', [4, 6, 8, 32, 64]],
+    ['rooftiles', [5, 6, 12, 24, 32]],
+    ['stucco', [5, 7, 28, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -494,6 +500,104 @@ describe('periodic procedural material fields', () => {
           expect(crest.occlusion).toBeGreaterThan(valley.occlusion);
           sample((wale + 0.3) / 12, v, crest);
           expect(crest.height).toBeGreaterThan(valley.height);
+        }
+    }
+  });
+
+  it('shingle tabs are staggered, recessed at their lower cuts and shadowed at course laps', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('roofshingles', seed);
+      for (let row = 0; row < 6; row++) {
+        const cut = (row % 2) / 8;
+        sample(cut, (row + 0.75) / 6, a);
+        sample(cut + 0.125, (row + 0.75) / 6, b);
+        expect(b.height).toBeGreaterThan(a.height);
+        expect(b.occlusion).toBeGreaterThan(a.occlusion);
+        sample(cut, (row + 0.25) / 6, b);
+        expect(b.height).toBeGreaterThan(a.height);
+        sample(cut + 0.125, row / 6, a);
+        sample(cut + 0.125, (row + 0.5) / 6, b);
+        expect(b.height).toBeGreaterThan(a.height);
+        expect(b.occlusion).toBeGreaterThan(a.occlusion);
+      }
+    }
+  });
+
+  it.each(['roofshingles', 'rooftiles'] as const)(
+    '%s fades owner variation without a normal crease at course, offset or crown seams',
+    (kind) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a };
+      const epsilon = 1e-7;
+      const rows = kind === 'roofshingles' ? 6 : 5;
+      const columns = kind === 'roofshingles' ? 8 : 12;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let row = 0; row <= rows; row++)
+          for (let column = 0; column <= columns; column++)
+            for (const offset of [0, 0.5, 0.75])
+              for (const [du, dv] of [
+                [epsilon, 0],
+                [0, epsilon],
+              ]) {
+                const u = column / columns,
+                  v = (row + offset) / rows;
+                sample(u - du, v - dv, a);
+                sample(u + du, v + dv, b);
+                const leftHeight = a.height,
+                  rightHeight = b.height;
+                sample(u, v, a);
+                expect(
+                  Math.abs(rightHeight - 2 * a.height + leftHeight) / epsilon,
+                ).toBeLessThan(0.001);
+              }
+      }
+    },
+  );
+
+  it('roof tiles have rounded crowns above channels and transverse recessed course laps', () => {
+    const crown: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const shoulder = { ...crown },
+      channel = { ...crown },
+      lap = { ...crown };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rooftiles', seed);
+      for (let row = 0; row < 5; row++)
+        for (let column = 0; column < 6; column++) {
+          const u = column / 6,
+            v = (row + 0.5) / 5;
+          sample(u, v, crown);
+          sample(u + 1 / 24, v, shoulder);
+          sample(u + 1 / 12, v, channel);
+          sample(u, row / 5, lap);
+          expect(crown.height).toBeGreaterThan(shoulder.height);
+          expect(shoulder.height).toBeGreaterThan(channel.height);
+          expect(crown.occlusion).toBeGreaterThan(channel.occlusion);
+          expect(crown.height).toBeGreaterThan(lap.height);
+          expect(crown.occlusion).toBeGreaterThan(lap.occlusion);
         }
     }
   });

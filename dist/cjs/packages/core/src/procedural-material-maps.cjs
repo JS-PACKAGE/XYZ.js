@@ -321,6 +321,26 @@ function createSurfaceSampler(t, r) {
 				p = .28 + .28 * d + .3 * s, m = .18 + .035 * d + .065 * s, h += .065 * (d - .5) + .025 * s, g = .96 + .025 * s + .01 * d;
 				break;
 			}
+			case `roofshingles`: {
+				let t = Math.floor(c * 6), n = fract(c * 6), i = e * 4 + t % 2 * .5, a = fract(i), o = smooth(clamp(Math.min(n, 1 - n) / .12)), s = smooth(clamp(Math.min(a, 1 - a) / .055)), l = (1 - s) * smooth(clamp((n - .32) / .16)) * o, u = o * s, d = hash(Math.floor(i) % 4, t, r ^ 25527), f = smooth(clamp((noise(e, c, 64, 64, r ^ 19765) - .2) / .6)), _ = 1 - o;
+				p = .24 + .32 * f + .2 * u * d - .15 * _ - .14 * l, m = .2 + .38 * o - .2 * l + .13 * f + .05 * u * d, h += .12 * (f - .5) + .04 * _ + .03 * l, g = .96 - .24 * _ - .2 * l + .025 * f;
+				break;
+			}
+			case `rooftiles`: {
+				let t = fract(e * 6 + .5), i = fract(c * 5), a = .5 + .5 * Math.cos(n * e * 6), o = smooth(clamp(Math.min(i, 1 - i) / .13)), s = o * smooth(clamp(Math.min(t, 1 - t) / .12)), l = hash(Math.floor(e * 6 + .5) % 6, Math.floor(c * 5), r ^ 31297), u = noise(e, c, 24, 32, r ^ 23591), d = 1 - o;
+				p = .26 + .24 * a + .23 * s * l + .14 * u - .14 * d, m = .16 + .65 * a - .1 * d + .035 * s * l + .012 * u, h += .13 * (u - .5) + .05 * (1 - a) + .045 * d, g = .76 + .22 * a - .14 * d + .015 * u;
+				break;
+			}
+			case `stucco`: {
+				let t = e * 28, n = c * 28, i = Math.floor(t), a = Math.floor(n), o = 0, s = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let l = i + c, u = a + e, d = (l % 28 + 28) % 28, f = (u % 28 + 28) % 28, p = hash(d, f, r ^ 17337), m = t - l - .2 - .6 * hash(d, f, r), h = n - u - .2 - .6 * hash(d, f, r ^ 6083), g = .3 + .25 * p, _ = clamp(1 - (m * m + h * h * (.7 + p)) / (g * g)), v = _ * _;
+					p < .28 ? s += (1 - s) * v : o += (1 - o) * v;
+				}
+				let l = noise(e, c, 5, 7, r ^ 21373);
+				p = .52 + .15 * l + .19 * o - .24 * s + .08 * d, m = .27 + .16 * l + .43 * o - .22 * s + .06 * d, h += .055 * o + .065 * s + .05 * (d - .5), g = .96 - .25 * s - .075 * o + .02 * d;
+				break;
+			}
 		}
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};
