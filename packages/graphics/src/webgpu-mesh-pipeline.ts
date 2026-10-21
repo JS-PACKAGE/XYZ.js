@@ -115,7 +115,11 @@ import { TemporalPostState } from './temporal-post.js';
 import { WebGPUTemporalPipeline } from './webgpu-temporal-pipeline.js';
 import { WebGPUObjectMotion } from './webgpu-object-motion.js';
 import type { NativeResidency, ResidencyAllocation } from './residency.js';
-import { fillMeshIrradiance } from '../../core/src/baked-lighting.js';
+import {
+  constantMeshIrradiance,
+  fillMeshIrradiance,
+  type ConstantMeshIrradiance,
+} from '../../core/src/baked-lighting.js';
 import { ContactShadows } from '../../core/src/contact-shadows.js';
 import type { PlanarReflection } from '../../core/src/planar-reflection.js';
 import { encodePlanarReflection } from './planar-reflection-capture.js';
@@ -190,6 +194,8 @@ interface CachedMesh {
   /** PBR block `data` copied into `data` (and uploaded) last; undefined otherwise. */
   blockMaterial: PBRMaterial | undefined;
   blockRevision: number;
+  /** Shared constant irradiance `data` (and the GPU copy) last held; undefined otherwise. */
+  irradiance: ConstantMeshIrradiance | undefined;
   visibleInstance?: GPUBuffer;
   visibleColors?: GPUBuffer;
   visibilityVersion?: number;
@@ -3204,6 +3210,7 @@ export class WebGPUMeshPipeline {
         probeRevision: -1,
         blockMaterial: undefined,
         blockRevision: -1,
+        irradiance: undefined,
         seen: this.frame,
       };
       entry.textureEpoch = this.textureEpoch;
@@ -3610,7 +3617,13 @@ export class WebGPUMeshPipeline {
       object.renderGeometry.tangentTexCoord;
     data[customOffset + nativeMaterial3DLimits.uniformFloats + 2] =
       object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1;
-    fillMeshIrradiance(object, data, irradianceOffset);
+    // Unbound meshes hold one of two shared constants: an unchanged one needs no refill or diff.
+    const irradiance = constantMeshIrradiance(object);
+    const irradianceChanged = !irradiance || mesh.irradiance !== irradiance;
+    if (irradianceChanged) {
+      fillMeshIrradiance(object, data, irradianceOffset);
+      mesh.irradiance = irradiance;
+    }
     const packed = visibility?.instances;
     if (
       packed &&
@@ -3690,22 +3703,31 @@ export class WebGPUMeshPipeline {
       queue = this.device.queue;
     let bytes: number;
     if (mesh.probeRevision === this.probeBlendRevision) {
-      const span = (start: number, end: number): number =>
-        uploadChangedSpan(
-          queue,
-          mesh.uniform,
-          mesh.bits,
-          mesh.sent,
-          start,
-          end,
-        );
       const perObject = customOffset + nativeMaterial3DLimits.uniformFloats;
+      const { uniform, bits, sent } = mesh;
       bytes = materialSent
         ? // Only the matrix, shadow/skin flags, fade/tangent words and irradiance can differ.
-          span(0, 48) +
-          span(perObject, perObject + 3) +
-          span(irradianceOffset, irradianceOffset + 40)
-        : span(0, reflection) + span(after, data.length);
+          uploadChangedSpan(queue, uniform, bits, sent, 0, 48) +
+          uploadChangedSpan(
+            queue,
+            uniform,
+            bits,
+            sent,
+            perObject,
+            perObject + 3,
+          ) +
+          (irradianceChanged
+            ? uploadChangedSpan(
+                queue,
+                uniform,
+                bits,
+                sent,
+                irradianceOffset,
+                irradianceOffset + 40,
+              )
+            : 0)
+        : uploadChangedSpan(queue, uniform, bits, sent, 0, reflection) +
+          uploadChangedSpan(queue, uniform, bits, sent, after, data.length);
     } else {
       data.set(this.probeBlend, reflection);
       bytes = uploadChangedSpan(
