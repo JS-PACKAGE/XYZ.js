@@ -142,6 +142,9 @@ const kinds: ProceduralMaterialKind[] = [
   'malachite',
   'agate',
   'lapislazuli',
+  'rice',
+  'sesame',
+  'coffeebeans',
 ];
 
 class TestImageData {
@@ -189,6 +192,180 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('bulk grain silhouettes and relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    // Reconstruct only seeded placements, not the surface channel formulas.
+    const feature = (
+      kind: 'rice' | 'sesame' | 'coffeebeans',
+      x: number,
+      y: number,
+      seed: number,
+    ) => {
+      const variation = hash(x, y, seed ^ 0x37c1),
+        angle = 2 * Math.PI * hash(x, y, seed ^ 0x5f39),
+        cells = kind === 'rice' ? 12 : kind === 'sesame' ? 16 : 8,
+        length =
+          kind === 'rice'
+            ? 0.62 + 0.09 * variation
+            : kind === 'sesame'
+              ? 0.48 + 0.06 * variation
+              : 0.57 + 0.06 * variation,
+        width =
+          kind === 'rice'
+            ? 0.14 + 0.025 * variation
+            : kind === 'sesame'
+              ? 0.24 + 0.025 * variation
+              : 0.36 + 0.03 * variation;
+      return {
+        variation,
+        cells,
+        point: (a: number, b: number): [number, number] => [
+          (x +
+            0.35 +
+            0.3 * hash(x, y, seed ^ 0x18a7) +
+            length * a * Math.cos(angle) -
+            width * b * Math.sin(angle)) /
+            cells,
+          (y +
+            0.35 +
+            0.3 * hash(x, y, seed ^ 0x6d23) +
+            length * a * Math.sin(angle) +
+            width * b * Math.cos(angle)) /
+            cells,
+        ],
+      };
+    };
+    it.each(['rice', 'sesame', 'coffeebeans'] as const)(
+      '%s retains its kernel, asymmetric keel or recessed curved split',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed);
+          let observed = 0;
+          for (let y = 0; y < 4; y++)
+            for (let x = 0; x < 4; x++) {
+              const f = feature(kind, x, y, seed),
+                at = (a: number, b: number) => {
+                  const out = empty(),
+                    p = f.point(a, b);
+                  sample(p[0], p[1], out);
+                  return out;
+                };
+              if (kind === 'rice') {
+                // A physical offset along the kernel remains on its crown;
+                // the same offset across it is outside the slender silhouette.
+                if (at(0.45, 0).height > at(0, 2).height) observed++;
+              } else if (kind === 'sesame') {
+                if (
+                  at(-0.5, 0.8).height > at(0.5, 0.8).height &&
+                  at(0, 0).height > at(0, 0.5).height
+                )
+                  observed++;
+              } else {
+                let splitSections = 0;
+                for (const a of [-0.55, 0, 0.55]) {
+                  const bend = 0.16 * Math.sin(2.8 * a + f.variation - 0.5),
+                    floor = at(a, bend),
+                    left = at(a, bend - 0.27),
+                    right = at(a, bend + 0.27);
+                  if (
+                    floor.height < left.height &&
+                    floor.height < right.height &&
+                    floor.occlusion < left.occlusion &&
+                    floor.occlusion < right.occlusion
+                  )
+                    splitSections++;
+                }
+                if (splitSections === 3) observed++;
+              }
+            }
+          // Overlaps may cover a particular seed, but cannot erase its
+          // characteristic geometry throughout a seeded bulk surface.
+          expect(observed).toBeGreaterThanOrEqual(8);
+        }
+      },
+    );
+    it.each(['rice', 'sesame', 'coffeebeans'] as const)(
+      '%s has convergent slopes at supports, tips, centers, overlaps and wrap seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.137],
+              [0.791, 1],
+            ];
+          for (let y = 0; y < 3; y++)
+            for (let x = 0; x < 3; x++) {
+              const f = feature(kind, x, y, seed);
+              for (const [a, b] of [
+                [0, 0],
+                [-1, 0],
+                [1, 0],
+                [0, -1],
+                [0, 1],
+                [0, Math.sqrt(0.68)],
+                [0, -Math.sqrt(0.68)],
+                [-0.5, 0.8],
+                [0.5, 0.8],
+              ])
+                points.push(f.point(a, b));
+              if (kind === 'coffeebeans')
+                for (const a of [-0.7, 0, 0.7])
+                  points.push(
+                    f.point(a, 0.16 * Math.sin(2.8 * a + f.variation - 0.5)),
+                  );
+              // Cell ownership changes must not change any channel.
+              points.push([x / f.cells, (y + 0.43) / f.cells]);
+              points.push([(x + 0.37) / f.cells, y / f.cells]);
+            }
+          const center = empty(),
+            a = empty(),
+            b = empty(),
+            coarseA = empty(),
+            coarseB = empty();
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [2.5e-7, 0],
+              [0, 2.5e-7],
+              [1.5e-7, 2e-7],
+            ]) {
+              sample(u, v, center);
+              sample(u - du, v - dv, a);
+              sample(u + du, v + dv, b);
+              sample(u - 4 * du, v - 4 * dv, coarseA);
+              sample(u + 4 * du, v + 4 * dv, coarseB);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                expect(center[key]).toBeGreaterThanOrEqual(0);
+                expect(center[key]).toBeLessThanOrEqual(1);
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                const fineJump =
+                    Math.abs(a[key] + b[key] - 2 * center[key]) / 2.5e-7,
+                  coarseJump =
+                    Math.abs(coarseA[key] + coarseB[key] - 2 * center[key]) /
+                    1e-6;
+                expect(fineJump).toBeLessThanOrEqual(0.4 * coarseJump + 1e-8);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('polished decorative mineral surfaces', () => {
     const tau = 2 * Math.PI;
     const empty = (): SurfaceSample => ({

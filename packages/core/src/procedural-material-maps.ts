@@ -540,6 +540,40 @@ export function createSurfaceSampler(
     kind === 'lapislazuli' ? cachedNoise(8, 8, seed ^ 0x4d29) : null;
   const mineralPhaseU = mineral ? TAU * hash(0, 0, seed ^ 0x35a7) : 0;
   const mineralPhaseV = mineral ? TAU * hash(0, 0, seed ^ 0x6c19) : 0;
+  const bulkGrain =
+    kind === 'rice' || kind === 'sesame' || kind === 'coffeebeans';
+  const grainCells = kind === 'rice' ? 12 : kind === 'sesame' ? 16 : 8;
+  const grainSites = bulkGrain
+    ? new Float64Array(grainCells * grainCells * 7)
+    : null;
+  const roastGrain =
+    kind === 'coffeebeans' ? cachedNoise(64, 64, seed ^ 0x46b9) : null;
+  if (grainSites)
+    for (let y = 0; y < grainCells; y++)
+      for (let x = 0; x < grainCells; x++) {
+        const offset = (y * grainCells + x) * 7,
+          angle = TAU * hash(x, y, seed ^ 0x5f39),
+          variation = hash(x, y, seed ^ 0x37c1);
+        grainSites[offset] = 0.35 + 0.3 * hash(x, y, seed ^ 0x18a7);
+        grainSites[offset + 1] = 0.35 + 0.3 * hash(x, y, seed ^ 0x6d23);
+        grainSites[offset + 2] = Math.cos(angle);
+        grainSites[offset + 3] = Math.sin(angle);
+        grainSites[offset + 4] =
+          1 /
+          (kind === 'rice'
+            ? 0.62 + 0.09 * variation
+            : kind === 'sesame'
+              ? 0.48 + 0.06 * variation
+              : 0.57 + 0.06 * variation);
+        grainSites[offset + 5] =
+          1 /
+          (kind === 'rice'
+            ? 0.14 + 0.025 * variation
+            : kind === 'sesame'
+              ? 0.24 + 0.025 * variation
+              : 0.36 + 0.03 * variation);
+        grainSites[offset + 6] = variation;
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -570,7 +604,8 @@ export function createSurfaceSampler(
       botanical ||
       packaging ||
       volcanic ||
-      mineral
+      mineral ||
+      bulkGrain
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -596,6 +631,76 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'rice':
+      case 'sesame':
+      case 'coffeebeans': {
+        const x = u * grainCells,
+          y = v * grainCells,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = roastGrain ? roastGrain(u, v) : 0;
+        color = kind === 'rice' ? 0.26 : kind === 'sesame' ? 0.19 : 0.12;
+        height = 0.08;
+        occlusion = 0.57;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              wx = (cx + grainCells) % grainCells,
+              wy = (cy + grainCells) % grainCells,
+              offset = (wy * grainCells + wx) * 7,
+              dx = x - cx - grainSites![offset],
+              dy = y - cy - grainSites![offset + 1],
+              cosine = grainSites![offset + 2],
+              sine = grainSites![offset + 3],
+              a = (dx * cosine + dy * sine) * grainSites![offset + 4],
+              b = (dy * cosine - dx * sine) * grainSites![offset + 5],
+              variation = grainSites![offset + 6];
+            let q: number;
+            if (kind === 'rice') q = a * a + b * b * (1 + 0.8 * a * a);
+            else if (kind === 'sesame') {
+              const taper = 1 + 0.65 * a;
+              q = a * a + b * b * taper * taper;
+            } else q = a * a + b * b * (1 + 0.12 * a);
+            if (q >= 1) continue;
+            // Polynomial coordinates have no singular radial center. The
+            // compact face and every owned detail vanish with zero edge slope.
+            const face = smooth(clamp((1 - q) / 0.32)),
+              crown = (1 - q) * (1 - q);
+            let pigment: number, relief: number, finish: number, shade: number;
+            if (kind === 'rice') {
+              const striation = 0.5 + 0.5 * Math.cos(14 * b + 0.7 * a * a);
+              pigment = 0.75 + 0.16 * variation + 0.035 * striation;
+              relief = 0.28 + 0.32 * crown + 0.025 * crown * striation;
+              finish = preset.roughness + 0.04 * (1 - crown);
+              shade = 0.87 + 0.1 * crown;
+            } else if (kind === 'sesame') {
+              const keel = Math.exp(-12 * b * b) * crown,
+                fleck = 0.5 + 0.5 * Math.sin(17 * a + 5 * b + variation * TAU);
+              pigment = 0.58 + 0.2 * variation + 0.07 * keel + 0.025 * fleck;
+              relief = 0.24 + 0.2 * crown + 0.23 * keel;
+              finish = preset.roughness + 0.05 * (1 - keel);
+              shade = 0.86 + 0.11 * crown;
+            } else {
+              // A curved recessed split cuts the broad crown, not an absolute
+              // distance crease; its squared profile stays smooth at the floor.
+              const curve = b - 0.16 * Math.sin(2.8 * a + variation - 0.5),
+                split = Math.exp((-curve * curve) / 0.012) * crown,
+                roast = 0.55 * grain + 0.45 * variation;
+              pigment = 0.4 + 0.3 * roast + 0.1 * crown - 0.26 * split;
+              relief = 0.28 + 0.4 * crown - 0.3 * split + 0.018 * grain * crown;
+              finish = preset.roughness + 0.11 * roast + 0.1 * split;
+              shade = 0.89 + 0.08 * crown - 0.32 * split;
+            }
+            // Convex layering preserves distinct seed ownership without hard
+            // nearest-site changes or saturation kinks where silhouettes overlap.
+            color += face * (pigment - color);
+            height += face * (relief - height);
+            roughness += face * (finish - roughness);
+            occlusion += face * (shade - occlusion);
+          }
+        break;
+      }
       case 'malachite':
       case 'agate': {
         const columns = kind === 'malachite' ? 3 : 1,

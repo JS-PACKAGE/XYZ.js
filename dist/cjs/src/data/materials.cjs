@@ -1643,6 +1643,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .27,
 		relief: .003
+	}),
+	rice: Object.freeze({
+		dark: [
+			123,
+			109,
+			79
+		],
+		light: [
+			255,
+			248,
+			222
+		],
+		roughness: .57,
+		relief: .004
+	}),
+	sesame: Object.freeze({
+		dark: [
+			100,
+			61,
+			26
+		],
+		light: [
+			239,
+			203,
+			140
+		],
+		roughness: .61,
+		relief: .003
+	}),
+	coffeebeans: Object.freeze({
+		dark: [
+			12,
+			5,
+			3
+		],
+		light: [
+			125,
+			66,
+			32
+		],
+		roughness: .39,
+		relief: .008
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1762,7 +1804,10 @@ var proceduralTileMeters = Object.freeze({
 	obsidian: .3,
 	malachite: .24,
 	agate: .32,
-	lapislazuli: .3
+	lapislazuli: .3,
+	rice: .06,
+	sesame: .05,
+	coffeebeans: .1
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

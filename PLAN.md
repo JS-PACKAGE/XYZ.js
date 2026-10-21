@@ -98,6 +98,8 @@
 
 裝飾礦石表面增量追加 malachite／agate／lapislazuli（孔雀石／瑪瑙／青金石），目前共一百一十七種；前述 counts 保留為歷史。孔雀石為濃綠色圓潤葡萄狀巢套生長帶與細微拋光起伏；瑪瑙為暖奶油、紅與橙色的拉長波浪巢套生長帶，輪廓尺度與拓撲區別於孔雀石；青金石為深群青色顆粒石面與淺色不規則方解石脈及內含物，不含金色黃鐵礦或金屬碎斑。三者皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用相同四份 seeded deterministic periodic maps、physical repeat 與公開 options；僅為表面拋光 shading／normal map 效果，不提供透明、折射、虹彩或寶石 geometry。前一百一十四種輸出須逐位元組保持不變，ownership、backend 與零新增依賴契約不變。沿既有授權逐功能獨立 commit、不 push。
 
+散粒表面增量追加 rice／sesame／coffeebeans（米粒／芝麻／咖啡豆），目前共一百二十種；前述 counts 保留為歷史。分別呈現象牙白細長米粒、不同朝向與柔和縱向起伏；暖棕褐色小型不對稱淚滴芝麻、圓潤隆起中脊與漸尖端部；較寬的深烘焙棕色橢圓咖啡豆、彎曲中央裂縫與細密不均烘焙紋理。三者各自擁有不同形狀場，不是同一圖樣換色或縮放，皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0。沿用既有 CPU 一次生成的四份 seeded deterministic periodic maps、repeat sampling、呼叫者 ownership 與 size／seed options；僅為風格化散粒表面 shading／normal map 效果，不提供逐粒模擬、物理堆疊、geometry、displacement、透明或次表面散射。前一百一十七種四份 maps 輸出須逐位元組保持不變，backend 與零新增依賴契約不變；實際驗證另記 ACCEPTANCE。沿既有授權逐功能獨立 commit、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

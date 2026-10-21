@@ -123,7 +123,10 @@ export type ProceduralMaterialKind =
   | 'obsidian'
   | 'malachite'
   | 'agate'
-  | 'lapislazuli';
+  | 'lapislazuli'
+  | 'rice'
+  | 'sesame'
+  | 'coffeebeans';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -273,6 +276,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'malachite',
   'agate',
   'lapislazuli',
+  'rice',
+  'sesame',
+  'coffeebeans',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

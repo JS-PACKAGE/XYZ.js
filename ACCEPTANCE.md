@@ -3082,3 +3082,31 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering2D]` 2D 收集時各 isolation boundary 的成員清單改為「計數＋逐項清為 undefined」重用，不再每幀 `length = 0`（V8 會釋放 backing store、下一幀重新長大）；釋放後仍不保留 live 物件參照，收集順序不變。穩態（暖機 12 s 後取樣）tilemap2d WebGL2 每幀配置 54.6 → 20.3 KB，屬配置減少；canvas2d／WebGL2 browser regression 通過。build 與完整測試（1898 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：穀粒堆積表面（rice／sesame／coffeebeans）
+
+- 新增象牙色細長米粒與縱向細紋、暖褐色非對稱尖端芝麻與隆起中脊，
+  以及深褐色烘焙咖啡豆與彎曲中央裂溝。不同形狀、方向與尺寸的
+  compact-support seeds 以平滑 ownership 混合，不只是同一場的換色。
+  三者皆為 opaque dielectric；僅為表面 shading，不新增獨立穀粒
+  geometry、堆積物理、displacement、透明或 SSS。
+- 本組隔離快照由 117 增為 120 種；原 117 種在 size 64／seed 7 下
+  四份 maps SHA256 全部不變。新三種 source、ESM 與 CJS
+  四份 maps bytes 相同，種子姿態與半徑倒數只在 sampler 建立時計算。
+- build、typecheck、lint、format:check 通過；六項形狀／C1 收斂
+  回歸通過，完整 Vitest 為 176 files／1908 tests passed。
+  檢查涵蓋細長輪廓、芝麻兩端不對稱、中脊與咖啡裂溝、support、
+  重疊 ownership 與週期接縫。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認週期排列，metallic bytes 全為 0。
+  roughness bytes 依序 145–155／156–168／99–150，每米 repeats
+  依序 16.666667／20／10；四份貼圖 destroy 後均確認已釋放。
+  主工作目錄 WebGPU pixels 與隔離快照相同。
+- 整合保留同步中的 geode／quartz／pyrite 與公開 options 修改，
+  三款同步材質在整合前後的四份 maps hash 相同，不納入本組提交。
+  主目錄 build、typecheck 通過；當時共享材質測試為
+  456 passed／1 failed，唯一失敗是進行中的 geode 礦帶測試。
+  本組提交以以上隔離快照完整通過的結果為準。
+- 文件沒有新增相對連結，README 既有食物分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

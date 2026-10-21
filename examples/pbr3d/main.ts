@@ -196,6 +196,9 @@ try {
     'malachite',
     'agate',
     'lapislazuli',
+    'rice',
+    'sesame',
+    'coffeebeans',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

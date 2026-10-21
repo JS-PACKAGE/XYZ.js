@@ -109,6 +109,8 @@
 
 裝飾礦石表面增量為 malachite／agate／lapislazuli（孔雀石／瑪瑙／青金石），目前共一百一十七種；前述 counts 保留為歷史。孔雀石呈現濃綠色圓潤葡萄狀巢套生長帶與細微拋光起伏；瑪瑙呈現暖奶油、紅與橙色的拉長波浪巢套生長帶，輪廓尺度與拓撲區別於孔雀石；青金石呈現深群青色顆粒石面與淺色不規則方解石脈及內含物，不含金色黃鐵礦或金屬碎斑。三者皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用相同四份 seeded deterministic periodic maps、physical repeat 與公開 options；僅為表面拋光 shading／normal map 效果，不提供透明、折射、虹彩或寶石 geometry。前一百一十四種輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變，維持 WebGPU／WebGL2 3D、Canvas2D 2D-only。
 
+散粒表面增量為 rice／sesame／coffeebeans（米粒／芝麻／咖啡豆），目前共一百二十種；前述 counts 保留為歷史。米粒呈現象牙白細長輪廓、不同朝向與柔和縱向起伏；芝麻呈現暖棕褐色小型不對稱淚滴輪廓、圓潤隆起中脊與漸尖端部；咖啡豆呈現較寬的深烘焙棕色橢圓輪廓、彎曲中央裂縫與細密不均烘焙紋理。三者各自擁有不同形狀場，不是同一圖樣換色或縮放，皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的四份 seeded deterministic periodic maps、repeat sampling 與 size／seed options。這些是風格化散粒表面 shading／normal map 效果，不是逐粒模擬或物理堆疊，不建立 geometry、displacement、透明或次表面散射。前一百一十七種四份 maps 輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。
