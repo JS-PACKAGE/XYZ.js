@@ -66,7 +66,7 @@ var Matrix3 = class {
 };
 var Transform2D = class {
 	position;
-	rotation;
+	rotation = 0;
 	scale;
 	pivot;
 	skew;

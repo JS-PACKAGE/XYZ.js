@@ -171,7 +171,9 @@ export interface Transform2DOptions {
 
 export class Transform2D {
   readonly position: Vector2;
-  rotation: number;
+  /** Numeric initializer: an uninitialized field would hold `undefined` first, and V8 would
+   * then keep the field tagged and allocate a fresh number on every rotation write. */
+  rotation = 0;
   readonly scale: Vector2;
   readonly pivot: Vector2;
   readonly skew: Vector2;
