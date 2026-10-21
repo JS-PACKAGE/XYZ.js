@@ -260,8 +260,9 @@ function decodeTiledBase64(t, n, r) {
 	if (!Number.isSafeInteger(n) || n <= 0 || n > require_tiled.tiledLimits.cells) throw new TiledError(r, `cell budget exceeded`);
 	let i = tiledBase64Bytes(t, n * 4, r);
 	if (i.byteLength !== n * 4) throw new TiledError(r, `decoded cell count mismatch`);
-	let a = new DataView(i.buffer, i.byteOffset, i.byteLength);
-	return Array.from({ length: n }, (e, t) => a.getUint32(t * 4, !0));
+	let a = [];
+	for (let e = 0; e < i.length; e += 4) a.push((i[e] | i[e + 1] << 8 | i[e + 2] << 16 | i[e + 3] << 24) >>> 0);
+	return a;
 }
 function tiledBase64Bytes(e, t, n) {
 	if (e.length > Math.ceil(t / 3) * 4 + 4096) throw new TiledError(n, `encoded byte budget exceeded`);
@@ -269,7 +270,9 @@ function tiledBase64Bytes(e, t, n) {
 	if (r.length > Math.ceil(t / 3) * 4 || r.length % 4 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(r)) throw new TiledError(n, `invalid/budget-exceeding base64`);
 	let i = atob(r);
 	if (i.length > t) throw new TiledError(n, `decoded byte budget exceeded`);
-	return Uint8Array.from(i, (e) => e.charCodeAt(0));
+	let a = new Uint8Array(i.length);
+	for (let e = 0; e < i.length; e++) a[e] = i.charCodeAt(e);
+	return a;
 }
 //#endregion
 exports.TiledError = TiledError;

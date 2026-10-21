@@ -2676,3 +2676,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Tiled]` base64 cell 與 byte 解碼改為單一迴圈（charCodeAt 寫入 Uint8Array、little-endian uint32 位元組合），取代逐字元 callback 的 `Uint8Array.from` 與 `Array.from`＋DataView。512×512 base64 layer 的 `parseTiledMap` Node bench 40.3 → 6.7 ms，cell hash 不變；新增含 flip flag 與空白的 little-endian 解碼測試。

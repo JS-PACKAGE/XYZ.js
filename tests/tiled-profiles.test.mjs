@@ -9,8 +9,10 @@ import {
 } from '../packages/assets/src/index.js';
 import { loadTiledMap } from '../packages/assets/src/tiled-loader.js';
 import {
+  decodeTiledBase64,
   parseTiledMap,
   parseTiledTileset,
+  tiledBase64Bytes,
 } from '../packages/assets/src/tiled-parser.js';
 import { TiledContent } from '../packages/core/src/maps2d/tiled-map.js';
 import { Scene } from '../packages/core/src/scene.js';
@@ -174,6 +176,32 @@ describe('practical Tiled profiles', () => {
     expect(() => parseTiledMap(map, [ts])).toThrow();
     layer.chunks[0].width = 262145;
     expect(() => parseTiledMap(map, [ts])).toThrow();
+  });
+  it('decodes base64 cells as little-endian uint32 values keeping flip flags', () => {
+    const bytes = Uint8Array.of(
+      1,
+      0,
+      0,
+      0,
+      2,
+      1,
+      0,
+      0,
+      1,
+      0,
+      0,
+      0x80,
+      0xff,
+      0xff,
+      0xff,
+      0xff,
+    );
+    const encoded = globalThis.btoa(String.fromCharCode(...bytes));
+    expect(decodeTiledBase64(` ${encoded}\n`, 4, 'cells')).toEqual([
+      1, 258, 0x80000001, 0xffffffff,
+    ]);
+    expect([...tiledBase64Bytes(encoded, 16, 'bytes')]).toEqual([...bytes]);
+    expect(() => decodeTiledBase64(encoded, 3, 'cells')).toThrow();
   });
   it('rejects native decompression bombs before acquiring any images', async () => {
     const map = structuredClone(profile);

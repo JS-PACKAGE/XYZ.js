@@ -554,8 +554,16 @@ export function decodeTiledBase64(
   const bytes = tiledBase64Bytes(value, count * 4, path);
   if (bytes.byteLength !== count * 4)
     throw new TiledError(path, 'decoded cell count mismatch');
-  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  return Array.from({ length: count }, (_, i) => view.getUint32(i * 4, true));
+  const cells: number[] = [];
+  for (let i = 0; i < bytes.length; i += 4)
+    cells.push(
+      (bytes[i]! |
+        (bytes[i + 1]! << 8) |
+        (bytes[i + 2]! << 16) |
+        (bytes[i + 3]! << 24)) >>>
+        0,
+    );
+  return cells;
 }
 
 export function tiledBase64Bytes(
@@ -577,5 +585,7 @@ export function tiledBase64Bytes(
   const decoded = atob(compact);
   if (decoded.length > maxBytes)
     throw new TiledError(path, 'decoded byte budget exceeded');
-  return Uint8Array.from(decoded, (char) => char.charCodeAt(0));
+  const bytes = new Uint8Array(decoded.length);
+  for (let i = 0; i < decoded.length; i++) bytes[i] = decoded.charCodeAt(i);
+  return bytes;
 }
