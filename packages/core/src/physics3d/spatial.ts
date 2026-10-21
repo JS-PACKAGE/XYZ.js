@@ -61,6 +61,8 @@ class Node3D<T extends SpatialItem3D> {
   right: Node3D<T> | undefined;
   item: T | undefined;
   parent: Node3D<T> | undefined;
+  /** Scratch for `pairs`: the subtree holds an item the caller marked active. */
+  active = false;
 }
 /** @internal Deterministic balanced AABB hierarchy. Refit supports directly mutable transforms; queries reuse caller buffers. */
 export class SpatialIndex3D<T extends SpatialItem3D> {
@@ -68,6 +70,7 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
   private readonly nodes: Node3D<T>[] = [];
   private readonly leaves: T[] = [];
   private readonly stack: Node3D<T>[] = [];
+  private readonly pairStack: Node3D<T>[] = [];
   private readonly leafNodes = new Map<T, Node3D<T>>();
   private used = 0;
   rebuild(items: readonly T[]): void {
@@ -189,8 +192,50 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
     }
     sortByOrder(out);
   }
+  /**
+   * Every unordered pair of distinct leaves whose bounds overlap within `margin`, at least
+   * one of them `active`, once each as `firsts[i]`/`seconds[i]` in no particular order. It
+   * finds what querying each active item's bounds would: overlap is symmetric, and node
+   * bounds contain their leaves', so a pair overlaps only where all its ancestor pairs do.
+   */
+  pairs(
+    active: (item: T) => boolean,
+    margin: number,
+    firsts: T[],
+    seconds: T[],
+  ): void {
+    firsts.length = seconds.length = 0;
+    if (!this.root) return;
+    // Children always occupy later slots than their parent.
+    for (let i = this.used - 1; i >= 0; i--) {
+      const n = this.nodes[i]!;
+      n.active = n.item ? active(n.item) : n.left!.active || n.right!.active;
+    }
+    const stack = this.pairStack;
+    stack.length = 0;
+    stack.push(this.root, this.root);
+    while (stack.length) {
+      const b = stack.pop()!,
+        a = stack.pop()!;
+      if (a === b) {
+        if (a.item || !a.active) continue;
+        const left = a.left!,
+          right = a.right!;
+        stack.push(left, right, left, left, right, right);
+        continue;
+      }
+      if ((!a.active && !b.active) || !a.bounds.overlaps(b.bounds, margin))
+        continue;
+      if (a.item && b.item) {
+        firsts.push(a.item);
+        seconds.push(b.item);
+      } else if (a.item) stack.push(a, b.left!, a, b.right!);
+      else stack.push(a.left!, b, a.right!, b);
+    }
+  }
   clear(): void {
     this.root = undefined;
+    this.pairStack.length = 0;
     this.nodes.length = 0;
     this.leaves.length = 0;
     this.stack.length = 0;

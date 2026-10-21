@@ -7,6 +7,10 @@ import {
   BoxCollider3D,
   RigidBody3D,
 } from '../packages/core/src/physics3d/index.js';
+import {
+  Bounds3D,
+  SpatialIndex3D,
+} from '../packages/core/src/physics3d/spatial.js';
 
 it('refits mutable static transforms and removes stale query/solver leaves', () => {
   const scene = new Scene();
@@ -124,4 +128,92 @@ it('refreshes static poses after any transform input or ancestor change', () => 
   holder.position.x = 0;
   expect(hit()).toBe(bar);
   scene.destroy();
+});
+
+it('finds the same contact pairs whether bodies are a minority or a majority of colliders', () => {
+  const contacts = (distantStatics: number) => {
+    const scene = new Scene();
+    const add = (x: number, collider: SphereCollider3D | BoxCollider3D) => {
+      const o = new Object3D();
+      o.position.set(x, 0, 0);
+      o.collider = collider;
+      return scene.add(o);
+    };
+    const floor = add(0, new BoxCollider3D(new Vector3(1, 1, 1)));
+    for (const x of [0.5, 1, 1.5])
+      add(x, new BoxCollider3D(new Vector3(1, 1, 1)));
+    for (let i = 0; i < distantStatics; i++)
+      add(100 + i * 3, new BoxCollider3D(new Vector3(1, 1, 1)));
+    const zone = add(6, new SphereCollider3D(1, { sensor: true }));
+    for (const x of [-1.2, 6.5, 6.9]) {
+      const ball = add(x, new SphereCollider3D(0.5));
+      ball.body = new RigidBody3D({ gravityScale: 0 });
+    }
+    const started: string[] = [];
+    floor.addEventListener('collisionstart', () => started.push('floor'));
+    zone.addEventListener('collisionstart', () => started.push('zone'));
+    scene.physics3D.update(scene.physics3D.fixedDelta);
+    const result = {
+      started: started.sort(),
+      pairs: scene.physics3D.stats.candidatePairs,
+    };
+    scene.destroy();
+    return result;
+  };
+  // Floor-ball, zone with two balls, and the two touching balls.
+  const expected = { started: ['floor', 'zone', 'zone'], pairs: 4 };
+  expect(contacts(0)).toEqual(expected);
+  expect(contacts(40)).toEqual(expected);
+});
+
+it('pairs each overlapping leaf pair with an active side once, as per-item queries would', () => {
+  let seed = 7;
+  const random = () => {
+    seed = (Math.imul(seed, 1103515245) + 12345) >>> 0;
+    return seed / 4294967296;
+  };
+  const items = Array.from({ length: 160 }, (_, order) => {
+    const bounds = new Bounds3D();
+    const size = 0.2 + random() * 3;
+    const x = random() * 40,
+      y = random() * 4,
+      z = random() * 40;
+    bounds.add(new Vector3(x, y, z));
+    bounds.add(new Vector3(x + size, y + size, z + size));
+    return { bounds, order, active: random() < 0.4 };
+  });
+  // An unbounded leaf, like a plane, overlaps everything.
+  items[3]!.bounds.min.set(-Infinity, -Infinity, -Infinity);
+  items[3]!.bounds.max.set(Infinity, 0, Infinity);
+  items[3]!.active = false;
+  const index = new SpatialIndex3D<(typeof items)[number]>();
+  index.rebuild(items);
+  const margin = 0.004;
+  const check = () => {
+    const firsts: (typeof items)[number][] = [],
+      seconds: (typeof items)[number][] = [];
+    index.pairs((item) => item.active, margin, firsts, seconds);
+    const found = firsts
+      .map((a, i) => [a.order, seconds[i]!.order].sort((p, q) => p - q).join())
+      .sort();
+    const expected: string[] = [];
+    for (const a of items)
+      for (const b of items)
+        if (
+          a.order < b.order &&
+          (a.active || b.active) &&
+          b.bounds.overlaps(a.bounds, margin)
+        )
+          expected.push(`${a.order},${b.order}`);
+    expect(found).toEqual(expected.sort());
+    // Pairs with no active side are left out.
+    expect(expected.length).toBeGreaterThan(20);
+  };
+  check();
+  for (const item of items.slice(0, 50)) {
+    item.bounds.min.x += 9;
+    item.bounds.max.x += 9;
+    index.update(item);
+  }
+  check();
 });

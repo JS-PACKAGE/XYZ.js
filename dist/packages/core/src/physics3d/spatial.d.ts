@@ -19,6 +19,7 @@ export declare class SpatialIndex3D<T extends SpatialItem3D> {
     private readonly nodes;
     private readonly leaves;
     private readonly stack;
+    private readonly pairStack;
     private readonly leafNodes;
     private used;
     rebuild(items: readonly T[]): void;
@@ -26,5 +27,12 @@ export declare class SpatialIndex3D<T extends SpatialItem3D> {
     refit(): void;
     update(item: T): number;
     query(bounds: Bounds3D, out: T[], margin?: number): void;
+    /**
+     * Every unordered pair of distinct leaves whose bounds overlap within `margin`, at least
+     * one of them `active`, once each as `firsts[i]`/`seconds[i]` in no particular order. It
+     * finds what querying each active item's bounds would: overlap is symmetric, and node
+     * bounds contain their leaves', so a pair overlaps only where all its ancestor pairs do.
+     */
+    pairs(active: (item: T) => boolean, margin: number, firsts: T[], seconds: T[]): void;
     clear(): void;
 }

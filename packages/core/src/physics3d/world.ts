@@ -51,6 +51,9 @@ const alwaysContinue = (): boolean => true;
 /** Solve-phase identities across all worlds; a body may move between worlds. */
 let solvePhases = 0;
 /** Solver-loop memo of `RigidBody3D.isSleeping`: not yet asked, asleep, awake. */
+/** Only bodies and sensors find contacts; bodiless solid colliders never pair with each other. */
+const pairsWithin = (e: Entry3D): boolean =>
+  !!e.body || e.shape.collider.sensor;
 const SLEEP_UNKNOWN = 0,
   SLEEP_ASLEEP = 1,
   SLEEP_AWAKE = 2;
@@ -152,6 +155,8 @@ export class PhysicsWorld3D {
   private unregisteredEntries = 0;
   private readonly index = new SpatialIndex3D<Entry3D>();
   private readonly pairCandidates: Entry3D[] = [];
+  private readonly pairFirsts: Entry3D[] = [];
+  private readonly pairSeconds: Entry3D[] = [];
   /** Broadphase pairs as (lower order, higher order) plus their visiting sequence. */
   private readonly pairLows: Entry3D[] = [];
   private readonly pairHighs: Entry3D[] = [];
@@ -898,28 +903,47 @@ export class PhysicsWorld3D {
     this.refreshIndex();
     this.counters.candidatePairs = 0;
     this.counters.narrowphaseTests = 0;
-    // Bodiless non-sensor entries never pair with each other, so only bodies and sensors
-    // query the index (bounds overlap is symmetric); a pair of two bodies/sensors is taken from
-    // its lower-order side. Pairs are then visited in (lower, higher) order as a full sweep would.
+    // Both ways yield each overlapping pair with a body or sensor once; pairs are then
+    // visited in (lower, higher) order as a full sweep would, so the choice is speed only.
     const lows = this.pairLows,
       highs = this.pairHighs,
       sequence = this.pairSequence;
     lows.length = highs.length = sequence.length = 0;
-    for (const a of this.ordered) {
-      if (!a.body && !a.shape.collider.sensor) continue;
-      this.index.query(
-        a.bounds,
-        this.pairCandidates,
+    let pairing = 0;
+    for (const e of this.ordered) if (pairsWithin(e)) pairing++;
+    if (pairing >= this.ordered.length * physics3DDefaults.pairTraversalShare) {
+      const firsts = this.pairFirsts,
+        seconds = this.pairSeconds;
+      this.index.pairs(
+        pairsWithin,
         physics3DDefaults.contactMargin,
+        firsts,
+        seconds,
       );
-      for (const b of this.pairCandidates) {
-        if (b === a) continue;
-        if (b.order < a.order && (b.body || b.shape.collider.sensor)) continue;
+      for (let i = 0; i < firsts.length; i++) {
+        const a = firsts[i]!,
+          b = seconds[i]!;
         sequence.push(lows.length);
         lows.push(b.order < a.order ? b : a);
         highs.push(b.order < a.order ? a : b);
       }
-    }
+    } else
+      for (const a of this.ordered) {
+        // Overlap is symmetric: a pair of two bodies/sensors is taken from its lower side.
+        if (!pairsWithin(a)) continue;
+        this.index.query(
+          a.bounds,
+          this.pairCandidates,
+          physics3DDefaults.contactMargin,
+        );
+        for (const b of this.pairCandidates) {
+          if (b === a) continue;
+          if (b.order < a.order && pairsWithin(b)) continue;
+          sequence.push(lows.length);
+          lows.push(b.order < a.order ? b : a);
+          highs.push(b.order < a.order ? a : b);
+        }
+      }
     sequence.sort(this.comparePairs);
     for (const pair of sequence) {
       const a = lows[pair]!,
@@ -1765,6 +1789,7 @@ export class PhysicsWorld3D {
     this.active.length = 0;
     this.index.clear();
     this.pairCandidates.length = 0;
+    this.pairFirsts.length = this.pairSeconds.length = 0;
     this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0;
     this.queryCandidates.length = 0;
     this.sweepTriangles.length = 0;

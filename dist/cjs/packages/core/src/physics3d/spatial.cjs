@@ -25,12 +25,14 @@ var Node3D = class {
 	right;
 	item;
 	parent;
+	active = !1;
 };
 var SpatialIndex3D = class {
 	root;
 	nodes = [];
 	leaves = [];
 	stack = [];
+	pairStack = [];
 	leafNodes = /* @__PURE__ */ new Map();
 	used = 0;
 	rebuild(e) {
@@ -82,8 +84,26 @@ var SpatialIndex3D = class {
 		}
 		sortByOrder(t);
 	}
+	pairs(e, t, n, r) {
+		if (n.length = r.length = 0, !this.root) return;
+		for (let t = this.used - 1; t >= 0; t--) {
+			let n = this.nodes[t];
+			n.active = n.item ? e(n.item) : n.left.active || n.right.active;
+		}
+		let i = this.pairStack;
+		for (i.length = 0, i.push(this.root, this.root); i.length;) {
+			let e = i.pop(), a = i.pop();
+			if (a === e) {
+				if (a.item || !a.active) continue;
+				let e = a.left, t = a.right;
+				i.push(e, t, e, e, t, t);
+				continue;
+			}
+			(a.active || e.active) && a.bounds.overlaps(e.bounds, t) && (a.item && e.item ? (n.push(a.item), r.push(e.item)) : a.item ? i.push(a, e.left, a, e.right) : i.push(a.left, e, a.right, e));
+		}
+	}
 	clear() {
-		this.root = void 0, this.nodes.length = 0, this.leaves.length = 0, this.stack.length = 0, this.leafNodes.clear(), this.used = 0;
+		this.root = void 0, this.pairStack.length = 0, this.nodes.length = 0, this.leaves.length = 0, this.stack.length = 0, this.leafNodes.clear(), this.used = 0;
 	}
 };
 function compareOrder(e, t) {

@@ -5,6 +5,7 @@ var physics3DDefaults = {
 	solverIterations: 12,
 	contactSlop: .002,
 	contactMargin: .004,
+	pairTraversalShare: 1 / 3,
 	correction: .65,
 	restitutionThreshold: .5,
 	sleepVelocity: .05,

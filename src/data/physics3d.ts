@@ -4,6 +4,9 @@ export const physics3DDefaults = {
   solverIterations: 12,
   contactSlop: 0.002,
   contactMargin: 0.004,
+  /** Broadphase traverses the index against itself once bodies and sensors reach this share
+   * of entries; below it, querying each of them visits fewer static-only nodes. */
+  pairTraversalShare: 1 / 3,
   correction: 0.65,
   restitutionThreshold: 0.5,
   sleepVelocity: 0.05,

@@ -2888,3 +2888,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   332 個程序材質測試通過，WebGPU 三種畫面 hash 與獨立快照一致。
 - 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
+- `[Physics3D]` Broadphase 在 body／sensor 佔 collider 至少三分之一（`physics3DDefaults.pairTraversalShare`）時，改為對 BVH 做一次自身配對走訪（`SpatialIndex3D.pairs`，以子樹 active 旗標剪掉純靜態節點對），否則維持逐一查詢；兩種方式產生相同配對集合，再以既有 (lower, higher) 順序排序，模擬結果逐位不變（phys3d、cc3d、cc3dfuzz 1–3、ccbits、bake、crowd hash 皆不變）。同程序 A/B Node bench：1000 動態 0.4–15%／1000 動態＋1000 靜態約 11% 較快、靜態佔多數時持平。新增隨機 BVH 配對與暴力解一致、少數／多數 body 兩種路徑接觸相同的測試並經 mutation 驗證；因另一方未提交檔暫不可編譯，build、完整測試（1755 通過，已知不穩定的 shader variant 測試單獨重跑通過）與 tree-shaking／API 檢查在 HEAD 匯出副本執行，物理範例 smoke 通過。

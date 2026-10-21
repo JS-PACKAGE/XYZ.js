@@ -14,6 +14,7 @@ const require_debug_geometry = require("./debug-geometry.cjs");
 //#region dist/packages/core/src/physics3d/world.js
 var alwaysContinue = () => !0;
 var w = 0;
+var pairsWithin = (e) => !!e.body || e.shape.collider.sensor;
 function sleepState(e, t) {
 	return t || (e.isSleeping ? 1 : 2);
 }
@@ -50,6 +51,8 @@ var PhysicsWorld3D = class {
 	unregisteredEntries = 0;
 	index = new require_spatial.SpatialIndex3D();
 	pairCandidates = [];
+	pairFirsts = [];
+	pairSeconds = [];
 	pairLows = [];
 	pairHighs = [];
 	pairSequence = [];
@@ -443,9 +446,18 @@ var PhysicsWorld3D = class {
 		this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
 		let n = this.pairLows, r = this.pairHighs, i = this.pairSequence;
 		n.length = r.length = i.length = 0;
-		for (let e of this.ordered) if (e.body || e.shape.collider.sensor) {
+		let a = 0;
+		for (let e of this.ordered) pairsWithin(e) && a++;
+		if (a >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
+			let e = this.pairFirsts, t = this.pairSeconds;
+			this.index.pairs(pairsWithin, require_physics3d.physics3DDefaults.contactMargin, e, t);
+			for (let a = 0; a < e.length; a++) {
+				let o = e[a], s = t[a];
+				i.push(n.length), n.push(s.order < o.order ? s : o), r.push(s.order < o.order ? o : s);
+			}
+		} else for (let e of this.ordered) if (pairsWithin(e)) {
 			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
-			for (let t of this.pairCandidates) t !== e && (t.order < e.order && (t.body || t.shape.collider.sensor) || (i.push(n.length), n.push(t.order < e.order ? t : e), r.push(t.order < e.order ? e : t)));
+			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (i.push(n.length), n.push(t.order < e.order ? t : e), r.push(t.order < e.order ? e : t)));
 		}
 		i.sort(this.comparePairs);
 		for (let e of i) {
@@ -743,7 +755,7 @@ var PhysicsWorld3D = class {
 		if (!(this.disposed || this.destroying)) {
 			this.destroying = !0;
 			for (let e of this.contacts.values()) for (let t of e.values()) this.end(t);
-			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = 0, this.index.clear(), this.pairCandidates.length = 0, this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
+			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = 0, this.index.clear(), this.pairCandidates.length = 0, this.pairFirsts.length = this.pairSeconds.length = 0, this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
 			for (let e of this.constraints) e.detach();
 			this.constraints.length = 0, this.jointLinks.clear(), ++this.counters.indexGeneration, this.jointSnapshot.length = 0, this.sweptEntries.length = 0, this.ccdCandidates.length = 0, this.sweptIndex.clear(), this.placementShape = void 0, this.capsuleQueryShape = void 0, this.sweepQueryShape = void 0, this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0, this.counters.queryCandidates = 0, this.accumulator = 0;
 		}
