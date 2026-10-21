@@ -2819,6 +2819,61 @@ var proceduralMaterialPresets = Object.freeze({
 		lobe: .055,
 		marginStart: 1.1,
 		marginEnd: 1.22
+	}),
+	pineapple: Object.freeze({
+		dark: [
+			62,
+			61,
+			17
+		],
+		light: [
+			232,
+			174,
+			43
+		],
+		roughness: .73,
+		relief: .0035,
+		cells: 8,
+		shoulder: .09,
+		eyeRadius: .18
+	}),
+	strawberry: Object.freeze({
+		dark: [
+			173,
+			8,
+			21
+		],
+		light: [
+			245,
+			192,
+			70
+		],
+		roughness: .43,
+		relief: .0018,
+		columns: 12,
+		rows: 10,
+		width: .22,
+		length: .34,
+		core: .13
+	}),
+	lychee: Object.freeze({
+		dark: [
+			103,
+			22,
+			37
+		],
+		light: [
+			236,
+			124,
+			143
+		],
+		roughness: .76,
+		relief: .0024,
+		columns: 18,
+		rows: 16,
+		shoulder: .075,
+		edge: .48,
+		jitter: .015
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -3019,7 +3074,10 @@ var proceduralTileMeters = Object.freeze({
 	draincover: .7,
 	mushroomgills: .12,
 	morel: .08,
-	bracketfungus: .25
+	bracketfungus: .25,
+	pineapple: .16,
+	strawberry: .055,
+	lychee: .055
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

@@ -277,6 +277,9 @@ try {
     'mushroomgills',
     'morel',
     'bracketfungus',
+    'pineapple',
+    'strawberry',
+    'lychee',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

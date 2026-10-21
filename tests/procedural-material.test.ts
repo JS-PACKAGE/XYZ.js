@@ -223,7 +223,290 @@ const kinds: ProceduralMaterialKind[] = [
   'mushroomgills',
   'morel',
   'bracketfungus',
+  'pineapple',
+  'strawberry',
+  'lychee',
 ];
+
+describe('opaque fruit rind morphology', () => {
+  const seeds = [0, 1, 0xffffffff];
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  const field = (kind: ProceduralMaterialKind, seed: number) => {
+    const sample = createSurfaceSampler(kind, seed);
+    return (u: number, v: number, out: SurfaceSample): void => {
+      sample(u, v, out);
+      out.height /= proceduralMaterialPresets[kind].relief;
+    };
+  };
+  const diamond = (
+    x: number,
+    y: number,
+    a: number,
+    b: number,
+  ): [number, number] => {
+    const n = proceduralMaterialPresets.pineapple.cells;
+    return [(x - y + a - b) / (2 * n), (x + y + 1 + a + b) / (2 * n)];
+  };
+  const berry = (x: number, y: number, seed: number) => {
+    const p = proceduralMaterialPresets.strawberry,
+      angle = 0.3 * (hash(x, y, seed ^ 0x31a7) - 0.5),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      cx = x + (y % 2) * 0.5 + 0.42 + 0.16 * hash(x, y, seed ^ 0x293d),
+      cy = y + 0.42 + 0.16 * hash(x, y, seed ^ 0x473b);
+    return (a: number, b: number): [number, number] => [
+      (cx + a * c - b * s) / p.columns,
+      (cy + a * s + b * c) / p.rows,
+    ];
+  };
+  const normals = [
+    [1, 0],
+    [-1, 0],
+    [0.5, 0.75],
+    [-0.5, -0.75],
+    [-0.5, 0.75],
+    [0.5, -0.75],
+  ];
+  const tubercle = (x: number, y: number, seed: number) => {
+    const p = proceduralMaterialPresets.lychee;
+    return {
+      edges: normals.map(
+        (_, side) =>
+          p.edge +
+          p.jitter * (2 * hash(x, y, seed ^ (0x371b + side * 0x9e37)) - 1),
+      ),
+      crown: [
+        0.24 * (hash(x, y, seed ^ 0x293d) - 0.5),
+        0.24 * (hash(x, y, seed ^ 0x473b) - 0.5),
+      ],
+      point: (a: number, b: number): [number, number] => [
+        (x + (y % 2) * 0.5 + 0.5 + a) / p.columns,
+        (y + 0.5 + b) / p.rows,
+      ],
+    };
+  };
+
+  it('pineapple has diagonal polygon shoulders, raised crowns and recessed central eyes and seams', () => {
+    const p = proceduralMaterialPresets.pineapple;
+    for (const seed of seeds) {
+      const sample = field('pineapple', seed);
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells; x++) {
+          const eye = empty(),
+            crown = empty(),
+            seam = empty(),
+            corner = empty();
+          sample(...diamond(x, y, 0, 0), eye);
+          sample(...diamond(x, y, p.eyeRadius, 0), crown);
+          sample(...diamond(x, y, 0.5, 0), seam);
+          sample(...diamond(x, y, 0.5, 0.5), corner);
+          expect(crown.height - eye.height).toBeGreaterThan(0.33);
+          expect(crown.height - seam.height).toBeGreaterThan(0.46);
+          expect(crown.color - seam.color).toBeGreaterThan(0.48);
+          expect(crown.occlusion - eye.occlusion).toBeGreaterThan(0.19);
+          expect(seam.height).toBeCloseTo(corner.height, 12);
+        }
+    }
+  });
+
+  it('strawberry has elongated depressed pockets with ochre seed cores below broad red skin', () => {
+    const p = proceduralMaterialPresets.strawberry;
+    for (const seed of seeds) {
+      const sample = field('strawberry', seed);
+      for (let y = 0; y < p.rows; y++)
+        for (let x = 0; x < p.columns; x++) {
+          const point = berry(x, y, seed),
+            seedCore = empty(),
+            pocket = empty(),
+            skin = empty(),
+            across = empty(),
+            along = empty();
+          sample(...point(0, 0), seedCore);
+          sample(...point(p.width * Math.sqrt(p.core), 0), pocket);
+          sample(...point(p.width, 0), skin);
+          sample(...point(0.2, 0), across);
+          sample(...point(0, 0.2), along);
+          expect(seedCore.color).toBeGreaterThan(0.89);
+          expect(skin.color).toBeLessThan(0.14);
+          expect(seedCore.height - pocket.height).toBeGreaterThan(0.085);
+          expect(skin.height - seedCore.height).toBeGreaterThan(0.2);
+          expect(skin.occlusion - pocket.occlusion).toBeGreaterThan(0.31);
+          expect(across.height - along.height).toBeGreaterThan(0.15);
+        }
+    }
+  });
+
+  it('lychee has densely packed irregular polygon tubercles with displaced crowns and narrow recessed fissures', () => {
+    const p = proceduralMaterialPresets.lychee;
+    for (const seed of seeds) {
+      const sample = field('lychee', seed);
+      let covered = 0;
+      for (let y = 0; y < p.rows; y++)
+        for (let x = 0; x < p.columns; x++) {
+          const f = tubercle(x, y, seed),
+            peak = empty(),
+            flank = empty(),
+            fissure = empty();
+          sample(...f.point(f.crown[0], f.crown[1]), peak);
+          sample(...f.point(0.29, 0), flank);
+          sample(...f.point(0.5, 0), fissure);
+          expect(peak.height - flank.height).toBeGreaterThan(0.025);
+          expect(peak.height - fissure.height).toBeGreaterThan(0.42);
+          expect(peak.occlusion - fissure.occlusion).toBeGreaterThan(0.41);
+          expect(peak.color - fissure.color).toBeGreaterThan(0.61);
+          // Cell-local coverage, including the six-sided clipped corners.
+          for (let j = 0; j < 8; j++)
+            for (let i = 0; i < 8; i++) {
+              const out = empty();
+              sample(...f.point((i + 0.5) / 8 - 0.5, (j + 0.5) / 8 - 0.5), out);
+              if (out.height > 0.3) covered++;
+            }
+        }
+      expect(covered / (p.columns * p.rows * 64)).toBeGreaterThan(0.73);
+    }
+  });
+
+  for (const seed of seeds)
+    it.each(['pineapple', 'strawberry', 'lychee'] as const)(
+      `%s seed ${seed} has common limiting slopes at actual centers, polygon corners, shoulders, supports and cell seams`,
+      (kind) => {
+        const sample = field(kind, seed),
+          points: [number, number][] = [
+            [0, 0],
+            [0, 0.417],
+            [0.391, 1],
+          ];
+        if (kind === 'pineapple') {
+          const p = proceduralMaterialPresets.pineapple;
+          for (let y = 0; y < p.cells; y++)
+            for (let x = 0; x < p.cells; x++) {
+              for (const a of [
+                0,
+                p.eyeRadius,
+                2 * p.eyeRadius,
+                0.5 - p.shoulder,
+                0.5,
+              ])
+                points.push(diamond(x, y, a, 0), diamond(x, y, a, a));
+              points.push(diamond(x, y, 0.5, -0.5));
+            }
+        } else if (kind === 'strawberry') {
+          const p = proceduralMaterialPresets.strawberry;
+          for (let y = 0; y < p.rows; y++)
+            for (let x = 0; x < p.columns; x++) {
+              const point = berry(x, y, seed);
+              points.push(
+                point(0, 0),
+                [x / p.columns, (y + 0.31) / p.rows],
+                [(x + 0.37) / p.columns, y / p.rows],
+              );
+              for (const q of [p.core, 1])
+                for (const theta of [0, 0.7, Math.PI / 2, Math.PI])
+                  points.push(
+                    point(
+                      p.width * Math.sqrt(q) * Math.cos(theta),
+                      p.length * Math.sqrt(q) * Math.sin(theta),
+                    ),
+                  );
+            }
+        } else {
+          const p = proceduralMaterialPresets.lychee;
+          for (let y = 0; y < p.rows; y++)
+            for (let x = 0; x < p.columns; x++) {
+              const f = tubercle(x, y, seed);
+              points.push(
+                f.point(0, 0),
+                f.point(f.crown[0], f.crown[1]),
+                [x / p.columns, (y + 0.31) / p.rows],
+                [(x + 0.37) / p.columns, y / p.rows],
+              );
+              for (let side = 0; side < 6; side++) {
+                const [a, b] = normals[side],
+                  norm = a * a + b * b;
+                for (const d of [f.edges[side], f.edges[side] - p.shoulder])
+                  points.push(f.point((a * d) / norm, (b * d) / norm));
+                // Intersections of real half-planes probe polygon corners,
+                // including both ends of every softened shoulder.
+                for (let other = side + 1; other < 6; other++) {
+                  const [c, d] = normals[other],
+                    det = a * d - b * c;
+                  if (Math.abs(det) < 0.01) continue;
+                  for (const inset of [0, p.shoulder]) {
+                    const e = f.edges[side] - inset,
+                      g = f.edges[other] - inset,
+                      px = (e * d - b * g) / det,
+                      py = (a * g - e * c) / det;
+                    if (
+                      normals.every(
+                        ([nx, ny], i) =>
+                          nx * px + ny * py <= f.edges[i] + 1e-12,
+                      )
+                    )
+                      points.push(f.point(px, py));
+                  }
+                }
+              }
+            }
+        }
+        const center = empty(),
+          left = empty(),
+          right = empty(),
+          coarseLeft = empty(),
+          coarseRight = empty(),
+          widerLeft = empty(),
+          widerRight = empty(),
+          fields = Object.keys(center) as (keyof SurfaceSample)[],
+          directions = [
+            [1, 0],
+            [0, 1],
+            [0.6, 0.8],
+          ];
+        let largestResidual = -Infinity;
+        for (const [u, v] of points) {
+          sample(u, v, center);
+          for (const [du, dv] of directions) {
+            const step = 2e-7;
+            sample(u - step * du, v - step * dv, left);
+            sample(u + step * du, v + step * dv, right);
+            sample(u - 4 * step * du, v - 4 * step * dv, coarseLeft);
+            sample(u + 4 * step * du, v + 4 * step * dv, coarseRight);
+            sample(u - 8 * step * du, v - 8 * step * dv, widerLeft);
+            sample(u + 8 * step * du, v + 8 * step * dv, widerRight);
+            for (const key of fields) {
+              const fine =
+                  Math.abs(left[key] + right[key] - 2 * center[key]) / step,
+                coarse =
+                  Math.abs(
+                    coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                  ) /
+                  (4 * step),
+                wider =
+                  Math.abs(widerLeft[key] + widerRight[key] - 2 * center[key]) /
+                  (8 * step);
+              largestResidual = Math.max(
+                largestResidual,
+                fine - 0.4 * Math.max(coarse, wider),
+              );
+            }
+          }
+        }
+        expect(largestResidual).toBeLessThanOrEqual(5e-8);
+      },
+    );
+});
 
 describe('opaque fungal morphology', () => {
   const seeds = [0, 1, 0xffffffff];
@@ -4619,6 +4902,9 @@ describe('periodic procedural material fields', () => {
     ['corrugatedcardboard', [4, 24, 32, 48, 64]],
     ['creasedpaper', [2, 24, 32, 48, 64]],
     ['layeredpaper', [2, 4, 24, 32, 48, 64]],
+    ['pineapple', [8, 16, 96]],
+    ['strawberry', [10, 12, 96]],
+    ['lychee', [16, 18, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -4815,6 +5101,14 @@ describe('periodic procedural material fields', () => {
     ['layeredpaper', 4],
     ['layeredpaper', 24],
     ['layeredpaper', 64],
+    ['pineapple', 8],
+    ['pineapple', 96],
+    ['strawberry', 10],
+    ['strawberry', 12],
+    ['strawberry', 96],
+    ['lychee', 16],
+    ['lychee', 18],
+    ['lychee', 96],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {

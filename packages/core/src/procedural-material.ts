@@ -204,7 +204,10 @@ export type ProceduralMaterialKind =
   | 'draincover'
   | 'mushroomgills'
   | 'morel'
-  | 'bracketfungus';
+  | 'bracketfungus'
+  | 'pineapple'
+  | 'strawberry'
+  | 'lychee';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -435,6 +438,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mushroomgills',
   'morel',
   'bracketfungus',
+  'pineapple',
+  'strawberry',
+  'lychee',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

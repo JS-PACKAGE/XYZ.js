@@ -109,6 +109,45 @@ export function createSurfaceSampler(
   const fungal =
     kind === 'mushroomgills' || kind === 'morel' || kind === 'bracketfungus';
   const fungalGrain = fungal ? cachedNoise(80, 80, seed ^ 0x6d39) : null;
+  const rind =
+    kind === 'pineapple' || kind === 'strawberry' || kind === 'lychee';
+  const rindGrain = rind ? cachedNoise(96, 96, seed ^ 0x615b) : null;
+  const rindColumns =
+    kind === 'strawberry'
+      ? proceduralMaterialPresets.strawberry.columns
+      : kind === 'lychee'
+        ? proceduralMaterialPresets.lychee.columns
+        : proceduralMaterialPresets.pineapple.cells;
+  const rindRows =
+    kind === 'strawberry'
+      ? proceduralMaterialPresets.strawberry.rows
+      : kind === 'lychee'
+        ? proceduralMaterialPresets.lychee.rows
+        : rindColumns;
+  const rindStride = kind === 'strawberry' ? 4 : kind === 'lychee' ? 8 : 1;
+  const rindCells = rind
+    ? new Float64Array(rindColumns * rindRows * rindStride)
+    : null;
+  if (rindCells)
+    for (let y = 0; y < rindRows; y++)
+      for (let x = 0; x < rindColumns; x++) {
+        const offset = (y * rindColumns + x) * rindStride;
+        if (kind === 'strawberry') {
+          const angle = 0.3 * (hash(x, y, seed ^ 0x31a7) - 0.5);
+          rindCells[offset] = 0.42 + 0.16 * hash(x, y, seed ^ 0x293d);
+          rindCells[offset + 1] = 0.42 + 0.16 * hash(x, y, seed ^ 0x473b);
+          rindCells[offset + 2] = Math.cos(angle);
+          rindCells[offset + 3] = Math.sin(angle);
+        } else if (kind === 'lychee') {
+          const p = proceduralMaterialPresets.lychee;
+          for (let side = 0; side < 6; side++)
+            rindCells[offset + side] =
+              p.edge +
+              p.jitter * (2 * hash(x, y, seed ^ (0x371b + side * 0x9e37)) - 1);
+          rindCells[offset + 6] = 0.24 * (hash(x, y, seed ^ 0x293d) - 0.5);
+          rindCells[offset + 7] = 0.24 * (hash(x, y, seed ^ 0x473b) - 0.5);
+        } else rindCells[offset] = hash(x, y, seed ^ 0x371b);
+      }
   const fanPreset =
     kind === 'mushroomgills'
       ? proceduralMaterialPresets.mushroomgills
@@ -1193,7 +1232,8 @@ export function createSurfaceSampler(
       treeBark ||
       animalSkin ||
       municipal ||
-      fungal
+      fungal ||
+      rind
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -1220,6 +1260,129 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'pineapple': {
+        const p = proceduralMaterialPresets.pineapple,
+          x = fract(u + v) * p.cells,
+          y = fract(v - u) * p.cells,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          dx = x - column - 0.5,
+          dy = y - row - 0.5,
+          grain = rindGrain!(u, v),
+          variation = rindCells![row * p.cells + column],
+          polygon =
+            smooth(clamp((0.5 - dx) / p.shoulder)) *
+            smooth(clamp((0.5 + dx) / p.shoulder)) *
+            smooth(clamp((0.5 - dy) / p.shoulder)) *
+            smooth(clamp((0.5 + dy) / p.shoulder)),
+          q = (dx * dx + dy * dy) / (p.eyeRadius * p.eyeRadius),
+          eye = 1 - smooth(clamp(q)),
+          crown = smooth(clamp(q)) * (1 - smooth(clamp((q - 1) / 3)));
+        // Disjoint diamond cells: all owner-dependent terms vanish with
+        // zero slope at their edges. Raw H [.14,.665], C [.10,.755].
+        height =
+          0.14 +
+          polygon *
+            (0.34 +
+              0.13 * crown -
+              0.22 * eye +
+              0.05 * variation +
+              0.005 * grain);
+        color =
+          0.1 + polygon * (0.49 + 0.12 * variation + 0.045 * grain - 0.2 * eye);
+        occlusion = 0.55 + polygon * (0.42 - 0.2 * eye);
+        roughness =
+          preset.roughness + 0.04 * (1 - polygon) - 0.025 * crown * polygon;
+        break;
+      }
+      case 'strawberry':
+      case 'lychee': {
+        const x = u * rindColumns,
+          y = v * rindRows,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = rindGrain!(u, v);
+        let pocket = 0,
+          core = 0,
+          coverage = 0,
+          crown = 0;
+        // Strawberry supports fit radius .34. Centers in [.42,.58],
+        // so omitted 3x3 rows are >=1.42 away, columns >=.92 with stagger.
+        // Pairwise center distance >=.84 > 2*.34: supports are disjoint.
+        // Lychee planes imply |dx|<=.495, |dy|<=.66; omitted
+        // centers are >=1 (x) or 1.5 (y). Adjacent plane sums <=.99
+        // versus center separation 1, so polygons are disjoint too.
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              wx = ((cx % rindColumns) + rindColumns) % rindColumns,
+              wy = ((cy % rindRows) + rindRows) % rindRows,
+              offset = (wy * rindColumns + wx) * rindStride,
+              stagger = (wy % 2) * 0.5;
+            if (kind === 'strawberry') {
+              const p = proceduralMaterialPresets.strawberry,
+                dx = x - cx - stagger - rindCells![offset],
+                dy = y - cy - rindCells![offset + 1],
+                a =
+                  (dx * rindCells![offset + 2] + dy * rindCells![offset + 3]) /
+                  p.width,
+                b =
+                  (dy * rindCells![offset + 2] - dx * rindCells![offset + 3]) /
+                  p.length,
+                q = a * a + b * b;
+              if (q >= 1) continue;
+              pocket += 1 - smooth(clamp((q - p.core) / (1 - p.core)));
+              core += 1 - smooth(clamp(q / p.core));
+            } else {
+              const p = proceduralMaterialPresets.lychee,
+                dx = x - cx - stagger - 0.5,
+                dy = y - cy - 0.5;
+              if (dx >= rindCells![offset] || -dx >= rindCells![offset + 1])
+                continue;
+              let polygon = 1;
+              for (let side = 0; side < 6; side++) {
+                const plane =
+                  side === 0
+                    ? dx
+                    : side === 1
+                      ? -dx
+                      : side === 2
+                        ? 0.5 * dx + 0.75 * dy
+                        : side === 3
+                          ? -0.5 * dx - 0.75 * dy
+                          : side === 4
+                            ? -0.5 * dx + 0.75 * dy
+                            : 0.5 * dx - 0.75 * dy;
+                polygon *= smooth(
+                  clamp((rindCells![offset + side] - plane) / p.shoulder),
+                );
+                if (polygon === 0) break;
+              }
+              if (polygon === 0) continue;
+              const a = dx - rindCells![offset + 6],
+                b = dy - rindCells![offset + 7];
+              coverage += polygon;
+              crown += polygon / (1 + 18 * (a * a + b * b));
+            }
+          }
+        if (kind === 'strawberry') {
+          // Disjoint supports: P,S in [0,1]. Raw H [.32,.714],
+          // C [.12,.912], AO [.68,1], roughness [.41,.47].
+          height = 0.62 + 0.004 * grain - 0.3 * pocket + 0.09 * core;
+          color = 0.12 + 0.012 * grain + 0.78 * core;
+          occlusion = 1 - 0.32 * pocket + 0.12 * core;
+          roughness = preset.roughness + 0.04 * pocket - 0.06 * core;
+        } else {
+          // Disjoint polygons: coverage,crown in [0,1].
+          // Raw H [.16,.594], C [.12,.762], AO [.55,.97].
+          height = 0.16 + 0.28 * coverage + 0.15 * crown + 0.004 * grain;
+          color = 0.12 + 0.55 * coverage + 0.08 * crown + 0.012 * grain;
+          occlusion = 0.55 + 0.42 * coverage;
+          roughness = preset.roughness + 0.04 * (1 - coverage) - 0.03 * crown;
+        }
+        break;
+      }
       case 'morel': {
         const p = morelPreset,
           x = u * p.columns,

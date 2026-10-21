@@ -1236,6 +1236,37 @@ export declare const proceduralMaterialPresets: Readonly<{
         marginStart: 1.1;
         marginEnd: 1.22;
     }>;
+    pineapple: Readonly<{
+        dark: readonly [62, 61, 17];
+        light: readonly [232, 174, 43];
+        roughness: 0.73;
+        relief: 0.0035;
+        cells: 8;
+        shoulder: 0.09;
+        eyeRadius: 0.18;
+    }>;
+    strawberry: Readonly<{
+        dark: readonly [173, 8, 21];
+        light: readonly [245, 192, 70];
+        roughness: 0.43;
+        relief: 0.0018;
+        columns: 12;
+        rows: 10;
+        width: 0.22;
+        length: 0.34;
+        core: 0.13;
+    }>;
+    lychee: Readonly<{
+        dark: readonly [103, 22, 37];
+        light: readonly [236, 124, 143];
+        roughness: 0.76;
+        relief: 0.0024;
+        columns: 18;
+        rows: 16;
+        shoulder: 0.075;
+        edge: 0.48;
+        jitter: 0.015;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -1437,6 +1468,9 @@ export declare const proceduralTileMeters: Readonly<{
     mushroomgills: 0.12;
     morel: 0.08;
     bracketfungus: 0.25;
+    pineapple: 0.16;
+    strawberry: 0.055;
+    lychee: 0.055;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

@@ -4012,3 +4012,40 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   無新 runtime 依賴。提交只收本組隔離驗證內容；共享目錄其他變更
   保留不混入，前述驗證不宣稱涵蓋其他未提交功能。本組不 push。
 - `[UI]` UIRoot 每幀同步原生控制項時，`tabindex` 屬性已是目標值就不再寫入（同值寫入仍會改寫屬性、排入 MutationRecord 並使樣式失效）；最終 DOM 狀態相同。Chrome 中 40 個 UIButton 的頁面，每幀 `tabindex` mutation record 41.3 → 0，結束時全部 tabindex 相同。新增測試以假 Game／原生元素驗證 modal 開啟時外部控制項變為 -1、關閉後回到 0，且穩定狀態不重寫；原本每幀寫入與「只在缺屬性時寫」的 mutant 皆失敗。build 與完整測試（2220 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，只有 pbr3d 在未修改的 HEAD 也一樣逾時。
+
+## 程序材質擴充：鳳梨、草莓與荔枝果皮
+
+- 新增 pineapple／strawberry／lychee：斜向菱形鳳梨果目與凹眼、
+  紅色草莓表皮中的細長凹窩及赭黃種子、密集粉紅荔枝多邊形凸疣
+  與柔化尖冠。初始隔離目錄 195→198 種，整合已提交樂器表面後
+  為 201 種。沿用 opaque dielectric 四圖、seed、repeats 與 ownership，
+  不增加幾何、位移、透明、SSS、transmission、BRDF 或 runtime 依賴。
+- 形態、凹窩、冠部、肩部、實際多邊形角點、支撐與 UV／cell 接縫
+  回歸涵蓋 seed 0、1、0xffffffff。初版荔枝連續性測試逾時，
+  分 seed 註冊後仍逾時；改為彙總原判準的最大 residual，
+  保留全部取樣點及原容限、移除熱迴圈 assertion 配置後，
+  26 項專項測試通過。三種材質各三個 seed 的 unsmoothed 負向控制
+  共九組全部被拒絕，未提高 timeout 或縮減取樣。
+- 六個 seed、193×193 座標的 raw scalar 掃描合法，
+  roughness 移除最終 clamp 後仍合法。草莓實際 256 px map bytes
+  確認紅皮與赭黃種子區域，不以複製 palette 公式充當輸出測試。
+  已移除僅檢查重建參數／重算 palette 的重複斷言。
+- 初始與最終隔離快照 build、完整 lint、自有檔案 format check 通過。
+  初始完整 suite：177 檔，2235 通過、1 項既有 shader variant 逾時。
+  最終完整 suite：177 檔，2244 通過、4 項逾時，分別為既有
+  studdedrubber／recycledrubber／boardformedconcrete 斜率測試
+  與 shader variant；本組新增測試皆通過。未重跑失敗項求綠。
+  初始 typecheck 仍因 `sprite-quad-validation.test.ts:13` fixture
+  缺少 `destroy` 失敗；整合後保留該限制，未修改該 fixture。
+- 前 198 種 maps 在 size 64、seed 7 與整合基準 `57686860`
+  逐 byte 不變。全 201 種 source／ESM／CJS 一致，新三種另比對
+  五個 seed，共 216 組參數一致；提交實際重建的材質模組、
+  型別與 sourcemap，不混入其他未提交功能。
+- 真實 Chrome WebGPU／WebGL2 逐一檢視三種材質；整合前後六張
+  畫面 hash 不變。public factory 256 px、seed 7 的 2×2 平鋪已檢視，
+  roughness byte 為 180–196／105–120／186–204，每米 repeats 為
+  6.25／18.1818／18.1818；metallic texture 為零，四份 texture
+  由 preset.destroy 釋放。不擴大瀏覽器／裝置認證範圍。
+- 五份完整目錄各有 201 個唯一名稱，既有連結與 PLAN／DESIGN
+  歷史內容保留；README 繼續維持簡短四分類。依使用者最新指示，
+  此組獨立提交後停止新增；本組不 push。

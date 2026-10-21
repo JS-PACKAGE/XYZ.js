@@ -1237,6 +1237,37 @@ export const proceduralMaterialPresets = Object.freeze({
     marginStart: 1.1,
     marginEnd: 1.22,
   }),
+  pineapple: Object.freeze({
+    dark: [62, 61, 17] as const,
+    light: [232, 174, 43] as const,
+    roughness: 0.73,
+    relief: 0.0035,
+    cells: 8,
+    shoulder: 0.09,
+    eyeRadius: 0.18,
+  }),
+  strawberry: Object.freeze({
+    dark: [173, 8, 21] as const,
+    light: [245, 192, 70] as const,
+    roughness: 0.43,
+    relief: 0.0018,
+    columns: 12,
+    rows: 10,
+    width: 0.22,
+    length: 0.34,
+    core: 0.13,
+  }),
+  lychee: Object.freeze({
+    dark: [103, 22, 37] as const,
+    light: [236, 124, 143] as const,
+    roughness: 0.76,
+    relief: 0.0024,
+    columns: 18,
+    rows: 16,
+    shoulder: 0.075,
+    edge: 0.48,
+    jitter: 0.015,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -1439,6 +1470,9 @@ export const proceduralTileMeters = Object.freeze({
   mushroomgills: 0.12,
   morel: 0.08,
   bracketfungus: 0.25,
+  pineapple: 0.16,
+  strawberry: 0.055,
+  lychee: 0.055,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
