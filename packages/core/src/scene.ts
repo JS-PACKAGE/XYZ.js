@@ -296,11 +296,25 @@ export class Scene {
     this.presentationId = 0;
   }
   /**
-   * @internal Nonzero, and unique, only while presenting. Rendering runs no
-   * simulation or input, so 2D world matrices are composed once per pass.
+   * @internal Nonzero, and unique, only while presenting or inside a matrix pass. Neither
+   * runs simulation or input, so 2D world matrices are composed once per pass.
    */
   get presentationPass(): number {
     return this.presentationId;
+  }
+  /**
+   * @internal Opens a pass outside presentation for a stretch that runs no user code and
+   * moves no object, so 2D world matrices there are also composed once. False, opening
+   * nothing, while any pass is already open.
+   */
+  beginMatrixPass(): boolean {
+    if (this.presentationId !== 0) return false;
+    this.presentationId = ++this.presentationCount;
+    return true;
+  }
+  /** @internal Closes the pass a true `beginMatrixPass` opened. */
+  endMatrixPass(): void {
+    this.presentationId = 0;
   }
   readonly effects2D: PostProcessor2D[] = [];
   /**

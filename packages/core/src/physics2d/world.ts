@@ -862,11 +862,21 @@ export class PhysicsWorld2D {
     // register/unregister or a dispatched callback, each of which already bumped the epoch.
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
+    // Nothing in this loop moves an object, so children of one parent (tile colliders under
+    // a TileMap) reuse its world matrix instead of composing it once per child.
+    let pass: GameObject['scene'];
     try {
       for (const proxy of this.owners.values()) {
         if (!this.alive(proxy)) {
+          // Unregistering dispatches callbacks, which may move objects.
+          pass?.endMatrixPass();
+          pass = undefined;
           this.unregister(proxy.owner);
           continue;
+        }
+        if (!pass) {
+          const scene = proxy.owner.scene;
+          if (scene?.beginMatrixPass()) pass = scene;
         }
         proxy.refresh();
         proxy.ccdStopped = false;
@@ -908,6 +918,7 @@ export class PhysicsWorld2D {
         }
       }
     } finally {
+      pass?.endMatrixPass();
       if (sorted.length !== sortedCount) sorted.length = sortedCount;
     }
     this.integrateContinuous(dt, token);

@@ -157,6 +157,12 @@ var Scene = class {
 	get presentationPass() {
 		return this.presentationId;
 	}
+	beginMatrixPass() {
+		return this.presentationId === 0 && (this.presentationId = ++this.presentationCount, !0);
+	}
+	endMatrixPass() {
+		this.presentationId = 0;
+	}
 	effects2D = [];
 	effects3D = [];
 	renderGraph;
