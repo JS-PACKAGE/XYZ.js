@@ -3846,3 +3846,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   共享目錄另有未提交的街道材質，整合時保留而不納入本筆 commit。
   以上完整 suite 與雙 backend 證據僅屬本組 183 種快照，不冒稱其他
   未提交功能也通過同一輪完整檢查；本組不 push。
+- `[Math]` `Matrix3.copy`／`Matrix4.copy` 以逐元素寫入取代 `TypedArray#set`（內建呼叫成本高於 9／16 次搬移；值完全相同）。20k sprites WebGL2 每幀 CPU submit p50 6.5 → 5.9–6.2 ms、min 5.3 → 4.9–5.0 ms（三輪交替，CPU 時間，不是 fps）；Node 20k 次 Matrix3 複製 400–549 → 293–369 µs，3D visibility Node 對拍持平且雜湊相同。改錯一個元素的 mutant 由既有 2D 與完整測試抓到。三 backend browser regression 通過；build 與完整測試（2168 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

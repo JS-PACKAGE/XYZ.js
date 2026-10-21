@@ -43,7 +43,8 @@ var Matrix3 = class {
 		return e[0] = 1, e[1] = 0, e[2] = 0, e[3] = 0, e[4] = 1, e[5] = 0, e[6] = 0, e[7] = 0, e[8] = 1, this;
 	}
 	copy(e) {
-		return this.elements.set(e.elements), this;
+		let t = this.elements, n = e.elements;
+		return t[0] = n[0], t[1] = n[1], t[2] = n[2], t[3] = n[3], t[4] = n[4], t[5] = n[5], t[6] = n[6], t[7] = n[7], t[8] = n[8], this;
 	}
 	multiply(e) {
 		let t = this.elements, n = e.elements, r = t[0], i = t[1], a = t[3], o = t[4], s = t[6], c = t[7], l = n[0], u = n[1], d = n[3], f = n[4], p = n[6], m = n[7];

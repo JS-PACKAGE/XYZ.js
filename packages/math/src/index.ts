@@ -75,7 +75,18 @@ export class Matrix3 {
   }
 
   copy(other: Matrix3): this {
-    this.elements.set(other.elements);
+    // Element stores: `TypedArray#set` is a builtin call that costs more than nine moves.
+    const e = this.elements,
+      o = other.elements;
+    e[0] = o[0]!;
+    e[1] = o[1]!;
+    e[2] = o[2]!;
+    e[3] = o[3]!;
+    e[4] = o[4]!;
+    e[5] = o[5]!;
+    e[6] = o[6]!;
+    e[7] = o[7]!;
+    e[8] = o[8]!;
     return this;
   }
 
