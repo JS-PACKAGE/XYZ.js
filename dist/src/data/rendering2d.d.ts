@@ -21,4 +21,8 @@ export declare const rendering2dLimits: Readonly<{
     filterRadius: 128;
     filterQuality: 8;
     resolution: 8;
+    /** Canvas2D painted sub-frame/tint snapshots kept for redraw, least recently used out. */
+    canvasFrameSnapshots: 256;
+    /** Their combined pixels (4 bytes each); a larger single frame repaints a scratch. */
+    canvasFrameSnapshotPixels: number;
 }>;

@@ -20,7 +20,9 @@ var rendering2dLimits = Object.freeze({
 	manifestBundles: 256,
 	filterRadius: 128,
 	filterQuality: 8,
-	resolution: 8
+	resolution: 8,
+	canvasFrameSnapshots: 256,
+	canvasFrameSnapshotPixels: 4194304
 });
 //#endregion
 exports.rendering2dLimits = rendering2dLimits;

@@ -7,6 +7,7 @@ import {
 import type { TextureQuad2D } from './sprite-instance.js';
 import { GraphicsError } from './errors.js';
 import { hypot2 } from '../../math/src/hypot.js';
+import { rendering2dLimits } from '../../../src/data/rendering2d.js';
 
 /** Canvas `setTransform(a, b, c, d, e, f)` operands that place one 2D object on its target. */
 export interface CanvasPlacement2D {
@@ -18,6 +19,16 @@ export interface CanvasPlacement2D {
   f: number;
 }
 
+interface FrameSnapshot {
+  readonly canvas: HTMLCanvasElement;
+  readonly source: Texture2DSource;
+  readonly key: Float64Array;
+  pixels: number;
+  used: number;
+}
+
+const FRAME_KEY_LENGTH = 16;
+
 /** Renderer-owned source snapshots; views borrow a single versioned upload. */
 export class CanvasSpriteSource {
   private readonly sources = new Map<
@@ -25,6 +36,18 @@ export class CanvasSpriteSource {
     { canvas: HTMLCanvasElement; version: number }
   >();
   private scratch: HTMLCanvasElement | undefined;
+  /**
+   * Painted frames by key hash. A sub-frame or tint repainted into one shared scratch per
+   * draw made every draw wait on that repaint (and a tint read it back); identical inputs
+   * paint identical pixels, so a snapshot can be drawn again. A hash collision is a miss.
+   */
+  private readonly frames = new Map<number, FrameSnapshot>();
+  private framePixels = 0;
+  private frameClock = 0;
+  private readonly frameKey = new Float64Array(FRAME_KEY_LENGTH);
+  private readonly frameWords = new Int32Array(this.frameKey.buffer);
+  private readonly sourceIds = new WeakMap<Texture2DSource, number>();
+  private nextSourceId = 0;
   constructor(
     private readonly renderImage: (
       source: Texture2DSource,
@@ -33,6 +56,9 @@ export class CanvasSpriteSource {
   endFrame(): void {
     for (const source of this.sources.keys())
       if (source.destroyed) this.unload(source);
+    // Distance-field frames paint from glyph canvases outside `sources`.
+    for (const snapshot of this.frames.values())
+      if (snapshot.source.destroyed) this.dropFrames(snapshot.source);
   }
   prepare(source: Texture2DSource): CanvasImageSource {
     if (source.destroyed)
@@ -100,7 +126,6 @@ export class CanvasSpriteSource {
       quad.trimHeight * quad.resolution === source.height
     )
       return image as HTMLCanvasElement;
-    const canvas = (this.scratch ??= document.createElement('canvas'));
     const width = Math.max(
         1,
         Math.round(quad.trimWidth * quad.resolution * scale),
@@ -109,6 +134,102 @@ export class CanvasSpriteSource {
         1,
         Math.round(quad.trimHeight * quad.resolution * scale),
       );
+    // Render targets change without a version, so they always repaint the scratch.
+    if (
+      source.kind === 'render' ||
+      width * height > rendering2dLimits.canvasFrameSnapshotPixels
+    ) {
+      const canvas = (this.scratch ??= document.createElement('canvas'));
+      this.paint(
+        canvas,
+        image,
+        quad,
+        tint,
+        width,
+        height,
+        sourceWidth,
+        sourceHeight,
+      );
+      return canvas;
+    }
+    let id = this.sourceIds.get(source);
+    if (id === undefined)
+      this.sourceIds.set(source, (id = this.nextSourceId++));
+    const k = this.frameKey;
+    k[0] = id;
+    k[1] = source.version;
+    k[2] = scale;
+    k[3] = source.width;
+    k[4] = source.height;
+    k[5] = quad.u0;
+    k[6] = quad.v0;
+    k[7] = quad.ux;
+    k[8] = quad.vx;
+    k[9] = quad.uy;
+    k[10] = quad.vy;
+    k[11] = width;
+    k[12] = height;
+    k[13] = tint[0];
+    k[14] = tint[1];
+    k[15] = tint[2];
+    const words = this.frameWords;
+    let hash = 0;
+    for (let i = 0; i < words.length; i++)
+      hash = (Math.imul(hash, 0x01000193) ^ words[i]!) | 0;
+    const hit = this.frames.get(hash);
+    if (hit && sameKey(hit.key, k)) {
+      hit.used = ++this.frameClock;
+      return hit.canvas;
+    }
+    const pixels = width * height;
+    let canvas: HTMLCanvasElement | undefined;
+    if (hit) canvas = this.dropFrame(hash, hit);
+    while (
+      this.frames.size >= rendering2dLimits.canvasFrameSnapshots ||
+      this.framePixels + pixels > rendering2dLimits.canvasFrameSnapshotPixels
+    ) {
+      let oldest: number | undefined, snapshot: FrameSnapshot | undefined;
+      for (const [key, candidate] of this.frames)
+        if (!snapshot || candidate.used < snapshot.used) {
+          oldest = key;
+          snapshot = candidate;
+        }
+      const evicted = this.dropFrame(oldest!, snapshot!);
+      if (canvas) evicted.width = evicted.height = 1;
+      else canvas = evicted;
+    }
+    canvas ??= document.createElement('canvas');
+    this.paint(
+      canvas,
+      image,
+      quad,
+      tint,
+      width,
+      height,
+      sourceWidth,
+      sourceHeight,
+    );
+    this.frames.set(hash, {
+      canvas,
+      source,
+      key: k.slice(),
+      pixels,
+      used: ++this.frameClock,
+    });
+    this.framePixels += pixels;
+    return canvas;
+  }
+  /** Paints one frame exactly as every snapshot and the scratch hold it. */
+  private paint(
+    canvas: HTMLCanvasElement,
+    image: CanvasImageSource,
+    quad: TextureQuad2D,
+    tint: ArrayLike<number>,
+    width: number,
+    height: number,
+    sourceWidth: number,
+    sourceHeight: number,
+  ): void {
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
     const context = canvas.getContext('2d')!;
@@ -142,16 +263,34 @@ export class CanvasSpriteSource {
       }
       context.putImageData(pixels, 0, 0);
     }
-    return canvas;
+  }
+  private dropFrame(hash: number, snapshot: FrameSnapshot): HTMLCanvasElement {
+    this.frames.delete(hash);
+    this.framePixels -= snapshot.pixels;
+    return snapshot.canvas;
+  }
+  private dropFrames(source?: Texture2DSource): void {
+    for (const [hash, snapshot] of this.frames)
+      if (!source || snapshot.source === source) {
+        const canvas = this.dropFrame(hash, snapshot);
+        canvas.width = canvas.height = 1;
+      }
   }
   unload(source: Texture2DSource): void {
     const entry = this.sources.get(source);
     if (entry) entry.canvas.width = entry.canvas.height = 1;
     this.sources.delete(source);
+    this.dropFrames(source);
   }
   destroy(): void {
     for (const source of this.sources.keys()) this.unload(source);
+    this.dropFrames();
     if (this.scratch) this.scratch.width = this.scratch.height = 1;
     this.scratch = undefined;
   }
+}
+
+function sameKey(a: Float64Array, b: Float64Array): boolean {
+  for (let i = 0; i < FRAME_KEY_LENGTH; i++) if (a[i] !== b[i]) return false;
+  return true;
 }
