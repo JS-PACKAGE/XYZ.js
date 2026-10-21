@@ -2783,3 +2783,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Navigation]` NavigationMesh3D 每條邊快取最後一次裁切的 portal，以兩側 region 物件身分與 radius 為鍵（region 只會被替換、不會被修改，故啟用狀態變更自然失效），平滑階段的 O(n²) 檢查不再重算 portal。同一 48×48 Node bench：40 次 findPath 約 105 → 50 ms、配置 186 → 56 MiB，hash 不變；新增彎折走廊在停用／啟用與換 radius 後與全新 mesh 結果一致的測試。
 - `[Navigation]` NavigationMesh3D 最近點計算改用模組暫存向量做平面投影（命中才 clone）、邊界最近點以純量追蹤只在最後配置一個 Vector3，`inside` 改為迴圈不再建立 `every` closure；數值運算順序不變。同一 48×48 Node bench：4000 次 project 17.7 → 14.3 ms、配置 53 → 25 MiB，hash 不變。
+- `[Navigation]` NavigationGrid2D 展開節點時改用搜尋建立時已有的 `traversable` 判斷，不再每次 expand 建立新的 closure。256² 網格 Node bench 配置約 164 → 44 MiB，CPU 時間持平（短路徑約 3 µs、長路徑約 1.4 ms／次，在雜訊內），hash 不變；屬配置減少，非速度提升。

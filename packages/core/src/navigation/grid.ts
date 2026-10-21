@@ -235,10 +235,8 @@ export class NavigationGrid2D {
           diagonal,
         ),
       expand: (current, search) => {
-        const { columns, rows, walkable, clearance, costs } = this,
+        const { columns, rows, costs } = this,
           distances = search.distance;
-        const open = (node: number) =>
-          walkable[node] === 1 && clearance[node]! >= radius;
         const column = current % columns;
         const row = Math.floor(current / columns);
         for (let dy = -1; dy <= 1; dy++) {
@@ -249,12 +247,13 @@ export class NavigationGrid2D {
             const y = row + dy;
             if (x < 0 || y < 0 || x >= columns || y >= rows) continue;
             const next = y * columns + x;
-            if (!open(next)) continue;
+            if (!traversable(next)) continue;
             const isDiagonal = dx !== 0 && dy !== 0;
             if (
               isDiagonal &&
               !cornerCutting &&
-              (!open(row * columns + x) || !open(y * columns + column))
+              (!traversable(row * columns + x) ||
+                !traversable(y * columns + column))
             )
               continue;
             const distance =
