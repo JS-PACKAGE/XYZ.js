@@ -48,6 +48,8 @@
 
 地板飾面增量追加 parquet／mosaic／hexagontiles（拼花木地板／馬賽克／六角磚），目前共四十二種；前述 counts 保留為歷史。分別為多根窄木條組成木塊、交替縱向木紋與深色凹縫的籃編式拼排（非木材換色）、帶 seed 決定之逐磚色調差異與窄凹填縫的細小方形釉面磚粒（區別於較大的 tiles）、無接邊斷裂地週期重複的六邊形陶瓷單元與窄凹填縫。三者皆為 opaque dielectric、metallic 通道與預設 factor 為 0，僅沿用 deterministic periodic 四份 maps；凹凸由 normal map 表現，接縫不分割 geometry。前三十九種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
+柔軟紡織增量追加 knit／corduroy／felt（針織／燈芯絨／毛氈），目前共四十五種；前述 counts 保留為歷史。分別為柔和色調的平針式重複 V 形針目、圓潤隆起紗線與凹陷線圈間隙；暖棕色平行圓潤隆起絨條、細密絨毛斑點與深窄溝槽；柔和灰綠色霧面不織表面、隨機方向細纖維與低起伏。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps；凹凸僅由 normal map 表現，不新增紗線／毛髮 geometry 或透明線圈。前四十二種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

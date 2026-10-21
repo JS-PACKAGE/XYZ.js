@@ -1130,6 +1130,77 @@ export function createSurfaceSampler(
         mortar = 1 - face;
         break;
       }
+      case 'knit': {
+        const x = u * 8,
+          y = v * 8;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let yarn = 0;
+        // Rounded finite yarn arms overlap at the point of each stockinette V.
+        // Their smooth support vanishes before the stitch cell edges.
+        for (let side = -1; side <= 1; side += 2) {
+          const dx = x - ix - 0.5,
+            dy = y - iy - 0.84;
+          const sx = side * 0.34,
+            sy = -0.68;
+          const t = clamp((dx * sx + dy * sy) / (sx * sx + sy * sy));
+          const px = dx - t * sx,
+            py = dy - t * sy;
+          const cap = clamp(1 - (px * px + py * py) / 0.0169);
+          const arm = smooth(cap);
+          yarn += (1 - yarn) * arm;
+        }
+        const twist =
+          0.5 +
+          0.25 * Math.sin(TAU * (48 * u + 24 * v) + phase) +
+          0.25 * Math.sin(TAU * (48 * u - 24 * v) - phase);
+        color = 0.12 + 0.64 * yarn + 0.1 * detail + 0.07 * yarn * twist;
+        height = 0.08 + yarn * (0.76 + 0.045 * twist) + 0.025 * detail;
+        roughness += 0.065 * (detail - 0.5) + 0.035 * (1 - yarn);
+        occlusion = 0.58 + 0.41 * yarn;
+        break;
+      }
+      case 'corduroy': {
+        const wale = Math.pow(0.5 + 0.5 * Math.cos(TAU * u * 12), 0.65);
+        const pile = noise(u, v, 96, 96, seed ^ 0x2b71);
+        const nap = noise(u, v, 12, 48, seed ^ 0x7ca3);
+        color = 0.12 + 0.57 * wale + 0.16 * pile + 0.08 * nap;
+        height = 0.07 + 0.79 * wale + 0.035 * pile + 0.025 * nap;
+        roughness += 0.08 * (pile - 0.5) + 0.035 * (1 - wale);
+        occlusion = 0.57 + 0.42 * wale;
+        break;
+      }
+      case 'felt': {
+        const cells = 20;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let fibers = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0xa375);
+            const angle = hash(wx, wy, seed ^ 0x6b17) * TAU;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const along = (dx * cos + dy * sin) / 0.6,
+              across = (dy * cos - dx * sin) / 0.055;
+            // Tapered, randomly oriented fibers vanish with zero slope at their
+            // elliptical support; none reaches a discarded neighborhood cell.
+            const cap = clamp(1 - along * along - across * across);
+            fibers += (1 - fibers) * cap * cap;
+          }
+        color = 0.28 + 0.28 * detail + 0.3 * fibers;
+        height = 0.18 + 0.035 * detail + 0.065 * fibers;
+        roughness += 0.065 * (detail - 0.5) + 0.025 * fibers;
+        occlusion = 0.96 + 0.025 * fibers + 0.01 * detail;
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;

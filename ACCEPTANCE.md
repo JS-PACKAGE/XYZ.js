@@ -2527,3 +2527,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：柔軟織物（knit／corduroy／felt）
+
+- 新增圓潤 V 形針目針織、平行絨條燈芯絨與低起伏隨機纖維毛氈，
+  tile 尺寸依序 0.064／0.048／0.1 m。皆 opaque dielectric，
+  不建立紗線／絨毛 geometry 或透明線圈。gallery／API 文件同步至
+  45 種；README 既有紡織分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1542 tests
+  通過。保留針目兩臂／底部相對凹隙高度、有限紗線支撐域連續性與絨條
+  隆起／谷底行為測試，不固定色值或 relief 常數。前四十二種預設在
+  size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認 V 形針目、絨條與細纖維差異；metallic 全為 0，
+  roughness bytes 依序 224–249／220–248／232–254；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

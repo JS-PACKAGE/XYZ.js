@@ -48,7 +48,10 @@ export type ProceduralMaterialKind =
   | 'pumice'
   | 'parquet'
   | 'mosaic'
-  | 'hexagontiles';
+  | 'hexagontiles'
+  | 'knit'
+  | 'corduroy'
+  | 'felt';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -123,6 +126,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'parquet',
   'mosaic',
   'hexagontiles',
+  'knit',
+  'corduroy',
+  'felt',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

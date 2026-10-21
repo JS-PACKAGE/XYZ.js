@@ -66,6 +66,9 @@ const kinds: ProceduralMaterialKind[] = [
   'parquet',
   'mosaic',
   'hexagontiles',
+  'knit',
+  'corduroy',
+  'felt',
 ];
 
 class TestImageData {
@@ -265,6 +268,9 @@ describe('periodic procedural material fields', () => {
     ['parquet', [4, 8, 12, 32]],
     ['mosaic', [16, 32]],
     ['hexagontiles', [5, 6, 10, 12, 32]],
+    ['knit', [8, 16, 32, 48]],
+    ['corduroy', [12, 24, 32, 48, 96]],
+    ['felt', [20, 32, 40]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -397,6 +403,98 @@ describe('periodic procedural material fields', () => {
         sample(u, v, a);
         expect(a.height).toBeGreaterThan(0);
       }
+    }
+  });
+
+  it('knit raises both arms of repeating V stitches above recessed loop gaps', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('knit', seed);
+      for (const column of [0, 3, 7])
+        for (const row of [0, 4, 7]) {
+          sample((column + 0.5) / 8, (row + 0.4) / 8, gap);
+          for (const side of [-1, 1]) {
+            sample((column + 0.5 + side * 0.22) / 8, (row + 0.4) / 8, a);
+            expect(a.height).toBeGreaterThan(gap.height);
+            expect(a.occlusion).toBeGreaterThan(gap.occlusion);
+          }
+          sample((column + 0.5) / 8, (row + 0.84) / 8, a);
+          expect(a.height).toBeGreaterThan(gap.height);
+        }
+    }
+  });
+
+  it('knit yarn remains continuous across rounded ends, joins and finite support', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    const epsilon = 1e-7;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('knit', seed);
+      for (const side of [-1, 1]) {
+        const sx = side * 0.34,
+          sy = -0.68;
+        const length = Math.hypot(sx, sy);
+        for (const t of [-0.13 / length, 0, 0.5, 1, 1 + 0.13 / length])
+          for (const offset of [-0.13, 0, 0.13]) {
+            const u = (0.5 + t * sx - (offset * sy) / length) / 8,
+              v = (0.84 + t * sy + (offset * sx) / length) / 8;
+            for (const [du, dv] of [
+              [epsilon, 0],
+              [0, epsilon],
+            ]) {
+              sample(u - du, v - dv, a);
+              sample(u + du, v + dv, b);
+              for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+              const leftHeight = a.height,
+                rightHeight = b.height;
+              sample(u, v, a);
+              expect(
+                Math.abs(rightHeight - a.height - (a.height - leftHeight)) /
+                  epsilon,
+              ).toBeLessThan(0.001);
+            }
+          }
+      }
+    }
+  });
+
+  it('corduroy has parallel raised wales with recessed narrow valleys along their length', () => {
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const valley = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('corduroy', seed);
+      for (let wale = 0; wale < 12; wale++)
+        for (const v of [0, 0.137, 0.43, 0.791]) {
+          sample(wale / 12, v, crest);
+          sample((wale + 0.5) / 12, v, valley);
+          expect(crest.height).toBeGreaterThan(valley.height);
+          expect(crest.occlusion).toBeGreaterThan(valley.occlusion);
+          sample((wale + 0.3) / 12, v, crest);
+          expect(crest.height).toBeGreaterThan(valley.height);
+        }
     }
   });
 

@@ -297,6 +297,30 @@ function createSurfaceSampler(t, r) {
 				p = .2 + b * (.28 + .35 * x + .07 * d), m = b * (.8 + .045 * x + .02 * d), h = .74 + b * (i.roughness - .74 + .1 * x + .04 * d), g = .6 + .39 * b, _ = 1 - b;
 				break;
 			}
+			case `knit`: {
+				let t = e * 8, r = c * 8, i = Math.floor(t), o = Math.floor(r), s = 0;
+				for (let e = -1; e <= 1; e += 2) {
+					let n = t - i - .5, a = r - o - .84, c = e * .34, l = -.68, u = clamp((n * c + a * l) / (c * c + l * l)), d = n - u * c, f = a - u * l, m = smooth(clamp(1 - (d * d + f * f) / .0169));
+					s += (1 - s) * m;
+				}
+				let l = .5 + .25 * Math.sin(n * (48 * e + 24 * c) + a) + .25 * Math.sin(n * (48 * e - 24 * c) - a);
+				p = .12 + .64 * s + .1 * d + .07 * s * l, m = .08 + s * (.76 + .045 * l) + .025 * d, h += .065 * (d - .5) + .035 * (1 - s), g = .58 + .41 * s;
+				break;
+			}
+			case `corduroy`: {
+				let t = (.5 + .5 * Math.cos(n * e * 12)) ** .65, i = noise(e, c, 96, 96, r ^ 11121), a = noise(e, c, 12, 48, r ^ 31907);
+				p = .12 + .57 * t + .16 * i + .08 * a, m = .07 + .79 * t + .035 * i + .025 * a, h += .08 * (i - .5) + .035 * (1 - t), g = .57 + .42 * t;
+				break;
+			}
+			case `felt`: {
+				let t = e * 20, i = c * 20, a = Math.floor(t), o = Math.floor(i), s = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let l = a + c, u = o + e, d = (l % 20 + 20) % 20, f = (u % 20 + 20) % 20, p = t - l - .25 - .5 * hash(d, f, r), m = i - u - .25 - .5 * hash(d, f, r ^ 41845), h = hash(d, f, r ^ 27415) * n, g = Math.cos(h), _ = Math.sin(h), v = (p * g + m * _) / .6, y = (m * g - p * _) / .055, b = clamp(1 - v * v - y * y);
+					s += (1 - s) * b * b;
+				}
+				p = .28 + .28 * d + .3 * s, m = .18 + .035 * d + .065 * s, h += .065 * (d - .5) + .025 * s, g = .96 + .025 * s + .01 * d;
+				break;
+			}
 		}
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};

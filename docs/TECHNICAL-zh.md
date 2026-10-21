@@ -384,7 +384,7 @@ TextureMaterial（含 NativeMaterial3D）base sampler 與 PBRMaterial per-slot T
 
 ### 程序式材質預設
 
-Root 匯出 `ProceduralMaterial`、共四十二種的 `ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork' | 'rubber' | 'carbonfiber' | 'diamondplate' | 'paper' | 'wicker' | 'bamboo' | 'hammeredmetal' | 'galvanized' | 'corrugatedmetal' | 'sandstone' | 'travertine' | 'pumice' | 'parquet' | 'mosaic' | 'hexagontiles'`，木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪／瀝青／礫石／鵝卵石鋪面／樹皮／苔蘚／泥土／花崗岩／板岩／磨石子／丹寧布／粗麻布／地毯／石膏／陶土／軟木／橡膠／碳纖維／止滑花紋鋼板／紙張／藤編／竹材／錘紋金屬／鍍鋅板／波紋金屬板／砂岩／洞石／浮石／拼花木地板／馬賽克／六角磚）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
+Root 匯出 `ProceduralMaterial`、共四十五種的 `ProceduralMaterialKind`（`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork' | 'rubber' | 'carbonfiber' | 'diamondplate' | 'paper' | 'wicker' | 'bamboo' | 'hammeredmetal' | 'galvanized' | 'corrugatedmetal' | 'sandstone' | 'travertine' | 'pumice' | 'parquet' | 'mosaic' | 'hexagontiles' | 'knit' | 'corduroy' | 'felt'`，木材／磚牆／石材／金屬／布料／大理石／混凝土／磁磚／皮革／沙／鏽蝕／雪／瀝青／礫石／鵝卵石鋪面／樹皮／苔蘚／泥土／花崗岩／板岩／磨石子／丹寧布／粗麻布／地毯／石膏／陶土／軟木／橡膠／碳纖維／止滑花紋鋼板／紙張／藤編／竹材／錘紋金屬／鍍鋅板／波紋金屬板／砂岩／洞石／浮石／拼花木地板／馬賽克／六角磚／針織／燈芯絨／毛氈）及 `ProceduralMaterialOptions`（`size?: number; seed?: number`）。`await ProceduralMaterial.create(kind, options?)` 在 CPU 一次建立呼叫者擁有、具確定性、可無縫週期重複的不可變影像 maps；size 為整數 32–1024、預設 256，seed 為無號 32-bit 整數 0–4294967295、預設 1。無效 kind／options 拒絕，不需外部素材或 runtime dependency。
 
 唯讀 `textures` 包含四份 `Texture`：`baseColor`（sRGB RGB）、`normal`（linear tangent-space）、`metallicRoughness`（linear G roughness／B metallic）、`occlusion`（linear R）。唯讀 `kind` 表示種類，唯讀 `material` 為預設 `PBRMaterial`。預設 OPAQUE、每個 sampler 使用 repeat wrapping、roughness factor 為 1，metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal 的 metallic factor 為 1、其他種類為 0；rust 的 B 通道在殘留金屬與鏽蝕之間變化，因此貼圖粗糙度不會再乘上一般材質的預設 0.5。
 
@@ -395,6 +395,8 @@ Root 匯出 `ProceduralMaterial`、共四十二種的 `ProceduralMaterialKind`�
 花崗岩呈現斑點礦物顆粒；板岩為帶細微脊紋的深色層理；磨石子為平滑黏結料中的對比色石片。三者同樣使用四份 maps，皆為 opaque dielectric，metallic 通道為 0。
 
 紡織表面包含丹寧布（denim，斜向斜紋）、粗麻布（burlap，粗經緯交織）與地毯（carpet，割絨表面）。三者沿用相同四份 repeat maps，皆為 opaque dielectric、metallic 通道為 0；不是 geometry 或毛髮模擬，也不產生透明織孔。
+
+柔軟紡織表面包含針織（knit，柔和色調的平針式重複 V 形針目、圓潤隆起紗線與凹陷線圈間隙）、燈芯絨（corduroy，暖棕色平行圓潤隆起絨條、細密絨毛斑點與深窄溝槽）與毛氈（felt，柔和灰綠色霧面不織表面、隨機方向細纖維與低起伏）。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用相同四份 deterministic periodic maps；凹凸僅由 normal map 表現，不新增紗線／毛髮 geometry 或透明線圈。
 
 建材飾面加入石膏（plaster，淺色石膏的淺抹刀弧痕與細孔）、陶土（terracotta，未上釉紅褐燒製陶土的不規則窯色與凹孔，無磁磚填縫）與軟木（cork，棕褐壓製碎片與細胞邊界）。三者沿用相同四份 repeat maps，皆為 opaque dielectric、metallic 通道為 0，不新增 geometry 或物理模擬。
 
