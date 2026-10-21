@@ -3667,13 +3667,30 @@ export class WebGPUMeshPipeline {
       this.pbrBlocks.set(material, block);
       return block;
     }
-    const bits = this.pbrBlockScratchBits;
-    for (let i = 0; i < bits.length; i++)
-      if (bits[i] !== block.bits[i]) {
-        block.data.set(data);
-        block.revision++;
-        break;
-      }
+    const bits = this.pbrBlockScratchBits,
+      previous = block.bits;
+    // Only the ranges updateMesh copies are compared; every word between them is zeroed above
+    // in both blocks, and a difference there would only re-copy identical ranges.
+    if (
+      wordsDiffer(bits, previous, 16, 76) ||
+      wordsDiffer(
+        bits,
+        previous,
+        nativeOffset,
+        nativeOffset + nativeMaterial3DLimits.uniformFloats,
+      ) ||
+      wordsDiffer(
+        bits,
+        previous,
+        uvOffset,
+        uvOffset + MATERIAL_UV_FLOAT_COUNT,
+      ) ||
+      wordsDiffer(bits, previous, finishOffset, irradianceOffset) ||
+      wordsDiffer(bits, previous, opticalOffset, bits.length)
+    ) {
+      block.data.set(data);
+      block.revision++;
+    }
     block.frame = this.frame;
     block.needsUV1 = needsUV1;
     return block;
@@ -3996,4 +4013,14 @@ export class WebGPUMeshPipeline {
     this.draws.length = 0;
     this.samplers.clear();
   }
+}
+
+function wordsDiffer(
+  a: Uint32Array,
+  b: Uint32Array,
+  start: number,
+  end: number,
+): boolean {
+  for (let i = start; i < end; i++) if (a[i] !== b[i]) return true;
+  return false;
 }

@@ -1960,12 +1960,8 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				needsUV1: i
 			}, this.pbrBlocks.set(e, t), t;
 		}
-		let a = this.pbrBlockScratchBits;
-		for (let e = 0; e < a.length; e++) if (a[e] !== t.bits[e]) {
-			t.data.set(n), t.revision++;
-			break;
-		}
-		return t.frame = this.frame, t.needsUV1 = i, t;
+		let a = this.pbrBlockScratchBits, o = t.bits;
+		return (wordsDiffer(a, o, 16, 76) || wordsDiffer(a, o, Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats) || wordsDiffer(a, o, X, X + require_optical_maps.mappedMaterialUVFloatCount) || wordsDiffer(a, o, Z, Q) || wordsDiffer(a, o, $, a.length)) && (t.data.set(n), t.revision++), t.frame = this.frame, t.needsUV1 = i, t;
 	}
 	updateMesh(e, t, n) {
 		let r = t.material, i = n.data;
@@ -2028,6 +2024,10 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		this.textures.clear(), this.premultipliedTextures.clear(), this.draws.length = 0, this.samplers.clear();
 	}
 };
+function wordsDiffer(e, t, n, r) {
+	for (let i = n; i < r; i++) if (e[i] !== t[i]) return !0;
+	return !1;
+}
 //#endregion
 exports.WebGPUMeshPipeline = WebGPUMeshPipeline;
 exports.uploadChangedSpan = uploadChangedSpan;

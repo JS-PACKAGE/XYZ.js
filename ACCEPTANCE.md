@@ -3372,3 +3372,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文件沒有新增相對連結，README 既有自然表面分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[WebGPU]` 每幀共享 PBR 材質區塊的變更偵測只比對 `updateMesh` 會複製的區段（16–76、native 字、UV、finish、optical），以小函式逐段比較，取代每個材質逐字比對整個 592 字區塊；區段外的字每次都清為 0，即使不同也只會重複複製相同區段，輸出不變。production 3d（WebGPU、high）剖析中 pbrBlock 佔 CPU busy 13.0–13.1% → 9.2–9.3%，屬 CPU 時間佔比。瀏覽器 smoke：WebGPU 上渲染後改 metallic／roughness／color／emissive 的畫面與一開始即用相同值的畫面逐像素相同（HEAD 與新版皆同），移除首段比較的 mutant 則出現差異。build 與完整測試（1999 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行；HEAD 匯出副本中 pbr3d 三種 renderer smoke 通過（主工作區 pbr3d 失敗來自另一方未提交的 pbr3d／材質變更，WebGL2 亦同）。
