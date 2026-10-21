@@ -78,6 +78,9 @@ export function createSurfaceSampler(
 ) {
   const preset = proceduralMaterialPresets[kind];
   const phase = hash(0, 0, seed) * TAU;
+  const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
+  const motifCos = Math.cos(motifAngle),
+    motifSin = Math.sin(motifAngle);
   const endgrainCenterU = kind === 'endgrain' ? hash(0, 0, seed ^ 0x3b17) : 0;
   const endgrainCenterV = kind === 'endgrain' ? hash(0, 0, seed ^ 0x5d29) : 0;
   // Cell geometry is immutable for this sampler, not rehashed for every texel.
@@ -212,6 +215,33 @@ export function createSurfaceSampler(
               0.82 + 0.18 * hash(x, y, salt ^ (0x5d31 + edge));
           }
         }
+  // Narrow C1 half-plane shoulders leave a connected, closed hairline network.
+  // Jitter stays within 0.14 cells, so each polygon is bounded inside the
+  // sampled 3x3 neighborhood; no nearest-cell pigment switches are involved.
+  const glazeCells =
+    kind === 'crackleglaze' ? new Float64Array(16 * 16 * 26) : null;
+  if (glazeCells)
+    for (let y = 0; y < 16; y++)
+      for (let x = 0; x < 16; x++) {
+        const offset = (y * 16 + x) * 26;
+        const px = 0.36 + 0.28 * hash(x, y, seed ^ 0x438d),
+          py = 0.36 + 0.28 * hash(x, y, seed ^ 0x7b25);
+        glazeCells[offset] = px;
+        glazeCells[offset + 1] = py;
+        let plane = offset + 2;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 16) % 16,
+              wy = (y + oy + 16) % 16;
+            const dx = ox + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x438d) - px,
+              dy = oy + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x7b25) - py;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            glazeCells[plane++] = dx / distance;
+            glazeCells[plane++] = dy / distance;
+            glazeCells[plane++] = distance / 2;
+          }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -2319,6 +2349,87 @@ export function createSurfaceSampler(
               coverage += (1 - coverage) * face;
             }
         occlusion = 0.83 + 0.15 * coverage + 0.015 * detail;
+        break;
+      }
+      case 'crackleglaze': {
+        const x = u * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x35ad) - 0.5),
+          y = v * 16 + 0.6 * (noise(u, v, 4, 4, seed ^ 0x71c3) - 0.5);
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let faces = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset =
+              ((((cy % 16) + 16) % 16) * 16 + (((cx % 16) + 16) % 16)) * 26;
+            const dx = x - cx - glazeCells![offset],
+              dy = y - cy - glazeCells![offset + 1];
+            let face = 1;
+            for (let edge = 0; edge < 8; edge++) {
+              const plane = offset + 2 + edge * 3;
+              face *= smooth(
+                clamp(
+                  (glazeCells![plane + 2] -
+                    dx * glazeCells![plane] -
+                    dy * glazeCells![plane + 1]) /
+                    0.024,
+                ),
+              );
+            }
+            faces += face;
+          }
+        const cracks = 1 - clamp(faces);
+        color = (0.87 + 0.035 * detail) * (1 - cracks) + 0.08 * cracks;
+        height = 0.54 - 0.12 * cracks;
+        roughness += 0.14 * cracks + 0.015 * (detail - 0.5);
+        occlusion = 1 - 0.14 * cracks;
+        break;
+      }
+      case 'flutedceramic': {
+        const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
+        const speckles = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x5f29) - 0.65) / 0.28),
+        );
+        color = 0.88 + 0.035 * detail - 0.12 * speckles;
+        height = 0.2 + 0.6 * flute;
+        roughness += 0.035 * (1 - flute) + 0.025 * speckles;
+        occlusion = 0.92 + 0.08 * flute;
+        break;
+      }
+      case 'encaustictiles': {
+        const x = fract(u * 4),
+          y = fract(v * 4);
+        // A product keeps both slopes smooth where the two grout bevels meet.
+        const face =
+          smooth(clamp((Math.min(x, 1 - x) - 0.02) / 0.08)) *
+          smooth(clamp((Math.min(y, 1 - y) - 0.02) / 0.08));
+        const dx = x - 0.5,
+          dy = y - 0.5;
+        const rx = dx * motifCos + dy * motifSin,
+          ry = dy * motifCos - dx * motifSin;
+        let petals = 0;
+        for (let petal = 0; petal < 4; petal++) {
+          const px = petal < 2 ? rx : ry,
+            py = petal < 2 ? ry : rx;
+          const along = (px - (petal % 2 === 0 ? 0.16 : -0.16)) / 0.19,
+            across = py / 0.085;
+          const weight = smooth(
+            clamp((1 - along * along - across * across) / 0.22),
+          );
+          petals += (1 - petals) * weight;
+        }
+        const radius2 = dx * dx + dy * dy;
+        const ring =
+          smooth(clamp((radius2 - 0.135) / 0.008)) *
+          (1 - smooth(clamp((radius2 - 0.158) / 0.008)));
+        const motif = petals + (1 - petals) * ring;
+        color = 0.94 - 0.84 * motif + 0.012 * (detail - 0.5);
+        // Inlaid pigment changes no height: only the square grout is recessed.
+        height = 0.18 + 0.4 * face;
+        mortar = 1 - face;
+        roughness += 0.12 * mortar + 0.035 * (detail - 0.5);
+        occlusion = 0.77 + 0.23 * face;
         break;
       }
     }

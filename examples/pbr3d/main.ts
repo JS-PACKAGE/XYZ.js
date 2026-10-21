@@ -154,6 +154,9 @@ try {
     'wafflecloth',
     'cableknit',
     'quilting',
+    'crackleglaze',
+    'flutedceramic',
+    'encaustictiles',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

@@ -2737,3 +2737,26 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Physics3D]` 接觸求解的衝量與轉換後 torque 改以 world 持有的 Vector3 傳給 `applyImpulse`／`addInverseInertia`（`addInverseInertia(torque, phase)`），不再以三個 double 參數跨過未 inline 的呼叫（每次衝量都會 box 成 HeapNumber）。1000 body 堆疊 Node bench 配置 14.4 → 6.1 MiB/step、7.6 → 7.2 ms/step，phys3d／cc3d／cc3dfuzz（seed 1–3）／ccbits／bake 40×40 hash 皆不變。
 - `[Physics3D]` 空間索引查詢結果（≤32 筆）改以穩定插入排序依 `order` 排序，避免內建 sort 每次配置工作陣列；排序結果與 `sort(compareOrder)` 相同。1000 body bench 配置 6.1 → 4.6 MiB/step，時間持平，hash 不變。
+
+## 程序材質擴充：裝飾飾面（crackleglaze／flutedceramic／encaustictiles）
+
+- 新增青瓷色開片釉細裂紋、象牙白縱向圓槽陶瓷、奶油色／柔和藍色嵌彩花磚，
+  tile 尺寸依序 0.16／0.24／0.8 m。皆 opaque dielectric，
+  只產生四份表面 maps，不新增 geometry、transmission 或 coating 系統。
+  gallery／API 文件同步至 78 種。
+- 花磚初稿的 min 距離填縫在轉角產生斜率斷裂，實際取樣 mortar
+  左右斜率差約 75；改為兩軸平滑遮罩乘積後，同點差值為 0，
+  並保留四個轉角斜坡回歸。顏料花紋不造成額外 normal 起伏。
+- build、typecheck、lint、format:check 通過。首次完整測試 1666 通過／2 失敗：
+  裂紋交叉點的軸向截線沿著裂紋走，改納入斜向截線後量得細縫寬
+  0.00183／0.00208 UV；極小差分步距的捨入誤差則改以單側斜率外推處理。
+  原 0.001 門檻保留；平滑場斜率差約 0.000019，暫時注入的 seam 為
+  0.200019、確實被拒絕。修正後格式化與完整 176 檔／1668 tests 通過。
+  前七十五種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認細裂網與花磚紋樣；陶瓷凹槽透過 normal 而非色帶呈現。
+  metallic 全為 0，roughness bytes 依序 47–86／61–76／159–198；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

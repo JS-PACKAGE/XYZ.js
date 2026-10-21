@@ -81,7 +81,10 @@ export type ProceduralMaterialKind =
   | 'chipboard'
   | 'wafflecloth'
   | 'cableknit'
-  | 'quilting';
+  | 'quilting'
+  | 'crackleglaze'
+  | 'flutedceramic'
+  | 'encaustictiles';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -189,6 +192,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wafflecloth',
   'cableknit',
   'quilting',
+  'crackleglaze',
+  'flutedceramic',
+  'encaustictiles',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

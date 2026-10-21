@@ -99,6 +99,9 @@ const kinds: ProceduralMaterialKind[] = [
   'wafflecloth',
   'cableknit',
   'quilting',
+  'crackleglaze',
+  'flutedceramic',
+  'encaustictiles',
 ];
 
 class TestImageData {
@@ -334,6 +337,9 @@ describe('periodic procedural material fields', () => {
     ['wafflecloth', [8, 24, 32, 96]],
     ['cableknit', [4, 32, 48, 64, 96]],
     ['quilting', [6, 12, 24, 32, 48, 96]],
+    ['crackleglaze', [4, 16, 32]],
+    ['flutedceramic', [8, 32, 96]],
+    ['encaustictiles', [4, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -381,7 +387,11 @@ describe('periodic procedural material fields', () => {
                     ? 1
                     : 0,
                 );
-                if (kind !== 'mosaic' && kind !== 'hexagontiles')
+                if (
+                  kind !== 'mosaic' &&
+                  kind !== 'hexagontiles' &&
+                  kind !== 'encaustictiles'
+                )
                   expect(a.mortar).toBe(0);
               }
       }
@@ -409,6 +419,9 @@ describe('periodic procedural material fields', () => {
     ['gneiss', 4],
     ['gneiss', 96],
     ['plywood', 4],
+    ['crackleglaze', 16],
+    ['flutedceramic', 96],
+    ['encaustictiles', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -421,7 +434,7 @@ describe('periodic procedural material fields', () => {
         metallic: 0,
       };
       const b = { ...a };
-      const epsilon = 1e-7;
+      const epsilon = 1e-7 / cells;
       for (const seed of [1, 123, 0xffffffff]) {
         const sample = createSurfaceSampler(kind, seed);
         for (let edge = 0; edge <= cells; edge++)
@@ -446,6 +459,230 @@ describe('periodic procedural material fields', () => {
     },
   );
 
+  it('crackle glaze encloses smooth faces with fine dark recessed hairlines', () => {
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crack = { ...face },
+      beyond = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('crackleglaze', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [7, 11],
+        [15, 15],
+      ]) {
+        const u = (column + 0.5) / 16,
+          v = (row + 0.5) / 16;
+        sample(u, v, face);
+        // Every direction leaves the smooth face through a crack and returns
+        // to glaze; broad mud fissures cannot satisfy this hairline width.
+        for (let direction = 0; direction < 8; direction++) {
+          const angle = (direction * Math.PI) / 4,
+            du = Math.cos(angle),
+            dv = Math.sin(angle);
+          let start = -1,
+            end = -1,
+            darkest = Infinity,
+            crackU = 0,
+            crackV = 0;
+          for (let step = 1; step <= 384; step++) {
+            const distance = step / (16 * 256);
+            sample(u + du * distance, v + dv * distance, beyond);
+            if (beyond.color < 0.5) {
+              if (start < 0) start = distance;
+              if (beyond.color < darkest) {
+                darkest = beyond.color;
+                crackU = u + du * distance;
+                crackV = v + dv * distance;
+                Object.assign(crack, beyond);
+              }
+            } else if (start >= 0) {
+              end = distance;
+              break;
+            }
+          }
+          expect(start).toBeGreaterThan(0);
+          expect(end).toBeGreaterThan(start);
+          // At a network junction both coordinate axes can follow cracks.
+          // Include oblique transects to measure width across the hairline.
+          let narrowest = Infinity;
+          for (let axis = 0; axis < 8; axis++) {
+            const angle = (axis * Math.PI) / 8;
+            let width = 0;
+            for (const side of [-1, 1])
+              for (let step = 1; step <= 256; step++) {
+                const distance = (side * step) / (16 * 1024);
+                sample(
+                  crackU + Math.cos(angle) * distance,
+                  crackV + Math.sin(angle) * distance,
+                  beyond,
+                );
+                if (beyond.color >= 0.5 || step === 256) {
+                  width += step / (16 * 1024);
+                  break;
+                }
+              }
+            narrowest = Math.min(narrowest, width);
+          }
+          expect(narrowest).toBeLessThan(1 / (16 * 8));
+          expect(crack.height).toBeLessThan(face.height);
+          expect(crack.occlusion).toBeLessThan(face.occlusion);
+          expect(crack.roughness).toBeGreaterThan(face.roughness);
+        }
+      }
+    }
+  });
+
+  it('ceramic flutes export rounded vertical ridges with no lengthwise normal slope', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('flutedceramic', seed);
+      let across = 0,
+        along = 0;
+      for (let x = 0; x < 128; x++) {
+        const u = (x + 0.5) / 128;
+        sample(u, 0.23, a);
+        sample(u + 1 / 64, 0.23, b);
+        across += Math.abs(a.height - b.height);
+        sample(u, 0.71, b);
+        along += Math.abs(a.height - b.height);
+      }
+      expect(across).toBeGreaterThan(0);
+      expect(along).toBeLessThan(across / 100);
+      const maps = generateProceduralMaps('flutedceramic', 128, seed);
+      for (let p = 0; p < maps.normal.length; p += 4)
+        expect(maps.normal[p + 1]).toBe(128);
+      expect(maps.normal.some((value, i) => i % 4 === 0 && value !== 128)).toBe(
+        true,
+      );
+    }
+  });
+
+  it('encaustic ornament is flat pigment above recessed square grout', () => {
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pigment = { ...face },
+      grout = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('encaustictiles', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 1],
+        [3, 3],
+      ]) {
+        sample((column + 0.78) / 4, (row + 0.72) / 4, face);
+        sample((column + 0.66) / 4, (row + 0.5) / 4, pigment);
+        expect(pigment.color).toBeLessThan(face.color);
+        expect(face.height).toBe(pigment.height);
+        expect(face.mortar).toBe(0);
+        expect(pigment.mortar).toBe(0);
+        for (const [x, y] of [
+          [column, row + 0.5],
+          [column + 0.5, row],
+        ]) {
+          sample(x / 4, y / 4, grout);
+          expect(grout.height).toBeLessThan(face.height);
+          expect(grout.occlusion).toBeLessThan(face.occlusion);
+          expect(grout.mortar).toBeGreaterThan(face.mortar);
+        }
+        // Crossing a corner bevel's diagonal must not switch abruptly between
+        // the horizontal and vertical grout slopes.
+        const epsilon = 1e-9;
+        for (const edge of [0.04, 0.06, 0.08])
+          for (const sx of [1, -1])
+            for (const sy of [1, -1]) {
+              const u = (column + (sx === 1 ? edge : 1 - edge)) / 4,
+                v = (row + (sy === 1 ? edge : 1 - edge)) / 4;
+              sample(u - epsilon, v, face);
+              sample(u, v, grout);
+              sample(u + epsilon, v, pigment);
+              for (const key of ['height', 'mortar', 'occlusion'] as const)
+                expect(
+                  Math.abs(face[key] - 2 * grout[key] + pigment[key]) / epsilon,
+                ).toBeLessThan(0.01);
+            }
+      }
+      const maps = generateProceduralMaps('encaustictiles', 128, seed);
+      for (let y = 0; y < 128; y++)
+        for (let x = 0; x < 128; x++) {
+          const tx = x % 32,
+            ty = y % 32;
+          if (tx < 4 || tx > 27 || ty < 4 || ty > 27) continue;
+          const p = (y * 128 + x) * 4;
+          expect(maps.normal[p]).toBe(128);
+          expect(maps.normal[p + 1]).toBe(128);
+        }
+    }
+  });
+
+  it.each(['crackleglaze', 'flutedceramic', 'encaustictiles'] as const)(
+    '%s has C1 fields through fine crack shoulders and motif support',
+    (kind) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a },
+        center = { ...a },
+        halfA = { ...a },
+        halfB = { ...a };
+      const cells =
+        kind === 'crackleglaze' ? 16 : kind === 'flutedceramic' ? 96 : 4;
+      // Extrapolate each one-sided slope to cancel smooth curvature. A usable
+      // step avoids amplified rounding error from tiny hairline sample offsets.
+      const epsilon = 1e-7 / cells;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let i = 0; i < 1024; i++) {
+          const u = (i + 0.37) / 1024,
+            v = (((i * 157) % 1024) + 0.29) / 1024;
+          for (const [du, dv] of [
+            [epsilon, 0],
+            [0, epsilon],
+          ]) {
+            sample(u - du, v - dv, a);
+            sample(u, v, center);
+            sample(u + du, v + dv, b);
+            sample(u - du / 2, v - dv / 2, halfA);
+            sample(u + du / 2, v + dv / 2, halfB);
+            for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+              expect(
+                Math.abs(
+                  4 * (halfA[key] + halfB[key]) -
+                    a[key] -
+                    b[key] -
+                    6 * center[key],
+                ) / epsilon,
+              ).toBeLessThan(0.001);
+          }
+        }
+      }
+    },
+  );
   it.each(['limestone', 'breccia'] as const)(
     '%s recesses porous or cement matrix below the exposed mineral faces',
     (kind) => {
