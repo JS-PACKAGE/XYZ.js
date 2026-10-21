@@ -2364,3 +2364,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   textures 均釋放。單元測試擴充 deterministic／seed／normal／接縫連續性。
 - 依授權獨立 commit，不 push；Canvas2D 仍不支援 3D，此紀錄不代表新增
   跨瀏覽器或實體裝置認證。依賴安全修補仍留工作樹，未混入本功能。
+
+## 程序材質擴充：石材飾面（granite／slate／terrazzo）
+
+- 新增細顆粒結晶花崗岩、深藍灰層理板岩、淺色黏結料中含角狀石片的磨石子；
+  tile 物理尺寸依序 0.24／0.6／0.6 m。三者皆 opaque dielectric；
+  磨石子維持低 relief，並非把高對比 color 直接當高度。gallery 與文件同步。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1488 tests
+  通過。前十八種預設在 size 64／seed 7 的四份 maps SHA256 均與前一組
+  相同；新種類加入 deterministic、seed、normal 與接縫連續性案例。
+- managed Chromium 的 WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  畫面 hash 各不相同，沒有 page errors。正式 root API 另產生 256px／seed 7
+  的 2×2 平鋪圖，確認花崗岩礦粒、板岩層理與磨石子嵌片的視覺差異；
+  metallic 全為 0，roughness bytes 依序 86–136／191–240／46–75；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補維持未提交，不納入本組。

@@ -43,6 +43,8 @@
 
 持續 additive scope 再追加 bark／moss／mud（樹皮／苔蘚／泥土），總計十八種：分別呈現隆起紋理與深裂隙、密集柔軟的綠色覆層、土塊與淺裂紋。三者皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps；前十五種輸出、公開 options、ownership、renderer 與零新增依賴契約不變。依持續追加授權逐功能獨立 commit、不 push；品質與 browser 證據另記 ACCEPTANCE，不推定物理尺寸。
 
+石材飾面增量為 granite／slate／terrazzo（花崗岩／板岩／磨石子），總計二十一種：分別呈現斑點礦物顆粒、帶細微脊紋的深色層理、平滑黏結料中的對比色石片。三者皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps 與既有 CPU／PBR 路徑；前十八種輸出須逐位元組保持不變，不改公開 options、ownership、renderer 或依賴。依既有持續追加授權逐功能獨立 commit、不 push；品質與 browser 證據另記 ACCEPTANCE，不推定物理尺寸。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

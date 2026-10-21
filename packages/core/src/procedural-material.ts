@@ -24,7 +24,10 @@ export type ProceduralMaterialKind =
   | 'cobblestone'
   | 'bark'
   | 'moss'
-  | 'mud';
+  | 'mud'
+  | 'granite'
+  | 'slate'
+  | 'terrazzo';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -75,6 +78,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bark',
   'moss',
   'mud',
+  'granite',
+  'slate',
+  'terrazzo',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

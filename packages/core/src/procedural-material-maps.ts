@@ -87,7 +87,10 @@ export function createSurfaceSampler(
     kind === 'cobblestone' ||
     kind === 'bark' ||
     kind === 'moss' ||
-    kind === 'mud';
+    kind === 'mud' ||
+    kind === 'granite' ||
+    kind === 'slate' ||
+    kind === 'terrazzo';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -407,6 +410,121 @@ export function createSurfaceSampler(
         roughness -= 0.38 * damp;
         roughness += 0.1 * (1 - clod) + 0.08 * (fine - 0.5) * (1 - damp);
         occlusion = 0.48 + 0.52 * clod;
+        break;
+      }
+      case 'granite': {
+        const cells = 38;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let pigment = 0,
+          weight = 0,
+          nearest = 4,
+          second = 4;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+            const distance = dx * dx + dy * dy;
+            if (distance < nearest) {
+              second = nearest;
+              nearest = distance;
+            } else if (distance < second) second = distance;
+            // Compact weights vanish before a site can leave the wrapped neighborhood.
+            // Sharp normalized blends form mineral facets without discontinuous cell colors.
+            const cap = Math.pow(clamp(1 - distance / 1.44), 10);
+            const mineral = hash(wx, wy, seed ^ 0x642b);
+            pigment +=
+              cap * (mineral < 0.24 ? 0.08 + mineral : 0.48 + 0.5 * mineral);
+            weight += cap;
+          }
+        const mineral = pigment / Math.max(weight, 1e-12);
+        const boundary =
+          1 - smooth(clamp((Math.sqrt(second) - Math.sqrt(nearest)) / 0.16));
+        color = clamp(
+          0.04 + 0.88 * mineral + 0.1 * (fine - 0.5) - 0.07 * boundary,
+        );
+        height = 0.35 * mineral + 0.17 * fine - 0.12 * boundary;
+        roughness += 0.16 * (1 - mineral) + 0.06 * (fine - 0.5);
+        occlusion = 0.97 - 0.025 * boundary + 0.03 * fine;
+        break;
+      }
+      case 'slate': {
+        const warp = noise(u, v, 5, 4, seed ^ 0x4167);
+        const bedding = noise(
+          u + 0.025 * warp,
+          v + 0.018 * warp,
+          3,
+          22,
+          seed ^ 0x741b,
+        );
+        const layers = bedding * 5;
+        const terrace =
+          (Math.floor(layers) + smooth(clamp((fract(layers) - 0.35) / 0.3))) /
+          5;
+        const cross = noise(u, v, 12, 5, seed ^ 0x135b);
+        const cleft =
+          Math.pow(1 - Math.abs(2 * fract(layers) - 1), 8) *
+          smooth(clamp((cross - 0.18) / 0.35));
+        // Elongated terrace steps and broken clefts, not sinusoidal marble veins.
+        color = 0.14 + 0.62 * terrace + 0.14 * fine - 0.12 * cleft;
+        height = 0.72 * terrace + 0.1 * fine - 0.18 * cleft;
+        roughness += 0.1 * cleft + 0.1 * (fine - 0.5);
+        occlusion = 0.98 - 0.15 * cleft + 0.02 * fine;
+        break;
+      }
+      case 'terrazzo': {
+        const cells = 9;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let coverage = 0,
+          pigment = 0,
+          weight = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const variation = hash(wx, wy, seed ^ 0x927b);
+            const angle = hash(wx, wy, seed ^ 0x341d) * TAU;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+            const rx = dx * cos + dy * sin,
+              ry = dy * cos - dx * sin;
+            const aspect = 0.75 + 0.25 * hash(wx, wy, seed ^ 0x21af);
+            // Intersect rotated half-planes for asymmetric, flat angular chips.
+            const distance = Math.max(
+              Math.abs(rx) * aspect,
+              Math.abs(ry),
+              (rx * 0.65 + ry * 0.76) * 1.1,
+              (-rx * 0.83 + ry * 0.55) * 1.15,
+            );
+            const radius = 0.26 + 0.18 * variation;
+            const chip = smooth(clamp((radius - distance) / 0.025));
+            coverage = Math.max(coverage, chip);
+            pigment += chip * (0.08 + 0.7 * hash(wx, wy, seed ^ 0x591f));
+            weight += chip;
+          }
+        const mineral = pigment / Math.max(weight, 1e-12);
+        const binder = 0.88 + 0.06 * detail;
+        color = binder * (1 - coverage) + coverage * mineral;
+        // Polished chips are nearly flush with the binder: color is not a height map.
+        height = 0.15 + 0.06 * coverage + 0.015 * detail + 0.025 * fine;
+        roughness +=
+          0.055 * (1 - coverage) -
+          0.03 * coverage * mineral +
+          0.04 * (fine - 0.5);
+        occlusion = 0.98 + 0.015 * coverage + 0.005 * fine;
         break;
       }
     }

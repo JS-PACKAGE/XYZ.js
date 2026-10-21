@@ -49,7 +49,7 @@ Alternatively open the root [example index](../index.html) at `http://127.0.0.1:
 | [ui2d](../examples/ui2d/)                               | Text2D, bitmap fonts, NineSlice, HUD, accessible buttons                                                                                    |
 | [input-lab](../examples/input-lab/)                     | Keyboard/pointer/gamepad state, rebindable ActionMap                                                                                        |
 | [audio-lab](../examples/audio-lab/)                     | Unlock, OPM music/SFX, PCM sample, volumes, PreloadBatch                                                                                    |
-| [pbr3d](../examples/pbr3d/)                             | Procedural PBR presets including pavement, bark, moss and mud, metallic/roughness grid, shadows, environment, fog, exposure/bloom           |
+| [pbr3d](../examples/pbr3d/)                             | Procedural PBR surfaces, metallic/roughness grid, shadows, environment, fog, exposure/bloom                                                 |
 | [instancing3d](../examples/instancing3d/)               | InstancedMesh batches, culling probes, RenderStats                                                                                          |
 | [picking3d](../examples/picking3d/)                     | Nested Groups, OrbitControls, Raycaster, camera projection                                                                                  |
 | [gltf3d](../examples/gltf3d/)                           | Skinned glTF clip playback, morph targets                                                                                                   |
@@ -471,11 +471,13 @@ PBR borrows base/emissive sRGB and linear metallicRoughness (G/B), normal/occlus
 
 #### Reusable Procedural PBR Presets
 
-`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. `ProceduralMaterialKind` is `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation. Metal and rust use metallic factor 1; other kinds stay dielectric.
+`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. The 21 `ProceduralMaterialKind` values are `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation. Metal and rust use metallic factor 1; other kinds stay dielectric.
 
 For pavement, choose asphalt for dark granular binder with embedded aggregate, gravel for irregular pebbles with dark recesses, or cobblestone for staggered rounded paving blocks. All three use opaque, repeating color/normal/metallic-roughness/occlusion maps.
 
 For natural surfaces, choose bark for ridges and deep fissures, moss for dense soft green growth, or mud for earthy clumps with shallow cracks. These opaque dielectrics use the same four repeating maps.
+
+For stone finishes, choose granite for speckled mineral grains, slate for layered dark stone with fine ridges, or terrazzo for contrasting stone chips in a smooth binder. These opaque dielectrics use the same four repeating maps with a zero metallic channel.
 
 With an existing 3D `scene`, reuse one preset across meshes:
 

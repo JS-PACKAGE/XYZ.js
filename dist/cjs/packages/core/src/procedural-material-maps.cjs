@@ -23,7 +23,7 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
 		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
@@ -122,6 +122,33 @@ function createSurfaceSampler(t, r) {
 				}
 				let _ = smooth(clamp((Math.sqrt(l) - Math.sqrt(s) - .025) / .13)), v = smooth(clamp((noise(e, c, 3, 3, r ^ 14561) - .25) / .5));
 				p = .04 + _ * (.52 - .24 * v + .17 * d) + .04 * f, m = _ * (.48 + .16 * (1 - s)) + (.07 * d + .03 * f) * (1 - .75 * v), h -= .38 * v, h += .1 * (1 - _) + .08 * (f - .5) * (1 - v), g = .48 + .52 * _;
+				break;
+			}
+			case `granite`: {
+				let t = e * 38, n = c * 38, i = Math.floor(t), a = Math.floor(n), o = 0, s = 0, l = 4, u = 4;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let d = i + c, f = a + e, p = (d % 38 + 38) % 38, m = (f % 38 + 38) % 38, h = t - d - .3 - .4 * hash(p, m, r), g = n - f - .3 - .4 * hash(p, m, r ^ 40503), _ = h * h + g * g;
+					_ < l ? (u = l, l = _) : _ < u && (u = _);
+					let v = clamp(1 - _ / 1.44) ** 10, y = hash(p, m, r ^ 25643);
+					o += v * (y < .24 ? .08 + y : .48 + .5 * y), s += v;
+				}
+				let d = o / Math.max(s, 1e-12), _ = 1 - smooth(clamp((Math.sqrt(u) - Math.sqrt(l)) / .16));
+				p = clamp(.04 + .88 * d + .1 * (f - .5) - .07 * _), m = .35 * d + .17 * f - .12 * _, h += .16 * (1 - d) + .06 * (f - .5), g = .97 - .025 * _ + .03 * f;
+				break;
+			}
+			case `slate`: {
+				let t = noise(e, c, 5, 4, r ^ 16743), n = noise(e + .025 * t, c + .018 * t, 3, 22, r ^ 29723) * 5, i = (Math.floor(n) + smooth(clamp((fract(n) - .35) / .3))) / 5, a = noise(e, c, 12, 5, r ^ 4955), o = (1 - Math.abs(2 * fract(n) - 1)) ** 8 * smooth(clamp((a - .18) / .35));
+				p = .14 + .62 * i + .14 * f - .12 * o, m = .72 * i + .1 * f - .18 * o, h += .1 * o + .1 * (f - .5), g = .98 - .15 * o + .02 * f;
+				break;
+			}
+			case `terrazzo`: {
+				let t = e * 9, i = c * 9, a = Math.floor(t), o = Math.floor(i), s = 0, l = 0, u = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let d = a + c, f = o + e, p = (d % 9 + 9) % 9, m = (f % 9 + 9) % 9, h = hash(p, m, r ^ 37499), g = hash(p, m, r ^ 13341) * n, _ = Math.cos(g), v = Math.sin(g), y = t - d - .3 - .4 * hash(p, m, r), b = i - f - .3 - .4 * hash(p, m, r ^ 40503), x = y * _ + b * v, S = b * _ - y * v, C = .75 + .25 * hash(p, m, r ^ 8623), w = Math.max(Math.abs(x) * C, Math.abs(S), (x * .65 + S * .76) * 1.1, (-x * .83 + S * .55) * 1.15), E = smooth(clamp((.26 + .18 * h - w) / .025));
+					s = Math.max(s, E), l += E * (.08 + .7 * hash(p, m, r ^ 22815)), u += E;
+				}
+				let _ = l / Math.max(u, 1e-12);
+				p = (.88 + .06 * d) * (1 - s) + s * _, m = .15 + .06 * s + .015 * d + .025 * f, h += .055 * (1 - s) - .03 * s * _ + .04 * (f - .5), g = .98 + .015 * s + .005 * f;
 				break;
 			}
 		}

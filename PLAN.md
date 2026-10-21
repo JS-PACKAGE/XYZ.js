@@ -32,6 +32,8 @@
 
 下一組自然表面追加 bark／moss／mud（樹皮／苔蘚／泥土）：隆起紋理與深裂隙／密集柔軟的綠色覆層／土塊與淺裂紋。沿用上述持續追加與獨立 commit、不 push 授權，支援總數增為十八種；三者皆為 opaque dielectric，使用相同四份 maps，不改前十五種輸出、公開 options、ownership、renderer 或依賴。實際品質與驗證結果另記 ACCEPTANCE，不宣稱物理尺寸。
 
+再追加石材飾面 granite／slate／terrazzo（花崗岩／板岩／磨石子）：斑點礦物顆粒／帶細微脊紋的深色層理／平滑黏結料中的對比色石片。沿用既有持續追加、完成功能獨立 commit、不 push 授權，總數增為二十一種；皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps。前十八種輸出須逐位元組保持不變，公開 options、ownership、renderer 與零新增依賴契約不變。實際品質與驗證結果另記 ACCEPTANCE，不宣稱物理尺寸。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
