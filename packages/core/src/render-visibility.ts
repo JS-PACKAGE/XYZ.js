@@ -238,10 +238,13 @@ export class RenderVisibilityCache {
       const stamp = record.stamp,
         matrix = mesh.worldMatrix.elements,
         s = entry.sphere;
-      for (let i = 0; i < 16; i++) {
-        if (!Object.is(stamp[i], matrix[i])) changed = true;
-        stamp[i] = matrix[i];
-      }
+      // Once a change is known, only the copies matter; the comparisons decide nothing more.
+      if (changed) for (let i = 0; i < 16; i++) stamp[i] = matrix[i];
+      else
+        for (let i = 0; i < 16; i++) {
+          if (!Object.is(stamp[i], matrix[i])) changed = true;
+          stamp[i] = matrix[i];
+        }
       const values = this.stampValues;
       values[0] = s.x;
       values[1] = s.y;
@@ -265,13 +268,16 @@ export class RenderVisibilityCache {
               ? 2
               : 0
           : 0;
-      for (let i = 0; i < values.length; i++) {
-        if (!Object.is(stamp[16 + i], values[i])) {
-          changed = true;
-          if (i < 4 || i === 7) boundsChanged = true;
+      if (boundsChanged)
+        for (let i = 0; i < values.length; i++) stamp[16 + i] = values[i]!;
+      else
+        for (let i = 0; i < values.length; i++) {
+          if (!Object.is(stamp[16 + i], values[i])) {
+            changed = true;
+            if (i < 4 || i === 7) boundsChanged = true;
+          }
+          stamp[16 + i] = values[i]!;
         }
-        stamp[16 + i] = values[i]!;
-      }
       out.entries.set(mesh, entry);
       // Shadows intentionally never inherit camera-frustum or occlusion rejection.
       if (record.drawable && mesh.castShadow) out.shadows[shadowCount++] = mesh;
@@ -324,7 +330,7 @@ export class RenderVisibilityCache {
       this.nodes.length = this.nodeCount;
     }
     if (this.root) {
-      if (boundsChanged) this.refit(this.root, out);
+      if (boundsChanged) this.refit(out);
       this.gather(this.root, camera, frustum, out, options, height);
     }
     // BVH traversal order must not change equal-depth/transparent insertion ordering.
@@ -432,33 +438,39 @@ export class RenderVisibilityCache {
     return node;
   }
 
-  private refit(node: Node3D, out: RenderVisibilitySet): void {
-    out.boundsRefits++;
-    if (node.record) {
-      const mesh = node.record.entry.mesh,
-        s = node.record.entry.sphere;
-      if (!mesh.frustumCulled || !sphereIsFinite(s)) {
-        node.minX = node.minY = node.minZ = -Infinity;
-        node.maxX = node.maxY = node.maxZ = Infinity;
+  /**
+   * Refits every node bottom-up. The build allocates nodes in pre-order, so walking them in
+   * reverse visits each child before its parent without recursing.
+   */
+  private refit(out: RenderVisibilitySet): void {
+    const nodes = this.nodes;
+    for (let i = this.nodeCount - 1; i >= 0; i--) {
+      const node = nodes[i]!;
+      out.boundsRefits++;
+      if (node.record) {
+        const mesh = node.record.entry.mesh,
+          s = node.record.entry.sphere;
+        if (!mesh.frustumCulled || !sphereIsFinite(s)) {
+          node.minX = node.minY = node.minZ = -Infinity;
+          node.maxX = node.maxY = node.maxZ = Infinity;
+        } else {
+          node.minX = s.x - s.radius;
+          node.maxX = s.x + s.radius;
+          node.minY = s.y - s.radius;
+          node.maxY = s.y + s.radius;
+          node.minZ = s.z - s.radius;
+          node.maxZ = s.z + s.radius;
+        }
       } else {
-        node.minX = s.x - s.radius;
-        node.maxX = s.x + s.radius;
-        node.minY = s.y - s.radius;
-        node.maxY = s.y + s.radius;
-        node.minZ = s.z - s.radius;
-        node.maxZ = s.z + s.radius;
+        const left = node.left!,
+          right = node.right!;
+        node.minX = Math.min(left.minX, right.minX);
+        node.maxX = Math.max(left.maxX, right.maxX);
+        node.minY = Math.min(left.minY, right.minY);
+        node.maxY = Math.max(left.maxY, right.maxY);
+        node.minZ = Math.min(left.minZ, right.minZ);
+        node.maxZ = Math.max(left.maxZ, right.maxZ);
       }
-    } else {
-      const left = node.left!,
-        right = node.right!;
-      this.refit(left, out);
-      this.refit(right, out);
-      node.minX = Math.min(left.minX, right.minX);
-      node.maxX = Math.max(left.maxX, right.maxX);
-      node.minY = Math.min(left.minY, right.minY);
-      node.maxY = Math.max(left.maxY, right.maxY);
-      node.minZ = Math.min(left.minZ, right.minZ);
-      node.maxZ = Math.max(left.maxZ, right.maxZ);
     }
   }
 

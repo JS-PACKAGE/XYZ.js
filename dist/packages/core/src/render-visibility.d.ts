@@ -88,6 +88,10 @@ export declare class RenderVisibilityCache {
     clear(): void;
     private sync;
     private build;
+    /**
+     * Refits every node bottom-up. The build allocates nodes in pre-order, so walking them in
+     * reverse visits each child before its parent without recursing.
+     */
     private refit;
     private gather;
     private instanceSpheres;

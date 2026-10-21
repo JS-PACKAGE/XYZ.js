@@ -81,6 +81,23 @@ describe('indexed render visibility', () => {
     expect(gather(scene, cache, out).color).toEqual([a, c, d, b]);
   });
 
+  it('refits the whole hierarchy when meshes move after other per-mesh changes', () => {
+    const scene = new Scene();
+    const cache = new RenderVisibilityCache(),
+      out = new RenderVisibilitySet();
+    const far = Array.from({ length: 16 }, (_, i) =>
+      scene.add(cube(200 + i * 3)),
+    );
+    expect(gather(scene, cache, out).color).toEqual([]);
+    // A change that leaves bounds alone is seen first, then two leaves move into view.
+    far[0]!.visible = false;
+    far[5]!.position.x = 0;
+    far[12]!.position.x = 1.5;
+    expect(gather(scene, cache, out).color).toEqual([far[5], far[12]]);
+    far[5]!.position.x = 300;
+    expect(gather(scene, cache, out).color).toEqual([far[12]]);
+  });
+
   it('keeps shadow casters whose bounds reach a shadow view, opted-out meshes and unknown bounds', () => {
     const scene = new Scene();
     const inside = scene.add(cube()),

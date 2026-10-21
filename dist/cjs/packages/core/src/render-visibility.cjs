@@ -78,10 +78,11 @@ var RenderVisibilityCache = class {
 			for (let e = s.parent; e; e = e.parent) e instanceof require_objects3d.LOD && (c *= e.renderWeight(s));
 			a.fade = c, e.colorVisible = !1, e.drawable = s.worldVisible && !require_mesh.materialBaseTexture(s.material).destroyed && s.geometry.indices.length > 0 && (s.material.opacity > 0 || s.material instanceof require_pbr_material.PBRMaterial && s.material.alphaMode !== `BLEND`);
 			let u = e.stamp, d = s.worldMatrix.elements, f = a.sphere;
-			for (let e = 0; e < 16; e++) Object.is(u[e], d[e]) || (m = !0), u[e] = d[e];
+			if (m) for (let e = 0; e < 16; e++) u[e] = d[e];
+			else for (let e = 0; e < 16; e++) Object.is(u[e], d[e]) || (m = !0), u[e] = d[e];
 			let g = this.stampValues;
-			g[0] = f.x, g[1] = f.y, g[2] = f.z, g[3] = f.radius, g[4] = +!!e.drawable, g[5] = c, g[6] = s.renderGeometry.version, g[7] = +!!s.frustumCulled, g[8] = +!!s.occlusionCulled, g[9] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, g[10] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0, g[11] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, g[12] = require_mesh.materialBaseTexture(s.material).version, g[13] = s.material.opacity, g[14] = s.material instanceof require_pbr_material.PBRMaterial ? s.material.alphaMode === `MASK` ? 1 : s.material.alphaMode === `BLEND` ? 2 : 0 : 0;
-			for (let e = 0; e < g.length; e++) Object.is(u[16 + e], g[e]) || (m = !0, (e < 4 || e === 7) && (h = !0)), u[16 + e] = g[e];
+			if (g[0] = f.x, g[1] = f.y, g[2] = f.z, g[3] = f.radius, g[4] = +!!e.drawable, g[5] = c, g[6] = s.renderGeometry.version, g[7] = +!!s.frustumCulled, g[8] = +!!s.occlusionCulled, g[9] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, g[10] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0, g[11] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, g[12] = require_mesh.materialBaseTexture(s.material).version, g[13] = s.material.opacity, g[14] = s.material instanceof require_pbr_material.PBRMaterial ? s.material.alphaMode === `MASK` ? 1 : s.material.alphaMode === `BLEND` ? 2 : 0 : 0, h) for (let e = 0; e < g.length; e++) u[16 + e] = g[e];
+			else for (let e = 0; e < g.length; e++) Object.is(u[16 + e], g[e]) || (m = !0, (e < 4 || e === 7) && (h = !0)), u[16 + e] = g[e];
 			l.entries.set(s, a), e.drawable && s.castShadow && (l.shadows[p++] = s);
 		}
 		if (l.shadows.length = p, l.entries.size !== this.records.size) for (let e of l.entries.keys()) this.records.has(e) || l.entries.delete(e);
@@ -98,7 +99,7 @@ var RenderVisibilityCache = class {
 			}
 			this.leaves.sort(r - e >= i - t && r - e >= a - n ? byX : i - t >= a - n ? byY : byZ), this.nodeCount = 0, this.root = this.build(0, this.leaves.length), this.nodes.length = this.nodeCount;
 		}
-		this.root && (h && this.refit(this.root, l), this.gather(this.root, a, c, l, u, d));
+		this.root && (h && this.refit(l), this.gather(this.root, a, c, l, u, d));
 		let _ = 0;
 		for (let e of this.records.values()) e.colorVisible && (l.color[_++] = e.entry.mesh), e.drawable && ++l.frustumCulled;
 		return l.color.length = _, l.frustumCulled -= _ + l.occlusionCulled, l;
@@ -177,13 +178,17 @@ var RenderVisibilityCache = class {
 		}
 		return n;
 	}
-	refit(e, t) {
-		if (t.boundsRefits++, e.record) {
-			let t = e.record.entry.mesh, n = e.record.entry.sphere;
-			!t.frustumCulled || !require_render_bounds.sphereIsFinite(n) ? (e.minX = e.minY = e.minZ = -1 / 0, e.maxX = e.maxY = e.maxZ = 1 / 0) : (e.minX = n.x - n.radius, e.maxX = n.x + n.radius, e.minY = n.y - n.radius, e.maxY = n.y + n.radius, e.minZ = n.z - n.radius, e.maxZ = n.z + n.radius);
-		} else {
-			let n = e.left, r = e.right;
-			this.refit(n, t), this.refit(r, t), e.minX = Math.min(n.minX, r.minX), e.maxX = Math.max(n.maxX, r.maxX), e.minY = Math.min(n.minY, r.minY), e.maxY = Math.max(n.maxY, r.maxY), e.minZ = Math.min(n.minZ, r.minZ), e.maxZ = Math.max(n.maxZ, r.maxZ);
+	refit(e) {
+		let t = this.nodes;
+		for (let n = this.nodeCount - 1; n >= 0; n--) {
+			let r = t[n];
+			if (e.boundsRefits++, r.record) {
+				let e = r.record.entry.mesh, t = r.record.entry.sphere;
+				!e.frustumCulled || !require_render_bounds.sphereIsFinite(t) ? (r.minX = r.minY = r.minZ = -1 / 0, r.maxX = r.maxY = r.maxZ = 1 / 0) : (r.minX = t.x - t.radius, r.maxX = t.x + t.radius, r.minY = t.y - t.radius, r.maxY = t.y + t.radius, r.minZ = t.z - t.radius, r.maxZ = t.z + t.radius);
+			} else {
+				let e = r.left, t = r.right;
+				r.minX = Math.min(e.minX, t.minX), r.maxX = Math.max(e.maxX, t.maxX), r.minY = Math.min(e.minY, t.minY), r.maxY = Math.max(e.maxY, t.maxY), r.minZ = Math.min(e.minZ, t.minZ), r.maxZ = Math.max(e.maxZ, t.maxZ);
+			}
 		}
 	}
 	gather(t, r, i, o, c, l) {
