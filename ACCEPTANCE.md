@@ -3211,32 +3211,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
   不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
-
-## 程序材質擴充：戶外硬景（brickpaving／steppingstone／woodendeck）
-
-- 新增錯縫墊高於砂質接縫之上的磚面、墊高於礫石地面的圓潤石板、
-  窄縫上方的板面與隆起螺絲釘頭及凹陷十字槽。本組快照由
-  150 增為 153 種；三者皆為 opaque dielectric，metallic 通道與
-  預設 factor 為 0，僅為表面 shading，不新增磚、石板、木板或
-  螺絲 geometry，也不做 displacement。
-- 原 150 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
-- build、typecheck、lint、format:check 通過；完整 Vitest 2044 個
-  測試中 2043 通過，唯一失敗為既有已知不穩定的 mesh-shader-variants
-  （單獨重跑通過）。磚面／砂縫高度與遮蔽、錯縫半磚位移、石板／
-  礫石地高度序、板面／窄縫高度序、釘頭／十字槽高度與遮蔽序、
-  support 邊界斜率連續性納入回歸；板面色調沿縫淡出避免跨界跳變。
-- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 153 種）逐一切換三者，
-  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
-  無 page／console errors，狀態列確認實際 backend。
-  metallic 全為 0，roughness bytes 依序
-  204–229／214–245／172–215；每米 repeats 依序
-  1.25／1／1.111111。
-  check:material-reference 通過，regression-browser chromium
-  webgl2 與 webgpu 通過。
-- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
-  只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
-  不納入本組。不新增 runtime 依賴、不 push，
-  不擴大跨瀏覽器或實體裝置認證。
 - `[Physics2D]` 減少每 step 配置，數值與事件順序不變：質量／慣量／反彈／摩擦與速度改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；sweep 與 CCD 配對過濾改讀 `Collider2D.filterBits`（category／mask 的 int32 副本，由 setter 同步，位元測試結果相同），不再呼叫回傳 0xffffffff 等大數的 getter（未內聯時每次裝箱）；睡眠／喚醒島嶼 BFS 與可解接觸清單改以計數重用，不再每個島嶼清空陣列（V8 清空即釋放 backing store），`clear()` 一併釋放。physics2d browser benchmark（WebGL2）每幀配置約 1034 → 404 KB（`solveVelocity` 約 450 KB → 0）；Node 1500 剛體 bench 約 6.5–7.2 → 4.05 MiB／step，hash 不變，屬配置減少。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 
 ## 程序材質擴充：裝飾礦石（malachite／agate／lapislazuli）
@@ -3463,3 +3437,30 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   PLAN／DESIGN、驗證與對應 dist。沒有新增相對連結，
   README 既有自然表面分類維持適用。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+
+## 程序材質擴充：戶外硬景（brickpaving／steppingstone／woodendeck）
+
+- 新增錯縫墊高於砂質接縫之上的磚面、墊高於礫石地面的圓潤石板、
+  窄縫上方的板面與隆起螺絲釘頭及凹陷十字槽。本組快照由
+  153 增為 156 種；三者皆為 opaque dielectric，metallic 通道與
+  預設 factor 為 0，僅為表面 shading，不新增磚、石板、木板或
+  螺絲 geometry，也不做 displacement。
+- 原 153 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 通過；完整 Vitest 2044 個
+  測試中 2043 通過，唯一失敗為既有已知不穩定的 mesh-shader-variants
+  （單獨重跑通過）。磚面／砂縫高度與遮蔽、錯縫半磚位移、石板／
+  礫石地高度序、板面／窄縫高度序、釘頭／十字槽高度與遮蔽序、
+  support 邊界斜率連續性納入回歸；板面色調沿縫淡出避免跨界跳變。
+- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 156 種）逐一切換三者，
+  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  metallic 全為 0，roughness bytes 依序
+  204–229／214–245／172–215；每米 repeats 依序
+  1.25／1／1.111111。
+  check:material-reference 通過，regression-browser chromium
+  webgl2 與 webgpu 通過。
+- 本組首次落地（`c41f7d99`）時以較舊快照蓋掉了同時落地的
+  scallopshell／oystershell／nautilusshell 已提交內容；本 commit
+  立即以該組已提交版本為基準還原並重送本組變更，未重寫歷史、
+  不 push。共享工作目錄的其他行程修改不納入本組；
+  不新增 runtime 依賴，不擴大跨瀏覽器或實體裝置認證。

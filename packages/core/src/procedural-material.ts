@@ -159,7 +159,10 @@ export type ProceduralMaterialKind =
   | 'damask'
   | 'zebrafur'
   | 'leopardfur'
-  | 'giraffefur';
+  | 'giraffefur'
+  | 'scallopshell'
+  | 'oystershell'
+  | 'nautilusshell';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -345,6 +348,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zebrafur',
   'leopardfur',
   'giraffefur',
+  'scallopshell',
+  'oystershell',
+  'nautilusshell',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

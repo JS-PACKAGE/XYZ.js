@@ -801,6 +801,32 @@ export function createSurfaceSampler(
             branch !== 2 || hash(x, y, seed ^ 0x6d25) < 0.35 ? 1 : 0;
         }
       }
+  const shell =
+    kind === 'scallopshell' ||
+    kind === 'oystershell' ||
+    kind === 'nautilusshell';
+  const shellGrain = shell ? cachedNoise(64, 64, seed ^ 0x5e91) : null;
+  const shellCells = kind === 'oystershell' ? 3 : 2;
+  // Compact, sampler-owned transforms. Every support fits inside the wrapped
+  // 3x3 lookup; inserting/removing a neighbor therefore changes no field.
+  const shellFaces = shell
+    ? new Float64Array(shellCells * shellCells * 8)
+    : null;
+  if (shellFaces)
+    for (let y = 0; y < shellCells; y++)
+      for (let x = 0; x < shellCells; x++) {
+        const offset = (y * shellCells + x) * 8,
+          angle = 0.45 * (hash(x, y, seed ^ 0x317b) - 0.5),
+          oyster = kind === 'oystershell';
+        shellFaces[offset] = 0.5 + 0.12 * (hash(x, y, seed ^ 0x193d) - 0.5);
+        shellFaces[offset + 1] = 0.5 + 0.12 * (hash(x, y, seed ^ 0x69a1) - 0.5);
+        shellFaces[offset + 2] = Math.cos(angle);
+        shellFaces[offset + 3] = Math.sin(angle);
+        shellFaces[offset + 4] = 1 / (oyster ? 0.73 : 0.47);
+        shellFaces[offset + 5] = 1 / (oyster ? 0.58 : 0.47);
+        shellFaces[offset + 6] = TAU * hash(x, y, seed ^ 0x4b27);
+        shellFaces[offset + 7] = 0.52 + 0.05 * Math.sin(shellFaces[offset + 6]);
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -835,7 +861,8 @@ export function createSurfaceSampler(
       bulkGrain ||
       foliage ||
       marine ||
-      shortFur
+      shortFur ||
+      shell
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -862,6 +889,105 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'scallopshell':
+      case 'oystershell':
+      case 'nautilusshell': {
+        const x = u * shellCells,
+          y = v * shellCells,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = shellGrain!(u, v);
+        color = 0.28 + 0.035 * grain;
+        height = 0.12 + 0.004 * grain;
+        occlusion = 0.76;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset =
+                (((cy + shellCells) % shellCells) * shellCells +
+                  ((cx + shellCells) % shellCells)) *
+                8,
+              dx = x - cx - shellFaces![offset],
+              dy = y - cy - shellFaces![offset + 1],
+              cosine = shellFaces![offset + 2],
+              sine = shellFaces![offset + 3],
+              a = (dx * cosine + dy * sine) * shellFaces![offset + 4],
+              b = (dy * cosine - dx * sine) * shellFaces![offset + 5],
+              p = shellFaces![offset + 6];
+            let face: number,
+              relief: number,
+              pigment: number,
+              exposure: number,
+              polish: number;
+            if (kind === 'scallopshell') {
+              const along = b + 0.6,
+                q = a * a + along * along;
+              if (q <= 0.015 || q >= 1.8225 || along <= 0) continue;
+              const radius = Math.sqrt(q),
+                angle = Math.atan2(a, along),
+                // The hinge has an open zero neighborhood: no directional
+                // limit survives there, even on atan2's branch cut.
+                hinge = smooth(clamp((q - 0.015) * 16)),
+                fan = smooth(clamp((Math.cos(angle) - 0.55) * 5)),
+                rim = 1 - smooth(clamp((radius - 1.15) * 5)),
+                rib = 0.5 + 0.5 * Math.cos(18 * angle),
+                growth = 0.5 + 0.5 * Math.cos(44 * radius + p);
+              face = hinge * fan * rim;
+              relief = 0.29 + 0.25 * rib + 0.025 * growth;
+              pigment = 0.48 + 0.25 * rib + 0.065 * growth;
+              exposure = 0.8 + 0.17 * rib;
+              polish = -0.05 * rib;
+            } else if (kind === 'oystershell') {
+              // Off-center, Cartesian lobing deforms nested growth fronts.
+              // Each lamina has a lifted inner lip and a shadowed outer recess,
+              // not a symmetric sinusoidal corrugation or rectangular strip.
+              const warped = a + 0.16 * b * b,
+                q =
+                  (warped * warped + b * b) *
+                  (1 + 0.13 * Math.sin(5 * a + p) * Math.sin(4 * b - p));
+              if (q >= 1) continue;
+              face = 1 - smooth(clamp((q - 0.78) * (1 / 0.22)));
+              relief = 0.25;
+              pigment = shellFaces![offset + 7];
+              exposure = 0.96;
+              for (let layer = 0; layer < 5; layer++) {
+                const front = 0.9 - layer * 0.155,
+                  distance = q - front,
+                  terrace = 1 - smooth(clamp((distance + 0.025) * 20)),
+                  lip = Math.exp(-1800 * (distance + 0.045) ** 2),
+                  recess = Math.exp(-1800 * (distance - 0.035) ** 2);
+                relief += 0.065 * terrace + 0.075 * lip - 0.035 * recess;
+                pigment += 0.035 * terrace + 0.1 * lip - 0.14 * recess;
+                exposure -= 0.12 * recess;
+              }
+              relief += 0.018 * (grain - 0.5);
+              pigment += 0.12 * (grain - 0.5);
+              polish = 0.045 * (grain - 0.5);
+            } else {
+              const q = a * a + b * b;
+              if (q >= 1) continue;
+              const radius = Math.sqrt(q),
+                angle = Math.atan2(b, a),
+                center = smooth(clamp((q - 0.01) * 12)),
+                // Integer angular harmonics make both sides of atan2's cut
+                // identical. Radial phase winds the coil and bends chambers.
+                coil = 0.5 + 0.5 * Math.cos(6 * Math.PI * radius - angle + p),
+                chamber = 0.5 + 0.5 * Math.cos(18 * angle - 13 * radius + p),
+                stripe = chamber ** 4;
+              face = 1 - smooth(clamp((q - 0.75) * 4));
+              relief = 0.35 + center * (0.15 * coil + 0.025 * chamber);
+              pigment = 0.87 - center * (0.52 * stripe + 0.13 * (1 - coil));
+              exposure = 0.97 - 0.15 * center * (1 - coil);
+              polish = -0.045 * center * coil;
+            }
+            height += face * (relief - height);
+            color += face * (pigment - color);
+            occlusion += face * (exposure - occlusion);
+            roughness += face * (preset.roughness + polish - roughness);
+          }
+        break;
+      }
       case 'zebrafur':
       case 'leopardfur':
       case 'giraffefur': {

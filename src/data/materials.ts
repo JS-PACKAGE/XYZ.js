@@ -925,6 +925,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.87,
     relief: 0.002,
   }),
+  scallopshell: Object.freeze({
+    dark: [151, 71, 65] as const,
+    light: [249, 233, 204] as const,
+    roughness: 0.55,
+    relief: 0.006,
+  }),
+  oystershell: Object.freeze({
+    dark: [62, 65, 59] as const,
+    light: [227, 222, 198] as const,
+    roughness: 0.89,
+    relief: 0.009,
+  }),
+  nautilusshell: Object.freeze({
+    dark: [124, 46, 25] as const,
+    light: [249, 234, 196] as const,
+    roughness: 0.38,
+    relief: 0.004,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -1082,6 +1100,9 @@ export const proceduralTileMeters = Object.freeze({
   zebrafur: 0.32,
   leopardfur: 0.36,
   giraffefur: 0.6,
+  scallopshell: 0.28,
+  oystershell: 0.32,
+  nautilusshell: 0.24,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
