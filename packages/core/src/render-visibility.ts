@@ -172,7 +172,10 @@ export class RenderVisibilityCache {
       throw new RangeError(
         'Visibility requires positive viewport height and finite presentation time.',
       );
-    out.color.length = out.shadows.length = out.occlusionCandidates.length = 0;
+    // `length = 0` drops an array's backing store, so refilling color and shadows by push
+    // reallocated them every frame. They are overwritten in place and truncated once filled.
+    out.occlusionCandidates.length = 0;
+    let shadowCount = 0;
     out.meshChecks =
       out.poseChecks =
       out.boxTests =
@@ -267,8 +270,9 @@ export class RenderVisibilityCache {
       }
       out.entries.set(mesh, entry);
       // Shadows intentionally never inherit camera-frustum or occlusion rejection.
-      if (record.drawable && mesh.castShadow) out.shadows.push(mesh);
+      if (record.drawable && mesh.castShadow) out.shadows[shadowCount++] = mesh;
     }
+    out.shadows.length = shadowCount;
     // Every record's mesh is now a key, so equal sizes mean no stale entries remain;
     // only then can the per-entry membership scan be skipped.
     if (out.entries.size !== this.records.size)
@@ -320,11 +324,13 @@ export class RenderVisibilityCache {
       this.gather(this.root, camera, frustum, out, options, height);
     }
     // BVH traversal order must not change equal-depth/transparent insertion ordering.
+    let colorCount = 0;
     for (const record of this.records.values()) {
-      if (record.colorVisible) out.color.push(record.entry.mesh);
+      if (record.colorVisible) out.color[colorCount++] = record.entry.mesh;
       if (record.drawable) ++out.frustumCulled;
     }
-    out.frustumCulled -= out.color.length + out.occlusionCulled;
+    out.color.length = colorCount;
+    out.frustumCulled -= colorCount + out.occlusionCulled;
     return out;
   }
 

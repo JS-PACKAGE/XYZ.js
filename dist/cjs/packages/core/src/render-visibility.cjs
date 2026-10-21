@@ -64,9 +64,11 @@ var RenderVisibilityCache = class {
 	collect(e, a, c, l, u = {}) {
 		let d = u.viewportHeight ?? 1, f = u.timeSeconds ?? 0;
 		if (!Number.isFinite(d) || d <= 0 || !Number.isFinite(f)) throw RangeError(`Visibility requires positive viewport height and finite presentation time.`);
-		l.color.length = l.shadows.length = l.occlusionCandidates.length = 0, l.meshChecks = l.poseChecks = l.boxTests = l.sphereTests = l.instanceTests = 0, l.frustumCulled = l.occlusionCulled = 0, l.boundsRefits = 0;
-		let p = !1, m = !1;
-		this.scene !== e && (this.clear(), this.scene = e, p = !0), this.revision !== e.renderMeshRevision && (this.sync(e.renderMeshes), this.revision = e.renderMeshRevision, p = !0, m = !0), ++this.gatherFrame;
+		l.occlusionCandidates.length = 0;
+		let p = 0;
+		l.meshChecks = l.poseChecks = l.boxTests = l.sphereTests = l.instanceTests = 0, l.frustumCulled = l.occlusionCulled = 0, l.boundsRefits = 0;
+		let m = !1, h = !1;
+		this.scene !== e && (this.clear(), this.scene = e, m = !0), this.revision !== e.renderMeshRevision && (this.sync(e.renderMeshes), this.revision = e.renderMeshRevision, m = !0, h = !0), ++this.gatherFrame;
 		for (let e of this.records.keys()) for (let t = e.parent; t; t = t.parent) t instanceof require_objects3d.LOD && this.lods.set(t, this.gatherFrame);
 		for (let e of this.lods.keys()) this.lods.get(e) === this.gatherFrame ? e.updateForRender(a, d, f) : this.lods.delete(e);
 		for (let e of this.records.values()) {
@@ -76,19 +78,19 @@ var RenderVisibilityCache = class {
 			for (let e = s.parent; e; e = e.parent) e instanceof require_objects3d.LOD && (c *= e.renderWeight(s));
 			a.fade = c, e.colorVisible = !1, e.drawable = s.worldVisible && !require_mesh.materialBaseTexture(s.material).destroyed && s.geometry.indices.length > 0 && (s.material.opacity > 0 || s.material instanceof require_pbr_material.PBRMaterial && s.material.alphaMode !== `BLEND`);
 			let u = e.stamp, d = s.worldMatrix.elements, f = a.sphere;
-			for (let e = 0; e < 16; e++) Object.is(u[e], d[e]) || (p = !0), u[e] = d[e];
-			let h = this.stampValues;
-			h[0] = f.x, h[1] = f.y, h[2] = f.z, h[3] = f.radius, h[4] = +!!e.drawable, h[5] = c, h[6] = s.renderGeometry.version, h[7] = +!!s.frustumCulled, h[8] = +!!s.occlusionCulled, h[9] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, h[10] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0, h[11] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, h[12] = require_mesh.materialBaseTexture(s.material).version, h[13] = s.material.opacity, h[14] = s.material instanceof require_pbr_material.PBRMaterial ? s.material.alphaMode === `MASK` ? 1 : s.material.alphaMode === `BLEND` ? 2 : 0 : 0;
-			for (let e = 0; e < h.length; e++) Object.is(u[16 + e], h[e]) || (p = !0, (e < 4 || e === 7) && (m = !0)), u[16 + e] = h[e];
-			l.entries.set(s, a), e.drawable && s.castShadow && l.shadows.push(s);
+			for (let e = 0; e < 16; e++) Object.is(u[e], d[e]) || (m = !0), u[e] = d[e];
+			let g = this.stampValues;
+			g[0] = f.x, g[1] = f.y, g[2] = f.z, g[3] = f.radius, g[4] = +!!e.drawable, g[5] = c, g[6] = s.renderGeometry.version, g[7] = +!!s.frustumCulled, g[8] = +!!s.occlusionCulled, g[9] = s instanceof require_instanced_mesh.InstancedMesh ? s.version : 0, g[10] = s instanceof require_instanced_mesh.InstancedMesh ? s.colorVersion : 0, g[11] = s instanceof require_skinned_mesh.SkinnedMesh ? s.paletteVersion : 0, g[12] = require_mesh.materialBaseTexture(s.material).version, g[13] = s.material.opacity, g[14] = s.material instanceof require_pbr_material.PBRMaterial ? s.material.alphaMode === `MASK` ? 1 : s.material.alphaMode === `BLEND` ? 2 : 0 : 0;
+			for (let e = 0; e < g.length; e++) Object.is(u[16 + e], g[e]) || (m = !0, (e < 4 || e === 7) && (h = !0)), u[16 + e] = g[e];
+			l.entries.set(s, a), e.drawable && s.castShadow && (l.shadows[p++] = s);
 		}
-		if (l.entries.size !== this.records.size) for (let e of l.entries.keys()) this.records.has(e) || l.entries.delete(e);
-		let h = a.matrix.elements;
+		if (l.shadows.length = p, l.entries.size !== this.records.size) for (let e of l.entries.keys()) this.records.has(e) || l.entries.delete(e);
+		let g = a.matrix.elements;
 		for (let e = 0; e < this.cameraStamp.length; e++) {
-			let t = e < 16 ? h[e] : e === 16 ? d : u.depthRevision ?? 0;
-			Object.is(this.cameraStamp[e], t) || (p = !0), this.cameraStamp[e] = t;
+			let t = e < 16 ? g[e] : e === 16 ? d : u.depthRevision ?? 0;
+			Object.is(this.cameraStamp[e], t) || (m = !0), this.cameraStamp[e] = t;
 		}
-		if (p && ++this.epoch, l.epoch = this.epoch, !this.root && this.leaves.length) {
+		if (m && ++this.epoch, l.epoch = this.epoch, !this.root && this.leaves.length) {
 			let e = 1 / 0, t = 1 / 0, n = 1 / 0, r = -1 / 0, i = -1 / 0, a = -1 / 0;
 			for (let o of this.leaves) {
 				let c = o.entry.sphere;
@@ -96,9 +98,10 @@ var RenderVisibilityCache = class {
 			}
 			this.leaves.sort(r - e >= i - t && r - e >= a - n ? byX : i - t >= a - n ? byY : byZ), this.nodeCount = 0, this.root = this.build(0, this.leaves.length), this.nodes.length = this.nodeCount;
 		}
-		this.root && (m && this.refit(this.root, l), this.gather(this.root, a, c, l, u, d));
-		for (let e of this.records.values()) e.colorVisible && l.color.push(e.entry.mesh), e.drawable && ++l.frustumCulled;
-		return l.frustumCulled -= l.color.length + l.occlusionCulled, l;
+		this.root && (h && this.refit(this.root, l), this.gather(this.root, a, c, l, u, d));
+		let _ = 0;
+		for (let e of this.records.values()) e.colorVisible && (l.color[_++] = e.entry.mesh), e.drawable && ++l.frustumCulled;
+		return l.color.length = _, l.frustumCulled -= _ + l.occlusionCulled, l;
 	}
 	clear() {
 		this.records.clear(), this.leaves.length = 0, this.lods.clear(), this.root = void 0, this.nodes.length = 0, this.scene = void 0, this.revision = -1, this.cameraStamp.fill(NaN), ++this.epoch;
