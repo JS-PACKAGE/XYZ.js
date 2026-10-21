@@ -164,8 +164,10 @@ export class PhysicsWorld3D {
   private readonly sweepTriangles: Triangle3D[] = [];
   private readonly leafBounds = new Bounds3D();
   private indexDirty = true;
-  /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
+  /** Set inside withPoseSnapshot: poses were refreshed once and only its mover can move. */
   private poseSnapshot = false;
+  /** Entries of the snapshot mover and its descendants, in `ordered` order. */
+  private readonly snapshotMovers: Entry3D[] = [];
   private readonly sweptIndex = new SpatialIndex3D<SweptEntry3D>();
   private readonly sweptStore: SweptEntry3D[] = [];
   private readonly ccdCandidates: SweptEntry3D[] = [];
@@ -258,17 +260,29 @@ export class PhysicsWorld3D {
     return this.counters.indexGeneration;
   }
   /**
-   * @internal Runs synchronous queries that move no collider (no user code runs inside
-   * `run`) against one pose refresh instead of rechecking every pose per query.
+   * @internal Runs synchronous queries (no user code runs inside `run`) against one pose
+   * refresh instead of rechecking every pose per query. Only `mover` and its descendants
+   * may move inside `run`; their entries alone are rechecked per query.
    */
-  withPoseSnapshot<T>(run: () => T): T {
-    if (this.poseSnapshot) return run();
+  withPoseSnapshot<T>(run: () => T, mover?: Object3D): T {
+    if (this.poseSnapshot) {
+      if (mover) throw new Error('A moving pose snapshot cannot be nested.');
+      return run();
+    }
     this.refreshIndex();
+    if (mover)
+      for (const e of this.ordered)
+        for (let o: Object3D | undefined = e.object; o; o = o.parent)
+          if (o === mover) {
+            this.snapshotMovers.push(e);
+            break;
+          }
     this.poseSnapshot = true;
     try {
       return run();
     } finally {
       this.poseSnapshot = false;
+      this.snapshotMovers.length = 0;
     }
   }
   get joints(): readonly Joint3D[] {
@@ -1231,10 +1245,11 @@ export class PhysicsWorld3D {
     this.applyImpulse(b, p, ix, iy, iz, -1);
   }
   private refreshIndex(): void {
-    if (this.poseSnapshot && !this.indexDirty) return;
+    const snapshot = this.poseSnapshot && !this.indexDirty;
+    if (snapshot && this.snapshotMovers.length === 0) return;
     // Mutable public poses (including ancestors) are checked even for static/sleeping entries.
     let changed = this.indexDirty;
-    for (const e of this.ordered) {
+    for (const e of snapshot ? this.snapshotMovers : this.ordered) {
       ++this.counters.poseChecks;
       if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
       if (e.indexedRevision !== e.shape.revision) {

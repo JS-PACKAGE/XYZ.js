@@ -77,8 +77,10 @@ export declare class PhysicsWorld3D {
     private readonly sweepTriangles;
     private readonly leafBounds;
     private indexDirty;
-    /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
+    /** Set inside withPoseSnapshot: poses were refreshed once and only its mover can move. */
     private poseSnapshot;
+    /** Entries of the snapshot mover and its descendants, in `ordered` order. */
+    private readonly snapshotMovers;
     private readonly sweptIndex;
     private readonly sweptStore;
     private readonly ccdCandidates;
@@ -130,10 +132,11 @@ export declare class PhysicsWorld3D {
     /** Mutation-aware geometry generation; query-only probes never change it. */
     get geometryRevision(): number;
     /**
-     * @internal Runs synchronous queries that move no collider (no user code runs inside
-     * `run`) against one pose refresh instead of rechecking every pose per query.
+     * @internal Runs synchronous queries (no user code runs inside `run`) against one pose
+     * refresh instead of rechecking every pose per query. Only `mover` and its descendants
+     * may move inside `run`; their entries alone are rechecked per query.
      */
-    withPoseSnapshot<T>(run: () => T): T;
+    withPoseSnapshot<T>(run: () => T, mover?: Object3D): T;
     get joints(): readonly Joint3D[];
     /** Explicit immutable wireframe snapshot; no collider/body references escape. */
     debugSnapshot(): PhysicsDebugSnapshot3D;

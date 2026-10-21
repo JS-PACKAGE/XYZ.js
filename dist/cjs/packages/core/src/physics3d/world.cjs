@@ -60,6 +60,7 @@ var PhysicsWorld3D = class {
 	leafBounds = new require_spatial.Bounds3D();
 	indexDirty = !0;
 	poseSnapshot = !1;
+	snapshotMovers = [];
 	sweptIndex = new require_spatial.SpatialIndex3D();
 	sweptStore = [];
 	ccdCandidates = [];
@@ -128,13 +129,22 @@ var PhysicsWorld3D = class {
 	get geometryRevision() {
 		return this.refreshIndex(), this.counters.indexGeneration;
 	}
-	withPoseSnapshot(e) {
-		if (this.poseSnapshot) return e();
-		this.refreshIndex(), this.poseSnapshot = !0;
+	withPoseSnapshot(e, t) {
+		if (this.poseSnapshot) {
+			if (t) throw Error(`A moving pose snapshot cannot be nested.`);
+			return e();
+		}
+		if (this.refreshIndex(), t) {
+			for (let e of this.ordered) for (let n = e.object; n; n = n.parent) if (n === t) {
+				this.snapshotMovers.push(e);
+				break;
+			}
+		}
+		this.poseSnapshot = !0;
 		try {
 			return e();
 		} finally {
-			this.poseSnapshot = !1;
+			this.poseSnapshot = !1, this.snapshotMovers.length = 0;
 		}
 	}
 	get joints() {
@@ -547,10 +557,11 @@ var PhysicsWorld3D = class {
 		e.tangentImpulses[t] = x, m = _.x * (x - b), h = _.y * (x - b), g = _.z * (x - b), this.applyImpulse(n, a, m, h, g, 1), this.applyImpulse(r, a, m, h, g, -1);
 	}
 	refreshIndex() {
-		if (this.poseSnapshot && !this.indexDirty) return;
-		let e = this.indexDirty;
-		for (let t of this.ordered) ++this.counters.poseChecks, t.shape.refresh(t.object) && ++this.counters.refreshedLeaves, t.indexedRevision !== t.shape.revision && (e = !0, this.indexDirty || (this.counters.refits += this.index.update(t)), t.indexedRevision = t.shape.revision);
-		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), e && ++this.counters.indexGeneration;
+		let e = this.poseSnapshot && !this.indexDirty;
+		if (e && this.snapshotMovers.length === 0) return;
+		let t = this.indexDirty;
+		for (let n of e ? this.snapshotMovers : this.ordered) ++this.counters.poseChecks, n.shape.refresh(n.object) && ++this.counters.refreshedLeaves, n.indexedRevision !== n.shape.revision && (t = !0, this.indexDirty || (this.counters.refits += this.index.update(n)), n.indexedRevision = n.shape.revision);
+		this.indexDirty &&= (this.index.rebuild(this.ordered), !1), t && ++this.counters.indexGeneration;
 	}
 	candidates(e) {
 		this.refreshIndex(), this.index.query(e, this.queryCandidates), this.counters.queryCandidates = this.queryCandidates.length;

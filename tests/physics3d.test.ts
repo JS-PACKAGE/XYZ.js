@@ -713,4 +713,26 @@ describe('3D shape queries and ownership', () => {
     expect(hits).toEqual([spheres[0], late, undefined, spheres[4], undefined]);
     scene.destroy();
   });
+
+  it('lets queries inside a moving pose snapshot follow the mover and its collider children', () => {
+    const scene = new Scene();
+    const world = scene.physics3D;
+    const mover = new Object3D();
+    mover.collider = new SphereCollider3D(0.5);
+    scene.add(mover);
+    const child = new Object3D();
+    child.collider = new SphereCollider3D(0.5);
+    child.position.set(0, 0, 3);
+    mover.add(child);
+    const down = new Vector3(0, -1, 0);
+    const hit = (x: number, z: number) =>
+      world.raycast(new Vector3(x, 3, z), down, 5)?.object;
+    const seen = world.withPoseSnapshot(() => {
+      const before = [hit(0, 0), hit(0, 3)];
+      mover.position.x = 10;
+      return [...before, hit(10, 0), hit(10, 3), hit(0, 0), hit(0, 3)];
+    }, mover);
+    expect(seen).toEqual([mover, child, mover, child, undefined, undefined]);
+    scene.destroy();
+  });
 });

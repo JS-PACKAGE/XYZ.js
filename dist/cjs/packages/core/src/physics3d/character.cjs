@@ -281,6 +281,9 @@ var CharacterController3D = class {
 	}
 	move(e, t = f) {
 		if (this.assertLive(), require_collider.vector3D(e, `displacement`), t.epoch !== void 0 && (!Number.isSafeInteger(t.epoch) || t.epoch < 0)) throw RangeError(`Character movement epoch must be a nonnegative safe integer.`);
+		return this.world.withPoseSnapshot(() => this.resolveMove(e, t), this.object);
+	}
+	resolveMove(e, t) {
 		if (this.unresolvedCarry) {
 			if (!this.world.canPlaceCapsule(this.object, this.object.collider, this.object.position, this.query)) throw Error(`Character carried placement is unresolved; restore a collision-free pose before moving.`);
 			this.unresolvedCarry = !1;

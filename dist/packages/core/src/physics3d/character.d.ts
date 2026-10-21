@@ -134,5 +134,6 @@ export declare class CharacterController3D {
     private updateSupport;
     private stopUnresolvedCarry;
     move(displacement: Readonly<Vector3>, options?: CharacterMovementOptions3D): CharacterMoveResult3D;
+    private resolveMove;
     destroy(): void;
 }

@@ -720,6 +720,17 @@ export class CharacterController3D {
       throw new RangeError(
         'Character movement epoch must be a nonnegative safe integer.',
       );
+    // Resolving a move moves only this character: every other collider pose is checked
+    // once instead of before each of its queries.
+    return this.world.withPoseSnapshot(
+      () => this.resolveMove(displacement, options),
+      this.object,
+    );
+  }
+  private resolveMove(
+    displacement: Readonly<Vector3>,
+    options: CharacterMovementOptions3D,
+  ): CharacterMoveResult3D {
     if (this.unresolvedCarry) {
       if (
         !this.world.canPlaceCapsule(
