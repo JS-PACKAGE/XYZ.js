@@ -20,6 +20,7 @@ import {
   type NavigationConnection3D,
 } from './graph.js';
 import type { NavigationSearchStatus } from './jobs.js';
+import { holdNavigationSteps } from './scheduler.js';
 import { hypot2, hypot3 } from '../../../math/src/hypot.js';
 
 export interface NavigationLatticeOptions {
@@ -431,6 +432,14 @@ export class NavigationSurfaceBakeJob3D {
     // staleness checks and every query in between.
     this.world.withPoseSnapshot(() => this.advance(budget));
     return this.state;
+  }
+  /**
+   * @internal Without an authored revision callback a step runs no user code at all,
+   * so consecutive scheduler steps of this job keep sharing one pose refresh.
+   */
+  [holdNavigationSteps](run: () => void): void {
+    if (this.options.geometryRevision) run();
+    else this.world.withPoseSnapshot(run);
   }
   private advance(budget: number): void {
     if (this.stale()) {

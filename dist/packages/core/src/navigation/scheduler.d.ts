@@ -28,6 +28,11 @@ export interface ScheduledNavigationFollower {
     update(deltaSeconds: number): void;
     stop(): void;
 }
+/**
+ * @internal Work whose steps run no user code may wrap a run of its own consecutive
+ * scheduler steps, e.g. in one physics pose refresh, when nothing else runs in between.
+ */
+export declare const holdNavigationSteps: unique symbol;
 /** Admission is lazy: hundreds of NPCs do not allocate hundreds of A* workspaces. */
 export declare class NavigationScheduledSearch<Path> implements NavigationWork {
     readonly owner: NavigationSearchOwner;
@@ -67,6 +72,7 @@ export declare class NavigationScheduler {
     removeFollower(follower: ScheduledNavigationFollower): void;
     updateFollowers(deltaSeconds: number): void;
     update(workBudget?: number): NavigationSchedulerStats;
+    private stepActive;
     clear(): void;
     destroy(): void;
     private record;

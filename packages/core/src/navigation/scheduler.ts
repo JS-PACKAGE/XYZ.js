@@ -31,6 +31,14 @@ export interface ScheduledNavigationFollower {
   stop(): void;
 }
 
+/**
+ * @internal Work whose steps run no user code may wrap a run of its own consecutive
+ * scheduler steps, e.g. in one physics pose refresh, when nothing else runs in between.
+ */
+export const holdNavigationSteps = Symbol('holdNavigationSteps');
+interface HeldNavigationWork extends NavigationWork {
+  [holdNavigationSteps]?(run: () => void): void;
+}
 /** Admission is lazy: hundreds of NPCs do not allocate hundreds of A* workspaces. */
 export class NavigationScheduledSearch<Path> implements NavigationWork {
   private job:
@@ -210,23 +218,38 @@ export class NavigationScheduler {
         }
       }
       if (this.active.length === 0) break;
-      this.cursor %= this.active.length;
-      const entry = this.active[this.cursor]!;
-      const before = entry.work.expansions;
-      entry.work.step(1);
-      const used = entry.work.expansions - before;
-      stats.work++;
-      if (entry.kind === 'search') stats.expansions += used;
-      else stats.bakeWork += used;
-      if (entry.work.status !== 'pending') {
-        this.record(entry.work.status);
-        this.active.splice(this.cursor, 1);
-      } else this.cursor++;
+      const lone =
+        this.active.length === 1 && this.queue.length === 0
+          ? (this.active[0]!.work as HeldNavigationWork)
+          : undefined;
+      if (lone?.[holdNavigationSteps]) {
+        // Until the lone work ends or the budget runs out, only its own steps run.
+        lone[holdNavigationSteps](() => {
+          while (stats.work < workBudget && this.active.length > 0)
+            this.stepActive(stats);
+        });
+        continue;
+      }
+      this.stepActive(stats);
     }
     stats.totalWork += stats.work;
     stats.queued = this.queue.length;
     stats.active = this.active.length;
     return stats;
+  }
+  private stepActive(stats: NavigationSchedulerStats): void {
+    this.cursor %= this.active.length;
+    const entry = this.active[this.cursor]!;
+    const before = entry.work.expansions;
+    entry.work.step(1);
+    const used = entry.work.expansions - before;
+    stats.work++;
+    if (entry.kind === 'search') stats.expansions += used;
+    else stats.bakeWork += used;
+    if (entry.work.status !== 'pending') {
+      this.record(entry.work.status);
+      this.active.splice(this.cursor, 1);
+    } else this.cursor++;
   }
   clear(): void {
     for (const entry of this.queue) entry.work.cancel();

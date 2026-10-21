@@ -4,6 +4,7 @@ import type { PhysicsQueryOptions3D, PhysicsWorld3D } from '../physics3d/world.j
 import { NavigationGrid2D, type NavigationCell2D } from './grid.js';
 import { NavigationGraph3D, type NavigationConnection3D } from './graph.js';
 import type { NavigationSearchStatus } from './jobs.js';
+import { holdNavigationSteps } from './scheduler.js';
 export interface NavigationLatticeOptions {
     readonly columns: number;
     readonly rows: number;
@@ -122,6 +123,11 @@ export declare class NavigationSurfaceBakeJob3D {
     get expansions(): number;
     get result(): NavigationGraph3D | undefined;
     step(budget: number): NavigationSearchStatus;
+    /**
+     * @internal Without an authored revision callback a step runs no user code at all,
+     * so consecutive scheduler steps of this job keep sharing one pose refresh.
+     */
+    [holdNavigationSteps](run: () => void): void;
     private advance;
     cancel(): void;
     private stale;

@@ -1,5 +1,6 @@
 const require_navigation = require("../../../../src/data/navigation.cjs");
 //#region dist/packages/core/src/navigation/scheduler.js
+var holdNavigationSteps = Symbol(`holdNavigationSteps`);
 var NavigationScheduledSearch = class {
 	owner;
 	factory;
@@ -106,13 +107,23 @@ var NavigationScheduler = class {
 				}
 			}
 			if (this.active.length === 0) break;
-			this.cursor %= this.active.length;
-			let t = this.active[this.cursor], r = t.work.expansions;
-			t.work.step(1);
-			let i = t.work.expansions - r;
-			n.work++, t.kind === `search` ? n.expansions += i : n.bakeWork += i, t.work.status === `pending` ? this.cursor++ : (this.record(t.work.status), this.active.splice(this.cursor, 1));
+			let r = this.active.length === 1 && this.queue.length === 0 ? this.active[0].work : void 0;
+			if (r?.[holdNavigationSteps]) {
+				r[holdNavigationSteps](() => {
+					for (; n.work < t && this.active.length > 0;) this.stepActive(n);
+				});
+				continue;
+			}
+			this.stepActive(n);
 		}
 		return n.totalWork += n.work, n.queued = this.queue.length, n.active = this.active.length, n;
+	}
+	stepActive(e) {
+		this.cursor %= this.active.length;
+		let t = this.active[this.cursor], n = t.work.expansions;
+		t.work.step(1);
+		let r = t.work.expansions - n;
+		e.work++, t.kind === `search` ? e.expansions += r : e.bakeWork += r, t.work.status === `pending` ? this.cursor++ : (this.record(t.work.status), this.active.splice(this.cursor, 1));
 	}
 	clear() {
 		for (let e of this.queue) e.work.cancel();
@@ -137,5 +148,6 @@ var NavigationScheduler = class {
 //#endregion
 exports.NavigationScheduledSearch = NavigationScheduledSearch;
 exports.NavigationScheduler = NavigationScheduler;
+exports.holdNavigationSteps = holdNavigationSteps;
 
 //# sourceMappingURL=scheduler.cjs.map

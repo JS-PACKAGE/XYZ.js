@@ -6,6 +6,7 @@ const require_game_object = require("../game-object.cjs");
 const require_collider$1 = require("../physics3d/collider.cjs");
 const require_object3d = require("../object3d.cjs");
 const require_navigation = require("../../../../src/data/navigation.cjs");
+const require_scheduler = require("./scheduler.cjs");
 const require_graph = require("./graph.cjs");
 const require_grid = require("./grid.cjs");
 //#region dist/packages/core/src/navigation/bake.js
@@ -162,6 +163,9 @@ var NavigationSurfaceBakeJob3D = class {
 	step(e) {
 		return validateBudget(e), this.state === `pending` && this.world.withPoseSnapshot(() => this.advance(e)), this.state;
 	}
+	[require_scheduler.holdNavigationSteps](e) {
+		this.options.geometryRevision ? e() : this.world.withPoseSnapshot(e);
+	}
 	advance(e) {
 		if (this.stale()) {
 			this.state = `invalidated`, this.release();
@@ -237,7 +241,7 @@ var NavigationSurfaceBakeJob3D = class {
 			this.nextEdge();
 			return;
 		}
-		let d = Math.max(s.position.y, c.position.y) + require_navigation.navigationLimits.bakeSkin, f;
+		let u = Math.max(s.position.y, c.position.y) + require_navigation.navigationLimits.bakeSkin, f;
 		if (this.edgePhase < this.supportSamples) {
 			let t = (this.edgePhase + 1) / (this.supportSamples + 1), r = this.feet[e] + (this.feet[o] - this.feet[e]) * t, i = this.stepHeight + require_navigation.navigationLimits.bakeSkin;
 			this.ray.set(s.position.x + (c.position.x - s.position.x) * t, r + i, s.position.z + (c.position.z - s.position.z) * t);
@@ -247,8 +251,8 @@ var NavigationSurfaceBakeJob3D = class {
 			let e = this.edgePhase - this.supportSamples;
 			if (e < 2) {
 				let t = e === 0 ? s : c;
-				this.probe.position.copy(t.position), this.motion.set(0, d - t.position.y, 0);
-			} else this.probe.position.set(s.position.x, d, s.position.z), this.motion.set(c.position.x - s.position.x, 0, c.position.z - s.position.z);
+				this.probe.position.copy(t.position), this.motion.set(0, u - t.position.y, 0);
+			} else this.probe.position.set(s.position.x, u, s.position.z), this.motion.set(c.position.x - s.position.x, 0, c.position.z - s.position.z);
 			let t = this.world.sweepCapsule(this.probe, this.motion, this.query);
 			f = !t || t.distance >= this.motion.length() - require_navigation.navigationLimits.bakeSkin;
 		}

@@ -220,4 +220,60 @@ describe('finite collision geometry navigation baking', () => {
       scene.destroy();
     }
   });
+
+  it('notices 3D collider motion between scheduler updates and from an authored revision read mid-update', () => {
+    const surface = (moveOnRead?: number) => {
+      const scene = new Scene(),
+        scheduler = new NavigationScheduler();
+      const floor = new Object3D();
+      floor.collider = new PlaneCollider3D();
+      scene.add(floor);
+      const box = new Object3D();
+      box.collider = new BoxCollider3D(new Vector3(0.4, 0.4, 0.4));
+      box.position.set(2.5, 0.4, 1.5);
+      scene.add(box);
+      let reads = 0;
+      const job = new NavigationSurfaceBakeJob3D(scene.physics3D, {
+        columns: 6,
+        rows: 4,
+        cellSize: 1,
+        minY: -1,
+        maxY: 3,
+        agentRadius: 0.2,
+        agentHeight: 1.4,
+        geometryRevision:
+          moveOnRead === undefined
+            ? undefined
+            : () => {
+                // A revision callback is user code; it may itself move geometry.
+                if (++reads === moveOnRead) box.position.x += 1;
+                return 0;
+              },
+      });
+      return { scene, scheduler, box, job };
+    };
+    const moved = surface();
+    moved.scheduler.scheduleBake(moved.job);
+    moved.scheduler.update(5);
+    expect(moved.job.status).toBe('pending');
+    moved.box.position.z += 1;
+    moved.scheduler.update(5);
+    expect(moved.job.status).toBe('invalidated');
+    moved.scheduler.destroy();
+    moved.scene.destroy();
+    // Stepping one unit at a time by hand is the reference for any scheduled run.
+    const direct = surface(6);
+    while (direct.job.status === 'pending') direct.job.step(1);
+    const scheduled = surface(6);
+    scheduled.scheduler.scheduleBake(scheduled.job);
+    const stats = scheduled.scheduler.update(64);
+    expect(direct.job.status).toBe('invalidated');
+    expect(scheduled.job.status).toBe('invalidated');
+    expect(stats.bakeWork).toBe(direct.job.expansions);
+    expect(scheduled.job.expansions).toBe(direct.job.expansions);
+    for (const run of [direct, scheduled]) {
+      run.scheduler.destroy();
+      run.scene.destroy();
+    }
+  });
 });
