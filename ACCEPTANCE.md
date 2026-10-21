@@ -2658,3 +2658,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Visibility]` InstancedMesh 每個 instance 的世界包圍球依（world matrix、幾何包圍球＋變形餘量、instance version）快取，相機移動只重做視錐測試；`frustumCulled=false` 時不再計算。10 個 InstancedMesh 共 10000 instances 環繞相機 Node bench 0.31 → 0.10 ms，可見 instance 結果 hash 不變；新增移動 mesh／幾何更新／相機移動的重新剔除測試。
+
+## 程序材質擴充：道具外皮（orangepeel／coconut／watermelon）
+
+- 新增橘皮油腺凹點、椰殼短縱向纖維與西瓜皮波狀色帶，
+  tile 尺寸依序 0.048／0.12／0.24 m。皆 opaque dielectric，
+  僅為外皮表面，不建立水果 geometry、transmission 或 SSS。
+  gallery／API 文件同步至 66 種；README 既有自然表面分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1618 tests
+  通過。油腺相對周圍表皮的凹陷、椰纖維／瓜皮條帶方向與邊界連續性
+  納入回歸；前六十三種預設在 size 64／seed 7 的四份 maps SHA256
+  全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認油腺、椰纖維與瓜皮色帶差異；metallic 全為 0，
+  roughness bytes 依序 102–126／225–245／85–110；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

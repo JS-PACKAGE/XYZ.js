@@ -384,6 +384,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.32;
         relief: 0.0007;
     }>;
+    orangepeel: Readonly<{
+        dark: readonly [205, 68, 3];
+        light: readonly [255, 159, 19];
+        roughness: 0.43;
+        relief: 0.0025;
+    }>;
+    coconut: Readonly<{
+        dark: readonly [53, 27, 12];
+        light: readonly [166, 114, 61];
+        roughness: 0.91;
+        relief: 0.003;
+    }>;
+    watermelon: Readonly<{
+        dark: readonly [17, 49, 17];
+        light: readonly [133, 166, 57];
+        roughness: 0.36;
+        relief: 0.0006;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -450,6 +468,9 @@ export declare const proceduralTileMeters: Readonly<{
     knurledmetal: 0.048;
     engineturned: 0.12;
     goldleaf: 0.36;
+    orangepeel: 0.048;
+    coconut: 0.12;
+    watermelon: 0.24;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

@@ -87,6 +87,9 @@ const kinds: ProceduralMaterialKind[] = [
   'knurledmetal',
   'engineturned',
   'goldleaf',
+  'orangepeel',
+  'coconut',
+  'watermelon',
 ];
 
 class TestImageData {
@@ -310,6 +313,9 @@ describe('periodic procedural material fields', () => {
     ['knurledmetal', [24, 32, 48]],
     ['engineturned', [6, 12, 24, 32]],
     ['goldleaf', [3, 4, 5, 18, 21, 32]],
+    ['orangepeel', [24, 32]],
+    ['coconut', [8, 32, 40]],
+    ['watermelon', [4, 5, 8, 12, 32, 80, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -378,6 +384,10 @@ describe('periodic procedural material fields', () => {
     ['knurledmetal', 48],
     ['engineturned', 12],
     ['goldleaf', 20],
+    ['orangepeel', 24],
+    ['coconut', 8],
+    ['coconut', 40],
+    ['watermelon', 96],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -411,6 +421,91 @@ describe('periodic procedural material fields', () => {
                 Math.abs(right - 2 * a.height + left) / epsilon,
               ).toBeLessThan(0.001);
             }
+      }
+    },
+  );
+
+  it('orange oil glands are depressed below the surrounding rounded skin', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('orangepeel', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [7, 13],
+        [23, 19],
+      ]) {
+        let centerU = 0,
+          centerV = 0,
+          glandOcclusion = 1,
+          glandHeight = 0;
+        // Locate a seeded gland by its cavity shading, not a copied hash.
+        for (let y = 0; y < 17; y++)
+          for (let x = 0; x < 17; x++) {
+            const u = (column + (x + 0.5) / 17) / 24,
+              v = (row + (y + 0.5) / 17) / 24;
+            sample(u, v, a);
+            if (a.occlusion < glandOcclusion) {
+              centerU = u;
+              centerV = v;
+              glandOcclusion = a.occlusion;
+              glandHeight = a.height;
+            }
+          }
+        let skinHeight = 0,
+          skinOcclusion = 0;
+        for (let direction = 0; direction < 8; direction++) {
+          const angle = (direction / 8) * Math.PI * 2;
+          sample(
+            centerU + (0.5 / 24) * Math.cos(angle),
+            centerV + (0.5 / 24) * Math.sin(angle),
+            a,
+          );
+          skinHeight += a.height / 8;
+          skinOcclusion += a.occlusion / 8;
+        }
+        expect(glandHeight).toBeLessThan(skinHeight);
+        expect(glandOcclusion).toBeLessThan(skinOcclusion);
+      }
+    }
+  });
+
+  it.each([
+    ['coconut', 'height'],
+    ['watermelon', 'color'],
+  ] as const)(
+    '%s has longitudinal %s features rather than crosswise bands',
+    (kind, field) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a };
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        let transverse = 0,
+          longitudinal = 0;
+        for (let y = 0; y < 128; y++)
+          for (let x = 0; x < 128; x++) {
+            const u = (x + 0.5) / 128,
+              v = (y + 0.5) / 128;
+            sample(u, v, a);
+            sample(u + 1 / 128, v, b);
+            transverse += (a[field] - b[field]) ** 2;
+            sample(u, v + 1 / 128, b);
+            longitudinal += (a[field] - b[field]) ** 2;
+          }
+        expect(transverse).toBeGreaterThan(longitudinal);
       }
     },
   );

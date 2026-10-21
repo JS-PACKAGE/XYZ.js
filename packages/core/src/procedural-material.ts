@@ -69,7 +69,10 @@ export type ProceduralMaterialKind =
   | 'seersucker'
   | 'knurledmetal'
   | 'engineturned'
-  | 'goldleaf';
+  | 'goldleaf'
+  | 'orangepeel'
+  | 'coconut'
+  | 'watermelon';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -165,6 +168,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'knurledmetal',
   'engineturned',
   'goldleaf',
+  'orangepeel',
+  'coconut',
+  'watermelon',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

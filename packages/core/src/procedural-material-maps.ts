@@ -113,6 +113,20 @@ export function createSurfaceSampler(
         turnedDisks[offset] = hash(x, y, seed ^ 0x38a1);
         turnedDisks[offset + 1] = hash(x, y, seed ^ 0x6c57);
       }
+  const skinColumns = kind === 'orangepeel' ? 24 : 40;
+  const skinRows = kind === 'orangepeel' ? 24 : 8;
+  const skinFeatures =
+    kind === 'orangepeel' || kind === 'coconut'
+      ? new Float64Array(skinColumns * skinRows * 3)
+      : null;
+  if (skinFeatures)
+    for (let y = 0; y < skinRows; y++)
+      for (let x = 0; x < skinColumns; x++) {
+        const offset = (y * skinColumns + x) * 3;
+        skinFeatures[offset] = 0.25 + 0.5 * hash(x, y, seed ^ 0x1e73);
+        skinFeatures[offset + 1] = 0.25 + 0.5 * hash(x, y, seed ^ 0x53b1);
+        skinFeatures[offset + 2] = hash(x, y, seed ^ 0x7b29);
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -1836,6 +1850,100 @@ export function createSurfaceSampler(
         height = 0.45 + 0.025 * detail + 0.015 * pigment;
         roughness += 0.09 * (pigment - 0.5) + 0.045 * (detail - 0.5);
         occlusion = 0.99 + 0.008 * detail;
+        break;
+      }
+      case 'orangepeel': {
+        const x = u * skinColumns,
+          y = v * skinRows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let dimples = 0,
+          shoulders = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
+              wy = ((cy % skinRows) + skinRows) % skinRows;
+            const offset = (wy * skinColumns + wx) * 3;
+            const dx = x - cx - skinFeatures![offset],
+              dy = y - cy - skinFeatures![offset + 1];
+            const radius = 0.26 + 0.14 * skinFeatures![offset + 2];
+            const distance2 = dx * dx + dy * dy;
+            const pit = clamp(1 - distance2 / (radius * radius));
+            const skin = clamp(1 - distance2 / 0.36);
+            // Compact squared caps meet the shared skin with zero slope.
+            // Rounded shoulders surround depressed oil glands, not grit peaks.
+            dimples += (1 - dimples) * pit * pit;
+            shoulders += (1 - shoulders) * skin * skin * (1 - skin) * 6.75;
+          }
+        const pigment = 0.48 + 0.28 * detail;
+        color = pigment * (1 - 0.35 * dimples) + 0.34 * 0.35 * dimples;
+        const skinHeight = 0.46 + 0.025 * detail + 0.045 * shoulders;
+        height = skinHeight * (1 - dimples) + 0.22 * dimples;
+        roughness += 0.06 * (detail - 0.5) + 0.035 * dimples;
+        occlusion = 1 - 0.08 * dimples;
+        break;
+      }
+      case 'coconut': {
+        const x = u * skinColumns,
+          y = v * skinRows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let fibers = 0,
+          fissures = 0,
+          pigment = 0.38 + 0.18 * detail;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % skinColumns) + skinColumns) % skinColumns,
+              wy = ((cy % skinRows) + skinRows) % skinRows;
+            const offset = (wy * skinColumns + wx) * 3;
+            const dx = x - cx - skinFeatures![offset],
+              dy = y - cy - skinFeatures![offset + 1],
+              variation = skinFeatures![offset + 2];
+            const along = dy / (0.48 + 0.25 * variation),
+              across = (dx + (variation - 0.5) * 0.28 * dy) / 0.12;
+            const cap = clamp(1 - along * along - across * across);
+            const weight = cap * cap;
+            // Short longitudinal fibers and hairline fissures taper inside
+            // the neighborhood. Cell-owned pigment vanishes with its support.
+            if (variation < 0.24) {
+              fissures += (1 - fissures) * weight;
+              pigment = pigment * (1 - weight) + 0.15 * weight;
+            } else {
+              fibers += (1 - fibers) * weight;
+              pigment =
+                pigment * (1 - weight) + (0.55 + 0.25 * variation) * weight;
+            }
+          }
+        color = pigment;
+        const husk = 0.42 + 0.055 * detail + 0.18 * fibers;
+        height = husk * (1 - fissures) + 0.3 * fissures;
+        roughness += 0.055 * (detail - 0.5) + 0.025 * fibers;
+        occlusion = (0.96 + 0.025 * fibers) * (1 - fissures) + 0.86 * fissures;
+        break;
+      }
+      case 'watermelon': {
+        const warp = noise(u, v, 4, 5, seed ^ 0x4f17),
+          waviness = noise(u, v, 12, 8, seed ^ 0x67a3);
+        const wave =
+          0.5 +
+          0.5 * Math.sin(TAU * (5 * u + 0.3 * warp + 0.12 * waviness) + phase);
+        const bands = smooth(clamp((wave - 0.24) / 0.52));
+        const speckles = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x5c39) - 0.48) / 0.4),
+        );
+        const pores = smooth(
+          clamp((noise(u, v, 80, 80, seed ^ 0x2b71) - 0.5) / 0.38),
+        );
+        const pigment = 0.12 + 0.72 * bands;
+        color = pigment * (1 - 0.2 * speckles) + 0.46 * 0.2 * speckles;
+        // Bands are pigmentation only: no longitudinal ridges in the rind.
+        height = (0.48 + 0.025 * detail) * (1 - 0.14 * pores);
+        roughness += 0.055 * (detail - 0.5) + 0.045 * pores;
+        occlusion = 1 - 0.035 * pores;
         break;
       }
     }
