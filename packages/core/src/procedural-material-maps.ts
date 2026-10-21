@@ -3665,6 +3665,86 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.5 * seam;
         break;
       }
+      case 'wallpaper': {
+        // Motif coordinates fold through squares and absolute offsets so
+        // the damask repeats with exact mirror symmetry on every axis.
+        const ax = Math.abs(fract(u * 2) - 0.5),
+          ay = Math.abs(fract(v * 2) - 0.5);
+        const q = ax * ax + ay * ay;
+        const ring = 0.5 + 0.5 * Math.cos(TAU * 3.5 * q + phase);
+        const motif = smooth(clamp((0.22 - q) / 0.08)) * ring;
+        color = 0.34 + 0.3 * motif + 0.12 * detail;
+        height = 0.34 + 0.28 * motif;
+        roughness += 0.08 * (1 - motif) + 0.03 * (detail - 0.5);
+        occlusion = 0.82 + 0.16 * motif;
+        break;
+      }
+      case 'embroidery': {
+        const cells = 6;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Satin stitches lie as aligned tapered caps and fade with zero
+        // slope at their support before a discarded cell can matter.
+        let stitches = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const angle = 0.6 * (hash(wx, wy, seed ^ 0x2f31) - 0.5);
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const px = cx + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x41c7) - 0.5),
+              py = cy + 0.5 + 0.16 * (hash(wx, wy, seed ^ 0x6d23) - 0.5);
+            const dx = x - px,
+              dy = y - py;
+            const along = (dx * cos + dy * sin) / 0.34,
+              across = (dy * cos - dx * sin) / 0.09;
+            const cap = clamp(1 - along * along - across * across);
+            stitches += (1 - stitches) * cap * cap;
+          }
+        color = 0.36 + 0.3 * stitches + 0.14 * detail;
+        height = 0.3 + 0.56 * stitches + 0.04 * detail;
+        roughness += 0.06 * (detail - 0.5) - 0.03 * stitches;
+        occlusion = 0.62 + 0.34 * stitches;
+        break;
+      }
+      case 'macrame': {
+        const rows = 4,
+          columns = 4;
+        const x = u * columns,
+          y = v * rows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Rounded knots step between twisted crossing cords; even rows
+        // keep the staggered knot lattice periodic.
+        let knots = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const shift = (((cy % 2) + 2) % 2) * 0.5;
+            const dx = x - cx - 0.5 - shift,
+              dy = y - cy - 0.5;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const cap = smooth(clamp((0.3 - distance) / 0.1));
+            knots += (1 - knots) * cap;
+          }
+        const twist = 0.5 + 0.5 * Math.cos(TAU * 12 * (x + y) + phase);
+        const cord = 0.5 + 0.5 * Math.cos(TAU * 6 * (x - y) + phase);
+        color = 0.34 + 0.3 * knots + 0.12 * twist * cord + 0.12 * detail;
+        height =
+          0.28 +
+          0.52 * knots +
+          0.14 * (1 - knots) * twist * cord +
+          0.04 * detail;
+        roughness += 0.06 * (detail - 0.5);
+        occlusion = 0.6 + 0.36 * knots;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

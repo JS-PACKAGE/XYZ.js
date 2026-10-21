@@ -1076,6 +1076,30 @@ function createSurfaceSampler(t, r) {
 				V = .46 + .34 * u + .14 * d + .1 * f - .12 * l, W = .7 - .42 * l + .06 * d + .04 * f, Z += .05 * (d - .5) + .06 * l, Q = 1 - .5 * l;
 				break;
 			}
+			case `wallpaper`: {
+				let t = Math.abs(fract(e * 2) - .5), r = Math.abs(fract(o * 2) - .5), i = t * t + r * r, s = .5 + .5 * Math.cos(n * 3.5 * i + a), c = smooth(clamp((.22 - i) / .08)) * s;
+				V = .34 + .3 * c + .12 * A, W = .34 + .28 * c, Z += .08 * (1 - c) + .03 * (A - .5), Q = .82 + .16 * c;
+				break;
+			}
+			case `embroidery`: {
+				let t = e * 6, n = o * 6, i = Math.floor(t), a = Math.floor(n), s = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let c = i + o, l = a + e, u = (c % 6 + 6) % 6, d = (l % 6 + 6) % 6, f = .6 * (hash(u, d, r ^ 12081) - .5), p = Math.cos(f), m = Math.sin(f), h = c + .5 + .16 * (hash(u, d, r ^ 16839) - .5), g = l + .5 + .16 * (hash(u, d, r ^ 27939) - .5), _ = t - h, v = n - g, y = (_ * p + v * m) / .34, b = (v * p - _ * m) / .09, x = clamp(1 - y * y - b * b);
+					s += (1 - s) * x * x;
+				}
+				V = .36 + .3 * s + .14 * A, W = .3 + .56 * s + .04 * A, Z += .06 * (A - .5) - .03 * s, Q = .62 + .34 * s;
+				break;
+			}
+			case `macrame`: {
+				let t = e * 4, r = o * 4, i = Math.floor(t), s = Math.floor(r), c = 0;
+				for (let e = -1; e <= 1; e++) for (let n = -1; n <= 1; n++) {
+					let a = i + n, o = s + e, l = (o % 2 + 2) % 2 * .5, u = t - a - .5 - l, d = r - o - .5, p = smooth(clamp((.3 - Math.sqrt(u * u + d * d)) / .1));
+					c += (1 - c) * p;
+				}
+				let l = .5 + .5 * Math.cos(n * 12 * (t + r) + a), u = .5 + .5 * Math.cos(n * 6 * (t - r) + a);
+				V = .34 + .3 * c + .12 * l * u + .12 * A, W = .28 + .52 * c + .14 * (1 - c) * l * u + .04 * A, Z += .06 * (A - .5), Q = .6 + .36 * c;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((B - .28) / .48)), d = (1 - B) ** 5;
 				V = .22 + .35 * s + .2 * l + .18 * u - .2 * c, W = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Z += .12 * (u - .5) + .05 * c, Q = .97 - .12 * c - .13 * d + .025 * u;

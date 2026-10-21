@@ -85,6 +85,9 @@ const kinds: ProceduralMaterialKind[] = [
   'stainedglass',
   'soapstone',
   'butcherblock',
+  'wallpaper',
+  'embroidery',
+  'macrame',
   'sandstone',
   'travertine',
   'pumice',
@@ -2067,6 +2070,9 @@ describe('periodic procedural material fields', () => {
     ['stainedglass', [5, 32]],
     ['soapstone', [2, 3, 6, 12, 32, 48]],
     ['butcherblock', [4, 32, 96]],
+    ['wallpaper', [2, 32]],
+    ['embroidery', [6, 32]],
+    ['macrame', [4, 6, 12, 32]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -2246,6 +2252,8 @@ describe('periodic procedural material fields', () => {
     ['honeycomb', 4],
     ['stainedglass', 5],
     ['butcherblock', 4],
+    ['embroidery', 6],
+    ['macrame', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -4741,6 +4749,143 @@ describe('periodic procedural material fields', () => {
         sample((column + 1) / 4, (row + 0.5) / 4, joint);
         expect(probe.height).toBeGreaterThan(joint.height + 0.1 * relief);
         expect(probe.occlusion).toBeGreaterThan(joint.occlusion);
+      }
+    }
+  });
+
+  it('wallpaper repeats its damask with exact mirror symmetry', () => {
+    const relief = proceduralMaterialPresets.wallpaper.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const mirror = { ...probe },
+      border = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wallpaper', seed);
+      for (const [u, v] of [
+        [0.13, 0.27],
+        [0.62, 0.41],
+        [0.88, 0.73],
+      ]) {
+        // Folds map each sample onto its motif mirror on both axes.
+        const mirrorU = Math.floor(u * 2) + 0.5 - u,
+          mirrorV = Math.floor(v * 2) + 0.5 - v;
+        sample(u, v, probe);
+        sample(mirrorU, v, mirror);
+        expect(mirror.height).toBe(probe.height);
+        sample(u, mirrorV, mirror);
+        expect(mirror.height).toBe(probe.height);
+      }
+      // The medallion lifts above the faded motif border.
+      let high = 0,
+        highU = 0,
+        highV = 0;
+      for (let j = 0; j < 16; j++)
+        for (let i = 0; i < 16; i++) {
+          const u = (i + 0.5) / 16,
+            v = (j + 0.5) / 16;
+          sample(u, v, probe);
+          if (probe.height > high) {
+            high = probe.height;
+            highU = u;
+            highV = v;
+          }
+        }
+      sample(Math.floor(highU * 2) * 0.5, highV, border);
+      expect(high).toBeGreaterThan(border.height + 0.1 * relief);
+    }
+  });
+
+  it('embroidery lifts aligned satin stitches above the ground', () => {
+    const relief = proceduralMaterialPresets.embroidery.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const near = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('embroidery', seed);
+      for (const [column, row] of [
+        [0, 1],
+        [3, 2],
+        [5, 5],
+      ]) {
+        let peak = 0,
+          peakX = 0,
+          peakY = 0,
+          low = 1;
+        for (let j = 0; j < 14; j++)
+          for (let i = 0; i < 14; i++) {
+            const u = (column + (i + 0.5) / 14) / 6,
+              v = (row + (j + 0.5) / 14) / 6;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+            low = Math.min(low, probe.height);
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // Each satin stitch drops off around its own raised crest.
+        let nearLow = 1;
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            peakX + 0.06 * Math.cos(angle),
+            peakY + 0.06 * Math.sin(angle),
+            near,
+          );
+          nearLow = Math.min(nearLow, near.height);
+        }
+        expect(peak).toBeGreaterThan(nearLow);
+      }
+    }
+  });
+
+  it('macrame steps staggered knots above twisted crossing cords', () => {
+    const relief = proceduralMaterialPresets.macrame.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const shifted = { ...probe },
+      cord = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('macrame', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [1, 1],
+        [3, 3],
+      ]) {
+        const shift = (row % 2) * 0.5;
+        const cx = (column + 0.5 + shift) / 4,
+          cy = (row + 0.5) / 4;
+        sample(cx, cy, probe);
+        sample((column + 1 + shift) / 4, cy, cord);
+        expect(probe.height).toBeGreaterThan(cord.height + 0.1 * relief);
+        expect(probe.occlusion).toBeGreaterThan(cord.occlusion);
+        // Knots stagger half a cell across alternating rows.
+        sample(
+          (column + 0.5 + ((row + 1) % 2) * 0.5) / 4,
+          (row + 1.5) / 4,
+          shifted,
+        );
+        sample((column + 0.5 + shift) / 4, (row + 1.5) / 4, probe);
+        expect(shifted.height).toBeGreaterThan(probe.height);
       }
     }
   });

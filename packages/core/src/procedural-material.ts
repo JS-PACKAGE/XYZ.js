@@ -67,6 +67,9 @@ export type ProceduralMaterialKind =
   | 'stainedglass'
   | 'soapstone'
   | 'butcherblock'
+  | 'wallpaper'
+  | 'embroidery'
+  | 'macrame'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -246,6 +249,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'stainedglass',
   'soapstone',
   'butcherblock',
+  'wallpaper',
+  'embroidery',
+  'macrame',
   'sandstone',
   'travertine',
   'pumice',

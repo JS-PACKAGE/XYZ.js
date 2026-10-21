@@ -3183,6 +3183,34 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
   不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+
+## 程序材質擴充：居家織品（wallpaper／embroidery／macrame）
+
+- 新增以精確鏡像對稱重複的大馬士革團花、在自身支撐處淡出的墊高
+  緞面繡線、墊高於交錯扭繩之上的錯列圓潤繩結。本組快照由
+  147 增為 150 種；三者皆為 opaque dielectric，metallic 通道與
+  預設 factor 為 0，僅為表面 shading，不新增線材、繡線或繩結
+  geometry，也不做 displacement。
+- 原 147 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 通過；本組 557 個程序材質
+  測試全數通過，fallback＋程序材質單獨重跑 570/570 通過；全套併行
+  run 中 fallback.test 兩項與既有已知不穩定的 mesh-shader-variants
+  一項間歇失敗，均為非材質路徑且單獨重跑通過。
+  壁紙團花雙軸鏡像高度相等、繡線 crest 鄰域下降、繩結／扭繩高度序
+  與錯列半格位移、support 邊界斜率連續性納入回歸；團花以座標平方
+  折疊並於格邊淡出，高度不混入非對稱 noise 以保鏡像精確。
+- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 150 種）逐一切換三者，
+  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  metallic 全為 0，roughness bytes 依序
+  180–208／205–227／217–232；每米 repeats 依序
+  2／5.555556／4.166667。
+  check:material-reference 通過，regression-browser chromium
+  webgl2 與 webgpu 通過。
+- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
+  只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
+  不納入本組。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
 - `[Physics2D]` 減少每 step 配置，數值與事件順序不變：質量／慣量／反彈／摩擦與速度改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；sweep 與 CCD 配對過濾改讀 `Collider2D.filterBits`（category／mask 的 int32 副本，由 setter 同步，位元測試結果相同），不再呼叫回傳 0xffffffff 等大數的 getter（未內聯時每次裝箱）；睡眠／喚醒島嶼 BFS 與可解接觸清單改以計數重用，不再每個島嶼清空陣列（V8 清空即釋放 backing store），`clear()` 一併釋放。physics2d browser benchmark（WebGL2）每幀配置約 1034 → 404 KB（`solveVelocity` 約 450 KB → 0）；Node 1500 剛體 bench 約 6.5–7.2 → 4.05 MiB／step，hash 不變，屬配置減少。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 
 ## 程序材質擴充：裝飾礦石（malachite／agate／lapislazuli）

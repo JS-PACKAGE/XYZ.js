@@ -846,6 +846,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .58,
 		relief: .006
 	}),
+	wallpaper: Object.freeze({
+		dark: [
+			58,
+			28,
+			48
+		],
+		light: [
+			214,
+			178,
+			186
+		],
+		roughness: .72,
+		relief: .002
+	}),
+	embroidery: Object.freeze({
+		dark: [
+			22,
+			48,
+			62
+		],
+		light: [
+			226,
+			176,
+			96
+		],
+		roughness: .86,
+		relief: .004
+	}),
+	macrame: Object.freeze({
+		dark: [
+			110,
+			88,
+			62
+		],
+		light: [
+			228,
+			210,
+			182
+		],
+		roughness: .88,
+		relief: .005
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2126,6 +2168,9 @@ var proceduralTileMeters = Object.freeze({
 	stainedglass: .7,
 	soapstone: .9,
 	butcherblock: .45,
+	wallpaper: .5,
+	embroidery: .18,
+	macrame: .24,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
