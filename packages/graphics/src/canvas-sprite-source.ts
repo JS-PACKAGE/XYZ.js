@@ -24,7 +24,6 @@ interface FrameSnapshot {
   readonly source: Texture2DSource;
   readonly key: Float64Array;
   pixels: number;
-  used: number;
 }
 
 const FRAME_KEY_LENGTH = 16;
@@ -49,7 +48,6 @@ export class CanvasSpriteSource {
    */
   private readonly frames = new Map<number, FrameSnapshot>();
   private framePixels = 0;
-  private frameClock = 0;
   private readonly frameKey = new Float64Array(FRAME_KEY_LENGTH);
   private readonly frameWords = new Int32Array(this.frameKey.buffer);
   private readonly sourceIds = new WeakMap<Texture2DSource, number>();
@@ -184,7 +182,9 @@ export class CanvasSpriteSource {
       hash = (Math.imul(hash, 0x01000193) ^ words[i]!) | 0;
     const hit = this.frames.get(hash);
     if (hit && sameKey(hit.key, k)) {
-      hit.used = ++this.frameClock;
+      // Map order is the recency order: the first entry is the least recently drawn.
+      this.frames.delete(hash);
+      this.frames.set(hash, hit);
       return hit.canvas;
     }
     const pixels = width * height;
@@ -194,13 +194,8 @@ export class CanvasSpriteSource {
       this.frames.size >= rendering2dLimits.canvasFrameSnapshots ||
       this.framePixels + pixels > rendering2dLimits.canvasFrameSnapshotPixels
     ) {
-      let oldest: number | undefined, snapshot: FrameSnapshot | undefined;
-      for (const [key, candidate] of this.frames)
-        if (!snapshot || candidate.used < snapshot.used) {
-          oldest = key;
-          snapshot = candidate;
-        }
-      const evicted = this.dropFrame(oldest!, snapshot!);
+      const [oldest, snapshot] = this.frames.entries().next().value!;
+      const evicted = this.dropFrame(oldest, snapshot);
       if (canvas) evicted.width = evicted.height = 1;
       else canvas = evicted;
     }
@@ -221,7 +216,6 @@ export class CanvasSpriteSource {
       source,
       key: k.slice(),
       pixels,
-      used: ++this.frameClock,
     });
     this.framePixels += pixels;
     return canvas;

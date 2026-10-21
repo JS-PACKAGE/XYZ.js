@@ -12,7 +12,6 @@ var CanvasSpriteSource = class {
 	scratch;
 	frames = /* @__PURE__ */ new Map();
 	framePixels = 0;
-	frameClock = 0;
 	frameKey = /* @__PURE__ */ new Float64Array(16);
 	frameWords = new Int32Array(this.frameKey.buffer);
 	sourceIds = /* @__PURE__ */ new WeakMap();
@@ -57,20 +56,17 @@ var CanvasSpriteSource = class {
 		let y = this.frameWords, b = 0;
 		for (let e = 0; e < y.length; e++) b = Math.imul(b, 16777619) ^ y[e] | 0;
 		let x = this.frames.get(b);
-		if (x && sameKey(x.key, v)) return x.used = ++this.frameClock, x.canvas;
+		if (x && sameKey(x.key, v)) return this.frames.delete(b), this.frames.set(b, x), x.canvas;
 		let S = h * g, C;
 		for (x && (C = this.dropFrame(b, x)); this.frames.size >= require_rendering2d.rendering2dLimits.canvasFrameSnapshots || this.framePixels + S > require_rendering2d.rendering2dLimits.canvasFrameSnapshotPixels;) {
-			let e, t;
-			for (let [n, r] of this.frames) (!t || r.used < t.used) && (e = n, t = r);
-			let n = this.dropFrame(e, t);
+			let [e, t] = this.frames.entries().next().value, n = this.dropFrame(e, t);
 			C ? n.width = n.height = 1 : C = n;
 		}
 		return C ??= document.createElement(`canvas`), this.paint(C, f, s, c, h, g, p, m, u ? void 0 : i), this.frames.set(b, {
 			canvas: C,
 			source: i,
 			key: v.slice(),
-			pixels: S,
-			used: ++this.frameClock
+			pixels: S
 		}), this.framePixels += S, C;
 	}
 	paint(e, t, n, r, i, a, o, s, c) {

@@ -2507,3 +2507,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步出現的 CanvasSpriteSource 修改及其 dist 不納入本組。
+- `[Canvas2D]` painted frame snapshot 的 LRU 改用 Map 插入順序（命中時移到尾端），淘汰直接取第一筆，不再每次未命中掃描全部 256 筆找最舊；淘汰順序同為最久未畫者。c2f 每幀變色 1200 sprites CPU 2.98 → 2.85 ms、400 sprites 2.33 → 2.13 ms；命中路徑 Map 移動約 19 ns／次（Node 微基準）。

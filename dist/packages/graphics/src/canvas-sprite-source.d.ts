@@ -24,7 +24,6 @@ export declare class CanvasSpriteSource {
      */
     private readonly frames;
     private framePixels;
-    private frameClock;
     private readonly frameKey;
     private readonly frameWords;
     private readonly sourceIds;
