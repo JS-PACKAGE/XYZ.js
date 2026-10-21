@@ -18,7 +18,10 @@ export type ProceduralMaterialKind =
   | 'leather'
   | 'sand'
   | 'rust'
-  | 'snow';
+  | 'snow'
+  | 'asphalt'
+  | 'gravel'
+  | 'cobblestone';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -63,6 +66,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'sand',
   'rust',
   'snow',
+  'asphalt',
+  'gravel',
+  'cobblestone',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -23,7 +23,7 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
 		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
@@ -86,6 +86,22 @@ function createSurfaceSampler(t, r) {
 			case `snow`: {
 				let t = noise(e, c, 3, 3, r ^ 17), n = hash(Math.floor(fract(e) * 48), Math.floor(fract(c) * 48), r) ** 8;
 				p = clamp(.22 + .68 * t + .1 * n), m = .7 * t + .2 * n, h += .22 * n - .06 * t, g = .88 + .12 * t;
+				break;
+			}
+			case `asphalt`:
+			case `gravel`: {
+				let i = t === `asphalt`, a = i ? 40 : 12, o = e * a, s = c * a, l = Math.floor(o), u = Math.floor(s), _ = 0, v = 0, y = 0, b = 0;
+				for (let e = -1; e <= 1; e++) for (let t = -1; t <= 1; t++) {
+					let c = l + t, f = u + e, p = (c % a + a) % a, m = (f % a + a) % a, h = hash(p, m, r ^ 29873), g = hash(p, m, r ^ 27145) * n, x = Math.cos(g), S = Math.sin(g), C = o - c - .25 - .5 * hash(p, m, r), w = s - f - .25 - .5 * hash(p, m, r ^ 40503), T = i ? .22 + .21 * h : .46 + .17 * h, E = .7 + .3 * hash(p, m, r ^ 20973), D = (C * x + w * S) / E, O = w * x - C * S, k = Math.sqrt(D * D + O * O) + (d - .5) * (i ? .08 : .16), A = smooth(clamp((T - k) / .16)), j = clamp(1 - k / T);
+					_ = Math.max(_, A), b = Math.max(b, A * (.65 + .35 * j)), v += A * (.35 + .65 * h), y += A;
+				}
+				let x = v / Math.max(1, y);
+				i ? (p = .06 + .58 * x + .1 * d + .06 * f, m = .58 * b + .18 * d + .24 * f, h += .08 * (1 - _) + .1 * (f - .5), g = .8 + .2 * _) : (p = .04 + .8 * x + .08 * f, m = b * (.84 + .16 * d) + .025 * f, h += .13 * (1 - _) + .1 * (f - .5), g = .42 + .58 * _);
+				break;
+			}
+			case `cobblestone`: {
+				let t = e + .012 * noise(e, c, 6, 8, r ^ 561), n = c + .009 * noise(e, c, 6, 8, r ^ 2323), i = Math.floor(fract(n) * 8), a = t * 6 + i % 2 * .5, o = fract(a), s = fract(n * 8), l = Math.abs(o - .5), u = Math.abs(s - .5) * .75, _ = Math.max(0, l - .38), v = Math.max(0, u - .255), b = smooth(clamp((.12 - Math.sqrt(_ * _ + v * v) - .018) / .085)), x = hash((Math.floor(a) % 6 + 6) % 6, i, r), S = 1 - .65 * (l * l + u * u);
+				p = .05 + b * (.25 + .48 * x + .12 * d) + .05 * f, m = b * (.76 * S + .16 * d + .08 * f), h += .17 * (1 - b) + .1 * (f - .5), g = .45 + .55 * b;
 				break;
 			}
 		}

@@ -26,7 +26,9 @@
 
 整合既有 pbr3d gallery 的六種預設切換與貼圖預覽，不新增外部素材／依賴、不改共用 geometry／renderer／core-assets 邊界、不改 Scene／mesh ownership。初次實作未授權 commit／push／升版／release；使用者後續明確授權 v1.14 發佈，依頁首規則執行。實際品質與 browser 證據見 ACCEPTANCE，不由批准或文件推論驗收。
 
-後續追加 concrete／tiles／leather／sand／rust／snow，不改既有六種取樣、geometry／renderer 或 ownership。rust 使用 metallic factor 1 與變化的 metallic map；其餘新種類維持 dielectric。不升版、不提交、不推送。
+後續追加 concrete／tiles／leather／sand／rust／snow，不改既有六種取樣、geometry／renderer 或 ownership。rust 使用 metallic factor 1 與變化的 metallic map；其餘新種類維持 dielectric。當時限制為不升版、不提交、不推送，保留為歷史。
+
+使用者目前批准持續增量追加材質，直到另行要求停止；每個完成功能獨立 commit，不 push。本組追加 asphalt／gravel／cobblestone（瀝青／礫石／鵝卵石鋪面）：暗色顆粒黏結料與嵌入骨材／不規則石粒與暗色凹隙／錯列圓角鋪石。皆為 opaque dielectric，沿用 deterministic periodic 四份 maps、既有 options／repeat／ownership，不改前十二種取樣、不新增依賴或 renderer 路徑。實際驗收與物理鋪面尺寸由後續驗證紀錄，不由文件推論。
 
 ## 倉庫結構
 

@@ -36,6 +36,9 @@ const kinds: ProceduralMaterialKind[] = [
   'sand',
   'rust',
   'snow',
+  'asphalt',
+  'gravel',
+  'cobblestone',
 ];
 
 class TestImageData {
@@ -153,6 +156,36 @@ describe('periodic procedural material fields', () => {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
         expect(metallic.size).toBeGreaterThan(8);
+      }
+    },
+  );
+
+  it.each(['asphalt', 'gravel', 'cobblestone'] as const)(
+    '%s remains continuous on both sides of wrapped seams',
+    (kind) => {
+      const sample = createSurfaceSampler(kind, 123);
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a };
+      const epsilon = 1e-7;
+      for (let i = 0; i < 24; i++) {
+        const along = i / 24;
+        for (const axis of [0, 1]) {
+          sample(
+            axis === 0 ? -epsilon : along,
+            axis === 1 ? -epsilon : along,
+            a,
+          );
+          sample(axis === 0 ? epsilon : along, axis === 1 ? epsilon : along, b);
+          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+            expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+        }
       }
     },
   );

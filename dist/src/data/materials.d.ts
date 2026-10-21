@@ -78,6 +78,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.28;
         relief: 0.01;
     }>;
+    asphalt: Readonly<{
+        dark: readonly [22, 25, 27];
+        light: readonly [115, 117, 112];
+        roughness: 0.88;
+        relief: 0.003;
+    }>;
+    gravel: Readonly<{
+        dark: readonly [38, 34, 29];
+        light: readonly [185, 173, 148];
+        roughness: 0.82;
+        relief: 0.025;
+    }>;
+    cobblestone: Readonly<{
+        dark: readonly [43, 46, 44];
+        light: readonly [173, 174, 160];
+        roughness: 0.79;
+        relief: 0.022;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -93,6 +111,9 @@ export declare const proceduralTileMeters: Readonly<{
     sand: 0.4;
     rust: 0.2;
     snow: 1;
+    asphalt: 0.8;
+    gravel: 0.48;
+    cobblestone: 1.2;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

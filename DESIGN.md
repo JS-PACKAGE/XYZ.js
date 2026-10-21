@@ -31,13 +31,15 @@
 
 ## 本輪批准追加：程序式 PBR 預設
 
-此 additive scope 保持既有 Game→Scene→Renderer 與 core／assets 邊界：core 在 `await ProceduralMaterial.create(kind, options?)` 一次產生 CPU maps，以 assets 的 `Texture.fromImage` 建立 immutable sources，不新增 backend／shader／geometry 路徑或逐幀生成。無外部素材或新依賴。六種 `ProceduralMaterialKind` 為 wood／brick／stone／metal／fabric／marble；`ProceduralMaterialOptions` 的 size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1），相同輸入生成 deterministic、seamlessly periodic maps。
+此 additive scope 保持既有 Game→Scene→Renderer 與 core／assets 邊界：core 在 `await ProceduralMaterial.create(kind, options?)` 一次產生 CPU maps，以 assets 的 `Texture.fromImage` 建立 immutable sources，不新增 backend／shader／geometry 路徑或逐幀生成。無外部素材或新依賴。初始六種 `ProceduralMaterialKind` 為 wood／brick／stone／metal／fabric／marble，後續種類見下方增量；`ProceduralMaterialOptions` 的 size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1），相同輸入生成 deterministic、seamlessly periodic maps。
 
-唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
+唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal 與後續 rust 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
 
-呼叫者 owns preset，Mesh／Scene 不接管；同步、冪等 `destroy()` 只釋放生成貼圖，不動外部覆寫 maps 或材質。先移除所有 consumers；`destroyed` getter 表示狀態，銷毀後 `createMaterial()` 拒絕。既有 pbr3d gallery 提供六種預設切換與貼圖預覽，Canvas2D 保持 2D-only。使用者後續授權 v1.14 提交／推送／發佈，依 PLAN 的既有 CI gate 執行；批准及文件不代表 runtime／browser 驗收，實際證據另記 ACCEPTANCE。
+呼叫者 owns preset，Mesh／Scene 不接管；同步、冪等 `destroy()` 只釋放生成貼圖，不動外部覆寫 maps 或材質。先移除所有 consumers；`destroyed` getter 表示狀態，銷毀後 `createMaterial()` 拒絕。既有 pbr3d gallery 提供預設切換與貼圖預覽，Canvas2D 保持 2D-only。使用者後續授權 v1.14 提交／推送／發佈，依 PLAN 的既有 CI gate 執行；批准及文件不代表 runtime／browser 驗收，實際證據另記 ACCEPTANCE。
 
 後續追加 concrete／tiles／leather／sand／rust／snow，既有六種欄位與取樣不變。rust 的 metallic factor 為 1，貼圖 B 通道在殘留金屬與鏽蝕之間變化；其餘新種類維持 dielectric。pbr3d 選單包含全部預設。
+
+鋪面增量為 asphalt／gravel／cobblestone（瀝青／礫石／鵝卵石鋪面）：分別呈現暗色顆粒黏結料與嵌入骨材、不規則石粒與暗色凹隙、錯列圓角鋪石。三者皆為 opaque dielectric，metallic 通道為 0；deterministic periodic baseColor／normal／metallicRoughness／occlusion maps 沿既有 CPU 生成與 PBR 路徑，不新增公開 option、runtime 抽象或 renderer 變更，前十二種輸出保持不變。物理鋪面尺寸與 runtime 品質由實際驗證後記錄，不在此推定。
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 

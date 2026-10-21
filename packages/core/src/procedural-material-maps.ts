@@ -79,7 +79,12 @@ export function createSurfaceSampler(
   const preset = proceduralMaterialPresets[kind];
   const phase = hash(0, 0, seed) * TAU;
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
-  const needsFine = kind === 'brick' || kind === 'stone';
+  const needsFine =
+    kind === 'brick' ||
+    kind === 'stone' ||
+    kind === 'asphalt' ||
+    kind === 'gravel' ||
+    kind === 'cobblestone';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -249,6 +254,84 @@ export function createSurfaceSampler(
         height = 0.7 * drift + 0.2 * spark;
         roughness += 0.22 * spark - 0.06 * drift;
         occlusion = 0.88 + 0.12 * drift;
+        break;
+      }
+      case 'asphalt':
+      case 'gravel': {
+        const asphalt = kind === 'asphalt';
+        const cells = asphalt ? 40 : 12;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let coverage = 0,
+          pigment = 0,
+          weight = 0,
+          relief = 0;
+        // Compact, softly edged caps blend continuously, including across wrapped cells.
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const variation = hash(wx, wy, seed ^ 0x74b1);
+            const angle = hash(wx, wy, seed ^ 0x6a09) * TAU;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x9e37);
+            const radius = asphalt
+              ? 0.22 + 0.21 * variation
+              : 0.46 + 0.17 * variation;
+            const aspect = 0.7 + 0.3 * hash(wx, wy, seed ^ 0x51ed);
+            const rx = (dx * cos + dy * sin) / aspect,
+              ry = dy * cos - dx * sin;
+            const distance =
+              Math.sqrt(rx * rx + ry * ry) +
+              (detail - 0.5) * (asphalt ? 0.08 : 0.16);
+            const cap = smooth(clamp((radius - distance) / 0.16));
+            const dome = clamp(1 - distance / radius);
+            coverage = Math.max(coverage, cap);
+            relief = Math.max(relief, cap * (0.65 + 0.35 * dome));
+            pigment += cap * (0.35 + 0.65 * variation);
+            weight += cap;
+          }
+        const aggregate = pigment / Math.max(1, weight);
+        if (asphalt) {
+          color = 0.06 + 0.58 * aggregate + 0.1 * detail + 0.06 * fine;
+          height = 0.58 * relief + 0.18 * detail + 0.24 * fine;
+          roughness += 0.08 * (1 - coverage) + 0.1 * (fine - 0.5);
+          occlusion = 0.8 + 0.2 * coverage;
+        } else {
+          color = 0.04 + 0.8 * aggregate + 0.08 * fine;
+          height = relief * (0.84 + 0.16 * detail) + 0.025 * fine;
+          roughness += 0.13 * (1 - coverage) + 0.1 * (fine - 0.5);
+          occlusion = 0.42 + 0.58 * coverage;
+        }
+        break;
+      }
+      case 'cobblestone': {
+        const wu = u + 0.012 * noise(u, v, 6, 8, seed ^ 0x231);
+        const wv = v + 0.009 * noise(u, v, 6, 8, seed ^ 0x913);
+        const row = Math.floor(fract(wv) * 8);
+        const column = wu * 6 + (row % 2) * 0.5;
+        const x = fract(column),
+          y = fract(wv * 8);
+        const dx = Math.abs(x - 0.5),
+          dy = Math.abs(y - 0.5) * 0.75;
+        const cornerX = Math.max(0, dx - 0.38),
+          cornerY = Math.max(0, dy - 0.255);
+        const edge = 0.12 - Math.sqrt(cornerX * cornerX + cornerY * cornerY);
+        const face = smooth(clamp((edge - 0.018) / 0.085));
+        const variation = hash(((Math.floor(column) % 6) + 6) % 6, row, seed);
+        const crown = 1 - 0.65 * (dx * dx + dy * dy);
+        // Stone-specific variation vanishes in the joints to keep staggered row edges continuous.
+        color =
+          0.05 + face * (0.25 + 0.48 * variation + 0.12 * detail) + 0.05 * fine;
+        height = face * (0.76 * crown + 0.16 * detail + 0.08 * fine);
+        roughness += 0.17 * (1 - face) + 0.1 * (fine - 0.5);
+        occlusion = 0.45 + 0.55 * face;
         break;
       }
     }

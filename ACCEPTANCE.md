@@ -2327,3 +2327,22 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Physics3D]` `sweepCapsule` 原本只快取一個 query `Shape3D`（以 collider 為 key），多個角色輪流 sweep 時，每次換角色都要 `new Shape3D`。現在改以 WeakMap 為每個 capsule collider 保留一個 shape。切換時呼叫新的 internal `forgetPose()`（把 pose 輸入與 pose matrix 標成 NaN），下一次 `refresh` 會完整重算，結果與新建 shape 逐位元相同。連續使用同一個 collider 的情況維持原狀。Node bench（120 個角色）3 輪交錯：0.70–0.71 → 0.58 ms／frame，hash 相同。差異 fuzz 6 個 seed 與修改前相同；另外跑了一段 3 個角色交錯、其中一個幾乎靜止的情境，比對各 move 結果與位置的 float64 bit hash，也與修改前相同。physics3d hash 不變；完整 gate 1465 tests、navigation-bake／locomotion3d／character-platforms 範例 smoke 通過。
 - `[Canvas2D]` Canvas2D 畫 atlas 子影格（cropped／packed-rotated／flipped）或帶 tint 的 frame 時，原本每次 draw 都要先畫進共用 scratch canvas，有 tint 時還要 `getImageData`／`putImageData`，再把 scratch 畫到主 canvas。現在 `CanvasSpriteSource` 依值快取已畫好的 frame。key 為 16 個 float64：source id、version、distance-field scale、source 尺寸、UV basis、繪製尺寸、tint RGB；以 hash 查找後再逐值比對，hash 碰撞視為 miss。快取以 LRU 淘汰最久未畫者，上限見 `src/data/rendering2d.ts` 的 `canvasFrameSnapshots: 256` 與 `canvasFrameSnapshotPixels: 4 Mi px`；淘汰下來的 canvas 會拿來重畫，不另外配置。render-target source 與超過上限的 frame 仍走原本的 scratch。`unload`、source destroy（含 distance-field 來源）與 `destroy` 會釋放快取。scratch 頁（400 個 atlas sprite，400 幀）2 輪交錯：半數帶 tint 時 CPU 78.0–81.9 → 1.23–1.63 ms／frame，RAF 78–82 → 16.7 ms（vsync）；全部不帶 tint 時 CPU 1.59–1.61 → 1.48–1.97 ms（雜訊範圍），RAF 28.2–28.4 → 16.7 ms；每幀每個 sprite tint 都不同、LRU 持續淘汰的最壞情況 78.8 → 20.3 ms。範例 4 秒取樣幀數：gameplay2d 46 → 242、tilemap2d 130 → 241、particles2d 82 → 80。像素比對：格狀影格在 tint 比例 0／0.5／1、tint 每幀變化（n=600，觸發淘汰）、以及不帶 tint 的 trimmed／rotated／尺寸不一 view，修改前後完全相同。帶 tint 且有 trim 或尺寸不一的 view 有 2124 px（0.9%）不同，只在 sprite 邊緣，單一 channel 最大差 77。排查後確認：關閉命中時輸出與舊版相同；把影格單獨重畫多次的結果也都一致。差異來自舊 scratch 的 Chrome canvas backing 會隨讀回與 resize 歷史改變，舊輸出本身就依賴這段歷史。擁有者已選擇接受這個邊緣差異。`tests/canvas-sprite-source.test.ts` 新增 3 項測試：同一輸入不重畫、RGB 任一 channel 或 UV 改變就重畫、source 更新與 unload 後重畫、LRU 保留最近畫過的 snapshot。關閉命中、key 漏掉 version 或任一 tint channel 或 u0、unload 不釋放、淘汰不依使用時間、命中不更新使用時間，這些 mutant 都會失敗。TECHNICAL 中英文已同步。canvas2d regression、gameplay2d／tilemap2d／particles2d／text-i18n／sprite／rendering2d 範例 smoke、`check:tree-shaking` 通過；完整 gate 1468 tests 通過。
 - `[Canvas2D]` 整數位移 1:1、二值 alpha 的 tinted frame 改由每個 source 版本讀回一次的像素直接 tint，不再逐次 getImageData；半透明／重新取樣 frame 維持原讀回路徑。c2f 每幀變色 400 sprites CPU 21.4 → 2.1 ms；texture.png 與半透明 gradient 貼圖 tinted／vary／views 截圖與基準逐位元一致；particles2d（soft alpha）不受影響，依小語決定維持精確。
+
+## 程序材質擴充：鋪面（asphalt／gravel／cobblestone）
+
+- 新增瀝青骨材、礫石與錯列圓角鋪石三種 opaque dielectric 預設，沿用
+  `ProceduralMaterial.create()`、四份 maps 與原 ownership；tile 物理尺寸依序為
+  0.8／0.48／1.2 m。gallery 選單與四份貼圖預覽同步加入，無外部素材或新依賴。
+- macOS arm64／Node 26.7.0／pnpm 12.6.0：build、typecheck、lint、
+  format:check 通過。移除重複的接線測試後，完整 176 檔／1476 tests
+  在 `vitest run --maxWorkers 2` 通過；原並行跑法曾有 shader variant
+  測試超過 5 秒，未調高 timeout 或排除測試。新邊界案例涵蓋正負 UV
+  接縫兩側連續性；既有 12 種在 size 64／seed 7
+  的四份 maps SHA256 與修改前逐一相同。
+- managed Chromium 實際在 pbr3d 的 WebGPU 與 WebGL2 選取三種新材質，
+  確認 PBR 球面與 maps 預覽、無 page errors；另用正式 root API 產生
+  256px／seed 7 的 2×2 平鋪圖，檢查接縫與三種視覺差異、metallic 0、
+  `proceduralRepeats` 及 destroy 後四份 textures 均釋放。
+  Canvas2D 不新增 3D 能力；未新增跨瀏覽器／硬體認證。
+- 依使用者授權為本組建立獨立功能 commit，不 push；先前尚未提交的依賴
+  安全修補保留在工作樹，不混入本組。

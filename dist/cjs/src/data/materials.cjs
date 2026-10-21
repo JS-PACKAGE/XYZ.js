@@ -173,6 +173,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .28,
 		relief: .01
+	}),
+	asphalt: Object.freeze({
+		dark: [
+			22,
+			25,
+			27
+		],
+		light: [
+			115,
+			117,
+			112
+		],
+		roughness: .88,
+		relief: .003
+	}),
+	gravel: Object.freeze({
+		dark: [
+			38,
+			34,
+			29
+		],
+		light: [
+			185,
+			173,
+			148
+		],
+		roughness: .82,
+		relief: .025
+	}),
+	cobblestone: Object.freeze({
+		dark: [
+			43,
+			46,
+			44
+		],
+		light: [
+			173,
+			174,
+			160
+		],
+		roughness: .79,
+		relief: .022
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -187,7 +229,10 @@ var proceduralTileMeters = Object.freeze({
 	leather: .12,
 	sand: .4,
 	rust: .2,
-	snow: 1
+	snow: 1,
+	asphalt: .8,
+	gravel: .48,
+	cobblestone: 1.2
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

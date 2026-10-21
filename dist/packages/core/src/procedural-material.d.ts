@@ -1,6 +1,6 @@
 import { Texture } from '../../assets/src/index.js';
 import { PBRMaterial, type PBRMaterialOptions } from './pbr-material.js';
-export type ProceduralMaterialKind = 'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow';
+export type ProceduralMaterialKind = 'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone';
 export interface ProceduralMaterialOptions {
     size?: number;
     seed?: number;
