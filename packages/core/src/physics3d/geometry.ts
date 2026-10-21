@@ -638,8 +638,17 @@ export class Narrowphase3D {
               );
       const len = n.length();
       if (len < 1e-8) continue;
+      // `radius` spelled out: its double result was boxed on every axis of every pair.
+      const ra =
+          Math.abs(a.axes[0].dot(n)) * a.half.x +
+          Math.abs(a.axes[1].dot(n)) * a.half.y +
+          Math.abs(a.axes[2].dot(n)) * a.half.z,
+        rb =
+          Math.abs(b.axes[0].dot(n)) * b.half.x +
+          Math.abs(b.axes[1].dot(n)) * b.half.y +
+          Math.abs(b.axes[2].dot(n)) * b.half.z;
       const signed = (dx * n.x + dy * n.y + dz * n.z) / len,
-        sep = Math.abs(signed) - (this.radius(a, n) + this.radius(b, n)) / len;
+        sep = Math.abs(signed) - (ra + rb) / len;
       if (sep > best) {
         best = sep;
         const sign = signed >= 0 ? 1 : -1;

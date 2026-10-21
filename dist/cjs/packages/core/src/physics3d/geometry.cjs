@@ -267,10 +267,10 @@ var Narrowphase3D = class {
 		for (let u = 0; u < 15; u++) {
 			let d = u < 3 ? e.axes[u] : u < 6 ? t.axes[u - 3] : cross(e.axes[Math.floor((u - 6) / 3)], t.axes[(u - 6) % 3], this.axis), f = d.length();
 			if (f < 1e-8) continue;
-			let p = (r * d.x + i * d.y + a * d.z) / f, m = Math.abs(p) - (this.radius(e, d) + this.radius(t, d)) / f;
-			if (m > o) {
-				o = m;
-				let e = p >= 0 ? 1 : -1;
+			let p = Math.abs(e.axes[0].dot(d)) * e.half.x + Math.abs(e.axes[1].dot(d)) * e.half.y + Math.abs(e.axes[2].dot(d)) * e.half.z, m = Math.abs(t.axes[0].dot(d)) * t.half.x + Math.abs(t.axes[1].dot(d)) * t.half.y + Math.abs(t.axes[2].dot(d)) * t.half.z, h = (r * d.x + i * d.y + a * d.z) / f, g = Math.abs(h) - (p + m) / f;
+			if (g > o) {
+				o = g;
+				let e = h >= 0 ? 1 : -1;
 				n.normal.set(d.x / f * e, d.y / f * e, d.z / f * e), s = u, c = Math.floor((u - 6) / 3), l = (u - 6) % 3;
 			}
 		}

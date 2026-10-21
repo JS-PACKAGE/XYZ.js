@@ -2760,3 +2760,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Physics3D]` box–box SAT 在迴圈內直接計算兩個投影半徑，不再呼叫回傳 double 的 `radius()`（未 inline 時每軸每對都 box）。1000 body bench 配置 4.6 → 4.4 MiB/step，phys3d／cc3d／cc3dfuzz hash 不變。mixed 基準（WebGL2）取樣配置經前述三項 Physics3D 修正由約 3.0 MB/frame 降至 0.66 MB/frame。
