@@ -123,6 +123,9 @@ const kinds: ProceduralMaterialKind[] = [
   'chainmail',
   'rivetedmetal',
   'weldedmetal',
+  'cactus',
+  'pinecone',
+  'corncob',
 ];
 
 class TestImageData {
@@ -170,6 +173,194 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('botanical surface relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    it('cactus has longitudinal ribs, rough areoles and recessed radial marks', () => {
+      const crest = empty(),
+        groove = empty(),
+        areole = empty(),
+        mark = empty(),
+        skin = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('cactus', seed);
+        for (const [column, row] of [
+          [0, 0],
+          [3, 5],
+          [7, 7],
+        ]) {
+          const x = column + 0.5,
+            y = row + 0.5 + 0.12 * (hash(column, row, seed ^ 0x2d59) - 0.5),
+            angle = hash(column, row, seed ^ 0x7f31) * Math.PI * 2,
+            rx = Math.cos(angle),
+            ry = Math.sin(angle);
+          sample(x / 8, (y + 0.45) / 8, crest);
+          sample((x - 0.5) / 8, (y + 0.45) / 8, groove);
+          sample(x / 8, y / 8, areole);
+          expect(crest.height).toBeGreaterThan(groove.height);
+          expect(areole.roughness).toBeGreaterThan(crest.roughness);
+          const mx = x + 0.24 * rx,
+            my = y + 0.24 * ry;
+          sample(mx / 8, my / 8, mark);
+          // The row boundary shares the rib's x coordinate but lies beyond
+          // either row's areole support, so relief scaling cancels naturally.
+          sample(mx / 8, (row + 1) / 8, skin);
+          expect(mark.height).toBeLessThan(skin.height);
+          expect(mark.roughness).toBeGreaterThan(skin.roughness);
+        }
+      }
+    });
+    it('pinecone exposes raised angular tips above centers and overlap seams', () => {
+      const tip = empty(),
+        center = empty(),
+        seam = empty(),
+        root = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('pinecone', seed);
+        for (const [column, row] of [
+          [0, 0],
+          [3, 5],
+          [7, 7],
+        ]) {
+          const x = column + (row % 2) * 0.5 + 0.5,
+            y = row + 0.5;
+          sample(x / 8, y / 8, center);
+          sample(x / 8, (y + 0.6) / 8, tip);
+          sample((x + 0.35) / 8, (y + 0.6) / 8, seam);
+          sample(x / 8, (y + 0.86) / 8, root);
+          expect(tip.height).toBeGreaterThan(center.height);
+          expect(tip.height).toBeGreaterThan(seam.height);
+          expect(tip.height).toBeGreaterThan(root.height);
+        }
+      }
+    });
+    it('corn has rounded oblong crowns and narrow recessed interstices', () => {
+      const crown = empty(),
+        shoulder = empty(),
+        gap = empty(),
+        along = empty(),
+        across = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('corncob', seed);
+        for (const [column, row] of [
+          [0, 0],
+          [5, 3],
+          [11, 7],
+        ]) {
+          const u = (column + 0.5) / 12,
+            v = (row + 0.5) / 8;
+          sample(u, v, crown);
+          for (const [du, dv] of [
+            [0.3 / 12, 0],
+            [0, 0.3 / 8],
+          ]) {
+            sample(u + du, v + dv, shoulder);
+            sample(u + (du * 5) / 3, v + (dv * 5) / 3, gap);
+            expect(crown.height).toBeGreaterThan(shoulder.height);
+            expect(shoulder.height).toBeGreaterThan(gap.height);
+            expect(crown.occlusion).toBeGreaterThan(gap.occlusion);
+          }
+          sample(u, v + 0.025, along);
+          sample(u + 0.025, v, across);
+          expect(along.height).toBeGreaterThan(across.height);
+        }
+      }
+    });
+    it.each(['cactus', 'pinecone', 'corncob'] as const)(
+      '%s is C1 at actual seeded shoulders, tips, corners and support',
+      (kind) => {
+        const a = empty(),
+          b = empty(),
+          center = empty(),
+          halfA = empty(),
+          halfB = empty();
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed);
+          for (const [column, row] of [
+            [0, 0],
+            [3, 5],
+            [7, 7],
+          ]) {
+            const points: number[][] = [];
+            const x = column + 0.5,
+              y = row + 0.5;
+            if (kind === 'cactus') {
+              const cy = y + 0.12 * (hash(column, row, seed ^ 0x2d59) - 0.5),
+                angle = hash(column, row, seed ^ 0x7f31) * Math.PI * 2,
+                length = 0.28 + 0.08 * hash(column, row, seed ^ 0x4a73);
+              points.push([(x + 0.14) / 8, cy / 8], [x / 8, (cy + 0.13) / 8]);
+              for (let ray = 0; ray < 8; ray++) {
+                const rx = Math.cos(angle + (ray * Math.PI) / 4),
+                  ry = Math.sin(angle + (ray * Math.PI) / 4);
+                for (const distance of [0.09, 0.145, length - 0.085, length])
+                  points.push([
+                    (x + distance * rx) / 8,
+                    (cy + distance * ry) / 8,
+                  ]);
+                points.push([
+                  (x + 0.24 * rx - 0.015 * ry) / 8,
+                  (cy + 0.24 * ry + 0.015 * rx) / 8,
+                ]);
+              }
+            } else if (kind === 'pinecone') {
+              const cx = x + (row % 2) * 0.5;
+              for (const dy of [-0.78, -0.66, 0.74, 0.86])
+                for (const dx of [0, 0.68 - 0.55 * dy, 0.58 - 0.55 * dy])
+                  for (const sign of [-1, 1])
+                    points.push([(cx + sign * dx) / 8, (y + dy) / 8]);
+              points.push([cx / 8, (y - 0.05) / 8], [cx / 8, (y + 0.71) / 8]);
+            } else {
+              const variation = hash(column, row, seed ^ 0x4a73),
+                width = 0.445 + 0.015 * variation,
+                length = 0.46 + 0.015 * variation;
+              for (const cap of [0, 0.28])
+                for (const dx of [0, 0.4, 0.8]) {
+                  const dy = Math.sqrt(1 - cap - dx ** 4);
+                  for (const sign of [-1, 1])
+                    points.push([
+                      (x + dx * width) / 12,
+                      (y + sign * dy * length) / 8,
+                    ]);
+                }
+            }
+            for (const [u, v] of points)
+              for (const [du, dv] of [
+                [1e-8, 0],
+                [0, 1e-8],
+              ]) {
+                sample(u - du, v - dv, a);
+                sample(u, v, center);
+                sample(u + du, v + dv, b);
+                sample(u - du / 2, v - dv / 2, halfA);
+                sample(u + du / 2, v + dv / 2, halfB);
+                for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+                  expect(
+                    Math.abs(
+                      4 * (halfA[key] + halfB[key]) -
+                        a[key] -
+                        b[key] -
+                        6 * center[key],
+                    ) / 1e-8,
+                  ).toBeLessThan(0.001);
+              }
+          }
+        }
+      },
+    );
+  });
   it.each(kinds)(
     '%s is deterministic, seeded, distinct and periodic in both axes',
     (kind) => {
@@ -377,6 +568,9 @@ describe('periodic procedural material fields', () => {
     ['chainmail', [6, 8, 48, 64]],
     ['rivetedmetal', [3, 4, 48, 64]],
     ['weldedmetal', [3, 32, 48, 64]],
+    ['cactus', [8, 48, 64]],
+    ['pinecone', [8, 16, 48, 64]],
+    ['corncob', [8, 12, 48, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -493,6 +687,17 @@ describe('periodic procedural material fields', () => {
     ['weldedmetal', 3],
     ['weldedmetal', 32],
     ['weldedmetal', 64],
+    ['cactus', 8],
+    ['cactus', 48],
+    ['cactus', 64],
+    ['pinecone', 8],
+    ['pinecone', 16],
+    ['pinecone', 48],
+    ['pinecone', 64],
+    ['corncob', 8],
+    ['corncob', 12],
+    ['corncob', 48],
+    ['corncob', 64],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -1614,6 +1819,9 @@ describe('periodic procedural material fields', () => {
     'fishscales',
     'tortoiseshell',
     'feathers',
+    'cactus',
+    'pinecone',
+    'corncob',
     'breadcrust',
     'wafer',
     'chocolate',
@@ -1636,21 +1844,23 @@ describe('periodic procedural material fields', () => {
         halfA = { ...a },
         halfB = { ...a };
       const cells =
-        kind === 'crackleglaze'
-          ? 16
-          : kind === 'flutedceramic'
-            ? 96
-            : kind === 'fishscales'
-              ? 10
-              : kind === 'tortoiseshell'
-                ? 6
-                : kind === 'feathers'
-                  ? 8
-                  : kind === 'breadcrust'
-                    ? 7
-                    : kind === 'wafer'
-                      ? 12
-                      : 4;
+        kind === 'cactus' || kind === 'pinecone' || kind === 'corncob'
+          ? 12
+          : kind === 'crackleglaze'
+            ? 16
+            : kind === 'flutedceramic'
+              ? 96
+              : kind === 'fishscales'
+                ? 10
+                : kind === 'tortoiseshell'
+                  ? 6
+                  : kind === 'feathers'
+                    ? 8
+                    : kind === 'breadcrust'
+                      ? 7
+                      : kind === 'wafer'
+                        ? 12
+                        : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;

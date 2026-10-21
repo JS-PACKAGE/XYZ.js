@@ -1391,6 +1391,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .39,
 		relief: .006
+	}),
+	cactus: Object.freeze({
+		dark: [
+			24,
+			65,
+			31
+		],
+		light: [
+			121,
+			165,
+			73
+		],
+		roughness: .57,
+		relief: .008
+	}),
+	pinecone: Object.freeze({
+		dark: [
+			47,
+			25,
+			13
+		],
+		light: [
+			174,
+			125,
+			73
+		],
+		roughness: .86,
+		relief: .012
+	}),
+	corncob: Object.freeze({
+		dark: [
+			156,
+			89,
+			9
+		],
+		light: [
+			255,
+			224,
+			87
+		],
+		roughness: .38,
+		relief: .004
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1492,7 +1534,10 @@ var proceduralTileMeters = Object.freeze({
 	splitfaceblock: 1.6,
 	chainmail: .12,
 	rivetedmetal: 1.2,
-	weldedmetal: .6
+	weldedmetal: .6,
+	cactus: .32,
+	pinecone: .16,
+	corncob: .12
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

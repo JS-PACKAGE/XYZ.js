@@ -2915,3 +2915,26 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   獨立 Chrome 的 WebGL2 三種畫面 hash 與獨立快照一致。
 - 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
+
+## 程序材質擴充：植物表面（cactus／pinecone／corncob）
+
+- 新增仙人掌縱肋、刺座與細放射壓痕，松果錯列交疊的角形木質鱗片，
+  以及圓鼓長形玉米粒與窄凹隙。本組獨立快照由 99 增為 102 種，
+  不含同時進行的另一組金屬材質；全部為 opaque dielectric，
+  不新增完整植物拓撲、刺針幾何或碰撞。
+- 原 99 種在 size 64／seed 7 下四份 maps SHA256 全部不變；
+  整合前後另一組未提交的 perforatedmetal／expandedmetal／wiremesh
+  同設定輸出亦逐位不變，不將其視為本組新增或代為驗收。
+- 獨立快照 build、typecheck、lint、format:check 通過；
+  六個植物結構／實際支撐邊界測試先通過，完整 Vitest 為
+  176 files／1829 tests passed（73.56 秒）。
+  仙人掌壓痕以相同肋位置的無刺座表皮比較，不釘選 relief 係數；
+  本組文件變更未新增或改動相對連結。
+- 獨立 Chrome WebGPU／WebGL2 gallery 逐一切換三者，
+  畫面 hash 各自不同且無 page errors；2×2 平鋪及四份 textures
+  destroy 釋放通過。metallic 全為 0，roughness bytes 依序
+  142–178／217–223／81–135；每米 repeats 依序 3.125／6.25／8.333333。
+- 帶上下文 patch 保留同步修改；主工作目錄 build、typecheck 與
+  379 個程序材質測試通過，WebGPU 三種畫面 hash 與獨立快照一致。
+- 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
+  不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。

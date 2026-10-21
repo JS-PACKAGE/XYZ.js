@@ -105,7 +105,10 @@ export type ProceduralMaterialKind =
   | 'splitfaceblock'
   | 'chainmail'
   | 'rivetedmetal'
-  | 'weldedmetal';
+  | 'weldedmetal'
+  | 'cactus'
+  | 'pinecone'
+  | 'corncob';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -237,6 +240,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'chainmail',
   'rivetedmetal',
   'weldedmetal',
+  'cactus',
+  'pinecone',
+  'corncob',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

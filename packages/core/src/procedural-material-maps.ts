@@ -448,6 +448,31 @@ export function createSurfaceSampler(
   if (fabricatedOwners)
     for (let i = 0; i < fabricatedOwners.length; i++)
       fabricatedOwners[i] = hash(i, 0, seed ^ 0x39b5);
+  const botanical =
+    kind === 'cactus' || kind === 'pinecone' || kind === 'corncob';
+  const botanicalGrain = botanical ? cachedNoise(48, 64, seed ^ 0x5e39) : null;
+  const botanicalColumns = kind === 'corncob' ? 12 : 8;
+  const botanicalRows = 8;
+  const botanicalStride = kind === 'cactus' ? 18 : 1;
+  const botanicalCells = botanical
+    ? new Float64Array(botanicalColumns * botanicalRows * botanicalStride)
+    : null;
+  if (botanicalCells)
+    for (let y = 0; y < botanicalRows; y++)
+      for (let x = 0; x < botanicalColumns; x++) {
+        const offset = (y * botanicalColumns + x) * botanicalStride;
+        botanicalCells[offset] = hash(x, y, seed ^ 0x4a73);
+        if (kind === 'cactus') {
+          botanicalCells[offset] = 0.28 + 0.08 * botanicalCells[offset];
+          botanicalCells[offset + 1] = 0.12 * (hash(x, y, seed ^ 0x2d59) - 0.5);
+          const rotation = hash(x, y, seed ^ 0x7f31) * TAU;
+          for (let ray = 0; ray < 8; ray++) {
+            const angle = rotation + (ray * TAU) / 8;
+            botanicalCells[offset + 2 + ray * 2] = Math.cos(angle);
+            botanicalCells[offset + 3 + ray * 2] = Math.sin(angle);
+          }
+        }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -473,7 +498,9 @@ export function createSurfaceSampler(
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
     const detail =
-      architectural || fabricated ? 0 : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
+      architectural || fabricated || botanical
+        ? 0
+        : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
     let color = broad,
       height = broad,
@@ -494,6 +521,129 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'cactus': {
+        const x = u * 8,
+          y = v * 8,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          rib = 0.5 - 0.5 * Math.cos(TAU * x),
+          grain = botanicalGrain!(u, v);
+        let areoles = 0,
+          impressions = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              wx = (cx + 8) % 8,
+              wy = (cy + 8) % 8,
+              offset = (wy * 8 + wx) * 18,
+              dx = x - cx - 0.5,
+              dy = y - cy - 0.5 - botanicalCells![offset + 1];
+            if (dx * dx + dy * dy > 0.14) continue;
+            const cap = clamp(1 - (dx * dx) / 0.0196 - (dy * dy) / 0.0169),
+              length = botanicalCells![offset];
+            areoles += cap * cap;
+            for (let ray = 0; ray < 8; ray++) {
+              const rx = botanicalCells![offset + 2 + ray * 2],
+                ry = botanicalCells![offset + 3 + ray * 2],
+                along = dx * rx + dy * ry,
+                across = dy * rx - dx * ry,
+                shaft =
+                  smooth(clamp((along - 0.09) / 0.055)) *
+                  smooth(clamp((length - along) / 0.085)),
+                width = clamp(1 - (across * across) / 0.000225);
+              impressions += shaft * width * width;
+            }
+          }
+        // Fine radial marks are recessed shading only, never needle geometry.
+        color =
+          0.2 +
+          0.47 * rib +
+          0.045 * grain +
+          0.18 * areoles -
+          0.08 * impressions;
+        height =
+          0.18 +
+          0.49 * rib +
+          0.065 * areoles -
+          0.025 * impressions +
+          0.004 * grain;
+        roughness +=
+          0.12 * areoles + 0.055 * impressions + 0.025 * (grain - 0.5);
+        occlusion = 0.83 + 0.16 * rib - 0.08 * areoles - 0.035 * impressions;
+        break;
+      }
+      case 'pinecone': {
+        const x = u * 8,
+          y = v * 8,
+          row = Math.floor(y),
+          grain = botanicalGrain!(u, v);
+        color = 0.08 + 0.025 * grain;
+        height = 0.12;
+        occlusion = 0.58;
+        // Upper rows cover the roots of lower rows. Four multiplied half-plane
+        // shoulders form angular woody faces without min-axis corner cusps.
+        for (let oy = 1; oy >= -1; oy--) {
+          const cy = row + oy,
+            wy = (cy + 8) % 8,
+            stagger = (wy % 2) * 0.5,
+            column = Math.floor(x - stagger);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              wx = (cx + 8) % 8,
+              variation = botanicalCells![wy * 8 + wx],
+              dx = x - cx - stagger - 0.5,
+              dy = y - cy - 0.5,
+              left = smooth(clamp((0.68 + dx - 0.55 * dy) / 0.1)),
+              right = smooth(clamp((0.68 - dx - 0.55 * dy) / 0.1)),
+              root = smooth(clamp((dy + 0.78) / 0.12)),
+              end = smooth(clamp((0.86 - dy) / 0.12)),
+              cover = left * right * root * end;
+            if (cover === 0) continue;
+            const tip = smooth(clamp((dy + 0.05) / 0.76)),
+              ridge = smooth(clamp(1 - (dx * dx) / 0.36)),
+              fibers = Math.cos(TAU * (19 * dx + 1.8 * dy * dy + variation)),
+              relief =
+                0.28 +
+                0.27 * tip +
+                0.075 * ridge +
+                0.018 * variation +
+                0.006 * fibers,
+              pigment =
+                0.28 +
+                0.22 * variation +
+                0.18 * tip +
+                0.045 * fibers +
+                0.025 * grain;
+            color += cover * (pigment - color);
+            height += cover * (relief - height);
+            occlusion += cover * (0.97 - occlusion);
+          }
+        }
+        roughness += 0.06 * (1 - occlusion) + 0.025 * (grain - 0.5);
+        break;
+      }
+      case 'corncob': {
+        const x = u * 12,
+          y = v * 8,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          variation = botanicalCells![row * 12 + column],
+          dx = (fract(x) - 0.5) / (0.445 + 0.015 * variation),
+          dy = (fract(y) - 0.5) / (0.46 + 0.015 * variation),
+          cap = clamp(1 - dx * dx * dx * dx - dy * dy),
+          face = smooth(clamp(cap / 0.28)),
+          crown = smooth(cap),
+          grain = botanicalGrain!(u, v);
+        // Rounded oblong kernels bulge throughout their faces, not flat bricks.
+        color =
+          0.13 +
+          face * (0.36 + 0.15 * variation + 0.21 * crown + 0.025 * grain);
+        height = 0.09 + face * (0.24 + 0.4 * crown + 0.025 * variation);
+        roughness += 0.14 * (1 - face) - 0.055 * crown + 0.015 * (grain - 0.5);
+        occlusion = 0.55 + 0.44 * face;
+        break;
+      }
       case 'wood': {
         const warp = noise(u, v, 4, 2, seed ^ 71);
         const grain =

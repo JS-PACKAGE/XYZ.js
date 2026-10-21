@@ -178,6 +178,9 @@ try {
     'chainmail',
     'rivetedmetal',
     'weldedmetal',
+    'cactus',
+    'pinecone',
+    'corncob',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }
