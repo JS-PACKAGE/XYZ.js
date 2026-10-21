@@ -80,7 +80,7 @@ var SpatialIndex3D = class {
 			let r = this.stack.pop();
 			r.bounds.overlaps(e, n) && (r.item ? t.push(r.item) : this.stack.push(r.right, r.left));
 		}
-		t.sort(compareOrder);
+		sortByOrder(t);
 	}
 	clear() {
 		this.root = void 0, this.nodes.length = 0, this.leaves.length = 0, this.stack.length = 0, this.leafNodes.clear(), this.used = 0;
@@ -88,6 +88,17 @@ var SpatialIndex3D = class {
 };
 function compareOrder(e, t) {
 	return e.order - t.order;
+}
+function sortByOrder(e) {
+	if (e.length > 32) {
+		e.sort(compareOrder);
+		return;
+	}
+	for (let t = 1; t < e.length; t++) {
+		let n = e[t], r = t - 1;
+		for (; r >= 0 && compareOrder(e[r], n) > 0; r--) e[r + 1] = e[r];
+		e[r + 1] = n;
+	}
 }
 //#endregion
 exports.Bounds3D = Bounds3D;

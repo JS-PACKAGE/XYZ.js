@@ -187,7 +187,7 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
         this.stack.push(n.right!, n.left!);
       }
     }
-    out.sort(compareOrder);
+    sortByOrder(out);
   }
   clear(): void {
     this.root = undefined;
@@ -200,4 +200,21 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
 }
 function compareOrder(a: SpatialItem3D, b: SpatialItem3D): number {
   return a.order - b.order;
+}
+/**
+ * Stable ascending `order`, like `Array.prototype.sort(compareOrder)`. Query results are
+ * usually a handful of items, and the builtin sort allocates a work array per call.
+ */
+function sortByOrder(items: SpatialItem3D[]): void {
+  if (items.length > 32) {
+    items.sort(compareOrder);
+    return;
+  }
+  for (let i = 1; i < items.length; i++) {
+    const item = items[i]!;
+    let j = i - 1;
+    for (; j >= 0 && compareOrder(items[j]!, item) > 0; j--)
+      items[j + 1] = items[j]!;
+    items[j + 1] = item;
+  }
 }

@@ -2736,3 +2736,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Physics3D]` 接觸求解的衝量與轉換後 torque 改以 world 持有的 Vector3 傳給 `applyImpulse`／`addInverseInertia`（`addInverseInertia(torque, phase)`），不再以三個 double 參數跨過未 inline 的呼叫（每次衝量都會 box 成 HeapNumber）。1000 body 堆疊 Node bench 配置 14.4 → 6.1 MiB/step、7.6 → 7.2 ms/step，phys3d／cc3d／cc3dfuzz（seed 1–3）／ccbits／bake 40×40 hash 皆不變。
+- `[Physics3D]` 空間索引查詢結果（≤32 筆）改以穩定插入排序依 `order` 排序，避免內建 sort 每次配置工作陣列；排序結果與 `sort(compareOrder)` 相同。1000 body bench 配置 6.1 → 4.6 MiB/step，時間持平，hash 不變。
