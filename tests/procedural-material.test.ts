@@ -39,6 +39,9 @@ const kinds: ProceduralMaterialKind[] = [
   'asphalt',
   'gravel',
   'cobblestone',
+  'bark',
+  'moss',
+  'mud',
 ];
 
 class TestImageData {
@@ -160,7 +163,7 @@ describe('periodic procedural material fields', () => {
     },
   );
 
-  it.each(['asphalt', 'gravel', 'cobblestone'] as const)(
+  it.each(['asphalt', 'gravel', 'cobblestone', 'bark', 'moss', 'mud'] as const)(
     '%s remains continuous on both sides of wrapped seams',
     (kind) => {
       const sample = createSurfaceSampler(kind, 123);

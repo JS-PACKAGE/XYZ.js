@@ -2346,3 +2346,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   Canvas2D 不新增 3D 能力；未新增跨瀏覽器／硬體認證。
 - 依使用者授權為本組建立獨立功能 commit，不 push；先前尚未提交的依賴
   安全修補保留在工作樹，不混入本組。
+
+## 程序材質擴充：自然表面（bark／moss／mud）
+
+- 新增具有長向斷裂隆起的樹皮、綠色團簇苔蘚、乾濕粗糙度變化與裂縫泥土；
+  tile 物理尺寸依序為 0.5／0.3／0.6 m。三者維持 opaque dielectric、
+  四份 periodic maps 與原 ownership，gallery、三語 README 及中英文 API／
+  使用文件同步更新；不新增依賴或 renderer 路徑。
+- build、typecheck、lint、format:check 通過。完整 176 檔／1482 tests
+  以 `vitest run --maxWorkers 1` 通過；先前雙 worker 與 browser 同時執行時，
+  shader variant 掃描曾超過原 5 秒 timeout，沒有調高門檻或排除測試。
+  所有前十五種預設的四份 maps 在 size 64／seed 7 的 SHA256 均與上一組相同。
+- managed Chromium 的 WebGPU／WebGL2 gallery 都逐一選取新種類，固定光源後
+  三種球面截圖 hash 各不相同，無 page errors；正式 root API 產生 256px、
+  seed 7 的 2×2 平鋪圖確認視覺差異。三者 metallic 通道皆為 0，
+  roughness bytes 範圍依序 217–255／207–242／117–249，destroy 後四份
+  textures 均釋放。單元測試擴充 deterministic／seed／normal／接縫連續性。
+- 依授權獨立 commit，不 push；Canvas2D 仍不支援 3D，此紀錄不代表新增
+  跨瀏覽器或實體裝置認證。依賴安全修補仍留工作樹，未混入本功能。

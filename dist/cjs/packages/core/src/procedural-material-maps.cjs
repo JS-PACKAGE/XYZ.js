@@ -23,7 +23,7 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
 		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
@@ -102,6 +102,26 @@ function createSurfaceSampler(t, r) {
 			case `cobblestone`: {
 				let t = e + .012 * noise(e, c, 6, 8, r ^ 561), n = c + .009 * noise(e, c, 6, 8, r ^ 2323), i = Math.floor(fract(n) * 8), a = t * 6 + i % 2 * .5, o = fract(a), s = fract(n * 8), l = Math.abs(o - .5), u = Math.abs(s - .5) * .75, _ = Math.max(0, l - .38), v = Math.max(0, u - .255), b = smooth(clamp((.12 - Math.sqrt(_ * _ + v * v) - .018) / .085)), x = hash((Math.floor(a) % 6 + 6) % 6, i, r), S = 1 - .65 * (l * l + u * u);
 				p = .05 + b * (.25 + .48 * x + .12 * d) + .05 * f, m = b * (.76 * S + .16 * d + .08 * f), h += .17 * (1 - b) + .1 * (f - .5), g = .45 + .55 * b;
+				break;
+			}
+			case `bark`: {
+				let t = noise(e, c, 4, 6, r ^ 15127), n = noise(e + .035 * t, c, 18, 3, r ^ 33825), i = noise(e, c, 6, 18, r ^ 20883), a = smooth(clamp((n - .26) / .38)) * smooth(clamp((i - .18) / .22)), o = noise(e, c, 48, 12, r ^ 8571);
+				p = .05 + a * (.43 + .33 * o + .13 * f), m = a * (.58 + .3 * o + .12 * d), h += .08 * (1 - a) + .1 * (f - .5), g = .42 + .58 * a;
+				break;
+			}
+			case `moss`: {
+				let t = noise(e, c, 4, 4, r ^ 7015), i = smooth(clamp(1 - wrappedFeature(fract(e + .025 * t), fract(c + .018 * t), 9, r ^ 25519) / .95)), a = noise(e, c, 18, 18, r ^ 37671), o = smooth(clamp((f - .25) / .5));
+				p = .09 + .46 * i + .24 * a + .19 * o, m = .65 * i + (.09 + .14 * i) * o + .12 * d, h += .06 * (o - .5) - .08 * (1 - i), g = .52 + .36 * i + .12 * o;
+				break;
+			}
+			case `mud`: {
+				let t = noise(e, c, 4, 4, r ^ 29011), n = (e + .025 * t) * 7, i = (c + .025 * noise(e, c, 4, 4, r ^ 7993)) * 7, a = Math.floor(n), o = Math.floor(i), s = 4, l = 4;
+				for (let e = -1; e <= 1; e++) for (let t = -1; t <= 1; t++) {
+					let c = a + t, u = o + e, d = (c % 7 + 7) % 7, f = (u % 7 + 7) % 7, p = n - c - .3 - .4 * hash(d, f, r), m = i - u - .3 - .4 * hash(d, f, r ^ 40503), h = p * p + m * m;
+					h < s ? (l = s, s = h) : h < l && (l = h);
+				}
+				let _ = smooth(clamp((Math.sqrt(l) - Math.sqrt(s) - .025) / .13)), v = smooth(clamp((noise(e, c, 3, 3, r ^ 14561) - .25) / .5));
+				p = .04 + _ * (.52 - .24 * v + .17 * d) + .04 * f, m = _ * (.48 + .16 * (1 - s)) + (.07 * d + .03 * f) * (1 - .75 * v), h -= .38 * v, h += .1 * (1 - _) + .08 * (f - .5) * (1 - v), g = .48 + .52 * _;
 				break;
 			}
 		}

@@ -22,7 +22,10 @@ var a = [
 	`snow`,
 	`asphalt`,
 	`gravel`,
-	`cobblestone`
+	`cobblestone`,
+	`bark`,
+	`moss`,
+	`mud`
 ];
 var o = Object.freeze({
 	addressModeU: `repeat`,

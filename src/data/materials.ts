@@ -97,6 +97,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.79,
     relief: 0.022,
   }),
+  bark: Object.freeze({
+    dark: [29, 19, 13] as const,
+    light: [151, 111, 69] as const,
+    roughness: 0.9,
+    relief: 0.025,
+  }),
+  moss: Object.freeze({
+    dark: [17, 34, 10] as const,
+    light: [123, 153, 48] as const,
+    roughness: 0.92,
+    relief: 0.018,
+  }),
+  mud: Object.freeze({
+    dark: [34, 24, 16] as const,
+    light: [144, 110, 70] as const,
+    roughness: 0.84,
+    relief: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -116,6 +134,9 @@ export const proceduralTileMeters = Object.freeze({
   asphalt: 0.8,
   gravel: 0.48,
   cobblestone: 1.2,
+  bark: 0.5,
+  moss: 0.3,
+  mud: 0.6,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

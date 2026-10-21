@@ -30,6 +30,8 @@
 
 使用者目前批准持續增量追加材質，直到另行要求停止；每個完成功能獨立 commit，不 push。本組追加 asphalt／gravel／cobblestone（瀝青／礫石／鵝卵石鋪面）：暗色顆粒黏結料與嵌入骨材／不規則石粒與暗色凹隙／錯列圓角鋪石。皆為 opaque dielectric，沿用 deterministic periodic 四份 maps、既有 options／repeat／ownership，不改前十二種取樣、不新增依賴或 renderer 路徑。實際驗收與物理鋪面尺寸由後續驗證紀錄，不由文件推論。
 
+下一組自然表面追加 bark／moss／mud（樹皮／苔蘚／泥土）：隆起紋理與深裂隙／密集柔軟的綠色覆層／土塊與淺裂紋。沿用上述持續追加與獨立 commit、不 push 授權，支援總數增為十八種；三者皆為 opaque dielectric，使用相同四份 maps，不改前十五種輸出、公開 options、ownership、renderer 或依賴。實際品質與驗證結果另記 ACCEPTANCE，不宣稱物理尺寸。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

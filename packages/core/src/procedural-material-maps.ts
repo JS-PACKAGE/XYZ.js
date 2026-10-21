@@ -84,7 +84,10 @@ export function createSurfaceSampler(
     kind === 'stone' ||
     kind === 'asphalt' ||
     kind === 'gravel' ||
-    kind === 'cobblestone';
+    kind === 'cobblestone' ||
+    kind === 'bark' ||
+    kind === 'moss' ||
+    kind === 'mud';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -332,6 +335,78 @@ export function createSurfaceSampler(
         height = face * (0.76 * crown + 0.16 * detail + 0.08 * fine);
         roughness += 0.17 * (1 - face) + 0.1 * (fine - 0.5);
         occlusion = 0.45 + 0.55 * face;
+        break;
+      }
+      case 'bark': {
+        const warp = noise(u, v, 4, 6, seed ^ 0x3b17);
+        const ridge = noise(u + 0.035 * warp, v, 18, 3, seed ^ 0x8421);
+        const split = noise(u, v, 6, 18, seed ^ 0x5193);
+        // Anisotropic islands break across the trunk instead of repeating wood-grain waves.
+        const face =
+          smooth(clamp((ridge - 0.26) / 0.38)) *
+          smooth(clamp((split - 0.18) / 0.22));
+        const flake = noise(u, v, 48, 12, seed ^ 0x217b);
+        color = 0.05 + face * (0.43 + 0.33 * flake + 0.13 * fine);
+        height = face * (0.58 + 0.3 * flake + 0.12 * detail);
+        roughness += 0.08 * (1 - face) + 0.1 * (fine - 0.5);
+        occlusion = 0.42 + 0.58 * face;
+        break;
+      }
+      case 'moss': {
+        const warp = noise(u, v, 4, 4, seed ^ 0x1b67);
+        const distance = wrappedFeature(
+          fract(u + 0.025 * warp),
+          fract(v + 0.018 * warp),
+          9,
+          seed ^ 0x63af,
+        );
+        const cushion = smooth(clamp(1 - distance / 0.95));
+        const growth = noise(u, v, 18, 18, seed ^ 0x9327);
+        const tips = smooth(clamp((fine - 0.25) / 0.5));
+        color = 0.09 + 0.46 * cushion + 0.24 * growth + 0.19 * tips;
+        height =
+          0.65 * cushion + (0.09 + 0.14 * cushion) * tips + 0.12 * detail;
+        roughness += 0.06 * (tips - 0.5) - 0.08 * (1 - cushion);
+        occlusion = 0.52 + 0.36 * cushion + 0.12 * tips;
+        break;
+      }
+      case 'mud': {
+        const cells = 7;
+        const warp = noise(u, v, 4, 4, seed ^ 0x7153);
+        const x = (u + 0.025 * warp) * cells,
+          y = (v + 0.025 * noise(u, v, 4, 4, seed ^ 0x1f39)) * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let nearest = 4,
+          second = 4;
+        // Constrained jitter keeps the two closest sites inside this wrapped neighborhood.
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.3 - 0.4 * hash(wx, wy, seed),
+              dy = y - cy - 0.3 - 0.4 * hash(wx, wy, seed ^ 0x9e37);
+            const distance = dx * dx + dy * dy;
+            if (distance < nearest) {
+              second = nearest;
+              nearest = distance;
+            } else if (distance < second) second = distance;
+          }
+        const margin = Math.sqrt(second) - Math.sqrt(nearest);
+        const clod = smooth(clamp((margin - 0.025) / 0.13));
+        const damp = smooth(
+          clamp((noise(u, v, 3, 3, seed ^ 0x38e1) - 0.25) / 0.5),
+        );
+        color =
+          0.04 + clod * (0.52 - 0.24 * damp + 0.17 * detail) + 0.04 * fine;
+        height =
+          clod * (0.48 + 0.16 * (1 - nearest)) +
+          (0.07 * detail + 0.03 * fine) * (1 - 0.75 * damp);
+        roughness -= 0.38 * damp;
+        roughness += 0.1 * (1 - clod) + 0.08 * (fine - 0.5) * (1 - damp);
+        occlusion = 0.48 + 0.52 * clod;
         break;
       }
     }
