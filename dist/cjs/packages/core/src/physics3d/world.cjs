@@ -73,6 +73,7 @@ var PhysicsWorld3D = class {
 	placementPosition = new require_math3d.Vector3();
 	placementShape;
 	capsuleQueryShape;
+	capsuleQueryShapes = /* @__PURE__ */ new WeakMap();
 	sweepQueryShape;
 	nextOrder = 0;
 	counters = {
@@ -647,8 +648,8 @@ var PhysicsWorld3D = class {
 	sweepCapsule(e, t, r = {}, a, s = 0) {
 		if (!(e.collider instanceof require_collider.CapsuleCollider3D)) throw TypeError(`Capsule sweep requires CapsuleCollider3D.`);
 		if (require_collider.vector3D(t, `displacement`), require_collider.finite3D(s, `padding`), s < 0) throw RangeError(`padding must be nonnegative.`);
-		let l = this.capsuleQueryShape?.collider === e.collider ? this.capsuleQueryShape : this.capsuleQueryShape = new require_collider.Shape3D(e.collider);
-		l.refresh(e);
+		let l = this.capsuleQueryShape;
+		l?.collider !== e.collider && (l = this.capsuleQueryShapes.get(e.collider), l ? l.forgetPose() : this.capsuleQueryShapes.set(e.collider, l = new require_collider.Shape3D(e.collider)), this.capsuleQueryShape = l), l.refresh(e);
 		let u = l.radius;
 		l.radius += s, l.updateBounds();
 		try {

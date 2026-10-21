@@ -144,6 +144,9 @@ var Shape3D = class Shape3D {
 		}
 		if (e instanceof CompoundCollider3D && (this.childWorld = new require_math3d.Matrix4()), e instanceof CompoundCollider3D) for (let t of e.children) this.children.push(new Shape3D(t.collider, !0)), this.childLocal.push(new require_math3d.Matrix4().compose(t.position, t.rotation, t.scale));
 	}
+	forgetPose() {
+		this.poseInputs[0] = NaN, this.poseMatrix[0] = NaN;
+	}
 	refresh(e) {
 		let t = e.transform, n = t.position, r = t.rotation, i = t.scale, a = this.poseInputs, o = e.composesFromTransform;
 		if (o && a[0] === n.x && a[1] === n.y && a[2] === n.z && a[3] === r.x && a[4] === r.y && a[5] === r.z && a[6] === r.w && a[7] === i.x && a[8] === i.y && a[9] === i.z) return !1;

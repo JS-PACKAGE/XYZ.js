@@ -307,6 +307,11 @@ export class Shape3D {
         );
       }
   }
+  /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
+  forgetPose(): void {
+    this.poseInputs[0] = NaN;
+    this.poseMatrix[0] = NaN;
+  }
   refresh(object: Object3D): boolean {
     const t = object.transform,
       p = t.position,

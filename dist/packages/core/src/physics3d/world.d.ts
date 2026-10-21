@@ -93,6 +93,7 @@ export declare class PhysicsWorld3D {
     private readonly placementPosition;
     private placementShape;
     private capsuleQueryShape;
+    private readonly capsuleQueryShapes;
     private sweepQueryShape;
     private nextOrder;
     private readonly counters;

@@ -114,6 +114,8 @@ export declare class Shape3D {
     inertiaRevision: number;
     readonly worldScale: Vector3;
     constructor(collider: Collider3D, needsVolume?: boolean);
+    /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
+    forgetPose(): void;
     refresh(object: Object3D): boolean;
     refreshMatrix(matrix: Matrix4): boolean;
     /** @internal Dynamic compound origin must coincide with its uniform-density center of mass. */

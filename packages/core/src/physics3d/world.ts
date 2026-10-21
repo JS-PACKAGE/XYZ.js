@@ -180,6 +180,7 @@ export class PhysicsWorld3D {
   private readonly placementPosition = new Vector3();
   private placementShape: Shape3D | undefined;
   private capsuleQueryShape: Shape3D | undefined;
+  private readonly capsuleQueryShapes = new WeakMap<Collider3D, Shape3D>();
   private sweepQueryShape: Shape3D | undefined;
   private nextOrder = 0;
   private readonly counters = {
@@ -1479,10 +1480,19 @@ export class PhysicsWorld3D {
     vector3D(displacement, 'displacement');
     finite3D(padding, 'padding');
     if (padding < 0) throw new RangeError('padding must be nonnegative.');
-    const shape =
-      this.capsuleQueryShape?.collider === object.collider
-        ? this.capsuleQueryShape
-        : (this.capsuleQueryShape = new Shape3D(object.collider));
+    let shape = this.capsuleQueryShape;
+    if (shape?.collider !== object.collider) {
+      // Characters take turns: keep each capsule's shape, recomputed from scratch on a
+      // switch exactly like the new shape every switch used to allocate.
+      shape = this.capsuleQueryShapes.get(object.collider);
+      if (shape) shape.forgetPose();
+      else
+        this.capsuleQueryShapes.set(
+          object.collider,
+          (shape = new Shape3D(object.collider)),
+        );
+      this.capsuleQueryShape = shape;
+    }
     shape.refresh(object);
     const radius = shape.radius;
     shape.radius += padding;
