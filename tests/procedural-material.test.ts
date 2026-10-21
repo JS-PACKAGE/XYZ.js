@@ -187,6 +187,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cantaloupe',
   'dragonfruit',
   'kiwiskin',
+  'rosepetal',
+  'lilypetal',
+  'fritillarypetal',
 ];
 
 class TestImageData {
@@ -234,6 +237,322 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('petal surface morphology', () => {
+    const petalKinds = ['rosepetal', 'lilypetal', 'fritillarypetal'] as const;
+    const field = (kind: ProceduralMaterialKind, seed: number) => {
+      const sample = createSurfaceSampler(kind, seed);
+      return (u: number, v: number): SurfaceSample => {
+        const out: SurfaceSample = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+    };
+    // Locate primitive geometry, not expected field values. Assertions below
+    // measure the public sampler's relief, pigmentation and limiting slopes.
+    const geometryHash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const markPoint = (
+      rose: boolean,
+      seed: number,
+      x: number,
+      y: number,
+      across: number,
+      along: number,
+    ): [number, number] => {
+      const angle =
+          (rose ? 1 : 0.22) * (geometryHash(x, y, seed ^ 0x59c3) - 0.5),
+        width = rose ? 0.38 + 0.07 * geometryHash(x, y, seed ^ 0x6d13) : 0.13,
+        length = rose ? 0.38 + 0.07 * geometryHash(x, y, seed ^ 0x1b57) : 0.43,
+        px =
+          x +
+          (rose ? 0.3 : 0.15) +
+          (rose ? 0.4 : 0.7) * geometryHash(x, y, seed ^ 0x31a7),
+        py =
+          y +
+          (rose ? 0.3 : 0.15) +
+          (rose ? 0.4 : 0.7) * geometryHash(x, y, seed ^ 0x47e9);
+      return [
+        (px +
+          across * width * Math.cos(angle) -
+          along * length * Math.sin(angle)) /
+          (rose ? 48 : 9),
+        (py +
+          across * width * Math.sin(angle) +
+          along * length * Math.cos(angle)) /
+          (rose ? 48 : 7),
+      ];
+    };
+    const checkC1 = (
+      at: (u: number, v: number) => SurfaceSample,
+      points: readonly [number, number][],
+    ) => {
+      for (const [u, v] of points) {
+        const center = at(u, v);
+        for (const [du, dv] of [
+          [1, 0],
+          [0, 1],
+          [0.6, 0.8],
+        ]) {
+          const h = 1e-7,
+            left = at(u - du * h, v - dv * h),
+            right = at(u + du * h, v + dv * h),
+            coarseLeft = at(u - du * 4 * h, v - dv * 4 * h),
+            coarseRight = at(u + du * 4 * h, v + dv * 4 * h);
+          for (const key of [
+            'color',
+            'height',
+            'roughness',
+            'occlusion',
+          ] as const) {
+            const fine = Math.abs(left[key] + right[key] - 2 * center[key]) / h,
+              coarse =
+                Math.abs(coarseLeft[key] + coarseRight[key] - 2 * center[key]) /
+                (4 * h);
+            expect(fine).toBeLessThanOrEqual(0.4 * coarse + 1e-6);
+          }
+        }
+        for (const key of [
+          'color',
+          'height',
+          'roughness',
+          'occlusion',
+        ] as const) {
+          expect(at(u + 1, v)[key]).toBeCloseTo(center[key], 10);
+          expect(at(u, v - 1)[key]).toBeCloseTo(center[key], 10);
+        }
+      }
+    };
+
+    it('rose carries small rounded raised papillae over broad continuous folds', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('rosepetal', seed);
+        let cap = 0,
+          broadMin = Infinity,
+          broadMax = -Infinity;
+        for (let y = 0; y < 12; y++)
+          for (let x = 0; x < 12; x++) {
+            const center = markPoint(true, seed, x * 4, y * 4, 0, 0);
+            let rim = 0;
+            for (const [a, b] of [
+              [-1, 0],
+              [1, 0],
+              [0, -1],
+              [0, 1],
+            ]) {
+              const p = markPoint(true, seed, x * 4, y * 4, a, b);
+              rim += at(...p).height / 4;
+            }
+            const sample = at(...center);
+            cap += sample.height - rim;
+            broadMin = Math.min(broadMin, rim);
+            broadMax = Math.max(broadMax, rim);
+            expect(sample.roughness).toBeGreaterThan(0.85);
+          }
+        // Fine caps are raised rather than pore-like, and remain subordinate
+        // to the broad flowing petal folds.
+        expect(cap / 144).toBeGreaterThan(
+          0.025 * proceduralMaterialPresets.rosepetal.relief,
+        );
+        expect(cap / 144).toBeLessThan(
+          0.065 * proceduralMaterialPresets.rosepetal.relief,
+        );
+        expect(broadMax - broadMin).toBeGreaterThan(
+          0.16 * proceduralMaterialPresets.rosepetal.relief,
+        );
+      }
+    });
+
+    it('lily pigment spots are elongated, varied and not carved holes', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('lilypetal', seed);
+        let acrossEnergy = 0,
+          alongEnergy = 0,
+          ribAcross = 0,
+          ribAlong = 0,
+          darkHeight = 0,
+          paleHeight = 0,
+          darkArea = 0,
+          paleArea = 0,
+          darkestOcclusion = 1,
+          maximumRoughness = 0;
+        for (let y = 0; y < 160; y++)
+          for (let x = 0; x < 160; x++) {
+            const u = x / 160,
+              v = y / 160,
+              p = at(u, v),
+              left = at(u - 0.001, v),
+              right = at(u + 0.001, v),
+              below = at(u, v - 0.001),
+              above = at(u, v + 0.001),
+              dx = right.color - left.color,
+              dy = above.color - below.color;
+            ribAcross += (right.height - left.height) ** 2;
+            ribAlong += (above.height - below.height) ** 2;
+            acrossEnergy += dx * dx;
+            alongEnergy += dy * dy;
+            if (p.color < 0.6) {
+              darkHeight += p.height;
+              darkArea++;
+              darkestOcclusion = Math.min(darkestOcclusion, p.occlusion);
+            } else if (p.color > 0.93) {
+              paleHeight += p.height;
+              paleArea++;
+            }
+            maximumRoughness = Math.max(maximumRoughness, p.roughness);
+          }
+        expect(darkestOcclusion).toBeGreaterThan(0.98);
+        expect(maximumRoughness).toBeLessThan(0.55);
+        expect(darkArea / (160 * 160)).toBeGreaterThan(0.01);
+        expect(paleArea / (160 * 160)).toBeGreaterThan(0.5);
+        expect(acrossEnergy).toBeGreaterThan(4 * alongEnergy);
+        expect(ribAcross).toBeGreaterThan(20 * ribAlong);
+        expect(
+          Math.abs(darkHeight / darkArea - paleHeight / paleArea),
+        ).toBeLessThan(0.012 * proceduralMaterialPresets.lilypetal.relief);
+        const centerTones = [];
+        for (let x = 0; x < 9; x++)
+          centerTones.push(at(...markPoint(false, seed, x, 0, 0, 0)).color);
+        expect(
+          Math.max(...centerTones) - Math.min(...centerTones),
+        ).toBeGreaterThan(0.05);
+      }
+    });
+
+    it('fritillary alternates purple and cream in both directions without checker relief', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('fritillarypetal', seed);
+        let across = 0,
+          along = 0,
+          repeatedAcross = 0,
+          repeatedAlong = 0,
+          ribAcross = 0,
+          ribAlong = 0,
+          minHeight = Infinity,
+          maxHeight = -Infinity;
+        for (let y = 0; y < 64; y++)
+          for (let x = 0; x < 64; x++) {
+            const u = x / 64,
+              v = y / 64,
+              p = at(u, v),
+              tone = p.color - 0.52;
+            across += tone * (at(u + 1 / 6, v).color - 0.52);
+            along += tone * (at(u, v + 1 / 8).color - 0.52);
+            repeatedAcross += tone * (at(u + 1 / 3, v).color - 0.52);
+            repeatedAlong += tone * (at(u, v + 1 / 4).color - 0.52);
+            ribAcross +=
+              (at(u + 0.001, v).height - at(u - 0.001, v).height) ** 2;
+            ribAlong +=
+              (at(u, v + 0.001).height - at(u, v - 0.001).height) ** 2;
+            minHeight = Math.min(minHeight, p.height);
+            maxHeight = Math.max(maxHeight, p.height);
+            expect(p.occlusion).toBeGreaterThan(0.98);
+          }
+        expect(across).toBeLessThan(0);
+        expect(along).toBeLessThan(0);
+        expect(repeatedAcross).toBeGreaterThan(0);
+        expect(repeatedAlong).toBeGreaterThan(0);
+        expect(ribAcross).toBeGreaterThan(20 * ribAlong);
+        expect(maxHeight - minHeight).toBeLessThan(
+          0.07 * proceduralMaterialPresets.fritillarypetal.relief,
+        );
+        // Along a longitudinal rib pigment crosses multiple cells, but no
+        // matching dark trench or checker-height step appears.
+        for (const u of [0.17, 0.43, 0.79]) {
+          let minColor = Infinity,
+            maxColor = -Infinity,
+            low = Infinity,
+            high = -Infinity;
+          for (let y = 0; y < 128; y++) {
+            const p = at(u, y / 128);
+            minColor = Math.min(minColor, p.color);
+            maxColor = Math.max(maxColor, p.color);
+            low = Math.min(low, p.height);
+            high = Math.max(high, p.height);
+          }
+          expect(maxColor - minColor).toBeGreaterThan(0.6);
+          expect(high - low).toBeLessThan(
+            0.05 * proceduralMaterialPresets.fritillarypetal.relief,
+          );
+        }
+      }
+    });
+
+    it.each(petalKinds)(
+      '%s is C1 at actual mark centers, supports, margins and toroidal seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const at = field(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.371],
+              [0.629, 0],
+              [1, 1],
+            ];
+          if (kind !== 'fritillarypetal') {
+            const rose = kind === 'rosepetal',
+              columns = rose ? 48 : 9,
+              rows = rose ? 48 : 7;
+            for (const x of [0, 1, columns - 1])
+              for (const y of [0, 1, rows - 1]) {
+                for (const [a, b] of [
+                  [0, 0],
+                  [-1, 0],
+                  [1, 0],
+                  [0, -1],
+                  [0, 1],
+                  [0.5, 0],
+                  [0, 0.5],
+                ])
+                  points.push(markPoint(rose, seed, x, y, a, b));
+                points.push(
+                  [x / columns, (y + 0.4) / rows],
+                  [(x + 0.4) / columns, y / rows],
+                );
+              }
+          } else {
+            // Find actual wandering pigment margins from observed tone crossings,
+            // rather than assuming a rigid checker grid.
+            for (const axis of [0, 1])
+              for (const fixed of [0, 0.13, 0.37, 0.69, 0.91]) {
+                const tone = (t: number) =>
+                  (axis === 0 ? at(t, fixed) : at(fixed, t)).color - 0.52;
+                for (let i = 0; i < 128; i++) {
+                  let lo = i / 128,
+                    hi = (i + 1) / 128;
+                  if (tone(lo) * tone(hi) >= 0) continue;
+                  for (let j = 0; j < 35; j++) {
+                    const mid = (lo + hi) / 2;
+                    if (tone(lo) * tone(mid) <= 0) hi = mid;
+                    else lo = mid;
+                  }
+                  points.push(
+                    axis === 0
+                      ? [(lo + hi) / 2, fixed]
+                      : [fixed, (lo + hi) / 2],
+                  );
+                }
+              }
+          }
+          // Cached-noise lattice joins also enter color/roughness and warped margins.
+          for (const t of [0.25, 0.5, 0.75])
+            points.push([t, 0.391], [0.617, t], [t, t]);
+          checkC1(at, points);
+        }
+      },
+    );
+  });
   describe('reticulated and bristled fruit skins', () => {
     const fruitKinds = ['cantaloupe', 'dragonfruit', 'kiwiskin'] as const;
     const hash = (x: number, y: number, seed: number): number => {

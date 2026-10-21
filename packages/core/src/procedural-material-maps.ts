@@ -103,6 +103,46 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const petal =
+    kind === 'rosepetal' || kind === 'lilypetal' || kind === 'fritillarypetal';
+  const petalWander =
+    kind === 'rosepetal' || kind === 'fritillarypetal'
+      ? cachedNoise(4, 4, seed ^ 0x27d9)
+      : null;
+  const petalGrain = petal ? cachedNoise(48, 48, seed ^ 0x63b1) : null;
+  const petalColumns = kind === 'rosepetal' ? 48 : 9,
+    petalRows = kind === 'rosepetal' ? 48 : 7;
+  // Compact supports extend less than 0.55 cells from centers inside their
+  // cells, so the wrapped 3x3 lookup includes every contributor. Cubic
+  // shoulders and bounded pigment blending keep overlaps smooth.
+  const petalMarks =
+    kind === 'rosepetal' || kind === 'lilypetal'
+      ? new Float64Array(petalColumns * petalRows * 8)
+      : null;
+  if (petalMarks)
+    for (let y = 0; y < petalRows; y++)
+      for (let x = 0; x < petalColumns; x++) {
+        const offset = (y * petalColumns + x) * 8,
+          rose = kind === 'rosepetal',
+          margin = rose ? 0.3 : 0.15,
+          spread = rose ? 0.4 : 0.7,
+          angle = (rose ? 1 : 0.22) * (hash(x, y, seed ^ 0x59c3) - 0.5);
+        petalMarks[offset] = margin + spread * hash(x, y, seed ^ 0x31a7);
+        petalMarks[offset + 1] = margin + spread * hash(x, y, seed ^ 0x47e9);
+        petalMarks[offset + 2] = Math.cos(angle);
+        petalMarks[offset + 3] = Math.sin(angle);
+        petalMarks[offset + 4] =
+          1 / (rose ? 0.38 + 0.07 * hash(x, y, seed ^ 0x6d13) : 0.13);
+        petalMarks[offset + 5] =
+          1 / (rose ? 0.38 + 0.07 * hash(x, y, seed ^ 0x1b57) : 0.43);
+        petalMarks[offset + 6] =
+          !rose && hash(x, y, seed ^ 0x2b97) < 0.24
+            ? 0
+            : 0.65 + 0.35 * hash(x, y, seed ^ 0x71a9);
+        petalMarks[offset + 7] = rose
+          ? 0
+          : 0.5 * (hash(x, y, seed ^ 0x39d5) - 0.5);
+      }
   const fruitSkin =
     kind === 'cantaloupe' || kind === 'dragonfruit' || kind === 'kiwiskin';
   const fruitGrain = fruitSkin ? cachedNoise(64, 64, seed ^ 0x45e7) : null;
@@ -926,7 +966,8 @@ export function createSurfaceSampler(
       marine ||
       shortFur ||
       shell ||
-      fruitSkin
+      fruitSkin ||
+      petal
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -953,6 +994,80 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'rosepetal':
+      case 'lilypetal': {
+        const rose = kind === 'rosepetal',
+          wander = rose ? petalWander!(u, v) : 0,
+          grain = petalGrain!(u, v),
+          fold = Math.sin(TAU * (3 * u + 0.22 * Math.sin(TAU * v + phase))),
+          rib = rose
+            ? 0
+            : Math.sin(TAU * (32 * u + 0.16 * Math.sin(TAU * 2 * v + phase))),
+          x = petalColumns * u,
+          y = petalRows * v,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let marks = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              offset =
+                (((cy + petalRows) % petalRows) * petalColumns +
+                  ((cx + petalColumns) % petalColumns)) *
+                8,
+              dx = x - cx - petalMarks![offset],
+              dy = y - cy - petalMarks![offset + 1],
+              across =
+                (dx * petalMarks![offset + 2] + dy * petalMarks![offset + 3]) *
+                petalMarks![offset + 4],
+              along =
+                (dy * petalMarks![offset + 2] - dx * petalMarks![offset + 3]) *
+                petalMarks![offset + 5],
+              radius = rose
+                ? across * across + along * along
+                : across *
+                    across *
+                    (1 + petalMarks![offset + 7] * Math.sin(3 * along)) +
+                  along * along,
+              support = clamp(1 - radius),
+              mark = support * support * support * petalMarks![offset + 6];
+            marks += rose ? mark : (1 - marks) * mark;
+          }
+        if (rose) {
+          color = 0.48 + 0.16 * fold + 0.08 * wander;
+          height = 0.3 + 0.1 * fold + 0.055 * marks;
+          roughness += 0.025 * marks + 0.02 * (grain - 0.5);
+          occlusion = 0.98;
+        } else {
+          // Pigment has no relief or AO contribution: dark speckles are not pits.
+          color = 0.94 - 0.82 * marks;
+          height = 0.3 + 0.025 * fold + 0.012 * rib;
+          roughness += 0.025 * marks + 0.012 * (grain - 0.5);
+          occlusion = 0.99;
+        }
+        break;
+      }
+      case 'fritillarypetal': {
+        const wander = petalWander!(u, v),
+          grain = petalGrain!(u, v),
+          across =
+            3 * u + 0.085 * Math.sin(TAU * 2 * v + phase) + 0.12 * wander,
+          along = 4 * v + 0.065 * Math.sin(TAU * 2 * u - phase) + 0.1 * wander,
+          pigment =
+            0.5 +
+            0.5 * Math.tanh(7 * Math.sin(TAU * across) * Math.sin(TAU * along)),
+          rib = Math.sin(TAU * (40 * u + 0.12 * Math.sin(TAU * v + phase)));
+        color = 0.12 + 0.8 * pigment;
+        // Checker ownership never enters height, roughness or occlusion.
+        height =
+          0.3 +
+          0.014 * rib +
+          0.02 * Math.sin(TAU * (2 * u + 0.1 * Math.sin(TAU * v + phase)));
+        roughness += 0.014 * (grain - 0.5);
+        occlusion = 0.99;
+        break;
+      }
       case 'cantaloupe': {
         const warp = rindWarp!(u, v),
           x = 7 * u + 0.38 * Math.sin(TAU * 3 * v + phase),

@@ -168,7 +168,10 @@ export type ProceduralMaterialKind =
   | 'nautilusshell'
   | 'cantaloupe'
   | 'dragonfruit'
-  | 'kiwiskin';
+  | 'kiwiskin'
+  | 'rosepetal'
+  | 'lilypetal'
+  | 'fritillarypetal';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -363,6 +366,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cantaloupe',
   'dragonfruit',
   'kiwiskin',
+  'rosepetal',
+  'lilypetal',
+  'fritillarypetal',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

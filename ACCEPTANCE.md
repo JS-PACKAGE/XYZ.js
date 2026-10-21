@@ -3529,3 +3529,39 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Rendering]` 每幀執行的 Map 走訪（WebGL2／WebGPU 貼圖與環境釋放、2D layer／粒子、3D 粒子 buffer、陰影 caster、canvas layer 快取、UI 原生控制 scope）改為 `keys()`＋`get`，不再每個項目配置 `[key, value]`；Scene 的 2D 粒子發射器 pass 移出 `advanceAfterUpdate` 成小方法，避免大函式內 Set 走訪為每個物件配置 iterator 結果。走訪順序、刪除時機與結果不變。穩態（暖機 12 s）beacon-run 每幀配置 WebGL2 53.1 → 41.0 KB、WebGPU 46.4 → 37.4 KB；shadows3d、gpu-particles3d 持平，屬配置減少。canvas2d／WebGL2／WebGPU browser regression 與 163 個範例 smoke 通過；build 與完整測試（2056 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[Input]` 每幀的 action 綁定更新與虛擬控制 `endFrame` 改以 `keys()`＋`get` 走訪 Map，不再為每個 action／控制配置 `[key, value]`；順序、刪除與結果不變。穩態（暖機 12 s）WebGL2 每幀配置 input-lab 6.7 → 6.0 KB、beacon-run 41.1 → 40.3 KB，屬配置減少。輸入相關 47 個測試通過；build 與完整測試（2066 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[Objects3D]` `Line3D` 面向相機重建 ribbon 時，四個角點直接寫入頂點陣列，不再每段配置巢狀角點陣列；運算式不變，2000 次隨機相機（含相機落在端點）頂點位元雜湊與原版相同。穩態（暖機 12 s）objects3d WebGL2 每幀配置 25.6 → 15.1 KB，屬配置減少。build 與完整測試（2064 通過；已知不穩定的 shader variant 測試與 fallback 兩測在機器負載 139 下逾時，單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：玫瑰、百合與棋盤貝母花瓣
+
+- 新增 rosepetal、lilypetal、fritillarypetal；本功能提交共 165 種。
+  分別呈現細微乳突與寬緩褶皺、不規則疏密的縱向色斑與細脈、
+  紫色／乳白色的柔和棋盤紋與獨立細脈。皆為不透明表面，
+  不新增花瓣幾何、透光或次表面散射。
+- 保留種子可重現、週期 C1 場、四張 PBR 貼圖、零金屬度及既有
+  UV 尺度／釋放契約；百合色斑與棋盤貝母色塊不形成假凹坑。
+  新分支預先建立種子資料，略過未使用的通用 detail noise。
+- 以 `c9c46f8c` 建立的乾淨整合快照：build、lint、本功能涉及檔案
+  的 format:check，以及完整 177 個測試檔／2076 項測試通過。
+  花瓣的九項針對測試亦通過，涵蓋乳突尺度、色斑方向／疏密、
+  棋盤交替、色彩與高度分離，以及 primitive 邊界與 UV 接縫的一階連續性。
+- 百合測試曾超過既有 5000ms 限制；後將逐點 assertion 改為相同
+  160×160 格點、相同門檻的極值驗證，未降低取樣數或調整 timeout。
+  上述成功結果皆為調整後。隔離目錄共用 node_modules symlink，
+  pnpm exec 曾因安裝流程拒絕該目錄而失敗；後續直接使用已安裝的
+  專案工具執行驗證，未新增依賴。
+- 當時完整 typecheck 仍被既有的
+  `tests/sprite-quad-validation.test.ts:13` 缺少 `destroy` 欄位阻擋；
+  未把該檢查標為通過，也未更動或提交該檔。
+- 原有 162 種在 size=64／seed=7 的四張貼圖逐 byte 雜湊不變；
+  新三種於 seed=7／8 的來源、ESM 與 CJS 產物一致。
+- 獨立 Chrome WebGPU／WebGL2 gallery 逐一切換三者並擷取畫面；
+  2×2 repeat、零金屬度與四張貼圖釋放通過。
+  粗糙度 byte 範圍依序 219–230／121–130／144–147；
+  每米 repeats 依序 40／18.181818／28.571429。
+  最終整合後六張畫面與已驗證快照逐 byte 雜湊相同。
+- 共享工作目錄的 build 與九項花瓣測試通過，三張 WebGPU 畫面
+  亦與乾淨快照相同。當時共享目錄另含三種進行中的其他材質，
+  保留其工作目錄內容，但不納入本功能提交。
+- 同步中／英／日 README、目前目錄、雙語技術／使用文件及
+  PLAN／DESIGN；本組沒有新增連結，歷史驗收數不改寫。
+  不新增 runtime 依賴，不擴大瀏覽器、Canvas2D 3D 或裝置認證；
+  僅提交本功能與對應發佈產物，不 push。

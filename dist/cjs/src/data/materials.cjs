@@ -2273,6 +2273,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .91,
 		relief: .002
+	}),
+	rosepetal: Object.freeze({
+		dark: [
+			91,
+			8,
+			32
+		],
+		light: [
+			228,
+			89,
+			126
+		],
+		roughness: .87,
+		relief: .0012
+	}),
+	lilypetal: Object.freeze({
+		dark: [
+			116,
+			30,
+			17
+		],
+		light: [
+			255,
+			238,
+			175
+		],
+		roughness: .48,
+		relief: .001
+	}),
+	fritillarypetal: Object.freeze({
+		dark: [
+			88,
+			26,
+			83
+		],
+		light: [
+			245,
+			232,
+			195
+		],
+		roughness: .57,
+		relief: .001
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2437,7 +2479,10 @@ var proceduralTileMeters = Object.freeze({
 	nautilusshell: .24,
 	cantaloupe: .14,
 	dragonfruit: .18,
-	kiwiskin: .045
+	kiwiskin: .045,
+	rosepetal: .025,
+	lilypetal: .055,
+	fritillarypetal: .035
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

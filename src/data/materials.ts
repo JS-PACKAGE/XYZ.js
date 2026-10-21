@@ -979,6 +979,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.91,
     relief: 0.002,
   }),
+  rosepetal: Object.freeze({
+    dark: [91, 8, 32] as const,
+    light: [228, 89, 126] as const,
+    roughness: 0.87,
+    relief: 0.0012,
+  }),
+  lilypetal: Object.freeze({
+    dark: [116, 30, 17] as const,
+    light: [255, 238, 175] as const,
+    roughness: 0.48,
+    relief: 0.001,
+  }),
+  fritillarypetal: Object.freeze({
+    dark: [88, 26, 83] as const,
+    light: [245, 232, 195] as const,
+    roughness: 0.57,
+    relief: 0.001,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -1145,6 +1163,9 @@ export const proceduralTileMeters = Object.freeze({
   cantaloupe: 0.14,
   dragonfruit: 0.18,
   kiwiskin: 0.045,
+  rosepetal: 0.025,
+  lilypetal: 0.055,
+  fritillarypetal: 0.035,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
