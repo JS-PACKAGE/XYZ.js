@@ -600,6 +600,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.84;
         relief: 0.0055;
     }>;
+    runningtrack: Readonly<{
+        dark: readonly [122, 42, 38];
+        light: readonly [238, 228, 218];
+        roughness: 0.88;
+        relief: 0.004;
+    }>;
+    bouldermat: Readonly<{
+        dark: readonly [38, 52, 78];
+        light: readonly [142, 162, 198];
+        roughness: 0.82;
+        relief: 0.005;
+    }>;
+    pooltile: Readonly<{
+        dark: readonly [22, 88, 122];
+        light: readonly [168, 222, 238];
+        roughness: 0.3;
+        relief: 0.003;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1441,6 +1459,9 @@ export declare const proceduralTileMeters: Readonly<{
     collar: 0.06;
     petbed: 0.4;
     scratchpost: 0.12;
+    runningtrack: 0.9;
+    bouldermat: 0.6;
+    pooltile: 0.24;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

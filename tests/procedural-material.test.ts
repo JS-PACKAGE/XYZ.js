@@ -124,6 +124,9 @@ const kinds: ProceduralMaterialKind[] = [
   'collar',
   'petbed',
   'scratchpost',
+  'runningtrack',
+  'bouldermat',
+  'pooltile',
   'sandstone',
   'travertine',
   'pumice',
@@ -4851,6 +4854,9 @@ describe('periodic procedural material fields', () => {
     ['collar', [10, 32, 48, 64]],
     ['petbed', [20, 32, 48, 64]],
     ['scratchpost', [8, 32, 48, 64]],
+    ['runningtrack', [1, 32, 48, 64]],
+    ['bouldermat', [4, 32, 48, 64]],
+    ['pooltile', [8, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5076,6 +5082,9 @@ describe('periodic procedural material fields', () => {
     ['collar', 10],
     ['petbed', 20],
     ['scratchpost', 8],
+    ['runningtrack', 1],
+    ['bouldermat', 4],
+    ['pooltile', 8],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8835,6 +8844,77 @@ describe('periodic procedural material fields', () => {
       sample(0.5, 0.5, groove);
       expect(surface.height).toBeGreaterThan(groove.height + 0.1 * relief);
       expect(surface.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('running track lifts lane lines over granular rubber and seams', () => {
+    const relief = proceduralMaterialPresets.runningtrack.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rubber = { ...surface },
+      seam = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('runningtrack', seed);
+      sample(0.5, 0.25, surface);
+      sample(0.5, 0.45, rubber);
+      sample(0.5, 0, seam);
+      expect(surface.height).toBeGreaterThan(rubber.height + 0.05 * relief);
+      expect(rubber.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('boulder mat puffs quilted diamonds inside the border band', () => {
+    const relief = proceduralMaterialPresets.bouldermat.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const border = { ...surface },
+      valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bouldermat', seed);
+      sample(0.125, 0.5, surface);
+      sample(0.03, 0.5, border);
+      sample(0.25, 0.5, valley);
+      expect(surface.height).toBeGreaterThan(border.height + 0.05 * relief);
+      expect(border.height).toBeGreaterThan(valley.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('pool tile raises faces over grout under caustic light bands', () => {
+    const relief = proceduralMaterialPresets.pooltile.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const grout = { ...surface },
+      crest = { ...surface },
+      trough = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pooltile', seed);
+      sample(1 / 16, 1 / 16, surface);
+      sample(0, 1 / 16, grout);
+      sample(1 / 16, 7 / 16, crest);
+      sample(1 / 16, 3 / 16, trough);
+      expect(surface.height).toBeGreaterThan(grout.height + 0.08 * relief);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.03 * relief);
+      expect(surface.occlusion).toBeGreaterThan(grout.occlusion);
     }
   });
 

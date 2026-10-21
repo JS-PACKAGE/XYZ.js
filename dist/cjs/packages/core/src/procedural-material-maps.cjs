@@ -1666,6 +1666,21 @@ function createSurfaceSampler(t, r) {
 				H = .46 + .32 * e + .08 * t * e + .06 * i, Z = .44 + .36 * e + .05 * t * e + .03 * i, Q += .05 * (i - .5) - .08 * e, $ = 1 - .5 * (1 - e) - .1 * (1 - t) * e;
 				break;
 			}
+			case `runningtrack`: {
+				let e = smooth(clamp((.03 - Math.abs(fract(A) - .25)) / .015)) + smooth(clamp((.03 - Math.abs(fract(A) - .75)) / .015)), t = smooth(clamp((.02 - Math.min(fract(A), 1 - fract(A))) / .012)), n = noise(o, A, 64, 64, r ^ 16216);
+				H = .42 + .4 * e + .1 * n, Z = .46 + .12 * e + .02 * n - .16 * t, Q += .05 * (n - .5) - .1 * e, $ = 1 - .3 * t - .12 * (1 - e);
+				break;
+			}
+			case `bouldermat`: {
+				let e = Math.abs(fract((o + A) * 4) - .5), t = Math.abs(fract((o - A) * 4) - .5), n = smooth(clamp((.3 - e) / .1)) * smooth(clamp((.3 - t) / .1)), i = smooth(clamp((.08 - Math.min(fract(o), 1 - fract(o))) / .04)), a = smooth(clamp((.08 - Math.min(fract(A), 1 - fract(A))) / .04)), s = 1 - (1 - i) * (1 - a), c = noise(o, A, 40, 40, r ^ 25778);
+				H = .42 + .3 * n + .16 * s + .06 * c, Z = .44 + .28 * n + .18 * s + .03 * c, Q += .05 * (c - .5) - .06 * n, $ = 1 - .42 * (1 - n) - .12 * (1 - s);
+				break;
+			}
+			case `pooltile`: {
+				let e = Math.min(fract(o * 8), 1 - fract(o * 8)), t = Math.min(fract(A * 8), 1 - fract(A * 8)), i = smooth(clamp((e - .04) / .06)) * smooth(clamp((t - .04) / .06)), a = .5 + .5 * Math.cos(n * 2 * (o + A)), s = noise(o, A, 32, 32, r ^ 6394);
+				H = .4 + .3 * i + .14 * a + .06 * s, Z = .44 + .2 * i + .1 * a + .02 * s, Q += .05 * (s - .5) - .12 * i, $ = 1 - .42 * (1 - i) - .1 * (1 - a);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

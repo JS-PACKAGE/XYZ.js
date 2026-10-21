@@ -1392,6 +1392,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .84,
 		relief: .0055
 	}),
+	runningtrack: Object.freeze({
+		dark: [
+			122,
+			42,
+			38
+		],
+		light: [
+			238,
+			228,
+			218
+		],
+		roughness: .88,
+		relief: .004
+	}),
+	bouldermat: Object.freeze({
+		dark: [
+			38,
+			52,
+			78
+		],
+		light: [
+			142,
+			162,
+			198
+		],
+		roughness: .82,
+		relief: .005
+	}),
+	pooltile: Object.freeze({
+		dark: [
+			22,
+			88,
+			122
+		],
+		light: [
+			168,
+			222,
+			238
+		],
+		roughness: .3,
+		relief: .003
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3144,6 +3186,9 @@ var proceduralTileMeters = Object.freeze({
 	collar: .06,
 	petbed: .4,
 	scratchpost: .12,
+	runningtrack: .9,
+	bouldermat: .6,
+	pooltile: .24,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

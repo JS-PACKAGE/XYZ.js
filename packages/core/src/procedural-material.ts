@@ -106,6 +106,9 @@ export type ProceduralMaterialKind =
   | 'collar'
   | 'petbed'
   | 'scratchpost'
+  | 'runningtrack'
+  | 'bouldermat'
+  | 'pooltile'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -351,6 +354,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'collar',
   'petbed',
   'scratchpost',
+  'runningtrack',
+  'bouldermat',
+  'pooltile',
   'sandstone',
   'travertine',
   'pumice',

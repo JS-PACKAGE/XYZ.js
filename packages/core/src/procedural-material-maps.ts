@@ -5930,6 +5930,55 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.5 * (1 - rope) - 0.1 * (1 - twist) * rope;
         break;
       }
+      case 'runningtrack': {
+        // Lane lines ride the granular surface above the drainage seam.
+        const line =
+          smooth(clamp((0.03 - Math.abs(fract(v) - 0.25)) / 0.015)) +
+          smooth(clamp((0.03 - Math.abs(fract(v) - 0.75)) / 0.015));
+        const seam = smooth(
+          clamp((0.02 - Math.min(fract(v), 1 - fract(v))) / 0.012),
+        );
+        const grain = noise(u, v, 64, 64, seed ^ 0x3f58);
+        color = 0.42 + 0.4 * line + 0.1 * grain;
+        height = 0.46 + 0.12 * line + 0.02 * grain - 0.16 * seam;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * line;
+        occlusion = 1 - 0.3 * seam - 0.12 * (1 - line);
+        break;
+      }
+      case 'bouldermat': {
+        // Quilted diamonds puff inside the raised border band.
+        const d1 = Math.abs(fract((u + v) * 4) - 0.5),
+          d2 = Math.abs(fract((u - v) * 4) - 0.5);
+        const quilt =
+          smooth(clamp((0.3 - d1) / 0.1)) * smooth(clamp((0.3 - d2) / 0.1));
+        const bu = smooth(
+          clamp((0.08 - Math.min(fract(u), 1 - fract(u))) / 0.04),
+        );
+        const bv = smooth(
+          clamp((0.08 - Math.min(fract(v), 1 - fract(v))) / 0.04),
+        );
+        const border = 1 - (1 - bu) * (1 - bv);
+        const grain = noise(u, v, 40, 40, seed ^ 0x64b2);
+        color = 0.42 + 0.3 * quilt + 0.16 * border + 0.06 * grain;
+        height = 0.44 + 0.28 * quilt + 0.18 * border + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.06 * quilt;
+        occlusion = 1 - 0.42 * (1 - quilt) - 0.12 * (1 - border);
+        break;
+      }
+      case 'pooltile': {
+        // Tile faces meet recessed grout under broad caustic light bands.
+        const gu = Math.min(fract(u * 8), 1 - fract(u * 8)),
+          gv = Math.min(fract(v * 8), 1 - fract(v * 8));
+        const face =
+          smooth(clamp((gu - 0.04) / 0.06)) * smooth(clamp((gv - 0.04) / 0.06));
+        const caustic = 0.5 + 0.5 * Math.cos(TAU * 2 * (u + v));
+        const grain = noise(u, v, 32, 32, seed ^ 0x18fa);
+        color = 0.4 + 0.3 * face + 0.14 * caustic + 0.06 * grain;
+        height = 0.44 + 0.2 * face + 0.1 * caustic + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.12 * face;
+        occlusion = 1 - 0.42 * (1 - face) - 0.1 * (1 - caustic);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
