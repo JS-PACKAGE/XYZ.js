@@ -2938,3 +2938,30 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   379 個程序材質測試通過，WebGPU 三種畫面 hash 與獨立快照一致。
 - 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
+
+## 程序材質擴充：金屬網孔（perforatedmetal／expandedmetal／wiremesh）
+
+- 新增亮面金屬板錯列圓形凹孔與孔間平整網面、兩組對角條帶在隆起節點
+  相接並圍出凹陷菱形開口、圓形金屬線平紋交織上下交錯於深色開放網孔。
+  本組快照由 102 增為 105 種；三者皆為 opaque metal，
+  metallic 通道與預設 factor 為 1，僅為表面 shading，
+  不新增板材 geometry、真實孔洞、彎折條帶或 displacement。
+- 原 102 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 與完整 Vitest 為
+  176 files／1841 tests passed（複跑；其中一次全套併行 run 的
+  mesh-shader-variants 偶發 flaky 失敗，單跑與複跑均通過）。
+  凹孔底／孔緣高度與遮蔽、菱形開口／條帶／節點高度序、
+  編織上下交換與圓線 crest／edge／gap 高度序、
+  support 邊界斜率連續性納入回歸。
+- 獨立 Chrome WebGPU／WebGL2 gallery 逐一切換三者，
+  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend 與 105 種預設載入。
+  metallic 全為 255，roughness bytes 依序
+  84–112／98–126／81–98；每米 repeats 依序 2／1.666667／11.111111。
+  check:material-reference 通過，regression-browser chromium
+  webgl2 與 webgpu 通過。
+- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
+  只收本組 source／docs 與本組材質 dist，同步的 webgl2-renderer
+  等其他修改不納入本組。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
+- `[WebGL2]` 材質的 sampler 選項都是 `samplerOptions` 凍結後的物件、不會再變，WebGL2 renderer 改以 WeakMap 依物件身分記住對應 sampler，命中時不再每次綁定都組 8 段字串 key；非凍結選項照舊走字串 key。renderer 只初始化一次（context lost 即銷毀），anisotropy 上限不會在快取期間改變。pbr3d WebGL2 每幀 `cacheSampler` 配置約 33 KB → 0（範例總配置約 93–122 → 56–84 KB／frame，屬配置減少）；filtering runtime 三後端輸出逐位相同、WebGL2 browser regression 通過，context lost／restore 後同一 nearest／repeat 材質畫面 hash 與改動前一致。build 與完整測試（1782 通過）在 HEAD 匯出副本執行。

@@ -398,6 +398,7 @@ var WebGL2Renderer = class {
 	visibleMeshInstances = /* @__PURE__ */ new Map();
 	meshSkins = /* @__PURE__ */ new Map();
 	samplers = /* @__PURE__ */ new Map();
+	frozenSamplers = /* @__PURE__ */ new WeakMap();
 	supportedTextureFormats = [];
 	atlas = new require_shadow_atlas.ShadowAtlas();
 	shadowCache = new require_shadow_cache.ShadowCache();
@@ -1048,11 +1049,16 @@ var WebGL2Renderer = class {
 		this.unitTextures[a] !== n && (this.activeUnit !== e && (i.activeTexture(i.TEXTURE0 + e), this.activeUnit = e), i.bindTexture(t, n), this.unitTextures[a] = n);
 	}
 	cacheSampler(e) {
-		let t = e.minFilter === `nearest` ? 0 : 1, n = e.magFilter === `nearest` ? 0 : 1, r = e.addressModeU === `repeat` ? 1 : e.addressModeU === `mirror-repeat` ? 2 : 0, i = e.addressModeV === `repeat` ? 1 : e.addressModeV === `mirror-repeat` ? 2 : 0, a = e.mipmapFilter ?? `linear`, o = e.lodMinClamp ?? 0, s = e.lodMaxClamp ?? 32, c = Math.min(e.maxAnisotropy ?? 1, this.maxTextureAnisotropy), l = `${t}/${n}/${a}/${r}/${i}/${o}/${s}/${c}`, u = this.samplers.get(l);
-		if (u) return u;
-		let d = this.gl, f = d.createSampler();
-		if (!f) throw new require_errors.GraphicsError(`WebGL2 could not allocate a material sampler.`);
-		return d.samplerParameteri(f, d.TEXTURE_MIN_FILTER, a === `nearest` ? t ? d.LINEAR_MIPMAP_NEAREST : d.NEAREST_MIPMAP_NEAREST : t ? d.LINEAR_MIPMAP_LINEAR : d.NEAREST_MIPMAP_LINEAR), d.samplerParameteri(f, d.TEXTURE_MAG_FILTER, n ? d.LINEAR : d.NEAREST), d.samplerParameteri(f, d.TEXTURE_WRAP_S, r === 1 ? d.REPEAT : r === 2 ? d.MIRRORED_REPEAT : d.CLAMP_TO_EDGE), d.samplerParameteri(f, d.TEXTURE_WRAP_T, i === 1 ? d.REPEAT : i === 2 ? d.MIRRORED_REPEAT : d.CLAMP_TO_EDGE), d.samplerParameterf(f, d.TEXTURE_MIN_LOD, o), d.samplerParameterf(f, d.TEXTURE_MAX_LOD, s), this.anisotropyExtension && d.samplerParameterf(f, this.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, c), this.samplers.set(l, f), f;
+		let t = Object.isFrozen(e);
+		if (t) {
+			let t = this.frozenSamplers.get(e);
+			if (t) return t;
+		}
+		let n = e.minFilter === `nearest` ? 0 : 1, r = e.magFilter === `nearest` ? 0 : 1, i = e.addressModeU === `repeat` ? 1 : e.addressModeU === `mirror-repeat` ? 2 : 0, a = e.addressModeV === `repeat` ? 1 : e.addressModeV === `mirror-repeat` ? 2 : 0, o = e.mipmapFilter ?? `linear`, s = e.lodMinClamp ?? 0, c = e.lodMaxClamp ?? 32, l = Math.min(e.maxAnisotropy ?? 1, this.maxTextureAnisotropy), u = `${n}/${r}/${o}/${i}/${a}/${s}/${c}/${l}`, d = this.samplers.get(u);
+		if (d) return t && this.frozenSamplers.set(e, d), d;
+		let f = this.gl, p = f.createSampler();
+		if (!p) throw new require_errors.GraphicsError(`WebGL2 could not allocate a material sampler.`);
+		return f.samplerParameteri(p, f.TEXTURE_MIN_FILTER, o === `nearest` ? n ? f.LINEAR_MIPMAP_NEAREST : f.NEAREST_MIPMAP_NEAREST : n ? f.LINEAR_MIPMAP_LINEAR : f.NEAREST_MIPMAP_LINEAR), f.samplerParameteri(p, f.TEXTURE_MAG_FILTER, r ? f.LINEAR : f.NEAREST), f.samplerParameteri(p, f.TEXTURE_WRAP_S, i === 1 ? f.REPEAT : i === 2 ? f.MIRRORED_REPEAT : f.CLAMP_TO_EDGE), f.samplerParameteri(p, f.TEXTURE_WRAP_T, a === 1 ? f.REPEAT : a === 2 ? f.MIRRORED_REPEAT : f.CLAMP_TO_EDGE), f.samplerParameterf(p, f.TEXTURE_MIN_LOD, s), f.samplerParameterf(p, f.TEXTURE_MAX_LOD, c), this.anisotropyExtension && f.samplerParameterf(p, this.anisotropyExtension.TEXTURE_MAX_ANISOTROPY_EXT, l), this.samplers.set(u, p), t && this.frozenSamplers.set(e, p), p;
 	}
 	drawMesh(e, t, n) {
 		let r = this.gl, i = this.cacheGeometry(e.renderGeometry);

@@ -952,6 +952,15 @@ export class WebGL2Renderer implements Renderer {
   >();
   private readonly meshSkins = new Map<SkinnedMesh, CachedSkin>();
   private readonly samplers = new Map<string, WebGLSampler>();
+  /**
+   * Materials hold frozen sampler options, which cannot change, so each object remembers its
+   * sampler instead of rebuilding the string key per bind. A renderer initializes once (a lost
+   * context destroys it), so the anisotropy cap in that key never changes either.
+   */
+  private readonly frozenSamplers = new WeakMap<
+    TextureSamplerOptions,
+    WebGLSampler
+  >();
   private supportedTextureFormats: readonly NativeTextureFormat[] = [];
   private readonly atlas = new ShadowAtlas();
   private readonly shadowCache = new ShadowCache();
@@ -3329,6 +3338,11 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private cacheSampler(options: TextureSamplerOptions): WebGLSampler | null {
+    const frozen = Object.isFrozen(options);
+    if (frozen) {
+      const known = this.frozenSamplers.get(options);
+      if (known) return known;
+    }
     const min = options.minFilter === 'nearest' ? 0 : 1;
     const mag = options.magFilter === 'nearest' ? 0 : 1;
     const u =
@@ -3352,7 +3366,10 @@ export class WebGL2Renderer implements Renderer {
     );
     const key = `${min}/${mag}/${mip}/${u}/${v}/${lodMin}/${lodMax}/${maxAnisotropy}`;
     const existing = this.samplers.get(key);
-    if (existing) return existing;
+    if (existing) {
+      if (frozen) this.frozenSamplers.set(options, existing);
+      return existing;
+    }
     const gl = this.gl!;
     const sampler = gl.createSampler();
     if (!sampler)
@@ -3392,6 +3409,7 @@ export class WebGL2Renderer implements Renderer {
         maxAnisotropy,
       );
     this.samplers.set(key, sampler);
+    if (frozen) this.frozenSamplers.set(options, sampler);
     return sampler;
   }
 

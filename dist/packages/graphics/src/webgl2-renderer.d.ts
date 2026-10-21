@@ -153,6 +153,12 @@ export declare class WebGL2Renderer implements Renderer {
     private readonly visibleMeshInstances;
     private readonly meshSkins;
     private readonly samplers;
+    /**
+     * Materials hold frozen sampler options, which cannot change, so each object remembers its
+     * sampler instead of rebuilding the string key per bind. A renderer initializes once (a lost
+     * context destroys it), so the anisotropy cap in that key never changes either.
+     */
+    private readonly frozenSamplers;
     private supportedTextureFormats;
     private readonly atlas;
     private readonly shadowCache;
