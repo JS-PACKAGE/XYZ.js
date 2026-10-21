@@ -67,6 +67,13 @@ interface Edge {
   readonly a: Readonly<Vector3>;
   readonly b: Readonly<Vector3>;
   readonly link?: NavigationMeshLink3D;
+  /** Last clipped portal; regions are replaced, never mutated, so identity keys it. */
+  portal?: {
+    readonly from: Region;
+    readonly to: Region;
+    readonly radius: number;
+    readonly value: readonly [Readonly<Vector3>, Readonly<Vector3>] | undefined;
+  };
 }
 interface Region {
   readonly vertices: readonly Readonly<Vector3>[];
@@ -911,27 +918,46 @@ export class NavigationMesh3D {
         inside(to.vertices, edge.b)
         ? [edge.a, edge.b]
         : undefined;
-    const length = hypot2(edge.b.x - edge.a.x, edge.b.z - edge.a.z);
-    if (length <= 2 * radius + epsilon) return undefined;
-    const f = clipSegment(from.vertices, edge.a, edge.b),
-      t = clipSegment(to.vertices, edge.a, edge.b);
-    if (!f || !t) return undefined;
-    const lo = Math.max(radius / length, f[0], t[0]),
-      hi = Math.min(1 - radius / length, f[1], t[1]);
-    if (lo > hi - epsilon) return undefined;
-    return [
-      new Vector3(
-        edge.a.x + (edge.b.x - edge.a.x) * lo,
-        edge.a.y + (edge.b.y - edge.a.y) * lo,
-        edge.a.z + (edge.b.z - edge.a.z) * lo,
-      ),
-      new Vector3(
-        edge.a.x + (edge.b.x - edge.a.x) * hi,
-        edge.a.y + (edge.b.y - edge.a.y) * hi,
-        edge.a.z + (edge.b.z - edge.a.z) * hi,
-      ),
-    ];
+    const cached = edge.portal;
+    if (
+      cached &&
+      cached.from === from &&
+      cached.to === to &&
+      cached.radius === radius
+    )
+      return cached.value;
+    const value = clipPortal(edge, from, to, radius);
+    edge.portal = { from, to, radius, value };
+    return value;
   }
+}
+
+function clipPortal(
+  edge: Edge,
+  from: Region,
+  to: Region,
+  radius: number,
+): readonly [Readonly<Vector3>, Readonly<Vector3>] | undefined {
+  const length = hypot2(edge.b.x - edge.a.x, edge.b.z - edge.a.z);
+  if (length <= 2 * radius + epsilon) return undefined;
+  const f = clipSegment(from.vertices, edge.a, edge.b),
+    t = clipSegment(to.vertices, edge.a, edge.b);
+  if (!f || !t) return undefined;
+  const lo = Math.max(radius / length, f[0], t[0]),
+    hi = Math.min(1 - radius / length, f[1], t[1]);
+  if (lo > hi - epsilon) return undefined;
+  return [
+    new Vector3(
+      edge.a.x + (edge.b.x - edge.a.x) * lo,
+      edge.a.y + (edge.b.y - edge.a.y) * lo,
+      edge.a.z + (edge.b.z - edge.a.z) * lo,
+    ),
+    new Vector3(
+      edge.a.x + (edge.b.x - edge.a.x) * hi,
+      edge.a.y + (edge.b.y - edge.a.y) * hi,
+      edge.a.z + (edge.b.z - edge.a.z) * hi,
+    ),
+  ];
 }
 
 function validatePoint(point: Readonly<Vector3>): void {

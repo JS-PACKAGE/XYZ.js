@@ -378,16 +378,27 @@ var NavigationMesh3D = class {
 		}
 		return { vertices: r };
 	}
-	portal(t, n, r, a) {
-		if (t.link) return !this.disabledLinks.has(t.link.id) && t.link.clearance >= a && inside(n.vertices, t.a) && inside(r.vertices, t.b) ? [t.a, t.b] : void 0;
-		let s = require_hypot.hypot2(t.b.x - t.a.x, t.b.z - t.a.z);
-		if (s <= 2 * a + o) return;
-		let c = clipSegment(n.vertices, t.a, t.b), l = clipSegment(r.vertices, t.a, t.b);
-		if (!c || !l) return;
-		let u = Math.max(a / s, c[0], l[0]), d = Math.min(1 - a / s, c[1], l[1]);
-		if (!(u > d - o)) return [new require_math3d.Vector3(t.a.x + (t.b.x - t.a.x) * u, t.a.y + (t.b.y - t.a.y) * u, t.a.z + (t.b.z - t.a.z) * u), new require_math3d.Vector3(t.a.x + (t.b.x - t.a.x) * d, t.a.y + (t.b.y - t.a.y) * d, t.a.z + (t.b.z - t.a.z) * d)];
+	portal(e, t, n, r) {
+		if (e.link) return !this.disabledLinks.has(e.link.id) && e.link.clearance >= r && inside(t.vertices, e.a) && inside(n.vertices, e.b) ? [e.a, e.b] : void 0;
+		let i = e.portal;
+		if (i && i.from === t && i.to === n && i.radius === r) return i.value;
+		let a = clipPortal(e, t, n, r);
+		return e.portal = {
+			from: t,
+			to: n,
+			radius: r,
+			value: a
+		}, a;
 	}
 };
+function clipPortal(t, n, r, a) {
+	let s = require_hypot.hypot2(t.b.x - t.a.x, t.b.z - t.a.z);
+	if (s <= 2 * a + o) return;
+	let c = clipSegment(n.vertices, t.a, t.b), l = clipSegment(r.vertices, t.a, t.b);
+	if (!c || !l) return;
+	let u = Math.max(a / s, c[0], l[0]), d = Math.min(1 - a / s, c[1], l[1]);
+	if (!(u > d - o)) return [new require_math3d.Vector3(t.a.x + (t.b.x - t.a.x) * u, t.a.y + (t.b.y - t.a.y) * u, t.a.z + (t.b.z - t.a.z) * u), new require_math3d.Vector3(t.a.x + (t.b.x - t.a.x) * d, t.a.y + (t.b.y - t.a.y) * d, t.a.z + (t.b.z - t.a.z) * d)];
+}
 function validatePoint(e) {
 	if (![
 		e.x,

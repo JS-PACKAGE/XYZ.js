@@ -92,6 +92,42 @@ describe('polygon navigation surfaces', () => {
     mesh.destroy();
   });
 
+  it('matches a fresh mesh after enabled-state and radius changes on a bent corridor', () => {
+    const polygons = () => [
+      square('left', 0, 0),
+      square('right', 2, 0),
+      square('up', 2, 2),
+      square('east', 4, 0),
+      square('northeast', 4, 2),
+    ];
+    const route = (target: NavigationMesh3D, agentRadius: number) =>
+      target
+        .findPath(new Vector3(0.5, 0, 0.5), new Vector3(3.5, 0, 3.5), {
+          ...query,
+          agentRadius,
+        })
+        .waypoints.map(({ position: { x, y, z } }) => [x, y, z]);
+    const fresh = (agentRadius: number, disabled?: string) => {
+      const other = new NavigationMesh3D({ polygons: polygons() });
+      if (disabled) other.setPolygonEnabled(disabled, false);
+      const result = route(other, agentRadius);
+      other.destroy();
+      return result;
+    };
+    const mesh = new NavigationMesh3D({ polygons: polygons() });
+    const original = route(mesh, 0.2);
+    expect(original).toEqual(fresh(0.2));
+    mesh.setPolygonEnabled('east', false);
+    const narrowed = route(mesh, 0.2);
+    // The bend waypoint is a portal midpoint, so it moves with the eastern clearance.
+    expect(narrowed).not.toEqual(original);
+    expect(narrowed).toEqual(fresh(0.2, 'east'));
+    mesh.setPolygonEnabled('east', true);
+    expect(route(mesh, 0.2)).toEqual(original);
+    expect(route(mesh, 0.4)).toEqual(fresh(0.4));
+    mesh.destroy();
+  });
+
   it('joins exact tile seams while keeping overlapping floors disconnected', () => {
     const mesh = new NavigationMesh3D({
       tileSize: 2,
