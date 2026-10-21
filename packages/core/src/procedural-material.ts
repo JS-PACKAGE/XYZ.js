@@ -112,6 +112,9 @@ export type ProceduralMaterialKind =
   | 'envelope'
   | 'chalkboard'
   | 'corkboard'
+  | 'snowdrift'
+  | 'icicle'
+  | 'dewdrops'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -363,6 +366,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'envelope',
   'chalkboard',
   'corkboard',
+  'snowdrift',
+  'icicle',
+  'dewdrops',
   'sandstone',
   'travertine',
   'pumice',

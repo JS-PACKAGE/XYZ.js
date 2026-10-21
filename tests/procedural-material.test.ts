@@ -130,6 +130,9 @@ const kinds: ProceduralMaterialKind[] = [
   'envelope',
   'chalkboard',
   'corkboard',
+  'snowdrift',
+  'icicle',
+  'dewdrops',
   'sandstone',
   'travertine',
   'pumice',
@@ -4863,6 +4866,9 @@ describe('periodic procedural material fields', () => {
     ['envelope', [10, 32, 48, 64]],
     ['chalkboard', [3, 32, 48, 64]],
     ['corkboard', [8, 32, 48, 64]],
+    ['snowdrift', [2, 4, 32, 64]],
+    ['icicle', [6, 24, 32, 64]],
+    ['dewdrops', [12, 24, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5094,6 +5100,9 @@ describe('periodic procedural material fields', () => {
     ['envelope', 10],
     ['chalkboard', 3],
     ['corkboard', 8],
+    ['snowdrift', 2],
+    ['icicle', 6],
+    ['dewdrops', 12],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8993,6 +9002,72 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(base.height + 0.08 * relief);
       expect(base.height).toBeGreaterThan(pit.height + 0.1 * relief);
       expect(pit.occlusion).toBeLessThan(base.occlusion);
+    }
+  });
+
+  it('snow drift rides wind ripples over fine grain', () => {
+    const relief = proceduralMaterialPresets.snowdrift.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('snowdrift', seed);
+      let high = 0,
+        low = 1;
+      for (let i = 0; i < 24; i++) {
+        sample(i / 24, 0.37, surface);
+        high = Math.max(high, surface.height);
+        low = Math.min(low, surface.height);
+      }
+      expect(high - low).toBeGreaterThan(0.15 * relief);
+    }
+  });
+
+  it('icicle hangs rounded columns over the shadowed gaps', () => {
+    const relief = proceduralMaterialPresets.icicle.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('icicle', seed);
+      sample(1 / 12, 0.5, surface);
+      sample(0, 0.5, gap);
+      expect(surface.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('dew drops bead two sizes over the faint leaf veins', () => {
+    const relief = proceduralMaterialPresets.dewdrops.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const small = { ...surface },
+      leaf = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('dewdrops', seed);
+      sample(1 / 24, 1 / 24, surface);
+      sample(1 / 48, 1 / 48, small);
+      sample(1 / 16, 0, leaf);
+      expect(surface.height).toBeGreaterThan(small.height + 0.05 * relief);
+      expect(small.height).toBeGreaterThan(leaf.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(leaf.occlusion);
     }
   });
 

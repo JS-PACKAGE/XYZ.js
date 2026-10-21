@@ -1696,6 +1696,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .26 * s - .2 * u + .08 * d, Z = .44 + .2 * s - .26 * u + .03 * d, Q += .05 * (d - .5) - .06 * s, $ = 1 - .3 * (1 - s) - .45 * u;
 				break;
 			}
+			case `snowdrift`: {
+				let e = noise(o, A, 4, 4, r ^ 20087) - .5, t = .5 + .5 * Math.cos(n * (2 * o + .35 * e)), i = noise(o, A, 48, 48, r ^ 11029);
+				H = .52 + .34 * t + .06 * i, Z = .46 + .32 * t + .05 * i, Q += .05 * (i - .5) - .12 * t, $ = 1 - .3 * (1 - t);
+				break;
+			}
+			case `icicle`: {
+				let t = smooth(clamp((.28 - Math.abs(fract(o * 6) - .5)) / .1)), i = .5 + .5 * Math.cos(n * 24 * o), a = noise(o, A, 32, 32, r ^ 31809);
+				H = .46 + .36 * t + .08 * i * t + .06 * a, Z = .42 + .42 * t + .04 * i * t + .03 * a, Q += .05 * (a - .5) - .14 * t, $ = 1 - .52 * (1 - t);
+				break;
+			}
+			case `dewdrops`: {
+				let e = fract(o * 12) - .5, t = fract(A * 12) - .5, i = smooth(clamp((.22 - Math.sqrt(e * e + t * t)) / .08)), a = fract(o * 24) - .5, s = fract(A * 24) - .5, c = smooth(clamp((.12 - Math.sqrt(a * a + s * s)) / .05)), l = .5 + .5 * Math.cos(n * 8 * (o + .25 * A)), u = noise(o, A, 40, 40, r ^ 22734);
+				H = .34 + .28 * i + .18 * c + .1 * l + .05 * u, Z = .42 + .28 * i + .16 * c + .04 * l + .02 * u, Q += .05 * (u - .5) - .16 * i, $ = 1 - .3 * (1 - i) - .12 * (1 - c) * (1 - i);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

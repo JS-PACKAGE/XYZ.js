@@ -6031,6 +6031,48 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - clump) - 0.45 * pit;
         break;
       }
+      case 'snowdrift': {
+        // Wind ripples ride the drift over the fine snow grain.
+        const warp = noise(u, v, 4, 4, seed ^ 0x4e77) - 0.5;
+        const drift = 0.5 + 0.5 * Math.cos(TAU * (2 * u + 0.35 * warp));
+        const grain = noise(u, v, 48, 48, seed ^ 0x2b15);
+        color = 0.52 + 0.34 * drift + 0.06 * grain;
+        height = 0.46 + 0.32 * drift + 0.05 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.12 * drift;
+        occlusion = 1 - 0.3 * (1 - drift);
+        break;
+      }
+      case 'icicle': {
+        // Rounded icicle columns hang over the shadowed gaps.
+        const du = Math.abs(fract(u * 6) - 0.5);
+        const column = smooth(clamp((0.28 - du) / 0.1));
+        const striation = 0.5 + 0.5 * Math.cos(TAU * 24 * u);
+        const grain = noise(u, v, 32, 32, seed ^ 0x7c41);
+        color = 0.46 + 0.36 * column + 0.08 * striation * column + 0.06 * grain;
+        height =
+          0.42 + 0.42 * column + 0.04 * striation * column + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.14 * column;
+        occlusion = 1 - 0.52 * (1 - column);
+        break;
+      }
+      case 'dewdrops': {
+        // Two drop sizes bead over the faint leaf veins.
+        const bu = fract(u * 12) - 0.5,
+          bv = fract(v * 12) - 0.5;
+        const big = smooth(clamp((0.22 - Math.sqrt(bu * bu + bv * bv)) / 0.08));
+        const su = fract(u * 24) - 0.5,
+          sv = fract(v * 24) - 0.5;
+        const small = smooth(
+          clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
+        );
+        const veins = 0.5 + 0.5 * Math.cos(TAU * 8 * (u + 0.25 * v));
+        const grain = noise(u, v, 40, 40, seed ^ 0x58ce);
+        color = 0.34 + 0.28 * big + 0.18 * small + 0.1 * veins + 0.05 * grain;
+        height = 0.42 + 0.28 * big + 0.16 * small + 0.04 * veins + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.16 * big;
+        occlusion = 1 - 0.3 * (1 - big) - 0.12 * (1 - small) * (1 - big);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
