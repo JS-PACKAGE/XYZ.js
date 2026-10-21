@@ -72,7 +72,10 @@ export type ProceduralMaterialKind =
   | 'goldleaf'
   | 'orangepeel'
   | 'coconut'
-  | 'watermelon';
+  | 'watermelon'
+  | 'limestone'
+  | 'breccia'
+  | 'gneiss';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -171,6 +174,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'orangepeel',
   'coconut',
   'watermelon',
+  'limestone',
+  'breccia',
+  'gneiss',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

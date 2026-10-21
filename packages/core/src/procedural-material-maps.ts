@@ -127,6 +127,44 @@ export function createSurfaceSampler(
         skinFeatures[offset + 1] = 0.25 + 0.5 * hash(x, y, seed ^ 0x53b1);
         skinFeatures[offset + 2] = hash(x, y, seed ^ 0x7b29);
       }
+  const ooids = kind === 'limestone' ? new Float64Array(24 * 24 * 7) : null;
+  if (ooids)
+    for (let y = 0; y < 24; y++)
+      for (let x = 0; x < 24; x++) {
+        const offset = (y * 24 + x) * 7;
+        const angle = TAU * hash(x, y, seed ^ 0x2c71);
+        ooids[offset] = 0.15 + 0.7 * hash(x, y, seed ^ 0x18b3);
+        ooids[offset + 1] = 0.15 + 0.7 * hash(x, y, seed ^ 0x4e29);
+        ooids[offset + 2] = 0.25 + 0.19 * hash(x, y, seed ^ 0x7a91);
+        ooids[offset + 3] = 0.65 + 0.35 * hash(x, y, seed ^ 0x398d);
+        ooids[offset + 4] = Math.cos(angle);
+        ooids[offset + 5] = Math.sin(angle);
+        ooids[offset + 6] = hash(x, y, seed ^ 0x63f7);
+      }
+  // Five irregular half-planes form each clast. Their compact support fits
+  // strictly inside the sampled 3x3 neighborhood, including at wrapped edges.
+  const clasts = kind === 'breccia' ? new Float64Array(6 * 6 * 18) : null;
+  if (clasts)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 18;
+        const rotation = TAU * hash(x, y, seed ^ 0x2b53);
+        const radius = 0.3 + 0.35 * hash(x, y, seed ^ 0x5a17);
+        clasts[offset] = 0.15 + 0.7 * hash(x, y, seed ^ 0x17c9);
+        clasts[offset + 1] = 0.15 + 0.7 * hash(x, y, seed ^ 0x38d1);
+        clasts[offset + 2] = hash(x, y, seed ^ 0x7e43);
+        for (let edge = 0; edge < 5; edge++) {
+          const angle =
+            rotation +
+            (TAU * edge) / 5 +
+            0.2 * (hash(x, y, seed ^ (0x41b7 + edge)) - 0.5);
+          const plane = offset + 3 + edge * 3;
+          clasts[plane] = Math.cos(angle);
+          clasts[plane + 1] = Math.sin(angle);
+          clasts[plane + 2] =
+            radius * (0.75 + 0.25 * hash(x, y, seed ^ (0x68a1 + edge)));
+        }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -1944,6 +1982,112 @@ export function createSurfaceSampler(
         height = (0.48 + 0.025 * detail) * (1 - 0.14 * pores);
         roughness += 0.055 * (detail - 0.5) + 0.045 * pores;
         occlusion = 1 - 0.035 * pores;
+        break;
+      }
+      case 'limestone': {
+        const x = u * 24,
+          y = v * 24;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        const pores = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x19d7) - 0.49) / 0.38),
+        );
+        let grains = 0;
+        color = 0.63 + 0.14 * detail - 0.16 * pores;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % 24) + 24) % 24,
+              wy = ((cy % 24) + 24) % 24;
+            const offset = (wy * 24 + wx) * 7;
+            const dx = x - cx - ooids![offset],
+              dy = y - cy - ooids![offset + 1];
+            const rx =
+                (dx * ooids![offset + 4] + dy * ooids![offset + 5]) /
+                ooids![offset + 2],
+              ry =
+                (dy * ooids![offset + 4] - dx * ooids![offset + 5]) /
+                (ooids![offset + 2] * ooids![offset + 3]);
+            const distance = rx * rx + ry * ry;
+            const weight = smooth(clamp((1 - distance) / 0.36));
+            const variation = ooids![offset + 6];
+            // Rounded carbonate grains carry faint concentric growth rings;
+            // all grain-owned color fades into the finely porous matrix.
+            const ring = 0.5 + 0.5 * Math.cos(TAU * 1.5 * distance);
+            const pigment = 0.5 + 0.24 * variation + 0.16 * ring;
+            color = color * (1 - weight) + pigment * weight;
+            grains += (1 - grains) * weight;
+          }
+        height = 0.47 + 0.08 * grains + 0.025 * detail - 0.07 * pores;
+        roughness += 0.06 * (detail - 0.5) + 0.08 * pores - 0.05 * grains;
+        occlusion = 0.98 - 0.12 * pores + 0.015 * grains;
+        break;
+      }
+      case 'breccia': {
+        const x = u * 6,
+          y = v * 6;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        const cement = noise(u, v, 80, 80, seed ^ 0x5d21);
+        let coverage = 0;
+        color = 0.56 + 0.16 * cement;
+        height = 0.33 + 0.035 * cement;
+        roughness += 0.08 * cement;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % 6) + 6) % 6,
+              wy = ((cy % 6) + 6) % 6;
+            const offset = (wy * 6 + wx) * 18;
+            const dx = x - cx - clasts![offset],
+              dy = y - cy - clasts![offset + 1];
+            let face = 1;
+            for (let edge = 0; edge < 5; edge++) {
+              const plane = offset + 3 + edge * 3;
+              const inward =
+                clasts![plane + 2] -
+                dx * clasts![plane] -
+                dy * clasts![plane + 1];
+              face *= smooth(clamp(inward / 0.055));
+            }
+            const variation = clasts![offset + 2];
+            // Smooth half-plane products retain angular fractured outlines
+            // without a nearest-feature switch or rectangular masonry joints.
+            const pigment = 0.15 + 0.66 * variation + 0.12 * detail;
+            color = color * (1 - face) + pigment * face;
+            height =
+              height * (1 - face) +
+              (0.54 + 0.1 * variation + 0.025 * detail) * face;
+            roughness =
+              roughness * (1 - face) +
+              (preset.roughness + 0.08 * (detail - 0.5)) * face;
+            coverage += (1 - coverage) * face;
+          }
+        occlusion = 0.81 + 0.17 * coverage + 0.015 * cement;
+        break;
+      }
+      case 'gneiss': {
+        const warp = noise(u, v, 4, 4, seed ^ 0x6b19);
+        const folded =
+          v +
+          0.28 * Math.sin(TAU * u + 0.8 * Math.sin(TAU * v) + phase) +
+          0.06 * Math.sin(TAU * (2 * u - v) + phase);
+        const angle = TAU * 6 * folded + 1.4 * (warp - 0.5);
+        const bands = smooth(
+          clamp((0.5 + 0.5 * Math.sin(angle) - 0.18) / 0.64),
+        );
+        const lamina = 0.5 + 0.5 * Math.sin(3 * angle + 0.4 * warp);
+        const crystal = noise(u, v, 96, 96, seed ^ 0x3c75);
+        const flecks = smooth(clamp((crystal - 0.52) / 0.34));
+        const pigment = 0.12 + 0.7 * bands + 0.08 * lamina;
+        color = pigment * (1 - 0.3 * flecks) + 0.88 * 0.3 * flecks;
+        // Light and dark minerals occupy broad folded bands, not isolated
+        // marble veins; small crystalline grains add restrained surface relief.
+        height = 0.42 + 0.055 * bands + 0.07 * flecks + 0.025 * detail;
+        roughness += 0.08 * (detail - 0.5) + 0.06 * (1 - bands) - 0.05 * flecks;
+        occlusion = 0.95 + 0.025 * bands + 0.015 * flecks;
         break;
       }
     }

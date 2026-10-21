@@ -2679,3 +2679,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Tiled]` base64 cell 與 byte 解碼改為單一迴圈（charCodeAt 寫入 Uint8Array、little-endian uint32 位元組合），取代逐字元 callback 的 `Uint8Array.from` 與 `Array.from`＋DataView。512×512 base64 layer 的 `parseTiledMap` Node bench 40.3 → 6.7 ms，cell hash 不變；新增含 flip flag 與空白的 little-endian 解碼測試。
 - `[Assets]` glTF base64 data URI 與 gzip／zlib 壓縮的 Tiled cells 改以單一迴圈解碼，取代逐元素 callback 的 `Uint8Array.from`／`Array.from`。4 MiB data URI 解碼 Node 微基準 129.9 → 3.8 ms；既有 glTF／Tiled 測試覆蓋兩條路徑（反轉位元組與 endianness 的 mutation 皆被抓到）。
 - `[Assets]` 無 index 的 glTF primitive 以迴圈產生連續 index，取代逐元素 callback 的 `Float32Array.from({ length })`；既有非 index 模型測試覆蓋（反轉順序的 mutation 會失敗）。
+
+## 程序材質擴充：地質石材（limestone／breccia／gneiss）
+
+- 新增石灰岩圓粒與細孔、角礫岩角狀碎屑與膠結基質、片麻岩摺曲礦物層帶，
+  tile 尺寸依序 0.12／0.6／0.6 m。皆 opaque dielectric，
+  僅為表面 shading，不建立岩塊 geometry。gallery／API 文件同步至 69 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1631 tests
+  通過。礦物面相對基質的高度與 wrapped／owned 邊界連續性納入回歸；
+  前六十六種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認圓粒、角礫與摺曲層帶差異；metallic 全為 0，
+  roughness bytes 依序 174–221／164–194／123–171；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

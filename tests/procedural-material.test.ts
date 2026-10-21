@@ -90,6 +90,9 @@ const kinds: ProceduralMaterialKind[] = [
   'orangepeel',
   'coconut',
   'watermelon',
+  'limestone',
+  'breccia',
+  'gneiss',
 ];
 
 class TestImageData {
@@ -316,6 +319,9 @@ describe('periodic procedural material fields', () => {
     ['orangepeel', [24, 32]],
     ['coconut', [8, 32, 40]],
     ['watermelon', [4, 5, 8, 12, 32, 80, 96]],
+    ['limestone', [24, 32, 96]],
+    ['breccia', [6, 32, 80]],
+    ['gneiss', [4, 32, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -388,6 +394,8 @@ describe('periodic procedural material fields', () => {
     ['coconut', 8],
     ['coconut', 40],
     ['watermelon', 96],
+    ['gneiss', 4],
+    ['gneiss', 96],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -421,6 +429,43 @@ describe('periodic procedural material fields', () => {
                 Math.abs(right - 2 * a.height + left) / epsilon,
               ).toBeLessThan(0.001);
             }
+      }
+    },
+  );
+
+  it.each(['limestone', 'breccia'] as const)(
+    '%s recesses porous or cement matrix below the exposed mineral faces',
+    (kind) => {
+      const surface: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        let lowestOcclusion = Infinity,
+          highestOcclusion = -Infinity,
+          recessedHeight = 0,
+          faceHeight = 0;
+        // Find the matrix and mineral faces from cavity shading rather than
+        // duplicating the seeded geometry or pinning incidental relief values.
+        for (let y = 0; y < 128; y++)
+          for (let x = 0; x < 128; x++) {
+            sample((x + 0.5) / 128, (y + 0.5) / 128, surface);
+            if (surface.occlusion < lowestOcclusion) {
+              lowestOcclusion = surface.occlusion;
+              recessedHeight = surface.height;
+            }
+            if (surface.occlusion > highestOcclusion) {
+              highestOcclusion = surface.occlusion;
+              faceHeight = surface.height;
+            }
+          }
+        expect(lowestOcclusion).toBeLessThan(highestOcclusion);
+        expect(recessedHeight).toBeLessThan(faceHeight);
       }
     },
   );
@@ -568,6 +613,46 @@ describe('periodic procedural material fields', () => {
           }
     }
   });
+
+  it.each([
+    ['limestone', 24],
+    ['breccia', 6],
+  ] as const)(
+    '%s fades all owned fields smoothly as feature neighborhoods change',
+    (kind, cells) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a },
+        center = { ...a };
+      const epsilon = 1e-8;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let edge = 0; edge <= cells; edge++)
+          for (let i = 0; i < 37; i++)
+            for (const axis of [0, 1]) {
+              const u = axis === 0 ? edge / cells : (i + 0.37) / 37,
+                v = axis === 1 ? edge / cells : (i + 0.37) / 37;
+              const du = axis === 0 ? epsilon : 0,
+                dv = axis === 1 ? epsilon : 0;
+              sample(u - du, v - dv, a);
+              sample(u + du, v + dv, b);
+              sample(u, v, center);
+              for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                expect(
+                  Math.abs(a[key] - 2 * center[key] + b[key]) / epsilon,
+                ).toBeLessThan(0.01);
+              }
+            }
+      }
+    },
+  );
 
   it('acoustic foam has four sloping pyramid faces above recessed cell edges', () => {
     const a: SurfaceSample = {
