@@ -49,11 +49,25 @@ export declare class SpatialLightSelector implements SelectedLights {
     private gridPass;
     private pointGridded;
     private spotGridded;
+    /** Every selection input of the pools at the last update; see snapshotPools. */
+    private poolSnapshot;
+    private poolScene;
+    /** Changes whenever an update sees pools that could select differently. */
+    private poolVersion;
+    /** A mesh's last selection, reused while its bounds and the pools are unchanged. */
+    private meshSelections;
     constructor(options?: LightSelectionOptions);
     update(scene: Scene): void;
     /** Release scene/borrowed light references without destroying caller-owned lights. */
     clear(): void;
     selectMesh(mesh: Mesh): this;
     select(center: Vector3, radius: number): this;
+    /** Adds the current per-draw stats to the frame and applies the exceed policy. */
+    private recordDraw;
+    /**
+     * Records every value selection reads from the pools and reports whether all equal the
+     * previous update's (same scene); identities pin the light objects themselves.
+     */
+    private snapshotPools;
     private selectType;
 }

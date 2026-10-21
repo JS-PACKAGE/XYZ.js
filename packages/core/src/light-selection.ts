@@ -230,6 +230,13 @@ export class SpatialLightSelector implements SelectedLights {
   private gridPass = 0;
   private pointGridded = false;
   private spotGridded = false;
+  /** Every selection input of the pools at the last update; see snapshotPools. */
+  private poolSnapshot = new Float64Array(0);
+  private poolScene: Scene | undefined;
+  /** Changes whenever an update sees pools that could select differently. */
+  private poolVersion = 0;
+  /** A mesh's last selection, reused while its bounds and the pools are unchanged. */
+  private meshSelections = new WeakMap<Mesh, MeshSelection>();
 
   constructor(options: LightSelectionOptions = {}) {
     this.pointCapacity = capacity(
@@ -258,6 +265,7 @@ export class SpatialLightSelector implements SelectedLights {
         this.identities.add(light.id);
       }
     this.scene = scene;
+    if (!this.snapshotPools(scene)) this.poolVersion++;
     // Rendering moves no lights, so a grid built inside a presentation stays exact until it ends.
     this.gridPass = scene.presentationPass;
     this.pointGridded =
@@ -278,6 +286,8 @@ export class SpatialLightSelector implements SelectedLights {
   /** Release scene/borrowed light references without destroying caller-owned lights. */
   clear(): void {
     this.scene = undefined;
+    this.poolScene = undefined;
+    this.meshSelections = new WeakMap();
     this.pointLights.length = this.spotLights.length = 0;
     this.identities.clear();
     this.stats.draws = this.frameStats.draws = 0;
@@ -310,8 +320,64 @@ export class SpatialLightSelector implements SelectedLights {
       this.center.set(0, 0, 0);
       return this.select(this.center, Number.MAX_VALUE);
     }
-    this.center.set(this.sphere.x, this.sphere.y, this.sphere.z);
-    return this.select(this.center, this.sphere.radius);
+    const sphere = this.sphere;
+    // Lights are immutable within the presentation the pools were snapshotted in, so equal
+    // bounds and pool version reproduce the previous selection and its counts exactly.
+    const reusable =
+      this.gridPass !== 0 && this.scene?.presentationPass === this.gridPass;
+    let cached = reusable ? this.meshSelections.get(mesh) : undefined;
+    if (
+      cached &&
+      cached.version === this.poolVersion &&
+      sameNumber(cached.x, sphere.x) &&
+      sameNumber(cached.y, sphere.y) &&
+      sameNumber(cached.z, sphere.z) &&
+      sameNumber(cached.radius, sphere.radius)
+    ) {
+      copyInto(this.pointLights, cached.points);
+      copyInto(this.spotLights, cached.spots);
+      const points = this.stats.points,
+        spots = this.stats.spots;
+      points.selected = cached.points.length;
+      points.culled = cached.pointCulled;
+      points.overflow = cached.pointOverflow;
+      spots.selected = cached.spots.length;
+      spots.culled = cached.spotCulled;
+      spots.overflow = cached.spotOverflow;
+      return this.recordDraw();
+    }
+    this.center.set(sphere.x, sphere.y, sphere.z);
+    this.select(this.center, sphere.radius);
+    if (reusable) {
+      if (!cached) {
+        cached = {
+          version: 0,
+          x: 0,
+          y: 0,
+          z: 0,
+          radius: 0,
+          points: [],
+          spots: [],
+          pointCulled: 0,
+          pointOverflow: 0,
+          spotCulled: 0,
+          spotOverflow: 0,
+        };
+        this.meshSelections.set(mesh, cached);
+      }
+      cached.version = this.poolVersion;
+      cached.x = sphere.x;
+      cached.y = sphere.y;
+      cached.z = sphere.z;
+      cached.radius = sphere.radius;
+      copyInto(cached.points, this.pointLights);
+      copyInto(cached.spots, this.spotLights);
+      cached.pointCulled = this.stats.points.culled;
+      cached.pointOverflow = this.stats.points.overflow;
+      cached.spotCulled = this.stats.spots.culled;
+      cached.spotOverflow = this.stats.spots.overflow;
+    }
+    return this;
   }
 
   select(center: Vector3, radius: number): this {
@@ -349,6 +415,11 @@ export class SpatialLightSelector implements SelectedLights {
       this.stats.spots,
       this.spotGridded ? this.spotGrid : undefined,
     );
+    return this.recordDraw();
+  }
+
+  /** Adds the current per-draw stats to the frame and applies the exceed policy. */
+  private recordDraw(): this {
     this.stats.draws = 1;
     this.frameStats.draws++;
     this.frameStats.points.selected += this.stats.points.selected;
@@ -365,6 +436,39 @@ export class SpatialLightSelector implements SelectedLights {
         'Relevant lights exceed the configured per-draw light capacity.',
       );
     return this;
+  }
+
+  /**
+   * Records every value selection reads from the pools and reports whether all equal the
+   * previous update's (same scene); identities pin the light objects themselves.
+   */
+  private snapshotPools(scene: Scene): boolean {
+    const points = scene.pointLights,
+      spots = scene.spotLights;
+    const size = 2 + points.length * pointFields + spots.length * spotFields;
+    let snapshot = this.poolSnapshot,
+      same = this.poolScene === scene && snapshot.length === size;
+    if (snapshot.length !== size)
+      snapshot = this.poolSnapshot = new Float64Array(size);
+    this.poolScene = scene;
+    same = record(snapshot, 0, points.length) && same;
+    same = record(snapshot, 1, spots.length) && same;
+    let index = 2;
+    for (const light of points) {
+      same = recordLight(snapshot, index, light) && same;
+      index += pointFields;
+    }
+    for (const light of spots) {
+      same = recordLight(snapshot, index, light) && same;
+      const direction = light.direction;
+      same = record(snapshot, index + 10, direction.x) && same;
+      same = record(snapshot, index + 11, direction.y) && same;
+      same = record(snapshot, index + 12, direction.z) && same;
+      same = record(snapshot, index + 13, light.innerAngle) && same;
+      same = record(snapshot, index + 14, light.outerAngle) && same;
+      index += spotFields;
+    }
+    return same;
   }
 
   private selectType<T extends PointLight>(
@@ -476,4 +580,55 @@ export class SpatialLightSelector implements SelectedLights {
     stats.selected = size;
     stats.overflow = relevant - size;
   }
+}
+
+interface MeshSelection {
+  version: number;
+  x: number;
+  y: number;
+  z: number;
+  radius: number;
+  readonly points: PointLight[];
+  readonly spots: SpotLight[];
+  pointCulled: number;
+  pointOverflow: number;
+  spotCulled: number;
+  spotOverflow: number;
+}
+
+const pointFields = 10;
+const spotFields = 15;
+
+/** Equality that also tells signed zeros apart. */
+function sameNumber(a: number, b: number): boolean {
+  return a === b && (a !== 0 || 1 / a === 1 / b);
+}
+
+function record(snapshot: Float64Array, index: number, value: number): boolean {
+  const previous = snapshot[index]!;
+  snapshot[index] = value;
+  return sameNumber(previous, value);
+}
+
+function recordLight(
+  snapshot: Float64Array,
+  index: number,
+  light: PointLight,
+): boolean {
+  let same = record(snapshot, index, light.id);
+  same = record(snapshot, index + 1, light.position.x) && same;
+  same = record(snapshot, index + 2, light.position.y) && same;
+  same = record(snapshot, index + 3, light.position.z) && same;
+  same = record(snapshot, index + 4, light.range) && same;
+  same = record(snapshot, index + 5, light.intensity) && same;
+  same = record(snapshot, index + 6, light.color[0]) && same;
+  same = record(snapshot, index + 7, light.color[1]) && same;
+  same = record(snapshot, index + 8, light.color[2]) && same;
+  return record(snapshot, index + 9, light.priority) && same;
+}
+
+function copyInto<T>(target: T[], source: readonly T[]): void {
+  for (let i = 0; i < source.length; i++) target[i] = source[i]!;
+  // Assigning length is a runtime call even when it does not change.
+  if (target.length !== source.length) target.length = source.length;
 }

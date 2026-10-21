@@ -128,6 +128,10 @@ var SpatialLightSelector = class {
 	gridPass = 0;
 	pointGridded = !1;
 	spotGridded = !1;
+	poolSnapshot = /* @__PURE__ */ new Float64Array();
+	poolScene;
+	poolVersion = 0;
+	meshSelections = /* @__PURE__ */ new WeakMap();
 	constructor(e = {}) {
 		if (this.pointCapacity = capacity(e.pointLights ?? require_lights.lightSelectionLimits.pointLights, require_lights.lightSelectionLimits.pointLights), this.spotCapacity = capacity(e.spotLights ?? require_lights.lightSelectionLimits.spotLights, require_lights.lightSelectionLimits.spotLights), this.exceedPolicy = e.exceedPolicy ?? `select`, this.exceedPolicy !== `select` && this.exceedPolicy !== `error`) throw RangeError(`Light exceedPolicy must be select or error.`);
 	}
@@ -137,21 +141,55 @@ var SpatialLightSelector = class {
 			if (this.identities.has(e.id)) throw RangeError(`Scene light pools cannot contain duplicate light identities.`);
 			this.identities.add(e.id);
 		}
-		this.scene = e, this.gridPass = e.presentationPass, this.pointGridded = this.gridPass !== 0 && e.pointLights.length >= 32, this.spotGridded = this.gridPass !== 0 && e.spotLights.length >= 32, this.pointGridded && this.pointGrid.build(e.pointLights), this.spotGridded && this.spotGrid.build(e.spotLights), this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
+		this.scene = e, this.snapshotPools(e) || this.poolVersion++, this.gridPass = e.presentationPass, this.pointGridded = this.gridPass !== 0 && e.pointLights.length >= 32, this.spotGridded = this.gridPass !== 0 && e.spotLights.length >= 32, this.pointGridded && this.pointGrid.build(e.pointLights), this.spotGridded && this.spotGrid.build(e.spotLights), this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
 		for (let t of [this.stats, this.frameStats]) t.points.pool = e.pointLights.length, t.spots.pool = e.spotLights.length, t.points.selected = t.points.culled = t.points.overflow = 0, t.spots.selected = t.spots.culled = t.spots.overflow = 0;
 	}
 	clear() {
-		this.scene = void 0, this.pointLights.length = this.spotLights.length = 0, this.identities.clear(), this.stats.draws = this.frameStats.draws = 0, this.stats.points.pool = this.stats.points.selected = this.stats.points.culled = this.stats.points.overflow = 0, this.stats.spots.pool = this.stats.spots.selected = this.stats.spots.culled = this.stats.spots.overflow = 0, this.frameStats.points.pool = this.frameStats.points.selected = this.frameStats.points.culled = this.frameStats.points.overflow = 0, this.frameStats.spots.pool = this.frameStats.spots.selected = this.frameStats.spots.culled = this.frameStats.spots.overflow = 0;
+		this.scene = void 0, this.poolScene = void 0, this.meshSelections = /* @__PURE__ */ new WeakMap(), this.pointLights.length = this.spotLights.length = 0, this.identities.clear(), this.stats.draws = this.frameStats.draws = 0, this.stats.points.pool = this.stats.points.selected = this.stats.points.culled = this.stats.points.overflow = 0, this.stats.spots.pool = this.stats.spots.selected = this.stats.spots.culled = this.stats.spots.overflow = 0, this.frameStats.points.pool = this.frameStats.points.selected = this.frameStats.points.culled = this.frameStats.points.overflow = 0, this.frameStats.spots.pool = this.frameStats.spots.selected = this.frameStats.spots.culled = this.frameStats.spots.overflow = 0;
 	}
 	selectMesh(e) {
-		return e.getWorldBoundingSphere(this.sphere), require_render_bounds.sphereIsFinite(this.sphere) ? (this.center.set(this.sphere.x, this.sphere.y, this.sphere.z), this.select(this.center, this.sphere.radius)) : (this.center.set(0, 0, 0), this.select(this.center, Number.MAX_VALUE));
+		if (e.getWorldBoundingSphere(this.sphere), !require_render_bounds.sphereIsFinite(this.sphere)) return this.center.set(0, 0, 0), this.select(this.center, Number.MAX_VALUE);
+		let t = this.sphere, n = this.gridPass !== 0 && this.scene?.presentationPass === this.gridPass, r = n ? this.meshSelections.get(e) : void 0;
+		if (r && r.version === this.poolVersion && sameNumber(r.x, t.x) && sameNumber(r.y, t.y) && sameNumber(r.z, t.z) && sameNumber(r.radius, t.radius)) {
+			copyInto(this.pointLights, r.points), copyInto(this.spotLights, r.spots);
+			let e = this.stats.points, t = this.stats.spots;
+			return e.selected = r.points.length, e.culled = r.pointCulled, e.overflow = r.pointOverflow, t.selected = r.spots.length, t.culled = r.spotCulled, t.overflow = r.spotOverflow, this.recordDraw();
+		}
+		return this.center.set(t.x, t.y, t.z), this.select(this.center, t.radius), n && (r || (r = {
+			version: 0,
+			x: 0,
+			y: 0,
+			z: 0,
+			radius: 0,
+			points: [],
+			spots: [],
+			pointCulled: 0,
+			pointOverflow: 0,
+			spotCulled: 0,
+			spotOverflow: 0
+		}, this.meshSelections.set(e, r)), r.version = this.poolVersion, r.x = t.x, r.y = t.y, r.z = t.z, r.radius = t.radius, copyInto(r.points, this.pointLights), copyInto(r.spots, this.spotLights), r.pointCulled = this.stats.points.culled, r.pointOverflow = this.stats.points.overflow, r.spotCulled = this.stats.spots.culled, r.spotOverflow = this.stats.spots.overflow), this;
 	}
 	select(t, n) {
 		if (!this.scene) throw Error(`Update the light selector before selecting a draw.`);
 		if (!(t instanceof require_math3d.Vector3)) throw TypeError(`Light selection center must be a Vector3.`);
 		if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(n) || n < 0) throw RangeError(`Light selection requires a finite world sphere with nonnegative radius.`);
-		if (this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0), this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
+		return this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0), this.recordDraw();
+	}
+	recordDraw() {
+		if (this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
 		return this;
+	}
+	snapshotPools(e) {
+		let t = e.pointLights, n = e.spotLights, r = 2 + t.length * o + n.length * s, i = this.poolSnapshot, a = this.poolScene === e && i.length === r;
+		i.length !== r && (i = this.poolSnapshot = new Float64Array(r)), this.poolScene = e, a = record(i, 0, t.length) && a, a = record(i, 1, n.length) && a;
+		let c = 2;
+		for (let e of t) a = recordLight(i, c, e) && a, c += o;
+		for (let e of n) {
+			a = recordLight(i, c, e) && a;
+			let t = e.direction;
+			a = record(i, c + 10, t.x) && a, a = record(i, c + 11, t.y) && a, a = record(i, c + 12, t.z) && a, a = record(i, c + 13, e.innerAngle) && a, a = record(i, c + 14, e.outerAngle) && a, c += s;
+		}
+		return a;
 	}
 	selectType(e, t, n, i, o, s, c, l) {
 		let u = 0;
@@ -194,6 +232,23 @@ var SpatialLightSelector = class {
 		t.length !== u && (t.length = u), c.selected = u, c.overflow = d - u;
 	}
 };
+var o = 10;
+var s = 15;
+function sameNumber(e, t) {
+	return e === t && (e !== 0 || 1 / e == 1 / t);
+}
+function record(e, t, n) {
+	let r = e[t];
+	return e[t] = n, sameNumber(r, n);
+}
+function recordLight(e, t, n) {
+	let r = record(e, t, n.id);
+	return r = record(e, t + 1, n.position.x) && r, r = record(e, t + 2, n.position.y) && r, r = record(e, t + 3, n.position.z) && r, r = record(e, t + 4, n.range) && r, r = record(e, t + 5, n.intensity) && r, r = record(e, t + 6, n.color[0]) && r, r = record(e, t + 7, n.color[1]) && r, r = record(e, t + 8, n.color[2]) && r, record(e, t + 9, n.priority) && r;
+}
+function copyInto(e, t) {
+	for (let n = 0; n < t.length; n++) e[n] = t[n];
+	e.length !== t.length && (e.length = t.length);
+}
 //#endregion
 exports.SpatialLightSelector = SpatialLightSelector;
 exports.validateLightPool = validateLightPool;

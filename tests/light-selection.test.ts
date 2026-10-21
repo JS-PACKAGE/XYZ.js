@@ -89,6 +89,56 @@ describe('bounded spatial light selection', () => {
     expect(data[8]).toBe(0);
   });
 
+  it('reselects a mesh across presentations whenever its bounds or any light input change', () => {
+    const scene = new Scene();
+    const a = new PointLight({ position: [0, 1, 0], intensity: 4, range: 10 });
+    const b = new PointLight({ position: [1, 1, 0], intensity: 2, range: 10 });
+    const spot = new SpotLight({
+      position: [0, 3, 0],
+      direction: [0, -1, 0],
+      range: 10,
+    });
+    scene.pointLights.push(a, b);
+    scene.spotLights.push(spot);
+    const mesh = new Mesh({
+      geometry: Geometry.quad(1, 1),
+      material: new TextureMaterial({
+        texture: Object.create(Texture.prototype) as Texture,
+      }),
+    });
+    const selector = new SpatialLightSelector({ pointLights: 1 });
+    const frame = (): [unknown[], unknown[], number, number, number] => {
+      scene.beginPresentation();
+      try {
+        selector.update(scene);
+        selector.selectMesh(mesh);
+        return [
+          [...selector.pointLights],
+          [...selector.spotLights],
+          selector.stats.points.overflow,
+          selector.stats.spots.culled,
+          selector.frameStats.draws,
+        ];
+      } finally {
+        scene.endPresentation();
+      }
+    };
+    expect(frame()).toEqual([[a], [spot], 1, 0, 1]);
+    expect(frame()).toEqual([[a], [spot], 1, 0, 1]);
+    a.intensity = 0.1;
+    expect(frame()).toEqual([[b], [spot], 1, 0, 1]);
+    a.priority = 1;
+    expect(frame()).toEqual([[a], [spot], 1, 0, 1]);
+    b.color[0] = b.color[1] = b.color[2] = 0;
+    expect(frame()).toEqual([[a], [spot], 0, 0, 1]);
+    spot.direction.x = 50;
+    expect(frame()).toEqual([[a], [], 0, 1, 1]);
+    scene.pointLights.reverse();
+    expect(frame()).toEqual([[a], [], 0, 1, 1]);
+    mesh.position.x = 50;
+    expect(frame()).toEqual([[], [], 0, 1, 1]);
+  });
+
   it('bounds overloaded draws by priority, contribution then stable identity independent of pool order', () => {
     const scene = new Scene();
     for (let i = 0; i < 40; i++)
