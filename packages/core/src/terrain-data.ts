@@ -53,13 +53,18 @@ export function terrainImageData(source: TerrainImageSource): TerrainImageData {
   return context.getImageData(0, 0, source.width, source.height);
 }
 
-export function terrainChannel(
+/**
+ * Bilinear samples of channels `0..count-1` at (u, v), scaled to [0,1], into `out`;
+ * `repeat` wraps the coordinates instead of clamping them.
+ */
+export function terrainChannels(
   image: TerrainImageData,
   u: number,
   v: number,
-  channel: number,
-  repeat = false,
-): number {
+  count: number,
+  repeat: boolean,
+  out: Float64Array,
+): void {
   u = repeat ? u - Math.floor(u) : Math.max(0, Math.min(1, u));
   v = repeat ? v - Math.floor(v) : Math.max(0, Math.min(1, v));
   const x = u * (image.width - 1),
@@ -68,12 +73,18 @@ export function terrainChannel(
     y0 = Math.floor(y);
   const x1 = Math.min(x0 + 1, image.width - 1),
     y1 = Math.min(y0 + 1, image.height - 1);
-  const a = image.data[(y0 * image.width + x0) * 4 + channel]! / 255;
-  const b = image.data[(y0 * image.width + x1) * 4 + channel]! / 255;
-  const c = image.data[(y1 * image.width + x0) * 4 + channel]! / 255;
-  const d = image.data[(y1 * image.width + x1) * 4 + channel]! / 255;
-  return (
-    (a * (1 - (x - x0)) + b * (x - x0)) * (1 - (y - y0)) +
-    (c * (1 - (x - x0)) + d * (x - x0)) * (y - y0)
-  );
+  const data = image.data,
+    i00 = (y0 * image.width + x0) * 4,
+    i01 = (y0 * image.width + x1) * 4,
+    i10 = (y1 * image.width + x0) * 4,
+    i11 = (y1 * image.width + x1) * 4;
+  for (let channel = 0; channel < count; channel++) {
+    const a = data[i00 + channel]! / 255;
+    const b = data[i01 + channel]! / 255;
+    const c = data[i10 + channel]! / 255;
+    const d = data[i11 + channel]! / 255;
+    out[channel] =
+      (a * (1 - (x - x0)) + b * (x - x0)) * (1 - (y - y0)) +
+      (c * (1 - (x - x0)) + d * (x - x0)) * (y - y0);
+  }
 }

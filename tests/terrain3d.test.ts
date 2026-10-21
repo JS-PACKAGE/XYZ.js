@@ -252,6 +252,64 @@ describe('bounded PBR terrain splat', () => {
     expect(maps.metallicRoughness.data[2]).toBe(255);
     expect(maps.emissive.data[1]).toBe(255);
   });
+  it('samples every splat source bilinearly in u and v, clamping weights and wrapping layers', () => {
+    // A 2x2 RGBA image: 'u' ramps a channel 0..255 along x, 'v' along y, a number is fixed.
+    const ramp = (channels: readonly ('u' | 'v' | number)[]) => {
+      const data = new Uint8ClampedArray(16);
+      for (let y = 0; y < 2; y++)
+        for (let x = 0; x < 2; x++)
+          channels.forEach((channel, i) => {
+            data[(y * 2 + x) * 4 + i] =
+              channel === 'u' ? x * 255 : channel === 'v' ? y * 255 : channel;
+          });
+      return { width: 2, height: 2, data } satisfies TerrainImageData;
+    };
+    const maps = bakeTerrainSplat({
+      size: 3,
+      // Layer 0 at u = 0 and 0.5, layer 1 at u = 1: weights clamp rather than wrap.
+      weights: {
+        width: 3,
+        height: 1,
+        data: new Uint8ClampedArray([255, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0]),
+      },
+      layers: [
+        {
+          baseColor: ramp(['u', 'v', 0, 255]),
+          metallicRoughness: ramp([0, 'v', 'u', 255]),
+          occlusion: ramp(['u', 0, 0, 255]),
+          emissive: ramp(['v', 0, 0, 255]),
+          normal: ramp([255, 128, 128, 255]),
+          roughness: 1,
+          metallic: 1,
+        },
+        { baseColor: image(255, 255, 255) },
+      ],
+    });
+    const at = (
+      map: { data: Uint8ClampedArray },
+      x: number,
+      y: number,
+      channel: number,
+    ) => map.data[(y * 3 + x) * 4 + channel]!;
+    // Texel (1, 0) samples halfway along u; (0, 1) halfway along v.
+    expect(Math.abs(at(maps.baseColor, 1, 0, 0) - 128)).toBeLessThanOrEqual(1);
+    expect(at(maps.baseColor, 1, 0, 1)).toBe(0);
+    expect(at(maps.baseColor, 0, 1, 0)).toBe(0);
+    expect(Math.abs(at(maps.baseColor, 0, 1, 1) - 128)).toBeLessThanOrEqual(1);
+    expect([1, 2].map((c) => at(maps.metallicRoughness, 1, 0, c))).toEqual([
+      0, 128,
+    ]);
+    expect([1, 2].map((c) => at(maps.metallicRoughness, 0, 1, c))).toEqual([
+      128, 0,
+    ]);
+    expect(at(maps.metallicRoughness, 1, 0, 0)).toBe(128);
+    expect(at(maps.metallicRoughness, 0, 1, 0)).toBe(0);
+    expect(at(maps.emissive, 1, 0, 0)).toBe(0);
+    expect(Math.abs(at(maps.emissive, 0, 1, 0) - 128)).toBeLessThanOrEqual(1);
+    expect(at(maps.normal, 1, 1, 0)).toBe(255);
+    // u = 1 wraps layer 0 back to x = 0 but selects layer 1 entirely.
+    expect(at(maps.baseColor, 2, 0, 0)).toBe(255);
+  });
   it('owns only baked textures and supplies stage-safe native physical hooks', async () => {
     class CPUImageData {
       constructor(

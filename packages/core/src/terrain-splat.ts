@@ -2,7 +2,7 @@ import { terrainLimits } from '../../../src/data/terrain.js';
 import { Texture } from '../../assets/src/index.js';
 import { NativePBRMaterial } from './native-pbr-material.js';
 import {
-  terrainChannel,
+  terrainChannels,
   terrainImageData,
   type TerrainImageData,
   type TerrainImageSource,
@@ -113,17 +113,16 @@ export function bakeTerrainSplat(
     normal = new Uint8ClampedArray(base.length),
     mr = new Uint8ClampedArray(base.length),
     emission = new Uint8ClampedArray(base.length);
-  const layerWeights = new Float64Array(layers.length);
+  const layerWeights = new Float64Array(layers.length),
+    sample = new Float64Array(4);
   for (let y = 0; y < size; y++)
     for (let x = 0; x < size; x++) {
       const u = x / (size - 1),
         v = y / (size - 1),
         offset = (y * size + x) * 4;
       let total = 0;
-      for (let i = 0; i < layers.length; i++) {
-        layerWeights[i] = terrainChannel(weights, u, v, i);
-        total += layerWeights[i]!;
-      }
+      terrainChannels(weights, u, v, layers.length, false, layerWeights);
+      for (let i = 0; i < layers.length; i++) total += layerWeights[i]!;
       if (total === 0) {
         layerWeights[0] = 1;
         total = 1;
@@ -145,57 +144,33 @@ export function bakeTerrainSplat(
           weight = layerWeights[i]! / total;
         const lu = u * layer.scale[0]!,
           lv = v * layer.scale[1]!;
-        r +=
-          linear(terrainChannel(layer.base, lu, lv, 0, true)) *
-          layer.color[0]! *
-          weight;
-        g +=
-          linear(terrainChannel(layer.base, lu, lv, 1, true)) *
-          layer.color[1]! *
-          weight;
-        b +=
-          linear(terrainChannel(layer.base, lu, lv, 2, true)) *
-          layer.color[2]! *
-          weight;
+        terrainChannels(layer.base, lu, lv, 3, true, sample);
+        r += linear(sample[0]!) * layer.color[0]! * weight;
+        g += linear(sample[1]!) * layer.color[1]! * weight;
+        b += linear(sample[2]!) * layer.color[2]! * weight;
         let tx = 0,
           ty = 0,
           tz = 1;
         if (layer.normal) {
-          tx =
-            (terrainChannel(layer.normal, lu, lv, 0, true) * 2 - 1) *
-            layer.normalScale;
-          ty =
-            (terrainChannel(layer.normal, lu, lv, 1, true) * 2 - 1) *
-            layer.normalScale;
-          tz = terrainChannel(layer.normal, lu, lv, 2, true) * 2 - 1;
+          terrainChannels(layer.normal, lu, lv, 3, true, sample);
+          tx = (sample[0]! * 2 - 1) * layer.normalScale;
+          ty = (sample[1]! * 2 - 1) * layer.normalScale;
+          tz = sample[2]! * 2 - 1;
         }
         const length = hypot3(tx, ty, tz) || 1;
         nx += (tx / length) * weight;
         ny += (ty / length) * weight;
         nz += (tz / length) * weight;
-        roughness +=
-          layer.roughness *
-          (layer.mr ? terrainChannel(layer.mr, lu, lv, 1, true) : 1) *
-          weight;
-        metallic +=
-          layer.metallic *
-          (layer.mr ? terrainChannel(layer.mr, lu, lv, 2, true) : 1) *
-          weight;
-        ao +=
-          (layer.ao ? terrainChannel(layer.ao, lu, lv, 0, true) : 1) * weight;
+        if (layer.mr) terrainChannels(layer.mr, lu, lv, 3, true, sample);
+        roughness += layer.roughness * (layer.mr ? sample[1]! : 1) * weight;
+        metallic += layer.metallic * (layer.mr ? sample[2]! : 1) * weight;
+        if (layer.ao) terrainChannels(layer.ao, lu, lv, 1, true, sample);
+        ao += (layer.ao ? sample[0]! : 1) * weight;
         if (layer.emission) {
-          er +=
-            linear(terrainChannel(layer.emission, lu, lv, 0, true)) *
-            layer.emissionFactor[0]! *
-            weight;
-          eg +=
-            linear(terrainChannel(layer.emission, lu, lv, 1, true)) *
-            layer.emissionFactor[1]! *
-            weight;
-          eb +=
-            linear(terrainChannel(layer.emission, lu, lv, 2, true)) *
-            layer.emissionFactor[2]! *
-            weight;
+          terrainChannels(layer.emission, lu, lv, 3, true, sample);
+          er += linear(sample[0]!) * layer.emissionFactor[0]! * weight;
+          eg += linear(sample[1]!) * layer.emissionFactor[1]! * weight;
+          eb += linear(sample[2]!) * layer.emissionFactor[2]! * weight;
         }
       }
       const length = hypot3(nx, ny, nz);

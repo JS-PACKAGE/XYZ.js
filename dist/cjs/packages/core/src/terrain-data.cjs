@@ -16,13 +16,16 @@ function terrainImageData(n) {
 	if (!i) throw Error(`Terrain image readback requires a 2D canvas context.`);
 	return i.drawImage(n.image, 0, 0), i.getImageData(0, 0, n.width, n.height);
 }
-function terrainChannel(e, t, n, r, i = !1) {
+function terrainChannels(e, t, n, r, i, a) {
 	t = i ? t - Math.floor(t) : Math.max(0, Math.min(1, t)), n = i ? n - Math.floor(n) : Math.max(0, Math.min(1, n));
-	let a = t * (e.width - 1), o = n * (e.height - 1), s = Math.floor(a), c = Math.floor(o), l = Math.min(s + 1, e.width - 1), u = Math.min(c + 1, e.height - 1), d = e.data[(c * e.width + s) * 4 + r] / 255, f = e.data[(c * e.width + l) * 4 + r] / 255, p = e.data[(u * e.width + s) * 4 + r] / 255, m = e.data[(u * e.width + l) * 4 + r] / 255;
-	return (d * (1 - (a - s)) + f * (a - s)) * (1 - (o - c)) + (p * (1 - (a - s)) + m * (a - s)) * (o - c);
+	let o = t * (e.width - 1), s = n * (e.height - 1), c = Math.floor(o), l = Math.floor(s), u = Math.min(c + 1, e.width - 1), d = Math.min(l + 1, e.height - 1), f = e.data, p = (l * e.width + c) * 4, m = (l * e.width + u) * 4, h = (d * e.width + c) * 4, g = (d * e.width + u) * 4;
+	for (let e = 0; e < r; e++) {
+		let t = f[p + e] / 255, n = f[m + e] / 255, r = f[h + e] / 255, i = f[g + e] / 255;
+		a[e] = (t * (1 - (o - c)) + n * (o - c)) * (1 - (s - l)) + (r * (1 - (o - c)) + i * (o - c)) * (s - l);
+	}
 }
 //#endregion
-exports.terrainChannel = terrainChannel;
+exports.terrainChannels = terrainChannels;
 exports.terrainImageData = terrainImageData;
 
 //# sourceMappingURL=terrain-data.cjs.map

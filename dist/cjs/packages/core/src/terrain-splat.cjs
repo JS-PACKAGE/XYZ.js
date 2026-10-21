@@ -49,22 +49,23 @@ function bakeTerrainSplat(t) {
 			metallic: unit(e.metallic ?? 0, `Terrain metallic`),
 			roughness: unit(e.roughness ?? 1, `Terrain roughness`)
 		};
-	}), c = new Uint8ClampedArray(n * n * 4), l = new Uint8ClampedArray(c.length), u = new Uint8ClampedArray(c.length), d = new Uint8ClampedArray(c.length), f = new Float64Array(s.length);
+	}), c = new Uint8ClampedArray(n * n * 4), l = new Uint8ClampedArray(c.length), u = new Uint8ClampedArray(c.length), d = new Uint8ClampedArray(c.length), f = new Float64Array(s.length), p = /* @__PURE__ */ new Float64Array(4);
 	for (let e = 0; e < n; e++) for (let t = 0; t < n; t++) {
-		let i = t / (n - 1), p = e / (n - 1), m = (e * n + t) * 4, h = 0;
-		for (let e = 0; e < s.length; e++) f[e] = require_terrain_data.terrainChannel(o, i, p, e), h += f[e];
-		h === 0 && (f[0] = 1, h = 1);
-		let g = 0, _ = 0, v = 0, y = 0, b = 0, x = 0, S = 0, C = 0, w = 0, T = 0, E = 0, D = 0;
+		let i = t / (n - 1), m = e / (n - 1), h = (e * n + t) * 4, g = 0;
+		require_terrain_data.terrainChannels(o, i, m, s.length, !1, f);
+		for (let e = 0; e < s.length; e++) g += f[e];
+		g === 0 && (f[0] = 1, g = 1);
+		let _ = 0, v = 0, y = 0, b = 0, x = 0, S = 0, C = 0, w = 0, T = 0, E = 0, D = 0, O = 0;
 		for (let e = 0; e < s.length; e++) {
-			let t = s[e], n = f[e] / h, o = i * t.scale[0], c = p * t.scale[1];
-			g += linear(require_terrain_data.terrainChannel(t.base, o, c, 0, !0)) * t.color[0] * n, _ += linear(require_terrain_data.terrainChannel(t.base, o, c, 1, !0)) * t.color[1] * n, v += linear(require_terrain_data.terrainChannel(t.base, o, c, 2, !0)) * t.color[2] * n;
+			let t = s[e], n = f[e] / g, o = i * t.scale[0], c = m * t.scale[1];
+			require_terrain_data.terrainChannels(t.base, o, c, 3, !0, p), _ += linear(p[0]) * t.color[0] * n, v += linear(p[1]) * t.color[1] * n, y += linear(p[2]) * t.color[2] * n;
 			let l = 0, u = 0, d = 1;
-			t.normal && (l = (require_terrain_data.terrainChannel(t.normal, o, c, 0, !0) * 2 - 1) * t.normalScale, u = (require_terrain_data.terrainChannel(t.normal, o, c, 1, !0) * 2 - 1) * t.normalScale, d = require_terrain_data.terrainChannel(t.normal, o, c, 2, !0) * 2 - 1);
-			let m = require_hypot.hypot3(l, u, d) || 1;
-			y += l / m * n, b += u / m * n, x += d / m * n, S += t.roughness * (t.mr ? require_terrain_data.terrainChannel(t.mr, o, c, 1, !0) : 1) * n, C += t.metallic * (t.mr ? require_terrain_data.terrainChannel(t.mr, o, c, 2, !0) : 1) * n, w += (t.ao ? require_terrain_data.terrainChannel(t.ao, o, c, 0, !0) : 1) * n, t.emission && (T += linear(require_terrain_data.terrainChannel(t.emission, o, c, 0, !0)) * t.emissionFactor[0] * n, E += linear(require_terrain_data.terrainChannel(t.emission, o, c, 1, !0)) * t.emissionFactor[1] * n, D += linear(require_terrain_data.terrainChannel(t.emission, o, c, 2, !0)) * t.emissionFactor[2] * n);
+			t.normal && (require_terrain_data.terrainChannels(t.normal, o, c, 3, !0, p), l = (p[0] * 2 - 1) * t.normalScale, u = (p[1] * 2 - 1) * t.normalScale, d = p[2] * 2 - 1);
+			let h = require_hypot.hypot3(l, u, d) || 1;
+			b += l / h * n, x += u / h * n, S += d / h * n, t.mr && require_terrain_data.terrainChannels(t.mr, o, c, 3, !0, p), C += t.roughness * (t.mr ? p[1] : 1) * n, w += t.metallic * (t.mr ? p[2] : 1) * n, t.ao && require_terrain_data.terrainChannels(t.ao, o, c, 1, !0, p), T += (t.ao ? p[0] : 1) * n, t.emission && (require_terrain_data.terrainChannels(t.emission, o, c, 3, !0, p), E += linear(p[0]) * t.emissionFactor[0] * n, D += linear(p[1]) * t.emissionFactor[1] * n, O += linear(p[2]) * t.emissionFactor[2] * n);
 		}
-		let O = require_hypot.hypot3(y, b, x);
-		O === 0 && (y = 0, b = 0, x = 1), c[m] = byte(srgb(g)), c[m + 1] = byte(srgb(_)), c[m + 2] = byte(srgb(v)), c[m + 3] = 255, l[m] = byte(y / (O || 1) * .5 + .5), l[m + 1] = byte(b / (O || 1) * .5 + .5), l[m + 2] = byte(x / (O || 1) * .5 + .5), l[m + 3] = 255, u[m] = byte(w), u[m + 1] = byte(S), u[m + 2] = byte(C), u[m + 3] = 255, d[m] = byte(srgb(T)), d[m + 1] = byte(srgb(E)), d[m + 2] = byte(srgb(D)), d[m + 3] = 255;
+		let k = require_hypot.hypot3(b, x, S);
+		k === 0 && (b = 0, x = 0, S = 1), c[h] = byte(srgb(_)), c[h + 1] = byte(srgb(v)), c[h + 2] = byte(srgb(y)), c[h + 3] = 255, l[h] = byte(b / (k || 1) * .5 + .5), l[h + 1] = byte(x / (k || 1) * .5 + .5), l[h + 2] = byte(S / (k || 1) * .5 + .5), l[h + 3] = 255, u[h] = byte(T), u[h + 1] = byte(C), u[h + 2] = byte(w), u[h + 3] = 255, d[h] = byte(srgb(E)), d[h + 1] = byte(srgb(D)), d[h + 2] = byte(srgb(O)), d[h + 3] = 255;
 	}
 	return {
 		baseColor: {
