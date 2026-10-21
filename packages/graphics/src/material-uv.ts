@@ -100,9 +100,19 @@ function templateFor(coordinates: Coordinates): UVTemplate | null {
   let template = templates.get(coordinates);
   if (template === undefined) {
     template = frozenData(coordinates) ? buildTemplate(coordinates) : null;
+    // Most materials map nothing: share the identity array so uploads can skip by identity.
+    if (template && sameBits(template.data, identityTemplate.data))
+      template = identityTemplate;
     templates.set(coordinates, template);
   }
   return template;
+}
+
+function sameBits(a: Float32Array, b: Float32Array): boolean {
+  const x = new Uint32Array(a.buffer, a.byteOffset, a.length);
+  const y = new Uint32Array(b.buffer, b.byteOffset, b.length);
+  for (let i = 0; i < x.length; i++) if (x[i] !== y[i]) return false;
+  return true;
 }
 
 function buildTemplate(coordinates: Coordinates | undefined): UVTemplate {

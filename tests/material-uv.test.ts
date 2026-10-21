@@ -138,4 +138,28 @@ describe('packedMaterialUV', () => {
       packedMaterialUV(new TextureMaterial({ texture: texture() }), withUV1),
     ).toBe(plain);
   });
+
+  it('gives every material without mappings the same array', () => {
+    const plain = packedMaterialUV(
+      new TextureMaterial({ texture: texture() }),
+      withoutUV1,
+    );
+    const unmapped = new PBRMaterial({ texture: texture() });
+    expect(packedMaterialUV(unmapped, withoutUV1)).toBe(plain);
+    // An explicit zero rotation stores -sin(0) = -0, a different value from identity,
+    // so this set keeps its own array with the signed zero intact.
+    const rotated = new PBRMaterial({
+      texture: texture(),
+      textureCoordinates: { normal: { rotation: 0 } },
+    });
+    const packed = packedMaterialUV(rotated, withoutUV1);
+    expect(packed).not.toBe(plain);
+    expect(packed).toEqual(expected(rotated.textureCoordinates));
+    expect(
+      Object.is(
+        packed![mappedMaterialTextureSlots.indexOf('normal') * 8 + 2],
+        -0,
+      ),
+    ).toBe(true);
+  });
 });

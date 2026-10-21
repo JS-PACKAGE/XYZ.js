@@ -34,7 +34,12 @@ function packMaterialUV(t, n, i, a) {
 }
 function templateFor(e) {
 	let t = o.get(e);
-	return t === void 0 && (t = frozenData(e) ? buildTemplate(e) : null, o.set(e, t)), t;
+	return t === void 0 && (t = frozenData(e) ? buildTemplate(e) : null, t && sameBits(t.data, a.data) && (t = a), o.set(e, t)), t;
+}
+function sameBits(e, t) {
+	let n = new Uint32Array(e.buffer, e.byteOffset, e.length), r = new Uint32Array(t.buffer, t.byteOffset, t.length);
+	for (let e = 0; e < n.length; e++) if (n[e] !== r[e]) return !1;
+	return !0;
 }
 function buildTemplate(t) {
 	let n = new Float32Array(i);
