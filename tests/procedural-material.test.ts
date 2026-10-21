@@ -8,6 +8,7 @@ import {
   type Mock,
 } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
+import { proceduralMaterialPresets } from '../src/data/materials.js';
 import {
   ProceduralMaterial,
   proceduralRepeats,
@@ -138,6 +139,9 @@ const kinds: ProceduralMaterialKind[] = [
   'basalt',
   'scoria',
   'obsidian',
+  'malachite',
+  'agate',
+  'lapislazuli',
 ];
 
 class TestImageData {
@@ -185,6 +189,269 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('polished decorative mineral surfaces', () => {
+    const tau = 2 * Math.PI;
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const phase = (seed: number) => [
+      tau * hash(0, 0, seed ^ 0x35a7),
+      tau * hash(0, 0, seed ^ 0x6c19),
+    ];
+    const growth = (
+      kind: 'malachite' | 'agate',
+      a: number,
+      b: number,
+    ): number => {
+      const x = a + 0.28 * Math.sin(b),
+        y = b + 0.18 * Math.sin(a);
+      return (
+        3 *
+          (1 -
+            0.5 * (Math.cos(x) + Math.cos(y)) +
+            (kind === 'agate' ? 0.22 * (1 - Math.cos(2 * x - y)) : 0)) +
+        0.1 * Math.sin(x) * Math.sin(y)
+      );
+    };
+    const bisect = (
+      fn: (x: number) => number,
+      lo: number,
+      hi: number,
+    ): number => {
+      const sign = Math.sign(fn(lo));
+      expect(sign * fn(hi)).toBeLessThanOrEqual(0);
+      for (let i = 0; i < 56; i++) {
+        const mid = (lo + hi) / 2;
+        if (Math.sign(fn(mid)) === sign) lo = mid;
+        else hi = mid;
+      }
+      return (lo + hi) / 2;
+    };
+    const vein = (u: number, v: number, p: number, q: number): number =>
+      Math.sin(tau * (u + v) + p) + 0.22 * Math.sin(tau * 3 * v + q);
+    const crossVein = (u: number, v: number, p: number, q: number): number =>
+      Math.sin(tau * (2 * u - v) + q) + 0.18 * Math.sin(tau * 2 * v + p);
+    const veinU = (v: number, target: number, p: number, q: number): number =>
+      (Math.asin(target - 0.22 * Math.sin(tau * 3 * v + q)) - p) / tau - v;
+    const calciteNoise = (u: number, v: number, seed: number): number => {
+      const x = (u - Math.floor(u)) * 8,
+        y = (v - Math.floor(v)) * 8,
+        ix = Math.floor(x),
+        iy = Math.floor(y),
+        sx = (x - ix) ** 2 * (3 - 2 * (x - ix)),
+        sy = (y - iy) ** 2 * (3 - 2 * (y - iy)),
+        a = hash(ix, iy, seed ^ 0x4d29),
+        b = hash((ix + 1) % 8, iy, seed ^ 0x4d29),
+        c = hash(ix, (iy + 1) % 8, seed ^ 0x4d29),
+        d = hash((ix + 1) % 8, (iy + 1) % 8, seed ^ 0x4d29);
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    it.each(['malachite', 'agate'] as const)(
+      '%s has nested raised light bands separated by rougher recessed dark growth',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const [p, q] = phase(seed),
+            columns = kind === 'malachite' ? 3 : 1,
+            sample = createSurfaceSampler(kind, seed),
+            b = 0.55;
+          const points = [1, 1.5, 2].map((level) => {
+            const a = bisect((a) => growth(kind, a, b) - level, 0, 2.8),
+              out = empty();
+            sample((a - p) / (tau * columns), (b - q) / (tau * 3), out);
+            return out;
+          });
+          for (const crest of [points[0], points[2]]) {
+            expect(crest.color).toBeGreaterThan(points[1].color + 0.7);
+            expect(crest.height).toBeGreaterThan(points[1].height);
+            expect(crest.roughness).toBeLessThan(points[1].roughness);
+            expect(crest.occlusion).toBeGreaterThan(points[1].occlusion);
+          }
+        }
+      },
+    );
+    it('agate retains distinct growth contours after normalizing its elongated scale', () => {
+      const round = createSurfaceSampler('malachite', 123),
+        elongated = createSurfaceSampler('agate', 123),
+        a = empty(),
+        b = empty();
+      let difference = 0;
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+          const u = (x + 0.31) / 48,
+            v = (y + 0.67) / 16;
+          round(u, v, a);
+          elongated(u * 3, v, b);
+          difference += Math.abs(a.color - b.color);
+        }
+      // Micrograin alone cannot account for a macroscopic contour difference.
+      expect(difference / 256).toBeGreaterThan(0.1);
+    });
+    it('lapis calcite veins own pale raised rougher transitions and blend at crossings', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const [p, q] = phase(seed),
+          sample = createSurfaceSampler('lapislazuli', seed);
+        let checked = 0,
+          crossings = 0,
+          inclusions = 0;
+        for (let i = 0; i < 96; i++) {
+          const v = (i + 0.37) / 96,
+            centerU = veinU(v, 0, p, q),
+            shoulderU = veinU(v, 0.07, p, q),
+            matrixU = veinU(v, 0.14, p, q);
+          if (
+            Math.abs(crossVein(shoulderU, v, p, q)) > 0.09 &&
+            Math.abs(crossVein(matrixU, v, p, q)) > 0.09 &&
+            calciteNoise(shoulderU, v, seed) < 0.64 &&
+            calciteNoise(matrixU, v, seed) < 0.64
+          ) {
+            const center = empty(),
+              shoulder = empty(),
+              matrix = empty();
+            sample(centerU, v, center);
+            sample(shoulderU, v, shoulder);
+            sample(matrixU, v, matrix);
+            for (const key of [
+              'color',
+              'height',
+              'roughness',
+              'occlusion',
+            ] as const) {
+              expect(center[key]).toBeGreaterThan(shoulder[key]);
+              expect(shoulder[key]).toBeGreaterThan(matrix[key]);
+            }
+            checked++;
+          }
+          const nextV = v + 1 / 96,
+            crossing = (v: number) => crossVein(veinU(v, 0, p, q), v, p, q);
+          if (crossing(v) * crossing(nextV) < 0) {
+            const cv = bisect(crossing, v, nextV),
+              out = empty();
+            sample(veinU(cv, 0, p, q), cv, out);
+            expect(out.color).toBeGreaterThan(0.85);
+            expect(out.metallic).toBe(0);
+            crossings++;
+          }
+          for (let j = 0; j < 32; j++) {
+            const u = (j + 0.41) / 32;
+            if (
+              Math.abs(vein(u, v, p, q)) < 0.12 ||
+              Math.abs(crossVein(u, v, p, q)) < 0.08 ||
+              calciteNoise(u, v, seed) < 0.86
+            )
+              continue;
+            const out = empty();
+            sample(u, v, out);
+            expect(out.color).toBeGreaterThan(0.7);
+            expect(out.metallic).toBe(0);
+            inclusions++;
+          }
+        }
+        expect(checked).toBeGreaterThan(0);
+        expect(crossings).toBeGreaterThan(0);
+        expect(inclusions).toBeGreaterThan(0);
+      }
+    });
+    it.each(['malachite', 'agate', 'lapislazuli'] as const)(
+      '%s is bounded C1 through actual non-axis ownership, bands and inclusion shoulders',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const [p, q] = phase(seed),
+            sample = createSurfaceSampler(kind, seed),
+            points: number[][] = [
+              [0, 0],
+              [0, 0.137],
+              [0.791, 1],
+              [3 / 64, 7 / 64],
+            ];
+          if (kind !== 'lapislazuli') {
+            const columns = kind === 'malachite' ? 3 : 1;
+            for (const [a, b] of [
+              [0, 0],
+              [Math.PI, 0],
+              [Math.PI, Math.PI],
+            ])
+              points.push([(a - p) / (tau * columns), (b - q) / (tau * 3)]);
+            for (const b of [0.55, 0.9])
+              for (const level of [1, 1.25, 1.5, 2]) {
+                const a = bisect((a) => growth(kind, a, b) - level, 0, 2.8);
+                points.push([(a - p) / (tau * columns), (b - q) / (tau * 3)]);
+              }
+          } else {
+            for (const v of [0.137, 0.481, 0.793])
+              for (const target of [-0.1, -0.07, 0, 0.07, 0.1])
+                points.push([veinU(v, target, p, q), v]);
+            for (const v of [0.137, 0.481, 0.793])
+              for (const target of [-0.065, 0, 0.065]) {
+                const u =
+                  ((Math.asin(target - 0.18 * Math.sin(tau * 2 * v + p)) - q) /
+                    tau +
+                    v) /
+                  2;
+                points.push([u, v]);
+              }
+            for (let i = 0; i < 64; i++) {
+              const v = (i + 0.37) / 64,
+                nextV = v + 1 / 64,
+                crossing = (v: number) => crossVein(veinU(v, 0, p, q), v, p, q);
+              if (crossing(v) * crossing(nextV) < 0) {
+                const cv = bisect(crossing, v, nextV);
+                points.push([veinU(cv, 0, p, q), cv]);
+              }
+              for (const threshold of [0.64, 0.86]) {
+                const fn = (u: number) => calciteNoise(u, v, seed) - threshold;
+                for (let j = 0; j < 8; j++)
+                  if (fn(j / 8) * fn((j + 1) / 8) < 0)
+                    points.push([bisect(fn, j / 8, (j + 1) / 8), v]);
+              }
+            }
+          }
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [2.5e-7, 0],
+              [0, 2.5e-7],
+              [1.5e-7, 2e-7],
+            ]) {
+              const a = empty(),
+                b = empty(),
+                coarseA = empty(),
+                coarseB = empty(),
+                center = empty();
+              sample(u - du, v - dv, a);
+              sample(u, v, center);
+              sample(u + du, v + dv, b);
+              sample(u - 4 * du, v - 4 * dv, coarseA);
+              sample(u + 4 * du, v + 4 * dv, coarseB);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                expect(center[key]).toBeGreaterThanOrEqual(0);
+                expect(center[key]).toBeLessThanOrEqual(1);
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                // C1 requires the slope jump to converge, not a global curvature cap.
+                const coarseJump =
+                  Math.abs(coarseA[key] + coarseB[key] - 2 * center[key]) /
+                  1e-6;
+                const fineJump =
+                  Math.abs(a[key] + b[key] - 2 * center[key]) / 2.5e-7;
+                expect(fineJump).toBeLessThanOrEqual(0.4 * coarseJump + 1e-8);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('volcanic surface relief', () => {
     interface VolcanicFeature {
       x: number;

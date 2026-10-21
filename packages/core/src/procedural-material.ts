@@ -120,7 +120,10 @@ export type ProceduralMaterialKind =
   | 'corncob'
   | 'basalt'
   | 'scoria'
-  | 'obsidian';
+  | 'obsidian'
+  | 'malachite'
+  | 'agate'
+  | 'lapislazuli';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -267,6 +270,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'basalt',
   'scoria',
   'obsidian',
+  'malachite',
+  'agate',
+  'lapislazuli',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

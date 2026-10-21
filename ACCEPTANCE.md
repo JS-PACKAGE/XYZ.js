@@ -3051,3 +3051,33 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[Physics2D]` 減少每 step 配置，數值與事件順序不變：質量／慣量／反彈／摩擦與速度改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；sweep 與 CCD 配對過濾改讀 `Collider2D.filterBits`（category／mask 的 int32 副本，由 setter 同步，位元測試結果相同），不再呼叫回傳 0xffffffff 等大數的 getter（未內聯時每次裝箱）；睡眠／喚醒島嶼 BFS 與可解接觸清單改以計數重用，不再每個島嶼清空陣列（V8 清空即釋放 backing store），`clear()` 一併釋放。physics2d browser benchmark（WebGL2）每幀配置約 1034 → 404 KB（`solveVelocity` 約 450 KB → 0）；Node 1500 剛體 bench 約 6.5–7.2 → 4.05 MiB／step，hash 不變，屬配置減少。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：裝飾礦石（malachite／agate／lapislazuli）
+
+- 新增孔雀石的濃綠巢套生長帶、瑪瑙的拉長且具次級生長區的暖色帶，
+  以及青金石的深藍顆粒底色與淺色方解石脈／內含物。三者皆為 opaque
+  dielectric；不提供透明、折射、虹彩、黃鐵礦金屬斑或寶石 geometry。
+- 原 111 種與期間另行提交的三款絨面織物，在 size 64／seed 7 下的
+  四份 maps SHA256 全部不變；重建隔離快照後共 117 種，
+  本組三種的 source、ESM 與 CJS 四份 maps bytes 相同。
+- 初次 lint 發現刪除重複 factory 測試後遺留的 unused import，已移除。
+  初次導數測試把青金石礦脈肩部的高曲率誤判為斜率不連續：
+  同一位置的步距由 1e-6 降到 2.5e-7，斜率差由 0.337376
+  收斂至 0.084372；改為檢查步距縮小時的斜率差收斂，而非固定曲率門檻。
+  七項礦石結構／連續性測試通過；瑪瑙另確認不是孔雀石的拉伸換色。
+- 同步提交絨面織物後，從新的 HEAD 重建快照；補回其測試所需而
+  尚留在工作樹的 `proceduralMaterialPresets` import。最終 build、
+  typecheck、lint、format:check 與完整 Vitest 通過：
+  176 files／1899 tests passed。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認週期排列，metallic bytes 全為 0。
+  roughness bytes 依序 56–71／49–63／69–112，每米 repeats
+  依序 4.166667／3.125／3.333333；四份貼圖 destroy 後均確認已釋放。
+  主工作目錄與重建快照的 WebGPU pixels 均與原隔離快照相同。
+- 主工作目錄 build 與 typecheck 曾通過；後續共享材質測試為
+  444 passed／1 failed，唯一失敗是同步新增、未納入本組的
+  `geode` 邊界測試。本組提交以以上隔離快照完整通過的結果為準，
+  不將其他進行中材質或其驗收納入本組。
+- 文件沒有新增相對連結，README 既有石材分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

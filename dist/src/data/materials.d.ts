@@ -690,6 +690,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.12;
         relief: 0.004;
     }>;
+    malachite: Readonly<{
+        dark: readonly [6, 42, 24];
+        light: readonly [87, 183, 110];
+        roughness: 0.22;
+        relief: 0.002;
+    }>;
+    agate: Readonly<{
+        dark: readonly [106, 30, 15];
+        light: readonly [249, 223, 174];
+        roughness: 0.19;
+        relief: 0.002;
+    }>;
+    lapislazuli: Readonly<{
+        dark: readonly [12, 24, 108];
+        light: readonly [231, 228, 216];
+        roughness: 0.27;
+        relief: 0.003;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -807,6 +825,9 @@ export declare const proceduralTileMeters: Readonly<{
     basalt: 1.2;
     scoria: 0.2;
     obsidian: 0.3;
+    malachite: 0.24;
+    agate: 0.32;
+    lapislazuli: 0.3;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

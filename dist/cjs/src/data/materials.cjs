@@ -1601,6 +1601,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .12,
 		relief: .004
+	}),
+	malachite: Object.freeze({
+		dark: [
+			6,
+			42,
+			24
+		],
+		light: [
+			87,
+			183,
+			110
+		],
+		roughness: .22,
+		relief: .002
+	}),
+	agate: Object.freeze({
+		dark: [
+			106,
+			30,
+			15
+		],
+		light: [
+			249,
+			223,
+			174
+		],
+		roughness: .19,
+		relief: .002
+	}),
+	lapislazuli: Object.freeze({
+		dark: [
+			12,
+			24,
+			108
+		],
+		light: [
+			231,
+			228,
+			216
+		],
+		roughness: .27,
+		relief: .003
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1717,7 +1759,10 @@ var proceduralTileMeters = Object.freeze({
 	corncob: .12,
 	basalt: 1.2,
 	scoria: .2,
-	obsidian: .3
+	obsidian: .3,
+	malachite: .24,
+	agate: .32,
+	lapislazuli: .3
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

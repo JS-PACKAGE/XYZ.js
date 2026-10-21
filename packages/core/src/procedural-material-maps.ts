@@ -533,6 +533,13 @@ export function createSurfaceSampler(
           volcanicCells[offset + 6] = variation;
         }
       }
+  const mineral =
+    kind === 'malachite' || kind === 'agate' || kind === 'lapislazuli';
+  const mineralGrain = mineral ? cachedNoise(64, 64, seed ^ 0x79b3) : null;
+  const calciteGrain =
+    kind === 'lapislazuli' ? cachedNoise(8, 8, seed ^ 0x4d29) : null;
+  const mineralPhaseU = mineral ? TAU * hash(0, 0, seed ^ 0x35a7) : 0;
+  const mineralPhaseV = mineral ? TAU * hash(0, 0, seed ^ 0x6c19) : 0;
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -558,7 +565,12 @@ export function createSurfaceSampler(
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
     const detail =
-      architectural || fabricated || botanical || packaging || volcanic
+      architectural ||
+      fabricated ||
+      botanical ||
+      packaging ||
+      volcanic ||
+      mineral
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -584,6 +596,52 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'malachite':
+      case 'agate': {
+        const columns = kind === 'malachite' ? 3 : 1,
+          rows = 3,
+          a = TAU * columns * u + mineralPhaseU,
+          b = TAU * rows * v + mineralPhaseV,
+          x = a + 0.28 * Math.sin(b),
+          y = b + 0.18 * Math.sin(a),
+          // Analytic contour ownership blends through saddles rather than
+          // selecting a nearest growth center. No radial origin is singular.
+          // Agate's second harmonic adds growth basins, not only a stretched recolor.
+          growth =
+            1 -
+            0.5 * (Math.cos(x) + Math.cos(y)) +
+            (kind === 'agate' ? 0.22 * (1 - Math.cos(2 * x - y)) : 0),
+          bands =
+            0.5 +
+            0.5 *
+              Math.cos(TAU * (3 * growth + 0.1 * Math.sin(x) * Math.sin(y))),
+          grain = mineralGrain!(u, v);
+        color = 0.12 + 0.8 * bands + 0.035 * grain;
+        height = 0.48 + 0.07 * bands + 0.002 * grain;
+        roughness += 0.045 * (1 - bands) + 0.012 * grain;
+        occlusion = 0.985 + 0.015 * bands;
+        break;
+      }
+      case 'lapislazuli': {
+        const a =
+            Math.sin(TAU * (u + v) + mineralPhaseU) +
+            0.22 * Math.sin(TAU * 3 * v + mineralPhaseV),
+          b =
+            Math.sin(TAU * (2 * u - v) + mineralPhaseV) +
+            0.18 * Math.sin(TAU * 2 * v + mineralPhaseU),
+          veinA = smooth(clamp(1 - (a / 0.1) ** 2)),
+          veinB = smooth(clamp(1 - (b / 0.065) ** 2)),
+          inclusion = smooth(clamp((calciteGrain!(u, v) - 0.64) / 0.22)),
+          // Smooth complement union retains calcite ownership at crossings
+          // and fades inclusions into the granular blue dielectric matrix.
+          calcite = 1 - (1 - veinA) * (1 - veinB) * (1 - 0.8 * inclusion),
+          grain = mineralGrain!(u, v);
+        color = 0.1 + 0.12 * grain + 0.76 * calcite;
+        height = 0.5 + 0.009 * grain + 0.045 * calcite;
+        roughness += 0.04 * grain + 0.13 * calcite;
+        occlusion = 0.988 + 0.012 * calcite;
+        break;
+      }
       case 'basalt': {
         const x = u * 6,
           y = v * 8,
