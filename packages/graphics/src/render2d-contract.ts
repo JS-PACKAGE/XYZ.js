@@ -63,6 +63,8 @@ export class RenderCommandBuffer2D {
   readonly items: RenderCommand2D[] = [];
   private readonly pool: PooledCommand2D[] = [];
   private readonly traversal: GameObject[] = [];
+  /** Items appended since the last clear or reset; see reset(). */
+  private appended = 0;
   /** @internal Aggregate collection budget, including nested boundaries. */
   collectedCount = 0;
   /** @internal Members of each isolation boundary, filled once per collection. */
@@ -85,14 +87,36 @@ export class RenderCommandBuffer2D {
       pooled.commands?.clear();
     }
     this.items.length = 0;
+    this.appended = 0;
     this.traversal.length = 0;
     this.collectedCount = 0;
+  }
+  /**
+   * @internal Like clear(), but keeps the item storage: emptying an array drops its backing
+   * store, and refilling it then regrew on every collection. Appends overwrite from index 0
+   * and finishAppends() truncates the stale tail, so read `items` only after that.
+   */
+  reset(): void {
+    const items = this.items;
+    for (let i = 0; i < items.length; i++) {
+      const pooled = items[i] as unknown as PooledCommand2D;
+      pooled.object = undefined;
+      pooled.commands?.reset();
+    }
+    this.appended = 0;
+    this.traversal.length = 0;
+    this.collectedCount = 0;
+  }
+  /** @internal Drops items left over from before reset(). */
+  finishAppends(): void {
+    // Assigning length is a runtime call even when it does not change.
+    if (this.items.length !== this.appended) this.items.length = this.appended;
   }
   private append(
     kind: RenderCommand2D['kind'],
     object: GameObject,
   ): PooledCommand2D {
-    const index = this.items.length;
+    const index = this.appended++;
     const screen = object.worldSpace === 'screen',
       z = object.worldZIndex;
     let command = this.pool[index];
@@ -106,7 +130,7 @@ export class RenderCommandBuffer2D {
       command.z = z;
     }
     const liveCommand = command as unknown as RenderCommand2D;
-    this.items.push(liveCommand);
+    this.items[index] = liveCommand;
     return command;
   }
   appendSprite(object: Sprite): void {
@@ -262,7 +286,7 @@ export function collectRenderCommands2D(
   out: RenderCommandBuffer2D,
   options?: RenderCollectionOptions2D,
 ): void {
-  out.clear();
+  out.reset();
   if (!options?.skipCulling && scene.renderTileMaps)
     for (const map of scene.renderTileMaps)
       map.updateCulling(scene.camera2D, width, height);
@@ -407,5 +431,6 @@ function collectBoundary2D(
     else if (object instanceof ParticleLayer2D) out.appendParticles(object);
   }
   // Stable sort retains Scene registration order for equal summed z in each space.
+  out.finishAppends();
   out.sort();
 }

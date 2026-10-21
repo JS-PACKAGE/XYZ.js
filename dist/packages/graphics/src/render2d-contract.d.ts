@@ -51,6 +51,8 @@ export declare class RenderCommandBuffer2D {
     readonly items: RenderCommand2D[];
     private readonly pool;
     private readonly traversal;
+    /** Items appended since the last clear or reset; see reset(). */
+    private appended;
     /** @internal Aggregate collection budget, including nested boundaries. */
     collectedCount: number;
     /** @internal Members of each isolation boundary, filled once per collection. */
@@ -63,6 +65,14 @@ export declare class RenderCommandBuffer2D {
     private readonly sortRanks;
     private readonly sortStarts;
     clear(): void;
+    /**
+     * @internal Like clear(), but keeps the item storage: emptying an array drops its backing
+     * store, and refilling it then regrew on every collection. Appends overwrite from index 0
+     * and finishAppends() truncates the stale tail, so read `items` only after that.
+     */
+    reset(): void;
+    /** @internal Drops items left over from before reset(). */
+    finishAppends(): void;
     private append;
     appendSprite(object: Sprite): void;
     appendMesh(object: Mesh2D): void;

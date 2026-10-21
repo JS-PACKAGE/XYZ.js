@@ -3225,3 +3225,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文件沒有新增相對連結，README 既有自然表面分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Rendering2D]` 2D 指令緩衝在每次收集開頭改以內部 `reset()` 釋放池化指令的物件參照但保留 `items` 儲存空間，append 以索引覆寫、各邊界收集結束時（排序前）一次截斷舊尾端；不再每幀 `length = 0` 後重新 push 長大。錯誤路徑與無場景時仍以 `clear()` 完整清空，收集結果與順序不變。穩態（暖機 12 s）20k sprite 頁面 WebGL2 引擎配置 collectBoundary2D 約 269 KB／幀 → 約 1 KB（剩餘來自量測頁自身迴圈），tilemap2d 20.3 → 14.5 KB／幀，屬配置減少；機器負載過高，CPU 時間未宣稱。2D 收集測試對截斷與巢狀 reset 的 mutation 皆會失敗；canvas2d／WebGL2 browser regression 與 163 個範例 smoke 通過；build 與完整測試（1940 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
