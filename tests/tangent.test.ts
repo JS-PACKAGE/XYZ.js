@@ -213,6 +213,17 @@ describe('tangent-space consistency', () => {
     const { geometry, sourceVertices } = generateMikkTangents(source);
     expect(geometry.indices[0]).not.toBe(geometry.indices[3]);
     expect(geometry.indices[2]).not.toBe(geometry.indices[4]);
+    // Only the two shared corners split; each remaining corner keeps its vertex.
+    expect(sourceVertices).toHaveLength(6);
+    const continuous = new Geometry({
+      positions: [-1, -1, 0, 1, -1, 0, 1, 1, 0, -1, 1, 0],
+      normals: [0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1],
+      uvs: [0, 0, 1, 0, 1, 1, 0, 1],
+      indices: [0, 1, 2, 0, 2, 3],
+    });
+    const welded = generateMikkTangents(continuous);
+    expect(Array.from(welded.sourceVertices)).toEqual([0, 1, 2, 3]);
+    expect(Array.from(welded.geometry.indices)).toEqual([0, 1, 2, 0, 2, 3]);
     expect(geometry.tangents[geometry.indices[0] * 4 + 3]).toBe(1);
     expect(geometry.tangents[geometry.indices[3] * 4 + 3]).toBe(-1);
     for (let corner = 0; corner < source.indices.length; corner++) {

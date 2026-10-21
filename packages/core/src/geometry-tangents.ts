@@ -78,17 +78,52 @@ export function generateMikkTangents(
       texCoord === 1 ? geometry.uvs1![indices[i] * 2 + 1] : vertices[s + 7];
   }
   const generated = mikkTangents(positions, normals, uvs);
-  const sourceMap = Array.from({ length: count }, (_, i) => i);
+  const sourceMap: number[] = [];
+  for (let i = 0; i < count; i++) sourceMap.push(i);
   const cornerMap = new Int32Array(count).fill(-1);
   const extraCorners: number[] = [];
   const newIndices = new Uint32Array(corners);
-  const seams = new Map<string, number>();
+  // A corner's seam key is its source vertex plus its four tangent components compared
+  // as numbers (-0 equals 0, NaN equals NaN): an open-addressed table of the corner that
+  // first used each key, instead of building a string per corner.
+  const keyBits = new Uint32Array(corners * 4);
+  const bits = new Uint32Array(
+    generated.buffer,
+    generated.byteOffset,
+    generated.length,
+  );
+  for (let i = 0; i < corners * 4; i++) {
+    const value = generated[i]!;
+    keyBits[i] = value === 0 ? 0 : value !== value ? 0x7fc00000 : bits[i]!;
+  }
+  let capacity = 16;
+  while (capacity < corners * 2) capacity *= 2;
+  const slots = new Int32Array(capacity).fill(-1),
+    slotTargets = new Uint32Array(capacity),
+    mask = capacity - 1;
   for (let i = 0; i < corners; i++) {
-    const source = indices[i],
+    const source = indices[i]!,
       o = i * 4;
-    const key = `${source}/${generated[o]}/${generated[o + 1]}/${generated[o + 2]}/${generated[o + 3]}`;
-    let target = seams.get(key);
-    if (target === undefined) {
+    let hash = Math.imul(source, 0x9e3779b1);
+    for (let k = 0; k < 4; k++)
+      hash = Math.imul(hash ^ keyBits[o + k]!, 0x01000193);
+    let slot = (hash ^ (hash >>> 15)) & mask,
+      target = -1;
+    for (; slots[slot]! >= 0; slot = (slot + 1) & mask) {
+      const other = slots[slot]!,
+        p = other * 4;
+      if (
+        indices[other] === source &&
+        keyBits[p] === keyBits[o] &&
+        keyBits[p + 1] === keyBits[o + 1] &&
+        keyBits[p + 2] === keyBits[o + 2] &&
+        keyBits[p + 3] === keyBits[o + 3]
+      ) {
+        target = slotTargets[slot]!;
+        break;
+      }
+    }
+    if (target < 0) {
       if (cornerMap[source] < 0) {
         target = source;
         cornerMap[source] = i;
@@ -101,7 +136,8 @@ export function generateMikkTangents(
         sourceMap.push(source);
         extraCorners.push(i);
       }
-      seams.set(key, target);
+      slots[slot] = i;
+      slotTargets[slot] = target;
     }
     newIndices[i] = target;
   }

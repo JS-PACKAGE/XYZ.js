@@ -2695,3 +2695,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Geometry]` MikkTSpace seam 合併改用以（source vertex、四個 tangent 分量位元，-0 視同 0、NaN 視同 NaN）為鍵的 open-addressing 表，取代每個 corner 建字串的 Map；合併語意與先到先用順序不變。256×128 球（33153 頂點）`generateMikkTangents` Node bench 中位約 144–222 → 119–158 ms（機器負載高），tangent／sourceVertices hash 不變；補上不分裂連續 quad 與 mirrored seam 只分裂兩個角的測試。

@@ -29,36 +29,54 @@ function generateMikkTangents(i, a = {}) {
 		let n = require_hypot.hypot3(c[t + 3], c[t + 4], c[t + 5]);
 		m[e * 3] = n > 0 ? c[t + 3] / n : 0, m[e * 3 + 1] = n > 0 ? c[t + 4] / n : 0, m[e * 3 + 2] = n > 0 ? c[t + 5] / n : 1, h[e * 2] = s === 1 ? i.uvs1[l[e] * 2] : c[t + 6], h[e * 2 + 1] = s === 1 ? i.uvs1[l[e] * 2 + 1] : c[t + 7];
 	}
-	let g = require_mikktspace_wasm.mikkTangents(p, m, h), _ = Array.from({ length: u }, (e, t) => t), v = new Int32Array(u).fill(-1), y = [], b = new Uint32Array(d), x = /* @__PURE__ */ new Map();
+	let g = require_mikktspace_wasm.mikkTangents(p, m, h), _ = [];
+	for (let e = 0; e < u; e++) _.push(e);
+	let v = new Int32Array(u).fill(-1), y = [], b = new Uint32Array(d), x = new Uint32Array(d * 4), S = new Uint32Array(g.buffer, g.byteOffset, g.length);
+	for (let e = 0; e < d * 4; e++) {
+		let t = g[e];
+		x[e] = t === 0 ? 0 : t === t ? S[e] : 2143289344;
+	}
+	let C = 16;
+	for (; C < d * 2;) C *= 2;
+	let w = new Int32Array(C).fill(-1), T = new Uint32Array(C), E = C - 1;
 	for (let e = 0; e < d; e++) {
-		let n = l[e], r = e * 4, i = `${n}/${g[r]}/${g[r + 1]}/${g[r + 2]}/${g[r + 3]}`, a = x.get(i);
-		if (a === void 0) {
-			if (v[n] < 0) a = n, v[n] = e;
+		let n = l[e], r = e * 4, i = Math.imul(n, 2654435761);
+		for (let e = 0; e < 4; e++) i = Math.imul(i ^ x[r + e], 16777619);
+		let a = (i ^ i >>> 15) & E, o = -1;
+		for (; w[a] >= 0; a = a + 1 & E) {
+			let e = w[a], t = e * 4;
+			if (l[e] === n && x[t] === x[r] && x[t + 1] === x[r + 1] && x[t + 2] === x[r + 2] && x[t + 3] === x[r + 3]) {
+				o = T[a];
+				break;
+			}
+		}
+		if (o < 0) {
+			if (v[n] < 0) o = n, v[n] = e;
 			else {
 				if (_.length >= require_models.modelLimits.vertices) throw RangeError(`MikkTSpace seam splitting exceeds vertex limits.`);
-				a = _.length, _.push(n), y.push(e);
+				o = _.length, _.push(n), y.push(e);
 			}
-			x.set(i, a);
+			w[a] = e, T[a] = o;
 		}
-		b[e] = a;
+		b[e] = o;
 	}
 	if (_.length > require_models.modelLimits.vertices) throw RangeError(`MikkTSpace seam splitting exceeds vertex limits.`);
-	let S = new Uint32Array(_), C = new Float32Array(S.length * 4);
-	for (let e = 0; e < S.length; e++) {
+	let D = new Uint32Array(_), O = new Float32Array(D.length * 4);
+	for (let e = 0; e < D.length; e++) {
 		let t = e < u ? v[e] : y[e - u], n = t < 0 ? i.tangents : g, r = t < 0 ? e * 4 : t * 4;
-		C[e * 4] = n[r], C[e * 4 + 1] = n[r + 1], C[e * 4 + 2] = n[r + 2];
+		O[e * 4] = n[r], O[e * 4 + 1] = n[r + 1], O[e * 4 + 2] = n[r + 2];
 		let a = t < 0 ? i.tangentConvention === o ? 1 : -1 : o === `gltf` ? -1 : 1;
-		C[e * 4 + 3] = n[r + 3] * a;
+		O[e * 4 + 3] = n[r + 3] * a;
 	}
 	return {
-		sourceVertices: S,
+		sourceVertices: D,
 		geometry: new require_geometry.Geometry({
-			positions: remapVertexData(c, S, 3, 8),
-			normals: remapVertexData(c, S, 3, 8, 3),
-			uvs: remapVertexData(c, S, 2, 8, 6),
-			uvs1: i.uvs1 ? remapVertexData(i.uvs1, S, 2) : void 0,
-			colors: i.colors ? remapVertexData(i.colors, S, 4) : void 0,
-			tangents: C,
+			positions: remapVertexData(c, D, 3, 8),
+			normals: remapVertexData(c, D, 3, 8, 3),
+			uvs: remapVertexData(c, D, 2, 8, 6),
+			uvs1: i.uvs1 ? remapVertexData(i.uvs1, D, 2) : void 0,
+			colors: i.colors ? remapVertexData(i.colors, D, 4) : void 0,
+			tangents: O,
 			tangentTexCoord: s,
 			tangentConvention: o,
 			indices: b
