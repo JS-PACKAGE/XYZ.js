@@ -254,7 +254,9 @@ var WebGLRender2D = class {
 			let n = e.items[i];
 			if (n.kind !== `sprite`) continue;
 			let a = n.object, o = (i - t) * 28, s = this.spriteMatrix(a, r).elements, c = this.spriteData;
-			c[o] = s[0], c[o + 1] = s[1], c[o + 2] = s[3], c[o + 3] = s[4], c[o + 4] = s[6], c[o + 5] = s[7], require_sprite_instance.getRelativeAppearance2D(a, r.root, this.appearance), c.set(this.appearance, o + 8), this.packQuad(c, o, require_sprite_instance.getSpriteQuad2D(a, this.quad));
+			c[o] = s[0], c[o + 1] = s[1], c[o + 2] = s[3], c[o + 3] = s[4], c[o + 4] = s[6], c[o + 5] = s[7];
+			let l = this.appearance;
+			require_sprite_instance.getRelativeAppearance2D(a, r.root, l), c[o + 8] = l[0], c[o + 9] = l[1], c[o + 10] = l[2], c[o + 11] = l[3], this.packQuad(c, o, require_sprite_instance.getSpriteQuad2D(a, this.quad));
 		}
 		let o = e.items[t];
 		if (o.kind !== `sprite`) return;

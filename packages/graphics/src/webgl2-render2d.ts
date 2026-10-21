@@ -677,8 +677,13 @@ export class WebGLRender2D {
       data[offset + 3] = e[4];
       data[offset + 4] = e[6];
       data[offset + 5] = e[7];
-      getRelativeAppearance2D(sprite, context.root, this.appearance);
-      data.set(this.appearance, offset + 8);
+      const appearance = this.appearance;
+      getRelativeAppearance2D(sprite, context.root, appearance);
+      // Element stores: a four-value TypedArray#set is a builtin call per sprite.
+      data[offset + 8] = appearance[0]!;
+      data[offset + 9] = appearance[1]!;
+      data[offset + 10] = appearance[2]!;
+      data[offset + 11] = appearance[3]!;
       this.packQuad(data, offset, getSpriteQuad2D(sprite, this.quad));
     }
     const command = commands.items[first];
