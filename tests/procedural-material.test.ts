@@ -132,6 +132,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cactus',
   'pinecone',
   'corncob',
+  'basalt',
+  'scoria',
+  'obsidian',
 ];
 
 class TestImageData {
@@ -179,6 +182,281 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('volcanic surface relief', () => {
+    interface VolcanicFeature {
+      x: number;
+      y: number;
+      rx: number;
+      ry: number;
+      cosine: number;
+      sine: number;
+    }
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const feature = (
+      kind: 'scoria' | 'obsidian',
+      x: number,
+      y: number,
+      seed: number,
+    ): VolcanicFeature => {
+      const cells = kind === 'scoria' ? 10 : 4,
+        wx = ((x % cells) + cells) % cells,
+        wy = ((y % cells) + cells) % cells,
+        variation = hash(wx, wy, seed ^ 0x3d71),
+        angle = 2 * Math.PI * hash(wx, wy, seed ^ 0x6a29),
+        radius =
+          kind === 'scoria' ? 0.32 + 0.12 * variation : 0.65 + 0.13 * variation;
+      return {
+        x: x + 0.35 + 0.3 * hash(wx, wy, seed ^ 0x2f59),
+        y: y + 0.35 + 0.3 * hash(wx, wy, seed ^ 0x7c43),
+        rx: radius,
+        ry: radius * (0.7 + 0.25 * hash(wx, wy, seed ^ 0x4e13)),
+        cosine: Math.cos(angle),
+        sine: Math.sin(angle),
+      };
+    };
+    const point = (f: VolcanicFeature, x: number, y: number): number[] => [
+      f.x + f.cosine * f.rx * x - f.sine * f.ry * y,
+      f.y + f.sine * f.rx * x + f.cosine * f.ry * y,
+    ];
+    const isolated = (
+      kind: 'scoria' | 'obsidian',
+      column: number,
+      row: number,
+      seed: number,
+      points: number[][],
+    ): boolean => {
+      for (let oy = -2; oy <= 2; oy++)
+        for (let ox = -2; ox <= 2; ox++) {
+          if (ox === 0 && oy === 0) continue;
+          const f = feature(kind, column + ox, row + oy, seed);
+          for (const [x, y] of points) {
+            const dx = x - f.x,
+              dy = y - f.y;
+            if (
+              ((dx * f.cosine + dy * f.sine) / f.rx) ** 2 +
+                ((-dx * f.sine + dy * f.cosine) / f.ry) ** 2 <
+              1
+            )
+              return false;
+          }
+        }
+      return true;
+    };
+    it('basalt caps rise above dark recessed joints with rounded shoulders', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('basalt', seed);
+        for (const [column, row] of [
+          [0, 0],
+          [3, 5],
+          [5, 7],
+        ]) {
+          const x = column + (row % 2) * 0.5 + 0.5,
+            y = row + 0.5,
+            width = 0.46 + 0.025 * hash(column, row, seed ^ 0x3d71),
+            cap = empty(),
+            shoulder = empty(),
+            joint = empty();
+          sample(x / 6, y / 8, cap);
+          sample((x + width - 0.0325) / 6, y / 8, shoulder);
+          sample((x + 0.5) / 6, y / 8, joint);
+          expect(cap.height).toBeGreaterThan(shoulder.height);
+          expect(shoulder.height).toBeGreaterThan(joint.height);
+          expect(cap.color).toBeGreaterThan(joint.color);
+          expect(cap.occlusion).toBeGreaterThan(joint.occlusion);
+          expect(joint.roughness).toBeGreaterThan(cap.roughness);
+        }
+      }
+    });
+    it('scoria has recessed gas pits, raised rims and intact bodies', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('scoria', seed);
+        let checked = 0;
+        for (let row = 0; row < 10; row++)
+          for (let column = 0; column < 10; column++) {
+            const f = feature('scoria', column, row, seed);
+            for (let ray = 0; ray < 8; ray++) {
+              const angle = (ray * Math.PI) / 4,
+                points = [
+                  point(f, 0, 0),
+                  point(
+                    f,
+                    Math.sqrt(0.68) * Math.cos(angle),
+                    Math.sqrt(0.68) * Math.sin(angle),
+                  ),
+                  point(f, 1.1 * Math.cos(angle), 1.1 * Math.sin(angle)),
+                ];
+              if (!isolated('scoria', column, row, seed, points)) continue;
+              const [pit, rim, body] = points.map(([x, y]) => {
+                const out = empty();
+                sample(x / 10, y / 10, out);
+                return out;
+              });
+              expect(pit.height).toBeLessThan(body.height);
+              expect(rim.height).toBeGreaterThan(body.height);
+              expect(pit.color).toBeLessThan(body.color);
+              expect(pit.occlusion).toBeLessThan(body.occlusion);
+              expect(pit.roughness).toBeGreaterThan(rim.roughness);
+              checked++;
+              break;
+            }
+          }
+        expect(checked).toBeGreaterThan(0);
+      }
+    });
+    it('obsidian fracture fronts follow curved flake interiors, not straight scratches', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('obsidian', seed);
+        let checked = 0,
+          bodies = 0;
+        for (let row = 0; row < 4; row++)
+          for (let column = 0; column < 4; column++) {
+            const f = feature('obsidian', column, row, seed);
+            for (let ray = 0; ray < 16; ray++) {
+              const angle = (ray * Math.PI) / 8,
+                points = [
+                  point(f, 0, 0),
+                  point(f, 1.1 * Math.cos(angle), 1.1 * Math.sin(angle)),
+                ];
+              if (!isolated('obsidian', column, row, seed, points)) continue;
+              const [flake, body] = points.map(([x, y]) => {
+                const out = empty();
+                sample(x / 4, y / 4, out);
+                return out;
+              });
+              expect(flake.height).toBeLessThan(body.height);
+              expect(flake.occlusion).toBeLessThan(body.occlusion);
+              expect(flake.roughness).toBeGreaterThan(body.roughness);
+              bodies++;
+              break;
+            }
+            for (const ly of [-0.35, 0, 0.35]) {
+              const lx = -0.36 + 1.2 * ly * ly,
+                points = [point(f, lx, ly), point(f, lx + 0.16, ly)];
+              if (!isolated('obsidian', column, row, seed, points)) continue;
+              const [edge, flake] = points.map(([x, y]) => {
+                const out = empty();
+                sample(x / 4, y / 4, out);
+                return out;
+              });
+              expect(edge.height).toBeGreaterThan(flake.height);
+              expect(edge.color).toBeGreaterThan(flake.color);
+              expect(edge.roughness).toBeGreaterThan(flake.roughness);
+              checked++;
+            }
+          }
+        expect(checked).toBeGreaterThan(0);
+        expect(bodies).toBeGreaterThan(0);
+      }
+    });
+    it.each(['basalt', 'scoria', 'obsidian'] as const)(
+      '%s is C1 at seeded support boundaries, diagonal corners, origins and seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: number[][] = [
+              [0, 0],
+              [0, 0.137],
+              [0.791, 1],
+            ];
+          for (const [column, row] of [
+            [0, 0],
+            [3, 3],
+          ]) {
+            if (kind === 'basalt') {
+              const a = 0.46 + 0.025 * hash(column, row, seed ^ 0x3d71),
+                b = 0.46 + 0.025 * hash(column, row, seed ^ 0x6a29),
+                c = 0.46 + 0.025 * hash(column, row, seed ^ 0x7c43),
+                x = column + (row % 2) * 0.5 + 0.5,
+                y = row + 0.5;
+              for (const t of [0, 0.0325, 0.065]) {
+                const dx = a - t,
+                  dy = (b - t - 0.5 * dx) / 0.75;
+                points.push([(x + dx) / 6, (y + dy) / 8]);
+                points.push([(x + b - c) / 6, (y + (b + c - 2 * t) / 1.5) / 8]);
+              }
+            } else {
+              const f = feature(kind, column, row, seed),
+                cells = kind === 'scoria' ? 10 : 4;
+              for (const q of [0, 0.42, 0.6, 0.7, 0.75, 0.8, 1])
+                for (const angle of [0.37, 1.13, 2.41]) {
+                  const p = point(
+                    f,
+                    Math.sqrt(q) * Math.cos(angle),
+                    Math.sqrt(q) * Math.sin(angle),
+                  );
+                  points.push([p[0] / cells, p[1] / cells]);
+                }
+              if (kind === 'obsidian')
+                for (const ly of [-0.6, 0, 0.6])
+                  for (const offset of [-0.08, 0, 0.08]) {
+                    const p = point(f, -0.36 + 1.2 * ly * ly + offset, ly);
+                    points.push([p[0] / cells, p[1] / cells]);
+                  }
+              if (kind === 'obsidian')
+                for (const offset of [-0.08, 0, 0.08]) {
+                  const k = -0.36 + offset,
+                    b = 1 + 2.4 * k,
+                    squaredY =
+                      (-b + Math.sqrt(b * b - 5.76 * (k * k - 1))) / 2.88;
+                  for (const sign of [-1, 1]) {
+                    const p = point(
+                      f,
+                      k + 1.2 * squaredY,
+                      sign * Math.sqrt(squaredY),
+                    );
+                    points.push([p[0] / cells, p[1] / cells]);
+                  }
+                }
+            }
+          }
+          const a = empty(),
+            b = empty(),
+            center = empty(),
+            halfA = empty(),
+            halfB = empty();
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [1e-8, 0],
+              [0, 1e-8],
+              [6e-9, 8e-9],
+            ]) {
+              sample(u - du, v - dv, a);
+              sample(u, v, center);
+              sample(u + du, v + dv, b);
+              sample(u - du / 2, v - dv / 2, halfA);
+              sample(u + du / 2, v + dv / 2, halfB);
+              for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+                expect(center[key]).toBeGreaterThanOrEqual(0);
+                expect(center[key]).toBeLessThanOrEqual(1);
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                expect(
+                  Math.abs(
+                    4 * (halfA[key] + halfB[key]) -
+                      a[key] -
+                      b[key] -
+                      6 * center[key],
+                  ) / 1e-8,
+                ).toBeLessThan(0.001);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('botanical surface relief', () => {
     const empty = (): SurfaceSample => ({
       color: 0,
@@ -583,6 +861,9 @@ describe('periodic procedural material fields', () => {
     ['cactus', [8, 48, 64]],
     ['pinecone', [8, 16, 48, 64]],
     ['corncob', [8, 12, 48, 64]],
+    ['basalt', [6, 8, 64]],
+    ['scoria', [10, 64]],
+    ['obsidian', [4, 64]],
     ['corrugatedcardboard', [4, 24, 32, 48, 64]],
     ['creasedpaper', [2, 24, 32, 48, 64]],
     ['layeredpaper', [2, 4, 24, 32, 48, 64]],

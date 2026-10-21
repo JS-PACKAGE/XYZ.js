@@ -103,6 +103,8 @@
 
 紙材包裝增量為 corrugatedcardboard／creasedpaper／layeredpaper（瓦楞紙板／摺痕紙／層疊紙），目前共一百零五種；前述 counts 保留為歷史。瓦楞紙板呈現外露的圓潤紙質楞脊與谷槽、帶纖維的牛皮紙表面，而非金屬換色；摺痕紙呈現細微紙漿底紋上的交叉隆起摺脊與凹陷摺肩，而非僅有雜訊；層疊紙呈現不規則毛邊紙條交疊、明確階緣與下切陰影，而非紙張換色。三者皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；楞紋、摺痕與層緣僅為表面 shading／normal map 效果，不建立 geometry、切面、displacement、透明撕邊輪廓或撕裂物理。前一百零二種輸出（含原 paper）須逐位元組保持不變，公開 options、呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變，維持 WebGPU／WebGL2 3D、Canvas2D 2D-only。
 
+火山石表面增量為 basalt／scoria／obsidian（玄武岩／火山渣／黑曜石），接續已提交金屬網孔後共一百一十一種；前述 counts 保留為歷史。玄武岩呈現深色細粒底紋、圓角多邊形柱頂與凹陷節理；火山渣呈現暖暗紅色岩面、大小不一的緊湊凹氣孔與隆起孔緣；黑曜石呈現極深色、有光澤的不透明火山玻璃與彎曲貝殼狀剝片痕。三者皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用相同四份 seeded deterministic periodic maps 與 physical repeat；僅為表面 shading／normal map 效果，不建立真實岩柱、孔洞、geometry、displacement、透明玻璃、折射或發光。前一百零八種輸出須逐位元組保持不變，公開 options、呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變，維持 WebGPU／WebGL2 3D、Canvas2D 2D-only。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

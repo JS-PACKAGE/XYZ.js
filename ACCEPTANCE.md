@@ -2993,3 +2993,33 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 僅提交本組 source、docs 與獨立快照對應 dist；不納入其他進行中修改，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
 - `[Physics3D]` Joint 速度求解把 `v?.x ?? 0` 改成 `v ? v.x : 0`（數值完全相同）：可選物件的 double 欄位與 `undefined` 合流時 V8 會把它裝箱成 HeapNumber，每列每次迭代都在配置。joints3d WebGL2 瀏覽器每幀 `solveVelocity` 配置約 26.8 KB → 0（範例總計約 76 → 49 KB／frame）；Node 160 關節鏈 bench 1316 → 174 KiB／step，hash 不變，屬配置減少。build 與完整測試（1863 通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：火山岩表面（basalt／scoria／obsidian）
+
+- 新增玄武岩細粒底紋、圓角六邊柱頂與凹陷節理；紅色火山渣的
+  旋轉橢圓氣孔、凹陷孔底與隆起孔緣；黑曜石的光亮深色基面、
+  彎曲貝殼狀剝片與斷口。皆為 opaque dielectric 的表面 shading，
+  不新增真實岩柱、孔洞、geometry、displacement、透明玻璃或折射。
+- 原始獨立快照的 105 種輸出在 size 64／seed 7 下四份 maps SHA256
+  全部不變；build、typecheck、lint、format:check、6 個結構測試與
+  176 files／1863 tests 完整回歸通過。
+  結構回歸涵蓋柱頂／肩部／節理、氣孔／孔緣／岩體高度序、
+  彎曲剝片斷口，以及實際 support、斜角、原點與週期接縫的 C1 連續性。
+- 驗證期間金屬網孔三款另行提交，因此重新從已提交 HEAD 建立快照，
+  只套入本組變更；最終 catalog 共 111 種。既有 108 種與本組
+  三種四份 maps hash 均保持不變，重新執行 build、typecheck、lint、
+  format:check 與完整 Vitest：176 files／1875 tests passed。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認週期排列，metallic bytes 全為 0。
+  roughness bytes 依序 219–233／224–248／31–78，每米 repeats
+  依序 0.833333／5／3.333333；四份貼圖 destroy 後均確認已釋放。
+- 原共用 Chrome application 在釋放分頁後無可用 page target，
+  新 profile 的 app.open 仍失敗；改用本輪自有 headless Chrome
+  CDP service 後完成比較，重建快照與主工作目錄 WebGPU pixels 相同。
+  主目錄 catalog 在同步工作中增至 114，原等待 111 的 smoke 因此逾時；
+  確認實際 status 與無 page errors 後繼續驗證，未修改引擎以略過失敗。
+- 主工作目錄 build、typecheck 與當時 413 個程序材質測試通過；
+  最終提交以重新驗證的 111 種快照為準，不納入同步中的絨面布料修改。
+  文件沒有新增相對連結，README 既有石材分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

@@ -114,7 +114,10 @@ export type ProceduralMaterialKind =
   | 'weldedmetal'
   | 'cactus'
   | 'pinecone'
-  | 'corncob';
+  | 'corncob'
+  | 'basalt'
+  | 'scoria'
+  | 'obsidian';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -255,6 +258,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cactus',
   'pinecone',
   'corncob',
+  'basalt',
+  'scoria',
+  'obsidian',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

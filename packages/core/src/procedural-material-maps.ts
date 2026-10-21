@@ -498,6 +498,41 @@ export function createSurfaceSampler(
       paperLayers[i * 3 + 1] = 0.58 + 0.14 * hash(i, 0, seed ^ 0x4f27);
       paperLayers[i * 3 + 2] = TAU * hash(i, 0, seed ^ 0x291d);
     }
+  const volcanic =
+    kind === 'basalt' || kind === 'scoria' || kind === 'obsidian';
+  const volcanicGrain = volcanic ? cachedNoise(64, 64, seed ^ 0x5b17) : null;
+  const volcanicColumns = kind === 'basalt' ? 6 : kind === 'scoria' ? 10 : 4;
+  const volcanicRows = kind === 'basalt' ? 8 : volcanicColumns;
+  const volcanicStride = kind === 'basalt' ? 4 : 7;
+  const volcanicCells = volcanic
+    ? new Float64Array(volcanicColumns * volcanicRows * volcanicStride)
+    : null;
+  if (volcanicCells)
+    for (let y = 0; y < volcanicRows; y++)
+      for (let x = 0; x < volcanicColumns; x++) {
+        const offset = (y * volcanicColumns + x) * volcanicStride,
+          variation = hash(x, y, seed ^ 0x3d71);
+        if (kind === 'basalt') {
+          volcanicCells[offset] = 0.46 + 0.025 * variation;
+          volcanicCells[offset + 1] = 0.46 + 0.025 * hash(x, y, seed ^ 0x6a29);
+          volcanicCells[offset + 2] = 0.46 + 0.025 * hash(x, y, seed ^ 0x7c43);
+          volcanicCells[offset + 3] = variation;
+        } else {
+          const angle = TAU * hash(x, y, seed ^ 0x6a29),
+            radius =
+              kind === 'scoria'
+                ? 0.32 + 0.12 * variation
+                : 0.65 + 0.13 * variation;
+          volcanicCells[offset] = 0.35 + 0.3 * hash(x, y, seed ^ 0x2f59);
+          volcanicCells[offset + 1] = 0.35 + 0.3 * hash(x, y, seed ^ 0x7c43);
+          volcanicCells[offset + 2] = radius;
+          volcanicCells[offset + 3] =
+            radius * (0.7 + 0.25 * hash(x, y, seed ^ 0x4e13));
+          volcanicCells[offset + 4] = Math.cos(angle);
+          volcanicCells[offset + 5] = Math.sin(angle);
+          volcanicCells[offset + 6] = variation;
+        }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -523,7 +558,7 @@ export function createSurfaceSampler(
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
     const detail =
-      architectural || fabricated || botanical || packaging
+      architectural || fabricated || botanical || packaging || volcanic
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -549,6 +584,117 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'basalt': {
+        const x = u * 6,
+          y = v * 8,
+          row = Math.floor(y),
+          grain = volcanicGrain!(u, v);
+        color = 0.08 + 0.035 * grain;
+        height = 0.1 + 0.008 * grain;
+        occlusion = 0.59;
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy,
+            wy = (cy + 8) % 8,
+            stagger = (wy % 2) * 0.5,
+            column = Math.floor(x - stagger);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              wx = (cx + 6) % 6,
+              offset = (wy * 6 + wx) * 4,
+              dx = x - cx - stagger - 0.5,
+              dy = y - cy - 0.5,
+              a = volcanicCells![offset],
+              b = volcanicCells![offset + 1],
+              c = volcanicCells![offset + 2],
+              variation = volcanicCells![offset + 3];
+            // Six smooth half-planes multiply through diagonal corners; no
+            // nearest-edge selection can introduce a bisector slope cusp.
+            const face =
+                smooth(clamp((a - dx) / 0.065)) *
+                smooth(clamp((a + dx) / 0.065)) *
+                smooth(clamp((b - 0.5 * dx - 0.75 * dy) / 0.065)) *
+                smooth(clamp((b + 0.5 * dx + 0.75 * dy) / 0.065)) *
+                smooth(clamp((c + 0.5 * dx - 0.75 * dy) / 0.065)) *
+                smooth(clamp((c - 0.5 * dx + 0.75 * dy) / 0.065)),
+              crown = 1 - 0.6 * dx * dx - 0.6 * dy * dy;
+            color += face * (0.28 + 0.18 * variation + 0.06 * grain);
+            height += face * (0.52 + 0.08 * variation + 0.07 * crown);
+            occlusion += 0.4 * face;
+          }
+        }
+        roughness += 0.08 * (1 - occlusion) + 0.025 * (grain - 0.5);
+        break;
+      }
+      case 'scoria':
+      case 'obsidian': {
+        const columns = volcanicColumns,
+          x = u * columns,
+          y = v * volcanicRows,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = volcanicGrain!(u, v);
+        let depression = 0,
+          edge = 0,
+          pigment = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              wx = (cx + columns) % columns,
+              wy = (cy + volcanicRows) % volcanicRows,
+              offset = (wy * columns + wx) * 7,
+              dx = x - cx - volcanicCells![offset],
+              dy = y - cy - volcanicCells![offset + 1],
+              cosine = volcanicCells![offset + 4],
+              sine = volcanicCells![offset + 5],
+              lx = (cosine * dx + sine * dy) / volcanicCells![offset + 2],
+              ly = (-sine * dx + cosine * dy) / volcanicCells![offset + 3],
+              q = lx * lx + ly * ly;
+            if (q >= 1) continue;
+            let bowl: number, lip: number;
+            if (kind === 'scoria') {
+              bowl = smooth(clamp((0.7 - q) / 0.7));
+              lip =
+                smooth(clamp((q - 0.42) / 0.18)) * smooth(clamp((1 - q) / 0.2));
+            } else {
+              bowl = smooth(1 - q);
+              // A parabolic fracture front inside a compact elliptical flake:
+              // polynomial coordinates avoid angular and radial origin cusps.
+              const curve = (lx + 0.36 - 1.2 * ly * ly) / 0.08;
+              lip =
+                smooth(clamp(1 - curve * curve)) *
+                smooth(clamp((1 - q) / 0.25));
+            }
+            // Complement products are bounded smooth unions, even where gas
+            // pits or flake scars overlap; hard saturation would kink normals.
+            depression += (1 - depression) * bowl;
+            edge += (1 - edge) * lip;
+            pigment += (1 - pigment) * bowl * volcanicCells![offset + 6];
+          }
+        if (kind === 'scoria') {
+          color =
+            0.36 +
+            0.09 * grain -
+            0.23 * depression +
+            0.16 * edge +
+            0.04 * pigment;
+          height = 0.48 + 0.012 * grain - 0.32 * depression + 0.15 * edge;
+          roughness +=
+            0.045 * depression - 0.035 * edge + 0.015 * (grain - 0.5);
+          occlusion = 0.98 - 0.36 * depression + 0.015 * edge;
+        } else {
+          color =
+            0.15 +
+            0.035 * grain +
+            0.14 * depression +
+            0.28 * edge +
+            0.035 * pigment;
+          height = 0.5 + 0.003 * grain - 0.2 * depression + 0.1 * edge;
+          roughness += 0.08 * depression + 0.1 * edge + 0.012 * grain;
+          occlusion = 1 - 0.13 * depression;
+        }
+        break;
+      }
       case 'corrugatedcardboard':
       case 'creasedpaper':
       case 'layeredpaper': {
