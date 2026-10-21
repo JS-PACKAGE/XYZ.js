@@ -187,6 +187,9 @@ export type ProceduralMaterialKind =
   | 'breadcrust'
   | 'wafer'
   | 'chocolate'
+  | 'pretzel'
+  | 'bagel'
+  | 'croissant'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -456,6 +459,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'breadcrust',
   'wafer',
   'chocolate',
+  'pretzel',
+  'bagel',
+  'croissant',
   'basketball',
   'tennisball',
   'golfball',

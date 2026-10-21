@@ -1086,6 +1086,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.28;
         relief: 0.003;
     }>;
+    pretzel: Readonly<{
+        dark: readonly [82, 44, 22];
+        light: readonly [182, 128, 66];
+        roughness: 0.58;
+        relief: 0.0045;
+    }>;
+    bagel: Readonly<{
+        dark: readonly [92, 58, 32];
+        light: readonly [212, 172, 112];
+        roughness: 0.62;
+        relief: 0.004;
+    }>;
+    croissant: Readonly<{
+        dark: readonly [102, 58, 26];
+        light: readonly [232, 186, 112];
+        roughness: 0.52;
+        relief: 0.0048;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -1666,6 +1684,9 @@ export declare const proceduralTileMeters: Readonly<{
     breadcrust: 0.21;
     wafer: 0.072;
     chocolate: 0.12;
+    pretzel: 0.2;
+    bagel: 0.24;
+    croissant: 0.24;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

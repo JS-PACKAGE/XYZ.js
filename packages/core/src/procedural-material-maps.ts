@@ -7486,6 +7486,56 @@ export function createSurfaceSampler(
         occlusion = 0.73 + 0.27 * segment;
         break;
       }
+      case 'pretzel': {
+        // Interlaced dough ropes cross at raised knots, dusted with salt.
+        const ropeA = smooth(
+          clamp((0.18 - Math.abs(fract((u + v) * 3) - 0.5)) / 0.12),
+        );
+        const ropeB = smooth(
+          clamp((0.18 - Math.abs(fract((u - v) * 3) - 0.5)) / 0.12),
+        );
+        const twist = ropeA + ropeB - ropeA * ropeB;
+        const knot = ropeA * ropeB;
+        const salt = smooth(
+          clamp((noise(u, v, 24, 24, seed ^ 0x19af) - 0.78) / 0.06),
+        );
+        const grain = noise(u, v, 16, 16, seed ^ 0x2f31);
+        color = 0.42 + 0.28 * twist + 0.1 * knot + 0.1 * salt + 0.06 * grain;
+        height = 0.42 + 0.22 * twist + 0.1 * knot + 0.04 * salt + 0.015 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * knot - 0.18 * salt;
+        occlusion = 1 - 0.34 * (1 - twist) - 0.1 * (1 - knot);
+        break;
+      }
+      case 'bagel': {
+        // A chewy ring rises around the recessed hole, seeded with sesame.
+        const dx = Math.min(Math.abs(u - 0.5), 1 - Math.abs(u - 0.5));
+        const dy = Math.min(Math.abs(v - 0.5), 1 - Math.abs(v - 0.5));
+        const d = Math.hypot(dx, dy) * 2;
+        const ring = smooth(clamp((0.12 - Math.abs(d - 0.34)) / 0.06));
+        const hole = smooth(clamp((0.16 - d) / 0.08));
+        const sesame = smooth(
+          clamp((noise(u, v, 20, 20, seed ^ 0x4c1d) - 0.78) / 0.06),
+        );
+        const grain = noise(u, v, 16, 16, seed ^ 0x5b2e);
+        color = 0.44 + 0.3 * ring - 0.16 * hole + 0.12 * sesame + 0.06 * grain;
+        height =
+          0.46 + 0.26 * ring - 0.16 * hole + 0.05 * sesame + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * ring - 0.18 * sesame;
+        occlusion = 1 - 0.3 * hole - 0.14 * (1 - ring);
+        break;
+      }
+      case 'croissant': {
+        // Buttered layers stack in diagonal ridges with browned seams.
+        const turn = fract((u + v) * 4);
+        const layer = smooth(clamp((0.3 - Math.abs(turn - 0.5)) / 0.14));
+        const seam = smooth(clamp((0.12 - Math.min(turn, 1 - turn)) / 0.03));
+        const grain = noise(u, v, 16, 16, seed ^ 0x6d47);
+        color = 0.44 + 0.34 * layer - 0.14 * seam + 0.08 * grain;
+        height = 0.44 + 0.28 * layer - 0.06 * seam + 0.03 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.12 * layer + 0.1 * seam;
+        occlusion = 1 - 0.34 * (1 - layer) - 0.1 * seam;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

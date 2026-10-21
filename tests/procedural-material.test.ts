@@ -205,6 +205,9 @@ const kinds: ProceduralMaterialKind[] = [
   'breadcrust',
   'wafer',
   'chocolate',
+  'pretzel',
+  'bagel',
+  'croissant',
   'basketball',
   'tennisball',
   'golfball',
@@ -4956,6 +4959,9 @@ describe('periodic procedural material fields', () => {
     ['breadcrust', [7, 19, 23, 32]],
     ['wafer', [12, 24, 32]],
     ['chocolate', [4, 32]],
+    ['pretzel', [3, 32, 48, 64]],
+    ['bagel', [2, 32, 48, 64]],
+    ['croissant', [4, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5167,6 +5173,9 @@ describe('periodic procedural material fields', () => {
     ['wafer', 12],
     ['wafer', 24],
     ['chocolate', 4],
+    ['pretzel', 3],
+    ['bagel', 2],
+    ['croissant', 4],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6532,6 +6541,9 @@ describe('periodic procedural material fields', () => {
     'breadcrust',
     'wafer',
     'chocolate',
+    'pretzel',
+    'bagel',
+    'croissant',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6567,7 +6579,11 @@ describe('periodic procedural material fields', () => {
                       ? 7
                       : kind === 'wafer'
                         ? 12
-                        : 4;
+                        : kind === 'pretzel'
+                          ? 3
+                          : kind === 'bagel'
+                            ? 2
+                            : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -9446,6 +9462,70 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, gap);
       expect(surface.height).toBeGreaterThan(gap.height + 0.05 * relief);
       expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('pretzel knots both dough ropes above the single strands and gaps', () => {
+    const relief = proceduralMaterialPresets.pretzel.relief;
+    const knot: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rope = { ...knot };
+    const gap = { ...knot };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pretzel', seed);
+      sample(0.5, 1 / 3, knot);
+      sample(0.25, 0.25, rope);
+      sample(1 / 3, 1 / 3, gap);
+      expect(knot.height).toBeGreaterThan(rope.height + 0.03 * relief);
+      expect(rope.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(knot.occlusion).toBeGreaterThan(rope.occlusion);
+      expect(rope.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('bagel lifts its chewy ring over the recessed hole', () => {
+    const relief = proceduralMaterialPresets.bagel.relief;
+    const ring: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const hole = { ...ring };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bagel', seed);
+      sample(0.5, 0.67, ring);
+      sample(0.5, 0.5, hole);
+      expect(ring.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(ring.occlusion).toBeGreaterThan(hole.occlusion);
+    }
+  });
+
+  it('croissant stacks buttered layer ridges above the browned seams', () => {
+    const relief = proceduralMaterialPresets.croissant.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('croissant', seed);
+      sample(0.5, 0.375, crest);
+      sample(0.125, 0.125, seam);
+      expect(crest.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(seam.occlusion);
     }
   });
 
