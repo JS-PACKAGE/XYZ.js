@@ -217,6 +217,21 @@ export class NavigationGridBakeJob2D {
   step(budget: number): NavigationSearchStatus {
     validateBudget(budget);
     if (this.state !== 'pending') return this.state;
+    // Without authored callbacks a step runs no user code, so one pose refresh serves
+    // the leading and trailing staleness checks and every cell query in between.
+    return this.authored
+      ? this.advance(budget)
+      : this.world.withPoseSnapshot(() => this.advance(budget));
+  }
+  /** @internal Consecutive scheduler steps keep sharing one pose refresh, as within a step. */
+  [holdNavigationSteps](run: () => void): void {
+    if (this.authored) run();
+    else this.world.withPoseSnapshot(run);
+  }
+  private get authored(): boolean {
+    return !!(this.options.blockedCell || this.options.geometryRevision);
+  }
+  private advance(budget: number): NavigationSearchStatus {
     if (
       this.world.geometryRevision !== this.worldRevision ||
       this.options.geometryRevision?.() !== this.sourceRevision ||

@@ -276,4 +276,74 @@ describe('finite collision geometry navigation baking', () => {
       run.scene.destroy();
     }
   });
+
+  it('matches unit-by-unit 2D stepping when authored callbacks move a collider mid-update', () => {
+    const grid = (move: 'blockedCell' | 'geometryRevision' | undefined) => {
+      const scene = new Scene(),
+        scheduler = new NavigationScheduler();
+      const obstacle = new GameObject();
+      obstacle.collider = new Collider2D('circle', 0.3, []);
+      obstacle.position.set(4.5, 2.5);
+      scene.add(obstacle);
+      let calls = 0;
+      // Authored callbacks are user code; they may themselves move geometry.
+      const nudge = () => {
+        if (++calls === 9) obstacle.position.x -= 3;
+      };
+      const job = new NavigationGridBakeJob2D(scene.physics, {
+        columns: 6,
+        rows: 4,
+        cellSize: 1,
+        agentRadius: 0.1,
+        blockedCell:
+          move === 'blockedCell'
+            ? () => {
+                nudge();
+                return false;
+              }
+            : undefined,
+        geometryRevision:
+          move === 'geometryRevision'
+            ? () => {
+                nudge();
+                return 0;
+              }
+            : undefined,
+      });
+      return { scene, scheduler, job };
+    };
+    for (const move of [
+      'blockedCell',
+      'geometryRevision',
+      undefined,
+    ] as const) {
+      const direct = grid(move);
+      while (direct.job.status === 'pending') direct.job.step(1);
+      const scheduled = grid(move);
+      scheduled.scheduler.scheduleBake(scheduled.job);
+      const stats = scheduled.scheduler.update(64);
+      // One step covering every cell must not publish geometry moved partway through
+      // (the revision callback is read only around steps, so it moves nothing here).
+      const whole = grid(move);
+      whole.job.step(64);
+      expect(whole.job.status).toBe(
+        move === 'blockedCell' ? 'invalidated' : 'found',
+      );
+      expect(direct.job.status).toBe(move ? 'invalidated' : 'found');
+      expect(scheduled.job.status).toBe(direct.job.status);
+      expect(stats.bakeWork).toBe(direct.job.expansions);
+      expect(scheduled.job.expansions).toBe(direct.job.expansions);
+      if (!move)
+        for (let row = 0; row < 4; row++)
+          for (let column = 0; column < 6; column++)
+            expect(scheduled.job.result!.getCell(column, row).walkable).toBe(
+              direct.job.result!.getCell(column, row).walkable,
+            );
+      for (const run of [direct, scheduled, whole]) {
+        run.job.result?.destroy();
+        run.scheduler.destroy();
+        run.scene.destroy();
+      }
+    }
+  });
 });

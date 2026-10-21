@@ -129,8 +129,15 @@ export declare class PhysicsWorld2D {
     droppedTime: number;
     private geometryVersion;
     private registrationVersion;
+    /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
+    private poseSnapshot;
     /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
     get geometryRevision(): number;
+    /**
+     * @internal Runs synchronous `overlap` queries that move no collider (no user code runs
+     * inside `run`) against one pose refresh instead of rechecking every pose per query.
+     */
+    withPoseSnapshot<T>(run: () => T): T;
     constructor(options?: PhysicsWorldOptions);
     get destroyed(): boolean;
     get fixedDelta(): number;

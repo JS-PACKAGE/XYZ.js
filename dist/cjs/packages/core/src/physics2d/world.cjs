@@ -126,9 +126,20 @@ var PhysicsWorld2D = class {
 	droppedTime = 0;
 	geometryVersion = 0;
 	registrationVersion = 0;
+	poseSnapshot = !1;
 	get geometryRevision() {
+		if (this.poseSnapshot) return this.geometryVersion;
 		for (let e of this.proxies) this.alive(e) && (e.refresh(), e.geometryChanged() && this.geometryVersion++);
 		return this.geometryVersion;
+	}
+	withPoseSnapshot(e) {
+		if (this.poseSnapshot) return e();
+		this.geometryRevision, this.poseSnapshot = !0;
+		try {
+			return e();
+		} finally {
+			this.poseSnapshot = !1;
+		}
 	}
 	constructor(e = {}) {
 		e.gravity && this.gravity.set(require_collider.finite(e.gravity[0], `gravity.x`), require_collider.finite(e.gravity[1], `gravity.y`)), this.fixedDelta = e.fixedDelta ?? this.fixedDelta, this.maxSubSteps = e.maxSubSteps ?? this.maxSubSteps, this.velocityIterations = e.velocityIterations ?? this.velocityIterations, this.positionIterations = e.positionIterations ?? this.positionIterations, this.ccdIterations = e.ccdIterations ?? this.ccdIterations, this.ccdImpacts = e.ccdImpacts ?? this.ccdImpacts;
@@ -518,7 +529,7 @@ var PhysicsWorld2D = class {
 		r || (r = new require_collider.ShapeGeometry(t), this.queryGeometries.set(t, r)), r.refresh(n);
 		let i = [];
 		for (let a of this.proxies) {
-			if (a.owner === n || !this.alive(a) || !(t.category & a.collider.mask) || !(a.collider.category & t.mask) || (a.refresh(), !require_narrowphase.collide(r, a.geometry, this.queryManifold))) continue;
+			if (a.owner === n || !this.alive(a) || !(t.category & a.collider.mask) || !(a.collider.category & t.mask) || (this.poseSnapshot || a.refresh(), !require_narrowphase.collide(r, a.geometry, this.queryManifold))) continue;
 			let o = this.queryManifold;
 			i.push({
 				owner: a.owner,

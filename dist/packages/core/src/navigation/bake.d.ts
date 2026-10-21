@@ -82,6 +82,10 @@ export declare class NavigationGridBakeJob2D {
     get expansions(): number;
     get result(): NavigationGrid2D | undefined;
     step(budget: number): NavigationSearchStatus;
+    /** @internal Consecutive scheduler steps keep sharing one pose refresh, as within a step. */
+    [holdNavigationSteps](run: () => void): void;
+    private get authored();
+    private advance;
     cancel(): void;
 }
 /** Multi-surface finite lattice. One public query/candidate transition per work unit;

@@ -254,14 +254,31 @@ export class PhysicsWorld2D {
   droppedTime = 0;
   private geometryVersion = 0;
   private registrationVersion = 0;
+  /** Set inside withPoseSnapshot: poses were refreshed once and nothing can move them. */
+  private poseSnapshot = false;
   /** Collision-bake snapshot token, including direct mutable transforms and query filters. */
   get geometryRevision(): number {
+    if (this.poseSnapshot) return this.geometryVersion;
     for (const proxy of this.proxies) {
       if (!this.alive(proxy)) continue;
       proxy.refresh();
       if (proxy.geometryChanged()) this.geometryVersion++;
     }
     return this.geometryVersion;
+  }
+  /**
+   * @internal Runs synchronous `overlap` queries that move no collider (no user code runs
+   * inside `run`) against one pose refresh instead of rechecking every pose per query.
+   */
+  withPoseSnapshot<T>(run: () => T): T {
+    if (this.poseSnapshot) return run();
+    void this.geometryRevision;
+    this.poseSnapshot = true;
+    try {
+      return run();
+    } finally {
+      this.poseSnapshot = false;
+    }
   }
 
   constructor(options: PhysicsWorldOptions = {}) {
@@ -1219,7 +1236,7 @@ export class PhysicsWorld2D {
         !(proxy.collider.category & collider.mask)
       )
         continue;
-      proxy.refresh();
+      if (!this.poseSnapshot) proxy.refresh();
       if (!collide(geometry, proxy.geometry, this.queryManifold)) continue;
       const m = this.queryManifold;
       results.push({

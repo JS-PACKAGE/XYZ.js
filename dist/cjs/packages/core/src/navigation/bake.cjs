@@ -81,7 +81,15 @@ var NavigationGridBakeJob2D = class {
 		return this.value;
 	}
 	step(e) {
-		if (validateBudget(e), this.state !== `pending`) return this.state;
+		return validateBudget(e), this.state === `pending` ? this.authored ? this.advance(e) : this.world.withPoseSnapshot(() => this.advance(e)) : this.state;
+	}
+	[require_scheduler.holdNavigationSteps](e) {
+		this.authored ? e() : this.world.withPoseSnapshot(e);
+	}
+	get authored() {
+		return !!(this.options.blockedCell || this.options.geometryRevision);
+	}
+	advance(e) {
 		if (this.world.geometryRevision !== this.worldRevision || this.options.geometryRevision?.() !== this.sourceRevision || this.options.target && (this.options.target.destroyed || this.options.target.revision !== this.revision)) return this.state = `invalidated`, this.edits.length = 0, this.probe.destroy(), this.state;
 		for (let t = 0; t < e && this.cursor < this.mapping.columns * this.mapping.rows; t++) {
 			let e = this.cursor % this.mapping.columns, t = Math.floor(this.cursor / this.mapping.columns);
