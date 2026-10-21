@@ -2609,6 +2609,73 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .78,
 		relief: .002
+	}),
+	tactilepaving: Object.freeze({
+		dark: [
+			105,
+			82,
+			28
+		],
+		light: [
+			230,
+			199,
+			91
+		],
+		roughness: .83,
+		relief: .009,
+		tiles: 2,
+		domes: 6,
+		jointInner: .455,
+		jointOuter: .49,
+		domeInner: .2,
+		domeOuter: .34
+	}),
+	roadmarking: Object.freeze({
+		dark: [
+			24,
+			27,
+			28
+		],
+		light: [
+			232,
+			231,
+			213
+		],
+		roughness: .93,
+		relief: .0015,
+		bands: 2,
+		bandInner: .26,
+		bandOuter: .3,
+		wearInner: .36,
+		wearOuter: .56,
+		wearColumns: 12,
+		wearRows: 20
+	}),
+	draincover: Object.freeze({
+		dark: [
+			14,
+			17,
+			18
+		],
+		light: [
+			139,
+			146,
+			144
+		],
+		roughness: .64,
+		relief: .012,
+		frameInnerX: .43,
+		frameOuterX: .46,
+		frameInnerY: .4,
+		frameOuterY: .43,
+		slots: 6,
+		slotStart: .15,
+		slotSpacing: .14,
+		slotHalfLength: .25,
+		slotInner: .026,
+		slotOuter: .042,
+		braceInner: .035,
+		braceOuter: .055
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2797,7 +2864,10 @@ var proceduralTileMeters = Object.freeze({
 	sycamorebark: .3,
 	elephanthide: .3,
 	ostrichleather: .1,
-	sharkskin: .035
+	sharkskin: .035,
+	tactilepaving: .6,
+	roadmarking: 2,
+	draincover: .7
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

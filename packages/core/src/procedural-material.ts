@@ -192,7 +192,10 @@ export type ProceduralMaterialKind =
   | 'sycamorebark'
   | 'elephanthide'
   | 'ostrichleather'
-  | 'sharkskin';
+  | 'sharkskin'
+  | 'tactilepaving'
+  | 'roadmarking'
+  | 'draincover';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -411,6 +414,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'elephanthide',
   'ostrichleather',
   'sharkskin',
+  'tactilepaving',
+  'roadmarking',
+  'draincover',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -541,6 +547,7 @@ export class ProceduralMaterial {
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||
+        this.kind === 'draincover' ||
         this.kind === 'pyrite' ||
         this.kind === 'knurledmetal' ||
         this.kind === 'engineturned' ||

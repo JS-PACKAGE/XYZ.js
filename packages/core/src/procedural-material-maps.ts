@@ -103,6 +103,25 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const municipal =
+    kind === 'tactilepaving' || kind === 'roadmarking' || kind === 'draincover';
+  const municipalGrain = municipal ? cachedNoise(96, 96, seed ^ 0x2a71) : null;
+  const pavingTone =
+    kind === 'tactilepaving'
+      ? cachedNoise(
+          proceduralMaterialPresets.tactilepaving.tiles,
+          proceduralMaterialPresets.tactilepaving.tiles,
+          seed ^ 0x5b93,
+        )
+      : null;
+  const paintWear =
+    kind === 'roadmarking'
+      ? cachedNoise(
+          proceduralMaterialPresets.roadmarking.wearColumns,
+          proceduralMaterialPresets.roadmarking.wearRows,
+          seed ^ 0x63d1,
+        )
+      : null;
   const animalSkin =
     kind === 'elephanthide' ||
     kind === 'ostrichleather' ||
@@ -1122,7 +1141,8 @@ export function createSurfaceSampler(
       fruitSkin ||
       petal ||
       treeBark ||
-      animalSkin
+      animalSkin ||
+      municipal
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -1149,6 +1169,107 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'tactilepaving': {
+        const p = proceduralMaterialPresets.tactilepaving,
+          grain = municipalGrain!(u, v),
+          tone = pavingTone!(u, v),
+          tx = Math.abs(fract(u * p.tiles) - 0.5),
+          ty = Math.abs(fract(v * p.tiles) - 0.5),
+          tile =
+            (1 -
+              smooth(
+                clamp((tx - p.jointInner) / (p.jointOuter - p.jointInner)),
+              )) *
+            (1 -
+              smooth(
+                clamp((ty - p.jointInner) / (p.jointOuter - p.jointInner)),
+              )),
+          dx = fract(u * p.domes) - 0.5,
+          dy = fract(v * p.domes) - 0.5,
+          dome =
+            1 -
+            smooth(
+              clamp(
+                (dx * dx + dy * dy - p.domeInner * p.domeInner) /
+                  (p.domeOuter * p.domeOuter - p.domeInner * p.domeInner),
+              ),
+            );
+        // Radius .34 < .5: the one owner cell contains the full dome support.
+        // Squared radius is smooth at its center; tile joins lie in flat gaps.
+        color =
+          0.22 + 0.4 * tile + 0.08 * tile * dome + 0.06 * grain + 0.05 * tone;
+        height = 0.12 + tile * (0.12 + 0.56 * dome) + 0.008 * grain;
+        roughness = p.roughness + 0.06 * (grain - 0.5) - 0.025 * dome * tile;
+        occlusion = 0.72 + 0.22 * tile + 0.06 * tile * dome;
+        break;
+      }
+      case 'roadmarking': {
+        const p = proceduralMaterialPresets.roadmarking,
+          grain = municipalGrain!(u, v),
+          distance = Math.abs(fract(u * p.bands) - 0.5),
+          band =
+            1 -
+            smooth(
+              clamp((distance - p.bandInner) / (p.bandOuter - p.bandInner)),
+            ),
+          survival = smooth(
+            clamp(
+              (paintWear!(u, v) - p.wearInner) / (p.wearOuter - p.wearInner),
+            ),
+          ),
+          paint = band * survival,
+          substrateColor = 0.04 + 0.12 * grain,
+          substrateHeight = 0.17 + 0.07 * grain;
+        // Convex opaque ownership removes buried asphalt relief on intact paint.
+        color = substrateColor + paint * (0.82 + 0.1 * grain - substrateColor);
+        height =
+          substrateHeight + paint * (0.32 + 0.008 * grain - substrateHeight);
+        roughness = p.roughness - 0.25 * paint + 0.04 * (grain - 0.5);
+        occlusion = 0.91 + 0.09 * paint;
+        break;
+      }
+      case 'draincover': {
+        const p = proceduralMaterialPresets.draincover,
+          grain = municipalGrain!(u, v),
+          x = Math.abs(u - 0.5),
+          y = Math.abs(v - 0.5),
+          cover =
+            (1 -
+              smooth(
+                clamp((x - p.frameInnerX) / (p.frameOuterX - p.frameInnerX)),
+              )) *
+            (1 -
+              smooth(
+                clamp((y - p.frameInnerY) / (p.frameOuterY - p.frameInnerY)),
+              )),
+          brace =
+            1 -
+            smooth(clamp((y - p.braceInner) / (p.braceOuter - p.braceInner))),
+          end = Math.max(0, y - p.slotHalfLength);
+        let slots = 0;
+        // Enumerate all six disjoint capsules (.084 width < .14 spacing).
+        // Their full supports fit inside the frame; no lookup truncates an end.
+        for (let i = 0; i < p.slots; i++) {
+          const dx = u - p.slotStart - i * p.slotSpacing;
+          slots +=
+            1 -
+            smooth(
+              clamp(
+                (dx * dx + end * end - p.slotInner * p.slotInner) /
+                  (p.slotOuter * p.slotOuter - p.slotInner * p.slotInner),
+              ),
+            );
+        }
+        // The squared positive part is C1 where straight sides meet end caps.
+        // Brace ownership suppresses lower slot shading on the upper iron face.
+        const face = cover * (1 - slots * (1 - brace));
+        color = 0.035 + 0.045 * grain + face * (0.52 + 0.08 * grain);
+        height = 0.1 + 0.012 * grain + 0.72 * face;
+        roughness = p.roughness + 0.2 * (1 - face) + 0.06 * (grain - 0.5);
+        occlusion = 0.25 + 0.75 * face;
+        metallic = face;
+        break;
+      }
       case 'birchbark':
       case 'palmtrunk':
       case 'sycamorebark': {

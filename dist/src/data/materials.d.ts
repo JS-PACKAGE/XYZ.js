@@ -1122,6 +1122,49 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.78;
         relief: 0.002;
     }>;
+    tactilepaving: Readonly<{
+        dark: readonly [105, 82, 28];
+        light: readonly [230, 199, 91];
+        roughness: 0.83;
+        relief: 0.009;
+        tiles: 2;
+        domes: 6;
+        jointInner: 0.455;
+        jointOuter: 0.49;
+        domeInner: 0.2;
+        domeOuter: 0.34;
+    }>;
+    roadmarking: Readonly<{
+        dark: readonly [24, 27, 28];
+        light: readonly [232, 231, 213];
+        roughness: 0.93;
+        relief: 0.0015;
+        bands: 2;
+        bandInner: 0.26;
+        bandOuter: 0.3;
+        wearInner: 0.36;
+        wearOuter: 0.56;
+        wearColumns: 12;
+        wearRows: 20;
+    }>;
+    draincover: Readonly<{
+        dark: readonly [14, 17, 18];
+        light: readonly [139, 146, 144];
+        roughness: 0.64;
+        relief: 0.012;
+        frameInnerX: 0.43;
+        frameOuterX: 0.46;
+        frameInnerY: 0.4;
+        frameOuterY: 0.43;
+        slots: 6;
+        slotStart: 0.15;
+        slotSpacing: 0.14;
+        slotHalfLength: 0.25;
+        slotInner: 0.026;
+        slotOuter: 0.042;
+        braceInner: 0.035;
+        braceOuter: 0.055;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -1311,6 +1354,9 @@ export declare const proceduralTileMeters: Readonly<{
     elephanthide: 0.3;
     ostrichleather: 0.1;
     sharkskin: 0.035;
+    tactilepaving: 0.6;
+    roadmarking: 2;
+    draincover: 0.7;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

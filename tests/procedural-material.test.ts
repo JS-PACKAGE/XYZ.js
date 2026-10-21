@@ -211,6 +211,9 @@ const kinds: ProceduralMaterialKind[] = [
   'elephanthide',
   'ostrichleather',
   'sharkskin',
+  'tactilepaving',
+  'roadmarking',
+  'draincover',
 ];
 
 describe('animal skin morphology', () => {
@@ -454,6 +457,230 @@ beforeEach(() => {
 afterEach(() => {
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
+});
+
+describe('municipal surface morphology', () => {
+  const seeds = [0, 1, 0xffffffff];
+  const field = (kind: ProceduralMaterialKind, seed: number) => {
+    const sample = createSurfaceSampler(kind, seed);
+    return (u: number, v: number): SurfaceSample => {
+      const out = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      sample(u, v, out);
+      return out;
+    };
+  };
+  it.each(seeds)(
+    'tactile paving has flat dome crowns, tile joints and subordinate grain, seed %i',
+    (seed) => {
+      const at = field('tactilepaving', seed),
+        relief = proceduralMaterialPresets.tactilepaving.relief;
+      for (let y = 0; y < 6; y++)
+        for (let x = 0; x < 6; x++) {
+          const u = (x + 0.5) / 6,
+            v = (y + 0.5) / 6,
+            crown = at(u, v),
+            plateau = at(u + 0.15 / 6, v),
+            shoulder = at(u + 0.28 / 6, v),
+            floor = at(u + 0.4 / 6, v);
+          expect(Math.abs(crown.height - plateau.height)).toBeLessThan(
+            0.009 * relief,
+          );
+          expect(crown.height).toBeGreaterThan(shoulder.height);
+          expect(shoulder.height).toBeGreaterThan(floor.height);
+          expect(crown.height - floor.height).toBeGreaterThan(0.54 * relief);
+          expect(crown.metallic).toBe(0);
+        }
+      const joint = at(0.5, 0.25),
+        tile = at(0.46, 0.25);
+      expect(tile.height - joint.height).toBeGreaterThan(0.1 * relief);
+      expect(tile.color).toBeGreaterThan(joint.color + 0.3);
+      expect(tile.occlusion).toBeGreaterThan(joint.occlusion);
+    },
+  );
+  it.each(seeds)(
+    'road bands retain coherent paint loss above rough dark asphalt, seed %i',
+    (seed) => {
+      const at = field('roadmarking', seed),
+        relief = proceduralMaterialPresets.roadmarking.relief;
+      let intact = 0,
+        lost = 0,
+        connected = 0;
+      for (let y = 0; y < 96; y++)
+        for (let x = 0; x < 96; x++) {
+          const u = (x + 0.5) / 96,
+            v = (y + 0.5) / 96,
+            out = at(u, v);
+          expect(out.metallic).toBe(0);
+          if (out.color > 0.86) {
+            expect(out.height).toBeGreaterThan(0.31 * relief);
+            expect(out.roughness).toBeLessThan(0.73);
+            intact++;
+          }
+          if (Math.abs(((u * 2) % 1) - 0.5) < 0.24 && out.color < 0.17) {
+            expect(out.height).toBeLessThan(0.25 * relief);
+            expect(out.roughness).toBeGreaterThan(0.88);
+            lost++;
+            if (at(u, v + 1 / 192).color < 0.2) connected++;
+          }
+        }
+      expect(intact).toBeGreaterThan(400);
+      expect(lost).toBeGreaterThan(100);
+      expect(connected).toBeGreaterThan(lost * 0.65);
+      // Both long unpainted corridors remain asphalt, unlike zebra/fine line motifs.
+      for (let y = 0; y < 20; y++)
+        for (const u of [0, 0.5])
+          expect(at(u, y / 20).color).toBeLessThan(0.17);
+    },
+  );
+  it.each(seeds)(
+    'drain has elongated recesses, rounded ends, metal bars, frame and crossbrace, seed %i',
+    (seed) => {
+      const at = field('draincover', seed);
+      for (let i = 0; i < 6; i++) {
+        const u = 0.15 + i * 0.14,
+          slot = at(u, 0.35),
+          end = at(u, 0.22),
+          frame = at(u, 0.14),
+          brace = at(u, 0.5),
+          bar = at(u + 0.065, 0.35);
+        for (const face of [frame, brace, bar]) {
+          expect(face.metallic).toBe(1);
+          expect(face.height).toBeGreaterThan(slot.height);
+          expect(face.color).toBeGreaterThan(slot.color + 0.4);
+          expect(face.occlusion).toBeGreaterThan(slot.occlusion);
+          expect(face.roughness).toBeLessThan(slot.roughness);
+        }
+        expect(slot.metallic).toBe(0);
+        expect(at(u, 0.65).metallic).toBe(0);
+        expect(end.metallic).toBeGreaterThan(0);
+        expect(end.metallic).toBeLessThan(1);
+        expect(at(u + 0.04, 0.35).metallic).toBeGreaterThan(slot.metallic);
+      }
+    },
+  );
+  it.each(['tactilepaving', 'roadmarking', 'draincover'] as const)(
+    '%s keeps all fields bounded C1 at actual centers, supports, shoulders and owner joins',
+    (kind) => {
+      for (const seed of seeds) {
+        const at = field(kind, seed),
+          points: [number, number][] = [];
+        // Cached grain lattice boundaries and periodic seams, including corners.
+        for (let i = 0; i <= 96; i++)
+          points.push([i / 96, 0.391], [0.617, i / 96], [i / 96, i / 96]);
+        if (kind === 'tactilepaving') {
+          for (let x = 0; x < 6; x++)
+            for (let y = 0; y < 6; y++)
+              for (const r of [0, 0.2, 0.34])
+                for (let i = 0; i < 8; i++)
+                  points.push([
+                    (x + 0.5 + r * Math.cos((i * Math.PI) / 4)) / 6,
+                    (y + 0.5 + r * Math.sin((i * Math.PI) / 4)) / 6,
+                  ]);
+          for (const q of [
+            0,
+            0.5 - 0.49,
+            0.5 - 0.455,
+            0.5,
+            0.5 + 0.455,
+            0.5 + 0.49,
+            1,
+          ])
+            points.push([q / 2, 0.25], [0.25, q / 2], [q / 2, q / 2]);
+        } else if (kind === 'draincover') {
+          for (const x of [0, 0.43, 0.46])
+            for (const y of [0, 0.035, 0.055, 0.25, 0.4, 0.43])
+              for (const s of [-1, 1]) points.push([0.5 + s * x, 0.5 + s * y]);
+          for (let slot = 0; slot < 6; slot++) {
+            const u = 0.15 + slot * 0.14;
+            for (const y of [
+              0.25, 0.35, 0.445, 0.465, 0.5, 0.535, 0.555, 0.65, 0.75,
+            ])
+              for (const r of [0, 0.026, 0.042])
+                points.push([u + r, y], [u - r, y]);
+            for (const cy of [0.25, 0.75])
+              for (const r of [0.026, 0.042])
+                for (let i = 0; i < 16; i++) {
+                  const angle = (i * Math.PI) / 8;
+                  if ((cy === 0.25 ? -1 : 1) * Math.sin(angle) >= 0)
+                    points.push([
+                      u + r * Math.cos(angle),
+                      cy + r * Math.sin(angle),
+                    ]);
+                }
+          }
+        } else {
+          for (const q of [0, 0.2, 0.24, 0.5, 0.76, 0.8, 1])
+            points.push([q / 2, 0.37], [(1 + q) / 2, 0.63]);
+          // Solve the actual seeded wear clamp shoulders on lattice edges.
+          const hash = (x: number, y: number): number => {
+            let n =
+              (seed ^
+                0x63d1 ^
+                Math.imul(x, 0x9e3779b1) ^
+                Math.imul(y, 0x85ebca6b)) >>>
+              0;
+            n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+            n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+            return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+          };
+          for (let y = 0; y < 20; y++)
+            for (let x = 0; x < 12; x++) {
+              points.push([x / 12, y / 20]);
+              const a = hash(x, y),
+                b = hash((x + 1) % 12, y);
+              for (const threshold of [0.36, 0.56]) {
+                if ((a - threshold) * (b - threshold) >= 0) continue;
+                let lo = 0,
+                  hi = 1;
+                const target = (threshold - a) / (b - a);
+                for (let i = 0; i < 48; i++) {
+                  const t = (lo + hi) / 2;
+                  if (t * t * (3 - 2 * t) < target) lo = t;
+                  else hi = t;
+                }
+                points.push([(x + (lo + hi) / 2) / 12, y / 20]);
+              }
+            }
+        }
+        for (const [u, v] of points) {
+          const center = at(u, v);
+          for (const key of Object.keys(center) as (keyof SurfaceSample)[]) {
+            expect(Number.isFinite(center[key])).toBe(true);
+            expect(center[key]).toBeGreaterThanOrEqual(0);
+            expect(center[key]).toBeLessThanOrEqual(1);
+          }
+          for (const [du, dv] of [
+            [1, 0],
+            [0, 1],
+            [0.6, 0.8],
+          ]) {
+            const h = 1e-7,
+              left = at(u - du * h, v - dv * h),
+              right = at(u + du * h, v + dv * h),
+              coarseLeft = at(u - du * 4 * h, v - dv * 4 * h),
+              coarseRight = at(u + du * 4 * h, v + dv * 4 * h);
+            for (const key of Object.keys(center) as (keyof SurfaceSample)[]) {
+              const fine =
+                  Math.abs(left[key] + right[key] - 2 * center[key]) / h,
+                coarse =
+                  Math.abs(
+                    coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                  ) /
+                  (4 * h);
+              expect(fine).toBeLessThanOrEqual(0.4 * coarse + 1e-6);
+            }
+          }
+        }
+      }
+    },
+  );
 });
 
 describe('periodic procedural material fields', () => {
@@ -3770,7 +3997,11 @@ describe('periodic procedural material fields', () => {
           kind === 'weldedmetal'
         )
           expect(first.metallicRoughness[p + 2]).toBe(255);
-        else if (kind !== 'rust' && kind !== 'chainmail')
+        else if (
+          kind !== 'rust' &&
+          kind !== 'chainmail' &&
+          kind !== 'draincover'
+        )
           expect(first.metallicRoughness[p + 2]).toBe(0);
         expect(first.metallicRoughness[p + 3]).toBe(255);
         expect(first.occlusion[p]).toBeGreaterThan(0);
@@ -3780,7 +4011,7 @@ describe('periodic procedural material fields', () => {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
       }
-      if (kind === 'chainmail') {
+      if (kind === 'chainmail' || kind === 'draincover') {
         expect(metallic.has(0)).toBe(true);
         expect(metallic.has(255)).toBe(true);
         expect([...metallic].some((value) => value > 0 && value < 255)).toBe(

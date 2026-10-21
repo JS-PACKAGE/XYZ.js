@@ -3847,3 +3847,44 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   以上完整 suite 與雙 backend 證據僅屬本組 183 種快照，不冒稱其他
   未提交功能也通過同一輪完整檢查；本組不 push。
 - `[Math]` `Matrix3.copy`／`Matrix4.copy` 以逐元素寫入取代 `TypedArray#set`（內建呼叫成本高於 9／16 次搬移；值完全相同）。20k sprites WebGL2 每幀 CPU submit p50 6.5 → 5.9–6.2 ms、min 5.3 → 4.9–5.0 ms（三輪交替，CPU 時間，不是 fps）；Node 20k 次 Matrix3 複製 400–549 → 293–369 µs，3D visibility Node 對拍持平且雜湊相同。改錯一個元素的 mutant 由既有 2D 與完整測試抓到。三 backend browser regression 通過；build 與完整測試（2168 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：警示導盲磚、道路標線與排水蓋
+
+- 新增 tactilepaving／roadmarking／draincover。初始快照 183→186 種，
+  納入另一筆已提交街道材質後，最終驗證快照共 189 種。
+  警示導盲磚有凹陷磚縫、平頂圓肩凸點及細骨材；
+  道路標線是較平滑隆起的米白漆帶，連貫磨損露出暗色瀝青；
+  排水蓋是鑄鐵外框、六列圓端槽與橫撐，凹槽為不透明暗底。
+  不新增 geometry、實際開孔、alpha、反光 BRDF 或道路／無障礙認證。
+- 前兩者 metallic B／預設 factor 為 0；排水蓋 factor 為 1，
+  鐵框／柵條／橫撐 B=1、凹槽／外部 B=0，圓肩平滑過渡。
+  平方徑向支撐避免凸點中心 cusp，圓端槽的平方 positive-part
+  在直邊接端部維持 C1；橫撐覆蓋槽底陰影，完整漆面取代底層起伏。
+- 形態測試涵蓋 seed 0、1、0xffffffff 的平台／肩部／凹槽、
+  連貫掉漆與粗糙度、金屬區域及實際交界 C1。
+  不新增重複 factory defaults／channel wiring 測試，沿用共同測試。
+  In-memory 分別移除凸點、掉漆閾值、橫撐的平滑肩部，
+  三者皆被同一 C1 測試拒絕；未保留 mutant／throwaway script。
+  六個 seed、193×193 座標的 raw scalar 掃描通過，
+  roughness 移除最終 clamp 後仍合法，不以 clipping 掩蓋形態錯誤。
+- 最終 189 種快照 build、完整 lint、自有檔案 format check 通過；
+  完整 suite 為 177 檔、2186 項全部通過。
+  初始快照的針對性選擇另有 16 項通過。
+  typecheck 仍因既有 `sprite-quad-validation.test.ts:13`
+  fixture 缺少 `destroy` 失敗，未改動該 fixture 或任何 test timeout。
+- 前 186 種 maps 在 size 64、seed 7 與當時基準 `b252076d`
+  逐 byte 不變；全 189 種 source／ESM／CJS 同參數一致，
+  新三種另比對 seed 0、1、8、0xffffffff、3589914215。
+  提交實際重建的材質模組 ESM／CJS／型別與 sourcemap。
+- 真實 Chrome WebGPU／WebGL2 逐一切換三種材質，整合前後六張畫面
+  雜湊相同；已檢視 public factory 256 px／seed 7 的 2×2 平鋪。
+  roughness byte 為 198–219／168–242／156–222，每米 repeats 為
+  1.6667／0.5／1.4286。metallic texture 範圍與 factory factor
+  符合前述分區；四份 texture 均由 preset.destroy 釋放。
+  初版 smoke helper 誤把 PBRMaterial 當成 MaterialAsset 呼叫 destroy，
+  讀取類別契約後修正 helper 再通過；引擎無此錯誤。
+- 五份完整目錄各確認 189 個唯一名稱；README 三語縮為自然／建築／
+  工業／生活素材四大類，完整枚舉留在技術文件。PLAN／DESIGN 歷史段落
+  與既有連結不變，無新 runtime 依賴，不擴大瀏覽器／裝置認證。
+  提交只收本組隔離驗證內容；共享目錄其他未提交材質保留不混入，
+  不將本輪完整檢查宣稱適用於未提交功能。本組不 push。
