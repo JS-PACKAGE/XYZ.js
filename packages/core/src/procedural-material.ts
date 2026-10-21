@@ -69,6 +69,9 @@ export type ProceduralMaterialKind =
   | 'stucco'
   | 'lichen'
   | 'leaflitter'
+  | 'lotusleaf'
+  | 'bananaleaf'
+  | 'fernleaf'
   | 'endgrain'
   | 'acousticfoam'
   | 'closedcellfoam'
@@ -224,6 +227,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'stucco',
   'lichen',
   'leaflitter',
+  'lotusleaf',
+  'bananaleaf',
+  'fernleaf',
   'endgrain',
   'acousticfoam',
   'closedcellfoam',

@@ -3139,3 +3139,31 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[Lighting]` 每個 mesh 的光源排名改以區域計數就地插入、最後一次截斷，不再先清空輸出陣列；WebGL2 記錄已送出光源時改為逐項覆寫後截斷，取代 `length = 0` 加展開 `push(...)`。選取結果、順序與統計不變。穩態（暖機 12 s）native-material3d WebGL2 每幀配置 34.1 → 25.8 KB，屬配置減少；WebGL2 browser regression 通過，光源選取測試涵蓋上限計數的 mutation。build 與完整測試（1907 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：綠葉葉脈（lotusleaf／bananaleaf／fernleaf）
+
+- 新增荷葉的圓潤葉面、放射葉脈與中央附著點，香蕉葉的細長葉面、
+  中肋與密集斜向側脈，以及蕨葉的交替羽片與各羽片細脈。
+  以預先計算的 seeded transforms、Cartesian rays、compact support
+  與平滑 ownership 避免中心奇異點及重疊／週期接縫。
+  三者皆為 opaque dielectric；不新增 alpha cutout、植被 geometry、
+  displacement、SSS、濕潤或風動模擬。
+- 初始隔離快照共 123 種；原 120 種在 size 64／seed 7 下四份 maps
+  SHA256 全部不變，六項葉脈形態／C1 收斂測試與完整
+  176 files／1917 tests 通過。
+- 晶洞／石英／黃鐵礦於驗證期間另行提交，因此從新 HEAD 重建快照，
+  保留晶體種類與 metallic 契約後合併本組，最終共 126 種。
+  既有 123 種 maps 與本組三種原始 maps 均保持不變；
+  最終 build、typecheck、lint、format:check 與完整 Vitest 通過：
+  176 files／1929 tests passed。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認週期排列，metallic bytes 全為 0。
+  roughness bytes 依序 156–164／135–144／176–185，每米 repeats
+  依序 1.111111／0.666667／1.515152；四份貼圖 destroy 後均確認已釋放。
+  主工作目錄與重建快照的 WebGPU pixels 均與原快照相同；
+  最終 ESM／CJS 四份 maps bytes 與 source 相同。
+- 主工作目錄 build、typecheck 與當時 466 個材質測試通過。
+  保留其他進行中的公開 options 修改，不納入本組提交。
+  文件沒有新增相對連結，README 既有自然表面分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

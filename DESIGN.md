@@ -113,6 +113,8 @@
 
 散粒表面增量為 rice／sesame／coffeebeans（米粒／芝麻／咖啡豆），目前共一百二十種；前述 counts 保留為歷史。米粒呈現象牙白細長輪廓、不同朝向與柔和縱向起伏；芝麻呈現暖棕褐色小型不對稱淚滴輪廓、圓潤隆起中脊與漸尖端部；咖啡豆呈現較寬的深烘焙棕色橢圓輪廓、彎曲中央裂縫與細密不均烘焙紋理。三者各自擁有不同形狀場，不是同一圖樣換色或縮放，皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的四份 seeded deterministic periodic maps、repeat sampling 與 size／seed options。這些是風格化散粒表面 shading／normal map 效果，不是逐粒模擬或物理堆疊，不建立 geometry、displacement、透明或次表面散射。前一百一十七種四份 maps 輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。
 
+綠葉表面增量為 lotusleaf／bananaleaf／fernleaf（荷葉／香蕉葉／蕨葉），目前共一百二十六種；前述 counts 保留為歷史。荷葉為寬闊圓潤葉片、放射狀葉脈與中央附著點起伏；香蕉葉為細長寬葉面、強烈中肋與密集平行／斜向側脈；蕨葉為沿葉軸交替排列的漸尖羽片，各有細緻葉脈。三者形態各異，不是換色或縮放的落葉層；皆為不透明綠色 dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps、repeat sampling 與 size／seed options。葉片與葉脈僅為表面 shading／normal map 效果，不提供 alpha cutout、真實植被 geometry、displacement、SSS、濕潤模擬或風動行為。前一百二十三種四份 maps 輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

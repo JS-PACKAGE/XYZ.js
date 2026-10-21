@@ -87,6 +87,9 @@ const kinds: ProceduralMaterialKind[] = [
   'stucco',
   'lichen',
   'leaflitter',
+  'lotusleaf',
+  'bananaleaf',
+  'fernleaf',
   'endgrain',
   'acousticfoam',
   'closedcellfoam',
@@ -195,6 +198,267 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('opaque foliage relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    // Reconstruct seeded placement only, never the field's channel formulas.
+    const feature = (
+      kind: 'lotusleaf' | 'bananaleaf' | 'fernleaf',
+      x: number,
+      y: number,
+      seed: number,
+    ) => {
+      const variation = hash(x, y, seed ^ 0x36d1),
+        angle = 2 * Math.PI * hash(x, y, seed ^ 0x5a97),
+        length =
+          kind === 'lotusleaf'
+            ? 0.65 + 0.04 * variation
+            : kind === 'bananaleaf'
+              ? 0.76 + 0.04 * variation
+              : 0.78 + 0.03 * variation,
+        width =
+          kind === 'lotusleaf'
+            ? 0.61 + 0.04 * variation
+            : kind === 'bananaleaf'
+              ? 0.28 + 0.02 * variation
+              : 0.5;
+      return {
+        variation,
+        point: (a: number, b: number): [number, number] => [
+          (x +
+            0.45 +
+            0.1 * hash(x, y, seed ^ 0x21b7) +
+            length * a * Math.cos(angle) -
+            width * b * Math.sin(angle)) /
+            3,
+          (y +
+            0.45 +
+            0.1 * hash(x, y, seed ^ 0x71e3) +
+            length * a * Math.sin(angle) +
+            width * b * Math.cos(angle)) /
+            3,
+        ],
+      };
+    };
+    it('lotus leaves retain radial veins and raised central attachments', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('lotusleaf', seed);
+        let radial = 0,
+          attachments = 0;
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            const f = feature('lotusleaf', x, y, seed),
+              at = (radius: number, angle: number) => {
+                const out = empty(),
+                  p = f.point(
+                    radius * Math.cos(angle),
+                    radius * Math.sin(angle),
+                  );
+                sample(p[0], p[1], out);
+                return out.height;
+              };
+            let rays = 0;
+            for (let i = 0; i < 12; i++) {
+              const angle = (i * Math.PI) / 6 + 0.15 * f.variation;
+              if (at(0.5, angle) > at(0.5, angle + Math.PI / 12)) rays++;
+            }
+            if (rays >= 8) radial++;
+            if (at(0, 0) > at(0.2, Math.PI / 12 + 0.15 * f.variation))
+              attachments++;
+          }
+        // Layering may hide one leaf, but must not erase the overall morphology.
+        expect(radial).toBeGreaterThanOrEqual(3);
+        expect(attachments).toBeGreaterThanOrEqual(3);
+      }
+    });
+    it('banana panels have a strong midrib and repeated oblique side veins', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('bananaleaf', seed);
+        let panels = 0;
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            const f = feature('bananaleaf', x, y, seed),
+              at = (a: number, b: number) => {
+                const out = empty(),
+                  p = f.point(a, b);
+                sample(p[0], p[1], out);
+                return out.height;
+              };
+            let peaks = 0;
+            for (let i = 1; i < 120; i++) {
+              const a = -0.6 + i * 0.01;
+              if (
+                at(a, 0.45) > at(a - 0.01, 0.45) &&
+                at(a, 0.45) > at(a + 0.01, 0.45)
+              )
+                peaks++;
+            }
+            if (peaks >= 8 && at(0, 0) > at(0, 0.2)) panels++;
+          }
+        expect(panels).toBeGreaterThanOrEqual(3);
+      }
+    });
+    it('fern fronds separate alternating pinnae and retain fine pinna veins', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('fernleaf', seed);
+        let fronds = 0,
+          veined = 0;
+        for (let y = 0; y < 3; y++)
+          for (let x = 0; x < 3; x++) {
+            const f = feature('fernleaf', x, y, seed),
+              at = (a: number, b: number) => {
+                const out = empty(),
+                  p = f.point(a, b);
+                sample(p[0], p[1], out);
+                return out.height;
+              };
+            let alternating = 0;
+            for (let i = 2; i < 12; i++) {
+              const root = -0.7 + i * 0.105,
+                side = i % 2 === 0 ? 1 : -1;
+              if (
+                at(root + 0.075, side * 0.25) > at(root + 0.075, -side * 0.25)
+              )
+                alternating++;
+            }
+            if (alternating >= 7) fronds++;
+            // An off-midrib path inside one pinna must have repeated relief,
+            // rather than the single maximum of an un-veined smooth oval.
+            let peaks = 0;
+            const trace = (t: number) => {
+              const b = t * (0.68 - 0.36 * 0.07 * 0.07);
+              return at(-0.07 + 0.3 * b + 0.043 * 0.45, b);
+            };
+            for (let i = 1; i < 80; i++) {
+              const t = 0.3 + i * 0.005;
+              if (trace(t) > trace(t - 0.005) && trace(t) > trace(t + 0.005))
+                peaks++;
+            }
+            if (peaks >= 2) veined++;
+          }
+        expect(fronds).toBeGreaterThanOrEqual(3);
+        expect(veined).toBeGreaterThanOrEqual(3);
+      }
+    });
+    it.each(['lotusleaf', 'bananaleaf', 'fernleaf'] as const)(
+      '%s has convergent slopes at origins, branches, supports, overlaps and wrap seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.137],
+              [0.791, 1],
+              [1 / 3, 0.47],
+              [0.29, 2 / 3],
+            ];
+          for (const [x, y] of [
+            [0, 0],
+            [1, 2],
+            [2, 1],
+          ]) {
+            const f = feature(kind, x, y, seed);
+            for (const [a, b] of [
+              [0, 0],
+              [-1, 0],
+              [1, 0],
+              [0, -1],
+              [0, 1],
+              [0, Math.sqrt(0.76)],
+              [0, -Math.sqrt(0.76)],
+              [Math.sqrt(0.76), 0],
+              [-Math.sqrt(0.76), 0],
+              [0.5, 0],
+              [0.3, 0.2],
+              [-0.4, -0.3],
+            ])
+              points.push(f.point(a, b));
+            if (kind === 'lotusleaf')
+              for (const radius of [0.03, 0.13, 0.5]) {
+                const angle = 0.15 * f.variation;
+                points.push(
+                  f.point(radius * Math.cos(angle), radius * Math.sin(angle)),
+                );
+              }
+            if (kind === 'fernleaf')
+              for (const [a, b] of [
+                [-0.9, 0],
+                [0.9, 0],
+                [0, -0.04],
+                [0, 0.04],
+                [-0.9 * Math.sqrt(0.65), 0],
+                [0.9 * Math.sqrt(0.65), 0],
+                [0, -0.04 * Math.sqrt(0.65)],
+                [0, 0.04 * Math.sqrt(0.65)],
+              ])
+                points.push(f.point(a, b));
+            if (kind === 'fernleaf')
+              for (const i of [0, 6, 13]) {
+                const root = -0.7 + i * 0.105,
+                  side = i % 2 === 0 ? 1 : -1,
+                  length = 0.68 - 0.36 * root * root;
+                for (const t of [0, 0.5, 1]) {
+                  const b = side * length * t;
+                  points.push(f.point(root + 0.3 * b * side, b));
+                }
+                for (const across of [
+                  -1,
+                  -Math.sqrt(0.65),
+                  Math.sqrt(0.65),
+                  1,
+                ]) {
+                  const b = side * length * 0.5;
+                  points.push(
+                    f.point(root + 0.3 * b * side + 0.043 * across, b),
+                  );
+                }
+              }
+          }
+          const center = empty(),
+            left = empty(),
+            right = empty(),
+            coarseLeft = empty(),
+            coarseRight = empty();
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [2e-7, 0],
+              [0, 2e-7],
+              [1.2e-7, 1.6e-7],
+            ]) {
+              sample(u, v, center);
+              sample(u - du, v - dv, left);
+              sample(u + du, v + dv, right);
+              sample(u - 4 * du, v - 4 * dv, coarseLeft);
+              sample(u + 4 * du, v + 4 * dv, coarseRight);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                const fineJump =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / 2e-7,
+                  coarseJump =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) / 8e-7;
+                expect(fineJump).toBeLessThanOrEqual(0.4 * coarseJump + 2e-8);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('bulk grain silhouettes and relief', () => {
     const empty = (): SurfaceSample => ({
       color: 0,

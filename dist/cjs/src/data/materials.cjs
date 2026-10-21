@@ -874,6 +874,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .88,
 		relief: .012
 	}),
+	lotusleaf: Object.freeze({
+		dark: [
+			17,
+			49,
+			28
+		],
+		light: [
+			112,
+			160,
+			85
+		],
+		roughness: .61,
+		relief: .006
+	}),
+	bananaleaf: Object.freeze({
+		dark: [
+			18,
+			52,
+			19
+		],
+		light: [
+			132,
+			174,
+			66
+		],
+		roughness: .53,
+		relief: .007
+	}),
+	fernleaf: Object.freeze({
+		dark: [
+			13,
+			39,
+			22
+		],
+		light: [
+			89,
+			146,
+			60
+		],
+		roughness: .69,
+		relief: .005
+	}),
 	endgrain: Object.freeze({
 		dark: [
 			82,
@@ -1792,6 +1834,9 @@ var proceduralTileMeters = Object.freeze({
 	stucco: .6,
 	lichen: .28,
 	leaflitter: .72,
+	lotusleaf: .9,
+	bananaleaf: 1.5,
+	fernleaf: .66,
 	endgrain: .3,
 	acousticfoam: .6,
 	closedcellfoam: .084,

@@ -378,6 +378,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.88;
         relief: 0.012;
     }>;
+    lotusleaf: Readonly<{
+        dark: readonly [17, 49, 28];
+        light: readonly [112, 160, 85];
+        roughness: 0.61;
+        relief: 0.006;
+    }>;
+    bananaleaf: Readonly<{
+        dark: readonly [18, 52, 19];
+        light: readonly [132, 174, 66];
+        roughness: 0.53;
+        relief: 0.007;
+    }>;
+    fernleaf: Readonly<{
+        dark: readonly [13, 39, 22];
+        light: readonly [89, 146, 60];
+        roughness: 0.69;
+        relief: 0.005;
+    }>;
     endgrain: Readonly<{
         dark: readonly [82, 43, 20];
         light: readonly [207, 163, 99];
@@ -809,6 +827,9 @@ export declare const proceduralTileMeters: Readonly<{
     stucco: 0.6;
     lichen: 0.28;
     leaflitter: 0.72;
+    lotusleaf: 0.9;
+    bananaleaf: 1.5;
+    fernleaf: 0.66;
     endgrain: 0.3;
     acousticfoam: 0.6;
     closedcellfoam: 0.084;

@@ -574,6 +574,52 @@ export function createSurfaceSampler(
               : 0.36 + 0.03 * variation);
         grainSites[offset + 6] = variation;
       }
+  const foliage =
+    kind === 'lotusleaf' || kind === 'bananaleaf' || kind === 'fernleaf';
+  const leafStride = kind === 'lotusleaf' ? 31 : 7;
+  const leafSites = foliage ? new Float64Array(3 * 3 * leafStride) : null;
+  if (leafSites)
+    for (let y = 0; y < 3; y++)
+      for (let x = 0; x < 3; x++) {
+        const offset = (y * 3 + x) * leafStride,
+          angle = TAU * hash(x, y, seed ^ 0x5a97),
+          variation = hash(x, y, seed ^ 0x36d1);
+        leafSites[offset] = 0.45 + 0.1 * hash(x, y, seed ^ 0x21b7);
+        leafSites[offset + 1] = 0.45 + 0.1 * hash(x, y, seed ^ 0x71e3);
+        leafSites[offset + 2] = Math.cos(angle);
+        leafSites[offset + 3] = Math.sin(angle);
+        leafSites[offset + 4] =
+          1 /
+          (kind === 'lotusleaf'
+            ? 0.65 + 0.04 * variation
+            : kind === 'bananaleaf'
+              ? 0.76 + 0.04 * variation
+              : 0.78 + 0.03 * variation);
+        leafSites[offset + 5] =
+          1 /
+          (kind === 'lotusleaf'
+            ? 0.61 + 0.04 * variation
+            : kind === 'bananaleaf'
+              ? 0.28 + 0.02 * variation
+              : 0.5);
+        leafSites[offset + 6] = variation;
+        if (kind === 'lotusleaf')
+          for (let ray = 0; ray < 12; ray++) {
+            const direction = (ray * TAU) / 12 + 0.15 * variation;
+            leafSites[offset + 7 + ray * 2] = Math.cos(direction);
+            leafSites[offset + 8 + ray * 2] = Math.sin(direction);
+          }
+      }
+  // Fixed pinna geometry is shared by all seeded fronds; no tip divisions or
+  // branch transforms are recomputed for individual samples.
+  const pinnae = kind === 'fernleaf' ? new Float64Array(14 * 3) : null;
+  if (pinnae)
+    for (let i = 0; i < 14; i++) {
+      const root = -0.7 + i * 0.105;
+      pinnae[i * 3] = root;
+      pinnae[i * 3 + 1] = i % 2 === 0 ? 1 : -1;
+      pinnae[i * 3 + 2] = 1 / (0.68 - 0.36 * root * root);
+    }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -605,7 +651,8 @@ export function createSurfaceSampler(
       packaging ||
       volcanic ||
       mineral ||
-      bulkGrain
+      bulkGrain ||
+      foliage
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -632,6 +679,94 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'lotusleaf':
+      case 'bananaleaf':
+      case 'fernleaf': {
+        const x = u * 3,
+          y = v * 3,
+          column = Math.floor(x),
+          row = Math.floor(y);
+        color = 0.12;
+        height = 0.08;
+        occlusion = 0.68;
+        // Every support fits strictly within the 3x3 neighborhood. Ordered
+        // convex layers retain C1 ownership at overlaps and wrapped cell edges.
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset = (((cy + 3) % 3) * 3 + ((cx + 3) % 3)) * leafStride,
+              dx = x - cx - leafSites![offset],
+              dy = y - cy - leafSites![offset + 1],
+              cosine = leafSites![offset + 2],
+              sine = leafSites![offset + 3],
+              a = (dx * cosine + dy * sine) * leafSites![offset + 4],
+              b = (dy * cosine - dx * sine) * leafSites![offset + 5],
+              variation = leafSites![offset + 6];
+            let face: number,
+              veins = 0,
+              crown: number;
+            if (kind === 'fernleaf') {
+              if (a * a + b * b > 1.5) continue;
+              face = smooth(
+                clamp((1 - (a * a) / 0.81 - (b * b) / 0.0016) / 0.35),
+              );
+              veins = face;
+              for (let i = 0; i < 14; i++) {
+                const side = pinnae![i * 3 + 1],
+                  t = b * side * pinnae![i * 3 + 2],
+                  across = (a - pinnae![i * 3] - 0.3 * b * side) / 0.043,
+                  q = (2 * t - 1) * (2 * t - 1) + across * across;
+                if (q >= 1) continue;
+                const pinna = smooth(clamp((1 - q) / 0.35)),
+                  midrib = Math.exp(-10 * across * across),
+                  fine = Math.pow(0.5 + 0.5 * Math.cos(42 * t - 7 * across), 8),
+                  vein = pinna * (0.78 * midrib + 0.22 * fine);
+                face += (1 - face) * pinna;
+                veins += (1 - veins) * vein;
+              }
+              crown = face;
+            } else {
+              const q =
+                a * a + b * b * (kind === 'bananaleaf' ? 1 + 0.45 * a * a : 1);
+              if (q >= 1) continue;
+              face = smooth(clamp((1 - q) / 0.24));
+              crown = (1 - q) * (1 - q);
+              if (kind === 'lotusleaf') {
+                // Cartesian rays fade before meeting the attachment: no angle,
+                // radius division or directional limit exists at the center.
+                for (let ray = 0; ray < 12; ray++) {
+                  const rx = leafSites![offset + 7 + ray * 2],
+                    ry = leafSites![offset + 8 + ray * 2],
+                    along = a * rx + b * ry,
+                    across = b * rx - a * ry,
+                    shaft = smooth(clamp((along - 0.03) / 0.1)),
+                    vein = shaft * Math.exp(-900 * across * across);
+                  veins += (1 - veins) * vein;
+                }
+                const attachment = Math.exp(-110 * q);
+                veins += (1 - veins) * attachment;
+              } else {
+                const midrib = Math.exp(-180 * b * b),
+                  // Rounded transverse distance joins oblique parallel side
+                  // veins smoothly to both sides of the strong midrib.
+                  carrier = Math.cos(
+                    TAU * (9 * a - 2.4 * Math.sqrt(b * b + 0.0004)),
+                  ),
+                  branches =
+                    ((b * b) / (b * b + 0.006)) *
+                    Math.pow(0.5 + 0.5 * carrier, 8);
+                veins = midrib + (1 - midrib) * 0.7 * branches;
+              }
+            }
+            color += face * (0.5 + 0.18 * variation + 0.12 * veins - color);
+            height += face * (0.26 + 0.13 * crown + 0.14 * veins - height);
+            roughness +=
+              face * (preset.roughness + 0.035 * (1 - veins) - roughness);
+            occlusion += face * (0.9 + 0.08 * crown - occlusion);
+          }
+        break;
+      }
       case 'rice':
       case 'sesame':
       case 'coffeebeans': {
