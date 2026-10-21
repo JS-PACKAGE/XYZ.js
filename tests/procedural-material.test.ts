@@ -121,6 +121,9 @@ const kinds: ProceduralMaterialKind[] = [
   'trellis',
   'terracottapot',
   'hedgerow',
+  'collar',
+  'petbed',
+  'scratchpost',
   'sandstone',
   'travertine',
   'pumice',
@@ -4845,6 +4848,9 @@ describe('periodic procedural material fields', () => {
     ['trellis', [2, 4, 32, 64]],
     ['terracottapot', [8, 32, 48, 64]],
     ['hedgerow', [4, 32, 48, 64]],
+    ['collar', [10, 32, 48, 64]],
+    ['petbed', [20, 32, 48, 64]],
+    ['scratchpost', [8, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5067,6 +5073,9 @@ describe('periodic procedural material fields', () => {
     ['trellis', 2],
     ['terracottapot', 8],
     ['hedgerow', 4],
+    ['collar', 10],
+    ['petbed', 20],
+    ['scratchpost', 8],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8757,6 +8766,75 @@ describe('periodic procedural material fields', () => {
       sample(0.25, 0.25, gap);
       expect(surface.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('collar raises its buckle over stitched webbing and backing', () => {
+    const relief = proceduralMaterialPresets.collar.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const band = { ...surface },
+      stitch = { ...surface },
+      backing = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('collar', seed);
+      sample(0.3, 0.5, surface);
+      sample(0.8, 0.5, band);
+      sample(0.8, 0.67, stitch);
+      sample(0.8, 0.95, backing);
+      expect(surface.height).toBeGreaterThan(band.height + 0.1 * relief);
+      expect(band.height).toBeGreaterThan(stitch.height + 0.05 * relief);
+      expect(stitch.height).toBeGreaterThan(backing.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('pet bed raises its bolster around the dished cushion', () => {
+    const relief = proceduralMaterialPresets.petbed.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const cushion = { ...surface },
+      base = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('petbed', seed);
+      sample(0.88, 0.5, surface);
+      sample(0.5, 0.5, cushion);
+      sample(0.95, 0.5, base);
+      expect(surface.height).toBeGreaterThan(cushion.height + 0.1 * relief);
+      expect(cushion.height).toBeGreaterThan(base.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('scratch post crests rope ridges above the tight grooves', () => {
+    const relief = proceduralMaterialPresets.scratchpost.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('scratchpost', seed);
+      sample(0.5, 0.5625, surface);
+      sample(0.5, 0.5, groove);
+      expect(surface.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(groove.occlusion);
     }
   });
 

@@ -1651,6 +1651,21 @@ function createSurfaceSampler(t, r) {
 				H = .36 + .36 * s + .12 * c + .05 * s * c, Z = .42 + .34 * s + .04 * c, Q += .05 * (c - .5) - .06 * s, $ = 1 - .5 * (1 - s);
 				break;
 			}
+			case `collar`: {
+				let e = smooth(clamp((.2 - Math.abs(fract(A) - .5)) / .05)), t = smooth(clamp((.02 - Math.abs(Math.abs(fract(A) - .5) - .17)) / .012)), n = smooth(clamp((.12 - Math.abs(fract(o) - .3)) / .04)) * smooth(clamp((.14 - Math.abs(fract(A) - .5)) / .05)), i = noise(o, A, 48, 48, r ^ 19481);
+				H = .42 + .26 * e + .22 * n + .06 * i, Z = .44 + .2 * e + .28 * n - .1 * t * e + .03 * i, Q += .05 * (i - .5) - .1 * n, $ = 1 - .32 * (1 - e) - .14 * t - .12 * n;
+				break;
+			}
+			case `petbed`: {
+				let e = o - .5, t = A - .5, i = Math.sqrt(e * e + t * t), a = smooth(clamp((.44 - i) / .06)) * smooth(clamp((i - .3) / .08)), s = smooth(clamp((.28 - i) / .1)), c = (.5 + .5 * Math.cos(n * 20 * o)) * (.5 + .5 * Math.cos(n * 20 * A)), l = noise(o, A, 40, 40, r ^ 20931);
+				H = .44 + .3 * a + .14 * s + .05 * c + .05 * l, Z = .44 + .34 * a + .12 * s + .03 * c + .03 * l, Q += .05 * (l - .5) + .02 * (c - .5) - .08 * a, $ = 1 - .36 * (1 - a) - .12 * (1 - s);
+				break;
+			}
+			case `scratchpost`: {
+				let e = smooth(clamp((.2 - Math.abs(fract(A * 8) - .5)) / .08)), t = .5 + .5 * Math.cos(n * (12 * o + 2 * A)), i = noise(o, A, 40, 40, r ^ 10966);
+				H = .46 + .32 * e + .08 * t * e + .06 * i, Z = .44 + .36 * e + .05 * t * e + .03 * i, Q += .05 * (i - .5) - .08 * e, $ = 1 - .5 * (1 - e) - .1 * (1 - t) * e;
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

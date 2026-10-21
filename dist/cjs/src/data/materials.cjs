@@ -1350,6 +1350,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .86,
 		relief: .006
 	}),
+	collar: Object.freeze({
+		dark: [
+			62,
+			46,
+			92
+		],
+		light: [
+			188,
+			164,
+			222
+		],
+		roughness: .62,
+		relief: .0035
+	}),
+	petbed: Object.freeze({
+		dark: [
+			92,
+			72,
+			62
+		],
+		light: [
+			214,
+			186,
+			164
+		],
+		roughness: .88,
+		relief: .005
+	}),
+	scratchpost: Object.freeze({
+		dark: [
+			128,
+			102,
+			62
+		],
+		light: [
+			222,
+			194,
+			142
+		],
+		roughness: .84,
+		relief: .0055
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3099,6 +3141,9 @@ var proceduralTileMeters = Object.freeze({
 	trellis: .3,
 	terracottapot: .36,
 	hedgerow: .24,
+	collar: .06,
+	petbed: .4,
+	scratchpost: .12,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

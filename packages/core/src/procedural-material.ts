@@ -103,6 +103,9 @@ export type ProceduralMaterialKind =
   | 'trellis'
   | 'terracottapot'
   | 'hedgerow'
+  | 'collar'
+  | 'petbed'
+  | 'scratchpost'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -345,6 +348,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'trellis',
   'terracottapot',
   'hedgerow',
+  'collar',
+  'petbed',
+  'scratchpost',
   'sandstone',
   'travertine',
   'pumice',

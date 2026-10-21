@@ -5876,6 +5876,60 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.5 * (1 - clump);
         break;
       }
+      case 'collar': {
+        // A buckle rises over stitched webbing above bare backing.
+        const band = smooth(clamp((0.2 - Math.abs(fract(v) - 0.5)) / 0.05));
+        const stitch = smooth(
+          clamp((0.02 - Math.abs(Math.abs(fract(v) - 0.5) - 0.17)) / 0.012),
+        );
+        const buckle =
+          smooth(clamp((0.12 - Math.abs(fract(u) - 0.3)) / 0.04)) *
+          smooth(clamp((0.14 - Math.abs(fract(v) - 0.5)) / 0.05));
+        const weave = noise(u, v, 48, 48, seed ^ 0x4c19);
+        color = 0.42 + 0.26 * band + 0.22 * buckle + 0.06 * weave;
+        height =
+          0.44 +
+          0.2 * band +
+          0.28 * buckle -
+          0.1 * stitch * band +
+          0.03 * weave;
+        roughness += 0.05 * (weave - 0.5) - 0.1 * buckle;
+        occlusion = 1 - 0.32 * (1 - band) - 0.14 * stitch - 0.12 * buckle;
+        break;
+      }
+      case 'petbed': {
+        // A bolster ring surrounds the dished cushion and base weave.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const bolster =
+          smooth(clamp((0.44 - radius) / 0.06)) *
+          smooth(clamp((radius - 0.3) / 0.08));
+        const cushion = smooth(clamp((0.28 - radius) / 0.1));
+        const fabric =
+          (0.5 + 0.5 * Math.cos(TAU * 20 * u)) *
+          (0.5 + 0.5 * Math.cos(TAU * 20 * v));
+        const fiber = noise(u, v, 40, 40, seed ^ 0x51c3);
+        color =
+          0.44 + 0.3 * bolster + 0.14 * cushion + 0.05 * fabric + 0.05 * fiber;
+        height =
+          0.44 + 0.34 * bolster + 0.12 * cushion + 0.03 * fabric + 0.03 * fiber;
+        roughness +=
+          0.05 * (fiber - 0.5) + 0.02 * (fabric - 0.5) - 0.08 * bolster;
+        occlusion = 1 - 0.36 * (1 - bolster) - 0.12 * (1 - cushion);
+        break;
+      }
+      case 'scratchpost': {
+        // Rope wraps the post in rounded ridges above the tight grooves.
+        const rope = smooth(clamp((0.2 - Math.abs(fract(v * 8) - 0.5)) / 0.08));
+        const twist = 0.5 + 0.5 * Math.cos(TAU * (12 * u + 2 * v));
+        const fiber = noise(u, v, 40, 40, seed ^ 0x2ad6);
+        color = 0.46 + 0.32 * rope + 0.08 * twist * rope + 0.06 * fiber;
+        height = 0.44 + 0.36 * rope + 0.05 * twist * rope + 0.03 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * rope;
+        occlusion = 1 - 0.5 * (1 - rope) - 0.1 * (1 - twist) * rope;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
