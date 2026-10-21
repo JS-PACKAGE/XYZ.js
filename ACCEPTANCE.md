@@ -2563,3 +2563,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：自然細節（lichen／leaflitter／endgrain）
+
+- 新增淺殼狀地衣群落、乾葉與中央葉脈落葉層、彎曲年輪木頭端面，
+  tile 尺寸依序 0.28／0.72／0.3 m。皆 opaque dielectric，
+  不建立葉片、植被或木頭 geometry。gallery／API 文件同步至
+  51 種；README 既有自然表面分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1560 tests
+  通過。地衣／葉片有限支撐域交界的值與法線連續性納入回歸；
+  前四十八種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認地衣斑、葉片與年輪差異；metallic 全為 0，
+  roughness bytes 依序 230–248／216–245／178–237；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

@@ -72,6 +72,9 @@ const kinds: ProceduralMaterialKind[] = [
   'roofshingles',
   'rooftiles',
   'stucco',
+  'lichen',
+  'leaflitter',
+  'endgrain',
 ];
 
 class TestImageData {
@@ -277,6 +280,9 @@ describe('periodic procedural material fields', () => {
     ['roofshingles', [4, 6, 8, 32, 64]],
     ['rooftiles', [5, 6, 12, 24, 32]],
     ['stucco', [5, 7, 28, 32]],
+    ['lichen', [7, 32, 96]],
+    ['leaflitter', [6, 32]],
+    ['endgrain', [5, 32, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -324,6 +330,46 @@ describe('periodic procedural material fields', () => {
                 if (kind !== 'mosaic' && kind !== 'hexagontiles')
                   expect(a.mortar).toBe(0);
               }
+      }
+    },
+  );
+
+  it.each([
+    ['lichen', 7],
+    ['leaflitter', 6],
+  ] as const)(
+    '%s discards compact-support neighbors without introducing normal creases',
+    (kind, cells) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a };
+      const epsilon = 1e-7;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let edge = 0; edge <= cells; edge++)
+          for (let i = 0; i < 37; i++)
+            for (const axis of [0, 1]) {
+              const u = axis === 0 ? edge / cells : (i + 0.37) / 37,
+                v = axis === 1 ? edge / cells : (i + 0.37) / 37;
+              const du = axis === 0 ? epsilon : 0,
+                dv = axis === 1 ? epsilon : 0;
+              sample(u - du, v - dv, a);
+              sample(u + du, v + dv, b);
+              for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+                expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+              const left = a.height,
+                right = b.height;
+              sample(u, v, a);
+              expect(
+                Math.abs(right - 2 * a.height + left) / epsilon,
+              ).toBeLessThan(0.001);
+            }
       }
     },
   );

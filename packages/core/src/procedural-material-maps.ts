@@ -78,6 +78,8 @@ export function createSurfaceSampler(
 ) {
   const preset = proceduralMaterialPresets[kind];
   const phase = hash(0, 0, seed) * TAU;
+  const endgrainCenterU = kind === 'endgrain' ? hash(0, 0, seed ^ 0x3b17) : 0;
+  const endgrainCenterV = kind === 'endgrain' ? hash(0, 0, seed ^ 0x5d29) : 0;
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -1299,6 +1301,132 @@ export function createSurfaceSampler(
           0.27 + 0.16 * trowel + 0.43 * aggregate - 0.22 * pits + 0.06 * detail;
         roughness += 0.055 * aggregate + 0.065 * pits + 0.05 * (detail - 0.5);
         occlusion = 0.96 - 0.25 * pits - 0.075 * aggregate + 0.02 * detail;
+        break;
+      }
+      case 'lichen': {
+        const cells = 7,
+          x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let crust = 0,
+          pigment = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+              dy = y - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x71b3);
+            const angle = Math.atan2(dy, dx);
+            const variation = hash(wx, wy, seed ^ 0x3c59);
+            const radius =
+              (0.38 + 0.16 * variation) *
+              (1 +
+                0.13 * Math.cos(5 * angle + variation * TAU) +
+                0.09 * Math.sin(3 * angle - variation * TAU));
+            // Lobes only affect the border; the center is a flat mineral crust,
+            // not a rounded moss tuft. Every colony fits the fixed neighborhood.
+            const face = smooth(
+              clamp((1 - Math.hypot(dx, dy) / radius) / 0.18),
+            );
+            crust += (1 - crust) * face;
+            pigment += face * (variation - 0.5);
+          }
+        const pits = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x6a23) - 0.58) / 0.25),
+        );
+        color =
+          0.16 +
+          0.13 * detail +
+          0.53 * crust +
+          0.07 * Math.tanh(pigment) -
+          0.18 * crust * pits;
+        height = 0.15 + 0.035 * detail + crust * (0.48 - 0.17 * pits);
+        roughness += 0.04 * (detail - 0.5) + 0.035 * crust * pits;
+        occlusion = 0.9 + 0.08 * crust - 0.15 * crust * pits;
+        break;
+      }
+      case 'leaflitter': {
+        const cells = 6,
+          x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let leaves = 0,
+          pigment = 0,
+          veins = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.2 - 0.6 * hash(wx, wy, seed),
+              dy = y - cy - 0.2 - 0.6 * hash(wx, wy, seed ^ 0x29b7);
+            const angle = hash(wx, wy, seed ^ 0x4f31) * TAU;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const variation = hash(wx, wy, seed ^ 0x51a9);
+            const along = (dx * cos + dy * sin) / (0.64 + 0.1 * variation),
+              across = (dy * cos - dx * sin) / (0.26 + 0.05 * variation);
+            // A tapered oval ends in two points. Smooth compact support makes
+            // discarded neighbors contribute zero, including their pigment.
+            const face = smooth(
+              clamp(
+                (1 - along * along - Math.sqrt(across * across + 0.0001)) /
+                  0.18,
+              ),
+            );
+            const vein = face * Math.exp(-across * across * 260);
+            leaves += (1 - leaves) * face;
+            veins += (1 - veins) * vein;
+            pigment += face * (variation - 0.5);
+          }
+        color =
+          0.07 +
+          0.09 * detail +
+          0.56 * leaves +
+          0.16 * Math.tanh(pigment) -
+          0.12 * veins;
+        height = 0.08 + 0.035 * detail + 0.61 * leaves + 0.045 * veins;
+        roughness += 0.07 * (detail - 0.5) + 0.045 * (1 - leaves);
+        occlusion = 0.53 + 0.44 * leaves;
+        break;
+      }
+      case 'endgrain': {
+        const dx = fract(u - endgrainCenterU + 0.5) - 0.5,
+          dy = fract(v - endgrainCenterV + 0.5) - 0.5;
+        const sx = Math.sin(Math.PI * dx) / Math.PI,
+          sy = Math.sin(Math.PI * dy) / Math.PI;
+        // Squared toroidal distances meet with zero slope at the tile's
+        // opposite sides; a small core also regularizes the pith derivative.
+        const radius = Math.sqrt(sx * sx + sy * sy + 0.0004);
+        const warp = noise(u, v, 5, 5, seed ^ 0x7c43);
+        const rings =
+          0.5 + 0.5 * Math.sin(TAU * (23 * radius + 0.23 * warp) + phase);
+        const latewood = Math.pow(rings, 6);
+        const pores = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x15e7) - 0.62) / 0.23),
+        );
+        const distance = Math.hypot(dx, dy);
+        const checkSupport =
+          smooth(clamp((distance - 0.07) / 0.08)) *
+          smooth(clamp((0.43 - distance) / 0.08));
+        const checks =
+          checkSupport *
+          Math.pow(0.5 + 0.5 * Math.cos(7 * Math.atan2(dy, dx) + phase), 48);
+        color =
+          0.76 - 0.37 * latewood - 0.2 * pores - 0.24 * checks + 0.08 * detail;
+        height =
+          0.49 -
+          0.07 * latewood -
+          0.16 * pores -
+          0.22 * checks +
+          0.025 * detail;
+        roughness += 0.13 * pores + 0.06 * latewood + 0.045 * (detail - 0.5);
+        occlusion = 0.99 - 0.17 * pores - 0.22 * checks;
         break;
       }
     }

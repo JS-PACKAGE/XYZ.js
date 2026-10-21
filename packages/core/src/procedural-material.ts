@@ -54,7 +54,10 @@ export type ProceduralMaterialKind =
   | 'felt'
   | 'roofshingles'
   | 'rooftiles'
-  | 'stucco';
+  | 'stucco'
+  | 'lichen'
+  | 'leaflitter'
+  | 'endgrain';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -135,6 +138,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'roofshingles',
   'rooftiles',
   'stucco',
+  'lichen',
+  'leaflitter',
+  'endgrain',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

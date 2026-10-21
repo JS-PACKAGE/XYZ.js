@@ -295,6 +295,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.9,
     relief: 0.018,
   }),
+  lichen: Object.freeze({
+    dark: [83, 87, 76] as const,
+    light: [209, 214, 148] as const,
+    roughness: 0.92,
+    relief: 0.004,
+  }),
+  leaflitter: Object.freeze({
+    dark: [42, 27, 17] as const,
+    light: [177, 119, 58] as const,
+    roughness: 0.88,
+    relief: 0.012,
+  }),
+  endgrain: Object.freeze({
+    dark: [82, 43, 20] as const,
+    light: [207, 163, 99] as const,
+    roughness: 0.72,
+    relief: 0.005,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -347,6 +365,9 @@ export const proceduralTileMeters = Object.freeze({
   roofshingles: 1.2,
   rooftiles: 1.8,
   stucco: 0.6,
+  lichen: 0.28,
+  leaflitter: 0.72,
+  endgrain: 0.3,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
