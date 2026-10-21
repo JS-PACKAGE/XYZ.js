@@ -168,6 +168,10 @@ export declare class PhysicsWorld2D {
     register(owner: GameObject): void;
     unregister(owner: GameObject): void;
     private alive;
+    /**
+     * Dispatches `name` to each observing side and reports whether any listener ran. Only a
+     * dispatch can run user code, so without one no simulation or liveness state changed.
+     */
     private emit;
     /**
      * Kept out of `emit`: the `cancelResponse` closure captures its parameters, and a capture

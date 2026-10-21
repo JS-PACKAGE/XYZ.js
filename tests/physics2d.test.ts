@@ -238,6 +238,26 @@ describe('bounded rigid body physics', () => {
     expect(moving.body!.velocity.x).toBe(10);
   });
 
+  it('stops delivering and resolving a contact once a precollision listener halts the step', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    const wall = object(Colliders.box(2, 10), 0, 0, { type: 'static' });
+    const moving = object(Colliders.circle(1), -1.9, 0);
+    moving.body!.velocity.x = 2;
+    let running = true;
+    const events: string[] = [];
+    moving.addEventListener('precollision', () => {
+      events.push('moving');
+      running = false;
+    });
+    wall.addEventListener('precollision', () => events.push('wall'));
+    world.register(wall);
+    world.register(moving);
+    world.update(world.fixedDelta, () => running);
+    // The halted step neither reaches the other receiver nor answers the contact.
+    expect(events).toEqual(['moving']);
+    expect(moving.body!.velocity.x).toBe(2);
+  });
+
   it('cancellation suppresses only one step and event payloads stay stable', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 0] });
     const wall = object(Colliders.box(2, 10), 0, 0, { type: 'static' });

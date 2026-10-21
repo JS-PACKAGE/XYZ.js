@@ -271,11 +271,15 @@ var PhysicsWorld2D = class {
 		return e.livenessStamp = this.liveness, e.live = t, t;
 	}
 	emit(e, t) {
-		for (let i = 0; i < 2; i++) {
-			if (t !== `collisionend` && !this.continuation()) return;
-			let a = i ? e.b : e.a, o = i ? e.a : e.b;
-			(a.owner.dispatchEvent !== _ || require_scene_object.SceneObject.prototype.dispatchEvent !== v || require_event_observers.hasObjectEventObservers(a.owner, t)) && this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && this.dispatchCollision(e, t, a, o, i ? -1 : 1);
+		let i = !1;
+		for (let a = 0; a < 2; a++) {
+			let o = a ? e.b : e.a, s = a ? e.a : e.b;
+			if (o.owner.dispatchEvent !== _ || require_scene_object.SceneObject.prototype.dispatchEvent !== v || require_event_observers.hasObjectEventObservers(o.owner, t)) {
+				if (t !== `collisionend` && !this.continuation()) return i;
+				this.alive(o) && (t === `collisionend` || e.active && this.alive(s)) && (i = !0, this.dispatchCollision(e, t, o, s, a ? -1 : 1));
+			}
 		}
+		return i;
 	}
 	dispatchCollision(t, n, r, i, a) {
 		let o = t.manifold, s = this.stepToken, c = {
@@ -352,7 +356,7 @@ var PhysicsWorld2D = class {
 	}
 	activate(e, t) {
 		let { a: n, b: r, manifold: i } = e;
-		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses[0] = i.normalImpulses[1] = 0, i.tangentImpulses[0] = i.tangentImpulses[1] = 0, e.active || (e.active = !0, n.contacts.set(r, e), r.contacts.set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || (this.emit(e, `precollision`), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
+		return e.sensor = n.collider.sensor || r.collider.sensor, e.seen = t, e.cancelled = !1, i.normalImpulses[0] = i.normalImpulses[1] = 0, i.tangentImpulses[0] = i.tangentImpulses[1] = 0, e.active || (e.active = !0, n.contacts.set(r, e), r.contacts.set(n, e), this.activeContacts.add(e), n.body?.wake(), r.body?.wake(), this.emit(e, `collisionstart`)), !this.continuation() || !e.active || !this.alive(n) || !this.alive(r) || this.emit(e, `precollision`) && (!this.continuation() || !e.active || !this.alive(n) || !this.alive(r)) ? !1 : (e.sensor || this.prepareBounce(e), this.solveContacts.push(e), !0);
 	}
 	integrateContinuous(e, t) {
 		let n = this.ccdStats;

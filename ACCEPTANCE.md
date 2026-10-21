@@ -3930,3 +3930,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   提交只收本組隔離驗證內容；共享目錄其他未提交材質保留不混入，
   不將本輪完整檢查宣稱適用於未提交功能。本組不 push。
 - `[Rendering2D]` `Sprite.getLocalBounds` 只讀一次 `width`／`height`（每個 getter 都要依序檢查 view、region 與 texture），原本讀兩次；值相同。20k sprites WebGL2 每幀 CPU submit p50 5.9–6.0 → 5.7–5.9 ms（三輪交替，約 2%，CPU 時間，不是 fps）。build 與完整測試（2183 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
+- `[Physics2D]` 碰撞事件在沒有任何一方觀察時不再呼叫 continuation（改在實際派送前才查）；`precollision` 沒有派送任何 listener 時，略過之後重複的 continuation／active／liveness 檢查（沒有使用者程式執行，這些狀態不會改變），有派送時照舊重查。Node 同程序 96 個重疊 sensor（4560 contact）每步 2.12–2.41 → 1.83–2.24 ms（平均約 8%，CPU 時間）；p2ha 雜湊 -834211072 與 dense 進出事件數、contact 數、位置雜湊皆不變。新增測試：precollision listener 停止步進後，另一方的 listener 不會被派送、contact 也不會被回應；拿掉派送前 continuation 檢查的 mutant 會失敗。build 與完整測試（2197 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，只有 pbr3d 在未修改的 HEAD 也一樣逾時。

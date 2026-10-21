@@ -519,24 +519,32 @@ export class PhysicsWorld2D {
     proxy.live = live;
     return live;
   }
-  private emit(contact: Contact, name: string): void {
+  /**
+   * Dispatches `name` to each observing side and reports whether any listener ran. Only a
+   * dispatch can run user code, so without one no simulation or liveness state changed.
+   */
+  private emit(contact: Contact, name: string): boolean {
+    let dispatched = false;
     for (let receiver = 0; receiver < 2; receiver++) {
-      if (name !== 'collisionend' && !this.continuation()) return;
       const self = receiver ? contact.b : contact.a,
         other = receiver ? contact.a : contact.b;
       // Every check here only skips this receiver and none has side effects, so the cheap
-      // unobserved test runs first.
+      // unobserved test runs first. The continuation is consulted before a dispatch: with
+      // no listener to run, skipping a receiver and stopping are indistinguishable.
       if (
         self.owner.dispatchEvent === dispatchGameObjectEvent &&
         SceneObject.prototype.dispatchEvent === dispatchSceneObjectEvent &&
         !hasObjectEventObservers(self.owner, name)
       )
         continue;
+      if (name !== 'collisionend' && !this.continuation()) return dispatched;
       if (!this.alive(self)) continue;
       if (name !== 'collisionend' && (!contact.active || !this.alive(other)))
         continue;
+      dispatched = true;
       this.dispatchCollision(contact, name, self, other, receiver ? -1 : 1);
     }
+    return dispatched;
   }
   /**
    * Kept out of `emit`: the `cancelResponse` closure captures its parameters, and a capture
@@ -706,12 +714,13 @@ export class PhysicsWorld2D {
       !this.alive(b)
     )
       return false;
-    this.emit(contact, 'precollision');
+    // The checks above still hold unless a listener ran.
     if (
-      !this.continuation() ||
-      !contact.active ||
-      !this.alive(a) ||
-      !this.alive(b)
+      this.emit(contact, 'precollision') &&
+      (!this.continuation() ||
+        !contact.active ||
+        !this.alive(a) ||
+        !this.alive(b))
     )
       return false;
     if (!contact.sensor) this.prepareBounce(contact);
