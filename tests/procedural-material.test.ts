@@ -96,6 +96,9 @@ const kinds: ProceduralMaterialKind[] = [
   'plywood',
   'osb',
   'chipboard',
+  'wafflecloth',
+  'cableknit',
+  'quilting',
 ];
 
 class TestImageData {
@@ -328,6 +331,9 @@ describe('periodic procedural material fields', () => {
     ['plywood', [3, 4, 32]],
     ['osb', [6, 32]],
     ['chipboard', [28, 32]],
+    ['wafflecloth', [8, 24, 32, 96]],
+    ['cableknit', [4, 32, 48, 64, 96]],
+    ['quilting', [6, 12, 24, 32, 48, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -832,6 +838,175 @@ describe('periodic procedural material fields', () => {
       }
     }
   });
+
+  it('wafflecloth raises orthogonal woven rims above its square pockets', () => {
+    const rim: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pocket = { ...rim };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wafflecloth', seed);
+      for (const column of [0, 3, 7])
+        for (const row of [0, 4, 7]) {
+          sample((column + 0.5) / 8, (row + 0.5) / 8, pocket);
+          for (const [x, y] of [
+            [0, 0.5],
+            [0.5, 0],
+            [0, 0],
+          ]) {
+            sample((column + x) / 8, (row + y) / 8, rim);
+            expect(rim.height).toBeGreaterThan(pocket.height);
+            expect(rim.occlusion).toBeGreaterThan(pocket.occlusion);
+          }
+        }
+    }
+  });
+
+  it('cableknit exchanges over-under strand height across successive braid crossings', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      gap = { ...a },
+      rib = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cableknit', seed);
+      for (const column of [0, 1, 3])
+        for (const row of [0, 2, 3])
+          for (const y of [0.125, 0.375, 0.625, 0.875]) {
+            const sweep = 0.22 * Math.sin(Math.PI * 2 * y);
+            sample((column + 0.5 + sweep) / 4, (row + y) / 4, a);
+            sample((column + 0.5 - sweep) / 4, (row + y) / 4, b);
+            expect(
+              (a.height - b.height) * Math.cos(Math.PI * 2 * y),
+            ).toBeGreaterThan(0);
+            sample((column + 0.5) / 4, (row + y) / 4, gap);
+            expect(a.height).toBeGreaterThan(gap.height);
+            expect(b.height).toBeGreaterThan(gap.height);
+            sample(column / 4, (row + y) / 4, rib);
+            expect(rib.height).toBeGreaterThan(gap.height);
+            expect(rib.height).toBeLessThan(Math.min(a.height, b.height));
+          }
+    }
+  });
+
+  it('quilting pads diamond centers above both recessed stitched diagonal seams', () => {
+    const center: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...center },
+      betweenStitches = { ...center };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('quilting', seed);
+      for (const a of [0, 2, 5])
+        for (const b of [-2, 0, 3]) {
+          sample((a + b + 1) / 12, (a - b) / 12, center);
+          for (const axis of [0, 1]) {
+            const da = a + (axis === 0 ? 0 : 0.5),
+              db = b + (axis === 0 ? 0.5 : 0);
+            sample((da + db) / 12, (da - db) / 12, seam);
+            expect(center.height).toBeGreaterThan(seam.height);
+            expect(center.occlusion).toBeGreaterThan(seam.occlusion);
+            const offset = 1 / 16;
+            sample(
+              (da + db + offset) / 12,
+              (da - db + (axis === 0 ? -offset : offset)) / 12,
+              betweenStitches,
+            );
+            expect(seam.height).toBeGreaterThan(betweenStitches.height);
+          }
+        }
+    }
+  });
+
+  it.each(['wafflecloth', 'cableknit', 'quilting'] as const)(
+    '%s keeps compact textile support slopes continuous',
+    (kind) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a },
+        center = { ...a };
+      const cells = kind === 'wafflecloth' ? 8 : kind === 'cableknit' ? 4 : 6;
+      const epsilon = 1e-8 / cells;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (const t of [0.037, 0.125, 0.375, 0.68, 0.875])
+          for (const side of [-1, 1]) {
+            let u: number, v: number;
+            if (kind === 'wafflecloth') {
+              u = (side * Math.acos(0.35)) / (Math.PI * 2 * cells);
+              v = t;
+            } else if (kind === 'cableknit') {
+              u =
+                (0.5 + 0.22 * Math.sin(Math.PI * 2 * t) + side * 0.115) / cells;
+              v = t / cells;
+            } else {
+              const seamEdge =
+                (side * Math.acos(1 - 2 * 0.055)) / (Math.PI * 2);
+              u = (seamEdge + t) / (2 * cells);
+              v = (seamEdge - t) / (2 * cells);
+            }
+            const points =
+              kind === 'cableknit'
+                ? [
+                    [u, v],
+                    [1 / cells - u, v],
+                    [side / (6 * cells), v],
+                  ]
+                : kind === 'wafflecloth'
+                  ? [
+                      [u, v],
+                      [v, u],
+                    ]
+                  : [
+                      [u, v],
+                      [u, -v],
+                      [
+                        (side * Math.acos(0.2)) / (Math.PI * 2 * 8 * 2 * cells),
+                        (-side * Math.acos(0.2)) /
+                          (Math.PI * 2 * 8 * 2 * cells),
+                      ],
+                    ];
+            for (const [px, py] of points)
+              for (const [du, dv] of [
+                [epsilon, 0],
+                [0, epsilon],
+              ]) {
+                sample(px - du, py - dv, a);
+                sample(px + du, py + dv, b);
+                sample(px, py, center);
+                for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+                  expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                  expect(
+                    Math.abs(a[key] - 2 * center[key] + b[key]) / epsilon,
+                  ).toBeLessThan(0.01);
+                }
+              }
+          }
+      }
+    },
+  );
 
   it('knit raises both arms of repeating V stitches above recessed loop gaps', () => {
     const a: SurfaceSample = {

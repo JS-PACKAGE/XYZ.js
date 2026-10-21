@@ -78,7 +78,10 @@ export type ProceduralMaterialKind =
   | 'gneiss'
   | 'plywood'
   | 'osb'
-  | 'chipboard';
+  | 'chipboard'
+  | 'wafflecloth'
+  | 'cableknit'
+  | 'quilting';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -183,6 +186,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'plywood',
   'osb',
   'chipboard',
+  'wafflecloth',
+  'cableknit',
+  'quilting',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -1622,6 +1622,91 @@ export function createSurfaceSampler(
         occlusion = 0.96 + 0.025 * fibers + 0.01 * detail;
         break;
       }
+      case 'wafflecloth': {
+        const warp = smooth(clamp((Math.cos(TAU * u * 8) - 0.35) / 0.65)),
+          weft = smooth(clamp((Math.cos(TAU * v * 8) - 0.35) / 0.65));
+        const rim = warp + weft - warp * weft;
+        const yarn =
+          0.5 +
+          0.25 * Math.cos(TAU * u * 96 + phase) +
+          0.25 * Math.cos(TAU * v * 96 - phase);
+        const cotton = noise(u, v, 24, 24, seed ^ 0x4a73);
+        color = 0.22 + 0.48 * rim + 0.12 * yarn + 0.08 * cotton;
+        height = 0.12 + 0.66 * rim + 0.035 * yarn + 0.025 * cotton;
+        roughness += 0.04 * (cotton - 0.5) + 0.025 * (1 - rim);
+        occlusion = 0.65 + 0.32 * rim + 0.02 * yarn;
+        break;
+      }
+      case 'cableknit': {
+        const x = fract(u * 4),
+          y = v * 4;
+        const sweep = 0.22 * Math.sin(TAU * y),
+          crossing = 0.5 + 0.5 * Math.cos(TAU * y);
+        const left = (x - 0.5 - sweep) / 0.115,
+          right = (x - 0.5 + sweep) / 0.115;
+        // Both strands retain their identity through the crossing. Each
+        // compact profile and its owned lift fade with zero support slope.
+        const a = smooth(clamp(1 - left * left)),
+          b = smooth(clamp(1 - right * right));
+        const braid = a + b - a * b;
+        const liftA = a * (0.38 + 0.38 * crossing),
+          liftB = b * (0.76 - 0.38 * crossing);
+        const lift = liftA + liftB - liftA * liftB;
+        const rib = smooth(clamp((Math.cos(TAU * x) - 0.5) / 0.5));
+        const loops =
+          0.5 + 0.5 * Math.cos(TAU * (v * 32 + 0.35 * Math.cos(TAU * x)));
+        const wool = noise(u, v, 64, 64, seed ^ 0x37a9);
+        const twist = 0.5 + 0.5 * Math.sin(TAU * (u * 96 + v * 48) + phase);
+        color =
+          0.13 + 0.55 * lift + 0.13 * rib + 0.09 * wool + 0.04 * braid * twist;
+        height =
+          0.07 +
+          lift +
+          0.17 * rib * (0.65 + 0.35 * loops) +
+          0.02 * wool +
+          0.015 * braid * twist;
+        roughness += 0.035 * (wool - 0.5) + 0.025 * (1 - braid);
+        occlusion = 0.57 + 0.35 * braid + 0.055 * rib + 0.015 * wool;
+        break;
+      }
+      case 'quilting': {
+        const diagonalA = (u + v) * 6,
+          diagonalB = (u - v) * 6;
+        const a = 0.5 - 0.5 * Math.cos(TAU * diagonalA),
+          b = 0.5 - 0.5 * Math.cos(TAU * diagonalB);
+        const padded = a * b;
+        const seamA = smooth(clamp(1 - a / 0.055)),
+          seamB = smooth(clamp(1 - b / 0.055));
+        const seam = seamA + seamB - seamA * seamB;
+        const dashA = smooth(
+            clamp((Math.cos(TAU * diagonalB * 8) - 0.2) / 0.8),
+          ),
+          dashB = smooth(clamp((Math.cos(TAU * diagonalA * 8) - 0.2) / 0.8));
+        const stitch =
+          seamA * dashA + seamB * dashB - seamA * dashA * seamB * dashB;
+        const weave =
+          0.5 +
+          0.25 * Math.cos(TAU * u * 96 + phase) +
+          0.25 * Math.cos(TAU * v * 96 - phase);
+        const cloth = noise(u, v, 24, 24, seed ^ 0x6b31);
+        color =
+          0.3 +
+          0.32 * padded -
+          0.15 * seam +
+          0.12 * stitch +
+          0.08 * cloth +
+          0.06 * weave;
+        height =
+          0.13 +
+          0.67 * padded -
+          0.065 * seam +
+          0.035 * stitch +
+          0.02 * weave +
+          0.015 * cloth;
+        roughness += 0.045 * (cloth - 0.5) + 0.025 * seam;
+        occlusion = 0.88 + 0.1 * padded - 0.18 * seam + 0.025 * stitch;
+        break;
+      }
       case 'roofshingles': {
         const row = Math.floor(v * 6),
           y = fract(v * 6);

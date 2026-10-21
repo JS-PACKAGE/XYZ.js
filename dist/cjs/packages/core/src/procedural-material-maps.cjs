@@ -427,6 +427,21 @@ function createSurfaceSampler(t, r) {
 				E = .28 + .28 * w + .3 * s, D = .18 + .035 * w + .065 * s, O += .065 * (w - .5) + .025 * s, k = .96 + .025 * s + .01 * w;
 				break;
 			}
+			case `wafflecloth`: {
+				let t = smooth(clamp((Math.cos(n * e * 8) - .35) / .65)), i = smooth(clamp((Math.cos(n * l * 8) - .35) / .65)), o = t + i - t * i, s = .5 + .25 * Math.cos(n * e * 96 + a) + .25 * Math.cos(n * l * 96 - a), c = noise(e, l, 24, 24, r ^ 19059);
+				E = .22 + .48 * o + .12 * s + .08 * c, D = .12 + .66 * o + .035 * s + .025 * c, O += .04 * (c - .5) + .025 * (1 - o), k = .65 + .32 * o + .02 * s;
+				break;
+			}
+			case `cableknit`: {
+				let t = fract(e * 4), i = l * 4, o = .22 * Math.sin(n * i), s = .5 + .5 * Math.cos(n * i), c = (t - .5 - o) / .115, u = (t - .5 + o) / .115, d = smooth(clamp(1 - c * c)), f = smooth(clamp(1 - u * u)), p = d + f - d * f, m = d * (.38 + .38 * s), h = f * (.76 - .38 * s), g = m + h - m * h, _ = smooth(clamp((Math.cos(n * t) - .5) / .5)), v = .5 + .5 * Math.cos(n * (l * 32 + .35 * Math.cos(n * t))), y = noise(e, l, 64, 64, r ^ 14249), b = .5 + .5 * Math.sin(n * (e * 96 + l * 48) + a);
+				E = .13 + .55 * g + .13 * _ + .09 * y + .04 * p * b, D = .07 + g + .17 * _ * (.65 + .35 * v) + .02 * y + .015 * p * b, O += .035 * (y - .5) + .025 * (1 - p), k = .57 + .35 * p + .055 * _ + .015 * y;
+				break;
+			}
+			case `quilting`: {
+				let t = (e + l) * 6, i = (e - l) * 6, o = .5 - .5 * Math.cos(n * t), s = .5 - .5 * Math.cos(n * i), c = o * s, u = smooth(clamp(1 - o / .055)), d = smooth(clamp(1 - s / .055)), f = u + d - u * d, p = smooth(clamp((Math.cos(n * i * 8) - .2) / .8)), m = smooth(clamp((Math.cos(n * t * 8) - .2) / .8)), h = u * p + d * m - u * p * d * m, g = .5 + .25 * Math.cos(n * e * 96 + a) + .25 * Math.cos(n * l * 96 - a), _ = noise(e, l, 24, 24, r ^ 27441);
+				E = .3 + .32 * c - .15 * f + .12 * h + .08 * _ + .06 * g, D = .13 + .67 * c - .065 * f + .035 * h + .02 * g + .015 * _, O += .045 * (_ - .5) + .025 * f, k = .88 + .1 * c - .18 * f + .025 * h;
+				break;
+			}
 			case `roofshingles`: {
 				let t = Math.floor(l * 6), n = fract(l * 6), i = e * 4 + t % 2 * .5, a = fract(i), o = smooth(clamp(Math.min(n, 1 - n) / .12)), s = smooth(clamp(Math.min(a, 1 - a) / .055)), c = (1 - s) * smooth(clamp((n - .32) / .16)) * o, u = o * s, d = hash(Math.floor(i) % 4, t, r ^ 25527), f = smooth(clamp((noise(e, l, 64, 64, r ^ 19765) - .2) / .6)), p = 1 - o;
 				E = .24 + .32 * f + .2 * u * d - .15 * p - .14 * c, D = .2 + .38 * o - .2 * c + .13 * f + .05 * u * d, O += .12 * (f - .5) + .04 * p + .03 * c, k = .96 - .24 * p - .2 * c + .025 * f;

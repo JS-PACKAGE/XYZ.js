@@ -2717,3 +2717,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   的 WebGPU 提交；未重寫該歷史、未 push。不新增 runtime 依賴，
   不擴大跨瀏覽器或實體裝置認證。
 - `[WebGPU]` 材質區塊改變時 mesh uniform 的 PBR／UV／finish／optical／native 區段改以索引迴圈複製，不再每段建立 `subarray` view。world-nature WebGPU 取樣配置 61150 → 54442 B/frame（`subarray` 7993 B/frame 消失）；此為 JS 配置減少，不宣稱幀率提升。nm 原生 PBR 測試頁逐幀 hash 與基準一致，regression-browser webgpu 與 material-reference 通過。
+
+## 程序材質擴充：立體織物（wafflecloth／cableknit／quilting）
+
+- 新增華夫格凹袋與隆起邊框、麻花針織交織辮紋與細凸條、菱格絎縫填充面與縫線，
+  tile 尺寸依序 0.096／0.16／0.48 m。皆 opaque dielectric，
+  僅為表面 shading，不新增布料 geometry、displacement 或 SSS。
+  gallery／API 文件同步至 75 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1653 tests
+  通過。凹袋／邊框高度、麻花交叉上下交換、填充面／縫線／針腳高度
+  與 support 邊界斜率連續性納入回歸；前七十二種預設在
+  size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認凹格、交織辮紋與菱形填充面差異；metallic 全為 0，
+  roughness bytes 依序 227–244／235–250／219–236；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

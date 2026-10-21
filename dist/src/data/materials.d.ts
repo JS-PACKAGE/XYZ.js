@@ -438,6 +438,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.84;
         relief: 0.001;
     }>;
+    wafflecloth: Readonly<{
+        dark: readonly [153, 143, 124];
+        light: readonly [247, 240, 219];
+        roughness: 0.91;
+        relief: 0.0018;
+    }>;
+    cableknit: Readonly<{
+        dark: readonly [106, 70, 44];
+        light: readonly [223, 192, 145];
+        roughness: 0.94;
+        relief: 0.004;
+    }>;
+    quilting: Readonly<{
+        dark: readonly [36, 57, 77];
+        light: readonly [137, 167, 188];
+        roughness: 0.88;
+        relief: 0.006;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -513,6 +531,9 @@ export declare const proceduralTileMeters: Readonly<{
     plywood: 0.72;
     osb: 0.72;
     chipboard: 0.24;
+    wafflecloth: 0.096;
+    cableknit: 0.16;
+    quilting: 0.48;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

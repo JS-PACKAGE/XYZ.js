@@ -151,6 +151,9 @@ try {
     'plywood',
     'osb',
     'chipboard',
+    'wafflecloth',
+    'cableknit',
+    'quilting',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

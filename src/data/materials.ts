@@ -439,6 +439,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.84,
     relief: 0.001,
   }),
+  wafflecloth: Object.freeze({
+    dark: [153, 143, 124] as const,
+    light: [247, 240, 219] as const,
+    roughness: 0.91,
+    relief: 0.0018,
+  }),
+  cableknit: Object.freeze({
+    dark: [106, 70, 44] as const,
+    light: [223, 192, 145] as const,
+    roughness: 0.94,
+    relief: 0.004,
+  }),
+  quilting: Object.freeze({
+    dark: [36, 57, 77] as const,
+    light: [137, 167, 188] as const,
+    roughness: 0.88,
+    relief: 0.006,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -515,6 +533,9 @@ export const proceduralTileMeters = Object.freeze({
   plywood: 0.72,
   osb: 0.72,
   chipboard: 0.24,
+  wafflecloth: 0.096,
+  cableknit: 0.16,
+  quilting: 0.48,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
