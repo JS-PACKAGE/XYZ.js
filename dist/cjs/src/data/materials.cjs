@@ -1140,6 +1140,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .82,
 		relief: .007
 	}),
+	circuitboard: Object.freeze({
+		dark: [
+			16,
+			48,
+			34
+		],
+		light: [
+			196,
+			172,
+			88
+		],
+		roughness: .45,
+		relief: .0035
+	}),
+	solarpanel: Object.freeze({
+		dark: [
+			18,
+			30,
+			58
+		],
+		light: [
+			96,
+			132,
+			196
+		],
+		roughness: .28,
+		relief: .003
+	}),
+	heattile: Object.freeze({
+		dark: [
+			86,
+			82,
+			78
+		],
+		light: [
+			212,
+			206,
+			198
+		],
+		roughness: .88,
+		relief: .005
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2760,6 +2802,9 @@ var proceduralTileMeters = Object.freeze({
 	traintracks: .6,
 	manholecover: .6,
 	speedbump: .9,
+	circuitboard: .12,
+	solarpanel: .24,
+	heattile: .18,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

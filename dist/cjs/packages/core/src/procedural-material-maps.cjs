@@ -1485,6 +1485,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .4 * a * (.3 + .7 * n) + .06 * s, Z = .38 + .4 * n - .1 * i + .02 * s, Q += .05 * (s - .5) - .06 * n, $ = 1 - .45 * (1 - n) - .3 * i;
 				break;
 			}
+			case `circuitboard`: {
+				let e = Math.floor(k * 8), t = Math.floor(o * 8), n = fract(o * 8) - .5, i = fract(k * 8) - .5, a = Math.sqrt(n * n + i * i), s = e % 2 == 0 ? smooth(clamp((.12 - Math.abs(i)) / .05)) : 0, c = t % 2 == 1 ? smooth(clamp((.12 - Math.abs(n)) / .05)) : 0, l = e % 2 == 0 && t % 2 == 1 ? smooth(clamp((.22 - a) / .06)) : 0, u = e % 2 == 1 && t % 2 == 0 ? smooth(clamp((.1 - a) / .04)) : 0, d = noise(o, k, 32, 32, r ^ 27394), f = 1 - (1 - s) * (1 - c) * (1 - l);
+				H = .3 + .3 * f + .26 * l + .06 * d, Z = .4 + .12 * s + .12 * c + .22 * l - .3 * u + .02 * d, Q += .05 * (d - .5) - .1 * f, $ = 1 - .35 * (1 - f) - .35 * u;
+				break;
+			}
+			case `solarpanel`: {
+				let e = fract(o * 2), t = fract(k * 2), n = smooth(clamp((Math.min(e, 1 - e) - .06) / .1)) * smooth(clamp((Math.min(t, 1 - t) - .06) / .1)), i = smooth(clamp((.05 - Math.min(Math.abs(e - .3), Math.abs(e - .7))) / .025)), a = smooth(clamp((.04 - Math.min(fract(k * 8), 1 - fract(k * 8))) / .02)), s = noise(o, k, 40, 40, r ^ 12791);
+				H = .34 + .3 * n + .2 * i * n + .1 * a * n + .05 * s, Z = .4 + .3 * n + .12 * i * n + .05 * a * n + .02 * s, Q += .05 * (s - .5) - .1 * i * n, $ = 1 - .5 * (1 - n) - .12 * (1 - i * n);
+				break;
+			}
+			case `heattile`: {
+				let e = fract(o * 3), t = fract(k * 3), n = smooth(clamp((Math.min(e, 1 - e) - .08) / .12)) * smooth(clamp((Math.min(t, 1 - t) - .08) / .12)), i = noise(o, k, 48, 48, r ^ 31297);
+				H = .52 + .32 * n + .08 * i, Z = .42 + .34 * n + .03 * i, Q += .05 * (i - .5) - .04 * n, $ = 1 - .5 * (1 - n);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, k, 3, 5, r ^ 26941), t = k + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, k, 8, 3, r ^ 19735), l = smooth(clamp((V - .28) / .48)), u = (1 - V) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

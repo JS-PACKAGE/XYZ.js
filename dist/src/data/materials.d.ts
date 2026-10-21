@@ -492,6 +492,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.82;
         relief: 0.007;
     }>;
+    circuitboard: Readonly<{
+        dark: readonly [16, 48, 34];
+        light: readonly [196, 172, 88];
+        roughness: 0.45;
+        relief: 0.0035;
+    }>;
+    solarpanel: Readonly<{
+        dark: readonly [18, 30, 58];
+        light: readonly [96, 132, 196];
+        roughness: 0.28;
+        relief: 0.003;
+    }>;
+    heattile: Readonly<{
+        dark: readonly [86, 82, 78];
+        light: readonly [212, 206, 198];
+        roughness: 0.88;
+        relief: 0.005;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1249,6 +1267,9 @@ export declare const proceduralTileMeters: Readonly<{
     traintracks: 0.6;
     manholecover: 0.6;
     speedbump: 0.9;
+    circuitboard: 0.12;
+    solarpanel: 0.24;
+    heattile: 0.18;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

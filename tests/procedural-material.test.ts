@@ -106,6 +106,9 @@ const kinds: ProceduralMaterialKind[] = [
   'traintracks',
   'manholecover',
   'speedbump',
+  'circuitboard',
+  'solarpanel',
+  'heattile',
   'sandstone',
   'travertine',
   'pumice',
@@ -4128,6 +4131,9 @@ describe('periodic procedural material fields', () => {
     ['traintracks', [6, 32, 48, 64]],
     ['manholecover', [16, 32, 48, 64]],
     ['speedbump', [2, 4, 32, 64]],
+    ['circuitboard', [8, 32, 48, 64]],
+    ['solarpanel', [2, 8, 32, 64]],
+    ['heattile', [3, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -4331,6 +4337,10 @@ describe('periodic procedural material fields', () => {
     ['manholecover', 16],
     ['speedbump', 2],
     ['speedbump', 4],
+    ['circuitboard', 8],
+    ['solarpanel', 2],
+    ['solarpanel', 8],
+    ['heattile', 3],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -7649,6 +7659,79 @@ describe('periodic procedural material fields', () => {
       sample(0.5, 0, seam);
       expect(surface.height).toBeGreaterThan(foot.height + 0.05 * relief);
       expect(foot.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('circuit board crests pads over traces and sinks via pits', () => {
+    const relief = proceduralMaterialPresets.circuitboard.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trace = { ...surface },
+      substrate = { ...surface },
+      via = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('circuitboard', seed);
+      sample(3 / 16, 1 / 16, surface);
+      sample(1 / 16, 1 / 16, trace);
+      sample(11 / 32, 3 / 16, substrate);
+      sample(1 / 16, 3 / 16, via);
+      expect(surface.height).toBeGreaterThan(trace.height + 0.05 * relief);
+      expect(trace.height).toBeGreaterThan(substrate.height + 0.03 * relief);
+      expect(via.height).toBeLessThan(substrate.height - 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(substrate.occlusion);
+      expect(via.occlusion).toBeLessThan(substrate.occlusion);
+    }
+  });
+
+  it('solar panel stacks busbars over fingers on raised cells', () => {
+    const relief = proceduralMaterialPresets.solarpanel.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const finger = { ...surface },
+      face = { ...surface },
+      gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('solarpanel', seed);
+      sample(0.15, 0.25, surface);
+      sample(0.25, 0.25, finger);
+      sample(0.25, 1 / 16, face);
+      sample(0.02, 0.25, gap);
+      expect(surface.height).toBeGreaterThan(finger.height + 0.05 * relief);
+      expect(finger.height).toBeGreaterThan(face.height + 0.02 * relief);
+      expect(face.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(face.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('heat tile raises rounded faces above recessed seams', () => {
+    const relief = proceduralMaterialPresets.heattile.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('heattile', seed);
+      sample(1 / 6, 1 / 6, surface);
+      sample(0.02, 0.5, seam);
+      expect(surface.height).toBeGreaterThan(seam.height + 0.1 * relief);
       expect(surface.occlusion).toBeGreaterThan(seam.occlusion);
     }
   });

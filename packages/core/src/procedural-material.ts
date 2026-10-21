@@ -88,6 +88,9 @@ export type ProceduralMaterialKind =
   | 'traintracks'
   | 'manholecover'
   | 'speedbump'
+  | 'circuitboard'
+  | 'solarpanel'
+  | 'heattile'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -309,6 +312,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'traintracks',
   'manholecover',
   'speedbump',
+  'circuitboard',
+  'solarpanel',
+  'heattile',
   'sandstone',
   'travertine',
   'pumice',

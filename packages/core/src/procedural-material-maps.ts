@@ -5195,6 +5195,85 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.45 * (1 - bump) - 0.3 * seam;
         break;
       }
+      case 'circuitboard': {
+        // Pads crest over traces routed above the substrate, with via pits.
+        const row = Math.floor(v * 8),
+          col = Math.floor(u * 8);
+        const pu = fract(u * 8) - 0.5,
+          pv = fract(v * 8) - 0.5;
+        const radius = Math.sqrt(pu * pu + pv * pv);
+        const hTrace =
+          row % 2 === 0 ? smooth(clamp((0.12 - Math.abs(pv)) / 0.05)) : 0;
+        const vTrace =
+          col % 2 === 1 ? smooth(clamp((0.12 - Math.abs(pu)) / 0.05)) : 0;
+        const crossing =
+          row % 2 === 0 && col % 2 === 1
+            ? smooth(clamp((0.22 - radius) / 0.06))
+            : 0;
+        const via =
+          row % 2 === 1 && col % 2 === 0
+            ? smooth(clamp((0.1 - radius) / 0.04))
+            : 0;
+        const fiber = noise(u, v, 32, 32, seed ^ 0x6b02);
+        const routed = 1 - (1 - hTrace) * (1 - vTrace) * (1 - crossing);
+        color = 0.3 + 0.3 * routed + 0.26 * crossing + 0.06 * fiber;
+        height =
+          0.4 +
+          0.12 * hTrace +
+          0.12 * vTrace +
+          0.22 * crossing -
+          0.3 * via +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.1 * routed;
+        occlusion = 1 - 0.35 * (1 - routed) - 0.35 * via;
+        break;
+      }
+      case 'solarpanel': {
+        // Cell faces rise out of their gaps under busbars and fingers.
+        const cu = fract(u * 2),
+          cv = fract(v * 2);
+        const face =
+          smooth(clamp((Math.min(cu, 1 - cu) - 0.06) / 0.1)) *
+          smooth(clamp((Math.min(cv, 1 - cv) - 0.06) / 0.1));
+        const bar = smooth(
+          clamp(
+            (0.05 - Math.min(Math.abs(cu - 0.3), Math.abs(cu - 0.7))) / 0.025,
+          ),
+        );
+        const finger = smooth(
+          clamp((0.04 - Math.min(fract(v * 8), 1 - fract(v * 8))) / 0.02),
+        );
+        const fiber = noise(u, v, 40, 40, seed ^ 0x31f7);
+        color =
+          0.34 +
+          0.3 * face +
+          0.2 * bar * face +
+          0.1 * finger * face +
+          0.05 * fiber;
+        height =
+          0.4 +
+          0.3 * face +
+          0.12 * bar * face +
+          0.05 * finger * face +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.1 * bar * face;
+        occlusion = 1 - 0.5 * (1 - face) - 0.12 * (1 - bar * face);
+        break;
+      }
+      case 'heattile': {
+        // Rounded tile faces rise above their recessed seams.
+        const tu = fract(u * 3),
+          tv = fract(v * 3);
+        const tile =
+          smooth(clamp((Math.min(tu, 1 - tu) - 0.08) / 0.12)) *
+          smooth(clamp((Math.min(tv, 1 - tv) - 0.08) / 0.12));
+        const grain = noise(u, v, 48, 48, seed ^ 0x7a41);
+        color = 0.52 + 0.32 * tile + 0.08 * grain;
+        height = 0.42 + 0.34 * tile + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.04 * tile;
+        occlusion = 1 - 0.5 * (1 - tile);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
