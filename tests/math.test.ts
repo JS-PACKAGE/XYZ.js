@@ -76,4 +76,38 @@ describe('2D math', () => {
       new Vector2(5, 6),
     );
   });
+
+  it('composes exactly as Matrix3.compose while its angle and skew change', () => {
+    const transform = new Transform2D({
+      position: new Vector2(3, -2),
+      scale: new Vector2(1.5, 0.75),
+      pivot: new Vector2(0.25, -0.5),
+    });
+    const poses: [number, number, number][] = [
+      [0.3, 0, 0],
+      [0.3, 0, 0],
+      [1.1, 0, 0],
+      [0.3, 0, 0],
+      [0.3, 0.2, 0],
+      [0.3, 0, -0.4],
+      [-0, 0, 0],
+      [0, 0, 0],
+      [2.5, 0, 0],
+    ];
+    for (const [rotation, skewX, skewY] of poses) {
+      transform.rotation = rotation;
+      transform.skew.set(skewX, skewY);
+      transform.position.x += 0.5;
+      const expected = new Matrix3().compose(
+        transform.position,
+        rotation,
+        transform.scale,
+        transform.pivot,
+        transform.skew,
+      ).elements;
+      const actual = transform.updateMatrix().elements;
+      for (let i = 0; i < 9; i++)
+        expect(Object.is(actual[i], expected[i])).toBe(true);
+    }
+  });
 });

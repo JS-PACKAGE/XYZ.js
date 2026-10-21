@@ -38,7 +38,14 @@ export declare class Transform2D {
     readonly pivot: Vector2;
     readonly skew: Vector2;
     readonly matrix: Matrix3;
+    /** `[angle, cosine, sine]` of the last nonzero x-axis angle; created on first rotation so
+     * unrotated objects pay one field. */
+    private trig;
     constructor(options?: Transform2DOptions);
+    /**
+     * Matches `matrix.compose(position, rotation, scale, pivot, skew)` exactly, but an object
+     * that keeps its angle (static or only translating) reuses the cosine and sine.
+     */
     updateMatrix(): Matrix3;
 }
 export { Matrix4, Quaternion, Transform3D, Vector3 } from './math3d.js';

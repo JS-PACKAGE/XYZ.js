@@ -178,6 +178,9 @@ export class Transform2D {
   readonly pivot: Vector2;
   readonly skew: Vector2;
   readonly matrix = new Matrix3();
+  /** `[angle, cosine, sine]` of the last nonzero x-axis angle; created on first rotation so
+   * unrotated objects pay one field. */
+  private trig: number[] | undefined;
 
   constructor(options: Transform2DOptions = {}) {
     this.position = options.position?.clone() ?? new Vector2();
@@ -188,14 +191,42 @@ export class Transform2D {
     this.updateMatrix();
   }
 
+  /**
+   * Matches `matrix.compose(position, rotation, scale, pivot, skew)` exactly, but an object
+   * that keeps its angle (static or only translating) reuses the cosine and sine.
+   */
   updateMatrix(): Matrix3 {
-    return this.matrix.compose(
-      this.position,
-      this.rotation,
-      this.scale,
-      this.pivot,
-      this.skew,
-    );
+    const position = this.position,
+      scale = this.scale,
+      pivot = this.pivot,
+      skew = this.skew;
+    const xAngle = this.rotation + skew.y;
+    const yAngle = this.rotation - skew.x;
+    let cosine = 1,
+      sine = xAngle;
+    // Zero takes compose's exact branch, which keeps a signed zero sine.
+    if (xAngle !== 0) {
+      const trig = (this.trig ??= [NaN, 1, 0]);
+      if (trig[0] !== xAngle) {
+        trig[0] = xAngle;
+        trig[1] = Math.cos(xAngle);
+        trig[2] = Math.sin(xAngle);
+      }
+      cosine = trig[1]!;
+      sine = trig[2]!;
+    }
+    const sameAngle = xAngle === yAngle;
+    const e = this.matrix.elements;
+    e[0] = cosine * scale.x;
+    e[1] = sine * scale.x;
+    e[2] = 0;
+    e[3] = -(sameAngle ? sine : Math.sin(yAngle)) * scale.y;
+    e[4] = (sameAngle ? cosine : Math.cos(yAngle)) * scale.y;
+    e[5] = 0;
+    e[6] = position.x - pivot.x * e[0] - pivot.y * e[3];
+    e[7] = position.y - pivot.x * e[1] - pivot.y * e[4];
+    e[8] = 1;
+    return this.matrix;
   }
 }
 

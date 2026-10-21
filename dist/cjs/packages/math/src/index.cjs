@@ -71,11 +71,22 @@ var Transform2D = class {
 	pivot;
 	skew;
 	matrix = new Matrix3();
+	trig;
 	constructor(e = {}) {
 		this.position = e.position?.clone() ?? new Vector2(), this.rotation = e.rotation ?? 0, this.scale = e.scale?.clone() ?? new Vector2(1, 1), this.pivot = e.pivot?.clone() ?? new Vector2(), this.skew = e.skew?.clone() ?? new Vector2(), this.updateMatrix();
 	}
 	updateMatrix() {
-		return this.matrix.compose(this.position, this.rotation, this.scale, this.pivot, this.skew);
+		let e = this.position, t = this.scale, n = this.pivot, r = this.skew, i = this.rotation + r.y, a = this.rotation - r.x, o = 1, s = i;
+		if (i !== 0) {
+			let e = this.trig ??= [
+				NaN,
+				1,
+				0
+			];
+			e[0] !== i && (e[0] = i, e[1] = Math.cos(i), e[2] = Math.sin(i)), o = e[1], s = e[2];
+		}
+		let c = i === a, l = this.matrix.elements;
+		return l[0] = o * t.x, l[1] = s * t.x, l[2] = 0, l[3] = -(c ? s : Math.sin(a)) * t.y, l[4] = (c ? o : Math.cos(a)) * t.y, l[5] = 0, l[6] = e.x - n.x * l[0] - n.y * l[3], l[7] = e.y - n.x * l[1] - n.y * l[4], l[8] = 1, this.matrix;
 	}
 };
 //#endregion
