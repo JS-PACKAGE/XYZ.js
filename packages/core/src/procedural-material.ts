@@ -63,7 +63,10 @@ export type ProceduralMaterialKind =
   | 'linoleum'
   | 'suede'
   | 'snakeskin'
-  | 'crocodile';
+  | 'crocodile'
+  | 'herringbone'
+  | 'tweed'
+  | 'seersucker';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -153,6 +156,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'suede',
   'snakeskin',
   'crocodile',
+  'herringbone',
+  'tweed',
+  'seersucker',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

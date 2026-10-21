@@ -136,6 +136,9 @@ try {
     'suede',
     'snakeskin',
     'crocodile',
+    'herringbone',
+    'tweed',
+    'seersucker',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

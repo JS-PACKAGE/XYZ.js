@@ -81,6 +81,9 @@ const kinds: ProceduralMaterialKind[] = [
   'suede',
   'snakeskin',
   'crocodile',
+  'herringbone',
+  'tweed',
+  'seersucker',
 ];
 
 class TestImageData {
@@ -295,6 +298,9 @@ describe('periodic procedural material fields', () => {
     ['suede', [5, 7, 24, 32, 80, 96]],
     ['snakeskin', [10, 12, 20, 24, 32]],
     ['crocodile', [4, 6, 9, 11, 32]],
+    ['herringbone', [2, 4, 8, 16, 32, 128]],
+    ['tweed', [4, 20, 24, 32, 80]],
+    ['seersucker', [4, 8, 12, 24, 32, 48, 144]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -608,6 +614,72 @@ describe('periodic procedural material fields', () => {
           sample((wale + 0.3) / 12, v, crest);
           expect(crest.height).toBeGreaterThan(valley.height);
         }
+    }
+  });
+
+  it('herringbone reverses its diagonal twill on alternating chevron halves', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('herringbone', seed);
+      for (const half of [0, 1]) {
+        let alongTwill = 0,
+          acrossTwill = 0;
+        const direction = half === 0 ? 1 : -1;
+        for (const u of [0.06, 0.1, 0.14, 0.18])
+          for (let row = 0; row < 48; row++) {
+            const x = u + half * 0.25,
+              y = row / 48;
+            sample(x, y, a);
+            sample(x + 1 / 32, y + direction / 32, b);
+            alongTwill += (a.color - b.color) ** 2;
+            sample(x + 1 / 32, y - direction / 32, b);
+            acrossTwill += (a.color - b.color) ** 2;
+          }
+        expect(alongTwill).toBeLessThan(acrossTwill);
+      }
+    }
+  });
+
+  it('seersucker puckers vary along raised bands while adjacent bands remain flat-woven', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('seersucker', seed);
+      for (let band = 0; band < 4; band++) {
+        let raisedVariation = 0,
+          flatVariation = 0;
+        for (let row = 0; row < 96; row++) {
+          const u = band / 4,
+            v = row / 96;
+          sample(u, v, a);
+          sample(u + 1 / 8, v, b);
+          expect(a.height).toBeGreaterThan(b.height);
+          const raised = a.height,
+            flat = b.height;
+          // One warp/weft repeat preserves the fine weave but advances
+          // the soft pucker; a uniform corduroy wale would not do this.
+          sample(u, v + 1 / 24, a);
+          sample(u + 1 / 8, v + 1 / 24, b);
+          raisedVariation += (a.height - raised) ** 2;
+          flatVariation += (b.height - flat) ** 2;
+        }
+        expect(raisedVariation).toBeGreaterThan(flatVariation);
+      }
     }
   });
 

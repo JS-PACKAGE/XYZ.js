@@ -58,6 +58,8 @@
 
 皮革飾面增量追加 suede／snakeskin／crocodile（麂皮／蛇鱗紋皮革／鱷魚壓紋皮革），目前共五十七種；前述 counts 保留為歷史。分別為棕褐色短刷絨與細孔、橄欖綠／棕色錯列的小型尖端／圓角菱形鱗紋與中央脊線及凹陷邊界、深棕色大型圓角矩形鱗板與皺褶凹紋。皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic 四份 maps；只是合成表面紋樣，凹凸僅由 shading／normal map 表現，不新增動物 geometry 或 displacement。前五十四種輸出須逐位元組保持不變，既有金屬設定、公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push，品質與驗證結果另記 ACCEPTANCE。
 
+織物飾面增量追加 herringbone／tweed／seersucker（人字紋織物／粗花呢／泡泡紗），目前共六十種；前述 counts 保留為歷史。分別呈現交替斜向的斷續斜紋人字形、粗糙雜色紗線與細斑點及交叉纖維、淺藍／奶油色交替平整與皺褶條帶及細密織紋。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic 四份 maps；僅為表面 shading／normal map 效果，不新增布料 geometry、anisotropy 或模擬。前五十七種輸出須逐位元組保持不變，既有金屬設定、公開 options、repeat、ownership、backend 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push，實際驗證另記 ACCEPTANCE。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

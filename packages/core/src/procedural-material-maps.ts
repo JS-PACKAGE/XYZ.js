@@ -686,6 +686,123 @@ export function createSurfaceSampler(
         occlusion = 0.78 + 0.18 * thread + 0.04 * fiber;
         break;
       }
+      case 'herringbone': {
+        const x = 32 * u,
+          y = 32 * v;
+        // A rounded triangular phase reverses the twill, not rectangular
+        // patches of yarn. Its analytic turn has no cusp or ownership seam.
+        const fold = Math.acos(0.995 * Math.cos(TAU * 2 * u)) / Math.PI;
+        const exposure = smooth(
+          clamp(
+            (0.5 + 0.5 * Math.cos(TAU * (2 * fold - 8 * v) + phase) - 0.2) /
+              0.6,
+          ),
+        );
+        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+          weft = 0.5 + 0.5 * Math.cos(TAU * y);
+        const thread = warp * (1 - exposure) + weft * exposure;
+        const fiber =
+          (0.5 + 0.5 * Math.sin(TAU * 128 * u + phase)) * (1 - exposure) +
+          (0.5 + 0.5 * Math.sin(TAU * 128 * v - phase)) * exposure;
+        const slub = noise(u, v, 16, 8, seed ^ 0x3c19);
+        color =
+          0.17 + 0.31 * exposure + 0.26 * thread + 0.1 * fiber + 0.09 * slub;
+        height =
+          0.25 + 0.24 * thread + 0.07 * exposure + 0.035 * fiber + 0.025 * slub;
+        roughness += 0.055 * (detail - 0.5) + 0.035 * (1 - thread);
+        occlusion = 0.84 + 0.12 * thread + 0.025 * fiber;
+        break;
+      }
+      case 'tweed': {
+        const x = 20 * u,
+          y = 20 * v;
+        const warp = smooth(clamp((Math.cos(TAU * x) + 0.45) / 1.25)),
+          weft = smooth(clamp((Math.cos(TAU * y) + 0.45) / 1.25));
+        const over = smooth(clamp(0.5 + 0.85 * Math.cos(Math.PI * (x + y))));
+        const warpTop = warp * (1 - weft + weft * over),
+          weftTop = weft * (1 - warp + warp * (1 - over));
+        const yarn = warpTop + weftTop;
+        const slub =
+          warpTop * noise(u, v, 20, 4, seed ^ 0x3b17) +
+          weftTop * noise(u, v, 4, 20, seed ^ 0x6e29);
+        const fiber =
+          warpTop *
+            (0.5 + 0.5 * Math.sin(TAU * (80 * u + 0.15 * detail) + phase)) +
+          weftTop *
+            (0.5 + 0.5 * Math.sin(TAU * (80 * v + 0.15 * detail) - phase));
+        const fx = u * 24,
+          fy = v * 24,
+          ix = Math.floor(fx),
+          iy = Math.floor(fy);
+        let flecks = 0,
+          pigment = 0.12 + 0.29 * yarn + 0.34 * slub + 0.12 * fiber;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              wx = ((cx % 24) + 24) % 24,
+              wy = ((cy % 24) + 24) % 24;
+            const variation = hash(wx, wy, seed ^ 0x2d73);
+            const dx = fx - cx - 0.25 - 0.5 * hash(wx, wy, seed),
+              dy = fy - cy - 0.25 - 0.5 * hash(wx, wy, seed ^ 0x5a31);
+            const angle =
+              (variation < 0.5 ? 0 : Math.PI / 2) + (variation - 0.5) * 0.7;
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const along = (dx * cos + dy * sin) / (0.18 + 0.2 * variation),
+              across = (dy * cos - dx * sin) / 0.075;
+            // Small yarn-aligned neps vanish with zero slope at their support.
+            const cap = clamp(1 - along * along - across * across);
+            const fleck = cap * cap;
+            flecks += fleck;
+            // Blend the nep's pigment into its yarn instead of subtracting
+            // color from dark gaps, which can leave the normalized range.
+            pigment +=
+              fleck * (0.18 + 0.64 * hash(wx, wy, seed ^ 0x7f19) - pigment);
+          }
+        color = pigment;
+        height =
+          0.2 +
+          0.28 * yarn +
+          0.08 * warp * weft +
+          0.05 * fiber +
+          0.055 * flecks;
+        roughness += 0.05 * (detail - 0.5) + 0.025 * flecks;
+        occlusion = 0.77 + 0.19 * yarn + 0.025 * fiber;
+        break;
+      }
+      case 'seersucker': {
+        const band = smooth(clamp((Math.cos(TAU * 4 * u) + 0.25) / 0.75));
+        const warp = 0.5 + 0.5 * Math.cos(TAU * 48 * u),
+          weft = 0.5 + 0.5 * Math.cos(TAU * 48 * v);
+        const over = 0.5 + 0.5 * Math.cos(Math.PI * 48 * (u + v));
+        const thread = warp * over + weft * (1 - over);
+        const fiber =
+          0.5 +
+          0.25 * Math.sin(TAU * 144 * u + phase) +
+          0.25 * Math.sin(TAU * 144 * v - phase);
+        const waviness = noise(u, v, 4, 4, seed ^ 0x4c39);
+        const wrinkle =
+          0.5 +
+          0.5 *
+            Math.sin(
+              TAU * (12 * v + 0.22 * Math.sin(TAU * 4 * u) + 0.3 * waviness) +
+                phase,
+            );
+        // Flat cream bands retain only the fine weave; the blue bands carry
+        // low, longitudinally varying puckers rather than uniform pile wales.
+        color =
+          0.71 -
+          0.39 * band +
+          0.12 * thread +
+          0.055 * fiber +
+          0.04 * band * wrinkle;
+        height =
+          0.22 + 0.035 * thread + 0.008 * fiber + band * (0.08 + 0.2 * wrinkle);
+        roughness += 0.045 * (detail - 0.5) + 0.025 * band * (1 - wrinkle);
+        occlusion = 0.96 - 0.07 * band * (1 - wrinkle) + 0.02 * thread;
+        break;
+      }
       case 'burlap': {
         const x = u * 10,
           y = v * 10;

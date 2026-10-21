@@ -189,6 +189,25 @@ function createSurfaceSampler(t, r) {
 				_ = .12 + .22 * p + .34 * c + .1 * f + .12 * m, v = .42 * p + .24 * (1 - c) + .06 * f + .08 * m, y += .06 * (h - .5) + .04 * (1 - p), b = .78 + .18 * p + .04 * f;
 				break;
 			}
+			case `herringbone`: {
+				let t = 32 * e, i = 32 * l, o = Math.acos(.995 * Math.cos(n * 2 * e)) / Math.PI, s = smooth(clamp((.5 + .5 * Math.cos(n * (2 * o - 8 * l) + a) - .2) / .6)), c = .5 + .5 * Math.cos(n * t), u = .5 + .5 * Math.cos(n * i), d = c * (1 - s) + u * s, f = (.5 + .5 * Math.sin(n * 128 * e + a)) * (1 - s) + (.5 + .5 * Math.sin(n * 128 * l - a)) * s, p = noise(e, l, 16, 8, r ^ 15385);
+				_ = .17 + .31 * s + .26 * d + .1 * f + .09 * p, v = .25 + .24 * d + .07 * s + .035 * f + .025 * p, y += .055 * (h - .5) + .035 * (1 - d), b = .84 + .12 * d + .025 * f;
+				break;
+			}
+			case `tweed`: {
+				let t = 20 * e, i = 20 * l, o = smooth(clamp((Math.cos(n * t) + .45) / 1.25)), s = smooth(clamp((Math.cos(n * i) + .45) / 1.25)), c = smooth(clamp(.5 + .85 * Math.cos(Math.PI * (t + i)))), u = o * (1 - s + s * c), d = s * (1 - o + o * (1 - c)), f = u + d, p = u * noise(e, l, 20, 4, r ^ 15127) + d * noise(e, l, 4, 20, r ^ 28201), m = u * (.5 + .5 * Math.sin(n * (80 * e + .15 * h) + a)) + d * (.5 + .5 * Math.sin(n * (80 * l + .15 * h) - a)), g = e * 24, x = l * 24, S = Math.floor(g), C = Math.floor(x), w = 0, T = .12 + .29 * f + .34 * p + .12 * m;
+				for (let e = -1; e <= 1; e++) for (let t = -1; t <= 1; t++) {
+					let n = S + t, i = C + e, a = (n % 24 + 24) % 24, o = (i % 24 + 24) % 24, s = hash(a, o, r ^ 11635), c = g - n - .25 - .5 * hash(a, o, r), l = x - i - .25 - .5 * hash(a, o, r ^ 23089), u = (s < .5 ? 0 : Math.PI / 2) + (s - .5) * .7, d = Math.cos(u), f = Math.sin(u), p = (c * d + l * f) / (.18 + .2 * s), m = (l * d - c * f) / .075, h = clamp(1 - p * p - m * m), _ = h * h;
+					w += _, T += _ * (.18 + .64 * hash(a, o, r ^ 32537) - T);
+				}
+				_ = T, v = .2 + .28 * f + .08 * o * s + .05 * m + .055 * w, y += .05 * (h - .5) + .025 * w, b = .77 + .19 * f + .025 * m;
+				break;
+			}
+			case `seersucker`: {
+				let t = smooth(clamp((Math.cos(n * 4 * e) + .25) / .75)), i = .5 + .5 * Math.cos(n * 48 * e), o = .5 + .5 * Math.cos(n * 48 * l), s = .5 + .5 * Math.cos(Math.PI * 48 * (e + l)), c = i * s + o * (1 - s), u = .5 + .25 * Math.sin(n * 144 * e + a) + .25 * Math.sin(n * 144 * l - a), d = noise(e, l, 4, 4, r ^ 19513), f = .5 + .5 * Math.sin(n * (12 * l + .22 * Math.sin(n * 4 * e) + .3 * d) + a);
+				_ = .71 - .39 * t + .12 * c + .055 * u + .04 * t * f, v = .22 + .035 * c + .008 * u + t * (.08 + .2 * f), y += .045 * (h - .5) + .025 * t * (1 - f), b = .96 - .07 * t * (1 - f) + .02 * c;
+				break;
+			}
 			case `burlap`: {
 				let t = e * 10, r = l * 10, i = smooth(clamp((Math.cos(n * t) + .35) / 1.1)), o = smooth(clamp((Math.cos(n * r) + .35) / 1.1)), s = smooth(clamp(.5 + .9 * Math.cos(Math.PI * (t + r)))), c = i * (1 - o + o * s), u = o * (1 - i + i * (1 - s)), d = c + u, f = .5 + .5 * Math.sin(n * (50 * e + .14 * h) + a), p = .5 + .5 * Math.sin(n * (50 * l + .14 * h) + a), m = c * f + u * p, g = i * o;
 				_ = .04 + .65 * d + .14 * m + .1 * h * d, v = .58 * d + .2 * g + .08 * m + .04 * h, y += .05 * (h - .5) + .025 * (1 - d), b = .42 + .54 * d + .04 * m;
