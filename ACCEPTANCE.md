@@ -2713,6 +2713,7 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   2×2 平鋪圖確認面單板、定向木片與細碎木屑差異；metallic 全為 0，
   roughness bytes 依序 140–163／195–215／203–223；
   repeats 與 destroy 後四份 textures 釋放均通過。
-- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
-  實體裝置認證。同步的其他最佳化修改不納入本組。
+- 本組原計畫獨立提交，但暫存後被同時工作的另一階段收進 `c61589f`
+  的 WebGPU 提交；未重寫該歷史、未 push。不新增 runtime 依賴，
+  不擴大跨瀏覽器或實體裝置認證。
 - `[WebGPU]` 材質區塊改變時 mesh uniform 的 PBR／UV／finish／optical／native 區段改以索引迴圈複製，不再每段建立 `subarray` view。world-nature WebGPU 取樣配置 61150 → 54442 B/frame（`subarray` 7993 B/frame 消失）；此為 JS 配置減少，不宣稱幀率提升。nm 原生 PBR 測試頁逐幀 hash 與基準一致，regression-browser webgpu 與 material-reference 通過。
