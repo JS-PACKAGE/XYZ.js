@@ -854,14 +854,22 @@ function definesHook(source: string, name: string): boolean {
   ).test(source);
 }
 
-/** Compose native hook declarations, not a shader-language translator. */
-export function nativeMeshWGSL(source: string, physical = false): string {
-  const marker = (name: string) => ({
-    start: webgpuMeshShader.indexOf(`/* XYZ_${name} */`),
-    end:
-      webgpuMeshShader.indexOf(`/* XYZ_${name}_END */`) +
-      `/* XYZ_${name}_END */`.length,
-  });
+/**
+ * Compose native hook declarations, not a shader-language translator. `shader` may be a
+ * physical variant from {@link buildWebGPUMeshShader}; it must keep both hook markers.
+ */
+export function nativeMeshWGSL(
+  source: string,
+  physical = false,
+  shader = webgpuMeshShader,
+): string {
+  const marker = (name: string) => {
+    const start = shader.indexOf(`/* XYZ_${name} */`),
+      end = shader.indexOf(`/* XYZ_${name}_END */`);
+    if (start < 0 || end < 0)
+      throw new GraphicsError(`Mesh shader lacks the ${name} native marker.`);
+    return { start, end: end + `/* XYZ_${name}_END */`.length };
+  };
   const hooks = marker('NATIVE_HOOKS');
   const fallback = marker('PHYSICAL_DEFAULT');
   if (physical && !definesHook(source, 'xyzPhysical'))
@@ -894,13 +902,13 @@ export function nativeMeshWGSL(source: string, physical = false): string {
 `;
   // Physical materials own the PBR maps; basic native materials rename them to xyzMap0..3.
   const composed =
-    webgpuMeshShader.slice(0, hooks.start) +
+    shader.slice(0, hooks.start) +
     kept +
     instanceHook +
     source +
-    webgpuMeshShader.slice(hooks.end, fallback.start) +
-    (physical ? '' : webgpuMeshShader.slice(fallback.start, fallback.end)) +
-    webgpuMeshShader.slice(fallback.end);
+    shader.slice(hooks.end, fallback.start) +
+    (physical ? '' : shader.slice(fallback.start, fallback.end)) +
+    shader.slice(fallback.end);
   if (physical) return composed;
   return composed
     .replaceAll('metallicRoughnessMap', 'xyzMap0')

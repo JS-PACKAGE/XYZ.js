@@ -1791,7 +1791,11 @@ Ordinary mesh GLSL programs and WGSL pipelines compile on demand from physical,
 geometry, shadow and environment feature bits; each renderer bounds its variant
 cache to 64 entries (`meshShaderVariantLimits`). Eviction releases GL programs or
 GPU pipeline references; destroy/loss discards the cache. Native shaders keep their
-complete physical surface and are re-prepared after recovery. Asynchronous native
+complete physical surface and are re-prepared after recovery. On WebGPU, each
+`NativePBRMaterial` color pass also composes the same hooks onto its draw's physical
+variant in the background and switches to it once compiled; until then, or when the
+hooks need engine code that variant removes, the prepared complete pipeline draws the
+same pixels. Shadow passes keep the complete module. Asynchronous native
 GL preparation polls `KHR_parallel_shader_compile`; GPU resource warmup uses
 `createRenderPipelineAsync` when available. Cold synchronous draws retain synchronous
 compilation and never substitute a missing/fallback draw. The dispatchable

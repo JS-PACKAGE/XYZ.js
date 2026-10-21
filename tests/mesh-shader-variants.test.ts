@@ -6,6 +6,8 @@ import { Mesh } from '../packages/core/src/mesh.js';
 import { PBRMaterial } from '../packages/core/src/pbr-material.js';
 import { Scene } from '../packages/core/src/scene.js';
 import { SkinnedMesh } from '../packages/core/src/skinned-mesh.js';
+import { VegetationMaterial } from '../packages/core/src/vegetation-material.js';
+import { Water3D } from '../packages/core/src/water3d.js';
 import {
   meshShaderFeatures,
   meshShaderVariantKey,
@@ -20,6 +22,7 @@ import {
 } from '../packages/graphics/src/webgl-feature-shaders.js';
 import {
   buildWebGPUMeshShader,
+  nativeMeshWGSL,
   webgpuMeshShader,
 } from '../packages/graphics/src/webgpu-mesh-shader.js';
 import { meshShaderVariantLimits } from '../src/data/rendering.js';
@@ -238,6 +241,46 @@ describe('mesh shader source variants', () => {
         ).toEqual([]);
       }
     }
+  });
+
+  it('composes engine physical hooks onto every physical variant without dropping engine code', () => {
+    const water = new Water3D({ texture, width: 1, depth: 1, segments: 1 });
+    const hooks = [
+      water.material.wgsl,
+      new VegetationMaterial({ texture }).wgsl,
+      // TerrainSplatMaterial's hook: it samples a map the uber shader binds.
+      'fn xyzPhysical(world:vec3f,normal:vec3f,uv:vec2f,surface:XYZPhysical)->XYZPhysical { var s=surface; s.occlusion=textureSample(metallicRoughnessMap,metallicRoughnessSampler,uv).r; return s; }',
+    ];
+    const switches = (features: MeshShaderFeatures) =>
+      Object.entries(features).filter(
+        ([name, on]) => on && name !== 'pbr' && name !== 'native',
+      ).length;
+    const total =
+      Object.keys(meshShaderFeatures(new PBRMaterial({ texture }))).length - 2;
+    // Both baselines and their single-switch changes keep this matrix small.
+    const physical = featureCombinationMatrix().filter(
+      (features) =>
+        features.pbr &&
+        !features.native &&
+        (switches(features) <= 1 || switches(features) >= total - 1),
+    );
+    expect(physical).toHaveLength(2 * (total + 1));
+    for (const hook of hooks) {
+      const functions = new Set([
+        ...shaderFunctionDefinitions(webgpuMeshShader, 'wgsl'),
+        ...shaderFunctionDefinitions(hook, 'wgsl'),
+      ]);
+      for (const features of physical)
+        expect(
+          missingEngineDefinitions(
+            nativeMeshWGSL(hook, true, buildWebGPUMeshShader(features)),
+            'wgsl',
+            functions,
+          ),
+          `variant ${meshShaderVariantKey(features)}`,
+        ).toEqual([]);
+    }
+    water.destroy();
   });
 
   it('detects actual SkinnedMesh instances without a nonexistent skeleton field', () => {

@@ -218,6 +218,14 @@ export declare class WebGPUMeshPipeline {
     private releaseContactDepth;
     private captureContactDepth;
     private renderShadows;
+    /**
+     * The all-feature native module is what preparation guarantees, but evaluating every
+     * disabled lobe at runtime costs physical surfaces (terrain, water, vegetation) several
+     * times the GPU time of a specialized ordinary variant. Composing the same hooks onto
+     * the draw's variant removes only branches that variant never takes.
+     */
+    private nativePipeline;
+    private specializeNative;
     private drawMesh;
     /** White RGBA storage also serves the RGB instance layout (every component is one). */
     private white;

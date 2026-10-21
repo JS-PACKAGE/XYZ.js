@@ -2618,3 +2618,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[WebGPU]` `NativePBRMaterial` 色彩 pass 改在背景把相同 hooks 組合到該 draw 的 physical variant（與一般 mesh 相同的 feature bits）並於編譯完成後切換；之前或 hooks 需要被移除的引擎函式時沿用已準備的完整 pipeline，shadow pass 不變。world-nature WebGPU 每 4 秒 152–168 → 241 幀（vsync），stress 47–49 → 240–241；GPU pass 時間（timestamp）地形 15.6 → 5.6 ms。頁內逐幀擷取 hash：預設、stress、t=7.3 三場景切換前後與基準完全一致（擾動 variant 會改變 hash，確認擷取有效）。新增引擎 water／vegetation／terrain splat hooks 在各 physical variant 上不缺函式定義的測試。

@@ -745,23 +745,27 @@ fn spotShadow(i:u32, world:vec3f, normal:vec3f)->f32 { return 1.0; }`)), t;
 function definesHook(e, t) {
 	return RegExp(`(?:^|[;{}\\n])\\s*(?:fn\\s+${t}|(?:void|vec[234]|float|XYZVertex|XYZPhysical)\\s+${t})\\s*\\(`, `m`).test(e);
 }
-function nativeMeshWGSL(e, t = !1) {
-	let marker = (e) => ({
-		start: webgpuMeshShader.indexOf(`/* XYZ_${e} */`),
-		end: webgpuMeshShader.indexOf(`/* XYZ_${e}_END */`) + `/* XYZ_${e}_END */`.length
-	}), n = marker(`NATIVE_HOOKS`), r = marker(`PHYSICAL_DEFAULT`);
+function nativeMeshWGSL(e, t = !1, n = webgpuMeshShader) {
+	let marker = (e) => {
+		let t = n.indexOf(`/* XYZ_${e} */`), r = n.indexOf(`/* XYZ_${e}_END */`);
+		if (t < 0 || r < 0) throw new require_errors.GraphicsError(`Mesh shader lacks the ${e} native marker.`);
+		return {
+			start: t,
+			end: r + `/* XYZ_${e}_END */`.length
+		};
+	}, r = marker(`NATIVE_HOOKS`), i = marker(`PHYSICAL_DEFAULT`);
 	if (t && !definesHook(e, `xyzPhysical`)) throw new require_errors.GraphicsError(`NativePBRMaterial requires a xyzPhysical native hook.`);
-	let i = t ? `${definesHook(e, `xyzDeform`) ? `` : `fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
+	let a = t ? `${definesHook(e, `xyzDeform`) ? `` : `fn xyzDeform(position: vec3f, normal: vec3f, uv: vec2f) -> XYZVertex {
   return XYZVertex(position, normal);
 }
 `}${definesHook(e, `xyzSurface`) ? `` : `fn xyzSurface(world: vec3f, normal: vec3f, uv: vec2f, texel: vec4f) -> vec4f {
   return texel;
 }
-`}` : ``, a = definesHook(e, `xyzDeformInstance`) ? `` : `fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
+`}` : ``, s = definesHook(e, `xyzDeformInstance`) ? `` : `fn xyzDeformInstance(position: vec3f, normal: vec3f, uv: vec2f, instance: mat4x4f) -> XYZVertex {
   return xyzDeform(position, normal, uv);
 }
-`, s = webgpuMeshShader.slice(0, n.start) + i + a + e + webgpuMeshShader.slice(n.end, r.start) + (t ? `` : webgpuMeshShader.slice(r.start, r.end)) + webgpuMeshShader.slice(r.end);
-	return t ? s : s.replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`).replaceAll(`metallicRoughnessSampler`, `xyzSampler0`).replaceAll(`normalSampler`, `xyzSampler1`).replaceAll(`occlusionSampler`, `xyzSampler2`).replaceAll(`emissiveSampler`, `xyzSampler3`);
+`, c = n.slice(0, r.start) + a + s + e + n.slice(r.end, i.start) + (t ? `` : n.slice(i.start, i.end)) + n.slice(i.end);
+	return t ? c : c.replaceAll(`metallicRoughnessMap`, `xyzMap0`).replaceAll(`normalMap`, `xyzMap1`).replaceAll(`occlusionMap`, `xyzMap2`).replaceAll(`emissiveMap`, `xyzMap3`).replaceAll(`metallicRoughnessSampler`, `xyzSampler0`).replaceAll(`normalSampler`, `xyzSampler1`).replaceAll(`occlusionSampler`, `xyzSampler2`).replaceAll(`emissiveSampler`, `xyzSampler3`);
 }
 //#endregion
 exports.buildWebGPUMeshShader = buildWebGPUMeshShader;

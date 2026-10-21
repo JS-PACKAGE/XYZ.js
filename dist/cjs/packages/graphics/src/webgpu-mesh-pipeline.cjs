@@ -87,6 +87,24 @@ function uploadChangedSpan(e, t, n, r, i, a) {
 	for (let e = o; e <= s; e++) r[e] = n[e];
 	return e.writeBuffer(t, o * 4, n, o, s + 1 - o), (s + 1 - o) * 4;
 }
+function nativePipelineDescriptor(e, t, n) {
+	return {
+		...t,
+		label: e.label,
+		vertex: {
+			...t.vertex,
+			module: n
+		},
+		fragment: t.fragment ? {
+			...t.fragment,
+			module: n
+		} : void 0,
+		depthStencil: t.depthStencil ? {
+			...t.depthStencil,
+			depthWriteEnabled: t.depthStencil.depthWriteEnabled && (t.depthStencil.format === `depth32float` || !e.transparent)
+		} : void 0
+	};
+}
 var PassBindings = class {
 	pass;
 	pipeline;
@@ -1212,22 +1230,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			this.device.pushErrorScope(`validation`);
 			let o, s;
 			try {
-				o = Promise.all(this.pipelineRecipes.map((n) => this.device.createRenderPipelineAsync({
-					...n,
-					label: e.label,
-					vertex: {
-						...n.vertex,
-						module: t
-					},
-					fragment: n.fragment ? {
-						...n.fragment,
-						module: t
-					} : void 0,
-					depthStencil: n.depthStencil ? {
-						...n.depthStencil,
-						depthWriteEnabled: n.depthStencil.depthWriteEnabled && (n.depthStencil.format === `depth32float` || !e.transparent)
-					} : void 0
-				})));
+				o = Promise.all(this.pipelineRecipes.map((n) => this.device.createRenderPipelineAsync(nativePipelineDescriptor(e, n, t))));
 			} finally {
 				s = this.device.popErrorScope();
 			}
@@ -1246,6 +1249,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 				module: t,
 				pipelines: d,
 				coverage: /* @__PURE__ */ new Map(),
+				specialized: /* @__PURE__ */ new Map(),
 				unsubscribe: p
 			});
 		})();
@@ -1466,11 +1470,49 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			a.end(), this.shadowAttachment.view = void 0;
 		}
 	}
+	nativePipeline(e, t, n) {
+		let r = t.pipelines[n], i = e.material;
+		if (n === 3 || !(i instanceof require_native_pbr_material.NativePBRMaterial)) return r;
+		let a = this.renderScene, o = require_mesh_shader_variants.meshShaderVariantBits(i, e, a) * 8 + n, s = t.specialized.get(o);
+		return s || (t.specialized.set(o, s = {}), this.specializeNative(i, t, s, require_mesh_shader_variants.meshShaderFeatures(i, e, a), n).catch(() => void 0)), s.pipeline ?? r;
+	}
+	async specializeNative(e, t, n, r, i) {
+		r.native = !1;
+		let a;
+		try {
+			a = require_webgpu_mesh_shader.nativeMeshWGSL(e.wgsl, !0, require_webgpu_mesh_shader.buildWebGPUMeshShader(r));
+		} catch {
+			return;
+		}
+		this.device.pushErrorScope(`validation`);
+		let o, s;
+		try {
+			o = this.device.createShaderModule({
+				label: e.label,
+				code: a
+			});
+		} finally {
+			s = this.device.popErrorScope();
+		}
+		try {
+			let [r, a] = await Promise.all([o.getCompilationInfo(), s]);
+			if (a || r.messages.some((e) => e.type === `error`) || this.destroyed || this.nativeMaterials.get(e) !== t) return;
+			this.device.pushErrorScope(`validation`);
+			let c, l;
+			try {
+				c = this.device.createRenderPipelineAsync(nativePipelineDescriptor(e, this.pipelineRecipes[i], o));
+			} finally {
+				l = this.device.popErrorScope();
+			}
+			let [u, d] = await Promise.all([c, l]);
+			!d && !this.destroyed && this.nativeMaterials.get(e) === t && (n.pipeline = u);
+		} catch {}
+	}
 	drawMesh(e, t, n = 0) {
 		let r = this.geometries.get(t.renderGeometry), i = this.meshes.get(t), a = require_native_material3d.isNativeMaterial3D(t.material) ? this.nativeMaterials.get(t.material) : void 0;
 		n < 2 && (this.visibility.entries.get(t)?.fade ?? 1) < 1 && (n += 4);
 		let o = n !== 3 && t.material instanceof require_pbr_material.PBRMaterial && t.material.alphaToCoverage, c;
-		if (a) c = a.pipelines[n];
+		if (a) c = this.nativePipeline(t, a, n);
 		else if (n === 3) c = this.shadowPipeline;
 		else {
 			let e = this.meshPipelineEntry(t.material, t, this.renderScene, n, o);

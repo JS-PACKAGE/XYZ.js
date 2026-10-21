@@ -86,6 +86,7 @@ import {
 import {
   meshShaderFeatures,
   meshShaderVariantBits,
+  type MeshShaderFeatures,
 } from './mesh-shader-variants.js';
 import {
   WebGPUPostPipeline,
@@ -338,6 +339,29 @@ export function uploadChangedSpan(
   return (last + 1 - first) * 4;
 }
 
+/** One native pass pipeline; the uber and specialized modules share every other state. */
+function nativePipelineDescriptor(
+  material: NativeMaterial3D | NativePBRMaterial,
+  recipe: GPURenderPipelineDescriptor,
+  module: GPUShaderModule,
+): GPURenderPipelineDescriptor {
+  return {
+    ...recipe,
+    label: material.label,
+    vertex: { ...recipe.vertex, module },
+    fragment: recipe.fragment ? { ...recipe.fragment, module } : undefined,
+    depthStencil: recipe.depthStencil
+      ? {
+          ...recipe.depthStencil,
+          depthWriteEnabled:
+            recipe.depthStencil.depthWriteEnabled &&
+            (recipe.depthStencil.format === 'depth32float' ||
+              !material.transparent),
+        }
+      : undefined,
+  };
+}
+
 /**
  * What one render pass already has bound, so consecutive mesh draws skip redundant encoder
  * calls (each crosses into the browser's native encoder). Pipelines, bind groups and vertex
@@ -379,18 +403,26 @@ class PassBindings {
   }
 }
 
+interface NativeMaterialEntry {
+  module: GPUShaderModule;
+  pipelines: readonly GPURenderPipeline[];
+  coverage: Map<number, GPURenderPipeline>;
+  /**
+   * Physical color-pass pipelines compiled in the background from the draw's feature
+   * variant, keyed like ordinary variants. Until one is ready, or if it fails to compile,
+   * draws keep the prepared all-feature pipeline, which renders the same pixels slower.
+   */
+  specialized: Map<number, { pipeline?: GPURenderPipeline }>;
+  unsubscribe: () => void;
+}
+
 /** Persistent 3D resources, native joint palettes and hardware instances. */
 export class WebGPUMeshPipeline {
   private readonly geometries = new Map<Geometry, CachedGeometry>();
   private textureEpoch = 0;
   private readonly nativeMaterials = new Map<
     NativeMaterial3D | NativePBRMaterial,
-    {
-      module: GPUShaderModule;
-      pipelines: readonly GPURenderPipeline[];
-      coverage: Map<number, GPURenderPipeline>;
-      unsubscribe: () => void;
-    }
+    NativeMaterialEntry
   >();
   private readonly pendingMaterials = new Map<
     NativeMaterial3D | NativePBRMaterial,
@@ -2084,23 +2116,9 @@ export class WebGPUMeshPipeline {
       try {
         pipelineWork = Promise.all(
           this.pipelineRecipes.map((recipe) =>
-            this.device.createRenderPipelineAsync({
-              ...recipe,
-              label: material.label,
-              vertex: { ...recipe.vertex, module },
-              fragment: recipe.fragment
-                ? { ...recipe.fragment, module }
-                : undefined,
-              depthStencil: recipe.depthStencil
-                ? {
-                    ...recipe.depthStencil,
-                    depthWriteEnabled:
-                      recipe.depthStencil.depthWriteEnabled &&
-                      (recipe.depthStencil.format === 'depth32float' ||
-                        !material.transparent),
-                  }
-                : undefined,
-            }),
+            this.device.createRenderPipelineAsync(
+              nativePipelineDescriptor(material, recipe, module),
+            ),
           ),
         );
       } finally {
@@ -2142,6 +2160,7 @@ export class WebGPUMeshPipeline {
         module,
         pipelines,
         coverage: new Map(),
+        specialized: new Map(),
         unsubscribe,
       });
     })();
@@ -2571,6 +2590,104 @@ export class WebGPUMeshPipeline {
     }
   }
 
+  /**
+   * The all-feature native module is what preparation guarantees, but evaluating every
+   * disabled lobe at runtime costs physical surfaces (terrain, water, vegetation) several
+   * times the GPU time of a specialized ordinary variant. Composing the same hooks onto
+   * the draw's variant removes only branches that variant never takes.
+   */
+  private nativePipeline(
+    object: Mesh,
+    custom: NativeMaterialEntry,
+    variant: number,
+  ): GPURenderPipeline {
+    const fallback = custom.pipelines[variant]!;
+    const material = object.material;
+    if (variant === 3 || !(material instanceof NativePBRMaterial))
+      return fallback;
+    const scene = this.renderScene;
+    const key = meshShaderVariantBits(material, object, scene) * 8 + variant;
+    let entry = custom.specialized.get(key);
+    if (!entry) {
+      custom.specialized.set(key, (entry = {}));
+      this.specializeNative(
+        material,
+        custom,
+        entry,
+        meshShaderFeatures(material, object, scene),
+        variant,
+      ).catch(() => undefined);
+    }
+    return entry.pipeline ?? fallback;
+  }
+  private async specializeNative(
+    material: NativePBRMaterial,
+    custom: NativeMaterialEntry,
+    entry: { pipeline?: GPURenderPipeline },
+    features: MeshShaderFeatures,
+    variant: number,
+  ): Promise<void> {
+    features.native = false;
+    let code: string;
+    try {
+      code = nativeMeshWGSL(
+        material.wgsl,
+        true,
+        buildWebGPUMeshShader(features),
+      );
+    } catch {
+      return;
+    }
+    // Pair scopes synchronously: concurrent work must not pop each other's scopes.
+    this.device.pushErrorScope('validation');
+    let module: GPUShaderModule;
+    let shaderValidation: Promise<GPUError | null>;
+    try {
+      module = this.device.createShaderModule({ label: material.label, code });
+    } finally {
+      shaderValidation = this.device.popErrorScope();
+    }
+    try {
+      const [info, shaderError] = await Promise.all([
+        module.getCompilationInfo(),
+        shaderValidation,
+      ]);
+      // Hooks may use engine code this variant removed; they keep the all-feature pipeline.
+      if (
+        shaderError ||
+        info.messages.some((message) => message.type === 'error') ||
+        this.destroyed ||
+        this.nativeMaterials.get(material) !== custom
+      )
+        return;
+      this.device.pushErrorScope('validation');
+      let work: Promise<GPURenderPipeline>;
+      let pipelineValidation: Promise<GPUError | null>;
+      try {
+        work = this.device.createRenderPipelineAsync(
+          nativePipelineDescriptor(
+            material,
+            this.pipelineRecipes[variant]!,
+            module,
+          ),
+        );
+      } finally {
+        pipelineValidation = this.device.popErrorScope();
+      }
+      const [pipeline, pipelineError] = await Promise.all([
+        work,
+        pipelineValidation,
+      ]);
+      if (
+        !pipelineError &&
+        !this.destroyed &&
+        this.nativeMaterials.get(material) === custom
+      )
+        entry.pipeline = pipeline;
+    } catch {
+      // A rejected compile or pipeline also keeps the all-feature pipeline.
+    }
+  }
   private drawMesh(bindings: PassBindings, object: Mesh, variant = 0): number {
     const geometry = this.geometries.get(object.renderGeometry)!;
     const mesh = this.meshes.get(object)!;
@@ -2584,7 +2701,7 @@ export class WebGPUMeshPipeline {
       object.material instanceof PBRMaterial &&
       object.material.alphaToCoverage;
     let pipeline: GPURenderPipeline;
-    if (custom) pipeline = custom.pipelines[variant]!;
+    if (custom) pipeline = this.nativePipeline(object, custom, variant);
     else if (variant === 3) pipeline = this.shadowPipeline;
     else {
       const entry = this.meshPipelineEntry(
