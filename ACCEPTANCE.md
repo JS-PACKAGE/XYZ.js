@@ -3437,31 +3437,29 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   PLAN／DESIGN、驗證與對應 dist。沒有新增相對連結，
   README 既有自然表面分類維持適用。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+## 程序材質擴充：廚房與燭光（cheese／sugarfrosting／candleswax）
 
-## 程序材質擴充：戶外硬景（brickpaving／steppingstone／woodendeck）
-
-- 新增錯縫墊高於砂質接縫之上的磚面、墊高於礫石地面的圓潤石板、
-  窄縫上方的板面與隆起螺絲釘頭及凹陷十字槽。本組快照由
-  153 增為 156 種；三者皆為 opaque dielectric，metallic 通道與
-  預設 factor 為 0，僅為表面 shading，不新增磚、石板、木板或
-  螺絲 geometry，也不做 displacement。
-- 原 153 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
-- build、typecheck、lint、format:check 通過；完整 Vitest 2044 個
-  測試中 2043 通過，唯一失敗為既有已知不穩定的 mesh-shader-variants
-  （單獨重跑通過）。磚面／砂縫高度與遮蔽、錯縫半磚位移、石板／
-  礫石地高度序、板面／窄縫高度序、釘頭／十字槽高度與遮蔽序、
-  support 邊界斜率連續性納入回歸；板面色調沿縫淡出避免跨界跳變。
-- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 156 種）逐一切換三者，
+- 新增沉入麵體、大小不一的圓潤孔洞、隆起於平滑糖面的擠花玫瑰峰、
+  圓潤下垂的蠟流與其下端鼓起的淚頭。本組快照由 156 增為 159 種；
+  三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，
+  僅為表面 shading，不新增食品或蠟體 geometry，也不做 displacement。
+- 原 156 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 於乾淨快照通過（共享工作目錄
+  當時帶有其他行程 sprite 測試的進行中型別錯誤，不納入本組）；
+  本組 590 個程序材質測試全數通過。孔洞底／孔壁高度序、擠花峰／
+  糖面高度序、淚頭／蠟流／底蠟高度與遮蔽序、support 邊界斜率
+  連續性納入回歸。
+- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 159 種）逐一切換三者，
   場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
   無 page／console errors，狀態列確認實際 backend。
   metallic 全為 0，roughness bytes 依序
-  204–229／214–245／172–215；每米 repeats 依序
-  1.25／1／1.111111。
+  129–152/109–131/142–167；每米 repeats 依序
+  3.333333/4.166667/2.857143。
   check:material-reference 通過，regression-browser chromium
   webgl2 與 webgpu 通過。
-- 本組首次落地（`c41f7d99`）時以較舊快照蓋掉了同時落地的
-  scallopshell／oystershell／nautilusshell 已提交內容；本 commit
-  立即以該組已提交版本為基準還原並重送本組變更，未重寫歷史、
-  不 push。共享工作目錄的其他行程修改不納入本組；
-  不新增 runtime 依賴，不擴大跨瀏覽器或實體裝置認證。
+- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
+  只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
+  不納入本組。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
+
 - `[Rendering2D]` 2D 送出前的驗證階段（canvas2d／WebGL2／WebGPU）改用新增的 `validateSpriteQuad2D`／`validateTextureQuad2D`，依原順序執行 `getSpriteQuad2D`／`getTextureQuad2D` 的全部檢查（destroyed、view、source 範圍、bounds override、tiling transform）但不計算 quad；`getTextureQuad2D` 本身也先呼叫同一個檢查，繪製時才計算 quad 一次（原本每個 sprite 每幀算兩次）。新增測試逐案比對兩者丟出相同錯誤（含 bounds override 與縮小的 native source），移除任一檢查的 mutant 皆失敗。20k 靜態 sprite（WebGL2）剖析中 quad＋驗證佔 CPU busy 17.8% → 14.2%，屬 CPU 時間佔比。canvas2d／WebGL2／WebGPU browser regression 通過；build 與完整測試（2044 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

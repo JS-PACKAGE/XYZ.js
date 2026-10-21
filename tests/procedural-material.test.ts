@@ -91,6 +91,9 @@ const kinds: ProceduralMaterialKind[] = [
   'brickpaving',
   'steppingstone',
   'woodendeck',
+  'cheese',
+  'sugarfrosting',
+  'candleswax',
   'sandstone',
   'travertine',
   'pumice',
@@ -2312,6 +2315,9 @@ describe('periodic procedural material fields', () => {
     ['brickpaving', [3, 4, 24, 32, 64]],
     ['steppingstone', [3, 12, 32, 72]],
     ['woodendeck', [3, 5, 8, 32, 48]],
+    ['cheese', [4, 6, 24, 32, 40]],
+    ['sugarfrosting', [5, 32]],
+    ['candleswax', [2, 6, 16, 32, 48]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -2496,6 +2502,9 @@ describe('periodic procedural material fields', () => {
     ['brickpaving', 3],
     ['brickpaving', 4],
     ['woodendeck', 5],
+    ['cheese', 6],
+    ['candleswax', 6],
+    ['candleswax', 2],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -5267,6 +5276,164 @@ describe('periodic procedural material fields', () => {
         sample(highX, highY, head);
         sample(lowX, lowY, probe);
         expect(head.occlusion).toBeGreaterThan(probe.occlusion);
+      }
+    }
+  });
+
+  it('cheese sinks smooth rounded eyes of varied sizes below its paste', () => {
+    const relief = proceduralMaterialPresets.cheese.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const wall = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cheese', seed);
+      for (const [column, row] of [
+        [0, 1],
+        [3, 2],
+        [5, 5],
+      ]) {
+        let high = 0,
+          low = 1,
+          lowX = 0,
+          lowY = 0;
+        for (let j = 0; j < 14; j++)
+          for (let i = 0; i < 14; i++) {
+            const u = (column + (i + 0.5) / 14) / 6,
+              v = (row + (j + 0.5) / 14) / 6;
+            sample(u, v, probe);
+            high = Math.max(high, probe.height);
+            if (probe.height < low) {
+              low = probe.height;
+              lowX = u;
+              lowY = v;
+            }
+          }
+        expect(high).toBeGreaterThan(low + 0.1 * relief);
+        // Eye walls rise smoothly away from the bowl floor.
+        let wallLow = 1;
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            lowX + 0.07 * Math.cos(angle),
+            lowY + 0.07 * Math.sin(angle),
+            wall,
+          );
+          wallLow = Math.min(wallLow, wall.height);
+        }
+        expect(wallLow).toBeGreaterThan(low);
+        sample(lowX, lowY, probe);
+        expect(probe.occlusion).toBeLessThan(0.6);
+      }
+    }
+  });
+
+  it('sugar frosting swells piped peaks over smooth icing', () => {
+    const relief = proceduralMaterialPresets.sugarfrosting.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const near = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sugarfrosting', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 3],
+        [4, 1],
+      ]) {
+        let peak = 0,
+          peakX = 0,
+          peakY = 0,
+          low = 1;
+        for (let j = 0; j < 14; j++)
+          for (let i = 0; i < 14; i++) {
+            const u = (column + (i + 0.5) / 14) / 5,
+              v = (row + (j + 0.5) / 14) / 5;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+            low = Math.min(low, probe.height);
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // Each rosette falls toward the icing around its own crest.
+        let nearLow = 1;
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            peakX + 0.08 * Math.cos(angle),
+            peakY + 0.08 * Math.sin(angle),
+            near,
+          );
+          nearLow = Math.min(nearLow, near.height);
+        }
+        expect(peak).toBeGreaterThan(nearLow);
+      }
+    }
+  });
+
+  it('candle wax bulges drip noses above their runs and the base', () => {
+    const relief = proceduralMaterialPresets.candleswax.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const upper = { ...probe },
+      base = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('candleswax', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [3, 1],
+        [5, 0],
+      ]) {
+        // A scan finds each run's swollen nose wherever the drip jitters.
+        let peak = 0,
+          peakX = 0,
+          peakY = 0,
+          low = 1,
+          lowX = 0,
+          lowY = 0;
+        for (let j = 0; j < 16; j++)
+          for (let i = 0; i < 16; i++) {
+            const u = (column + (i + 0.5) / 16) / 6,
+              v = (row + (j + 0.5) / 16) / 2;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+            if (probe.height < low) {
+              low = probe.height;
+              lowX = u;
+              lowY = v;
+            }
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // The nose swells above the same run higher up and over the base.
+        sample(peakX, peakY - 0.16, upper);
+        sample(lowX, lowY, base);
+        expect(peak).toBeGreaterThan(upper.height + 0.03 * relief);
+        expect(peak).toBeGreaterThan(base.height + 0.1 * relief);
+        sample(peakX, peakY, probe);
+        expect(probe.occlusion).toBeGreaterThan(base.occlusion);
       }
     }
   });

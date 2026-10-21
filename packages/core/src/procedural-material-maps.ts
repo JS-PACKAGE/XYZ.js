@@ -3966,6 +3966,102 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.52 * gap - 0.12 * slots;
         break;
       }
+      case 'cheese': {
+        const cells = 6;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Rounded eyes of two sizes sink into the paste with smooth walls
+        // and zero slope before a discarded cell can matter.
+        let eyes = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx =
+                x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4e17) - 0.5),
+              dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x72ab) - 0.5);
+            const radius =
+              0.14 + 0.18 * Math.floor(hash(wx, wy, seed ^ 0x35cf) * 2);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const bowl = smooth(clamp((radius - distance) / (0.35 * radius)));
+            eyes += (1 - eyes) * bowl;
+          }
+        const knife = noise(u, v, 40, 4, seed ^ 0x2b7d);
+        const paste = noise(u, v, 24, 24, seed ^ 0x61c3);
+        color = 0.56 + 0.26 * paste + 0.1 * knife - 0.3 * eyes;
+        height = 0.72 - 0.5 * eyes + 0.04 * paste - 0.03 * knife;
+        roughness += 0.06 * (1 - eyes) + 0.03 * (paste - 0.5);
+        occlusion = 0.94 - 0.6 * eyes;
+        break;
+      }
+      case 'sugarfrosting': {
+        const cells = 5;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Piped rosette peaks swell over smooth icing between them.
+        let peaks = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x1f8b) - 0.5),
+              dy = y - cy - 0.5 - 0.2 * (hash(wx, wy, seed ^ 0x4a2d) - 0.5);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const cap = clamp(1 - (distance / 0.34) ** 2);
+            peaks += (1 - peaks) * cap * cap;
+          }
+        const swirl = noise(u, v, 32, 32, seed ^ 0x7c41);
+        color = 0.58 + 0.2 * peaks + 0.1 * swirl + 0.1 * detail;
+        height = 0.34 + 0.5 * peaks + 0.06 * swirl + 0.03 * detail;
+        roughness += 0.06 * (1 - peaks) + 0.03 * (detail - 0.5);
+        occlusion = 0.66 + 0.3 * peaks;
+        break;
+      }
+      case 'candleswax': {
+        const columns = 6,
+          rows = 2;
+        const x = u * columns,
+          y = v * rows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Rounded drips run down the wax with bulging noses; squared caps
+        // fade with zero slope at their support.
+        let drips = 0,
+          noses = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % columns) + columns) % columns,
+              wy = ((cy % rows) + rows) % rows;
+            const px = cx + 0.5 + 0.3 * (hash(wx, wy, seed ^ 0x24b1) - 0.5),
+              py = cy + 0.5;
+            const dx = x - px,
+              dy = y - py;
+            const along = dy / 0.42,
+              across = dx / 0.14;
+            const cap = clamp(1 - along * along - across * across);
+            const drip = cap * cap;
+            const nose =
+              clamp(1 - ((dy - 0.22) / 0.14) ** 2 - (dx / 0.17) ** 2) ** 2;
+            drips += (1 - drips) * drip;
+            noses += (1 - noses) * drip * nose;
+          }
+        const sheen = noise(u, v, 48, 16, seed ^ 0x5d23);
+        color = 0.5 + 0.26 * drips + 0.12 * noses + 0.1 * sheen;
+        height = 0.3 + 0.42 * drips + 0.16 * noses + 0.05 * sheen;
+        roughness += 0.05 * (sheen - 0.5) + 0.05 * (1 - drips);
+        occlusion = 0.62 + 0.34 * drips;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

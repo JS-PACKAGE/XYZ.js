@@ -1165,6 +1165,36 @@ function createSurfaceSampler(t, r) {
 				B = .42 + .24 * l + .12 * u + .1 * d - .08 * f, U = .68 - .44 * c + .05 * d - .12 * f + .05 * u, Q += .05 * (u - .5) + .08 * c - .04 * d, $ = 1 - .52 * c - .12 * f;
 				break;
 			}
+			case `cheese`: {
+				let t = e * 6, n = o * 6, i = Math.floor(t), a = Math.floor(n), s = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let c = i + o, l = a + e, u = (c % 6 + 6) % 6, d = (l % 6 + 6) % 6, f = t - c - .5 - .24 * (hash(u, d, r ^ 19991) - .5), p = n - l - .5 - .24 * (hash(u, d, r ^ 29355) - .5), m = .14 + .18 * Math.floor(hash(u, d, r ^ 13775) * 2), g = smooth(clamp((m - Math.sqrt(f * f + p * p)) / (.35 * m)));
+					s += (1 - s) * g;
+				}
+				let c = noise(e, o, 40, 4, r ^ 11133), l = noise(e, o, 24, 24, r ^ 25027);
+				B = .56 + .26 * l + .1 * c - .3 * s, U = .72 - .5 * s + .04 * l - .03 * c, Q += .06 * (1 - s) + .03 * (l - .5), $ = .94 - .6 * s;
+				break;
+			}
+			case `sugarfrosting`: {
+				let t = e * 5, n = o * 5, i = Math.floor(t), a = Math.floor(n), s = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let c = i + o, l = a + e, u = (c % 5 + 5) % 5, d = (l % 5 + 5) % 5, f = t - c - .5 - .2 * (hash(u, d, r ^ 8075) - .5), p = n - l - .5 - .2 * (hash(u, d, r ^ 18989) - .5), h = clamp(1 - (Math.sqrt(f * f + p * p) / .34) ** 2);
+					s += (1 - s) * h * h;
+				}
+				let c = noise(e, o, 32, 32, r ^ 31809);
+				B = .58 + .2 * s + .1 * c + .1 * A, U = .34 + .5 * s + .06 * c + .03 * A, Q += .06 * (1 - s) + .03 * (A - .5), $ = .66 + .3 * s;
+				break;
+			}
+			case `candleswax`: {
+				let t = e * 6, n = o * 2, i = Math.floor(t), a = Math.floor(n), s = 0, c = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let l = i + o, u = a + e, d = (l % 6 + 6) % 6, f = (u % 2 + 2) % 2, p = l + .5 + .3 * (hash(d, f, r ^ 9393) - .5), m = u + .5, h = t - p, g = n - m, _ = g / .42, v = h / .14, y = clamp(1 - _ * _ - v * v), b = y * y, x = clamp(1 - ((g - .22) / .14) ** 2 - (h / .17) ** 2) ** 2;
+					s += (1 - s) * b, c += (1 - c) * b * x;
+				}
+				let l = noise(e, o, 48, 16, r ^ 23843);
+				B = .5 + .26 * s + .12 * c + .1 * l, U = .3 + .42 * s + .16 * c + .05 * l, Q += .05 * (l - .5) + .05 * (1 - s), $ = .62 + .34 * s;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((z - .28) / .48)), d = (1 - z) ** 5;
 				B = .22 + .35 * s + .2 * l + .18 * u - .2 * c, U = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Q += .12 * (u - .5) + .05 * c, $ = .97 - .12 * c - .13 * d + .025 * u;

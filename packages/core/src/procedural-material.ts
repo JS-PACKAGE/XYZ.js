@@ -73,6 +73,9 @@ export type ProceduralMaterialKind =
   | 'brickpaving'
   | 'steppingstone'
   | 'woodendeck'
+  | 'cheese'
+  | 'sugarfrosting'
+  | 'candleswax'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -261,6 +264,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'brickpaving',
   'steppingstone',
   'woodendeck',
+  'cheese',
+  'sugarfrosting',
+  'candleswax',
   'sandstone',
   'travertine',
   'pumice',
