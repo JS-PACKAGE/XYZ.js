@@ -93,7 +93,8 @@ export function createSurfaceSampler(
     kind === 'terrazzo' ||
     kind === 'plaster' ||
     kind === 'terracotta' ||
-    kind === 'cork';
+    kind === 'cork' ||
+    kind === 'rubber';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -105,7 +106,7 @@ export function createSurfaceSampler(
       roughness = preset.roughness,
       occlusion = 1,
       mortar = 0,
-      metallic = kind === 'metal' ? 1 : 0;
+      metallic = kind === 'metal' || kind === 'diamondplate' ? 1 : 0;
     switch (kind) {
       case 'wood': {
         const warp = noise(u, v, 4, 2, seed ^ 71);
@@ -704,6 +705,57 @@ export function createSurfaceSampler(
           0.4 + 0.16 * flake + 0.07 * fine - 0.2 * boundary - 0.07 * lenticel;
         roughness += 0.07 * (fine - 0.5) + 0.045 * boundary - 0.025 * flake;
         occlusion = 0.97 - 0.18 * boundary - 0.08 * lenticel;
+        break;
+      }
+      case 'rubber': {
+        const distance = wrappedFeature(u, v, 44, seed ^ 0x8e53);
+        const pebble = 1 - smooth(clamp((distance - 0.08) / 0.55));
+        // Fine molded stipple, with much shallower relief than leather grain.
+        color = 0.19 + 0.38 * pebble + 0.19 * fine + 0.1 * detail;
+        height = 0.19 + 0.49 * pebble + 0.15 * fine + 0.06 * detail;
+        roughness += 0.12 * (fine - 0.5) - 0.045 * pebble;
+        occlusion = 0.9 + 0.08 * pebble + 0.02 * fine;
+        break;
+      }
+      case 'carbonfiber': {
+        const x = 12 * (u + v),
+          y = 12 * (v - u);
+        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+          weft = 0.5 + 0.5 * Math.cos(TAU * y);
+        // Smooth two-over/two-under ownership of diagonal tow bundles.
+        const over = smooth(
+          clamp(0.5 + 0.9 * Math.cos((Math.PI * (x - y)) / 2)),
+        );
+        const warpFiber =
+          0.5 + 0.5 * Math.sin(TAU * (4 * x + 0.08 * detail) + phase);
+        const weftFiber =
+          0.5 + 0.5 * Math.sin(TAU * (4 * y + 0.08 * detail) + phase);
+        const tow = warp * over + weft * (1 - over);
+        const fiber = warpFiber * over + weftFiber * (1 - over);
+        color = 0.12 + 0.46 * tow + 0.2 * fiber + 0.12 * detail;
+        // Resin smooths the weave; its sheen remains dielectric, not metallic.
+        height = 0.25 + 0.37 * tow + 0.055 * fiber + 0.04 * detail;
+        roughness += 0.065 * (detail - 0.5) + 0.045 * (1 - tow);
+        occlusion = 0.88 + 0.1 * tow + 0.02 * fiber;
+        break;
+      }
+      case 'diamondplate': {
+        const x = u * 8,
+          y = v * 8;
+        const dx = fract(x) - 0.5,
+          dy = fract(y) - 0.5;
+        const direction = (Math.floor(x) + Math.floor(y)) % 2 === 0 ? 1 : -1;
+        const along = (dx + direction * dy) * Math.SQRT1_2,
+          across = (dy - direction * dx) * Math.SQRT1_2;
+        const distance = Math.abs(along) / 0.48 + Math.abs(across) / 0.14;
+        // Each beveled lozenge ends strictly inside its cell, so alternating
+        // orientation never introduces an ownership discontinuity at cell edges.
+        const raised = smooth(clamp((1 - distance) / 0.24));
+        const rolled = noise(u, v, 4, 64, seed ^ 0x35e1);
+        color = 0.35 + 0.25 * rolled + 0.29 * raised + 0.07 * detail;
+        height = 0.08 + 0.78 * raised + 0.025 * rolled;
+        roughness += 0.14 * (rolled - 0.5) - 0.075 * raised;
+        occlusion = 0.94 + 0.05 * raised + 0.01 * detail;
         break;
       }
     }

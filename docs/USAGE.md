@@ -471,7 +471,7 @@ PBR borrows base/emissive sRGB and linear metallicRoughness (G/B), normal/occlus
 
 #### Reusable Procedural PBR Presets
 
-`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. The 27 `ProceduralMaterialKind` values are `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation. Metal and rust use metallic factor 1; other kinds stay dielectric.
+`ProceduralMaterial.create(kind, options?)` generates seamless, deterministic maps once on the CPU, without external assets or dependencies. The 30 `ProceduralMaterialKind` values are `'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet' | 'plaster' | 'terracotta' | 'cork' | 'rubber' | 'carbonfiber' | 'diamondplate'`; `ProceduralMaterialOptions` accepts integer `size` 32–1024 (default 256) and unsigned 32-bit integer `seed` 0–4294967295 (default 1). Invalid values reject creation. Metal, rust and diamondplate use metallic factor 1; other kinds use 0 and stay dielectric.
 
 For pavement, choose asphalt for dark granular binder with embedded aggregate, gravel for irregular pebbles with dark recesses, or cobblestone for staggered rounded paving blocks. All three use opaque, repeating color/normal/metallic-roughness/occlusion maps.
 
@@ -482,6 +482,8 @@ For stone finishes, choose granite for speckled mineral grains, slate for layere
 For textiles, choose denim for diagonal twill, burlap for a coarse cross weave, or carpet for a cut-pile surface. These opaque dielectrics use the same four repeating maps with a zero metallic channel, not geometry, hair simulation or transparent weave holes.
 
 For building finishes, choose plaster for pale gypsum with shallow sweeping trowel marks and fine pores, terracotta for unglazed reddish fired clay with irregular kiln mottling and pits (no tile grout), or cork for tan/brown compressed flakes with cellular boundaries. These opaque dielectrics use the same four repeating maps with a zero metallic channel, not geometry or physical simulation.
+
+For industrial surfaces, choose rubber for charcoal molded elastomer with fine pebbled stipple, carbonfiber for dark resin-coated tow bundles with alternating diagonal twill directions, or diamondplate for silver rolled metal with raised alternating diagonal lozenges. Rubber and carbonfiber are opaque dielectrics with a zero metallic channel; diamondplate has metallic channel 1 and default metallic factor 1. All use the same four periodic RGBA maps; relief is normal-map-only, not geometry. Carbon weave does not add a special anisotropic shader, clearcoat or physical simulation.
 
 With an existing 3D `scene`, reuse one preset across meshes:
 
@@ -508,7 +510,7 @@ second.destroy();
 preset.destroy();
 ```
 
-Readonly `kind`, `material` and `textures` expose the preset: `textures.baseColor` is sRGB RGB, `normal` is linear tangent-space, `metallicRoughness` stores roughness in G and metallic in B, and `occlusion` stores linear occlusion in R. These four immutable `Texture` sources use the existing PBR/rendering path. Defaults are opaque, repeat sampling for all slots, roughness factor 1, and metallic factor 1 for metal and rust or 0 for the other kinds.
+Readonly `kind`, `material` and `textures` expose the preset: `textures.baseColor` is sRGB RGB, `normal` is linear tangent-space, `metallicRoughness` stores roughness in G and metallic in B, and `occlusion` stores linear occlusion in R. These four immutable `Texture` sources use the existing PBR/rendering path. Defaults are opaque, repeat sampling for all slots, roughness factor 1, and metallic factor 1 for metal, rust and diamondplate or 0 for the other kinds.
 
 `createMaterial(options?: Partial<PBRMaterialOptions>)` creates a new `PBRMaterial` borrowing the same maps, with caller overrides applied last; it does not regenerate textures. Scene/mesh destruction does not own the preset. Its synchronous, idempotent `destroy()` releases only its generated textures, never caller override textures; `destroyed` reports its state and later `createMaterial()` calls reject. Do not reuse released maps. The [pbr3d gallery](../examples/pbr3d/) provides preset selection and texture-map previews; Canvas2D remains 2D-only.
 

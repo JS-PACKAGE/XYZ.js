@@ -51,6 +51,9 @@ const kinds: ProceduralMaterialKind[] = [
   'plaster',
   'terracotta',
   'cork',
+  'rubber',
+  'carbonfiber',
+  'diamondplate',
 ];
 
 class TestImageData {
@@ -154,7 +157,8 @@ describe('periodic procedural material fields', () => {
         expect(Math.abs(Math.hypot(nx, ny, nz) - 1)).toBeLessThan(0.008);
         expect(first.metallicRoughness[p]).toBe(255);
         metallic.add(first.metallicRoughness[p + 2]);
-        if (kind === 'metal') expect(first.metallicRoughness[p + 2]).toBe(255);
+        if (kind === 'metal' || kind === 'diamondplate')
+          expect(first.metallicRoughness[p + 2]).toBe(255);
         else if (kind !== 'rust')
           expect(first.metallicRoughness[p + 2]).toBe(0);
         expect(first.metallicRoughness[p + 3]).toBe(255);
@@ -228,8 +232,11 @@ describe('periodic procedural material fields', () => {
     ['plaster', [3, 5, 18, 32, 64]],
     ['terracotta', [5, 9, 12, 28, 32, 64]],
     ['cork', [14, 32, 64]],
+    ['rubber', [32, 44, 64]],
+    ['carbonfiber', [12, 24, 32, 48]],
+    ['diamondplate', [4, 8, 32, 64]],
   ] as const)(
-    '%s keeps bounded dielectric fields continuous at external and internal boundaries',
+    '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
       const a: SurfaceSample = {
         color: 0,
@@ -264,7 +271,7 @@ describe('periodic procedural material fields', () => {
                   expect(a[key]).toBeLessThanOrEqual(1);
                   expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
                 }
-                expect(a.metallic).toBe(0);
+                expect(a.metallic).toBe(kind === 'diamondplate' ? 1 : 0);
                 expect(a.mortar).toBe(0);
               }
       }

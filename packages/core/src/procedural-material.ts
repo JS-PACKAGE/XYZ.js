@@ -33,7 +33,10 @@ export type ProceduralMaterialKind =
   | 'carpet'
   | 'plaster'
   | 'terracotta'
-  | 'cork';
+  | 'cork'
+  | 'rubber'
+  | 'carbonfiber'
+  | 'diamondplate';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -93,6 +96,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'plaster',
   'terracotta',
   'cork',
+  'rubber',
+  'carbonfiber',
+  'diamondplate',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -213,7 +219,12 @@ export class ProceduralMaterial {
               normal: { scale },
               occlusion: { scale },
             },
-      metallic: this.kind === 'metal' || this.kind === 'rust' ? 1 : 0,
+      metallic:
+        this.kind === 'metal' ||
+        this.kind === 'rust' ||
+        this.kind === 'diamondplate'
+          ? 1
+          : 0,
       roughness: 1,
       alphaMode: 'OPAQUE',
       textureSampler: repeatSampler,

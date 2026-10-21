@@ -2413,3 +2413,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補仍未提交，不納入本組。
+
+## 程序材質擴充：工業表面（rubber／carbonfiber／diamondplate）
+
+- 新增細顆粒模製橡膠、深色碳纖維斜紋與交替菱形止滑鋼板，tile 尺寸
+  依序 0.12／0.048／0.4 m。橡膠與碳纖維為 dielectric；鋼板 metallic map
+  全為 255，預設 material metallic factor 為 1。皆無額外 geometry，
+  碳纖維不新增專用 anisotropy shader。gallery 與文件同步至 30 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1506 tests
+  通過；多 seed 的場值範圍、內外接縫及金屬通道契約涵蓋新增種類。
+  前二十七種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認細顆粒、斜紋與菱形差異；逐像素 metallic 與預設 factor
+  依序為 0／0／1，roughness bytes 依序 183–224／69–96／56–109；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補仍未提交，不納入本組。

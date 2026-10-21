@@ -169,6 +169,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.92,
     relief: 0.008,
   }),
+  rubber: Object.freeze({
+    dark: [13, 15, 16] as const,
+    light: [66, 70, 72] as const,
+    roughness: 0.82,
+    relief: 0.0015,
+  }),
+  carbonfiber: Object.freeze({
+    dark: [8, 10, 12] as const,
+    light: [67, 72, 78] as const,
+    roughness: 0.3,
+    relief: 0.0012,
+  }),
+  diamondplate: Object.freeze({
+    dark: [102, 111, 119] as const,
+    light: [222, 228, 233] as const,
+    roughness: 0.36,
+    relief: 0.012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -200,6 +218,9 @@ export const proceduralTileMeters = Object.freeze({
   plaster: 0.8,
   terracotta: 0.36,
   cork: 0.16,
+  rubber: 0.12,
+  carbonfiber: 0.048,
+  diamondplate: 0.4,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

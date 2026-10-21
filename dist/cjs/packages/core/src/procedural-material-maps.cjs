@@ -23,10 +23,10 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
-		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
+		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal` || t === `diamondplate`);
 		switch (t) {
 			case `wood`: {
 				let t = noise(e, c, 4, 2, r ^ 71), i = .5 + .5 * Math.sin(n * (12 * e + .65 * t) + a), o = (.5 + .5 * Math.sin(n * (40 * e + t) + a)) ** 12;
@@ -189,6 +189,21 @@ function createSurfaceSampler(t, r) {
 				}
 				let v = 1 / Math.max(s, 1e-12), y = l * v, b = _ * v, x = 1 - smooth(clamp((u * v - .48) / .4));
 				p = .31 + .57 * y + .12 * d - .22 * x - .09 * b, m = .4 + .16 * y + .07 * f - .2 * x - .07 * b, h += .07 * (f - .5) + .045 * x - .025 * y, g = .97 - .18 * x - .08 * b;
+				break;
+			}
+			case `rubber`: {
+				let n = 1 - smooth(clamp((wrappedFeature(e, c, 44, r ^ 36435) - .08) / .55));
+				p = .19 + .38 * n + .19 * f + .1 * d, m = .19 + .49 * n + .15 * f + .06 * d, h += .12 * (f - .5) - .045 * n, g = .9 + .08 * n + .02 * f;
+				break;
+			}
+			case `carbonfiber`: {
+				let t = 12 * (e + c), r = 12 * (c - e), i = .5 + .5 * Math.cos(n * t), o = .5 + .5 * Math.cos(n * r), s = smooth(clamp(.5 + .9 * Math.cos(Math.PI * (t - r) / 2))), l = .5 + .5 * Math.sin(n * (4 * t + .08 * d) + a), u = .5 + .5 * Math.sin(n * (4 * r + .08 * d) + a), f = i * s + o * (1 - s), _ = l * s + u * (1 - s);
+				p = .12 + .46 * f + .2 * _ + .12 * d, m = .25 + .37 * f + .055 * _ + .04 * d, h += .065 * (d - .5) + .045 * (1 - f), g = .88 + .1 * f + .02 * _;
+				break;
+			}
+			case `diamondplate`: {
+				let t = e * 8, n = c * 8, i = fract(t) - .5, a = fract(n) - .5, o = (Math.floor(t) + Math.floor(n)) % 2 == 0 ? 1 : -1, s = (i + o * a) * Math.SQRT1_2, l = (a - o * i) * Math.SQRT1_2, f = smooth(clamp((1 - (Math.abs(s) / .48 + Math.abs(l) / .14)) / .24)), _ = noise(e, c, 4, 64, r ^ 13793);
+				p = .35 + .25 * _ + .29 * f + .07 * d, m = .08 + .78 * f + .025 * _, h += .14 * (_ - .5) - .075 * f, g = .94 + .05 * f + .01 * d;
 				break;
 			}
 		}
