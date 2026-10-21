@@ -111,6 +111,9 @@ const kinds: ProceduralMaterialKind[] = [
   'studdedrubber',
   'groovedrubber',
   'recycledrubber',
+  'breadcrust',
+  'wafer',
+  'chocolate',
 ];
 
 class TestImageData {
@@ -345,6 +348,9 @@ describe('periodic procedural material fields', () => {
     ['studdedrubber', [6, 32, 144]],
     ['groovedrubber', [12, 32, 144]],
     ['recycledrubber', [32, 48, 144]],
+    ['breadcrust', [7, 19, 23, 32]],
+    ['wafer', [12, 24, 32]],
+    ['chocolate', [4, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -430,6 +436,12 @@ describe('periodic procedural material fields', () => {
     ['studdedrubber', 144],
     ['groovedrubber', 144],
     ['recycledrubber', 144],
+    ['breadcrust', 7],
+    ['breadcrust', 19],
+    ['breadcrust', 23],
+    ['wafer', 12],
+    ['wafer', 24],
+    ['chocolate', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -462,6 +474,194 @@ describe('periodic procedural material fields', () => {
               expect(
                 Math.abs(right - 2 * a.height + left) / epsilon,
               ).toBeLessThan(0.001);
+            }
+      }
+    },
+  );
+  it('bread crust separates puffed toasted plates with dark recessed cracks', () => {
+    const featureHash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const plate: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crack = { ...plate },
+      shoulder = { ...plate },
+      left = { ...plate },
+      right = { ...plate };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('breadcrust', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [3, 4],
+        [6, 6],
+      ]) {
+        const px =
+            column + 0.36 + 0.28 * featureHash(column, row, seed ^ 0x24b7),
+          py = row + 0.36 + 0.28 * featureHash(column, row, seed ^ 0x59d1);
+        const nx =
+            column +
+            1 +
+            0.36 +
+            0.28 * featureHash((column + 1) % 7, row, seed ^ 0x24b7),
+          ny =
+            row +
+            0.36 +
+            0.28 * featureHash((column + 1) % 7, row, seed ^ 0x59d1);
+        const mx = (px + nx) / 2,
+          my = (py + ny) / 2;
+        sample(px / 7, py / 7, plate);
+        sample(mx / 7, my / 7, crack);
+        sample((0.3 * px + 0.7 * mx) / 7, (0.3 * py + 0.7 * my) / 7, shoulder);
+        expect(plate.height).toBeGreaterThan(shoulder.height);
+        expect(shoulder.height).toBeGreaterThan(crack.height);
+        expect(plate.color).toBeGreaterThan(crack.color);
+        expect(plate.occlusion).toBeGreaterThan(crack.occlusion);
+        const distance = Math.hypot(nx - px, ny - py),
+          ux = (nx - px) / distance,
+          uy = (ny - py) / distance;
+        // Both cached polygon owners meet the same bisector. Check each
+        // compact shoulder endpoint, not merely the cell-grid boundaries.
+        const epsilon = 1e-8;
+        for (const inset of [-0.165, -0.025, 0, 0.025, 0.165]) {
+          const u = (mx + inset * ux) / 7,
+            v = (my + inset * uy) / 7;
+          sample(u - epsilon * ux, v - epsilon * uy, left);
+          sample(u, v, shoulder);
+          sample(u + epsilon * ux, v + epsilon * uy, right);
+          for (const key of Object.keys(plate) as (keyof SurfaceSample)[])
+            expect(
+              Math.abs(right[key] - 2 * shoulder[key] + left[key]) / epsilon,
+            ).toBeLessThan(0.001);
+        }
+      }
+    }
+  });
+
+  it('wafer has recessed square pocket floors beneath continuous orthogonal ribs', () => {
+    const floor: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rib = { ...floor },
+      crossing = { ...floor },
+      wall = { ...floor };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wafer', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [5, 7],
+        [11, 11],
+      ]) {
+        sample((column + 0.5) / 12, (row + 0.5) / 12, floor);
+        sample(column / 12, row / 12, crossing);
+        for (const axis of [0, 1]) {
+          sample(
+            (column + (axis === 0 ? 0 : 0.5)) / 12,
+            (row + (axis === 1 ? 0 : 0.5)) / 12,
+            rib,
+          );
+          sample(
+            (column + (axis === 0 ? 0.15 : 0.5)) / 12,
+            (row + (axis === 1 ? 0.15 : 0.5)) / 12,
+            wall,
+          );
+          expect(crossing.height).toBeGreaterThan(wall.height);
+          expect(rib.height).toBeGreaterThan(wall.height);
+          expect(wall.height).toBeGreaterThan(floor.height);
+          expect(rib.occlusion).toBeGreaterThan(floor.occlusion);
+          // Baked microtexture must not turn the crossing into woven over/under.
+          expect(Math.abs(crossing.height - rib.height)).toBeLessThan(
+            (rib.height - floor.height) * 0.03,
+          );
+        }
+      }
+    }
+  });
+
+  it('chocolate keeps broad segment tops flat above smoothly descending scored shoulders', () => {
+    const top: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const out = { ...top };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('chocolate', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 1],
+        [3, 3],
+      ]) {
+        sample((column + 0.5) / 4, (row + 0.5) / 4, top);
+        for (const x of [0.16, 0.3, 0.5, 0.7, 0.84])
+          for (const y of [0.16, 0.5, 0.84]) {
+            sample((column + x) / 4, (row + y) / 4, out);
+            expect(out.height).toBe(top.height);
+          }
+        for (const axis of [0, 1]) {
+          let previous = top.height;
+          for (const edge of [0.12, 0.09, 0.06, 0.02]) {
+            sample(
+              (column + (axis === 0 ? edge : 0.5)) / 4,
+              (row + (axis === 1 ? edge : 0.5)) / 4,
+              out,
+            );
+            expect(out.height).toBeLessThan(previous);
+            previous = out.height;
+          }
+          expect(out.occlusion).toBeLessThan(top.occlusion);
+          expect(out.color).toBeLessThan(top.color);
+        }
+      }
+    }
+  });
+  it.each(['wafer', 'chocolate'] as const)(
+    '%s has differentiable corners where orthogonal mold shoulders meet',
+    (kind) => {
+      const center: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const left = { ...center },
+        right = { ...center };
+      const cells = kind === 'wafer' ? 12 : 4,
+        edges = kind === 'wafer' ? [0.11, 0.15, 0.19] : [0.06, 0.09, 0.12],
+        epsilon = 1e-8 / cells;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (const edge of edges)
+          for (const sx of [1, -1])
+            for (const sy of [1, -1]) {
+              const u = (sx * edge) / cells,
+                v = (sy * edge) / cells;
+              sample(u - epsilon, v, left);
+              sample(u, v, center);
+              sample(u + epsilon, v, right);
+              for (const key of ['height', 'occlusion'] as const)
+                expect(
+                  Math.abs(right[key] - 2 * center[key] + left[key]) / epsilon,
+                ).toBeLessThan(0.001);
             }
       }
     },
@@ -784,6 +984,9 @@ describe('periodic procedural material fields', () => {
     'fishscales',
     'tortoiseshell',
     'feathers',
+    'breadcrust',
+    'wafer',
+    'chocolate',
   ] as const)(
     '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
@@ -810,7 +1013,11 @@ describe('periodic procedural material fields', () => {
                 ? 6
                 : kind === 'feathers'
                   ? 8
-                  : 4;
+                  : kind === 'breadcrust'
+                    ? 7
+                    : kind === 'wafer'
+                      ? 12
+                      : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;

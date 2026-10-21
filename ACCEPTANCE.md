@@ -2822,3 +2822,23 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 主工作目錄的早期 WebGL2 smoke 曾因頁面重新載入而中斷，不記為通過；
   上述結果取自完成後的獨立快照。不擴大跨瀏覽器／實體裝置認證，
   不新增 runtime 依賴；依授權獨立 commit、不 push。
+
+## 程序材質擴充：食品表面（breadcrust／wafer／chocolate）
+
+- 新增帶深色裂縫的膨起烘烤麵包外皮、細格凹槽威化餅及平頂分格巧克力。
+  本組獨立快照由 87 增為 90 種，不含同時進行的另一組金屬材質。
+  皆為 opaque dielectric，僅提供表面貼圖，不新增 geometry、displacement、
+  SSS、transmission 或物理模擬。
+- 原 87 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+  新增裂縫與膨起板塊、凹格與連續肋條、平頂與圓滑刻槽、
+  正交肩部角落可微分的結構測試，並擴充週期／bounds／slopes 檢查。
+- 獨立快照以既有安裝工具執行 package scripts 對應命令：
+  build、typecheck、lint、format:check 通過；
+  完整 Vitest 為 176 files／1729 tests passed（39.89 秒）。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，畫面 hash
+  各自不同且無 page errors；2×2 平鋪確認裂紋、細凹格及寬巧克力方格。
+  metallic 全為 0，roughness bytes 依序 210–239／199–219／71–98；
+  每米 repeats 依序 4.761905／13.888889／8.333333，
+  destroy 後四份 textures 均釋放。
+- 只提交本組 source、docs 與獨立快照的對應 dist，不納入同時進行的金屬
+  或其他修改；不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。

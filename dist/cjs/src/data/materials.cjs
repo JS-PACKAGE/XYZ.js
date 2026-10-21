@@ -1223,6 +1223,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .91,
 		relief: 8e-4
+	}),
+	breadcrust: Object.freeze({
+		dark: [
+			49,
+			20,
+			8
+		],
+		light: [
+			224,
+			159,
+			69
+		],
+		roughness: .84,
+		relief: .004
+	}),
+	wafer: Object.freeze({
+		dark: [
+			123,
+			65,
+			22
+		],
+		light: [
+			242,
+			205,
+			133
+		],
+		roughness: .79,
+		relief: .0016
+	}),
+	chocolate: Object.freeze({
+		dark: [
+			24,
+			10,
+			6
+		],
+		light: [
+			91,
+			44,
+			25
+		],
+		roughness: .28,
+		relief: .003
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1312,7 +1354,10 @@ var proceduralTileMeters = Object.freeze({
 	straw: .4,
 	studdedrubber: .3,
 	groovedrubber: .24,
-	recycledrubber: .24
+	recycledrubber: .24,
+	breadcrust: .21,
+	wafer: .072,
+	chocolate: .12
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

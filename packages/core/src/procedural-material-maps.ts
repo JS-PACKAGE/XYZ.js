@@ -341,6 +341,33 @@ export function createSurfaceSampler(
             radius * (0.78 + 0.22 * hash(x, y, seed ^ (0x26f1 + edge)));
         }
       }
+  // Shared jittered bisectors form crust plates. All shoulders retreat inside
+  // their polygon, so summing owners never introduces nearest-feature jumps.
+  const crustPlates =
+    kind === 'breadcrust' ? new Float64Array(7 * 7 * 27) : null;
+  if (crustPlates)
+    for (let y = 0; y < 7; y++)
+      for (let x = 0; x < 7; x++) {
+        const offset = (y * 7 + x) * 27;
+        const px = 0.36 + 0.28 * hash(x, y, seed ^ 0x24b7),
+          py = 0.36 + 0.28 * hash(x, y, seed ^ 0x59d1);
+        crustPlates[offset] = px;
+        crustPlates[offset + 1] = py;
+        crustPlates[offset + 2] = hash(x, y, seed ^ 0x73a9);
+        let plane = offset + 3;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 7) % 7,
+              wy = (y + oy + 7) % 7;
+            const dx = ox + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x24b7) - px,
+              dy = oy + 0.36 + 0.28 * hash(wx, wy, seed ^ 0x59d1) - py;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            crustPlates[plane++] = dx / distance;
+            crustPlates[plane++] = dy / distance;
+            crustPlates[plane++] = distance / 2;
+          }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -2808,6 +2835,74 @@ export function createSurfaceSampler(
         mortar = 1 - face;
         roughness += 0.12 * mortar + 0.035 * (detail - 0.5);
         occlusion = 0.77 + 0.23 * face;
+        break;
+      }
+      case 'breadcrust': {
+        const x = u * 7,
+          y = v * 7,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let plates = 0,
+          puff = 0,
+          toast = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset =
+              ((((cy % 7) + 7) % 7) * 7 + (((cx % 7) + 7) % 7)) * 27;
+            const dx = x - cx - crustPlates![offset],
+              dy = y - cy - crustPlates![offset + 1];
+            let plate = 1,
+              crown = 1;
+            for (let edge = 0; edge < 8; edge++) {
+              const plane = offset + 3 + edge * 3;
+              const inset =
+                crustPlates![plane + 2] -
+                dx * crustPlates![plane] -
+                dy * crustPlates![plane + 1];
+              plate *= smooth(clamp((inset - 0.025) / 0.14));
+              crown *= smooth(clamp((inset - 0.025) / 0.5));
+            }
+            plates += plate;
+            puff += crown;
+            toast += plate * crustPlates![offset + 2];
+          }
+        const baked = noise(u, v, 19, 23, seed ^ 0x47c3);
+        color = 0.06 + plates * (0.42 + 0.21 * baked) + 0.2 * toast;
+        height =
+          0.12 + 0.42 * plates + 0.26 * puff + 0.012 * plates * (detail - 0.5);
+        roughness += 0.08 * (1 - plates) + 0.035 * (baked - 0.5);
+        occlusion = 0.65 + 0.35 * plates;
+        break;
+      }
+      case 'wafer': {
+        const x = fract(u * 12),
+          y = fract(v * 12);
+        // Independent rounded walls meet as a product, not a min-edge cusp.
+        // Broad pocket floors and narrow continuous ribs have no yarn crossing.
+        const pocket =
+          smooth(clamp((Math.min(x, 1 - x) - 0.07) / 0.17)) *
+          smooth(clamp((Math.min(y, 1 - y) - 0.07) / 0.17));
+        const baked = noise(u, v, 24, 24, seed ^ 0x6d31);
+        color = 0.46 + 0.27 * pocket + 0.12 * baked + 0.035 * detail;
+        height = 0.72 - 0.5 * pocket + 0.008 * (detail - 0.5);
+        roughness += 0.06 * pocket + 0.02 * (baked - 0.5);
+        occlusion = 1 - 0.23 * pocket;
+        break;
+      }
+      case 'chocolate': {
+        const x = fract(u * 4),
+          y = fract(v * 4);
+        const segment =
+          smooth(clamp((Math.min(x, 1 - x) - 0.035) / 0.105)) *
+          smooth(clamp((Math.min(y, 1 - y) - 0.035) / 0.105));
+        const cocoa = noise(u, v, 4, 4, seed ^ 0x31b9);
+        color = 0.18 + 0.46 * segment + 0.065 * cocoa + 0.008 * detail;
+        // The mold's broad top stays exactly flat; only its scoring has relief.
+        height = 0.14 + 0.65 * segment;
+        roughness += 0.1 * (1 - segment) + 0.008 * (cocoa - 0.5);
+        occlusion = 0.73 + 0.27 * segment;
         break;
       }
     }
