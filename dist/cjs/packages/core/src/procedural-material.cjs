@@ -7,32 +7,7 @@ function proceduralRepeats(e, t) {
 	if (!Number.isFinite(t) || t <= 0) throw RangeError(`Procedural surface size must be finite and positive.`);
 	return t / require_materials.proceduralTileMeters[e];
 }
-var a = [
-	`wood`,
-	`brick`,
-	`stone`,
-	`metal`,
-	`fabric`,
-	`marble`,
-	`concrete`,
-	`tiles`,
-	`leather`,
-	`sand`,
-	`rust`,
-	`snow`,
-	`asphalt`,
-	`gravel`,
-	`cobblestone`,
-	`bark`,
-	`moss`,
-	`mud`,
-	`granite`,
-	`slate`,
-	`terrazzo`,
-	`denim`,
-	`burlap`,
-	`carpet`
-];
+var a = `wood.brick.stone.metal.fabric.marble.concrete.tiles.leather.sand.rust.snow.asphalt.gravel.cobblestone.bark.moss.mud.granite.slate.terrazzo.denim.burlap.carpet.plaster.terracotta.cork`.split(`.`);
 var o = Object.freeze({
 	addressModeU: `repeat`,
 	addressModeV: `repeat`

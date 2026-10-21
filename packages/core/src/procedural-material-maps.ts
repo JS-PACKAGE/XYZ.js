@@ -90,7 +90,10 @@ export function createSurfaceSampler(
     kind === 'mud' ||
     kind === 'granite' ||
     kind === 'slate' ||
-    kind === 'terrazzo';
+    kind === 'terrazzo' ||
+    kind === 'plaster' ||
+    kind === 'terracotta' ||
+    kind === 'cork';
   return (u: number, v: number, out: SurfaceSample): void => {
     u = fract(u);
     v = fract(v);
@@ -622,6 +625,85 @@ export function createSurfaceSampler(
         height = 0.3 + 0.38 * crown + 0.12 * tips + 0.1 * detail;
         roughness += 0.04 * (detail - 0.5) - 0.035 * tips;
         occlusion = 0.7 + 0.22 * Math.sqrt(crown) + 0.06 * tips;
+        break;
+      }
+      case 'plaster': {
+        const sweep = noise(u, v, 3, 3, seed ^ 0x37a1);
+        const tool =
+          0.5 + 0.5 * Math.sin(TAU * (3 * u + 2 * v + 0.7 * sweep) + phase);
+        const crest = Math.pow(tool, 10);
+        const drag = noise(u, v, 18, 5, seed ^ 0x54d9);
+        const pores = smooth(clamp((0.32 - fine) / 0.23));
+        // Broad, curved trowel passes leave shallow feathered edges in gypsum.
+        color = 0.61 + 0.2 * sweep + 0.08 * drag + 0.07 * crest - 0.12 * pores;
+        height =
+          0.22 + 0.28 * sweep + 0.18 * crest + 0.08 * drag - 0.14 * pores;
+        roughness += 0.1 * (fine - 0.5) - 0.065 * crest + 0.045 * pores;
+        occlusion = 0.98 - 0.1 * pores - 0.025 * crest;
+        break;
+      }
+      case 'terracotta': {
+        const kiln = noise(u, v, 5, 5, seed ^ 0x3a17);
+        const firing = noise(u + 0.04 * kiln, v, 12, 9, seed ^ 0x7d23);
+        const pitDistance = wrappedFeature(u, v, 28, seed ^ 0x486d);
+        const pits = 1 - smooth(clamp((pitDistance - 0.04) / 0.19));
+        const scorched = smooth(clamp((kiln - 0.5) / 0.3));
+        // Firing clouds affect pigment more strongly than the unglazed clay relief.
+        color =
+          0.37 + 0.46 * firing + 0.15 * detail - 0.18 * scorched - 0.17 * pits;
+        height = 0.35 + 0.14 * detail + 0.12 * fine - 0.3 * pits;
+        roughness += 0.1 * (fine - 0.5) + 0.07 * pits - 0.04 * scorched;
+        occlusion = 0.97 - 0.22 * pits + 0.025 * fine;
+        break;
+      }
+      case 'cork': {
+        const cells = 14;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let weight = 0,
+          pigment = 0,
+          largest = 0,
+          grain = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
+            const angle = TAU * hash(wx, wy, seed ^ 0x4d21);
+            const rx = dx * Math.cos(angle) + dy * Math.sin(angle),
+              ry = dy * Math.cos(angle) - dx * Math.sin(angle);
+            // Compact elliptical flakes blend before leaving the wrapped neighborhood.
+            const distance = 0.9 * rx * rx + 1.3 * ry * ry;
+            const cap = Math.pow(clamp(1 - distance / 1.21), 8);
+            const variation = hash(wx, wy, seed ^ 0x172b);
+            const lenticel = Math.pow(
+              0.5 + 0.5 * Math.sin(TAU * (5 * ry + 0.3 * rx) + TAU * variation),
+              12,
+            );
+            weight += cap;
+            pigment += cap * variation;
+            grain += cap * lenticel;
+            largest = Math.max(largest, cap);
+          }
+        const inv = 1 / Math.max(weight, 1e-12);
+        const flake = pigment * inv,
+          lenticel = grain * inv;
+        const boundary = 1 - smooth(clamp((largest * inv - 0.48) / 0.4));
+        color =
+          0.31 +
+          0.57 * flake +
+          0.12 * detail -
+          0.22 * boundary -
+          0.09 * lenticel;
+        height =
+          0.4 + 0.16 * flake + 0.07 * fine - 0.2 * boundary - 0.07 * lenticel;
+        roughness += 0.07 * (fine - 0.5) + 0.045 * boundary - 0.025 * flake;
+        occlusion = 0.97 - 0.18 * boundary - 0.08 * lenticel;
         break;
       }
     }

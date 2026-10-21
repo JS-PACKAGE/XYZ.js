@@ -2396,3 +2396,20 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 正確，destroy 後四份 textures 均釋放。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補維持未提交，不納入本組。
+
+## 程序材質擴充：建材飾面（plaster／terracotta／cork）
+
+- 新增淺色抹刀紋石膏、帶窯色與凹孔的未上釉陶土、壓製碎片軟木；
+  tile 尺寸依序 0.8／0.36／0.16 m。皆為 opaque dielectric，沿用四份
+  maps，沒有透明孔、幾何位移或物理模擬。gallery 與文件同步至 27 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1500 tests
+  通過；刪除無必要的 AO 色階數斷言後，材質專項 51 tests 與格式檢查
+  再次通過。保留多 seed 的場值範圍、內部 lattice 與外緣連續性測試。
+  前二十四種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 均逐一選取新種類，
+  固定光源後截圖 hash 各異、無 page errors。正式 root API 的
+  256px／seed 7、2×2 平鋪圖確認抹刀痕、陶土窯色與軟木碎片差異；
+  metallic 全為 0，roughness bytes 依序 195–229／197–249／220–253，
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補仍未提交，不納入本組。

@@ -47,6 +47,8 @@
 
 紡織增量為 denim／burlap／carpet（丹寧布／粗麻布／地毯），目前共二十四種；前述 counts 為各增量的歷史範圍。分別呈現斜向斜紋、粗經緯交織、割絨表面；三者皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps，不是 geometry 或毛髮模擬，也不產生透明織孔。前二十一種輸出須逐位元組保持不變，不改公開 options、repeat、ownership、renderer 或依賴；依持續追加授權逐功能獨立 commit、不 push。品質與 browser 證據另記 ACCEPTANCE，不推定物理尺寸。
 
+建材飾面增量為 plaster／terracotta／cork（石膏／陶土／軟木），目前共二十七種；前述 counts 保留為歷史。分別呈現淺色石膏的淺抹刀弧痕與細孔、未上釉紅褐燒製陶土的不規則窯色與凹孔（無磁磚填縫）、棕褐壓製軟木碎片與細胞邊界。皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps，不新增 geometry 或物理模擬。前二十四種輸出須逐位元組保持不變，不改公開 options、repeat、ownership、renderer 或依賴；沿既有授權逐功能獨立 commit、不 push。品質與 browser 證據另記 ACCEPTANCE。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

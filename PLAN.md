@@ -36,6 +36,8 @@
 
 紡織增量再追加 denim／burlap／carpet（丹寧布／粗麻布／地毯）：斜向斜紋／粗經緯交織／割絨表面，目前共二十四種；前述 counts 保留各增量的歷史範圍。三者皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps，不是 geometry 或毛髮模擬，也不產生透明織孔。前二十一種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。品質與驗證結果另記 ACCEPTANCE，不推定物理尺寸。
 
+建材飾面增量追加 plaster／terracotta／cork（石膏／陶土／軟木）：淺色石膏的淺抹刀弧痕與細孔／未上釉紅褐燒製陶土的不規則窯色與凹孔（無磁磚填縫）／棕褐壓製軟木碎片與細胞邊界，目前共二十七種；前述 counts 保留為歷史。皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps，不新增 geometry 或物理模擬。前二十四種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。品質與驗證結果另記 ACCEPTANCE。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

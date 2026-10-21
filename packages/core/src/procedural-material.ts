@@ -30,7 +30,10 @@ export type ProceduralMaterialKind =
   | 'terrazzo'
   | 'denim'
   | 'burlap'
-  | 'carpet';
+  | 'carpet'
+  | 'plaster'
+  | 'terracotta'
+  | 'cork';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -87,6 +90,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'denim',
   'burlap',
   'carpet',
+  'plaster',
+  'terracotta',
+  'cork',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

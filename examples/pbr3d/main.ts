@@ -103,6 +103,9 @@ try {
     'denim',
     'burlap',
     'carpet',
+    'plaster',
+    'terracotta',
+    'cork',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

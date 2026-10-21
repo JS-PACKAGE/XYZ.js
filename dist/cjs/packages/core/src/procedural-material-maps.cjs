@@ -23,7 +23,7 @@ function wrappedFeature(e, t, n, r) {
 	return Math.sqrt(o) * n;
 }
 function createSurfaceSampler(t, r) {
-	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo`;
+	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
 		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal`);
@@ -169,6 +169,26 @@ function createSurfaceSampler(t, r) {
 				}
 				let _ = 1 / Math.max(s, 1e-12), v = l * _, y = u * _;
 				p = .19 + .4 * v + .2 * f + .13 * y + .08 * d, m = .3 + .38 * f + .12 * y + .1 * d, h += .04 * (d - .5) - .035 * y, g = .7 + .22 * Math.sqrt(f) + .06 * y;
+				break;
+			}
+			case `plaster`: {
+				let t = noise(e, c, 3, 3, r ^ 14241), i = (.5 + .5 * Math.sin(n * (3 * e + 2 * c + .7 * t) + a)) ** 10, o = noise(e, c, 18, 5, r ^ 21721), s = smooth(clamp((.32 - f) / .23));
+				p = .61 + .2 * t + .08 * o + .07 * i - .12 * s, m = .22 + .28 * t + .18 * i + .08 * o - .14 * s, h += .1 * (f - .5) - .065 * i + .045 * s, g = .98 - .1 * s - .025 * i;
+				break;
+			}
+			case `terracotta`: {
+				let t = noise(e, c, 5, 5, r ^ 14871), n = noise(e + .04 * t, c, 12, 9, r ^ 32035), a = 1 - smooth(clamp((wrappedFeature(e, c, 28, r ^ 18541) - .04) / .19)), o = smooth(clamp((t - .5) / .3));
+				p = .37 + .46 * n + .15 * d - .18 * o - .17 * a, m = .35 + .14 * d + .12 * f - .3 * a, h += .1 * (f - .5) + .07 * a - .04 * o, g = .97 - .22 * a + .025 * f;
+				break;
+			}
+			case `cork`: {
+				let t = e * 14, i = c * 14, a = Math.floor(t), o = Math.floor(i), s = 0, l = 0, u = 0, _ = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let d = a + c, f = o + e, p = (d % 14 + 14) % 14, m = (f % 14 + 14) % 14, h = t - d - .35 - .3 * hash(p, m, r), g = i - f - .35 - .3 * hash(p, m, r ^ 40503), v = n * hash(p, m, r ^ 19745), y = h * Math.cos(v) + g * Math.sin(v), b = g * Math.cos(v) - h * Math.sin(v), S = clamp(1 - (.9 * y * y + 1.3 * b * b) / 1.21) ** 8, C = hash(p, m, r ^ 5931), w = (.5 + .5 * Math.sin(n * (5 * b + .3 * y) + n * C)) ** 12;
+					s += S, l += S * C, _ += S * w, u = Math.max(u, S);
+				}
+				let v = 1 / Math.max(s, 1e-12), y = l * v, b = _ * v, x = 1 - smooth(clamp((u * v - .48) / .4));
+				p = .31 + .57 * y + .12 * d - .22 * x - .09 * b, m = .4 + .16 * y + .07 * f - .2 * x - .07 * b, h += .07 * (f - .5) + .045 * x - .025 * y, g = .97 - .18 * x - .08 * b;
 				break;
 			}
 		}

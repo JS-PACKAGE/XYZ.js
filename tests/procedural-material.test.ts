@@ -48,6 +48,9 @@ const kinds: ProceduralMaterialKind[] = [
   'denim',
   'burlap',
   'carpet',
+  'plaster',
+  'terracotta',
+  'cork',
 ];
 
 class TestImageData {
@@ -217,6 +220,53 @@ describe('periodic procedural material fields', () => {
               expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
           }
         }
+      }
+    },
+  );
+
+  it.each([
+    ['plaster', [3, 5, 18, 32, 64]],
+    ['terracotta', [5, 9, 12, 28, 32, 64]],
+    ['cork', [14, 32, 64]],
+  ] as const)(
+    '%s keeps bounded dielectric fields continuous at external and internal boundaries',
+    (kind, lattices) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a };
+      const epsilon = 1e-7;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (const cells of lattices)
+          for (let edge = 0; edge <= cells; edge++)
+            for (const along of [0, 0.137, 0.43, 0.791, 1])
+              for (const axis of [0, 1]) {
+                const boundary = edge / cells;
+                sample(
+                  axis === 0 ? boundary - epsilon : along,
+                  axis === 1 ? boundary - epsilon : along,
+                  a,
+                );
+                sample(
+                  axis === 0 ? boundary + epsilon : along,
+                  axis === 1 ? boundary + epsilon : along,
+                  b,
+                );
+                for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+                  expect(Number.isFinite(a[key])).toBe(true);
+                  expect(a[key]).toBeGreaterThanOrEqual(0);
+                  expect(a[key]).toBeLessThanOrEqual(1);
+                  expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                }
+                expect(a.metallic).toBe(0);
+                expect(a.mortar).toBe(0);
+              }
       }
     },
   );
