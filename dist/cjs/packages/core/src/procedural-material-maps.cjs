@@ -182,7 +182,7 @@ function createSurfaceSampler(t, r) {
 	let Ce = t === `stone` || t === `metal` || t === `marble`, we = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`;
 	return (e, o, f) => {
 		e = fract(e), o = fract(o);
-		let p = Ce ? noise(e, o, 4, 4, r) : 0, S = ie || ce || ue || fe || me || ge || xe ? 0 : noise(e, o, 32, 32, r ^ 2747636419), z = we ? noise(e, o, 64, 64, r ^ 2135587861) : 0, B = p, K = p, X = i.roughness, Z = 1, Q = 0, $ = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`);
+		let p = Ce ? noise(e, o, 4, 4, r) : 0, S = ie || ce || ue || fe || me || ge || xe ? 0 : noise(e, o, 32, 32, r ^ 2747636419), z = we ? noise(e, o, 64, 64, r ^ 2135587861) : 0, B = p, K = p, X = i.roughness, Z = 1, Q = 0, $ = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `pyrite` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`);
 		switch (t) {
 			case `rice`:
 			case `sesame`:
@@ -732,6 +732,35 @@ function createSurfaceSampler(t, r) {
 				}
 				let d = 1 - l;
 				B = .36 + .34 * l + .14 * u + .12 * S, K = .16 + .5 * l + .26 * u + .04 * S, X += .06 * d + .03 * (S - .5), Z = .58 + .3 * l + .1 * u;
+				break;
+			}
+			case `geode`: {
+				let t = fract(e) - .5, i = fract(o) - .5, s = Math.sin(Math.PI * t) / Math.PI, c = Math.sin(Math.PI * i) / Math.PI, l = Math.sqrt(s * s + c * c), u = noise(e, o, 6, 6, r ^ 15383), d = .5 + .5 * smooth(clamp((l - .1) / .08)) * Math.cos(n * (9 * l + .12 * u) + a), f = smooth(clamp((.17 - l) / .05)) * noise(e, o, 48, 48, r ^ 22817);
+				B = .3 + .3 * d + .22 * f + .12 * S, K = .3 + .3 * d + .2 * f + .03 * S, X += .1 * (1 - d) + .08 * f + .03 * (S - .5), Z = .72 + .22 * d + .04 * f;
+				break;
+			}
+			case `quartz`: {
+				let t = e * 5, n = o * 5, i = Math.floor(t), a = Math.floor(n), s = 0, c = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let l = i + o, u = a + e, d = (l % 5 + 5) % 5, f = (u % 5 + 5) % 5, p = l + .5 + .24 * (hash(d, f, r ^ 19489) - .5), m = u + .5 + .24 * (hash(d, f, r ^ 29107) - .5), h = t - p, g = n - m, _ = 1;
+					for (let e = 0; e < 6; e++) {
+						let t = Math.PI / 3 * e + .22 * (hash(d, f, r ^ 23927) - .5), n = Math.abs(h * Math.cos(t) + g * Math.sin(t));
+						_ *= smooth(clamp((.3 - n) / .055));
+					}
+					let v = .34 + .42 * hash(d, f, r ^ 12057), b = clamp(1 - (Math.sqrt(h * h + g * g) / .21) ** 2);
+					s += (1 - s) * _, c += (1 - c) * _ * (v + .24 * b * b);
+				}
+				B = .52 + .26 * c + .12 * S, K = .16 + .72 * c + .03 * S, X += .1 * (1 - s) + .03 * (S - .5), Z = .5 + .46 * s;
+				break;
+			}
+			case `pyrite`: {
+				let t = e * 5, i = o * 5, s = Math.floor(t), c = Math.floor(i), l = 0, u = 0;
+				for (let e = -1; e <= 1; e++) for (let n = -1; n <= 1; n++) {
+					let a = s + n, o = c + e, d = (a % 5 + 5) % 5, f = (o % 5 + 5) % 5, p = a + .5 + .2 * (hash(d, f, r ^ 7233) - .5), m = o + .5 + .2 * (hash(d, f, r ^ 16167) - .5), h = .28 * (hash(d, f, r ^ 27485) - .5), g = Math.cos(h), _ = Math.sin(h), v = t - p, y = i - m, b = Math.abs(v * g + y * _), x = Math.abs(y * g - v * _), S = smooth(clamp((.32 - b) / .05)) * smooth(clamp((.32 - x) / .05)), C = .3 + .45 * hash(d, f, r ^ 20911);
+					l += (1 - l) * S, u += (1 - u) * S * C;
+				}
+				let d = .5 + .5 * Math.cos(n * 26 * (e + o) + a), f = l * smooth(d);
+				B = .5 + .24 * u + .1 * f + .1 * S, K = .18 + .6 * u + .06 * f + .03 * S, X += .07 * (1 - f) + .03 * (S - .5), Z = .52 + .42 * l;
 				break;
 			}
 			case `sandstone`: {

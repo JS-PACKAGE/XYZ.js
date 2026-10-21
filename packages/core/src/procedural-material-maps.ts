@@ -623,6 +623,7 @@ export function createSurfaceSampler(
         kind === 'perforatedmetal' ||
         kind === 'expandedmetal' ||
         kind === 'wiremesh' ||
+        kind === 'pyrite' ||
         kind === 'knurledmetal' ||
         kind === 'engineturned' ||
         kind === 'goldleaf' ||
@@ -2582,6 +2583,114 @@ export function createSurfaceSampler(
         height = 0.16 + 0.5 * yarn + 0.26 * rings + 0.04 * detail;
         roughness += 0.06 * channel + 0.03 * (detail - 0.5);
         occlusion = 0.58 + 0.3 * yarn + 0.1 * rings;
+        break;
+      }
+      case 'geode': {
+        // Bands share a fixed tile center so one UV tile stays a full
+        // radial section, while seeded warping keeps the rings organic.
+        const dx = fract(u) - 0.5,
+          dy = fract(v) - 0.5;
+        // Sinusoidal wrap keeps the radial distance smooth across seams.
+        const sx = Math.sin(Math.PI * dx) / Math.PI,
+          sy = Math.sin(Math.PI * dy) / Math.PI;
+        const radius = Math.sqrt(sx * sx + sy * sy);
+        const warp = noise(u, v, 6, 6, seed ^ 0x3c17);
+        // The banding fades flat before the center so the radial distance
+        // leaves no cone behind at the origin.
+        const ringFade = smooth(clamp((radius - 0.1) / 0.08));
+        const band =
+          0.5 +
+          0.5 * ringFade * Math.cos(TAU * (9 * radius + 0.12 * warp) + phase);
+        // A fine crystalline druse core breaks the smooth mineral banding.
+        const core = smooth(clamp((0.17 - radius) / 0.05));
+        const facet = noise(u, v, 48, 48, seed ^ 0x5921);
+        const druse = core * facet;
+        color = 0.3 + 0.3 * band + 0.22 * druse + 0.12 * detail;
+        height = 0.3 + 0.3 * band + 0.2 * druse + 0.03 * detail;
+        roughness += 0.1 * (1 - band) + 0.08 * druse + 0.03 * (detail - 0.5);
+        occlusion = 0.72 + 0.22 * band + 0.04 * druse;
+        break;
+      }
+      case 'quartz': {
+        const cells = 5;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Hexagonal prism tops carry pyramidal apices; products of C1
+        // half-plane shoulders keep every facet edge differentiable.
+        let columns = 0,
+          tops = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const px = cx + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x4c21) - 0.5),
+              py = cy + 0.5 + 0.24 * (hash(wx, wy, seed ^ 0x71b3) - 0.5);
+            const dx = x - px,
+              dy = y - py;
+            let shoulder = 1;
+            for (let k = 0; k < 6; k++) {
+              const angle =
+                (Math.PI / 3) * k + 0.22 * (hash(wx, wy, seed ^ 0x5d77) - 0.5);
+              const across = Math.abs(
+                dx * Math.cos(angle) + dy * Math.sin(angle),
+              );
+              shoulder *= smooth(clamp((0.3 - across) / 0.055));
+            }
+            const top = 0.34 + 0.42 * hash(wx, wy, seed ^ 0x2f19);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const tip = clamp(1 - (distance / 0.21) ** 2);
+            columns += (1 - columns) * shoulder;
+            tops += (1 - tops) * shoulder * (top + 0.24 * tip * tip);
+          }
+        color = 0.52 + 0.26 * tops + 0.12 * detail;
+        height = 0.16 + 0.72 * tops + 0.03 * detail;
+        roughness += 0.1 * (1 - columns) + 0.03 * (detail - 0.5);
+        occlusion = 0.5 + 0.46 * columns;
+        break;
+      }
+      case 'pyrite': {
+        const cells = 5;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Interlocking cube tops step at varied heights; squared shoulders
+        // stay differentiable through products of C1 half-plane caps.
+        let cubes = 0,
+          tops = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const px = cx + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x1c41) - 0.5),
+              py = cy + 0.5 + 0.2 * (hash(wx, wy, seed ^ 0x3f27) - 0.5);
+            const angle = 0.28 * (hash(wx, wy, seed ^ 0x6b5d) - 0.5);
+            const cos = Math.cos(angle),
+              sin = Math.sin(angle);
+            const dx = x - px,
+              dy = y - py;
+            const lx = Math.abs(dx * cos + dy * sin),
+              ly = Math.abs(dy * cos - dx * sin);
+            const face =
+              smooth(clamp((0.32 - lx) / 0.05)) *
+              smooth(clamp((0.32 - ly) / 0.05));
+            const top = 0.3 + 0.45 * hash(wx, wy, seed ^ 0x51af);
+            cubes += (1 - cubes) * face;
+            tops += (1 - tops) * face * top;
+          }
+        // Fine parallel striations cut across every exposed cube top.
+        const groove = 0.5 + 0.5 * Math.cos(TAU * 26 * (u + v) + phase);
+        const striation = cubes * smooth(groove);
+        color = 0.5 + 0.24 * tops + 0.1 * striation + 0.1 * detail;
+        height = 0.18 + 0.6 * tops + 0.06 * striation + 0.03 * detail;
+        roughness += 0.07 * (1 - striation) + 0.03 * (detail - 0.5);
+        occlusion = 0.52 + 0.42 * cubes;
         break;
       }
       case 'sandstone': {

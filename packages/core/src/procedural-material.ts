@@ -52,6 +52,9 @@ export type ProceduralMaterialKind =
   | 'velvet'
   | 'terrycloth'
   | 'boucle'
+  | 'geode'
+  | 'quartz'
+  | 'pyrite'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -204,6 +207,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'velvet',
   'terrycloth',
   'boucle',
+  'geode',
+  'quartz',
+  'pyrite',
   'sandstone',
   'travertine',
   'pumice',
@@ -409,6 +415,7 @@ export class ProceduralMaterial {
         this.kind === 'perforatedmetal' ||
         this.kind === 'expandedmetal' ||
         this.kind === 'wiremesh' ||
+        this.kind === 'pyrite' ||
         this.kind === 'knurledmetal' ||
         this.kind === 'engineturned' ||
         this.kind === 'goldleaf' ||

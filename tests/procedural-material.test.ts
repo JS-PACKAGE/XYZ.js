@@ -70,6 +70,9 @@ const kinds: ProceduralMaterialKind[] = [
   'velvet',
   'terrycloth',
   'boucle',
+  'geode',
+  'quartz',
+  'pyrite',
   'sandstone',
   'travertine',
   'pumice',
@@ -1147,6 +1150,7 @@ describe('periodic procedural material fields', () => {
           kind === 'perforatedmetal' ||
           kind === 'expandedmetal' ||
           kind === 'wiremesh' ||
+          kind === 'pyrite' ||
           kind === 'knurledmetal' ||
           kind === 'engineturned' ||
           kind === 'goldleaf' ||
@@ -1245,6 +1249,9 @@ describe('periodic procedural material fields', () => {
     ['velvet', [3, 5, 32, 96]],
     ['terrycloth', [8, 10, 32]],
     ['boucle', [6, 8, 32]],
+    ['geode', [6, 9, 32, 48]],
+    ['quartz', [5, 32]],
+    ['pyrite', [5, 26, 32]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -1362,6 +1369,7 @@ describe('periodic procedural material fields', () => {
                       kind === 'perforatedmetal' ||
                       kind === 'expandedmetal' ||
                       kind === 'wiremesh' ||
+                      kind === 'pyrite' ||
                       kind === 'knurledmetal' ||
                       kind === 'engineturned' ||
                       kind === 'goldleaf' ||
@@ -1403,6 +1411,9 @@ describe('periodic procedural material fields', () => {
     ['terrycloth', 10],
     ['boucle', 6],
     ['boucle', 8],
+    ['geode', 6],
+    ['quartz', 5],
+    ['pyrite', 5],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -3179,6 +3190,160 @@ describe('periodic procedural material fields', () => {
         }
         expect(inner).toBeLessThan(peak);
         expect(inner).toBeGreaterThan(channel.height);
+      }
+    }
+  });
+
+  it('geode alternates concentric mineral bands around its druse core', () => {
+    const relief = proceduralMaterialPresets.geode.relief;
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const core = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('geode', seed);
+      for (const angle of [0, 1, 2]) {
+        const cos = Math.cos(angle),
+          sin = Math.sin(angle);
+        let previous = 0,
+          last = 0,
+          flips = 0,
+          low = 1,
+          high = 0;
+        for (let i = 24; i <= 72; i++) {
+          const t = i / 240;
+          sample(0.5 + t * cos, 0.5 + t * sin, a);
+          low = Math.min(low, a.height);
+          high = Math.max(high, a.height);
+          const delta = a.height - previous;
+          if (previous && delta * (last ?? 0) < 0) flips++;
+          if (delta) last = delta;
+          previous = a.height;
+        }
+        // Bands ripple through several crest/trough alternations per ray.
+        expect(high - low).toBeGreaterThan(0.15 * relief);
+        expect(flips).toBeGreaterThanOrEqual(3);
+        // The druse core carries fine facet sparkle of its own.
+        let coreHigh = 0,
+          coreLow = 1;
+        for (let i = 0; i < 24; i++) {
+          const ray = (Math.PI * 2 * i) / 24;
+          sample(0.5 + 0.08 * Math.cos(ray), 0.5 + 0.08 * Math.sin(ray), core);
+          coreHigh = Math.max(coreHigh, core.color);
+          coreLow = Math.min(coreLow, core.color);
+        }
+        expect(coreHigh - coreLow).toBeGreaterThan(0.12);
+      }
+    }
+  });
+
+  it('quartz raises pyramidal apices over varied hexagonal prism tops', () => {
+    const relief = proceduralMaterialPresets.quartz.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const edge = { ...probe },
+      gap = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('quartz', seed);
+      const apices: number[] = [];
+      for (const [column, row] of [
+        [0, 0],
+        [2, 3],
+        [4, 1],
+      ]) {
+        // A fine scan locates each prism's apex inside its own cell.
+        let peak = 0,
+          peakX = 0,
+          low = 1,
+          lowX = 0,
+          lowY = 0;
+        for (let j = 0; j < 20; j++)
+          for (let i = 0; i < 20; i++) {
+            const u = (column + (i + 0.5) / 20) / 5,
+              v = (row + (j + 0.5) / 20) / 5;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+            }
+            if (probe.height < low) {
+              low = probe.height;
+              lowX = u;
+              lowY = v;
+            }
+          }
+        apices.push(peak);
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        sample(peakX + 0.15 / 5, (row + 0.5) / 5, edge);
+        expect(peak).toBeGreaterThan(edge.height);
+        sample(lowX, lowY, gap);
+        expect(peak).toBeGreaterThan(gap.height + 0.1 * relief);
+      }
+      // Crystal tips grow to different heights across the cluster.
+      expect(Math.max(...apices) - Math.min(...apices)).toBeGreaterThan(
+        0.05 * relief,
+      );
+    }
+  });
+
+  it('pyrite steps interlocking cube tops above gaps with striated faces', () => {
+    const relief = proceduralMaterialPresets.pyrite.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const across = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pyrite', seed);
+      for (const [column, row] of [
+        [1, 1],
+        [3, 0],
+        [4, 4],
+      ]) {
+        let peak = 0,
+          peakX = 0,
+          peakY = 0,
+          low = 1;
+        for (let j = 0; j < 20; j++)
+          for (let i = 0; i < 20; i++) {
+            const u = (column + (i + 0.5) / 20) / 5,
+              v = (row + (j + 0.5) / 20) / 5;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+            low = Math.min(low, probe.height);
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // Striations cut fine ridges across the exposed cube top.
+        let high = 0,
+          matte = 1,
+          sheen = 0;
+        for (let i = 1; i < 20; i++) {
+          sample(peakX + i / 200, peakY, across);
+          high = Math.max(high, across.height);
+          matte = Math.min(matte, across.roughness);
+          sheen = Math.max(sheen, across.roughness);
+        }
+        expect(high).toBeGreaterThan(peak - 0.05 * relief);
+        expect(sheen - matte).toBeGreaterThan(0.02);
       }
     }
   });

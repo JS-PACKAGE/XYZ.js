@@ -3050,6 +3050,34 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
   不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+
+## 程序材質擴充：礦石晶體（geode／quartz／pyrite）
+
+- 新增環繞細密晶簇核心的同心礦物縞帶、高低錯落的六方柱體與錐狀
+  頂端、相互咬合的階梯狀立方晶面與細密平行條紋。本組快照由
+  120 增為 123 種；晶洞與石英為 opaque dielectric，metallic 通道與
+  預設 factor 為 0；黃鐵礦為 opaque metal，metallic 通道與預設
+  factor 為 1。僅為表面 shading，不新增晶體 geometry、切割晶面或
+  displacement。
+- 原 120 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- build、typecheck、lint、format:check 通過；完整 Vitest 1920 個
+  測試中 1919 通過，唯一失敗為既有已知不穩定的 mesh-shader-variants
+  （單獨重跑通過，且在本組變更前的基線亦曾在全套併行下失敗）。
+  徑向縞帶振幅與 crest／trough 交變、晶簇頂端／柱緣／間隙高度序、
+  立方晶面階梯與條紋粗糙度、support 邊界斜率連續性納入回歸；
+  晶洞縞帶以正弦包裝的徑向距離與中心淡出帶避免原點錐點。
+- 獨立 Chrome WebGPU／WebGL2 gallery（乾淨快照 123 種）逐一切換三者，
+  場景畫面 hash 各自不同、四份貼圖預覽 hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  metallic 依序 0／0／255，roughness bytes 依序
+  98–137／37–70／83–108；每米 repeats 依序
+  2／4.166667／3.333333。
+  check:material-reference 通過，regression-browser chromium
+  webgl2 與 webgpu 通過。
+- 共享工作目錄同時有其他行程的進行中修改；本組以 hunk 級篩選
+  只收本組 source／docs 與乾淨快照對應 dist，同步的其他修改
+  不納入本組。不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
 - `[Physics2D]` 減少每 step 配置，數值與事件順序不變：質量／慣量／反彈／摩擦與速度改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；sweep 與 CCD 配對過濾改讀 `Collider2D.filterBits`（category／mask 的 int32 副本，由 setter 同步，位元測試結果相同），不再呼叫回傳 0xffffffff 等大數的 getter（未內聯時每次裝箱）；睡眠／喚醒島嶼 BFS 與可解接觸清單改以計數重用，不再每個島嶼清空陣列（V8 清空即釋放 backing store），`clear()` 一併釋放。physics2d browser benchmark（WebGL2）每幀配置約 1034 → 404 KB（`solveVelocity` 約 450 KB → 0）；Node 1500 剛體 bench 約 6.5–7.2 → 4.05 MiB／step，hash 不變，屬配置減少。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 
 ## 程序材質擴充：裝飾礦石（malachite／agate／lapislazuli）

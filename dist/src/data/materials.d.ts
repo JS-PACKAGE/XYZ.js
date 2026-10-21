@@ -276,6 +276,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.92;
         relief: 0.005;
     }>;
+    geode: Readonly<{
+        dark: readonly [26, 20, 46];
+        light: readonly [176, 156, 212];
+        roughness: 0.4;
+        relief: 0.005;
+    }>;
+    quartz: Readonly<{
+        dark: readonly [136, 134, 140];
+        light: readonly [252, 250, 254];
+        roughness: 0.16;
+        relief: 0.005;
+    }>;
+    pyrite: Readonly<{
+        dark: readonly [92, 74, 30];
+        light: readonly [236, 204, 112];
+        roughness: 0.34;
+        relief: 0.006;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -774,6 +792,9 @@ export declare const proceduralTileMeters: Readonly<{
     velvet: 0.12;
     terrycloth: 0.09;
     boucle: 0.16;
+    geode: 0.5;
+    quartz: 0.24;
+    pyrite: 0.3;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;
