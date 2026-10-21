@@ -84,8 +84,9 @@ var DecodeContext = class {
 			}
 			if (s > r || this.fetched + s > require_models.modelLimits.fetchedBytes) throw new require_texture.AssetError(`Model exceeds fetched byte budget.`);
 			if (this.fetched += s, this.reserve(s), o) {
-				let e = atob(n);
-				return Uint8Array.from(e, (e) => e.charCodeAt(0)).buffer;
+				let e = atob(n), t = new Uint8Array(e.length);
+				for (let n = 0; n < e.length; n++) t[n] = e.charCodeAt(n);
+				return t.buffer;
 			}
 			let c = new Uint8Array(s);
 			for (let e = 0, t = 0; e < n.length; e++, t++) n[e] === `%` ? (c[t] = Number.parseInt(n.slice(e + 1, e + 3), 16), e += 2) : c[t] = n.charCodeAt(e);

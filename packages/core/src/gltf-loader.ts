@@ -208,7 +208,10 @@ class DecodeContext {
       this.reserve(length);
       if (base64) {
         const payload = atob(encoded);
-        return Uint8Array.from(payload, (c) => c.charCodeAt(0)).buffer;
+        const bytes = new Uint8Array(payload.length);
+        for (let i = 0; i < payload.length; i++)
+          bytes[i] = payload.charCodeAt(i);
+        return bytes.buffer;
       }
       const bytes = new Uint8Array(length);
       for (let i = 0, j = 0; i < encoded.length; i++, j++) {

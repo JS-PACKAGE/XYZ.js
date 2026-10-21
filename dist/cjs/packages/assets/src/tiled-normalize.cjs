@@ -73,7 +73,10 @@ async function normalizeTiledMap(a, o, s, c, l) {
 			let e = new Blob([d]).stream().pipeThrough(new DecompressionStream(c === `gzip` ? `gzip` : `deflate`)), r = await require_read_response.readResponse(new Response(e), s * 4, l);
 			if (r.size !== s * 4) throw new require_tiled_parser.TiledError(o, `decoded cell count mismatch`);
 			let a = new DataView(await r.arrayBuffer());
-			l.throwIfAborted(), n.data = Array.from({ length: s }, (e, t) => a.getUint32(t * 4, !0));
+			l.throwIfAborted();
+			let u = [];
+			for (let e = 0; e < s; e++) u.push(a.getUint32(e * 4, !0));
+			n.data = u;
 		} catch (e) {
 			throw l.throwIfAborted(), e instanceof require_tiled_parser.TiledError ? e : new require_tiled_parser.TiledError(o, `native decode rejected: ${e instanceof Error ? e.message : String(e)}`);
 		}

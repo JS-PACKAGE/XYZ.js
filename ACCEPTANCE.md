@@ -2677,3 +2677,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Tiled]` base64 cell 與 byte 解碼改為單一迴圈（charCodeAt 寫入 Uint8Array、little-endian uint32 位元組合），取代逐字元 callback 的 `Uint8Array.from` 與 `Array.from`＋DataView。512×512 base64 layer 的 `parseTiledMap` Node bench 40.3 → 6.7 ms，cell hash 不變；新增含 flip flag 與空白的 little-endian 解碼測試。
+- `[Assets]` glTF base64 data URI 與 gzip／zlib 壓縮的 Tiled cells 改以單一迴圈解碼，取代逐元素 callback 的 `Uint8Array.from`／`Array.from`。4 MiB data URI 解碼 Node 微基準 129.9 → 3.8 ms；既有 glTF／Tiled 測試覆蓋兩條路徑（反轉位元組與 endianness 的 mutation 皆被抓到）。
