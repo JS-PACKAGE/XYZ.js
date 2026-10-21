@@ -761,6 +761,23 @@ describe('static sensor coverage', () => {
     world.update(world.fixedDelta);
     expect(world.debugSnapshot().contacts).toHaveLength(3);
   });
+
+  it('keeps every neighbour pair when all sensors reverse their sweep order at once', () => {
+    const world = new PhysicsWorld2D({ gravity: [0, 0] });
+    // Each circle overlaps only its immediate neighbours: 15 apart, radius 10.
+    const sensors = Array.from({ length: 60 }, (_, i) => {
+      const owner = object(Colliders.circle(10), i * 15, 0, { type: 'static' });
+      owner.collider!.sensor = true;
+      world.register(owner);
+      return owner;
+    });
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(59);
+    for (const [i, owner] of sensors.entries())
+      owner.position.set((59 - i) * 15, 0);
+    world.update(world.fixedDelta);
+    expect(world.debugSnapshot().contacts).toHaveLength(59);
+  });
 });
 
 describe('static contact velocity', () => {

@@ -208,6 +208,30 @@ function boundedInteger(value: number, maximum: number, name: string): number {
 // owner order by minX (a NaN difference also falls through, as it compared equal before).
 const compareBounds = (a: Proxy, b: Proxy): number =>
   a.geometry.minX - b.geometry.minX || a.registration - b.registration;
+/**
+ * Sorts by compareBounds, a strict total order (finite bounds, unique registrations), so any
+ * correct sort yields the one ordering Array#sort would. The sweep order is kept from the
+ * last step and nearly sorted: insertion sort runs in about linear time without the merge
+ * buffer Array#sort allocated per step, and hands over to it past a shift budget.
+ */
+function sortSweepOrder(order: Proxy[]): void {
+  let budget = order.length * 8;
+  for (let i = 1; i < order.length; i++) {
+    const value = order[i]!;
+    let j = i - 1;
+    while (j >= 0 && compareBounds(order[j]!, value) > 0) {
+      order[j + 1] = order[j]!;
+      j--;
+      if (--budget < 0) {
+        // Slot j + 1 holds a duplicate of its shifted neighbour; restore the permutation.
+        order[j + 1] = value;
+        order.sort(compareBounds);
+        return;
+      }
+    }
+    order[j + 1] = value;
+  }
+}
 const continueSimulation = (): boolean => true;
 // Collision dispatch must remain observable through subclass and prototype overrides.
 const dispatchGameObjectEvent = RuntimeGameObject.prototype.dispatchEvent;
@@ -821,54 +845,61 @@ export class PhysicsWorld2D {
     }
   }
   private simulate(dt: number): void {
-    this.sorted.length = 0;
+    // Overwritten by index and truncated once: emptying it first dropped its storage, which
+    // then regrew every step.
+    const sorted = this.sorted;
+    let sortedCount = 0;
     // No bump here: every membership or identity change since the last step went through
     // register/unregister or a dispatched callback, each of which already bumped the epoch.
     this.solveContacts.length = 0;
     const token = ++this.stepToken;
-    for (const proxy of this.owners.values()) {
-      if (!this.alive(proxy)) {
-        this.unregister(proxy.owner);
-        continue;
-      }
-      proxy.refresh();
-      proxy.ccdStopped = false;
-      const body = proxy.body;
-      if (body?.type === 'dynamic') {
-        const force = this.forceState(body);
-        force.consume(body, dt);
-        if (!body.isSleeping) {
+    try {
+      for (const proxy of this.owners.values()) {
+        if (!this.alive(proxy)) {
+          this.unregister(proxy.owner);
+          continue;
+        }
+        proxy.refresh();
+        proxy.ccdStopped = false;
+        const body = proxy.body;
+        if (body?.type === 'dynamic') {
+          const force = this.forceState(body);
+          force.consume(body, dt);
+          if (!body.isSleeping) {
+            finite(body.velocity.x, 'velocity.x');
+            finite(body.velocity.y, 'velocity.y');
+            proxy.owner.capturePhysicsPose();
+            body.velocity.x +=
+              (this.gravity.x * body.gravityScale +
+                force.value[0] * proxy.inverseMass) *
+              dt;
+            body.velocity.y +=
+              (this.gravity.y * body.gravityScale +
+                force.value[1] * proxy.inverseMass) *
+              dt;
+            body.velocity.scale(1 / (1 + body.linearDamping * dt));
+            body.setSolverAngularVelocity(
+              body.lockRotation
+                ? 0
+                : (body.angularVelocity +
+                    force.value[5] * proxy.inverseInertia * dt) /
+                    (1 + body.angularDamping * dt),
+            );
+          }
+        } else if (body?.type === 'kinematic') {
           finite(body.velocity.x, 'velocity.x');
           finite(body.velocity.y, 'velocity.y');
+          finite(body.angularVelocity, 'angularVelocity');
           proxy.owner.capturePhysicsPose();
-          body.velocity.x +=
-            (this.gravity.x * body.gravityScale +
-              force.value[0] * proxy.inverseMass) *
-            dt;
-          body.velocity.y +=
-            (this.gravity.y * body.gravityScale +
-              force.value[1] * proxy.inverseMass) *
-            dt;
-          body.velocity.scale(1 / (1 + body.linearDamping * dt));
-          body.setSolverAngularVelocity(
-            body.lockRotation
-              ? 0
-              : (body.angularVelocity +
-                  force.value[5] * proxy.inverseInertia * dt) /
-                  (1 + body.angularDamping * dt),
-          );
         }
-      } else if (body?.type === 'kinematic') {
-        finite(body.velocity.x, 'velocity.x');
-        finite(body.velocity.y, 'velocity.y');
-        finite(body.angularVelocity, 'angularVelocity');
-        proxy.owner.capturePhysicsPose();
+        for (const piece of proxy.group) {
+          piece.refresh();
+          piece.sweepStamp = token;
+          sorted[sortedCount++] = piece;
+        }
       }
-      for (const piece of proxy.group) {
-        piece.refresh();
-        piece.sweepStamp = token;
-        this.sorted.push(piece);
-      }
+    } finally {
+      if (sorted.length !== sortedCount) sorted.length = sortedCount;
     }
     this.integrateContinuous(dt, token);
     if (!this.continuation()) return;
@@ -882,7 +913,7 @@ export class PhysicsWorld2D {
     order.length = kept;
     for (const proxy of this.sorted)
       if (proxy.sweepKept !== token) order.push(proxy);
-    order.sort(compareBounds);
+    sortSweepOrder(order);
     for (let i = 0; i < order.length; i++) this.sorted[i] = order[i]!;
     // Lets a passive entry jump straight to its next possible partner.
     const count = this.sorted.length;
