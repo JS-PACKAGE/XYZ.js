@@ -126,6 +126,22 @@ describe('2D rigid kinematic and conservative continuous motion', () => {
     expect([touched(20), touched(25)]).toEqual([false, true]);
     world.destroy();
   });
+  it('leaves world matrices live after querying colliders of a Scene', () => {
+    const scene = new Scene();
+    const map = scene.add(new GameObject());
+    const tile = map.add(new GameObject());
+    tile.collider = Colliders.box(2, 2);
+    const probe = scene.add(new GameObject());
+    probe.collider = Colliders.box(1, 1);
+    expect(scene.physics.overlap(probe.collider!, probe)).toHaveLength(1);
+    probe.position.x = -5;
+    expect(
+      scene.physics.sweep(probe.collider!, probe, new Vector2(6, 0)).hit,
+    ).toBe(true);
+    map.position.x = 50;
+    expect(tile.updateWorldMatrix().elements[6]).toBe(50);
+    scene.destroy();
+  });
   it('integrates prescribed kinematic translation/rotation without gravity, force, or impulse response', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 900] });
     const platform = object(world, Colliders.box(10, 2), 0, 0, {

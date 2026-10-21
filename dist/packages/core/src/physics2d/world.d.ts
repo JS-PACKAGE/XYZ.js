@@ -169,6 +169,8 @@ export declare class PhysicsWorld2D {
      * its bounds.
      */
     private knownBounds;
+    /** A matrix pass on `owner`'s Scene for a query loop, or undefined when one is open. */
+    private openMatrixPass;
     /** Records a proxy refreshed inside moving snapshot `epoch` at `index` in `proxyList`. */
     private recordBounds;
     /** Whether every position of the block starting at `index` has known bounds. */

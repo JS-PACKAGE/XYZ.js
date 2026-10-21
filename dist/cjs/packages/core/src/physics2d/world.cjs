@@ -204,6 +204,10 @@ var PhysicsWorld2D = class {
 			return this.snapshotKnown;
 		}
 	}
+	openMatrixPass(e) {
+		let t = e.scene;
+		return t?.beginMatrixPass() ? t : void 0;
+	}
 	recordBounds(e, t, n) {
 		if (e.movingEpoch === n || this.snapshotKnown[t]) return;
 		let r = e.geometry, i = this.snapshotBounds, a = t * 4, o = t >> 5, s = this.snapshotBlockBounds, c = o * 4;
@@ -615,32 +619,36 @@ var PhysicsWorld2D = class {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		let r = this.queryGeometries.get(t);
 		r || (r = new require_collider.ShapeGeometry(t), this.queryGeometries.set(t, r)), r.refresh(n);
-		let i = [], a = this.queryRefreshEpoch, o = this.orderedProxies(), s = o.length, l = this.knownBounds(a, s), d = this.snapshotBounds, f = this.snapshotBlockBounds;
-		for (let c = 0; c < s; c++) {
-			if (l) {
-				if (!(c & 31) && this.blockKnown(c, s)) {
-					let e = (c >> 5) * 4;
-					if (r.maxX < f[e] || f[e + 1] < r.minX || r.maxY < f[e + 2] || f[e + 3] < r.minY) {
-						c += 31;
-						continue;
+		let i = [], a = this.queryRefreshEpoch, o = this.orderedProxies(), s = o.length, l = this.knownBounds(a, s), d = this.snapshotBounds, f = this.snapshotBlockBounds, p = this.openMatrixPass(n);
+		try {
+			for (let c = 0; c < s; c++) {
+				if (l) {
+					if (!(c & 31) && this.blockKnown(c, s)) {
+						let e = (c >> 5) * 4;
+						if (r.maxX < f[e] || f[e + 1] < r.minX || r.maxY < f[e + 2] || f[e + 3] < r.minY) {
+							c += 31;
+							continue;
+						}
+					}
+					if (l[c]) {
+						let e = c * 4;
+						if (r.maxX < d[e] || d[e + 1] < r.minX || r.maxY < d[e + 2] || d[e + 3] < r.minY) continue;
 					}
 				}
-				if (l[c]) {
-					let e = c * 4;
-					if (r.maxX < d[e] || d[e + 1] < r.minX || r.maxY < d[e + 2] || d[e + 3] < r.minY) continue;
-				}
+				let p = o[c];
+				if (p.owner === n || !this.alive(p) || !(t.category & p.collider.mask) || !(p.collider.category & t.mask) || (a === 0 ? p.refresh() : refreshInSnapshot(p, a), l && this.recordBounds(p, c, a), !require_narrowphase.collide(r, p.geometry, this.queryManifold))) continue;
+				let m = this.queryManifold;
+				i.push({
+					owner: p.owner,
+					collider: p.collider,
+					normal: new require_index.Vector2(m.nx, m.ny),
+					points: snapshotPoints(m),
+					penetration: m.penetration,
+					sensor: t.sensor || p.collider.sensor
+				});
 			}
-			let p = o[c];
-			if (p.owner === n || !this.alive(p) || !(t.category & p.collider.mask) || !(p.collider.category & t.mask) || (a === 0 ? p.refresh() : refreshInSnapshot(p, a), l && this.recordBounds(p, c, a), !require_narrowphase.collide(r, p.geometry, this.queryManifold))) continue;
-			let m = this.queryManifold;
-			i.push({
-				owner: p.owner,
-				collider: p.collider,
-				normal: new require_index.Vector2(m.nx, m.ny),
-				points: snapshotPoints(m),
-				penetration: m.penetration,
-				sensor: t.sensor || p.collider.sensor
-			});
+		} finally {
+			p?.endMatrixPass();
 		}
 		return i;
 	}
@@ -660,31 +668,36 @@ var PhysicsWorld2D = class {
 		d || (d = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, d)), d.geometry.refresh(n), d.setExplicit(n.position.x, n.position.y, r.x, r.y), s.hit = !1, s.owner = void 0, s.collider = void 0, s.fraction = s.safeFraction = 1, s.exhausted = !1, s.normal.set(0, 0), s.point.set(0, 0);
 		let f = this.queryRefreshEpoch, p = this.sweepBox, h = require_world2d.physicsDefaults.sweepTolerance, g = this.orderedProxies(), _ = g.length, v = this.knownBounds(f, _), y = this.snapshotBounds, b = this.snapshotBlockBounds;
 		this.continuous.sweptBox(d, 1, p);
-		for (let e = 0; e < _; e++) {
-			if (v) {
-				if (!(e & 31) && this.blockKnown(e, _)) {
-					let t = (e >> 5) * 4;
-					if (!(p[0] <= b[t + 1] + h && p[1] >= b[t] && p[2] <= b[t + 3] + h && p[3] >= b[t + 2])) {
-						e += 31;
-						continue;
+		let x = this.openMatrixPass(n);
+		try {
+			for (let e = 0; e < _; e++) {
+				if (v) {
+					if (!(e & 31) && this.blockKnown(e, _)) {
+						let t = (e >> 5) * 4;
+						if (!(p[0] <= b[t + 1] + h && p[1] >= b[t] && p[2] <= b[t + 3] + h && p[3] >= b[t + 2])) {
+							e += 31;
+							continue;
+						}
+					}
+					if (v[e]) {
+						let t = e * 4;
+						if (!(p[0] <= y[t + 1] + h && p[1] >= y[t] && p[2] <= y[t + 3] + h && p[3] >= y[t + 2])) continue;
 					}
 				}
-				if (v[e]) {
-					let t = e * 4;
-					if (!(p[0] <= y[t + 1] + h && p[1] >= y[t] && p[2] <= y[t + 3] + h && p[3] >= y[t + 2])) continue;
+				let r = g[e];
+				if (r.owner === n || r.owner === a.ignore || r.owner === a.ignoreOther || !this.alive(r) || !a.includeSensors && r.collider.sensor || !(t.category & r.collider.mask) || !(r.collider.category & t.mask & u)) continue;
+				f === 0 ? r.refresh() : refreshInSnapshot(r, f), v && this.recordBounds(r, e, f);
+				let i = r.geometry;
+				if (!(p[0] <= i.maxX + h && p[1] >= i.minX && p[2] <= i.maxY + h && p[3] >= i.minY)) continue;
+				r.motion.setExplicit(r.owner.position.x, r.owner.position.y, 0, 0);
+				let o = this.continuous.timeOfImpact(d, r.motion, 1, this.ccdIterations);
+				if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), o < s.fraction) {
+					let e = this.continuous.manifold;
+					s.hit = !0, s.owner = r.owner, s.collider = r.collider, s.fraction = o, s.normal.set(-e.nx, -e.ny), s.point.copy(e.points[0]);
 				}
 			}
-			let r = g[e];
-			if (r.owner === n || r.owner === a.ignore || r.owner === a.ignoreOther || !this.alive(r) || !a.includeSensors && r.collider.sensor || !(t.category & r.collider.mask) || !(r.collider.category & t.mask & u)) continue;
-			f === 0 ? r.refresh() : refreshInSnapshot(r, f), v && this.recordBounds(r, e, f);
-			let i = r.geometry;
-			if (!(p[0] <= i.maxX + h && p[1] >= i.minX && p[2] <= i.maxY + h && p[3] >= i.minY)) continue;
-			r.motion.setExplicit(r.owner.position.x, r.owner.position.y, 0, 0);
-			let o = this.continuous.timeOfImpact(d, r.motion, 1, this.ccdIterations);
-			if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), o < s.fraction) {
-				let e = this.continuous.manifold;
-				s.hit = !0, s.owner = r.owner, s.collider = r.collider, s.fraction = o, s.normal.set(-e.nx, -e.ny), s.point.copy(e.points[0]);
-			}
+		} finally {
+			x?.endMatrixPass();
 		}
 		return s.safeFraction = Math.min(s.safeFraction, s.fraction), s.safeFraction < s.fraction && (s.hit = !1, s.owner = void 0, s.collider = void 0, s.normal.set(0, 0), s.point.set(0, 0)), s;
 	}

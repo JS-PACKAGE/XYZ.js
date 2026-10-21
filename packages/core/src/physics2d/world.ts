@@ -403,6 +403,11 @@ export class PhysicsWorld2D {
     }
     return this.snapshotKnown;
   }
+  /** A matrix pass on `owner`'s Scene for a query loop, or undefined when one is open. */
+  private openMatrixPass(owner: GameObject): GameObject['scene'] {
+    const scene = owner.scene;
+    return scene?.beginMatrixPass() ? scene : undefined;
+  }
   /** Records a proxy refreshed inside moving snapshot `epoch` at `index` in `proxyList`. */
   private recordBounds(proxy: Proxy, index: number, epoch: number): void {
     if (proxy.movingEpoch === epoch || this.snapshotKnown[index]) return;
@@ -1422,58 +1427,65 @@ export class PhysicsWorld2D {
       known = this.knownBounds(epoch, count),
       bounds = this.snapshotBounds,
       union = this.snapshotBlockBounds;
-    for (let index = 0; index < count; index++) {
-      // collide()'s own bounds test, on bounds this snapshot already refreshed: such a proxy
-      // (or a whole block, by its union) is skipped whatever the filters below decide, and
-      // they have no effects.
-      if (known) {
-        if (
-          (index & (snapshotBlock - 1)) === 0 &&
-          this.blockKnown(index, count)
-        ) {
-          const at = (index >> snapshotBlockShift) * 4;
+    // Nothing in this loop moves an object, so a parent (a TileMap of solid tiles) composes
+    // its world matrix once rather than once per child collider.
+    const pass = this.openMatrixPass(owner);
+    try {
+      for (let index = 0; index < count; index++) {
+        // collide()'s own bounds test, on bounds this snapshot already refreshed: such a proxy
+        // (or a whole block, by its union) is skipped whatever the filters below decide, and
+        // they have no effects.
+        if (known) {
           if (
-            geometry.maxX < union[at]! ||
-            union[at + 1]! < geometry.minX ||
-            geometry.maxY < union[at + 2]! ||
-            union[at + 3]! < geometry.minY
+            (index & (snapshotBlock - 1)) === 0 &&
+            this.blockKnown(index, count)
           ) {
-            index += snapshotBlock - 1;
-            continue;
+            const at = (index >> snapshotBlockShift) * 4;
+            if (
+              geometry.maxX < union[at]! ||
+              union[at + 1]! < geometry.minX ||
+              geometry.maxY < union[at + 2]! ||
+              union[at + 3]! < geometry.minY
+            ) {
+              index += snapshotBlock - 1;
+              continue;
+            }
+          }
+          if (known[index]) {
+            const at = index * 4;
+            if (
+              geometry.maxX < bounds[at]! ||
+              bounds[at + 1]! < geometry.minX ||
+              geometry.maxY < bounds[at + 2]! ||
+              bounds[at + 3]! < geometry.minY
+            )
+              continue;
           }
         }
-        if (known[index]) {
-          const at = index * 4;
-          if (
-            geometry.maxX < bounds[at]! ||
-            bounds[at + 1]! < geometry.minX ||
-            geometry.maxY < bounds[at + 2]! ||
-            bounds[at + 3]! < geometry.minY
-          )
-            continue;
-        }
+        const proxy = list[index]!;
+        if (
+          proxy.owner === owner ||
+          !this.alive(proxy) ||
+          !(collider.category & proxy.collider.mask) ||
+          !(proxy.collider.category & collider.mask)
+        )
+          continue;
+        if (epoch === 0) proxy.refresh();
+        else refreshInSnapshot(proxy, epoch);
+        if (known) this.recordBounds(proxy, index, epoch);
+        if (!collide(geometry, proxy.geometry, this.queryManifold)) continue;
+        const m = this.queryManifold;
+        results.push({
+          owner: proxy.owner,
+          collider: proxy.collider,
+          normal: new Vector2(m.nx, m.ny),
+          points: snapshotPoints(m),
+          penetration: m.penetration,
+          sensor: collider.sensor || proxy.collider.sensor,
+        });
       }
-      const proxy = list[index]!;
-      if (
-        proxy.owner === owner ||
-        !this.alive(proxy) ||
-        !(collider.category & proxy.collider.mask) ||
-        !(proxy.collider.category & collider.mask)
-      )
-        continue;
-      if (epoch === 0) proxy.refresh();
-      else refreshInSnapshot(proxy, epoch);
-      if (known) this.recordBounds(proxy, index, epoch);
-      if (!collide(geometry, proxy.geometry, this.queryManifold)) continue;
-      const m = this.queryManifold;
-      results.push({
-        owner: proxy.owner,
-        collider: proxy.collider,
-        normal: new Vector2(m.nx, m.ny),
-        points: snapshotPoints(m),
-        penetration: m.penetration,
-        sensor: collider.sensor || proxy.collider.sensor,
-      });
+    } finally {
+      pass?.endMatrixPass();
     }
     return results;
   }
@@ -1527,84 +1539,94 @@ export class PhysicsWorld2D {
       bounds = this.snapshotBounds,
       union = this.snapshotBlockBounds;
     this.continuous.sweptBox(motion, 1, box);
-    for (let index = 0; index < count; index++) {
-      // The bounds test below on bounds this snapshot already refreshed; see `overlap`.
-      if (known) {
-        if (
-          (index & (snapshotBlock - 1)) === 0 &&
-          this.blockKnown(index, count)
-        ) {
-          const at = (index >> snapshotBlockShift) * 4;
-          if (!(
-            box[0]! <= union[at + 1]! + tolerance &&
-            box[1]! >= union[at]! &&
-            box[2]! <= union[at + 3]! + tolerance &&
-            box[3]! >= union[at + 2]!
-          )) {
-            index += snapshotBlock - 1;
-            continue;
+    // Nothing in this loop moves an object, so a parent (a TileMap of solid tiles) composes
+    // its world matrix once rather than once per child collider.
+    const pass = this.openMatrixPass(owner);
+    try {
+      for (let index = 0; index < count; index++) {
+        // The bounds test below on bounds this snapshot already refreshed; see `overlap`.
+        if (known) {
+          if (
+            (index & (snapshotBlock - 1)) === 0 &&
+            this.blockKnown(index, count)
+          ) {
+            const at = (index >> snapshotBlockShift) * 4;
+            if (!(
+              box[0]! <= union[at + 1]! + tolerance &&
+              box[1]! >= union[at]! &&
+              box[2]! <= union[at + 3]! + tolerance &&
+              box[3]! >= union[at + 2]!
+            )) {
+              index += snapshotBlock - 1;
+              continue;
+            }
+          }
+          if (known[index]) {
+            const at = index * 4;
+            if (!(
+              box[0]! <= bounds[at + 1]! + tolerance &&
+              box[1]! >= bounds[at]! &&
+              box[2]! <= bounds[at + 3]! + tolerance &&
+              box[3]! >= bounds[at + 2]!
+            ))
+              continue;
           }
         }
-        if (known[index]) {
-          const at = index * 4;
-          if (!(
-            box[0]! <= bounds[at + 1]! + tolerance &&
-            box[1]! >= bounds[at]! &&
-            box[2]! <= bounds[at + 3]! + tolerance &&
-            box[3]! >= bounds[at + 2]!
-          ))
-            continue;
+        const proxy = list[index]!;
+        if (
+          proxy.owner === owner ||
+          proxy.owner === options.ignore ||
+          proxy.owner === options.ignoreOther ||
+          !this.alive(proxy) ||
+          (!options.includeSensors && proxy.collider.sensor) ||
+          !(collider.category & proxy.collider.mask) ||
+          !(proxy.collider.category & collider.mask & mask)
+        )
+          continue;
+        if (epoch === 0) proxy.refresh();
+        else refreshInSnapshot(proxy, epoch);
+        if (known) this.recordBounds(proxy, index, epoch);
+        // The resting proxy's side of timeOfImpact's bounds test: a proxy outside the swept
+        // box gets no impact, so its motion need not be set (CCD sets motions before use).
+        const g = proxy.geometry;
+        if (!(
+          box[0]! <= g.maxX + tolerance &&
+          box[1]! >= g.minX &&
+          box[2]! <= g.maxY + tolerance &&
+          box[3]! >= g.minY
+        ))
+          continue;
+        proxy.motion.setExplicit(
+          proxy.owner.position.x,
+          proxy.owner.position.y,
+          0,
+          0,
+        );
+        const time = this.continuous.timeOfImpact(
+          motion,
+          proxy.motion,
+          1,
+          this.ccdIterations,
+        );
+        if (this.continuous.exhausted) {
+          out.exhausted = true;
+          out.safeFraction = Math.min(
+            out.safeFraction,
+            this.continuous.safeTime,
+          );
+        }
+        if (time < out.fraction) {
+          const m = this.continuous.manifold;
+          out.hit = true;
+          out.owner = proxy.owner;
+          out.collider = proxy.collider;
+          out.fraction = time;
+          out.normal.set(-m.nx, -m.ny);
+          out.point.copy(m.points[0]);
         }
       }
-      const proxy = list[index]!;
-      if (
-        proxy.owner === owner ||
-        proxy.owner === options.ignore ||
-        proxy.owner === options.ignoreOther ||
-        !this.alive(proxy) ||
-        (!options.includeSensors && proxy.collider.sensor) ||
-        !(collider.category & proxy.collider.mask) ||
-        !(proxy.collider.category & collider.mask & mask)
-      )
-        continue;
-      if (epoch === 0) proxy.refresh();
-      else refreshInSnapshot(proxy, epoch);
-      if (known) this.recordBounds(proxy, index, epoch);
-      // The resting proxy's side of timeOfImpact's bounds test: a proxy outside the swept
-      // box gets no impact, so its motion need not be set (CCD sets motions before use).
-      const g = proxy.geometry;
-      if (!(
-        box[0]! <= g.maxX + tolerance &&
-        box[1]! >= g.minX &&
-        box[2]! <= g.maxY + tolerance &&
-        box[3]! >= g.minY
-      ))
-        continue;
-      proxy.motion.setExplicit(
-        proxy.owner.position.x,
-        proxy.owner.position.y,
-        0,
-        0,
-      );
-      const time = this.continuous.timeOfImpact(
-        motion,
-        proxy.motion,
-        1,
-        this.ccdIterations,
-      );
-      if (this.continuous.exhausted) {
-        out.exhausted = true;
-        out.safeFraction = Math.min(out.safeFraction, this.continuous.safeTime);
-      }
-      if (time < out.fraction) {
-        const m = this.continuous.manifold;
-        out.hit = true;
-        out.owner = proxy.owner;
-        out.collider = proxy.collider;
-        out.fraction = time;
-        out.normal.set(-m.nx, -m.ny);
-        out.point.copy(m.points[0]);
-      }
+    } finally {
+      pass?.endMatrixPass();
     }
     out.safeFraction = Math.min(out.safeFraction, out.fraction);
     if (out.safeFraction < out.fraction) {
