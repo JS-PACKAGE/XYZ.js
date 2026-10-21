@@ -179,14 +179,15 @@ var TileMap = class extends require_group2d.Group2D {
 		for (let e of this.configuredSlots) this.cullSlot(e);
 	}
 	cullMoved() {
-		let e = this.culling, t = this.cullingProbe, n = this.tileWidth * 8, r = this.tileHeight * 8, i = Math.floor((e.minX - this.tileWidth) / n) - 1, a = Math.floor(e.maxX / n) + 1, o = Math.floor((e.minY - this.tileHeight) / r) - 1, s = Math.floor(e.maxY / r) + 1, c = Math.floor((t.minX - this.tileWidth) / n) - 1, l = Math.floor(t.maxX / n) + 1, u = Math.floor((t.minY - this.tileHeight) / r) - 1, d = Math.floor(t.maxY / r) + 1, f = (a - i + 1) * (s - o + 1) + (l - c + 1) * (d - u + 1);
-		if (!e.visible || !t.visible || e.singular || t.singular || !(Math.abs(i) < 2 ** 30 && Math.abs(a) < 2 ** 30) || !(Math.abs(o) < 2 ** 30 && Math.abs(s) < 2 ** 30) || !(Math.abs(c) < 2 ** 30 && Math.abs(l) < 2 ** 30) || !(Math.abs(u) < 2 ** 30 && Math.abs(d) < 2 ** 30) || !(f <= this.cullCells.size)) {
+		let e = this.culling, t = this.cullingProbe, n = this.tileWidth, r = this.tileHeight, i = n * 8, a = r * 8, o = Math.floor((e.minX - 1.5 * n) / i), s = Math.floor((e.maxX + .5 * n) / i), c = Math.floor((e.minY - 1.5 * r) / a), l = Math.floor((e.maxY + .5 * r) / a), u = Math.floor((t.minX - 1.5 * n) / i), d = Math.floor((t.maxX + .5 * n) / i), f = Math.floor((t.minY - 1.5 * r) / a), p = Math.floor((t.maxY + .5 * r) / a), m = (s - o + 1) * (l - c + 1) + (d - u + 1) * (p - f + 1);
+		if (!e.visible || !t.visible || e.singular || t.singular || !(Math.abs(o) < 2 ** 30 && Math.abs(s) < 2 ** 30) || !(Math.abs(c) < 2 ** 30 && Math.abs(l) < 2 ** 30) || !(Math.abs(u) < 2 ** 30 && Math.abs(d) < 2 ** 30) || !(Math.abs(f) < 2 ** 30 && Math.abs(p) < 2 ** 30) || !(m <= this.cullCells.size)) {
 			this.cullAll();
 			return;
 		}
+		let h = Math.ceil((Math.max(e.minX, t.minX) - .5 * n) / i), g = Math.floor((Math.min(e.maxX, t.maxX) - .5 * n) / i) - 1, _ = Math.ceil((Math.max(e.minY, t.minY) - .5 * r) / a), v = Math.floor((Math.min(e.maxY, t.maxY) - .5 * r) / a) - 1;
 		Object.assign(e, t);
-		for (let e = o; e <= s; e++) for (let t = i; t <= a; t++) this.cullCell(t, e);
-		for (let e = u; e <= d; e++) for (let t = c; t <= l; t++) (t < i || t > a || e < o || e > s) && this.cullCell(t, e);
+		for (let e = c; e <= l; e++) for (let t = o; t <= s; t++) (t < h || t > g || e < _ || e > v) && this.cullCell(t, e);
+		for (let e = f; e <= p; e++) for (let t = u; t <= d; t++) (t < o || t > s || e < c || e > l) && (t < h || t > g || e < _ || e > v) && this.cullCell(t, e);
 	}
 	cullCell(e, t) {
 		let n = this.cullCells.get(cullCellKey(e, t));

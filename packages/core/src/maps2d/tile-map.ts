@@ -484,17 +484,21 @@ export class TileMap extends Group2D {
   private cullMoved(): void {
     const last = this.culling,
       next = this.cullingProbe;
-    const cellWidth = this.tileWidth * cullCellTiles,
-      cellHeight = this.tileHeight * cullCellTiles;
-    // One cell of margin covers rounding in the slot test against a rectangle edge.
-    const lx0 = Math.floor((last.minX - this.tileWidth) / cellWidth) - 1,
-      lx1 = Math.floor(last.maxX / cellWidth) + 1,
-      ly0 = Math.floor((last.minY - this.tileHeight) / cellHeight) - 1,
-      ly1 = Math.floor(last.maxY / cellHeight) + 1,
-      nx0 = Math.floor((next.minX - this.tileWidth) / cellWidth) - 1,
-      nx1 = Math.floor(next.maxX / cellWidth) + 1,
-      ny0 = Math.floor((next.minY - this.tileHeight) / cellHeight) - 1,
-      ny1 = Math.floor(next.maxY / cellHeight) + 1;
+    const w = this.tileWidth,
+      h = this.tileHeight,
+      cellWidth = w * cullCellTiles,
+      cellHeight = h * cullCellTiles;
+    // Half a tile of slack dwarfs the rounding of the slot test and of these quotients for
+    // every coordinate the range guard below admits.
+    // Cells that can hold a slot passing a rectangle's test.
+    const lx0 = Math.floor((last.minX - 1.5 * w) / cellWidth),
+      lx1 = Math.floor((last.maxX + 0.5 * w) / cellWidth),
+      ly0 = Math.floor((last.minY - 1.5 * h) / cellHeight),
+      ly1 = Math.floor((last.maxY + 0.5 * h) / cellHeight),
+      nx0 = Math.floor((next.minX - 1.5 * w) / cellWidth),
+      nx1 = Math.floor((next.maxX + 0.5 * w) / cellWidth),
+      ny0 = Math.floor((next.minY - 1.5 * h) / cellHeight),
+      ny1 = Math.floor((next.maxY + 0.5 * h) / cellHeight);
     const cells =
       (lx1 - lx0 + 1) * (ly1 - ly0 + 1) + (nx1 - nx0 + 1) * (ny1 - ny0 + 1);
     if (
@@ -512,12 +516,26 @@ export class TileMap extends Group2D {
       this.cullAll();
       return;
     }
+    // Cells whose every slot passes both rectangles' tests: enabled before and after.
+    const ix0 = Math.ceil(
+        (Math.max(last.minX, next.minX) - 0.5 * w) / cellWidth,
+      ),
+      ix1 =
+        Math.floor((Math.min(last.maxX, next.maxX) - 0.5 * w) / cellWidth) - 1,
+      iy0 = Math.ceil((Math.max(last.minY, next.minY) - 0.5 * h) / cellHeight),
+      iy1 =
+        Math.floor((Math.min(last.maxY, next.maxY) - 0.5 * h) / cellHeight) - 1;
     Object.assign(last, next);
     for (let cy = ly0; cy <= ly1; cy++)
-      for (let cx = lx0; cx <= lx1; cx++) this.cullCell(cx, cy);
+      for (let cx = lx0; cx <= lx1; cx++)
+        if (cx < ix0 || cx > ix1 || cy < iy0 || cy > iy1) this.cullCell(cx, cy);
     for (let cy = ny0; cy <= ny1; cy++)
       for (let cx = nx0; cx <= nx1; cx++)
-        if (cx < lx0 || cx > lx1 || cy < ly0 || cy > ly1) this.cullCell(cx, cy);
+        if (
+          (cx < lx0 || cx > lx1 || cy < ly0 || cy > ly1) &&
+          (cx < ix0 || cx > ix1 || cy < iy0 || cy > iy1)
+        )
+          this.cullCell(cx, cy);
   }
 
   private cullCell(cx: number, cy: number): void {
