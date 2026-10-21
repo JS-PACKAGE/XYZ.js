@@ -1408,6 +1408,12 @@ export class WebGPUMeshPipeline {
         )
           hasTransmission = true;
       }
+      // Casters outside the camera view are drawn only by the shadow pass. Without it their
+      // uniforms are not needed this frame; each upload diffs against what the GPU holds, so
+      // they are caught up whenever they are drawn again. They stay resident either way.
+      const drawnGathered = scene.shadows.enabled
+        ? Infinity
+        : this.gathered.length;
       for (const object of this.visibility.shadows) {
         this.draws.push(object);
         if (this.gatheredEpochs.get(object) !== epoch) {
@@ -1416,7 +1422,8 @@ export class WebGPUMeshPipeline {
         }
       }
       this.refreshProbeBlend(scene);
-      for (const object of this.gathered) {
+      for (let index = 0; index < this.gathered.length; index++) {
+        const object = this.gathered[index]!;
         if (
           isNativeMaterial3D(object.material) &&
           (object.material.destroyed ||
@@ -1429,7 +1436,7 @@ export class WebGPUMeshPipeline {
         const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
-        this.updateMesh(scene, object, mesh);
+        if (index < drawnGathered) this.updateMesh(scene, object, mesh);
       }
       if (scene.transparency === 'sorted')
         this.drawSorter.sort(
