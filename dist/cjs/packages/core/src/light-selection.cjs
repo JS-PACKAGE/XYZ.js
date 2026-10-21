@@ -191,7 +191,7 @@ var SpatialLightSelector = class {
 			for (let e = T; e > w; e--) t[e] = t[e - 1], n[e] = n[e - 1];
 			t[w] = p, n[w] = C, u < i && u++;
 		}
-		t.length = u, c.selected = u, c.overflow = d - u;
+		t.length !== u && (t.length = u), c.selected = u, c.overflow = d - u;
 	}
 };
 //#endregion

@@ -5370,5 +5370,6 @@ export class WebGL2Renderer implements Renderer {
 
 function copyLights<T>(target: T[], source: readonly T[]): void {
   for (let i = 0; i < source.length; i++) target[i] = source[i]!;
-  target.length = source.length;
+  // Assigning length is a runtime call even when it does not change.
+  if (target.length !== source.length) target.length = source.length;
 }

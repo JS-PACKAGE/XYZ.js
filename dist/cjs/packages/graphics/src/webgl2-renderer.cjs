@@ -1572,7 +1572,7 @@ var WebGL2Renderer = class {
 };
 function copyLights(e, t) {
 	for (let n = 0; n < t.length; n++) e[n] = t[n];
-	e.length = t.length;
+	e.length !== t.length && (e.length = t.length);
 }
 //#endregion
 exports.WebGL2Renderer = WebGL2Renderer;

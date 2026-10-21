@@ -471,7 +471,8 @@ export class SpatialLightSelector implements SelectedLights {
       scores[index] = score;
       if (size < cap) size++;
     }
-    out.length = size;
+    // Assigning length is a runtime call even when it does not change.
+    if (out.length !== size) out.length = size;
     stats.selected = size;
     stats.overflow = relevant - size;
   }

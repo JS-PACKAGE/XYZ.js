@@ -3167,3 +3167,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   文件沒有新增相對連結，README 既有自然表面分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Lighting]` 每次光源選取結束時只在長度確實改變時才寫入 `out.length`（WebGL2 已送出光源紀錄同理）：V8 的 length 指派即使值不變也是 runtime 呼叫。選取結果與統計不變（雜湊相同）。瀏覽器內同頁 A/B（16 點光＋8 聚光、640 個繪製球、presentation pass 內）最佳值 0.316–0.376 → 0.276–0.288 ms／幀，屬 CPU 時間；production 3d 剖析受機器負載雜訊遮蓋，未宣稱整幀提升。build 與完整測試（1919 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
