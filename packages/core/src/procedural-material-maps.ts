@@ -311,6 +311,36 @@ export function createSurfaceSampler(
             scutes[plane++] = distance / 2;
           }
       }
+  const rubberStuds = kind === 'studdedrubber' ? new Float64Array(6 * 6) : null;
+  if (rubberStuds)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++)
+        rubberStuds[y * 6 + x] = hash(x, y, seed ^ 0x4b19);
+  const rubberRibs = kind === 'groovedrubber' ? new Float64Array(12) : null;
+  if (rubberRibs)
+    for (let x = 0; x < 12; x++) rubberRibs[x] = hash(x, 0, seed ^ 0x5c37);
+  // Compact irregular granules: multiply smooth half-plane masks rather than
+  // selecting a nearest edge, so compressed corners have continuous slopes.
+  const rubberGranules =
+    kind === 'recycledrubber' ? new Float64Array(48 * 48 * 18) : null;
+  if (rubberGranules)
+    for (let y = 0; y < 48; y++)
+      for (let x = 0; x < 48; x++) {
+        const offset = (y * 48 + x) * 18;
+        const angle = TAU * hash(x, y, seed ^ 0x7d13);
+        const radius = 0.48 + 0.17 * hash(x, y, seed ^ 0x19b7);
+        rubberGranules[offset] = 0.2 + 0.6 * hash(x, y, seed ^ 0x32a9);
+        rubberGranules[offset + 1] = 0.2 + 0.6 * hash(x, y, seed ^ 0x61e3);
+        rubberGranules[offset + 2] = hash(x, y, seed ^ 0x53c1);
+        for (let edge = 0; edge < 5; edge++) {
+          const plane = offset + 3 + edge * 3;
+          const direction = angle + (TAU * edge) / 5;
+          rubberGranules[plane] = Math.cos(direction);
+          rubberGranules[plane + 1] = Math.sin(direction);
+          rubberGranules[plane + 2] =
+            radius * (0.78 + 0.22 * hash(x, y, seed ^ (0x26f1 + edge)));
+        }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -1276,6 +1306,67 @@ export function createSurfaceSampler(
           0.4 + 0.16 * flake + 0.07 * fine - 0.2 * boundary - 0.07 * lenticel;
         roughness += 0.07 * (fine - 0.5) + 0.045 * boundary - 0.025 * flake;
         occlusion = 0.97 - 0.18 * boundary - 0.08 * lenticel;
+        break;
+      }
+      case 'studdedrubber': {
+        const x = u * 6,
+          y = v * 6;
+        const dx = fract(x) - 0.5,
+          dy = fract(y) - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const stud = 1 - smooth(clamp((radius - 0.24) / 0.12));
+        const variation = rubberStuds![Math.floor(y) * 6 + Math.floor(x)];
+        const stipple = noise(u, v, 144, 144, seed ^ 0x49b3);
+        color = 0.24 + 0.16 * stud + 0.06 * stud * variation + 0.05 * stipple;
+        height = 0.16 + 0.66 * stud + 0.002 * stipple;
+        roughness = preset.roughness + 0.04 * (stipple - 0.5);
+        occlusion = 0.84 + 0.16 * stud;
+        break;
+      }
+      case 'groovedrubber': {
+        const x = u * 12;
+        const distance = Math.abs(fract(x) - 0.5);
+        const rib = 1 - smooth(clamp((distance - 0.32) / 0.13));
+        const variation = rubberRibs![Math.floor(x)];
+        const stipple = noise(u, v, 144, 144, seed ^ 0x6e21);
+        color = 0.18 + 0.29 * rib + 0.04 * rib * variation + 0.035 * stipple;
+        height = 0.15 + 0.7 * rib + 0.0015 * stipple;
+        roughness = preset.roughness + 0.035 * (stipple - 0.5);
+        occlusion = 0.7 + 0.3 * rib;
+        break;
+      }
+      case 'recycledrubber': {
+        const x = u * 48,
+          y = v * 48,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let coverage = 0,
+          pigment = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset = (((cy + 48) % 48) * 48 + ((cx + 48) % 48)) * 18;
+            const dx = x - cx - rubberGranules![offset],
+              dy = y - cy - rubberGranules![offset + 1];
+            let mask = 1;
+            for (let edge = 0; edge < 5; edge++) {
+              const plane = offset + 3 + edge * 3;
+              const inset =
+                rubberGranules![plane + 2] -
+                dx * rubberGranules![plane] -
+                dy * rubberGranules![plane + 1];
+              mask *= smooth(clamp(inset / 0.14));
+            }
+            coverage += mask;
+            pigment += mask * rubberGranules![offset + 2];
+          }
+        const granule = 1 - Math.exp(-2 * coverage);
+        const speckle = noise(u, v, 144, 144, seed ^ 0x3b87);
+        color = 0.035 + 0.59 * granule + (0.22 * pigment) / (1 + coverage);
+        height = 0.25 + 0.18 * granule + 0.002 * speckle;
+        roughness = preset.roughness - 0.06 * granule + 0.02 * speckle;
+        occlusion = 0.83 + 0.17 * granule;
         break;
       }
       case 'rubber': {

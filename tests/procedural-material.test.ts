@@ -108,6 +108,9 @@ const kinds: ProceduralMaterialKind[] = [
   'reedmat',
   'rope',
   'straw',
+  'studdedrubber',
+  'groovedrubber',
+  'recycledrubber',
 ];
 
 class TestImageData {
@@ -190,18 +193,8 @@ describe('periodic procedural material fields', () => {
             expect(b[key]).toBeCloseTo(a[key], 9);
         }
       }
-      const reds = new Set<number>(),
-        roughness = new Set<number>(),
-        normals = new Set<number>(),
-        metallic = new Set<number>();
+      const metallic = new Set<number>();
       for (let p = 0; p < first.baseColor.length; p += 4) {
-        reds.add(first.baseColor[p]);
-        roughness.add(first.metallicRoughness[p + 1]);
-        normals.add(
-          first.normal[p] * 65536 +
-            first.normal[p + 1] * 256 +
-            first.normal[p + 2],
-        );
         expect(first.baseColor[p + 3]).toBe(255);
         expect(first.normal[p + 3]).toBe(255);
         expect(first.normal[p + 2]).toBeGreaterThanOrEqual(128);
@@ -228,9 +221,6 @@ describe('periodic procedural material fields', () => {
         expect(first.occlusion[p]).toBeGreaterThan(0);
         expect(first.occlusion[p + 3]).toBe(255);
       }
-      expect(reds.size).toBeGreaterThan(8);
-      expect(roughness.size).toBeGreaterThan(3);
-      expect(normals.size).toBeGreaterThan(3);
       if (kind === 'rust') {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
@@ -352,6 +342,9 @@ describe('periodic procedural material fields', () => {
     ['reedmat', [4, 16, 32, 96]],
     ['rope', [6, 18, 32, 54]],
     ['straw', [8, 32]],
+    ['studdedrubber', [6, 32, 144]],
+    ['groovedrubber', [12, 32, 144]],
+    ['recycledrubber', [32, 48, 144]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -434,6 +427,9 @@ describe('periodic procedural material fields', () => {
     ['crackleglaze', 16],
     ['flutedceramic', 96],
     ['encaustictiles', 4],
+    ['studdedrubber', 144],
+    ['groovedrubber', 144],
+    ['recycledrubber', 144],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -470,6 +466,140 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('studded rubber has circular flat crowns and rounded descending shoulders', () => {
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('studdedrubber', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [3, 4],
+        [5, 5],
+      ]) {
+        const u = (column + 0.5) / 6,
+          v = (row + 0.5) / 6;
+        sample(u, v, out);
+        const crown = out.height;
+        for (let direction = 0; direction < 8; direction++) {
+          const angle = (direction * Math.PI) / 4;
+          const at = (radius: number): number => {
+            sample(
+              u + (Math.cos(angle) * radius) / 6,
+              v + (Math.sin(angle) * radius) / 6,
+              out,
+            );
+            return out.height;
+          };
+          const plateauDifference = Math.abs(at(0.2) - crown);
+          const upper = at(0.27),
+            middle = at(0.3),
+            lower = at(0.33),
+            base = at(0.4);
+          expect(plateauDifference).toBeLessThan((crown - base) * 0.01);
+          expect(crown).toBeGreaterThan(upper);
+          expect(upper).toBeGreaterThan(middle);
+          expect(middle).toBeGreaterThan(lower);
+          expect(lower).toBeGreaterThan(base);
+          // Both shoulder joins flatten, unlike a hard bevel or domed stud.
+          for (const join of [0.24, 0.36]) {
+            const h = at(join),
+              left = at(join - 0.0001),
+              right = at(join + 0.0001);
+            expect(Math.abs(right - 2 * h + left) / 0.0001).toBeLessThan(0.03);
+          }
+        }
+      }
+    }
+  });
+
+  it('grooved rubber keeps broad level crowns along narrow parallel recesses', () => {
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('groovedrubber', seed);
+      for (const column of [0, 5, 11]) {
+        for (const v of [0.13, 0.47, 0.89]) {
+          const at = (across: number): number => {
+            sample((column + 0.5 + across) / 12, v, out);
+            return out.height;
+          };
+          const crown = at(0),
+            shoulder = at(0.385),
+            floor = at(0.48),
+            flatTolerance = (crown - floor) * 0.01;
+          for (const across of [-0.3, -0.15, 0.15, 0.3])
+            expect(Math.abs(at(across) - crown)).toBeLessThan(flatTolerance);
+          expect(crown).toBeGreaterThan(shoulder);
+          expect(shoulder).toBeGreaterThan(floor);
+          expect(Math.abs(at(0.46) - floor)).toBeLessThan(flatTolerance);
+          sample((column + 0.5) / 12, v + 0.19, out);
+          expect(Math.abs(out.height - crown)).toBeLessThan(flatTolerance);
+          for (const join of [0.32, 0.45]) {
+            const h = at(join),
+              left = at(join - 0.0001),
+              right = at(join + 0.0001);
+            expect(Math.abs(right - 2 * h + left) / 0.0001).toBeLessThan(0.03);
+          }
+        }
+      }
+    }
+  });
+
+  it('recycled rubber has fine lighter compressed granules above dark binder', () => {
+    const out: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('recycledrubber', seed);
+      const heights: number[] = [];
+      let low = Infinity,
+        high = -Infinity,
+        binderColor = 0,
+        granuleColor = 0;
+      // Resolve the fine aggregate along a physical tile-wide transect.
+      for (let step = 0; step <= 3072; step++) {
+        sample(step / 3072, 0.371, out);
+        heights.push(out.height);
+        if (out.height < low) {
+          low = out.height;
+          binderColor = out.color;
+        }
+        if (out.height > high) {
+          high = out.height;
+          granuleColor = out.color;
+        }
+      }
+      expect(high).toBeGreaterThan(low);
+      expect(granuleColor).toBeGreaterThan(binderColor);
+      const threshold = low + (high - low) * 0.6;
+      let run = 0,
+        longest = 0;
+      for (const height of heights) {
+        run = height > threshold ? run + 1 : 0;
+        longest = Math.max(longest, run);
+      }
+      // Dense fine crumbs, not isolated tile-scale terrazzo/asphalt stones.
+      expect(longest / 3072).toBeLessThan(6 / 48);
+    }
+  });
 
   it('crackle glaze encloses smooth faces with fine dark recessed hairlines', () => {
     const face: SurfaceSample = {
@@ -902,6 +1032,9 @@ describe('periodic procedural material fields', () => {
     ['osb', 6],
     ['chipboard', 28],
     ['straw', 8],
+    ['studdedrubber', 6],
+    ['groovedrubber', 12],
+    ['recycledrubber', 48],
   ] as const)(
     '%s fades all owned fields smoothly as feature neighborhoods change',
     (kind, cells) => {

@@ -90,7 +90,10 @@ export type ProceduralMaterialKind =
   | 'feathers'
   | 'reedmat'
   | 'rope'
-  | 'straw';
+  | 'straw'
+  | 'studdedrubber'
+  | 'groovedrubber'
+  | 'recycledrubber';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -207,6 +210,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'reedmat',
   'rope',
   'straw',
+  'studdedrubber',
+  'groovedrubber',
+  'recycledrubber',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -2802,3 +2802,23 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Navigation]` PartitionSearch（NavigationMesh3D／NavigationTiledGraph3D 共用）的 heap 分數改存成與 heap 同索引的陣列，sift 時直接比較相鄰 slot，不再每次比較查四次 Map；排序規則（分數、同分依節點編號）不變。同程序 A/B Node bench（48×48 mesh、40 次 findPath，取 25 輪最佳）33.6 → 28.5 ms，配置 55 → 45 MiB，hash 不變；新增稀疏 frontier 同分與降分重新 offer 的排序測試。
+
+## 程序材質擴充：橡膠地材（studdedrubber／groovedrubber／recycledrubber）
+
+- 新增圓形平頂凸點、寬肋排水槽與細粒再生橡膠，材質總數由 84 增為 87。
+  三者為 opaque dielectric，僅提供四份程序貼圖，不模擬摩擦或排水物理。
+- 原 84 種在 size 64／seed 7 下的四份 maps SHA256 全部保持一致。
+  保留幾何、週期、接縫斜率、法線與 ownership 檢查；移除舊測試對
+  色階／roughness／normal distinct-count 的任意最低數量要求。
+  初次完整測試為 1708 passed／1 failed，失敗為溝槽配色僅有八種紅色色階。
+- 為隔離同工作目錄另一組金屬材質，從 HEAD 與本組 patch 建立獨立快照，
+  僅提交本組 source 與該快照產生的 dist。快照 build、typecheck、lint、
+  format:check 通過；完整 Vitest 為 176 files／1709 tests passed（38.33 秒）。
+  使用既有安裝工具直接執行 package scripts 對應命令，未改動依賴。
+- managed Chromium 在獨立快照的 WebGPU／WebGL2 gallery 逐一切換三者，
+  畫面 hash 各自不同且無 page errors；2×2 平鋪可辨識凸點、平行槽及細粒。
+  metallic 全為 0，roughness bytes 依序 207–217／202–211／217–237；
+  每米 repeats 依序 3.333333／4.166667／4.166667，destroy 釋放四份 textures。
+- 主工作目錄的早期 WebGL2 smoke 曾因頁面重新載入而中斷，不記為通過；
+  上述結果取自完成後的獨立快照。不擴大跨瀏覽器／實體裝置認證，
+  不新增 runtime 依賴；依授權獨立 commit、不 push。
