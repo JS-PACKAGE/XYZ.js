@@ -3177,7 +3177,11 @@ export class WebGL2Renderer implements Renderer {
     const gl = this.gl!;
     // Uploads bind to the active unit: keep them on the destination unit, as
     // units bound once per pass (shadow, refraction, probe arrays) must stay intact.
-    if (this.activeUnit !== unit) {
+    // A current cache entry uploads nothing, so `bindUnit` alone selects the unit.
+    if (
+      this.activeUnit !== unit &&
+      this.textures.get(texture)?.version !== texture.version
+    ) {
       gl.activeTexture(gl.TEXTURE0 + unit);
       this.activeUnit = unit;
     }

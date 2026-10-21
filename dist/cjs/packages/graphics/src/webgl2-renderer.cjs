@@ -950,7 +950,7 @@ var WebGL2Renderer = class {
 	bindMaterialTexture(e, t, n) {
 		if (e.destroyed) throw new require_errors.GraphicsError(`WebGL2 cannot render a destroyed material texture.`);
 		let r = this.gl;
-		this.activeUnit !== t && (r.activeTexture(r.TEXTURE0 + t), this.activeUnit = t);
+		this.activeUnit !== t && this.textures.get(e)?.version !== e.version && (r.activeTexture(r.TEXTURE0 + t), this.activeUnit = t);
 		let i = this.cacheTexture(e);
 		i.seen = this.frame, this.bindUnit(t, r.TEXTURE_2D, i.resource, n ? this.cacheSampler(n) : null);
 	}
