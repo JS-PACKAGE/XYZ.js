@@ -93,6 +93,9 @@ const kinds: ProceduralMaterialKind[] = [
   'limestone',
   'breccia',
   'gneiss',
+  'plywood',
+  'osb',
+  'chipboard',
 ];
 
 class TestImageData {
@@ -322,6 +325,9 @@ describe('periodic procedural material fields', () => {
     ['limestone', [24, 32, 96]],
     ['breccia', [6, 32, 80]],
     ['gneiss', [4, 32, 96]],
+    ['plywood', [3, 4, 32]],
+    ['osb', [6, 32]],
+    ['chipboard', [28, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -396,6 +402,7 @@ describe('periodic procedural material fields', () => {
     ['watermelon', 96],
     ['gneiss', 4],
     ['gneiss', 96],
+    ['plywood', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -617,6 +624,8 @@ describe('periodic procedural material fields', () => {
   it.each([
     ['limestone', 24],
     ['breccia', 6],
+    ['osb', 6],
+    ['chipboard', 28],
   ] as const)(
     '%s fades all owned fields smoothly as feature neighborhoods change',
     (kind, cells) => {
@@ -630,7 +639,9 @@ describe('periodic procedural material fields', () => {
       };
       const b = { ...a },
         center = { ...a };
-      const epsilon = 1e-8;
+      // Use a cell-local step: dense chip edges have high but continuous
+      // curvature, which a fixed UV step can mistake for a slope jump.
+      const epsilon = 1e-8 / cells;
       for (const seed of [1, 123, 0xffffffff]) {
         const sample = createSurfaceSampler(kind, seed);
         for (let edge = 0; edge <= cells; edge++)
@@ -653,6 +664,49 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('OSB relief follows long aligned strands while chipboard has finer unoriented chips', () => {
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const geometry = (kind: 'osb' | 'chipboard') => {
+      let across = 0,
+        along = 0,
+        minimum = Infinity,
+        maximum = -Infinity;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let y = 0; y < 64; y++)
+          for (let x = 0; x < 64; x++) {
+            const u = (x + 0.37) / 64,
+              v = (y + 0.61) / 64;
+            sample(u, v, surface);
+            const center = surface.height;
+            minimum = Math.min(minimum, center);
+            maximum = Math.max(maximum, center);
+            sample(u + 1 / 2048, v, surface);
+            across += Math.abs(surface.height - center);
+            sample(u, v + 1 / 2048, surface);
+            along += Math.abs(surface.height - center);
+          }
+      }
+      return {
+        directionality: across / along,
+        edgeDensity: (across + along) / (maximum - minimum),
+      };
+    };
+    const strands = geometry('osb'),
+      chips = geometry('chipboard');
+    // Compare geometry independently of each preset's relief amplitude.
+    expect(strands.directionality).toBeGreaterThan(1.5);
+    expect(strands.directionality).toBeGreaterThan(chips.directionality);
+    expect(chips.edgeDensity).toBeGreaterThan(strands.edgeDensity * 1.5);
+  });
 
   it('acoustic foam has four sloping pyramid faces above recessed cell edges', () => {
     const a: SurfaceSample = {

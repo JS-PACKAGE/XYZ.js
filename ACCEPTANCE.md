@@ -2696,3 +2696,23 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
 - `[Geometry]` MikkTSpace seam 合併改用以（source vertex、四個 tangent 分量位元，-0 視同 0、NaN 視同 NaN）為鍵的 open-addressing 表，取代每個 corner 建字串的 Map；合併語意與先到先用順序不變。256×128 球（33153 頂點）`generateMikkTangents` Node bench 中位約 144–222 → 119–158 ms（機器負載高），tangent／sourceVertices hash 不變；補上不分裂連續 quad 與 mirrored seam 只分裂兩個角的測試。
+
+## 程序材質擴充：木質複合板（plywood／osb／chipboard）
+
+- 新增膠合板面單板木紋與節眼、OSB 重疊定向長木片、粒片板細碎隨機木屑，
+  tile 尺寸依序 0.72／0.72／0.24 m。皆 opaque dielectric，
+  僅為表面 shading，不建立板邊疊層或新 geometry；gallery／API 文件同步至 72 種。
+- build、typecheck、lint、format:check 通過。首次完整測試為 1640 通過／1 失敗：
+  粒片板高曲率邊緣使固定 UV 步距的斜率差達 0.01774，縮小步距後
+  依比例收斂，並非斜率斷裂。測試改用 cell-local 步距、維持 0.01 門檻；
+  實際平滑場差值 0.00068，暫時注入的斜率 seam 差值 5.60068、確實被拒絕。
+  修正後格式檢查與單 worker 完整 176 檔／1641 tests 通過。
+  前六十九種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認面單板、定向木片與細碎木屑差異；metallic 全為 0，
+  roughness bytes 依序 140–163／195–215／203–223；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[WebGPU]` 材質區塊改變時 mesh uniform 的 PBR／UV／finish／optical／native 區段改以索引迴圈複製，不再每段建立 `subarray` view。world-nature WebGPU 取樣配置 61150 → 54442 B/frame（`subarray` 7993 B/frame 消失）；此為 JS 配置減少，不宣稱幀率提升。nm 原生 PBR 測試頁逐幀 hash 與基準一致，regression-browser webgpu 與 material-reference 通過。

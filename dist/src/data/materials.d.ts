@@ -420,6 +420,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.57;
         relief: 0.0015;
     }>;
+    plywood: Readonly<{
+        dark: readonly [105, 54, 24];
+        light: readonly [233, 193, 130];
+        roughness: 0.57;
+        relief: 0.0007;
+    }>;
+    osb: Readonly<{
+        dark: readonly [90, 54, 24];
+        light: readonly [226, 191, 124];
+        roughness: 0.81;
+        relief: 0.0022;
+    }>;
+    chipboard: Readonly<{
+        dark: readonly [95, 67, 35];
+        light: readonly [212, 181, 127];
+        roughness: 0.84;
+        relief: 0.001;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -492,6 +510,9 @@ export declare const proceduralTileMeters: Readonly<{
     limestone: 0.12;
     breccia: 0.6;
     gneiss: 0.6;
+    plywood: 0.72;
+    osb: 0.72;
+    chipboard: 0.24;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

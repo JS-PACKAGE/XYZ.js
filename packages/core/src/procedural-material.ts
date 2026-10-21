@@ -75,7 +75,10 @@ export type ProceduralMaterialKind =
   | 'watermelon'
   | 'limestone'
   | 'breccia'
-  | 'gneiss';
+  | 'gneiss'
+  | 'plywood'
+  | 'osb'
+  | 'chipboard';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -177,6 +180,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'limestone',
   'breccia',
   'gneiss',
+  'plywood',
+  'osb',
+  'chipboard',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

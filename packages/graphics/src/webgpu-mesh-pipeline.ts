@@ -339,6 +339,15 @@ export function uploadChangedSpan(
   return (last + 1 - first) * 4;
 }
 
+function copyRange(
+  target: Float32Array,
+  source: Float32Array,
+  start: number,
+  end: number,
+): void {
+  for (let i = start; i < end; i++) target[i] = source[i]!;
+}
+
 /** One native pass pipeline; the uber and specialized modules share every other state. */
 function nativePipelineDescriptor(
   material: NativeMaterial3D | NativePBRMaterial,
@@ -3690,21 +3699,18 @@ export class WebGPUMeshPipeline {
       )
         materialSent = true;
       else {
+        // Index loops: a subarray view per range allocated on every animated material.
         const source = block.data;
-        data.set(source.subarray(16, 76), 16);
-        data.set(
-          source.subarray(uvOffset, uvOffset + MATERIAL_UV_FLOAT_COUNT),
-          uvOffset,
-        );
-        data.set(source.subarray(finishOffset, irradianceOffset), finishOffset);
-        data.set(source.subarray(opticalOffset), opticalOffset);
+        copyRange(data, source, 16, 76);
+        copyRange(data, source, uvOffset, uvOffset + MATERIAL_UV_FLOAT_COUNT);
+        copyRange(data, source, finishOffset, irradianceOffset);
+        copyRange(data, source, opticalOffset, source.length);
         if (isNativeMaterial3D(material))
-          data.set(
-            source.subarray(
-              nativeOffset,
-              nativeOffset + nativeMaterial3DLimits.uniformFloats,
-            ),
+          copyRange(
+            data,
+            source,
             nativeOffset,
+            nativeOffset + nativeMaterial3DLimits.uniformFloats,
           );
         mesh.blockMaterial = material;
         mesh.blockRevision = block.revision;

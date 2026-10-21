@@ -87,6 +87,9 @@ function uploadChangedSpan(e, t, n, r, i, a) {
 	for (let e = o; e <= s; e++) r[e] = n[e];
 	return e.writeBuffer(t, o * 4, n, o, s + 1 - o), (s + 1 - o) * 4;
 }
+function copyRange(e, t, n, r) {
+	for (let i = n; i < r; i++) e[i] = t[i];
+}
 function nativePipelineDescriptor(e, t, n) {
 	return {
 		...t,
@@ -1973,7 +1976,7 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			if (e.needsUV1 && !t.renderGeometry.uvs1 && require_material_uv.fillMaterialUV(r, t.renderGeometry, this.uvCheck), n.blockMaterial === r && n.blockRevision === e.revision) o = !0;
 			else {
 				let t = e.data;
-				i.set(t.subarray(16, 76), 16), i.set(t.subarray(X, X + require_optical_maps.mappedMaterialUVFloatCount), X), i.set(t.subarray(Z, Q), Z), i.set(t.subarray($), $), require_native_material3d.isNativeMaterial3D(r) && i.set(t.subarray(Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats), Y), n.blockMaterial = r, n.blockRevision = e.revision;
+				copyRange(i, t, 16, 76), copyRange(i, t, X, X + require_optical_maps.mappedMaterialUVFloatCount), copyRange(i, t, Z, Q), copyRange(i, t, $, t.length), require_native_material3d.isNativeMaterial3D(r) && copyRange(i, t, Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats), n.blockMaterial = r, n.blockRevision = e.revision;
 			}
 		} else n.blockMaterial = void 0, i[16] = r.color[0], i[17] = r.color[1], i[18] = r.color[2], i[19] = r.opacity, i[20] = 0, i[32] = 0, i[33] = 1, i[51] = +(require_mesh.materialBaseTexture(r).kind === `native`), require_native_material3d.isNativeMaterial3D(r) && i.set(r.uniforms, a), require_material_uv.fillMaterialUV(r, t.renderGeometry, i, X), i.fill(0, Z, Q), i.fill(0, $);
 		i[34] = +!!t.receiveShadow, i[47] = +(t instanceof require_skinned_mesh.SkinnedMesh);

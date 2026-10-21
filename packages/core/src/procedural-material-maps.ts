@@ -165,6 +165,53 @@ export function createSurfaceSampler(
             radius * (0.75 + 0.25 * hash(x, y, seed ^ (0x68a1 + edge)));
         }
       }
+  const veneerEyes = kind === 'plywood' ? new Float64Array(2 * 3) : null;
+  if (veneerEyes)
+    for (let eye = 0; eye < 2; eye++) {
+      veneerEyes[eye * 3] = hash(eye, 0, seed ^ 0x21e7);
+      veneerEyes[eye * 3 + 1] = hash(eye, 0, seed ^ 0x64b3);
+      veneerEyes[eye * 3 + 2] = 0.75 + 0.25 * hash(eye, 0, seed ^ 0x48d9);
+    }
+  const strandCells = kind === 'osb' ? 6 : 28;
+  // Two overlapping strata of angular flakes. The longest support has radius
+  // below 1.2 cells; centers stay in [0.25, 0.75], so 3x3 lookup is sufficient.
+  const strands =
+    kind === 'osb' || kind === 'chipboard'
+      ? new Float64Array(strandCells * strandCells * 2 * 26)
+      : null;
+  if (strands)
+    for (let layer = 0; layer < 2; layer++)
+      for (let y = 0; y < strandCells; y++)
+        for (let x = 0; x < strandCells; x++) {
+          const offset = ((layer * strandCells + y) * strandCells + x) * 26;
+          const salt = seed ^ (layer * 0x39a7);
+          const variation = hash(x, y, salt ^ 0x62b1);
+          const angle =
+            kind === 'osb'
+              ? Math.PI / 2 +
+                0.65 * (hash(x, y, salt ^ 0x18d3) - 0.5) +
+                0.5 * (noise(x / 6, y / 6, 3, 3, seed ^ 0x7b29) - 0.5)
+              : TAU * hash(x, y, salt ^ 0x18d3);
+          strands[offset] = 0.25 + 0.5 * hash(x, y, salt ^ 0x4f17);
+          strands[offset + 1] = 0.25 + 0.5 * hash(x, y, salt ^ 0x73c9);
+          strands[offset + 2] = Math.cos(angle);
+          strands[offset + 3] = Math.sin(angle);
+          strands[offset + 4] =
+            kind === 'osb' ? 0.78 + 0.14 * variation : 0.46 + 0.19 * variation;
+          strands[offset + 5] =
+            kind === 'osb'
+              ? 0.13 + 0.1 * hash(x, y, salt ^ 0x519b)
+              : 0.25 + 0.17 * hash(x, y, salt ^ 0x519b);
+          strands[offset + 6] = variation;
+          strands[offset + 7] = TAU * hash(x, y, salt ^ 0x2e65);
+          for (let edge = 0; edge < 6; edge++) {
+            const plane = offset + 8 + edge * 3;
+            strands[plane] = Math.cos((TAU * edge) / 6);
+            strands[plane + 1] = Math.sin((TAU * edge) / 6);
+            strands[plane + 2] =
+              0.82 + 0.18 * hash(x, y, salt ^ (0x5d31 + edge));
+          }
+        }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -2088,6 +2135,105 @@ export function createSurfaceSampler(
         height = 0.42 + 0.055 * bands + 0.07 * flecks + 0.025 * detail;
         roughness += 0.08 * (detail - 0.5) + 0.06 * (1 - bands) - 0.05 * flecks;
         occlusion = 0.95 + 0.025 * bands + 0.015 * flecks;
+        break;
+      }
+      case 'plywood': {
+        const warp = noise(u, v, 4, 3, seed ^ 0x43b7);
+        // Rotary-cut growth surfaces form broad nested cathedral arches,
+        // rather than plank seams or the exposed laminate edges of a panel.
+        const growth =
+          3.2 * Math.cos(TAU * u + phase) +
+          1.8 * Math.cos(TAU * v + 0.7 * phase) +
+          0.45 * warp;
+        const grain = Math.pow(0.5 + 0.5 * Math.sin(TAU * growth), 5);
+        const fiber = 0.5 + 0.5 * Math.sin(TAU * (64 * u + 0.4 * warp) + phase);
+        color = 0.67 + 0.1 * detail - 0.32 * grain + 0.035 * fiber;
+        height = 0.48 + 0.025 * detail - 0.045 * grain + 0.015 * fiber;
+        roughness += 0.05 * grain + 0.04 * (detail - 0.5);
+        occlusion = 0.99 - 0.045 * grain;
+        for (let eye = 0; eye < 2; eye++) {
+          const offset = eye * 3;
+          const dx = fract(u - veneerEyes![offset] + 0.5) - 0.5,
+            dy = fract(v - veneerEyes![offset + 1] + 0.5) - 0.5;
+          const scale = veneerEyes![offset + 2];
+          const radius =
+            (dx * dx) / (0.0025 * scale * scale) +
+            (dy * dy) / (0.0169 * scale * scale);
+          const cap = Math.max(0, 1 - radius),
+            weight = cap * cap;
+          const ring = 0.5 + 0.5 * Math.cos(TAU * 2 * radius);
+          color = color * (1 - weight) + (0.25 + 0.2 * ring) * weight;
+          height = height * (1 - weight) + (0.44 + 0.025 * ring) * weight;
+          roughness =
+            roughness * (1 - weight) +
+            (preset.roughness + 0.065 * ring) * weight;
+          occlusion = occlusion * (1 - weight) + (0.95 + 0.025 * ring) * weight;
+        }
+        break;
+      }
+      case 'osb':
+      case 'chipboard': {
+        const x = u * strandCells,
+          y = v * strandCells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let coverage = 0;
+        color = 0.24 + 0.12 * detail;
+        height = 0.35 + 0.025 * detail;
+        roughness += 0.035 * detail;
+        for (let layer = 0; layer < 2; layer++)
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy;
+              const wx = ((cx % strandCells) + strandCells) % strandCells,
+                wy = ((cy % strandCells) + strandCells) % strandCells;
+              const offset =
+                ((layer * strandCells + wy) * strandCells + wx) * 26;
+              const dx = x - cx - strands![offset],
+                dy = y - cy - strands![offset + 1];
+              const along =
+                  (dx * strands![offset + 2] + dy * strands![offset + 3]) /
+                  strands![offset + 4],
+                across =
+                  (dy * strands![offset + 2] - dx * strands![offset + 3]) /
+                  strands![offset + 5];
+              let face = 1;
+              for (let edge = 0; edge < 6; edge++) {
+                const plane = offset + 8 + edge * 3;
+                face *= smooth(
+                  clamp(
+                    (strands![plane + 2] -
+                      along * strands![plane] -
+                      across * strands![plane + 1]) /
+                      0.12,
+                  ),
+                );
+              }
+              if (face === 0) continue;
+              const variation = strands![offset + 6];
+              const fiber =
+                0.5 +
+                0.5 *
+                  Math.sin(
+                    18 * across +
+                      0.65 * Math.sin(3 * along) +
+                      strands![offset + 7],
+                  );
+              // Every flake-owned field fades with the same compact polygon.
+              // Convex over-compositing keeps overlapping strata bounded.
+              color =
+                color * (1 - face) +
+                (0.34 + 0.44 * variation + 0.1 * fiber) * face;
+              height =
+                height * (1 - face) +
+                (0.49 + 0.12 * variation + 0.025 * fiber) * face;
+              roughness =
+                roughness * (1 - face) +
+                (preset.roughness - 0.045 + 0.07 * fiber) * face;
+              coverage += (1 - coverage) * face;
+            }
+        occlusion = 0.83 + 0.15 * coverage + 0.015 * detail;
         break;
       }
     }
