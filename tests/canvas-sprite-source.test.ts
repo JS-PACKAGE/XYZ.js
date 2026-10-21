@@ -12,15 +12,23 @@ import {
 } from '../packages/graphics/src/sprite-instance.js';
 import { rendering2dLimits } from '../src/data/rendering2d.js';
 
+/** Alpha of every pixel the fake canvases read back; RGB falls with the pixel index. */
+let readAlpha: (pixel: number) => number;
 class FakeContext {
   readonly getImageData = vi.fn(
-    (_x: number, _y: number, w: number, h: number) => ({
-      data: new Uint8ClampedArray(w * h * 4).fill(200),
-    }),
+    (_x: number, _y: number, w: number, h: number) => {
+      const data = new Uint8ClampedArray(w * h * 4);
+      for (let i = 0; i < data.length; i++)
+        data[i] = (i & 3) === 3 ? readAlpha(i >> 2) : 200 - ((i >> 2) % 100);
+      return { data };
+    },
   );
   readonly putImageData = vi.fn();
   readonly drawImage = vi.fn();
   imageSmoothingEnabled = true;
+  createImageData(w: number, h: number): { data: Uint8ClampedArray } {
+    return { data: new Uint8ClampedArray(w * h * 4) };
+  }
   setTransform(): void {}
   clearRect(): void {}
 }
@@ -36,6 +44,7 @@ class FakeCanvas {
 let canvases: FakeCanvas[];
 beforeEach(() => {
   canvases = [];
+  readAlpha = () => 200;
   vi.stubGlobal('document', {
     createElement: () => {
       const canvas = new FakeCanvas();
@@ -46,8 +55,14 @@ beforeEach(() => {
 });
 afterEach(() => vi.unstubAllGlobals());
 
-/** Tinted paints read their frame back once each. */
+/** Every tinted paint writes its pixels once. */
 function paints(): number {
+  return canvases.reduce(
+    (sum, canvas) => sum + canvas.context.putImageData.mock.calls.length,
+    0,
+  );
+}
+function readbacks(): number {
   return canvases.reduce(
     (sum, canvas) => sum + canvas.context.getImageData.mock.calls.length,
     0,
@@ -145,5 +160,63 @@ describe('Canvas2D painted frame snapshots', () => {
     expect(canvases.length).toBeLessThanOrEqual(
       rendering2dLimits.canvasFrameSnapshots + 1,
     );
+  });
+
+  it('tints binary-alpha frames from one read of their source', () => {
+    readAlpha = (pixel) => (pixel % 2 ? 255 : 0);
+    const texture = new CanvasTexture2D({
+      width: 8,
+      height: 8,
+    } as HTMLCanvasElement);
+    const source = sprites();
+    const left = source.image(texture, quad(texture, 0, 4), [0.5, 1, 1, 1]);
+    const right = source.image(texture, quad(texture, 4, 4), [0.25, 1, 1, 1]);
+    const lower = source.image(
+      texture,
+      getTextureQuad2D(
+        texture,
+        undefined,
+        { x: 4, y: 2, width: 4, height: 4 },
+        createTextureQuad2D(),
+      ),
+      [0.25, 1, 1, 1],
+    );
+    source.image(texture, quad(texture, 0, 4), [1, 0.5, 1, 1]);
+    expect(paints()).toBe(4);
+    expect(readbacks()).toBe(1);
+    const written = (canvas: HTMLCanvasElement): Uint8ClampedArray =>
+      (canvas as unknown as FakeCanvas).context.putImageData.mock.calls[0]![0]
+        .data;
+    // Source pixel (x, y) has red 200 - (y * 8 + x); alpha passes through.
+    expect(Array.from(written(left).subarray(0, 8))).toEqual([
+      100, 200, 200, 0, 100, 199, 199, 255,
+    ]);
+    expect(written(right)[0]).toBe(49);
+    expect(written(right)[16]).toBe(47);
+    expect(written(lower)[0]).toBe(45);
+    // Scaled or half-pixel frames are resampled, so they read back their own paint.
+    source.image(texture, { ...quad(texture, 0, 4), ux: 1 }, [0.5, 1, 1, 1]);
+    source.image(
+      texture,
+      { ...quad(texture, 0, 4), v0: 1 / 16 },
+      [0.5, 1, 1, 1],
+    );
+    expect(readbacks()).toBe(3);
+    texture.update({ width: 8, height: 8 } as HTMLCanvasElement);
+    source.image(texture, quad(texture, 0, 4), [0.5, 1, 1, 1]);
+    expect(readbacks()).toBe(4);
+  });
+
+  it('reads back each semi-transparent tinted frame itself', () => {
+    const texture = new CanvasTexture2D({
+      width: 8,
+      height: 8,
+    } as HTMLCanvasElement);
+    const source = sprites();
+    source.image(texture, quad(texture, 0, 4), [0.5, 1, 1, 1]);
+    const first = readbacks();
+    source.image(texture, quad(texture, 4, 4), [0.5, 1, 1, 1]);
+    source.image(texture, quad(texture, 0, 4), [0.25, 1, 1, 1]);
+    expect(readbacks()).toBe(first + 2);
   });
 });

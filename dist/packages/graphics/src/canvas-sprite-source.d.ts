@@ -13,6 +13,9 @@ export interface CanvasPlacement2D {
 export declare class CanvasSpriteSource {
     private readonly renderImage;
     private readonly sources;
+    /** Source pixels read back once per version for tinted copies, least recently used first. */
+    private readonly sourcePixelCache;
+    private sourcePixelTotal;
     private scratch;
     /**
      * Painted frames by key hash. A sub-frame or tint repainted into one shared scratch per
@@ -33,6 +36,8 @@ export declare class CanvasSpriteSource {
     image(source: Texture2DSource, quad: TextureQuad2D, tint: ArrayLike<number>, transform?: Readonly<CanvasPlacement2D>): HTMLCanvasElement;
     /** Paints one frame exactly as every snapshot and the scratch hold it. */
     private paint;
+    /** The prepared source's pixels, read back once per version within the snapshot budget. */
+    private sourcePixels;
     private dropFrame;
     private dropFrames;
     unload(source: Texture2DSource): void;

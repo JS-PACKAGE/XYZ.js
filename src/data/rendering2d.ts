@@ -25,6 +25,7 @@ export const rendering2dLimits = Object.freeze({
   resolution: 8,
   /** Canvas2D painted sub-frame/tint snapshots kept for redraw, least recently used out. */
   canvasFrameSnapshots: 256,
-  /** Their combined pixels (4 bytes each); a larger single frame repaints a scratch. */
+  /** Their combined pixels (4 bytes each); a larger single frame repaints a scratch.
+   * Also bounds the source pixels read back once per version for tinted copies. */
   canvasFrameSnapshotPixels: 4 * 1024 * 1024,
 });

@@ -7,6 +7,8 @@ const require_hypot = require("../../math/src/hypot.cjs");
 var CanvasSpriteSource = class {
 	renderImage;
 	sources = /* @__PURE__ */ new Map();
+	sourcePixelCache = /* @__PURE__ */ new Map();
+	sourcePixelTotal = 0;
 	scratch;
 	frames = /* @__PURE__ */ new Map();
 	framePixels = 0;
@@ -63,7 +65,7 @@ var CanvasSpriteSource = class {
 			let n = this.dropFrame(e, t);
 			C ? n.width = n.height = 1 : C = n;
 		}
-		return C ??= document.createElement(`canvas`), this.paint(C, f, s, c, h, g, p, m), this.frames.set(b, {
+		return C ??= document.createElement(`canvas`), this.paint(C, f, s, c, h, g, p, m, u ? void 0 : i), this.frames.set(b, {
 			canvas: C,
 			source: i,
 			key: v.slice(),
@@ -71,16 +73,50 @@ var CanvasSpriteSource = class {
 			used: ++this.frameClock
 		}), this.framePixels += S, C;
 	}
-	paint(e, t, n, r, i, a, o, s) {
+	paint(e, t, n, r, i, a, o, s, c) {
 		e.width !== i && (e.width = i), e.height !== a && (e.height = a);
-		let c = e.getContext(`2d`);
-		c.setTransform(1, 0, 0, 1, 0, 0), c.clearRect(0, 0, i, a), c.imageSmoothingEnabled = !1;
-		let l = n.ux * o / e.width, u = n.vx * s / e.width, d = n.uy * o / e.height, f = n.vy * s / e.height, p = l * f - u * d, m = n.u0 * o, h = n.v0 * s;
-		if (c.setTransform(f / p, -u / p, -d / p, l / p, (d * h - f * m) / p, (u * m - l * h) / p), c.drawImage(t, 0, 0), c.setTransform(1, 0, 0, 1, 0, 0), r[0] !== 1 || r[1] !== 1 || r[2] !== 1) {
-			let t = c.getImageData(0, 0, e.width, e.height);
-			for (let e = 0; e < t.data.length; e += 4) t.data[e] *= r[0], t.data[e + 1] *= r[1], t.data[e + 2] *= r[2];
-			c.putImageData(t, 0, 0);
+		let l = e.getContext(`2d`);
+		l.setTransform(1, 0, 0, 1, 0, 0), l.clearRect(0, 0, i, a), l.imageSmoothingEnabled = !1;
+		let u = n.ux * o / e.width, d = n.vx * s / e.width, f = n.uy * o / e.height, p = n.vy * s / e.height, m = u * p - d * f, h = n.u0 * o, g = n.v0 * s, _ = r[0] !== 1 || r[1] !== 1 || r[2] !== 1, v = _ && c && u === 1 && p === 1 && d === 0 && f === 0 && Number.isInteger(h) && Number.isInteger(g) ? this.sourcePixels(c) : void 0;
+		if (v) {
+			let e = l.createImageData(i, a), t = e.data, n = c.width, o = Math.max(0, h), s = Math.min(n, h + i), u = !0;
+			copy: for (let e = 0; e < a; e++) {
+				let a = g + e;
+				if (!(a < 0 || a >= c.height || o >= s)) for (let c = (e * i + o - h) * 4, l = (a * n + o) * 4, d = l + (s - o) * 4; l < d; c += 4, l += 4) {
+					let e = v[l + 3];
+					if (e !== 0 && e !== 255) {
+						u = !1;
+						break copy;
+					}
+					t[c] = v[l] * r[0], t[c + 1] = v[l + 1] * r[1], t[c + 2] = v[l + 2] * r[2], t[c + 3] = e;
+				}
+			}
+			if (u) {
+				l.putImageData(e, 0, 0);
+				return;
+			}
 		}
+		if (l.setTransform(p / m, -d / m, -f / m, u / m, (f * g - p * h) / m, (d * h - u * g) / m), l.drawImage(t, 0, 0), l.setTransform(1, 0, 0, 1, 0, 0), _) {
+			let t = l.getImageData(0, 0, e.width, e.height);
+			for (let e = 0; e < t.data.length; e += 4) t.data[e] *= r[0], t.data[e + 1] *= r[1], t.data[e + 2] *= r[2];
+			l.putImageData(t, 0, 0);
+		}
+	}
+	sourcePixels(e) {
+		let t = e.width * e.height, n = this.sources.get(e);
+		if (!n || t > require_rendering2d.rendering2dLimits.canvasFrameSnapshotPixels) return;
+		let r = this.sourcePixelCache, i = r.get(e);
+		if (i && (r.delete(e), i.version !== e.version && (this.sourcePixelTotal -= i.pixels.length / 4, i = void 0)), !i) {
+			for (let [e, n] of r) {
+				if (this.sourcePixelTotal + t <= require_rendering2d.rendering2dLimits.canvasFrameSnapshotPixels) break;
+				r.delete(e), this.sourcePixelTotal -= n.pixels.length / 4;
+			}
+			i = {
+				version: e.version,
+				pixels: n.canvas.getContext(`2d`).getImageData(0, 0, e.width, e.height).data
+			}, this.sourcePixelTotal += t;
+		}
+		return r.set(e, i), i.pixels;
 	}
 	dropFrame(e, t) {
 		return this.frames.delete(e), this.framePixels -= t.pixels, t.canvas;
@@ -94,6 +130,8 @@ var CanvasSpriteSource = class {
 	unload(e) {
 		let t = this.sources.get(e);
 		t && (t.canvas.width = t.canvas.height = 1), this.sources.delete(e), this.dropFrames(e);
+		let n = this.sourcePixelCache.get(e);
+		n && (this.sourcePixelCache.delete(e), this.sourcePixelTotal -= n.pixels.length / 4);
 	}
 	destroy() {
 		for (let e of this.sources.keys()) this.unload(e);

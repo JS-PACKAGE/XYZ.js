@@ -35,6 +35,12 @@ export class CanvasSpriteSource {
     Texture2DSource,
     { canvas: HTMLCanvasElement; version: number }
   >();
+  /** Source pixels read back once per version for tinted copies, least recently used first. */
+  private readonly sourcePixelCache = new Map<
+    Texture2DSource,
+    { version: number; pixels: Uint8ClampedArray }
+  >();
+  private sourcePixelTotal = 0;
   private scratch: HTMLCanvasElement | undefined;
   /**
    * Painted frames by key hash. A sub-frame or tint repainted into one shared scratch per
@@ -208,6 +214,7 @@ export class CanvasSpriteSource {
       height,
       sourceWidth,
       sourceHeight,
+      field ? undefined : source,
     );
     this.frames.set(hash, {
       canvas,
@@ -229,6 +236,7 @@ export class CanvasSpriteSource {
     height: number,
     sourceWidth: number,
     sourceHeight: number,
+    readable?: Texture2DSource,
   ): void {
     if (canvas.width !== width) canvas.width = width;
     if (canvas.height !== height) canvas.height = height;
@@ -244,6 +252,53 @@ export class CanvasSpriteSource {
     const det = a * d - b * c;
     const x = quad.u0 * sourceWidth,
       y = quad.v0 * sourceHeight;
+    const tinted = tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1;
+    // An integer-offset 1:1 copy reads back exactly the source's own pixels, so tint
+    // those from one read of the source instead of reading back every painted frame.
+    const pixels =
+      tinted &&
+      readable &&
+      a === 1 &&
+      d === 1 &&
+      b === 0 &&
+      c === 0 &&
+      Number.isInteger(x) &&
+      Number.isInteger(y)
+        ? this.sourcePixels(readable)
+        : undefined;
+    if (pixels) {
+      const out = context.createImageData(width, height),
+        data = out.data,
+        sw = readable!.width,
+        x0 = Math.max(0, x),
+        x1 = Math.min(sw, x + width);
+      let exact = true;
+      copy: for (let row = 0; row < height; row++) {
+        const sy = y + row;
+        if (sy < 0 || sy >= readable!.height || x0 >= x1) continue;
+        for (
+          let o = (row * width + x0 - x) * 4,
+            s = (sy * sw + x0) * 4,
+            end = s + (x1 - x0) * 4;
+          s < end;
+          o += 4, s += 4
+        ) {
+          const alpha = pixels[s + 3]!;
+          if (alpha !== 0 && alpha !== 255) {
+            exact = false;
+            break copy;
+          }
+          data[o] = pixels[s]! * tint[0]!;
+          data[o + 1] = pixels[s + 1]! * tint[1]!;
+          data[o + 2] = pixels[s + 2]! * tint[2]!;
+          data[o + 3] = alpha;
+        }
+      }
+      if (exact) {
+        context.putImageData(out, 0, 0);
+        return;
+      }
+    }
     context.setTransform(
       d / det,
       -b / det,
@@ -254,7 +309,7 @@ export class CanvasSpriteSource {
     );
     context.drawImage(image, 0, 0);
     context.setTransform(1, 0, 0, 1, 0, 0);
-    if (tint[0] !== 1 || tint[1] !== 1 || tint[2] !== 1) {
+    if (tinted) {
       const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
       for (let i = 0; i < pixels.data.length; i += 4) {
         pixels.data[i] *= tint[0];
@@ -263,6 +318,42 @@ export class CanvasSpriteSource {
       }
       context.putImageData(pixels, 0, 0);
     }
+  }
+  /** The prepared source's pixels, read back once per version within the snapshot budget. */
+  private sourcePixels(source: Texture2DSource): Uint8ClampedArray | undefined {
+    const size = source.width * source.height;
+    const prepared = this.sources.get(source);
+    if (!prepared || size > rendering2dLimits.canvasFrameSnapshotPixels)
+      return undefined;
+    const cache = this.sourcePixelCache;
+    let entry = cache.get(source);
+    if (entry) {
+      cache.delete(source);
+      if (entry.version !== source.version) {
+        this.sourcePixelTotal -= entry.pixels.length / 4;
+        entry = undefined;
+      }
+    }
+    if (!entry) {
+      for (const [oldest, cached] of cache) {
+        if (
+          this.sourcePixelTotal + size <=
+          rendering2dLimits.canvasFrameSnapshotPixels
+        )
+          break;
+        cache.delete(oldest);
+        this.sourcePixelTotal -= cached.pixels.length / 4;
+      }
+      entry = {
+        version: source.version,
+        pixels: prepared.canvas
+          .getContext('2d')!
+          .getImageData(0, 0, source.width, source.height).data,
+      };
+      this.sourcePixelTotal += size;
+    }
+    cache.set(source, entry);
+    return entry.pixels;
   }
   private dropFrame(hash: number, snapshot: FrameSnapshot): HTMLCanvasElement {
     this.frames.delete(hash);
@@ -281,6 +372,11 @@ export class CanvasSpriteSource {
     if (entry) entry.canvas.width = entry.canvas.height = 1;
     this.sources.delete(source);
     this.dropFrames(source);
+    const pixels = this.sourcePixelCache.get(source);
+    if (pixels) {
+      this.sourcePixelCache.delete(source);
+      this.sourcePixelTotal -= pixels.pixels.length / 4;
+    }
   }
   destroy(): void {
     for (const source of this.sources.keys()) this.unload(source);
