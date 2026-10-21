@@ -73,6 +73,9 @@ const kinds: ProceduralMaterialKind[] = [
   'geode',
   'quartz',
   'pyrite',
+  'shiplap',
+  'glassblock',
+  'thatch',
   'sandstone',
   'travertine',
   'pumice',
@@ -1516,6 +1519,9 @@ describe('periodic procedural material fields', () => {
     ['geode', [6, 9, 32, 48]],
     ['quartz', [5, 32]],
     ['pyrite', [5, 26, 32]],
+    ['shiplap', [5, 12, 32, 48]],
+    ['glassblock', [4, 32]],
+    ['thatch', [3, 6, 32, 80]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -1678,6 +1684,9 @@ describe('periodic procedural material fields', () => {
     ['geode', 6],
     ['quartz', 5],
     ['pyrite', 5],
+    ['shiplap', 5],
+    ['glassblock', 4],
+    ['thatch', 6],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -3609,6 +3618,124 @@ describe('periodic procedural material fields', () => {
         expect(high).toBeGreaterThan(peak - 0.05 * relief);
         expect(sheen - matte).toBeGreaterThan(0.02);
       }
+    }
+  });
+
+  it('shiplap laps boards above recessed seams with running grain', () => {
+    const relief = proceduralMaterialPresets.shiplap.relief;
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...face },
+      along = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('shiplap', seed);
+      const tones = new Set<number>();
+      for (const row of [0, 1, 3, 4]) {
+        sample(0.37, (row + 0.5) / 5, face);
+        tones.add(face.color);
+        sample(0.37, row / 5, seam);
+        expect(face.height).toBeGreaterThan(seam.height + 0.1 * relief);
+        expect(face.occlusion).toBeGreaterThan(seam.occlusion);
+      }
+      // Seeded boards take different tones and grain runs along each face.
+      expect(tones.size).toBeGreaterThan(1);
+      let low = 1,
+        high = 0;
+      for (let i = 0; i < 16; i++) {
+        sample(i / 16, 2.5 / 5, along);
+        low = Math.min(low, along.color);
+        high = Math.max(high, along.color);
+      }
+      expect(high - low).toBeGreaterThan(0.05);
+    }
+  });
+
+  it('glassblock domes trapped bubbles over block faces above recessed seams', () => {
+    const relief = proceduralMaterialPresets.glassblock.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const near = { ...probe },
+      seam = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('glassblock', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 1],
+        [3, 3],
+      ]) {
+        let peak = 0,
+          peakX = 0,
+          peakY = 0;
+        for (let j = 0; j < 16; j++)
+          for (let i = 0; i < 16; i++) {
+            const u = (column + (i + 0.5) / 16) / 4,
+              v = (row + (j + 0.5) / 16) / 4;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+          }
+        // The dome peak falls off before the flat face around it.
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            peakX + (0.09 * Math.cos(angle)) / 4,
+            peakY + (0.09 * Math.sin(angle)) / 4,
+            near,
+          );
+          expect(peak).toBeGreaterThan(near.height);
+        }
+        sample((column + 1) / 4, (row + 1) / 4, seam);
+        expect(peak).toBeGreaterThan(seam.height + 0.1 * relief);
+      }
+    }
+  });
+
+  it('thatch layers straw courses above their shadowed laps', () => {
+    const relief = proceduralMaterialPresets.thatch.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const lap = { ...crest },
+      along = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('thatch', seed);
+      for (const row of [0, 2, 5])
+        for (let i = 0; i < 8; i++) {
+          const u = (i + 0.5) / 8;
+          sample(u, (row + 0.21) / 6, crest);
+          sample(u, (row + 0.73) / 6, lap);
+          expect(crest.height).toBeGreaterThan(lap.height + 0.1 * relief);
+          expect(crest.occlusion).toBeGreaterThan(lap.occlusion);
+        }
+      // Individual straws streak pigment along the slope.
+      let low = 1,
+        high = 0;
+      for (let i = 0; i < 16; i++) {
+        sample(i / 16, 2.21 / 6, along);
+        low = Math.min(low, along.color);
+        high = Math.max(high, along.color);
+      }
+      expect(high - low).toBeGreaterThan(0.05);
     }
   });
 

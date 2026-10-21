@@ -55,6 +55,9 @@ export type ProceduralMaterialKind =
   | 'geode'
   | 'quartz'
   | 'pyrite'
+  | 'shiplap'
+  | 'glassblock'
+  | 'thatch'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -213,6 +216,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'geode',
   'quartz',
   'pyrite',
+  'shiplap',
+  'glassblock',
+  'thatch',
   'sandstone',
   'travertine',
   'pumice',

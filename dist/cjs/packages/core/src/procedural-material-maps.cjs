@@ -812,6 +812,25 @@ function createSurfaceSampler(t, r) {
 				z = .5 + .24 * u + .1 * f + .1 * S, G = .18 + .6 * u + .06 * f + .03 * S, Z += .07 * (1 - f) + .03 * (S - .5), Q = .52 + .42 * l;
 				break;
 			}
+			case `shiplap`: {
+				let t = o * 5, n = (Math.floor(t) % 5 + 5) % 5, a = smooth(clamp((.07 - (.5 - Math.abs(fract(t) - .5))) / .05)), s = .5 + .36 * hash(n, 0, r ^ 11361) * (1 - a), c = noise(e, o, 48, 6, r ^ 18361), l = noise(e, o, 12, 2, r ^ 27939);
+				z = .24 + .36 * s + .16 * c + .1 * l - .18 * a, G = .72 - .5 * a + .08 * c + .03 * l, Z += .05 * (c - .5) + .06 * a, Q = 1 - .55 * a;
+				break;
+			}
+			case `glassblock`: {
+				let t = e * 4, n = o * 4, i = Math.floor(t), a = Math.floor(n), s = 0, c = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let l = i + o, u = a + e, d = (l % 4 + 4) % 4, f = (u % 4 + 4) % 4, p = t - l - .5, m = n - u - .5, h = smooth(clamp((.42 - Math.abs(p)) / .05)) * smooth(clamp((.42 - Math.abs(m)) / .05)), g = p - .2 * (hash(d, f, r ^ 20935) - .5), _ = m - .2 * (hash(d, f, r ^ 30881) - .5), y = clamp(1 - (Math.sqrt(g * g + _ * _) / .07) ** 2), b = y * y;
+					s += (1 - s) * h, c += (1 - c) * h * b;
+				}
+				z = .55 + .2 * s + .12 * c + .1 * S, G = .24 + .6 * s + .05 * c + .02 * S, Z += .12 * (1 - s) - .03 * c, Q = .45 + .5 * s;
+				break;
+			}
+			case `thatch`: {
+				let t = o * 6, i = .5 + .5 * Math.cos(n * (fract(t) - .25) + .5 * noise(e, o, 3, 6, r ^ 7499)), a = noise(e, o, 80, 6, r ^ 16269), s = smooth(clamp((.14 - Math.abs(fract(t) - .73)) / .07));
+				z = .3 + .32 * i + .18 * a + .1 * S - .12 * s, G = .32 + .36 * i + .22 * a - .3 * s, Z += .05 * (a - .5) + .05 * s, Q = .68 + .28 * i - .3 * s;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((R - .28) / .48)), d = (1 - R) ** 5;
 				z = .22 + .35 * s + .2 * l + .18 * u - .2 * c, G = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Z += .12 * (u - .5) + .05 * c, Q = .97 - .12 * c - .13 * d + .025 * u;

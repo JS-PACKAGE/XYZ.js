@@ -2828,6 +2828,80 @@ export function createSurfaceSampler(
         occlusion = 0.52 + 0.42 * cubes;
         break;
       }
+      case 'shiplap': {
+        const rows = 5;
+        const y = v * rows,
+          iy = Math.floor(y);
+        const wy = ((iy % rows) + rows) % rows;
+        // Lap boards shadow their lower overlap while grain runs along
+        // each board; the seam fades in and out with zero slope.
+        const dist = 0.5 - Math.abs(fract(y) - 0.5);
+        const seam = smooth(clamp((0.07 - dist) / 0.05));
+        // Board tones fade into the shared seam so ownership never jumps.
+        const board = 0.5 + 0.36 * hash(wy, 0, seed ^ 0x2c61) * (1 - seam);
+        const grain = noise(u, v, 48, 6, seed ^ 0x47b9);
+        const streak = noise(u, v, 12, 2, seed ^ 0x6d23);
+        color = 0.24 + 0.36 * board + 0.16 * grain + 0.1 * streak - 0.18 * seam;
+        height = 0.72 - 0.5 * seam + 0.08 * grain + 0.03 * streak;
+        roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
+        occlusion = 1 - 0.55 * seam;
+        break;
+      }
+      case 'glassblock': {
+        const cells = 4;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Rounded block faces rise over recessed seams; products of C1
+        // half-plane shoulders round every corner before the seam.
+        let faces = 0,
+          bubbles = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.5,
+              dy = y - cy - 0.5;
+            const face =
+              smooth(clamp((0.42 - Math.abs(dx)) / 0.05)) *
+              smooth(clamp((0.42 - Math.abs(dy)) / 0.05));
+            const bx = dx - 0.2 * (hash(wx, wy, seed ^ 0x51c7) - 0.5),
+              by = dy - 0.2 * (hash(wx, wy, seed ^ 0x78a1) - 0.5);
+            const distance = Math.sqrt(bx * bx + by * by);
+            // Tiny trapped bubbles dome inside the glass faces.
+            const cap = clamp(1 - (distance / 0.07) ** 2);
+            const bubble = cap * cap;
+            faces += (1 - faces) * face;
+            bubbles += (1 - bubbles) * face * bubble;
+          }
+        color = 0.55 + 0.2 * faces + 0.12 * bubbles + 0.1 * detail;
+        height = 0.24 + 0.6 * faces + 0.05 * bubbles + 0.02 * detail;
+        roughness += 0.12 * (1 - faces) - 0.03 * bubbles;
+        occlusion = 0.45 + 0.5 * faces;
+        break;
+      }
+      case 'thatch': {
+        const rows = 6;
+        const y = v * rows;
+        // Layered straw courses hang over their laps; fine streaks carry
+        // individual straws down the slope between soft course shadows.
+        const course =
+          0.5 +
+          0.5 *
+            Math.cos(
+              TAU * (fract(y) - 0.25) + 0.5 * noise(u, v, 3, 6, seed ^ 0x1d4b),
+            );
+        const straw = noise(u, v, 80, 6, seed ^ 0x3f8d);
+        const lap = smooth(clamp((0.14 - Math.abs(fract(y) - 0.73)) / 0.07));
+        color = 0.3 + 0.32 * course + 0.18 * straw + 0.1 * detail - 0.12 * lap;
+        height = 0.32 + 0.36 * course + 0.22 * straw - 0.3 * lap;
+        roughness += 0.05 * (straw - 0.5) + 0.05 * lap;
+        occlusion = 0.68 + 0.28 * course - 0.3 * lap;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

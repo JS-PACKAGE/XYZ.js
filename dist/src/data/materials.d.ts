@@ -294,6 +294,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.34;
         relief: 0.006;
     }>;
+    shiplap: Readonly<{
+        dark: readonly [88, 56, 30];
+        light: readonly [206, 166, 112];
+        roughness: 0.68;
+        relief: 0.008;
+    }>;
+    glassblock: Readonly<{
+        dark: readonly [128, 156, 168];
+        light: readonly [222, 238, 242];
+        roughness: 0.14;
+        relief: 0.004;
+    }>;
+    thatch: Readonly<{
+        dark: readonly [96, 72, 32];
+        light: readonly [216, 184, 112];
+        roughness: 0.9;
+        relief: 0.01;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -813,6 +831,9 @@ export declare const proceduralTileMeters: Readonly<{
     geode: 0.5;
     quartz: 0.24;
     pyrite: 0.3;
+    shiplap: 0.9;
+    glassblock: 0.4;
+    thatch: 0.8;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;
