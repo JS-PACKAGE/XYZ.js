@@ -121,6 +121,9 @@ export type ProceduralMaterialKind =
   | 'pleats'
   | 'shoelace'
   | 'tassel'
+  | 'woksurface'
+  | 'cutlery'
+  | 'choppingboard'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -381,6 +384,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'pleats',
   'shoelace',
   'tassel',
+  'woksurface',
+  'cutlery',
+  'choppingboard',
   'sandstone',
   'travertine',
   'pumice',

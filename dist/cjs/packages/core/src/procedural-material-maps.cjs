@@ -1741,6 +1741,21 @@ function createSurfaceSampler(t, r) {
 				H = .38 + .26 * e + .28 * t + .06 * n, Z = .42 + .22 * e + .3 * t + .03 * n, Q += .05 * (n - .5) - .06 * e, $ = 1 - .38 * (1 - e) - .12 * (1 - t);
 				break;
 			}
+			case `woksurface`: {
+				let e = fract(o * 10) - .5, t = fract(A * 10) - .5, n = smooth(clamp((.28 - Math.sqrt(e * e + t * t)) / .1)), i = smooth(clamp((.02 - Math.abs(fract((o + A) * 8) - .5)) / .01)), a = noise(o, A, 3, 3, r ^ 17618), s = noise(o, A, 40, 40, r ^ 8638);
+				H = .4 + .22 * n - .1 * i + .16 * a + .06 * s, Z = .44 + .16 * n - .12 * i + .02 * s, Q += .05 * (s - .5) - .14 * a, $ = 1 - .3 * i - .12 * (1 - n);
+				break;
+			}
+			case `cutlery`: {
+				let t = smooth(clamp((.08 - Math.min(fract(A), 1 - fract(A))) / .04)), i = t * (.5 + .5 * Math.cos(n * 16 * o)), a = .5 + .5 * Math.cos(n * 20 * A), s = noise(o, A, 32, 32, r ^ 30500);
+				H = .46 + .26 * t + .16 * i + .06 * a + .05 * s, Z = .46 + .24 * t + .12 * i + .03 * a + .02 * s, Q += .05 * (s - .5) - .12 * i, $ = 1 - .2 * (1 - t) - .12 * (1 - i) * t;
+				break;
+			}
+			case `choppingboard`: {
+				let e = Math.min(fract(o * 4), 1 - fract(o * 4)), t = Math.min(fract(A * 4), 1 - fract(A * 4)), n = smooth(clamp((e - .08) / .06)) * smooth(clamp((t - .08) / .06)), i = smooth(clamp((.03 - Math.abs(fract((o + A) * 5) - .5)) / .015)), a = smooth(clamp((.03 - Math.abs(fract((o - A) * 5) - .5)) / .015)), s = i + a - i * a, c = Math.min(fract(o), 1 - fract(o)), l = Math.min(fract(A), 1 - fract(A)), u = 1 - (1 - smooth(clamp((.05 - c) / .03))) * (1 - smooth(clamp((.05 - l) / .03))), d = noise(o, A, 32, 32, r ^ 20936);
+				H = .5 + .24 * n - .14 * s * n - .14 * u + .06 * d, Z = .48 + .14 * n - .1 * s * n - .12 * u + .03 * d, Q += .05 * (d - .5) - .08 * n, $ = 1 - .3 * s * n - .24 * u - .12 * (1 - n);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

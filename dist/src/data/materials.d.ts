@@ -690,6 +690,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.76;
         relief: 0.005;
     }>;
+    woksurface: Readonly<{
+        dark: readonly [42, 42, 46];
+        light: readonly [128, 130, 136];
+        roughness: 0.38;
+        relief: 0.0028;
+    }>;
+    cutlery: Readonly<{
+        dark: readonly [92, 92, 98];
+        light: readonly [232, 232, 236];
+        roughness: 0.24;
+        relief: 0.0022;
+    }>;
+    choppingboard: Readonly<{
+        dark: readonly [142, 102, 58];
+        light: readonly [222, 182, 122];
+        roughness: 0.72;
+        relief: 0.0035;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1546,6 +1564,9 @@ export declare const proceduralTileMeters: Readonly<{
     pleats: 0.18;
     shoelace: 0.06;
     tassel: 0.12;
+    woksurface: 0.12;
+    cutlery: 0.1;
+    choppingboard: 0.3;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

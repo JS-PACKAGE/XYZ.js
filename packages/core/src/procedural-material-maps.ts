@@ -6187,6 +6187,76 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.38 * (1 - strand) - 0.12 * (1 - ring);
         break;
       }
+      case 'woksurface': {
+        // Hammered dimples rise over scratched steel with an oil sheen.
+        const du = fract(u * 10) - 0.5,
+          dv = fract(v * 10) - 0.5;
+        const dimple = smooth(
+          clamp((0.28 - Math.sqrt(du * du + dv * dv)) / 0.1),
+        );
+        const scratch = smooth(
+          clamp((0.02 - Math.abs(fract((u + v) * 8) - 0.5)) / 0.01),
+        );
+        const sheen = noise(u, v, 3, 3, seed ^ 0x44d2);
+        const grain = noise(u, v, 40, 40, seed ^ 0x21be);
+        color =
+          0.4 + 0.22 * dimple - 0.1 * scratch + 0.16 * sheen + 0.06 * grain;
+        height = 0.44 + 0.16 * dimple - 0.12 * scratch + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.14 * sheen;
+        occlusion = 1 - 0.3 * scratch - 0.12 * (1 - dimple);
+        break;
+      }
+      case 'cutlery': {
+        // Beaded borders frame the finely brushed handle face.
+        const edge = Math.min(fract(v), 1 - fract(v));
+        const border = smooth(clamp((0.08 - edge) / 0.04));
+        const bead = border * (0.5 + 0.5 * Math.cos(TAU * 16 * u));
+        const brush = 0.5 + 0.5 * Math.cos(TAU * 20 * v);
+        const grain = noise(u, v, 32, 32, seed ^ 0x7724);
+        color =
+          0.46 + 0.26 * border + 0.16 * bead + 0.06 * brush + 0.05 * grain;
+        height =
+          0.46 + 0.24 * border + 0.12 * bead + 0.03 * brush + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.12 * bead;
+        occlusion = 1 - 0.2 * (1 - border) - 0.12 * (1 - bead) * border;
+        break;
+      }
+      case 'choppingboard': {
+        // End-grain blocks hold knife scars above the recessed border.
+        const gu = Math.min(fract(u * 4), 1 - fract(u * 4)),
+          gv = Math.min(fract(v * 4), 1 - fract(v * 4));
+        const block =
+          smooth(clamp((gu - 0.08) / 0.06)) * smooth(clamp((gv - 0.08) / 0.06));
+        const s1 = smooth(
+          clamp((0.03 - Math.abs(fract((u + v) * 5) - 0.5)) / 0.015),
+        );
+        const s2 = smooth(
+          clamp((0.03 - Math.abs(fract((u - v) * 5) - 0.5)) / 0.015),
+        );
+        const scar = s1 + s2 - s1 * s2;
+        const edgeU = Math.min(fract(u), 1 - fract(u)),
+          edgeV = Math.min(fract(v), 1 - fract(v));
+        const border =
+          1 -
+          (1 - smooth(clamp((0.05 - edgeU) / 0.03))) *
+            (1 - smooth(clamp((0.05 - edgeV) / 0.03)));
+        const grain = noise(u, v, 32, 32, seed ^ 0x51c8);
+        color =
+          0.5 +
+          0.24 * block -
+          0.14 * scar * block -
+          0.14 * border +
+          0.06 * grain;
+        height =
+          0.48 +
+          0.14 * block -
+          0.1 * scar * block -
+          0.12 * border +
+          0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.08 * block;
+        occlusion = 1 - 0.3 * scar * block - 0.24 * border - 0.12 * (1 - block);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

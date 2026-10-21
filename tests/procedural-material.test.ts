@@ -139,6 +139,9 @@ const kinds: ProceduralMaterialKind[] = [
   'pleats',
   'shoelace',
   'tassel',
+  'woksurface',
+  'cutlery',
+  'choppingboard',
   'sandstone',
   'travertine',
   'pumice',
@@ -4881,6 +4884,9 @@ describe('periodic procedural material fields', () => {
     ['pleats', [4, 32, 48, 64]],
     ['shoelace', [8, 32, 48, 64]],
     ['tassel', [10, 32, 48, 64]],
+    ['woksurface', [8, 32, 48, 64]],
+    ['cutlery', [16, 32, 48, 64]],
+    ['choppingboard', [4, 5, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5121,6 +5127,9 @@ describe('periodic procedural material fields', () => {
     ['pleats', 4],
     ['shoelace', 8],
     ['tassel', 10],
+    ['woksurface', 8],
+    ['cutlery', 16],
+    ['choppingboard', 5],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -9221,6 +9230,75 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(strand.height + 0.05 * relief);
       expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(strand.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('wok surface dims hammered bumps over scratched steel', () => {
+    const relief = proceduralMaterialPresets.woksurface.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...surface },
+      scratch = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('woksurface', seed);
+      sample(0.05, 0.05, surface);
+      sample(0.1, 0.45, base);
+      sample(0.16, 0.0275, scratch);
+      expect(surface.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(base.height).toBeGreaterThan(scratch.height + 0.03 * relief);
+      expect(surface.occlusion).toBeGreaterThan(scratch.occlusion);
+    }
+  });
+
+  it('cutlery beads its border over the brushed handle face', () => {
+    const relief = proceduralMaterialPresets.cutlery.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const border = { ...surface },
+      face = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('cutlery', seed);
+      sample(1 / 16, 0.02, surface);
+      sample(1 / 32, 0.02, border);
+      sample(0.5, 0.5, face);
+      expect(surface.height).toBeGreaterThan(border.height + 0.05 * relief);
+      expect(border.height).toBeGreaterThan(face.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(face.occlusion);
+    }
+  });
+
+  it('chopping board scars its blocks above the recessed border', () => {
+    const relief = proceduralMaterialPresets.choppingboard.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const scar = { ...surface },
+      border = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('choppingboard', seed);
+      sample(1 / 8, 1 / 8, surface);
+      sample(0.2, 0.1, scar);
+      sample(0.01, 0.5, border);
+      expect(surface.height).toBeGreaterThan(scar.height + 0.05 * relief);
+      expect(scar.height).toBeGreaterThan(border.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(scar.occlusion);
     }
   });
 
