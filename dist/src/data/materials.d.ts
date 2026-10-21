@@ -672,6 +672,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.52;
         relief: 0.003;
     }>;
+    pleats: Readonly<{
+        dark: readonly [82, 62, 92];
+        light: readonly [202, 172, 212];
+        roughness: 0.72;
+        relief: 0.004;
+    }>;
+    shoelace: Readonly<{
+        dark: readonly [62, 52, 48];
+        light: readonly [222, 212, 198];
+        roughness: 0.78;
+        relief: 0.0035;
+    }>;
+    tassel: Readonly<{
+        dark: readonly [92, 58, 72];
+        light: readonly [222, 168, 188];
+        roughness: 0.76;
+        relief: 0.005;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1525,6 +1543,9 @@ export declare const proceduralTileMeters: Readonly<{
     mooncrater: 0.6;
     starfield: 0.3;
     nebula: 0.45;
+    pleats: 0.18;
+    shoelace: 0.06;
+    tassel: 0.12;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

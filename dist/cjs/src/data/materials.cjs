@@ -1560,6 +1560,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .52,
 		relief: .003
 	}),
+	pleats: Object.freeze({
+		dark: [
+			82,
+			62,
+			92
+		],
+		light: [
+			202,
+			172,
+			212
+		],
+		roughness: .72,
+		relief: .004
+	}),
+	shoelace: Object.freeze({
+		dark: [
+			62,
+			52,
+			48
+		],
+		light: [
+			222,
+			212,
+			198
+		],
+		roughness: .78,
+		relief: .0035
+	}),
+	tassel: Object.freeze({
+		dark: [
+			92,
+			58,
+			72
+		],
+		light: [
+			222,
+			168,
+			188
+		],
+		roughness: .76,
+		relief: .005
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3324,6 +3366,9 @@ var proceduralTileMeters = Object.freeze({
 	mooncrater: .6,
 	starfield: .3,
 	nebula: .45,
+	pleats: .18,
+	shoelace: .06,
+	tassel: .12,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

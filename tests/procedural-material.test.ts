@@ -136,6 +136,9 @@ const kinds: ProceduralMaterialKind[] = [
   'mooncrater',
   'starfield',
   'nebula',
+  'pleats',
+  'shoelace',
+  'tassel',
   'sandstone',
   'travertine',
   'pumice',
@@ -4875,6 +4878,9 @@ describe('periodic procedural material fields', () => {
     ['mooncrater', [6, 32, 48, 64]],
     ['starfield', [12, 24, 32, 64]],
     ['nebula', [3, 32, 48, 64]],
+    ['pleats', [4, 32, 48, 64]],
+    ['shoelace', [8, 32, 48, 64]],
+    ['tassel', [10, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5112,6 +5118,9 @@ describe('periodic procedural material fields', () => {
     ['mooncrater', 6],
     ['starfield', 12],
     ['nebula', 3],
+    ['pleats', 4],
+    ['shoelace', 8],
+    ['tassel', 10],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -9146,6 +9155,72 @@ describe('periodic procedural material fields', () => {
         low = Math.min(low, surface.height);
       }
       expect(high - low).toBeGreaterThan(0.12 * relief);
+    }
+  });
+
+  it('pleats crest accordion folds over the fabric valleys', () => {
+    const relief = proceduralMaterialPresets.pleats.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pleats', seed);
+      sample(1 / 8, 0.5, surface);
+      sample(0, 0.5, valley);
+      expect(surface.height).toBeGreaterThan(valley.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('shoelace crosses woven cords over base and eyelet pits', () => {
+    const relief = proceduralMaterialPresets.shoelace.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...surface },
+      eyelet = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('shoelace', seed);
+      sample(1 / 32, 1 / 32, surface);
+      sample(0.25, 0, base);
+      sample(0.125, 0.125, eyelet);
+      expect(surface.height).toBeGreaterThan(base.height + 0.05 * relief);
+      expect(base.height).toBeGreaterThan(eyelet.height + 0.1 * relief);
+      expect(eyelet.occlusion).toBeLessThan(base.occlusion);
+    }
+  });
+
+  it('tassel hangs strands below the raised binding ring', () => {
+    const relief = proceduralMaterialPresets.tassel.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const strand = { ...surface },
+      gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tassel', seed);
+      sample(0.5, 0.1, surface);
+      sample(1 / 20, 0.5, strand);
+      sample(0, 0.5, gap);
+      expect(surface.height).toBeGreaterThan(strand.height + 0.05 * relief);
+      expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(strand.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

@@ -1726,6 +1726,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .34 * t + .1 * i + .06 * a, Z = .44 + .28 * t + .05 * i + .02 * a, Q += .05 * (a - .5) - .1 * t, $ = 1 - .24 * (1 - t);
 				break;
 			}
+			case `pleats`: {
+				let e = smooth(clamp((.34 - Math.abs(fract(o * 4) - .5)) / .16)), t = noise(o, A, 40, 40, r ^ 25505);
+				H = .46 + .32 * e + .08 * t, Z = .46 + .32 * e + .03 * t, Q += .05 * (t - .5) - .1 * e, $ = 1 - .4 * (1 - e);
+				break;
+			}
+			case `shoelace`: {
+				let e = Math.abs(fract((o + A) * 8) - .5), t = Math.abs(fract((o - A) * 8) - .5), n = smooth(clamp((.18 - e) / .09)), i = smooth(clamp((.18 - t) / .09)), a = n + i - n * i, s = fract(o * 4) - .5, c = fract(A * 4) - .5, l = smooth(clamp((.09 - Math.sqrt(s * s + c * c)) / .04)), u = noise(o, A, 32, 32, r ^ 20246);
+				H = .46 + .3 * a - .22 * l + .06 * u, Z = .46 + .22 * a - .28 * l + .03 * u, Q += .05 * (u - .5) - .08 * a, $ = 1 - .3 * (1 - a) - .45 * l;
+				break;
+			}
+			case `tassel`: {
+				let e = smooth(clamp((.16 - Math.abs(fract(o * 10) - .5)) / .08)), t = smooth(clamp((.08 - Math.abs(fract(A) - .1)) / .04)), n = noise(o, A, 32, 32, r ^ 10429);
+				H = .38 + .26 * e + .28 * t + .06 * n, Z = .42 + .22 * e + .3 * t + .03 * n, Q += .05 * (n - .5) - .06 * e, $ = 1 - .38 * (1 - e) - .12 * (1 - t);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

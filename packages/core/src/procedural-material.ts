@@ -118,6 +118,9 @@ export type ProceduralMaterialKind =
   | 'mooncrater'
   | 'starfield'
   | 'nebula'
+  | 'pleats'
+  | 'shoelace'
+  | 'tassel'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -375,6 +378,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'mooncrater',
   'starfield',
   'nebula',
+  'pleats',
+  'shoelace',
+  'tassel',
   'sandstone',
   'travertine',
   'pumice',

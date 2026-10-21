@@ -6143,6 +6143,50 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.24 * (1 - band);
         break;
       }
+      case 'pleats': {
+        // Accordion folds crest over the valleys with a fine fabric grain.
+        const fold = smooth(
+          clamp((0.34 - Math.abs(fract(u * 4) - 0.5)) / 0.16),
+        );
+        const grain = noise(u, v, 40, 40, seed ^ 0x63a1);
+        color = 0.46 + 0.32 * fold + 0.08 * grain;
+        height = 0.46 + 0.32 * fold + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * fold;
+        occlusion = 1 - 0.4 * (1 - fold);
+        break;
+      }
+      case 'shoelace': {
+        // Woven cords cross over the base above the punched eyelets.
+        const d1 = Math.abs(fract((u + v) * 8) - 0.5),
+          d2 = Math.abs(fract((u - v) * 8) - 0.5);
+        const cordA = smooth(clamp((0.18 - d1) / 0.09));
+        const cordB = smooth(clamp((0.18 - d2) / 0.09));
+        const cover = cordA + cordB - cordA * cordB;
+        const pu = fract(u * 4) - 0.5,
+          pv = fract(v * 4) - 0.5;
+        const eyelet = smooth(
+          clamp((0.09 - Math.sqrt(pu * pu + pv * pv)) / 0.04),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x4f16);
+        color = 0.46 + 0.3 * cover - 0.22 * eyelet + 0.06 * grain;
+        height = 0.46 + 0.22 * cover - 0.28 * eyelet + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
+        occlusion = 1 - 0.3 * (1 - cover) - 0.45 * eyelet;
+        break;
+      }
+      case 'tassel': {
+        // Hanging strands fall from the raised binding ring.
+        const strand = smooth(
+          clamp((0.16 - Math.abs(fract(u * 10) - 0.5)) / 0.08),
+        );
+        const ring = smooth(clamp((0.08 - Math.abs(fract(v) - 0.1)) / 0.04));
+        const grain = noise(u, v, 32, 32, seed ^ 0x28bd);
+        color = 0.38 + 0.26 * strand + 0.28 * ring + 0.06 * grain;
+        height = 0.42 + 0.22 * strand + 0.3 * ring + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.06 * strand;
+        occlusion = 1 - 0.38 * (1 - strand) - 0.12 * (1 - ring);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
