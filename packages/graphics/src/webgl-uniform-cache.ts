@@ -1,15 +1,23 @@
+const sentScalar = Symbol('xyz.sentUniformScalar');
+const sentVector = Symbol('xyz.sentUniformVector');
+
+/** A location carrying the last values written through a `WebGLUniformCache`. */
+interface SentLocation {
+  [sentScalar]?: Float64Array;
+  [sentVector]?: Float32Array;
+}
+
 /**
  * Skips scalar uniform writes that would leave program state unchanged.
  *
  * Uniform values persist per linked program and every location belongs to one
  * program, so keying by location is exact provided that every write to a
  * cached location goes through this cache. A relinked or restored program
- * yields new location objects and therefore starts uncached.
+ * yields new location objects and therefore starts uncached. The sent values
+ * live on the location object itself: renderers make dozens of these checks
+ * per draw, and a property load is much cheaper than a WeakMap lookup.
  */
 export class WebGLUniformCache {
-  private readonly values = new WeakMap<WebGLUniformLocation, Float64Array>();
-  private readonly vectors = new WeakMap<WebGLUniformLocation, Float32Array>();
-
   /** Vector/array form; the sent data is copied, so callers may keep reusing `data`. */
   uniform4fv(
     gl: WebGL2RenderingContext,
@@ -17,13 +25,14 @@ export class WebGLUniformCache {
     data: Float32Array,
   ): void {
     if (!location) return;
-    const sent = this.vectors.get(location);
+    const entry = location as SentLocation;
+    const sent = entry[sentVector];
     if (sent?.length === data.length) {
       let i = 0;
       while (i < data.length && same(sent[i]!, data[i]!)) i++;
       if (i === data.length) return;
       sent.set(data);
-    } else this.vectors.set(location, data.slice());
+    } else entry[sentVector] = data.slice();
     gl.uniform4fv(location, data);
   }
 
@@ -34,8 +43,9 @@ export class WebGLUniformCache {
     z: number,
     w: number,
   ): boolean {
-    let value = this.values.get(location);
-    if (!value) this.values.set(location, (value = new Float64Array(4)));
+    const entry = location as SentLocation;
+    let value = entry[sentScalar];
+    if (!value) entry[sentScalar] = value = new Float64Array(4);
     else if (
       same(value[0]!, x) &&
       same(value[1]!, y) &&

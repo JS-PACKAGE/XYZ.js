@@ -1,23 +1,23 @@
 //#region dist/packages/graphics/src/webgl-uniform-cache.js
+var e = Symbol(`xyz.sentUniformScalar`);
+var t = Symbol(`xyz.sentUniformVector`);
 var WebGLUniformCache = class {
-	values = /* @__PURE__ */ new WeakMap();
-	vectors = /* @__PURE__ */ new WeakMap();
-	uniform4fv(e, t, n) {
-		if (!t) return;
-		let r = this.vectors.get(t);
-		if (r?.length === n.length) {
+	uniform4fv(e, n, r) {
+		if (!n) return;
+		let i = n, a = i[t];
+		if (a?.length === r.length) {
 			let e = 0;
-			for (; e < n.length && same(r[e], n[e]);) e++;
-			if (e === n.length) return;
-			r.set(n);
-		} else this.vectors.set(t, n.slice());
-		e.uniform4fv(t, n);
+			for (; e < r.length && same(a[e], r[e]);) e++;
+			if (e === r.length) return;
+			a.set(r);
+		} else i[t] = r.slice();
+		e.uniform4fv(n, r);
 	}
-	changed(e, t, n, r, i) {
-		let a = this.values.get(e);
-		if (!a) this.values.set(e, a = /* @__PURE__ */ new Float64Array(4));
-		else if (same(a[0], t) && same(a[1], n) && same(a[2], r) && same(a[3], i)) return !1;
-		return a[0] = t, a[1] = n, a[2] = r, a[3] = i, !0;
+	changed(t, n, r, i, a) {
+		let o = t, s = o[e];
+		if (!s) o[e] = s = /* @__PURE__ */ new Float64Array(4);
+		else if (same(s[0], n) && same(s[1], r) && same(s[2], i) && same(s[3], a)) return !1;
+		return s[0] = n, s[1] = r, s[2] = i, s[3] = a, !0;
 	}
 	uniform1i(e, t, n) {
 		t && this.changed(t, n, 0, 0, 0) && e.uniform1i(t, n);
