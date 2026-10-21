@@ -416,7 +416,9 @@ function height(e, t) {
 	return e.base + e.dx * t.x + e.dz * t.z;
 }
 function inside(e, t) {
-	return e.length >= 3 && e.every((n, r) => cross(n, e[(r + 1) % e.length], t) >= -1e-7);
+	if (e.length < 3) return !1;
+	for (let n = 0; n < e.length; n++) if (!(cross(e[n], e[(n + 1) % e.length], t) >= -1e-7)) return !1;
+	return !0;
 }
 function clipPolygon(t, n, r, a) {
 	let o = [], s = a * require_hypot.hypot2(r.x - n.x, r.z - n.z);
@@ -442,16 +444,17 @@ function clipSegment(e, t, n) {
 	}
 	return r <= i + o ? [r, i] : void 0;
 }
+var s = new require_math3d.Vector3();
 function nearest(t, n, r) {
 	if (n.length < 3) return;
-	let i = (r.y - height(t, r)) / (1 + t.dx * t.dx + t.dz * t.dz), o = new require_math3d.Vector3(r.x + t.dx * i, r.y - i, r.z + t.dz * i);
-	if (inside(n, o)) return o;
-	let s, c = 1 / 0;
-	for (let t = 0; t < n.length; t++) {
-		let i = n[t], o = n[(t + 1) % n.length], l = o.x - i.x, u = o.y - i.y, d = o.z - i.z, f = Math.max(0, Math.min(1, ((r.x - i.x) * l + (r.y - i.y) * u + (r.z - i.z) * d) / (l * l + u * u + d * d))), p = new require_math3d.Vector3(i.x + l * f, i.y + u * f, i.z + d * f), m = require_hypot.hypot3(p.x - r.x, p.y - r.y, p.z - r.z);
-		m < c && (c = m, s = p);
+	let i = (r.y - height(t, r)) / (1 + t.dx * t.dx + t.dz * t.dz), o = s.set(r.x + t.dx * i, r.y - i, r.z + t.dz * i);
+	if (inside(n, o)) return o.clone();
+	let c = !1, l = 0, u = 0, d = 0, f = 1 / 0;
+	for (let e = 0; e < n.length; e++) {
+		let t = n[e], i = n[(e + 1) % n.length], o = i.x - t.x, s = i.y - t.y, p = i.z - t.z, m = Math.max(0, Math.min(1, ((r.x - t.x) * o + (r.y - t.y) * s + (r.z - t.z) * p) / (o * o + s * s + p * p))), h = t.x + o * m, g = t.y + s * m, _ = t.z + p * m, v = require_hypot.hypot3(h - r.x, g - r.y, _ - r.z);
+		v < f && (f = v, c = !0, l = h, u = g, d = _);
 	}
-	return s;
+	return c ? new require_math3d.Vector3(l, u, d) : void 0;
 }
 function segmentCrossing(e, t, n, r) {
 	let i = t.x - e.x, a = t.z - e.z, s = r.x - n.x, c = r.z - n.z, l = i * c - a * s;

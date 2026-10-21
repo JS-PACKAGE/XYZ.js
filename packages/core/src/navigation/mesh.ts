@@ -986,13 +986,16 @@ function inside(
   vertices: readonly Readonly<Vector3>[],
   point: Readonly<Vector3>,
 ): boolean {
-  return (
-    vertices.length >= 3 &&
-    vertices.every(
-      (a, i) =>
-        cross(a, vertices[(i + 1) % vertices.length]!, point) >= -epsilon,
+  if (vertices.length < 3) return false;
+  for (let i = 0; i < vertices.length; i++)
+    if (
+      !(
+        cross(vertices[i]!, vertices[(i + 1) % vertices.length]!, point) >=
+        -epsilon
+      )
     )
-  );
+      return false;
+  return true;
 }
 function clipPolygon(
   vertices: readonly Readonly<Vector3>[],
@@ -1043,6 +1046,7 @@ function clipSegment(
   }
   return lo <= hi + epsilon ? [lo, hi] : undefined;
 }
+const projectedScratch = new Vector3();
 function nearest(
   polygon: Polygon,
   vertices: readonly Readonly<Vector3>[],
@@ -1053,13 +1057,16 @@ function nearest(
   const signed =
     (point.y - height(polygon, point)) /
     (1 + polygon.dx * polygon.dx + polygon.dz * polygon.dz);
-  const projected = new Vector3(
+  const projected = projectedScratch.set(
     point.x + polygon.dx * signed,
     point.y - signed,
     point.z + polygon.dz * signed,
   );
-  if (inside(vertices, projected)) return projected;
-  let best: Vector3 | undefined,
+  if (inside(vertices, projected)) return projected.clone();
+  let found = false,
+    bestX = 0,
+    bestY = 0,
+    bestZ = 0,
     distance = Infinity;
   for (let i = 0; i < vertices.length; i++) {
     const a = vertices[i]!,
@@ -1075,18 +1082,19 @@ function nearest(
           (dx * dx + dy * dy + dz * dz),
       ),
     );
-    const candidate = new Vector3(a.x + dx * t, a.y + dy * t, a.z + dz * t);
-    const d = hypot3(
-      candidate.x - point.x,
-      candidate.y - point.y,
-      candidate.z - point.z,
-    );
+    const x = a.x + dx * t,
+      y = a.y + dy * t,
+      z = a.z + dz * t;
+    const d = hypot3(x - point.x, y - point.y, z - point.z);
     if (d < distance) {
       distance = d;
-      best = candidate;
+      found = true;
+      bestX = x;
+      bestY = y;
+      bestZ = z;
     }
   }
-  return best;
+  return found ? new Vector3(bestX, bestY, bestZ) : undefined;
 }
 function segmentCrossing(
   a: Readonly<Vector3>,
