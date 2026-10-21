@@ -63,10 +63,19 @@ export class World {
   *query(
     ...types: readonly ComponentType<unknown>[]
   ): IterableIterator<Entity> {
+    // A missing store means nothing matches and no caller code runs before the query ends.
+    // Stores are only ever created, never replaced, so resolved ones stay valid across yields.
+    const stores: Map<Entity, unknown>[] = [];
+    for (const type of types) {
+      const store = this.components.get(type);
+      if (!store) return;
+      stores.push(store);
+    }
+    const count = stores.length;
     for (const entity of this.entities) {
       let matches = true;
-      for (const type of types) {
-        if (!this.components.get(type)?.has(entity)) {
+      for (let i = 0; i < count; i++) {
+        if (!stores[i]!.has(entity)) {
           matches = false;
           break;
         }

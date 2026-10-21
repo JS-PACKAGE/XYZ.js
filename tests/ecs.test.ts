@@ -40,6 +40,27 @@ describe('World entity and component CRUD', () => {
     expect(() => world.createEntity()).toThrow();
   });
 
+  it('keeps a query live to components added before and while it iterates', () => {
+    const world = new World();
+    const [a, b, c] = [1, 2, 3].map(() => {
+      const entity = world.createEntity();
+      world.addComponent(entity, Position, new Position(entity));
+      return entity;
+    });
+    // Velocity has no store yet when the query is created.
+    const query = world.query(Position, Velocity);
+    expect([...world.query(Position, class Unused {})]).toEqual([]);
+    world.addComponent(a!, Velocity, new Velocity(1));
+    world.addComponent(b!, Velocity, new Velocity(1));
+    const seen: number[] = [];
+    for (const entity of query) {
+      seen.push(entity);
+      world.addComponent(c!, Velocity, new Velocity(2));
+      world.removeComponent(b!, Position);
+    }
+    expect(seen).toEqual([a, c]);
+  });
+
   it('initializes systems in order, defers newly added systems to the next tick, and destroys exactly once', () => {
     const world = new World();
     const calls: string[] = [];

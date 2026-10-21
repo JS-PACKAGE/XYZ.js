@@ -2328,6 +2328,28 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Canvas2D]` Canvas2D 畫 atlas 子影格（cropped／packed-rotated／flipped）或帶 tint 的 frame 時，原本每次 draw 都要先畫進共用 scratch canvas，有 tint 時還要 `getImageData`／`putImageData`，再把 scratch 畫到主 canvas。現在 `CanvasSpriteSource` 依值快取已畫好的 frame。key 為 16 個 float64：source id、version、distance-field scale、source 尺寸、UV basis、繪製尺寸、tint RGB；以 hash 查找後再逐值比對，hash 碰撞視為 miss。快取以 LRU 淘汰最久未畫者，上限見 `src/data/rendering2d.ts` 的 `canvasFrameSnapshots: 256` 與 `canvasFrameSnapshotPixels: 4 Mi px`；淘汰下來的 canvas 會拿來重畫，不另外配置。render-target source 與超過上限的 frame 仍走原本的 scratch。`unload`、source destroy（含 distance-field 來源）與 `destroy` 會釋放快取。scratch 頁（400 個 atlas sprite，400 幀）2 輪交錯：半數帶 tint 時 CPU 78.0–81.9 → 1.23–1.63 ms／frame，RAF 78–82 → 16.7 ms（vsync）；全部不帶 tint 時 CPU 1.59–1.61 → 1.48–1.97 ms（雜訊範圍），RAF 28.2–28.4 → 16.7 ms；每幀每個 sprite tint 都不同、LRU 持續淘汰的最壞情況 78.8 → 20.3 ms。範例 4 秒取樣幀數：gameplay2d 46 → 242、tilemap2d 130 → 241、particles2d 82 → 80。像素比對：格狀影格在 tint 比例 0／0.5／1、tint 每幀變化（n=600，觸發淘汰）、以及不帶 tint 的 trimmed／rotated／尺寸不一 view，修改前後完全相同。帶 tint 且有 trim 或尺寸不一的 view 有 2124 px（0.9%）不同，只在 sprite 邊緣，單一 channel 最大差 77。排查後確認：關閉命中時輸出與舊版相同；把影格單獨重畫多次的結果也都一致。差異來自舊 scratch 的 Chrome canvas backing 會隨讀回與 resize 歷史改變，舊輸出本身就依賴這段歷史。擁有者已選擇接受這個邊緣差異。`tests/canvas-sprite-source.test.ts` 新增 3 項測試：同一輸入不重畫、RGB 任一 channel 或 UV 改變就重畫、source 更新與 unload 後重畫、LRU 保留最近畫過的 snapshot。關閉命中、key 漏掉 version 或任一 tint channel 或 u0、unload 不釋放、淘汰不依使用時間、命中不更新使用時間，這些 mutant 都會失敗。TECHNICAL 中英文已同步。canvas2d regression、gameplay2d／tilemap2d／particles2d／text-i18n／sprite／rendering2d 範例 smoke、`check:tree-shaking` 通過；完整 gate 1468 tests 通過。
 - `[Canvas2D]` 整數位移 1:1、二值 alpha 的 tinted frame 改由每個 source 版本讀回一次的像素直接 tint，不再逐次 getImageData；半透明／重新取樣 frame 維持原讀回路徑。c2f 每幀變色 400 sprites CPU 21.4 → 2.1 ms；texture.png 與半透明 gradient 貼圖 tinted／vary／views 截圖與基準逐位元一致；particles2d（soft alpha）不受影響，依小語決定維持精確。
 
+## 開發依賴安全修補（Vite 8.3.3）
+
+- GitHub Dependabot 的 9 項 open alerts 是三個 Vite advisory 分別出現在根專案、
+  `starters/2d` 與 `starters/3d`：GHSA-698v-4r3x-3vcv、
+  GHSA-587h-7wmj-h5pm、GHSA-r825-w8mm-5pxw。三處固定版本由 8.3.1
+  更新至官方修正版 8.3.3，並更新 pnpm lockfile。
+- 本機 audit 另找到 transitive `source-map-js` 與 `markdown-it` 漏洞；
+  在既有依賴範圍內分別更新至 1.2.2 與 14.3.3，未新增 override、
+  runtime dependency 或 release-age 豁免。`pnpm audit` 回報
+  `No known vulnerabilities found`；frozen-lockfile install 通過。
+- macOS arm64／Node 26.7.0／pnpm 12.6.0：build、typecheck、
+  format:check、docs:api 通過。Vite 8.3.3 dev server 實際啟動，
+  `/examples/`、`/examples/index.ts` 與 `/@vite/client` 均 HTTP 200，
+  TypeScript 回應包含轉換後 JavaScript 與 source map。
+- `smoke:starters` 以新封裝套件獨立安裝、建置並執行 Chromium 驗證，
+  2D 與 3D 均 passed；證據位於 `.vite/starter-smoke/results.json`。
+- 同時存在非本輪修改的 Canvas2D 工作：完整測試當時 1465 passed／3 failed，
+  原因是 test context 缺少 `createImageData`。該檔在並行修改補上方法後，
+  scoped 重跑為 3 passed；不將分次結果宣稱為完整 suite 全綠。
+  lint 當時因該測試檔的 `readbacks` 未使用而失敗；本輪未修改 graphics
+  或其測試。這些結果不擴大瀏覽器／硬體認證範圍。
+
 ## 程序材質擴充：鋪面（asphalt／gravel／cobblestone）
 
 - 新增瀝青骨材、礫石與錯列圓角鋪石三種 opaque dielectric 預設，沿用
@@ -2449,6 +2471,7 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補仍未提交，不納入本組。
+- `[ECS]` `World.query` 起始時一次解析各 component store（store 只建立不替換），不再對每個 entity × type 重查 Map；任一 type 尚無 store 時直接結束（原本同樣不會 yield）。20000 entities、query(P,V)+query(T,P,V) Node bench 中位 1.39 → 1.09 ms，結果 hash 不變；新增迭代中增刪 component 的即時性測試。
 
 ## 程序材質擴充：成形金屬（hammeredmetal／galvanized／corrugatedmetal）
 

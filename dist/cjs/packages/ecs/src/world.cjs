@@ -29,13 +29,20 @@ var World = class {
 		return this.components.get(t)?.get(e);
 	}
 	*query(...e) {
-		for (let t of this.entities) {
-			let n = !0;
-			for (let r of e) if (!this.components.get(r)?.has(t)) {
-				n = !1;
+		let t = [];
+		for (let n of e) {
+			let e = this.components.get(n);
+			if (!e) return;
+			t.push(e);
+		}
+		let n = t.length;
+		for (let e of this.entities) {
+			let r = !0;
+			for (let i = 0; i < n; i++) if (!t[i].has(e)) {
+				r = !1;
 				break;
 			}
-			n && (yield t);
+			r && (yield e);
 		}
 	}
 	hasComponent(e, t) {
