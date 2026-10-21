@@ -99,7 +99,10 @@ export type ProceduralMaterialKind =
   | 'chocolate'
   | 'basketball'
   | 'tennisball'
-  | 'golfball';
+  | 'golfball'
+  | 'boardformedconcrete'
+  | 'ribbedconcrete'
+  | 'splitfaceblock';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -225,6 +228,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'basketball',
   'tennisball',
   'golfball',
+  'boardformedconcrete',
+  'ribbedconcrete',
+  'splitfaceblock',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -564,6 +564,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.18;
         relief: 0.0012;
     }>;
+    boardformedconcrete: Readonly<{
+        dark: readonly [91, 94, 93];
+        light: readonly [187, 188, 180];
+        roughness: 0.86;
+        relief: 0.003;
+    }>;
+    ribbedconcrete: Readonly<{
+        dark: readonly [89, 92, 91];
+        light: readonly [190, 191, 184];
+        roughness: 0.83;
+        relief: 0.018;
+    }>;
+    splitfaceblock: Readonly<{
+        dark: readonly [84, 82, 76];
+        light: readonly [198, 193, 177];
+        roughness: 0.94;
+        relief: 0.012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -660,6 +678,9 @@ export declare const proceduralTileMeters: Readonly<{
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;
+    boardformedconcrete: 1.6;
+    ribbedconcrete: 1.2;
+    splitfaceblock: 1.6;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

@@ -172,6 +172,9 @@ try {
     'basketball',
     'tennisball',
     'golfball',
+    'boardformedconcrete',
+    'ribbedconcrete',
+    'splitfaceblock',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

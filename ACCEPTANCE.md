@@ -2867,3 +2867,24 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   食品與運動六種的雙 backend 畫面 hash 均與各自獨立快照一致。
 - 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
+
+## 程序材質擴充：建築混凝土（boardformedconcrete／ribbedconcrete／splitfaceblock）
+
+- 新增帶木板接縫與淺木紋壓痕的清水模、寬冠圓肩直肋混凝土，
+  以及錯列粗裂面砌塊與平滑凹入砂漿。本組獨立快照由 93 增為 96 種，
+  不含同時進行的另一組金屬材質；全部是 opaque dielectric，
+  不新增 geometry、displacement 或碰撞功能。
+- 原 93 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+  新增接縫深度、紋理方向、肋冠／肩部、錯列砌塊、砂漿平面及
+  實際肩部／角點／owned boundaries 的全欄位連續與斜率檢查。
+- 獨立快照 build、typecheck、lint、format:check 通過；
+  完整 Vitest 為 176 files／1779 tests passed（55.43 秒）。
+  使用既有安裝工具執行 scripts 對應命令，未變更依賴。
+- managed Chromium WebGPU／WebGL2 gallery 逐一切換三者，
+  畫面 hash 各自不同且無 page errors；2×2 平鋪與四份 textures
+  的 destroy 釋放通過。metallic 全為 0，roughness bytes 依序
+  220–232／212–225／214–249；每米 repeats 依序 0.625／0.833333／0.625。
+- 以帶上下文 patch 保留同步金屬修改；整合後主工作目錄 typecheck 與
+  332 個程序材質測試通過，WebGPU 三種畫面 hash 與獨立快照一致。
+- 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
+  不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。

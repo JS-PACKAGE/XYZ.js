@@ -117,6 +117,9 @@ const kinds: ProceduralMaterialKind[] = [
   'basketball',
   'tennisball',
   'golfball',
+  'boardformedconcrete',
+  'ribbedconcrete',
+  'splitfaceblock',
 ];
 
 class TestImageData {
@@ -357,6 +360,9 @@ describe('periodic procedural material fields', () => {
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
+    ['boardformedconcrete', [2, 4, 8, 32, 96, 128]],
+    ['ribbedconcrete', [12, 24, 32, 96]],
+    ['splitfaceblock', [4, 8, 24, 32, 96]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -407,7 +413,8 @@ describe('periodic procedural material fields', () => {
                 if (
                   kind !== 'mosaic' &&
                   kind !== 'hexagontiles' &&
-                  kind !== 'encaustictiles'
+                  kind !== 'encaustictiles' &&
+                  kind !== 'splitfaceblock'
                 )
                   expect(a.mortar).toBe(0);
               }
@@ -453,6 +460,13 @@ describe('periodic procedural material fields', () => {
     ['tennisball', 24],
     ['tennisball', 32],
     ['golfball', 10],
+    ['boardformedconcrete', 4],
+    ['boardformedconcrete', 8],
+    ['boardformedconcrete', 128],
+    ['ribbedconcrete', 12],
+    ['ribbedconcrete', 96],
+    ['splitfaceblock', 8],
+    ['splitfaceblock', 96],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -486,6 +500,204 @@ describe('periodic procedural material fields', () => {
                 Math.abs(right - 2 * a.height + left) / epsilon,
               ).toBeLessThan(0.001);
             }
+      }
+    },
+  );
+
+  it('board-formed concrete has recessed horizontal timber joints and shallow long grain', () => {
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const joint = { ...face },
+      along = { ...face },
+      across = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('boardformedconcrete', seed);
+      for (let row = 0; row < 8; row++) {
+        const offset = (row % 2) * 0.25;
+        sample(0.25 - offset, (row + 0.5) / 8, face);
+        for (const [u, v] of [
+          [0.25 - offset, row / 8],
+          [-offset, (row + 0.5) / 8],
+        ]) {
+          sample(u, v, joint);
+          expect(face.height).toBeGreaterThan(joint.height);
+          expect(face.occlusion).toBeGreaterThan(joint.occlusion);
+          expect(face.color).toBeGreaterThan(joint.color);
+        }
+      }
+      let longitudinal = 0,
+        transverse = 0;
+      for (let i = 0; i < 128; i++) {
+        const u = 0.1 + (0.3 * (i + 0.5)) / 128,
+          v = 0.025 + (0.075 * (((i * 47) % 128) + 0.5)) / 128;
+        sample(u, v, face);
+        sample(u + 0.0002, v, along);
+        sample(u, v + 0.0002, across);
+        longitudinal += Math.abs(face.height - along.height);
+        transverse += Math.abs(face.height - across.height);
+      }
+      expect(longitudinal).toBeGreaterThan(0);
+      expect(transverse).toBeGreaterThan(longitudinal * 1.3);
+    }
+  });
+
+  it('cast concrete ribs have broad crowns, rounded shoulders and fine lengthwise pores', () => {
+    const crown: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crown },
+      shoulder = { ...crown },
+      other = { ...crown };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('ribbedconcrete', seed);
+      let pores = 0;
+      for (let rib = 0; rib < 12; rib++)
+        for (const v of [0.137, 0.43, 0.791]) {
+          sample((rib + 0.35) / 12, v, crown);
+          sample((rib + 0.65) / 12, v, other);
+          sample(rib / 12, v, trough);
+          sample((rib + 0.21) / 12, v, shoulder);
+          const relief = crown.height - trough.height;
+          expect(relief).toBeGreaterThan(0);
+          expect(Math.abs(crown.height - other.height)).toBeLessThan(
+            relief / 20,
+          );
+          expect(shoulder.height - trough.height).toBeGreaterThan(relief * 0.4);
+          expect(shoulder.height - trough.height).toBeLessThan(relief * 0.6);
+          expect(crown.occlusion).toBe(other.occlusion);
+          expect(shoulder.occlusion).toBeGreaterThan(trough.occlusion);
+          expect(shoulder.occlusion).toBeLessThan(crown.occlusion);
+          sample((rib + 0.35) / 12, v + 0.003, other);
+          pores += Math.abs(crown.height - other.height);
+          expect(Math.abs(crown.height - other.height)).toBeLessThan(
+            relief / 20,
+          );
+        }
+      expect(pores).toBeGreaterThan(0);
+    }
+  });
+
+  it('split-face masonry staggers fractured block faces over smooth recessed mortar', () => {
+    const face: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const joint = { ...face },
+      other = { ...face };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('splitfaceblock', seed);
+      let faceRelief = 0;
+      for (let row = 0; row < 8; row++)
+        for (let column = 0; column < 4; column++) {
+          const u = (column + 0.5 - (row % 2) * 0.5) / 4,
+            v = (row + 0.5) / 8;
+          sample(u, v, face);
+          expect(face.mortar).toBe(0);
+          sample(u + 0.04, v + 0.02, other);
+          faceRelief += Math.abs(face.height - other.height);
+          sample(u - 0.125, v, joint);
+          expect(joint.mortar).toBe(1);
+          expect(joint.height).toBeLessThan(face.height);
+          expect(joint.occlusion).toBeLessThan(face.occlusion);
+          expect(joint.roughness).toBeLessThan(face.roughness);
+          // The head joint becomes a face halfway across the next row.
+          sample(u - 0.125, v + 0.125, other);
+          expect(other.mortar).toBe(0);
+          expect(other.height).toBeGreaterThan(joint.height);
+          sample(u, row / 8, other);
+          expect(other.mortar).toBe(1);
+          expect(other.height).toBe(joint.height);
+          sample(u + 0.07, row / 8 + 0.002, other);
+          expect(other.height).toBe(joint.height);
+        }
+      expect(faceRelief).toBeGreaterThan(0);
+    }
+  });
+
+  it.each([
+    [
+      'boardformedconcrete',
+      2,
+      8,
+      [0, 0.018, 0.5, 0.982, 1],
+      [0, 0.055, 0.5, 0.945, 1],
+    ],
+    [
+      'ribbedconcrete',
+      12,
+      1,
+      [0, 0.12, 0.21, 0.3, 0.5, 0.7, 0.79, 0.88, 1],
+      [0, 0.37, 1],
+    ],
+    [
+      'splitfaceblock',
+      4,
+      8,
+      [0, 0.04, 0.08, 0.12, 0.5, 0.88, 0.92, 0.96, 1],
+      [0, 0.06, 0.105, 0.15, 0.5, 0.85, 0.895, 0.94, 1],
+    ],
+  ] as const)(
+    '%s keeps every field C1 at actual shoulders, corners and offset row ownership',
+    (kind, columns, rows, xs, ys) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const b = { ...a },
+        center = { ...a },
+        halfA = { ...a },
+        halfB = { ...a };
+      const epsilon = 1e-7 / Math.max(columns, rows);
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let row = 0; row < rows; row++)
+          for (let column = 0; column < columns; column++)
+            for (const x of xs)
+              for (const y of ys) {
+                const offset = kind === 'ribbedconcrete' ? 0 : (row % 2) * 0.5,
+                  u = (column + x - offset) / columns,
+                  v = (row + y) / rows;
+                for (const [du, dv] of [
+                  [epsilon, 0],
+                  [0, epsilon],
+                ]) {
+                  sample(u - du, v - dv, a);
+                  sample(u, v, center);
+                  sample(u + du, v + dv, b);
+                  sample(u - du / 2, v - dv / 2, halfA);
+                  sample(u + du / 2, v + dv / 2, halfB);
+                  for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+                    expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+                    expect(
+                      Math.abs(
+                        4 * (halfA[key] + halfB[key]) -
+                          a[key] -
+                          b[key] -
+                          6 * center[key],
+                      ) / epsilon,
+                    ).toBeLessThan(0.001);
+                  }
+                }
+              }
       }
     },
   );
@@ -1201,6 +1413,9 @@ describe('periodic procedural material fields', () => {
     'breadcrust',
     'wafer',
     'chocolate',
+    'boardformedconcrete',
+    'ribbedconcrete',
+    'splitfaceblock',
   ] as const)(
     '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
@@ -2530,10 +2745,20 @@ describe('procedural preset acquisition and ownership', () => {
     for (const bitmap of decoded) expect(bitmap.close).toHaveBeenCalledTimes(1);
   });
 
-  it.each(['metal', 'basketball', 'tennisball', 'golfball'] as const)(
+  it.each([
+    'metal',
+    'basketball',
+    'tennisball',
+    'golfball',
+    'boardformedconcrete',
+    'ribbedconcrete',
+    'splitfaceblock',
+  ] as const)(
     'borrows %s maps across independent materials and never takes ownership of overrides',
     async (kind) => {
       const preset = await ProceduralMaterial.create(kind, { size: 32 });
+      expect(preset.material.metallic).toBe(kind === 'metal' ? 1 : 0);
+      expect(preset.material.alphaMode).toBe('OPAQUE');
       const external = new Texture({
         width: 1,
         height: 1,

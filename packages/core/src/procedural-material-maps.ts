@@ -36,6 +36,28 @@ function noise(
   return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
 }
 
+/** Immutable periodic lattice: architectural seed work is paid once per sampler. */
+function cachedNoise(nx: number, ny: number, seed: number) {
+  const values = new Float64Array(nx * ny);
+  for (let y = 0; y < ny; y++)
+    for (let x = 0; x < nx; x++) values[y * nx + x] = hash(x, y, seed);
+  return (u: number, v: number): number => {
+    const x = fract(u) * nx,
+      y = fract(v) * ny,
+      ix = Math.floor(x),
+      iy = Math.floor(y),
+      sx = smooth(x - ix),
+      sy = smooth(y - iy),
+      nextX = (ix + 1) % nx,
+      nextY = ((iy + 1) % ny) * nx;
+    const a = values[iy * nx + ix],
+      b = values[iy * nx + nextX],
+      c = values[nextY + ix],
+      d = values[nextY + nextX];
+    return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+  };
+}
+
 export interface SurfaceSample {
   color: number;
   height: number;
@@ -391,6 +413,29 @@ export function createSurfaceSampler(
       }
   const golfOffsetU = kind === 'golfball' ? hash(0, 0, seed ^ 0x29b7) : 0;
   const golfOffsetV = kind === 'golfball' ? hash(0, 0, seed ^ 0x61d3) : 0;
+  const architectural =
+    kind === 'boardformedconcrete' ||
+    kind === 'ribbedconcrete' ||
+    kind === 'splitfaceblock';
+  const castPores = architectural ? cachedNoise(96, 96, seed ^ 0x2d71) : null;
+  const castAggregate =
+    kind === 'ribbedconcrete' || kind === 'splitfaceblock'
+      ? cachedNoise(24, 32, seed ^ 0x6b39)
+      : null;
+  const boardGrain =
+    kind === 'boardformedconcrete' ? cachedNoise(3, 128, seed ^ 0x5a13) : null;
+  const architecturalOwners = architectural
+    ? new Float64Array(
+        kind === 'boardformedconcrete'
+          ? 16
+          : kind === 'ribbedconcrete'
+            ? 12
+            : 32,
+      )
+    : null;
+  if (architecturalOwners)
+    for (let i = 0; i < architecturalOwners.length; i++)
+      architecturalOwners[i] = hash(i, 0, seed ^ 0x47e9);
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -415,7 +460,7 @@ export function createSurfaceSampler(
     u = fract(u);
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
-    const detail = noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
+    const detail = architectural ? 0 : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
     let color = broad,
       height = broad,
@@ -3012,6 +3057,90 @@ export function createSurfaceSampler(
         height = 0.8 - 0.6 * bowl;
         roughness += 0.04 * bowl;
         occlusion = 1 - 0.2 * bowl;
+        break;
+      }
+      case 'boardformedconcrete': {
+        const row = Math.floor(v * 8),
+          y = fract(v * 8),
+          x = fract(u * 2 + (row % 2) * 0.5),
+          column = Math.floor(fract(u + (row % 2) * 0.25) * 2);
+        // Recessed timber joints own all board-local variation, including ends.
+        // Separate axis shoulders avoid diagonal nearest-edge corner cusps.
+        const face =
+          smooth(clamp(x / 0.018)) *
+          smooth(clamp((1 - x) / 0.018)) *
+          smooth(clamp(y / 0.055)) *
+          smooth(clamp((1 - y) / 0.055));
+        const variation = architecturalOwners![row * 2 + column],
+          grain = boardGrain!(
+            u,
+            v + 0.002 * Math.sin(TAU * u + variation * TAU),
+          ),
+          pores = castPores!(u, v);
+        color =
+          0.39 +
+          face * (0.12 + 0.09 * variation + 0.055 * grain) +
+          0.025 * pores;
+        height =
+          0.18 +
+          face * (0.48 + 0.025 * variation + 0.025 * grain) +
+          0.008 * pores;
+        roughness += 0.025 * grain * face + 0.025 * pores;
+        occlusion = 0.75 + 0.25 * face;
+        break;
+      }
+      case 'ribbedconcrete': {
+        const x = fract(u * 12),
+          owner = Math.floor(u * 12);
+        // A broad flat crown and trough meet through rounded C1 shoulders.
+        const rib =
+          smooth(clamp((x - 0.12) / 0.18)) * smooth(clamp((0.88 - x) / 0.18));
+        const pores = castPores!(u, v),
+          aggregate = castAggregate!(u, v),
+          variation = architecturalOwners![owner];
+        color =
+          0.38 +
+          0.17 * rib +
+          0.055 * aggregate +
+          0.025 * pores +
+          0.025 * variation * rib;
+        height =
+          0.15 +
+          0.65 * rib +
+          0.009 * pores +
+          0.006 * aggregate +
+          0.008 * variation * rib;
+        roughness += 0.035 * pores + 0.02 * aggregate;
+        occlusion = 0.69 + 0.31 * rib;
+        break;
+      }
+      case 'splitfaceblock': {
+        const row = Math.floor(v * 8),
+          y = fract(v * 8),
+          shifted = u * 4 + (row % 2) * 0.5,
+          x = fract(shifted),
+          column = Math.floor(shifted) % 4;
+        const face =
+          smooth(clamp((x - 0.04) / 0.08)) *
+          smooth(clamp((0.96 - x) / 0.08)) *
+          smooth(clamp((y - 0.06) / 0.09)) *
+          smooth(clamp((0.94 - y) / 0.09));
+        const variation = architecturalOwners![row * 4 + column],
+          aggregate = castAggregate!(u, v),
+          pores = castPores!(u, v);
+        // Broad fractured facets and smaller chips are confined to the block,
+        // leaving a smooth, flat mortar bed through staggered row transitions.
+        const fracture = smooth(clamp((aggregate - 0.22) / 0.56));
+        color =
+          0.4 +
+          face * (0.04 + 0.28 * fracture + 0.1 * variation + 0.06 * pores);
+        height =
+          0.14 +
+          face * (0.34 + 0.25 * fracture + 0.1 * variation + 0.08 * pores);
+        roughness -= 0.1 * (1 - face);
+        roughness += 0.035 * pores * face;
+        occlusion = 0.64 + face * (0.29 + 0.07 * fracture);
+        mortar = 1 - face;
         break;
       }
     }
