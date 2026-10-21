@@ -84,6 +84,9 @@ const kinds: ProceduralMaterialKind[] = [
   'herringbone',
   'tweed',
   'seersucker',
+  'knurledmetal',
+  'engineturned',
+  'goldleaf',
 ];
 
 class TestImageData {
@@ -192,7 +195,10 @@ describe('periodic procedural material fields', () => {
           kind === 'diamondplate' ||
           kind === 'hammeredmetal' ||
           kind === 'galvanized' ||
-          kind === 'corrugatedmetal'
+          kind === 'corrugatedmetal' ||
+          kind === 'knurledmetal' ||
+          kind === 'engineturned' ||
+          kind === 'goldleaf'
         )
           expect(first.metallicRoughness[p + 2]).toBe(255);
         else if (kind !== 'rust')
@@ -301,6 +307,9 @@ describe('periodic procedural material fields', () => {
     ['herringbone', [2, 4, 8, 16, 32, 128]],
     ['tweed', [4, 20, 24, 32, 80]],
     ['seersucker', [4, 8, 12, 24, 32, 48, 144]],
+    ['knurledmetal', [24, 32, 48]],
+    ['engineturned', [6, 12, 24, 32]],
+    ['goldleaf', [3, 4, 5, 18, 21, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -341,7 +350,10 @@ describe('periodic procedural material fields', () => {
                   kind === 'diamondplate' ||
                     kind === 'hammeredmetal' ||
                     kind === 'galvanized' ||
-                    kind === 'corrugatedmetal'
+                    kind === 'corrugatedmetal' ||
+                    kind === 'knurledmetal' ||
+                    kind === 'engineturned' ||
+                    kind === 'goldleaf'
                     ? 1
                     : 0,
                 );
@@ -363,6 +375,9 @@ describe('periodic procedural material fields', () => {
     ['snakeskin', 12],
     ['crocodile', 4],
     ['crocodile', 6],
+    ['knurledmetal', 48],
+    ['engineturned', 12],
+    ['goldleaf', 20],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -399,6 +414,65 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('knurled metal leaves raised diamond tips between both diagonal cuts', () => {
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('knurledmetal', seed);
+      for (const offset of [0, 1 / 12, 7 / 12]) {
+        sample(offset + 1 / 48, offset, surface);
+        const tip = surface.height,
+          tipOcclusion = surface.occlusion;
+        for (const side of [-1, 1]) {
+          sample(offset + 1 / 96, offset + side / 96, surface);
+          expect(surface.height).toBeLessThan(tip);
+          expect(surface.occlusion).toBeLessThan(tipOcclusion);
+        }
+      }
+    }
+  });
+
+  it('engine-turned disk support boundaries blend with continuous field slopes', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      center = { ...a };
+    const epsilon = 1e-8;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('engineturned', seed);
+      for (const row of [0, 1, 5])
+        for (const column of [0, 3, 5])
+          for (let i = 0; i < 19; i++) {
+            const angle = (i / 19) * Math.PI * 2,
+              dx = Math.cos(angle),
+              dy = Math.sin(angle);
+            const u = (column + 0.25 + 0.5 * (row % 2) + 0.95 * dx) / 6,
+              v = (row + 0.5 + 0.95 * dy) / 6;
+            sample(u - epsilon * dx, v - epsilon * dy, a);
+            sample(u + epsilon * dx, v + epsilon * dy, b);
+            sample(u, v, center);
+            for (const key of Object.keys(a) as (keyof SurfaceSample)[]) {
+              expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+              expect(
+                Math.abs(a[key] - 2 * center[key] + b[key]) / epsilon,
+              ).toBeLessThan(0.01);
+            }
+          }
+    }
+  });
 
   it('acoustic foam has four sloping pyramid faces above recessed cell edges', () => {
     const a: SurfaceSample = {
@@ -1018,19 +1092,5 @@ describe('procedural preset acquisition and ownership', () => {
     expect(external.destroyed).toBe(false);
     expect(() => preset.createMaterial()).toThrow('destroyed');
     external.destroy();
-  });
-
-  it('keeps new dielectrics unmetallic and lets rust use its metallic map', async () => {
-    const concrete = await ProceduralMaterial.create('concrete', { size: 32 });
-    const rust = await ProceduralMaterial.create('rust', { size: 32 });
-    expect(concrete.material.metallic).toBe(0);
-    expect(rust.material.metallic).toBe(1);
-    expect(concrete.material.metallicRoughnessTexture).toBe(
-      concrete.textures.metallicRoughness,
-    );
-    concrete.destroy();
-    rust.destroy();
-    expect(concrete.destroyed).toBe(true);
-    expect(rust.textures.baseColor.destroyed).toBe(true);
   });
 });

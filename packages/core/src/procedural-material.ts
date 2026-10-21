@@ -66,7 +66,10 @@ export type ProceduralMaterialKind =
   | 'crocodile'
   | 'herringbone'
   | 'tweed'
-  | 'seersucker';
+  | 'seersucker'
+  | 'knurledmetal'
+  | 'engineturned'
+  | 'goldleaf';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -159,6 +162,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'herringbone',
   'tweed',
   'seersucker',
+  'knurledmetal',
+  'engineturned',
+  'goldleaf',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -285,7 +291,10 @@ export class ProceduralMaterial {
         this.kind === 'diamondplate' ||
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||
-        this.kind === 'corrugatedmetal'
+        this.kind === 'corrugatedmetal' ||
+        this.kind === 'knurledmetal' ||
+        this.kind === 'engineturned' ||
+        this.kind === 'goldleaf'
           ? 1
           : 0,
       roughness: 1,

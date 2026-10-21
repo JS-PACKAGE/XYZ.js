@@ -2639,3 +2639,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：加工金屬（knurledmetal／engineturned／goldleaf）
+
+- 新增細密菱形滾花、交疊圓形加工旋紋與揉皺金箔搭接表面，
+  tile 尺寸依序 0.048／0.12／0.36 m。皆 opaque fully metallic，
+  不建立加工 geometry、實際箔厚、透明箔片或各向異性。
+  gallery／API 文件同步至 63 種；README 既有金屬分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1604 tests
+  通過。滾花頂點相對交叉刻槽、圓盤支撐域的值與斜率連續性納入回歸；
+  前六十種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認滾花、加工旋紋與金箔皺摺差異；metallic B 全為 255，
+  material 預設 metallic factor 全為 1，明確覆寫 0.25 均保留。
+  roughness bytes 依序 87–130／41–114／67–127；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

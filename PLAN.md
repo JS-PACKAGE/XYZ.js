@@ -38,7 +38,7 @@
 
 建材飾面增量追加 plaster／terracotta／cork（石膏／陶土／軟木）：淺色石膏的淺抹刀弧痕與細孔／未上釉紅褐燒製陶土的不規則窯色與凹孔（無磁磚填縫）／棕褐壓製軟木碎片與細胞邊界，目前共二十七種；前述 counts 保留為歷史。皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps，不新增 geometry 或物理模擬。前二十四種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。品質與驗證結果另記 ACCEPTANCE。
 
-工業表面增量追加 rubber／carbonfiber／diamondplate（橡膠／碳纖維／止滑花紋鋼板），目前共三十種；前述 counts 保留為歷史。橡膠為炭黑色模製彈性體與細密卵石狀顆粒；碳纖維為樹脂覆層下深色纖維束、交替斜向斜紋編織，兩者 metallic 通道為 0。鋼板為銀色軋製金屬與交替斜向隆起菱形紋，metallic 通道及預設 factor 均為 1。目前 metallic factor 為 metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal=1、其他種類=0。三者沿用 deterministic periodic 四份 RGBA maps；凹凸僅由 normal map 表現，不新增 geometry、特殊 anisotropic shader、clearcoat 或物理模擬。前二十七種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
+工業表面增量追加 rubber／carbonfiber／diamondplate（橡膠／碳纖維／止滑花紋鋼板），目前共三十種；前述 counts 保留為歷史。橡膠為炭黑色模製彈性體與細密卵石狀顆粒；碳纖維為樹脂覆層下深色纖維束、交替斜向斜紋編織，兩者 metallic 通道為 0。鋼板為銀色軋製金屬與交替斜向隆起菱形紋，metallic 通道及預設 factor 均為 1。目前 metallic factor 為 metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf=1、其他種類=0。三者沿用 deterministic periodic 四份 RGBA maps；凹凸僅由 normal map 表現，不新增 geometry、特殊 anisotropic shader、clearcoat 或物理模擬。前二十七種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
 工藝素材增量追加 paper／wicker／bamboo（紙張／藤編／竹材），目前共三十三種；前述 counts 保留為歷史。紙張為象牙白未塗佈紙的細密不規則紙漿纖維與輕微雲狀成紙紋；藤編為棕褐寬圓角藤條交織、細縱向條紋與深色不透明凹隙，區別於粗麻布；竹材為金黃縱向纖維與週期錯列的深色竹節帶。皆為 opaque dielectric、metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps，不新增 geometry、透明孔洞或物理模擬。前三十種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
@@ -59,6 +59,8 @@
 皮革飾面增量追加 suede／snakeskin／crocodile（麂皮／蛇鱗紋皮革／鱷魚壓紋皮革），目前共五十七種；前述 counts 保留為歷史。分別為棕褐色短刷絨與細孔、橄欖綠／棕色錯列的小型尖端／圓角菱形鱗紋與中央脊線及凹陷邊界、深棕色大型圓角矩形鱗板與皺褶凹紋。皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic 四份 maps；只是合成表面紋樣，凹凸僅由 shading／normal map 表現，不新增動物 geometry 或 displacement。前五十四種輸出須逐位元組保持不變，既有金屬設定、公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push，品質與驗證結果另記 ACCEPTANCE。
 
 織物飾面增量追加 herringbone／tweed／seersucker（人字紋織物／粗花呢／泡泡紗），目前共六十種；前述 counts 保留為歷史。分別呈現交替斜向的斷續斜紋人字形、粗糙雜色紗線與細斑點及交叉纖維、淺藍／奶油色交替平整與皺褶條帶及細密織紋。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic 四份 maps；僅為表面 shading／normal map 效果，不新增布料 geometry、anisotropy 或模擬。前五十七種輸出須逐位元組保持不變，既有金屬設定、公開 options、repeat、ownership、backend 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push，實際驗證另記 ACCEPTANCE。
+
+加工金屬增量追加 knurledmetal／engineturned／goldleaf（滾花金屬／魚鱗旋紋金屬／金箔），目前共六十三種；前述 counts 保留為歷史。分別呈現細密交叉斜向脊線與隆起菱形止滑紋、重疊的銀色圓形加工旋紋、暖金色揉皺紋與搭接縫。三者皆為 opaque，僅沿用 seeded deterministic periodic 四份 maps，metallic B 全為 255（1），`material` 與 `createMaterial()` 的預設 metallic factor 均為 1，明確覆寫仍最後套用。rust 保持變化的 metallic map 與預設 factor 1，dielectric 預設仍為 0。僅為表面 shading／normal map 效果，不新增實際 anisotropy、金箔厚度、加工 geometry 或透光效果。前六十種輸出須逐位元組保持不變，公開 options、repeat、ownership、backend 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push，實際驗證另記 ACCEPTANCE。
 
 ## 倉庫結構
 

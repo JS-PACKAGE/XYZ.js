@@ -104,6 +104,15 @@ export function createSurfaceSampler(
     for (let y = 0; y < hideRows; y++)
       for (let x = 0; x < hideColumns; x++)
         hideCells[y * hideColumns + x] = hash(x, y, seed ^ 0x73b9);
+  const turnedDisks =
+    kind === 'engineturned' ? new Float64Array(6 * 6 * 2) : null;
+  if (turnedDisks)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 2;
+        turnedDisks[offset] = hash(x, y, seed ^ 0x38a1);
+        turnedDisks[offset + 1] = hash(x, y, seed ^ 0x6c57);
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -140,7 +149,10 @@ export function createSurfaceSampler(
         kind === 'diamondplate' ||
         kind === 'hammeredmetal' ||
         kind === 'galvanized' ||
-        kind === 'corrugatedmetal'
+        kind === 'corrugatedmetal' ||
+        kind === 'knurledmetal' ||
+        kind === 'engineturned' ||
+        kind === 'goldleaf'
           ? 1
           : 0;
     switch (kind) {
@@ -1001,6 +1013,81 @@ export function createSurfaceSampler(
         height = 0.08 + 0.78 * raised + 0.025 * rolled;
         roughness += 0.14 * (rolled - 0.5) - 0.075 * raised;
         occlusion = 0.94 + 0.05 * raised + 0.01 * detail;
+        break;
+      }
+      case 'knurledmetal': {
+        const across = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u + v))),
+          along = smooth(0.5 - 0.5 * Math.cos(TAU * 24 * (u - v)));
+        // Intersecting cuts leave small diamond crowns, not isolated tread bars.
+        const crown = across * along;
+        color = 0.29 + 0.48 * crown + 0.16 * detail;
+        height = 0.12 + 0.72 * crown + 0.025 * detail;
+        roughness += 0.1 * (detail - 0.5) + 0.07 * (1 - crown);
+        occlusion = 0.85 + 0.14 * crown;
+        break;
+      }
+      case 'engineturned': {
+        const x = u * 6,
+          y = v * 6;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let total = 0,
+          scratches = 0,
+          sheen = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % 6) + 6) % 6,
+              wy = ((cy % 6) + 6) % 6;
+            const dx = x - cx - 0.25 - 0.5 * (wy % 2),
+              dy = y - cy - 0.5;
+            const radiusSquared = dx * dx + dy * dy;
+            const cap = Math.max(0, 1 - radiusSquared / 0.9025);
+            const weight = cap * cap;
+            const offset = (wy * 6 + wx) * 2;
+            const turn = turnedDisks![offset];
+            const scratch =
+              0.5 +
+              0.5 *
+                Math.cos(TAU * (10 * radiusSquared + turn + 0.18 * dx * dy));
+            total += weight;
+            scratches += weight * scratch;
+            sheen += weight * turnedDisks![offset + 1];
+          }
+        // Compact C1 disk supports and normalized convex ownership avoid both
+        // hard nearest-disk seams and unbounded overlap sums. Coverage is total.
+        scratches /= total;
+        sheen /= total;
+        color = 0.35 + 0.34 * sheen + 0.22 * scratches + 0.04 * detail;
+        height = 0.44 + 0.07 * scratches + 0.025 * detail;
+        roughness += 0.18 * (scratches - 0.5) + 0.12 * (sheen - 0.5);
+        occlusion = 0.98 + 0.015 * scratches;
+        break;
+      }
+      case 'goldleaf': {
+        const warp = noise(u, v, 4, 5, seed ^ 0x4d83);
+        const patchU = u + 0.035 * Math.sin(TAU * v * 3 + phase),
+          patchV = v + 0.03 * Math.sin(TAU * u * 4 + phase);
+        const patch = noise(patchU, patchV, 4, 5, seed ^ 0x1e59);
+        const lapU = smooth(clamp((Math.cos(TAU * 4 * patchU) - 0.92) / 0.08));
+        const lapV = smooth(clamp((Math.cos(TAU * 5 * patchV) - 0.92) / 0.08));
+        const lap = lapU + (1 - lapU) * lapV;
+        const foldA = Math.pow(
+          0.5 + 0.5 * Math.cos(TAU * (18 * u + 7 * v + 1.7 * warp) + phase),
+          8,
+        );
+        const foldB = Math.pow(
+          0.5 + 0.5 * Math.cos(TAU * (5 * u - 21 * v + 1.3 * patch) - phase),
+          10,
+        );
+        const wrinkle = 0.6 * foldA + 0.4 * foldB;
+        // Thin overlapping sheets carry crumpled folds, not deep cracks or
+        // translucent foil; all relief remains in the four opaque surface maps.
+        color = 0.4 + 0.3 * patch + 0.19 * wrinkle - 0.1 * lap;
+        height = 0.36 + 0.34 * wrinkle + 0.065 * lap + 0.04 * detail;
+        roughness += 0.12 * (patch - 0.5) + 0.11 * wrinkle + 0.025 * lap;
+        occlusion = 0.99 - 0.065 * wrinkle - 0.025 * lap;
         break;
       }
       case 'paper': {
