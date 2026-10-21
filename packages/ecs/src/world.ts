@@ -24,11 +24,14 @@ export class World {
   private updating = false;
   private systemsNeedCompaction = false;
   private disposed = false;
+  /** Bumped by every entity or component membership change; see query. */
+  private revision = 0;
 
   createEntity(): Entity {
     this.assertAlive();
     const entity = this.nextEntity++;
     this.entities.add(entity);
+    this.revision++;
     return entity;
   }
 
@@ -39,6 +42,7 @@ export class World {
   removeEntity(entity: Entity): boolean {
     this.assertAlive();
     if (!this.entities.delete(entity)) return false;
+    this.revision++;
     for (const store of this.components.values()) store.delete(entity);
     return true;
   }
@@ -53,6 +57,7 @@ export class World {
       this.components.set(type, store);
     }
     store.set(entity, value);
+    this.revision++;
     return value;
   }
 
@@ -72,7 +77,33 @@ export class World {
       stores.push(store);
     }
     const count = stores.length;
+    let smallest: Map<Entity, unknown> | undefined;
+    for (const store of stores)
+      if (!smallest || store.size < smallest.size) smallest = store;
+    let last = 0;
+    if (smallest && smallest.size * 2 < this.entities.size) {
+      // Entity ids ascend in creation order, which is also the Set's order, so the smallest
+      // store's members sorted by id are exactly what the full walk below would yield.
+      const matches: Entity[] = [];
+      let sorted = true;
+      for (const entity of smallest.keys()) {
+        if (!this.entities.has(entity) || !hasAll(stores, entity)) continue;
+        if (matches.length && entity < matches[matches.length - 1]!)
+          sorted = false;
+        matches.push(entity);
+      }
+      if (!sorted) matches.sort((a, b) => a - b);
+      const revision = this.revision;
+      for (let i = 0; i < matches.length && this.revision === revision; i++) {
+        last = matches[i]!;
+        yield last;
+      }
+      if (this.revision === revision) return;
+      // Membership changed between yields: continue live after the last yielded entity, as
+      // the full walk would have.
+    }
     for (const entity of this.entities) {
+      if (entity <= last) continue;
       let matches = true;
       for (let i = 0; i < count; i++) {
         if (!stores[i]!.has(entity)) {
@@ -90,7 +121,9 @@ export class World {
 
   removeComponent<T>(entity: Entity, type: ComponentType<T>): boolean {
     this.assertAlive();
-    return this.components.get(type)?.delete(entity) ?? false;
+    const removed = this.components.get(type)?.delete(entity) ?? false;
+    if (removed) this.revision++;
+    return removed;
   }
 
   addSystem(system: System): void {
@@ -179,4 +212,13 @@ export class World {
   private assertAlive(): void {
     if (this.disposed) throw new Error('World has been destroyed.');
   }
+}
+
+function hasAll(
+  stores: readonly Map<Entity, unknown>[],
+  entity: Entity,
+): boolean {
+  for (let i = 0; i < stores.length; i++)
+    if (!stores[i]!.has(entity)) return false;
+  return true;
 }

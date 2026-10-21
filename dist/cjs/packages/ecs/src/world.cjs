@@ -7,23 +7,25 @@ var World = class {
 	updating = !1;
 	systemsNeedCompaction = !1;
 	disposed = !1;
+	revision = 0;
 	createEntity() {
 		this.assertAlive();
 		let e = this.nextEntity++;
-		return this.entities.add(e), e;
+		return this.entities.add(e), this.revision++, e;
 	}
 	hasEntity(e) {
 		return this.entities.has(e);
 	}
 	removeEntity(e) {
 		if (this.assertAlive(), !this.entities.delete(e)) return !1;
+		this.revision++;
 		for (let t of this.components.values()) t.delete(e);
 		return !0;
 	}
 	addComponent(e, t, n) {
 		if (this.assertAlive(), !this.entities.has(e)) throw RangeError(`Entity does not exist.`);
 		let r = this.components.get(t);
-		return r || (r = /* @__PURE__ */ new Map(), this.components.set(t, r)), r.set(e, n), n;
+		return r || (r = /* @__PURE__ */ new Map(), this.components.set(t, r)), r.set(e, n), this.revision++, n;
 	}
 	getComponent(e, t) {
 		return this.components.get(t)?.get(e);
@@ -35,8 +37,19 @@ var World = class {
 			if (!e) return;
 			t.push(e);
 		}
-		let n = t.length;
+		let n = t.length, r;
+		for (let e of t) (!r || e.size < r.size) && (r = e);
+		let i = 0;
+		if (r && r.size * 2 < this.entities.size) {
+			let e = [], n = !0;
+			for (let i of r.keys()) this.entities.has(i) && hasAll(t, i) && (e.length && i < e[e.length - 1] && (n = !1), e.push(i));
+			n || e.sort((e, t) => e - t);
+			let a = this.revision;
+			for (let t = 0; t < e.length && this.revision === a; t++) i = e[t], yield i;
+			if (this.revision === a) return;
+		}
 		for (let e of this.entities) {
+			if (e <= i) continue;
 			let r = !0;
 			for (let i = 0; i < n; i++) if (!t[i].has(e)) {
 				r = !1;
@@ -49,7 +62,9 @@ var World = class {
 		return this.components.get(t)?.has(e) ?? !1;
 	}
 	removeComponent(e, t) {
-		return this.assertAlive(), this.components.get(t)?.delete(e) ?? !1;
+		this.assertAlive();
+		let n = this.components.get(t)?.delete(e) ?? !1;
+		return n && this.revision++, n;
 	}
 	addSystem(e) {
 		if (this.assertAlive(), this.systems.some((t) => t.active && t.system === e)) throw Error(`System is already registered.`);
@@ -116,6 +131,10 @@ var World = class {
 		if (this.disposed) throw Error(`World has been destroyed.`);
 	}
 };
+function hasAll(e, t) {
+	for (let n = 0; n < e.length; n++) if (!e[n].has(t)) return !1;
+	return !0;
+}
 //#endregion
 exports.World = World;
 

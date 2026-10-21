@@ -61,6 +61,52 @@ describe('World entity and component CRUD', () => {
     expect(seen).toEqual([a, c]);
   });
 
+  it('yields sparse matches in creation order and stays live to changes between yields', () => {
+    const world = new World();
+    const entities = Array.from({ length: 40 }, () => {
+      const entity = world.createEntity();
+      world.addComponent(entity, Position, new Position(entity));
+      return entity;
+    });
+    // Few Velocity holders, added out of creation order.
+    for (const index of [30, 4, 17, 9])
+      world.addComponent(entities[index]!, Velocity, new Velocity(index));
+    expect([...world.query(Position, Velocity)]).toEqual(
+      [4, 9, 17, 30].map((index) => entities[index]),
+    );
+    const seen: number[] = [];
+    for (const entity of world.query(Velocity, Position)) {
+      seen.push(entity);
+      if (entity === entities[4]) {
+        world.removeComponent(entities[9]!, Velocity);
+        world.addComponent(entities[25]!, Velocity, new Velocity(25));
+        world.addComponent(entities[2]!, Velocity, new Velocity(2));
+        const late = world.createEntity();
+        world.addComponent(late, Position, new Position(late));
+        world.addComponent(late, Velocity, new Velocity(late));
+        entities.push(late);
+      }
+      if (entity === entities[17]) world.removeEntity(entities[30]!);
+    }
+    expect(seen).toEqual([4, 17, 25, 40].map((index) => entities[index]));
+    // A lone addition, then a lone removal, each made at the first yield.
+    const added: number[] = [];
+    for (const entity of world.query(Velocity)) {
+      added.push(entity);
+      if (added.length === 1)
+        world.addComponent(entities[35]!, Velocity, new Velocity(35));
+    }
+    expect(added).toEqual(
+      [2, 4, 17, 25, 35, 40].map((index) => entities[index]),
+    );
+    const removed: number[] = [];
+    for (const entity of world.query(Velocity)) {
+      removed.push(entity);
+      if (removed.length === 1) world.removeEntity(entities[25]!);
+    }
+    expect(removed).toEqual([2, 4, 17, 35, 40].map((index) => entities[index]));
+  });
+
   it('initializes systems in order, defers newly added systems to the next tick, and destroys exactly once', () => {
     const world = new World();
     const calls: string[] = [];

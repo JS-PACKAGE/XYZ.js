@@ -14,6 +14,8 @@ export declare class World {
     private updating;
     private systemsNeedCompaction;
     private disposed;
+    /** Bumped by every entity or component membership change; see query. */
+    private revision;
     createEntity(): Entity;
     hasEntity(entity: Entity): boolean;
     removeEntity(entity: Entity): boolean;
