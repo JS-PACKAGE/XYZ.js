@@ -3724,3 +3724,45 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Visibility]` 3D 可見性收集時，一旦已知有變更就只複製 pose／邊界戳記而不再逐值比較（`changed`／`boundsChanged` 一經成立即不再改變）；BVH refit 改為依前序建構的節點陣列倒序走訪（子節點先於父節點），取代遞迴。結果、epoch、refit 與剔除計數不變（Node 4352 個網格對拍雜湊相同）。新增測試在一個不影響邊界的變更之後移動兩個葉節點進入視野再移出，倒序或比較捷徑的 mutant 皆失敗。production visibility（WebGL2、high）剖析中可見性收集佔 CPU busy 27.2–27.8% → 23.7–24.4%；Node 同程序 1.47–1.76 → 1.31–1.40 ms／幀，屬 CPU 時間。WebGL2／WebGPU browser regression 通過；build 與完整測試（2089 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[WebGPU]` WebGPU 2D 的 quad slot 數達 `stagedUploadQuads`（64）時，instance 資料改填入已 map 的 MAP_WRITE staging buffer（與 instance buffer 同大小，最多 `uploadStagingBuffers` = 3 個在途），在 draw 結束時以單一 `copyBufferToBuffer` command buffer 排在該幀主 command buffer 之前送出（renderToTexture 亦同）；送出後才重新 `mapAsync`，沒有已 map 的 staging 時沿用 `queue.writeBuffer`。獨立量測 2.88 MB 上傳：writeBuffer 1.5 ms、分段寫入無差異、staging 0.1–0.2 ms；64 quads 以下兩者相同。20k sprites WebGPU 每幀 CPU submit p50 8.9–9.0 → 7.5–7.7 ms，2000 sprites 1.3 → 1.2 ms，200 sprites 不變（屬 CPU 時間，不是 fps）；剖析中 writeBuffer 由 busy 的 17–18% 消失。WebGPU 3000／40 sprites 與 WebGL2 的主畫面及 render-texture 像素雜湊與修改前完全相同，拿掉 endFrame 送出 copy 的 mutant 會改變雜湊。三 backend browser regression、smoke examples 163/163 通過；build 與完整測試（2101 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[WebGPU]` 陰影關閉（`scene.shadows.enabled = false`）時，只因投影而收集、不在相機可見清單中的網格不再於該幀更新 uniform（它們只由陰影 pass 繪製）；仍照常驗證、快取並標記 seen，駐留行為不變。uniform 上傳一直以 GPU 端鏡像比對差異，網格再次被繪製時當幀補齊。這與 WebGL2 只在繪製時設定 uniform 的行為一致；此類離屏網格的無效 UV／TEXCOORD_1 錯誤改在實際繪製時拋出。production visibility（WebGPU、high，4096 個旋轉中的離屏網格）CPU busy 0.582–0.585 → 0.351–0.355，`uploadChangedSpan`＋`writeBuffer` 由約 36% busy 消失（CPU 時間，不是 fps）。24 個 PBR／Texture 網格輪流進出視野並於第 30–44 幀開啟陰影的 60 幀 WebGPU 像素雜湊與修改前逐幀相同，少更新一個可見網格的 mutant 會改變雜湊。WebGL2／WebGPU browser regression、smoke examples 163/163 通過；build 與完整測試（2115 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：白樺、棕櫚與懸鈴木樹皮
+
+- 新增 birchbark、palmtrunk、sycamorebark；最終整合目錄共 180 種。
+  白樺為淺紙質表面的橫向凹皮孔，棕櫚為不等距葉痕環與細縱纖維，
+  懸鈴木為多色階淺剝落斑塊；皆為 opaque dielectric。
+  不新增 geometry、displacement、alpha、transmission、SSS 或 BRDF。
+- 本組初始獨立快照為 171→174 種；整合時先納入已提交的三種編織材質，
+  以 177 種快照完成完整檢查。驗證期間另一行程的 `6dc15200`
+  將本組程式碼、測試、gallery 與主要文件一併納入扣合配件提交。
+  未撤回、重寫或重複套用該提交；重新匯出當時 HEAD，
+  確認三種樹皮在六個 seed 的 maps 與已驗證實作一致，
+  再以本組獨立提交補齊 README、驗收與實際重建的材質產物。
+- 保留兩項失敗前／修正後回歸：seed 3589914215 讓 hash 恰為 1，
+  原色階索引產生超出範圍的 1.152 pigment，現限制在合法色階；
+  原重疊斑塊會保留被完全覆蓋的下層剝落陰影，現由上層遮蔽。
+  移除與共同 per-kind 測試重複的 determinism／periodicity 測試，
+  保留形態、凹凸／AO 關係、實際交界 C1 與上述邊界回歸。
+- C1 測試涵蓋 seed 0、1、0xffffffff 的支撐、肩部、lookup 與週期接縫。
+  暫時移除三種材質的平滑肩部／平方支撐，各自均被同一 C1 測試拒絕；
+  未保留 mutant 或 throwaway script。棕櫚以支撐範圍縮小至兩列 lookup，
+  六個 seed 的四份 maps 與原九列迴圈逐 byte 相同，不宣稱 fps 提升。
+- 177 種整合快照 build、完整 lint、自有檔案 format check 通過；
+  完整 suite 為 176 檔通過、1 檔失敗，2128 項通過、1 項失敗：
+  `mesh-shader-variants.test.ts:219` 超過原 5000 ms timeout。
+  typecheck 仍因既有 `sprite-quad-validation.test.ts:13` fixture
+  缺少 `destroy` 失敗。未提高 timeout、改動無關 fixture 或記為全綠。
+  最終 180 種提交快照另實際通過 build、完整 lint、自有格式檢查
+  及十一項樹皮測試；未宣稱此較新快照重新跑過完整 suite。
+- 177 種快照的前 174 種 maps 在 size 64、seed 7 與 baseline 不變；
+  source／ESM／CJS 的新三種在 seed 7、8、3589914215 一致。
+  最終 180 種重建的 ESM／CJS 另與當時 source 全目錄逐 byte 比對，
+  並再次涵蓋新材質 seed 8 與 hash-endpoint 案例。
+- 真實 Chrome WebGPU／WebGL2 逐一切換三種樹皮；
+  177 種與最終 180 種 gallery 六張畫面皆與檢視後的形態快照一致。
+  共享工作目錄 build、十一項樹皮測試與三張 WebGPU 畫面亦通過。
+  公開 factory 256 px／seed 7 的 2×2 平鋪、metallic B=0、
+  四份 texture destroy 均已檢查；roughness byte 分別為
+  199–213／227–240／214–223，每米 repeats 為 5.5556／3.5714／3.3333。
+- 五份完整文件目錄確認各 180 個唯一名稱；中／英／日 README
+  僅追加樹皮類別，不列舉所有物種。本組無新增連結或 runtime 依賴，
+  保留既有歷史段落，不擴大跨瀏覽器、Canvas2D 3D 或裝置認證，不 push。
