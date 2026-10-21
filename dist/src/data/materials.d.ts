@@ -1183,6 +1183,41 @@ export declare const proceduralMaterialPresets: Readonly<{
         braceInner: 0.035;
         braceOuter: 0.055;
     }>;
+    mushroomgills: Readonly<{
+        dark: readonly [91, 61, 37];
+        light: readonly [247, 233, 197];
+        roughness: 0.78;
+        relief: 0.0024;
+        cells: 3;
+        scale: 0.58;
+        blades: 44;
+        bladePower: 8;
+        shortStart: 0.62;
+        shortEnd: 0.82;
+    }>;
+    morel: Readonly<{
+        dark: readonly [53, 29, 12];
+        light: readonly [211, 164, 85];
+        roughness: 0.86;
+        relief: 0.0038;
+        columns: 7;
+        rows: 4;
+        jitter: 0.18;
+        support: 1.6;
+        weightPower: 12;
+    }>;
+    bracketfungus: Readonly<{
+        dark: readonly [87, 34, 17];
+        light: readonly [242, 221, 177];
+        roughness: 0.83;
+        relief: 0.0028;
+        cells: 3;
+        scale: 0.58;
+        zones: 2.8;
+        lobe: 0.055;
+        marginStart: 1.1;
+        marginEnd: 1.22;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -1378,6 +1413,9 @@ export declare const proceduralTileMeters: Readonly<{
     tactilepaving: 0.6;
     roadmarking: 2;
     draincover: 0.7;
+    mushroomgills: 0.12;
+    morel: 0.08;
+    bracketfungus: 0.25;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

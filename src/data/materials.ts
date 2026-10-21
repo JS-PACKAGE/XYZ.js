@@ -1184,6 +1184,41 @@ export const proceduralMaterialPresets = Object.freeze({
     braceInner: 0.035,
     braceOuter: 0.055,
   }),
+  mushroomgills: Object.freeze({
+    dark: [91, 61, 37] as const,
+    light: [247, 233, 197] as const,
+    roughness: 0.78,
+    relief: 0.0024,
+    cells: 3,
+    scale: 0.58,
+    blades: 44,
+    bladePower: 8,
+    shortStart: 0.62,
+    shortEnd: 0.82,
+  }),
+  morel: Object.freeze({
+    dark: [53, 29, 12] as const,
+    light: [211, 164, 85] as const,
+    roughness: 0.86,
+    relief: 0.0038,
+    columns: 7,
+    rows: 4,
+    jitter: 0.18,
+    support: 1.6,
+    weightPower: 12,
+  }),
+  bracketfungus: Object.freeze({
+    dark: [87, 34, 17] as const,
+    light: [242, 221, 177] as const,
+    roughness: 0.83,
+    relief: 0.0028,
+    cells: 3,
+    scale: 0.58,
+    zones: 2.8,
+    lobe: 0.055,
+    marginStart: 1.1,
+    marginEnd: 1.22,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -1380,6 +1415,9 @@ export const proceduralTileMeters = Object.freeze({
   tactilepaving: 0.6,
   roadmarking: 2,
   draincover: 0.7,
+  mushroomgills: 0.12,
+  morel: 0.08,
+  bracketfungus: 0.25,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

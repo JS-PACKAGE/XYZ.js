@@ -198,7 +198,10 @@ export type ProceduralMaterialKind =
   | 'sharkskin'
   | 'tactilepaving'
   | 'roadmarking'
-  | 'draincover';
+  | 'draincover'
+  | 'mushroomgills'
+  | 'morel'
+  | 'bracketfungus';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -423,6 +426,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tactilepaving',
   'roadmarking',
   'draincover',
+  'mushroomgills',
+  'morel',
+  'bracketfungus',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

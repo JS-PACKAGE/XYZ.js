@@ -271,6 +271,9 @@ try {
     'tactilepaving',
     'roadmarking',
     'draincover',
+    'mushroomgills',
+    'morel',
+    'bracketfungus',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

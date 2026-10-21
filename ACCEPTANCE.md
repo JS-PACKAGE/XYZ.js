@@ -3931,3 +3931,43 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不將本輪完整檢查宣稱適用於未提交功能。本組不 push。
 - `[Rendering2D]` `Sprite.getLocalBounds` 只讀一次 `width`／`height`（每個 getter 都要依序檢查 view、region 與 texture），原本讀兩次；值相同。20k sprites WebGL2 每幀 CPU submit p50 5.9–6.0 → 5.7–5.9 ms（三輪交替，約 2%，CPU 時間，不是 fps）。build 與完整測試（2183 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[Physics2D]` 碰撞事件在沒有任何一方觀察時不再呼叫 continuation（改在實際派送前才查）；`precollision` 沒有派送任何 listener 時，略過之後重複的 continuation／active／liveness 檢查（沒有使用者程式執行，這些狀態不會改變），有派送時照舊重查。Node 同程序 96 個重疊 sensor（4560 contact）每步 2.12–2.41 → 1.83–2.24 ms（平均約 8%，CPU 時間）；p2ha 雜湊 -834211072 與 dense 進出事件數、contact 數、位置雜湊皆不變。新增測試：precollision listener 停止步進後，另一方的 listener 不會被派送、contact 也不會被回應；拿掉派送前 continuation 檢查的 mutant 會失敗。build 與完整測試（2197 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，只有 pbr3d 在未修改的 HEAD 也一樣逾時。
+
+## 程序材質擴充：菌褶、羊肚菌與層孔菌
+
+- 新增 mushroomgills／morel／bracketfungus；初始隔離目錄 189→192 種，
+  整合已提交電子表面後為 195 種。
+  菌褶具有放射長褶、外側短褶與安靜附著區；羊肚菌以平滑權重競合
+  形成細長凹室及連通隆脊；層孔菌具有薄扇形重疊、寬生長色帶與淡邊。
+  三者維持 opaque dielectric 四圖、seed、repeats、資源所有權契約，
+  不增加幾何、位移、透明、SSS、transmission 或 BRDF。
+- 新回歸涵蓋三個 seed 的形態、實際重疊遮蔽、附著區、支撐邊界、
+  角度切口、權重交界、凹室肩部與 UV／cell 接縫。
+  初版形態測試先修正 height 已乘 relief 的單位；
+  連續性檢查曾因附近 C1 noise join 抵消單一粗尺度二階差分而失敗，
+  經逐尺度斜率取樣確認後改用兩個粗尺度，未提高誤差容限。
+  移除菌褶附著區、羊肚菌肩部或層孔菌邊緣 smoothing 的負向控制
+  均被回歸拒絕。六個 seed、193×193 raw scalar 掃描合法，
+  roughness 移除最終 clamp 後仍在範圍內。
+- 初始 192 種快照 build、完整 lint、自有檔案 format check 通過，
+  完整 suite 為 177 檔、2196 項全部通過。
+  初次針對性檢查 9 過／1 失敗，修正取樣後 10 項通過；
+  再補強羊肚菌肩部定位後納入前述完整 suite。
+  最終 195 種快照 build、完整 lint、格式與 10 項真菌測試通過；
+  該快照完整 suite 在 600 秒期限被終止，已輸出 18 項既有材質測試
+  與 1 項 shader variant 失敗，單項耗時約 5.1–9.9 秒。
+  終止前沒有完整斷言摘要，故不將失敗原因或最終 suite 記成通過，
+  亦未調高 timeout 或重跑同一完整 suite 求綠。
+  初始 typecheck 因既有 `sprite-quad-validation.test.ts:13`
+  fixture 缺少 `destroy` 失敗；整合後仍保留該限制，未修改 fixture。
+- 前 192 種 maps 在 size 64、seed 7 與整合基準 `0b2ff3c8`
+  逐 byte 不變；全 195 種 source／ESM／CJS 一致，新三種另比對
+  五個 seed，共 210 組參數一致。提交實際重建的材質模組與型別／sourcemap。
+- 真實 Chrome WebGPU／WebGL2 逐一切換三種材質，整合前後六張畫面
+  雜湊不變；public factory 256 px、seed 7 的 2×2 平鋪亦已檢視。
+  roughness byte 為 189–200／218–230／197–215，每米 repeats 為
+  8.3333／12.5／4，metallic texture 為零，四份 texture 由 preset.destroy
+  釋放。驗證不代表其他瀏覽器或裝置認證。
+- 五份完整目錄各確認 195 個唯一名稱；README 保留簡短四分類，
+  不再堆疊材料清單。PLAN／DESIGN 歷史內容與既有連結不變，
+  無新 runtime 依賴。提交只收本組隔離驗證內容；共享目錄其他變更
+  保留不混入，前述驗證不宣稱涵蓋其他未提交功能。本組不 push。

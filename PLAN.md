@@ -148,6 +148,8 @@
 
 市政表面增量追加 tactilepaving／roadmarking／draincover（警示導盲磚／道路標線／排水蓋），目前共一百九十二種；前述 counts 與段落保留為歷史。警示導盲磚為柔和安全黃色水泥／陶瓷磚、凹陷磚縫、規整平頂截錐警示凸點與圓潤肩部，細顆粒為次要紋理，區別於圓釘橡膠換色；道路標線為深色顆粒瀝青上的寬幅磨損米白漆帶，連貫局部掉漆露出底層，漆面略微隆起且較平滑、邊緣圓潤；排水蓋為矩形鑄鐵框、平行長條圓端槽、隆起柵條與橫向支撐，帶鑄造顆粒及磨圓肩部，槽底是不透明暗色凹陷而非實際開孔。前兩者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0；排水蓋預設 factor 為 1，完整金屬框／柵條／支撐 B 為 1，不透明凹槽底面與外部 B 為 0，圓潤肩部平滑過渡。沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat，scalar fields 在週期接縫、內部交界、中心與局部支撐邊界須保持有限且 C1。僅為 shading／normal map 效果，不新增實際開孔、geometry、displacement、alpha、renderer／BRDF 或依賴，不提供逆反射、無障礙認證或道路安全合規保證。前一百八十九種 presets 與 maps 須逐位元組保持不變；既有公開 options、repeat、呼叫者 ownership、借用 maps 的生命週期與 backend 契約不變。實際驗證另記 ACCEPTANCE，不在本段宣稱驗收。
 
+真菌表面增量追加 mushroomgills／morel／bracketfungus（菌褶／羊肚菌表面／層孔菌表面），目前共一百九十五種；前述 counts 與段落保留為歷史。菌褶為奶油／棕褐色密集放射狀窄長褶片，搭配起於外側的短菌褶與平靜附著區，不是等長寬扇貝肋；羊肚菌為暖赭／棕色不規則細長凹陷腔室、暗色碗底與狹窄圓潤相連隆脊，不是規則六角蜂巢或正向珊瑚迷宮；層孔菌為奶油／鏽紅／棕色重疊薄扇面、沿波狀分葉前緣的寬幅多色同心帶、淡色平滑外緣與細絲絨感顆粒，不是厚重牡蠣層唇或完整巢套瑪瑙環。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat；scalar fields 在週期接縫、中心、角度切線、ownership 與實際局部支撐邊界須保持有限且 C1，前方不透明層須遮住下層邊緣與 AO。僅為平坦表面的 shading／normal map 近似，不新增 geometry、displacement、alpha、次表面散射（SSS）、transmission、生物生長模擬或 BRDF。前一百九十二種 presets 與四份 maps 輸出須逐位元組保持不變；公開 options、repeat、呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。本段僅定義範圍，不宣稱 runtime 驗收。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

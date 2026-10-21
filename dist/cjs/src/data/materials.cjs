@@ -2718,6 +2718,65 @@ var proceduralMaterialPresets = Object.freeze({
 		slotOuter: .042,
 		braceInner: .035,
 		braceOuter: .055
+	}),
+	mushroomgills: Object.freeze({
+		dark: [
+			91,
+			61,
+			37
+		],
+		light: [
+			247,
+			233,
+			197
+		],
+		roughness: .78,
+		relief: .0024,
+		cells: 3,
+		scale: .58,
+		blades: 44,
+		bladePower: 8,
+		shortStart: .62,
+		shortEnd: .82
+	}),
+	morel: Object.freeze({
+		dark: [
+			53,
+			29,
+			12
+		],
+		light: [
+			211,
+			164,
+			85
+		],
+		roughness: .86,
+		relief: .0038,
+		columns: 7,
+		rows: 4,
+		jitter: .18,
+		support: 1.6,
+		weightPower: 12
+	}),
+	bracketfungus: Object.freeze({
+		dark: [
+			87,
+			34,
+			17
+		],
+		light: [
+			242,
+			221,
+			177
+		],
+		roughness: .83,
+		relief: .0028,
+		cells: 3,
+		scale: .58,
+		zones: 2.8,
+		lobe: .055,
+		marginStart: 1.1,
+		marginEnd: 1.22
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2912,7 +2971,10 @@ var proceduralTileMeters = Object.freeze({
 	sharkskin: .035,
 	tactilepaving: .6,
 	roadmarking: 2,
-	draincover: .7
+	draincover: .7,
+	mushroomgills: .12,
+	morel: .08,
+	bracketfungus: .25
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

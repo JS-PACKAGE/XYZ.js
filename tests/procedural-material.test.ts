@@ -217,7 +217,411 @@ const kinds: ProceduralMaterialKind[] = [
   'tactilepaving',
   'roadmarking',
   'draincover',
+  'mushroomgills',
+  'morel',
+  'bracketfungus',
 ];
+
+describe('opaque fungal morphology', () => {
+  const seeds = [0, 1, 0xffffffff];
+  const tau = 2 * Math.PI;
+  const normalizedField = (kind: ProceduralMaterialKind, seed: number) => {
+    const sample = createSurfaceSampler(kind, seed);
+    return (u: number, v: number, out: SurfaceSample): void => {
+      sample(u, v, out);
+      out.height /= proceduralMaterialPresets[kind].relief;
+    };
+  };
+  const empty = (): SurfaceSample => ({
+    color: 0,
+    height: 0,
+    roughness: 0,
+    occlusion: 0,
+    mortar: 0,
+    metallic: 0,
+  });
+  const hash = (x: number, y: number, seed: number): number => {
+    let n = (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+    n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+    n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+    return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+  };
+  // Reconstruct only feature locations/metrics to probe the real sampler.
+  const fan = (
+    x: number,
+    y: number,
+    seed: number,
+    kind: 'mushroomgills' | 'bracketfungus',
+  ) => {
+    const p = proceduralMaterialPresets[kind],
+      angle = 0.5 * (hash(x, y, seed ^ 0x2d41) - 0.5),
+      c = Math.cos(angle),
+      s = Math.sin(angle),
+      cx = x + 0.4 + 0.2 * hash(x, y, seed ^ 0x17c3),
+      cy = y + 0.4 + 0.2 * hash(x, y, seed ^ 0x59b7);
+    return {
+      phase: tau * hash(x, y, seed ^ 0x73a9),
+      point: (radius: number, theta: number): [number, number] => {
+        const a = radius * Math.sin(theta) * p.scale,
+          b = (radius * Math.cos(theta) - 0.55) * p.scale;
+        return [(cx + a * c - b * s) / p.cells, (cy + a * s + b * c) / p.cells];
+      },
+      local: (u: number, v: number): [number, number] => {
+        const dx = u * p.cells - cx,
+          dy = v * p.cells - cy;
+        return [
+          (dx * c + dy * s) / p.scale,
+          (dy * c - dx * s) / p.scale + 0.55,
+        ];
+      },
+    };
+  };
+  const chamber = (x: number, y: number, seed: number) => {
+    const p = proceduralMaterialPresets.morel,
+      cx = x + 0.5 + p.jitter * (2 * hash(x, y, seed ^ 0x23b9) - 1),
+      cy = y + 0.5 + p.jitter * (2 * hash(x, y, seed ^ 0x47a1) - 1),
+      stretch = 0.85 + 0.3 * hash(x, y, seed ^ 0x61d7),
+      skew = 0.3 * (hash(x, y, seed ^ 0x75c3) - 0.5);
+    return {
+      center: [cx / p.columns, cy / p.rows] as [number, number],
+      weight: (u: number, v: number): number => {
+        const dx = u * p.columns - cx,
+          dy = v * p.rows - cy,
+          a = dx * stretch + dy * skew,
+          b = dy / stretch,
+          q = (a * a + b * b) / (p.support * p.support);
+        return q < 1 ? (1 - q) ** p.weightPower : 0;
+      },
+      support: (theta: number): [number, number] => {
+        const dy = p.support * Math.sin(theta) * stretch,
+          dx = (p.support * Math.cos(theta) - dy * skew) / stretch;
+        return [(cx + dx) / p.columns, (cy + dy) / p.rows];
+      },
+    };
+  };
+  const frontRadius = (front: number, theta: number, phase: number): number =>
+    front /
+    (1 +
+      proceduralMaterialPresets.bracketfungus.lobe *
+        Math.cos(5 * theta + phase) +
+      0.035 * Math.cos(9 * theta - phase));
+
+  it('gills have narrow long blades, interleaved outward-starting short blades and quiet attachments', () => {
+    const p = proceduralMaterialPresets.mushroomgills;
+    for (const seed of seeds) {
+      const sample = normalizedField('mushroomgills', seed);
+      for (let cell = 0; cell < p.cells; cell++) {
+        const f = fan(cell, cell, seed, 'mushroomgills'),
+          at = (radius: number, phase: number): SurfaceSample => {
+            const theta =
+                (phase - 0.5 * Math.sin(5 * radius + f.phase)) / p.blades,
+              out = empty();
+            sample(...f.point(radius, theta), out);
+            return out;
+          };
+        for (const radius of [0.45, 0.98]) {
+          const blade = at(radius, 0),
+            space = at(radius, Math.PI / 2);
+          expect(blade.height - space.height).toBeGreaterThan(0.15);
+          expect(blade.color - space.color).toBeGreaterThan(0.35);
+          expect(blade.occlusion - space.occlusion).toBeGreaterThan(0.23);
+        }
+        const innerShort = at(0.45, Math.PI),
+          innerSpace = at(0.45, Math.PI / 2),
+          outerShort = at(0.98, Math.PI),
+          outerSpace = at(0.98, Math.PI / 2);
+        expect(Math.abs(innerShort.height - innerSpace.height)).toBeLessThan(
+          0.006,
+        );
+        expect(outerShort.height - outerSpace.height).toBeGreaterThan(0.15);
+        const quiet = [-1, 0, 1].map((theta) => {
+          const out = empty();
+          sample(...f.point(0.1, theta), out);
+          return out.height;
+        });
+        expect(Math.max(...quiet) - Math.min(...quiet)).toBeLessThan(0.005);
+      }
+    }
+  });
+
+  it('morel chambers are negative dark bowls enclosed by a raised connected, elongated ridge network', () => {
+    const p = proceduralMaterialPresets.morel;
+    for (const seed of seeds) {
+      const sample = normalizedField('morel', seed);
+      let raised = 0;
+      for (let y = 0; y < p.rows; y++)
+        for (let x = 0; x < p.columns; x++) {
+          const a = chamber(x, y, seed).center,
+            b = chamber((x + 1) % p.columns, y, seed).center,
+            bowl = empty(),
+            ridge = empty();
+          if (x === p.columns - 1) b[0] += 1;
+          sample(...a, bowl);
+          let peak = -Infinity;
+          for (let i = 1; i < 32; i++) {
+            const out = empty(),
+              t = i / 32;
+            sample(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, out);
+            if (out.height > peak) {
+              peak = out.height;
+              Object.assign(ridge, out);
+            }
+          }
+          if (
+            ridge.height > bowl.height + 0.08 &&
+            ridge.color > bowl.color + 0.1 &&
+            ridge.occlusion > bowl.occlusion + 0.065
+          )
+            raised++;
+        }
+      expect(raised).toBeGreaterThan(p.columns * p.rows * 0.8);
+      // The same physical displacement crosses more ridges across the narrow
+      // chamber axis than along its elongated axis; no hexagon-cell assumption.
+      let across = 0,
+        along = 0;
+      const a = empty(),
+        b = empty(),
+        c = empty();
+      for (let y = 0; y < 32; y++)
+        for (let x = 0; x < 32; x++) {
+          sample(x / 32, y / 32, a);
+          sample(x / 32 + 0.04, y / 32, b);
+          sample(x / 32, y / 32 + 0.04, c);
+          across += Math.abs(a.height - b.height);
+          along += Math.abs(a.height - c.height);
+        }
+      expect(across).toBeGreaterThan(along * 1.2);
+    }
+  });
+
+  it('brackets have broad front-following pigment zones, thin relief and pale smooth margins', () => {
+    const p = proceduralMaterialPresets.bracketfungus;
+    for (const seed of seeds) {
+      const sample = normalizedField('bracketfungus', seed);
+      let visibleMargins = 0;
+      for (let cell = 0; cell < p.cells; cell++) {
+        const f = fan(cell, cell, seed, 'bracketfungus'),
+          colors: number[] = [],
+          heights: number[] = [];
+        let darkest = empty();
+        darkest.color = Infinity;
+        for (let i = 0; i <= 48; i++) {
+          const front = 0.4 + (0.65 * i) / 48,
+            out = empty();
+          sample(...f.point(frontRadius(front, 0, f.phase), 0), out);
+          colors.push(out.color);
+          heights.push(out.height);
+          if (out.color < darkest.color) darkest = out;
+        }
+        expect(Math.max(...colors) - Math.min(...colors)).toBeGreaterThan(0.3);
+        expect(Math.max(...heights) - Math.min(...heights)).toBeLessThan(0.08);
+        // Overlap may legitimately hide part of a pale margin.
+        for (let i = -8; i <= 8; i++) {
+          const theta = i / 20;
+          const margin = empty();
+          sample(...f.point(frontRadius(1.24, theta, f.phase), theta), margin);
+          if (margin.color <= 0.9) continue;
+          expect(margin.color - darkest.color).toBeGreaterThan(0.3);
+          expect(margin.roughness).toBeLessThan(darkest.roughness - 0.018);
+          expect(margin.occlusion).toBeGreaterThan(0.95);
+          visibleMargins++;
+        }
+      }
+      expect(visibleMargins).toBeGreaterThan(2);
+    }
+  });
+
+  it('opaque upper brackets hide lower front edges and their occlusion in actual overlaps', () => {
+    const p = proceduralMaterialPresets.bracketfungus;
+    for (const seed of seeds) {
+      const sample = normalizedField('bracketfungus', seed);
+      let overlaps = 0;
+      for (let y = 0; y < p.cells; y++)
+        for (let x = 0; x < p.cells - 1; x++) {
+          const lower = fan(x, y, seed, 'bracketfungus'),
+            upper = fan(x + 1, y, seed, 'bracketfungus');
+          for (let i = 0; i <= 32; i++) {
+            const theta = 0.6 + i / 64,
+              point = lower.point(frontRadius(1.32, theta, lower.phase), theta),
+              [a, b] = upper.local(...point),
+              radius = Math.hypot(a, b),
+              angle = Math.atan2(a, b),
+              front =
+                radius *
+                (1 +
+                  proceduralMaterialPresets.bracketfungus.lobe *
+                    Math.cos(5 * angle + upper.phase) +
+                  0.035 * Math.cos(9 * angle - upper.phase));
+            if (radius < 0.32 || b / radius < 0.5 || front > 1.15) continue;
+            const out = empty();
+            sample(...point, out);
+            expect(out.occlusion).toBeCloseTo(0.97, 12);
+            expect(out.height).toBeGreaterThan(0.4);
+            overlaps++;
+          }
+        }
+      expect(overlaps).toBeGreaterThan(0);
+    }
+  });
+
+  it.each(['mushroomgills', 'morel', 'bracketfungus'] as const)(
+    '%s has common limiting slopes at actual supports, attachments, angular cuts and owner changes',
+    (kind) => {
+      for (const seed of seeds) {
+        const sample = normalizedField(kind, seed),
+          points: [number, number][] = [
+            [0, 0],
+            [0, 0.417],
+            [0.391, 1],
+          ];
+        if (kind === 'morel') {
+          const p = proceduralMaterialPresets.morel;
+          const chambers = Array.from({ length: p.rows * p.columns }, (_, i) =>
+            chamber(i % p.columns, Math.floor(i / p.columns), seed),
+          );
+          const dominanceAt = (u: number, v: number): number => {
+            const column = Math.floor(u * p.columns),
+              row = Math.floor(v * p.rows);
+            let total = 0,
+              squared = 0;
+            for (let oy = -2; oy <= 2; oy++)
+              for (let ox = -2; ox <= 2; ox++) {
+                const cx = column + ox,
+                  cy = row + oy,
+                  wx = ((cx % p.columns) + p.columns) % p.columns,
+                  wy = ((cy % p.rows) + p.rows) % p.rows,
+                  weight = chambers[wy * p.columns + wx]!.weight(
+                    u - (cx - wx) / p.columns,
+                    v - (cy - wy) / p.rows,
+                  );
+                total += weight;
+                squared += weight * weight;
+              }
+            return squared / (total * total);
+          };
+          for (let y = 0; y < p.rows; y++)
+            for (let x = 0; x < p.columns; x++) {
+              const a = chamber(x, y, seed),
+                b = chamber((x + 1) % p.columns, y, seed),
+                end = [...b.center];
+              if (x === p.columns - 1) end[0] += 1;
+              const shift = x === p.columns - 1 ? 1 : 0;
+              let low = 0,
+                high = 1;
+              for (let i = 0; i < 48; i++) {
+                const t = (low + high) / 2,
+                  u = a.center[0] + (end[0] - a.center[0]) * t,
+                  v = a.center[1] + (end[1] - a.center[1]) * t;
+                if (a.weight(u, v) > b.weight(u - shift, v)) low = t;
+                else high = t;
+              }
+              const t = (low + high) / 2;
+              points.push(
+                a.center,
+                a.support(0),
+                a.support(1.1),
+                [x / p.columns, (y + 0.37) / p.rows],
+                [(x + 0.41) / p.columns, y / p.rows],
+                [
+                  a.center[0] + (end[0] - a.center[0]) * t,
+                  a.center[1] + (end[1] - a.center[1]) * t,
+                ],
+              );
+              // Locate both bowl shoulders, rather than hoping a generic grid
+              // happens to land on their derivative joins.
+              const pointAt = (t: number): [number, number] => [
+                a.center[0] + (end[0] - a.center[0]) * t,
+                a.center[1] + (end[1] - a.center[1]) * t,
+              ];
+              for (const threshold of [0.48, 0.96])
+                for (let segment = 0; segment < 32; segment++) {
+                  let lo = segment / 32,
+                    hi = (segment + 1) / 32;
+                  const before = dominanceAt(...pointAt(lo)) - threshold,
+                    after = dominanceAt(...pointAt(hi)) - threshold;
+                  if (before * after > 0) continue;
+                  for (let i = 0; i < 48; i++) {
+                    const mid = (lo + hi) / 2;
+                    if ((dominanceAt(...pointAt(mid)) - threshold) * before > 0)
+                      lo = mid;
+                    else hi = mid;
+                  }
+                  points.push(pointAt((lo + hi) / 2));
+                }
+            }
+        } else {
+          const p = proceduralMaterialPresets[kind];
+          for (let y = 0; y < p.cells; y++)
+            for (let x = 0; x < p.cells; x++) {
+              const f = fan(x, y, seed, kind);
+              points.push(
+                f.point(0, 0),
+                f.point(0.4, Math.PI),
+                [x / p.cells, (y + 0.41) / p.cells],
+                [(x + 0.37) / p.cells, y / p.cells],
+              );
+              for (const radius of [Math.sqrt(0.025), 0.3])
+                points.push(f.point(radius, 0));
+              for (const cosine of [0.2, 0.45])
+                points.push(f.point(0.8, Math.acos(cosine)));
+              if (kind === 'mushroomgills') {
+                const p = proceduralMaterialPresets.mushroomgills;
+                for (const radius of [p.shortStart, p.shortEnd, 1.22, 1.42])
+                  points.push(f.point(radius, 0));
+              } else {
+                const p = proceduralMaterialPresets.bracketfungus;
+                for (const theta of [-0.7, 0, 0.9])
+                  for (const front of [p.marginStart, p.marginEnd, 1.27, 1.35])
+                    points.push(
+                      f.point(frontRadius(front, theta, f.phase), theta),
+                    );
+              }
+            }
+        }
+        const center = empty(),
+          left = empty(),
+          right = empty(),
+          coarseLeft = empty(),
+          coarseRight = empty(),
+          widerLeft = empty(),
+          widerRight = empty();
+        for (const [u, v] of points) {
+          sample(u, v, center);
+          for (const [du, dv] of [
+            [1, 0],
+            [0, 1],
+            [0.6, 0.8],
+          ]) {
+            const step = 2e-7;
+            sample(u - step * du, v - step * dv, left);
+            sample(u + step * du, v + step * dv, right);
+            sample(u - 4 * step * du, v - 4 * step * dv, coarseLeft);
+            sample(u + 4 * step * du, v + 4 * step * dv, coarseRight);
+            sample(u - 8 * step * du, v - 8 * step * dv, widerLeft);
+            sample(u + 8 * step * du, v + 8 * step * dv, widerRight);
+            for (const key of Object.keys(center) as (keyof SurfaceSample)[]) {
+              const fine =
+                  Math.abs(left[key] + right[key] - 2 * center[key]) / step,
+                coarse =
+                  Math.abs(
+                    coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                  ) /
+                  (4 * step),
+                wider =
+                  Math.abs(widerLeft[key] + widerRight[key] - 2 * center[key]) /
+                  (8 * step);
+              // A nearby C1 noise join can cancel one coarse second difference.
+              // Two scales retain the convergence check without raising its tolerance.
+              expect(fine).toBeLessThanOrEqual(
+                0.4 * Math.max(coarse, wider) + 5e-8,
+              );
+            }
+          }
+        }
+      }
+    },
+  );
+});
 
 describe('animal skin morphology', () => {
   const hash = (x: number, y: number, seed: number): number => {

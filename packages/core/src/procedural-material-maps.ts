@@ -106,6 +106,56 @@ export function createSurfaceSampler(
   const municipal =
     kind === 'tactilepaving' || kind === 'roadmarking' || kind === 'draincover';
   const municipalGrain = municipal ? cachedNoise(96, 96, seed ^ 0x2a71) : null;
+  const fungal =
+    kind === 'mushroomgills' || kind === 'morel' || kind === 'bracketfungus';
+  const fungalGrain = fungal ? cachedNoise(80, 80, seed ^ 0x6d39) : null;
+  const fanPreset =
+    kind === 'mushroomgills'
+      ? proceduralMaterialPresets.mushroomgills
+      : proceduralMaterialPresets.bracketfungus;
+  // Fan centers lie in [.4,.6]^2. Including the displaced attachment,
+  // support fits radius .58*(.55+1.35/.91) < 1.18 cell units.
+  // An omitted 3x3 neighbor is >= 1.4 away on one axis, even for hash == 1.
+  const fungalFans =
+    kind === 'mushroomgills' || kind === 'bracketfungus'
+      ? new Float64Array(fanPreset.cells * fanPreset.cells * 7)
+      : null;
+  if (fungalFans)
+    for (let y = 0; y < fanPreset.cells; y++)
+      for (let x = 0; x < fanPreset.cells; x++) {
+        const offset = (y * fanPreset.cells + x) * 7,
+          angle = 0.5 * (hash(x, y, seed ^ 0x2d41) - 0.5);
+        fungalFans[offset] = 0.4 + 0.2 * hash(x, y, seed ^ 0x17c3);
+        fungalFans[offset + 1] = 0.4 + 0.2 * hash(x, y, seed ^ 0x59b7);
+        fungalFans[offset + 2] = Math.cos(angle) / fanPreset.scale;
+        fungalFans[offset + 3] = Math.sin(angle) / fanPreset.scale;
+        fungalFans[offset + 4] = TAU * hash(x, y, seed ^ 0x73a9);
+        fungalFans[offset + 5] = 0.5 + 0.1 * hash(x, y, seed ^ 0x3b51);
+        fungalFans[offset + 6] = 0.85 + 0.15 * hash(x, y, seed ^ 0x4f27);
+      }
+  const morelPreset = proceduralMaterialPresets.morel;
+  // The metric's minimum stretch is >= .85-.15 = .70, so support
+  // radius <= 1.6/.70 < 2.29. Omitted 5x5 centers are >= 2.32 away.
+  // The current cell's center is <= .68 per axis away; even the largest
+  // metric gives length < 1.20 < 1.6, hence the weight sum is never zero.
+  const morelChambers =
+    kind === 'morel'
+      ? new Float64Array(morelPreset.columns * morelPreset.rows * 5)
+      : null;
+  if (morelChambers)
+    for (let y = 0; y < morelPreset.rows; y++)
+      for (let x = 0; x < morelPreset.columns; x++) {
+        const offset = (y * morelPreset.columns + x) * 5,
+          stretch = 0.85 + 0.3 * hash(x, y, seed ^ 0x61d7);
+        morelChambers[offset] =
+          0.5 + morelPreset.jitter * (2 * hash(x, y, seed ^ 0x23b9) - 1);
+        morelChambers[offset + 1] =
+          0.5 + morelPreset.jitter * (2 * hash(x, y, seed ^ 0x47a1) - 1);
+        morelChambers[offset + 2] = stretch / morelPreset.support;
+        morelChambers[offset + 3] = 1 / (stretch * morelPreset.support);
+        morelChambers[offset + 4] =
+          (0.3 * (hash(x, y, seed ^ 0x75c3) - 0.5)) / morelPreset.support;
+      }
   const pavingTone =
     kind === 'tactilepaving'
       ? cachedNoise(
@@ -1142,7 +1192,8 @@ export function createSurfaceSampler(
       petal ||
       treeBark ||
       animalSkin ||
-      municipal
+      municipal ||
+      fungal
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -1169,6 +1220,146 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'morel': {
+        const p = morelPreset,
+          x = u * p.columns,
+          y = v * p.rows,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = fungalGrain!(u, v);
+        let total = 0,
+          squared = 0;
+        for (let oy = -2; oy <= 2; oy++)
+          for (let ox = -2; ox <= 2; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset =
+                (((cy + p.rows) % p.rows) * p.columns +
+                  ((cx + p.columns) % p.columns)) *
+                5,
+              dx = x - cx - morelChambers![offset],
+              dy = y - cy - morelChambers![offset + 1],
+              a =
+                dx * morelChambers![offset + 2] +
+                dy * morelChambers![offset + 4],
+              b = dy * morelChambers![offset + 3],
+              q = a * a + b * b;
+            if (q >= 1) continue;
+            const weight = (1 - q) ** p.weightPower;
+            total += weight;
+            squared += weight * weight;
+          }
+        // Smooth competition, not a nearest-feature min: equal owners and
+        // triple junctions retain common derivatives. Compact weights vanish
+        // to order 12 at their real supports; the denominator stays positive.
+        const dominance = squared / (total * total),
+          bowl = smooth(clamp((dominance - 0.48) / 0.48));
+        color = 0.8 - 0.6 * bowl + 0.025 * grain;
+        height = 0.64 - 0.48 * bowl + 0.006 * grain;
+        occlusion = 0.98 - 0.4 * bowl;
+        roughness += 0.035 * bowl + 0.012 * (grain - 0.5);
+        break;
+      }
+      case 'mushroomgills':
+      case 'bracketfungus': {
+        const x = u * fanPreset.cells,
+          y = v * fanPreset.cells,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = fungalGrain!(u, v);
+        color = 0.3 + 0.025 * grain;
+        height = 0.13 + 0.004 * grain;
+        occlusion = 0.66;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset =
+                (((cy + fanPreset.cells) % fanPreset.cells) * fanPreset.cells +
+                  ((cx + fanPreset.cells) % fanPreset.cells)) *
+                7,
+              dx = x - cx - fungalFans![offset],
+              dy = y - cy - fungalFans![offset + 1],
+              cosine = fungalFans![offset + 2],
+              sine = fungalFans![offset + 3],
+              a = dx * cosine + dy * sine,
+              b = dy * cosine - dx * sine + 0.55,
+              q = a * a + b * b;
+            if (q <= 0.025 || q >= 2.21 || b <= 0 || b * b <= 0.04 * q)
+              continue;
+            const radius = Math.sqrt(q),
+              angle = Math.atan2(a, b),
+              p = fungalFans![offset + 4],
+              attachment = smooth(clamp((q - 0.025) / 0.065)),
+              fan = smooth(clamp((b / radius - 0.2) / 0.25));
+            let coverage: number,
+              relief: number,
+              pigment: number,
+              exposure: number,
+              finish: number;
+            if (kind === 'mushroomgills') {
+              const g = proceduralMaterialPresets.mushroomgills,
+                wave =
+                  0.5 +
+                  0.5 *
+                    Math.cos(g.blades * angle + 0.5 * Math.sin(5 * radius + p)),
+                long = wave ** g.bladePower,
+                short =
+                  (1 - wave) ** g.bladePower *
+                  smooth(
+                    clamp(
+                      (radius - g.shortStart) / (g.shortEnd - g.shortStart),
+                    ),
+                  ),
+                blades = (long + short) * fungalFans![offset + 6],
+                rim = 1 - smooth(clamp((radius - 1.22) / 0.2));
+              coverage = attachment * fan * rim;
+              relief = 0.2 + 0.22 * blades + 0.005 * grain;
+              pigment = 0.25 + 0.51 * blades + 0.08 * fungalFans![offset + 5];
+              exposure = 0.63 + 0.33 * blades;
+              finish =
+                preset.roughness - 0.035 * blades + 0.012 * (grain - 0.5);
+            } else {
+              const f = proceduralMaterialPresets.bracketfungus,
+                front =
+                  radius *
+                  (1 +
+                    f.lobe * Math.cos(5 * angle + p) +
+                    0.035 * Math.cos(9 * angle - p));
+              if (front >= 1.35) continue;
+              const edge = 1 - smooth(clamp((front - 1.27) / 0.08)),
+                margin = smooth(
+                  clamp(
+                    (front - f.marginStart) / (f.marginEnd - f.marginStart),
+                  ),
+                ),
+                zones =
+                  0.5 +
+                  0.5 *
+                    Math.cos(
+                      TAU * f.zones * front + p + 0.2 * Math.sin(3 * angle),
+                    ),
+                tone = fungalFans![offset + 5],
+                velvet = (grain - 0.5) * fungalFans![offset + 6];
+              coverage = attachment * fan * edge;
+              relief = 0.47 - 0.045 * front + 0.009 * velvet;
+              pigment =
+                (0.22 + 0.48 * zones + 0.12 * tone) * (1 - margin) +
+                0.94 * margin +
+                0.018 * velvet;
+              exposure = 0.97;
+              finish = preset.roughness + 0.025 * velvet - 0.045 * margin;
+            }
+            // An opaque face replaces every lower channel, including the
+            // previous rim's shadow. Stable unwrapped row order only changes
+            // when a zero-support neighbor enters/leaves the lookup.
+            color += coverage * (pigment - color);
+            height += coverage * (relief - height);
+            occlusion += coverage * (exposure - occlusion);
+            roughness += coverage * (finish - roughness);
+          }
+        break;
+      }
       case 'tactilepaving': {
         const p = proceduralMaterialPresets.tactilepaving,
           grain = municipalGrain!(u, v),
