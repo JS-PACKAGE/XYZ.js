@@ -114,6 +114,8 @@ export declare class PhysicsWorld3D {
     private readonly relative;
     /** Body A then body B point velocity for `solve`. */
     private readonly contactVelocities;
+    private readonly solveImpulse;
+    private readonly solveTorque;
     private readonly ccdDisplacement;
     private readonly torque;
     private readonly forces;
@@ -176,7 +178,11 @@ export declare class PhysicsWorld3D {
     private prepareMasses;
     /** Body velocity at `point` (zero without an owner), as `velocityAt` computes it, in scalars. */
     private velocityInto;
-    /** Applies `impulse` (scalars, signed by `sign`) at `point` to a dynamic awake body. */
+    /**
+     * Applies `solveImpulse` (signed by `sign`) at `point` to a dynamic awake body. The
+     * impulse and torque travel in vectors: doubles passed to calls V8 does not inline are
+     * boxed, which allocated per impulse.
+     */
     private applyImpulse;
     private solve;
     private refreshIndex;

@@ -154,30 +154,30 @@ var RigidBody3D = class {
 		} else this.inverseDiagonal.set(0, 0, 0);
 	}
 	inverseInertia(e, t) {
-		return this.inverseInertiaInto(e.x, e.y, e.z, t, !1), t;
+		return this.inverseInertiaInto(e, t, !1), t;
 	}
-	addInverseInertia(e, t, n, r = -1) {
-		this.inverseInertiaInto(e, t, n, this.angularVelocity, !0, r);
+	addInverseInertia(e, t = -1) {
+		this.inverseInertiaInto(e, this.angularVelocity, !0, t);
 	}
-	inverseInertiaInto(e, t, n, r, i, a = -1) {
-		let o = this.inertiaInputs;
-		if (a < 0 || this.inertiaPhase !== a) {
-			if (this.inertiaPhase = a, this.type !== `dynamic` || this.lockRotation || !this.shape) this.inertiaMode = 0;
-			else if (this.shape.collider.kind === `compound`) this.inertiaMode = 1, o.set(this.inverseTensor);
+	inverseInertiaInto(e, t, n, r = -1) {
+		let i = e.x, a = e.y, o = e.z, s = this.inertiaInputs;
+		if (r < 0 || this.inertiaPhase !== r) {
+			if (this.inertiaPhase = r, this.type !== `dynamic` || this.lockRotation || !this.shape) this.inertiaMode = 0;
+			else if (this.shape.collider.kind === `compound`) this.inertiaMode = 1, s.set(this.inverseTensor);
 			else {
 				this.inertiaMode = 2;
 				let e = this.shape.axes, t = this.inverseDiagonal;
-				for (let t = 0; t < 3; t++) o[t * 3] = e[t].x, o[t * 3 + 1] = e[t].y, o[t * 3 + 2] = e[t].z;
-				o[9] = t.x, o[10] = t.y, o[11] = t.z;
+				for (let t = 0; t < 3; t++) s[t * 3] = e[t].x, s[t * 3 + 1] = e[t].y, s[t * 3 + 2] = e[t].z;
+				s[9] = t.x, s[10] = t.y, s[11] = t.z;
 			}
 		}
-		let s = 0, c = 0, l = 0;
-		if (this.inertiaMode === 1) s = o[0] * e + o[3] * t + o[4] * n, c = o[3] * e + o[1] * t + o[5] * n, l = o[4] * e + o[5] * t + o[2] * n;
+		let c = 0, l = 0, u = 0;
+		if (this.inertiaMode === 1) c = s[0] * i + s[3] * a + s[4] * o, l = s[3] * i + s[1] * a + s[5] * o, u = s[4] * i + s[5] * a + s[2] * o;
 		else if (this.inertiaMode === 2) {
-			let r = (o[0] * e + o[1] * t + o[2] * n) * o[9], i = (o[3] * e + o[4] * t + o[5] * n) * o[10], a = (o[6] * e + o[7] * t + o[8] * n) * o[11];
-			s = o[0] * r + o[3] * i + o[6] * a, c = o[1] * r + o[4] * i + o[7] * a, l = o[2] * r + o[5] * i + o[8] * a;
+			let e = (s[0] * i + s[1] * a + s[2] * o) * s[9], t = (s[3] * i + s[4] * a + s[5] * o) * s[10], n = (s[6] * i + s[7] * a + s[8] * o) * s[11];
+			c = s[0] * e + s[3] * t + s[6] * n, l = s[1] * e + s[4] * t + s[7] * n, u = s[2] * e + s[5] * t + s[8] * n;
 		}
-		i ? (r.x += s, r.y += c, r.z += l) : (r.x = s, r.y = c, r.z = l);
+		n ? (t.x += c, t.y += l, t.z += u) : (t.x = c, t.y = l, t.z = u);
 	}
 	applyForce(e, t) {
 		if (require_collider.vector3D(e, `force`), t && require_collider.vector3D(t, `worldPoint`), this.type === `dynamic`) {

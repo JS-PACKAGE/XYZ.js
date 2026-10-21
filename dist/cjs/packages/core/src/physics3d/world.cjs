@@ -107,6 +107,8 @@ var PhysicsWorld3D = class {
 	inertiaB = new require_math3d.Vector3();
 	relative = new require_math3d.Vector3();
 	contactVelocities = /* @__PURE__ */ new Float64Array(6);
+	solveImpulse = new require_math3d.Vector3();
+	solveTorque = new require_math3d.Vector3();
 	ccdDisplacement = new require_math3d.Vector3();
 	torque = new require_math3d.Vector3();
 	forces = /* @__PURE__ */ new WeakMap();
@@ -535,11 +537,12 @@ var PhysicsWorld3D = class {
 		let i = e.owner.position, a = e.angularVelocity, o = t.x - i.x, s = t.y - i.y, c = t.z - i.z;
 		n[r] = e.velocity.x + a.y * c - a.z * s, n[r + 1] = e.velocity.y + a.z * o - a.x * c, n[r + 2] = e.velocity.z + a.x * s - a.y * o;
 	}
-	applyImpulse(e, t, n, r, i, a) {
+	applyImpulse(e, t, n) {
 		if (!e?.owner || e.type !== `dynamic` || e.isSleeping) return;
-		e.velocity.x += n * e.inverseMass * a, e.velocity.y += r * e.inverseMass * a, e.velocity.z += i * e.inverseMass * a;
-		let o = e.owner.position, s = t.x - o.x, c = t.y - o.y, l = t.z - o.z;
-		e.addInverseInertia((c * i - l * r) * a, (l * n - s * i) * a, (s * r - c * n) * a, this.solvePhase);
+		let r = this.solveImpulse, i = r.x, a = r.y, o = r.z;
+		e.velocity.x += i * e.inverseMass * n, e.velocity.y += a * e.inverseMass * n, e.velocity.z += o * e.inverseMass * n;
+		let s = e.owner.position, c = t.x - s.x, l = t.y - s.y, u = t.z - s.z;
+		e.addInverseInertia(this.solveTorque.set((l * o - u * a) * n, (u * i - c * o) * n, (c * a - l * i) * n), this.solvePhase);
 	}
 	solve(e, t) {
 		e.massEpoch !== this.massEpoch && this.prepareMasses(e);
@@ -548,14 +551,12 @@ var PhysicsWorld3D = class {
 		let c = s[0] - s[3], l = s[1] - s[4], u = s[2] - s[5], d = e.normalMass[t];
 		if (d < 1e-12) return;
 		let f = e.normalImpulses[t], p = Math.max(0, f + (e.targets[t] - (c * o.x + l * o.y + u * o.z)) / d);
-		e.normalImpulses[t] = p;
-		let m = o.x * (p - f), h = o.y * (p - f), g = o.z * (p - f);
-		this.applyImpulse(n, a, m, h, g, 1), this.applyImpulse(r, a, m, h, g, -1);
-		let _ = e.tangent[t], v = e.tangentMass[t];
-		if (Number.isNaN(v)) return;
+		e.normalImpulses[t] = p, this.solveImpulse.set(o.x * (p - f), o.y * (p - f), o.z * (p - f)), this.applyImpulse(n, a, 1), this.applyImpulse(r, a, -1);
+		let m = e.tangent[t], h = e.tangentMass[t];
+		if (Number.isNaN(h)) return;
 		this.velocityInto(n, a, s, 0), this.velocityInto(r, a, s, 3), c = s[0] - s[3], l = s[1] - s[4], u = s[2] - s[5];
-		let y = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * p, b = e.tangentImpulses[t], x = Math.max(-y, Math.min(y, b - (c * _.x + l * _.y + u * _.z) / v));
-		e.tangentImpulses[t] = x, m = _.x * (x - b), h = _.y * (x - b), g = _.z * (x - b), this.applyImpulse(n, a, m, h, g, 1), this.applyImpulse(r, a, m, h, g, -1);
+		let g = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * p, _ = e.tangentImpulses[t], v = Math.max(-g, Math.min(g, _ - (c * m.x + l * m.y + u * m.z) / h));
+		e.tangentImpulses[t] = v, this.solveImpulse.set(m.x * (v - _), m.y * (v - _), m.z * (v - _)), this.applyImpulse(n, a, 1), this.applyImpulse(r, a, -1);
 	}
 	refreshIndex() {
 		let e = this.poseSnapshot && !this.indexDirty;

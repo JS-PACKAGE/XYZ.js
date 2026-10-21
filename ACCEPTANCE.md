@@ -2735,3 +2735,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Physics3D]` 接觸求解的衝量與轉換後 torque 改以 world 持有的 Vector3 傳給 `applyImpulse`／`addInverseInertia`（`addInverseInertia(torque, phase)`），不再以三個 double 參數跨過未 inline 的呼叫（每次衝量都會 box 成 HeapNumber）。1000 body 堆疊 Node bench 配置 14.4 → 6.1 MiB/step、7.6 → 7.2 ms/step，phys3d／cc3d／cc3dfuzz（seed 1–3）／ccbits／bake 40×40 hash 皆不變。

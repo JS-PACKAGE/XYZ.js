@@ -84,7 +84,7 @@ export declare class RigidBody3D {
      * Contact iterations pass their solve `phase`, within which pose, mass and shape are
      * fixed, so the inputs are copied once per phase instead of read on every impulse.
      */
-    addInverseInertia(x: number, y: number, z: number, phase?: number): void;
+    addInverseInertia(torque: Readonly<Vector3>, phase?: number): void;
     private inverseInertiaInto;
     applyForce(force: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void;
     applyImpulse(impulse: Readonly<Vector3>, worldPoint?: Readonly<Vector3>): void;

@@ -216,6 +216,8 @@ export class PhysicsWorld3D {
   private readonly relative = new Vector3();
   /** Body A then body B point velocity for `solve`. */
   private readonly contactVelocities = new Float64Array(6);
+  private readonly solveImpulse = new Vector3();
+  private readonly solveTorque = new Vector3();
   private readonly ccdDisplacement = new Vector3();
   private readonly torque = new Vector3();
   private readonly forces = new WeakMap<RigidBody3D, PhysicsForceAccumulator>();
@@ -1172,16 +1174,21 @@ export class PhysicsWorld3D {
     out[at + 1] = body.velocity.y + w.z * x - w.x * z;
     out[at + 2] = body.velocity.z + w.x * y - w.y * x;
   }
-  /** Applies `impulse` (scalars, signed by `sign`) at `point` to a dynamic awake body. */
+  /**
+   * Applies `solveImpulse` (signed by `sign`) at `point` to a dynamic awake body. The
+   * impulse and torque travel in vectors: doubles passed to calls V8 does not inline are
+   * boxed, which allocated per impulse.
+   */
   private applyImpulse(
     body: RigidBody3D | undefined,
     point: Readonly<Vector3>,
-    ix: number,
-    iy: number,
-    iz: number,
     sign: number,
   ): void {
     if (!body?.owner || body.type !== 'dynamic' || body.isSleeping) return;
+    const impulse = this.solveImpulse,
+      ix = impulse.x,
+      iy = impulse.y,
+      iz = impulse.z;
     body.velocity.x += ix * body.inverseMass * sign;
     body.velocity.y += iy * body.inverseMass * sign;
     body.velocity.z += iz * body.inverseMass * sign;
@@ -1190,9 +1197,11 @@ export class PhysicsWorld3D {
       y = point.y - p.y,
       z = point.z - p.z;
     body.addInverseInertia(
-      (y * iz - z * iy) * sign,
-      (z * ix - x * iz) * sign,
-      (x * iy - y * ix) * sign,
+      this.solveTorque.set(
+        (y * iz - z * iy) * sign,
+        (z * ix - x * iz) * sign,
+        (x * iy - y * ix) * sign,
+      ),
       this.solvePhase,
     );
   }
@@ -1218,11 +1227,13 @@ export class PhysicsWorld3D {
         previous + (c.targets[k] - (rx * n.x + ry * n.y + rz * n.z)) / den,
       );
     c.normalImpulses[k] = next;
-    let ix = n.x * (next - previous),
-      iy = n.y * (next - previous),
-      iz = n.z * (next - previous);
-    this.applyImpulse(a, p, ix, iy, iz, 1);
-    this.applyImpulse(b, p, ix, iy, iz, -1);
+    this.solveImpulse.set(
+      n.x * (next - previous),
+      n.y * (next - previous),
+      n.z * (next - previous),
+    );
+    this.applyImpulse(a, p, 1);
+    this.applyImpulse(b, p, -1);
     const t = c.tangent[k],
       td = c.tangentMass[k]!;
     if (Number.isNaN(td)) return;
@@ -1239,11 +1250,13 @@ export class PhysicsWorld3D {
         Math.min(limit, old - (rx * t.x + ry * t.y + rz * t.z) / td),
       );
     c.tangentImpulses[k] = value;
-    ix = t.x * (value - old);
-    iy = t.y * (value - old);
-    iz = t.z * (value - old);
-    this.applyImpulse(a, p, ix, iy, iz, 1);
-    this.applyImpulse(b, p, ix, iy, iz, -1);
+    this.solveImpulse.set(
+      t.x * (value - old),
+      t.y * (value - old),
+      t.z * (value - old),
+    );
+    this.applyImpulse(a, p, 1);
+    this.applyImpulse(b, p, -1);
   }
   private refreshIndex(): void {
     const snapshot = this.poseSnapshot && !this.indexDirty;

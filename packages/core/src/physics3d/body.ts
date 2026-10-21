@@ -308,7 +308,7 @@ export class RigidBody3D {
   }
   /** @internal World-space inverse inertia tensor product. */
   inverseInertia(vector: Readonly<Vector3>, out: Vector3): Vector3 {
-    this.inverseInertiaInto(vector.x, vector.y, vector.z, out, false);
+    this.inverseInertiaInto(vector, out, false);
     return out;
   }
   /**
@@ -316,17 +316,20 @@ export class RigidBody3D {
    * Contact iterations pass their solve `phase`, within which pose, mass and shape are
    * fixed, so the inputs are copied once per phase instead of read on every impulse.
    */
-  addInverseInertia(x: number, y: number, z: number, phase = -1): void {
-    this.inverseInertiaInto(x, y, z, this.angularVelocity, true, phase);
+  addInverseInertia(torque: Readonly<Vector3>, phase = -1): void {
+    this.inverseInertiaInto(torque, this.angularVelocity, true, phase);
   }
+  // Vectors, not scalar arguments: a double passed to a call V8 does not inline is boxed,
+  // and the solver makes this call for every impulse.
   private inverseInertiaInto(
-    x: number,
-    y: number,
-    z: number,
+    vector: Readonly<Vector3>,
     out: Vector3,
     accumulate: boolean,
     phase = -1,
   ): void {
+    const x = vector.x,
+      y = vector.y,
+      z = vector.z;
     const k = this.inertiaInputs;
     if (phase < 0 || this.inertiaPhase !== phase) {
       this.inertiaPhase = phase;
