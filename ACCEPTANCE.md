@@ -3888,3 +3888,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   與既有連結不變，無新 runtime 依賴，不擴大瀏覽器／裝置認證。
   提交只收本組隔離驗證內容；共享目錄其他未提交材質保留不混入，
   不將本輪完整檢查宣稱適用於未提交功能。本組不 push。
+- `[Rendering2D]` `Sprite.getLocalBounds` 只讀一次 `width`／`height`（每個 getter 都要依序檢查 view、region 與 texture），原本讀兩次；值相同。20k sprites WebGL2 每幀 CPU submit p50 5.9–6.0 → 5.7–5.9 ms（三輪交替，約 2%，CPU 時間，不是 fps）。build 與完整測試（2183 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

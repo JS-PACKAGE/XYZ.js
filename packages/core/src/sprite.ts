@@ -234,10 +234,13 @@ export class Sprite extends GameObject {
   override getLocalBounds(
     out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
   ): Rect2D {
-    out.x = -this.anchor.x * this.width;
-    out.y = -this.anchor.y * this.height;
-    out.width = this.width;
-    out.height = this.height;
+    // Each size getter walks view, region and texture; read them once.
+    const width = this.width,
+      height = this.height;
+    out.x = -this.anchor.x * width;
+    out.y = -this.anchor.y * height;
+    out.width = width;
+    out.height = height;
     return out;
   }
   override destroy(): void {

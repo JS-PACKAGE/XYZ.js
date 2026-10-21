@@ -105,7 +105,8 @@ var Sprite = class extends require_game_object.GameObject {
 		width: 0,
 		height: 0
 	}) {
-		return e.x = -this.anchor.x * this.width, e.y = -this.anchor.y * this.height, e.width = this.width, e.height = this.height, e;
+		let t = this.width, n = this.height;
+		return e.x = -this.anchor.x * t, e.y = -this.anchor.y * n, e.width = t, e.height = n, e;
 	}
 	destroy() {
 		this.destroyed || (this.currentAnimation?.pause(), this.currentAnimation = void 0, super.destroy());
