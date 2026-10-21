@@ -82,6 +82,9 @@ const kinds: ProceduralMaterialKind[] = [
   'tiretread',
   'honeycomb',
   'frost',
+  'stainedglass',
+  'soapstone',
+  'butcherblock',
   'sandstone',
   'travertine',
   'pumice',
@@ -2061,6 +2064,9 @@ describe('periodic procedural material fields', () => {
     ['tiretread', [2, 3, 4, 6, 8, 32]],
     ['honeycomb', [5, 10, 32, 48]],
     ['frost', [3, 24, 32]],
+    ['stainedglass', [5, 32]],
+    ['soapstone', [2, 3, 6, 12, 32, 48]],
+    ['butcherblock', [4, 32, 96]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -2238,6 +2244,8 @@ describe('periodic procedural material fields', () => {
     ['tiretread', 4],
     ['honeycomb', 5],
     ['honeycomb', 4],
+    ['stainedglass', 5],
+    ['butcherblock', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -4601,6 +4609,139 @@ describe('periodic procedural material fields', () => {
         rim = Math.max(rim, probe.height);
       }
       expect(rim).toBeGreaterThan(mid.height + 0.1 * relief);
+    }
+  });
+
+  it('stained glass lifts lead came between differently toned panes', () => {
+    const relief = proceduralMaterialPresets.stainedglass.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const pane = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('stainedglass', seed);
+      const tones = new Set<number>();
+      for (const [column, row] of [
+        [0, 0],
+        [2, 3],
+        [4, 1],
+      ]) {
+        // A fine scan finds the pane interior and its surrounding came.
+        let high = 0,
+          highX = 0,
+          highY = 0,
+          low = 1;
+        for (let j = 0; j < 16; j++)
+          for (let i = 0; i < 16; i++) {
+            const u = (column + (i + 0.5) / 16) / 5,
+              v = (row + (j + 0.5) / 16) / 5;
+            sample(u, v, probe);
+            if (probe.height > high) {
+              high = probe.height;
+              highX = u;
+              highY = v;
+            }
+            low = Math.min(low, probe.height);
+          }
+        expect(high).toBeGreaterThan(low + 0.1 * relief);
+        sample((column + 0.5) / 5, (row + 0.5) / 5, pane);
+        // Came rises over the pane it surrounds and shadows it slightly.
+        expect(high).toBeGreaterThan(pane.height);
+        sample(highX, highY, probe);
+        expect(probe.occlusion).toBeLessThan(pane.occlusion);
+        tones.add(pane.color);
+      }
+      // Adjacent panes carry different pigment tones.
+      expect(tones.size).toBeGreaterThan(1);
+    }
+  });
+
+  it('soapstone sweeps pale veining above its dark talc ground', () => {
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const along = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('soapstone', seed);
+      let light = 0,
+        lightX = 0,
+        lightY = 0,
+        dark = 1,
+        darkX = 0,
+        darkY = 0;
+      for (let j = 0; j < 24; j++)
+        for (let i = 0; i < 24; i++) {
+          const u = (i + 0.5) / 24,
+            v = (j + 0.5) / 24;
+          sample(u, v, probe);
+          if (probe.color > light) {
+            light = probe.color;
+            lightX = u;
+            lightY = v;
+          }
+          if (probe.color < dark) {
+            dark = probe.color;
+            darkX = u;
+            darkY = v;
+          }
+        }
+      // Veins sit brighter, slightly higher and less occluded than ground.
+      expect(light - dark).toBeGreaterThan(0.15);
+      sample(lightX, lightY, probe);
+      const veinHeight = probe.height,
+        veinOcclusion = probe.occlusion;
+      sample(darkX, darkY, probe);
+      expect(veinHeight).toBeGreaterThan(probe.height);
+      expect(veinOcclusion).toBeGreaterThan(probe.occlusion);
+      // Talc streaking varies the polish along the surface.
+      let low = 1,
+        high = 0;
+      for (let i = 0; i < 16; i++) {
+        sample(i / 16, 0.5, along);
+        low = Math.min(low, along.roughness);
+        high = Math.max(high, along.roughness);
+      }
+      expect(high - low).toBeGreaterThan(0.02);
+    }
+  });
+
+  it('butcher block alternates checker tones above recessed joints', () => {
+    const relief = proceduralMaterialPresets.butcherblock.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const neighbor = { ...probe },
+      joint = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('butcherblock', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 1],
+        [3, 3],
+      ]) {
+        sample((column + 0.5) / 4, (row + 0.5) / 4, probe);
+        sample((column + 1.5) / 4, (row + 0.5) / 4, neighbor);
+        // Adjacent checker blocks alternate light and dark end grain.
+        expect(Math.abs(probe.color - neighbor.color)).toBeGreaterThan(0.1);
+        sample((column + 1) / 4, (row + 0.5) / 4, joint);
+        expect(probe.height).toBeGreaterThan(joint.height + 0.1 * relief);
+        expect(probe.occlusion).toBeGreaterThan(joint.occlusion);
+      }
     }
   });
 

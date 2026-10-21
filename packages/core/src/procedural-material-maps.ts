@@ -3583,6 +3583,88 @@ export function createSurfaceSampler(
         occlusion = 0.6 + 0.36 * crystal;
         break;
       }
+      case 'stainedglass': {
+        const cells = 5;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Jittered bisectors cut irregular panes; squared C1 shoulders keep
+        // every came junction differentiable and energy marks the came.
+        let pane = 0,
+          energy = 0,
+          tone = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const px = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x3d17),
+              py = 0.2 + 0.6 * hash(wx, wy, seed ^ 0x74ab);
+            let shoulder = 1;
+            for (let ny = -1; ny <= 1; ny++)
+              for (let nx = -1; nx <= 1; nx++) {
+                if (!nx && !ny) continue;
+                const ax = (((cx + nx) % cells) + cells) % cells,
+                  ay = (((cy + ny) % cells) + cells) % cells;
+                const rx = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x3d17),
+                  ry = 0.2 + 0.6 * hash(ax, ay, seed ^ 0x74ab);
+                const dx = nx + rx - px,
+                  dy = ny + ry - py;
+                const distance = Math.sqrt(dx * dx + dy * dy);
+                const across =
+                  ((x - cx - px) * dx + (y - cy - py) * dy) / distance;
+                shoulder *= smooth(clamp((distance / 2 - across) / 0.035));
+              }
+            const weight = (1 - pane) * shoulder;
+            pane += weight;
+            energy += weight * weight;
+            tone += weight * hash(wx, wy, seed ^ 0x5e33);
+          }
+        const lead = clamp((1 - energy) * 1.4);
+        color = (0.22 + 0.58 * tone) * (1 - 0.45 * lead) + 0.12 * detail;
+        height = 0.36 + 0.14 * (1 - lead) + 0.32 * lead + 0.03 * detail;
+        roughness += 0.06 * lead + 0.03 * (detail - 0.5);
+        occlusion = 0.86 - 0.2 * lead;
+        break;
+      }
+      case 'soapstone': {
+        // Soft pale veining sweeps over the dark talc ground in wide
+        // cloudy bands with fine talc streaking along the polish.
+        const smear = noise(u, v, 6, 2, seed ^ 0x2c91);
+        const vein = smooth(
+          clamp((noise(u, v, 3, 3, seed ^ 0x4c19) - 0.52) / 0.1),
+        );
+        const talc = noise(u, v, 48, 12, seed ^ 0x61af);
+        color = 0.16 + 0.52 * vein + 0.16 * smear + 0.12 * talc;
+        height = 0.45 + 0.06 * vein + 0.05 * smear + 0.04 * talc;
+        roughness += 0.1 * (1 - vein) + 0.03 * (talc - 0.5);
+        occlusion = 0.9 + 0.08 * vein;
+        break;
+      }
+      case 'butcherblock': {
+        const cells = 4;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // End-grain blocks alternate tones in a checker while joints sink
+        // between them and fine pores ring each block face.
+        const seamX = 0.5 - Math.abs(fract(x) - 0.5),
+          seamY = 0.5 - Math.abs(fract(y) - 0.5);
+        const seam = smooth(clamp((0.06 - Math.min(seamX, seamY)) / 0.04));
+        // Checker tones fade into the shared joint so ownership never jumps.
+        const checker = (((ix + iy) % 2) + 2) % 2;
+        const block = (checker ? 0.5 : -0.5) * (1 - seam);
+        const grain = noise(u, v, 40, 40, seed ^ 0x37c1);
+        const pore = noise(u, v, 96, 96, seed ^ 0x5ad3);
+        color = 0.46 + 0.34 * block + 0.14 * grain + 0.1 * pore - 0.12 * seam;
+        height = 0.7 - 0.42 * seam + 0.06 * grain + 0.04 * pore;
+        roughness += 0.05 * (grain - 0.5) + 0.06 * seam;
+        occlusion = 1 - 0.5 * seam;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

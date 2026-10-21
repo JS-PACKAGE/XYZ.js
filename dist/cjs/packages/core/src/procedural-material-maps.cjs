@@ -1050,6 +1050,32 @@ function createSurfaceSampler(t, r) {
 				V = .42 + .42 * f + .12 * A, W = .28 + .58 * f + .04 * A, Z += .12 * (1 - f) + .03 * (A - .5), Q = .6 + .36 * f;
 				break;
 			}
+			case `stainedglass`: {
+				let t = e * 5, n = o * 5, i = Math.floor(t), a = Math.floor(n), s = 0, c = 0, l = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let u = i + o, d = a + e, f = (u % 5 + 5) % 5, p = (d % 5 + 5) % 5, m = .2 + .6 * hash(f, p, r ^ 15639), h = .2 + .6 * hash(f, p, r ^ 29867), g = 1;
+					for (let e = -1; e <= 1; e++) for (let i = -1; i <= 1; i++) {
+						if (!i && !e) continue;
+						let a = ((u + i) % 5 + 5) % 5, o = ((d + e) % 5 + 5) % 5, s = .2 + .6 * hash(a, o, r ^ 15639), c = .2 + .6 * hash(a, o, r ^ 29867), l = i + s - m, f = e + c - h, p = Math.sqrt(l * l + f * f), _ = ((t - u - m) * l + (n - d - h) * f) / p;
+						g *= smooth(clamp((p / 2 - _) / .035));
+					}
+					let _ = (1 - s) * g;
+					s += _, c += _ * _, l += _ * hash(f, p, r ^ 24115);
+				}
+				let u = clamp((1 - c) * 1.4);
+				V = (.22 + .58 * l) * (1 - .45 * u) + .12 * A, W = .36 + .14 * (1 - u) + .32 * u + .03 * A, Z += .06 * u + .03 * (A - .5), Q = .86 - .2 * u;
+				break;
+			}
+			case `soapstone`: {
+				let t = noise(e, o, 6, 2, r ^ 11409), n = smooth(clamp((noise(e, o, 3, 3, r ^ 19481) - .52) / .1)), i = noise(e, o, 48, 12, r ^ 25007);
+				V = .16 + .52 * n + .16 * t + .12 * i, W = .45 + .06 * n + .05 * t + .04 * i, Z += .1 * (1 - n) + .03 * (i - .5), Q = .9 + .08 * n;
+				break;
+			}
+			case `butcherblock`: {
+				let t = e * 4, n = o * 4, i = Math.floor(t), a = Math.floor(n), s = .5 - Math.abs(fract(t) - .5), c = .5 - Math.abs(fract(n) - .5), l = smooth(clamp((.06 - Math.min(s, c)) / .04)), u = (((i + a) % 2 + 2) % 2 ? .5 : -.5) * (1 - l), d = noise(e, o, 40, 40, r ^ 14273), f = noise(e, o, 96, 96, r ^ 23251);
+				V = .46 + .34 * u + .14 * d + .1 * f - .12 * l, W = .7 - .42 * l + .06 * d + .04 * f, Z += .05 * (d - .5) + .06 * l, Q = 1 - .5 * l;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((B - .28) / .48)), d = (1 - B) ** 5;
 				V = .22 + .35 * s + .2 * l + .18 * u - .2 * c, W = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Z += .12 * (u - .5) + .05 * c, Q = .97 - .12 * c - .13 * d + .025 * u;

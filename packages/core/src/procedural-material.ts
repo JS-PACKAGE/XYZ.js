@@ -64,6 +64,9 @@ export type ProceduralMaterialKind =
   | 'tiretread'
   | 'honeycomb'
   | 'frost'
+  | 'stainedglass'
+  | 'soapstone'
+  | 'butcherblock'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -240,6 +243,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'tiretread',
   'honeycomb',
   'frost',
+  'stainedglass',
+  'soapstone',
+  'butcherblock',
   'sandstone',
   'travertine',
   'pumice',
