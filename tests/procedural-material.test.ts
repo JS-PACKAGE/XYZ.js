@@ -115,6 +115,9 @@ const kinds: ProceduralMaterialKind[] = [
   'lensarray',
   'prismtape',
   'fresnel',
+  'bandage',
+  'pillblister',
+  'sutures',
   'sandstone',
   'travertine',
   'pumice',
@@ -4833,6 +4836,9 @@ describe('periodic procedural material fields', () => {
     ['lensarray', [16, 32, 48, 64]],
     ['prismtape', [8, 32, 48, 64]],
     ['fresnel', [10, 32, 48, 64]],
+    ['bandage', [24, 32, 48, 64]],
+    ['pillblister', [3, 32, 48, 64]],
+    ['sutures', [10, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5049,6 +5055,9 @@ describe('periodic procedural material fields', () => {
     ['lensarray', 16],
     ['prismtape', 8],
     ['fresnel', 10],
+    ['bandage', 24],
+    ['pillblister', 3],
+    ['sutures', 10],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8601,6 +8610,78 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(crest.height + 0.1 * relief);
       expect(crest.height).toBeGreaterThan(foot.height + 0.08 * relief);
       expect(crest.occlusion).toBeGreaterThan(foot.occlusion);
+    }
+  });
+
+  it('bandage cushions its pad over the woven gauze backing', () => {
+    const relief = proceduralMaterialPresets.bandage.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const weave = { ...surface },
+      backing = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bandage', seed);
+      sample(0.5, 0.5, surface);
+      sample(1 / 48, 1 / 48, weave);
+      sample(0, 0, backing);
+      expect(surface.height).toBeGreaterThan(weave.height + 0.1 * relief);
+      expect(weave.height).toBeGreaterThan(backing.height + 0.03 * relief);
+      expect(weave.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('pill blister swells domes over scored foil', () => {
+    const relief = proceduralMaterialPresets.pillblister.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const foil = { ...surface },
+      score = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pillblister', seed);
+      sample(1 / 6, 1 / 6, surface);
+      sample(0.05, 0.5, foil);
+      sample(1 / 3, 0.5, score);
+      expect(surface.height).toBeGreaterThan(foil.height + 0.1 * relief);
+      expect(foil.height).toBeGreaterThan(score.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(score.occlusion);
+    }
+  });
+
+  it('sutures bridge cords over the incision and needle pits', () => {
+    const relief = proceduralMaterialPresets.sutures.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const skin = { ...surface },
+      pit = { ...surface },
+      incision = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('sutures', seed);
+      sample(0.5, 1 / 20, surface);
+      sample(0.35, 0.33, skin);
+      sample(0.16, 1 / 20, pit);
+      sample(0.5, 0.33, incision);
+      expect(surface.height).toBeGreaterThan(skin.height + 0.1 * relief);
+      expect(skin.height).toBeGreaterThan(pit.height + 0.1 * relief);
+      expect(pit.height).toBeGreaterThan(incision.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(incision.occlusion);
     }
   });
 

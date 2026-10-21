@@ -97,6 +97,9 @@ export type ProceduralMaterialKind =
   | 'lensarray'
   | 'prismtape'
   | 'fresnel'
+  | 'bandage'
+  | 'pillblister'
+  | 'sutures'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -333,6 +336,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lensarray',
   'prismtape',
   'fresnel',
+  'bandage',
+  'pillblister',
+  'sutures',
   'sandstone',
   'travertine',
   'pumice',

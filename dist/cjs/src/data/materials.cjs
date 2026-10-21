@@ -1266,6 +1266,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .26,
 		relief: .004
 	}),
+	bandage: Object.freeze({
+		dark: [
+			196,
+			182,
+			158
+		],
+		light: [
+			252,
+			248,
+			236
+		],
+		roughness: .92,
+		relief: .0035
+	}),
+	pillblister: Object.freeze({
+		dark: [
+			188,
+			192,
+			198
+		],
+		light: [
+			242,
+			244,
+			248
+		],
+		roughness: .3,
+		relief: .004
+	}),
+	sutures: Object.freeze({
+		dark: [
+			208,
+			178,
+			158
+		],
+		light: [
+			252,
+			232,
+			218
+		],
+		roughness: .68,
+		relief: .003
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3009,6 +3051,9 @@ var proceduralTileMeters = Object.freeze({
 	lensarray: .06,
 	prismtape: .12,
 	fresnel: .24,
+	bandage: .12,
+	pillblister: .18,
+	sutures: .12,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
@@ -3124,12 +3169,7 @@ var proceduralTileMeters = Object.freeze({
 	strawberry: .055,
 	lychee: .055
 });
-var iridescenceFilmRange = Object.freeze({
-	minNm: 100,
-	maxNm: 800
-});
 //#endregion
-exports.iridescenceFilmRange = iridescenceFilmRange;
 exports.proceduralMaterialLimits = proceduralMaterialLimits;
 exports.proceduralMaterialPresets = proceduralMaterialPresets;
 exports.proceduralTileMeters = proceduralTileMeters;

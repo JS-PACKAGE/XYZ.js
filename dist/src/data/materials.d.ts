@@ -546,6 +546,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.26;
         relief: 0.004;
     }>;
+    bandage: Readonly<{
+        dark: readonly [196, 182, 158];
+        light: readonly [252, 248, 236];
+        roughness: 0.92;
+        relief: 0.0035;
+    }>;
+    pillblister: Readonly<{
+        dark: readonly [188, 192, 198];
+        light: readonly [242, 244, 248];
+        roughness: 0.3;
+        relief: 0.004;
+    }>;
+    sutures: Readonly<{
+        dark: readonly [208, 178, 158];
+        light: readonly [252, 232, 218];
+        roughness: 0.68;
+        relief: 0.003;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1378,6 +1396,9 @@ export declare const proceduralTileMeters: Readonly<{
     lensarray: 0.06;
     prismtape: 0.12;
     fresnel: 0.24;
+    bandage: 0.12;
+    pillblister: 0.18;
+    sutures: 0.12;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;
@@ -1492,9 +1513,4 @@ export declare const proceduralTileMeters: Readonly<{
     pineapple: 0.16;
     strawberry: 0.055;
     lychee: 0.055;
-}>;
-/** Preserve the published normalized finish thickness; native packing uses nanometers. */
-export declare const iridescenceFilmRange: Readonly<{
-    minNm: 100;
-    maxNm: 800;
 }>;

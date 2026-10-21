@@ -5755,6 +5755,74 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.36 * (1 - step) - 0.12 * (1 - boss);
         break;
       }
+      case 'bandage': {
+        // A rounded pad cushions over the woven gauze backing.
+        const pad =
+          smooth(clamp((0.28 - Math.abs(u - 0.5)) / 0.06)) *
+          smooth(clamp((0.28 - Math.abs(v - 0.5)) / 0.06));
+        const warp = smooth(
+          clamp((0.12 - Math.abs(fract(u * 24) - 0.5)) / 0.06),
+        );
+        const weft = smooth(
+          clamp((0.12 - Math.abs(fract(v * 24) - 0.5)) / 0.06),
+        );
+        const weave = warp + weft - warp * weft;
+        const fiber = noise(u, v, 48, 48, seed ^ 0x5d21);
+        color = 0.5 + 0.3 * pad + 0.12 * weave + 0.06 * fiber;
+        height = 0.44 + 0.3 * pad + 0.08 * weave + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * pad;
+        occlusion = 1 - 0.32 * (1 - weave) - 0.12 * (1 - pad);
+        break;
+      }
+      case 'pillblister': {
+        // Blister domes swell over scored foil between their cells.
+        const du = fract(u * 3) - 0.5,
+          dv = fract(v * 3) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const dome = smooth(clamp((0.36 - radius) / 0.1));
+        const score =
+          smooth(
+            clamp((0.03 - Math.min(fract(u * 3), 1 - fract(u * 3))) / 0.02),
+          ) +
+          smooth(
+            clamp((0.03 - Math.min(fract(v * 3), 1 - fract(v * 3))) / 0.02),
+          );
+        const fiber = noise(u, v, 40, 40, seed ^ 0x27bd);
+        color = 0.52 + 0.34 * dome - 0.14 * score + 0.06 * fiber;
+        height = 0.46 + 0.36 * dome - 0.14 * score + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.12 * dome;
+        occlusion = 1 - 0.42 * (1 - dome) - 0.2 * score;
+        break;
+      }
+      case 'sutures': {
+        // Stitch cords bridge the incision above pits and bare skin.
+        const band = smooth(
+          clamp((0.09 - Math.abs(fract(v * 10) - 0.5)) / 0.03),
+        );
+        const span = smooth(clamp((0.22 - Math.abs(u - 0.5)) / 0.06));
+        const cord = band * span;
+        const incision = smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03));
+        const pit =
+          smooth(clamp((0.045 - Math.abs(u - 0.16)) / 0.025)) * band +
+          smooth(clamp((0.045 - Math.abs(u - 0.84)) / 0.025)) * band;
+        const fiber = noise(u, v, 40, 40, seed ^ 0x63de);
+        color =
+          0.56 +
+          0.26 * cord -
+          0.22 * incision * (1 - cord) -
+          0.18 * pit +
+          0.05 * fiber;
+        height =
+          0.5 +
+          0.28 * cord -
+          0.3 * incision * (1 - cord) -
+          0.2 * pit * (1 - cord) +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * cord;
+        occlusion =
+          1 - 0.3 * incision * (1 - cord) - 0.28 * pit - 0.12 * (1 - cord);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
