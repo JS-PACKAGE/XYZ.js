@@ -708,7 +708,10 @@ export class WebGLRender2D {
         sprite.sampler?.maxAnisotropy ?? 1,
       ),
     );
-    this.bindInstances(this.spriteVAO, this.spriteBuffer, 0);
+    // The constructor recorded the instance attributes in spriteVAO, and every other
+    // attribute write binds its own VAO first; the upload below needs only the buffer.
+    gl.bindVertexArray(this.spriteVAO);
+    gl.bindBuffer(gl.ARRAY_BUFFER, this.spriteBuffer);
     if (this.spriteCapacity < this.spriteData.byteLength) {
       gl.bufferData(
         gl.ARRAY_BUFFER,
