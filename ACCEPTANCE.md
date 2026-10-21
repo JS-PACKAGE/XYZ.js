@@ -4087,3 +4087,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 五份完整目錄各有 201 個唯一名稱，既有連結與 PLAN／DESIGN
   歷史內容保留；README 繼續維持簡短四分類。依使用者最新指示，
   此組獨立提交後停止新增；本組不 push。
+- `[Rendering]` `iridescenceFilmRange` 由 `src/data/materials.ts` 移到 `src/data/rendering.ts`（與其他原生材質 ABI 常數同處），PBRMaterial 與 WebGL2 改由此匯入。原本只為這一個常數就把整份程序材質 preset（`Object.freeze` 無法 tree-shake）拉進每個啟動 bundle。Game＋Scene＋Sprite 的 Canvas2D consumer：initial 707493／187217 → 675637／180569 bytes（minified／gzip），startup 792149／212719 → 760293／206068，離啟動 gzip 上限 214168 的餘裕由約 1.4 KB 增為約 8.1 KB。另一方的 `64ebc6de [Materials]` 已一併帶走本變更在 materials.ts 的刪除，該 commit 單獨無法通過型別檢查；本 commit 補上其餘部分。build、tree-shaking／API 檢查與完整測試（2258 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

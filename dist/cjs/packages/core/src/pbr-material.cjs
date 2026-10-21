@@ -2,7 +2,7 @@ const require_texture = require("../../assets/src/texture.cjs");
 const require_texture2d = require("../../assets/src/texture2d.cjs");
 const require_texture_sampler = require("./texture-sampler.cjs");
 const require_mesh = require("./mesh.cjs");
-const require_materials = require("../../../src/data/materials.cjs");
+const require_rendering = require("../../../src/data/rendering.cjs");
 const require_optical_material_maps = require("./optical-material-maps.cjs");
 //#region dist/packages/core/src/pbr-material.js
 var pbrTextureKeys = [
@@ -303,7 +303,7 @@ function pbrEmissiveSlot(e) {
 }
 function fillPBRFinish(e, t, n) {
 	let r = e.finish;
-	t[n] = r.anisotropy, t[n + 1] = r.anisotropyRotation, t[n + 2] = r.iridescence, t[n + 3] = r.iridescenceIor, t[n + 4] = r.iridescence > 0 ? require_materials.iridescenceFilmRange.minNm + r.iridescenceThickness * (require_materials.iridescenceFilmRange.maxNm - require_materials.iridescenceFilmRange.minNm) : 0, t[n + 5] = r.subsurface, t[n + 6] = r.dispersion, t[n + 7] = r.heightScale, t[n + 8] = r.wetness, t[n + 9] = r.snow, t[n + 10] = r.dirt, t[n + 11] = r.damage, t[n + 12] = r.detailStrength, t[n + 13] = r.triplanar, t[n + 14] = r.layerBlend, t[n + 15] = r.lightmapStrength, t[n + 16] = r.subsurfaceColor[0], t[n + 17] = r.subsurfaceColor[1], t[n + 18] = r.subsurfaceColor[2], t[n + 19] = r.subsurfaceRadius;
+	t[n] = r.anisotropy, t[n + 1] = r.anisotropyRotation, t[n + 2] = r.iridescence, t[n + 3] = r.iridescenceIor, t[n + 4] = r.iridescence > 0 ? require_rendering.iridescenceFilmRange.minNm + r.iridescenceThickness * (require_rendering.iridescenceFilmRange.maxNm - require_rendering.iridescenceFilmRange.minNm) : 0, t[n + 5] = r.subsurface, t[n + 6] = r.dispersion, t[n + 7] = r.heightScale, t[n + 8] = r.wetness, t[n + 9] = r.snow, t[n + 10] = r.dirt, t[n + 11] = r.damage, t[n + 12] = r.detailStrength, t[n + 13] = r.triplanar, t[n + 14] = r.layerBlend, t[n + 15] = r.lightmapStrength, t[n + 16] = r.subsurfaceColor[0], t[n + 17] = r.subsurfaceColor[1], t[n + 18] = r.subsurfaceColor[2], t[n + 19] = r.subsurfaceRadius;
 }
 var MaterialAsset = class MaterialAsset {
 	material;

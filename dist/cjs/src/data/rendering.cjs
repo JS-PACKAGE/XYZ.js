@@ -23,6 +23,10 @@ var nativeMaterial3DLimits = Object.freeze({
 	textures: 4,
 	sourceCharacters: 65536
 });
+var iridescenceFilmRange = Object.freeze({
+	minNm: 100,
+	maxNm: 800
+});
 var materialQuality = Object.freeze({
 	samples: 4,
 	normalVarianceScale: 2,
@@ -169,6 +173,7 @@ exports.depthPostDefaults = depthPostDefaults;
 exports.environmentLimits = environmentLimits;
 exports.fxaaDefaults = fxaaDefaults;
 exports.graphicsRecoveryLimits = graphicsRecoveryLimits;
+exports.iridescenceFilmRange = iridescenceFilmRange;
 exports.lensFlareDefaults = lensFlareDefaults;
 exports.materialQuality = materialQuality;
 exports.materialTextureSlots = materialTextureSlots;

@@ -6,7 +6,7 @@ import {
 import { TextureMaterial, type TextureMaterialOptions } from './mesh.js';
 import { samplerOptions } from './texture-sampler.js';
 import type { TextureSamplerOptions } from './texture-sampler.js';
-import { iridescenceFilmRange } from '../../../src/data/materials.js';
+import { iridescenceFilmRange } from '../../../src/data/rendering.js';
 import {
   registerOpticalMaterialMaps,
   type OpticalMaterialMapsOptions,

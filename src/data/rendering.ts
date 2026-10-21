@@ -25,6 +25,13 @@ export const nativeMaterial3DLimits = Object.freeze({
   sourceCharacters: 65536,
 });
 
+/**
+ * Preserve the published normalized finish thickness; native packing uses nanometers. Kept
+ * here, beside the other native material ABI values, so packing it does not pull the
+ * procedural material presets into every startup bundle.
+ */
+export const iridescenceFilmRange = Object.freeze({ minNm: 100, maxNm: 800 });
+
 /** Bounded opt-in material anti-aliasing, shared by both native shaders. */
 export const materialQuality = Object.freeze({
   samples: 4,

@@ -22,6 +22,15 @@ export declare const nativeMaterial3DLimits: Readonly<{
     textures: 4;
     sourceCharacters: 65536;
 }>;
+/**
+ * Preserve the published normalized finish thickness; native packing uses nanometers. Kept
+ * here, beside the other native material ABI values, so packing it does not pull the
+ * procedural material presets into every startup bundle.
+ */
+export declare const iridescenceFilmRange: Readonly<{
+    minNm: 100;
+    maxNm: 800;
+}>;
 /** Bounded opt-in material anti-aliasing, shared by both native shaders. */
 export declare const materialQuality: Readonly<{
     samples: 4;

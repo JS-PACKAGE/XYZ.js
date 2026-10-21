@@ -24,7 +24,6 @@ import {
   meshShaderFeatures,
   meshShaderVariantBits,
 } from './mesh-shader-variants.js';
-import { iridescenceFilmRange } from '../../../src/data/materials.js';
 import type { Scene } from '../../core/src/scene.js';
 import type { PointLight, SpotLight } from '../../core/src/lights.js';
 import { Frustum } from '../../core/src/frustum.js';
@@ -118,6 +117,7 @@ import {
   POINT_LIGHT_STRIDE,
   SPOT_LIGHT_OFFSET,
   SPOT_LIGHT_STRIDE,
+  iridescenceFilmRange,
   materialQuality,
   meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
