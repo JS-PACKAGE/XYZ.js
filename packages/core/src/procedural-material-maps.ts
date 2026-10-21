@@ -5018,6 +5018,62 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.4 * (1 - face) - 0.42 * holes;
         break;
       }
+      case 'traintracks': {
+        // Rails crest above sleepers laid across the ballast grain.
+        const sleeper = smooth(
+          clamp((0.18 - Math.min(fract(v * 6), 1 - fract(v * 6))) / 0.08),
+        );
+        const rail =
+          smooth(clamp((0.06 - Math.abs(u - 0.35)) / 0.025)) +
+          smooth(clamp((0.06 - Math.abs(u - 0.65)) / 0.025));
+        const grain = noise(u, v, 48, 48, seed ^ 0x2f61);
+        const bed = sleeper + rail - sleeper * rail;
+        color = 0.32 + 0.28 * sleeper + 0.3 * rail + 0.08 * grain;
+        height = 0.36 + 0.16 * sleeper + 0.34 * rail + 0.03 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * rail;
+        occlusion = 1 - 0.45 * (1 - bed) - 0.12 * (1 - grain);
+        break;
+      }
+      case 'manholecover': {
+        // The frame ring crowns a radially and concentrically ribbed panel.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const frame =
+          smooth(clamp((0.46 - radius) / 0.03)) *
+          smooth(clamp((radius - 0.38) / 0.03));
+        const panel = smooth(clamp((0.36 - radius) / 0.04));
+        const angle = Math.atan2(dy, dx);
+        const ribs = 0.5 + 0.5 * Math.cos(16 * angle);
+        const rings = 0.5 + 0.5 * Math.cos(TAU * 6 * radius);
+        const ribbed = ribs * smooth(clamp((radius - 0.06) / 0.05)) * panel;
+        const ringed = rings * panel;
+        const fiber = noise(u, v, 40, 40, seed ^ 0x18ce);
+        color = 0.4 + 0.3 * frame + 0.14 * ribbed + 0.1 * ringed + 0.05 * fiber;
+        height =
+          0.38 + 0.3 * frame + 0.14 * ribbed + 0.12 * ringed + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * frame;
+        occlusion = 1 - 0.4 * (1 - frame) - 0.2 * (1 - ribbed) * (1 - ringed);
+        break;
+      }
+      case 'speedbump': {
+        // Rounded bumps rise above their feet and the recessed seams.
+        const wrapped = fract(v * 2),
+          d = Math.abs(wrapped - 0.5);
+        const bump = smooth(clamp((0.34 - d) / 0.14));
+        const seam = smooth(
+          clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.03),
+        );
+        const stripe = smooth(
+          clamp((0.28 - Math.abs(fract(u * 4) - 0.5)) / 0.1),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x51af);
+        color = 0.42 + 0.4 * stripe * (0.3 + 0.7 * bump) + 0.06 * grain;
+        height = 0.38 + 0.4 * bump - 0.1 * seam + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.06 * bump;
+        occlusion = 1 - 0.45 * (1 - bump) - 0.3 * seam;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

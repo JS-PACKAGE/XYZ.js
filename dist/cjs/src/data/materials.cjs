@@ -1098,6 +1098,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .38,
 		relief: .0035
 	}),
+	traintracks: Object.freeze({
+		dark: [
+			72,
+			68,
+			62
+		],
+		light: [
+			168,
+			162,
+			152
+		],
+		roughness: .68,
+		relief: .006
+	}),
+	manholecover: Object.freeze({
+		dark: [
+			46,
+			48,
+			52
+		],
+		light: [
+			128,
+			132,
+			138
+		],
+		roughness: .62,
+		relief: .005
+	}),
+	speedbump: Object.freeze({
+		dark: [
+			52,
+			50,
+			48
+		],
+		light: [
+			228,
+			202,
+			62
+		],
+		roughness: .82,
+		relief: .007
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2648,6 +2690,9 @@ var proceduralTileMeters = Object.freeze({
 	zipper: .12,
 	velcro: .06,
 	button: .12,
+	traintracks: .6,
+	manholecover: .6,
+	speedbump: .9,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

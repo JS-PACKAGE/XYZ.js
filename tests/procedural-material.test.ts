@@ -103,6 +103,9 @@ const kinds: ProceduralMaterialKind[] = [
   'zipper',
   'velcro',
   'button',
+  'traintracks',
+  'manholecover',
+  'speedbump',
   'sandstone',
   'travertine',
   'pumice',
@@ -3891,6 +3894,9 @@ describe('periodic procedural material fields', () => {
     ['zipper', [12, 24, 32, 64]],
     ['velcro', [12, 32, 48, 64]],
     ['button', [4, 32, 48, 64]],
+    ['traintracks', [6, 32, 48, 64]],
+    ['manholecover', [16, 32, 48, 64]],
+    ['speedbump', [2, 4, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -4090,6 +4096,10 @@ describe('periodic procedural material fields', () => {
     ['zipper', 24],
     ['velcro', 12],
     ['button', 4],
+    ['traintracks', 6],
+    ['manholecover', 16],
+    ['speedbump', 2],
+    ['speedbump', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -7327,6 +7337,88 @@ describe('periodic procedural material fields', () => {
       expect(hole.height).toBeLessThan(gap.height - 0.02 * relief);
       expect(face.occlusion).toBeGreaterThan(gap.occlusion);
       expect(hole.occlusion).toBeLessThan(gap.occlusion);
+    }
+  });
+
+  it('train tracks crown rails above sleepers and ballast', () => {
+    const relief = proceduralMaterialPresets.traintracks.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const sleeper = { ...surface },
+      ballast = { ...surface },
+      railFar = { ...surface },
+      railGap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('traintracks', seed);
+      sample(0.35, 0, surface);
+      sample(0.15, 0, sleeper);
+      sample(0.15, 1 / 12, ballast);
+      sample(0.65, 0, railFar);
+      sample(0.35, 1 / 12, railGap);
+      expect(surface.height).toBeGreaterThan(sleeper.height + 0.05 * relief);
+      expect(sleeper.height).toBeGreaterThan(ballast.height + 0.05 * relief);
+      // The paired rails match, and sleepers pass under both of them.
+      expect(Math.abs(surface.height - railFar.height)).toBeLessThan(
+        0.05 * relief,
+      );
+      expect(surface.height).toBeGreaterThan(railGap.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(ballast.occlusion);
+    }
+  });
+
+  it('manhole cover crowns its frame over the ribbed panel', () => {
+    const relief = proceduralMaterialPresets.manholecover.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crest = { ...surface },
+      valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('manholecover', seed);
+      sample(0.92, 0.5, surface);
+      sample(0.7, 0.5, crest);
+      sample(
+        0.5 + 0.2 * Math.cos(Math.PI / 16),
+        0.5 + 0.2 * Math.sin(Math.PI / 16),
+        valley,
+      );
+      expect(surface.height).toBeGreaterThan(crest.height + 0.05 * relief);
+      expect(crest.height).toBeGreaterThan(valley.height + 0.06 * relief);
+      expect(crest.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('speed bumps crest above their feet and the recessed seams', () => {
+    const relief = proceduralMaterialPresets.speedbump.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const foot = { ...surface },
+      seam = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('speedbump', seed);
+      sample(0.5, 0.25, surface);
+      sample(0.5, 0.125, foot);
+      sample(0.5, 0, seam);
+      expect(surface.height).toBeGreaterThan(foot.height + 0.05 * relief);
+      expect(foot.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(seam.occlusion);
     }
   });
 

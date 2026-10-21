@@ -85,6 +85,9 @@ export type ProceduralMaterialKind =
   | 'zipper'
   | 'velcro'
   | 'button'
+  | 'traintracks'
+  | 'manholecover'
+  | 'speedbump'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -300,6 +303,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zipper',
   'velcro',
   'button',
+  'traintracks',
+  'manholecover',
+  'speedbump',
   'sandstone',
   'travertine',
   'pumice',

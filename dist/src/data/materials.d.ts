@@ -474,6 +474,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.38;
         relief: 0.0035;
     }>;
+    traintracks: Readonly<{
+        dark: readonly [72, 68, 62];
+        light: readonly [168, 162, 152];
+        roughness: 0.68;
+        relief: 0.006;
+    }>;
+    manholecover: Readonly<{
+        dark: readonly [46, 48, 52];
+        light: readonly [128, 132, 138];
+        roughness: 0.62;
+        relief: 0.005;
+    }>;
+    speedbump: Readonly<{
+        dark: readonly [52, 50, 48];
+        light: readonly [228, 202, 62];
+        roughness: 0.82;
+        relief: 0.007;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1185,6 +1203,9 @@ export declare const proceduralTileMeters: Readonly<{
     zipper: 0.12;
     velcro: 0.06;
     button: 0.12;
+    traintracks: 0.6;
+    manholecover: 0.6;
+    speedbump: 0.9;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

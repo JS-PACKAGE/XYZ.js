@@ -1450,6 +1450,21 @@ function createSurfaceSampler(t, r) {
 				H = .55 + .26 * a + .12 * s - .3 * c + .05 * l, U = .4 + .22 * a + .24 * s - .34 * c + .02 * l, Q += .05 * (l - .5) - .06 * s, $ = 1 - .4 * (1 - a) - .42 * c;
 				break;
 			}
+			case `traintracks`: {
+				let t = smooth(clamp((.18 - Math.min(fract(o * 6), 1 - fract(o * 6))) / .08)), n = smooth(clamp((.06 - Math.abs(e - .35)) / .025)) + smooth(clamp((.06 - Math.abs(e - .65)) / .025)), i = noise(e, o, 48, 48, r ^ 12129), a = t + n - t * n;
+				H = .32 + .28 * t + .3 * n + .08 * i, U = .36 + .16 * t + .34 * n + .03 * i, Q += .06 * (i - .5) - .1 * n, $ = 1 - .45 * (1 - a) - .12 * (1 - i);
+				break;
+			}
+			case `manholecover`: {
+				let t = e - .5, i = o - .5, a = Math.sqrt(t * t + i * i), s = smooth(clamp((.46 - a) / .03)) * smooth(clamp((a - .38) / .03)), c = smooth(clamp((.36 - a) / .04)), l = .5 + .5 * Math.cos(16 * Math.atan2(i, t)), u = .5 + .5 * Math.cos(n * 6 * a), d = l * smooth(clamp((a - .06) / .05)) * c, f = u * c, p = noise(e, o, 40, 40, r ^ 6350);
+				H = .4 + .3 * s + .14 * d + .1 * f + .05 * p, U = .38 + .3 * s + .14 * d + .12 * f + .02 * p, Q += .05 * (p - .5) - .08 * s, $ = 1 - .4 * (1 - s) - .2 * (1 - d) * (1 - f);
+				break;
+			}
+			case `speedbump`: {
+				let t = fract(o * 2), i = smooth(clamp((.34 - Math.abs(t - .5)) / .14)), a = smooth(clamp((.04 - Math.min(t, 1 - t)) / .03)), s = smooth(clamp((.28 - Math.abs(fract(e * 4) - .5)) / .1)), c = noise(e, o, 32, 32, r ^ 20911);
+				H = .42 + .4 * s * (.3 + .7 * i) + .06 * c, U = .38 + .4 * i - .1 * a + .02 * c, Q += .05 * (c - .5) - .06 * i, $ = 1 - .45 * (1 - i) - .3 * a;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((V - .28) / .48)), d = (1 - V) ** 5;
 				H = .22 + .35 * s + .2 * l + .18 * u - .2 * c, U = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Q += .12 * (u - .5) + .05 * c, $ = .97 - .12 * c - .13 * d + .025 * u;
