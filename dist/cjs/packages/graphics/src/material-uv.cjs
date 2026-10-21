@@ -3,18 +3,53 @@ const require_optical_material_maps = require("../../core/src/optical-material-m
 const require_pbr_material = require("../../core/src/pbr-material.cjs");
 const require_optical_maps = require("./optical-maps.cjs");
 //#region dist/packages/graphics/src/material-uv.js
-function fillMaterialUV(i, a, o, s = 0) {
-	let c = i instanceof require_pbr_material.PBRMaterial ? require_optical_material_maps.materialTextureCoordinates(i) : void 0;
-	for (let t = 0; t < require_optical_maps.mappedMaterialTextureSlots.length; t++) {
-		let n = c?.[require_optical_maps.mappedMaterialTextureSlots[t]];
-		if (n?.texCoord === 1 && !a.uvs1) throw new require_errors.GraphicsError(`Material ${require_optical_maps.mappedMaterialTextureSlots[t]} requires absent TEXCOORD_1.`);
-		let i = s + t * 8;
-		if (n) {
-			for (let e = 0; e < 6; e++) o[i + e] = n.transform[e];
-			o[i + 6] = n.texCoord;
-		} else o[i] = o[i + 3] = 1, o[i + 1] = o[i + 2] = o[i + 4] = o[i + 5] = o[i + 6] = 0;
-		o[i + 7] = 0;
+var i = require_optical_maps.mappedMaterialTextureSlots.length * 8;
+var a = buildTemplate(void 0);
+var o = /* @__PURE__ */ new WeakMap();
+function fillMaterialUV(e, r, o, s = 0) {
+	let c = e instanceof require_pbr_material.PBRMaterial ? require_optical_material_maps.materialTextureCoordinates(e) : void 0, l = c ? typeof c == `object` ? templateFor(c) : null : a;
+	l && (!l.uv1 || r.uvs1) && s + i <= o.length ? o.set(l.data, s) : packMaterialUV(c, r, o, s);
+}
+function packMaterialUV(t, n, i, a) {
+	for (let o = 0; o < require_optical_maps.mappedMaterialTextureSlots.length; o++) {
+		let s = t?.[require_optical_maps.mappedMaterialTextureSlots[o]];
+		if (s?.texCoord === 1 && !n.uvs1) throw new require_errors.GraphicsError(`Material ${require_optical_maps.mappedMaterialTextureSlots[o]} requires absent TEXCOORD_1.`);
+		let c = a + o * 8;
+		if (s) {
+			for (let e = 0; e < 6; e++) i[c + e] = s.transform[e];
+			i[c + 6] = s.texCoord;
+		} else i[c] = i[c + 3] = 1, i[c + 1] = i[c + 2] = i[c + 4] = i[c + 5] = i[c + 6] = 0;
+		i[c + 7] = 0;
 	}
+}
+function templateFor(e) {
+	let t = o.get(e);
+	return t === void 0 && (t = frozenData(e) ? buildTemplate(e) : null, o.set(e, t)), t;
+}
+function buildTemplate(t) {
+	let n = new Float32Array(i);
+	return packMaterialUV(t, { uvs1: /* @__PURE__ */ new Float32Array() }, n, 0), {
+		data: n,
+		uv1: require_optical_maps.mappedMaterialTextureSlots.some((e) => t?.[e]?.texCoord === 1)
+	};
+}
+function frozenData(t) {
+	if (!Object.isFrozen(t)) return !1;
+	for (let n of require_optical_maps.mappedMaterialTextureSlots) {
+		let e = Object.getOwnPropertyDescriptor(t, n);
+		if (!e) {
+			if (n in t) return !1;
+			continue;
+		}
+		let r = e.value;
+		if (!(`value` in e) || !r || typeof r != `object` || !Object.isFrozen(r)) return !1;
+		let i = Object.getOwnPropertyDescriptor(r, `texCoord`), a = Object.getOwnPropertyDescriptor(r, `transform`);
+		if (i?.value !== 0 && i?.value !== 1) return !1;
+		let o = a?.value;
+		if (!Array.isArray(o) || !Object.isFrozen(o) || o.length !== 6) return !1;
+		for (let e = 0; e < 6; e++) if (typeof Object.getOwnPropertyDescriptor(o, e)?.value != `number`) return !1;
+	}
+	return !0;
 }
 //#endregion
 exports.fillMaterialUV = fillMaterialUV;
