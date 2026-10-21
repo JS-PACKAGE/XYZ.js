@@ -109,6 +109,9 @@ try {
     'rubber',
     'carbonfiber',
     'diamondplate',
+    'paper',
+    'wicker',
+    'bamboo',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

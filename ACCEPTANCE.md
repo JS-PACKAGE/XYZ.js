@@ -2430,3 +2430,22 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補仍未提交，不納入本組。
+
+## 程序材質擴充：工藝表面（paper／wicker／bamboo）
+
+- 新增含細短紙漿纖維的象牙白紙張、寬藤條交織與金黃縱纖維竹節表面，
+  tile 尺寸依序 0.12／0.18／0.6 m。皆 opaque dielectric；藤編凹隙不透明，
+  竹節不建立幾何分節。gallery 與文件同步至 33 種。
+- build、typecheck、lint、format:check 通過。完整單 worker 執行為
+  175 檔通過／1 檔失敗，1511 tests 通過／1 timeout；失敗為未修改的
+  shader feature-pair 掃描（5312 ms，原門檻 5000 ms）。
+  隔離 shader 與材質兩檔再驗證，材質 63 tests 全通過，shader 該案例仍
+  timeout（6328 ms）；未調高門檻、未排除測試，不宣稱全套通過。
+  前三十種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認紙面、交織與竹節差異；metallic 全為 0，
+  roughness bytes 依序 222–252／152–211／102–164；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補仍未提交，不納入本組。

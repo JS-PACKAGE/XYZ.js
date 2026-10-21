@@ -51,6 +51,8 @@
 
 工業表面增量為 rubber／carbonfiber／diamondplate（橡膠／碳纖維／止滑花紋鋼板），目前共三十種；前述 counts 保留為歷史。橡膠呈現炭黑色模製彈性體與細密卵石狀顆粒；碳纖維呈現樹脂覆層下深色纖維束與交替斜向斜紋編織，兩者皆為 opaque dielectric、metallic 通道為 0。鋼板呈現銀色軋製金屬與交替斜向隆起菱形紋，metallic 通道及預設 factor 均為 1。沿用 deterministic periodic 四份 RGBA maps，凹凸僅由 normal map 表現，不新增 geometry；碳纖維不是特殊 anisotropic shader、clearcoat 或物理模擬。前二十七種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與依賴契約不變；依既有授權逐功能獨立 commit、不 push。
 
+工藝素材增量為 paper／wicker／bamboo（紙張／藤編／竹材），目前共三十三種；前述 counts 保留為歷史。紙張呈現象牙白未塗佈紙的細密不規則紙漿纖維與輕微雲狀成紙紋，不是石膏換色；藤編呈現棕褐寬圓角藤條交織、細縱向條紋與深色不透明凹隙，區別於粗麻布；竹材呈現金黃縱向纖維與週期錯列的深色竹節帶，不建立分節物件。皆為 opaque dielectric、metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps，凹凸僅由 normal map 表現，不新增 geometry、透明孔洞或物理模擬。前三十種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與依賴契約不變；依既有授權逐功能獨立 commit、不 push。
+
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 
 目前 root metadata 是 `1.19.0`／Apache-2.0（`package.json`／`LICENSE`），npm 未發佈；以下各階段的日期／counts／版本／release 與當時批准範圍均為歷史記錄，不作新階段驗收。正式路徑是 `src/index.ts`（統一公開入口）→ `packages/core` 的 Game／Scene／Clock → `packages/graphics` 的 Renderer；範例不建立第二套渲染器。實際驗收見 `ACCEPTANCE.md`。

@@ -36,7 +36,10 @@ export type ProceduralMaterialKind =
   | 'cork'
   | 'rubber'
   | 'carbonfiber'
-  | 'diamondplate';
+  | 'diamondplate'
+  | 'paper'
+  | 'wicker'
+  | 'bamboo';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -99,6 +102,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rubber',
   'carbonfiber',
   'diamondplate',
+  'paper',
+  'wicker',
+  'bamboo',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

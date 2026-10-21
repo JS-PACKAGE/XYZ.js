@@ -758,6 +758,89 @@ export function createSurfaceSampler(
         occlusion = 0.94 + 0.05 * raised + 0.01 * detail;
         break;
       }
+      case 'paper': {
+        const formation = noise(u, v, 3, 5, seed ^ 0x81b7);
+        const tooth = noise(u, v, 48, 48, seed ^ 0x57d3);
+        const cells = 24;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let fibers = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x193f);
+            const angle = TAU * hash(wx, wy, seed ^ 0x72e1);
+            const along = dx * Math.cos(angle) + dy * Math.sin(angle),
+              across = dy * Math.cos(angle) - dx * Math.sin(angle);
+            const length = 0.42 + 0.28 * hash(wx, wy, seed ^ 0x5b29);
+            // Short, randomly oriented pulp fibers have compact support, so
+            // neighboring cells blend without changing ownership at their edges.
+            const distance =
+              (along * along) / (length * length) + (across * across) / 0.0064;
+            const fiber = Math.pow(clamp(1 - distance), 2);
+            fibers = Math.max(fibers, fiber);
+          }
+        color = 0.62 + 0.24 * formation + 0.1 * tooth - 0.2 * fibers;
+        height = 0.22 + 0.12 * formation + 0.22 * tooth + 0.3 * fibers;
+        roughness += 0.08 * (tooth - 0.5) + 0.04 * fibers;
+        occlusion = 0.98 - 0.07 * fibers - 0.035 * (1 - tooth);
+        break;
+      }
+      case 'wicker': {
+        const x = u * 6,
+          y = v * 6;
+        const warpCrown = 0.5 + 0.5 * Math.cos(TAU * x),
+          weftCrown = 0.5 + 0.5 * Math.cos(TAU * y);
+        const warp = smooth(clamp((Math.cos(TAU * x) + 0.92) / 0.3)),
+          weft = smooth(clamp((Math.cos(TAU * y) + 0.92) / 0.3));
+        const over = smooth(
+          clamp(0.5 + 1.4 * Math.cos(Math.PI * x) * Math.cos(Math.PI * y)),
+        );
+        const warpTop = warp * (1 - weft + weft * over),
+          weftTop = weft * (1 - warp + warp * (1 - over));
+        const coverage = warpTop + weftTop;
+        const warpGrain = noise(u, v, 72, 4, seed ^ 0x6f31),
+          weftGrain = noise(u, v, 4, 72, seed ^ 0x2a97);
+        const grain = warpTop * warpGrain + weftTop * weftGrain;
+        const crown = warpTop * warpCrown + weftTop * weftCrown;
+        // Broad solid rattan ribbons have rolled shoulders and longitudinal
+        // grain, rather than the narrow twisted yarns of coarse burlap.
+        color = 0.08 + 0.5 * coverage + 0.16 * crown + 0.18 * grain;
+        height = 0.04 + 0.48 * coverage + 0.32 * crown + 0.045 * grain;
+        roughness += 0.1 * (detail - 0.5) + 0.1 * (1 - coverage) - 0.04 * grain;
+        occlusion = 0.34 + 0.54 * coverage + 0.1 * crown;
+        break;
+      }
+      case 'bamboo': {
+        const grain = noise(u, v, 64, 4, seed ^ 0x4b71);
+        const wander = noise(u, v, 4, 3, seed ^ 0x691d);
+        const fiber =
+          0.5 + 0.5 * Math.sin(TAU * (48 * u + 0.22 * wander) + phase);
+        const stagger = noise(u, 0, 4, 1, seed ^ 0x28d5);
+        const ring =
+          1 -
+          Math.cos(
+            TAU * (3 * v + 0.65 * stagger + 0.07 * Math.sin(TAU * 4 * u)) +
+              phase,
+          );
+        const node = 1 - smooth(clamp(ring / 0.16));
+        const shoulder = 1 - smooth(clamp(ring / 0.42));
+        // Continuous phase staggering bends the darker node bands across the
+        // fiber field without introducing plank seams or segmented geometry.
+        color =
+          0.46 + 0.23 * grain + 0.16 * fiber + 0.08 * detail - 0.34 * node;
+        height =
+          0.3 + 0.14 * grain + 0.12 * fiber + 0.16 * shoulder - 0.1 * node;
+        roughness += 0.12 * node + 0.1 * (grain - 0.5) - 0.035 * fiber;
+        occlusion = 0.99 - 0.14 * node - 0.025 * (1 - grain);
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;

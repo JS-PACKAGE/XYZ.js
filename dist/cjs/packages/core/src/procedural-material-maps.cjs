@@ -206,6 +206,25 @@ function createSurfaceSampler(t, r) {
 				p = .35 + .25 * _ + .29 * f + .07 * d, m = .08 + .78 * f + .025 * _, h += .14 * (_ - .5) - .075 * f, g = .94 + .05 * f + .01 * d;
 				break;
 			}
+			case `paper`: {
+				let t = noise(e, c, 3, 5, r ^ 33207), i = noise(e, c, 48, 48, r ^ 22483), a = e * 24, o = c * 24, s = Math.floor(a), l = Math.floor(o), u = 0;
+				for (let e = -1; e <= 1; e++) for (let t = -1; t <= 1; t++) {
+					let i = s + t, c = l + e, d = (i % 24 + 24) % 24, f = (c % 24 + 24) % 24, p = a - i - .35 - .3 * hash(d, f, r), m = o - c - .35 - .3 * hash(d, f, r ^ 6463), h = n * hash(d, f, r ^ 29409), g = p * Math.cos(h) + m * Math.sin(h), _ = m * Math.cos(h) - p * Math.sin(h), v = .42 + .28 * hash(d, f, r ^ 23337), b = clamp(1 - (g * g / (v * v) + _ * _ / .0064)) ** 2;
+					u = Math.max(u, b);
+				}
+				p = .62 + .24 * t + .1 * i - .2 * u, m = .22 + .12 * t + .22 * i + .3 * u, h += .08 * (i - .5) + .04 * u, g = .98 - .07 * u - .035 * (1 - i);
+				break;
+			}
+			case `wicker`: {
+				let t = e * 6, i = c * 6, a = .5 + .5 * Math.cos(n * t), o = .5 + .5 * Math.cos(n * i), s = smooth(clamp((Math.cos(n * t) + .92) / .3)), l = smooth(clamp((Math.cos(n * i) + .92) / .3)), u = smooth(clamp(.5 + 1.4 * Math.cos(Math.PI * t) * Math.cos(Math.PI * i))), f = s * (1 - l + l * u), _ = l * (1 - s + s * (1 - u)), v = f + _, y = noise(e, c, 72, 4, r ^ 28465), b = noise(e, c, 4, 72, r ^ 10903), x = f * y + _ * b, S = f * a + _ * o;
+				p = .08 + .5 * v + .16 * S + .18 * x, m = .04 + .48 * v + .32 * S + .045 * x, h += .1 * (d - .5) + .1 * (1 - v) - .04 * x, g = .34 + .54 * v + .1 * S;
+				break;
+			}
+			case `bamboo`: {
+				let t = noise(e, c, 64, 4, r ^ 19313), i = noise(e, c, 4, 3, r ^ 26909), o = .5 + .5 * Math.sin(n * (48 * e + .22 * i) + a), s = noise(e, 0, 4, 1, r ^ 10453), l = 1 - Math.cos(n * (3 * c + .65 * s + .07 * Math.sin(n * 4 * e)) + a), u = 1 - smooth(clamp(l / .16)), f = 1 - smooth(clamp(l / .42));
+				p = .46 + .23 * t + .16 * o + .08 * d - .34 * u, m = .3 + .14 * t + .12 * o + .16 * f - .1 * u, h += .12 * u + .1 * (t - .5) - .035 * o, g = .99 - .14 * u - .025 * (1 - t);
+				break;
+			}
 		}
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};
