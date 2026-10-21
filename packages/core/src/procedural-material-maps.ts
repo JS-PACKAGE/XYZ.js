@@ -6325,6 +6325,50 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.34 * (1 - cup) - 0.08 * (1 - weave);
         break;
       }
+      case 'blinds': {
+        // Tilted slat faces rise over the shadowed gaps between them.
+        const slat = smooth(
+          clamp((0.34 - Math.abs(fract(v * 4) - 0.5)) / 0.16),
+        );
+        const tilt = smooth(
+          clamp((0.02 - Math.abs(fract(v * 4) - 0.5)) / 0.012),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x5f27);
+        color = 0.48 + 0.32 * slat - 0.1 * tilt + 0.06 * grain;
+        height = 0.46 + 0.3 * slat - 0.08 * tilt + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * slat;
+        occlusion = 1 - 0.42 * (1 - slat) - 0.1 * tilt;
+        break;
+      }
+      case 'curtain': {
+        // Draped folds ripple over the fabric with a woven grain.
+        const warp = noise(u, v, 4, 4, seed ^ 0x3c81) - 0.5;
+        const fold = smooth(
+          clamp((0.34 - Math.abs(fract(5 * (u + 0.1 * warp)) - 0.5)) / 0.16),
+        );
+        const grain = noise(u, v, 40, 40, seed ^ 0x6e42);
+        color = 0.46 + 0.34 * fold + 0.08 * grain;
+        height = 0.46 + 0.3 * fold + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.08 * fold;
+        occlusion = 1 - 0.36 * (1 - fold);
+        break;
+      }
+      case 'shadecloth': {
+        // Woven threads cross over the open half-shadowed gaps.
+        const warp = smooth(
+          clamp((0.12 - Math.abs(fract(u * 16) - 0.5)) / 0.06),
+        );
+        const weft = smooth(
+          clamp((0.12 - Math.abs(fract(v * 16) - 0.5)) / 0.06),
+        );
+        const cover = warp + weft - warp * weft;
+        const grain = noise(u, v, 32, 32, seed ^ 0x27d5);
+        color = 0.42 + 0.3 * cover + 0.08 * grain;
+        height = 0.46 + 0.2 * cover + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.08 * cover;
+        occlusion = 1 - 0.42 * (1 - cover);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

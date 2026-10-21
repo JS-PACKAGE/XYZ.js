@@ -1771,6 +1771,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .32 * a + .12 * s + .06 * c, Z = .44 + .28 * a + .06 * s + .02 * c, Q += .05 * (c - .5) - .1 * a, $ = 1 - .34 * (1 - a) - .08 * (1 - s);
 				break;
 			}
+			case `blinds`: {
+				let e = smooth(clamp((.34 - Math.abs(fract(A * 4) - .5)) / .16)), t = smooth(clamp((.02 - Math.abs(fract(A * 4) - .5)) / .012)), n = noise(o, A, 32, 32, r ^ 24359);
+				H = .48 + .32 * e - .1 * t + .06 * n, Z = .46 + .3 * e - .08 * t + .02 * n, Q += .05 * (n - .5) - .1 * e, $ = 1 - .42 * (1 - e) - .1 * t;
+				break;
+			}
+			case `curtain`: {
+				let e = noise(o, A, 4, 4, r ^ 15489) - .5, t = smooth(clamp((.34 - Math.abs(fract(5 * (o + .1 * e)) - .5)) / .16)), n = noise(o, A, 40, 40, r ^ 28226);
+				H = .46 + .34 * t + .08 * n, Z = .46 + .3 * t + .03 * n, Q += .05 * (n - .5) - .08 * t, $ = 1 - .36 * (1 - t);
+				break;
+			}
+			case `shadecloth`: {
+				let e = smooth(clamp((.12 - Math.abs(fract(o * 16) - .5)) / .06)), t = smooth(clamp((.12 - Math.abs(fract(A * 16) - .5)) / .06)), n = e + t - e * t, i = noise(o, A, 32, 32, r ^ 10197);
+				H = .42 + .3 * n + .08 * i, Z = .46 + .2 * n + .02 * i, Q += .05 * (i - .5) - .08 * n, $ = 1 - .42 * (1 - n);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

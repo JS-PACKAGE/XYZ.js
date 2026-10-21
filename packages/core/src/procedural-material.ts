@@ -127,6 +127,9 @@ export type ProceduralMaterialKind =
   | 'faucet'
   | 'showerhead'
   | 'bathmat'
+  | 'blinds'
+  | 'curtain'
+  | 'shadecloth'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -393,6 +396,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'faucet',
   'showerhead',
   'bathmat',
+  'blinds',
+  'curtain',
+  'shadecloth',
   'sandstone',
   'travertine',
   'pumice',

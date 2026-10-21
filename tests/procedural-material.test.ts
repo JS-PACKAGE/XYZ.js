@@ -145,6 +145,9 @@ const kinds: ProceduralMaterialKind[] = [
   'faucet',
   'showerhead',
   'bathmat',
+  'blinds',
+  'curtain',
+  'shadecloth',
   'sandstone',
   'travertine',
   'pumice',
@@ -4893,6 +4896,9 @@ describe('periodic procedural material fields', () => {
     ['faucet', [8, 32, 48, 64]],
     ['showerhead', [10, 12, 32, 64]],
     ['bathmat', [8, 12, 32, 64]],
+    ['blinds', [4, 32, 48, 64]],
+    ['curtain', [5, 32, 48, 64]],
+    ['shadecloth', [16, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5139,6 +5145,9 @@ describe('periodic procedural material fields', () => {
     ['faucet', 8],
     ['showerhead', 12],
     ['bathmat', 12],
+    ['blinds', 4],
+    ['curtain', 5],
+    ['shadecloth', 16],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -9374,6 +9383,69 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, base);
       expect(surface.height).toBeGreaterThan(base.height + 0.1 * relief);
       expect(surface.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('blinds lifts slat faces over the shadowed gaps', () => {
+    const relief = proceduralMaterialPresets.blinds.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('blinds', seed);
+      sample(0.5, 0.125, surface);
+      sample(0.5, 0, gap);
+      expect(surface.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('curtain drapes fold crests over the fabric valleys', () => {
+    const relief = proceduralMaterialPresets.curtain.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('curtain', seed);
+      let high = 0,
+        low = 1;
+      for (let i = 0; i < 24; i++) {
+        sample(i / 24, 0.37, surface);
+        high = Math.max(high, surface.height);
+        low = Math.min(low, surface.height);
+      }
+      expect(high - low).toBeGreaterThan(0.12 * relief);
+    }
+  });
+
+  it('shade cloth crosses woven threads over the open gaps', () => {
+    const relief = proceduralMaterialPresets.shadecloth.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('shadecloth', seed);
+      sample(1 / 32, 1 / 32, surface);
+      sample(0, 0, gap);
+      expect(surface.height).toBeGreaterThan(gap.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 
