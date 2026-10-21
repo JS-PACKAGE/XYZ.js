@@ -3464,3 +3464,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   立即以該組已提交版本為基準還原並重送本組變更，未重寫歷史、
   不 push。共享工作目錄的其他行程修改不納入本組；
   不新增 runtime 依賴，不擴大跨瀏覽器或實體裝置認證。
+- `[Rendering2D]` 2D 送出前的驗證階段（canvas2d／WebGL2／WebGPU）改用新增的 `validateSpriteQuad2D`／`validateTextureQuad2D`，依原順序執行 `getSpriteQuad2D`／`getTextureQuad2D` 的全部檢查（destroyed、view、source 範圍、bounds override、tiling transform）但不計算 quad；`getTextureQuad2D` 本身也先呼叫同一個檢查，繪製時才計算 quad 一次（原本每個 sprite 每幀算兩次）。新增測試逐案比對兩者丟出相同錯誤（含 bounds override 與縮小的 native source），移除任一檢查的 mutant 皆失敗。20k 靜態 sprite（WebGL2）剖析中 quad＋驗證佔 CPU busy 17.8% → 14.2%，屬 CPU 時間佔比。canvas2d／WebGL2／WebGPU browser regression 通過；build 與完整測試（2044 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

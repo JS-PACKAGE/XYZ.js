@@ -36,6 +36,8 @@ import {
   createTextureQuad2D,
   getTextureQuad2D,
   getSpriteQuad2D,
+  validateSpriteQuad2D,
+  validateTextureQuad2D,
   getRelativeAppearance2D,
   QUAD_BYTES,
   QUAD_FLOATS,
@@ -508,27 +510,21 @@ export class WebGPURender2D {
         for (let i = 0; i < command.object.activeCount; i++) {
           const slot = command.object.getSlot(command.object.activeSlotAt(i));
           this.validateSource(slot.texture, slot.view);
-          getTextureQuad2D(
-            slot.texture,
-            slot.view,
-            slot.source,
-            this.sourceQuad,
-          );
+          validateTextureQuad2D(slot.texture, slot.view, slot.source);
         }
       } else {
         this.validateSource(command.object.texture, command.object.view);
         if (command.kind === 'sprite') {
-          getSpriteQuad2D(command.object, this.quad);
+          validateSpriteQuad2D(command.object);
           validateSpriteLighting2D(command.object);
           if (command.object.material)
             this.effects.validate(command.object.material);
         } else {
           command.object.geometry.validate();
-          getTextureQuad2D(
+          validateTextureQuad2D(
             command.object.texture,
             command.object.view,
             undefined,
-            this.quad,
           );
         }
       }

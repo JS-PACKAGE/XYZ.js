@@ -47,35 +47,53 @@ export function createTextureQuad2D(): TextureQuad2D {
   };
 }
 
-export function getTextureQuad2D(
+/**
+ * Every check of getTextureQuad2D, in its order, without computing the quad: validation
+ * passes run before drawing, and drawing computes the quad again anyway.
+ */
+export function validateTextureQuad2D(
   texture: Texture2DSource,
   view: TextureView2D | undefined,
   source: Readonly<Rect2D> | undefined,
-  out: TextureQuad2D,
-): TextureQuad2D {
+): void {
   if (texture.destroyed)
     throw new Error('Cannot draw a destroyed texture source.');
   if (view && view.source !== texture)
     throw new RangeError('Texture quad view must match its source.');
   view?.validate();
+  if (!source) return;
+  // Same expressions as getTextureQuad2D, so even malformed frames are judged alike.
   const frame = view?.frame ?? source;
   const x = frame?.x ?? 0;
   const y = frame?.y ?? 0;
   const width = frame?.width ?? texture.width;
   const height = frame?.height ?? texture.height;
   if (
-    source &&
-    (!Number.isFinite(x + y + width + height) ||
-      x < 0 ||
-      y < 0 ||
-      width <= 0 ||
-      height <= 0 ||
-      x + width > texture.width ||
-      y + height > texture.height)
+    !Number.isFinite(x + y + width + height) ||
+    x < 0 ||
+    y < 0 ||
+    width <= 0 ||
+    height <= 0 ||
+    x + width > texture.width ||
+    y + height > texture.height
   )
     throw new RangeError(
       'Texture quad source must fit the current source dimensions.',
     );
+}
+
+export function getTextureQuad2D(
+  texture: Texture2DSource,
+  view: TextureView2D | undefined,
+  source: Readonly<Rect2D> | undefined,
+  out: TextureQuad2D,
+): TextureQuad2D {
+  validateTextureQuad2D(texture, view, source);
+  const frame = view?.frame ?? source;
+  const x = frame?.x ?? 0;
+  const y = frame?.y ?? 0;
+  const width = frame?.width ?? texture.width;
+  const height = frame?.height ?? texture.height;
   const resolution =
     view?.resolution ??
     (!source && texture.kind === 'render' ? texture.resolution : 1);
@@ -113,6 +131,12 @@ export function getTextureQuad2D(
 }
 
 const spriteBounds: Rect2D = { x: 0, y: 0, width: 0, height: 0 };
+/** Every check of getSpriteQuad2D, in its order, without computing the quad. */
+export function validateSpriteQuad2D(sprite: Sprite): void {
+  validateTextureQuad2D(sprite.texture, sprite.view, sprite.source);
+  sprite.getLocalBounds(spriteBounds);
+  if (sprite instanceof TilingSprite2D) sprite.validateTileTransform();
+}
 export function getSpriteQuad2D(
   sprite: Sprite,
   out: TextureQuad2D,

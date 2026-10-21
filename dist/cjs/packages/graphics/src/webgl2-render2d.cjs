@@ -152,9 +152,9 @@ var WebGLRender2D = class {
 				this.validateCommands(r.commands, t + 1);
 			} else if (r.kind === `particles`) for (let e = 0; e < r.object.activeCount; e++) {
 				let t = r.object.getSlot(r.object.activeSlotAt(e));
-				this.validateSource(t.texture, t.view), require_sprite_instance.getTextureQuad2D(t.texture, t.view, t.source, this.sourceQuad);
+				this.validateSource(t.texture, t.view), require_sprite_instance.validateTextureQuad2D(t.texture, t.view, t.source);
 			}
-			else this.validateSource(r.object.texture, r.object.view), r.kind === `sprite` ? (require_sprite_instance.getSpriteQuad2D(r.object, this.quad), require_lighting2d.validateSpriteLighting2D(r.object), r.object.material && this.hooks.material(r.object.material)) : (r.object.geometry.validate(), require_sprite_instance.getTextureQuad2D(r.object.texture, r.object.view, void 0, this.quad));
+			else this.validateSource(r.object.texture, r.object.view), r.kind === `sprite` ? (require_sprite_instance.validateSpriteQuad2D(r.object), require_lighting2d.validateSpriteLighting2D(r.object), r.object.material && this.hooks.material(r.object.material)) : (r.object.geometry.validate(), require_sprite_instance.validateTextureQuad2D(r.object.texture, r.object.view, void 0));
 			if (e.destroyed) throw new require_errors.GraphicsError(`Cannot render a destroyed 2D object.`);
 		}
 	}

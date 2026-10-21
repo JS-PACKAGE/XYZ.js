@@ -23,7 +23,14 @@ export interface TextureQuad2D {
     resolution: number;
 }
 export declare function createTextureQuad2D(): TextureQuad2D;
+/**
+ * Every check of getTextureQuad2D, in its order, without computing the quad: validation
+ * passes run before drawing, and drawing computes the quad again anyway.
+ */
+export declare function validateTextureQuad2D(texture: Texture2DSource, view: TextureView2D | undefined, source: Readonly<Rect2D> | undefined): void;
 export declare function getTextureQuad2D(texture: Texture2DSource, view: TextureView2D | undefined, source: Readonly<Rect2D> | undefined, out: TextureQuad2D): TextureQuad2D;
+/** Every check of getSpriteQuad2D, in its order, without computing the quad. */
+export declare function validateSpriteQuad2D(sprite: Sprite): void;
 export declare function getSpriteQuad2D(sprite: Sprite, out: TextureQuad2D): TextureQuad2D;
 /** Root appearance is applied at composition, never baked into a reusable local cache. */
 export declare function getRelativeAppearance2D(object: GameObject, root: GameObject | undefined, out: Float32Array): void;

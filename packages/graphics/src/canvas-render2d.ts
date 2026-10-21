@@ -10,6 +10,8 @@ import {
   getSpriteQuad2D,
   getTextureQuad2D,
   getRelativeAppearance2D,
+  validateSpriteQuad2D,
+  validateTextureQuad2D,
 } from './sprite-instance.js';
 import {
   CanvasSpriteSource,
@@ -107,13 +109,13 @@ export class CanvasRender2D {
           'Canvas2D does not support native Lighting2D; select WebGPU or WebGL2.',
         );
       if (command.kind === 'sprite') {
-        getSpriteQuad2D(command.object, this.quad);
+        validateSpriteQuad2D(command.object);
         this.sources.prepare(command.object.texture);
       }
       if (command.kind === 'particles')
         for (let i = 0; i < command.object.activeCount; i++) {
           const slot = command.object.getSlot(command.object.activeSlotAt(i));
-          getTextureQuad2D(slot.texture, slot.view, slot.source, this.quad);
+          validateTextureQuad2D(slot.texture, slot.view, slot.source);
           this.sources.prepare(slot.texture);
         }
       if (command.kind === 'layer') {

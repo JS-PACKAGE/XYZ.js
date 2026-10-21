@@ -16,7 +16,7 @@ const require_lighting2d$1 = require("./lighting2d.cjs");
 const require_webgpu_render2d_shaders = require("./webgpu-render2d-shaders.cjs");
 const require_effects = require("./webgpu-2d/effects.cjs");
 //#region dist/packages/graphics/src/webgpu-render2d.js
-var j = {
+var N = {
 	add: {
 		color: {
 			srcFactor: `one`,
@@ -183,9 +183,9 @@ var WebGPURender2D = class WebGPURender2D {
 			normal: require_effects.createQuadPipeline(e, r, m),
 			replace: require_effects.createQuadPipeline(e, r, m, void 0),
 			blends: {
-				add: require_effects.createQuadPipeline(e, r, m, j.add),
-				screen: require_effects.createQuadPipeline(e, r, m, j.screen),
-				erase: require_effects.createQuadPipeline(e, r, m, j.erase)
+				add: require_effects.createQuadPipeline(e, r, m, N.add),
+				screen: require_effects.createQuadPipeline(e, r, m, N.screen),
+				erase: require_effects.createQuadPipeline(e, r, m, N.erase)
 			},
 			multiply: require_effects.createQuadPipeline(e, o, t.multiplyLayout, void 0),
 			mesh: f,
@@ -282,9 +282,9 @@ var WebGPURender2D = class WebGPURender2D {
 				i.width > 0 && i.height > 0 && this.validateBounds(i, this.resolution), this.validateCommands(n.commands, t + 1);
 			} else if (n.kind === `particles`) for (let e = 0; e < n.object.activeCount; e++) {
 				let t = n.object.getSlot(n.object.activeSlotAt(e));
-				this.validateSource(t.texture, t.view), require_sprite_instance.getTextureQuad2D(t.texture, t.view, t.source, this.sourceQuad);
+				this.validateSource(t.texture, t.view), require_sprite_instance.validateTextureQuad2D(t.texture, t.view, t.source);
 			}
-			else this.validateSource(n.object.texture, n.object.view), n.kind === `sprite` ? (require_sprite_instance.getSpriteQuad2D(n.object, this.quad), require_lighting2d.validateSpriteLighting2D(n.object), n.object.material && this.effects.validate(n.object.material)) : (n.object.geometry.validate(), require_sprite_instance.getTextureQuad2D(n.object.texture, n.object.view, void 0, this.quad));
+			else this.validateSource(n.object.texture, n.object.view), n.kind === `sprite` ? (require_sprite_instance.validateSpriteQuad2D(n.object), require_lighting2d.validateSpriteLighting2D(n.object), n.object.material && this.effects.validate(n.object.material)) : (n.object.geometry.validate(), require_sprite_instance.validateTextureQuad2D(n.object.texture, n.object.view, void 0));
 		}
 	}
 	validateBounds(e, t) {
@@ -516,8 +516,8 @@ var WebGPURender2D = class WebGPURender2D {
 		this.objectMatrix(e, t, this.matrix), this.objectMatrix(e, t, this.mapping, !0), require_sprite_instance.getRelativeAppearance2D(e, t.root, this.appearance), this.drawUniforms(a, t, this.matrix, this.mapping, this.appearance), r.setPipeline(this.normal), this.bindDraw(r, a), r.setBindGroup(2, this.effects.defaultUniforms), r.setVertexBuffer(0, n.buffer);
 		let c, l = 0, u = -1;
 		for (let t = 0; t < e.activeCount; t++) {
-			let a = e.activeSlotAt(t), d = e.getSlot(a), p = t * 5, m = t * 36, h = n.versions, _ = e.dynamicAttributes, v = t * 3, y = d.texture.kind === `render` ? d.texture.resolution : 1, b = n.slots[t] !== a || h[p + 4] !== d.generation, x = b || (_ & require_particle_layer2d.ParticleAttribute2D.Transform) !== 0 || h[p] !== d.transformVersion, S = b || (_ & require_particle_layer2d.ParticleAttribute2D.Tint) !== 0 || h[p + 1] !== d.tintVersion, C = b || (_ & require_particle_layer2d.ParticleAttribute2D.Source) !== 0 || h[p + 2] !== d.sourceVersion || n.sourceSizes[v] !== d.texture.width || n.sourceSizes[v + 1] !== d.texture.height || n.sourceSizes[v + 2] !== y, w = b || (_ & require_particle_layer2d.ParticleAttribute2D.Anchor) !== 0 || h[p + 3] !== d.anchorVersion;
-			x || S || C || w ? (n.slots[t] = a, u < 0 && (u = t), x && (o[m] = d.a, o[m + 1] = d.b, o[m + 2] = d.c, o[m + 3] = d.d, o[m + 4] = d.tx, o[m + 5] = d.ty, o[m + 30] = +(d.space === `world`), h[p] = d.transformVersion), C && (require_sprite_instance.getTextureQuad2D(d.texture, d.view, d.source, s), o[m + 6] = s.x, o[m + 7] = s.y, o[m + 8] = s.width, o[m + 9] = s.height, o[m + 10] = s.naturalWidth, o[m + 11] = s.naturalHeight, o[m + 12] = s.u0, o[m + 13] = s.v0, o[m + 14] = s.ux, o[m + 15] = s.vx, o[m + 16] = s.uy, o[m + 17] = s.vy, o[m + 18] = s.trimWidth, o[m + 19] = s.trimHeight, o[m + 32] = s.trimX, o[m + 31] = d.texture.kind === `native` ? 2 : 0, o[m + 33] = s.trimY, h[p + 2] = d.sourceVersion, n.sourceSizes[v] = d.texture.width, n.sourceSizes[v + 1] = d.texture.height, n.sourceSizes[v + 2] = y), S && (o[m + 20] = d.tintR, o[m + 21] = d.tintG, o[m + 22] = d.tintB, o[m + 23] = d.tintA, h[p + 1] = d.tintVersion), w && (o[m + 34] = d.anchorX, o[m + 35] = d.anchorY, h[p + 3] = d.anchorVersion), h[p + 4] = d.generation) : u >= 0 && (this.uploadParticles(n, u, t - u), u = -1);
+			let a = e.activeSlotAt(t), d = e.getSlot(a), p = t * 5, m = t * 36, h = n.versions, g = e.dynamicAttributes, _ = t * 3, y = d.texture.kind === `render` ? d.texture.resolution : 1, b = n.slots[t] !== a || h[p + 4] !== d.generation, x = b || (g & require_particle_layer2d.ParticleAttribute2D.Transform) !== 0 || h[p] !== d.transformVersion, S = b || (g & require_particle_layer2d.ParticleAttribute2D.Tint) !== 0 || h[p + 1] !== d.tintVersion, C = b || (g & require_particle_layer2d.ParticleAttribute2D.Source) !== 0 || h[p + 2] !== d.sourceVersion || n.sourceSizes[_] !== d.texture.width || n.sourceSizes[_ + 1] !== d.texture.height || n.sourceSizes[_ + 2] !== y, w = b || (g & require_particle_layer2d.ParticleAttribute2D.Anchor) !== 0 || h[p + 3] !== d.anchorVersion;
+			x || S || C || w ? (n.slots[t] = a, u < 0 && (u = t), x && (o[m] = d.a, o[m + 1] = d.b, o[m + 2] = d.c, o[m + 3] = d.d, o[m + 4] = d.tx, o[m + 5] = d.ty, o[m + 30] = +(d.space === `world`), h[p] = d.transformVersion), C && (require_sprite_instance.getTextureQuad2D(d.texture, d.view, d.source, s), o[m + 6] = s.x, o[m + 7] = s.y, o[m + 8] = s.width, o[m + 9] = s.height, o[m + 10] = s.naturalWidth, o[m + 11] = s.naturalHeight, o[m + 12] = s.u0, o[m + 13] = s.v0, o[m + 14] = s.ux, o[m + 15] = s.vx, o[m + 16] = s.uy, o[m + 17] = s.vy, o[m + 18] = s.trimWidth, o[m + 19] = s.trimHeight, o[m + 32] = s.trimX, o[m + 31] = d.texture.kind === `native` ? 2 : 0, o[m + 33] = s.trimY, h[p + 2] = d.sourceVersion, n.sourceSizes[_] = d.texture.width, n.sourceSizes[_ + 1] = d.texture.height, n.sourceSizes[_ + 2] = y), S && (o[m + 20] = d.tintR, o[m + 21] = d.tintG, o[m + 22] = d.tintB, o[m + 23] = d.tintA, h[p + 1] = d.tintVersion), w && (o[m + 34] = d.anchorX, o[m + 35] = d.anchorY, h[p + 3] = d.anchorVersion), h[p + 4] = d.generation) : u >= 0 && (this.uploadParticles(n, u, t - u), u = -1);
 			let T = this.textureOf(d.texture);
 			T !== c && (c && (r.draw(6, t - l, 0, l), this.hooks.stats.draw2D(t - l)), r.setBindGroup(1, this.textureGroup(T)), c = T, l = t);
 		}

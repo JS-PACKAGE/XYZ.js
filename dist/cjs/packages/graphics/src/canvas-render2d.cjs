@@ -4,19 +4,19 @@ const require_index = require("../../math/src/index.cjs");
 const require_tiling_sprite2d = require("../../core/src/graphics2d/tiling-sprite2d.cjs");
 const require_sprite_instance = require("./sprite-instance.cjs");
 //#region dist/packages/graphics/src/canvas-render2d.js
-var c = {
+var u = {
 	x: 0,
 	y: 0,
 	width: 0,
 	height: 0
 };
-var l = new Float32Array([
+var d = new Float32Array([
 	1,
 	1,
 	1,
 	1
 ]);
-var u = {
+var f = {
 	normal: `source-over`,
 	add: `lighter`,
 	multiply: `multiply`,
@@ -65,9 +65,9 @@ var CanvasRender2D = class {
 			if (n.kind === `mesh`) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support visible Mesh2D.`);
 			if (n.kind === `sprite` && n.object.material) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native Sprite materials.`);
 			if (n.kind === `sprite` && (n.object.lighting || n.object.normalTexture)) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native Lighting2D; select WebGPU or WebGL2.`);
-			if (n.kind === `sprite` && (require_sprite_instance.getSpriteQuad2D(n.object, this.quad), this.sources.prepare(n.object.texture)), n.kind === `particles`) for (let e = 0; e < n.object.activeCount; e++) {
+			if (n.kind === `sprite` && (require_sprite_instance.validateSpriteQuad2D(n.object), this.sources.prepare(n.object.texture)), n.kind === `particles`) for (let e = 0; e < n.object.activeCount; e++) {
 				let t = n.object.getSlot(n.object.activeSlotAt(e));
-				require_sprite_instance.getTextureQuad2D(t.texture, t.view, t.source, this.quad), this.sources.prepare(t.texture);
+				require_sprite_instance.validateTextureQuad2D(t.texture, t.view, t.source), this.sources.prepare(t.texture);
 			}
 			if (n.kind === `layer`) {
 				if (n.object.filters.length) throw new require_errors.UnsupportedGraphicsError(`Canvas2D does not support native Filter2D.`);
@@ -85,10 +85,10 @@ var CanvasRender2D = class {
 			e.height
 		].every(Number.isFinite) || e.width > require_rendering2d.rendering2dLimits.targetDimension || e.height > require_rendering2d.rendering2dLimits.targetDimension || Math.ceil(e.width) * Math.ceil(e.height) > require_rendering2d.rendering2dLimits.targetPixels) throw RangeError(`Canvas2D local target exceeds budget.`);
 	}
-	draw(n, r, s, l, d, f, p = c) {
+	draw(n, r, s, c, l, d, p = u) {
 		this.stats.pass2D();
 		let m;
-		f && (m = this.inverses.get(f), m || (m = new require_index.Matrix3(), this.inverses.set(f, m)), m.copy(f.updateWorldMatrix()).invert());
+		d && (m = this.inverses.get(d), m || (m = new require_index.Matrix3(), this.inverses.set(d, m)), m.copy(d.updateWorldMatrix()).invert());
 		let h = !1;
 		for (let t of r.items) {
 			let r = t.object;
@@ -113,9 +113,9 @@ var CanvasRender2D = class {
 						tinted: i?.tinted
 					}, this.caches.set(e, i);
 				}
-				let a = this.place(r, r.updateWorldMatrix(), s, l, d, m, p, !1);
-				n.setTransform(a.a, a.b, a.c, a.d, a.e, a.f), h = !1, require_sprite_instance.getRelativeAppearance2D(r, f, this.appearance);
-				let c = i.canvas, g = c, _ = this.appearance[0], v = this.appearance[1], y = this.appearance[2], b = _ !== 1 || v !== 1 || y !== 1;
+				let a = this.place(r, r.updateWorldMatrix(), s, c, l, m, p, !1);
+				n.setTransform(a.a, a.b, a.c, a.d, a.e, a.f), h = !1, require_sprite_instance.getRelativeAppearance2D(r, d, this.appearance);
+				let u = i.canvas, g = u, _ = this.appearance[0], v = this.appearance[1], y = this.appearance[2], b = _ !== 1 || v !== 1 || y !== 1;
 				if (b && e.cacheAsTexture) {
 					let e = i.tinted;
 					e ||= i.tinted = {
@@ -124,30 +124,30 @@ var CanvasRender2D = class {
 						r: _,
 						g: v,
 						b: y
-					}, (e.stale || e.r !== _ || e.g !== v || e.b !== y) && (this.tint(c, e.canvas), e.stale = !1, e.r = _, e.g = v, e.b = y), g = e.canvas;
-				} else i.tinted && (this.releaseCanvas(i.tinted.canvas), i.tinted = void 0), b && (this.tint(c, this.tinted), g = this.tinted);
-				n.globalAlpha = this.appearance[3], n.globalCompositeOperation = u[e.blendMode], n.drawImage(g, i.bounds.x, i.bounds.y, i.bounds.width || 1, i.bounds.height || 1), this.stats.draw2D(), n.globalCompositeOperation = `source-over`;
+					}, (e.stale || e.r !== _ || e.g !== v || e.b !== y) && (this.tint(u, e.canvas), e.stale = !1, e.r = _, e.g = v, e.b = y), g = e.canvas;
+				} else i.tinted && (this.releaseCanvas(i.tinted.canvas), i.tinted = void 0), b && (this.tint(u, this.tinted), g = this.tinted);
+				n.globalAlpha = this.appearance[3], n.globalCompositeOperation = f[e.blendMode], n.drawImage(g, i.bounds.x, i.bounds.y, i.bounds.width || 1, i.bounds.height || 1), this.stats.draw2D(), n.globalCompositeOperation = `source-over`;
 			} else if (t.kind === `sprite`) {
 				let r = t.object, a = require_sprite_instance.getSpriteQuad2D(r, this.quad);
-				require_sprite_instance.getRelativeAppearance2D(r, f, this.appearance);
-				let c = this.place(r, r.updateWorldMatrix(), s, l, d, m, p, r.roundPixels), u = this.sources.image(r.texture, a, this.appearance, c);
+				require_sprite_instance.getRelativeAppearance2D(r, d, this.appearance);
+				let u = this.place(r, r.updateWorldMatrix(), s, c, l, m, p, r.roundPixels), f = this.sources.image(r.texture, a, this.appearance, u);
 				if (n.globalAlpha = this.appearance[3], n.imageSmoothingEnabled = (r.sampler?.magFilter ?? r.sampler?.minFilter ?? `linear`) !== `nearest`, r instanceof require_tiling_sprite2d.TilingSprite2D) {
-					n.setTransform(c.a, c.b, c.c, c.d, c.e, c.f), h = !1, n.save(), n.beginPath(), n.rect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.clip();
-					let e = this.tile, t = u.width / a.trimWidth, i = Math.max(1, Math.round(a.naturalWidth * t)), o = Math.max(1, Math.round(a.naturalHeight * t));
+					n.setTransform(u.a, u.b, u.c, u.d, u.e, u.f), h = !1, n.save(), n.beginPath(), n.rect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.clip();
+					let e = this.tile, t = f.width / a.trimWidth, i = Math.max(1, Math.round(a.naturalWidth * t)), o = Math.max(1, Math.round(a.naturalHeight * t));
 					this.resizeCanvas(e, i, o), this.stats.pass2D();
 					let s = e.getContext(`2d`);
-					s.clearRect(0, 0, i, o), s.drawImage(u, a.trimX * t, a.trimY * t), this.stats.draw2D();
-					let l = n.createPattern(e, `repeat`), d = Math.cos(r.tileRotation), f = Math.sin(r.tileRotation), p = this.tileMatrix ??= new DOMMatrix();
-					p.a = d * r.tileScale.x / t, p.b = f * r.tileScale.x / t, p.c = -f * r.tileScale.y / t, p.d = d * r.tileScale.y / t, p.e = r.tilePosition.x, p.f = r.tilePosition.y, l.setTransform(p), n.fillStyle = l, n.fillRect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.restore();
-				} else h = this.drawPlaced(n, h, u, a.x, a.y, a.width, a.height);
+					s.clearRect(0, 0, i, o), s.drawImage(f, a.trimX * t, a.trimY * t), this.stats.draw2D();
+					let c = n.createPattern(e, `repeat`), l = Math.cos(r.tileRotation), d = Math.sin(r.tileRotation), p = this.tileMatrix ??= new DOMMatrix();
+					p.a = l * r.tileScale.x / t, p.b = d * r.tileScale.x / t, p.c = -d * r.tileScale.y / t, p.d = l * r.tileScale.y / t, p.e = r.tilePosition.x, p.f = r.tilePosition.y, c.setTransform(p), n.fillStyle = c, n.fillRect(-r.anchor.x * r.width, -r.anchor.y * r.height, r.width, r.height), n.restore();
+				} else h = this.drawPlaced(n, h, f, a.x, a.y, a.width, a.height);
 				this.stats.draw2D();
 			} else if (t.kind === `particles`) {
 				let e = t.object;
 				for (let t = 0; t < e.activeCount; t++) {
-					let r = e.activeSlotAt(t), i = e.getSlot(r), c = require_sprite_instance.getTextureQuad2D(i.texture, i.view, i.source, this.quad);
-					require_sprite_instance.getRelativeAppearance2D(e, f, this.appearance), this.appearance[0] *= i.tintR, this.appearance[1] *= i.tintG, this.appearance[2] *= i.tintB, this.appearance[3] *= i.tintA;
-					let u = this.place(e, e.getSlotWorldMatrix(r, this.matrix), s, l, d, m, p, !1), g = this.sources.image(i.texture, c, this.appearance, u);
-					n.globalAlpha = this.appearance[3], h = this.drawPlaced(n, h, g, c.x - i.anchorX * c.naturalWidth, c.y - i.anchorY * c.naturalHeight, c.width, c.height), this.stats.draw2D();
+					let r = e.activeSlotAt(t), i = e.getSlot(r), u = require_sprite_instance.getTextureQuad2D(i.texture, i.view, i.source, this.quad);
+					require_sprite_instance.getRelativeAppearance2D(e, d, this.appearance), this.appearance[0] *= i.tintR, this.appearance[1] *= i.tintG, this.appearance[2] *= i.tintB, this.appearance[3] *= i.tintA;
+					let f = this.place(e, e.getSlotWorldMatrix(r, this.matrix), s, c, l, m, p, !1), g = this.sources.image(i.texture, u, this.appearance, f);
+					n.globalAlpha = this.appearance[3], h = this.drawPlaced(n, h, g, u.x - i.anchorX * u.naturalWidth, u.y - i.anchorY * u.naturalHeight, u.width, u.height), this.stats.draw2D();
 				}
 			}
 		}
@@ -185,7 +185,7 @@ var CanvasRender2D = class {
 			let e = this.paths.get(r.path);
 			e || (e = r.path.nativePath2D, this.paths.set(r.path, e)), o.fill(e, r.path.fillRule);
 		} else {
-			let e = require_sprite_instance.getTextureQuad2D(r.texture, r.view, void 0, this.quad), t = this.sources.image(r.texture, e, l);
+			let e = require_sprite_instance.getTextureQuad2D(r.texture, r.view, void 0, this.quad), t = this.sources.image(r.texture, e, d);
 			if (o.drawImage(t, e.x, e.y, e.width, e.height), r.channel === `red`) {
 				let e = o.getImageData(0, 0, i.width, i.height);
 				for (let t = 0; t < e.data.length; t += 4) e.data[t + 3] = Math.round(e.data[t] * e.data[t + 3] / 255);

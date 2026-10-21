@@ -21,13 +21,16 @@ function createTextureQuad2D() {
 		resolution: 1
 	};
 }
-function getTextureQuad2D(e, t, n, r) {
+function validateTextureQuad2D(e, t, n) {
 	if (e.destroyed) throw Error(`Cannot draw a destroyed texture source.`);
 	if (t && t.source !== e) throw RangeError(`Texture quad view must match its source.`);
-	t?.validate();
-	let i = t?.frame ?? n, a = i?.x ?? 0, o = i?.y ?? 0, s = i?.width ?? e.width, c = i?.height ?? e.height;
-	if (n && (!Number.isFinite(a + o + s + c) || a < 0 || o < 0 || s <= 0 || c <= 0 || a + s > e.width || o + c > e.height)) throw RangeError(`Texture quad source must fit the current source dimensions.`);
-	let l = t?.resolution ?? (!n && e.kind === `render` ? e.resolution : 1);
+	if (t?.validate(), !n) return;
+	let r = t?.frame ?? n, i = r?.x ?? 0, a = r?.y ?? 0, o = r?.width ?? e.width, s = r?.height ?? e.height;
+	if (!Number.isFinite(i + a + o + s) || i < 0 || a < 0 || o <= 0 || s <= 0 || i + o > e.width || a + s > e.height) throw RangeError(`Texture quad source must fit the current source dimensions.`);
+}
+function getTextureQuad2D(e, t, n, r) {
+	validateTextureQuad2D(e, t, n);
+	let i = t?.frame ?? n, a = i?.x ?? 0, o = i?.y ?? 0, s = i?.width ?? e.width, c = i?.height ?? e.height, l = t?.resolution ?? (!n && e.kind === `render` ? e.resolution : 1);
 	return r.resolution = l, r.naturalWidth = t?.width ?? (!n && e.kind === `render` ? e.logicalWidth : s), r.naturalHeight = t?.height ?? (!n && e.kind === `render` ? e.logicalHeight : c), r.trimX = (t?.trim.x ?? 0) / l, r.trimY = (t?.trim.y ?? 0) / l, r.trimWidth = t ? t.trim.width / l : r.naturalWidth, r.trimHeight = t ? t.trim.height / l : r.naturalHeight, r.x = r.trimX, r.y = r.trimY, r.width = r.trimWidth, r.height = r.trimHeight, t?.rotation === 90 ? (r.u0 = (a + s) / e.width, r.v0 = o / e.height, r.ux = 0, r.vx = c / e.height, r.uy = -s / e.width, r.vy = 0) : (r.u0 = a / e.width, r.v0 = o / e.height, r.ux = s / e.width, r.vx = 0, r.uy = 0, r.vy = c / e.height), r;
 }
 var t = {
@@ -36,6 +39,9 @@ var t = {
 	width: 0,
 	height: 0
 };
+function validateSpriteQuad2D(n) {
+	validateTextureQuad2D(n.texture, n.view, n.source), n.getLocalBounds(t), n instanceof require_tiling_sprite2d.TilingSprite2D && n.validateTileTransform();
+}
 function getSpriteQuad2D(n, r) {
 	getTextureQuad2D(n.texture, n.view, n.source, r);
 	let i = n.getLocalBounds(t);
@@ -60,5 +66,7 @@ exports.createTextureQuad2D = createTextureQuad2D;
 exports.getRelativeAppearance2D = getRelativeAppearance2D;
 exports.getSpriteQuad2D = getSpriteQuad2D;
 exports.getTextureQuad2D = getTextureQuad2D;
+exports.validateSpriteQuad2D = validateSpriteQuad2D;
+exports.validateTextureQuad2D = validateTextureQuad2D;
 
 //# sourceMappingURL=sprite-instance.cjs.map
