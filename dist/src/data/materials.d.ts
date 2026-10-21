@@ -312,6 +312,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.9;
         relief: 0.01;
     }>;
+    charredwood: Readonly<{
+        dark: readonly [12, 11, 10];
+        light: readonly [72, 70, 68];
+        roughness: 0.82;
+        relief: 0.012;
+    }>;
+    driftwood: Readonly<{
+        dark: readonly [86, 82, 76];
+        light: readonly [196, 192, 184];
+        roughness: 0.88;
+        relief: 0.008;
+    }>;
+    peelingpaint: Readonly<{
+        dark: readonly [70, 84, 94];
+        light: readonly [214, 222, 218];
+        roughness: 0.66;
+        relief: 0.005;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -852,6 +870,9 @@ export declare const proceduralTileMeters: Readonly<{
     shiplap: 0.9;
     glassblock: 0.4;
     thatch: 0.8;
+    charredwood: 0.36;
+    driftwood: 1.2;
+    peelingpaint: 0.6;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

@@ -58,6 +58,9 @@ export type ProceduralMaterialKind =
   | 'shiplap'
   | 'glassblock'
   | 'thatch'
+  | 'charredwood'
+  | 'driftwood'
+  | 'peelingpaint'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -222,6 +225,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'shiplap',
   'glassblock',
   'thatch',
+  'charredwood',
+  'driftwood',
+  'peelingpaint',
   'sandstone',
   'travertine',
   'pumice',

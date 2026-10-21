@@ -720,6 +720,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .9,
 		relief: .01
 	}),
+	charredwood: Object.freeze({
+		dark: [
+			12,
+			11,
+			10
+		],
+		light: [
+			72,
+			70,
+			68
+		],
+		roughness: .82,
+		relief: .012
+	}),
+	driftwood: Object.freeze({
+		dark: [
+			86,
+			82,
+			76
+		],
+		light: [
+			196,
+			192,
+			184
+		],
+		roughness: .88,
+		relief: .008
+	}),
+	peelingpaint: Object.freeze({
+		dark: [
+			70,
+			84,
+			94
+		],
+		light: [
+			214,
+			222,
+			218
+		],
+		roughness: .66,
+		relief: .005
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -1907,6 +1949,9 @@ var proceduralTileMeters = Object.freeze({
 	shiplap: .9,
 	glassblock: .4,
 	thatch: .8,
+	charredwood: .36,
+	driftwood: 1.2,
+	peelingpaint: .6,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

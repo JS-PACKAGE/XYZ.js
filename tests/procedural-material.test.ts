@@ -76,6 +76,9 @@ const kinds: ProceduralMaterialKind[] = [
   'shiplap',
   'glassblock',
   'thatch',
+  'charredwood',
+  'driftwood',
+  'peelingpaint',
   'sandstone',
   'travertine',
   'pumice',
@@ -1758,6 +1761,9 @@ describe('periodic procedural material fields', () => {
     ['shiplap', [5, 12, 32, 48]],
     ['glassblock', [4, 32]],
     ['thatch', [3, 6, 32, 80]],
+    ['charredwood', [9, 32, 64]],
+    ['driftwood', [2, 3, 7, 12, 32, 64]],
+    ['peelingpaint', [3, 5, 32, 40]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -1923,6 +1929,8 @@ describe('periodic procedural material fields', () => {
     ['shiplap', 5],
     ['glassblock', 4],
     ['thatch', 6],
+    ['charredwood', 9],
+    ['driftwood', 7],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -3972,6 +3980,168 @@ describe('periodic procedural material fields', () => {
         high = Math.max(high, along.color);
       }
       expect(high - low).toBeGreaterThan(0.05);
+    }
+  });
+
+  it('charredwood lifts rounded charcoal scales above its alligator cracks', () => {
+    const relief = proceduralMaterialPresets.charredwood.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const edge = { ...probe },
+      crack = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('charredwood', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [3, 5],
+        [8, 2],
+      ]) {
+        let peak = 0,
+          peakX = 0,
+          peakY = 0,
+          low = 1,
+          lowX = 0,
+          lowY = 0;
+        for (let j = 0; j < 18; j++)
+          for (let i = 0; i < 18; i++) {
+            const u = (column + (i + 0.5) / 18) / 9,
+              v = (row + (j + 0.5) / 18) / 9;
+            sample(u, v, probe);
+            if (probe.height > peak) {
+              peak = probe.height;
+              peakX = u;
+              peakY = v;
+            }
+            if (probe.height < low) {
+              low = probe.height;
+              lowX = u;
+              lowY = v;
+            }
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // The rounded scale falls toward its own shoulder before the crack.
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            peakX + (0.12 * Math.cos(angle)) / 9,
+            peakY + (0.12 * Math.sin(angle)) / 9,
+            edge,
+          );
+          expect(peak).toBeGreaterThan(edge.height);
+        }
+        sample(lowX, lowY, crack);
+        expect(peak).toBeGreaterThan(crack.height + 0.1 * relief);
+      }
+    }
+  });
+
+  it('driftwood opens grain-aligned cracks below silvered ridges', () => {
+    const relief = proceduralMaterialPresets.driftwood.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const along = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('driftwood', seed);
+      for (const u of [0.1, 0.5, 0.9]) {
+        // Scanning one crack period finds the ridge crest and crack floor
+        // wherever the warp drifts their shared line.
+        let high = 0,
+          highV = 0,
+          low = 1,
+          lowV = 0;
+        for (let i = 0; i < 48; i++) {
+          const v = 3 / 7 + i / (48 * 7);
+          sample(u, v, probe);
+          if (probe.height > high) {
+            high = probe.height;
+            highV = v;
+          }
+          if (probe.height < low) {
+            low = probe.height;
+            lowV = v;
+          }
+        }
+        expect(high).toBeGreaterThan(low + 0.2 * relief);
+        sample(u, highV, probe);
+        const crestOcclusion = probe.occlusion;
+        sample(u, lowV, probe);
+        expect(crestOcclusion).toBeGreaterThan(probe.occlusion);
+        // The crack floor follows the grain instead of wandering across it.
+        expect(
+          Math.min(Math.abs(lowV - 3 / 7), Math.abs(lowV - 4 / 7)),
+        ).toBeLessThan(0.03);
+      }
+      // Silvered grain streaks pigment along the board.
+      let low = 1,
+        high = 0;
+      for (let i = 0; i < 16; i++) {
+        sample(i / 16, 3.5 / 7, along);
+        low = Math.min(low, along.color);
+        high = Math.max(high, along.color);
+      }
+      expect(high - low).toBeGreaterThan(0.05);
+    }
+  });
+
+  it('peeling paint curls its rim above the intact face and bare substrate', () => {
+    const relief = proceduralMaterialPresets.peelingpaint.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const bare = { ...probe },
+      near = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('peelingpaint', seed);
+      let rim = 0,
+        rimX = 0,
+        rimY = 0,
+        bareLow = 1;
+      for (let j = 0; j < 24; j++)
+        for (let i = 0; i < 24; i++) {
+          const u = (i + 0.5) / 24,
+            v = (j + 0.5) / 24;
+          sample(u, v, probe);
+          if (probe.height > rim) {
+            rim = probe.height;
+            rimX = u;
+            rimY = v;
+          }
+          if (probe.height < bareLow) {
+            bareLow = probe.height;
+            sample(u, v, bare);
+          }
+        }
+      // The curling rim drops off before the surrounding paint and lifts
+      // the paint stack well above the exposed substrate.
+      for (let k = 0; k < 8; k++) {
+        const angle = (Math.PI / 4) * k;
+        sample(
+          rimX + 0.06 * Math.cos(angle),
+          rimY + 0.06 * Math.sin(angle),
+          near,
+        );
+        expect(rim).toBeGreaterThan(near.height);
+      }
+      expect(rim).toBeGreaterThan(bare.height + 0.25 * relief);
+      sample(rimX, rimY, probe);
+      expect(probe.occlusion).toBeGreaterThan(bare.occlusion);
     }
   });
 

@@ -918,6 +918,26 @@ function createSurfaceSampler(t, r) {
 				R = .3 + .32 * i + .18 * a + .1 * S - .12 * s, H = .32 + .36 * i + .22 * a - .3 * s, Z += .05 * (a - .5) + .05 * s, Q = .68 + .28 * i - .3 * s;
 				break;
 			}
+			case `charredwood`: {
+				let t = e * 9, n = o * 9, i = Math.floor(t), a = Math.floor(n), s = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let c = i + o, l = a + e, u = (c % 9 + 9) % 9, d = (l % 9 + 9) % 9, f = t - c - .5 - .24 * (hash(u, d, r ^ 18967) - .5), p = n - l - .5 - .24 * (hash(u, d, r ^ 29629) - .5), h = smooth(clamp((.36 - Math.sqrt(f * f + p * p)) / .08));
+					s += (1 - s) * h;
+				}
+				let c = noise(e, o, 64, 64, r ^ 12113);
+				R = .12 + .24 * s + .14 * c, H = .2 + .66 * s + .05 * c, Z += .08 * (1 - s) + .03 * (c - .5), Q = .36 + .6 * s;
+				break;
+			}
+			case `driftwood`: {
+				let t = noise(e, o, 4, 3, r ^ 7307), n = noise(e, o, 64, 3, r ^ 21985), i = noise(e, o, 12, 2, r ^ 14767), a = fract(o * 7 + .12 * t), c = smooth(clamp((.1 - Math.min(a, 1 - a)) / .05));
+				R = .42 + .26 * n + .12 * i - .24 * c, H = .62 + .18 * n + .04 * i - .5 * c, Z += .06 * (n - .5) + .08 * c, Q = 1 - .62 * c;
+				break;
+			}
+			case `peelingpaint`: {
+				let t = noise(e, o, 5, 5, r ^ 28461), n = smooth(clamp((noise(e, o, 3, 3, r ^ 19313) - .55) / .08)), i = 4 * n * (1 - n), a = noise(e, o, 40, 40, r ^ 10963), s = 1 - n;
+				R = .66 * s + .3 * n + .16 * i + .1 * a * n + .12 * (.5 + .5 * t) * s, H = .24 + .42 * s + .3 * i + .05 * a, Z += .12 * n + .05 * (a - .5), Q = .52 + .36 * s + .16 * i;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((L - .28) / .48)), d = (1 - L) ** 5;
 				R = .22 + .35 * s + .2 * l + .18 * u - .2 * c, H = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Z += .12 * (u - .5) + .05 * c, Q = .97 - .12 * c - .13 * d + .025 * u;

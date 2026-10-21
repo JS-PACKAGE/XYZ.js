@@ -3097,6 +3097,71 @@ export function createSurfaceSampler(
         occlusion = 0.68 + 0.28 * course - 0.3 * lap;
         break;
       }
+      case 'charredwood': {
+        const cells = 9;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Rounded charcoal scales lift above deep alligator cracks; caps
+        // fade with zero slope before a discarded cell can matter.
+        let plates = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx =
+                x - cx - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x4a17) - 0.5),
+              dy = y - cy - 0.5 - 0.24 * (hash(wx, wy, seed ^ 0x73bd) - 0.5);
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const cap = smooth(clamp((0.36 - distance) / 0.08));
+            plates += (1 - plates) * cap;
+          }
+        const grain = noise(u, v, 64, 64, seed ^ 0x2f51);
+        color = 0.12 + 0.24 * plates + 0.14 * grain;
+        height = 0.2 + 0.66 * plates + 0.05 * grain;
+        roughness += 0.08 * (1 - plates) + 0.03 * (grain - 0.5);
+        occlusion = 0.36 + 0.6 * plates;
+        break;
+      }
+      case 'driftwood': {
+        // Weathered cracks open along the grain while silvered ridges run
+        // the length of the board with zero slope at every crack wall.
+        const warp = noise(u, v, 4, 3, seed ^ 0x1c8b);
+        const grain = noise(u, v, 64, 3, seed ^ 0x55e1);
+        const streak = noise(u, v, 12, 2, seed ^ 0x39af);
+        const f = fract(v * 7 + 0.12 * warp);
+        const edge = Math.min(f, 1 - f);
+        const crack = smooth(clamp((0.1 - edge) / 0.05));
+        color = 0.42 + 0.26 * grain + 0.12 * streak - 0.24 * crack;
+        height = 0.62 + 0.18 * grain + 0.04 * streak - 0.5 * crack;
+        roughness += 0.06 * (grain - 0.5) + 0.08 * crack;
+        occlusion = 1 - 0.62 * crack;
+        break;
+      }
+      case 'peelingpaint': {
+        // Smooth noise opens peeled patches; the boundary rim curls up
+        // between the intact paint face and the exposed substrate.
+        const warp = noise(u, v, 5, 5, seed ^ 0x6f2d);
+        const peel = smooth(
+          clamp((noise(u, v, 3, 3, seed ^ 0x4b71) - 0.55) / 0.08),
+        );
+        const rim = 4 * peel * (1 - peel);
+        const substrate = noise(u, v, 40, 40, seed ^ 0x2ad3);
+        const paint = 1 - peel;
+        color =
+          0.66 * paint +
+          0.3 * peel +
+          0.16 * rim +
+          0.1 * substrate * peel +
+          0.12 * (0.5 + 0.5 * warp) * paint;
+        height = 0.24 + 0.42 * paint + 0.3 * rim + 0.05 * substrate;
+        roughness += 0.12 * peel + 0.05 * (substrate - 0.5);
+        occlusion = 0.52 + 0.36 * paint + 0.16 * rim;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
