@@ -165,7 +165,10 @@ export type ProceduralMaterialKind =
   | 'giraffefur'
   | 'scallopshell'
   | 'oystershell'
-  | 'nautilusshell';
+  | 'nautilusshell'
+  | 'cantaloupe'
+  | 'dragonfruit'
+  | 'kiwiskin';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -357,6 +360,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'scallopshell',
   'oystershell',
   'nautilusshell',
+  'cantaloupe',
+  'dragonfruit',
+  'kiwiskin',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

@@ -103,6 +103,69 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const fruitSkin =
+    kind === 'cantaloupe' || kind === 'dragonfruit' || kind === 'kiwiskin';
+  const fruitGrain = fruitSkin ? cachedNoise(64, 64, seed ^ 0x45e7) : null;
+  const rindWarp =
+    kind === 'cantaloupe' ? cachedNoise(4, 4, seed ^ 0x71a3) : null;
+  // Smoothly warped shared bisectors enclose rind islands. The complementary
+  // cork network is actual raised relief, including its rounded junctions.
+  const rindIslands =
+    kind === 'cantaloupe' ? new Float64Array(7 * 7 * 26) : null;
+  if (rindIslands)
+    for (let y = 0; y < 7; y++)
+      for (let x = 0; x < 7; x++) {
+        const offset = (y * 7 + x) * 26,
+          px = 0.25 + 0.5 * hash(x, y, seed ^ 0x32b1),
+          py = 0.25 + 0.5 * hash(x, y, seed ^ 0x67d9);
+        rindIslands[offset] = px;
+        rindIslands[offset + 1] = py;
+        let plane = offset + 2;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 7) % 7,
+              wy = (y + oy + 7) % 7,
+              dx = ox + 0.25 + 0.5 * hash(wx, wy, seed ^ 0x32b1) - px,
+              dy = oy + 0.25 + 0.5 * hash(wx, wy, seed ^ 0x67d9) - py,
+              inverse = 1 / Math.sqrt(dx * dx + dy * dy);
+            rindIslands[plane++] = dx * inverse;
+            rindIslands[plane++] = dy * inverse;
+            rindIslands[plane++] = 0.5 / inverse;
+          }
+      }
+  // Bracts are staggered, tilted, asymmetric tapered lenses. Their compact
+  // supports fit within the 3x3 lookup, even across row staggering and seams.
+  const bractWidthInverse = 1 / 0.34,
+    bractLengthInverse = 1 / 0.7,
+    hairLengthSquaredInverse = 1 / (0.43 * 0.43),
+    hairWidthSquaredInverse = 1 / (0.075 * 0.075),
+    follicleSquaredInverse = 1 / (0.12 * 0.12);
+  const bracts = kind === 'dragonfruit' ? new Float64Array(4 * 6 * 5) : null;
+  if (bracts)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 4; x++) {
+        const offset = (y * 4 + x) * 5,
+          angle = 0.24 * (hash(x, y, seed ^ 0x53a9) - 0.5);
+        bracts[offset] =
+          0.25 + 0.5 * (y % 2) + 0.12 * (hash(x, y, seed ^ 0x3c71) - 0.5);
+        bracts[offset + 1] = 0.5 + 0.12 * (hash(x, y, seed ^ 0x6d13) - 0.5);
+        bracts[offset + 2] = Math.cos(angle);
+        bracts[offset + 3] = Math.sin(angle);
+        bracts[offset + 4] = 0.85 + 0.15 * hash(x, y, seed ^ 0x29e7);
+      }
+  const kiwiHairs = kind === 'kiwiskin' ? new Float64Array(36 * 36 * 5) : null;
+  if (kiwiHairs)
+    for (let y = 0; y < 36; y++)
+      for (let x = 0; x < 36; x++) {
+        const offset = (y * 36 + x) * 5,
+          angle = TAU * hash(x, y, seed ^ 0x2f93);
+        kiwiHairs[offset] = 0.3 + 0.4 * hash(x, y, seed ^ 0x43b7);
+        kiwiHairs[offset + 1] = 0.3 + 0.4 * hash(x, y, seed ^ 0x6a51);
+        kiwiHairs[offset + 2] = Math.cos(angle);
+        kiwiHairs[offset + 3] = Math.sin(angle);
+        kiwiHairs[offset + 4] = 0.75 + 0.25 * hash(x, y, seed ^ 0x19d3);
+      }
   const shortFur =
     kind === 'zebrafur' || kind === 'leopardfur' || kind === 'giraffefur';
   const furWarp = shortFur ? cachedNoise(5, 7, seed ^ 0x72b9) : null;
@@ -862,7 +925,8 @@ export function createSurfaceSampler(
       foliage ||
       marine ||
       shortFur ||
-      shell
+      shell ||
+      fruitSkin
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -889,6 +953,122 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'cantaloupe': {
+        const warp = rindWarp!(u, v),
+          x = 7 * u + 0.38 * Math.sin(TAU * 3 * v + phase),
+          y = 7 * v + 0.34 * Math.sin(TAU * 2 * u - phase),
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          grain = fruitGrain!(u, v);
+        let interior = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              offset = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 26,
+              dx = x - cx - rindIslands![offset],
+              dy = y - cy - rindIslands![offset + 1];
+            let mask =
+              smooth(clamp((1.21 - dx * dx) * 5)) *
+              smooth(clamp((1.21 - dy * dy) * 5));
+            for (let edge = 0; edge < 8; edge++) {
+              const plane = offset + 2 + edge * 3,
+                inset =
+                  rindIslands![plane + 2] -
+                  dx * rindIslands![plane] -
+                  dy * rindIslands![plane + 1];
+              mask *= smooth(clamp((inset - 0.035) * 6));
+            }
+            interior += mask;
+          }
+        const net = 1 - interior;
+        color = 0.14 + 0.12 * warp + net * (0.66 + 0.06 * grain);
+        height = 0.12 + 0.012 * grain + net * (0.5 + 0.06 * grain);
+        roughness += 0.1 * net - 0.03 * interior;
+        occlusion = 0.9 + 0.1 * net;
+        break;
+      }
+      case 'dragonfruit': {
+        const x = 4 * u,
+          y = 6 * v,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          grain = fruitGrain!(u, v);
+        let face = 0,
+          tips = 0,
+          lifted = 0,
+          underlap = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              offset = (((cy + 6) % 6) * 4 + ((cx + 4) % 4)) * 5,
+              dx = x - cx - bracts![offset],
+              dy = y - cy - bracts![offset + 1],
+              a =
+                (dx * bracts![offset + 2] - dy * bracts![offset + 3]) *
+                bractWidthInverse,
+              b =
+                (dy * bracts![offset + 2] + dx * bracts![offset + 3]) *
+                bractLengthInverse,
+              radius = a * a * (1 + 0.65 * b + 0.2 * b * b) + b * b,
+              body = smooth(clamp(1 - radius)),
+              pigment = smooth(clamp((1 - radius) * 5)),
+              tip = smooth(clamp((b - 0.05) * 2.5)),
+              lip = body * smooth(clamp((b + 0.35) * 1.5)),
+              shade = (pigment - body) * (1 - tip);
+            face += body;
+            tips += (1 - tips) * pigment * tip * bracts![offset + 4];
+            lifted += lip;
+            underlap += shade;
+          }
+        color = 0.045 + 0.025 * grain + 0.86 * tips;
+        height =
+          0.16 + 0.008 * grain + 0.11 * face + 0.48 * lifted - 0.07 * underlap;
+        roughness += 0.1 * tips + 0.04 * underlap;
+        occlusion = 1 - 0.19 * underlap;
+        break;
+      }
+      case 'kiwiskin': {
+        const x = 36 * u,
+          y = 36 * v,
+          ix = Math.floor(x),
+          iy = Math.floor(y),
+          grain = fruitGrain!(u, v);
+        let hairs = 0,
+          pits = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              offset = (((cy + 36) % 36) * 36 + ((cx + 36) % 36)) * 5,
+              dx = x - cx - kiwiHairs![offset],
+              dy = y - cy - kiwiHairs![offset + 1],
+              along = dx * kiwiHairs![offset + 2] + dy * kiwiHairs![offset + 3],
+              across =
+                dy * kiwiHairs![offset + 2] - dx * kiwiHairs![offset + 3],
+              hair = smooth(
+                clamp(
+                  1 -
+                    along * along * hairLengthSquaredInverse -
+                    across * across * hairWidthSquaredInverse,
+                ),
+              ),
+              root = along + 0.43,
+              pit = smooth(
+                clamp(
+                  1 - (root * root + across * across) * follicleSquaredInverse,
+                ),
+              );
+            hairs += (1 - hairs) * hair * kiwiHairs![offset + 4];
+            pits += (1 - pits) * pit;
+          }
+        color = 0.34 + 0.13 * grain + 0.38 * hairs - 0.19 * pits;
+        height = 0.15 + 0.016 * grain + 0.23 * hairs - 0.085 * pits;
+        roughness += 0.055 * hairs - 0.025 * pits;
+        occlusion = 1 - 0.23 * pits;
+        break;
+      }
       case 'scallopshell':
       case 'oystershell':
       case 'nautilusshell': {

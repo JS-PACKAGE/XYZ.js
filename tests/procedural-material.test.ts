@@ -184,6 +184,9 @@ const kinds: ProceduralMaterialKind[] = [
   'scallopshell',
   'oystershell',
   'nautilusshell',
+  'cantaloupe',
+  'dragonfruit',
+  'kiwiskin',
 ];
 
 class TestImageData {
@@ -231,6 +234,324 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('reticulated and bristled fruit skins', () => {
+    const fruitKinds = ['cantaloupe', 'dragonfruit', 'kiwiskin'] as const;
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const field = (kind: ProceduralMaterialKind, seed: number) => {
+      const sample = createSurfaceSampler(kind, seed);
+      return (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+    };
+    // Reconstruct primitive coordinates, but assert only real sampled fields.
+    const rindPoint = (
+      seed: number,
+      x: number,
+      y: number,
+    ): [number, number] => {
+      const phase = hash(0, 0, seed) * 2 * Math.PI;
+      let u = x / 7,
+        v = y / 7;
+      for (let i = 0; i < 160; i++) {
+        u = (x - 0.38 * Math.sin(6 * Math.PI * v + phase)) / 7;
+        v = (y - 0.34 * Math.sin(4 * Math.PI * u - phase)) / 7;
+      }
+      return [u, v];
+    };
+    const bractPoint = (
+      seed: number,
+      x: number,
+      y: number,
+      a: number,
+      b: number,
+    ): [number, number] => {
+      const angle = 0.24 * (hash(x, y, seed ^ 0x53a9) - 0.5),
+        cx =
+          x + 0.25 + 0.5 * (y % 2) + 0.12 * (hash(x, y, seed ^ 0x3c71) - 0.5),
+        cy = y + 0.5 + 0.12 * (hash(x, y, seed ^ 0x6d13) - 0.5);
+      return [
+        (cx + 0.34 * a * Math.cos(angle) + 0.7 * b * Math.sin(angle)) / 4,
+        (cy - 0.34 * a * Math.sin(angle) + 0.7 * b * Math.cos(angle)) / 6,
+      ];
+    };
+    const hairPoint = (
+      seed: number,
+      x: number,
+      y: number,
+      along: number,
+      across: number,
+    ): [number, number] => {
+      const angle = 2 * Math.PI * hash(x, y, seed ^ 0x2f93),
+        cx = x + 0.3 + 0.4 * hash(x, y, seed ^ 0x43b7),
+        cy = y + 0.3 + 0.4 * hash(x, y, seed ^ 0x6a51);
+      return [
+        (cx + along * Math.cos(angle) - across * Math.sin(angle)) / 36,
+        (cy + along * Math.sin(angle) + across * Math.cos(angle)) / 36,
+      ];
+    };
+
+    it('cantaloupe raises a pale cork network above its green rind islands', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('cantaloupe', seed);
+        let islandHeight = 0,
+          netHeight = 0,
+          islandColor = 0,
+          netColor = 0;
+        for (let y = 0; y < 7; y++)
+          for (let x = 0; x < 7; x++) {
+            const px = x + 0.25 + 0.5 * hash(x, y, seed ^ 0x32b1),
+              py = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x67d9),
+              qx = x + 1.25 + 0.5 * hash((x + 1) % 7, y, seed ^ 0x32b1),
+              qy = y + 0.25 + 0.5 * hash((x + 1) % 7, y, seed ^ 0x67d9),
+              island = at(...rindPoint(seed, px, py)),
+              net = at(...rindPoint(seed, (px + qx) / 2, (py + qy) / 2));
+            islandHeight += island.height;
+            netHeight += net.height;
+            islandColor += island.color;
+            netColor += net.color;
+          }
+        expect(netHeight).toBeGreaterThan(2 * islandHeight);
+        expect(netColor - islandColor).toBeGreaterThan(49 * 0.35);
+      }
+    });
+
+    it('cantaloupe net joins across the torus instead of forming isolated pale spots', () => {
+      const size = 128,
+        at = field('cantaloupe', 123),
+        net = new Uint8Array(size * size),
+        queue = new Int32Array(size * size);
+      let total = 0;
+      for (let y = 0; y < size; y++)
+        for (let x = 0; x < size; x++)
+          if (at((x + 0.5) / size, (y + 0.5) / size).color > 0.65) {
+            net[y * size + x] = 1;
+            total++;
+          }
+      let largest = 0;
+      for (let start = 0; start < net.length; start++) {
+        if (!net[start]) continue;
+        let read = 0,
+          write = 1;
+        queue[0] = start;
+        net[start] = 0;
+        while (read < write) {
+          const index = queue[read++],
+            x = index % size,
+            y = Math.floor(index / size);
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const next =
+                ((y + oy + size) % size) * size + ((x + ox + size) % size);
+              if (net[next]) {
+                net[next] = 0;
+                queue[write++] = next;
+              }
+            }
+        }
+        largest = Math.max(largest, write);
+      }
+      expect(total).toBeGreaterThan(size * size * 0.1);
+      expect(total).toBeLessThan(size * size * 0.75);
+      expect(largest).toBeGreaterThan(total * 0.97);
+    });
+
+    it('dragonfruit has magenta roots, green tapered lifted tips and recessed underlaps', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('dragonfruit', seed);
+        for (let y = 1; y < 5; y++)
+          for (let x = 0; x < 4; x++) {
+            const tip = at(...bractPoint(seed, x, y, 0, 0.55)),
+              root = at(...bractPoint(seed, x, y, 0, -0.55)),
+              underlap = at(...bractPoint(seed, x, y, 0, -0.9)),
+              outside = at(...bractPoint(seed, x, y, 1.35, 0));
+            expect(tip.color - root.color).toBeGreaterThan(0.6);
+            expect(tip.height).toBeGreaterThan(root.height * 1.4);
+            expect(underlap.occlusion).toBeLessThan(0.94);
+            expect(underlap.height).toBeLessThan(outside.height);
+            // Follow the sampled groove across two interior sections. A fixed
+            // point near the tip can instead land in the next bract's underlap.
+            for (const side of [-1, 1]) {
+              const grooveWidth = (b: number): number => {
+                let darkest = Infinity,
+                  width = 0;
+                for (let step = 45; step <= 130; step++) {
+                  const a = step / 100,
+                    sample = at(...bractPoint(seed, x, y, side * a, b));
+                  if (sample.occlusion < darkest) {
+                    darkest = sample.occlusion;
+                    width = a;
+                  }
+                }
+                return width;
+              };
+              expect(grooveWidth(-0.3)).toBeGreaterThan(grooveWidth(0.3) * 1.1);
+            }
+          }
+      }
+    });
+
+    it('kiwi has fine short fibers in varied directions rooted in small pits', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const at = field('kiwiskin', seed);
+        let raised = 0,
+          recessed = 0,
+          horizontal = 0,
+          vertical = 0;
+        for (let y = 0; y < 8; y++)
+          for (let x = 0; x < 8; x++) {
+            const center = at(...hairPoint(seed, x, y, 0, 0)),
+              side = at(...hairPoint(seed, x, y, 0, 0.18)),
+              root = at(...hairPoint(seed, x, y, -0.43, 0)),
+              rootSide = at(...hairPoint(seed, x, y, -0.43, 0.18)),
+              shortEnd = at(...hairPoint(seed, x, y, 0.6, 0)),
+              angle = 2 * Math.PI * hash(x, y, seed ^ 0x2f93);
+            if (
+              center.height > side.height * 1.5 &&
+              center.height > shortEnd.height * 1.5 &&
+              center.color > side.color + 0.15
+            )
+              raised++;
+            if (root.height < rootSide.height * 0.8 && root.occlusion < 0.8)
+              recessed++;
+            const [u, v] = hairPoint(seed, x, y, 0, 0);
+            if (
+              Math.abs(Math.cos(angle)) > 0.9 &&
+              at(u + 0.14 / 36, v).height >
+                at(u, v + 0.14 / 36).height + center.height * 0.12
+            )
+              horizontal++;
+            if (
+              Math.abs(Math.sin(angle)) > 0.9 &&
+              at(u, v + 0.14 / 36).height >
+                at(u + 0.14 / 36, v).height + center.height * 0.12
+            )
+              vertical++;
+          }
+        expect(raised).toBeGreaterThan(40);
+        expect(recessed).toBeGreaterThan(35);
+        expect(horizontal).toBeGreaterThan(3);
+        expect(vertical).toBeGreaterThan(3);
+      }
+    });
+
+    it.each(fruitKinds)(
+      '%s has C1 slopes at actual centers, supports, pigment shoulders and ownership edges',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const at = field(kind, seed),
+            points: [number, number][] = [];
+          for (let y = 0; y < 3; y++)
+            for (let x = 0; x < 3; x++) {
+              if (kind === 'cantaloupe') {
+                const px = x + 0.25 + 0.5 * hash(x, y, seed ^ 0x32b1),
+                  py = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x67d9),
+                  qx = x + 1.25 + 0.5 * hash(x + 1, y, seed ^ 0x32b1),
+                  qy = y + 0.25 + 0.5 * hash(x + 1, y, seed ^ 0x67d9),
+                  dx = qx - px,
+                  dy = qy - py,
+                  length = Math.hypot(dx, dy);
+                points.push(
+                  rindPoint(seed, px, py),
+                  rindPoint(seed, x, y + 0.5),
+                );
+                for (const inset of [0, 0.035, 0.035 + 1 / 6])
+                  points.push(
+                    rindPoint(
+                      seed,
+                      (px + qx) / 2 - (inset * dx) / length,
+                      (py + qy) / 2 - (inset * dy) / length,
+                    ),
+                  );
+                for (const dx of [-1.1, -Math.sqrt(1.01), Math.sqrt(1.01), 1.1])
+                  points.push(rindPoint(seed, px + dx, py));
+              } else if (kind === 'dragonfruit') {
+                for (const b of [
+                  -1,
+                  -Math.sqrt(0.8),
+                  -0.35,
+                  0,
+                  0.05,
+                  0.45,
+                  Math.sqrt(0.8),
+                  1,
+                ])
+                  points.push(bractPoint(seed, x, y, 0, b));
+                for (const b of [-0.5, 0.5])
+                  for (const radius of [0.8, 1]) {
+                    const a = Math.sqrt(
+                      (radius - b * b) / (1 + 0.65 * b + 0.2 * b * b),
+                    );
+                    points.push(
+                      bractPoint(seed, x, y, a, b),
+                      bractPoint(seed, x, y, -a, b),
+                    );
+                  }
+                points.push([x / 4, (y + 0.37) / 6], [(x + 0.37) / 4, y / 6]);
+              } else {
+                for (const along of [-0.55, -0.43, -0.31, 0, 0.43])
+                  points.push(hairPoint(seed, x, y, along, 0));
+                for (const across of [-0.075, 0.075])
+                  points.push(hairPoint(seed, x, y, 0, across));
+                for (const across of [-0.12, 0.12])
+                  points.push(hairPoint(seed, x, y, -0.43, across));
+                points.push(
+                  [x / 36, (y + 0.37) / 36],
+                  [(x + 0.37) / 36, y / 36],
+                );
+              }
+            }
+          points.push([0, 0.371], [0.629, 0], [1, 1]);
+          for (const [u, v] of points) {
+            const center = at(u, v);
+            for (const [wu, wv] of [
+              [u + 1, v],
+              [u, v - 1],
+            ])
+              for (const key of Object.keys(center) as (keyof SurfaceSample)[])
+                expect(at(wu, wv)[key]).toBeCloseTo(center[key], 10);
+            for (const [du, dv] of [
+              [1, 0],
+              [0, 1],
+              [0.6, 0.8],
+            ]) {
+              const h = 1e-7,
+                left = at(u - du * h, v - dv * h),
+                right = at(u + du * h, v + dv * h),
+                coarseLeft = at(u - du * 4 * h, v - dv * 4 * h),
+                coarseRight = at(u + du * 4 * h, v + dv * 4 * h);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                const fine =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / h,
+                  coarse =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) /
+                    (4 * h);
+                expect(fine).toBeLessThanOrEqual(0.4 * coarse + 1e-6);
+              }
+            }
+          }
+        }
+      },
+    );
+  });
   describe('short patterned fur', () => {
     const furKinds = ['zebrafur', 'leopardfur', 'giraffefur'] as const;
     const empty = (): SurfaceSample => ({

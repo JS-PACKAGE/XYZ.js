@@ -3463,3 +3463,39 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不擴大跨瀏覽器或實體裝置認證。
 
 - `[Rendering2D]` 2D 送出前的驗證階段（canvas2d／WebGL2／WebGPU）改用新增的 `validateSpriteQuad2D`／`validateTextureQuad2D`，依原順序執行 `getSpriteQuad2D`／`getTextureQuad2D` 的全部檢查（destroyed、view、source 範圍、bounds override、tiling transform）但不計算 quad；`getTextureQuad2D` 本身也先呼叫同一個檢查，繪製時才計算 quad 一次（原本每個 sprite 每幀算兩次）。新增測試逐案比對兩者丟出相同錯誤（含 bounds override 與縮小的 native source），移除任一檢查的 mutant 皆失敗。20k 靜態 sprite（WebGL2）剖析中 quad＋驗證佔 CPU busy 17.8% → 14.2%，屬 CPU 時間佔比。canvas2d／WebGL2／WebGPU browser regression 通過；build 與完整測試（2044 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：網紋、苞片與細毛果皮
+
+- 新增 cantaloupe、dragonfruit、kiwiskin；本功能提交共 162 種。
+  分別呈現連通的淺色木栓網紋、洋紅苞片與收窄翹起的綠色尖端、
+  棕色表皮上的短細毛與毛根凹點；不是果實幾何或毛髮幾何。
+- 保留種子可重現、週期 C1 場、四張 PBR 貼圖、零金屬度及既有
+  UV 尺度／釋放契約；新分支略過未使用的通用 detail noise。
+- 以 `53712346` 建立的乾淨整合快照包含此前 156 種；build、
+  typecheck、lint、format:check 與完整 176 個測試檔／2054 項測試通過。
+  針對果皮的十項測試另行通過，涵蓋網紋連通、苞片的色彩／高低差／
+  溝槽收窄、毛根／短毛方向，以及 primitive 邊界和 UV 接縫的一階連續性。
+  最初以尖端附近固定點推斷苞片寬度的測試會讀到鄰片下緣；
+  已改為量測內部橫截面上實際溝槽的位置，而非放寬原門檻。
+- 最終合併 `c159dbac` 已提交的廚房材質後，build、lint 與本功能涉及
+  檔案的 format:check 通過。完整測試執行結果為 176 個檔案通過、
+  一個 shader variant 檔案中的測試超過既有 5000ms 限制；
+  單獨執行該檔仍在同一項超時，未更動門檻或將該次測試標為通過。
+  共享驗收文件在本節之前另有既存格式差異，保持原樣；
+  本節獨立檢查格式，不混入其他工作的文件修改。
+- 最終原有 159 種在 size=64／seed=7 的四張貼圖逐 byte 雜湊不變；
+  新三種於 seed=7／8 的來源、ESM 與 CJS 產物一致。
+- 獨立 Chrome WebGPU／WebGL2 gallery 逐一切換三者並擷取畫面；
+  2×2 repeat、奇異果原始 texel 放大檢視、零金屬度與四張貼圖釋放通過。
+  粗糙度 byte 範圍依序 199–232／89–122／226–246；
+  每米 repeats 依序 7.142857／5.555556／22.222222。
+  最終整合後 WebGPU／WebGL2 六張畫面與原快照逐 byte 雜湊相同。
+- 共享工作目錄的十項果皮測試及 build 通過；當時 typecheck 被其他
+  工作中的 `tests/sprite-quad-validation.test.ts:13` 缺少 `destroy` 欄位
+  阻擋，未把該次檢查寫成通過，也未改動或提交該檔。
+  當時共享來源另保留三種正在開發的其他材質；其全部 159 種既有貼圖不變，
+  三種果皮的來源輸出與 WebGPU 畫面均和乾淨快照相同。
+- 同步目前目錄、雙語技術／使用文件及 PLAN／DESIGN；本組沒有新增連結。
+  README 原有果皮分類仍適用，歷史驗收數不改寫。
+  不新增 runtime 依賴，不宣稱新增瀏覽器、Canvas2D 3D 或裝置認證；
+  僅提交本功能與對應發佈產物，不 push。
