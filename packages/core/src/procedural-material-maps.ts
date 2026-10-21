@@ -620,6 +620,85 @@ export function createSurfaceSampler(
       pinnae[i * 3 + 1] = i % 2 === 0 ? 1 : -1;
       pinnae[i * 3 + 2] = 1 / (0.68 - 0.36 * root * root);
     }
+  const marine =
+    kind === 'braincoral' || kind === 'starcoral' || kind === 'seasponge';
+  const marineGrain = marine ? cachedNoise(64, 64, seed ^ 0x4a93) : null;
+  // Integer Fourier directions close on the torus. Their seeded phases create
+  // a labyrinth of rounded level-set ridges, not nearest-cell cavity rims.
+  const brainModes =
+    kind === 'braincoral'
+      ? new Float64Array([
+          4, 1, 0, 0.34, -2, 5, 0, 0.28, 3, 4, 0, 0.22, 1, -3, 0, 0.18, 6, -2,
+          0, 0.12, 2, 7, 0, 0.08,
+        ])
+      : null;
+  if (brainModes)
+    for (let i = 0; i < 6; i++)
+      brainModes[i * 4 + 2] = TAU * hash(i, 0, seed ^ 0x71c9);
+  const corallites = kind === 'starcoral' ? new Float64Array(6 * 6 * 31) : null;
+  if (corallites)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 31,
+          angle = TAU * hash(x, y, seed ^ 0x2c97),
+          radius = 0.5 + 0.055 * hash(x, y, seed ^ 0x6e31);
+        corallites[offset] = 0.4 + 0.2 * hash(x, y, seed ^ 0x1b59);
+        corallites[offset + 1] = 0.4 + 0.2 * hash(x, y, seed ^ 0x5f27);
+        corallites[offset + 2] = Math.cos(angle);
+        corallites[offset + 3] = Math.sin(angle);
+        corallites[offset + 4] = 1 / radius;
+        corallites[offset + 5] = 1 / (0.9 * radius);
+        corallites[offset + 6] = hash(x, y, seed ^ 0x39d7);
+        for (let ray = 0; ray < 12; ray++) {
+          const direction = (ray * TAU) / 12;
+          corallites[offset + 7 + ray * 2] = Math.cos(direction);
+          corallites[offset + 8 + ray * 2] = Math.sin(direction);
+        }
+      }
+  // Each jittered node joins its right and upper neighbors, with occasional
+  // diagonal braces. Compact struts and node bulbs form a connected skeleton;
+  // broad pores are the spaces between branches, not a union of gas-pit bowls.
+  // All supports lie strictly inside [0, 2]^2 of their anchor cell, so a wrapped
+  // 3x3 lookup cannot introduce an ownership edge.
+  const spongeStruts =
+    kind === 'seasponge' ? new Float64Array(7 * 7 * 4 * 7) : null;
+  const spongeChannels =
+    kind === 'seasponge' ? cachedNoise(28, 28, seed ^ 0x73b1) : null;
+  if (spongeStruts)
+    for (let y = 0; y < 7; y++)
+      for (let x = 0; x < 7; x++) {
+        const ax = 0.34 + 0.32 * hash(x, y, seed ^ 0x17d3),
+          ay = 0.34 + 0.32 * hash(x, y, seed ^ 0x59a7);
+        for (let branch = 0; branch < 4; branch++) {
+          const offset = ((y * 7 + x) * 4 + branch) * 7,
+            ox = branch === 0 || branch === 2 ? 1 : 0,
+            oy = branch === 1 || branch === 2 ? 1 : 0,
+            bx =
+              ox +
+              0.34 +
+              0.32 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x17d3),
+            by =
+              oy +
+              0.34 +
+              0.32 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x59a7),
+            dx = bx - ax,
+            dy = by - ay,
+            length = Math.sqrt(dx * dx + dy * dy);
+          spongeStruts[offset] = (ax + bx) * 0.5;
+          spongeStruts[offset + 1] = (ay + by) * 0.5;
+          spongeStruts[offset + 2] = branch === 3 ? 1 : dx / length;
+          spongeStruts[offset + 3] = branch === 3 ? 0 : dy / length;
+          spongeStruts[offset + 4] =
+            1 / (branch === 3 ? 0.23 : length * 0.5 + 0.12);
+          spongeStruts[offset + 5] =
+            1 /
+            (branch === 3
+              ? 0.23
+              : 0.14 + 0.03 * hash(x, y, seed ^ (0x41b9 + branch)));
+          spongeStruts[offset + 6] =
+            branch !== 2 || hash(x, y, seed ^ 0x6d25) < 0.35 ? 1 : 0;
+        }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -652,7 +731,8 @@ export function createSurfaceSampler(
       volcanic ||
       mineral ||
       bulkGrain ||
-      foliage
+      foliage ||
+      marine
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -679,6 +759,121 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'braincoral': {
+        const x = TAU * u + 0.17 * Math.sin(TAU * v + phase),
+          y = TAU * v + 0.17 * Math.sin(TAU * u - phase),
+          grain = marineGrain!(u, v);
+        let field = 0;
+        for (let i = 0; i < 6; i++) {
+          const offset = i * 4;
+          field +=
+            brainModes![offset + 3] *
+            Math.sin(
+              brainModes![offset] * x +
+                brainModes![offset + 1] * y +
+                brainModes![offset + 2],
+            );
+        }
+        const ridge = Math.exp(-24 * field * field),
+          shoulder = Math.exp(-6 * field * field);
+        color = 0.13 + 0.55 * ridge + 0.11 * shoulder + 0.04 * grain;
+        height = 0.16 + 0.43 * ridge + 0.12 * shoulder + 0.009 * grain;
+        roughness += 0.06 * (1 - ridge) + 0.015 * (grain - 0.5);
+        occlusion = 0.57 + 0.39 * shoulder;
+        break;
+      }
+      case 'starcoral': {
+        const x = u * 6,
+          y = v * 6,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          grain = marineGrain!(u, v);
+        color = 0.2 + 0.025 * grain;
+        height = 0.16 + 0.006 * grain;
+        occlusion = 0.72;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 31,
+              dx = x - cx - corallites![offset],
+              dy = y - cy - corallites![offset + 1],
+              cosine = corallites![offset + 2],
+              sine = corallites![offset + 3],
+              a = (dx * cosine + dy * sine) * corallites![offset + 4],
+              b = (dy * cosine - dx * sine) * corallites![offset + 5],
+              q = a * a + b * b;
+            if (q >= 1) continue;
+            const face = smooth(clamp((1 - q) / 0.25)),
+              mouth = Math.exp(-40 * q),
+              wall = Math.exp(-45 * (q - 0.65) * (q - 0.65));
+            let septa = 0;
+            // Cartesian rays start outside the recessed mouth. Neither angular
+            // division nor a directional limit occurs at the corallite center.
+            for (let ray = 0; ray < 12; ray++) {
+              const rx = corallites![offset + 7 + ray * 2],
+                ry = corallites![offset + 8 + ray * 2],
+                along = a * rx + b * ry,
+                across = b * rx - a * ry,
+                rib =
+                  smooth(clamp((along - 0.16) / 0.12)) *
+                  Math.exp(-700 * across * across);
+              septa += (1 - septa) * rib;
+            }
+            const pigment =
+                0.43 +
+                0.12 * corallites![offset + 6] +
+                0.19 * wall +
+                0.15 * septa -
+                0.27 * mouth,
+              relief = 0.29 + 0.18 * wall + 0.16 * septa - 0.19 * mouth;
+            color += face * (pigment - color);
+            height += face * (relief - height);
+            roughness += face * (preset.roughness + 0.055 * mouth - roughness);
+            occlusion += face * (0.88 + 0.07 * wall - 0.42 * mouth - occlusion);
+          }
+        break;
+      }
+      case 'seasponge': {
+        // Periodic shears bend the connected skeleton without opening joins or
+        // changing its compact-support lookup.
+        const warpedU = u + 0.07 * Math.sin(TAU * 3 * v + phase),
+          warpedV = v + 0.06 * Math.sin(TAU * 2 * warpedU - phase),
+          x = fract(warpedU) * 7,
+          y = fract(warpedV) * 7,
+          column = Math.floor(x),
+          row = Math.floor(y);
+        let skeleton = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              cell = ((cy + 7) % 7) * 7 + ((cx + 7) % 7);
+            for (let branch = 0; branch < 4; branch++) {
+              const offset = (cell * 4 + branch) * 7;
+              if (spongeStruts![offset + 6] === 0) continue;
+              const dx = x - cx - spongeStruts![offset],
+                dy = y - cy - spongeStruts![offset + 1],
+                cosine = spongeStruts![offset + 2],
+                sine = spongeStruts![offset + 3],
+                a = (dx * cosine + dy * sine) * spongeStruts![offset + 4],
+                b = (dy * cosine - dx * sine) * spongeStruts![offset + 5],
+                q = a * a + b * b;
+              if (q >= 1) continue;
+              const strut = smooth(clamp((1 - q) / 0.8));
+              skeleton += (1 - skeleton) * strut;
+            }
+          }
+        const channelField = spongeChannels!(u, v) - 0.5,
+          channels = Math.exp(-110 * channelField * channelField),
+          grain = marineGrain!(u, v),
+          body = skeleton * (1 - 0.42 * channels);
+        color = 0.12 + 0.63 * body + 0.055 * grain;
+        height = 0.12 + 0.57 * body + 0.012 * grain * skeleton;
+        roughness += 0.035 * (1 - body) + 0.01 * (grain - 0.5);
+        occlusion = 0.48 + 0.48 * body;
+        break;
+      }
       case 'lotusleaf':
       case 'bananaleaf':
       case 'fernleaf': {

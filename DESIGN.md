@@ -33,7 +33,7 @@
 
 此 additive scope 保持既有 Game→Scene→Renderer 與 core／assets 邊界：core 在 `await ProceduralMaterial.create(kind, options?)` 一次產生 CPU maps，以 assets 的 `Texture.fromImage` 建立 immutable sources，不新增 backend／shader／geometry 路徑或逐幀生成。無外部素材或新依賴。初始六種 `ProceduralMaterialKind` 為 wood／brick／stone／metal／fabric／marble，後續種類見下方增量；`ProceduralMaterialOptions` 的 size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1），相同輸入生成 deterministic、seamlessly periodic maps。
 
-唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf／chainmail／rivetedmetal／weldedmetal 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
+唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf／chainmail／rivetedmetal／weldedmetal／pyrite 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
 
 呼叫者 owns preset，Mesh／Scene 不接管；同步、冪等 `destroy()` 只釋放生成貼圖，不動外部覆寫 maps 或材質。先移除所有 consumers；`destroyed` getter 表示狀態，銷毀後 `createMaterial()` 拒絕。既有 pbr3d gallery 提供預設切換與貼圖預覽，Canvas2D 保持 2D-only。使用者後續授權 v1.14 提交／推送／發佈，依 PLAN 的既有 CI gate 執行；批准及文件不代表 runtime／browser 驗收，實際證據另記 ACCEPTANCE。
 
@@ -116,6 +116,8 @@
 散粒表面增量為 rice／sesame／coffeebeans（米粒／芝麻／咖啡豆），目前共一百二十種；前述 counts 保留為歷史。米粒呈現象牙白細長輪廓、不同朝向與柔和縱向起伏；芝麻呈現暖棕褐色小型不對稱淚滴輪廓、圓潤隆起中脊與漸尖端部；咖啡豆呈現較寬的深烘焙棕色橢圓輪廓、彎曲中央裂縫與細密不均烘焙紋理。三者各自擁有不同形狀場，不是同一圖樣換色或縮放，皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的四份 seeded deterministic periodic maps、repeat sampling 與 size／seed options。這些是風格化散粒表面 shading／normal map 效果，不是逐粒模擬或物理堆疊，不建立 geometry、displacement、透明或次表面散射。前一百一十七種四份 maps 輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。
 
 綠葉表面增量為 lotusleaf／bananaleaf／fernleaf（荷葉／香蕉葉／蕨葉），目前共一百二十六種；前述 counts 保留為歷史。荷葉為寬闊圓潤葉片、放射狀葉脈與中央附著點起伏；香蕉葉為細長寬葉面、強烈中肋與密集平行／斜向側脈；蕨葉為沿葉軸交替排列的漸尖羽片，各有細緻葉脈。三者形態各異，不是換色或縮放的落葉層；皆為不透明綠色 dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps、repeat sampling 與 size／seed options。葉片與葉脈僅為表面 shading／normal map 效果，不提供 alpha cutout、真實植被 geometry、displacement、SSS、濕潤模擬或風動行為。前一百二十三種四份 maps 輸出須逐位元組保持不變，呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。
+
+海洋骨骼表面增量為 braincoral／starcoral／seasponge（腦珊瑚／星珊瑚／海綿），目前共一百三十二種；前述 counts 保留為歷史。海洋骨骼表面包含腦珊瑚（braincoral，蜿蜒迷宮狀圓潤隆脊與脊間暗色谷地）、星珊瑚（starcoral，各自分明的珊瑚杯與環繞下陷口部的放射狀隔片）及海綿（seasponge，多尺度通道與不規則相連的多孔骨架）。三者結構各異，不是火山渣、浮石、泡棉或彼此的換色或縮放。皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 factor 均為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps、physical repeat sampling、呼叫者 ownership 與 size／seed options。凹凸僅為表面 shading／normal map 效果，不建立真實珊瑚或海綿 geometry、孔洞、活體珊瑚蟲 geometry、alpha、displacement、次表面散射（SSS）或水下光學／模擬／行為。前一百二十九種四份 maps 輸出須逐位元組保持不變，公開 options、借用 maps 的生命週期、backend 與零新增依賴契約不變。
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 

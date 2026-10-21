@@ -3194,3 +3194,34 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[Lighting]` 每次光源選取結束時只在長度確實改變時才寫入 `out.length`（WebGL2 已送出光源紀錄同理）：V8 的 length 指派即使值不變也是 runtime 呼叫。選取結果與統計不變（雜湊相同）。瀏覽器內同頁 A/B（16 點光＋8 聚光、640 個繪製球、presentation pass 內）最佳值 0.316–0.376 → 0.276–0.288 ms／幀，屬 CPU 時間；production 3d 剖析受機器負載雜訊遮蓋，未宣稱整幀提升。build 與完整測試（1919 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：海洋骨骼表面（braincoral／starcoral／seasponge）
+
+- 新增腦珊瑚的迷宮狀圓潤隆脊、星珊瑚的下陷口部與放射隔片，
+  以及海綿的連通多孔骨架與細部通道。海綿初版網格過於規整，
+  改用可逆的週期 shear 彎曲骨架，保持接合與 compact support 連續。
+  三者皆為 opaque dielectric；不新增真實 geometry、孔洞、
+  displacement、SSS、透明度或水下光學／生物模擬。
+- 初版形狀測試誤把正規化高度當成實際 relief 高度，三項失敗；
+  改為驗證脊谷／遮蔽關係、隔片高於口部與間隙、連通骨架高於孔底，
+  不固定實作高度常數。六項形狀／C1 收斂測試通過，涵蓋變形後
+  骨架接點、support、ownership 與週期接縫。
+- 初始隔離快照共 129 種，完整 176 files／1938 tests 通過。
+  驗證期間建築外殼三款另行提交，因此重建提交快照並保留該組，
+  最終共 132 種；build、typecheck、lint、format:check 與完整
+  Vitest 均通過：176 files／1950 tests passed。
+  既有 129 種在 size 64／seed 7 下四份 maps SHA256 全部不變，
+  本組三種在整合前後亦相同；最終 ESM／CJS maps 與 source 相同。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認重複接縫，metallic bytes 全為 0。
+  roughness bytes 依序 192–211／204–218／231–242，每米 repeats
+  依序 4.166667／5.555556／6.25；四份貼圖 destroy 後均確認已釋放。
+  主工作目錄與重建快照的 WebGPU pixels 均與原快照相同。
+- 整合保留進行中的 charredwood／driftwood／peelingpaint，不納入
+  本組提交；連同建築外殼共六款在整合前後四份 maps hash 相同。
+  主目錄 build、typecheck 通過；當時共享材質測試為
+  497 passed／1 failed，唯一失敗是進行中的 driftwood 裂縫測試。
+  本組提交以以上隔離快照完整通過的結果為準。
+- 文件沒有新增相對連結，README 既有自然表面分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

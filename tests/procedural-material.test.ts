@@ -154,6 +154,9 @@ const kinds: ProceduralMaterialKind[] = [
   'rice',
   'sesame',
   'coffeebeans',
+  'braincoral',
+  'starcoral',
+  'seasponge',
 ];
 
 class TestImageData {
@@ -201,6 +204,239 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('opaque marine relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    // Placement alone is reconstructed; assertions observe the public fields.
+    const corallite = (x: number, y: number, seed: number) => {
+      const angle = 2 * Math.PI * hash(x, y, seed ^ 0x2c97),
+        radius = 0.5 + 0.055 * hash(x, y, seed ^ 0x6e31);
+      return (a: number, b: number): [number, number] => [
+        (x +
+          0.4 +
+          0.2 * hash(x, y, seed ^ 0x1b59) +
+          radius * (a * Math.cos(angle) - 0.9 * b * Math.sin(angle))) /
+          6,
+        (y +
+          0.4 +
+          0.2 * hash(x, y, seed ^ 0x5f27) +
+          radius * (a * Math.sin(angle) + 0.9 * b * Math.cos(angle))) /
+          6,
+      ];
+    };
+    const spongeNode = (
+      x: number,
+      y: number,
+      seed: number,
+    ): [number, number] => [
+      (x + 0.34 + 0.32 * hash((x + 7) % 7, (y + 7) % 7, seed ^ 0x17d3)) / 7,
+      (y + 0.34 + 0.32 * hash((x + 7) % 7, (y + 7) % 7, seed ^ 0x59a7)) / 7,
+    ];
+    const spongePoint = (
+      x: number,
+      y: number,
+      seed: number,
+    ): [number, number] => {
+      const phase = 2 * Math.PI * hash(0, 0, seed),
+        v = y - 0.06 * Math.sin(4 * Math.PI * x - phase);
+      return [x - 0.07 * Math.sin(6 * Math.PI * v + phase), v];
+    };
+    it('brain coral retains repeated rounded ridges and intervening valleys in both directions', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('braincoral', seed),
+          out = empty();
+        for (const axis of [0, 1]) {
+          let peaks = 0,
+            valleys = 0;
+          for (const along of [0.17, 0.39, 0.73]) {
+            const heights: number[] = [],
+              exposures: number[] = [];
+            for (let i = 0; i < 512; i++) {
+              sample(
+                axis === 0 ? i / 512 : along,
+                axis === 1 ? i / 512 : along,
+                out,
+              );
+              heights.push(out.height);
+              exposures.push(out.occlusion);
+            }
+            const low = Math.min(...heights),
+              high = Math.max(...heights),
+              range = high - low;
+            expect(
+              heights[exposures.indexOf(Math.max(...exposures))],
+            ).toBeGreaterThan(
+              heights[exposures.indexOf(Math.min(...exposures))],
+            );
+            for (let i = 0; i < 512; i++) {
+              const h = heights[i],
+                before = heights[(i + 511) % 512],
+                after = heights[(i + 1) % 512];
+              if (h > low + 0.75 * range && h > before && h > after) peaks++;
+              if (h < low + 0.25 * range && h < before && h < after) valleys++;
+            }
+          }
+          expect(peaks).toBeGreaterThan(4);
+          expect(valleys).toBeGreaterThan(2);
+        }
+      }
+    });
+    it('star coral has recessed mouths surrounded by raised radial septa', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('starcoral', seed),
+          out = empty();
+        let stars = 0;
+        for (let y = 0; y < 6; y++)
+          for (let x = 0; x < 6; x++) {
+            const point = corallite(x, y, seed),
+              at = (radius: number, angle: number): number => {
+                const p = point(
+                  radius * Math.cos(angle),
+                  radius * Math.sin(angle),
+                );
+                sample(p[0], p[1], out);
+                return out.height;
+              },
+              mouth = at(0, 0);
+            let ribs = 0;
+            for (let ray = 0; ray < 12; ray++) {
+              const angle = (ray * Math.PI) / 6,
+                rib = at(0.55, angle);
+              if (rib > mouth && rib > at(0.55, angle + Math.PI / 12)) ribs++;
+            }
+            if (ribs >= 10) stars++;
+          }
+        expect(stars).toBeGreaterThanOrEqual(30);
+      }
+    });
+    it('sea sponge joins branching nodes while retaining open pore relief and fine channels', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('seasponge', seed),
+          out = empty();
+        const poreHeights: number[] = [];
+        let minimumBranchHeight = Infinity,
+          channelled = 0;
+        for (let y = 0; y < 7; y++)
+          for (let x = 0; x < 7; x++) {
+            const pore = spongePoint(x / 7, y / 7, seed);
+            sample(pore[0], pore[1], out);
+            poreHeights.push(out.height);
+            for (const [ox, oy] of [
+              [1, 0],
+              [0, 1],
+            ]) {
+              const a = spongeNode(x, y, seed),
+                b = spongeNode(x + ox, y + oy, seed),
+                heights: number[] = [];
+              for (let i = 0; i <= 64; i++) {
+                const t = i / 64,
+                  point = spongePoint(
+                    a[0] + t * (b[0] - a[0]),
+                    a[1] + t * (b[1] - a[1]),
+                    seed,
+                  );
+                sample(point[0], point[1], out);
+                minimumBranchHeight = Math.min(minimumBranchHeight, out.height);
+                heights.push(out.height);
+              }
+              let troughs = 0;
+              for (let i = 1; i < 64; i++)
+                if (heights[i] < heights[i - 1] && heights[i] < heights[i + 1])
+                  troughs++;
+              if (troughs >= 2) channelled++;
+            }
+          }
+        expect(
+          poreHeights.filter((height) => height < minimumBranchHeight).length,
+        ).toBeGreaterThan(8);
+        expect(channelled).toBeGreaterThan(10);
+      }
+    });
+    it.each(['braincoral', 'starcoral', 'seasponge'] as const)(
+      '%s has convergent slopes at mouths, supports, nodes, ownership edges and seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.137],
+              [0.791, 1],
+            ];
+          for (let i = 0; i < 8; i++) {
+            points.push([i / 7, 0.417], [0.371, i / 6], [i / 28, 0.51]);
+            if (kind === 'seasponge')
+              points.push(
+                spongePoint(i / 7, 0.417, seed),
+                spongePoint(0.371, i / 7, seed),
+              );
+            if (i < 6) {
+              const point = corallite(i, i, seed);
+              for (const radius of [0, 0.16, 0.28, Math.sqrt(0.75), 1])
+                points.push(point(radius, 0));
+              const node = spongeNode(i, i, seed),
+                next = spongeNode(i + 1, i, seed),
+                dx = next[0] - node[0],
+                dy = next[1] - node[1],
+                length = Math.sqrt(dx * dx + dy * dy),
+                width = (0.14 + 0.03 * hash(i, i, seed ^ 0x41b9)) / 7;
+              points.push(spongePoint(node[0], node[1], seed));
+              for (const radius of [Math.sqrt(0.2), 1]) {
+                points.push(
+                  spongePoint(node[0] + (radius * 0.23) / 7, node[1], seed),
+                  spongePoint(
+                    (node[0] + next[0]) * 0.5 - (radius * width * dy) / length,
+                    (node[1] + next[1]) * 0.5 + (radius * width * dx) / length,
+                    seed,
+                  ),
+                );
+              }
+            }
+          }
+          const center = empty(),
+            left = empty(),
+            right = empty(),
+            coarseLeft = empty(),
+            coarseRight = empty();
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [2e-7, 0],
+              [0, 2e-7],
+              [1.2e-7, 1.6e-7],
+            ]) {
+              sample(u, v, center);
+              sample(u - du, v - dv, left);
+              sample(u + du, v + dv, right);
+              sample(u - 4 * du, v - 4 * dv, coarseLeft);
+              sample(u + 4 * du, v + 4 * dv, coarseRight);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                const fineJump =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / 2e-7,
+                  coarseJump =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) / 8e-7;
+                expect(fineJump).toBeLessThanOrEqual(0.4 * coarseJump + 2e-8);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('opaque foliage relief', () => {
     const empty = (): SurfaceSample => ({
       color: 0,

@@ -781,6 +781,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.39,
     relief: 0.008,
   }),
+  braincoral: Object.freeze({
+    dark: [38, 47, 24] as const,
+    light: [198, 190, 109] as const,
+    roughness: 0.76,
+    relief: 0.008,
+  }),
+  starcoral: Object.freeze({
+    dark: [51, 29, 24] as const,
+    light: [222, 167, 119] as const,
+    roughness: 0.8,
+    relief: 0.006,
+  }),
+  seasponge: Object.freeze({
+    dark: [65, 40, 12] as const,
+    light: [230, 190, 91] as const,
+    roughness: 0.91,
+    relief: 0.009,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -914,6 +932,9 @@ export const proceduralTileMeters = Object.freeze({
   rice: 0.06,
   sesame: 0.05,
   coffeebeans: 0.1,
+  braincoral: 0.24,
+  starcoral: 0.18,
+  seasponge: 0.16,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

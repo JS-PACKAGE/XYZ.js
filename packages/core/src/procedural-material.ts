@@ -135,7 +135,10 @@ export type ProceduralMaterialKind =
   | 'lapislazuli'
   | 'rice'
   | 'sesame'
-  | 'coffeebeans';
+  | 'coffeebeans'
+  | 'braincoral'
+  | 'starcoral'
+  | 'seasponge';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -297,6 +300,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rice',
   'sesame',
   'coffeebeans',
+  'braincoral',
+  'starcoral',
+  'seasponge',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

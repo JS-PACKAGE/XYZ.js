@@ -1811,6 +1811,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .39,
 		relief: .008
+	}),
+	braincoral: Object.freeze({
+		dark: [
+			38,
+			47,
+			24
+		],
+		light: [
+			198,
+			190,
+			109
+		],
+		roughness: .76,
+		relief: .008
+	}),
+	starcoral: Object.freeze({
+		dark: [
+			51,
+			29,
+			24
+		],
+		light: [
+			222,
+			167,
+			119
+		],
+		roughness: .8,
+		relief: .006
+	}),
+	seasponge: Object.freeze({
+		dark: [
+			65,
+			40,
+			12
+		],
+		light: [
+			230,
+			190,
+			91
+		],
+		roughness: .91,
+		relief: .009
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1942,7 +1984,10 @@ var proceduralTileMeters = Object.freeze({
 	lapislazuli: .3,
 	rice: .06,
 	sesame: .05,
-	coffeebeans: .1
+	coffeebeans: .1,
+	braincoral: .24,
+	starcoral: .18,
+	seasponge: .16
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,
