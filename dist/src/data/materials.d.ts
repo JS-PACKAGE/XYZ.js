@@ -330,6 +330,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.66;
         relief: 0.005;
     }>;
+    tiretread: Readonly<{
+        dark: readonly [14, 15, 16];
+        light: readonly [58, 62, 64];
+        roughness: 0.72;
+        relief: 0.01;
+    }>;
+    honeycomb: Readonly<{
+        dark: readonly [128, 88, 24];
+        light: readonly [238, 196, 92];
+        roughness: 0.44;
+        relief: 0.008;
+    }>;
+    frost: Readonly<{
+        dark: readonly [176, 200, 216];
+        light: readonly [250, 253, 255];
+        roughness: 0.38;
+        relief: 0.004;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -891,6 +909,9 @@ export declare const proceduralTileMeters: Readonly<{
     charredwood: 0.36;
     driftwood: 1.2;
     peelingpaint: 0.6;
+    tiretread: 0.28;
+    honeycomb: 0.12;
+    frost: 0.35;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

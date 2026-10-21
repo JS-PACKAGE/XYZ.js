@@ -61,6 +61,9 @@ export type ProceduralMaterialKind =
   | 'charredwood'
   | 'driftwood'
   | 'peelingpaint'
+  | 'tiretread'
+  | 'honeycomb'
+  | 'frost'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -231,6 +234,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'charredwood',
   'driftwood',
   'peelingpaint',
+  'tiretread',
+  'honeycomb',
+  'frost',
   'sandstone',
   'travertine',
   'pumice',

@@ -971,6 +971,31 @@ function createSurfaceSampler(t, r) {
 				R = .66 * s + .3 * n + .16 * i + .1 * a * n + .12 * (.5 + .5 * t) * s, H = .24 + .42 * s + .3 * i + .05 * a, Z += .12 * n + .05 * (a - .5), Q = .52 + .36 * s + .16 * i;
 				break;
 			}
+			case `tiretread`: {
+				let t = e * 4, r = o * 6, i = Math.floor(t), a = Math.floor(r), s = 0;
+				for (let e = -1; e <= 1; e++) for (let n = -1; n <= 1; n++) {
+					let o = i + n, c = a + e, l = (c % 2 + 2) % 2 * .5, u = t - o - .5 - l, d = r - c - .5, f = smooth(clamp((.34 - Math.abs(u)) / .06)) * smooth(clamp((.32 - Math.abs(d)) / .06));
+					s += (1 - s) * f;
+				}
+				let c = smooth(clamp((Math.abs(Math.sin(n * 2 * (t + .25 * r))) - .12) / .12));
+				R = .18 + .24 * s - .08 * c * s + .1 * w, H = .22 + .58 * s - .12 * c * s + .03 * w, Z += .06 * (1 - s) + .03 * (w - .5), Q = .42 + .52 * s - .1 * c * s;
+				break;
+			}
+			case `honeycomb`: {
+				let t = Math.sqrt(3), n = e * 5, i = o * 4, a = Math.floor(n), s = Math.floor(i), c = 0;
+				for (let e = -1; e <= 1; e++) for (let r = -1; r <= 1; r++) {
+					let o = a + r, l = s + e, u = (l % 2 + 2) % 2 * .5, d = n - o - .5 - u, f = i - l - .5, p = smooth(clamp((.42 - Math.abs(d)) / .03)) * smooth(clamp((.42 - Math.abs(d * .5 + f * t / 2)) / .03)) * smooth(clamp((.42 - Math.abs(d * .5 - f * t / 2)) / .03));
+					c += (1 - c) * p;
+				}
+				let l = 1 - c, u = noise(e, o, 48, 48, r ^ 12743);
+				R = .38 + .34 * l + .12 * u, H = .28 + .56 * l + .04 * u, Z += .08 * (1 - l) + .03 * (u - .5), Q = .52 + .42 * l;
+				break;
+			}
+			case `frost`: {
+				let t = fract(e) - .5, n = fract(o) - .5, i = Math.sin(Math.PI * t) / Math.PI, a = Math.sin(Math.PI * n) / Math.PI, s = Math.sqrt(i * i + a * a), c = Math.atan2(a, i), l = smooth(clamp((s - .06) / .05)), u = Math.abs(Math.cos(3 * c + .4 * (noise(e, o, 3, 3, r ^ 23585) - .5) * Math.sin(2 * c))) ** 3, d = noise(e * 6 + 2 * s, o * 6 - 2 * s, 24, 24, r ^ 10155), f = l * u * (.55 + .45 * d);
+				R = .42 + .42 * f + .12 * w, H = .28 + .58 * f + .04 * w, Z += .12 * (1 - f) + .03 * (w - .5), Q = .6 + .36 * f;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((L - .28) / .48)), d = (1 - L) ** 5;
 				R = .22 + .35 * s + .2 * l + .18 * u - .2 * c, H = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Z += .12 * (u - .5) + .05 * c, Q = .97 - .12 * c - .13 * d + .025 * u;

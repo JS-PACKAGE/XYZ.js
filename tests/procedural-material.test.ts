@@ -79,6 +79,9 @@ const kinds: ProceduralMaterialKind[] = [
   'charredwood',
   'driftwood',
   'peelingpaint',
+  'tiretread',
+  'honeycomb',
+  'frost',
   'sandstone',
   'travertine',
   'pumice',
@@ -1842,6 +1845,9 @@ describe('periodic procedural material fields', () => {
     ['charredwood', [9, 32, 64]],
     ['driftwood', [2, 3, 7, 12, 32, 64]],
     ['peelingpaint', [3, 5, 32, 40]],
+    ['tiretread', [2, 3, 4, 6, 8, 32]],
+    ['honeycomb', [5, 10, 32, 48]],
+    ['frost', [3, 24, 32]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -2015,6 +2021,10 @@ describe('periodic procedural material fields', () => {
     ['thatch', 6],
     ['charredwood', 9],
     ['driftwood', 7],
+    ['tiretread', 6],
+    ['tiretread', 4],
+    ['honeycomb', 5],
+    ['honeycomb', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -4226,6 +4236,158 @@ describe('periodic procedural material fields', () => {
       expect(rim).toBeGreaterThan(bare.height + 0.25 * relief);
       sample(rimX, rimY, probe);
       expect(probe.occlusion).toBeGreaterThan(bare.occlusion);
+    }
+  });
+
+  it('tire tread steps staggered blocks above grooves and sipes their faces', () => {
+    const relief = proceduralMaterialPresets.tiretread.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const shifted = { ...probe },
+      across = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tiretread', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [2, 3],
+        [3, 5],
+      ]) {
+        const shift = (row % 2) * 0.5;
+        const cx = (column + 0.5 + shift) / 4,
+          cy = (row + 0.5) / 6;
+        let peak = 0,
+          low = 1;
+        for (let j = 0; j < 14; j++)
+          for (let i = 0; i < 14; i++) {
+            const u = (column + shift + (i + 0.5) / 14) / 4,
+              v = (row + (j + 0.5) / 14) / 6;
+            sample(u, v, probe);
+            peak = Math.max(peak, probe.height);
+            low = Math.min(low, probe.height);
+          }
+        expect(peak).toBeGreaterThan(low + 0.1 * relief);
+        // Blocks stagger half a cell across alternating rows.
+        sample(
+          (column + 0.5 + ((row + 1) % 2) * 0.5) / 4,
+          (row + 1.5) / 6,
+          shifted,
+        );
+        sample((column + 0.5 + shift) / 4, (row + 1.5) / 6, probe);
+        expect(shifted.height).toBeGreaterThan(probe.height);
+        // Sipes cut shallow ribs across the exposed block face.
+        let high = 0,
+          siped = 1;
+        for (let i = 0; i < 24; i++) {
+          sample(cx + (i - 12) / 240, cy, across);
+          high = Math.max(high, across.height);
+          siped = Math.min(siped, across.height);
+        }
+        expect(high).toBeGreaterThan(siped + 0.03 * relief);
+      }
+    }
+  });
+
+  it('honeycomb crests wax walls around recessed cell floors', () => {
+    const relief = proceduralMaterialPresets.honeycomb.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const near = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('honeycomb', seed);
+      for (const [column, row] of [
+        [0, 0],
+        [3, 1],
+        [4, 3],
+      ]) {
+        const shift = (row % 2) * 0.5;
+        let crest = 0,
+          crestX = 0,
+          crestY = 0,
+          floor = 1;
+        for (let j = 0; j < 16; j++)
+          for (let i = 0; i < 16; i++) {
+            const u = (column + shift + (i + 0.5) / 16) / 5,
+              v = (row + (j + 0.5) / 16) / 4;
+            sample(u, v, probe);
+            if (probe.height > crest) {
+              crest = probe.height;
+              crestX = u;
+              crestY = v;
+            }
+            floor = Math.min(floor, probe.height);
+          }
+        expect(crest).toBeGreaterThan(floor + 0.1 * relief);
+        // Wall crests fall toward the recessed cell floor around them.
+        let nearLow = 1;
+        for (let k = 0; k < 8; k++) {
+          const angle = (Math.PI / 4) * k;
+          sample(
+            crestX + 0.09 * Math.cos(angle),
+            crestY + 0.09 * Math.sin(angle),
+            near,
+          );
+          nearLow = Math.min(nearLow, near.height);
+        }
+        expect(crest).toBeGreaterThan(nearLow);
+        sample(crestX, crestY, probe);
+        expect(probe.occlusion).toBeGreaterThan(0.7);
+      }
+    }
+  });
+
+  it('frost radiates feathery crystal arms around a faded center', () => {
+    const relief = proceduralMaterialPresets.frost.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const mid = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('frost', seed);
+      for (const radius of [0.2, 0.32]) {
+        // Alternating arms and gaps ring the faded origin.
+        let high = 0,
+          low = 1;
+        for (let i = 0; i < 64; i++) {
+          const angle = (Math.PI * 2 * i) / 64;
+          sample(
+            0.5 + radius * Math.cos(angle),
+            0.5 + radius * Math.sin(angle),
+            probe,
+          );
+          high = Math.max(high, probe.height);
+          low = Math.min(low, probe.height);
+        }
+        expect(high).toBeGreaterThan(low + 0.1 * relief);
+      }
+      sample(0.5, 0.5, mid);
+      let rim = 0;
+      for (let i = 0; i < 64; i++) {
+        const angle = (Math.PI * 2 * i) / 64;
+        sample(
+          0.5 + 0.32 * Math.cos(angle),
+          0.5 + 0.32 * Math.sin(angle),
+          probe,
+        );
+        rim = Math.max(rim, probe.height);
+      }
+      expect(rim).toBeGreaterThan(mid.height + 0.1 * relief);
     }
   });
 

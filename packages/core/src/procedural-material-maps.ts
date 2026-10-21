@@ -3302,6 +3302,112 @@ export function createSurfaceSampler(
         occlusion = 0.52 + 0.36 * paint + 0.16 * rim;
         break;
       }
+      case 'tiretread': {
+        const rows = 6,
+          columns = 4;
+        const x = u * columns,
+          y = v * rows;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Staggered tread blocks step above their grooves; squared C1
+        // shoulders round every block corner before the groove floor.
+        let blocks = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const shift = (((cy % 2) + 2) % 2) * 0.5;
+            const dx = x - cx - 0.5 - shift,
+              dy = y - cy - 0.5;
+            const face =
+              smooth(clamp((0.34 - Math.abs(dx)) / 0.06)) *
+              smooth(clamp((0.32 - Math.abs(dy)) / 0.06));
+            blocks += (1 - blocks) * face;
+          }
+        // Fine lateral sipes cut each block into ribs.
+        const sipe = smooth(
+          clamp((Math.abs(Math.sin(TAU * 2 * (x + 0.25 * y))) - 0.12) / 0.12),
+        );
+        color = 0.18 + 0.24 * blocks - 0.08 * sipe * blocks + 0.1 * detail;
+        height = 0.22 + 0.58 * blocks - 0.12 * sipe * blocks + 0.03 * detail;
+        roughness += 0.06 * (1 - blocks) + 0.03 * (detail - 0.5);
+        occlusion = 0.42 + 0.52 * blocks - 0.1 * sipe * blocks;
+        break;
+      }
+      case 'honeycomb': {
+        const root3 = Math.sqrt(3);
+        const columns = 5,
+          rows = 4;
+        const x = u * columns,
+          y = v * rows;
+        // Hexagonal wax walls crest around recessed cell floors; products
+        // of C1 half-plane shoulders keep wall joints differentiable.
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let floors = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset = (((cy % 2) + 2) % 2) * 0.5;
+            const dx = x - cx - 0.5 - offset,
+              dy = y - cy - 0.5;
+            const inside =
+              smooth(clamp((0.42 - Math.abs(dx)) / 0.03)) *
+              smooth(
+                clamp((0.42 - Math.abs(dx * 0.5 + (dy * root3) / 2)) / 0.03),
+              ) *
+              smooth(
+                clamp((0.42 - Math.abs(dx * 0.5 - (dy * root3) / 2)) / 0.03),
+              );
+            // Walls are everything the union of hexagonal floors leaves.
+            floors += (1 - floors) * inside;
+          }
+        const walls = 1 - floors;
+        const grain = noise(u, v, 48, 48, seed ^ 0x31c7);
+        color = 0.38 + 0.34 * walls + 0.12 * grain;
+        height = 0.28 + 0.56 * walls + 0.04 * grain;
+        roughness += 0.08 * (1 - walls) + 0.03 * (grain - 0.5);
+        occlusion = 0.52 + 0.42 * walls;
+        break;
+      }
+      case 'frost': {
+        const dx = fract(u) - 0.5,
+          dy = fract(v) - 0.5;
+        const sx = Math.sin(Math.PI * dx) / Math.PI,
+          sy = Math.sin(Math.PI * dy) / Math.PI;
+        const radius = Math.sqrt(sx * sx + sy * sy);
+        const angle = Math.atan2(sy, sx);
+        // Fern arms radiate from the tile center with feathery branchlets
+        // and fade flat before the origin keeps the angle cone hidden.
+        const fade = smooth(clamp((radius - 0.06) / 0.05));
+        // The odd sine keeps the arm phase even in the angle so seams
+        // fold back onto identical crystal arms.
+        const arm = Math.pow(
+          Math.abs(
+            Math.cos(
+              3 * angle +
+                0.4 *
+                  (noise(u, v, 3, 3, seed ^ 0x5c21) - 0.5) *
+                  Math.sin(2 * angle),
+            ),
+          ),
+          3,
+        );
+        const branch = noise(
+          u * 6 + 2 * radius,
+          v * 6 - 2 * radius,
+          24,
+          24,
+          seed ^ 0x27ab,
+        );
+        const crystal = fade * arm * (0.55 + 0.45 * branch);
+        color = 0.42 + 0.42 * crystal + 0.12 * detail;
+        height = 0.28 + 0.58 * crystal + 0.04 * detail;
+        roughness += 0.12 * (1 - crystal) + 0.03 * (detail - 0.5);
+        occlusion = 0.6 + 0.36 * crystal;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
