@@ -75,6 +75,7 @@ var WebGPURender2D = class WebGPURender2D {
 	samplers = [];
 	retiredTextures = [];
 	retiredBuffers = [];
+	stagings = [];
 	scratch = /* @__PURE__ */ new Float32Array(128);
 	uniformOffsets = [0];
 	passLayout;
@@ -92,6 +93,11 @@ var WebGPURender2D = class WebGPURender2D {
 	instanceBuffer;
 	instanceData = /* @__PURE__ */ new Float32Array();
 	uploadedUniforms = (/* @__PURE__ */ new Float32Array(128)).fill(NaN);
+	staging;
+	stagedStart = 0;
+	stagedEnd = 0;
+	upload;
+	uploadStaging;
 	capacity = 0;
 	required = 0;
 	slot = 0;
@@ -217,7 +223,39 @@ var WebGPURender2D = class WebGPURender2D {
 	flushRetired() {
 		for (let e of this.retiredTextures) this.effects.destroyTexture(e);
 		for (let e of this.retiredBuffers) e.destroy();
-		this.retiredTextures.length = 0, this.retiredBuffers.length = 0, this.effects.flushRetired();
+		this.retiredTextures.length = 0, this.retiredBuffers.length = 0, this.effects.flushRetired(), this.restage();
+	}
+	takeUpload() {
+		let e = this.upload;
+		return this.upload = this.uploadStaging = void 0, e;
+	}
+	restage() {
+		for (let e of this.stagings) e.state === `used` && e !== this.uploadStaging && (e.state = `mapping`, e.buffer.mapAsync(GPUMapMode.WRITE).then(() => {
+			e.state === `mapping` && (e.state = `ready`);
+		}, () => {
+			let t = this.stagings.indexOf(e);
+			t >= 0 && this.stagings.splice(t, 1), e.buffer.destroy();
+		}));
+	}
+	acquireStaging() {
+		let e = this.instanceBuffer.size, t = this.stagings;
+		for (let n = 0; n < t.length; n++) {
+			let r = t[n];
+			if (r.state === `ready`) {
+				if (r.buffer.size >= e) return r;
+				r.buffer.destroy(), t.splice(n--, 1);
+			}
+		}
+		if (t.length >= require_rendering2d.rendering2dLimits.uploadStagingBuffers) return;
+		let n = {
+			buffer: this.device.createBuffer({
+				size: e,
+				usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC,
+				mappedAtCreation: !0
+			}),
+			state: `ready`
+		};
+		return t.push(n), n;
 	}
 	bindDraw(e, t) {
 		this.uniformOffsets[0] = t * 512, e.setBindGroup(0, this.drawGroup, this.uniformOffsets);
@@ -335,10 +373,16 @@ var WebGPURender2D = class WebGPURender2D {
 		}
 	}
 	begin(e) {
-		this.encoder = e, this.slot = 0, this.frame++;
+		this.encoder = e, this.slot = 0, this.frame++, this.upload = this.uploadStaging = void 0, this.restage(), this.staging = this.required >= require_rendering2d.rendering2dLimits.stagedUploadQuads ? this.acquireStaging() : void 0, this.stagedStart = 1 / 0, this.stagedEnd = 0;
 	}
 	finish() {
 		this.closePass(), this.encoder = void 0;
+		let e = this.staging, t = this.stagedStart, n = this.stagedEnd;
+		if (this.staging = void 0, e && n > t) {
+			new Float32Array(e.buffer.getMappedRange()).set(this.instanceData.subarray(t, n), t), e.buffer.unmap(), e.state = `used`;
+			let r = this.device.createCommandEncoder();
+			r.copyBufferToBuffer(e.buffer, t * Float32Array.BYTES_PER_ELEMENT, this.instanceBuffer, t * Float32Array.BYTES_PER_ELEMENT, (n - t) * Float32Array.BYTES_PER_ELEMENT), this.upload = r.finish(), this.uploadStaging = e;
+		}
 		for (let e of this.layers.keys()) {
 			let t = this.layers.get(e);
 			if (e.destroyed || t.seen !== this.frame) {
@@ -404,7 +448,7 @@ var WebGPURender2D = class WebGPURender2D {
 		u ? (c[l] = u[0], c[l + 1] = u[1], c[l + 2] = u[3], c[l + 3] = u[4], c[l + 4] = u[6], c[l + 5] = u[7]) : (c[l] = c[l + 3] = 1, c[l + 1] = c[l + 2] = c[l + 4] = c[l + 5] = 0), c[l + 6] = t.x, c[l + 7] = t.y, c[l + 8] = t.width, c[l + 9] = t.height, c[l + 10] = t.naturalWidth, c[l + 11] = t.naturalHeight, c[l + 12] = t.u0, c[l + 13] = t.v0, c[l + 14] = t.ux, c[l + 15] = t.vx, c[l + 16] = t.uy, c[l + 17] = t.vy, c[l + 18] = t.trimWidth, c[l + 19] = t.trimHeight, r ? (c[l + 20] = r[0], c[l + 21] = r[1], c[l + 22] = r[2], c[l + 23] = r[3]) : c[l + 20] = c[l + 21] = c[l + 22] = c[l + 23] = 1, c[l + 24] = c[l + 25] = c[l + 26] = c[l + 27] = 0, c[l + 28] = 0, c[l + 29] = 0, c[l + 30] = +!!o, c[l + 31] = 0, c[l + 32] = t.trimX, c[l + 33] = t.trimY, c[l + 34] = i, c[l + 35] = a, s && (c[l + 24] = s.tilePosition.x - t.x, c[l + 25] = s.tilePosition.y - t.y, c[l + 26] = s.tileScale.x, c[l + 27] = s.tileScale.y, c[l + 28] = s.tileRotation, c[l + 29] = 1);
 	}
 	uploadQuads(e, t) {
-		this.device.queue.writeBuffer(this.instanceBuffer, e * require_sprite_instance.QUAD_BYTES, this.instanceData, e * 36, t * 36), this.hooks.stats.upload(t * require_sprite_instance.QUAD_BYTES);
+		this.staging ? (this.stagedStart = Math.min(this.stagedStart, e * 36), this.stagedEnd = Math.max(this.stagedEnd, (e + t) * 36)) : this.device.queue.writeBuffer(this.instanceBuffer, e * require_sprite_instance.QUAD_BYTES, this.instanceData, e * 36, t * 36), this.hooks.stats.upload(t * require_sprite_instance.QUAD_BYTES);
 	}
 	drawCommands(e, t) {
 		let n = e.items;
@@ -711,9 +755,11 @@ var WebGPURender2D = class WebGPURender2D {
 				this.finish();
 			}
 			let c = s;
-			!i && a.effects2D.length && (u = this.createTarget(e.width, e.height), this.effects.settings(o.width, o.height), c = this.effects.process(n, [s, u], a.effects2D)), n.copyTextureToTexture({ texture: c.texture }, { texture: t.texture }, [e.width, e.height]), this.device.queue.submit([n.finish()]), e.publish(this.hooks.owner, this.dependencies);
+			!i && a.effects2D.length && (u = this.createTarget(e.width, e.height), this.effects.settings(o.width, o.height), c = this.effects.process(n, [s, u], a.effects2D)), n.copyTextureToTexture({ texture: c.texture }, { texture: t.texture }, [e.width, e.height]);
+			let l = this.takeUpload();
+			this.device.queue.submit(l ? [l, n.finish()] : [n.finish()]), e.publish(this.hooks.owner, this.dependencies);
 		} finally {
-			this.hooks.residency.abortFrame(), s && this.retire(s), u && this.retire(u), this.captureCommands.clear(), this.device.queue.onSubmittedWorkDone().then(() => this.flushRetired());
+			this.hooks.residency.abortFrame(), s && this.retire(s), u && this.retire(u), this.captureCommands.clear(), this.takeUpload(), this.restage(), this.device.queue.onSubmittedWorkDone().then(() => this.flushRetired());
 		}
 	}
 	async extractPixels(e, t = {}) {
@@ -783,7 +829,9 @@ var WebGPURender2D = class WebGPURender2D {
 			for (let e of this.targets.keys()) e.destroy();
 			for (let e of this.meshes.values()) e.vertex.destroy(), e.index.destroy();
 			for (let e of this.particles.values()) e.buffer.destroy();
-			this.layers.clear(), this.targets.clear(), this.meshes.clear(), this.particles.clear(), this.flushRetired(), this.captureCommands.destroy(), this.uniformBuffer.destroy(), this.instanceBuffer.destroy(), this.dummy.destroy();
+			this.layers.clear(), this.targets.clear(), this.meshes.clear(), this.particles.clear(), this.flushRetired(), this.upload = this.uploadStaging = void 0;
+			for (let e of this.stagings) e.buffer.destroy();
+			this.stagings.length = 0, this.captureCommands.destroy(), this.uniformBuffer.destroy(), this.instanceBuffer.destroy(), this.dummy.destroy();
 		}
 	}
 };

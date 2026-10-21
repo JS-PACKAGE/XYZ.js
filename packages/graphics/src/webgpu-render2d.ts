@@ -101,6 +101,12 @@ interface ParticleBuffers2D {
   sourceSizes: Float64Array;
   seen: number;
 }
+/** A MAP_WRITE buffer that carries one draw's quad instances into the instance buffer. */
+interface UploadStaging2D {
+  readonly buffer: GPUBuffer;
+  /** Mapped and free, unmapped behind a recorded copy, or awaiting `mapAsync`. */
+  state: 'ready' | 'used' | 'mapping';
+}
 export interface WebGPURender2DHooks {
   owner: object;
   readonly stats: FrameStats;
@@ -165,6 +171,7 @@ export class WebGPURender2D {
   private readonly samplers: GPUSampler[] = [];
   private readonly retiredTextures: GPUTexture[] = [];
   private readonly retiredBuffers: GPUBuffer[] = [];
+  private readonly stagings: UploadStaging2D[] = [];
   private readonly scratch = new Float32Array(SLOT_FLOATS);
   private readonly uniformOffsets = [0];
   private readonly passLayout: GPUBindGroupLayout;
@@ -184,6 +191,14 @@ export class WebGPURender2D {
   private instanceBuffer: GPUBuffer;
   private instanceData = new Float32Array(0);
   private uploadedUniforms = new Float32Array(SLOT_FLOATS).fill(NaN);
+  /** Staging the current draw's quads go through, or none to write them directly. */
+  private staging: UploadStaging2D | undefined;
+  /** Float range of `instanceData` the current draw uploaded through `staging`. */
+  private stagedStart = 0;
+  private stagedEnd = 0;
+  /** A finished draw's copy, which must be submitted before that draw's commands. */
+  private upload: GPUCommandBuffer | undefined;
+  private uploadStaging: UploadStaging2D | undefined;
   private capacity = 0;
   private required = 0;
   private slot = 0;
@@ -394,6 +409,58 @@ export class WebGPURender2D {
     this.retiredTextures.length = 0;
     this.retiredBuffers.length = 0;
     this.effects.flushRetired();
+    this.restage();
+  }
+  /**
+   * The copy carrying the last draw's quads, if it staged them. The caller submits it
+   * before the command buffer holding that draw, whose passes read the copied instances.
+   */
+  takeUpload(): GPUCommandBuffer | undefined {
+    const upload = this.upload;
+    this.upload = this.uploadStaging = undefined;
+    return upload;
+  }
+  /** Maps every staging whose copy was submitted or dropped; mapping waits for the GPU. */
+  private restage(): void {
+    for (const staging of this.stagings) {
+      if (staging.state !== 'used' || staging === this.uploadStaging) continue;
+      staging.state = 'mapping';
+      staging.buffer.mapAsync(GPUMapMode.WRITE).then(
+        () => {
+          if (staging.state === 'mapping') staging.state = 'ready';
+        },
+        () => {
+          // Lost devices and destroyed buffers reject; such a staging is never reused.
+          const index = this.stagings.indexOf(staging);
+          if (index >= 0) this.stagings.splice(index, 1);
+          staging.buffer.destroy();
+        },
+      );
+    }
+  }
+  private acquireStaging(): UploadStaging2D | undefined {
+    const size = this.instanceBuffer.size,
+      stagings = this.stagings;
+    for (let i = 0; i < stagings.length; i++) {
+      const staging = stagings[i]!;
+      if (staging.state !== 'ready') continue;
+      if (staging.buffer.size >= size) return staging;
+      // Sized for an instance buffer that has since grown.
+      staging.buffer.destroy();
+      stagings.splice(i--, 1);
+    }
+    if (stagings.length >= rendering2dLimits.uploadStagingBuffers)
+      return undefined;
+    const staging: UploadStaging2D = {
+      buffer: this.device.createBuffer({
+        size,
+        usage: GPUBufferUsage.MAP_WRITE | GPUBufferUsage.COPY_SRC,
+        mappedAtCreation: true,
+      }),
+      state: 'ready',
+    };
+    stagings.push(staging);
+    return staging;
   }
   private bindDraw(pass: GPURenderPassEncoder, slot: number): void {
     this.uniformOffsets[0] = slot * SLOT_BYTES;
@@ -600,10 +667,43 @@ export class WebGPURender2D {
     this.encoder = encoder;
     this.slot = 0;
     this.frame++;
+    // An earlier draw's copy that was never taken belongs to commands never submitted.
+    this.upload = this.uploadStaging = undefined;
+    this.restage();
+    // `queue.writeBuffer` copies its data on the calling thread, which for large instance
+    // runs costs far more than filling a mapped buffer and recording one GPU copy.
+    this.staging =
+      this.required >= rendering2dLimits.stagedUploadQuads
+        ? this.acquireStaging()
+        : undefined;
+    this.stagedStart = Infinity;
+    this.stagedEnd = 0;
   }
   private finish(): void {
     this.closePass();
     this.encoder = undefined;
+    const staging = this.staging,
+      start = this.stagedStart,
+      end = this.stagedEnd;
+    this.staging = undefined;
+    if (staging && end > start) {
+      new Float32Array(staging.buffer.getMappedRange()).set(
+        this.instanceData.subarray(start, end),
+        start,
+      );
+      staging.buffer.unmap();
+      staging.state = 'used';
+      const encoder = this.device.createCommandEncoder();
+      encoder.copyBufferToBuffer(
+        staging.buffer,
+        start * Float32Array.BYTES_PER_ELEMENT,
+        this.instanceBuffer,
+        start * Float32Array.BYTES_PER_ELEMENT,
+        (end - start) * Float32Array.BYTES_PER_ELEMENT,
+      );
+      this.upload = encoder.finish();
+      this.uploadStaging = staging;
+    }
     for (const group of this.layers.keys()) {
       const entry = this.layers.get(group)!;
       if (group.destroyed || entry.seen !== this.frame) {
@@ -814,13 +914,18 @@ export class WebGPURender2D {
     }
   }
   private uploadQuads(first: number, count: number): void {
-    this.device.queue.writeBuffer(
-      this.instanceBuffer,
-      first * QUAD_BYTES,
-      this.instanceData,
-      first * QUAD_FLOATS,
-      count * QUAD_FLOATS,
-    );
+    if (this.staging) {
+      // Copied as one range when the draw finishes; slots between uploads hold no draws.
+      this.stagedStart = Math.min(this.stagedStart, first * QUAD_FLOATS);
+      this.stagedEnd = Math.max(this.stagedEnd, (first + count) * QUAD_FLOATS);
+    } else
+      this.device.queue.writeBuffer(
+        this.instanceBuffer,
+        first * QUAD_BYTES,
+        this.instanceData,
+        first * QUAD_FLOATS,
+        count * QUAD_FLOATS,
+      );
     this.hooks.stats.upload(count * QUAD_BYTES);
   }
   private drawCommands(
@@ -1737,13 +1842,18 @@ export class WebGPURender2D {
         { texture: destination.texture },
         [target.width, target.height],
       );
-      this.device.queue.submit([encoder.finish()]);
+      const upload = this.takeUpload();
+      this.device.queue.submit(
+        upload ? [upload, encoder.finish()] : [encoder.finish()],
+      );
       target.publish(this.hooks.owner, this.dependencies);
     } finally {
       this.hooks.residency.abortFrame();
       if (staging) this.retire(staging);
       if (scratch) this.retire(scratch);
       this.captureCommands.clear();
+      this.takeUpload();
+      this.restage();
       void this.device.queue
         .onSubmittedWorkDone()
         .then(() => this.flushRetired());
@@ -1869,6 +1979,9 @@ export class WebGPURender2D {
     this.meshes.clear();
     this.particles.clear();
     this.flushRetired();
+    this.upload = this.uploadStaging = undefined;
+    for (const staging of this.stagings) staging.buffer.destroy();
+    this.stagings.length = 0;
     this.captureCommands.destroy();
     this.uniformBuffer.destroy();
     this.instanceBuffer.destroy();

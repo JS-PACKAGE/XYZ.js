@@ -954,6 +954,9 @@ export class WebGPURenderer implements Renderer {
     this.gpuTimer?.end(this.encoder);
     const commandBuffer = this.encoder.finish();
     this.encoder = undefined;
+    // Staged 2D instances are copied ahead of the passes that draw them.
+    const upload = this.render2D?.takeUpload();
+    if (upload) this.submissions.push(upload);
     this.submissions.push(commandBuffer);
     let submitted = false;
     try {

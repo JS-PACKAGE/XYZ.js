@@ -22,7 +22,9 @@ var rendering2dLimits = Object.freeze({
 	filterQuality: 8,
 	resolution: 8,
 	canvasFrameSnapshots: 256,
-	canvasFrameSnapshotPixels: 4194304
+	canvasFrameSnapshotPixels: 4194304,
+	stagedUploadQuads: 64,
+	uploadStagingBuffers: 3
 });
 //#endregion
 exports.rendering2dLimits = rendering2dLimits;

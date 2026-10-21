@@ -26,4 +26,9 @@ export declare const rendering2dLimits: Readonly<{
     /** Their combined pixels (4 bytes each); a larger single frame repaints a scratch.
      * Also bounds the source pixels read back once per version for tinted copies. */
     canvasFrameSnapshotPixels: number;
+    /** WebGPU draws with at least this many quad slots upload instances through a mapped
+     * staging buffer; below it `queue.writeBuffer` is as cheap. */
+    stagedUploadQuads: 64;
+    /** Mapped staging buffers WebGPU 2D keeps in flight; with none mapped it writes directly. */
+    uploadStagingBuffers: 3;
 }>;

@@ -40,6 +40,7 @@ export declare class WebGPURender2D {
     private readonly samplers;
     private readonly retiredTextures;
     private readonly retiredBuffers;
+    private readonly stagings;
     private readonly scratch;
     private readonly uniformOffsets;
     private readonly passLayout;
@@ -57,6 +58,14 @@ export declare class WebGPURender2D {
     private instanceBuffer;
     private instanceData;
     private uploadedUniforms;
+    /** Staging the current draw's quads go through, or none to write them directly. */
+    private staging;
+    /** Float range of `instanceData` the current draw uploaded through `staging`. */
+    private stagedStart;
+    private stagedEnd;
+    /** A finished draw's copy, which must be submitted before that draw's commands. */
+    private upload;
+    private uploadStaging;
     private capacity;
     private required;
     private slot;
@@ -75,6 +84,14 @@ export declare class WebGPURender2D {
     private retire;
     /** Call after the frame's command buffers are submitted; destroying earlier would invalidate them. */
     flushRetired(): void;
+    /**
+     * The copy carrying the last draw's quads, if it staged them. The caller submits it
+     * before the command buffer holding that draw, whose passes read the copied instances.
+     */
+    takeUpload(): GPUCommandBuffer | undefined;
+    /** Maps every staging whose copy was submitted or dropped; mapping waits for the GPU. */
+    private restage;
+    private acquireStaging;
     private bindDraw;
     private sampler;
     private textureOf;

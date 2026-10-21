@@ -413,12 +413,14 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		if (!this.encoder || !this.frameRendered) throw new require_errors.GraphicsError(`WebGPU endFrame requires a rendered frame.`);
 		this.gpuTimer?.end(this.encoder);
 		let n = this.encoder.finish();
-		this.encoder = void 0, this.submissions.push(n);
-		let r = !1;
+		this.encoder = void 0;
+		let r = this.render2D?.takeUpload();
+		r && this.submissions.push(r), this.submissions.push(n);
+		let i = !1;
 		try {
-			t.queue.submit(this.submissions), this.meshPipeline?.afterSubmit(), r = !0, this.gpuTimer?.submitted();
+			t.queue.submit(this.submissions), this.meshPipeline?.afterSubmit(), i = !0, this.gpuTimer?.submitted();
 		} finally {
-			this.submissions.length = 0, r || this.gpuTimer?.abort(), this.render2D?.flushRetired(), this.releaseUnusedTextures(), r && e ? this.residency.endFrame() : this.residency.abortFrame(), this.frameStats.submit();
+			this.submissions.length = 0, i || this.gpuTimer?.abort(), this.render2D?.flushRetired(), this.releaseUnusedTextures(), i && e ? this.residency.endFrame() : this.residency.abortFrame(), this.frameStats.submit();
 		}
 	}
 	resize(e, t) {
