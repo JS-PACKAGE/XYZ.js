@@ -752,7 +752,12 @@ var GLTFLoader = class {
 					let c = s?.count ?? i.count;
 					if (de += c, de > require_models.modelLimits.indices || !c || c % 3) throw new require_texture.AssetError(`Invalid or excessive triangle indices.`);
 					s || f.reserve(c * 4);
-					let p = s?.data ?? Float32Array.from({ length: c }, (e, t) => t);
+					let p = s?.data;
+					if (!p) {
+						let e = new Float32Array(c);
+						for (let t = 0; t < c; t++) e[t] = t;
+						p = e;
+					}
 					if (!indicesWithin(p, i.count)) throw new require_texture.AssetError(`Triangle index is outside positions.`);
 					let g = r.NORMAL === void 0 ? void 0 : readAccessor(r.NORMAL);
 					if (g && (g.type !== `VEC3` || g.component !== 5126 || g.count !== i.count)) throw new require_texture.AssetError(`Invalid vertex normals.`);

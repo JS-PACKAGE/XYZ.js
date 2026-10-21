@@ -1690,9 +1690,12 @@ export class GLTFLoader {
           )
             throw new AssetError('Invalid or excessive triangle indices.');
           if (!index) context.reserve(indexCount * 4);
-          const indices =
-            index?.data ??
-            Float32Array.from({ length: indexCount }, (_, j) => j);
+          let indices = index?.data;
+          if (!indices) {
+            const sequence = new Float32Array(indexCount);
+            for (let j = 0; j < indexCount; j++) sequence[j] = j;
+            indices = sequence;
+          }
           if (!indicesWithin(indices, position.count))
             throw new AssetError('Triangle index is outside positions.');
           const normal =
