@@ -1427,14 +1427,20 @@ var WebGL2Renderer = class {
 		}
 	}
 	releaseUnused() {
-		for (let [e, t] of this.textures) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		for (let e of this.textures.keys()) {
+			let t = this.textures.get(e);
+			(e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		}
 		if (this.residency.geometry.budgetBytes === 1 / 0) {
 			for (let e of this.geometries.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 			for (let e of this.meshInstances.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 			for (let e of this.visibleMeshInstances.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 			for (let e of this.meshSkins.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 		}
-		for (let [e, t] of this.environments) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		for (let e of this.environments.keys()) {
+			let t = this.environments.get(e);
+			(e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		}
 		for (let e of this.opticalTextures.values()) (e.sources.some((e) => e?.destroyed) || this.residency.textures.budgetBytes === 1 / 0 && e.seen !== this.frame && !e.allocation.references) && e.allocation.destroy();
 	}
 	createBuffer(e) {

@@ -157,11 +157,13 @@ export class ShadowCache {
         }
       }
     }
-    for (const [mesh, record] of this.casters)
+    for (const mesh of this.casters.keys()) {
+      const record = this.casters.get(mesh)!;
       if (record.seen !== this.frame) {
         this.casters.delete(mesh);
         changed = true;
       }
+    }
     // A failed encoding/submission must not publish a reusable atlas.
     this.valid = false;
     return changed;

@@ -838,12 +838,7 @@ export class Scene {
       }
     }
     if (!canContinue() || this.disposed) return;
-    for (const object of this.objectUpdates) {
-      const id = object.sceneUpdateId;
-      if (id > this.frameObjectUpdate) break;
-      if (!canContinue() || this.disposed) return;
-      if (object instanceof ParticleEmitter) object.updateSimulation(deltaTime);
-    }
+    if (!this.advanceParticleEmitters(deltaTime, canContinue)) return;
     if (this.registeredGPUParticles)
       for (const emitter of this.registeredGPUParticles) {
         if (!canContinue() || this.disposed) return;
@@ -852,6 +847,23 @@ export class Scene {
     if (canContinue() && !this.disposed)
       this.camera2D.updateBehaviors(deltaTime);
     if (canContinue() && !this.disposed) this.updateCameraDependents();
+  }
+
+  /**
+   * False when a continuation check stopped the pass. Kept out of advanceAfterUpdate: inside
+   * that larger function the Set iteration allocated a result object per scene object.
+   */
+  private advanceParticleEmitters(
+    deltaTime: number,
+    canContinue: () => boolean,
+  ): boolean {
+    for (const object of this.objectUpdates) {
+      const id = object.sceneUpdateId;
+      if (id > this.frameObjectUpdate) break;
+      if (!canContinue() || this.disposed) return false;
+      if (object instanceof ParticleEmitter) object.updateSimulation(deltaTime);
+    }
+    return true;
   }
 
   /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */

@@ -1997,12 +1997,18 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			for (let e of this.geometries.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 			for (let e of this.meshes.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
 		}
-		for (let [e, t] of this.environments) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		for (let e of this.environments.keys()) {
+			let t = this.environments.get(e);
+			(e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		}
 		this.releaseUnusedTextures(this.textures), this.releaseUnusedTextures(this.premultipliedTextures);
 		for (let e of this.opticalTextures.values()) (e.sources?.some((e) => e?.destroyed) || this.residency.textures.budgetBytes === 1 / 0 && e.seen !== this.frame && !e.allocation.references) && e.allocation.destroy();
 	}
 	releaseUnusedTextures(e) {
-		for (let [t, n] of e) (t.destroyed || this.residency.textures.budgetBytes === 1 / 0 && n.seen !== this.frame && !n.allocation.references) && n.allocation.destroy();
+		for (let t of e.keys()) {
+			let n = e.get(t);
+			(t.destroyed || this.residency.textures.budgetBytes === 1 / 0 && n.seen !== this.frame && !n.allocation.references) && n.allocation.destroy();
+		}
 	}
 	destroy() {
 		this.destroyed = !0, this.probeAllocation?.destroy(), this.temporal.destroy(), this.objectMotion?.destroy();

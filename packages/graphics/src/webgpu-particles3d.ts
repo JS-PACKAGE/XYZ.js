@@ -217,8 +217,10 @@ export class WebGPUParticles3D {
         this.stats.draw(6, second);
       }
     }
-    for (const [emitter, entry] of this.buffers)
+    for (const emitter of this.buffers.keys()) {
+      const entry = this.buffers.get(emitter)!;
       if (entry.seen !== this.frame && !entry.prepared) this.release(emitter);
+    }
   }
 
   /** Retire scene-excluded resources even when no color pass is opened. */
@@ -228,8 +230,10 @@ export class WebGPUParticles3D {
       const entry = this.buffers.get(emitter);
       if (entry && !emitter.destroyed) entry.seen = this.frame;
     }
-    for (const [emitter, entry] of this.buffers)
+    for (const emitter of this.buffers.keys()) {
+      const entry = this.buffers.get(emitter)!;
       if (entry.seen !== this.frame) this.release(emitter);
+    }
   }
 
   /** Release emitter allocations while keeping the reusable native pipelines. */

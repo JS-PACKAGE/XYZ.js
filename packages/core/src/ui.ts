@@ -1136,7 +1136,9 @@ export class UIRoot extends UIElement {
       game.height !== this.viewportHeight
     )
       this.reflow();
-    for (const [node, scope] of this.nativeScopes)
+    // Keys and get, not entries: an [key, value] pair per control was allocated every frame.
+    for (const node of this.nativeScopes.keys()) {
+      const scope = this.nativeScopes.get(node)!;
       if (
         node.destroyed ||
         node.scene !== this.scene ||
@@ -1148,6 +1150,7 @@ export class UIRoot extends UIElement {
         this.nativeScopes.delete(node);
         if (this.focus.focused === node) this.focus.focus(undefined);
       }
+    }
     this.synchronizeNode(this);
     this.focus.synchronize();
     this.synchronizeInputScope();

@@ -3499,3 +3499,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   README 原有果皮分類仍適用，歷史驗收數不改寫。
   不新增 runtime 依賴，不宣稱新增瀏覽器、Canvas2D 3D 或裝置認證；
   僅提交本功能與對應發佈產物，不 push。
+- `[Rendering]` 每幀執行的 Map 走訪（WebGL2／WebGPU 貼圖與環境釋放、2D layer／粒子、3D 粒子 buffer、陰影 caster、canvas layer 快取、UI 原生控制 scope）改為 `keys()`＋`get`，不再每個項目配置 `[key, value]`；Scene 的 2D 粒子發射器 pass 移出 `advanceAfterUpdate` 成小方法，避免大函式內 Set 走訪為每個物件配置 iterator 結果。走訪順序、刪除時機與結果不變。穩態（暖機 12 s）beacon-run 每幀配置 WebGL2 53.1 → 41.0 KB、WebGPU 46.4 → 37.4 KB；shadows3d、gpu-particles3d 持平，屬配置減少。canvas2d／WebGL2／WebGPU browser regression 與 163 個範例 smoke 通過；build 與完整測試（2056 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

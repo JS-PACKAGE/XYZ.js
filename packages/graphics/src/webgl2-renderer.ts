@@ -4964,7 +4964,9 @@ export class WebGL2Renderer implements Renderer {
   }
 
   private releaseUnused(): void {
-    for (const [texture, entry] of this.textures)
+    // Keys and get, not entries: an [key, value] pair per entry was allocated every frame.
+    for (const texture of this.textures.keys()) {
+      const entry = this.textures.get(texture)!;
       if (
         texture.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
@@ -4972,6 +4974,7 @@ export class WebGL2Renderer implements Renderer {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
+    }
     if (this.residency.geometry.budgetBytes === Infinity) {
       for (const entry of this.geometries.values())
         if (entry.seen !== this.frame && !entry.allocation.references)
@@ -4986,7 +4989,8 @@ export class WebGL2Renderer implements Renderer {
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
     }
-    for (const [map, entry] of this.environments)
+    for (const map of this.environments.keys()) {
+      const entry = this.environments.get(map)!;
       if (
         map.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
@@ -4994,6 +4998,7 @@ export class WebGL2Renderer implements Renderer {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
+    }
     for (const entry of this.opticalTextures.values())
       if (
         entry.sources.some((source) => source?.destroyed) ||

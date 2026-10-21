@@ -370,13 +370,17 @@ export class WebGLRender2D {
       bounds: { x: 0, y: 0, width, height },
     });
     // Like WebGPU, live uncached layers keep their targets instead of reallocating each frame.
-    for (const [group, entry] of this.layers)
+    for (const group of this.layers.keys()) {
+      const entry = this.layers.get(group)!;
       if (group.destroyed || entry.seen !== this.frame) {
         for (const target of entry.targets) this.hooks.deleteTarget(target);
         this.layers.delete(group);
       }
-    for (const [layer, entry] of this.particles)
+    }
+    for (const layer of this.particles.keys()) {
+      const entry = this.particles.get(layer)!;
       if (layer.destroyed) entry.allocation.destroy();
+    }
   }
   private bindTarget(context: Context2D): void {
     const gl = this.gl;

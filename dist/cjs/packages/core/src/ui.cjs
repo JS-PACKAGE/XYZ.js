@@ -642,7 +642,10 @@ var UIRoot = class extends require_ui_layout.UIElement {
 		this.mountingGeneration !== this.registrationGeneration && (this.mountingGeneration !== void 0 && this.releaseBindings(), this.mountingGeneration = this.registrationGeneration, this.applyPreferences(e.preferences.values).catch((e) => {
 			this.destroyed || this.dispatchEvent(new CustomEvent(`error`, { detail: e }));
 		})), (this.inspectLayout() || e.width !== this.viewportWidth || e.height !== this.viewportHeight) && this.reflow();
-		for (let [t, n] of this.nativeScopes) (t.destroyed || t.scene !== this.scene || rootOf(t) !== this || t.registrationGeneration !== n.generation || e.accessibility.element(t) !== n.node) && (n.controller.abort(), this.nativeScopes.delete(t), this.focus.focused === t && this.focus.focus(void 0));
+		for (let t of this.nativeScopes.keys()) {
+			let n = this.nativeScopes.get(t);
+			(t.destroyed || t.scene !== this.scene || rootOf(t) !== this || t.registrationGeneration !== n.generation || e.accessibility.element(t) !== n.node) && (n.controller.abort(), this.nativeScopes.delete(t), this.focus.focused === t && this.focus.focus(void 0));
+		}
 		this.synchronizeNode(this), this.focus.synchronize(), this.synchronizeInputScope();
 		let t = this.context;
 		if (!t?.active) return;

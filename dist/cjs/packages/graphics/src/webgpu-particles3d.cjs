@@ -156,7 +156,10 @@ var WebGPUParticles3D = class WebGPUParticles3D {
 			let l = n.activeCount - c;
 			l && (e.draw(6, l), this.stats.draw(6, l));
 		}
-		for (let [e, t] of this.buffers) t.seen !== this.frame && !t.prepared && this.release(e);
+		for (let e of this.buffers.keys()) {
+			let t = this.buffers.get(e);
+			t.seen !== this.frame && !t.prepared && this.release(e);
+		}
 	}
 	synchronize(e) {
 		this.frame++;
@@ -164,7 +167,7 @@ var WebGPUParticles3D = class WebGPUParticles3D {
 			let e = this.buffers.get(t);
 			e && !t.destroyed && (e.seen = this.frame);
 		}
-		for (let [e, t] of this.buffers) t.seen !== this.frame && this.release(e);
+		for (let e of this.buffers.keys()) this.buffers.get(e).seen !== this.frame && this.release(e);
 	}
 	clear() {
 		for (let e of this.buffers.keys()) this.release(e);

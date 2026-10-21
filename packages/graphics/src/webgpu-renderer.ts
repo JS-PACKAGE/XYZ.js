@@ -1099,7 +1099,8 @@ export class WebGPURenderer implements Renderer {
   }
 
   private releaseUnusedTextures(): void {
-    for (const [texture, entry] of this.textures)
+    for (const texture of this.textures.keys()) {
+      const entry = this.textures.get(texture)!;
       if (
         texture.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
@@ -1107,6 +1108,7 @@ export class WebGPURenderer implements Renderer {
           entry.seen !== this.textureFrame)
       )
         entry.allocation.destroy();
+    }
   }
 
   private releaseResources(): void {

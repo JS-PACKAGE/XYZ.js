@@ -152,7 +152,10 @@ var CanvasRender2D = class {
 			}
 		}
 		n.globalAlpha = 1, n.globalCompositeOperation = `source-over`;
-		for (let [e, t] of this.caches) (e.destroyed || !e.isolationEnabled) && (this.releaseCanvas(t.canvas), t.tinted && this.releaseCanvas(t.tinted.canvas), this.caches.delete(e));
+		for (let e of this.caches.keys()) {
+			let t = this.caches.get(e);
+			(e.destroyed || !e.isolationEnabled) && (this.releaseCanvas(t.canvas), t.tinted && this.releaseCanvas(t.tinted.canvas), this.caches.delete(e));
+		}
 	}
 	tint(e, t) {
 		this.resizeCanvas(t, e.width, e.height), this.stats.pass2D();

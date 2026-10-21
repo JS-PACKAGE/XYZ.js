@@ -194,8 +194,10 @@ export class WebGL2Particles3D {
         const second = emitter.activeCount - first;
         if (second) this.drawRange(0, second);
       }
-      for (const [emitter, entry] of this.buffers)
+      for (const emitter of this.buffers.keys()) {
+        const entry = this.buffers.get(emitter)!;
         if (entry.seen !== this.frame && !entry.prepared) this.release(emitter);
+      }
     } finally {
       gl.useProgram(previous.program);
       gl.bindVertexArray(previous.vao);
@@ -220,8 +222,10 @@ export class WebGL2Particles3D {
       const entry = this.buffers.get(emitter);
       if (entry && !emitter.destroyed) entry.seen = this.frame;
     }
-    for (const [emitter, entry] of this.buffers)
+    for (const emitter of this.buffers.keys()) {
+      const entry = this.buffers.get(emitter)!;
       if (entry.seen !== this.frame) this.release(emitter);
+    }
   }
 
   /** Release emitter allocations while keeping the reusable native program. */

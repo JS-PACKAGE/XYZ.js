@@ -85,7 +85,10 @@ var WebGL2Particles3D = class {
 				let c = n.activeCount - s;
 				c && this.drawRange(0, c);
 			}
-			for (let [e, t] of this.buffers) t.seen !== this.frame && !t.prepared && this.release(e);
+			for (let e of this.buffers.keys()) {
+				let t = this.buffers.get(e);
+				t.seen !== this.frame && !t.prepared && this.release(e);
+			}
 		} finally {
 			a.useProgram(o.program), a.bindVertexArray(o.vao), a.bindBuffer(a.ARRAY_BUFFER, o.array), a.bindBufferBase(a.UNIFORM_BUFFER, 0, o.uniform0), a.bindBuffer(a.UNIFORM_BUFFER, o.uniform), a.depthFunc(a.LESS), o.blend ? a.enable(a.BLEND) : a.disable(a.BLEND), o.depth ? a.enable(a.DEPTH_TEST) : a.disable(a.DEPTH_TEST), o.cull ? a.enable(a.CULL_FACE) : a.disable(a.CULL_FACE);
 		}
@@ -96,7 +99,7 @@ var WebGL2Particles3D = class {
 			let e = this.buffers.get(t);
 			e && !t.destroyed && (e.seen = this.frame);
 		}
-		for (let [e, t] of this.buffers) t.seen !== this.frame && this.release(e);
+		for (let e of this.buffers.keys()) this.buffers.get(e).seen !== this.frame && this.release(e);
 	}
 	clear() {
 		for (let e of this.buffers.keys()) this.release(e);

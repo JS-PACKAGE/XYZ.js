@@ -182,11 +182,17 @@ var WebGLRender2D = class {
 				height: i
 			}
 		});
-		for (let [e, t] of this.layers) if (e.destroyed || t.seen !== this.frame) {
-			for (let e of t.targets) this.hooks.deleteTarget(e);
-			this.layers.delete(e);
+		for (let e of this.layers.keys()) {
+			let t = this.layers.get(e);
+			if (e.destroyed || t.seen !== this.frame) {
+				for (let e of t.targets) this.hooks.deleteTarget(e);
+				this.layers.delete(e);
+			}
 		}
-		for (let [e, t] of this.particles) e.destroyed && t.allocation.destroy();
+		for (let e of this.particles.keys()) {
+			let t = this.particles.get(e);
+			e.destroyed && t.allocation.destroy();
+		}
 	}
 	bindTarget(e) {
 		let t = this.gl;

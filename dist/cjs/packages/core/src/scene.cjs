@@ -408,18 +408,21 @@ var Scene = class {
 				this.fixedAccumulator = Math.max(0, this.fixedAccumulator - e), this.physicsWorld?.discardFrameTime(e), this.physicsWorld3D?.discardFrameTime(e);
 			}
 		}
-		if (t() && !this.disposed) {
-			for (let n of this.objectUpdates) {
-				if (n.sceneUpdateId > this.frameObjectUpdate) break;
-				if (!t() || this.disposed) return;
-				n instanceof require_index$1.ParticleEmitter && n.updateSimulation(e);
-			}
+		if (t() && !this.disposed && this.advanceParticleEmitters(e, t)) {
 			if (this.registeredGPUParticles) for (let n of this.registeredGPUParticles) {
 				if (!t() || this.disposed) return;
 				n.updateSimulation(e);
 			}
 			t() && !this.disposed && this.camera2D.updateBehaviors(e), t() && !this.disposed && this.updateCameraDependents();
 		}
+	}
+	advanceParticleEmitters(e, t) {
+		for (let n of this.objectUpdates) {
+			if (n.sceneUpdateId > this.frameObjectUpdate) break;
+			if (!t() || this.disposed) return !1;
+			n instanceof require_index$1.ParticleEmitter && n.updateSimulation(e);
+		}
+		return !0;
 	}
 	updateCameraDependents(e = this.presentationViewportHeight) {
 		if (!this.disposed && this.cameraDependents?.size) for (let t of [...this.cameraDependents]) t.worldVisible && t.updateForCamera(this.camera3D, e, this.presentationTime);

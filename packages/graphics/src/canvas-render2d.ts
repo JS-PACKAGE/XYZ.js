@@ -390,12 +390,14 @@ export class CanvasRender2D {
     }
     context.globalAlpha = 1;
     context.globalCompositeOperation = 'source-over';
-    for (const [group, pixels] of this.caches)
+    for (const group of this.caches.keys()) {
+      const pixels = this.caches.get(group)!;
       if (group.destroyed || !group.isolationEnabled) {
         this.releaseCanvas(pixels.canvas);
         if (pixels.tinted) this.releaseCanvas(pixels.tinted.canvas);
         this.caches.delete(group);
       }
+    }
   }
   /** Multiplies unpremultiplied RGB by the current appearance into `target`. */
   private tint(source: HTMLCanvasElement, target: HTMLCanvasElement): void {

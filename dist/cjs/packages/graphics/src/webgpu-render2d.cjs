@@ -339,12 +339,18 @@ var WebGPURender2D = class WebGPURender2D {
 	}
 	finish() {
 		this.closePass(), this.encoder = void 0;
-		for (let [e, t] of this.layers) if (e.destroyed || t.seen !== this.frame) {
-			for (let e of t.targets) this.retire(e);
-			this.layers.delete(e);
+		for (let e of this.layers.keys()) {
+			let t = this.layers.get(e);
+			if (e.destroyed || t.seen !== this.frame) {
+				for (let e of t.targets) this.retire(e);
+				this.layers.delete(e);
+			}
 		}
 		if (this.hooks.residency.geometry.budgetBytes === 1 / 0) for (let e of this.meshes.values()) e.seen !== this.frame && !e.allocation.references && e.allocation.destroy();
-		for (let [e, t] of this.particles) (e.destroyed || this.hooks.residency.geometry.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		for (let e of this.particles.keys()) {
+			let t = this.particles.get(e);
+			(e.destroyed || this.hooks.residency.geometry.budgetBytes === 1 / 0 && t.seen !== this.frame && !t.allocation.references) && t.allocation.destroy();
+		}
 	}
 	open(t, n) {
 		return this.pass && this.passTarget === t && !n ? this.pass : (this.closePass(), this.pass = require_gpu_timing.beginTimedRenderPass(this.encoder, { colorAttachments: [{

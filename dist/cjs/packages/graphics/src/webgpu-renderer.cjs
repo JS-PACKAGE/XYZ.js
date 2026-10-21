@@ -471,7 +471,10 @@ fn fragmentMain(input: VertexOutput) -> @location(0) vec4f {
 		return g.resource = h, g.width = s, g.height = c, g.version = t.version, this.textures.set(t, g), g;
 	}
 	releaseUnusedTextures() {
-		for (let [e, t] of this.textures) (e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && !t.allocation.references && t.seen !== this.textureFrame) && t.allocation.destroy();
+		for (let e of this.textures.keys()) {
+			let t = this.textures.get(e);
+			(e.destroyed || this.residency.textures.budgetBytes === 1 / 0 && !t.allocation.references && t.seen !== this.textureFrame) && t.allocation.destroy();
+		}
 	}
 	releaseResources() {
 		this.compute?.destroy(), this.compute = void 0, this.graphs?.destroy(), this.graphs = void 0, this.gpuTimer?.destroy(!!this.lostError), this.gpuTimer = void 0, this.encoder = void 0, this.colorAttachment.view = void 0, this.submissions.length = 0, this.residency.clear(), this.preparedGeometry.clear(), this.effectsPipeline?.destroy(), this.effectsPipeline = void 0, this.render2D?.destroy(), this.render2D = void 0, this.captureOutput = void 0, this.xrOutput = void 0, this.meshPipeline?.destroy(), this.meshPipeline = void 0, this.commands.destroy();

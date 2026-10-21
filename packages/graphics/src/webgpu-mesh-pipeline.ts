@@ -3892,7 +3892,9 @@ export class WebGPUMeshPipeline {
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
     }
-    for (const [map, entry] of this.environments)
+    // Keys and get, not entries: an [key, value] pair per entry was allocated every frame.
+    for (const map of this.environments.keys()) {
+      const entry = this.environments.get(map)!;
       if (
         map.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
@@ -3900,6 +3902,7 @@ export class WebGPUMeshPipeline {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
+    }
     this.releaseUnusedTextures(this.textures);
     this.releaseUnusedTextures(this.premultipliedTextures);
     for (const entry of this.opticalTextures.values())
@@ -3915,7 +3918,8 @@ export class WebGPUMeshPipeline {
   private releaseUnusedTextures(
     cache: Map<MaterialTexture, CachedTexture>,
   ): void {
-    for (const [texture, entry] of cache)
+    for (const texture of cache.keys()) {
+      const entry = cache.get(texture)!;
       if (
         texture.destroyed ||
         (this.residency.textures.budgetBytes === Infinity &&
@@ -3923,6 +3927,7 @@ export class WebGPUMeshPipeline {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
+    }
   }
 
   destroy(): void {

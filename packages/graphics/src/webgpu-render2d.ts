@@ -604,17 +604,20 @@ export class WebGPURender2D {
   private finish(): void {
     this.closePass();
     this.encoder = undefined;
-    for (const [group, entry] of this.layers)
+    for (const group of this.layers.keys()) {
+      const entry = this.layers.get(group)!;
       if (group.destroyed || entry.seen !== this.frame) {
         for (const target of entry.targets) this.retire(target);
         this.layers.delete(group);
       }
+    }
     if (this.hooks.residency.geometry.budgetBytes === Infinity) {
       for (const entry of this.meshes.values())
         if (entry.seen !== this.frame && !entry.allocation.references)
           entry.allocation.destroy();
     }
-    for (const [layer, entry] of this.particles)
+    for (const layer of this.particles.keys()) {
+      const entry = this.particles.get(layer)!;
       if (
         layer.destroyed ||
         (this.hooks.residency.geometry.budgetBytes === Infinity &&
@@ -622,6 +625,7 @@ export class WebGPURender2D {
           !entry.allocation.references)
       )
         entry.allocation.destroy();
+    }
   }
   private open(target: GPUColorTarget, clear: boolean): GPURenderPassEncoder {
     if (this.pass && this.passTarget === target && !clear) return this.pass;

@@ -232,6 +232,11 @@ export declare class Scene {
     advanceObjects(deltaTime: number, canContinue: () => boolean): void;
     /** @internal Systems/actions run first, physics then particles, final camera last. */
     advanceAfterUpdate(deltaTime: number, canContinue: () => boolean): void;
+    /**
+     * False when a continuation check stopped the pass. Kept out of advanceAfterUpdate: inside
+     * that larger function the Set iteration allocated a result object per scene object.
+     */
+    private advanceParticleEmitters;
     /** @internal Billboards, LODs and camera-facing lines follow the final 3D camera pose. */
     updateCameraDependents(viewportHeight?: number | undefined): void;
     /** Called before scene systems, once per visible frame. */

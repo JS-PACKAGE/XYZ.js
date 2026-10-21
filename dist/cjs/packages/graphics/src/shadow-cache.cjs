@@ -45,7 +45,7 @@ var ShadowCache = class {
 				}
 			}
 		}
-		for (let [e, t] of this.casters) t.seen !== this.frame && (this.casters.delete(e), m = !0);
+		for (let e of this.casters.keys()) this.casters.get(e).seen !== this.frame && (this.casters.delete(e), m = !0);
 		return this.valid = !1, m;
 	}
 	commit() {
