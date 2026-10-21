@@ -59,7 +59,7 @@ Official OPM.js v1.11.1 (tag `v1.11.1`) normalizes voices to v7 internally; the 
 
 ### Reusable procedural PBR materials
 
-The root exports `ProceduralMaterial`, `ProceduralMaterialKind` (`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo'`) and `ProceduralMaterialOptions` (`size?: number; seed?: number`). `await ProceduralMaterial.create(kind, options?)` generates deterministic, seamlessly periodic immutable maps once on the CPU, without external assets or new dependencies. `size` is an integer 32–1024 (default 256); `seed` is an unsigned 32-bit integer 0–4294967295 (default 1). Invalid inputs reject.
+The root exports `ProceduralMaterial`, `ProceduralMaterialKind` (`'wood' | 'brick' | 'stone' | 'metal' | 'fabric' | 'marble' | 'concrete' | 'tiles' | 'leather' | 'sand' | 'rust' | 'snow' | 'asphalt' | 'gravel' | 'cobblestone' | 'bark' | 'moss' | 'mud' | 'granite' | 'slate' | 'terrazzo' | 'denim' | 'burlap' | 'carpet'`) and `ProceduralMaterialOptions` (`size?: number; seed?: number`). `await ProceduralMaterial.create(kind, options?)` generates deterministic, seamlessly periodic immutable maps once on the CPU, without external assets or new dependencies. `size` is an integer 32–1024 (default 256); `seed` is an unsigned 32-bit integer 0–4294967295 (default 1). Invalid inputs reject.
 
 The caller owns the returned preset, whose readonly `kind`, `material: PBRMaterial` and `textures` expose four `Texture` sources: `baseColor` (sRGB RGB), `normal` (linear tangent-space), `metallicRoughness` (linear G roughness/B metallic) and `occlusion` (linear R). Defaults are opaque, repeat sampling for all slots, roughness factor 1 and metallic factor 1 for metal and rust (0 otherwise, so those maps stay dielectric). Rust's metallic channel varies between remaining metal and corrosion. `createMaterial(options?: Partial<PBRMaterialOptions>)` creates a fresh material borrowing its maps, with caller overrides applied last.
 
@@ -67,7 +67,9 @@ Pavement presets are opaque dielectrics: asphalt has dark granular binder with e
 
 Natural-surface presets are also opaque dielectrics using the same four maps: bark has ridges and deep fissures, moss has dense soft green growth, and mud has earthy clumps and shallow cracks.
 
-Stone-finish presets use the same four maps as opaque dielectrics with a zero metallic channel: granite has speckled mineral grains, slate has layered dark stone with fine ridges, and terrazzo has contrasting stone chips in a smooth binder. There are 21 kinds in total.
+Stone-finish presets use the same four maps as opaque dielectrics with a zero metallic channel: granite has speckled mineral grains, slate has layered dark stone with fine ridges, and terrazzo has contrasting stone chips in a smooth binder.
+
+Textile presets bring the total to 24 kinds: denim has diagonal twill, burlap has a coarse cross weave, and carpet has a cut-pile surface. All three use the same four repeating maps as opaque dielectrics with a zero metallic channel, not geometry or hair simulation or transparent weave holes.
 
 Remove all consumers before calling synchronous, idempotent `destroy()`, which releases only generated textures, not override textures or materials. Mesh/Scene do not automatically own the preset. The `destroyed` getter reports state; `createMaterial()` rejects after destruction. Core generation uses assets' existing `Texture.fromImage`; geometry and backend rendering stay unchanged, with no frame-time generation. The [pbr3d gallery](https://github.com/YueyuHoshizora/XYZ.js/tree/main/examples/pbr3d) offers all presets and texture-map previews. Canvas2D remains 2D-only. Actual browser/runtime verification is recorded separately in ACCEPTANCE.
 

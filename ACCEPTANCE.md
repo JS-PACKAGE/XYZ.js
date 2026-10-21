@@ -2380,3 +2380,19 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補維持未提交，不納入本組。
+
+## 程序材質擴充：織物（denim／burlap／carpet）
+
+- 新增靛藍斜紋丹寧布、粗經緯交織麻布與紅褐割絨地毯；tile 物理尺寸
+  依序 0.024／0.04／0.072 m。三者皆 opaque dielectric；麻布深色孔隙
+  是凹陷而非透明，地毯不新增幾何毛髮。gallery 與中英日說明同步。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1494 tests
+  通過。前二十一種預設在 size 64／seed 7 的四份 maps SHA256 全數
+  不變；新種類涵蓋 deterministic、seed、normal、外緣及內部織格接縫。
+- managed Chromium WebGPU／WebGL2 gallery 均逐一選取新種類，
+  固定光源後截圖 hash 各異、無 page errors；正式 root API 產生的
+  256px／seed 7、2×2 平鋪圖確認斜紋、交織與絨面差異。
+  metallic 全為 0，roughness bytes 依序 217–242／233–252／231–250；
+  repeats 正確，destroy 後四份 textures 均釋放。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補維持未提交，不納入本組。

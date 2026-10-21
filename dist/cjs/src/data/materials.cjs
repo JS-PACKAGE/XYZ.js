@@ -299,6 +299,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .22,
 		relief: 8e-4
+	}),
+	denim: Object.freeze({
+		dark: [
+			13,
+			28,
+			54
+		],
+		light: [
+			148,
+			171,
+			192
+		],
+		roughness: .88,
+		relief: .0035
+	}),
+	burlap: Object.freeze({
+		dark: [
+			48,
+			33,
+			18
+		],
+		light: [
+			204,
+			173,
+			119
+		],
+		roughness: .94,
+		relief: .012
+	}),
+	carpet: Object.freeze({
+		dark: [
+			48,
+			25,
+			24
+		],
+		light: [
+			174,
+			91,
+			75
+		],
+		roughness: .96,
+		relief: .016
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -322,7 +364,10 @@ var proceduralTileMeters = Object.freeze({
 	mud: .6,
 	granite: .24,
 	slate: .6,
-	terrazzo: .6
+	terrazzo: .6,
+	denim: .024,
+	burlap: .04,
+	carpet: .072
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

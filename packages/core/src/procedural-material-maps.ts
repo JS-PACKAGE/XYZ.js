@@ -527,6 +527,103 @@ export function createSurfaceSampler(
         occlusion = 0.98 + 0.015 * coverage + 0.005 * fine;
         break;
       }
+      case 'denim': {
+        const x = u * 24,
+          y = v * 24;
+        const warp = 0.5 + 0.5 * Math.cos(TAU * x),
+          weft = 0.5 + 0.5 * Math.cos(TAU * y);
+        // A narrow pale weft exposure advances diagonally through indigo warp floats.
+        // Analytic ownership avoids switching yarns abruptly at crossing/row boundaries.
+        const exposure =
+          1 -
+          smooth(
+            clamp((Math.abs(Math.sin((Math.PI * (x - y)) / 4)) - 0.24) / 0.22),
+          );
+        const warpFiber =
+          0.5 + 0.5 * Math.sin(TAU * (96 * u + 0.12 * detail) + phase);
+        const weftFiber =
+          0.5 + 0.5 * Math.sin(TAU * (96 * v + 0.12 * detail) + phase);
+        const fiber = warpFiber * (1 - exposure) + weftFiber * exposure;
+        const thread = warp * (1 - exposure) + weft * exposure;
+        const slub = noise(u, v, 24, 4, seed ^ 0x6d31);
+        color =
+          0.12 + 0.22 * thread + 0.34 * exposure + 0.1 * fiber + 0.12 * slub;
+        height =
+          0.42 * thread + 0.24 * (1 - exposure) + 0.06 * fiber + 0.08 * slub;
+        roughness += 0.06 * (detail - 0.5) + 0.04 * (1 - thread);
+        occlusion = 0.78 + 0.18 * thread + 0.04 * fiber;
+        break;
+      }
+      case 'burlap': {
+        const x = u * 10,
+          y = v * 10;
+        const warp = smooth(clamp((Math.cos(TAU * x) + 0.35) / 1.1)),
+          weft = smooth(clamp((Math.cos(TAU * y) + 0.35) / 1.1));
+        const over = smooth(clamp(0.5 + 0.9 * Math.cos(Math.PI * (x + y))));
+        // Blend ownership continuously; both yarns vanish into opaque recessed gaps.
+        const warpTop = warp * (1 - weft + weft * over),
+          weftTop = weft * (1 - warp + warp * (1 - over));
+        const coverage = warpTop + weftTop;
+        const warpFiber =
+          0.5 + 0.5 * Math.sin(TAU * (50 * u + 0.14 * detail) + phase);
+        const weftFiber =
+          0.5 + 0.5 * Math.sin(TAU * (50 * v + 0.14 * detail) + phase);
+        const fiber = warpTop * warpFiber + weftTop * weftFiber;
+        const crossing = warp * weft;
+        color = 0.04 + 0.65 * coverage + 0.14 * fiber + 0.1 * detail * coverage;
+        height =
+          0.58 * coverage + 0.2 * crossing + 0.08 * fiber + 0.04 * detail;
+        roughness += 0.05 * (detail - 0.5) + 0.025 * (1 - coverage);
+        occlusion = 0.42 + 0.54 * coverage + 0.04 * fiber;
+        break;
+      }
+      case 'carpet': {
+        const cells = 24;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let weight = 0,
+          pigment = 0,
+          fibers = 0,
+          crown = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x9e37);
+            const distance = dx * dx + dy * dy;
+            // Compact overlapping crowns hide the backing without geometry or alpha.
+            // The support ends before any site leaves this wrapped neighborhood.
+            const cap = Math.pow(clamp(1 - distance), 3);
+            const variation = hash(wx, wy, seed ^ 0x294b);
+            const angle = hash(wx, wy, seed ^ 0x681f) * TAU;
+            const tips = Math.pow(
+              0.5 +
+                0.5 *
+                  Math.sin(
+                    TAU * 3 * (dx * Math.cos(angle) + dy * Math.sin(angle)) +
+                      variation * TAU,
+                  ),
+              4,
+            );
+            weight += cap;
+            pigment += cap * variation;
+            fibers += cap * tips;
+            crown = Math.max(crown, cap * (0.75 + 0.25 * variation));
+          }
+        const inv = 1 / Math.max(weight, 1e-12);
+        const yarn = pigment * inv,
+          tips = fibers * inv;
+        color = 0.19 + 0.4 * yarn + 0.2 * crown + 0.13 * tips + 0.08 * detail;
+        height = 0.3 + 0.38 * crown + 0.12 * tips + 0.1 * detail;
+        roughness += 0.04 * (detail - 0.5) - 0.035 * tips;
+        occlusion = 0.7 + 0.22 * Math.sqrt(crown) + 0.06 * tips;
+        break;
+      }
     }
     out.color = color;
     out.height = height * preset.relief;

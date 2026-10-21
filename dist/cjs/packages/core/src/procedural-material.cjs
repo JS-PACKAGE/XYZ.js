@@ -28,7 +28,10 @@ var a = [
 	`mud`,
 	`granite`,
 	`slate`,
-	`terrazzo`
+	`terrazzo`,
+	`denim`,
+	`burlap`,
+	`carpet`
 ];
 var o = Object.freeze({
 	addressModeU: `repeat`,

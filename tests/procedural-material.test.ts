@@ -45,6 +45,9 @@ const kinds: ProceduralMaterialKind[] = [
   'granite',
   'slate',
   'terrazzo',
+  'denim',
+  'burlap',
+  'carpet',
 ];
 
 class TestImageData {
@@ -176,8 +179,11 @@ describe('periodic procedural material fields', () => {
     'granite',
     'slate',
     'terrazzo',
+    'denim',
+    'burlap',
+    'carpet',
   ] as const)(
-    '%s remains continuous on both sides of wrapped seams',
+    '%s remains continuous across wrapped seams and textile cell boundaries',
     (kind) => {
       const sample = createSurfaceSampler(kind, 123);
       const a: SurfaceSample = {
@@ -190,17 +196,26 @@ describe('periodic procedural material fields', () => {
       };
       const b = { ...a };
       const epsilon = 1e-7;
-      for (let i = 0; i < 24; i++) {
-        const along = i / 24;
-        for (const axis of [0, 1]) {
-          sample(
-            axis === 0 ? -epsilon : along,
-            axis === 1 ? -epsilon : along,
-            a,
-          );
-          sample(axis === 0 ? epsilon : along, axis === 1 ? epsilon : along, b);
-          for (const key of Object.keys(a) as (keyof SurfaceSample)[])
-            expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+      const cells =
+        kind === 'burlap' ? 10 : kind === 'denim' || kind === 'carpet' ? 24 : 1;
+      for (let edge = 0; edge < cells; edge++) {
+        const boundary = edge / cells;
+        for (let i = 0; i < 24; i++) {
+          const along = i / 24;
+          for (const axis of [0, 1]) {
+            sample(
+              axis === 0 ? boundary - epsilon : along,
+              axis === 1 ? boundary - epsilon : along,
+              a,
+            );
+            sample(
+              axis === 0 ? boundary + epsilon : along,
+              axis === 1 ? boundary + epsilon : along,
+              b,
+            );
+            for (const key of Object.keys(a) as (keyof SurfaceSample)[])
+              expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
+          }
         }
       }
     },

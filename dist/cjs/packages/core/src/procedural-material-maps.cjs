@@ -151,6 +151,26 @@ function createSurfaceSampler(t, r) {
 				p = (.88 + .06 * d) * (1 - s) + s * _, m = .15 + .06 * s + .015 * d + .025 * f, h += .055 * (1 - s) - .03 * s * _ + .04 * (f - .5), g = .98 + .015 * s + .005 * f;
 				break;
 			}
+			case `denim`: {
+				let t = e * 24, i = c * 24, o = .5 + .5 * Math.cos(n * t), s = .5 + .5 * Math.cos(n * i), l = 1 - smooth(clamp((Math.abs(Math.sin(Math.PI * (t - i) / 4)) - .24) / .22)), u = .5 + .5 * Math.sin(n * (96 * e + .12 * d) + a), f = .5 + .5 * Math.sin(n * (96 * c + .12 * d) + a), _ = u * (1 - l) + f * l, v = o * (1 - l) + s * l, y = noise(e, c, 24, 4, r ^ 27953);
+				p = .12 + .22 * v + .34 * l + .1 * _ + .12 * y, m = .42 * v + .24 * (1 - l) + .06 * _ + .08 * y, h += .06 * (d - .5) + .04 * (1 - v), g = .78 + .18 * v + .04 * _;
+				break;
+			}
+			case `burlap`: {
+				let t = e * 10, r = c * 10, i = smooth(clamp((Math.cos(n * t) + .35) / 1.1)), o = smooth(clamp((Math.cos(n * r) + .35) / 1.1)), s = smooth(clamp(.5 + .9 * Math.cos(Math.PI * (t + r)))), l = i * (1 - o + o * s), u = o * (1 - i + i * (1 - s)), f = l + u, _ = .5 + .5 * Math.sin(n * (50 * e + .14 * d) + a), v = .5 + .5 * Math.sin(n * (50 * c + .14 * d) + a), y = l * _ + u * v, b = i * o;
+				p = .04 + .65 * f + .14 * y + .1 * d * f, m = .58 * f + .2 * b + .08 * y + .04 * d, h += .05 * (d - .5) + .025 * (1 - f), g = .42 + .54 * f + .04 * y;
+				break;
+			}
+			case `carpet`: {
+				let t = e * 24, i = c * 24, a = Math.floor(t), o = Math.floor(i), s = 0, l = 0, u = 0, f = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let d = a + c, p = o + e, m = (d % 24 + 24) % 24, h = (p % 24 + 24) % 24, g = t - d - .35 - .3 * hash(m, h, r), _ = i - p - .35 - .3 * hash(m, h, r ^ 40503), y = clamp(1 - (g * g + _ * _)) ** 3, b = hash(m, h, r ^ 10571), x = hash(m, h, r ^ 26655) * n, S = (.5 + .5 * Math.sin(n * 3 * (g * Math.cos(x) + _ * Math.sin(x)) + b * n)) ** 4;
+					s += y, l += y * b, u += y * S, f = Math.max(f, y * (.75 + .25 * b));
+				}
+				let _ = 1 / Math.max(s, 1e-12), v = l * _, y = u * _;
+				p = .19 + .4 * v + .2 * f + .13 * y + .08 * d, m = .3 + .38 * f + .12 * y + .1 * d, h += .04 * (d - .5) - .035 * y, g = .7 + .22 * Math.sqrt(f) + .06 * y;
+				break;
+			}
 		}
 		l.color = p, l.height = m * i.relief, l.roughness = clamp(h), l.occlusion = g, l.mortar = _, l.metallic = v;
 	};

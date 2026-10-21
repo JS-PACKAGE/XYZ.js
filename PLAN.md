@@ -34,6 +34,8 @@
 
 再追加石材飾面 granite／slate／terrazzo（花崗岩／板岩／磨石子）：斑點礦物顆粒／帶細微脊紋的深色層理／平滑黏結料中的對比色石片。沿用既有持續追加、完成功能獨立 commit、不 push 授權，總數增為二十一種；皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps。前十八種輸出須逐位元組保持不變，公開 options、ownership、renderer 與零新增依賴契約不變。實際品質與驗證結果另記 ACCEPTANCE，不宣稱物理尺寸。
 
+紡織增量再追加 denim／burlap／carpet（丹寧布／粗麻布／地毯）：斜向斜紋／粗經緯交織／割絨表面，目前共二十四種；前述 counts 保留各增量的歷史範圍。三者皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic baseColor／normal／metallicRoughness／occlusion maps，不是 geometry 或毛髮模擬，也不產生透明織孔。前二十一種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。品質與驗證結果另記 ACCEPTANCE，不推定物理尺寸。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。
