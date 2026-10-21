@@ -141,6 +141,11 @@ export declare class WebGL2Renderer implements Renderer {
     /** Shadow tile whose view-projection each shadow program last received. */
     private readonly shadowViewStamps;
     private shadowViewStamp;
+    /** Color pass whose view, fog and contact uniforms each mesh program last received. */
+    private readonly colorViewStamps;
+    /** Color pass whose environment and probe uniforms each mesh program last received. */
+    private readonly colorEnvironmentStamps;
+    private colorViewStamp;
     private readonly bakedData;
     private readonly bakedSH;
     private readonly bakedParams;

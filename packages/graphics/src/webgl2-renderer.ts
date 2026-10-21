@@ -920,6 +920,11 @@ export class WebGL2Renderer implements Renderer {
   /** Shadow tile whose view-projection each shadow program last received. */
   private readonly shadowViewStamps = new WeakMap<WebGLProgram, number>();
   private shadowViewStamp = 0;
+  /** Color pass whose view, fog and contact uniforms each mesh program last received. */
+  private readonly colorViewStamps = new WeakMap<WebGLProgram, number>();
+  /** Color pass whose environment and probe uniforms each mesh program last received. */
+  private readonly colorEnvironmentStamps = new WeakMap<WebGLProgram, number>();
+  private colorViewStamp = 0;
   private readonly bakedData = new Float32Array(40);
   private readonly bakedSH = this.bakedData.subarray(0, 36);
   private readonly bakedParams = this.bakedData.subarray(36);
@@ -2568,6 +2573,10 @@ export class WebGL2Renderer implements Renderer {
           : scene.camera3D.matrix,
       )
       .invert().elements;
+    // Uniforms persist per program, and the view, fog, contact and environment data
+    // stay fixed for the whole color pass: upload them once to each program it uses.
+    const viewStamp = ++this.colorViewStamp;
+    let program: WebGLProgram;
     let probeBlendReady = false;
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 0, this.shadowBuffer!);
     gl.bindBufferBase(gl.UNIFORM_BUFFER, 1, this.sheenBuffer!);
@@ -2646,7 +2655,8 @@ export class WebGL2Renderer implements Renderer {
             );
           material.validate();
           uniforms = entry.uniforms;
-          gl.useProgram(entry.program);
+          program = entry.program;
+          gl.useProgram(program);
           gl.uniform4fv(uniforms['xyzUniforms[0]'], material.uniforms);
           if (!(material instanceof NativePBRMaterial)) {
             for (let i = 0; i < 4; i++) {
@@ -2661,14 +2671,24 @@ export class WebGL2Renderer implements Renderer {
         } else {
           const entry = this.meshProgramFor(material, object, scene);
           uniforms = entry.uniforms;
-          gl.useProgram(entry.program);
+          program = entry.program;
+          gl.useProgram(program);
         }
         fillMeshIrradiance(object, this.bakedData, 0);
         gl.uniform4fv(uniforms['bakedSH[0]'], this.bakedSH);
         gl.uniform4fv(uniforms.bakedParams, this.bakedParams);
         fillMaterialUV(material, object.renderGeometry, this.materialUVData);
         gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
-        gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
+        if (this.colorViewStamps.get(program) !== viewStamp) {
+          gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
+          gl.uniform4fv(uniforms['fog[0]'], this.fogData);
+          gl.uniformMatrix4fv(
+            uniforms.contactInvViewProjection,
+            false,
+            contactInverse,
+          );
+          this.colorViewStamps.set(program, viewStamp);
+        }
         const selected = scene.lightSelection.selectMesh(object);
         const lighting = uniforms['lighting[0]'];
         const sent = lighting ? this.lightingSent.get(lighting) : undefined;
@@ -2689,7 +2709,6 @@ export class WebGL2Renderer implements Renderer {
             this.lightingSent.set(lighting, record);
           }
         }
-        gl.uniform4fv(uniforms['fog[0]'], this.fogData);
         this.uniformValues.uniform3f(
           gl,
           uniforms.cameraPosition,
@@ -2729,11 +2748,6 @@ export class WebGL2Renderer implements Renderer {
           uniforms.contactStrength,
           contact?.strength ?? 0,
         );
-        gl.uniformMatrix4fv(
-          uniforms.contactInvViewProjection,
-          false,
-          contactInverse,
-        );
         this.uniformValues.uniform1i(gl, uniforms.oitPass, oitPass);
         this.uniformValues.uniform1f(
           gl,
@@ -2767,12 +2781,16 @@ export class WebGL2Renderer implements Renderer {
               this.environmentData[i * 52 + 38] = this.probeMipCount - 1;
             probeBlendReady = true;
           }
-          // The baseline and local records share the packed array's roughness LOD range.
-          gl.uniform4fv(
-            uniforms['environment[0]'],
-            this.environmentLightingData,
-          );
-          gl.uniform4fv(uniforms['probeData[0]'], this.probeData);
+          // The baseline and local records share the packed array's roughness LOD range;
+          // the blend above is filled before any program receives it this pass.
+          if (this.colorEnvironmentStamps.get(program) !== viewStamp) {
+            gl.uniform4fv(
+              uniforms['environment[0]'],
+              this.environmentLightingData,
+            );
+            gl.uniform4fv(uniforms['probeData[0]'], this.probeData);
+            this.colorEnvironmentStamps.set(program, viewStamp);
+          }
           this.bindUnit(6, gl.TEXTURE_2D_ARRAY, this.probeTexture!, null);
         }
         this.uniformValues.uniform1i(gl, uniforms.pbr, pbr ? 1 : 0);
