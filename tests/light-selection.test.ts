@@ -89,6 +89,32 @@ describe('bounded spatial light selection', () => {
     expect(data[8]).toBe(0);
   });
 
+  it('revalidates selected lights filled outside the presentation whose update validated them', () => {
+    const scene = new Scene();
+    const point = new PointLight({ range: 5 });
+    const spot = new SpotLight({ range: 5 });
+    scene.pointLights.push(point);
+    scene.spotLights.push(spot);
+    const selector = new SpatialLightSelector();
+    const data = new Float32Array(LIGHTING_FLOAT_COUNT);
+    scene.beginPresentation();
+    selector.update(scene);
+    selector.select(new Vector3(), 1);
+    fillLightingData(scene, data, selector);
+    scene.endPresentation();
+    expect(data[8]).toBe(1);
+    point.intensity = -1;
+    expect(() => fillLightingData(scene, data, selector)).toThrow(RangeError);
+    point.intensity = 1;
+    spot.outerAngle = 4;
+    scene.beginPresentation();
+    try {
+      expect(() => fillLightingData(scene, data, selector)).toThrow(RangeError);
+    } finally {
+      scene.endPresentation();
+    }
+  });
+
   it('reselects a mesh across presentations whenever its bounds or any light input change', () => {
     const scene = new Scene();
     const a = new PointLight({ position: [0, 1, 0], intensity: 4, range: 10 });

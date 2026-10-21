@@ -2,6 +2,7 @@ const require_hypot = require("../../math/src/hypot.cjs");
 const require_math3d = require("../../math/src/math3d.cjs");
 const require_render_settings = require("./render-settings.cjs");
 const require_lights = require("./lights.cjs");
+const require_light_selection = require("./light-selection.cjs");
 const require_environment = require("./environment.cjs");
 const require_reflection_probe = require("./reflection-probe.cjs");
 //#region dist/packages/core/src/render-data.js
@@ -66,22 +67,22 @@ function fillLightingData(e, t, n) {
 	if (!(t instanceof Float32Array) || t.length < 812) throw RangeError(`Lighting output requires at least 812 Float32 values.`);
 	let r = n?.pointLights ?? e.pointLights, f = n?.spotLights ?? e.spotLights;
 	if (!Array.isArray(r) || !Array.isArray(f)) throw TypeError(`Lighting pointLights and spotLights must be arrays.`);
-	let h = r.length, g = f.length;
+	let h = r.length, g = f.length, _ = n instanceof require_light_selection.SpatialLightSelector && n.validatedIn(e);
 	if (h > 32 || g > 32) throw RangeError(`A lighting draw supports at most 32 point lights and 32 spot lights; use SpatialLightSelector for larger scene pools.`);
-	let _ = e.directionalLight;
-	if (vector(_.direction, `Directional light direction`), nonnegative(_.intensity, `Directional light intensity`), nonnegative(e.ambientLight, `Ambient light`), !Array.isArray(_.color) || _.color.length !== 3) throw RangeError(`Directional light color must contain three components.`);
-	for (let e = 0; e < 3; e++) nonnegative(_.color[e], `Directional light color component`);
-	t[0] = _.direction.x, t[1] = _.direction.y, t[2] = _.direction.z, t[3] = _.intensity, t[4] = _.color[0], t[5] = _.color[1], t[6] = _.color[2], t[7] = e.ambientLight, t[8] = h, t[9] = g, t[10] = 0, t[11] = 0;
+	let v = e.directionalLight;
+	if (vector(v.direction, `Directional light direction`), nonnegative(v.intensity, `Directional light intensity`), nonnegative(e.ambientLight, `Ambient light`), !Array.isArray(v.color) || v.color.length !== 3) throw RangeError(`Directional light color must contain three components.`);
+	for (let e = 0; e < 3; e++) nonnegative(v.color[e], `Directional light color component`);
+	t[0] = v.direction.x, t[1] = v.direction.y, t[2] = v.direction.z, t[3] = v.intensity, t[4] = v.color[0], t[5] = v.color[1], t[6] = v.color[2], t[7] = e.ambientLight, t[8] = h, t[9] = g, t[10] = 0, t[11] = 0;
 	for (let e = 0; e < h; e++) {
 		let n = r[e];
 		if (!(n instanceof require_lights.PointLight)) throw TypeError(`Scene pointLights must contain PointLight objects.`);
-		n.validate(), writePoint(n, t, 12 + e * 8), t[780 + e] = n.id;
+		_ || n.validate(), writePoint(n, t, 12 + e * 8), t[780 + e] = n.id;
 	}
 	t.fill(0, 12 + h * 8, 268);
 	for (let e = 0; e < g; e++) {
 		let n = f[e];
 		if (!(n instanceof require_lights.SpotLight)) throw TypeError(`Scene spotLights must contain SpotLight objects.`);
-		n.validate();
+		_ || n.validate();
 		let r = 268 + e * 16;
 		writePoint(n, t, r);
 		let i = n.direction, a = i.length();
@@ -105,8 +106,8 @@ function computeShadowMatrix(t, n) {
 	Math.abs(s) > .999 ? (l = -s, u = o, d = 0) : (l = c, u = 0, d = -o);
 	let f = require_hypot.hypot3(l, u, d);
 	l /= f, u /= f, d /= f;
-	let p = s * d - c * u, m = c * l - o * d, h = o * u - s * l, g = r.target, v = r.far / 2, b = g.x + o * v, x = g.y + s * v, S = g.z + c * v, C = 2 / r.extent, w = 1 / (r.near - r.far), T = n.elements;
-	T[0] = C * l, T[1] = C * p, T[2] = w * o, T[3] = 0, T[4] = C * u, T[5] = C * m, T[6] = w * s, T[7] = 0, T[8] = C * d, T[9] = C * h, T[10] = w * c, T[11] = 0, T[12] = -C * (l * b + u * x + d * S), T[13] = -C * (p * b + m * x + h * S), T[14] = w * (r.near - (o * b + s * x + c * S)), T[15] = 1;
+	let p = s * d - c * u, m = c * l - o * d, h = o * u - s * l, g = r.target, v = r.far / 2, y = g.x + o * v, x = g.y + s * v, S = g.z + c * v, C = 2 / r.extent, w = 1 / (r.near - r.far), T = n.elements;
+	T[0] = C * l, T[1] = C * p, T[2] = w * o, T[3] = 0, T[4] = C * u, T[5] = C * m, T[6] = w * s, T[7] = 0, T[8] = C * d, T[9] = C * h, T[10] = w * c, T[11] = 0, T[12] = -C * (l * y + u * x + d * S), T[13] = -C * (p * y + m * x + h * S), T[14] = w * (r.near - (o * y + s * x + c * S)), T[15] = 1;
 	for (let e = 0; e < 16; e++) if (!Number.isFinite(T[e])) throw RangeError(`Shadow projection must fit in Float32.`);
 	return n;
 }

@@ -20,7 +20,10 @@ import {
 } from './render-settings.js';
 import type { Scene } from './scene.js';
 import { ReflectionProbe } from './reflection-probe.js';
-import type { SelectedLights } from './light-selection.js';
+import {
+  SpatialLightSelector,
+  type SelectedLights,
+} from './light-selection.js';
 import { hypot3 } from '../../math/src/hypot.js';
 
 function finite(value: number, name: string): void {
@@ -267,6 +270,10 @@ export function fillLightingData(
     throw new TypeError('Lighting pointLights and spotLights must be arrays.');
   const pointCount = points.length;
   const spotCount = spots.length;
+  // The selector's update validated its pools in this presentation, which mutates no light,
+  // so validating them again for every draw only repeated it.
+  const validated =
+    selected instanceof SpatialLightSelector && selected.validatedIn(scene);
   if (pointCount > MAX_POINT_LIGHTS || spotCount > MAX_SPOT_LIGHTS)
     throw new RangeError(
       `A lighting draw supports at most ${MAX_POINT_LIGHTS} point lights and ${MAX_SPOT_LIGHTS} spot lights; use SpatialLightSelector for larger scene pools.`,
@@ -297,7 +304,7 @@ export function fillLightingData(
     const light = points[i];
     if (!(light instanceof PointLight))
       throw new TypeError('Scene pointLights must contain PointLight objects.');
-    light.validate();
+    if (!validated) light.validate();
     const offset = POINT_LIGHT_OFFSET + i * POINT_LIGHT_STRIDE;
     writePoint(light, out, offset);
     out[LIGHTING_POINT_ID_OFFSET + i] = light.id;
@@ -311,7 +318,7 @@ export function fillLightingData(
     const light = spots[i];
     if (!(light instanceof SpotLight))
       throw new TypeError('Scene spotLights must contain SpotLight objects.');
-    light.validate();
+    if (!validated) light.validate();
     const offset = SPOT_LIGHT_OFFSET + i * SPOT_LIGHT_STRIDE;
     writePoint(light, out, offset);
     const direction = light.direction;

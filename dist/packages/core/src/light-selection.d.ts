@@ -60,6 +60,11 @@ export declare class SpatialLightSelector implements SelectedLights {
     update(scene: Scene): void;
     /** Release scene/borrowed light references without destroying caller-owned lights. */
     clear(): void;
+    /**
+     * @internal True when update() validated the light pools within the scene's current
+     * presentation, during which rendering mutates no light.
+     */
+    validatedIn(scene: Scene): boolean;
     selectMesh(mesh: Mesh): this;
     select(center: Vector3, radius: number): this;
     /** Adds the current per-draw stats to the frame and applies the exceed policy. */

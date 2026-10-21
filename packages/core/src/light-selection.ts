@@ -313,6 +313,18 @@ export class SpatialLightSelector implements SelectedLights {
         0;
   }
 
+  /**
+   * @internal True when update() validated the light pools within the scene's current
+   * presentation, during which rendering mutates no light.
+   */
+  validatedIn(scene: Scene): boolean {
+    return (
+      this.scene === scene &&
+      this.gridPass !== 0 &&
+      this.gridPass === scene.presentationPass
+    );
+  }
+
   selectMesh(mesh: Mesh): this {
     mesh.getWorldBoundingSphere(this.sphere);
     if (!sphereIsFinite(this.sphere)) {

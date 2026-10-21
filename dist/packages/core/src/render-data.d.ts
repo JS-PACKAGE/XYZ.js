@@ -2,7 +2,7 @@ import { Matrix4 } from '../../math/src/index.js';
 import { EnvironmentMap } from './environment.js';
 import type { Scene } from './scene.js';
 import { ReflectionProbe } from './reflection-probe.js';
-import type { SelectedLights } from './light-selection.js';
+import { type SelectedLights } from './light-selection.js';
 /** Validate mutable settings before either backend allocates frame resources. */
 export declare function validateRenderSettings(scene: Scene): void;
 /** A destroyed map is treated as absent, like a destroyed Texture on a Mesh. */

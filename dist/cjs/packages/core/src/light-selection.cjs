@@ -147,6 +147,9 @@ var SpatialLightSelector = class {
 	clear() {
 		this.scene = void 0, this.poolScene = void 0, this.meshSelections = /* @__PURE__ */ new WeakMap(), this.pointLights.length = this.spotLights.length = 0, this.identities.clear(), this.stats.draws = this.frameStats.draws = 0, this.stats.points.pool = this.stats.points.selected = this.stats.points.culled = this.stats.points.overflow = 0, this.stats.spots.pool = this.stats.spots.selected = this.stats.spots.culled = this.stats.spots.overflow = 0, this.frameStats.points.pool = this.frameStats.points.selected = this.frameStats.points.culled = this.frameStats.points.overflow = 0, this.frameStats.spots.pool = this.frameStats.spots.selected = this.frameStats.spots.culled = this.frameStats.spots.overflow = 0;
 	}
+	validatedIn(e) {
+		return this.scene === e && this.gridPass !== 0 && this.gridPass === e.presentationPass;
+	}
 	selectMesh(e) {
 		if (e.getWorldBoundingSphere(this.sphere), !require_render_bounds.sphereIsFinite(this.sphere)) return this.center.set(0, 0, 0), this.select(this.center, Number.MAX_VALUE);
 		let t = this.sphere, n = this.gridPass !== 0 && this.scene?.presentationPass === this.gridPass, r = n ? this.meshSelections.get(e) : void 0;
