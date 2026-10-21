@@ -5465,6 +5465,92 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.5 * (1 - tile);
         break;
       }
+      case 'pianokeys': {
+        // Black keys rise over white faces split by recessed seams.
+        const wrapped = fract(u * 7),
+          seam = smooth(clamp((0.04 - Math.min(wrapped, 1 - wrapped)) / 0.025));
+        let black = 0;
+        for (let k = 0; k < 7; k++) {
+          if (k === 0 || k === 3) continue;
+          const du = Math.abs(fract(u) - k / 7);
+          const dv = Math.abs(fract(v) - 0.275);
+          const key =
+            smooth(clamp((0.045 - du) / 0.018)) *
+            smooth(clamp((0.175 - dv) / 0.06));
+          black += (1 - black) * key;
+        }
+        const fiber = noise(u, v, 40, 40, seed ^ 0x4f88);
+        const face = 1 - seam * (1 - black);
+        color = 0.48 + 0.32 * face + 0.14 * black + 0.05 * fiber;
+        height = 0.42 + 0.2 * face + 0.26 * black + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.1 * black;
+        occlusion = 1 - 0.32 * seam * (1 - black);
+        break;
+      }
+      case 'drumskin': {
+        // Lugs crown the rim above the taut creased membrane.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const rim =
+          smooth(clamp((0.46 - radius) / 0.03)) *
+          smooth(clamp((radius - 0.38) / 0.03));
+        const lug = Math.pow(0.5 + 0.5 * Math.cos(8 * angle), 4) * rim;
+        const membrane = smooth(clamp((0.38 - radius) / 0.06));
+        const crease =
+          (0.5 - 0.5 * Math.cos(16 * angle)) *
+          smooth(clamp((radius - 0.08) / 0.06)) *
+          membrane;
+        const fiber = noise(u, v, 36, 36, seed ^ 0x2c5a);
+        color =
+          0.42 +
+          0.28 * rim +
+          0.14 * lug +
+          0.1 * membrane -
+          0.1 * crease +
+          0.05 * fiber;
+        height =
+          0.42 +
+          0.28 * rim +
+          0.16 * lug +
+          0.1 * membrane -
+          0.06 * crease +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
+        occlusion = 1 - 0.3 * (1 - membrane) - 0.12 * crease - 0.1 * lug;
+        break;
+      }
+      case 'gongsurface': {
+        // Hammered rings ripple around the raised center boss.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const angle = Math.atan2(dy, dx);
+        const warp = noise(u, v, 6, 6, seed ^ 0x60af) - 0.5;
+        const rings = 0.5 + 0.5 * Math.cos(TAU * 10 * (radius + 0.012 * warp));
+        const lathe = 0.5 + 0.5 * Math.cos(24 * angle);
+        const boss = smooth(clamp((0.1 - radius) / 0.05));
+        const fade = smooth(clamp((radius - 0.06) / 0.05));
+        const outer = smooth(clamp((0.44 - radius) / 0.06));
+        const fiber = noise(u, v, 32, 32, seed ^ 0x59c1);
+        color =
+          0.46 +
+          0.26 * rings * outer +
+          0.12 * lathe * fade * outer +
+          0.1 * boss +
+          0.05 * fiber;
+        height =
+          0.42 +
+          0.22 * rings * outer +
+          0.06 * lathe * fade * outer +
+          0.2 * boss +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * rings * outer;
+        occlusion =
+          1 - 0.24 * (1 - rings * outer) - 0.1 * (1 - lathe * fade * outer);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

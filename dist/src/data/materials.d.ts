@@ -510,6 +510,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.88;
         relief: 0.005;
     }>;
+    pianokeys: Readonly<{
+        dark: readonly [62, 58, 54];
+        light: readonly [242, 238, 228];
+        roughness: 0.32;
+        relief: 0.0028;
+    }>;
+    drumskin: Readonly<{
+        dark: readonly [92, 74, 58];
+        light: readonly [222, 196, 158];
+        roughness: 0.72;
+        relief: 0.0035;
+    }>;
+    gongsurface: Readonly<{
+        dark: readonly [112, 84, 32];
+        light: readonly [228, 182, 96];
+        roughness: 0.36;
+        relief: 0.004;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1305,6 +1323,9 @@ export declare const proceduralTileMeters: Readonly<{
     circuitboard: 0.12;
     solarpanel: 0.24;
     heattile: 0.18;
+    pianokeys: 0.16;
+    drumskin: 0.4;
+    gongsurface: 0.3;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

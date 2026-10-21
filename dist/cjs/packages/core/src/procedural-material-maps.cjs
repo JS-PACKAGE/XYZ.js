@@ -1543,6 +1543,27 @@ function createSurfaceSampler(t, r) {
 				H = .52 + .32 * n + .08 * i, Z = .42 + .34 * n + .03 * i, Q += .05 * (i - .5) - .04 * n, $ = 1 - .5 * (1 - n);
 				break;
 			}
+			case `pianokeys`: {
+				let e = fract(o * 7), t = smooth(clamp((.04 - Math.min(e, 1 - e)) / .025)), n = 0;
+				for (let e = 0; e < 7; e++) {
+					if (e === 0 || e === 3) continue;
+					let t = Math.abs(fract(o) - e / 7), r = Math.abs(fract(j) - .275), i = smooth(clamp((.045 - t) / .018)) * smooth(clamp((.175 - r) / .06));
+					n += (1 - n) * i;
+				}
+				let i = noise(o, j, 40, 40, r ^ 20360), a = 1 - t * (1 - n);
+				H = .48 + .32 * a + .14 * n + .05 * i, Z = .42 + .2 * a + .26 * n + .02 * i, Q += .05 * (i - .5) - .1 * n, $ = 1 - .32 * t * (1 - n);
+				break;
+			}
+			case `drumskin`: {
+				let e = o - .5, t = j - .5, n = Math.sqrt(e * e + t * t), i = Math.atan2(t, e), a = smooth(clamp((.46 - n) / .03)) * smooth(clamp((n - .38) / .03)), s = (.5 + .5 * Math.cos(8 * i)) ** 4 * a, c = smooth(clamp((.38 - n) / .06)), l = (.5 - .5 * Math.cos(16 * i)) * smooth(clamp((n - .08) / .06)) * c, u = noise(o, j, 36, 36, r ^ 11354);
+				H = .42 + .28 * a + .14 * s + .1 * c - .1 * l + .05 * u, Z = .42 + .28 * a + .16 * s + .1 * c - .06 * l + .02 * u, Q += .05 * (u - .5) - .06 * a, $ = 1 - .3 * (1 - c) - .12 * l - .1 * s;
+				break;
+			}
+			case `gongsurface`: {
+				let e = o - .5, t = j - .5, i = Math.sqrt(e * e + t * t), a = Math.atan2(t, e), s = noise(o, j, 6, 6, r ^ 24751) - .5, c = .5 + .5 * Math.cos(n * 10 * (i + .012 * s)), l = .5 + .5 * Math.cos(24 * a), u = smooth(clamp((.1 - i) / .05)), d = smooth(clamp((i - .06) / .05)), f = smooth(clamp((.44 - i) / .06)), p = noise(o, j, 32, 32, r ^ 22977);
+				H = .46 + .26 * c * f + .12 * l * d * f + .1 * u + .05 * p, Z = .42 + .22 * c * f + .06 * l * d * f + .2 * u + .02 * p, Q += .05 * (p - .5) - .08 * c * f, $ = 1 - .24 * (1 - c * f) - .1 * (1 - l * d * f);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, j, 3, 5, r ^ 26941), t = j + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, j, 8, 3, r ^ 19735), l = smooth(clamp((V - .28) / .48)), u = (1 - V) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

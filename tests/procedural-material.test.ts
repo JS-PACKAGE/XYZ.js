@@ -109,6 +109,9 @@ const kinds: ProceduralMaterialKind[] = [
   'circuitboard',
   'solarpanel',
   'heattile',
+  'pianokeys',
+  'drumskin',
+  'gongsurface',
   'sandstone',
   'travertine',
   'pumice',
@@ -4538,6 +4541,9 @@ describe('periodic procedural material fields', () => {
     ['circuitboard', [8, 32, 48, 64]],
     ['solarpanel', [2, 8, 32, 64]],
     ['heattile', [3, 32, 48, 64]],
+    ['pianokeys', [7, 32, 48, 64]],
+    ['drumskin', [16, 32, 48, 64]],
+    ['gongsurface', [10, 24, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -4745,6 +4751,9 @@ describe('periodic procedural material fields', () => {
     ['solarpanel', 2],
     ['solarpanel', 8],
     ['heattile', 3],
+    ['pianokeys', 7],
+    ['drumskin', 16],
+    ['gongsurface', 10],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8137,6 +8146,92 @@ describe('periodic procedural material fields', () => {
       sample(0.02, 0.5, seam);
       expect(surface.height).toBeGreaterThan(seam.height + 0.1 * relief);
       expect(surface.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('piano keys raise black keys over white faces and seams', () => {
+    const relief = proceduralMaterialPresets.pianokeys.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const white = { ...surface },
+      seam = { ...surface },
+      noBlack = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pianokeys', seed);
+      // Black keys sit on five of the seven key boundaries per octave.
+      sample(1 / 7, 0.275, surface);
+      sample(1 / 14, 0.275, white);
+      sample(0, 0.275, seam);
+      sample(3 / 7, 0.275, noBlack);
+      expect(surface.height).toBeGreaterThan(white.height + 0.05 * relief);
+      expect(white.height).toBeGreaterThan(seam.height + 0.05 * relief);
+      expect(surface.height).toBeGreaterThan(noBlack.height + 0.1 * relief);
+      expect(white.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('drum skin crowns lugs over the rim and creased membrane', () => {
+    const relief = proceduralMaterialPresets.drumskin.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rim = { ...surface },
+      center = { ...surface },
+      crest = { ...surface },
+      valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('drumskin', seed);
+      sample(0.92, 0.5, surface);
+      sample(
+        0.5 + 0.42 * Math.cos(Math.PI / 8),
+        0.5 + 0.42 * Math.sin(Math.PI / 8),
+        rim,
+      );
+      sample(0.5, 0.5, center);
+      sample(0.7, 0.5, crest);
+      sample(
+        0.5 + 0.2 * Math.cos(Math.PI / 16),
+        0.5 + 0.2 * Math.sin(Math.PI / 16),
+        valley,
+      );
+      expect(surface.height).toBeGreaterThan(rim.height + 0.05 * relief);
+      expect(rim.height).toBeGreaterThan(center.height + 0.05 * relief);
+      expect(crest.height).toBeGreaterThan(valley.height + 0.02 * relief);
+      expect(crest.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('gong surface ripples rings around its raised center boss', () => {
+    const relief = proceduralMaterialPresets.gongsurface.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crest = { ...surface },
+      trough = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('gongsurface', seed);
+      sample(0.5, 0.5, surface);
+      sample(0.7, 0.5, crest);
+      sample(0.75, 0.5, trough);
+      expect(surface.height).toBeGreaterThan(crest.height + 0.1 * relief);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.08 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
     }
   });
 

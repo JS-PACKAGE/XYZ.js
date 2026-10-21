@@ -91,6 +91,9 @@ export type ProceduralMaterialKind =
   | 'circuitboard'
   | 'solarpanel'
   | 'heattile'
+  | 'pianokeys'
+  | 'drumskin'
+  | 'gongsurface'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -318,6 +321,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'circuitboard',
   'solarpanel',
   'heattile',
+  'pianokeys',
+  'drumskin',
+  'gongsurface',
   'sandstone',
   'travertine',
   'pumice',
