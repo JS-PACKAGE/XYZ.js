@@ -11,6 +11,8 @@
 export declare class WebGLUniformCache {
     /** Vector/array form; the sent data is copied, so callers may keep reusing `data`. */
     uniform4fv(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, data: Float32Array): void;
+    /** Array form for data that never changes: resending the same array is skipped by identity. */
+    sharedUniform4fv(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, data: Float32Array): void;
     private changed;
     uniform1i(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number): void;
     uniform1f(gl: WebGL2RenderingContext, location: WebGLUniformLocation | null, x: number): void;

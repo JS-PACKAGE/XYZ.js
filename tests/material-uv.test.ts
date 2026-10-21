@@ -6,7 +6,10 @@ import {
   type TextureCoordinates,
 } from '../packages/core/src/pbr-material.js';
 import type { MaterialMappedTextureSlot } from '../packages/core/src/optical-material-maps.js';
-import { fillMaterialUV } from '../packages/graphics/src/material-uv.js';
+import {
+  fillMaterialUV,
+  packedMaterialUV,
+} from '../packages/graphics/src/material-uv.js';
 import { mappedMaterialTextureSlots } from '../packages/graphics/src/optical-maps.js';
 
 const FLOATS = mappedMaterialTextureSlots.length * 8;
@@ -111,5 +114,28 @@ describe('fillMaterialUV', () => {
     transform[4] = 0.75;
     fillMaterialUV(material, withoutUV1, out);
     expect(out[4]).toBe(0.75);
+    expect(packedMaterialUV(material, withoutUV1)).toBeUndefined();
+  });
+});
+
+describe('packedMaterialUV', () => {
+  it('shares one packed array per immutable coordinate set', () => {
+    const material = new PBRMaterial({
+      texture: texture(),
+      textureCoordinates: { sheenColor: { texCoord: 1, offset: [0.5, 0] } },
+    });
+    const packed = packedMaterialUV(material, withUV1);
+    expect(packed).toEqual(expected(material.textureCoordinates));
+    expect(packedMaterialUV(material, withUV1)).toBe(packed);
+    // Without TEXCOORD_1 the caller must pack per call, which reports the error.
+    expect(packedMaterialUV(material, withoutUV1)).toBeUndefined();
+    const plain = packedMaterialUV(
+      new TextureMaterial({ texture: texture() }),
+      withoutUV1,
+    );
+    expect(plain).toEqual(expected({}));
+    expect(
+      packedMaterialUV(new TextureMaterial({ texture: texture() }), withUV1),
+    ).toBe(plain);
   });
 });

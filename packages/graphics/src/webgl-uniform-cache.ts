@@ -1,10 +1,13 @@
 const sentScalar = Symbol('xyz.sentUniformScalar');
 const sentVector = Symbol('xyz.sentUniformVector');
+const sentShared = Symbol('xyz.sentUniformShared');
 
 /** A location carrying the last values written through a `WebGLUniformCache`. */
 interface SentLocation {
   [sentScalar]?: Float64Array;
   [sentVector]?: Float32Array;
+  /** The never-changing array last sent by `sharedUniform4fv`, if that was the last write. */
+  [sentShared]?: Float32Array;
 }
 
 /**
@@ -33,6 +36,21 @@ export class WebGLUniformCache {
       if (i === data.length) return;
       sent.set(data);
     } else entry[sentVector] = data.slice();
+    entry[sentShared] = undefined;
+    gl.uniform4fv(location, data);
+  }
+
+  /** Array form for data that never changes: resending the same array is skipped by identity. */
+  sharedUniform4fv(
+    gl: WebGL2RenderingContext,
+    location: WebGLUniformLocation | null,
+    data: Float32Array,
+  ): void {
+    if (!location) return;
+    const entry = location as SentLocation;
+    if (entry[sentShared] === data) return;
+    entry[sentShared] = data;
+    entry[sentVector] = undefined;
     gl.uniform4fv(location, data);
   }
 

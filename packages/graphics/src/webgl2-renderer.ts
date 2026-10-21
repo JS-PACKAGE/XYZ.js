@@ -39,7 +39,11 @@ import type { GPUParticleEmitter3D } from '../../core/src/gpu-particles3d.js';
 import { WebGL2Particles3D } from './webgl2-particles3d.js';
 import { WebGLOcclusionBackend } from './webgl-occlusion.js';
 import { DrawSorter, isBlended } from '../../core/src/draw-order.js';
-import { materialBaseTexture, type Mesh } from '../../core/src/mesh.js';
+import {
+  materialBaseTexture,
+  type Mesh,
+  type TextureMaterial,
+} from '../../core/src/mesh.js';
 import {
   type Material2D,
   type PostProcessor2D,
@@ -113,7 +117,7 @@ import {
   meshShaderVariantLimits,
 } from '../../../src/data/rendering.js';
 import { mappedMaterialUVFloatCount as MATERIAL_UV_FLOAT_COUNT } from './optical-maps.js';
-import { fillMaterialUV } from './material-uv.js';
+import { fillMaterialUV, packedMaterialUV } from './material-uv.js';
 import { ShadowCache } from './shadow-cache.js';
 import {
   validateNativeMaterialGL,
@@ -2677,8 +2681,11 @@ export class WebGL2Renderer implements Renderer {
         fillMeshIrradiance(object, this.bakedData, 0);
         gl.uniform4fv(uniforms['bakedSH[0]'], this.bakedSH);
         gl.uniform4fv(uniforms.bakedParams, this.bakedParams);
-        fillMaterialUV(material, object.renderGeometry, this.materialUVData);
-        gl.uniform4fv(uniforms['materialCoordinates[0]'], this.materialUVData);
+        this.sendMaterialUV(
+          uniforms['materialCoordinates[0]'],
+          material,
+          object.renderGeometry,
+        );
         if (this.colorViewStamps.get(program) !== viewStamp) {
           gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);
           gl.uniform4fv(uniforms['fog[0]'], this.fogData);
@@ -3181,6 +3188,21 @@ export class WebGL2Renderer implements Renderer {
     gl.depthMask(true);
     gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
     draws.length = 0;
+  }
+
+  /** Immutable material UV layouts are shared arrays, so a program already holding one skips the upload. */
+  private sendMaterialUV(
+    location: WebGLUniformLocation | null,
+    material: TextureMaterial,
+    geometry: Geometry,
+  ): void {
+    const gl = this.gl!;
+    const packed = packedMaterialUV(material, geometry);
+    if (packed) this.uniformValues.sharedUniform4fv(gl, location, packed);
+    else {
+      fillMaterialUV(material, geometry, this.materialUVData);
+      this.uniformValues.uniform4fv(gl, location, this.materialUVData);
+    }
   }
 
   private bindMaterialTexture(
@@ -3723,11 +3745,10 @@ export class WebGL2Renderer implements Renderer {
           if (program !== this.shadowProgram)
             gl.useProgram((program = this.shadowProgram!));
         }
-        fillMaterialUV(material, object.renderGeometry, this.materialUVData);
-        this.uniformValues.uniform4fv(
-          gl,
+        this.sendMaterialUV(
           uniforms['materialCoordinates[0]'],
-          this.materialUVData,
+          material,
+          object.renderGeometry,
         );
         if (this.shadowViewStamps.get(program) !== viewStamp) {
           gl.uniformMatrix4fv(uniforms.viewProjection, false, viewProjection);

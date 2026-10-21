@@ -6,9 +6,19 @@ const require_optical_maps = require("./optical-maps.cjs");
 var i = require_optical_maps.mappedMaterialTextureSlots.length * 8;
 var a = buildTemplate(void 0);
 var o = /* @__PURE__ */ new WeakMap();
-function fillMaterialUV(e, r, o, s = 0) {
-	let c = e instanceof require_pbr_material.PBRMaterial ? require_optical_material_maps.materialTextureCoordinates(e) : void 0, l = c ? typeof c == `object` ? templateFor(c) : null : a;
-	l && (!l.uv1 || r.uvs1) && s + i <= o.length ? o.set(l.data, s) : packMaterialUV(c, r, o, s);
+function fillMaterialUV(e, t, n, r = 0) {
+	let a = coordinatesOf(e), o = templateData(a, t);
+	o && r + i <= n.length ? n.set(o, r) : packMaterialUV(a, t, n, r);
+}
+function packedMaterialUV(e, t) {
+	return templateData(coordinatesOf(e), t);
+}
+function templateData(e, t) {
+	let n = e ? typeof e == `object` ? templateFor(e) : null : a;
+	return n && (!n.uv1 || t.uvs1) ? n.data : void 0;
+}
+function coordinatesOf(e) {
+	return e instanceof require_pbr_material.PBRMaterial ? require_optical_material_maps.materialTextureCoordinates(e) : void 0;
 }
 function packMaterialUV(t, n, i, a) {
 	for (let o = 0; o < require_optical_maps.mappedMaterialTextureSlots.length; o++) {
@@ -53,5 +63,6 @@ function frozenData(t) {
 }
 //#endregion
 exports.fillMaterialUV = fillMaterialUV;
+exports.packedMaterialUV = packedMaterialUV;
 
 //# sourceMappingURL=material-uv.cjs.map

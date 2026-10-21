@@ -70,4 +70,32 @@ describe('WebGLUniformCache', () => {
     cache.uniform1f(raw, location, -0);
     expect(gl.uniform1f).toHaveBeenCalledTimes(2);
   });
+
+  it('skips a shared array a location already holds, whichever form wrote last', () => {
+    const gl = context();
+    const cache = new WebGLUniformCache();
+    const location = {} as WebGLUniformLocation;
+    const raw = gl as unknown as WebGL2RenderingContext;
+    const shared = new Float32Array([1, 2, 3, 4]);
+    const other = new Float32Array([5, 6, 7, 8]);
+    const values = new Float32Array([1, 2, 3, 4]);
+    cache.sharedUniform4fv(raw, location, shared);
+    cache.sharedUniform4fv(raw, location, shared);
+    cache.sharedUniform4fv(raw, location, other);
+    cache.sharedUniform4fv(raw, location, shared);
+    // A copied write replaces the shared array, and the shared array then replaces it.
+    cache.uniform4fv(raw, location, values);
+    cache.uniform4fv(raw, location, values);
+    cache.sharedUniform4fv(raw, location, shared);
+    cache.uniform4fv(raw, location, values);
+    cache.sharedUniform4fv(raw, null, shared);
+    expect(gl.uniform4fv.mock.calls.map(([, data]) => data)).toEqual([
+      shared,
+      other,
+      shared,
+      values,
+      shared,
+      values,
+    ]);
+  });
 });

@@ -1,17 +1,23 @@
 //#region dist/packages/graphics/src/webgl-uniform-cache.js
 var e = Symbol(`xyz.sentUniformScalar`);
 var t = Symbol(`xyz.sentUniformVector`);
+var n = Symbol(`xyz.sentUniformShared`);
 var WebGLUniformCache = class {
-	uniform4fv(e, n, r) {
-		if (!n) return;
-		let i = n, a = i[t];
-		if (a?.length === r.length) {
+	uniform4fv(e, r, i) {
+		if (!r) return;
+		let a = r, o = a[t];
+		if (o?.length === i.length) {
 			let e = 0;
-			for (; e < r.length && same(a[e], r[e]);) e++;
-			if (e === r.length) return;
-			a.set(r);
-		} else i[t] = r.slice();
-		e.uniform4fv(n, r);
+			for (; e < i.length && same(o[e], i[e]);) e++;
+			if (e === i.length) return;
+			o.set(i);
+		} else a[t] = i.slice();
+		a[n] = void 0, e.uniform4fv(r, i);
+	}
+	sharedUniform4fv(e, r, i) {
+		if (!r) return;
+		let a = r;
+		a[n] !== i && (a[n] = i, a[t] = void 0, e.uniform4fv(r, i));
 	}
 	changed(t, n, r, i, a) {
 		let o = t, s = o[e];

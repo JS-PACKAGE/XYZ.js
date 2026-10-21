@@ -33,23 +33,43 @@ export function fillMaterialUV(
   out: Float32Array,
   offset = 0,
 ): void {
-  const coordinates =
-    material instanceof PBRMaterial
-      ? materialTextureCoordinates(material)
-      : undefined;
+  const coordinates = coordinatesOf(material);
+  const packed = templateData(coordinates, geometry);
+  if (packed && offset + UV_FLOAT_COUNT <= out.length) out.set(packed, offset);
+  else packMaterialUV(coordinates, geometry, out, offset);
+}
+
+/**
+ * The packed `fillMaterialUV` layout as a shared array that never changes, or
+ * `undefined` when this material must be packed per call. Callers must not write to it;
+ * equal arrays mean equal data, so a destination already holding it needs no copy.
+ */
+export function packedMaterialUV(
+  material: TextureMaterial,
+  geometry: Pick<Geometry, 'uvs1'>,
+): Float32Array | undefined {
+  return templateData(coordinatesOf(material), geometry);
+}
+
+function templateData(
+  coordinates: Coordinates | undefined,
+  geometry: Pick<Geometry, 'uvs1'>,
+): Float32Array | undefined {
   // Renderers pack this for every draw; immutable coordinate sets reuse their packed copy.
   const template = !coordinates
     ? identityTemplate
     : typeof coordinates === 'object'
       ? templateFor(coordinates)
       : null;
-  if (
-    template &&
-    (!template.uv1 || geometry.uvs1) &&
-    offset + UV_FLOAT_COUNT <= out.length
-  )
-    out.set(template.data, offset);
-  else packMaterialUV(coordinates, geometry, out, offset);
+  return template && (!template.uv1 || geometry.uvs1)
+    ? template.data
+    : undefined;
+}
+
+function coordinatesOf(material: TextureMaterial): Coordinates | undefined {
+  return material instanceof PBRMaterial
+    ? materialTextureCoordinates(material)
+    : undefined;
 }
 
 function packMaterialUV(
