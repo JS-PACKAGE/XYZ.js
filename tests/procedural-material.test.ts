@@ -57,6 +57,9 @@ const kinds: ProceduralMaterialKind[] = [
   'paper',
   'wicker',
   'bamboo',
+  'hammeredmetal',
+  'galvanized',
+  'corrugatedmetal',
 ];
 
 class TestImageData {
@@ -160,7 +163,13 @@ describe('periodic procedural material fields', () => {
         expect(Math.abs(Math.hypot(nx, ny, nz) - 1)).toBeLessThan(0.008);
         expect(first.metallicRoughness[p]).toBe(255);
         metallic.add(first.metallicRoughness[p + 2]);
-        if (kind === 'metal' || kind === 'diamondplate')
+        if (
+          kind === 'metal' ||
+          kind === 'diamondplate' ||
+          kind === 'hammeredmetal' ||
+          kind === 'galvanized' ||
+          kind === 'corrugatedmetal'
+        )
           expect(first.metallicRoughness[p + 2]).toBe(255);
         else if (kind !== 'rust')
           expect(first.metallicRoughness[p + 2]).toBe(0);
@@ -241,6 +250,9 @@ describe('periodic procedural material fields', () => {
     ['paper', [3, 5, 24, 32, 48]],
     ['wicker', [3, 4, 6, 12, 32, 72]],
     ['bamboo', [3, 4, 32, 48, 64]],
+    ['hammeredmetal', [4, 12, 32]],
+    ['galvanized', [10, 32]],
+    ['corrugatedmetal', [4, 8, 32, 48, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -277,7 +289,14 @@ describe('periodic procedural material fields', () => {
                   expect(a[key]).toBeLessThanOrEqual(1);
                   expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
                 }
-                expect(a.metallic).toBe(kind === 'diamondplate' ? 1 : 0);
+                expect(a.metallic).toBe(
+                  kind === 'diamondplate' ||
+                    kind === 'hammeredmetal' ||
+                    kind === 'galvanized' ||
+                    kind === 'corrugatedmetal'
+                    ? 1
+                    : 0,
+                );
                 expect(a.mortar).toBe(0);
               }
       }

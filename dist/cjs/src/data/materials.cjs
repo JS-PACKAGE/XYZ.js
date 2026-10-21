@@ -467,6 +467,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .48,
 		relief: .003
+	}),
+	hammeredmetal: Object.freeze({
+		dark: [
+			117,
+			51,
+			26
+		],
+		light: [
+			239,
+			167,
+			105
+		],
+		roughness: .3,
+		relief: .009
+	}),
+	galvanized: Object.freeze({
+		dark: [
+			103,
+			119,
+			133
+		],
+		light: [
+			229,
+			236,
+			240
+		],
+		roughness: .34,
+		relief: .001
+	}),
+	corrugatedmetal: Object.freeze({
+		dark: [
+			110,
+			124,
+			135
+		],
+		light: [
+			224,
+			232,
+			238
+		],
+		roughness: .29,
+		relief: .025
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -502,7 +544,10 @@ var proceduralTileMeters = Object.freeze({
 	diamondplate: .4,
 	paper: .12,
 	wicker: .18,
-	bamboo: .6
+	bamboo: .6,
+	hammeredmetal: .24,
+	galvanized: .36,
+	corrugatedmetal: 1.2
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

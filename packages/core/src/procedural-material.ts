@@ -39,7 +39,10 @@ export type ProceduralMaterialKind =
   | 'diamondplate'
   | 'paper'
   | 'wicker'
-  | 'bamboo';
+  | 'bamboo'
+  | 'hammeredmetal'
+  | 'galvanized'
+  | 'corrugatedmetal';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -105,6 +108,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'paper',
   'wicker',
   'bamboo',
+  'hammeredmetal',
+  'galvanized',
+  'corrugatedmetal',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -228,7 +234,10 @@ export class ProceduralMaterial {
       metallic:
         this.kind === 'metal' ||
         this.kind === 'rust' ||
-        this.kind === 'diamondplate'
+        this.kind === 'diamondplate' ||
+        this.kind === 'hammeredmetal' ||
+        this.kind === 'galvanized' ||
+        this.kind === 'corrugatedmetal'
           ? 1
           : 0,
       roughness: 1,

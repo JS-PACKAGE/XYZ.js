@@ -106,7 +106,14 @@ export function createSurfaceSampler(
       roughness = preset.roughness,
       occlusion = 1,
       mortar = 0,
-      metallic = kind === 'metal' || kind === 'diamondplate' ? 1 : 0;
+      metallic =
+        kind === 'metal' ||
+        kind === 'diamondplate' ||
+        kind === 'hammeredmetal' ||
+        kind === 'galvanized' ||
+        kind === 'corrugatedmetal'
+          ? 1
+          : 0;
     switch (kind) {
       case 'wood': {
         const warp = noise(u, v, 4, 2, seed ^ 71);
@@ -839,6 +846,87 @@ export function createSurfaceSampler(
           0.3 + 0.14 * grain + 0.12 * fiber + 0.16 * shoulder - 0.1 * node;
         roughness += 0.12 * node + 0.1 * (grain - 0.5) - 0.035 * fiber;
         occlusion = 0.99 - 0.14 * node - 0.025 * (1 - grain);
+        break;
+      }
+      case 'hammeredmetal': {
+        const cells = 12;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let impressions = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x729b);
+            const radius = 0.85 + 0.25 * hash(wx, wy, seed ^ 0x193d);
+            // Rounded tool impressions overlap with zero slope at their support
+            // edges; summing them avoids nearest-site ridges in the copper.
+            const cap = clamp(1 - (dx * dx + dy * dy) / (radius * radius));
+            impressions +=
+              cap * cap * (0.7 + 0.3 * hash(wx, wy, seed ^ 0x5a17));
+          }
+        const dent = 1 - Math.exp(-1.6 * impressions);
+        const polish = noise(u, v, 4, 4, seed ^ 0x4e21);
+        color = 0.72 - 0.32 * dent + 0.14 * polish + 0.045 * detail;
+        height = 0.85 - 0.7 * dent + 0.008 * detail;
+        roughness += 0.1 * (polish - 0.5) + 0.09 * dent;
+        occlusion = 0.99 - 0.12 * dent;
+        break;
+      }
+      case 'galvanized': {
+        const cells = 10;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let weight = 0,
+          pigment = 0,
+          rays = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % cells) + cells) % cells,
+              wy = ((cy % cells) + cells) % cells;
+            const dx = x - cx - 0.35 - 0.3 * hash(wx, wy, seed),
+              dy = y - cy - 0.35 - 0.3 * hash(wx, wy, seed ^ 0x3b79);
+            const angle = TAU * hash(wx, wy, seed ^ 0x57a3);
+            const along = dx * Math.cos(angle) + dy * Math.sin(angle),
+              across = dy * Math.cos(angle) - dx * Math.sin(angle);
+            // Compact high-power weights create flat-looking zinc spangles
+            // with feathered crystallite boundaries, not raised stone chips.
+            const cap = Math.pow(clamp(1 - (dx * dx + dy * dy) / 1.21), 8);
+            const variation = hash(wx, wy, seed ^ 0x49d1);
+            const ray =
+              0.5 + 0.5 * Math.cos(TAU * (3 * across + 1.5 * Math.abs(along)));
+            weight += cap;
+            pigment += cap * variation;
+            rays += cap * ray;
+          }
+        const inv = 1 / Math.max(weight, 1e-12);
+        const crystallite = pigment * inv,
+          ray = rays * inv;
+        color = 0.18 + 0.65 * crystallite + 0.12 * ray + 0.035 * detail;
+        height = 0.3 + 0.18 * crystallite + 0.035 * ray + 0.015 * detail;
+        roughness += 0.24 * (crystallite - 0.5) + 0.045 * (ray - 0.5);
+        occlusion = 0.98 + 0.02 * crystallite;
+        break;
+      }
+      case 'corrugatedmetal': {
+        const flute = 0.5 + 0.5 * Math.cos(TAU * 8 * u + phase);
+        const rolled = noise(u, v, 64, 4, seed ^ 0x1f6b);
+        const wear = Math.pow(0.5 + 0.5 * Math.sin(TAU * 48 * u + phase), 12);
+        // A continuous rolled sheet: the large-scale flutes affect only its
+        // normal map, with faint longitudinal wear rather than panel joints.
+        color = 0.5 + 0.2 * flute + 0.16 * rolled - 0.06 * wear;
+        height = 0.1 + 0.8 * flute + 0.004 * rolled - 0.002 * wear;
+        roughness += 0.13 * (rolled - 0.5) + 0.06 * wear;
+        occlusion = 0.91 + 0.08 * flute;
         break;
       }
     }

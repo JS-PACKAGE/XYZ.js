@@ -2449,3 +2449,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。先前依賴安全修補仍未提交，不納入本組。
+
+## 程序材質擴充：成形金屬（hammeredmetal／galvanized／corrugatedmetal）
+
+- 新增暖銅色圓錘凹、銀色鋅花晶粒與平行波紋金屬板，tile 尺寸依序
+  0.24／0.36／1.2 m。三者 metallic map 全為 255、預設 factor 為 1；
+  鋅花保持極淺 relief，波紋僅影響 normal，不改輪廓或建立幾何。
+  gallery 與現行 API 文件同步至 36 種；README 既有工業分類已涵蓋，維持簡潔。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1519 tests
+  通過；本次包含工作樹同步加入的非材質測試。上一組 shader timeout
+  紀錄保留，本次未更改其門檻。前三十三種預設在 size 64／seed 7 的
+  四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認錘紋、鋅花及波紋差異；逐像素 metallic 與預設 factor
+  皆為 1，roughness bytes 依序 75–105／50–123／58–105；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。先前依賴安全修補與同步 ECS 修改及其 dist 不納入本組。

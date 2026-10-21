@@ -7,7 +7,7 @@ function proceduralRepeats(e, t) {
 	if (!Number.isFinite(t) || t <= 0) throw RangeError(`Procedural surface size must be finite and positive.`);
 	return t / require_materials.proceduralTileMeters[e];
 }
-var a = `wood.brick.stone.metal.fabric.marble.concrete.tiles.leather.sand.rust.snow.asphalt.gravel.cobblestone.bark.moss.mud.granite.slate.terrazzo.denim.burlap.carpet.plaster.terracotta.cork.rubber.carbonfiber.diamondplate.paper.wicker.bamboo`.split(`.`);
+var a = `wood.brick.stone.metal.fabric.marble.concrete.tiles.leather.sand.rust.snow.asphalt.gravel.cobblestone.bark.moss.mud.granite.slate.terrazzo.denim.burlap.carpet.plaster.terracotta.cork.rubber.carbonfiber.diamondplate.paper.wicker.bamboo.hammeredmetal.galvanized.corrugatedmetal`.split(`.`);
 var o = Object.freeze({
 	addressModeU: `repeat`,
 	addressModeV: `repeat`
@@ -68,7 +68,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 				normal: { scale: t },
 				occlusion: { scale: t }
 			},
-			metallic: +(this.kind === `metal` || this.kind === `rust` || this.kind === `diamondplate`),
+			metallic: +(this.kind === `metal` || this.kind === `rust` || this.kind === `diamondplate` || this.kind === `hammeredmetal` || this.kind === `galvanized` || this.kind === `corrugatedmetal`),
 			roughness: 1,
 			alphaMode: `OPAQUE`,
 			textureSampler: o,

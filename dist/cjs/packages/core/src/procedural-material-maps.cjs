@@ -26,7 +26,7 @@ function createSurfaceSampler(t, r) {
 	let i = require_materials.proceduralMaterialPresets[t], a = hash(0, 0, r) * n, o = t === `stone` || t === `metal` || t === `marble`, s = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber`;
 	return (e, c, l) => {
 		e = fract(e), c = fract(c);
-		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal` || t === `diamondplate`);
+		let u = o ? noise(e, c, 4, 4, r) : 0, d = noise(e, c, 32, 32, r ^ 2747636419), f = s ? noise(e, c, 64, 64, r ^ 2135587861) : 0, p = u, m = u, h = i.roughness, g = 1, _ = 0, v = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal`);
 		switch (t) {
 			case `wood`: {
 				let t = noise(e, c, 4, 2, r ^ 71), i = .5 + .5 * Math.sin(n * (12 * e + .65 * t) + a), o = (.5 + .5 * Math.sin(n * (40 * e + t) + a)) ** 12;
@@ -223,6 +223,31 @@ function createSurfaceSampler(t, r) {
 			case `bamboo`: {
 				let t = noise(e, c, 64, 4, r ^ 19313), i = noise(e, c, 4, 3, r ^ 26909), o = .5 + .5 * Math.sin(n * (48 * e + .22 * i) + a), s = noise(e, 0, 4, 1, r ^ 10453), l = 1 - Math.cos(n * (3 * c + .65 * s + .07 * Math.sin(n * 4 * e)) + a), u = 1 - smooth(clamp(l / .16)), f = 1 - smooth(clamp(l / .42));
 				p = .46 + .23 * t + .16 * o + .08 * d - .34 * u, m = .3 + .14 * t + .12 * o + .16 * f - .1 * u, h += .12 * u + .1 * (t - .5) - .035 * o, g = .99 - .14 * u - .025 * (1 - t);
+				break;
+			}
+			case `hammeredmetal`: {
+				let t = e * 12, n = c * 12, i = Math.floor(t), a = Math.floor(n), o = 0;
+				for (let e = -1; e <= 1; e++) for (let s = -1; s <= 1; s++) {
+					let c = i + s, l = a + e, u = (c % 12 + 12) % 12, d = (l % 12 + 12) % 12, f = t - c - .35 - .3 * hash(u, d, r), p = n - l - .35 - .3 * hash(u, d, r ^ 29339), m = .85 + .25 * hash(u, d, r ^ 6461), h = clamp(1 - (f * f + p * p) / (m * m));
+					o += h * h * (.7 + .3 * hash(u, d, r ^ 23063));
+				}
+				let s = 1 - Math.exp(-1.6 * o), l = noise(e, c, 4, 4, r ^ 20001);
+				p = .72 - .32 * s + .14 * l + .045 * d, m = .85 - .7 * s + .008 * d, h += .1 * (l - .5) + .09 * s, g = .99 - .12 * s;
+				break;
+			}
+			case `galvanized`: {
+				let t = e * 10, i = c * 10, a = Math.floor(t), o = Math.floor(i), s = 0, l = 0, u = 0;
+				for (let e = -1; e <= 1; e++) for (let c = -1; c <= 1; c++) {
+					let d = a + c, f = o + e, p = (d % 10 + 10) % 10, m = (f % 10 + 10) % 10, h = t - d - .35 - .3 * hash(p, m, r), g = i - f - .35 - .3 * hash(p, m, r ^ 15225), _ = n * hash(p, m, r ^ 22435), v = h * Math.cos(_) + g * Math.sin(_), y = g * Math.cos(_) - h * Math.sin(_), b = clamp(1 - (h * h + g * g) / 1.21) ** 8, x = hash(p, m, r ^ 18897), S = .5 + .5 * Math.cos(n * (3 * y + 1.5 * Math.abs(v)));
+					s += b, l += b * x, u += b * S;
+				}
+				let f = 1 / Math.max(s, 1e-12), _ = l * f, v = u * f;
+				p = .18 + .65 * _ + .12 * v + .035 * d, m = .3 + .18 * _ + .035 * v + .015 * d, h += .24 * (_ - .5) + .045 * (v - .5), g = .98 + .02 * _;
+				break;
+			}
+			case `corrugatedmetal`: {
+				let t = .5 + .5 * Math.cos(n * 8 * e + a), i = noise(e, c, 64, 4, r ^ 8043), o = (.5 + .5 * Math.sin(n * 48 * e + a)) ** 12;
+				p = .5 + .2 * t + .16 * i - .06 * o, m = .1 + .8 * t + .004 * i - .002 * o, h += .13 * (i - .5) + .06 * o, g = .91 + .08 * t;
 				break;
 			}
 		}
