@@ -152,22 +152,22 @@ function collectRenderCommands2D(e, t, n, r, i) {
 		r.releaseTraversal(), r.releaseBoundaryMembers();
 	}
 }
-function partitionBoundaries2D(e, r, i) {
-	let a, o;
-	for (let s of e) {
-		if (!(s instanceof require_game_object.GameObject) || s === r) continue;
-		let e = !0, c;
-		for (let t = s; t; t = t.parent) {
-			if (t !== s && t instanceof require_isolated_group.IsolatedGroup2D && (t === r || t.isolationEnabled)) {
-				c = t;
+function partitionBoundaries2D(i, a, o) {
+	let s, c;
+	for (let l of i) {
+		if (!(l instanceof require_game_object.GameObject) || l === a || (l instanceof require_sprite.Sprite || l instanceof require_mesh2d.Mesh2D) && !l.renderEnabled) continue;
+		let i = !0, u;
+		for (let e = l; e; e = e.parent) {
+			if (e !== l && e instanceof require_isolated_group.IsolatedGroup2D && (e === a || e.isolationEnabled)) {
+				u = e;
 				break;
 			}
-			if (!t.visible || t.opacity <= 0 || t.tint[3] <= 0) {
-				e = !1;
+			if (!e.visible || e.opacity <= 0 || e.tint[3] <= 0) {
+				i = !1;
 				break;
 			}
 		}
-		e && ((!o || c !== a) && (a = c, o = i.membersOf(c)), o.objects[o.count++] = s);
+		i && ((!c || u !== s) && (s = u, c = o.membersOf(u)), c.objects[c.count++] = l);
 	}
 }
 var o = {

@@ -331,6 +331,13 @@ function partitionBoundaries2D(
     lastMembers: MemberList2D | undefined;
   for (const object of objects) {
     if (!(object instanceof GameObject) || object === root) continue;
+    // Collection drops disabled sprites and meshes without any other effect, so skipping
+    // them here spares the ancestor walk for pooled particles and culled tiles.
+    if (
+      (object instanceof Sprite || object instanceof Mesh2D) &&
+      !object.renderEnabled
+    )
+      continue;
     let visible = true,
       boundary: IsolatedGroup2D | undefined;
     for (
