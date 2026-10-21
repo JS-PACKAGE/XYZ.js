@@ -102,6 +102,9 @@ const kinds: ProceduralMaterialKind[] = [
   'crackleglaze',
   'flutedceramic',
   'encaustictiles',
+  'fishscales',
+  'tortoiseshell',
+  'feathers',
 ];
 
 class TestImageData {
@@ -340,6 +343,9 @@ describe('periodic procedural material fields', () => {
     ['crackleglaze', [4, 16, 32]],
     ['flutedceramic', [8, 32, 96]],
     ['encaustictiles', [4, 32]],
+    ['fishscales', [10, 20, 32]],
+    ['tortoiseshell', [6, 19, 23, 32]],
+    ['feathers', [4, 8, 16, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -635,8 +641,15 @@ describe('periodic procedural material fields', () => {
     }
   });
 
-  it.each(['crackleglaze', 'flutedceramic', 'encaustictiles'] as const)(
-    '%s has C1 fields through fine crack shoulders and motif support',
+  it.each([
+    'crackleglaze',
+    'flutedceramic',
+    'encaustictiles',
+    'fishscales',
+    'tortoiseshell',
+    'feathers',
+  ] as const)(
+    '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
       const a: SurfaceSample = {
         color: 0,
@@ -651,15 +664,28 @@ describe('periodic procedural material fields', () => {
         halfA = { ...a },
         halfB = { ...a };
       const cells =
-        kind === 'crackleglaze' ? 16 : kind === 'flutedceramic' ? 96 : 4;
+        kind === 'crackleglaze'
+          ? 16
+          : kind === 'flutedceramic'
+            ? 96
+            : kind === 'fishscales'
+              ? 10
+              : kind === 'tortoiseshell'
+                ? 6
+                : kind === 'feathers'
+                  ? 8
+                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
       for (const seed of [1, 123, 0xffffffff]) {
         const sample = createSurfaceSampler(kind, seed);
         for (let i = 0; i < 1024; i++) {
-          const u = (i + 0.37) / 1024,
-            v = (((i * 157) % 1024) + 0.29) / 1024;
+          const u = i < 64 ? (i % cells) / cells : (i + 0.37) / 1024,
+            v =
+              i >= 64 && i < 128
+                ? (i % cells) / cells
+                : (((i * 157) % 1024) + 0.29) / 1024;
           for (const [du, dv] of [
             [epsilon, 0],
             [0, epsilon],
@@ -1501,6 +1527,126 @@ describe('periodic procedural material fields', () => {
     }
   });
 
+  it('tortoiseshell scute shoulders have continuous slopes where polygon edges meet', () => {
+    const featureHash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const center: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const left = { ...center },
+      right = { ...center },
+      halfLeft = { ...center },
+      halfRight = { ...center };
+    const epsilon = 1e-5 / 6;
+    let corners = 0;
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tortoiseshell', seed);
+      for (const [x, y] of [
+        [0, 0],
+        [2, 3],
+        [5, 5],
+      ]) {
+        const px = 0.22 + 0.56 * featureHash(x, y, seed ^ 0x35b7),
+          py = 0.22 + 0.56 * featureHash(x, y, seed ^ 0x6e19);
+        const planes: number[][] = [];
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 6) % 6,
+              wy = (y + oy + 6) % 6;
+            const dx =
+                ox + 0.22 + 0.56 * featureHash(wx, wy, seed ^ 0x35b7) - px,
+              dy = oy + 0.22 + 0.56 * featureHash(wx, wy, seed ^ 0x6e19) - py;
+            const distance = Math.hypot(dx, dy);
+            planes.push([dx / distance, dy / distance, distance / 2]);
+          }
+        // Intersect equal-inset shoulders, not the already-flat dark seam.
+        // A nearest-edge bevel has a normal discontinuity at these corners.
+        for (let i = 0; i < planes.length; i++)
+          for (let j = i + 1; j < planes.length; j++) {
+            const a = planes[i]!,
+              b = planes[j]!,
+              determinant = a[0]! * b[1]! - a[1]! * b[0]!;
+            if (Math.abs(determinant) < 0.01) continue;
+            const dx =
+                ((a[2]! - 0.06) * b[1]! - a[1]! * (b[2]! - 0.06)) / determinant,
+              dy =
+                (a[0]! * (b[2]! - 0.06) - (a[2]! - 0.06) * b[0]!) / determinant;
+            if (
+              planes.some((p) => p[2]! - dx * p[0]! - dy * p[1]! < 0.06 - 1e-10)
+            )
+              continue;
+            corners++;
+            const u = (x + px + dx) / 6,
+              v = (y + py + dy) / 6;
+            for (const [du, dv] of [
+              [epsilon, 0],
+              [0, epsilon],
+            ]) {
+              sample(u, v, center);
+              sample(u - du!, v - dv!, left);
+              sample(u + du!, v + dv!, right);
+              sample(u - du! / 2, v - dv! / 2, halfLeft);
+              sample(u + du! / 2, v + dv! / 2, halfRight);
+              for (const key of Object.keys(center) as (keyof SurfaceSample)[])
+                expect(
+                  Math.abs(
+                    4 * (halfLeft[key] + halfRight[key]) -
+                      left[key] -
+                      right[key] -
+                      6 * center[key],
+                  ) / epsilon,
+                ).toBeLessThan(0.001);
+            }
+          }
+      }
+    }
+    expect(corners).toBeGreaterThan(0);
+  });
+  it.each(['fishscales', 'feathers'] as const)(
+    '%s has rounded crowns or raised shafts rather than flat repeated pigment',
+    (kind) => {
+      const crown: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const shoulder = { ...crown };
+      const columns = kind === 'fishscales' ? 10 : 8,
+        rows = kind === 'fishscales' ? 10 : 4;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let row = 0; row < rows; row++)
+          for (let column = 0; column < columns; column++) {
+            const u = (column + (row % 2) * 0.5 + 0.5) / columns,
+              v = (row + 0.5) / rows;
+            sample(u, v, crown);
+            for (const direction of [-1, 1]) {
+              sample(
+                u +
+                  (direction * (kind === 'fishscales' ? 0.5 : 0.12)) / columns,
+                v,
+                shoulder,
+              );
+              expect(crown.height).toBeGreaterThan(shoulder.height);
+            }
+          }
+      }
+    },
+  );
   it.each(['snakeskin', 'crocodile'] as const)(
     '%s has raised embossed centers above recessed gaps on both axes',
     (kind) => {

@@ -2763,3 +2763,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Physics3D]` box–box SAT 在迴圈內直接計算兩個投影半徑，不再呼叫回傳 double 的 `radius()`（未 inline 時每軸每對都 box）。1000 body bench 配置 4.6 → 4.4 MiB/step，phys3d／cc3d／cc3dfuzz hash 不變。mixed 基準（WebGL2）取樣配置經前述三項 Physics3D 修正由約 3.0 MB/frame 降至 0.66 MB/frame。
 - `[Storage]` `assertJsonValue` 改以路徑片段堆疊在出錯時才組字串，並以 `getOwnPropertySymbols` 檢查 symbol key，不再為每個元素／屬性預先建立路徑字串與 `Reflect.ownKeys` 陣列；錯誤訊息與檢查順序不變（新測試在新舊實作皆通過）。2000 筆 entity 存檔物件驗證 Node bench 1.19 → 0.65 ms、配置 6.1 → 2.0 MiB／次。
 - `[Navigation]` NavigationMesh3D 依 agent radius 裁切後的多邊形區域按（polygon、radius、啟用狀態 epoch）快取，不再每次 `project`／搜尋重新裁切；拓樸本就不可變。48×48 方格網格 Node bench：4000 次 project 130 → 31.5 ms（配置 328 → 53 MiB）、40 次 findPath 320 → 132 ms，結果 hash 不變；新增鄰接多邊形停用／重新啟用後重新避開牆邊的測試。
+
+## 程序材質擴充：生物覆層（fishscales／tortoiseshell／feathers）
+
+- 新增青藍灰魚鱗的錯列鱗冠與邊唇、琥珀棕龜甲的多邊形盾片與生長紋、
+  灰褐色層疊羽片的羽軸與斜向羽枝；tile 尺寸依序 0.12／0.3／0.16 m。
+  皆 opaque dielectric，僅為四份表面 maps，不新增 geometry、cutout、
+  transmission、iridescence 或 SSS。gallery／API 文件同步至 81 種。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1681 tests
+  通過。鱗冠／羽軸高度、盾片轉角及重疊／wrapped 邊界斜率連續性
+  納入回歸；前七十八種預設在 size 64／seed 7 的四份 maps SHA256
+  全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認扇狀鱗片、多邊形盾片與尖端羽片差異；
+  metallic 全為 0，roughness bytes 依序 104–110／120–130／216–225；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

@@ -157,6 +157,9 @@ try {
     'crackleglaze',
     'flutedceramic',
     'encaustictiles',
+    'fishscales',
+    'tortoiseshell',
+    'feathers',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

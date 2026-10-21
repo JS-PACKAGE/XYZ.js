@@ -242,6 +242,45 @@ export function createSurfaceSampler(
             glazeCells[plane++] = distance / 2;
           }
       }
+  const armorColumns = kind === 'fishscales' ? 10 : 8;
+  const armorRows = kind === 'fishscales' ? 10 : 4;
+  const armorCells =
+    kind === 'fishscales' || kind === 'feathers'
+      ? new Float64Array(armorColumns * armorRows * 2)
+      : null;
+  if (armorCells)
+    for (let y = 0; y < armorRows; y++)
+      for (let x = 0; x < armorColumns; x++) {
+        const offset = (y * armorColumns + x) * 2;
+        armorCells[offset] = hash(x, y, seed ^ 0x3e71);
+        armorCells[offset + 1] = 0.2 * (hash(x, y, seed ^ 0x62d3) - 0.5);
+      }
+  // Shared jittered bisectors leave irregular scutes, not a hexagonal grid.
+  // Products of C1 half-plane shoulders keep their corners differentiable.
+  const scutes = kind === 'tortoiseshell' ? new Float64Array(6 * 6 * 27) : null;
+  if (scutes)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 27;
+        const px = 0.22 + 0.56 * hash(x, y, seed ^ 0x35b7),
+          py = 0.22 + 0.56 * hash(x, y, seed ^ 0x6e19);
+        scutes[offset] = px;
+        scutes[offset + 1] = py;
+        scutes[offset + 2] = hash(x, y, seed ^ 0x7c43);
+        let plane = offset + 3;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 6) % 6,
+              wy = (y + oy + 6) % 6;
+            const dx = ox + 0.22 + 0.56 * hash(wx, wy, seed ^ 0x35b7) - px,
+              dy = oy + 0.22 + 0.56 * hash(wx, wy, seed ^ 0x6e19) - py;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            scutes[plane++] = dx / distance;
+            scutes[plane++] = dy / distance;
+            scutes[plane++] = distance / 2;
+          }
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -497,6 +536,122 @@ export function createSurfaceSampler(
         roughness +=
           0.13 * (1 - face) + face * (0.055 * fold + 0.04 * (detail - 0.5));
         occlusion = 0.53 + face * (0.46 - 0.055 * fold);
+        break;
+      }
+      case 'fishscales':
+      case 'feathers': {
+        const x = u * armorColumns,
+          y = v * armorRows,
+          row = Math.floor(y);
+        color = 0.12 + 0.045 * detail;
+        height = 0.23;
+        occlusion = 0.76;
+        // Back-to-front rows retain the same local order across the periodic
+        // seam. Every entering/leaving owner has zero value and slope.
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy,
+            wy = ((cy % armorRows) + armorRows) % armorRows,
+            stagger = (wy % 2) * 0.5,
+            column = Math.floor(x - stagger);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              wx = ((cx % armorColumns) + armorColumns) % armorColumns,
+              offset = (wy * armorColumns + wx) * 2,
+              variation = armorCells![offset],
+              dy = y - cy - 0.5,
+              dx = x - cx - stagger - 0.5 - armorCells![offset + 1] * dy;
+            let cover: number, pigment: number, relief: number;
+            if (kind === 'fishscales') {
+              const q = (dx * dx) / 0.4356 + (dy * dy) / 0.6724;
+              cover = smooth(clamp((1 - q) / 0.18));
+              if (cover === 0) continue;
+              const dome = smooth(clamp(1 - q));
+              const lip =
+                smooth(clamp((q - 0.48) / 0.2)) *
+                smooth(clamp((1 - q) / 0.15)) *
+                smooth(clamp((dy + 0.12) / 0.4));
+              const growth = Math.cos(TAU * (6 * q + 0.15 * variation));
+              pigment =
+                0.39 +
+                0.2 * variation +
+                0.13 * dome +
+                0.1 * lip +
+                0.045 * growth;
+              relief = 0.37 + 0.12 * dome + 0.11 * lip + 0.012 * growth * dome;
+            } else {
+              const t = dy / 1.08;
+              if (t <= -1 || t >= 1) continue;
+              const width = 1 - t * t;
+              const edge = width * width - (dx * dx) / 0.2304;
+              cover = smooth(clamp(edge / 0.16));
+              if (cover === 0) continue;
+              const vane = smooth(clamp(edge));
+              const shaft = smooth(clamp(1 - (dx * dx) / 0.0025));
+              const barbs = Math.cos(
+                TAU * (18 * dy - 14 * Math.sqrt(dx * dx + 0.0004)),
+              );
+              const tip = smooth(clamp((t + 0.45) / 1.1));
+              pigment =
+                0.36 +
+                0.22 * variation +
+                0.1 * vane -
+                0.12 * tip +
+                0.08 * shaft +
+                0.065 * barbs;
+              relief = 0.35 + 0.1 * vane + 0.075 * shaft + 0.013 * barbs * vane;
+            }
+            color += cover * (pigment - color);
+            height += cover * (relief - height);
+            occlusion += cover * (0.98 - occlusion);
+          }
+        }
+        roughness += 0.045 * (1 - occlusion) + 0.025 * (detail - 0.5);
+        break;
+      }
+      case 'tortoiseshell': {
+        const x = u * 6,
+          y = v * 6,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        const mottling = noise(u, v, 19, 23, seed ^ 0x49e7);
+        color = 0.045 + 0.025 * detail;
+        height = 0.22;
+        occlusion = 0.72;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              wx = (cx + 6) % 6,
+              wy = (cy + 6) % 6,
+              offset = (wy * 6 + wx) * 27,
+              dx = x - cx - scutes![offset],
+              dy = y - cy - scutes![offset + 1];
+            let cover = 1,
+              dome = 1;
+            for (let edge = 0; edge < 8; edge++) {
+              const plane = offset + 3 + edge * 3,
+                distance = scutes![plane + 2],
+                inset =
+                  distance - dx * scutes![plane] - dy * scutes![plane + 1];
+              cover *= smooth(clamp((inset - 0.018) / 0.085));
+              dome *= smooth(clamp(inset / distance));
+              if (cover === 0) break;
+            }
+            if (cover === 0) continue;
+            const variation = scutes![offset + 2];
+            const growth = Math.cos(TAU * (5 * dome + 0.12 * variation));
+            const pigment =
+              0.28 +
+              0.25 * variation +
+              0.22 * mottling +
+              0.09 * dome +
+              0.045 * growth;
+            color += cover * (pigment - color);
+            height +=
+              cover * (0.37 + 0.2 * dome + 0.012 * growth * dome - height);
+            occlusion += cover * (0.98 - occlusion);
+          }
+        roughness += 0.06 * (1 - occlusion) + 0.025 * (detail - 0.5);
         break;
       }
       case 'sand': {

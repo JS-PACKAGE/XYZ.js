@@ -84,7 +84,10 @@ export type ProceduralMaterialKind =
   | 'quilting'
   | 'crackleglaze'
   | 'flutedceramic'
-  | 'encaustictiles';
+  | 'encaustictiles'
+  | 'fishscales'
+  | 'tortoiseshell'
+  | 'feathers';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -195,6 +198,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'crackleglaze',
   'flutedceramic',
   'encaustictiles',
+  'fishscales',
+  'tortoiseshell',
+  'feathers',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
