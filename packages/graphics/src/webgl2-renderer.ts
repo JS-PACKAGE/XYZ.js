@@ -2607,6 +2607,8 @@ export class WebGL2Renderer implements Renderer {
     gl.enable(gl.DEPTH_TEST);
     gl.depthFunc(gl.LESS);
     gl.depthMask(true);
+    // Mirrors the depth write mask through the phases, so occlusion queries need not read it back.
+    let depthWrites = true;
     // Shader-side winding handles mixed mirrored instances in a single draw.
     gl.disable(gl.CULL_FACE);
     gl.activeTexture(gl.TEXTURE0 + 15);
@@ -2636,7 +2638,7 @@ export class WebGL2Renderer implements Renderer {
           oitPass === 1 ? 0 : 1,
         );
         gl.clear(gl.COLOR_BUFFER_BIT);
-        gl.depthMask(false);
+        gl.depthMask((depthWrites = false));
         gl.blendFunc(
           oitPass === 1 ? gl.ONE : gl.ZERO,
           oitPass === 1 ? gl.ONE : gl.ONE_MINUS_SRC_ALPHA,
@@ -2829,11 +2831,12 @@ export class WebGL2Renderer implements Renderer {
           uniforms.derivativeTangentSign,
           object.renderGeometry.tangentConvention === 'gltf' ? -1 : 1,
         );
-        if (!oitPass)
-          gl.depthMask(
+        if (!oitPass) {
+          depthWrites =
             (this.visibility.entries.get(object)?.fade ?? 1) === 1 &&
-              !(isNativeMaterial3D(material) && material.transparent),
-          );
+            !(isNativeMaterial3D(material) && material.transparent);
+          gl.depthMask(depthWrites);
+        }
         if (pbr) {
           if (!probeBlendReady) {
             fillProbeBlendData(
@@ -3194,6 +3197,7 @@ export class WebGL2Renderer implements Renderer {
           this.temporalActive
             ? this.temporalState.currentVP
             : scene.camera3D.matrix,
+          depthWrites,
         );
       if (phase === 0 && this.coverageActive) {
         this.resolveCoverageTarget();

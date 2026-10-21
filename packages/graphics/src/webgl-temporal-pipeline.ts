@@ -257,9 +257,10 @@ export class WebGLTemporalPipeline {
       gl.SCISSOR_TEST,
     ];
     const enabled = capabilities.map((cap) => gl.isEnabled(cap));
-    const mask = gl.getParameter(gl.COLOR_WRITEMASK) as boolean[];
     try {
       capabilities.forEach((cap) => gl.disable(cap));
+      // Outside the mesh color phases every channel is already writable, so nothing to
+      // restore; reading the mask back would be a synchronous GPU-process round trip.
       gl.colorMask(true, true, true, true);
       gl.bindFramebuffer(gl.DRAW_FRAMEBUFFER, target.framebuffer);
       gl.viewport(0, 0, this.width, this.height);
@@ -315,7 +316,6 @@ export class WebGLTemporalPipeline {
         oldViewport[2]!,
         oldViewport[3]!,
       );
-      gl.colorMask(mask[0]!, mask[1]!, mask[2]!, mask[3]!);
       capabilities.forEach((cap, i) => {
         if (enabled[i]) gl.enable(cap);
         else gl.disable(cap);

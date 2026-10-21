@@ -147,8 +147,17 @@ export class WebGLOcclusionBackend implements OcclusionProofSource {
     if (!this.destroyed && !this.gl.isContextLost()) this.poll();
   }
 
-  /** Caller keeps the opaque-depth framebuffer/viewport bound; all modified GL state restored. */
-  draw(candidates: readonly OcclusionCandidate[], matrix: Matrix4): void {
+  /**
+   * Caller keeps the opaque-depth framebuffer/viewport bound with all color channels
+   * writable, and passes its depth write mask; all modified GL state is restored. Those
+   * fixed-function values are not read back: each such query is a synchronous
+   * GPU-process round trip. The depth function is the engine's only resting one, LESS.
+   */
+  draw(
+    candidates: readonly OcclusionCandidate[],
+    matrix: Matrix4,
+    depthWrites: boolean,
+  ): void {
     const gl = this.gl;
     if (this.destroyed || gl.isContextLost()) return;
     this.poll();
@@ -168,9 +177,6 @@ export class WebGLOcclusionBackend implements OcclusionProofSource {
     const oldVao = gl.getParameter(
       gl.VERTEX_ARRAY_BINDING,
     ) as WebGLVertexArrayObject | null;
-    const oldColor = gl.getParameter(gl.COLOR_WRITEMASK) as boolean[];
-    const oldDepthMask = gl.getParameter(gl.DEPTH_WRITEMASK) as boolean;
-    const oldDepthFunc = gl.getParameter(gl.DEPTH_FUNC) as number;
     const oldDepth = gl.isEnabled(gl.DEPTH_TEST),
       oldCull = gl.isEnabled(gl.CULL_FACE);
     const oldRasterizerDiscard = gl.isEnabled(gl.RASTERIZER_DISCARD);
@@ -232,9 +238,9 @@ export class WebGLOcclusionBackend implements OcclusionProofSource {
     } finally {
       gl.useProgram(oldProgram);
       gl.bindVertexArray(oldVao);
-      gl.colorMask(...(oldColor as [boolean, boolean, boolean, boolean]));
-      gl.depthMask(oldDepthMask);
-      gl.depthFunc(oldDepthFunc);
+      gl.colorMask(true, true, true, true);
+      gl.depthMask(depthWrites);
+      gl.depthFunc(gl.LESS);
       if (oldDepth) gl.enable(gl.DEPTH_TEST);
       else gl.disable(gl.DEPTH_TEST);
       if (oldCull) gl.enable(gl.CULL_FACE);

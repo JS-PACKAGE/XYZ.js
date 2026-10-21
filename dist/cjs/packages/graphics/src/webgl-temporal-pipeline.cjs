@@ -89,7 +89,7 @@ var WebGLTemporalPipeline = class {
 			o.BLEND,
 			o.CULL_FACE,
 			o.SCISSOR_TEST
-		], y = v.map((e) => o.isEnabled(e)), b = o.getParameter(o.COLOR_WRITEMASK);
+		], y = v.map((e) => o.isEnabled(e));
 		try {
 			v.forEach((e) => o.disable(e)), o.colorMask(!0, !0, !0, !0), o.bindFramebuffer(o.DRAW_FRAMEBUFFER, s.framebuffer), o.viewport(0, 0, this.width, this.height), o.useProgram(c), o.bindVertexArray(this.vao), require_temporal_post.writeTemporalUniforms(this.data, n, i), o.bindBuffer(o.UNIFORM_BUFFER, this.uniform), o.bufferSubData(o.UNIFORM_BUFFER, 0, this.data), o.bindBufferBase(o.UNIFORM_BUFFER, 0, this.uniform), this.stats.upload(240);
 			let l = a ? [
@@ -107,7 +107,7 @@ var WebGLTemporalPipeline = class {
 			o.drawArrays(o.TRIANGLES, 0, 3);
 		} finally {
 			for (let e = 0; e < g.length; e++) o.activeTexture(o.TEXTURE0 + e), o.bindTexture(o.TEXTURE_2D, g[e]), o.bindSampler(e, _[e]);
-			o.activeTexture(p), o.bindBufferBase(o.UNIFORM_BUFFER, 0, h), o.bindBuffer(o.UNIFORM_BUFFER, m), o.useProgram(l), o.bindVertexArray(u), o.bindFramebuffer(o.DRAW_FRAMEBUFFER, d), o.viewport(f[0], f[1], f[2], f[3]), o.colorMask(b[0], b[1], b[2], b[3]), v.forEach((e, t) => {
+			o.activeTexture(p), o.bindBufferBase(o.UNIFORM_BUFFER, 0, h), o.bindBuffer(o.UNIFORM_BUFFER, m), o.useProgram(l), o.bindVertexArray(u), o.bindFramebuffer(o.DRAW_FRAMEBUFFER, d), o.viewport(f[0], f[1], f[2], f[3]), v.forEach((e, t) => {
 				y[t] ? o.enable(e) : o.disable(e);
 			});
 		}

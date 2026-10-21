@@ -135,8 +135,7 @@ var WebGL2RenderGraph = class {
 			blend: i.isEnabled(i.BLEND),
 			depth: i.isEnabled(i.DEPTH_TEST),
 			cull: i.isEnabled(i.CULL_FACE),
-			scissor: i.isEnabled(i.SCISSOR_TEST),
-			colorMask: i.getParameter(i.COLOR_WRITEMASK)
+			scissor: i.isEnabled(i.SCISSOR_TEST)
 		}, o = r.maxInputs, s = [], c = [];
 		for (let e = 0; e < o; e++) i.activeTexture(i.TEXTURE0 + e), s.push(i.getParameter(i.TEXTURE_BINDING_2D)), c.push(i.getParameter(i.SAMPLER_BINDING));
 		try {
@@ -156,7 +155,6 @@ var WebGL2RenderGraph = class {
 				[i.CULL_FACE, a.cull],
 				[i.SCISSOR_TEST, a.scissor]
 			]) t ? i.enable(e) : i.disable(e);
-			i.colorMask(...a.colorMask);
 		}
 	}
 	draw(e, t, n, r, i) {

@@ -345,7 +345,6 @@ export class WebGL2RenderGraph {
       depth: gl.isEnabled(gl.DEPTH_TEST),
       cull: gl.isEnabled(gl.CULL_FACE),
       scissor: gl.isEnabled(gl.SCISSOR_TEST),
-      colorMask: gl.getParameter(gl.COLOR_WRITEMASK) as boolean[],
     };
     const maxInputs = owner.maxInputs;
     const textures: (WebGLTexture | null)[] = [],
@@ -362,6 +361,8 @@ export class WebGL2RenderGraph {
       gl.disable(gl.DEPTH_TEST);
       gl.disable(gl.CULL_FACE);
       gl.disable(gl.SCISSOR_TEST);
+      // Outside the mesh color phases every channel is already writable, so nothing to
+      // restore; reading the mask back would be a synchronous GPU-process round trip.
       gl.colorMask(true, true, true, true);
       gl.bindVertexArray(this.vao);
       for (const descriptor of graph.schedule) {
@@ -404,9 +405,6 @@ export class WebGL2RenderGraph {
         if (enabled) gl.enable(capability);
         else gl.disable(capability);
       }
-      gl.colorMask(
-        ...(previous.colorMask as [boolean, boolean, boolean, boolean]),
-      );
     }
   }
   private draw(

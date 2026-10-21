@@ -21,8 +21,13 @@ export declare class WebGLOcclusionBackend implements OcclusionProofSource {
     visible(mesh: Mesh, epoch: number): boolean;
     /** Poll once before gather; never block on unavailable GPU query results. */
     beginFrame(): void;
-    /** Caller keeps the opaque-depth framebuffer/viewport bound; all modified GL state restored. */
-    draw(candidates: readonly OcclusionCandidate[], matrix: Matrix4): void;
+    /**
+     * Caller keeps the opaque-depth framebuffer/viewport bound with all color channels
+     * writable, and passes its depth write mask; all modified GL state is restored. Those
+     * fixed-function values are not read back: each such query is a synchronous
+     * GPU-process round trip. The depth function is the engine's only resting one, LESS.
+     */
+    draw(candidates: readonly OcclusionCandidate[], matrix: Matrix4, depthWrites: boolean): void;
     private poll;
     clear(): void;
     destroy(): void;

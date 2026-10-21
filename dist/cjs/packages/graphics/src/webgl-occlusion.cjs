@@ -71,32 +71,32 @@ void main() { color = vec4(0.0); }`]]) {
 	beginFrame() {
 		!this.destroyed && !this.gl.isContextLost() && this.poll();
 	}
-	draw(t, r) {
-		let i = this.gl;
-		if (this.destroyed || i.isContextLost()) return;
+	draw(t, r, i) {
+		let a = this.gl;
+		if (this.destroyed || a.isContextLost()) return;
 		this.poll(), this.activeMeshes.clear();
 		for (let e of t) this.activeMeshes.add(e.mesh);
 		for (let e of this.results.keys()) (!this.activeMeshes.has(e) || e.destroyed) && this.results.delete(e);
-		if (!t.length || i.getQuery(i.ANY_SAMPLES_PASSED_CONSERVATIVE, i.CURRENT_QUERY)) return;
-		let a = i.getParameter(i.CURRENT_PROGRAM), o = i.getParameter(i.VERTEX_ARRAY_BINDING), s = i.getParameter(i.COLOR_WRITEMASK), c = i.getParameter(i.DEPTH_WRITEMASK), l = i.getParameter(i.DEPTH_FUNC), u = i.isEnabled(i.DEPTH_TEST), d = i.isEnabled(i.CULL_FACE), f = i.isEnabled(i.RASTERIZER_DISCARD), p = i.isEnabled(i.SCISSOR_TEST), m = i.isEnabled(i.STENCIL_TEST), h = i.isEnabled(i.POLYGON_OFFSET_FILL);
-		i.useProgram(this.program), i.bindVertexArray(this.vao), i.colorMask(!1, !1, !1, !1), i.depthMask(!1), i.depthFunc(i.LEQUAL), i.enable(i.DEPTH_TEST), i.disable(i.CULL_FACE), i.disable(i.RASTERIZER_DISCARD), i.disable(i.SCISSOR_TEST), i.disable(i.STENCIL_TEST), i.disable(i.POLYGON_OFFSET_FILL), this.matrixData.set(r.elements), i.uniformMatrix4fv(this.viewProjection, !1, this.matrixData);
-		let g = 0;
+		if (!t.length || a.getQuery(a.ANY_SAMPLES_PASSED_CONSERVATIVE, a.CURRENT_QUERY)) return;
+		let o = a.getParameter(a.CURRENT_PROGRAM), s = a.getParameter(a.VERTEX_ARRAY_BINDING), c = a.isEnabled(a.DEPTH_TEST), l = a.isEnabled(a.CULL_FACE), u = a.isEnabled(a.RASTERIZER_DISCARD), d = a.isEnabled(a.SCISSOR_TEST), f = a.isEnabled(a.STENCIL_TEST), p = a.isEnabled(a.POLYGON_OFFSET_FILL);
+		a.useProgram(this.program), a.bindVertexArray(this.vao), a.colorMask(!1, !1, !1, !1), a.depthMask(!1), a.depthFunc(a.LEQUAL), a.enable(a.DEPTH_TEST), a.disable(a.CULL_FACE), a.disable(a.RASTERIZER_DISCARD), a.disable(a.SCISSOR_TEST), a.disable(a.STENCIL_TEST), a.disable(a.POLYGON_OFFSET_FILL), this.matrixData.set(r.elements), a.uniformMatrix4fv(this.viewProjection, !1, this.matrixData);
+		let m = 0;
 		try {
 			let r = Math.min(t.length, require_visibility.visibilityLimits.occlusionQueries);
 			for (let e = 0; e < r; e++) {
-				for (; g < this.slots.length && this.slots[g].mesh;) g++;
-				let r = this.slots[g++];
+				for (; m < this.slots.length && this.slots[m].mesh;) m++;
+				let r = this.slots[m++];
 				if (!r) break;
-				let a = t[e];
-				r.mesh = a.mesh, r.epoch = a.epoch, r.generation = this.generation, i.uniform3f(this.minimum, a.minX, a.minY, a.minZ), i.uniform3f(this.maximum, a.maxX, a.maxY, a.maxZ), i.beginQuery(i.ANY_SAMPLES_PASSED_CONSERVATIVE, r.query);
+				let i = t[e];
+				r.mesh = i.mesh, r.epoch = i.epoch, r.generation = this.generation, a.uniform3f(this.minimum, i.minX, i.minY, i.minZ), a.uniform3f(this.maximum, i.maxX, i.maxY, i.maxZ), a.beginQuery(a.ANY_SAMPLES_PASSED_CONSERVATIVE, r.query);
 				try {
-					i.drawElements(i.TRIANGLES, require_occlusion_proxy.occlusionProxyIndices.length, i.UNSIGNED_SHORT, 0);
+					a.drawElements(a.TRIANGLES, require_occlusion_proxy.occlusionProxyIndices.length, a.UNSIGNED_SHORT, 0);
 				} finally {
-					i.endQuery(i.ANY_SAMPLES_PASSED_CONSERVATIVE);
+					a.endQuery(a.ANY_SAMPLES_PASSED_CONSERVATIVE);
 				}
 			}
 		} finally {
-			i.useProgram(a), i.bindVertexArray(o), i.colorMask(...s), i.depthMask(c), i.depthFunc(l), u ? i.enable(i.DEPTH_TEST) : i.disable(i.DEPTH_TEST), d ? i.enable(i.CULL_FACE) : i.disable(i.CULL_FACE), f ? i.enable(i.RASTERIZER_DISCARD) : i.disable(i.RASTERIZER_DISCARD), p ? i.enable(i.SCISSOR_TEST) : i.disable(i.SCISSOR_TEST), m ? i.enable(i.STENCIL_TEST) : i.disable(i.STENCIL_TEST), h ? i.enable(i.POLYGON_OFFSET_FILL) : i.disable(i.POLYGON_OFFSET_FILL);
+			a.useProgram(o), a.bindVertexArray(s), a.colorMask(!0, !0, !0, !0), a.depthMask(i), a.depthFunc(a.LESS), c ? a.enable(a.DEPTH_TEST) : a.disable(a.DEPTH_TEST), l ? a.enable(a.CULL_FACE) : a.disable(a.CULL_FACE), u ? a.enable(a.RASTERIZER_DISCARD) : a.disable(a.RASTERIZER_DISCARD), d ? a.enable(a.SCISSOR_TEST) : a.disable(a.SCISSOR_TEST), f ? a.enable(a.STENCIL_TEST) : a.disable(a.STENCIL_TEST), p ? a.enable(a.POLYGON_OFFSET_FILL) : a.disable(a.POLYGON_OFFSET_FILL);
 		}
 	}
 	poll() {
