@@ -888,6 +888,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .88,
 		relief: .005
 	}),
+	brickpaving: Object.freeze({
+		dark: [
+			88,
+			46,
+			34
+		],
+		light: [
+			188,
+			116,
+			88
+		],
+		roughness: .82,
+		relief: .007
+	}),
+	steppingstone: Object.freeze({
+		dark: [
+			66,
+			70,
+			66
+		],
+		light: [
+			174,
+			178,
+			166
+		],
+		roughness: .86,
+		relief: .008
+	}),
+	woodendeck: Object.freeze({
+		dark: [
+			96,
+			72,
+			42
+		],
+		light: [
+			214,
+			182,
+			132
+		],
+		roughness: .74,
+		relief: .006
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2105,48 +2147,6 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .87,
 		relief: .002
-	}),
-	scallopshell: Object.freeze({
-		dark: [
-			151,
-			71,
-			65
-		],
-		light: [
-			249,
-			233,
-			204
-		],
-		roughness: .55,
-		relief: .006
-	}),
-	oystershell: Object.freeze({
-		dark: [
-			62,
-			65,
-			59
-		],
-		light: [
-			227,
-			222,
-			198
-		],
-		roughness: .89,
-		relief: .009
-	}),
-	nautilusshell: Object.freeze({
-		dark: [
-			124,
-			46,
-			25
-		],
-		light: [
-			249,
-			234,
-			196
-		],
-		roughness: .38,
-		relief: .004
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2213,6 +2213,9 @@ var proceduralTileMeters = Object.freeze({
 	wallpaper: .5,
 	embroidery: .18,
 	macrame: .24,
+	brickpaving: .8,
+	steppingstone: 1,
+	woodendeck: .9,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
@@ -2299,10 +2302,7 @@ var proceduralTileMeters = Object.freeze({
 	damask: .24,
 	zebrafur: .32,
 	leopardfur: .36,
-	giraffefur: .6,
-	scallopshell: .28,
-	oystershell: .32,
-	nautilusshell: .24
+	giraffefur: .6
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

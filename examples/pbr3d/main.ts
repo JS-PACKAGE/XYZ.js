@@ -139,6 +139,9 @@ try {
     'wallpaper',
     'embroidery',
     'macrame',
+    'brickpaving',
+    'steppingstone',
+    'woodendeck',
     'sandstone',
     'travertine',
     'pumice',
@@ -229,9 +232,6 @@ try {
     'zebrafur',
     'leopardfur',
     'giraffefur',
-    'scallopshell',
-    'oystershell',
-    'nautilusshell',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

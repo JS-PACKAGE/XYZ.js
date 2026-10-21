@@ -70,6 +70,9 @@ export type ProceduralMaterialKind =
   | 'wallpaper'
   | 'embroidery'
   | 'macrame'
+  | 'brickpaving'
+  | 'steppingstone'
+  | 'woodendeck'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -156,10 +159,7 @@ export type ProceduralMaterialKind =
   | 'damask'
   | 'zebrafur'
   | 'leopardfur'
-  | 'giraffefur'
-  | 'scallopshell'
-  | 'oystershell'
-  | 'nautilusshell';
+  | 'giraffefur';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -255,6 +255,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'wallpaper',
   'embroidery',
   'macrame',
+  'brickpaving',
+  'steppingstone',
+  'woodendeck',
   'sandstone',
   'travertine',
   'pumice',
@@ -342,9 +345,6 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'zebrafur',
   'leopardfur',
   'giraffefur',
-  'scallopshell',
-  'oystershell',
-  'nautilusshell',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

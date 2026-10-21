@@ -385,6 +385,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.88,
     relief: 0.005,
   }),
+  brickpaving: Object.freeze({
+    dark: [88, 46, 34] as const,
+    light: [188, 116, 88] as const,
+    roughness: 0.82,
+    relief: 0.007,
+  }),
+  steppingstone: Object.freeze({
+    dark: [66, 70, 66] as const,
+    light: [174, 178, 166] as const,
+    roughness: 0.86,
+    relief: 0.008,
+  }),
+  woodendeck: Object.freeze({
+    dark: [96, 72, 42] as const,
+    light: [214, 182, 132] as const,
+    roughness: 0.74,
+    relief: 0.006,
+  }),
   sandstone: Object.freeze({
     dark: [133, 83, 43] as const,
     light: [238, 205, 150] as const,
@@ -907,24 +925,6 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.87,
     relief: 0.002,
   }),
-  scallopshell: Object.freeze({
-    dark: [151, 71, 65] as const,
-    light: [249, 233, 204] as const,
-    roughness: 0.55,
-    relief: 0.006,
-  }),
-  oystershell: Object.freeze({
-    dark: [62, 65, 59] as const,
-    light: [227, 222, 198] as const,
-    roughness: 0.89,
-    relief: 0.009,
-  }),
-  nautilusshell: Object.freeze({
-    dark: [124, 46, 25] as const,
-    light: [249, 234, 196] as const,
-    roughness: 0.38,
-    relief: 0.004,
-  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -992,6 +992,9 @@ export const proceduralTileMeters = Object.freeze({
   wallpaper: 0.5,
   embroidery: 0.18,
   macrame: 0.24,
+  brickpaving: 0.8,
+  steppingstone: 1,
+  woodendeck: 0.9,
   sandstone: 0.6,
   travertine: 0.48,
   pumice: 0.18,
@@ -1079,9 +1082,6 @@ export const proceduralTileMeters = Object.freeze({
   zebrafur: 0.32,
   leopardfur: 0.36,
   giraffefur: 0.6,
-  scallopshell: 0.28,
-  oystershell: 0.32,
-  nautilusshell: 0.24,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
