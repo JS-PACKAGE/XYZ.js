@@ -852,6 +852,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.74;
         relief: 0.004;
     }>;
+    zebrafur: Readonly<{
+        dark: readonly [14, 12, 10];
+        light: readonly [244, 234, 211];
+        roughness: 0.87;
+        relief: 0.002;
+    }>;
+    leopardfur: Readonly<{
+        dark: readonly [22, 13, 7];
+        light: readonly [232, 180, 93];
+        roughness: 0.87;
+        relief: 0.002;
+    }>;
+    giraffefur: Readonly<{
+        dark: readonly [106, 48, 20];
+        light: readonly [246, 223, 172];
+        roughness: 0.87;
+        relief: 0.002;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -996,6 +1014,9 @@ export declare const proceduralTileMeters: Readonly<{
     houndstooth: 0.064;
     tartan: 0.16;
     damask: 0.24;
+    zebrafur: 0.32;
+    leopardfur: 0.36;
+    giraffefur: 0.6;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

@@ -166,6 +166,9 @@ const kinds: ProceduralMaterialKind[] = [
   'houndstooth',
   'tartan',
   'damask',
+  'zebrafur',
+  'leopardfur',
+  'giraffefur',
 ];
 
 class TestImageData {
@@ -213,6 +216,216 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('short patterned fur', () => {
+    const furKinds = ['zebrafur', 'leopardfur', 'giraffefur'] as const;
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+
+    it('zebra stripes merge and fork instead of remaining parallel waves', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('zebrafur', seed),
+          out = empty(),
+          counts = new Set<number>();
+        for (let y = 0; y < 64; y++) {
+          let crossings = 0;
+          sample(0, y / 64, out);
+          let previous = out.color > 0.5;
+          for (let x = 1; x <= 512; x++) {
+            sample(x / 512, y / 64, out);
+            const current = out.color > 0.5;
+            if (current !== previous) crossings++;
+            previous = current;
+          }
+          counts.add(crossings);
+        }
+        expect(counts.size).toBeGreaterThan(1);
+        expect(Math.min(...counts)).toBeGreaterThan(0);
+      }
+    });
+
+    it('leopard pigment has warm centers surrounded by dark arcs with open sectors', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('leopardfur', seed),
+          out = empty();
+        let brokenCenters = 0;
+        for (let y = 0; y < 80; y++)
+          for (let x = 0; x < 80; x++) {
+            const u = (x + 0.5) / 80,
+              v = (y + 0.5) / 80;
+            sample(u, v, out);
+            if (out.color < 0.56 || out.color > 0.76) continue;
+            let dark = 0,
+              open = 0;
+            for (let ray = 0; ray < 24; ray++) {
+              const angle = (2 * Math.PI * ray) / 24;
+              sample(
+                u + 0.064 * Math.cos(angle),
+                v + 0.064 * Math.sin(angle),
+                out,
+              );
+              if (out.color < 0.3) dark++;
+              if (out.color > 0.65) open++;
+            }
+            if (dark >= 12 && open >= 2) brokenCenters++;
+          }
+        expect(brokenCenters).toBeGreaterThan(3);
+      }
+    });
+
+    it('giraffe pale boundaries form one connected network across the torus', () => {
+      const size = 128;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('giraffefur', seed),
+          out = empty(),
+          pale = new Uint8Array(size * size),
+          queue = new Int32Array(size * size);
+        let total = 0,
+          first = -1;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            sample((x + 0.5) / size, (y + 0.5) / size, out);
+            if (out.color > 0.6) {
+              pale[y * size + x] = 1;
+              total++;
+              first = y * size + x;
+            }
+          }
+        expect(total).toBeGreaterThan(size * size * 0.1);
+        expect(total).toBeLessThan(size * size * 0.6);
+        let count = 0,
+          end = 1;
+        queue[0] = first;
+        pale[first] = 0;
+        while (count < end) {
+          const index = queue[count++],
+            x = index % size,
+            y = Math.floor(index / size);
+          for (const neighbor of [
+            y * size + ((x + 1) % size),
+            y * size + ((x + size - 1) % size),
+            ((y + 1) % size) * size + x,
+            ((y + size - 1) % size) * size + x,
+          ]) {
+            if (!pale[neighbor]) continue;
+            pale[neighbor] = 0;
+            queue[end++] = neighbor;
+          }
+        }
+        expect(count / total).toBeGreaterThan(0.99);
+      }
+    });
+
+    it.each(furKinds)(
+      '%s keeps directional pile relief separate from pigmentation',
+      (kind) => {
+        const sample = createSurfaceSampler(kind, 123),
+          out = empty(),
+          across = empty(),
+          along = empty(),
+          size = 128,
+          count = size * size;
+        let colors = 0,
+          heights = 0,
+          colorSquares = 0,
+          heightSquares = 0,
+          products = 0,
+          acrossEnergy = 0,
+          alongEnergy = 0;
+        for (let y = 0; y < size; y++)
+          for (let x = 0; x < size; x++) {
+            const u = (x + 0.37) / size,
+              v = (y + 0.29) / size;
+            sample(u, v, out);
+            sample(u + 1 / 2048, v, across);
+            sample(u, v + 1 / 2048, along);
+            colors += out.color;
+            heights += out.height;
+            colorSquares += out.color * out.color;
+            heightSquares += out.height * out.height;
+            products += out.color * out.height;
+            acrossEnergy += (across.height - out.height) ** 2;
+            alongEnergy += (along.height - out.height) ** 2;
+          }
+        const covariance = products - (colors * heights) / count,
+          colorVariance = colorSquares - (colors * colors) / count,
+          heightVariance = heightSquares - (heights * heights) / count;
+        expect(acrossEnergy).toBeGreaterThan(alongEnergy);
+        expect(
+          Math.abs(covariance) / Math.sqrt(colorVariance * heightVariance),
+        ).toBeLessThan(0.15);
+      },
+    );
+
+    it.each(furKinds)(
+      '%s has convergent C1 slopes through pigment shoulders and torus seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed);
+          const at = (u: number, v: number): SurfaceSample => {
+            const out = empty();
+            sample(u, v, out);
+            return out;
+          };
+          const points: [number, number][] = [
+            [0, 0],
+            [0, 0.37],
+            [0.63, 0],
+          ];
+          // Find actual pigment shoulders without duplicating the authored field.
+          for (let y = 0; y < 12; y++) {
+            const v = (y + 0.31) / 12;
+            for (let x = 0; x < 64; x++) {
+              let lo = x / 64,
+                hi = (x + 1) / 64;
+              const below = at(lo, v).color < 0.5;
+              if (below === at(hi, v).color < 0.5) continue;
+              for (let step = 0; step < 30; step++) {
+                const mid = (lo + hi) / 2;
+                if (at(mid, v).color < 0.5 === below) lo = mid;
+                else hi = mid;
+              }
+              points.push([(lo + hi) / 2, v]);
+            }
+          }
+          for (let i = 0; i <= 40; i++) points.push([i / 40, 0.419]);
+          for (let i = 0; i <= 32; i++) points.push([0.613, i / 32]);
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [1, 0],
+              [0, 1],
+              [0.6, 0.8],
+            ]) {
+              const h = 1e-7,
+                center = at(u, v),
+                left = at(u - du * h, v - dv * h),
+                right = at(u + du * h, v + dv * h),
+                coarseLeft = at(u - 4 * du * h, v - 4 * dv * h),
+                coarseRight = at(u + 4 * du * h, v + 4 * dv * h);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                expect(center[key]).toBeGreaterThanOrEqual(0);
+                expect(center[key]).toBeLessThanOrEqual(1);
+                const fineJump =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / h,
+                  coarseJump =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) /
+                    (4 * h);
+                expect(fineJump).toBeLessThanOrEqual(0.4 * coarseJump + 1e-7);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('patterned textile geometry', () => {
     const empty = (): SurfaceSample => ({
       color: 0,

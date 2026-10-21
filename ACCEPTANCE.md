@@ -3313,3 +3313,36 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不擴大跨瀏覽器或實體裝置認證。
 - `[Lighting]` `SpatialLightSelector.selectMesh()` 在同一 presentation 內（update 於該 pass 執行時）以 WeakMap 保存每個 mesh 的上次選取；每次 update 逐欄記錄光源池所有會影響選取的輸入（identity、位置、range、intensity、顏色、priority、聚光方向與角度，含 ±0 區分），任何改變即令快取失效，mesh 世界邊界球四值相同時直接還原光源、統計與 frameStats。`clear()` 一併丟棄快取與光源參照。選取結果與統計逐 draw 雜湊相同（Node 對拍 3000 幀隨機變動，含網格模式 40＋36 光源與小池）。Node 同程序 640 個靜態 mesh：16＋8 光源 0.156 → 0.049 ms／幀、40＋36 光源 0.560 → 0.069 ms／幀，屬 CPU 時間；每幀都在轉動的 production 3d 負載無改善（邊界每幀改變）。native-material3d 剖析中選取佔比 6% → 約 0。新增測試涵蓋邊界、強度、priority、顏色、聚光方向與池順序變化的重選，相關 mutation 皆失敗；WebGL2 browser regression 通過；build 與完整測試（1974 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[WebGL2]` 批次 sprite 打包每個 sprite 的 appearance 改為四次元素寫入，取代四值 `Float32Array#set` builtin 呼叫；寫入值逐位相同。Node 微基準每 20k 次 0.137 → 0.024 ms，屬 CPU 時間（20k sprite 每幀約省 0.1 ms，未以整幀 fps 宣稱）。WebGL2 browser regression 通過；build 與完整測試（1974 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：短毛皮紋（zebrafur／leopardfur／giraffefur）
+
+- 新增斑馬的蜿蜒分岔／匯合條紋、豹的斷續深色玫瑰斑與暖色中心，
+  以及長頸鹿的角狀斑塊與相連淡色網絡；細短定向纖維提供淺起伏，
+  顏料邊界不成為隆起甲片或深裂縫。皆為 opaque dielectric，
+  不新增真實毛髮 geometry、alpha、displacement、各向異性 BRDF 或模擬。
+- 預先計算纖維 transforms、豹斑反半徑與長頸鹿斑塊的共享平分面；
+  不以硬 nearest-site ownership 形成接縫。刪除要求三種材質
+  relief／roughness／AO 恰好相同的實作鎖定測試，改驗證定向起伏
+  及顏料與高度的低相關性，允許各自調整毛層。
+- 隔離快照共 141 種；原 138 種在 size 64／seed 7 下四份 maps
+  SHA256 全部不變，新增材質 ESM／CJS maps 與 source 相同。
+  十二項形態／週期／C1 測試通過，涵蓋分岔條紋、開口玫瑰斑、
+  淡色網絡連通性、淺毛層與顏料分離，以及實際顏料肩部和週期接縫。
+  build、typecheck、lint、format:check 與完整 Vitest 通過：
+  176 files／1986 tests passed。
+- Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認三種圖案及週期排列。
+  metallic bytes 全為 0，roughness bytes 皆為 210–234；每米 repeats
+  依序 3.125／2.777778／1.666667，四份貼圖 destroy 後均確認已釋放。
+  主工作目錄 WebGPU pixels 與隔離快照相同。
+- 主目錄 build、typecheck 與當時 535 個材質測試通過。
+  整合保留進行中的 tiretread／honeycomb／frost，三者四份 maps
+  在整合前後 hash 相同，不納入本組提交；不覆蓋其他同步工作。
+- 提交前其他工作已獨立提交 tiretread／honeycomb／frost，故重新建立
+  含三者的隔離快照；最終共 144 種，原 141 種 maps 全部不變，
+  本組三者 source／ESM／CJS 與 WebGPU pixels 亦保持相同。
+  最終 build、typecheck、lint、format:check 與完整 Vitest 再次通過：
+  176 files／2000 tests passed；前述 1986 是初始快照的當時結果。
+- 文件沒有新增相對連結，README 既有自然表面分類維持適用。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

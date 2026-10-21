@@ -103,6 +103,64 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const shortFur =
+    kind === 'zebrafur' || kind === 'leopardfur' || kind === 'giraffefur';
+  const furWarp = shortFur ? cachedNoise(5, 7, seed ^ 0x72b9) : null;
+  const furGrain = shortFur ? cachedNoise(96, 64, seed ^ 0x4c13) : null;
+  // Each short hair has compact C1 elliptical support strictly inside the
+  // neighboring cells. Pigment never participates in the pile's height field.
+  const furFibers = shortFur ? new Float64Array(40 * 32 * 4) : null;
+  if (furFibers)
+    for (let y = 0; y < 32; y++)
+      for (let x = 0; x < 40; x++) {
+        const offset = (y * 40 + x) * 4,
+          angle = Math.PI / 2 + 0.65 * (hash(x, y, seed ^ 0x173d) - 0.5);
+        furFibers[offset] = 0.3 + 0.4 * hash(x, y, seed ^ 0x53a1);
+        furFibers[offset + 1] = 0.3 + 0.4 * hash(x, y, seed ^ 0x6b29);
+        furFibers[offset + 2] = Math.cos(angle);
+        furFibers[offset + 3] = Math.sin(angle);
+      }
+  const rosettes = kind === 'leopardfur' ? new Float64Array(5 * 5 * 7) : null;
+  if (rosettes)
+    for (let y = 0; y < 5; y++)
+      for (let x = 0; x < 5; x++) {
+        const offset = (y * 5 + x) * 7,
+          angle = TAU * hash(x, y, seed ^ 0x39a7);
+        rosettes[offset] = 0.32 + 0.36 * hash(x, y, seed ^ 0x19e3);
+        rosettes[offset + 1] = 0.32 + 0.36 * hash(x, y, seed ^ 0x5d71);
+        rosettes[offset + 2] = Math.cos(angle);
+        rosettes[offset + 3] = Math.sin(angle);
+        rosettes[offset + 4] = 1 / (0.39 + 0.08 * hash(x, y, seed ^ 0x6c35));
+        rosettes[offset + 5] = 1 / (0.34 + 0.07 * hash(x, y, seed ^ 0x2f19));
+        rosettes[offset + 6] = hash(x, y, seed ^ 0x73b1);
+      }
+  // Shared bisectors inset every patch from its neighbors. The complementary
+  // pale network stays connected; no hard nearest-site ownership is sampled.
+  const furPatches =
+    kind === 'giraffefur' ? new Float64Array(6 * 6 * 27) : null;
+  if (furPatches)
+    for (let y = 0; y < 6; y++)
+      for (let x = 0; x < 6; x++) {
+        const offset = (y * 6 + x) * 27,
+          px = 0.3 + 0.4 * hash(x, y, seed ^ 0x43b9),
+          py = 0.3 + 0.4 * hash(x, y, seed ^ 0x6a17);
+        furPatches[offset] = px;
+        furPatches[offset + 1] = py;
+        furPatches[offset + 2] = hash(x, y, seed ^ 0x27d3);
+        let plane = offset + 3;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            if (ox === 0 && oy === 0) continue;
+            const wx = (x + ox + 6) % 6,
+              wy = (y + oy + 6) % 6,
+              dx = ox + 0.3 + 0.4 * hash(wx, wy, seed ^ 0x43b9) - px,
+              dy = oy + 0.3 + 0.4 * hash(wx, wy, seed ^ 0x6a17) - py,
+              distance = Math.sqrt(dx * dx + dy * dy);
+            furPatches[plane++] = dx / distance;
+            furPatches[plane++] = dy / distance;
+            furPatches[plane++] = distance / 2;
+          }
+      }
   const endgrainCenterU = kind === 'endgrain' ? hash(0, 0, seed ^ 0x3b17) : 0;
   const endgrainCenterV = kind === 'endgrain' ? hash(0, 0, seed ^ 0x5d29) : 0;
   // Four dark/four light yarns woven in 2/2 twill produce broken-check teeth.
@@ -776,7 +834,8 @@ export function createSurfaceSampler(
       mineral ||
       bulkGrain ||
       foliage ||
-      marine
+      marine ||
+      shortFur
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -803,6 +862,122 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'zebrafur':
+      case 'leopardfur':
+      case 'giraffefur': {
+        const warp = furWarp!(u, v),
+          grain = furGrain!(u, v),
+          fx = u * 40,
+          fy = v * 32,
+          column = Math.floor(fx),
+          row = Math.floor(fy);
+        let fibers = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset = (((cy + 32) % 32) * 40 + ((cx + 40) % 40)) * 4,
+              dx = fx - cx - furFibers![offset],
+              dy = fy - cy - furFibers![offset + 1],
+              along =
+                (dx * furFibers![offset + 2] + dy * furFibers![offset + 3]) /
+                0.58,
+              across =
+                (dy * furFibers![offset + 2] - dx * furFibers![offset + 3]) /
+                0.13,
+              hair = smooth(clamp(1 - along * along - across * across));
+            fibers += (1 - fibers) * hair;
+          }
+        if (kind === 'zebrafur') {
+          const bend =
+              0.42 * Math.sin(TAU * 2 * v + phase) + 0.75 * (warp - 0.5),
+            carrier = TAU * (8 * u + bend),
+            // A subharmonic crossing unit amplitude changes the number of
+            // stripes: paired bands genuinely join, rather than just waving.
+            branching = 1.65 * Math.sin(TAU * 2 * v - phase),
+            pigment =
+              Math.cos(carrier) +
+              branching *
+                Math.cos(carrier * 0.5 + 0.3 * Math.sin(TAU * v + phase));
+          color =
+            0.025 +
+            0.94 * smooth(clamp((pigment + 0.13 + 0.16 * (warp - 0.5)) / 0.26));
+        } else if (kind === 'leopardfur') {
+          const x = 5 * u + 0.12 * Math.sin(TAU * 3 * v + phase),
+            y = 5 * v + 0.12 * Math.sin(TAU * 2 * u - phase),
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          let rings = 0,
+            centers = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = (((cy + 5) % 5) * 5 + ((cx + 5) % 5)) * 7,
+                dx = x - cx - rosettes![offset],
+                dy = y - cy - rosettes![offset + 1],
+                a =
+                  (dx * rosettes![offset + 2] + dy * rosettes![offset + 3]) *
+                  rosettes![offset + 4],
+                b =
+                  (dy * rosettes![offset + 2] - dx * rosettes![offset + 3]) *
+                  rosettes![offset + 5],
+                // Bounded Cartesian lobing stays regular at the center and
+                // keeps the entire support within 0.53 cell units.
+                squared = a * a + b * b,
+                radius =
+                  squared * (1 + (0.18 * a * b + 0.16 * a) / (1 + squared)),
+                outer = 1 - smooth(clamp((radius - 0.72) / 0.28)),
+                inner = smooth(clamp((radius - 0.25) / 0.2)),
+                gap =
+                  smooth(clamp((a - 0.35) / 0.28)) *
+                  (1 - smooth(clamp((b * b - 0.025) / 0.12))),
+                secondGap =
+                  smooth(clamp((-b - 0.48) / 0.25)) *
+                  (1 - smooth(clamp((a * a - 0.015) / 0.065))),
+                ring = outer * inner * (1 - gap) * (1 - secondGap),
+                center = (1 - inner) * (0.65 + 0.25 * rosettes![offset + 6]);
+              rings += (1 - rings) * ring;
+              centers += (1 - centers) * center * outer;
+            }
+          color =
+            (0.88 - 0.22 * centers + 0.055 * (warp - 0.5)) * (1 - 0.96 * rings);
+        } else {
+          const x = 6 * u + 0.13 * Math.sin(TAU * 2 * v + phase),
+            y = 6 * v + 0.13 * Math.sin(TAU * 3 * u - phase),
+            ix = Math.floor(x),
+            iy = Math.floor(y);
+          color = 0.95;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                offset = (((cy + 6) % 6) * 6 + ((cx + 6) % 6)) * 27,
+                dx = x - cx - furPatches![offset],
+                dy = y - cy - furPatches![offset + 1];
+              // Explicit compact support also makes lookup entry/exit C1.
+              let mask =
+                smooth(clamp((1.21 - dx * dx) / 0.21)) *
+                smooth(clamp((1.21 - dy * dy) / 0.21));
+              for (let edge = 0; edge < 8; edge++) {
+                const plane = offset + 3 + edge * 3,
+                  inset =
+                    furPatches![plane + 2] -
+                    dx * furPatches![plane] -
+                    dy * furPatches![plane + 1];
+                mask *= smooth(clamp((inset - 0.045) / 0.055));
+              }
+              color +=
+                mask *
+                (0.12 + 0.2 * furPatches![offset + 2] + 0.055 * warp - color);
+            }
+        }
+        color += 0.018 * (fibers - 0.5) + 0.012 * (grain - 0.5);
+        height = 0.28 + 0.24 * fibers + 0.035 * grain;
+        roughness += 0.07 * (fibers - 0.5) + 0.025 * (grain - 0.5);
+        occlusion = 0.985 + 0.012 * fibers;
+        break;
+      }
       case 'braincoral': {
         const x = TAU * u + 0.17 * Math.sin(TAU * v + phase),
           y = TAU * v + 0.17 * Math.sin(TAU * u - phase),

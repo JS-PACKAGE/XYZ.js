@@ -147,7 +147,10 @@ export type ProceduralMaterialKind =
   | 'seasponge'
   | 'houndstooth'
   | 'tartan'
-  | 'damask';
+  | 'damask'
+  | 'zebrafur'
+  | 'leopardfur'
+  | 'giraffefur';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -321,6 +324,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'houndstooth',
   'tartan',
   'damask',
+  'zebrafur',
+  'leopardfur',
+  'giraffefur',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
