@@ -104,10 +104,17 @@ var RenderCommandBuffer2D = class RenderCommandBuffer2D {
 	}
 	membersOf(e) {
 		let t = this.boundaryMembers.get(e);
-		return t || (t = this.memberLists.pop() ?? [], this.boundaryMembers.set(e, t)), t;
+		return t || (t = this.memberLists.pop() ?? {
+			objects: [],
+			count: 0
+		}, this.boundaryMembers.set(e, t)), t;
 	}
 	releaseBoundaryMembers() {
-		for (let e of this.boundaryMembers.values()) e.length = 0, this.memberLists.push(e);
+		for (let e of this.boundaryMembers.values()) {
+			let t = e.objects;
+			for (let n = 0; n < e.count; n++) t[n] = void 0;
+			e.count = 0, this.memberLists.push(e);
+		}
 		this.boundaryMembers.clear();
 	}
 	destroy() {
@@ -148,7 +155,7 @@ function partitionBoundaries2D(e, r, i) {
 				break;
 			}
 		}
-		e && ((!o || c !== a) && (a = c, o = i.membersOf(c)), o.push(s));
+		e && ((!o || c !== a) && (a = c, o = i.membersOf(c)), o.objects[o.count++] = s);
 	}
 }
 var o = {
@@ -157,23 +164,26 @@ var o = {
 	width: 0,
 	height: 0
 };
-var s = [];
+var s = {
+	objects: [],
+	count: 0
+};
 function collectBoundary2D(t, c, l, u, d, f, p, m) {
 	if (p > require_rendering2d.rendering2dLimits.layerDepth) throw RangeError(`Isolated layer nesting exceeds the render budget.`);
-	let h = t.camera2D;
-	for (let g of m.boundaryMembers.get(d) ?? s) {
-		let s = g instanceof require_isolated_group.IsolatedGroup2D && g.isolationEnabled;
-		if (s || g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D || g instanceof require_particle_layer2d.ParticleLayer2D) {
-			if (g instanceof require_sprite.Sprite || g instanceof require_mesh2d.Mesh2D) {
-				if (!g.renderEnabled || g.texture.destroyed) continue;
-				g.view?.validate();
+	let h = t.camera2D, g = m.boundaryMembers.get(d) ?? s;
+	for (let s = 0; s < g.count; s++) {
+		let d = g.objects[s], _ = d instanceof require_isolated_group.IsolatedGroup2D && d.isolationEnabled;
+		if (_ || d instanceof require_sprite.Sprite || d instanceof require_mesh2d.Mesh2D || d instanceof require_particle_layer2d.ParticleLayer2D) {
+			if (d instanceof require_sprite.Sprite || d instanceof require_mesh2d.Mesh2D) {
+				if (!d.renderEnabled || d.texture.destroyed) continue;
+				d.view?.validate();
 			}
-			if (!f && !(s && g.cacheAsTexture)) {
-				let e = g.getWorldBounds(o), t = g.worldSpace === `world`, n = t ? h.zoom : 1, r = e.x * n + (t ? -h.position.x * n + h.renderOffset.x : 0), i = e.y * n + (t ? -h.position.y * n + h.renderOffset.y : 0), a = r + e.width * n, s = i + e.height * n;
+			if (!f && !(_ && d.cacheAsTexture)) {
+				let e = d.getWorldBounds(o), t = d.worldSpace === `world`, n = t ? h.zoom : 1, r = e.x * n + (t ? -h.position.x * n + h.renderOffset.x : 0), i = e.y * n + (t ? -h.position.y * n + h.renderOffset.y : 0), a = r + e.width * n, s = i + e.height * n;
 				if (a < 0 || s < 0 || r > c || i > l || !Number.isFinite(r + i + a + s)) continue;
 			}
 			if (++m.collectedCount > require_rendering2d.rendering2dLimits.commands) throw RangeError(`Visible render commands exceed the render budget.`);
-			s ? collectBoundary2D(t, c, l, u.appendLayer(g), g, !0, p + 1, m) : g instanceof require_sprite.Sprite ? u.appendSprite(g) : g instanceof require_mesh2d.Mesh2D ? u.appendMesh(g) : g instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(g);
+			_ ? collectBoundary2D(t, c, l, u.appendLayer(d), d, !0, p + 1, m) : d instanceof require_sprite.Sprite ? u.appendSprite(d) : d instanceof require_mesh2d.Mesh2D ? u.appendMesh(d) : d instanceof require_particle_layer2d.ParticleLayer2D && u.appendParticles(d);
 		}
 	}
 	u.sort();

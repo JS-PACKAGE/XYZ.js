@@ -3081,3 +3081,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文件沒有新增相對連結，README 既有石材分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Rendering2D]` 2D 收集時各 isolation boundary 的成員清單改為「計數＋逐項清為 undefined」重用，不再每幀 `length = 0`（V8 會釋放 backing store、下一幀重新長大）；釋放後仍不保留 live 物件參照，收集順序不變。穩態（暖機 12 s 後取樣）tilemap2d WebGL2 每幀配置 54.6 → 20.3 KB，屬配置減少；canvas2d／WebGL2 browser regression 通過。build 與完整測試（1898 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

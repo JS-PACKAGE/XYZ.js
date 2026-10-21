@@ -41,6 +41,11 @@ export interface ParticlesCommand2D {
     object: ParticleLayer2D;
 }
 export type RenderCommand2D = SpriteCommand2D | LayerCommand2D | MeshCommand2D | ParticlesCommand2D;
+/** @internal A reused list whose entries past `count` are cleared, not truncated. */
+export interface MemberList2D {
+    readonly objects: (GameObject | undefined)[];
+    count: number;
+}
 /** Commands and nested buffers are reused after the peak visible count. */
 export declare class RenderCommandBuffer2D {
     readonly items: RenderCommand2D[];
@@ -49,7 +54,7 @@ export declare class RenderCommandBuffer2D {
     /** @internal Aggregate collection budget, including nested boundaries. */
     collectedCount: number;
     /** @internal Members of each isolation boundary, filled once per collection. */
-    readonly boundaryMembers: Map<IsolatedGroup2D | undefined, GameObject[]>;
+    readonly boundaryMembers: Map<IsolatedGroup2D | undefined, MemberList2D>;
     private readonly memberLists;
     /** Scratch for the stable bucketed sort; see sort(). */
     private sortSlots;
@@ -76,7 +81,7 @@ export declare class RenderCommandBuffer2D {
     /** @internal Only command records retain live frame references. */
     releaseTraversal(): void;
     /** @internal */
-    membersOf(boundary: IsolatedGroup2D | undefined): GameObject[];
+    membersOf(boundary: IsolatedGroup2D | undefined): MemberList2D;
     /** @internal */
     releaseBoundaryMembers(): void;
     destroy(): void;

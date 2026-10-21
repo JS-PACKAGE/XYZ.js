@@ -53,6 +53,11 @@ interface PooledCommand2D {
   screen: boolean;
   z: number;
 }
+/** @internal A reused list whose entries past `count` are cleared, not truncated. */
+export interface MemberList2D {
+  readonly objects: (GameObject | undefined)[];
+  count: number;
+}
 /** Commands and nested buffers are reused after the peak visible count. */
 export class RenderCommandBuffer2D {
   readonly items: RenderCommand2D[] = [];
@@ -63,9 +68,9 @@ export class RenderCommandBuffer2D {
   /** @internal Members of each isolation boundary, filled once per collection. */
   readonly boundaryMembers = new Map<
     IsolatedGroup2D | undefined,
-    GameObject[]
+    MemberList2D
   >();
-  private readonly memberLists: GameObject[][] = [];
+  private readonly memberLists: MemberList2D[] = [];
   /** Scratch for the stable bucketed sort; see sort(). */
   private sortSlots = new Int32Array(0);
   private readonly sortOutput: RenderCommand2D[] = [];
@@ -207,10 +212,10 @@ export class RenderCommandBuffer2D {
     this.traversal.length = 0;
   }
   /** @internal */
-  membersOf(boundary: IsolatedGroup2D | undefined): GameObject[] {
+  membersOf(boundary: IsolatedGroup2D | undefined): MemberList2D {
     let members = this.boundaryMembers.get(boundary);
     if (!members) {
-      members = this.memberLists.pop() ?? [];
+      members = this.memberLists.pop() ?? { objects: [], count: 0 };
       this.boundaryMembers.set(boundary, members);
     }
     return members;
@@ -218,7 +223,11 @@ export class RenderCommandBuffer2D {
   /** @internal */
   releaseBoundaryMembers(): void {
     for (const members of this.boundaryMembers.values()) {
-      members.length = 0;
+      // Overwrite rather than truncate: emptying an array drops its storage, which then
+      // regrew every frame. Released lists still hold no live frame references.
+      const objects = members.objects;
+      for (let i = 0; i < members.count; i++) objects[i] = undefined;
+      members.count = 0;
       this.memberLists.push(members);
     }
     this.boundaryMembers.clear();
@@ -295,7 +304,7 @@ function partitionBoundaries2D(
   out: RenderCommandBuffer2D,
 ): void {
   let lastBoundary: IsolatedGroup2D | undefined,
-    lastMembers: GameObject[] | undefined;
+    lastMembers: MemberList2D | undefined;
   for (const object of objects) {
     if (!(object instanceof GameObject) || object === root) continue;
     let visible = true,
@@ -323,12 +332,12 @@ function partitionBoundaries2D(
       lastBoundary = boundary;
       lastMembers = out.membersOf(boundary);
     }
-    lastMembers.push(object);
+    lastMembers.objects[lastMembers.count++] = object;
   }
 }
 
 const cullingBounds = { x: 0, y: 0, width: 0, height: 0 };
-const noMembers: readonly GameObject[] = [];
+const noMembers: MemberList2D = { objects: [], count: 0 };
 function collectBoundary2D(
   scene: Scene,
   width: number,
@@ -342,7 +351,9 @@ function collectBoundary2D(
   if (depth > rendering2dLimits.layerDepth)
     throw new RangeError('Isolated layer nesting exceeds the render budget.');
   const camera = scene.camera2D;
-  for (const object of budget.boundaryMembers.get(root) ?? noMembers) {
+  const members = budget.boundaryMembers.get(root) ?? noMembers;
+  for (let index = 0; index < members.count; index++) {
+    const object = members.objects[index]!;
     const layer = object instanceof IsolatedGroup2D && object.isolationEnabled;
     if (
       !layer &&
