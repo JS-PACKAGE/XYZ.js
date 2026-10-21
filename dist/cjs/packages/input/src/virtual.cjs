@@ -35,7 +35,10 @@ var VirtualInput = class {
 		return i >= n && a < n && r.value * t < n;
 	}
 	endFrame() {
-		for (let [e, t] of this.controls) t.value === 0 ? this.controls.delete(e) : (t.previous = t.value, t.minimum = t.maximum = t.value);
+		for (let e of this.controls.keys()) {
+			let t = this.controls.get(e);
+			t.value === 0 ? this.controls.delete(e) : (t.previous = t.value, t.minimum = t.maximum = t.value);
+		}
 	}
 	destroy() {
 		this.destroyed = !0, this.controls.clear();

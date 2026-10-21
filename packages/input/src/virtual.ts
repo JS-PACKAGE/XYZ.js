@@ -64,7 +64,8 @@ export class VirtualInput {
 
   /** @internal */
   endFrame(): void {
-    for (const [name, state] of this.controls) {
+    for (const name of this.controls.keys()) {
+      const state = this.controls.get(name)!;
       if (state.value === 0) this.controls.delete(name);
       else {
         state.previous = state.value;

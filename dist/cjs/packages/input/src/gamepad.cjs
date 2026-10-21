@@ -350,8 +350,8 @@ var ActionMap = class {
 		n || (this.edgePressed.clear(), this.edgeReleased.clear());
 		for (let e of this.pendingReleased) this.edgeReleased.add(e);
 		this.pendingReleased.clear();
-		for (let [n, r] of this.map) {
-			let i = this.managed ? this.frameDown.get(n) ?? this.down.get(n) ?? !1 : this.down.get(n) ?? !1;
+		for (let n of this.map.keys()) {
+			let r = this.map.get(n), i = this.managed ? this.frameDown.get(n) ?? this.down.get(n) ?? !1 : this.down.get(n) ?? !1;
 			this.managed && !this.frameDown.has(n) && this.frameDown.set(n, i);
 			let a = 0, o = !1, s = !1, c = !1;
 			for (let n of r) {

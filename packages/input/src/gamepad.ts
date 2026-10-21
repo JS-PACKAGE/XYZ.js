@@ -711,7 +711,9 @@ export class ActionMap {
     }
     for (const action of this.pendingReleased) this.edgeReleased.add(action);
     this.pendingReleased.clear();
-    for (const [action, list] of this.map) {
+    // Keys and get, not entries: an [key, value] pair per action was allocated every frame.
+    for (const action of this.map.keys()) {
+      const list = this.map.get(action)!;
       const previousDown = this.managed
         ? (this.frameDown.get(action) ?? this.down.get(action) ?? false)
         : (this.down.get(action) ?? false);
