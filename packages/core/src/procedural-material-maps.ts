@@ -6257,6 +6257,74 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * scar * block - 0.24 * border - 0.12 * (1 - block);
         break;
       }
+      case 'faucet': {
+        // A polished dome rises over its base plate with scale spots.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const dome = smooth(clamp((0.4 - radius) / 0.12));
+        const plate =
+          smooth(clamp((0.5 - radius) / 0.05)) *
+          smooth(clamp((radius - 0.4) / 0.05));
+        const su = fract(u * 8) - 0.5,
+          sv = fract(v * 8) - 0.5;
+        const spot = smooth(
+          clamp((0.12 - Math.sqrt(su * su + sv * sv)) / 0.05),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x6a17);
+        color = 0.4 + 0.3 * dome + 0.16 * plate + 0.07 * spot + 0.05 * grain;
+        height = 0.4 + 0.3 * dome + 0.14 * plate + 0.05 * spot + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.14 * dome;
+        occlusion = 1 - 0.18 * (1 - dome) - 0.1 * spot;
+        break;
+      }
+      case 'showerhead': {
+        // Spray holes sink into the grooved panel face.
+        const dx = u - 0.5,
+          dy = v - 0.5;
+        const radius = Math.sqrt(dx * dx + dy * dy);
+        const panel = smooth(clamp((0.42 - radius) / 0.06));
+        const groove = smooth(
+          clamp((0.03 - Math.abs(fract(12 * radius) - 0.5)) / 0.015),
+        );
+        const hu = fract(u * 10) - 0.5,
+          hv = fract(v * 10) - 0.5;
+        const hole = smooth(
+          clamp((0.12 - Math.sqrt(hu * hu + hv * hv)) / 0.05),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x31f8);
+        color =
+          0.46 +
+          0.3 * panel -
+          0.12 * groove * panel -
+          0.2 * hole * panel +
+          0.06 * grain;
+        height =
+          0.44 +
+          0.22 * panel -
+          0.1 * groove * panel -
+          0.22 * hole * panel +
+          0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * panel;
+        occlusion =
+          1 - 0.3 * hole * panel - 0.12 * groove * panel - 0.2 * (1 - panel);
+        break;
+      }
+      case 'bathmat': {
+        // Suction cups dome over the striped woven backing.
+        const row = Math.floor(v * 8);
+        const offset = (row % 2) * 0.5;
+        const du = fract(u * 8 + offset) - 0.5,
+          dv = fract(v * 8) - 0.5;
+        const cup = smooth(clamp((0.3 - Math.sqrt(du * du + dv * dv)) / 0.1));
+        const weave = 0.5 + 0.5 * Math.cos(TAU * 12 * v);
+        const grain = noise(u, v, 32, 32, seed ^ 0x24cb);
+        color = 0.42 + 0.32 * cup + 0.12 * weave + 0.06 * grain;
+        height = 0.44 + 0.28 * cup + 0.06 * weave + 0.02 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.1 * cup;
+        occlusion = 1 - 0.34 * (1 - cup) - 0.08 * (1 - weave);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

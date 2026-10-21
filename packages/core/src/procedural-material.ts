@@ -124,6 +124,9 @@ export type ProceduralMaterialKind =
   | 'woksurface'
   | 'cutlery'
   | 'choppingboard'
+  | 'faucet'
+  | 'showerhead'
+  | 'bathmat'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -387,6 +390,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'woksurface',
   'cutlery',
   'choppingboard',
+  'faucet',
+  'showerhead',
+  'bathmat',
   'sandstone',
   'travertine',
   'pumice',

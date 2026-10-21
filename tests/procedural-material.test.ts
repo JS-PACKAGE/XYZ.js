@@ -142,6 +142,9 @@ const kinds: ProceduralMaterialKind[] = [
   'woksurface',
   'cutlery',
   'choppingboard',
+  'faucet',
+  'showerhead',
+  'bathmat',
   'sandstone',
   'travertine',
   'pumice',
@@ -4887,6 +4890,9 @@ describe('periodic procedural material fields', () => {
     ['woksurface', [8, 32, 48, 64]],
     ['cutlery', [16, 32, 48, 64]],
     ['choppingboard', [4, 5, 32, 64]],
+    ['faucet', [8, 32, 48, 64]],
+    ['showerhead', [10, 12, 32, 64]],
+    ['bathmat', [8, 12, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5130,6 +5136,9 @@ describe('periodic procedural material fields', () => {
     ['woksurface', 8],
     ['cutlery', 16],
     ['choppingboard', 5],
+    ['faucet', 8],
+    ['showerhead', 12],
+    ['bathmat', 12],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -9299,6 +9308,72 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(scar.height + 0.05 * relief);
       expect(scar.height).toBeGreaterThan(border.height + 0.05 * relief);
       expect(surface.occlusion).toBeGreaterThan(scar.occlusion);
+    }
+  });
+
+  it('faucet domes over its base plate and scale spots', () => {
+    const relief = proceduralMaterialPresets.faucet.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const plate = { ...surface },
+      base = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('faucet', seed);
+      sample(0.5, 0.5, surface);
+      sample(0.94, 0.5, plate);
+      sample(0.98, 0.98, base);
+      expect(surface.height).toBeGreaterThan(plate.height + 0.05 * relief);
+      expect(plate.height).toBeGreaterThan(base.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(base.occlusion);
+    }
+  });
+
+  it('shower head sinks spray holes into the grooved panel', () => {
+    const relief = proceduralMaterialPresets.showerhead.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...surface },
+      hole = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('showerhead', seed);
+      sample(0.5, 0.5, surface);
+      sample(0.625, 0.5, groove);
+      sample(0.55, 0.45, hole);
+      expect(surface.height).toBeGreaterThan(groove.height + 0.05 * relief);
+      expect(groove.height).toBeGreaterThan(hole.height + 0.05 * relief);
+      expect(hole.occlusion).toBeLessThan(surface.occlusion);
+    }
+  });
+
+  it('bath mat domes suction cups over the woven backing', () => {
+    const relief = proceduralMaterialPresets.bathmat.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const base = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('bathmat', seed);
+      sample(1 / 16, 1 / 16, surface);
+      sample(0, 0, base);
+      expect(surface.height).toBeGreaterThan(base.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(base.occlusion);
     }
   });
 

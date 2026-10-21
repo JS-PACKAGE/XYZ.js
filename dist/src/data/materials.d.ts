@@ -708,6 +708,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.72;
         relief: 0.0035;
     }>;
+    faucet: Readonly<{
+        dark: readonly [92, 96, 102];
+        light: readonly [232, 236, 240];
+        roughness: 0.22;
+        relief: 0.003;
+    }>;
+    showerhead: Readonly<{
+        dark: readonly [122, 128, 136];
+        light: readonly [222, 228, 234];
+        roughness: 0.32;
+        relief: 0.0028;
+    }>;
+    bathmat: Readonly<{
+        dark: readonly [42, 92, 92];
+        light: readonly [142, 202, 198];
+        roughness: 0.86;
+        relief: 0.004;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1567,6 +1585,9 @@ export declare const proceduralTileMeters: Readonly<{
     woksurface: 0.12;
     cutlery: 0.1;
     choppingboard: 0.3;
+    faucet: 0.24;
+    showerhead: 0.18;
+    bathmat: 0.3;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;

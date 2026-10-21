@@ -1756,6 +1756,21 @@ function createSurfaceSampler(t, r) {
 				H = .5 + .24 * n - .14 * s * n - .14 * u + .06 * d, Z = .48 + .14 * n - .1 * s * n - .12 * u + .03 * d, Q += .05 * (d - .5) - .08 * n, $ = 1 - .3 * s * n - .24 * u - .12 * (1 - n);
 				break;
 			}
+			case `faucet`: {
+				let e = o - .5, t = A - .5, n = Math.sqrt(e * e + t * t), i = smooth(clamp((.4 - n) / .12)), a = smooth(clamp((.5 - n) / .05)) * smooth(clamp((n - .4) / .05)), s = fract(o * 8) - .5, c = fract(A * 8) - .5, l = smooth(clamp((.12 - Math.sqrt(s * s + c * c)) / .05)), u = noise(o, A, 32, 32, r ^ 27159);
+				H = .4 + .3 * i + .16 * a + .07 * l + .05 * u, Z = .4 + .3 * i + .14 * a + .05 * l + .02 * u, Q += .05 * (u - .5) - .14 * i, $ = 1 - .18 * (1 - i) - .1 * l;
+				break;
+			}
+			case `showerhead`: {
+				let e = o - .5, t = A - .5, n = Math.sqrt(e * e + t * t), i = smooth(clamp((.42 - n) / .06)), a = smooth(clamp((.03 - Math.abs(fract(12 * n) - .5)) / .015)), s = fract(o * 10) - .5, c = fract(A * 10) - .5, l = smooth(clamp((.12 - Math.sqrt(s * s + c * c)) / .05)), u = noise(o, A, 32, 32, r ^ 12792);
+				H = .46 + .3 * i - .12 * a * i - .2 * l * i + .06 * u, Z = .44 + .22 * i - .1 * a * i - .22 * l * i + .02 * u, Q += .05 * (u - .5) - .1 * i, $ = 1 - .3 * l * i - .12 * a * i - .2 * (1 - i);
+				break;
+			}
+			case `bathmat`: {
+				let e = Math.floor(A * 8) % 2 * .5, t = fract(o * 8 + e) - .5, i = fract(A * 8) - .5, a = smooth(clamp((.3 - Math.sqrt(t * t + i * i)) / .1)), s = .5 + .5 * Math.cos(n * 12 * A), c = noise(o, A, 32, 32, r ^ 9419);
+				H = .42 + .32 * a + .12 * s + .06 * c, Z = .44 + .28 * a + .06 * s + .02 * c, Q += .05 * (c - .5) - .1 * a, $ = 1 - .34 * (1 - a) - .08 * (1 - s);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

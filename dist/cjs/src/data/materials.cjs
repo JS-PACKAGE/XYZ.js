@@ -1644,6 +1644,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .72,
 		relief: .0035
 	}),
+	faucet: Object.freeze({
+		dark: [
+			92,
+			96,
+			102
+		],
+		light: [
+			232,
+			236,
+			240
+		],
+		roughness: .22,
+		relief: .003
+	}),
+	showerhead: Object.freeze({
+		dark: [
+			122,
+			128,
+			136
+		],
+		light: [
+			222,
+			228,
+			234
+		],
+		roughness: .32,
+		relief: .0028
+	}),
+	bathmat: Object.freeze({
+		dark: [
+			42,
+			92,
+			92
+		],
+		light: [
+			142,
+			202,
+			198
+		],
+		roughness: .86,
+		relief: .004
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -3414,6 +3456,9 @@ var proceduralTileMeters = Object.freeze({
 	woksurface: .12,
 	cutlery: .1,
 	choppingboard: .3,
+	faucet: .24,
+	showerhead: .18,
+	bathmat: .3,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
