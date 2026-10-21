@@ -47,6 +47,10 @@ export declare class GameObject extends SceneObject {
     get actions(): ActionQueue;
     /** @internal Do not instantiate queues on passive glyph/tile/pool sprites. */
     advanceActions(dt: number, canContinue?: () => boolean): void;
+    /** @internal Whether `advanceActions` has a queue to advance. */
+    get hasActionQueue(): boolean;
+    /** @internal Whether `initializeEvents` has already run. */
+    get eventsInitialized(): boolean;
     get body(): RigidBody2D | undefined;
     set body(value: RigidBody2D | undefined);
     /** Convex pieces sharing this object's body; ordinary objects use `collider` alone. */

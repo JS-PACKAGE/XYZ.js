@@ -406,6 +406,8 @@ export class Scene {
   private registeredTileMaps: Set<TileMap> | undefined;
   private meshRevision = 0;
   private registeredGPUParticles: Set<GPUParticleEmitter3D> | undefined;
+  /** The ParticleEmitter members of `objectUpdates`, in the same order. */
+  private particleEmitters: Set<ParticleEmitter> | undefined;
   private cameraDependents: Set<Object3D & CameraDependent3D> | undefined;
   /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
   private readonly objectUpdates = new Set<GameObject>();
@@ -600,6 +602,8 @@ export class Scene {
         this.objectUpdates.add(object);
         object.sceneUpdateId = ++lastObjectUpdate;
       }
+      if (object instanceof ParticleEmitter)
+        (this.particleEmitters ??= new Set()).add(object);
     } catch (error) {
       if (object instanceof GameObject) this.physicsWorld?.unregister(object);
       if (object instanceof Object3D) this.physicsWorld3D?.unregister(object);
@@ -650,6 +654,8 @@ export class Scene {
       this.objectUpdates.delete(object);
       object.sceneUpdateId = 0;
     }
+    if (object instanceof ParticleEmitter)
+      this.particleEmitters?.delete(object);
     object.detach(this);
     this.world.removeEntity(entity);
     if (object instanceof GameObject) this.physicsWorld?.unregister(object);
@@ -726,11 +732,19 @@ export class Scene {
     this.frameObjectUpdate = lastObjectUpdate;
   }
 
-  /** @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick. */
+  /**
+   * @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick.
+   *
+   * Every per-object pass below skips objects for which it would run nothing, before the
+   * continuation check: only listeners and overrides run user code, so without any the
+   * check's answer and the disposed state cannot have changed since it last held.
+   */
   beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void {
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
+      if (object.eventsInitialized && !object.observesUpdate('preupdate'))
+        continue;
       if (!canContinue() || this.disposed) return;
       object.initializeEvents();
       if (!canContinue() || this.disposed) return;
@@ -744,8 +758,9 @@ export class Scene {
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
+      if (!(object instanceof Sprite) || !object.animation) continue;
       if (!canContinue() || this.disposed) return;
-      if (object instanceof Sprite) object.animation?.update(deltaTime);
+      object.animation?.update(deltaTime);
     }
   }
 
@@ -754,6 +769,7 @@ export class Scene {
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
+      if (!object.hasActionQueue) continue;
       if (!canContinue() || this.disposed) return;
       object.advanceActions(deltaTime, canContinue);
     }
@@ -764,6 +780,11 @@ export class Scene {
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;
+      if (
+        object.update === GameObject.prototype.update &&
+        !object.observesUpdate('postupdate')
+      )
+        continue;
       if (!canContinue() || this.disposed) return;
       object.update(deltaTime);
       if (!canContinue() || this.disposed) return;
@@ -857,12 +878,14 @@ export class Scene {
     deltaTime: number,
     canContinue: () => boolean,
   ): boolean {
-    for (const object of this.objectUpdates) {
-      const id = object.sceneUpdateId;
-      if (id > this.frameObjectUpdate) break;
-      if (!canContinue() || this.disposed) return false;
-      if (object instanceof ParticleEmitter) object.updateSimulation(deltaTime);
-    }
+    // Emitters in update order; other objects run nothing in this pass.
+    const emitters = this.particleEmitters;
+    if (emitters)
+      for (const object of emitters) {
+        if (object.sceneUpdateId > this.frameObjectUpdate) break;
+        if (!canContinue() || this.disposed) return false;
+        object.updateSimulation(deltaTime);
+      }
     return true;
   }
 

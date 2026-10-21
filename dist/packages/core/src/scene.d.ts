@@ -165,6 +165,8 @@ export declare class Scene {
     private registeredTileMaps;
     private meshRevision;
     private registeredGPUParticles;
+    /** The ParticleEmitter members of `objectUpdates`, in the same order. */
+    private particleEmitters;
     private cameraDependents;
     /** Registration order; each object's `sceneUpdateId` stamps when it joined. */
     private readonly objectUpdates;
@@ -222,7 +224,13 @@ export declare class Scene {
     protected initialize(game: Game, signal: AbortSignal): void | Promise<void>;
     /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
     beginObjectFrame(): void;
-    /** @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick. */
+    /**
+     * @internal Re-entrant lifecycle callbacks cannot revive an object in the same tick.
+     *
+     * Every per-object pass below skips objects for which it would run nothing, before the
+     * continuation check: only listeners and overrides run user code, so without any the
+     * check's answer and the disposed state cannot have changed since it last held.
+     */
     beginObjectUpdates(deltaTime: number, canContinue: () => boolean): void;
     /** @internal Invoked independently of subclass Scene.update. */
     advanceFrameAnimations(deltaTime: number, canContinue: () => boolean): void;

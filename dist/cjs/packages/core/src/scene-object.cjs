@@ -14,6 +14,9 @@ var SceneObject = class extends EventTarget {
 	dispatchObjectEvent(e, t) {
 		this.observedEventTypes?.has(e) && this.dispatchEvent(new CustomEvent(e, { detail: t }));
 	}
+	observesUpdate(e) {
+		return this.observedEventTypes?.has(e) === !0;
+	}
 	emitUpdate(e, t) {
 		this.observedEventTypes?.has(e) && this.dispatchEvent(new CustomEvent(e, { detail: { dt: t } }));
 	}

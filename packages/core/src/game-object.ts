@@ -102,6 +102,14 @@ export class GameObject extends SceneObject {
   advanceActions(dt: number, canContinue?: () => boolean): void {
     this.actionQueue?.update(dt, canContinue);
   }
+  /** @internal Whether `advanceActions` has a queue to advance. */
+  get hasActionQueue(): boolean {
+    return this.actionQueue !== undefined;
+  }
+  /** @internal Whether `initializeEvents` has already run. */
+  get eventsInitialized(): boolean {
+    return this.initializedEvents;
+  }
   get body(): RigidBody2D | undefined {
     return this.rigidBody;
   }

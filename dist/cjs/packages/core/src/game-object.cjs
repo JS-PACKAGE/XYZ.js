@@ -70,6 +70,12 @@ var GameObject = class GameObject extends require_scene_object.SceneObject {
 	advanceActions(e, t) {
 		this.actionQueue?.update(e, t);
 	}
+	get hasActionQueue() {
+		return this.actionQueue !== void 0;
+	}
+	get eventsInitialized() {
+		return this.initializedEvents;
+	}
 	get body() {
 		return this.rigidBody;
 	}

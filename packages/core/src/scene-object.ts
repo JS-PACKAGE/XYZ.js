@@ -34,6 +34,10 @@ export abstract class SceneObject extends EventTarget {
     if (this.observedEventTypes?.has(type))
       this.dispatchEvent(new CustomEvent(type, { detail }));
   }
+  /** @internal Whether `emitUpdate(type)` would dispatch. */
+  observesUpdate(type: 'preupdate' | 'postupdate'): boolean {
+    return this.observedEventTypes?.has(type) === true;
+  }
   /** @internal Update payloads are allocated only for objects observing lifecycle events. */
   emitUpdate(type: 'preupdate' | 'postupdate', dt: number): void {
     if (this.observedEventTypes?.has(type))

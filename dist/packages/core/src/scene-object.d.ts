@@ -10,6 +10,8 @@ export declare abstract class SceneObject extends EventTarget {
     addEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: boolean | AddEventListenerOptions): void;
     /** @internal Untouched pooled sprites need no lifecycle Event allocations. */
     dispatchObjectEvent(type: string, detail?: unknown): void;
+    /** @internal Whether `emitUpdate(type)` would dispatch. */
+    observesUpdate(type: 'preupdate' | 'postupdate'): boolean;
     /** @internal Update payloads are allocated only for objects observing lifecycle events. */
     emitUpdate(type: 'preupdate' | 'postupdate', dt: number): void;
     get scene(): Scene | undefined;

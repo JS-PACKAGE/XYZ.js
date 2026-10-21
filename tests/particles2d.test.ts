@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { Texture } from '../packages/assets/src/index.js';
+import { GameObject } from '../packages/core/src/game-object.js';
 import { Group2D } from '../packages/core/src/gameplay/group2d.js';
 import {
   ParticleEmitter,
@@ -51,6 +52,41 @@ function state(emitter: ParticleEmitter): number[][] {
 }
 
 describe('pooled CPU particles', () => {
+  it('advances emitters and lifecycle listeners only for members of the frame', () => {
+    const scene = new Scene();
+    const events: string[] = [];
+    // A plain object runs nothing per frame except its update-event listeners.
+    const plain = scene.add(new GameObject());
+    plain.addEventListener('preupdate', () => events.push('pre'));
+    plain.addEventListener('postupdate', () => events.push('post'));
+    const first = scene.add(new ParticleEmitter(options()));
+    const advanced = (emitter: ParticleEmitter) =>
+      vi.spyOn(emitter, 'updateSimulation');
+    const firstRuns = advanced(first);
+    const frame = (beforeUpdates?: () => void): void => {
+      scene.beginObjectFrame();
+      beforeUpdates?.();
+      scene.beginObjectUpdates(0.25, () => true);
+      scene.advanceObjects(0.25, () => true);
+      scene.advanceAfterUpdate(0.25, () => true);
+    };
+    frame();
+    expect(events).toEqual(['pre', 'post']);
+    expect(firstRuns).toHaveBeenCalledTimes(1);
+    // Added after the frame began: it waits for the next one.
+    let secondRuns: ReturnType<typeof advanced> | undefined;
+    frame(() => {
+      secondRuns = advanced(scene.add(new ParticleEmitter(options())));
+    });
+    expect(firstRuns).toHaveBeenCalledTimes(2);
+    expect(secondRuns).toHaveBeenCalledTimes(0);
+    scene.remove(first);
+    frame();
+    expect(firstRuns).toHaveBeenCalledTimes(2);
+    expect(secondRuns).toHaveBeenCalledTimes(1);
+    expect(events).toEqual(['pre', 'post', 'pre', 'post', 'pre', 'post']);
+  });
+
   it('integrates local acceleration analytically and interpolates logical sizes and tint without changing source dimensions', () => {
     const emitter = new ParticleEmitter(
       options({ source: { x: 2, y: 1, width: 8, height: 4 } }),
