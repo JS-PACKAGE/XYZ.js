@@ -930,6 +930,79 @@ export function createSurfaceSampler(
         shellFaces[offset + 6] = TAU * hash(x, y, seed ^ 0x4b27);
         shellFaces[offset + 7] = 0.52 + 0.05 * Math.sin(shellFaces[offset + 6]);
       }
+  const nutshell =
+    kind === 'walnutshell' || kind === 'peanutshell' || kind === 'almondshell';
+  const nutGrain = nutshell ? cachedNoise(64, 48, seed ^ 0x63d7) : null;
+  const nutWarp =
+    kind === 'peanutshell' || kind === 'walnutshell'
+      ? cachedNoise(4, 6, seed ^ 0x3b59)
+      : null;
+  // Curved finite ridges join jittered nodes, with optional diagonal branches.
+  // Every support lies strictly inside (-0.75, 2.75)^2 of its anchor;
+  // the wrapped 5x5 lookup includes it even across anchor changes.
+  const walnutRidges =
+    kind === 'walnutshell' ? new Float64Array(7 * 7 * 3 * 8) : null;
+  if (walnutRidges)
+    for (let y = 0; y < 7; y++)
+      for (let x = 0; x < 7; x++) {
+        const ax = 0.2 + 0.6 * hash(x, y, seed ^ 0x196d),
+          ay = 0.2 + 0.6 * hash(x, y, seed ^ 0x57b3);
+        for (let branch = 0; branch < 3; branch++) {
+          const ox = branch === 1 ? 0 : 1,
+            oy = branch === 0 ? 0 : 1,
+            bx =
+              ox + 0.2 + 0.6 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x196d),
+            by =
+              oy + 0.2 + 0.6 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x57b3),
+            dx = bx - ax,
+            dy = by - ay,
+            length = Math.sqrt(dx * dx + dy * dy),
+            offset = ((y * 7 + x) * 3 + branch) * 8;
+          walnutRidges[offset] = (ax + bx) * 0.5;
+          walnutRidges[offset + 1] = (ay + by) * 0.5;
+          walnutRidges[offset + 2] = dx / length;
+          walnutRidges[offset + 3] = dy / length;
+          walnutRidges[offset + 4] = 1 / (length * 0.5 + 0.2);
+          walnutRidges[offset + 5] =
+            1 / (0.28 + 0.14 * hash(x, y, seed ^ (0x39a1 + branch)));
+          walnutRidges[offset + 6] =
+            0.64 * (hash(x, y, seed ^ (0x61c7 + branch)) - 0.5);
+          walnutRidges[offset + 7] =
+            branch === 1 ||
+            (branch === 0
+              ? hash(x, y, seed ^ 0x42ab) < 0.6
+              : hash(x, y, seed ^ 0x2d93) < 0.45)
+              ? 1
+              : 0;
+        }
+      }
+  const peanutLinks =
+    kind === 'peanutshell' ? new Float64Array(10 * 5 * 3) : null;
+  if (peanutLinks)
+    for (let y = 0; y < 5; y++)
+      for (let x = 0; x < 10; x++) {
+        const offset = (y * 10 + x) * 3;
+        peanutLinks[offset] = 0.25 + 0.5 * hash(x, y, seed ^ 0x2b71);
+        peanutLinks[offset + 1] = 1 / (0.09 + 0.04 * hash(x, y, seed ^ 0x57d1));
+        peanutLinks[offset + 2] = 0.3 * (hash(x, y, seed ^ 0x71b9) - 0.5);
+      }
+  // Pores stay within radius 0.44 of centers in [0.25, 0.75], so the
+  // wrapped 3x3 lookup never clips a rotated ellipse at a cell boundary.
+  const almondPores =
+    kind === 'almondshell' ? new Float64Array(16 * 12 * 7) : null;
+  if (almondPores)
+    for (let y = 0; y < 12; y++)
+      for (let x = 0; x < 16; x++) {
+        const offset = (y * 16 + x) * 7,
+          angle = 0.3 * (hash(x, y, seed ^ 0x37a9) - 0.5);
+        almondPores[offset] = 0.25 + 0.5 * hash(x, y, seed ^ 0x193b);
+        almondPores[offset + 1] = 0.25 + 0.5 * hash(x, y, seed ^ 0x5d27);
+        almondPores[offset + 2] = Math.cos(angle);
+        almondPores[offset + 3] = Math.sin(angle);
+        almondPores[offset + 4] = 1 / (0.1 + 0.03 * hash(x, y, seed ^ 0x6b13));
+        almondPores[offset + 5] = 1 / (0.32 + 0.12 * hash(x, y, seed ^ 0x41d7));
+        almondPores[offset + 6] = hash(x, y, seed ^ 0x79b1) > 0.3 ? 1 : 0;
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -966,6 +1039,7 @@ export function createSurfaceSampler(
       marine ||
       shortFur ||
       shell ||
+      nutshell ||
       fruitSkin ||
       petal
         ? 0
@@ -1182,6 +1256,107 @@ export function createSurfaceSampler(
         height = 0.15 + 0.016 * grain + 0.23 * hairs - 0.085 * pits;
         roughness += 0.055 * hairs - 0.025 * pits;
         occlusion = 1 - 0.23 * pits;
+        break;
+      }
+      case 'walnutshell': {
+        // Flowing longitudinal ridges and missing cross-links avoid a lattice.
+        const x = u * 7 + 0.8 * (nutWarp!(u, v) - 0.5),
+          y = v * 7,
+          column = Math.floor(x),
+          row = Math.floor(y);
+        let ridges = 0;
+        for (let oy = -2; oy <= 2; oy++)
+          for (let ox = -2; ox <= 2; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              cell = (((cy + 7) % 7) * 7 + ((cx + 7) % 7)) * 24;
+            for (let branch = 0; branch < 3; branch++) {
+              const offset = cell + branch * 8;
+              if (!walnutRidges![offset + 7]) continue;
+              const dx = x - cx - walnutRidges![offset],
+                dy = y - cy - walnutRidges![offset + 1],
+                cosine = walnutRidges![offset + 2],
+                sine = walnutRidges![offset + 3],
+                a = (dx * cosine + dy * sine) * walnutRidges![offset + 4];
+              if (a * a >= 1) continue;
+              const across =
+                  dy * cosine -
+                  dx * sine -
+                  walnutRidges![offset + 6] * (1 - a * a),
+                b = across * walnutRidges![offset + 5],
+                ridge =
+                  smooth(clamp((1 - a * a) / 0.4)) * smooth(clamp(1 - b * b));
+              ridges += ridge;
+            }
+          }
+        const crest = ridges / (0.65 + ridges),
+          grain = nutGrain!(u, v);
+        color = 0.13 + 0.74 * crest + 0.055 * grain;
+        height = 0.13 + 0.75 * crest + 0.012 * grain;
+        occlusion = 0.45 + 0.53 * crest;
+        roughness += 0.035 * (1 - crest) + 0.012 * (grain - 0.5);
+        break;
+      }
+      case 'peanutshell': {
+        const x =
+            u * 10 +
+            0.28 * Math.sin(TAU * v + phase) +
+            0.3 * (nutWarp!(u, v) - 0.5),
+          y = v * 5,
+          column = Math.floor(x),
+          row = Math.floor(y),
+          rib = smooth(clamp((Math.cos(TAU * x) - 0.6) / 0.4));
+        let links = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset = (((cy + 5) % 5) * 10 + ((cx + 10) % 10)) * 3,
+              dx = x - cx - 0.5,
+              dy = y - cy - peanutLinks![offset],
+              a = dx / 0.65,
+              b =
+                (dy - peanutLinks![offset + 2] * dx) * peanutLinks![offset + 1],
+              q = a * a + b * b;
+            if (q < 1) links += smooth(1 - q);
+          }
+        const cross = links / (0.5 + links),
+          grain = nutGrain!(u, v);
+        color = 0.5 + 0.22 * rib + 0.12 * cross + 0.045 * grain;
+        height = 0.25 + 0.38 * rib + 0.17 * cross + 0.008 * grain;
+        occlusion = 0.72 + 0.19 * rib + 0.075 * cross;
+        roughness += 0.025 * (1 - rib) + 0.012 * (grain - 0.5);
+        break;
+      }
+      case 'almondshell': {
+        const x = u * 16,
+          y = v * 12,
+          column = Math.floor(x),
+          row = Math.floor(y);
+        let pores = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              cy = row + oy,
+              offset = (((cy + 12) % 12) * 16 + ((cx + 16) % 16)) * 7;
+            if (!almondPores![offset + 6]) continue;
+            const dx = x - cx - almondPores![offset],
+              dy = y - cy - almondPores![offset + 1],
+              cosine = almondPores![offset + 2],
+              sine = almondPores![offset + 3],
+              a = (dx * cosine + dy * sine) * almondPores![offset + 4],
+              b = (dy * cosine - dx * sine) * almondPores![offset + 5],
+              q = a * a + b * b;
+            if (q < 1) pores += smooth(1 - q);
+          }
+        const grain = nutGrain!(u, v),
+          fiber =
+            0.5 +
+            0.5 * Math.cos(TAU * 43 * u + 0.35 * Math.sin(TAU * v + phase));
+        color = 0.76 - 0.45 * pores + 0.035 * grain + 0.018 * fiber;
+        height = 0.62 - 0.33 * pores + 0.006 * grain + 0.004 * fiber;
+        occlusion = 0.98 - 0.38 * pores;
+        roughness += 0.035 * pores + 0.012 * (grain - 0.5);
         break;
       }
       case 'scallopshell':

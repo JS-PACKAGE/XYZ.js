@@ -2274,6 +2274,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .38,
 		relief: .004
 	}),
+	walnutshell: Object.freeze({
+		dark: [
+			65,
+			30,
+			12
+		],
+		light: [
+			177,
+			126,
+			70
+		],
+		roughness: .88,
+		relief: .003
+	}),
+	peanutshell: Object.freeze({
+		dark: [
+			146,
+			105,
+			53
+		],
+		light: [
+			237,
+			213,
+			164
+		],
+		roughness: .9,
+		relief: .0015
+	}),
+	almondshell: Object.freeze({
+		dark: [
+			133,
+			91,
+			47
+		],
+		light: [
+			224,
+			193,
+			143
+		],
+		roughness: .86,
+		relief: .0012
+	}),
 	cantaloupe: Object.freeze({
 		dark: [
 			70,
@@ -2522,6 +2564,9 @@ var proceduralTileMeters = Object.freeze({
 	scallopshell: .28,
 	oystershell: .32,
 	nautilusshell: .24,
+	walnutshell: .06,
+	peanutshell: .04,
+	almondshell: .035,
 	cantaloupe: .14,
 	dragonfruit: .18,
 	kiwiskin: .045,

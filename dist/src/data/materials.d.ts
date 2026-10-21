@@ -978,6 +978,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.38;
         relief: 0.004;
     }>;
+    walnutshell: Readonly<{
+        dark: readonly [65, 30, 12];
+        light: readonly [177, 126, 70];
+        roughness: 0.88;
+        relief: 0.003;
+    }>;
+    peanutshell: Readonly<{
+        dark: readonly [146, 105, 53];
+        light: readonly [237, 213, 164];
+        roughness: 0.9;
+        relief: 0.0015;
+    }>;
+    almondshell: Readonly<{
+        dark: readonly [133, 91, 47];
+        light: readonly [224, 193, 143];
+        roughness: 0.86;
+        relief: 0.0012;
+    }>;
     cantaloupe: Readonly<{
         dark: readonly [70, 83, 36];
         light: readonly [215, 188, 132];
@@ -1179,6 +1197,9 @@ export declare const proceduralTileMeters: Readonly<{
     scallopshell: 0.28;
     oystershell: 0.32;
     nautilusshell: 0.24;
+    walnutshell: 0.06;
+    peanutshell: 0.04;
+    almondshell: 0.035;
     cantaloupe: 0.14;
     dragonfruit: 0.18;
     kiwiskin: 0.045;

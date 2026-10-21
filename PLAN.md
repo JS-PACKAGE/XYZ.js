@@ -132,6 +132,8 @@
 
 花瓣表面增量追加 rosepetal／lilypetal／fritillarypetal（玫瑰花瓣／百合花瓣／棋盤貝母花瓣），目前共一百六十八種；前述 counts 保留為歷史。玫瑰為酒紅至玫瑰紅色的柔和流動摺紋，疊加密集細小隆起乳突與高粗糙度的絲絨感微紋，不是布料織紋、毛髮或凹孔；百合為奶油／象牙白至暖黃色的細縱肋、淺摺紋與不規則細長紅褐色顏料斑點，較玫瑰平滑的緞面粗糙度，斑點不是凹洞；棋盤貝母為紫／奶油色沿兩軸交替的棋盤顏料、柔和游移格界與細縱紋，淺肋起伏獨立於色格，不是磁磚填縫或織物。三者皆為 opaque dielectric，metallic B 通道及 `material`／`createMaterial()` 預設 metallic factor 均為 0，僅沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat defaults；各 scalar fields 在週期接縫與內部支撐交界須保持 C1。僅為表面 shading／normal map 效果，不建立花朵 geometry、alpha、displacement、transmission、次表面散射（SSS）、模擬或新 BRDF 能力。前一百六十五種四份 maps 輸出須逐位元組保持不變；公開 size／seed／contrast／roughnessBias／repeats options、呼叫者 ownership、借用 maps 的生命週期、backend 與零新增依賴契約不變。沿既有授權逐功能獨立 commit、不 push；實際驗證另記 ACCEPTANCE，不在本段宣稱驗收。
 
+堅果殼表面增量追加 walnutshell／peanutshell／almondshell（核桃殼／花生殼／杏仁殼），目前共一百七十一種；前述 counts 保留為歷史。核桃殼為不規則蜿蜒分岔的粗隆脊與深棕色凹谷，不是規則網格或珊瑚／石材換色；花生殼為淡稻草／棕褐色網紋，較強縱肋與次要橫向連結圍成不規則細長網格，不做織物上下穿插；杏仁殼為淺黃褐色殼面、零散細長凹孔與細微定向紋理，凹孔須具有負向起伏與 occlusion，不是純顏料斑點或隆起珠粒。三者皆為 opaque dielectric，metallic B 通道與預設 factor 為 0，沿用 CPU 一次生成的 baseColor／normal／metallicRoughness／occlusion 四份 seeded deterministic periodic maps 與 physical repeat；建議 tileSize 分別為 0.06／0.04／0.035 m。僅為表面 shading／normal map 效果，不建立完整堅果 geometry、displacement、cutout、半透明、transmission、次表面散射（SSS）或新 BRDF。前一百六十八種 presets 與四份 maps 輸出須保持不變；公開 options、ownership、生命週期、backend 與零新增依賴契約不變。實際驗證另記 ACCEPTANCE，不在本段宣稱驗收。
+
 ## 倉庫結構
 
 - `src/`：公開統一入口及集中可調常數 `src/data/`。

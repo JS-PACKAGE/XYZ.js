@@ -187,6 +187,9 @@ const kinds: ProceduralMaterialKind[] = [
   'scallopshell',
   'oystershell',
   'nautilusshell',
+  'walnutshell',
+  'peanutshell',
+  'almondshell',
   'cantaloupe',
   'dragonfruit',
   'kiwiskin',
@@ -1157,6 +1160,416 @@ describe('periodic procedural material fields', () => {
         );
       }
     });
+  });
+
+  describe('opaque nutshell surfaces', () => {
+    const nutKinds = ['walnutshell', 'peanutshell', 'almondshell'] as const;
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const almond = (x: number, y: number, seed: number) => {
+      const angle = 0.3 * (hash(x, y, seed ^ 0x37a9) - 0.5),
+        cosine = Math.cos(angle),
+        sine = Math.sin(angle),
+        cx = x + 0.25 + 0.5 * hash(x, y, seed ^ 0x193b),
+        cy = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x5d27),
+        rx = 0.1 + 0.03 * hash(x, y, seed ^ 0x6b13),
+        ry = 0.32 + 0.12 * hash(x, y, seed ^ 0x41d7);
+      return (a: number, b: number): [number, number] => [
+        (cx + a * rx * cosine - b * ry * sine) / 16,
+        (cy + a * rx * sine + b * ry * cosine) / 12,
+      ];
+    };
+    const nutNoise = (u: number, v: number, seed: number): number => {
+      // A tiny negative coordinate can round to 1 after subtracting floor.
+      // Canonicalize it before indexing the periodic noise lattice.
+      const px = ((u - Math.floor(u)) % 1) * 4,
+        py = ((v - Math.floor(v)) % 1) * 6,
+        ix = Math.floor(px),
+        iy = Math.floor(py),
+        fx = px - ix,
+        fy = py - iy,
+        sx = fx * fx * (3 - 2 * fx),
+        sy = fy * fy * (3 - 2 * fy),
+        a = hash(ix, iy, seed ^ 0x3b59),
+        b = hash((ix + 1) % 4, iy, seed ^ 0x3b59),
+        c = hash(ix, (iy + 1) % 6, seed ^ 0x3b59),
+        d = hash((ix + 1) % 4, (iy + 1) % 6, seed ^ 0x3b59);
+      return (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+    };
+    const walnutUV = (x: number, y: number, seed: number): [number, number] => {
+      const v = y / 7;
+      let low = (x - 0.5) / 7,
+        high = (x + 0.5) / 7;
+      // The carrier's u-slope is at least 7 - 0.8 * 4 * 1.5 > 0.
+      for (let i = 0; i < 50; i++) {
+        const u = (low + high) * 0.5;
+        if (7 * u + 0.8 * (nutNoise(u, v, seed) - 0.5) < x) low = u;
+        else high = u;
+      }
+      return [(low + high) * 0.5, v];
+    };
+    const walnut = (x: number, y: number, branch: number, seed: number) => {
+      const ox = branch === 1 ? 0 : 1,
+        oy = branch === 0 ? 0 : 1,
+        ax = x + 0.2 + 0.6 * hash(x, y, seed ^ 0x196d),
+        ay = y + 0.2 + 0.6 * hash(x, y, seed ^ 0x57b3),
+        bx =
+          x + ox + 0.2 + 0.6 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x196d),
+        by =
+          y + oy + 0.2 + 0.6 * hash((x + ox) % 7, (y + oy) % 7, seed ^ 0x57b3),
+        length = Math.hypot(bx - ax, by - ay),
+        cosine = (bx - ax) / length,
+        sine = (by - ay) / length,
+        radius = length * 0.5 + 0.2,
+        width = 0.28 + 0.14 * hash(x, y, seed ^ (0x39a1 + branch)),
+        bend = 0.64 * (hash(x, y, seed ^ (0x61c7 + branch)) - 0.5);
+      return (a: number, b: number): [number, number] => {
+        const across = b * width + bend * (1 - a * a);
+        return walnutUV(
+          (ax + bx) * 0.5 + a * radius * cosine - across * sine,
+          (ay + by) * 0.5 + a * radius * sine + across * cosine,
+          seed,
+        );
+      };
+    };
+    // Invert the periodic carrier to locate actual peanut ribs/link supports.
+    const peanut = (x: number, v: number, seed: number): [number, number] => {
+      const warp = (u: number): number =>
+        10 * u +
+        0.28 * Math.sin(2 * Math.PI * (v + hash(0, 0, seed))) +
+        0.3 * (nutNoise(u, v, seed) - 0.5);
+      let low = (x - 0.5) / 10,
+        high = (x + 0.5) / 10;
+      for (let i = 0; i < 50; i++) {
+        const u = (low + high) * 0.5;
+        if (warp(u) < x) low = u;
+        else high = u;
+      }
+      return [(low + high) * 0.5, v];
+    };
+
+    it.each(nutKinds)(
+      '%s correlates physical relief, pigment and cavity occlusion',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            out = empty();
+          let minimum = Infinity,
+            maximum = -Infinity,
+            lowAO = 1,
+            highAO = 0,
+            sumH = 0,
+            sumC = 0,
+            sumAO = 0,
+            sumHC = 0,
+            sumHAO = 0,
+            minRoughness = 1,
+            maxRoughness = 0,
+            maxMetal = 0,
+            maxMortar = 0;
+          const count = 96 * 96;
+          for (let y = 0; y < 96; y++)
+            for (let x = 0; x < 96; x++) {
+              sample((x + 0.37) / 96, (y + 0.23) / 96, out);
+              const h = out.height / proceduralMaterialPresets[kind].relief;
+              minimum = Math.min(minimum, h);
+              maximum = Math.max(maximum, h);
+              lowAO = Math.min(lowAO, out.occlusion);
+              highAO = Math.max(highAO, out.occlusion);
+              minRoughness = Math.min(minRoughness, out.roughness);
+              maxRoughness = Math.max(maxRoughness, out.roughness);
+              maxMetal = Math.max(maxMetal, out.metallic);
+              maxMortar = Math.max(maxMortar, out.mortar);
+              sumH += h;
+              sumC += out.color;
+              sumAO += out.occlusion;
+              sumHC += h * out.color;
+              sumHAO += h * out.occlusion;
+            }
+          expect(maximum - minimum).toBeGreaterThan(0.27);
+          expect(highAO - lowAO).toBeGreaterThan(0.17);
+          expect(
+            sumHC / count - (sumH * sumC) / (count * count),
+          ).toBeGreaterThan(0.001);
+          expect(
+            sumHAO / count - (sumH * sumAO) / (count * count),
+          ).toBeGreaterThan(0.0007);
+          expect(minimum).toBeGreaterThan(0);
+          expect(maximum).toBeLessThan(1);
+          expect(minRoughness).toBeGreaterThan(0.8);
+          expect(maxRoughness).toBeLessThan(1);
+          expect(maxMetal).toBe(0);
+          expect(maxMortar).toBe(0);
+        }
+      },
+    );
+
+    it('peanut retains strong longitudinal ribs with weaker nonalternating cross-links', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('peanutshell', seed),
+          rib = empty(),
+          side = empty(),
+          link = empty(),
+          gap = empty(),
+          a = empty(),
+          b = empty(),
+          c = empty();
+        let minimumRib = Infinity,
+          minimumLink = Infinity,
+          maximumLink = 0,
+          uEnergy = 0,
+          vEnergy = 0;
+        for (let y = 0; y < 5; y++)
+          for (let x = 0; x < 10; x++) {
+            const center = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x2b71);
+            sample(...peanut(x, center / 5, seed), rib);
+            sample(...peanut(x + 0.25, center / 5, seed), side);
+            sample(...peanut(x + 0.5, center / 5, seed), link);
+            sample(...peanut(x + 0.5, (center + 0.25) / 5, seed), gap);
+            minimumRib = Math.min(
+              minimumRib,
+              (rib.height - side.height) / 0.0015,
+            );
+            minimumLink = Math.min(
+              minimumLink,
+              (link.height - gap.height) / 0.0015,
+            );
+            maximumLink = Math.max(
+              maximumLink,
+              (link.height - gap.height) / 0.0015,
+            );
+          }
+        for (let y = 0; y < 64; y++)
+          for (let x = 0; x < 64; x++) {
+            const u = (x + 0.31) / 64,
+              v = (y + 0.43) / 64;
+            sample(u, v, a);
+            sample(u + 1 / 512, v, b);
+            sample(u, v + 1 / 512, c);
+            uEnergy += (a.height - b.height) ** 2;
+            vEnergy += (a.height - c.height) ** 2;
+          }
+        expect(minimumRib).toBeGreaterThan(0.25);
+        expect(minimumLink).toBeGreaterThan(0.095);
+        expect(maximumLink).toBeLessThan(0.13);
+        expect(uEnergy / vEnergy).toBeGreaterThan(5);
+      }
+    });
+
+    it('almond pores are elongated negative relief, not pigment spots or beads', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('almondshell', seed),
+          center = empty(),
+          across = empty(),
+          along = empty();
+        let depression = Infinity,
+          shadow = Infinity,
+          elongation = Infinity,
+          count = 0;
+        for (let y = 0; y < 12; y++)
+          for (let x = 0; x < 16; x++) {
+            if (hash(x, y, seed ^ 0x79b1) <= 0.3) continue;
+            const point = almond(x, y, seed);
+            sample(...point(0, 0), center);
+            sample(...point(1.1, 0), across);
+            sample(...point(0, 0.4), along);
+            depression = Math.min(
+              depression,
+              (across.height - center.height) / 0.0012,
+            );
+            shadow = Math.min(shadow, across.occlusion - center.occlusion);
+            elongation = Math.min(
+              elongation,
+              (across.height - along.height) / 0.0012,
+            );
+            count++;
+          }
+        expect(count).toBeGreaterThan(90);
+        expect(depression).toBeGreaterThan(0.3);
+        expect(shadow).toBeGreaterThan(0.35);
+        expect(elongation).toBeGreaterThan(0.28);
+      }
+    });
+
+    it('walnut winding ridges join and branch above deep concavities', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('walnutshell', seed),
+          crest = empty(),
+          hollow = empty(),
+          node = empty();
+        let raised = 0,
+          branches = 0,
+          joined = 0,
+          winding = 0;
+        for (let y = 0; y < 7; y++)
+          for (let x = 0; x < 7; x++) {
+            for (let branch = 0; branch < 3; branch++) {
+              if (branch === 2 && hash(x, y, seed ^ 0x2d93) >= 0.45) continue;
+              if (branch === 0 && hash(x, y, seed ^ 0x42ab) >= 0.6) continue;
+              const point = walnut(x, y, branch, seed);
+              sample(...point(0, 0), crest);
+              // A neighboring branch may occupy one side of a ridge.
+              let hasValley = false;
+              for (let side = -1; side <= 1; side += 2) {
+                sample(...point(0, side * 1.8), hollow);
+                if (
+                  crest.height > hollow.height + 0.0003 &&
+                  crest.occlusion > hollow.occlusion + 0.07
+                )
+                  hasValley = true;
+              }
+              if (hasValley) raised++;
+              const bend = 0.64 * (hash(x, y, seed ^ (0x61c7 + branch)) - 0.5),
+                width = 0.28 + 0.14 * hash(x, y, seed ^ (0x39a1 + branch));
+              sample(...point(0, -bend / width), hollow);
+              if (crest.height > hollow.height + 0.00003) winding++;
+              if (branch === 2 && crest.height > 0.0014) branches++;
+            }
+            sample(
+              ...walnutUV(
+                x + 0.2 + 0.6 * hash(x, y, seed ^ 0x196d),
+                y + 0.2 + 0.6 * hash(x, y, seed ^ 0x57b3),
+                seed,
+              ),
+              node,
+            );
+            if (node.height > 0.0011 && node.occlusion > 0.65) joined++;
+          }
+        expect(raised).toBeGreaterThan(45);
+        expect(winding).toBeGreaterThan(25);
+        expect(branches).toBeGreaterThan(10);
+        expect(joined).toBeGreaterThan(35);
+      }
+    });
+
+    it.each(nutKinds)(
+      '%s is C1 at compact supports, shoulders and toroidal seams',
+      (kind) => {
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.417],
+              [0.391, 1],
+            ],
+            center = empty(),
+            left = empty(),
+            right = empty(),
+            coarseLeft = empty(),
+            coarseRight = empty(),
+            keys = Object.keys(center) as (keyof SurfaceSample)[];
+          if (kind === 'walnutshell') {
+            for (const x of [0, 3, 6])
+              for (const y of [0, 3, 6])
+                for (let branch = 0; branch < 3; branch++) {
+                  const point = walnut(x, y, branch, seed);
+                  for (const a of [-1, -Math.sqrt(0.6), 0, Math.sqrt(0.6), 1])
+                    for (const b of [-1, 0, 1]) points.push(point(a, b));
+                }
+          } else if (kind === 'almondshell') {
+            for (const x of [0, 7, 15])
+              for (const y of [0, 5, 11]) {
+                const point = almond(x, y, seed);
+                for (let i = 0; i < 8; i++)
+                  points.push(
+                    point(
+                      Math.cos((i * Math.PI) / 4),
+                      Math.sin((i * Math.PI) / 4),
+                    ),
+                  );
+                points.push(point(0, 0));
+              }
+          } else {
+            for (const x of [0, 4, 9])
+              for (const y of [0, 2, 4]) {
+                const cy = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x2b71),
+                  width = 0.09 + 0.04 * hash(x, y, seed ^ 0x57d1),
+                  tilt = 0.3 * (hash(x, y, seed ^ 0x71b9) - 0.5);
+                for (let i = 0; i < 8; i++) {
+                  const dx = 0.65 * Math.cos((i * Math.PI) / 4),
+                    dy = width * Math.sin((i * Math.PI) / 4) + tilt * dx;
+                  points.push(peanut(x + 0.5 + dx, (cy + dy) / 5, seed));
+                }
+                for (const side of [-1, 0, 1])
+                  points.push(
+                    peanut(
+                      x + (side * Math.acos(0.6)) / (2 * Math.PI),
+                      cy / 5,
+                      seed,
+                    ),
+                  );
+              }
+          }
+          const columns =
+              kind === 'walnutshell' ? 7 : kind === 'peanutshell' ? 10 : 16,
+            rows = kind === 'walnutshell' ? 7 : kind === 'peanutshell' ? 5 : 12;
+          for (let x = 0; x <= columns; x++)
+            points.push(
+              kind === 'walnutshell'
+                ? walnutUV(x, 0.419 * rows, seed)
+                : [x / columns, 0.419],
+            );
+          for (let y = 0; y <= rows; y++)
+            points.push(
+              kind === 'walnutshell'
+                ? walnutUV(0.613 * columns, y, seed)
+                : [0.613, y / rows],
+            );
+          let maxPeriodError = 0,
+            maxConvergenceExcess = -Infinity;
+          for (const [u, v] of points) {
+            sample(u, v, center);
+            sample(u + 1, v - 1, right);
+            for (const key of keys)
+              maxPeriodError = Math.max(
+                maxPeriodError,
+                Math.abs(right[key] - center[key]),
+              );
+            for (const [du, dv] of [
+              [1, 0],
+              [0, 1],
+              [0.6, 0.8],
+            ]) {
+              // Mixed curvatures can cancel a coarser slope gap near a join.
+              // Refine the interval without relaxing the convergence bound.
+              const step = 2.5e-8;
+              sample(u - step * du, v - step * dv, left);
+              sample(u + step * du, v + step * dv, right);
+              sample(u - 4 * step * du, v - 4 * step * dv, coarseLeft);
+              sample(u + 4 * step * du, v + 4 * step * dv, coarseRight);
+              for (const key of keys) {
+                const fine =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / step,
+                  coarse =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) /
+                    (4 * step);
+                maxConvergenceExcess = Math.max(
+                  maxConvergenceExcess,
+                  fine - 0.4 * coarse,
+                );
+              }
+            }
+          }
+          expect(maxPeriodError).toBeLessThan(1e-11);
+          expect(maxConvergenceExcess).toBeLessThan(1e-7);
+        }
+      },
+    );
   });
 
   describe('opaque shell growth surfaces', () => {

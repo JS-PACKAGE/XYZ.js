@@ -169,6 +169,9 @@ export type ProceduralMaterialKind =
   | 'scallopshell'
   | 'oystershell'
   | 'nautilusshell'
+  | 'walnutshell'
+  | 'peanutshell'
+  | 'almondshell'
   | 'cantaloupe'
   | 'dragonfruit'
   | 'kiwiskin'
@@ -369,6 +372,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'scallopshell',
   'oystershell',
   'nautilusshell',
+  'walnutshell',
+  'peanutshell',
+  'almondshell',
   'cantaloupe',
   'dragonfruit',
   'kiwiskin',

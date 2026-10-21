@@ -3608,3 +3608,38 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Physics2D]` 每步的 `sorted` 清單改以計數覆寫、迴圈結束（含例外）時一次截斷，不再 `length = 0` 後重新長大；sweep 順序改用插入排序（沿用上一步、幾乎已排序），位移超過 8n 時恢復排列並交給 `Array#sort`。`compareBounds` 在有限邊界與唯一 registration 下是嚴格全序，任何正確排序結果都相同：p2ha（-834211072）、crowd（1923165952）雜湊不變，每步隨機瞬移 0／1／20／100% 物體的對拍雜湊與原版相同。新增測試讓 60 個 sensor 一次反轉 sweep 順序（觸發退回路徑），鄰接接觸仍為 59；拿掉恢復排列的 mutant 會失敗。穩態（暖機 12 s）tilemap2d WebGL2 每幀配置 14.3 → 3.5 KB，屬配置減少；Node 同程序 A/B 1500 物體每步 3.5–4.3 → 3.3–3.6 ms（負載雜訊大）。WebGL2 browser regression 通過；build 與完整測試（2075 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[ECS]` `World.query()` 在最小的元件 store 不到實體數一半時，改以該 store 的成員（檢查其餘 store、依 id 排序；id 遞增即實體 Set 的順序）產生結果，而非走訪全部實體；新增 membership revision（建立／移除實體、加入／移除元件時遞增），兩次 yield 之間若有變動，就從最後一個已 yield 的實體之後改回原本的即時全走訪，與原語意相同。Node 對拍 400 組隨機操作（迭代中途建立／移除實體、增刪元件）結果全同；20k 實體、100 個相符時每次查詢 1259 → 12 µs，屬 CPU 時間。新增測試涵蓋亂序加入、迭代中加入／移除元件、建立與移除實體；移除 revision 遞增、排序或續走條件的 mutant 皆失敗。build 與完整測試（2088 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[Visibility]` 3D 可見性收集時，一旦已知有變更就只複製 pose／邊界戳記而不再逐值比較（`changed`／`boundsChanged` 一經成立即不再改變）；BVH refit 改為依前序建構的節點陣列倒序走訪（子節點先於父節點），取代遞迴。結果、epoch、refit 與剔除計數不變（Node 4352 個網格對拍雜湊相同）。新增測試在一個不影響邊界的變更之後移動兩個葉節點進入視野再移出，倒序或比較捷徑的 mutant 皆失敗。production visibility（WebGL2、high）剖析中可見性收集佔 CPU busy 27.2–27.8% → 23.7–24.4%；Node 同程序 1.47–1.76 → 1.31–1.40 ms／幀，屬 CPU 時間。WebGL2／WebGPU browser regression 通過；build 與完整測試（2089 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：核桃、花生與杏仁外殼
+
+- 新增 walnutshell、peanutshell、almondshell；本功能提交共 171 種。
+  核桃為彎曲分岔的粗隆脊與深色凹谷；花生為較強縱肋與次要橫連結；
+  杏仁為細長下凹孔與細微定向紋理。皆為 opaque dielectric，
+  不新增幾何、透明、displacement、transmission、SSS 或 BRDF。
+- 核桃初版在實際預覽中太像細線編織，已加寬隆脊、增加彎曲，
+  並改為非均勻連結與平滑局部游移。形態測試同時探查脊線兩側，
+  避免將鄰近隆脊誤當凹谷；未降低形態數量或高度／AO 門檻。
+  花生測試的反解噪聲 helper 修正接近負零時 wrap 四捨五入為 1
+  的探測錯誤；沒有以變更正式材質來迎合錯誤 probe。
+- 新增形態、色彩／高度／AO 關係及週期／內部交界 C1 回歸，
+  涵蓋 seed 0、1、0xffffffff。差分步長細化為 2.5e-8，
+  保留原收斂容差；暫時移除核桃平滑支撐肩部的負對照，
+  在三個 seed 均超出同一收斂界限，未保留 mutant 或檢查腳本。
+- 乾淨整合快照 build、完整 lint、十四個自有檔案 format check 通過；
+  完整測試為 177 檔／2103 項通過。typecheck 仍在既有
+  `tests/sprite-quad-validation.test.ts:13` 回報 fixture 缺少 `destroy`，
+  未修改或納入本功能。沒有將這項失敗記為通過。
+- source／實際 ESM／CJS 產物的三種新材質在 size 64、seed 7／8
+  四份 maps 完全一致；原有 168 種在 size 64、seed 7 的四份 maps
+  均與提交前 baseline 逐 byte 一致，包含已提交的黑膠與紙面材質。
+- 獨立 Chrome 的 WebGPU／WebGL2 gallery 逐一切換三者，
+  六張最終畫面雜湊與已檢視的形態快照一致。共享 174 種 gallery
+  的三張 WebGPU 畫面亦一致；共享 build 與十二項外殼測試通過。
+  另有 lace／crochet／basketweave 工作目錄修改，保留但不納入此提交。
+- 實際公開 factory 的 256 px、seed 7 四貼圖檢查與 2×2 平鋪預覽通過；
+  metallic B 為 0，roughness byte 分別為 224–235／228–237／218–230，
+  每米 repeats 為 16.6667／25／28.5714，四份 texture 的 destroy 已驗證。
+  實際畫面確認後將分頁導向空白再釋放，避免閒置 gallery 持續繪製。
+- 同步中／英／日 README、目前目錄、雙語技術／使用文件及
+  PLAN／DESIGN；本組沒有新增連結，不改寫既有歷史段落與驗收數。
+  不新增 runtime 依賴，不擴大瀏覽器、Canvas2D 3D 或裝置認證；
+  僅提交本功能與對應發佈產物，不 push。
