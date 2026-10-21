@@ -736,17 +736,23 @@ export class Line3D extends Mesh implements CameraDependent3D {
       const sl = side.length();
       if (sl > 1e-9) side.scale(half / sl);
       else side.set(0, 0, 0);
-      const corners = [
-        [c[a]! - side.x, c[a + 1]! - side.y, c[a + 2]! - side.z],
-        [c[a]! + side.x, c[a + 1]! + side.y, c[a + 2]! + side.z],
-        [c[b]! - side.x, c[b + 1]! - side.y, c[b + 2]! - side.z],
-        [c[b]! + side.x, c[b + 1]! + side.y, c[b + 2]! + side.z],
-      ] as const;
+      // Corners a - side, a + side, b - side, b + side, written in place: a nested corner
+      // array per segment was allocated on every camera-facing rebuild.
+      const sx = side.x,
+        sy = side.y,
+        sz = side.z;
       for (let k = 0; k < 4; k++) {
-        const o = (i * 4 + k) * 8;
-        v[o] = corners[k]![0];
-        v[o + 1] = corners[k]![1];
-        v[o + 2] = corners[k]![2];
+        const o = (i * 4 + k) * 8,
+          p = k < 2 ? a : b;
+        if (k & 1) {
+          v[o] = c[p]! + sx;
+          v[o + 1] = c[p + 1]! + sy;
+          v[o + 2] = c[p + 2]! + sz;
+        } else {
+          v[o] = c[p]! - sx;
+          v[o + 1] = c[p + 1]! - sy;
+          v[o + 2] = c[p + 2]! - sz;
+        }
         v[o + 3] = vx;
         v[o + 4] = vy;
         v[o + 5] = vz;

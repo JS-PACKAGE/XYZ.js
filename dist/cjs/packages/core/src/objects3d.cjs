@@ -329,31 +329,10 @@ var Line3D = class extends require_mesh.Mesh {
 			h /= v, g /= v, _ /= v, s.set(f * _ - m * g, m * h - d * _, d * g - f * h);
 			let y = s.length();
 			y > 1e-9 ? s.scale(o / y) : s.set(0, 0, 0);
-			let b = [
-				[
-					r[l] - s.x,
-					r[l + 1] - s.y,
-					r[l + 2] - s.z
-				],
-				[
-					r[l] + s.x,
-					r[l + 1] + s.y,
-					r[l + 2] + s.z
-				],
-				[
-					r[u] - s.x,
-					r[u + 1] - s.y,
-					r[u + 2] - s.z
-				],
-				[
-					r[u] + s.x,
-					r[u + 1] + s.y,
-					r[u + 2] + s.z
-				]
-			];
+			let b = s.x, x = s.y, S = s.z;
 			for (let e = 0; e < 4; e++) {
-				let t = (c * 4 + e) * 8;
-				a[t] = b[e][0], a[t + 1] = b[e][1], a[t + 2] = b[e][2], a[t + 3] = h, a[t + 4] = g, a[t + 5] = _;
+				let t = (c * 4 + e) * 8, n = e < 2 ? l : u;
+				e & 1 ? (a[t] = r[n] + b, a[t + 1] = r[n + 1] + x, a[t + 2] = r[n + 2] + S) : (a[t] = r[n] - b, a[t + 1] = r[n + 1] - x, a[t + 2] = r[n + 2] - S), a[t + 3] = h, a[t + 4] = g, a[t + 5] = _;
 			}
 		}
 		this.geometry.markUpdated();
