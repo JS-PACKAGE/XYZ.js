@@ -5823,6 +5823,59 @@ export function createSurfaceSampler(
           1 - 0.3 * incision * (1 - cord) - 0.28 * pit - 0.12 * (1 - cord);
         break;
       }
+      case 'trellis': {
+        // Slats cross over the open grid, knotted at their joins.
+        const vSlat = smooth(
+          clamp((0.16 - Math.abs(fract(u * 2) - 0.5)) / 0.08),
+        );
+        const hSlat = smooth(
+          clamp((0.16 - Math.abs(fract(v * 2) - 0.5)) / 0.08),
+        );
+        const cover = vSlat + hSlat - vSlat * hSlat;
+        const knot =
+          smooth(
+            clamp(
+              (0.14 -
+                Math.sqrt(
+                  (fract(u * 2) - 0.5) ** 2 + (fract(v * 2) - 0.5) ** 2,
+                )) /
+                0.06,
+            ),
+          ) * cover;
+        const grain = noise(u, v, 32, 32, seed ^ 0x41c7);
+        color = 0.42 + 0.3 * cover + 0.14 * knot + 0.06 * grain;
+        height = 0.4 + 0.24 * cover + 0.1 * knot + 0.03 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * cover;
+        occlusion = 1 - 0.5 * (1 - cover) - 0.12 * (1 - knot) * cover;
+        break;
+      }
+      case 'terracottapot': {
+        // A proud rim band rides over the pot's thrown wall ribs.
+        const rib = smooth(clamp((0.18 - Math.abs(fract(v * 8) - 0.5)) / 0.08));
+        const rim = smooth(clamp((0.1 - Math.abs(fract(v) - 0.1)) / 0.04));
+        const grain = noise(u, v, 32, 32, seed ^ 0x5e0b);
+        color = 0.46 + 0.24 * rib + 0.22 * rim + 0.06 * grain;
+        height = 0.42 + 0.18 * rib + 0.26 * rim + 0.03 * grain;
+        roughness += 0.05 * (grain - 0.5) - 0.06 * rim;
+        occlusion = 1 - 0.34 * (1 - rib) - 0.12 * (1 - rim);
+        break;
+      }
+      case 'hedgerow': {
+        // Leafy clumps swell over the shadowed branch gaps.
+        const row = Math.floor(v * 4);
+        const offset = (row % 2) * 0.5;
+        const du = fract(u * 4 + offset) - 0.5,
+          dv = fract(v * 4) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const warp = noise(u, v, 8, 8, seed ^ 0x33af) - 0.5;
+        const clump = smooth(clamp((0.34 - (radius + 0.08 * warp)) / 0.12));
+        const leaves = noise(u, v, 48, 48, seed ^ 0x72d4);
+        color = 0.36 + 0.36 * clump + 0.12 * leaves + 0.05 * clump * leaves;
+        height = 0.42 + 0.34 * clump + 0.04 * leaves;
+        roughness += 0.05 * (leaves - 0.5) - 0.06 * clump;
+        occlusion = 1 - 0.5 * (1 - clump);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

@@ -1636,6 +1636,21 @@ function createSurfaceSampler(t, r) {
 				H = .56 + .26 * t - .22 * n * (1 - t) - .18 * i + .05 * a, Z = .5 + .28 * t - .3 * n * (1 - t) - .2 * i * (1 - t) + .02 * a, Q += .05 * (a - .5) - .08 * t, $ = 1 - .3 * n * (1 - t) - .28 * i - .12 * (1 - t);
 				break;
 			}
+			case `trellis`: {
+				let e = smooth(clamp((.16 - Math.abs(fract(o * 2) - .5)) / .08)), t = smooth(clamp((.16 - Math.abs(fract(A * 2) - .5)) / .08)), n = e + t - e * t, i = smooth(clamp((.14 - Math.sqrt((fract(o * 2) - .5) ** 2 + (fract(A * 2) - .5) ** 2)) / .06)) * n, a = noise(o, A, 32, 32, r ^ 16839);
+				H = .42 + .3 * n + .14 * i + .06 * a, Z = .4 + .24 * n + .1 * i + .03 * a, Q += .06 * (a - .5) - .08 * n, $ = 1 - .5 * (1 - n) - .12 * (1 - i) * n;
+				break;
+			}
+			case `terracottapot`: {
+				let e = smooth(clamp((.18 - Math.abs(fract(A * 8) - .5)) / .08)), t = smooth(clamp((.1 - Math.abs(fract(A) - .1)) / .04)), n = noise(o, A, 32, 32, r ^ 24075);
+				H = .46 + .24 * e + .22 * t + .06 * n, Z = .42 + .18 * e + .26 * t + .03 * n, Q += .05 * (n - .5) - .06 * t, $ = 1 - .34 * (1 - e) - .12 * (1 - t);
+				break;
+			}
+			case `hedgerow`: {
+				let e = Math.floor(A * 4) % 2 * .5, t = fract(o * 4 + e) - .5, n = fract(A * 4) - .5, s = smooth(clamp((.34 - (Math.sqrt(t * t + n * n) + .08 * (noise(o, A, 8, 8, r ^ 13231) - .5))) / .12)), c = noise(o, A, 48, 48, r ^ 29396);
+				H = .36 + .36 * s + .12 * c + .05 * s * c, Z = .42 + .34 * s + .04 * c, Q += .05 * (c - .5) - .06 * s, $ = 1 - .5 * (1 - s);
+				break;
+			}
 			case `sandstone`: {
 				let e = noise(o, A, 3, 5, r ^ 26941), t = A + .055 * (e - .5), i = .5 + .5 * Math.sin(8 * t * n + a), s = (.5 + .5 * Math.sin(19 * t * n + a)) ** 6, c = noise(o, A, 8, 3, r ^ 19735), l = smooth(clamp((B - .28) / .48)), u = (1 - B) ** 5;
 				H = .22 + .35 * i + .2 * c + .18 * l - .2 * s, Z = .32 + .16 * i - .09 * s + .24 * l - .1 * u, Q += .12 * (l - .5) + .05 * s, $ = .97 - .12 * s - .13 * u + .025 * l;

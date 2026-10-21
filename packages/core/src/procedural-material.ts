@@ -100,6 +100,9 @@ export type ProceduralMaterialKind =
   | 'bandage'
   | 'pillblister'
   | 'sutures'
+  | 'trellis'
+  | 'terracottapot'
+  | 'hedgerow'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -339,6 +342,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'bandage',
   'pillblister',
   'sutures',
+  'trellis',
+  'terracottapot',
+  'hedgerow',
   'sandstone',
   'travertine',
   'pumice',

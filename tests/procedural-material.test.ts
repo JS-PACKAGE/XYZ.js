@@ -118,6 +118,9 @@ const kinds: ProceduralMaterialKind[] = [
   'bandage',
   'pillblister',
   'sutures',
+  'trellis',
+  'terracottapot',
+  'hedgerow',
   'sandstone',
   'travertine',
   'pumice',
@@ -4839,6 +4842,9 @@ describe('periodic procedural material fields', () => {
     ['bandage', [24, 32, 48, 64]],
     ['pillblister', [3, 32, 48, 64]],
     ['sutures', [10, 32, 48, 64]],
+    ['trellis', [2, 4, 32, 64]],
+    ['terracottapot', [8, 32, 48, 64]],
+    ['hedgerow', [4, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -5058,6 +5064,9 @@ describe('periodic procedural material fields', () => {
     ['bandage', 24],
     ['pillblister', 3],
     ['sutures', 10],
+    ['trellis', 2],
+    ['terracottapot', 8],
+    ['hedgerow', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -8682,6 +8691,72 @@ describe('periodic procedural material fields', () => {
       expect(skin.height).toBeGreaterThan(pit.height + 0.1 * relief);
       expect(pit.height).toBeGreaterThan(incision.height + 0.05 * relief);
       expect(surface.occlusion).toBeGreaterThan(incision.occlusion);
+    }
+  });
+
+  it('trellis knots its crossed slats above the open grid', () => {
+    const relief = proceduralMaterialPresets.trellis.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const slat = { ...surface },
+      gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('trellis', seed);
+      sample(0.25, 0.25, surface);
+      sample(0.25, 0.5, slat);
+      sample(0.5, 0.5, gap);
+      expect(surface.height).toBeGreaterThan(slat.height + 0.05 * relief);
+      expect(slat.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('terracotta pot raises its rim over the thrown wall ribs', () => {
+    const relief = proceduralMaterialPresets.terracottapot.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rib = { ...surface },
+      valley = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('terracottapot', seed);
+      sample(0.5, 0.1, surface);
+      sample(0.5, 0.5625, rib);
+      sample(0.5, 0.5, valley);
+      expect(surface.height).toBeGreaterThan(rib.height + 0.05 * relief);
+      expect(rib.height).toBeGreaterThan(valley.height + 0.05 * relief);
+      expect(rib.occlusion).toBeGreaterThan(valley.occlusion);
+    }
+  });
+
+  it('hedgerow swells leafy clumps over the branch gaps', () => {
+    const relief = proceduralMaterialPresets.hedgerow.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('hedgerow', seed);
+      sample(1 / 8, 1 / 8, surface);
+      sample(0.25, 0.25, gap);
+      expect(surface.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 
