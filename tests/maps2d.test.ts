@@ -282,6 +282,45 @@ describe('bounded atlas maps', () => {
     }
   });
 
+  it('picks the containing tile on both sides of every culling cell edge', () => {
+    const scene = new Scene();
+    scene.camera2D.resize(40, 24);
+    const map = scene.add(
+      new TileMap({
+        columns: 48,
+        rows: 48,
+        tileWidth: 8,
+        tileHeight: 8,
+        sheet: sheet(),
+      }),
+    );
+    for (let row = 0; row < 48; row++)
+      for (let column = 0; column < 48; column++)
+        map.setTile(column, row, { frame: 0 });
+    map.updateCulling(scene.camera2D);
+    const picked = (x: number, y: number): string => {
+      const tile = map.pickTile(new Vector2(x, y));
+      return tile ? `${tile.x},${tile.y}` : '-';
+    };
+    for (let edge = 0; edge <= 384; edge += 8) {
+      // Last pixel before a tile edge, the edge itself, and the far tile's interior.
+      for (const offset of [-0.25, 0, 3]) {
+        const x = edge + offset,
+          tile = Math.floor(x / 8);
+        expect(picked(x, 383 - x)).toBe(
+          tile < 0 || tile > 47 || 383 - x < 0
+            ? '-'
+            : `${tile},${Math.floor((383 - x) / 8)}`,
+        );
+      }
+    }
+    // Edits outside a Scene are not yet filed for culling; picking still finds them.
+    scene.remove(map);
+    map.clearTile(5, 5);
+    expect(picked(44, 44)).toBe('-');
+    expect(picked(52, 44)).toBe('6,5');
+  });
+
   it('render collection culls exactly the maps currently registered in the Scene', () => {
     const scene = new Scene();
     scene.camera2D.resize(16, 8);

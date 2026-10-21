@@ -43,6 +43,7 @@ var TileMap = class extends require_group2d.Group2D {
 	};
 	cullingProbe = { ...this.culling };
 	cullCells = /* @__PURE__ */ new Map();
+	pickCandidates = [];
 	nextInsertion = 0;
 	constructor(e) {
 		super();
@@ -159,13 +160,20 @@ var TileMap = class extends require_group2d.Group2D {
 			if (e instanceof RangeError) return;
 			throw e;
 		}
-		let r = -1, i = -1 / 0, a = -1;
-		for (let e of this.configuredSlots) {
+		let r = -1, i = -1 / 0, a = -1, o = this.tileWidth, s = this.tileHeight, c = o * 8, l = s * 8, u = Math.floor((this.local.x - 1.5 * o) / c), d = Math.floor((this.local.x + .5 * o) / c), f = Math.floor((this.local.y - 1.5 * s) / l), p = Math.floor((this.local.y + .5 * s) / l), m = !Number.isNaN(this.culling.minX) && Math.abs(u) < 2 ** 30 && Math.abs(d) < 2 ** 30 && Math.abs(f) < 2 ** 30 && Math.abs(p) < 2 ** 30, h = m ? this.pickCandidates : this.configuredSlots;
+		if (m) {
+			h.length = 0;
+			for (let e = f; e <= p; e++) for (let t = u; t <= d; t++) {
+				let n = this.cullCells.get(cullCellKey(t, e));
+				if (n) for (let e of n) h.push(e);
+			}
+		}
+		for (let e of h) {
 			if (!e.sprite || e.tile.frame === void 0 || !e.sprite.visible || e.sprite.destroyed) continue;
 			let t = e.sprite, n = t.position.x - t.anchor.x * this.tileWidth, o = t.position.y - t.anchor.y * this.tileHeight;
 			this.local.x < n || this.local.x >= n + this.tileWidth || this.local.y < o || this.local.y >= o + this.tileHeight || (t.zIndex > i || t.zIndex === i && e.insertion > a) && (r = e.index, i = t.zIndex, a = e.insertion);
 		}
-		return r < 0 ? void 0 : n.set(r % this.columns + this.originColumn, Math.floor(r / this.columns) + this.originRow);
+		return m && (h.length = 0), r < 0 ? void 0 : n.set(r % this.columns + this.originColumn, Math.floor(r / this.columns) + this.originRow);
 	}
 	updateCulling(e, t = e.viewportWidth, n = e.viewportHeight) {
 		this.measureCulling(e, t, n, this.cullingProbe), this.cullingChanged() && this.cullMoved();

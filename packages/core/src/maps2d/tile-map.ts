@@ -104,6 +104,8 @@ export class TileMap extends Group2D {
    * so a moved viewport re-culls only the cells either one reaches.
    */
   private readonly cullCells = new Map<number, TileSlot[]>();
+  /** Scratch for `pickTile`'s slots near the point. */
+  private readonly pickCandidates: TileSlot[] = [];
   private nextInsertion = 0;
 
   constructor(options: TileMapOptions) {
@@ -409,7 +411,34 @@ export class TileMap extends Group2D {
     let selected = -1,
       depth = -Infinity,
       insertion = -1;
-    for (const slot of this.configuredSlots) {
+    const w = this.tileWidth,
+      h = this.tileHeight,
+      cellWidth = w * cullCellTiles,
+      cellHeight = h * cullCellTiles;
+    // Cells that can hold a slot containing the point (half a tile of rounding slack).
+    const x0 = Math.floor((this.local.x - 1.5 * w) / cellWidth),
+      x1 = Math.floor((this.local.x + 0.5 * w) / cellWidth),
+      y0 = Math.floor((this.local.y - 1.5 * h) / cellHeight),
+      y1 = Math.floor((this.local.y + 0.5 * h) / cellHeight);
+    // Every sprite slot is filed while a culling state is applied (NaN marks edits made
+    // outside a Scene, which only the next full pass files); the winner is the maximum by
+    // depth and insertion, so the order slots are visited in does not matter.
+    const filed =
+      !Number.isNaN(this.culling.minX) &&
+      Math.abs(x0) < 2 ** 30 &&
+      Math.abs(x1) < 2 ** 30 &&
+      Math.abs(y0) < 2 ** 30 &&
+      Math.abs(y1) < 2 ** 30;
+    const candidates = filed ? this.pickCandidates : this.configuredSlots;
+    if (filed) {
+      candidates.length = 0;
+      for (let cy = y0; cy <= y1; cy++)
+        for (let cx = x0; cx <= x1; cx++) {
+          const cell = this.cullCells.get(cullCellKey(cx, cy));
+          if (cell) for (const slot of cell) candidates.push(slot);
+        }
+    }
+    for (const slot of candidates) {
       if (
         !slot.sprite ||
         slot.tile.frame === undefined ||
@@ -436,6 +465,7 @@ export class TileMap extends Group2D {
         insertion = slot.insertion;
       }
     }
+    if (filed) candidates.length = 0;
     return selected < 0
       ? undefined
       : out.set(

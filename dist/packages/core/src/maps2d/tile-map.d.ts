@@ -49,6 +49,8 @@ export declare class TileMap extends Group2D {
      * so a moved viewport re-culls only the cells either one reaches.
      */
     private readonly cullCells;
+    /** Scratch for `pickTile`'s slots near the point. */
+    private readonly pickCandidates;
     private nextInsertion;
     constructor(options: TileMapOptions);
     private index;
