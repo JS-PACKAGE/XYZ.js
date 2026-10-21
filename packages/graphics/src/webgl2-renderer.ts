@@ -2779,9 +2779,9 @@ export class WebGL2Renderer implements Renderer {
           if (lighting) {
             const record = sent ?? { pass: 0, points: [], spots: [] };
             record.pass = this.lightingPass;
-            record.points.length = record.spots.length = 0;
-            record.points.push(...selected.pointLights);
-            record.spots.push(...selected.spotLights);
+            // Overwrite then truncate: emptying first dropped the storage on every draw.
+            copyLights(record.points, selected.pointLights);
+            copyLights(record.spots, selected.spotLights);
             this.lightingSent.set(lighting, record);
           }
         }
@@ -5366,4 +5366,9 @@ export class WebGL2Renderer implements Renderer {
       );
     return this.gl;
   }
+}
+
+function copyLights<T>(target: T[], source: readonly T[]): void {
+  for (let i = 0; i < source.length; i++) target[i] = source[i]!;
+  target.length = source.length;
 }

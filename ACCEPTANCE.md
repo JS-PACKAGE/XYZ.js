@@ -3110,3 +3110,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - 文件沒有新增相對連結，README 既有食物分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Lighting]` 每個 mesh 的光源排名改以區域計數就地插入、最後一次截斷，不再先清空輸出陣列；WebGL2 記錄已送出光源時改為逐項覆寫後截斷，取代 `length = 0` 加展開 `push(...)`。選取結果、順序與統計不變。穩態（暖機 12 s）native-material3d WebGL2 每幀配置 34.1 → 25.8 KB，屬配置減少；WebGL2 browser regression 通過，光源選取測試涵蓋上限計數的 mutation。build 與完整測試（1907 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

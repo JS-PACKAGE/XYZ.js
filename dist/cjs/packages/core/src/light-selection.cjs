@@ -154,43 +154,44 @@ var SpatialLightSelector = class {
 		return this;
 	}
 	selectType(e, t, n, i, o, s, c, l) {
-		t.length = 0, c.selected = c.culled = c.overflow = 0;
-		let u = 0, d = l !== void 0 && this.scene.presentationPass === this.gridPass && l.gather(o.x, o.y, o.z, s) ? l.candidates : void 0, f = d ? d.length : e.length;
-		d && (c.culled = e.length - f);
-		for (let l = 0; l < f; l++) {
-			let f = e[d ? d[l] : l], p = o.x - f.position.x, m = o.y - f.position.y, h = o.z - f.position.z, g = f.range;
-			if (g > 0) {
-				let e = g + s;
-				if (p * p + m * m + h * h > e * e * (1 + 1e-9)) {
+		let u = 0;
+		c.selected = c.culled = c.overflow = 0;
+		let d = 0, f = l !== void 0 && this.scene.presentationPass === this.gridPass && l.gather(o.x, o.y, o.z, s) ? l.candidates : void 0, p = f ? f.length : e.length;
+		f && (c.culled = e.length - p);
+		for (let l = 0; l < p; l++) {
+			let p = e[f ? f[l] : l], m = o.x - p.position.x, h = o.y - p.position.y, g = o.z - p.position.z, _ = p.range;
+			if (_ > 0) {
+				let e = _ + s;
+				if (m * m + h * h + g * g > e * e * (1 + 1e-9)) {
 					c.culled++;
 					continue;
 				}
 			}
-			let _ = require_hypot.hypot3(p, m, h), v = Math.max(0, _ - s), y = Math.max(f.color[0], f.color[1], f.color[2]);
-			if (!f.intensity || !y || f.range > 0 && v >= f.range) {
+			let v = require_hypot.hypot3(m, h, g), y = Math.max(0, v - s), b = Math.max(p.color[0], p.color[1], p.color[2]);
+			if (!p.intensity || !b || p.range > 0 && y >= p.range) {
 				c.culled++;
 				continue;
 			}
-			let b = 1;
-			if (f instanceof require_lights$1.SpotLight && _ > s) {
-				let e = f.direction.length(), t = (p * f.direction.x + m * f.direction.y + h * f.direction.z) / (_ * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, s / _)));
-				if (n >= f.outerAngle) {
+			let x = 1;
+			if (p instanceof require_lights$1.SpotLight && v > s) {
+				let e = p.direction.length(), t = (m * p.direction.x + h * p.direction.y + g * p.direction.z) / (v * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, s / v)));
+				if (n >= p.outerAngle) {
 					c.culled++;
 					continue;
 				}
-				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(f.outerAngle)) / (Math.cos(f.innerAngle) - Math.cos(f.outerAngle))));
-				b = r * r * (3 - 2 * r);
+				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(p.outerAngle)) / (Math.cos(p.innerAngle) - Math.cos(p.outerAngle))));
+				x = r * r * (3 - 2 * r);
 			}
-			let x = f.range > 0 ? Math.max(0, 1 - (v / f.range) ** 4) ** 2 : 1, S = y * f.intensity * b * x / Math.max(v * v, .01);
-			u++;
-			let C = 0;
-			for (; C < t.length && (t[C].priority > f.priority || t[C].priority === f.priority && (n[C] > S || n[C] === S && t[C].id < f.id));) C++;
-			if (C >= i) continue;
-			let w = Math.min(t.length, i - 1);
-			for (let e = w; e > C; e--) t[e] = t[e - 1], n[e] = n[e - 1];
-			t[C] = f, n[C] = S;
+			let S = p.range > 0 ? Math.max(0, 1 - (y / p.range) ** 4) ** 2 : 1, C = b * p.intensity * x * S / Math.max(y * y, .01);
+			d++;
+			let w = 0;
+			for (; w < u && (t[w].priority > p.priority || t[w].priority === p.priority && (n[w] > C || n[w] === C && t[w].id < p.id));) w++;
+			if (w >= i) continue;
+			let T = Math.min(u, i - 1);
+			for (let e = T; e > w; e--) t[e] = t[e - 1], n[e] = n[e - 1];
+			t[w] = p, n[w] = C, u < i && u++;
 		}
-		c.selected = t.length, c.overflow = u - t.length;
+		t.length = u, c.selected = u, c.overflow = d - u;
 	}
 };
 //#endregion

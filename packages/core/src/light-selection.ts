@@ -377,7 +377,9 @@ export class SpatialLightSelector implements SelectedLights {
     stats: LightSelectionCount,
     grid: LightGrid | undefined,
   ): void {
-    out.length = 0;
+    // Ranked in place by count and truncated once: emptying `out` first dropped its storage,
+    // which regrew for every selection.
+    let size = 0;
     stats.selected = stats.culled = stats.overflow = 0;
     let relevant = 0;
     const indexed =
@@ -452,7 +454,7 @@ export class SpatialLightSelector implements SelectedLights {
       relevant++;
       let index = 0;
       while (
-        index < out.length &&
+        index < size &&
         (out[index]!.priority > light.priority ||
           (out[index]!.priority === light.priority &&
             (scores[index]! > score ||
@@ -460,15 +462,17 @@ export class SpatialLightSelector implements SelectedLights {
       )
         index++;
       if (index >= cap) continue;
-      const end = Math.min(out.length, cap - 1);
+      const end = Math.min(size, cap - 1);
       for (let i = end; i > index; i--) {
         out[i] = out[i - 1]!;
         scores[i] = scores[i - 1]!;
       }
       out[index] = light;
       scores[index] = score;
+      if (size < cap) size++;
     }
-    stats.selected = out.length;
-    stats.overflow = relevant - out.length;
+    out.length = size;
+    stats.selected = size;
+    stats.overflow = relevant - size;
   }
 }

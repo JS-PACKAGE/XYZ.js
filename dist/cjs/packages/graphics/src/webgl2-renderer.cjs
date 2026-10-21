@@ -992,7 +992,7 @@ var WebGL2Renderer = class {
 							points: [],
 							spots: []
 						};
-						e.pass = this.lightingPass, e.points.length = e.spots.length = 0, e.points.push(...E.pointLights), e.spots.push(...E.spotLights), this.lightingSent.set(D, e);
+						e.pass = this.lightingPass, copyLights(e.points, E.pointLights), copyLights(e.spots, E.spotLights), this.lightingSent.set(D, e);
 					}
 				}
 				this.uniformValues.uniform3f(a, s.cameraPosition, d.x, d.y, d.z), this.uniformValues.uniform1i(a, s.linearOutput, +!!this.linear3D), this.uniformValues.uniform1i(a, s.image, 0), this.uniformValues.uniform1i(a, s.shadowMap, 5), this.uniformValues.uniform1i(a, s.environmentMap, 6), this.uniformValues.uniform1i(a, s.opaqueScene, 15), this.uniformValues.uniform1i(a, s.opticalMaps, 14);
@@ -1570,6 +1570,10 @@ var WebGL2Renderer = class {
 		return this.gl;
 	}
 };
+function copyLights(e, t) {
+	for (let n = 0; n < t.length; n++) e[n] = t[n];
+	e.length = t.length;
+}
 //#endregion
 exports.WebGL2Renderer = WebGL2Renderer;
 
