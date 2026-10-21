@@ -114,6 +114,9 @@ const kinds: ProceduralMaterialKind[] = [
   'breadcrust',
   'wafer',
   'chocolate',
+  'basketball',
+  'tennisball',
+  'golfball',
 ];
 
 class TestImageData {
@@ -351,6 +354,9 @@ describe('periodic procedural material fields', () => {
     ['breadcrust', [7, 19, 23, 32]],
     ['wafer', [12, 24, 32]],
     ['chocolate', [4, 32]],
+    ['basketball', [2, 32, 36]],
+    ['tennisball', [1, 24, 32]],
+    ['golfball', [10, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -442,6 +448,11 @@ describe('periodic procedural material fields', () => {
     ['wafer', 12],
     ['wafer', 24],
     ['chocolate', 4],
+    ['basketball', 2],
+    ['basketball', 36],
+    ['tennisball', 24],
+    ['tennisball', 32],
+    ['golfball', 10],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -666,6 +677,209 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+  describe('sports surface geometry', () => {
+    const featureHash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+
+    it('basketball has continuous dark recessed panel seams beneath fine rounded pebbles', () => {
+      const seam = empty(),
+        field = empty(),
+        crown = empty(),
+        foot = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('basketball', seed);
+        for (const v of [0.125, 0.375, 0.625, 0.875]) {
+          const u = -0.06 * Math.sin(2 * Math.PI * v);
+          sample(u, v, seam);
+          sample(u + 0.08, v, field);
+          expect(field.color).toBeGreaterThan(seam.color);
+          expect(field.height).toBeGreaterThan(seam.height);
+          expect(field.occlusion).toBeGreaterThan(seam.occlusion);
+        }
+        // This cell is inside a panel for every possible feature jitter.
+        const column = 4,
+          row = 4,
+          u =
+            (column + 0.35 + 0.3 * featureHash(column, row, seed ^ 0x19a7)) /
+            36,
+          v = (row + 0.35 + 0.3 * featureHash(column, row, seed ^ 0x5c23)) / 36;
+        sample(u, v, crown);
+        for (const direction of [0, Math.PI / 2, Math.PI, (3 * Math.PI) / 2]) {
+          sample(
+            u + (Math.cos(direction) * 0.4) / 36,
+            v + (Math.sin(direction) * 0.4) / 36,
+            foot,
+          );
+          expect(crown.height).toBeGreaterThan(foot.height);
+        }
+      }
+    });
+
+    it('tennis felt surrounds a continuous pale curving recessed seam without a woven crossing', () => {
+      const seam = empty(),
+        field = empty(),
+        fiber = empty(),
+        beside = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('tennisball', seed);
+        for (let i = 0; i <= 48; i++) {
+          const u = i / 48,
+            v = 0.25 + 0.19 * Math.sin(2 * Math.PI * u);
+          for (const offset of [0, 0.5]) {
+            sample(u, v + offset, seam);
+            sample(u, v + offset + 0.08, field);
+            expect(seam.color).toBeGreaterThan(field.color);
+            expect(seam.height).toBeLessThan(field.height);
+            expect(seam.roughness).toBeLessThan(field.roughness);
+          }
+        }
+        const column = 3,
+          row = 3,
+          u =
+            (column + 0.35 + 0.3 * featureHash(column, row, seed ^ 0x19a7)) /
+            24,
+          v = (row + 0.35 + 0.3 * featureHash(column, row, seed ^ 0x5c23)) / 24,
+          angle = 2 * Math.PI * featureHash(column, row, seed ^ 0x37b1);
+        sample(u, v, fiber);
+        sample(
+          u - (Math.sin(angle) * 0.12) / 24,
+          v + (Math.cos(angle) * 0.12) / 24,
+          beside,
+        );
+        expect(fiber.height).toBeGreaterThan(beside.height);
+      }
+    });
+
+    it('golf dimples are regular circular concave bowls meeting smooth rims and flat land', () => {
+      const center = empty(),
+        out = empty(),
+        land = empty();
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('golfball', seed),
+          offsetU = featureHash(0, 0, seed ^ 0x29b7),
+          offsetV = featureHash(0, 0, seed ^ 0x61d3);
+        for (const [column, row] of [
+          [0, 0],
+          [4, 7],
+          [9, 9],
+        ]) {
+          const u = (column + offsetU + 0.5) / 10,
+            v = (row + offsetV + 0.5) / 10;
+          sample(u, v, center);
+          sample(u + 0.047, v, land);
+          for (let direction = 0; direction < 12; direction++) {
+            const angle = (direction * Math.PI) / 6;
+            let previous = center.height;
+            for (const radius of [0.1, 0.2, 0.3, 0.4, 0.41]) {
+              sample(
+                u + (Math.cos(angle) * radius) / 10,
+                v + (Math.sin(angle) * radius) / 10,
+                out,
+              );
+              expect(out.height).toBeGreaterThan(previous);
+              previous = out.height;
+              const radialHeight = out.height;
+              sample(u + radius / 10, v, out);
+              expect(out.height).toBeCloseTo(radialHeight, 12);
+            }
+            for (const radius of [0.42, 0.46, 0.49]) {
+              sample(
+                u + (Math.cos(angle) * radius) / 10,
+                v + (Math.sin(angle) * radius) / 10,
+                out,
+              );
+              expect(out.height).toBe(land.height);
+            }
+          }
+          sample(u + 0.02, v, out);
+          expect(out.height - center.height).toBeLessThan(
+            land.height - out.height,
+          );
+          expect(center.occlusion).toBeLessThan(land.occlusion);
+        }
+      }
+    });
+
+    it.each(['basketball', 'tennisball', 'golfball'] as const)(
+      '%s has differentiable feature centers, shoulders and support boundaries',
+      (kind) => {
+        const center = empty(),
+          left = empty(),
+          right = empty(),
+          epsilon =
+            1e-8 /
+            (kind === 'basketball' ? 36 : kind === 'tennisball' ? 24 : 10);
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed);
+          const points: [number, number][] = [];
+          if (kind === 'basketball') {
+            const v = 0.125;
+            for (const threshold of [0, 0.035, 0.08, 0.14])
+              points.push([
+                (Math.asin(threshold) / (2 * Math.PI) -
+                  0.12 * Math.sin(2 * Math.PI * v)) /
+                  2,
+                v,
+              ]);
+            const u = (4.35 + 0.3 * featureHash(4, 4, seed ^ 0x19a7)) / 36,
+              pv = (4.35 + 0.3 * featureHash(4, 4, seed ^ 0x5c23)) / 36,
+              radius = 0.34 + 0.04 * featureHash(4, 4, seed ^ 0x73d9);
+            points.push([u, pv], [u + radius / 36, pv]);
+          } else if (kind === 'tennisball') {
+            const u = 0.173;
+            for (const threshold of [0, 0.025, 0.06, 0.1])
+              points.push([
+                u,
+                0.25 +
+                  0.19 * Math.sin(2 * Math.PI * u) +
+                  Math.asin(threshold) / (2 * Math.PI),
+              ]);
+            const fu = (3.35 + 0.3 * featureHash(3, 3, seed ^ 0x19a7)) / 24,
+              fv = (3.35 + 0.3 * featureHash(3, 3, seed ^ 0x5c23)) / 24,
+              angle = 2 * Math.PI * featureHash(3, 3, seed ^ 0x37b1);
+            points.push(
+              [fu, fv],
+              [
+                fu - (Math.sin(angle) * 0.065) / 24,
+                fv + (Math.cos(angle) * 0.065) / 24,
+              ],
+            );
+          } else {
+            const u = (0.5 + featureHash(0, 0, seed ^ 0x29b7)) / 10,
+              v = (0.5 + featureHash(0, 0, seed ^ 0x61d3)) / 10;
+            for (const radius of [0, 0.2, 0.41, 0.5])
+              points.push([u + radius / 10, v]);
+          }
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [epsilon, 0],
+              [0, epsilon],
+            ]) {
+              sample(u - du, v - dv, left);
+              sample(u, v, center);
+              sample(u + du, v + dv, right);
+              for (const key of Object.keys(center) as (keyof SurfaceSample)[])
+                expect(
+                  Math.abs(right[key] - 2 * center[key] + left[key]) / epsilon,
+                ).toBeLessThan(0.001);
+            }
+        }
+      },
+    );
+  });
 
   it('studded rubber has circular flat crowns and rounded descending shoulders', () => {
     const out: SurfaceSample = {
@@ -1242,6 +1456,9 @@ describe('periodic procedural material fields', () => {
     ['studdedrubber', 6],
     ['groovedrubber', 12],
     ['recycledrubber', 48],
+    ['basketball', 36],
+    ['tennisball', 24],
+    ['golfball', 10],
   ] as const)(
     '%s fades all owned fields smoothly as feature neighborhoods change',
     (kind, cells) => {
@@ -2313,40 +2530,46 @@ describe('procedural preset acquisition and ownership', () => {
     for (const bitmap of decoded) expect(bitmap.close).toHaveBeenCalledTimes(1);
   });
 
-  it('borrows maps across independent materials and never takes ownership of overrides', async () => {
-    const preset = await ProceduralMaterial.create('metal', { size: 32 });
-    const external = new Texture({
-      width: 1,
-      height: 1,
-      close: vi.fn(),
-    } as unknown as ImageBitmap);
-    const material = preset.createMaterial({
-      texture: external,
-      roughness: 0.4,
-      metallic: 0.8,
-    });
-    expect(material).not.toBe(preset.material);
-    expect(material.texture).toBe(external);
-    expect(material.normalTexture).toBe(preset.textures.normal);
-    expect(material.roughness).toBe(0.4);
-    expect(preset.material.roughness).toBe(1);
-    const mesh = new Mesh({ geometry: Geometry.cube(), material });
-    mesh.destroy();
-    expect(preset.destroyed).toBe(false);
-    expect(preset.textures.normal.destroyed).toBe(false);
-    expect(() => preset.createMaterial({ roughness: -1 })).toThrow(RangeError);
-    expect(
-      decoded.every((bitmap) => bitmap.close.mock.calls.length === 0),
-    ).toBe(true);
-    preset.destroy();
-    preset.destroy();
-    expect(preset.destroyed).toBe(true);
-    expect(
-      Object.values(preset.textures).every((texture) => texture.destroyed),
-    ).toBe(true);
-    for (const bitmap of decoded) expect(bitmap.close).toHaveBeenCalledTimes(1);
-    expect(external.destroyed).toBe(false);
-    expect(() => preset.createMaterial()).toThrow('destroyed');
-    external.destroy();
-  });
+  it.each(['metal', 'basketball', 'tennisball', 'golfball'] as const)(
+    'borrows %s maps across independent materials and never takes ownership of overrides',
+    async (kind) => {
+      const preset = await ProceduralMaterial.create(kind, { size: 32 });
+      const external = new Texture({
+        width: 1,
+        height: 1,
+        close: vi.fn(),
+      } as unknown as ImageBitmap);
+      const material = preset.createMaterial({
+        texture: external,
+        roughness: 0.4,
+        metallic: 0.8,
+      });
+      expect(material).not.toBe(preset.material);
+      expect(material.texture).toBe(external);
+      expect(material.normalTexture).toBe(preset.textures.normal);
+      expect(material.roughness).toBe(0.4);
+      expect(preset.material.roughness).toBe(1);
+      const mesh = new Mesh({ geometry: Geometry.cube(), material });
+      mesh.destroy();
+      expect(preset.destroyed).toBe(false);
+      expect(preset.textures.normal.destroyed).toBe(false);
+      expect(() => preset.createMaterial({ roughness: -1 })).toThrow(
+        RangeError,
+      );
+      expect(
+        decoded.every((bitmap) => bitmap.close.mock.calls.length === 0),
+      ).toBe(true);
+      preset.destroy();
+      preset.destroy();
+      expect(preset.destroyed).toBe(true);
+      expect(
+        Object.values(preset.textures).every((texture) => texture.destroyed),
+      ).toBe(true);
+      for (const bitmap of decoded)
+        expect(bitmap.close).toHaveBeenCalledTimes(1);
+      expect(external.destroyed).toBe(false);
+      expect(() => preset.createMaterial()).toThrow('destroyed');
+      external.destroy();
+    },
+  );
 });

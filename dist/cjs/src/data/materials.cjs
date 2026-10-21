@@ -1265,6 +1265,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .28,
 		relief: .003
+	}),
+	basketball: Object.freeze({
+		dark: [
+			23,
+			16,
+			12
+		],
+		light: [
+			239,
+			113,
+			33
+		],
+		roughness: .79,
+		relief: .0018
+	}),
+	tennisball: Object.freeze({
+		dark: [
+			153,
+			190,
+			15
+		],
+		light: [
+			249,
+			251,
+			217
+		],
+		roughness: .94,
+		relief: 6e-4
+	}),
+	golfball: Object.freeze({
+		dark: [
+			191,
+			197,
+			201
+		],
+		light: [
+			255,
+			255,
+			253
+		],
+		roughness: .18,
+		relief: .0012
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -1357,7 +1399,10 @@ var proceduralTileMeters = Object.freeze({
 	recycledrubber: .24,
 	breadcrust: .21,
 	wafer: .072,
-	chocolate: .12
+	chocolate: .12,
+	basketball: .24,
+	tennisball: .12,
+	golfball: .045
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

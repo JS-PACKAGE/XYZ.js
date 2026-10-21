@@ -368,6 +368,29 @@ export function createSurfaceSampler(
             crustPlates[plane++] = distance / 2;
           }
       }
+  const sportCells = kind === 'basketball' ? 36 : 24;
+  const sportStride = kind === 'basketball' ? 3 : 4;
+  const sportFeatures =
+    kind === 'basketball' || kind === 'tennisball'
+      ? new Float64Array(sportCells * sportCells * sportStride)
+      : null;
+  if (sportFeatures)
+    for (let y = 0; y < sportCells; y++)
+      for (let x = 0; x < sportCells; x++) {
+        const offset = (y * sportCells + x) * sportStride;
+        sportFeatures[offset] = 0.35 + 0.3 * hash(x, y, seed ^ 0x19a7);
+        sportFeatures[offset + 1] = 0.35 + 0.3 * hash(x, y, seed ^ 0x5c23);
+        if (kind === 'basketball') {
+          const radius = 0.34 + 0.04 * hash(x, y, seed ^ 0x73d9);
+          sportFeatures[offset + 2] = 1 / (radius * radius);
+        } else {
+          const angle = TAU * hash(x, y, seed ^ 0x37b1);
+          sportFeatures[offset + 2] = Math.cos(angle);
+          sportFeatures[offset + 3] = Math.sin(angle);
+        }
+      }
+  const golfOffsetU = kind === 'golfball' ? hash(0, 0, seed ^ 0x29b7) : 0;
+  const golfOffsetV = kind === 'golfball' ? hash(0, 0, seed ^ 0x61d3) : 0;
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -2903,6 +2926,92 @@ export function createSurfaceSampler(
         height = 0.14 + 0.65 * segment;
         roughness += 0.1 * (1 - segment) + 0.008 * (cocoa - 0.5);
         occlusion = 0.73 + 0.27 * segment;
+        break;
+      }
+      case 'basketball': {
+        const x = u * sportCells,
+          y = v * sportCells,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let pebbles = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset =
+              ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
+                (((cx % sportCells) + sportCells) % sportCells)) *
+              sportStride;
+            const dx = x - cx - sportFeatures![offset],
+              dy = y - cy - sportFeatures![offset + 1];
+            const pebble = smooth(
+              clamp(1 - (dx * dx + dy * dy) * sportFeatures![offset + 2]),
+            );
+            pebbles += (1 - pebbles) * pebble;
+          }
+        // Products keep both intersecting panel grooves and their slopes smooth.
+        const across = Math.abs(
+            Math.sin(TAU * (2 * u + 0.12 * Math.sin(TAU * v))),
+          ),
+          along = Math.abs(Math.sin(TAU * (2 * v + 0.12 * Math.sin(TAU * u))));
+        const panel =
+          smooth(clamp((across - 0.035) / 0.105)) *
+          smooth(clamp((along - 0.035) / 0.105));
+        color = 0.025 + panel * (0.64 + 0.24 * pebbles + 0.025 * detail);
+        height = 0.12 + panel * (0.46 + 0.22 * pebbles);
+        roughness += 0.045 * pebbles - 0.08 * (1 - panel);
+        occlusion = 0.64 + 0.36 * panel;
+        break;
+      }
+      case 'tennisball': {
+        const x = u * sportCells,
+          y = v * sportCells,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let felt = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const offset =
+              ((((cy % sportCells) + sportCells) % sportCells) * sportCells +
+                (((cx % sportCells) + sportCells) % sportCells)) *
+              sportStride;
+            const dx = x - cx - sportFeatures![offset],
+              dy = y - cy - sportFeatures![offset + 1];
+            const along =
+                (dx * sportFeatures![offset + 2] +
+                  dy * sportFeatures![offset + 3]) /
+                0.48,
+              across =
+                (-dx * sportFeatures![offset + 3] +
+                  dy * sportFeatures![offset + 2]) /
+                0.065;
+            // Compact, randomly oriented strokes imply tangled felt, not woven yarn.
+            const fiber = smooth(clamp(1 - along * along - across * across));
+            felt += (1 - felt) * fiber;
+          }
+        const distance = Math.abs(
+          Math.sin(TAU * (v - 0.19 * Math.sin(TAU * u) - 0.25)),
+        );
+        const seam = 1 - smooth(clamp((distance - 0.025) / 0.075));
+        color = (0.16 + 0.1 * detail + 0.06 * felt) * (1 - seam) + 0.97 * seam;
+        height =
+          0.54 + (1 - seam) * (0.065 * felt + 0.018 * detail) - 0.12 * seam;
+        roughness -= 0.1 * seam;
+        occlusion = 1 - 0.12 * seam;
+        break;
+      }
+      case 'golfball': {
+        const x = fract(u * 10 - golfOffsetU) - 0.5,
+          y = fract(v * 10 - golfOffsetV) - 0.5;
+        // Squared radius is smooth at the center; the compact bowl meets flat
+        // land with zero rim slope, before a cell can change ownership.
+        const bowl = Math.pow(clamp(1 - (x * x + y * y) / (0.41 * 0.41)), 2);
+        color = 0.96 - 0.12 * bowl;
+        height = 0.8 - 0.6 * bowl;
+        roughness += 0.04 * bowl;
+        occlusion = 1 - 0.2 * bowl;
         break;
       }
     }

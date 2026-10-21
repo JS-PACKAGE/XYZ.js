@@ -547,6 +547,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.28,
     relief: 0.003,
   }),
+  basketball: Object.freeze({
+    dark: [23, 16, 12] as const,
+    light: [239, 113, 33] as const,
+    roughness: 0.79,
+    relief: 0.0018,
+  }),
+  tennisball: Object.freeze({
+    dark: [153, 190, 15] as const,
+    light: [249, 251, 217] as const,
+    roughness: 0.94,
+    relief: 0.0006,
+  }),
+  golfball: Object.freeze({
+    dark: [191, 197, 201] as const,
+    light: [255, 255, 253] as const,
+    roughness: 0.18,
+    relief: 0.0012,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -641,6 +659,9 @@ export const proceduralTileMeters = Object.freeze({
   breadcrust: 0.21,
   wafer: 0.072,
   chocolate: 0.12,
+  basketball: 0.24,
+  tennisball: 0.12,
+  golfball: 0.045,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

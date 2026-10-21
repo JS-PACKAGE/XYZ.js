@@ -546,6 +546,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.28;
         relief: 0.003;
     }>;
+    basketball: Readonly<{
+        dark: readonly [23, 16, 12];
+        light: readonly [239, 113, 33];
+        roughness: 0.79;
+        relief: 0.0018;
+    }>;
+    tennisball: Readonly<{
+        dark: readonly [153, 190, 15];
+        light: readonly [249, 251, 217];
+        roughness: 0.94;
+        relief: 0.0006;
+    }>;
+    golfball: Readonly<{
+        dark: readonly [191, 197, 201];
+        light: readonly [255, 255, 253];
+        roughness: 0.18;
+        relief: 0.0012;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -639,6 +657,9 @@ export declare const proceduralTileMeters: Readonly<{
     breadcrust: 0.21;
     wafer: 0.072;
     chocolate: 0.12;
+    basketball: 0.24;
+    tennisball: 0.12;
+    golfball: 0.045;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

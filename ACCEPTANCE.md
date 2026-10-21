@@ -2844,3 +2844,26 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   或其他修改；不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
 - `[Storage]` SaveManager 不再重複驗證同一份 JSON：`decode` 已把整個 record（含自有 `data`）驗證過，只在 `data` 非自有屬性時再驗；覆寫前與 load／migrate 結尾改只跑 schema `validate`（migration 每步本來就驗證 JSON）。錯誤條件與順序不變。2000 筆 entity 存檔 Node bench：save 6.5 → 4.6 ms、load 4.8 → 2.9 ms、配置 14.4 → 8.5 MiB／次；新增缺少／非有限 `data` 視為 corrupt、schema 拒絕的舊資料不可覆寫的測試。因同工作區另一方的未提交檔暫時無法編譯，build 與完整測試（1730 通過）改在 HEAD 匯出副本加本變更上執行，產物與主工作區同一 HEAD 建置逐位相同。
 - `[Storage]` 補記：上一筆 `[Storage]` commit 也一併帶入 `checkSize` 的 UTF-8 長度界線——UTF-16 單位編碼為 1–3 bytes，長度 ×3 不超過上限即直接通過、長度超過上限即直接拒絕，只有中間範圍才實際 `TextEncoder` 編碼；判定結果不變。545 KiB 字串 `MemoryStorage.set` Node bench 約 11 → <1 µs。本筆新增上限兩側（三位元組字元、ASCII、孤立 surrogate）的邊界測試，並經 mutation 驗證。
+
+## 程序材質擴充：運動表面（basketball／tennisball／golfball）
+
+- 新增籃球細顆粒與深色凹縫、網球絨面與淡色曲線接縫、
+  高爾夫球圓形凹點與平坦周邊。本組獨立快照由 90 增為 93 種，
+  不含同時進行的另一組金屬材質。皆為 opaque dielectric；
+  週期紋樣不是完整球面拼片拓撲，不新增 geometry 或球體物理。
+- 原 90 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+  新增接縫／顆粒／絨毛／凹點的結構、週期、bounds 與斜率檢查，
+  不以任意色階數量或預設值作為通過條件。
+- 獨立快照 build、typecheck、lint、format:check 通過；
+  完整 Vitest 為 176 files／1752 tests passed（53.37 秒）。
+  使用既有安裝工具執行 scripts 對應命令，未變更依賴。
+- managed Chromium WebGPU／WebGL2 逐一切換三者，畫面 hash 各自不同且
+  無 page errors；2×2 平鋪與四份 textures 的 destroy 釋放通過。
+  metallic 全為 0，roughness bytes 依序 181–213／214–240／46–56；
+  每米 repeats 依序 4.166667／8.333333／22.222222。
+- 整合時修正前組食品增量在主工作目錄的無上下文 patch 插入位置：
+  只撤回本方該 patch，再以三方合併保留同步金屬修改，未改動已提交的
+  獨立快照。修正後主工作目錄 typecheck 與 307 個程序材質測試通過；
+  食品與運動六種的雙 backend 畫面 hash 均與各自獨立快照一致。
+- 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
+  不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。

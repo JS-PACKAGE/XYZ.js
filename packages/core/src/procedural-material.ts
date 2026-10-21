@@ -96,7 +96,10 @@ export type ProceduralMaterialKind =
   | 'recycledrubber'
   | 'breadcrust'
   | 'wafer'
-  | 'chocolate';
+  | 'chocolate'
+  | 'basketball'
+  | 'tennisball'
+  | 'golfball';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -219,6 +222,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'breadcrust',
   'wafer',
   'chocolate',
+  'basketball',
+  'tennisball',
+  'golfball',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
