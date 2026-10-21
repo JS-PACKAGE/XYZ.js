@@ -3023,3 +3023,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   文件沒有新增相對連結，README 既有石材分類維持適用。
   只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
+- `[Physics3D]` 減少每 step 的接觸管線配置，數值與事件順序不變：摩擦／反彈／質量改用 `x ? x.f : d` 讀取（`x?.f ?? d` 會把 double 裝箱）；接觸 Map 以 keys＋get 走訪，不再為每個接觸配置解構用的 entry 陣列；BVH 查詢、自身配對與 broadphase 配對緩衝改以索引寫入後一次截斷，不再先清空（V8 清空即釋放 backing store，每 step 重新長大）；`active` 以計數保留儲存，step 開始時 debug snapshot 仍看不到上一步的接觸。Node 1000 剛體 bench 3.88 → 1.45 MiB／step，phys3d、cc3d、cc3dfuzz 1–3、ccbits、bake、crowd、joints、靜態多數查詢路徑 hash 皆不變，屬配置減少；新增 CCD 撞擊回呼中 debug snapshot 只含本 step 接觸的測試並經 mutation 驗證。build 與完整測試（1875 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。

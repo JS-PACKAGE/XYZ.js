@@ -99,6 +99,7 @@ var PhysicsWorld3D = class {
 	contacts = /* @__PURE__ */ new Map();
 	contactRowSerial = 0;
 	active = [];
+	activeCount = 0;
 	narrow = new require_geometry.Narrowphase3D();
 	queryNarrow = new require_geometry.Narrowphase3D();
 	queryManifold = new require_geometry.Manifold3D();
@@ -161,12 +162,13 @@ var PhysicsWorld3D = class {
 		let e = new require_debug_geometry.PhysicsDebugSnapshotBuilder3D();
 		for (let t of this.ordered) this.valid(t) && e.shape(t.shape);
 		let n = new require_math3d.Vector3();
-		for (let t of this.active) {
-			if (!this.valid(t.a) || !this.valid(t.b) || t.ended) continue;
-			let r = t.manifold;
-			for (let t = 0; t < r.count; t++) {
-				let i = r.points[t], a = r.normals[t];
-				n.set(i.x + a.x * require_physics_profiles.physicsProfiles.debug.normalLength, i.y + a.y * require_physics_profiles.physicsProfiles.debug.normalLength, i.z + a.z * require_physics_profiles.physicsProfiles.debug.normalLength), e.line(i, n, `contact`);
+		for (let t = 0; t < this.activeCount; t++) {
+			let r = this.active[t];
+			if (!this.valid(r.a) || !this.valid(r.b) || r.ended) continue;
+			let i = r.manifold;
+			for (let t = 0; t < i.count; t++) {
+				let r = i.points[t], a = i.normals[t];
+				n.set(r.x + a.x * require_physics_profiles.physicsProfiles.debug.normalLength, r.y + a.y * require_physics_profiles.physicsProfiles.debug.normalLength, r.z + a.z * require_physics_profiles.physicsProfiles.debug.normalLength), e.line(r, n, `contact`);
 			}
 		}
 		for (let t of this.constraints) {
@@ -350,7 +352,7 @@ var PhysicsWorld3D = class {
 		a.normal.copy(n.normal), a.distance = n.distance, a.count = n.count;
 		for (let r = 0; r < a.count; r++) {
 			a.points[r].copy(n.points[r]), a.normals[r].copy(n.normals[r]), a.depths[r] = n.depths[r], i.normalImpulses[r] = 0, i.tangentImpulses[r] = 0, this.velocityAt(e.body, a.points[r], this.relative), this.velocityAt(t.body, a.points[r], this.impulse), this.relative.subtract(this.impulse);
-			let o = a.normals[r], s = this.relative.dot(o), c = Math.max(e.body?.restitution ?? 0, t.body?.restitution ?? 0);
+			let o = a.normals[r], s = this.relative.dot(o), c = Math.max(e.body ? e.body.restitution : 0, t.body ? t.body.restitution : 0);
 			i.targets[r] = s < -require_physics3d.physics3DDefaults.restitutionThreshold ? -s * c : 0, i.tangent[r].copy(this.relative), i.tangent[r].x -= o.x * s, i.tangent[r].y -= o.y * s, i.tangent[r].z -= o.z * s, i.tangent[r].normalize();
 		}
 		return i.seen = this.stepId, i;
@@ -425,7 +427,7 @@ var PhysicsWorld3D = class {
 		r > 1e-12 && (++this.counters.ccdExhaustions, this.counters.ccdLimitedTime += r);
 	}
 	step(e, t) {
-		++this.stepId, this.active.length = 0, this.counters.ccdTests = 0, this.counters.ccdIterations = 0, this.counters.ccdImpacts = 0, this.counters.ccdExhaustions = 0, this.counters.ccdLimitedTime = 0, this.refreshIndex();
+		++this.stepId, this.activeCount = 0, this.counters.ccdTests = 0, this.counters.ccdIterations = 0, this.counters.ccdImpacts = 0, this.counters.ccdExhaustions = 0, this.counters.ccdLimitedTime = 0, this.refreshIndex();
 		for (let t of this.ordered) {
 			t.ccdStopped = !1, this.validate(t.object);
 			let n = t.body;
@@ -444,32 +446,33 @@ var PhysicsWorld3D = class {
 		for (let e = 0; e < this.solverIterations; e++) this.solveJoints();
 		if (this.integrateContinuous(e, t), !t() || this.disposed) return;
 		this.refreshIndex(), this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0;
-		let n = this.pairLows, r = this.pairHighs, i = this.pairSequence;
-		n.length = r.length = i.length = 0;
-		let a = 0;
-		for (let e of this.ordered) pairsWithin(e) && a++;
-		if (a >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
+		let n = this.pairLows, r = this.pairHighs, i = this.pairSequence, a = 0, o = 0;
+		for (let e of this.ordered) pairsWithin(e) && o++;
+		if (o >= this.ordered.length * require_physics3d.physics3DDefaults.pairTraversalShare) {
 			let e = this.pairFirsts, t = this.pairSeconds;
 			this.index.pairs(pairsWithin, require_physics3d.physics3DDefaults.contactMargin, e, t);
-			for (let a = 0; a < e.length; a++) {
-				let o = e[a], s = t[a];
-				i.push(n.length), n.push(s.order < o.order ? s : o), r.push(s.order < o.order ? o : s);
+			for (let o = 0; o < e.length; o++) {
+				let s = e[o], c = t[o];
+				i[a] = a, n[a] = c.order < s.order ? c : s, r[a++] = c.order < s.order ? s : c;
 			}
 		} else for (let e of this.ordered) if (pairsWithin(e)) {
 			this.index.query(e.bounds, this.pairCandidates, require_physics3d.physics3DDefaults.contactMargin);
-			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (i.push(n.length), n.push(t.order < e.order ? t : e), r.push(t.order < e.order ? e : t)));
+			for (let t of this.pairCandidates) t !== e && (t.order < e.order && pairsWithin(t) || (i[a] = a, n[a] = t.order < e.order ? t : e, r[a++] = t.order < e.order ? e : t));
 		}
-		i.sort(this.comparePairs);
+		n.length = r.length = i.length = a, i.sort(this.comparePairs);
 		for (let e of i) {
 			let t = n[e], i = r[e];
 			this.counters.candidatePairs++;
 			let a = t.shape.collider, o = i.shape.collider;
-			if (!(a.category & o.mask) || !(o.category & a.mask) || this.connected(t, i) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, i.shape, this.queryManifold), this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin)) continue;
-			let s = this.prepareContact(t, i, this.queryManifold);
-			this.active.push(s);
+			a.category & o.mask && o.category & a.mask && (this.connected(t, i) || (this.counters.narrowphaseTests++, this.narrow.collide(t.shape, i.shape, this.queryManifold), !(this.queryManifold.distance > require_physics3d.physics3DDefaults.contactMargin) && (this.active[this.activeCount++] = this.prepareContact(t, i, this.queryManifold))));
 		}
-		for (let [e, t] of this.contacts) {
-			for (let [n, r] of t) r.seen !== this.stepId && (t.delete(n), n.partnerRows.delete(e), this.end(r));
+		this.active.length = this.activeCount;
+		for (let e of this.contacts.keys()) {
+			let t = this.contacts.get(e);
+			for (let n of t.keys()) {
+				let r = t.get(n);
+				r.seen !== this.stepId && (t.delete(n), n.partnerRows.delete(e), this.end(r));
+			}
 			t.size === 0 && (this.contacts.delete(e), e.contactRow = -1);
 		}
 		for (let e of this.active) if (this.valid(e.a) && this.valid(e.b) && (e.started || this.start(e), !t() || this.disposed)) return;
@@ -486,7 +489,7 @@ var PhysicsWorld3D = class {
 		for (let e of this.jointSnapshot) if (e.belongsTo(this) && (e.reactionForce > e.breakForce || e.reactionTorque > e.breakTorque) && (this.removeJoint(e), e.onBreak?.(e), !t() || this.disposed)) return;
 		for (let e of this.active) {
 			if (e.ended || !this.valid(e.a) || !this.valid(e.b) || e.a.shape.collider.sensor || e.b.shape.collider.sensor) continue;
-			let t = e.a.body, n = e.b.body, r = t?.inverseMass ?? 0, i = n?.inverseMass ?? 0, a = r + i;
+			let t = e.a.body, n = e.b.body, r = t ? t.inverseMass : 0, i = n ? n.inverseMass : 0, a = r + i;
 			if (a === 0) continue;
 			if (e.a.shape.collider.kind === `compound` || e.b.shape.collider.kind === `compound` || e.a.shape.collider.kind === `mesh` || e.b.shape.collider.kind === `mesh`) {
 				let o = e.manifold;
@@ -567,7 +570,7 @@ var PhysicsWorld3D = class {
 		let m = e.tangent[t], h = e.tangentMass[t];
 		if (Number.isNaN(h)) return;
 		this.velocityInto(n, a, s, 0), this.velocityInto(r, a, s, 3), c = s[0] - s[3], l = s[1] - s[4], u = s[2] - s[5];
-		let g = Math.sqrt((n?.friction ?? .5) * (r?.friction ?? .5)) * p, _ = e.tangentImpulses[t], v = Math.max(-g, Math.min(g, _ - (c * m.x + l * m.y + u * m.z) / h));
+		let g = Math.sqrt((n ? n.friction : .5) * (r ? r.friction : .5)) * p, _ = e.tangentImpulses[t], v = Math.max(-g, Math.min(g, _ - (c * m.x + l * m.y + u * m.z) / h));
 		e.tangentImpulses[t] = v, this.solveImpulse.set(m.x * (v - _), m.y * (v - _), m.z * (v - _)), this.applyImpulse(n, a, 1), this.applyImpulse(r, a, -1);
 	}
 	refreshIndex() {
@@ -755,7 +758,7 @@ var PhysicsWorld3D = class {
 		if (!(this.disposed || this.destroying)) {
 			this.destroying = !0;
 			for (let e of this.contacts.values()) for (let t of e.values()) this.end(t);
-			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = 0, this.index.clear(), this.pairCandidates.length = 0, this.pairFirsts.length = this.pairSeconds.length = 0, this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
+			this.disposed = !0, this.entries.clear(), this.ordered.length = 0, this.contacts.clear(), this.active.length = this.activeCount = 0, this.index.clear(), this.pairCandidates.length = 0, this.pairFirsts.length = this.pairSeconds.length = 0, this.pairLows.length = this.pairHighs.length = this.pairSequence.length = 0, this.queryCandidates.length = 0, this.sweepTriangles.length = 0;
 			for (let e of this.constraints) e.detach();
 			this.constraints.length = 0, this.jointLinks.clear(), ++this.counters.indexGeneration, this.jointSnapshot.length = 0, this.sweptEntries.length = 0, this.ccdCandidates.length = 0, this.sweptIndex.clear(), this.placementShape = void 0, this.capsuleQueryShape = void 0, this.sweepQueryShape = void 0, this.counters.candidatePairs = 0, this.counters.narrowphaseTests = 0, this.counters.queryCandidates = 0, this.accumulator = 0;
 		}

@@ -132,3 +132,35 @@ it('sweeps a box through Scene facade and returns its first surface contact', ()
   expect(hit?.normal.x).toBeCloseTo(-1, 6);
   scene.destroy();
 });
+
+it('shows only the current step contacts to a debug snapshot taken in a continuous impact', () => {
+  const scene = new Scene();
+  // A resting pair that is in contact on the step before the impact.
+  const floor = new Object3D();
+  floor.collider = new BoxCollider3D(new Vector3(1, 0.1, 1));
+  floor.position.set(0, -10, 0);
+  scene.add(floor);
+  const resting = new Object3D();
+  resting.collider = new SphereCollider3D(0.25);
+  resting.position.set(0, -9.66, 0);
+  resting.body = new RigidBody3D({ allowSleep: false });
+  scene.add(resting);
+  const wall = new Object3D();
+  wall.collider = new BoxCollider3D(new Vector3(0.01, 5, 5));
+  scene.add(wall);
+  const contactSegments = () =>
+    scene.physics3D
+      .debugSnapshot()
+      .segments.filter((segment) => segment.kind === 'contact').length;
+  scene.physics3D.update(scene.physics3D.fixedDelta);
+  expect(contactSegments()).toBeGreaterThan(0);
+  const body = launch(scene, new SphereCollider3D(0.25));
+  let during = -1;
+  body.addEventListener('collisionstart', () => {
+    during = contactSegments();
+  });
+  scene.physics3D.update(scene.physics3D.fixedDelta);
+  // The impact starts before this step pairs anything, so last step's contacts are gone.
+  expect(during).toBe(0);
+  scene.destroy();
+});

@@ -179,17 +179,22 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
     return count;
   }
   query(bounds: Bounds3D, out: T[], margin = 0): void {
-    out.length = 0;
-    this.stack.length = 0;
-    if (this.root) this.stack.push(this.root);
-    while (this.stack.length) {
-      const n = this.stack.pop()!;
+    // Index writes, then one truncation: emptying an array first drops its backing store,
+    // and refilling it reallocated on every query.
+    const stack = this.stack;
+    let count = 0,
+      top = 0;
+    if (this.root) stack[top++] = this.root;
+    while (top) {
+      const n = stack[--top]!;
       if (!n.bounds.overlaps(bounds, margin)) continue;
-      if (n.item) out.push(n.item);
+      if (n.item) out[count++] = n.item;
       else {
-        this.stack.push(n.right!, n.left!);
+        stack[top++] = n.right!;
+        stack[top++] = n.left!;
       }
     }
+    out.length = count;
     sortByOrder(out);
   }
   /**
@@ -204,34 +209,53 @@ export class SpatialIndex3D<T extends SpatialItem3D> {
     firsts: T[],
     seconds: T[],
   ): void {
-    firsts.length = seconds.length = 0;
-    if (!this.root) return;
+    if (!this.root) {
+      firsts.length = seconds.length = 0;
+      return;
+    }
     // Children always occupy later slots than their parent.
     for (let i = this.used - 1; i >= 0; i--) {
       const n = this.nodes[i]!;
       n.active = n.item ? active(n.item) : n.left!.active || n.right!.active;
     }
     const stack = this.pairStack;
-    stack.length = 0;
-    stack.push(this.root, this.root);
-    while (stack.length) {
-      const b = stack.pop()!,
-        a = stack.pop()!;
+    let count = 0,
+      top = 0;
+    stack[top++] = this.root;
+    stack[top++] = this.root;
+    while (top) {
+      const b = stack[--top]!,
+        a = stack[--top]!;
       if (a === b) {
         if (a.item || !a.active) continue;
         const left = a.left!,
           right = a.right!;
-        stack.push(left, right, left, left, right, right);
+        stack[top++] = left;
+        stack[top++] = right;
+        stack[top++] = left;
+        stack[top++] = left;
+        stack[top++] = right;
+        stack[top++] = right;
         continue;
       }
       if ((!a.active && !b.active) || !a.bounds.overlaps(b.bounds, margin))
         continue;
       if (a.item && b.item) {
-        firsts.push(a.item);
-        seconds.push(b.item);
-      } else if (a.item) stack.push(a, b.left!, a, b.right!);
-      else stack.push(a.left!, b, a.right!, b);
+        firsts[count] = a.item;
+        seconds[count++] = b.item;
+      } else if (a.item) {
+        stack[top++] = a;
+        stack[top++] = b.left!;
+        stack[top++] = a;
+        stack[top++] = b.right!;
+      } else {
+        stack[top++] = a.left!;
+        stack[top++] = b;
+        stack[top++] = a.right!;
+        stack[top++] = b;
+      }
     }
+    firsts.length = seconds.length = count;
   }
   clear(): void {
     this.root = undefined;

@@ -209,6 +209,8 @@ export class PhysicsWorld3D {
   private readonly contacts = new Map<Entry3D, Map<Entry3D, Contact3D>>();
   private contactRowSerial = 0;
   private readonly active: Contact3D[] = [];
+  /** Contacts of the current step in `active`; entries past it are stale. */
+  private activeCount = 0;
   private readonly narrow = new Narrowphase3D();
   private readonly queryNarrow = new Narrowphase3D();
   private readonly queryManifold = new Manifold3D();
@@ -303,7 +305,8 @@ export class PhysicsWorld3D {
     for (const entry of this.ordered)
       if (this.valid(entry)) builder.shape(entry.shape);
     const end = new Vector3();
-    for (const contact of this.active) {
+    for (let i = 0; i < this.activeCount; i++) {
+      const contact = this.active[i]!;
       if (!this.valid(contact.a) || !this.valid(contact.b) || contact.ended)
         continue;
       const manifold = contact.manifold;
@@ -675,7 +678,10 @@ export class PhysicsWorld3D {
       this.relative.subtract(this.impulse);
       const n = m.normals[k],
         vn = this.relative.dot(n),
-        bounce = Math.max(a.body?.restitution ?? 0, b.body?.restitution ?? 0);
+        bounce = Math.max(
+          a.body ? a.body.restitution : 0,
+          b.body ? b.body.restitution : 0,
+        );
       contact.targets[k] =
         vn < -physics3DDefaults.restitutionThreshold ? -vn * bounce : 0;
       contact.tangent[k].copy(this.relative);
@@ -848,7 +854,8 @@ export class PhysicsWorld3D {
   }
   private step(dt: number, canContinue: () => boolean): void {
     ++this.stepId;
-    this.active.length = 0;
+    // `active` keeps its storage; readers before this step's pairs see none of them.
+    this.activeCount = 0;
     this.counters.ccdTests = 0;
     this.counters.ccdIterations = 0;
     this.counters.ccdImpacts = 0;
@@ -905,11 +912,12 @@ export class PhysicsWorld3D {
     this.counters.narrowphaseTests = 0;
     // Both ways yield each overlapping pair with a body or sensor once; pairs are then
     // visited in (lower, higher) order as a full sweep would, so the choice is speed only.
+    // Filled by index and truncated once: emptying them first dropped their backing stores.
     const lows = this.pairLows,
       highs = this.pairHighs,
       sequence = this.pairSequence;
-    lows.length = highs.length = sequence.length = 0;
-    let pairing = 0;
+    let pairs = 0,
+      pairing = 0;
     for (const e of this.ordered) if (pairsWithin(e)) pairing++;
     if (pairing >= this.ordered.length * physics3DDefaults.pairTraversalShare) {
       const firsts = this.pairFirsts,
@@ -923,9 +931,9 @@ export class PhysicsWorld3D {
       for (let i = 0; i < firsts.length; i++) {
         const a = firsts[i]!,
           b = seconds[i]!;
-        sequence.push(lows.length);
-        lows.push(b.order < a.order ? b : a);
-        highs.push(b.order < a.order ? a : b);
+        sequence[pairs] = pairs;
+        lows[pairs] = b.order < a.order ? b : a;
+        highs[pairs++] = b.order < a.order ? a : b;
       }
     } else
       for (const a of this.ordered) {
@@ -939,11 +947,12 @@ export class PhysicsWorld3D {
         for (const b of this.pairCandidates) {
           if (b === a) continue;
           if (b.order < a.order && pairsWithin(b)) continue;
-          sequence.push(lows.length);
-          lows.push(b.order < a.order ? b : a);
-          highs.push(b.order < a.order ? a : b);
+          sequence[pairs] = pairs;
+          lows[pairs] = b.order < a.order ? b : a;
+          highs[pairs++] = b.order < a.order ? a : b;
         }
       }
+    lows.length = highs.length = sequence.length = pairs;
     sequence.sort(this.comparePairs);
     for (const pair of sequence) {
       const a = lows[pair]!,
@@ -957,16 +966,24 @@ export class PhysicsWorld3D {
       this.narrow.collide(a.shape, b.shape, this.queryManifold);
       if (this.queryManifold.distance > physics3DDefaults.contactMargin)
         continue;
-      const contact = this.prepareContact(a, b, this.queryManifold);
-      this.active.push(contact);
+      this.active[this.activeCount++] = this.prepareContact(
+        a,
+        b,
+        this.queryManifold,
+      );
     }
-    for (const [a, row] of this.contacts) {
-      for (const [b, c] of row)
+    this.active.length = this.activeCount;
+    // Keys and lookups rather than destructured entries, which allocated a pair per contact.
+    for (const a of this.contacts.keys()) {
+      const row = this.contacts.get(a)!;
+      for (const b of row.keys()) {
+        const c = row.get(b)!;
         if (c.seen !== this.stepId) {
           row.delete(b);
           b.partnerRows!.delete(a);
           this.end(c);
         }
+      }
       if (row.size === 0) {
         this.contacts.delete(a);
         a.contactRow = -1;
@@ -1053,8 +1070,8 @@ export class PhysicsWorld3D {
         continue;
       const a = c.a.body,
         b = c.b.body,
-        ma = a?.inverseMass ?? 0,
-        mb = b?.inverseMass ?? 0,
+        ma = a ? a.inverseMass : 0,
+        mb = b ? b.inverseMass : 0,
         sum = ma + mb;
       if (sum === 0) continue;
       if (
@@ -1266,7 +1283,9 @@ export class PhysicsWorld3D {
     rx = v[0] - v[3];
     ry = v[1] - v[4];
     rz = v[2] - v[5];
-    const mu = Math.sqrt((a?.friction ?? 0.5) * (b?.friction ?? 0.5)),
+    // `a ? a.friction : 0.5`, not `a?.friction ?? 0.5`: merging an optional double with
+    // `undefined` makes V8 box it, which allocated per contact point and iteration.
+    const mu = Math.sqrt((a ? a.friction : 0.5) * (b ? b.friction : 0.5)),
       limit = mu * next;
     const old = c.tangentImpulses[k],
       value = Math.max(
@@ -1786,7 +1805,7 @@ export class PhysicsWorld3D {
     this.entries.clear();
     this.ordered.length = 0;
     this.contacts.clear();
-    this.active.length = 0;
+    this.active.length = this.activeCount = 0;
     this.index.clear();
     this.pairCandidates.length = 0;
     this.pairFirsts.length = this.pairSeconds.length = 0;

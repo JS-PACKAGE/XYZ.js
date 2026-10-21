@@ -104,6 +104,8 @@ export declare class PhysicsWorld3D {
     private readonly contacts;
     private contactRowSerial;
     private readonly active;
+    /** Contacts of the current step in `active`; entries past it are stale. */
+    private activeCount;
     private readonly narrow;
     private readonly queryNarrow;
     private readonly queryManifold;

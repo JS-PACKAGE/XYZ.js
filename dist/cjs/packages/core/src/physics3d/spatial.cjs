@@ -78,29 +78,34 @@ var SpatialIndex3D = class {
 		return n;
 	}
 	query(e, t, n = 0) {
-		for (t.length = 0, this.stack.length = 0, this.root && this.stack.push(this.root); this.stack.length;) {
-			let r = this.stack.pop();
-			r.bounds.overlaps(e, n) && (r.item ? t.push(r.item) : this.stack.push(r.right, r.left));
+		let r = this.stack, i = 0, a = 0;
+		for (this.root && (r[a++] = this.root); a;) {
+			let o = r[--a];
+			o.bounds.overlaps(e, n) && (o.item ? t[i++] = o.item : (r[a++] = o.right, r[a++] = o.left));
 		}
-		sortByOrder(t);
+		t.length = i, sortByOrder(t);
 	}
 	pairs(e, t, n, r) {
-		if (n.length = r.length = 0, !this.root) return;
+		if (!this.root) {
+			n.length = r.length = 0;
+			return;
+		}
 		for (let t = this.used - 1; t >= 0; t--) {
 			let n = this.nodes[t];
 			n.active = n.item ? e(n.item) : n.left.active || n.right.active;
 		}
-		let i = this.pairStack;
-		for (i.length = 0, i.push(this.root, this.root); i.length;) {
-			let e = i.pop(), a = i.pop();
-			if (a === e) {
-				if (a.item || !a.active) continue;
-				let e = a.left, t = a.right;
-				i.push(e, t, e, e, t, t);
+		let i = this.pairStack, a = 0, o = 0;
+		for (i[o++] = this.root, i[o++] = this.root; o;) {
+			let e = i[--o], s = i[--o];
+			if (s === e) {
+				if (s.item || !s.active) continue;
+				let e = s.left, t = s.right;
+				i[o++] = e, i[o++] = t, i[o++] = e, i[o++] = e, i[o++] = t, i[o++] = t;
 				continue;
 			}
-			(a.active || e.active) && a.bounds.overlaps(e.bounds, t) && (a.item && e.item ? (n.push(a.item), r.push(e.item)) : a.item ? i.push(a, e.left, a, e.right) : i.push(a.left, e, a.right, e));
+			(s.active || e.active) && s.bounds.overlaps(e.bounds, t) && (s.item && e.item ? (n[a] = s.item, r[a++] = e.item) : s.item ? (i[o++] = s, i[o++] = e.left, i[o++] = s, i[o++] = e.right) : (i[o++] = s.left, i[o++] = e, i[o++] = s.right, i[o++] = e));
 		}
+		n.length = r.length = a;
 	}
 	clear() {
 		this.root = void 0, this.pairStack.length = 0, this.nodes.length = 0, this.leaves.length = 0, this.stack.length = 0, this.leafNodes.clear(), this.used = 0;
