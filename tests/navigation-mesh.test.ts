@@ -77,6 +77,21 @@ describe('polygon navigation surfaces', () => {
     slope.destroy();
   });
 
+  it('re-clears agent radius from an edge whose neighbor is disabled and re-enabled', () => {
+    const mesh = new NavigationMesh3D({
+      polygons: [square('left', 0, 0), square('right', 2, 0)],
+    });
+    const projected = () =>
+      mesh.project(new Vector3(1.95, 0, 1), query)!.position.x;
+    expect(projected()).toBeCloseTo(1.95);
+    mesh.setPolygonEnabled('right', false);
+    // The shared edge became a wall, so the agent center stays a radius away from it.
+    expect(projected()).toBeCloseTo(1.8);
+    mesh.setPolygonEnabled('right', true);
+    expect(projected()).toBeCloseTo(1.95);
+    mesh.destroy();
+  });
+
   it('joins exact tile seams while keeping overlapping floors disconnected', () => {
     const mesh = new NavigationMesh3D({
       tileSize: 2,

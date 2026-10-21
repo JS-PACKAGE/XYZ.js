@@ -8,6 +8,7 @@ var NavigationMesh3D = class {
 	polygons;
 	tileSize;
 	geometry = [];
+	regions = [];
 	ids = /* @__PURE__ */ new Map();
 	tiles = /* @__PURE__ */ new Map();
 	vertexTopology = /* @__PURE__ */ new Map();
@@ -319,7 +320,7 @@ var NavigationMesh3D = class {
 		if (!this.disposed) {
 			this.disposed = !0;
 			for (let e of this.jobs) e.cancel();
-			this.tiles.clear();
+			this.tiles.clear(), this.regions.length = 0;
 		}
 	}
 	assertLive() {
@@ -348,24 +349,34 @@ var NavigationMesh3D = class {
 			for (let e of this.tiles.get(`${r}:${i}`) ?? []) n.has(e) ? yield -1 : (n.add(e), yield e);
 		}
 	}
-	region(t, n) {
-		let r = this.geometry[t];
-		if (n === 0) return { vertices: r.surface.vertices };
-		let a = r.surface.vertices;
-		for (let e = 0; e < r.surface.vertices.length && a.length > 0; e++) {
-			let t = r.surface.vertices[e], i = r.surface.vertices[(e + 1) % r.surface.vertices.length];
-			(r.walls[e] || !r.edges.some((e) => !e.link && same(e.a, t) && same(e.b, i) && !this.disabled.has(this.geometry[e.to].surface.id))) && (a = clipPolygon(a, t, i, n));
+	region(e, t) {
+		let n = this.geometry[e];
+		if (t === 0) return { vertices: n.surface.vertices };
+		let r = this.regions[e];
+		if (r && r.radius === t && r.epoch === this.epoch) return r.region;
+		let i = this.clipRegion(n, t);
+		return this.regions[e] = {
+			radius: t,
+			epoch: this.epoch,
+			region: i
+		}, i;
+	}
+	clipRegion(t, n) {
+		let r = t.surface.vertices;
+		for (let e = 0; e < t.surface.vertices.length && r.length > 0; e++) {
+			let i = t.surface.vertices[e], a = t.surface.vertices[(e + 1) % t.surface.vertices.length];
+			(t.walls[e] || !t.edges.some((e) => !e.link && same(e.a, i) && same(e.b, a) && !this.disabled.has(this.geometry[e.to].surface.id))) && (r = clipPolygon(r, i, a, n));
 		}
-		for (let t of r.surface.vertices) {
-			if (!this.vertexTopology.get(`${t.x},${t.y},${t.z}`).some(({ polygon: e, edge: t }) => {
+		for (let a of t.surface.vertices) {
+			if (!this.vertexTopology.get(`${a.x},${a.y},${a.z}`).some(({ polygon: e, edge: t }) => {
 				if (this.disabled.has(e.surface.id)) return !1;
 				let n = e.surface.vertices[t], r = e.surface.vertices[(t + 1) % e.surface.vertices.length];
 				return e.walls[t] || !e.edges.some((e) => !e.link && same(e.a, n) && same(e.b, r) && !this.disabled.has(this.geometry[e.to].surface.id));
 			})) continue;
-			let o = r.center.x - t.x, s = r.center.z - t.z, c = require_hypot.hypot2(o, s);
-			a = clipPolygon(a, t, new require_math3d.Vector3(t.x + s / c, t.y, t.z - o / c), n);
+			let o = t.center.x - a.x, s = t.center.z - a.z, c = require_hypot.hypot2(o, s);
+			r = clipPolygon(r, a, new require_math3d.Vector3(a.x + s / c, a.y, a.z - o / c), n);
 		}
-		return { vertices: a };
+		return { vertices: r };
 	}
 	portal(t, n, r, a) {
 		if (t.link) return !this.disabledLinks.has(t.link.id) && t.link.clearance >= a && inside(n.vertices, t.a) && inside(r.vertices, t.b) ? [t.a, t.b] : void 0;

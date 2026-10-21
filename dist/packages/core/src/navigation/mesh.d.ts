@@ -55,6 +55,8 @@ export declare class NavigationMesh3D {
     readonly polygons: readonly NavigationPolygon3D[];
     readonly tileSize: number;
     private readonly geometry;
+    /** Radius-clipped region per polygon index for one radius and enabled-state epoch. */
+    private readonly regions;
     private readonly ids;
     private readonly tiles;
     private readonly vertexTopology;
@@ -82,5 +84,6 @@ export declare class NavigationMesh3D {
     private validateQuery;
     private candidates;
     private region;
+    private clipRegion;
     private portal;
 }

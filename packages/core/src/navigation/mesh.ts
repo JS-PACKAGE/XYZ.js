@@ -81,6 +81,10 @@ export class NavigationMesh3D {
   readonly polygons: readonly NavigationPolygon3D[];
   readonly tileSize: number;
   private readonly geometry: Polygon[] = [];
+  /** Radius-clipped region per polygon index for one radius and enabled-state epoch. */
+  private readonly regions: (
+    { radius: number; epoch: number; region: Region } | undefined
+  )[] = [];
   private readonly ids = new Map<string, number>();
   private readonly tiles = new Map<string, number[]>();
   private readonly vertexTopology = new Map<
@@ -757,6 +761,7 @@ export class NavigationMesh3D {
     this.disposed = true;
     for (const job of this.jobs) job.cancel();
     this.tiles.clear();
+    this.regions.length = 0;
   }
   private assertLive(): void {
     if (this.disposed) throw new Error('Navigation mesh is destroyed.');
@@ -826,6 +831,16 @@ export class NavigationMesh3D {
   private region(index: number, radius: number): Region {
     const polygon = this.geometry[index]!;
     if (radius === 0) return { vertices: polygon.surface.vertices };
+    // Topology is immutable, so a region depends only on the radius and the enabled
+    // states, which bump `epoch`; every query and search used to clip it again.
+    const cached = this.regions[index];
+    if (cached && cached.radius === radius && cached.epoch === this.epoch)
+      return cached.region;
+    const region = this.clipRegion(polygon, radius);
+    this.regions[index] = { radius, epoch: this.epoch, region };
+    return region;
+  }
+  private clipRegion(polygon: Polygon, radius: number): Region {
     let vertices: readonly Readonly<Vector3>[] = polygon.surface.vertices;
     for (
       let i = 0;
