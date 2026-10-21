@@ -2580,3 +2580,21 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：室內機能表面（acousticfoam／closedcellfoam／linoleum）
+
+- 新增柔化金字塔吸音泡棉、細密膜面閉孔泡棉與平滑紋理油氈地材，
+  tile 尺寸依序 0.6／0.084／0.6 m。皆 opaque dielectric，
+  僅為表面貼圖，不建立泡棉 geometry 或吸音／物理模擬。
+  gallery／API 文件同步至 54 種；README 既有分類維持不變。
+- build、typecheck、lint、format:check 與單 worker 完整 176 檔／1570 tests
+  通過。金字塔四面遞降、近似平面及凹隙陰影、週期與 cell 交界斜率
+  納入回歸；前五十一種預設在 size 64／seed 7 的四份 maps SHA256
+  全數不變。測試不固定色值或材質 relief 常數。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認金字塔、細孔膜面與綠色紋理差異；metallic 全為 0，
+  roughness bytes 依序 232–254／211–233／122–154；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

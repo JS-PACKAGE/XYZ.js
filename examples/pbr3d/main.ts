@@ -130,6 +130,9 @@ try {
     'lichen',
     'leaflitter',
     'endgrain',
+    'acousticfoam',
+    'closedcellfoam',
+    'linoleum',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

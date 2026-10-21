@@ -312,6 +312,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.72;
         relief: 0.005;
     }>;
+    acousticfoam: Readonly<{
+        dark: readonly [12, 14, 16];
+        light: readonly [91, 96, 101];
+        roughness: 0.94;
+        relief: 0.065;
+    }>;
+    closedcellfoam: Readonly<{
+        dark: readonly [57, 78, 91];
+        light: readonly [153, 176, 187];
+        roughness: 0.86;
+        relief: 0.0018;
+    }>;
+    linoleum: Readonly<{
+        dark: readonly [48, 80, 70];
+        light: readonly [158, 176, 133];
+        roughness: 0.54;
+        relief: 0.0008;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -366,6 +384,9 @@ export declare const proceduralTileMeters: Readonly<{
     lichen: 0.28;
     leaflitter: 0.72;
     endgrain: 0.3;
+    acousticfoam: 0.6;
+    closedcellfoam: 0.084;
+    linoleum: 0.6;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

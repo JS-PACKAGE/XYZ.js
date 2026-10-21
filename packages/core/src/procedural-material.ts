@@ -57,7 +57,10 @@ export type ProceduralMaterialKind =
   | 'stucco'
   | 'lichen'
   | 'leaflitter'
-  | 'endgrain';
+  | 'endgrain'
+  | 'acousticfoam'
+  | 'closedcellfoam'
+  | 'linoleum';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -141,6 +144,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lichen',
   'leaflitter',
   'endgrain',
+  'acousticfoam',
+  'closedcellfoam',
+  'linoleum',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

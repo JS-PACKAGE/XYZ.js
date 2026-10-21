@@ -75,6 +75,9 @@ const kinds: ProceduralMaterialKind[] = [
   'lichen',
   'leaflitter',
   'endgrain',
+  'acousticfoam',
+  'closedcellfoam',
+  'linoleum',
 ];
 
 class TestImageData {
@@ -283,6 +286,9 @@ describe('periodic procedural material fields', () => {
     ['lichen', [7, 32, 96]],
     ['leaflitter', [6, 32]],
     ['endgrain', [5, 32, 96]],
+    ['acousticfoam', [4, 32, 96]],
+    ['closedcellfoam', [28, 32]],
+    ['linoleum', [4, 5, 8, 32, 48]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -337,8 +343,11 @@ describe('periodic procedural material fields', () => {
   it.each([
     ['lichen', 7],
     ['leaflitter', 6],
+    ['acousticfoam', 4],
+    ['closedcellfoam', 28],
+    ['linoleum', 1],
   ] as const)(
-    '%s discards compact-support neighbors without introducing normal creases',
+    '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
       const a: SurfaceSample = {
         color: 0,
@@ -373,6 +382,47 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('acoustic foam has four sloping pyramid faces above recessed cell edges', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('acousticfoam', seed);
+      for (const column of [0, 2, 3])
+        for (const row of [0, 1, 3]) {
+          sample((column + 0.5) / 4, (row + 0.5) / 4, a);
+          const peak = a.height,
+            peakOcclusion = a.occlusion;
+          for (const axis of [0, 1])
+            for (const side of [-1, 1]) {
+              const heights: number[] = [];
+              for (const distance of [0.1, 0.2, 0.3, 0.5]) {
+                sample(
+                  (column + 0.5 + (axis === 0 ? side * distance : 0)) / 4,
+                  (row + 0.5 + (axis === 1 ? side * distance : 0)) / 4,
+                  a,
+                );
+                heights.push(a.height);
+              }
+              expect(peak).toBeGreaterThan(heights[0]);
+              expect(heights[0]).toBeGreaterThan(heights[1]);
+              expect(heights[1]).toBeGreaterThan(heights[2]);
+              // The middle of each face stays nearly planar, not sinusoidal.
+              expect(
+                Math.abs(heights[0] - 2 * heights[1] + heights[2]),
+              ).toBeLessThan((heights[0] - heights[2]) * 0.15);
+              expect(heights[2]).toBeGreaterThan(heights[3]);
+              expect(a.occlusion).toBeLessThan(peakOcclusion);
+            }
+        }
+    }
+  });
 
   it('hexagonal cells meet continuously along all six shared edges, including wrapped diagonals', () => {
     const a: SurfaceSample = {

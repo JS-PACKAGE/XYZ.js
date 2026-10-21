@@ -80,6 +80,20 @@ export function createSurfaceSampler(
   const phase = hash(0, 0, seed) * TAU;
   const endgrainCenterU = kind === 'endgrain' ? hash(0, 0, seed ^ 0x3b17) : 0;
   const endgrainCenterV = kind === 'endgrain' ? hash(0, 0, seed ^ 0x5d29) : 0;
+  // Cell geometry is immutable for this sampler, not rehashed for every texel.
+  const foamCells =
+    kind === 'closedcellfoam' ? new Float64Array(28 * 28 * 4) : null;
+  if (foamCells)
+    for (let y = 0; y < 28; y++)
+      for (let x = 0; x < 28; x++) {
+        const offset = (y * 28 + x) * 4;
+        const variation = hash(x, y, seed ^ 0x6f27);
+        const radius = 0.55 + 0.16 * variation;
+        foamCells[offset] = 0.3 + 0.4 * hash(x, y, seed);
+        foamCells[offset + 1] = 0.3 + 0.4 * hash(x, y, seed ^ 0x29a5);
+        foamCells[offset + 2] = 1 / (radius * radius);
+        foamCells[offset + 3] = variation;
+      }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -1427,6 +1441,95 @@ export function createSurfaceSampler(
           0.025 * detail;
         roughness += 0.13 * pores + 0.06 * latewood + 0.045 * (detail - 0.5);
         occlusion = 0.99 - 0.17 * pores - 0.22 * checks;
+        break;
+      }
+      case 'acousticfoam': {
+        const x = fract(u * 4) - 0.5,
+          y = fract(v * 4) - 0.5;
+        const ax = Math.sqrt(x * x + 0.0001),
+          ay = Math.sqrt(y * y + 0.0001);
+        // A rounded maximum retains four planar faces, unlike crossed sine
+        // ridges. Its flattened foot hides the cell-owned height variation.
+        const edge = 0.5 * (ax + ay + Math.sqrt((ax - ay) ** 2 + 0.0004));
+        const t = clamp(1 - 2 * edge);
+        const pyramid =
+          t < 0.1
+            ? t * t * 5
+            : t > 0.9
+              ? 0.9 - (1 - t) * (1 - t) * 5
+              : t - 0.05;
+        const variation = hash(
+          Math.floor(u * 4),
+          Math.floor(v * 4),
+          seed ^ 0x37d1,
+        );
+        const pores = smooth(
+          clamp((noise(u, v, 96, 96, seed ^ 0x6b19) - 0.42) / 0.46),
+        );
+        color = 0.14 + 0.61 * pyramid + 0.13 * detail - 0.12 * pores;
+        height =
+          0.03 +
+          pyramid * (0.88 + 0.07 * variation) +
+          0.009 * detail -
+          0.008 * pores;
+        roughness += 0.065 * (detail - 0.5) + 0.025 * pores;
+        occlusion = 0.43 + 0.54 * pyramid + 0.025 * detail - 0.025 * pores;
+        break;
+      }
+      case 'closedcellfoam': {
+        const x = u * 28,
+          y = v * 28;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        let dimples = 0,
+          membranes = 0,
+          pigment = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const wx = ((cx % 28) + 28) % 28,
+              wy = ((cy % 28) + 28) % 28;
+            const offset = (wy * 28 + wx) * 4;
+            const dx = x - cx - foamCells![offset],
+              dy = y - cy - foamCells![offset + 1];
+            const cap = clamp(1 - (dx * dx + dy * dy) * foamCells![offset + 2]);
+            // Shallow closed dimples have a gently raised membrane, not open
+            // cavities. Squared compact support meets the shared skin at C1.
+            const weight = cap * cap;
+            dimples += (1 - dimples) * weight;
+            membranes += (1 - membranes) * weight * (1 - cap) * 6.75;
+            pigment += weight * (foamCells![offset + 3] - 0.5);
+          }
+        color =
+          0.49 +
+          0.18 * detail -
+          0.13 * dimples +
+          0.08 * membranes +
+          0.1 * pigment;
+        height = 0.48 + 0.035 * detail - 0.17 * dimples + 0.055 * membranes;
+        roughness += 0.065 * (detail - 0.5) + 0.025 * dimples;
+        occlusion = 0.99 - 0.065 * dimples;
+        break;
+      }
+      case 'linoleum': {
+        const warp = noise(u, v, 4, 5, seed ^ 0x591b);
+        const swirl =
+          0.5 + 0.5 * Math.sin(TAU * (5 * u + 3 * v + 1.2 * warp) + phase);
+        const pigment = noise(
+          u + 0.19 * warp,
+          v + 0.08 * swirl,
+          48,
+          8,
+          seed ^ 0x2d73,
+        );
+        const flecks = smooth(clamp((pigment - 0.43) / 0.4));
+        // Pigment is marbled through a smooth sheet; it does not carve veins,
+        // stone pores or joints into the physical surface.
+        color = 0.24 + 0.25 * swirl + 0.38 * flecks + 0.08 * detail;
+        height = 0.45 + 0.025 * detail + 0.015 * pigment;
+        roughness += 0.09 * (pigment - 0.5) + 0.045 * (detail - 0.5);
+        occlusion = 0.99 + 0.008 * detail;
         break;
       }
     }
