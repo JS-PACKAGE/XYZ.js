@@ -2801,3 +2801,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+- `[Navigation]` PartitionSearch（NavigationMesh3D／NavigationTiledGraph3D 共用）的 heap 分數改存成與 heap 同索引的陣列，sift 時直接比較相鄰 slot，不再每次比較查四次 Map；排序規則（分數、同分依節點編號）不變。同程序 A/B Node bench（48×48 mesh、40 次 findPath，取 25 輪最佳）33.6 → 28.5 ms，配置 55 → 45 MiB，hash 不變；新增稀疏 frontier 同分與降分重新 offer 的排序測試。

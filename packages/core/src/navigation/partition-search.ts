@@ -5,58 +5,77 @@ import type { NavigationSearchStatus } from './jobs.js';
 export class PartitionSearch {
   readonly distance = new Map<number, number>();
   readonly parent = new Map<number, number>();
-  private readonly scores = new Map<number, number>();
   private readonly slots = new Map<number, number>();
   private readonly heap: number[] = [];
+  /** Score of `heap[i]` at index `i`: sifting compares slots without map lookups. */
+  private readonly scores: number[] = [];
   offer(node: number, distance: number, score: number, parent: number): void {
     this.distance.set(node, distance);
     this.parent.set(node, parent);
-    this.scores.set(node, score);
+    const heap = this.heap,
+      scores = this.scores;
     const priorSlot = this.slots.get(node);
-    let slot: number = priorSlot ?? this.heap.length;
+    let slot: number = priorSlot ?? heap.length;
     if (priorSlot === undefined) {
-      this.heap.push(node);
+      heap.push(node);
+      scores.push(score);
     }
     while (slot > 0) {
       const above = (slot - 1) >>> 1;
-      const other = this.heap[above]!;
-      if (!this.before(node, other)) break;
-      this.heap[slot] = other;
+      const other = heap[above]!,
+        otherScore = scores[above]!;
+      if (!(score < otherScore || (score === otherScore && node < other)))
+        break;
+      heap[slot] = other;
+      scores[slot] = otherScore;
       this.slots.set(other, slot);
       slot = above;
     }
-    this.heap[slot] = node;
+    heap[slot] = node;
+    scores[slot] = score;
     this.slots.set(node, slot);
   }
   take(): number | undefined {
-    const node = this.heap[0];
+    const heap = this.heap,
+      scores = this.scores;
+    const node = heap[0];
     if (node === undefined) return undefined;
     this.slots.delete(node);
-    const last = this.heap.pop()!;
-    if (this.heap.length === 0) return node;
+    const last = heap.pop()!,
+      lastScore = scores.pop()!;
+    const size = heap.length;
+    if (size === 0) return node;
     let slot = 0;
-    while (slot * 2 + 1 < this.heap.length) {
+    while (slot * 2 + 1 < size) {
       let child = slot * 2 + 1;
-      if (
-        child + 1 < this.heap.length &&
-        this.before(this.heap[child + 1]!, this.heap[child]!)
-      )
-        child++;
-      const other = this.heap[child]!;
-      if (!this.before(other, last)) break;
-      this.heap[slot] = other;
+      let other = heap[child]!,
+        otherScore = scores[child]!;
+      if (child + 1 < size) {
+        const right = heap[child + 1]!,
+          rightScore = scores[child + 1]!;
+        if (
+          rightScore < otherScore ||
+          (rightScore === otherScore && right < other)
+        ) {
+          child++;
+          other = right;
+          otherScore = rightScore;
+        }
+      }
+      if (!(
+        otherScore < lastScore ||
+        (otherScore === lastScore && other < last)
+      ))
+        break;
+      heap[slot] = other;
+      scores[slot] = otherScore;
       this.slots.set(other, slot);
       slot = child;
     }
-    this.heap[slot] = last;
+    heap[slot] = last;
+    scores[slot] = lastScore;
     this.slots.set(last, slot);
     return node;
-  }
-  private before(a: number, b: number): boolean {
-    return (
-      this.scores.get(a)! < this.scores.get(b)! ||
-      (this.scores.get(a) === this.scores.get(b) && a < b)
-    );
   }
 }
 

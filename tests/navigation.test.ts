@@ -4,6 +4,7 @@ import { NavigationGrid2D } from '../packages/core/src/navigation/grid.js';
 import { NavigationGraph3D } from '../packages/core/src/navigation/graph.js';
 import { navigationLimits } from '../src/data/navigation.js';
 import { NavigationSearch } from '../packages/core/src/navigation/search.js';
+import { PartitionSearch } from '../packages/core/src/navigation/partition-search.js';
 
 describe('bounded weighted navigation', () => {
   it('routes around a real wall, invalidates old snapshots, and publishes edits atomically', () => {
@@ -191,5 +192,22 @@ describe('search frontier', () => {
       search.take(),
       search.take(),
     ]).toEqual([2, 4, 6, -1]);
+  });
+  it('orders the sparse partition frontier by score then node, including lowered re-offers', () => {
+    const search = new PartitionSearch();
+    const scores = new Map<number, number>();
+    const offer = (node: number, score: number) => {
+      search.offer(node, 1, score, -1);
+      scores.set(node, score);
+    };
+    for (let i = 0; i < 40; i++) offer((i * 17) % 41, (i * 7) % 5);
+    for (const node of [33, 4, 21, 9]) offer(node, scores.get(node)! - 2.5);
+    const expected = [...scores.keys()].sort(
+      (a, b) => scores.get(a)! - scores.get(b)! || a - b,
+    );
+    const order: number[] = [];
+    for (let node = search.take(); node !== undefined; node = search.take())
+      order.push(node);
+    expect(order).toEqual(expected);
   });
 });

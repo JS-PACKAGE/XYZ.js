@@ -3,37 +3,36 @@ const require_navigation = require("../../../../src/data/navigation.cjs");
 var PartitionSearch = class {
 	distance = /* @__PURE__ */ new Map();
 	parent = /* @__PURE__ */ new Map();
-	scores = /* @__PURE__ */ new Map();
 	slots = /* @__PURE__ */ new Map();
 	heap = [];
+	scores = [];
 	offer(e, t, n, r) {
-		this.distance.set(e, t), this.parent.set(e, r), this.scores.set(e, n);
-		let i = this.slots.get(e), a = i ?? this.heap.length;
-		for (i === void 0 && this.heap.push(e); a > 0;) {
-			let t = a - 1 >>> 1, n = this.heap[t];
-			if (!this.before(e, n)) break;
-			this.heap[a] = n, this.slots.set(n, a), a = t;
+		this.distance.set(e, t), this.parent.set(e, r);
+		let i = this.heap, a = this.scores, o = this.slots.get(e), s = o ?? i.length;
+		for (o === void 0 && (i.push(e), a.push(n)); s > 0;) {
+			let t = s - 1 >>> 1, r = i[t], o = a[t];
+			if (!(n < o || n === o && e < r)) break;
+			i[s] = r, a[s] = o, this.slots.set(r, s), s = t;
 		}
-		this.heap[a] = e, this.slots.set(e, a);
+		i[s] = e, a[s] = n, this.slots.set(e, s);
 	}
 	take() {
-		let e = this.heap[0];
-		if (e === void 0) return;
-		this.slots.delete(e);
-		let t = this.heap.pop();
-		if (this.heap.length === 0) return e;
-		let n = 0;
-		for (; n * 2 + 1 < this.heap.length;) {
-			let e = n * 2 + 1;
-			e + 1 < this.heap.length && this.before(this.heap[e + 1], this.heap[e]) && e++;
-			let r = this.heap[e];
-			if (!this.before(r, t)) break;
-			this.heap[n] = r, this.slots.set(r, n), n = e;
+		let e = this.heap, t = this.scores, n = e[0];
+		if (n === void 0) return;
+		this.slots.delete(n);
+		let r = e.pop(), i = t.pop(), a = e.length;
+		if (a === 0) return n;
+		let o = 0;
+		for (; o * 2 + 1 < a;) {
+			let n = o * 2 + 1, s = e[n], c = t[n];
+			if (n + 1 < a) {
+				let r = e[n + 1], i = t[n + 1];
+				(i < c || i === c && r < s) && (n++, s = r, c = i);
+			}
+			if (!(c < i || c === i && s < r)) break;
+			e[o] = s, t[o] = c, this.slots.set(s, o), o = n;
 		}
-		return this.heap[n] = t, this.slots.set(t, n), e;
-	}
-	before(e, t) {
-		return this.scores.get(e) < this.scores.get(t) || this.scores.get(e) === this.scores.get(t) && e < t;
+		return e[o] = r, t[o] = i, this.slots.set(r, o), n;
 	}
 };
 var PartitionNavigationJob = class {

@@ -3,12 +3,12 @@ import type { NavigationSearchStatus } from './jobs.js';
 export declare class PartitionSearch {
     readonly distance: Map<number, number>;
     readonly parent: Map<number, number>;
-    private readonly scores;
     private readonly slots;
     private readonly heap;
+    /** Score of `heap[i]` at index `i`: sifting compares slots without map lookups. */
+    private readonly scores;
     offer(node: number, distance: number, score: number, parent: number): void;
     take(): number | undefined;
-    private before;
 }
 /** Each invocation is one bounded primitive, including path reconstruction/smoothing. */
 export declare class PartitionNavigationJob<Path> {
