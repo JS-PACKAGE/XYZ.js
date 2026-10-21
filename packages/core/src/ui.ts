@@ -1084,7 +1084,10 @@ export class UIRoot extends UIElement {
         const tabIndex = inside && !node.effectiveDisabled ? 0 : -1;
         if (node.accessibility && node.accessibility.tabIndex !== tabIndex)
           node.accessibility = { ...node.accessibility, tabIndex };
-        element.tabIndex = tabIndex;
+        // Setting even the same value rewrites the attribute every frame, queueing mutation
+        // records and style invalidation; the attribute already holding it is the same end state.
+        if (element.getAttribute('tabindex') !== String(tabIndex))
+          element.tabIndex = tabIndex;
         if (
           node instanceof UICheckbox &&
           scope &&

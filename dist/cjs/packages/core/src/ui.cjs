@@ -625,7 +625,7 @@ var UIRoot = class extends require_ui_layout.UIElement {
 				e.accessibility && e.accessibility.tabIndex !== a && (e.accessibility = {
 					...e.accessibility,
 					tabIndex: a
-				}), t.tabIndex = a, e instanceof UICheckbox && n && n.value !== e.checked ? (t.setAttribute(`aria-checked`, String(e.checked)), n.value = e.checked) : e instanceof UISlider && n && n.value !== e.value && (n.value === void 0 && (t.setAttribute(`aria-valuemin`, String(e.min)), t.setAttribute(`aria-valuemax`, String(e.max))), t.setAttribute(`aria-valuenow`, String(e.value)), n.value = e.value);
+				}), t.getAttribute(`tabindex`) !== String(a) && (t.tabIndex = a), e instanceof UICheckbox && n && n.value !== e.checked ? (t.setAttribute(`aria-checked`, String(e.checked)), n.value = e.checked) : e instanceof UISlider && n && n.value !== e.value && (n.value === void 0 && (t.setAttribute(`aria-valuemin`, String(e.min)), t.setAttribute(`aria-valuemax`, String(e.max))), t.setAttribute(`aria-valuenow`, String(e.value)), n.value = e.value);
 			}
 		}
 		for (let t of e.children) this.synchronizeNode(t);

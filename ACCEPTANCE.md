@@ -4011,3 +4011,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不再堆疊材料清單。PLAN／DESIGN 歷史內容與既有連結不變，
   無新 runtime 依賴。提交只收本組隔離驗證內容；共享目錄其他變更
   保留不混入，前述驗證不宣稱涵蓋其他未提交功能。本組不 push。
+- `[UI]` UIRoot 每幀同步原生控制項時，`tabindex` 屬性已是目標值就不再寫入（同值寫入仍會改寫屬性、排入 MutationRecord 並使樣式失效）；最終 DOM 狀態相同。Chrome 中 40 個 UIButton 的頁面，每幀 `tabindex` mutation record 41.3 → 0，結束時全部 tabindex 相同。新增測試以假 Game／原生元素驗證 modal 開啟時外部控制項變為 -1、關閉後回到 0，且穩定狀態不重寫；原本每幀寫入與「只在缺屬性時寫」的 mutant 皆失敗。build 與完整測試（2220 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行；smoke examples 160/163，只有 pbr3d 在未修改的 HEAD 也一樣逾時。

@@ -171,6 +171,71 @@ describe('UI focus and widget transitions', () => {
     expect(root.focus.focus(hidden)).toBe(false);
     root.destroy();
   });
+  it('mirrors modal reachability into native tabindex and leaves settled values unwritten', async () => {
+    const writes: string[] = [];
+    const elements = new Map<GameObject, object>();
+    const native = (name: string) => {
+      let attribute: string | null = null;
+      return {
+        tagName: 'BUTTON',
+        addEventListener() {},
+        setAttribute() {},
+        getAttribute: (key: string) => (key === 'tabindex' ? attribute : null),
+        set tabIndex(value: number) {
+          attribute = String(value);
+          writes.push(`${name}:${value}`);
+        },
+      };
+    };
+    const scene = new Scene();
+    const noop = { addEventListener() {} };
+    const game = {
+      state: 'running',
+      scene,
+      width: 300,
+      height: 300,
+      preferences: { ...noop, values: {} },
+      canvas: {
+        ...noop,
+        ownerDocument: noop,
+        tabIndex: 0,
+        getAttribute: () => '0',
+      },
+      input: {
+        contexts: {
+          create: () => ({
+            active: false,
+            activate() {},
+            deactivate() {},
+            destroy() {},
+          }),
+        },
+      },
+      accessibility: {
+        element: (node: GameObject) => elements.get(node),
+        update() {},
+        setModal() {},
+        focus() {},
+      },
+    } as unknown as ConstructorParameters<typeof UIRoot>[0];
+    const root = scene.add(new UIRoot(game));
+    const outside = root.add(await UIButton.create('Outside'));
+    const modal = root.add(new UIElement());
+    const inside = modal.add(await UIButton.create('Inside'));
+    elements.set(outside, native('outside'));
+    elements.set(inside, native('inside'));
+    root.synchronizeSemantics();
+    root.synchronizeSemantics();
+    expect(writes).toEqual(['outside:0', 'inside:0']);
+    root.focus.pushModal(modal);
+    root.synchronizeSemantics();
+    root.synchronizeSemantics();
+    expect(writes.slice(2)).toEqual(['outside:-1']);
+    root.focus.popModal();
+    root.synchronizeSemantics();
+    expect(writes.slice(3)).toEqual(['outside:0']);
+    scene.destroy();
+  });
   it('does not restore removed and re-added focus targets from an old ownership generation', async () => {
     const scene = new Scene();
     const root = scene.add(new UIRoot());
