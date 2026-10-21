@@ -200,6 +200,65 @@ describe('bounded atlas maps', () => {
     expect(sprite(2, 2).renderEnabled).toBe(true);
   });
 
+  it('matches a fresh full pass while a scrolling viewport re-culls only the cells it reaches', () => {
+    const scene = new Scene();
+    scene.camera2D.resize(40, 24);
+    const atlas = sheet();
+    const filled = (): TileMap => {
+      const map = new TileMap({
+        columns: 48,
+        rows: 48,
+        tileWidth: 8,
+        tileHeight: 8,
+        sheet: atlas,
+      });
+      for (let row = 0; row < 48; row++)
+        for (let column = 0; column < 48; column++)
+          if ((row * 7 + column) % 5) map.setTile(column, row, { frame: 0 });
+      return map;
+    };
+    const enabled = (map: TileMap): string[] =>
+      graphics(map)
+        .filter((child) => child.renderEnabled)
+        .map((child) => `${child.position.x},${child.position.y}`)
+        .sort();
+    const map = scene.add(filled());
+    const reference = scene.add(filled());
+    const expectFreshPass = (): void => {
+      map.updateCulling(scene.camera2D);
+      // A visibility change re-culls every cell of the reference.
+      reference.visible = false;
+      reference.updateCulling(scene.camera2D);
+      reference.visible = true;
+      reference.updateCulling(scene.camera2D);
+      expect(enabled(map)).toEqual(enabled(reference));
+    };
+    const path: [number, number][] = [
+      [20, 12],
+      [23, 15],
+      [60, 30],
+      [300, 290],
+      [303, 287],
+      [24, 300],
+      [20, 12],
+    ];
+    for (const [x, y] of path) {
+      scene.camera2D.position.set(x, y);
+      expectFreshPass();
+    }
+    expect(enabled(map).length).toBeGreaterThan(0);
+    // An edit far from both viewports, made after an unapplied move, stays culled.
+    scene.camera2D.position.set(200, 200);
+    map.setTile(1, 1, { frame: 1 });
+    reference.setTile(1, 1, { frame: 1 });
+    expect(
+      graphics(map).find(
+        (child) => child.position.x === 8 && child.position.y === 8,
+      )!.renderEnabled,
+    ).toBe(false);
+    expectFreshPass();
+  });
+
   it('render collection culls exactly the maps currently registered in the Scene', () => {
     const scene = new Scene();
     scene.camera2D.resize(16, 8);

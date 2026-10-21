@@ -10,6 +10,9 @@ var c = Object.freeze({
 	solid: !1,
 	elevation: 0
 });
+function cullCellKey(e, t) {
+	return e * 2 ** 22 + t;
+}
 function gridFloor(e) {
 	let t = Math.round(e);
 	return Math.abs(e - t) <= 2 ** -52 * 8 * Math.max(1, Math.abs(e)) ? t === 0 ? 0 : t : Math.floor(e);
@@ -39,6 +42,7 @@ var TileMap = class extends require_group2d.Group2D {
 		maxY: NaN
 	};
 	cullingProbe = { ...this.culling };
+	cullCells = /* @__PURE__ */ new Map();
 	nextInsertion = 0;
 	constructor(e) {
 		super();
@@ -83,7 +87,8 @@ var TileMap = class extends require_group2d.Group2D {
 		let m = s ?? {
 			index: a,
 			tile: l,
-			insertion: -1
+			insertion: -1,
+			cellAt: -1
 		}, h = m.sprite, g = m.colliderOwner, _ = g?.collider, v = g?.position.x ?? 0, y = g?.position.y ?? 0;
 		if (this.origin(e, t, f.elevation, this.local), !Number.isFinite(this.local.x) || !Number.isFinite(this.local.y)) throw RangeError(`Elevated tile coordinates must remain finite.`);
 		let b = this.local.x, x = this.local.y;
@@ -104,11 +109,9 @@ var TileMap = class extends require_group2d.Group2D {
 			return;
 		}
 		let n = this.scene.camera2D;
-		if (this.measureCulling(n, n.viewportWidth, n.viewportHeight, this.cullingProbe), this.cullingChanged()) this.cullAll();
-		else {
-			let n = this.index(e, t), r = this.sparseSlots?.get(n) ?? this.slots[n];
-			r && this.cullSlot(r);
-		}
+		this.measureCulling(n, n.viewportWidth, n.viewportHeight, this.cullingProbe);
+		let r = this.index(e, t), i = this.sparseSlots?.get(r) ?? this.slots[r];
+		this.cullingChanged() && this.cullMoved(), i && this.cullSlot(i);
 	}
 	clearTile(e, t) {
 		this.setTile(e, t, {
@@ -165,7 +168,7 @@ var TileMap = class extends require_group2d.Group2D {
 		return r < 0 ? void 0 : n.set(r % this.columns + this.originColumn, Math.floor(r / this.columns) + this.originRow);
 	}
 	updateCulling(e, t = e.viewportWidth, n = e.viewportHeight) {
-		this.measureCulling(e, t, n, this.cullingProbe), this.cullingChanged() && this.cullAll();
+		this.measureCulling(e, t, n, this.cullingProbe), this.cullingChanged() && this.cullMoved();
 	}
 	cullingChanged() {
 		let e = this.cullingProbe, t = this.culling;
@@ -174,6 +177,20 @@ var TileMap = class extends require_group2d.Group2D {
 	cullAll() {
 		Object.assign(this.culling, this.cullingProbe);
 		for (let e of this.configuredSlots) this.cullSlot(e);
+	}
+	cullMoved() {
+		let e = this.culling, t = this.cullingProbe, n = this.tileWidth * 8, r = this.tileHeight * 8, i = Math.floor((e.minX - this.tileWidth) / n) - 1, a = Math.floor(e.maxX / n) + 1, o = Math.floor((e.minY - this.tileHeight) / r) - 1, s = Math.floor(e.maxY / r) + 1, c = Math.floor((t.minX - this.tileWidth) / n) - 1, l = Math.floor(t.maxX / n) + 1, u = Math.floor((t.minY - this.tileHeight) / r) - 1, d = Math.floor(t.maxY / r) + 1, f = (a - i + 1) * (s - o + 1) + (l - c + 1) * (d - u + 1);
+		if (!e.visible || !t.visible || e.singular || t.singular || !(Math.abs(i) < 2 ** 30 && Math.abs(a) < 2 ** 30) || !(Math.abs(o) < 2 ** 30 && Math.abs(s) < 2 ** 30) || !(Math.abs(c) < 2 ** 30 && Math.abs(l) < 2 ** 30) || !(Math.abs(u) < 2 ** 30 && Math.abs(d) < 2 ** 30) || !(f <= this.cullCells.size)) {
+			this.cullAll();
+			return;
+		}
+		Object.assign(e, t);
+		for (let e = o; e <= s; e++) for (let t = i; t <= a; t++) this.cullCell(t, e);
+		for (let e = u; e <= d; e++) for (let t = c; t <= l; t++) (t < i || t > a || e < o || e > s) && this.cullCell(t, e);
+	}
+	cullCell(e, t) {
+		let n = this.cullCells.get(cullCellKey(e, t));
+		if (n) for (let e = 0; e < n.length; e++) this.cullSlot(n[e]);
 	}
 	measureCulling(e, t, n, r) {
 		this.cullMatrix.copy(this.updateWorldMatrix());
@@ -195,7 +212,15 @@ var TileMap = class extends require_group2d.Group2D {
 	cullSlot(e) {
 		let t = e.sprite;
 		if (!t) return;
-		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight;
+		let n = this.culling, r = t.position.x - t.anchor.x * this.tileWidth, i = t.position.y - t.anchor.y * this.tileHeight, a = cullCellKey(Math.floor(r / (this.tileWidth * 8)), Math.floor(i / (this.tileHeight * 8))), o = this.cullCells.get(a);
+		if (e.cell !== o || !o) {
+			let t = e.cell;
+			if (t) {
+				let n = t[t.length - 1];
+				t[e.cellAt] = n, n.cellAt = e.cellAt, t.pop();
+			}
+			o || this.cullCells.set(a, o = []), e.cell = o, e.cellAt = o.push(e) - 1;
+		}
 		t.renderEnabled = n.visible && e.tile.frame !== void 0 && (n.singular || r <= n.maxX && r + this.tileWidth >= n.minX && i <= n.maxY && i + this.tileHeight >= n.minY);
 	}
 	attach(e) {
@@ -211,7 +236,7 @@ var TileMap = class extends require_group2d.Group2D {
 		if (!this.destroyed) try {
 			super.destroy();
 		} finally {
-			this.slots.length = 0, this.configuredSlots.length = 0, this.sparseSlots?.clear();
+			this.slots.length = 0, this.configuredSlots.length = 0, this.sparseSlots?.clear(), this.cullCells.clear();
 		}
 	}
 };

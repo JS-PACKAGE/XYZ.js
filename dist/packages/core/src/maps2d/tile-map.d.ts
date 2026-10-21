@@ -43,6 +43,12 @@ export declare class TileMap extends Group2D {
     /** State applied by the last full pass; NaN bounds until one runs. */
     private readonly culling;
     private readonly cullingProbe;
+    /**
+     * Slots keyed by the culling cell of their sprite rectangle's top-left corner; every
+     * `cullSlot` files its slot. A slot outside both the old and new viewport stays culled,
+     * so a moved viewport re-culls only the cells either one reaches.
+     */
+    private readonly cullCells;
     private nextInsertion;
     constructor(options: TileMapOptions);
     private index;
@@ -75,6 +81,13 @@ export declare class TileMap extends Group2D {
     private cullingChanged;
     /** Applies the measured probe to every configured cell. */
     private cullAll;
+    /**
+     * Applies the measured probe. When both it and the last applied state are finite visible
+     * rectangles, only cells either rectangle reaches can hold a slot whose result changes;
+     * every other slot was culled by the old rectangle and stays culled by the new one.
+     */
+    private cullMoved;
+    private cullCell;
     /** Map-local viewport bounds; every slot's visibility derives from these alone. */
     private measureCulling;
     private cullSlot;

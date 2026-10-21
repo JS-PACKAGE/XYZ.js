@@ -39,7 +39,12 @@ interface TileSlot {
   sprite?: Sprite;
   colliderOwner?: GameObject;
   insertion: number;
+  /** Culling cell holding this slot (see `cullCells`) and its position there. */
+  cell?: TileSlot[];
+  cellAt: number;
 }
+/** Tiles per culling cell side: a viewport spans a handful of cells, a cell many tiles. */
+const cullCellTiles = 8;
 /** Map-local viewport (padding applied) that decides every tile sprite's visibility. */
 interface CullingState {
   visible: boolean;
@@ -48,6 +53,11 @@ interface CullingState {
   minY: number;
   maxX: number;
   maxY: number;
+}
+
+/** Distinct for cell coordinates below 2^21 in magnitude; colliding far cells only share a list. */
+function cullCellKey(cx: number, cy: number): number {
+  return cx * 2 ** 22 + cy;
 }
 
 function gridFloor(value: number): number {
@@ -88,6 +98,12 @@ export class TileMap extends Group2D {
     maxY: NaN,
   };
   private readonly cullingProbe: CullingState = { ...this.culling };
+  /**
+   * Slots keyed by the culling cell of their sprite rectangle's top-left corner; every
+   * `cullSlot` files its slot. A slot outside both the old and new viewport stays culled,
+   * so a moved viewport re-culls only the cells either one reaches.
+   */
+  private readonly cullCells = new Map<number, TileSlot[]>();
   private nextInsertion = 0;
 
   constructor(options: TileMapOptions) {
@@ -201,7 +217,12 @@ export class TileMap extends Group2D {
       : undefined;
     if (collider && this.worldSpace !== 'world')
       throw new Error('Solid tiles require world-space maps.');
-    const slot: TileSlot = existing ?? { index, tile: previous, insertion: -1 };
+    const slot: TileSlot = existing ?? {
+      index,
+      tile: previous,
+      insertion: -1,
+      cellAt: -1,
+    };
     const oldSprite = slot.sprite;
     const oldOwner = slot.colliderOwner;
     const oldCollider = oldOwner?.collider;
@@ -281,11 +302,11 @@ export class TileMap extends Group2D {
       camera.viewportHeight,
       this.cullingProbe,
     );
-    if (!this.cullingChanged()) {
-      const index = this.index(column, row);
-      const slot = this.sparseSlots?.get(index) ?? this.slots[index];
-      if (slot) this.cullSlot(slot);
-    } else this.cullAll();
+    const index = this.index(column, row);
+    const slot = this.sparseSlots?.get(index) ?? this.slots[index];
+    if (this.cullingChanged()) this.cullMoved();
+    // The edit may have enabled its sprite wherever it lies, inside the viewports or not.
+    if (slot) this.cullSlot(slot);
   }
 
   clearTile(column: number, row: number): void {
@@ -433,7 +454,7 @@ export class TileMap extends Group2D {
     height = camera.viewportHeight,
   ): void {
     this.measureCulling(camera, width, height, this.cullingProbe);
-    if (this.cullingChanged()) this.cullAll();
+    if (this.cullingChanged()) this.cullMoved();
   }
 
   private cullingChanged(): boolean {
@@ -453,6 +474,55 @@ export class TileMap extends Group2D {
   private cullAll(): void {
     Object.assign(this.culling, this.cullingProbe);
     for (const slot of this.configuredSlots) this.cullSlot(slot);
+  }
+
+  /**
+   * Applies the measured probe. When both it and the last applied state are finite visible
+   * rectangles, only cells either rectangle reaches can hold a slot whose result changes;
+   * every other slot was culled by the old rectangle and stays culled by the new one.
+   */
+  private cullMoved(): void {
+    const last = this.culling,
+      next = this.cullingProbe;
+    const cellWidth = this.tileWidth * cullCellTiles,
+      cellHeight = this.tileHeight * cullCellTiles;
+    // One cell of margin covers rounding in the slot test against a rectangle edge.
+    const lx0 = Math.floor((last.minX - this.tileWidth) / cellWidth) - 1,
+      lx1 = Math.floor(last.maxX / cellWidth) + 1,
+      ly0 = Math.floor((last.minY - this.tileHeight) / cellHeight) - 1,
+      ly1 = Math.floor(last.maxY / cellHeight) + 1,
+      nx0 = Math.floor((next.minX - this.tileWidth) / cellWidth) - 1,
+      nx1 = Math.floor(next.maxX / cellWidth) + 1,
+      ny0 = Math.floor((next.minY - this.tileHeight) / cellHeight) - 1,
+      ny1 = Math.floor(next.maxY / cellHeight) + 1;
+    const cells =
+      (lx1 - lx0 + 1) * (ly1 - ly0 + 1) + (nx1 - nx0 + 1) * (ny1 - ny0 + 1);
+    if (
+      !last.visible ||
+      !next.visible ||
+      last.singular ||
+      next.singular ||
+      // NaN (no pass yet, or an edit outside a Scene) and huge ranges fail these too.
+      !(Math.abs(lx0) < 2 ** 30 && Math.abs(lx1) < 2 ** 30) ||
+      !(Math.abs(ly0) < 2 ** 30 && Math.abs(ly1) < 2 ** 30) ||
+      !(Math.abs(nx0) < 2 ** 30 && Math.abs(nx1) < 2 ** 30) ||
+      !(Math.abs(ny0) < 2 ** 30 && Math.abs(ny1) < 2 ** 30) ||
+      !(cells <= this.cullCells.size)
+    ) {
+      this.cullAll();
+      return;
+    }
+    Object.assign(last, next);
+    for (let cy = ly0; cy <= ly1; cy++)
+      for (let cx = lx0; cx <= lx1; cx++) this.cullCell(cx, cy);
+    for (let cy = ny0; cy <= ny1; cy++)
+      for (let cx = nx0; cx <= nx1; cx++)
+        if (cx < lx0 || cx > lx1 || cy < ly0 || cy > ly1) this.cullCell(cx, cy);
+  }
+
+  private cullCell(cx: number, cy: number): void {
+    const cell = this.cullCells.get(cullCellKey(cx, cy));
+    if (cell) for (let i = 0; i < cell.length; i++) this.cullSlot(cell[i]!);
   }
 
   /** Map-local viewport bounds; every slot's visibility derives from these alone. */
@@ -508,6 +578,24 @@ export class TileMap extends Group2D {
     const c = this.culling;
     const x = sprite.position.x - sprite.anchor.x * this.tileWidth;
     const y = sprite.position.y - sprite.anchor.y * this.tileHeight;
+    const key = cullCellKey(
+      Math.floor(x / (this.tileWidth * cullCellTiles)),
+      Math.floor(y / (this.tileHeight * cullCellTiles)),
+    );
+    let cell = this.cullCells.get(key);
+    if (slot.cell !== cell || !cell) {
+      const previous = slot.cell;
+      if (previous) {
+        // Swap-remove; the moved slot takes this one's position.
+        const moved = previous[previous.length - 1]!;
+        previous[slot.cellAt] = moved;
+        moved.cellAt = slot.cellAt;
+        previous.pop();
+      }
+      if (!cell) this.cullCells.set(key, (cell = []));
+      slot.cell = cell;
+      slot.cellAt = cell.push(slot) - 1;
+    }
     // Sprite.visible is honored by rendering/picking themselves; leaving it out keeps
     // skipped unchanged-viewport passes exact when a tile sprite is shown again.
     sprite.renderEnabled =
@@ -545,6 +633,7 @@ export class TileMap extends Group2D {
       this.slots.length = 0;
       this.configuredSlots.length = 0;
       this.sparseSlots?.clear();
+      this.cullCells.clear();
     }
   }
 }
