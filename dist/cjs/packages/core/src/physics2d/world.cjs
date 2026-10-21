@@ -129,6 +129,14 @@ var PhysicsWorld2D = class {
 	queryNormal = new require_index.Vector2();
 	queryGeometries = /* @__PURE__ */ new WeakMap();
 	sweepBox = /* @__PURE__ */ new Float64Array(4);
+	proxyList = [];
+	proxyListLiveness = -1;
+	snapshotBounds = /* @__PURE__ */ new Float64Array();
+	snapshotKnown = /* @__PURE__ */ new Uint8Array();
+	snapshotBlockBounds = /* @__PURE__ */ new Float64Array();
+	snapshotBlockKnown = /* @__PURE__ */ new Uint8Array();
+	snapshotBoundsEpoch = 0;
+	snapshotBoundsLiveness = -1;
 	queryMotions = /* @__PURE__ */ new WeakMap();
 	continuation = continueSimulation;
 	accumulator = 0;
@@ -178,6 +186,31 @@ var PhysicsWorld2D = class {
 	}
 	get queryRefreshEpoch() {
 		return this.poseSnapshot ? -1 : this.moverEpoch;
+	}
+	orderedProxies() {
+		if (this.proxyListLiveness !== this.liveness) {
+			let e = this.proxyList, t = 0;
+			for (let n of this.proxies) e[t++] = n;
+			e.length = t, this.proxyListLiveness = this.liveness;
+		}
+		return this.proxyList;
+	}
+	knownBounds(e, t) {
+		if (!(e <= 0)) {
+			if (this.snapshotBoundsEpoch !== e || this.snapshotBoundsLiveness !== this.liveness) {
+				let n = t + 32 - 1 >> 5;
+				this.snapshotKnown.length < t ? (this.snapshotKnown = new Uint8Array(t * 2), this.snapshotBounds = new Float64Array(t * 8), this.snapshotBlockKnown = new Uint8Array(n * 2), this.snapshotBlockBounds = new Float64Array(n * 8)) : (this.snapshotKnown.fill(0, 0, t), this.snapshotBlockKnown.fill(0, 0, n)), this.snapshotBoundsEpoch = e, this.snapshotBoundsLiveness = this.liveness;
+			}
+			return this.snapshotKnown;
+		}
+	}
+	recordBounds(e, t, n) {
+		if (e.movingEpoch === n || this.snapshotKnown[t]) return;
+		let r = e.geometry, i = this.snapshotBounds, a = t * 4, o = t >> 5, s = this.snapshotBlockBounds, c = o * 4;
+		i[a] = r.minX, i[a + 1] = r.maxX, i[a + 2] = r.minY, i[a + 3] = r.maxY, this.snapshotKnown[t] = 1, this.snapshotBlockKnown[o]++ === 0 ? (s[c] = r.minX, s[c + 1] = r.maxX, s[c + 2] = r.minY, s[c + 3] = r.maxY) : (s[c] = Math.min(s[c], r.minX), s[c + 1] = Math.max(s[c + 1], r.maxX), s[c + 2] = Math.min(s[c + 2], r.minY), s[c + 3] = Math.max(s[c + 3], r.maxY));
+	}
+	blockKnown(e, t) {
+		return this.snapshotBlockKnown[e >> 5] === Math.min(32, t - e);
 	}
 	constructor(e = {}) {
 		e.gravity && this.gravity.set(require_collider.finite(e.gravity[0], `gravity.x`), require_collider.finite(e.gravity[1], `gravity.y`)), this.fixedDelta = e.fixedDelta ?? this.fixedDelta, this.maxSubSteps = e.maxSubSteps ?? this.maxSubSteps, this.velocityIterations = e.velocityIterations ?? this.velocityIterations, this.positionIterations = e.positionIterations ?? this.positionIterations, this.ccdIterations = e.ccdIterations ?? this.ccdIterations, this.ccdImpacts = e.ccdImpacts ?? this.ccdImpacts;
@@ -582,17 +615,31 @@ var PhysicsWorld2D = class {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		let r = this.queryGeometries.get(t);
 		r || (r = new require_collider.ShapeGeometry(t), this.queryGeometries.set(t, r)), r.refresh(n);
-		let i = [], a = this.queryRefreshEpoch;
-		for (let o of this.proxies) {
-			if (o.owner === n || !this.alive(o) || !(t.category & o.collider.mask) || !(o.collider.category & t.mask) || (a === 0 ? o.refresh() : refreshInSnapshot(o, a), !require_narrowphase.collide(r, o.geometry, this.queryManifold))) continue;
-			let s = this.queryManifold;
+		let i = [], a = this.queryRefreshEpoch, o = this.orderedProxies(), s = o.length, l = this.knownBounds(a, s), d = this.snapshotBounds, f = this.snapshotBlockBounds;
+		for (let c = 0; c < s; c++) {
+			if (l) {
+				if (!(c & 31) && this.blockKnown(c, s)) {
+					let e = (c >> 5) * 4;
+					if (r.maxX < f[e] || f[e + 1] < r.minX || r.maxY < f[e + 2] || f[e + 3] < r.minY) {
+						c += 31;
+						continue;
+					}
+				}
+				if (l[c]) {
+					let e = c * 4;
+					if (r.maxX < d[e] || d[e + 1] < r.minX || r.maxY < d[e + 2] || d[e + 3] < r.minY) continue;
+				}
+			}
+			let p = o[c];
+			if (p.owner === n || !this.alive(p) || !(t.category & p.collider.mask) || !(p.collider.category & t.mask) || (a === 0 ? p.refresh() : refreshInSnapshot(p, a), l && this.recordBounds(p, c, a), !require_narrowphase.collide(r, p.geometry, this.queryManifold))) continue;
+			let m = this.queryManifold;
 			i.push({
-				owner: o.owner,
-				collider: o.collider,
-				normal: new require_index.Vector2(s.nx, s.ny),
-				points: snapshotPoints(s),
-				penetration: s.penetration,
-				sensor: t.sensor || o.collider.sensor
+				owner: p.owner,
+				collider: p.collider,
+				normal: new require_index.Vector2(m.nx, m.ny),
+				points: snapshotPoints(m),
+				penetration: m.penetration,
+				sensor: t.sensor || p.collider.sensor
 			});
 		}
 		return i;
@@ -611,18 +658,32 @@ var PhysicsWorld2D = class {
 		require_collider.finite(r.x, `displacement.x`), require_collider.finite(r.y, `displacement.y`);
 		let u = require_collider.unsigned(a.mask ?? 4294967295, `mask`), d = this.queryMotions.get(t);
 		d || (d = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, d)), d.geometry.refresh(n), d.setExplicit(n.position.x, n.position.y, r.x, r.y), s.hit = !1, s.owner = void 0, s.collider = void 0, s.fraction = s.safeFraction = 1, s.exhausted = !1, s.normal.set(0, 0), s.point.set(0, 0);
-		let f = this.queryRefreshEpoch, p = this.sweepBox, h = require_world2d.physicsDefaults.sweepTolerance;
+		let f = this.queryRefreshEpoch, p = this.sweepBox, h = require_world2d.physicsDefaults.sweepTolerance, g = this.orderedProxies(), _ = g.length, v = this.knownBounds(f, _), y = this.snapshotBounds, b = this.snapshotBlockBounds;
 		this.continuous.sweptBox(d, 1, p);
-		for (let e of this.proxies) {
-			if (e.owner === n || e.owner === a.ignore || e.owner === a.ignoreOther || !this.alive(e) || !a.includeSensors && e.collider.sensor || !(t.category & e.collider.mask) || !(e.collider.category & t.mask & u)) continue;
-			f === 0 ? e.refresh() : refreshInSnapshot(e, f);
-			let r = e.geometry;
-			if (!(p[0] <= r.maxX + h && p[1] >= r.minX && p[2] <= r.maxY + h && p[3] >= r.minY)) continue;
-			e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
-			let i = this.continuous.timeOfImpact(d, e.motion, 1, this.ccdIterations);
-			if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), i < s.fraction) {
-				let t = this.continuous.manifold;
-				s.hit = !0, s.owner = e.owner, s.collider = e.collider, s.fraction = i, s.normal.set(-t.nx, -t.ny), s.point.copy(t.points[0]);
+		for (let e = 0; e < _; e++) {
+			if (v) {
+				if (!(e & 31) && this.blockKnown(e, _)) {
+					let t = (e >> 5) * 4;
+					if (!(p[0] <= b[t + 1] + h && p[1] >= b[t] && p[2] <= b[t + 3] + h && p[3] >= b[t + 2])) {
+						e += 31;
+						continue;
+					}
+				}
+				if (v[e]) {
+					let t = e * 4;
+					if (!(p[0] <= y[t + 1] + h && p[1] >= y[t] && p[2] <= y[t + 3] + h && p[3] >= y[t + 2])) continue;
+				}
+			}
+			let r = g[e];
+			if (r.owner === n || r.owner === a.ignore || r.owner === a.ignoreOther || !this.alive(r) || !a.includeSensors && r.collider.sensor || !(t.category & r.collider.mask) || !(r.collider.category & t.mask & u)) continue;
+			f === 0 ? r.refresh() : refreshInSnapshot(r, f), v && this.recordBounds(r, e, f);
+			let i = r.geometry;
+			if (!(p[0] <= i.maxX + h && p[1] >= i.minX && p[2] <= i.maxY + h && p[3] >= i.minY)) continue;
+			r.motion.setExplicit(r.owner.position.x, r.owner.position.y, 0, 0);
+			let o = this.continuous.timeOfImpact(d, r.motion, 1, this.ccdIterations);
+			if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), o < s.fraction) {
+				let e = this.continuous.manifold;
+				s.hit = !0, s.owner = r.owner, s.collider = r.collider, s.fraction = o, s.normal.set(-e.nx, -e.ny), s.point.copy(e.points[0]);
 			}
 		}
 		return s.safeFraction = Math.min(s.safeFraction, s.fraction), s.safeFraction < s.fraction && (s.hit = !1, s.owner = void 0, s.collider = void 0, s.normal.set(0, 0), s.point.set(0, 0)), s;

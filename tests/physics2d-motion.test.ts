@@ -58,6 +58,50 @@ describe('2D rigid kinematic and conservative continuous motion', () => {
     );
     world.destroy();
   });
+  it('reuses snapshot bounds only for colliders a moving snapshot already checked', () => {
+    const world = new PhysicsWorld2D();
+    const mover = object(world, Colliders.box(4, 4), 780, 100, {
+      type: 'kinematic',
+    });
+    // Two blocks of a row at y = 0; the 41st collider sits instead on the mover's path and is
+    // only visible to the second query's mask.
+    const row: GameObject[] = [];
+    for (let i = 0; i < 70; i++)
+      row.push(object(world, Colliders.box(16, 16), i * 20, 0));
+    const hidden = row[40]!;
+    hidden.position.set(830, 100);
+    hidden.collider!.category = 2;
+    world.withPoseSnapshot(() => {
+      const first = world.sweep(mover.collider!, mover, new Vector2(0, -100), {
+        mask: 1,
+      });
+      expect(first.owner).toBe(row[40 - 1]);
+      const second = world.sweep(mover.collider!, mover, new Vector2(60, 0), {
+        mask: 3,
+      });
+      expect(second.owner).toBe(hidden);
+      // A collider checked by an earlier query, overlapping the mover by one unit.
+      mover.position.set(row[50]!.position.x - 9, 0);
+      expect(
+        world.overlap(mover.collider!, mover).map((hit) => hit.owner),
+      ).toEqual([row[50]]);
+      // And one reached a unit before the end of a sweep.
+      mover.position.set(-30, 0);
+      expect(
+        world.sweep(mover.collider!, mover, new Vector2(21, 0)).owner,
+      ).toBe(row[0]);
+    }, mover);
+    // Plain pose edits between snapshots are seen by the next one.
+    row[10]!.position.set(820, 100);
+    mover.position.set(780, 100);
+    world.withPoseSnapshot(() => {
+      expect(
+        world.sweep(mover.collider!, mover, new Vector2(60, 0), { mask: 1 })
+          .owner,
+      ).toBe(row[10]);
+    }, mover);
+    world.destroy();
+  });
   it('integrates prescribed kinematic translation/rotation without gravity, force, or impulse response', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 900] });
     const platform = object(world, Colliders.box(10, 2), 0, 0, {

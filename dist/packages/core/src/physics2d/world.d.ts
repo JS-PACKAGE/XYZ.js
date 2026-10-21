@@ -116,6 +116,20 @@ export declare class PhysicsWorld2D {
     private readonly queryGeometries;
     /** `sweep`'s query box from `ContinuousCollision2D.sweptBox`. */
     private readonly sweepBox;
+    /** `proxies` in order, rebuilt after liveness changes (every membership change bumps it). */
+    private proxyList;
+    private proxyListLiveness;
+    /**
+     * Bounds of the proxies a moving pose snapshot has already refreshed, by position in
+     * `proxyList` (`[minX, maxX, minY, maxY]` each), plus their union and count per block of
+     * `snapshotBlock` positions. Those proxies stay put until the epoch ends.
+     */
+    private snapshotBounds;
+    private snapshotKnown;
+    private snapshotBlockBounds;
+    private snapshotBlockKnown;
+    private snapshotBoundsEpoch;
+    private snapshotBoundsLiveness;
     private readonly queryMotions;
     private continuation;
     private accumulator;
@@ -148,6 +162,17 @@ export declare class PhysicsWorld2D {
     private markMoving;
     /** -1: every pose is current; 0: refresh each queried proxy; else the mover epoch. */
     private get queryRefreshEpoch();
+    private orderedProxies;
+    /**
+     * The known-bounds flags for a moving snapshot `epoch`, else undefined. Inside one, no user
+     * code runs, so `proxyList` keeps its order and a refreshed proxy that is not moving keeps
+     * its bounds.
+     */
+    private knownBounds;
+    /** Records a proxy refreshed inside moving snapshot `epoch` at `index` in `proxyList`. */
+    private recordBounds;
+    /** Whether every position of the block starting at `index` has known bounds. */
+    private blockKnown;
     constructor(options?: PhysicsWorldOptions);
     get destroyed(): boolean;
     get fixedDelta(): number;

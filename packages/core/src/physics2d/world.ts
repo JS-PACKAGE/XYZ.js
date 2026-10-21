@@ -177,6 +177,9 @@ class Proxy {
         : 0;
   }
 }
+/** Positions per union block of snapshot query bounds; a power of two. */
+const snapshotBlockShift = 5;
+const snapshotBlock = 1 << snapshotBlockShift;
 /**
  * Query refresh inside a pose snapshot (`epoch` from `queryRefreshEpoch`, nonzero): frozen
  * snapshots refresh nothing; a moving one refreshes each proxy on its first query and the
@@ -283,6 +286,20 @@ export class PhysicsWorld2D {
   private readonly queryGeometries = new WeakMap<Collider2D, ShapeGeometry>();
   /** `sweep`'s query box from `ContinuousCollision2D.sweptBox`. */
   private readonly sweepBox = new Float64Array(4);
+  /** `proxies` in order, rebuilt after liveness changes (every membership change bumps it). */
+  private proxyList: Proxy[] = [];
+  private proxyListLiveness = -1;
+  /**
+   * Bounds of the proxies a moving pose snapshot has already refreshed, by position in
+   * `proxyList` (`[minX, maxX, minY, maxY]` each), plus their union and count per block of
+   * `snapshotBlock` positions. Those proxies stay put until the epoch ends.
+   */
+  private snapshotBounds = new Float64Array(0);
+  private snapshotKnown = new Uint8Array(0);
+  private snapshotBlockBounds = new Float64Array(0);
+  private snapshotBlockKnown = new Uint8Array(0);
+  private snapshotBoundsEpoch = 0;
+  private snapshotBoundsLiveness = -1;
   private readonly queryMotions = new WeakMap<Collider2D, ShapeMotion2D>();
   private continuation: () => boolean = continueSimulation;
   private accumulator = 0;
@@ -349,6 +366,75 @@ export class PhysicsWorld2D {
   /** -1: every pose is current; 0: refresh each queried proxy; else the mover epoch. */
   private get queryRefreshEpoch(): number {
     return this.poseSnapshot ? -1 : this.moverEpoch;
+  }
+  private orderedProxies(): Proxy[] {
+    if (this.proxyListLiveness !== this.liveness) {
+      const list = this.proxyList;
+      let count = 0;
+      for (const proxy of this.proxies) list[count++] = proxy;
+      list.length = count;
+      this.proxyListLiveness = this.liveness;
+    }
+    return this.proxyList;
+  }
+  /**
+   * The known-bounds flags for a moving snapshot `epoch`, else undefined. Inside one, no user
+   * code runs, so `proxyList` keeps its order and a refreshed proxy that is not moving keeps
+   * its bounds.
+   */
+  private knownBounds(epoch: number, count: number): Uint8Array | undefined {
+    if (epoch <= 0) return undefined;
+    if (
+      this.snapshotBoundsEpoch !== epoch ||
+      this.snapshotBoundsLiveness !== this.liveness
+    ) {
+      const blocks = (count + snapshotBlock - 1) >> snapshotBlockShift;
+      if (this.snapshotKnown.length < count) {
+        this.snapshotKnown = new Uint8Array(count * 2);
+        this.snapshotBounds = new Float64Array(count * 8);
+        this.snapshotBlockKnown = new Uint8Array(blocks * 2);
+        this.snapshotBlockBounds = new Float64Array(blocks * 8);
+      } else {
+        this.snapshotKnown.fill(0, 0, count);
+        this.snapshotBlockKnown.fill(0, 0, blocks);
+      }
+      this.snapshotBoundsEpoch = epoch;
+      this.snapshotBoundsLiveness = this.liveness;
+    }
+    return this.snapshotKnown;
+  }
+  /** Records a proxy refreshed inside moving snapshot `epoch` at `index` in `proxyList`. */
+  private recordBounds(proxy: Proxy, index: number, epoch: number): void {
+    if (proxy.movingEpoch === epoch || this.snapshotKnown[index]) return;
+    const g = proxy.geometry,
+      bounds = this.snapshotBounds,
+      at = index * 4,
+      block = index >> snapshotBlockShift,
+      union = this.snapshotBlockBounds,
+      b = block * 4;
+    bounds[at] = g.minX;
+    bounds[at + 1] = g.maxX;
+    bounds[at + 2] = g.minY;
+    bounds[at + 3] = g.maxY;
+    this.snapshotKnown[index] = 1;
+    if (this.snapshotBlockKnown[block]++ === 0) {
+      union[b] = g.minX;
+      union[b + 1] = g.maxX;
+      union[b + 2] = g.minY;
+      union[b + 3] = g.maxY;
+    } else {
+      union[b] = Math.min(union[b]!, g.minX);
+      union[b + 1] = Math.max(union[b + 1]!, g.maxX);
+      union[b + 2] = Math.min(union[b + 2]!, g.minY);
+      union[b + 3] = Math.max(union[b + 3]!, g.maxY);
+    }
+  }
+  /** Whether every position of the block starting at `index` has known bounds. */
+  private blockKnown(index: number, count: number): boolean {
+    return (
+      this.snapshotBlockKnown[index >> snapshotBlockShift] ===
+      Math.min(snapshotBlock, count - index)
+    );
   }
 
   constructor(options: PhysicsWorldOptions = {}) {
@@ -1330,8 +1416,44 @@ export class PhysicsWorld2D {
     }
     geometry.refresh(owner);
     const results: ContactQuery[] = [];
-    const epoch = this.queryRefreshEpoch;
-    for (const proxy of this.proxies) {
+    const epoch = this.queryRefreshEpoch,
+      list = this.orderedProxies(),
+      count = list.length,
+      known = this.knownBounds(epoch, count),
+      bounds = this.snapshotBounds,
+      union = this.snapshotBlockBounds;
+    for (let index = 0; index < count; index++) {
+      // collide()'s own bounds test, on bounds this snapshot already refreshed: such a proxy
+      // (or a whole block, by its union) is skipped whatever the filters below decide, and
+      // they have no effects.
+      if (known) {
+        if (
+          (index & (snapshotBlock - 1)) === 0 &&
+          this.blockKnown(index, count)
+        ) {
+          const at = (index >> snapshotBlockShift) * 4;
+          if (
+            geometry.maxX < union[at]! ||
+            union[at + 1]! < geometry.minX ||
+            geometry.maxY < union[at + 2]! ||
+            union[at + 3]! < geometry.minY
+          ) {
+            index += snapshotBlock - 1;
+            continue;
+          }
+        }
+        if (known[index]) {
+          const at = index * 4;
+          if (
+            geometry.maxX < bounds[at]! ||
+            bounds[at + 1]! < geometry.minX ||
+            geometry.maxY < bounds[at + 2]! ||
+            bounds[at + 3]! < geometry.minY
+          )
+            continue;
+        }
+      }
+      const proxy = list[index]!;
       if (
         proxy.owner === owner ||
         !this.alive(proxy) ||
@@ -1341,6 +1463,7 @@ export class PhysicsWorld2D {
         continue;
       if (epoch === 0) proxy.refresh();
       else refreshInSnapshot(proxy, epoch);
+      if (known) this.recordBounds(proxy, index, epoch);
       if (!collide(geometry, proxy.geometry, this.queryManifold)) continue;
       const m = this.queryManifold;
       results.push({
@@ -1397,9 +1520,43 @@ export class PhysicsWorld2D {
     out.point.set(0, 0);
     const epoch = this.queryRefreshEpoch,
       box = this.sweepBox,
-      tolerance = physicsDefaults.sweepTolerance;
+      tolerance = physicsDefaults.sweepTolerance,
+      list = this.orderedProxies(),
+      count = list.length,
+      known = this.knownBounds(epoch, count),
+      bounds = this.snapshotBounds,
+      union = this.snapshotBlockBounds;
     this.continuous.sweptBox(motion, 1, box);
-    for (const proxy of this.proxies) {
+    for (let index = 0; index < count; index++) {
+      // The bounds test below on bounds this snapshot already refreshed; see `overlap`.
+      if (known) {
+        if (
+          (index & (snapshotBlock - 1)) === 0 &&
+          this.blockKnown(index, count)
+        ) {
+          const at = (index >> snapshotBlockShift) * 4;
+          if (!(
+            box[0]! <= union[at + 1]! + tolerance &&
+            box[1]! >= union[at]! &&
+            box[2]! <= union[at + 3]! + tolerance &&
+            box[3]! >= union[at + 2]!
+          )) {
+            index += snapshotBlock - 1;
+            continue;
+          }
+        }
+        if (known[index]) {
+          const at = index * 4;
+          if (!(
+            box[0]! <= bounds[at + 1]! + tolerance &&
+            box[1]! >= bounds[at]! &&
+            box[2]! <= bounds[at + 3]! + tolerance &&
+            box[3]! >= bounds[at + 2]!
+          ))
+            continue;
+        }
+      }
+      const proxy = list[index]!;
       if (
         proxy.owner === owner ||
         proxy.owner === options.ignore ||
@@ -1412,6 +1569,7 @@ export class PhysicsWorld2D {
         continue;
       if (epoch === 0) proxy.refresh();
       else refreshInSnapshot(proxy, epoch);
+      if (known) this.recordBounds(proxy, index, epoch);
       // The resting proxy's side of timeOfImpact's bounds test: a proxy outside the swept
       // box gets no impact, so its motion need not be set (CCD sets motions before use).
       const g = proxy.geometry;
