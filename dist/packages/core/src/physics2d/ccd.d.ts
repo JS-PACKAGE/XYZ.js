@@ -33,5 +33,11 @@ export declare class ContinuousCollision2D {
     exhausted: boolean;
     safeTime: number;
     private overlaps;
+    /**
+     * `a`'s side of `overlaps` as `[minX, maxX, minY, maxY]`, tolerance included on the max
+     * sides. Against a shape at rest (no velocity or spin, so no margin of its own) `overlaps`
+     * is exactly `minX <= b.maxX + tolerance && maxX >= b.minX` and likewise in y.
+     */
+    sweptBox(a: ShapeMotion2D, duration: number, out: Float64Array): void;
     timeOfImpact(a: ShapeMotion2D, b: ShapeMotion2D, duration: number, budget: number, tolerance?: 0.0001): number;
 }

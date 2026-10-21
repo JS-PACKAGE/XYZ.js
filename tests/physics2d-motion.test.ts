@@ -39,6 +39,25 @@ function character(world: PhysicsWorld2D, x = 0, y = 0): CharacterController2D {
 }
 
 describe('2D rigid kinematic and conservative continuous motion', () => {
+  it('sweeps into the nearest collider reachable along the motion, among many out of reach', () => {
+    const world = new PhysicsWorld2D();
+    const mover = object(world, Colliders.box(2, 2), 0, 0, {
+      type: 'kinematic',
+    });
+    // The near edge sits half a unit inside the end of the swept box.
+    const wall = object(world, Colliders.box(2, 2), 11.5, 0);
+    for (let i = 0; i < 20; i++) object(world, Colliders.box(2, 2), i * 3, 6);
+    object(world, Colliders.box(2, 2), -4, 0);
+    const hit = world.sweep(mover.collider!, mover, new Vector2(10, 0));
+    expect(hit.hit).toBe(true);
+    expect(hit.owner).toBe(wall);
+    expect(hit.fraction).toBeCloseTo(0.95, 4);
+    expect(hit.normal.x).toBeCloseTo(-1, 6);
+    expect(world.sweep(mover.collider!, mover, new Vector2(9, 0)).hit).toBe(
+      false,
+    );
+    world.destroy();
+  });
   it('integrates prescribed kinematic translation/rotation without gravity, force, or impulse response', () => {
     const world = new PhysicsWorld2D({ gravity: [0, 900] });
     const platform = object(world, Colliders.box(10, 2), 0, 0, {

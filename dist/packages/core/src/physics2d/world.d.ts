@@ -114,6 +114,8 @@ export declare class PhysicsWorld2D {
     private readonly positionManifold;
     private readonly queryNormal;
     private readonly queryGeometries;
+    /** `sweep`'s query box from `ContinuousCollision2D.sweptBox`. */
+    private readonly sweepBox;
     private readonly queryMotions;
     private continuation;
     private accumulator;

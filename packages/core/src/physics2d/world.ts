@@ -281,6 +281,8 @@ export class PhysicsWorld2D {
   private readonly positionManifold = new Manifold();
   private readonly queryNormal = new Vector2();
   private readonly queryGeometries = new WeakMap<Collider2D, ShapeGeometry>();
+  /** `sweep`'s query box from `ContinuousCollision2D.sweptBox`. */
+  private readonly sweepBox = new Float64Array(4);
   private readonly queryMotions = new WeakMap<Collider2D, ShapeMotion2D>();
   private continuation: () => boolean = continueSimulation;
   private accumulator = 0;
@@ -1393,7 +1395,10 @@ export class PhysicsWorld2D {
     out.exhausted = false;
     out.normal.set(0, 0);
     out.point.set(0, 0);
-    const epoch = this.queryRefreshEpoch;
+    const epoch = this.queryRefreshEpoch,
+      box = this.sweepBox,
+      tolerance = physicsDefaults.sweepTolerance;
+    this.continuous.sweptBox(motion, 1, box);
     for (const proxy of this.proxies) {
       if (
         proxy.owner === owner ||
@@ -1407,6 +1412,16 @@ export class PhysicsWorld2D {
         continue;
       if (epoch === 0) proxy.refresh();
       else refreshInSnapshot(proxy, epoch);
+      // The resting proxy's side of timeOfImpact's bounds test: a proxy outside the swept
+      // box gets no impact, so its motion need not be set (CCD sets motions before use).
+      const g = proxy.geometry;
+      if (!(
+        box[0]! <= g.maxX + tolerance &&
+        box[1]! >= g.minX &&
+        box[2]! <= g.maxY + tolerance &&
+        box[3]! >= g.minY
+      ))
+        continue;
       proxy.motion.setExplicit(
         proxy.owner.position.x,
         proxy.owner.position.y,

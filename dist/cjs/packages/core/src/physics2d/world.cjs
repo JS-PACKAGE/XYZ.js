@@ -128,6 +128,7 @@ var PhysicsWorld2D = class {
 	positionManifold = new require_narrowphase.Manifold();
 	queryNormal = new require_index.Vector2();
 	queryGeometries = /* @__PURE__ */ new WeakMap();
+	sweepBox = /* @__PURE__ */ new Float64Array(4);
 	queryMotions = /* @__PURE__ */ new WeakMap();
 	continuation = continueSimulation;
 	accumulator = 0;
@@ -596,7 +597,7 @@ var PhysicsWorld2D = class {
 		}
 		return i;
 	}
-	sweep(t, n, r, i = {}, a = {
+	sweep(t, n, r, a = {}, s = {
 		hit: !1,
 		owner: void 0,
 		collider: void 0,
@@ -608,19 +609,23 @@ var PhysicsWorld2D = class {
 	}) {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);
 		require_collider.finite(r.x, `displacement.x`), require_collider.finite(r.y, `displacement.y`);
-		let s = require_collider.unsigned(i.mask ?? 4294967295, `mask`), u = this.queryMotions.get(t);
-		u || (u = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, u)), u.geometry.refresh(n), u.setExplicit(n.position.x, n.position.y, r.x, r.y), a.hit = !1, a.owner = void 0, a.collider = void 0, a.fraction = a.safeFraction = 1, a.exhausted = !1, a.normal.set(0, 0), a.point.set(0, 0);
-		let d = this.queryRefreshEpoch;
+		let u = require_collider.unsigned(a.mask ?? 4294967295, `mask`), d = this.queryMotions.get(t);
+		d || (d = new require_ccd.ShapeMotion2D(new require_collider.ShapeGeometry(t)), this.queryMotions.set(t, d)), d.geometry.refresh(n), d.setExplicit(n.position.x, n.position.y, r.x, r.y), s.hit = !1, s.owner = void 0, s.collider = void 0, s.fraction = s.safeFraction = 1, s.exhausted = !1, s.normal.set(0, 0), s.point.set(0, 0);
+		let f = this.queryRefreshEpoch, p = this.sweepBox, h = require_world2d.physicsDefaults.sweepTolerance;
+		this.continuous.sweptBox(d, 1, p);
 		for (let e of this.proxies) {
-			if (e.owner === n || e.owner === i.ignore || e.owner === i.ignoreOther || !this.alive(e) || !i.includeSensors && e.collider.sensor || !(t.category & e.collider.mask) || !(e.collider.category & t.mask & s)) continue;
-			d === 0 ? e.refresh() : refreshInSnapshot(e, d), e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
-			let r = this.continuous.timeOfImpact(u, e.motion, 1, this.ccdIterations);
-			if (this.continuous.exhausted && (a.exhausted = !0, a.safeFraction = Math.min(a.safeFraction, this.continuous.safeTime)), r < a.fraction) {
+			if (e.owner === n || e.owner === a.ignore || e.owner === a.ignoreOther || !this.alive(e) || !a.includeSensors && e.collider.sensor || !(t.category & e.collider.mask) || !(e.collider.category & t.mask & u)) continue;
+			f === 0 ? e.refresh() : refreshInSnapshot(e, f);
+			let r = e.geometry;
+			if (!(p[0] <= r.maxX + h && p[1] >= r.minX && p[2] <= r.maxY + h && p[3] >= r.minY)) continue;
+			e.motion.setExplicit(e.owner.position.x, e.owner.position.y, 0, 0);
+			let i = this.continuous.timeOfImpact(d, e.motion, 1, this.ccdIterations);
+			if (this.continuous.exhausted && (s.exhausted = !0, s.safeFraction = Math.min(s.safeFraction, this.continuous.safeTime)), i < s.fraction) {
 				let t = this.continuous.manifold;
-				a.hit = !0, a.owner = e.owner, a.collider = e.collider, a.fraction = r, a.normal.set(-t.nx, -t.ny), a.point.copy(t.points[0]);
+				s.hit = !0, s.owner = e.owner, s.collider = e.collider, s.fraction = i, s.normal.set(-t.nx, -t.ny), s.point.copy(t.points[0]);
 			}
 		}
-		return a.safeFraction = Math.min(a.safeFraction, a.fraction), a.safeFraction < a.fraction && (a.hit = !1, a.owner = void 0, a.collider = void 0, a.normal.set(0, 0), a.point.set(0, 0)), a;
+		return s.safeFraction = Math.min(s.safeFraction, s.fraction), s.safeFraction < s.fraction && (s.hit = !1, s.owner = void 0, s.collider = void 0, s.normal.set(0, 0), s.point.set(0, 0)), s;
 	}
 	raycast(t, n, r, i = 4294967295) {
 		if (this.destroyed) throw Error(`Cannot query a destroyed PhysicsWorld2D.`);

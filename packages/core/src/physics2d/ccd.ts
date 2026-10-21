@@ -242,6 +242,20 @@ export class ContinuousCollision2D {
         gb.minY + Math.min(0, b.vy * duration) - mb
     );
   }
+  /**
+   * `a`'s side of `overlaps` as `[minX, maxX, minY, maxY]`, tolerance included on the max
+   * sides. Against a shape at rest (no velocity or spin, so no margin of its own) `overlaps`
+   * is exactly `minX <= b.maxX + tolerance && maxX >= b.minX` and likewise in y.
+   */
+  sweptBox(a: ShapeMotion2D, duration: number, out: Float64Array): void {
+    const ga = a.geometry,
+      ma = Math.min(2 * a.radius, Math.abs(a.spin) * a.radius * duration),
+      tolerance = physicsDefaults.sweepTolerance;
+    out[0] = ga.minX + Math.min(0, a.vx * duration) - ma;
+    out[1] = ga.maxX + Math.max(0, a.vx * duration) + ma + tolerance;
+    out[2] = ga.minY + Math.min(0, a.vy * duration) - ma;
+    out[3] = ga.maxY + Math.max(0, a.vy * duration) + ma + tolerance;
+  }
   timeOfImpact(
     a: ShapeMotion2D,
     b: ShapeMotion2D,

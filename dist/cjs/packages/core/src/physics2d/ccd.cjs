@@ -124,6 +124,10 @@ var ContinuousCollision2D = class {
 		let i = t.geometry, a = n.geometry, o = Math.min(2 * t.radius, Math.abs(t.spin) * t.radius * r), s = Math.min(2 * n.radius, Math.abs(n.spin) * n.radius * r), c = require_world2d.physicsDefaults.sweepTolerance;
 		return i.minX + Math.min(0, t.vx * r) - o <= a.maxX + Math.max(0, n.vx * r) + s + c && i.maxX + Math.max(0, t.vx * r) + o + c >= a.minX + Math.min(0, n.vx * r) - s && i.minY + Math.min(0, t.vy * r) - o <= a.maxY + Math.max(0, n.vy * r) + s + c && i.maxY + Math.max(0, t.vy * r) + o + c >= a.minY + Math.min(0, n.vy * r) - s;
 	}
+	sweptBox(t, n, r) {
+		let i = t.geometry, a = Math.min(2 * t.radius, Math.abs(t.spin) * t.radius * n), o = require_world2d.physicsDefaults.sweepTolerance;
+		r[0] = i.minX + Math.min(0, t.vx * n) - a, r[1] = i.maxX + Math.max(0, t.vx * n) + a + o, r[2] = i.minY + Math.min(0, t.vy * n) - a, r[3] = i.maxY + Math.max(0, t.vy * n) + a + o;
+	}
 	timeOfImpact(t, n, r, a, o = require_world2d.physicsDefaults.sweepTolerance) {
 		if (this.iterations = 0, this.exhausted = !1, this.safeTime = 1 / 0, !this.overlaps(t, n, r)) return 1 / 0;
 		let s = t.vx - n.vx, c = t.vy - n.vy, l = Math.abs(t.spin) * t.radius + Math.abs(n.spin) * n.radius;
