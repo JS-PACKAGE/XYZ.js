@@ -538,6 +538,9 @@ export function createSurfaceSampler(
         kind === 'hammeredmetal' ||
         kind === 'galvanized' ||
         kind === 'corrugatedmetal' ||
+        kind === 'perforatedmetal' ||
+        kind === 'expandedmetal' ||
+        kind === 'wiremesh' ||
         kind === 'knurledmetal' ||
         kind === 'engineturned' ||
         kind === 'goldleaf' ||
@@ -2128,6 +2131,74 @@ export function createSurfaceSampler(
         height = 0.1 + 0.8 * flute + 0.004 * rolled - 0.002 * wear;
         roughness += 0.13 * (rolled - 0.5) + 0.06 * wear;
         occlusion = 0.91 + 0.08 * flute;
+        break;
+      }
+      case 'perforatedmetal': {
+        const cells = 6;
+        const x = u * cells,
+          y = v * cells;
+        const ix = Math.floor(x),
+          iy = Math.floor(y);
+        // Even row counts keep the staggered half-cell hole lattice periodic.
+        let recess = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy;
+            const shift = (((cy % 2) + 2) % 2) * 0.5;
+            const dx = x - cx - 0.5 - shift,
+              dy = y - cy - 0.5;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            // Flat hole floors sink below the sheet and rise back at the rim
+            // with zero slope; supports stop before a discarded cell matters.
+            const hole = smooth(clamp((0.3 - distance) / 0.12));
+            recess += (1 - recess) * hole;
+          }
+        color = 0.62 + 0.1 * detail - 0.44 * recess;
+        height = 0.82 - 0.62 * recess + 0.03 * detail;
+        roughness += 0.07 * recess + 0.04 * (detail - 0.5);
+        occlusion = 1 - 0.78 * recess;
+        break;
+      }
+      case 'expandedmetal': {
+        // Two diagonal strand families join smoothly at shared nodes and
+        // leave recessed rhombic openings between their rounded shoulders.
+        const strandA = smooth(
+          clamp((Math.cos(TAU * 5 * (u + v)) - 0.1) / 0.9),
+        );
+        const strandB = smooth(
+          clamp((Math.cos(TAU * 5 * (u - v)) - 0.1) / 0.9),
+        );
+        const lattice = strandA + strandB - strandA * strandB;
+        const node = strandA * strandB;
+        const opening = 1 - lattice;
+        color = 0.7 + 0.1 * detail - 0.42 * opening;
+        height = 0.22 + 0.6 * lattice + 0.09 * node + 0.025 * detail;
+        roughness += 0.08 * opening + 0.03 * (detail - 0.5);
+        occlusion = 0.34 + 0.62 * lattice;
+        break;
+      }
+      case 'wiremesh': {
+        const x = u * 12,
+          y = v * 12;
+        // Squared caps round each wire crest and vanish with zero slope
+        // at the half-cell support, so the fract jumps land in flat gaps.
+        const cap = (q: number): number => {
+          const span = clamp(1 - q * q);
+          return span * span;
+        };
+        const warp = cap((fract(x) - 0.5) / 0.34),
+          weft = cap((fract(y) - 0.5) / 0.34);
+        // Over-under crimp alternates at every crossing and eases to equal
+        // tension halfway between them, so no seam opens along a float.
+        const over = 0.5 + 0.5 * Math.cos(Math.PI * (x - y));
+        const top = warp * over + weft * (1 - over),
+          under = weft * over + warp * (1 - over);
+        const exposed = under * (1 - top);
+        color = 0.3 + 0.46 * top + 0.2 * exposed + 0.08 * detail;
+        height = 0.08 + 0.78 * top + 0.34 * exposed + 0.03 * detail;
+        roughness += 0.04 * (1 - top) + 0.03 * (detail - 0.5);
+        occlusion = 0.36 + 0.56 * top + 0.18 * exposed;
         break;
       }
       case 'sandstone': {

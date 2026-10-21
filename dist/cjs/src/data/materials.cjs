@@ -552,6 +552,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .29,
 		relief: .025
 	}),
+	perforatedmetal: Object.freeze({
+		dark: [
+			62,
+			68,
+			74
+		],
+		light: [
+			202,
+			210,
+			216
+		],
+		roughness: .35,
+		relief: .016
+	}),
+	expandedmetal: Object.freeze({
+		dark: [
+			54,
+			60,
+			66
+		],
+		light: [
+			186,
+			195,
+			203
+		],
+		roughness: .4,
+		relief: .02
+	}),
+	wiremesh: Object.freeze({
+		dark: [
+			58,
+			62,
+			68
+		],
+		light: [
+			198,
+			206,
+			212
+		],
+		roughness: .33,
+		relief: .004
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -1517,6 +1559,9 @@ var proceduralTileMeters = Object.freeze({
 	hammeredmetal: .24,
 	galvanized: .36,
 	corrugatedmetal: 1.2,
+	perforatedmetal: .5,
+	expandedmetal: .6,
+	wiremesh: .09,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,

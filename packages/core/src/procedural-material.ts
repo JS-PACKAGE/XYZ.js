@@ -46,6 +46,9 @@ export type ProceduralMaterialKind =
   | 'hammeredmetal'
   | 'galvanized'
   | 'corrugatedmetal'
+  | 'perforatedmetal'
+  | 'expandedmetal'
+  | 'wiremesh'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -183,6 +186,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'hammeredmetal',
   'galvanized',
   'corrugatedmetal',
+  'perforatedmetal',
+  'expandedmetal',
+  'wiremesh',
   'sandstone',
   'travertine',
   'pumice',
@@ -376,6 +382,9 @@ export class ProceduralMaterial {
         this.kind === 'hammeredmetal' ||
         this.kind === 'galvanized' ||
         this.kind === 'corrugatedmetal' ||
+        this.kind === 'perforatedmetal' ||
+        this.kind === 'expandedmetal' ||
+        this.kind === 'wiremesh' ||
         this.kind === 'knurledmetal' ||
         this.kind === 'engineturned' ||
         this.kind === 'goldleaf' ||

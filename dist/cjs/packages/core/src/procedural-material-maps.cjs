@@ -168,7 +168,7 @@ function createSurfaceSampler(t, r) {
 	let le = t === `stone` || t === `metal` || t === `marble`, ue = t === `brick` || t === `stone` || t === `asphalt` || t === `gravel` || t === `cobblestone` || t === `bark` || t === `moss` || t === `mud` || t === `granite` || t === `slate` || t === `terrazzo` || t === `plaster` || t === `terracotta` || t === `cork` || t === `rubber` || t === `sandstone` || t === `travertine` || t === `pumice`;
 	return (e, o, f) => {
 		e = fract(e), o = fract(o);
-		let p = le ? noise(e, o, 4, 4, r) : 0, S = L || oe || H || se ? 0 : noise(e, o, 32, 32, r ^ 2747636419), W = ue ? noise(e, o, 64, 64, r ^ 2135587861) : 0, G = p, Y = p, X = i.roughness, Z = 1, Q = 0, $ = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`);
+		let p = le ? noise(e, o, 4, 4, r) : 0, S = L || oe || H || se ? 0 : noise(e, o, 32, 32, r ^ 2747636419), W = ue ? noise(e, o, 64, 64, r ^ 2135587861) : 0, G = p, Y = p, X = i.roughness, Z = 1, Q = 0, $ = +(t === `metal` || t === `diamondplate` || t === `hammeredmetal` || t === `galvanized` || t === `corrugatedmetal` || t === `perforatedmetal` || t === `expandedmetal` || t === `wiremesh` || t === `knurledmetal` || t === `engineturned` || t === `goldleaf` || t === `rivetedmetal` || t === `weldedmetal`);
 		switch (t) {
 			case `corrugatedcardboard`:
 			case `creasedpaper`:
@@ -602,6 +602,28 @@ function createSurfaceSampler(t, r) {
 			case `corrugatedmetal`: {
 				let t = .5 + .5 * Math.cos(n * 8 * e + a), i = noise(e, o, 64, 4, r ^ 8043), s = (.5 + .5 * Math.sin(n * 48 * e + a)) ** 12;
 				G = .5 + .2 * t + .16 * i - .06 * s, Y = .1 + .8 * t + .004 * i - .002 * s, X += .13 * (i - .5) + .06 * s, Z = .91 + .08 * t;
+				break;
+			}
+			case `perforatedmetal`: {
+				let t = e * 6, n = o * 6, r = Math.floor(t), i = Math.floor(n), a = 0;
+				for (let e = -1; e <= 1; e++) for (let o = -1; o <= 1; o++) {
+					let s = r + o, c = i + e, l = (c % 2 + 2) % 2 * .5, u = t - s - .5 - l, d = n - c - .5, p = smooth(clamp((.3 - Math.sqrt(u * u + d * d)) / .12));
+					a += (1 - a) * p;
+				}
+				G = .62 + .1 * S - .44 * a, Y = .82 - .62 * a + .03 * S, X += .07 * a + .04 * (S - .5), Z = 1 - .78 * a;
+				break;
+			}
+			case `expandedmetal`: {
+				let t = smooth(clamp((Math.cos(n * 5 * (e + o)) - .1) / .9)), r = smooth(clamp((Math.cos(n * 5 * (e - o)) - .1) / .9)), i = t + r - t * r, a = t * r, s = 1 - i;
+				G = .7 + .1 * S - .42 * s, Y = .22 + .6 * i + .09 * a + .025 * S, X += .08 * s + .03 * (S - .5), Z = .34 + .62 * i;
+				break;
+			}
+			case `wiremesh`: {
+				let t = e * 12, n = o * 12, cap = (e) => {
+					let t = clamp(1 - e * e);
+					return t * t;
+				}, r = cap((fract(t) - .5) / .34), i = cap((fract(n) - .5) / .34), a = .5 + .5 * Math.cos(Math.PI * (t - n)), s = r * a + i * (1 - a), c = (i * a + r * (1 - a)) * (1 - s);
+				G = .3 + .46 * s + .2 * c + .08 * S, Y = .08 + .78 * s + .34 * c + .03 * S, X += .04 * (1 - s) + .03 * (S - .5), Z = .36 + .56 * s + .18 * c;
 				break;
 			}
 			case `sandstone`: {

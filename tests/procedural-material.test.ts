@@ -63,6 +63,9 @@ const kinds: ProceduralMaterialKind[] = [
   'hammeredmetal',
   'galvanized',
   'corrugatedmetal',
+  'perforatedmetal',
+  'expandedmetal',
+  'wiremesh',
   'sandstone',
   'travertine',
   'pumice',
@@ -416,6 +419,9 @@ describe('periodic procedural material fields', () => {
           kind === 'hammeredmetal' ||
           kind === 'galvanized' ||
           kind === 'corrugatedmetal' ||
+          kind === 'perforatedmetal' ||
+          kind === 'expandedmetal' ||
+          kind === 'wiremesh' ||
           kind === 'knurledmetal' ||
           kind === 'engineturned' ||
           kind === 'goldleaf' ||
@@ -508,6 +514,9 @@ describe('periodic procedural material fields', () => {
     ['hammeredmetal', [4, 12, 32]],
     ['galvanized', [10, 32]],
     ['corrugatedmetal', [4, 8, 32, 48, 64]],
+    ['perforatedmetal', [6, 12, 32]],
+    ['expandedmetal', [5, 10, 32]],
+    ['wiremesh', [12, 24, 32]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -619,6 +628,9 @@ describe('periodic procedural material fields', () => {
                       kind === 'hammeredmetal' ||
                       kind === 'galvanized' ||
                       kind === 'corrugatedmetal' ||
+                      kind === 'perforatedmetal' ||
+                      kind === 'expandedmetal' ||
+                      kind === 'wiremesh' ||
                       kind === 'knurledmetal' ||
                       kind === 'engineturned' ||
                       kind === 'goldleaf' ||
@@ -653,6 +665,9 @@ describe('periodic procedural material fields', () => {
     ['knurledmetal', 48],
     ['engineturned', 12],
     ['goldleaf', 20],
+    ['perforatedmetal', 6],
+    ['expandedmetal', 5],
+    ['wiremesh', 12],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -2220,6 +2235,108 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  it('perforatedmetal recesses staggered round holes below the sheet web', () => {
+    const floor: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rim = { ...floor },
+      web = { ...floor };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('perforatedmetal', seed);
+      for (const row of [0, 1, 4, 5])
+        for (const column of [0, 2, 5]) {
+          // Hole centers stagger by half a cell on alternating rows.
+          const shift = (row % 2) * 0.5;
+          const cx = (column + 0.5 + shift) / 6,
+            cy = (row + 0.5) / 6;
+          sample(cx, cy, floor);
+          for (const [dx, dy] of [
+            [0.24, 0],
+            [-0.24, 0],
+            [0, 0.24],
+            [0, -0.24],
+          ]) {
+            sample(cx + dx / 6, cy + dy / 6, rim);
+            expect(rim.height).toBeGreaterThan(floor.height);
+            expect(rim.occlusion).toBeGreaterThan(floor.occlusion);
+          }
+          sample((column + 1 + shift) / 6, cy, web);
+          expect(web.height).toBeGreaterThan(floor.height);
+          expect(web.occlusion).toBeGreaterThan(floor.occlusion + 0.3);
+        }
+    }
+  });
+
+  it('expandedmetal raises both diagonal strand families above rhombic openings', () => {
+    const opening: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const strand = { ...opening },
+      node = { ...opening };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('expandedmetal', seed);
+      for (const k of [0, 2, 5])
+        for (const m of [0, 1, 4]) {
+          // Crests sit on u+v=k/5 and u-v=m/5; openings center between both.
+          sample((k + m) / 10, (k - m) / 10, node);
+          sample((k + 0.5) / 10, (k - 0.5) / 10, strand);
+          sample((k + m + 1) / 10, (k - m) / 10, opening);
+          expect(node.height).toBeGreaterThan(strand.height);
+          expect(strand.height).toBeGreaterThan(opening.height);
+          expect(strand.occlusion).toBeGreaterThan(opening.occlusion + 0.4);
+          expect(opening.color).toBeLessThan(strand.color);
+        }
+    }
+  });
+
+  it('wiremesh exchanges over-under wires across crossings above open gaps', () => {
+    const a: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const b = { ...a },
+      crest = { ...a },
+      edge = { ...a },
+      gap = { ...a };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('wiremesh', seed);
+      for (const column of [0, 3, 7, 11])
+        for (const row of [0, 2, 5])
+          for (const offset of [0.14, 0.2]) {
+            // Crest points just off each crossing expose which wire is over.
+            sample((column + 0.5) / 12, (row + 0.5 + offset) / 12, a);
+            sample((column + 0.5 + offset) / 12, (row + 0.5) / 12, b);
+            const sign = (column + row) % 2 === 0 ? 1 : -1;
+            expect((a.height - b.height) * sign).toBeGreaterThan(0);
+            // The wire that dives under resumes on top at the next crossing.
+            sample((column + 0.5) / 12, (row + 1.5 + offset) / 12, a);
+            sample((column + 0.5 + offset) / 12, (row + 1.5) / 12, b);
+            expect((a.height - b.height) * sign).toBeLessThan(0);
+            // Round crests stay above their own edges and far above gaps.
+            sample((column + 0.5) / 12, (row + 1) / 12, crest);
+            sample((column + 0.5 + 0.25) / 12, (row + 1) / 12, edge);
+            sample((column + 1) / 12, (row + 1) / 12, gap);
+            expect(crest.height).toBeGreaterThan(edge.height);
+            expect(edge.height).toBeGreaterThan(gap.height);
+            expect(gap.occlusion).toBeLessThan(crest.occlusion - 0.2);
+          }
+    }
+  });
 
   it('knurled metal leaves raised diamond tips between both diagonal cuts', () => {
     const surface: SurfaceSample = {
