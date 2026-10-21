@@ -12,4 +12,18 @@ export declare class Frustum {
     intersectsSphere(x: number, y: number, z: number, radius: number): boolean;
     /** Positive-vertex AABB test; invalid bounds deliberately remain visible. */
     intersectsBox(minX: number, minY: number, minZ: number, maxX: number, maxY: number, maxZ: number): boolean;
+    /**
+     * @internal `intersectsBox` for bounds held in an object. Recursive callers are not
+     * inlined into, and six doubles passed to an outlined call were each allocated.
+     */
+    intersectsBounds(box: Readonly<FrustumBox>): boolean;
+}
+/** @internal Axis-aligned bounds read by `Frustum.intersectsBounds`. */
+export interface FrustumBox {
+    minX: number;
+    minY: number;
+    minZ: number;
+    maxX: number;
+    maxY: number;
+    maxZ: number;
 }

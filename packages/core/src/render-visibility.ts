@@ -471,17 +471,7 @@ export class RenderVisibilityCache {
     height: number,
   ): void {
     out.boxTests++;
-    if (
-      !frustum.intersectsBox(
-        node.minX,
-        node.minY,
-        node.minZ,
-        node.maxX,
-        node.maxY,
-        node.maxZ,
-      )
-    )
-      return;
+    if (!frustum.intersectsBounds(node)) return;
     if (!node.record) {
       this.gather(node.left!, camera, frustum, out, options, height);
       this.gather(node.right!, camera, frustum, out, options, height);

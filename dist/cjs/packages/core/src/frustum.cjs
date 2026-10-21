@@ -14,15 +14,28 @@ var Frustum = class {
 		for (let a = 0; a < 24; a += 4) if (i[a] * e + i[a + 1] * t + i[a + 2] * n + i[a + 3] < -r) return !1;
 		return !0;
 	}
-	intersectsBox(e, t, n, r, i, a) {
-		if (!Number.isFinite(e + t + n + r + i + a)) return !0;
-		let o = this.planes;
-		for (let s = 0; s < 24; s += 4) {
-			let c = o[s] >= 0 ? r : e, l = o[s + 1] >= 0 ? i : t, u = o[s + 2] >= 0 ? a : n;
-			if (o[s] * c + o[s + 1] * l + o[s + 2] * u + o[s + 3] < 0) return !1;
+	intersectsBox(e, n, r, i, a, o) {
+		let s = t;
+		return s.minX = e, s.minY = n, s.minZ = r, s.maxX = i, s.maxY = a, s.maxZ = o, this.intersectsBounds(s);
+	}
+	intersectsBounds(e) {
+		let t = e.minX, n = e.minY, r = e.minZ, i = e.maxX, a = e.maxY, o = e.maxZ;
+		if (!Number.isFinite(t + n + r + i + a + o)) return !0;
+		let s = this.planes;
+		for (let e = 0; e < 24; e += 4) {
+			let c = s[e] >= 0 ? i : t, l = s[e + 1] >= 0 ? a : n, u = s[e + 2] >= 0 ? o : r;
+			if (s[e] * c + s[e + 1] * l + s[e + 2] * u + s[e + 3] < 0) return !1;
 		}
 		return !0;
 	}
+};
+var t = {
+	minX: 0,
+	minY: 0,
+	minZ: 0,
+	maxX: 0,
+	maxY: 0,
+	maxZ: 0
 };
 //#endregion
 exports.Frustum = Frustum;

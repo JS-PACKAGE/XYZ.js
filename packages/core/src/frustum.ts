@@ -63,6 +63,27 @@ export class Frustum {
     maxY: number,
     maxZ: number,
   ): boolean {
+    const box = boxScratch;
+    box.minX = minX;
+    box.minY = minY;
+    box.minZ = minZ;
+    box.maxX = maxX;
+    box.maxY = maxY;
+    box.maxZ = maxZ;
+    return this.intersectsBounds(box);
+  }
+
+  /**
+   * @internal `intersectsBox` for bounds held in an object. Recursive callers are not
+   * inlined into, and six doubles passed to an outlined call were each allocated.
+   */
+  intersectsBounds(box: Readonly<FrustumBox>): boolean {
+    const minX = box.minX,
+      minY = box.minY,
+      minZ = box.minZ,
+      maxX = box.maxX,
+      maxY = box.maxY,
+      maxZ = box.maxZ;
     if (!Number.isFinite(minX + minY + minZ + maxX + maxY + maxZ)) return true;
     const p = this.planes;
     for (let i = 0; i < 24; i += 4) {
@@ -74,3 +95,22 @@ export class Frustum {
     return true;
   }
 }
+
+/** @internal Axis-aligned bounds read by `Frustum.intersectsBounds`. */
+export interface FrustumBox {
+  minX: number;
+  minY: number;
+  minZ: number;
+  maxX: number;
+  maxY: number;
+  maxZ: number;
+}
+
+const boxScratch: FrustumBox = {
+  minX: 0,
+  minY: 0,
+  minZ: 0,
+  maxX: 0,
+  maxY: 0,
+  maxZ: 0,
+};

@@ -42,6 +42,18 @@ describe('Frustum', () => {
     expect(frustum.intersectsSphere(5, 0, 0, 1)).toBe(false);
   });
 
+  it('keeps boxes touching the volume and invalid boxes, rejecting boxes beyond a plane', () => {
+    const frustum = cameraFrustum();
+    // Half-width over z -0.1..0.1 is at most about 2.944; boxes span x 2.5 or 3 to 10.
+    expect(frustum.intersectsBox(2.5, -1, -0.1, 10, 1, 0.1)).toBe(true);
+    expect(frustum.intersectsBox(3, -1, -0.1, 10, 1, 0.1)).toBe(false);
+    expect(frustum.intersectsBox(-1, 50, -1, 1, 60, 1)).toBe(false);
+    expect(frustum.intersectsBox(-1, -1, 10, 1, 1, 20)).toBe(false);
+    expect(frustum.intersectsBox(-1e3, -1e3, -1e3, 1e3, 1e3, 1e3)).toBe(true);
+    expect(frustum.intersectsBox(NaN, 50, -1, 1, 60, 1)).toBe(true);
+    expect(frustum.intersectsBox(-1, 50, -1, 1, Infinity, 1)).toBe(true);
+  });
+
   it('supports orthographic projections', () => {
     const camera = new OrthographicCamera();
     const frustum = new Frustum().setFromMatrix(camera.updateMatrix(1));

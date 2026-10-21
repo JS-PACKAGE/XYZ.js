@@ -3565,3 +3565,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   PLAN／DESIGN；本組沒有新增連結，歷史驗收數不改寫。
   不新增 runtime 依賴，不擴大瀏覽器、Canvas2D 3D 或裝置認證；
   僅提交本功能與對應發佈產物，不 push。
+- `[Visibility]` BVH 走訪的節點視錐測試改呼叫新增的 internal `Frustum.intersectsBounds(box)`（直接讀節點邊界）；遞迴的 gather 不會被內聯，原本傳給 `intersectsBox` 的六個 double 每個節點都被裝箱。`intersectsBox` 改為寫入共用 scratch 後委派，判定完全相同；新增測試涵蓋貼邊、各平面外側與非有限值仍可見，相關 mutation 皆失敗。穩態（暖機 12 s）WebGL2 每幀配置 objects3d 15.3 → 13.4 KB、world-visibility 16.4 → 14.8 KB，屬配置減少。WebGL2／WebGPU browser regression 通過；build 與完整測試（2065 通過；fallback 兩測與已知不穩定的 shader variant 測試在高負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

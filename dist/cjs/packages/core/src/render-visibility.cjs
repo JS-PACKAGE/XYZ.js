@@ -187,7 +187,7 @@ var RenderVisibilityCache = class {
 		}
 	}
 	gather(t, r, i, o, c, l) {
-		if (o.boxTests++, !i.intersectsBox(t.minX, t.minY, t.minZ, t.maxX, t.maxY, t.maxZ)) return;
+		if (o.boxTests++, !i.intersectsBounds(t)) return;
 		if (!t.record) {
 			this.gather(t.left, r, i, o, c, l), this.gather(t.right, r, i, o, c, l);
 			return;
