@@ -82,6 +82,9 @@ export type ProceduralMaterialKind =
   | 'lace'
   | 'crochet'
   | 'basketweave'
+  | 'zipper'
+  | 'velcro'
+  | 'button'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -180,7 +183,10 @@ export type ProceduralMaterialKind =
   | 'kiwiskin'
   | 'rosepetal'
   | 'lilypetal'
-  | 'fritillarypetal';
+  | 'fritillarypetal'
+  | 'birchbark'
+  | 'palmtrunk'
+  | 'sycamorebark';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -288,6 +294,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'lace',
   'crochet',
   'basketweave',
+  'zipper',
+  'velcro',
+  'button',
   'sandstone',
   'travertine',
   'pumice',
@@ -387,6 +396,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'rosepetal',
   'lilypetal',
   'fritillarypetal',
+  'birchbark',
+  'palmtrunk',
+  'sycamorebark',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

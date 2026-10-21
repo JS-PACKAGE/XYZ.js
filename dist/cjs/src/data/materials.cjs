@@ -1056,6 +1056,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .8,
 		relief: .006
 	}),
+	zipper: Object.freeze({
+		dark: [
+			70,
+			72,
+			78
+		],
+		light: [
+			188,
+			192,
+			200
+		],
+		roughness: .42,
+		relief: .004
+	}),
+	velcro: Object.freeze({
+		dark: [
+			38,
+			42,
+			52
+		],
+		light: [
+			122,
+			130,
+			145
+		],
+		roughness: .88,
+		relief: .0045
+	}),
+	button: Object.freeze({
+		dark: [
+			92,
+			78,
+			66
+		],
+		light: [
+			232,
+			218,
+			198
+		],
+		roughness: .38,
+		relief: .0035
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2441,6 +2483,48 @@ var proceduralMaterialPresets = Object.freeze({
 		],
 		roughness: .57,
 		relief: .001
+	}),
+	birchbark: Object.freeze({
+		dark: [
+			43,
+			36,
+			29
+		],
+		light: [
+			242,
+			235,
+			213
+		],
+		roughness: .79,
+		relief: .003
+	}),
+	palmtrunk: Object.freeze({
+		dark: [
+			66,
+			43,
+			25
+		],
+		light: [
+			191,
+			151,
+			96
+		],
+		roughness: .93,
+		relief: .009
+	}),
+	sycamorebark: Object.freeze({
+		dark: [
+			95,
+			102,
+			74
+		],
+		light: [
+			225,
+			219,
+			188
+		],
+		roughness: .84,
+		relief: .004
 	})
 });
 var proceduralTileMeters = Object.freeze({
@@ -2519,6 +2603,9 @@ var proceduralTileMeters = Object.freeze({
 	lace: .24,
 	crochet: .18,
 	basketweave: .36,
+	zipper: .12,
+	velcro: .06,
+	button: .12,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
@@ -2617,7 +2704,10 @@ var proceduralTileMeters = Object.freeze({
 	kiwiskin: .045,
 	rosepetal: .025,
 	lilypetal: .055,
-	fritillarypetal: .035
+	fritillarypetal: .035,
+	birchbark: .18,
+	palmtrunk: .28,
+	sycamorebark: .3
 });
 var iridescenceFilmRange = Object.freeze({
 	minNm: 100,

@@ -456,6 +456,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.8;
         relief: 0.006;
     }>;
+    zipper: Readonly<{
+        dark: readonly [70, 72, 78];
+        light: readonly [188, 192, 200];
+        roughness: 0.42;
+        relief: 0.004;
+    }>;
+    velcro: Readonly<{
+        dark: readonly [38, 42, 52];
+        light: readonly [122, 130, 145];
+        roughness: 0.88;
+        relief: 0.0045;
+    }>;
+    button: Readonly<{
+        dark: readonly [92, 78, 66];
+        light: readonly [232, 218, 198];
+        roughness: 0.38;
+        relief: 0.0035;
+    }>;
     sandstone: Readonly<{
         dark: readonly [133, 83, 43];
         light: readonly [238, 205, 150];
@@ -1050,6 +1068,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.57;
         relief: 0.001;
     }>;
+    birchbark: Readonly<{
+        dark: readonly [43, 36, 29];
+        light: readonly [242, 235, 213];
+        roughness: 0.79;
+        relief: 0.003;
+    }>;
+    palmtrunk: Readonly<{
+        dark: readonly [66, 43, 25];
+        light: readonly [191, 151, 96];
+        roughness: 0.93;
+        relief: 0.009;
+    }>;
+    sycamorebark: Readonly<{
+        dark: readonly [95, 102, 74];
+        light: readonly [225, 219, 188];
+        roughness: 0.84;
+        relief: 0.004;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -1128,6 +1164,9 @@ export declare const proceduralTileMeters: Readonly<{
     lace: 0.24;
     crochet: 0.18;
     basketweave: 0.36;
+    zipper: 0.12;
+    velcro: 0.06;
+    button: 0.12;
     sandstone: 0.6;
     travertine: 0.48;
     pumice: 0.18;
@@ -1227,6 +1266,9 @@ export declare const proceduralTileMeters: Readonly<{
     rosepetal: 0.025;
     lilypetal: 0.055;
     fritillarypetal: 0.035;
+    birchbark: 0.18;
+    palmtrunk: 0.28;
+    sycamorebark: 0.3;
 }>;
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */
 export declare const iridescenceFilmRange: Readonly<{

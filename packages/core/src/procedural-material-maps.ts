@@ -103,6 +103,61 @@ export function createSurfaceSampler(
   const motifAngle = kind === 'encaustictiles' ? 0.12 * Math.sin(phase) : 0;
   const motifCos = Math.cos(motifAngle),
     motifSin = Math.sin(motifAngle);
+  const treeBark =
+    kind === 'birchbark' || kind === 'palmtrunk' || kind === 'sycamorebark';
+  const treeGrain = treeBark ? cachedNoise(64, 64, seed ^ 0x54b7) : null;
+  const treeCloud =
+    treeBark && kind !== 'sycamorebark'
+      ? cachedNoise(4, 4, seed ^ 0x31d9)
+      : null;
+  const palmFibers =
+    kind === 'palmtrunk' ? cachedNoise(96, 8, seed ^ 0x27b1) : null;
+  // Birch marks fit within 0.43 x 0.075 cells of centers in [0.2, 0.8].
+  // Sycamore's modulated quadratic has radius <= 0.85/sqrt(0.84) < 0.93
+  // around centers in [0.25, 0.75]. Thus a wrapped 3x3 lookup is complete:
+  // any omitted cell is at least 1.2 / 1.25 cells away on one axis.
+  const barkColumns = kind === 'birchbark' ? 7 : 4,
+    barkRows = kind === 'birchbark' ? 10 : 4;
+  // Birch needs a strength slot; sycamore needs phase and tone slots.
+  const barkStride = kind === 'birchbark' ? 5 : 6;
+  const barkMarks =
+    kind === 'birchbark' || kind === 'sycamorebark'
+      ? new Float64Array(barkColumns * barkRows * barkStride)
+      : null;
+  if (barkMarks)
+    for (let y = 0; y < barkRows; y++)
+      for (let x = 0; x < barkColumns; x++) {
+        const offset = (y * barkColumns + x) * barkStride,
+          birch = kind === 'birchbark';
+        barkMarks[offset] = 0.25 + 0.5 * hash(x, y, seed ^ 0x19d3);
+        barkMarks[offset + 1] = 0.25 + 0.5 * hash(x, y, seed ^ 0x67b9);
+        barkMarks[offset + 2] =
+          (birch ? 0.2 : 0.72) +
+          (birch ? 0.23 : 0.13) * hash(x, y, seed ^ 0x43a1);
+        barkMarks[offset + 3] =
+          (birch ? 0.035 : 0.72) +
+          (birch ? 0.04 : 0.13) * hash(x, y, seed ^ 0x75d1);
+        barkMarks[offset + 4] = birch
+          ? 0.65 + 0.35 * hash(x, y, seed ^ 0x2d71)
+          : TAU * hash(x, y, seed ^ 0x39b7);
+        // Hash includes 1; it must still select the highest valid tone.
+        if (!birch)
+          barkMarks[offset + 5] =
+            Math.min(2, Math.floor(3 * hash(x, y, seed ^ 0x51a3))) * 0.32 +
+            0.18;
+      }
+  // Each scar stays within [0.02, 1.16] row units, including wander and lip.
+  // Only the current row and its predecessor can contribute; both compact
+  // profiles vanish before the wrapped-distance cut.
+  const palmScars = kind === 'palmtrunk' ? new Float64Array(9 * 4) : null;
+  if (palmScars)
+    for (let y = 0; y < 9; y++) {
+      const offset = y * 4;
+      palmScars[offset] = (y + 0.2 + 0.6 * hash(0, y, seed ^ 0x17a9)) / 9;
+      palmScars[offset + 1] = 0.006 + 0.005 * hash(0, y, seed ^ 0x69b3);
+      palmScars[offset + 2] = TAU * hash(0, y, seed ^ 0x41d7);
+      palmScars[offset + 3] = 0.7 + 0.3 * hash(0, y, seed ^ 0x53b1);
+    }
   const petal =
     kind === 'rosepetal' || kind === 'lilypetal' || kind === 'fritillarypetal';
   const petalWander =
@@ -1041,7 +1096,8 @@ export function createSurfaceSampler(
       shell ||
       nutshell ||
       fruitSkin ||
-      petal
+      petal ||
+      treeBark
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -1068,6 +1124,102 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'birchbark':
+      case 'palmtrunk':
+      case 'sycamorebark': {
+        const grain = treeGrain!(u, v),
+          cloud = treeCloud ? treeCloud(u, v) : 0;
+        if (kind === 'palmtrunk') {
+          const fibers = palmFibers!(u, v),
+            row = Math.floor(v * 9);
+          let scars = 0,
+            shoulders = 0;
+          for (let i = row - 1; i <= row; i++) {
+            const offset = ((i + 9) % 9) * 4,
+              center =
+                palmScars![offset] +
+                0.006 * Math.sin(TAU * u + palmScars![offset + 2]) +
+                0.003 * Math.sin(3 * TAU * u + palmScars![offset + 2]),
+              dy = fract(v - center + 0.5) - 0.5,
+              q = dy / palmScars![offset + 1],
+              lip = (dy - 0.018) / 0.013,
+              recess = Math.max(0, 1 - q * q),
+              shoulder = Math.max(0, 1 - lip * lip);
+            scars += recess * recess * palmScars![offset + 3];
+            shoulders += shoulder * shoulder * palmScars![offset + 3];
+          }
+          color =
+            0.49 +
+            0.17 * cloud +
+            0.12 * fibers -
+            0.32 * scars +
+            0.08 * shoulders;
+          height =
+            0.36 +
+            0.035 * fibers +
+            0.012 * grain -
+            0.15 * scars +
+            0.12 * shoulders;
+          roughness += 0.025 * (grain - 0.5) - 0.03 * scars;
+          occlusion = 1 - 0.22 * scars;
+        } else {
+          const x = u * barkColumns,
+            y = v * barkRows,
+            ix = Math.floor(x),
+            iy = Math.floor(y),
+            birch = kind === 'birchbark';
+          let marks = 0,
+            tone = 0.54,
+            layer = 0.32,
+            edges = 0;
+          for (let oy = -1; oy <= 1; oy++)
+            for (let ox = -1; ox <= 1; ox++) {
+              const cx = ix + ox,
+                cy = iy + oy,
+                wx = (cx + barkColumns) % barkColumns,
+                wy = (cy + barkRows) % barkRows,
+                offset = (wy * barkColumns + wx) * barkStride,
+                dx = x - cx - barkMarks![offset],
+                dy = y - cy - barkMarks![offset + 1],
+                a = dx / barkMarks![offset + 2],
+                b = dy / barkMarks![offset + 3],
+                quadratic = a * a + b * b,
+                q = birch
+                  ? quadratic
+                  : quadratic *
+                    (1 +
+                      0.16 *
+                        Math.sin(5 * dx + barkMarks![offset + 4]) *
+                        Math.sin(6 * dy - barkMarks![offset + 4]));
+              if (q >= 1) continue;
+              const face = smooth(clamp((1 - q) / (birch ? 0.75 : 0.24)));
+              if (birch) {
+                marks += (1 - marks) * face * barkMarks![offset + 4];
+              } else {
+                // Layered compact lobes, not nearest-cell grout or one noise
+                // threshold. A new layer replaces tone and shallow plate height.
+                tone += (barkMarks![offset + 5] - tone) * face;
+                layer += (0.29 + 0.055 * barkMarks![offset + 5] - layer) * face;
+                // A covering lobe hides the earlier layer's peel rim.
+                edges = (edges + face) * (1 - face);
+              }
+            }
+          if (birch) {
+            const seamWave = Math.sin(TAU * (13 * v + 0.12 * cloud)),
+              seam = ((1 + seamWave) * 0.5) ** 24;
+            color = 0.91 + 0.035 * cloud - 0.79 * marks - 0.035 * seam;
+            height = 0.34 + 0.007 * grain - 0.065 * marks - 0.012 * seam;
+            roughness += 0.04 * marks + 0.02 * (grain - 0.5);
+            occlusion = 1 - 0.2 * marks - 0.025 * seam;
+          } else {
+            color = tone + 0.025 * (grain - 0.5);
+            height = layer + 0.008 * edges + 0.005 * (grain - 0.5);
+            roughness += 0.035 * (1 - tone) + 0.015 * (grain - 0.5);
+            occlusion = 1 - 0.055 * edges;
+          }
+        }
+        break;
+      }
       case 'rosepetal':
       case 'lilypetal': {
         const rose = kind === 'rosepetal',
@@ -4640,6 +4792,83 @@ export function createSurfaceSampler(
         height = 0.42 + fade * (0.36 * strip + 0.14 * ridge) + 0.02 * fiber;
         roughness += 0.06 * (fiber - 0.5) - 0.05 * fade * ridge;
         occlusion = 1 - 0.55 * (1 - fade * strip) - 0.16 * (1 - fade * ridge);
+        break;
+      }
+      case 'zipper': {
+        // Offset tooth rows meet over a recessed seam beside woven tape.
+        const vLeft = fract(v * 12) - 0.5,
+          vRight = fract(v * 12 + 0.5) - 0.5;
+        const toothLeft =
+          smooth(clamp((0.34 - Math.abs(vLeft)) / 0.08)) *
+          smooth(clamp((0.09 - Math.abs(u - 0.42)) / 0.035));
+        const toothRight =
+          smooth(clamp((0.34 - Math.abs(vRight)) / 0.08)) *
+          smooth(clamp((0.09 - Math.abs(u - 0.58)) / 0.035));
+        const teeth = toothLeft + toothRight - toothLeft * toothRight;
+        const tape =
+          smooth(clamp((0.2 - Math.abs(u - 0.25)) / 0.06)) +
+          smooth(clamp((0.2 - Math.abs(u - 0.75)) / 0.06));
+        const seam =
+          smooth(clamp((0.05 - Math.abs(u - 0.5)) / 0.03)) * (1 - teeth);
+        const weave = 0.5 + 0.5 * Math.cos(TAU * 24 * v);
+        const fiber = noise(u, v, 40, 40, seed ^ 0x3d92);
+        const cover = teeth + 0.7 * tape - teeth * 0.7 * tape;
+        color =
+          0.42 +
+          0.24 * teeth +
+          0.2 * tape * (0.85 + 0.15 * weave) +
+          0.05 * fiber;
+        height =
+          0.4 +
+          0.34 * teeth +
+          0.16 * tape * (0.85 + 0.15 * weave) -
+          0.12 * seam +
+          0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * teeth;
+        occlusion = 1 - 0.42 * (1 - cover) - 0.3 * seam;
+        break;
+      }
+      case 'velcro': {
+        // Staggered hook pins ring above their dimpled cores and backing.
+        const row = Math.floor(v * 12);
+        const offset = (row % 2) * 0.5;
+        const du = fract(u * 12 + offset) - 0.5,
+          dv = fract(v * 12) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const ring =
+          smooth(clamp((0.34 - radius) / 0.07)) *
+          smooth(clamp((radius - 0.16) / 0.07));
+        const core = smooth(clamp((0.18 - radius) / 0.08));
+        const fiber = noise(u, v, 36, 36, seed ^ 0x77b1);
+        const pin = ring + core - ring * core;
+        color = 0.46 + 0.3 * ring + 0.16 * core + 0.05 * fiber;
+        height = 0.42 + 0.3 * ring + 0.15 * core + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.06 * ring;
+        occlusion = 1 - 0.5 * (1 - pin) - 0.14 * ring;
+        break;
+      }
+      case 'button': {
+        // Raised buttons ring above their stitched faces and hole pits.
+        const du = fract(u * 4) - 0.5,
+          dv = fract(v * 4) - 0.5;
+        const radius = Math.sqrt(du * du + dv * dv);
+        const face = smooth(clamp((0.34 - radius) / 0.08));
+        const rim =
+          smooth(clamp((0.34 - radius) / 0.05)) *
+          smooth(clamp((radius - 0.2) / 0.05));
+        let holes = 0;
+        for (let k = 0; k < 4; k++) {
+          const hx = du - (k % 2 ? 0.07 : -0.07),
+            hy = dv - (k > 1 ? 0.07 : -0.07);
+          const distance = Math.sqrt(hx * hx + hy * hy);
+          const pit = smooth(clamp((0.05 - distance) / 0.03));
+          holes += (1 - holes) * pit;
+        }
+        const fiber = noise(u, v, 32, 32, seed ^ 0x4c2d);
+        color = 0.55 + 0.26 * face + 0.12 * rim - 0.3 * holes + 0.05 * fiber;
+        height = 0.4 + 0.22 * face + 0.24 * rim - 0.34 * holes + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.06 * rim;
+        occlusion = 1 - 0.4 * (1 - face) - 0.42 * holes;
         break;
       }
       case 'sandstone': {

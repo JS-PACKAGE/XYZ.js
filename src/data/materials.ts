@@ -457,6 +457,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.8,
     relief: 0.006,
   }),
+  zipper: Object.freeze({
+    dark: [70, 72, 78] as const,
+    light: [188, 192, 200] as const,
+    roughness: 0.42,
+    relief: 0.004,
+  }),
+  velcro: Object.freeze({
+    dark: [38, 42, 52] as const,
+    light: [122, 130, 145] as const,
+    roughness: 0.88,
+    relief: 0.0045,
+  }),
+  button: Object.freeze({
+    dark: [92, 78, 66] as const,
+    light: [232, 218, 198] as const,
+    roughness: 0.38,
+    relief: 0.0035,
+  }),
   sandstone: Object.freeze({
     dark: [133, 83, 43] as const,
     light: [238, 205, 150] as const,
@@ -1051,6 +1069,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.57,
     relief: 0.001,
   }),
+  birchbark: Object.freeze({
+    dark: [43, 36, 29] as const,
+    light: [242, 235, 213] as const,
+    roughness: 0.79,
+    relief: 0.003,
+  }),
+  palmtrunk: Object.freeze({
+    dark: [66, 43, 25] as const,
+    light: [191, 151, 96] as const,
+    roughness: 0.93,
+    relief: 0.009,
+  }),
+  sycamorebark: Object.freeze({
+    dark: [95, 102, 74] as const,
+    light: [225, 219, 188] as const,
+    roughness: 0.84,
+    relief: 0.004,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -1130,6 +1166,9 @@ export const proceduralTileMeters = Object.freeze({
   lace: 0.24,
   crochet: 0.18,
   basketweave: 0.36,
+  zipper: 0.12,
+  velcro: 0.06,
+  button: 0.12,
   sandstone: 0.6,
   travertine: 0.48,
   pumice: 0.18,
@@ -1229,6 +1268,9 @@ export const proceduralTileMeters = Object.freeze({
   rosepetal: 0.025,
   lilypetal: 0.055,
   fritillarypetal: 0.035,
+  birchbark: 0.18,
+  palmtrunk: 0.28,
+  sycamorebark: 0.3,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

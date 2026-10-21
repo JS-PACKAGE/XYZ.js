@@ -151,6 +151,9 @@ try {
     'lace',
     'crochet',
     'basketweave',
+    'zipper',
+    'velcro',
+    'button',
     'sandstone',
     'travertine',
     'pumice',
@@ -253,6 +256,9 @@ try {
     'walnutshell',
     'peanutshell',
     'almondshell',
+    'birchbark',
+    'palmtrunk',
+    'sycamorebark',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

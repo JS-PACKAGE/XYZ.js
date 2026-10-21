@@ -100,6 +100,9 @@ const kinds: ProceduralMaterialKind[] = [
   'lace',
   'crochet',
   'basketweave',
+  'zipper',
+  'velcro',
+  'button',
   'sandstone',
   'travertine',
   'pumice',
@@ -199,6 +202,9 @@ const kinds: ProceduralMaterialKind[] = [
   'rosepetal',
   'lilypetal',
   'fritillarypetal',
+  'birchbark',
+  'palmtrunk',
+  'sycamorebark',
 ];
 
 class TestImageData {
@@ -246,6 +252,303 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('tree bark morphology', () => {
+    const treeKinds = ['birchbark', 'palmtrunk', 'sycamorebark'] as const;
+    const seeds = [0, 1, 0xffffffff];
+    const keys = ['color', 'height', 'roughness', 'occlusion'] as const;
+    const field = (kind: ProceduralMaterialKind, seed: number) => {
+      const sample = createSurfaceSampler(kind, seed);
+      return (u: number, v: number): SurfaceSample => {
+        const out = {
+          color: 0,
+          height: 0,
+          roughness: 0,
+          occlusion: 0,
+          mortar: 0,
+          metallic: 0,
+        };
+        sample(u, v, out);
+        return out;
+      };
+    };
+    // Locate primitive geometry without reproducing expected surface values.
+    const hash = (x: number, y: number, seed: number): number => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+    const scarCenter = (u: number, y: number, seed: number): number => {
+      const phase = 2 * Math.PI * hash(0, y, seed ^ 0x41d7);
+      return (
+        (y + 0.2 + 0.6 * hash(0, y, seed ^ 0x17a9)) / 9 +
+        0.006 * Math.sin(2 * Math.PI * u + phase) +
+        0.003 * Math.sin(6 * Math.PI * u + phase)
+      );
+    };
+
+    it('birch has short horizontal dark lenticels with recessed, occluded centers', () => {
+      for (const seed of seeds) {
+        const at = field('birchbark', seed);
+        let recessed = 0,
+          horizontal = 0;
+        const lengths: number[] = [];
+        for (let y = 0; y < 10; y++)
+          for (let x = 0; x < 7; x++) {
+            const u = (x + 0.25 + 0.5 * hash(x, y, seed ^ 0x19d3)) / 7,
+              v = (y + 0.25 + 0.5 * hash(x, y, seed ^ 0x67b9)) / 10,
+              center = at(u, v),
+              paper = at(u, v + 0.022),
+              along = at(u + 0.012, v),
+              across = at(u, v + 0.012);
+            if (
+              paper.color - center.color > 0.4 &&
+              paper.height - center.height >
+                0.025 * proceduralMaterialPresets.birchbark.relief &&
+              paper.occlusion - center.occlusion > 0.09
+            )
+              recessed++;
+            if (across.color - along.color > 0.25) horizontal++;
+            let width = 0;
+            for (let i = -40; i <= 40; i++)
+              if (at(u + i / 1000, v).color < 0.65) width++;
+            lengths.push(width);
+          }
+        expect(recessed).toBeGreaterThan(60);
+        expect(horizontal).toBeGreaterThan(55);
+        expect(Math.max(...lengths) - Math.min(...lengths)).toBeGreaterThan(8);
+        let pale = 0;
+        for (let y = 0; y < 80; y++)
+          for (let x = 0; x < 80; x++)
+            if (at(x / 80, y / 80).color > 0.8) pale++;
+        expect(pale / 6400).toBeGreaterThan(0.65);
+      }
+    });
+
+    it('palm has many irregular transverse recesses and raised shoulders over longitudinal fibers', () => {
+      for (const seed of seeds) {
+        const at = field('palmtrunk', seed),
+          gaps: number[] = [];
+        let profiles = 0,
+          bands = 0,
+          inside = false;
+        for (let y = 0; y < 9; y++) {
+          const v = scarCenter(0.37, y, seed),
+            recess = at(0.37, v),
+            shoulder = at(0.37, v + 0.018);
+          if (
+            shoulder.height - recess.height >
+              0.13 * proceduralMaterialPresets.palmtrunk.relief &&
+            shoulder.color - recess.color > 0.2 &&
+            shoulder.occlusion - recess.occlusion > 0.1
+          )
+            profiles++;
+          gaps.push((scarCenter(0.37, (y + 1) % 9, seed) - v + 1) % 1);
+        }
+        expect(profiles).toBeGreaterThanOrEqual(7);
+        expect(Math.max(...gaps) - Math.min(...gaps)).toBeGreaterThan(0.01);
+        for (let i = 0; i <= 2048; i++) {
+          const dark = at(0.37, i / 2048).occlusion < 0.9;
+          if (dark && !inside) bands++;
+          inside = dark;
+        }
+        expect(bands).toBeGreaterThanOrEqual(8);
+        let across = 0,
+          along = 0,
+          count = 0;
+        for (let y = 0; y < 64; y++)
+          for (let x = 0; x < 64; x++) {
+            const u = x / 64,
+              v = y / 64,
+              a = at(u, v),
+              b = at(u + 1 / 512, v),
+              c = at(u, v + 1 / 512);
+            let quiet = true;
+            for (let ring = 0; ring < 9; ring++) {
+              const delta = v - scarCenter(u, ring, seed),
+                dy = delta - Math.floor(delta + 0.5);
+              if (dy > -0.015 && dy < 0.035) quiet = false;
+            }
+            if (!quiet) continue;
+            across += Math.abs(a.height - b.height);
+            along += Math.abs(a.height - c.height);
+            count++;
+          }
+        expect(count).toBeGreaterThan(1000);
+        expect(across).toBeGreaterThan(along * 1.5);
+      }
+    });
+
+    it('sycamore forms broad multitone exfoliating patches with shallow edges rather than deep grout', () => {
+      for (const seed of seeds) {
+        const at = field('sycamorebark', seed),
+          tones = new Set<number>();
+        let low = Infinity,
+          high = -Infinity,
+          minHeight = Infinity,
+          maxHeight = -Infinity,
+          nearby = 0,
+          distant = 0,
+          edgeShading = 0;
+        for (let y = 0; y < 80; y++)
+          for (let x = 0; x < 80; x++) {
+            const u = x / 80,
+              v = y / 80,
+              a = at(u, v);
+            low = Math.min(low, a.color);
+            high = Math.max(high, a.color);
+            minHeight = Math.min(minHeight, a.height);
+            maxHeight = Math.max(maxHeight, a.height);
+            tones.add(Math.floor(a.color * 5));
+            nearby += Math.abs(a.color - at(u + 0.01, v + 0.01).color);
+            distant += Math.abs(a.color - at(u + 0.12, v + 0.12).color);
+            if (a.occlusion < 0.995) edgeShading++;
+            expect(a.occlusion).toBeGreaterThan(0.94);
+          }
+        expect(high - low).toBeGreaterThan(0.4);
+        expect(tones.size).toBeGreaterThanOrEqual(4);
+        expect(distant).toBeGreaterThan(nearby * 3);
+        expect(maxHeight - minHeight).toBeGreaterThan(
+          0.015 * proceduralMaterialPresets.sycamorebark.relief,
+        );
+        expect(maxHeight - minHeight).toBeLessThan(
+          0.08 * proceduralMaterialPresets.sycamorebark.relief,
+        );
+        expect(edgeShading).toBeGreaterThan(100);
+      }
+    });
+
+    it('keeps endpoint-seeded sycamore pigment inside the unclipped range', () => {
+      // This seed makes the tone lattice at (0, 0) reach hash's inclusive upper endpoint.
+      const at = field('sycamorebark', 3589914215);
+      let darkest = Infinity,
+        lightest = -Infinity;
+      for (let y = 0; y < 64; y++)
+        for (let x = 0; x < 64; x++) {
+          const color = at(x / 64, y / 64).color;
+          darkest = Math.min(darkest, color);
+          lightest = Math.max(lightest, color);
+        }
+      expect(darkest).toBeGreaterThan(0);
+      expect(lightest).toBeLessThan(1);
+    });
+
+    it('hides an underlying peel rim beneath a fully covering sycamore patch', () => {
+      // The last visible lobe fully covers an older peel rim at this point.
+      expect(field('sycamorebark', 7)(13 / 64, 0).occlusion).toBe(1);
+    });
+
+    it.each(treeKinds)(
+      '%s is C1 at actual supports, shoulders, lookup joins and periodic seams',
+      (kind) => {
+        for (const seed of seeds) {
+          const at = field(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [0, 0.371],
+              [0.619, 0],
+              [1, 1],
+            ];
+          for (let i = 0; i <= 64; i++)
+            points.push([i / 64, 0.413], [0.617, i / 64]);
+          if (kind === 'palmtrunk') {
+            for (let y = 0; y < 9; y++)
+              for (const u of [0, 0.37, 0.83]) {
+                points.push([u, y / 9]);
+                const v = scarCenter(u, y, seed),
+                  width = 0.006 + 0.005 * hash(0, y, seed ^ 0x69b3);
+                for (const offset of [
+                  -width,
+                  0,
+                  width,
+                  0.005,
+                  0.018,
+                  0.031,
+                  0.5,
+                ])
+                  points.push([u, v + offset]);
+              }
+          } else {
+            const birch = kind === 'birchbark',
+              columns = birch ? 7 : 4,
+              rows = birch ? 10 : 4;
+            for (const x of [0, 1, columns - 1])
+              for (const y of [0, 1, rows - 1]) {
+                const cx = x + 0.25 + 0.5 * hash(x, y, seed ^ 0x19d3),
+                  cy = y + 0.25 + 0.5 * hash(x, y, seed ^ 0x67b9),
+                  rx =
+                    (birch ? 0.2 : 0.72) +
+                    (birch ? 0.23 : 0.13) * hash(x, y, seed ^ 0x43a1),
+                  ry =
+                    (birch ? 0.035 : 0.72) +
+                    (birch ? 0.04 : 0.13) * hash(x, y, seed ^ 0x75d1),
+                  phase = 2 * Math.PI * hash(x, y, seed ^ 0x39b7);
+                points.push(
+                  [cx / columns, cy / rows],
+                  [x / columns, cy / rows],
+                  [cx / columns, y / rows],
+                );
+                // Solve the true modulated lobe support/inner shoulder on rays.
+                for (let k = 0; k < 8; k++)
+                  for (const target of [birch ? 0.25 : 0.76, 1]) {
+                    const a = Math.cos((k * Math.PI) / 4),
+                      b = Math.sin((k * Math.PI) / 4);
+                    let lo = 0,
+                      hi = 1.2;
+                    for (let i = 0; i < 45; i++) {
+                      const r = (lo + hi) / 2,
+                        dx = rx * a * r,
+                        dy = ry * b * r,
+                        q =
+                          r *
+                          r *
+                          (birch
+                            ? 1
+                            : 1 +
+                              0.16 *
+                                Math.sin(5 * dx + phase) *
+                                Math.sin(6 * dy - phase));
+                      if (q < target) lo = r;
+                      else hi = r;
+                    }
+                    const r = (lo + hi) / 2;
+                    points.push([
+                      (cx + rx * a * r) / columns,
+                      (cy + ry * b * r) / rows,
+                    ]);
+                  }
+              }
+          }
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [1, 0],
+              [0, 1],
+              [0.6, 0.8],
+            ]) {
+              const center = at(u, v),
+                h = 1e-7,
+                left = at(u - du * h, v - dv * h),
+                right = at(u + du * h, v + dv * h),
+                coarseLeft = at(u - 4 * du * h, v - 4 * dv * h),
+                coarseRight = at(u + 4 * du * h, v + 4 * dv * h);
+              for (const key of keys) {
+                const fine =
+                    Math.abs(left[key] + right[key] - 2 * center[key]) / h,
+                  coarse =
+                    Math.abs(
+                      coarseLeft[key] + coarseRight[key] - 2 * center[key],
+                    ) /
+                    (4 * h);
+                // Includes cancellation/periodic wrapping roundoff near zero.
+                // A true jump or cusp does not converge under step refinement.
+                expect(fine).toBeLessThanOrEqual(0.4 * coarse + 1e-6);
+              }
+            }
+        }
+      },
+    );
+  });
   describe('petal surface morphology', () => {
     const petalKinds = ['rosepetal', 'lilypetal', 'fritillarypetal'] as const;
     const field = (kind: ProceduralMaterialKind, seed: number) => {
@@ -3383,6 +3686,9 @@ describe('periodic procedural material fields', () => {
     ['lace', [6, 32, 48, 64]],
     ['crochet', [6, 8, 32, 48]],
     ['basketweave', [4, 8, 32, 64]],
+    ['zipper', [12, 24, 32, 64]],
+    ['velcro', [12, 32, 48, 64]],
+    ['button', [4, 32, 48, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -3578,6 +3884,10 @@ describe('periodic procedural material fields', () => {
     ['crochet', 6],
     ['basketweave', 8],
     ['basketweave', 4],
+    ['zipper', 12],
+    ['zipper', 24],
+    ['velcro', 12],
+    ['button', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -6720,6 +7030,101 @@ describe('periodic procedural material fields', () => {
       expect(surface.height).toBeGreaterThan(shoulder.height + 0.06 * relief);
       expect(surface.occlusion).toBeGreaterThan(shoulder.occlusion);
       expect(shoulder.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('zipper raises offset tooth rows over tape and seam', () => {
+    const relief = proceduralMaterialPresets.zipper.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const tape = { ...surface },
+      backing = { ...surface },
+      rowGap = { ...surface },
+      rightCrest = { ...surface },
+      rightGap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('zipper', seed);
+      // Left teeth crest mid-cell in v; right teeth crest half a period
+      // later, so the two rows interlock over the recessed seam.
+      sample(0.42, 1 / 24, surface);
+      sample(0.25, 1 / 24, tape);
+      sample(0.05, 0.05, backing);
+      sample(0.42, 0, rowGap);
+      sample(0.58, 1 / 12, rightCrest);
+      sample(0.58, 1 / 24, rightGap);
+      expect(surface.height).toBeGreaterThan(tape.height + 0.05 * relief);
+      expect(tape.height).toBeGreaterThan(backing.height + 0.05 * relief);
+      expect(surface.height).toBeGreaterThan(rowGap.height + 0.1 * relief);
+      expect(rightCrest.height).toBeGreaterThan(rightGap.height + 0.1 * relief);
+      expect(surface.occlusion).toBeGreaterThan(tape.occlusion);
+      expect(tape.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('velcro rings hook pins above their cores and backing', () => {
+    const relief = proceduralMaterialPresets.velcro.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const core = { ...surface },
+      backing = { ...surface },
+      offsetCore = { ...surface },
+      offsetGap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('velcro', seed);
+      sample(1 / 24 + 0.02, 1 / 24, surface);
+      sample(1 / 24, 1 / 24, core);
+      sample(1 / 12, 1 / 24, backing);
+      sample(0, 1 / 8, offsetCore);
+      sample(1 / 24, 1 / 8, offsetGap);
+      expect(surface.height).toBeGreaterThan(core.height + 0.05 * relief);
+      expect(core.height).toBeGreaterThan(backing.height + 0.05 * relief);
+      // The next row shifts half a cell, cresting where row zero is bare.
+      expect(Math.abs(core.height - offsetCore.height)).toBeLessThan(
+        0.05 * relief,
+      );
+      expect(offsetCore.height).toBeGreaterThan(
+        offsetGap.height + 0.1 * relief,
+      );
+      expect(core.occlusion).toBeGreaterThan(backing.occlusion);
+    }
+  });
+
+  it('button rings rims above stitched faces and hole pits', () => {
+    const relief = proceduralMaterialPresets.button.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const face = { ...surface },
+      gap = { ...surface },
+      hole = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('button', seed);
+      sample(0.1925, 0.125, surface);
+      sample(0.125, 0.125, face);
+      sample(0.25, 0.125, gap);
+      sample(0.1425, 0.1425, hole);
+      expect(surface.height).toBeGreaterThan(face.height + 0.1 * relief);
+      expect(face.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(hole.height).toBeLessThan(gap.height - 0.02 * relief);
+      expect(face.occlusion).toBeGreaterThan(gap.occlusion);
+      expect(hole.occlusion).toBeLessThan(gap.occlusion);
     }
   });
 
