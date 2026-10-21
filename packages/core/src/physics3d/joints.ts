@@ -276,13 +276,15 @@ export abstract class Joint3D {
     this.scratch.set(0, 0, 1);
     this.row(this.scratch, this.error.z, dt);
   }
+  // `v ? v.x : 0`, not `v?.x ?? 0`: merging an optional double with `undefined` makes V8 box
+  // it, which allocated on every solver row.
   protected axialSpeed(axis: Readonly<Vector3>): number {
     const a = this.solverA?.angularVelocity,
       b = this.solverB?.angularVelocity;
     return (
-      ((b?.x ?? 0) - (a?.x ?? 0)) * axis.x +
-      ((b?.y ?? 0) - (a?.y ?? 0)) * axis.y +
-      ((b?.z ?? 0) - (a?.z ?? 0)) * axis.z
+      ((b ? b.x : 0) - (a ? a.x : 0)) * axis.x +
+      ((b ? b.y : 0) - (a ? a.y : 0)) * axis.y +
+      ((b ? b.z : 0) - (a ? a.z : 0)) * axis.z
     );
   }
   protected angularLimit(
@@ -338,9 +340,9 @@ export abstract class Joint3D {
           wa = a?.angularVelocity,
           wb = b?.angularVelocity;
         speed =
-          ((vb?.x ?? 0) - (va?.x ?? 0)) * n.x +
-          ((vb?.y ?? 0) - (va?.y ?? 0)) * n.y +
-          ((vb?.z ?? 0) - (va?.z ?? 0)) * n.z +
+          ((vb ? vb.x : 0) - (va ? va.x : 0)) * n.x +
+          ((vb ? vb.y : 0) - (va ? va.y : 0)) * n.y +
+          ((vb ? vb.z : 0) - (va ? va.z : 0)) * n.z +
           (wb ? wb.dot(row.angularB) : 0) -
           (wa ? wa.dot(row.angularA) : 0);
       }

@@ -2992,3 +2992,4 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   本次修改未新增相對文件連結，既有 README 類別仍適用。
 - 僅提交本組 source、docs 與獨立快照對應 dist；不納入其他進行中修改，
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
+- `[Physics3D]` Joint 速度求解把 `v?.x ?? 0` 改成 `v ? v.x : 0`（數值完全相同）：可選物件的 double 欄位與 `undefined` 合流時 V8 會把它裝箱成 HeapNumber，每列每次迭代都在配置。joints3d WebGL2 瀏覽器每幀 `solveVelocity` 配置約 26.8 KB → 0（範例總計約 76 → 49 KB／frame）；Node 160 關節鏈 bench 1316 → 174 KiB／step，hash 不變，屬配置減少。build 與完整測試（1863 通過）在 HEAD 匯出副本執行。

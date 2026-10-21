@@ -137,7 +137,7 @@ var Joint3D = class {
 	}
 	axialSpeed(e) {
 		let t = this.solverA?.angularVelocity, n = this.solverB?.angularVelocity;
-		return ((n?.x ?? 0) - (t?.x ?? 0)) * e.x + ((n?.y ?? 0) - (t?.y ?? 0)) * e.y + ((n?.z ?? 0) - (t?.z ?? 0)) * e.z;
+		return ((n ? n.x : 0) - (t ? t.x : 0)) * e.x + ((n ? n.y : 0) - (t ? t.y : 0)) * e.y + ((n ? n.z : 0) - (t ? t.z : 0)) * e.z;
 	}
 	angularLimit(e, t, n, r, i, a = this.axialSpeed(e)) {
 		let o = t + a * i;
@@ -157,7 +157,7 @@ var Joint3D = class {
 			if (r.angular) a = this.axialSpeed(r.angularB);
 			else {
 				let n = e?.velocity, o = t?.velocity, s = e?.angularVelocity, c = t?.angularVelocity;
-				a = ((o?.x ?? 0) - (n?.x ?? 0)) * i.x + ((o?.y ?? 0) - (n?.y ?? 0)) * i.y + ((o?.z ?? 0) - (n?.z ?? 0)) * i.z + (c ? c.dot(r.angularB) : 0) - (s ? s.dot(r.angularA) : 0);
+				a = ((o ? o.x : 0) - (n ? n.x : 0)) * i.x + ((o ? o.y : 0) - (n ? n.y : 0)) * i.y + ((o ? o.z : 0) - (n ? n.z : 0)) * i.z + (c ? c.dot(r.angularB) : 0) - (s ? s.dot(r.angularA) : 0);
 			}
 			let o = r.impulse;
 			r.impulse = Math.max(r.lower, Math.min(r.upper, o - r.mass * (a + r.bias + r.gamma * o)));
