@@ -94,6 +94,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cheese',
   'sugarfrosting',
   'candleswax',
+  'vinylrecord',
+  'graphpaper',
+  'notebookpaper',
   'sandstone',
   'travertine',
   'pumice',
@@ -2958,6 +2961,9 @@ describe('periodic procedural material fields', () => {
     ['cheese', [4, 6, 24, 32, 40]],
     ['sugarfrosting', [5, 32]],
     ['candleswax', [2, 6, 16, 32, 48]],
+    ['vinylrecord', [3, 32, 52, 64]],
+    ['graphpaper', [3, 12, 32, 64]],
+    ['notebookpaper', [4, 8, 32, 48]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -3145,6 +3151,9 @@ describe('periodic procedural material fields', () => {
     ['cheese', 6],
     ['candleswax', 6],
     ['candleswax', 2],
+    ['graphpaper', 12],
+    ['graphpaper', 3],
+    ['notebookpaper', 8],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -6075,6 +6084,123 @@ describe('periodic procedural material fields', () => {
         sample(peakX, peakY, probe);
         expect(probe.occlusion).toBeGreaterThan(base.occlusion);
       }
+    }
+  });
+
+  it('vinyl record ripples grooves around its smooth label disc', () => {
+    const relief = proceduralMaterialPresets.vinylrecord.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const label = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('vinylrecord', seed);
+      for (const angle of [0, 1, 2]) {
+        const cos = Math.cos(angle),
+          sin = Math.sin(angle);
+        let high = 0,
+          low = 1,
+          previous = 0,
+          lastSign = 0,
+          flips = 0;
+        for (let i = 12; i <= 40; i++) {
+          const t = i / 90;
+          sample(0.5 + t * cos, 0.5 + t * sin, probe);
+          high = Math.max(high, probe.height);
+          low = Math.min(low, probe.height);
+          const delta = probe.height - previous;
+          if (previous && delta * (lastSign ?? 0) < 0) flips++;
+          if (delta) lastSign = delta;
+          previous = probe.height;
+        }
+        expect(high - low).toBeGreaterThan(0.1 * relief);
+        expect(flips).toBeGreaterThanOrEqual(3);
+      }
+      // The label stays smooth where the grooves have faded out.
+      let labelHigh = 0,
+        labelLow = 1;
+      for (let i = 0; i < 16; i++) {
+        const angle = (Math.PI * 2 * i) / 16;
+        sample(
+          0.5 + 0.08 * Math.cos(angle),
+          0.5 + 0.08 * Math.sin(angle),
+          label,
+        );
+        labelHigh = Math.max(labelHigh, label.height);
+        labelLow = Math.min(labelLow, label.height);
+      }
+      expect(labelHigh - labelLow).toBeLessThan(0.03 * relief);
+    }
+  });
+
+  it('graph paper sinks major rules deeper than minor rules', () => {
+    const relief = proceduralMaterialPresets.graphpaper.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const minor = { ...probe },
+      paper = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('graphpaper', seed);
+      for (const u of [0, 1 / 3, 2 / 3]) {
+        sample(u, 0.5, probe);
+        sample(u + 1 / 12, 0.5 + 1 / 24, minor);
+        sample(u + 1 / 24, 0.5 + 1 / 24, paper);
+        // The major rule at u runs deeper than the minor rule beside it.
+        expect(probe.height).toBeLessThan(minor.height - 0.05 * relief);
+        expect(minor.height).toBeLessThan(paper.height - 0.03 * relief);
+        expect(probe.occlusion).toBeLessThan(paper.occlusion);
+      }
+    }
+  });
+
+  it('notebook paper sinks rules, margin and punch holes into the page', () => {
+    const relief = proceduralMaterialPresets.notebookpaper.relief;
+    const probe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rule = { ...probe },
+      margin = { ...probe },
+      paper = { ...probe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('notebookpaper', seed);
+      // Punch holes bottom out below the ruled margin line and the sheet.
+      let hole = 1,
+        holeX = 0,
+        holeY = 0;
+      for (let j = 0; j < 16; j++)
+        for (let i = 0; i < 16; i++) {
+          const u = 0.12 + (i - 8) / 80,
+            v = 0.25 + (j - 8) / 80;
+          sample(u, v, probe);
+          if (probe.height < hole) {
+            hole = probe.height;
+            holeX = u;
+            holeY = v;
+          }
+        }
+      sample(0.25, holeY, margin);
+      sample(holeX, 0.375, rule);
+      sample(holeX + 0.03, holeY + 0.03, paper);
+      expect(hole).toBeLessThan(margin.height);
+      expect(margin.height).toBeLessThan(paper.height);
+      expect(rule.height).toBeLessThan(paper.height);
+      expect(paper.height).toBeGreaterThan(hole + 0.2 * relief);
     }
   });
 

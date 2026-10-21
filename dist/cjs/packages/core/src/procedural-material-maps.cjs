@@ -1268,6 +1268,26 @@ function createSurfaceSampler(t, r) {
 				V = .5 + .26 * s + .12 * c + .1 * l, W = .3 + .42 * s + .16 * c + .05 * l, Q += .05 * (l - .5) + .05 * (1 - s), $ = .62 + .34 * s;
 				break;
 			}
+			case `vinylrecord`: {
+				let t = fract(e) - .5, i = fract(o) - .5, s = Math.sin(Math.PI * t) / Math.PI, c = Math.sin(Math.PI * i) / Math.PI, l = Math.sqrt(s * s + c * c), u = smooth(clamp((l - .18) / .06)), d = .5 + .5 * Math.cos(n * 52 * l + a), f = noise(e, o, 64, 64, r ^ 12743);
+				V = .14 + .1 * d * u + .08 * f, W = .42 + .24 * d * u + .02 * f, Q += .06 * (1 - d * u) + .03 * (f - .5), $ = .88 + .1 * d * u;
+				break;
+			}
+			case `graphpaper`: {
+				let t = fract(e * 12), n = fract(o * 12), i = Math.min(t, 1 - t), a = Math.min(n, 1 - n), s = smooth(clamp((.05 - Math.min(i, a)) / .03)), c = fract(e * 3), l = fract(o * 3), u = Math.min(c, 1 - c), d = Math.min(l, 1 - l), f = smooth(clamp((.06 - Math.min(u, d)) / .035)), p = noise(e, o, 64, 64, r ^ 23341);
+				V = .9 - .28 * s - .34 * f + .06 * p, W = .8 - .22 * s - .36 * f + .03 * p, Q += .04 * (p - .5) + .03 * s, $ = 1 - .12 * s - .2 * f;
+				break;
+			}
+			case `notebookpaper`: {
+				let t = fract(o * 8), n = smooth(clamp((.05 - Math.min(t, 1 - t)) / .03)), i = smooth(clamp((.012 - Math.abs(fract(e) - .25)) / .008)), a = 0;
+				for (let t = 0; t < 3; t++) {
+					let n = fract(e) - .12, r = fract(o) - (t + 1) / 4, s = smooth(clamp((.06 - Math.sqrt(n * n + 4 * r * r)) / .03));
+					a += (1 - a) * s;
+				}
+				let s = noise(e, o, 48, 48, r ^ 10155);
+				V = .9 - .3 * n - .26 * i - .5 * a + .06 * s, W = .82 - .2 * n - .22 * i - .5 * a + .03 * s, Q += .04 * (s - .5) + .03 * n, $ = 1 - .1 * n - .12 * i - .4 * a;
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((B - .28) / .48)), d = (1 - B) ** 5;
 				V = .22 + .35 * s + .2 * l + .18 * u - .2 * c, W = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Q += .12 * (u - .5) + .05 * c, $ = .97 - .12 * c - .13 * d + .025 * u;

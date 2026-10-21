@@ -4357,6 +4357,66 @@ export function createSurfaceSampler(
         occlusion = 0.62 + 0.34 * drips;
         break;
       }
+      case 'vinylrecord': {
+        const dx = fract(u) - 0.5,
+          dy = fract(v) - 0.5;
+        // Sinusoidal wrap keeps the radial groove field smooth across seams.
+        const sx = Math.sin(Math.PI * dx) / Math.PI,
+          sy = Math.sin(Math.PI * dy) / Math.PI;
+        const radius = Math.sqrt(sx * sx + sy * sy);
+        // Fine concentric grooves ring a smooth label disc; the fade keeps
+        // the radial distance from leaving a cone at the origin.
+        const ringFade = smooth(clamp((radius - 0.18) / 0.06));
+        const groove = 0.5 + 0.5 * Math.cos(TAU * 52 * radius + phase);
+        const sparkle = noise(u, v, 64, 64, seed ^ 0x31c7);
+        color = 0.14 + 0.1 * groove * ringFade + 0.08 * sparkle;
+        height = 0.42 + 0.24 * groove * ringFade + 0.02 * sparkle;
+        roughness += 0.06 * (1 - groove * ringFade) + 0.03 * (sparkle - 0.5);
+        occlusion = 0.88 + 0.1 * groove * ringFade;
+        break;
+      }
+      case 'graphpaper': {
+        // Minor rules print every twelfth, majors every third; each line
+        // sinks slightly into the paper and fades with zero slope.
+        const fu = fract(u * 12),
+          fv = fract(v * 12);
+        const du = Math.min(fu, 1 - fu),
+          dv = Math.min(fv, 1 - fv);
+        const minor = smooth(clamp((0.05 - Math.min(du, dv)) / 0.03));
+        const gu = fract(u * 3),
+          gv = fract(v * 3);
+        const eu = Math.min(gu, 1 - gu),
+          ev = Math.min(gv, 1 - gv);
+        const major = smooth(clamp((0.06 - Math.min(eu, ev)) / 0.035));
+        const fiber = noise(u, v, 64, 64, seed ^ 0x5b2d);
+        color = 0.9 - 0.28 * minor - 0.34 * major + 0.06 * fiber;
+        height = 0.8 - 0.22 * minor - 0.36 * major + 0.03 * fiber;
+        roughness += 0.04 * (fiber - 0.5) + 0.03 * minor;
+        occlusion = 1 - 0.12 * minor - 0.2 * major;
+        break;
+      }
+      case 'notebookpaper': {
+        const fy = fract(v * 8);
+        const rule = smooth(clamp((0.05 - Math.min(fy, 1 - fy)) / 0.03));
+        const margin = smooth(
+          clamp((0.012 - Math.abs(fract(u) - 0.25)) / 0.008),
+        );
+        // Punch holes sink deepest beside the ruled margin line.
+        let holes = 0;
+        for (let k = 0; k < 3; k++) {
+          const dx = fract(u) - 0.12,
+            dy = fract(v) - (k + 1) / 4;
+          const distance = Math.sqrt(dx * dx + 4 * dy * dy);
+          const bowl = smooth(clamp((0.06 - distance) / 0.03));
+          holes += (1 - holes) * bowl;
+        }
+        const fiber = noise(u, v, 48, 48, seed ^ 0x27ab);
+        color = 0.9 - 0.3 * rule - 0.26 * margin - 0.5 * holes + 0.06 * fiber;
+        height = 0.82 - 0.2 * rule - 0.22 * margin - 0.5 * holes + 0.03 * fiber;
+        roughness += 0.04 * (fiber - 0.5) + 0.03 * rule;
+        occlusion = 1 - 0.1 * rule - 0.12 * margin - 0.4 * holes;
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);

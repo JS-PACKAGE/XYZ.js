@@ -76,6 +76,9 @@ export type ProceduralMaterialKind =
   | 'cheese'
   | 'sugarfrosting'
   | 'candleswax'
+  | 'vinylrecord'
+  | 'graphpaper'
+  | 'notebookpaper'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -273,6 +276,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'cheese',
   'sugarfrosting',
   'candleswax',
+  'vinylrecord',
+  'graphpaper',
+  'notebookpaper',
   'sandstone',
   'travertine',
   'pumice',

@@ -3526,6 +3526,45 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   README 原有果皮分類仍適用，歷史驗收數不改寫。
   不新增 runtime 依賴，不宣稱新增瀏覽器、Canvas2D 3D 或裝置認證；
   僅提交本功能與對應發佈產物，不 push。
+
+## 程序材質擴充：聲音與紙面（vinylrecord／graphpaper／notebookpaper）
+
+- 新增環繞平整標籤圓面的細密同心溝紋黑膠唱片（vinylrecord）、
+  粗格線深於細格線的方格紙（graphpaper）、橫線與邊界線及打孔
+  依序沉入紙面的筆記本紙（notebookpaper）。本組快照由
+  165 增為 168 種（與 gallery 狀態列 168 presets 一致）；
+  三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，
+  僅為表面 shading，不新增唱片、紙張或孔洞 geometry，
+  也不做 displacement。
+- 原 165 種在 size 64／seed 7 下四份 maps SHA256 全部不變
+  （以 HEAD 乾淨工作樹重建基準逐位元組比對，changed 0）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check
+  通過；typecheck 僅報共享 HEAD 既有
+  `tests/sprite-quad-validation.test.ts:13` 缺少 `destroy` 欄位
+  （6cefe730 引入，基準樹重現相同錯誤），本組檔案無型別錯誤，
+  未改動或提交該檔。完整 Vitest 2090 個測試中 2089 通過，
+  唯一失敗為既有已知不穩定的 mesh-shader-variants（單獨重跑 9 通過）；
+  期間一次全量 run 另見 fallback.test.ts 兩個失敗，屬跨測試干擾
+  （單獨重跑通過、與本組測試同跑 625 全數通過、基準樹重跑亦通過），
+  最終全量重跑兩者通過。
+  黑膠溝紋翻轉數與標籤圓面平滑、方格紙主／次格線深度與遮蔽序、
+  筆記本橫線／邊界線／打孔深度序、periodic fields 邊界格點與
+  support 邊界斜率連續性納入回歸。
+- 獨立 Chrome WebGPU／WebGL2 gallery（168 種）逐一切換三者：
+  場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  check:material-reference 通過（negativeRejected 兩後端皆拒斥），
+  regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序
+  93–116／230–247／230–247；每米 repeats 依序
+  3.333333／3.333333／3.333333。
+- 共享工作目錄同時有其他行程的提交與未提交修改（水果表皮批次、
+  Rendering／Input 提交、vite 8.3.3 bump 與 packages/input 未提交
+  變更）；本組以檔案級篩選只收本組 source／docs／examples／tests
+  與對應 dist，同步的其他修改不納入本組。同步中／英／日說明、
+  PLAN／DESIGN 與技術文件；本組沒有新增連結。
+  不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering]` 每幀執行的 Map 走訪（WebGL2／WebGPU 貼圖與環境釋放、2D layer／粒子、3D 粒子 buffer、陰影 caster、canvas layer 快取、UI 原生控制 scope）改為 `keys()`＋`get`，不再每個項目配置 `[key, value]`；Scene 的 2D 粒子發射器 pass 移出 `advanceAfterUpdate` 成小方法，避免大函式內 Set 走訪為每個物件配置 iterator 結果。走訪順序、刪除時機與結果不變。穩態（暖機 12 s）beacon-run 每幀配置 WebGL2 53.1 → 41.0 KB、WebGPU 46.4 → 37.4 KB；shadows3d、gpu-particles3d 持平，屬配置減少。canvas2d／WebGL2／WebGPU browser regression 與 163 個範例 smoke 通過；build 與完整測試（2056 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[Input]` 每幀的 action 綁定更新與虛擬控制 `endFrame` 改以 `keys()`＋`get` 走訪 Map，不再為每個 action／控制配置 `[key, value]`；順序、刪除與結果不變。穩態（暖機 12 s）WebGL2 每幀配置 input-lab 6.7 → 6.0 KB、beacon-run 41.1 → 40.3 KB，屬配置減少。輸入相關 47 個測試通過；build 與完整測試（2066 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[Objects3D]` `Line3D` 面向相機重建 ribbon 時，四個角點直接寫入頂點陣列，不再每段配置巢狀角點陣列；運算式不變，2000 次隨機相機（含相機落在端點）頂點位元雜湊與原版相同。穩態（暖機 12 s）objects3d WebGL2 每幀配置 25.6 → 15.1 KB，屬配置減少。build 與完整測試（2064 通過；已知不穩定的 shader variant 測試與 fallback 兩測在機器負載 139 下逾時，單獨重跑通過）在 HEAD 匯出副本執行。

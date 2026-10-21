@@ -972,6 +972,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .58,
 		relief: .007
 	}),
+	vinylrecord: Object.freeze({
+		dark: [
+			12,
+			12,
+			14
+		],
+		light: [
+			52,
+			52,
+			58
+		],
+		roughness: .38,
+		relief: .003
+	}),
+	graphpaper: Object.freeze({
+		dark: [
+			140,
+			168,
+			196
+		],
+		light: [
+			250,
+			252,
+			252
+		],
+		roughness: .92,
+		relief: 8e-4
+	}),
+	notebookpaper: Object.freeze({
+		dark: [
+			150,
+			172,
+			196
+		],
+		light: [
+			252,
+			250,
+			242
+		],
+		roughness: .92,
+		relief: .001
+	}),
 	sandstone: Object.freeze({
 		dark: [
 			133,
@@ -2387,6 +2429,9 @@ var proceduralTileMeters = Object.freeze({
 	cheese: .3,
 	sugarfrosting: .24,
 	candleswax: .35,
+	vinylrecord: .3,
+	graphpaper: .3,
+	notebookpaper: .3,
 	sandstone: .6,
 	travertine: .48,
 	pumice: .18,
