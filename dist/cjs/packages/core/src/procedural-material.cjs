@@ -7,7 +7,7 @@ function proceduralRepeats(e, t) {
 	if (!Number.isFinite(t) || t <= 0) throw RangeError(`Procedural surface size must be finite and positive.`);
 	return t / require_materials.proceduralTileMeters[e];
 }
-var a = `wood.brick.stone.metal.fabric.marble.concrete.tiles.leather.sand.rust.snow.asphalt.gravel.cobblestone.bark.moss.mud.granite.slate.terrazzo.denim.burlap.carpet.plaster.terracotta.cork.rubber.carbonfiber.diamondplate.paper.wicker.bamboo.hammeredmetal.galvanized.corrugatedmetal.sandstone.travertine.pumice.parquet.mosaic.hexagontiles.knit.corduroy.felt.roofshingles.rooftiles.stucco.lichen.leaflitter.endgrain.acousticfoam.closedcellfoam.linoleum.suede.snakeskin.crocodile.herringbone.tweed.seersucker.knurledmetal.engineturned.goldleaf.orangepeel.coconut.watermelon.limestone.breccia.gneiss.plywood.osb.chipboard.wafflecloth.cableknit.quilting.crackleglaze.flutedceramic.encaustictiles.fishscales.tortoiseshell.feathers.reedmat.rope.straw.studdedrubber.groovedrubber.recycledrubber.breadcrust.wafer.chocolate.basketball.tennisball.golfball.boardformedconcrete.ribbedconcrete.splitfaceblock`.split(`.`);
+var a = `wood.brick.stone.metal.fabric.marble.concrete.tiles.leather.sand.rust.snow.asphalt.gravel.cobblestone.bark.moss.mud.granite.slate.terrazzo.denim.burlap.carpet.plaster.terracotta.cork.rubber.carbonfiber.diamondplate.paper.wicker.bamboo.hammeredmetal.galvanized.corrugatedmetal.sandstone.travertine.pumice.parquet.mosaic.hexagontiles.knit.corduroy.felt.roofshingles.rooftiles.stucco.lichen.leaflitter.endgrain.acousticfoam.closedcellfoam.linoleum.suede.snakeskin.crocodile.herringbone.tweed.seersucker.knurledmetal.engineturned.goldleaf.orangepeel.coconut.watermelon.limestone.breccia.gneiss.plywood.osb.chipboard.wafflecloth.cableknit.quilting.crackleglaze.flutedceramic.encaustictiles.fishscales.tortoiseshell.feathers.reedmat.rope.straw.studdedrubber.groovedrubber.recycledrubber.breadcrust.wafer.chocolate.basketball.tennisball.golfball.boardformedconcrete.ribbedconcrete.splitfaceblock.chainmail.rivetedmetal.weldedmetal`.split(`.`);
 var o = Object.freeze({
 	addressModeU: `repeat`,
 	addressModeV: `repeat`
@@ -68,7 +68,7 @@ var ProceduralMaterial = class ProceduralMaterial {
 				normal: { scale: t },
 				occlusion: { scale: t }
 			},
-			metallic: +(this.kind === `metal` || this.kind === `rust` || this.kind === `diamondplate` || this.kind === `hammeredmetal` || this.kind === `galvanized` || this.kind === `corrugatedmetal` || this.kind === `knurledmetal` || this.kind === `engineturned` || this.kind === `goldleaf`),
+			metallic: +(this.kind === `metal` || this.kind === `rust` || this.kind === `diamondplate` || this.kind === `hammeredmetal` || this.kind === `galvanized` || this.kind === `corrugatedmetal` || this.kind === `knurledmetal` || this.kind === `engineturned` || this.kind === `goldleaf` || this.kind === `chainmail` || this.kind === `rivetedmetal` || this.kind === `weldedmetal`),
 			roughness: 1,
 			alphaMode: `OPAQUE`,
 			textureSampler: o,

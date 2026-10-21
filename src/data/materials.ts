@@ -583,6 +583,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.94,
     relief: 0.012,
   }),
+  chainmail: Object.freeze({
+    dark: [17, 21, 25] as const,
+    light: [195, 202, 210] as const,
+    roughness: 0.36,
+    relief: 0.009,
+  }),
+  rivetedmetal: Object.freeze({
+    dark: [62, 70, 76] as const,
+    light: [174, 184, 192] as const,
+    roughness: 0.43,
+    relief: 0.008,
+  }),
+  weldedmetal: Object.freeze({
+    dark: [65, 69, 73] as const,
+    light: [182, 187, 193] as const,
+    roughness: 0.39,
+    relief: 0.006,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -683,6 +701,9 @@ export const proceduralTileMeters = Object.freeze({
   boardformedconcrete: 1.6,
   ribbedconcrete: 1.2,
   splitfaceblock: 1.6,
+  chainmail: 0.12,
+  rivetedmetal: 1.2,
+  weldedmetal: 0.6,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

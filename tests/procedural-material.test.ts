@@ -120,6 +120,9 @@ const kinds: ProceduralMaterialKind[] = [
   'boardformedconcrete',
   'ribbedconcrete',
   'splitfaceblock',
+  'chainmail',
+  'rivetedmetal',
+  'weldedmetal',
 ];
 
 class TestImageData {
@@ -221,10 +224,12 @@ describe('periodic procedural material fields', () => {
           kind === 'corrugatedmetal' ||
           kind === 'knurledmetal' ||
           kind === 'engineturned' ||
-          kind === 'goldleaf'
+          kind === 'goldleaf' ||
+          kind === 'rivetedmetal' ||
+          kind === 'weldedmetal'
         )
           expect(first.metallicRoughness[p + 2]).toBe(255);
-        else if (kind !== 'rust')
+        else if (kind !== 'rust' && kind !== 'chainmail')
           expect(first.metallicRoughness[p + 2]).toBe(0);
         expect(first.metallicRoughness[p + 3]).toBe(255);
         expect(first.occlusion[p]).toBeGreaterThan(0);
@@ -233,7 +238,13 @@ describe('periodic procedural material fields', () => {
       if (kind === 'rust') {
         expect(Math.min(...metallic)).toBeLessThan(40);
         expect(Math.max(...metallic)).toBeGreaterThan(200);
-        expect(metallic.size).toBeGreaterThan(8);
+      }
+      if (kind === 'chainmail') {
+        expect(metallic.has(0)).toBe(true);
+        expect(metallic.has(255)).toBe(true);
+        expect([...metallic].some((value) => value > 0 && value < 255)).toBe(
+          true,
+        );
       }
     },
   );
@@ -363,6 +374,9 @@ describe('periodic procedural material fields', () => {
     ['boardformedconcrete', [2, 4, 8, 32, 96, 128]],
     ['ribbedconcrete', [12, 24, 32, 96]],
     ['splitfaceblock', [4, 8, 24, 32, 96]],
+    ['chainmail', [6, 8, 48, 64]],
+    ['rivetedmetal', [3, 4, 48, 64]],
+    ['weldedmetal', [3, 32, 48, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -399,17 +413,20 @@ describe('periodic procedural material fields', () => {
                   expect(a[key]).toBeLessThanOrEqual(1);
                   expect(Math.abs(a[key] - b[key])).toBeLessThan(0.001);
                 }
-                expect(a.metallic).toBe(
-                  kind === 'diamondplate' ||
-                    kind === 'hammeredmetal' ||
-                    kind === 'galvanized' ||
-                    kind === 'corrugatedmetal' ||
-                    kind === 'knurledmetal' ||
-                    kind === 'engineturned' ||
-                    kind === 'goldleaf'
-                    ? 1
-                    : 0,
-                );
+                if (kind !== 'chainmail')
+                  expect(a.metallic).toBe(
+                    kind === 'diamondplate' ||
+                      kind === 'hammeredmetal' ||
+                      kind === 'galvanized' ||
+                      kind === 'corrugatedmetal' ||
+                      kind === 'knurledmetal' ||
+                      kind === 'engineturned' ||
+                      kind === 'goldleaf' ||
+                      kind === 'rivetedmetal' ||
+                      kind === 'weldedmetal'
+                      ? 1
+                      : 0,
+                  );
                 if (
                   kind !== 'mosaic' &&
                   kind !== 'hexagontiles' &&
@@ -467,6 +484,15 @@ describe('periodic procedural material fields', () => {
     ['ribbedconcrete', 96],
     ['splitfaceblock', 8],
     ['splitfaceblock', 96],
+    ['chainmail', 6],
+    ['chainmail', 8],
+    ['chainmail', 64],
+    ['rivetedmetal', 3],
+    ['rivetedmetal', 4],
+    ['rivetedmetal', 64],
+    ['weldedmetal', 3],
+    ['weldedmetal', 32],
+    ['weldedmetal', 64],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -503,6 +529,184 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  describe('fabricated metal relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+
+    it('chainmail leaves opaque dielectric lining inside raised overlapping metal rings', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('chainmail', seed);
+        const lining = empty(),
+          wire = empty(),
+          shoulder = empty(),
+          overlap = empty();
+        for (let row = 0; row < 8; row++) {
+          const cx = 0.5 + (row % 2) * 0.5,
+            cy = row + 0.5;
+          sample(cx / 6, cy / 8, lining);
+          sample((cx + 0.62) / 6, cy / 8, wire);
+          sample((cx + 0.7) / 6, cy / 8, shoulder);
+          expect(wire.height).toBeGreaterThan(shoulder.height);
+          expect(shoulder.height).toBeGreaterThan(lining.height);
+          expect(wire.metallic).toBeGreaterThan(shoulder.metallic);
+          expect(shoulder.metallic).toBeGreaterThan(lining.metallic);
+          expect(lining.metallic).toBe(0);
+          expect(wire.color).toBeGreaterThan(lining.color);
+          expect(wire.roughness).toBeLessThan(lining.roughness);
+          expect(wire.occlusion).toBeGreaterThan(lining.occlusion);
+          const crossY = Math.sqrt(0.62 ** 2 - 0.5 ** 2);
+          sample((cx + 0.5) / 6, (cy + crossY) / 8, overlap);
+          expect(overlap.height).toBeGreaterThan(lining.height);
+          expect(overlap.metallic).toBeGreaterThan(shoulder.metallic);
+          const side = Math.sqrt(0.62 ** 2 - 0.12 ** 2);
+          sample((cx + side) / 6, (cy + 0.12) / 8, wire);
+          sample((cx + side) / 6, (cy - 0.12) / 8, shoulder);
+          if (row % 2) expect(wire.height).toBeLessThan(shoulder.height);
+          else expect(wire.height).toBeGreaterThan(shoulder.height);
+        }
+      }
+    });
+
+    it('rivets are discrete rounded heads above flat panels and recessed intersecting joints', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('rivetedmetal', seed);
+        const head = empty(),
+          shoulder = empty(),
+          panel = empty(),
+          joint = empty();
+        for (let row = 0; row < 4; row++)
+          for (let column = 0; column < 3; column++) {
+            sample((column + 0.5) / 3, (row + 0.5) / 4, panel);
+            for (const x of [0.12, 0.88])
+              for (const y of [0.12, 0.88]) {
+                sample((column + x) / 3, (row + y) / 4, head);
+                sample((column + x + 0.03) / 3, (row + y) / 4, shoulder);
+                expect(head.height).toBeGreaterThan(shoulder.height);
+                expect(shoulder.height).toBeGreaterThan(panel.height);
+                expect(head.roughness).toBeLessThan(panel.roughness);
+              }
+            for (const [x, y] of [
+              [0, 0.5],
+              [0.5, 0],
+              [0, 0],
+            ]) {
+              sample((column + x) / 3, (row + y) / 4, joint);
+              expect(panel.height).toBeGreaterThan(joint.height);
+              expect(panel.occlusion).toBeGreaterThan(joint.occlusion);
+            }
+          }
+      }
+    });
+
+    it('weld beads have repeated scallops above flatter sheet and darkened recessed toes', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('weldedmetal', seed);
+        const bead = empty(),
+          sheet = empty(),
+          toe = empty();
+        const beadHeights: number[] = [],
+          sheetHeights: number[] = [];
+        for (let i = 0; i < 128; i++) {
+          const v = i / 128;
+          sample(0, v, bead);
+          sample(0.15, v, sheet);
+          sample(0.035, v, toe);
+          expect(bead.height).toBeGreaterThan(sheet.height);
+          expect(bead.color).toBeGreaterThan(toe.color);
+          expect(toe.occlusion).toBeLessThan(sheet.occlusion);
+          expect(toe.roughness).toBeGreaterThan(sheet.roughness);
+          beadHeights.push(bead.height);
+          sheetHeights.push(sheet.height);
+        }
+        const range = (values: number[]) =>
+          Math.max(...values) - Math.min(...values);
+        expect(range(beadHeights)).toBeGreaterThan(10 * range(sheetHeights));
+        for (let i = 0; i < 124; i++)
+          expect(Math.abs(beadHeights[i + 4] - beadHeights[i])).toBeLessThan(
+            range(beadHeights) / 4,
+          );
+      }
+    });
+
+    it.each(['chainmail', 'rivetedmetal', 'weldedmetal'] as const)(
+      '%s keeps every field C1 at actual joints, shoulders, corners and overlaps',
+      (kind) => {
+        const center = empty(),
+          left = empty(),
+          right = empty();
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed);
+          const points: [number, number][] = [
+            [0, 0],
+            [1, 1],
+            [0, 0.173],
+            [0.317, 0],
+          ];
+          if (kind === 'chainmail') {
+            for (let row = 0; row < 8; row++) {
+              const cx = 0.5 + (row % 2) * 0.5,
+                cy = row + 0.5;
+              for (const radius of [0, 0.515, 0.62, 0.725])
+                points.push([(cx + radius) / 6, cy / 8]);
+              points.push(
+                [(cx + 0.5) / 6, (cy + Math.sqrt(0.62 ** 2 - 0.5 ** 2)) / 8],
+                [(cx + 0.25) / 6, (cy + 0.5) / 8],
+                [cx / 6, (row + 1) / 8],
+              );
+            }
+          } else if (kind === 'rivetedmetal') {
+            for (const x of [0, 0.0225, 0.045, 0.12, 0.88, 0.955, 1])
+              for (const y of [0, 0.0225, 0.045, 0.12, 0.88, 1])
+                points.push([x / 3, y / 4]);
+            for (const radius of [0, 0.026, 0.052])
+              for (const angle of [0, Math.PI / 4, Math.PI / 2])
+                points.push([
+                  (0.12 + radius * Math.cos(angle)) / 3,
+                  (0.12 + radius * Math.sin(angle)) / 4,
+                ]);
+          } else {
+            let n = seed >>> 0;
+            n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+            n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+            const phase = ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+            for (const scallop of [0, 1]) {
+              const cycle = (scallop ? 1 : 1.5) - phase;
+              const v = cycle / 32,
+                width = 0.065 + 0.015 * scallop;
+              for (const x of [0, width / 2, width, 0.15])
+                points.push([x / 3, v], [-x / 3, v]);
+            }
+          }
+          const epsilon = 1e-9;
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [epsilon, 0],
+              [0, epsilon],
+              [epsilon, epsilon],
+            ]) {
+              sample(u - du, v - dv, left);
+              sample(u, v, center);
+              sample(u + du, v + dv, right);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                expect(Math.abs(right[key] - left[key])).toBeLessThan(0.001);
+                expect(
+                  Math.abs(right[key] - 2 * center[key] + left[key]) / epsilon,
+                ).toBeLessThan(0.001);
+              }
+            }
+        }
+      },
+    );
+  });
 
   it('board-formed concrete has recessed horizontal timber joints and shallow long grain', () => {
     const face: SurfaceSample = {

@@ -436,6 +436,18 @@ export function createSurfaceSampler(
   if (architecturalOwners)
     for (let i = 0; i < architecturalOwners.length; i++)
       architecturalOwners[i] = hash(i, 0, seed ^ 0x47e9);
+  const fabricated =
+    kind === 'chainmail' || kind === 'rivetedmetal' || kind === 'weldedmetal';
+  const sheetGrain = fabricated ? cachedNoise(48, 64, seed ^ 0x6d27) : null;
+  const fabricatedOwners =
+    kind === 'chainmail'
+      ? new Float64Array(48)
+      : kind === 'rivetedmetal'
+        ? new Float64Array(12)
+        : null;
+  if (fabricatedOwners)
+    for (let i = 0; i < fabricatedOwners.length; i++)
+      fabricatedOwners[i] = hash(i, 0, seed ^ 0x39b5);
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -460,7 +472,8 @@ export function createSurfaceSampler(
     u = fract(u);
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
-    const detail = architectural ? 0 : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
+    const detail =
+      architectural || fabricated ? 0 : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
     let color = broad,
       height = broad,
@@ -475,7 +488,9 @@ export function createSurfaceSampler(
         kind === 'corrugatedmetal' ||
         kind === 'knurledmetal' ||
         kind === 'engineturned' ||
-        kind === 'goldleaf'
+        kind === 'goldleaf' ||
+        kind === 'rivetedmetal' ||
+        kind === 'weldedmetal'
           ? 1
           : 0;
     switch (kind) {
@@ -3141,6 +3156,91 @@ export function createSurfaceSampler(
         roughness += 0.035 * pores * face;
         occlusion = 0.64 + face * (0.29 + 0.07 * fracture);
         mortar = 1 - face;
+        break;
+      }
+      case 'chainmail': {
+        const x = u * 6,
+          y = v * 8,
+          row = Math.floor(y);
+        const grain = sheetGrain!(u, v);
+        color = 0.035 + 0.025 * grain;
+        height = 0.06 + 0.008 * grain;
+        roughness = 0.88 + 0.04 * grain;
+        occlusion = 0.59;
+        // Compact annuli are composited in row order. Their opposite tilts
+        // expose alternate shoulders where adjacent rows interleave.
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy,
+            wy = (cy + 8) % 8;
+          const shift = (wy % 2) * 0.5,
+            column = Math.floor(x - shift);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox,
+              wx = (cx + 6) % 6;
+            const dx = x - cx - shift - 0.5,
+              dy = y - cy - 0.5;
+            const radial = Math.sqrt(dx * dx + dy * dy);
+            const wire = clamp(1 - ((radial - 0.62) / 0.105) ** 2);
+            const coverage = smooth(wire);
+            const variation = fabricatedOwners![wy * 6 + wx];
+            const crown =
+              0.44 +
+              0.26 * wire +
+              (wy % 2 ? -1 : 1) * dy * (0.13 + 0.04 * variation);
+            color +=
+              coverage * (0.63 + 0.13 * variation + 0.04 * grain - color);
+            height += coverage * (crown - height);
+            roughness +=
+              coverage * (preset.roughness + 0.04 * grain - roughness);
+            occlusion += coverage * (0.88 + 0.1 * wire - occlusion);
+            metallic += coverage * (1 - metallic);
+          }
+        }
+        break;
+      }
+      case 'rivetedmetal': {
+        const x = fract(u * 3),
+          y = fract(v * 4);
+        const face =
+          smooth(clamp(x / 0.045)) *
+          smooth(clamp((1 - x) / 0.045)) *
+          smooth(clamp(y / 0.045)) *
+          smooth(clamp((1 - y) / 0.045));
+        const owner = Math.floor(v * 4) * 3 + Math.floor(u * 3);
+        const variation = fabricatedOwners![owner],
+          grain = sheetGrain!(u, v);
+        let rivet = 0;
+        // Four discrete heads sit inside each panel, clear of its joint.
+        for (let iy = 0; iy < 2; iy++)
+          for (let ix = 0; ix < 2; ix++) {
+            const dx = x - (ix ? 0.88 : 0.12),
+              dy = y - (iy ? 0.88 : 0.12);
+            const cap = clamp(1 - (dx * dx + dy * dy) / (0.052 * 0.052));
+            rivet += cap * cap;
+          }
+        color =
+          0.28 + face * (0.19 + 0.09 * variation) + 0.13 * rivet + 0.03 * grain;
+        height =
+          0.09 +
+          face * (0.23 + 0.025 * variation) +
+          0.57 * rivet +
+          0.004 * grain;
+        roughness += 0.1 * (1 - face) - 0.09 * rivet + 0.025 * grain;
+        occlusion = 0.64 + 0.34 * face + 0.02 * rivet;
+        break;
+      }
+      case 'weldedmetal': {
+        const x = fract(u * 3 + 0.5) - 0.5;
+        const scallop = 0.5 + 0.5 * Math.cos(TAU * 32 * v + phase);
+        const width = 0.065 + 0.015 * scallop;
+        const bead = smooth(clamp(1 - (x / width) ** 2));
+        const halo = smooth(clamp(1 - (x / 0.15) ** 2));
+        const grain = sheetGrain!(u, v);
+        color =
+          0.52 + 0.04 * grain - 0.16 * halo + bead * (0.19 + 0.08 * scallop);
+        height = 0.2 + 0.004 * grain + bead * (0.46 + 0.15 * scallop);
+        roughness += 0.12 * halo - 0.05 * bead + 0.025 * grain;
+        occlusion = 1 - 0.15 * halo * (1 - bead);
         break;
       }
     }

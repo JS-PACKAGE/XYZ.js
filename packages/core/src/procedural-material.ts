@@ -102,7 +102,10 @@ export type ProceduralMaterialKind =
   | 'golfball'
   | 'boardformedconcrete'
   | 'ribbedconcrete'
-  | 'splitfaceblock';
+  | 'splitfaceblock'
+  | 'chainmail'
+  | 'rivetedmetal'
+  | 'weldedmetal';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -231,6 +234,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'boardformedconcrete',
   'ribbedconcrete',
   'splitfaceblock',
+  'chainmail',
+  'rivetedmetal',
+  'weldedmetal',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',
@@ -360,7 +366,10 @@ export class ProceduralMaterial {
         this.kind === 'corrugatedmetal' ||
         this.kind === 'knurledmetal' ||
         this.kind === 'engineturned' ||
-        this.kind === 'goldleaf'
+        this.kind === 'goldleaf' ||
+        this.kind === 'chainmail' ||
+        this.kind === 'rivetedmetal' ||
+        this.kind === 'weldedmetal'
           ? 1
           : 0,
       roughness: 1,

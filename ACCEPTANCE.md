@@ -2890,3 +2890,28 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。
 - `[Physics3D]` Broadphase 在 body／sensor 佔 collider 至少三分之一（`physics3DDefaults.pairTraversalShare`）時，改為對 BVH 做一次自身配對走訪（`SpatialIndex3D.pairs`，以子樹 active 旗標剪掉純靜態節點對），否則維持逐一查詢；兩種方式產生相同配對集合，再以既有 (lower, higher) 順序排序，模擬結果逐位不變（phys3d、cc3d、cc3dfuzz 1–3、ccbits、bake、crowd hash 皆不變）。同程序 A/B Node bench（每 step，25 步取 12 輪最佳）：1000 動態 2.74 → 2.33 ms、1000 動態＋1000 靜態 3.20 → 2.84 ms、1000 動態＋2000 靜態 7.51 → 6.70 ms，靜態佔多數（3000 靜態＋500／100 動態）持平。新增隨機 BVH 配對與暴力解一致、少數／多數 body 兩種路徑接觸相同的測試並經 mutation 驗證；因另一方未提交檔暫不可編譯，build、完整測試（1755 通過，已知不穩定的 shader variant 測試單獨重跑通過）與 tree-shaking／API 檢查在 HEAD 匯出副本執行，物理範例 smoke 通過。
 - `[Terrain]` `bakeTerrainSplat` 改以 `terrainChannels` 一次取出同一來源同一座標的多個 channel（每個 channel 運算式與順序不變），取代逐 channel 重算座標的 `terrainChannel`（已移除，僅內部使用）。world-nature 同款 256² 三層 splat Node bench 21.7 → 17.2 ms、含 normal／MR／AO／emissive 全貼圖 30 → 22 ms，四張輸出貼圖 hash 不變；新增 u／v 雙線性、各 map channel 對應、權重 clamp 與圖層 wrap 的測試並經 mutation 驗證。build 與完整測試（1781 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行，world-nature smoke 通過。
+
+## 程序材質擴充：加工金屬（chainmail／rivetedmetal／weldedmetal）
+
+- 新增交疊傾斜金屬環與不透明底襯、凹接縫金屬板與圓頭鉚釘、
+  帶連續扇貝紋凸起焊道的金屬板。本組獨立快照由 96 增為 99 種，
+  不含同時進行的另一組金屬材質，不新增真正鏤空、幾何或物理。
+- 三者 metallic factor 為 1；chainmail 的 metallic map 依環片覆蓋在
+  金屬與 dielectric 底襯間過渡，另兩種全為金屬。
+  原 96 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+- 獨立快照 build、typecheck、lint、format:check 通過；
+  完整 Vitest 為 176 files／1800 tests passed（43.08 秒）。
+  之後移除舊 rust 測試任意色階數量與重複 bounds assertion，
+  最終整合測試見下項；未改動 runtime 邏輯。
+- managed Chromium WebGPU 逐一切換三者成功。共用瀏覽器的 WebGL
+  嘗試兩次遭 target closed，空白診斷分頁也無法從 frozen 恢復；
+  改用獨立啟動的 Chrome 完成 WebGL2 gallery 與 2×2 平鋪驗證。
+  成功的雙 backend 畫面 hash 各自不同，無 page errors。
+- 四份 textures destroy 釋放通過；chainmail metallic bytes 為 0–255，
+  另兩者全為 255。roughness bytes 依序 92–235／87–141／99–134；
+  每米 repeats 依序 8.333333／0.833333／1.666667。
+- 整合時以帶上下文 patch 保留另一組金屬條件與實作；
+  主工作目錄 build、typecheck 與 353 個程序材質測試通過，
+  獨立 Chrome 的 WebGL2 三種畫面 hash 與獨立快照一致。
+- 只提交本組 source、docs 與獨立快照對應 dist；不納入其他未提交工作，
+  不新增 runtime 依賴、不 push，不擴大跨瀏覽器／實體裝置認證。

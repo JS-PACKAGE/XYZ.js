@@ -33,7 +33,7 @@
 
 此 additive scope 保持既有 Game→Scene→Renderer 與 core／assets 邊界：core 在 `await ProceduralMaterial.create(kind, options?)` 一次產生 CPU maps，以 assets 的 `Texture.fromImage` 建立 immutable sources，不新增 backend／shader／geometry 路徑或逐幀生成。無外部素材或新依賴。初始六種 `ProceduralMaterialKind` 為 wood／brick／stone／metal／fabric／marble，後續種類見下方增量；`ProceduralMaterialOptions` 的 size 為整數 32–1024（預設 256），seed 為無號 32-bit 整數（預設 1），相同輸入生成 deterministic、seamlessly periodic maps。
 
-唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
+唯讀 `kind`／`material`／`textures` 提供預設 PBRMaterial 及 baseColor（sRGB RGB）、normal（linear tangent-space）、metallicRoughness（linear G roughness／B metallic）、occlusion（linear R）Texture。預設 opaque、所有 samplers repeat、roughness factor 1、metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf／chainmail／rivetedmetal／weldedmetal 的 metallic factor 1／其他種類 0。`createMaterial(options?: Partial<PBRMaterialOptions>)` 建立新的 borrowing 材質，最後套用覆寫；不複製／重生 maps。
 
 呼叫者 owns preset，Mesh／Scene 不接管；同步、冪等 `destroy()` 只釋放生成貼圖，不動外部覆寫 maps 或材質。先移除所有 consumers；`destroyed` getter 表示狀態，銷毀後 `createMaterial()` 拒絕。既有 pbr3d gallery 提供預設切換與貼圖預覽，Canvas2D 保持 2D-only。使用者後續授權 v1.14 提交／推送／發佈，依 PLAN 的既有 CI gate 執行；批准及文件不代表 runtime／browser 驗收，實際證據另記 ACCEPTANCE。
 
@@ -94,6 +94,8 @@
 運動球表面增量為 basketball／tennisball／golfball（籃球／網球／高爾夫球），目前共九十三種；前述 counts 保留為歷史。分別呈現橙色顆粒皮革與深色凹陷拼片縫、黃綠色毛氈與淡色彎曲接縫、白色光澤表面與規則圓形凹點。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；僅為週期表面 shading／normal map 近似，不提供真實球面拼片拓撲、geometry、displacement、纖維或殼體體積、SSS、transmission 或球體物理。前九十種輸出須逐位元組保持不變，既有 metal／rust、公開 options、借用 maps 的 ownership、backend 與零新增依賴契約不變，維持 WebGPU／WebGL2 3D、Canvas2D 2D-only。
 
 建築混凝土增量為 boardformedconcrete／ribbedconcrete／splitfaceblock（木模板清水混凝土／肋紋混凝土／劈面砌塊），目前共九十六種；前述 counts 保留為歷史。木模板清水混凝土為灰色澆置混凝土的水平木板壓印、細長木紋與凹陷板縫，不是木材換色；肋紋混凝土為垂直等距寬肋、圓潤肩部、凹槽與細孔；劈面砌塊為錯列矩形砌塊的粗糙破裂面與平滑凹陷砂漿縫，不是磚牆換色。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；僅為 shading／normal map 效果，不新增實際澆置 geometry、displacement 或砌體物理。前九十三種輸出須逐位元組保持不變，既有 metal／rust、公開 options、借用 maps 的 ownership、backend 與零新增依賴契約不變，維持 WebGPU／WebGL2 3D、Canvas2D 2D-only。
+
+組裝金屬增量為 chainmail／rivetedmetal／weldedmetal（鎖子甲／鉚接金屬板／焊接金屬板），目前共九十九種；前述 counts 保留為歷史。鎖子甲為深色不透明 dielectric 襯底上重疊交錯的金屬環浮雕，不是真實開孔或透明網；鉚接板為板片凹縫與離散圓潤隆起鉚釘；焊接板為較平坦金屬板上的隆起週期扇貝狀焊道。三者皆為 opaque，`material` 與 `createMaterial()` 預設 metallic factor 均為 1，覆寫仍最後套用；chainmail 的 metallic map 隨金屬環覆蓋率變化，襯底為 0，而 rivetedmetal／weldedmetal 通道全為 1。沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；僅為 shading／normal map 效果，不新增 geometry、displacement 或物理模擬。前九十六種輸出須逐位元組保持不變，公開 options、借用 maps 的 ownership、backend 與零新增依賴契約不變。
 
 ## 已驗收基礎：P01–P08（歷史範圍；後续擴充另列）
 

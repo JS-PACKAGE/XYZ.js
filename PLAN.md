@@ -38,7 +38,7 @@
 
 建材飾面增量追加 plaster／terracotta／cork（石膏／陶土／軟木）：淺色石膏的淺抹刀弧痕與細孔／未上釉紅褐燒製陶土的不規則窯色與凹孔（無磁磚填縫）／棕褐壓製軟木碎片與細胞邊界，目前共二十七種；前述 counts 保留為歷史。皆為 opaque dielectric、metallic 通道為 0，沿用 deterministic periodic 四份 maps，不新增 geometry 或物理模擬。前二十四種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。品質與驗證結果另記 ACCEPTANCE。
 
-工業表面增量追加 rubber／carbonfiber／diamondplate（橡膠／碳纖維／止滑花紋鋼板），目前共三十種；前述 counts 保留為歷史。橡膠為炭黑色模製彈性體與細密卵石狀顆粒；碳纖維為樹脂覆層下深色纖維束、交替斜向斜紋編織，兩者 metallic 通道為 0。鋼板為銀色軋製金屬與交替斜向隆起菱形紋，metallic 通道及預設 factor 均為 1。目前 metallic factor 為 metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf=1、其他種類=0。三者沿用 deterministic periodic 四份 RGBA maps；凹凸僅由 normal map 表現，不新增 geometry、特殊 anisotropic shader、clearcoat 或物理模擬。前二十七種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
+工業表面增量追加 rubber／carbonfiber／diamondplate（橡膠／碳纖維／止滑花紋鋼板），目前共三十種；前述 counts 保留為歷史。橡膠為炭黑色模製彈性體與細密卵石狀顆粒；碳纖維為樹脂覆層下深色纖維束、交替斜向斜紋編織，兩者 metallic 通道為 0。鋼板為銀色軋製金屬與交替斜向隆起菱形紋，metallic 通道及預設 factor 均為 1。目前 metallic factor 為 metal／rust／diamondplate／hammeredmetal／galvanized／corrugatedmetal／knurledmetal／engineturned／goldleaf／chainmail／rivetedmetal／weldedmetal=1、其他種類=0。三者沿用 deterministic periodic 四份 RGBA maps；凹凸僅由 normal map 表現，不新增 geometry、特殊 anisotropic shader、clearcoat 或物理模擬。前二十七種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
 工藝素材增量追加 paper／wicker／bamboo（紙張／藤編／竹材），目前共三十三種；前述 counts 保留為歷史。紙張為象牙白未塗佈紙的細密不規則紙漿纖維與輕微雲狀成紙紋；藤編為棕褐寬圓角藤條交織、細縱向條紋與深色不透明凹隙，區別於粗麻布；竹材為金黃縱向纖維與週期錯列的深色竹節帶。皆為 opaque dielectric、metallic 通道與預設 factor 為 0，沿用 deterministic periodic 四份 maps，不新增 geometry、透明孔洞或物理模擬。前三十種輸出須逐位元組保持不變，公開 options、repeat、ownership、renderer 與零新增依賴契約不變；沿既有授權逐功能獨立 commit、不 push。
 
@@ -83,6 +83,8 @@
 運動球表面增量追加 basketball／tennisball／golfball（籃球／網球／高爾夫球），目前共九十三種；前述 counts 保留為歷史。分別呈現橙色顆粒皮革與深色凹陷拼片縫、黃綠色毛氈與淡色彎曲接縫、白色光澤表面與規則圓形凹點。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；僅為週期表面 shading／normal map 近似，不提供真實球面拼片拓撲、geometry、displacement、纖維或殼體體積、SSS、transmission 或球體物理。前九十種輸出須逐位元組保持不變，既有 metal／rust、公開 options、ownership、backend 與零新增依賴契約不變。沿既有授權逐功能獨立 commit、不 push。
 
 建築混凝土增量追加 boardformedconcrete／ribbedconcrete／splitfaceblock（木模板清水混凝土／肋紋混凝土／劈面砌塊），目前共九十六種；前述 counts 保留為歷史。分別呈現灰色澆置混凝土的水平木板壓印、細長木紋與凹陷板縫，而非木材換色；垂直等距寬肋、圓潤肩部、凹槽與細孔；錯列矩形砌塊的粗糙破裂面與平滑凹陷砂漿縫，而非磚牆換色。三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps 與 physical repeat；僅為 shading／normal map 效果，不新增實際澆置 geometry、displacement 或砌體物理。前九十三種輸出須逐位元組保持不變，既有 metal／rust、公開 options、ownership、backend 與零新增依賴契約不變。沿既有授權逐功能獨立 commit、不 push。
+
+組裝金屬增量追加 chainmail／rivetedmetal／weldedmetal（鎖子甲／鉚接金屬板／焊接金屬板），目前共九十九種；前述 counts 保留為歷史。鎖子甲為深色不透明 dielectric 襯底上重疊交錯的金屬環浮雕，不是真實開孔或透明網；鉚接板為板片凹縫與離散圓潤隆起鉚釘；焊接板為較平坦金屬板上的隆起週期扇貝狀焊道。三者皆為 opaque，`material` 與 `createMaterial()` 預設 metallic factor 均為 1，覆寫仍最後套用；chainmail 的 metallic map 隨金屬環覆蓋率變化，襯底為 0，而 rivetedmetal／weldedmetal 通道全為 1。沿用 seeded deterministic periodic baseColor／normal／metallicRoughness／occlusion 四份 maps、physical repeat 與呼叫者 ownership；僅為 shading／normal map 效果，不新增 geometry、displacement、物理模擬、options 或依賴。前九十六種輸出須逐位元組保持不變，沿既有授權逐功能獨立 commit、不 push。
 
 ## 倉庫結構
 
