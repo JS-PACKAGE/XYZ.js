@@ -38,6 +38,9 @@ export type ProceduralMaterialKind =
   | 'carbonfiber'
   | 'diamondplate'
   | 'paper'
+  | 'corrugatedcardboard'
+  | 'creasedpaper'
+  | 'layeredpaper'
   | 'wicker'
   | 'bamboo'
   | 'hammeredmetal'
@@ -172,6 +175,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'carbonfiber',
   'diamondplate',
   'paper',
+  'corrugatedcardboard',
+  'creasedpaper',
+  'layeredpaper',
   'wicker',
   'bamboo',
   'hammeredmetal',

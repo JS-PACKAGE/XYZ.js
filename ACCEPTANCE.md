@@ -2965,3 +2965,30 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   等其他修改不納入本組。不新增 runtime 依賴、不 push，
   不擴大跨瀏覽器或實體裝置認證。
 - `[WebGL2]` 材質的 sampler 選項都是 `samplerOptions` 凍結後的物件、不會再變，WebGL2 renderer 改以 WeakMap 依物件身分記住對應 sampler，命中時不再每次綁定都組 8 段字串 key；非凍結選項照舊走字串 key。renderer 只初始化一次（context lost 即銷毀），anisotropy 上限不會在快取期間改變。pbr3d WebGL2 每幀 `cacheSampler` 配置約 33 KB → 0（範例總配置約 93–122 → 56–84 KB／frame，屬配置減少）；filtering runtime 三後端輸出逐位相同、WebGL2 browser regression 通過，context lost／restore 後同一 nearest／repeat 材質畫面 hash 與改動前一致。build 與完整測試（1782 通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：紙藝表面（corrugatedcardboard／creasedpaper／layeredpaper）
+
+- 新增牛皮瓦楞紙板的圓弧縱槽、交叉摺痕與凹陷肩部，以及固定層序、
+  撕邊與下緣遮蔽的紙片堆疊；三者共享週期微纖維與紙漿顆粒。
+  本組獨立快照由 102 增為 105 種，皆為 opaque dielectric，
+  不新增紙片 geometry、透光、真實厚度或 displacement。
+- 原 102 種在 size 64／seed 7 下四份 maps SHA256 全部不變。
+  build、typecheck、lint、format:check 與完整 Vitest 通過：
+  176 files／1851 tests；6 個紙藝結構測試另行通過。
+  回歸涵蓋瓦楞高度序、摺痕交點上界、紙片重疊所有權與
+  紙纖維／摺痕／撕邊 support 的斜率連續性。
+- 獨立 Chrome WebGPU／WebGL2 gallery 逐一切換三者，
+  場景畫面 hash 各異，無 page errors；2×2 貼圖預覽確認週期排列。
+  首次瀏覽器初始化超過 8 秒等待，狀態列隨後正常；
+  隱藏分頁造成 checkbox 點擊與 RAF 等待失敗，
+  以鍵盤控制並將分頁 bringToFront 後完成實際渲染驗證。
+  未為此修改或略過引擎行為。
+- metallic bytes 全為 0；roughness bytes 依序
+  237–246／218–239／234–243，每米 repeats 依序
+  15.625／4.166667／6.25；四份貼圖 destroy 後均確認已釋放。
+- 帶上下文 patch 保留同步金屬網孔工作，其三種材質四份 maps hash
+  前後不變；主工作目錄 build、typecheck 與 401 個程序材質測試通過，
+  WebGPU 三種畫面 hash 與獨立快照一致。
+  本次修改未新增相對文件連結，既有 README 類別仍適用。
+- 僅提交本組 source、docs 與獨立快照對應 dist；不納入其他進行中修改，
+  不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。

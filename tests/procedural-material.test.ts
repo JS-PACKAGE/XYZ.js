@@ -55,6 +55,9 @@ const kinds: ProceduralMaterialKind[] = [
   'carbonfiber',
   'diamondplate',
   'paper',
+  'corrugatedcardboard',
+  'creasedpaper',
+  'layeredpaper',
   'wicker',
   'bamboo',
   'hammeredmetal',
@@ -571,6 +574,9 @@ describe('periodic procedural material fields', () => {
     ['cactus', [8, 48, 64]],
     ['pinecone', [8, 16, 48, 64]],
     ['corncob', [8, 12, 48, 64]],
+    ['corrugatedcardboard', [4, 24, 32, 48, 64]],
+    ['creasedpaper', [2, 24, 32, 48, 64]],
+    ['layeredpaper', [2, 4, 24, 32, 48, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -698,6 +704,16 @@ describe('periodic procedural material fields', () => {
     ['corncob', 12],
     ['corncob', 48],
     ['corncob', 64],
+    ['corrugatedcardboard', 4],
+    ['corrugatedcardboard', 24],
+    ['corrugatedcardboard', 64],
+    ['creasedpaper', 2],
+    ['creasedpaper', 24],
+    ['creasedpaper', 64],
+    ['layeredpaper', 2],
+    ['layeredpaper', 4],
+    ['layeredpaper', 24],
+    ['layeredpaper', 64],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -734,6 +750,194 @@ describe('periodic procedural material fields', () => {
       }
     },
   );
+
+  describe('paper packaging relief', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+    const featureHash = (x: number, y: number, seed: number) => {
+      let n =
+        (seed ^ Math.imul(x, 0x9e3779b1) ^ Math.imul(y, 0x85ebca6b)) >>> 0;
+      n = Math.imul(n ^ (n >>> 16), 0x7feb352d);
+      n = Math.imul(n ^ (n >>> 15), 0x846ca68b);
+      return ((n ^ (n >>> 16)) >>> 0) / 4294967295;
+    };
+
+    it('cardboard has rounded axial flutes over independent kraft pulp', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('corrugatedcardboard', seed),
+          ridge = empty(),
+          trough = empty(),
+          flank = empty();
+        let microMin = Infinity,
+          microMax = -Infinity,
+          contrast = Infinity;
+        for (let i = 0; i < 128; i++) {
+          const v = i / 128;
+          // The carrier repeats at 1/8 UV: these pairs differ only in macrorelief.
+          sample(0, v, ridge);
+          sample(0.125, v, trough);
+          sample(0.0625, v, flank);
+          expect(ridge.height).toBeGreaterThan(flank.height);
+          expect(flank.height).toBeGreaterThan(trough.height);
+          expect(ridge.color).toBeGreaterThan(trough.color);
+          expect(ridge.occlusion).toBeGreaterThan(trough.occlusion);
+          contrast = Math.min(contrast, ridge.height - trough.height);
+          microMin = Math.min(microMin, ridge.height);
+          microMax = Math.max(microMax, ridge.height);
+        }
+        expect(microMax).toBeGreaterThan(microMin);
+        expect(microMax - microMin).toBeLessThan(contrast / 10);
+      }
+    });
+
+    it('creased paper has raised intersecting folds and recessed shoulders, not additive spikes', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('creasedpaper', seed),
+          flat = empty(),
+          ridge = empty(),
+          shoulder = empty(),
+          crossing = empty(),
+          shoulderCrossing = empty();
+        for (const offset of [0, 0.5]) {
+          sample(0.25 + offset, 0.25, flat);
+          sample(offset, 0.25, ridge);
+          sample(0.125 + offset, 0.25, shoulder);
+          sample(offset, 0, crossing);
+          sample(0.125 + offset, 0.125, shoulderCrossing);
+          expect(ridge.height).toBeGreaterThan(flat.height);
+          expect(flat.height).toBeGreaterThan(shoulder.height);
+          expect(shoulder.occlusion).toBeLessThan(flat.occlusion);
+          expect(shoulder.color).toBeLessThan(flat.color);
+          expect(crossing.height).toBeCloseTo(ridge.height, 12);
+          expect(shoulderCrossing.height).toBeCloseTo(shoulder.height, 12);
+          expect(ridge.roughness).toBeLessThan(flat.roughness);
+        }
+      }
+    });
+
+    it('layered paper has ordered overlapping strip ledges and a shaded torn undercut', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('layeredpaper', seed),
+          lower = empty(),
+          upper = empty(),
+          overlap = empty(),
+          outside = empty(),
+          inside = empty(),
+          edge = empty();
+        for (let row = 0; row < 3; row++) {
+          const v = (row + 0.5) / 4;
+          sample(0.25, v, lower);
+          sample(0.75, v, upper);
+          expect(upper.height).toBeGreaterThan(lower.height);
+          sample(0.25, v + 0.125, overlap);
+          expect(overlap.height).toBeGreaterThan(lower.height);
+          sample(0.25, v + 0.25, upper);
+          expect(overlap.height).toBeCloseTo(upper.height, 12);
+        }
+        const phase = Math.PI * 2 * featureHash(7, 0, seed ^ 0x291d),
+          torn = 0.008 * Math.sin(phase) + 0.004 * Math.sin(-phase),
+          boundary = 0.875 + 0.18 + torn;
+        sample(0.75, boundary - 0.0625, inside);
+        sample(0.75, boundary + 0.0625, outside);
+        sample(0.75, boundary - 0.0125, edge);
+        expect(inside.height).toBeGreaterThan(outside.height);
+        expect(edge.height).toBeLessThan(inside.height);
+        expect(edge.height).toBeGreaterThan(outside.height);
+        expect(edge.occlusion).toBeLessThan(inside.occlusion);
+        expect(edge.occlusion).toBeLessThan(outside.occlusion);
+      }
+    });
+
+    it.each(['corrugatedcardboard', 'creasedpaper', 'layeredpaper'] as const)(
+      '%s keeps every field C1 at actual shoulders, corners, intersections and overlaps',
+      (kind) => {
+        const center = empty(),
+          left = empty(),
+          right = empty(),
+          epsilon = 1e-9;
+        for (const seed of [1, 123, 0xffffffff]) {
+          const sample = createSurfaceSampler(kind, seed),
+            points: [number, number][] = [
+              [0, 0],
+              [1, 1],
+              [0, 0.137],
+              [0.791, 0],
+            ];
+          if (kind === 'corrugatedcardboard') {
+            for (let i = 0; i < 4; i++)
+              for (const x of [0, 0.0625, 0.125, 0.1875])
+                points.push([i / 4 + x, 0.137]);
+          } else if (kind === 'creasedpaper') {
+            for (const x of [0, 0.07, 0.075, 0.125, 0.175, 0.25, 0.5])
+              for (const y of [0, 0.07, 0.075, 0.125, 0.175, 0.25])
+                points.push([x, y]);
+          } else {
+            for (let i = 0; i < 8; i++) {
+              const cx = 0.25 + (i % 2) * 0.5,
+                cy = (Math.floor(i / 2) + 0.5) / 4,
+                phase = Math.PI * 2 * featureHash(i, 0, seed ^ 0x291d);
+              for (const dx of [
+                -0.34, -0.3275, -0.315, 0, 0.315, 0.3275, 0.34,
+              ]) {
+                const torn =
+                  0.008 * Math.sin(Math.PI * 2 * dx * 12 + phase) +
+                  0.004 * Math.sin(Math.PI * 2 * dx * 28 - phase);
+                for (const inset of [0, 0.0125, 0.025])
+                  for (const side of [-1, 1])
+                    points.push([cx + dx, cy + side * (0.18 + torn - inset)]);
+              }
+              points.push([cx, cy + 0.125], [cx + 0.25, cy], [cx + 0.5, cy]);
+            }
+          }
+          // Include fiber support boundaries, not only the macrostructure.
+          for (let y = 0; y < 4; y++)
+            for (let x = 0; x < 3; x++) {
+              const cx = 0.3 + 0.4 * featureHash(x, y, seed ^ 0x2b71),
+                cy = 0.3 + 0.4 * featureHash(x, y, seed ^ 0x5c39),
+                angle = Math.PI * 2 * featureHash(x, y, seed ^ 0x6e13),
+                length = 0.32 + 0.12 * featureHash(x, y, seed ^ 0x7a51);
+              points.push(
+                [
+                  (x + cx + length * Math.cos(angle)) / 24,
+                  (y + cy + length * Math.sin(angle)) / 32,
+                ],
+                [
+                  (x + cx - 0.065 * Math.sin(angle)) / 24,
+                  (y + cy + 0.065 * Math.cos(angle)) / 32,
+                ],
+              );
+            }
+          for (const [u, v] of points)
+            for (const [du, dv] of [
+              [epsilon, 0],
+              [0, epsilon],
+              [epsilon, epsilon],
+              [epsilon, -epsilon],
+            ]) {
+              sample(u - du, v - dv, left);
+              sample(u, v, center);
+              sample(u + du, v + dv, right);
+              for (const key of Object.keys(
+                center,
+              ) as (keyof SurfaceSample)[]) {
+                expect(center[key]).toBeGreaterThanOrEqual(0);
+                expect(center[key]).toBeLessThanOrEqual(1);
+                expect(Math.abs(right[key] - left[key])).toBeLessThan(0.001);
+                expect(
+                  Math.abs(right[key] - 2 * center[key] + left[key]) / epsilon,
+                ).toBeLessThan(0.001);
+              }
+            }
+        }
+      },
+    );
+  });
 
   describe('fabricated metal relief', () => {
     const empty = (): SurfaceSample => ({

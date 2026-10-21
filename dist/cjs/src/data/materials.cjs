@@ -440,6 +440,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .91,
 		relief: .0015
 	}),
+	corrugatedcardboard: Object.freeze({
+		dark: [
+			91,
+			55,
+			27
+		],
+		light: [
+			202,
+			161,
+			103
+		],
+		roughness: .94,
+		relief: .006
+	}),
+	creasedpaper: Object.freeze({
+		dark: [
+			169,
+			157,
+			133
+		],
+		light: [
+			252,
+			246,
+			224
+		],
+		roughness: .9,
+		relief: .0025
+	}),
+	layeredpaper: Object.freeze({
+		dark: [
+			139,
+			121,
+			91
+		],
+		light: [
+			242,
+			226,
+			192
+		],
+		roughness: .93,
+		relief: .003
+	}),
 	wicker: Object.freeze({
 		dark: [
 			48,
@@ -1467,6 +1509,9 @@ var proceduralTileMeters = Object.freeze({
 	carbonfiber: .048,
 	diamondplate: .4,
 	paper: .12,
+	corrugatedcardboard: .064,
+	creasedpaper: .24,
+	layeredpaper: .16,
 	wicker: .18,
 	bamboo: .6,
 	hammeredmetal: .24,

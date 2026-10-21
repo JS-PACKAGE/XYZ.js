@@ -192,6 +192,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.91;
         relief: 0.0015;
     }>;
+    corrugatedcardboard: Readonly<{
+        dark: readonly [91, 55, 27];
+        light: readonly [202, 161, 103];
+        roughness: 0.94;
+        relief: 0.006;
+    }>;
+    creasedpaper: Readonly<{
+        dark: readonly [169, 157, 133];
+        light: readonly [252, 246, 224];
+        roughness: 0.9;
+        relief: 0.0025;
+    }>;
+    layeredpaper: Readonly<{
+        dark: readonly [139, 121, 91];
+        light: readonly [242, 226, 192];
+        roughness: 0.93;
+        relief: 0.003;
+    }>;
     wicker: Readonly<{
         dark: readonly [48, 28, 12];
         light: readonly [215, 173, 111];
@@ -652,6 +670,9 @@ export declare const proceduralTileMeters: Readonly<{
     carbonfiber: 0.048;
     diamondplate: 0.4;
     paper: 0.12;
+    corrugatedcardboard: 0.064;
+    creasedpaper: 0.24;
+    layeredpaper: 0.16;
     wicker: 0.18;
     bamboo: 0.6;
     hammeredmetal: 0.24;

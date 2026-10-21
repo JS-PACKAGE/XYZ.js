@@ -473,6 +473,31 @@ export function createSurfaceSampler(
           }
         }
       }
+  const packaging =
+    kind === 'corrugatedcardboard' ||
+    kind === 'creasedpaper' ||
+    kind === 'layeredpaper';
+  const pulpGrain = packaging ? cachedNoise(6, 8, seed ^ 0x31b9) : null;
+  // A small periodic pulp carrier keeps microfibers independent of macrogeometry.
+  const pulpFibers = packaging ? new Float64Array(3 * 4 * 5) : null;
+  if (pulpFibers)
+    for (let y = 0; y < 4; y++)
+      for (let x = 0; x < 3; x++) {
+        const offset = (y * 3 + x) * 5,
+          angle = TAU * hash(x, y, seed ^ 0x6e13);
+        pulpFibers[offset] = 0.3 + 0.4 * hash(x, y, seed ^ 0x2b71);
+        pulpFibers[offset + 1] = 0.3 + 0.4 * hash(x, y, seed ^ 0x5c39);
+        pulpFibers[offset + 2] = Math.cos(angle);
+        pulpFibers[offset + 3] = Math.sin(angle);
+        pulpFibers[offset + 4] = 0.32 + 0.12 * hash(x, y, seed ^ 0x7a51);
+      }
+  const paperLayers = kind === 'layeredpaper' ? new Float64Array(8 * 3) : null;
+  if (paperLayers)
+    for (let i = 0; i < 8; i++) {
+      paperLayers[i * 3] = 0.35 + i * 0.045;
+      paperLayers[i * 3 + 1] = 0.58 + 0.14 * hash(i, 0, seed ^ 0x4f27);
+      paperLayers[i * 3 + 2] = TAU * hash(i, 0, seed ^ 0x291d);
+    }
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -498,7 +523,7 @@ export function createSurfaceSampler(
     v = fract(v);
     const broad = needsBroad ? noise(u, v, 4, 4, seed) : 0;
     const detail =
-      architectural || fabricated || botanical
+      architectural || fabricated || botanical || packaging
         ? 0
         : noise(u, v, 32, 32, seed ^ 0xa3c59ac3);
     const fine = needsFine ? noise(u, v, 64, 64, seed ^ 0x7f4a7c15) : 0;
@@ -521,6 +546,90 @@ export function createSurfaceSampler(
           ? 1
           : 0;
     switch (kind) {
+      case 'corrugatedcardboard':
+      case 'creasedpaper':
+      case 'layeredpaper': {
+        const grain = pulpGrain!(u * 8, v * 8),
+          x = u * 24,
+          y = v * 32,
+          ix = Math.floor(x),
+          iy = Math.floor(y);
+        let fibers = 0;
+        for (let oy = -1; oy <= 1; oy++)
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = ix + ox,
+              cy = iy + oy,
+              offset = ((((cy % 4) + 4) % 4) * 3 + (((cx % 3) + 3) % 3)) * 5,
+              dx = x - cx - pulpFibers![offset],
+              dy = y - cy - pulpFibers![offset + 1],
+              along =
+                dx * pulpFibers![offset + 2] + dy * pulpFibers![offset + 3],
+              across =
+                dy * pulpFibers![offset + 2] - dx * pulpFibers![offset + 3],
+              support = clamp(
+                1 -
+                  (along / pulpFibers![offset + 4]) ** 2 -
+                  (across / 0.065) ** 2,
+              );
+            // Add compact fibers, rather than switching nearest-fiber ownership.
+            fibers += support * support;
+          }
+        const pulp = 0.018 * grain + 0.014 * fibers;
+        if (kind === 'corrugatedcardboard') {
+          const flute = 0.5 + 0.5 * Math.cos(TAU * u * 4);
+          color = 0.38 + 0.27 * flute + 0.09 * grain - 0.055 * fibers;
+          height = 0.18 + 0.58 * flute + pulp;
+          roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
+          occlusion = 0.68 + 0.3 * flute - 0.025 * fibers;
+        } else if (kind === 'creasedpaper') {
+          const dx = Math.abs(fract(u * 2 + 0.5) - 0.5),
+            dy = Math.abs(fract(v * 2 + 0.5) - 0.5),
+            rx = clamp(1 - (dx / 0.14) ** 2) ** 2,
+            ry = clamp(1 - (dy / 0.14) ** 2) ** 2,
+            sx = clamp(1 - ((dx - 0.25) / 0.1) ** 2) ** 2,
+            sy = clamp(1 - ((dy - 0.25) / 0.1) ** 2) ** 2,
+            ridge = 1 - (1 - rx) * (1 - ry),
+            shoulder = (1 - (1 - sx) * (1 - sy)) * (1 - ridge);
+          // Product unions bound fold intersections without max/min corner cusps.
+          color =
+            0.7 + 0.1 * ridge - 0.14 * shoulder + 0.07 * grain - 0.04 * fibers;
+          height = 0.4 + 0.3 * ridge - 0.16 * shoulder + pulp;
+          roughness += 0.025 * (grain - 0.5) - 0.035 * ridge + 0.025 * shoulder;
+          occlusion = 0.98 - 0.19 * shoulder - 0.02 * fibers;
+        } else {
+          color = 0.5;
+          height = 0.2;
+          occlusion = 0.98;
+          for (let i = 0; i < 8; i++) {
+            const cx = 0.25 + (i % 2) * 0.5,
+              cy = (Math.floor(i / 2) + 0.5) / 4,
+              dx = fract(u - cx + 0.5) - 0.5,
+              dy = fract(v - cy + 0.5) - 0.5,
+              phase = paperLayers![i * 3 + 2],
+              torn =
+                0.008 * Math.sin(TAU * dx * 12 + phase) +
+                0.004 * Math.sin(TAU * dx * 28 - phase),
+              mx = smooth(clamp((0.34 - Math.abs(dx)) / 0.025)),
+              my = smooth(clamp((0.18 + torn - Math.abs(dy)) / 0.025)),
+              mask = mx * my,
+              ledge = 4 * my * (1 - my),
+              corner = 4 * mx * (1 - mx),
+              undercut = ledge * mx + corner * my * (1 - ledge);
+            // Fixed ordered alpha ownership is periodic even when a strip wraps.
+            height += mask * (paperLayers![i * 3] - height);
+            color += mask * (paperLayers![i * 3 + 1] - color);
+            occlusion += mask * (0.98 - occlusion);
+            height -= 0.035 * undercut;
+            color -= 0.075 * undercut;
+            occlusion -= 0.18 * undercut;
+          }
+          height += pulp;
+          color += 0.07 * grain - 0.045 * fibers;
+          roughness += 0.025 * (grain - 0.5) + 0.015 * fibers;
+          occlusion -= 0.02 * fibers;
+        }
+        break;
+      }
       case 'cactus': {
         const x = u * 8,
           y = v * 8,
