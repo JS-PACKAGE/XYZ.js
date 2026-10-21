@@ -102,6 +102,25 @@ it('rejects invalid JSON instead of silently changing values', async () => {
   const shared = { value: 1 };
   expect(() => assertJsonValue([shared, shared])).not.toThrow();
 });
+it('names the offending JSON path, telling array indices from numeric keys', () => {
+  expect(() =>
+    assertJsonValue({ list: [1, { '0': [true, NaN] }], ok: 'yes' }),
+  ).toThrow('Invalid JSON value at $.list[1].0[1].');
+  expect(() => assertJsonValue([{}, { [Symbol('x')]: 1 }])).toThrow(
+    'JSON symbol key at $[1].',
+  );
+  expect(() =>
+    assertJsonValue({
+      inner: Object.defineProperty({ a: 1 }, 'b', {
+        get: () => 2,
+        enumerable: true,
+      }),
+    }),
+  ).toThrow('JSON requires enumerable data properties at $.inner.b.');
+  const cyclic: Record<string, unknown> = { a: [] };
+  (cyclic.a as unknown[]).push(cyclic);
+  expect(() => assertJsonValue(cyclic)).toThrow('JSON cycle at $.a[0].');
+});
 it('isolates namespaces including clear and enforces byte limits', async () => {
   const entries = new Map<string, string>();
   const a = new MemoryStorage('a', entries),

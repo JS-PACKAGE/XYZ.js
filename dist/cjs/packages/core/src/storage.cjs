@@ -8,24 +8,28 @@ var StorageError = class extends Error {
 	}
 };
 function assertJsonValue(e) {
-	let t = /* @__PURE__ */ new Set(), visit = (e, n) => {
+	let t = /* @__PURE__ */ new Set(), n = [], path = () => {
+		let e = `$`;
+		for (let t of n) e += typeof t == `number` ? `[${t}]` : `.${t}`;
+		return e;
+	}, visit = (e) => {
 		if (e !== null && typeof e != `string` && typeof e != `boolean` && !(typeof e == `number` && Number.isFinite(e))) {
-			if (typeof e != `object` || !e) throw new StorageError(`invalid`, `Invalid JSON value at ${n}.`);
-			if (t.has(e)) throw new StorageError(`invalid`, `JSON cycle at ${n}.`);
-			if (!Array.isArray(e) && Object.getPrototypeOf(e) !== Object.prototype && Object.getPrototypeOf(e) !== null) throw new StorageError(`invalid`, `JSON requires plain objects at ${n}.`);
-			if (t.add(e), Reflect.ownKeys(e).some((e) => typeof e == `symbol`)) throw new StorageError(`invalid`, `JSON symbol key at ${n}.`);
+			if (typeof e != `object` || !e) throw new StorageError(`invalid`, `Invalid JSON value at ${path()}.`);
+			if (t.has(e)) throw new StorageError(`invalid`, `JSON cycle at ${path()}.`);
+			if (!Array.isArray(e) && Object.getPrototypeOf(e) !== Object.prototype && Object.getPrototypeOf(e) !== null) throw new StorageError(`invalid`, `JSON requires plain objects at ${path()}.`);
+			if (t.add(e), Object.getOwnPropertySymbols(e).length) throw new StorageError(`invalid`, `JSON symbol key at ${path()}.`);
 			if (Array.isArray(e)) {
-				for (let t = 0; t < e.length; t++) visit(e[t], `${n}[${t}]`);
-				if (Object.keys(e).length !== e.length) throw new StorageError(`invalid`, `JSON array properties at ${n}.`);
+				for (let t = 0; t < e.length; t++) n.push(t), visit(e[t]), n.pop();
+				if (Object.keys(e).length !== e.length) throw new StorageError(`invalid`, `JSON array properties at ${path()}.`);
 			} else for (let t of Object.getOwnPropertyNames(e)) {
 				let r = Object.getOwnPropertyDescriptor(e, t);
-				if (!r.enumerable || !(`value` in r)) throw new StorageError(`invalid`, `JSON requires enumerable data properties at ${n}.${t}.`);
-				visit(r.value, `${n}.${t}`);
+				if (n.push(t), !r.enumerable || !(`value` in r)) throw new StorageError(`invalid`, `JSON requires enumerable data properties at ${path()}.`);
+				visit(r.value), n.pop();
 			}
 			t.delete(e);
 		}
 	};
-	visit(e, `$`);
+	visit(e);
 }
 function checkMutation(e, t) {
 	if (t.values !== null) {

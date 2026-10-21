@@ -19,14 +19,22 @@ export class StorageError extends Error {
 /** Reject values JSON would silently discard or coerce. Shared references are allowed. */
 export function assertJsonValue(value: unknown): asserts value is JsonValue {
   const ancestors = new Set<object>();
-  const visit = (item: unknown, path: string): void => {
+  // Path segments (array indices as numbers, keys as strings), formatted only for an error.
+  const segments: (number | string)[] = [];
+  const path = (): string => {
+    let text = '$';
+    for (const segment of segments)
+      text += typeof segment === 'number' ? `[${segment}]` : `.${segment}`;
+    return text;
+  };
+  const visit = (item: unknown): void => {
     if (item === null || typeof item === 'string' || typeof item === 'boolean')
       return;
     if (typeof item === 'number' && Number.isFinite(item)) return;
     if (typeof item !== 'object' || item === null)
-      throw new StorageError('invalid', `Invalid JSON value at ${path}.`);
+      throw new StorageError('invalid', `Invalid JSON value at ${path()}.`);
     if (ancestors.has(item))
-      throw new StorageError('invalid', `JSON cycle at ${path}.`);
+      throw new StorageError('invalid', `JSON cycle at ${path()}.`);
     if (
       !Array.isArray(item) &&
       Object.getPrototypeOf(item) !== Object.prototype &&
@@ -34,29 +42,38 @@ export function assertJsonValue(value: unknown): asserts value is JsonValue {
     )
       throw new StorageError(
         'invalid',
-        `JSON requires plain objects at ${path}.`,
+        `JSON requires plain objects at ${path()}.`,
       );
     ancestors.add(item);
-    if (Reflect.ownKeys(item).some((key) => typeof key === 'symbol'))
-      throw new StorageError('invalid', `JSON symbol key at ${path}.`);
+    if (Object.getOwnPropertySymbols(item).length)
+      throw new StorageError('invalid', `JSON symbol key at ${path()}.`);
     if (Array.isArray(item)) {
-      for (let i = 0; i < item.length; i++) visit(item[i], `${path}[${i}]`);
+      for (let i = 0; i < item.length; i++) {
+        segments.push(i);
+        visit(item[i]);
+        segments.pop();
+      }
       if (Object.keys(item).length !== item.length)
-        throw new StorageError('invalid', `JSON array properties at ${path}.`);
+        throw new StorageError(
+          'invalid',
+          `JSON array properties at ${path()}.`,
+        );
     } else {
       for (const key of Object.getOwnPropertyNames(item)) {
         const descriptor = Object.getOwnPropertyDescriptor(item, key)!;
+        segments.push(key);
         if (!descriptor.enumerable || !('value' in descriptor))
           throw new StorageError(
             'invalid',
-            `JSON requires enumerable data properties at ${path}.${key}.`,
+            `JSON requires enumerable data properties at ${path()}.`,
           );
-        visit(descriptor.value, `${path}.${key}`);
+        visit(descriptor.value);
+        segments.pop();
       }
     }
     ancestors.delete(item);
   };
-  visit(value, '$');
+  visit(value);
 }
 
 /** String storage scoped to a namespace. clear never affects other namespaces. */
