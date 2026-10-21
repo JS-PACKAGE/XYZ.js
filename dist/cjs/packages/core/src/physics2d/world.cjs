@@ -222,27 +222,29 @@ var PhysicsWorld2D = class {
 		let t = this.proxies.has(e) && this.owners.get(e.owner)?.group === e.group && e.owner.collider === e.group[0].collider && e.owner.body === e.body;
 		return e.livenessStamp = this.liveness, e.live = t, t;
 	}
-	emit(t, i) {
-		for (let a = 0; a < 2; a++) {
-			if (i !== `collisionend` && !this.continuation()) return;
-			let o = a ? t.b : t.a, s = a ? t.a : t.b;
-			if (o.owner.dispatchEvent === _ && require_scene_object.SceneObject.prototype.dispatchEvent === v && !require_event_observers.hasObjectEventObservers(o.owner, i) || !this.alive(o) || i !== `collisionend` && (!t.active || !this.alive(s))) continue;
-			let c = a ? -1 : 1, l = t.manifold, u = this.stepToken, d = {
-				self: o.owner,
-				other: s.owner,
-				normal: new require_index.Vector2(c * l.nx, c * l.ny),
-				points: snapshotPoints(l),
-				penetration: l.penetration,
-				sensor: t.sensor,
-				cancelResponse: () => {
-					i === `precollision` && this.stepping && this.stepToken === u && (t.cancelled = !0);
-				}
-			};
-			try {
-				o.owner.dispatchEvent(new CustomEvent(i, { detail: d }));
-			} finally {
-				this.liveness++;
+	emit(e, t) {
+		for (let i = 0; i < 2; i++) {
+			if (t !== `collisionend` && !this.continuation()) return;
+			let a = i ? e.b : e.a, o = i ? e.a : e.b;
+			(a.owner.dispatchEvent !== _ || require_scene_object.SceneObject.prototype.dispatchEvent !== v || require_event_observers.hasObjectEventObservers(a.owner, t)) && this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && this.dispatchCollision(e, t, a, o, i ? -1 : 1);
+		}
+	}
+	dispatchCollision(t, n, r, i, a) {
+		let o = t.manifold, s = this.stepToken, c = {
+			self: r.owner,
+			other: i.owner,
+			normal: new require_index.Vector2(a * o.nx, a * o.ny),
+			points: snapshotPoints(o),
+			penetration: o.penetration,
+			sensor: t.sensor,
+			cancelResponse: () => {
+				n === `precollision` && this.stepping && this.stepToken === s && (t.cancelled = !0);
 			}
+		};
+		try {
+			r.owner.dispatchEvent(new CustomEvent(n, { detail: c }));
+		} finally {
+			this.liveness++;
 		}
 	}
 	end(e) {

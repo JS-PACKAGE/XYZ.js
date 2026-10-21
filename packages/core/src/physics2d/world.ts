@@ -450,32 +450,40 @@ export class PhysicsWorld2D {
       if (!this.alive(self)) continue;
       if (name !== 'collisionend' && (!contact.active || !this.alive(other)))
         continue;
-      const sign = receiver ? -1 : 1,
-        m = contact.manifold;
-      const step = this.stepToken;
-      const detail: CollisionDetail = {
-        self: self.owner,
-        other: other.owner,
-        normal: new Vector2(sign * m.nx, sign * m.ny),
-        points: snapshotPoints(m),
-        penetration: m.penetration,
-        sensor: contact.sensor,
-        cancelResponse: () => {
-          if (
-            name === 'precollision' &&
-            this.stepping &&
-            this.stepToken === step
-          )
-            contact.cancelled = true;
-        },
-      };
-      try {
-        self.owner.dispatchEvent(
-          new CustomEvent<CollisionDetail>(name, { detail }),
-        );
-      } finally {
-        this.liveness++;
-      }
+      this.dispatchCollision(contact, name, self, other, receiver ? -1 : 1);
+    }
+  }
+  /**
+   * Kept out of `emit`: the `cancelResponse` closure captures its parameters, and a capture
+   * inside `emit` made every call (observed or not) allocate a context for them.
+   */
+  private dispatchCollision(
+    contact: Contact,
+    name: string,
+    self: Proxy,
+    other: Proxy,
+    sign: number,
+  ): void {
+    const m = contact.manifold;
+    const step = this.stepToken;
+    const detail: CollisionDetail = {
+      self: self.owner,
+      other: other.owner,
+      normal: new Vector2(sign * m.nx, sign * m.ny),
+      points: snapshotPoints(m),
+      penetration: m.penetration,
+      sensor: contact.sensor,
+      cancelResponse: () => {
+        if (name === 'precollision' && this.stepping && this.stepToken === step)
+          contact.cancelled = true;
+      },
+    };
+    try {
+      self.owner.dispatchEvent(
+        new CustomEvent<CollisionDetail>(name, { detail }),
+      );
+    } finally {
+      this.liveness++;
     }
   }
   private end(contact: Contact): void {

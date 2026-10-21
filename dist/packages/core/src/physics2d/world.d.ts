@@ -154,6 +154,11 @@ export declare class PhysicsWorld2D {
     unregister(owner: GameObject): void;
     private alive;
     private emit;
+    /**
+     * Kept out of `emit`: the `cancelResponse` closure captures its parameters, and a capture
+     * inside `emit` made every call (observed or not) allocate a context for them.
+     */
+    private dispatchCollision;
     private end;
     private forceState;
     /** @internal Sample frame forces even when no fixed tick is due. */
