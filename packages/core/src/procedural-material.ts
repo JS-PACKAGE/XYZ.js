@@ -79,6 +79,9 @@ export type ProceduralMaterialKind =
   | 'vinylrecord'
   | 'graphpaper'
   | 'notebookpaper'
+  | 'lace'
+  | 'crochet'
+  | 'basketweave'
   | 'sandstone'
   | 'travertine'
   | 'pumice'
@@ -282,6 +285,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'vinylrecord',
   'graphpaper',
   'notebookpaper',
+  'lace',
+  'crochet',
+  'basketweave',
   'sandstone',
   'travertine',
   'pumice',

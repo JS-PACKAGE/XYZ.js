@@ -97,6 +97,9 @@ const kinds: ProceduralMaterialKind[] = [
   'vinylrecord',
   'graphpaper',
   'notebookpaper',
+  'lace',
+  'crochet',
+  'basketweave',
   'sandstone',
   'travertine',
   'pumice',
@@ -3377,6 +3380,9 @@ describe('periodic procedural material fields', () => {
     ['vinylrecord', [3, 32, 52, 64]],
     ['graphpaper', [3, 12, 32, 64]],
     ['notebookpaper', [4, 8, 32, 48]],
+    ['lace', [6, 32, 48, 64]],
+    ['crochet', [6, 8, 32, 48]],
+    ['basketweave', [4, 8, 32, 64]],
     ['sandstone', [3, 5, 8, 19, 32, 64]],
     ['travertine', [3, 6, 12, 18, 32, 64]],
     ['pumice', [5, 26, 32, 64]],
@@ -3567,6 +3573,11 @@ describe('periodic procedural material fields', () => {
     ['graphpaper', 12],
     ['graphpaper', 3],
     ['notebookpaper', 8],
+    ['lace', 6],
+    ['crochet', 8],
+    ['crochet', 6],
+    ['basketweave', 8],
+    ['basketweave', 4],
     ['orangepeel', 24],
     ['coconut', 8],
     ['coconut', 40],
@@ -6614,6 +6625,101 @@ describe('periodic procedural material fields', () => {
       expect(margin.height).toBeLessThan(paper.height);
       expect(rule.height).toBeLessThan(paper.height);
       expect(paper.height).toBeGreaterThan(hole + 0.2 * relief);
+    }
+  });
+
+  it('lace crosses diagonal threads above its diamond voids', () => {
+    const relief = proceduralMaterialPresets.lace.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const thread = { ...surface },
+      void_ = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('lace', seed);
+      // (0.5, 0.5) crosses both thread families; the offset point sits
+      // on one diagonal only; the shallow pocket is the diamond void.
+      sample(0.5, 0.5, surface);
+      sample(0.5 + 1 / 24, 0.5 - 1 / 24, thread);
+      sample(1 / 6, 1 / 12, void_);
+      expect(surface.height).toBeGreaterThan(thread.height + 0.05 * relief);
+      expect(thread.height).toBeGreaterThan(void_.height + 0.05 * relief);
+      expect(surface.occlusion).toBeGreaterThan(thread.occlusion);
+      expect(thread.occlusion).toBeGreaterThan(void_.occlusion);
+    }
+  });
+
+  it('crochet raises offset loop rows above the recessed gaps', () => {
+    const relief = proceduralMaterialPresets.crochet.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const rowOne = { ...surface },
+      off = { ...surface },
+      gap = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('crochet', seed);
+      sample(1 / 16, 1 / 12, surface);
+      sample(0.25, 0.25, rowOne);
+      sample(1 / 16, 0.25, off);
+      sample(1 / 8, 1 / 6, gap);
+      // Both rows top out equally, but the upper row shifts half a cell.
+      expect(surface.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(rowOne.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(rowOne.height).toBeGreaterThan(off.height + 0.1 * relief);
+      expect(Math.abs(surface.height - rowOne.height)).toBeLessThan(
+        0.05 * relief,
+      );
+      expect(surface.occlusion).toBeGreaterThan(gap.occlusion);
+      expect(rowOne.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('basketweave alternates strip directions and crests ridges', () => {
+    const relief = proceduralMaterialPresets.basketweave.relief;
+    const surface: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const shoulder = { ...surface },
+      gap = { ...surface },
+      along = { ...surface };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('basketweave', seed);
+      // Block parity 0 lays strips along u; parity 1 turns them along v.
+      sample(1 / 8, 1 / 16, surface);
+      sample(1 / 8, 1 / 16 + 1 / 32, shoulder);
+      sample(1 / 8, 0, gap);
+      sample(1 / 8 + 1 / 32, 1 / 16, along);
+      expect(surface.height).toBeGreaterThan(shoulder.height + 0.06 * relief);
+      expect(shoulder.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      // The crest stays level along its strip but drops across it.
+      expect(Math.abs(surface.height - along.height)).toBeLessThan(
+        0.05 * relief,
+      );
+      sample(5 / 16, 1 / 8, surface);
+      sample(5 / 16, 1 / 8 + 1 / 32, along);
+      sample(5 / 16 + 1 / 32, 1 / 8, shoulder);
+      expect(Math.abs(surface.height - along.height)).toBeLessThan(
+        0.05 * relief,
+      );
+      expect(surface.height).toBeGreaterThan(shoulder.height + 0.06 * relief);
+      expect(surface.occlusion).toBeGreaterThan(shoulder.occlusion);
+      expect(shoulder.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

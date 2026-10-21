@@ -3607,7 +3607,6 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - `[Visibility]` BVH 走訪的節點視錐測試改呼叫新增的 internal `Frustum.intersectsBounds(box)`（直接讀節點邊界）；遞迴的 gather 不會被內聯，原本傳給 `intersectsBox` 的六個 double 每個節點都被裝箱。`intersectsBox` 改為寫入共用 scratch 後委派，判定完全相同；新增測試涵蓋貼邊、各平面外側與非有限值仍可見，相關 mutation 皆失敗。穩態（暖機 12 s）WebGL2 每幀配置 objects3d 15.3 → 13.4 KB、world-visibility 16.4 → 14.8 KB，屬配置減少。WebGL2／WebGPU browser regression 通過；build 與完整測試（2065 通過；fallback 兩測與已知不穩定的 shader variant 測試在高負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[Physics2D]` 每步的 `sorted` 清單改以計數覆寫、迴圈結束（含例外）時一次截斷，不再 `length = 0` 後重新長大；sweep 順序改用插入排序（沿用上一步、幾乎已排序），位移超過 8n 時恢復排列並交給 `Array#sort`。`compareBounds` 在有限邊界與唯一 registration 下是嚴格全序，任何正確排序結果都相同：p2ha（-834211072）、crowd（1923165952）雜湊不變，每步隨機瞬移 0／1／20／100% 物體的對拍雜湊與原版相同。新增測試讓 60 個 sensor 一次反轉 sweep 順序（觸發退回路徑），鄰接接觸仍為 59；拿掉恢復排列的 mutant 會失敗。穩態（暖機 12 s）tilemap2d WebGL2 每幀配置 14.3 → 3.5 KB，屬配置減少；Node 同程序 A/B 1500 物體每步 3.5–4.3 → 3.3–3.6 ms（負載雜訊大）。WebGL2 browser regression 通過；build 與完整測試（2075 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 - `[ECS]` `World.query()` 在最小的元件 store 不到實體數一半時，改以該 store 的成員（檢查其餘 store、依 id 排序；id 遞增即實體 Set 的順序）產生結果，而非走訪全部實體；新增 membership revision（建立／移除實體、加入／移除元件時遞增），兩次 yield 之間若有變動，就從最後一個已 yield 的實體之後改回原本的即時全走訪，與原語意相同。Node 對拍 400 組隨機操作（迭代中途建立／移除實體、增刪元件）結果全同；20k 實體、100 個相符時每次查詢 1259 → 12 µs，屬 CPU 時間。新增測試涵蓋亂序加入、迭代中加入／移除元件、建立與移除實體；移除 revision 遞增、排序或續走條件的 mutant 皆失敗。build 與完整測試（2088 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
-- `[Visibility]` 3D 可見性收集時，一旦已知有變更就只複製 pose／邊界戳記而不再逐值比較（`changed`／`boundsChanged` 一經成立即不再改變）；BVH refit 改為依前序建構的節點陣列倒序走訪（子節點先於父節點），取代遞迴。結果、epoch、refit 與剔除計數不變（Node 4352 個網格對拍雜湊相同）。新增測試在一個不影響邊界的變更之後移動兩個葉節點進入視野再移出，倒序或比較捷徑的 mutant 皆失敗。production visibility（WebGL2、high）剖析中可見性收集佔 CPU busy 27.2–27.8% → 23.7–24.4%；Node 同程序 1.47–1.76 → 1.31–1.40 ms／幀，屬 CPU 時間。WebGL2／WebGPU browser regression 通過；build 與完整測試（2089 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。
 
 ## 程序材質擴充：核桃、花生與杏仁外殼
 
@@ -3643,3 +3642,44 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   PLAN／DESIGN；本組沒有新增連結，不改寫既有歷史段落與驗收數。
   不新增 runtime 依賴，不擴大瀏覽器、Canvas2D 3D 或裝置認證；
   僅提交本功能與對應發佈產物，不 push。
+
+## 程序材質擴充：編織工藝（lace／crochet／basketweave）
+
+- 新增對角線網紋交叉於菱形網眼之上並在交叉處鼓起的蕾絲（lace）、
+  交錯半格位移的隆起線圈列墊在凹陷之上的鉤織（crochet）、
+  依區塊交替鋪向且條帶中央隆起凸脊的籃織（basketweave）。
+  本組提交快照由 171 增為 174 種（與 gallery 狀態列 174 presets
+  一致）；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，
+  僅為表面 shading，不新增線材、毛線或藤編 geometry，
+  也不做 displacement。
+- 原 171 種在 size 64／seed 7 下四份 maps SHA256 全部不變
+  （以 HEAD 乾淨工作樹重建基準逐位元組比對，changed 0）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check
+  通過；typecheck 僅報共享 HEAD 既有
+  `tests/sprite-quad-validation.test.ts:13` 缺少 `destroy` 欄位
+  （6cefe730 引入，基準樹重現相同錯誤），本組檔案無型別錯誤，
+  未改動或提交該檔。完整 Vitest 2118 個測試中 2115 通過；
+  3 個失敗為 fallback.test.ts 兩個（跨測試干擾：單獨重跑通過、
+  基準樹重跑亦通過）與既有已知不穩定的 mesh-shader-variants
+  （單獨重跑通過），與前批同組已知失敗。
+  蕾絲網紋交會高於單線與網眼、鉤織線圈高於錯位凹陷與列間縫隙、
+  籃織凸脊高於條帶肩部與條帶間凹陷且相鄰區塊鋪向互換、
+  場域值域有界、週期邊界與 owned cell 邊界斜率連續性皆納入回歸；
+  實作期間以逐點探針定位並修掉 lace 的 max 折點與 basketweave
+  區塊邊界值跳變。
+- 獨立 Chrome WebGPU／WebGL2 gallery（174 種）逐一切換三者：
+  場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，
+  無 page／console errors，狀態列確認實際 backend。
+  check:material-reference 通過（negativeRejected 兩後端皆拒斥），
+  regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序
+  131–164／211–236／184–212；每米 repeats 依序
+  4.166667／5.555556／2.777778。
+- 共享工作目錄同時有其他行程的提交與未提交修改（花瓣與果殼
+  材質批次、ECS／Visibility／Rendering 等提交）；本組以檔案級
+  篩選只收本組 source／docs／examples／tests 與對應 dist，
+  同步的其他修改不納入本組。同步中／英／日說明、
+  PLAN／DESIGN 與技術文件；本組沒有新增連結。
+  不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。
+- `[Visibility]` 3D 可見性收集時，一旦已知有變更就只複製 pose／邊界戳記而不再逐值比較（`changed`／`boundsChanged` 一經成立即不再改變）；BVH refit 改為依前序建構的節點陣列倒序走訪（子節點先於父節點），取代遞迴。結果、epoch、refit 與剔除計數不變（Node 4352 個網格對拍雜湊相同）。新增測試在一個不影響邊界的變更之後移動兩個葉節點進入視野再移出，倒序或比較捷徑的 mutant 皆失敗。production visibility（WebGL2、high）剖析中可見性收集佔 CPU busy 27.2–27.8% → 23.7–24.4%；Node 同程序 1.47–1.76 → 1.31–1.40 ms／幀，屬 CPU 時間。WebGL2／WebGPU browser regression 通過；build 與完整測試（2089 通過；fallback 兩測與已知不穩定的 shader variant 測試在負載下逾時，單獨重跑 13 個通過）在 HEAD 匯出副本執行。

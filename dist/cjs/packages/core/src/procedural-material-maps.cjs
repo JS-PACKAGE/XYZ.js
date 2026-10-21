@@ -1345,6 +1345,21 @@ function createSurfaceSampler(t, r) {
 				V = .9 - .3 * n - .26 * i - .5 * a + .06 * s, U = .82 - .2 * n - .22 * i - .5 * a + .03 * s, Q += .04 * (s - .5) + .03 * n, $ = 1 - .1 * n - .12 * i - .4 * a;
 				break;
 			}
+			case `lace`: {
+				let t = fract((e + o) * 6), n = fract((e - o) * 6), i = smooth(clamp((.14 - Math.min(t, 1 - t)) / .07)), a = smooth(clamp((.14 - Math.min(n, 1 - n)) / .07)), s = i + a - i * a, c = i * a, l = noise(e, o, 48, 48, r ^ 7231);
+				V = .58 + .32 * s + .05 * l, U = .5 + .32 * s + .12 * c + .02 * l, Q += .05 * (l - .5) - .08 * s, $ = 1 - .5 * (1 - s) - .14 * (1 - c);
+				break;
+			}
+			case `crochet`: {
+				let t = Math.floor(o * 6) % 2 * .5, n = fract(e * 8 + t) - .5, i = fract(o * 6) - .5, s = smooth(clamp((.44 - Math.sqrt(n * n + 1.4 * i * i)) / .12)), c = noise(e, o, 40, 40, r ^ 23063);
+				V = .58 + .34 * s + .05 * c, U = .45 + .4 * s + .02 * c, Q += .05 * (c - .5) - .05 * s, $ = 1 - .55 * (1 - s);
+				break;
+			}
+			case `basketweave`: {
+				let t = fract(e * 4), n = fract(o * 4), i = smooth(clamp((Math.min(t, 1 - t) - .06) / .1)) * smooth(clamp((Math.min(n, 1 - n) - .06) / .1)), s = fract((Math.floor(e * 4) + Math.floor(o * 4)) % 2 ? e * 8 : o * 8), c = smooth(clamp((Math.min(s, 1 - s) - .06) / .1)), l = smooth(clamp((.14 - Math.abs(s - .5)) / .07)), u = noise(e, o, 32, 32, r ^ 26334);
+				V = .5 + i * (.28 * c + .12 * l) + .06 * u, U = .42 + i * (.36 * c + .14 * l) + .02 * u, Q += .06 * (u - .5) - .05 * i * l, $ = 1 - .55 * (1 - i * c) - .16 * (1 - i * l);
+				break;
+			}
 			case `sandstone`: {
 				let t = noise(e, o, 3, 5, r ^ 26941), i = o + .055 * (t - .5), s = .5 + .5 * Math.sin(8 * i * n + a), c = (.5 + .5 * Math.sin(19 * i * n + a)) ** 6, l = noise(e, o, 8, 3, r ^ 19735), u = smooth(clamp((B - .28) / .48)), d = (1 - B) ** 5;
 				V = .22 + .35 * s + .2 * l + .18 * u - .2 * c, U = .32 + .16 * s - .09 * c + .24 * u - .1 * d, Q += .12 * (u - .5) + .05 * c, $ = .97 - .12 * c - .13 * d + .025 * u;

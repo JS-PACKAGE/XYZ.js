@@ -4592,6 +4592,56 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.1 * rule - 0.12 * margin - 0.4 * holes;
         break;
       }
+      case 'lace': {
+        // Two diagonal thread families cross above the diamond voids.
+        const a = fract((u + v) * 6),
+          b = fract((u - v) * 6);
+        const threadA = smooth(clamp((0.14 - Math.min(a, 1 - a)) / 0.07));
+        const threadB = smooth(clamp((0.14 - Math.min(b, 1 - b)) / 0.07));
+        const net = threadA + threadB - threadA * threadB;
+        const crossings = threadA * threadB;
+        const fiber = noise(u, v, 48, 48, seed ^ 0x1c3f);
+        color = 0.58 + 0.32 * net + 0.05 * fiber;
+        height = 0.5 + 0.32 * net + 0.12 * crossings + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.08 * net;
+        occlusion = 1 - 0.5 * (1 - net) - 0.14 * (1 - crossings);
+        break;
+      }
+      case 'crochet': {
+        // Plush loops sit on half-cell-offset rows above the recessed gaps.
+        const row = Math.floor(v * 6);
+        const offset = (row % 2) * 0.5;
+        const du = fract(u * 8 + offset) - 0.5,
+          dv = fract(v * 6) - 0.5;
+        const radius = Math.sqrt(du * du + 1.4 * dv * dv);
+        const loop = smooth(clamp((0.44 - radius) / 0.12));
+        const fiber = noise(u, v, 40, 40, seed ^ 0x5a17);
+        color = 0.58 + 0.34 * loop + 0.05 * fiber;
+        height = 0.45 + 0.4 * loop + 0.02 * fiber;
+        roughness += 0.05 * (fiber - 0.5) - 0.05 * loop;
+        occlusion = 1 - 0.55 * (1 - loop);
+        break;
+      }
+      case 'basketweave': {
+        // Strips change direction per block; block borders fade to gaps.
+        const bu = fract(u * 4),
+          bv = fract(v * 4);
+        const fadeU = smooth(clamp((Math.min(bu, 1 - bu) - 0.06) / 0.1));
+        const fadeV = smooth(clamp((Math.min(bv, 1 - bv) - 0.06) / 0.1));
+        const fade = fadeU * fadeV;
+        const blockParity = (Math.floor(u * 4) + Math.floor(v * 4)) % 2;
+        const across = blockParity ? fract(u * 8) : fract(v * 8);
+        const strip = smooth(
+          clamp((Math.min(across, 1 - across) - 0.06) / 0.1),
+        );
+        const ridge = smooth(clamp((0.14 - Math.abs(across - 0.5)) / 0.07));
+        const fiber = noise(u, v, 32, 32, seed ^ 0x66de);
+        color = 0.5 + fade * (0.28 * strip + 0.12 * ridge) + 0.06 * fiber;
+        height = 0.42 + fade * (0.36 * strip + 0.14 * ridge) + 0.02 * fiber;
+        roughness += 0.06 * (fiber - 0.5) - 0.05 * fade * ridge;
+        occlusion = 1 - 0.55 * (1 - fade * strip) - 0.16 * (1 - fade * ridge);
+        break;
+      }
       case 'sandstone': {
         const warp = noise(u, v, 3, 5, seed ^ 0x693d);
         const bedding = v + 0.055 * (warp - 0.5);
