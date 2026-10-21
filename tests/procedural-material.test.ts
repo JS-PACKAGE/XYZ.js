@@ -78,6 +78,9 @@ const kinds: ProceduralMaterialKind[] = [
   'acousticfoam',
   'closedcellfoam',
   'linoleum',
+  'suede',
+  'snakeskin',
+  'crocodile',
 ];
 
 class TestImageData {
@@ -289,6 +292,9 @@ describe('periodic procedural material fields', () => {
     ['acousticfoam', [4, 32, 96]],
     ['closedcellfoam', [28, 32]],
     ['linoleum', [4, 5, 8, 32, 48]],
+    ['suede', [5, 7, 24, 32, 80, 96]],
+    ['snakeskin', [10, 12, 20, 24, 32]],
+    ['crocodile', [4, 6, 9, 11, 32]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -346,6 +352,11 @@ describe('periodic procedural material fields', () => {
     ['acousticfoam', 4],
     ['closedcellfoam', 28],
     ['linoleum', 1],
+    ['suede', 96],
+    ['snakeskin', 10],
+    ['snakeskin', 12],
+    ['crocodile', 4],
+    ['crocodile', 6],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -697,6 +708,94 @@ describe('periodic procedural material fields', () => {
         }
     }
   });
+
+  it.each(['snakeskin', 'crocodile'] as const)(
+    '%s has raised embossed centers above recessed gaps on both axes',
+    (kind) => {
+      const center: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const gap = { ...center };
+      const columns = kind === 'snakeskin' ? 10 : 4,
+        rows = kind === 'snakeskin' ? 12 : 6;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (let row = 0; row < rows; row++)
+          for (let column = 0; column < columns; column++) {
+            const stagger = kind === 'snakeskin' ? (row % 2) * 0.5 : 0;
+            const u = (column + stagger + 0.5) / columns,
+              v = (row + 0.5) / rows;
+            sample(u, v, center);
+            sample(u + 0.5 / columns, v, gap);
+            expect(center.height).toBeGreaterThan(gap.height);
+            expect(center.occlusion).toBeGreaterThan(gap.occlusion);
+            // Pointed staggered scales extend into the next row, so their
+            // transverse gap lies between offset owners rather than at a T joint.
+            sample(
+              u + (kind === 'snakeskin' ? 0.25 / columns : 0),
+              v + 0.5 / rows,
+              gap,
+            );
+            expect(center.height).toBeGreaterThan(gap.height);
+            expect(center.occlusion).toBeGreaterThan(gap.occlusion);
+          }
+      }
+    },
+  );
+  it.each(['snakeskin', 'crocodile'] as const)(
+    '%s meets the recessed skin with continuous slopes at rounded compact support',
+    (kind) => {
+      const a: SurfaceSample = {
+        color: 0,
+        height: 0,
+        roughness: 0,
+        occlusion: 0,
+        mortar: 0,
+        metallic: 0,
+      };
+      const columns = kind === 'snakeskin' ? 10 : 4,
+        rows = kind === 'snakeskin' ? 12 : 6;
+      const epsilon = 1e-7;
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler(kind, seed);
+        for (const row of [0, 1, 3]) {
+          const u =
+              (0.5 + (kind === 'snakeskin' ? (row % 2) * 0.5 : 0)) / columns,
+            v = (row + 0.5) / rows;
+          sample(u + 0.5 / columns, v, a);
+          const floorOcclusion = a.occlusion;
+          let inside = u,
+            outside = u + 0.5 / columns;
+          // Locate the actual seeded shoulder, not a pinned radius or relief.
+          for (let step = 0; step < 48; step++) {
+            const middle = (inside + outside) / 2;
+            sample(middle, v, a);
+            if (a.occlusion > floorOcclusion) inside = middle;
+            else outside = middle;
+          }
+          const boundary = (inside + outside) / 2;
+          for (const [du, dv] of [
+            [epsilon, 0],
+            [0, epsilon],
+          ]) {
+            sample(boundary - du, v - dv, a);
+            const left = a.height;
+            sample(boundary + du, v + dv, a);
+            const right = a.height;
+            sample(boundary, v, a);
+            expect(
+              Math.abs(right - 2 * a.height + left) / epsilon,
+            ).toBeLessThan(0.001);
+          }
+        }
+      }
+    },
+  );
 
   it('every preset produces a different base color', () => {
     const signatures = kinds.map((kind) =>

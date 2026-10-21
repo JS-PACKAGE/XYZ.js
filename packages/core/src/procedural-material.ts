@@ -60,7 +60,10 @@ export type ProceduralMaterialKind =
   | 'endgrain'
   | 'acousticfoam'
   | 'closedcellfoam'
-  | 'linoleum';
+  | 'linoleum'
+  | 'suede'
+  | 'snakeskin'
+  | 'crocodile';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -147,6 +150,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'acousticfoam',
   'closedcellfoam',
   'linoleum',
+  'suede',
+  'snakeskin',
+  'crocodile',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

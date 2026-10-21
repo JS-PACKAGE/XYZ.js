@@ -331,6 +331,24 @@ export const proceduralMaterialPresets = Object.freeze({
     roughness: 0.54,
     relief: 0.0008,
   }),
+  suede: Object.freeze({
+    dark: [102, 64, 34] as const,
+    light: [207, 165, 111] as const,
+    roughness: 0.91,
+    relief: 0.0007,
+  }),
+  snakeskin: Object.freeze({
+    dark: [42, 39, 19] as const,
+    light: [147, 139, 78] as const,
+    roughness: 0.57,
+    relief: 0.0024,
+  }),
+  crocodile: Object.freeze({
+    dark: [28, 17, 11] as const,
+    light: [114, 76, 43] as const,
+    roughness: 0.62,
+    relief: 0.0045,
+  }),
 });
 
 /** One generated UV tile covers this many meters at repeats = 1. */
@@ -389,6 +407,9 @@ export const proceduralTileMeters = Object.freeze({
   acousticfoam: 0.6,
   closedcellfoam: 0.084,
   linoleum: 0.6,
+  suede: 0.12,
+  snakeskin: 0.16,
+  crocodile: 0.24,
 });
 
 /** Preserve the published normalized finish thickness; native packing uses nanometers. */

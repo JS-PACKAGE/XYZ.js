@@ -2598,3 +2598,23 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   repeats 與 destroy 後四份 textures 釋放均通過。
 - 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
   實體裝置認證。同步的其他最佳化修改不納入本組。
+
+## 程序材質擴充：皮革飾面（suede／snakeskin／crocodile）
+
+- 新增短刷絨麂皮、錯列尖端鱗紋皮革與圓角矩形鱗板壓紋皮革，
+  tile 尺寸依序 0.12／0.16／0.24 m。皆 opaque dielectric，
+  為合成表面紋理，不建立動物 geometry 或 displacement。
+  gallery／API 文件同步至 57 種；README 既有分類維持不變。
+- 首次 build 遇到同步修改中的 WebGPU pipeline 缺少 MeshShaderFeatures
+  import；該 import 隨後已由同步修改補齊，本組未改 renderer。
+  重新執行 build、typecheck、lint、format:check 全部通過，
+  單 worker 完整 176 檔／1585 tests 通過。
+- 鱗紋中心相對凹隙高度／遮蔽與 seeded 支撐邊界斜率納入回歸；
+  前五十四種預設在 size 64／seed 7 的四份 maps SHA256 全數不變。
+- managed Chromium WebGPU／WebGL2 gallery 逐一選取三者，固定光源後
+  截圖 hash 各異、無 page errors。正式 root API 的 256px／seed 7、
+  2×2 平鋪圖確認刷絨、尖端鱗紋與鱗板差異；metallic 全為 0，
+  roughness bytes 依序 219–245／132–182／153–191；
+  repeats 與 destroy 後四份 textures 釋放均通過。
+- 依授權獨立 commit、不 push；不新增 runtime 依賴，不擴大跨瀏覽器或
+  實體裝置認證。同步的其他最佳化修改不納入本組。

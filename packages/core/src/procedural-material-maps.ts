@@ -94,6 +94,16 @@ export function createSurfaceSampler(
         foamCells[offset + 2] = 1 / (radius * radius);
         foamCells[offset + 3] = variation;
       }
+  const hideColumns = kind === 'snakeskin' ? 10 : 4;
+  const hideRows = kind === 'snakeskin' ? 12 : 6;
+  const hideCells =
+    kind === 'snakeskin' || kind === 'crocodile'
+      ? new Float64Array(hideColumns * hideRows)
+      : null;
+  if (hideCells)
+    for (let y = 0; y < hideRows; y++)
+      for (let x = 0; x < hideColumns; x++)
+        hideCells[y * hideColumns + x] = hash(x, y, seed ^ 0x73b9);
   const needsBroad = kind === 'stone' || kind === 'metal' || kind === 'marble';
   const needsFine =
     kind === 'brick' ||
@@ -254,6 +264,98 @@ export function createSurfaceSampler(
         height = 0.12 + 0.72 * pebble + 0.06 * detail;
         roughness += 0.16 * (1 - pebble) + 0.04 * (detail - 0.5);
         occlusion = 0.55 + 0.45 * pebble;
+        break;
+      }
+      case 'suede': {
+        const brush = noise(u, v, 5, 7, seed ^ 0x3d17);
+        const nap = noise(
+          u + 0.012 * brush,
+          v + 0.004 * brush,
+          96,
+          24,
+          seed ^ 0x5e31,
+        );
+        const pores = smooth(
+          clamp((noise(u, v, 80, 80, seed ^ 0x7a63) - 0.57) / 0.35),
+        );
+        // Short directional pile is a continuous brushed field, not isolated
+        // long felt fibers or the coarse raised pebbles of leather.
+        color = 0.23 + 0.36 * brush + 0.25 * nap + 0.1 * detail - 0.08 * pores;
+        height = 0.35 + 0.075 * nap + 0.025 * brush - 0.045 * pores;
+        roughness += 0.075 * (nap - 0.5) + 0.035 * (brush - 0.5);
+        occlusion = 0.985 - 0.035 * pores + 0.01 * nap;
+        break;
+      }
+      case 'snakeskin': {
+        const x = u * 10,
+          y = v * 12;
+        const row = Math.floor(y);
+        let scales = 0,
+          crowns = 0,
+          keels = 0,
+          pigment = 0;
+        // Rounded pointed diamonds have compact, disjoint support. Even rows
+        // wrap the stagger; owner pigment and keel vanish at each folded rim.
+        for (let oy = -1; oy <= 1; oy++) {
+          const cy = row + oy;
+          const stagger = (((cy % 2) + 2) % 2) * 0.5;
+          const column = Math.floor(x - stagger);
+          for (let ox = -1; ox <= 1; ox++) {
+            const cx = column + ox;
+            const wx = ((cx % 10) + 10) % 10,
+              wy = ((cy % 12) + 12) % 12;
+            const variation = hideCells![wy * 10 + wx];
+            const dx = x - cx - stagger - 0.5,
+              dy = y - cy - 0.5;
+            if (Math.abs(dx) >= 0.48 || Math.abs(dy) >= 0.64) continue;
+            const distance =
+              Math.sqrt(dx * dx + 0.0016) / (0.46 + 0.02 * variation) +
+              Math.sqrt(dy * dy + 0.0016) / (0.61 + 0.03 * variation);
+            const cap = clamp(1 - distance);
+            if (cap === 0) continue;
+            const face = smooth(clamp(cap / 0.18));
+            const crown = cap * cap;
+            const keel = crown * Math.exp(-dx * dx * 180);
+            scales += face;
+            crowns += crown;
+            keels += keel;
+            pigment += face * variation;
+          }
+        }
+        color =
+          0.13 + 0.4 * scales + 0.2 * pigment + 0.1 * crowns + 0.04 * detail;
+        height =
+          0.04 + 0.64 * scales + 0.2 * crowns + 0.065 * keels + 0.012 * detail;
+        roughness +=
+          0.12 * (1 - scales) - 0.045 * crowns + 0.045 * (detail - 0.5);
+        occlusion = 0.57 + 0.41 * scales + 0.015 * crowns;
+        break;
+      }
+      case 'crocodile': {
+        const x = u * 4,
+          y = v * 6;
+        const column = Math.floor(x),
+          row = Math.floor(y);
+        const variation = hideCells![row * 4 + column];
+        const dx = (fract(x) - 0.5) / (0.445 + 0.025 * variation),
+          dy = (fract(y) - 0.5) / (0.445 + 0.02 * variation);
+        const cap = clamp(1 - dx * dx * dx * dx - dy * dy * dy * dy);
+        const face = smooth(clamp(cap / 0.36));
+        const warp = noise(u, v, 9, 11, seed ^ 0x2f53);
+        const fold = Math.pow(
+          0.5 + 0.5 * Math.sin(TAU * (19 * u + 13 * v + 1.7 * warp) + phase),
+          12,
+        );
+        // Superelliptic scutes have rounded corners and domed embossed faces.
+        // Irregular fine wrinkles cross them, unlike running-bond brick joints.
+        color =
+          0.12 + face * (0.37 + 0.22 * variation + 0.1 * detail - 0.12 * fold);
+        height =
+          0.035 +
+          face * (0.64 + 0.17 * cap * cap + 0.035 * variation - 0.065 * fold);
+        roughness +=
+          0.13 * (1 - face) + face * (0.055 * fold + 0.04 * (detail - 0.5));
+        occlusion = 0.53 + face * (0.46 - 0.055 * fold);
         break;
       }
       case 'sand': {
