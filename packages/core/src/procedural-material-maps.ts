@@ -105,6 +105,50 @@ export function createSurfaceSampler(
     motifSin = Math.sin(motifAngle);
   const endgrainCenterU = kind === 'endgrain' ? hash(0, 0, seed ^ 0x3b17) : 0;
   const endgrainCenterV = kind === 'endgrain' ? hash(0, 0, seed ^ 0x5d29) : 0;
+  // Four dark/four light yarns woven in 2/2 twill produce broken-check teeth.
+  // Reconstruct yarn-center pigments smoothly, rather than hard pixel masks.
+  const toothYarns = kind === 'houndstooth' ? new Float64Array(64) : null;
+  if (toothYarns)
+    for (let y = 0; y < 8; y++)
+      for (let x = 0; x < 8; x++)
+        toothYarns[y * 8 + x] = ((x - y + 8) % 4 < 2 ? x : y) < 4 ? 0 : 1;
+  // Compact Cartesian petals and paired leaves; transforms are sampler-owned.
+  const damaskLobes = kind === 'damask' ? new Float64Array(12 * 6) : null;
+  if (damaskLobes) {
+    for (let i = 0; i < 12; i++) {
+      let x = 0,
+        y = -0.18,
+        angle = 0,
+        length = 0.065,
+        width = 0.065;
+      if (i < 6) {
+        angle = (TAU * i) / 6 + Math.PI / 2;
+        x = 0.085 * Math.cos(angle);
+        y += 0.085 * Math.sin(angle);
+        length = 0.12;
+        width = 0.055;
+      } else if (i < 10) {
+        const side = i % 2 === 0 ? -1 : 1;
+        x = side * (i < 8 ? 0.115 : 0.09);
+        y = i < 8 ? 0.095 : 0.275;
+        angle = side * -0.65;
+        length = i < 8 ? 0.145 : 0.115;
+        width = 0.06;
+      } else if (i === 11) {
+        y = 0.12;
+        angle = Math.PI / 2;
+        length = 0.26;
+        width = 0.018;
+      }
+      const offset = i * 6;
+      damaskLobes[offset] = x;
+      damaskLobes[offset + 1] = y;
+      damaskLobes[offset + 2] = Math.cos(angle);
+      damaskLobes[offset + 3] = Math.sin(angle);
+      damaskLobes[offset + 4] = 1 / length;
+      damaskLobes[offset + 5] = 1 / width;
+    }
+  }
   // Cell geometry is immutable for this sampler, not rehashed for every texel.
   const foamCells =
     kind === 'closedcellfoam' ? new Float64Array(28 * 28 * 4) : null;
@@ -2052,6 +2096,102 @@ export function createSurfaceSampler(
           0.42 * thread + 0.24 * (1 - exposure) + 0.06 * fiber + 0.08 * slub;
         roughness += 0.06 * (detail - 0.5) + 0.04 * (1 - thread);
         occlusion = 0.78 + 0.18 * thread + 0.04 * fiber;
+        break;
+      }
+      case 'houndstooth': {
+        const x = 32 * u,
+          y = 32 * v,
+          ix = Math.floor(x) % 8,
+          iy = Math.floor(y) % 8,
+          sx = smooth(fract(x)),
+          sy = smooth(fract(y)),
+          nx = (ix + 1) % 8,
+          ny = (iy + 1) % 8;
+        const a = toothYarns![iy * 8 + ix],
+          b = toothYarns![iy * 8 + nx],
+          c = toothYarns![ny * 8 + ix],
+          d = toothYarns![ny * 8 + nx];
+        const pigment = (a + (b - a) * sx) * (1 - sy) + (c + (d - c) * sx) * sy;
+        const over = 0.5 + 0.5 * Math.cos((TAU * (x - y)) / 4),
+          warp = 0.5 + 0.5 * Math.cos(TAU * x),
+          weft = 0.5 + 0.5 * Math.cos(TAU * y),
+          thread = warp * over + weft * (1 - over);
+        const fiber =
+          0.5 +
+          0.25 * Math.cos(TAU * 96 * u + phase) +
+          0.25 * Math.cos(TAU * 96 * v - phase);
+        color = 0.025 + 0.88 * pigment + 0.045 * thread + 0.03 * detail;
+        height = 0.2 + 0.19 * thread + 0.025 * fiber + 0.02 * detail;
+        roughness += 0.04 * (detail - 0.5) + 0.025 * (1 - thread);
+        occlusion = 0.86 + 0.12 * thread;
+        break;
+      }
+      case 'tartan': {
+        const x = 2 * u,
+          y = 2 * v;
+        const broadWarp = smooth(clamp((Math.cos(TAU * x) + 0.15) / 0.55)),
+          broadWeft = smooth(clamp((Math.cos(TAU * y) + 0.15) / 0.55)),
+          fineWarp = smooth(clamp((Math.cos(TAU * (x + 0.25)) - 0.96) / 0.04)),
+          fineWeft = smooth(clamp((Math.cos(TAU * (y + 0.25)) - 0.96) / 0.04)),
+          doubleWarp = smooth(clamp((Math.cos(TAU * 2 * x) - 0.9) / 0.1)),
+          doubleWeft = smooth(clamp((Math.cos(TAU * 2 * y) - 0.9) / 0.1));
+        const warpPigment =
+            0.13 + 0.35 * broadWarp + 0.36 * fineWarp + 0.1 * doubleWarp,
+          weftPigment =
+            0.13 + 0.35 * broadWeft + 0.36 * fineWeft + 0.1 * doubleWeft;
+        const over = smooth(
+            clamp(0.5 + 0.8 * Math.cos(Math.PI * 64 * (u + v))),
+          ),
+          warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
+          weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
+          thread = warp * over + weft * (1 - over);
+        // Pigment follows the upper yarn at every crossing, not rectangular tiles.
+        color =
+          warpPigment * over +
+          weftPigment * (1 - over) +
+          0.045 * thread +
+          0.025 * detail;
+        height = 0.2 + 0.16 * thread + 0.025 * detail;
+        roughness += 0.04 * (detail - 0.5) + 0.03 * (1 - thread);
+        occlusion = 0.85 + 0.13 * thread;
+        break;
+      }
+      case 'damask': {
+        const x = fract(2 * u + 0.5) - 0.5,
+          y = fract(2 * v + 0.5) - 0.5;
+        let backing = 1,
+          rounded = 1;
+        for (let i = 0; i < 12; i++) {
+          const offset = i * 6,
+            dx = x - damaskLobes![offset],
+            dy = y - damaskLobes![offset + 1],
+            cos = damaskLobes![offset + 2],
+            sin = damaskLobes![offset + 3],
+            along = (dx * cos + dy * sin) * damaskLobes![offset + 4],
+            across = (dy * cos - dx * sin) * damaskLobes![offset + 5],
+            cap = clamp(1 - along * along - across * across);
+          // Both silhouette and raised crown vanish with zero slope; overlapping
+          // petals blend as a smooth union, with no nearest-lobe ownership jump.
+          backing *= 1 - smooth(clamp(cap / 0.28));
+          rounded *= 1 - cap * cap;
+        }
+        const motif = 1 - backing,
+          crown = 1 - rounded,
+          warp = 0.5 + 0.5 * Math.cos(TAU * 64 * u),
+          weft = 0.5 + 0.5 * Math.cos(TAU * 64 * v),
+          satin = 0.5 + 0.5 * Math.cos(TAU * (16 * u - 16 * v) + phase),
+          thread = (warp + weft) * 0.5;
+        color =
+          0.19 + 0.48 * motif + 0.08 * crown + 0.07 * thread + 0.025 * detail;
+        height =
+          0.18 +
+          0.3 * motif +
+          0.13 * crown +
+          0.025 * thread +
+          0.015 * motif * satin;
+        roughness +=
+          0.055 * (1 - motif) - 0.035 * motif * satin + 0.025 * (detail - 0.5);
+        occlusion = 0.88 + 0.07 * motif + 0.03 * thread;
         break;
       }
       case 'herringbone': {

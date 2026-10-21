@@ -3253,3 +3253,34 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
   不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering2D]` 2D 指令緩衝在每次收集開頭改以內部 `reset()` 釋放池化指令的物件參照但保留 `items` 儲存空間，append 以索引覆寫、各邊界收集結束時（排序前）一次截斷舊尾端；不再每幀 `length = 0` 後重新 push 長大。錯誤路徑與無場景時仍以 `clear()` 完整清空，收集結果與順序不變。穩態（暖機 12 s）20k sprite 頁面 WebGL2 引擎配置 collectBoundary2D 約 269 KB／幀 → 約 1 KB（剩餘來自量測頁自身迴圈），tilemap2d 20.3 → 14.5 KB／幀，屬配置減少；機器負載過高，CPU 時間未宣稱。2D 收集測試對截斷與巢狀 reset 的 mutation 皆會失敗；canvas2d／WebGL2 browser regression 與 163 個範例 smoke 通過；build 與完整測試（1940 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
 - `[Math]` `Transform2D.updateMatrix()` 快取最後一個非零 x 軸角度的 cos／sin（首次旋轉時才建立 `[angle, cos, sin]`），角度不變的靜態或只平移物件不再每幀重算三角函數；結果與 `Matrix3.compose` 逐位相同（含 ±0、NaN、skew，20 萬組 fuzz 與新增測試以 `Object.is` 比對）。Node 同程序 A/B：20k 個旋轉 transform 每輪 1.15 → 0.76 ms，屬 CPU 時間；記憶體每個未旋轉 transform 約 +8 B、旋轉者約 +96 B。physics2d／crowd 雜湊不變；canvas2d／WebGL2 browser regression 通過；build 與完整測試（1961 通過，已知不穩定的 shader variant 測試單獨重跑通過）在 HEAD 匯出副本執行。
+
+## 程序材質擴充：圖案織物（houndstooth／tartan／damask）
+
+- 新增千鳥格的交錯斜紋齒形、蘇格蘭格紋的寬細交叉色帶與紗線
+  上下交織，以及花卉提花的對稱花瓣、成對葉片與隆起織紋。
+  千鳥格以平滑重建的 2／2 twill 色紗形成斷格，而非一般棋盤格；
+  花卉 transforms 預先計算，compact support 輪廓與隆起均平滑消失。
+  三者皆為 opaque dielectric，不新增真實纖維、geometry、alpha、
+  displacement、各向異性 BRDF 或布料模擬。
+- 十二項形態、週期、範圍與連續性測試通過；初始隔離快照共
+  135 種，完整 176 files／1962 tests passed。
+  驗證期間風化木材三款另行提交，重建快照保留該組後共 138 種。
+  最終 build、typecheck、lint、format:check 與完整 Vitest 通過：
+  176 files／1973 tests passed。
+- 既有 135 種在 size 64／seed 7 下四份 maps SHA256 全部不變，
+  本組三種在整合前後亦相同；最終 ESM／CJS maps 與 source 相同。
+  Chrome WebGPU／WebGL2 gallery 逐一切換三者，畫面 hash 各異且
+  無 page errors；2×2 預覽確認斷格、寬細條帶與花葉圖案及週期排列。
+  主工作目錄與重建快照的 WebGPU pixels 均與原快照相同。
+- metallic bytes 全為 0；roughness bytes 依序
+  225–240／221–236／177–206，每米 repeats 依序
+  15.625／6.25／4.166667；四份貼圖 destroy 後均確認已釋放。
+- 主目錄 build 完成，但當時 typecheck 被同步中的光源修改阻擋：
+  `render-data.ts(276,58)` 的 `SpatialLightSelector.validatedIn`
+  型別不存在。另行執行共享材質測試為 521 passed／2 failed，
+  失敗屬進行中的 frost 接縫與 honeycomb 形狀測試，不納入本組提交。
+  不覆蓋其他工作；本組提交以以上隔離快照完整通過的結果為準。
+- 文件沒有新增相對連結，README 既有織物分類維持適用。
+  海洋組 PLAN／DESIGN 的暫存整合計數已對齊該組正式提交的歷史值。
+  只提交本組 source、docs 與對應 dist；不新增 runtime 依賴、不 push，
+  不擴大跨瀏覽器或實體裝置認證。

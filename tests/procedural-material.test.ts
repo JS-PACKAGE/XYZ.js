@@ -160,6 +160,9 @@ const kinds: ProceduralMaterialKind[] = [
   'braincoral',
   'starcoral',
   'seasponge',
+  'houndstooth',
+  'tartan',
+  'damask',
 ];
 
 class TestImageData {
@@ -207,6 +210,81 @@ afterEach(() => {
 });
 
 describe('periodic procedural material fields', () => {
+  describe('patterned textile geometry', () => {
+    const empty = (): SurfaceSample => ({
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    });
+
+    it('houndstooth shifts the protruding teeth inside each broken check', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('houndstooth', seed),
+          a = empty(),
+          b = empty(),
+          c = empty(),
+          d = empty();
+        sample(4 / 32, 0, a);
+        sample(4 / 32, 2 / 32, b);
+        sample(6 / 32, 0, c);
+        sample(6 / 32, 2 / 32, d);
+        // A checkerboard would not exchange light and dark within one check.
+        expect(a.color - b.color).toBeGreaterThan(0.6);
+        expect(d.color - c.color).toBeGreaterThan(0.6);
+      }
+    });
+
+    it('tartan retains broad bands, fine overstripes and alternating yarn crossings', () => {
+      const sample = createSurfaceSampler('tartan', 123),
+        a = empty(),
+        b = empty();
+      const column = (u: number) => {
+        let total = 0;
+        for (let i = 0; i < 512; i++) {
+          sample(u, (i + 0.37) / 512, a);
+          total += a.color;
+        }
+        return total / 512;
+      };
+      const background = column(0.2),
+        broadCenter = column(0),
+        broadShoulder = column(0.04),
+        fineCenter = column(0.375),
+        fineShoulder = (column(0.35) + column(0.4)) / 2;
+      expect(broadCenter - background).toBeGreaterThan(0.1);
+      expect(broadShoulder - background).toBeGreaterThan(0.1);
+      expect(fineCenter - fineShoulder).toBeGreaterThan(0.1);
+      sample(0.375, 0.25, a);
+      sample(0.375, 0.25 + 1 / 64, b);
+      expect(a.color - b.color).toBeGreaterThan(0.15);
+    });
+
+    it('damask raises paired leaves and a flower above the woven backing', () => {
+      for (const seed of [1, 123, 0xffffffff]) {
+        const sample = createSurfaceSampler('damask', seed),
+          left = empty(),
+          right = empty(),
+          backing = empty(),
+          flower = empty();
+        sample(-0.0575, 0.0475, left);
+        sample(0.0575, 0.0475, right);
+        sample(0.175, 0.0475, backing);
+        sample(0, -0.09, flower);
+        expect(left.height).toBeGreaterThan(backing.height * 1.7);
+        expect(right.height).toBeGreaterThan(backing.height * 1.7);
+        expect(flower.height).toBeGreaterThan(backing.height * 1.7);
+        expect(left.color - backing.color).toBeGreaterThan(0.35);
+        expect(right.color - backing.color).toBeGreaterThan(0.35);
+        expect(Math.abs(left.height - right.height)).toBeLessThan(
+          0.1 * (left.height - backing.height),
+        );
+      }
+    });
+  });
+
   describe('opaque marine relief', () => {
     const empty = (): SurfaceSample => ({
       color: 0,
@@ -1788,6 +1866,9 @@ describe('periodic procedural material fields', () => {
     ['herringbone', [2, 4, 8, 16, 32, 128]],
     ['tweed', [4, 20, 24, 32, 80]],
     ['seersucker', [4, 8, 12, 24, 32, 48, 144]],
+    ['houndstooth', [4, 8, 16, 32, 96]],
+    ['tartan', [2, 4, 8, 32, 64, 128]],
+    ['damask', [2, 4, 32, 64, 128]],
     ['knurledmetal', [24, 32, 48]],
     ['engineturned', [6, 12, 24, 32]],
     ['goldleaf', [3, 4, 5, 18, 21, 32]],
@@ -1913,6 +1994,9 @@ describe('periodic procedural material fields', () => {
     ['snakeskin', 12],
     ['crocodile', 4],
     ['crocodile', 6],
+    ['houndstooth', 32],
+    ['tartan', 64],
+    ['damask', 2],
     ['knurledmetal', 48],
     ['engineturned', 12],
     ['goldleaf', 20],
