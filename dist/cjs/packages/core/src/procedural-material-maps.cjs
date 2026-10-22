@@ -2487,6 +2487,21 @@ function createSurfaceSampler(t, r) {
 				H = .28 + .3 * c + .1 * l, Z = .3 + .48 * c + .04 * l, Q += .08 * (l - .5) - .08 * c, $ = 1 - .48 * (1 - c);
 				break;
 			}
+			case `confetti`: {
+				let e = Math.sin(Math.PI * (fract(o * 4) - .5)), t = Math.sin(Math.PI * (fract(A * 4) - .5)), n = (Math.abs(e) ** 4 + Math.abs(t) ** 4) ** .25, a = smooth(clamp((.52 + .16 * hash(Math.floor(o * 4), Math.floor(A * 4), r ^ 57842) - n) / .12)), s = noise(o, A, 32, 32, r ^ 61955);
+				H = .4 + .3 * a + .1 * s, Z = .34 + .4 * a + .03 * s, Q += .06 * (s - .5) - .1 * a, $ = 1 - .44 * (1 - a);
+				break;
+			}
+			case `ribbonstreamer`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract((o + A) * 3) - .5))) / 2, t = noise(o, A, 4, 4, r ^ 5157) - .5, n = noise(o, A, 32, 32, r ^ 9526);
+				H = .36 + .34 * e + .12 * n + .08 * t, Z = .3 + .46 * e + .03 * n, Q += .08 * (n - .5) - .1 * e, $ = 1 - .46 * (1 - e);
+				break;
+			}
+			case `pinatafringe`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract(o * 14) - .5))) / 2, t = (1 + Math.cos(Math.PI * 2 * fract(A * 3))) / 2, n = noise(o, A, 32, 32, r ^ 13895);
+				H = .34 + .3 * e + .12 * n - .14 * t, Z = .28 + .44 * e - .2 * t + .03 * n, Q += .06 * (n - .5) + .1 * t, $ = 1 - .4 * (1 - e) - .2 * t;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

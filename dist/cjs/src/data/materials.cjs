@@ -3702,6 +3702,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .8,
 		relief: .0026
 	}),
+	confetti: Object.freeze({
+		dark: [
+			214,
+			72,
+			96
+		],
+		light: [
+			252,
+			232,
+			128
+		],
+		roughness: .62,
+		relief: .0018
+	}),
+	ribbonstreamer: Object.freeze({
+		dark: [
+			122,
+			42,
+			148
+		],
+		light: [
+			228,
+			148,
+			232
+		],
+		roughness: .48,
+		relief: .0022
+	}),
+	pinatafringe: Object.freeze({
+		dark: [
+			222,
+			82,
+			62
+		],
+		light: [
+			252,
+			192,
+			96
+		],
+		roughness: .7,
+		relief: .0024
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4821,6 +4863,9 @@ var proceduralTileMeters = Object.freeze({
 	flowerbed: .3,
 	grassstripe: .4,
 	topiary: .28,
+	confetti: .24,
+	ribbonstreamer: .3,
+	pinatafringe: .2,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

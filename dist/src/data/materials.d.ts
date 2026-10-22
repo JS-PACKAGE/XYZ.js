@@ -1590,6 +1590,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.8;
         relief: 0.0026;
     }>;
+    confetti: Readonly<{
+        dark: readonly [214, 72, 96];
+        light: readonly [252, 232, 128];
+        roughness: 0.62;
+        relief: 0.0018;
+    }>;
+    ribbonstreamer: Readonly<{
+        dark: readonly [122, 42, 148];
+        light: readonly [228, 148, 232];
+        roughness: 0.48;
+        relief: 0.0022;
+    }>;
+    pinatafringe: Readonly<{
+        dark: readonly [222, 82, 62];
+        light: readonly [252, 192, 96];
+        roughness: 0.7;
+        relief: 0.0024;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2254,6 +2272,9 @@ export declare const proceduralTileMeters: Readonly<{
     flowerbed: 0.3;
     grassstripe: 0.4;
     topiary: 0.28;
+    confetti: 0.24;
+    ribbonstreamer: 0.3;
+    pinatafringe: 0.2;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

@@ -8731,6 +8731,48 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.48 * (1 - cluster);
         break;
       }
+      case 'confetti': {
+        // Scattered chips with per-cell size variation over the paper.
+        const fx = Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 4) - 0.5));
+        const d = Math.pow(
+          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+          0.25,
+        );
+        const radius =
+          0.52 +
+          0.16 * hash(Math.floor(u * 4), Math.floor(v * 4), seed ^ 0xe1f2);
+        const chip = smooth(clamp((radius - d) / 0.12));
+        const paper = noise(u, v, 32, 32, seed ^ 0xf203);
+        color = 0.4 + 0.3 * chip + 0.1 * paper;
+        height = 0.34 + 0.4 * chip + 0.03 * paper;
+        roughness += 0.06 * (paper - 0.5) - 0.1 * chip;
+        occlusion = 1 - 0.44 * (1 - chip);
+        break;
+      }
+      case 'ribbonstreamer': {
+        // Wide twisted ribbon bands sweep along the diagonal.
+        const band =
+          (1 + Math.cos(Math.PI * 2 * (fract((u + v) * 3) - 0.5))) / 2;
+        const w2 = noise(u, v, 4, 4, seed ^ 0x1425) - 0.5,
+          sheen = noise(u, v, 32, 32, seed ^ 0x2536);
+        color = 0.36 + 0.34 * band + 0.12 * sheen + 0.08 * w2;
+        height = 0.3 + 0.46 * band + 0.03 * sheen;
+        roughness += 0.08 * (sheen - 0.5) - 0.1 * band;
+        occlusion = 1 - 0.46 * (1 - band);
+        break;
+      }
+      case 'pinatafringe': {
+        // Dense fringe strands hang in tiers over the crepe backing.
+        const strand = (1 + Math.cos(Math.PI * 2 * (fract(u * 14) - 0.5))) / 2;
+        const tier = (1 + Math.cos(Math.PI * 2 * fract(v * 3))) / 2;
+        const crepe = noise(u, v, 32, 32, seed ^ 0x3647);
+        color = 0.34 + 0.3 * strand + 0.12 * crepe - 0.14 * tier;
+        height = 0.28 + 0.44 * strand - 0.2 * tier + 0.03 * crepe;
+        roughness += 0.06 * (crepe - 0.5) + 0.1 * tier;
+        occlusion = 1 - 0.4 * (1 - strand) - 0.2 * tier;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

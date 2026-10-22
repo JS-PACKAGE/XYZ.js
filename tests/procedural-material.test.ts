@@ -289,6 +289,9 @@ const kinds: ProceduralMaterialKind[] = [
   'flowerbed',
   'grassstripe',
   'topiary',
+  'confetti',
+  'ribbonstreamer',
+  'pinatafringe',
   'basketball',
   'tennisball',
   'golfball',
@@ -5124,6 +5127,9 @@ describe('periodic procedural material fields', () => {
     ['flowerbed', [3, 32, 64]],
     ['grassstripe', [2, 32, 64]],
     ['topiary', [3, 32, 64]],
+    ['confetti', [4, 32, 64]],
+    ['ribbonstreamer', [3, 32, 64]],
+    ['pinatafringe', [3, 14, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5419,6 +5425,9 @@ describe('periodic procedural material fields', () => {
     ['flowerbed', 3],
     ['grassstripe', 2],
     ['topiary', 3],
+    ['confetti', 4],
+    ['ribbonstreamer', 3],
+    ['pinatafringe', 14],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6868,6 +6877,9 @@ describe('periodic procedural material fields', () => {
     'flowerbed',
     'grassstripe',
     'topiary',
+    'confetti',
+    'ribbonstreamer',
+    'pinatafringe',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7135,7 +7147,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                             : kind ===
                                                                                                                                                                                                 'topiary'
                                                                                                                                                                                               ? 3
-                                                                                                                                                                                              : 4;
+                                                                                                                                                                                              : kind ===
+                                                                                                                                                                                                  'confetti'
+                                                                                                                                                                                                ? 4
+                                                                                                                                                                                                : kind ===
+                                                                                                                                                                                                    'ribbonstreamer'
+                                                                                                                                                                                                  ? 3
+                                                                                                                                                                                                  : kind ===
+                                                                                                                                                                                                      'pinatafringe'
+                                                                                                                                                                                                    ? 14
+                                                                                                                                                                                                    : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11905,6 +11926,69 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, gap);
       expect(cluster.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(cluster.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('confetti chips rise above the paper gaps', () => {
+    const relief = proceduralMaterialPresets.confetti.relief;
+    const chip: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...chip };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('confetti', seed);
+      sample(1 / 8, 1 / 8, chip);
+      sample(0, 0, gap);
+      expect(chip.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(chip.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('ribbon streamers crest above the troughs', () => {
+    const relief = proceduralMaterialPresets.ribbonstreamer.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const trough = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('ribbonstreamer', seed);
+      sample(1 / 12, 1 / 12, crest);
+      sample(0, 0, trough);
+      expect(crest.height).toBeGreaterThan(trough.height + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(trough.occlusion);
+    }
+  });
+
+  it('pinata fringe strands hang above the tiers and gaps', () => {
+    const relief = proceduralMaterialPresets.pinatafringe.relief;
+    const strand: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...strand };
+    const tier = { ...strand };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('pinatafringe', seed);
+      sample(1 / 28, 1 / 6, strand);
+      sample(0, 1 / 6, gap);
+      sample(0, 0, tier);
+      expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(gap.height).toBeGreaterThan(tier.height + 0.1 * relief);
+      expect(strand.occlusion).toBeGreaterThan(tier.occlusion);
     }
   });
 

@@ -271,6 +271,9 @@ export type ProceduralMaterialKind =
   | 'flowerbed'
   | 'grassstripe'
   | 'topiary'
+  | 'confetti'
+  | 'ribbonstreamer'
+  | 'pinatafringe'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -624,6 +627,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'flowerbed',
   'grassstripe',
   'topiary',
+  'confetti',
+  'ribbonstreamer',
+  'pinatafringe',
   'basketball',
   'tennisball',
   'golfball',
