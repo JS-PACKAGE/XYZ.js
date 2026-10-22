@@ -379,6 +379,9 @@ const kinds: ProceduralMaterialKind[] = [
   'orangeflesh',
   'kiwiflesh',
   'avocadoflesh',
+  'turquoise',
+  'rhodonite',
+  'tigereye',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5211,6 +5214,9 @@ describe('periodic procedural material fields', () => {
     ['orangeflesh', [3, 32, 64]],
     ['kiwiflesh', [3, 32, 64]],
     ['avocadoflesh', [3, 32, 64]],
+    ['turquoise', [3, 32, 64]],
+    ['rhodonite', [3, 32, 64]],
+    ['tigereye', [3, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5571,6 +5577,9 @@ describe('periodic procedural material fields', () => {
     ['orangeflesh', 2],
     ['kiwiflesh', 2],
     ['avocadoflesh', 2],
+    ['turquoise', 3],
+    ['rhodonite', 4],
+    ['tigereye', 6],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -13875,6 +13884,99 @@ describe('periodic procedural material fields', () => {
       expect(b.height).toBeGreaterThan(a.height);
       expect(b.occlusion).toBeGreaterThan(a.occlusion);
       expect(b.height).toBeGreaterThan(c.height);
+    }
+  });
+  it('turquoise veins recess below stone and raise roughness', () => {
+    const s: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('turquoise', seed);
+      let minColor = 1,
+        maxColor = 0,
+        minR = 1,
+        maxR = 0,
+        minH = 1,
+        maxH = 0;
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+          sample(x / 16, y / 16, s);
+          if (s.color < minColor) minColor = s.color;
+          if (s.color > maxColor) maxColor = s.color;
+          if (s.roughness < minR) minR = s.roughness;
+          if (s.roughness > maxR) maxR = s.roughness;
+          if (s.height < minH) minH = s.height;
+          if (s.height > maxH) maxH = s.height;
+        }
+      expect(maxColor - minColor).toBeGreaterThan(0.35);
+      expect(maxR - minR).toBeGreaterThan(0.12);
+      expect(maxH - minH).toBeGreaterThan(0.00005);
+    }
+  });
+
+  it('rhodonite manganese dendrites darken and recess below rose stone', () => {
+    const s: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('rhodonite', seed);
+      let minColor = 1,
+        maxColor = 0,
+        minR = 1,
+        maxR = 0,
+        minH = 1,
+        maxH = 0;
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+          sample(x / 16, y / 16, s);
+          if (s.color < minColor) minColor = s.color;
+          if (s.color > maxColor) maxColor = s.color;
+          if (s.roughness < minR) minR = s.roughness;
+          if (s.roughness > maxR) maxR = s.roughness;
+          if (s.height < minH) minH = s.height;
+          if (s.height > maxH) maxH = s.height;
+        }
+      expect(maxColor - minColor).toBeGreaterThan(0.35);
+      expect(maxR - minR).toBeGreaterThan(0.1);
+      expect(maxH - minH).toBeGreaterThan(0.00005);
+    }
+  });
+
+  it('tigereye chatoyant bands modulate color, height and roughness', () => {
+    const s: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tigereye', seed);
+      let minColor = 1,
+        maxColor = 0,
+        minH = 1,
+        maxH = 0;
+      for (let y = 0; y < 16; y++)
+        for (let x = 0; x < 16; x++) {
+          sample(x / 16, y / 16, s);
+          if (s.color < minColor) minColor = s.color;
+          if (s.color > maxColor) maxColor = s.color;
+          if (s.height < minH) minH = s.height;
+          if (s.height > maxH) maxH = s.height;
+        }
+      expect(maxColor - minColor).toBeGreaterThan(0.3);
+      expect(maxH - minH).toBeGreaterThan(0.00004);
     }
   });
 

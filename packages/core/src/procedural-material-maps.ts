@@ -1966,6 +1966,77 @@ export function createSurfaceSampler(
           occlusion = 1 - 0.44 * (1 - body) - 0.38 * pit;
           return;
         };
+      case 'turquoise': {
+        const phaseA = TAU * hash(0, 0, seed ^ 0x31a5);
+        const phaseB = TAU * hash(0, 0, seed ^ 0x5b72);
+        const phaseC = TAU * hash(0, 0, seed ^ 0x9e17);
+        return () => {
+          // Dark spiderweb matrix veins run through polished turquoise stone.
+          const a =
+            Math.sin(TAU * (3 * u + v) + phaseA) +
+            0.35 * Math.sin(TAU * 2 * u + phaseB);
+          const b =
+            Math.sin(TAU * (u - 2 * v) + phaseB) +
+            0.3 * Math.sin(TAU * 3 * v + phaseA);
+          const c = Math.sin(TAU * (2 * u + 3 * v) + phaseC);
+          const vA = smooth(clamp(1 - (a / 0.1) * (a / 0.1)));
+          const vB = smooth(clamp(1 - (b / 0.085) * (b / 0.085)));
+          const vC = smooth(clamp(1 - (c / 0.075) * (c / 0.075)));
+          const matrix = clamp(0.55 * vA + 0.5 * vB + 0.35 * vC);
+          const grain = noise(u, v, 32, 32, seed ^ 0x47e1);
+          color = 0.82 * (1 - matrix) + 0.14 * matrix + 0.05 * (grain - 0.5);
+          height = 0.52 * (1 - matrix) + 0.44 * matrix + 0.008 * (grain - 0.5);
+          roughness += 0.22 * matrix + 0.03 * (grain - 0.5);
+          occlusion = 1 - 0.22 * matrix;
+          return;
+        };
+      }
+      case 'rhodonite': {
+        const phaseA = TAU * hash(0, 0, seed ^ 0x12a9);
+        const phaseB = TAU * hash(0, 0, seed ^ 0x73b4);
+        return () => {
+          // Rose-pink stone with dark branching manganese oxide dendrites.
+          const warp = noise(u, v, 4, 4, seed ^ 0x38d2);
+          const uw = u + 0.06 * (warp - 0.5);
+          const vw = v + 0.06 * (warp - 0.5);
+          const d1 =
+            Math.sin(TAU * (4 * uw + vw) + phaseA) +
+            0.35 * Math.sin(TAU * 3 * vw + phaseB);
+          const d2 = Math.sin(TAU * (2 * uw - 3 * vw) + phaseB);
+          const vein =
+            smooth(clamp(1 - (d1 / 0.11) * (d1 / 0.11))) *
+            smooth(clamp(1 - (d2 / 0.14) * (d2 / 0.14)));
+          const blotch = smooth(
+            clamp((noise(u, v, 8, 8, seed ^ 0x8a5b) - 0.58) / 0.22),
+          );
+          const mn = clamp(vein * 1.5 + 0.75 * blotch);
+          const grain = noise(u, v, 40, 40, seed ^ 0x61f3);
+          color = 0.84 * (1 - mn) + 0.12 * mn + 0.04 * (grain - 0.5);
+          height = 0.52 * (1 - mn) + 0.45 * mn + 0.006 * (grain - 0.5);
+          roughness += 0.18 * mn + 0.02 * (grain - 0.5);
+          occlusion = 1 - 0.18 * mn;
+          return;
+        };
+      }
+      case 'tigereye': {
+        const phaseA = TAU * hash(0, 0, seed ^ 0x27f5);
+        const phaseB = TAU * hash(0, 0, seed ^ 0x6e91);
+        return () => {
+          // Silky chatoyant golden-brown and dark amber fibrous bands.
+          const warp = noise(u, v, 4, 8, seed ^ 0x5a31);
+          const y =
+            v * 6 + 0.35 * Math.sin(TAU * u + phaseA) + 0.25 * (warp - 0.5);
+          const band = 0.5 + 0.5 * Math.sin(TAU * y);
+          const band2 = 0.5 + 0.5 * Math.cos(TAU * 2 * y + phaseB);
+          const chatoyancy = 0.65 * band + 0.35 * band2;
+          const fiber = noise(u * 64, v * 8, 64, 8, seed ^ 0x82d4);
+          color = 0.25 + 0.65 * chatoyancy + 0.08 * (fiber - 0.5);
+          height = 0.48 + 0.04 * chatoyancy + 0.005 * (fiber - 0.5);
+          roughness += 0.05 * (1 - chatoyancy) + 0.02 * (fiber - 0.5);
+          occlusion = 0.98 + 0.02 * chatoyancy;
+          return;
+        };
+      }
       case 'morel':
         return () => {
           const p = morelPreset,

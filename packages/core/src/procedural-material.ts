@@ -360,7 +360,10 @@ export type ProceduralMaterialKind =
   | 'scrubbypad'
   | 'orangeflesh'
   | 'kiwiflesh'
-  | 'avocadoflesh';
+  | 'avocadoflesh'
+  | 'turquoise'
+  | 'rhodonite'
+  | 'tigereye';
 
 export interface ProceduralMaterialOptions {
   size?: number;
@@ -747,6 +750,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'orangeflesh',
   'kiwiflesh',
   'avocadoflesh',
+  'turquoise',
+  'rhodonite',
+  'tigereye',
 ];
 const repeatSampler = Object.freeze({
   addressModeU: 'repeat',

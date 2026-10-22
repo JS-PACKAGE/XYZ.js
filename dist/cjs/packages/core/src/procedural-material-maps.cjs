@@ -501,6 +501,27 @@ function createSurfaceSampler(t, r) {
 				let e = fract(K) - .5, t = fract(q) - .5, n = Math.hypot(e, t), i = smooth(clamp((.46 - n) / .03)), a = smooth(clamp((.45 - n) / .03)) - smooth(clamp((.39 - n) / .03)), o = e / .15 * (e / .15) + t / .19 * (t / .19), s = o < 1 ? smooth(clamp((1 - o) / .22)) : 0, c = noise(K, q, 12, 12, r ^ 26307), l = noise(K, q, 48, 48, r ^ 8923);
 				X = .36 + .3 * i + .14 * a - .2 * s + .08 * (c - .5) + .04 * (l - .5), Z = .26 + .26 * i + .12 * a - .22 * s, Q += .06 * (l - .5) + .14 * s - .06 * (1 - s) * i, $ = 1 - .44 * (1 - i) - .38 * s;
 			};
+			case `turquoise`: {
+				let e = n * hash(0, 0, r ^ 12709), t = n * hash(0, 0, r ^ 23410), i = n * hash(0, 0, r ^ 40471);
+				return () => {
+					let a = Math.sin(n * (3 * K + q) + e) + .35 * Math.sin(n * 2 * K + t), o = Math.sin(n * (K - 2 * q) + t) + .3 * Math.sin(n * 3 * q + e), s = Math.sin(n * (2 * K + 3 * q) + i), c = smooth(clamp(1 - a / .1 * (a / .1))), l = smooth(clamp(1 - o / .085 * (o / .085))), u = smooth(clamp(1 - s / .075 * (s / .075))), d = clamp(.55 * c + .5 * l + .35 * u), f = noise(K, q, 32, 32, r ^ 18401);
+					X = .82 * (1 - d) + .14 * d + .05 * (f - .5), Z = .52 * (1 - d) + .44 * d + .008 * (f - .5), Q += .22 * d + .03 * (f - .5), $ = 1 - .22 * d;
+				};
+			}
+			case `rhodonite`: {
+				let e = n * hash(0, 0, r ^ 4777), t = n * hash(0, 0, r ^ 29620);
+				return () => {
+					let i = noise(K, q, 4, 4, r ^ 14546), a = K + .06 * (i - .5), o = q + .06 * (i - .5), s = Math.sin(n * (4 * a + o) + e) + .35 * Math.sin(n * 3 * o + t), c = Math.sin(n * (2 * a - 3 * o) + t), l = smooth(clamp(1 - s / .11 * (s / .11))) * smooth(clamp(1 - c / .14 * (c / .14))), u = smooth(clamp((noise(K, q, 8, 8, r ^ 35419) - .58) / .22)), d = clamp(l * 1.5 + .75 * u), f = noise(K, q, 40, 40, r ^ 25075);
+					X = .84 * (1 - d) + .12 * d + .04 * (f - .5), Z = .52 * (1 - d) + .45 * d + .006 * (f - .5), Q += .18 * d + .02 * (f - .5), $ = 1 - .18 * d;
+				};
+			}
+			case `tigereye`: {
+				let e = n * hash(0, 0, r ^ 10229), t = n * hash(0, 0, r ^ 28305);
+				return () => {
+					let i = noise(K, q, 4, 8, r ^ 23089), a = q * 6 + .35 * Math.sin(n * K + e) + .25 * (i - .5), o = .5 + .5 * Math.sin(n * a), s = .5 + .5 * Math.cos(n * 2 * a + t), c = .65 * o + .35 * s, l = noise(K * 64, q * 8, 64, 8, r ^ 33492);
+					X = .25 + .65 * c + .08 * (l - .5), Z = .48 + .04 * c + .005 * (l - .5), Q += .05 * (1 - c) + .02 * (l - .5), $ = .98 + .02 * c;
+				};
+			}
 			case `morel`: return () => {
 				let e = x, t = K * e.columns, n = q * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(K, q), o = 0, s = 0;
 				for (let a = -2; a <= 2; a++) for (let c = -2; c <= 2; c++) {

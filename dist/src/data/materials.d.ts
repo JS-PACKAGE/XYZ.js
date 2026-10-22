@@ -2185,6 +2185,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.44;
         relief: 0.0036;
     }>;
+    turquoise: Readonly<{
+        dark: readonly [28, 126, 134];
+        light: readonly [96, 218, 206];
+        roughness: 0.24;
+        relief: 0.0028;
+    }>;
+    rhodonite: Readonly<{
+        dark: readonly [142, 58, 78];
+        light: readonly [236, 154, 172];
+        roughness: 0.26;
+        relief: 0.0025;
+    }>;
+    tigereye: Readonly<{
+        dark: readonly [62, 36, 16];
+        light: readonly [218, 160, 52];
+        roughness: 0.2;
+        relief: 0.0022;
+    }>;
 }>;
 /** One generated UV tile covers this many meters at repeats = 1. */
 export declare const proceduralTileMeters: Readonly<{
@@ -2542,4 +2560,7 @@ export declare const proceduralTileMeters: Readonly<{
     orangeflesh: 0.12;
     kiwiflesh: 0.08;
     avocadoflesh: 0.1;
+    turquoise: 0.16;
+    rhodonite: 0.2;
+    tigereye: 0.18;
 }>;
