@@ -932,8 +932,14 @@ export class WebGPURender2D {
     context: Context2D,
   ): void {
     const items = commands.items;
+    // The pass the previous command drew a sprite batch in. A batch only sets the pipeline,
+    // groups 0-2 and vertex buffer 0, so in that same pass the next batch keeps the
+    // pipeline, the default effect uniforms and the instance buffer.
+    let batchPass: GPURenderPassEncoder | undefined;
     for (let i = 0; i < items.length; i++) {
       const command = items[i];
+      const previousPass = batchPass;
+      batchPass = undefined;
       if (command.kind === 'layer')
         this.drawLayer(command.object, command.commands, context);
       else if (command.kind === 'sprite') {
@@ -988,13 +994,17 @@ export class WebGPURender2D {
           );
           this.uploadQuads(first, count);
           const pass = this.open(context.target, false);
-          pass.setPipeline(this.normal);
+          const continuing = pass === previousPass;
+          if (!continuing) pass.setPipeline(this.normal);
           this.bindDraw(pass, first);
           pass.setBindGroup(1, group);
-          pass.setBindGroup(2, this.effects.defaultUniforms);
-          pass.setVertexBuffer(0, this.instanceBuffer);
+          if (!continuing) {
+            pass.setBindGroup(2, this.effects.defaultUniforms);
+            pass.setVertexBuffer(0, this.instanceBuffer);
+          }
           pass.draw(6, count, 0, first);
           this.hooks.stats.draw2D(count);
+          batchPass = pass;
         }
       } else if (command.kind === 'mesh')
         this.drawMesh(command.object, context);
