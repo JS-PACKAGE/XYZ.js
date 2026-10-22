@@ -3296,17 +3296,19 @@ export class WebGL2Renderer implements Renderer {
         'WebGL2 cannot render a destroyed material texture.',
       );
     const gl = this.gl!;
-    // Uploads bind to the active unit: keep them on the destination unit, as
-    // units bound once per pass (shadow, refraction, probe arrays) must stay intact.
-    // A current cache entry uploads nothing, so `bindUnit` alone selects the unit.
-    if (
-      this.activeUnit !== unit &&
-      this.textures.get(texture)?.version !== texture.version
-    ) {
-      gl.activeTexture(gl.TEXTURE0 + unit);
-      this.activeUnit = unit;
+    // A current cache entry uploads nothing, so `bindUnit` alone selects the unit, and
+    // the entry is used as `cacheTexture` would return it (render textures are never cached).
+    let cached = this.textures.get(texture);
+    if (cached?.version === texture.version) cached.allocation.touch();
+    else {
+      // Uploads bind to the active unit: keep them on the destination unit, as
+      // units bound once per pass (shadow, refraction, probe arrays) must stay intact.
+      if (this.activeUnit !== unit) {
+        gl.activeTexture(gl.TEXTURE0 + unit);
+        this.activeUnit = unit;
+      }
+      cached = this.cacheTexture(texture);
     }
-    const cached = this.cacheTexture(texture);
     cached.seen = this.frame;
     this.bindUnit(
       unit,
