@@ -228,6 +228,11 @@ export class SpatialLightSelector implements SelectedLights {
   private readonly spotGrid = new LightGrid();
   /** Presentation pass the grids were built in; 0 when they must not be used. */
   private gridPass = 0;
+  /**
+   * Per spot light of the pool `update` validated in `gridPass`: direction length and the
+   * cosines of its outer and inner angles, which selection otherwise recomputes per draw.
+   */
+  private spotDerived = new Float64Array(0);
   private pointGridded = false;
   private spotGridded = false;
   /** Every selection input of the pools at the last update; see snapshotPools. */
@@ -274,6 +279,18 @@ export class SpatialLightSelector implements SelectedLights {
       this.gridPass !== 0 && scene.spotLights.length >= gridMinimumLights;
     if (this.pointGridded) this.pointGrid.build(scene.pointLights);
     if (this.spotGridded) this.spotGrid.build(scene.spotLights);
+    if (this.gridPass !== 0) {
+      const spots = scene.spotLights;
+      if (this.spotDerived.length < spots.length * 3)
+        this.spotDerived = new Float64Array(spots.length * 3);
+      const derived = this.spotDerived;
+      for (let i = 0; i < spots.length; i++) {
+        const light = spots[i]!;
+        derived[i * 3] = light.direction.length();
+        derived[i * 3 + 1] = Math.cos(light.outerAngle);
+        derived[i * 3 + 2] = Math.cos(light.innerAngle);
+      }
+    }
     this.pointLights.length = this.spotLights.length = 0;
     this.stats.draws = this.frameStats.draws = 0;
     for (const stats of [this.stats, this.frameStats]) {
@@ -426,6 +443,9 @@ export class SpatialLightSelector implements SelectedLights {
       radius,
       this.stats.spots,
       this.spotGridded ? this.spotGrid : undefined,
+      this.gridPass !== 0 && this.scene.presentationPass === this.gridPass
+        ? this.spotDerived
+        : undefined,
     );
     return this.recordDraw();
   }
@@ -492,6 +512,8 @@ export class SpatialLightSelector implements SelectedLights {
     radius: number,
     stats: LightSelectionCount,
     grid: LightGrid | undefined,
+    /** `spotDerived`, when the pool is the one it was computed for and unchanged. */
+    derived?: Float64Array,
   ): void {
     // Ranked in place by count and truncated once: emptying `out` first dropped its storage,
     // which regrew for every selection.
@@ -507,7 +529,8 @@ export class SpatialLightSelector implements SelectedLights {
     // Lights outside every gathered cell are beyond range + radius, as the exact test finds.
     if (candidates) stats.culled = pool.length - count;
     for (let n = 0; n < count; n++) {
-      const light = pool[candidates ? candidates[n]! : n]!;
+      const slot = candidates ? candidates[n]! : n;
+      const light = pool[slot]!;
       const dx = center.x - light.position.x,
         dy = center.y - light.position.y,
         dz = center.z - light.position.z;
@@ -534,7 +557,9 @@ export class SpatialLightSelector implements SelectedLights {
       }
       let cone = 1;
       if (light instanceof SpotLight && distance > radius) {
-        const directionLength = light.direction.length();
+        const directionLength = derived
+          ? derived[slot * 3]!
+          : light.direction.length();
         const cosine =
           (dx * light.direction.x +
             dy * light.direction.y +
@@ -550,13 +575,13 @@ export class SpatialLightSelector implements SelectedLights {
           stats.culled++;
           continue;
         }
+        const outer = derived
+            ? derived[slot * 3 + 1]!
+            : Math.cos(light.outerAngle),
+          inner = derived ? derived[slot * 3 + 2]! : Math.cos(light.innerAngle);
         const t = Math.max(
           0,
-          Math.min(
-            1,
-            (Math.cos(angle) - Math.cos(light.outerAngle)) /
-              (Math.cos(light.innerAngle) - Math.cos(light.outerAngle)),
-          ),
+          Math.min(1, (Math.cos(angle) - outer) / (inner - outer)),
         );
         cone = t * t * (3 - 2 * t);
       }

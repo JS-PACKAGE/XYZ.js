@@ -126,6 +126,7 @@ var SpatialLightSelector = class {
 	pointGrid = new LightGrid();
 	spotGrid = new LightGrid();
 	gridPass = 0;
+	spotDerived = /* @__PURE__ */ new Float64Array();
 	pointGridded = !1;
 	spotGridded = !1;
 	poolSnapshot = /* @__PURE__ */ new Float64Array();
@@ -141,7 +142,16 @@ var SpatialLightSelector = class {
 			if (this.identities.has(e.id)) throw RangeError(`Scene light pools cannot contain duplicate light identities.`);
 			this.identities.add(e.id);
 		}
-		this.scene = e, this.snapshotPools(e) || this.poolVersion++, this.gridPass = e.presentationPass, this.pointGridded = this.gridPass !== 0 && e.pointLights.length >= 32, this.spotGridded = this.gridPass !== 0 && e.spotLights.length >= 32, this.pointGridded && this.pointGrid.build(e.pointLights), this.spotGridded && this.spotGrid.build(e.spotLights), this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
+		if (this.scene = e, this.snapshotPools(e) || this.poolVersion++, this.gridPass = e.presentationPass, this.pointGridded = this.gridPass !== 0 && e.pointLights.length >= 32, this.spotGridded = this.gridPass !== 0 && e.spotLights.length >= 32, this.pointGridded && this.pointGrid.build(e.pointLights), this.spotGridded && this.spotGrid.build(e.spotLights), this.gridPass !== 0) {
+			let t = e.spotLights;
+			this.spotDerived.length < t.length * 3 && (this.spotDerived = new Float64Array(t.length * 3));
+			let n = this.spotDerived;
+			for (let e = 0; e < t.length; e++) {
+				let r = t[e];
+				n[e * 3] = r.direction.length(), n[e * 3 + 1] = Math.cos(r.outerAngle), n[e * 3 + 2] = Math.cos(r.innerAngle);
+			}
+		}
+		this.pointLights.length = this.spotLights.length = 0, this.stats.draws = this.frameStats.draws = 0;
 		for (let t of [this.stats, this.frameStats]) t.points.pool = e.pointLights.length, t.spots.pool = e.spotLights.length, t.points.selected = t.points.culled = t.points.overflow = 0, t.spots.selected = t.spots.culled = t.spots.overflow = 0;
 	}
 	clear() {
@@ -176,7 +186,7 @@ var SpatialLightSelector = class {
 		if (!this.scene) throw Error(`Update the light selector before selecting a draw.`);
 		if (!(t instanceof require_math3d.Vector3)) throw TypeError(`Light selection center must be a Vector3.`);
 		if (!Number.isFinite(t.x) || !Number.isFinite(t.y) || !Number.isFinite(t.z) || !Number.isFinite(n) || n < 0) throw RangeError(`Light selection requires a finite world sphere with nonnegative radius.`);
-		return this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0), this.recordDraw();
+		return this.selectType(this.scene.pointLights, this.pointLights, this.pointScores, this.pointCapacity, t, n, this.stats.points, this.pointGridded ? this.pointGrid : void 0), this.selectType(this.scene.spotLights, this.spotLights, this.spotScores, this.spotCapacity, t, n, this.stats.spots, this.spotGridded ? this.spotGrid : void 0, this.gridPass !== 0 && this.scene.presentationPass === this.gridPass ? this.spotDerived : void 0), this.recordDraw();
 	}
 	recordDraw() {
 		if (this.stats.draws = 1, this.frameStats.draws++, this.frameStats.points.selected += this.stats.points.selected, this.frameStats.points.culled += this.stats.points.culled, this.frameStats.points.overflow += this.stats.points.overflow, this.frameStats.spots.selected += this.stats.spots.selected, this.frameStats.spots.culled += this.stats.spots.culled, this.frameStats.spots.overflow += this.stats.spots.overflow, this.exceedPolicy === `error` && (this.stats.points.overflow || this.stats.spots.overflow)) throw RangeError(`Relevant lights exceed the configured per-draw light capacity.`);
@@ -194,45 +204,45 @@ var SpatialLightSelector = class {
 		}
 		return a;
 	}
-	selectType(e, t, n, i, o, s, c, l) {
-		let u = 0;
+	selectType(e, t, n, i, o, s, c, l, u) {
+		let d = 0;
 		c.selected = c.culled = c.overflow = 0;
-		let d = 0, f = l !== void 0 && this.scene.presentationPass === this.gridPass && l.gather(o.x, o.y, o.z, s) ? l.candidates : void 0, p = f ? f.length : e.length;
-		f && (c.culled = e.length - p);
-		for (let l = 0; l < p; l++) {
-			let p = e[f ? f[l] : l], m = o.x - p.position.x, h = o.y - p.position.y, g = o.z - p.position.z, _ = p.range;
-			if (_ > 0) {
-				let e = _ + s;
-				if (m * m + h * h + g * g > e * e * (1 + 1e-9)) {
+		let f = 0, p = l !== void 0 && this.scene.presentationPass === this.gridPass && l.gather(o.x, o.y, o.z, s) ? l.candidates : void 0, m = p ? p.length : e.length;
+		p && (c.culled = e.length - m);
+		for (let l = 0; l < m; l++) {
+			let m = p ? p[l] : l, h = e[m], g = o.x - h.position.x, _ = o.y - h.position.y, v = o.z - h.position.z, y = h.range;
+			if (y > 0) {
+				let e = y + s;
+				if (g * g + _ * _ + v * v > e * e * (1 + 1e-9)) {
 					c.culled++;
 					continue;
 				}
 			}
-			let v = require_hypot.hypot3(m, h, g), y = Math.max(0, v - s), b = Math.max(p.color[0], p.color[1], p.color[2]);
-			if (!p.intensity || !b || p.range > 0 && y >= p.range) {
+			let b = require_hypot.hypot3(g, _, v), x = Math.max(0, b - s), S = Math.max(h.color[0], h.color[1], h.color[2]);
+			if (!h.intensity || !S || h.range > 0 && x >= h.range) {
 				c.culled++;
 				continue;
 			}
-			let x = 1;
-			if (p instanceof require_lights$1.SpotLight && v > s) {
-				let e = p.direction.length(), t = (m * p.direction.x + h * p.direction.y + g * p.direction.z) / (v * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, s / v)));
-				if (n >= p.outerAngle) {
+			let C = 1;
+			if (h instanceof require_lights$1.SpotLight && b > s) {
+				let e = u ? u[m * 3] : h.direction.length(), t = (g * h.direction.x + _ * h.direction.y + v * h.direction.z) / (b * e), n = Math.max(0, Math.acos(Math.max(-1, Math.min(1, t))) - Math.asin(Math.min(1, s / b)));
+				if (n >= h.outerAngle) {
 					c.culled++;
 					continue;
 				}
-				let r = Math.max(0, Math.min(1, (Math.cos(n) - Math.cos(p.outerAngle)) / (Math.cos(p.innerAngle) - Math.cos(p.outerAngle))));
-				x = r * r * (3 - 2 * r);
+				let r = u ? u[m * 3 + 1] : Math.cos(h.outerAngle), i = u ? u[m * 3 + 2] : Math.cos(h.innerAngle), a = Math.max(0, Math.min(1, (Math.cos(n) - r) / (i - r)));
+				C = a * a * (3 - 2 * a);
 			}
-			let S = p.range > 0 ? Math.max(0, 1 - (y / p.range) ** 4) ** 2 : 1, C = b * p.intensity * x * S / Math.max(y * y, .01);
-			d++;
-			let w = 0;
-			for (; w < u && (t[w].priority > p.priority || t[w].priority === p.priority && (n[w] > C || n[w] === C && t[w].id < p.id));) w++;
-			if (w >= i) continue;
-			let T = Math.min(u, i - 1);
-			for (let e = T; e > w; e--) t[e] = t[e - 1], n[e] = n[e - 1];
-			t[w] = p, n[w] = C, u < i && u++;
+			let w = h.range > 0 ? Math.max(0, 1 - (x / h.range) ** 4) ** 2 : 1, T = S * h.intensity * C * w / Math.max(x * x, .01);
+			f++;
+			let E = 0;
+			for (; E < d && (t[E].priority > h.priority || t[E].priority === h.priority && (n[E] > T || n[E] === T && t[E].id < h.id));) E++;
+			if (E >= i) continue;
+			let D = Math.min(d, i - 1);
+			for (let e = D; e > E; e--) t[e] = t[e - 1], n[e] = n[e - 1];
+			t[E] = h, n[E] = T, d < i && d++;
 		}
-		t.length !== u && (t.length = u), c.selected = u, c.overflow = d - u;
+		t.length !== d && (t.length = d), c.selected = d, c.overflow = f - d;
 	}
 };
 var o = 10;

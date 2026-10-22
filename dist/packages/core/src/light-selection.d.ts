@@ -47,6 +47,11 @@ export declare class SpatialLightSelector implements SelectedLights {
     private readonly spotGrid;
     /** Presentation pass the grids were built in; 0 when they must not be used. */
     private gridPass;
+    /**
+     * Per spot light of the pool `update` validated in `gridPass`: direction length and the
+     * cosines of its outer and inner angles, which selection otherwise recomputes per draw.
+     */
+    private spotDerived;
     private pointGridded;
     private spotGridded;
     /** Every selection input of the pools at the last update; see snapshotPools. */
