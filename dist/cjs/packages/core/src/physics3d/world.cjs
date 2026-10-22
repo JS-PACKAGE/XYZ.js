@@ -160,17 +160,26 @@ var PhysicsWorld3D = class {
 		}
 	}
 	collectMovers(e) {
-		let t = this.entries.get(e);
-		t && this.snapshotMovers.push(t);
-		let n = e.existingChildren;
-		if (n) for (let e of n) this.collectMovers(e);
+		this.collectInto(e, this.snapshotMovers);
+	}
+	collectInto(e, t) {
+		let n = this.entries.get(e);
+		n && t.push(n);
+		let r = e.existingChildren;
+		if (r) for (let e of r) this.collectInto(e, t);
 	}
 	refreshMoved() {
-		let e = this.stepMovers;
+		let e = this.stepMovers, t = e.length;
+		for (let n = 0; n < t; n++) {
+			let t = e[n];
+			if (!t.body || t.body.type === `static`) continue;
+			let r = t.object.existingChildren;
+			if (r) for (let t of r) this.collectInto(t, e);
+		}
 		require_spatial.sortByOrder(e);
-		let t = 0;
-		for (let n = 0; n < e.length; n++) (t === 0 || e[t - 1] !== e[n]) && (e[t++] = e[n]);
-		e.length = t, this.counters.poseChecks += this.ordered.length - t, this.refreshIndex(e);
+		let n = 0;
+		for (let t = 0; t < e.length; t++) (n === 0 || e[n - 1] !== e[t]) && (e[n++] = e[t]);
+		e.length = n, this.counters.poseChecks += this.ordered.length - n, this.refreshIndex(e);
 	}
 	get joints() {
 		return this.constraints;
@@ -238,7 +247,7 @@ var PhysicsWorld3D = class {
 		}
 		if (r) {
 			let a = t ?? this.entries.get(e)?.shape, o = a?.collider === r ? a : new require_collider.Shape3D(r);
-			(o !== t || !o.composedDirectly()) && o.refresh(e), i && o.validateMoving(i.type);
+			(o !== t || !o.composedPurely()) && o.refresh(e), i && o.validateMoving(i.type);
 		}
 	}
 	register(e) {
@@ -601,7 +610,7 @@ var PhysicsWorld3D = class {
 					let e = a.object.scene;
 					e?.beginMatrixPass() && (i = e);
 				}
-				++this.counters.poseChecks, a.shape.refresh(a.object) && ++this.counters.refreshedLeaves, t && !a.shape.composedDirectly() && t.push(a), a.indexedRevision !== a.shape.revision && (r = !0, this.indexDirty || (this.counters.refits += this.index.update(a)), a.indexedRevision = a.shape.revision);
+				++this.counters.poseChecks, a.shape.refresh(a.object) && ++this.counters.refreshedLeaves, t && !a.shape.composedPurely() && t.push(a), a.indexedRevision !== a.shape.revision && (r = !0, this.indexDirty || (this.counters.refits += this.index.update(a)), a.indexedRevision = a.shape.revision);
 			}
 		} finally {
 			i?.endMatrixPass();

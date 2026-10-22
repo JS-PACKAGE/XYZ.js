@@ -89,9 +89,9 @@ export declare class PhysicsWorld3D {
     /** The last snapshot's movers in `sequencePoses`: the only entries moved since. */
     private readonly sequenceMovers;
     /**
-     * This step's entries that can move without user code: those `moveBodies` moved, and those
-     * whose pose is not their own transform (children, overridden or interpolated composition),
-     * from the step's first full refresh. See `refreshMoved`.
+     * This step's entries that can move without user code: those whose pose the step's first
+     * full refresh did not compose purely (see `Shape3D.composedPurely`), then those
+     * `moveBodies` moved. See `refreshMoved`.
      */
     private readonly stepMovers;
     /** Bumped by every registration change. */
@@ -158,11 +158,14 @@ export declare class PhysicsWorld3D {
      */
     withPoseSnapshot<T>(run: () => T, mover?: Object3D): T;
     private collectMovers;
+    /** Entries of `object` and its descendants, in hierarchy order. */
+    private collectInto;
     /**
      * `refreshIndex()` after a step whose only motion was `moveBodies`, following a full
-     * refresh with no user code since: a root whose pose is its own transform alone keeps it
-     * unless `moveBodies` moved it, so only `stepMovers` (deduplicated, in `ordered` order) are
-     * refreshed. Pose checks still count every entry.
+     * refresh with no user code since: a purely composed pose keeps its inputs unless
+     * `moveBodies` moved its object or an ancestor, so only `stepMovers` and the moved bodies'
+     * descendants (deduplicated, in `ordered` order) are refreshed. Pose checks still count
+     * every entry.
      */
     private refreshMoved;
     get joints(): readonly Joint3D[];
@@ -175,8 +178,8 @@ export declare class PhysicsWorld3D {
     validate(object: Object3D): void;
     /**
      * `validate`, given `refreshed`: the registered shape of `object`, whose `refresh` just ran
-     * with nothing moved since. Repeating it for a direct root would only compare equal
-     * inputs, so it is skipped.
+     * with nothing moved since. Repeating a pure refresh would only compare equal inputs, so
+     * it is skipped.
      */
     private validateWith;
     /** @internal Transactional attachment replacement; old contacts end only after validation succeeds. */

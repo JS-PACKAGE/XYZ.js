@@ -114,16 +114,18 @@ export declare class Shape3D {
     private readonly poseState;
     /** @internal Changes only after shape geometry/bounds are refreshed. */
     revision: number;
-    private refreshedDirectly;
+    private refreshedPurely;
     /** @internal Translation does not invalidate angular inertia. */
     inertiaRevision: number;
     readonly worldScale: Vector3;
     constructor(collider: Collider3D, needsVolume?: boolean);
     /**
-     * @internal The last `refresh` saw a root composed from its transform alone. It then
-     * recorded those inputs, so repeating it before anything moves only compares them equal.
+     * @internal The last `refresh` composed the pose from inputs it recorded, through no
+     * overridden `updateWorldMatrix`: a root's own transform, or a base-composed parent (whose
+     * ancestors all use the base composition) and the transform. Repeating it before
+     * anything moves then only compares equal inputs, running no user code.
      */
-    composedDirectly(): boolean;
+    composedPurely(): boolean;
     /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
     forgetPose(): void;
     refresh(object: Object3D): boolean;

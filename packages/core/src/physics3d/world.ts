@@ -180,9 +180,9 @@ export class PhysicsWorld3D {
   /** The last snapshot's movers in `sequencePoses`: the only entries moved since. */
   private readonly sequenceMovers: Entry3D[] = [];
   /**
-   * This step's entries that can move without user code: those `moveBodies` moved, and those
-   * whose pose is not their own transform (children, overridden or interpolated composition),
-   * from the step's first full refresh. See `refreshMoved`.
+   * This step's entries that can move without user code: those whose pose the step's first
+   * full refresh did not compose purely (see `Shape3D.composedPurely`), then those
+   * `moveBodies` moved. See `refreshMoved`.
    */
   private readonly stepMovers: Entry3D[] = [];
   /** Bumped by every registration change. */
@@ -323,19 +323,33 @@ export class PhysicsWorld3D {
     }
   }
   private collectMovers(object: Object3D): void {
+    this.collectInto(object, this.snapshotMovers);
+  }
+  /** Entries of `object` and its descendants, in hierarchy order. */
+  private collectInto(object: Object3D, out: Entry3D[]): void {
     const entry = this.entries.get(object);
-    if (entry) this.snapshotMovers.push(entry);
+    if (entry) out.push(entry);
     const children = object.existingChildren;
-    if (children) for (const child of children) this.collectMovers(child);
+    if (children) for (const child of children) this.collectInto(child, out);
   }
   /**
    * `refreshIndex()` after a step whose only motion was `moveBodies`, following a full
-   * refresh with no user code since: a root whose pose is its own transform alone keeps it
-   * unless `moveBodies` moved it, so only `stepMovers` (deduplicated, in `ordered` order) are
-   * refreshed. Pose checks still count every entry.
+   * refresh with no user code since: a purely composed pose keeps its inputs unless
+   * `moveBodies` moved its object or an ancestor, so only `stepMovers` and the moved bodies'
+   * descendants (deduplicated, in `ordered` order) are refreshed. Pose checks still count
+   * every entry.
    */
   private refreshMoved(): void {
-    const movers = this.stepMovers;
+    const movers = this.stepMovers,
+      count = movers.length;
+    for (let i = 0; i < count; i++) {
+      const e = movers[i]!;
+      // Moving bodies are roots; a superset of their descendants only refreshes more.
+      if (!e.body || e.body.type === 'static') continue;
+      const children = e.object.existingChildren;
+      if (children)
+        for (const child of children) this.collectInto(child, movers);
+    }
     sortByOrder(movers);
     let kept = 0;
     for (let i = 0; i < movers.length; i++)
@@ -441,8 +455,8 @@ export class PhysicsWorld3D {
   }
   /**
    * `validate`, given `refreshed`: the registered shape of `object`, whose `refresh` just ran
-   * with nothing moved since. Repeating it for a direct root would only compare equal
-   * inputs, so it is skipped.
+   * with nothing moved since. Repeating a pure refresh would only compare equal inputs, so
+   * it is skipped.
    */
   private validateWith(object: Object3D, refreshed: Shape3D | undefined): void {
     const c = object.collider,
@@ -463,8 +477,7 @@ export class PhysicsWorld3D {
       // A registered entry's own shape is what the lookup would find.
       const previous = refreshed ?? this.entries.get(object)?.shape;
       const shape = previous?.collider === c ? previous : new Shape3D(c);
-      if (shape !== refreshed || !shape.composedDirectly())
-        shape.refresh(object);
+      if (shape !== refreshed || !shape.composedPurely()) shape.refresh(object);
       if (b) shape.validateMoving(b.type);
     }
   }
@@ -1390,7 +1403,7 @@ export class PhysicsWorld3D {
         }
         ++this.counters.poseChecks;
         if (e.shape.refresh(e.object)) ++this.counters.refreshedLeaves;
-        if (indirect && !e.shape.composedDirectly()) indirect.push(e);
+        if (indirect && !e.shape.composedPurely()) indirect.push(e);
         if (e.indexedRevision !== e.shape.revision) {
           changed = true;
           if (!this.indexDirty) this.counters.refits += this.index.update(e);
