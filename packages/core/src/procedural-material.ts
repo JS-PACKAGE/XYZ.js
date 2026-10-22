@@ -253,6 +253,9 @@ export type ProceduralMaterialKind =
   | 'poolfelt'
   | 'icesurface'
   | 'climbingwall'
+  | 'oledpanel'
+  | 'crtscanline'
+  | 'keyboardkey'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -588,6 +591,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'poolfelt',
   'icesurface',
   'climbingwall',
+  'oledpanel',
+  'crtscanline',
+  'keyboardkey',
   'basketball',
   'tennisball',
   'golfball',

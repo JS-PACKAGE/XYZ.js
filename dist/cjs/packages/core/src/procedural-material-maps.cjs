@@ -2397,6 +2397,21 @@ function createSurfaceSampler(t, r) {
 				H = .4 + .34 * i + .08 * a, Z = .42 + .28 * i + .02 * a, Q += .06 * (a - .5) - .08 * i, $ = 1 - .36 * (1 - i);
 				break;
 			}
+			case `oledpanel`: {
+				let e = fract(o * 6), t = fract(A * 6), n = .5 - .5 * Math.cos(Math.PI * 2 * (e - .5)), i = .5 - .5 * Math.cos(Math.PI * 2 * (t - .5)), a = smooth(clamp((n - .74) / .26)), s = smooth(clamp((i - .74) / .26)), c = a + s - a * s, l = fract(e * 3), d = smooth(clamp((.5 - .5 * Math.cos(Math.PI * 2 * (l - .5)) - .8) / .2)), f = c + d - c * d;
+				H = .16 + .84 * (.55 + .45 * hash(Math.floor(e * 3), Math.floor(A * 6), r ^ 6699)) * (1 - f), Z = .28 + .44 * (1 - f), Q += .1 * f - .04 * (1 - f), $ = 1 - .34 * f;
+				break;
+			}
+			case `crtscanline`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 10) - .5)), t = noise(o, A, 32, 32, r ^ 11068), n = noise(o, A, 64, 64, r ^ 15437);
+				H = .1 + .72 * e + .12 * t + .06 * n, Z = .24 + .5 * e + .04 * t, Q += .08 * (1 - e) + .06 * (n - .5), $ = 1 - .36 * (1 - e);
+				break;
+			}
+			case `keyboardkey`: {
+				let e = Math.sin(Math.PI * (fract(o * 6) - .5)), t = Math.sin(Math.PI * (fract(A * 6) - .5)), i = smooth(clamp((.86 - (Math.abs(e) ** 4 + Math.abs(t) ** 4) ** .25) / .5)), a = noise(o, A, 32, 32, r ^ 19806);
+				H = .34 + .4 * i + .08 * a, Z = .26 + .46 * i + .04 * a, Q += .06 * (a - .5) - .06 * i, $ = 1 - .34 * (1 - i);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

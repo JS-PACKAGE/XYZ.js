@@ -271,6 +271,9 @@ const kinds: ProceduralMaterialKind[] = [
   'poolfelt',
   'icesurface',
   'climbingwall',
+  'oledpanel',
+  'crtscanline',
+  'keyboardkey',
   'basketball',
   'tennisball',
   'golfball',
@@ -5088,6 +5091,9 @@ describe('periodic procedural material fields', () => {
     ['poolfelt', [8, 32, 48, 64]],
     ['icesurface', [3, 7, 32, 64]],
     ['climbingwall', [3, 32, 48, 64]],
+    ['oledpanel', [6, 18, 36, 64]],
+    ['crtscanline', [10, 32, 64]],
+    ['keyboardkey', [6, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5365,6 +5371,9 @@ describe('periodic procedural material fields', () => {
     ['poolfelt', 8],
     ['icesurface', 7],
     ['climbingwall', 3],
+    ['oledpanel', 18],
+    ['crtscanline', 10],
+    ['keyboardkey', 6],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6796,6 +6805,9 @@ describe('periodic procedural material fields', () => {
     'poolfelt',
     'icesurface',
     'climbingwall',
+    'oledpanel',
+    'crtscanline',
+    'keyboardkey',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7009,7 +7021,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                         : kind ===
                                                                                                                                                             'climbingwall'
                                                                                                                                                           ? 3
-                                                                                                                                                          : 4;
+                                                                                                                                                          : kind ===
+                                                                                                                                                              'oledpanel'
+                                                                                                                                                            ? 18
+                                                                                                                                                            : kind ===
+                                                                                                                                                                'crtscanline'
+                                                                                                                                                              ? 10
+                                                                                                                                                              : kind ===
+                                                                                                                                                                  'keyboardkey'
+                                                                                                                                                                ? 6
+                                                                                                                                                                : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11388,6 +11409,68 @@ describe('periodic procedural material fields', () => {
       sample(0, 0, wall);
       expect(hold.height).toBeGreaterThan(wall.height + 0.1 * relief);
       expect(hold.occlusion).toBeGreaterThan(wall.occlusion);
+    }
+  });
+
+  it('oled panel glows subpixel stripes above the dark matrix', () => {
+    const relief = proceduralMaterialPresets.oledpanel.relief;
+    const stripe: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...stripe };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('oledpanel', seed);
+      sample(1 / 36, 1 / 12, stripe);
+      sample(0, 1 / 12, gap);
+      expect(stripe.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(stripe.color).toBeGreaterThan(gap.color + 0.1 * relief);
+      expect(stripe.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('crt scanlines raise phosphor crests above the line gaps', () => {
+    const relief = proceduralMaterialPresets.crtscanline.relief;
+    const crest: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...crest };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('crtscanline', seed);
+      sample(0, 0.05, crest);
+      sample(0, 0, gap);
+      expect(crest.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(crest.color).toBeGreaterThan(gap.color + 0.1 * relief);
+      expect(crest.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('keyboard keys lift rounded caps over the recessed gaps', () => {
+    const relief = proceduralMaterialPresets.keyboardkey.relief;
+    const cap: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...cap };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('keyboardkey', seed);
+      sample(1 / 12, 1 / 12, cap);
+      sample(0, 1 / 12, gap);
+      expect(cap.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(cap.occlusion).toBeGreaterThan(gap.occlusion);
     }
   });
 

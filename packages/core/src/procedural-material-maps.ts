@@ -8453,6 +8453,55 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.36 * (1 - hold);
         break;
       }
+      case 'oledpanel': {
+        // Subpixel stripes glow inside each cell; the dark matrix masks between them.
+        const gx = fract(u * 6),
+          gy = fract(v * 6);
+        const rawx = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gx - 0.5)),
+          rawy = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (gy - 0.5));
+        const bx = smooth(clamp((rawx - 0.74) / 0.26)),
+          by = smooth(clamp((rawy - 0.74) / 0.26));
+        const cellMask = bx + by - bx * by;
+        const sx = fract(gx * 3);
+        const raws = 0.5 - 0.5 * Math.cos(Math.PI * 2 * (sx - 0.5));
+        const sm = smooth(clamp((raws - 0.8) / 0.2));
+        const mask = cellMask + sm - cellMask * sm;
+        const glow =
+          0.55 +
+          0.45 * hash(Math.floor(gx * 3), Math.floor(v * 6), seed ^ 0x1a2b);
+        color = 0.16 + 0.84 * glow * (1 - mask);
+        height = 0.28 + 0.44 * (1 - mask);
+        roughness += 0.1 * mask - 0.04 * (1 - mask);
+        occlusion = 1 - 0.34 * mask;
+        break;
+      }
+      case 'crtscanline': {
+        // Bright phosphor scanlines sit above the dark line gaps with fine grain.
+        const scan = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 10) - 0.5));
+        const phosphor = noise(u, v, 32, 32, seed ^ 0x2b3c),
+          grain = noise(u, v, 64, 64, seed ^ 0x3c4d);
+        color = 0.1 + 0.72 * scan + 0.12 * phosphor + 0.06 * grain;
+        height = 0.24 + 0.5 * scan + 0.04 * phosphor;
+        roughness += 0.08 * (1 - scan) + 0.06 * (grain - 0.5);
+        occlusion = 1 - 0.36 * (1 - scan);
+        break;
+      }
+      case 'keyboardkey': {
+        // Sculpted rounded-square keycaps rise over the recessed gaps.
+        const fx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+        const d = Math.pow(
+          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+          0.25,
+        );
+        const cap = smooth(clamp((0.86 - d) / 0.5));
+        const grain = noise(u, v, 32, 32, seed ^ 0x4d5e);
+        color = 0.34 + 0.4 * cap + 0.08 * grain;
+        height = 0.26 + 0.46 * cap + 0.04 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.06 * cap;
+        occlusion = 1 - 0.34 * (1 - cap);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

@@ -3450,6 +3450,48 @@ var proceduralMaterialPresets = Object.freeze({
 		roughness: .86,
 		relief: .0034
 	}),
+	oledpanel: Object.freeze({
+		dark: [
+			12,
+			12,
+			16
+		],
+		light: [
+			212,
+			220,
+			232
+		],
+		roughness: .3,
+		relief: .0016
+	}),
+	crtscanline: Object.freeze({
+		dark: [
+			8,
+			12,
+			10
+		],
+		light: [
+			112,
+			188,
+			128
+		],
+		roughness: .42,
+		relief: .0012
+	}),
+	keyboardkey: Object.freeze({
+		dark: [
+			28,
+			28,
+			32
+		],
+		light: [
+			172,
+			172,
+			182
+		],
+		roughness: .62,
+		relief: .003
+	}),
 	basketball: Object.freeze({
 		dark: [
 			23,
@@ -4551,6 +4593,9 @@ var proceduralTileMeters = Object.freeze({
 	poolfelt: .3,
 	icesurface: .24,
 	climbingwall: .4,
+	oledpanel: .12,
+	crtscanline: .16,
+	keyboardkey: .24,
 	basketball: .24,
 	tennisball: .12,
 	golfball: .045,

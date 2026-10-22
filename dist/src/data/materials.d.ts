@@ -1482,6 +1482,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.86;
         relief: 0.0034;
     }>;
+    oledpanel: Readonly<{
+        dark: readonly [12, 12, 16];
+        light: readonly [212, 220, 232];
+        roughness: 0.3;
+        relief: 0.0016;
+    }>;
+    crtscanline: Readonly<{
+        dark: readonly [8, 12, 10];
+        light: readonly [112, 188, 128];
+        roughness: 0.42;
+        relief: 0.0012;
+    }>;
+    keyboardkey: Readonly<{
+        dark: readonly [28, 28, 32];
+        light: readonly [172, 172, 182];
+        roughness: 0.62;
+        relief: 0.003;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2128,6 +2146,9 @@ export declare const proceduralTileMeters: Readonly<{
     poolfelt: 0.3;
     icesurface: 0.24;
     climbingwall: 0.4;
+    oledpanel: 0.12;
+    crtscanline: 0.16;
+    keyboardkey: 0.24;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;
