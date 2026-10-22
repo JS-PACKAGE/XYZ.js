@@ -47,6 +47,8 @@ export declare class ParticleEmitter extends Group2D {
     private count;
     private running;
     private fraction;
+    private spriteWidth;
+    private spriteHeight;
     private randomState;
     private readonly rate;
     private readonly lifetime;
@@ -75,6 +77,11 @@ export declare class ParticleEmitter extends Group2D {
     clear(): void;
     /** @internal Scene invokes this after physics, never through object.update(). */
     updateSimulation(dt: number): void;
+    /**
+     * `advance` for every active pool Sprite with the emitter's constants held in locals; the
+     * expressions (and so every float result) are those of `advance` and `appearance`.
+     */
+    private advanceSprites;
     destroy(): void;
     private assertAlive;
     private validateBirthSource;
@@ -82,6 +89,8 @@ export declare class ParticleEmitter extends Group2D {
     private sample;
     private spawn;
     private advance;
+    /** Every pool Sprite borrows the emitter's own source, so its size is one per-tick value. */
+    private refreshSpriteSize;
     private appearance;
     private hasTargetSlot;
     private releaseTargetSlot;

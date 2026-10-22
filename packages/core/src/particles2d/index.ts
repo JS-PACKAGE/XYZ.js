@@ -101,6 +101,9 @@ class ParticleSprite extends Sprite {
   // GameObject retains this tuple. Validated interpolation writes it in place instead
   // of invoking the public validating setter (and allocating callbacks) each tick.
   readonly particleColor = this.tint as [number, number, number, number];
+  // The transform's own vectors, held here so the per-tick update skips the getter chain.
+  readonly place = this.position;
+  readonly extent = this.scale;
 
   constructor(
     options: SpriteOptions,
@@ -121,15 +124,17 @@ class ParticleSprite extends Sprite {
 
   override updateWorldMatrix(): Matrix3 {
     if (this.simulationSpace === 'local') return super.updateWorldMatrix();
-    const e = this.worldMatrix.elements;
-    e[0] = this.axisXX * this.scale.x;
-    e[1] = this.axisXY * this.scale.x;
+    const e = this.worldMatrix.elements,
+      scale = this.extent,
+      position = this.place;
+    e[0] = this.axisXX * scale.x;
+    e[1] = this.axisXY * scale.x;
     e[2] = 0;
-    e[3] = this.axisYX * this.scale.y;
-    e[4] = this.axisYY * this.scale.y;
+    e[3] = this.axisYX * scale.y;
+    e[4] = this.axisYY * scale.y;
     e[5] = 0;
-    e[6] = this.position.x;
-    e[7] = this.position.y;
+    e[6] = position.x;
+    e[7] = position.y;
     e[8] = 1;
     return this.worldMatrix;
   }
@@ -156,6 +161,8 @@ export class ParticleEmitter extends Group2D {
   private count = 0;
   private running = false;
   private fraction = 0;
+  private spriteWidth = 1;
+  private spriteHeight = 1;
   private randomState: number;
   private readonly rate: number;
   private readonly lifetime: [number, number];
@@ -333,6 +340,7 @@ export class ParticleEmitter extends Group2D {
     );
     if (accepted === 0) return;
     this.validateBirthSource();
+    this.refreshSpriteSize();
     const matrix =
       this.simulationSpace === 'world'
         ? this.updateWorldMatrix()
@@ -368,11 +376,14 @@ export class ParticleEmitter extends Group2D {
     if (!Number.isFinite(dt) || dt < 0)
       throw new RangeError('Particle delta must be finite and nonnegative.');
     if (dt === 0) return;
-    let i = 0;
-    while (i < this.count) {
-      if (this.advance(this.active[i], dt)) i++;
-      else this.retire(i);
-    }
+    this.refreshSpriteSize();
+    if (this.target) {
+      let i = 0;
+      while (i < this.count) {
+        if (this.advance(this.active[i], dt)) i++;
+        else this.retire(i);
+      }
+    } else this.advanceSprites(dt);
     if (!this.running || this.rate === 0) return;
     const previousFraction = this.fraction;
     const total = previousFraction + this.rate * dt;
@@ -395,6 +406,61 @@ export class ParticleEmitter extends Group2D {
       const slot = this.spawn(matrix);
       const elapsed = Math.max(0, dt - (1 - previousFraction + j) / this.rate);
       if (!this.advance(slot, elapsed)) this.retire(this.count - 1);
+    }
+  }
+
+  /**
+   * `advance` for every active pool Sprite with the emitter's constants held in locals; the
+   * expressions (and so every float result) are those of `advance` and `appearance`.
+   */
+  private advanceSprites(dt: number): void {
+    const state = this.state,
+      active = this.active,
+      pool = this.pool;
+    const startWidth = this.startSize[0],
+      startHeight = this.startSize[1];
+    const widthSpan = this.endSize[0] - startWidth,
+      heightSpan = this.endSize[1] - startHeight;
+    const width = this.spriteWidth,
+      height = this.spriteHeight;
+    const red = this.startColor[0],
+      green = this.startColor[1],
+      blue = this.startColor[2],
+      alpha = this.startColor[3];
+    const redSpan = this.endColor[0] - red,
+      greenSpan = this.endColor[1] - green,
+      blueSpan = this.endColor[2] - blue,
+      alphaSpan = this.endColor[3] - alpha;
+    let i = 0;
+    while (i < this.count) {
+      const slot = active[i];
+      const base = slot * STRIDE;
+      const age = state[base + AGE] + dt;
+      const life = state[base + LIFE];
+      if (age >= life) {
+        this.retire(i);
+        continue;
+      }
+      state[base + AGE] = age;
+      const ax = state[base + AX],
+        ay = state[base + AY];
+      const x = (state[base + X] += state[base + VX] * dt + ax * dt * dt * 0.5);
+      const y = (state[base + Y] += state[base + VY] * dt + ay * dt * dt * 0.5);
+      state[base + VX] += ax * dt;
+      state[base + VY] += ay * dt;
+      const particle = pool[slot];
+      particle.place.set(x, y);
+      const progress = age / life;
+      particle.extent.set(
+        (startWidth + widthSpan * progress) / width,
+        (startHeight + heightSpan * progress) / height,
+      );
+      const color = particle.particleColor;
+      color[0] = red + redSpan * progress;
+      color[1] = green + greenSpan * progress;
+      color[2] = blue + blueSpan * progress;
+      color[3] = alpha + alphaSpan * progress;
+      i++;
     }
   }
 
@@ -509,7 +575,7 @@ export class ParticleEmitter extends Group2D {
     this.state[base + AGE] = 0;
     this.state[base + LIFE] = lifetime;
     if (!this.target) {
-      particle.position.set(x, y);
+      particle.place.set(x, y);
       particle.rotation = 0;
       particle.opacity = 1;
       particle.visible = true;
@@ -534,21 +600,39 @@ export class ParticleEmitter extends Group2D {
     if (this.target) this.targetAppearance(slot, age / this.state[base + LIFE]);
     else {
       const particle = this.pool[slot];
-      particle.position.set(this.state[base + X], this.state[base + Y]);
+      particle.place.set(this.state[base + X], this.state[base + Y]);
       this.appearance(particle, age / this.state[base + LIFE]);
     }
     return true;
   }
 
+  /** Every pool Sprite borrows the emitter's own source, so its size is one per-tick value. */
+  private refreshSpriteSize(): void {
+    const particle = this.birthOptions;
+    this.spriteWidth =
+      particle.view?.width ??
+      particle.source?.width ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalWidth
+        : particle.texture.width);
+    this.spriteHeight =
+      particle.view?.height ??
+      particle.source?.height ??
+      (particle.texture.kind === 'render'
+        ? particle.texture.logicalHeight
+        : particle.texture.height);
+  }
+
   private appearance(particle: ParticleSprite, progress: number): void {
-    particle.scale.set(
+    particle.extent.set(
       (this.startSize[0] + (this.endSize[0] - this.startSize[0]) * progress) /
-        particle.width,
+        this.spriteWidth,
       (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * progress) /
-        particle.height,
+        this.spriteHeight,
     );
+    const color = particle.particleColor;
     for (let i = 0; i < 4; i++)
-      particle.particleColor[i] =
+      color[i] =
         this.startColor[i] + (this.endColor[i] - this.startColor[i]) * progress;
   }
 

@@ -31,6 +31,8 @@ var ParticleSprite = class extends require_sprite.Sprite {
 	axisYX = 0;
 	axisYY = 1;
 	particleColor = this.tint;
+	place = this.position;
+	extent = this.scale;
 	constructor(e, t) {
 		super(e), this.simulationSpace = t, this.renderEnabled = !1, this.visible = !1;
 	}
@@ -40,8 +42,8 @@ var ParticleSprite = class extends require_sprite.Sprite {
 	}
 	updateWorldMatrix() {
 		if (this.simulationSpace === `local`) return super.updateWorldMatrix();
-		let e = this.worldMatrix.elements;
-		return e[0] = this.axisXX * this.scale.x, e[1] = this.axisXY * this.scale.x, e[2] = 0, e[3] = this.axisYX * this.scale.y, e[4] = this.axisYY * this.scale.y, e[5] = 0, e[6] = this.position.x, e[7] = this.position.y, e[8] = 1, this.worldMatrix;
+		let e = this.worldMatrix.elements, t = this.extent, n = this.place;
+		return e[0] = this.axisXX * t.x, e[1] = this.axisXY * t.x, e[2] = 0, e[3] = this.axisYX * t.y, e[4] = this.axisYY * t.y, e[5] = 0, e[6] = n.x, e[7] = n.y, e[8] = 1, this.worldMatrix;
 	}
 };
 var ParticleEmitter = class extends require_group2d.Group2D {
@@ -54,6 +56,8 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 	count = 0;
 	running = !1;
 	fraction = 0;
+	spriteWidth = 1;
+	spriteHeight = 1;
 	randomState;
 	rate;
 	lifetime;
@@ -150,7 +154,7 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		if (this.assertAlive(), !Number.isSafeInteger(e) || e < 0) throw RangeError(`Particle count must be a nonnegative safe integer.`);
 		let t = Math.min(e, this.freeCount, this.target?.availableCount ?? this.capacity);
 		if (t === 0) return;
-		this.validateBirthSource();
+		this.validateBirthSource(), this.refreshSpriteSize();
 		let n = this.simulationSpace === `world` ? this.updateWorldMatrix() : this.worldMatrix;
 		for (let e = 0; e < t; e++) this.spawn(n);
 	}
@@ -175,18 +179,39 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		}
 		if (!Number.isFinite(e) || e < 0) throw RangeError(`Particle delta must be finite and nonnegative.`);
 		if (e === 0) return;
-		let t = 0;
-		for (; t < this.count;) this.advance(this.active[t], e) ? t++ : this.retire(t);
+		if (this.refreshSpriteSize(), this.target) {
+			let t = 0;
+			for (; t < this.count;) this.advance(this.active[t], e) ? t++ : this.retire(t);
+		} else this.advanceSprites(e);
 		if (!this.running || this.rate === 0) return;
-		let n = this.fraction, r = n + this.rate * e, i = Math.floor(r);
-		this.fraction = Number.isFinite(r) ? r - i : 0;
-		let a = Math.min(i, this.freeCount, this.target?.availableCount ?? this.capacity);
-		if (a === 0) return;
+		let t = this.fraction, n = t + this.rate * e, r = Math.floor(n);
+		this.fraction = Number.isFinite(n) ? n - r : 0;
+		let i = Math.min(r, this.freeCount, this.target?.availableCount ?? this.capacity);
+		if (i === 0) return;
 		this.validateBirthSource();
-		let o = this.simulationSpace === `world` ? this.updateWorldMatrix() : this.worldMatrix;
-		for (let t = 0; t < a; t++) {
-			let r = this.spawn(o), i = Math.max(0, e - (1 - n + t) / this.rate);
+		let a = this.simulationSpace === `world` ? this.updateWorldMatrix() : this.worldMatrix;
+		for (let n = 0; n < i; n++) {
+			let r = this.spawn(a), i = Math.max(0, e - (1 - t + n) / this.rate);
 			this.advance(r, i) || this.retire(this.count - 1);
+		}
+	}
+	advanceSprites(e) {
+		let t = this.state, n = this.active, r = this.pool, i = this.startSize[0], a = this.startSize[1], o = this.endSize[0] - i, s = this.endSize[1] - a, c = this.spriteWidth, l = this.spriteHeight, u = this.startColor[0], d = this.startColor[1], f = this.startColor[2], p = this.startColor[3], m = this.endColor[0] - u, h = this.endColor[1] - d, g = this.endColor[2] - f, _ = this.endColor[3] - p, v = 0;
+		for (; v < this.count;) {
+			let y = n[v], b = y * 8, x = t[b + 6] + e, S = t[b + 7];
+			if (x >= S) {
+				this.retire(v);
+				continue;
+			}
+			t[b + 6] = x;
+			let C = t[b + 4], w = t[b + 5], T = t[b + 0] += t[b + 2] * e + C * e * e * .5, E = t[b + 1] += t[b + 3] * e + w * e * e * .5;
+			t[b + 2] += C * e, t[b + 3] += w * e;
+			let D = r[y];
+			D.place.set(T, E);
+			let O = x / S;
+			D.extent.set((i + o * O) / c, (a + s * O) / l);
+			let k = D.particleColor;
+			k[0] = u + m * O, k[1] = d + h * O, k[2] = f + g * O, k[3] = p + _ * O, v++;
 		}
 	}
 	destroy() {
@@ -245,7 +270,7 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 			if (e < 0) throw this.randomState = i, Error(`Particle target capacity changed during emission.`);
 			this.targetSlots[t] = e, this.targetGenerations[t] = this.target.getSlot(e).generation;
 		}
-		return this.freeCount--, this.active[this.count++] = t, this.state[n + 0] = a, this.state[n + 1] = o, this.state[n + 2] = l, this.state[n + 3] = u, this.state[n + 4] = d, this.state[n + 5] = f, this.state[n + 6] = 0, this.state[n + 7] = p, this.target || (r.position.set(a, o), r.rotation = 0, r.opacity = 1, r.visible = !0, r.renderEnabled = !0, this.appearance(r, 0)), t;
+		return this.freeCount--, this.active[this.count++] = t, this.state[n + 0] = a, this.state[n + 1] = o, this.state[n + 2] = l, this.state[n + 3] = u, this.state[n + 4] = d, this.state[n + 5] = f, this.state[n + 6] = 0, this.state[n + 7] = p, this.target || (r.place.set(a, o), r.rotation = 0, r.opacity = 1, r.visible = !0, r.renderEnabled = !0, this.appearance(r, 0)), t;
 	}
 	advance(e, t) {
 		if (this.target && !this.hasTargetSlot(e)) return !1;
@@ -254,13 +279,18 @@ var ParticleEmitter = class extends require_group2d.Group2D {
 		if (this.state[n + 6] = r, this.state[n + 0] += this.state[n + 2] * t + this.state[n + 4] * t * t * .5, this.state[n + 1] += this.state[n + 3] * t + this.state[n + 5] * t * t * .5, this.state[n + 2] += this.state[n + 4] * t, this.state[n + 3] += this.state[n + 5] * t, this.target) this.targetAppearance(e, r / this.state[n + 7]);
 		else {
 			let t = this.pool[e];
-			t.position.set(this.state[n + 0], this.state[n + 1]), this.appearance(t, r / this.state[n + 7]);
+			t.place.set(this.state[n + 0], this.state[n + 1]), this.appearance(t, r / this.state[n + 7]);
 		}
 		return !0;
 	}
+	refreshSpriteSize() {
+		let e = this.birthOptions;
+		this.spriteWidth = e.view?.width ?? e.source?.width ?? (e.texture.kind === `render` ? e.texture.logicalWidth : e.texture.width), this.spriteHeight = e.view?.height ?? e.source?.height ?? (e.texture.kind === `render` ? e.texture.logicalHeight : e.texture.height);
+	}
 	appearance(e, t) {
-		e.scale.set((this.startSize[0] + (this.endSize[0] - this.startSize[0]) * t) / e.width, (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * t) / e.height);
-		for (let n = 0; n < 4; n++) e.particleColor[n] = this.startColor[n] + (this.endColor[n] - this.startColor[n]) * t;
+		e.extent.set((this.startSize[0] + (this.endSize[0] - this.startSize[0]) * t) / this.spriteWidth, (this.startSize[1] + (this.endSize[1] - this.startSize[1]) * t) / this.spriteHeight);
+		let n = e.particleColor;
+		for (let e = 0; e < 4; e++) n[e] = this.startColor[e] + (this.endColor[e] - this.startColor[e]) * t;
 	}
 	hasTargetSlot(e) {
 		let t = this.targetSlots[e];
