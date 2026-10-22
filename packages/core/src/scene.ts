@@ -55,6 +55,28 @@ export interface SceneOptions {
 
 /** Update stamps are global, so a stamp left by another Scene can never be mistaken for ours. */
 let lastObjectUpdate = 0;
+/** Per prototype: whether something between it and `Sprite.prototype` redefines `animation`. */
+const animationOverrides = new WeakMap<object, boolean>();
+/** True when reading `sprite.animation` may run code other than Sprite's own getter. */
+function overridesAnimation(sprite: Sprite): boolean {
+  if (Object.hasOwn(sprite, 'animation')) return true;
+  const prototype = Object.getPrototypeOf(sprite) as object;
+  let overridden = animationOverrides.get(prototype);
+  if (overridden === undefined) {
+    overridden = false;
+    for (
+      let p: object | null = prototype;
+      p && p !== Sprite.prototype;
+      p = Object.getPrototypeOf(p) as object | null
+    )
+      if (Object.hasOwn(p, 'animation')) {
+        overridden = true;
+        break;
+      }
+    animationOverrides.set(prototype, overridden);
+  }
+  return overridden;
+}
 
 /** Owns objects and their scene-local ECS registrations until synchronous disposal. */
 export class Scene {
@@ -433,6 +455,8 @@ export class Scene {
    */
   private readonly preupdatePass = new Set<GameObject>();
   private readonly actionPass = new Set<GameObject>();
+  /** Sprites `advanceFrameAnimations` may advance: with an animation or an override of it. */
+  private readonly animationPass = new Set<Sprite>();
   private frameObjectUpdate = 0;
   private pointerRouter: PointerRouter | undefined;
   /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */
@@ -677,6 +701,7 @@ export class Scene {
       this.objectUpdates.delete(object);
       this.preupdatePass.delete(object);
       this.actionPass.delete(object);
+      if (object instanceof Sprite) this.animationPass.delete(object);
       object.sceneUpdateId = 0;
     }
     if (object instanceof ParticleEmitter)
@@ -763,6 +788,11 @@ export class Scene {
       this.preupdatePass.add(object);
     else this.preupdatePass.delete(object);
     if (object.hasActionQueue) this.actionPass.add(object);
+    if (object instanceof Sprite) {
+      if (object.hasFrameAnimation || overridesAnimation(object))
+        this.animationPass.add(object);
+      else this.animationPass.delete(object);
+    }
   }
 
   /** @internal Freeze membership before callbacks; new/re-added objects wait one frame. */
@@ -794,6 +824,7 @@ export class Scene {
 
   /** @internal Invoked independently of subclass Scene.update. */
   advanceFrameAnimations(deltaTime: number, canContinue: () => boolean): void {
+    if (this.animationPass.size === 0) return;
     for (const object of this.objectUpdates) {
       const id = object.sceneUpdateId;
       if (id > this.frameObjectUpdate) break;

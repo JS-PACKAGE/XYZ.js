@@ -26,6 +26,20 @@ const require_world_streaming = require("./world-streaming.cjs");
 const require_light_selection = require("./light-selection.cjs");
 //#region dist/packages/core/src/scene.js
 var k = 0;
+var A = /* @__PURE__ */ new WeakMap();
+function overridesAnimation(e) {
+	if (Object.hasOwn(e, `animation`)) return !0;
+	let t = Object.getPrototypeOf(e), n = A.get(t);
+	if (n === void 0) {
+		n = !1;
+		for (let e = t; e && e !== require_sprite.Sprite.prototype; e = Object.getPrototypeOf(e)) if (Object.hasOwn(e, `animation`)) {
+			n = !0;
+			break;
+		}
+		A.set(t, n);
+	}
+	return n;
+}
 var Scene = class {
 	world = new require_world.World();
 	camera2D = new require_camera2d.Camera2D();
@@ -222,6 +236,7 @@ var Scene = class {
 	objectUpdates = /* @__PURE__ */ new Set();
 	preupdatePass = /* @__PURE__ */ new Set();
 	actionPass = /* @__PURE__ */ new Set();
+	animationPass = /* @__PURE__ */ new Set();
 	frameObjectUpdate = 0;
 	pointerRouter;
 	get pointerEvents() {
@@ -339,7 +354,7 @@ var Scene = class {
 	}
 	unregister(e) {
 		let t = this.registrations.get(e);
-		t !== void 0 && (this.registrations.delete(e), this.registeredObjects.delete(e), e instanceof require_mesh.Mesh && (this.registeredMeshes?.delete(e), ++this.meshRevision), e instanceof require_gpu_particles3d.GPUParticleEmitter3D && this.registeredGPUParticles?.delete(e), require_objects3d.isCameraDependent(e) && this.cameraDependents?.delete(e), e instanceof require_game_object.GameObject && (this.objectUpdates.delete(e), this.preupdatePass.delete(e), this.actionPass.delete(e), e.sceneUpdateId = 0), e instanceof require_index$1.ParticleEmitter && this.particleEmitters?.delete(e), e.detach(this), this.world.removeEntity(t), e instanceof require_game_object.GameObject && this.physicsWorld?.unregister(e), e instanceof require_object3d.Object3D && this.physicsWorld3D?.unregister(e), e instanceof require_game_object.GameObject && this.pointerRouter?.forget(e));
+		t !== void 0 && (this.registrations.delete(e), this.registeredObjects.delete(e), e instanceof require_mesh.Mesh && (this.registeredMeshes?.delete(e), ++this.meshRevision), e instanceof require_gpu_particles3d.GPUParticleEmitter3D && this.registeredGPUParticles?.delete(e), require_objects3d.isCameraDependent(e) && this.cameraDependents?.delete(e), e instanceof require_game_object.GameObject && (this.objectUpdates.delete(e), this.preupdatePass.delete(e), this.actionPass.delete(e), e instanceof require_sprite.Sprite && this.animationPass.delete(e), e.sceneUpdateId = 0), e instanceof require_index$1.ParticleEmitter && this.particleEmitters?.delete(e), e.detach(this), this.world.removeEntity(t), e instanceof require_game_object.GameObject && this.physicsWorld?.unregister(e), e instanceof require_object3d.Object3D && this.physicsWorld3D?.unregister(e), e instanceof require_game_object.GameObject && this.pointerRouter?.forget(e));
 	}
 	claim(e) {
 		if (this.disposed || this.owner) throw Error(`Scene is destroyed or already owned by a Game.`);
@@ -362,7 +377,7 @@ var Scene = class {
 	preload(e, t) {}
 	initialize(e, t) {}
 	trackObjectPasses(e) {
-		e instanceof require_game_object.GameObject && this.objectUpdates.has(e) && (!e.eventsInitialized || e.observesUpdate(`preupdate`) ? this.preupdatePass.add(e) : this.preupdatePass.delete(e), e.hasActionQueue && this.actionPass.add(e));
+		e instanceof require_game_object.GameObject && this.objectUpdates.has(e) && (!e.eventsInitialized || e.observesUpdate(`preupdate`) ? this.preupdatePass.add(e) : this.preupdatePass.delete(e), e.hasActionQueue && this.actionPass.add(e), e instanceof require_sprite.Sprite && (e.hasFrameAnimation || overridesAnimation(e) ? this.animationPass.add(e) : this.animationPass.delete(e)));
 	}
 	beginObjectFrame() {
 		this.frameObjectUpdate = k;
@@ -378,7 +393,7 @@ var Scene = class {
 		}
 	}
 	advanceFrameAnimations(e, t) {
-		for (let n of this.objectUpdates) {
+		if (this.animationPass.size !== 0) for (let n of this.objectUpdates) {
 			if (n.sceneUpdateId > this.frameObjectUpdate) break;
 			if (n instanceof require_sprite.Sprite && n.animation) {
 				if (!t() || this.disposed) return;

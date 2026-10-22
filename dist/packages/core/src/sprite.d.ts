@@ -66,6 +66,8 @@ export declare class Sprite extends GameObject {
     get width(): number;
     get height(): number;
     get animation(): FrameAnimation | undefined;
+    /** @internal Whether the `animation` setter attached one, whatever an override reports. */
+    get hasFrameAnimation(): boolean;
     set animation(value: FrameAnimation | undefined);
     getLocalBounds(out?: Rect2D): Rect2D;
     destroy(): void;

@@ -491,4 +491,40 @@ describe('atlas geometry and simulation frame animation', () => {
     scene.destroy();
     image.destroy();
   });
+
+  it('advances animations attached before or after scene entry and through an overriding accessor', () => {
+    class Proxied extends Sprite {
+      stored: FrameAnimation | undefined;
+      override get animation(): FrameAnimation | undefined {
+        return this.stored;
+      }
+      override set animation(value: FrameAnimation | undefined) {
+        this.stored = value;
+      }
+    }
+    const scene = new Scene();
+    const image = texture();
+    const frames = [0, 1].map((index) => ({
+      source: { x: index * 4, y: 0, width: 4, height: 4 },
+      duration: 0.125,
+    }));
+    const early = new Sprite({ texture: image });
+    const earlyAnimation = new FrameAnimation(early, frames).play();
+    scene.add(early);
+    const late = scene.add(new Sprite({ texture: image }));
+    // Alone in its scene: only the override shows that the pass has work.
+    const proxiedScene = new Scene();
+    const proxied = proxiedScene.add(new Proxied({ texture: image }));
+    const proxiedAnimation = new FrameAnimation(proxied, frames).play();
+    advance(proxiedScene, 0.125);
+    expect(proxiedAnimation.frame).toBe(1);
+    proxiedScene.destroy();
+    advance(scene, 0.125);
+    expect(earlyAnimation.frame).toBe(1);
+    const lateAnimation = new FrameAnimation(late, frames).play();
+    advance(scene, 0.125);
+    expect(lateAnimation.frame).toBe(1);
+    scene.destroy();
+    image.destroy();
+  });
 });

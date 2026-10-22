@@ -186,6 +186,8 @@ export declare class Scene {
      */
     private readonly preupdatePass;
     private readonly actionPass;
+    /** Sprites `advanceFrameAnimations` may advance: with an animation or an override of it. */
+    private readonly animationPass;
     private frameObjectUpdate;
     private pointerRouter;
     /** Explicit global-pointer observers; passive scene objects allocate no listener hub. */

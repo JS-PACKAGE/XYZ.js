@@ -223,6 +223,10 @@ export class Sprite extends GameObject {
   get animation(): FrameAnimation | undefined {
     return this.currentAnimation;
   }
+  /** @internal Whether the `animation` setter attached one, whatever an override reports. */
+  get hasFrameAnimation(): boolean {
+    return this.currentAnimation !== undefined;
+  }
   set animation(value: FrameAnimation | undefined) {
     if (value?.sprite !== this) {
       if (value) throw new Error('FrameAnimation belongs to another Sprite.');
@@ -230,6 +234,7 @@ export class Sprite extends GameObject {
     if (value === this.currentAnimation) return;
     this.currentAnimation?.pause();
     this.currentAnimation = value;
+    this.scene?.trackObjectPasses(this);
   }
   override getLocalBounds(
     out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },

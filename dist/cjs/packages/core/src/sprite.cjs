@@ -95,9 +95,12 @@ var Sprite = class extends require_game_object.GameObject {
 	get animation() {
 		return this.currentAnimation;
 	}
+	get hasFrameAnimation() {
+		return this.currentAnimation !== void 0;
+	}
 	set animation(e) {
 		if (e?.sprite !== this && e) throw Error(`FrameAnimation belongs to another Sprite.`);
-		e !== this.currentAnimation && (this.currentAnimation?.pause(), this.currentAnimation = e);
+		e !== this.currentAnimation && (this.currentAnimation?.pause(), this.currentAnimation = e, this.scene?.trackObjectPasses(this));
 	}
 	getLocalBounds(e = {
 		x: 0,
