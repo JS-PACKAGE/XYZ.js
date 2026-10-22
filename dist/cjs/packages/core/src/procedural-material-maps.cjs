@@ -2307,6 +2307,21 @@ function createSurfaceSampler(t, r) {
 				H = .46 + .28 * t + .12 * n + .06 * i, Z = .44 + .2 * t + .06 * n + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .3 * (1 - t) - .1 * (1 - n);
 				break;
 			}
+			case `spaghetti`: {
+				let e = noise(o, A, 4, 4, r ^ 53794) - .5, t = smooth(clamp((.32 - Math.abs(fract((A + .12 * e) * 6) - .5)) / .16)), n = noise(o, A, 8, 8, r ^ 58163), i = noise(o, A, 32, 32, r ^ 62532);
+				H = .5 + .3 * t + .1 * n + .06 * i, Z = .46 + .22 * t + .02 * i, Q += .06 * (i - .5) - .1 * t, $ = 1 - .32 * (1 - t);
+				break;
+			}
+			case `macaroni`: {
+				let e = Math.min(fract(o * 4), 1 - fract(o * 4)), t = Math.min(fract(A * 4), 1 - fract(A * 4)), n = smooth(clamp((Math.min(e, t) - .03) / .12)), a = smooth(clamp((.12 - Math.hypot(fract(o * 4) - .5, fract(A * 4) - .5)) / .06)), s = noise(o, A, 32, 32, r ^ 5461);
+				H = .5 + .3 * n - .12 * a + .06 * s, Z = .46 + .2 * n - .14 * a + .02 * s, Q += .06 * (s - .5) - .1 * n, $ = 1 - .34 * (1 - n) - .2 * a;
+				break;
+			}
+			case `lasagna`: {
+				let e = .5 + .5 * Math.cos(Math.PI * 2 * (fract(A * 4) - .5)), t = smooth(clamp((noise(o, A, 14, 14, r ^ 9830) - .68) / .1)), n = noise(o, A, 32, 32, r ^ 14199);
+				H = .44 + .32 * e + .1 * t + .06 * n, Z = .44 + .24 * e + .05 * t + .02 * n, Q += .06 * (n - .5) - .1 * e, $ = 1 - .32 * (1 - e);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

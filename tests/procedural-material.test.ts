@@ -253,6 +253,9 @@ const kinds: ProceduralMaterialKind[] = [
   'icecream',
   'popsicle',
   'sorbet',
+  'spaghetti',
+  'macaroni',
+  'lasagna',
   'basketball',
   'tennisball',
   'golfball',
@@ -5052,6 +5055,9 @@ describe('periodic procedural material fields', () => {
     ['icecream', [5, 20, 32, 64]],
     ['popsicle', [8, 32, 48, 64]],
     ['sorbet', [6, 32, 48, 64]],
+    ['spaghetti', [6, 32, 48, 64]],
+    ['macaroni', [4, 32, 48, 64]],
+    ['lasagna', [4, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5311,6 +5317,9 @@ describe('periodic procedural material fields', () => {
     ['icecream', 5],
     ['popsicle', 8],
     ['sorbet', 6],
+    ['spaghetti', 6],
+    ['macaroni', 4],
+    ['lasagna', 4],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6724,6 +6733,9 @@ describe('periodic procedural material fields', () => {
     'icecream',
     'popsicle',
     'sorbet',
+    'spaghetti',
+    'macaroni',
+    'lasagna',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6883,7 +6895,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                     : kind ===
                                                                                                                         'sorbet'
                                                                                                                       ? 6
-                                                                                                                      : 4;
+                                                                                                                      : kind ===
+                                                                                                                          'spaghetti'
+                                                                                                                        ? 6
+                                                                                                                        : kind ===
+                                                                                                                            'macaroni'
+                                                                                                                          ? 4
+                                                                                                                          : kind ===
+                                                                                                                              'lasagna'
+                                                                                                                            ? 4
+                                                                                                                            : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10888,6 +10909,66 @@ describe('periodic procedural material fields', () => {
       sample(0.25, 0.08333333333333333, gap);
       expect(crest.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(crest.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('spaghetti winds noodle strands over the sauce gaps', () => {
+    const relief = proceduralMaterialPresets.spaghetti.relief;
+    const strand: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...strand };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('spaghetti', seed);
+      sample(0.37, 1 / 12, strand);
+      sample(0.37, 1 / 6, gap);
+      expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(strand.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('macaroni piles tube shells over the gaps between them', () => {
+    const relief = proceduralMaterialPresets.macaroni.relief;
+    const body: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const gap = { ...body };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('macaroni', seed);
+      sample(0.1, 0.125, body);
+      sample(0, 0, gap);
+      expect(body.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(body.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('lasagna stacks pasta layers above the sauce seams', () => {
+    const relief = proceduralMaterialPresets.lasagna.relief;
+    const layer: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...layer };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('lasagna', seed);
+      sample(0.37, 0.125, layer);
+      sample(0.37, 0.25, seam);
+      expect(layer.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(layer.occlusion).toBeGreaterThan(seam.occlusion);
     }
   });
 

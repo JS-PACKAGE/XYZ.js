@@ -8182,6 +8182,47 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.3 * (1 - scrape) - 0.1 * (1 - fruit);
         break;
       }
+      case 'spaghetti': {
+        // Winding noodle strands coil over the sauce beneath.
+        const warp = noise(u, v, 4, 4, seed ^ 0xd222) - 0.5;
+        const strand = smooth(
+          clamp((0.32 - Math.abs(fract((v + 0.12 * warp) * 6) - 0.5)) / 0.16),
+        );
+        const sauce = noise(u, v, 8, 8, seed ^ 0xe333);
+        const grain = noise(u, v, 32, 32, seed ^ 0xf444);
+        color = 0.5 + 0.3 * strand + 0.1 * sauce + 0.06 * grain;
+        height = 0.46 + 0.22 * strand + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * strand;
+        occlusion = 1 - 0.32 * (1 - strand);
+        break;
+      }
+      case 'macaroni': {
+        // Short bent tube shells pile over the gaps between them.
+        const tx = Math.min(fract(u * 4), 1 - fract(u * 4)),
+          ty = Math.min(fract(v * 4), 1 - fract(v * 4));
+        const tube = smooth(clamp((Math.min(tx, ty) - 0.03) / 0.12));
+        const hr = Math.hypot(fract(u * 4) - 0.5, fract(v * 4) - 0.5);
+        const bore = smooth(clamp((0.12 - hr) / 0.06));
+        const grain = noise(u, v, 32, 32, seed ^ 0x1555);
+        color = 0.5 + 0.3 * tube - 0.12 * bore + 0.06 * grain;
+        height = 0.46 + 0.2 * tube - 0.14 * bore + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * tube;
+        occlusion = 1 - 0.34 * (1 - tube) - 0.2 * bore;
+        break;
+      }
+      case 'lasagna': {
+        // Layered pasta sheets stack over the sauce seams between them.
+        const layer = 0.5 + 0.5 * Math.cos(Math.PI * 2 * (fract(v * 4) - 0.5));
+        const cheese = smooth(
+          clamp((noise(u, v, 14, 14, seed ^ 0x2666) - 0.68) / 0.1),
+        );
+        const grain = noise(u, v, 32, 32, seed ^ 0x3777);
+        color = 0.44 + 0.32 * layer + 0.1 * cheese + 0.06 * grain;
+        height = 0.44 + 0.24 * layer + 0.05 * cheese + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.1 * layer;
+        occlusion = 1 - 0.32 * (1 - layer);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
