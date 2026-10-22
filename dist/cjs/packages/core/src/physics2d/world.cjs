@@ -94,7 +94,8 @@ function sortSweepOrder(e) {
 }
 var continueSimulation = () => !0;
 var _ = require_game_object.GameObject.prototype.dispatchEvent;
-var v = require_scene_object.SceneObject.prototype.dispatchEvent;
+var v = require_scene_object.SceneObject.prototype;
+var y = v.dispatchEvent;
 function snapshotPoints(e) {
 	let t = Array(e.count);
 	for (let n = 0; n < e.count; n++) t[n] = e.points[n].clone();
@@ -313,15 +314,15 @@ var PhysicsWorld2D = class {
 		return e.livenessStamp = this.liveness, e.live = t, t;
 	}
 	emit(e, t) {
-		let i = !1;
-		for (let a = 0; a < 2; a++) {
-			let o = a ? e.b : e.a, s = a ? e.a : e.b;
-			if (o.owner.dispatchEvent !== _ || require_scene_object.SceneObject.prototype.dispatchEvent !== v || require_event_observers.hasObjectEventObservers(o.owner, t)) {
-				if (t !== `collisionend` && !this.continuation()) return i;
-				this.alive(o) && (t === `collisionend` || e.active && this.alive(s)) && (i = !0, this.dispatchCollision(e, t, o, s, a ? -1 : 1));
+		let n = !1;
+		for (let i = 0; i < 2; i++) {
+			let a = i ? e.b : e.a, o = i ? e.a : e.b;
+			if (a.owner.dispatchEvent !== _ || v.dispatchEvent !== y || require_event_observers.hasObjectEventObservers(a.owner, t)) {
+				if (t !== `collisionend` && !this.continuation()) return n;
+				this.alive(a) && (t === `collisionend` || e.active && this.alive(o)) && (n = !0, this.dispatchCollision(e, t, a, o, i ? -1 : 1));
 			}
 		}
-		return i;
+		return n;
 	}
 	dispatchCollision(t, n, r, i, a) {
 		let o = t.manifold, s = this.stepToken, c = {

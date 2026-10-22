@@ -246,7 +246,8 @@ function sortSweepOrder(order: Proxy[]): void {
 const continueSimulation = (): boolean => true;
 // Collision dispatch must remain observable through subclass and prototype overrides.
 const dispatchGameObjectEvent = RuntimeGameObject.prototype.dispatchEvent;
-const dispatchSceneObjectEvent = SceneObject.prototype.dispatchEvent;
+const sceneObjectPrototype = SceneObject.prototype;
+const dispatchSceneObjectEvent = sceneObjectPrototype.dispatchEvent;
 function snapshotPoints(manifold: Manifold): readonly Vector2[] {
   const points = new Array<Vector2>(manifold.count);
   for (let i = 0; i < manifold.count; i++)
@@ -636,7 +637,7 @@ export class PhysicsWorld2D {
       // no listener to run, skipping a receiver and stopping are indistinguishable.
       if (
         self.owner.dispatchEvent === dispatchGameObjectEvent &&
-        SceneObject.prototype.dispatchEvent === dispatchSceneObjectEvent &&
+        sceneObjectPrototype.dispatchEvent === dispatchSceneObjectEvent &&
         !hasObjectEventObservers(self.owner, name)
       )
         continue;
