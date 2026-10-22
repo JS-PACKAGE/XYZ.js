@@ -238,6 +238,9 @@ export type ProceduralMaterialKind =
   | 'spaghetti'
   | 'macaroni'
   | 'lasagna'
+  | 'origami'
+  | 'paperlace'
+  | 'papercut'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -558,6 +561,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'spaghetti',
   'macaroni',
   'lasagna',
+  'origami',
+  'paperlace',
+  'papercut',
   'basketball',
   'tennisball',
   'golfball',

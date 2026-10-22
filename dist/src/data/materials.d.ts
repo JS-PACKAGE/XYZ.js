@@ -1392,6 +1392,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.52;
         relief: 0.0028;
     }>;
+    origami: Readonly<{
+        dark: readonly [132, 112, 142];
+        light: readonly [242, 232, 246];
+        roughness: 0.72;
+        relief: 0.0028;
+    }>;
+    paperlace: Readonly<{
+        dark: readonly [162, 152, 142];
+        light: readonly [252, 248, 242];
+        roughness: 0.78;
+        relief: 0.0024;
+    }>;
+    papercut: Readonly<{
+        dark: readonly [142, 32, 42];
+        light: readonly [242, 212, 212];
+        roughness: 0.68;
+        relief: 0.0026;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2023,6 +2041,9 @@ export declare const proceduralTileMeters: Readonly<{
     spaghetti: 0.2;
     macaroni: 0.16;
     lasagna: 0.24;
+    origami: 0.2;
+    paperlace: 0.12;
+    papercut: 0.18;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

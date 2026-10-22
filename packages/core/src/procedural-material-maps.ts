@@ -8223,6 +8223,58 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.32 * (1 - layer);
         break;
       }
+      case 'origami': {
+        // Folded facets rise between the pressed crease lines.
+        const fa = Math.abs(fract((u + v) * 2) - 0.5),
+          fb = Math.abs(fract((u - v) * 2) - 0.5);
+        const fold =
+          smooth(clamp((0.34 - fa) / 0.16)) +
+          smooth(clamp((0.34 - fb) / 0.16)) -
+          smooth(clamp((0.34 - fa) / 0.16)) * smooth(clamp((0.34 - fb) / 0.16));
+        const crease =
+          smooth(
+            clamp(
+              (0.05 - Math.min(fract((u + v) * 2), 1 - fract((u + v) * 2))) /
+                0.025,
+            ),
+          ) +
+          smooth(
+            clamp(
+              (0.05 - Math.min(fract((u - v) * 2), 1 - fract((u - v) * 2))) /
+                0.025,
+            ),
+          );
+        const grain = noise(u, v, 32, 32, seed ^ 0x4888);
+        color = 0.46 + 0.3 * fold - 0.1 * Math.min(crease, 1) + 0.06 * grain;
+        height = 0.44 + 0.24 * fold - 0.1 * Math.min(crease, 1) + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * fold;
+        occlusion = 1 - 0.3 * (1 - fold) - 0.12 * Math.min(crease, 1);
+        break;
+      }
+      case 'paperlace': {
+        // Die-cut lace holes sink through the pressed paper webbing.
+        const sx = Math.sin(Math.PI * (fract(u * 6) - 0.5)),
+          sy = Math.sin(Math.PI * (fract(v * 6) - 0.5));
+        const hole = smooth(clamp((0.16 - Math.hypot(sx, sy)) / 0.07));
+        const grain = noise(u, v, 32, 32, seed ^ 0x5999);
+        color = 0.52 + 0.28 * (1 - hole) + 0.06 * grain;
+        height = 0.46 + 0.2 * (1 - hole) + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) + 0.1 * hole;
+        occlusion = 1 - 0.36 * hole;
+        break;
+      }
+      case 'papercut': {
+        // Layered cutout shapes rise over the flat backing sheet.
+        const sx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
+          sy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
+        const shape = smooth(clamp((0.5 - Math.hypot(sx * 0.7, sy)) / 0.2));
+        const grain = noise(u, v, 32, 32, seed ^ 0x6aaa);
+        color = 0.42 + 0.34 * shape + 0.08 * grain;
+        height = 0.44 + 0.24 * shape + 0.02 * grain;
+        roughness += 0.06 * (grain - 0.5) - 0.08 * shape;
+        occlusion = 1 - 0.32 * (1 - shape);
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,

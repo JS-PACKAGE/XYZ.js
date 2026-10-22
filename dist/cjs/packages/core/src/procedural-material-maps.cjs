@@ -2322,6 +2322,21 @@ function createSurfaceSampler(t, r) {
 				H = .44 + .32 * e + .1 * t + .06 * n, Z = .44 + .24 * e + .05 * t + .02 * n, Q += .06 * (n - .5) - .1 * e, $ = 1 - .32 * (1 - e);
 				break;
 			}
+			case `origami`: {
+				let e = Math.abs(fract((o + A) * 2) - .5), t = Math.abs(fract((o - A) * 2) - .5), n = smooth(clamp((.34 - e) / .16)) + smooth(clamp((.34 - t) / .16)) - smooth(clamp((.34 - e) / .16)) * smooth(clamp((.34 - t) / .16)), i = smooth(clamp((.05 - Math.min(fract((o + A) * 2), 1 - fract((o + A) * 2))) / .025)) + smooth(clamp((.05 - Math.min(fract((o - A) * 2), 1 - fract((o - A) * 2))) / .025)), a = noise(o, A, 32, 32, r ^ 18568);
+				H = .46 + .3 * n - .1 * Math.min(i, 1) + .06 * a, Z = .44 + .24 * n - .1 * Math.min(i, 1) + .02 * a, Q += .06 * (a - .5) - .08 * n, $ = 1 - .3 * (1 - n) - .12 * Math.min(i, 1);
+				break;
+			}
+			case `paperlace`: {
+				let e = Math.sin(Math.PI * (fract(o * 6) - .5)), t = Math.sin(Math.PI * (fract(A * 6) - .5)), n = smooth(clamp((.16 - Math.hypot(e, t)) / .07)), i = noise(o, A, 32, 32, r ^ 22937);
+				H = .52 + .28 * (1 - n) + .06 * i, Z = .46 + .2 * (1 - n) + .02 * i, Q += .06 * (i - .5) + .1 * n, $ = 1 - .36 * n;
+				break;
+			}
+			case `papercut`: {
+				let e = Math.sin(Math.PI * (fract(o * 5) - .5)), t = Math.sin(Math.PI * (fract(A * 5) - .5)), n = smooth(clamp((.5 - Math.hypot(e * .7, t)) / .2)), i = noise(o, A, 32, 32, r ^ 27306);
+				H = .42 + .34 * n + .08 * i, Z = .44 + .24 * n + .02 * i, Q += .06 * (i - .5) - .08 * n, $ = 1 - .32 * (1 - n);
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

@@ -256,6 +256,9 @@ const kinds: ProceduralMaterialKind[] = [
   'spaghetti',
   'macaroni',
   'lasagna',
+  'origami',
+  'paperlace',
+  'papercut',
   'basketball',
   'tennisball',
   'golfball',
@@ -5058,6 +5061,9 @@ describe('periodic procedural material fields', () => {
     ['spaghetti', [6, 32, 48, 64]],
     ['macaroni', [4, 32, 48, 64]],
     ['lasagna', [4, 32, 48, 64]],
+    ['origami', [2, 4, 32, 64]],
+    ['paperlace', [6, 32, 48, 64]],
+    ['papercut', [5, 32, 48, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5320,6 +5326,9 @@ describe('periodic procedural material fields', () => {
     ['spaghetti', 6],
     ['macaroni', 4],
     ['lasagna', 4],
+    ['origami', 2],
+    ['paperlace', 6],
+    ['papercut', 5],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6736,6 +6745,9 @@ describe('periodic procedural material fields', () => {
     'spaghetti',
     'macaroni',
     'lasagna',
+    'origami',
+    'paperlace',
+    'papercut',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -6904,7 +6916,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                           : kind ===
                                                                                                                               'lasagna'
                                                                                                                             ? 4
-                                                                                                                            : 4;
+                                                                                                                            : kind ===
+                                                                                                                                'origami'
+                                                                                                                              ? 2
+                                                                                                                              : kind ===
+                                                                                                                                  'paperlace'
+                                                                                                                                ? 6
+                                                                                                                                : kind ===
+                                                                                                                                    'papercut'
+                                                                                                                                  ? 5
+                                                                                                                                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -10969,6 +10990,66 @@ describe('periodic procedural material fields', () => {
       sample(0.37, 0.25, seam);
       expect(layer.height).toBeGreaterThan(seam.height + 0.1 * relief);
       expect(layer.occlusion).toBeGreaterThan(seam.occlusion);
+    }
+  });
+
+  it('origami raises folded facets above the pressed creases', () => {
+    const relief = proceduralMaterialPresets.origami.relief;
+    const facet: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const crease = { ...facet };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('origami', seed);
+      sample(0.25, 0, facet);
+      sample(0.5, 0, crease);
+      expect(facet.height).toBeGreaterThan(crease.height + 0.1 * relief);
+      expect(facet.occlusion).toBeGreaterThan(crease.occlusion);
+    }
+  });
+
+  it('paper lace keeps the webbing above the die-cut holes', () => {
+    const relief = proceduralMaterialPresets.paperlace.relief;
+    const webbing: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const hole = { ...webbing };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('paperlace', seed);
+      sample(0, 0, webbing);
+      sample(1 / 12, 1 / 12, hole);
+      expect(webbing.height).toBeGreaterThan(hole.height + 0.1 * relief);
+      expect(webbing.occlusion).toBeGreaterThan(hole.occlusion);
+    }
+  });
+
+  it('paper cut lifts layered shapes over the flat backing', () => {
+    const relief = proceduralMaterialPresets.papercut.relief;
+    const shape: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const backing = { ...shape };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('papercut', seed);
+      sample(0.1, 0.1, shape);
+      sample(0, 0, backing);
+      expect(shape.height).toBeGreaterThan(backing.height + 0.1 * relief);
+      expect(shape.occlusion).toBeGreaterThan(backing.occlusion);
     }
   });
 
