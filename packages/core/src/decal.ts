@@ -102,7 +102,65 @@ function project(options: DecalOptions): Geometry {
     worldNormal = new Vector3();
   const vertices = target.geometry.vertices,
     sourceIndices = target.geometry.indices;
+  // Receiver-local box around the projector volume. A triangle wholly outside it clips to
+  // nothing, so it skips the transform and clipping below; the margin dwarfs rounding, so
+  // every triangle that could reach the volume still takes the exact path.
+  const toLocal = new Matrix4()
+    .copy(inverseReceiver)
+    .multiply(projector).elements;
+  let minX = Infinity,
+    minY = Infinity,
+    minZ = Infinity,
+    maxX = -Infinity,
+    maxY = -Infinity,
+    maxZ = -Infinity;
+  for (let corner = 0; corner < 8; corner++) {
+    const x = ((corner & 1 ? 1 : -1) * size[0]) / 2,
+      y = ((corner & 2 ? 1 : -1) * size[1]) / 2,
+      z = ((corner & 4 ? 1 : -1) * size[2]) / 2;
+    const lx = toLocal[0] * x + toLocal[4] * y + toLocal[8] * z + toLocal[12],
+      ly = toLocal[1] * x + toLocal[5] * y + toLocal[9] * z + toLocal[13],
+      lz = toLocal[2] * x + toLocal[6] * y + toLocal[10] * z + toLocal[14];
+    minX = Math.min(minX, lx);
+    maxX = Math.max(maxX, lx);
+    minY = Math.min(minY, ly);
+    maxY = Math.max(maxY, ly);
+    minZ = Math.min(minZ, lz);
+    maxZ = Math.max(maxZ, lz);
+  }
+  const bounded = Number.isFinite(minX + maxX + minY + maxY + minZ + maxZ);
+  const margin =
+    1e-6 *
+    (1 +
+      Math.max(
+        Math.abs(minX),
+        Math.abs(maxX),
+        Math.abs(minY),
+        Math.abs(maxY),
+        Math.abs(minZ),
+        Math.abs(maxZ),
+      ));
+  minX -= margin;
+  minY -= margin;
+  minZ -= margin;
+  maxX += margin;
+  maxY += margin;
+  maxZ += margin;
   for (let triangle = 0; triangle < sourceIndices.length; triangle += 3) {
+    if (bounded) {
+      const a = sourceIndices[triangle] * 8,
+        b = sourceIndices[triangle + 1] * 8,
+        c = sourceIndices[triangle + 2] * 8;
+      if (
+        Math.max(vertices[a], vertices[b], vertices[c]) < minX ||
+        Math.min(vertices[a], vertices[b], vertices[c]) > maxX ||
+        Math.max(vertices[a + 1], vertices[b + 1], vertices[c + 1]) < minY ||
+        Math.min(vertices[a + 1], vertices[b + 1], vertices[c + 1]) > maxY ||
+        Math.max(vertices[a + 2], vertices[b + 2], vertices[c + 2]) < minZ ||
+        Math.min(vertices[a + 2], vertices[b + 2], vertices[c + 2]) > maxZ
+      )
+        continue;
+    }
     for (let corner = 0; corner < 3; corner++) {
       const source = sourceIndices[triangle + corner] * 8,
         dest = corner * 6;

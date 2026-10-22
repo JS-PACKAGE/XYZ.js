@@ -38,8 +38,18 @@ function project(d) {
 	_.normalize();
 	let y = new require_math3d.Matrix4().compose(new require_math3d.Vector3(...m), _, new require_math3d.Vector3(1, 1, 1)), b = f.updateWorldMatrix();
 	if (b.elements.some((e) => !Number.isFinite(e))) throw RangeError(`Decal receiver transform must be finite.`);
-	let x = new require_math3d.Matrix4().copy(b).invert(), S = new require_math3d.Matrix4().copy(y).invert().multiply(b).elements, C = x.elements, w = [], T = [], E = [], D = [], O = /* @__PURE__ */ new Float64Array(54), k = /* @__PURE__ */ new Float64Array(54), A = new require_math3d.Vector3(), j = new require_math3d.Vector3(), M = f.geometry.vertices, N = f.geometry.indices;
+	let x = new require_math3d.Matrix4().copy(b).invert(), S = new require_math3d.Matrix4().copy(y).invert().multiply(b).elements, C = x.elements, w = [], T = [], E = [], D = [], O = /* @__PURE__ */ new Float64Array(54), k = /* @__PURE__ */ new Float64Array(54), A = new require_math3d.Vector3(), j = new require_math3d.Vector3(), M = f.geometry.vertices, N = f.geometry.indices, P = new require_math3d.Matrix4().copy(x).multiply(y).elements, F = 1 / 0, I = 1 / 0, L = 1 / 0, R = -1 / 0, z = -1 / 0, B = -1 / 0;
+	for (let e = 0; e < 8; e++) {
+		let t = (e & 1 ? 1 : -1) * h[0] / 2, n = (e & 2 ? 1 : -1) * h[1] / 2, r = (e & 4 ? 1 : -1) * h[2] / 2, i = P[0] * t + P[4] * n + P[8] * r + P[12], a = P[1] * t + P[5] * n + P[9] * r + P[13], o = P[2] * t + P[6] * n + P[10] * r + P[14];
+		F = Math.min(F, i), R = Math.max(R, i), I = Math.min(I, a), z = Math.max(z, a), L = Math.min(L, o), B = Math.max(B, o);
+	}
+	let V = Number.isFinite(F + R + I + z + L + B), H = 1e-6 * (1 + Math.max(Math.abs(F), Math.abs(R), Math.abs(I), Math.abs(z), Math.abs(L), Math.abs(B)));
+	F -= H, I -= H, L -= H, R += H, z += H, B += H;
 	for (let e = 0; e < N.length; e += 3) {
+		if (V) {
+			let t = N[e] * 8, n = N[e + 1] * 8, r = N[e + 2] * 8;
+			if (Math.max(M[t], M[n], M[r]) < F || Math.min(M[t], M[n], M[r]) > R || Math.max(M[t + 1], M[n + 1], M[r + 1]) < I || Math.min(M[t + 1], M[n + 1], M[r + 1]) > z || Math.max(M[t + 2], M[n + 2], M[r + 2]) < L || Math.min(M[t + 2], M[n + 2], M[r + 2]) > B) continue;
+		}
 		for (let t = 0; t < 3; t++) {
 			let n = N[e + t] * 8, r = t * 6, i = M[n], a = M[n + 1], o = M[n + 2];
 			O[r] = S[0] * i + S[4] * a + S[8] * o + S[12], O[r + 1] = S[1] * i + S[5] * a + S[9] * o + S[13], O[r + 2] = S[2] * i + S[6] * a + S[10] * o + S[14];

@@ -158,4 +158,41 @@ describe('Decal', () => {
     });
     expect(area(back)).toBeCloseTo(1, 6);
   });
+  it('covers exactly the projector footprint on a large grid under a moved, rotated receiver', () => {
+    const cells = 24,
+      step = 0.5;
+    const positions: number[] = [],
+      normals: number[] = [],
+      uvs: number[] = [],
+      indices: number[] = [];
+    for (let y = 0; y <= cells; y++)
+      for (let x = 0; x <= cells; x++) {
+        positions.push((x - cells / 2) * step, (y - cells / 2) * step, 0);
+        normals.push(0, 0, 1);
+        uvs.push(x / cells, y / cells);
+      }
+    for (let y = 0; y < cells; y++)
+      for (let x = 0; x < cells; x++) {
+        const a = y * (cells + 1) + x,
+          c = a + cells + 1;
+        indices.push(a, a + 1, c + 1, a, c + 1, c);
+      }
+    const grid = receiver(new Geometry({ positions, normals, uvs, indices }));
+    grid.position.set(5, 3, -1);
+    grid.rotation.setFromEuler(0, 0, 0.9);
+    // A projector rotated 0.6 rad in the receiver's plane, so its footprint is not axis-aligned
+    // in receiver space and its bounding box reaches triangles it does not touch.
+    const center = grid
+      .updateWorldMatrix()
+      .transformPoint(new Vector3(1.3, -0.7, 0.4), new Vector3());
+    const decal = new Decal({
+      target: grid,
+      material: material(),
+      position: [center.x, center.y, center.z],
+      rotation: [0, 0, 0.9 + 0.6],
+      size: [3.2, 2.1, 2],
+      normalOffset: 0,
+    });
+    expect(area(decal)).toBeCloseTo(3.2 * 2.1, 4);
+  });
 });
