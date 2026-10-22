@@ -45,7 +45,12 @@ export declare class CanvasTexture2D {
     private canvas;
     private disposed;
     private revision;
+    /** The owned surface's size, kept as fields: renderers read it several times per sprite
+     * per frame, and a canvas size read is a DOM call. Only this class resizes the surface. */
+    private pixelWidth;
+    private pixelHeight;
     constructor(source: CanvasImageSource);
+    /** The owned snapshot surface; resize it only through `update` (or a subclass frame copy). */
     get image(): HTMLCanvasElement | OffscreenCanvas;
     get width(): number;
     get height(): number;

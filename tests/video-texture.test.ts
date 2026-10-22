@@ -143,7 +143,14 @@ describe('stable video texture consumers and ownership', () => {
     texture.ingest(first as unknown as VideoFrame);
     expect(first.close).toHaveBeenCalledOnce();
     expect((texture.image as unknown as Surface).pixel).toBe(55);
+    expect([texture.width, texture.height]).toEqual([2, 2]);
+    // A frame of another size resizes the reused surface, and the texture reports it.
+    const larger = { ...frame(66), displayWidth: 4, displayHeight: 3 };
+    texture.ingest(larger as unknown as VideoFrame);
+    expect([texture.width, texture.height]).toEqual([4, 3]);
+    expect([texture.image.width, texture.image.height]).toEqual([4, 3]);
     texture.destroy();
+    expect([texture.width, texture.height]).toEqual([0, 0]);
     const second = frame(99);
     expect(() => texture.ingest(second as unknown as VideoFrame)).toThrow(
       'destroyed',

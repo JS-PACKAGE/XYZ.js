@@ -94,17 +94,19 @@ var CanvasTexture2D = class {
 	canvas;
 	disposed = !1;
 	revision = 0;
+	pixelWidth;
+	pixelHeight;
 	constructor(e) {
-		this.canvas = snapshot(e);
+		this.canvas = snapshot(e), this.pixelWidth = this.canvas.width, this.pixelHeight = this.canvas.height;
 	}
 	get image() {
 		return this.canvas;
 	}
 	get width() {
-		return this.canvas.width;
+		return this.pixelWidth;
 	}
 	get height() {
-		return this.canvas.height;
+		return this.pixelHeight;
 	}
 	get version() {
 		return this.revision;
@@ -116,14 +118,14 @@ var CanvasTexture2D = class {
 		if (this.disposed) throw new require_texture.AssetError(`Cannot update a destroyed CanvasTexture2D.`);
 		if (this.revision === 2 ** 53 - 1) throw RangeError(`CanvasTexture2D version overflow.`);
 		let n = snapshot(t), r = this.canvas;
-		this.canvas = n, this.revision++, r.width = r.height = 0;
+		this.canvas = n, this.pixelWidth = n.width, this.pixelHeight = n.height, this.revision++, r.width = r.height = 0;
 	}
 	copyFrame(t) {
 		if (this.disposed) throw new require_texture.AssetError(`Cannot update a destroyed CanvasTexture2D.`);
 		if (this.revision === 2 ** 53 - 1) throw RangeError(`CanvasTexture2D version overflow.`);
 		let [n, r] = sourceDimensions(t);
 		if (dimensions(n, r), !Number.isInteger(n) || !Number.isInteger(r)) throw new require_texture.AssetError(`Canvas texture dimensions must be integer pixels.`);
-		(this.canvas.width !== n || this.canvas.height !== r) && (this.canvas.width = n, this.canvas.height = r);
+		(this.canvas.width !== n || this.canvas.height !== r) && (this.canvas.width = this.pixelWidth = n, this.canvas.height = this.pixelHeight = r);
 		let i = this.canvas.getContext(`2d`);
 		if (!i) throw new require_texture.AssetError(`A 2D canvas context is required.`);
 		try {
@@ -133,7 +135,7 @@ var CanvasTexture2D = class {
 		}
 	}
 	destroy() {
-		this.disposed || (this.disposed = !0, this.canvas.width = this.canvas.height = 0);
+		this.disposed || (this.disposed = !0, this.canvas.width = this.canvas.height = 0, this.pixelWidth = this.pixelHeight = 0);
 	}
 };
 //#endregion

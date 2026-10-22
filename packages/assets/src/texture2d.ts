@@ -221,17 +221,24 @@ export class CanvasTexture2D {
   private canvas: HTMLCanvasElement | OffscreenCanvas;
   private disposed = false;
   private revision = 0;
+  /** The owned surface's size, kept as fields: renderers read it several times per sprite
+   * per frame, and a canvas size read is a DOM call. Only this class resizes the surface. */
+  private pixelWidth: number;
+  private pixelHeight: number;
   constructor(source: CanvasImageSource) {
     this.canvas = snapshot(source);
+    this.pixelWidth = this.canvas.width;
+    this.pixelHeight = this.canvas.height;
   }
+  /** The owned snapshot surface; resize it only through `update` (or a subclass frame copy). */
   get image(): HTMLCanvasElement | OffscreenCanvas {
     return this.canvas;
   }
   get width(): number {
-    return this.canvas.width;
+    return this.pixelWidth;
   }
   get height(): number {
-    return this.canvas.height;
+    return this.pixelHeight;
   }
   get version(): number {
     return this.revision;
@@ -247,6 +254,8 @@ export class CanvasTexture2D {
     const next = snapshot(source);
     const previous = this.canvas;
     this.canvas = next;
+    this.pixelWidth = next.width;
+    this.pixelHeight = next.height;
     this.revision++;
     previous.width = previous.height = 0;
   }
@@ -261,8 +270,8 @@ export class CanvasTexture2D {
     if (!Number.isInteger(width) || !Number.isInteger(height))
       throw new AssetError('Canvas texture dimensions must be integer pixels.');
     if (this.canvas.width !== width || this.canvas.height !== height) {
-      this.canvas.width = width;
-      this.canvas.height = height;
+      this.canvas.width = this.pixelWidth = width;
+      this.canvas.height = this.pixelHeight = height;
     }
     const context = this.canvas.getContext('2d') as
       CanvasRenderingContext2D | OffscreenCanvasRenderingContext2D | null;
@@ -285,5 +294,6 @@ export class CanvasTexture2D {
     if (this.disposed) return;
     this.disposed = true;
     this.canvas.width = this.canvas.height = 0;
+    this.pixelWidth = this.pixelHeight = 0;
   }
 }
