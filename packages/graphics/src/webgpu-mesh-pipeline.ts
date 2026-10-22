@@ -1436,7 +1436,7 @@ export class WebGPUMeshPipeline {
         const geometry = this.cacheGeometry(object.renderGeometry);
         const mesh = this.cacheMesh(object);
         geometry.seen = mesh.seen = this.frame;
-        if (index < drawnGathered) this.updateMesh(scene, object, mesh);
+        if (index < drawnGathered) this.updateMesh(object, mesh);
       }
       if (scene.transparency === 'sorted')
         this.drawSorter.sort(
@@ -3703,7 +3703,7 @@ export class WebGPUMeshPipeline {
     return block;
   }
 
-  private updateMesh(scene: Scene, object: Mesh, mesh: CachedMesh): void {
+  private updateMesh(object: Mesh, mesh: CachedMesh): void {
     const material = object.material;
     const data = mesh.data;
     data.set(object.worldMatrix.elements, 0);

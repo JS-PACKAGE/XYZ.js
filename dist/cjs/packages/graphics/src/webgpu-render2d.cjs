@@ -63,8 +63,6 @@ var WebGPURender2D = class WebGPURender2D {
 	appearance = /* @__PURE__ */ new Float32Array(4);
 	matrix = new require_index.Matrix3();
 	mapping = new require_index.Matrix3();
-	tileMatrix = new require_index.Matrix3();
-	inverse = new require_index.Matrix3();
 	layers = /* @__PURE__ */ new Map();
 	targets = /* @__PURE__ */ new Map();
 	meshes = /* @__PURE__ */ new Map();
@@ -79,7 +77,6 @@ var WebGPURender2D = class WebGPURender2D {
 	scratch = /* @__PURE__ */ new Float32Array(128);
 	uniformOffsets = [0];
 	passLayout;
-	passPipelineLayout;
 	normal;
 	lighting;
 	replace;
@@ -110,7 +107,7 @@ var WebGPURender2D = class WebGPURender2D {
 	frame = 0;
 	disposed = !1;
 	constructor(e, t, n, r) {
-		this.device = e, this.effects = t, this.hooks = n, this.normal = r.normal, this.lighting = r.lighting, this.replace = r.replace, this.blends = r.blends, this.multiply = r.multiply, this.meshPipeline = r.mesh, this.passPipeline = r.pass, this.passLayout = r.passLayout, this.passPipelineLayout = r.passPipelineLayout, this.dummy = e.createTexture({
+		this.device = e, this.effects = t, this.hooks = n, this.normal = r.normal, this.lighting = r.lighting, this.replace = r.replace, this.blends = r.blends, this.multiply = r.multiply, this.meshPipeline = r.mesh, this.passPipeline = r.pass, this.passLayout = r.passLayout, this.dummy = e.createTexture({
 			size: [1, 1],
 			format: `rgba8unorm`,
 			usage: GPUTextureUsage.TEXTURE_BINDING
@@ -196,8 +193,7 @@ var WebGPURender2D = class WebGPURender2D {
 			multiply: require_effects.createQuadPipeline(e, o, t.multiplyLayout, void 0),
 			mesh: f,
 			pass: p,
-			passLayout: l,
-			passPipelineLayout: u
+			passLayout: l
 		});
 	}
 	createDrawGroup() {

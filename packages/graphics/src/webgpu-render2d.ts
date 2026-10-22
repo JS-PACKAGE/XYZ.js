@@ -156,8 +156,6 @@ export class WebGPURender2D {
   private readonly appearance = new Float32Array(4);
   private readonly matrix = new Matrix3();
   private readonly mapping = new Matrix3();
-  private readonly tileMatrix = new Matrix3();
-  private readonly inverse = new Matrix3();
   private readonly layers = new Map<IsolatedGroup2D, Layer2D>();
   private readonly targets = new Map<RenderTexture2D, GPUColorTarget>();
   private readonly meshes = new Map<Geometry2D, MeshBuffers2D>();
@@ -175,7 +173,6 @@ export class WebGPURender2D {
   private readonly scratch = new Float32Array(SLOT_FLOATS);
   private readonly uniformOffsets = [0];
   private readonly passLayout: GPUBindGroupLayout;
-  private readonly passPipelineLayout: GPUPipelineLayout;
   private readonly normal: GPURenderPipeline;
   private readonly lighting: GPURenderPipeline;
   private readonly replace: GPURenderPipeline;
@@ -224,7 +221,6 @@ export class WebGPURender2D {
       mesh: GPURenderPipeline;
       pass: GPURenderPipeline;
       passLayout: GPUBindGroupLayout;
-      passPipelineLayout: GPUPipelineLayout;
     },
   ) {
     this.normal = pipelines.normal;
@@ -235,7 +231,6 @@ export class WebGPURender2D {
     this.meshPipeline = pipelines.mesh;
     this.passPipeline = pipelines.pass;
     this.passLayout = pipelines.passLayout;
-    this.passPipelineLayout = pipelines.passPipelineLayout;
     this.dummy = device.createTexture({
       size: [1, 1],
       format: 'rgba8unorm',
@@ -367,7 +362,6 @@ export class WebGPURender2D {
       mesh,
       pass,
       passLayout,
-      passPipelineLayout,
     });
   }
 

@@ -898,11 +898,11 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 			for (let e of this.visibility.shadows) this.draws.push(e), this.gatheredEpochs.get(e) !== b && (this.gatheredEpochs.set(e, b), this.gathered.push(e));
 			this.refreshProbeBlend(t);
 			for (let e = 0; e < this.gathered.length; e++) {
-				let n = this.gathered[e];
-				if (require_native_material3d.isNativeMaterial3D(n.material) && (n.material.destroyed || !this.nativeMaterials.has(n.material))) throw new require_errors.GraphicsError(`NativeMaterial3D must be explicitly prepared before rendering.`);
-				require_native_material3d.isNativeMaterial3D(n.material) && n.material.validate();
-				let r = this.cacheGeometry(n.renderGeometry), i = this.cacheMesh(n);
-				r.seen = i.seen = this.frame, e < x && this.updateMesh(t, n, i);
+				let t = this.gathered[e];
+				if (require_native_material3d.isNativeMaterial3D(t.material) && (t.material.destroyed || !this.nativeMaterials.has(t.material))) throw new require_errors.GraphicsError(`NativeMaterial3D must be explicitly prepared before rendering.`);
+				require_native_material3d.isNativeMaterial3D(t.material) && t.material.validate();
+				let n = this.cacheGeometry(t.renderGeometry), r = this.cacheMesh(t);
+				n.seen = r.seen = this.frame, e < x && this.updateMesh(t, r);
 			}
 			t.transparency === `sorted` && this.drawSorter.sort(this.visibleDraws, t.camera3D.position, this.blendedDraw), v || this.oit.release(), t.shadows.enabled && this.renderShadows(n, t, a, o);
 			let S = !!f || t.postProcessing.enabled || h || v || y;
@@ -1965,34 +1965,34 @@ var WebGPUMeshPipeline = class WebGPUMeshPipeline {
 		let a = this.pbrBlockScratchBits, o = t.bits;
 		return (wordsDiffer(a, o, 16, 76) || wordsDiffer(a, o, Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats) || wordsDiffer(a, o, X, X + require_optical_maps.mappedMaterialUVFloatCount) || wordsDiffer(a, o, Z, Q) || wordsDiffer(a, o, $, a.length)) && (t.data.set(n), t.revision++), t.frame = this.frame, t.needsUV1 = i, t;
 	}
-	updateMesh(e, t, n) {
-		let r = t.material, i = n.data;
-		i.set(t.worldMatrix.elements, 0);
-		let a = 336, o = !1;
-		if (r instanceof require_pbr_material.PBRMaterial) {
-			let e = this.pbrBlock(r);
-			if (e.needsUV1 && !t.renderGeometry.uvs1 && require_material_uv.fillMaterialUV(r, t.renderGeometry, this.uvCheck), n.blockMaterial === r && n.blockRevision === e.revision) o = !0;
+	updateMesh(e, t) {
+		let n = e.material, r = t.data;
+		r.set(e.worldMatrix.elements, 0);
+		let i = 336, a = !1;
+		if (n instanceof require_pbr_material.PBRMaterial) {
+			let i = this.pbrBlock(n);
+			if (i.needsUV1 && !e.renderGeometry.uvs1 && require_material_uv.fillMaterialUV(n, e.renderGeometry, this.uvCheck), t.blockMaterial === n && t.blockRevision === i.revision) a = !0;
 			else {
-				let t = e.data;
-				copyRange(i, t, 16, 76), copyRange(i, t, X, X + require_optical_maps.mappedMaterialUVFloatCount), copyRange(i, t, Z, Q), copyRange(i, t, $, t.length), require_native_material3d.isNativeMaterial3D(r) && copyRange(i, t, Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats), n.blockMaterial = r, n.blockRevision = e.revision;
+				let e = i.data;
+				copyRange(r, e, 16, 76), copyRange(r, e, X, X + require_optical_maps.mappedMaterialUVFloatCount), copyRange(r, e, Z, Q), copyRange(r, e, $, e.length), require_native_material3d.isNativeMaterial3D(n) && copyRange(r, e, Y, Y + require_rendering.nativeMaterial3DLimits.uniformFloats), t.blockMaterial = n, t.blockRevision = i.revision;
 			}
-		} else n.blockMaterial = void 0, i[16] = r.color[0], i[17] = r.color[1], i[18] = r.color[2], i[19] = r.opacity, i[20] = 0, i[32] = 0, i[33] = 1, i[51] = +(require_mesh.materialBaseTexture(r).kind === `native`), require_native_material3d.isNativeMaterial3D(r) && i.set(r.uniforms, a), require_material_uv.fillMaterialUV(r, t.renderGeometry, i, X), i.fill(0, Z, Q), i.fill(0, $);
-		i[34] = +!!t.receiveShadow, i[47] = +(t instanceof require_skinned_mesh.SkinnedMesh);
-		let c = this.visibility.entries.get(t);
-		i[a + require_rendering.nativeMaterial3DLimits.uniformFloats] = c?.fade ?? 1, i[a + require_rendering.nativeMaterial3DLimits.uniformFloats + 1] = t.renderGeometry.tangentTexCoord, i[a + require_rendering.nativeMaterial3DLimits.uniformFloats + 2] = t.renderGeometry.tangentConvention === `gltf` ? -1 : 1;
-		let l = require_baked_lighting.constantMeshIrradiance(t), u = !l || n.irradiance !== l;
-		u && (require_baked_lighting.fillMeshIrradiance(t, i, Q), n.irradiance = l);
-		let d = c?.instances;
-		d && (d !== n.visibilityPayload || d.version !== n.visibilityVersion) && (n.allocation.resize(n.uniform.size + n.instance.size + (n.instanceColors?.size ?? 0) + (n.palette?.size ?? 0) + (n.influences?.size ?? 0) + d.matrices.byteLength + (d.colors?.byteLength ?? 0)), (!n.visibleInstance || n.visibleInstance.size < d.matrices.byteLength) && (n.visibleInstance && this.retired.push(n.visibleInstance), n.visibleInstance = this.device.createBuffer({
-			size: d.matrices.byteLength,
+		} else t.blockMaterial = void 0, r[16] = n.color[0], r[17] = n.color[1], r[18] = n.color[2], r[19] = n.opacity, r[20] = 0, r[32] = 0, r[33] = 1, r[51] = +(require_mesh.materialBaseTexture(n).kind === `native`), require_native_material3d.isNativeMaterial3D(n) && r.set(n.uniforms, i), require_material_uv.fillMaterialUV(n, e.renderGeometry, r, X), r.fill(0, Z, Q), r.fill(0, $);
+		r[34] = +!!e.receiveShadow, r[47] = +(e instanceof require_skinned_mesh.SkinnedMesh);
+		let o = this.visibility.entries.get(e);
+		r[i + require_rendering.nativeMaterial3DLimits.uniformFloats] = o?.fade ?? 1, r[i + require_rendering.nativeMaterial3DLimits.uniformFloats + 1] = e.renderGeometry.tangentTexCoord, r[i + require_rendering.nativeMaterial3DLimits.uniformFloats + 2] = e.renderGeometry.tangentConvention === `gltf` ? -1 : 1;
+		let c = require_baked_lighting.constantMeshIrradiance(e), l = !c || t.irradiance !== c;
+		l && (require_baked_lighting.fillMeshIrradiance(e, r, Q), t.irradiance = c);
+		let u = o?.instances;
+		u && (u !== t.visibilityPayload || u.version !== t.visibilityVersion) && (t.allocation.resize(t.uniform.size + t.instance.size + (t.instanceColors?.size ?? 0) + (t.palette?.size ?? 0) + (t.influences?.size ?? 0) + u.matrices.byteLength + (u.colors?.byteLength ?? 0)), (!t.visibleInstance || t.visibleInstance.size < u.matrices.byteLength) && (t.visibleInstance && this.retired.push(t.visibleInstance), t.visibleInstance = this.device.createBuffer({
+			size: u.matrices.byteLength,
 			usage: GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST
-		})), this.device.queue.writeBuffer(n.visibleInstance, 0, d.matrices.buffer, d.matrices.byteOffset, d.count * 16 * 4), this.stats.upload(d.count * 16 * 4), d.colors && (n.visibleColors = this.colorBuffer(n.visibleColors, d.colors), this.device.queue.writeBuffer(n.visibleColors, 0, d.colors.buffer, d.colors.byteOffset, d.count * 3 * 4), this.stats.upload(d.count * 3 * 4)), n.visibilityVersion = d.version, n.visibilityPayload = d), t instanceof require_instanced_mesh.InstancedMesh && n.instanceVersion !== t.version && (this.device.queue.writeBuffer(n.instance, 0, t.matrices), this.stats.upload(t.matrices.byteLength), n.instanceVersion = t.version), t instanceof require_instanced_mesh.InstancedMesh && t.colors && (n.instanceColors === void 0 || n.instanceColorVersion !== t.colorVersion) && (n.instanceColors = this.colorBuffer(n.instanceColors, t.colors), this.device.queue.writeBuffer(n.instanceColors, 0, t.colors), this.stats.upload(t.colors.byteLength), n.instanceColorVersion = t.colorVersion);
-		let f = 336, p = this.device.queue, m;
-		if (n.probeRevision === this.probeBlendRevision) {
-			let e = a + require_rendering.nativeMaterial3DLimits.uniformFloats, { uniform: t, bits: r, sent: s } = n;
-			m = o ? uploadChangedSpan(p, t, r, s, 0, 48) + uploadChangedSpan(p, t, r, s, e, e + 3) + (u ? uploadChangedSpan(p, t, r, s, Q, Q + 40) : 0) : uploadChangedSpan(p, t, r, s, 0, 76) + uploadChangedSpan(p, t, r, s, f, i.length);
-		} else i.set(this.probeBlend, 76), m = uploadChangedSpan(p, n.uniform, n.bits, n.sent, 0, i.length), n.probeRevision = this.probeBlendRevision;
-		m && this.stats.upload(m);
+		})), this.device.queue.writeBuffer(t.visibleInstance, 0, u.matrices.buffer, u.matrices.byteOffset, u.count * 16 * 4), this.stats.upload(u.count * 16 * 4), u.colors && (t.visibleColors = this.colorBuffer(t.visibleColors, u.colors), this.device.queue.writeBuffer(t.visibleColors, 0, u.colors.buffer, u.colors.byteOffset, u.count * 3 * 4), this.stats.upload(u.count * 3 * 4)), t.visibilityVersion = u.version, t.visibilityPayload = u), e instanceof require_instanced_mesh.InstancedMesh && t.instanceVersion !== e.version && (this.device.queue.writeBuffer(t.instance, 0, e.matrices), this.stats.upload(e.matrices.byteLength), t.instanceVersion = e.version), e instanceof require_instanced_mesh.InstancedMesh && e.colors && (t.instanceColors === void 0 || t.instanceColorVersion !== e.colorVersion) && (t.instanceColors = this.colorBuffer(t.instanceColors, e.colors), this.device.queue.writeBuffer(t.instanceColors, 0, e.colors), this.stats.upload(e.colors.byteLength), t.instanceColorVersion = e.colorVersion);
+		let d = 336, f = this.device.queue, p;
+		if (t.probeRevision === this.probeBlendRevision) {
+			let e = i + require_rendering.nativeMaterial3DLimits.uniformFloats, { uniform: n, bits: o, sent: s } = t;
+			p = a ? uploadChangedSpan(f, n, o, s, 0, 48) + uploadChangedSpan(f, n, o, s, e, e + 3) + (l ? uploadChangedSpan(f, n, o, s, Q, Q + 40) : 0) : uploadChangedSpan(f, n, o, s, 0, 76) + uploadChangedSpan(f, n, o, s, d, r.length);
+		} else r.set(this.probeBlend, 76), p = uploadChangedSpan(f, t.uniform, t.bits, t.sent, 0, r.length), t.probeRevision = this.probeBlendRevision;
+		p && this.stats.upload(p);
 	}
 	releaseUnused() {
 		if (this.residency.geometry.budgetBytes === 1 / 0) {

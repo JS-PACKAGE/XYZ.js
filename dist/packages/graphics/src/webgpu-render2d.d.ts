@@ -28,8 +28,6 @@ export declare class WebGPURender2D {
     private readonly appearance;
     private readonly matrix;
     private readonly mapping;
-    private readonly tileMatrix;
-    private readonly inverse;
     private readonly layers;
     private readonly targets;
     private readonly meshes;
@@ -44,7 +42,6 @@ export declare class WebGPURender2D {
     private readonly scratch;
     private readonly uniformOffsets;
     private readonly passLayout;
-    private readonly passPipelineLayout;
     private readonly normal;
     private readonly lighting;
     private readonly replace;
