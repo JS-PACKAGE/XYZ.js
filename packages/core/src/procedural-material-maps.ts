@@ -1514,6 +1514,66 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.44 * cup - 0.12 * (1 - rim) * (1 - cup);
         break;
       }
+      case 'gauze': {
+        // Warp and weft threads undulate over and under; the gaps stay open.
+        const n = 12;
+        const wx = fract(u * n) - 0.5,
+          wy = fract(v * n) - 0.5;
+        const warpEnv = smooth(clamp((0.26 - Math.abs(wy)) / 0.14));
+        const weftEnv = smooth(clamp((0.26 - Math.abs(wx)) / 0.14));
+        // The wave alternates which thread sits above at every crossing.
+        const wave = Math.cos(Math.PI * n * (u + v));
+        const a1 = warpEnv * (0.72 + 0.28 * wave),
+          a2 = weftEnv * (0.72 - 0.28 * wave);
+        const over = 1 - (1 - a1) * (1 - a2);
+        const grain = noise(u, v, 32, 32, seed ^ 0x4d19);
+        color = 0.7 + 0.16 * over + 0.05 * (a1 - a2) + 0.06 * grain;
+        height = 0.3 + 0.26 * over + 0.05 * (a1 - a2);
+        roughness += 0.08 * (grain - 0.5);
+        occlusion = 1 - 0.44 * (1 - over);
+        break;
+      }
+      case 'elasticbandage': {
+        // Diagonal stretch ribs cross recessed selvedge grooves.
+        const rv = fract(4 * (u - v)) - 0.5;
+        const rib = smooth(clamp((0.3 - Math.abs(rv)) / 0.12));
+        const groove = smooth(
+          clamp(
+            (0.16 - Math.abs(Math.sin(Math.PI * fract(2 * (u + v))))) / 0.1,
+          ),
+        );
+        const cell = ((Math.floor(4 * (u - v)) % 4) + 4) % 4;
+        const amp = 0.85 + 0.15 * hash(cell, 0, seed ^ 0x1c47);
+        const grain = noise(u, v, 28, 28, seed ^ 0x55ab);
+        color = 0.52 + 0.3 * rib * amp + 0.08 * grain - 0.18 * groove;
+        height = 0.3 + 0.26 * rib * amp - 0.16 * groove;
+        roughness += 0.08 * (grain - 0.5) - 0.06 * rib;
+        occlusion = 1 - 0.44 * groove;
+        break;
+      }
+      case 'icepack': {
+        // Squircle quilted cells bulge above their recessed seam grid.
+        const nx = 4,
+          ny = 4;
+        const cx = Math.floor(u * nx),
+          cy = Math.floor(v * ny);
+        const cellX = ((cx % nx) + nx) % nx,
+          cellY = ((cy % ny) + ny) % ny;
+        const fx = fract(u * nx) - 0.5,
+          fy = fract(v * ny) - 0.5;
+        const d4 = Math.pow(
+          Math.pow(Math.abs(fx), 4) + Math.pow(Math.abs(fy), 4),
+          0.25,
+        );
+        const quilt = smooth(clamp((0.42 - d4) / 0.12));
+        const lift = 0.85 + 0.15 * hash(cellX, cellY, seed ^ 0x6b3c);
+        const grain = noise(u, v, 24, 24, seed ^ 0x2f81);
+        color = 0.42 + 0.34 * quilt * lift + 0.08 * grain - 0.12 * (1 - quilt);
+        height = 0.3 + 0.24 * quilt * lift - 0.16 * (1 - quilt);
+        roughness += 0.08 * (grain - 0.5) - 0.05 * quilt;
+        occlusion = 1 - 0.44 * (1 - quilt);
+        break;
+      }
       case 'morel': {
         const p = morelPreset,
           x = u * p.columns,

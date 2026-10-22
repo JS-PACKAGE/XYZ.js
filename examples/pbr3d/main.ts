@@ -415,6 +415,9 @@ try {
     'cheesegrater',
     'ovenrack',
     'muffintin',
+    'gauze',
+    'elasticbandage',
+    'icepack',
   ] as const) {
     presets.set(kind, await ProceduralMaterial.create(kind, { seed: 7 }));
   }

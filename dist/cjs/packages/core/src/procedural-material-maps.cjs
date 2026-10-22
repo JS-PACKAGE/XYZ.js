@@ -423,6 +423,21 @@ function createSurfaceSampler(t, r) {
 				H = .42 + .24 * u - .28 * l + .08 * f, Z = .3 + .2 * u * d - .28 * l, Q += .08 * (f - .5) - .05 * u + .08 * l, $ = 1 - .44 * l - .12 * (1 - u) * (1 - l);
 				break;
 			}
+			case `gauze`: {
+				let e = fract(o * 12) - .5, t = fract(A * 12) - .5, n = smooth(clamp((.26 - Math.abs(t)) / .14)), i = smooth(clamp((.26 - Math.abs(e)) / .14)), a = Math.cos(Math.PI * 12 * (o + A)), s = n * (.72 + .28 * a), c = i * (.72 - .28 * a), l = 1 - (1 - s) * (1 - c), u = noise(o, A, 32, 32, r ^ 19737);
+				H = .7 + .16 * l + .05 * (s - c) + .06 * u, Z = .3 + .26 * l + .05 * (s - c), Q += .08 * (u - .5), $ = 1 - .44 * (1 - l);
+				break;
+			}
+			case `elasticbandage`: {
+				let e = fract(4 * (o - A)) - .5, t = smooth(clamp((.3 - Math.abs(e)) / .12)), n = smooth(clamp((.16 - Math.abs(Math.sin(Math.PI * fract(2 * (o + A))))) / .1)), i = .85 + .15 * hash((Math.floor(4 * (o - A)) % 4 + 4) % 4, 0, r ^ 7239), a = noise(o, A, 28, 28, r ^ 21931);
+				H = .52 + .3 * t * i + .08 * a - .18 * n, Z = .3 + .26 * t * i - .16 * n, Q += .08 * (a - .5) - .06 * t, $ = 1 - .44 * n;
+				break;
+			}
+			case `icepack`: {
+				let e = Math.floor(o * 4), t = Math.floor(A * 4), n = (e % 4 + 4) % 4, i = (t % 4 + 4) % 4, a = fract(o * 4) - .5, s = fract(A * 4) - .5, l = smooth(clamp((.42 - (Math.abs(a) ** 4 + Math.abs(s) ** 4) ** .25) / .12)), u = .85 + .15 * hash(n, i, r ^ 27452), d = noise(o, A, 24, 24, r ^ 12161);
+				H = .42 + .34 * l * u + .08 * d - .12 * (1 - l), Z = .3 + .24 * l * u - .16 * (1 - l), Q += .08 * (d - .5) - .05 * l, $ = 1 - .44 * (1 - l);
+				break;
+			}
 			case `morel`: {
 				let e = x, t = o * e.columns, n = A * e.rows, r = Math.floor(t), i = Math.floor(n), a = f(o, A), s = 0, c = 0;
 				for (let a = -2; a <= 2; a++) for (let o = -2; o <= 2; o++) {

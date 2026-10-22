@@ -361,6 +361,9 @@ const kinds: ProceduralMaterialKind[] = [
   'cheesegrater',
   'ovenrack',
   'muffintin',
+  'gauze',
+  'elasticbandage',
+  'icepack',
 ];
 
 describe('opaque fruit rind morphology', () => {
@@ -5175,6 +5178,9 @@ describe('periodic procedural material fields', () => {
     ['cheesegrater', [2, 3, 32, 64]],
     ['ovenrack', [2, 4, 32, 64]],
     ['muffintin', [4, 32, 64]],
+    ['gauze', [2, 3, 32, 64]],
+    ['elasticbandage', [2, 4, 32, 64]],
+    ['icepack', [4, 32, 64]],
   ] as const)(
     '%s keeps bounded fields continuous at external and internal boundaries',
     (kind, lattices) => {
@@ -5514,6 +5520,9 @@ describe('periodic procedural material fields', () => {
     ['cheesegrater', 3],
     ['ovenrack', 4],
     ['muffintin', 4],
+    ['gauze', 4],
+    ['elasticbandage', 3],
+    ['icepack', 4],
   ] as const)(
     '%s keeps continuous slopes across wrapped and owned cell boundaries',
     (kind, cells) => {
@@ -6931,6 +6940,9 @@ describe('periodic procedural material fields', () => {
     'cheesegrater',
     'ovenrack',
     'muffintin',
+    'gauze',
+    'elasticbandage',
+    'icepack',
   ] as const)(
     '%s has C1 fields through narrow shoulders, overlapping owners and support',
     (kind) => {
@@ -7240,7 +7252,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                                                           : kind ===
                                                                                                                                                                                                                               'muffintin'
                                                                                                                                                                                                                             ? 4
-                                                                                                                                                                                                                            : 4;
+                                                                                                                                                                                                                            : kind ===
+                                                                                                                                                                                                                                'gauze'
+                                                                                                                                                                                                                              ? 4
+                                                                                                                                                                                                                              : kind ===
+                                                                                                                                                                                                                                  'elasticbandage'
+                                                                                                                                                                                                                                ? 3
+                                                                                                                                                                                                                                : kind ===
+                                                                                                                                                                                                                                    'icepack'
+                                                                                                                                                                                                                                  ? 4
+                                                                                                                                                                                                                                  : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -12334,6 +12355,69 @@ describe('periodic procedural material fields', () => {
       expect(rim.height).toBeGreaterThan(pan.height + 0.1 * relief);
       expect(pan.height).toBeGreaterThan(cup.height + 0.1 * relief);
       expect(rim.occlusion).toBeGreaterThan(cup.occlusion);
+    }
+  });
+
+  it('gauze threads crest above the open gaps', () => {
+    const relief = proceduralMaterialPresets.gauze.relief;
+    const over: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const under = { ...over };
+    const gap = { ...over };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('gauze', seed);
+      sample(1 / 24, 1 / 8, over);
+      sample(1 / 24, 1 / 24, under);
+      sample(0, 0, gap);
+      expect(over.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(under.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(over.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('bandage ribs crest above their selvedge grooves', () => {
+    const relief = proceduralMaterialPresets.elasticbandage.relief;
+    const rib: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const groove = { ...rib };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('elasticbandage', seed);
+      sample(0.3, 0.175, rib);
+      sample(0.25, 0.25, groove);
+      expect(rib.height).toBeGreaterThan(groove.height + 0.1 * relief);
+      expect(rib.occlusion).toBeGreaterThan(groove.occlusion);
+    }
+  });
+
+  it('ice pack cells bulge above their seam grid', () => {
+    const relief = proceduralMaterialPresets.icepack.relief;
+    const cell: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const seam = { ...cell };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('icepack', seed);
+      sample(1 / 8, 1 / 8, cell);
+      sample(0, 0, seam);
+      expect(cell.height).toBeGreaterThan(seam.height + 0.1 * relief);
+      expect(cell.occlusion).toBeGreaterThan(seam.occlusion);
     }
   });
 

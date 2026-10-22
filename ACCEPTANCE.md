@@ -5461,3 +5461,13 @@ package 升為 1.19.0。範圍：2026-10-07 使用者指定功能擴充（凸包
 - metallic 全為 0，roughness bytes 依序 83–140／110–150／105–158；每米 repeats 依序 5.000000／3.333333／2.857143。
 - 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
 - `[Rendering3D]` 半透明 draw 遠到近排序在 ≥128 個時改用位元組 LSD radix（距離 IEEE 位元轉降序鍵、-0 視同 +0、全同位元組的 pass 略過），以穩定性保持插入順序；含 NaN（比較器不一致）時回到原 Array#sort。fuzz 1600 例（重複值、±0、±Infinity、負值、subnormal、NaN）與 Array#sort 結果完全一致，新增大清單精確度測試（突變檢查通過）。Chrome WebGPU 3000 個 billboard 排序成本 116→43、88→37 ms／5 s（兩輪，高負載）。使用者核准同時把 `startupBudgets.lazyGzipBytes` 由 225280 調為 229376（224 KiB）：目前 deferred chunks gzip source 225246／built root 225232（HEAD 原為 224818，剩 462 bytes）；startup／initial 上限與 baseline 不變。完整測試 2909 通過、型別、tree-shaking 與 API 相容檢查通過。
+
+## 程序材質擴充：醫療敷料（gauze／elasticbandage／icepack）
+
+- 新增起伏交織經緯紗並留有孔隙的紗布（gauze）、斜向伸展羅紋交錯凹陷布邊溝的彈性繃帶（elasticbandage）、方圓絎縫格鼓起於接縫網的冰袋（icepack）。本組提交後目錄由 336 增為 339 種；三者皆為 opaque dielectric，metallic 通道與預設 factor 為 0，僅為表面 shading，不新增紗線、羅紋或絎縫格 geometry，也不做 displacement。
+- 前 336 種在 size 64／seed 7 下四份 maps SHA256 全部不變（以提交基準 e57a1e0d 乾淨工作樹重建比對，336 種 changed 0，新增恰為本組三種）。
+- build（tsc＋minify＋copy-vendor＋build-cjs）、lint、format:check 通過；typecheck 僅報 HEAD 既有的 `tests/gameplay2d-core.test.ts:93` 與 `tests/sprite-quad-validation.test.ts:13` 兩處（非本組，未改動）。本組材質測試 1429 個全數通過；完整 Vitest 2923／2923 全數通過。
+- 探針以固定點驗證（seed 1／123／0xffffffff）：紗布上層交織點與下層交織點皆高於孔隙（每交織點以 `cos(π·n·(u+v))` 相位交替上下）、繃帶羅紋高於布邊溝、冰袋方圓格高於接縫網，occlusion 同序。全部值域有界，週期 wrap 導數差異為 0，owned cell 邊界掃描最大欄位差異 ≤1.1e-5、斜率曲率 ≤3.4e-7（浮點噪聲內）。
+- 獨立 Chrome WebGPU／WebGL2 gallery（339 presets）逐一切換三者：場景畫面 hash 各自不同、四份 maps hash 各異且跨後端一致，無 page／console errors。check:material-reference 通過（overall pass true），regression-browser chromium webgl2 與 webgpu 通過。
+- metallic 全為 0，roughness bytes 依序 215–234／194–229／70–102；每米 repeats 依序 11.111111／7.142857／3.333333。
+- 同前一批次的提交順序：共享工作目錄另一行程 staged 的 tatami 未更動；本組沿用隔離 worktree 組出「提交基準＋本組內容」完成驗證與提交，之後把共用工作樹補上本組內容並以其 staged 內容修復為等價的「本組內容＋tatami」staged 狀態。不新增 runtime 依賴、不 push，不擴大跨瀏覽器或實體裝置認證。
