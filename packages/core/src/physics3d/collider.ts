@@ -260,6 +260,10 @@ export class CompoundCollider3D extends Collider3D {
 }
 
 /** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
+/** Offsets of Shape3D's pose caches in `poseState`. */
+const MATRIX = 0,
+  POSE = 16,
+  CHILD = 26;
 export class Shape3D {
   readonly center = new Vector3();
   readonly axes = [
@@ -282,14 +286,14 @@ export class Shape3D {
   private readonly childLocal: Matrix4[] = [];
   private readonly childWorld: Matrix4 | undefined;
   radius = 0;
-  private readonly poseMatrix = new Float64Array(16).fill(NaN);
-  /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
-  private readonly poseInputs = new Float64Array(10).fill(NaN);
   /**
-   * A child's parent world matrix then its position, rotation and scale, as `poseInputs` is
-   * for a root. Each form invalidates the other when it refreshes.
+   * Pose caches in one allocation, NaN when unknown. From `MATRIX`: the world matrix the
+   * geometry was last built from. From `POSE`: the position, rotation and scale `refresh`
+   * last composed a root's pose from. From `CHILD`: a child's parent world matrix then its
+   * position, rotation and scale, as `POSE` is for a root. Each of the last two forms
+   * invalidates the other when it refreshes.
    */
-  private readonly childInputs = new Float64Array(26).fill(NaN);
+  private readonly poseState = new Float64Array(52).fill(NaN);
   /** @internal Changes only after shape geometry/bounds are refreshed. */
   revision = 0;
   /** @internal Translation does not invalidate angular inertia. */
@@ -319,31 +323,31 @@ export class Shape3D {
   }
   /** @internal The next refresh recomputes the whole pose, exactly as on a new shape. */
   forgetPose(): void {
-    this.poseInputs[0] = NaN;
-    this.childInputs[0] = NaN;
-    this.poseMatrix[0] = NaN;
+    this.poseState[POSE] = NaN;
+    this.poseState[CHILD] = NaN;
+    this.poseState[MATRIX] = NaN;
   }
   refresh(object: Object3D): boolean {
     const t = object.transform,
       p = t.position,
       q = t.rotation,
       s = t.scale,
-      k = this.poseInputs;
+      k = this.poseState;
     const direct = object.composesFromTransform;
     // A root's world matrix is composed from these values alone; when none changed,
     // refreshMatrix would find its cached pose and report no change.
     if (
       direct &&
-      k[0] === p.x &&
-      k[1] === p.y &&
-      k[2] === p.z &&
-      k[3] === q.x &&
-      k[4] === q.y &&
-      k[5] === q.z &&
-      k[6] === q.w &&
-      k[7] === s.x &&
-      k[8] === s.y &&
-      k[9] === s.z
+      k[POSE] === p.x &&
+      k[POSE + 1] === p.y &&
+      k[POSE + 2] === p.z &&
+      k[POSE + 3] === q.x &&
+      k[POSE + 4] === q.y &&
+      k[POSE + 5] === q.z &&
+      k[POSE + 6] === q.w &&
+      k[POSE + 7] === s.x &&
+      k[POSE + 8] === s.y &&
+      k[POSE + 9] === s.z
     )
       return false;
     // A child's matrix is its parent's times its transform, so the parent's matrix stands in
@@ -353,72 +357,72 @@ export class Shape3D {
     const changed = this.refreshMatrix(object.updateWorldMatrix());
     if (parent) this.recordChild(parent, t);
     else if (direct) {
-      k[0] = p.x;
-      k[1] = p.y;
-      k[2] = p.z;
-      k[3] = q.x;
-      k[4] = q.y;
-      k[5] = q.z;
-      k[6] = q.w;
-      k[7] = s.x;
-      k[8] = s.y;
-      k[9] = s.z;
+      k[POSE] = p.x;
+      k[POSE + 1] = p.y;
+      k[POSE + 2] = p.z;
+      k[POSE + 3] = q.x;
+      k[POSE + 4] = q.y;
+      k[POSE + 5] = q.z;
+      k[POSE + 6] = q.w;
+      k[POSE + 7] = s.x;
+      k[POSE + 8] = s.y;
+      k[POSE + 9] = s.z;
     }
     return changed;
   }
   private childUnchanged(parent: Object3D, t: Transform3D): boolean {
     const e = parent.updateWorldMatrix().elements,
-      c = this.childInputs,
+      c = this.poseState,
       p = t.position,
       q = t.rotation,
       s = t.scale;
-    for (let i = 0; i < 16; i++) if (c[i] !== e[i]) return false;
+    for (let i = 0; i < 16; i++) if (c[CHILD + i] !== e[i]) return false;
     return (
-      c[16] === p.x &&
-      c[17] === p.y &&
-      c[18] === p.z &&
-      c[19] === q.x &&
-      c[20] === q.y &&
-      c[21] === q.z &&
-      c[22] === q.w &&
-      c[23] === s.x &&
-      c[24] === s.y &&
-      c[25] === s.z
+      c[CHILD + 16] === p.x &&
+      c[CHILD + 17] === p.y &&
+      c[CHILD + 18] === p.z &&
+      c[CHILD + 19] === q.x &&
+      c[CHILD + 20] === q.y &&
+      c[CHILD + 21] === q.z &&
+      c[CHILD + 22] === q.w &&
+      c[CHILD + 23] === s.x &&
+      c[CHILD + 24] === s.y &&
+      c[CHILD + 25] === s.z
     );
   }
   private recordChild(parent: Object3D, t: Transform3D): void {
     const e = parent.updateWorldMatrix().elements,
-      c = this.childInputs,
+      c = this.poseState,
       p = t.position,
       q = t.rotation,
       s = t.scale;
-    for (let i = 0; i < 16; i++) c[i] = e[i]!;
-    c[16] = p.x;
-    c[17] = p.y;
-    c[18] = p.z;
-    c[19] = q.x;
-    c[20] = q.y;
-    c[21] = q.z;
-    c[22] = q.w;
-    c[23] = s.x;
-    c[24] = s.y;
-    c[25] = s.z;
+    for (let i = 0; i < 16; i++) c[CHILD + i] = e[i]!;
+    c[CHILD + 16] = p.x;
+    c[CHILD + 17] = p.y;
+    c[CHILD + 18] = p.z;
+    c[CHILD + 19] = q.x;
+    c[CHILD + 20] = q.y;
+    c[CHILD + 21] = q.z;
+    c[CHILD + 22] = q.w;
+    c[CHILD + 23] = s.x;
+    c[CHILD + 24] = s.y;
+    c[CHILD + 25] = s.z;
   }
   refreshMatrix(matrix: Matrix4): boolean {
     // Direct callers bypass `refresh`, so its input snapshots no longer describe the pose.
-    this.poseInputs[0] = NaN;
-    this.childInputs[0] = NaN;
+    this.poseState[POSE] = NaN;
+    this.poseState[CHILD] = NaN;
     const e = matrix.elements;
     let changed = false,
       linearChanged = false;
     for (let i = 0; i < 16; i++)
-      if (this.poseMatrix[i] !== e[i]) {
+      if (this.poseState[MATRIX + i] !== e[i]) {
         changed = true;
         if (i < 12) linearChanged = true;
       }
     if (!changed) return false;
     // A failed mutable-pose validation must not leave partially refreshed geometry cached.
-    this.poseMatrix[0] = NaN;
+    this.poseState[MATRIX] = NaN;
     const x = this.axes[0].set(e[0], e[1], e[2]),
       y = this.axes[1].set(e[4], e[5], e[6]),
       z = this.axes[2].set(e[8], e[9], e[10]);
@@ -546,7 +550,7 @@ export class Shape3D {
       else index.refit();
       this.meshIndexed = true;
       this.updateBounds();
-      this.poseMatrix.set(e);
+      this.poseState.set(e, MATRIX);
       ++this.revision;
       if (linearChanged) ++this.inertiaRevision;
       return true;
@@ -584,7 +588,7 @@ export class Shape3D {
         Math.PI * this.radius * this.radius * (h + (4 * this.radius) / 3);
     }
     this.updateBounds();
-    this.poseMatrix.set(e);
+    this.poseState.set(e, MATRIX);
     ++this.revision;
     if (linearChanged) ++this.inertiaRevision;
     return true;
@@ -652,7 +656,7 @@ export class Shape3D {
   }
   translate(x: number, y: number, z: number): void {
     // Translation queries temporarily move geometry independently of its owner.
-    this.poseMatrix[0] = NaN;
+    this.poseState[MATRIX] = NaN;
     ++this.revision;
     this.center.x += x;
     this.center.y += y;

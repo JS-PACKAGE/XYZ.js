@@ -84,7 +84,6 @@ export declare class CompoundCollider3D extends Collider3D {
     readonly staticOnly: boolean;
     constructor(children: readonly CompoundChild3D[], options?: ColliderOptions3D);
 }
-/** @internal Reused transformed primitive. Orthogonal positive TRS only: shear/reflection are rejected. */
 export declare class Shape3D {
     readonly collider: Collider3D;
     private readonly needsVolume;
@@ -105,14 +104,14 @@ export declare class Shape3D {
     private readonly childLocal;
     private readonly childWorld;
     radius: number;
-    private readonly poseMatrix;
-    /** Position, rotation and scale `refresh` last composed the pose from; NaN when unknown. */
-    private readonly poseInputs;
     /**
-     * A child's parent world matrix then its position, rotation and scale, as `poseInputs` is
-     * for a root. Each form invalidates the other when it refreshes.
+     * Pose caches in one allocation, NaN when unknown. From `MATRIX`: the world matrix the
+     * geometry was last built from. From `POSE`: the position, rotation and scale `refresh`
+     * last composed a root's pose from. From `CHILD`: a child's parent world matrix then its
+     * position, rotation and scale, as `POSE` is for a root. Each of the last two forms
+     * invalidates the other when it refreshes.
      */
-    private readonly childInputs;
+    private readonly poseState;
     /** @internal Changes only after shape geometry/bounds are refreshed. */
     revision: number;
     /** @internal Translation does not invalidate angular inertia. */

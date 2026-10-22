@@ -132,9 +132,7 @@ var Shape3D = class Shape3D {
 	childLocal = [];
 	childWorld;
 	radius = 0;
-	poseMatrix = (/* @__PURE__ */ new Float64Array(16)).fill(NaN);
-	poseInputs = (/* @__PURE__ */ new Float64Array(10)).fill(NaN);
-	childInputs = (/* @__PURE__ */ new Float64Array(26)).fill(NaN);
+	poseState = (/* @__PURE__ */ new Float64Array(52)).fill(NaN);
 	revision = 0;
 	inertiaRevision = 0;
 	worldScale = new require_math3d.Vector3();
@@ -146,32 +144,32 @@ var Shape3D = class Shape3D {
 		if (e instanceof CompoundCollider3D && (this.childWorld = new require_math3d.Matrix4()), e instanceof CompoundCollider3D) for (let t of e.children) this.children.push(new Shape3D(t.collider, !0)), this.childLocal.push(new require_math3d.Matrix4().compose(t.position, t.rotation, t.scale));
 	}
 	forgetPose() {
-		this.poseInputs[0] = NaN, this.childInputs[0] = NaN, this.poseMatrix[0] = NaN;
+		this.poseState[16] = NaN, this.poseState[26] = NaN, this.poseState[0] = NaN;
 	}
 	refresh(e) {
-		let t = e.transform, n = t.position, r = t.rotation, i = t.scale, a = this.poseInputs, o = e.composesFromTransform;
-		if (o && a[0] === n.x && a[1] === n.y && a[2] === n.z && a[3] === r.x && a[4] === r.y && a[5] === r.z && a[6] === r.w && a[7] === i.x && a[8] === i.y && a[9] === i.z) return !1;
+		let t = e.transform, n = t.position, r = t.rotation, i = t.scale, a = this.poseState, o = e.composesFromTransform;
+		if (o && a[16] === n.x && a[17] === n.y && a[18] === n.z && a[19] === r.x && a[20] === r.y && a[21] === r.z && a[22] === r.w && a[23] === i.x && a[24] === i.y && a[25] === i.z) return !1;
 		let s = o ? void 0 : e.baseComposedParent;
 		if (s && this.childUnchanged(s, t)) return !1;
 		let c = this.refreshMatrix(e.updateWorldMatrix());
-		return s ? this.recordChild(s, t) : o && (a[0] = n.x, a[1] = n.y, a[2] = n.z, a[3] = r.x, a[4] = r.y, a[5] = r.z, a[6] = r.w, a[7] = i.x, a[8] = i.y, a[9] = i.z), c;
+		return s ? this.recordChild(s, t) : o && (a[16] = n.x, a[17] = n.y, a[18] = n.z, a[19] = r.x, a[20] = r.y, a[21] = r.z, a[22] = r.w, a[23] = i.x, a[24] = i.y, a[25] = i.z), c;
 	}
 	childUnchanged(e, t) {
-		let n = e.updateWorldMatrix().elements, r = this.childInputs, i = t.position, a = t.rotation, o = t.scale;
-		for (let e = 0; e < 16; e++) if (r[e] !== n[e]) return !1;
-		return r[16] === i.x && r[17] === i.y && r[18] === i.z && r[19] === a.x && r[20] === a.y && r[21] === a.z && r[22] === a.w && r[23] === o.x && r[24] === o.y && r[25] === o.z;
+		let n = e.updateWorldMatrix().elements, r = this.poseState, i = t.position, a = t.rotation, o = t.scale;
+		for (let e = 0; e < 16; e++) if (r[26 + e] !== n[e]) return !1;
+		return r[42] === i.x && r[43] === i.y && r[44] === i.z && r[45] === a.x && r[46] === a.y && r[47] === a.z && r[48] === a.w && r[49] === o.x && r[50] === o.y && r[51] === o.z;
 	}
 	recordChild(e, t) {
-		let n = e.updateWorldMatrix().elements, r = this.childInputs, i = t.position, a = t.rotation, o = t.scale;
-		for (let e = 0; e < 16; e++) r[e] = n[e];
-		r[16] = i.x, r[17] = i.y, r[18] = i.z, r[19] = a.x, r[20] = a.y, r[21] = a.z, r[22] = a.w, r[23] = o.x, r[24] = o.y, r[25] = o.z;
+		let n = e.updateWorldMatrix().elements, r = this.poseState, i = t.position, a = t.rotation, o = t.scale;
+		for (let e = 0; e < 16; e++) r[26 + e] = n[e];
+		r[42] = i.x, r[43] = i.y, r[44] = i.z, r[45] = a.x, r[46] = a.y, r[47] = a.z, r[48] = a.w, r[49] = o.x, r[50] = o.y, r[51] = o.z;
 	}
 	refreshMatrix(e) {
-		this.poseInputs[0] = NaN, this.childInputs[0] = NaN;
+		this.poseState[16] = NaN, this.poseState[26] = NaN;
 		let t = e.elements, n = !1, r = !1;
-		for (let e = 0; e < 16; e++) this.poseMatrix[e] !== t[e] && (n = !0, e < 12 && (r = !0));
+		for (let e = 0; e < 16; e++) this.poseState[0 + e] !== t[e] && (n = !0, e < 12 && (r = !0));
 		if (!n) return !1;
-		this.poseMatrix[0] = NaN;
+		this.poseState[0] = NaN;
 		let i = this.axes[0].set(t[0], t[1], t[2]), a = this.axes[1].set(t[4], t[5], t[6]), s = this.axes[2].set(t[8], t[9], t[10]), c = positive3D(i.length(), `world scale.x`), l = positive3D(a.length(), `world scale.y`), u = positive3D(s.length(), `world scale.z`);
 		if (this.worldScale.set(c, l, u), i.scale(1 / c), a.scale(1 / l), s.scale(1 / u), Math.abs(i.dot(a)) > 1e-5 || Math.abs(i.dot(s)) > 1e-5 || Math.abs(a.dot(s)) > 1e-5 || i.x * (a.y * s.z - a.z * s.y) - i.y * (a.x * s.z - a.z * s.x) + i.z * (a.x * s.y - a.y * s.x) < .9999) throw RangeError(`3D physics requires positive orthogonal world transforms (no shear/reflection).`);
 		let d = this.collider.offset;
@@ -202,7 +200,7 @@ var Shape3D = class Shape3D {
 				let n = e.b.x - e.a.x, r = e.b.y - e.a.y, s = e.b.z - e.a.z, c = e.c.x - e.a.x, l = e.c.y - e.a.y, u = e.c.z - e.a.z;
 				positive3D(require_hypot.hypot3(r * u - s * l, s * c - n * u, n * l - r * c), `transformed triangle area`), e.normal.set(r * u - s * l, s * c - n * u, n * l - r * c).normalize(), e.bounds.reset(), e.bounds.add(e.a), e.bounds.add(e.b), e.bounds.add(e.c);
 			}
-			return this.meshIndexed ? e.refit() : e.rebuild(this.triangles), this.meshIndexed = !0, this.updateBounds(), this.poseMatrix.set(t), ++this.revision, r && ++this.inertiaRevision, !0;
+			return this.meshIndexed ? e.refit() : e.rebuild(this.triangles), this.meshIndexed = !0, this.updateBounds(), this.poseState.set(t, 0), ++this.revision, r && ++this.inertiaRevision, !0;
 		}
 		if (this.collider instanceof CompoundCollider3D) {
 			this.volume = 0, this.massCenter.set(0, 0, 0);
@@ -218,7 +216,7 @@ var Shape3D = class Shape3D {
 			let e = require_hypot.hypot3(this.end.x - this.start.x, this.end.y - this.start.y, this.end.z - this.start.z);
 			this.volume = Math.PI * this.radius * this.radius * (e + 4 * this.radius / 3);
 		}
-		return this.updateBounds(), this.poseMatrix.set(t), ++this.revision, r && ++this.inertiaRevision, !0;
+		return this.updateBounds(), this.poseState.set(t, 0), ++this.revision, r && ++this.inertiaRevision, !0;
 	}
 	validateMoving(e) {
 		let t = this.collider;
@@ -239,7 +237,7 @@ var Shape3D = class Shape3D {
 		else e.min.set(Math.min(this.start.x, this.end.x) - this.radius, Math.min(this.start.y, this.end.y) - this.radius, Math.min(this.start.z, this.end.z) - this.radius), e.max.set(Math.max(this.start.x, this.end.x) + this.radius, Math.max(this.start.y, this.end.y) + this.radius, Math.max(this.start.z, this.end.z) + this.radius);
 	}
 	translate(e, t, n) {
-		if (this.poseMatrix[0] = NaN, ++this.revision, this.center.x += e, this.center.y += t, this.center.z += n, this.collider.kind === `box`) for (let r of this.vertices) r.x += e, r.y += t, r.z += n;
+		if (this.poseState[0] = NaN, ++this.revision, this.center.x += e, this.center.y += t, this.center.z += n, this.collider.kind === `box`) for (let r of this.vertices) r.x += e, r.y += t, r.z += n;
 		else (this.collider.kind === `sphere` || this.collider.kind === `capsule`) && (this.start.x += e, this.start.y += t, this.start.z += n, this.end.x += e, this.end.y += t, this.end.z += n);
 		if (this.collider.kind === `compound`) {
 			for (let r of this.children) r.translate(e, t, n);
