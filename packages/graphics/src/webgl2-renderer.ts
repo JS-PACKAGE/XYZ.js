@@ -2835,10 +2835,12 @@ export class WebGL2Renderer implements Renderer {
           contact?.strength ?? 0,
         );
         this.uniformValues.uniform1i(gl, uniforms.oitPass, oitPass);
+        // Collection wrote every entry; nothing in this draw changes them.
+        const visibility = this.visibility.entries.get(object);
         this.uniformValues.uniform1f(
           gl,
           uniforms.meshFade,
-          this.visibility.entries.get(object)?.fade ?? 1,
+          visibility?.fade ?? 1,
         );
         this.uniformValues.uniform1i(
           gl,
@@ -2852,7 +2854,7 @@ export class WebGL2Renderer implements Renderer {
         );
         if (!oitPass) {
           depthWrites =
-            (this.visibility.entries.get(object)?.fade ?? 1) === 1 &&
+            (visibility?.fade ?? 1) === 1 &&
             !(isNativeMaterial3D(material) && material.transparent);
           if (depthWrites !== maskedDepth)
             gl.depthMask((maskedDepth = depthWrites));
@@ -2917,6 +2919,7 @@ export class WebGL2Renderer implements Renderer {
           material.textureSampler,
         );
         if (pbr) {
+          const pbrSources = pbrTextureSources(material);
           // Native PBR hooks share these maps with the ordinary material path.
           this.uniformValues.uniform1i(gl, uniforms.metallicRoughnessMap, 1);
           this.uniformValues.uniform1i(gl, uniforms.normalMap, 2);
@@ -2940,14 +2943,14 @@ export class WebGL2Renderer implements Renderer {
           fillOpticalMapSettings(
             this.opticalSettings,
             0,
-            pbrTextureSources(material).transmissionTexture,
+            pbrSources.transmissionTexture,
             material.transmissionSampler,
             this.maxTextureAnisotropy,
           );
           fillOpticalMapSettings(
             this.opticalSettings,
             4,
-            pbrTextureSources(material).thicknessTexture,
+            pbrSources.thicknessTexture,
             material.thicknessSampler,
             this.maxTextureAnisotropy,
           );
@@ -3027,20 +3030,18 @@ export class WebGL2Renderer implements Renderer {
             uniforms.specularParams,
             material.specular,
             material.ior === 0 ? 1 : 0,
-            pbrTextureSources(material).specularTexture ? 1 : 0,
-            pbrTextureSources(material).specularColorTexture ? 1 : 0,
+            pbrSources.specularTexture ? 1 : 0,
+            pbrSources.specularColorTexture ? 1 : 0,
           );
           this.uniformValues.uniform1i(gl, uniforms.specularMap, 7);
           this.uniformValues.uniform1i(gl, uniforms.specularColorMap, 8);
           this.bindMaterialTexture(
-            pbrTextureSources(material).specularTexture ??
-              materialBaseTexture(material),
+            pbrSources.specularTexture ?? materialBaseTexture(material),
             7,
             material.specularSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).specularColorTexture ??
-              materialBaseTexture(material),
+            pbrSources.specularColorTexture ?? materialBaseTexture(material),
             8,
             material.specularColorSampler,
           );
@@ -3055,29 +3056,27 @@ export class WebGL2Renderer implements Renderer {
           this.uniformValues.uniform4f(
             gl,
             uniforms.clearcoatMaps,
-            pbrTextureSources(material).clearcoatTexture ? 1 : 0,
-            pbrTextureSources(material).clearcoatRoughnessTexture ? 1 : 0,
-            pbrTextureSources(material).clearcoatNormalTexture ? 1 : 0,
+            pbrSources.clearcoatTexture ? 1 : 0,
+            pbrSources.clearcoatRoughnessTexture ? 1 : 0,
+            pbrSources.clearcoatNormalTexture ? 1 : 0,
             0,
           );
           this.uniformValues.uniform1i(gl, uniforms.clearcoatMap, 9);
           this.uniformValues.uniform1i(gl, uniforms.clearcoatRoughnessMap, 10);
           this.uniformValues.uniform1i(gl, uniforms.clearcoatNormalMap, 11);
           this.bindMaterialTexture(
-            pbrTextureSources(material).clearcoatTexture ??
-              materialBaseTexture(material),
+            pbrSources.clearcoatTexture ?? materialBaseTexture(material),
             9,
             material.clearcoatSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).clearcoatRoughnessTexture ??
+            pbrSources.clearcoatRoughnessTexture ??
               materialBaseTexture(material),
             10,
             material.clearcoatRoughnessSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).clearcoatNormalTexture ??
-              materialBaseTexture(material),
+            pbrSources.clearcoatNormalTexture ?? materialBaseTexture(material),
             11,
             material.clearcoatNormalSampler,
           );
@@ -3092,22 +3091,20 @@ export class WebGL2Renderer implements Renderer {
           this.uniformValues.uniform4f(
             gl,
             uniforms.sheenMaps,
-            pbrTextureSources(material).sheenColorTexture ? 1 : 0,
-            pbrTextureSources(material).sheenRoughnessTexture ? 1 : 0,
+            pbrSources.sheenColorTexture ? 1 : 0,
+            pbrSources.sheenRoughnessTexture ? 1 : 0,
             material.specularAntiAliasing,
             material.alphaToCoverage ? 1 : 0,
           );
           this.uniformValues.uniform1i(gl, uniforms.sheenColorMap, 12);
           this.uniformValues.uniform1i(gl, uniforms.sheenRoughnessMap, 13);
           this.bindMaterialTexture(
-            pbrTextureSources(material).sheenColorTexture ??
-              materialBaseTexture(material),
+            pbrSources.sheenColorTexture ?? materialBaseTexture(material),
             12,
             material.sheenColorSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).sheenRoughnessTexture ??
-              materialBaseTexture(material),
+            pbrSources.sheenRoughnessTexture ?? materialBaseTexture(material),
             13,
             material.sheenRoughnessSampler,
           );
@@ -3131,9 +3128,9 @@ export class WebGL2Renderer implements Renderer {
           this.uniformValues.uniform4i(
             gl,
             uniforms.maps,
-            pbrTextureSources(material).metallicRoughnessTexture ? 1 : 0,
-            pbrTextureSources(material).normalTexture ? 1 : 0,
-            pbrTextureSources(material).occlusionTexture ? 1 : 0,
+            pbrSources.metallicRoughnessTexture ? 1 : 0,
+            pbrSources.normalTexture ? 1 : 0,
+            pbrSources.occlusionTexture ? 1 : 0,
             emissive.mode,
           );
           this.uniformValues.uniform4f(
@@ -3181,20 +3178,18 @@ export class WebGL2Renderer implements Renderer {
             material.finish.subsurfaceRadius,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).metallicRoughnessTexture ??
+            pbrSources.metallicRoughnessTexture ??
               materialBaseTexture(material),
             1,
             material.metallicRoughnessSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).normalTexture ??
-              materialBaseTexture(material),
+            pbrSources.normalTexture ?? materialBaseTexture(material),
             2,
             material.normalSampler,
           );
           this.bindMaterialTexture(
-            pbrTextureSources(material).occlusionTexture ??
-              materialBaseTexture(material),
+            pbrSources.occlusionTexture ?? materialBaseTexture(material),
             3,
             material.occlusionSampler,
           );
@@ -3204,7 +3199,7 @@ export class WebGL2Renderer implements Renderer {
             emissive.sampler,
           );
         }
-        const packed = this.visibility.entries.get(object)?.instances;
+        const packed = visibility?.instances;
         this.drawMesh(object, uniforms, packed);
         this.stats.draw(
           object.geometry.indices.length,
