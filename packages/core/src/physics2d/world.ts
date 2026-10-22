@@ -197,6 +197,14 @@ class Contact {
   sensor = false;
   seen = 0;
   active = false;
+  /**
+   * Per manifold point: lever arms `ax, ay, bx, by`, normal and tangent effective-mass
+   * denominators, plus the pair friction, computed by the first `solveVelocity` of a
+   * velocity solve (`armsSolve`); poses and masses are fixed until it ends.
+   */
+  readonly arms = new Float64Array(12);
+  friction = 0;
+  armsSolve = 0;
   constructor(
     readonly a: Proxy,
     readonly b: Proxy,
@@ -304,6 +312,8 @@ export class PhysicsWorld2D {
   private continuation: () => boolean = continueSimulation;
   private accumulator = 0;
   private stepToken = 0;
+  /** Identifies one run of velocity iterations; see `Contact.armsSolve`. */
+  private velocitySolve = 0;
   private stepping = false;
   /** Bumped by membership changes and user callbacks; caches alive() while stepping. */
   private liveness = 0;
@@ -935,6 +945,7 @@ export class PhysicsWorld2D {
       if (!contact.cancelled && contact.active) {
         impactA.body?.wake();
         impactB.body?.wake();
+        this.velocitySolve++;
         for (let pass = 0; pass < this.velocityIterations; pass++)
           this.solveVelocity(contact);
       }
@@ -1112,6 +1123,8 @@ export class PhysicsWorld2D {
     }
     this.wakeContactGroups(token);
     this.prepareJoints(dt);
+    // Iterations change only velocities, so each contact's arms and masses hold throughout.
+    this.velocitySolve++;
     if (this.activeJoints.length === 0) {
       // Without joints, impulses only reach bodies of contacts that passed this filter
       // (both awake), so no iteration can wake a body, end a contact or change liveness.
@@ -1289,11 +1302,6 @@ export class PhysicsWorld2D {
   }
   private solveVelocity(contact: Contact): void {
     const { a, b, manifold: m } = contact;
-    // `x ? x.f : d`, not `x?.f ?? d`: merging an optional double with `undefined` makes V8
-    // box it, which allocated per contact and iteration.
-    const friction = Math.sqrt(
-      (a.body ? a.body.friction : 0.5) * (b.body ? b.body.friction : 0.5),
-    );
     // Static bodies and bodiless colliders contribute no velocity; which bodies move or spin
     // cannot change while this contact is solved, so it is decided once, not per term.
     const aBody = a.body,
@@ -1302,19 +1310,51 @@ export class PhysicsWorld2D {
       bv = bBody && bBody.type !== 'static' ? bBody.velocity : undefined;
     const aSpins = av !== undefined && !aBody!.lockRotation,
       bSpins = bv !== undefined && !bBody!.lockRotation;
+    const arms = contact.arms;
+    if (contact.armsSolve !== this.velocitySolve) {
+      contact.armsSolve = this.velocitySolve;
+      // `x ? x.f : d`, not `x?.f ?? d`: merging an optional double with `undefined` makes V8
+      // box it, which allocated per contact and iteration.
+      contact.friction = Math.sqrt(
+        (a.body ? a.body.friction : 0.5) * (b.body ? b.body.friction : 0.5),
+      );
+      for (let i = 0; i < m.count; i++) {
+        const p = m.points[i],
+          ax = p.x - a.owner.position.x,
+          ay = p.y - a.owner.position.y;
+        const bx = p.x - b.owner.position.x,
+          by = p.y - b.owner.position.y;
+        const an = ax * m.ny - ay * m.nx,
+          bn = bx * m.ny - by * m.nx;
+        const tx = -m.ny,
+          ty = m.nx,
+          at = ax * ty - ay * tx,
+          bt = bx * ty - by * tx;
+        const k = i * 6;
+        arms[k] = ax;
+        arms[k + 1] = ay;
+        arms[k + 2] = bx;
+        arms[k + 3] = by;
+        arms[k + 4] =
+          a.inverseMass +
+          b.inverseMass +
+          an * an * a.inverseInertia +
+          bn * bn * b.inverseInertia;
+        arms[k + 5] =
+          a.inverseMass +
+          b.inverseMass +
+          at * at * a.inverseInertia +
+          bt * bt * b.inverseInertia;
+      }
+    }
+    const friction = contact.friction;
     for (let i = 0; i < m.count; i++) {
-      const p = m.points[i],
-        ax = p.x - a.owner.position.x,
-        ay = p.y - a.owner.position.y;
-      const bx = p.x - b.owner.position.x,
-        by = p.y - b.owner.position.y;
-      const an = ax * m.ny - ay * m.nx,
-        bn = bx * m.ny - by * m.nx;
-      const denominator =
-        a.inverseMass +
-        b.inverseMass +
-        an * an * a.inverseInertia +
-        bn * bn * b.inverseInertia;
+      const k = i * 6,
+        ax = arms[k]!,
+        ay = arms[k + 1]!,
+        bx = arms[k + 2]!,
+        by = arms[k + 3]!,
+        denominator = arms[k + 4]!;
       if (denominator <= 0) continue;
       let aw = aSpins ? aBody!.angularVelocity : 0;
       let bw = bSpins ? bBody!.angularVelocity : 0;
@@ -1333,14 +1373,8 @@ export class PhysicsWorld2D {
       vx = (bv ? bv.x : 0) - bw * by - ((av ? av.x : 0) - aw * ay);
       vy = (bv ? bv.y : 0) + bw * bx - ((av ? av.y : 0) + aw * ax);
       const tx = -m.ny,
-        ty = m.nx,
-        at = ax * ty - ay * tx,
-        bt = bx * ty - by * tx;
-      const tangentMass =
-        a.inverseMass +
-        b.inverseMass +
-        at * at * a.inverseInertia +
-        bt * bt * b.inverseInertia;
+        ty = m.nx;
+      const tangentMass = arms[k + 5]!;
       const limit = friction * m.normalImpulses[i],
         oldTangent = m.tangentImpulses[i];
       m.tangentImpulses[i] = Math.max(

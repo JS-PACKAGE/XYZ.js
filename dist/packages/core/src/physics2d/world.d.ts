@@ -134,6 +134,8 @@ export declare class PhysicsWorld2D {
     private continuation;
     private accumulator;
     private stepToken;
+    /** Identifies one run of velocity iterations; see `Contact.armsSolve`. */
+    private velocitySolve;
     private stepping;
     /** Bumped by membership changes and user callbacks; caches alive() while stepping. */
     private liveness;
