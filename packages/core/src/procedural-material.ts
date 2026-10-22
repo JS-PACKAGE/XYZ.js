@@ -274,6 +274,9 @@ export type ProceduralMaterialKind =
   | 'confetti'
   | 'ribbonstreamer'
   | 'pinatafringe'
+  | 'xylophone'
+  | 'tambourine'
+  | 'castanet'
   | 'basketball'
   | 'tennisball'
   | 'golfball'
@@ -630,6 +633,9 @@ const kinds: readonly ProceduralMaterialKind[] = [
   'confetti',
   'ribbonstreamer',
   'pinatafringe',
+  'xylophone',
+  'tambourine',
+  'castanet',
   'basketball',
   'tennisball',
   'golfball',

@@ -292,6 +292,9 @@ const kinds: ProceduralMaterialKind[] = [
   'confetti',
   'ribbonstreamer',
   'pinatafringe',
+  'xylophone',
+  'tambourine',
+  'castanet',
   'basketball',
   'tennisball',
   'golfball',
@@ -5130,6 +5133,9 @@ describe('periodic procedural material fields', () => {
     ['confetti', [4, 32, 64]],
     ['ribbonstreamer', [3, 32, 64]],
     ['pinatafringe', [3, 14, 32, 64]],
+    ['xylophone', [2, 4, 32, 64]],
+    ['tambourine', [5, 32, 64]],
+    ['castanet', [3, 32, 64]],
     ['basketball', [2, 32, 36]],
     ['tennisball', [1, 24, 32]],
     ['golfball', [10, 32]],
@@ -5428,6 +5434,9 @@ describe('periodic procedural material fields', () => {
     ['confetti', 4],
     ['ribbonstreamer', 3],
     ['pinatafringe', 14],
+    ['xylophone', 4],
+    ['tambourine', 5],
+    ['castanet', 3],
     ['basketball', 2],
     ['basketball', 36],
     ['tennisball', 24],
@@ -6880,6 +6889,9 @@ describe('periodic procedural material fields', () => {
     'confetti',
     'ribbonstreamer',
     'pinatafringe',
+    'xylophone',
+    'tambourine',
+    'castanet',
     'boardformedconcrete',
     'ribbedconcrete',
     'splitfaceblock',
@@ -7156,7 +7168,16 @@ describe('periodic procedural material fields', () => {
                                                                                                                                                                                                   : kind ===
                                                                                                                                                                                                       'pinatafringe'
                                                                                                                                                                                                     ? 14
-                                                                                                                                                                                                    : 4;
+                                                                                                                                                                                                    : kind ===
+                                                                                                                                                                                                        'xylophone'
+                                                                                                                                                                                                      ? 4
+                                                                                                                                                                                                      : kind ===
+                                                                                                                                                                                                          'tambourine'
+                                                                                                                                                                                                        ? 5
+                                                                                                                                                                                                        : kind ===
+                                                                                                                                                                                                            'castanet'
+                                                                                                                                                                                                          ? 3
+                                                                                                                                                                                                          : 4;
       // Extrapolate each one-sided slope to cancel smooth curvature. A usable
       // step avoids amplified rounding error from tiny hairline sample offsets.
       const epsilon = 1e-7 / cells;
@@ -11989,6 +12010,72 @@ describe('periodic procedural material fields', () => {
       expect(strand.height).toBeGreaterThan(gap.height + 0.1 * relief);
       expect(gap.height).toBeGreaterThan(tier.height + 0.1 * relief);
       expect(strand.occlusion).toBeGreaterThan(tier.occlusion);
+    }
+  });
+
+  it('xylophone bars crest above the cord holes and gaps', () => {
+    const relief = proceduralMaterialPresets.xylophone.relief;
+    const clear: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const holed = { ...clear };
+    const gap = { ...clear };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('xylophone', seed);
+      sample(1 / 8, 0, clear);
+      sample(1 / 8, 1 / 4, holed);
+      sample(0, 1 / 4, gap);
+      expect(clear.height).toBeGreaterThan(holed.height + 0.1 * relief);
+      expect(holed.height).toBeGreaterThan(gap.height + 0.1 * relief);
+      expect(clear.occlusion).toBeGreaterThan(gap.occlusion);
+    }
+  });
+
+  it('tambourine jingle discs dome above the drum skin', () => {
+    const relief = proceduralMaterialPresets.tambourine.relief;
+    const disc: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const skin = { ...disc };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('tambourine', seed);
+      sample(1 / 10, 1 / 10, disc);
+      sample(0, 0, skin);
+      expect(disc.height).toBeGreaterThan(skin.height + 0.1 * relief);
+      expect(disc.occlusion).toBeGreaterThan(skin.occlusion);
+    }
+  });
+
+  it('castanet shells rim above their dimples and the felt', () => {
+    const relief = proceduralMaterialPresets.castanet.relief;
+    const rim: SurfaceSample = {
+      color: 0,
+      height: 0,
+      roughness: 0,
+      occlusion: 0,
+      mortar: 0,
+      metallic: 0,
+    };
+    const center = { ...rim };
+    const felt = { ...rim };
+    for (const seed of [1, 123, 0xffffffff]) {
+      const sample = createSurfaceSampler('castanet', seed);
+      sample(0.18666666666666668, 0.18666666666666668, rim);
+      sample(1 / 6, 1 / 6, center);
+      sample(0, 0, felt);
+      expect(rim.height).toBeGreaterThan(center.height + 0.1 * relief);
+      expect(center.height).toBeGreaterThan(felt.height + 0.1 * relief);
+      expect(rim.occlusion).toBeGreaterThan(felt.occlusion);
     }
   });
 

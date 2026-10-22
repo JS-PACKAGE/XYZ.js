@@ -2502,6 +2502,21 @@ function createSurfaceSampler(t, r) {
 				H = .34 + .3 * e + .12 * n - .14 * t, Z = .28 + .44 * e - .2 * t + .03 * n, Q += .06 * (n - .5) + .1 * t, $ = 1 - .4 * (1 - e) - .2 * t;
 				break;
 			}
+			case `xylophone`: {
+				let e = (1 + Math.cos(Math.PI * 2 * (fract(o * 4) - .5))) / 2, t = smooth(clamp((.18 - Math.hypot(Math.sin(Math.PI * (fract(o * 4) - .5)), Math.sin(Math.PI * (fract(A * 2) - .5)))) / .12)), n = noise(o, A, 32, 8, r ^ 18264);
+				H = .4 + .32 * e + .1 * n - .22 * t, Z = .3 + .46 * e - .24 * t + .03 * n, Q += .06 * (n - .5) + .12 * t, $ = 1 - .44 * (1 - e) - .18 * t;
+				break;
+			}
+			case `tambourine`: {
+				let e = Math.sin(Math.PI * (fract(o * 5) - .5)), t = Math.sin(Math.PI * (fract(A * 5) - .5)), i = smooth(clamp((.46 - Math.hypot(e * 1.35, t * .85)) / .16)), a = noise(o, A, 32, 32, r ^ 22633);
+				H = .38 + .34 * i + .1 * a, Z = .32 + .42 * i + .03 * a, Q += .06 * (a - .5) - .12 * i, $ = 1 - .46 * (1 - i);
+				break;
+			}
+			case `castanet`: {
+				let e = Math.sin(Math.PI * (fract(o * 3) - .5)), t = Math.sin(Math.PI * (fract(A * 3) - .5)), n = Math.hypot(e, t), i = smooth(clamp((.56 - n) / .3)), a = smooth(clamp((.16 - n) / .1)), s = noise(o, A, 32, 32, r ^ 27002);
+				H = .42 + .26 * i - .18 * a + .08 * s, Z = .3 + .42 * i - .3 * a, Q += .06 * (s - .5) + .1 * a, $ = 1 - .44 * (1 - i) - .12 * a;
+				break;
+			}
 			case `basketball`: {
 				let e = o * L, t = A * L, r = Math.floor(e), i = Math.floor(t), a = 0;
 				for (let n = -1; n <= 1; n++) for (let o = -1; o <= 1; o++) {

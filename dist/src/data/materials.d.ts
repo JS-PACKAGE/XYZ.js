@@ -1608,6 +1608,24 @@ export declare const proceduralMaterialPresets: Readonly<{
         roughness: 0.7;
         relief: 0.0024;
     }>;
+    xylophone: Readonly<{
+        dark: readonly [152, 102, 52];
+        light: readonly [238, 192, 128];
+        roughness: 0.58;
+        relief: 0.0026;
+    }>;
+    tambourine: Readonly<{
+        dark: readonly [168, 122, 62];
+        light: readonly [236, 208, 152];
+        roughness: 0.62;
+        relief: 0.0022;
+    }>;
+    castanet: Readonly<{
+        dark: readonly [132, 52, 48];
+        light: readonly [222, 148, 132];
+        roughness: 0.56;
+        relief: 0.0024;
+    }>;
     basketball: Readonly<{
         dark: readonly [23, 16, 12];
         light: readonly [239, 113, 33];
@@ -2275,6 +2293,9 @@ export declare const proceduralTileMeters: Readonly<{
     confetti: 0.24;
     ribbonstreamer: 0.3;
     pinatafringe: 0.2;
+    xylophone: 0.24;
+    tambourine: 0.3;
+    castanet: 0.2;
     basketball: 0.24;
     tennisball: 0.12;
     golfball: 0.045;

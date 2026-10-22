@@ -8773,6 +8773,53 @@ export function createSurfaceSampler(
         occlusion = 1 - 0.4 * (1 - strand) - 0.2 * tier;
         break;
       }
+      case 'xylophone': {
+        // Tuned wooden bars rise above the open gaps and cord holes.
+        const bar = (1 + Math.cos(Math.PI * 2 * (fract(u * 4) - 0.5))) / 2;
+        const hole = smooth(
+          clamp(
+            (0.18 -
+              Math.hypot(
+                Math.sin(Math.PI * (fract(u * 4) - 0.5)),
+                Math.sin(Math.PI * (fract(v * 2) - 0.5)),
+              )) /
+              0.12,
+          ),
+        );
+        const grain = noise(u, v, 32, 8, seed ^ 0x4758);
+        color = 0.4 + 0.32 * bar + 0.1 * grain - 0.22 * hole;
+        height = 0.3 + 0.46 * bar - 0.24 * hole + 0.03 * grain;
+        roughness += 0.06 * (grain - 0.5) + 0.12 * hole;
+        occlusion = 1 - 0.44 * (1 - bar) - 0.18 * hole;
+        break;
+      }
+      case 'tambourine': {
+        // Tilted jingle discs dome over the drum skin.
+        const fx = Math.sin(Math.PI * (fract(u * 5) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 5) - 0.5));
+        const d = Math.hypot(fx * 1.35, fy * 0.85);
+        const disc = smooth(clamp((0.46 - d) / 0.16));
+        const skin = noise(u, v, 32, 32, seed ^ 0x5869);
+        color = 0.38 + 0.34 * disc + 0.1 * skin;
+        height = 0.32 + 0.42 * disc + 0.03 * skin;
+        roughness += 0.06 * (skin - 0.5) - 0.12 * disc;
+        occlusion = 1 - 0.46 * (1 - disc);
+        break;
+      }
+      case 'castanet': {
+        // Paired shells dimple at their centers above the felt backing.
+        const fx = Math.sin(Math.PI * (fract(u * 3) - 0.5)),
+          fy = Math.sin(Math.PI * (fract(v * 3) - 0.5));
+        const d = Math.hypot(fx, fy);
+        const shell = smooth(clamp((0.56 - d) / 0.3));
+        const dimple = smooth(clamp((0.16 - d) / 0.1));
+        const grain = noise(u, v, 32, 32, seed ^ 0x697a);
+        color = 0.42 + 0.26 * shell - 0.18 * dimple + 0.08 * grain;
+        height = 0.3 + 0.42 * shell - 0.3 * dimple;
+        roughness += 0.06 * (grain - 0.5) + 0.1 * dimple;
+        occlusion = 1 - 0.44 * (1 - shell) - 0.12 * dimple;
+        break;
+      }
       case 'basketball': {
         const x = u * sportCells,
           y = v * sportCells,
