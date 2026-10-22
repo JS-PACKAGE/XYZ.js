@@ -487,7 +487,7 @@ var PhysicsWorld2D = class {
 					let t = this.forceState(s);
 					t.consume(s, e), s.isSleeping || (require_collider.finite(s.velocity.x, `velocity.x`), require_collider.finite(s.velocity.y, `velocity.y`), a.owner.capturePhysicsPose(), s.velocity.x += (this.gravity.x * s.gravityScale + t.value[0] * a.inverseMass) * e, s.velocity.y += (this.gravity.y * s.gravityScale + t.value[1] * a.inverseMass) * e, s.velocity.scale(1 / (1 + s.linearDamping * e)), s.setSolverAngularVelocity(s.lockRotation ? 0 : (s.angularVelocity + t.value[5] * a.inverseInertia * e) / (1 + s.angularDamping * e)));
 				} else s?.type === `kinematic` && (require_collider.finite(s.velocity.x, `velocity.x`), require_collider.finite(s.velocity.y, `velocity.y`), require_collider.finite(s.angularVelocity, `angularVelocity`), a.owner.capturePhysicsPose());
-				for (let e of a.group) e.refresh(), e.sweepStamp = r, t[n++] = e;
+				for (let e of a.group) (e !== a || !i || !e.geometry.refreshedFromInputs) && e.refresh(), e.sweepStamp = r, t[n++] = e;
 			}
 		} finally {
 			i?.endMatrixPass(), t.length !== n && (t.length = n);

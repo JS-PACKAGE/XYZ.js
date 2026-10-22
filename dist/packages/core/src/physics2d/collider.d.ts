@@ -60,6 +60,13 @@ export declare class ShapeGeometry {
     revision: number;
     private edges;
     private edgesRevision;
+    /**
+     * @internal The last `refresh` composed the pose from recorded inputs: a root's own
+     * transform, or a base-composed parent's matrix and the transform. Repeating it before
+     * anything moves only compares them equal, provided the parent's matrix comes from an
+     * open matrix pass (otherwise recomposing it may call ancestors' overrides).
+     */
+    refreshedFromInputs: boolean;
     /** @internal Valid after `rayAmplification`; see there. */
     rayEdgeTolerance: number;
     private rayBound;

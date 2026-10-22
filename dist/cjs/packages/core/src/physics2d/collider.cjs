@@ -131,6 +131,7 @@ var ShapeGeometry = class {
 	revision = 0;
 	edges;
 	edgesRevision = -1;
+	refreshedFromInputs = !1;
 	rayEdgeTolerance = 0;
 	rayBound = 1;
 	rayBoundRevision = -1;
@@ -172,9 +173,9 @@ var ShapeGeometry = class {
 	}
 	refresh(e) {
 		let t = e.transform, n = this.poseState, r = e.composesFromTransform;
-		if (r && n[6] === t.position.x && n[7] === t.position.y && n[8] === t.rotation && n[9] === t.scale.x && n[10] === t.scale.y && n[11] === t.pivot.x && n[12] === t.pivot.y && n[13] === t.skew.x && n[14] === t.skew.y) return;
+		if (this.refreshedFromInputs = r, r && n[6] === t.position.x && n[7] === t.position.y && n[8] === t.rotation && n[9] === t.scale.x && n[10] === t.scale.y && n[11] === t.pivot.x && n[12] === t.pivot.y && n[13] === t.skew.x && n[14] === t.skew.y) return;
 		let i = r ? void 0 : e.baseComposedParent;
-		i && this.childUnchanged(i, t) || (n[6] = NaN, this.poseState[15] = NaN, this.refreshPose(e), i ? this.recordChild(i, t) : r && (n[6] = t.position.x, n[7] = t.position.y, n[8] = t.rotation, n[9] = t.scale.x, n[10] = t.scale.y, n[11] = t.pivot.x, n[12] = t.pivot.y, n[13] = t.skew.x, n[14] = t.skew.y));
+		i && (this.refreshedFromInputs = !0), !(i && this.childUnchanged(i, t)) && (n[6] = NaN, this.poseState[15] = NaN, this.refreshPose(e), i ? this.recordChild(i, t) : r && (n[6] = t.position.x, n[7] = t.position.y, n[8] = t.rotation, n[9] = t.scale.x, n[10] = t.scale.y, n[11] = t.pivot.x, n[12] = t.pivot.y, n[13] = t.skew.x, n[14] = t.skew.y));
 	}
 	childUnchanged(e, t) {
 		let n = e.updateWorldMatrix().elements, r = this.poseState;

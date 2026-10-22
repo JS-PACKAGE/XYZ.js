@@ -236,6 +236,13 @@ export class ShapeGeometry {
   revision = 0;
   private edges: Float64Array | undefined;
   private edgesRevision = -1;
+  /**
+   * @internal The last `refresh` composed the pose from recorded inputs: a root's own
+   * transform, or a base-composed parent's matrix and the transform. Repeating it before
+   * anything moves only compares them equal, provided the parent's matrix comes from an
+   * open matrix pass (otherwise recomposing it may call ancestors' overrides).
+   */
+  refreshedFromInputs = false;
   /** @internal Valid after `rayAmplification`; see there. */
   rayEdgeTolerance = 0;
   private rayBound = 1;
@@ -339,6 +346,7 @@ export class ShapeGeometry {
     const t = owner.transform,
       k = this.poseState;
     const direct = owner.composesFromTransform;
+    this.refreshedFromInputs = direct;
     // A root's world matrix is composed from these values alone; when none changed,
     // the matrix snapshot below would match and nothing would be refreshed.
     if (
@@ -357,6 +365,7 @@ export class ShapeGeometry {
     // A child's matrix is its parent's times its transform, so the parent's matrix stands in
     // for every ancestor input.
     const parent = direct ? undefined : owner.baseComposedParent;
+    if (parent) this.refreshedFromInputs = true;
     if (parent && this.childUnchanged(parent, t)) return;
     k[POSE] = NaN;
     this.poseState[CHILD] = NaN;

@@ -1060,7 +1060,9 @@ export class PhysicsWorld2D {
           proxy.owner.capturePhysicsPose();
         }
         for (const piece of proxy.group) {
-          piece.refresh();
+          // The main proxy was refreshed above, and nothing since moved anything.
+          if (piece !== proxy || !pass || !piece.geometry.refreshedFromInputs)
+            piece.refresh();
           piece.sweepStamp = token;
           sorted[sortedCount++] = piece;
         }
