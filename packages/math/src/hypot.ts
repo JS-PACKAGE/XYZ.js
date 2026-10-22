@@ -1,16 +1,16 @@
 /**
- * @internal Fixed-arity `Math.hypot`. V8's builtin copies its arguments into a fresh
- * array on every call; these repeat its algorithm in the same operation order (the
- * largest magnitude, ignoring NaN; Infinity wins over NaN; then a compensated sum of
- * squares scaled by that magnitude), so on V8 they return the identical double.
- */
-/**
  * NaN read from an object, not the global `NaN` or `Number.NaN`: in Chrome, returning the
  * global made every non-inlined call of these allocate (the sampling heap profiler showed
  * about 200 bytes per hypot2 call from a physics refresh), and the minifier folds
  * `Number.NaN` back into the global. The value is the same NaN either way.
  */
 const special = { nan: Number.NaN };
+/**
+ * @internal Fixed-arity `Math.hypot`. V8's builtin copies its arguments into a fresh
+ * array on every call; these repeat its algorithm in the same operation order (the
+ * largest magnitude, ignoring NaN; Infinity wins over NaN; then a compensated sum of
+ * squares scaled by that magnitude), so on V8 they return the identical double.
+ */
 export function hypot2(a: number, b: number): number {
   a = Math.abs(a);
   b = Math.abs(b);
