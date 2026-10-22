@@ -5,15 +5,14 @@ import { type GraphicsInstruction2D } from './graphics-path2d.js';
 export interface Graphics2DOptions extends Omit<SpriteOptions, 'texture' | 'view' | 'source'> {
     resolution?: number;
 }
-/** Retained immutable CPU paths rasterized into an owned bitmap, not GPU vector geometry. */
+/** Retained immutable CPU paths rasterized into one owned canvas texture, not GPU vector geometry. */
 export declare class Graphics2D extends Sprite {
-    private revision;
+    private readonly ownedTexture;
     private requestedInstructions;
     private requestedResolution;
     private displayedInstructions;
     private displayedResolution;
     private rasterOrigin;
-    private ownedTexture;
     private readonly hitPoint;
     private constructor();
     static create(instructions: readonly GraphicsInstruction2D[], options?: Graphics2DOptions): Promise<Graphics2D>;
@@ -21,9 +20,11 @@ export declare class Graphics2D extends Sprite {
     get resolution(): number;
     setInstructions(instructions: readonly GraphicsInstruction2D[]): Promise<void>;
     setResolution(resolution: number): Promise<void>;
+    /** Rasterizes synchronously, so no later request can supersede one in flight. */
     private refresh;
     getLocalBounds(out?: Rect2D): Rect2D;
     containsPoint(point: Vector2): boolean;
     protected onDestroy(): void;
+    /** Draws synchronously; the caller owns and releases the returned canvas. */
     private static rasterize;
 }

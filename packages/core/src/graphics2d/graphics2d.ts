@@ -1,7 +1,7 @@
 import { rendering2dLimits } from '../../../../src/data/rendering2d.js';
 import {
   AssetError,
-  Texture,
+  CanvasTexture2D,
   TextureView2D,
 } from '../../../assets/src/index.js';
 import { CanvasSpriteSource } from '../../../graphics/src/canvas-sprite-source.js';
@@ -24,8 +24,9 @@ export interface Graphics2DOptions extends Omit<
 > {
   resolution?: number;
 }
+/** A drawn raster canvas; the caller copies it into a texture and releases it. */
 interface Raster2D {
-  texture: Texture;
+  canvas: HTMLCanvasElement;
   bounds: Readonly<Rect2D>;
 }
 
@@ -263,39 +264,37 @@ function rasterBounds(
   });
 }
 
-/** Retained immutable CPU paths rasterized into an owned bitmap, not GPU vector geometry. */
+/** Retained immutable CPU paths rasterized into one owned canvas texture, not GPU vector geometry. */
 export class Graphics2D extends Sprite {
-  private revision = 0;
   private requestedInstructions: readonly GraphicsInstruction2D[];
   private requestedResolution: number;
   private displayedInstructions: readonly GraphicsInstruction2D[];
   private displayedResolution: number;
   private rasterOrigin: Readonly<Rect2D>;
-  private ownedTexture: Texture;
   private readonly hitPoint = new Vector2();
 
   private constructor(
     instructions: readonly GraphicsInstruction2D[],
     resolution: number,
-    raster: Raster2D,
+    private readonly ownedTexture: CanvasTexture2D,
+    bounds: Readonly<Rect2D>,
     options: Graphics2DOptions,
   ) {
     super({
       ...options,
-      view: new TextureView2D(raster.texture, {
+      view: new TextureView2D(ownedTexture, {
         frame: {
           x: 0,
           y: 0,
-          width: raster.texture.width,
-          height: raster.texture.height,
+          width: ownedTexture.width,
+          height: ownedTexture.height,
         },
         resolution,
       }),
     });
     this.requestedInstructions = this.displayedInstructions = instructions;
     this.requestedResolution = this.displayedResolution = resolution;
-    this.rasterOrigin = raster.bounds;
-    this.ownedTexture = raster.texture;
+    this.rasterOrigin = bounds;
   }
 
   static async create(
@@ -305,11 +304,17 @@ export class Graphics2D extends Sprite {
     const snapshot = snapshotInstructions(instructions),
       resolution = options.resolution ?? 1;
     const bounds = rasterBounds(snapshot, resolution);
-    const raster = await Graphics2D.rasterize(snapshot, resolution, bounds);
+    const { canvas } = Graphics2D.rasterize(snapshot, resolution, bounds);
+    let texture: CanvasTexture2D;
     try {
-      return new Graphics2D(snapshot, resolution, raster, options);
+      texture = new CanvasTexture2D(canvas);
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
+    try {
+      return new Graphics2D(snapshot, resolution, texture, bounds, options);
     } catch (error) {
-      raster.texture.destroy();
+      texture.destroy();
       throw error;
     }
   }
@@ -328,59 +333,47 @@ export class Graphics2D extends Sprite {
     const snapshot = snapshotInstructions(instructions);
     rasterBounds(snapshot, this.requestedResolution);
     this.requestedInstructions = snapshot;
-    await this.refresh();
+    this.refresh();
   }
   async setResolution(resolution: number): Promise<void> {
     if (this.destroyed)
       throw new AssetError('Cannot update destroyed Graphics2D.');
     rasterBounds(this.requestedInstructions, resolution);
     this.requestedResolution = resolution;
-    await this.refresh();
+    this.refresh();
   }
-  private async refresh(): Promise<void> {
-    const revision = ++this.revision,
-      instructions = this.requestedInstructions,
+  /** Rasterizes synchronously, so no later request can supersede one in flight. */
+  private refresh(): void {
+    const instructions = this.requestedInstructions,
       resolution = this.requestedResolution;
     let raster: Raster2D;
     try {
-      raster = await Graphics2D.rasterize(
+      raster = Graphics2D.rasterize(
         instructions,
         resolution,
         rasterBounds(instructions, resolution),
       );
     } catch (error) {
-      if (revision === this.revision) {
-        this.requestedInstructions = this.displayedInstructions;
-        this.requestedResolution = this.displayedResolution;
-      }
-      throw error;
-    }
-    if (this.destroyed || revision !== this.revision) {
-      raster.texture.destroy();
-      return;
-    }
-    const previous = this.ownedTexture;
-    try {
-      this.view = new TextureView2D(raster.texture, {
-        frame: {
-          x: 0,
-          y: 0,
-          width: raster.texture.width,
-          height: raster.texture.height,
-        },
-        resolution,
-      });
-    } catch (error) {
-      raster.texture.destroy();
       this.requestedInstructions = this.displayedInstructions;
       this.requestedResolution = this.displayedResolution;
       throw error;
     }
-    this.ownedTexture = raster.texture;
-    this.rasterOrigin = raster.bounds;
-    this.displayedInstructions = instructions;
-    this.displayedResolution = resolution;
-    previous.destroy();
+    const { canvas, bounds } = raster;
+    try {
+      // The owned texture is redrawn in place; an externally substituted texture remains
+      // borrowed and is replaced by it. rasterBounds already validated the view resolution.
+      const texture = this.ownedTexture;
+      texture.update(canvas);
+      this.view = new TextureView2D(texture, {
+        frame: { x: 0, y: 0, width: texture.width, height: texture.height },
+        resolution,
+      });
+      this.rasterOrigin = bounds;
+      this.displayedInstructions = instructions;
+      this.displayedResolution = resolution;
+    } finally {
+      canvas.width = canvas.height = 0;
+    }
   }
   override getLocalBounds(
     out: Rect2D = { x: 0, y: 0, width: 0, height: 0 },
@@ -411,15 +404,15 @@ export class Graphics2D extends Sprite {
     );
   }
   protected override onDestroy(): void {
-    this.revision++;
     this.ownedTexture.destroy();
   }
 
-  private static async rasterize(
+  /** Draws synchronously; the caller owns and releases the returned canvas. */
+  private static rasterize(
     instructions: readonly GraphicsInstruction2D[],
     resolution: number,
     bounds: Readonly<Rect2D>,
-  ): Promise<Raster2D> {
+  ): Raster2D {
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bounds.width * resolution);
     canvas.height = Math.round(bounds.height * resolution);
@@ -516,11 +509,13 @@ export class Graphics2D extends Sprite {
           context.stroke(path);
         }
       }
-      return { texture: await Texture.fromImage(canvas), bounds };
+      return { canvas, bounds };
+    } catch (error) {
+      canvas.width = canvas.height = 0;
+      throw error;
     } finally {
       sources.destroy();
       for (const pattern of patterns) pattern.width = pattern.height = 0;
-      canvas.width = canvas.height = 0;
     }
   }
 }

@@ -135,34 +135,38 @@ function rasterBounds(n, r) {
 	});
 }
 var Graphics2D = class Graphics2D extends require_sprite.Sprite {
-	revision = 0;
+	ownedTexture;
 	requestedInstructions;
 	requestedResolution;
 	displayedInstructions;
 	displayedResolution;
 	rasterOrigin;
-	ownedTexture;
 	hitPoint = new require_index.Vector2();
-	constructor(e, t, n, i) {
+	constructor(e, t, n, i, a) {
 		super({
-			...i,
-			view: new require_texture2d.TextureView2D(n.texture, {
+			...a,
+			view: new require_texture2d.TextureView2D(n, {
 				frame: {
 					x: 0,
 					y: 0,
-					width: n.texture.width,
-					height: n.texture.height
+					width: n.width,
+					height: n.height
 				},
 				resolution: t
 			})
-		}), this.requestedInstructions = this.displayedInstructions = e, this.requestedResolution = this.displayedResolution = t, this.rasterOrigin = n.bounds, this.ownedTexture = n.texture;
+		}), this.ownedTexture = n, this.requestedInstructions = this.displayedInstructions = e, this.requestedResolution = this.displayedResolution = t, this.rasterOrigin = i;
 	}
 	static async create(e, t = {}) {
-		let n = snapshotInstructions(e), r = t.resolution ?? 1, i = rasterBounds(n, r), a = await Graphics2D.rasterize(n, r, i);
+		let r = snapshotInstructions(e), i = t.resolution ?? 1, a = rasterBounds(r, i), { canvas: o } = Graphics2D.rasterize(r, i, a), s;
 		try {
-			return new Graphics2D(n, r, a, t);
+			s = new require_texture2d.CanvasTexture2D(o);
+		} finally {
+			o.width = o.height = 0;
+		}
+		try {
+			return new Graphics2D(r, i, s, a, t);
 		} catch (e) {
-			throw a.texture.destroy(), e;
+			throw s.destroy(), e;
 		}
 	}
 	get instructions() {
@@ -174,38 +178,34 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 	async setInstructions(e) {
 		if (this.destroyed) throw new require_texture.AssetError(`Cannot update destroyed Graphics2D.`);
 		let n = snapshotInstructions(e);
-		rasterBounds(n, this.requestedResolution), this.requestedInstructions = n, await this.refresh();
+		rasterBounds(n, this.requestedResolution), this.requestedInstructions = n, this.refresh();
 	}
 	async setResolution(e) {
 		if (this.destroyed) throw new require_texture.AssetError(`Cannot update destroyed Graphics2D.`);
-		rasterBounds(this.requestedInstructions, e), this.requestedResolution = e, await this.refresh();
+		rasterBounds(this.requestedInstructions, e), this.requestedResolution = e, this.refresh();
 	}
-	async refresh() {
-		let e = ++this.revision, t = this.requestedInstructions, n = this.requestedResolution, i;
+	refresh() {
+		let e = this.requestedInstructions, t = this.requestedResolution, n;
 		try {
-			i = await Graphics2D.rasterize(t, n, rasterBounds(t, n));
-		} catch (t) {
-			throw e === this.revision && (this.requestedInstructions = this.displayedInstructions, this.requestedResolution = this.displayedResolution), t;
+			n = Graphics2D.rasterize(e, t, rasterBounds(e, t));
+		} catch (e) {
+			throw this.requestedInstructions = this.displayedInstructions, this.requestedResolution = this.displayedResolution, e;
 		}
-		if (this.destroyed || e !== this.revision) {
-			i.texture.destroy();
-			return;
-		}
-		let a = this.ownedTexture;
+		let { canvas: i, bounds: a } = n;
 		try {
-			this.view = new require_texture2d.TextureView2D(i.texture, {
+			let n = this.ownedTexture;
+			n.update(i), this.view = new require_texture2d.TextureView2D(n, {
 				frame: {
 					x: 0,
 					y: 0,
-					width: i.texture.width,
-					height: i.texture.height
+					width: n.width,
+					height: n.height
 				},
-				resolution: n
-			});
-		} catch (e) {
-			throw i.texture.destroy(), this.requestedInstructions = this.displayedInstructions, this.requestedResolution = this.displayedResolution, e;
+				resolution: t
+			}), this.rasterOrigin = a, this.displayedInstructions = e, this.displayedResolution = t;
+		} finally {
+			i.width = i.height = 0;
 		}
-		this.ownedTexture = i.texture, this.rasterOrigin = i.bounds, this.displayedInstructions = t, this.displayedResolution = n, a.destroy();
 	}
 	getLocalBounds(e = {
 		x: 0,
@@ -227,38 +227,38 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 		return this.displayedInstructions.some((e) => (e.alpha ?? 1) > 0 && (e.fill !== void 0 && e.path.containsPoint(t, n) || e.stroke !== void 0 && e.path.containsPoint(t, n, e.stroke)));
 	}
 	onDestroy() {
-		this.revision++, this.ownedTexture.destroy();
+		this.ownedTexture.destroy();
 	}
-	static async rasterize(e, r, s) {
-		let c = document.createElement(`canvas`);
-		c.width = Math.round(s.width * r), c.height = Math.round(s.height * r);
-		let l = c.getContext(`2d`);
-		if (!l) throw new require_texture.AssetError(`Native Canvas2D is required for raster Graphics.`);
-		let u = new require_canvas_sprite_source.CanvasSpriteSource(() => {
+	static rasterize(e, n, r) {
+		let s = document.createElement(`canvas`);
+		s.width = Math.round(r.width * n), s.height = Math.round(r.height * n);
+		let c = s.getContext(`2d`);
+		if (!c) throw new require_texture.AssetError(`Native Canvas2D is required for raster Graphics.`);
+		let l = new require_canvas_sprite_source.CanvasSpriteSource(() => {
 			throw new require_texture.AssetError(`Raster Graphics patterns cannot read native render targets.`);
-		}), d = require_sprite_instance.createTextureQuad2D(), f = [], p = /* @__PURE__ */ new Map(), nativePaint = (e) => {
+		}), u = require_sprite_instance.createTextureQuad2D(), d = [], f = /* @__PURE__ */ new Map(), nativePaint = (e) => {
 			if (typeof e == `string`) return e;
-			let n = p.get(e);
+			let n = f.get(e);
 			if (n) return n;
 			let r;
 			if (e.kind === `linear-gradient` || e.kind === `radial-gradient`) {
-				r = e.kind === `linear-gradient` ? l.createLinearGradient(...e.from, ...e.to) : l.createRadialGradient(...e.from, ...e.to);
+				r = e.kind === `linear-gradient` ? c.createLinearGradient(...e.from, ...e.to) : c.createRadialGradient(...e.from, ...e.to);
 				for (let t of e.stops) r.addColorStop(t.offset, t.color);
 			} else {
 				let n = e.texture ?? e.view.source;
-				require_sprite_instance.getTextureQuad2D(n, e.view, void 0, d);
+				require_sprite_instance.getTextureQuad2D(n, e.view, void 0, u);
 				let i = document.createElement(`canvas`);
-				i.width = Math.round(d.naturalWidth * d.resolution), i.height = Math.round(d.naturalHeight * d.resolution), f.push(i);
+				i.width = Math.round(u.naturalWidth * u.resolution), i.height = Math.round(u.naturalHeight * u.resolution), d.push(i);
 				let a = i.getContext(`2d`);
 				if (!a) throw new require_texture.AssetError(`Native Canvas2D is required for local patterns.`);
-				a.drawImage(u.image(n, d, [
+				a.drawImage(l.image(n, u, [
 					1,
 					1,
 					1
-				]), d.trimX * d.resolution, d.trimY * d.resolution);
-				let s = l.createPattern(i, e.repetition ?? `repeat`);
+				]), u.trimX * u.resolution, u.trimY * u.resolution);
+				let s = c.createPattern(i, e.repetition ?? `repeat`);
 				if (!s) throw new require_texture.AssetError(`Unable to create native Graphics pattern.`);
-				let [c, p, m, h, g, _] = e.transform ?? [
+				let [f, p, m, h, g, _] = e.transform ?? [
 					1,
 					0,
 					0,
@@ -267,33 +267,34 @@ var Graphics2D = class Graphics2D extends require_sprite.Sprite {
 					0
 				];
 				s.setTransform(new DOMMatrix([
-					c / d.resolution,
-					p / d.resolution,
-					m / d.resolution,
-					h / d.resolution,
+					f / u.resolution,
+					p / u.resolution,
+					m / u.resolution,
+					h / u.resolution,
 					g,
 					_
 				])), r = s;
 			}
-			return p.set(e, r), r;
+			return f.set(e, r), r;
 		};
 		try {
-			l.setTransform(r, 0, 0, r, -s.x * r, -s.y * r);
+			c.setTransform(n, 0, 0, n, -r.x * n, -r.y * n);
 			for (let t of e) {
 				let e = t.path.nativePath2D;
-				if (l.globalAlpha = t.alpha ?? 1, t.fill !== void 0 && (l.fillStyle = nativePaint(t.fill), l.fill(e, t.path.fillRule)), t.stroke) {
+				if (c.globalAlpha = t.alpha ?? 1, t.fill !== void 0 && (c.fillStyle = nativePaint(t.fill), c.fill(e, t.path.fillRule)), t.stroke) {
 					let n = t.stroke;
-					l.strokeStyle = nativePaint(n.paint), l.lineWidth = n.width, l.lineCap = n.cap ?? `butt`, l.lineJoin = n.join ?? `miter`, l.miterLimit = n.miterLimit ?? 10, l.stroke(e);
+					c.strokeStyle = nativePaint(n.paint), c.lineWidth = n.width, c.lineCap = n.cap ?? `butt`, c.lineJoin = n.join ?? `miter`, c.miterLimit = n.miterLimit ?? 10, c.stroke(e);
 				}
 			}
 			return {
-				texture: await require_texture.Texture.fromImage(c),
-				bounds: s
+				canvas: s,
+				bounds: r
 			};
+		} catch (e) {
+			throw s.width = s.height = 0, e;
 		} finally {
-			u.destroy();
-			for (let e of f) e.width = e.height = 0;
-			c.width = c.height = 0;
+			l.destroy();
+			for (let e of d) e.width = e.height = 0;
 		}
 	}
 };

@@ -50,8 +50,8 @@ export declare class PhysicsDebugDraw2D {
     get visible(): boolean;
     set visible(value: boolean);
     /**
-     * Redraws from the world's current state. Calls made while a previous redraw is still
-     * rasterizing are skipped (resolving immediately), so calling every frame cannot queue work.
+     * Redraws from the world's current state. Calls made before a previous refresh settles are
+     * skipped (resolving immediately), so calling every frame cannot queue work.
      */
     refresh(): Promise<void>;
     destroy(): void;
