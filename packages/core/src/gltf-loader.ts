@@ -334,6 +334,27 @@ function allFinite(values: Float32Array): boolean {
     if (!Number.isFinite(values[i])) return false;
   return true;
 }
+/** Encoded size of `text`; stops once it exceeds `limit` (the returned size is then over it). */
+function utf8Size(text: string, limit: number): number {
+  let bytes = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if (code < 0x80) bytes++;
+    else if (code < 0x800) bytes += 2;
+    else if (
+      code >= 0xd800 &&
+      code <= 0xdbff &&
+      i + 1 < text.length &&
+      text.charCodeAt(i + 1) >= 0xdc00 &&
+      text.charCodeAt(i + 1) <= 0xdfff
+    ) {
+      bytes += 4;
+      i++;
+    } else bytes += 3;
+    if (bytes > limit) return bytes;
+  }
+  return bytes;
+}
 function scalar(
   view: DataView,
   offset: number,
@@ -453,24 +474,9 @@ export class GLTFLoader {
       if (typeof input === 'string') {
         if (input.length > modelLimits.inputBytes)
           throw new AssetError('Model input exceeds byte budget.');
-        let byteLength = 0;
-        for (let i = 0; i < input.length; i++) {
-          const code = input.charCodeAt(i);
-          if (code < 0x80) byteLength++;
-          else if (code < 0x800) byteLength += 2;
-          else if (
-            code >= 0xd800 &&
-            code <= 0xdbff &&
-            i + 1 < input.length &&
-            input.charCodeAt(i + 1) >= 0xdc00 &&
-            input.charCodeAt(i + 1) <= 0xdfff
-          ) {
-            byteLength += 4;
-            i++;
-          } else byteLength += 3;
-          if (byteLength > modelLimits.inputBytes)
-            throw new AssetError('Model input exceeds byte budget.');
-        }
+        const byteLength = utf8Size(input, modelLimits.inputBytes);
+        if (byteLength > modelLimits.inputBytes)
+          throw new AssetError('Model input exceeds byte budget.');
         json = input;
         context.fetched = byteLength;
       } else {

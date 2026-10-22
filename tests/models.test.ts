@@ -323,6 +323,27 @@ describe('glTF decoding and owned assets', () => {
     ).rejects.toMatchObject({ name: 'AbortError' });
     expect(fetchMock).not.toHaveBeenCalled();
   });
+  it('counts source text in UTF-8 bytes, so the budget holds for multi-byte characters', async () => {
+    const budget = modelLimits.inputBytes;
+    // Each unit encodes to `width` bytes; `count` of them reach the budget exactly or just under.
+    const cases: { unit: string; width: number; count: number }[] = [
+      { unit: '\u00e9', width: 2, count: budget / 2 },
+      { unit: '\u20ac', width: 3, count: Math.floor(budget / 3) },
+      { unit: '\u{1f600}', width: 4, count: budget / 4 },
+      // Unpaired high surrogates encode as three bytes each, even when adjacent.
+      { unit: '\ud800', width: 3, count: Math.floor(budget / 3) },
+    ];
+    for (const { unit, width, count } of cases) {
+      expect(count * width).toBeLessThanOrEqual(budget);
+      expect(count * width + width).toBeGreaterThan(budget);
+      await expect(new GLTFLoader().parse(unit.repeat(count))).rejects.toThrow(
+        /Unable to parse/,
+      );
+      await expect(
+        new GLTFLoader().parse(unit.repeat(count + 1)),
+      ).rejects.toThrow(/input exceeds/);
+    }
+  });
   it('resolves external buffers relative to the model URL and bounds streamed image bytes', async () => {
     installImages();
     const document = triangle(),

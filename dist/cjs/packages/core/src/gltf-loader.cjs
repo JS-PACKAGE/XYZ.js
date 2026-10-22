@@ -155,6 +155,14 @@ function allFinite(e) {
 	for (let t = 0; t < e.length; t++) if (!Number.isFinite(e[t])) return !1;
 	return !0;
 }
+function utf8Size(e, t) {
+	let n = 0;
+	for (let r = 0; r < e.length; r++) {
+		let i = e.charCodeAt(r);
+		if (i < 128 ? n++ : i < 2048 ? n += 2 : i >= 55296 && i <= 56319 && r + 1 < e.length && e.charCodeAt(r + 1) >= 56320 && e.charCodeAt(r + 1) <= 57343 ? (n += 4, r++) : n += 3, n > t) return n;
+	}
+	return n;
+}
 function scalar(t, n, r, i) {
 	let a;
 	switch (r) {
@@ -210,11 +218,8 @@ var GLTFLoader = class {
 			let n, N, P = 0, F = 0;
 			if (typeof t == `string`) {
 				if (t.length > require_models.modelLimits.inputBytes) throw new require_texture.AssetError(`Model input exceeds byte budget.`);
-				let r = 0;
-				for (let n = 0; n < t.length; n++) {
-					let i = t.charCodeAt(n);
-					if (i < 128 ? r++ : i < 2048 ? r += 2 : i >= 55296 && i <= 56319 && n + 1 < t.length && t.charCodeAt(n + 1) >= 56320 && t.charCodeAt(n + 1) <= 57343 ? (r += 4, n++) : r += 3, r > require_models.modelLimits.inputBytes) throw new require_texture.AssetError(`Model input exceeds byte budget.`);
-				}
+				let r = utf8Size(t, require_models.modelLimits.inputBytes);
+				if (r > require_models.modelLimits.inputBytes) throw new require_texture.AssetError(`Model input exceeds byte budget.`);
 				n = t, p.fetched = r;
 			} else {
 				if (t.byteLength > require_models.modelLimits.inputBytes) throw new require_texture.AssetError(`Model input exceeds byte budget.`);
